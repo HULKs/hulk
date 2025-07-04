@@ -71,7 +71,7 @@ impl StandUpSitting {
                 *context.gyro_low_pass_factor,
             ),
 
-            slow_interpolator: MotionFile::from_path(paths.motions.join("stand_up_front.json"))?
+            slow_interpolator: MotionFile::from_path(paths.motions.join("stand_up_sitting.json"))?
                 .try_into()?,
             slow_state: InterpolatorState::INITIAL,
         })
