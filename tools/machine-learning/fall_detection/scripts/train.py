@@ -191,7 +191,7 @@ def evaluate_model(model, x_test, y_test) -> None:
     fig.show()
 
 
-def train_model(model, x_train, y_train):
+def train_model(model, x_train, y_train, max_epochs: int):
     early_stopping = EarlyStopping(
         monitor="val_loss",
         patience=50,
@@ -199,12 +199,11 @@ def train_model(model, x_train, y_train):
         mode="min",
     )
 
-    num_epochs = 300
     history = model.fit(
         x_train,
         y_train,
         batch_size=128,
-        epochs=num_epochs,
+        epochs=max_epochs,
         validation_split=0.2,
         callbacks=[early_stopping],
     )
@@ -274,10 +273,10 @@ def train_linear() -> None:
     y_train = keras.utils.to_categorical(y_train, dataset.n_classes())
     y_test = keras.utils.to_categorical(y_test, dataset.n_classes())
 
-    print(x_train.shape)
-    print(y_train.shape)
+    print(f"Input shape: {x_train.shape}")
+    print(f"Label shape: {y_train.shape}")
 
-    train_model(model, x_train, y_train)
+    train_model(model, x_train, y_train, max_epochs=300)
 
     evaluate_model(model, x_test, y_test)
 
@@ -351,10 +350,10 @@ def train_sequential() -> None:
     y_train = keras.utils.to_categorical(y_train, dataset.n_classes())
     y_test = keras.utils.to_categorical(y_test, dataset.n_classes())
 
-    print(x_train.shape)
-    print(y_train.shape)
+    print(f"Input shape: {x_train.shape}")
+    print(f"Label shape: {y_train.shape}")
 
-    train_model(model, x_train, y_train)
+    train_model(model, x_train, y_train, max_epochs=300)
 
     evaluate_model(model, x_test, y_test)
 
@@ -365,6 +364,7 @@ def train_sequential() -> None:
         tf.lite.OpsSet.TFLITE_BUILTINS,  # enable TensorFlow Lite ops.
         tf.lite.OpsSet.SELECT_TF_OPS,  # enable TensorFlow ops.
     ]
+    converter.allow_custom_ops = True
     model_tflite = converter.convert()
     with open("../../../etc/neural_networks/fall_detection.tflite", "wb") as f:
         f.write(model_tflite)
