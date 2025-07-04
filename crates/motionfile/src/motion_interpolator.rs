@@ -253,7 +253,7 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
         }
     }
 
-    pub fn estimated_remaining_duration(&self, state: InterpolatorState<T>) -> Duration {
+    pub fn estimated_remaining_duration(&self, state: InterpolatorState<T>) -> Option<Duration> {
         match state.current_frame_index() {
             Some(index) => {
                 let mut remaining = self
@@ -276,13 +276,13 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
                     InterpolatorState::Finished => Duration::ZERO,
                     InterpolatorState::Aborted { .. } => Duration::MAX,
                 };
-                remaining
+                Some(remaining)
             }
             None => {
                 if state.is_aborted() {
-                    Duration::MAX
+                    None
                 } else {
-                    Duration::ZERO
+                    Some(Duration::ZERO)
                 }
             }
         }

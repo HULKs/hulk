@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
@@ -96,7 +98,9 @@ impl StandUpFront {
                     (
                         self.interpolator.value(self.state),
                         RemainingStandUpDuration::Running(
-                            self.interpolator.estimated_remaining_duration(self.state),
+                            self.interpolator
+                                .estimated_remaining_duration(self.state)
+                                .unwrap_or(Duration::MAX),
                         ),
                     )
                 }
@@ -112,7 +116,8 @@ impl StandUpFront {
                     let corrected_estimated_remaining_duration = self
                         .slow_interpolator
                         .estimated_remaining_duration(self.slow_state)
-                        .div_f32(*context.speed_factor);
+                        .map(|duration| duration.div_f32(*context.speed_factor))
+                        .unwrap_or(Duration::MAX);
 
                     (
                         self.slow_interpolator.value(self.slow_state),

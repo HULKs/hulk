@@ -61,7 +61,7 @@ impl WideStance {
             self.interpolator
                 .advance_state(&mut self.state, last_cycle_duration, condition_input);
 
-            Some(self.interpolator.estimated_remaining_duration(self.state))
+            self.interpolator.estimated_remaining_duration(self.state)
         } else {
             self.state.reset();
             None
