@@ -26,7 +26,7 @@ from tensorflow import keras
 def plot_training_history(history, model_name) -> None:
     # Create subplots with 1 row and 2 columns
     fig = make_subplots(
-        rows=1,
+        rows=2,
         cols=2,
         subplot_titles=("Model accuracy", "Model loss"),
         horizontal_spacing=0.1,
@@ -108,8 +108,7 @@ def plot_training_history(history, model_name) -> None:
     fig.update_xaxes(title_text="epoch", row=1, col=2)
     fig.update_yaxes(title_text="loss", row=1, col=2)
 
-    # Show the plot
-    fig.show()
+    return fig
 
 
 def split_data(input_data, labels):
@@ -125,7 +124,7 @@ def split_data(input_data, labels):
     return (x_train, y_train, x_test, y_test)
 
 
-def evaluate_model(model, x_test, y_test) -> None:
+def evaluate_model(model, x_test, y_test, fig) -> None:
     (test_loss, accuracy) = model.evaluate(x_test, y_test)
     print(f"Test accuracy: {accuracy}, test loss: {test_loss}")
 
@@ -143,6 +142,20 @@ def evaluate_model(model, x_test, y_test) -> None:
     # Convert to percentage for display
     cm_percent = cm * 100
 
+    fig.add_trace(
+        go.Heatmap(
+            z=cm_percent,
+            x=labels,
+            y=labels,
+            colorscale="Blues",
+            showscale=False,
+            hoverongaps=False,
+            hovertemplate="True: %{y}<br>Predicted: %{x}<br>Value: %{z:.1f}%<extra></extra>",
+        ),
+        row=2,
+        col=1,
+    )
+
     # Create annotations for the heatmap
     annotations = []
     for i in range(len(labels)):
@@ -157,37 +170,23 @@ def evaluate_model(model, x_test, y_test) -> None:
                         "color": "white" if cm_percent[i][j] > 50 else "black",
                         "size": 14,
                     },
+                    "xref": "x3",  # Reference to the third subplot
+                    "yref": "y3",  # Reference to the third subplot
                 }
             )
 
-    # Create heatmap using Plotly
-    fig = go.Figure(
-        data=go.Heatmap(
-            z=cm_percent,
-            x=labels,
-            y=labels,
-            colorscale="Blues",
-            showscale=False,  # Equivalent to cbar=False
-            hoverongaps=False,
-            hovertemplate="True: %{y}<br>Predicted: %{x}<br>Value: %{z:.1f}%<extra></extra>",
-        )
-    )
-
-    # Add annotations
     fig.update_layout(
+        width=900,
+        height=900,
         annotations=annotations,
-        title="Confusion Matrix",
-        xaxis_title="<b>Predicted Class</b>",
-        yaxis_title="<b>True Class</b>",
-        width=400,
-        height=400,
-        xaxis={"side": "bottom"},
-        yaxis={
-            "autorange": "reversed"
-        },  # Reverse y-axis to match seaborn style
     )
 
-    # Show the plot
+    fig.update_xaxes(title_text="<b>Predicted Class</b>", row=2, col=1)
+    fig.update_yaxes(
+        title_text="<b>True Class</b>", row=2, col=1, autorange="reversed"
+    )
+
+    # Show the combined plot
     fig.show()
 
 
@@ -202,12 +201,12 @@ def train_model(model, x_train, y_train, max_epochs: int):
     history = model.fit(
         x_train,
         y_train,
-        batch_size=128,
+        batch_size=256,
         epochs=max_epochs,
         validation_split=0.2,
         callbacks=[early_stopping],
     )
-    plot_training_history(history, 1)
+    return plot_training_history(history, 1)
 
 
 # Build model
@@ -276,9 +275,9 @@ def train_linear() -> None:
     print(f"Input shape: {x_train.shape}")
     print(f"Label shape: {y_train.shape}")
 
-    train_model(model, x_train, y_train, max_epochs=300)
+    fig = train_model(model, x_train, y_train, max_epochs=300)
 
-    evaluate_model(model, x_test, y_test)
+    evaluate_model(model, x_test, y_test, fig)
 
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
     model_tflite = converter.convert()
@@ -353,9 +352,9 @@ def train_sequential() -> None:
     print(f"Input shape: {x_train.shape}")
     print(f"Label shape: {y_train.shape}")
 
-    train_model(model, x_train, y_train, max_epochs=300)
+    fig = train_model(model, x_train, y_train, max_epochs=300)
 
-    evaluate_model(model, x_test, y_test)
+    evaluate_model(model, x_test, y_test, fig)
 
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
     converter._experimental_lower_tensor_list_ops = False
