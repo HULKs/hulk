@@ -109,7 +109,6 @@ class FallenDataset:
             )
         )
         balanced_windows = balanced_windows.sample(fraction=1, shuffle=True)
-        print(balanced_windows)
         self.input_data = balanced_windows.select(self.features)
         self.labels = balanced_windows.select(pl.col("labels"))
 

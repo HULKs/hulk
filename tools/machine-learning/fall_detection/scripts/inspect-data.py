@@ -1,6 +1,6 @@
-import polars as pl
 import plotly.express as px
 import plotly.io as pio
+import polars as pl
 from data_loading import load
 from dataset import FallenDataset
 
