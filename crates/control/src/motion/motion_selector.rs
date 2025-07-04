@@ -1,6 +1,6 @@
 use color_eyre::Result;
 use context_attribute::context;
-use framework::{AdditionalOutput, MainOutput};
+use framework::MainOutput;
 use serde::{Deserialize, Serialize};
 use types::{
     fall_state::{Kind, StandUpSpeed},
@@ -23,7 +23,6 @@ pub struct CycleContext {
     has_ground_contact: Input<bool, "has_ground_contact">,
 
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
-    current_stand_up_count: AdditionalOutput<u32, "current_stand_up_count">,
     stand_up_count: CyclerState<u32, "stand_up_count">,
 }
 
@@ -41,7 +40,7 @@ impl MotionSelector {
         })
     }
 
-    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let motion_safe_to_exit = context.motion_safe_exits[self.last_motion];
         let requested_motion = motion_type_from_command(context.motion_command);
 
@@ -54,10 +53,6 @@ impl MotionSelector {
 
         self.stand_up_count =
             stand_up_counting(self.last_motion, current_motion, self.stand_up_count);
-
-        context
-            .current_stand_up_count
-            .fill_if_subscribed(|| self.stand_up_count);
 
         let dispatching_motion = if current_motion == MotionType::Dispatching {
             if requested_motion == MotionType::Unstiff {
