@@ -11,6 +11,7 @@ from dataset import FallenDataset
 from keras.callbacks import EarlyStopping
 from keras.layers import (
     LSTM,
+    BatchNormalization,
     Conv1D,
     Dense,
     Dropout,
@@ -223,9 +224,19 @@ def build_linear_model(
             Conv1D(
                 filters=32, kernel_size=32, padding="same", activation="relu"
             ),
+            BatchNormalization(),
+            Conv1D(
+                filters=16, kernel_size=16, padding="same", activation="relu"
+            ),
             Flatten(),
+            BatchNormalization(),
             Dense(
                 32,
+                activation="relu",
+            ),
+            BatchNormalization(),
+            Dense(
+                16,
                 activation="relu",
             ),
             Dropout(0.2),
@@ -296,15 +307,14 @@ def build_sequential_model(
         [
             # ADD YOUR LAYERS HERE
             InputLayer(shape=(num_features, input_length)),
-            LSTM(
-                128,
-                return_sequences=True,
-            ),
-            LSTM(64, dropout=0.2),
+            LSTM(64, dropout=0.4),
+            BatchNormalization(),
             Dense(
                 32,
                 activation="relu",
             ),
+            BatchNormalization(),
+            Dropout(0.2),
             Dense(num_classes, activation="softmax"),
         ]
     )
