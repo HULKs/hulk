@@ -26,10 +26,6 @@ pub struct CycleContext {
         CyclerState<RemainingStandUpDuration, "stand_up_front_estimated_remaining_duration">,
     stand_up_sitting_estimated_remaining_duration:
         CyclerState<RemainingStandUpDuration, "stand_up_sitting_estimated_remaining_duration">,
-    stand_up_front_slow_estimated_remaining_duration:
-        CyclerState<RemainingStandUpDuration, "stand_up_front_slow_estimated_remaining_duration">,
-    stand_up_sitting_slow_estimated_remaining_duration:
-        CyclerState<RemainingStandUpDuration, "stand_up_sitting_slow_estimated_remaining_duration">,
 }
 
 #[context]
@@ -92,8 +88,6 @@ impl TimeToReachKickPosition {
             (*context.stand_up_back_estimated_remaining_duration).into(),
             (*context.stand_up_front_estimated_remaining_duration).into(),
             (*context.stand_up_sitting_estimated_remaining_duration).into(),
-            (*context.stand_up_front_slow_estimated_remaining_duration).into(),
-            (*context.stand_up_sitting_slow_estimated_remaining_duration).into(),
             Some(turn_duration),
         ]
         .into_iter()

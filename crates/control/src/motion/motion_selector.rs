@@ -3,7 +3,7 @@ use context_attribute::context;
 use framework::MainOutput;
 use serde::{Deserialize, Serialize};
 use types::{
-    fall_state::{Kind, StandUpSpeed},
+    fall_state::FallenDirection,
     motion_command::{JumpDirection, MotionCommand},
     motion_selection::{MotionSafeExits, MotionSelection, MotionType},
 };
@@ -91,21 +91,10 @@ fn motion_type_from_command(command: &MotionCommand) -> MotionType {
         MotionCommand::Penalized => MotionType::Penalized,
         MotionCommand::SitDown { .. } => MotionType::SitDown,
         MotionCommand::Stand { .. } => MotionType::Stand,
-        MotionCommand::StandUp {
-            kind,
-            speed: StandUpSpeed::Default,
-        } => match kind {
-            Kind::FacingDown => MotionType::StandUpFront,
-            Kind::FacingUp => MotionType::StandUpBack,
-            Kind::Sitting => MotionType::StandUpSitting,
-        },
-        MotionCommand::StandUp {
-            kind,
-            speed: StandUpSpeed::Slow,
-        } => match kind {
-            Kind::FacingDown => MotionType::StandUpFrontSlow,
-            Kind::FacingUp => MotionType::StandUpBack,
-            Kind::Sitting => MotionType::StandUpSittingSlow,
+        MotionCommand::StandUp { kind, speed } => match kind {
+            FallenDirection::FacingDown => MotionType::StandUpFront(*speed),
+            FallenDirection::FacingUp => MotionType::StandUpBack,
+            FallenDirection::Sitting => MotionType::StandUpSitting(*speed),
         },
         MotionCommand::KeeperMotion { direction } => match direction {
             JumpDirection::Left => MotionType::KeeperJumpLeft,
@@ -131,19 +120,23 @@ fn transition_motion(
         (MotionType::SitDown, true, MotionType::Unstiff, _) => MotionType::Unstiff,
         (_, _, MotionType::Unstiff, false) => MotionType::Unstiff,
         (MotionType::Dispatching, true, MotionType::Unstiff, true) => MotionType::SitDown,
-        (MotionType::StandUpFront, _, MotionType::FallProtection, _) => MotionType::StandUpFront,
+        (MotionType::StandUpFront(speed), _, MotionType::FallProtection, _) => {
+            MotionType::StandUpFront(speed)
+        }
         (MotionType::StandUpBack, _, MotionType::FallProtection, _) => MotionType::StandUpBack,
         (MotionType::WideStance, _, MotionType::FallProtection, _) => MotionType::WideStance,
         (MotionType::JumpLeft, _, MotionType::FallProtection, _) => MotionType::JumpLeft,
         (MotionType::JumpRight, _, MotionType::FallProtection, _) => MotionType::JumpRight,
         (MotionType::CenterJump, _, MotionType::FallProtection, _) => MotionType::CenterJump,
-        (MotionType::StandUpSitting, _, MotionType::FallProtection, _) => {
-            MotionType::StandUpSitting
+        (MotionType::StandUpSitting(speed), _, MotionType::FallProtection, _) => {
+            MotionType::StandUpSitting(speed)
         }
         (MotionType::ArmsUpStand, _, MotionType::FallProtection, _) => MotionType::ArmsUpStand,
-        (MotionType::StandUpFront, true, MotionType::StandUpFront, _) => MotionType::Dispatching,
+        (MotionType::StandUpFront(_), true, MotionType::StandUpFront(_), _) => {
+            MotionType::Dispatching
+        }
         (MotionType::StandUpBack, true, MotionType::StandUpBack, _) => MotionType::Dispatching,
-        (MotionType::StandUpSitting, true, MotionType::StandUpSitting, _) => {
+        (MotionType::StandUpSitting(_), true, MotionType::StandUpSitting(_), _) => {
             MotionType::Dispatching
         }
         (_, _, MotionType::FallProtection, _) => MotionType::FallProtection,

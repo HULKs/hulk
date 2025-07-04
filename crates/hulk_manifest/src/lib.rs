@@ -89,8 +89,6 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
                     "control::motion::stand_up_back",
                     "control::motion::stand_up_front",
                     "control::motion::stand_up_sitting",
-                    "control::motion::stand_up_front_slow",
-                    "control::motion::stand_up_sitting_slow",
                     "control::motion::step_planner",
                     "control::motion::walk_manager",
                     "control::motion::walking_engine",
