@@ -1,5 +1,6 @@
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
+use std::time::Duration;
 
 use context_attribute::context;
 use coordinate_systems::Robot;
@@ -77,9 +78,14 @@ impl StandUpSitting {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let estimated_remaining_duration = match &context.motion_selection.current_motion {
+        let (mut positions, estimated_remaining_duration) = match &context
+            .motion_selection
+            .current_motion
+        {
             MotionType::StandUpSitting(speed) => match speed {
                 StandUpSpeed::Default => {
+                    self.slow_state.reset();
+
                     let last_cycle_duration = context.cycle_time.last_cycle_duration;
                     let condition_input = context.condition_input;
 
@@ -89,11 +95,16 @@ impl StandUpSitting {
                         condition_input,
                     );
 
-                    RemainingStandUpDuration::Running(
-                        self.interpolator.estimated_remaining_duration(self.state),
+                    (
+                        self.interpolator.value(self.state),
+                        RemainingStandUpDuration::Running(
+                            self.interpolator.estimated_remaining_duration(self.state),
+                        ),
                     )
                 }
                 StandUpSpeed::Slow => {
+                    self.state.reset();
+
                     let last_cycle_duration = context
                         .cycle_time
                         .last_cycle_duration
@@ -106,16 +117,32 @@ impl StandUpSitting {
                         condition_input,
                     );
 
-                    RemainingStandUpDuration::Running(
+                    let corrected_estimated_remaining_duration = if self
+                        .slow_interpolator
+                        .estimated_remaining_duration(self.slow_state)
+                        == Duration::MAX
+                    {
+                        Duration::MAX
+                    } else {
                         self.slow_interpolator
                             .estimated_remaining_duration(self.slow_state)
-                            .mul_f32(*context.speed_factor),
+                            .mul_f32(*context.speed_factor)
+                    };
+
+                    (
+                        self.slow_interpolator.value(self.slow_state),
+                        RemainingStandUpDuration::Running(corrected_estimated_remaining_duration),
                     )
                 }
             },
             _ => {
                 self.state.reset();
-                RemainingStandUpDuration::NotRunning
+                self.slow_state.reset();
+
+                (
+                    self.interpolator.value(self.state),
+                    RemainingStandUpDuration::NotRunning,
+                )
             }
         };
         context.motion_safe_exits[MotionType::StandUpSitting(StandUpSpeed::Default)] =
@@ -126,7 +153,6 @@ impl StandUpSitting {
         self.filtered_gyro.update(context.angular_velocity.inner);
         let gyro = self.filtered_gyro.state();
 
-        let mut positions = self.interpolator.value(self.state);
         positions.left_leg.ankle_pitch += context.leg_balancing_factor.y * gyro.y;
         positions.left_leg.ankle_roll += context.leg_balancing_factor.x * gyro.x;
         positions.right_leg.ankle_pitch += context.leg_balancing_factor.y * gyro.y;

@@ -521,12 +521,12 @@
   },
   "stand_up_front": {
     "gyro_low_pass_factor": 0.4,
-    "leg_balancing_factor": [0, 0.05]
+    "leg_balancing_factor": [0, 0.05],
     "slow_speed_factor": 1.8
   },
   "stand_up_sitting": {
     "gyro_low_pass_factor": 0.4,
-    "leg_balancing_factor": [0, 0.05]
+    "leg_balancing_factor": [0, 0.05],
     "slow_speed_factor": 2.0
   },
   "keeper_motion": {
