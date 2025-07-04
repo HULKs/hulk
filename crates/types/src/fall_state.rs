@@ -30,7 +30,7 @@ pub enum Side {
     PathDeserialize,
     PathIntrospect,
 )]
-pub enum Direction {
+pub enum FallingDirection {
     Forward { side: Side },
     Backward { side: Side },
 }
@@ -46,7 +46,7 @@ pub enum Direction {
     PathDeserialize,
     PathIntrospect,
 )]
-pub enum Kind {
+pub enum FallenDirection {
     FacingDown,
     FacingUp,
     Sitting,
@@ -86,13 +86,13 @@ pub enum FallState {
     Upright,
     Falling {
         start_time: SystemTime,
-        direction: Direction,
+        direction: FallingDirection,
     },
     Fallen {
-        kind: Kind,
+        kind: FallenDirection,
     },
     StandingUp {
         start_time: SystemTime,
-        kind: Kind,
+        kind: FallenDirection,
     },
 }
