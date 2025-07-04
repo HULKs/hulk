@@ -1,8 +1,9 @@
 import enum
 
 import click
-import matplotlib.pyplot as plt
 import numpy as np
+import plotly.graph_objects as go
+import plotly.io as pio
 import polars as pl
 import tensorflow as tf
 from data_loading import load
@@ -17,38 +18,98 @@ from keras.layers import (
     InputLayer,
 )
 from keras.models import Sequential
+from plotly.subplots import make_subplots
 from sklearn.metrics import confusion_matrix
 from tensorflow import keras
 
 
 def plot_training_history(history, model_name) -> None:
-    fig, (ax1, ax2) = plt.subplots(1, 2)
-    fig.suptitle(f"Model {model_name}")
-    fig.set_figwidth(15)
+    # Create subplots with 1 row and 2 columns
+    fig = make_subplots(
+        rows=1,
+        cols=2,
+        subplot_titles=("Model accuracy", "Model loss"),
+        horizontal_spacing=0.1,
+    )
 
-    ax1.plot(
-        range(1, len(history.history["accuracy"]) + 1),
-        history.history["accuracy"],
+    # Add accuracy traces
+    fig.add_trace(
+        go.Scatter(
+            x=list(range(1, len(history.history["accuracy"]) + 1)),
+            y=history.history["accuracy"],
+            mode="lines+markers",
+            name="training",
+            line={"color": "blue"},
+            legendgroup="accuracy",
+        ),
+        row=1,
+        col=1,
     )
-    ax1.plot(
-        range(1, len(history.history["val_accuracy"]) + 1),
-        history.history["val_accuracy"],
-    )
-    ax1.set_title("Model accuracy")
-    ax1.set(xlabel="epoch", ylabel="accuracy")
-    ax1.legend(["training", "validation"], loc="best")
 
-    ax2.plot(
-        range(1, len(history.history["loss"]) + 1), history.history["loss"]
+    fig.add_trace(
+        go.Scatter(
+            x=list(range(1, len(history.history["val_accuracy"]) + 1)),
+            y=history.history["val_accuracy"],
+            mode="lines+markers",
+            name="validation",
+            line={"color": "orange"},
+            legendgroup="accuracy",
+        ),
+        row=1,
+        col=1,
     )
-    ax2.plot(
-        range(1, len(history.history["val_loss"]) + 1),
-        history.history["val_loss"],
+
+    # Add loss traces
+    fig.add_trace(
+        go.Scatter(
+            x=list(range(1, len(history.history["loss"]) + 1)),
+            y=history.history["loss"],
+            mode="lines+markers",
+            name="training",
+            line={"color": "blue"},
+            legendgroup="loss",
+            showlegend=False,  # Hide duplicate legend entries
+        ),
+        row=1,
+        col=2,
     )
-    ax2.set_title("Model loss")
-    ax2.set(xlabel="epoch", ylabel="loss")
-    ax2.legend(["training", "validation"], loc="best")
-    plt.show()
+
+    fig.add_trace(
+        go.Scatter(
+            x=list(range(1, len(history.history["val_loss"]) + 1)),
+            y=history.history["val_loss"],
+            mode="lines+markers",
+            name="validation",
+            line={"color": "orange"},
+            legendgroup="loss",
+            showlegend=False,  # Hide duplicate legend entries
+        ),
+        row=1,
+        col=2,
+    )
+
+    # Update layout
+    fig.update_layout(
+        title=f"Model {model_name}",
+        width=900,  # Equivalent to figwidth=15 in matplotlib
+        height=400,
+        legend={
+            "orientation": "h",
+            "yanchor": "bottom",
+            "y": 1.02,
+            "xanchor": "right",
+            "x": 1,
+        },
+    )
+
+    # Update x and y axis labels
+    fig.update_xaxes(title_text="epoch", row=1, col=1)
+    fig.update_yaxes(title_text="accuracy", row=1, col=1)
+    fig.update_xaxes(title_text="epoch", row=1, col=2)
+    fig.update_yaxes(title_text="loss", row=1, col=2)
+
+    # Show the plot
+    fig.show()
 
 
 def split_data(input_data, labels):
@@ -66,31 +127,68 @@ def split_data(input_data, labels):
 
 def evaluate_model(model, x_test, y_test) -> None:
     (test_loss, accuracy) = model.evaluate(x_test, y_test)
-    print("Test accuracy: {}, test loss: {}", accuracy, test_loss)
+    print(f"Test accuracy: {accuracy}, test loss: {test_loss}")
+
+    # Generate confusion matrix
     cm = confusion_matrix(
         np.argmax(y_test, axis=1), np.argmax(model.predict(x_test), axis=1)
     )
+
+    # Normalize confusion matrix
     cm = cm.astype("float") / cm.sum(axis=1)[:, np.newaxis]
 
+    # Define labels
     labels = ["Upright", "Falling", "Fallen"]
-    import pandas as pd
 
-    cm = pd.DataFrame(cm, index=labels, columns=labels)
+    # Convert to percentage for display
+    cm_percent = cm * 100
 
-    plt.figure(figsize=(3, 3))
-    import seaborn as sns
+    # Create annotations for the heatmap
+    annotations = []
+    for i in range(len(labels)):
+        for j in range(len(labels)):
+            annotations.append(
+                {
+                    "x": j,
+                    "y": i,
+                    "text": f"{cm_percent[i][j]:.1f}",
+                    "showarrow": False,
+                    "font": {
+                        "color": "white" if cm_percent[i][j] > 50 else "black",
+                        "size": 14,
+                    },
+                }
+            )
 
-    ax = sns.heatmap(
-        cm * 100,
-        annot=True,
-        fmt=".1f",
-        cmap="Blues",
-        cbar=False,
+    # Create heatmap using Plotly
+    fig = go.Figure(
+        data=go.Heatmap(
+            z=cm_percent,
+            x=labels,
+            y=labels,
+            colorscale="Blues",
+            showscale=False,  # Equivalent to cbar=False
+            hoverongaps=False,
+            hovertemplate="True: %{y}<br>Predicted: %{x}<br>Value: %{z:.1f}%<extra></extra>",
+        )
     )
-    ax.set_ylabel("True Class", fontdict={"fontweight": "bold"})
-    ax.set_xlabel("Predicted Class", fontdict={"fontweight": "bold"})
 
-    plt.show()
+    # Add annotations
+    fig.update_layout(
+        annotations=annotations,
+        title="Confusion Matrix",
+        xaxis_title="<b>Predicted Class</b>",
+        yaxis_title="<b>True Class</b>",
+        width=400,
+        height=400,
+        xaxis={"side": "bottom"},
+        yaxis={
+            "autorange": "reversed"
+        },  # Reverse y-axis to match seaborn style
+    )
+
+    # Show the plot
+    fig.show()
 
 
 def train_model(model, x_train, y_train):
@@ -284,6 +382,8 @@ class ModelType(enum.Enum):
     type=click.Choice(ModelType, case_sensitive=False),
 )
 def main(model_type: ModelType) -> None:
+    pio.renderers.default = "browser"
+
     match model_type:
         case ModelType.Linear:
             print("Training linear model")
