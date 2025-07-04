@@ -124,9 +124,16 @@ def read_mcap(mcap_path: Path) -> pl.DataFrame:
 
 
 def convert_mcaps(mcaps: list[str]) -> pl.DataFrame:
-    return pl.concat(
-        (read_mcap(Path(mcap)) for mcap in tqdm(mcaps)), how="diagonal"
-    )
+    mcap_dataframes = []
+    for mcap in tqdm(mcaps):
+        try:
+            dataframe = read_mcap(Path(mcap))
+        except:
+            print(f"Skipping mcap: {mcap}")
+
+        mcap_dataframes.append(dataframe)
+
+    return pl.concat(mcap_dataframes, how="diagonal")
 
 
 def load(path: str):
