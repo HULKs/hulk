@@ -56,6 +56,22 @@ pub enum Kind {
     Clone,
     Copy,
     Debug,
+    Deserialize,
+    PartialEq,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
+pub enum StandUpSpeed {
+    Default,
+    Slow,
+}
+
+#[derive(
+    Clone,
+    Copy,
+    Debug,
     Default,
     Deserialize,
     PartialEq,
