@@ -6,7 +6,7 @@ use framework::MainOutput;
 use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime,
-    fall_state::{FallingDirection, FallState, Side},
+    fall_state::{FallState, FallingDirection, Side},
     joints::{
         arm::ArmJoints, body::BodyJoints, head::HeadJoints, leg::LegJoints, mirror::Mirror, Joints,
     },
@@ -105,8 +105,12 @@ impl FallProtector {
             (FallingDirection::Backward { side: Side::Left }, FallPhase::Late) => {
                 context.back_late.mirrored()
             }
-            (FallingDirection::Backward { side: Side::Right }, FallPhase::Early) => *context.back_early,
-            (FallingDirection::Backward { side: Side::Right }, FallPhase::Late) => *context.back_late,
+            (FallingDirection::Backward { side: Side::Right }, FallPhase::Early) => {
+                *context.back_early
+            }
+            (FallingDirection::Backward { side: Side::Right }, FallPhase::Late) => {
+                *context.back_late
+            }
         };
 
         let is_head_protected = (measured_positions.head.pitch - protection_angles.head.pitch)
