@@ -11,11 +11,11 @@ pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
     ) {
         (FallState::Fallen { kind }, 0) => Some(MotionCommand::StandUp {
             kind,
-            speed: StandUpSpeed::Fast,
+            speed: StandUpSpeed::Default,
         }),
         (FallState::StandingUp { kind, .. }, 0) => Some(MotionCommand::StandUp {
             kind,
-            speed: StandUpSpeed::Fast,
+            speed: StandUpSpeed::Default,
         }),
 
         (
@@ -25,7 +25,7 @@ pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
             1,
         ) => Some(MotionCommand::StandUp {
             kind: Kind::Sitting,
-            speed: StandUpSpeed::Fast,
+            speed: StandUpSpeed::Default,
         }),
         (
             FallState::StandingUp {
@@ -35,7 +35,7 @@ pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
             1,
         ) => Some(MotionCommand::StandUp {
             kind: Kind::Sitting,
-            speed: StandUpSpeed::Fast,
+            speed: StandUpSpeed::Default,
         }),
 
         (
@@ -65,7 +65,7 @@ pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
             1..,
         ) => Some(MotionCommand::StandUp {
             kind: Kind::FacingUp,
-            speed: StandUpSpeed::Fast,
+            speed: StandUpSpeed::Default,
         }),
         (
             FallState::StandingUp {
@@ -75,7 +75,7 @@ pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
             1..,
         ) => Some(MotionCommand::StandUp {
             kind: Kind::FacingUp,
-            speed: StandUpSpeed::Fast,
+            speed: StandUpSpeed::Default,
         }),
 
         (

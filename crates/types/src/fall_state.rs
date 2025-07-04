@@ -64,7 +64,7 @@ pub enum Kind {
     PathIntrospect,
 )]
 pub enum StandUpSpeed {
-    Fast,
+    Default,
     Slow,
 }
 

@@ -98,7 +98,7 @@ fn motion_type_from_command(command: &MotionCommand) -> MotionType {
         MotionCommand::Stand { .. } => MotionType::Stand,
         MotionCommand::StandUp {
             kind,
-            speed: StandUpSpeed::Fast,
+            speed: StandUpSpeed::Default,
         } => match kind {
             Kind::FacingDown => MotionType::StandUpFront,
             Kind::FacingUp => MotionType::StandUpBack,
