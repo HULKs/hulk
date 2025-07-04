@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
@@ -76,7 +78,9 @@ impl StandUpBack {
                 .advance_state(&mut self.state, last_cycle_duration, condition_input);
 
             RemainingStandUpDuration::Running(
-                self.interpolator.estimated_remaining_duration(self.state),
+                self.interpolator
+                    .estimated_remaining_duration(self.state)
+                    .unwrap_or(Duration::MAX),
             )
         } else {
             self.state.reset();
