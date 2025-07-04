@@ -1,6 +1,5 @@
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
-use std::time::Duration;
 
 use context_attribute::context;
 use coordinate_systems::Robot;
@@ -77,6 +76,9 @@ impl StandUpFront {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+        let last_cycle_duration = context.cycle_time.last_cycle_duration;
+        let condition_input = context.condition_input;
+
         let (mut positions, estimated_remaining_duration) = match &context
             .motion_selection
             .current_motion
@@ -84,9 +86,6 @@ impl StandUpFront {
             MotionType::StandUpFront(speed) => match speed {
                 StandUpSpeed::Default => {
                     self.slow_state.reset();
-
-                    let last_cycle_duration = context.cycle_time.last_cycle_duration;
-                    let condition_input = context.condition_input;
 
                     self.interpolator.advance_state(
                         &mut self.state,
@@ -104,29 +103,16 @@ impl StandUpFront {
                 StandUpSpeed::Slow => {
                     self.state.reset();
 
-                    let last_cycle_duration = context
-                        .cycle_time
-                        .last_cycle_duration
-                        .div_f32(*context.speed_factor);
-                    let condition_input = context.condition_input;
-
                     self.slow_interpolator.advance_state(
                         &mut self.slow_state,
-                        last_cycle_duration,
+                        last_cycle_duration.mul_f32(*context.speed_factor),
                         condition_input,
                     );
 
-                    let corrected_estimated_remaining_duration = if self
+                    let corrected_estimated_remaining_duration = self
                         .slow_interpolator
                         .estimated_remaining_duration(self.slow_state)
-                        == Duration::MAX
-                    {
-                        Duration::MAX
-                    } else {
-                        self.slow_interpolator
-                            .estimated_remaining_duration(self.slow_state)
-                            .mul_f32(*context.speed_factor)
-                    };
+                        .div_f32(*context.speed_factor);
 
                     (
                         self.slow_interpolator.value(self.slow_state),
