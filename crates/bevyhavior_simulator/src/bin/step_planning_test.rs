@@ -53,33 +53,27 @@ fn update(time: Res<Time<Ticks>>, mut exit: EventWriter<AppExit>, mut robots: Qu
     let (sin, cos) = angle.sin_cos();
     let k = (angle / TAU) as usize;
 
+    let orbiting_point = point![cos, sin] * 0.4;
+
     let (path, orientation_mode, target_orientation) = match k {
-        0 => {
-            let target_point = point![cos, sin] * 0.5;
-
-            (
-                Path {
-                    segments: vec![PathSegment::LineSegment(
-                        geometry::line_segment::LineSegment(Point2::origin(), target_point),
-                    )],
-                },
-                OrientationMode::Unspecified,
-                Orientation2::identity(),
-            )
-        }
-        1 => {
-            let target_point = point![cos, sin] * 0.5;
-
-            (
-                Path {
-                    segments: vec![PathSegment::LineSegment(
-                        geometry::line_segment::LineSegment(Point2::origin(), target_point),
-                    )],
-                },
-                OrientationMode::Unspecified,
-                Orientation2::from_cos_sin_unchecked(cos, sin),
-            )
-        }
+        0 => (
+            Path {
+                segments: vec![PathSegment::LineSegment(
+                    geometry::line_segment::LineSegment(Point2::origin(), orbiting_point),
+                )],
+            },
+            OrientationMode::Unspecified,
+            Orientation2::identity(),
+        ),
+        1 => (
+            Path {
+                segments: vec![PathSegment::LineSegment(
+                    geometry::line_segment::LineSegment(Point2::origin(), orbiting_point),
+                )],
+            },
+            OrientationMode::Unspecified,
+            Orientation2::from_cos_sin_unchecked(cos, sin),
+        ),
         2 => (
             Path {
                 segments: vec![PathSegment::LineSegment(
