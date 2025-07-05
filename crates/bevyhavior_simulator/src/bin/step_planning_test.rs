@@ -51,11 +51,12 @@ fn update(time: Res<Time<Ticks>>, mut exit: EventWriter<AppExit>, mut robots: Qu
 
     let angle = 0.01 * time.ticks() as f32;
     let (sin, cos) = angle.sin_cos();
-    let k = (angle / TAU) as usize;
+    let turn_count = (angle / TAU) as usize;
 
     let orbiting_point = point![cos, sin] * 0.4;
+    let orientation = Orientation2::from_cos_sin_unchecked(cos, sin);
 
-    let (path, orientation_mode, target_orientation) = match k {
+    let (path, orientation_mode, target_orientation) = match turn_count {
         0 => (
             Path {
                 segments: vec![PathSegment::LineSegment(
@@ -72,16 +73,16 @@ fn update(time: Res<Time<Ticks>>, mut exit: EventWriter<AppExit>, mut robots: Qu
                 )],
             },
             OrientationMode::Unspecified,
-            Orientation2::from_cos_sin_unchecked(cos, sin),
+            orientation,
         ),
         2 => (
             Path {
                 segments: vec![PathSegment::LineSegment(
-                    geometry::line_segment::LineSegment(Point2::origin(), point![1.0, 0.0]),
+                    geometry::line_segment::LineSegment(Point2::origin(), point![0.4, 0.0]),
                 )],
             },
-            OrientationMode::LookTowards(Orientation2::new(angle)),
-            Orientation2::new(angle),
+            OrientationMode::LookTowards(orientation),
+            orientation,
         ),
         _ => {
             exit.send(AppExit::Success);
