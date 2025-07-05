@@ -1,13 +1,13 @@
 use std::time::{Duration, SystemTime};
 
 use color_eyre::{eyre::eyre, Result};
-use geometry::{direction::Rotate90Degrees, look_at::LookAt};
 use ordered_float::NotNan;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
 use coordinate_systems::{Ground, UpcomingSupport};
 use framework::{AdditionalOutput, MainOutput};
+use geometry::{direction::Rotate90Degrees, look_at::LookAt};
 use linear_algebra::{vector, Isometry2, Orientation2, Point2, Pose2};
 use step_planning::{
     geometry::{angle::Angle, normalized_step::NormalizedStep, pose::Pose},
@@ -21,7 +21,7 @@ use types::{
     step::Step,
     support_foot::Side,
 };
-use walking_engine::mode::Mode;
+use walking_engine::{anatomic_constraints::AnatomicConstraints, mode::Mode};
 
 const VARIABLES_PER_STEP: usize = 3;
 
@@ -379,6 +379,7 @@ fn step_plan_greedy(
         };
 
         let step = clamp_step_size(last_planned_step, context, support_side, speed, step);
+        let step = step.clamp_to_anatomic_constraints(support_side, 0.1, 4.0);
 
         let step_translation =
             Isometry2::<Ground, Ground>::from_parts(vector![step.forward, step.left], 0.0);
