@@ -72,7 +72,7 @@ impl MotionType {
         self == MotionType::Stand
             || self == MotionType::Walk
             || self == MotionType::Initial
-            || self == MotionType::Unstiff
+            || self == MotionType::Penalized
     }
 }
 
