@@ -1,10 +1,11 @@
 use std::sync::Arc;
 
 use color_eyre::Result;
-use eframe::epaint::Color32;
+use eframe::{egui::Stroke, epaint::Color32};
 
 use coordinate_systems::Ground;
 
+use step_planning::traits::EndPoints;
 use types::{field_dimensions::FieldDimensions, motion_command::MotionCommand};
 
 use crate::{
@@ -28,7 +29,19 @@ impl Layer<Ground> for Path {
         painter: &TwixPainter<Ground>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        if let Some(MotionCommand::Walk { path, .. }) = self.motion_command.get_last_value()? {
+        if let Some(MotionCommand::Walk {
+            path,
+            target_orientation,
+            ..
+        }) = self.motion_command.get_last_value()?
+        {
+            let path_end_point = path.segments.last().unwrap().end_point();
+            let target_direction = target_orientation.as_unit_vector();
+            painter.line_segment(
+                path_end_point,
+                path_end_point + target_direction * 0.1,
+                Stroke::new(0.01, Color32::PURPLE),
+            );
             painter.path(path, Color32::BLUE, Color32::LIGHT_BLUE, 0.025);
         }
         Ok(())
