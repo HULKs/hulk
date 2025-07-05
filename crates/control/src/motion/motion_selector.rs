@@ -1,8 +1,10 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
+use hardware::SpeakerInterface;
 use serde::{Deserialize, Serialize};
 use types::{
+    audio::{Sound, SpeakerRequest},
     fall_state::{Kind, StandUpSpeed},
     motion_command::{JumpDirection, MotionCommand},
     motion_selection::{MotionSafeExits, MotionSelection, MotionType},
@@ -24,6 +26,10 @@ pub struct CycleContext {
 
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
     stand_up_count: CyclerState<u32, "stand_up_count">,
+
+    maximum_standup_attempts: Parameter<u32, "behavior.maximum_standup_attempts">,
+
+    hardware_interface: HardwareInterface,
 }
 
 #[context]
@@ -40,7 +46,7 @@ impl MotionSelector {
         })
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, context: CycleContext<impl SpeakerInterface>) -> Result<MainOutputs> {
         let motion_safe_to_exit = context.motion_safe_exits[self.last_motion];
         let requested_motion = motion_type_from_command(context.motion_command);
 
@@ -51,8 +57,18 @@ impl MotionSelector {
             *context.has_ground_contact,
         );
 
-        self.stand_up_count =
+        let stand_up_count =
             stand_up_counting(self.last_motion, current_motion, self.stand_up_count);
+
+        if self.stand_up_count < *context.maximum_standup_attempts
+            && stand_up_count >= *context.maximum_standup_attempts
+        {
+            context
+                .hardware_interface
+                .write_to_speakers(SpeakerRequest::PlaySound { sound: Sound::Ouch });
+        }
+
+        self.stand_up_count = stand_up_count;
 
         let dispatching_motion = if current_motion == MotionType::Dispatching {
             if requested_motion == MotionType::Unstiff {
