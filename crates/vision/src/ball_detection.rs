@@ -295,7 +295,10 @@ fn merge_balls(balls: &[&CandidateEvaluation]) -> Circle<Pixel> {
     circle
 }
 
-fn cluster_balls(balls: &[CandidateEvaluation], merge_radius_factor: f32) -> Vec<BallCluster> {
+fn cluster_balls(
+    balls: &'_ [CandidateEvaluation],
+    merge_radius_factor: f32,
+) -> Vec<BallCluster<'_>> {
     let mut clusters = Vec::<BallCluster>::new();
 
     for ball in balls {

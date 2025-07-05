@@ -21,7 +21,7 @@ unsafe impl<T> Send for Sender<T> where T: Send + Sync {}
 
 impl<T> Sender<T> {
     /// Borrows the latest value
-    pub fn borrow(&mut self) -> ReceiverGuard<T> {
+    pub fn borrow(&'_ mut self) -> ReceiverGuard<'_, T> {
         let shared = self.shared.read();
         let index = {
             let states = &mut *shared.states.lock();
@@ -38,7 +38,7 @@ impl<T> Sender<T> {
     }
 
     /// Borrows a buffer to write to
-    pub fn borrow_mut(&mut self) -> SenderGuard<T> {
+    pub fn borrow_mut(&'_ mut self) -> SenderGuard<'_, T> {
         let shared = self.shared.read();
         let index = {
             let states = &mut *shared.states.lock();
