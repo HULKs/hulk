@@ -44,6 +44,10 @@ impl Orientation {
 }
 
 impl<World> TwixPainter<World> {
+    pub fn add(&mut self, shape: Shape) {
+        self.painter.add(shape);
+    }
+
     pub fn allocate(
         ui: &mut Ui,
         dimension: Vector2<World>,

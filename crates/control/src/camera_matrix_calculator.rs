@@ -37,7 +37,6 @@ pub struct CycleContext {
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     top_camera_matrix_parameters:
         Parameter<CameraMatrixParameters, "camera_matrix_parameters.vision_top">,
-
     correction_in_robot: Parameter<
         nalgebra::Vector3<f32>,
         "camera_matrix_parameters.calibration.correction_in_robot",
