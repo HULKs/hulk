@@ -26,7 +26,7 @@ impl Layer<Ground> for PathObstacles {
     }
 
     fn paint(
-        &self,
+        &mut self,
         painter: &TwixPainter<Ground>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {

@@ -19,7 +19,7 @@ use buffered_watch::{Receiver, Sender};
 use control::localization::generate_initial_pose;
 use coordinate_systems::{Field, Ground, Head};
 use framework::{future_queue, Producer, RecordingTrigger};
-use geometry::{direction::Rotate90Degrees, line_segment::LineSegment};
+use geometry::{direction::Rotate90Degrees, line_segment::LineSegment, look_at::LookAt};
 use hula_types::hardware::Ids;
 use linear_algebra::{vector, Isometry2, Orientation2, Point2, Rotation2, Vector2};
 use parameters::directory::deserialize;
@@ -255,6 +255,8 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
                 head,
                 path,
                 orientation_mode,
+                target_orientation,
+                distance_to_be_aligned,
                 ..
             } => {
                 let steps_per_second = 1.0 / 0.35;
@@ -267,15 +269,21 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
                         .rotate_90_degrees(arc.direction),
                 };
 
-                let orientation = match orientation_mode {
-                    OrientationMode::AlignWithPath => {
+                let walk_orientation = match orientation_mode {
+                    OrientationMode::Unspecified => {
                         if target.norm_squared() < f32::EPSILON {
                             Orientation2::identity()
                         } else {
                             Orientation2::from_vector(target)
                         }
                     }
-                    OrientationMode::Override(orientation) => orientation,
+                    OrientationMode::LookTowards(orientation) => orientation,
+                    OrientationMode::LookAt(point) => Point2::origin().look_at(&point),
+                };
+                let orientation = if target.norm() <= distance_to_be_aligned {
+                    target_orientation
+                } else {
+                    walk_orientation
                 };
                 let step = target.cap_magnitude(max_step.forward * steps_this_cycle);
 

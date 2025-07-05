@@ -13,8 +13,11 @@ use crate::{nao::Nao, twix_painter::TwixPainter};
 pub trait Layer<Frame> {
     const NAME: &'static str;
     fn new(nao: Arc<Nao>) -> Self;
-    fn paint(&self, painter: &TwixPainter<Frame>, field_dimensions: &FieldDimensions)
-        -> Result<()>;
+    fn paint(
+        &mut self,
+        painter: &TwixPainter<Frame>,
+        field_dimensions: &FieldDimensions,
+    ) -> Result<()>;
 }
 
 pub struct EnabledLayer<T, Frame>
@@ -59,7 +62,7 @@ where
         painter: &TwixPainter<Frame>,
         field_dimensions: &FieldDimensions,
     ) {
-        if let Some(layer) = &self.layer {
+        if let Some(layer) = &mut self.layer {
             if let Err(error) = layer.paint(painter, field_dimensions) {
                 error!(
                     "map panel: failed to paint map overlay {}: {:#}",
