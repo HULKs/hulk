@@ -481,4 +481,5 @@ pub struct StepPlanningOptimizationParameters {
     pub cost_factors: StepPlanningCostFactors,
     pub path_progress_smoothness: f32,
     pub alignment_ramp_steepness: f32,
+    pub warm_start: bool,
 }
