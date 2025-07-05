@@ -345,7 +345,8 @@
         "walk_orientation": 1.0
       },
       "path_progress_smoothness": 0.05,
-      "alignment_ramp_steepness": 50
+      "alignment_ramp_steepness": 50,
+      "warm_start": true
     }
   },
   "zero_moment_point": {

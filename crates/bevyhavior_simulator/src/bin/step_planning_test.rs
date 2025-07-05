@@ -36,12 +36,17 @@ fn update(time: Res<Time<Ticks>>, mut exit: EventWriter<AppExit>, mut robots: Qu
         .parameters
         .step_planner
         .optimization_parameters
-        .optimizer_steps = 50;
+        .optimizer_steps = 100;
     robot
         .parameters
         .step_planner
         .optimization_parameters
         .num_steps = 10;
+    robot
+        .parameters
+        .step_planner
+        .optimization_parameters
+        .warm_start = false;
     robot.database.main_outputs.ground_to_field = Some(Isometry2::identity());
 
     let angle = 0.01 * time.ticks() as f32;

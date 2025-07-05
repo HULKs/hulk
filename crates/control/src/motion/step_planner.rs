@@ -214,7 +214,11 @@ impl StepPlanner {
             return Ok(direct_step_to_target);
         }
 
-        let variables = self.last_step_plan.get_or_insert(vec![0.0; num_variables]);
+        let variables = if context.optimization_parameters.warm_start {
+            self.last_step_plan.get_or_insert(vec![0.0; num_variables])
+        } else {
+            &mut vec![0.0; num_variables]
+        };
 
         let (gradient, cost) = step_planning_solver::plan_steps(
             path,

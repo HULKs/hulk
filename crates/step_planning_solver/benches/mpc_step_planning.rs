@@ -33,6 +33,7 @@ fn plan_steps(path: &Path) {
             },
             path_progress_smoothness: 0.05,
             alignment_ramp_steepness: 50.0,
+            warm_start: true,
         };
 
     let distance_to_be_aligned = 0.1;
