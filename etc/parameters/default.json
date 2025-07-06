@@ -1019,7 +1019,7 @@
       }
     }
   },
-  "stand_up_stiffness_upper_body": 0.5,
+  "default_motion_stiffness_upper_body": 0.5,
   "initial_pose": {
     "head": {
       "pitch": 0.4,
