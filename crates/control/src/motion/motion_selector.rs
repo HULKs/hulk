@@ -5,7 +5,7 @@ use hardware::SpeakerInterface;
 use serde::{Deserialize, Serialize};
 use types::{
     audio::{Sound, SpeakerRequest},
-    fall_state::FallenDirection,
+    fall_state::FallenKind,
     motion_command::{JumpDirection, MotionCommand},
     motion_selection::{MotionSafeExits, MotionSelection, MotionType},
 };
@@ -119,9 +119,9 @@ fn motion_type_from_command(command: &MotionCommand) -> MotionType {
         MotionCommand::SitDown { .. } => MotionType::SitDown,
         MotionCommand::Stand { .. } => MotionType::Stand,
         MotionCommand::StandUp { kind, speed } => match kind {
-            FallenDirection::FacingDown => MotionType::StandUpFront(*speed),
-            FallenDirection::FacingUp => MotionType::StandUpBack,
-            FallenDirection::Sitting => MotionType::StandUpSitting(*speed),
+            FallenKind::FacingDown => MotionType::StandUpFront(*speed),
+            FallenKind::FacingUp => MotionType::StandUpBack,
+            FallenKind::Sitting => MotionType::StandUpSitting(*speed),
         },
         MotionCommand::KeeperMotion { direction } => match direction {
             JumpDirection::Left => MotionType::KeeperJumpLeft,

@@ -10,7 +10,7 @@ use filtering::low_pass_filter::LowPassFilter;
 use framework::{AdditionalOutput, MainOutput};
 use types::{
     cycle_time::CycleTime,
-    fall_state::{FallState, FallenDirection, FallingDirection, Side},
+    fall_state::{FallState, FallenKind, FallingDirection, Side},
     joints::Joints,
     sensor_data::SensorData,
 };
@@ -45,7 +45,7 @@ pub struct CycleContext {
     upright_gravitational_difference: AdditionalOutput<f32, "upright_gravitational_difference">,
     difference_to_sitting: AdditionalOutput<f32, "difference_to_sitting">,
     falling_direction: AdditionalOutput<Option<FallingDirection>, "falling_direction">,
-    fallen_direction: AdditionalOutput<Option<FallenDirection>, "fallen_direction">,
+    fallen_direction: AdditionalOutput<Option<FallenKind>, "fallen_direction">,
 
     difference_to_sitting_threshold:
         Parameter<f32, "fall_state_estimation.difference_to_sitting_threshold">,
@@ -133,16 +133,16 @@ impl FallStateEstimation {
         let fallen_direction = if fallen_down_gravitational_difference
             < *context.gravitational_acceleration_threshold
         {
-            Some(FallenDirection::FacingDown)
+            Some(FallenKind::FacingDown)
         } else if fallen_sitting_gravitational_difference
             < *context.gravitational_acceleration_threshold
             && difference_to_sitting < *context.difference_to_sitting_threshold
             && !context.has_ground_contact
         {
-            Some(FallenDirection::Sitting)
+            Some(FallenKind::Sitting)
         } else if fallen_up_gravitational_difference < *context.gravitational_acceleration_threshold
         {
-            Some(FallenDirection::FacingUp)
+            Some(FallenKind::FacingUp)
         } else {
             None
         };
@@ -284,12 +284,12 @@ fn decide_standing_up_direction(
     if fallen_up_gravitational_difference < fallen_down_gravitational_difference {
         FallState::StandingUp {
             start_time: context.cycle_time.start_time,
-            kind: FallenDirection::FacingUp,
+            kind: FallenKind::FacingUp,
         }
     } else {
         FallState::StandingUp {
             start_time: context.cycle_time.start_time,
-            kind: FallenDirection::FacingDown,
+            kind: FallenKind::FacingDown,
         }
     }
 }

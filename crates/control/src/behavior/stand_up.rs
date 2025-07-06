@@ -1,5 +1,5 @@
 use types::{
-    fall_state::{FallState, FallenDirection, StandUpSpeed},
+    fall_state::{FallState, FallenKind, StandUpSpeed},
     motion_command::MotionCommand,
     world_state::WorldState,
 };
@@ -15,10 +15,10 @@ pub fn execute(world_state: &WorldState, maximum_standup_attempts: u32) -> Optio
     };
     let speed = match (kind, world_state.robot.stand_up_count) {
         (_, 0) => StandUpSpeed::Default,
-        (FallenDirection::Sitting, 1) => StandUpSpeed::Default,
-        (FallenDirection::Sitting, _) => StandUpSpeed::Slow,
-        (FallenDirection::FacingDown, _) => StandUpSpeed::Slow,
-        (FallenDirection::FacingUp, _) => StandUpSpeed::Default,
+        (FallenKind::Sitting, 1) => StandUpSpeed::Default,
+        (FallenKind::Sitting, _) => StandUpSpeed::Slow,
+        (FallenKind::FacingDown, _) => StandUpSpeed::Slow,
+        (FallenKind::FacingUp, _) => StandUpSpeed::Default,
     };
     Some(MotionCommand::StandUp { kind, speed })
 }

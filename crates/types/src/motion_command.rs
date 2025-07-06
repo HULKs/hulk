@@ -6,7 +6,7 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{
     camera_position::CameraPosition,
-    fall_state::{FallenDirection, FallingDirection, StandUpSpeed},
+    fall_state::{FallenKind, FallingDirection, StandUpSpeed},
     planned_path::PathSegment,
     support_foot::Side,
 };
@@ -79,7 +79,7 @@ pub enum MotionCommand {
         head: HeadMotion,
     },
     StandUp {
-        kind: FallenDirection,
+        kind: FallenKind,
         speed: StandUpSpeed,
     },
     KeeperMotion {
