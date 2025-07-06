@@ -14,6 +14,7 @@ use types::{
 pub struct MotionSelector {
     last_motion: MotionType,
     stand_up_count: u32,
+    was_standing_up: bool,
 }
 
 #[context]
@@ -43,6 +44,7 @@ impl MotionSelector {
         Ok(Self {
             last_motion: MotionType::Unstiff,
             stand_up_count: 0,
+            was_standing_up: false,
         })
     }
 
@@ -57,8 +59,15 @@ impl MotionSelector {
             *context.has_ground_contact,
         );
 
-        let stand_up_count =
-            stand_up_counting(self.last_motion, current_motion, self.stand_up_count);
+        let is_standing_up =
+            current_motion.is_dispatching() && requested_motion.is_standup_motion();
+
+        let stand_up_count = stand_up_counting(
+            current_motion,
+            is_standing_up,
+            self.was_standing_up,
+            self.stand_up_count,
+        );
 
         if self.stand_up_count <= *context.maximum_standup_attempts
             && stand_up_count > *context.maximum_standup_attempts
@@ -83,6 +92,8 @@ impl MotionSelector {
         *context.stand_up_count = self.stand_up_count;
 
         self.last_motion = current_motion;
+        self.was_standing_up = is_standing_up;
+
         Ok(MainOutputs {
             motion_selection: MotionSelection {
                 current_motion,
@@ -194,11 +205,12 @@ fn transition_motion(
 }
 
 fn stand_up_counting(
-    last_motion: MotionType,
     current_motion: MotionType,
+    is_standing_up: bool,
+    was_standing_up: bool,
     stand_up_count: u32,
 ) -> u32 {
-    if !last_motion.is_standup_motion() && current_motion.is_standup_motion() {
+    if !was_standing_up && is_standing_up {
         return stand_up_count + 1;
     }
 
