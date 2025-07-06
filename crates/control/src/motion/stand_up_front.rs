@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
@@ -76,60 +74,64 @@ impl StandUpFront {
         let last_cycle_duration = context.cycle_time.last_cycle_duration;
         let condition_input = context.condition_input;
 
-        let (mut positions, estimated_remaining_duration) = match context
-            .motion_selection
-            .current_motion
-        {
-            MotionType::StandUpFront(speed) => match speed {
-                StandUpSpeed::Default => {
-                    self.slow_state.reset();
+        let (mut positions, estimated_remaining_duration) =
+            match context.motion_selection.current_motion {
+                MotionType::StandUpFront(speed) => match speed {
+                    StandUpSpeed::Default => {
+                        self.slow_state.reset();
 
-                    self.interpolator.advance_state(
-                        &mut self.state,
-                        last_cycle_duration,
-                        condition_input,
-                    );
+                        self.interpolator.advance_state(
+                            &mut self.state,
+                            last_cycle_duration,
+                            condition_input,
+                        );
+
+                        let estimated_remaining_duration = self
+                            .interpolator
+                            .estimated_remaining_duration(self.slow_state)
+                            .map(|duration| RemainingStandUpDuration::Running(duration))
+                            .unwrap_or(RemainingStandUpDuration::NotRunning);
+
+                        (
+                            self.interpolator.value(self.state),
+                            estimated_remaining_duration,
+                        )
+                    }
+                    StandUpSpeed::Slow => {
+                        self.state.reset();
+
+                        self.interpolator.advance_state(
+                            &mut self.slow_state,
+                            last_cycle_duration.mul_f32(*context.speed_factor),
+                            condition_input,
+                        );
+
+                        let estimated_remaining_duration = self
+                            .interpolator
+                            .estimated_remaining_duration(self.slow_state)
+                            .map(|duration| {
+                                RemainingStandUpDuration::Running(
+                                    duration.div_f32(*context.speed_factor),
+                                )
+                            })
+                            .unwrap_or(RemainingStandUpDuration::NotRunning);
+
+                        (
+                            self.interpolator.value(self.slow_state),
+                            estimated_remaining_duration,
+                        )
+                    }
+                },
+                _ => {
+                    self.state.reset();
+                    self.slow_state.reset();
 
                     (
                         self.interpolator.value(self.state),
-                        RemainingStandUpDuration::Running(
-                            self.interpolator
-                                .estimated_remaining_duration(self.state)
-                                .unwrap_or(Duration::MAX),
-                        ),
+                        RemainingStandUpDuration::NotRunning,
                     )
                 }
-                StandUpSpeed::Slow => {
-                    self.state.reset();
-
-                    self.interpolator.advance_state(
-                        &mut self.slow_state,
-                        last_cycle_duration.mul_f32(*context.speed_factor),
-                        condition_input,
-                    );
-
-                    let corrected_estimated_remaining_duration = self
-                        .interpolator
-                        .estimated_remaining_duration(self.slow_state)
-                        .map(|duration| duration.div_f32(*context.speed_factor))
-                        .unwrap_or(Duration::MAX);
-
-                    (
-                        self.interpolator.value(self.slow_state),
-                        RemainingStandUpDuration::Running(corrected_estimated_remaining_duration),
-                    )
-                }
-            },
-            _ => {
-                self.state.reset();
-                self.slow_state.reset();
-
-                (
-                    self.interpolator.value(self.state),
-                    RemainingStandUpDuration::NotRunning,
-                )
-            }
-        };
+            };
         context.motion_safe_exits[MotionType::StandUpFront(StandUpSpeed::Default)] =
             self.state.is_finished() && self.slow_state.is_finished();
 
