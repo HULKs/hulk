@@ -60,8 +60,8 @@ impl MotionSelector {
         let stand_up_count =
             stand_up_counting(self.last_motion, current_motion, self.stand_up_count);
 
-        if self.stand_up_count < *context.maximum_standup_attempts
-            && stand_up_count >= *context.maximum_standup_attempts
+        if self.stand_up_count <= *context.maximum_standup_attempts
+            && stand_up_count > *context.maximum_standup_attempts
         {
             context
                 .hardware_interface

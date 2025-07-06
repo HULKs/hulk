@@ -5,7 +5,7 @@ use types::{
 };
 
 pub fn execute(world_state: &WorldState, maximum_standup_attempts: u32) -> Option<MotionCommand> {
-    if world_state.robot.stand_up_count >= maximum_standup_attempts {
+    if world_state.robot.stand_up_count > maximum_standup_attempts {
         return Some(MotionCommand::Unstiff);
     }
     let kind = match world_state.robot.fall_state {
