@@ -77,7 +77,7 @@ impl StandUpSitting {
         let last_cycle_duration = context.cycle_time.last_cycle_duration;
         let condition_input = context.condition_input;
 
-        let (mut positions, estimated_remaining_duration) = match &context
+        let (mut positions, estimated_remaining_duration) = match context
             .motion_selection
             .current_motion
         {
