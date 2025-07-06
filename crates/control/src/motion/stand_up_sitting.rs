@@ -132,9 +132,7 @@ impl StandUpSitting {
             }
         };
         context.motion_safe_exits[MotionType::StandUpSitting(StandUpSpeed::Default)] =
-            self.state.is_finished();
-        context.motion_safe_exits[MotionType::StandUpSitting(StandUpSpeed::Slow)] =
-            self.slow_state.is_finished();
+            self.state.is_finished() && self.slow_state.is_finished();
 
         self.filtered_gyro.update(context.angular_velocity.inner);
         let gyro = self.filtered_gyro.state();
