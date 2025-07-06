@@ -25,10 +25,8 @@ pub struct StandUpFront {
     #[serde(skip, default = "deserialize_not_implemented")]
     interpolator: MotionInterpolator<Joints<f32>>,
     state: InterpolatorState<Joints<f32>>,
-    filtered_gyro: LowPassFilter<nalgebra::Vector3<f32>>,
-
-    slow_interpolator: MotionInterpolator<Joints<f32>>,
     slow_state: InterpolatorState<Joints<f32>>,
+    filtered_gyro: LowPassFilter<nalgebra::Vector3<f32>>,
 }
 
 #[context]
@@ -66,14 +64,11 @@ impl StandUpFront {
             interpolator: MotionFile::from_path(paths.motions.join("stand_up_front.json"))?
                 .try_into()?,
             state: InterpolatorState::INITIAL,
+            slow_state: InterpolatorState::INITIAL,
             filtered_gyro: LowPassFilter::with_smoothing_factor(
                 nalgebra::Vector3::zeros(),
                 *context.gyro_low_pass_factor,
             ),
-
-            slow_interpolator: MotionFile::from_path(paths.motions.join("stand_up_front.json"))?
-                .try_into()?,
-            slow_state: InterpolatorState::INITIAL,
         })
     }
 
@@ -107,20 +102,20 @@ impl StandUpFront {
                 StandUpSpeed::Slow => {
                     self.state.reset();
 
-                    self.slow_interpolator.advance_state(
+                    self.interpolator.advance_state(
                         &mut self.slow_state,
                         last_cycle_duration.mul_f32(*context.speed_factor),
                         condition_input,
                     );
 
                     let corrected_estimated_remaining_duration = self
-                        .slow_interpolator
+                        .interpolator
                         .estimated_remaining_duration(self.slow_state)
                         .map(|duration| duration.div_f32(*context.speed_factor))
                         .unwrap_or(Duration::MAX);
 
                     (
-                        self.slow_interpolator.value(self.slow_state),
+                        self.interpolator.value(self.slow_state),
                         RemainingStandUpDuration::Running(corrected_estimated_remaining_duration),
                     )
                 }
