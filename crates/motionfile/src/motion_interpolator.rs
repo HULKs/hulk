@@ -274,7 +274,7 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
                     ),
                     InterpolatorState::CheckExit { .. } => Duration::ZERO,
                     InterpolatorState::Finished => Duration::ZERO,
-                    InterpolatorState::Aborted { .. } => Duration::MAX,
+                    InterpolatorState::Aborted { .. } => return None,
                 };
                 Some(remaining)
             }
