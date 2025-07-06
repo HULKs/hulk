@@ -1,3 +1,5 @@
 *.parquet
 *.tflite
 *.keras
+wandb/
+confusion_matrix.html

@@ -22,94 +22,8 @@ from keras.models import Sequential
 from plotly.subplots import make_subplots
 from sklearn.metrics import confusion_matrix
 from tensorflow import keras
-
-
-def plot_training_history(history, model_name) -> None:
-    # Create subplots with 1 row and 2 columns
-    fig = make_subplots(
-        rows=2,
-        cols=2,
-        subplot_titles=("Model accuracy", "Model loss"),
-        horizontal_spacing=0.1,
-    )
-
-    # Add accuracy traces
-    fig.add_trace(
-        go.Scatter(
-            x=list(range(1, len(history.history["accuracy"]) + 1)),
-            y=history.history["accuracy"],
-            mode="lines+markers",
-            name="training",
-            line={"color": "blue"},
-            legendgroup="accuracy",
-        ),
-        row=1,
-        col=1,
-    )
-
-    fig.add_trace(
-        go.Scatter(
-            x=list(range(1, len(history.history["val_accuracy"]) + 1)),
-            y=history.history["val_accuracy"],
-            mode="lines+markers",
-            name="validation",
-            line={"color": "orange"},
-            legendgroup="accuracy",
-        ),
-        row=1,
-        col=1,
-    )
-
-    # Add loss traces
-    fig.add_trace(
-        go.Scatter(
-            x=list(range(1, len(history.history["loss"]) + 1)),
-            y=history.history["loss"],
-            mode="lines+markers",
-            name="training",
-            line={"color": "blue"},
-            legendgroup="loss",
-            showlegend=False,  # Hide duplicate legend entries
-        ),
-        row=1,
-        col=2,
-    )
-
-    fig.add_trace(
-        go.Scatter(
-            x=list(range(1, len(history.history["val_loss"]) + 1)),
-            y=history.history["val_loss"],
-            mode="lines+markers",
-            name="validation",
-            line={"color": "orange"},
-            legendgroup="loss",
-            showlegend=False,  # Hide duplicate legend entries
-        ),
-        row=1,
-        col=2,
-    )
-
-    # Update layout
-    fig.update_layout(
-        title=f"Model {model_name}",
-        width=900,  # Equivalent to figwidth=15 in matplotlib
-        height=400,
-        legend={
-            "orientation": "h",
-            "yanchor": "bottom",
-            "y": 1.02,
-            "xanchor": "right",
-            "x": 1,
-        },
-    )
-
-    # Update x and y axis labels
-    fig.update_xaxes(title_text="epoch", row=1, col=1)
-    fig.update_yaxes(title_text="accuracy", row=1, col=1)
-    fig.update_xaxes(title_text="epoch", row=1, col=2)
-    fig.update_yaxes(title_text="loss", row=1, col=2)
-
-    return fig
+import wandb
+from wandb.integration.keras import WandbMetricsLogger
 
 
 def split_data(input_data, labels):
@@ -125,7 +39,7 @@ def split_data(input_data, labels):
     return (x_train, y_train, x_test, y_test)
 
 
-def evaluate_model(model, x_test, y_test, fig) -> None:
+def evaluate_model(model, x_test, y_test) -> None:
     (test_loss, accuracy) = model.evaluate(x_test, y_test)
     print(f"Test accuracy: {accuracy}, test loss: {test_loss}")
 
@@ -143,20 +57,6 @@ def evaluate_model(model, x_test, y_test, fig) -> None:
     # Convert to percentage for display
     cm_percent = cm * 100
 
-    fig.add_trace(
-        go.Heatmap(
-            z=cm_percent,
-            x=labels,
-            y=labels,
-            colorscale="Blues",
-            showscale=False,
-            hoverongaps=False,
-            hovertemplate="True: %{y}<br>Predicted: %{x}<br>Value: %{z:.1f}%<extra></extra>",
-        ),
-        row=2,
-        col=1,
-    )
-
     # Create annotations for the heatmap
     annotations = []
     for i in range(len(labels)):
@@ -171,24 +71,37 @@ def evaluate_model(model, x_test, y_test, fig) -> None:
                         "color": "white" if cm_percent[i][j] > 50 else "black",
                         "size": 14,
                     },
-                    "xref": "x3",  # Reference to the third subplot
-                    "yref": "y3",  # Reference to the third subplot
                 }
             )
 
+    # Create heatmap using Plotly
+    fig = go.Figure(
+        data=go.Heatmap(
+            z=cm_percent,
+            x=labels,
+            y=labels,
+            colorscale="Blues",
+            showscale=False,  # Equivalent to cbar=False
+            hoverongaps=False,
+            hovertemplate="True: %{y}<br>Predicted: %{x}<br>Value: %{z:.1f}%<extra></extra>",
+        )
+    )
+
+    # Add annotations
     fig.update_layout(
-        width=900,
-        height=900,
         annotations=annotations,
+        title="Confusion Matrix",
+        xaxis_title="<b>Predicted Class</b>",
+        yaxis_title="<b>True Class</b>",
+        width=400,
+        height=400,
+        xaxis={"side": "bottom"},
+        yaxis={
+            "autorange": "reversed"
+        },  # Reverse y-axis to match seaborn style
     )
 
-    fig.update_xaxes(title_text="<b>Predicted Class</b>", row=2, col=1)
-    fig.update_yaxes(
-        title_text="<b>True Class</b>", row=2, col=1, autorange="reversed"
-    )
-
-    # Show the combined plot
-    fig.show()
+    wandb.log({"confusion_matrix": fig})
 
 
 def train_model(model, x_train, y_train, max_epochs: int):
@@ -205,9 +118,8 @@ def train_model(model, x_train, y_train, max_epochs: int):
         batch_size=256,
         epochs=max_epochs,
         validation_split=0.2,
-        callbacks=[early_stopping],
+        callbacks=[early_stopping, WandbMetricsLogger()],
     )
-    return plot_training_history(history, 1)
 
 
 # Build model
@@ -240,13 +152,17 @@ def build_linear_model(
                 activation="relu",
             ),
             Dropout(0.2),
-            Dense(num_classes, activation="softmax"),
+            Dense(num_classes),
         ]
     )
 
     # Compile model
     model.compile(
-        optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"]
+        optimizer="adam",
+        loss=keras.losses.CategoricalCrossentropy(
+            from_logits=True, name="categorical_crossentropy"
+        ),
+        metrics=["accuracy"],
     )
 
     if summary:
@@ -286,9 +202,9 @@ def train_linear(data_path: str) -> None:
     print(f"Input shape: {x_train.shape}")
     print(f"Label shape: {y_train.shape}")
 
-    fig = train_model(model, x_train, y_train, max_epochs=300)
+    train_model(model, x_train, y_train, max_epochs=300)
 
-    evaluate_model(model, x_test, y_test, fig)
+    evaluate_model(model, x_test, y_test)
 
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
     model_tflite = converter.convert()
@@ -302,7 +218,7 @@ def build_sequential_model(
     input_length: int,
     num_classes: int,
     summary: bool = False,
-) -> None:
+):
     model = Sequential(
         [
             # ADD YOUR LAYERS HERE
@@ -362,9 +278,9 @@ def train_sequential(data_path: str) -> None:
     print(f"Input shape: {x_train.shape}")
     print(f"Label shape: {y_train.shape}")
 
-    fig = train_model(model, x_train, y_train, max_epochs=300)
+    train_model(model, x_train, y_train, max_epochs=300)
 
-    evaluate_model(model, x_test, y_test, fig)
+    evaluate_model(model, x_test, y_test)
 
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
     converter._experimental_lower_tensor_list_ops = False
@@ -392,8 +308,7 @@ class ModelType(enum.Enum):
 )
 @click.option("--data-path", default="data.parquet")
 def main(model_type: ModelType, data_path: str) -> None:
-    pio.renderers.default = "browser"
-
+    wandb.init()
     match model_type:
         case ModelType.Linear:
             print("Training linear model")
@@ -401,6 +316,8 @@ def main(model_type: ModelType, data_path: str) -> None:
         case ModelType.Sequential:
             print("Training sequential model")
             train_sequential(data_path)
+
+    wandb.finish()
 
 
 if __name__ == "__main__":
