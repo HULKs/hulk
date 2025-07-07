@@ -18,12 +18,16 @@ use types::{
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState,
     kick_decision::{DecisionParameters, KickDecision, PlayingSituation},
-    motion_command::KickVariant,
+    motion_command::{KickVariant, OrientationMode, WalkSpeed},
     obstacles::Obstacle,
-    parameters::{InWalkKickInfoParameters, InWalkKicksParameters},
+    parameters::{InWalkKickInfoParameters, InWalkKicksParameters, StepPlannerParameters},
+    planned_path::direct_path,
     support_foot::Side,
     world_state::BallState,
 };
+use walking_engine::mode::Mode;
+
+use crate::motion::step_planner::step_plan_greedy;
 
 #[derive(Deserialize, Serialize)]
 pub struct KickSelector {}
@@ -40,10 +44,13 @@ pub struct CycleContext {
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
     ground_to_upcoming_support:
         CyclerState<Isometry2<Ground, UpcomingSupport>, "ground_to_upcoming_support">,
+    walking_engine_mode: CyclerState<Mode, "walking_engine_mode">,
 
     decision_parameters: Parameter<DecisionParameters, "kick_selector">,
+    step_planner_parameters: Parameter<StepPlannerParameters, "step_planner">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     in_walk_kicks: Parameter<InWalkKicksParameters, "in_walk_kicks">,
+    dribble_walk_speed: Parameter<WalkSpeed, "walk_speed.dribble">,
 
     playing_situation: AdditionalOutput<PlayingSituation, "playing_situation">,
 }
@@ -108,6 +115,27 @@ impl KickSelector {
             ball_position,
             context.in_walk_kicks,
         );
+
+        let step_plans: Vec<_> = kick_decisions
+            .iter()
+            .map(|kick_decision| {
+                let kick_pose_in_upcoming_support_ground =
+                    *context.ground_to_upcoming_support * kick_decision.kick_pose;
+                step_plan_greedy(
+                    &direct_path(
+                        Point2::origin(),
+                        kick_pose_in_upcoming_support_ground.position(),
+                    ),
+                    context.step_planner_parameters,
+                    Pose2::zero(),
+                    *context.walking_engine_mode,
+                    OrientationMode::Override(kick_pose_in_upcoming_support_ground.orientation()),
+                    *context.dribble_walk_speed,
+                )
+                .unwrap()
+            })
+            .collect();
+        dbg!(step_plans);
 
         kick_decisions.sort_by(|left, right| {
             compare_decisions(
