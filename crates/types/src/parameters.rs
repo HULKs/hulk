@@ -281,6 +281,7 @@ pub struct HeadMotionParameters {
     pub inner_maximum_pitch: f32,
     pub inner_minimum_pitch: f32,
     pub maximum_velocity: HeadJoints<f32>,
+    pub maximum_defender_velocity: HeadJoints<f32>,
     pub outer_maximum_pitch: f32,
     pub outer_minimum_pitch: f32,
     pub outer_yaw: f32,
