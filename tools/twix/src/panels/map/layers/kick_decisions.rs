@@ -49,11 +49,11 @@ impl KickDecisions {
             painter,
             &kick_decisions,
             Stroke {
-                width: 0.01,
+                width: 0.001,
                 color: Color32::BLACK,
             },
             Stroke {
-                width: 0.01,
+                width: 0.001,
                 color: Color32::BLACK,
             },
         );
@@ -61,11 +61,11 @@ impl KickDecisions {
             painter,
             best_kick_decision.cloned().as_slice(),
             Stroke {
-                width: 0.02,
+                width: 0.002,
                 color: Color32::YELLOW,
             },
             Stroke {
-                width: 0.02,
+                width: 0.002,
                 color: Color32::YELLOW,
             },
         );
@@ -81,11 +81,11 @@ impl KickDecisions {
             painter,
             &instant_kick_decisions,
             Stroke {
-                width: 0.01,
+                width: 0.001,
                 color: Color32::RED,
             },
             Stroke {
-                width: 0.01,
+                width: 0.001,
                 color: Color32::RED,
             },
         );
@@ -102,8 +102,8 @@ fn draw_kick_decisions<'a>(
     for kick_decision in kick_decisions {
         painter.pose(
             kick_decision.kick_pose,
-            0.05,
-            0.1,
+            0.005,
+            0.01,
             Color32::from_white_alpha(10),
             pose_stroke,
         );
