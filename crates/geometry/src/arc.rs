@@ -10,15 +10,7 @@ use crate::{
 };
 
 #[derive(
-    Clone,
-    Copy,
-    Debug,
-    Deserialize,
-    PartialEq,
-    PathDeserialize,
-    PathIntrospect,
-    PathSerialize,
-    Serialize,
+    Clone, Copy, Debug, Deserialize, PathDeserialize, PathIntrospect, PathSerialize, Serialize,
 )]
 pub struct Arc<Frame> {
     pub circle: Circle<Frame>,
@@ -27,48 +19,7 @@ pub struct Arc<Frame> {
     pub direction: Direction,
 }
 
-impl<Frame> AbsDiffEq for Arc<Frame>
-where
-    Frame: AbsDiffEq,
-{
-    type Epsilon = f32;
-
-    fn default_epsilon() -> Self::Epsilon {
-        Self::Epsilon::default_epsilon()
-    }
-
-    fn abs_diff_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool {
-        self.direction == other.direction
-            && self.circle.abs_diff_eq(&other.circle, epsilon)
-            && self.start.abs_diff_eq(&other.start, epsilon)
-            && self.end.abs_diff_eq(&other.end, epsilon)
-    }
-}
-
-impl<Frame> RelativeEq for Arc<Frame>
-where
-    Frame: RelativeEq,
-{
-    fn default_max_relative() -> f32 {
-        f32::default_max_relative()
-    }
-
-    fn relative_eq(
-        &self,
-        other: &Self,
-        epsilon: Self::Epsilon,
-        max_relative: Self::Epsilon,
-    ) -> bool {
-        self.direction == other.direction
-            && self
-                .circle
-                .relative_eq(&other.circle, epsilon, max_relative)
-            && self.start.relative_eq(&other.start, epsilon, max_relative)
-            && self.end.relative_eq(&other.end, epsilon, max_relative)
-    }
-}
-
-impl<Frame: Copy> Arc<Frame> {
+impl<Frame> Arc<Frame> {
     pub fn new(
         circle: Circle<Frame>,
         start: Orientation2<Frame>,
@@ -95,6 +46,50 @@ impl<Frame: Copy> Arc<Frame> {
 
     pub fn end_point(&self) -> Point2<Frame> {
         self.circle.point_at_angle(self.end)
+    }
+}
+
+impl<Frame> PartialEq for Arc<Frame> {
+    fn eq(&self, other: &Self) -> bool {
+        self.circle == other.circle
+            && self.start == other.start
+            && self.end == other.end
+            && self.direction == other.direction
+    }
+}
+
+impl<Frame> AbsDiffEq for Arc<Frame> {
+    type Epsilon = f32;
+
+    fn default_epsilon() -> Self::Epsilon {
+        Self::Epsilon::default_epsilon()
+    }
+
+    fn abs_diff_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool {
+        self.direction == other.direction
+            && self.circle.abs_diff_eq(&other.circle, epsilon)
+            && self.start.abs_diff_eq(&other.start, epsilon)
+            && self.end.abs_diff_eq(&other.end, epsilon)
+    }
+}
+
+impl<Frame> RelativeEq for Arc<Frame> {
+    fn default_max_relative() -> f32 {
+        f32::default_max_relative()
+    }
+
+    fn relative_eq(
+        &self,
+        other: &Self,
+        epsilon: Self::Epsilon,
+        max_relative: Self::Epsilon,
+    ) -> bool {
+        self.direction == other.direction
+            && self
+                .circle
+                .relative_eq(&other.circle, epsilon, max_relative)
+            && self.start.relative_eq(&other.start, epsilon, max_relative)
+            && self.end.relative_eq(&other.end, epsilon, max_relative)
     }
 }
 

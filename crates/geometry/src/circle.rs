@@ -10,64 +10,14 @@ use crate::{
 };
 
 #[derive(
-    Clone,
-    Copy,
-    Debug,
-    Default,
-    Deserialize,
-    PartialEq,
-    PathDeserialize,
-    PathIntrospect,
-    PathSerialize,
-    Serialize,
+    Debug, Default, Deserialize, PathDeserialize, PathIntrospect, PathSerialize, Serialize,
 )]
 pub struct Circle<Frame> {
     pub center: Point2<Frame>,
     pub radius: f32,
 }
 
-impl<Frame> AbsDiffEq for Circle<Frame>
-where
-    Frame: AbsDiffEq,
-{
-    type Epsilon = f32;
-
-    fn default_epsilon() -> Self::Epsilon {
-        Self::Epsilon::default_epsilon()
-    }
-
-    fn abs_diff_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool {
-        self.center.abs_diff_eq(&other.center, epsilon)
-            && self.radius.abs_diff_eq(&other.radius, epsilon)
-    }
-}
-
-impl<Frame> RelativeEq for Circle<Frame>
-where
-    Frame: RelativeEq,
-{
-    fn default_max_relative() -> Self::Epsilon {
-        Self::Epsilon::default_max_relative()
-    }
-
-    fn relative_eq(
-        &self,
-        other: &Self,
-        epsilon: Self::Epsilon,
-        max_relative: Self::Epsilon,
-    ) -> bool {
-        self.center
-            .relative_eq(&other.center, epsilon, max_relative)
-            && self
-                .radius
-                .relative_eq(&other.radius, epsilon, max_relative)
-    }
-}
-
-impl<Frame> Circle<Frame>
-where
-    Frame: Copy,
-{
+impl<Frame> Circle<Frame> {
     pub fn new(center: Point2<Frame>, radius: f32) -> Self {
         Self { center, radius }
     }
@@ -216,6 +166,52 @@ where
 
     pub fn point_at_angle(&self, angle: Orientation2<Frame>) -> Point2<Frame> {
         self.center + angle.as_unit_vector() * self.radius
+    }
+}
+
+impl<Frame> Clone for Circle<Frame> {
+    fn clone(&self) -> Self {
+        *self
+    }
+}
+
+impl<Frame> Copy for Circle<Frame> {}
+
+impl<Frame> PartialEq for Circle<Frame> {
+    fn eq(&self, other: &Self) -> bool {
+        self.center == other.center && self.radius == other.radius
+    }
+}
+
+impl<Frame> AbsDiffEq for Circle<Frame> {
+    type Epsilon = f32;
+
+    fn default_epsilon() -> Self::Epsilon {
+        Self::Epsilon::default_epsilon()
+    }
+
+    fn abs_diff_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool {
+        self.center.abs_diff_eq(&other.center, epsilon)
+            && self.radius.abs_diff_eq(&other.radius, epsilon)
+    }
+}
+
+impl<Frame> RelativeEq for Circle<Frame> {
+    fn default_max_relative() -> Self::Epsilon {
+        Self::Epsilon::default_max_relative()
+    }
+
+    fn relative_eq(
+        &self,
+        other: &Self,
+        epsilon: Self::Epsilon,
+        max_relative: Self::Epsilon,
+    ) -> bool {
+        self.center
+            .relative_eq(&other.center, epsilon, max_relative)
+            && self
+                .radius
+                .relative_eq(&other.radius, epsilon, max_relative)
     }
 }
 

@@ -41,9 +41,9 @@ pub enum WalkSpeed {
     PathIntrospect,
     PartialEq,
 )]
-pub enum OrientationMode {
+pub enum OrientationMode<Frame> {
     AlignWithPath,
-    Override(Orientation2<Ground>),
+    Override(Orientation2<Frame>),
 }
 
 #[derive(
@@ -93,10 +93,10 @@ pub enum MotionCommand {
     },
     Walk {
         head: HeadMotion,
-        path: Vec<PathSegment>,
+        path: Vec<PathSegment<Ground>>,
         left_arm: ArmMotion,
         right_arm: ArmMotion,
-        orientation_mode: OrientationMode,
+        orientation_mode: OrientationMode<Ground>,
         speed: WalkSpeed,
     },
     InWalkKick {

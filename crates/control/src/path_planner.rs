@@ -263,7 +263,7 @@ impl PathPlanner {
         &mut self,
         mut start: Point2<Ground>,
         mut destination: Point2<Ground>,
-    ) -> Result<Option<Vec<PathSegment>>> {
+    ) -> Result<Option<Vec<PathSegment<Ground>>>> {
         let closest_circle = self
             .obstacles
             .iter()
@@ -324,7 +324,7 @@ impl PathPlanner {
         let path_segments = navigation_path
             .steps
             .windows(2)
-            .map(|indices| -> Result<PathSegment> {
+            .map(|indices| {
                 let previous_node = &self.nodes[previous_node_index];
                 previous_node_index = indices[0];
                 let current_node = &self.nodes[indices[0]];
@@ -554,7 +554,7 @@ mod tests {
         start: Point2<Ground>,
         end: Point2<Ground>,
         map: &mut PathPlanner,
-        expected_segments: &[PathSegment],
+        expected_segments: &[PathSegment<Ground>],
         expected_cost: f32,
     ) {
         let path = map

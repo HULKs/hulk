@@ -438,7 +438,7 @@ impl<World> TwixPainter<World> {
 impl TwixPainter<Ground> {
     pub fn path(
         &self,
-        path: Vec<PathSegment>,
+        path: Vec<PathSegment<Ground>>,
         line_color: Color32,
         arc_color: Color32,
         width: f32,

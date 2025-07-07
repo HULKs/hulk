@@ -49,7 +49,7 @@ impl<'cycle> WalkPathPlanner<'cycle> {
         obstacles: &[Obstacle],
         rule_obstacles: &[RuleObstacle],
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
-    ) -> Vec<PathSegment> {
+    ) -> Vec<PathSegment<Ground>> {
         let mut planner = PathPlanner::default();
         planner.with_last_motion(
             self.last_motion_command,
@@ -101,8 +101,8 @@ impl<'cycle> WalkPathPlanner<'cycle> {
     pub fn walk_with_obstacle_avoiding_arms(
         &self,
         head: HeadMotion,
-        orientation_mode: OrientationMode,
-        path: Vec<PathSegment>,
+        orientation_mode: OrientationMode<Ground>,
+        path: Vec<PathSegment<Ground>>,
         speed: WalkSpeed,
     ) -> MotionCommand {
         MotionCommand::Walk {
@@ -207,11 +207,11 @@ impl<'cycle> WalkAndStand<'cycle> {
     }
 }
 
-pub fn hybrid_alignment(
-    target_pose: Pose2<Ground>,
+pub fn hybrid_alignment<Frame>(
+    target_pose: Pose2<Frame>,
     hybrid_align_distance: f32,
     distance_to_be_aligned: f32,
-) -> OrientationMode {
+) -> OrientationMode<Frame> {
     assert!(hybrid_align_distance > 0.0);
     assert!(distance_to_be_aligned > 0.0);
 
@@ -233,13 +233,13 @@ pub fn hybrid_alignment(
     OrientationMode::Override(orientation)
 }
 
-pub fn clamp_around(
-    input: Orientation2<Ground>,
-    center: Orientation2<Ground>,
+pub fn clamp_around<Frame>(
+    input: Orientation2<Frame>,
+    center: Orientation2<Frame>,
     angle_limit: f32,
-) -> Orientation2<Ground> {
+) -> Orientation2<Frame> {
     let center_to_input = center.rotation_to(input);
-    let clamped = center_to_input.clamp_angle::<Ground>(-angle_limit, angle_limit);
+    let clamped = center_to_input.clamp_angle(-angle_limit, angle_limit);
 
     clamped * center
 }
@@ -253,6 +253,9 @@ mod test {
     use approx::assert_relative_eq;
     use num_traits::Zero;
 
+    #[derive(Debug)]
+    struct Frame;
+
     #[test]
     fn clamp_noop_when_less_than_limit_around_center() {
         let testcases = [
@@ -265,8 +268,8 @@ mod test {
         ];
 
         for (input, angle_limit) in testcases {
-            let input = Orientation2::new(input);
-            let center = Orientation2::new(0.0);
+            let input = Orientation2::<Frame>::new(input);
+            let center = Orientation2::<Frame>::new(0.0);
             assert_relative_eq!(clamp_around(input, center, angle_limit), input);
         }
     }
@@ -285,8 +288,8 @@ mod test {
         ];
 
         for (input, angle_limit) in testcases {
-            let input = Orientation2::new(input);
-            let center = Orientation2::new(0.0);
+            let input = Orientation2::<Frame>::new(input);
+            let center = Orientation2::<Frame>::new(0.0);
 
             let output = clamp_around(input, center, angle_limit);
 
@@ -313,8 +316,8 @@ mod test {
             for center in angles {
                 for angle_limit in angles {
                     let angle_limit = angle_limit.abs();
-                    let input = Orientation2::new(input);
-                    let center = Orientation2::new(center);
+                    let input = Orientation2::<Frame>::new(input);
+                    let center = Orientation2::<Frame>::new(center);
 
                     let output = clamp_around(input, center, angle_limit);
 
