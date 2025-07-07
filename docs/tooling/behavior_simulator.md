@@ -21,4 +21,4 @@ This panel has a timeline slider for scrubbing through the scenario.
 
 # Scenario Development
 
-Scenario files be found at `crates/bevyhavior_simulator/src/bin/`.
+Scenario files can be found at `crates/bevyhavior_simulator/src/bin/`.
