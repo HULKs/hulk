@@ -217,7 +217,13 @@ pub fn step_plan_greedy<Frame>(
         .unwrap_or(Side::Left)
         .opposite();
 
-    for _ in 0..5 {
+    let destination = match path.last() {
+        Some(PathSegment::Arc(arc)) => arc.end_point(),
+        Some(PathSegment::LineSegment(segment)) => segment.1,
+        None => todo!(),
+    };
+
+    for _ in 0..30 {
         let segment = path
             .iter()
             .min_by_key(|segment| {
@@ -241,7 +247,6 @@ pub fn step_plan_greedy<Frame>(
                 Pose2::from_parts(line_segment.1, rotation)
             }
             PathSegment::Arc(arc) => {
-                // let start_point = arc.start_point();
                 let start_point = arc.project(pose.position());
                 let direction = (start_point - arc.circle.center).rotate_90_degrees(arc.direction);
                 Pose2::from_parts(
@@ -276,6 +281,20 @@ pub fn step_plan_greedy<Frame>(
         support_side = support_side.opposite();
 
         steps.push(step);
+
+        if (destination - pose.position()).norm_squared() > 0.01 {
+            continue;
+        }
+
+        if let OrientationMode::Override(orientation) = orientation_mode {
+            let angle_to_desired_orientation =
+                pose.orientation().rotation_to(orientation).angle().abs();
+            if angle_to_desired_orientation > 0.01 {
+                continue;
+            }
+        }
+
+        break;
     }
 
     Ok(steps)
