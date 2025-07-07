@@ -58,7 +58,7 @@ impl TimeToReachKickPosition {
 
         let walk_time = dribble_path
             .iter()
-            .map(|segment: &PathSegment| {
+            .map(|segment| {
                 let length = segment.length();
                 match segment {
                     PathSegment::LineSegment(_) => {
