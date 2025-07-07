@@ -110,14 +110,14 @@ impl Widget for &mut SemiAutomaticCameraCalibrationPanel {
             if ui.button("Next (and save lines)").clicked() {
                 let result = self.save_measurement();
                 if let Err(error) = result {
-                    println!("Error: {}", error);
+                    println!("Error: {error}");
                 }
                 let result = self
                     .optimization
                     .run_optimization(self.saved_measurements.clone());
 
                 if let Err(error) = result {
-                    println!("Error: {}", error);
+                    println!("Error: {error}");
                 }
                 self.drawn_lines.clear();
             }
@@ -129,18 +129,18 @@ impl Widget for &mut SemiAutomaticCameraCalibrationPanel {
                 self.saved_measurements.clear();
                 let result = self.optimization.reset();
                 if let Err(error) = result {
-                    println!("Error: {}", error);
+                    println!("Error: {error}");
                 }
             }
             if ui.button("Save to head").clicked() {
                 let result = self.optimization.save_to_head();
                 if let Err(error) = result {
-                    println!("Error: {}", error);
+                    println!("Error: {error}");
                 }
                 self.saved_measurements.clear();
                 let result = self.optimization.reset();
                 if let Err(error) = result {
-                    println!("Error: {}", error);
+                    println!("Error: {error}");
                 }
             }
         });
@@ -238,7 +238,7 @@ impl SemiAutomaticCameraCalibrationPanel {
         ];
         for line_type in &line_types {
             if ui
-                .selectable_label(false, format!("{:?}", line_type))
+                .selectable_label(false, format!("{line_type:?}"))
                 .clicked()
             {
                 return Some(*line_type);
