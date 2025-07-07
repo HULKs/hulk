@@ -22,7 +22,7 @@ mod kick_state;
 pub mod kick_steps;
 pub mod mode;
 pub mod parameters;
-mod step_plan;
+pub mod step_plan;
 mod step_state;
 mod stiffness;
 
