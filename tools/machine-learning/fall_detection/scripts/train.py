@@ -13,6 +13,7 @@ from keras.layers import (
     LSTM,
     BatchNormalization,
     Conv1D,
+    Conv2D,
     Dense,
     Dropout,
     Flatten,
@@ -132,16 +133,24 @@ def build_linear_model(
     model = Sequential(
         [
             # ADD YOUR LAYERS HERE
-            InputLayer(shape=(num_features, input_length)),
-            Conv1D(
-                filters=32, kernel_size=32, padding="same", activation="relu"
+            InputLayer(shape=(num_features, input_length, 1)),
+            Conv2D(
+                filters=32,
+                kernel_size=[4, 32],
+                strides=[4, 1],
+                padding="same",
+                activation="relu",
             ),
-            BatchNormalization(),
-            Conv1D(
-                filters=16, kernel_size=16, padding="same", activation="relu"
-            ),
+            # BatchNormalization(),
+            # Conv2D(
+            #     filters=16,
+            #     kernel_size=[8, 4],
+            #     padding="same",
+            #     activation="relu",
+            # ),
             Flatten(),
             BatchNormalization(),
+            Dropout(0.2),
             Dense(
                 32,
                 activation="relu",
