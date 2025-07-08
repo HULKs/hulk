@@ -322,6 +322,8 @@ def main(model_type: ModelType, data_path: str) -> None:
     )
     code = wandb.Artifact(name="code", type="code")
     code.add_dir("./scripts")
+    code.save()
+
     match model_type:
         case ModelType.Linear:
             print("Training linear model")
