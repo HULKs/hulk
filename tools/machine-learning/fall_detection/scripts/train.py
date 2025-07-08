@@ -311,6 +311,8 @@ def main(model_type: ModelType, data_path: str) -> None:
     wandb.init(
         project="tinyml-fall-state-prediction-tools_machine-learning_fall_detection"
     )
+    code = wandb.Artifact(name="code", type="code")
+    code.add_dir("./scripts")
     match model_type:
         case ModelType.Linear:
             print("Training linear model")
