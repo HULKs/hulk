@@ -283,7 +283,7 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
                     -max_step.turn * steps_this_cycle,
                     max_step.turn * steps_this_cycle,
                 );
-                let movement = Isometry2::from_parts(step.as_point().coords(), rotation);
+                let movement = Isometry2::new(step.as_point().coords(), rotation);
                 let old_ground_to_field = robot.ground_to_field();
                 let new_ground_to_field = old_ground_to_field * movement;
                 ground_to_field_update = Some(new_ground_to_field);

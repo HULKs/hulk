@@ -206,7 +206,7 @@ impl WalkingEngine {
         let forward = swing_sole.position().x();
         let left = swing_sole.position().y() - swing_sole_base_offset.y();
         let turn = swing_sole.orientation().inner.euler_angles().2;
-        Some(Isometry2::from_parts(vector![forward, left], turn).inverse())
+        Some(Isometry2::new(vector![forward, left], turn).inverse())
     }
 }
 
