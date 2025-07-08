@@ -253,21 +253,15 @@ impl BallFilter {
             .filter_state
             .fill_if_subscribed(|| self.ball_filter.clone());
 
-        let best_hypothesis = self
+        let output_hypothesis = self
             .ball_filter
-            .output_hypothesis(filter_parameters.validity_output_threshold)
-            .or(self.ball_filter.last_output_hypothesis())
-            .cloned();
-        let its_identifier = best_hypothesis
-            .as_ref()
-            .map(|hypothesis| hypothesis.identifier());
-        self.ball_filter.set_last_output_identifier(its_identifier);
+            .select_hypothesis(context.ball_filter_configuration.validity_output_threshold);
 
         context
             .best_ball_hypothesis
-            .fill_if_subscribed(|| best_hypothesis.clone());
+            .fill_if_subscribed(|| output_hypothesis.clone());
 
-        let filtered_ball = best_hypothesis.map(|hypothesis| hypothesis.position());
+        let filtered_ball = output_hypothesis.map(|hypothesis| hypothesis.position());
 
         let output_balls: Vec<_> = self
             .ball_filter
