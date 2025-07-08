@@ -155,7 +155,7 @@ impl ReadySignalDetectionFilter {
             let now = context.cycle_time.start_time;
             self.detection_times[*context.player_number] = Some(now);
 
-            if self.last_time_message_sent.as_ref().map_or(true, |time| {
+            if self.last_time_message_sent.as_ref().is_none_or(|time| {
                 now.duration_since(*time).expect("Time ran backwards") >= *context.message_interval
             }) && context.remaining_amount_of_messages.is_some_and(
                 |remaining_amount_of_messages| {
