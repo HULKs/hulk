@@ -18,24 +18,30 @@ use types::multivariate_normal_distribution::MultivariateNormalDistribution;
 )]
 pub struct BallFilter {
     pub hypotheses: Vec<BallHypothesis>,
-    current_identifier: u64,
+    next_assignable_identifier: u64,
     last_output_hypothesis_identifier: Option<u64>,
 }
 
 impl BallFilter {
-    pub fn set_last_output_identifier(&mut self, identifier: Option<u64>) {
-        self.last_output_hypothesis_identifier = identifier;
+    pub fn select_hypothesis(&mut self, validity_threshold: f32) -> Option<BallHypothesis> {
+        let output_hypothesis = self
+            .best_hypothesis(validity_threshold)
+            .or(self.last_output_hypothesis())
+            .cloned();
+        if let Some(hypothesis) = &output_hypothesis {
+            self.last_output_hypothesis_identifier = Some(hypothesis.identifier());
+        }
+        output_hypothesis
     }
 
-    pub fn output_hypothesis(&self, validity_threshold: f32) -> Option<&BallHypothesis> {
-        let best_hypothesis = self
-            .hypotheses
+    fn best_hypothesis(&self, validity_threshold: f32) -> Option<&BallHypothesis> {
+        self.hypotheses
             .iter()
             .filter(|hypothesis| hypothesis.validity >= validity_threshold)
-            .max_by(|a, b| a.validity.partial_cmp(&b.validity).unwrap());
+            .max_by(|a, b| a.validity.partial_cmp(&b.validity).unwrap())
     }
 
-    pub fn last_output_hypothesis(&self) -> Option<&BallHypothesis> {
+    fn last_output_hypothesis(&self) -> Option<&BallHypothesis> {
         let identifier = self.last_output_hypothesis_identifier?;
         self.hypotheses
             .iter()
@@ -144,9 +150,12 @@ impl BallFilter {
             )
         }
 
-        let new_hypothesis =
-            BallHypothesis::new(new_hypothesis, self.current_identifier, detection_time);
-        self.current_identifier += 1;
+        let new_hypothesis = BallHypothesis::new(
+            new_hypothesis,
+            self.next_assignable_identifier,
+            detection_time,
+        );
+        self.next_assignable_identifier += 1;
 
         self.hypotheses.push(new_hypothesis)
     }
