@@ -308,7 +308,9 @@ class ModelType(enum.Enum):
 )
 @click.option("--data-path", default="data.parquet")
 def main(model_type: ModelType, data_path: str) -> None:
-    wandb.init()
+    wandb.init(
+        project="tinyml-fall-state-prediction-tools_machine-learning_fall_detection"
+    )
     match model_type:
         case ModelType.Linear:
             print("Training linear model")
