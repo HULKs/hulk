@@ -18,6 +18,7 @@ pub fn execute(
     lost_ball_parameters: &LostBallParameters,
     path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
     walk_speed: WalkSpeed,
+    distance_to_be_aligned: f32,
 ) -> Option<MotionCommand> {
     let ground_to_field = world_state.robot.ground_to_field?;
     let walk_target = ground_to_field.inverse()
@@ -50,7 +51,9 @@ pub fn execute(
     };
     Some(walk_path_planner.walk_with_obstacle_avoiding_arms(
         head,
-        OrientationMode::Override(orientation),
+        OrientationMode::LookAt(relative_last_known_ball_position),
+        orientation,
+        distance_to_be_aligned,
         path,
         walk_speed,
     ))
