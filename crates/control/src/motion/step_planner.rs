@@ -127,6 +127,7 @@ impl StepPlanner {
             highest_temperature,
             70.0..=76.0,
         );
+        // at 76°C stiffness gets automatically reduced by the motors - this stops if temperature is below 70°C again
 
         let max_step_size = match (speed, self.leg_joints_hot) {
             (WalkSpeed::Slow, _) => *context.max_step_size + *context.step_size_delta_slow,
