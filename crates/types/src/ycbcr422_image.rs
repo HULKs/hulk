@@ -29,7 +29,7 @@ pub struct YCbCr422Image {
     width_422: u32,
     height: u32,
     #[path_serde(leaf)]
-    buffer: Arc<Vec<YCbCr422>>,
+    buffer: Arc<[YCbCr422]>,
 }
 
 impl From<RgbImage> for YCbCr422Image {
@@ -54,12 +54,12 @@ impl From<RgbImage> for YCbCr422Image {
                 .into();
                 [left_color, right_color].into()
             })
-            .collect();
+            .collect::<Vec<YCbCr422>>();
 
         Self {
             width_422,
             height,
-            buffer: Arc::new(data),
+            buffer: Arc::from(data),
         }
     }
 }
@@ -127,7 +127,7 @@ impl YCbCr422Image {
         Self {
             width_422,
             height,
-            buffer: Arc::new(buffer),
+            buffer: Arc::from(buffer),
         }
     }
 
@@ -150,7 +150,7 @@ impl YCbCr422Image {
         Self {
             width_422,
             height,
-            buffer: Arc::new(buffer),
+            buffer: Arc::from(buffer),
         }
     }
 
