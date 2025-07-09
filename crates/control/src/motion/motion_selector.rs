@@ -62,7 +62,7 @@ impl MotionSelector {
         let is_standing_up =
             current_motion.is_dispatching() && requested_motion.is_standup_motion();
 
-        let stand_up_count = stand_up_counting(
+        let stand_up_count = count_stand_up_attempts(
             current_motion,
             is_standing_up,
             self.was_standing_up,
@@ -204,7 +204,7 @@ fn transition_motion(
     }
 }
 
-fn stand_up_counting(
+fn count_stand_up_attempts(
     current_motion: MotionType,
     is_standing_up: bool,
     was_standing_up: bool,
