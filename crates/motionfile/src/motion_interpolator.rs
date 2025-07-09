@@ -73,11 +73,22 @@ impl<T> InterpolatorState<T> {
         matches!(self, Self::Aborted { .. })
     }
 
-    pub fn is_finished(&self) -> bool {
-        matches!(
-            self,
-            InterpolatorState::Finished | InterpolatorState::Aborted { .. }
-        )
+    pub fn is_running(&self) -> bool {
+        match self {
+            InterpolatorState::CheckEntry {
+                current_frame_index,
+                time_since_start,
+            }
+            | InterpolatorState::InterpolateSpline {
+                current_frame_index,
+                time_since_start,
+            }
+            | InterpolatorState::CheckExit {
+                current_frame_index,
+                time_since_start,
+            } => *current_frame_index >= 1 || *time_since_start > Duration::ZERO,
+            InterpolatorState::Finished | InterpolatorState::Aborted { .. } => false,
+        }
     }
 
     pub fn reset(&mut self) {
