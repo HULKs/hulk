@@ -514,7 +514,12 @@ fn detect_field_color_in_segment(mut segment: Segment) -> Segment {
         value: hsv.value,
     };
 
-    segment.field_color = field_color_tree::predict(&features);
+    let probability = field_color_tree::predict(&features);
+    segment.field_color = if probability >= 0.5 {
+        Intensity::High
+    } else {
+        Intensity::Low
+    };
     segment
 }
 
