@@ -60,7 +60,7 @@ impl KeeperJumpLeft {
         } else {
             self.state.reset();
         }
-        context.motion_safe_exits[MotionType::KeeperJumpLeft] = self.state.is_finished();
+        context.motion_safe_exits[MotionType::KeeperJumpLeft] = !self.state.is_running();
 
         Ok(MainOutputs {
             keeper_jump_left_motor_commands: self.interpolator.value(self.state).mirrored().into(),

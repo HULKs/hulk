@@ -87,7 +87,7 @@ impl StandUpBack {
             RemainingStandUpDuration::NotRunning
         };
 
-        context.motion_safe_exits[MotionType::StandUpBack] = self.state.is_finished();
+        context.motion_safe_exits[MotionType::StandUpBack] = !self.state.is_running();
 
         self.filtered_gyro.update(context.angular_velocity.inner);
         let gyro = self.filtered_gyro.state();

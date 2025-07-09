@@ -60,7 +60,7 @@ impl KeeperJumpRight {
         } else {
             self.state.reset();
         }
-        context.motion_safe_exits[MotionType::KeeperJumpRight] = self.state.is_finished();
+        context.motion_safe_exits[MotionType::KeeperJumpRight] = !self.state.is_running();
 
         Ok(MainOutputs {
             keeper_jump_right_motor_commands: self.interpolator.value(self.state).into(),
