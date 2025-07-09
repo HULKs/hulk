@@ -434,8 +434,8 @@
       "balance_factors": {
         "hip_yaw_pitch": 0.0,
         "hip_roll": 0.0,
-        "hip_pitch": 0.0,
-        "knee_pitch": 0.0,
+        "hip_pitch": 0.01,
+        "knee_pitch": 0.01,
         "ankle_pitch": 0.05,
         "ankle_roll": 0.0
       },
