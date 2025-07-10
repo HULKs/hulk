@@ -24,6 +24,7 @@ indicatif = { workspace = true }
 ittapi = { workspace = true }
 linear_algebra = { workspace = true }
 mcap = { workspace = true }
+motionfile = { workspace = true }
 nalgebra = { workspace = true }
 ndarray = { workspace = true }
 parameters = { workspace = true }
