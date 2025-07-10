@@ -22,6 +22,12 @@ use types::{
     sonar_obstacle::SonarObstacle,
 };
 
+#[derive(PartialEq)]
+enum MeasurementKind {
+    Own,
+    NetworkRobot,
+}
+
 #[derive(Deserialize, Serialize)]
 pub struct ObstacleFilter {
     hypotheses: Vec<Hypothesis>,
@@ -111,6 +117,7 @@ impl ObstacleFilter {
                             .obstacle_filter_parameters
                             .network_robot_measurement_noise,
                     ),
+                    MeasurementKind::NetworkRobot,
                 );
             }
 
@@ -134,6 +141,7 @@ impl ObstacleFilter {
                         Matrix2::from_diagonal(
                             &context.obstacle_filter_parameters.feet_measurement_noise,
                         ),
+                        MeasurementKind::Own,
                     );
                 }
             }
@@ -159,6 +167,7 @@ impl ObstacleFilter {
                         Matrix2::from_diagonal(
                             &context.obstacle_filter_parameters.sonar_measurement_noise,
                         ),
+                        MeasurementKind::Own,
                     );
                 }
             }
@@ -179,6 +188,7 @@ impl ObstacleFilter {
                         Matrix2::from_diagonal(
                             &context.obstacle_filter_parameters.feet_measurement_noise,
                         ),
+                        MeasurementKind::Own,
                     );
                 }
             }
@@ -270,6 +280,7 @@ impl ObstacleFilter {
         detection_time: SystemTime,
         matching_distance: f32,
         measurement_noise: Matrix2<f32>,
+        kind: MeasurementKind,
     ) {
         let mut matching_hypotheses = self
             .hypotheses
@@ -291,7 +302,11 @@ impl ObstacleFilter {
             hypothesis.state.update(
                 Matrix2::identity(),
                 detected_position.inner.coords,
-                measurement_noise * (detected_position.coords().norm_squared() + f32::EPSILON),
+                if kind == MeasurementKind::NetworkRobot {
+                    measurement_noise
+                } else {
+                    measurement_noise * (detected_position.coords().norm_squared() + f32::EPSILON)
+                },
             );
             hypothesis.obstacle_kind = match hypothesis.obstacle_kind {
                 ObstacleKind::Robot => hypothesis.obstacle_kind,
