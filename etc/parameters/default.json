@@ -512,24 +512,24 @@
     }
   },
   "stand_up_back": {
-    "gyro_low_pass_factor": 0.4,
+    "gyro_low_pass_factor": 0.3,
     "leg_balancing_factor": [0, 0.05]
   },
   "stand_up_front": {
-    "gyro_low_pass_factor": 0.4,
+    "gyro_low_pass_factor": 0.3,
     "leg_balancing_factor": [0, 0.05]
   },
   "stand_up_sitting": {
-    "gyro_low_pass_factor": 0.4,
+    "gyro_low_pass_factor": 0.3,
     "leg_balancing_factor": [0, 0.05]
   },
   "stand_up_front_slow": {
-    "gyro_low_pass_factor": 0.4,
+    "gyro_low_pass_factor": 0.3,
     "leg_balancing_factor": [0, 0.05],
     "speed_factor": 1.8
   },
   "stand_up_sitting_slow": {
-    "gyro_low_pass_factor": 0.4,
+    "gyro_low_pass_factor": 0.3,
     "leg_balancing_factor": [0, 0.05],
     "speed_factor": 2.0
   },
