@@ -4470,6 +4470,7 @@ dependencies = [
  "ittapi",
  "linear_algebra",
  "mcap",
+ "motionfile",
  "nalgebra",
  "ndarray",
  "parameters",
