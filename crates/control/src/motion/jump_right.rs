@@ -60,7 +60,7 @@ impl JumpRight {
         } else {
             self.state.reset();
         }
-        context.motion_safe_exits[MotionType::JumpRight] = self.state.is_finished();
+        context.motion_safe_exits[MotionType::JumpRight] = !self.state.is_running();
 
         Ok(MainOutputs {
             jump_right_joints_command: self.interpolator.value(self.state).into(),

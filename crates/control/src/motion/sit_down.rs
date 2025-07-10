@@ -62,7 +62,7 @@ impl SitDown {
             self.state.reset();
         }
 
-        context.motion_safe_exits[MotionType::SitDown] = self.state.is_finished();
+        context.motion_safe_exits[MotionType::SitDown] = !self.state.is_running();
 
         Ok(MainOutputs {
             sit_down_joints_command: MotorCommands {

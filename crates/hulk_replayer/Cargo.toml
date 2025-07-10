@@ -30,6 +30,7 @@ hulk_widgets = { workspace = true }
 ittapi = { workspace = true }
 linear_algebra = { workspace = true }
 log = { workspace = true }
+motionfile = { workspace = true }
 nalgebra = { workspace = true }
 ndarray = { workspace = true }
 object_detection = { workspace = true }
