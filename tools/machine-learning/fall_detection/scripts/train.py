@@ -132,11 +132,11 @@ def build_linear_model(
     model = Sequential(
         [
             # ADD YOUR LAYERS HERE
-            InputLayer(shape=(num_features, input_length, 1)),
+            InputLayer(shape=(input_length, num_features, 1)),
             Conv2D(
                 filters=wandb.config["number_of_filters"][0],
                 kernel_size=[num_features, wandb.config["kernel_widths"][0]],
-                strides=[num_features, 1],
+                strides=[1, num_features],
                 padding="valid",
                 activation="relu",
             ),
@@ -189,7 +189,7 @@ def build_sequential_model(
     model = Sequential(
         [
             # ADD YOUR LAYERS HERE
-            InputLayer(shape=(num_features, input_length)),
+            InputLayer(shape=(input_length, num_features)),
             LSTM(
                 wandb.config["lstm_sizes"][0],
                 dropout=0.4,
@@ -291,13 +291,6 @@ def train(model_type: ModelType, data_path: str) -> None:
     evaluate_model(model, x_test, y_test)
 
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
-    converter._experimental_lower_tensor_list_ops = False
-    converter.optimizations = [tf.lite.Optimize.DEFAULT]
-    converter.target_spec.supported_ops = [
-        tf.lite.OpsSet.TFLITE_BUILTINS,  # enable TensorFlow Lite ops.
-        tf.lite.OpsSet.SELECT_TF_OPS,  # enable TensorFlow ops.
-    ]
-    converter.allow_custom_ops = True
     model_tflite = converter.convert()
     with open("../../../etc/neural_networks/fall_detection.tflite", "wb") as f:
         f.write(model_tflite)

@@ -6,6 +6,7 @@ import pandas as pd
 from polars._typing import IntoExpr
 
 from .pseudo_labels import PseudoLabeller
+from .pseudo_labels import Label
 
 
 class FallenDataset:
@@ -23,7 +24,7 @@ class FallenDataset:
         group_keys: list[str],
         features: Iterable[IntoExpr] | IntoExpr,
     ) -> None:
-        self.dataframe = dataframe.drop_nulls()[:10000]
+        self.dataframe = dataframe[:100000].drop_nulls()
 
         self.labeller = PseudoLabeller()
         self.features = features
@@ -65,20 +66,35 @@ class FallenDataset:
             [
                 self.dataframe.select(
                     generate_lags(feature, samples_per_window, "group"),
-                )[
-                    samples_per_window : -label_shift
-                    or None : samples_between_windows
-                ]
+                )[samples_per_window - 1 : -label_shift or None :]
                 for feature in self.features
             ],
             how="horizontal",
         )
+        print(windowed_features)
+        print(windowed_features.null_count())
 
         shifted_labels = self.dataframe.select(
             pl.col("labels").shift(-label_shift).over("group")
-        )[samples_per_window : -label_shift or None : samples_between_windows]
+        )[samples_per_window - 1 : -label_shift or None :]
 
-        windowed_dataframe = windowed_features.hstack(shifted_labels)
+        predecessors_of_shifted_labels = self.dataframe.select(
+            pl.col("labels")
+            .shift(-(label_shift - 1))
+            .over("group")
+            .alias("label_predecessor")
+        )[
+            samples_per_window - 1 : -label_shift
+            or None : samples_between_windows
+        ]
+
+        windowed_dataframe_with_predecessors = windowed_features.hstack(
+            shifted_labels
+        ).hstack(predecessors_of_shifted_labels)
+
+        windowed_dataframe = windowed_dataframe_with_predecessors.filter(
+            pl.col("label_predecessor") == Label.Stable
+        ).drop("label_predecessor")
 
         n_minority = (
             windowed_dataframe.get_column("labels")
@@ -87,13 +103,15 @@ class FallenDataset:
             .select(pl.col("count"))
             .item()
         )
+        print(n_minority)
 
-        balanced_df = windowed_dataframe.group_by(
-            "labels", maintain_order=True
-        ).map_groups(lambda group: group.sample(n=n_minority, seed=1))
-        balanced_df = windowed_dataframe.sample(
-            fraction=1, shuffle=True, seed=1
-        )
+        balanced_df = windowed_dataframe
+        # balanced_df = windowed_dataframe.group_by(
+        #     "labels", maintain_order=True
+        # ).map_groups(lambda group: group.sample(n=n_minority, seed=1))
+        # balanced_df = windowed_dataframe.sample(
+        #     fraction=1, shuffle=True, seed=1
+        # )
 
         self.input_data = balanced_df.drop("labels")
         self.labels = balanced_df.select(pl.col("labels"))
