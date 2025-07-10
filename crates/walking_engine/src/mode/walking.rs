@@ -43,12 +43,21 @@ impl Walking {
             )
         };
 
+        let turn_acceleration =
+            if last_requested_step.forward.abs() > context.parameters.forward_turn_threshold {
+                context.parameters.max_turn_acceleration * context.parameters.forward_turn_reduction
+            } else {
+                context.parameters.max_turn_acceleration
+            };
+
         let requested_step = Step {
             forward: last_requested_step.forward
                 + (requested_step.forward - last_requested_step.forward)
                     .clamp(backward_acceleration, forward_acceleration),
             left: requested_step.left,
-            turn: requested_step.turn,
+            turn: last_requested_step.turn
+                + (requested_step.turn - last_requested_step.turn)
+                    .clamp(-turn_acceleration, turn_acceleration),
         };
         let plan = StepPlan::new_from_request(context, requested_step, support_side);
         let step = StepState::new(plan);
