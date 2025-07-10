@@ -234,9 +234,21 @@ def train(model_type: ModelType, data_path: str) -> None:
         df,
         group_keys=[pl.col("robot_identifier"), pl.col("match_identifier")],
         features=[
-            pl.col("Control.main_outputs.robot_orientation.pitch"),
-            pl.col("Control.main_outputs.robot_orientation.roll"),
-            pl.col("Control.main_outputs.robot_orientation.yaw"),
+            pl.col(
+                "Control.main_outputs.sensor_data.inertial_measurement_unit.linear_acceleration.x"
+            ),
+            pl.col(
+                "Control.main_outputs.sensor_data.inertial_measurement_unit.linear_acceleration.y"
+            ),
+            pl.col(
+                "Control.main_outputs.sensor_data.inertial_measurement_unit.linear_acceleration.z"
+            ),
+            pl.col(
+                "Control.main_outputs.sensor_data.inertial_measurement_unit.roll_pitch.x"
+            ),
+            pl.col(
+                "Control.main_outputs.sensor_data.inertial_measurement_unit.roll_pitch.y"
+            ),
             pl.col("Control.main_outputs.has_ground_contact"),
         ],
     )
