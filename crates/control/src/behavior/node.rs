@@ -296,7 +296,9 @@ impl Behavior {
                     Action::FallSafely => {
                         fall_safely::execute(world_state, *context.has_ground_contact)
                     }
-                    Action::StandUp => stand_up::execute(world_state),
+                    Action::StandUp => {
+                        stand_up::execute(world_state, context.parameters.maximum_standup_attempts)
+                    }
                     Action::NoGroundContact => no_ground_contact::execute(world_state),
                     Action::LookAround => look_around::execute(world_state),
                     Action::KeeperMotion => defend.keeper_motion(context.keeper_motion.clone()),
