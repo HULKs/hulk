@@ -6,6 +6,7 @@ import plotly.graph_objects as go
 import plotly.io as pio
 import polars as pl
 import tensorflow as tf
+import wandb
 from data_loading import load
 from dataset import FallenDataset
 from keras.callbacks import EarlyStopping
@@ -20,10 +21,8 @@ from keras.layers import (
     InputLayer,
 )
 from keras.models import Sequential
-from plotly.subplots import make_subplots
 from sklearn.metrics import confusion_matrix
 from tensorflow import keras
-import wandb
 from wandb.integration.keras import WandbMetricsLogger
 
 
@@ -105,7 +104,7 @@ def evaluate_model(model, x_test, y_test) -> None:
     wandb.log({"confusion_matrix": fig})
 
 
-def train_model(model, x_train, y_train, max_epochs: int):
+def train_model(model, x_train, y_train, max_epochs: int) -> None:
     early_stopping = EarlyStopping(
         monitor="val_loss",
         patience=50,
@@ -113,7 +112,7 @@ def train_model(model, x_train, y_train, max_epochs: int):
         mode="min",
     )
 
-    history = model.fit(
+    model.fit(
         x_train,
         y_train,
         batch_size=256,
@@ -135,10 +134,10 @@ def build_linear_model(
             # ADD YOUR LAYERS HERE
             InputLayer(shape=(num_features, input_length, 1)),
             Conv2D(
-                filters=32,
-                kernel_size=[4, 32],
-                strides=[4, 1],
-                padding="same",
+                filters=wandb.config["number_of_filters"][0],
+                kernel_size=[num_features, wandb.config["kernel_widths"][0]],
+                strides=[num_features, 1],
+                padding="valid",
                 activation="relu",
             ),
             # BatchNormalization(),
@@ -152,12 +151,12 @@ def build_linear_model(
             BatchNormalization(),
             Dropout(0.2),
             Dense(
-                32,
+                wandb.config["dense_layer_sizes"][0],
                 activation="relu",
             ),
             BatchNormalization(),
             Dense(
-                16,
+                wandb.config["dense_layer_sizes"][1],
                 activation="relu",
             ),
             Dropout(0.2),
@@ -180,47 +179,6 @@ def build_linear_model(
     return model
 
 
-def train_linear(data_path: str) -> None:
-    df = load(data_path)
-    dataset = FallenDataset(
-        df,
-        group_keys=[pl.col("robot_identifier"), pl.col("match_identifier")],
-        features=[
-            pl.col("Control.main_outputs.robot_orientation.pitch"),
-            pl.col("Control.main_outputs.robot_orientation.roll"),
-            pl.col("Control.main_outputs.robot_orientation.yaw"),
-            pl.col("Control.main_outputs.has_ground_contact"),
-        ],
-    )
-    dataset.to_windowed(window_size=0.7, window_stride=10 / 83)
-
-    input_data = dataset.get_input_tensor()
-    data_labels = dataset.get_labels_tensor()
-
-    model = build_linear_model(
-        input_length=input_data.shape[2],
-        num_features=input_data.shape[1],
-        num_classes=dataset.n_classes(),
-    )
-
-    (x_train, y_train, x_test, y_test) = split_data(input_data, data_labels)
-
-    y_train = keras.utils.to_categorical(y_train, dataset.n_classes())
-    y_test = keras.utils.to_categorical(y_test, dataset.n_classes())
-
-    print(f"Input shape: {x_train.shape}")
-    print(f"Label shape: {y_train.shape}")
-
-    train_model(model, x_train, y_train, max_epochs=300)
-
-    evaluate_model(model, x_test, y_test)
-
-    converter = tf.lite.TFLiteConverter.from_keras_model(model)
-    model_tflite = converter.convert()
-    with open("../../../etc/neural_networks/fall_detection.tflite", "wb") as f:
-        f.write(model_tflite)
-
-
 # Build model
 def build_sequential_model(
     num_features: int,
@@ -232,21 +190,31 @@ def build_sequential_model(
         [
             # ADD YOUR LAYERS HERE
             InputLayer(shape=(num_features, input_length)),
-            LSTM(64, dropout=0.4),
+            LSTM(
+                wandb.config["lstm_sizes"][0],
+                dropout=0.4,
+                return_sequences=True,
+            ),
+            BatchNormalization(),
+            LSTM(wandb.config["lstm_sizes"][1], dropout=0.4),
             BatchNormalization(),
             Dense(
-                32,
+                wandb.config["dense_layer_sizes"][0],
                 activation="relu",
             ),
             BatchNormalization(),
             Dropout(0.2),
-            Dense(num_classes, activation="softmax"),
+            Dense(num_classes),
         ]
     )
 
     # Compile model
     model.compile(
-        optimizer="adam", loss="categorical_crossentropy", metrics=["accuracy"]
+        optimizer="adam",
+        loss=keras.losses.CategoricalCrossentropy(
+            from_logits=True, name="categorical_crossentropy"
+        ),
+        metrics=["accuracy"],
     )
 
     if summary:
@@ -255,7 +223,12 @@ def build_sequential_model(
     return model
 
 
-def train_sequential(data_path: str) -> None:
+class ModelType(enum.Enum):
+    Linear = enum.auto()
+    Sequential = enum.auto()
+
+
+def train(model_type: ModelType, data_path: str) -> None:
     df = load(data_path)
     dataset = FallenDataset(
         df,
@@ -268,16 +241,30 @@ def train_sequential(data_path: str) -> None:
         ],
     )
 
-    dataset.to_windowed(window_size=1.0, window_stride=5 / 83)
+    dataset.to_windowed(
+        window_size=wandb.config["window_size"],
+        window_stride=wandb.config["window_stride"],
+        label_shift=wandb.config["label_shift"],
+    )
 
     input_data = dataset.get_input_tensor()
     data_labels = dataset.get_labels_tensor()
 
-    model = build_sequential_model(
-        input_length=input_data.shape[2],
-        num_features=input_data.shape[1],
-        num_classes=dataset.n_classes(),
-    )
+    match model_type:
+        case ModelType.Linear:
+            print("Training linear model")
+            model = build_linear_model(
+                input_length=input_data.shape[2],
+                num_features=input_data.shape[1],
+                num_classes=dataset.n_classes(),
+            )
+        case ModelType.Sequential:
+            print("Training sequential model")
+            model = build_sequential_model(
+                input_length=input_data.shape[2],
+                num_features=input_data.shape[1],
+                num_classes=dataset.n_classes(),
+            )
 
     (x_train, y_train, x_test, y_test) = split_data(input_data, data_labels)
 
@@ -304,11 +291,6 @@ def train_sequential(data_path: str) -> None:
         f.write(model_tflite)
 
 
-class ModelType(enum.Enum):
-    Linear = enum.auto()
-    Sequential = enum.auto()
-
-
 @click.command()
 @click.option(
     "--model-type",
@@ -317,22 +299,22 @@ class ModelType(enum.Enum):
 )
 @click.option("--data-path", default="data.parquet")
 def main(model_type: ModelType, data_path: str) -> None:
-    wandb.init(
-        project="tinyml-fall-state-prediction-tools_machine-learning_fall_detection"
-    )
-    code = wandb.Artifact(name="code", type="code")
-    code.add_dir("./scripts")
-    code.save()
+    config = {
+        "model_type": model_type,
+        "window_size": 0.7,
+        "window_stride": 10 / 83,
+        "label_shift": 30,
+        "number_of_filters": [32],
+        "kernel_widths": [32],
+        "dense_layer_sizes": [32, 16],
+        "lstm_sizes": [64, 32],
+    }
+    with wandb.init(project="tinyml-fall-state-prediction", config=config):
+        code = wandb.Artifact(name="code", type="code")
+        code.add_dir("./scripts")
+        code.save()
 
-    match model_type:
-        case ModelType.Linear:
-            print("Training linear model")
-            train_linear(data_path)
-        case ModelType.Sequential:
-            print("Training sequential model")
-            train_sequential(data_path)
-
-    wandb.finish()
+        train(model_type, data_path)
 
 
 if __name__ == "__main__":
