@@ -1,24 +1,43 @@
 use approx::{AbsDiffEq, RelativeEq};
 use serde::{Deserialize, Serialize};
 
-use coordinate_systems::Ground;
 use geometry::{arc::Arc, line_segment::LineSegment};
 use linear_algebra::Point2;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
-#[derive(
-    Clone, Debug, Serialize, Deserialize, PartialEq, PathSerialize, PathDeserialize, PathIntrospect,
-)]
-pub enum PathSegment {
-    LineSegment(LineSegment<Ground>),
-    Arc(Arc<Ground>),
+#[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect)]
+pub enum PathSegment<Frame> {
+    LineSegment(LineSegment<Frame>),
+    Arc(Arc<Frame>),
 }
 
-pub fn direct_path(start: Point2<Ground>, destination: Point2<Ground>) -> Vec<PathSegment> {
+impl<Frame> PartialEq for PathSegment<Frame>
+where
+    LineSegment<Frame>: PartialEq,
+    Arc<Frame>: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        match (self, other) {
+            (Self::LineSegment(l0), Self::LineSegment(r0)) => l0 == r0,
+            (Self::Arc(l0), Self::Arc(r0)) => l0 == r0,
+            _ => false,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct Path<'a, Frame> {
+    pub segments: &'a [PathSegment<Frame>],
+}
+
+pub fn direct_path<Frame>(
+    start: Point2<Frame>,
+    destination: Point2<Frame>,
+) -> Vec<PathSegment<Frame>> {
     vec![PathSegment::LineSegment(LineSegment(start, destination))]
 }
 
-impl AbsDiffEq for PathSegment {
+impl<Frame: PartialEq> AbsDiffEq for PathSegment<Frame> {
     type Epsilon = f32;
 
     fn default_epsilon() -> Self::Epsilon {
@@ -39,7 +58,7 @@ impl AbsDiffEq for PathSegment {
     }
 }
 
-impl RelativeEq for PathSegment {
+impl<Frame: PartialEq> RelativeEq for PathSegment<Frame> {
     fn default_max_relative() -> f32 {
         f32::default_max_relative()
     }
@@ -63,7 +82,7 @@ impl RelativeEq for PathSegment {
     }
 }
 
-impl PathSegment {
+impl<Frame> PathSegment<Frame> {
     pub fn length(&self) -> f32 {
         match self {
             PathSegment::LineSegment(line_segment) => line_segment.length(),
@@ -75,6 +94,6 @@ impl PathSegment {
 #[derive(
     Clone, Debug, Default, Serialize, PathSerialize, PathDeserialize, PathIntrospect, Deserialize,
 )]
-pub struct PlannedPath {
-    pub path: Option<Vec<PathSegment>>,
+pub struct PlannedPath<Frame> {
+    pub path: Option<Vec<PathSegment<Frame>>>,
 }

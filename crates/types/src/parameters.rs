@@ -10,6 +10,7 @@ use crate::{
     joints::head::HeadJoints,
     motion_command::{KickVariant, MotionCommand},
     roles::Role,
+    step::Step,
 };
 
 #[derive(
@@ -449,4 +450,20 @@ pub struct PenaltyShotDirectionParameters {
     pub moving_distance_threshold: f32,
     pub minimum_velocity: f32,
     pub center_jump_trigger_radius: f32,
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct StepPlannerParameters {
+    pub initial_side_bonus: f32,
+    pub injected_step: Option<Step>,
+    pub max_inside_turn: f32,
+    pub max_step_size: Step,
+    pub max_step_size_backwards: f32,
+    pub request_scale: Step,
+    pub rotation_exponent: f32,
+    pub step_size_delta_fast: Step,
+    pub step_size_delta_slow: Step,
+    pub translation_exponent: f32,
 }

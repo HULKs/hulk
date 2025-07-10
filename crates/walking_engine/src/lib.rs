@@ -12,7 +12,7 @@ use types::{
     sensor_data::ForceSensitiveResistors, step::Step, support_foot::Side,
 };
 
-mod anatomic_constraints;
+pub mod anatomic_constraints;
 mod arm;
 mod compensate_stiffness_loss;
 pub mod feet;
@@ -22,7 +22,7 @@ mod kick_state;
 pub mod kick_steps;
 pub mod mode;
 pub mod parameters;
-mod step_plan;
+pub mod step_plan;
 mod step_state;
 mod stiffness;
 

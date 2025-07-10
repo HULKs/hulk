@@ -25,7 +25,6 @@ use crate::{
     Default,
     Deserialize,
     Serialize,
-    PartialEq,
     PathSerialize,
     PathIntrospect,
     PathDeserialize,
@@ -183,6 +182,12 @@ impl<Frame> LineSegment<Frame> {
     }
 }
 
+impl<Frame> PartialEq for LineSegment<Frame> {
+    fn eq(&self, other: &Self) -> bool {
+        self.0 == other.0 && self.1 == other.1
+    }
+}
+
 impl<From, To, Inner> Mul<LineSegment<From>> for Transform<From, To, Inner>
 where
     Self: Mul<Point2<From>, Output = Point2<To>> + Copy,
@@ -200,10 +205,7 @@ impl<Frame> Distance<Point2<Frame>> for LineSegment<Frame> {
     }
 }
 
-impl<Frame> AbsDiffEq for LineSegment<Frame>
-where
-    Frame: PartialEq,
-{
+impl<Frame> AbsDiffEq for LineSegment<Frame> {
     type Epsilon = f32;
 
     fn default_epsilon() -> Self::Epsilon {
