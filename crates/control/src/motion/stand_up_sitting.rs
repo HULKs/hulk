@@ -1,4 +1,5 @@
 use color_eyre::Result;
+use framework::AdditionalOutput;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
@@ -45,6 +46,12 @@ pub struct CycleContext {
     angular_velocity:
         Input<Vector3<Robot>, "sensor_data.inertial_measurement_unit.angular_velocity">,
 
+    interpolator_state:
+        AdditionalOutput<InterpolatorState<Joints<f32>>, "stand_up_sitting.interpolator_state">,
+    slow_interpolator_state: AdditionalOutput<
+        InterpolatorState<Joints<f32>>,
+        "stand_up_sitting.slow_interpolator_state",
+    >,
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
     stand_up_sitting_estimated_remaining_duration:
         CyclerState<RemainingStandUpDuration, "stand_up_sitting_estimated_remaining_duration">,
@@ -71,7 +78,7 @@ impl StandUpSitting {
         })
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let last_cycle_duration = context.cycle_time.last_cycle_duration;
         let condition_input = context.condition_input;
 
@@ -135,6 +142,11 @@ impl StandUpSitting {
             };
         context.motion_safe_exits[MotionType::StandUpSitting(StandUpSpeed::Default)] =
             !self.state.is_running() && !self.slow_state.is_running();
+
+        context.interpolator_state.fill_if_subscribed(|| self.state);
+        context
+            .slow_interpolator_state
+            .fill_if_subscribed(|| self.slow_state);
 
         self.filtered_gyro.update(context.angular_velocity.inner);
         let gyro = self.filtered_gyro.state();
