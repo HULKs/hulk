@@ -1,7 +1,6 @@
 from typing import Iterable
 import tensorflow as tf
 import numpy as np
-from tensorflow.data import Dataset
 import polars as pl
 import pandas as pd
 from polars._typing import IntoExpr
@@ -24,7 +23,7 @@ class FallenDataset:
         group_keys: list[str],
         features: Iterable[IntoExpr] | IntoExpr,
     ) -> None:
-        self.dataframe = dataframe.drop_nulls()
+        self.dataframe = dataframe.drop_nulls()[:10000]
 
         self.labeller = PseudoLabeller()
         self.features = features
@@ -38,7 +37,6 @@ class FallenDataset:
             raise Exception(
                 f"Null values found in features: {number_of_nulls} null values"
             )
-
         groups = (
             self.dataframe.select(pl.struct(group_keys).rank("dense") - 1)
             .to_series()
@@ -54,63 +52,51 @@ class FallenDataset:
 
     def to_windowed(
         self,
-        stride: int = 1,
         control_frequency: float = 83,
         window_size: float = 1.5,
         window_stride: float = 0.2,
-        is_state_prediction: bool = False,
+        label_shift: int = 0,
     ) -> None:
         samples_per_window = int(window_size * control_frequency)
+        self.samples_per_window = samples_per_window
         samples_between_windows = int(window_stride * control_frequency)
-        windows = (
-            self.dataframe[::stride]
-            .group_by("group")
-            .map_groups(
-                lambda group: group.with_row_index()
-                .cast({"index": pl.Int32})
-                .group_by_dynamic(
-                    index_column="index",
-                    every=f"{samples_between_windows}i",
-                    period=f"{samples_per_window}i",
-                )
-                .agg([*self.features, pl.col("labels")])
-                .drop("index")
-                .filter(self.features[0].list.len() == samples_per_window)
-                .select(*self.features, pl.col("labels").list.last())
-            )
+
+        windowed_features = pl.concat(
+            [
+                self.dataframe.select(
+                    generate_lags(feature, samples_per_window, "group"),
+                )[
+                    samples_per_window : -label_shift
+                    or None : samples_between_windows
+                ]
+                for feature in self.features
+            ],
+            how="horizontal",
         )
-        lowest_label_count = windows.select(
-            pl.min_horizontal(
-                pl.col("labels")
-                .filter(pl.col("labels") == 0)
-                .len()
-                .alias("num_upright"),
-                pl.col("labels")
-                .filter(pl.col("labels") == 1)
-                .len()
-                .alias("num_falling"),
-                pl.col("labels")
-                .filter(pl.col("labels") == 2)
-                .len()
-                .alias("num_fallen"),
-            )
-        ).item()
-        balanced_windows = pl.concat(
-            (
-                windows.filter(pl.col("labels") == 0).sample(
-                    n=lowest_label_count
-                ),
-                windows.filter(pl.col("labels") == 1).sample(
-                    n=lowest_label_count
-                ),
-                windows.filter(pl.col("labels") == 2).sample(
-                    n=lowest_label_count
-                ),
-            )
+
+        shifted_labels = self.dataframe.select(
+            pl.col("labels").shift(-label_shift).over("group")
+        )[samples_per_window : -label_shift or None : samples_between_windows]
+
+        windowed_dataframe = windowed_features.hstack(shifted_labels)
+
+        n_minority = (
+            windowed_dataframe.get_column("labels")
+            .value_counts()
+            .min()
+            .select(pl.col("count"))
+            .item()
         )
-        balanced_windows = balanced_windows.sample(fraction=1, shuffle=True)
-        self.input_data = balanced_windows.select(self.features)
-        self.labels = balanced_windows.select(pl.col("labels"))
+
+        balanced_df = windowed_dataframe.group_by(
+            "labels", maintain_order=True
+        ).map_groups(lambda group: group.sample(n=n_minority, seed=1))
+        balanced_df = windowed_dataframe.sample(
+            fraction=1, shuffle=True, seed=1
+        )
+
+        self.input_data = balanced_df.drop("labels")
+        self.labels = balanced_df.select(pl.col("labels"))
 
     def __len__(self) -> int:
         return self.groups.unique().numel()
@@ -126,13 +112,18 @@ class FallenDataset:
         return self.input_data[mask], self.labels[mask]
 
     def get_input_tensor(self) -> tf.Tensor:
-        pd_df = self.input_data.to_pandas()
+        num_windows = len(self.input_data)
+        window_length = self.samples_per_window
+        num_features = len(self.features)
         return tf.convert_to_tensor(
-            np.array(pd_df.values.tolist()), dtype=tf.float32
+            np.stack([self.input_data.to_numpy()]).reshape(
+                (num_windows, window_length, num_features)
+            ),
+            dtype=tf.float32,
         )
 
     def get_labels_tensor(self) -> tf.Tensor:
-        return tf.convert_to_tensor(self.labels.to_numpy())
+        return tf.convert_to_tensor(self.labels.to_numpy(), dtype=tf.float32)
 
     def get_windows_input_tensor(self) -> list[tf.Tensor]:
         windowed_input_tensor = []
@@ -142,4 +133,8 @@ class FallenDataset:
             )
         return windowed_input_tensor
 
-    # def element_spec()
+
+def generate_lags(feature: pl.Expr, lags: int, group: str) -> list[pl.Expr]:
+    return [
+        feature.shift(i).over(group).name.suffix(str(i)) for i in range(lags)
+    ]
