@@ -6,6 +6,8 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
+approx = { workspace = true }
+approx_derive = { workspace = true }
 coordinate_systems = { workspace = true }
 geometry = { workspace = true }
 levenberg-marquardt = { workspace = true }
