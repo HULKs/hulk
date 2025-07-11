@@ -12,6 +12,7 @@ use types::{
     motion_selection::MotionSelection,
     motor_commands::MotorCommands,
     parameters::HeadMotionParameters,
+    roles::Role,
     sensor_data::SensorData,
 };
 
@@ -36,6 +37,7 @@ pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
     has_ground_contact: Input<bool, "has_ground_contact">,
     motion_selection: Input<MotionSelection, "motion_selection">,
+    role: Input<Role, "role">,
 }
 
 #[context]
@@ -85,8 +87,16 @@ impl HeadMotion {
                 stiffnesses: HeadJoints::fill(0.8),
             });
 
-        let maximum_movement = context.parameters.maximum_velocity
-            * context.cycle_time.last_cycle_duration.as_secs_f32();
+        let maximum_movement = match context.role {
+            Role::DefenderLeft | Role::DefenderRight => {
+                context.parameters.maximum_defender_velocity
+                    * context.cycle_time.last_cycle_duration.as_secs_f32()
+            }
+            _ => {
+                context.parameters.maximum_velocity
+                    * context.cycle_time.last_cycle_duration.as_secs_f32()
+            }
+        };
 
         let controlled_positions = HeadJoints {
             yaw: self.last_positions.yaw
