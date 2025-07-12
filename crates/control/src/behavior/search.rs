@@ -168,7 +168,7 @@ pub fn execute(
         } else {
             Some(walk_path_planner.walk_with_obstacle_avoiding_arms(
                 head,
-                OrientationMode::Unspecified,
+                OrientationMode::AlignWithPath,
                 Orientation2::new(parameters.rotation_per_step),
                 distance_to_be_aligned,
                 path,

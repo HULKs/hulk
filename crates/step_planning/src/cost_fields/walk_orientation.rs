@@ -1,20 +1,33 @@
+use coordinate_systems::Ground;
 use geometry::look_at::LookAt;
 use linear_algebra::Vector2;
 use types::motion_command::OrientationMode;
 
 use crate::{
-    geometry::{angle::Angle, pose::Pose, pose::PoseGradient},
-    utils::{angle_penalty, angle_penalty_derivative},
+    geometry::{
+        angle::Angle,
+        pose::{Pose, PoseGradient},
+    },
+    utils::{
+        angle_penalty, angle_penalty_derivative, angle_penalty_with_tolerance,
+        angle_penalty_with_tolerance_derivative,
+    },
 };
 
 pub struct WalkOrientationField {
     pub orientation_mode: OrientationMode,
+    pub path_alignment_tolerance: f32,
 }
 
 impl WalkOrientationField {
-    pub fn cost(&self, pose: Pose<f32>) -> f32 {
+    pub fn cost(&self, pose: Pose<f32>, forward: Vector2<Ground>) -> f32 {
         match self.orientation_mode {
             OrientationMode::Unspecified => 0.0,
+            OrientationMode::AlignWithPath => angle_penalty_with_tolerance(
+                pose.orientation,
+                Angle(Vector2::x_axis().angle(&forward)),
+                self.path_alignment_tolerance,
+            ),
             OrientationMode::LookTowards(orientation) => {
                 angle_penalty(pose.orientation, Angle(orientation.angle()))
             }
@@ -31,11 +44,19 @@ impl WalkOrientationField {
         }
     }
 
-    pub fn grad(&self, pose: Pose<f32>) -> PoseGradient<f32> {
+    pub fn grad(&self, pose: Pose<f32>, forward: Vector2<Ground>) -> PoseGradient<f32> {
         match self.orientation_mode {
             OrientationMode::Unspecified => PoseGradient {
                 position: Vector2::zeros(),
                 orientation: 0.0,
+            },
+            OrientationMode::AlignWithPath => PoseGradient {
+                position: Vector2::zeros(),
+                orientation: angle_penalty_with_tolerance_derivative(
+                    pose.orientation,
+                    Angle(Vector2::x_axis().angle(&forward)),
+                    self.path_alignment_tolerance,
+                ),
             },
             OrientationMode::LookTowards(orientation) => PoseGradient {
                 position: Vector2::zeros(),
@@ -67,7 +88,7 @@ impl WalkOrientationField {
 mod tests {
     use std::f32::consts::TAU;
 
-    use linear_algebra::{point, Orientation2};
+    use linear_algebra::{point, Orientation2, Vector2};
     use proptest::proptest;
     use types::motion_command::OrientationMode;
 
@@ -78,9 +99,7 @@ mod tests {
     proptest!(
         #[test]
         fn verify_gradient_look_towards(x in -5.0f32..5.0, y in -5.0f32..5.0, orientation in 0.0..TAU, target_orientation in 0.0..TAU) {
-            let cost_field = WalkOrientationField {
-                orientation_mode: OrientationMode::LookTowards(Orientation2::new(target_orientation)),
-            };
+            let cost_field = WalkOrientationField {orientation_mode:OrientationMode::LookTowards(Orientation2::new(target_orientation)), path_alignment_tolerance: 1.0 };
 
             let position = point![x, y];
             let orientation = Angle(orientation);
@@ -91,8 +110,8 @@ mod tests {
             };
 
             crate::test_utils::verify_gradient::verify_gradient(
-                &|p| cost_field.cost(p),
-                &|p| cost_field.grad(p),
+                &|p| cost_field.cost(p, Vector2::x_axis()),
+                &|p| cost_field.grad(p, Vector2::x_axis()),
                 0.05,
                 pose,
             )
@@ -102,9 +121,7 @@ mod tests {
     proptest!(
         #[test]
         fn verify_gradient_look_at(x in -5.0f32..5.0, y in -5.0f32..5.0, orientation in 0.0..TAU, target_x in -5.0f32..5.0, target_y in -5.0f32..5.0) {
-            let cost_field = WalkOrientationField {
-                orientation_mode: OrientationMode::LookAt(point![target_x, target_y]),
-            };
+            let cost_field = WalkOrientationField {orientation_mode:OrientationMode::LookAt(point![target_x,target_y]), path_alignment_tolerance: 1.0 };
 
             let position = point![x, y];
             let orientation = Angle(orientation);
@@ -118,7 +135,7 @@ mod tests {
                         orientation,
                     };
 
-                    cost_field.cost(pose)
+                    cost_field.cost(pose, Vector2::x_axis())
                 },
                 &|orientation| {
                     let pose = Pose {
@@ -126,7 +143,7 @@ mod tests {
                         orientation,
                     };
 
-                    cost_field.grad(pose).orientation
+                    cost_field.grad(pose, Vector2::x_axis()).orientation
                 },
                 0.05,
                 orientation,
