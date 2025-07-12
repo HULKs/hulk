@@ -5,6 +5,7 @@ use eframe::{egui::Color32, epaint::Stroke};
 
 use coordinate_systems::{Ground, UpcomingSupport};
 use linear_algebra::{point, vector, Isometry2, Orientation2, Orientation3, Pose2, Pose3};
+use step_planning::VARIABLES_PER_STEP;
 use types::{field_dimensions::FieldDimensions, step::Step, support_foot::Side};
 
 use crate::{
@@ -125,7 +126,7 @@ impl Layer<Ground> for PlannedSteps {
             );
         }
 
-        let dummy_gradient = vec![0.0; step_plan_greedy.len() * 3];
+        let dummy_gradient = vec![0.0; step_plan_greedy.len() * VARIABLES_PER_STEP];
         paint_step_plan(
             painter,
             Color32::BLUE,

@@ -13,6 +13,7 @@ use step_planning::{
     geometry::{angle::Angle, normalized_step::NormalizedStep, pose::Pose},
     step_plan::StepPlan,
     traits::{EndPoints, Project},
+    VARIABLES_PER_STEP,
 };
 use types::{
     motion_command::{MotionCommand, OrientationMode, WalkSpeed},
@@ -23,8 +24,6 @@ use types::{
     walk_volume_extents::WalkVolumeExtents,
 };
 use walking_engine::{anatomic_constraints::AnatomicConstraints, mode::Mode};
-
-const VARIABLES_PER_STEP: usize = 3;
 
 #[derive(Deserialize, Serialize)]
 pub struct StepPlanner {
