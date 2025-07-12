@@ -369,6 +369,9 @@ fn step_plan_greedy(
             left: step_target.position().y(),
             turn: match orientation_mode {
                 OrientationMode::Unspecified => step_target.orientation().angle(),
+                OrientationMode::AlignWithPath => {
+                    pose.position().look_at(&target_pose.position()).angle()
+                }
                 OrientationMode::LookTowards(orientation) => {
                     (pose.orientation().as_transform::<Ground>().inverse() * orientation).angle()
                 }

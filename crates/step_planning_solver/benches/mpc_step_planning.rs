@@ -31,6 +31,7 @@ fn plan_steps(path: &Path) {
                 target_orientation: 1.0,
                 walk_orientation: 0.1,
             },
+            path_alignment_tolerance: FRAC_PI_2,
             path_progress_smoothness: 0.05,
             alignment_ramp_steepness: 50.0,
             warm_start: true,

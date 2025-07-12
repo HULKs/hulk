@@ -479,6 +479,7 @@ pub struct StepPlanningOptimizationParameters {
     pub num_steps: usize,
     pub walk_volume_extents: WalkVolumeExtents,
     pub cost_factors: StepPlanningCostFactors,
+    pub path_alignment_tolerance: f32,
     pub path_progress_smoothness: f32,
     pub alignment_ramp_steepness: f32,
     pub warm_start: bool,
