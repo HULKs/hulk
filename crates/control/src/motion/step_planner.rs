@@ -125,7 +125,7 @@ impl StepPlanner {
         self.leg_joints_hot = greater_than_with_absolute_hysteresis(
             self.leg_joints_hot,
             highest_temperature,
-            70.0..=76.0,
+            70.0..=75.0,
         );
         // at 76°C stiffness gets automatically reduced by the motors - this stops if temperature is below 70°C again
 
