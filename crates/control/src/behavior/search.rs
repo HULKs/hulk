@@ -125,7 +125,7 @@ pub fn execute(
         let orientation_mode = if is_reached {
             OrientationMode::LookTowards(Orientation2::new(parameters.rotation_per_step))
         } else {
-            OrientationMode::Unspecified
+            OrientationMode::AlignWithPath
         };
         Some(walk_path_planner.walk_with_obstacle_avoiding_arms(
             head,
