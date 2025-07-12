@@ -197,7 +197,10 @@ impl KickSelector {
                 *context.dribble_walk_speed,
             )
             .unwrap();
+            let end_support_side = step_plan.last().unwrap().1;
             let mut walking_engine_context = walking_engine_context.clone();
+            let zero_step_duration = (end_support_side != kick_decision.kicking_side)
+                .then_some(context.walking_engine_parameters.base.step_duration);
             let walk_duration: Duration = step_plan
                 .iter()
                 .map(|(step, support_side)| {
@@ -207,6 +210,7 @@ impl KickSelector {
                         calculate_joints_at_end_of_step(step_plan, &walking_engine_context);
                     step_plan.step_duration
                 })
+                .chain(zero_step_duration)
                 .sum();
 
             walk_duration
