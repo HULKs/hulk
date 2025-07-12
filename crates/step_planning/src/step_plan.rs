@@ -19,13 +19,14 @@ use crate::{
         pose::{Pose, PoseGradient},
     },
     traits::{Length, PathProgress},
+    VARIABLES_PER_STEP,
 };
 
 pub struct StepPlan<'a, T>(&'a [T]);
 
 impl<'a, T> From<&'a [T]> for StepPlan<'a, T> {
     fn from(value: &'a [T]) -> Self {
-        assert!(value.len() % 3 == 0);
+        assert!(value.len() % VARIABLES_PER_STEP == 0);
 
         Self(value)
     }
