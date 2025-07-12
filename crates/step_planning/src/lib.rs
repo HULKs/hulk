@@ -4,6 +4,8 @@ pub mod step_plan;
 pub mod traits;
 pub mod utils;
 
+pub const VARIABLES_PER_STEP: usize = 3;
+
 #[cfg(test)]
 pub mod test_utils {
     pub mod decompose;

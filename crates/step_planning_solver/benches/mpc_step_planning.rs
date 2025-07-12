@@ -3,7 +3,10 @@ use std::{f32::consts::FRAC_PI_2, hint::black_box, time::Duration};
 use criterion::{criterion_group, criterion_main, Criterion};
 use geometry::{arc::Arc, circle::Circle, direction::Direction, line_segment::LineSegment};
 use linear_algebra::{point, Orientation2, Point2};
-use step_planning::geometry::{angle::Angle, pose::Pose};
+use step_planning::{
+    geometry::{angle::Angle, pose::Pose},
+    VARIABLES_PER_STEP,
+};
 use types::{
     motion_command::OrientationMode,
     parameters::{StepPlanningCostFactors, StepPlanningOptimizationParameters},
@@ -39,7 +42,8 @@ fn plan_steps(path: &Path) {
 
     let distance_to_be_aligned = 0.1;
 
-    let mut variables = vec![0.0; STEP_PLANNING_OPTIMIZATION_PARAMETERS.num_steps * 3];
+    let mut variables =
+        vec![0.0; STEP_PLANNING_OPTIMIZATION_PARAMETERS.num_steps * VARIABLES_PER_STEP];
 
     let (_, _) = step_planning_solver::plan_steps(
         path,
