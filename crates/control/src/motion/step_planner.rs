@@ -20,6 +20,7 @@ use types::{
     planned_path::{Path, PathSegment},
     step::Step,
     support_foot::Side,
+    walk_volume_extents::WalkVolumeExtents,
 };
 use walking_engine::{anatomic_constraints::AnatomicConstraints, mode::Mode};
 
@@ -51,6 +52,7 @@ pub struct CycleContext {
     request_scale: Parameter<Step, "step_planner.request_scale">,
     optimization_parameters:
         Parameter<StepPlanningOptimizationParameters, "step_planner.optimization_parameters">,
+    pub walk_volume_extents: Parameter<WalkVolumeExtents, "step_planner.walk_volume_extents">,
 
     ground_to_upcoming_support:
         CyclerState<Isometry2<Ground, UpcomingSupport>, "ground_to_upcoming_support">,
@@ -200,7 +202,7 @@ impl StepPlanner {
         let direct_step_to_target = Step::from_pose(target_pose_in_upcoming_support);
         let normalized_direct_step_to_target = NormalizedStep::from_step(
             direct_step_to_target,
-            &context.optimization_parameters.walk_volume_extents,
+            context.walk_volume_extents,
             next_support_side,
         );
 
@@ -228,6 +230,7 @@ impl StepPlanner {
             upcoming_support_pose_in_ground(context),
             next_support_side,
             variables.as_mut_slice(),
+            context.walk_volume_extents,
             context.optimization_parameters,
         )?;
 
@@ -236,10 +239,7 @@ impl StepPlanner {
         let step_plan: Vec<Step> = StepPlan::from(variables_f32.as_slice())
             .steps()
             .scan(next_support_side, |support_side, step| {
-                let result = step.unnormalize(
-                    &context.optimization_parameters.walk_volume_extents,
-                    *support_side,
-                );
+                let result = step.unnormalize(context.walk_volume_extents, *support_side);
                 *support_side = support_side.opposite();
 
                 Some(result)

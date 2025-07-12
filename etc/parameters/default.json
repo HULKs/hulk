@@ -327,17 +327,17 @@
       "left": 1.4,
       "turn": 1.5
     },
+    "walk_volume_extents": {
+      "forward": 0.045,
+      "backward": 0.03,
+      "outward": 0.1,
+      "inward": 0.01,
+      "outward_rotation": 0.5,
+      "inward_rotation": 0.5
+    },
     "optimization_parameters": {
       "optimizer_steps": 10,
       "num_steps": 5,
-      "walk_volume_extents": {
-        "forward": 0.045,
-        "backward": 0.03,
-        "outward": 0.1,
-        "inward": 0.01,
-        "outward_rotation": 0.5,
-        "inward_rotation": 0.5
-      },
       "cost_factors": {
         "path_progress": 0.5,
         "path_distance": 10.0,

@@ -16,7 +16,7 @@ use step_planning::{
 };
 use types::{
     motion_command::OrientationMode, parameters::StepPlanningOptimizationParameters,
-    planned_path::Path, support_foot::Side,
+    planned_path::Path, support_foot::Side, walk_volume_extents::WalkVolumeExtents,
 };
 
 struct WalkVolumeConstraint;
@@ -68,7 +68,7 @@ fn cost(variables: &[f32], step_planning: &StepPlanning) -> f32 {
         .step_end_poses(
             step_planning.initial_pose.clone(),
             step_planning.initial_support_foot,
-            step_planning.parameters.walk_volume_extents.clone(),
+            step_planning.walk_volume_extents.clone(),
             &step_plan,
         )
         .map(|planned_step| step_planning.cost(planned_step))
@@ -101,7 +101,7 @@ fn gradient(variables: &[f32], step_planning: &StepPlanning) -> DVector<f32> {
         .step_end_poses(
             step_planning.initial_pose.clone().wrap_dual(),
             step_planning.initial_support_foot,
-            step_planning.parameters.walk_volume_extents.clone(),
+            step_planning.walk_volume_extents.clone(),
             &step_plan,
         )
         .map(|dual_planned_step| {
@@ -145,6 +145,7 @@ pub fn plan_steps(
     initial_pose: Pose<f32>,
     initial_support_foot: Side,
     variables: &mut [f64],
+    walk_volume_extents: &WalkVolumeExtents,
     parameters: &StepPlanningOptimizationParameters,
 ) -> Result<(DVector<f32>, f32)> {
     let step_planning = StepPlanning {
@@ -155,6 +156,7 @@ pub fn plan_steps(
         orientation_mode,
         target_orientation,
         distance_to_be_aligned,
+        walk_volume_extents,
     };
 
     let problem = Problem::new(
