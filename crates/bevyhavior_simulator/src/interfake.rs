@@ -1,9 +1,11 @@
 use std::{
     mem::take,
+    path::PathBuf,
     sync::Arc,
     time::{SystemTime, UNIX_EPOCH},
 };
 
+use hula_types::hardware::Paths;
 use parking_lot::Mutex;
 
 use buffered_watch::{Receiver, Sender};
@@ -70,7 +72,11 @@ impl SpeakerInterface for Interfake {
 
 impl PathsInterface for Interfake {
     fn get_paths(&self) -> hula_types::hardware::Paths {
-        unimplemented!()
+        Paths {
+            motions: PathBuf::from("etc/motions"),
+            neural_networks: PathBuf::from("etc/neural_networks"),
+            sounds: PathBuf::from("etc/sounds"),
+        }
     }
 }
 

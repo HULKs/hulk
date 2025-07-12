@@ -31,6 +31,7 @@ fn main() -> Result<()> {
                     "control::primary_state_filter",
                     "control::referee_position_provider",
                     "control::ready_signal_detection_filter",
+                    "control::fall_state_detection",
                     "control::role_assignment",
                     "control::rule_obstacle_composer",
                     "control::search_suggestor",

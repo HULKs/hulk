@@ -1,7 +1,7 @@
 use std::{net::SocketAddr, time::Duration};
 
 use color_eyre::Result;
-use linear_algebra::Isometry2;
+use linear_algebra::{Isometry2, Orientation3};
 use projection::camera_matrices::CameraMatrices;
 use serde::{Deserialize, Serialize};
 
@@ -67,6 +67,7 @@ pub struct MainOutputs {
     pub calibration_command: MainOutput<Option<CalibrationCommand>>,
     pub stand_up_front_estimated_remaining_duration: MainOutput<Option<Duration>>,
     pub camera_matrices: MainOutput<Option<CameraMatrices>>,
+    pub robot_orientation: MainOutput<Option<Orientation3<Field>>>,
 }
 
 impl FakeData {
@@ -107,6 +108,7 @@ impl FakeData {
                 .into(),
             calibration_command: last_database.calibration_command.into(),
             camera_matrices: last_database.camera_matrices.clone().into(),
+            robot_orientation: last_database.robot_orientation.clone().into(),
         })
     }
 }
