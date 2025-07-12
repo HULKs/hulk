@@ -334,10 +334,10 @@ fn paint_planned_step(
 ) {
     painter.pose(
         Pose2::default(),
-        0.02,
-        0.03,
+        0.002,
+        0.003,
         Color32::TRANSPARENT,
-        Stroke::new(0.005, Color32::BLACK),
+        Stroke::new(0.0005, Color32::BLACK),
     );
     painter.pose(
         ground_to_upcoming_support.inverse()
@@ -345,9 +345,9 @@ fn paint_planned_step(
                 point![planned_step.forward, planned_step.left],
                 planned_step.turn,
             ),
-        0.02,
-        0.03,
+        0.002,
+        0.003,
         Color32::RED,
-        Stroke::new(0.005, Color32::BLACK),
+        Stroke::new(0.0005, Color32::BLACK),
     );
 }
