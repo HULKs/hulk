@@ -1,4 +1,7 @@
-use color_eyre::{eyre::eyre, Result};
+use color_eyre::{
+    eyre::{eyre, ContextCompat},
+    Result,
+};
 use coordinate_systems::{Ground, UpcomingSupport};
 use filtering::hysteresis::greater_than_with_absolute_hysteresis;
 use geometry::direction::Rotate90Degrees;
@@ -120,11 +123,11 @@ impl StepPlanner {
             .into_iter()
             .chain(context.sensor_data.temperature_sensors.right_leg)
             .max_by(f32::total_cmp)
-            .expect("temperatures must not be empty.");
+            .wrap_err("temperatures must not be empty.");
 
         self.leg_joints_hot = greater_than_with_absolute_hysteresis(
             self.leg_joints_hot,
-            highest_temperature,
+            highest_temperature?,
             70.0..=75.0,
         );
         // at 76°C stiffness gets automatically reduced by the motors - this stops if temperature is below 70°C again

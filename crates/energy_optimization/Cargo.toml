@@ -6,6 +6,7 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
+color-eyre = { workspace = true }
 filtering = { workspace = true }
 path_serde = { workspace = true }
 serde = { workspace = true }
