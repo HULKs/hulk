@@ -17,14 +17,6 @@ fn plan_steps(path: &Path) {
         StepPlanningOptimizationParameters {
             optimizer_steps: 20,
             num_steps: 10,
-            walk_volume_extents: WalkVolumeExtents {
-                forward: 0.045,
-                backward: 0.03,
-                outward: 0.1,
-                inward: 0.01,
-                outward_rotation: 0.5,
-                inward_rotation: 0.5,
-            },
             cost_factors: StepPlanningCostFactors {
                 path_progress: 0.5,
                 path_distance: 10.0,
@@ -36,6 +28,14 @@ fn plan_steps(path: &Path) {
             alignment_ramp_steepness: 50.0,
             warm_start: true,
         };
+    const WALK_VOLUME_EXTENTS: WalkVolumeExtents = WalkVolumeExtents {
+        forward: 0.045,
+        backward: 0.03,
+        outward: 0.1,
+        inward: 0.01,
+        outward_rotation: 0.5,
+        inward_rotation: 0.5,
+    };
 
     let distance_to_be_aligned = 0.1;
 
@@ -52,6 +52,7 @@ fn plan_steps(path: &Path) {
         },
         Side::Left,
         &mut variables,
+        &black_box(WALK_VOLUME_EXTENTS),
         &black_box(STEP_PLANNING_OPTIMIZATION_PARAMETERS),
     )
     .unwrap();

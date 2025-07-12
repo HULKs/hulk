@@ -45,6 +45,7 @@ pub struct StepPlanning<'a> {
     pub initial_pose: Pose<f32>,
     pub initial_support_foot: Side,
     pub orientation_mode: OrientationMode,
+    pub walk_volume_extents: &'a WalkVolumeExtents,
     pub parameters: &'a StepPlanningOptimizationParameters,
 }
 
