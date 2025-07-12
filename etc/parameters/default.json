@@ -341,8 +341,8 @@
       "cost_factors": {
         "path_progress": 0.5,
         "path_distance": 10.0,
-        "target_orientation": 1.0,
-        "walk_orientation": 1.0
+        "target_orientation": 10.0,
+        "walk_orientation": 0.5
       },
       "path_alignment_tolerance": 1.57,
       "path_progress_smoothness": 0.05,

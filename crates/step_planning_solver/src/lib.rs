@@ -115,7 +115,7 @@ fn gradient(variables: &[f32], step_planning: &StepPlanning) -> DVector<f32> {
         })
         .sum::<DVector<f32>>();
 
-    normalize_gradient(gradient, 1.0)
+    normalize_gradient(gradient, 2.0)
 }
 
 fn open_gradient(
