@@ -5,7 +5,7 @@ use num_traits::{real::Real, NumAssignOps};
 
 use crate::{
     test_utils::decompose::Decompose,
-    traits::gradient_type::{Gradient, GradientType},
+    traits::{Gradient, GradientType},
 };
 
 pub fn verify_gradient<A: Clone + Debug + Decompose<F> + GradientType, F: Real + NumAssignOps>(
