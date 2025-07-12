@@ -71,6 +71,7 @@ impl StepPlanning<'_> {
         let cost_factors = &self.parameters.cost_factors;
 
         let progress = self.path.progress(pose.position);
+        let forward = self.path.forward(pose.position);
         let path_length = self.path.length();
         let distance_to_target = path_length - progress;
         let target_alignment_importance = self.target_alignment_importance(distance_to_target);
@@ -80,7 +81,7 @@ impl StepPlanning<'_> {
             self.path_progress().cost(progress, path_length) * cost_factors.path_progress;
         let path_distance_cost =
             self.path_distance().cost(pose.position) * cost_factors.path_distance;
-        let walk_orientation_cost = self.walk_orientation().cost(pose.clone())
+        let walk_orientation_cost = self.walk_orientation().cost(pose.clone(), forward)
             * cost_factors.walk_orientation
             * walk_alignment_importance;
         let target_orientation_cost = self.target_orientation().cost(pose)
@@ -104,7 +105,7 @@ impl StepPlanning<'_> {
             self.path_progress().grad(progress, forward, path_length) * cost_factors.path_progress;
         let path_distance_gradient =
             self.path_distance().grad(pose.position) * cost_factors.path_distance;
-        let walk_orientation_gradient = self.walk_orientation().grad(pose.clone())
+        let walk_orientation_gradient = self.walk_orientation().grad(pose.clone(), forward)
             * cost_factors.walk_orientation
             * walk_alignment_importance;
         let target_orientation_gradient = self.target_orientation().grad(pose)
@@ -139,6 +140,7 @@ impl StepPlanning<'_> {
     fn walk_orientation(&self) -> WalkOrientationField {
         WalkOrientationField {
             orientation_mode: self.orientation_mode,
+            path_alignment_tolerance: self.parameters.path_alignment_tolerance,
         }
     }
 
