@@ -13,6 +13,7 @@ use step_planning::{
     geometry::pose::Pose,
     step_plan::{StepPlan, StepPlanning},
     traits::{ScaledGradient, UnwrapDual, WrapDual},
+    VARIABLES_PER_STEP,
 };
 use types::{
     motion_command::OrientationMode, parameters::StepPlanningOptimizationParameters,
@@ -23,7 +24,7 @@ struct WalkVolumeConstraint;
 
 impl Constraint for WalkVolumeConstraint {
     fn project(&self, variables: &mut [f64]) {
-        debug_assert!(variables.len() % 3 == 0);
+        debug_assert!(variables.len() % VARIABLES_PER_STEP == 0);
 
         for step in variables.chunks_exact_mut(3) {
             let squared_magnitude = step.iter().map(|x| x.powi(2)).sum::<f64>();
@@ -165,7 +166,7 @@ pub fn plan_steps(
         |variables, out_cost| open_cost(&step_planning, variables, out_cost),
     );
 
-    let n = parameters.num_steps * 3;
+    let n = parameters.num_steps * VARIABLES_PER_STEP;
     let lbfgs_memory = 10;
     let tolerance = 1e-6;
     let mut panoc_cache = PANOCCache::new(n, tolerance, lbfgs_memory).with_cbfgs_parameters(
