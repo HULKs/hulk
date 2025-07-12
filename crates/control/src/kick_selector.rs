@@ -26,11 +26,13 @@ use types::{
     parameters::{InWalkKickInfoParameters, InWalkKicksParameters, StepPlannerParameters},
     planned_path::direct_path,
     sensor_data::SensorData,
+    step::Step,
     support_foot::Side,
     world_state::BallState,
 };
 use walking_engine::{
-    kick_steps::KickSteps, mode::Mode, parameters::Parameters, step_plan::StepPlan, Context,
+    kick_steps::KickSteps, mode::Mode, parameters::Parameters, step_plan::StepPlan,
+    step_state::StepState, Context,
 };
 
 use crate::motion::step_planner::step_plan_greedy;
@@ -64,7 +66,6 @@ pub struct CycleContext {
     center_of_mass: Input<Point3<Robot>, "center_of_mass">,
     sensor_data: Input<SensorData, "sensor_data">,
     robot_to_ground: Input<Option<Isometry3<Robot, Ground>>, "robot_to_ground?">,
-    robot_orientation: RequiredInput<Option<Orientation3<Field>>, "robot_orientation?">,
     zero_moment_point: Input<Point2<Ground>, "zero_moment_point">,
     number_of_consecutive_cycles_zero_moment_point_outside_support_polygon:
         Input<i32, "number_of_consecutive_cycles_zero_moment_point_outside_support_polygon">,
@@ -148,17 +149,17 @@ impl KickSelector {
                         + arm_compensation),
             ),
         );
-        let walking_engine_context = Context {
+        let mut walking_engine_context = Context {
             parameters: context.walking_engine_parameters,
             max_step_size: &context.step_planner_parameters.max_step_size,
             kick_steps: context.kick_steps,
             cycle_time: context.cycle_time,
             center_of_mass: context.center_of_mass,
             force_sensitive_resistors: &context.sensor_data.force_sensitive_resistors,
-            robot_orientation: context.robot_orientation,
+            robot_orientation: &Orientation3::default(),
             robot_to_ground: context.robot_to_ground,
             gyro: nalgebra::Vector3::zeros(),
-            last_actuated_joints: BodyJoints::default(),
+            last_actuated_joints: BodyJoints::default(), // TODO: Crude approximation
             measured_joints: context.sensor_data.positions.into(),
             robot_to_walk,
             obstacle_avoiding_arms: &ArmCommands::default(),
@@ -167,56 +168,60 @@ impl KickSelector {
                 .number_of_consecutive_cycles_zero_moment_point_outside_support_polygon,
         };
 
-        let step_plans: Vec<_> = kick_decisions
-            .iter()
-            .map(|kick_decision| {
-                let kick_pose_in_upcoming_support_ground =
-                    *context.ground_to_upcoming_support * kick_decision.kick_pose;
-                let step_plan = step_plan_greedy(
-                    &direct_path(
-                        Point2::origin(),
-                        kick_pose_in_upcoming_support_ground.position(),
-                    ),
-                    context.step_planner_parameters,
-                    Pose2::zero(),
-                    *context.walking_engine_mode,
-                    OrientationMode::Override(kick_pose_in_upcoming_support_ground.orientation()),
-                    *context.dribble_walk_speed,
-                )
-                .unwrap();
+        let step = match *context.walking_engine_mode {
+            Mode::Walking(walking) => walking.requested_step,
+            _ => Step::default(),
+        };
+        let current_support_side = context
+            .walking_engine_mode
+            .support_side()
+            .unwrap_or(Side::Left);
+        let step_plan =
+            StepPlan::new_from_request(&walking_engine_context, step, current_support_side);
 
-                let support_side = context
-                    .walking_engine_mode
-                    .support_side()
-                    .unwrap_or(Side::Left);
-                let walk_duration: Duration = step_plan
-                    .iter()
-                    .map(|step| {
-                        let step_plan = StepPlan::new_from_request(
-                            &walking_engine_context,
-                            *step,
-                            support_side,
-                        );
-                        step_plan.step_duration
-                    })
-                    .sum();
+        walking_engine_context.last_actuated_joints =
+            calculate_joints_at_end_of_step(step_plan, &walking_engine_context);
 
-                let distance = distance_to_kick_pose(
-                    *context.ground_to_upcoming_support * kick_decision.kick_pose,
-                    context.decision_parameters.angle_distance_weight,
-                );
+        let rate_kick_decision = |kick_decision: &KickDecision| {
+            let kick_pose_in_upcoming_support_ground =
+                *context.ground_to_upcoming_support * kick_decision.kick_pose;
+            let step_plan = step_plan_greedy(
+                &direct_path(
+                    Point2::origin(),
+                    kick_pose_in_upcoming_support_ground.position(),
+                ),
+                context.step_planner_parameters,
+                Pose2::zero(),
+                current_support_side.opposite(),
+                OrientationMode::Override(kick_pose_in_upcoming_support_ground.orientation()),
+                *context.dribble_walk_speed,
+            )
+            .unwrap();
+            let mut walking_engine_context = walking_engine_context.clone();
+            let walk_duration: Duration = step_plan
+                .iter()
+                .map(|(step, support_side)| {
+                    let step_plan =
+                        StepPlan::new_from_request(&walking_engine_context, *step, *support_side);
+                    walking_engine_context.last_actuated_joints =
+                        calculate_joints_at_end_of_step(step_plan, &walking_engine_context);
+                    step_plan.step_duration
+                })
+                .sum();
 
-                (distance, walk_duration)
-            })
-            .collect();
-        dbg!(step_plans);
+            walk_duration
+        };
+
+        // let step_plans: Vec<_> = kick_decisions.iter().map(rate_kick_decision).collect();
+        // dbg!(step_plans);
 
         kick_decisions.sort_by(|left, right| {
             compare_decisions(
                 left,
                 right,
+                rate_kick_decision(left),
+                rate_kick_decision(right),
                 ball_position,
-                *context.ground_to_upcoming_support,
                 context.obstacles,
                 context.decision_parameters,
             )
@@ -236,8 +241,9 @@ impl KickSelector {
             compare_decisions(
                 left,
                 right,
+                rate_kick_decision(left),
+                rate_kick_decision(right),
                 ball_position,
-                *context.ground_to_upcoming_support,
                 context.obstacles,
                 context.decision_parameters,
             )
@@ -248,6 +254,16 @@ impl KickSelector {
             instant_kick_decisions: Some(instant_kick_decisions).into(),
         })
     }
+}
+
+fn calculate_joints_at_end_of_step(
+    step_plan: StepPlan,
+    walking_engine_context: &Context<'_>,
+) -> BodyJoints {
+    let mut step_state = StepState::new(step_plan);
+    step_state.time_since_start = step_plan.step_duration;
+
+    step_state.compute_joints(walking_engine_context)
 }
 
 fn is_ball_in_opponents_corners(
@@ -374,8 +390,9 @@ fn generate_penalty_shot_kick_targets(context: &CycleContext) -> Vec<Point2<Grou
 fn compare_decisions(
     left: &KickDecision,
     right: &KickDecision,
+    time_to_reach_left: Duration,
+    time_to_reach_right: Duration,
     ball_position: Point2<Ground>,
-    ground_to_upcoming_support: Isometry2<Ground, UpcomingSupport>,
     obstacles: &[Obstacle],
     parameters: &DecisionParameters,
 ) -> Ordering {
@@ -385,14 +402,6 @@ fn compare_decisions(
         is_intersecting_with_an_obstacle(obstacles, ball_position, left.target, parameters);
     let right_is_intersecting_with_obstacle =
         is_intersecting_with_an_obstacle(obstacles, ball_position, right.target, parameters);
-    let distance_to_left = distance_to_kick_pose(
-        ground_to_upcoming_support * left.kick_pose,
-        parameters.angle_distance_weight,
-    );
-    let distance_to_right = distance_to_kick_pose(
-        ground_to_upcoming_support * right.kick_pose,
-        parameters.angle_distance_weight,
-    );
 
     match (
         left_in_obstacle,
@@ -404,7 +413,7 @@ fn compare_decisions(
         (true, false, _, _) => Ordering::Greater,
         (_, _, false, true) => Ordering::Less,
         (_, _, true, false) => Ordering::Greater,
-        _ => distance_to_left.total_cmp(&distance_to_right),
+        _ => time_to_reach_left.cmp(&time_to_reach_right),
     }
 }
 

@@ -23,7 +23,7 @@ pub mod kick_steps;
 pub mod mode;
 pub mod parameters;
 pub mod step_plan;
-mod step_state;
+pub mod step_state;
 mod stiffness;
 
 /// # WalkingEngine
@@ -31,6 +31,7 @@ mod stiffness;
 /// The algorithm to compute the feet trajectories is loosely based on the work of Bernhard Hengst
 /// at the team rUNSWift. An explanation of this algorithm can be found in the team's research
 /// report from 2014 (<http://cgi.cse.unsw.edu.au/~robocup/2014ChampionTeamPaperReports/20140930-Bernhard.Hengst-Walk2014Report.pdf>).
+#[derive(Debug, Clone)]
 pub struct Context<'a> {
     pub parameters: &'a Parameters,
     pub max_step_size: &'a Step,

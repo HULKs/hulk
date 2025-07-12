@@ -206,16 +206,13 @@ pub fn step_plan_greedy<Frame>(
     path: &[PathSegment<Frame>],
     parameters: &StepPlannerParameters,
     mut pose: Pose2<Frame>,
-    walking_engine_mode: Mode,
+    initial_support_side: Side,
     orientation_mode: OrientationMode<Frame>,
     speed: WalkSpeed,
-) -> Result<Vec<Step>> {
+) -> Result<Vec<(Step, Side)>> {
     let mut steps = Vec::new();
     let mut last_planned_step = Step::default();
-    let mut support_side = walking_engine_mode
-        .support_side()
-        .unwrap_or(Side::Left)
-        .opposite();
+    let mut support_side = initial_support_side;
 
     let destination = match path.last() {
         Some(PathSegment::Arc(arc)) => arc.end_point(),
@@ -278,9 +275,8 @@ pub fn step_plan_greedy<Frame>(
 
         pose = pose.as_transform() * step_rotation * step_translation.as_pose();
         last_planned_step = step;
+        steps.push((step, support_side));
         support_side = support_side.opposite();
-
-        steps.push(step);
 
         if (destination - pose.position()).norm_squared() > 0.01 {
             continue;
