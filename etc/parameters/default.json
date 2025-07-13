@@ -458,12 +458,15 @@
       "roll_scale": 0.0872665,
       "start_reduce_to_zero": 0.75
     },
-    "max_rotation_speed": 50000.0,
-    "max_forward_acceleration": 0.01,
+    "forward_turn_reduction": 0.7,
+    "forward_turn_threshold": 0.45,
     "max_base_inside_turn": 0.1,
+    "max_forward_acceleration": 0.01,
     "max_inside_turn_increase": 4,
+    "max_rotation_speed": 50000.0,
     "max_step_duration": { "nanos": 0, "secs": 2 },
     "max_support_foot_lift_speed": 0.025,
+    "max_turn_acceleration": 0.7,
     "min_step_duration": { "nanos": 100000000, "secs": 0 },
     "sole_pressure_threshold": 0.4,
     "step_midpoint": {
