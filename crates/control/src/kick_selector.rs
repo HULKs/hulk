@@ -1,4 +1,4 @@
-use std::{cmp::Ordering, time::Duration};
+use std::{cmp::Ordering, hint::black_box, time::Duration};
 
 use color_eyre::Result;
 use itertools::iproduct;
@@ -203,6 +203,7 @@ impl KickSelector {
                 .then_some(context.walking_engine_parameters.base.step_duration);
             let walk_duration: Duration = step_plan
                 .iter()
+                .take(4)
                 .map(|(step, support_side)| {
                     let step_plan =
                         StepPlan::new_from_request(&walking_engine_context, *step, *support_side);
@@ -212,6 +213,8 @@ impl KickSelector {
                 })
                 .chain(zero_step_duration)
                 .sum();
+            black_box(&walk_duration);
+            return Duration::ZERO;
 
             walk_duration
         };
@@ -245,6 +248,8 @@ impl KickSelector {
             compare_decisions(
                 left,
                 right,
+                // TODO: this operation might be expensive, could be
+                // improved by precalculating times for each kick decision
                 rate_kick_decision(left),
                 rate_kick_decision(right),
                 ball_position,
@@ -589,11 +594,6 @@ fn kick_decisions_from_targets(
             })
         })
         .collect()
-}
-
-fn distance_to_kick_pose(kick_pose: Pose2<UpcomingSupport>, angle_distance_weight: f32) -> f32 {
-    kick_pose.position().coords().norm()
-        + angle_distance_weight * kick_pose.orientation().angle().abs()
 }
 
 fn is_inside_any_obstacle(

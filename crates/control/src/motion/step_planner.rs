@@ -220,7 +220,7 @@ pub fn step_plan_greedy<Frame>(
         None => todo!(),
     };
 
-    for _ in 0..30 {
+    for _ in 0..3 {
         let segment = path
             .iter()
             .min_by_key(|segment| {
