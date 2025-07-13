@@ -1,5 +1,6 @@
 use std::{
     convert::Into,
+    f32::consts::FRAC_PI_2,
     mem::take,
     sync::{mpsc, Arc},
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -19,9 +20,11 @@ use buffered_watch::{Receiver, Sender};
 use control::localization::generate_initial_pose;
 use coordinate_systems::{Field, Ground, Head, LeftSole, RightSole, Robot as RobotCoordinates};
 use framework::{future_queue, Producer, RecordingTrigger};
+use geometry::{is_inside_polygon::cross_product, line_segment::LineSegment};
 use hula_types::hardware::Ids;
 use linear_algebra::{
-    vector, Isometry2, Isometry3, Orientation2, Point2, Pose2, Pose3, Rotation2, Vector2,
+    distance, point, vector, Isometry2, Isometry3, Orientation2, Point2, Pose2, Pose3, Rotation2,
+    Vector2,
 };
 use parameters::directory::deserialize;
 use projection::intrinsic::Intrinsic;
@@ -31,12 +34,16 @@ use types::{
     filtered_whistle::FilteredWhistle,
     joints::Joints,
     messages::{IncomingMessage, OutgoingMessage},
-    motion_command::HeadMotion,
+    motion_command::{HeadMotion, KickVariant},
     motion_selection::MotionSafeExits,
     pose_kinds::PoseKind,
     robot_dimensions::RobotDimensions,
     sensor_data::Foot,
     support_foot::Side,
+};
+use walking_engine::{
+    kick_state::KickState,
+    mode::{kicking::Kicking, Mode},
 };
 
 use crate::{
@@ -254,38 +261,132 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
             ball.position += ball.velocity * time.delta_secs();
             ball.velocity *= 0.98
         }
+        if let Mode::Kicking(Kicking {
+            kick:
+                KickState {
+                    variant,
+                    side: kicking_side,
+                    strength,
+                    ..
+                },
+            ..
+        }) = robot.cycler.cycler_state.walking_engine_mode
+        {
+            if let Some(ball) = ball.state.as_mut() {
+                let side = match kicking_side {
+                    Side::Left => -1.0,
+                    Side::Right => 1.0,
+                };
 
-        // let head_motion = match robot.database.main_outputs.motion_command.clone() {
-        //     MotionCommand::InWalkKick {
-        //         head,
-        //         kick,
-        //         kicking_side,
-        //         strength,
-        //         ..
-        //     } => {
-        //         if let Some(ball) = ball.state.as_mut() {
-        //             let side = match kicking_side {
-        //                 Side::Left => -1.0,
-        //                 Side::Right => 1.0,
-        //             };
-        //
-        //             let in_range =
-        //                 (robot.ground_to_field().as_pose().position() - ball.position).norm() < 0.3;
-        //             let previous_kick_finished =
-        //                 (time.elapsed() - robot.last_kick_time).as_secs_f32() > 1.0;
-        //             if in_range && previous_kick_finished {
-        //                 let direction = match kick {
-        //                     KickVariant::Forward => vector![1.0, 0.0],
-        //                     KickVariant::Turn => vector![0.707, 0.707 * side],
-        //                     KickVariant::Side => vector![0.0, 1.0 * -side],
-        //                 };
-        //                 ball.velocity += robot.ground_to_field() * direction * strength * 2.5;
-        //                 robot.last_kick_time = time.elapsed();
-        //             };
-        //         }
-        //         head
-        //     }
-        // };
+                let left_sole_to_ground = robot.database.main_outputs.robot_to_ground.unwrap()
+                    * robot
+                        .database
+                        .main_outputs
+                        .robot_kinematics
+                        .left_leg
+                        .sole_to_robot;
+                let right_sole_to_ground = robot.database.main_outputs.robot_to_ground.unwrap()
+                    * robot
+                        .database
+                        .main_outputs
+                        .robot_kinematics
+                        .right_leg
+                        .sole_to_robot;
+                let left_outline = [
+                    point![-0.05457, -0.015151, 0.0],
+                    point![-0.050723, -0.021379, 0.0],
+                    point![-0.04262, -0.030603, 0.0],
+                    point![-0.037661, -0.033714, 0.0],
+                    point![-0.03297, -0.034351, 0.0],
+                    point![0.0577, -0.038771, 0.0],
+                    point![0.063951, -0.038362, 0.0],
+                    point![0.073955, -0.03729, 0.0],
+                    point![0.079702, -0.03532, 0.0],
+                    point![0.084646, -0.033221, 0.0],
+                    point![0.087648, -0.031482, 0.0],
+                    point![0.091805, -0.027692, 0.0],
+                    point![0.094009, -0.024299, 0.0],
+                    point![0.096868, -0.018802, 0.0],
+                    point![0.099419, -0.01015, 0.0],
+                    point![0.100097, -0.001573, 0.0],
+                    point![0.098991, 0.008695, 0.0],
+                    point![0.097014, 0.016504, 0.0],
+                    point![0.093996, 0.02418, 0.0],
+                    point![0.090463, 0.02951, 0.0],
+                    point![0.084545, 0.0361, 0.0],
+                    point![0.079895, 0.039545, 0.0],
+                    point![0.074154, 0.042654, 0.0],
+                    point![0.065678, 0.046145, 0.0],
+                    point![0.057207, 0.047683, 0.0],
+                    point![0.049911, 0.048183, 0.0],
+                    point![-0.031248, 0.051719, 0.0],
+                    point![-0.03593, 0.049621, 0.0],
+                    point![-0.040999, 0.045959, 0.0],
+                    point![-0.045156, 0.042039, 0.0],
+                    point![-0.04905, 0.037599, 0.0],
+                    point![-0.054657, 0.029814, 0.0],
+                ];
+
+                let left_sole_in_ground: Vec<_> = left_outline
+                    .into_iter()
+                    .map(|point| (left_sole_to_ground * point).xy())
+                    .collect();
+                let right_sole_in_ground: Vec<_> = left_outline
+                    .into_iter()
+                    .map(|point| {
+                        (right_sole_to_ground * point![point.x(), -point.y(), point.z()]).xy()
+                    })
+                    .collect();
+
+                let is_colliding = |x| {
+                    let points: &[Point2<Ground>] = x;
+                    let target_point: &Point2<Ground> =
+                        &(robot.ground_to_field().inverse() * ball.position);
+                    if !points.is_empty() {
+                        let mut crossings = 0;
+                        for i in 0..points.len() {
+                            let j = (i + 1) % points.len();
+
+                            if points[i].y() <= target_point.y() {
+                                if points[j].y() > target_point.y()
+                                    && cross_product(target_point, &points[i], &points[j]) > 0.0
+                                {
+                                    crossings += 1;
+                                }
+                            } else if points[j].y() <= target_point.y()
+                                && cross_product(target_point, &points[i], &points[j]) < 0.0
+                            {
+                                crossings -= 1;
+                            }
+
+                            let closest =
+                                LineSegment(points[i], points[j]).closest_point(*target_point);
+                            if distance(closest, *target_point) <= 0.05 {
+                                return true;
+                            }
+                        }
+
+                        return crossings != 0;
+                    }
+                    false
+                };
+                let in_range =
+                    is_colliding(&left_sole_in_ground) || is_colliding(&right_sole_in_ground);
+                let previous_kick_finished =
+                    (time.elapsed() - robot.last_kick_time).as_secs_f32() > 1.0;
+                if in_range && previous_kick_finished {
+                    let direction = match variant {
+                        KickVariant::Forward => Orientation2::identity(),
+                        KickVariant::Turn => Orientation2::new(0.35),
+                        KickVariant::Side => Orientation2::new(-FRAC_PI_2),
+                    }
+                    .as_unit_vector()
+                    .component_mul(&vector![1.0, side]);
+                    ball.velocity += robot.ground_to_field() * direction * strength * 2.5;
+                    robot.last_kick_time = time.elapsed();
+                };
+            }
+        };
 
         let (left_sole, right_sole) =
             sole_positions(&robot.database.main_outputs.sensor_data.positions);

@@ -35,7 +35,7 @@ pub fn is_inside_convex_hull<Frame>(
     is_inside_polygon(&convex_hull, target_point)
 }
 
-fn cross_product<Frame>(
+pub fn cross_product<Frame>(
     point: &Point2<Frame>,
     segment_start: &Point2<Frame>,
     segment_end: &Point2<Frame>,

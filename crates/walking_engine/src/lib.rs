@@ -18,7 +18,7 @@ mod compensate_stiffness_loss;
 pub mod feet;
 mod foot_leveling;
 mod gyro_balancing;
-mod kick_state;
+pub mod kick_state;
 pub mod kick_steps;
 pub mod mode;
 pub mod parameters;
