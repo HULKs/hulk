@@ -28,7 +28,9 @@ pub struct Catching {
 impl Catching {
     pub fn new(context: &Context, last_step_state: StepState, support_side: Side) -> Self {
         let Some(robot_to_ground) = context.robot_to_ground else {
-            todo!();
+            return Self {
+                step: last_step_state,
+            };
         };
 
         let robot_to_walk = context.robot_to_walk;
