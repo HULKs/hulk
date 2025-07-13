@@ -10,3 +10,4 @@ Apart from the NAO code our repository contains several tools to aid in the deve
 - [Machine Learning](./machine-learning.md): Our tooling to create datasets and neural networks
 - [Behavior Simulator](./behavior_simulator.md): The simulator and viewer to debug and automatically test behavior
 - [Debugging with GDB/LLDB](./debugging.md): How to use a debugger with our software
+- [Parameter Tester](./parameter_tester.md): A tool to test if the parameters can be correctly parsed
