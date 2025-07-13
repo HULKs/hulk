@@ -101,8 +101,8 @@ impl Mode {
             Mode::Starting(Starting { step })
             | Mode::Walking(Walking { step, .. })
             | Mode::Kicking(Kicking { step, .. })
-            | Mode::Stopping(Stopping { step, .. })
-            | Mode::Catching(Catching { step, .. }) => Some(step.plan.support_side),
+            | Mode::Catching(Catching { step, .. })
+            | Mode::Stopping(Stopping { step, .. }) => Some(step.plan.support_side),
         }
     }
 }
