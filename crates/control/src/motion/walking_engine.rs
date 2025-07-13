@@ -52,7 +52,6 @@ pub struct CycleContext {
     sensor_data: Input<SensorData, "sensor_data">,
     walk_command: Input<WalkCommand, "walk_command">,
     robot_to_ground: Input<Option<Isometry3<Robot, Ground>>, "robot_to_ground?">,
-    // robot_orientation: RequiredInput<Option<Orientation3<Field>>, "robot_orientation?">,
     obstacle_avoiding_arms: Input<ArmCommands, "obstacle_avoiding_arms">,
     zero_moment_point: Input<Point2<Ground>, "zero_moment_point">,
     //TODO
