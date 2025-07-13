@@ -255,58 +255,7 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
             ball.velocity *= 0.98
         }
 
-        // let parameters = &robot.parameters;
-        // let mut ground_to_field_update: Option<Isometry2<Ground, Field>> = None;
-        //
         // let head_motion = match robot.database.main_outputs.motion_command.clone() {
-        //     MotionCommand::Walk {
-        //         head,
-        //         path,
-        //         orientation_mode,
-        //         ..
-        //     } => {
-        //         let steps_per_second = 1.0 / 0.35;
-        //         let steps_this_cycle = steps_per_second * time.delta_secs();
-        //         let max_step = parameters.step_planner.max_step_size;
-        //
-        //         let target = match path[0] {
-        //             PathSegment::LineSegment(LineSegment(_start, end)) => end.coords(),
-        //             PathSegment::Arc(arc) => (arc.start.as_unit_vector() * arc.circle.radius)
-        //                 .rotate_90_degrees(arc.direction),
-        //         };
-        //
-        //         let orientation = match orientation_mode {
-        //             OrientationMode::AlignWithPath => {
-        //                 if target.norm_squared() < f32::EPSILON {
-        //                     Orientation2::identity()
-        //                 } else {
-        //                     Orientation2::from_vector(target)
-        //                 }
-        //             }
-        //             OrientationMode::Override(orientation) => orientation,
-        //         };
-        //         let step = target.cap_magnitude(max_step.forward * steps_this_cycle);
-        //
-        //         let rotation = orientation.angle().clamp(
-        //             -max_step.turn * steps_this_cycle,
-        //             max_step.turn * steps_this_cycle,
-        //         );
-        //         let movement = Isometry2::from_parts(step.as_point().coords(), rotation);
-        //         let old_ground_to_field = robot.ground_to_field();
-        //         let new_ground_to_field = old_ground_to_field * movement;
-        //         ground_to_field_update = Some(new_ground_to_field);
-        //
-        //         for obstacle in &mut robot.database.main_outputs.obstacles {
-        //             let obstacle_in_field = old_ground_to_field * obstacle.position;
-        //             obstacle.position = new_ground_to_field.inverse() * obstacle_in_field;
-        //         }
-        //         if let Some(ball) = robot.database.main_outputs.ball_position.as_mut() {
-        //             ball.velocity = movement.inverse() * ball.velocity;
-        //             ball.position = movement.inverse() * ball.position;
-        //         }
-        //
-        //         head
-        //     }
         //     MotionCommand::InWalkKick {
         //         head,
         //         kick,
@@ -336,9 +285,6 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
         //         }
         //         head
         //     }
-        //     MotionCommand::SitDown { head } => head,
-        //     MotionCommand::Stand { head, .. } => head,
-        //     _ => HeadMotion::Center,
         // };
 
         let (left_sole, right_sole) =
@@ -431,6 +377,15 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
         if let Some(movement) = ground_to_field_change {
             let old_ground_to_field = robot.ground_to_field();
             let new_ground_to_field = old_ground_to_field * movement;
+
+            for obstacle in &mut robot.database.main_outputs.obstacles {
+                let obstacle_in_field = old_ground_to_field * obstacle.position;
+                obstacle.position = new_ground_to_field.inverse() * obstacle_in_field;
+            }
+            if let Some(ball) = robot.database.main_outputs.ball_position.as_mut() {
+                ball.velocity = movement.inverse() * ball.velocity;
+                ball.position = movement.inverse() * ball.position;
+            }
 
             *robot.ground_to_field_mut() = new_ground_to_field;
         }
