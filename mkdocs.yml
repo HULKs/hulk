@@ -62,6 +62,7 @@ nav:
       - Machine Learning: tooling/machine-learning.md
       - Behavior Simulator: tooling/behavior_simulator.md
       - Debugging with GDB/LLDB: tooling/debugging.md
+      - Parameter Tester: tooling/parameter_tester.md
   - Operating System:
       - Overview: operating_system/overview.md
       - Partitioning: operating_system/partitioning.md
