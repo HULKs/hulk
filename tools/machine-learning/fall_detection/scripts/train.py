@@ -230,7 +230,11 @@ def train(model_type: ModelType, data_path: str) -> None:
     df = load(data_path)
     dataset = FallenDataset(
         df,
-        group_keys=[pl.col("robot_identifier"), pl.col("match_identifier")],
+        group_keys=[
+            pl.col("robot_identifier"),
+            pl.col("game_phase_identifier"),
+            pl.col("match_identifier"),
+        ],
         features=[
             pl.col(
                 "Control.main_outputs.sensor_data.inertial_measurement_unit.linear_acceleration.x"

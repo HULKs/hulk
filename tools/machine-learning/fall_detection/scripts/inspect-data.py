@@ -14,6 +14,7 @@ def main():
         df,
         group_keys=[
             pl.col("robot_identifier"),
+            pl.col("game_phase_identifier"),
             pl.col("match_identifier"),
         ],
         features=[

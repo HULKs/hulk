@@ -1,12 +1,14 @@
-from pathlib import Path
-from typing import Any
-from mcap.reader import make_reader, McapReader
-import polars as pl
-from msgpack import unpackb
 from datetime import datetime
 from itertools import batched
-from tqdm import tqdm
+from pathlib import Path
+from typing import Any
+
+import polars as pl
+from mcap.reader import McapReader, make_reader
+from msgpack import unpackb
 from scipy.spatial.transform import Rotation
+from tqdm import tqdm
+
 from .unnest_structs import unnest_column
 
 
@@ -111,6 +113,7 @@ def iter_mcap(reader: McapReader, topics: list[str]):
 
 def read_mcap(mcap_path: Path) -> pl.DataFrame:
     robot_identifier = mcap_path.parts[-3]
+    game_phase_identifier = mcap_path.parts[-4]
     match_identifier = mcap_path.parts[-5]
 
     print(mcap_path)
@@ -118,6 +121,7 @@ def read_mcap(mcap_path: Path) -> pl.DataFrame:
         reader = make_reader(mcap_data)
         dataframe = pl.from_dicts(iter_mcap(reader, OUTPUTS)).with_columns(
             pl.lit(robot_identifier).alias("robot_identifier"),
+            pl.lit(game_phase_identifier).alias("game_phase_identifier"),
             pl.lit(match_identifier).alias("match_identifier"),
         )
     return dataframe
@@ -139,7 +143,7 @@ def convert_mcaps(mcaps: list[str]) -> pl.DataFrame:
 def load(path: str):
     df = pl.read_parquet(path).with_columns(
         (pl.col("time") - pl.col("time").min())
-        .over("robot_identifier", "match_identifier")
+        .over("robot_identifier", "game_phase_identifier", "match_identifier")
         .dt.total_seconds()
         .alias("time_in_game"),
     )
