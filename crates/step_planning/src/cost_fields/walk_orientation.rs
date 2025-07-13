@@ -46,37 +46,31 @@ impl WalkOrientationField {
 
     pub fn grad(&self, pose: Pose<f32>, forward: Vector2<Ground>) -> PoseGradient<f32> {
         match self.orientation_mode {
-            OrientationMode::Unspecified => PoseGradient {
-                position: Vector2::zeros(),
-                orientation: 0.0,
-            },
+            OrientationMode::Unspecified => PoseGradient::zeros(),
             OrientationMode::AlignWithPath => PoseGradient {
-                position: Vector2::zeros(),
                 orientation: angle_penalty_with_tolerance_derivative(
                     pose.orientation,
                     Angle(Vector2::x_axis().angle(&forward)),
                     self.path_alignment_tolerance,
                 ),
+                ..PoseGradient::zeros()
             },
             OrientationMode::LookTowards(orientation) => PoseGradient {
-                position: Vector2::zeros(),
                 orientation: angle_penalty_derivative(pose.orientation, Angle(orientation.angle())),
+                ..PoseGradient::zeros()
             },
             OrientationMode::LookAt(point) => {
                 if (point - pose.position).norm_squared() < 1e-5 {
-                    PoseGradient {
-                        position: Vector2::zeros(),
-                        orientation: 0.0,
-                    }
+                    PoseGradient::zeros()
                 } else {
                     let orientation = pose.position.look_at(&point);
 
                     PoseGradient {
-                        position: Vector2::zeros(),
                         orientation: angle_penalty_derivative(
                             pose.orientation,
                             Angle(orientation.angle()),
                         ),
+                        ..PoseGradient::zeros()
                     }
                 }
             }
