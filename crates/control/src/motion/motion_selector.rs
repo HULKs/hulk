@@ -13,7 +13,7 @@ use types::{
 #[derive(Deserialize, Serialize)]
 pub struct MotionSelector {
     last_motion: MotionType,
-    stand_up_count: u32,
+    last_stand_up_count: u32,
     was_standing_up: bool,
 }
 
@@ -43,7 +43,7 @@ impl MotionSelector {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             last_motion: MotionType::Unstiff,
-            stand_up_count: 0,
+            last_stand_up_count: 0,
             was_standing_up: false,
         })
     }
@@ -59,25 +59,25 @@ impl MotionSelector {
             *context.has_ground_contact,
         );
 
-        let is_standing_up =
+        let switching_to_stand_up =
             current_motion.is_dispatching() && requested_motion.is_standup_motion();
 
-        let stand_up_count = stand_up_counting(
+        let current_stand_up_count = count_stand_up_attempts(
             current_motion,
-            is_standing_up,
+            switching_to_stand_up,
             self.was_standing_up,
-            self.stand_up_count,
+            self.last_stand_up_count,
         );
 
-        if self.stand_up_count <= *context.maximum_standup_attempts
-            && stand_up_count > *context.maximum_standup_attempts
+        if self.last_stand_up_count <= *context.maximum_standup_attempts
+            && current_stand_up_count > *context.maximum_standup_attempts
         {
             context
                 .hardware_interface
                 .write_to_speakers(SpeakerRequest::PlaySound { sound: Sound::Ouch });
         }
 
-        self.stand_up_count = stand_up_count;
+        self.last_stand_up_count = current_stand_up_count;
 
         let dispatching_motion = if current_motion == MotionType::Dispatching {
             if requested_motion == MotionType::Unstiff {
@@ -89,10 +89,10 @@ impl MotionSelector {
             None
         };
 
-        *context.stand_up_count = self.stand_up_count;
+        *context.stand_up_count = self.last_stand_up_count;
 
         self.last_motion = current_motion;
-        self.was_standing_up = is_standing_up;
+        self.was_standing_up = switching_to_stand_up;
 
         Ok(MainOutputs {
             motion_selection: MotionSelection {
@@ -204,7 +204,7 @@ fn transition_motion(
     }
 }
 
-fn stand_up_counting(
+fn count_stand_up_attempts(
     current_motion: MotionType,
     is_standing_up: bool,
     was_standing_up: bool,
