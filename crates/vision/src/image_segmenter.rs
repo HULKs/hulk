@@ -1,7 +1,4 @@
-use std::{
-    ops::{Add, Range},
-    time::{Duration, Instant},
-};
+use std::ops::{Add, Range};
 
 use color_eyre::Result;
 use itertools::iproduct;
@@ -10,7 +7,7 @@ use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
 use coordinate_systems::{Field, Ground, Pixel};
-use framework::{AdditionalOutput, MainOutput};
+use framework::MainOutput;
 use linear_algebra::{point, Isometry2, Point2, Transform, Vector2};
 use types::{
     color::{Hsv, Intensity, RgChromaticity, Rgb, YCbCr444},
@@ -32,8 +29,6 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    image_segmenter_cycle_time: AdditionalOutput<Duration, "image_segmenter_cycle_time">,
-
     image: Input<YCbCr422Image, "image">,
 
     camera_matrix: Input<Option<CameraMatrix>, "camera_matrix?">,
@@ -78,7 +73,7 @@ impl ImageSegmenter {
         })
     }
 
-    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         if let Some(ground_to_field_of_home_after_coin_toss_before_second_half) =
             context.ground_to_field_of_home_after_coin_toss_before_second_half
         {
@@ -86,7 +81,6 @@ impl ImageSegmenter {
                 *ground_to_field_of_home_after_coin_toss_before_second_half;
         }
 
-        let begin = Instant::now();
         let projected_limbs = context
             .projected_limbs
             .map_or(Default::default(), |projected_limbs| {
@@ -116,10 +110,6 @@ impl ImageSegmenter {
             *context.vertical_median_mode,
             projected_limbs,
         );
-        let end = Instant::now();
-        context
-            .image_segmenter_cycle_time
-            .fill_if_subscribed(|| end - begin);
         Ok(MainOutputs {
             image_segments: ImageSegments { scan_grid }.into(),
         })
