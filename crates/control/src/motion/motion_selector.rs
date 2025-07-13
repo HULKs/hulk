@@ -1,8 +1,10 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
+use hardware::SpeakerInterface;
 use serde::{Deserialize, Serialize};
 use types::{
+    audio::{Sound, SpeakerRequest},
     fall_state::{Kind, StandUpSpeed},
     motion_command::{JumpDirection, MotionCommand},
     motion_selection::{MotionSafeExits, MotionSelection, MotionType},
@@ -11,7 +13,8 @@ use types::{
 #[derive(Deserialize, Serialize)]
 pub struct MotionSelector {
     last_motion: MotionType,
-    stand_up_count: u32,
+    last_stand_up_count: u32,
+    was_standing_up: bool,
 }
 
 #[context]
@@ -24,6 +27,10 @@ pub struct CycleContext {
 
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
     stand_up_count: CyclerState<u32, "stand_up_count">,
+
+    maximum_standup_attempts: Parameter<u32, "behavior.maximum_standup_attempts">,
+
+    hardware_interface: HardwareInterface,
 }
 
 #[context]
@@ -36,11 +43,12 @@ impl MotionSelector {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             last_motion: MotionType::Unstiff,
-            stand_up_count: 0,
+            last_stand_up_count: 0,
+            was_standing_up: false,
         })
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, context: CycleContext<impl SpeakerInterface>) -> Result<MainOutputs> {
         let motion_safe_to_exit = context.motion_safe_exits[self.last_motion];
         let requested_motion = motion_type_from_command(context.motion_command);
 
@@ -51,8 +59,25 @@ impl MotionSelector {
             *context.has_ground_contact,
         );
 
-        self.stand_up_count =
-            stand_up_counting(self.last_motion, current_motion, self.stand_up_count);
+        let switching_to_stand_up =
+            current_motion.is_dispatching() && requested_motion.is_standup_motion();
+
+        let current_stand_up_count = count_stand_up_attempts(
+            current_motion,
+            switching_to_stand_up,
+            self.was_standing_up,
+            self.last_stand_up_count,
+        );
+
+        if self.last_stand_up_count <= *context.maximum_standup_attempts
+            && current_stand_up_count > *context.maximum_standup_attempts
+        {
+            context
+                .hardware_interface
+                .write_to_speakers(SpeakerRequest::PlaySound { sound: Sound::Ouch });
+        }
+
+        self.last_stand_up_count = current_stand_up_count;
 
         let dispatching_motion = if current_motion == MotionType::Dispatching {
             if requested_motion == MotionType::Unstiff {
@@ -64,9 +89,11 @@ impl MotionSelector {
             None
         };
 
-        *context.stand_up_count = self.stand_up_count;
+        *context.stand_up_count = self.last_stand_up_count;
 
         self.last_motion = current_motion;
+        self.was_standing_up = switching_to_stand_up;
+
         Ok(MainOutputs {
             motion_selection: MotionSelection {
                 current_motion,
@@ -177,12 +204,13 @@ fn transition_motion(
     }
 }
 
-fn stand_up_counting(
-    last_motion: MotionType,
+fn count_stand_up_attempts(
     current_motion: MotionType,
+    is_standing_up: bool,
+    was_standing_up: bool,
     stand_up_count: u32,
 ) -> u32 {
-    if !last_motion.is_standup_motion() && current_motion.is_standup_motion() {
+    if !was_standing_up && is_standing_up {
         return stand_up_count + 1;
     }
 

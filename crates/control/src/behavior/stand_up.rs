@@ -4,7 +4,10 @@ use types::{
     world_state::WorldState,
 };
 
-pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
+pub fn execute(world_state: &WorldState, maximum_standup_attempts: u32) -> Option<MotionCommand> {
+    if world_state.robot.stand_up_count > maximum_standup_attempts {
+        return Some(MotionCommand::Unstiff);
+    }
     let kind = match world_state.robot.fall_state {
         FallState::Fallen { kind } => kind,
         FallState::StandingUp { kind, .. } => kind,
