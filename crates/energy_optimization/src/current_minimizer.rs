@@ -1,4 +1,3 @@
-use color_eyre::eyre::{ContextCompat, Result};
 use filtering::hysteresis::less_than_with_absolute_hysteresis;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
@@ -32,10 +31,10 @@ impl CurrentMinimizer {
         cycle_time: CycleTime,
         parameters: CurrentMinimizerParameters,
         has_ground_contact: bool,
-    ) -> Result<Joints<f32>> {
+    ) -> Joints<f32> {
         if !has_ground_contact {
             self.reset();
-            return Ok(positions);
+            return positions;
         }
 
         self.parameters = parameters;
@@ -44,13 +43,14 @@ impl CurrentMinimizer {
         let (joint, maximal_current) = currents
             .enumerate()
             .max_by(|(_, left), (_, right)| f32::total_cmp(left, right))
-            .wrap_err("currents must not be empty.")?;
+            .expect("currents must not be empty.");
 
         self.minimum_reached = less_than_with_absolute_hysteresis(
             self.minimum_reached,
             maximal_current,
             self.parameters.allowed_current..=self.parameters.allowed_current_upper_threshold,
         );
+
         if !self.minimum_reached {
             let max_adjustment =
                 self.parameters.optimization_speed / cycle_time.last_cycle_duration.as_secs_f32();
@@ -58,7 +58,7 @@ impl CurrentMinimizer {
                 .clamp(-max_adjustment, max_adjustment)
         }
 
-        Ok(positions + self.position_offset)
+        positions + self.position_offset
     }
 
     pub fn reset(&mut self) {
