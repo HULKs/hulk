@@ -340,7 +340,6 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
         //     MotionCommand::Stand { head, .. } => head,
         //     _ => HeadMotion::Center,
         // };
-        let mut ground_to_field_change: Option<Isometry2<Ground, Ground>> = None;
 
         let (left_sole, right_sole) =
             sole_positions(&robot.database.main_outputs.sensor_data.positions);
@@ -388,33 +387,10 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
         let new_anchor = robot.ground_to_field() * to2d(ground);
         let correction = robot.anchor.as_transform() * new_anchor.as_transform::<Field>().inverse();
         let step = robot.ground_to_field().inverse() * correction * robot.ground_to_field();
-        // let step = match robot
-        //     .database
-        //     .main_outputs
-        //     .support_foot
-        //     .support_side
-        //     .unwrap()
-        // {
-        //     Side::Left => to2d(
-        //         new_left_sole.as_transform::<Ground>().inverse()
-        //             * left_sole.as_transform::<Ground>(),
-        //     ),
-        //     Side::Right => to2d(
-        //         new_right_sole.as_transform::<Ground>().inverse()
-        //             * right_sole.as_transform::<Ground>(),
-        //     ),
-        // };
-        // if let Some(movement) = robot
-        //     .database
-        //     .main_outputs
-        //     .current_odometry_to_last_odometry
-        //     .map(Isometry2::<Ground, Ground>::wrap)
-        {
-            ground_to_field_change = Some(Isometry2::from_parts(
-                step.translation().coords(),
-                step.orientation().angle(),
-            ));
-        }
+        let ground_to_field_change = Some(Isometry2::from_parts(
+            step.translation().coords(),
+            step.orientation().angle(),
+        ));
 
         let head_motion = HeadMotion::Center;
         let desired_head_yaw = match head_motion {
@@ -548,49 +524,28 @@ pub fn cycle_robots(
             .unwrap();
 
         // Walking physics
-        let target = robot.database.main_outputs.walk_motor_commands.positions;
-        let way_to_go = (robot.database.main_outputs.sensor_data.positions.left_leg
-            - target.left_leg)
-            .into_iter()
-            .map(|x| x.abs())
-            .sum::<f32>()
-            + (robot.database.main_outputs.sensor_data.positions.right_leg - target.right_leg)
-                .into_iter()
-                .map(|x| x.abs())
-                .sum::<f32>();
-
-        let (left_sole, right_sole) =
-            sole_positions(&robot.database.main_outputs.sensor_data.positions);
-        let floor_height = right_sole.position().z().min(left_sole.position().z());
-        let grass_height = 0.001;
-
         let support_foot = robot
             .database
             .main_outputs
             .support_foot
             .support_side
             .unwrap();
-        let step_ended = way_to_go < 0.3;
-        let (left_step_end_bonus, right_step_end_bonus) = match (step_ended, support_foot) {
-            (false, _) => (0.0, 0.0),
-            (true, Side::Left) => (0.0, 0.5),
-            (true, Side::Right) => (0.5, 0.0),
+        let is_step_finished = robot
+            .cycler
+            .cycler_state
+            .walking_engine_mode
+            .step_state()
+            .is_some_and(|step_state| step_state.time_since_start >= step_state.plan.step_duration);
+        let next_support_foot = if is_step_finished {
+            support_foot.opposite()
+        } else {
+            support_foot
+        };
+        let (left_pressure, right_pressure) = match next_support_foot {
+            Side::Left => (1.0, 0.0),
+            Side::Right => (0.0, 1.0),
         };
 
-        let left_sink = sole_sink(
-            left_sole.position().z(),
-            floor_height,
-            grass_height,
-            left_step_end_bonus,
-        );
-        let right_sink = sole_sink(
-            right_sole.position().z(),
-            floor_height,
-            grass_height,
-            right_step_end_bonus,
-        );
-        let left_pressure = left_sink / (left_sink + right_sink) * 3.0;
-        let right_pressure = right_sink / (left_sink + right_sink) * 3.0;
         robot
             .database
             .main_outputs
@@ -622,10 +577,6 @@ pub fn cycle_robots(
 pub struct SimulatedRobotParameters {
     pub ball_view_range: f32,
     pub ball_timeout_factor: f32,
-}
-
-fn sole_sink(sole_height: f32, floor_height: f32, grass_height: f32, step_end_bonus: f32) -> f32 {
-    (sole_height - floor_height - grass_height).clamp(-grass_height, 0.0) + step_end_bonus
 }
 
 fn sole_positions(joint_positions: &Joints) -> (Pose3<RobotCoordinates>, Pose3<RobotCoordinates>) {

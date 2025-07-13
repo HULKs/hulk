@@ -6,7 +6,7 @@ use types::{
     step::Step, support_foot::Side,
 };
 
-use crate::{Context, WalkTransition};
+use crate::{step_state::StepState, Context, WalkTransition};
 
 use self::{
     kicking::Kicking, standing::Standing, starting::Starting, stopping::Stopping, walking::Walking,
@@ -95,14 +95,18 @@ impl Mode {
         }
     }
 
-    pub fn support_side(&self) -> Option<Side> {
+    pub fn step_state(&self) -> Option<StepState> {
         match self {
             Mode::Standing(_) => None,
             Mode::Starting(Starting { step })
             | Mode::Walking(Walking { step, .. })
             | Mode::Kicking(Kicking { step, .. })
-            | Mode::Catching(Catching { step, .. })
-            | Mode::Stopping(Stopping { step, .. }) => Some(step.plan.support_side),
+            | Mode::Stopping(Stopping { step, .. })
+            | Mode::Catching(Catching { step, .. }) => Some(*step),
         }
+    }
+
+    pub fn support_side(&self) -> Option<Side> {
+        self.step_state().map(|step| step.plan.support_side)
     }
 }
