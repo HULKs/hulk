@@ -3,7 +3,6 @@ import enum
 import click
 import numpy as np
 import plotly.graph_objects as go
-import plotly.io as pio
 import polars as pl
 import tensorflow as tf
 import wandb
@@ -13,7 +12,6 @@ from keras.callbacks import EarlyStopping
 from keras.layers import (
     LSTM,
     BatchNormalization,
-    Conv1D,
     Conv2D,
     Dense,
     Dropout,
@@ -52,7 +50,7 @@ def evaluate_model(model, x_test, y_test) -> None:
     cm = cm.astype("float") / cm.sum(axis=1)[:, np.newaxis]
 
     # Define labels
-    labels = ["Upright", "Falling", "Fallen"]
+    labels = ["Stable", "SoonToBeUnstable"]
 
     # Convert to percentage for display
     cm_percent = cm * 100
@@ -124,19 +122,19 @@ def train_model(model, x_train, y_train, max_epochs: int) -> None:
 
 # Build model
 def build_linear_model(
-    num_features: int,
     input_length: int,
+    num_features: int,
     num_classes: int,
     summary: bool = False,
 ) -> None:
     model = Sequential(
         [
             # ADD YOUR LAYERS HERE
-            InputLayer(shape=(num_features, input_length, 1)),
+            InputLayer(shape=(input_length, num_features, 1)),
             Conv2D(
                 filters=wandb.config["number_of_filters"][0],
-                kernel_size=[num_features, wandb.config["kernel_widths"][0]],
-                strides=[num_features, 1],
+                kernel_size=[wandb.config["kernel_widths"][0], num_features],
+                strides=[input_length, 1],
                 padding="valid",
                 activation="relu",
             ),
@@ -189,7 +187,7 @@ def build_sequential_model(
     model = Sequential(
         [
             # ADD YOUR LAYERS HERE
-            InputLayer(shape=(num_features, input_length)),
+            InputLayer(shape=(input_length, num_features)),
             LSTM(
                 wandb.config["lstm_sizes"][0],
                 dropout=0.4,
@@ -266,15 +264,15 @@ def train(model_type: ModelType, data_path: str) -> None:
         case ModelType.Linear:
             print("Training linear model")
             model = build_linear_model(
-                input_length=input_data.shape[2],
-                num_features=input_data.shape[1],
+                num_features=input_data.shape[2],
+                input_length=input_data.shape[1],
                 num_classes=dataset.n_classes(),
             )
         case ModelType.Sequential:
             print("Training sequential model")
             model = build_sequential_model(
-                input_length=input_data.shape[2],
-                num_features=input_data.shape[1],
+                num_features=input_data.shape[2],
+                input_length=input_data.shape[1],
                 num_classes=dataset.n_classes(),
             )
 

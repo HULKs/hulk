@@ -1,20 +1,17 @@
+from dataclasses import dataclass
 from enum import Enum
 
 import polars as pl
 
-from dataclasses import dataclass
-
 
 @dataclass
 class PseudoLabelParameters:
-    falling_threshold: float = 0.6
-    fallen_threshold: float = 1.3
+    unstable_threshold: float = 0.6
 
 
 class Label(int, Enum):
-    Upright = 0
-    Falling = 1
-    Fallen = 2
+    Stable = 0
+    SoonToBeUnstable = 1
 
 
 class PseudoLabeller:
@@ -25,21 +22,18 @@ class PseudoLabeller:
 
     def generate_labels(self, data: pl.DataFrame) -> pl.Series:
         has_ground_contact = pl.col("Control.main_outputs.has_ground_contact")
-        pitch = pl.col("Control.main_outputs.robot_orientation.pitch")
-        # print(data.select(primary_state))
+        pitch = pl.col(
+            "Control.main_outputs.sensor_data.inertial_measurement_unit.roll_pitch.y"
+        )
         return (
             data.select(
                 pl.when(has_ground_contact)
                 .then(
-                    pl.when(pitch.abs() > self.parameters.falling_threshold)
-                    .then(pl.lit(Label.Falling))
-                    .otherwise(pl.lit(Label.Upright))
+                    pl.when(pitch.abs() > self.parameters.unstable_threshold)
+                    .then(pl.lit(Label.SoonToBeUnstable))
+                    .otherwise(pl.lit(Label.Stable))
                 )
-                .otherwise(
-                    pl.when(pitch.abs() > self.parameters.fallen_threshold)
-                    .then(pl.lit(Label.Fallen))
-                    .otherwise(pl.lit(Label.Falling))
-                )
+                .otherwise(pl.lit(Label.SoonToBeUnstable))
             )
             .to_series()
             .alias("labels")

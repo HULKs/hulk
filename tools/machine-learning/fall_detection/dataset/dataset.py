@@ -1,11 +1,11 @@
-from typing import Iterable
-import tensorflow as tf
+from collections.abc import Iterable
+
 import numpy as np
 import polars as pl
-import pandas as pd
+import tensorflow as tf
 from polars._typing import IntoExpr
 
-from .pseudo_labels import PseudoLabeller
+from .pseudo_labels import Label, PseudoLabeller
 
 
 class FallenDataset:
@@ -23,7 +23,7 @@ class FallenDataset:
         group_keys: list[str],
         features: Iterable[IntoExpr] | IntoExpr,
     ) -> None:
-        self.dataframe = dataframe.drop_nulls()[:10000]
+        self.dataframe = dataframe.drop_nulls()
 
         self.labeller = PseudoLabeller()
         self.features = features
@@ -54,7 +54,7 @@ class FallenDataset:
         self,
         control_frequency: float = 83,
         window_size: float = 1.5,
-        window_stride: float = 0.2,
+        window_stride: float = 1 / 83,
         label_shift: int = 0,
     ) -> None:
         samples_per_window = int(window_size * control_frequency)
@@ -65,20 +65,31 @@ class FallenDataset:
             [
                 self.dataframe.select(
                     generate_lags(feature, samples_per_window, "group"),
-                )[
-                    samples_per_window : -label_shift
-                    or None : samples_between_windows
-                ]
+                )[::samples_between_windows]
                 for feature in self.features
             ],
             how="horizontal",
         )
-
         shifted_labels = self.dataframe.select(
             pl.col("labels").shift(-label_shift).over("group")
-        )[samples_per_window : -label_shift or None : samples_between_windows]
+        )[::samples_between_windows]
 
-        windowed_dataframe = windowed_features.hstack(shifted_labels)
+        predecessors_of_shifted_labels = self.dataframe.select(
+            pl.col("labels")
+            .shift(-(label_shift - 1))
+            .over("group")
+            .alias("label_predecessor")
+        )[::samples_between_windows]
+
+        windowed_dataframe_with_predecessors = (
+            windowed_features.hstack(shifted_labels)
+            .hstack(predecessors_of_shifted_labels)
+            .drop_nulls()
+        )
+
+        windowed_dataframe = windowed_dataframe_with_predecessors.filter(
+            pl.col("label_predecessor") == Label.Stable
+        ).drop("label_predecessor")
 
         n_minority = (
             windowed_dataframe.get_column("labels")
@@ -87,16 +98,15 @@ class FallenDataset:
             .select(pl.col("count"))
             .item()
         )
-
         balanced_df = windowed_dataframe.group_by(
             "labels", maintain_order=True
         ).map_groups(lambda group: group.sample(n=n_minority, seed=1))
-        balanced_df = windowed_dataframe.sample(
+        shuffeled_balanced_df = balanced_df.sample(
             fraction=1, shuffle=True, seed=1
         )
 
-        self.input_data = balanced_df.drop("labels")
-        self.labels = balanced_df.select(pl.col("labels"))
+        self.input_data = shuffeled_balanced_df.drop("labels")
+        self.labels = shuffeled_balanced_df.select(pl.col("labels"))
 
     def __len__(self) -> int:
         return self.groups.unique().numel()
