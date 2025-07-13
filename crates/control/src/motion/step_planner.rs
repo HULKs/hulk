@@ -214,7 +214,7 @@ impl StepPlanner {
             .into_iter()
             .chain(context.sensor_data.temperature_sensors.right_leg)
             .max_by(f32::total_cmp)
-            .expect("temperatures must not be empty.");
+            .expect("temperatures to be not empty.");
 
         self.leg_joints_hot = greater_than_with_absolute_hysteresis(
             self.leg_joints_hot,
