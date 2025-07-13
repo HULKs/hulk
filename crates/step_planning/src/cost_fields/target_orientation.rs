@@ -1,5 +1,3 @@
-use linear_algebra::Vector2;
-
 use crate::{
     geometry::{angle::Angle, pose::Pose, pose::PoseGradient},
     utils::{angle_penalty, angle_penalty_derivative},
@@ -16,8 +14,8 @@ impl TargetOrientationField {
 
     pub fn grad(&self, pose: Pose<f32>) -> PoseGradient<f32> {
         PoseGradient {
-            position: Vector2::zeros(),
             orientation: angle_penalty_derivative(pose.orientation, self.target_orientation),
+            ..PoseGradient::zeros()
         }
     }
 }

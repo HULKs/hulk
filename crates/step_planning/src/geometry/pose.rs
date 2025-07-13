@@ -5,7 +5,7 @@ use std::{
 
 use approx::{AbsDiffEq, RelativeEq};
 use nalgebra::{RealField, Scalar};
-use num_traits::Euclid;
+use num_traits::{Euclid, Zero};
 
 use coordinate_systems::Ground;
 use linear_algebra::{Point2, Rotation2, Vector2};
@@ -23,6 +23,15 @@ pub struct Pose<T: Scalar> {
 pub struct PoseGradient<T: Scalar> {
     pub position: Vector2<Ground, T>,
     pub orientation: T,
+}
+
+impl<T: Scalar + Zero> PoseGradient<T> {
+    pub fn zeros() -> Self {
+        Self {
+            position: Vector2::zeros(),
+            orientation: T::zero(),
+        }
+    }
 }
 
 impl<T: RealField + Euclid> PartialEq for Pose<T> {

@@ -116,7 +116,7 @@ impl StepPlanning<'_> {
 
         PoseGradient {
             position: path_progress_gradient + path_distance_gradient,
-            orientation: 0.0,
+            ..PoseGradient::zeros()
         } + walk_orientation_gradient
             + target_orientation_gradient
     }
