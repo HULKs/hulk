@@ -802,7 +802,8 @@
     "roll_pitch_low_pass_factor": 0.9,
     "gravitational_acceleration_threshold": 7.0,
     "gravitational_force_sitting": [3.6, 0.0, 8.8],
-    "falling_angle_threshold_forward": [-1.4, 1.6],
+    "falling_angle_threshold_forward": [-0.4, 0.6],
+    "falling_angle_threshold_forward_with_catching_steps": [-0.45, 0.6],
     "falling_timeout": {
       "nanos": 0,
       "secs": 1
