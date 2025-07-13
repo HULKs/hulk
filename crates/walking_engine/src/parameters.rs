@@ -1,6 +1,7 @@
 use std::time::Duration;
 
 use coordinate_systems::Walk;
+use geometry::rectangle::Rectangle;
 use linear_algebra::Vector3;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
@@ -19,6 +20,7 @@ pub struct Parameters {
     pub foot_leveling: FootLevelingParameters,
     pub forward_turn_reduction: f32,
     pub forward_turn_threshold: f32,
+    pub foot_support: Rectangle<Walk>,
     pub max_base_inside_turn: f32,
     pub max_forward_acceleration: f32,
     pub max_inside_turn_increase: f32,

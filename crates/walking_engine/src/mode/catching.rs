@@ -42,12 +42,10 @@ impl Catching {
                 .norm()
                 .min(context.parameters.catching_steps.max_target_distance);
 
-        let foot_support = Rectangle {
-            min: point![-0.02, -0.02],
-            max: point![0.08, 0.02],
-        };
-        let target_projection_into_foot_support =
-            foot_support.project_point_into_rect(clamped_target);
+        let target_projection_into_foot_support = context
+            .parameters
+            .foot_support
+            .project_point_into_rect(clamped_target);
         let displacement =
             Point2::origin() + (clamped_target - target_projection_into_foot_support);
 
