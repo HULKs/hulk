@@ -9,6 +9,7 @@ use types::{
     ball_detection::BallPercept,
     color::Rgb,
     cycle_time::CycleTime,
+    debug::LedDebug,
     filtered_whistle::FilteredWhistle,
     led::{Ear, Eye, Leds},
     messages::IncomingMessage,
@@ -16,7 +17,9 @@ use types::{
     primary_state::PrimaryState,
     roles::Role,
     sensor_data::SensorData,
+    support_foot::Side,
 };
+use walking_engine::mode::Mode;
 
 #[derive(Deserialize, Serialize)]
 pub struct LedStatus {
@@ -42,11 +45,15 @@ pub struct CycleContext {
     own_free_kick_signal_detection_result:
         Input<FreeKickSignalDetectionResult, "own_free_kick_signal_detection_result">,
     detected_free_kick_kicking_team: Input<Option<Team>, "detected_free_kick_kicking_team?">,
+    sensor_data: Input<SensorData, "sensor_data">,
 
     balls_bottom: PerceptionInput<Option<Vec<BallPercept>>, "VisionBottom", "balls?">,
     balls_top: PerceptionInput<Option<Vec<BallPercept>>, "VisionTop", "balls?">,
     network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
-    sensor_data: Input<SensorData, "sensor_data">,
+
+    walking_engine_mode: CyclerState<Mode, "walking_engine_mode">,
+
+    debug_mode: Parameter<LedDebug, "led_status.ears">,
 }
 
 #[context]
@@ -222,6 +229,8 @@ impl LedStatus {
                 .temperature_sensors
                 .into_iter()
                 .fold(0.0, f32::max),
+            context.walking_engine_mode.support_side(),
+            *context.debug_mode,
         );
 
         let leds = Leds {
@@ -243,41 +252,53 @@ impl LedStatus {
         last_game_controller_message: Option<SystemTime>,
         blink_state: bool,
         current_maximum_temperature: f32,
+        support_side: Option<Side>,
+        debug_mode: LedDebug,
     ) -> Ear {
-        let mut ear = if last_game_controller_message.is_some_and(|timestamp| {
-            cycle_start_time
-                .duration_since(timestamp)
-                .expect("time ran backwards")
-                > Duration::from_millis(5000)
-        }) {
-            if blink_state {
-                Ear::full_ears(1.0)
-            } else {
-                Ear::full_ears(0.0)
+        match debug_mode {
+            LedDebug::Temperature => {
+                let mut ear = if last_game_controller_message.is_some_and(|timestamp| {
+                    cycle_start_time
+                        .duration_since(timestamp)
+                        .expect("time ran backwards")
+                        > Duration::from_millis(5000)
+                }) {
+                    if blink_state {
+                        Ear::full_ears(1.0)
+                    } else {
+                        Ear::full_ears(0.0)
+                    }
+                } else {
+                    // values, at which the stiffness gets automatically reduced by the motors
+                    const TEMPERATURE_LEVEL_ONE: f32 = 76.0;
+                    const TEMPERATURE_LEVEL_TWO: f32 = 80.0;
+                    const TEMPERATURE_LEVEL_THREE: f32 = 90.0;
+
+                    let ear_fraction = if current_maximum_temperature > TEMPERATURE_LEVEL_ONE {
+                        0.33
+                    } else if current_maximum_temperature > TEMPERATURE_LEVEL_TWO {
+                        0.66
+                    } else if current_maximum_temperature > TEMPERATURE_LEVEL_THREE {
+                        1.0
+                    } else {
+                        0.0
+                    };
+                    Ear::percentage_ears(1.0, ear_fraction)
+                };
+
+                if filter_whistle_detected {
+                    ear = ear.invert();
+                }
+
+                ear
             }
-        } else {
-            // values, at which the stiffness gets automatically reduced by the motors
-            const TEMPERATURE_LEVEL_ONE: f32 = 76.0;
-            const TEMPERATURE_LEVEL_TWO: f32 = 80.0;
-            const TEMPERATURE_LEVEL_THREE: f32 = 90.0;
-
-            let ear_fraction = if current_maximum_temperature > TEMPERATURE_LEVEL_ONE {
-                0.33
-            } else if current_maximum_temperature > TEMPERATURE_LEVEL_TWO {
-                0.66
-            } else if current_maximum_temperature > TEMPERATURE_LEVEL_THREE {
-                1.0
-            } else {
-                0.0
-            };
-            Ear::percentage_ears(1.0, ear_fraction)
-        };
-
-        if filter_whistle_detected {
-            ear = ear.invert();
+            LedDebug::Walking => match support_side {
+                Some(Side::Left) => Ear::full_ears(1.0),
+                Some(Side::Right) => Ear::full_ears(0.0),
+                None => Ear::full_ears(0.0),
+            },
+            LedDebug::Battery => unimplemented!(),
         }
-
-        ear
     }
 
     #[allow(clippy::too_many_arguments)]

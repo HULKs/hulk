@@ -1,4 +1,7 @@
 {
+  "led_status": {
+    "ears": "Temperature"
+  },
   "pose_detection": {
     "enable": true,
     "maximum_intersection_over_union": 0.45,
