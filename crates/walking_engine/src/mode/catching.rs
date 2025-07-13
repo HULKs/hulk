@@ -60,7 +60,6 @@ impl Catching {
             ),
         };
 
-        // let support_side = last_step_state.plan.support_side;
         let clamped_feet =
             clamp_feet_to_anatomic_constraints(desired_end_feet, support_side, context.parameters);
 
