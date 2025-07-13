@@ -398,6 +398,11 @@
     "minimum_detections": 2
   },
   "walking_engine": {
+    "anatomic_constraints": {
+      "valid_x": [-0.05, 0.05],
+      "left_valid_y": 0.1,
+      "right_valid_y": -0.1
+    },
     "base": {
       "foot_lift_apex": 0.008,
       "foot_lift_apex_increase": {

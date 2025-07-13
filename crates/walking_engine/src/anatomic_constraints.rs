@@ -56,21 +56,22 @@ pub fn clamp_feet_to_anatomic_constraints(
     support_side: Side,
     parameters: &Parameters,
 ) -> Feet<Pose2<Walk>> {
+    let constraints = &parameters.anatomic_constraints;
+
     let (left, right) = match support_side {
         Side::Left => (feet.support_sole, feet.swing_sole),
         Side::Right => (feet.swing_sole, feet.support_sole),
     };
     let left_base_offset = parameters.base.foot_offset_left;
     let right_base_offset = parameters.base.foot_offset_right;
-    let valid_x_range = -0.05..0.05;
-    let left_valid_y_range = left_base_offset.y()..0.1;
-    let right_valid_y_range = -0.1..right_base_offset.y();
+    let left_valid_y_range = left_base_offset.y()..constraints.left_valid_y;
+    let right_valid_y_range = constraints.right_valid_y..right_base_offset.y();
 
     let clamped_left = Pose2::from_parts(
         point![
             left.position()
                 .x()
-                .clamp(valid_x_range.start, valid_x_range.end),
+                .clamp(constraints.valid_x.start, constraints.valid_x.end),
             left.position()
                 .y()
                 .clamp(left_valid_y_range.start, left_valid_y_range.end),
@@ -83,7 +84,7 @@ pub fn clamp_feet_to_anatomic_constraints(
             right
                 .position()
                 .x()
-                .clamp(valid_x_range.start, valid_x_range.end),
+                .clamp(constraints.valid_x.start, constraints.valid_x.end),
             right
                 .position()
                 .y()

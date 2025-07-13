@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{ops::Range, time::Duration};
 
 use coordinate_systems::Walk;
 use geometry::rectangle::Rectangle;
@@ -14,6 +14,7 @@ use types::{
     Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
 pub struct Parameters {
+    pub anatomic_constraints: AnatomicConstraintsParameters,
     pub base: Base,
     pub catching_steps: CatchingStepsParameters,
     pub gyro_balancing: GyroBalancingParameters,
@@ -35,6 +36,15 @@ pub struct Parameters {
     pub stiffness_loss_compensation: StiffnessLossCompensation,
     pub stiffnesses: Stiffnesses,
     pub swinging_arms: SwingingArmsParameters,
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct AnatomicConstraintsParameters {
+    pub valid_x: Range<f32>,
+    pub left_valid_y: f32,
+    pub right_valid_y: f32,
 }
 
 #[derive(
