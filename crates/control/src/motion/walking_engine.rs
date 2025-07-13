@@ -2,7 +2,7 @@ use std::f32::consts::FRAC_PI_2;
 
 use color_eyre::Result;
 use context_attribute::context;
-use coordinate_systems::{Field, Ground, Robot, UpcomingSupport, Walk};
+use coordinate_systems::{Ground, Robot, UpcomingSupport, Walk};
 use filtering::low_pass_filter::LowPassFilter;
 use framework::{AdditionalOutput, MainOutput};
 use kinematics::forward;

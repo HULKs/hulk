@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use crate::{nao::Nao, panel::Panel, value_buffer::BufferHandle};
 use coordinate_systems::{Ground, Robot, Walk};
-use eframe::egui::{CentralPanel, Color32, Response, Stroke, TopBottomPanel, Ui, Widget};
+use eframe::egui::{CentralPanel, Color32, Response, Stroke, Ui, Widget};
 use egui_plot::{MarkerShape, Plot, PlotPoint, PlotPoints, PlotUi, Points, Polygon};
 use linear_algebra::{Isometry3, Point2, Point3, Pose3};
 use serde_json::{json, Value};
@@ -60,7 +60,7 @@ impl Widget for &mut WalkPanel {
             Ok(Some(Some(engine))) => engine,
             Ok(_) => return ui.label("no walking engine"),
             Err(error) => {
-                return ui.colored_label(Color32::RED, format!("Error (engine): {}", error));
+                return ui.colored_label(Color32::RED, format!("Error (engine): {error}"));
             }
         };
 
@@ -68,7 +68,7 @@ impl Widget for &mut WalkPanel {
             Ok(Some(Some(robot_to_walk))) => robot_to_walk,
             Ok(_) => return ui.label("no robot to walk"),
             Err(error) => {
-                return ui.colored_label(Color32::RED, format!("Error (robot_to_walk): {}", error));
+                return ui.colored_label(Color32::RED, format!("Error (robot_to_walk): {error}"));
             }
         };
 
@@ -78,7 +78,7 @@ impl Widget for &mut WalkPanel {
             Err(error) => {
                 return ui.colored_label(
                     Color32::RED,
-                    format!("Error (last_actuated_joints): {}", error),
+                    format!("Error (last_actuated_joints): {error}"),
                 );
             }
         };
@@ -88,7 +88,7 @@ impl Widget for &mut WalkPanel {
             Ok(_) => return ui.label("no robot to ground"),
             Err(error) => {
                 return ui
-                    .colored_label(Color32::RED, format!("Error (robot_to_ground): {}", error));
+                    .colored_label(Color32::RED, format!("Error (robot_to_ground): {error}"));
             }
         };
 
@@ -98,7 +98,7 @@ impl Widget for &mut WalkPanel {
             Err(error) => {
                 return ui.colored_label(
                     Color32::RED,
-                    format!("Error (zero moment point): {}", error),
+                    format!("Error (zero moment point): {error}"),
                 );
             }
         };

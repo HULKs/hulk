@@ -69,8 +69,8 @@ impl SupportFootEstimation {
         let changed_this_cycle = support_side != self.last_support_side;
         self.last_support_side = support_side;
 
-        context.left_sum.fill_if_subscribed(|| left_sum.clone());
-        context.right_sum.fill_if_subscribed(|| right_sum.clone());
+        context.left_sum.fill_if_subscribed(|| left_sum);
+        context.right_sum.fill_if_subscribed(|| right_sum);
 
         Ok(MainOutputs {
             support_foot: SupportFoot {
