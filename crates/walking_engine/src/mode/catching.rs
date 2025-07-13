@@ -158,41 +158,12 @@ impl WalkTransition for Catching {
                 .end_feet
                 .to_step(context.parameters, self.step.plan.support_side);
 
-            // let support_side = self.step.plan.support_side.opposite();
-            // let start_feet = Feet::from_joints(
-            //     context.robot_to_walk,
-            //     &context.last_actuated_joints,
-            //     support_side,
-            // );
-            // let plan = StepPlan::new_with_start_and_end_feet(
-            //     context,
-            //     support_side,
-            //     start_feet,
-            //     self.step.plan.end_feet.switch(),
-            // );
-            // let step = StepState::new(plan);
-            //
-            // if should_catch_now {
-            //     return Mode::Catching(Catching::new_from_catching(
-            //         self,
-            //         context,
-            //         self.step,
-            //         self.step.plan.support_side.opposite(),
-            //     ));
-            // }
-
             return Mode::Walking(Walking::new(
                 context,
-                // Step {
-                //     forward: executed_step.forward / 2.,
-                //     left: executed_step.left / 2.,
-                //     turn: 0.0,
-                // },
                 Step::ZERO,
                 self.step.plan.support_side.opposite(),
                 executed_step,
             ));
-            // return Mode::Walking(Walking::new_with_step(step, Step::ZERO));
         }
 
         if should_catch_now {
