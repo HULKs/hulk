@@ -116,17 +116,7 @@ impl Widget for &mut WalkPanel {
             );
         });
 
-        // let bottom_panel = TopBottomPanel::bottom(ui.next_auto_id()).show_inside(ui, |ui| {
-        //     draw_side_plot(
-        //         ui,
-        //         &engine,
-        //         robot_to_walk,
-        //         last_actuated_joints,
-        //         zero_moment_point_in_walk,
-        //     )
-        // });
-
-        central_panel.response //.union(bottom_panel.response)
+        central_panel.response
     }
 }
 
