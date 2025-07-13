@@ -90,11 +90,11 @@ impl Layer<Ground> for Walking {
         let Some(center_of_mass) = self.center_of_mass.get_last_value()? else {
             return Ok(());
         };
-        let center_of_mass_in_ground = robot_to_ground * center_of_mass;
+        let _center_of_mass_in_ground = robot_to_ground * center_of_mass;
         let Some(robot_to_walk) = self.robot_to_walk.get_last_value()?.flatten() else {
             return Ok(());
         };
-        let Some(zero_moment_point) = self.zero_moment_point.get_last_value()? else {
+        let Some(_zero_moment_point) = self.zero_moment_point.get_last_value()? else {
             return Ok(());
         };
 
@@ -136,19 +136,19 @@ impl Layer<Ground> for Walking {
             );
         }
 
-        painter.circle(
-            center_of_mass_in_ground.xy(),
-            0.01,
-            Color32::RED,
-            Stroke::new(0.001, Color32::BLACK),
-        );
+        // painter.circle(
+        //     center_of_mass_in_ground.xy(),
+        //     0.01,
+        //     Color32::RED,
+        //     Stroke::new(0.001, Color32::BLACK),
+        // );
 
-        painter.circle(
-            zero_moment_point,
-            0.01,
-            Color32::GRAY,
-            Stroke::new(0.001, Color32::BLACK),
-        );
+        // painter.circle(
+        //     zero_moment_point,
+        //     0.01,
+        //     Color32::GRAY,
+        //     Stroke::new(0.001, Color32::BLACK),
+        // );
 
         paint_planned_step(painter, planned_step, ground_to_upcoming_support);
         Ok(())
@@ -334,20 +334,20 @@ fn paint_planned_step(
 ) {
     painter.pose(
         Pose2::default(),
-        0.02,
-        0.03,
+        0.002,
+        0.003,
         Color32::TRANSPARENT,
-        Stroke::new(0.005, Color32::BLACK),
+        Stroke::new(0.0005, Color32::BLACK),
     );
     painter.pose(
-        ground_to_upcoming_support.inverse()
-            * Pose2::new(
-                point![planned_step.forward, planned_step.left],
-                planned_step.turn,
-            ),
-        0.02,
-        0.03,
+        ground_to_upcoming_support.inverse().as_pose(),
+        // * Pose2::new(
+        //     point![planned_step.forward, planned_step.left],
+        //     planned_step.turn,
+        // ),
+        0.002,
+        0.003,
         Color32::RED,
-        Stroke::new(0.005, Color32::BLACK),
+        Stroke::new(0.0005, Color32::BLACK),
     );
 }
