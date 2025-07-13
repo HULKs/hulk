@@ -6,9 +6,9 @@ use projection::{camera_matrix::CameraMatrix, horizon::Horizon, Projection};
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::{Field, Ground, Pixel};
+use coordinate_systems::Pixel;
 use framework::MainOutput;
-use linear_algebra::{point, Isometry2, Point2, Transform, Vector2};
+use linear_algebra::{point, Point2, Vector2};
 use types::{
     color::{Hsv, Intensity, RgChromaticity, Rgb, YCbCr444},
     field_color::FieldColorParameters,
@@ -20,9 +20,7 @@ use types::{
 };
 
 #[derive(Deserialize, Serialize)]
-pub struct ImageSegmenter {
-    ground_to_field_of_home_after_coin_toss_before_second_half: Isometry2<Ground, Field>,
-}
+pub struct ImageSegmenter {}
 
 #[context]
 pub struct CreationContext {}
@@ -32,11 +30,6 @@ pub struct CycleContext {
     image: Input<YCbCr422Image, "image">,
 
     camera_matrix: Input<Option<CameraMatrix>, "camera_matrix?">,
-    ground_to_field_of_home_after_coin_toss_before_second_half: Input<
-        Option<Isometry2<Ground, Field>>,
-        "Control",
-        "ground_to_field_of_home_after_coin_toss_before_second_half?",
-    >,
     projected_limbs: Input<Option<ProjectedLimbs>, "projected_limbs?">,
 
     horizontal_stride: Parameter<usize, "image_segmenter.$cycler_instance.horizontal_stride">,
@@ -68,19 +61,10 @@ pub struct MainOutputs {
 
 impl ImageSegmenter {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {
-            ground_to_field_of_home_after_coin_toss_before_second_half: Transform::default(),
-        })
+        Ok(Self {})
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        if let Some(ground_to_field_of_home_after_coin_toss_before_second_half) =
-            context.ground_to_field_of_home_after_coin_toss_before_second_half
-        {
-            self.ground_to_field_of_home_after_coin_toss_before_second_half =
-                *ground_to_field_of_home_after_coin_toss_before_second_half;
-        }
-
         let projected_limbs = context
             .projected_limbs
             .map_or(Default::default(), |projected_limbs| {
