@@ -65,6 +65,24 @@ fn update(
             println!("Standing searcher after penalty");
             exit.send(AppExit::from_code(1));
         }
+        if let MotionCommand::Walk {
+            head: _,
+            path: _,
+            left_arm: _,
+            right_arm: _,
+            orientation_mode: _,
+            speed: _,
+        } = robots
+            .iter_mut()
+            .find(|robot| robot.parameters.player_number == PlayerNumber::Three)
+            .unwrap()
+            .database
+            .main_outputs
+            .motion_command
+        {
+            println!("Moving searcher after ball loss");
+            exit.send(AppExit::from_code(1));
+        }
     }
 
     if time.ticks() == 5500 {
