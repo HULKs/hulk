@@ -20,11 +20,10 @@ use buffered_watch::{Receiver, Sender};
 use control::localization::generate_initial_pose;
 use coordinate_systems::{Field, Ground, Head, LeftSole, RightSole, Robot as RobotCoordinates};
 use framework::{future_queue, Producer, RecordingTrigger};
-use geometry::{is_inside_polygon::cross_product, line_segment::LineSegment};
+use geometry::{circle::Circle, polygon::circle_overlaps_polygon};
 use hula_types::hardware::Ids;
 use linear_algebra::{
-    distance, point, vector, Isometry2, Isometry3, Orientation2, Point2, Pose2, Pose3, Rotation2,
-    Vector2,
+    point, vector, Isometry2, Isometry3, Orientation2, Point2, Pose2, Pose3, Rotation2, Vector2,
 };
 use parameters::directory::deserialize;
 use projection::intrinsic::Intrinsic;
@@ -338,40 +337,10 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
                     })
                     .collect();
 
-                let is_colliding = |x| {
-                    let points: &[Point2<Ground>] = x;
-                    let target_point: &Point2<Ground> =
-                        &(robot.ground_to_field().inverse() * ball.position);
-                    if !points.is_empty() {
-                        let mut crossings = 0;
-                        for i in 0..points.len() {
-                            let j = (i + 1) % points.len();
-
-                            if points[i].y() <= target_point.y() {
-                                if points[j].y() > target_point.y()
-                                    && cross_product(target_point, &points[i], &points[j]) > 0.0
-                                {
-                                    crossings += 1;
-                                }
-                            } else if points[j].y() <= target_point.y()
-                                && cross_product(target_point, &points[i], &points[j]) < 0.0
-                            {
-                                crossings -= 1;
-                            }
-
-                            let closest =
-                                LineSegment(points[i], points[j]).closest_point(*target_point);
-                            if distance(closest, *target_point) <= 0.05 {
-                                return true;
-                            }
-                        }
-
-                        return crossings != 0;
-                    }
-                    false
-                };
-                let in_range =
-                    is_colliding(&left_sole_in_ground) || is_colliding(&right_sole_in_ground);
+                let ball_circle =
+                    Circle::new(robot.ground_to_field().inverse() * ball.position, 0.05);
+                let in_range = circle_overlaps_polygon(&left_sole_in_ground, ball_circle)
+                    || circle_overlaps_polygon(&right_sole_in_ground, ball_circle);
                 let previous_kick_finished =
                     (time.elapsed() - robot.last_kick_time).as_secs_f32() > 1.0;
                 if in_range && previous_kick_finished {

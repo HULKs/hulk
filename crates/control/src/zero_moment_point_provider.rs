@@ -5,7 +5,7 @@ use filtering::low_pass_filter::LowPassFilter;
 use framework::{AdditionalOutput, MainOutput};
 use geometry::{
     convex_hull::{reduce_to_convex_hull, Range},
-    is_inside_polygon::is_inside_convex_hull,
+    polygon::is_inside_polygon,
 };
 use linear_algebra::{Isometry3, Point2, Point3, Vector3};
 use serde::{Deserialize, Serialize};
