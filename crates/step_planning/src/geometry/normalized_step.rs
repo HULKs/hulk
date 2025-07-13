@@ -118,6 +118,36 @@ impl<T: RealField + DualNum<f32>> NormalizedStep<T> {
             .sum::<T>()
             <= T::one()
     }
+
+    pub fn clamp_to_walk_volume(self) -> Self {
+        let Self {
+            forward,
+            left,
+            turn,
+        } = self;
+
+        let squared_magnitude = [&forward, &left, &turn]
+            .iter()
+            .map(|x| x.powi(2))
+            .sum::<T>();
+
+        if squared_magnitude > T::one() {
+            let magnitude = squared_magnitude.sqrt();
+            let factor = magnitude.recip();
+
+            Self {
+                forward: forward * factor.clone(),
+                left: left * factor.clone(),
+                turn: turn * factor,
+            }
+        } else {
+            Self {
+                forward,
+                left,
+                turn,
+            }
+        }
+    }
 }
 
 impl<T: Clone> NormalizedStep<T> {
