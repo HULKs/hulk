@@ -3,7 +3,10 @@ use nalgebra::{allocator::Allocator, DefaultAllocator, DimName, OPoint, OVector,
 use linear_algebra::Framed;
 use types::step::Step;
 
-use crate::geometry::{pose::Pose, pose::PoseGradient};
+use crate::geometry::{
+    angle::Angle,
+    pose::{Pose, PoseGradient},
+};
 
 pub trait GradientType {
     type Gradient;
@@ -48,6 +51,10 @@ impl_gradient!(
     <T: Scalar, D: DimName>;
     where DefaultAllocator: Allocator<D>;
     OPoint<T, D>, OVector<T, D>
+);
+impl_gradient!(
+    <T>;
+    Angle<T>, T
 );
 impl_gradient!(
     <T>;
