@@ -360,7 +360,7 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
                 }
             }
             HeadMotion::LookLeftAndRightOf { target } => {
-                let glance_factor = 0.0; //self.time_elapsed.as_secs_f32().sin();
+                let glance_factor = time.elapsed().as_secs_f32().sin();
                 target.coords().angle(&Vector2::x_axis())
                     + glance_factor * robot.parameters.look_at.glance_angle
             }
