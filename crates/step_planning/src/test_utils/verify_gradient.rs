@@ -3,9 +3,9 @@ use std::fmt::Debug;
 use approx::{assert_relative_eq, AbsDiffEq, RelativeEq};
 use num_traits::{real::Real, NumAssignOps};
 
-use crate::{
-    test_utils::decompose::Decompose,
-    traits::{Gradient, GradientType},
+use crate::test_utils::{
+    decompose::Decompose,
+    gradient_type::{Gradient, GradientType},
 };
 
 pub fn verify_gradient<A: Clone + Debug + Decompose<F> + GradientType, F: Real + NumAssignOps>(

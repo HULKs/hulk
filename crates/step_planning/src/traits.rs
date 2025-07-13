@@ -1,6 +1,5 @@
 mod classify_projection;
 mod end_points;
-mod gradient_type;
 mod length;
 mod path_progress;
 mod project;
@@ -10,7 +9,6 @@ mod wrap_dual;
 
 pub use classify_projection::{ArcProjectionKind, ClassifyProjection};
 pub use end_points::EndPoints;
-pub use gradient_type::{Gradient, GradientType};
 pub use length::Length;
 pub use path_progress::PathProgress;
 pub use project::Project;
