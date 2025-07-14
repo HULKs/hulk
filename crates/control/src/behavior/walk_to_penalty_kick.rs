@@ -2,7 +2,7 @@ use framework::AdditionalOutput;
 use linear_algebra::{point, Pose2};
 use types::{
     field_dimensions::FieldDimensions,
-    motion_command::{MotionCommand, WalkSpeed},
+    motion_command::{MotionCommand, OrientationMode, WalkSpeed},
     path_obstacles::PathObstacle,
     world_state::WorldState,
 };
@@ -30,6 +30,7 @@ pub fn execute(
         look_action.execute(),
         path_obstacles_output,
         walk_speed,
+        OrientationMode::AlignWithPath,
         distance_to_be_aligned,
         walk_and_stand.parameters.hysteresis,
     )
