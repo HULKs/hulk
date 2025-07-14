@@ -63,47 +63,35 @@ impl From<Rgb> for Eye {
 
 impl Eye {
     pub fn percentage(rgb_positive: Rgb, rgb_negative: Rgb, fraction: f32) -> Self {
+        let thresholds = [
+            f32::EPSILON,
+            1. / 8.,
+            2. / 8.,
+            3. / 8.,
+            4. / 8.,
+            5. / 8.,
+            6. / 8.,
+            7. / 8.,
+        ];
+        let colors: Vec<Rgb> = thresholds
+            .iter()
+            .map(|&threshold| {
+                if fraction > threshold {
+                    rgb_positive
+                } else {
+                    rgb_negative
+                }
+            })
+            .collect();
         Self {
-            color_at_0: if fraction > f32::EPSILON {
-                rgb_positive
-            } else {
-                Rgb::BLACK
-            },
-            color_at_45: if fraction > 1. / 8. {
-                rgb_positive
-            } else {
-                rgb_negative
-            },
-            color_at_90: if fraction > 2. / 8. {
-                rgb_positive
-            } else {
-                rgb_negative
-            },
-            color_at_135: if fraction > 3. / 8. {
-                rgb_positive
-            } else {
-                rgb_negative
-            },
-            color_at_180: if fraction > 4. / 8. {
-                rgb_positive
-            } else {
-                rgb_negative
-            },
-            color_at_225: if fraction > 5. / 8. {
-                rgb_positive
-            } else {
-                rgb_negative
-            },
-            color_at_270: if fraction > 6. / 8. {
-                rgb_positive
-            } else {
-                rgb_negative
-            },
-            color_at_315: if fraction > 7. / 8. {
-                rgb_positive
-            } else {
-                rgb_negative
-            },
+            color_at_0: colors[0],
+            color_at_45: colors[1],
+            color_at_90: colors[2],
+            color_at_135: colors[3],
+            color_at_180: colors[4],
+            color_at_225: colors[5],
+            color_at_270: colors[6],
+            color_at_315: colors[7],
         }
     }
 
