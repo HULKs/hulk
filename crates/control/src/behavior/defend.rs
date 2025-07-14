@@ -13,7 +13,7 @@ use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
     field_dimensions::{FieldDimensions, Side},
     filtered_game_controller_state::FilteredGameControllerState,
-    motion_command::{JumpDirection, MotionCommand, WalkSpeed},
+    motion_command::{JumpDirection, MotionCommand, OrientationMode, WalkSpeed},
     parameters::{KeeperMotionParameters, RolePositionsParameters},
     path_obstacles::PathObstacle,
     world_state::{BallState, WorldState},
@@ -68,6 +68,7 @@ impl<'cycle> Defend<'cycle> {
             self.look_action.execute(),
             path_obstacles_output,
             walk_speed,
+            OrientationMode::AlignWithPath,
             distance_to_be_aligned,
             hysteresis,
         )
