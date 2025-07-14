@@ -77,9 +77,11 @@ impl Horizon {
         ground_to_camera: Isometry3<Ground, Camera>,
         intrinsics: &Intrinsic,
     ) -> Option<Self> {
+        let vanishing_point = Self::find_vanishing_point(ground_to_camera, intrinsics)?;
+        let normal = Self::find_horizon_normal(ground_to_camera, intrinsics)?;
         Some(Self {
-            vanishing_point: Self::find_vanishing_point(ground_to_camera, intrinsics)?,
-            normal: Self::find_horizon_normal(ground_to_camera, intrinsics)?,
+            vanishing_point,
+            normal,
         })
     }
 }
