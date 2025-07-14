@@ -195,7 +195,7 @@ impl<'cycle> WalkAndStand<'cycle> {
             );
             Some(self.walk_path_planner.walk_with_obstacle_avoiding_arms(
                 head,
-                OrientationMode::Unspecified,
+                OrientationMode::AlignWithPath,
                 target_pose.orientation(),
                 distance_to_be_aligned,
                 path,
