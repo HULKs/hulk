@@ -254,7 +254,7 @@ fn defend_pose(
     } else {
         role_positions.defender_y_offset
     };
-    let position_to_defend = point![x_offset, y_offset];
+    let mut position_to_defend = point![x_offset, y_offset];
 
     let mode = if greater_than_with_hysteresis(
         *last_defender_mode == DefendMode::Passive,
@@ -292,17 +292,13 @@ fn defend_pose(
         field_dimensions,
     );
 
-    let defend_pose = match &world_state
-        .filtered_game_controller_state
-        .clone()?
-        .sub_state
-    {
-        Some(SubState::PenaltyKick) => {
-            let position_to_defend2 = point!(position_to_defend.x(), -position_to_defend.y());
-            block_on_circle(ball.ball_in_field, position_to_defend2, distance_to_target)
-        }
+    let ball_behind_position_to_defend = ball.ball_in_field.x() < (x_offset + field_dimensions.penalty_area_length) / 4.5;
 
-        _ => block_on_circle(ball.ball_in_field, position_to_defend, distance_to_target),
+    let defend_pose = if ball_behind_position_to_defend {
+        position_to_defend = point!(position_to_defend.x(), -position_to_defend.y());
+        block_on_circle(ball.ball_in_field, position_to_defend, distance_to_target)
+    } else {
+        block_on_circle(ball.ball_in_field, position_to_defend, distance_to_target)
     };
 
     Some(ground_to_field.inverse() * defend_pose)
