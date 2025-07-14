@@ -244,7 +244,7 @@ fn defend_pose(
     last_defender_mode: &mut DefendMode,
 ) -> Option<Pose2<Ground>> {
     let ground_to_field = world_state.robot.ground_to_field?;
-    let ball = world_state
+    let ball = &world_state
         .rule_ball
         .or(world_state.ball)
         .unwrap_or_else(|| BallState::new_at_center(ground_to_field));
@@ -291,7 +291,19 @@ fn defend_pose(
         world_state.filtered_game_controller_state.as_ref(),
         field_dimensions,
     );
-    let defend_pose = block_on_circle(ball.ball_in_field, position_to_defend, distance_to_target);
+
+    let defend_pose = match &world_state
+        .filtered_game_controller_state
+        .clone()?
+        .sub_state
+    {
+        Some(SubState::PenaltyKick) => {
+            let position_to_defend2 = point!(position_to_defend.x(), -position_to_defend.y());
+            block_on_circle(ball.ball_in_field, position_to_defend2, distance_to_target)
+        }
+
+        _ => block_on_circle(ball.ball_in_field, position_to_defend, distance_to_target),
+    };
 
     Some(ground_to_field.inverse() * defend_pose)
 }
