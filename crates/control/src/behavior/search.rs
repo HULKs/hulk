@@ -158,7 +158,10 @@ pub fn execute(
             } else {
                 Some(walk_path_planner.walk_with_obstacle_avoiding_arms(
                     head,
-                    OrientationMode::LookTowards(Orientation2::new(parameters.rotation_per_step)),
+                    OrientationMode::LookTowards {
+                        direction: Orientation2::new(parameters.rotation_per_step),
+                        tolerance: 0.0,
+                    },
                     Orientation2::identity(),
                     distance_to_be_aligned,
                     path,
