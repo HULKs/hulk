@@ -7,8 +7,7 @@ from pathlib import Path
 import cv2
 import pandas as pd
 import plotly.graph_objects as go
-
-from .data import (
+from field_color_detection.data import (
     convert_BGR_to_YCrCb,
     convert_YCrCb_to_BGR,
 )

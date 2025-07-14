@@ -10,7 +10,8 @@ import cv2
 import numpy as np
 from numpy.typing import NDArray
 from PyQt6.QtWidgets import QApplication, QFileDialog
-from src.decision_tree import optimize_thresholds
+
+from .label_and_train import optimize_thresholds
 
 IMAGE_DIRECTORY = os.path.join(tempfile.gettempdir(), "twix")
 

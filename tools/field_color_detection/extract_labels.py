@@ -5,9 +5,8 @@ from collections import defaultdict
 
 import cv2
 import numpy as np
+from field_color_detection.settings import ColorValues
 from PIL import Image, ImageDraw
-
-from .settings import ColorValues
 
 
 def get_category_colors(label: str, *, binary_mask: bool) -> tuple:
