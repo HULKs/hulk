@@ -30,12 +30,6 @@ data_types = Literal["u8", "f32", "u16"]
 camera = Literal["top", "bottom"]
 
 
-@dataclass
-class Feature:
-    identifier: color_channels
-    data_type: data_types
-
-
 def convert_pixels_BGR2bgrI(
     pixel_BGR: NDArray[np.integer],
 ) -> NDArray[np.floating]:
@@ -87,45 +81,6 @@ def optimize_thresholds(
     print(rust_expression)
     print("*** END ***")
     return model
-
-
-def tree_to_rust_code(
-    clf: DecisionTreeClassifier, features: list[Feature], labels: list[str]
-) -> str:
-    tree = clf.tree_
-
-    def recurse(node: int) -> str:
-        if tree.children_left[node] == -1 and tree.children_right[node] == -1:
-            predicted_class = int(np.argmax(tree.value[node][0]))
-            return f"{labels[predicted_class]}"
-
-        feature_index = tree.feature[node]
-        threshold = tree.threshold[node]
-        left_branch = recurse(tree.children_left[node])
-        right_branch = recurse(tree.children_right[node])
-        if features[feature_index].data_type in ["u8", "u16"]:
-            threshold_str = f"{np.floor(threshold):.0f}"
-        else:
-            threshold_str = f"{threshold:.3f}"
-        field = features[feature_index].identifier
-        return (
-            f"if features.{field} <= {threshold_str} {{\n"
-            f"{left_branch}\n"
-            "} else {\n"
-            f"{right_branch}\n"
-            "}"
-        )
-
-    out = "use types::color::Intensity;\n\n"
-    out += "pub struct Features {\n"
-    for feature in features:
-        out += f"pub {feature.identifier}: {feature.data_type},\n"
-    out += "}\n\n"
-    out += "#[allow(clippy::collapsible_else_if)]\n"
-    out += "pub fn predict(features: &Features) -> Intensity {\n"
-    out += recurse(0)
-    out += "\n}"
-    return out
 
 
 def save_tree_as_dot_file(model: DecisionTreeClassifier, filename: str) -> None:
