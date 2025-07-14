@@ -1,9 +1,9 @@
-import json
 import csv
+import json
 
 
 def convert_json_to_csv(json_path, csv_path):
-    with open(json_path, "r") as jf:
+    with open(json_path) as jf:
         data = json.load(jf)
 
     trials = data["trials"]
@@ -16,7 +16,7 @@ def convert_json_to_csv(json_path, csv_path):
 
 
 def extract_best_to_csv(json_path, csv_path):
-    with open(json_path, "r") as jf:
+    with open(json_path) as jf:
         data = json.load(jf)
 
     best = data["best"]
@@ -36,7 +36,6 @@ extract_best_to_csv(
 )
 
 
-
 convert_json_to_csv(
     "/home/franziska-sophie/Documents/2025-franziska-sophie-goettsch-project-work/poster/data/testVal_LinearSVM.json",
     "/home/franziska-sophie/Documents/2025-franziska-sophie-goettsch-project-work/paper/data/testVal_LinearSVM_trials.csv",
@@ -47,7 +46,6 @@ extract_best_to_csv(
 )
 
 
-
 convert_json_to_csv(
     "/home/franziska-sophie/Documents/2025-franziska-sophie-goettsch-project-work/poster/data/testVal_NystroemPolynomial.json",
     "/home/franziska-sophie/Documents/2025-franziska-sophie-goettsch-project-work/paper/data/testVal_NystroemPolynomial_trials.csv",
@@ -56,7 +54,6 @@ extract_best_to_csv(
     "/home/franziska-sophie/Documents/2025-franziska-sophie-goettsch-project-work/poster/data/testVal_NystroemPolynomial.json",
     "/home/franziska-sophie/Documents/2025-franziska-sophie-goettsch-project-work/paper/data/testVal_NystroemPolynomial_best.csv",
 )
-
 
 
 convert_json_to_csv(

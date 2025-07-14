@@ -6,7 +6,7 @@ from plotly.io import show
 from sklearn import metrics
 from sklearn.base import ClassifierMixin
 
-from image_segmenter.settings import HEIGHT, WIDTH, Classes
+from .settings import HEIGHT, WIDTH, Classes
 
 
 def show_boxplot(

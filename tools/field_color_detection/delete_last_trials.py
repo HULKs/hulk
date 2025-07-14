@@ -1,6 +1,5 @@
 import optuna
 
-
 if __name__ == "__main__":
     ho_storage_name = "sqlite:///../../db.sqlite3"
     ho_study_name = "testVal_DecisionTree"

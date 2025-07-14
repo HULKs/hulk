@@ -4,7 +4,7 @@ import shutil
 
 import cv2
 
-from image_segmenter.data import convert_YCrCb_to_BGR, read_YCrCb_image
+from .data import convert_YCrCb_to_BGR, read_YCrCb_image
 
 
 def find_png_files(directory: str) -> list[str]:

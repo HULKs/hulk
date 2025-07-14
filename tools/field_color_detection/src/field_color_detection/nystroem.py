@@ -1,12 +1,8 @@
 import numpy as np
-from sklearn import svm
 from sklearn.kernel_approximation import (
     Nystroem,
-    # PolynomialCountSketch,
-    # RBFSampler,
 )
 from sklearn.linear_model import SGDClassifier
-from sklearn.preprocessing import StandardScaler
 
 
 class NystroemApprox:
@@ -98,7 +94,6 @@ class NystroemApprox:
         X_transformed = self._batched_transform(self.nystroem, X)
         return self.classifier.predict(X_transformed)
 
-
     def set_params(self, **params):
         main_params = {}
         classifier_params = {}
@@ -116,7 +111,8 @@ class NystroemApprox:
             self.classifier.set_params(**classifier_params)
 
         if any(
-            p in main_params for p in ["gamma", "kernel", "n_components", "degree"]
+            p in main_params
+            for p in ["gamma", "kernel", "n_components", "degree"]
         ):
             self.nystroem = Nystroem(
                 kernel=self.kernel,

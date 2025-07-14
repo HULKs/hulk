@@ -7,6 +7,9 @@ import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
+from numpy.typing import NDArray
+from PIL import Image
+
 from .settings import (
     HEIGHT,
     WIDTH,
@@ -14,8 +17,6 @@ from .settings import (
     ColorValues,
     FeatureIndices,
 )
-from numpy.typing import NDArray
-from PIL import Image
 
 
 def create_sampling_masks(y_train, y_test, ratio_ones):

@@ -15,14 +15,12 @@ from sklearn.neural_network import MLPClassifier
 from sklearn.pipeline import make_pipeline
 from sklearn.preprocessing import StandardScaler
 
-from image_segmenter.gabor_filters import GaborFilter
-from image_segmenter.histogram_of_oriented_gradients import HoGFilter
-
-# from image_segmenter.linear_svm import LinearSVM
-from image_segmenter.local_binary_pattern import LBPFilter
-from image_segmenter.neighboring_pixels import NeighboringPixels
-from image_segmenter.nystroem import NystroemApprox
-from image_segmenter.settings import (
+from .gabor_filters import GaborFilter
+from .histogram_of_oriented_gradients import HoGFilter
+from .local_binary_pattern import LBPFilter
+from .neighboring_pixels import NeighboringPixels
+from .nystroem import NystroemApprox
+from .settings import (
     HEIGHT,
     MAX_N_JOBS,
     SHOW_PREDICTED_IMGS,
@@ -103,9 +101,9 @@ class Objective:
         X_train = np.concatenate(
             (X_train, texture_features_train), axis=-1
         ).astype(np.float32)
-        X_val = np.concatenate(
-            (X_val, texture_features_val), axis=-1
-        ).astype(np.float32)
+        X_val = np.concatenate((X_val, texture_features_val), axis=-1).astype(
+            np.float32
+        )
         X_train_binary = X_train[y_train != Classes.UNKNOWN.value]
         X_val_binary = X_val[y_val != Classes.UNKNOWN.value]
         if self.train_mask is not None and self.val_mask is not None:

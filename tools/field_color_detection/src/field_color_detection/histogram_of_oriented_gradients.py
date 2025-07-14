@@ -6,11 +6,10 @@ from numpy.typing import NDArray
 from skimage.feature import hog
 from skimage.transform import resize
 
-from image_segmenter import check_memory
-
-# from image_segmenter.settings import MAX_N_JOBS
+from .data import check_memory
 
 MAX_N_JOBS = min(os.cpu_count() // 2, 4)
+
 
 class HoGFilter:
     def __init__(

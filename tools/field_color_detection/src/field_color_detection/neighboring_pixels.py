@@ -4,9 +4,10 @@ import numpy as np
 from numba import njit, prange, set_num_threads
 from numpy.typing import NDArray
 
-from image_segmenter import check_memory
+from .data import check_memory
 
 set_num_threads(2)
+
 
 @njit(parallel=True)
 def sample_neighbors(

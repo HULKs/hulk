@@ -2,7 +2,7 @@ from sklearn.linear_model import SGDClassifier
 
 
 class LinearSVM:
-    def __init(self, batch_size: int = 1024):
+    def __init__(self, batch_size: int = 1024):
         self.batch_size = batch_size
         self.classifier = SGDClassifier(loss="hinge")
 

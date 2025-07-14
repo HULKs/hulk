@@ -1,4 +1,3 @@
-import argparse
 import json
 import os
 import re
@@ -8,7 +7,7 @@ import cv2
 import numpy as np
 from PIL import Image, ImageDraw
 
-from image_segmenter.settings import ColorValues
+from .settings import ColorValues
 
 
 def get_category_colors(label: str, *, binary_mask: bool) -> tuple:
@@ -236,9 +235,7 @@ if __name__ == "__main__":
 
     # combine_masks(args.input_dir)
 
-    coco_file_path = (
-        "/home/franziska-sophie/Downloads/json_min_2.json"
-    )
+    coco_file_path = "/home/franziska-sophie/Downloads/json_min_2.json"
     output_dir = (
         "/home/franziska-sophie/Downloads/sampled_images/labels_binary_2"
     )

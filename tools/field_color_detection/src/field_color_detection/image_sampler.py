@@ -1,7 +1,6 @@
 import argparse
 import os
 import random
-import shutil
 from collections import defaultdict
 from pathlib import Path
 
@@ -9,10 +8,9 @@ import cv2
 import pandas as pd
 import plotly.graph_objects as go
 
-from image_segmenter.data import (
+from .data import (
     convert_BGR_to_YCrCb,
     convert_YCrCb_to_BGR,
-    read_YCrCb_image,
 )
 
 SAMPLE = False
@@ -111,13 +109,13 @@ def plot_icicle(distribution, title):
             labels=df["labels"],
             parents=df["parents"],
             values=df["values"],
-            marker=dict(colors=df["color"]),
+            marker={"colors": df["color"]},
             root_color="lightgrey",
-            tiling=dict(orientation="v", flip="y"),
-            textinfo="percent parent", # "label+percent parent",
+            tiling={"orientation": "v", "flip": "y"},
+            textinfo="percent parent",  # "label+percent parent",
         )
     )
-    fig.update_layout(title=title, margin=dict(t=50, l=25, r=25, b=25))
+    fig.update_layout(title=title, margin={"t": 50, "l": 25, "r": 25, "b": 25})
     fig.show()
 
 

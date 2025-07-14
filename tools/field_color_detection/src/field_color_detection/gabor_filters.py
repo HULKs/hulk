@@ -1,7 +1,8 @@
 import cv2
 import numpy as np
 from numpy.typing import NDArray
-from image_segmenter import check_memory
+
+from .data import check_memory
 
 
 class GaborFilter:
