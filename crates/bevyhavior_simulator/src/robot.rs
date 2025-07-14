@@ -17,13 +17,14 @@ use bevy::{
 use color_eyre::{eyre::WrapErr, Result};
 
 use buffered_watch::{Receiver, Sender};
-use control::localization::generate_initial_pose;
+use control::{localization::generate_initial_pose, zero_moment_point_provider::LEFT_FOOT_OUTLINE};
 use coordinate_systems::{Field, Ground, Head, LeftSole, RightSole, Robot as RobotCoordinates};
 use framework::{future_queue, Producer, RecordingTrigger};
 use geometry::{circle::Circle, polygon::circle_overlaps_polygon};
 use hula_types::hardware::Ids;
 use linear_algebra::{
-    point, vector, Isometry2, Isometry3, Orientation2, Point2, Pose2, Pose3, Rotation2, Vector2,
+    point, vector, Isometry2, Isometry3, Orientation2, Orientation3, Point2, Pose2, Pose3,
+    Rotation2, Vector2,
 };
 use parameters::directory::deserialize;
 use projection::intrinsic::Intrinsic;
@@ -314,10 +315,15 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
 
         let (left_sole, right_sole) =
             sole_positions(&robot.database.main_outputs.sensor_data.positions);
-        let support_foot = robot.database.main_outputs.support_foot.support_side;
-        if robot.anchor_side != support_foot {
-            robot.anchor_side = support_foot;
-            let support_sole = match support_foot.unwrap() {
+        let support_foot = robot
+            .database
+            .main_outputs
+            .support_foot
+            .support_side
+            .unwrap();
+        if robot.anchor_side != Some(support_foot) {
+            robot.anchor_side = Some(support_foot);
+            let support_sole = match support_foot {
                 Side::Left => left_sole,
                 Side::Right => right_sole,
             };
@@ -349,8 +355,7 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
 
         let (new_left_sole, new_right_sole) =
             sole_positions(&robot.database.main_outputs.sensor_data.positions);
-        robot.anchor_side = support_foot;
-        let support_sole = match support_foot.unwrap() {
+        let support_sole = match support_foot {
             Side::Left => new_left_sole,
             Side::Right => new_right_sole,
         };
@@ -497,13 +502,11 @@ pub fn cycle_robots(
         robot.database.main_outputs.game_controller_state = Some(game_controller.state.clone());
         robot.cycler.cycler_state.ground_to_field = robot.ground_to_field();
         robot.interface.set_time(now);
-        robot.database.main_outputs.robot_orientation = Some(
-            robot
-                .database
-                .main_outputs
-                .robot_orientation
-                .unwrap_or_default(),
-        );
+        robot.database.main_outputs.robot_orientation = robot
+            .database
+            .main_outputs
+            .robot_orientation
+            .or(Some(Orientation3::default()));
         robot
             .cycle(&messages_sent_last_cycle, &visual_referee_pose_kind)
             .unwrap();
