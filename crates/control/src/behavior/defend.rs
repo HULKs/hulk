@@ -292,7 +292,7 @@ fn defend_pose(
         field_dimensions,
     );
 
-    let ball_behind_position_to_defend = ball.ball_in_field.x() < (x_offset + field_dimensions.penalty_area_length) / 4.5;
+    let ball_behind_position_to_defend = ball.ball_in_field.x() < ground_to_field.as_pose().position().x();
 
     let defend_pose = if ball_behind_position_to_defend {
         position_to_defend = point!(position_to_defend.x(), -position_to_defend.y());
