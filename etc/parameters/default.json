@@ -211,68 +211,6 @@
       "second_line_association_distance": 2.0
     }
   },
-  "field_color_detection": {
-    "vision_top": {
-      "luminance": {
-        "start": 35,
-        "end": 210
-      },
-      "green_luminance": {
-        "start": 20,
-        "end": 255
-      },
-      "red_chromaticity": {
-        "start": 0.0,
-        "end": 1.0
-      },
-      "green_chromaticity": {
-        "start": 0.0,
-        "end": 1.0
-      },
-      "blue_chromaticity": {
-        "start": 0.0,
-        "end": 1.0
-      },
-      "hue": {
-        "start": 67,
-        "end": 130
-      },
-      "saturation": {
-        "start": 75,
-        "end": 255
-      }
-    },
-    "vision_bottom": {
-      "luminance": {
-        "start": 35,
-        "end": 210
-      },
-      "green_luminance": {
-        "start": 20,
-        "end": 255
-      },
-      "red_chromaticity": {
-        "start": 0.0,
-        "end": 1.0
-      },
-      "green_chromaticity": {
-        "start": 0.0,
-        "end": 1.0
-      },
-      "blue_chromaticity": {
-        "start": 0.0,
-        "end": 1.0
-      },
-      "hue": {
-        "start": 67,
-        "end": 130
-      },
-      "saturation": {
-        "start": 75,
-        "end": 255
-      }
-    }
-  },
   "perspective_grid_candidates_provider": {
     "vision_top": {
       "minimum_radius": 3.0,

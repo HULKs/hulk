@@ -11,7 +11,6 @@ use framework::MainOutput;
 use linear_algebra::{point, vector, Framed, Point2, Vector2};
 use types::{
     color::{Intensity, RgChromaticity, Rgb, YCbCr444},
-    field_color::FieldColorParameters,
     image_segments::{Direction, EdgeType, ImageSegments, ScanGrid, ScanLine, Segment},
     limb::project_onto_limbs,
     limb::{Limb, ProjectedLimbs},
@@ -57,8 +56,6 @@ pub struct CycleContext {
         Parameter<u8, "image_segmenter.$cycler_instance.vertical_edge_threshold">,
     vertical_median_mode:
         Parameter<MedianModeParameters, "image_segmenter.$cycler_instance.vertical_median_mode">,
-
-    field_color: Parameter<FieldColorParameters, "field_color_detection.$cycler_instance">,
 }
 
 #[context]
@@ -88,7 +85,6 @@ impl ImageSegmenter {
             context.image,
             context.camera_matrix,
             &horizon,
-            context.field_color,
             *context.horizontal_stride,
             *context.horizontal_edge_threshold as i16,
             *context.horizontal_median_mode,
@@ -133,7 +129,6 @@ fn new_grid(
     image: &YCbCr422Image,
     camera_matrix: &CameraMatrix,
     horizon: &Horizon,
-    field_color: &FieldColorParameters,
     horizontal_stride: usize,
     horizontal_edge_threshold: i16,
     horizontal_median_mode: MedianModeParameters,
@@ -154,7 +149,6 @@ fn new_grid(
     let horizontal_scan_lines = collect_horizontal_scan_lines(
         image,
         camera_matrix,
-        field_color,
         horizontal_stride,
         horizontal_edge_threshold,
         horizontal_median_mode,
@@ -167,7 +161,6 @@ fn new_grid(
     let vertical_scan_lines = collect_vertical_scan_lines(
         image,
         horizon,
-        field_color,
         horizontal_stride,
         vertical_stride,
         vertical_edge_detection_source,
@@ -187,7 +180,6 @@ fn new_grid(
 fn collect_vertical_scan_lines(
     image: &YCbCr422Image,
     horizon: &Horizon,
-    field_color: &FieldColorParameters,
     horizontal_stride: usize,
     vertical_stride: usize,
     vertical_edge_detection_source: EdgeDetectionSourceParameters,
@@ -202,7 +194,6 @@ fn collect_vertical_scan_lines(
             let horizon_y = horizon.y_at_x(x as f32).clamp(0.0, image.height() as f32);
             new_vertical_scan_line(
                 image,
-                field_color,
                 x,
                 vertical_stride,
                 vertical_edge_detection_source,
@@ -219,7 +210,6 @@ fn collect_vertical_scan_lines(
 fn collect_horizontal_scan_lines(
     image: &YCbCr422Image,
     camera_matrix: &CameraMatrix,
-    field_color: &FieldColorParameters,
     horizontal_stride: usize,
     horizontal_edge_threshold: i16,
     horizontal_median_mode: MedianModeParameters,
@@ -236,7 +226,6 @@ fn collect_horizontal_scan_lines(
     while y + horizontal_padding_size < limbs_y_minimum {
         horizontal_scan_lines.push(new_horizontal_scan_line(
             image,
-            field_color,
             y,
             horizontal_stride,
             horizontal_edge_detection_source,
@@ -316,7 +305,6 @@ where
 
 fn new_horizontal_scan_line(
     image: &YCbCr422Image,
-    _field_color: &FieldColorParameters,
     position: u32,
     stride: usize,
     edge_detection_source: EdgeDetectionSourceParameters,
@@ -391,7 +379,6 @@ fn new_horizontal_scan_line(
 #[allow(clippy::too_many_arguments)]
 fn new_vertical_scan_line(
     image: &YCbCr422Image,
-    _field_color: &FieldColorParameters,
     position: u32,
     stride: usize,
     edge_detection_source: EdgeDetectionSourceParameters,
@@ -721,15 +708,6 @@ mod tests {
     use types::color::YCbCr422;
 
     use super::*;
-    const FIELD_COLOR: FieldColorParameters = FieldColorParameters {
-        luminance: 25..=255,
-        green_luminance: 255..=255,
-        red_chromaticity: 0.37..=1.0,
-        green_chromaticity: 0.43..=1.0,
-        blue_chromaticity: 0.37..=1.0,
-        hue: 0..=0,
-        saturation: 0..=0,
-    };
 
     #[test]
     fn maximum_with_sign_switch() {
@@ -744,7 +722,6 @@ mod tests {
         let horizon_y_minimum = 0.0;
         let scan_line = new_vertical_scan_line(
             &image,
-            &FIELD_COLOR,
             12,
             vertical_stride,
             vertical_edge_detection_source,
@@ -767,7 +744,6 @@ mod tests {
         let image = YCbCr422Image::zero(6, 3);
         let scan_line = new_vertical_scan_line(
             &image,
-            &FIELD_COLOR,
             0,
             2,
             EdgeDetectionSourceParameters::Luminance,
@@ -787,7 +763,6 @@ mod tests {
         let image = YCbCr422Image::zero(6, 3);
         let scan_line = new_vertical_scan_line(
             &image,
-            &FIELD_COLOR,
             1,
             2,
             EdgeDetectionSourceParameters::Luminance,
@@ -817,7 +792,6 @@ mod tests {
 
         let scan_line = new_vertical_scan_line(
             &image,
-            &FIELD_COLOR,
             0,
             2,
             EdgeDetectionSourceParameters::Luminance,
@@ -856,7 +830,6 @@ mod tests {
 
         let scan_line = new_vertical_scan_line(
             &image,
-            &FIELD_COLOR,
             0,
             2,
             EdgeDetectionSourceParameters::Luminance,
@@ -909,7 +882,6 @@ mod tests {
 
         let scan_line = new_vertical_scan_line(
             &image,
-            &FIELD_COLOR,
             0,
             2,
             EdgeDetectionSourceParameters::Luminance,
@@ -980,7 +952,6 @@ mod tests {
 
         let scan_line = new_vertical_scan_line(
             &image,
-            &FIELD_COLOR,
             1,
             2,
             EdgeDetectionSourceParameters::Luminance,
@@ -1042,7 +1013,6 @@ mod tests {
 
         let scan_line = new_vertical_scan_line(
             &image,
-            &FIELD_COLOR,
             0,
             2,
             EdgeDetectionSourceParameters::Luminance,
@@ -1120,7 +1090,6 @@ mod tests {
 
         let scan_line = new_vertical_scan_line(
             &image,
-            &FIELD_COLOR,
             1,
             2,
             EdgeDetectionSourceParameters::Luminance,
@@ -1255,7 +1224,6 @@ mod tests {
 
         let scan_line = new_vertical_scan_line(
             &image,
-            &FIELD_COLOR,
             0,
             2,
             EdgeDetectionSourceParameters::Luminance,
@@ -1444,7 +1412,6 @@ mod tests {
 
         let scan_line = new_vertical_scan_line(
             &image,
-            &FIELD_COLOR,
             1,
             2,
             EdgeDetectionSourceParameters::Luminance,
@@ -1510,7 +1477,6 @@ mod tests {
 
         let scan_line = new_vertical_scan_line(
             &image,
-            &FIELD_COLOR,
             0,
             2,
             EdgeDetectionSourceParameters::Luminance,
@@ -1585,7 +1551,6 @@ mod tests {
 
         let scan_line = new_vertical_scan_line(
             &image,
-            &FIELD_COLOR,
             1,
             2,
             EdgeDetectionSourceParameters::Luminance,
