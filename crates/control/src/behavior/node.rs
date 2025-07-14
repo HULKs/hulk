@@ -429,6 +429,7 @@ impl Behavior {
                             .parameters
                             .walk_and_stand
                             .normal_distance_to_be_aligned,
+                        None,
                     ),
                     Action::SupportRight => support::execute(
                         world_state,
@@ -451,6 +452,7 @@ impl Behavior {
                             .parameters
                             .walk_and_stand
                             .normal_distance_to_be_aligned,
+                        None,
                     ),
                     Action::SupportStriker => support::execute(
                         world_state,
@@ -460,10 +462,7 @@ impl Behavior {
                             .parameters
                             .role_positions
                             .striker_supporter_distance_to_ball,
-                        context
-                            .parameters
-                            .role_positions
-                            .striker_supporter_maximum_x_in_ready_and_when_ball_is_not_free,
+                        context.parameters.role_positions.striker_supporter_maximum_x_in_ready_and_when_ball_is_not_free,
                         context
                             .parameters
                             .role_positions
@@ -476,6 +475,7 @@ impl Behavior {
                             .parameters
                             .walk_and_stand
                             .normal_distance_to_be_aligned,
+                        Some(context.parameters.role_positions.striker_supporter_maximum_x_in_ready_and_when_ball_is_not_free_first_checkpoint)
                     ),
                     Action::WalkToKickOff => walk_to_kick_off::execute(
                         world_state,

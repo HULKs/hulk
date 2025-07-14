@@ -83,6 +83,7 @@ pub struct RolePositionsParameters {
     pub right_midfielder_minimum_x: f32,
     pub striker_supporter_distance_to_ball: f32,
     pub striker_supporter_maximum_x_in_ready_and_when_ball_is_not_free: f32,
+    pub striker_supporter_maximum_x_in_ready_and_when_ball_is_not_free_first_checkpoint: f32,
     pub striker_supporter_minimum_x: f32,
     pub keeper_x_offset: f32,
     pub keeper_passive_distance: f32,
