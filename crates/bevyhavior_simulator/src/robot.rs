@@ -373,7 +373,7 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
             .main_outputs
             .motion_command
             .head_motion()
-            .unwrap();
+            .unwrap_or(HeadMotion::Center);
         let desired_head_yaw = match head_motion {
             HeadMotion::ZeroAngles => 0.0,
             HeadMotion::Center => 0.0,
