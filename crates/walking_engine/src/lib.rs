@@ -38,7 +38,7 @@ pub struct Context<'a> {
     pub cycle_time: &'a CycleTime,
     pub center_of_mass: &'a Point3<Robot>,
     pub zero_moment_point: &'a Point2<Ground>,
-    pub number_of_consecutive_cycles_zero_moment_point_outside_support_polygon: &'a i32,
+    pub consecutive_cycles_zero_moment_point_outside_support_polygon: &'a i32,
     pub force_sensitive_resistors: &'a ForceSensitiveResistors,
     pub robot_orientation: &'a Orientation3<Field>,
     pub robot_to_ground: Option<&'a Isometry3<Robot, Ground>>,

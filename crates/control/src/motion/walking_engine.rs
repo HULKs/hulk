@@ -54,9 +54,8 @@ pub struct CycleContext {
     robot_to_ground: Input<Option<Isometry3<Robot, Ground>>, "robot_to_ground?">,
     obstacle_avoiding_arms: Input<ArmCommands, "obstacle_avoiding_arms">,
     zero_moment_point: Input<Point2<Ground>, "zero_moment_point">,
-    //TODO
-    number_of_consecutive_cycles_zero_moment_point_outside_support_polygon:
-        Input<i32, "number_of_consecutive_cycles_zero_moment_point_outside_support_polygon">,
+    consecutive_cycles_zero_moment_point_outside_support_polygon:
+        Input<i32, "consecutive_cycles_zero_moment_point_outside_support_polygon">,
     debug_output: AdditionalOutput<Engine, "walking.engine">,
     robot_to_walk: AdditionalOutput<Isometry3<Robot, Walk>, "walking.robot_to_walk">,
     walking_engine_mode: CyclerState<Mode, "walking_engine_mode">,
@@ -146,8 +145,8 @@ impl WalkingEngine {
             robot_to_walk,
             obstacle_avoiding_arms: cycle_context.obstacle_avoiding_arms,
             zero_moment_point: cycle_context.zero_moment_point,
-            number_of_consecutive_cycles_zero_moment_point_outside_support_polygon: cycle_context
-                .number_of_consecutive_cycles_zero_moment_point_outside_support_polygon,
+            consecutive_cycles_zero_moment_point_outside_support_polygon: cycle_context
+                .consecutive_cycles_zero_moment_point_outside_support_polygon,
         };
 
         match *cycle_context.walk_command {
