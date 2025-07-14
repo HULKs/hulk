@@ -6,7 +6,9 @@ from typing import get_args
 import joblib
 import numpy as np
 import optuna
-from field_color_detection import (
+from sklearn import metrics
+from sklearn.model_selection import GridSearchCV
+from src.field_color_detection import (
     HEIGHT,
     WIDTH,
     Classes,
@@ -17,8 +19,6 @@ from field_color_detection import (
     get_data_from_hdf5,
     load_sampling_masks,
 )
-from sklearn import metrics
-from sklearn.model_selection import GridSearchCV
 
 
 def pretty_dict(dictionary: dict) -> str:
@@ -26,6 +26,7 @@ def pretty_dict(dictionary: dict) -> str:
     without_braces = line_breaks.replace("{", "").replace("}", "")
     return "\t\t- " + without_braces + "\n"
 
+root = "/home/franziska-sophie/image-segmentation/dataset"
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
@@ -47,7 +48,7 @@ if __name__ == "__main__":
         else None
     )
 
-    train_mask, val_mask = load_sampling_masks("../../dataset/masks.npz")
+    train_mask, val_mask = load_sampling_masks(os.path.join(root, "masks.npz"))
 
     with open("log.txt", "a") as file:
         for classifier_name in get_args(Classifiers):

@@ -50,7 +50,7 @@ Classifiers = Literal["MLPClassifier"]
 #     "ZerothOrderOptimizer",
 # ]
 TextureMethods = Literal[
-    "Neighbors", "HoG", "LBP", "GaborFilters"
+    "Neighbors", "HoG", "LBP", "GaborFilters", "NeighborsDifference"
 ]  # ["Neighbors", "HoG", "LBP", "GaborFilters"]
 
 SHOW_PREDICTED_IMGS = True

@@ -10,10 +10,11 @@ from .data import check_memory
 set_num_threads(2)
 Mode = Literal["raw", "difference"]
 
+
 @njit(parallel=True)
 def sample_neighbors(
     image: NDArray[np.uint8], dx: NDArray, dy: NDArray, mode: Mode
-) -> NDArray[np.uint8]:
+) -> NDArray[np.uint8] | None:
     M, N = image.shape
     n_points = len(dx)
     feature_map = np.zeros((M, N, n_points), dtype=np.uint8)
@@ -24,16 +25,21 @@ def sample_neighbors(
                 y_sample = min(max(round(y + dy[i]), 0), M - 1)
                 x_sample = min(max(round(x + dx[i]), 0), N - 1)
                 feature_map[y, x, i] = image[y_sample, x_sample]
-    if mode == "raw":
-        return feature_map
     if mode == "difference":
-        return np.reshape(image, M*N)[:,:,np.newaxis] - feature_map
+        return (
+            np.reshape(
+                np.repeat(image[:, :, np.newaxis], n_points), (M, N, n_points)
+            )
+            - feature_map
+        )
 
-    return []
+    return feature_map
 
 
 class NeighboringPixels:
-    def __init__(self, radius: int, orientations: int, mode: Mode="raw") -> None:
+    def __init__(
+        self, radius: int, orientations: int, mode: Mode = "raw"
+    ) -> None:
         self.radius = radius
         self.orientations = orientations
         angles = np.linspace(0, 2 * np.pi, self.orientations, endpoint=False)
