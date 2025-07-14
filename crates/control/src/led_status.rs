@@ -194,19 +194,6 @@ impl LedStatus {
             last_ball_bottom_too_old,
         };
 
-        let (left_eye, right_eye) = Self::get_eyes(
-            context.cycle_time.start_time,
-            context.primary_state,
-            context.role,
-            ball_percepts,
-            *context.own_ready_signal_detection_result,
-            *context.ready_signal_detected,
-            *context.own_free_kick_signal_detection_result,
-            context.detected_free_kick_kicking_team.copied(),
-            *context.left_eye_mode,
-            *context.right_eye_mode,
-        );
-
         if let Some(latest_game_controller_message_time) = context
             .network_message
             .persistent
@@ -223,19 +210,75 @@ impl LedStatus {
             self.last_game_controller_message = Some(*latest_game_controller_message_time);
         };
 
-        let ears = Self::get_ears(
-            context.filtered_whistle.is_detected,
-            context.cycle_time.start_time,
-            self.last_game_controller_message,
-            self.blink_state,
-            context
-                .sensor_data
-                .temperature_sensors
-                .into_iter()
-                .fold(0.0, f32::max),
-            context.walking_engine_mode.support_side(),
-            *context.ear_mode,
-        );
+        let max_temperature = context
+            .sensor_data
+            .temperature_sensors
+            .into_iter()
+            .fold(0.0, f32::max);
+
+        let (left_eye, right_eye) = match context.primary_state {
+            PrimaryState::Unstiff | PrimaryState::Animation { .. } => {
+                let rainbow_eye = Self::get_rainbow_eye(context.cycle_time.start_time);
+                (rainbow_eye, rainbow_eye)
+            }
+            _ => {
+                let left_eye = match context.left_eye_mode {
+                    LedDebug::Role => eye_debug_role(context.role),
+                    LedDebug::Temperature => eye_debug_temperature(
+                        context.filtered_whistle.is_detected,
+                        context.cycle_time.start_time,
+                        self.last_game_controller_message,
+                        self.blink_state,
+                        max_temperature,
+                    ),
+                    LedDebug::Vision => eye_debug_vision(
+                        &ball_percepts,
+                        *context.ready_signal_detected,
+                        context.detected_free_kick_kicking_team.copied(),
+                        *context.own_ready_signal_detection_result,
+                        *context.own_free_kick_signal_detection_result,
+                    ),
+                    LedDebug::Walking => unimplemented!(),
+                };
+
+                let right_eye = match context.right_eye_mode {
+                    LedDebug::Role => eye_debug_role(context.role),
+                    LedDebug::Temperature => eye_debug_temperature(
+                        context.filtered_whistle.is_detected,
+                        context.cycle_time.start_time,
+                        self.last_game_controller_message,
+                        self.blink_state,
+                        max_temperature,
+                    ),
+                    LedDebug::Vision => eye_debug_vision(
+                        &ball_percepts,
+                        *context.ready_signal_detected,
+                        context.detected_free_kick_kicking_team.copied(),
+                        *context.own_ready_signal_detection_result,
+                        *context.own_free_kick_signal_detection_result,
+                    ),
+                    LedDebug::Walking => unimplemented!(),
+                };
+
+                (left_eye, right_eye)
+            }
+        };
+
+        let ears = match *context.ear_mode {
+            LedDebug::Temperature => ear_debug_temperature(
+                context.filtered_whistle.is_detected,
+                context.cycle_time.start_time,
+                self.last_game_controller_message,
+                self.blink_state,
+                max_temperature,
+            ),
+            LedDebug::Walking => match context.walking_engine_mode.support_side() {
+                Some(Side::Left) => Ear::full_ears(1.0),
+                Some(Side::Right) => Ear::full_ears(0.0),
+                None => Ear::full_ears(0.0),
+            },
+            _ => unimplemented!(),
+        };
 
         let leds = Leds {
             left_ear: ears,
@@ -248,111 +291,6 @@ impl LedStatus {
         };
 
         Ok(MainOutputs { leds: leds.into() })
-    }
-
-    fn get_ears(
-        filter_whistle_detected: bool,
-        cycle_start_time: SystemTime,
-        last_game_controller_message: Option<SystemTime>,
-        blink_state: bool,
-        current_maximum_temperature: f32,
-        support_side: Option<Side>,
-        mode_both_ears: LedDebug,
-    ) -> Ear {
-        match mode_both_ears {
-            LedDebug::Temperature => {
-                let mut ear = if last_game_controller_message.is_some_and(|timestamp| {
-                    cycle_start_time
-                        .duration_since(timestamp)
-                        .expect("time ran backwards")
-                        > Duration::from_millis(5000)
-                }) {
-                    if blink_state {
-                        Ear::full_ears(1.0)
-                    } else {
-                        Ear::full_ears(0.0)
-                    }
-                } else {
-                    // values, at which the stiffness gets automatically reduced by the motors
-                    const TEMPERATURE_LEVEL_ONE: f32 = 76.0;
-                    const TEMPERATURE_LEVEL_TWO: f32 = 80.0;
-                    const TEMPERATURE_LEVEL_THREE: f32 = 90.0;
-
-                    let ear_fraction = if current_maximum_temperature > TEMPERATURE_LEVEL_ONE {
-                        0.33
-                    } else if current_maximum_temperature > TEMPERATURE_LEVEL_TWO {
-                        0.66
-                    } else if current_maximum_temperature > TEMPERATURE_LEVEL_THREE {
-                        1.0
-                    } else {
-                        0.0
-                    };
-                    Ear::percentage_ears(1.0, ear_fraction)
-                };
-
-                if filter_whistle_detected {
-                    ear = ear.invert();
-                }
-
-                ear
-            }
-            LedDebug::Walking => match support_side {
-                Some(Side::Left) => Ear::full_ears(1.0),
-                Some(Side::Right) => Ear::full_ears(0.0),
-                None => Ear::full_ears(0.0),
-            },
-            _ => unimplemented!(),
-        }
-    }
-
-    #[allow(clippy::too_many_arguments)]
-    fn get_eyes(
-        cycle_start_time: SystemTime,
-        primary_state: &PrimaryState,
-        role: &Role,
-        ball_percepts: BallPercepts,
-        own_ready_signal_detection_result: ReadySignalDetectionResult,
-        ready_signal_detected: bool,
-        own_free_kick_signal_detection_result: FreeKickSignalDetectionResult,
-        detected_free_kick_kicking_team: Option<Team>,
-        mode_left_eye: LedDebug,
-        mode_right_eye: LedDebug,
-    ) -> (Eye, Eye) {
-        match primary_state {
-            PrimaryState::Unstiff | PrimaryState::Animation { .. } => {
-                let rainbow_eye = Self::get_rainbow_eye(cycle_start_time);
-                (rainbow_eye, rainbow_eye)
-            }
-            _ => {
-                let left_eye = match mode_left_eye {
-                    LedDebug::Role => debug_role(role),
-                    LedDebug::Temperature => unimplemented!(),
-                    LedDebug::Vision => debug_vision(
-                        &ball_percepts,
-                        ready_signal_detected,
-                        detected_free_kick_kicking_team,
-                        own_ready_signal_detection_result,
-                        own_free_kick_signal_detection_result,
-                    ),
-                    LedDebug::Walking => unimplemented!(),
-                };
-
-                let right_eye = match mode_right_eye {
-                    LedDebug::Role => debug_role(role),
-                    LedDebug::Temperature => unimplemented!(),
-                    LedDebug::Vision => debug_vision(
-                        &ball_percepts,
-                        ready_signal_detected,
-                        detected_free_kick_kicking_team,
-                        own_ready_signal_detection_result,
-                        own_free_kick_signal_detection_result,
-                    ),
-                    LedDebug::Walking => unimplemented!(),
-                };
-
-                (left_eye, right_eye)
-            }
-        }
     }
 
     fn get_rainbow_eye(cycle_start_time: SystemTime) -> Eye {
@@ -414,7 +352,50 @@ impl LedStatus {
     }
 }
 
-fn debug_role(role: &Role) -> Eye {
+fn ear_debug_temperature(
+    filter_whistle_detected: bool,
+    cycle_start_time: SystemTime,
+    last_game_controller_message: Option<SystemTime>,
+    blink_state: bool,
+    current_maximum_temperature: f32,
+) -> Ear {
+    let mut ear = if last_game_controller_message.is_some_and(|timestamp| {
+        cycle_start_time
+            .duration_since(timestamp)
+            .expect("time ran backwards")
+            > Duration::from_millis(5000)
+    }) {
+        if blink_state {
+            Ear::full_ears(1.0)
+        } else {
+            Ear::full_ears(0.0)
+        }
+    } else {
+        // values, at which the stiffness gets automatically reduced by the motors
+        const TEMPERATURE_LEVEL_ONE: f32 = 76.0;
+        const TEMPERATURE_LEVEL_TWO: f32 = 80.0;
+        const TEMPERATURE_LEVEL_THREE: f32 = 90.0;
+
+        let ear_fraction = if current_maximum_temperature > TEMPERATURE_LEVEL_ONE {
+            0.33
+        } else if current_maximum_temperature > TEMPERATURE_LEVEL_TWO {
+            0.66
+        } else if current_maximum_temperature > TEMPERATURE_LEVEL_THREE {
+            1.0
+        } else {
+            0.0
+        };
+        Ear::percentage_ears(1.0, ear_fraction)
+    };
+
+    if filter_whistle_detected {
+        ear = ear.invert();
+    }
+
+    ear
+}
+
+fn eye_debug_role(role: &Role) -> Eye {
     Eye::from(match role {
         Role::DefenderLeft | Role::DefenderRight | Role::MidfielderLeft | Role::MidfielderRight => {
             Rgb::BLUE
@@ -427,7 +408,7 @@ fn debug_role(role: &Role) -> Eye {
     })
 }
 
-fn debug_vision(
+fn eye_debug_vision(
     ball_percepts: &BallPercepts,
     ready_signal_detected: bool,
     detected_free_kick_kicking_team: Option<Team>,
@@ -507,4 +488,48 @@ fn debug_vision(
             .or(ball_background_color)
             .unwrap_or(Rgb::BLACK),
     }
+}
+
+fn eye_debug_temperature(
+    filter_whistle_detected: bool,
+    cycle_start_time: SystemTime,
+    last_game_controller_message: Option<SystemTime>,
+    blink_state: bool,
+    current_maximum_temperature: f32,
+) -> Eye {
+    let mut eye = if last_game_controller_message.is_some_and(|timestamp| {
+        cycle_start_time
+            .duration_since(timestamp)
+            .expect("time ran backwards")
+            > Duration::from_millis(5000)
+    }) {
+        if blink_state {
+            Eye::from(Rgb::WHITE)
+        } else {
+            Eye::from(Rgb::BLACK)
+        }
+    } else {
+        // values, at which the stiffness gets automatically reduced by the motors
+        const TEMPERATURE_LEVEL_ONE: f32 = 76.0;
+        const TEMPERATURE_LEVEL_TWO: f32 = 80.0;
+        const TEMPERATURE_LEVEL_THREE: f32 = 90.0;
+
+        let fraction = if current_maximum_temperature > TEMPERATURE_LEVEL_ONE {
+            0.33
+        } else if current_maximum_temperature > TEMPERATURE_LEVEL_TWO {
+            0.66
+        } else if current_maximum_temperature > TEMPERATURE_LEVEL_THREE {
+            1.0
+        } else {
+            0.0
+        };
+
+        Eye::percentage(Rgb::RED, Rgb::BLUE, fraction)
+    };
+
+    if filter_whistle_detected {
+        eye = eye.invert();
+    }
+
+    eye
 }
