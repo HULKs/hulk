@@ -277,60 +277,15 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
                     Side::Right => 1.0,
                 };
 
-                let left_sole_to_ground = robot.database.main_outputs.robot_to_ground.unwrap()
-                    * robot
-                        .database
-                        .main_outputs
-                        .robot_kinematics
-                        .left_leg
-                        .sole_to_robot;
-                let right_sole_to_ground = robot.database.main_outputs.robot_to_ground.unwrap()
-                    * robot
-                        .database
-                        .main_outputs
-                        .robot_kinematics
-                        .right_leg
-                        .sole_to_robot;
-                let left_outline = [
-                    point![-0.05457, -0.015151, 0.0],
-                    point![-0.050723, -0.021379, 0.0],
-                    point![-0.04262, -0.030603, 0.0],
-                    point![-0.037661, -0.033714, 0.0],
-                    point![-0.03297, -0.034351, 0.0],
-                    point![0.0577, -0.038771, 0.0],
-                    point![0.063951, -0.038362, 0.0],
-                    point![0.073955, -0.03729, 0.0],
-                    point![0.079702, -0.03532, 0.0],
-                    point![0.084646, -0.033221, 0.0],
-                    point![0.087648, -0.031482, 0.0],
-                    point![0.091805, -0.027692, 0.0],
-                    point![0.094009, -0.024299, 0.0],
-                    point![0.096868, -0.018802, 0.0],
-                    point![0.099419, -0.01015, 0.0],
-                    point![0.100097, -0.001573, 0.0],
-                    point![0.098991, 0.008695, 0.0],
-                    point![0.097014, 0.016504, 0.0],
-                    point![0.093996, 0.02418, 0.0],
-                    point![0.090463, 0.02951, 0.0],
-                    point![0.084545, 0.0361, 0.0],
-                    point![0.079895, 0.039545, 0.0],
-                    point![0.074154, 0.042654, 0.0],
-                    point![0.065678, 0.046145, 0.0],
-                    point![0.057207, 0.047683, 0.0],
-                    point![0.049911, 0.048183, 0.0],
-                    point![-0.031248, 0.051719, 0.0],
-                    point![-0.03593, 0.049621, 0.0],
-                    point![-0.040999, 0.045959, 0.0],
-                    point![-0.045156, 0.042039, 0.0],
-                    point![-0.04905, 0.037599, 0.0],
-                    point![-0.054657, 0.029814, 0.0],
-                ];
-
-                let left_sole_in_ground: Vec<_> = left_outline
+                let robot_to_ground = robot.database.main_outputs.robot_to_ground.unwrap();
+                let kinematics = &robot.database.main_outputs.robot_kinematics;
+                let left_sole_to_ground = robot_to_ground * kinematics.left_leg.sole_to_robot;
+                let right_sole_to_ground = robot_to_ground * kinematics.right_leg.sole_to_robot;
+                let left_sole_in_ground: Vec<_> = LEFT_FOOT_OUTLINE
                     .into_iter()
                     .map(|point| (left_sole_to_ground * point).xy())
                     .collect();
-                let right_sole_in_ground: Vec<_> = left_outline
+                let right_sole_in_ground: Vec<_> = LEFT_FOOT_OUTLINE
                     .into_iter()
                     .map(|point| {
                         (right_sole_to_ground * point![point.x(), -point.y(), point.z()]).xy()
