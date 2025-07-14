@@ -43,14 +43,14 @@ fn update(
     mut exit: EventWriter<AppExit>,
     mut ball: ResMut<BallResource>,
 ) {
-    if time.ticks() == 2000 {
+    if time.ticks() == 5000 {
         game_controller_commands.send(GameControllerCommand::SetSubState(
             Some(SubState::CornerKick),
             Team::Opponent,
             None,
         ));
     }
-    if time.ticks() == 5000 {
+    if time.ticks() == 10000 {
         ball.state = Some(SimulatorBallState {
             position: point![3.5, -2.0],
             velocity: Default::default(),
@@ -60,7 +60,7 @@ fn update(
         println!("Done");
         exit.send(AppExit::Success);
     }
-    if time.ticks() >= 10_000 {
+    if time.ticks() >= 20_000 {
         println!("No goal was scored :(");
         exit.send(AppExit::from_code(1));
     }
