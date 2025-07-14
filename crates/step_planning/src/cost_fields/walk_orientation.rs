@@ -93,7 +93,10 @@ mod tests {
     proptest!(
         #[test]
         fn verify_gradient_look_towards(x in -5.0f32..5.0, y in -5.0f32..5.0, orientation in 0.0..TAU, target_orientation in 0.0..TAU) {
-            let cost_field = WalkOrientationField {orientation_mode:OrientationMode::LookTowards(Orientation2::new(target_orientation)), path_alignment_tolerance: 1.0 };
+            let cost_field = WalkOrientationField {
+                orientation_mode: OrientationMode::LookTowards(Orientation2::new(target_orientation)),
+                path_alignment_tolerance: 1.0
+            };
 
             let position = point![x, y];
             let orientation = Angle(orientation);
@@ -115,7 +118,10 @@ mod tests {
     proptest!(
         #[test]
         fn verify_gradient_look_at(x in -5.0f32..5.0, y in -5.0f32..5.0, orientation in 0.0..TAU, target_x in -5.0f32..5.0, target_y in -5.0f32..5.0) {
-            let cost_field = WalkOrientationField {orientation_mode:OrientationMode::LookAt(point![target_x,target_y]), path_alignment_tolerance: 1.0 };
+            let cost_field = WalkOrientationField {
+                orientation_mode: OrientationMode::LookAt(point![target_x,target_y]),
+                path_alignment_tolerance: 1.0
+            };
 
             let position = point![x, y];
             let orientation = Angle(orientation);
@@ -138,6 +144,43 @@ mod tests {
                     };
 
                     cost_field.grad(pose, Vector2::x_axis()).orientation
+                },
+                0.05,
+                orientation,
+            )
+        }
+    );
+
+    proptest!(
+        #[test]
+        fn verify_gradient_align_with_path(x in -5.0f32..5.0, y in -5.0f32..5.0, orientation in 0.0..TAU, path_angle in 0.0..TAU) {
+            let cost_field = WalkOrientationField {
+                orientation_mode: OrientationMode::AlignWithPath,
+                path_alignment_tolerance: 1.0
+            };
+
+            let position = point![x, y];
+            let orientation = Angle(orientation);
+            let forward_vector = Orientation2::new(path_angle).as_unit_vector();
+
+            // This only verifies the orientation field, since the
+            // dependence on the position field is intentionally ignored
+            crate::test_utils::verify_gradient::verify_gradient(
+                &|orientation| {
+                    let pose = Pose {
+                        position,
+                        orientation,
+                    };
+
+                    cost_field.cost(pose, forward_vector)
+                },
+                &|orientation| {
+                    let pose = Pose {
+                        position,
+                        orientation,
+                    };
+
+                    cost_field.grad(pose, forward_vector).orientation
                 },
                 0.05,
                 orientation,
