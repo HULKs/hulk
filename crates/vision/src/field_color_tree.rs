@@ -130,4 +130,3 @@ pub fn predict(features: &Features) -> f32 {
         }
     }
 }
-
