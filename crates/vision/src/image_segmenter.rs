@@ -6,9 +6,9 @@ use projection::{camera_matrix::CameraMatrix, horizon::Horizon, Projection};
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::Pixel;
+use coordinate_systems::{Ground, Pixel};
 use framework::MainOutput;
-use linear_algebra::{point, Point2, Vector2};
+use linear_algebra::{point, vector, Framed, Point2, Vector2};
 use types::{
     color::{Hsv, Intensity, RgChromaticity, Rgb, YCbCr444},
     field_color::FieldColorParameters,
@@ -29,12 +29,14 @@ pub struct CreationContext {}
 pub struct CycleContext {
     image: Input<YCbCr422Image, "image">,
 
-    camera_matrix: Input<Option<CameraMatrix>, "camera_matrix?">,
+    camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
     projected_limbs: Input<Option<ProjectedLimbs>, "projected_limbs?">,
 
     horizontal_stride: Parameter<usize, "image_segmenter.$cycler_instance.horizontal_stride">,
-    vertical_stride_in_ground:
-        Parameter<f32, "image_segmenter.$cycler_instance.vertical_stride_in_ground">,
+    vertical_stride_in_ground: Parameter<
+        Framed<Ground, f32>,
+        "image_segmenter.$cycler_instance.vertical_stride_in_ground",
+    >,
     horizontal_edge_detection_source: Parameter<
         EdgeDetectionSourceParameters,
         "image_segmenter.$cycler_instance.horizontal_edge_detection_source",
@@ -77,7 +79,7 @@ impl ImageSegmenter {
 
         let horizon = context
             .camera_matrix
-            .and_then(|camera_matrix| camera_matrix.horizon)
+            .horizon
             .unwrap_or(Horizon::ABOVE_IMAGE);
 
         let scan_grid = new_grid(
@@ -110,10 +112,24 @@ fn padding_size(median_mode: MedianModeParameters) -> u32 {
     }
 }
 
+fn find_minimum_y_on_limbs(image: &YCbCr422Image, projected_limbs: &[Limb]) -> u32 {
+    let limb_pixels = projected_limbs
+        .iter()
+        .flat_map(|limb| &limb.pixel_polygon)
+        .map(|point| point.map(|x| x as u32));
+    let inside_image = limb_pixels.filter(|point| (0..image.width()).contains(&point.x()));
+    // minimum means higher in the image, the minimum in y is the top-most pixel
+    let minimum_y = inside_image
+        .map(|point| point.y())
+        .min()
+        .unwrap_or(image.height());
+    minimum_y.clamp(0, image.height())
+}
+
 #[allow(clippy::too_many_arguments)]
 fn new_grid(
     image: &YCbCr422Image,
-    camera_matrix: Option<&CameraMatrix>,
+    camera_matrix: &CameraMatrix,
     horizon: &Horizon,
     field_color: &FieldColorParameters,
     horizontal_stride: usize,
@@ -121,7 +137,7 @@ fn new_grid(
     horizontal_median_mode: MedianModeParameters,
     horizontal_edge_detection_source: EdgeDetectionSourceParameters,
     vertical_stride: usize,
-    vertical_stride_in_robot_coordinates: f32,
+    vertical_stride_in_ground: Framed<Ground, f32>,
     vertical_edge_detection_source: EdgeDetectionSourceParameters,
     vertical_edge_threshold: i16,
     vertical_median_mode: MedianModeParameters,
@@ -130,88 +146,122 @@ fn new_grid(
     let horizontal_padding_size = padding_size(horizontal_median_mode);
     let vertical_padding_size = padding_size(vertical_median_mode);
 
-    let horizon_y_maximum = horizon
-        .horizon_y_maximum()
-        .clamp(0.0, image.height() as f32);
-    let limbs_y_minimum = projected_limbs
-        .iter()
-        .flat_map(|limb| &limb.pixel_polygon)
-        .filter(|point| (0.0..image.width() as f32).contains(&point.x()))
-        .map(|point| point.y())
-        .min_by(f32::total_cmp)
-        .unwrap_or(image.height() as f32)
-        .clamp(0.0, image.height() as f32);
+    let horizon_y_maximum = (horizon.horizon_y_maximum() as u32).clamp(0, image.height());
+    let limbs_y_minimum = find_minimum_y_on_limbs(image, projected_limbs);
 
+    let horizontal_scan_lines = collect_horizontal_scan_lines(
+        image,
+        camera_matrix,
+        field_color,
+        horizontal_stride,
+        horizontal_edge_threshold,
+        horizontal_median_mode,
+        horizontal_edge_detection_source,
+        vertical_stride_in_ground,
+        horizontal_padding_size,
+        horizon_y_maximum,
+        limbs_y_minimum,
+    );
+    let vertical_scan_lines = collect_vertical_scan_lines(
+        image,
+        horizon,
+        field_color,
+        horizontal_stride,
+        vertical_stride,
+        vertical_edge_detection_source,
+        vertical_edge_threshold,
+        vertical_median_mode,
+        projected_limbs,
+        vertical_padding_size,
+    );
+
+    ScanGrid {
+        horizontal_scan_lines,
+        vertical_scan_lines,
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn collect_vertical_scan_lines(
+    image: &YCbCr422Image,
+    horizon: &Horizon,
+    field_color: &FieldColorParameters,
+    horizontal_stride: usize,
+    vertical_stride: usize,
+    vertical_edge_detection_source: EdgeDetectionSourceParameters,
+    vertical_edge_threshold: i16,
+    vertical_median_mode: MedianModeParameters,
+    projected_limbs: &[Limb],
+    vertical_padding_size: u32,
+) -> Vec<ScanLine> {
+    (vertical_padding_size..image.width() - vertical_padding_size)
+        .step_by(horizontal_stride)
+        .map(|x| {
+            let horizon_y = horizon.y_at_x(x as f32).clamp(0.0, image.height() as f32);
+            new_vertical_scan_line(
+                image,
+                field_color,
+                x,
+                vertical_stride,
+                vertical_edge_detection_source,
+                vertical_edge_threshold,
+                vertical_median_mode,
+                horizon_y,
+                projected_limbs,
+            )
+        })
+        .collect()
+}
+
+#[allow(clippy::too_many_arguments)]
+fn collect_horizontal_scan_lines(
+    image: &YCbCr422Image,
+    camera_matrix: &CameraMatrix,
+    field_color: &FieldColorParameters,
+    horizontal_stride: usize,
+    horizontal_edge_threshold: i16,
+    horizontal_median_mode: MedianModeParameters,
+    horizontal_edge_detection_source: EdgeDetectionSourceParameters,
+    vertical_stride: Framed<Ground, f32>,
+    horizontal_padding_size: u32,
+    horizon_y_maximum: u32,
+    limbs_y_minimum: u32,
+) -> Vec<ScanLine> {
     let mut horizontal_scan_lines = vec![];
     // do not start at horizon because of numerically unstable math
-    let mut y = horizon_y_maximum + 1.0 + horizontal_padding_size as f32;
+    let mut y = horizon_y_maximum + 1 + horizontal_padding_size;
 
-    while y < (limbs_y_minimum - horizontal_padding_size as f32) {
+    while y < (limbs_y_minimum - horizontal_padding_size) {
         horizontal_scan_lines.push(new_horizontal_scan_line(
             image,
             field_color,
-            y as u32,
+            y,
             horizontal_stride,
             horizontal_edge_detection_source,
             horizontal_edge_threshold,
             horizontal_median_mode,
         ));
 
-        y = next_horizontal_segment_height(
-            image,
-            camera_matrix,
-            vertical_stride_in_robot_coordinates,
-            y,
-        )
-        .unwrap_or(0.0)
-        .max(y + 2.0);
+        y = next_horizontal_segment_y(image, camera_matrix, vertical_stride, y).unwrap_or(y + 2);
     }
-
-    ScanGrid {
-        horizontal_scan_lines,
-        vertical_scan_lines: (vertical_padding_size..image.width() - vertical_padding_size)
-            .step_by(horizontal_stride)
-            .map(|x| {
-                let horizon_y = horizon.y_at_x(x as f32).clamp(0.0, image.height() as f32);
-                new_vertical_scan_line(
-                    image,
-                    field_color,
-                    x,
-                    vertical_stride,
-                    vertical_edge_detection_source,
-                    vertical_edge_threshold,
-                    vertical_median_mode,
-                    horizon_y,
-                    projected_limbs,
-                )
-            })
-            .collect(),
-    }
+    horizontal_scan_lines
 }
 
-fn next_horizontal_segment_height(
+fn next_horizontal_segment_y(
     image: &YCbCr422Image,
-    camera_matrix: Option<&CameraMatrix>,
-    vertical_stride_in_robot_coordinates: f32,
-    y: f32,
-) -> Option<f32> {
-    let camera_matrix = camera_matrix?;
+    camera_matrix: &CameraMatrix,
+    vertical_stride: Framed<Ground, f32>,
+    y: u32,
+) -> Option<u32> {
+    let center_at_y = point![image.width() / 2, y].map(|x| x as f32);
+    let center_in_ground = camera_matrix.pixel_to_ground(center_at_y).ok()?;
 
-    let center_point_at_y = point![(image.width() / 2) as f32, y];
-    let center_point_in_robot_coordinates =
-        camera_matrix.pixel_to_ground(center_point_at_y).ok()?;
-
-    let x_in_robot_coordinates = center_point_in_robot_coordinates.x();
-    let y_in_robot_coordinates = center_point_in_robot_coordinates.y();
-    let next_x_in_robot_coordinates = x_in_robot_coordinates - vertical_stride_in_robot_coordinates;
-
-    let next_center_point_in_robot_coordinates =
-        point![next_x_in_robot_coordinates, y_in_robot_coordinates];
-    let next_point_in_pixel_coordinates = camera_matrix
-        .ground_to_pixel(next_center_point_in_robot_coordinates)
+    let vertical_stride = vector![-vertical_stride.inner, 0.0];
+    let next_in_pixel = camera_matrix
+        .ground_to_pixel(center_in_ground + vertical_stride)
         .ok()?;
 
-    Some(next_point_in_pixel_coordinates.y())
+    Some(next_in_pixel.y() as u32)
 }
 
 struct ScanLineState {
@@ -236,35 +286,28 @@ impl ScanLineState {
     }
 }
 
-fn median_of_three(values: [u8; 3]) -> u8 {
-    let [first, second, third] = values;
-    // TODO: replace with same approach as median_of_five()
-    if first <= second {
-        if second <= third {
-            // first <= second <= third
-            second
-        } else if first <= third {
-            // first <= third < second
-            third
-        } else {
-            // third < first <= second
-            first
-        }
-    } else if first <= third {
-        // second < first <= third
-        first
-    } else if second <= third {
-        // second <= third < first
-        third
-    } else {
-        // third < second <= first
-        second
+trait Median<T> {
+    fn median(self) -> T;
+}
+
+impl<T> Median<T> for [T; 3]
+where
+    T: Ord + Copy,
+{
+    fn median(mut self) -> T {
+        let (_, median, _) = self.select_nth_unstable(1);
+        *median
     }
 }
 
-fn median_of_five(mut values: [u8; 5]) -> u8 {
-    let (_, median, _) = values.select_nth_unstable(2);
-    *median
+impl<T> Median<T> for [T; 5]
+where
+    T: Ord + Copy,
+{
+    fn median(mut self) -> T {
+        let (_, median, _) = self.select_nth_unstable(2);
+        *median
+    }
 }
 
 fn new_horizontal_scan_line(
@@ -286,7 +329,11 @@ fn new_horizontal_scan_line(
         edge_detection_source,
         median_mode,
     );
-    let mut state = ScanLineState::new(edge_detection_value, start_x as u16, EdgeType::ImageBorder);
+    let mut state = ScanLineState::new(
+        edge_detection_value as i16,
+        start_x as u16,
+        EdgeType::ImageBorder,
+    );
 
     let mut segments = Vec::with_capacity((end_x - start_x) as usize / stride);
 
@@ -299,9 +346,12 @@ fn new_horizontal_scan_line(
             median_mode,
         );
 
-        if let Some(segment) =
-            detect_edge(&mut state, x as u16, edge_detection_value, edge_threshold)
-        {
+        if let Some(segment) = detect_edge(
+            &mut state,
+            x as u16,
+            edge_detection_value as i16,
+            edge_threshold,
+        ) {
             segments.push(set_field_color_in_segment(
                 set_color_in_segment(segment, position, Direction::Horizontal, image),
                 field_color,
@@ -357,7 +407,11 @@ fn new_vertical_scan_line(
         edge_detection_source,
         median_mode,
     );
-    let mut state = ScanLineState::new(edge_detection_value, start_y as u16, EdgeType::ImageBorder);
+    let mut state = ScanLineState::new(
+        edge_detection_value as i16,
+        start_y as u16,
+        EdgeType::ImageBorder,
+    );
 
     let mut segments = Vec::with_capacity((end_y - start_y) as usize / stride);
     for y in (start_y..end_y).step_by(stride) {
@@ -369,9 +423,12 @@ fn new_vertical_scan_line(
             median_mode,
         );
 
-        if let Some(segment) =
-            detect_edge(&mut state, y as u16, edge_detection_value, edge_threshold)
-        {
+        if let Some(segment) = detect_edge(
+            &mut state,
+            y as u16,
+            edge_detection_value as i16,
+            edge_threshold,
+        ) {
             if segment_is_below_limbs(position as u16, &segment, projected_limbs) {
                 fix_previous_edge_type(&mut segments);
                 break;
@@ -410,7 +467,7 @@ fn edge_detection_value_at(
     image: &YCbCr422Image,
     edge_detection_source: EdgeDetectionSourceParameters,
     median_mode: MedianModeParameters,
-) -> i16 {
+) -> u8 {
     let offset: Vector2<Pixel, u32> = match direction {
         Direction::Horizontal => Vector2::y_axis(),
         Direction::Vertical => Vector2::x_axis(),
@@ -418,7 +475,7 @@ fn edge_detection_value_at(
 
     let pixel = pixel_to_edge_detection_value(image.at_point(position), edge_detection_source);
 
-    (match median_mode {
+    match median_mode {
         MedianModeParameters::Disabled => pixel,
         MedianModeParameters::ThreePixels => {
             let pixels = [
@@ -427,7 +484,7 @@ fn edge_detection_value_at(
                 image.at_point(position + offset),
             ]
             .map(|pixel| pixel_to_edge_detection_value(pixel, edge_detection_source));
-            median_of_three(pixels)
+            pixels.median()
         }
         MedianModeParameters::FivePixels => {
             let pixels = [
@@ -438,9 +495,9 @@ fn edge_detection_value_at(
                 image.at_point(position + offset * 2),
             ]
             .map(|pixel| pixel_to_edge_detection_value(pixel, edge_detection_source));
-            median_of_five(pixels)
+            pixels.median()
         }
-    } as i16)
+    }
 }
 
 fn pixel_to_edge_detection_value(
@@ -1524,35 +1581,35 @@ mod tests {
     #[test]
     fn median_of_three_with_same_values() {
         // first == second == third
-        assert_eq!(median_of_three([0, 0, 0]), 0);
+        assert_eq!([0, 0, 0].median(), 0);
         // first < second == third
-        assert_eq!(median_of_three([0, 1, 1]), 1);
+        assert_eq!([0, 1, 1].median(), 1);
         // first == second < third
-        assert_eq!(median_of_three([0, 0, 1]), 0);
+        assert_eq!([0, 0, 1].median(), 0);
         // first == third < second
-        assert_eq!(median_of_three([0, 1, 0]), 0);
+        assert_eq!([0, 1, 0].median(), 0);
     }
 
     #[test]
     fn median_of_three_with_different_values() {
         // first <= second <= third
-        assert_eq!(median_of_three([0, 1, 2]), 1);
+        assert_eq!([0, 1, 2].median(), 1);
         // first <= third < second
-        assert_eq!(median_of_three([0, 2, 1]), 1);
+        assert_eq!([0, 2, 1].median(), 1);
         // third < first <= second
-        assert_eq!(median_of_three([1, 2, 0]), 1);
+        assert_eq!([1, 2, 0].median(), 1);
         // second < first <= third
-        assert_eq!(median_of_three([1, 0, 2]), 1);
+        assert_eq!([1, 0, 2].median(), 1);
         // second <= third < first
-        assert_eq!(median_of_three([2, 0, 1]), 1);
+        assert_eq!([2, 0, 1].median(), 1);
         // third < second <= first
-        assert_eq!(median_of_three([2, 1, 0]), 1);
+        assert_eq!([2, 1, 0].median(), 1);
     }
 
     #[test]
     fn median_of_five_calculates_median() {
         for (first, second, third, fourth, fifth) in iproduct!(0..5, 0..5, 0..5, 0..5, 0..5) {
-            let calculated_median = median_of_five([first, second, third, fourth, fifth]);
+            let calculated_median = [first, second, third, fourth, fifth].median();
             let mut numbers = [first, second, third, fourth, fifth];
             numbers.sort();
             let real_median = numbers[2];
