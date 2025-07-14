@@ -59,7 +59,7 @@ impl CenterJump {
         } else {
             self.state.reset();
         }
-        context.motion_safe_exits[MotionType::CenterJump] = self.state.is_finished();
+        context.motion_safe_exits[MotionType::CenterJump] = !self.state.is_running();
 
         Ok(MainOutputs {
             center_jump_positions: self.interpolator.value(self.state).into(),

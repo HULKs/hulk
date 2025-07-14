@@ -61,13 +61,12 @@ impl WideStance {
             self.interpolator
                 .advance_state(&mut self.state, last_cycle_duration, condition_input);
 
-            Some(self.interpolator.estimated_remaining_duration(self.state))
+            self.interpolator.estimated_remaining_duration(self.state)
         } else {
             self.state.reset();
             None
         };
-        context.motion_safe_exits[MotionType::WideStance] = self.state.is_finished();
-
+        context.motion_safe_exits[MotionType::WideStance] = !self.state.is_running();
         Ok(MainOutputs {
             wide_stance_positions: self.interpolator.value(self.state).into(),
             wide_stance_estimated_remaining_duration: wide_stance_estimated_remaining_duration

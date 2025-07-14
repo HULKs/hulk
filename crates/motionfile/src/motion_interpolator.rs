@@ -8,6 +8,7 @@ use crate::{
 };
 use color_eyre::{Report, Result};
 use itertools::Itertools;
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use splines::Interpolate;
 use types::condition_input::ConditionInput;
@@ -25,7 +26,9 @@ pub struct MotionInterpolator<T> {
     frames: Vec<ConditionedSpline<T>>,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(
+    Clone, Copy, Debug, Deserialize, Serialize, PathIntrospect, PathSerialize, PathDeserialize,
+)]
 pub enum InterpolatorState<T> {
     CheckEntry {
         current_frame_index: usize,
@@ -73,11 +76,17 @@ impl<T> InterpolatorState<T> {
         matches!(self, Self::Aborted { .. })
     }
 
-    pub fn is_finished(&self) -> bool {
-        matches!(
-            self,
-            InterpolatorState::Finished | InterpolatorState::Aborted { .. }
-        )
+    pub fn is_running(&self) -> bool {
+        match self {
+            InterpolatorState::CheckEntry {
+                current_frame_index,
+                time_since_start,
+            } => *current_frame_index >= 1 || *time_since_start > Duration::ZERO,
+            InterpolatorState::InterpolateSpline { .. } | InterpolatorState::CheckExit { .. } => {
+                true
+            }
+            InterpolatorState::Finished | InterpolatorState::Aborted { .. } => false,
+        }
     }
 
     pub fn reset(&mut self) {
@@ -253,7 +262,7 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
         }
     }
 
-    pub fn estimated_remaining_duration(&self, state: InterpolatorState<T>) -> Duration {
+    pub fn estimated_remaining_duration(&self, state: InterpolatorState<T>) -> Option<Duration> {
         match state.current_frame_index() {
             Some(index) => {
                 let mut remaining = self
@@ -274,15 +283,15 @@ impl<T: Debug + Interpolate<f32>> MotionInterpolator<T> {
                     ),
                     InterpolatorState::CheckExit { .. } => Duration::ZERO,
                     InterpolatorState::Finished => Duration::ZERO,
-                    InterpolatorState::Aborted { .. } => Duration::MAX,
+                    InterpolatorState::Aborted { .. } => return None,
                 };
-                remaining
+                Some(remaining)
             }
             None => {
                 if state.is_aborted() {
-                    Duration::MAX
+                    None
                 } else {
-                    Duration::ZERO
+                    Some(Duration::ZERO)
                 }
             }
         }

@@ -42,8 +42,6 @@ pub struct CycleContext {
     stand_up_back_positions: Input<Joints<f32>, "stand_up_back_positions">,
     stand_up_front_positions: Input<Joints<f32>, "stand_up_front_positions">,
     stand_up_sitting_positions: Input<Joints<f32>, "stand_up_sitting_positions">,
-    stand_up_front_slow_positions: Input<Joints<f32>, "stand_up_front_slow_positions">,
-    stand_up_sitting_slow_positions: Input<Joints<f32>, "stand_up_sitting_slow_positions">,
     wide_stance_positions: Input<Joints<f32>, "wide_stance_positions">,
     keeper_jump_left_motor_commands:
         Input<MotorCommands<Joints<f32>>, "keeper_jump_left_motor_commands">,
@@ -56,7 +54,7 @@ pub struct CycleContext {
     initial_pose: Parameter<Joints<f32>, "initial_pose">,
     current_minimizer_parameters:
         Parameter<CurrentMinimizerParameters, "current_minimizer_parameters">,
-    stand_up_stiffness_upper_body: Parameter<f32, "stand_up_stiffness_upper_body">,
+    default_motion_stiffness_upper_body: Parameter<f32, "default_motion_stiffness_upper_body">,
     only_one_foot_has_ground_contact: Input<bool, "only_one_foot_has_ground_contact">,
     has_ground_contact: Input<bool, "has_ground_contact">,
     primary_state: Input<PrimaryState, "world_state.robot.primary_state">,
@@ -95,8 +93,6 @@ impl MotorCommandCollector {
         let stand_up_back_positions = context.stand_up_back_positions;
         let stand_up_front_positions = context.stand_up_front_positions;
         let stand_up_sitting_positions = context.stand_up_sitting_positions;
-        let stand_up_front_slow_positions = context.stand_up_front_slow_positions;
-        let stand_up_sitting_slow_positions = context.stand_up_sitting_slow_positions;
         let wide_stance_positions = context.wide_stance_positions;
         let keeper_jump_left = context.keeper_jump_left_motor_commands;
         let keeper_jump_right = context.keeper_jump_right_motor_commands;
@@ -137,18 +133,7 @@ impl MotorCommandCollector {
             ),
             MotionType::JumpLeft => (jump_left.positions, jump_left.stiffnesses),
             MotionType::JumpRight => (jump_right.positions, jump_right.stiffnesses),
-            MotionType::CenterJump => (
-                *center_jump_positions,
-                Joints::from_head_and_body(
-                    HeadJoints::fill(*context.stand_up_stiffness_upper_body),
-                    BodyJoints {
-                        left_arm: ArmJoints::fill(*context.stand_up_stiffness_upper_body),
-                        right_arm: ArmJoints::fill(*context.stand_up_stiffness_upper_body),
-                        left_leg: LegJoints::fill(1.0),
-                        right_leg: LegJoints::fill(1.0),
-                    },
-                ),
-            ),
+            MotionType::CenterJump => (*center_jump_positions, default_motion_stiffness(&context)),
 
             MotionType::Penalized => (
                 self.current_minimizer.optimize(
@@ -179,78 +164,18 @@ impl MotorCommandCollector {
                 ),
                 Joints::from_head_and_body(head_joints_command.stiffnesses, walk.stiffnesses),
             ),
-            MotionType::StandUpBack => (
-                *stand_up_back_positions,
-                Joints::from_head_and_body(
-                    HeadJoints::fill(*context.stand_up_stiffness_upper_body),
-                    BodyJoints {
-                        left_arm: ArmJoints::fill(*context.stand_up_stiffness_upper_body),
-                        right_arm: ArmJoints::fill(*context.stand_up_stiffness_upper_body),
-                        left_leg: LegJoints::fill(1.0),
-                        right_leg: LegJoints::fill(1.0),
-                    },
-                ),
-            ),
-            MotionType::StandUpFront => (
+            MotionType::StandUpBack => {
+                (*stand_up_back_positions, default_motion_stiffness(&context))
+            }
+            MotionType::StandUpFront(_) => (
                 *stand_up_front_positions,
-                Joints::from_head_and_body(
-                    HeadJoints::fill(*context.stand_up_stiffness_upper_body),
-                    BodyJoints {
-                        left_arm: ArmJoints::fill(*context.stand_up_stiffness_upper_body),
-                        right_arm: ArmJoints::fill(*context.stand_up_stiffness_upper_body),
-                        left_leg: LegJoints::fill(1.0),
-                        right_leg: LegJoints::fill(1.0),
-                    },
-                ),
+                default_motion_stiffness(&context),
             ),
-            MotionType::StandUpFrontSlow => (
-                *stand_up_front_slow_positions,
-                Joints::from_head_and_body(
-                    HeadJoints::fill(*context.stand_up_stiffness_upper_body),
-                    BodyJoints {
-                        left_arm: ArmJoints::fill(*context.stand_up_stiffness_upper_body),
-                        right_arm: ArmJoints::fill(*context.stand_up_stiffness_upper_body),
-                        left_leg: LegJoints::fill(1.0),
-                        right_leg: LegJoints::fill(1.0),
-                    },
-                ),
-            ),
-            MotionType::StandUpSitting => (
+            MotionType::StandUpSitting(_) => (
                 *stand_up_sitting_positions,
-                Joints::from_head_and_body(
-                    HeadJoints::fill(*context.stand_up_stiffness_upper_body),
-                    BodyJoints {
-                        left_arm: ArmJoints::fill(*context.stand_up_stiffness_upper_body),
-                        right_arm: ArmJoints::fill(*context.stand_up_stiffness_upper_body),
-                        left_leg: LegJoints::fill(1.0),
-                        right_leg: LegJoints::fill(1.0),
-                    },
-                ),
+                default_motion_stiffness(&context),
             ),
-            MotionType::StandUpSittingSlow => (
-                *stand_up_sitting_slow_positions,
-                Joints::from_head_and_body(
-                    HeadJoints::fill(*context.stand_up_stiffness_upper_body),
-                    BodyJoints {
-                        left_arm: ArmJoints::fill(*context.stand_up_stiffness_upper_body),
-                        right_arm: ArmJoints::fill(*context.stand_up_stiffness_upper_body),
-                        left_leg: LegJoints::fill(1.0),
-                        right_leg: LegJoints::fill(1.0),
-                    },
-                ),
-            ),
-            MotionType::WideStance => (
-                *wide_stance_positions,
-                Joints::from_head_and_body(
-                    HeadJoints::fill(*context.stand_up_stiffness_upper_body),
-                    BodyJoints {
-                        left_arm: ArmJoints::fill(*context.stand_up_stiffness_upper_body),
-                        right_arm: ArmJoints::fill(*context.stand_up_stiffness_upper_body),
-                        left_leg: LegJoints::fill(1.0),
-                        right_leg: LegJoints::fill(1.0),
-                    },
-                ),
-            ),
+            MotionType::WideStance => (*wide_stance_positions, default_motion_stiffness(&context)),
 
             MotionType::KeeperJumpLeft => {
                 (keeper_jump_left.positions, keeper_jump_left.stiffnesses)
@@ -292,4 +217,16 @@ impl MotorCommandCollector {
             motor_commands: motor_commands.into(),
         })
     }
+}
+
+fn default_motion_stiffness(context: &CycleContext<'_>) -> Joints {
+    Joints::from_head_and_body(
+        HeadJoints::fill(*context.default_motion_stiffness_upper_body),
+        BodyJoints {
+            left_arm: ArmJoints::fill(*context.default_motion_stiffness_upper_body),
+            right_arm: ArmJoints::fill(*context.default_motion_stiffness_upper_body),
+            left_leg: LegJoints::fill(1.0),
+            right_leg: LegJoints::fill(1.0),
+        },
+    )
 }

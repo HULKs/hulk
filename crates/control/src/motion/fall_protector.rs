@@ -6,7 +6,7 @@ use framework::MainOutput;
 use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime,
-    fall_state::{Direction, FallState, Side},
+    fall_state::{FallState, FallingDirection, Side},
     joints::{
         arm::ArmJoints, body::BodyJoints, head::HeadJoints, leg::LegJoints, mirror::Mirror, Joints,
     },
@@ -87,26 +87,30 @@ impl FallProtector {
         };
 
         let protection_angles = match (falling_direction, phase) {
-            (Direction::Forward { side: Side::Left }, FallPhase::Early) => {
+            (FallingDirection::Forward { side: Side::Left }, FallPhase::Early) => {
                 prevent_stuck_arms(context.front_early.mirrored(), measured_positions)
             }
-            (Direction::Forward { side: Side::Left }, FallPhase::Late) => {
+            (FallingDirection::Forward { side: Side::Left }, FallPhase::Late) => {
                 prevent_stuck_arms(context.front_late.mirrored(), measured_positions)
             }
-            (Direction::Forward { side: Side::Right }, FallPhase::Early) => {
+            (FallingDirection::Forward { side: Side::Right }, FallPhase::Early) => {
                 prevent_stuck_arms(*context.front_early, measured_positions)
             }
-            (Direction::Forward { side: Side::Right }, FallPhase::Late) => {
+            (FallingDirection::Forward { side: Side::Right }, FallPhase::Late) => {
                 prevent_stuck_arms(*context.front_late, measured_positions)
             }
-            (Direction::Backward { side: Side::Left }, FallPhase::Early) => {
+            (FallingDirection::Backward { side: Side::Left }, FallPhase::Early) => {
                 context.back_early.mirrored()
             }
-            (Direction::Backward { side: Side::Left }, FallPhase::Late) => {
+            (FallingDirection::Backward { side: Side::Left }, FallPhase::Late) => {
                 context.back_late.mirrored()
             }
-            (Direction::Backward { side: Side::Right }, FallPhase::Early) => *context.back_early,
-            (Direction::Backward { side: Side::Right }, FallPhase::Late) => *context.back_late,
+            (FallingDirection::Backward { side: Side::Right }, FallPhase::Early) => {
+                *context.back_early
+            }
+            (FallingDirection::Backward { side: Side::Right }, FallPhase::Late) => {
+                *context.back_late
+            }
         };
 
         let is_head_protected = (measured_positions.head.pitch - protection_angles.head.pitch)
