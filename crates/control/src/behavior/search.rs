@@ -107,6 +107,7 @@ pub fn execute(
             head,
             path_obstacles_output,
             walk_speed,
+            OrientationMode::AlignWithPath,
             distance_to_be_aligned,
             walk_and_stand.parameters.hysteresis,
         )
