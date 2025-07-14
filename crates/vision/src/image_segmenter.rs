@@ -10,7 +10,7 @@ use coordinate_systems::{Ground, Pixel};
 use framework::MainOutput;
 use linear_algebra::{point, vector, Framed, Point2, Vector2};
 use types::{
-    color::{Hsv, Intensity, RgChromaticity, Rgb, YCbCr444},
+    color::{Intensity, RgChromaticity, Rgb, YCbCr444},
     field_color::FieldColorParameters,
     image_segments::{Direction, EdgeType, ImageSegments, ScanGrid, ScanLine, Segment},
     limb::project_onto_limbs,
@@ -356,12 +356,15 @@ fn new_horizontal_scan_line(
             edge_detection_value as i16,
             edge_threshold,
         ) {
-            segments.push(detect_field_color_in_segment(average_color_in_segment(
-                segment,
+            let average_color =
+                average_color_in_segment(segment, position, Direction::Horizontal, image);
+            let with_field_color = detect_field_color_in_segment(
+                average_color,
                 position,
                 Direction::Horizontal,
                 image,
-            )));
+            );
+            segments.push(with_field_color);
         }
     }
 
@@ -373,12 +376,11 @@ fn new_horizontal_scan_line(
         color: Default::default(),
         field_color: Intensity::Low,
     };
-    segments.push(detect_field_color_in_segment(average_color_in_segment(
-        last_segment,
-        position,
-        Direction::Horizontal,
-        image,
-    )));
+    let average_color =
+        average_color_in_segment(last_segment, position, Direction::Horizontal, image);
+    let with_field_color =
+        detect_field_color_in_segment(average_color, position, Direction::Horizontal, image);
+    segments.push(with_field_color);
 
     ScanLine {
         position: position as u16,
@@ -441,12 +443,11 @@ fn new_vertical_scan_line(
                 fix_previous_edge_type(&mut segments);
                 break;
             }
-            segments.push(detect_field_color_in_segment(average_color_in_segment(
-                segment,
-                position,
-                Direction::Vertical,
-                image,
-            )));
+            let average_color =
+                average_color_in_segment(segment, position, Direction::Vertical, image);
+            let with_field_color =
+                detect_field_color_in_segment(average_color, position, Direction::Vertical, image);
+            segments.push(with_field_color);
         }
     }
 
@@ -459,12 +460,11 @@ fn new_vertical_scan_line(
         field_color: Intensity::Low,
     };
     if !segment_is_below_limbs(position as u16, &last_segment, projected_limbs) {
-        segments.push(detect_field_color_in_segment(average_color_in_segment(
-            last_segment,
-            position,
-            Direction::Vertical,
-            image,
-        )));
+        let average_color =
+            average_color_in_segment(last_segment, position, Direction::Vertical, image);
+        let with_field_color =
+            detect_field_color_in_segment(average_color, position, Direction::Vertical, image);
+        segments.push(with_field_color);
     }
 
     ScanLine {
@@ -526,30 +526,46 @@ fn pixel_to_edge_detection_value(
     }
 }
 
-fn detect_field_color_in_segment(mut segment: Segment) -> Segment {
+fn detect_field_color_in_segment(
+    mut segment: Segment,
+    position: u32,
+    direction: Direction,
+    image: &YCbCr422Image,
+) -> Segment {
     let color = segment.color;
     let rgb = Rgb::from(color);
     let rg_chromaticity = RgChromaticity::from(rgb);
-    let blue_chromaticity = 1.0 - rg_chromaticity.red - rg_chromaticity.green;
-    let hsv = Hsv::from(rgb);
-
-    let features = Features {
-        blue_luminance: rgb.blue,
-        green_luminance: rgb.green,
-        red_luminance: rgb.red,
-        luminance: color.y,
-        red_difference: color.cr,
-        blue_difference: color.cb,
-        blue_chromaticity,
-        green_chromaticity: rg_chromaticity.green,
-        red_chromaticity: rg_chromaticity.red,
-        intensity: ((rgb.blue as u16 + rgb.green as u16 + rgb.red as u16) / 3) as u8,
-        hue: hsv.hue,
-        saturation: hsv.saturation,
-        value: hsv.value,
+    let center: Point2<Pixel, u32> = match direction {
+        Direction::Horizontal => point![segment.center() as u32, position],
+        Direction::Vertical => point![position, segment.center() as u32],
     };
 
-    segment.field_color = field_color_tree::predict(&features);
+    let radius = 28;
+    let right = image.at(
+        (center.x() + radius).clamp(0, image.width() - 1),
+        center.y(),
+    );
+    let top = image.at(center.x(), center.y().saturating_sub(radius));
+    let left = image.at(center.x().saturating_sub(radius), center.y());
+    let bottom = image.at(
+        center.x(),
+        (center.y() + radius).clamp(0, image.height() - 1),
+    );
+
+    let features = Features {
+        center: rg_chromaticity.green,
+        right: RgChromaticity::from(Rgb::from(right)).green,
+        top: RgChromaticity::from(Rgb::from(top)).green,
+        left: RgChromaticity::from(Rgb::from(left)).green,
+        bottom: RgChromaticity::from(Rgb::from(bottom)).green,
+    };
+
+    let probability = field_color_tree::predict(&features);
+    segment.field_color = if probability >= 0.5 {
+        Intensity::High
+    } else {
+        Intensity::Low
+    };
     segment
 }
 
