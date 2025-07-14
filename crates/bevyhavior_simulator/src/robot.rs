@@ -408,7 +408,12 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
             step.orientation().angle(),
         ));
 
-        let head_motion = HeadMotion::Center;
+        let head_motion = robot
+            .database
+            .main_outputs
+            .motion_command
+            .head_motion()
+            .unwrap();
         let desired_head_yaw = match head_motion {
             HeadMotion::ZeroAngles => 0.0,
             HeadMotion::Center => 0.0,
@@ -442,8 +447,8 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
             robot.parameters.head_motion.maximum_velocity.yaw * time.delta_secs();
         let diff = desired_head_yaw - robot.database.main_outputs.sensor_data.positions.head.yaw;
         let movement = diff.clamp(-max_head_rotation_per_cycle, max_head_rotation_per_cycle);
-
         robot.database.main_outputs.sensor_data.positions.head.yaw += movement;
+
         if let Some(movement) = ground_to_field_change {
             let old_ground_to_field = robot.ground_to_field();
             let new_ground_to_field = old_ground_to_field * movement;
