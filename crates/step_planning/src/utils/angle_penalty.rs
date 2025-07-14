@@ -33,7 +33,6 @@ pub fn angle_penalty_with_tolerance(
     current
         .angle_between(target)
         .into_inner()
-        .abs()
         .sub(tolerance)
         .max(0.0)
         .powi(2)
