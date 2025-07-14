@@ -156,12 +156,14 @@ impl<'cycle> WalkAndStand<'cycle> {
         }
     }
 
+    #[expect(clippy::too_many_arguments)]
     pub fn execute(
         &self,
         target_pose: Pose2<Ground>,
         head: HeadMotion,
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
         walk_speed: WalkSpeed,
+        orientation_mode: OrientationMode,
         distance_to_be_aligned: f32,
         hysteresis: nalgebra::Vector2<f32>,
     ) -> Option<MotionCommand> {
@@ -195,7 +197,7 @@ impl<'cycle> WalkAndStand<'cycle> {
             );
             Some(self.walk_path_planner.walk_with_obstacle_avoiding_arms(
                 head,
-                OrientationMode::AlignWithPath,
+                orientation_mode,
                 target_pose.orientation(),
                 distance_to_be_aligned,
                 path,
