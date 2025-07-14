@@ -228,6 +228,12 @@ class Objective:
                     "Neighbors_orientations", "suggest_int", 4, 8
                 )
                 extractor = NeighboringPixels(radius, orientations)
+            case "NeighborsDifference":
+                radius = get_param("Neighbors_radius", "suggest_int", 1, 31)
+                orientations = get_param(
+                    "Neighbors_orientations", "suggest_int", 4, 8
+                )
+                extractor = NeighboringPixels(radius, orientations)
             case "LBP":
                 radius = get_param("LBP_radius", "suggest_int", 1, 31)
                 extractor = LBPFilter(radius)
