@@ -13,8 +13,9 @@ use serde::{Deserialize, Serialize};
     PathIntrospect,
 )]
 pub enum LedDebug {
+    Role,
     #[default]
     Temperature,
+    Vision,
     Walking,
-    Battery,
 }

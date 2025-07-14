@@ -53,7 +53,9 @@ pub struct CycleContext {
 
     walking_engine_mode: CyclerState<Mode, "walking_engine_mode">,
 
-    debug_mode: Parameter<LedDebug, "led_status.ears">,
+    ear_mode: Parameter<LedDebug, "led_status.ears">,
+    left_eye_mode: Parameter<LedDebug, "led_status.left_eye">,
+    right_eye_mode: Parameter<LedDebug, "led_status.right_eye">,
 }
 
 #[context]
@@ -201,6 +203,8 @@ impl LedStatus {
             *context.ready_signal_detected,
             *context.own_free_kick_signal_detection_result,
             context.detected_free_kick_kicking_team.copied(),
+            *context.left_eye_mode,
+            *context.right_eye_mode,
         );
 
         if let Some(latest_game_controller_message_time) = context
@@ -230,7 +234,7 @@ impl LedStatus {
                 .into_iter()
                 .fold(0.0, f32::max),
             context.walking_engine_mode.support_side(),
-            *context.debug_mode,
+            *context.ear_mode,
         );
 
         let leds = Leds {
@@ -253,9 +257,9 @@ impl LedStatus {
         blink_state: bool,
         current_maximum_temperature: f32,
         support_side: Option<Side>,
-        debug_mode: LedDebug,
+        mode_both_ears: LedDebug,
     ) -> Ear {
-        match debug_mode {
+        match mode_both_ears {
             LedDebug::Temperature => {
                 let mut ear = if last_game_controller_message.is_some_and(|timestamp| {
                     cycle_start_time
@@ -297,7 +301,7 @@ impl LedStatus {
                 Some(Side::Right) => Ear::full_ears(0.0),
                 None => Ear::full_ears(0.0),
             },
-            LedDebug::Battery => unimplemented!(),
+            _ => unimplemented!(),
         }
     }
 
@@ -311,6 +315,8 @@ impl LedStatus {
         ready_signal_detected: bool,
         own_free_kick_signal_detection_result: FreeKickSignalDetectionResult,
         detected_free_kick_kicking_team: Option<Team>,
+        mode_left_eye: LedDebug,
+        mode_right_eye: LedDebug,
     ) -> (Eye, Eye) {
         match primary_state {
             PrimaryState::Unstiff | PrimaryState::Animation { .. } => {
@@ -318,93 +324,33 @@ impl LedStatus {
                 (rainbow_eye, rainbow_eye)
             }
             _ => {
-                let ball_background_color = if ball_percepts.at_least_one_ball_top
-                    || ball_percepts.at_least_one_ball_bottom
-                {
-                    Some(Rgb::GREEN)
-                } else {
-                    None
+                let left_eye = match mode_left_eye {
+                    LedDebug::Role => debug_role(role),
+                    LedDebug::Temperature => unimplemented!(),
+                    LedDebug::Vision => debug_vision(
+                        &ball_percepts,
+                        ready_signal_detected,
+                        detected_free_kick_kicking_team,
+                        own_ready_signal_detection_result,
+                        own_free_kick_signal_detection_result,
+                    ),
+                    LedDebug::Walking => unimplemented!(),
                 };
-                let ball_color_top = if ball_percepts.last_ball_top_too_old {
-                    Some(Rgb::RED)
-                } else {
-                    None
+
+                let right_eye = match mode_right_eye {
+                    LedDebug::Role => debug_role(role),
+                    LedDebug::Temperature => unimplemented!(),
+                    LedDebug::Vision => debug_vision(
+                        &ball_percepts,
+                        ready_signal_detected,
+                        detected_free_kick_kicking_team,
+                        own_ready_signal_detection_result,
+                        own_free_kick_signal_detection_result,
+                    ),
+                    LedDebug::Walking => unimplemented!(),
                 };
-                let ball_color_bottom = if ball_percepts.last_ball_bottom_too_old {
-                    Some(Rgb::RED)
-                } else {
-                    None
-                };
-                let right_color = match role {
-                    Role::DefenderLeft
-                    | Role::DefenderRight
-                    | Role::MidfielderLeft
-                    | Role::MidfielderRight => Rgb::BLUE,
-                    Role::Keeper | Role::ReplacementKeeper => Rgb::YELLOW,
-                    Role::Loser => Rgb::BLACK,
-                    Role::Searcher => Rgb::WHITE,
-                    Role::Striker => Rgb::RED,
-                    Role::StrikerSupporter => Rgb::TURQUOISE,
-                };
-                let majority_voted_visual_referee_color =
-                    if ready_signal_detected || detected_free_kick_kicking_team.is_some() {
-                        Some(Rgb::YELLOW)
-                    } else {
-                        None
-                    };
-                let visual_referee_percept_color = if own_ready_signal_detection_result
-                    .detected_own_ready_signal
-                    || own_free_kick_signal_detection_result
-                        .own_detected_kicking_team
-                        .is_some()
-                {
-                    Some(Rgb::PURPLE)
-                } else {
-                    None
-                };
-                (
-                    Eye {
-                        color_at_0: ball_color_top
-                            .or(majority_voted_visual_referee_color)
-                            .or(visual_referee_percept_color)
-                            .or(ball_background_color)
-                            .unwrap_or(Rgb::BLACK),
-                        color_at_45: ball_color_top
-                            .or(majority_voted_visual_referee_color)
-                            .or(visual_referee_percept_color)
-                            .or(ball_background_color)
-                            .unwrap_or(Rgb::BLACK),
-                        color_at_90: ball_background_color
-                            .or(majority_voted_visual_referee_color)
-                            .or(visual_referee_percept_color)
-                            .unwrap_or(Rgb::BLACK),
-                        color_at_135: ball_color_bottom
-                            .or(majority_voted_visual_referee_color)
-                            .or(visual_referee_percept_color)
-                            .or(ball_background_color)
-                            .unwrap_or(Rgb::BLACK),
-                        color_at_180: ball_color_bottom
-                            .or(majority_voted_visual_referee_color)
-                            .or(visual_referee_percept_color)
-                            .or(ball_background_color)
-                            .unwrap_or(Rgb::BLACK),
-                        color_at_225: ball_color_bottom
-                            .or(majority_voted_visual_referee_color)
-                            .or(visual_referee_percept_color)
-                            .or(ball_background_color)
-                            .unwrap_or(Rgb::BLACK),
-                        color_at_270: ball_background_color
-                            .or(majority_voted_visual_referee_color)
-                            .or(visual_referee_percept_color)
-                            .unwrap_or(Rgb::BLACK),
-                        color_at_315: ball_color_top
-                            .or(majority_voted_visual_referee_color)
-                            .or(visual_referee_percept_color)
-                            .or(ball_background_color)
-                            .unwrap_or(Rgb::BLACK),
-                    },
-                    Eye::from(right_color),
-                )
+
+                (left_eye, right_eye)
             }
         }
     }
@@ -465,5 +411,100 @@ impl LedStatus {
             5 => Rgb::new(255, 0, 255 - fraction),
             _ => unreachable!(),
         }
+    }
+}
+
+fn debug_role(role: &Role) -> Eye {
+    Eye::from(match role {
+        Role::DefenderLeft | Role::DefenderRight | Role::MidfielderLeft | Role::MidfielderRight => {
+            Rgb::BLUE
+        }
+        Role::Keeper | Role::ReplacementKeeper => Rgb::YELLOW,
+        Role::Loser => Rgb::BLACK,
+        Role::Searcher => Rgb::WHITE,
+        Role::Striker => Rgb::RED,
+        Role::StrikerSupporter => Rgb::TURQUOISE,
+    })
+}
+
+fn debug_vision(
+    ball_percepts: &BallPercepts,
+    ready_signal_detected: bool,
+    detected_free_kick_kicking_team: Option<Team>,
+    own_ready_signal_detection_result: ReadySignalDetectionResult,
+    own_free_kick_signal_detection_result: FreeKickSignalDetectionResult,
+) -> Eye {
+    let ball_background_color =
+        if ball_percepts.at_least_one_ball_top || ball_percepts.at_least_one_ball_bottom {
+            Some(Rgb::GREEN)
+        } else {
+            None
+        };
+    let ball_color_top = if ball_percepts.last_ball_top_too_old {
+        Some(Rgb::RED)
+    } else {
+        None
+    };
+    let ball_color_bottom = if ball_percepts.last_ball_bottom_too_old {
+        Some(Rgb::RED)
+    } else {
+        None
+    };
+    let majority_voted_visual_referee_color =
+        if ready_signal_detected || detected_free_kick_kicking_team.is_some() {
+            Some(Rgb::YELLOW)
+        } else {
+            None
+        };
+    let visual_referee_percept_color = if own_ready_signal_detection_result
+        .detected_own_ready_signal
+        || own_free_kick_signal_detection_result
+            .own_detected_kicking_team
+            .is_some()
+    {
+        Some(Rgb::PURPLE)
+    } else {
+        None
+    };
+
+    Eye {
+        color_at_0: ball_color_top
+            .or(majority_voted_visual_referee_color)
+            .or(visual_referee_percept_color)
+            .or(ball_background_color)
+            .unwrap_or(Rgb::BLACK),
+        color_at_45: ball_color_top
+            .or(majority_voted_visual_referee_color)
+            .or(visual_referee_percept_color)
+            .or(ball_background_color)
+            .unwrap_or(Rgb::BLACK),
+        color_at_90: ball_background_color
+            .or(majority_voted_visual_referee_color)
+            .or(visual_referee_percept_color)
+            .unwrap_or(Rgb::BLACK),
+        color_at_135: ball_color_bottom
+            .or(majority_voted_visual_referee_color)
+            .or(visual_referee_percept_color)
+            .or(ball_background_color)
+            .unwrap_or(Rgb::BLACK),
+        color_at_180: ball_color_bottom
+            .or(majority_voted_visual_referee_color)
+            .or(visual_referee_percept_color)
+            .or(ball_background_color)
+            .unwrap_or(Rgb::BLACK),
+        color_at_225: ball_color_bottom
+            .or(majority_voted_visual_referee_color)
+            .or(visual_referee_percept_color)
+            .or(ball_background_color)
+            .unwrap_or(Rgb::BLACK),
+        color_at_270: ball_background_color
+            .or(majority_voted_visual_referee_color)
+            .or(visual_referee_percept_color)
+            .unwrap_or(Rgb::BLACK),
+        color_at_315: ball_color_top
+            .or(majority_voted_visual_referee_color)
+            .or(visual_referee_percept_color)
+            .or(ball_background_color)
+            .unwrap_or(Rgb::BLACK),
     }
 }
