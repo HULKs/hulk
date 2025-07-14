@@ -7,27 +7,26 @@ import h5py
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
-from numpy.typing import NDArray
-from PIL import Image
-
-from image_segmenter.settings import (
+from .settings import (
     HEIGHT,
     WIDTH,
     Classes,
     ColorValues,
     FeatureIndices,
 )
+from numpy.typing import NDArray
+from PIL import Image
 
 
 def create_sampling_masks(y_train, y_test, ratio_ones):
     random_generator = np.random.default_rng(seed=42)
     samples_count_train = np.count_nonzero(y_train != Classes.UNKNOWN.value)
     train_mask = random_generator.choice(
-        [0, 1], size=samples_count_train, p=[1-ratio_ones, ratio_ones]
+        [0, 1], size=samples_count_train, p=[1 - ratio_ones, ratio_ones]
     )
     samples_count_test = np.count_nonzero(y_test != Classes.UNKNOWN.value)
     test_mask = random_generator.choice(
-        [0, 1], size=samples_count_test, p=[1-ratio_ones, ratio_ones]
+        [0, 1], size=samples_count_test, p=[1 - ratio_ones, ratio_ones]
     )
 
     np.savez("masks.npz", train_mask=train_mask, test_mask=test_mask)

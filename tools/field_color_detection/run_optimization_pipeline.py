@@ -6,10 +6,7 @@ from typing import get_args
 import joblib
 import numpy as np
 import optuna
-from numpy.typing import NDArray
-from sklearn import metrics
-from sklearn.model_selection import GridSearchCV
-from src.image_segmenter import (
+from field_color_detection import (
     HEIGHT,
     WIDTH,
     Classes,
@@ -20,6 +17,8 @@ from src.image_segmenter import (
     get_data_from_hdf5,
     load_sampling_masks,
 )
+from sklearn import metrics
+from sklearn.model_selection import GridSearchCV
 
 
 def pretty_dict(dictionary: dict) -> str:
@@ -72,7 +71,7 @@ if __name__ == "__main__":
                     objective,
                     n_trials=1000,
                     n_jobs=1,
-                    gc_after_trial=True,  # Calls garbage collector after each trial
+                    gc_after_trial=True,
                     catch=(MemoryError,),
                 )
                 continue
