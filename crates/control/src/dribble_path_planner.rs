@@ -104,12 +104,7 @@ impl DribblePathPlanner {
             .dribble_path_obstacles_output
             .fill_if_subscribed(|| dribble_path_obstacles.clone().unwrap_or_default());
 
-        let ball_position = &context.ball.ball_in_ground;
-        let orientation_mode = if ball_position.coords().norm() > 0.0 {
-            OrientationMode::LookAt(context.ball.ball_in_ground)
-        } else {
-            OrientationMode::Unspecified
-        };
+        let orientation_mode = OrientationMode::LookAt(context.ball.ball_in_ground);
 
         let target_orientation = best_kick_pose.orientation();
 
