@@ -59,30 +59,30 @@ if __name__ == "__main__":
                 load_if_exists=True,
             )
 
-            study.enqueue_trial(
-                {
-                    "color_Y": False,
-                    "color_Cr": False,
-                    "color_Cb": False,
-                    "color_B": False,
-                    "color_G": False,
-                    "color_R": False,
-                    "color_b": False,
-                    "color_g": True,
-                    "color_r": False,
-                    "color_I": False,
-                    "color_L*": False,
-                    "color_a*": False,
-                    "color_b*": False,
-                    "color_H": False,
-                    "color_S": False,
-                    "color_V": False,
-                    "selected_channel_index": 0,
-                    "texture_method": "NeighborsDifference",
-                    "Neighbors_radius": 28,
-                    "Neighbors_orientations": 4,
-                }
-            )
+            # study.enqueue_trial(
+            #     {
+            #         "color_Y": False,
+            #         "color_Cr": False,
+            #         "color_Cb": False,
+            #         "color_B": False,
+            #         "color_G": False,
+            #         "color_R": False,
+            #         "color_b": False,
+            #         "color_g": True,
+            #         "color_r": False,
+            #         "color_I": False,
+            #         "color_L*": False,
+            #         "color_a*": False,
+            #         "color_b*": False,
+            #         "color_H": False,
+            #         "color_S": False,
+            #         "color_V": False,
+            #         "selected_channel_index": 0,
+            #         "texture_method": "NeighborsDifference",
+            #         "Neighbors_radius": 28,
+            #         "Neighbors_orientations": 4,
+            #     }
+            # )
 
             objective = Objective(
                 train_data,
