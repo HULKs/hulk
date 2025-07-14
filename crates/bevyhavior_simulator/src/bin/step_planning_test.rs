@@ -81,7 +81,10 @@ fn update(time: Res<Time<Ticks>>, mut exit: EventWriter<AppExit>, mut robots: Qu
                     geometry::line_segment::LineSegment(Point2::origin(), point![0.4, 0.0]),
                 )],
             },
-            OrientationMode::LookTowards(orientation),
+            OrientationMode::LookTowards {
+                direction: orientation,
+                tolerance: 0.0,
+            },
             orientation,
         ),
         _ => {

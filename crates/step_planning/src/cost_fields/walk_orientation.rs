@@ -1,5 +1,4 @@
 use coordinate_systems::Ground;
-use geometry::look_at::LookAt;
 use linear_algebra::{Orientation2, Vector2};
 use types::motion_command::OrientationMode;
 
@@ -8,10 +7,7 @@ use crate::{
         angle::Angle,
         pose::{Pose, PoseGradient},
     },
-    utils::{
-        angle_penalty, angle_penalty_derivative, angle_penalty_with_tolerance,
-        angle_penalty_with_tolerance_derivative,
-    },
+    utils::{angle_penalty_with_tolerance, angle_penalty_with_tolerance_derivative},
 };
 
 pub struct WalkOrientationField {
@@ -28,17 +24,23 @@ impl WalkOrientationField {
                 Angle(Orientation2::from_vector(forward).angle()),
                 self.path_alignment_tolerance,
             ),
-            OrientationMode::LookTowards(orientation) => {
-                angle_penalty(pose.orientation, Angle(orientation.angle()))
+            OrientationMode::LookTowards {
+                direction,
+                tolerance,
+            } => {
+                angle_penalty_with_tolerance(pose.orientation, Angle(direction.angle()), tolerance)
             }
-            OrientationMode::LookAt(point) => {
-                // TODO(rmburg) scale importance by distance to target point
-                if (point - pose.position).norm_squared() < 1e-5 {
+            OrientationMode::LookAt { target, tolerance } => {
+                let direction = target - pose.position;
+
+                if direction.norm_squared() < 1e-5 {
                     0.0
                 } else {
-                    let orientation = pose.position.look_at(&point);
-
-                    angle_penalty(pose.orientation, Angle(orientation.angle()))
+                    angle_penalty_with_tolerance(
+                        pose.orientation,
+                        Angle(Orientation2::from_vector(direction).angle()),
+                        tolerance,
+                    )
                 }
             }
         }
@@ -55,20 +57,28 @@ impl WalkOrientationField {
                 ),
                 ..PoseGradient::zeros()
             },
-            OrientationMode::LookTowards(orientation) => PoseGradient {
-                orientation: angle_penalty_derivative(pose.orientation, Angle(orientation.angle())),
+            OrientationMode::LookTowards {
+                direction,
+                tolerance,
+            } => PoseGradient {
+                orientation: angle_penalty_with_tolerance_derivative(
+                    pose.orientation,
+                    Angle(direction.angle()),
+                    tolerance,
+                ),
                 ..PoseGradient::zeros()
             },
-            OrientationMode::LookAt(point) => {
-                if (point - pose.position).norm_squared() < 1e-5 {
+            OrientationMode::LookAt { target, tolerance } => {
+                let direction = target - pose.position;
+
+                if direction.norm_squared() < 1e-5 {
                     PoseGradient::zeros()
                 } else {
-                    let orientation = pose.position.look_at(&point);
-
                     PoseGradient {
-                        orientation: angle_penalty_derivative(
+                        orientation: angle_penalty_with_tolerance_derivative(
                             pose.orientation,
-                            Angle(orientation.angle()),
+                            Angle(Orientation2::from_vector(direction).angle()),
+                            tolerance,
                         ),
                         ..PoseGradient::zeros()
                     }
@@ -94,7 +104,10 @@ mod tests {
         #[test]
         fn verify_gradient_look_towards(x in -5.0f32..5.0, y in -5.0f32..5.0, orientation in 0.0..TAU, target_orientation in 0.0..TAU) {
             let cost_field = WalkOrientationField {
-                orientation_mode: OrientationMode::LookTowards(Orientation2::new(target_orientation)),
+                orientation_mode: OrientationMode::LookTowards {
+                    direction: Orientation2::new(target_orientation),
+                    tolerance: 0.0
+                },
                 path_alignment_tolerance: 1.0
             };
 
@@ -119,7 +132,10 @@ mod tests {
         #[test]
         fn verify_gradient_look_at(x in -5.0f32..5.0, y in -5.0f32..5.0, orientation in 0.0..TAU, target_x in -5.0f32..5.0, target_y in -5.0f32..5.0) {
             let cost_field = WalkOrientationField {
-                orientation_mode: OrientationMode::LookAt(point![target_x,target_y]),
+                orientation_mode: OrientationMode::LookAt {
+                    target: point![target_x,target_y],
+                    tolerance: 0.0
+                },
                 path_alignment_tolerance: 1.0
             };
 

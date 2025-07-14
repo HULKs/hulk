@@ -80,7 +80,10 @@ pub fn execute(
                 path,
                 left_arm: types::motion_command::ArmMotion::Swing,
                 right_arm: types::motion_command::ArmMotion::Swing,
-                orientation_mode: OrientationMode::LookTowards(target_orientation),
+                orientation_mode: OrientationMode::LookTowards {
+                    direction: target_orientation,
+                    tolerance: 0.0,
+                },
                 speed: walk_speed,
                 target_orientation,
                 distance_to_be_aligned,

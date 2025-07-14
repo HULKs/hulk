@@ -44,8 +44,14 @@ pub enum WalkSpeed {
 pub enum OrientationMode {
     Unspecified,
     AlignWithPath,
-    LookTowards(Orientation2<Ground>),
-    LookAt(Point2<Ground>),
+    LookTowards {
+        direction: Orientation2<Ground>,
+        tolerance: f32,
+    },
+    LookAt {
+        target: Point2<Ground>,
+        tolerance: f32,
+    },
 }
 
 #[derive(
