@@ -1,6 +1,6 @@
 use coordinate_systems::Ground;
 use geometry::look_at::LookAt;
-use linear_algebra::Vector2;
+use linear_algebra::{Orientation2, Vector2};
 use types::motion_command::OrientationMode;
 
 use crate::{
@@ -25,7 +25,7 @@ impl WalkOrientationField {
             OrientationMode::Unspecified => 0.0,
             OrientationMode::AlignWithPath => angle_penalty_with_tolerance(
                 pose.orientation,
-                Angle(Vector2::x_axis().angle(&forward)),
+                Angle(Orientation2::from_vector(forward).angle()),
                 self.path_alignment_tolerance,
             ),
             OrientationMode::LookTowards(orientation) => {
@@ -50,7 +50,7 @@ impl WalkOrientationField {
             OrientationMode::AlignWithPath => PoseGradient {
                 orientation: angle_penalty_with_tolerance_derivative(
                     pose.orientation,
-                    Angle(Vector2::x_axis().angle(&forward)),
+                    Angle(Orientation2::from_vector(forward).angle()),
                     self.path_alignment_tolerance,
                 ),
                 ..PoseGradient::zeros()
