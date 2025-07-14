@@ -123,7 +123,10 @@ pub fn execute(
         let path_length: f32 = path.iter().map(|segment| segment.length()).sum();
         let is_reached = path_length < parameters.position_reached_distance;
         let orientation_mode = if is_reached {
-            OrientationMode::LookTowards(Orientation2::new(parameters.rotation_per_step))
+            OrientationMode::LookTowards {
+                direction: Orientation2::new(parameters.rotation_per_step),
+                tolerance: 0.0,
+            }
         } else {
             OrientationMode::AlignWithPath
         };

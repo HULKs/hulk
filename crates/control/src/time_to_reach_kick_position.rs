@@ -70,8 +70,10 @@ impl TimeToReachKickPosition {
         let walk_duration = Duration::from_secs_f32(walk_time);
 
         let turn_angle = match orientation_mode {
-            OrientationMode::LookTowards(orientation) => orientation.angle().abs(),
-            OrientationMode::LookAt(point) => point.coords().angle(&Vector2::x_axis()).abs(),
+            OrientationMode::LookTowards { direction, .. } => direction.angle().abs(),
+            OrientationMode::LookAt { target, .. } => {
+                target.coords().angle(&Vector2::x_axis()).abs()
+            }
             OrientationMode::Unspecified | OrientationMode::AlignWithPath => {
                 match dribble_path.first() {
                     Some(PathSegment::LineSegment(line_segment)) => {

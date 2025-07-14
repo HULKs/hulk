@@ -51,7 +51,10 @@ pub fn execute(
     };
     Some(walk_path_planner.walk_with_obstacle_avoiding_arms(
         head,
-        OrientationMode::LookAt(relative_last_known_ball_position),
+        OrientationMode::LookAt {
+            target: relative_last_known_ball_position,
+            tolerance: 0.0,
+        },
         orientation,
         distance_to_be_aligned,
         path,
