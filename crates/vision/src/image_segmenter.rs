@@ -1,7 +1,6 @@
-use std::ops::{Add, Range};
+use std::ops::Add;
 
 use color_eyre::Result;
-use itertools::iproduct;
 use projection::{camera_matrix::CameraMatrix, horizon::Horizon, Projection};
 use serde::{Deserialize, Serialize};
 
@@ -563,17 +562,6 @@ impl YCbCr444Sum {
     }
 }
 
-fn average_image_pixels(
-    image: &YCbCr422Image,
-    x: Range<u32>,
-    y: Range<u32>,
-    stride: usize,
-) -> YCbCr444 {
-    let sum = iproduct!(x.step_by(stride), y.step_by(stride))
-        .fold(YCbCr444Sum::default(), |sum, (x, y)| sum + image.at(x, y));
-    sum.average()
-}
-
 fn segment_is_below_limbs(
     scan_line_position: u16,
     segment: &Segment,
@@ -598,24 +586,23 @@ fn average_color_in_segment(
     direction: Direction,
     image: &YCbCr422Image,
 ) -> YCbCr444 {
-    let length = segment.length();
-    let x = match direction {
-        Direction::Horizontal => (segment.start as u32)..(segment.end as u32),
-        Direction::Vertical => position..(position + 1),
+    let center = match direction {
+        Direction::Horizontal => point![segment.center() as u32, position],
+        Direction::Vertical => point![position, segment.center() as u32],
     };
-    let y = match direction {
-        Direction::Horizontal => position..(position + 1),
-        Direction::Vertical => (segment.start as u32)..(segment.end as u32),
+    let start = match direction {
+        Direction::Horizontal => point![(segment.start + segment.length() / 3) as u32, position],
+        Direction::Vertical => point![position, (segment.start + segment.length() / 3) as u32],
     };
-    let stride = match length {
-        20.. => 4,   // results in 5.. or more sample pixels
-        7..=19 => 2, // results in 4..=10 or more sample pixels
-        1..=6 => 1,  // results in 1..=6 or more sample pixels
-        0 => {
-            return image.at(x.start, y.start);
-        }
+    let end = match direction {
+        Direction::Horizontal => point![(segment.end - segment.length() / 3 - 1) as u32, position],
+        Direction::Vertical => point![position, (segment.end - segment.length() / 3 - 1) as u32],
     };
-    average_image_pixels(image, x, y, stride)
+    let sum = YCbCr444Sum::default()
+        + image.at_point(start)
+        + image.at_point(center)
+        + image.at_point(end);
+    sum.average()
 }
 
 fn detect_edge(
@@ -745,8 +732,8 @@ mod tests {
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 1);
         assert_eq!(scan_line.segments[0].color.y, 0);
-        assert_eq!(scan_line.segments[0].color.cb, 11);
-        assert_eq!(scan_line.segments[0].color.cr, 11);
+        assert_eq!(scan_line.segments[0].color.cb, 15);
+        assert_eq!(scan_line.segments[0].color.cr, 13);
     }
 
     #[test]
@@ -774,8 +761,8 @@ mod tests {
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 1);
         assert_eq!(scan_line.segments[0].color.y, 0);
-        assert_eq!(scan_line.segments[0].color.cb, 8);
-        assert_eq!(scan_line.segments[0].color.cr, 8);
+        assert_eq!(scan_line.segments[0].color.cb, 7);
+        assert_eq!(scan_line.segments[0].color.cr, 7);
     }
 
     #[test]
