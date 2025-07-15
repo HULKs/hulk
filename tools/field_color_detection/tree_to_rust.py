@@ -47,7 +47,19 @@ def main(model_path: Path, output: Path) -> None:
     model_dict = model.booster_.dump_model()
     tree = model_dict["tree_info"][0]["tree_structure"]
 
-    code = ""
+    code = (
+"""/*
+    *********************************** GENERATED CODE ***********************************
+
+    This code was generated from a decision tree model in Python.
+
+    The tool to generate this Rust code can be found here:
+        /tools/field_color_detection/tree_to_rust.py
+    The input is a joblib file of a LGBMClassifier model and the output is this Rust file.
+
+    **************************************************************************************
+*/\n\n"""
+    )
     code += "pub struct Features {\n"
     for feature in features:
         code += f"pub {feature}: f32,\n"
