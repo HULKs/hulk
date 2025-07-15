@@ -1,6 +1,8 @@
 use linear_algebra::Point2;
 use nalgebra::Matrix2;
 
+use crate::convex_hull::{reduce_to_convex_hull, Range};
+
 pub fn is_inside_polygon<Frame>(points: &[Point2<Frame>], target_point: &Point2<Frame>) -> bool {
     if !points.is_empty() {
         let mut crossings = 0;
@@ -23,6 +25,14 @@ pub fn is_inside_polygon<Frame>(points: &[Point2<Frame>], target_point: &Point2<
         return crossings != 0;
     }
     false
+}
+
+pub fn is_inside_convex_hull<Frame>(
+    points: &[Point2<Frame>],
+    target_point: &Point2<Frame>,
+) -> bool {
+    let convex_hull = reduce_to_convex_hull(points, Range::Full);
+    is_inside_polygon(&convex_hull, target_point)
 }
 
 fn cross_product<Frame>(

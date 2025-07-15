@@ -1,4 +1,8 @@
+use coordinate_systems::Walk;
+use linear_algebra::{point, Pose2};
 use types::{step::Step, support_foot::Side};
+
+use crate::{feet::Feet, parameters::Parameters};
 
 pub trait AnatomicConstraints {
     fn clamp_to_anatomic_constraints(
@@ -44,5 +48,59 @@ impl AnatomicConstraints for Step {
             left: clamped_left,
             turn: clamped_turn,
         }
+    }
+}
+
+pub fn clamp_feet_to_anatomic_constraints(
+    feet: Feet<Pose2<Walk>>,
+    support_side: Side,
+    parameters: &Parameters,
+) -> Feet<Pose2<Walk>> {
+    let constraints = &parameters.anatomic_constraints;
+
+    let (left, right) = match support_side {
+        Side::Left => (feet.support_sole, feet.swing_sole),
+        Side::Right => (feet.swing_sole, feet.support_sole),
+    };
+    let left_base_offset = parameters.base.foot_offset_left;
+    let right_base_offset = parameters.base.foot_offset_right;
+    let left_valid_y_range = left_base_offset.y()..constraints.valid_y.end;
+    let right_valid_y_range = constraints.valid_y.start..right_base_offset.y();
+
+    let clamped_left = Pose2::from_parts(
+        point![
+            left.position()
+                .x()
+                .clamp(constraints.valid_x.start, constraints.valid_x.end),
+            left.position()
+                .y()
+                .clamp(left_valid_y_range.start, left_valid_y_range.end),
+        ],
+        left.orientation(),
+    );
+
+    let clamped_right = Pose2::from_parts(
+        point![
+            right
+                .position()
+                .x()
+                .clamp(constraints.valid_x.start, constraints.valid_x.end),
+            right
+                .position()
+                .y()
+                .clamp(right_valid_y_range.start, right_valid_y_range.end),
+        ],
+        right.orientation(),
+    );
+
+    match support_side {
+        Side::Left => Feet {
+            support_sole: clamped_left,
+            swing_sole: clamped_right,
+        },
+        Side::Right => Feet {
+            support_sole: clamped_right,
+            swing_sole: clamped_left,
+        },
     }
 }

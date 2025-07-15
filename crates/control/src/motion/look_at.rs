@@ -226,9 +226,9 @@ fn look_at_with_camera(
 
     let target_in_camera = ground_to_zero_camera * point![target.x(), target.y(), 0.0];
 
-    let offset_to_center = pixel_target - camera_matrix.optical_center.coords();
-    let yaw_offset = f32::atan2(offset_to_center.x(), camera_matrix.focal_length.x);
-    let pitch_offset = f32::atan2(offset_to_center.y(), camera_matrix.focal_length.y);
+    let offset_to_center = pixel_target - camera_matrix.intrinsics.optical_center.coords();
+    let yaw_offset = f32::atan2(offset_to_center.x(), camera_matrix.intrinsics.focals.x);
+    let pitch_offset = f32::atan2(offset_to_center.y(), camera_matrix.intrinsics.focals.y);
 
     let yaw = f32::atan2(-target_in_camera.x(), target_in_camera.z()) + yaw_offset;
     let pitch = -f32::atan2(-target_in_camera.y(), target_in_camera.z()) - pitch_offset;

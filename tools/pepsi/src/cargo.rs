@@ -49,6 +49,7 @@ lazy_static! {
             ("camera_matrix_extractor", "tools/camera_matrix_extractor"),
             ("depp", "tools/depp"),
             ("fanta", "tools/fanta"),
+            ("mio", "tools/mio"),
             ("parameter_tester", "tools/parameter_tester"),
             ("pepsi", "tools/pepsi"),
             ("twix", "tools/twix"),

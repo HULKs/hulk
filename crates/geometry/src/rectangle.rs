@@ -1,12 +1,13 @@
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
-use linear_algebra::{Point2, Vector2};
+use linear_algebra::{point, Point2, Vector2};
 
 #[derive(
     Clone,
     Copy,
     Debug,
+    Default,
     Deserialize,
     PartialEq,
     PathDeserialize,
@@ -46,5 +47,67 @@ impl<Frame> Rectangle<Frame> {
     pub fn contains(self, point: Point2<Frame>) -> bool {
         (self.min.x()..=self.max.x()).contains(&point.x())
             && (self.min.y()..=self.max.y()).contains(&point.y())
+    }
+
+    pub fn project_point_into_rect(&self, point: Point2<Frame>) -> Point2<Frame> {
+        point![
+            point.x().clamp(self.min.x(), self.max.x()),
+            point.y().clamp(self.min.y(), self.max.y()),
+        ]
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use linear_algebra::point;
+
+    // Test coordinate system
+    #[derive(Debug)]
+    struct S;
+
+    #[test]
+    fn test_rectangle_intersection() {
+        let rect1 = Rectangle::<S> {
+            min: point![0.0, 0.0],
+            max: point![2.0, 2.0],
+        };
+        let rect2 = Rectangle::<S> {
+            min: point![1.0, 1.0],
+            max: point![3.0, 3.0],
+        };
+        assert_eq!(rect1.rectangle_intersection(rect2), 1.0);
+    }
+
+    #[test]
+    fn test_area() {
+        let rect = Rectangle::<S> {
+            min: point![0.0, 0.0],
+            max: point![2.0, 3.0],
+        };
+        assert_eq!(rect.area(), 6.0);
+    }
+
+    #[test]
+    fn test_project_point_in_rect() {
+        let rect = Rectangle::<S> {
+            min: point![0.0, 0.0],
+            max: point![2.0, 2.0],
+        };
+        let point_inside = point![1.0, 1.0];
+        assert_eq!(rect.project_point_into_rect(point_inside), point_inside);
+    }
+
+    #[test]
+    fn test_project_point_outside_rect() {
+        let rect = Rectangle::<S> {
+            min: point![0.0, 0.0],
+            max: point![2.0, 2.0],
+        };
+        let point_outside = point![3.0, -1.0];
+        assert_eq!(
+            rect.project_point_into_rect(point_outside),
+            point![2.0, 0.0]
+        );
     }
 }

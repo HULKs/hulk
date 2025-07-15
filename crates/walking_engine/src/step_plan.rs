@@ -24,19 +24,39 @@ pub struct StepPlan {
 
 impl StepPlan {
     pub fn new_from_request(context: &Context, requested_step: Step, support_side: Side) -> Self {
-        let parameters = &context.parameters;
         let start_feet = Feet::from_joints(
             context.robot_to_walk,
             &context.last_actuated_joints,
             support_side,
         );
 
+        Self::new_with_start_feet(context, requested_step, support_side, start_feet)
+    }
+
+    pub fn new_with_start_feet(
+        context: &Context,
+        requested_step: Step,
+        support_side: Side,
+        start_feet: Feet,
+    ) -> StepPlan {
+        let parameters = &context.parameters;
         let step = requested_step.clamp_to_anatomic_constraints(
             support_side,
             parameters.max_base_inside_turn,
             parameters.max_inside_turn_increase,
         );
         let end_feet = Feet::end_from_request(parameters, step, support_side);
+
+        Self::new_with_start_and_end_feet(context, support_side, start_feet, end_feet)
+    }
+
+    pub fn new_with_start_and_end_feet(
+        context: &Context,
+        support_side: Side,
+        start_feet: Feet,
+        end_feet: Feet,
+    ) -> Self {
+        let parameters = &context.parameters;
 
         let swing_foot_travel = start_feet.swing_travel_over_ground(&end_feet).abs();
         let turn_travel = end_feet

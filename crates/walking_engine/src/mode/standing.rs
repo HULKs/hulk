@@ -74,11 +74,14 @@ impl Standing {
             time_since_start: Duration::ZERO,
             gyro_balancing: Default::default(),
             foot_leveling: Default::default(),
+            last_engine_feet: feet,
         };
-        zero_step_state.compute_joints(context).apply_stiffness(
-            context.parameters.stiffnesses.leg_stiffness_stand,
-            context.parameters.stiffnesses.arm_stiffness,
-        )
+        zero_step_state
+            .compute_joints(context, feet)
+            .apply_stiffness(
+                context.parameters.stiffnesses.leg_stiffness_stand,
+                context.parameters.stiffnesses.arm_stiffness,
+            )
     }
 
     pub fn tick(&mut self, _context: &Context) {}

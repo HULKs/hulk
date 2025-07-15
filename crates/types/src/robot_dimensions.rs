@@ -1,8 +1,8 @@
-use linear_algebra::{vector, Vector3};
+use linear_algebra::{point, vector, Isometry3, Point3, Vector3};
 
 use coordinate_systems::{
-    Head, LeftFoot, LeftForearm, LeftThigh, LeftTibia, LeftUpperArm, RightFoot, RightForearm,
-    RightThigh, RightTibia, RightUpperArm, Robot,
+    Head, LeftFoot, LeftForearm, LeftSole, LeftThigh, LeftTibia, LeftUpperArm, RightFoot,
+    RightForearm, RightSole, RightThigh, RightTibia, RightUpperArm, Robot,
 };
 
 #[derive(Debug)]
@@ -27,4 +27,54 @@ impl RobotDimensions {
     pub const RIGHT_ELBOW_TO_RIGHT_WRIST: Vector3<RightForearm> = vector![0.05595, 0.0, 0.0];
     pub const HEAD_TO_TOP_CAMERA: Vector3<Head> = vector![0.05871, 0.0, 0.06364];
     pub const HEAD_TO_BOTTOM_CAMERA: Vector3<Head> = vector![0.05071, 0.0, 0.01774];
+    pub const LEFT_SOLE_OUTLINE: [Point3<LeftSole>; 32] = [
+        point![-0.05457, -0.015151, 0.0],
+        point![-0.050723, -0.021379, 0.0],
+        point![-0.04262, -0.030603, 0.0],
+        point![-0.037661, -0.033714, 0.0],
+        point![-0.03297, -0.034351, 0.0],
+        point![0.0577, -0.038771, 0.0],
+        point![0.063951, -0.038362, 0.0],
+        point![0.073955, -0.03729, 0.0],
+        point![0.079702, -0.03532, 0.0],
+        point![0.084646, -0.033221, 0.0],
+        point![0.087648, -0.031482, 0.0],
+        point![0.091805, -0.027692, 0.0],
+        point![0.094009, -0.024299, 0.0],
+        point![0.096868, -0.018802, 0.0],
+        point![0.099419, -0.01015, 0.0],
+        point![0.100097, -0.001573, 0.0],
+        point![0.098991, 0.008695, 0.0],
+        point![0.097014, 0.016504, 0.0],
+        point![0.093996, 0.02418, 0.0],
+        point![0.090463, 0.02951, 0.0],
+        point![0.084545, 0.0361, 0.0],
+        point![0.079895, 0.039545, 0.0],
+        point![0.074154, 0.042654, 0.0],
+        point![0.065678, 0.046145, 0.0],
+        point![0.057207, 0.047683, 0.0],
+        point![0.049911, 0.048183, 0.0],
+        point![-0.031248, 0.051719, 0.0],
+        point![-0.03593, 0.049621, 0.0],
+        point![-0.040999, 0.045959, 0.0],
+        point![-0.045156, 0.042039, 0.0],
+        point![-0.04905, 0.037599, 0.0],
+        point![-0.054657, 0.029814, 0.0],
+    ];
+}
+
+pub fn transform_left_sole_outline<Frame>(
+    transform: Isometry3<LeftSole, Frame>,
+) -> impl Iterator<Item = Point3<Frame>> {
+    RobotDimensions::LEFT_SOLE_OUTLINE
+        .into_iter()
+        .map(move |point| transform * point)
+}
+
+pub fn transform_right_sole_outline<Frame>(
+    transform: Isometry3<RightSole, Frame>,
+) -> impl Iterator<Item = Point3<Frame>> {
+    RobotDimensions::LEFT_SOLE_OUTLINE
+        .into_iter()
+        .map(move |point| transform * point![point.x(), -point.y(), point.z()])
 }

@@ -14,6 +14,7 @@ mod plot;
 mod remote;
 mod text;
 mod vision_tuner;
+mod walk;
 
 pub use automatic_camera_calibration_export::{
     CameraCalibrationExportPanel, BOTTOM_CAMERA_EXTRINSICS_PATH, TOP_CAMERA_EXTRINSICS_PATH,
@@ -33,3 +34,4 @@ pub use plot::PlotPanel;
 pub use remote::RemotePanel;
 pub use text::TextPanel;
 pub use vision_tuner::VisionTunerPanel;
+pub use walk::WalkPanel;

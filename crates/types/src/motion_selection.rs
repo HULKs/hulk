@@ -1,5 +1,6 @@
 use std::ops::{Index, IndexMut};
 
+use crate::fall_state::StandUpSpeed;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
@@ -38,10 +39,8 @@ pub enum MotionType {
     SitDown,
     Stand,
     StandUpBack,
-    StandUpFront,
-    StandUpSitting,
-    StandUpFrontSlow,
-    StandUpSittingSlow,
+    StandUpFront(StandUpSpeed),
+    StandUpSitting(StandUpSpeed),
     Unstiff,
     Walk,
     WideStance,
@@ -56,23 +55,22 @@ impl Default for MotionType {
 }
 
 impl MotionType {
-    pub fn is_standup_motion(self) -> bool {
-        self == MotionType::StandUpBack
-            || self == MotionType::StandUpFront
-            || self == MotionType::StandUpSitting
-            || self == MotionType::StandUpSittingSlow
-            || self == MotionType::StandUpFrontSlow
+    pub fn is_standup_motion(&self) -> bool {
+        matches!(
+            self,
+            MotionType::StandUpBack | MotionType::StandUpFront(_) | MotionType::StandUpSitting(_)
+        )
     }
 
-    pub fn is_dispatching(self) -> bool {
-        self == MotionType::Dispatching
+    pub fn is_dispatching(&self) -> bool {
+        matches!(self, MotionType::Dispatching)
     }
 
-    pub fn is_stable(self) -> bool {
-        self == MotionType::Stand
-            || self == MotionType::Walk
-            || self == MotionType::Initial
-            || self == MotionType::Unstiff
+    pub fn is_stable(&self) -> bool {
+        matches!(
+            self,
+            MotionType::Stand | MotionType::Walk | MotionType::Initial | MotionType::Penalized
+        )
     }
 }
 
@@ -93,8 +91,6 @@ pub struct MotionSafeExits {
     stand_up_back: bool,
     stand_up_front: bool,
     stand_up_sitting: bool,
-    stand_up_front_slow: bool,
-    stand_up_sitting_slow: bool,
     stand: bool,
     unstiff: bool,
     walk: bool,
@@ -121,8 +117,6 @@ impl MotionSafeExits {
             stand_up_back: value,
             stand_up_front: value,
             stand_up_sitting: value,
-            stand_up_front_slow: value,
-            stand_up_sitting_slow: value,
             stand: value,
             unstiff: value,
             walk: value,
@@ -151,8 +145,6 @@ impl Default for MotionSafeExits {
             stand_up_back: false,
             stand_up_front: false,
             stand_up_sitting: false,
-            stand_up_front_slow: false,
-            stand_up_sitting_slow: false,
             stand: true,
             unstiff: true,
             walk: false,
@@ -182,10 +174,8 @@ impl Index<MotionType> for MotionSafeExits {
             MotionType::SitDown => &self.sit_down,
             MotionType::Stand => &self.stand,
             MotionType::StandUpBack => &self.stand_up_back,
-            MotionType::StandUpFront => &self.stand_up_front,
-            MotionType::StandUpSitting => &self.stand_up_sitting,
-            MotionType::StandUpFrontSlow => &self.stand_up_front_slow,
-            MotionType::StandUpSittingSlow => &self.stand_up_sitting_slow,
+            MotionType::StandUpFront(_) => &self.stand_up_front,
+            MotionType::StandUpSitting(_) => &self.stand_up_sitting,
             MotionType::Unstiff => &self.unstiff,
             MotionType::Walk => &self.walk,
             MotionType::WideStance => &self.wide_stance,
@@ -212,10 +202,8 @@ impl IndexMut<MotionType> for MotionSafeExits {
             MotionType::SitDown => &mut self.sit_down,
             MotionType::Stand => &mut self.stand,
             MotionType::StandUpBack => &mut self.stand_up_back,
-            MotionType::StandUpFront => &mut self.stand_up_front,
-            MotionType::StandUpSitting => &mut self.stand_up_sitting,
-            MotionType::StandUpFrontSlow => &mut self.stand_up_front_slow,
-            MotionType::StandUpSittingSlow => &mut self.stand_up_sitting_slow,
+            MotionType::StandUpFront(_) => &mut self.stand_up_front,
+            MotionType::StandUpSitting(_) => &mut self.stand_up_sitting,
             MotionType::Unstiff => &mut self.unstiff,
             MotionType::Walk => &mut self.walk,
             MotionType::WideStance => &mut self.wide_stance,

@@ -1,5 +1,6 @@
 use color_eyre::{eyre::eyre, Result};
 use coordinate_systems::{Ground, UpcomingSupport};
+use filtering::hysteresis::greater_than_with_absolute_hysteresis;
 use geometry::direction::Rotate90Degrees;
 use serde::{Deserialize, Serialize};
 
@@ -9,6 +10,7 @@ use linear_algebra::{Isometry2, Orientation2, Pose2};
 use types::{
     motion_command::{MotionCommand, OrientationMode, WalkSpeed},
     planned_path::PathSegment,
+    sensor_data::SensorData,
     step::Step,
     support_foot::Side,
 };
@@ -17,6 +19,7 @@ use walking_engine::mode::Mode;
 #[derive(Deserialize, Serialize)]
 pub struct StepPlanner {
     last_planned_step: Step,
+    leg_joints_hot: bool,
 }
 
 #[context]
@@ -44,6 +47,7 @@ pub struct CycleContext {
     ground_to_upcoming_support_out:
         AdditionalOutput<Isometry2<Ground, UpcomingSupport>, "ground_to_upcoming_support">,
     max_step_size_output: AdditionalOutput<Step, "max_step_size">,
+    sensor_data: Input<SensorData, "sensor_data">,
 }
 
 #[context]
@@ -56,6 +60,7 @@ impl StepPlanner {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             last_planned_step: Step::default(),
+            leg_joints_hot: false,
         })
     }
 
@@ -108,13 +113,7 @@ impl StepPlanner {
             Step::default()
         };
 
-        let max_step_size = match speed {
-            WalkSpeed::Slow => *context.max_step_size + *context.step_size_delta_slow,
-            WalkSpeed::Normal => *context.max_step_size + initial_side_bonus,
-            WalkSpeed::Fast => {
-                *context.max_step_size + *context.step_size_delta_fast + initial_side_bonus
-            }
-        };
+        let max_step_size = self.calculate_max_step_size(&context, speed, initial_side_bonus);
 
         context
             .max_step_size_output
@@ -200,6 +199,41 @@ impl StepPlanner {
         Ok(MainOutputs {
             planned_step: step.into(),
         })
+    }
+
+    fn calculate_max_step_size(
+        &mut self,
+        context: &CycleContext,
+        mut speed: &WalkSpeed,
+        initial_side_bonus: Step,
+    ) -> Step {
+        let highest_temperature = context
+            .sensor_data
+            .temperature_sensors
+            .left_leg
+            .into_iter()
+            .chain(context.sensor_data.temperature_sensors.right_leg)
+            .max_by(f32::total_cmp)
+            .expect("temperatures to be not empty.");
+
+        self.leg_joints_hot = greater_than_with_absolute_hysteresis(
+            self.leg_joints_hot,
+            highest_temperature,
+            70.0..=75.0,
+        );
+        // at 76°C stiffness gets automatically reduced by the motors - this stops if temperature is below 70°C again
+
+        if *speed == WalkSpeed::Fast && self.leg_joints_hot {
+            speed = &WalkSpeed::Normal;
+        }
+
+        match speed {
+            WalkSpeed::Slow => *context.max_step_size + *context.step_size_delta_slow,
+            WalkSpeed::Normal => *context.max_step_size + initial_side_bonus,
+            WalkSpeed::Fast => {
+                *context.max_step_size + *context.step_size_delta_fast + initial_side_bonus
+            }
+        }
     }
 }
 

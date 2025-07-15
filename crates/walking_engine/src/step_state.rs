@@ -33,6 +33,7 @@ pub struct StepState {
     pub time_since_start: Duration,
     pub gyro_balancing: GyroBalancing,
     pub foot_leveling: FootLeveling,
+    pub last_engine_feet: Feet,
 }
 
 impl StepState {
@@ -42,11 +43,30 @@ impl StepState {
             time_since_start: Duration::ZERO,
             gyro_balancing: Default::default(),
             foot_leveling: Default::default(),
+            last_engine_feet: plan.start_feet,
         }
     }
 
     pub fn tick(&mut self, context: &Context) {
-        self.time_since_start += context.cycle_time.last_cycle_duration;
+        let parameters = &context.parameters.dynamic_interpolation_speed;
+        let default_torso_rotation = context.robot_to_walk.rotation();
+        let current_orientation = context.robot_orientation;
+
+        let leveling_error = current_orientation.inner * default_torso_rotation.inner.inverse();
+        let (_, pitch_angle, _) = leveling_error.euler_angles();
+
+        let walk_speed_adjustment = if pitch_angle < parameters.active_range.end {
+            1.0 - parameters.max_reduction
+                * ((pitch_angle - parameters.active_range.end) / parameters.active_range.start)
+                    .clamp(0.0, 1.0)
+        } else {
+            1.0
+        };
+
+        self.time_since_start += context
+            .cycle_time
+            .last_cycle_duration
+            .mul_f32(walk_speed_adjustment);
         self.gyro_balancing.tick(context);
         self.foot_leveling
             .tick(context, self.normalized_time_since_start());
@@ -71,9 +91,7 @@ impl StepState {
         self.time_since_start > parameters.max_step_duration
     }
 
-    pub fn compute_joints(&self, context: &Context) -> BodyJoints {
-        let feet = self.compute_feet(context.parameters);
-
+    pub fn compute_joints(&self, context: &Context, feet: Feet) -> BodyJoints {
         let (left_sole, right_sole) = match self.plan.support_side {
             Side::Left => (feet.support_sole, feet.swing_sole),
             Side::Right => (feet.swing_sole, feet.support_sole),
@@ -128,19 +146,36 @@ impl StepState {
             .clamp(0.0, 1.0)
     }
 
-    fn compute_feet(&self, parameters: &Parameters) -> Feet {
-        let support_sole = self.support_sole_position(parameters);
+    pub fn compute_feet(&mut self, context: &Context) -> Feet {
+        let parameters = &context.parameters;
+        let dt = context.cycle_time.last_cycle_duration.as_secs_f32();
+        let max_movement = parameters.max_foot_speed * dt;
+
+        let support_position = self.support_sole_position(parameters);
         let support_turn = self.support_orientation(parameters);
-        let swing_sole = self.swing_sole_position();
+        let swing_position = self.swing_sole_position();
         let swing_turn = self.swing_orientation(parameters);
 
-        let support_sole = Pose3::from_parts(support_sole, support_turn);
-        let swing_sole = Pose3::from_parts(swing_sole, swing_turn);
+        let limited_support_position = clamp_xy_movement(
+            self.last_engine_feet.support_sole.position(),
+            support_position,
+            max_movement,
+        );
+        let limited_swing_position = clamp_xy_movement(
+            self.last_engine_feet.swing_sole.position(),
+            swing_position,
+            max_movement,
+        );
 
-        Feet {
+        let support_sole = Pose3::from_parts(limited_support_position, support_turn);
+        let swing_sole = Pose3::from_parts(limited_swing_position, swing_turn);
+
+        let feet = Feet {
             support_sole,
             swing_sole,
-        }
+        };
+        self.last_engine_feet = feet;
+        feet
     }
 
     fn support_sole_position(&self, parameters: &Parameters) -> Point3<Walk> {
@@ -226,6 +261,16 @@ impl StepState {
 
         interpolated * start
     }
+}
+
+fn clamp_xy_movement<Frame>(
+    from: Point3<Frame>,
+    to: Point3<Frame>,
+    max_movement: f32,
+) -> Point3<Frame> {
+    let delta_xy = to.xy() - from.xy();
+    let clamped_xy = delta_xy.cap_magnitude(max_movement);
+    (from.xy() + clamped_xy).extend(to.z())
 }
 
 fn swinging_arm(

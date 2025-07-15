@@ -1,3 +1,4 @@
+use coordinate_systems::Robot;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use types::{joints::body::LowerBodyJoints, support_foot::Side};
@@ -25,12 +26,24 @@ impl FootLeveling {
         let parameters = &context.parameters.foot_leveling;
 
         // The default torso rotation represents the desired, slightly leaned forward/backward configuration
-        let default_torso_rotation = context.robot_to_walk.rotation();
+        let robot_to_walk = context.robot_to_walk.rotation();
 
-        let current_orientation = context.robot_orientation;
+        let current_orientation = context.robot_orientation.rotation::<Robot>();
 
-        let leveling_error = current_orientation.inner * default_torso_rotation.inner.inverse();
-        let (roll_angle, pitch_angle, _) = leveling_error.euler_angles();
+        let walk_to_field = current_orientation * robot_to_walk.inverse();
+        let leveling_error = walk_to_field.inverse().as_orientation();
+
+        let ([pitch_angle, roll_angle, _], _) = leveling_error
+            .inner
+            .to_rotation_matrix()
+            .euler_angles_ordered(
+                [
+                    nalgebra::Vector3::y_axis(),
+                    nalgebra::Vector3::x_axis(),
+                    nalgebra::Vector3::z_axis(),
+                ],
+                false,
+            );
 
         // Use a full effect early in the step, then reduce the leveling effect gradually over the step progress
         let leveling_factor = if normalized_time_since_start < parameters.start_reduce_to_zero {
@@ -40,23 +53,29 @@ impl FootLeveling {
         };
 
         // Choose the base pitch factor depending on whether the robot is leaning forward or backward
-        let base_pitch_factor = if pitch_angle > 0.0 {
+        let base_pitch_factor = if pitch_angle < 0.0 {
             parameters.leaning_forward_factor
         } else {
             parameters.leaning_backwards_factor
         };
 
         let pitch_scaling = (pitch_angle.abs() / parameters.pitch_scale).min(1.0);
-        let desired_pitch = -pitch_angle * leveling_factor * base_pitch_factor * pitch_scaling;
+        let desired_pitch_diff = pitch_angle * leveling_factor * base_pitch_factor * pitch_scaling;
 
         let base_roll_factor = parameters.roll_factor;
         let roll_scaling = (roll_angle.abs() / parameters.roll_scale).min(1.0);
-        let desired_roll = -roll_angle * leveling_factor * base_roll_factor * roll_scaling;
+        let desired_roll_diff = roll_angle * leveling_factor * base_roll_factor * roll_scaling;
 
         // Smoothly update the corrections with a maximum allowed delta.
         let max_delta = parameters.max_level_delta;
-        self.roll += (desired_roll - self.roll).clamp(-max_delta, max_delta);
-        self.pitch += (desired_pitch - self.pitch).clamp(-max_delta, max_delta);
+        self.roll += (desired_roll_diff - self.roll).clamp(-max_delta, max_delta);
+        self.pitch += (desired_pitch_diff - self.pitch).clamp(-max_delta, max_delta);
+
+        // Limit roll and pitch
+        self.roll = self.roll.clamp(-parameters.max_roll, parameters.max_roll);
+        self.pitch = self
+            .pitch
+            .clamp(-parameters.max_pitch, parameters.max_pitch);
     }
 }
 
