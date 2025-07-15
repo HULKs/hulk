@@ -338,25 +338,21 @@ fn new_horizontal_scan_line(
             median_mode,
         );
 
-        if let Some(segment) = detect_edge(
+        if let Some(mut segment) = detect_edge(
             &mut state,
             x as u16,
             edge_detection_value as i16,
             edge_threshold,
         ) {
-            let average_color =
-                average_color_in_segment(segment, position, Direction::Horizontal, image);
-            let with_field_color = detect_field_color_in_segment(
-                average_color,
-                position,
-                Direction::Horizontal,
-                image,
-            );
-            segments.push(with_field_color);
+            segment.color =
+                average_color_in_segment(&segment, position, Direction::Horizontal, image);
+            segment.field_color =
+                detect_field_color_in_segment(&segment, position, Direction::Horizontal, image);
+            segments.push(segment);
         }
     }
 
-    let last_segment = Segment {
+    let mut last_segment = Segment {
         start: state.start_position,
         end: image.width() as u16,
         start_edge_type: state.start_edge_type,
@@ -364,11 +360,9 @@ fn new_horizontal_scan_line(
         color: Default::default(),
         field_color: Intensity::Low,
     };
-    let average_color =
-        average_color_in_segment(last_segment, position, Direction::Horizontal, image);
-    let with_field_color =
-        detect_field_color_in_segment(average_color, position, Direction::Horizontal, image);
-    segments.push(with_field_color);
+    last_segment.color = average_color_in_segment(&last_segment, position, Direction::Horizontal, image);
+    last_segment.field_color = detect_field_color_in_segment(&last_segment, position, Direction::Horizontal, image);
+    segments.push(last_segment);
 
     ScanLine {
         position: position as u16,
@@ -420,7 +414,7 @@ fn new_vertical_scan_line(
             median_mode,
         );
 
-        if let Some(segment) = detect_edge(
+        if let Some(mut segment) = detect_edge(
             &mut state,
             y as u16,
             edge_detection_value as i16,
@@ -430,15 +424,13 @@ fn new_vertical_scan_line(
                 fix_previous_edge_type(&mut segments);
                 break;
             }
-            let average_color =
-                average_color_in_segment(segment, position, Direction::Vertical, image);
-            let with_field_color =
-                detect_field_color_in_segment(average_color, position, Direction::Vertical, image);
-            segments.push(with_field_color);
+            segment.color = average_color_in_segment(&segment, position, Direction::Vertical, image);
+            segment.field_color = detect_field_color_in_segment(&segment, position, Direction::Vertical, image);
+            segments.push(segment);
         }
     }
 
-    let last_segment = Segment {
+    let mut last_segment = Segment {
         start: state.start_position,
         end: image.height() as u16,
         start_edge_type: state.start_edge_type,
@@ -447,11 +439,9 @@ fn new_vertical_scan_line(
         field_color: Intensity::Low,
     };
     if !segment_is_below_limbs(position as u16, &last_segment, projected_limbs) {
-        let average_color =
-            average_color_in_segment(last_segment, position, Direction::Vertical, image);
-        let with_field_color =
-            detect_field_color_in_segment(average_color, position, Direction::Vertical, image);
-        segments.push(with_field_color);
+        last_segment.color = average_color_in_segment(&last_segment, position, Direction::Vertical, image);
+        last_segment.field_color = detect_field_color_in_segment(&last_segment, position, Direction::Vertical, image);
+        segments.push(last_segment);
     }
 
     ScanLine {
@@ -514,11 +504,11 @@ fn pixel_to_edge_detection_value(
 }
 
 fn detect_field_color_in_segment(
-    mut segment: Segment,
+    segment: &Segment,
     position: u32,
     direction: Direction,
     image: &YCbCr422Image,
-) -> Segment {
+) -> Intensity {
     const RADIUS: u32 = 28;
 
     let color = segment.color;
@@ -543,12 +533,11 @@ fn detect_field_color_in_segment(
     };
 
     let probability = field_color_tree::predict(&features);
-    segment.field_color = if probability >= 0.5 {
+    if probability >= 0.5 {
         Intensity::High
     } else {
         Intensity::Low
-    };
-    segment
+    }
 }
 
 #[derive(Default)]
@@ -613,11 +602,11 @@ fn fix_previous_edge_type(segments: &mut [Segment]) {
 }
 
 fn average_color_in_segment(
-    mut segment: Segment,
+    segment: &Segment,
     position: u32,
     direction: Direction,
     image: &YCbCr422Image,
-) -> Segment {
+) -> YCbCr444 {
     let length = segment.length();
     let x = match direction {
         Direction::Horizontal => (segment.start as u32)..(segment.end as u32),
@@ -632,12 +621,10 @@ fn average_color_in_segment(
         7..=19 => 2, // results in 4..=10 or more sample pixels
         1..=6 => 1,  // results in 1..=6 or more sample pixels
         0 => {
-            segment.color = image.at(x.start, y.start);
-            return segment;
+            return image.at(x.start, y.start);
         }
     };
-    segment.color = average_image_pixels(image, x, y, stride);
-    segment
+    average_image_pixels(image, x, y, stride)
 }
 
 fn detect_edge(
