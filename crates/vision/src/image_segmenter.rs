@@ -10,14 +10,15 @@ use coordinate_systems::{Ground, Pixel};
 use framework::MainOutput;
 use linear_algebra::{point, vector, Framed, Point2, Vector2};
 use types::{
-    color::{Hsv, Intensity, RgChromaticity, Rgb, YCbCr444},
-    field_color::FieldColorParameters,
+    color::{Intensity, Rgb, YCbCr444},
     image_segments::{Direction, EdgeType, ImageSegments, ScanGrid, ScanLine, Segment},
     limb::project_onto_limbs,
     limb::{Limb, ProjectedLimbs},
     parameters::{EdgeDetectionSourceParameters, MedianModeParameters},
     ycbcr422_image::YCbCr422Image,
 };
+
+use crate::field_color_tree::{self, Features};
 
 #[derive(Deserialize, Serialize)]
 pub struct ImageSegmenter {}
@@ -55,8 +56,6 @@ pub struct CycleContext {
         Parameter<u8, "image_segmenter.$cycler_instance.vertical_edge_threshold">,
     vertical_median_mode:
         Parameter<MedianModeParameters, "image_segmenter.$cycler_instance.vertical_median_mode">,
-
-    field_color: Parameter<FieldColorParameters, "field_color_detection.$cycler_instance">,
 }
 
 #[context]
@@ -86,7 +85,6 @@ impl ImageSegmenter {
             context.image,
             context.camera_matrix,
             &horizon,
-            context.field_color,
             *context.horizontal_stride,
             *context.horizontal_edge_threshold as i16,
             *context.horizontal_median_mode,
@@ -131,7 +129,6 @@ fn new_grid(
     image: &YCbCr422Image,
     camera_matrix: &CameraMatrix,
     horizon: &Horizon,
-    field_color: &FieldColorParameters,
     horizontal_stride: usize,
     horizontal_edge_threshold: i16,
     horizontal_median_mode: MedianModeParameters,
@@ -152,7 +149,6 @@ fn new_grid(
     let horizontal_scan_lines = collect_horizontal_scan_lines(
         image,
         camera_matrix,
-        field_color,
         horizontal_stride,
         horizontal_edge_threshold,
         horizontal_median_mode,
@@ -165,7 +161,6 @@ fn new_grid(
     let vertical_scan_lines = collect_vertical_scan_lines(
         image,
         horizon,
-        field_color,
         horizontal_stride,
         vertical_stride,
         vertical_edge_detection_source,
@@ -185,7 +180,6 @@ fn new_grid(
 fn collect_vertical_scan_lines(
     image: &YCbCr422Image,
     horizon: &Horizon,
-    field_color: &FieldColorParameters,
     horizontal_stride: usize,
     vertical_stride: usize,
     vertical_edge_detection_source: EdgeDetectionSourceParameters,
@@ -200,7 +194,6 @@ fn collect_vertical_scan_lines(
             let horizon_y = horizon.y_at_x(x as f32).clamp(0.0, image.height() as f32);
             new_vertical_scan_line(
                 image,
-                field_color,
                 x,
                 vertical_stride,
                 vertical_edge_detection_source,
@@ -217,7 +210,6 @@ fn collect_vertical_scan_lines(
 fn collect_horizontal_scan_lines(
     image: &YCbCr422Image,
     camera_matrix: &CameraMatrix,
-    field_color: &FieldColorParameters,
     horizontal_stride: usize,
     horizontal_edge_threshold: i16,
     horizontal_median_mode: MedianModeParameters,
@@ -234,7 +226,6 @@ fn collect_horizontal_scan_lines(
     while y + horizontal_padding_size < limbs_y_minimum {
         horizontal_scan_lines.push(new_horizontal_scan_line(
             image,
-            field_color,
             y,
             horizontal_stride,
             horizontal_edge_detection_source,
@@ -314,7 +305,6 @@ where
 
 fn new_horizontal_scan_line(
     image: &YCbCr422Image,
-    field_color: &FieldColorParameters,
     position: u32,
     stride: usize,
     edge_detection_source: EdgeDetectionSourceParameters,
@@ -348,20 +338,21 @@ fn new_horizontal_scan_line(
             median_mode,
         );
 
-        if let Some(segment) = detect_edge(
+        if let Some(mut segment) = detect_edge(
             &mut state,
             x as u16,
             edge_detection_value as i16,
             edge_threshold,
         ) {
-            segments.push(set_field_color_in_segment(
-                set_color_in_segment(segment, position, Direction::Horizontal, image),
-                field_color,
-            ));
+            segment.color =
+                average_color_in_segment(&segment, position, Direction::Horizontal, image);
+            segment.field_color =
+                detect_field_color_in_segment(&segment, position, Direction::Horizontal, image);
+            segments.push(segment);
         }
     }
 
-    let last_segment = Segment {
+    let mut last_segment = Segment {
         start: state.start_position,
         end: image.width() as u16,
         start_edge_type: state.start_edge_type,
@@ -369,10 +360,11 @@ fn new_horizontal_scan_line(
         color: Default::default(),
         field_color: Intensity::Low,
     };
-    segments.push(set_field_color_in_segment(
-        set_color_in_segment(last_segment, position, Direction::Horizontal, image),
-        field_color,
-    ));
+    last_segment.color =
+        average_color_in_segment(&last_segment, position, Direction::Horizontal, image);
+    last_segment.field_color =
+        detect_field_color_in_segment(&last_segment, position, Direction::Horizontal, image);
+    segments.push(last_segment);
 
     ScanLine {
         position: position as u16,
@@ -383,7 +375,6 @@ fn new_horizontal_scan_line(
 #[allow(clippy::too_many_arguments)]
 fn new_vertical_scan_line(
     image: &YCbCr422Image,
-    field_color: &FieldColorParameters,
     position: u32,
     stride: usize,
     edge_detection_source: EdgeDetectionSourceParameters,
@@ -425,7 +416,7 @@ fn new_vertical_scan_line(
             median_mode,
         );
 
-        if let Some(segment) = detect_edge(
+        if let Some(mut segment) = detect_edge(
             &mut state,
             y as u16,
             edge_detection_value as i16,
@@ -435,14 +426,15 @@ fn new_vertical_scan_line(
                 fix_previous_edge_type(&mut segments);
                 break;
             }
-            segments.push(set_field_color_in_segment(
-                set_color_in_segment(segment, position, Direction::Vertical, image),
-                field_color,
-            ));
+            segment.color =
+                average_color_in_segment(&segment, position, Direction::Vertical, image);
+            segment.field_color =
+                detect_field_color_in_segment(&segment, position, Direction::Vertical, image);
+            segments.push(segment);
         }
     }
 
-    let last_segment = Segment {
+    let mut last_segment = Segment {
         start: state.start_position,
         end: image.height() as u16,
         start_edge_type: state.start_edge_type,
@@ -451,10 +443,11 @@ fn new_vertical_scan_line(
         field_color: Intensity::Low,
     };
     if !segment_is_below_limbs(position as u16, &last_segment, projected_limbs) {
-        segments.push(set_field_color_in_segment(
-            set_color_in_segment(last_segment, position, Direction::Vertical, image),
-            field_color,
-        ));
+        last_segment.color =
+            average_color_in_segment(&last_segment, position, Direction::Vertical, image);
+        last_segment.field_color =
+            detect_field_color_in_segment(&last_segment, position, Direction::Vertical, image);
+        segments.push(last_segment);
     }
 
     ScanLine {
@@ -510,15 +503,47 @@ fn pixel_to_edge_detection_value(
         EdgeDetectionSourceParameters::Luminance => pixel.y,
         EdgeDetectionSourceParameters::GreenChromaticity => {
             let rgb = Rgb::from(pixel);
-            let chromaticity = RgChromaticity::from(rgb);
-            (chromaticity.green * 255.0) as u8
+            let green_chromaticity = rgb.green_chromaticity();
+            (green_chromaticity * 255.0) as u8
         }
     }
 }
 
-fn set_field_color_in_segment(mut segment: Segment, field_color: &FieldColorParameters) -> Segment {
-    segment.field_color = field_color.get_intensity(segment.color);
-    segment
+fn detect_field_color_in_segment(
+    segment: &Segment,
+    position: u32,
+    direction: Direction,
+    image: &YCbCr422Image,
+) -> Intensity {
+    const RADIUS: u32 = 28;
+
+    let color = segment.color;
+    let rgb = Rgb::from(color);
+    let g_chromaticity = rgb.green_chromaticity();
+    let center: Point2<Pixel, u32> = match direction {
+        Direction::Horizontal => point![segment.center() as u32, position],
+        Direction::Vertical => point![position, segment.center() as u32],
+    };
+
+    let right = image.at((center.x() + RADIUS).min(image.width() - 1), center.y());
+    let top = image.at(center.x(), center.y().saturating_sub(RADIUS));
+    let left = image.at(center.x().saturating_sub(RADIUS), center.y());
+    let bottom = image.at(center.x(), (center.y() + RADIUS).min(image.height() - 1));
+
+    let features = Features {
+        center: g_chromaticity,
+        right: Rgb::from(right).green_chromaticity(),
+        top: Rgb::from(top).green_chromaticity(),
+        left: Rgb::from(left).green_chromaticity(),
+        bottom: Rgb::from(bottom).green_chromaticity(),
+    };
+
+    let probability = field_color_tree::predict(&features);
+    if probability >= 0.5 {
+        Intensity::High
+    } else {
+        Intensity::Low
+    }
 }
 
 #[derive(Default)]
@@ -582,12 +607,12 @@ fn fix_previous_edge_type(segments: &mut [Segment]) {
     }
 }
 
-fn set_color_in_segment(
-    mut segment: Segment,
+fn average_color_in_segment(
+    segment: &Segment,
     position: u32,
     direction: Direction,
     image: &YCbCr422Image,
-) -> Segment {
+) -> YCbCr444 {
     let length = segment.length();
     let x = match direction {
         Direction::Horizontal => (segment.start as u32)..(segment.end as u32),
@@ -602,12 +627,10 @@ fn set_color_in_segment(
         7..=19 => 2, // results in 4..=10 or more sample pixels
         1..=6 => 1,  // results in 1..=6 or more sample pixels
         0 => {
-            segment.color = image.at(x.start, y.start);
-            return segment;
+            return image.at(x.start, y.start);
         }
     };
-    segment.color = average_image_pixels(image, x, y, stride);
-    segment
+    average_image_pixels(image, x, y, stride)
 }
 
 fn detect_edge(
@@ -667,47 +690,12 @@ fn detect_edge(
     segment
 }
 
-trait FieldColorDetection {
-    fn get_intensity(&self, color: YCbCr444) -> Intensity;
-}
-
-impl FieldColorDetection for FieldColorParameters {
-    fn get_intensity(&self, color: YCbCr444) -> Intensity {
-        let rgb = Rgb::from(color);
-        let rg_chromaticity = RgChromaticity::from(rgb);
-        let blue_chromaticity = 1.0 - rg_chromaticity.red - rg_chromaticity.green;
-        let hsv = Hsv::from(rgb);
-
-        if self.luminance.contains(&color.y)
-            && self.green_luminance.contains(&color.y)
-            && self.red_chromaticity.contains(&rg_chromaticity.red)
-            && self.green_chromaticity.contains(&rg_chromaticity.green)
-            && self.blue_chromaticity.contains(&blue_chromaticity)
-            && self.hue.contains(&hsv.hue)
-            && self.saturation.contains(&hsv.saturation)
-        {
-            Intensity::High
-        } else {
-            Intensity::Low
-        }
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use itertools::iproduct;
     use types::color::YCbCr422;
 
     use super::*;
-    const FIELD_COLOR: FieldColorParameters = FieldColorParameters {
-        luminance: 25..=255,
-        green_luminance: 255..=255,
-        red_chromaticity: 0.37..=1.0,
-        green_chromaticity: 0.43..=1.0,
-        blue_chromaticity: 0.37..=1.0,
-        hue: 0..=0,
-        saturation: 0..=0,
-    };
 
     #[test]
     fn maximum_with_sign_switch() {
@@ -722,7 +710,6 @@ mod tests {
         let horizon_y_minimum = 0.0;
         let scan_line = new_vertical_scan_line(
             &image,
-            &FIELD_COLOR,
             12,
             vertical_stride,
             vertical_edge_detection_source,
@@ -745,7 +732,6 @@ mod tests {
         let image = YCbCr422Image::zero(6, 3);
         let scan_line = new_vertical_scan_line(
             &image,
-            &FIELD_COLOR,
             0,
             2,
             EdgeDetectionSourceParameters::Luminance,
@@ -765,7 +751,6 @@ mod tests {
         let image = YCbCr422Image::zero(6, 3);
         let scan_line = new_vertical_scan_line(
             &image,
-            &FIELD_COLOR,
             1,
             2,
             EdgeDetectionSourceParameters::Luminance,
@@ -795,7 +780,6 @@ mod tests {
 
         let scan_line = new_vertical_scan_line(
             &image,
-            &FIELD_COLOR,
             0,
             2,
             EdgeDetectionSourceParameters::Luminance,
@@ -834,7 +818,6 @@ mod tests {
 
         let scan_line = new_vertical_scan_line(
             &image,
-            &FIELD_COLOR,
             0,
             2,
             EdgeDetectionSourceParameters::Luminance,
@@ -887,7 +870,6 @@ mod tests {
 
         let scan_line = new_vertical_scan_line(
             &image,
-            &FIELD_COLOR,
             0,
             2,
             EdgeDetectionSourceParameters::Luminance,
@@ -958,7 +940,6 @@ mod tests {
 
         let scan_line = new_vertical_scan_line(
             &image,
-            &FIELD_COLOR,
             1,
             2,
             EdgeDetectionSourceParameters::Luminance,
@@ -1020,7 +1001,6 @@ mod tests {
 
         let scan_line = new_vertical_scan_line(
             &image,
-            &FIELD_COLOR,
             0,
             2,
             EdgeDetectionSourceParameters::Luminance,
@@ -1098,7 +1078,6 @@ mod tests {
 
         let scan_line = new_vertical_scan_line(
             &image,
-            &FIELD_COLOR,
             1,
             2,
             EdgeDetectionSourceParameters::Luminance,
@@ -1233,7 +1212,6 @@ mod tests {
 
         let scan_line = new_vertical_scan_line(
             &image,
-            &FIELD_COLOR,
             0,
             2,
             EdgeDetectionSourceParameters::Luminance,
@@ -1422,7 +1400,6 @@ mod tests {
 
         let scan_line = new_vertical_scan_line(
             &image,
-            &FIELD_COLOR,
             1,
             2,
             EdgeDetectionSourceParameters::Luminance,
@@ -1488,7 +1465,6 @@ mod tests {
 
         let scan_line = new_vertical_scan_line(
             &image,
-            &FIELD_COLOR,
             0,
             2,
             EdgeDetectionSourceParameters::Luminance,
@@ -1563,7 +1539,6 @@ mod tests {
 
         let scan_line = new_vertical_scan_line(
             &image,
-            &FIELD_COLOR,
             1,
             2,
             EdgeDetectionSourceParameters::Luminance,

@@ -1,17 +1,13 @@
-use std::{ops::RangeInclusive, sync::Arc};
+use std::sync::Arc;
 
 use color_eyre::{eyre::OptionExt, Result};
 use communication::messages::TextOrBinary;
-use eframe::{
-    egui::{Grid, Response, Slider, Ui, Widget},
-    emath::Numeric,
-};
+use eframe::egui::{Response, Slider, Ui, Widget};
 use log::error;
 use parameters::directory::Scope;
-use serde::Serialize;
 use serde_json::{to_value, Value};
 
-use types::{field_color::FieldColorParameters, image_segments::Direction};
+use types::image_segments::Direction;
 
 use crate::{log_error::LogError, nao::Nao, panel::Panel, value_buffer::BufferHandle};
 
@@ -22,7 +18,6 @@ pub struct VisionTunerPanel {
     cycler: VisionCycler,
     horizontal_edge_threshold: BufferHandle<u8>,
     vertical_edge_threshold: BufferHandle<u8>,
-    field_color_detection: BufferHandle<FieldColorParameters>,
 }
 
 impl VisionTunerPanel {
@@ -45,50 +40,6 @@ impl VisionTunerPanel {
                 TextOrBinary::Text(to_value(edge_threshold).unwrap()),
             );
         }
-
-        Ok(())
-    }
-
-    fn row<T: Numeric + Serialize>(
-        &mut self,
-        ui: &mut Ui,
-        cycler: &str,
-        parameter: &'static str,
-        value: RangeInclusive<T>,
-        range: RangeInclusive<T>,
-    ) {
-        ui.label(parameter);
-        let mut start = *value.start();
-        let slider = ui.add(Slider::new(&mut start, range.clone()));
-        if slider.changed() {
-            self.nao.write(
-                format!("parameters.field_color_detection.{cycler}.{parameter}.start"),
-                TextOrBinary::Text(to_value(start).unwrap()),
-            );
-        }
-        let mut end = *value.end();
-        let slider = ui.add(Slider::new(&mut end, range));
-        if slider.changed() {
-            self.nao.write(
-                format!("parameters.field_color_detection.{cycler}.{parameter}.end"),
-                TextOrBinary::Text(to_value(end).unwrap()),
-            );
-        }
-        ui.end_row();
-    }
-
-    fn save_field_color_parameters(&self, scope: Scope) -> Result<()> {
-        let cycler = self.cycler.as_snake_case_path();
-
-        let parameters = self
-            .field_color_detection
-            .get_last_value()?
-            .ok_or_eyre("unable to retrieve parameters, nothing was saved.")?;
-
-        let value = to_value(parameters).unwrap();
-
-        self.nao
-            .store_parameters(&format!("field_color_detection.{cycler}"), value, scope)?;
 
         Ok(())
     }
@@ -123,7 +74,6 @@ impl VisionTunerPanel {
     }
 
     fn save(&self, scope: Scope) -> Result<()> {
-        self.save_field_color_parameters(scope)?;
         self.save_image_segmenter_parameters(scope)?;
 
         Ok(())
@@ -143,15 +93,12 @@ impl Panel for VisionTunerPanel {
         let vertical_edge_threshold = nao.subscribe_value(format!(
             "parameters.image_segmenter.{cycler_path}.vertical_edge_threshold",
         ));
-        let field_color_detection =
-            nao.subscribe_value(format!("parameters.field_color_detection.{cycler_path}",));
 
         Self {
             nao,
             cycler,
             horizontal_edge_threshold,
             vertical_edge_threshold,
-            field_color_detection,
         }
     }
 }
@@ -170,60 +117,9 @@ impl Widget for &mut VisionTunerPanel {
                 }
             });
             ui.separator();
-            let cycler = self.cycler.as_snake_case_path();
 
             self.edge_threshold_slider(ui, Direction::Vertical)?;
             self.edge_threshold_slider(ui, Direction::Horizontal)?;
-
-            let Some(field_color_detection) = self.field_color_detection.get_last_value()? else {
-                return Ok(());
-            };
-
-            Grid::new("field_color_sliders").show(ui, |ui| {
-                self.row(
-                    ui,
-                    &cycler,
-                    "luminance",
-                    field_color_detection.luminance,
-                    0..=255,
-                );
-                self.row(
-                    ui,
-                    &cycler,
-                    "green_luminance",
-                    field_color_detection.green_luminance,
-                    0..=255,
-                );
-                self.row(
-                    ui,
-                    &cycler,
-                    "red_chromaticity",
-                    field_color_detection.red_chromaticity,
-                    0.0..=1.0,
-                );
-                self.row(
-                    ui,
-                    &cycler,
-                    "green_chromaticity",
-                    field_color_detection.green_chromaticity,
-                    0.0..=1.0,
-                );
-                self.row(
-                    ui,
-                    &cycler,
-                    "blue_chromaticity",
-                    field_color_detection.blue_chromaticity,
-                    0.0..=1.0,
-                );
-                self.row(ui, &cycler, "hue", field_color_detection.hue, 0..=360);
-                self.row(
-                    ui,
-                    &cycler,
-                    "saturation",
-                    field_color_detection.saturation,
-                    0..=255,
-                );
-            });
 
             Ok::<(), color_eyre::Report>(())
         });
@@ -240,8 +136,5 @@ impl VisionTunerPanel {
         self.vertical_edge_threshold = self.nao.subscribe_value(format!(
             "parameters.image_segmenter.{cycler_path}.vertical_edge_threshold"
         ));
-        self.field_color_detection = self
-            .nao
-            .subscribe_value(format!("parameters.field_color_detection.{cycler_path}"));
     }
 }

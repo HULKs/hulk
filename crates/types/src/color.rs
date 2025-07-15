@@ -146,8 +146,17 @@ impl Rgb {
         Self { red, green, blue }
     }
 
-    pub fn get_luminance(&self) -> u8 {
+    pub fn luminance(&self) -> u8 {
         (0.299 * (self.red as f32) + 0.587 * (self.green as f32) + 0.114 * (self.blue as f32)) as u8
+    }
+
+    pub fn green_chromaticity(&self) -> f32 {
+        let sum = self.red as f32 + self.green as f32 + self.blue as f32;
+        if sum != 0.0 {
+            (self.green as f32) / sum
+        } else {
+            0.0
+        }
     }
 }
 
