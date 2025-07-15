@@ -1,7 +1,6 @@
 use coordinate_systems::Field;
 use framework::AdditionalOutput;
-use geometry::look_at::LookAt;
-use linear_algebra::Point2;
+use linear_algebra::{Orientation2, Point2};
 use types::{
     motion_command::{HeadMotion, MotionCommand, OrientationMode, WalkSpeed},
     parameters::LostBallParameters,
@@ -26,7 +25,6 @@ pub fn execute(
     let relative_last_known_ball_position =
         ground_to_field.inverse() * absolute_last_known_ball_position;
 
-    let orientation = Point2::origin().look_at(&relative_last_known_ball_position);
     let path = walk_path_planner.plan(
         walk_target,
         ground_to_field,
@@ -55,7 +53,7 @@ pub fn execute(
             target: relative_last_known_ball_position,
             tolerance: 0.0,
         },
-        orientation,
+        Orientation2::identity(),
         distance_to_be_aligned,
         path,
         walk_speed,
