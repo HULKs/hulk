@@ -8,7 +8,7 @@ use types::{
     obstacles::Obstacle,
     parameters::{PathPlanningParameters, WalkAndStandParameters},
     path_obstacles::PathObstacle,
-    planned_path::{direct_path, PathSegment},
+    planned_path::{direct_path, Path},
     rule_obstacles::RuleObstacle,
     support_foot::Side,
     world_state::WorldState,
@@ -47,7 +47,7 @@ impl<'cycle> WalkPathPlanner<'cycle> {
         obstacles: &[Obstacle],
         rule_obstacles: &[RuleObstacle],
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
-    ) -> Vec<PathSegment> {
+    ) -> Path {
         let mut planner = PathPlanner::default();
         planner.with_last_motion(
             self.last_motion_command,
@@ -102,7 +102,7 @@ impl<'cycle> WalkPathPlanner<'cycle> {
         orientation_mode: OrientationMode,
         target_orientation: Orientation2<Ground>,
         distance_to_be_aligned: f32,
-        path: Vec<PathSegment>,
+        path: Path,
         speed: WalkSpeed,
     ) -> MotionCommand {
         MotionCommand::Walk {

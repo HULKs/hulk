@@ -31,7 +31,7 @@ pub const VARIABLES_PER_STEP: usize = 3;
 
 #[derive(Clone, Debug)]
 pub struct StepPlanning<'a> {
-    pub path: Path<'a>,
+    pub path: &'a Path,
     pub target_orientation: Orientation2<Ground>,
     pub distance_to_be_aligned: f32,
     pub initial_pose: Pose<f32>,
@@ -154,21 +154,23 @@ pub mod test_utils {
 
     use geometry::{arc::Arc, circle::Circle, direction::Direction, line_segment::LineSegment};
     use linear_algebra::{point, Orientation2};
-    use types::planned_path::PathSegment;
+    use types::planned_path::{Path, PathSegment};
 
-    pub fn test_path() -> Vec<PathSegment> {
-        vec![
-            PathSegment::LineSegment(LineSegment(point![0.0, 0.0], point![3.0, 0.0])),
-            PathSegment::Arc(Arc {
-                circle: Circle {
-                    center: point![3.0, 1.0],
-                    radius: 1.0,
-                },
-                start: Orientation2::new(3.0 * FRAC_PI_2),
-                end: Orientation2::new(0.0),
-                direction: Direction::Counterclockwise,
-            }),
-            PathSegment::LineSegment(LineSegment(point![4.0, 1.0], point![4.0, 4.0])),
-        ]
+    pub fn test_path() -> Path {
+        Path {
+            segments: vec![
+                PathSegment::LineSegment(LineSegment(point![0.0, 0.0], point![3.0, 0.0])),
+                PathSegment::Arc(Arc {
+                    circle: Circle {
+                        center: point![3.0, 1.0],
+                        radius: 1.0,
+                    },
+                    start: Orientation2::new(3.0 * FRAC_PI_2),
+                    end: Orientation2::new(0.0),
+                    direction: Direction::Counterclockwise,
+                }),
+                PathSegment::LineSegment(LineSegment(point![4.0, 1.0], point![4.0, 4.0])),
+            ],
+        }
     }
 }

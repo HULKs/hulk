@@ -121,7 +121,7 @@ pub fn execute(
             &world_state.rule_obstacles,
             path_obstacles_output,
         );
-        let path_length: f32 = path.iter().map(|segment| segment.length()).sum();
+        let path_length: f32 = path.segments.iter().map(|segment| segment.length()).sum();
         let is_reached = path_length < parameters.position_reached_distance;
         let target_orientation = if is_reached {
             Orientation2::new(parameters.rotation_per_step)

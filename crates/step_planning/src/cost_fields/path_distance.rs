@@ -5,7 +5,7 @@ use types::planned_path::Path;
 use crate::traits::Project;
 
 pub struct PathDistanceField<'a> {
-    pub path: Path<'a>,
+    pub path: &'a Path,
 }
 
 impl PathDistanceField<'_> {
@@ -34,17 +34,13 @@ mod tests {
     use proptest::proptest;
 
     use linear_algebra::{point, vector, Vector2};
-    use types::planned_path::Path;
 
     use crate::{cost_fields::path_distance::PathDistanceField, test_utils::test_path};
 
     #[test]
     fn test_path_distance() {
-        let cost_field = PathDistanceField {
-            path: Path {
-                segments: &test_path(),
-            },
-        };
+        let test_path = test_path();
+        let cost_field = PathDistanceField { path: &test_path };
 
         // Start
         let sample_point_1 = point![0.0, 0.0];
@@ -106,10 +102,9 @@ mod tests {
     proptest! {
         #[test]
         fn verify_gradient(x in -2.0f32..5.0, y in -2.0f32..5.0) {
+            let test_path = test_path();
             let cost_field = PathDistanceField {
-                path: Path {
-                    segments: &test_path(),
-                },
+                path: &test_path
             };
 
             let point = point![x, y];

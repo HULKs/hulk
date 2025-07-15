@@ -8,7 +8,8 @@ use types::{
     filtered_game_state::FilteredGameState,
     motion_command::{HeadMotion, ImageRegion, MotionCommand, OrientationMode, WalkSpeed},
     parameters::InterceptBallParameters,
-    planned_path::PathSegment,
+    planned_path::{Path, PathSegment},
+    step::Step,
     world_state::{BallState, WorldState},
 };
 
@@ -63,10 +64,12 @@ pub fn execute(
                 return None;
             }
 
-            let path = vec![PathSegment::LineSegment(LineSegment(
-                Point::origin(),
-                interception_point,
-            ))];
+            let path = Path {
+                segments: vec![PathSegment::LineSegment(LineSegment(
+                    Point::origin(),
+                    interception_point,
+                ))],
+            };
 
             let target_orientation = interception_point.look_at(&ball.ball_in_ground);
             Some(MotionCommand::Walk {

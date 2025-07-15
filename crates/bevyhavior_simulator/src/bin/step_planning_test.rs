@@ -12,7 +12,7 @@ use scenario::scenario;
 use spl_network_messages::{GameState, PlayerNumber};
 use types::{
     motion_command::{ArmMotion, HeadMotion, MotionCommand, OrientationMode, WalkSpeed},
-    planned_path::PathSegment,
+    planned_path::{Path, PathSegment},
 };
 
 #[scenario]
@@ -58,23 +58,29 @@ fn update(time: Res<Time<Ticks>>, mut exit: EventWriter<AppExit>, mut robots: Qu
 
     let (path, orientation_mode, target_orientation) = match turn_count {
         0 => (
-            vec![PathSegment::LineSegment(
-                geometry::line_segment::LineSegment(Point2::origin(), orbiting_point),
-            )],
+            Path {
+                segments: vec![PathSegment::LineSegment(
+                    geometry::line_segment::LineSegment(Point2::origin(), orbiting_point),
+                )],
+            },
             OrientationMode::Unspecified,
             Orientation2::identity(),
         ),
         1 => (
-            vec![PathSegment::LineSegment(
-                geometry::line_segment::LineSegment(Point2::origin(), orbiting_point),
-            )],
+            Path {
+                segments: vec![PathSegment::LineSegment(
+                    geometry::line_segment::LineSegment(Point2::origin(), orbiting_point),
+                )],
+            },
             OrientationMode::Unspecified,
             orientation,
         ),
         2 => (
-            vec![PathSegment::LineSegment(
-                geometry::line_segment::LineSegment(Point2::origin(), point![0.4, 0.0]),
-            )],
+            Path {
+                segments: vec![PathSegment::LineSegment(
+                    geometry::line_segment::LineSegment(Point2::origin(), point![0.4, 0.0]),
+                )],
+            },
             OrientationMode::LookTowards {
                 direction: orientation,
                 tolerance: 0.0,
