@@ -32,38 +32,22 @@ This command will generate a `perf.data` file containing the recorded samples.
 ### Step 3: Analyze the Profile with hotspot
 
 We use Hotspot to inspect the `perf.data` file.
-Due to an automatic renaming during upload, your binary might be called `hulk_nao`. Hotspot expects it to match the process name (`hulk`), so rename it:
-
-```bash
-mv ./target/x86_64-aldebaran-linux-gnu/with-debug/{hulk_nao, hulk}
-```
-
-Run Hotspot
-
 With the binary and `perf.data` in place, launch Hotspot:
+
 ```bash
-hotspot --appPath ./target/x86_64-aldebaran-linux-gnu/with-debug/
+hotspot \
+  --sysroot ~/.local/share/hulk/sdk/9.0.2/sysroots/corei7-64-aldebaran-linux/ \
+  --appPath ./target/x86_64-aldebaran-linux-gnu/with-debug/ \
+  --kallsyms ./kallsyms
 ```
 
+Setting the `sysroot` is not requires when you profile a binary on your system, for example a behavior test case.
 Use the Flame Graph, Top Down, or Bottom Up views to investigate time spent in functions.
-
-### Step 4: Inspect System and Kernel Code (Optional)
-
-To inspect system libraries or kernel code, additional debug information is needed.
-Export Kernel Symbol Addresses
-
-To resolve kernel function names and addresses, export /proc/kallsyms:
-
-```bash
-sudo cat /proc/kallsyms > kallsyms
-```
-
-!!! warning
-    You must run this as root; otherwise, addresses will be replaced with 00000000 and are unusable.
 
 ### Enable Debug Symbols in the SDK
 
-To get debug information for system libraries, you need an SDK with debug symbols. Enable them by modifying this line in your Yocto distribution config:
+By default, debug symbols are not enabled in our SDK.
+If you want to profile library code, consider enabling debug symbols in the Yocto distribution config:
 
 ```
 diff --git a/meta-hulks/conf/distro/HULKs-OS.conf b/meta-hulks/conf/distro/HULKs-OS.conf
@@ -76,15 +60,4 @@ index 3e23671..982a187 100644
  DISTRO_VERSION = "9.0.1"
 -SDKIMAGE_FEATURES:remove = "dbg-pkgs src-pkgs"
 ```
-Rebuild the SDK afterward.
-
-### Step 5: Launch Hotspot with Full Debug Info
-
-Once you have the debug SDK and kallsyms, you can launch Hotspot with full debug info:
-
-```bash
-hotspot \
-  --sysroot ~/.local/share/hulk/sdk/9.0.2/sysroots/corei7-64-aldebaran-linux/ \
-  --appPath ./target/x86_64-aldebaran-linux-gnu/with-debug/ \
-  --kallsyms ./kallsyms
-```
+Rebuild the SDK afterward and use in it to build the code and as the `sysroot` argument when launching Hotspot.
