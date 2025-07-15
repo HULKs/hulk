@@ -1,6 +1,7 @@
 import argparse
 import os
 from datetime import datetime
+from pathlib import Path
 from typing import get_args
 
 import joblib
@@ -26,27 +27,48 @@ def pretty_dict(dictionary: dict) -> str:
     without_braces = line_breaks.replace("{", "").replace("}", "")
     return "\t\t- " + without_braces + "\n"
 
+
 root = "/home/franziska-sophie/image-segmentation/dataset"
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser()
-    parser.add_argument("path_to_train_data", type=str)
-    parser.add_argument("path_to_val_data", type=str)
-    parser.add_argument("study_name", type=str)
     parser.add_argument(
-        "--continue_from_trial_id", type=int, nargs="+", default=None
+        "--train",
+        type=Path,
+        nargs="+",
+        required=True,
+        help="Paths to training HDF5 file",
     )
-    parser.add_argument("--path_to_test_data", type=str, default=None)
+    parser.add_argument(
+        "--val",
+        type=Path,
+        nargs="+",
+        required=True,
+        help="Paths to validation HDF5 file",
+    )
+    parser.add_argument(
+        "--study-name", type=str, required=True, help="Name of the Optuna study"
+    )
+    parser.add_argument(
+        "--test",
+        type=Path,
+        nargs="+",
+        default=None,
+        help="Optional paths to test HDF5 file",
+    )
+    parser.add_argument(
+        "--continue-from-trial-id",
+        type=int,
+        nargs="+",
+        default=None,
+        help="Trial IDs to continue from",
+    )
+
     args = parser.parse_args()
 
-    train_data = get_data_from_hdf5(args.path_to_train_data)
-    val_data = get_data_from_hdf5(args.path_to_val_data)
-
-    test_data = (
-        get_data_from_hdf5(args.path_to_test_data)
-        if args.path_to_test_data is not None
-        else None
-    )
+    train_data = get_data_from_hdf5(*args.train)
+    val_data = get_data_from_hdf5(*args.val)
+    test_data = get_data_from_hdf5(*args.test) if args.test else None
 
     train_mask, val_mask = load_sampling_masks(os.path.join(root, "masks.npz"))
 
