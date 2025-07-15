@@ -5,6 +5,10 @@ edition.workspace = true
 license.workspace = true
 homepage.workspace = true
 
+[[bin]]
+name = "hulk"
+path = "src/main.rs"
+
 [package.metadata.pepsi]
 cross-compile = true
 
