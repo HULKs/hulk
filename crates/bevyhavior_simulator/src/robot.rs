@@ -291,8 +291,10 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
                     })
                     .collect();
 
-                let ball_circle =
-                    Circle::new(robot.ground_to_field().inverse() * ball.position, 0.05);
+                let ball_circle = Circle::new(
+                    robot.ground_to_field().inverse() * ball.position,
+                    robot.parameters.field_dimensions.ball_radius,
+                );
                 let in_range = circle_overlaps_polygon(&left_sole_in_ground, ball_circle)
                     || circle_overlaps_polygon(&right_sole_in_ground, ball_circle);
                 let previous_kick_finished =
