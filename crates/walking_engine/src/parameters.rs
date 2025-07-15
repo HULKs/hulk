@@ -18,6 +18,7 @@ pub struct Parameters {
     pub base: Base,
     pub catching_steps: CatchingStepsParameters,
     pub gyro_balancing: GyroBalancingParameters,
+    pub dynamic_interpolation_speed: DynamicInterpolationSpeedParameters,
     pub foot_leveling: FootLevelingParameters,
     pub forward_turn_reduction: f32,
     pub forward_turn_threshold: f32,
@@ -140,4 +141,12 @@ pub struct SwingingArmsParameters {
     pub pulling_back_duration: Duration,
     pub pulling_tight_duration: Duration,
     pub torso_tilt_compensation_factor: f32,
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct DynamicInterpolationSpeedParameters {
+    pub active_range: Range<f32>,
+    pub max_reduction: f32,
 }
