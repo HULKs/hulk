@@ -4,6 +4,7 @@ use eframe::{
     egui::{ComboBox, Response, Ui, Widget},
     epaint::{Color32, Stroke},
 };
+use itertools::Itertools;
 use linear_algebra::{point, vector, Vector2};
 use serde::{Deserialize, Serialize};
 
@@ -218,9 +219,30 @@ impl Widget for &mut ImageSegmentsPanel {
             Direction::Vertical => image_segments.scan_grid.vertical_scan_lines,
         };
 
-        for scanline in scan_lines {
-            for segment in scanline.segments {
-                self.draw_segment(scanline.position as f32, self.direction, segment, &painter);
+        if let Some([left, right]) = scan_lines.get(0..2) {
+            let width = (right.position - left.position) as f32 / 2.0;
+            let position = left.position as f32 + width / 2.0;
+            for segment in &left.segments {
+                self.draw_segment(position, width, self.direction, segment, &painter);
+            }
+        }
+
+        for (left, center, right) in scan_lines.iter().tuple_windows() {
+            let start = left.position as f32 + (center.position - left.position) as f32 / 2.0;
+            let end = center.position as f32 + (right.position - center.position) as f32 / 2.0;
+            let width = end - start;
+            let position = start + width / 2.0;
+
+            for segment in &center.segments {
+                self.draw_segment(position, width, self.direction, segment, &painter);
+            }
+        }
+
+        if let Some([left, right]) = scan_lines.windows(2).last() {
+            let width = (right.position - left.position) as f32 / 2.0;
+            let position = left.position as f32 + width / 2.0;
+            for segment in &left.segments {
+                self.draw_segment(position, width, self.direction, segment, &painter);
             }
         }
 
@@ -232,8 +254,9 @@ impl ImageSegmentsPanel {
     fn draw_segment(
         &self,
         position: f32,
+        width: f32,
         direction: Direction,
-        segment: Segment,
+        segment: &Segment,
         painter: &TwixPainter<Pixel>,
     ) {
         let ycbcr_color = segment.color;
@@ -270,7 +293,6 @@ impl ImageSegmentsPanel {
             }
         };
 
-        const SEGMENT_WIDTH: f32 = 4.0;
         const END_MARKER_WIDTH: f32 = 0.25;
 
         let (main_axis, other_axis) = match direction {
@@ -279,9 +301,9 @@ impl ImageSegmentsPanel {
         };
 
         let main_axis_offset = main_axis * END_MARKER_WIDTH / 2.0;
-        let other_axis_offset = other_axis * SEGMENT_WIDTH / 3.0;
+        let other_axis_offset = other_axis * width / 3.0;
 
-        painter.line_segment(start, end, Stroke::new(SEGMENT_WIDTH, visualized_color));
+        painter.line_segment(start, end, Stroke::new(width, visualized_color));
 
         painter.line_segment(
             start + main_axis_offset + other_axis_offset,
