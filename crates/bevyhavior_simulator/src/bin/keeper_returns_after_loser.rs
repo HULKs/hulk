@@ -39,20 +39,20 @@ fn update(
     mut exit: EventWriter<AppExit>,
     mut keeper_was_striker_again: Local<bool>,
 ) {
-    if time.ticks() == 2800 {
+    if time.ticks() == 5600 {
         if let Some(ball) = ball.state.as_mut() {
             ball.position = point![-3.8, 0.0];
             ball.velocity = Vector2::zeros();
         }
     }
-    if time.ticks() == 6000 {
+    if time.ticks() == 12000 {
         if let Some(ball) = ball.state.as_mut() {
             ball.position = point![-3.8, 0.0];
             ball.velocity = Vector2::zeros();
         }
     }
 
-    if time.ticks() > 6500 {
+    if time.ticks() > 13000 {
         for robot in robots.iter() {
             if robot.parameters.player_number == PlayerNumber::One
                 && robot.database.main_outputs.role == Role::Striker
@@ -67,7 +67,7 @@ fn update(
         exit.send(AppExit::Success);
     }
 
-    if time.ticks() >= 15_000 {
+    if time.ticks() >= 30_000 {
         if !*keeper_was_striker_again {
             println!("Error: Keeper did not become striker again");
         }

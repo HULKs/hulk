@@ -42,14 +42,14 @@ fn update(
     robots: Query<&mut Robot>,
     mut exit: EventWriter<AppExit>,
 ) {
-    if time.ticks() == 3000 {
+    if time.ticks() == 6000 {
         game_controller_commands.send(GameControllerCommand::SetSubState(
             Some(SubState::KickIn),
             Team::Hulks,
             None,
         ));
     }
-    if time.ticks() >= 3005 && time.ticks() < 3000 + FREE_KICK_DURATION_IN_TICKS {
+    if time.ticks() >= 6005 && time.ticks() < 6000 + FREE_KICK_DURATION_IN_TICKS {
         for robot in robots.iter() {
             if robot
                 .database
@@ -67,14 +67,14 @@ fn update(
         }
     }
 
-    if time.ticks() == 6000 {
+    if time.ticks() == 12000 {
         game_controller_commands.send(GameControllerCommand::SetSubState(
             Some(SubState::KickIn),
             Team::Opponent,
             None,
         ));
     }
-    if time.ticks() >= 6005 && time.ticks() < 6000 + FREE_KICK_DURATION_IN_TICKS {
+    if time.ticks() >= 12005 && time.ticks() < 12000 + FREE_KICK_DURATION_IN_TICKS {
         for robot in robots.iter() {
             if robot
                 .database
@@ -98,7 +98,7 @@ fn update(
         );
         exit.send(AppExit::Success);
     }
-    if time.ticks() >= 12_000 {
+    if time.ticks() >= 24_000 {
         println!("No goal was scored :(");
         exit.send(AppExit::from_code(1));
     }
