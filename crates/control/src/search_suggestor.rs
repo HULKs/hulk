@@ -1,4 +1,5 @@
 use std::{
+    f32::consts,
     ops::{Index, IndexMut},
     time::SystemTime,
 };
@@ -7,8 +8,9 @@ use color_eyre::{eyre::Context, Result};
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
+use geometry::direction::{Direction, Rotate90Degrees};
 use itertools::Itertools;
-use linear_algebra::{point, Isometry2, Point2, Vector2};
+use linear_algebra::{point, vector, Isometry2, Point2, Vector2};
 use nalgebra::clamp;
 use ndarray::{array, Array2};
 use ndarray_conv::{ConvExt, ConvMode, PaddingMode};
@@ -21,6 +23,7 @@ use types::{
     messages::IncomingMessage,
     parameters::SearchSuggestorParameters,
     primary_state::PrimaryState,
+    sensor_data::SensorData,
 };
 
 use crate::team_ball_receiver::get_spl_messages;
@@ -130,12 +133,35 @@ impl SearchSuggestor {
         }
 
         if context.ball_position.is_none() {
-            if let Sone(ground_to_field) = context.ground_to_field {
-                if let Some(sensor_data) = context.sensor_data {
-                    position_in_field = ground_to_field;
-                    head_orientation =
-                        ground_to_field.rotation.angle() + sensor_data.positions.head_yaw;
-                }
+            if let Some(ground_to_field) = context.ground_to_field {
+                let robot_position = ground_to_field.as_pose().position().coords();
+                let head_orientation = ground_to_field.orientation().angle()
+                    + context.sensor_data.positions.head.yaw;
+                let fov_angle_offset = 25.0 * consts::PI / 180.0;
+                let left_angle = head_orientation - fov_angle_offset;
+                let right_angle = head_orientation + fov_angle_offset;
+                let left_edge: Vector2<Field> = vector!(left_angle.cos(), left_angle.sin());
+                let right_edge: Vector2<Field> = vector!(right_angle.cos(), right_angle.sin());
+
+                let tile_width = 1.0 / self.heatmap.cells_per_meter;
+                let tile_center_offset = tile_width / 2.0;
+                let top_left_corner_in_field: Vector2<Field> = vector!(
+                    -self.heatmap.field_dimensions.length / 2.0,
+                    self.heatmap.field_dimensions.width / 2.0
+                );
+                self.heatmap.map.indexed_iter_mut().for_each(|((x, y ), value)| {
+                    let tile_center_in_field: Vector2<Field> = vector!(
+                        (x as f32) * tile_width + tile_center_offset,
+                        (y as f32) * tile_width + tile_center_offset,
+                    ) + top_left_corner_in_field;
+                    let robot_to_tile = tile_center_in_field - robot_position;
+                    let is_inside_sight = get_direction(left_edge, robot_to_tile)
+                        == Direction::Clockwise
+                        && get_direction(right_edge, robot_to_tile) == Direction::Counterclockwise;
+                    if is_inside_sight{
+                        *value *= 0.01;
+                    }
+                });
             }
         }
 
@@ -288,5 +314,17 @@ fn kicking_team_half(kicking_team: Option<Team>) -> Option<Half> {
         Some(Team::Opponent) => Some(Half::Opponent),
         Some(Team::Hulks) => Some(Half::Own),
         None => None,
+    }
+}
+
+fn get_direction(base_vector: Vector2<Field>, vector_to_test: Vector2<Field>) -> Direction {
+    let clockwise_normal_vector = base_vector.rotate_90_degrees(Direction::Clockwise);
+    let directed_cathetus = clockwise_normal_vector.dot(&vector_to_test);
+
+    match directed_cathetus {
+        0.0 => Direction::Collinear,
+        f if f > 0.0 => Direction::Clockwise,
+        f if f < 0.0 => Direction::Counterclockwise,
+        f => panic!("directed cathetus was not a real number: {f}"),
     }
 }
