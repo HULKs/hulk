@@ -18,7 +18,11 @@ pub struct Features {
     pub bottom: f32,
 }
 
-#[allow(clippy::collapsible_else_if)]
+#[allow(
+    clippy::collapsible_else_if,
+    clippy::excessive_precision,
+    clippy::needless_return
+)]
 pub fn predict(features: &Features) -> f32 {
     if features.center <= 0.4058823529411765 {
         if features.center <= 0.3823529411764706 {
