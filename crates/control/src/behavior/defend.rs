@@ -8,6 +8,7 @@ use geometry::{
     look_at::LookAt,
 };
 use linear_algebra::{distance, point, Point2, Pose2, Vector2};
+use nalgebra::min;
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
@@ -254,8 +255,7 @@ fn defend_pose(
     } else {
         role_positions.defender_y_offset
     };
-    let mut position_to_defend = point![x_offset, y_offset];
-
+    let position_to_defend = point![x_offset, y_offset];
     let mode = if greater_than_with_hysteresis(
         *last_defender_mode == DefendMode::Passive,
         ball.ball_in_ground.coords().norm(),
@@ -286,20 +286,32 @@ fn defend_pose(
         role_positions.defender_passive_ring_radius
     };
 
-    let distance_to_target = penalty_kick_defender_radius(
-        distance_to_target,
-        world_state.filtered_game_controller_state.as_ref(),
-        field_dimensions,
-    );
+    // let distance_to_target = penalty_kick_defender_radius(
+    //     distance_to_target,
+    //     world_state.filtered_game_controller_state.as_ref(),
+    //     field_dimensions,
+    // );
+    let position_to_defend_to_ball_max_lengt = (ball.ball_in_field - position_to_defend).norm() * (2.0 / 3.0);
+    let distance_to_target = distance_to_target.min(position_to_defend_to_ball_max_lengt);
 
-    let ball_behind_defender = ball.ball_in_field.x() < ground_to_field.as_pose().position().x();
+    // let ball_behind_defender = ball.ball_in_field.x() < ground_to_field.as_pose().position().x();
 
-    let defend_pose = if ball_behind_defender {
-        position_to_defend = point!(position_to_defend.x(), -position_to_defend.y());
-        block_on_circle(ball.ball_in_field, position_to_defend, distance_to_target)
-    } else {
-        block_on_circle(ball.ball_in_field, position_to_defend, distance_to_target)
-    };
+    // let defend_pose = if ball_behind_defender {
+    //     position_to_defend = point!(position_to_defend.x(), -position_to_defend.y());
+    //     block_on_circle(ball.ball_in_field, position_to_defend, distance_to_target)
+    // } else {
+    //     block_on_circle(ball.ball_in_field, position_to_defend, distance_to_target)
+    // };
+    let defend_pose = block_on_circle(ball.ball_in_field, position_to_defend, distance_to_target);
+
+    // if let Some(FilteredGameControllerState {
+    //     kicking_team: Some(Team::Opponent),
+    //     sub_state: Some(SubState::PenaltyKick),
+    //     ..
+    // }) = world_state.filtered_game_controller_state
+    // {
+    //     defend_pose = 
+    // }
 
     Some(ground_to_field.inverse() * defend_pose)
 }
