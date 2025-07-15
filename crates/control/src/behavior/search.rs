@@ -157,13 +157,14 @@ pub fn execute(
             if turn_cycle_fraction < parameters.stand_secs {
                 Some(MotionCommand::Stand { head })
             } else {
+                let orientation = Orientation2::new(parameters.rotation_per_step);
                 Some(walk_path_planner.walk_with_obstacle_avoiding_arms(
                     head,
                     OrientationMode::LookTowards {
-                        direction: Orientation2::new(parameters.rotation_per_step),
+                        direction: orientation,
                         tolerance: 0.0,
                     },
-                    Orientation2::identity(),
+                    orientation,
                     distance_to_be_aligned,
                     path,
                     walk_speed,
@@ -173,7 +174,7 @@ pub fn execute(
             Some(walk_path_planner.walk_with_obstacle_avoiding_arms(
                 head,
                 OrientationMode::AlignWithPath,
-                Orientation2::new(parameters.rotation_per_step),
+                Orientation2::identity(),
                 distance_to_be_aligned,
                 path,
                 walk_speed,
