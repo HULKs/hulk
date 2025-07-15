@@ -6,6 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
 use coordinate_systems::{Ground, UpcomingSupport};
+use filtering::hysteresis::greater_than_with_absolute_hysteresis;
 use framework::{AdditionalOutput, MainOutput};
 use geometry::{direction::Rotate90Degrees, look_at::LookAt};
 use linear_algebra::{vector, Isometry2, Orientation2, Point2, Pose2};
@@ -19,6 +20,7 @@ use types::{
     motion_command::{MotionCommand, OrientationMode, WalkSpeed},
     parameters::StepPlanningOptimizationParameters,
     planned_path::{Path, PathSegment},
+    sensor_data::SensorData,
     step::Step,
     support_foot::Side,
     walk_volume_extents::WalkVolumeExtents,
@@ -29,6 +31,7 @@ use walking_engine::{anatomic_constraints::AnatomicConstraints, mode::Mode};
 pub struct StepPlanner {
     last_step_plan: Option<Vec<f64>>,
     last_support_side: Option<Side>,
+    leg_joints_hot: bool,
 }
 
 #[context]
@@ -37,6 +40,7 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     motion_command: Input<MotionCommand, "motion_command">,
+    sensor_data: Input<SensorData, "sensor_data">,
 
     injected_step: Parameter<Option<Step>, "step_planner.injected_step?">,
     walk_volume_delta_slow: Parameter<WalkVolumeExtents, "step_planner.walk_volume_delta_slow">,
@@ -72,6 +76,7 @@ impl StepPlanner {
         Ok(Self {
             last_step_plan: None,
             last_support_side: None,
+            leg_joints_hot: false,
         })
     }
 
@@ -104,10 +109,28 @@ impl StepPlanner {
 
         let earlier = SystemTime::now();
 
-        let walk_volume_extents = match speed {
-            WalkSpeed::Slow => &(context.walk_volume_extents + context.walk_volume_delta_slow),
-            WalkSpeed::Normal => context.walk_volume_extents,
-            WalkSpeed::Fast => &(context.walk_volume_extents + context.walk_volume_delta_fast),
+        let highest_temperature = context
+            .sensor_data
+            .temperature_sensors
+            .left_leg
+            .into_iter()
+            .chain(context.sensor_data.temperature_sensors.right_leg)
+            .max_by(f32::total_cmp)
+            .expect("temperatures to be not empty.");
+
+        self.leg_joints_hot = greater_than_with_absolute_hysteresis(
+            self.leg_joints_hot,
+            highest_temperature,
+            70.0..=75.0,
+        );
+        // at 76°C stiffness gets automatically reduced by the motors - this stops if temperature is below 70°C again
+
+        let walk_volume_extents = match (speed, self.leg_joints_hot) {
+            (WalkSpeed::Fast, false) => {
+                &(context.walk_volume_extents + context.walk_volume_delta_fast)
+            }
+            (WalkSpeed::Slow, _) => &(context.walk_volume_extents + context.walk_volume_delta_slow),
+            _ => context.walk_volume_extents,
         };
 
         let step = if let Some(injected_step) = context.injected_step {
