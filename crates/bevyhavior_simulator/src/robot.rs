@@ -62,7 +62,6 @@ pub struct Robot {
     pub database: Database,
     pub parameters: Parameters,
     pub last_kick_time: Duration,
-    pub ball_last_seen: Option<SystemTime>,
     pub simulator_parameters: SimulatedRobotParameters,
     pub anchor: Pose2<Field>,
     pub anchor_side: Option<Side>,
@@ -145,7 +144,6 @@ impl Robot {
             database,
             parameters,
             last_kick_time: Duration::default(),
-            ball_last_seen: None,
             simulator_parameters,
             anchor: Pose2::zero(),
             anchor_side: None,
@@ -467,7 +465,6 @@ pub fn cycle_robots(
                 && ball_in_head.coords().norm() < robot.simulator_parameters.ball_view_range
         });
         if ball_visible {
-            robot.ball_last_seen = Some(now);
             robot.database.main_outputs.ball_position =
                 ball.state.as_ref().map(|ball| BallPosition {
                     position: robot.ground_to_field().inverse() * ball.position,
@@ -475,14 +472,20 @@ pub fn cycle_robots(
                     last_seen: now,
                 });
         }
-        if !robot.ball_last_seen.is_some_and(|last_seen| {
-            now.duration_since(last_seen).expect("time ran backwards")
-                < robot
-                    .parameters
-                    .ball_filter
-                    .hypothesis_timeout
-                    .mul_f32(robot.simulator_parameters.ball_timeout_factor)
-        }) {
+        if !robot
+            .database
+            .main_outputs
+            .ball_position
+            .is_some_and(|ball_position| {
+                now.duration_since(ball_position.last_seen)
+                    .expect("time ran backwards")
+                    < robot
+                        .parameters
+                        .ball_filter
+                        .hypothesis_timeout
+                        .mul_f32(robot.simulator_parameters.ball_timeout_factor)
+            })
+        {
             robot.database.main_outputs.ball_position = None
         };
         *robot.whistle_mut() = FilteredWhistle {
