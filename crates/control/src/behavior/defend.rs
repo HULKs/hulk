@@ -8,6 +8,7 @@ use geometry::{
     look_at::LookAt,
 };
 use linear_algebra::{distance, point, Point2, Pose2, Vector2};
+use nalgebra::min;
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
@@ -254,12 +255,7 @@ fn defend_pose(
     } else {
         role_positions.defender_y_offset
     };
-<<<<<<< HEAD
     let position_to_defend = point![x_offset, y_offset];
-=======
-    let mut position_to_defend = point![x_offset, y_offset];
-
->>>>>>> 4b084b4a (change gamestate to dependence on the ball and robot)
     let mode = if greater_than_with_hysteresis(
         *last_defender_mode == DefendMode::Passive,
         ball.ball_in_ground.coords().norm(),
