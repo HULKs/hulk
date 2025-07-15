@@ -231,7 +231,7 @@ fn collect_horizontal_scan_lines(
     // do not start at horizon because of numerically unstable math
     let mut y = horizon_y_maximum + 1 + horizontal_padding_size;
 
-    while y < (limbs_y_minimum - horizontal_padding_size) {
+    while y + horizontal_padding_size < limbs_y_minimum {
         horizontal_scan_lines.push(new_horizontal_scan_line(
             image,
             field_color,
@@ -242,7 +242,9 @@ fn collect_horizontal_scan_lines(
             horizontal_median_mode,
         ));
 
-        y = next_horizontal_segment_y(image, camera_matrix, vertical_stride, y).unwrap_or(y + 2);
+        y = next_horizontal_segment_y(image, camera_matrix, vertical_stride, y)
+            .unwrap_or(0)
+            .max(y + 2);
     }
     horizontal_scan_lines
 }
