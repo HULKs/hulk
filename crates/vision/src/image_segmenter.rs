@@ -519,6 +519,8 @@ fn detect_field_color_in_segment(
     direction: Direction,
     image: &YCbCr422Image,
 ) -> Segment {
+    const RADIUS: u32 = 28;
+
     let color = segment.color;
     let rgb = Rgb::from(color);
     let g_chromaticity = rgb.green_chromaticity();
@@ -527,17 +529,10 @@ fn detect_field_color_in_segment(
         Direction::Vertical => point![position, segment.center() as u32],
     };
 
-    let radius = 28;
-    let right = image.at(
-        (center.x() + radius).clamp(0, image.width() - 1),
-        center.y(),
-    );
-    let top = image.at(center.x(), center.y().saturating_sub(radius));
-    let left = image.at(center.x().saturating_sub(radius), center.y());
-    let bottom = image.at(
-        center.x(),
-        (center.y() + radius).clamp(0, image.height() - 1),
-    );
+    let right = image.at((center.x() + RADIUS).min(image.width() - 1), center.y());
+    let top = image.at(center.x(), center.y().saturating_sub(RADIUS));
+    let left = image.at(center.x().saturating_sub(RADIUS), center.y());
+    let bottom = image.at(center.x(), (center.y() + RADIUS).min(image.height() - 1));
 
     let features = Features {
         center: g_chromaticity,
