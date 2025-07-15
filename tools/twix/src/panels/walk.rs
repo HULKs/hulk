@@ -87,8 +87,7 @@ impl Widget for &mut WalkPanel {
             Ok(Some(Some(robot_to_ground))) => robot_to_ground,
             Ok(_) => return ui.label("no robot to ground"),
             Err(error) => {
-                return ui
-                    .colored_label(Color32::RED, format!("Error (robot_to_ground): {error}"));
+                return ui.colored_label(Color32::RED, format!("Error (robot_to_ground): {error}"));
             }
         };
 
@@ -96,10 +95,8 @@ impl Widget for &mut WalkPanel {
             Ok(Some(zero_moment_point)) => zero_moment_point,
             Ok(_) => return ui.label("no zero moment point"),
             Err(error) => {
-                return ui.colored_label(
-                    Color32::RED,
-                    format!("Error (zero moment point): {error}"),
-                );
+                return ui
+                    .colored_label(Color32::RED, format!("Error (zero moment point): {error}"));
             }
         };
 
@@ -168,43 +165,6 @@ fn draw_top_down_plot(
     Some(response.response)
 }
 
-fn draw_side_plot(
-    ui: &mut Ui,
-    engine: &Engine,
-    robot_to_walk: Isometry3<Robot, Walk>,
-    last_actuated_joints: Joints,
-    zero_moment_point: Point3<Walk>,
-) -> Option<Response> {
-    let step = step_plan(engine)?;
-    let response = Plot::new(ui.next_auto_id().with("Walk Top Down Plot"))
-        .data_aspect(1.0)
-        .show(ui, |ui| {
-            let support_side = step.plan.support_side;
-
-            let start_feet = step.plan.start_feet;
-            let start_feet_color = Color32::ORANGE;
-            plot_feet_side(ui, support_side, start_feet, start_feet_color);
-
-            let end_feet = step.plan.end_feet;
-            let end_feet_color = Color32::RED;
-            plot_feet_side(ui, support_side, end_feet, end_feet_color);
-
-            let current_feet =
-                Feet::from_joints(robot_to_walk, &last_actuated_joints.body(), support_side);
-            let current_feet_color = Color32::BLUE;
-            plot_feet_side(ui, support_side, current_feet, current_feet_color);
-            ui.points(
-                Points::new(PlotPoints::Owned(vec![PlotPoint::new(
-                    zero_moment_point.x(),
-                    zero_moment_point.y(),
-                )]))
-                .radius(5.0)
-                .shape(MarkerShape::Asterisk),
-            );
-        });
-    Some(response.response)
-}
-
 fn plot_feet(ui: &mut PlotUi, support_side: Side, feet: Feet, color: Color32) {
     match support_side {
         Side::Left => {
@@ -236,54 +196,6 @@ fn plot_sole_outline(
             let transform = pose.as_transform();
             robot_dimensions::transform_right_sole_outline(transform)
                 .map(|point| point.xy())
-                .collect()
-        }
-    };
-    let plot_points = outline
-        .into_iter()
-        .map(|point| PlotPoint::new(point.x() as f64, point.y() as f64))
-        .collect::<Vec<_>>();
-
-    let stroke_width = if support_side == side { 5.0 } else { 1.0 };
-
-    ui.polygon(
-        Polygon::new(PlotPoints::Owned(plot_points))
-            .stroke(Stroke::new(stroke_width, color))
-            .fill_color(color.gamma_multiply(0.2)),
-    );
-}
-
-fn plot_feet_side(ui: &mut PlotUi, support_side: Side, feet: Feet, color: Color32) {
-    match support_side {
-        Side::Left => {
-            plot_sole_outline_side(ui, support_side, Side::Left, feet.support_sole, color);
-            plot_sole_outline_side(ui, support_side, Side::Right, feet.swing_sole, color);
-        }
-        Side::Right => {
-            plot_sole_outline_side(ui, support_side, Side::Right, feet.support_sole, color);
-            plot_sole_outline_side(ui, support_side, Side::Left, feet.swing_sole, color);
-        }
-    }
-}
-
-fn plot_sole_outline_side(
-    ui: &mut PlotUi,
-    support_side: Side,
-    side: Side,
-    pose: Pose3<Walk>,
-    color: Color32,
-) {
-    let outline: Vec<_> = match side {
-        Side::Left => {
-            let transform = pose.as_transform();
-            robot_dimensions::transform_left_sole_outline(transform)
-                .map(|point| point.xz())
-                .collect()
-        }
-        Side::Right => {
-            let transform = pose.as_transform();
-            robot_dimensions::transform_right_sole_outline(transform)
-                .map(|point| point.xz())
                 .collect()
         }
     };
