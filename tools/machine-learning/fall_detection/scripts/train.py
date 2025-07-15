@@ -1,13 +1,26 @@
 import enum
+from pathlib import Path
 
 import click
 import numpy as np
+import plotly as pt
+import plotly.express as px
 import plotly.graph_objects as go
+import plotly.io as pio
 import polars as pl
+import polars.selectors as cs
 import tensorflow as tf
 import wandb
 from data_loading import load
 from dataset import FallenDataset
+from dataset.dataset import (
+    do_class_balancing,
+    generate_selector_up_to_index,
+    get_input_tensor,
+    get_input_tensor_up_to_shift,
+    get_labels_tensor,
+    get_labels_tensor_up_to_shift,
+)
 from keras.callbacks import EarlyStopping
 from keras.layers import (
     LSTM,
@@ -24,20 +37,7 @@ from tensorflow import keras
 from wandb.integration.keras import WandbMetricsLogger
 
 
-def split_data(input_data, labels):
-    train_test_split = 0.8
-    split_index = int(len(input_data) * train_test_split)
-
-    x_train = input_data[:split_index]
-    x_test = input_data[split_index + 1 :]
-
-    y_train = labels[:split_index]
-    y_test = labels[split_index + 1 :]
-
-    return (x_train, y_train, x_test, y_test)
-
-
-def evaluate_model(model, x_test, y_test) -> None:
+def evaluate_model(model: keras.Model, x_test, y_test) -> tuple[float, float]:
     (test_loss, accuracy) = model.evaluate(x_test, y_test)
     print(f"Test accuracy: {accuracy}, test loss: {test_loss}")
 
@@ -101,12 +101,13 @@ def evaluate_model(model, x_test, y_test) -> None:
 
     wandb.log({"confusion_matrix": fig})
 
+    return (test_loss, accuracy)
+
 
 def train_model(model, x_train, y_train, max_epochs: int) -> None:
     early_stopping = EarlyStopping(
         monitor="val_loss",
         patience=50,
-        min_delta=0.001,
         mode="min",
     )
 
@@ -125,6 +126,7 @@ def build_linear_model(
     input_length: int,
     num_features: int,
     num_classes: int,
+    run: wandb.run,
     summary: bool = False,
 ) -> None:
     model = Sequential(
@@ -132,8 +134,8 @@ def build_linear_model(
             # ADD YOUR LAYERS HERE
             InputLayer(shape=(input_length, num_features, 1)),
             Conv2D(
-                filters=wandb.config["number_of_filters"][0],
-                kernel_size=[wandb.config["kernel_widths"][0], num_features],
+                filters=run.config["number_of_filters"][0],
+                kernel_size=[run.config["kernel_widths"][0], num_features],
                 strides=[input_length, 1],
                 padding="valid",
                 activation="relu",
@@ -149,12 +151,12 @@ def build_linear_model(
             BatchNormalization(),
             Dropout(0.2),
             Dense(
-                wandb.config["dense_layer_sizes"][0],
+                run.config["dense_layer_sizes"][0],
                 activation="relu",
             ),
             BatchNormalization(),
             Dense(
-                wandb.config["dense_layer_sizes"][1],
+                run.config["dense_layer_sizes"][1],
                 activation="relu",
             ),
             Dropout(0.2),
@@ -182,6 +184,7 @@ def build_sequential_model(
     num_features: int,
     input_length: int,
     num_classes: int,
+    run: wandb.run,
     summary: bool = False,
 ):
     model = Sequential(
@@ -189,15 +192,15 @@ def build_sequential_model(
             # ADD YOUR LAYERS HERE
             InputLayer(shape=(input_length, num_features)),
             LSTM(
-                wandb.config["lstm_sizes"][0],
+                run.config["lstm_sizes"][0],
                 dropout=0.4,
                 return_sequences=True,
             ),
             BatchNormalization(),
-            LSTM(wandb.config["lstm_sizes"][1], dropout=0.4),
+            LSTM(run.config["lstm_sizes"][1], dropout=0.4),
             BatchNormalization(),
             Dense(
-                wandb.config["dense_layer_sizes"][0],
+                run.config["dense_layer_sizes"][0],
                 activation="relu",
             ),
             BatchNormalization(),
@@ -226,71 +229,190 @@ class ModelType(enum.Enum):
     Sequential = enum.auto()
 
 
-def train(model_type: ModelType, data_path: str) -> None:
-    df = load(data_path)
-    dataset = FallenDataset(
-        df,
-        group_keys=[
-            pl.col("robot_identifier"),
-            pl.col("game_phase_identifier"),
-            pl.col("match_identifier"),
-        ],
-        features=[
-            pl.col(
-                "Control.main_outputs.sensor_data.inertial_measurement_unit.linear_acceleration.x"
-            ),
-            pl.col(
-                "Control.main_outputs.sensor_data.inertial_measurement_unit.linear_acceleration.y"
-            ),
-            pl.col(
-                "Control.main_outputs.sensor_data.inertial_measurement_unit.linear_acceleration.z"
-            ),
-            pl.col(
-                "Control.main_outputs.sensor_data.inertial_measurement_unit.roll_pitch.x"
-            ),
-            pl.col(
-                "Control.main_outputs.sensor_data.inertial_measurement_unit.roll_pitch.y"
-            ),
-            pl.col("Control.main_outputs.has_ground_contact"),
-        ],
+def train(
+    model_type: ModelType,
+    data_path: str,
+    use_cache: bool,
+    config: dict,
+    number_of_classes: int,
+) -> None:
+    number_of_label_shifts = config["label_shift"]
+    features = [
+        pl.col(
+            "Control.main_outputs.sensor_data.inertial_measurement_unit.linear_acceleration.x"
+        ),
+        pl.col(
+            "Control.main_outputs.sensor_data.inertial_measurement_unit.linear_acceleration.y"
+        ),
+        pl.col(
+            "Control.main_outputs.sensor_data.inertial_measurement_unit.linear_acceleration.z"
+        ),
+        pl.col(
+            "Control.main_outputs.sensor_data.inertial_measurement_unit.roll_pitch.x"
+        ),
+        pl.col(
+            "Control.main_outputs.sensor_data.inertial_measurement_unit.roll_pitch.y"
+        ),
+        pl.col("Control.main_outputs.has_ground_contact"),
+    ]
+    train_windowed_filtered_dataframe_cache_path = Path(
+        "./.cache/train_windowed_filtered_dataframe.parquet"
     )
 
-    dataset.to_windowed(
-        window_size=wandb.config["window_size"],
-        window_stride=wandb.config["window_stride"],
-        label_shift=wandb.config["label_shift"],
+    test_windowed_filtered_dataframe_cache_path = Path(
+        "./.cache/test_windowed_filtered_dataframe.parquet"
     )
 
-    input_data = dataset.get_input_tensor()
-    data_labels = dataset.get_labels_tensor()
+    samples_per_window = int(config["window_size"] * 83)
 
-    match model_type:
-        case ModelType.Linear:
-            print("Training linear model")
-            model = build_linear_model(
-                num_features=input_data.shape[2],
-                input_length=input_data.shape[1],
-                num_classes=dataset.n_classes(),
+    if (
+        train_windowed_filtered_dataframe_cache_path.exists()
+        and test_windowed_filtered_dataframe_cache_path.exists()
+        and use_cache
+    ):
+        train_windowed_filtered_dataframe = pl.read_parquet(
+            train_windowed_filtered_dataframe_cache_path
+        )
+        test_windowed_filtered_dataframe = pl.read_parquet(
+            test_windowed_filtered_dataframe_cache_path
+        )
+    else:
+        df = load(data_path)
+        dataset = FallenDataset(
+            df,
+            group_keys=[
+                pl.col("robot_identifier"),
+                pl.col("game_phase_identifier"),
+                pl.col("match_identifier"),
+            ],
+            features=features,
+        )
+
+        dataset.to_windowed(
+            window_size=config["window_size"],
+            window_stride=config["window_stride"],
+            label_shift=config["label_shift"],
+        )
+        train_windowed_filtered_dataframe = (
+            dataset.train_windowed_filtered_dataframe
+        )
+        test_windowed_filtered_dataframe = (
+            dataset.test_windowed_filtered_dataframe
+        )
+
+    input_datas = [
+        get_input_tensor_up_to_shift(
+            train_windowed_filtered_dataframe,
+            features,
+            samples_per_window,
+            label_shift=shift,
+        )
+        for shift in range(1, config["label_shift"] - 1)
+    ]
+    data_labelss = [
+        get_labels_tensor_up_to_shift(
+            train_windowed_filtered_dataframe,
+            shift,
+        )
+        for shift in range(1, config["label_shift"] - 1)
+    ]
+
+    label_shifts = []
+    metrics = []
+    for label_shift, (train_input_data, data_labels) in enumerate(
+        zip(input_datas, data_labelss)
+    ):
+        if label_shift < 2:
+            continue
+        config["label_shift"] = label_shift
+        with wandb.init(
+            project="tinyml-fall-state-prediction",
+            config=config,
+        ) as run:
+            balanced_test_dataframe = do_class_balancing(
+                test_windowed_filtered_dataframe, run.config["label_shift"]
             )
-        case ModelType.Sequential:
-            print("Training sequential model")
-            model = build_sequential_model(
-                num_features=input_data.shape[2],
-                input_length=input_data.shape[1],
-                num_classes=dataset.n_classes(),
+
+            balanced_test_input_data = balanced_test_dataframe.select(
+                generate_selector_up_to_index(features, samples_per_window)
             )
 
-    (x_train, y_train, x_test, y_test) = split_data(input_data, data_labels)
+            test_input_data = get_input_tensor(
+                input_data=balanced_test_input_data,
+                samples_per_window=samples_per_window,
+                features=features,
+            )
 
-    y_train = keras.utils.to_categorical(y_train, dataset.n_classes())
-    y_test = keras.utils.to_categorical(y_test, dataset.n_classes())
+            balanced_test_labels = balanced_test_dataframe.select(
+                cs.starts_with("labels")
+                & cs.ends_with("_" + str(run.config["label_shift"]))
+            )
 
-    print(f"Input shape: {x_train.shape}")
-    print(f"Label shape: {y_train.shape}")
+            test_labels = get_labels_tensor(balanced_test_labels)
+            match model_type:
+                case ModelType.Linear:
+                    print("Training linear model")
+                    model = build_linear_model(
+                        num_features=train_input_data.shape[2],
+                        input_length=train_input_data.shape[1],
+                        num_classes=number_of_classes,
+                        run=run,
+                    )
+                case ModelType.Sequential:
+                    print("Training sequential model")
+                    model = build_sequential_model(
+                        num_features=train_input_data.shape[2],
+                        input_length=train_input_data.shape[1],
+                        num_classes=number_of_classes,
+                        run=run,
+                    )
 
-    train_model(model, x_train, y_train, max_epochs=300)
+            categorical_train_labels = keras.utils.to_categorical(
+                data_labels, number_of_classes
+            )
+            categorical_test_labels = keras.utils.to_categorical(
+                test_labels, number_of_classes
+            )
 
-    evaluate_model(model, x_test, y_test)
+            print(f"Input shape: {train_input_data.shape}")
+            print(f"Label shape: {categorical_train_labels.shape}")
+
+            train_model(
+                model,
+                train_input_data,
+                categorical_train_labels,
+                max_epochs=300,
+            )
+
+            print(f"Test input shape: {test_input_data.shape}")
+            print(f"Label shape: {categorical_test_labels.shape}")
+
+            metric = evaluate_model(
+                model, test_input_data, categorical_test_labels
+            )
+            label_shifts.append(label_shift)
+            metrics.append(metric)
+
+    pio.renderers.default = "browser"
+    unzipped_metrics = list(zip(*metrics))
+    test_losses = unzipped_metrics[0]
+    test_accuracies = unzipped_metrics[1]
+    fig1 = px.scatter(
+        x=label_shifts,
+        y=test_losses,
+        labels={"x": "label shift", "y": "test loss"},
+    )
+    fig2 = px.scatter(
+        x=label_shifts,
+        y=test_accuracies,
+        labels={"x": "label shift", "y": "test accuracy"},
+    )
+
+    pt.offline.plot(fig1, filename="./test_loss.html")
+    pt.offline.plot(fig2, filename="./test_accuracies.html")
+
+    fig1.show()
+    fig2.show()
 
     converter = tf.lite.TFLiteConverter.from_keras_model(model)
     converter._experimental_lower_tensor_list_ops = False
@@ -312,23 +434,24 @@ def train(model_type: ModelType, data_path: str) -> None:
     type=click.Choice(ModelType, case_sensitive=False),
 )
 @click.option("--data-path", default="data.parquet")
-def main(model_type: ModelType, data_path: str) -> None:
+@click.option("--use-cache", is_flag=True, default=False)
+def main(model_type: ModelType, data_path: str, use_cache: bool) -> None:
     config = {
         "model_type": model_type,
-        "window_size": 0.7,
-        "window_stride": 10 / 83,
-        "label_shift": 30,
+        "window_size": 50 / 83,
+        "window_stride": 1 / 83,
+        "label_shift": 20,
         "number_of_filters": [32],
-        "kernel_widths": [32],
+        "kernel_widths": [30],
         "dense_layer_sizes": [32, 16],
         "lstm_sizes": [64, 32],
     }
-    with wandb.init(project="tinyml-fall-state-prediction", config=config):
-        code = wandb.Artifact(name="code", type="code")
-        code.add_dir("./scripts")
-        code.save()
+    assert config["window_size"] * 83 > config["kernel_widths"][0]
+    code = wandb.Artifact(name="code", type="code")
+    code.add_dir("./scripts")
+    code.save()
 
-        train(model_type, data_path)
+    train(model_type, data_path, use_cache, config, number_of_classes=2)
 
 
 if __name__ == "__main__":
