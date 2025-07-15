@@ -68,6 +68,7 @@ impl<'cycle> Defend<'cycle> {
             self.look_action.execute(),
             path_obstacles_output,
             walk_speed,
+            // TODO(rmburg): maybe change this instead of having a large distance_to_be_aligned?
             OrientationMode::AlignWithPath,
             distance_to_be_aligned,
             hysteresis,
