@@ -48,7 +48,25 @@ impl StepState {
     }
 
     pub fn tick(&mut self, context: &Context) {
-        self.time_since_start += context.cycle_time.last_cycle_duration;
+        let parameters = &context.parameters.dynamic_interpolation_speed;
+        let default_torso_rotation = context.robot_to_walk.rotation();
+        let current_orientation = context.robot_orientation;
+
+        let leveling_error = current_orientation.inner * default_torso_rotation.inner.inverse();
+        let (_, pitch_angle, _) = leveling_error.euler_angles();
+
+        let walk_speed_adjustment = if pitch_angle < parameters.active_range.end {
+            1.0 - parameters.max_reduction
+                * ((pitch_angle - parameters.active_range.end) / parameters.active_range.start)
+                    .clamp(0.0, 1.0)
+        } else {
+            1.0
+        };
+
+        self.time_since_start += context
+            .cycle_time
+            .last_cycle_duration
+            .mul_f32(walk_speed_adjustment);
         self.gyro_balancing.tick(context);
         self.foot_leveling
             .tick(context, self.normalized_time_since_start());

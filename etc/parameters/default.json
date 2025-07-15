@@ -389,6 +389,10 @@
         "ankle_roll": 0.05
       }
     },
+    "dynamic_interpolation_speed": {
+      "active_range": [-0.1745, -0.0873],
+      "max_reduction": 0.7
+    },
     "foot_leveling": {
       "leaning_backwards_factor": 1.0,
       "leaning_forward_factor": 1.0,
