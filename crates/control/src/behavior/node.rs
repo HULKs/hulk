@@ -475,7 +475,7 @@ impl Behavior {
                             .parameters
                             .walk_and_stand
                             .normal_distance_to_be_aligned,
-                        Some(context.parameters.role_positions.striker_supporter_maximum_x_in_ready_and_when_ball_is_not_free_first_checkpoint)
+                        Some(context.parameters.role_positions.striker_supporter_maximum_x_in_ready_and_when_ball_is_not_free_intermediate_checkpoint)
                     ),
                     Action::WalkToKickOff => walk_to_kick_off::execute(
                         world_state,

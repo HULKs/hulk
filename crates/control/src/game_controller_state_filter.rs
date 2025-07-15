@@ -32,6 +32,8 @@ pub struct GameControllerStateFilter {
     last_observed_ball: Option<(SystemTime, BallState)>,
     last_time_hulk_was_penalized: Option<SystemTime>,
     last_time_opponent_was_penalized: Option<SystemTime>,
+    last_cycle_own_game_state: Option<FilteredGameState>,
+    previous_own_game_state: Option<FilteredGameState>,
 }
 
 #[context]
@@ -71,6 +73,8 @@ impl GameControllerStateFilter {
             last_observed_ball: Default::default(),
             last_time_hulk_was_penalized: Default::default(),
             last_time_opponent_was_penalized: Default::default(),
+            last_cycle_own_game_state: None,
+            previous_own_game_state: None,
         })
     }
 
@@ -117,6 +121,7 @@ impl GameControllerStateFilter {
 
         let filtered_game_controller_state = FilteredGameControllerState {
             game_state: game_states.own,
+            previous_own_game_state: self.previous_own_game_state,
             opponent_game_state: game_states.opponent,
             remaining_time_in_half: context.game_controller_state.remaining_time_in_half,
             game_phase: context.game_controller_state.game_phase,
@@ -136,6 +141,11 @@ impl GameControllerStateFilter {
             .fill_if_subscribed(|| self.whistle_in_set_ball_position);
 
         self.last_game_controller_state = Some(context.game_controller_state.clone());
+        if self.last_cycle_own_game_state != Some(game_states.own) {
+            self.previous_own_game_state = self.last_cycle_own_game_state;
+        }
+        self.last_cycle_own_game_state = Some(game_states.own);
+
         Ok(MainOutputs {
             filtered_game_controller_state: Some(filtered_game_controller_state).into(),
         })

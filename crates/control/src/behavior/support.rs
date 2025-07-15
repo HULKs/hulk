@@ -95,23 +95,25 @@ fn support_pose(
         .as_ref()
         .map(|filtered_game_controller_state| filtered_game_controller_state.sub_state);
 
-    if let Some(striker_supporter_maximum_x_path_checkpoint) =
+    if let Some(striker_supporter_maximum_x_intermediate_path_checkpoint) =
         striker_supporter_maximum_x_path_checkpoint
     {
-        let is_opponent_kickoff = if let Some(filtered_game_controller_state) =
+        let is_opponent_kick_off_after_initial = if let Some(filtered_game_controller_state) =
             &world_state.filtered_game_controller_state
         {
             filtered_game_controller_state.kicking_team == Some(Team::Opponent)
+                && filtered_game_controller_state.previous_own_game_state
+                    == Some(FilteredGameState::Initial)
         } else {
             false
         };
 
-        if is_opponent_kickoff {
+        if is_opponent_kick_off_after_initial {
             let robot_position = ground_to_field.as_pose().position();
 
             if robot_position.y().abs() > supporting_position.y().abs() + 0.1 {
                 maximum_x_in_ready_and_when_ball_is_not_free =
-                    striker_supporter_maximum_x_path_checkpoint
+                    striker_supporter_maximum_x_intermediate_path_checkpoint
             }
         }
     };
