@@ -1,6 +1,6 @@
 use super::{walking::Walking, Mode, WalkTransition};
 use coordinate_systems::Walk;
-use geometry::is_inside_polygon::is_inside_convex_hull;
+use geometry::polygon::is_inside_convex_hull;
 use linear_algebra::{vector, Orientation2, Point2, Pose2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};

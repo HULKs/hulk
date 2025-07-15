@@ -1,7 +1,11 @@
 use linear_algebra::{distance, Point2};
 use nalgebra::Matrix2;
 
-use crate::{circle::Circle, line_segment::LineSegment};
+use crate::{
+    circle::Circle,
+    convex_hull::{reduce_to_convex_hull, Range},
+    line_segment::LineSegment,
+};
 
 pub fn is_inside_polygon<Frame>(points: &[Point2<Frame>], target_point: &Point2<Frame>) -> bool {
     if points.is_empty() {
@@ -26,6 +30,14 @@ pub fn is_inside_polygon<Frame>(points: &[Point2<Frame>], target_point: &Point2<
     }
 
     crossings != 0
+}
+
+pub fn is_inside_convex_hull<Frame>(
+    points: &[Point2<Frame>],
+    target_point: &Point2<Frame>,
+) -> bool {
+    let convex_hull = reduce_to_convex_hull(points, Range::Full);
+    is_inside_polygon(&convex_hull, target_point)
 }
 
 pub fn circle_overlaps_polygon<Frame>(points: &[Point2<Frame>], circle: Circle<Frame>) -> bool {

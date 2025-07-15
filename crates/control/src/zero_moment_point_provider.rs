@@ -1,19 +1,14 @@
 use color_eyre::Result;
+use serde::{Deserialize, Serialize};
+
 use context_attribute::context;
 use coordinate_systems::{Ground, LeftSole, Robot};
 use filtering::low_pass_filter::LowPassFilter;
 use framework::{AdditionalOutput, MainOutput};
-use geometry::{
-    convex_hull::{reduce_to_convex_hull, Range},
-    polygon::is_inside_polygon,
-};
-use linear_algebra::{Isometry3, Point2, Point3, Vector3};
-use serde::{Deserialize, Serialize};
-use types::{
-    robot_dimensions::{transform_left_sole_outline, transform_right_sole_outline},
-    robot_kinematics::RobotKinematics,
-    sensor_data::SensorData,
-};
+use geometry::convex_hull::{reduce_to_convex_hull, Range};
+use geometry::polygon::is_inside_convex_hull;
+use linear_algebra::{point, Isometry3, Point2, Point3, Vector3};
+use types::{robot_kinematics::RobotKinematics, sensor_data::SensorData};
 
 #[derive(Deserialize, Serialize)]
 pub struct ZeroMomentPointProvider {
