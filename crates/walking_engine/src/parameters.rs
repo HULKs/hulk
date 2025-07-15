@@ -43,8 +43,7 @@ pub struct Parameters {
 )]
 pub struct AnatomicConstraintsParameters {
     pub valid_x: Range<f32>,
-    pub left_valid_y: f32,
-    pub right_valid_y: f32,
+    pub valid_y: Range<f32>,
 }
 
 #[derive(

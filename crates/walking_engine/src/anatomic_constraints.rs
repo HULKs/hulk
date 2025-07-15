@@ -64,8 +64,8 @@ pub fn clamp_feet_to_anatomic_constraints(
     };
     let left_base_offset = parameters.base.foot_offset_left;
     let right_base_offset = parameters.base.foot_offset_right;
-    let left_valid_y_range = left_base_offset.y()..constraints.left_valid_y;
-    let right_valid_y_range = constraints.right_valid_y..right_base_offset.y();
+    let left_valid_y_range = left_base_offset.y()..constraints.valid_y.end;
+    let right_valid_y_range = constraints.valid_y.start..right_base_offset.y();
 
     let clamped_left = Pose2::from_parts(
         point![
