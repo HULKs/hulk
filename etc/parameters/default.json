@@ -356,14 +356,14 @@
         "turn": 0.02
       },
       "step_midpoint": 0.5,
-      "torso_offset": -0.005,
-      "torso_tilt_base": 0.01,
+      "torso_offset": 0.0,
+      "torso_tilt_base": 0.025,
       "torso_tilt": {
-        "forward": 0.0,
+        "forward": 0.005,
         "left": 0.0,
         "turn": 0.05
       },
-      "walk_height": 0.225
+      "walk_height": 0.23
     },
     "catching_steps": {
       "enabled": true,
