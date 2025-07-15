@@ -10,7 +10,7 @@ use coordinate_systems::{Ground, Pixel};
 use framework::MainOutput;
 use linear_algebra::{point, vector, Framed, Point2, Vector2};
 use types::{
-    color::{Intensity, RgChromaticity, Rgb, YCbCr444},
+    color::{Intensity, Rgb, YCbCr444},
     image_segments::{Direction, EdgeType, ImageSegments, ScanGrid, ScanLine, Segment},
     limb::project_onto_limbs,
     limb::{Limb, ProjectedLimbs},
@@ -507,8 +507,8 @@ fn pixel_to_edge_detection_value(
         EdgeDetectionSourceParameters::Luminance => pixel.y,
         EdgeDetectionSourceParameters::GreenChromaticity => {
             let rgb = Rgb::from(pixel);
-            let chromaticity = RgChromaticity::from(rgb);
-            (chromaticity.green * 255.0) as u8
+            let green_chromaticity = rgb.green_chromaticity();
+            (green_chromaticity * 255.0) as u8
         }
     }
 }
@@ -521,7 +521,7 @@ fn detect_field_color_in_segment(
 ) -> Segment {
     let color = segment.color;
     let rgb = Rgb::from(color);
-    let rg_chromaticity = RgChromaticity::from(rgb);
+    let g_chromaticity = rgb.green_chromaticity();
     let center: Point2<Pixel, u32> = match direction {
         Direction::Horizontal => point![segment.center() as u32, position],
         Direction::Vertical => point![position, segment.center() as u32],
@@ -540,11 +540,11 @@ fn detect_field_color_in_segment(
     );
 
     let features = Features {
-        center: rg_chromaticity.green,
-        right: RgChromaticity::from(Rgb::from(right)).green,
-        top: RgChromaticity::from(Rgb::from(top)).green,
-        left: RgChromaticity::from(Rgb::from(left)).green,
-        bottom: RgChromaticity::from(Rgb::from(bottom)).green,
+        center: g_chromaticity,
+        right: Rgb::from(right).green_chromaticity(),
+        top: Rgb::from(top).green_chromaticity(),
+        left: Rgb::from(left).green_chromaticity(),
+        bottom: Rgb::from(bottom).green_chromaticity(),
     };
 
     let probability = field_color_tree::predict(&features);

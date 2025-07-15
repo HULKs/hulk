@@ -367,7 +367,7 @@ impl Axis {
             Axis::GreenChromaticity => chromaticity.green,
             Axis::BlueChromaticity => 1.0 - chromaticity.red - chromaticity.green,
             Axis::GreenLuminance => color.green as f32,
-            Axis::Luminance => color.get_luminance() as f32,
+            Axis::Luminance => color.luminance() as f32,
             Axis::Hue => hsv.hue as f32,
             Axis::Saturation => hsv.saturation as f32,
         }
