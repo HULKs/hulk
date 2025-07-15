@@ -23,7 +23,7 @@ pub mod kick_steps;
 pub mod mode;
 pub mod parameters;
 mod step_plan;
-mod step_state;
+pub mod step_state;
 mod stiffness;
 
 /// # WalkingEngine
@@ -38,7 +38,7 @@ pub struct Context<'a> {
     pub cycle_time: &'a CycleTime,
     pub center_of_mass: &'a Point3<Robot>,
     pub zero_moment_point: &'a Point2<Ground>,
-    pub number_of_consecutive_cycles_zero_moment_point_outside_support_polygon: &'a i32,
+    pub consecutive_cycles_zero_moment_point_outside_support_polygon: &'a i32,
     pub force_sensitive_resistors: &'a ForceSensitiveResistors,
     pub robot_orientation: &'a Orientation3<Field>,
     pub robot_to_ground: Option<&'a Isometry3<Robot, Ground>>,
@@ -85,7 +85,7 @@ impl Engine {
         self.mode.tick(context);
     }
 
-    pub fn compute_commands(&self, context: &Context) -> MotorCommands<BodyJoints> {
+    pub fn compute_commands(&mut self, context: &Context) -> MotorCommands<BodyJoints> {
         self.mode
             .compute_commands(context)
             .override_with_arms(context)

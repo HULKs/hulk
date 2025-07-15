@@ -1,4 +1,9 @@
-use super::{catching::Catching, kicking::Kicking, stopping::Stopping, Mode, WalkTransition};
+use super::{
+    catching::{self, Catching},
+    kicking::Kicking,
+    stopping::Stopping,
+    Mode, WalkTransition,
+};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use types::{
@@ -66,6 +71,13 @@ impl Walking {
             requested_step,
         }
     }
+
+    pub fn new_with_step(step: StepState, requested_step: Step) -> Self {
+        Self {
+            step,
+            requested_step,
+        }
+    }
 }
 
 impl WalkTransition for Walking {
@@ -80,39 +92,49 @@ impl WalkTransition for Walking {
             ));
         }
 
+        if catching::should_catch(
+            context,
+            self.step.plan.end_feet,
+            self.step.plan.support_side,
+        ) {
+            return Mode::Catching(Catching::new(
+                context,
+                self.step,
+                self.step.plan.support_side,
+            ));
+        }
+
         Mode::Walking(self)
     }
 
     fn walk(self, context: &Context, requested_step: Step) -> Mode {
         let current_step = self.step;
 
-        if context.parameters.catching_steps.enabled {
-            if context.robot_to_ground.is_none() {
-                return Mode::Stopping(Stopping::new(context, current_step.plan.support_side));
-            }
-
-            if *context.number_of_consecutive_cycles_zero_moment_point_outside_support_polygon
-                > context
-                    .parameters
-                    .catching_steps
-                    .catching_step_zero_moment_point_frame_count_threshold
-            {
-                return Mode::Catching(Catching::new(context, current_step.plan.support_side));
-            };
-        }
-        if current_step.is_timeouted(context.parameters) {
+        if current_step.is_support_switched(context) {
             return Mode::Walking(Walking::new(
                 context,
-                Step::ZERO,
+                requested_step,
                 current_step.plan.support_side.opposite(),
                 self.requested_step,
             ));
         }
 
-        if current_step.is_support_switched(context) {
+        if catching::should_catch(
+            context,
+            self.step.plan.end_feet,
+            self.step.plan.support_side,
+        ) {
+            return Mode::Catching(Catching::new(
+                context,
+                self.step,
+                self.step.plan.support_side,
+            ));
+        }
+
+        if current_step.is_timeouted(context.parameters) {
             return Mode::Walking(Walking::new(
                 context,
-                requested_step,
+                Step::ZERO,
                 current_step.plan.support_side.opposite(),
                 self.requested_step,
             ));
@@ -129,15 +151,6 @@ impl WalkTransition for Walking {
         strength: f32,
     ) -> Mode {
         let current_step = self.step;
-
-        if current_step.is_timeouted(context.parameters) {
-            return Mode::Walking(Walking::new(
-                context,
-                Step::ZERO,
-                current_step.plan.support_side.opposite(),
-                self.requested_step,
-            ));
-        }
 
         if current_step.is_support_switched(context) {
             let next_support_side = current_step.plan.support_side.opposite();
@@ -158,13 +171,35 @@ impl WalkTransition for Walking {
             ));
         }
 
+        if catching::should_catch(
+            context,
+            self.step.plan.end_feet,
+            self.step.plan.support_side,
+        ) {
+            return Mode::Catching(Catching::new(
+                context,
+                self.step,
+                self.step.plan.support_side,
+            ));
+        }
+
+        if current_step.is_timeouted(context.parameters) {
+            return Mode::Walking(Walking::new(
+                context,
+                Step::ZERO,
+                current_step.plan.support_side.opposite(),
+                self.requested_step,
+            ));
+        }
+
         Mode::Walking(self)
     }
 }
 
 impl Walking {
-    pub fn compute_commands(&self, context: &Context) -> MotorCommands<BodyJoints> {
-        self.step.compute_joints(context).apply_stiffness(
+    pub fn compute_commands(&mut self, context: &Context) -> MotorCommands<BodyJoints> {
+        let feet = self.step.compute_feet(context);
+        self.step.compute_joints(context, feet).apply_stiffness(
             context.parameters.stiffnesses.leg_stiffness_walk,
             context.parameters.stiffnesses.arm_stiffness,
         )

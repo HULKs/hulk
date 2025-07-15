@@ -100,6 +100,10 @@ where
     pub fn y(&self) -> T {
         self.inner.y
     }
+
+    pub fn extend(&self, z: T) -> Point3<Frame, T> {
+        Point3::wrap(nalgebra::point![self.x(), self.y(), z,])
+    }
 }
 
 // 3 Dimension

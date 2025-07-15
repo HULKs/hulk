@@ -1,6 +1,7 @@
-use std::time::Duration;
+use std::{ops::Range, time::Duration};
 
 use coordinate_systems::Walk;
+use geometry::rectangle::Rectangle;
 use linear_algebra::Vector3;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
@@ -13,15 +14,18 @@ use types::{
     Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
 pub struct Parameters {
+    pub anatomic_constraints: AnatomicConstraintsParameters,
     pub base: Base,
     pub catching_steps: CatchingStepsParameters,
     pub gyro_balancing: GyroBalancingParameters,
     pub foot_leveling: FootLevelingParameters,
     pub forward_turn_reduction: f32,
     pub forward_turn_threshold: f32,
+    pub foot_support: Rectangle<Walk>,
     pub max_base_inside_turn: f32,
     pub max_forward_acceleration: f32,
     pub max_inside_turn_increase: f32,
+    pub max_foot_speed: f32,
     pub max_rotation_speed: f32,
     pub max_step_duration: Duration,
     pub max_support_foot_lift_speed: f32,
@@ -32,6 +36,14 @@ pub struct Parameters {
     pub stiffness_loss_compensation: StiffnessLossCompensation,
     pub stiffnesses: Stiffnesses,
     pub swinging_arms: SwingingArmsParameters,
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct AnatomicConstraintsParameters {
+    pub valid_x: Range<f32>,
+    pub valid_y: Range<f32>,
 }
 
 #[derive(
@@ -91,6 +103,8 @@ pub struct FootLevelingParameters {
     pub leaning_backwards_factor: f32,
     pub leaning_forward_factor: f32,
     pub max_level_delta: f32,
+    pub max_pitch: f32,
+    pub max_roll: f32,
     pub pitch_scale: f32,
     pub roll_factor: f32,
     pub roll_scale: f32,
@@ -110,12 +124,8 @@ pub struct FootLevelingParameters {
 )]
 pub struct CatchingStepsParameters {
     pub enabled: bool,
-    pub catching_step_zero_moment_point_frame_count_threshold: i32,
-    pub max_adjustment: f32,
-    pub midpoint: f32,
-    pub target_overestimation_factor: f32,
-    pub longitudinal_offset: f32,
-    pub additional_foot_lift: f32,
+    pub max_target_distance: f32,
+    pub over_estimation_factor: f32,
 }
 
 #[derive(

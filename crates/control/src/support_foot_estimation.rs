@@ -1,7 +1,7 @@
 use color_eyre::Result;
 use context_attribute::context;
 use filtering::hysteresis::greater_than_with_hysteresis;
-use framework::MainOutput;
+use framework::{AdditionalOutput, MainOutput};
 use serde::{Deserialize, Serialize};
 use types::{
     sensor_data::SensorData,
@@ -22,6 +22,9 @@ pub struct CycleContext {
 
     has_ground_contact: Input<bool, "has_ground_contact">,
     sensor_data: Input<SensorData, "sensor_data">,
+
+    left_sum: AdditionalOutput<f32, "force_sensitive_resistors_left_sum">,
+    right_sum: AdditionalOutput<f32, "force_sensitive_resistors_right_sum">,
 }
 
 #[context]
@@ -37,7 +40,7 @@ impl SupportFootEstimation {
         })
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         if !context.has_ground_contact {
             return Ok(MainOutputs {
                 support_foot: SupportFoot {
@@ -65,6 +68,10 @@ impl SupportFootEstimation {
         };
         let changed_this_cycle = support_side != self.last_support_side;
         self.last_support_side = support_side;
+
+        context.left_sum.fill_if_subscribed(|| left_sum);
+        context.right_sum.fill_if_subscribed(|| right_sum);
+
         Ok(MainOutputs {
             support_foot: SupportFoot {
                 support_side: Some(support_side),
