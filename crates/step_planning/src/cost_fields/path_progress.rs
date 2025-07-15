@@ -34,7 +34,6 @@ mod tests {
     use proptest::proptest;
 
     use linear_algebra::{point, vector};
-    use types::planned_path::Path;
 
     use crate::{
         cost_fields::path_progress::PathProgressField,
@@ -45,9 +44,7 @@ mod tests {
     #[test]
     fn test_path_progress() {
         let cost_field = PathProgressField { smoothness: 1.0 };
-        let path = Path {
-            segments: &test_path(),
-        };
+        let path = &test_path();
         let path_length = path.length();
 
         // Start
@@ -123,11 +120,9 @@ mod tests {
     proptest!(
         #[test]
         fn verify_gradient(x in -2.0f32..5.0, y in -2.0f32..5.0) {
+            let path = test_path();
             let cost_field = PathProgressField {
                 smoothness: 0.5,
-            };
-            let path = Path {
-                segments: &test_path(),
             };
 
             let point = point![x, y];

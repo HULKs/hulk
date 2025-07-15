@@ -15,7 +15,7 @@ use types::{
     walk_volume_extents::WalkVolumeExtents,
 };
 
-fn plan_steps(path: Path) {
+fn plan_steps(path: &Path) {
     const STEP_PLANNING_OPTIMIZATION_PARAMETERS: StepPlanningOptimizationParameters =
         StepPlanningOptimizationParameters {
             optimizer_steps: 20,
@@ -64,18 +64,18 @@ fn plan_steps(path: Path) {
 
 fn straight_line(c: &mut Criterion) {
     let path = Path {
-        segments: &[PathSegment::LineSegment(LineSegment(
+        segments: vec![PathSegment::LineSegment(LineSegment(
             Point2::origin(),
             point![3.0, 0.0],
         ))],
     };
 
-    c.bench_function("straight line", |b| b.iter(|| plan_steps(black_box(path))));
+    c.bench_function("straight line", |b| b.iter(|| plan_steps(black_box(&path))));
 }
 
 fn example_path(c: &mut Criterion) {
-    let path = Path {
-        segments: &[
+    let test_path = Path {
+        segments: vec![
             PathSegment::LineSegment(LineSegment(point![0.0, 0.0], point![3.0, 0.0])),
             PathSegment::Arc(Arc {
                 circle: Circle {
@@ -90,7 +90,9 @@ fn example_path(c: &mut Criterion) {
         ],
     };
 
-    c.bench_function("example path", |b| b.iter(|| plan_steps(black_box(path))));
+    c.bench_function("example path", |b| {
+        b.iter(|| plan_steps(black_box(&test_path)))
+    });
 }
 
 criterion_group! {

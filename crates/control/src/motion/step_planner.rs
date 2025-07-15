@@ -109,8 +109,6 @@ impl StepPlanner {
 
         let earlier = SystemTime::now();
 
-        let path = Path { segments: path };
-
         let highest_temperature = context
             .sensor_data
             .temperature_sensors
@@ -186,7 +184,7 @@ impl StepPlanner {
 
     fn plan_step(
         &mut self,
-        path: Path<'_>,
+        path: &Path,
         context: &mut CycleContext,
         orientation_mode: OrientationMode,
         target_orientation: Orientation2<Ground>,
@@ -285,7 +283,7 @@ fn clamp_step_size(
 }
 
 fn step_plan_greedy(
-    path: Path<'_>,
+    path: &Path,
     context: &mut CycleContext,
     orientation_mode: OrientationMode,
     _target_orientation: Orientation2<Ground>,

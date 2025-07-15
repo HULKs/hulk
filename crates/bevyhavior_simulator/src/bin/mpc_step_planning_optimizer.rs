@@ -13,7 +13,7 @@ use scenario::scenario;
 use spl_network_messages::{GameState, PlayerNumber};
 use types::{
     motion_command::{ArmMotion, HeadMotion, MotionCommand, OrientationMode, WalkSpeed},
-    planned_path::PathSegment,
+    planned_path::{Path, PathSegment},
 };
 
 #[scenario]
@@ -46,20 +46,21 @@ fn update(
         left_arm: ArmMotion::Swing,
         right_arm: ArmMotion::Swing,
         speed: WalkSpeed::Normal,
-        path: [
-            PathSegment::LineSegment(LineSegment(Point2::origin(), point![0.3, 0.0])),
-            PathSegment::Arc(Arc {
-                circle: Circle {
-                    center: point![0.3, 0.3],
-                    radius: 0.3,
-                },
-                start: Orientation2::new(3.0 * FRAC_PI_2),
-                end: Orientation2::new(0.0),
-                direction: Direction::Counterclockwise,
-            }),
-            PathSegment::LineSegment(LineSegment(point![0.6, 0.3], point![0.6, 0.8])),
-        ]
-        .to_vec(),
+        path: Path {
+            segments: vec![
+                PathSegment::LineSegment(LineSegment(Point2::origin(), point![0.3, 0.0])),
+                PathSegment::Arc(Arc {
+                    circle: Circle {
+                        center: point![0.3, 0.3],
+                        radius: 0.3,
+                    },
+                    start: Orientation2::new(3.0 * FRAC_PI_2),
+                    end: Orientation2::new(0.0),
+                    direction: Direction::Counterclockwise,
+                }),
+                PathSegment::LineSegment(LineSegment(point![0.6, 0.3], point![0.6, 0.8])),
+            ],
+        },
         orientation_mode: OrientationMode::Unspecified,
         target_orientation: Orientation2::identity(),
         distance_to_be_aligned: 0.1,

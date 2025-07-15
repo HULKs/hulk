@@ -14,7 +14,7 @@ pub fn check_robots_dont_walk_into_rule_obstacles(
         let MotionCommand::Walk { path, .. } = motion_command else {
             continue;
         };
-        let Some(PathSegment::LineSegment(segment)) = path.last() else {
+        let Some(PathSegment::LineSegment(segment)) = path.segments.last() else {
             continue;
         };
         let destination_in_field = robot.ground_to_field() * segment.1;

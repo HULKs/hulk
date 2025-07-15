@@ -139,7 +139,7 @@ fn open_gradient(
 
 #[expect(clippy::too_many_arguments)]
 pub fn plan_steps(
-    path: Path,
+    path: &Path,
     orientation_mode: OrientationMode,
     target_orientation: Orientation2<Ground>,
     distance_to_be_aligned: f32,

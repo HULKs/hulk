@@ -90,7 +90,7 @@ impl PathProgress for PathSegment {
     }
 }
 
-impl PathProgress for Path<'_> {
+impl PathProgress for Path {
     fn progress(&self, point: Point2<Ground>) -> f32 {
         let (progress_before_segment_start, segment, _) = self
             .segments

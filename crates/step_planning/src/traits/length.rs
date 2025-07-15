@@ -5,7 +5,7 @@ pub trait Length {
     fn length(&self) -> f32;
 }
 
-impl Length for Path<'_> {
+impl Length for Path {
     fn length(&self) -> f32 {
         self.segments.iter().map(PathSegment::length).sum()
     }
