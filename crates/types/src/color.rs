@@ -149,6 +149,14 @@ impl Rgb {
     pub fn get_luminance(&self) -> u8 {
         (0.299 * (self.red as f32) + 0.587 * (self.green as f32) + 0.114 * (self.blue as f32)) as u8
     }
+
+    pub fn invert(self) -> Self {
+        Self {
+            red: 255 - self.red,
+            green: 255 - self.green,
+            blue: 255 - self.blue,
+        }
+    }
 }
 
 impl From<YCbCr422> for Rgb {

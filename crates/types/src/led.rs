@@ -61,6 +61,54 @@ impl From<Rgb> for Eye {
     }
 }
 
+impl Eye {
+    pub fn percentage(rgb_positive: Rgb, rgb_negative: Rgb, fraction: f32) -> Self {
+        let thresholds = [
+            f32::EPSILON,
+            1. / 8.,
+            2. / 8.,
+            3. / 8.,
+            4. / 8.,
+            5. / 8.,
+            6. / 8.,
+            7. / 8.,
+        ];
+        let colors: Vec<Rgb> = thresholds
+            .iter()
+            .map(|&threshold| {
+                if fraction > threshold {
+                    rgb_positive
+                } else {
+                    rgb_negative
+                }
+            })
+            .collect();
+        Self {
+            color_at_0: colors[0],
+            color_at_45: colors[1],
+            color_at_90: colors[2],
+            color_at_135: colors[3],
+            color_at_180: colors[4],
+            color_at_225: colors[5],
+            color_at_270: colors[6],
+            color_at_315: colors[7],
+        }
+    }
+
+    pub fn invert(self) -> Self {
+        Self {
+            color_at_0: self.color_at_0.invert(),
+            color_at_45: self.color_at_45.invert(),
+            color_at_90: self.color_at_90.invert(),
+            color_at_135: self.color_at_135.invert(),
+            color_at_180: self.color_at_180.invert(),
+            color_at_225: self.color_at_225.invert(),
+            color_at_270: self.color_at_270.invert(),
+            color_at_315: self.color_at_315.invert(),
+        }
+    }
+}
+
 #[derive(
     Clone,
     Copy,
