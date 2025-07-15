@@ -1,7 +1,9 @@
 from collections.abc import Iterable
+from pathlib import Path
 
 import numpy as np
 import polars as pl
+import polars.selectors as cs
 import tensorflow as tf
 from polars._typing import IntoExpr
 
@@ -14,14 +16,14 @@ class FallenDataset:
     input_data: pl.DataFrame
     labels: pl.DataFrame
     groups: pl.DataFrame
-    features: Iterable[IntoExpr] | IntoExpr
+    features: Iterable[IntoExpr]
 
     def __init__(
         self,
         dataframe: pl.DataFrame,
         *,
-        group_keys: list[str],
-        features: Iterable[IntoExpr] | IntoExpr,
+        group_keys: list[pl.Expr],
+        features: Iterable[IntoExpr],
     ) -> None:
         self.dataframe = dataframe.drop_nulls()
 
@@ -70,43 +72,58 @@ class FallenDataset:
             ],
             how="horizontal",
         )
-        shifted_labels = self.dataframe.select(
-            pl.col("labels").shift(-label_shift).over("group")
-        )[::samples_between_windows]
+        shifted_labels = pl.concat(
+            [
+                self.dataframe.select(
+                    generate_shifts(
+                        pl.col("labels"), label_shift, "group", "labels"
+                    ),
+                )[::samples_between_windows]
+            ],
+            how="horizontal",
+        )
 
-        predecessors_of_shifted_labels = self.dataframe.select(
-            pl.col("labels")
-            .shift(-(label_shift - 1))
-            .over("group")
-            .alias("label_predecessor")
-        )[::samples_between_windows]
-
-        windowed_dataframe_with_predecessors = (
+        windowed_filtered_dataframe = (
             windowed_features.hstack(shifted_labels)
-            .hstack(predecessors_of_shifted_labels)
             .drop_nulls()
+            .sample(fraction=1, shuffle=True, seed=1)
         )
 
-        windowed_dataframe = windowed_dataframe_with_predecessors.filter(
-            pl.col("label_predecessor") == Label.Stable
-        ).drop("label_predecessor")
+        train_test_ratio = 0.8
+        number_of_windows = len(windowed_filtered_dataframe)
+        split_index = int(number_of_windows * train_test_ratio)
+        self.train_windowed_filtered_dataframe = windowed_filtered_dataframe[
+            :split_index:
+        ]
 
-        n_minority = (
-            windowed_dataframe.get_column("labels")
-            .value_counts()
-            .min()
-            .select(pl.col("count"))
-            .item()
-        )
-        balanced_df = windowed_dataframe.group_by(
-            "labels", maintain_order=True
-        ).map_groups(lambda group: group.sample(n=n_minority, seed=1))
-        shuffeled_balanced_df = balanced_df.sample(
-            fraction=1, shuffle=True, seed=1
+        self.test_windowed_filtered_dataframe = windowed_filtered_dataframe[
+            split_index + 1 :
+        ]
+
+        windowed_dataframe = filter_with_labels_predecessor(
+            self.train_windowed_filtered_dataframe, label_shift
         )
 
-        self.input_data = shuffeled_balanced_df.drop("labels")
-        self.labels = shuffeled_balanced_df.select(pl.col("labels"))
+        balanced_dataframe = do_class_balancing(
+            windowed_dataframe, label_shift - 1
+        )
+
+        self.input_data = balanced_dataframe.select(
+            generate_selector_up_to_index(self.features, label_shift)
+        )
+
+        self.labels = balanced_dataframe.select(
+            cs.starts_with("labels") & cs.ends_with("_" + str(label_shift))
+        )
+
+        cache_path = Path("./.cache")
+        cache_path.mkdir(exist_ok=True)
+        self.train_windowed_filtered_dataframe.write_parquet(
+            cache_path.joinpath("/train_windowed_filtered_dataframe.parquet")
+        )
+        self.test_windowed_filtered_dataframe.write_parquet(
+            cache_path.joinpath("/test_windowed_filtered_dataframe.parquet")
+        )
 
     def __len__(self) -> int:
         return self.groups.unique().numel()
@@ -121,30 +138,116 @@ class FallenDataset:
         mask = self.groups == index
         return self.input_data[mask], self.labels[mask]
 
-    def get_input_tensor(self) -> tf.Tensor:
-        num_windows = len(self.input_data)
-        window_length = self.samples_per_window
-        num_features = len(self.features)
-        return tf.convert_to_tensor(
-            np.stack([self.input_data.to_numpy()]).reshape(
-                (num_windows, window_length, num_features)
-            ),
-            dtype=tf.float32,
-        )
 
-    def get_labels_tensor(self) -> tf.Tensor:
-        return tf.convert_to_tensor(self.labels.to_numpy(), dtype=tf.float32)
+def get_input_tensor(
+    input_data: pl.DataFrame, samples_per_window: int, features: list[pl.Expr]
+) -> tf.Tensor:
+    num_windows = len(input_data)
+    window_length = samples_per_window
+    num_features = len(features)
+    return tf.convert_to_tensor(
+        np.stack([input_data.to_numpy()]).reshape(
+            (num_windows, window_length, num_features)
+        ),
+        dtype=tf.float32,
+    )
 
-    def get_windows_input_tensor(self) -> list[tf.Tensor]:
-        windowed_input_tensor = []
-        for input_window in self.input_data.iter():
-            windowed_input_tensor.append(
-                tf.convert_to_tensor(input_window.to_pandas())
-            )
-        return windowed_input_tensor
+
+def get_input_tensor_up_to_shift(
+    windowed_filtered_dataframe: pl.DataFrame,
+    features: list[pl.Expr],
+    samples_per_window: int,
+    label_shift: int,
+) -> tf.Tensor:
+    filtered_windowed_dataframe = filter_with_labels_predecessor(
+        windowed_filtered_dataframe, label_shift
+    )
+
+    shuffled_balanced_df = do_class_balancing(
+        filtered_windowed_dataframe, label_shift
+    )
+
+    input_data = shuffled_balanced_df.select(
+        generate_selector_up_to_index(features, samples_per_window)
+    )
+
+    num_windows = len(input_data)
+    window_length = samples_per_window
+    num_features = len(features)
+    return tf.convert_to_tensor(
+        np.stack([input_data.to_numpy()]).reshape(
+            (num_windows, window_length, num_features)
+        ),
+        dtype=tf.float32,
+    )
+
+
+def get_labels_tensor(labels: pl.DataFrame) -> tf.Tensor:
+    return tf.convert_to_tensor(labels.to_numpy(), dtype=tf.float32)
+
+
+def get_labels_tensor_up_to_shift(
+    windowed_filtered_dataframe: pl.DataFrame,
+    label_shift: int,
+) -> tf.Tensor:
+    filtered_windowed_dataframe = filter_with_labels_predecessor(
+        windowed_filtered_dataframe, label_shift
+    )
+
+    shuffled_balanced_df = do_class_balancing(
+        filtered_windowed_dataframe, label_shift
+    )
+
+    labels_at_shift_index = shuffled_balanced_df.select(
+        cs.starts_with("labels") & cs.ends_with("_" + str(label_shift))
+    )
+    return tf.convert_to_tensor(
+        labels_at_shift_index.to_numpy(), dtype=tf.float32
+    )
 
 
 def generate_lags(feature: pl.Expr, lags: int, group: str) -> list[pl.Expr]:
     return [
-        feature.shift(i).over(group).name.suffix(str(i)) for i in range(lags)
+        feature.shift(i).over(group).name.suffix("_" + str(i))
+        for i in range(lags)
+    ]
+
+
+def generate_shifts(
+    feature: pl.Expr, shifts: int, group: str, alias: str
+) -> list[pl.Expr]:
+    return [
+        feature.shift(-i).over(group).alias(alias + "_" + str(i))
+        for i in range(shifts)
+    ]
+
+
+def filter_with_labels_predecessor(
+    windowed_dataframe: pl.DataFrame, label_shift: int
+) -> pl.DataFrame:
+    return windowed_dataframe.filter(
+        pl.col("labels" + "_" + str(label_shift - 1)) == Label.Stable
+    )
+
+
+def do_class_balancing(
+    filtered_windowed_dataframe: pl.DataFrame, index: int
+) -> pl.DataFrame:
+    n_minority = (
+        filtered_windowed_dataframe.get_column("labels" + "_" + str(index))
+        .value_counts()
+        .min()
+        .select(pl.col("count"))
+        .item()
+    )
+    return filtered_windowed_dataframe.group_by(
+        "labels" + "_" + str(index), maintain_order=True
+    ).map_groups(lambda group: group.sample(n=n_minority, seed=1))
+
+
+def generate_selector_up_to_index(features: list[pl.Expr], index: int) -> list:
+    return [
+        cs.starts_with(feature.meta.output_name()) & cs.ends_with("_" + str(i))
+        for feature in features
+        for i in range(index)
     ]
