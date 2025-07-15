@@ -360,8 +360,10 @@ fn new_horizontal_scan_line(
         color: Default::default(),
         field_color: Intensity::Low,
     };
-    last_segment.color = average_color_in_segment(&last_segment, position, Direction::Horizontal, image);
-    last_segment.field_color = detect_field_color_in_segment(&last_segment, position, Direction::Horizontal, image);
+    last_segment.color =
+        average_color_in_segment(&last_segment, position, Direction::Horizontal, image);
+    last_segment.field_color =
+        detect_field_color_in_segment(&last_segment, position, Direction::Horizontal, image);
     segments.push(last_segment);
 
     ScanLine {
@@ -424,8 +426,10 @@ fn new_vertical_scan_line(
                 fix_previous_edge_type(&mut segments);
                 break;
             }
-            segment.color = average_color_in_segment(&segment, position, Direction::Vertical, image);
-            segment.field_color = detect_field_color_in_segment(&segment, position, Direction::Vertical, image);
+            segment.color =
+                average_color_in_segment(&segment, position, Direction::Vertical, image);
+            segment.field_color =
+                detect_field_color_in_segment(&segment, position, Direction::Vertical, image);
             segments.push(segment);
         }
     }
@@ -439,8 +443,10 @@ fn new_vertical_scan_line(
         field_color: Intensity::Low,
     };
     if !segment_is_below_limbs(position as u16, &last_segment, projected_limbs) {
-        last_segment.color = average_color_in_segment(&last_segment, position, Direction::Vertical, image);
-        last_segment.field_color = detect_field_color_in_segment(&last_segment, position, Direction::Vertical, image);
+        last_segment.color =
+            average_color_in_segment(&last_segment, position, Direction::Vertical, image);
+        last_segment.field_color =
+            detect_field_color_in_segment(&last_segment, position, Direction::Vertical, image);
         segments.push(last_segment);
     }
 
