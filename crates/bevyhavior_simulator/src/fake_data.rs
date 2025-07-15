@@ -73,7 +73,7 @@ pub struct MainOutputs {
     pub robot_orientation: MainOutput<Option<Orientation3<Field>>>,
     pub obstacle_avoiding_arms: MainOutput<ArmCommands>,
     pub zero_moment_point: MainOutput<Point2<Ground>>,
-    pub number_of_consecutive_cycles_zero_moment_point_outside_support_polygon: MainOutput<i32>,
+    pub consecutive_cycles_zero_moment_point_outside_support_polygon: MainOutput<i32>,
     pub support_foot: MainOutput<SupportFoot>,
 }
 
@@ -119,8 +119,8 @@ impl FakeData {
             robot_orientation: last_database.robot_orientation.into(),
             obstacle_avoiding_arms: last_database.obstacle_avoiding_arms.into(),
             zero_moment_point: last_database.zero_moment_point.into(),
-            number_of_consecutive_cycles_zero_moment_point_outside_support_polygon: last_database
-                .number_of_consecutive_cycles_zero_moment_point_outside_support_polygon
+            consecutive_cycles_zero_moment_point_outside_support_polygon: last_database
+                .consecutive_cycles_zero_moment_point_outside_support_polygon
                 .into(),
             support_foot: last_database.support_foot.into(),
         })
