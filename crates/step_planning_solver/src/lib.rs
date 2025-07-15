@@ -11,9 +11,9 @@ use coordinate_systems::Ground;
 use linear_algebra::Orientation2;
 use step_planning::{
     geometry::pose::Pose,
-    step_plan::{StepPlan, StepPlanning},
+    step_plan::StepPlan,
     traits::{ScaledGradient, UnwrapDual, WrapDual},
-    VARIABLES_PER_STEP,
+    StepPlanning, VARIABLES_PER_STEP,
 };
 use types::{
     motion_command::OrientationMode, parameters::StepPlanningOptimizationParameters,
