@@ -119,7 +119,7 @@
     "vision_top": {
       "horizontal_edge_threshold": 15,
       "horizontal_median_mode": "FivePixels",
-      "horizontal_stride": 4,
+      "horizontal_stride": 8,
       "vertical_edge_threshold": 15,
       "vertical_median_mode": "FivePixels",
       "vertical_stride": 2,
@@ -128,7 +128,7 @@
     "vision_bottom": {
       "horizontal_edge_threshold": 32,
       "horizontal_median_mode": "FivePixels",
-      "horizontal_stride": 4,
+      "horizontal_stride": 16,
       "vertical_edge_threshold": 32,
       "vertical_median_mode": "FivePixels",
       "vertical_stride": 8,
