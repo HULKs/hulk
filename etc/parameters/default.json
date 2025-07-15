@@ -367,6 +367,8 @@
     },
     "catching_steps": {
       "enabled": true,
+      "zero_moment_point_x_scale_backward": 0.7,
+      "zero_moment_point_x_scale_forward": 1.0,
       "max_target_distance": 0.15,
       "over_estimation_factor": 0.6
     },

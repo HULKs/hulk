@@ -1,7 +1,7 @@
 use super::{walking::Walking, Mode, WalkTransition};
 use coordinate_systems::Walk;
 use geometry::is_inside_polygon::is_inside_convex_hull;
-use linear_algebra::{Orientation2, Point2, Pose2};
+use linear_algebra::{vector, Orientation2, Point2, Pose2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use types::{
@@ -230,7 +230,8 @@ impl Catching {
 }
 
 pub fn should_catch(context: &Context, end_feet: Feet, support_side: Side) -> bool {
-    if !context.parameters.catching_steps.enabled {
+    let catching_steps = &context.parameters.catching_steps;
+    if !catching_steps.enabled {
         return false;
     }
     let Some(robot_to_ground) = context.robot_to_ground else {
@@ -243,7 +244,19 @@ pub fn should_catch(context: &Context, end_feet: Feet, support_side: Side) -> bo
     let current_feet =
         Feet::from_joints(robot_to_walk, &context.last_actuated_joints, support_side);
 
-    let target = (robot_to_walk * ground_to_robot * context.zero_moment_point.extend(0.0)).xy();
+    let zmp = context.zero_moment_point;
+    let zmp_scaling_x = if zmp.coords().x() < 0.0 {
+        catching_steps.zero_moment_point_x_scale_backward
+    } else {
+        catching_steps.zero_moment_point_x_scale_forward
+    };
+
+    let tuned_zmp = zmp
+        .coords()
+        .component_mul(&vector![zmp_scaling_x, 1.0])
+        .as_point();
+
+    let target = (robot_to_walk * ground_to_robot * tuned_zmp.extend(0.0)).xy();
 
     is_outside_support_polygon(end_feet, support_side, target, current_feet)
 }
