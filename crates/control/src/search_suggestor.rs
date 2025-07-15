@@ -45,6 +45,7 @@ pub struct CycleContext {
     hypothetical_ball_positions:
         Input<Vec<HypotheticalBallPosition<Ground>>, "hypothetical_ball_positions">,
     ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
+    sensor_data: Input<SensorData, "sensor_data">,
     primary_state: Input<PrimaryState, "primary_state">,
     filtered_game_controller_state:
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
@@ -126,6 +127,16 @@ impl SearchSuggestor {
                 message,
                 context.search_suggestor_configuration.team_ball_weight,
             );
+        }
+
+        if context.ball_position.is_none() {
+            if let Sone(ground_to_field) = context.ground_to_field {
+                if let Some(sensor_data) = context.sensor_data {
+                    position_in_field = ground_to_field;
+                    head_orientation =
+                        ground_to_field.rotation.angle() + sensor_data.positions.head_yaw;
+                }
+            }
         }
 
         let kernel = create_kernel(
