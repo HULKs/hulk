@@ -1,5 +1,32 @@
 {
   "odometry": {
     "odometry_scale_factor": [1.0, 1.0]
+  },
+  "walking_engine": {
+    "base": {
+      "foot_lift_apex": 0.008,
+      "foot_lift_apex_increase": {
+        "forward": 0.003,
+        "left": 0.003,
+        "turn": 0.005
+      },
+      "foot_offset_left": [0.0, 0.052, 0.0],
+      "foot_offset_right": [0.0, -0.052, 0.0],
+      "step_duration": { "nanos": 235000000, "secs": 0 },
+      "step_duration_increase": {
+        "forward": 0.005,
+        "left": 0.002,
+        "turn": 0.02
+      },
+      "step_midpoint": 0.5,
+      "torso_offset": -0.005,
+      "torso_tilt_base": 0.01,
+      "torso_tilt": {
+        "forward": 0.0,
+        "left": 0.0,
+        "turn": 0.05
+      },
+      "walk_height": 0.225
+    }
   }
 }
