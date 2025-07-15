@@ -117,22 +117,18 @@
   },
   "image_segmenter": {
     "vision_top": {
-      "horizontal_edge_detection_source": "Luminance",
       "horizontal_edge_threshold": 15,
       "horizontal_median_mode": "FivePixels",
       "horizontal_stride": 4,
-      "vertical_edge_detection_source": "Luminance",
       "vertical_edge_threshold": 15,
       "vertical_median_mode": "FivePixels",
       "vertical_stride": 2,
       "vertical_stride_in_ground": 0.02
     },
     "vision_bottom": {
-      "horizontal_edge_detection_source": "Luminance",
       "horizontal_edge_threshold": 32,
       "horizontal_median_mode": "FivePixels",
       "horizontal_stride": 4,
-      "vertical_edge_detection_source": "Luminance",
       "vertical_edge_threshold": 32,
       "vertical_median_mode": "FivePixels",
       "vertical_stride": 8,

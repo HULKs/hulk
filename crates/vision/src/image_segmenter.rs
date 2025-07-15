@@ -14,7 +14,7 @@ use types::{
     image_segments::{Direction, EdgeType, ImageSegments, ScanGrid, ScanLine, Segment},
     limb::project_onto_limbs,
     limb::{Limb, ProjectedLimbs},
-    parameters::{EdgeDetectionSourceParameters, MedianModeParameters},
+    parameters::MedianModeParameters,
     ycbcr422_image::YCbCr422Image,
 };
 
@@ -38,20 +38,12 @@ pub struct CycleContext {
         Framed<Ground, f32>,
         "image_segmenter.$cycler_instance.vertical_stride_in_ground",
     >,
-    horizontal_edge_detection_source: Parameter<
-        EdgeDetectionSourceParameters,
-        "image_segmenter.$cycler_instance.horizontal_edge_detection_source",
-    >,
     horizontal_edge_threshold:
         Parameter<u8, "image_segmenter.$cycler_instance.horizontal_edge_threshold">,
     horizontal_median_mode:
         Parameter<MedianModeParameters, "image_segmenter.$cycler_instance.horizontal_median_mode">,
 
     vertical_stride: Parameter<usize, "image_segmenter.$cycler_instance.vertical_stride">,
-    vertical_edge_detection_source: Parameter<
-        EdgeDetectionSourceParameters,
-        "image_segmenter.$cycler_instance.vertical_edge_detection_source",
-    >,
     vertical_edge_threshold:
         Parameter<u8, "image_segmenter.$cycler_instance.vertical_edge_threshold">,
     vertical_median_mode:
@@ -88,10 +80,8 @@ impl ImageSegmenter {
             *context.horizontal_stride,
             *context.horizontal_edge_threshold as i16,
             *context.horizontal_median_mode,
-            *context.horizontal_edge_detection_source,
             *context.vertical_stride,
             *context.vertical_stride_in_ground,
-            *context.vertical_edge_detection_source,
             *context.vertical_edge_threshold as i16,
             *context.vertical_median_mode,
             projected_limbs,
@@ -132,10 +122,8 @@ fn new_grid(
     horizontal_stride: usize,
     horizontal_edge_threshold: i16,
     horizontal_median_mode: MedianModeParameters,
-    horizontal_edge_detection_source: EdgeDetectionSourceParameters,
     vertical_stride: usize,
     vertical_stride_in_ground: Framed<Ground, f32>,
-    vertical_edge_detection_source: EdgeDetectionSourceParameters,
     vertical_edge_threshold: i16,
     vertical_median_mode: MedianModeParameters,
     projected_limbs: &[Limb],
@@ -146,45 +134,79 @@ fn new_grid(
     let horizon_y_maximum = (horizon.horizon_y_maximum() as u32).clamp(0, image.height());
     let limbs_y_minimum = find_minimum_y_on_limbs(image, projected_limbs);
 
-    let horizontal_scan_lines = collect_horizontal_scan_lines(
-        image,
-        camera_matrix,
-        horizontal_stride,
-        horizontal_edge_threshold,
-        horizontal_median_mode,
-        horizontal_edge_detection_source,
-        vertical_stride_in_ground,
-        horizontal_padding_size,
-        horizon_y_maximum,
-        limbs_y_minimum,
-    );
-    let vertical_scan_lines = collect_vertical_scan_lines(
-        image,
-        horizon,
-        horizontal_stride,
-        vertical_stride,
-        vertical_edge_detection_source,
-        vertical_edge_threshold,
-        vertical_median_mode,
-        projected_limbs,
-        vertical_padding_size,
-    );
-
+    let horizontal_scan_lines = match horizontal_median_mode {
+        MedianModeParameters::Disabled => collect_horizontal_scan_lines::<MedianMode<0>>(
+            image,
+            camera_matrix,
+            horizontal_stride,
+            horizontal_edge_threshold,
+            vertical_stride_in_ground,
+            horizontal_padding_size,
+            horizon_y_maximum,
+            limbs_y_minimum,
+        ),
+        MedianModeParameters::ThreePixels => collect_horizontal_scan_lines::<MedianMode<3>>(
+            image,
+            camera_matrix,
+            horizontal_stride,
+            horizontal_edge_threshold,
+            vertical_stride_in_ground,
+            horizontal_padding_size,
+            horizon_y_maximum,
+            limbs_y_minimum,
+        ),
+        MedianModeParameters::FivePixels => collect_horizontal_scan_lines::<MedianMode<5>>(
+            image,
+            camera_matrix,
+            horizontal_stride,
+            horizontal_edge_threshold,
+            vertical_stride_in_ground,
+            horizontal_padding_size,
+            horizon_y_maximum,
+            limbs_y_minimum,
+        ),
+    };
+    let vertical_scan_lines = match vertical_median_mode {
+        MedianModeParameters::Disabled => collect_vertical_scan_lines::<MedianMode<0>>(
+            image,
+            horizon,
+            horizontal_stride,
+            vertical_stride,
+            vertical_edge_threshold,
+            projected_limbs,
+            vertical_padding_size,
+        ),
+        MedianModeParameters::ThreePixels => collect_vertical_scan_lines::<MedianMode<3>>(
+            image,
+            horizon,
+            horizontal_stride,
+            vertical_stride,
+            vertical_edge_threshold,
+            projected_limbs,
+            vertical_padding_size,
+        ),
+        MedianModeParameters::FivePixels => collect_vertical_scan_lines::<MedianMode<5>>(
+            image,
+            horizon,
+            horizontal_stride,
+            vertical_stride,
+            vertical_edge_threshold,
+            projected_limbs,
+            vertical_padding_size,
+        ),
+    };
     ScanGrid {
         horizontal_scan_lines,
         vertical_scan_lines,
     }
 }
 
-#[allow(clippy::too_many_arguments)]
-fn collect_vertical_scan_lines(
+fn collect_vertical_scan_lines<MedianMode: MedianSampling>(
     image: &YCbCr422Image,
     horizon: &Horizon,
     horizontal_stride: usize,
     vertical_stride: usize,
-    vertical_edge_detection_source: EdgeDetectionSourceParameters,
     vertical_edge_threshold: i16,
-    vertical_median_mode: MedianModeParameters,
     projected_limbs: &[Limb],
     vertical_padding_size: u32,
 ) -> Vec<ScanLine> {
@@ -192,13 +214,11 @@ fn collect_vertical_scan_lines(
         .step_by(horizontal_stride)
         .map(|x| {
             let horizon_y = horizon.y_at_x(x as f32).clamp(0.0, image.height() as f32);
-            new_vertical_scan_line(
+            new_vertical_scan_line::<MedianMode>(
                 image,
                 x,
                 vertical_stride,
-                vertical_edge_detection_source,
                 vertical_edge_threshold,
-                vertical_median_mode,
                 horizon_y,
                 projected_limbs,
             )
@@ -207,13 +227,11 @@ fn collect_vertical_scan_lines(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn collect_horizontal_scan_lines(
+fn collect_horizontal_scan_lines<MedianMode: MedianSampling>(
     image: &YCbCr422Image,
     camera_matrix: &CameraMatrix,
     horizontal_stride: usize,
     horizontal_edge_threshold: i16,
-    horizontal_median_mode: MedianModeParameters,
-    horizontal_edge_detection_source: EdgeDetectionSourceParameters,
     vertical_stride: Framed<Ground, f32>,
     horizontal_padding_size: u32,
     horizon_y_maximum: u32,
@@ -224,13 +242,11 @@ fn collect_horizontal_scan_lines(
     let mut y = horizon_y_maximum + 1 + horizontal_padding_size;
 
     while y + horizontal_padding_size < limbs_y_minimum {
-        horizontal_scan_lines.push(new_horizontal_scan_line(
+        horizontal_scan_lines.push(new_horizontal_scan_line::<MedianMode>(
             image,
             y,
             horizontal_stride,
-            horizontal_edge_detection_source,
             horizontal_edge_threshold,
-            horizontal_median_mode,
         ));
 
         y = next_horizontal_segment_y(image, camera_matrix, vertical_stride, y)
@@ -303,24 +319,17 @@ where
     }
 }
 
-fn new_horizontal_scan_line(
+fn new_horizontal_scan_line<MedianMode: MedianSampling>(
     image: &YCbCr422Image,
     position: u32,
     stride: usize,
-    edge_detection_source: EdgeDetectionSourceParameters,
     edge_threshold: i16,
-    median_mode: MedianModeParameters,
 ) -> ScanLine {
     let start_x = 0;
     let end_x = image.width();
 
-    let edge_detection_value = edge_detection_value_at(
-        Direction::Horizontal,
-        point![start_x, position],
-        image,
-        edge_detection_source,
-        median_mode,
-    );
+    let edge_detection_value =
+        MedianMode::sample(point![start_x, position], Direction::Horizontal, image);
     let mut state = ScanLineState::new(
         edge_detection_value as i16,
         start_x as u16,
@@ -330,13 +339,8 @@ fn new_horizontal_scan_line(
     let mut segments = Vec::with_capacity((end_x - start_x) as usize / stride);
 
     for x in (start_x..end_x).step_by(stride) {
-        let edge_detection_value = edge_detection_value_at(
-            Direction::Horizontal,
-            point![x, position],
-            image,
-            edge_detection_source,
-            median_mode,
-        );
+        let edge_detection_value =
+            MedianMode::sample(point![x, position], Direction::Horizontal, image);
 
         if let Some(mut segment) = detect_edge(
             &mut state,
@@ -373,13 +377,11 @@ fn new_horizontal_scan_line(
 }
 
 #[allow(clippy::too_many_arguments)]
-fn new_vertical_scan_line(
+fn new_vertical_scan_line<MedianMode: MedianSampling>(
     image: &YCbCr422Image,
     position: u32,
     stride: usize,
-    edge_detection_source: EdgeDetectionSourceParameters,
     edge_threshold: i16,
-    median_mode: MedianModeParameters,
     horizon_y: f32,
     projected_limbs: &[Limb],
 ) -> ScanLine {
@@ -393,13 +395,8 @@ fn new_vertical_scan_line(
         };
     }
 
-    let edge_detection_value = edge_detection_value_at(
-        Direction::Vertical,
-        point![position, start_y],
-        image,
-        edge_detection_source,
-        median_mode,
-    );
+    let edge_detection_value =
+        MedianMode::sample(point![position, start_y], Direction::Vertical, image);
     let mut state = ScanLineState::new(
         edge_detection_value as i16,
         start_y as u16,
@@ -408,13 +405,8 @@ fn new_vertical_scan_line(
 
     let mut segments = Vec::with_capacity((end_y - start_y) as usize / stride);
     for y in (start_y..end_y).step_by(stride) {
-        let edge_detection_value = edge_detection_value_at(
-            Direction::Vertical,
-            point![position, y],
-            image,
-            edge_detection_source,
-            median_mode,
-        );
+        let edge_detection_value =
+            MedianMode::sample(point![position, y], Direction::Vertical, image);
 
         if let Some(mut segment) = detect_edge(
             &mut state,
@@ -456,56 +448,49 @@ fn new_vertical_scan_line(
     }
 }
 
-fn edge_detection_value_at(
-    direction: Direction,
-    position: Point2<Pixel, u32>,
-    image: &YCbCr422Image,
-    edge_detection_source: EdgeDetectionSourceParameters,
-    median_mode: MedianModeParameters,
-) -> u8 {
-    let offset: Vector2<Pixel, u32> = match direction {
-        Direction::Horizontal => Vector2::y_axis(),
-        Direction::Vertical => Vector2::x_axis(),
-    };
+struct MedianMode<const N: usize>;
 
-    let pixel = pixel_to_edge_detection_value(image.at_point(position), edge_detection_source);
+trait MedianSampling {
+    fn sample(position: Point2<Pixel, u32>, _direction: Direction, image: &YCbCr422Image) -> u8;
+}
 
-    match median_mode {
-        MedianModeParameters::Disabled => pixel,
-        MedianModeParameters::ThreePixels => {
-            let pixels = [
-                image.at_point(position - offset),
-                image.at_point(position),
-                image.at_point(position + offset),
-            ]
-            .map(|pixel| pixel_to_edge_detection_value(pixel, edge_detection_source));
-            pixels.median()
-        }
-        MedianModeParameters::FivePixels => {
-            let pixels = [
-                image.at_point(position - offset * 2),
-                image.at_point(position - offset),
-                image.at_point(position),
-                image.at_point(position + offset),
-                image.at_point(position + offset * 2),
-            ]
-            .map(|pixel| pixel_to_edge_detection_value(pixel, edge_detection_source));
-            pixels.median()
-        }
+impl MedianSampling for MedianMode<0> {
+    fn sample(position: Point2<Pixel, u32>, _direction: Direction, image: &YCbCr422Image) -> u8 {
+        image.at_point(position).y
     }
 }
 
-fn pixel_to_edge_detection_value(
-    pixel: YCbCr444,
-    edge_detection_source: EdgeDetectionSourceParameters,
-) -> u8 {
-    match edge_detection_source {
-        EdgeDetectionSourceParameters::Luminance => pixel.y,
-        EdgeDetectionSourceParameters::GreenChromaticity => {
-            let rgb = Rgb::from(pixel);
-            let green_chromaticity = rgb.green_chromaticity();
-            (green_chromaticity * 255.0) as u8
-        }
+impl MedianSampling for MedianMode<3> {
+    fn sample(position: Point2<Pixel, u32>, direction: Direction, image: &YCbCr422Image) -> u8 {
+        let offset: Vector2<Pixel, u32> = match direction {
+            Direction::Horizontal => Vector2::y_axis(),
+            Direction::Vertical => Vector2::x_axis(),
+        };
+
+        [
+            image.at_point(position - offset).y,
+            image.at_point(position).y,
+            image.at_point(position + offset).y,
+        ]
+        .median()
+    }
+}
+
+impl MedianSampling for MedianMode<5> {
+    fn sample(position: Point2<Pixel, u32>, direction: Direction, image: &YCbCr422Image) -> u8 {
+        let offset: Vector2<Pixel, u32> = match direction {
+            Direction::Horizontal => Vector2::y_axis(),
+            Direction::Vertical => Vector2::x_axis(),
+        };
+
+        [
+            image.at_point(position - offset * 2).y,
+            image.at_point(position - offset).y,
+            image.at_point(position).y,
+            image.at_point(position + offset).y,
+            image.at_point(position + offset * 2).y,
+        ]
+        .median()
     }
 }
 
@@ -705,16 +690,12 @@ mod tests {
         .unwrap();
         let vertical_stride = 2;
         let vertical_edge_threshold = 16;
-        let vertical_median_mode = MedianModeParameters::Disabled;
-        let vertical_edge_detection_source = EdgeDetectionSourceParameters::Luminance;
         let horizon_y_minimum = 0.0;
-        let scan_line = new_vertical_scan_line(
+        let scan_line = new_vertical_scan_line::<MedianMode<0>>(
             &image,
             12,
             vertical_stride,
-            vertical_edge_detection_source,
             vertical_edge_threshold,
-            vertical_median_mode,
             horizon_y_minimum,
             &[],
         );
@@ -730,16 +711,7 @@ mod tests {
     #[test]
     fn image_with_one_vertical_segment_without_median() {
         let image = YCbCr422Image::zero(6, 3);
-        let scan_line = new_vertical_scan_line(
-            &image,
-            0,
-            2,
-            EdgeDetectionSourceParameters::Luminance,
-            1,
-            MedianModeParameters::Disabled,
-            0.0,
-            &[],
-        );
+        let scan_line = new_vertical_scan_line::<MedianMode<0>>(&image, 0, 2, 1, 0.0, &[]);
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 1);
         assert_eq!(scan_line.segments[0].start, 0);
@@ -749,16 +721,7 @@ mod tests {
     #[test]
     fn image_with_one_vertical_segment_with_median() {
         let image = YCbCr422Image::zero(6, 3);
-        let scan_line = new_vertical_scan_line(
-            &image,
-            1,
-            2,
-            EdgeDetectionSourceParameters::Luminance,
-            1,
-            MedianModeParameters::ThreePixels,
-            0.0,
-            &[],
-        );
+        let scan_line = new_vertical_scan_line::<MedianMode<3>>(&image, 1, 2, 1, 0.0, &[]);
         assert_eq!(scan_line.position, 1);
         assert_eq!(scan_line.segments.len(), 1);
         assert_eq!(scan_line.segments[0].start, 0);
@@ -778,16 +741,7 @@ mod tests {
             ],
         );
 
-        let scan_line = new_vertical_scan_line(
-            &image,
-            0,
-            2,
-            EdgeDetectionSourceParameters::Luminance,
-            1,
-            MedianModeParameters::Disabled,
-            0.0,
-            &[],
-        );
+        let scan_line = new_vertical_scan_line::<MedianMode<0>>(&image, 0, 2, 1, 0.0, &[]);
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 1);
         assert_eq!(scan_line.segments[0].color.y, 0);
@@ -816,16 +770,7 @@ mod tests {
             ],
         );
 
-        let scan_line = new_vertical_scan_line(
-            &image,
-            0,
-            2,
-            EdgeDetectionSourceParameters::Luminance,
-            1,
-            MedianModeParameters::Disabled,
-            0.0,
-            &[],
-        );
+        let scan_line = new_vertical_scan_line::<MedianMode<0>>(&image, 0, 2, 1, 0.0, &[]);
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 1);
         assert_eq!(scan_line.segments[0].color.y, 0);
@@ -868,16 +813,7 @@ mod tests {
         // 3  1     0          0                   0             0
         // -> end segment at position 12
 
-        let scan_line = new_vertical_scan_line(
-            &image,
-            0,
-            2,
-            EdgeDetectionSourceParameters::Luminance,
-            1,
-            MedianModeParameters::Disabled,
-            0.0,
-            &[],
-        );
+        let scan_line = new_vertical_scan_line::<MedianMode<0>>(&image, 0, 2, 1, 0.0, &[]);
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 3);
         assert_eq!(scan_line.segments[0].start, 0);
@@ -938,16 +874,7 @@ mod tests {
         // 3
         // -> end segment at position 12
 
-        let scan_line = new_vertical_scan_line(
-            &image,
-            1,
-            2,
-            EdgeDetectionSourceParameters::Luminance,
-            1,
-            MedianModeParameters::ThreePixels,
-            0.0,
-            &[],
-        );
+        let scan_line = new_vertical_scan_line::<MedianMode<3>>(&image, 1, 2, 1, 0.0, &[]);
         assert_eq!(scan_line.position, 1);
         assert_eq!(scan_line.segments.len(), 3);
         assert_eq!(scan_line.segments[0].start, 0);
@@ -999,16 +926,7 @@ mod tests {
         // 0  -1     0         0                    0              0
         // -> end segment at position 12
 
-        let scan_line = new_vertical_scan_line(
-            &image,
-            0,
-            2,
-            EdgeDetectionSourceParameters::Luminance,
-            1,
-            MedianModeParameters::Disabled,
-            0.0,
-            &[],
-        );
+        let scan_line = new_vertical_scan_line::<MedianMode<0>>(&image, 0, 2, 1, 0.0, &[]);
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 3);
         assert_eq!(scan_line.segments[0].start, 0);
@@ -1076,16 +994,7 @@ mod tests {
         // 0
         // -> end segment at position 12
 
-        let scan_line = new_vertical_scan_line(
-            &image,
-            1,
-            2,
-            EdgeDetectionSourceParameters::Luminance,
-            1,
-            MedianModeParameters::ThreePixels,
-            0.0,
-            &[],
-        );
+        let scan_line = new_vertical_scan_line::<MedianMode<3>>(&image, 1, 2, 1, 0.0, &[]);
         assert_eq!(scan_line.position, 1);
         assert_eq!(scan_line.segments.len(), 3);
         assert_eq!(scan_line.segments[0].start, 0);
@@ -1210,16 +1119,7 @@ mod tests {
         // 0   0     0         0                    1              0
         // -> end segment at position 44
 
-        let scan_line = new_vertical_scan_line(
-            &image,
-            0,
-            2,
-            EdgeDetectionSourceParameters::Luminance,
-            1,
-            MedianModeParameters::Disabled,
-            0.0,
-            &[],
-        );
+        let scan_line = new_vertical_scan_line::<MedianMode<0>>(&image, 0, 2, 1, 0.0, &[]);
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 3);
         assert_eq!(scan_line.segments[0].start, 0);
@@ -1398,16 +1298,7 @@ mod tests {
         // 0
         // -> end segment at position 44
 
-        let scan_line = new_vertical_scan_line(
-            &image,
-            1,
-            2,
-            EdgeDetectionSourceParameters::Luminance,
-            1,
-            MedianModeParameters::ThreePixels,
-            0.0,
-            &[],
-        );
+        let scan_line = new_vertical_scan_line::<MedianMode<3>>(&image, 1, 2, 1, 0.0, &[]);
         assert_eq!(scan_line.position, 1);
         assert_eq!(scan_line.segments.len(), 3);
         assert_eq!(scan_line.segments[0].start, 0);
@@ -1463,16 +1354,7 @@ mod tests {
         // 21  6     5          1                   0             0
         // -> end segment at position 16
 
-        let scan_line = new_vertical_scan_line(
-            &image,
-            0,
-            2,
-            EdgeDetectionSourceParameters::Luminance,
-            1,
-            MedianModeParameters::Disabled,
-            0.0,
-            &[],
-        );
+        let scan_line = new_vertical_scan_line::<MedianMode<0>>(&image, 0, 2, 1, 0.0, &[]);
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 1);
         assert_eq!(scan_line.segments[0].start, 0);
@@ -1537,16 +1419,7 @@ mod tests {
         // 21
         // -> end segment at position 16
 
-        let scan_line = new_vertical_scan_line(
-            &image,
-            1,
-            2,
-            EdgeDetectionSourceParameters::Luminance,
-            1,
-            MedianModeParameters::ThreePixels,
-            0.0,
-            &[],
-        );
+        let scan_line = new_vertical_scan_line::<MedianMode<3>>(&image, 1, 2, 1, 0.0, &[]);
         assert_eq!(scan_line.position, 1);
         assert_eq!(scan_line.segments.len(), 1);
         assert_eq!(scan_line.segments[0].start, 0);
