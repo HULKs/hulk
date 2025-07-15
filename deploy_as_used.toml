@@ -1,0 +1,29 @@
+opponent = "Invisible"
+phase = "first-half"
+location = "rc25"
+wifi = "SPL_HULKs"
+base = "hulk/main"
+branches = [
+  "schluis/tune-catching-steps",
+]
+assignments = [
+  #
+  "37:1",
+  "41:2",
+  "39:3",
+  "40:4",
+  "36:5",
+]
+substitutions = [
+  # ":",
+  # ":",
+]
+with_communication = true
+
+[recording_intervals]
+Control = 1
+VisionTop = 30
+VisionBottom = 30
+SplNetwork = 1
+# ObjectDetectionTop = 30
+# Audio = 1
