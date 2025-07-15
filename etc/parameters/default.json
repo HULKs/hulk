@@ -355,7 +355,7 @@
       "torso_offset": 0.0,
       "torso_tilt_base": 0.025,
       "torso_tilt": {
-        "forward": 0.005,
+        "forward": 0.015,
         "left": 0.0,
         "turn": 0.05
       },
