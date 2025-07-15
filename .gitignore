@@ -34,3 +34,5 @@ site/
 
 deploy.toml
 logs
+
+notes*
