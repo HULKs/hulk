@@ -123,18 +123,15 @@ pub fn execute(
         );
         let path_length: f32 = path.iter().map(|segment| segment.length()).sum();
         let is_reached = path_length < parameters.position_reached_distance;
-        let orientation_mode = if is_reached {
-            OrientationMode::LookTowards {
-                direction: Orientation2::new(parameters.rotation_per_step),
-                tolerance: 0.0,
-            }
+        let target_orientation = if is_reached {
+            Orientation2::new(parameters.rotation_per_step)
         } else {
-            OrientationMode::AlignWithPath
+            Orientation2::identity()
         };
         Some(walk_path_planner.walk_with_obstacle_avoiding_arms(
             head,
-            orientation_mode,
-            Orientation2::new(parameters.rotation_per_step),
+            OrientationMode::AlignWithPath,
+            target_orientation,
             distance_to_be_aligned,
             path,
             walk_speed,
