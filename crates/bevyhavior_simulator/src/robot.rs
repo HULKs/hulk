@@ -330,26 +330,15 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
         }
 
         let target = robot.database.main_outputs.walk_motor_commands.positions;
-        robot.database.main_outputs.sensor_data.positions.left_leg =
-            robot.database.main_outputs.sensor_data.positions.left_leg
-                + (target.left_leg - robot.database.main_outputs.sensor_data.positions.left_leg)
-                    * time.delta_secs()
-                    * 10.0;
-        robot.database.main_outputs.sensor_data.positions.right_leg =
-            robot.database.main_outputs.sensor_data.positions.right_leg
-                + (target.right_leg - robot.database.main_outputs.sensor_data.positions.right_leg)
-                    * time.delta_secs()
-                    * 10.0;
-        robot.database.main_outputs.sensor_data.positions.left_arm =
-            robot.database.main_outputs.sensor_data.positions.left_arm
-                + (target.left_arm - robot.database.main_outputs.sensor_data.positions.left_arm)
-                    * time.delta_secs()
-                    * 10.0;
-        robot.database.main_outputs.sensor_data.positions.right_arm =
-            robot.database.main_outputs.sensor_data.positions.right_arm
-                + (target.right_arm - robot.database.main_outputs.sensor_data.positions.right_arm)
-                    * time.delta_secs()
-                    * 10.0;
+        let positions = &mut robot.database.main_outputs.sensor_data.positions;
+        positions.left_leg =
+            positions.left_leg + (target.left_leg - positions.left_leg) * time.delta_secs() * 10.0;
+        positions.right_leg = positions.right_leg
+            + (target.right_leg - positions.right_leg) * time.delta_secs() * 10.0;
+        positions.left_arm =
+            positions.left_arm + (target.left_arm - positions.left_arm) * time.delta_secs() * 10.0;
+        positions.right_arm = positions.right_arm
+            + (target.right_arm - positions.right_arm) * time.delta_secs() * 10.0;
 
         let (new_left_sole, new_right_sole) =
             sole_positions(&robot.database.main_outputs.sensor_data.positions);
