@@ -250,7 +250,7 @@ fn collect_horizontal_scan_lines<MedianMode: MedianSampling>(
 
         y = next_horizontal_segment_y(image, camera_matrix, vertical_stride, y)
             .unwrap_or(0)
-            .max(y + 2);
+            .max(y + 4);
     }
     horizontal_scan_lines
 }
