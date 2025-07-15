@@ -61,6 +61,66 @@ impl From<Rgb> for Eye {
     }
 }
 
+impl Eye {
+    pub fn percentage(rgb_positive: Rgb, rgb_negative: Rgb, fraction: f32) -> Self {
+        Self {
+            color_at_0: if fraction > f32::EPSILON {
+                rgb_positive
+            } else {
+                Rgb::BLACK
+            },
+            color_at_45: if fraction > 1. / 8. {
+                rgb_positive
+            } else {
+                rgb_negative
+            },
+            color_at_90: if fraction > 2. / 8. {
+                rgb_positive
+            } else {
+                rgb_negative
+            },
+            color_at_135: if fraction > 3. / 8. {
+                rgb_positive
+            } else {
+                rgb_negative
+            },
+            color_at_180: if fraction > 4. / 8. {
+                rgb_positive
+            } else {
+                rgb_negative
+            },
+            color_at_225: if fraction > 5. / 8. {
+                rgb_positive
+            } else {
+                rgb_negative
+            },
+            color_at_270: if fraction > 6. / 8. {
+                rgb_positive
+            } else {
+                rgb_negative
+            },
+            color_at_315: if fraction > 7. / 8. {
+                rgb_positive
+            } else {
+                rgb_negative
+            },
+        }
+    }
+
+    pub fn invert(self) -> Self {
+        Self {
+            color_at_0: self.color_at_0.invert(),
+            color_at_45: self.color_at_45.invert(),
+            color_at_90: self.color_at_90.invert(),
+            color_at_135: self.color_at_135.invert(),
+            color_at_180: self.color_at_180.invert(),
+            color_at_225: self.color_at_225.invert(),
+            color_at_270: self.color_at_270.invert(),
+            color_at_315: self.color_at_315.invert(),
+        }
+    }
+}
+
 #[derive(
     Clone,
     Copy,

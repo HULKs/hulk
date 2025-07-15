@@ -10,6 +10,7 @@ pub mod camera_position;
 pub mod color;
 pub mod condition_input;
 pub mod cycle_time;
+pub mod debug;
 pub mod detected_feet;
 pub mod dribble_path_plan;
 pub mod fall_state;

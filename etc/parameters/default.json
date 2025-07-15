@@ -1,4 +1,9 @@
 {
+  "led_status": {
+    "ears": "Temperature",
+    "left_eye": "Vision",
+    "right_eye": "Role"
+  },
   "pose_detection": {
     "enable": true,
     "maximum_intersection_over_union": 0.45,
