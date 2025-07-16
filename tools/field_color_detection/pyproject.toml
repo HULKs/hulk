@@ -22,3 +22,7 @@ dependencies = [
 
 [tool.pyright]
 typeCheckingMode = "standard"
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
