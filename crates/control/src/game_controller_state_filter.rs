@@ -156,7 +156,7 @@ impl GameControllerStateFilter {
         did_receive_motion_in_set_penalty: bool,
         filtered_kicking_team: Option<Team>,
     ) -> FilteredGameStates {
-        let ball_detected_far_from_any_goal = ground_to_field.map_or(false, |ground_to_field| {
+        let ball_detected_far_from_any_goal = ground_to_field.is_some_and(|ground_to_field| {
             ball_detected_far_from_any_goal(
                 ground_to_field,
                 ball_position,
