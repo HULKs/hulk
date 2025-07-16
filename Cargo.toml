@@ -251,3 +251,7 @@ codegen-units = 16 # TODO: Evaluate performance for different values
 [profile.with-debug]
 inherits = "dev"
 debug = true
+
+[profile.debugger]
+inherits = "with-debug"
+opt-level = 0
