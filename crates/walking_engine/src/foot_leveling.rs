@@ -59,11 +59,11 @@ impl FootLeveling {
             parameters.leaning_backwards_factor
         };
 
-        let pitch_scaling = (pitch_angle.abs() / parameters.pitch_scale).min(1.0);
+        let pitch_scaling = (pitch_angle.abs() / parameters.noise_scale.y).min(1.0);
         let desired_pitch_diff = pitch_angle * leveling_factor * base_pitch_factor * pitch_scaling;
 
         let base_roll_factor = parameters.roll_factor;
-        let roll_scaling = (roll_angle.abs() / parameters.roll_scale).min(1.0);
+        let roll_scaling = (roll_angle.abs() / parameters.noise_scale.x).min(1.0);
         let desired_roll_diff = roll_angle * leveling_factor * base_roll_factor * roll_scaling;
 
         // Smoothly update the corrections with a maximum allowed delta.

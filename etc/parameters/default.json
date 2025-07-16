@@ -367,6 +367,7 @@
       "over_estimation_factor": 0.6
     },
     "gyro_balancing": {
+      "noise_scale": [0.5, 0.5],
       "balance_factors": {
         "hip_yaw_pitch": 0.0,
         "hip_roll": 0.0,
@@ -395,9 +396,8 @@
       "max_level_delta": 0.025,
       "max_pitch": 0.12217,
       "max_roll": 0.08727,
-      "pitch_scale": 0.087,
+      "noise_scale": [0.087, 0.087],
       "roll_factor": 0.5,
-      "roll_scale": 0.087,
       "start_reduce_to_zero": 0.75
     },
     "forward_turn_reduction": 0.7,

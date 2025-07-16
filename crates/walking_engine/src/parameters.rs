@@ -93,6 +93,7 @@ pub struct StiffnessLossCompensation {
     Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
 pub struct GyroBalancingParameters {
+    pub noise_scale: nalgebra::Vector2<f32>,
     pub balance_factors: LegJoints<f32>,
     pub low_pass_factor: f32,
     pub max_delta: LegJoints<f32>,
@@ -107,9 +108,8 @@ pub struct FootLevelingParameters {
     pub max_level_delta: f32,
     pub max_pitch: f32,
     pub max_roll: f32,
-    pub pitch_scale: f32,
+    pub noise_scale: nalgebra::Vector2<f32>,
     pub roll_factor: f32,
-    pub roll_scale: f32,
     pub start_reduce_to_zero: f32,
 }
 
