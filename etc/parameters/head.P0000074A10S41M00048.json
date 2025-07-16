@@ -16,20 +16,6 @@
         -0.020830024033784863,
         -0.00686303386464715
       ]
-    },
-    "vision_bottom": {
-      "extrinsic_rotations": [
-        0.0,
-        0.0,
-        0.0
-      ]
-    },
-    "vision_top": {
-      "extrinsic_rotations": [
-        0.0,
-        0.0,
-        0.0
-      ]
     }
   }
 }

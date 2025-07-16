@@ -12,7 +12,7 @@ use crate::{
 };
 
 pub struct FieldLines {
-    penalty_boxes: BufferHandle<Option<ProjectedFieldLines>>,
+    penalty_boxes: BufferHandle<Option<Option<ProjectedFieldLines>>>,
     cycler: VisionCycler,
 }
 
@@ -27,7 +27,8 @@ impl Overlay for FieldLines {
     }
 
     fn paint(&self, painter: &TwixPainter<Pixel>) -> Result<()> {
-        let Some(penalty_boxes_lines_in_image) = self.penalty_boxes.get_last_value()?.flatten()
+        let Some(penalty_boxes_lines_in_image) =
+            self.penalty_boxes.get_last_value()?.flatten().flatten()
         else {
             return Ok(());
         };

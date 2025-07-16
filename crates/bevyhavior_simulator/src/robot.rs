@@ -494,7 +494,7 @@ pub fn cycle_robots(
             None
         };
         robot.database.main_outputs.game_controller_state = Some(game_controller.state.clone());
-        robot.cycler.cycler_state.ground_to_field = robot.ground_to_field();
+        robot.cycler.cycler_state.ground_to_field = Some(robot.ground_to_field());
         robot.interface.set_time(now);
         robot.database.main_outputs.robot_orientation = robot
             .database

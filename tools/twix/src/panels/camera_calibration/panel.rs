@@ -7,8 +7,8 @@ use color_eyre::{
 };
 use coordinate_systems::Pixel;
 use eframe::egui::{
-    popup_below_widget, vec2, Align2, Color32, Key, PopupCloseBehavior, Rect, Response, Sense,
-    Shape, SizeHint, Stroke, TextureOptions, Ui, UiBuilder, Widget,
+    popup_below_widget, vec2, Align2, Button, Color32, Key, PopupCloseBehavior, Rect, Response,
+    Sense, Shape, SizeHint, Stroke, TextureOptions, Ui, UiBuilder, Widget,
 };
 use geometry::{line_segment::LineSegment, rectangle::Rectangle};
 use linear_algebra::{distance, point, vector, Point2};
@@ -132,7 +132,12 @@ impl Widget for &mut SemiAutomaticCameraCalibrationPanel {
                     println!("Error: {error}");
                 }
             }
-            if ui.button("Save to head").clicked() {
+
+            let save_to_head = ui.add_enabled(
+                self.optimization.is_converged(),
+                Button::new("Save to head"),
+            );
+            if save_to_head.clicked() {
                 let result = self.optimization.save_to_head();
                 if let Err(error) = result {
                     println!("Error: {error}");

@@ -1,7 +1,6 @@
 use std::f32::consts::FRAC_PI_2;
 
 use color_eyre::Result;
-use nalgebra::UnitQuaternion;
 use projection::{camera_matrices::CameraMatrices, camera_matrix::CameraMatrix, Projection};
 use serde::{Deserialize, Serialize};
 
@@ -26,11 +25,11 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    projected_field_lines: AdditionalOutput<ProjectedFieldLines, "projected_field_lines">,
+    projected_field_lines: AdditionalOutput<Option<ProjectedFieldLines>, "projected_field_lines">,
 
     robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
     robot_to_ground: RequiredInput<Option<Isometry3<Robot, Ground>>, "robot_to_ground?">,
-    ground_to_field: CyclerState<Isometry2<Ground, Field>, "ground_to_field">,
+    ground_to_field: CyclerState<Option<Isometry2<Ground, Field>>, "ground_to_field">,
 
     bottom_camera_matrix_parameters:
         Parameter<CameraMatrixParameters, "camera_matrix_parameters.vision_bottom">,
@@ -66,7 +65,6 @@ impl CameraMatrixCalculator {
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let image_size = vector![640.0, 480.0];
         let head_to_top_camera = head_to_camera(
-            context.top_camera_matrix_parameters.extrinsic_rotations,
             context
                 .top_camera_matrix_parameters
                 .camera_pitch
@@ -83,7 +81,6 @@ impl CameraMatrixCalculator {
         );
 
         let head_to_bottom_camera = head_to_camera(
-            context.bottom_camera_matrix_parameters.extrinsic_rotations,
             context
                 .bottom_camera_matrix_parameters
                 .camera_pitch
@@ -121,20 +118,22 @@ impl CameraMatrixCalculator {
             .to_corrected(correction_in_robot, correction_in_camera_bottom);
 
         let field_dimensions = context.field_dimensions;
-        context
-            .projected_field_lines
-            .fill_if_subscribed(|| ProjectedFieldLines {
-                top: project_lines_onto_image(
-                    field_dimensions,
-                    &calibrated_top_camera_matrix,
-                    *context.ground_to_field,
-                ),
-                bottom: project_lines_onto_image(
-                    field_dimensions,
-                    &calibrated_bottom_camera_matrix,
-                    *context.ground_to_field,
-                ),
-            });
+        context.projected_field_lines.fill_if_subscribed(|| {
+            context
+                .ground_to_field
+                .map(|ground_to_field| ProjectedFieldLines {
+                    top: project_lines_onto_image(
+                        field_dimensions,
+                        &calibrated_top_camera_matrix,
+                        ground_to_field,
+                    ),
+                    bottom: project_lines_onto_image(
+                        field_dimensions,
+                        &calibrated_bottom_camera_matrix,
+                        ground_to_field,
+                    ),
+                })
+        });
 
         Ok(MainOutputs {
             uncalibrated_camera_matrices: Some(CameraMatrices {
@@ -212,20 +211,8 @@ fn project_lines_onto_image(
     .collect::<Vec<_>>()
 }
 
-fn head_to_camera(
-    extrinsic_rotation: nalgebra::Vector3<f32>,
-    camera_pitch: f32,
-    head_to_camera: Vector3<Head>,
-) -> Isometry3<Head, Camera> {
-    let extrinsic_angles_in_radians = extrinsic_rotation.map(|degree: f32| degree.to_radians());
-    let extrinsic_rotation = UnitQuaternion::from_euler_angles(
-        extrinsic_angles_in_radians.x,
-        extrinsic_angles_in_radians.y,
-        extrinsic_angles_in_radians.z,
-    );
-
-    (extrinsic_rotation
-        * nalgebra::Isometry3::rotation(nalgebra::Vector3::x() * -camera_pitch)
+fn head_to_camera(camera_pitch: f32, head_to_camera: Vector3<Head>) -> Isometry3<Head, Camera> {
+    (nalgebra::Isometry3::rotation(nalgebra::Vector3::x() * -camera_pitch)
         * nalgebra::Isometry3::rotation(nalgebra::Vector3::y() * -FRAC_PI_2)
         * nalgebra::Isometry3::rotation(nalgebra::Vector3::x() * FRAC_PI_2)
         * nalgebra::Isometry3::from(-head_to_camera.inner))
