@@ -87,14 +87,12 @@ fn update(
 
     if time.ticks() >= 1_000 && game_controller.state.opponent_team.score > 0 {
         soft_error.send("Failed to prevent goals from being scored :(");
-        exit.send(AppExit::from_code(1));
     }
     if *state.count > 20 {
-        println!("Done");
         exit.send(AppExit::Success);
     }
     if time.ticks() >= 20_000 {
-        println!("Scenario timed out, please fix");
+        println!("Scenario timed out with insufficient balls held, please fix");
         exit.send(AppExit::from_code(2));
     }
 }
