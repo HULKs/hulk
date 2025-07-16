@@ -95,9 +95,16 @@ impl SearchSuggestor {
             if let Some(some_suggested_search_index) = suggested_search_index {
                 self.heatmap.has_decided_for_heatmap_tile = true;
                 let max_heatmap_value = self.heatmap.map[some_suggested_search_index];
-                self.heatmap.heat_change_threshold = max_heatmap_value * 0.80; // TODO: make parameter
+                self.heatmap.heat_change_threshold = max_heatmap_value * 0.8; // TODO: make parameter
             }
             self.heatmap.last_maximum_heatmap_position = suggested_search_index;
+        } else {
+            if let Some(last_maximum_heatmap_index) = self.heatmap.last_maximum_heatmap_position {
+                if self.heatmap.map[last_maximum_heatmap_index] < self.heatmap.heat_change_threshold
+                {
+                    self.heatmap.has_decided_for_heatmap_tile = false;
+                }
+            }
         }
         let mut suggested_search_position: Option<Point2<Field>> = None;
         if let Some(max_heatmap_position) = self.heatmap.last_maximum_heatmap_position {
