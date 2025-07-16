@@ -31,11 +31,14 @@ mod tests {
     use std::f32::consts::SQRT_2;
 
     use approx::assert_abs_diff_eq;
-    use proptest::proptest;
+    use proptest::{prop_assume, proptest};
 
     use linear_algebra::{point, vector, Vector2};
 
-    use crate::{cost_fields::path_distance::PathDistanceField, test_utils::test_path};
+    use crate::{
+        cost_fields::path_distance::PathDistanceField,
+        test_utils::{is_near_test_path_progress_discontinuity, test_path},
+    };
 
     #[test]
     fn test_path_distance() {
@@ -101,6 +104,7 @@ mod tests {
     proptest! {
         #[test]
         fn verify_gradient(x in -2.0f32..5.0, y in -2.0f32..5.0) {
+            prop_assume!(!is_near_test_path_progress_discontinuity(point![x, y]));
             verify_gradient_impl(x, y)
         }
     }

@@ -31,13 +31,13 @@ mod tests {
     use std::f32::consts::{FRAC_PI_2, FRAC_PI_4};
 
     use approx::assert_abs_diff_eq;
-    use proptest::proptest;
+    use proptest::{prop_assume, proptest};
 
     use linear_algebra::{point, vector};
 
     use crate::{
         cost_fields::path_progress::PathProgressField,
-        test_utils::test_path,
+        test_utils::{is_near_test_path_segment_joins, test_path},
         traits::{Length, PathProgress},
     };
 
@@ -120,6 +120,7 @@ mod tests {
     proptest!(
         #[test]
         fn verify_gradient(x in -2.0f32..5.0, y in -2.0f32..5.0) {
+            prop_assume!(!is_near_test_path_segment_joins(point![x, y]));
             verify_gradient_impl(x, y)
         }
     );
