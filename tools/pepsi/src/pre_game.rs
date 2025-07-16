@@ -98,9 +98,8 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
         .wrap_err("failed to configure repository")?;
 
     let upload_directory = tempdir().wrap_err("failed to get temporary directory")?;
-    let hulk_binary = get_hulk_binary(arguments.build.profile());
 
-    let cargo_arguments = cargo::Arguments {
+    let mut cargo_arguments = cargo::Arguments {
         manifest: Some(
             repository
                 .root
@@ -110,6 +109,11 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
         environment: arguments.environment,
         cargo: arguments.build,
     };
+    if cargo_arguments.cargo.common.profile.is_none() {
+        cargo_arguments.cargo.common.profile = Some("release".to_string());
+    }
+
+    let hulk_binary = get_hulk_binary(arguments.build.profile());
 
     if !arguments.pre_game.no_build {
         cargo(cargo_arguments, repository, &[&hulk_binary])
