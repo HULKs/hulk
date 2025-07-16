@@ -94,7 +94,10 @@ impl SearchSuggestor {
             if let Some(some_suggested_search_index) = suggested_search_index {
                 self.heatmap.has_decided_for_heatmap_tile = true;
                 let max_heatmap_value = self.heatmap.map[some_suggested_search_index];
-                self.heatmap.heat_change_threshold = max_heatmap_value * 0.8; // TODO: make parameter
+                self.heatmap.heat_change_threshold = max_heatmap_value
+                    * context
+                        .search_suggestor_configuration
+                        .tile_target_heat_threshold_factor; // TODO: make parameter
             }
             self.heatmap.last_maximum_heatmap_position = suggested_search_index;
         } else {
@@ -191,7 +194,9 @@ impl SearchSuggestor {
                             1.0,
                         );
                         if is_inside_sight && distancse_to_tile > 0.25 {
-                            *value *= 1.0 - 0.05 * relative_distance_to_tile;
+                            *value *= 1.0
+                                - context.search_suggestor_configuration.decay_distance_factor
+                                    * relative_distance_to_tile;
                         }
                     });
             }
