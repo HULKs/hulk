@@ -37,7 +37,7 @@ mod tests {
 
     use crate::{
         cost_fields::path_distance::PathDistanceField,
-        test_utils::{is_near_test_path_progress_discontinuity, test_path},
+        test_utils::{is_near_test_path_progress_discontinuity, proptest_config, test_path},
     };
 
     #[test]
@@ -102,6 +102,7 @@ mod tests {
     }
 
     proptest! {
+        #![proptest_config(proptest_config())]
         #[test]
         fn verify_gradient(x in -2.0f32..5.0, y in -2.0f32..5.0) {
             prop_assume!(!is_near_test_path_progress_discontinuity(point![x, y]));

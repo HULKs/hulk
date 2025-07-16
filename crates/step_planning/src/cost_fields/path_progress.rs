@@ -37,7 +37,7 @@ mod tests {
 
     use crate::{
         cost_fields::path_progress::PathProgressField,
-        test_utils::{is_near_test_path_segment_joins, test_path},
+        test_utils::{is_near_test_path_segment_joins, proptest_config, test_path},
         traits::{Length, PathProgress},
     };
 
@@ -118,6 +118,7 @@ mod tests {
     }
 
     proptest!(
+        #![proptest_config(proptest_config())]
         #[test]
         fn verify_gradient(x in -2.0f32..5.0, y in -2.0f32..5.0) {
             prop_assume!(!is_near_test_path_segment_joins(point![x, y]));

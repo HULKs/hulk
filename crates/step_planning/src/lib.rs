@@ -156,7 +156,16 @@ pub mod test_utils {
     use coordinate_systems::Ground;
     use geometry::{arc::Arc, circle::Circle, direction::Direction, line_segment::LineSegment};
     use linear_algebra::{point, vector, Orientation2, Point2};
+    use proptest::test_runner::Config as ProptestConfig;
     use types::planned_path::{Path, PathSegment};
+
+    pub fn proptest_config() -> ProptestConfig {
+        ProptestConfig {
+            cases: 1_000_000,
+            max_global_rejects: 50_000,
+            ..Default::default()
+        }
+    }
 
     pub fn test_path() -> Path {
         Path {

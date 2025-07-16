@@ -30,10 +30,11 @@ mod tests {
     use crate::{
         cost_fields::target_orientation::TargetOrientationField,
         geometry::{angle::Angle, pose::Pose},
-        test_utils::is_roughly_opposite,
+        test_utils::{is_roughly_opposite, proptest_config},
     };
 
     proptest!(
+        #![proptest_config(proptest_config())]
         #[test]
         fn verify_gradient(x in -5.0f32..5.0, y in -5.0f32..5.0, orientation in 0.0..TAU, target_orientation in 0.0..TAU) {
             prop_assume!(!is_roughly_opposite(orientation, target_orientation));
