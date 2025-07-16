@@ -8,7 +8,6 @@ use geometry::{
     look_at::LookAt,
 };
 use linear_algebra::{distance, point, Point2, Pose2, Vector2};
-use nalgebra::min;
 use serde::{Deserialize, Serialize};
 use spl_network_messages::{GamePhase, SubState, Team};
 use types::{
