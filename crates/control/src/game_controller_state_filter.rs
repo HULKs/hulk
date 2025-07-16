@@ -49,7 +49,7 @@ pub struct CycleContext {
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     player_number: Parameter<PlayerNumber, "player_number">,
 
-    ground_to_field: CyclerState<Isometry2<Ground, Field>, "ground_to_field">,
+    ground_to_field: CyclerState<Option<Isometry2<Ground, Field>>, "ground_to_field">,
     last_ball_state: CyclerState<Option<LastBallState>, "last_ball_state">,
 
     whistle_in_set_ball_position:
@@ -144,7 +144,7 @@ impl GameControllerStateFilter {
     #[allow(clippy::too_many_arguments)]
     fn filter_game_states(
         &mut self,
-        ground_to_field: Isometry2<Ground, Field>,
+        ground_to_field: Option<Isometry2<Ground, Field>>,
         ball_position: Option<&BallPosition<Ground>>,
         field_dimensions: &FieldDimensions,
         config: &GameStateFilterParameters,
@@ -156,12 +156,14 @@ impl GameControllerStateFilter {
         did_receive_motion_in_set_penalty: bool,
         filtered_kicking_team: Option<Team>,
     ) -> FilteredGameStates {
-        let ball_detected_far_from_any_goal = ball_detected_far_from_any_goal(
-            ground_to_field,
-            ball_position,
-            field_dimensions,
-            config.whistle_acceptance_goal_distance,
-        );
+        let ball_detected_far_from_any_goal = ground_to_field.map_or(false, |ground_to_field| {
+            ball_detected_far_from_any_goal(
+                ground_to_field,
+                ball_position,
+                field_dimensions,
+                config.whistle_acceptance_goal_distance,
+            )
+        });
         self.state = next_filtered_state(
             self.state,
             game_controller_state,
@@ -183,12 +185,17 @@ impl GameControllerStateFilter {
             did_receive_motion_in_set_penalty,
         );
 
-        if let State::WhistleInSet { .. } = self.state {
-            if self.whistle_in_set_ball_position.is_none() {
-                self.whistle_in_set_ball_position =
-                    ball_position.map(|ball| ground_to_field * ball.position);
+        match (
+            self.state,
+            ground_to_field,
+            self.whistle_in_set_ball_position,
+        ) {
+            (State::WhistleInSet { .. }, Some(ground_to_field), None) => {
+                ball_position.map(|ball| ground_to_field * ball.position);
             }
-        }
+            _ => {}
+        };
+
         let motion_in_set = matches!(
             game_controller_state.penalties[player_number],
             Some(Penalty::IllegalMotionInSet { .. })
@@ -197,8 +204,9 @@ impl GameControllerStateFilter {
             self.whistle_in_set_ball_position = None;
         }
 
-        let ball_detected_far_from_kick_off_point = ball_position
-            .map(|ball| {
+        let ball_detected_far_from_kick_off_point = ground_to_field
+            .zip(ball_position)
+            .map(|(ground_to_field, ball)| {
                 let absolute_ball_position = ground_to_field * ball.position;
                 let reference_ball_position = self.whistle_in_set_ball_position.unwrap_or_default();
                 distance(reference_ball_position, absolute_ball_position)

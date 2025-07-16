@@ -6,7 +6,7 @@ use std::{
 use approx::assert_relative_eq;
 use color_eyre::{eyre::Context, Result};
 use geometry::line_segment::LineSegment;
-use linear_algebra::{distance, point, IntoTransform, Isometry2, Pose2};
+use linear_algebra::{distance, point, IntoTransform, Isometry, Isometry2, Pose2};
 use nalgebra::{matrix, Matrix, Matrix2, Matrix3, Rotation2, Translation2, Vector2, Vector3};
 use ordered_float::NotNan;
 use serde::{Deserialize, Serialize};
@@ -103,7 +103,7 @@ pub struct CycleContext {
     line_data_bottom: PerceptionInput<Option<LineData>, "VisionBottom", "line_data?">,
     line_data_top: PerceptionInput<Option<LineData>, "VisionTop", "line_data?">,
 
-    ground_to_field: CyclerState<Isometry2<Ground, Field>, "ground_to_field">,
+    ground_to_field: CyclerState<Option<Isometry2<Ground, Field>>, "ground_to_field">,
     stand_up_back_estimated_remaining_duration:
         CyclerState<RemainingStandUpDuration, "stand_up_back_estimated_remaining_duration">,
     stand_up_front_estimated_remaining_duration:
@@ -301,7 +301,7 @@ impl Localization {
         }
     }
 
-    fn update_state(&mut self, context: &mut CycleContext) -> Result<()> {
+    fn update_state(&mut self, context: &mut CycleContext) -> Result<Isometry2<Ground, Field>> {
         let mut fit_errors_per_measurement = vec![];
 
         let getting_up = context
@@ -541,9 +541,7 @@ impl Localization {
             .fit_errors
             .fill_if_subscribed(|| fit_errors_per_measurement);
 
-        *context.ground_to_field = ground_to_field.framed_transform();
-
-        Ok(())
+        Ok(ground_to_field.framed_transform())
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
@@ -580,11 +578,13 @@ impl Localization {
                 .as_transform(),
             ),
             PrimaryState::Ready | PrimaryState::Set | PrimaryState::Playing => {
-                self.update_state(&mut context)?;
-                Some(*context.ground_to_field)
+                Some(self.update_state(&mut context)?)
             }
+            PrimaryState::Calibration => Some(Isometry::identity()),
             _ => None,
         };
+        *context.ground_to_field = ground_to_field;
+
         let ground_to_field_of_home_after_coin_toss_before_second_half = context
             .injected_ground_to_field_of_home_after_coin_toss_before_second_half
             .copied()

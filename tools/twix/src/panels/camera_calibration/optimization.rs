@@ -164,10 +164,18 @@ impl SemiAutomaticCalibrationContext {
 
     pub fn reset(&mut self) -> Result<()> {
         self.state = OptimizationState::NotOptimized;
+
         self.apply_corrections(Corrections::default(), |path, value| {
             self.nao.write(path, TextOrBinary::Text(value));
             Ok(())
         })
+    }
+
+    pub fn is_converged(&self) -> bool {
+        let OptimizationState::Optimized { report, .. } = &self.state else {
+            return false;
+        };
+        report.termination.was_successful()
     }
 
     pub fn save_to_head(&self) -> Result<()> {
