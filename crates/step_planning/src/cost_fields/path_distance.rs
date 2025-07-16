@@ -101,18 +101,20 @@ mod tests {
     proptest! {
         #[test]
         fn verify_gradient(x in -2.0f32..5.0, y in -2.0f32..5.0) {
-            let cost_field = PathDistanceField {
-                path: &test_path(),
-            };
-
-            let point = point![x, y];
-
-            crate::test_utils::verify_gradient::verify_gradient(
-                &|p| cost_field.cost(p),
-                &|p| cost_field.grad(p),
-                0.05,
-                point,
-            )
+            verify_gradient_impl(x, y)
         }
+    }
+
+    fn verify_gradient_impl(x: f32, y: f32) {
+        let cost_field = PathDistanceField { path: &test_path() };
+
+        let point = point![x, y];
+
+        crate::test_utils::verify_gradient::verify_gradient(
+            &|p| cost_field.cost(p),
+            &|p| cost_field.grad(p),
+            0.05,
+            point,
+        )
     }
 }

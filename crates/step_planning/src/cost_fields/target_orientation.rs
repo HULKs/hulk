@@ -35,24 +35,28 @@ mod tests {
     proptest!(
         #[test]
         fn verify_gradient(x in -5.0f32..5.0, y in -5.0f32..5.0, orientation in 0.0..TAU, target_orientation in 0.0..TAU) {
-            let cost_field = TargetOrientationField {
-                target_orientation: Angle(target_orientation),
-            };
-
-            let position = point![x, y];
-            let orientation = Angle(orientation);
-
-            let pose = Pose {
-                position,
-                orientation,
-            };
-
-            crate::test_utils::verify_gradient::verify_gradient(
-                &|p| cost_field.cost(p),
-                &|p| cost_field.grad(p),
-                0.05,
-                pose,
-            )
+            verify_gradient_impl(x, y, orientation, target_orientation)
         }
     );
+
+    fn verify_gradient_impl(x: f32, y: f32, orientation: f32, target_orientation: f32) {
+        let cost_field = TargetOrientationField {
+            target_orientation: Angle(target_orientation),
+        };
+
+        let position = point![x, y];
+        let orientation = Angle(orientation);
+
+        let pose = Pose {
+            position,
+            orientation,
+        };
+
+        crate::test_utils::verify_gradient::verify_gradient(
+            &|p| cost_field.cost(p),
+            &|p| cost_field.grad(p),
+            0.05,
+            pose,
+        )
+    }
 }

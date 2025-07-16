@@ -120,29 +120,31 @@ mod tests {
     proptest!(
         #[test]
         fn verify_gradient(x in -2.0f32..5.0, y in -2.0f32..5.0) {
-            let cost_field = PathProgressField {
-                smoothness: 0.5,
-            };
-            let path = &test_path();
-
-            let point = point![x, y];
-
-            crate::test_utils::verify_gradient::verify_gradient(
-                &|p| {
-                    let progress = path.progress(p);
-                    let path_length = path.length();
-                    cost_field.cost(progress, path_length)
-                },
-                &|p| {
-                    let progress = path.progress(p);
-                    let forward = path.forward(p);
-                    let path_length = path.length();
-
-                    cost_field.grad(progress, forward, path_length)
-                },
-                0.05,
-                point,
-            )
+            verify_gradient_impl(x, y)
         }
     );
+
+    fn verify_gradient_impl(x: f32, y: f32) {
+        let path = test_path();
+        let cost_field = PathProgressField { smoothness: 0.5 };
+
+        let point = point![x, y];
+
+        crate::test_utils::verify_gradient::verify_gradient(
+            &|p| {
+                let progress = path.progress(p);
+                let path_length = path.length();
+                cost_field.cost(progress, path_length)
+            },
+            &|p| {
+                let progress = path.progress(p);
+                let forward = path.forward(p);
+                let path_length = path.length();
+
+                cost_field.grad(progress, forward, path_length)
+            },
+            0.05,
+            point,
+        )
+    }
 }
