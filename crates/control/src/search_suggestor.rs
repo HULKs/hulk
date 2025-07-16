@@ -97,21 +97,23 @@ impl SearchSuggestor {
                 self.heatmap.heat_change_threshold = max_heatmap_value
                     * context
                         .search_suggestor_configuration
-                        .tile_target_heat_threshold_factor; // TODO: make parameter
+                        .tile_target_heat_threshold_factor;
             }
             self.heatmap.last_maximum_heatmap_position = suggested_search_index;
-        } else {
-            if let Some(last_maximum_heatmap_index) = self.heatmap.last_maximum_heatmap_position {
-                if self.heatmap.map[last_maximum_heatmap_index] < self.heatmap.heat_change_threshold
-                {
-                    self.heatmap.has_decided_for_heatmap_tile = false;
-                }
+        } else if let Some(last_maximum_heatmap_index) = self.heatmap.last_maximum_heatmap_position
+        {
+            if self.heatmap.map[last_maximum_heatmap_index] < self.heatmap.heat_change_threshold {
+                self.heatmap.has_decided_for_heatmap_tile = false;
             }
         }
         let mut suggested_search_position: Option<Point2<Field>> = None;
-        if let Some(max_heatmap_position) = self.heatmap.last_maximum_heatmap_position {
-            suggested_search_position =
-                Some(self.heatmap.tile_center_to_field(max_heatmap_position));
+        if let Some((x, y)) = self.heatmap.last_maximum_heatmap_position {
+            suggested_search_position = Some(point![
+                ((x as f32 + 1.0 / 2.0) / self.heatmap.cells_per_meter
+                    - self.heatmap.field_dimensions.length / 2.0),
+                ((y as f32 + 1.0 / 2.0) / self.heatmap.cells_per_meter
+                    - self.heatmap.field_dimensions.width / 2.0)
+            ]);
         }
 
         context
@@ -169,36 +171,12 @@ impl SearchSuggestor {
                 let left_edge: Vector2<Field> = vector!(left_angle.cos(), left_angle.sin());
                 let right_edge: Vector2<Field> = vector!(right_angle.cos(), right_angle.sin());
 
-                let tile_width = 1.0 / self.heatmap.cells_per_meter;
-                let tile_center_offset = tile_width / 2.0;
-                let bottom_left_corner_in_field: Vector2<Field> = vector!(
-                    -self.heatmap.field_dimensions.length / 2.0,
-                    -self.heatmap.field_dimensions.width / 2.0
+                self.heatmap.decay_tiles_in_fov(
+                    robot_position,
+                    left_edge,
+                    right_edge,
+                    context.search_suggestor_configuration.decay_distance_factor,
                 );
-                self.heatmap
-                    .map
-                    .indexed_iter_mut()
-                    .for_each(|((x, y), value)| {
-                        let tile_center_in_field: Vector2<Field> = vector!(
-                            (x as f32) * tile_width + tile_center_offset,
-                            (y as f32) * tile_width + tile_center_offset,
-                        ) + bottom_left_corner_in_field;
-                        let robot_to_tile = tile_center_in_field - robot_position;
-                        let is_inside_sight = get_direction(left_edge, robot_to_tile)
-                            == Direction::Counterclockwise
-                            && get_direction(right_edge, robot_to_tile) == Direction::Clockwise;
-                        let distancse_to_tile = robot_to_tile.norm();
-                        let relative_distance_to_tile = clamp(
-                            distancse_to_tile / self.heatmap.field_dimensions.length,
-                            0.0,
-                            1.0,
-                        );
-                        if is_inside_sight && distancse_to_tile > 0.25 {
-                            *value *= 1.0
-                                - context.search_suggestor_configuration.decay_distance_factor
-                                    * relative_distance_to_tile;
-                        }
-                    });
             }
         }
 
@@ -262,13 +240,6 @@ impl Heatmap {
         None
     }
 
-    fn tile_center_to_field(&self, (x, y): (usize, usize)) -> Point2<Field> {
-        point![
-            ((x as f32 + 1.0 / 2.0) / self.cells_per_meter - self.field_dimensions.length / 2.0),
-            ((y as f32 + 1.0 / 2.0) / self.cells_per_meter - self.field_dimensions.width / 2.0)
-        ]
-    }
-
     fn add_teamballs(&mut self, time: SystemTime, message: HulkMessage, team_ball_weight: f32) {
         let (_, ball) = match message {
             HulkMessage::Striker(striker_message) => (
@@ -284,6 +255,32 @@ impl Heatmap {
         if let Some(ball_position) = ball {
             self[ball_position.position] = team_ball_weight;
         }
+    }
+
+    fn decay_tiles_in_fov(
+        &mut self,
+        robot_position: Vector2<Field>,
+        left_edge: Vector2<Field>,
+        right_edge: Vector2<Field>,
+        decay_distance_factor: f32,
+    ) {
+        self.map.indexed_iter_mut().for_each(|((x, y), value)| {
+            let tile_center_in_field: Vector2<Field> = vector![
+                ((x as f32 + 1.0 / 2.0) / self.cells_per_meter
+                    - self.field_dimensions.length / 2.0),
+                ((y as f32 + 1.0 / 2.0) / self.cells_per_meter - self.field_dimensions.width / 2.0)
+            ];
+            let robot_to_tile = tile_center_in_field - robot_position;
+            let is_inside_sight = get_direction(left_edge, robot_to_tile)
+                == Direction::Counterclockwise
+                && get_direction(right_edge, robot_to_tile) == Direction::Clockwise;
+            let distancse_to_tile = robot_to_tile.norm();
+            let relative_distance_to_tile =
+                clamp(distancse_to_tile / self.field_dimensions.length, 0.0, 1.0);
+            if is_inside_sight && distancse_to_tile > 0.25 {
+                *value *= 1.0 - decay_distance_factor * relative_distance_to_tile;
+            }
+        });
     }
 }
 
