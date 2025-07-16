@@ -58,12 +58,12 @@ fn update(
         if ball.velocity.x() > 0.0 {
             robot.database.main_outputs.ground_to_field =
                 Some(Isometry2::from_parts(vector![-4.0, 0.0], 0.0));
-            ball.position = point![-2.0, 0.0];
+            ball.position = point![2.0, 0.0];
             let target = point![
                 -field_dimensions.length / 2.0,
-                field_dimensions.goal_inner_width * ((*state.count as f32 / 20.0) - 0.5)
+                field_dimensions.goal_inner_width * ((*state.count as f32 / 20.0) - 0.5) * 0.99
             ];
-            ball.velocity = (target - ball.position).normalize() * 2.0;
+            ball.velocity = (target - ball.position).normalize() * 1.0;
             *state.count += 1;
         }
 
