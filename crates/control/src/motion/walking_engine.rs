@@ -166,7 +166,7 @@ impl WalkingEngine {
         *cycle_context.ground_to_upcoming_support = self
             .calculate_return_offset(
                 cycle_context.parameters,
-                &cycle_context.last_actuated_motor_commands.positions,
+                &motor_commands.positions,
                 cycle_context.robot_to_ground,
             )
             .unwrap_or_default();
@@ -188,7 +188,7 @@ impl WalkingEngine {
     fn calculate_return_offset(
         &self,
         parameters: &Parameters,
-        last_actuated: &Joints,
+        last_actuated: &BodyJoints,
         robot_to_ground: Option<&Isometry3<Robot, Ground>>,
     ) -> Option<Isometry2<Ground, UpcomingSupport>> {
         let robot_to_ground = *robot_to_ground?;

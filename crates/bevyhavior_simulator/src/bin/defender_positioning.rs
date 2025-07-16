@@ -36,23 +36,23 @@ fn startup(
 }
 
 fn update(time: Res<Time<Ticks>>, mut ball: ResMut<BallResource>, mut exit: EventWriter<AppExit>) {
-    if time.ticks() == 2500 {
+    if time.ticks() == 5000 {
         let state = ball.state.as_mut().expect("ball state not found");
         state.position = point![-3.6, 2.5];
     }
 
-    if time.ticks() == 4000 {
+    if time.ticks() == 8000 {
         let state = ball.state.as_mut().expect("ball state not found");
         state.position = point![-3.6, -2.5];
     }
 
-    if time.ticks() == 8000 {
+    if time.ticks() == 16000 {
         let state = ball.state.as_mut().expect("ball state not found");
         state.position = point![-1.5, 0.0];
         state.velocity = vector![-3.0, -0.2];
     }
 
-    if time.ticks() == 15000 {
+    if time.ticks() == 30000 {
         exit.send(AppExit::Success);
     }
 }

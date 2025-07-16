@@ -3,10 +3,10 @@ pub mod circle;
 pub mod circle_tangents;
 pub mod convex_hull;
 pub mod direction;
-pub mod is_inside_polygon;
 pub mod line;
 pub mod line_segment;
 pub mod look_at;
+pub mod polygon;
 pub mod rectangle;
 pub mod two_line_segments;
 

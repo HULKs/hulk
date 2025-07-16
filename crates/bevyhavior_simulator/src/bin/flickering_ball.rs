@@ -49,7 +49,7 @@ fn update(
         println!("Done");
         exit.send(AppExit::Success);
     }
-    if time.ticks() >= 10_000 {
+    if time.ticks() >= 20_000 {
         println!("No goal was scored :(");
         exit.send(AppExit::from_code(1));
     }

@@ -59,12 +59,12 @@ fn update(
         exit.send(AppExit::Success);
     }
     // Or fail based on a certain condition, such as if scoring takes too long
-    if time.ticks() >= 10_000 {
+    if time.ticks() >= 20_000 {
         println!("No goal was scored :(");
         exit.send(AppExit::from_code(1));
     }
     // Based on time or other conditions you can modify the game state
-    if time.ticks() == 3000 {
+    if time.ticks() == 6000 {
         // Set substate
         game_controller_commands.send(GameControllerCommand::SetSubState(
             Some(SubState::PushingFreeKick),
