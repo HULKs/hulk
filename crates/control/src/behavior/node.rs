@@ -24,7 +24,6 @@ use types::{
     path_obstacles::PathObstacle,
     primary_state::PrimaryState,
     roles::Role,
-    step::Step,
     world_state::WorldState,
 };
 
@@ -65,7 +64,6 @@ pub struct CycleContext {
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     lost_ball_parameters: Parameter<LostBallParameters, "behavior.lost_ball">,
     intercept_ball_parameters: Parameter<InterceptBallParameters, "behavior.intercept_ball">,
-    maximum_step_size: Parameter<Step, "step_planner.max_step_size">,
     enable_pose_detection: Parameter<bool, "pose_detection.enable">,
     keeper_motion: Parameter<KeeperMotionParameters, "keeper_motion">,
     use_stand_head_unstiff_calibration:
@@ -305,8 +303,11 @@ impl Behavior {
                     Action::InterceptBall => intercept_ball::execute(
                         world_state,
                         *context.intercept_ball_parameters,
-                        *context.maximum_step_size,
                         *context.intercept_ball_walk_speed,
+                        context
+                            .parameters
+                            .walk_and_stand
+                            .normal_distance_to_be_aligned,
                     ),
                     Action::Calibrate => {
                         calibrate::execute(world_state, *context.use_stand_head_unstiff_calibration)
@@ -383,6 +384,7 @@ impl Behavior {
                         &context.parameters.dribbling,
                         context.dribble_path_plan.cloned(),
                         *context.dribble_walk_speed,
+                        context.parameters.dribbling.distance_to_be_aligned,
                     ),
                     Action::Jump => jump::execute(world_state),
                     Action::PrepareJump => prepare_jump::execute(world_state),
@@ -407,6 +409,10 @@ impl Behavior {
                         context.lost_ball_parameters,
                         &mut context.path_obstacles_output,
                         *context.lost_ball_walk_speed,
+                        context
+                            .parameters
+                            .walk_and_stand
+                            .normal_distance_to_be_aligned,
                     ),
                     Action::SupportLeft => support::execute(
                         world_state,
