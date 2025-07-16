@@ -25,7 +25,7 @@ class FallenDataset:
         group_keys: list[pl.Expr],
         features: Iterable[IntoExpr],
     ) -> None:
-        self.dataframe = dataframe.drop_nulls()
+        self.dataframe = dataframe[:5000000].drop_nulls()
 
         self.labeller = PseudoLabeller()
         self.features = features
@@ -119,10 +119,10 @@ class FallenDataset:
         cache_path = Path("./.cache")
         cache_path.mkdir(exist_ok=True)
         self.train_windowed_filtered_dataframe.write_parquet(
-            cache_path.joinpath("/train_windowed_filtered_dataframe.parquet")
+            cache_path.joinpath("train_windowed_filtered_dataframe.parquet")
         )
         self.test_windowed_filtered_dataframe.write_parquet(
-            cache_path.joinpath("/test_windowed_filtered_dataframe.parquet")
+            cache_path.joinpath("test_windowed_filtered_dataframe.parquet")
         )
 
     def __len__(self) -> int:

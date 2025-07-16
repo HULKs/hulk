@@ -41,65 +41,65 @@ def evaluate_model(model: keras.Model, x_test, y_test) -> tuple[float, float]:
     (test_loss, accuracy) = model.evaluate(x_test, y_test)
     print(f"Test accuracy: {accuracy}, test loss: {test_loss}")
 
-    # Generate confusion matrix
-    cm = confusion_matrix(
-        np.argmax(y_test, axis=1), np.argmax(model.predict(x_test), axis=1)
-    )
-
-    # Normalize confusion matrix
-    cm = cm.astype("float") / cm.sum(axis=1)[:, np.newaxis]
-
-    # Define labels
-    labels = ["Stable", "SoonToBeUnstable"]
-
-    # Convert to percentage for display
-    cm_percent = cm * 100
-
-    # Create annotations for the heatmap
-    annotations = []
-    for i in range(len(labels)):
-        for j in range(len(labels)):
-            annotations.append(
-                {
-                    "x": j,
-                    "y": i,
-                    "text": f"{cm_percent[i][j]:.1f}",
-                    "showarrow": False,
-                    "font": {
-                        "color": "white" if cm_percent[i][j] > 50 else "black",
-                        "size": 14,
-                    },
-                }
-            )
-
-    # Create heatmap using Plotly
-    fig = go.Figure(
-        data=go.Heatmap(
-            z=cm_percent,
-            x=labels,
-            y=labels,
-            colorscale="Blues",
-            showscale=False,  # Equivalent to cbar=False
-            hoverongaps=False,
-            hovertemplate="True: %{y}<br>Predicted: %{x}<br>Value: %{z:.1f}%<extra></extra>",
-        )
-    )
-
-    # Add annotations
-    fig.update_layout(
-        annotations=annotations,
-        title="Confusion Matrix",
-        xaxis_title="<b>Predicted Class</b>",
-        yaxis_title="<b>True Class</b>",
-        width=400,
-        height=400,
-        xaxis={"side": "bottom"},
-        yaxis={
-            "autorange": "reversed"
-        },  # Reverse y-axis to match seaborn style
-    )
-
-    wandb.log({"confusion_matrix": fig})
+#    # Generate confusion matrix
+#    cm = confusion_matrix(
+#        np.argmax(y_test, axis=1), np.argmax(model.predict(x_test), axis=1)
+#    )
+#
+#    # Normalize confusion matrix
+#    cm = cm.astype("float") / cm.sum(axis=1)[:, np.newaxis]
+#
+#    # Define labels
+#    labels = ["Stable", "SoonToBeUnstable"]
+#
+#    # Convert to percentage for display
+#    cm_percent = cm * 100
+#
+#    # Create annotations for the heatmap
+#    annotations = []
+#    for i in range(len(labels)):
+#        for j in range(len(labels)):
+#            annotations.append(
+#                {
+#                    "x": j,
+#                    "y": i,
+#                    "text": f"{cm_percent[i][j]:.1f}",
+#                    "showarrow": False,
+#                    "font": {
+#                        "color": "white" if cm_percent[i][j] > 50 else "black",
+#                        "size": 14,
+#                    },
+#                }
+#            )
+#
+#    # Create heatmap using Plotly
+#    fig = go.Figure(
+#        data=go.Heatmap(
+#            z=cm_percent,
+#            x=labels,
+#            y=labels,
+#            colorscale="Blues",
+#            showscale=False,  # Equivalent to cbar=False
+#            hoverongaps=False,
+#            hovertemplate="True: %{y}<br>Predicted: %{x}<br>Value: %{z:.1f}%<extra></extra>",
+#        )
+#    )
+#
+#    # Add annotations
+#    fig.update_layout(
+#        annotations=annotations,
+#        title="Confusion Matrix",
+#        xaxis_title="<b>Predicted Class</b>",
+#        yaxis_title="<b>True Class</b>",
+#        width=400,
+#        height=400,
+#        xaxis={"side": "bottom"},
+#        yaxis={
+#            "autorange": "reversed"
+#        },  # Reverse y-axis to match seaborn style
+#    )
+#
+#    wandb.log({"confusion_matrix": fig})
 
     return (test_loss, accuracy)
 
@@ -107,14 +107,14 @@ def evaluate_model(model: keras.Model, x_test, y_test) -> tuple[float, float]:
 def train_model(model, x_train, y_train, max_epochs: int) -> None:
     early_stopping = EarlyStopping(
         monitor="val_loss",
-        patience=50,
+        patience=100,
         mode="min",
     )
 
     model.fit(
         x_train,
         y_train,
-        batch_size=256,
+        batch_size=16,
         epochs=max_epochs,
         validation_split=0.2,
         callbacks=[early_stopping, WandbMetricsLogger()],
@@ -140,7 +140,7 @@ def build_linear_model(
                 padding="valid",
                 activation="relu",
             ),
-            # BatchNormalization(),
+            BatchNormalization(),
             # Conv2D(
             #     filters=16,
             #     kernel_size=[8, 4],
@@ -148,8 +148,8 @@ def build_linear_model(
             #     activation="relu",
             # ),
             Flatten(),
-            BatchNormalization(),
-            Dropout(0.2),
+            # BatchNormalization(),
+            Dropout(0.4),
             Dense(
                 run.config["dense_layer_sizes"][0],
                 activation="relu",
@@ -159,16 +159,16 @@ def build_linear_model(
                 run.config["dense_layer_sizes"][1],
                 activation="relu",
             ),
-            Dropout(0.2),
-            Dense(num_classes),
+            Dropout(0.3),
+            Dense(1),
         ]
     )
 
     # Compile model
     model.compile(
         optimizer="adam",
-        loss=keras.losses.CategoricalCrossentropy(
-            from_logits=True, name="categorical_crossentropy"
+        loss=keras.losses.BinaryCrossentropy(
+            from_logits=True, name="binary_crossentropy"
         ),
         metrics=["accuracy"],
     )
@@ -205,7 +205,7 @@ def build_sequential_model(
             ),
             BatchNormalization(),
             Dropout(0.2),
-            Dense(num_classes),
+            Dense(1),
         ]
     )
 
@@ -380,7 +380,7 @@ def train(
             train_model(
                 model,
                 train_input_data,
-                categorical_train_labels,
+                data_labels,
                 max_epochs=300,
             )
 
@@ -388,10 +388,26 @@ def train(
             print(f"Label shape: {categorical_test_labels.shape}")
 
             metric = evaluate_model(
-                model, test_input_data, categorical_test_labels
+                model, test_input_data, test_labels
             )
             label_shifts.append(label_shift)
             metrics.append(metric)
+            
+            
+            converter = tf.lite.TFLiteConverter.from_keras_model(model)
+            converter._experimental_lower_tensor_list_ops = False
+            converter.optimizations = [tf.lite.Optimize.DEFAULT]
+            converter.target_spec.supported_ops = [
+                tf.lite.OpsSet.TFLITE_BUILTINS,  # enable TensorFlow Lite ops.
+                tf.lite.OpsSet.SELECT_TF_OPS,  # enable TensorFlow ops.
+            ]
+            converter.allow_custom_ops = True
+            model_tflite = converter.convert()
+            with open(
+                f"../../../etc/neural_networks/fall_detection_shift_{label_shift}.tflite",
+                "wb",
+            ) as f:
+                f.write(model_tflite)
 
     pio.renderers.default = "browser"
     unzipped_metrics = list(zip(*metrics))
@@ -414,19 +430,6 @@ def train(
     fig1.show()
     fig2.show()
 
-    converter = tf.lite.TFLiteConverter.from_keras_model(model)
-    converter._experimental_lower_tensor_list_ops = False
-    converter.optimizations = [tf.lite.Optimize.DEFAULT]
-    converter.target_spec.supported_ops = [
-        tf.lite.OpsSet.TFLITE_BUILTINS,  # enable TensorFlow Lite ops.
-        tf.lite.OpsSet.SELECT_TF_OPS,  # enable TensorFlow ops.
-    ]
-    converter.allow_custom_ops = True
-    model_tflite = converter.convert()
-    with open("../../../etc/neural_networks/fall_detection.tflite", "wb") as f:
-        f.write(model_tflite)
-
-
 @click.command()
 @click.option(
     "--model-type",
@@ -438,13 +441,13 @@ def train(
 def main(model_type: ModelType, data_path: str, use_cache: bool) -> None:
     config = {
         "model_type": model_type,
-        "window_size": 50 / 83,
+        "window_size": 70 / 83,
         "window_stride": 1 / 83,
-        "label_shift": 20,
-        "number_of_filters": [32],
-        "kernel_widths": [30],
-        "dense_layer_sizes": [32, 16],
-        "lstm_sizes": [64, 32],
+        "label_shift": 30,
+        "number_of_filters": [16],
+        "kernel_widths": [10],
+        "dense_layer_sizes": [24, 16],
+        "lstm_sizes": [32, 16],
     }
     assert config["window_size"] * 83 > config["kernel_widths"][0]
     code = wandb.Artifact(name="code", type="code")
