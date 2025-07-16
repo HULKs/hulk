@@ -87,8 +87,12 @@ fn update(
         println!("Failed to prevent goals from being scored :(");
         exit.send(AppExit::from_code(1));
     }
-    if time.ticks() >= 10_000 || *state.count > 20 {
+    if *state.count > 20 {
         println!("Done");
         exit.send(AppExit::Success);
+    }
+    if time.ticks() >= 20_000 {
+        println!("Scenario timed out, please fix");
+        exit.send(AppExit::from_code(2));
     }
 }
