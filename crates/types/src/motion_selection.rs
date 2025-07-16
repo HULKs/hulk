@@ -56,10 +56,7 @@ impl Default for MotionType {
 
 impl MotionType {
     pub fn is_standup_motion(&self) -> bool {
-        matches!(
-            self,
-            MotionType::StandUpBack | MotionType::StandUpFront(_) | MotionType::StandUpSitting(_)
-        )
+        matches!(self, MotionType::StandUpBack | MotionType::StandUpFront(_))
     }
 
     pub fn is_dispatching(&self) -> bool {

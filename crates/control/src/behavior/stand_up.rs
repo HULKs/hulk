@@ -14,8 +14,8 @@ pub fn execute(world_state: &WorldState, maximum_standup_attempts: u32) -> Optio
         _ => return None,
     };
     let speed = match (kind, world_state.robot.stand_up_count) {
+        (FallenKind::Sitting, 0) => StandUpSpeed::Default,
         (_, 1) => StandUpSpeed::Default,
-        (FallenKind::Sitting, 2) => StandUpSpeed::Default,
         (FallenKind::Sitting, _) => StandUpSpeed::Slow,
         (FallenKind::FacingDown, _) => StandUpSpeed::Slow,
         (FallenKind::FacingUp, _) => StandUpSpeed::Default,
