@@ -92,17 +92,23 @@ impl WalkOrientationField {
 mod tests {
     use std::f32::consts::TAU;
 
-    use linear_algebra::{point, Orientation2, Vector2};
-    use proptest::proptest;
+    use coordinate_systems::Ground;
+    use geometry::look_at::LookAt;
+    use linear_algebra::{point, Orientation2, Point2, Vector2};
+    use proptest::{prop_assume, proptest};
     use types::motion_command::OrientationMode;
 
-    use crate::geometry::{angle::Angle, pose::Pose};
+    use crate::{
+        geometry::{angle::Angle, pose::Pose},
+        test_utils::is_roughly_opposite,
+    };
 
     use super::WalkOrientationField;
 
     proptest!(
         #[test]
         fn verify_gradient_look_towards(x in -5.0f32..5.0, y in -5.0f32..5.0, orientation in 0.0..TAU, target_orientation in 0.0..TAU) {
+            prop_assume!(!is_roughly_opposite(orientation, target_orientation));
             verify_gradient_look_towards_impl(x, y, orientation, target_orientation)
         }
     );
@@ -140,6 +146,8 @@ mod tests {
     proptest!(
         #[test]
         fn verify_gradient_look_at(x in -5.0f32..5.0, y in -5.0f32..5.0, orientation in 0.0..TAU, target_x in -5.0f32..5.0, target_y in -5.0f32..5.0) {
+            let target: Point2<Ground> = point![target_x, target_y];
+            prop_assume!(!is_roughly_opposite(orientation, point![x, y].look_at(&target).angle()));
             verify_gradient_look_at_impl(x, y, orientation, target_x, target_y)
         }
     );
@@ -189,6 +197,7 @@ mod tests {
     proptest!(
         #[test]
         fn verify_gradient_align_with_path(x in -5.0f32..5.0, y in -5.0f32..5.0, orientation in 0.0..TAU, path_angle in 0.0..TAU) {
+            prop_assume!(!is_roughly_opposite(orientation, path_angle));
             verify_gradient_align_with_path_impl(x, y, orientation, path_angle)
         }
     );
