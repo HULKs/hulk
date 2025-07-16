@@ -98,9 +98,8 @@ async fn upload_with_progress(
 
 pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()> {
     let upload_directory = tempdir().wrap_err("failed to get temporary directory")?;
-    let hulk_binary = get_hulk_binary(arguments.build.profile());
 
-    let cargo_arguments = cargo::Arguments {
+    let mut cargo_arguments = cargo::Arguments {
         manifest: Some(
             repository
                 .root
@@ -110,6 +109,11 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()>
         environment: arguments.environment,
         cargo: arguments.build,
     };
+    if cargo_arguments.cargo.common.profile.is_none() {
+        cargo_arguments.cargo.common.profile = Some("release".to_string());
+    }
+
+    let hulk_binary = get_hulk_binary(arguments.build.profile());
 
     if !arguments.upload.no_build {
         cargo(cargo_arguments, repository, &[&hulk_binary])
