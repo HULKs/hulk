@@ -18,7 +18,7 @@ use step_planning::{
 };
 use types::{
     motion_command::{MotionCommand, OrientationMode, WalkSpeed},
-    parameters::StepPlanningOptimizationParameters,
+    parameters::{StepPlannerMode, StepPlanningOptimizationParameters},
     planned_path::{Path, PathSegment},
     sensor_data::SensorData,
     step::Step,
@@ -49,6 +49,7 @@ pub struct CycleContext {
     optimization_parameters:
         Parameter<StepPlanningOptimizationParameters, "step_planner.optimization_parameters">,
     walk_volume_extents: Parameter<WalkVolumeExtents, "step_planner.walk_volume_extents">,
+    mode: Parameter<StepPlannerMode, "step_planner.mode">,
 
     ground_to_upcoming_support:
         CyclerState<Isometry2<Ground, UpcomingSupport>, "ground_to_upcoming_support">,
@@ -144,17 +145,23 @@ impl StepPlanner {
                 walk_volume_extents,
             )
             .expect("greedy step planning failed");
+
+            let greedy_step = *step_plan_greedy.first().unwrap();
+
             context
                 .step_plan_greedy
                 .fill_if_subscribed(|| step_plan_greedy);
 
-            self.plan_step(
-                path,
-                &mut context,
-                *orientation_mode,
-                *target_orientation,
-                *distance_to_be_aligned,
-            )?
+            match context.mode {
+                StepPlannerMode::Mpc => self.plan_step(
+                    path,
+                    &mut context,
+                    *orientation_mode,
+                    *target_orientation,
+                    *distance_to_be_aligned,
+                )?,
+                StepPlannerMode::Greedy => greedy_step,
+            }
         };
 
         let elapsed = SystemTime::now().duration_since(earlier).unwrap();
