@@ -22,6 +22,7 @@ fn intercept_ball(app: &mut App) {
 #[derive(SystemParam)]
 struct State<'s> {
     count: Local<'s, usize>,
+    previous_goal_count: Local<'s, u8>,
 }
 
 fn startup(
@@ -32,7 +33,7 @@ fn startup(
 ) {
     let mut robot = Robot::new(PlayerNumber::One);
     *robot.ground_to_field_mut() = Isometry2::from_parts(vector![-2.0, 0.0], 0.0);
-    robot.parameters.step_planner.max_step_size.forward = 1.45;
+    robot.parameters.step_planner.max_step_size.forward = 1.0;
     commands.spawn(robot);
     game_controller.state.game_state = GameState::Playing;
     game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Playing));
@@ -46,7 +47,7 @@ fn startup(
 #[allow(clippy::too_many_arguments)]
 fn update(
     game_controller: ResMut<GameController>,
-    time: ResMut<Time<Ticks>>,
+    time: Res<Time<Ticks>>,
     mut ball: ResMut<BallResource>,
     mut exit: EventWriter<AppExit>,
     mut robots: Query<&mut Robot>,
@@ -85,7 +86,8 @@ fn update(
         }
     }
 
-    if time.ticks() >= 1_000 && game_controller.state.opponent_team.score > 0 {
+    if *state.previous_goal_count < game_controller.state.opponent_team.score {
+        *state.previous_goal_count = game_controller.state.opponent_team.score;
         soft_error.send("Failed to prevent goals from being scored :(");
     }
     if *state.count > 20 {
