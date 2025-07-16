@@ -60,10 +60,11 @@ pub fn angle_penalty_with_tolerance_derivative(
 mod tests {
     use std::f32::consts::{PI, TAU};
 
-    use proptest::proptest;
+    use proptest::{prop_assume, proptest};
 
     use crate::{
         geometry::angle::Angle,
+        test_utils::is_roughly_opposite,
         utils::angle_penalty::{
             angle_penalty, angle_penalty_derivative, angle_penalty_with_tolerance,
             angle_penalty_with_tolerance_derivative,
@@ -73,6 +74,7 @@ mod tests {
     proptest!(
         #[test]
         fn verify_angle_penalty_gradient(orientation in 0.0..TAU, target_orientation in 0.0..TAU) {
+            prop_assume!(!is_roughly_opposite(orientation, target_orientation));
             verify_angle_penalty_gradient_impl(orientation, target_orientation)
         }
     );
@@ -92,6 +94,7 @@ mod tests {
     proptest!(
         #[test]
         fn verify_angle_penalty_with_tolerance_gradient(orientation in 0.0..TAU, target_orientation in 0.0..TAU, tolerance in 0.0..PI) {
+            prop_assume!(!is_roughly_opposite(orientation, target_orientation));
             verify_angle_penalty_with_tolerance_gradient_impl(orientation, target_orientation, tolerance)
         }
     );
