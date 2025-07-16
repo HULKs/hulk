@@ -301,6 +301,7 @@
     "sensor_angle": 0.35
   },
   "step_planner": {
+    "mode": "Mpc",
     "injected_step": null,
     "max_step_size": {
       "forward": 0.045,

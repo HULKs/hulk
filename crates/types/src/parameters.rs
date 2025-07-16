@@ -482,3 +482,12 @@ pub struct StepPlanningOptimizationParameters {
     pub alignment_ramp_steepness: f32,
     pub warm_start: bool,
 }
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub enum StepPlannerMode {
+    #[default]
+    Mpc,
+    Greedy,
+}
