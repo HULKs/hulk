@@ -11,6 +11,9 @@ use std::{
 };
 
 #[derive(Debug)]
+// `repr(transparent)` ensures this struct has the same memory layout as `inner`.
+// This guarantees that transmuting between `Framed<Frame, Inner>` and `Inner` is safe.
+#[repr(transparent)]
 pub struct Framed<Frame, Inner> {
     frame: PhantomData<Frame>,
     pub inner: Inner,
