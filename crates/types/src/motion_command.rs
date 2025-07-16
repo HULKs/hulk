@@ -7,7 +7,7 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use crate::{
     camera_position::CameraPosition,
     fall_state::{FallenKind, FallingDirection, StandUpSpeed},
-    planned_path::PathSegment,
+    planned_path::Path,
     support_foot::Side,
 };
 
@@ -42,8 +42,16 @@ pub enum WalkSpeed {
     PartialEq,
 )]
 pub enum OrientationMode {
+    Unspecified,
     AlignWithPath,
-    Override(Orientation2<Ground>),
+    LookTowards {
+        direction: Orientation2<Ground>,
+        tolerance: f32,
+    },
+    LookAt {
+        target: Point2<Ground>,
+        tolerance: f32,
+    },
 }
 
 #[derive(
@@ -93,10 +101,12 @@ pub enum MotionCommand {
     },
     Walk {
         head: HeadMotion,
-        path: Vec<PathSegment>,
+        path: Path,
         left_arm: ArmMotion,
         right_arm: ArmMotion,
         orientation_mode: OrientationMode,
+        target_orientation: Orientation2<Ground>,
+        distance_to_be_aligned: f32,
         speed: WalkSpeed,
     },
     InWalkKick {
