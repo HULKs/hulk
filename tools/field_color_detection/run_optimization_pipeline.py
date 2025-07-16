@@ -7,9 +7,7 @@ from typing import get_args
 import joblib
 import numpy as np
 import optuna
-from sklearn import metrics
-from sklearn.model_selection import GridSearchCV
-from src.field_color_detection import (
+from field_color_detection import (
     HEIGHT,
     WIDTH,
     Classes,
@@ -20,6 +18,8 @@ from src.field_color_detection import (
     get_data_from_hdf5,
     load_sampling_masks,
 )
+from sklearn import metrics
+from sklearn.model_selection import GridSearchCV
 
 
 def pretty_dict(dictionary: dict) -> str:
