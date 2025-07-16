@@ -33,6 +33,7 @@ pub struct Parameters {
     pub max_turn_acceleration: f32,
     pub min_step_duration: Duration,
     pub sole_pressure_threshold: f32,
+    pub min_sole_pressure: f32,
     pub step_midpoint: Step,
     pub stiffness_loss_compensation: StiffnessLossCompensation,
     pub stiffnesses: Stiffnesses,

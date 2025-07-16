@@ -418,7 +418,8 @@
     "max_support_foot_lift_speed": 0.025,
     "max_turn_acceleration": 0.7,
     "min_step_duration": { "nanos": 150000000, "secs": 0 },
-    "sole_pressure_threshold": 0.2,
+    "min_sole_pressure": 0.15,
+    "sole_pressure_threshold": 1.0,
     "step_midpoint": {
       "forward": 0.45,
       "left": 0.75,
