@@ -108,9 +108,8 @@ pub struct FootLevelingParameters {
     pub max_level_delta: f32,
     pub max_pitch: f32,
     pub max_roll: f32,
-    pub pitch_scale: f32,
+    pub noise_scale: nalgebra::Vector2<f32>,
     pub roll_factor: f32,
-    pub roll_scale: f32,
     pub start_reduce_to_zero: f32,
 }
 
