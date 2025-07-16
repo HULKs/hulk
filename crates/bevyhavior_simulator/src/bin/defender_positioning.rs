@@ -10,6 +10,7 @@ use bevyhavior_simulator::{
     robot::Robot,
     time::{Ticks, TicksTime},
 };
+use types::ball_position::SimulatorBallState;
 
 #[scenario]
 fn defender_positioning(app: &mut App) {
@@ -37,19 +38,24 @@ fn startup(
 
 fn update(time: Res<Time<Ticks>>, mut ball: ResMut<BallResource>, mut exit: EventWriter<AppExit>) {
     if time.ticks() == 5000 {
-        let state = ball.state.as_mut().expect("ball state not found");
-        state.position = point![-3.6, 2.5];
+        ball.state = Some(SimulatorBallState {
+            position: point![-3.6, 2.5],
+            velocity: vector![0.0, 0.0],
+        });
     }
 
     if time.ticks() == 8000 {
-        let state = ball.state.as_mut().expect("ball state not found");
-        state.position = point![-3.6, -2.5];
+        ball.state = Some(SimulatorBallState {
+            position: point![-3.6, -2.5],
+            velocity: vector![0.0, 0.0],
+        });
     }
 
     if time.ticks() == 16000 {
-        let state = ball.state.as_mut().expect("ball state not found");
-        state.position = point![-1.5, 0.0];
-        state.velocity = vector![-3.0, -0.2];
+        ball.state = Some(SimulatorBallState {
+            position: point![-1.5, 0.0],
+            velocity: vector![-3.0, -0.2],
+        });
     }
 
     if time.ticks() == 30000 {
