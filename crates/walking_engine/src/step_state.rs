@@ -73,15 +73,22 @@ impl StepState {
     }
 
     pub fn is_support_switched(&self, context: &Context) -> bool {
-        let pressure_left = context.force_sensitive_resistors.left.sum()
-            > context.parameters.sole_pressure_threshold;
-        let pressure_right = context.force_sensitive_resistors.right.sum()
-            > context.parameters.sole_pressure_threshold;
+        let sum_left = context.force_sensitive_resistors.left.sum();
+        let sum_right = context.force_sensitive_resistors.right.sum();
+
+        let pressure_left = sum_left > context.parameters.sole_pressure_threshold;
+        let pressure_right = sum_right > context.parameters.sole_pressure_threshold;
 
         let minimal_time = self.time_since_start > context.parameters.min_step_duration;
         let is_support_switched = match self.plan.support_side {
-            Side::Left => pressure_right,
-            Side::Right => pressure_left,
+            Side::Left => {
+                pressure_right
+                    || (sum_right > sum_left && sum_right > context.parameters.min_sole_pressure)
+            }
+            Side::Right => {
+                pressure_left
+                    || (sum_left > sum_right && sum_left > context.parameters.min_sole_pressure)
+            }
         };
 
         minimal_time && is_support_switched
