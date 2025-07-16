@@ -9,6 +9,7 @@ use bevyhavior_simulator::{
     ball::BallResource,
     game_controller::{GameController, GameControllerCommand},
     robot::Robot,
+    soft_error::SoftErrorSender,
     time::{Ticks, TicksTime},
 };
 
@@ -50,6 +51,7 @@ fn update(
     mut exit: EventWriter<AppExit>,
     mut robots: Query<&mut Robot>,
     mut state: State,
+    mut soft_error: SoftErrorSender,
 ) {
     if let Some(ball) = ball.state.as_mut() {
         let mut robot = robots.single_mut();
@@ -83,8 +85,8 @@ fn update(
         }
     }
 
-    if game_controller.state.opponent_team.score > 0 {
-        println!("Failed to prevent goals from being scored :(");
+    if time.ticks() >= 1_000 && game_controller.state.opponent_team.score > 0 {
+        soft_error.send("Failed to prevent goals from being scored :(");
         exit.send(AppExit::from_code(1));
     }
     if *state.count > 20 {
