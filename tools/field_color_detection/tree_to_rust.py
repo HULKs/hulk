@@ -47,8 +47,7 @@ def main(model_path: Path, output: Path) -> None:
     model_dict = model.booster_.dump_model()
     tree = model_dict["tree_info"][0]["tree_structure"]
 
-    code = (
-"""/*
+    code = """/*
     *********************************** GENERATED CODE ***********************************
 
     This code was generated from a decision tree model in Python.
@@ -59,12 +58,15 @@ def main(model_path: Path, output: Path) -> None:
 
     **************************************************************************************
 */\n\n"""
-    )
     code += "pub struct Features {\n"
     for feature in features:
         code += f"pub {feature}: f32,\n"
     code += "}\n\n"
-    code += "#[allow(clippy::collapsible_else_if)]\n"
+    code += """#[allow(
+clippy::collapsible_else_if,
+clippy::excessive_precision,
+clippy::needless_return
+)]\n"""
     code += "pub fn predict(features: &Features) -> f32 {\n"
     code += generate_if_else(tree)
     code += "\n}"

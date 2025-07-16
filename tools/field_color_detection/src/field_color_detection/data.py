@@ -1,6 +1,7 @@
 import io
 import os
 import random
+from pathlib import Path
 
 import cv2
 import h5py
@@ -51,20 +52,25 @@ def check_memory(min_available_gb: float = 1.0):
         raise optuna.exceptions.TrialPruned()
 
 
-def get_data_from_hdf5(filepath: str) -> tuple[NDArray, NDArray]:
-    database = h5py.File(filepath)
-    X = np.array(database["data"])
-    y = np.array(database["labels"])
-
+def load_file(filepath: Path) -> tuple[NDArray[np.uint8], NDArray[np.uint8]]:
     float_features = [
         FeatureIndices.b.value,
         FeatureIndices.g.value,
         FeatureIndices.r.value,
     ]
-    X[:, float_features] = np.floor(X[:, float_features] * 255)
-    # orig_imgs = np.array(database["images"])
+    with h5py.File(filepath, "r") as db:
+        X = np.array(db["data"], dtype=np.float32)
+        y = np.array(db["labels"], dtype=np.uint8)
+        X[:, float_features] = np.floor(X[:, float_features] * 255)
+        return X.astype(np.uint8), y
 
-    return (X.astype(np.uint8), y.astype(np.uint8))
+
+def get_data_from_hdf5(
+    *filepaths: Path,
+) -> tuple[NDArray[np.uint8], NDArray[np.uint8]]:
+    data = [load_file(path) for path in filepaths]
+    X_all, y_all = zip(*data)
+    return np.concatenate(X_all, axis=0), np.concatenate(y_all, axis=0)
 
 
 def read_YCrCb_image(filepath: str) -> NDArray:

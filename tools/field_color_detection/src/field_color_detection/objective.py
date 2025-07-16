@@ -44,6 +44,70 @@ def f2_score(y_true: NDArray[np.int8], y_pred: NDArray[np.int8]) -> float:
     return metrics.fbeta_score(y_true, y_pred, beta=2)
 
 
+def get_texture_features(
+    images_train: NDArray[np.uint8],
+    images_val: NDArray[np.uint8],
+    selected_texture_feature: TextureMethods,
+    selected_channel_index: int,
+    trial: optuna.Trial = None,
+    params: dict | None = None,
+) -> tuple[NDArray[np.uint8], NDArray[np.uint8]]:
+    def get_param(name: str, method: str, *args: int | float) -> int | float:
+        if trial:
+            suggest_fn = getattr(trial, method)
+            return suggest_fn(name, *args)
+        if params and name in params:
+            return params[name]
+        msg = f"Missing parameter: {name}"
+        raise ValueError(msg)
+
+    match selected_texture_feature:
+        case "HoG":
+            orientations = get_param("HoG_orientations", "suggest_int", 4, 8)
+            cells_per_block = get_param(
+                "HoG_cells_per_block", "suggest_int", 2, 4
+            )
+            extractor = HoGFilter(
+                orientations,
+                (8, 8),
+                (cells_per_block, cells_per_block),
+            )
+        case "Neighbors":
+            radius = get_param("Neighbors_radius", "suggest_int", 1, 31)
+            orientations = get_param(
+                "Neighbors_orientations", "suggest_int", 4, 8
+            )
+            extractor = NeighboringPixels(radius, orientations)
+        case "NeighborsDifference":
+            radius = get_param("Neighbors_radius", "suggest_int", 1, 31)
+            orientations = get_param(
+                "Neighbors_orientations", "suggest_int", 4, 8
+            )
+            extractor = NeighboringPixels(radius, orientations, "difference")
+        case "LBP":
+            radius = get_param("LBP_radius", "suggest_int", 1, 31)
+            extractor = LBPFilter(radius)
+        case "GaborFilters":
+            ksize = 2 * get_param("Gabor_ksize", "suggest_int", 1, 50) + 1
+            sigma = get_param("Gabor_sigma", "suggest_float", 1, 10)
+            lambd = get_param("Gabor_lambda", "suggest_float", 0.05, 0.5)
+            gamma = get_param("Gabor_gamma", "suggest_float", 0.3, 1)
+            phi = get_param("Gabor_phi", "suggest_float", 0, 2 * np.pi)
+            orientations = get_param("Gabor_orientations", "suggest_int", 4, 8)
+            extractor = GaborFilter(
+                ksize, sigma, lambd, gamma, phi, orientations
+            )
+        case _:
+            msg = f"Unknown texture feature: {selected_texture_feature}"
+            raise ValueError(msg)
+
+    features_train = extractor.get_features(
+        images_train, selected_channel_index
+    )
+    features_val = extractor.get_features(images_val, selected_channel_index)
+    return features_train.astype(np.float32), features_val.astype(np.float32)
+
+
 class Objective:
     def __init__(
         self,
@@ -86,14 +150,12 @@ class Objective:
         )
 
         start = time.time()
-        texture_features_train, texture_features_val = (
-            self.get_texture_features(
-                np.reshape(X_train, (-1, HEIGHT, WIDTH, len(indices))),
-                np.reshape(X_val, (-1, HEIGHT, WIDTH, len(indices))),
-                selected_texture_method,
-                selected_color_channel,
-                trial=trial,
-            )
+        texture_features_train, texture_features_val = get_texture_features(
+            np.reshape(X_train, (-1, HEIGHT, WIDTH, len(indices))),
+            np.reshape(X_val, (-1, HEIGHT, WIDTH, len(indices))),
+            selected_texture_method,
+            selected_color_channel,
+            trial=trial,
         )
         end = time.time()
         print_duration(start, end, "Texture Feature Extraction")
@@ -188,80 +250,6 @@ class Objective:
             plt.close(fig)
 
         return f2_score(y_val_binary, prediction), len(indices)
-
-    def get_texture_features(
-        self,
-        images_train: NDArray[np.uint8],
-        images_val: NDArray[np.uint8],
-        selected_texture_feature: TextureMethods,
-        selected_channel_index: int,
-        trial: optuna.Trial = None,
-        params: dict | None = None,
-    ) -> tuple[NDArray[np.uint8], NDArray[np.uint8]]:
-        def get_param(
-            name: str, method: str, *args: int | float
-        ) -> int | float:
-            if trial:
-                suggest_fn = getattr(trial, method)
-                return suggest_fn(name, *args)
-            if params and name in params:
-                return params[name]
-            msg = f"Missing parameter: {name}"
-            raise ValueError(msg)
-
-        match selected_texture_feature:
-            case "HoG":
-                orientations = get_param(
-                    "HoG_orientations", "suggest_int", 4, 8
-                )
-                cells_per_block = get_param(
-                    "HoG_cells_per_block", "suggest_int", 2, 4
-                )
-                extractor = HoGFilter(
-                    orientations,
-                    (8, 8),
-                    (cells_per_block, cells_per_block),
-                )
-            case "Neighbors":
-                radius = get_param("Neighbors_radius", "suggest_int", 1, 31)
-                orientations = get_param(
-                    "Neighbors_orientations", "suggest_int", 4, 8
-                )
-                extractor = NeighboringPixels(radius, orientations)
-            case "NeighborsDifference":
-                radius = get_param("Neighbors_radius", "suggest_int", 1, 31)
-                orientations = get_param(
-                    "Neighbors_orientations", "suggest_int", 4, 8
-                )
-                extractor = NeighboringPixels(radius, orientations, "difference")
-            case "LBP":
-                radius = get_param("LBP_radius", "suggest_int", 1, 31)
-                extractor = LBPFilter(radius)
-            case "GaborFilters":
-                ksize = 2 * get_param("Gabor_ksize", "suggest_int", 1, 50) + 1
-                sigma = get_param("Gabor_sigma", "suggest_float", 1, 10)
-                lambd = get_param("Gabor_lambda", "suggest_float", 0.05, 0.5)
-                gamma = get_param("Gabor_gamma", "suggest_float", 0.3, 1)
-                phi = get_param("Gabor_phi", "suggest_float", 0, 2 * np.pi)
-                orientations = get_param(
-                    "Gabor_orientations", "suggest_int", 4, 8
-                )
-                extractor = GaborFilter(
-                    ksize, sigma, lambd, gamma, phi, orientations
-                )
-            case _:
-                msg = f"Unknown texture feature: {selected_texture_feature}"
-                raise ValueError(msg)
-
-        features_train = extractor.get_features(
-            images_train, selected_channel_index
-        )
-        features_val = extractor.get_features(
-            images_val, selected_channel_index
-        )
-        return features_train.astype(np.float32), features_val.astype(
-            np.float32
-        )
 
     def get_classifier(self) -> ClassifierMixin:
         classifiers = {

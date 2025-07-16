@@ -37,7 +37,7 @@ FeatureIndices = Enum(
     },
 )
 
-Classifiers = Literal["MLPClassifier"]
+Classifiers = Literal["DecisionTree"]
 # [
 #     "LinearSVM",
 #     "DecisionTree",
