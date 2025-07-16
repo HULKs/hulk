@@ -42,14 +42,14 @@ fn update(
     robots: Query<&mut Robot>,
     mut exit: EventWriter<AppExit>,
 ) {
-    if time.ticks() == 6000 {
+    if time.ticks() == 5000 {
         game_controller_commands.send(GameControllerCommand::SetSubState(
             Some(SubState::KickIn),
             Team::Hulks,
             None,
         ));
     }
-    if time.ticks() >= 6005 && time.ticks() < 6000 + FREE_KICK_DURATION_IN_TICKS {
+    if time.ticks() >= 5005 && time.ticks() < 5000 + FREE_KICK_DURATION_IN_TICKS {
         for robot in robots.iter() {
             if robot
                 .database
