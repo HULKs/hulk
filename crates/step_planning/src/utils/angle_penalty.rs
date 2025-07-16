@@ -73,30 +73,44 @@ mod tests {
     proptest!(
         #[test]
         fn verify_angle_penalty_gradient(orientation in 0.0..TAU, target_orientation in 0.0..TAU) {
-            let orientation = Angle(orientation);
-            let target_orientation = Angle(target_orientation);
-
-            crate::test_utils::verify_gradient::verify_gradient(
-                &|orientation| angle_penalty(orientation, target_orientation),
-                &|orientation| angle_penalty_derivative(orientation, target_orientation),
-                0.05,
-                orientation,
-            )
+            verify_angle_penalty_gradient_impl(orientation, target_orientation)
         }
     );
+
+    fn verify_angle_penalty_gradient_impl(orientation: f32, target_orientation: f32) {
+        let orientation = Angle(orientation);
+        let target_orientation = Angle(target_orientation);
+
+        crate::test_utils::verify_gradient::verify_gradient(
+            &|orientation| angle_penalty(orientation, target_orientation),
+            &|orientation| angle_penalty_derivative(orientation, target_orientation),
+            0.05,
+            orientation,
+        )
+    }
 
     proptest!(
         #[test]
         fn verify_angle_penalty_with_tolerance_gradient(orientation in 0.0..TAU, target_orientation in 0.0..TAU, tolerance in 0.0..PI) {
-            let orientation = Angle(orientation);
-            let target_orientation = Angle(target_orientation);
-
-            crate::test_utils::verify_gradient::verify_gradient(
-                &|orientation| angle_penalty_with_tolerance(orientation, target_orientation, tolerance),
-                &|orientation| angle_penalty_with_tolerance_derivative(orientation, target_orientation, tolerance),
-                0.05,
-                orientation,
-            )
+            verify_angle_penalty_with_tolerance_gradient_impl(orientation, target_orientation, tolerance)
         }
     );
+
+    fn verify_angle_penalty_with_tolerance_gradient_impl(
+        orientation: f32,
+        target_orientation: f32,
+        tolerance: f32,
+    ) {
+        let orientation = Angle(orientation);
+        let target_orientation = Angle(target_orientation);
+
+        crate::test_utils::verify_gradient::verify_gradient(
+            &|orientation| angle_penalty_with_tolerance(orientation, target_orientation, tolerance),
+            &|orientation| {
+                angle_penalty_with_tolerance_derivative(orientation, target_orientation, tolerance)
+            },
+            0.05,
+            orientation,
+        )
+    }
 }
