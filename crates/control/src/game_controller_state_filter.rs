@@ -190,10 +190,7 @@ impl GameControllerStateFilter {
             ground_to_field,
             self.whistle_in_set_ball_position,
         ) {
-            (State::WhistleInSet { .. }, Some(ground_to_field), None) => {
-                ball_position.map(|ball| ground_to_field * ball.position);
-            }
-            _ => {}
+            ball_position.map(|ball| ground_to_field * ball.position);
         };
 
         let motion_in_set = matches!(
