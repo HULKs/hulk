@@ -28,6 +28,8 @@ pub mod traits;
 pub mod utils;
 
 pub const VARIABLES_PER_STEP: usize = 3;
+pub const NUM_STEPS: usize = 5;
+pub const NUM_VARIABLES: usize = NUM_STEPS * VARIABLES_PER_STEP;
 
 #[derive(Clone, Debug)]
 pub struct StepPlanning<'a> {

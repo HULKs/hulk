@@ -475,7 +475,6 @@ pub struct StepPlanningCostFactors {
 )]
 pub struct StepPlanningOptimizationParameters {
     pub optimizer_steps: usize,
-    pub num_steps: usize,
     pub cost_factors: StepPlanningCostFactors,
     pub path_alignment_tolerance: f32,
     pub path_progress_smoothness: f32,

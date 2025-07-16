@@ -5,7 +5,7 @@ use eframe::{egui::Color32, epaint::Stroke};
 
 use coordinate_systems::{Ground, UpcomingSupport};
 use linear_algebra::{point, vector, Isometry2, Orientation2, Orientation3, Pose2, Pose3};
-use step_planning::VARIABLES_PER_STEP;
+use step_planning::{NUM_STEPS, NUM_VARIABLES};
 use types::{field_dimensions::FieldDimensions, step::Step, support_foot::Side};
 
 use crate::{
@@ -16,9 +16,9 @@ use super::walking::paint_sole_polygon;
 
 pub struct PlannedSteps {
     direct_step: BufferHandle<Option<Step>>,
-    step_plan: BufferHandle<Option<Vec<Step>>>,
-    step_plan_greedy: BufferHandle<Option<Vec<Step>>>,
-    step_plan_gradient: BufferHandle<Option<Vec<f32>>>,
+    step_plan: BufferHandle<Option<[Step; NUM_STEPS]>>,
+    step_plan_greedy: BufferHandle<Option<[Step; NUM_STEPS]>>,
+    step_plan_gradient: BufferHandle<Option<[f32; NUM_VARIABLES]>>,
     ground_to_upcoming_support: BufferHandle<Option<Isometry2<Ground, UpcomingSupport>>>,
     // foot_offset_left: BufferHandle<Option<Vector3<Ground>>>,
     // foot_offset_right: BufferHandle<Option<Vector3<Ground>>>,
@@ -126,7 +126,7 @@ impl Layer<Ground> for PlannedSteps {
             );
         }
 
-        let dummy_gradient = vec![0.0; step_plan_greedy.len() * VARIABLES_PER_STEP];
+        let dummy_gradient = [0.0; NUM_VARIABLES];
         paint_step_plan(
             painter,
             Color32::BLUE,
@@ -149,8 +149,8 @@ fn paint_step_plan(
     painter: &TwixPainter<Ground>,
     color: Color32,
     ground_to_upcoming_support: Isometry2<Ground, UpcomingSupport>,
-    step_plan: Vec<Step>,
-    step_plan_gradient: Vec<f32>,
+    step_plan: [Step; NUM_STEPS],
+    step_plan_gradient: [f32; NUM_VARIABLES],
     next_support_side: Side,
     // foot_offset_left: Vector3<Ground>,
     // foot_offset_right: Vector3<Ground>,
