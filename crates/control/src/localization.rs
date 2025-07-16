@@ -538,9 +538,6 @@ impl Localization {
         });
 
         context
-            .pose_hypotheses
-            .fill_if_subscribed(|| self.hypotheses.clone());
-        context
             .fit_errors
             .fill_if_subscribed(|| fit_errors_per_measurement);
 
@@ -609,6 +606,10 @@ impl Localization {
                     })
             });
         let is_localization_converged = self.hypotheses.len() == 1;
+
+        context
+            .pose_hypotheses
+            .fill_if_subscribed(|| self.hypotheses.clone());
 
         Ok(MainOutputs {
             ground_to_field: ground_to_field.into(),
