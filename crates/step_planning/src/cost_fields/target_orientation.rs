@@ -25,16 +25,18 @@ mod tests {
     use std::f32::consts::TAU;
 
     use linear_algebra::point;
-    use proptest::proptest;
+    use proptest::{prop_assume, proptest};
 
     use crate::{
         cost_fields::target_orientation::TargetOrientationField,
         geometry::{angle::Angle, pose::Pose},
+        test_utils::is_roughly_opposite,
     };
 
     proptest!(
         #[test]
         fn verify_gradient(x in -5.0f32..5.0, y in -5.0f32..5.0, orientation in 0.0..TAU, target_orientation in 0.0..TAU) {
+            prop_assume!(!is_roughly_opposite(orientation, target_orientation));
             verify_gradient_impl(x, y, orientation, target_orientation)
         }
     );
