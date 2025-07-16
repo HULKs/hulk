@@ -7,11 +7,12 @@ use std::{
 use color_eyre::{eyre::Context, Result};
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
+use filtering::hysteresis::greater_than_with_hysteresis;
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use geometry::direction::{Direction, Rotate90Degrees};
 use itertools::Itertools;
 use linear_algebra::{point, vector, Isometry2, Point2, Vector2};
-use nalgebra::clamp;
+use nalgebra::{clamp, max};
 use ndarray::{array, Array2};
 use ndarray_conv::{ConvExt, ConvMode, PaddingMode};
 use serde::{Deserialize, Serialize};
@@ -78,15 +79,31 @@ impl SearchSuggestor {
                 / (heatmap_length * heatmap_width) as f32,
             field_dimensions: *context.field_dimensions,
             cells_per_meter: context.search_suggestor_configuration.cells_per_meter,
+            last_maximum_heatmap_position: None,
+            has_decided_for_heatmap_tile: false,
+            heat_change_threshold: 0.0,
         };
         Ok(Self { heatmap })
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         self.update_heatmap(&context)?;
-        let suggested_search_position = self
-            .heatmap
-            .get_maximum_position(context.search_suggestor_configuration.minimum_validity);
+        if !self.heatmap.has_decided_for_heatmap_tile {
+            let suggested_search_index = self
+                .heatmap
+                .get_maximum_position(context.search_suggestor_configuration.minimum_validity);
+            if let Some(some_suggested_search_index) = suggested_search_index {
+                self.heatmap.has_decided_for_heatmap_tile = true;
+                let max_heatmap_value = self.heatmap.map[some_suggested_search_index];
+                self.heatmap.heat_change_threshold = max_heatmap_value * 0.80; // TODO: make parameter
+            }
+            self.heatmap.last_maximum_heatmap_position = suggested_search_index;
+        }
+        let mut suggested_search_position: Option<Point2<Field>> = None;
+        if let Some(max_heatmap_position) = self.heatmap.last_maximum_heatmap_position {
+            suggested_search_position =
+                Some(self.heatmap.tile_center_to_field(max_heatmap_position));
+        }
 
         context
             .heatmap
@@ -202,6 +219,9 @@ struct Heatmap {
     map: Array2<f32>,
     field_dimensions: FieldDimensions,
     cells_per_meter: f32,
+    last_maximum_heatmap_position: Option<(usize, usize)>,
+    heat_change_threshold: f32,
+    has_decided_for_heatmap_tile: bool,
 }
 
 impl Heatmap {
@@ -217,7 +237,7 @@ impl Heatmap {
         )
     }
 
-    fn get_maximum_position(&self, minimum_validity: f32) -> Option<Point2<Field>> {
+    fn get_maximum_position(&self, minimum_validity: f32) -> Option<(usize, usize)> {
         let linear_maximum_heat_heatmap_position =
             self.map.iter().position_max_by(|a, b| a.total_cmp(b))?;
         let maximum_heat_heatmap_position = (
@@ -225,15 +245,17 @@ impl Heatmap {
             linear_maximum_heat_heatmap_position % self.map.dim().1,
         );
         if self.map[maximum_heat_heatmap_position] > minimum_validity {
-            let search_suggestion = point![
-                ((maximum_heat_heatmap_position.0 as f32 + 1.0 / 2.0) / self.cells_per_meter
-                    - self.field_dimensions.length / 2.0),
-                ((maximum_heat_heatmap_position.1 as f32 + 1.0 / 2.0) / self.cells_per_meter
-                    - self.field_dimensions.width / 2.0)
-            ];
-            return Some(search_suggestion);
+            return Some(maximum_heat_heatmap_position);
         }
+
         None
+    }
+
+    fn tile_center_to_field(&self, (x, y): (usize, usize)) -> Point2<Field> {
+        point![
+            ((x as f32 + 1.0 / 2.0) / self.cells_per_meter - self.field_dimensions.length / 2.0),
+            ((y as f32 + 1.0 / 2.0) / self.cells_per_meter - self.field_dimensions.width / 2.0)
+        ]
     }
 
     fn add_teamballs(&mut self, time: SystemTime, message: HulkMessage, team_ball_weight: f32) {
