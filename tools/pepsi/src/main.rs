@@ -107,6 +107,7 @@ enum Command {
     /// Disable NAOs after a game (download logs, unset WiFi network, ...)
     Postgame(post_game::Arguments),
     /// Power NAOs off
+    #[command(alias = "shutdown")]
     Poweroff(power_off::Arguments),
     /// Get NAOs ready for a game (set player numbers, upload, set WiFi network, ...)
     Pregame(pre_game::Arguments),
@@ -124,9 +125,10 @@ enum Command {
     /// Execute all unit and integration tests
     Test(cargo::Arguments<test::Arguments>),
     /// Upload the code to NAOs
+    #[command(alias = "hochlad")]
     Upload(upload::Arguments),
     /// Control WiFi on NAOs
-    #[command(subcommand, name = "wifi")]
+    #[command(subcommand, name = "wifi", alias = "wlan", alias = "wireless")]
     WiFi(wifi::Arguments),
 }
 
