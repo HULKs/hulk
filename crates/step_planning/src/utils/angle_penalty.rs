@@ -72,6 +72,7 @@ mod tests {
     };
 
     proptest!(
+        #![proptest_config(proptest_config())]
         #[test]
         fn verify_angle_penalty_gradient(orientation in 0.0..TAU, target_orientation in 0.0..TAU) {
             prop_assume!(!is_roughly_opposite(orientation, target_orientation));
@@ -92,6 +93,7 @@ mod tests {
     }
 
     proptest!(
+        #![proptest_config(proptest_config())]
         #[test]
         fn verify_angle_penalty_with_tolerance_gradient(orientation in 0.0..TAU, target_orientation in 0.0..TAU, tolerance in 0.0..PI) {
             prop_assume!(!is_roughly_opposite(orientation, target_orientation));
