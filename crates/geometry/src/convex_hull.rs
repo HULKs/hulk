@@ -2,6 +2,10 @@ use linear_algebra::Point2;
 use parry2d::transformation::convex_hull;
 
 pub fn reduce_to_convex_hull<Frame>(points: &[Point2<Frame>]) -> Vec<Point2<Frame>> {
+    if points.len() < 3 {
+        return points.to_vec();
+    }
+
     // SAFETY: linear_algebra::Point2 has repr(transparent) and is guaranteed to have the same memory layout as nalgebra::Point2
     let points: &[_] = unsafe { transmute(points) };
     let convex_hull = convex_hull(points);
@@ -55,5 +59,12 @@ mod test {
                 hexagon.into_iter().chain(hexagon_inner_points),
             )),
         );
+    }
+
+    #[test]
+    fn test_2_points() {
+        let collinear_points = vec![point![0.0, 0.0], point![2.0, 0.0]];
+        let result = reduce_to_convex_hull::<Ground>(&collinear_points);
+        assert_polygon_equality(collinear_points, result);
     }
 }
