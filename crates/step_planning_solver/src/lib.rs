@@ -1,5 +1,7 @@
+use std::array;
+
 use color_eyre::Result;
-use nalgebra::{DVector, Dyn, U1};
+use nalgebra::{Const, SVector, U1};
 use num_dual::{Derivative, DualNum, DualNumFloat, DualVec};
 use optimization_engine::{
     constraints::Constraint,
@@ -13,7 +15,7 @@ use step_planning::{
     geometry::pose::Pose,
     step_plan::StepPlan,
     traits::{ScaledGradient, UnwrapDual, WrapDual},
-    StepPlanning, VARIABLES_PER_STEP,
+    StepPlanning, NUM_VARIABLES, VARIABLES_PER_STEP,
 };
 use types::{
     motion_command::OrientationMode, parameters::StepPlanningOptimizationParameters,
@@ -41,25 +43,24 @@ impl Constraint for WalkVolumeConstraint {
     }
 }
 
-fn duals<F: DualNumFloat + DualNum<F>>(reals: &[F]) -> Vec<DualVec<F, F, Dyn>> {
-    let num_variables = reals.len();
+fn duals<F: DualNumFloat + DualNum<F>>(
+    reals: &[F],
+) -> [DualVec<F, F, Const<NUM_VARIABLES>>; NUM_VARIABLES] {
+    debug_assert_eq!(reals.len(), NUM_VARIABLES);
 
-    reals
-        .iter()
-        .enumerate()
-        .map(|(row, real)| {
-            DualVec::new(
-                *real,
-                Derivative::some(DVector::from_fn(num_variables, |i, _| {
-                    if i == row {
-                        F::one()
-                    } else {
-                        F::zero()
-                    }
-                })),
-            )
-        })
-        .collect()
+    array::from_fn(|row| {
+        let real = reals[row];
+        DualVec::new(
+            real,
+            Derivative::some(SVector::from_fn(|i, _| {
+                if i == row {
+                    F::one()
+                } else {
+                    F::zero()
+                }
+            })),
+        )
+    })
 }
 
 fn cost(variables: &[f32], step_planning: &StepPlanning) -> f32 {
@@ -83,7 +84,8 @@ fn open_cost(
     variables: &[f64],
     out_cost: &mut f64,
 ) -> Result<(), SolverError> {
-    let variables: Vec<f32> = variables.iter().map(|&x| x as f32).collect();
+    debug_assert_eq!(variables.len(), NUM_VARIABLES);
+    let variables: [f32; NUM_VARIABLES] = array::from_fn(|i| variables[i] as f32);
 
     let cost = cost(&variables, step_planning);
 
@@ -92,8 +94,10 @@ fn open_cost(
     Ok(())
 }
 
-fn gradient(variables: &[f32], step_planning: &StepPlanning) -> DVector<f32> {
-    let num_variables = variables.len();
+fn gradient(
+    variables: &[f32; NUM_VARIABLES],
+    step_planning: &StepPlanning,
+) -> SVector<f32, NUM_VARIABLES> {
     let dual_variables = duals(variables);
 
     let step_plan = StepPlan::from(dual_variables.as_slice());
@@ -112,9 +116,9 @@ fn gradient(variables: &[f32], step_planning: &StepPlanning) -> DVector<f32> {
 
             planned_step_gradients
                 .scaled_gradient(derivatives)
-                .unwrap_generic(Dyn(num_variables), U1)
+                .unwrap_generic(Const::<NUM_VARIABLES>, U1)
         })
-        .sum::<DVector<f32>>();
+        .sum::<SVector<f32, NUM_VARIABLES>>();
 
     normalize_gradient(gradient, 2.0)
 }
@@ -124,7 +128,8 @@ fn open_gradient(
     variables: &[f64],
     out_gradient: &mut [f64],
 ) -> Result<(), SolverError> {
-    let variables: Vec<f32> = variables.iter().map(|&x| x as f32).collect();
+    debug_assert_eq!(variables.len(), NUM_VARIABLES);
+    let variables: [f32; NUM_VARIABLES] = array::from_fn(|i| variables[i] as f32);
 
     let gradient = gradient(&variables, step_planning);
 
@@ -145,10 +150,10 @@ pub fn plan_steps(
     distance_to_be_aligned: f32,
     initial_pose: Pose<f32>,
     initial_support_foot: Side,
-    variables: &mut [f64],
+    variables: &mut [f64; NUM_VARIABLES],
     walk_volume_extents: &WalkVolumeExtents,
     parameters: &StepPlanningOptimizationParameters,
-) -> Result<(DVector<f32>, f32)> {
+) -> Result<(SVector<f32, NUM_VARIABLES>, f32)> {
     let step_planning = StepPlanning {
         path,
         initial_pose: initial_pose.clone(),
@@ -166,18 +171,18 @@ pub fn plan_steps(
         |variables, out_cost| open_cost(&step_planning, variables, out_cost),
     );
 
-    let n = parameters.num_steps * VARIABLES_PER_STEP;
     let lbfgs_memory = 10;
     let tolerance = 1e-6;
-    let mut panoc_cache = PANOCCache::new(n, tolerance, lbfgs_memory).with_cbfgs_parameters(
-        // These parameters are needed to fix occasional instability.
-        // This would probably not be necessary if we wouldn't be casting between f32 and f64
-        // in the solver interface.
-        // TODO(rmburg): Either use f32 in the solver or f64 in step planning
-        1.0,  // default
-        1e-8, // default
-        1e-6, // reduced from 1e-10
-    );
+    let mut panoc_cache = PANOCCache::new(NUM_VARIABLES, tolerance, lbfgs_memory)
+        .with_cbfgs_parameters(
+            // These parameters are needed to fix occasional instability.
+            // This would probably not be necessary if we wouldn't be casting between f32 and f64
+            // in the solver interface.
+            // TODO(rmburg): Either use f32 in the solver or f64 in step planning
+            1.0,  // default
+            1e-8, // default
+            1e-6, // reduced from 1e-10
+        );
 
     let mut panoc =
         PANOCOptimizer::new(problem, &mut panoc_cache).with_max_iter(parameters.optimizer_steps);
@@ -190,7 +195,7 @@ pub fn plan_steps(
         }
     };
 
-    let variables = variables.iter().map(|&x| x as f32).collect::<Vec<_>>();
+    let variables = array::from_fn(|i| variables[i] as f32);
 
     // TODO(rmburg) remove/refactor
     let gradient = gradient(&variables, &step_planning);
@@ -198,7 +203,10 @@ pub fn plan_steps(
     Ok((gradient, cost))
 }
 
-fn normalize_gradient(mut gradient: DVector<f32>, max_squared_magnitude: f32) -> DVector<f32> {
+fn normalize_gradient(
+    mut gradient: SVector<f32, NUM_VARIABLES>,
+    max_squared_magnitude: f32,
+) -> SVector<f32, NUM_VARIABLES> {
     for chunk in gradient.as_mut_slice().chunks_exact_mut(3) {
         let squared_magnitude = chunk.iter().map(|x| x.powi(2)).sum::<f32>();
 

@@ -5,7 +5,7 @@ use geometry::{arc::Arc, circle::Circle, direction::Direction, line_segment::Lin
 use linear_algebra::{point, Orientation2, Point2};
 use step_planning::{
     geometry::{angle::Angle, pose::Pose},
-    VARIABLES_PER_STEP,
+    NUM_VARIABLES,
 };
 use types::{
     motion_command::OrientationMode,
@@ -19,7 +19,6 @@ fn plan_steps(path: &Path) {
     const STEP_PLANNING_OPTIMIZATION_PARAMETERS: StepPlanningOptimizationParameters =
         StepPlanningOptimizationParameters {
             optimizer_steps: 20,
-            num_steps: 10,
             cost_factors: StepPlanningCostFactors {
                 path_progress: 0.5,
                 path_distance: 10.0,
@@ -42,8 +41,7 @@ fn plan_steps(path: &Path) {
 
     let distance_to_be_aligned = 0.1;
 
-    let mut variables =
-        vec![0.0; STEP_PLANNING_OPTIMIZATION_PARAMETERS.num_steps * VARIABLES_PER_STEP];
+    let mut variables = [0.0; NUM_VARIABLES];
 
     let (_, _) = step_planning_solver::plan_steps(
         path,

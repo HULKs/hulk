@@ -339,7 +339,6 @@
     },
     "optimization_parameters": {
       "optimizer_steps": 10,
-      "num_steps": 5,
       "cost_factors": {
         "path_progress": 0.5,
         "path_distance": 10.0,
