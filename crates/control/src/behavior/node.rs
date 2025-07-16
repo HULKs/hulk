@@ -4,7 +4,7 @@ use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::Field;
+use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{point, Point2};
 use spl_network_messages::{GamePhase, PlayerNumber, SubState, Team};
@@ -57,7 +57,7 @@ pub struct CycleContext {
     dribble_path_plan: Input<Option<DribblePathPlan>, "dribble_path_plan?">,
     cycle_time: Input<CycleTime, "cycle_time">,
     is_localization_converged: Input<bool, "is_localization_converged">,
-    expected_referee_position: Input<Option<Point2<Field>>, "expected_referee_position?">,
+    expected_referee_position: Input<Option<Point2<Ground>>, "expected_referee_position?">,
 
     parameters: Parameter<BehaviorParameters, "behavior">,
     kick_decision_parameters: Parameter<DecisionParameters, "kick_selector">,
@@ -285,7 +285,6 @@ impl Behavior {
                         *context.enable_pose_detection,
                         &walk_and_stand,
                         context.expected_referee_position,
-                        context.world_state,
                         &mut context.path_obstacles_output,
                         *context.support_walk_speed,
                         context

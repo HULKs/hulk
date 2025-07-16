@@ -1,11 +1,10 @@
-use coordinate_systems::{Field, Ground};
+use coordinate_systems::Ground;
 use framework::AdditionalOutput;
 use linear_algebra::{Point2, Pose2, Rotation2};
 use types::{
     camera_position::CameraPosition,
     motion_command::{HeadMotion, ImageRegion, MotionCommand, WalkSpeed},
     path_obstacles::PathObstacle,
-    world_state::WorldState,
 };
 
 use super::walk_to_pose::WalkAndStand;
@@ -13,17 +12,14 @@ use super::walk_to_pose::WalkAndStand;
 pub fn execute(
     enable_pose_detection: bool,
     walk_and_stand: &WalkAndStand,
-    expected_referee_position: Option<&Point2<Field>>,
-    world_state: &WorldState,
+    expected_referee_position: Option<&Point2<Ground>>,
     path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
     walk_speed: WalkSpeed,
     distance_to_be_aligned: f32,
 ) -> Option<MotionCommand> {
-    let pose_looking_at_referee = if let (Some(expected_referee_position), Some(ground_to_field)) =
-        (expected_referee_position, world_state.robot.ground_to_field)
+    let pose_looking_at_referee = if let Some(expected_referee_position) = expected_referee_position
     {
-        Rotation2::from_vector((ground_to_field.inverse() * expected_referee_position).coords())
-            * Pose2::<Ground>::default()
+        Rotation2::from_vector((expected_referee_position).coords()) * Pose2::<Ground>::default()
     } else {
         Pose2::<Ground>::default()
     };

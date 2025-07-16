@@ -35,7 +35,7 @@ pub struct CycleContext {
     accepted_human_poses: Input<Vec<HumanPose>, "accepted_human_poses">,
     ground_to_field: Input<Option<Isometry2<Ground, Field>>, "Control", "ground_to_field?">,
     expected_referee_position:
-        Input<Option<Point2<Field>>, "Control", "expected_referee_position?">,
+        Input<Option<Point2<Ground>>, "Control", "expected_referee_position?">,
 
     player_number: Parameter<PlayerNumber, "player_number">,
     maximum_distance_to_referee_position:
@@ -68,9 +68,7 @@ impl PoseInterpretation {
         &mut self,
         mut context: CycleContext<impl NetworkInterface>,
     ) -> Result<MainOutputs> {
-        let (Some(ground_to_field), Some(expected_referee_position)) =
-            (context.ground_to_field, context.expected_referee_position)
-        else {
+        let Some(expected_referee_position) = context.expected_referee_position else {
             context
                 .rejected_pose_kind_positions
                 .fill_if_subscribed(Vec::new);
@@ -89,7 +87,7 @@ impl PoseInterpretation {
             context.accepted_human_poses.clone(),
             context.camera_matrices.top.clone(),
             *context.maximum_distance_to_referee_position,
-            ground_to_field.inverse() * expected_referee_position,
+            *expected_referee_position,
             *context.foot_z_offset,
         );
 

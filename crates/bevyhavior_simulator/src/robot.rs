@@ -341,17 +341,12 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
             }
             HeadMotion::LookAt { target, .. } => Orientation2::from_vector(target.coords()).angle(),
             HeadMotion::LookAtReferee { .. } => {
-                if let Some(ground_to_field) = robot.database.main_outputs.ground_to_field {
-                    let expected_referee_position = ground_to_field.inverse()
-                        * robot
-                            .database
-                            .main_outputs
-                            .expected_referee_position
-                            .unwrap_or_default();
-                    Orientation2::from_vector(expected_referee_position.coords()).angle()
-                } else {
-                    0.0
-                }
+                let expected_referee_position = robot
+                        .database
+                        .main_outputs
+                        .expected_referee_position
+                        .unwrap_or_default();
+                Orientation2::from_vector(expected_referee_position.coords()).angle()
             }
             HeadMotion::LookLeftAndRightOf { target } => {
                 let glance_factor = 0.0; //self.time_elapsed.as_secs_f32().sin();
