@@ -7,12 +7,11 @@ use std::{
 use color_eyre::{eyre::Context, Result};
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
-use filtering::hysteresis::greater_than_with_hysteresis;
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use geometry::direction::{Direction, Rotate90Degrees};
 use itertools::Itertools;
 use linear_algebra::{point, vector, Isometry2, Point2, Vector2};
-use nalgebra::{clamp, max};
+use nalgebra::clamp;
 use ndarray::{array, Array2};
 use ndarray_conv::{ConvExt, ConvMode, PaddingMode};
 use serde::{Deserialize, Serialize};
