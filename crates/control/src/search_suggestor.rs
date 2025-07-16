@@ -161,8 +161,14 @@ impl SearchSuggestor {
                         let is_inside_sight = get_direction(left_edge, robot_to_tile)
                             == Direction::Counterclockwise
                             && get_direction(right_edge, robot_to_tile) == Direction::Clockwise;
-                        if is_inside_sight {
-                            *value *= 0.9;
+                        let distancse_to_tile = robot_to_tile.norm();
+                        let relative_distance_to_tile = clamp(
+                            distancse_to_tile / self.heatmap.field_dimensions.length,
+                            0.0,
+                            1.0,
+                        );
+                        if is_inside_sight && distancse_to_tile > 0.25 {
+                            *value *= 1.0 - 0.05 * relative_distance_to_tile;
                         }
                     });
             }
