@@ -70,7 +70,9 @@ if __name__ == "__main__":
     val_data = get_data_from_hdf5(*args.val)
     test_data = get_data_from_hdf5(*args.test) if args.test else None
 
-    train_mask, val_mask = load_sampling_masks(os.path.join(root, "masks.npz"))
+    # train_mask, val_mask = load_sampling_masks(os.path.join(root, "masks.npz"))
+    train_mask = None
+    val_mask = None
 
     with open("log.txt", "a") as file:
         for classifier_name in get_args(Classifiers):
@@ -201,8 +203,9 @@ if __name__ == "__main__":
                 X_train_binary = X_train[y_train != Classes.UNKNOWN.value]
                 X_test_binary = X_test[y_test != Classes.UNKNOWN.value]
 
-                X_train_binary = X_train_binary[train_mask == 1]
-                y_train_binary = y_train_binary[train_mask == 1]
+                if train_mask != None:
+                    X_train_binary = X_train_binary[train_mask == 1]
+                    y_train_binary = y_train_binary[train_mask == 1]
 
                 classifier = objective.get_classifier()
                 param_grid = objective.get_param_grid()
