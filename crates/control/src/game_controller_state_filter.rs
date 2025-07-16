@@ -185,7 +185,7 @@ impl GameControllerStateFilter {
             did_receive_motion_in_set_penalty,
         );
 
-        match (
+        if let (State::WhistleInSet { .. }, Some(ground_to_field), None) = (
             self.state,
             ground_to_field,
             self.whistle_in_set_ball_position,
