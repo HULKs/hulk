@@ -28,13 +28,18 @@ impl GyroBalancing {
         let parameters = &context.parameters.gyro_balancing;
         let factors = &parameters.balance_factors;
 
+        let roll = gyro.x;
+        let roll_scaling = (roll.abs() / parameters.noise_scale.x).min(1.0);
+        let pitch = gyro.y;
+        let pitch_scaling = (pitch.abs() / parameters.noise_scale.y).min(1.0);
+
         let support_balancing = LegJoints {
-            ankle_pitch: factors.ankle_pitch * gyro.y,
-            ankle_roll: factors.ankle_roll * gyro.x,
-            hip_pitch: factors.hip_pitch * gyro.y,
-            hip_roll: factors.hip_roll * gyro.x,
+            ankle_pitch: factors.ankle_pitch * pitch * pitch_scaling,
+            ankle_roll: factors.ankle_roll * roll * roll_scaling,
+            hip_pitch: factors.hip_pitch * pitch * pitch_scaling,
+            hip_roll: factors.hip_roll * roll * roll_scaling,
             hip_yaw_pitch: 0.0,
-            knee_pitch: factors.knee_pitch * gyro.y,
+            knee_pitch: factors.knee_pitch * pitch * pitch_scaling,
         };
 
         let max_delta = parameters.max_delta;

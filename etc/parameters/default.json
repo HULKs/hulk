@@ -367,6 +367,7 @@
       "over_estimation_factor": 0.6
     },
     "gyro_balancing": {
+      "noise_scale": [0.5, 0.5],
       "balance_factors": {
         "hip_yaw_pitch": 0.0,
         "hip_roll": 0.0,
