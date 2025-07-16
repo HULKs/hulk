@@ -159,6 +159,14 @@ pub mod test_utils {
     use proptest::test_runner::Config as ProptestConfig;
     use types::planned_path::{Path, PathSegment};
 
+    pub fn proptest_config() -> ProptestConfig {
+        ProptestConfig {
+            cases: 1_000_000,
+            max_global_rejects: 50_000,
+            ..Default::default()
+        }
+    }
+
     pub fn test_path() -> Path {
         Path {
             segments: vec![

@@ -100,12 +100,13 @@ mod tests {
 
     use crate::{
         geometry::{angle::Angle, pose::Pose},
-        test_utils::is_roughly_opposite,
+        test_utils::{is_roughly_opposite, proptest_config},
     };
 
     use super::WalkOrientationField;
 
     proptest!(
+        #![proptest_config(proptest_config())]
         #[test]
         fn verify_gradient_look_towards(x in -5.0f32..5.0, y in -5.0f32..5.0, orientation in 0.0..TAU, target_orientation in 0.0..TAU) {
             prop_assume!(!is_roughly_opposite(orientation, target_orientation));
@@ -144,6 +145,7 @@ mod tests {
     }
 
     proptest!(
+        #![proptest_config(proptest_config())]
         #[test]
         fn verify_gradient_look_at(x in -5.0f32..5.0, y in -5.0f32..5.0, orientation in 0.0..TAU, target_x in -5.0f32..5.0, target_y in -5.0f32..5.0) {
             let target: Point2<Ground> = point![target_x, target_y];
@@ -195,6 +197,7 @@ mod tests {
     }
 
     proptest!(
+        #![proptest_config(proptest_config())]
         #[test]
         fn verify_gradient_align_with_path(x in -5.0f32..5.0, y in -5.0f32..5.0, orientation in 0.0..TAU, path_angle in 0.0..TAU) {
             prop_assume!(!is_roughly_opposite(orientation, path_angle));
