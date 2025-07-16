@@ -9,7 +9,6 @@ use types::{
     motion_command::{HeadMotion, ImageRegion, MotionCommand, OrientationMode, WalkSpeed},
     parameters::InterceptBallParameters,
     planned_path::{Path, PathSegment},
-    step::Step,
     world_state::{BallState, WorldState},
 };
 
