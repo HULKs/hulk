@@ -649,6 +649,7 @@ fn detect_edge(
         };
         state.maximum_difference = 0;
         state.start_position = state.maximum_difference_position;
+        state.maximum_difference_position = position;
         state.start_edge_type = end_edge_type;
 
         Some(segment)
