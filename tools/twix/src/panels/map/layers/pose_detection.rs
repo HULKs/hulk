@@ -36,7 +36,7 @@ impl Layer<Field> for PoseDetection {
     }
 
     fn paint(
-        &self,
+        &mut self,
         painter: &TwixPainter<Field>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {

@@ -28,7 +28,7 @@ impl Layer<Ground> for KickDecisions {
     }
 
     fn paint(
-        &self,
+        &mut self,
         painter: &TwixPainter<Ground>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
