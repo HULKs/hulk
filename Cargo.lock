@@ -6819,6 +6819,7 @@ dependencies = [
  "serde_json",
  "source_analyzer",
  "spl_network_messages",
+ "step_planning",
  "types",
  "walking_engine",
 ]
