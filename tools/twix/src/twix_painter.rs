@@ -15,7 +15,10 @@ use geometry::{arc::Arc, circle::Circle, direction::AngleTo, rectangle::Rectangl
 use linear_algebra::{
     point, vector, IntoTransform, Isometry2, Orientation2, Point2, Pose2, Transform, Vector2,
 };
-use types::{field_dimensions::FieldDimensions, planned_path::PathSegment};
+use types::{
+    field_dimensions::FieldDimensions,
+    planned_path::{Path, PathSegment},
+};
 
 type ScreenTransform<Frame> = Transform<Frame, Screen, Similarity2<f32>>;
 
@@ -155,7 +158,7 @@ impl<World> TwixPainter<World> {
         self.world_to_pixel.inner.scaling()
     }
 
-    pub fn arc(&self, arc: Arc<World>, stroke: Stroke) {
+    pub fn arc(&self, arc: &Arc<World>, stroke: Stroke) {
         let Arc {
             circle: Circle { center, radius },
             start,
@@ -163,7 +166,7 @@ impl<World> TwixPainter<World> {
             direction,
         } = arc;
 
-        let angle_difference = start.angle_to(end, direction);
+        let angle_difference = start.angle_to(*end, *direction);
         let start = start.angle();
 
         const PIXELS_PER_SAMPLE: f32 = 5.0;
@@ -175,7 +178,7 @@ impl<World> TwixPainter<World> {
         let points = (0..=samples)
             .map(|index| {
                 let angle = start + delta * index as f32;
-                let point = center + Orientation2::new(angle).as_unit_vector() * radius;
+                let point = center + Orientation2::new(angle).as_unit_vector() * *radius;
                 self.transform_world_to_pixel(point)
             })
             .collect();
@@ -440,14 +443,8 @@ impl<World> TwixPainter<World> {
     }
 }
 impl TwixPainter<Ground> {
-    pub fn path(
-        &self,
-        path: Vec<PathSegment>,
-        line_color: Color32,
-        arc_color: Color32,
-        width: f32,
-    ) {
-        for segment in path {
+    pub fn path(&self, path: Path, line_color: Color32, arc_color: Color32, width: f32) {
+        for segment in &path.segments {
             match segment {
                 PathSegment::LineSegment(line_segment) => self.line_segment(
                     line_segment.0,
