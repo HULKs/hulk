@@ -30,6 +30,7 @@ pub fn execute(
     walk_speed: WalkSpeed,
     distance_to_be_aligned: f32,
     striker_supporter_maximum_x_path_checkpoint: Option<f32>,
+    intermediate_checkpoint_reached_threshold: f32,
 ) -> Option<MotionCommand> {
     let pose = support_pose(
         world_state,
@@ -39,6 +40,7 @@ pub fn execute(
         maximum_x_in_ready_and_when_ball_is_not_free,
         minimum_x,
         striker_supporter_maximum_x_path_checkpoint,
+        intermediate_checkpoint_reached_threshold,
     )?;
     walk_and_stand.execute(
         pose,
@@ -50,6 +52,7 @@ pub fn execute(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 fn support_pose(
     world_state: &WorldState,
     field_dimensions: &FieldDimensions,
@@ -58,6 +61,7 @@ fn support_pose(
     mut maximum_x_in_ready_and_when_ball_is_not_free: f32,
     minimum_x: f32,
     striker_supporter_maximum_x_path_checkpoint: Option<f32>,
+    intermediate_checkpoint_reached_threshold: f32,
 ) -> Option<Pose2<Ground>> {
     let ground_to_field = world_state.robot.ground_to_field?;
     let ball = world_state
@@ -98,20 +102,22 @@ fn support_pose(
     if let Some(striker_supporter_maximum_x_intermediate_path_checkpoint) =
         striker_supporter_maximum_x_path_checkpoint
     {
-        let is_opponent_kick_off_after_initial = if let Some(filtered_game_controller_state) =
+        let is_opponent_kick_off_after_standby = if let Some(filtered_game_controller_state) =
             &world_state.filtered_game_controller_state
         {
             filtered_game_controller_state.kicking_team == Some(Team::Opponent)
                 && filtered_game_controller_state.previous_own_game_state
-                    == Some(FilteredGameState::Initial)
+                    == Some(FilteredGameState::Standby)
         } else {
             false
         };
 
-        if is_opponent_kick_off_after_initial {
+        if is_opponent_kick_off_after_standby {
             let robot_position = ground_to_field.as_pose().position();
 
-            if robot_position.y().abs() > supporting_position.y().abs() + 0.1 {
+            if robot_position.y().abs()
+                > supporting_position.y().abs() + intermediate_checkpoint_reached_threshold
+            {
                 maximum_x_in_ready_and_when_ball_is_not_free =
                     striker_supporter_maximum_x_intermediate_path_checkpoint
             }

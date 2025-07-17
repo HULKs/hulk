@@ -1294,7 +1294,8 @@
       "nanos": 0,
       "secs": 6
     },
-    "maximum_standup_attempts": 3
+    "maximum_standup_attempts": 3,
+    "intermediate_checkpoint_reached_threshold": 0.1
   },
   "game_controller_filter": {
     "time_since_last_message_to_consider_ip_active": {

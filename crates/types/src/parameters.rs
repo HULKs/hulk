@@ -38,6 +38,7 @@ pub struct BehaviorParameters {
     pub intercept_ball: InterceptBallParameters,
     pub maximum_lookaround_duration: Duration,
     pub maximum_standup_attempts: u32,
+    pub intermediate_checkpoint_reached_threshold: f32,
 }
 
 #[derive(

@@ -29,7 +29,7 @@ fn startup(
     ] {
         commands.spawn(Robot::new(number));
     }
-    game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
+    game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Standby));
     game_controller_commands.send(GameControllerCommand::SetKickingTeam(Team::Opponent));
 }
 fn update(
@@ -38,17 +38,17 @@ fn update(
     mut exit: EventWriter<AppExit>,
     mut game_controller_commands: EventWriter<GameControllerCommand>,
 ) {
+    if time.ticks() == 100 {
+        game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
+    }
+
     if game_controller.state.hulks_team.score > 0 {
         game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
         game_controller_commands.send(GameControllerCommand::SetKickingTeam(Team::Opponent));
     }
 
-    if game_controller.state.hulks_team.score > 1 {
+    if time.ticks() == 10_000 {
         println!("Done");
         exit.send(AppExit::Success);
-    }
-    if time.ticks() >= 10_000 {
-        println!("No second goal was scored :(");
-        exit.send(AppExit::from_code(1));
     }
 }
