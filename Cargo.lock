@@ -6810,7 +6810,7 @@ dependencies = [
  "linear_algebra",
  "motionfile",
  "nalgebra",
- "ndarray",
+ "ndarray 0.16.1",
  "parameters",
  "path_serde",
  "projection",
@@ -6869,7 +6869,7 @@ version = "0.21.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fcc75102c1fac2294401262c78e5a42abe7168244c9436df2fec8fe0c27395c7"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "arrayvec",
  "bitflags 2.9.1",
  "downcast-rs 2.0.1",
