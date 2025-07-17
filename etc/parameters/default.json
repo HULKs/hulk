@@ -381,8 +381,8 @@
       "enabled": true,
       "zero_moment_point_x_scale_backward": 0.5,
       "zero_moment_point_x_scale_forward": 0.8,
-      "max_target_distance": 0.15,
-      "over_estimation_factor": 0.6
+      "max_target_distance": [0.1, 0.15],
+      "over_estimation_factor": [0.4, 1.0]
     },
     "gyro_balancing": {
       "noise_scale": [0.5, 0.5],
