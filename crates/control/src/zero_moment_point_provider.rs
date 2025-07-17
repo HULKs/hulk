@@ -5,7 +5,7 @@ use context_attribute::context;
 use coordinate_systems::{Ground, LeftSole, Robot};
 use filtering::low_pass_filter::LowPassFilter;
 use framework::{AdditionalOutput, MainOutput};
-use geometry::convex_hull::{reduce_to_convex_hull, Range};
+use geometry::convex_hull::reduce_to_convex_hull;
 use geometry::polygon::is_inside_convex_hull;
 use linear_algebra::{point, Isometry3, Point2, Point3, Vector3};
 use types::{robot_kinematics::RobotKinematics, sensor_data::SensorData};
@@ -84,7 +84,7 @@ impl ZeroMomentPointProvider {
             }))
             .collect::<Vec<_>>();
 
-        let soles_in_ground_hull = reduce_to_convex_hull(&soles_in_ground, Range::Full);
+        let soles_in_ground_hull = reduce_to_convex_hull(&soles_in_ground);
 
         if is_inside_convex_hull(&soles_in_ground_hull, &zero_moment_point) {
             self.consecutive_cycles_zero_moment_point_outside_support_polygon = 0;
