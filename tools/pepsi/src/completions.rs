@@ -54,8 +54,7 @@ pub async fn completions(arguments: Arguments, mut command: Command) -> Result<(
 
 fn dynamic_completions(shell: Shell, static_completions: String) {
     let nao_completion_command = format!("pepsi completions --complete-naos {shell}");
-    let assignement_completion_command =
-        format!("pepsi completions --complete-assignments {shell}");
+    let assignment_completion_command = format!("pepsi completions --complete-assignments {shell}");
 
     match shell {
         Shell::Bash => {
@@ -65,7 +64,7 @@ fn dynamic_completions(shell: Shell, static_completions: String) {
 
             let re = Regex::new("<ASSIGNMENTS>...").unwrap();
             let completions =
-                re.replace_all(&completions, format!("$({assignement_completion_command})"));
+                re.replace_all(&completions, format!("$({assignment_completion_command})"));
 
             print!("{completions}")
         }
@@ -109,7 +108,7 @@ fn dynamic_completions(shell: Shell, static_completions: String) {
 
             println!(
                 "complete -c pepsi -n \"__fish_seen_subcommand_from playernumber\" \
-                     -f -a \"({assignement_completion_command})\""
+                     -f -a \"({assignment_completion_command})\""
             );
             println!(
                 "complete -c pepsi -n \"__fish_seen_subcommand_from postgame; \
@@ -145,7 +144,7 @@ fn dynamic_completions(shell: Shell, static_completions: String) {
                 }}\n\
                 (( $+functions[_pepsi__complete_assignments] )) ||\n\
                 _pepsi__complete_assignments() {{\n    \
-                    local commands; commands=(\"${{(@f)$({assignement_completion_command})}}\")\n    \
+                    local commands; commands=(\"${{(@f)$({assignment_completion_command})}}\")\n    \
                     _describe -t commands 'pepsi complete assignments' commands \"$@\"\n\
                 }}"
             );
