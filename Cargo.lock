@@ -6571,13 +6571,30 @@ checksum = "26995317201fa17f3656c36716aed4a7c81743a9634ac4c99c0eeda495db0cec"
 name = "parameter_tester"
 version = "0.1.0"
 dependencies = [
+ "ball_filter",
+ "calibration",
+ "code_generation",
  "color-eyre",
+ "coordinate_systems",
+ "energy_optimization",
  "framework",
+ "geometry",
  "hula_types",
- "hulk",
+ "hulk_manifest",
+ "linear_algebra",
+ "motionfile",
+ "nalgebra",
+ "ndarray",
  "parameters",
+ "path_serde",
+ "projection",
  "repository",
+ "serde",
  "serde_json",
+ "source_analyzer",
+ "spl_network_messages",
+ "types",
+ "walking_engine",
 ]
 
 [[package]]

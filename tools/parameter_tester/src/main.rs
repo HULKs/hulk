@@ -33,8 +33,12 @@ fn main() -> Result<()> {
         body_id: String::new(),
         head_id: String::new(),
     };
-    let _robotics_parameters: hulk::structs::Parameters =
+    let _robotics_parameters: structs::Parameters =
         deserialize(framework_parameters.parameters_directory, &ids, false)?;
 
     Ok(())
+}
+
+mod structs {
+    include!(concat!(env!("OUT_DIR"), "/generated_code.rs"));
 }
