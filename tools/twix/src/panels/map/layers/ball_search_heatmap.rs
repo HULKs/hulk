@@ -26,7 +26,7 @@ impl Layer<Field> for BallSearchHeatmap {
     }
 
     fn paint(
-        &self,
+        &mut self,
         painter: &TwixPainter<Field>,
         field_dimensions: &FieldDimensions,
     ) -> Result<()> {

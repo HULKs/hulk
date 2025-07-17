@@ -1,8 +1,7 @@
 use std::f32::consts::PI;
 
 use coordinate_systems::{Field, Ground};
-use geometry::look_at::LookAt;
-use linear_algebra::{Isometry2, Point, Pose2};
+use linear_algebra::{Isometry2, Pose2};
 use serde::{Deserialize, Serialize};
 
 use color_eyre::{eyre::Ok, Result};
@@ -18,12 +17,12 @@ use types::{
     obstacles::Obstacle,
     parameters::{DribblingParameters, PathPlanningParameters},
     path_obstacles::PathObstacle,
-    planned_path::PathSegment,
+    planned_path::Path,
     rule_obstacles::RuleObstacle,
     world_state::BallState,
 };
 
-use crate::behavior::walk_to_pose::{hybrid_alignment, WalkPathPlanner};
+use crate::behavior::walk_to_pose::WalkPathPlanner;
 
 #[derive(Deserialize, Serialize)]
 pub struct DribblePathPlanner {}
@@ -105,24 +104,17 @@ impl DribblePathPlanner {
             .dribble_path_obstacles_output
             .fill_if_subscribed(|| dribble_path_obstacles.clone().unwrap_or_default());
 
-        let hybrid_orientation_mode = hybrid_alignment(
-            best_kick_pose,
-            context.dribbling_parameters.hybrid_align_distance,
-            context.dribbling_parameters.distance_to_be_aligned,
-        );
-        let ball_position = &context.ball.ball_in_ground;
-        let orientation_mode = match hybrid_orientation_mode {
-            types::motion_command::OrientationMode::AlignWithPath
-                if ball_position.coords().norm() > 0.0 =>
-            {
-                OrientationMode::Override(Point::origin().look_at(ball_position))
-            }
-            orientation_mode => orientation_mode,
+        let orientation_mode = OrientationMode::LookAt {
+            target: context.ball.ball_in_ground,
+            tolerance: 0.0,
         };
+
+        let target_orientation = best_kick_pose.orientation();
 
         Ok(MainOutputs {
             dribble_path_plan: Some(DribblePathPlan {
                 orientation_mode,
+                target_orientation,
                 path: dribble_path,
             })
             .into(),
@@ -141,7 +133,7 @@ pub fn plan(
     filtered_game_controller_state: Option<&FilteredGameControllerState>,
     dribbling_parameters: &DribblingParameters,
     path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
-) -> Option<Vec<PathSegment>> {
+) -> Option<Path> {
     let robot_to_ball = ball.ball_in_ground.coords();
     let dribble_pose_to_ball = ball.ball_in_ground - best_pose.position();
     let angle = robot_to_ball.angle(&dribble_pose_to_ball);

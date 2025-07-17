@@ -29,7 +29,7 @@ impl Layer<Field> for RefereePosition {
     }
 
     fn paint(
-        &self,
+        &mut self,
         painter: &TwixPainter<Field>,
         _field_dimension: &types::field_dimensions::FieldDimensions,
     ) -> Result<()> {

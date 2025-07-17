@@ -16,7 +16,7 @@ use types::{
     motion_command::MotionCommand,
     obstacles::Obstacle,
     path_obstacles::{PathObstacle, PathObstacleShape},
-    planned_path::PathSegment,
+    planned_path::{Path, PathSegment},
     rule_obstacles::RuleObstacle,
 };
 
@@ -57,7 +57,7 @@ impl PathPlanner {
         rotation_penalty_factor: f32,
     ) {
         self.last_path_direction = match last_motion_command {
-            MotionCommand::Walk { path, .. } => path.first().map(|segment| {
+            MotionCommand::Walk { path, .. } => path.segments.first().map(|segment| {
                 let direction = match segment {
                     PathSegment::LineSegment(line_segment) => line_segment.1.coords(),
                     PathSegment::Arc(arc) => {
@@ -263,7 +263,7 @@ impl PathPlanner {
         &mut self,
         mut start: Point2<Ground>,
         mut destination: Point2<Ground>,
-    ) -> Result<Option<Vec<PathSegment>>> {
+    ) -> Result<Option<Path>> {
         let closest_circle = self
             .obstacles
             .iter()
@@ -353,6 +353,7 @@ impl PathPlanner {
                 }
             })
             .collect::<Result<Vec<_>>>()
+            .map(|segments| Path { segments })
             .map(Some);
 
         path_segments
@@ -565,12 +566,18 @@ mod tests {
         println!("Map {map:#?}");
         println!(
             "Total cost: {:?}",
-            path.iter().map(|segment| segment.length()).sum::<f32>()
+            path.segments
+                .iter()
+                .map(|segment| segment.length())
+                .sum::<f32>()
         );
 
-        assert_relative_eq!(path.as_slice(), expected_segments, epsilon = 0.01);
+        assert_relative_eq!(path.segments.as_slice(), expected_segments, epsilon = 0.01);
         assert_relative_eq!(
-            path.iter().map(|segment| segment.length()).sum::<f32>(),
+            path.segments
+                .iter()
+                .map(|segment| segment.length())
+                .sum::<f32>(),
             expected_cost,
             epsilon = 0.01
         );
