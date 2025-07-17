@@ -1,0 +1,30 @@
+opponent = "B-Human"
+phase = "second_half"
+location = "rc25"
+wifi = "SPL_E"
+base = "hulk/main"
+branches = [
+  "rmburg/mpc-step-planning",
+  "schmidma/generalized-field-color",
+  "schmidma/balancing",
+  "oleflb/recalibrate-38",
+]
+assignments = [
+  "34:1",
+  "40:2",
+  "35:3",
+  "33:4",
+  "38:5",
+  # "33:6",
+  # "21:7",
+]
+substitutions = ["34:5", "32:3", "38:1"]
+with_communication = true
+
+[recording_intervals]
+Control = 1
+VisionTop = 30
+VisionBottom = 30
+SplNetwork = 1
+# ObjectDetectionTop = 1
+# Audio = 1
