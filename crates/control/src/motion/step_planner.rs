@@ -63,9 +63,10 @@ pub struct CycleContext {
     ground_to_upcoming_support_out:
         AdditionalOutput<Isometry2<Ground, UpcomingSupport>, "ground_to_upcoming_support">,
     direct_step: AdditionalOutput<Step, "direct_step">,
-    step_plan: AdditionalOutput<[Step; NUM_STEPS], "step_plan">,
-    step_plan_greedy: AdditionalOutput<[Step; NUM_STEPS], "step_plan_greedy">,
-    step_plan_gradient: AdditionalOutput<SVector<f32, NUM_VARIABLES>, "step_plan_gradient">,
+    step_plan: AdditionalOutput<[Step; step_planning::NUM_STEPS], "step_plan">,
+    step_plan_greedy: AdditionalOutput<[Step; step_planning::NUM_STEPS], "step_plan_greedy">,
+    step_plan_gradient:
+        AdditionalOutput<SVector<f32, { step_planning::NUM_VARIABLES }>, "step_plan_gradient">,
     step_plan_cost: AdditionalOutput<f32, "step_plan_cost">,
     current_support_side: AdditionalOutput<Option<Side>, "current_support_side">,
     step_planning_duration: AdditionalOutput<Duration, "step_planning_duration">,
