@@ -53,7 +53,8 @@ impl GroundProvider {
             self.roll_pitch_filter.state().x(),
             self.roll_pitch_filter.state().y(),
             0.0,
-        );
+        )
+        .mirror();
 
         let left_sole_horizontal_to_robot = Isometry3::from_parts(
             context

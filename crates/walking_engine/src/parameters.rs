@@ -126,8 +126,8 @@ pub struct FootLevelingParameters {
 )]
 pub struct CatchingStepsParameters {
     pub enabled: bool,
-    pub zero_moment_point_x_scale_backward: f32,
-    pub zero_moment_point_x_scale_forward: f32,
+    pub target_x_scale_backward: f32,
+    pub target_x_scale_forward: f32,
     pub max_target_distance: f32,
     pub over_estimation_factor: f32,
 }
