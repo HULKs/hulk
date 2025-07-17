@@ -6,12 +6,13 @@ use types::{
     step::Step, support_foot::Side,
 };
 
-use crate::{step_state::StepState, Context, WalkTransition};
+use crate::{mode::balancing::Balancing, step_state::StepState, Context, WalkTransition};
 
 use self::{
     kicking::Kicking, standing::Standing, starting::Starting, stopping::Stopping, walking::Walking,
 };
 
+pub mod balancing;
 pub mod catching;
 pub mod kicking;
 pub mod standing;
@@ -28,6 +29,7 @@ pub enum Mode {
     Walking(Walking),
     Kicking(Kicking),
     Catching(Catching),
+    Balancing(Balancing),
     Stopping(Stopping),
 }
 
@@ -45,6 +47,7 @@ impl WalkTransition for Mode {
             Self::Walking(walking) => walking.stand(context),
             Self::Kicking(kicking) => kicking.stand(context),
             Self::Catching(catching) => catching.stand(context),
+            Self::Balancing(balancing) => balancing.stand(context),
             Self::Stopping(stopping) => stopping.stand(context),
         }
     }
@@ -56,6 +59,7 @@ impl WalkTransition for Mode {
             Self::Walking(walking) => walking.walk(context, step),
             Self::Kicking(kicking) => kicking.walk(context, step),
             Self::Catching(catching) => catching.walk(context, step),
+            Self::Balancing(balancing) => balancing.walk(context, step),
             Self::Stopping(stopping) => stopping.walk(context, step),
         }
     }
@@ -67,6 +71,7 @@ impl WalkTransition for Mode {
             Self::Walking(walking) => walking.kick(context, variant, side, strength),
             Self::Kicking(kicking) => kicking.kick(context, variant, side, strength),
             Self::Catching(catching) => catching.kick(context, variant, side, strength),
+            Self::Balancing(balancing) => balancing.kick(context, variant, side, strength),
             Self::Stopping(stopping) => stopping.kick(context, variant, side, strength),
         }
     }
@@ -80,6 +85,7 @@ impl Mode {
             Self::Walking(walking) => walking.compute_commands(context),
             Self::Kicking(kicking) => kicking.compute_commands(context),
             Self::Catching(catching) => catching.compute_commands(context),
+            Self::Balancing(balancing) => balancing.compute_commands(context),
             Self::Stopping(stopping) => stopping.compute_commands(context),
         }
     }
@@ -91,6 +97,7 @@ impl Mode {
             Mode::Walking(walking) => walking.tick(context),
             Mode::Kicking(kicking) => kicking.tick(context),
             Mode::Catching(catching) => catching.tick(context),
+            Mode::Balancing(balancing) => balancing.tick(context),
             Mode::Stopping(stopping) => stopping.tick(context),
         }
     }
@@ -102,7 +109,8 @@ impl Mode {
             | Mode::Walking(Walking { step, .. })
             | Mode::Kicking(Kicking { step, .. })
             | Mode::Stopping(Stopping { step, .. })
-            | Mode::Catching(Catching { step, .. }) => Some(*step),
+            | Mode::Catching(Catching { step, .. })
+            | Mode::Balancing(Balancing { step, .. }) => Some(*step),
         }
     }
 

@@ -359,6 +359,12 @@
       },
       "walk_height": 0.23
     },
+    "balancing_steps": {
+      "enabled": true,
+      "zero_moment_point_y_scale": 1.1,
+      "max_target_distance": 0.3,
+      "over_estimation_factor": 5.0
+    },
     "catching_steps": {
       "enabled": true,
       "zero_moment_point_x_scale_backward": 0.5,

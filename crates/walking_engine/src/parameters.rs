@@ -16,7 +16,8 @@ use types::{
 pub struct Parameters {
     pub anatomic_constraints: AnatomicConstraintsParameters,
     pub base: Base,
-    pub catching_steps: CatchingStepsParameters,
+    pub balancing_steps: BalancingStepParameters,
+    pub catching_steps: CatchingStepParameters,
     pub gyro_balancing: GyroBalancingParameters,
     pub dynamic_interpolation_speed: DynamicInterpolationSpeedParameters,
     pub foot_leveling: FootLevelingParameters,
@@ -124,10 +125,28 @@ pub struct FootLevelingParameters {
     PathDeserialize,
     PathIntrospect,
 )]
-pub struct CatchingStepsParameters {
+pub struct CatchingStepParameters {
     pub enabled: bool,
     pub zero_moment_point_x_scale_backward: f32,
     pub zero_moment_point_x_scale_forward: f32,
+    pub max_target_distance: f32,
+    pub over_estimation_factor: f32,
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
+pub struct BalancingStepParameters {
+    pub enabled: bool,
+    pub zero_moment_point_y_scale: f32,
     pub max_target_distance: f32,
     pub over_estimation_factor: f32,
 }

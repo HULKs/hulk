@@ -12,7 +12,11 @@ use types::{
 };
 
 use crate::{
-    kick_state::KickState, step_plan::StepPlan, step_state::StepState, stiffness::Stiffness as _,
+    kick_state::KickState,
+    mode::balancing::{self, Balancing},
+    step_plan::StepPlan,
+    step_state::StepState,
+    stiffness::Stiffness as _,
     Context,
 };
 
@@ -104,6 +108,18 @@ impl WalkTransition for Walking {
             ));
         }
 
+        if balancing::should_balance(
+            context,
+            self.step.plan.end_feet,
+            self.step.plan.support_side,
+        ) {
+            return Mode::Balancing(Balancing::new(
+                context,
+                self.step,
+                self.step.plan.support_side,
+            ));
+        }
+
         Mode::Walking(self)
     }
 
@@ -125,6 +141,18 @@ impl WalkTransition for Walking {
             self.step.plan.support_side,
         ) {
             return Mode::Catching(Catching::new(
+                context,
+                self.step,
+                self.step.plan.support_side,
+            ));
+        }
+
+        if balancing::should_balance(
+            context,
+            self.step.plan.end_feet,
+            self.step.plan.support_side,
+        ) {
+            return Mode::Balancing(Balancing::new(
                 context,
                 self.step,
                 self.step.plan.support_side,
@@ -177,6 +205,18 @@ impl WalkTransition for Walking {
             self.step.plan.support_side,
         ) {
             return Mode::Catching(Catching::new(
+                context,
+                self.step,
+                self.step.plan.support_side,
+            ));
+        }
+
+        if balancing::should_balance(
+            context,
+            self.step.plan.end_feet,
+            self.step.plan.support_side,
+        ) {
+            return Mode::Balancing(Balancing::new(
                 context,
                 self.step,
                 self.step.plan.support_side,
