@@ -77,7 +77,9 @@ pub struct CycleContext {
     forced_role: Parameter<Option<Role>, "role_assignment.forced_role?">,
     keeper_replacementkeeper_switch_time:
         Parameter<Duration, "role_assignment.keeper_replacementkeeper_switch_time">,
-    striker_trusts_team_ball: Parameter<Duration, "role_assignment.striker_trusts_team_ball">,
+    maximum_trusted_team_ball_age:
+        Parameter<Duration, "role_assignment.maximum_trusted_team_ball_age">,
+    claim_striker_from_team_ball: Parameter<bool, "role_assignment.claim_striker_from_team_ball">,
     initial_poses: Parameter<Players<InitialPose>, "localization.initial_poses">,
     optional_roles: Parameter<Vec<Role>, "behavior.optional_roles">,
     player_number: Parameter<PlayerNumber, "player_number">,
@@ -325,7 +327,8 @@ impl RoleAssignment {
                 cycle_start_time,
                 context.filtered_game_controller_state,
                 *context.player_number,
-                *context.striker_trusts_team_ball,
+                *context.maximum_trusted_team_ball_age,
+                *context.claim_striker_from_team_ball,
                 context.optional_roles,
             );
         }
@@ -555,14 +558,16 @@ fn update_role_state_machine(
     cycle_start_time: SystemTime,
     filtered_game_controller_state: Option<&FilteredGameControllerState>,
     player_number: PlayerNumber,
-    striker_trusts_team_ball: Duration,
+    maximum_trusted_team_ball_age: Duration,
+    claim_striker_from_team_ball: bool,
     optional_roles: &[Role],
 ) -> Role {
     let striker_trusts_team_ball = |team_ball: BallPosition<Field>| {
-        cycle_start_time
-            .duration_since(team_ball.last_seen)
-            .expect("time ran backwards")
-            <= striker_trusts_team_ball
+        claim_striker_from_team_ball
+            && cycle_start_time
+                .duration_since(team_ball.last_seen)
+                .expect("time ran backwards")
+                <= maximum_trusted_team_ball_age
     };
 
     match (current_role, detected_own_ball, event) {
@@ -889,7 +894,8 @@ mod test {
             cycle_start_time in prop_oneof![Just(SystemTime::UNIX_EPOCH + Duration::from_secs(11))],
             filtered_game_controller_state in prop_oneof![Just(None), Just(Some(FilteredGameControllerState{game_phase: GamePhase::PenaltyShootout{kicking_team: Team::Hulks}, ..Default::default()}))],
             player_number in Just(PlayerNumber::Five),
-            striker_trusts_team_ball_duration in  Just(Duration::from_secs(5)),
+            maximum_trusted_team_ball_age in  Just(Duration::from_secs(5)),
+            claim_striker_from_team_ball: bool,
             optional_roles in Just(&[Role::DefenderLeft, Role::StrikerSupporter])
         ) {
             let filtered_game_controller_state: Option<FilteredGameControllerState> = filtered_game_controller_state;
@@ -902,7 +908,8 @@ mod test {
                 cycle_start_time,
                 filtered_game_controller_state.as_ref(),
                 player_number,
-                striker_trusts_team_ball_duration,
+                maximum_trusted_team_ball_age,
+                claim_striker_from_team_ball,
                 optional_roles,
             );
             let third_role = update_role_state_machine(
@@ -914,10 +921,11 @@ mod test {
                 cycle_start_time,
                 filtered_game_controller_state.as_ref(),
                 player_number,
-                striker_trusts_team_ball_duration,
-                optional_roles,
-            );
-            assert_eq!(new_role, third_role);
+                maximum_trusted_team_ball_age,
+                claim_striker_from_team_ball,
+                    optional_roles,
+                );
+                assert_eq!(new_role, third_role);
         }
     }
 }
