@@ -1,4 +1,7 @@
 {
+  "ground_provider": {
+    "roll_pitch_smoothing_factor": 0.25
+  },
   "pose_detection": {
     "enable": true,
     "maximum_intersection_over_union": 0.45,
@@ -361,10 +364,10 @@
     },
     "catching_steps": {
       "enabled": true,
-      "zero_moment_point_x_scale_backward": 0.5,
-      "zero_moment_point_x_scale_forward": 0.8,
-      "max_target_distance": 0.15,
-      "over_estimation_factor": 0.6
+      "target_x_scale_backward": 1.1,
+      "target_x_scale_forward": 1.0,
+      "max_target_distance": 0.1,
+      "over_estimation_factor": 0.4
     },
     "gyro_balancing": {
       "noise_scale": [0.5, 0.5],
@@ -387,7 +390,7 @@
       }
     },
     "dynamic_interpolation_speed": {
-      "active_range": [-0.1745, -0.0873],
+      "active_range": [-0.1445, -0.0573],
       "max_reduction": 0.7
     },
     "foot_leveling": {
@@ -404,7 +407,7 @@
     "forward_turn_threshold": 0.45,
     "foot_support": {
       "min": [-0.02, -0.02],
-      "max": [0.08, 0.02]
+      "max": [0.04, 0.02]
     },
     "max_rotation_speed": 50000.0,
     "max_forward_acceleration": 0.01,

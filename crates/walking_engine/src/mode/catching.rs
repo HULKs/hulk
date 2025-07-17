@@ -245,18 +245,17 @@ pub fn should_catch(context: &Context, end_feet: Feet, support_side: Side) -> bo
         Feet::from_joints(robot_to_walk, &context.last_actuated_joints, support_side);
 
     let zmp = context.zero_moment_point;
-    let zmp_scaling_x = if zmp.coords().x() < 0.0 {
-        catching_steps.zero_moment_point_x_scale_backward
+    let target_scaling_x = if zmp.coords().x() < 0.0 {
+        catching_steps.target_x_scale_backward
     } else {
-        catching_steps.zero_moment_point_x_scale_forward
+        catching_steps.target_x_scale_forward
     };
 
-    let tuned_zmp = zmp
+    let target = (robot_to_walk * ground_to_robot * zmp.extend(0.0))
+        .xy()
         .coords()
-        .component_mul(&vector![zmp_scaling_x, 1.0])
+        .component_mul(&vector![target_scaling_x, 1.0])
         .as_point();
-
-    let target = (robot_to_walk * ground_to_robot * tuned_zmp.extend(0.0)).xy();
 
     is_outside_support_polygon(end_feet, support_side, target, current_feet)
 }
