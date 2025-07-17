@@ -5,13 +5,13 @@ use std::{
 
 use geometry::direction::Direction;
 
-use crate::geometry::angle::Angle;
+use crate::geometry::orientation::Orientation;
 
-pub fn angle_penalty(current: Angle<f32>, target: Angle<f32>) -> f32 {
+pub fn angle_penalty(current: Orientation<f32>, target: Orientation<f32>) -> f32 {
     current.angle_between(target).into_inner().powi(2)
 }
 
-pub fn angle_penalty_derivative(current: Angle<f32>, target: Angle<f32>) -> f32 {
+pub fn angle_penalty_derivative(current: Orientation<f32>, target: Orientation<f32>) -> f32 {
     let counterclockwise_difference = current
         .angle_to(target, Direction::Counterclockwise)
         .into_inner();
@@ -26,8 +26,8 @@ pub fn angle_penalty_derivative(current: Angle<f32>, target: Angle<f32>) -> f32 
 }
 
 pub fn angle_penalty_with_tolerance(
-    current: Angle<f32>,
-    target: Angle<f32>,
+    current: Orientation<f32>,
+    target: Orientation<f32>,
     tolerance: f32,
 ) -> f32 {
     current
@@ -39,8 +39,8 @@ pub fn angle_penalty_with_tolerance(
 }
 
 pub fn angle_penalty_with_tolerance_derivative(
-    current: Angle<f32>,
-    target: Angle<f32>,
+    current: Orientation<f32>,
+    target: Orientation<f32>,
     tolerance: f32,
 ) -> f32 {
     let counterclockwise_difference = current
@@ -63,7 +63,7 @@ mod tests {
     use proptest::{prop_assume, proptest};
 
     use crate::{
-        geometry::angle::Angle,
+        geometry::orientation::Orientation,
         test_utils::{is_roughly_opposite, proptest_config},
         utils::angle_penalty::{
             angle_penalty, angle_penalty_derivative, angle_penalty_with_tolerance,
@@ -81,8 +81,8 @@ mod tests {
     );
 
     fn verify_angle_penalty_gradient_impl(orientation: f32, target_orientation: f32) {
-        let orientation = Angle(orientation);
-        let target_orientation = Angle(target_orientation);
+        let orientation = Orientation(orientation);
+        let target_orientation = Orientation(target_orientation);
 
         crate::test_utils::verify_gradient::verify_gradient(
             &|orientation| angle_penalty(orientation, target_orientation),
@@ -106,8 +106,8 @@ mod tests {
         target_orientation: f32,
         tolerance: f32,
     ) {
-        let orientation = Angle(orientation);
-        let target_orientation = Angle(target_orientation);
+        let orientation = Orientation(orientation);
+        let target_orientation = Orientation(target_orientation);
 
         crate::test_utils::verify_gradient::verify_gradient(
             &|orientation| angle_penalty_with_tolerance(orientation, target_orientation, tolerance),

@@ -4,7 +4,7 @@ use criterion::{criterion_group, criterion_main, Criterion};
 use geometry::{arc::Arc, circle::Circle, direction::Direction, line_segment::LineSegment};
 use linear_algebra::{point, Orientation2, Point2};
 use step_planning::{
-    geometry::{angle::Angle, pose::Pose},
+    geometry::{orientation::Orientation, pose::Pose},
     NUM_VARIABLES,
 };
 use types::{
@@ -50,7 +50,7 @@ fn plan_steps(path: &Path) {
         distance_to_be_aligned,
         Pose {
             position: Point2::origin(),
-            orientation: Angle(0.0),
+            orientation: Orientation(0.0),
         },
         Side::Left,
         &mut variables,

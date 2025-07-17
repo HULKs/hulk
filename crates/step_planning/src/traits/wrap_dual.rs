@@ -10,6 +10,7 @@ use types::step::Step;
 use crate::geometry::{
     angle::Angle,
     normalized_step::NormalizedStep,
+    orientation::Orientation,
     pose::{Pose, PoseGradient},
 };
 
@@ -62,7 +63,7 @@ where
     DefaultAllocator: Allocator<D>,
 {
     fn wrap_dual(self) -> Angle<DualVec<T, F, D>> {
-        Angle::new(DualVec::from_re(self.0))
+        Angle(DualVec::from_re(self.0))
     }
 }
 
@@ -74,7 +75,28 @@ where
     fn unwrap_dual(self) -> (Angle<T>, Derivative<T, F, D, U1>) {
         let (re, eps) = self.0.unwrap_dual();
 
-        (Angle::new(re), eps)
+        (Angle(re), eps)
+    }
+}
+
+impl<T: DualNum<F>, F, D: Dim> WrapDual<Orientation<DualVec<T, F, D>>> for Orientation<T>
+where
+    DefaultAllocator: Allocator<D>,
+{
+    fn wrap_dual(self) -> Orientation<DualVec<T, F, D>> {
+        Orientation(DualVec::from_re(self.0))
+    }
+}
+
+impl<T: DualNum<F>, F, D: Dim> UnwrapDual<Orientation<T>, Derivative<T, F, D, U1>>
+    for Orientation<DualVec<T, F, D>>
+where
+    DefaultAllocator: Allocator<D>,
+{
+    fn unwrap_dual(self) -> (Orientation<T>, Derivative<T, F, D, U1>) {
+        let (re, eps) = self.0.unwrap_dual();
+
+        (Orientation(re), eps)
     }
 }
 
