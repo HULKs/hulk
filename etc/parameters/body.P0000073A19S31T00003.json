@@ -8,7 +8,7 @@
     }
   },
   "step_planner": {
-    "max_step_size": {
+    "walk_volume_extents": {
       "forward": 0.04
     }
   },

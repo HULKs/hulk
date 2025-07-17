@@ -295,31 +295,49 @@
     "sensor_angle": 0.35
   },
   "step_planner": {
+    "mode": "Mpc",
     "injected_step": null,
-    "max_step_size": {
-      "forward": 0.045,
-      "left": 0.1,
-      "turn": 0.5
-    },
-    "max_inside_turn": 0.6,
-    "initial_side_bonus": 0.03,
-    "step_size_delta_slow": {
+    "walk_volume_delta_slow": {
       "forward": 0.0,
-      "left": 0.0,
-      "turn": 0.0
+      "backward": 0.0,
+      "outward": 0.0,
+      "inward": 0.0,
+      "outward_rotation": 0.0,
+      "inward_rotation": 0.0
     },
-    "step_size_delta_fast": {
+    "walk_volume_delta_fast": {
       "forward": 0.01,
-      "left": 0.02,
-      "turn": 0.2
+      "backward": 0.0,
+      "outward": 0.02,
+      "inward": 0.0,
+      "outward_rotation": 0.2,
+      "inward_rotation": 0.2
     },
-    "max_step_size_backwards": 0.02,
-    "translation_exponent": 1.5,
-    "rotation_exponent": 2.0,
     "request_scale": {
       "forward": 1.0,
       "left": 1.4,
       "turn": 1.0
+    },
+    "walk_volume_extents": {
+      "forward": 0.045,
+      "backward": 0.03,
+      "outward": 0.1,
+      "inward": 0.01,
+      "outward_rotation": 0.5,
+      "inward_rotation": 0.5
+    },
+    "optimization_parameters": {
+      "optimizer_steps": 10,
+      "cost_factors": {
+        "path_progress": 0.5,
+        "path_distance": 10.0,
+        "target_orientation": 10.0,
+        "walk_orientation": 0.5
+      },
+      "path_alignment_tolerance": 0.5,
+      "path_progress_smoothness": 0.05,
+      "alignment_ramp_steepness": 50,
+      "warm_start": true
     }
   },
   "zero_moment_point": {
