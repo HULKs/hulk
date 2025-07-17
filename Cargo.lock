@@ -4660,6 +4660,7 @@ dependencies = [
  "serde",
  "serde_json",
  "spl_network",
+ "step_planning",
  "thiserror 2.0.12",
  "tokio",
  "tokio-util",
@@ -6819,6 +6820,7 @@ dependencies = [
  "serde_json",
  "source_analyzer",
  "spl_network_messages",
+ "step_planning",
  "types",
  "walking_engine",
 ]
