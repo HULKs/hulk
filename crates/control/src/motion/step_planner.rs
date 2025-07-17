@@ -16,7 +16,7 @@ use framework::{AdditionalOutput, MainOutput};
 use geometry::{direction::Rotate90Degrees, look_at::LookAt};
 use linear_algebra::{vector, Isometry2, Orientation2, Point2, Pose2};
 use step_planning::{
-    geometry::{angle::Angle, normalized_step::NormalizedStep, pose::Pose},
+    geometry::{normalized_step::NormalizedStep, orientation::Orientation, pose::Pose},
     step_plan::StepPlan,
     traits::{EndPoints, Project},
     NUM_STEPS, NUM_VARIABLES,
@@ -390,6 +390,6 @@ fn upcoming_support_pose_in_ground(context: &CycleContext) -> Pose<f32> {
 
     Pose {
         position: pose.position(),
-        orientation: Angle(pose.orientation().angle()),
+        orientation: Orientation(pose.orientation().angle()),
     }
 }
