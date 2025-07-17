@@ -6,10 +6,30 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
+ball_filter = { workspace = true }
+calibration = { workspace = true }
 color-eyre = { workspace = true }
+coordinate_systems = { workspace = true }
+energy_optimization = { workspace = true }
 framework = { workspace = true }
+geometry = { workspace = true }
 hula_types = { workspace = true }
-hulk = { workspace = true }
+linear_algebra = { workspace = true }
+motionfile = { workspace = true }
+nalgebra = { workspace = true }
+ndarray = { workspace = true }
 parameters = { workspace = true }
+path_serde = { workspace = true }
+projection = { workspace = true }
 repository = { workspace = true }
+serde = { workspace = true }
 serde_json = { workspace = true }
+spl_network_messages = { workspace = true }
+types = { workspace = true }
+walking_engine = { workspace = true }
+
+[build-dependencies]
+code_generation = { workspace = true }
+color-eyre = { workspace = true }
+hulk_manifest = { workspace = true }
+source_analyzer = { workspace = true }
