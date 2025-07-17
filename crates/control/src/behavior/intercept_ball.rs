@@ -9,14 +9,12 @@ use types::{
     motion_command::{HeadMotion, ImageRegion, MotionCommand, OrientationMode, WalkSpeed},
     parameters::InterceptBallParameters,
     planned_path::PathSegment,
-    step::Step,
     world_state::{BallState, WorldState},
 };
 
 pub fn execute(
     world_state: &WorldState,
     parameters: InterceptBallParameters,
-    maximum_step_size: Step,
     walk_speed: WalkSpeed,
 ) -> Option<MotionCommand> {
     if let Some(
@@ -51,16 +49,6 @@ pub fn execute(
             Some(ground_to_field),
         ) => {
             if !ball_is_interception_candidate(ball, ground_to_field, &parameters) {
-                return None;
-            }
-
-            let Step {
-                forward,
-                left,
-                turn: _,
-            } = maximum_step_size;
-
-            if forward == 0.0 || left == 0.0 {
                 return None;
             }
 

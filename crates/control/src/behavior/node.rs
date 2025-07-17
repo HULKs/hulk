@@ -24,7 +24,6 @@ use types::{
     path_obstacles::PathObstacle,
     primary_state::PrimaryState,
     roles::Role,
-    step::Step,
     world_state::WorldState,
 };
 
@@ -65,7 +64,6 @@ pub struct CycleContext {
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     lost_ball_parameters: Parameter<LostBallParameters, "behavior.lost_ball">,
     intercept_ball_parameters: Parameter<InterceptBallParameters, "behavior.intercept_ball">,
-    maximum_step_size: Parameter<Step, "step_planner.max_step_size">,
     enable_pose_detection: Parameter<bool, "pose_detection.enable">,
     keeper_motion: Parameter<KeeperMotionParameters, "keeper_motion">,
     use_stand_head_unstiff_calibration:
@@ -305,7 +303,6 @@ impl Behavior {
                     Action::InterceptBall => intercept_ball::execute(
                         world_state,
                         *context.intercept_ball_parameters,
-                        *context.maximum_step_size,
                         *context.intercept_ball_walk_speed,
                     ),
                     Action::Calibrate => {
