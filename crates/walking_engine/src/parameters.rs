@@ -2,7 +2,7 @@ use std::{ops::Range, time::Duration};
 
 use coordinate_systems::Walk;
 use geometry::rectangle::Rectangle;
-use linear_algebra::Vector3;
+use linear_algebra::{Vector2, Vector3};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use types::{
@@ -128,8 +128,8 @@ pub struct CatchingStepsParameters {
     pub enabled: bool,
     pub target_x_scale_backward: f32,
     pub target_x_scale_forward: f32,
-    pub max_target_distance: f32,
-    pub over_estimation_factor: f32,
+    pub max_target_distance: nalgebra::Vector2<f32>,
+    pub over_estimation_factor: Vector2<Walk>,
 }
 
 #[derive(
