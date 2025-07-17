@@ -114,7 +114,7 @@ def train_model(model, x_train, y_train, max_epochs: int) -> None:
     model.fit(
         x_train,
         y_train,
-        batch_size=16,
+        batch_size=128,
         epochs=max_epochs,
         validation_split=0.2,
         callbacks=[early_stopping, WandbMetricsLogger()],
@@ -149,7 +149,7 @@ def build_linear_model(
             # ),
             Flatten(),
             # BatchNormalization(),
-            Dropout(0.4),
+            Dropout(0.45),
             Dense(
                 run.config["dense_layer_sizes"][0],
                 activation="relu",
@@ -159,7 +159,7 @@ def build_linear_model(
                 run.config["dense_layer_sizes"][1],
                 activation="relu",
             ),
-            Dropout(0.3),
+            Dropout(0.35),
             Dense(1),
         ]
     )
@@ -444,7 +444,7 @@ def main(model_type: ModelType, data_path: str, use_cache: bool) -> None:
         "window_size": 70 / 83,
         "window_stride": 1 / 83,
         "label_shift": 30,
-        "number_of_filters": [16],
+        "number_of_filters": [12],
         "kernel_widths": [10],
         "dense_layer_sizes": [24, 16],
         "lstm_sizes": [32, 16],
