@@ -142,7 +142,7 @@
         "end": 4.0
       },
       "check_edge_types": true,
-      "check_edge_gradient": true,
+      "check_edge_gradient": false,
       "check_line_distance": true,
       "check_line_length": true,
       "check_line_segments_projection": true,
