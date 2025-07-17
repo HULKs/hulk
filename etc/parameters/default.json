@@ -387,8 +387,8 @@
     },
     "catching_steps": {
       "enabled": true,
-      "target_x_scale_backward": 1.1,
-      "target_x_scale_forward": 1.0,
+      "target_x_scale_backward": 0.9,
+      "target_x_scale_forward": 0.8,
       "max_target_distance": [0.1, 0.15],
       "over_estimation_factor": [0.4, 1.0]
     },
