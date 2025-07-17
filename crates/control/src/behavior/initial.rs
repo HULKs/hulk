@@ -33,9 +33,12 @@ pub fn execute(world_state: &WorldState, enable_pose_detection: bool) -> Option<
             filtered_game_controller_state.global_field_side,
         ),
         (
-            PlayerNumber::Four | PlayerNumber::Seven,
+            PlayerNumber::Seven | PlayerNumber::Five | PlayerNumber::Four | PlayerNumber::Three,
             GlobalFieldSide::Home
-        ) | (PlayerNumber::Two | PlayerNumber::Six, GlobalFieldSide::Away)
+        ) | (
+            PlayerNumber::Six | PlayerNumber::Two | PlayerNumber::One,
+            GlobalFieldSide::Away
+        )
     );
 
     Some(MotionCommand::Initial {
