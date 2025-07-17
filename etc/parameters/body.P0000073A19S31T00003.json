@@ -8,9 +8,10 @@
     }
   },
   "step_planner": {
-    "max_step_size": {
-      "forward": 0.04,
-      "turn": 0.45
+    "walk_volume_extents": {
+      "forward": 0.04
+      "inward_rotation": 0.45
+      "outward_rotation": 0.45
     }
   },
   "walking_engine": {
