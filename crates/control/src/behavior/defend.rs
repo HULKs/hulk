@@ -359,13 +359,7 @@ fn defend_goal_pose(
 
     if ball.ball_in_ground.coords().norm() >= role_positions.keeper_passive_distance {
         return Some(
-            ground_to_field.inverse()
-                * Pose2::<Field>::new(
-                    passive_position_to_defend,
-                    passive_position_to_defend
-                        .look_at(&ball.ball_in_field)
-                        .angle(),
-                ),
+            ground_to_field.inverse() * Pose2::<Field>::new(passive_position_to_defend, 0.0),
         );
     }
 
