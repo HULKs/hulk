@@ -5,6 +5,7 @@ use types::step::Step;
 
 use crate::geometry::{
     angle::Angle,
+    orientation::Orientation,
     pose::{Pose, PoseGradient},
 };
 
@@ -55,6 +56,10 @@ impl_gradient!(
 impl_gradient!(
     <T>;
     Angle<T>, T
+);
+impl_gradient!(
+    <T>;
+    Orientation<T>, T
 );
 impl_gradient!(
     <T>;
