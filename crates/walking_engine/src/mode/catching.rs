@@ -1,7 +1,8 @@
 use super::{walking::Walking, Mode, WalkTransition};
 use coordinate_systems::Walk;
 use geometry::polygon::is_inside_convex_hull;
-use linear_algebra::{vector, Orientation2, Point2, Pose2};
+use linear_algebra::{vector, IntoFramed, Orientation2, Point2, Pose2};
+use nalgebra::SimdPartialOrd;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use types::{
@@ -33,31 +34,69 @@ impl Catching {
             };
         };
 
+        let parameters = context.parameters;
         let robot_to_walk = context.robot_to_walk;
         let ground_to_robot = robot_to_ground.inverse();
 
-        let target = (robot_to_walk * ground_to_robot * context.zero_moment_point.extend(0.0)).xy();
-        let clamped_target = target / target.inner.coords.norm()
-            * target
-                .inner
-                .coords
-                .norm()
-                .min(context.parameters.catching_steps.max_target_distance);
+        let mut target =
+            (robot_to_walk * ground_to_robot * context.zero_moment_point.extend(0.0)).xy();
+
+        let current_feet =
+            Feet::from_joints(robot_to_walk, &context.last_actuated_joints, support_side);
+        let support_outline: Vec<_> = if support_side == Side::Left {
+            transform_left_sole_outline(current_feet.support_sole.as_transform())
+                .map(|point| point.xy())
+                .collect()
+        } else {
+            transform_right_sole_outline(current_feet.support_sole.as_transform())
+                .map(|point| point.xy())
+                .collect()
+        };
+        if (support_side == Side::Left
+            && support_outline.iter().all(|point| point.y() < target.y()))
+            || (support_side == Side::Right
+                && support_outline.iter().all(|point| point.y() > target.y()))
+        {
+            target.inner.y = -target.y();
+        }
+
+        let clamped_target = target
+            .inner
+            .coords
+            .simd_clamp(
+                -context.parameters.catching_steps.max_target_distance,
+                context.parameters.catching_steps.max_target_distance,
+            )
+            .framed()
+            .as_point();
 
         let target_projection_into_foot_support = context
             .parameters
             .foot_support
             .project_point_into_rect(clamped_target);
-        let displacement =
-            Point2::origin() + (clamped_target - target_projection_into_foot_support);
+        let displacement = clamped_target - target_projection_into_foot_support;
+
+        let (support_base_offset, swing_base_offset) = match support_side {
+            Side::Left => (
+                parameters.base.foot_offset_left,
+                parameters.base.foot_offset_right,
+            ),
+            Side::Right => (
+                parameters.base.foot_offset_right,
+                parameters.base.foot_offset_left,
+            ),
+        };
 
         let desired_end_feet = Feet {
             support_sole: Pose2::from_parts(
-                -displacement * 0.5 * context.parameters.catching_steps.over_estimation_factor,
+                support_base_offset.xy().as_point()
+                    - displacement.component_mul(&parameters.catching_steps.over_estimation_factor)
+                        * 0.5,
                 Orientation2::default(),
             ),
             swing_sole: Pose2::from_parts(
-                displacement * context.parameters.catching_steps.over_estimation_factor,
+                swing_base_offset.xy().as_point()
+                    + displacement.component_mul(&parameters.catching_steps.over_estimation_factor),
                 Orientation2::default(),
             ),
         };
