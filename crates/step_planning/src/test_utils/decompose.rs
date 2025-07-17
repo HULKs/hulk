@@ -5,7 +5,11 @@ use nalgebra::{allocator::Allocator, DefaultAllocator, DimName, Matrix, OPoint, 
 use linear_algebra::{point, vector, Framed};
 use types::step::Step;
 
-use crate::geometry::{angle::Angle, pose::Pose, pose::PoseGradient};
+use crate::geometry::{
+    angle::Angle,
+    orientation::Orientation,
+    pose::{Pose, PoseGradient},
+};
 
 pub trait Decompose<F> {
     const N: usize;
@@ -40,6 +44,20 @@ impl<F: Debug> Decompose<F> for Angle<F> {
         let [value] = decomposed.try_into().unwrap();
 
         Angle(value)
+    }
+}
+
+impl<F: Debug> Decompose<F> for Orientation<F> {
+    const N: usize = 1;
+
+    fn decompose(self) -> Vec<F> {
+        vec![self.0]
+    }
+
+    fn compose(decomposed: Vec<F>) -> Self {
+        let [value] = decomposed.try_into().unwrap();
+
+        Orientation(value)
     }
 }
 
@@ -84,7 +102,7 @@ impl<F: Scalar> Decompose<F> for Pose<F> {
         let [x, y, orientation] = decomposed.try_into().unwrap();
 
         let position = point![x, y];
-        let orientation = Angle(orientation);
+        let orientation = Orientation(orientation);
 
         Self {
             position,

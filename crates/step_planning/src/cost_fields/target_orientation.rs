@@ -1,10 +1,13 @@
 use crate::{
-    geometry::{angle::Angle, pose::Pose, pose::PoseGradient},
+    geometry::{
+        orientation::Orientation,
+        pose::{Pose, PoseGradient},
+    },
     utils::{angle_penalty, angle_penalty_derivative},
 };
 
 pub struct TargetOrientationField {
-    pub target_orientation: Angle<f32>,
+    pub target_orientation: Orientation<f32>,
 }
 
 impl TargetOrientationField {
@@ -29,7 +32,7 @@ mod tests {
 
     use crate::{
         cost_fields::target_orientation::TargetOrientationField,
-        geometry::{angle::Angle, pose::Pose},
+        geometry::{orientation::Orientation, pose::Pose},
         test_utils::{is_roughly_opposite, proptest_config},
     };
 
@@ -44,11 +47,11 @@ mod tests {
 
     fn verify_gradient_impl(x: f32, y: f32, orientation: f32, target_orientation: f32) {
         let cost_field = TargetOrientationField {
-            target_orientation: Angle(target_orientation),
+            target_orientation: Orientation(target_orientation),
         };
 
         let position = point![x, y];
-        let orientation = Angle(orientation);
+        let orientation = Orientation(orientation);
 
         let pose = Pose {
             position,

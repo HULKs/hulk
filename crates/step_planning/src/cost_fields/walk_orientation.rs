@@ -1,10 +1,10 @@
 use coordinate_systems::Ground;
-use linear_algebra::{Orientation2, Vector2};
+use linear_algebra::Vector2;
 use types::motion_command::OrientationMode;
 
 use crate::{
     geometry::{
-        angle::Angle,
+        orientation::Orientation,
         pose::{Pose, PoseGradient},
     },
     utils::{angle_penalty_with_tolerance, angle_penalty_with_tolerance_derivative},
@@ -21,15 +21,17 @@ impl WalkOrientationField {
             OrientationMode::Unspecified => 0.0,
             OrientationMode::AlignWithPath => angle_penalty_with_tolerance(
                 pose.orientation,
-                Angle(Orientation2::from_vector(forward).angle()),
+                Orientation::from_direction(forward),
                 self.path_alignment_tolerance,
             ),
             OrientationMode::LookTowards {
                 direction,
                 tolerance,
-            } => {
-                angle_penalty_with_tolerance(pose.orientation, Angle(direction.angle()), tolerance)
-            }
+            } => angle_penalty_with_tolerance(
+                pose.orientation,
+                Orientation(direction.angle()),
+                tolerance,
+            ),
             OrientationMode::LookAt { target, tolerance } => {
                 let direction = target - pose.position;
 
@@ -38,7 +40,7 @@ impl WalkOrientationField {
                 } else {
                     angle_penalty_with_tolerance(
                         pose.orientation,
-                        Angle(Orientation2::from_vector(direction).angle()),
+                        Orientation::from_direction(direction),
                         tolerance,
                     )
                 }
@@ -52,7 +54,7 @@ impl WalkOrientationField {
             OrientationMode::AlignWithPath => PoseGradient {
                 orientation: angle_penalty_with_tolerance_derivative(
                     pose.orientation,
-                    Angle(Orientation2::from_vector(forward).angle()),
+                    Orientation::from_direction(forward),
                     self.path_alignment_tolerance,
                 ),
                 ..PoseGradient::zeros()
@@ -63,7 +65,7 @@ impl WalkOrientationField {
             } => PoseGradient {
                 orientation: angle_penalty_with_tolerance_derivative(
                     pose.orientation,
-                    Angle(direction.angle()),
+                    Orientation(direction.angle()),
                     tolerance,
                 ),
                 ..PoseGradient::zeros()
@@ -77,7 +79,7 @@ impl WalkOrientationField {
                     PoseGradient {
                         orientation: angle_penalty_with_tolerance_derivative(
                             pose.orientation,
-                            Angle(Orientation2::from_vector(direction).angle()),
+                            Orientation::from_direction(direction),
                             tolerance,
                         ),
                         ..PoseGradient::zeros()
@@ -99,7 +101,7 @@ mod tests {
     use types::motion_command::OrientationMode;
 
     use crate::{
-        geometry::{angle::Angle, pose::Pose},
+        geometry::{orientation::Orientation, pose::Pose},
         test_utils::{is_roughly_opposite, proptest_config},
     };
 
@@ -129,7 +131,7 @@ mod tests {
         };
 
         let position = point![x, y];
-        let orientation = Angle(orientation);
+        let orientation = Orientation(orientation);
 
         let pose = Pose {
             position,
@@ -170,7 +172,7 @@ mod tests {
         };
 
         let position = point![x, y];
-        let orientation = Angle(orientation);
+        let orientation = Orientation(orientation);
 
         // This only verifies the orientation field, since the
         // dependence on the position field is intentionally ignored
@@ -212,7 +214,7 @@ mod tests {
         };
 
         let position = point![x, y];
-        let orientation = Angle(orientation);
+        let orientation = Orientation(orientation);
         let forward_vector = Orientation2::new(path_angle).as_unit_vector();
 
         // This only verifies the orientation field, since the

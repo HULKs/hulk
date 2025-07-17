@@ -11,12 +11,12 @@ use coordinate_systems::Ground;
 use linear_algebra::{Point2, Rotation2, Vector2};
 use types::step::Step;
 
-use crate::geometry::angle::Angle;
+use crate::geometry::{angle::Angle, orientation::Orientation};
 
 #[derive(Clone, Debug)]
 pub struct Pose<T: Scalar> {
     pub position: Point2<Ground, T>,
-    pub orientation: Angle<T>,
+    pub orientation: Orientation<T>,
 }
 
 #[derive(Clone, Debug, PartialEq)]
@@ -138,13 +138,13 @@ mod tests {
     use linear_algebra::{point, Point2};
     use types::step::Step;
 
-    use crate::geometry::{angle::Angle, pose::Pose};
+    use crate::geometry::{orientation::Orientation, pose::Pose};
 
     #[test]
     fn test_pose_step_addition() {
         let pose = Pose {
             position: Point2::origin(),
-            orientation: Angle(0.0),
+            orientation: Orientation(0.0),
         };
         let step = Step {
             forward: 2.0,
@@ -156,7 +156,7 @@ mod tests {
             new_pose,
             Pose {
                 position: point![2.0, 1.0],
-                orientation: Angle(3.0)
+                orientation: Orientation(3.0)
             }
         );
     }

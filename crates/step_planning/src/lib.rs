@@ -2,6 +2,7 @@ use nalgebra::RealField;
 use num_dual::DualNum;
 
 use coordinate_systems::Ground;
+use geometry::orientation::Orientation;
 use linear_algebra::Orientation2;
 use step_plan::StepPlan;
 use types::{
@@ -14,10 +15,7 @@ use crate::{
         path_distance::PathDistanceField, path_progress::PathProgressField,
         target_orientation::TargetOrientationField, walk_orientation::WalkOrientationField,
     },
-    geometry::{
-        angle::Angle,
-        pose::{Pose, PoseGradient},
-    },
+    geometry::pose::{Pose, PoseGradient},
     traits::{Length, PathProgress},
 };
 
@@ -141,7 +139,7 @@ impl StepPlanning<'_> {
 
     fn target_orientation(&self) -> TargetOrientationField {
         TargetOrientationField {
-            target_orientation: Angle(self.target_orientation.angle()),
+            target_orientation: Orientation(self.target_orientation.angle()),
         }
     }
 }
