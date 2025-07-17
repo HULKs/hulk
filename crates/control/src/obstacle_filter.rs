@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime,
     detected_feet::DetectedFeet,
+    fall_state::FallState,
     field_dimensions::FieldDimensions,
     foot_bumper_obstacle::FootBumperObstacle,
     multivariate_normal_distribution::MultivariateNormalDistribution,
@@ -51,6 +52,7 @@ pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
     primary_state: Input<PrimaryState, "primary_state">,
     current_ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
+    fall_state: Input<FallState, "fall_state">,
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     goal_post_obstacle_radius: Parameter<f32, "obstacle_filter.goal_post_obstacle_radius">,
@@ -200,12 +202,18 @@ impl ObstacleFilter {
             context.obstacle_filter_parameters.hypothesis_merge_distance,
         );
 
-        if self.last_primary_state == PrimaryState::Penalized
-            && *context.primary_state != PrimaryState::Penalized
-        {
-            self.hypotheses = Vec::new();
-        }
+        let became_unpenalized = self.last_primary_state == PrimaryState::Penalized
+            && *context.primary_state != PrimaryState::Penalized;
+        let is_upright = *context.fall_state == FallState::Upright;
         self.last_primary_state = *context.primary_state;
+
+        if became_unpenalized {
+            self.hypotheses.clear();
+        }
+        if !is_upright {
+            self.hypotheses
+                .retain(|obstacle| obstacle.obstacle_kind != ObstacleKind::Unknown);
+        }
 
         let robot_obstacles = self
             .hypotheses
