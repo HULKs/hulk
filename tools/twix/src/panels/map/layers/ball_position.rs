@@ -36,7 +36,7 @@ impl Layer<Field> for BallPosition {
     }
 
     fn paint(
-        &self,
+        &mut self,
         painter: &TwixPainter<Field>,
         field_dimensions: &FieldDimensions,
     ) -> Result<()> {
