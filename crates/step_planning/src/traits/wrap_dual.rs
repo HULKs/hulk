@@ -14,25 +14,18 @@ use crate::geometry::{
     pose::{Pose, PoseGradient},
 };
 
-pub trait WrapDual<Dual> {
-    fn wrap_dual(self) -> Dual;
-}
-
-pub trait UnwrapDual<Real, Gradient> {
+pub trait WrapDual<Real, Gradient> {
+    fn wrap_dual(real: Real) -> Self;
     fn unwrap_dual(self) -> (Real, Gradient);
 }
 
-impl<Frame, SelfInner: WrapDual<OtherInner>, OtherInner> WrapDual<Framed<Frame, OtherInner>>
-    for Framed<Frame, SelfInner>
+impl<Frame, SelfInner: WrapDual<Real, Gradient>, Real, Gradient>
+    WrapDual<Framed<Frame, Real>, Framed<Frame, Gradient>> for Framed<Frame, SelfInner>
 {
-    fn wrap_dual(self) -> Framed<Frame, OtherInner> {
-        self.inner.wrap_dual().framed()
+    fn wrap_dual(real: Framed<Frame, Real>) -> Self {
+        SelfInner::wrap_dual(real.inner).framed()
     }
-}
 
-impl<Frame, SelfInner: UnwrapDual<Real, Gradient>, Real, Gradient>
-    UnwrapDual<Framed<Frame, Real>, Framed<Frame, Gradient>> for Framed<Frame, SelfInner>
-{
     fn unwrap_dual(self) -> (Framed<Frame, Real>, Framed<Frame, Gradient>) {
         let (real, gradient) = self.inner.unwrap_dual();
 
@@ -40,38 +33,28 @@ impl<Frame, SelfInner: UnwrapDual<Real, Gradient>, Real, Gradient>
     }
 }
 
-impl<T: DualNum<F>, F, D: Dim> WrapDual<DualVec<T, F, D>> for T
+impl<T: DualNum<F>, F, D: Dim> WrapDual<T, Derivative<T, F, D, U1>> for DualVec<T, F, D>
 where
     DefaultAllocator: Allocator<D>,
 {
-    fn wrap_dual(self) -> DualVec<T, F, D> {
-        DualVec::from_re(self)
+    fn wrap_dual(real: T) -> DualVec<T, F, D> {
+        DualVec::from_re(real)
     }
-}
 
-impl<T: DualNum<F>, F, D: Dim> UnwrapDual<T, Derivative<T, F, D, U1>> for DualVec<T, F, D>
-where
-    DefaultAllocator: Allocator<D>,
-{
     fn unwrap_dual(self) -> (T, Derivative<T, F, D, U1>) {
         (self.re, self.eps)
     }
 }
 
-impl<T: DualNum<F>, F, D: Dim> WrapDual<Angle<DualVec<T, F, D>>> for Angle<T>
-where
-    DefaultAllocator: Allocator<D>,
-{
-    fn wrap_dual(self) -> Angle<DualVec<T, F, D>> {
-        Angle(DualVec::from_re(self.0))
-    }
-}
-
-impl<T: DualNum<F>, F, D: Dim> UnwrapDual<Angle<T>, Derivative<T, F, D, U1>>
+impl<T: DualNum<F>, F, D: Dim> WrapDual<Angle<T>, Derivative<T, F, D, U1>>
     for Angle<DualVec<T, F, D>>
 where
     DefaultAllocator: Allocator<D>,
 {
+    fn wrap_dual(real: Angle<T>) -> Angle<DualVec<T, F, D>> {
+        Angle(DualVec::from_re(real.0))
+    }
+
     fn unwrap_dual(self) -> (Angle<T>, Derivative<T, F, D, U1>) {
         let (re, eps) = self.0.unwrap_dual();
 
@@ -79,20 +62,15 @@ where
     }
 }
 
-impl<T: DualNum<F>, F, D: Dim> WrapDual<Orientation<DualVec<T, F, D>>> for Orientation<T>
-where
-    DefaultAllocator: Allocator<D>,
-{
-    fn wrap_dual(self) -> Orientation<DualVec<T, F, D>> {
-        Orientation(DualVec::from_re(self.0))
-    }
-}
-
-impl<T: DualNum<F>, F, D: Dim> UnwrapDual<Orientation<T>, Derivative<T, F, D, U1>>
+impl<T: DualNum<F>, F, D: Dim> WrapDual<Orientation<T>, Derivative<T, F, D, U1>>
     for Orientation<DualVec<T, F, D>>
 where
     DefaultAllocator: Allocator<D>,
 {
+    fn wrap_dual(real: Orientation<T>) -> Orientation<DualVec<T, F, D>> {
+        Orientation(DualVec::from_re(real.0))
+    }
+
     fn unwrap_dual(self) -> (Orientation<T>, Derivative<T, F, D, U1>) {
         let (re, eps) = self.0.unwrap_dual();
 
@@ -100,21 +78,15 @@ where
     }
 }
 
-impl<T: DualNum<F> + Scalar, F: Float + Scalar, D: Dim> WrapDual<Point2<DualVec<T, F, D>>>
-    for Point2<T>
+impl<T: DualNum<F>, F: Float + Scalar, D: Dim> WrapDual<Point2<T>, Vector2<Derivative<T, F, D, U1>>>
+    for Point2<DualVec<T, F, D>>
 where
     DefaultAllocator: Allocator<D>,
 {
-    fn wrap_dual(self) -> Point2<DualVec<T, F, D>> {
-        self.map(DualVec::from_re)
+    fn wrap_dual(real: Point2<T>) -> Point2<DualVec<T, F, D>> {
+        real.map(DualVec::from_re)
     }
-}
 
-impl<T: DualNum<F>, F: Float + Scalar, D: Dim>
-    UnwrapDual<Point2<T>, Vector2<Derivative<T, F, D, U1>>> for Point2<DualVec<T, F, D>>
-where
-    DefaultAllocator: Allocator<D>,
-{
     fn unwrap_dual(self) -> (Point2<T>, Vector2<Derivative<T, F, D, U1>>) {
         let [[x, y]] = self.coords.data.0;
 
@@ -125,21 +97,15 @@ where
     }
 }
 
-impl<T: DualNum<F> + Scalar, F: Float + Scalar, D: Dim> WrapDual<Vector2<DualVec<T, F, D>>>
-    for Vector2<T>
-where
-    DefaultAllocator: Allocator<D>,
-{
-    fn wrap_dual(self) -> Vector2<DualVec<T, F, D>> {
-        self.map(DualVec::from_re)
-    }
-}
-
 impl<T: DualNum<F>, F: Float + Scalar, D: Dim>
-    UnwrapDual<Vector2<T>, Vector2<Derivative<T, F, D, U1>>> for Vector2<DualVec<T, F, D>>
+    WrapDual<Vector2<T>, Vector2<Derivative<T, F, D, U1>>> for Vector2<DualVec<T, F, D>>
 where
     DefaultAllocator: Allocator<D>,
 {
+    fn wrap_dual(real: Vector2<T>) -> Vector2<DualVec<T, F, D>> {
+        real.map(DualVec::from_re)
+    }
+
     fn unwrap_dual(self) -> (Vector2<T>, Vector2<Derivative<T, F, D, U1>>) {
         let [[x, y]] = self.data.0;
 
@@ -150,23 +116,18 @@ where
     }
 }
 
-impl<T: DualNum<F> + Scalar, F: Float + Scalar, D: Dim> WrapDual<Pose<DualVec<T, F, D>>> for Pose<T>
+impl<T: DualNum<F>, F: Float + Scalar, D: Dim>
+    WrapDual<Pose<T>, PoseGradient<Derivative<T, F, D, U1>>> for Pose<DualVec<T, F, D>>
 where
     DefaultAllocator: Allocator<D>,
 {
-    fn wrap_dual(self) -> Pose<DualVec<T, F, D>> {
+    fn wrap_dual(real: Pose<T>) -> Pose<DualVec<T, F, D>> {
         Pose {
-            position: self.position.wrap_dual(),
-            orientation: self.orientation.wrap_dual(),
+            position: WrapDual::wrap_dual(real.position),
+            orientation: WrapDual::wrap_dual(real.orientation),
         }
     }
-}
 
-impl<T: DualNum<F>, F: Float + Scalar, D: Dim>
-    UnwrapDual<Pose<T>, PoseGradient<Derivative<T, F, D, U1>>> for Pose<DualVec<T, F, D>>
-where
-    DefaultAllocator: Allocator<D>,
-{
     fn unwrap_dual(self) -> (Pose<T>, PoseGradient<Derivative<T, F, D, U1>>) {
         let Pose {
             position,
@@ -189,24 +150,19 @@ where
     }
 }
 
-impl<T: DualNum<F> + Scalar, F: Float + Scalar, D: Dim> WrapDual<Step<DualVec<T, F, D>>> for Step<T>
-where
-    DefaultAllocator: Allocator<D>,
-{
-    fn wrap_dual(self) -> Step<DualVec<T, F, D>> {
-        Step {
-            forward: self.forward.wrap_dual(),
-            left: self.left.wrap_dual(),
-            turn: self.turn.wrap_dual(),
-        }
-    }
-}
-
-impl<T: DualNum<F>, F: Float + Scalar, D: Dim> UnwrapDual<Step<T>, Step<Derivative<T, F, D, U1>>>
+impl<T: DualNum<F>, F: Float + Scalar, D: Dim> WrapDual<Step<T>, Step<Derivative<T, F, D, U1>>>
     for Step<DualVec<T, F, D>>
 where
     DefaultAllocator: Allocator<D>,
 {
+    fn wrap_dual(real: Step<T>) -> Step<DualVec<T, F, D>> {
+        Step {
+            forward: WrapDual::wrap_dual(real.forward),
+            left: WrapDual::wrap_dual(real.left),
+            turn: WrapDual::wrap_dual(real.turn),
+        }
+    }
+
     fn unwrap_dual(self) -> (Step<T>, Step<Derivative<T, F, D, U1>>) {
         let Self {
             forward,
@@ -233,26 +189,20 @@ where
     }
 }
 
-impl<T: DualNum<F> + Scalar, F: Float + Scalar, D: Dim> WrapDual<NormalizedStep<DualVec<T, F, D>>>
-    for NormalizedStep<T>
-where
-    DefaultAllocator: Allocator<D>,
-{
-    fn wrap_dual(self) -> NormalizedStep<DualVec<T, F, D>> {
-        NormalizedStep {
-            forward: self.forward.wrap_dual(),
-            left: self.left.wrap_dual(),
-            turn: self.turn.wrap_dual(),
-        }
-    }
-}
-
 impl<T: DualNum<F>, F: Float + Scalar, D: Dim>
-    UnwrapDual<NormalizedStep<T>, NormalizedStep<Derivative<T, F, D, U1>>>
+    WrapDual<NormalizedStep<T>, NormalizedStep<Derivative<T, F, D, U1>>>
     for NormalizedStep<DualVec<T, F, D>>
 where
     DefaultAllocator: Allocator<D>,
 {
+    fn wrap_dual(real: NormalizedStep<T>) -> NormalizedStep<DualVec<T, F, D>> {
+        NormalizedStep {
+            forward: WrapDual::wrap_dual(real.forward),
+            left: WrapDual::wrap_dual(real.left),
+            turn: WrapDual::wrap_dual(real.turn),
+        }
+    }
+
     fn unwrap_dual(self) -> (NormalizedStep<T>, NormalizedStep<Derivative<T, F, D, U1>>) {
         let Self {
             forward,
