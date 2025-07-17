@@ -31,7 +31,6 @@ fn startup(
 ) {
     let mut robot = Robot::new(PlayerNumber::One);
     *robot.ground_to_field_mut() = Isometry2::from_parts(vector![-2.0, 0.0], 0.0);
-    robot.parameters.step_planner.max_step_size.forward = 0.45;
     commands.spawn(robot);
     game_controller.state.game_state = GameState::Playing;
     game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Playing));
