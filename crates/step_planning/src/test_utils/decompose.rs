@@ -149,7 +149,7 @@ impl<F: Scalar, R: DimName, C: DimName> Decompose<F> for Matrix<F, R, C, Owned<F
 where
     DefaultAllocator: Allocator<R, C>,
 {
-    const N: usize = todo!();
+    const N: usize = R::USIZE * C::USIZE;
 
     fn decompose(self) -> Vec<F> {
         self.as_slice().to_vec()
