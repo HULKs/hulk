@@ -285,9 +285,9 @@ fn defend_pose(
         role_positions.defender_passive_ring_radius
     };
 
-    let position_to_defend_to_ball_max_lengt =
+    let position_to_defend_to_ball_max_length =
         (ball.ball_in_field - position_to_defend).norm() * (2.0 / 3.0);
-    let distance_to_target = distance_to_target.min(position_to_defend_to_ball_max_lengt);
+    let distance_to_target = distance_to_target.min(position_to_defend_to_ball_max_length);
 
     let mut defend_pose =
         block_on_circle(ball.ball_in_field, position_to_defend, distance_to_target);
