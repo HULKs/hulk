@@ -14,4 +14,4 @@ pub use path_progress::PathProgress;
 pub use project::Project;
 pub use scaled_gradient::ScaledGradient;
 pub use tangent::Tangent;
-pub use wrap_dual::{UnwrapDual, WrapDual};
+pub use wrap_dual::WrapDual;

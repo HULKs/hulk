@@ -14,7 +14,7 @@ use linear_algebra::Orientation2;
 use step_planning::{
     geometry::pose::Pose,
     step_plan::StepPlan,
-    traits::{ScaledGradient, UnwrapDual, WrapDual},
+    traits::{ScaledGradient, WrapDual},
     StepPlanning, NUM_VARIABLES, VARIABLES_PER_STEP,
 };
 use types::{
@@ -104,7 +104,7 @@ fn gradient(
 
     let gradient = step_planning
         .step_end_poses(
-            step_planning.initial_pose.clone().wrap_dual(),
+            WrapDual::wrap_dual(step_planning.initial_pose.clone()),
             step_planning.initial_support_foot,
             step_planning.walk_volume_extents.clone(),
             &step_plan,
