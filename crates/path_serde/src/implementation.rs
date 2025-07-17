@@ -305,16 +305,22 @@ where
     where
         S: Serializer,
     {
-        let index = ["x", "y", "z", "w", "v", "u"][0..N]
-            .iter()
-            .position(|name| name == &path);
-        match index {
-            Some(index) => self[index]
-                .serialize(serializer)
-                .map_err(serialize::Error::SerializationFailed),
-            _ => Err(serialize::Error::PathDoesNotExist {
-                path: path.to_owned(),
-            }),
+        if N <= 6 {
+            let index = ["x", "y", "z", "w", "v", "u"][0..N]
+                .iter()
+                .position(|name| name == &path);
+            match index {
+                Some(index) => self[index]
+                    .serialize(serializer)
+                    .map_err(serialize::Error::SerializationFailed),
+                _ => Err(serialize::Error::PathDoesNotExist {
+                    path: path.to_owned(),
+                }),
+            }
+        } else {
+            Err(serialize::Error::PathDoesNotExist {
+                path: path.to_string(),
+            })
         }
     }
 }
@@ -331,27 +337,35 @@ where
     where
         D: Deserializer<'de>,
     {
-        let index = ["x", "y", "z", "w", "v", "u"][0..N]
-            .iter()
-            .position(|name| name == &path);
-        match index {
-            Some(index) => {
-                let deserialized = T::deserialize(deserializer)
-                    .map_err(deserialize::Error::DeserializationFailed)?;
-                self[index] = deserialized;
-                Ok(())
+        if N <= 6 {
+            let index = ["x", "y", "z", "w", "v", "u"][0..N]
+                .iter()
+                .position(|name| name == &path);
+            match index {
+                Some(index) => {
+                    let deserialized = T::deserialize(deserializer)
+                        .map_err(deserialize::Error::DeserializationFailed)?;
+                    self[index] = deserialized;
+                    Ok(())
+                }
+                None => Err(deserialize::Error::PathDoesNotExist {
+                    path: path.to_owned(),
+                }),
             }
-            None => Err(deserialize::Error::PathDoesNotExist {
-                path: path.to_owned(),
-            }),
+        } else {
+            Err(deserialize::Error::PathDoesNotExist {
+                path: path.to_string(),
+            })
         }
     }
 }
 
 impl<T, const N: usize> PathIntrospect for Matrix<T, Const<N>, U1, ArrayStorage<T, N, 1>> {
     fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
-        for field in &["x", "y", "z", "w", "v", "u"][0..N] {
-            fields.insert(format!("{prefix}{field}"));
+        if N <= 6 {
+            for field in &["x", "y", "z", "w", "v", "u"][0..N] {
+                fields.insert(format!("{prefix}{field}"));
+            }
         }
     }
 }
