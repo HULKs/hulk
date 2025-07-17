@@ -95,3 +95,21 @@ pub enum FallState {
         kind: Kind,
     },
 }
+
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Deserialize,
+    PartialEq,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
+pub enum FallStateTinyML {
+    #[default]
+    Stable,
+    SoonToBeUnstable,
+}

@@ -108,7 +108,7 @@ impl FakeData {
                 .into(),
             calibration_command: last_database.calibration_command.into(),
             camera_matrices: last_database.camera_matrices.clone().into(),
-            robot_orientation: last_database.robot_orientation.clone().into(),
+            robot_orientation: last_database.robot_orientation.into(),
         })
     }
 }
