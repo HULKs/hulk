@@ -11,10 +11,12 @@ use coordinate_systems::Ground;
     Debug,
     Default,
     Deserialize,
-    Serialize,
-    PathSerialize,
+    Eq,
+    PartialEq,
     PathDeserialize,
     PathIntrospect,
+    PathSerialize,
+    Serialize,
 )]
 pub enum ObstacleKind {
     Ball,
