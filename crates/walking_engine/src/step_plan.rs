@@ -64,6 +64,12 @@ impl StepPlan {
             .orientation()
             .angle_to(start_feet.swing_sole.orientation());
 
+        let max_step_size = Step {
+            forward: context.walk_volume_extents.forward,
+            left: context.walk_volume_extents.outward,
+            turn: context.walk_volume_extents.outward_rotation,
+        };
+
         let foot_lift_apex = parameters.base.foot_lift_apex
             + travel_weighting(
                 swing_foot_travel,
@@ -71,7 +77,7 @@ impl StepPlan {
                 parameters
                     .base
                     .foot_lift_apex_increase
-                    .div_or_zero(context.max_step_size),
+                    .div_or_zero(&max_step_size),
             );
 
         let step_duration = parameters.base.step_duration
@@ -81,7 +87,7 @@ impl StepPlan {
                 parameters
                     .base
                     .step_duration_increase
-                    .div_or_zero(context.max_step_size),
+                    .div_or_zero(&max_step_size),
             ));
 
         let base_midpoint = interpolate_midpoint(

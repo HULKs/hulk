@@ -303,11 +303,6 @@
   "step_planner": {
     "mode": "Mpc",
     "injected_step": null,
-    "max_step_size": {
-      "forward": 0.045,
-      "left": 0.1,
-      "turn": 0.5
-    },
     "walk_volume_delta_slow": {
       "forward": 0.0,
       "backward": 0.0,
