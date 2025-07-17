@@ -121,7 +121,8 @@ fn dynamic_completions(shell: Shell, static_completions: String) {
             let manifest_paths: Vec<_> = MANIFEST_PATHS.keys().copied().collect();
             for subcommand in MANIFEST_COMPLETION_SUBCOMMANDS {
                 println!(
-                    "complete -c pepsi -n \"__fish_pepsi_using_subcommand {subcommand}\" \
+                    "complete -c pepsi -n \"__fish_pepsi_using_subcommand {subcommand}; \
+                        and not __fish_seen_subcommand_from {manifest_paths}\" \
                          -f -a \"{manifest_paths}\"",
                     manifest_paths = manifest_paths.join(" ")
                 );
