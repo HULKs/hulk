@@ -215,8 +215,10 @@ fn generate_corner_kick_targets(context: &CycleContext) -> Vec<Point2<Ground>> {
     let field_dimensions = &context.field_dimensions;
     let parameters = &context.decision_parameters;
 
+    let goal_line = field_dimensions.length / 2.0;
+    let ball = context.ball_state.ball_in_field;
     let from_corner_kick_target_x =
-        field_dimensions.length / 2.0 - parameters.corner_kick_target_distance_to_goal;
+        goal_line.max(ball.x()) - parameters.corner_kick_target_distance_to_goal;
     let target = field_to_ground * point![from_corner_kick_target_x, 0.0];
     vec![target]
 }
@@ -225,16 +227,14 @@ fn generate_goal_line_kick_targets(context: &CycleContext) -> Vec<Point2<Ground>
     let field_to_ground = context.ground_to_field.inverse();
     let field_dimensions = &context.field_dimensions;
 
-    let left_goal_half = field_to_ground
-        * point![
-            field_dimensions.length / 2.0 + 0.1,
-            field_dimensions.goal_inner_width / 4.0
-        ];
-    let right_goal_half = field_to_ground
-        * point![
-            field_dimensions.length / 2.0 + 0.1,
-            -field_dimensions.goal_inner_width / 4.0
-        ];
+    let goal_line = field_dimensions.length / 2.0;
+    let ball = context.ball_state.ball_in_field;
+    let target_x = goal_line.max(ball.x()) + 0.1;
+
+    let left_goal_half =
+        field_to_ground * point![target_x, field_dimensions.goal_inner_width / 4.0];
+    let right_goal_half =
+        field_to_ground * point![target_x, -field_dimensions.goal_inner_width / 4.0];
     vec![left_goal_half, right_goal_half]
 }
 
