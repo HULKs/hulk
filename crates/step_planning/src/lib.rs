@@ -1,13 +1,17 @@
+use std::f32::consts::FRAC_PI_2;
+
 use nalgebra::RealField;
 use num_dual::DualNum;
 
+use ::geometry::{arc::Arc, circle::Circle, direction::Direction, line_segment::LineSegment};
 use coordinate_systems::Ground;
-use geometry::orientation::Orientation;
-use linear_algebra::Orientation2;
-use step_plan::StepPlan;
+use linear_algebra::{point, Orientation2};
 use types::{
-    motion_command::OrientationMode, parameters::StepPlanningOptimizationParameters,
-    planned_path::Path, support_foot::Side, walk_volume_extents::WalkVolumeExtents,
+    motion_command::OrientationMode,
+    parameters::StepPlanningOptimizationParameters,
+    planned_path::{Path, PathSegment},
+    support_foot::Side,
+    walk_volume_extents::WalkVolumeExtents,
 };
 
 use crate::{
@@ -15,7 +19,11 @@ use crate::{
         path_distance::PathDistanceField, path_progress::PathProgressField,
         target_orientation::TargetOrientationField, walk_orientation::WalkOrientationField,
     },
-    geometry::pose::{Pose, PoseGradient},
+    geometry::{
+        orientation::Orientation,
+        pose::{Pose, PoseGradient},
+    },
+    step_plan::StepPlan,
     traits::{Length, PathProgress},
 };
 
@@ -144,44 +152,42 @@ impl StepPlanning<'_> {
     }
 }
 
+pub fn test_path() -> Path {
+    Path {
+        segments: vec![
+            PathSegment::LineSegment(LineSegment(point![0.0, 0.0], point![3.0, 0.0])),
+            PathSegment::Arc(Arc {
+                circle: Circle {
+                    center: point![3.0, 1.0],
+                    radius: 1.0,
+                },
+                start: Orientation2::new(3.0 * FRAC_PI_2),
+                end: Orientation2::new(0.0),
+                direction: Direction::Counterclockwise,
+            }),
+            PathSegment::LineSegment(LineSegment(point![4.0, 1.0], point![4.0, 4.0])),
+        ],
+    }
+}
+
 #[cfg(test)]
 pub mod test_utils {
     pub mod decompose;
     pub mod gradient_type;
     pub mod verify_gradient;
 
-    use std::f32::consts::{FRAC_PI_2, PI, TAU};
+    use std::f32::consts::{PI, TAU};
 
     use approx::AbsDiffEq;
     use coordinate_systems::Ground;
-    use geometry::{arc::Arc, circle::Circle, direction::Direction, line_segment::LineSegment};
     use linear_algebra::{point, vector, Orientation2, Point2};
     use proptest::test_runner::Config as ProptestConfig;
-    use types::planned_path::{Path, PathSegment};
 
     pub fn proptest_config() -> ProptestConfig {
         ProptestConfig {
             cases: 1_000_000,
             max_global_rejects: 50_000,
             ..Default::default()
-        }
-    }
-
-    pub fn test_path() -> Path {
-        Path {
-            segments: vec![
-                PathSegment::LineSegment(LineSegment(point![0.0, 0.0], point![3.0, 0.0])),
-                PathSegment::Arc(Arc {
-                    circle: Circle {
-                        center: point![3.0, 1.0],
-                        radius: 1.0,
-                    },
-                    start: Orientation2::new(3.0 * FRAC_PI_2),
-                    end: Orientation2::new(0.0),
-                    direction: Direction::Counterclockwise,
-                }),
-                PathSegment::LineSegment(LineSegment(point![4.0, 1.0], point![4.0, 4.0])),
-            ],
         }
     }
 
