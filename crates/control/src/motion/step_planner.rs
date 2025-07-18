@@ -120,6 +120,7 @@ impl StepPlanner {
             .fill_if_subscribed(|| max_step_size);
 
         let segment = path
+            .segments
             .iter()
             .scan(0.0f32, |distance, segment| {
                 let result = if *distance < max_step_size.forward {
