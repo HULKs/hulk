@@ -1,22 +1,17 @@
 use color_eyre::Result;
-use filtering::low_pass_filter::LowPassFilter;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
 use coordinate_systems::{Ground, Robot};
 use framework::MainOutput;
-use linear_algebra::{vector, Isometry3, Orientation3, Vector2};
+use linear_algebra::{vector, Isometry3, Orientation3};
 use types::{robot_kinematics::RobotKinematics, sensor_data::SensorData, support_foot::Side};
 
 #[derive(Deserialize, Serialize)]
-pub struct GroundProvider {
-    roll_pitch_filter: LowPassFilter<Vector2<Robot>>,
-}
+pub struct GroundProvider {}
 
 #[context]
-pub struct CreationContext {
-    roll_pitch_smoothing_factor: Parameter<f32, "ground_provider.roll_pitch_smoothing_factor">,
-}
+pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
@@ -33,28 +28,17 @@ pub struct MainOutputs {
 }
 
 impl GroundProvider {
-    pub fn new(context: CreationContext) -> Result<Self> {
-        Ok(Self {
-            roll_pitch_filter: LowPassFilter::with_smoothing_factor(
-                vector![0.0, 0.0],
-                *context.roll_pitch_smoothing_factor,
-            ),
-        })
+    pub fn new(_context: CreationContext) -> Result<Self> {
+        Ok(Self {})
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         struct LeftSoleHorizontal;
         struct RightSoleHorizontal;
 
-        self.roll_pitch_filter
-            .update(context.sensor_data.inertial_measurement_unit.roll_pitch);
-
-        let imu_orientation = Orientation3::from_euler_angles(
-            self.roll_pitch_filter.state().x(),
-            self.roll_pitch_filter.state().y(),
-            0.0,
-        )
-        .mirror();
+        let roll_pitch = context.sensor_data.inertial_measurement_unit.roll_pitch;
+        let imu_orientation =
+            Orientation3::from_euler_angles(roll_pitch.x(), roll_pitch.y(), 0.0).mirror();
 
         let left_sole_horizontal_to_robot = Isometry3::from_parts(
             context
