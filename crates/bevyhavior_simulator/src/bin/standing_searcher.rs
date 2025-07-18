@@ -1,8 +1,10 @@
+use std::time::Duration;
+
 use bevy::prelude::*;
 
-use linear_algebra::{point, vector, Isometry2};
+use linear_algebra::{point, vector};
 use scenario::scenario;
-use spl_network_messages::{GameState, PlayerNumber};
+use spl_network_messages::{GameState, Penalty, PlayerNumber, Team};
 
 use bevyhavior_simulator::{
     ball::BallResource,
@@ -40,21 +42,31 @@ fn update(
     mut ball: ResMut<BallResource>,
     mut exit: EventWriter<AppExit>,
     mut robots: Query<&mut Robot>,
+    mut game_controller_commands: EventWriter<GameControllerCommand>,
 ) {
     if time.ticks() == 4150 {
-        robots
-            .iter_mut()
-            .find(|robot| robot.parameters.player_number == PlayerNumber::Two)
-            .unwrap()
-            .database
-            .main_outputs
-            .ground_to_field = Some(Isometry2::from_parts(vector![-3.0, 3.0], 0.0));
+        game_controller_commands.send(GameControllerCommand::Penalize(
+            PlayerNumber::Two,
+            Penalty::Manual {
+                remaining: Duration::from_secs(1),
+            },
+            Team::Hulks,
+        ));
     }
+
+    if time.ticks() == 4155 {
+        game_controller_commands.send(GameControllerCommand::Unpenalize(
+            PlayerNumber::Two,
+            Team::Hulks,
+        ));
+    }
+
     if time.ticks() == 4200 {
         ball.state = None;
     }
-    if time.ticks() == 4400 {
-        if let MotionCommand::Stand { head: _ } = robots
+
+    if time.ticks() == 4660 {
+        if let MotionCommand::Stand { .. } = robots
             .iter_mut()
             .find(|robot| robot.parameters.player_number == PlayerNumber::Two)
             .unwrap()
@@ -62,17 +74,10 @@ fn update(
             .main_outputs
             .motion_command
         {
-            println!("Standing searcher after penalty");
+            println!("Standing searcher at penalty walk-in");
             exit.send(AppExit::from_code(1));
         }
-        if let MotionCommand::Walk {
-            head: _,
-            path: _,
-            left_arm: _,
-            right_arm: _,
-            orientation_mode: _,
-            speed: _,
-        } = robots
+        if let MotionCommand::Walk { .. } = robots
             .iter_mut()
             .find(|robot| robot.parameters.player_number == PlayerNumber::Three)
             .unwrap()
