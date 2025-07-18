@@ -86,6 +86,7 @@ pub struct MapPanel {
     ball_filter: EnabledLayer<layers::BallFilter, Ground>,
     obstacle_filter: EnabledLayer<layers::ObstacleFilter, Ground>,
     walking: EnabledLayer<layers::Walking, Ground>,
+    localization: EnabledLayer<layers::Localization, Field>,
 }
 
 impl Panel for MapPanel {
@@ -101,7 +102,7 @@ impl Panel for MapPanel {
         let obstacles = EnabledLayer::new(nao.clone(), value, false);
         let path = EnabledLayer::new(nao.clone(), value, false);
         let behavior_simulator = EnabledLayer::new(nao.clone(), value, false);
-        let referee_position = EnabledLayer::new(nao.clone(), value, true);
+        let referee_position = EnabledLayer::new(nao.clone(), value, false);
         let robot_pose = EnabledLayer::new(nao.clone(), value, true);
         let ball_measurement = EnabledLayer::new(nao.clone(), value, false);
         let pose_detection = EnabledLayer::new(nao.clone(), value, false);
@@ -111,6 +112,7 @@ impl Panel for MapPanel {
         let ball_filter = EnabledLayer::new(nao.clone(), value, false);
         let obstacle_filter = EnabledLayer::new(nao.clone(), value, false);
         let walking = EnabledLayer::new(nao.clone(), value, false);
+        let localization = EnabledLayer::new(nao.clone(), value, false);
 
         let field_dimensions = nao.subscribe_value("parameters.field_dimensions");
         let ground_to_field = nao.subscribe_value("Control.main_outputs.ground_to_field");
@@ -148,6 +150,7 @@ impl Panel for MapPanel {
             ball_filter,
             obstacle_filter,
             walking,
+            localization,
         }
     }
 
@@ -175,6 +178,7 @@ impl Panel for MapPanel {
             "ball_filter": self.ball_filter.save(),
             "obstacle_filter": self.obstacle_filter.save(),
             "walking": self.walking.save(),
+            "localization": self.localization.save(),
         })
     }
 }
@@ -202,6 +206,7 @@ impl Widget for &mut MapPanel {
                 self.ball_filter.checkbox(ui);
                 self.obstacle_filter.checkbox(ui);
                 self.walking.checkbox(ui);
+                self.localization.checkbox(ui);
             });
             ComboBox::from_id_salt("plot_type_selector")
                 .selected_text(format!("{:?}", self.current_plot_type))
@@ -294,6 +299,8 @@ impl Widget for &mut MapPanel {
         self.obstacle_filter
             .generic_paint(&painter, ground_to_field, &field_dimensions);
         self.walking
+            .generic_paint(&painter, ground_to_field, &field_dimensions);
+        self.localization
             .generic_paint(&painter, ground_to_field, &field_dimensions);
 
         response
