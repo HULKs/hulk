@@ -1,11 +1,12 @@
 use std::{f32::consts::FRAC_PI_2, hint::black_box, time::Duration};
 
 use criterion::{criterion_group, criterion_main, Criterion};
-use geometry::{arc::Arc, circle::Circle, direction::Direction, line_segment::LineSegment};
+
+use geometry::line_segment::LineSegment;
 use linear_algebra::{point, Orientation2, Point2};
 use step_planning::{
     geometry::{orientation::Orientation, pose::Pose},
-    NUM_VARIABLES,
+    test_path, NUM_VARIABLES,
 };
 use types::{
     motion_command::OrientationMode,
@@ -72,21 +73,7 @@ fn straight_line(c: &mut Criterion) {
 }
 
 fn example_path(c: &mut Criterion) {
-    let path = Path {
-        segments: vec![
-            PathSegment::LineSegment(LineSegment(point![0.0, 0.0], point![3.0, 0.0])),
-            PathSegment::Arc(Arc {
-                circle: Circle {
-                    center: point![3.0, 1.0],
-                    radius: 1.0,
-                },
-                start: Orientation2::new(3.0 * FRAC_PI_2),
-                end: Orientation2::new(0.0),
-                direction: Direction::Counterclockwise,
-            }),
-            PathSegment::LineSegment(LineSegment(point![4.0, 1.0], point![4.0, 4.0])),
-        ],
-    };
+    let path = test_path();
 
     c.bench_function("example path", |b| b.iter(|| plan_steps(black_box(&path))));
 }
