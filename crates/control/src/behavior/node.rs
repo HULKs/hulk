@@ -15,6 +15,7 @@ use types::{
     field_dimensions::{FieldDimensions, GlobalFieldSide, Side},
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState,
+    initial_pose::InitialPose,
     kick_decision::DecisionParameters,
     motion_command::{MotionCommand, WalkSpeed},
     parameters::{
@@ -22,6 +23,7 @@ use types::{
         LostBallParameters,
     },
     path_obstacles::PathObstacle,
+    players::Players,
     primary_state::PrimaryState,
     roles::Role,
     world_state::WorldState,
@@ -69,14 +71,15 @@ pub struct CycleContext {
     use_stand_head_unstiff_calibration:
         Parameter<bool, "calibration_controller.use_stand_head_unstiff_calibration">,
 
-    defend_walk_speed: Parameter<WalkSpeed, "walk_speed.defend">,
     dribble_walk_speed: Parameter<WalkSpeed, "walk_speed.dribble">,
+    initial_poses: Parameter<Players<InitialPose>, "localization.initial_poses">,
     intercept_ball_walk_speed: Parameter<WalkSpeed, "walk_speed.intercept_ball">,
     lost_ball_walk_speed: Parameter<WalkSpeed, "walk_speed.lost_ball">,
     search_walk_speed: Parameter<WalkSpeed, "walk_speed.search">,
     support_walk_speed: Parameter<WalkSpeed, "walk_speed.support">,
     walk_to_kickoff_walk_speed: Parameter<WalkSpeed, "walk_speed.walk_to_kickoff">,
     walk_to_penalty_kick_walk_speed: Parameter<WalkSpeed, "walk_speed.walk_to_penalty_kick">,
+    defend_walk_speed: Parameter<WalkSpeed, "walk_speed.defend">,
 
     path_obstacles_output: AdditionalOutput<Vec<PathObstacle>, "path_obstacles">,
     active_action_output: AdditionalOutput<Action, "active_action">,
@@ -276,9 +279,11 @@ impl Behavior {
                     Action::Unstiff => unstiff::execute(world_state),
                     Action::SitDown => sit_down::execute(world_state),
                     Action::Penalize => penalize::execute(world_state),
-                    Action::Initial => {
-                        initial::execute(world_state, *context.enable_pose_detection)
-                    }
+                    Action::Initial => initial::execute(
+                        world_state,
+                        *context.enable_pose_detection,
+                        context.initial_poses,
+                    ),
                     Action::LookAtReferee => look_at_referee::execute(
                         *context.enable_pose_detection,
                         &walk_and_stand,
