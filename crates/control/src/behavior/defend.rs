@@ -255,7 +255,6 @@ fn defend_pose(
         role_positions.defender_y_offset
     };
     let position_to_defend = point![x_offset, y_offset];
-
     let mode = if greater_than_with_hysteresis(
         *last_defender_mode == DefendMode::Passive,
         ball.ball_in_ground.coords().norm(),
@@ -286,12 +285,26 @@ fn defend_pose(
         role_positions.defender_passive_ring_radius
     };
 
-    let distance_to_target = penalty_kick_defender_radius(
-        distance_to_target,
-        world_state.filtered_game_controller_state.as_ref(),
-        field_dimensions,
-    );
-    let defend_pose = block_on_circle(ball.ball_in_field, position_to_defend, distance_to_target);
+    let position_to_defend_to_ball_max_length =
+        (ball.ball_in_field - position_to_defend).norm() * (2.0 / 3.0);
+    let distance_to_target = distance_to_target.min(position_to_defend_to_ball_max_length);
+
+    let mut defend_pose =
+        block_on_circle(ball.ball_in_field, position_to_defend, distance_to_target);
+
+    if let Some(FilteredGameControllerState {
+        kicking_team: Some(Team::Opponent),
+        sub_state: Some(SubState::PenaltyKick),
+        ..
+    }) = world_state.filtered_game_controller_state
+    {
+        let x_position = x_offset + field_dimensions.penalty_area_length + 0.5;
+        let penalty_kick_position = point![x_position, y_offset];
+        defend_pose = Pose2::new(
+            penalty_kick_position,
+            penalty_kick_position.look_at(&ball.ball_in_field).angle(),
+        )
+    }
 
     Some(ground_to_field.inverse() * defend_pose)
 }
