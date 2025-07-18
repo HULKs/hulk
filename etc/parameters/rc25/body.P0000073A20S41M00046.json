@@ -1,0 +1,7 @@
+{
+  "step_planner": {
+    "max_step_size": {
+      "turn": 0.45
+    }
+  }
+}

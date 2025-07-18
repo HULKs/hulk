@@ -9,7 +9,8 @@
   },
   "step_planner": {
     "max_step_size": {
-      "forward": 0.04
+      "forward": 0.04,
+      "turn": 0.45
     }
   },
   "walking_engine": {
