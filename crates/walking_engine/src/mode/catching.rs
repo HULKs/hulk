@@ -52,10 +52,11 @@ impl Catching {
                 .map(|point| point.xy())
                 .collect()
         };
-        if (support_side == Side::Left
-            && support_outline.iter().all(|point| point.y() < target.y()))
-            || (support_side == Side::Right
-                && support_outline.iter().all(|point| point.y() > target.y()))
+        if target.x().abs() < 0.04
+            && ((support_side == Side::Left
+                && support_outline.iter().all(|point| point.y() < target.y()))
+                || (support_side == Side::Right
+                    && support_outline.iter().all(|point| point.y() > target.y())))
         {
             target.inner.y = -target.y();
         }
