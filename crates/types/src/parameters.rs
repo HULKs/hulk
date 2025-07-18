@@ -38,6 +38,7 @@ pub struct BehaviorParameters {
     pub intercept_ball: InterceptBallParameters,
     pub maximum_lookaround_duration: Duration,
     pub maximum_standup_attempts: u32,
+    pub intermediate_checkpoint_reached_threshold: f32,
 }
 
 #[derive(
@@ -83,6 +84,7 @@ pub struct RolePositionsParameters {
     pub right_midfielder_minimum_x: f32,
     pub striker_supporter_distance_to_ball: f32,
     pub striker_supporter_maximum_x_in_ready_and_when_ball_is_not_free: f32,
+    pub striker_supporter_maximum_x_in_ready_and_when_ball_is_not_free_intermediate_checkpoint: f32,
     pub striker_supporter_minimum_x: f32,
     pub keeper_x_offset: f32,
     pub keeper_passive_distance: f32,

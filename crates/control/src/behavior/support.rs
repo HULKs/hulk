@@ -4,7 +4,7 @@ use coordinate_systems::{Field, Ground};
 use framework::AdditionalOutput;
 use geometry::look_at::LookAt;
 use linear_algebra::{point, Pose2, Rotation2, Vector2};
-use spl_network_messages::SubState;
+use spl_network_messages::{SubState, Team};
 use types::{
     field_dimensions::{FieldDimensions, Side},
     filtered_game_controller_state::FilteredGameControllerState,
@@ -29,6 +29,8 @@ pub fn execute(
     path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
     walk_speed: WalkSpeed,
     distance_to_be_aligned: f32,
+    striker_supporter_maximum_x_path_checkpoint: Option<f32>,
+    intermediate_checkpoint_reached_threshold: f32,
 ) -> Option<MotionCommand> {
     let pose = support_pose(
         world_state,
@@ -37,6 +39,8 @@ pub fn execute(
         distance_to_ball,
         maximum_x_in_ready_and_when_ball_is_not_free,
         minimum_x,
+        striker_supporter_maximum_x_path_checkpoint,
+        intermediate_checkpoint_reached_threshold,
     )?;
     walk_and_stand.execute(
         pose,
@@ -48,13 +52,16 @@ pub fn execute(
     )
 }
 
+#[allow(clippy::too_many_arguments)]
 fn support_pose(
     world_state: &WorldState,
     field_dimensions: &FieldDimensions,
     field_side: Option<Side>,
     distance_to_ball: f32,
-    maximum_x_in_ready_and_when_ball_is_not_free: f32,
+    mut maximum_x_in_ready_and_when_ball_is_not_free: f32,
     minimum_x: f32,
+    striker_supporter_maximum_x_path_checkpoint: Option<f32>,
+    intermediate_checkpoint_reached_threshold: f32,
 ) -> Option<Pose2<Ground>> {
     let ground_to_field = world_state.robot.ground_to_field?;
     let ball = world_state
@@ -91,6 +98,32 @@ fn support_pose(
         .filtered_game_controller_state
         .as_ref()
         .map(|filtered_game_controller_state| filtered_game_controller_state.sub_state);
+
+    if let Some(striker_supporter_maximum_x_intermediate_path_checkpoint) =
+        striker_supporter_maximum_x_path_checkpoint
+    {
+        let is_opponent_kick_off_after_standby = if let Some(filtered_game_controller_state) =
+            &world_state.filtered_game_controller_state
+        {
+            filtered_game_controller_state.kicking_team == Some(Team::Opponent)
+                && filtered_game_controller_state.previous_own_game_state
+                    == Some(FilteredGameState::Standby)
+        } else {
+            false
+        };
+
+        if is_opponent_kick_off_after_standby {
+            let robot_position = ground_to_field.as_pose().position();
+
+            if robot_position.y().abs()
+                > supporting_position.y().abs() + intermediate_checkpoint_reached_threshold
+            {
+                maximum_x_in_ready_and_when_ball_is_not_free =
+                    striker_supporter_maximum_x_intermediate_path_checkpoint
+            }
+        }
+    };
+
     let mut clamped_x = match (filtered_game_state, sub_state) {
         (Some(FilteredGameState::Ready), Some(Some(SubState::PenaltyKick))) => {
             supporting_position.x().max(field_dimensions.length / 4.0)

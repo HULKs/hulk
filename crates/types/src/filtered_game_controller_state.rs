@@ -12,6 +12,7 @@ use crate::{
 pub struct FilteredGameControllerState {
     pub game_state: FilteredGameState,
     pub opponent_game_state: FilteredGameState,
+    pub previous_own_game_state: Option<FilteredGameState>,
     pub remaining_time_in_half: Duration,
     pub game_phase: GamePhase,
     pub kicking_team: Option<Team>,
@@ -29,6 +30,7 @@ impl Default for FilteredGameControllerState {
         Self {
             game_state: Default::default(),
             opponent_game_state: Default::default(),
+            previous_own_game_state: None,
             remaining_time_in_half: Duration::ZERO,
             game_phase: Default::default(),
             kicking_team: Default::default(),
