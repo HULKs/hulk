@@ -23,7 +23,7 @@ const PENALTY_DURATION_IN_TICKS: u32 = 83 * 45;
 
 /// Is used to generate the test functions for cargo test
 #[scenario]
-fn visual_referee_free_kick_behavior(app: &mut App) {
+fn kicking_team_filtering(app: &mut App) {
     app.add_systems(Startup, startup);
     app.add_systems(Update, update);
 }

@@ -7,14 +7,15 @@ use color_eyre::{
 };
 use coordinate_systems::Pixel;
 use eframe::egui::{
-    popup_below_widget, vec2, Align2, Button, Color32, Key, PopupCloseBehavior, Rect, Response,
-    Sense, Shape, SizeHint, Stroke, TextureOptions, Ui, UiBuilder, Widget,
+    popup_below_widget, vec2, Align2, Button, Color32, ColorImage, Key, PopupCloseBehavior, Rect,
+    Response, Sense, Shape, Stroke, TextureHandle, TextureOptions, Ui, UiBuilder, Widget,
 };
 use geometry::{line_segment::LineSegment, rectangle::Rectangle};
+use image::RgbImage;
 use linear_algebra::{distance, point, vector, Point2};
 use projection::camera_matrix::CameraMatrix;
 use serde_json::Value;
-use types::{camera_position::CameraPosition, jpeg::JpegImage};
+use types::{camera_position::CameraPosition, ycbcr422_image::YCbCr422Image};
 
 use crate::{
     nao::Nao,
@@ -51,8 +52,9 @@ pub struct SemiAutomaticCameraCalibrationPanel {
     nao: Arc<Nao>,
     top_camera: BufferHandle<CameraMatrix>,
     bottom_camera: BufferHandle<CameraMatrix>,
+    image_handle: Option<TextureHandle>,
 
-    image_buffer: BufferHandle<JpegImage>,
+    image_buffer: BufferHandle<YCbCr422Image>,
     zoom_and_pan: ZoomAndPanTransform,
     cycler: VisionCycler,
 
@@ -80,7 +82,7 @@ impl Panel for SemiAutomaticCameraCalibrationPanel {
         let cycler_path = cycler.as_path();
 
         let image_buffer = {
-            let path = format!("{cycler_path}.main_outputs.image.jpeg");
+            let path = format!("{cycler_path}.main_outputs.image");
             nao.subscribe_value(path)
         };
 
@@ -89,6 +91,7 @@ impl Panel for SemiAutomaticCameraCalibrationPanel {
             top_camera,
             bottom_camera,
             image_buffer,
+            image_handle: None,
             zoom_and_pan: ZoomAndPanTransform::default(),
             cycler,
             user_state: UserState::Idle,
@@ -174,37 +177,41 @@ impl SemiAutomaticCameraCalibrationPanel {
         let cycler_path = self.cycler.as_path();
         self.image_buffer = self
             .nao
-            .subscribe_value(format!("{cycler_path}.main_outputs.image.jpeg"));
+            .subscribe_value(format!("{cycler_path}.main_outputs.image"));
     }
 
-    fn show_image(&self, painter: &TwixPainter<Pixel>) -> Result<()> {
+    fn show_image(&mut self, painter: &TwixPainter<Pixel>) -> Result<()> {
         let context = painter.context();
 
-        let image_identifier = format!("bytes://image-{:?}", self.cycler);
-        let image = {
-            let jpeg = self
+        if self.image_buffer.has_changed() {
+            self.image_buffer.mark_as_seen();
+
+            let ycbcr = self
                 .image_buffer
                 .get_last_value()?
                 .ok_or_else(|| eyre!("no image available"))?;
-            context.forget_image(&image_identifier);
-            context.include_bytes(image_identifier.clone(), jpeg.data);
-            context
-                .try_load_texture(
-                    &image_identifier,
-                    TextureOptions::NEAREST,
-                    SizeHint::Size(640, 480),
-                )?
-                .texture_id()
-                .unwrap()
-        };
+            let image = ColorImage::from_rgb(
+                [ycbcr.width() as usize, ycbcr.height() as usize],
+                RgbImage::from(ycbcr).as_raw(),
+            );
 
-        painter.image(
-            image,
-            Rectangle {
-                min: point!(0.0, 0.0),
-                max: point!(640.0, 480.0),
-            },
-        );
+            let image_identifier = format!("bytes://image-{:?}", self.cycler);
+            let texture_handle =
+                context.load_texture(&image_identifier, image, TextureOptions::NEAREST);
+            self.image_handle = Some(texture_handle);
+        }
+
+        let viewport = Rectangle {
+            min: point![0.0, 0.0],
+            max: point![640.0, 480.0],
+        };
+        match &self.image_handle {
+            Some(image_handle) => painter.image(image_handle.id(), viewport),
+            None => {
+                painter.rect_filled(viewport.min, viewport.max, Color32::TRANSPARENT);
+            }
+        }
+
         Ok(())
     }
 

@@ -9,17 +9,18 @@ use serde::{Deserialize, Serialize};
 use context_attribute::context;
 use coordinate_systems::Field;
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
-use linear_algebra::Vector2;
+use linear_algebra::{Point2, Vector2};
 use spl_network_messages::{GamePhase, HulkMessage, SubState};
 use types::{
     ball_position::BallPosition, cycle_time::CycleTime,
-    filtered_game_controller_state::FilteredGameControllerState, messages::IncomingMessage,
-    players::Players,
+    filtered_game_controller_state::FilteredGameControllerState,
+    filtered_game_state::FilteredGameState, messages::IncomingMessage, players::Players,
 };
 
 #[derive(Deserialize, Serialize)]
 pub struct TeamBallReceiver {
     received_balls: Players<Option<BallPosition<Field>>>,
+    rule_team_ball: Option<BallPosition<Field>>,
 }
 
 #[context]
@@ -46,6 +47,7 @@ impl TeamBallReceiver {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             received_balls: Players::default(),
+            rule_team_ball: None,
         })
     }
 
@@ -55,8 +57,8 @@ impl TeamBallReceiver {
             self.process_message(time, message);
         }
 
-        // Ignore everything during penalty_*
         if let Some(game_controller_state) = context.filtered_game_controller_state {
+            // Ignore everything during penalty_*
             let in_penalty_shootout = matches!(
                 game_controller_state.game_phase,
                 GamePhase::PenaltyShootout { .. }
@@ -67,6 +69,15 @@ impl TeamBallReceiver {
                 return Ok(MainOutputs {
                     team_ball: None.into(),
                 });
+            }
+
+            // Prevent non-strikers from claiming striker at kickoff
+            if game_controller_state.game_state == FilteredGameState::Set {
+                self.rule_team_ball = Some(BallPosition {
+                    position: Point2::origin(),
+                    velocity: Vector2::zeros(),
+                    last_seen: context.cycle_time.start_time,
+                })
             }
         }
 
@@ -115,6 +126,7 @@ impl TeamBallReceiver {
         self.received_balls
             .iter()
             .filter_map(|(_player_number, ball)| *ball)
+            .chain(self.rule_team_ball)
             .max_by_key(|ball| ball.last_seen)
             .filter(|ball| {
                 now.duration_since(ball.last_seen)

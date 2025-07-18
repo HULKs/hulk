@@ -562,7 +562,7 @@ fn update_role_state_machine(
     claim_striker_from_team_ball: bool,
     optional_roles: &[Role],
 ) -> Role {
-    let striker_trusts_team_ball = |team_ball: BallPosition<Field>| {
+    let is_team_ball_trusted = |team_ball: BallPosition<Field>| {
         claim_striker_from_team_ball
             && cycle_start_time
                 .duration_since(team_ball.last_seen)
@@ -573,7 +573,7 @@ fn update_role_state_machine(
     match (current_role, detected_own_ball, event) {
         // Striker lost Ball
         (Role::Striker, false, Event::None | Event::Loser) => match team_ball {
-            Some(team_ball) if striker_trusts_team_ball(team_ball) => Role::Striker,
+            Some(team_ball) if is_team_ball_trusted(team_ball) => Role::Striker,
             _ => match player_number{
                 PlayerNumber::One => Role::Keeper,
                 _ => Role::Loser,
@@ -667,7 +667,7 @@ fn role_for_penalty_shootout(
 fn role_for_penalty_kick(
     filtered_game_controller_state: Option<&FilteredGameControllerState>,
     current_role: Role,
-    persistent: BTreeMap<std::time::SystemTime, Vec<std::option::Option<&IncomingMessage>>>,
+    persistent: BTreeMap<SystemTime, Vec<Option<&IncomingMessage>>>,
 ) -> Option<Role> {
     let messages: Vec<_> = persistent
         .values()

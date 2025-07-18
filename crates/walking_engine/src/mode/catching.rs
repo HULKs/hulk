@@ -289,11 +289,12 @@ pub fn should_catch(context: &Context, end_feet: Feet, support_side: Side) -> bo
     } else {
         catching_steps.target_x_scale_forward
     };
+    let target_scaling = vector![target_scaling_x, catching_steps.target_y_scale];
 
     let target = (robot_to_walk * ground_to_robot * zmp.extend(0.0))
         .xy()
         .coords()
-        .component_mul(&vector![target_scaling_x, 1.0])
+        .component_mul(&target_scaling)
         .as_point();
 
     is_outside_support_polygon(end_feet, support_side, target, current_feet)
