@@ -1,7 +1,4 @@
-use std::{
-    array,
-    time::{Duration, SystemTime},
-};
+use std::array;
 
 use color_eyre::Result;
 use itertools::Itertools;
@@ -69,7 +66,6 @@ pub struct CycleContext {
         AdditionalOutput<SVector<f32, { step_planning::NUM_VARIABLES }>, "step_plan_gradient">,
     step_plan_cost: AdditionalOutput<f32, "step_plan_cost">,
     current_support_side: AdditionalOutput<Option<Side>, "current_support_side">,
-    step_planning_duration: AdditionalOutput<Duration, "step_planning_duration">,
 }
 
 #[context]
@@ -113,8 +109,6 @@ impl StepPlanner {
                 .into(),
             });
         };
-
-        let earlier = SystemTime::now();
 
         let highest_temperature = context
             .sensor_data
@@ -169,12 +163,6 @@ impl StepPlanner {
                 StepPlannerMode::Greedy => greedy_step,
             }
         };
-
-        let elapsed = SystemTime::now().duration_since(earlier).unwrap();
-
-        context
-            .step_planning_duration
-            .fill_if_subscribed(|| elapsed);
 
         let next_support_side = context
             .walking_engine_mode
