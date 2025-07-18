@@ -154,4 +154,5 @@ pub struct SwingingArmsParameters {
 pub struct DynamicInterpolationSpeedParameters {
     pub active_range: Range<f32>,
     pub max_reduction: f32,
+    pub slip_reduction: f32,
 }

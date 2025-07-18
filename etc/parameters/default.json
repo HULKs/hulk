@@ -396,7 +396,8 @@
     },
     "dynamic_interpolation_speed": {
       "active_range": [-0.1445, -0.0573],
-      "max_reduction": 0.7
+      "max_reduction": 0.7,
+      "slip_reduction": 0.5
     },
     "foot_leveling": {
       "leaning_backwards_factor": 0.5,
