@@ -398,8 +398,8 @@
       "max_reduction": 0.7
     },
     "foot_leveling": {
-      "leaning_backwards_factor": 1.0,
-      "leaning_forward_factor": 1.0,
+      "leaning_backwards_factor": 0.5,
+      "leaning_forward_factor": 0.75,
       "max_level_delta": 0.025,
       "max_pitch": 0.12217,
       "max_roll": 0.08727,
