@@ -74,11 +74,14 @@ impl StepState {
             .tick(context, self.normalized_time_since_start());
 
         let small_weight_on_sensors = match self.plan.support_side {
-            Side::Left => context.force_sensitive_resistors.left.sum() > 0.2,
-            Side::Right => context.force_sensitive_resistors.right.sum() > 0.2,
+            Side::Left => context.force_sensitive_resistors.right.sum() > 0.2,
+            Side::Right => context.force_sensitive_resistors.left.sum() > 0.2,
         };
 
-        let xy_slip_stop = if small_weight_on_sensors && !self.is_support_switched(context) {
+        let xy_slip_stop = if small_weight_on_sensors
+            && !self.is_support_switched(context)
+            && self.normalized_xy_time_since_start() > 0.3
+        {
             1.0 - parameters.slip_reduction
         } else {
             1.0
@@ -207,7 +210,6 @@ impl StepState {
 
     fn support_sole_position(&self, parameters: &Parameters) -> Point3<Walk> {
         let normalized_xy_time = self.normalized_xy_time_since_start();
-
 
         let start_offsets = self.plan.start_feet.support_sole.position().xy();
         let end_offsets = self.plan.end_feet.support_sole.position().xy();
