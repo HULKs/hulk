@@ -4,7 +4,6 @@ use nalgebra::RealField;
 use num_dual::DualNum;
 
 use ::geometry::{arc::Arc, circle::Circle, direction::Direction, line_segment::LineSegment};
-use coordinate_systems::Ground;
 use linear_algebra::{point, Orientation2};
 use types::{
     motion_command::OrientationMode,
@@ -37,10 +36,18 @@ pub const VARIABLES_PER_STEP: usize = 3;
 pub const NUM_STEPS: usize = 5;
 pub const NUM_VARIABLES: usize = NUM_STEPS * VARIABLES_PER_STEP;
 
+#[derive(Clone, Copy, Debug, PartialEq)]
+pub enum TargetOrientationPathSide {
+    Left,
+    Right,
+    RoughlyAhead,
+}
+
 #[derive(Clone, Debug)]
 pub struct StepPlanning<'a> {
     pub path: &'a Path,
-    pub target_orientation: Orientation2<Ground>,
+    pub target_orientation: Orientation<f32>,
+    pub target_orientation_path_side: TargetOrientationPathSide,
     pub distance_to_be_aligned: f32,
     pub initial_pose: Pose<f32>,
     pub initial_support_foot: Side,
@@ -142,12 +149,16 @@ impl StepPlanning<'_> {
         WalkOrientationField {
             orientation_mode: self.orientation_mode,
             path_alignment_tolerance: self.parameters.path_alignment_tolerance,
+            target_orientation_side_alignment_tolerance: self
+                .parameters
+                .target_orientation_side_alignment_tolerance,
+            target_orientation_path_side: self.target_orientation_path_side,
         }
     }
 
     fn target_orientation(&self) -> TargetOrientationField {
         TargetOrientationField {
-            target_orientation: Orientation(self.target_orientation.angle()),
+            target_orientation: self.target_orientation,
         }
     }
 }

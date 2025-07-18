@@ -15,7 +15,7 @@ impl<T> Angle<T> {
 
 impl<T: Euclid + RealField> PartialEq for Angle<T> {
     fn eq(&self, other: &Self) -> bool {
-        self.absolute_difference(other.clone()).0 == T::zero()
+        self.absolute_difference(other.clone()) == T::zero()
     }
 }
 
@@ -28,7 +28,6 @@ impl<T: Euclid + RealField + Clone> AbsDiffEq for Angle<T> {
 
     fn abs_diff_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool {
         self.absolute_difference(other.clone())
-            .0
             .abs_diff_eq(&T::zero(), epsilon)
     }
 }
@@ -38,10 +37,10 @@ impl<T: RealField + Euclid> Angle<T> {
         Self(self.0.rem_euclid(&T::two_pi()))
     }
 
-    pub fn absolute_difference(&self, to: Self) -> Self {
-        let counterclockwise_difference = (to - self.clone()).normalized();
-        if counterclockwise_difference.0 > T::pi() {
-            Self::two_pi() - counterclockwise_difference
+    pub fn absolute_difference(&self, to: Self) -> T {
+        let counterclockwise_difference = (to - self.clone()).normalized().0;
+        if counterclockwise_difference > T::pi() {
+            T::two_pi() - counterclockwise_difference
         } else {
             counterclockwise_difference
         }

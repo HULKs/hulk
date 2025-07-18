@@ -1,29 +1,55 @@
+use std::f32::consts::FRAC_PI_2;
+
 use coordinate_systems::Ground;
 use linear_algebra::Vector2;
 use types::motion_command::OrientationMode;
 
 use crate::{
     geometry::{
+        angle::Angle,
         orientation::Orientation,
         pose::{Pose, PoseGradient},
     },
     utils::{angle_penalty_with_tolerance, angle_penalty_with_tolerance_derivative},
+    TargetOrientationPathSide,
 };
 
 pub struct WalkOrientationField {
     pub orientation_mode: OrientationMode,
     pub path_alignment_tolerance: f32,
+    pub target_orientation_side_alignment_tolerance: f32,
+    pub target_orientation_path_side: TargetOrientationPathSide,
 }
 
 impl WalkOrientationField {
     pub fn cost(&self, pose: Pose<f32>, forward: Vector2<Ground>) -> f32 {
         match self.orientation_mode {
             OrientationMode::Unspecified => 0.0,
-            OrientationMode::AlignWithPath => angle_penalty_with_tolerance(
-                pose.orientation,
-                Orientation::from_direction(forward),
-                self.path_alignment_tolerance,
-            ),
+            OrientationMode::AlignWithPath => {
+                let forward = Orientation::from_direction(forward);
+
+                let path_alignment_cost = angle_penalty_with_tolerance(
+                    pose.orientation,
+                    forward,
+                    self.path_alignment_tolerance,
+                );
+
+                let target_orientation_side_cost = match self.target_orientation_path_side {
+                    TargetOrientationPathSide::Left => angle_penalty_with_tolerance(
+                        pose.orientation,
+                        forward + Angle(FRAC_PI_2),
+                        self.target_orientation_side_alignment_tolerance,
+                    ),
+                    TargetOrientationPathSide::Right => angle_penalty_with_tolerance(
+                        pose.orientation,
+                        forward - Angle(FRAC_PI_2),
+                        self.target_orientation_side_alignment_tolerance,
+                    ),
+                    TargetOrientationPathSide::RoughlyAhead => 0.0,
+                };
+
+                path_alignment_cost + target_orientation_side_cost
+            }
             OrientationMode::LookTowards {
                 direction,
                 tolerance,
@@ -51,14 +77,34 @@ impl WalkOrientationField {
     pub fn grad(&self, pose: Pose<f32>, forward: Vector2<Ground>) -> PoseGradient<f32> {
         match self.orientation_mode {
             OrientationMode::Unspecified => PoseGradient::zeros(),
-            OrientationMode::AlignWithPath => PoseGradient {
-                orientation: angle_penalty_with_tolerance_derivative(
+            OrientationMode::AlignWithPath => {
+                let forward = Orientation::from_direction(forward);
+
+                let path_alignment_grad = angle_penalty_with_tolerance_derivative(
                     pose.orientation,
-                    Orientation::from_direction(forward),
+                    forward,
                     self.path_alignment_tolerance,
-                ),
-                ..PoseGradient::zeros()
-            },
+                );
+
+                let target_orientation_side_grad = match self.target_orientation_path_side {
+                    TargetOrientationPathSide::Left => angle_penalty_with_tolerance_derivative(
+                        pose.orientation,
+                        forward + Angle(FRAC_PI_2),
+                        self.target_orientation_side_alignment_tolerance,
+                    ),
+                    TargetOrientationPathSide::Right => angle_penalty_with_tolerance_derivative(
+                        pose.orientation,
+                        forward - Angle(FRAC_PI_2),
+                        self.target_orientation_side_alignment_tolerance,
+                    ),
+                    TargetOrientationPathSide::RoughlyAhead => 0.0,
+                };
+
+                PoseGradient {
+                    orientation: path_alignment_grad + target_orientation_side_grad,
+                    ..PoseGradient::zeros()
+                }
+            }
             OrientationMode::LookTowards {
                 direction,
                 tolerance,
@@ -92,7 +138,7 @@ impl WalkOrientationField {
 
 #[cfg(test)]
 mod tests {
-    use std::f32::consts::TAU;
+    use std::f32::consts::{FRAC_PI_2, TAU};
 
     use coordinate_systems::Ground;
     use geometry::look_at::LookAt;
@@ -103,6 +149,7 @@ mod tests {
     use crate::{
         geometry::{orientation::Orientation, pose::Pose},
         test_utils::{is_roughly_opposite, proptest_config},
+        TargetOrientationPathSide,
     };
 
     use super::WalkOrientationField;
@@ -127,7 +174,10 @@ mod tests {
                 direction: Orientation2::new(target_orientation),
                 tolerance: 0.0,
             },
+            // The fields below are unused, since the orientation mode is fixed to `LookTowards`.
             path_alignment_tolerance: 1.0,
+            target_orientation_side_alignment_tolerance: 0.0,
+            target_orientation_path_side: TargetOrientationPathSide::RoughlyAhead,
         };
 
         let position = point![x, y];
@@ -168,7 +218,10 @@ mod tests {
                 target: point![target_x, target_y],
                 tolerance: 0.0,
             },
+            // The fields below are unused, since the orientation mode is fixed to `LookTowards`.
             path_alignment_tolerance: 1.0,
+            target_orientation_side_alignment_tolerance: 0.0,
+            target_orientation_path_side: TargetOrientationPathSide::RoughlyAhead,
         };
 
         let position = point![x, y];
@@ -203,6 +256,7 @@ mod tests {
         #[test]
         fn verify_gradient_align_with_path(x in -5.0f32..5.0, y in -5.0f32..5.0, orientation in 0.0..TAU, path_angle in 0.0..TAU) {
             prop_assume!(!is_roughly_opposite(orientation, path_angle));
+            prop_assume!(!is_roughly_opposite(orientation, path_angle + FRAC_PI_2));
             verify_gradient_align_with_path_impl(x, y, orientation, path_angle)
         }
     );
@@ -211,6 +265,8 @@ mod tests {
         let cost_field = WalkOrientationField {
             orientation_mode: OrientationMode::AlignWithPath,
             path_alignment_tolerance: 1.0,
+            target_orientation_side_alignment_tolerance: 1.5,
+            target_orientation_path_side: TargetOrientationPathSide::Left,
         };
 
         let position = point![x, y];

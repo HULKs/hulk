@@ -342,6 +342,8 @@
       },
       "path_alignment_tolerance": 0.5,
       "path_progress_smoothness": 0.05,
+      "target_orientation_ahead_tolerance": 0.5,
+      "target_orientation_side_alignment_tolerance": 1.4,
       "alignment_ramp_steepness": 50,
       "warm_start": true
     }
