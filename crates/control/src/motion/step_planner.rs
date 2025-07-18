@@ -153,7 +153,7 @@ impl StepPlanner {
                 .fill_if_subscribed(|| step_plan_greedy);
 
             match context.mode {
-                StepPlannerMode::Mpc => self.plan_step(
+                StepPlannerMode::Mpc => self.plan_step_with_mpc(
                     path,
                     &mut context,
                     *orientation_mode,
@@ -183,7 +183,7 @@ impl StepPlanner {
         })
     }
 
-    fn plan_step(
+    fn plan_step_with_mpc(
         &mut self,
         path: &Path,
         context: &mut CycleContext,
