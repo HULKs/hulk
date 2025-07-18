@@ -1,0 +1,34 @@
+opponent = "WisTex"
+phase = "golden-goal"
+location = "rc25"
+wifi = "SPL_E"
+base = "hulk/main"
+branches = [
+    # "schmidma/back-to-the-roots",
+    "vivi-enne/defender_no_criss_cross",
+    "paudar/defender-searcher-delay",
+    "franziska-sophie/outdoor-field-color",
+    "ThagonDuarte/2025-07-18-calibrations-wistex",
+    "schmidma/centered-walking",
+]
+assignments = [
+    #
+    "33:1",
+    "21:2",
+    "38:3",
+    "32:4",
+    "36:5",
+]
+substitutions = [
+    # "37:",
+    # "41:",
+]
+with_communication = false
+
+[recording_intervals]
+Control = 1
+VisionTop = 30
+VisionBottom = 30
+SplNetwork = 1
+# ObjectDetectionTop = 30
+# Audio = 1
