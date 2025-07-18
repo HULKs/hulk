@@ -131,6 +131,7 @@ pub struct CatchingStepsParameters {
     pub target_y_scale: f32,
     pub max_target_distance: nalgebra::Vector2<f32>,
     pub over_estimation_factor: Vector2<Walk>,
+    pub balance_region_x: f32,
 }
 
 #[derive(
