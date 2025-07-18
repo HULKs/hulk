@@ -15,9 +15,7 @@
   },
   "walking_engine": {
     "base": {
-      "foot_lift_apex_increase": {
-        "forward": 0.003
-      }
+      "torso_tilt_base": 0.005
     }
   }
 }
