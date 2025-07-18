@@ -93,7 +93,7 @@ impl TimeToReachKickPosition {
             *context.stand_up_sitting_estimated_remaining_duration,
             RemainingStandUpDuration::Running(_)
         ) {
-            Duration::from_secs_f32(3.0)
+            context.configuration.time_to_reach_delay_when_fallen
         } else {
             Duration::ZERO
         };

@@ -1295,6 +1295,10 @@
       "nanos": 0,
       "secs": 6
     },
+    "time_to_reach_delay_when_fallen": {
+      "nanos": 0,
+      "secs": 3
+    },
     "maximum_standup_attempts": 3
   },
   "game_controller_filter": {
