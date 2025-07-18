@@ -1,4 +1,10 @@
 {
+  "sensor_data_receiver": {
+    "calibration_steady_threshold": 0.02,
+    "gravity_calibration_smoothing_factor": 0.1,
+    "roll_pitch_calibration_smoothing_factor": 0.1,
+    "number_of_calibration_cycles": 15
+  },
   "ground_provider": {
     "roll_pitch_smoothing_factor": 0.25
   },
