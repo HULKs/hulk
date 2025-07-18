@@ -107,6 +107,14 @@ impl<T: Add<Output = T>> Add<Angle<T>> for Orientation<T> {
     }
 }
 
+impl<T: Sub<Output = T>> Sub<Angle<T>> for Orientation<T> {
+    type Output = Self;
+
+    fn sub(self, rhs: Angle<T>) -> Self::Output {
+        Self(self.0 - rhs.0)
+    }
+}
+
 impl<T: Sub<Output = T>> Sub for Orientation<T> {
     type Output = Angle<T>;
 

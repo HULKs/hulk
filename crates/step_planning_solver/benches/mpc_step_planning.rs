@@ -28,6 +28,8 @@ fn plan_steps(path: &Path) {
             },
             path_alignment_tolerance: FRAC_PI_2,
             path_progress_smoothness: 0.05,
+            target_orientation_ahead_tolerance: 0.5,
+            target_orientation_side_alignment_tolerance: 1.4,
             alignment_ramp_steepness: 50.0,
             warm_start: true,
         };
