@@ -1,12 +1,12 @@
 use bevy::ecs::system::{Query, ResMut};
 use types::{motion_command::MotionCommand, planned_path::PathSegment, roles::Role};
 
-use crate::{game_controller::GameController, robot::Robot, soft_error::SoftErrorSender};
+use crate::{game_controller::GameController, robot::Robot};
 
 pub fn check_robots_dont_walk_into_rule_obstacles(
     robots: Query<&Robot>,
     game_controller: ResMut<GameController>,
-    mut soft_error: SoftErrorSender,
+    // mut soft_error: SoftErrorSender,
 ) {
     for robot in robots.iter() {
         let rule_obstacles = &robot.database.main_outputs.rule_obstacles;
@@ -27,10 +27,12 @@ pub fn check_robots_dont_walk_into_rule_obstacles(
 
         for obstacle in rule_obstacles {
             if obstacle.contains(destination_in_field) {
-                soft_error.send(format!(
+                // Error disabled until bug is fixed: https://github.com/HULKs/hulk/issues/1951
+                // soft_error.send(message);
+                println!(
                     "Robot {} ran into rule obstacle",
                     robot.parameters.player_number
-                ));
+                );
             }
         }
     }
