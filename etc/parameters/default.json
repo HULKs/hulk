@@ -366,7 +366,7 @@
       "walk_height": 0.23
     },
     "catching_steps": {
-      "enabled": true,
+      "enabled": false,
       "target_x_scale_backward": 0.7,
       "target_x_scale_forward": 0.6,
       "target_y_scale": 0.6,
