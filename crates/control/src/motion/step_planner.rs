@@ -27,7 +27,7 @@ use types::{
     support_foot::Side,
     walk_volume_extents::WalkVolumeExtents,
 };
-use walking_engine::{anatomic_constraints::AnatomicConstraints, mode::Mode};
+use walking_engine::mode::Mode;
 
 #[derive(Deserialize, Serialize)]
 pub struct StepPlanner {
@@ -353,8 +353,8 @@ fn step_plan_greedy(
                     },
                 };
 
-                let step = clamp_step_size(step, *support_side, walk_volume_extents)
-                    .clamp_to_anatomic_constraints(*support_side, 0.1, 4.0);
+                let step = clamp_step_size(step, *support_side, walk_volume_extents);
+                let step = clamp_inside_movement(step, *support_side);
 
                 let step_translation =
                     Isometry2::<Ground, Ground>::from_parts(vector![step.forward, step.left], 0.0);
@@ -371,6 +371,15 @@ fn step_plan_greedy(
         .unwrap();
 
     Ok(steps)
+}
+
+fn clamp_inside_movement(mut step: Step, support_side: Side) -> Step {
+    match support_side {
+        Side::Left => step.left = step.left.min(0.0),
+        Side::Right => step.left = step.left.max(0.0),
+    }
+
+    step
 }
 
 fn upcoming_support_pose_in_ground(context: &CycleContext) -> Pose<f32> {

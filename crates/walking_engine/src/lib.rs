@@ -13,7 +13,7 @@ use types::{
     walk_volume_extents::WalkVolumeExtents,
 };
 
-pub mod anatomic_constraints;
+mod anatomic_constraints;
 mod arm;
 mod compensate_stiffness_loss;
 pub mod feet;
