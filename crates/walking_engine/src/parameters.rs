@@ -128,6 +128,7 @@ pub struct CatchingStepsParameters {
     pub enabled: bool,
     pub target_x_scale_backward: f32,
     pub target_x_scale_forward: f32,
+    pub target_y_scale: f32,
     pub max_target_distance: nalgebra::Vector2<f32>,
     pub over_estimation_factor: Vector2<Walk>,
 }

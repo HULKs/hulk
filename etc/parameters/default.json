@@ -5,9 +5,6 @@
     "roll_pitch_calibration_smoothing_factor": 0.1,
     "number_of_calibration_cycles": 15
   },
-  "ground_provider": {
-    "roll_pitch_smoothing_factor": 0.25
-  },
   "pose_detection": {
     "enable": true,
     "maximum_intersection_over_union": 0.45,
@@ -89,7 +86,7 @@
     "vision_top": {
       "camera_pitch": -1.2,
       "focal_lengths": [0.96666, 1.28574],
-      "cc_optical_center": [0.5, 0.5] 
+      "cc_optical_center": [0.5, 0.5]
     },
     "vision_bottom": {
       "camera_pitch": -39.7,
@@ -355,7 +352,7 @@
       "step_duration": { "nanos": 235000000, "secs": 0 },
       "step_duration_increase": {
         "forward": 0.005,
-        "left": 0.004,
+        "left": 0.01,
         "turn": 0.02
       },
       "step_midpoint": 0.5,
@@ -370,13 +367,14 @@
     },
     "catching_steps": {
       "enabled": true,
-      "target_x_scale_backward": 1.1,
-      "target_x_scale_forward": 1.0,
+      "target_x_scale_backward": 0.7,
+      "target_x_scale_forward": 0.6,
+      "target_y_scale": 0.6,
       "max_target_distance": [0.1, 0.15],
       "over_estimation_factor": [0.4, 1.0]
     },
     "gyro_balancing": {
-      "noise_scale": [0.5, 0.5],
+      "noise_scale": [0.6, 0.6],
       "balance_factors": {
         "hip_yaw_pitch": 0.0,
         "hip_roll": 0.0,
@@ -428,7 +426,7 @@
     "sole_pressure_threshold": 1.0,
     "step_midpoint": {
       "forward": 0.45,
-      "left": 0.75,
+      "left": 0.8,
       "turn": 0.5
     },
     "stiffnesses": {
