@@ -23,7 +23,7 @@ impl Layer<Ground> for Obstacles {
     }
 
     fn paint(
-        &self,
+        &mut self,
         painter: &TwixPainter<Ground>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {

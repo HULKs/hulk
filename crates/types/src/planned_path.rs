@@ -14,8 +14,17 @@ pub enum PathSegment {
     Arc(Arc<Ground>),
 }
 
-pub fn direct_path(start: Point2<Ground>, destination: Point2<Ground>) -> Vec<PathSegment> {
-    vec![PathSegment::LineSegment(LineSegment(start, destination))]
+#[derive(
+    Clone, Debug, Serialize, Deserialize, PartialEq, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct Path {
+    pub segments: Vec<PathSegment>,
+}
+
+pub fn direct_path(start: Point2<Ground>, destination: Point2<Ground>) -> Path {
+    Path {
+        segments: vec![PathSegment::LineSegment(LineSegment(start, destination))],
+    }
 }
 
 impl AbsDiffEq for PathSegment {

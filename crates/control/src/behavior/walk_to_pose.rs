@@ -1,5 +1,3 @@
-use std::f32::consts::PI;
-
 use coordinate_systems::{Field, Ground};
 use filtering::hysteresis::less_than_with_relative_hysteresis;
 use framework::AdditionalOutput;
@@ -10,7 +8,7 @@ use types::{
     obstacles::Obstacle,
     parameters::{PathPlanningParameters, WalkAndStandParameters},
     path_obstacles::PathObstacle,
-    planned_path::{direct_path, PathSegment},
+    planned_path::{direct_path, Path},
     rule_obstacles::RuleObstacle,
     support_foot::Side,
     world_state::WorldState,
@@ -49,7 +47,7 @@ impl<'cycle> WalkPathPlanner<'cycle> {
         obstacles: &[Obstacle],
         rule_obstacles: &[RuleObstacle],
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
-    ) -> Vec<PathSegment> {
+    ) -> Path {
         let mut planner = PathPlanner::default();
         planner.with_last_motion(
             self.last_motion_command,
@@ -102,7 +100,9 @@ impl<'cycle> WalkPathPlanner<'cycle> {
         &self,
         head: HeadMotion,
         orientation_mode: OrientationMode,
-        path: Vec<PathSegment>,
+        target_orientation: Orientation2<Ground>,
+        distance_to_be_aligned: f32,
+        path: Path,
         speed: WalkSpeed,
     ) -> MotionCommand {
         MotionCommand::Walk {
@@ -112,6 +112,8 @@ impl<'cycle> WalkPathPlanner<'cycle> {
             right_arm: self.arm_motion_with_obstacles(Side::Right),
             orientation_mode,
             speed,
+            target_orientation,
+            distance_to_be_aligned,
         }
     }
 
@@ -154,12 +156,14 @@ impl<'cycle> WalkAndStand<'cycle> {
         }
     }
 
+    #[expect(clippy::too_many_arguments)]
     pub fn execute(
         &self,
         target_pose: Pose2<Ground>,
         head: HeadMotion,
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
         walk_speed: WalkSpeed,
+        orientation_mode: OrientationMode,
         distance_to_be_aligned: f32,
         hysteresis: nalgebra::Vector2<f32>,
     ) -> Option<MotionCommand> {
@@ -179,12 +183,6 @@ impl<'cycle> WalkAndStand<'cycle> {
             self.parameters.target_reached_thresholds.y,
             0.0..=hysteresis.y,
         );
-        let orientation_mode = hybrid_alignment(
-            target_pose,
-            self.parameters.hybrid_align_distance,
-            distance_to_be_aligned,
-        );
-
         if is_reached {
             Some(MotionCommand::Stand { head })
         } else {
@@ -200,135 +198,11 @@ impl<'cycle> WalkAndStand<'cycle> {
             Some(self.walk_path_planner.walk_with_obstacle_avoiding_arms(
                 head,
                 orientation_mode,
+                target_pose.orientation(),
+                distance_to_be_aligned,
                 path,
                 walk_speed,
             ))
-        }
-    }
-}
-
-pub fn hybrid_alignment(
-    target_pose: Pose2<Ground>,
-    hybrid_align_distance: f32,
-    distance_to_be_aligned: f32,
-) -> OrientationMode {
-    assert!(hybrid_align_distance > 0.0);
-    assert!(distance_to_be_aligned > 0.0);
-
-    let distance_to_target = target_pose.position().coords().norm();
-    if distance_to_target > distance_to_be_aligned + hybrid_align_distance {
-        return OrientationMode::AlignWithPath;
-    }
-
-    let angle_limit = ((distance_to_target - distance_to_be_aligned) / hybrid_align_distance)
-        .clamp(0.0, 1.0)
-        * PI;
-
-    let orientation = clamp_around(
-        Orientation2::identity(),
-        target_pose.orientation(),
-        angle_limit,
-    );
-
-    OrientationMode::Override(orientation)
-}
-
-pub fn clamp_around(
-    input: Orientation2<Ground>,
-    center: Orientation2<Ground>,
-    angle_limit: f32,
-) -> Orientation2<Ground> {
-    let center_to_input = center.rotation_to(input);
-    let clamped = center_to_input.clamp_angle::<Ground>(-angle_limit, angle_limit);
-
-    clamped * center
-}
-
-#[cfg(test)]
-mod test {
-    use super::*;
-
-    use std::f32::consts::{FRAC_PI_2, PI};
-
-    use approx::assert_relative_eq;
-    use num_traits::Zero;
-
-    #[test]
-    fn clamp_noop_when_less_than_limit_around_center() {
-        let testcases = [
-            (0.0, 0.0),
-            (0.0, PI),
-            (1.0, FRAC_PI_2),
-            (-1.0, FRAC_PI_2),
-            (FRAC_PI_2, FRAC_PI_2),
-            (-FRAC_PI_2, FRAC_PI_2),
-        ];
-
-        for (input, angle_limit) in testcases {
-            let input = Orientation2::new(input);
-            let center = Orientation2::new(0.0);
-            assert_relative_eq!(clamp_around(input, center, angle_limit), input);
-        }
-    }
-
-    #[test]
-    fn clamp_clamps_to_limit_around_center() {
-        let testcases = [
-            (0.0, 0.0),
-            (PI, PI),
-            (2.0, FRAC_PI_2),
-            (-2.0, FRAC_PI_2),
-            (FRAC_PI_2, FRAC_PI_2),
-            (-FRAC_PI_2, FRAC_PI_2),
-            (PI - f32::EPSILON, FRAC_PI_2),
-            (-PI + f32::EPSILON, FRAC_PI_2),
-        ];
-
-        for (input, angle_limit) in testcases {
-            let input = Orientation2::new(input);
-            let center = Orientation2::new(0.0);
-
-            let output = clamp_around(input, center, angle_limit);
-
-            assert_relative_eq!(output.angle().abs(), angle_limit);
-            assert_eq!(output.angle().signum(), input.angle().signum())
-        }
-    }
-
-    #[test]
-    fn clamped_always_closer_than_limit() {
-        let angles = [
-            0.0,
-            PI - 0.01,
-            -PI + 0.01,
-            FRAC_PI_2,
-            -FRAC_PI_2,
-            1.0,
-            -1.0,
-            2.0,
-            -2.0,
-        ];
-
-        for input in angles {
-            for center in angles {
-                for angle_limit in angles {
-                    let angle_limit = angle_limit.abs();
-                    let input = Orientation2::new(input);
-                    let center = Orientation2::new(center);
-
-                    let output = clamp_around(input, center, angle_limit);
-
-                    let relative_output = center.rotation_to(output);
-                    let relative_input = center.rotation_to(input);
-                    assert!(relative_output.angle().abs() <= angle_limit);
-                    if !relative_output.angle().is_zero() {
-                        assert_eq!(
-                            relative_output.angle().signum(),
-                            relative_input.angle().signum()
-                        )
-                    }
-                }
-            }
         }
     }
 }

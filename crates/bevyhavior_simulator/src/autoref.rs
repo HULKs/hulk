@@ -72,7 +72,7 @@ pub fn autoref(
                     | MotionCommand::Penalized
                     | MotionCommand::Stand { .. } => false,
                     MotionCommand::Walk { path, .. }
-                        if path.iter().map(PathSegment::length).sum::<f32>() < 0.01 =>
+                        if path.segments.iter().map(PathSegment::length).sum::<f32>() < 0.01 =>
                     {
                         false
                     }

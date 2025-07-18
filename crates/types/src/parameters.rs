@@ -1,10 +1,14 @@
-use std::ops::{Index, Range};
-use std::{path::PathBuf, time::Duration};
+use std::{
+    ops::{Index, Range},
+    path::PathBuf,
+    time::Duration,
+};
+
+use serde::{Deserialize, Serialize};
 
 use coordinate_systems::{Field, Ground, NormalizedPixel, Pixel};
 use linear_algebra::{Point2, Vector2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
-use serde::{Deserialize, Serialize};
 
 use crate::{
     joints::head::HeadJoints,
@@ -449,4 +453,35 @@ pub struct PenaltyShotDirectionParameters {
     pub moving_distance_threshold: f32,
     pub minimum_velocity: f32,
     pub center_jump_trigger_radius: f32,
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct StepPlanningCostFactors {
+    pub path_progress: f32,
+    pub path_distance: f32,
+    pub target_orientation: f32,
+    pub walk_orientation: f32,
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct StepPlanningOptimizationParameters {
+    pub optimizer_steps: usize,
+    pub cost_factors: StepPlanningCostFactors,
+    pub path_alignment_tolerance: f32,
+    pub path_progress_smoothness: f32,
+    pub alignment_ramp_steepness: f32,
+    pub warm_start: bool,
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub enum StepPlannerMode {
+    #[default]
+    Mpc,
+    Greedy,
 }

@@ -1,14 +1,14 @@
 use coordinate_systems::{Field, Ground};
-use geometry::line::Line;
 use geometry::line_segment::LineSegment;
-use linear_algebra::{Isometry2, Orientation2, Point};
+use geometry::{line::Line, look_at::LookAt};
+use linear_algebra::{Isometry2, Point};
 use spl_network_messages::{GamePhase, SubState};
 use types::{
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState,
     motion_command::{HeadMotion, ImageRegion, MotionCommand, OrientationMode, WalkSpeed},
     parameters::InterceptBallParameters,
-    planned_path::PathSegment,
+    planned_path::{Path, PathSegment},
     world_state::{BallState, WorldState},
 };
 
@@ -16,6 +16,7 @@ pub fn execute(
     world_state: &WorldState,
     parameters: InterceptBallParameters,
     walk_speed: WalkSpeed,
+    distance_to_be_aligned: f32,
 ) -> Option<MotionCommand> {
     if let Some(
         FilteredGameControllerState {
@@ -62,11 +63,14 @@ pub fn execute(
                 return None;
             }
 
-            let path = vec![PathSegment::LineSegment(LineSegment(
-                Point::origin(),
-                interception_point,
-            ))];
+            let path = Path {
+                segments: vec![PathSegment::LineSegment(LineSegment(
+                    Point::origin(),
+                    interception_point,
+                ))],
+            };
 
+            let target_orientation = interception_point.look_at(&ball.ball_in_ground);
             Some(MotionCommand::Walk {
                 head: HeadMotion::LookAt {
                     target: ball.ball_in_ground,
@@ -76,8 +80,13 @@ pub fn execute(
                 path,
                 left_arm: types::motion_command::ArmMotion::Swing,
                 right_arm: types::motion_command::ArmMotion::Swing,
-                orientation_mode: OrientationMode::Override(Orientation2::identity()),
+                orientation_mode: OrientationMode::LookTowards {
+                    direction: target_orientation,
+                    tolerance: 0.0,
+                },
                 speed: walk_speed,
+                target_orientation,
+                distance_to_be_aligned,
             })
         }
         _ => None,

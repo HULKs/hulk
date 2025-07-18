@@ -107,6 +107,7 @@ pub fn execute(
             head,
             path_obstacles_output,
             walk_speed,
+            OrientationMode::AlignWithPath,
             distance_to_be_aligned,
             walk_and_stand.parameters.hysteresis,
         )
@@ -120,16 +121,18 @@ pub fn execute(
             &world_state.rule_obstacles,
             path_obstacles_output,
         );
-        let path_length: f32 = path.iter().map(|segment| segment.length()).sum();
+        let path_length: f32 = path.segments.iter().map(|segment| segment.length()).sum();
         let is_reached = path_length < parameters.position_reached_distance;
-        let orientation_mode = if is_reached {
-            OrientationMode::Override(Orientation2::new(parameters.rotation_per_step))
+        let target_orientation = if is_reached {
+            Orientation2::new(parameters.rotation_per_step)
         } else {
-            OrientationMode::AlignWithPath
+            Orientation2::identity()
         };
         Some(walk_path_planner.walk_with_obstacle_avoiding_arms(
             head,
-            orientation_mode,
+            OrientationMode::AlignWithPath,
+            target_orientation,
+            distance_to_be_aligned,
             path,
             walk_speed,
         ))
