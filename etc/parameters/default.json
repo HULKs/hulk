@@ -371,7 +371,8 @@
       "target_x_scale_forward": 0.6,
       "target_y_scale": 0.6,
       "max_target_distance": [0.1, 0.15],
-      "over_estimation_factor": [0.4, 1.0]
+      "over_estimation_factor": [0.4, 1.0],
+      "balance_region_x": 0.04
     },
     "gyro_balancing": {
       "noise_scale": [0.6, 0.6],
