@@ -37,7 +37,8 @@ mod tests {
 
     use crate::{
         cost_fields::path_distance::PathDistanceField,
-        test_utils::{is_near_test_path_progress_discontinuity, proptest_config, test_path},
+        test_path,
+        test_utils::{is_near_test_path_progress_discontinuity, proptest_config},
     };
 
     #[test]

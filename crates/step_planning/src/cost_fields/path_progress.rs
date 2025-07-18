@@ -37,7 +37,8 @@ mod tests {
 
     use crate::{
         cost_fields::path_progress::PathProgressField,
-        test_utils::{is_near_test_path_segment_joins, proptest_config, test_path},
+        test_path,
+        test_utils::{is_near_test_path_segment_joins, proptest_config},
         traits::{Length, PathProgress},
     };
 
