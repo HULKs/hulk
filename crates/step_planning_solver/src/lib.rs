@@ -1,6 +1,7 @@
-use std::array;
+use std::{array, f32::consts::PI};
 
 use color_eyre::Result;
+use geometry::direction::Direction;
 use nalgebra::{Const, SVector, U1};
 use num_dual::{Derivative, DualNum, DualNumFloat, DualVec};
 use optimization_engine::{
@@ -12,10 +13,10 @@ use optimization_engine::{
 use coordinate_systems::Ground;
 use linear_algebra::Orientation2;
 use step_planning::{
-    geometry::pose::Pose,
+    geometry::{angle::Angle, orientation::Orientation, pose::Pose},
     step_plan::StepPlan,
-    traits::{ScaledGradient, WrapDual},
-    StepPlanning, NUM_VARIABLES, VARIABLES_PER_STEP,
+    traits::{ForwardAtEndPoint, ScaledGradient, WrapDual},
+    StepPlanning, TargetOrientationPathSide, NUM_VARIABLES, VARIABLES_PER_STEP,
 };
 use types::{
     motion_command::OrientationMode, parameters::StepPlanningOptimizationParameters,
@@ -154,6 +155,13 @@ pub fn plan_steps(
     walk_volume_extents: &WalkVolumeExtents,
     parameters: &StepPlanningOptimizationParameters,
 ) -> Result<(SVector<f32, NUM_VARIABLES>, f32)> {
+    let target_orientation = Orientation(target_orientation.angle());
+    let target_orientation_path_side = calculate_target_orientation_path_side(
+        path,
+        target_orientation,
+        parameters.target_orientation_ahead_tolerance,
+    );
+
     let step_planning = StepPlanning {
         path,
         initial_pose: initial_pose.clone(),
@@ -161,6 +169,7 @@ pub fn plan_steps(
         parameters,
         orientation_mode,
         target_orientation,
+        target_orientation_path_side,
         distance_to_be_aligned,
         walk_volume_extents,
     };
@@ -203,6 +212,24 @@ pub fn plan_steps(
     Ok((gradient, cost))
 }
 
+fn calculate_target_orientation_path_side(
+    path: &Path,
+    target_orientation: Orientation<f32>,
+    ahead_tolerance: f32,
+) -> TargetOrientationPathSide {
+    let forward_at_end_of_path = path.forward_at_end_point();
+    let target_forward_to_target_orientation =
+        forward_at_end_of_path.angle_to(target_orientation, Direction::Counterclockwise);
+
+    if target_forward_to_target_orientation.absolute_difference(Angle(0.0)) <= ahead_tolerance {
+        TargetOrientationPathSide::RoughlyAhead
+    } else if target_forward_to_target_orientation.0 > PI {
+        TargetOrientationPathSide::Right
+    } else {
+        TargetOrientationPathSide::Left
+    }
+}
+
 fn normalize_gradient(
     mut gradient: SVector<f32, NUM_VARIABLES>,
     max_squared_magnitude: f32,
@@ -219,4 +246,33 @@ fn normalize_gradient(
     }
 
     gradient
+}
+
+#[cfg(test)]
+mod tests {
+    use std::f32::consts::{FRAC_PI_2, PI};
+
+    use step_planning::{geometry::orientation::Orientation, test_path, TargetOrientationPathSide};
+
+    use crate::calculate_target_orientation_path_side;
+
+    #[test]
+    fn target_orientation_path_side() {
+        let path = test_path();
+
+        assert_eq!(
+            calculate_target_orientation_path_side(&path, Orientation(FRAC_PI_2), 0.5),
+            TargetOrientationPathSide::RoughlyAhead
+        );
+
+        assert_eq!(
+            calculate_target_orientation_path_side(&path, Orientation(PI), 0.5),
+            TargetOrientationPathSide::Left
+        );
+
+        assert_eq!(
+            calculate_target_orientation_path_side(&path, Orientation(0.0), 0.5),
+            TargetOrientationPathSide::Right
+        );
+    }
 }
