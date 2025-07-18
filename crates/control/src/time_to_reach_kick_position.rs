@@ -83,11 +83,27 @@ impl TimeToReachKickPosition {
             .half_rotation
             .mul_f32(turn_angle / PI);
 
+        let stand_up_penalty = if matches!(
+            *context.stand_up_back_estimated_remaining_duration,
+            RemainingStandUpDuration::Running(_)
+        ) || matches!(
+            *context.stand_up_front_estimated_remaining_duration,
+            RemainingStandUpDuration::Running(_)
+        ) || matches!(
+            *context.stand_up_sitting_estimated_remaining_duration,
+            RemainingStandUpDuration::Running(_)
+        ) {
+            Duration::from_secs_f32(3.0)
+        } else {
+            Duration::ZERO
+        };
+
         let time_to_reach_kick_position = [
             Some(walk_duration),
             (*context.stand_up_back_estimated_remaining_duration).into(),
             (*context.stand_up_front_estimated_remaining_duration).into(),
             (*context.stand_up_sitting_estimated_remaining_duration).into(),
+            Some(stand_up_penalty),
             Some(turn_duration),
         ]
         .into_iter()
