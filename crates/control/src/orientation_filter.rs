@@ -62,12 +62,11 @@ impl OrientationFilter {
             .sensor_data
             .inertial_measurement_unit
             .linear_acceleration;
+        let angular_velocity_sum = measured_angular_velocity.abs().inner.sum();
 
         match &mut self.state {
             State::WaitingForSteady => {
-                if measured_angular_velocity.abs().inner.sum()
-                    < *context.calibration_steady_threshold
-                {
+                if angular_velocity_sum < *context.calibration_steady_threshold {
                     self.state = State::CalibratingGravity {
                         filtered_gravity: LowPassFilter::with_smoothing_factor(
                             measured_acceleration,
@@ -81,9 +80,9 @@ impl OrientationFilter {
                 filtered_gravity,
                 remaining_cycles,
             } => {
-                if measured_angular_velocity.abs().inner.sum()
-                    < *context.calibration_steady_threshold
-                {
+                if angular_velocity_sum > *context.calibration_steady_threshold {
+                    self.state = State::WaitingForSteady;
+                } else {
                     filtered_gravity.update(measured_acceleration);
                     *remaining_cycles -= 1;
                     if *remaining_cycles == 0 {
@@ -92,8 +91,6 @@ impl OrientationFilter {
                         let orientation = UnitQuaternion::look_at_rh(&gravity, &up);
                         self.state = State::Filtering { state: orientation };
                     }
-                } else {
-                    self.state = State::WaitingForSteady;
                 }
             }
             State::Filtering { state } => {
