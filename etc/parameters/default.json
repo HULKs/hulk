@@ -1297,7 +1297,7 @@
     },
     "time_to_reach_delay_when_fallen": {
       "nanos": 0,
-      "secs": 3
+      "secs": 5
     },
     "maximum_standup_attempts": 3
   },
