@@ -1518,7 +1518,7 @@
       "secs": 3
     },
     "spl_striker_message_send_interval": {
-      "nanos": 500000000,
+      "nanos": 750000000,
       "secs": 1
     }
   },
