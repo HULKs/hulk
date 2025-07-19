@@ -287,6 +287,7 @@ pub struct HeadMotionParameters {
     pub outer_minimum_pitch: f32,
     pub outer_yaw: f32,
     pub injected_head_joints: Option<HeadJoints<f32>>,
+    pub filter_smoothing_factor: f32,
 }
 
 #[derive(

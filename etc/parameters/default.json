@@ -1058,13 +1058,14 @@
     "center_jump_trigger_radius": 0.15
   },
   "head_motion": {
+    "filter_smoothing_factor": 0.05,
     "maximum_velocity": {
-      "yaw": 4.0,
-      "pitch": 1.5
+      "yaw": 40.0,
+      "pitch": 10.5
     },
     "maximum_defender_velocity": {
-      "yaw": 3.5,
-      "pitch": 1.5
+      "yaw": 30.5,
+      "pitch": 10.5
     },
     "outer_maximum_pitch": 0.0,
     "inner_maximum_pitch": 0.61,

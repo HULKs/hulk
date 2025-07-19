@@ -18,12 +18,14 @@ use types::{
 
 #[derive(Default, Deserialize, Serialize)]
 pub struct HeadMotion {
-    last_positions: HeadJoints<f32>,
-    lowpass_filter: LowPassFilter<HeadJoints<f32>>,
+    last_request: MotorCommands<HeadJoints<f32>>,
+    position_filter: LowPassFilter<HeadJoints<f32>>,
 }
 
 #[context]
-pub struct CreationContext {}
+pub struct CreationContext {
+    parameters: Parameter<HeadMotionParameters, "head_motion">,
+}
 
 #[context]
 pub struct CycleContext {
@@ -47,45 +49,18 @@ pub struct MainOutputs {
 }
 
 impl HeadMotion {
-    pub fn new(_context: CreationContext) -> Result<Self> {
+    pub fn new(context: CreationContext) -> Result<Self> {
         Ok(Self {
-            last_positions: Default::default(),
-            lowpass_filter: LowPassFilter::with_smoothing_factor(Default::default(), 0.075),
+            last_request: Default::default(),
+            position_filter: LowPassFilter::with_smoothing_factor(
+                Default::default(),
+                context.parameters.filter_smoothing_factor,
+            ),
         })
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        if let Some(injected_head_joints) = context.parameters.injected_head_joints {
-            self.lowpass_filter.update(injected_head_joints);
-
-            return Ok(MainOutputs {
-                head_joints_command: MotorCommands {
-                    positions: self.lowpass_filter.state(),
-                    stiffnesses: HeadJoints::fill(0.8),
-                }
-                .into(),
-            });
-        }
-        if context.motion_selection.dispatching_motion.is_some() {
-            return Ok(MainOutputs {
-                head_joints_command: MotorCommands {
-                    positions: self.last_positions,
-                    stiffnesses: HeadJoints::fill(0.8),
-                }
-                .into(),
-            });
-        }
-
-        let MotorCommands {
-            positions: raw_positions,
-            stiffnesses,
-        } = context
-            .has_ground_contact
-            .then(|| Self::joints_from_motion(&context))
-            .unwrap_or_else(|| MotorCommands {
-                positions: Default::default(),
-                stiffnesses: HeadJoints::fill(0.8),
-            });
+        let request = Self::requested_head_motion(&context).unwrap_or(self.last_request);
 
         let maximum_movement = match context.role {
             Role::DefenderLeft | Role::DefenderRight => {
@@ -98,29 +73,62 @@ impl HeadMotion {
             }
         };
 
-        let controlled_positions = HeadJoints {
-            yaw: self.last_positions.yaw
-                + (raw_positions.yaw - self.last_positions.yaw)
+        let stiffnesses = request.stiffnesses;
+        let positions = request.positions;
+        let last_positions = self.last_request.positions;
+
+        let velocity_limited_positions = HeadJoints {
+            yaw: last_positions.yaw
+                + (positions.yaw - last_positions.yaw)
                     .clamp(-maximum_movement.yaw, maximum_movement.yaw),
-            pitch: self.last_positions.pitch
-                + (raw_positions.pitch - self.last_positions.pitch)
+            pitch: last_positions.pitch
+                + (positions.pitch - last_positions.pitch)
                     .clamp(-maximum_movement.pitch, maximum_movement.pitch),
         };
 
-        let clamped_pitch = compute_clamped_pitch(controlled_positions, context.parameters);
-
-        let clamped_positions = HeadJoints {
-            pitch: clamped_pitch,
-            yaw: controlled_positions.yaw,
+        self.position_filter.update(velocity_limited_positions);
+        let smoothed_positions = self.position_filter.state();
+        let smoothed_request = MotorCommands {
+            positions: smoothed_positions,
+            stiffnesses,
         };
+        self.last_request = smoothed_request;
 
-        self.last_positions = clamped_positions;
         Ok(MainOutputs {
-            head_joints_command: MotorCommands {
-                positions: clamped_positions,
+            head_joints_command: smoothed_request.into(),
+        })
+    }
+
+    pub fn requested_head_motion(context: &CycleContext) -> Option<MotorCommands<HeadJoints<f32>>> {
+        let stiffnesses = HeadJoints::fill(0.8);
+        if let Some(positions) = context.parameters.injected_head_joints {
+            return Some(MotorCommands {
+                positions,
+                stiffnesses,
+            });
+        }
+
+        if context.motion_selection.dispatching_motion.is_some() {
+            return None;
+        }
+
+        let request = if *context.has_ground_contact {
+            Self::joints_from_motion(context)
+        } else {
+            MotorCommands {
+                positions: HeadJoints::default(),
                 stiffnesses,
             }
-            .into(),
+        };
+
+        let clamped_pitch = compute_clamped_pitch(request.positions, context.parameters);
+
+        Some(MotorCommands {
+            positions: HeadJoints {
+                yaw: request.positions.yaw,
+                pitch: clamped_pitch,
+            },
+            stiffnesses,
         })
     }
 
