@@ -1,0 +1,37 @@
+opponent = "rUNSWift"
+phase = "first-half"
+location = "rc25"
+wifi = "SPL_C"
+base = "hulk/main"
+branches = [
+    #
+    "pejotejo/less_slip_when_setting_foot_dowm",
+    "vivi-enne/defender_no_criss_cross",
+    "paudar/defender-searcher-delay",
+    "oleflb/adjust-line-measurement-noise",
+    "ThagonDuarte/2025-07-19-calibrations-runswift",
+    "paudar/longer_ttrkp_when_fallen",
+    "rmburg/slower-head-motion-2",
+    "oleflb/revert-filter-recalibration",
+]
+assignments = [
+    #
+    "38:1",
+    "39:2",
+    "21:3",
+    "32:4",
+    "40:5",
+]
+substitutions = [
+    # "33:",
+    "41:6",
+]
+with_communication = false
+
+[recording_intervals]
+Control = 1
+VisionTop = 30
+VisionBottom = 30
+SplNetwork = 1
+# ObjectDetectionTop = 30
+# Audio = 1
