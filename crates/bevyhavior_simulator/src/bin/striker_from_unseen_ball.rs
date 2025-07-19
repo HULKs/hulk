@@ -50,6 +50,13 @@ fn update(
             robot.parameters.player_number == PlayerNumber::Two
                 && robot.database.main_outputs.role == Role::Striker
         })
+        && robots
+            .iter()
+            .find(|robot| robot.parameters.player_number == PlayerNumber::Two)
+            .unwrap()
+            .parameters
+            .role_assignment
+            .claim_striker_from_team_ball
     {
         println!("Error: Two didn't become striker when sent a nearby ball position");
         exit.send(AppExit::from_code(2));
