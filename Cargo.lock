@@ -3303,15 +3303,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "ena"
-version = "0.14.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d248bdd43ce613d87415282f69b9bb99d947d290b10962dd6c56233312c2ad5"
-dependencies = [
- "log",
-]
-
-[[package]]
 name = "encase"
 version = "0.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4336,8 +4327,6 @@ version = "0.15.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5971ac85611da7067dbfcabef3c70ebb5606018acd9e2a3903a0da507521e0d5"
 dependencies = [
- "allocator-api2",
- "equivalent",
  "foldhash",
 ]
 
@@ -6676,7 +6665,6 @@ dependencies = [
  "bitflags 2.9.1",
  "downcast-rs 2.0.1",
  "either",
- "ena",
  "hashbrown 0.15.4",
  "log",
  "nalgebra",
@@ -6684,8 +6672,6 @@ dependencies = [
  "num-traits",
  "ordered-float 5.0.0",
  "simba",
- "slab",
- "spade",
  "thiserror 2.0.12",
 ]
 
@@ -7604,12 +7590,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "robust"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4e27ee8bb91ca0adcf0ecb116293afa12d393f9c2b9b9cd54d33e8078fe19839"
-
-[[package]]
 name = "ron"
 version = "0.8.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8193,18 +8173,6 @@ dependencies = [
  "thiserror 2.0.12",
  "threadbound",
  "toposort-scc",
-]
-
-[[package]]
-name = "spade"
-version = "2.14.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a14e31a007e9f85c32784b04f89e6e194bb252a4d41b4a8ccd9e77245d901c8c"
-dependencies = [
- "hashbrown 0.15.4",
- "num-traits",
- "robust",
- "smallvec",
 ]
 
 [[package]]
