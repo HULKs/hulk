@@ -31,6 +31,7 @@ use super::{
 pub struct StepState {
     pub plan: StepPlan,
     pub time_since_start: Duration,
+    pub xy_time_since_start: Duration,
     pub gyro_balancing: GyroBalancing,
     pub foot_leveling: FootLeveling,
     pub last_engine_feet: Feet,
@@ -41,6 +42,7 @@ impl StepState {
         StepState {
             plan,
             time_since_start: Duration::ZERO,
+            xy_time_since_start: Duration::ZERO,
             gyro_balancing: Default::default(),
             foot_leveling: Default::default(),
             last_engine_feet: plan.start_feet,
@@ -70,6 +72,26 @@ impl StepState {
         self.gyro_balancing.tick(context);
         self.foot_leveling
             .tick(context, self.normalized_time_since_start());
+
+        let small_weight_on_sensors = match self.plan.support_side {
+            Side::Left => {
+                context.force_sensitive_resistors.right.sum() > parameters.xy_offset_stop_weight
+            }
+            Side::Right => {
+                context.force_sensitive_resistors.left.sum() > parameters.xy_offset_stop_weight
+            }
+        };
+
+        let xy_slip_stop = if small_weight_on_sensors
+            && !self.is_support_switched(context)
+            && self.normalized_xy_time_since_start() > 0.3
+        {
+            1.0 - parameters.slip_reduction
+        } else {
+            1.0
+        };
+
+        self.xy_time_since_start = self.time_since_start.mul_f32(xy_slip_stop);
     }
 
     pub fn is_support_switched(&self, context: &Context) -> bool {
@@ -153,6 +175,11 @@ impl StepState {
             .clamp(0.0, 1.0)
     }
 
+    fn normalized_xy_time_since_start(&self) -> f32 {
+        (self.xy_time_since_start.as_secs_f32() / self.plan.step_duration.as_secs_f32())
+            .clamp(0.0, 1.0)
+    }
+
     pub fn compute_feet(&mut self, context: &Context) -> Feet {
         let parameters = &context.parameters;
         let dt = context.cycle_time.last_cycle_duration.as_secs_f32();
@@ -186,11 +213,11 @@ impl StepState {
     }
 
     fn support_sole_position(&self, parameters: &Parameters) -> Point3<Walk> {
-        let normalized_time = self.normalized_time_since_start();
+        let normalized_xy_time = self.normalized_xy_time_since_start();
 
         let start_offsets = self.plan.start_feet.support_sole.position().xy();
         let end_offsets = self.plan.end_feet.support_sole.position().xy();
-        let offsets = start_offsets.lerp(end_offsets, normalized_time);
+        let offsets = start_offsets.lerp(end_offsets, normalized_xy_time);
 
         let lift = self.support_sole_lift_at(parameters);
 
