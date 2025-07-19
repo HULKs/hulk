@@ -28,6 +28,7 @@ use types::{
     multivariate_normal_distribution::MultivariateNormalDistribution,
     players::Players,
     primary_state::PrimaryState,
+    sensor_data::SensorData,
     stand_up::RemainingStandUpDuration,
     support_foot::Side,
 };
@@ -57,6 +58,7 @@ pub struct CycleContext {
         AdditionalOutput<Vec<LineSegment<Field>>, "localization.measured_lines_in_field">,
     pose_hypotheses: AdditionalOutput<Vec<ScoredPose>, "localization.pose_hypotheses">,
     updates: AdditionalOutput<Vec<Vec<Update>>, "localization.updates">,
+    gyro_movement: AdditionalOutput<f32, "localization.gyro_movement">,
 
     current_odometry_to_last_odometry:
         HistoricInput<Option<nalgebra::Isometry2<f32>>, "current_odometry_to_last_odometry?">,
@@ -66,6 +68,7 @@ pub struct CycleContext {
     has_ground_contact: Input<bool, "has_ground_contact">,
     primary_state: Input<PrimaryState, "primary_state">,
     fall_state: Input<FallState, "fall_state">,
+    sensor_data: Input<SensorData, "sensor_data">,
 
     circle_measurement_noise: Parameter<Vector2<f32>, "localization.circle_measurement_noise">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
@@ -82,6 +85,10 @@ pub struct CycleContext {
     initial_poses: Parameter<Players<InitialPose>, "localization.initial_poses">,
     line_length_acceptance_factor: Parameter<f32, "localization.line_length_acceptance_factor">,
     line_measurement_noise: Parameter<Vector2<f32>, "localization.line_measurement_noise">,
+    additional_moving_noise_line:
+        Parameter<Vector2<f32>, "localization.additional_moving_noise_line">,
+    additional_moving_noise_circle:
+        Parameter<Vector2<f32>, "localization.additional_moving_noise_circle">,
     maximum_amount_of_gradient_descent_iterations:
         Parameter<usize, "localization.maximum_amount_of_gradient_descent_iterations">,
     maximum_amount_of_outer_iterations:
@@ -320,6 +327,21 @@ impl Localization {
             .updates
             .fill_if_subscribed(|| vec![vec![]; self.hypotheses.len()]);
 
+        let gyro_movement = context
+            .sensor_data
+            .inertial_measurement_unit
+            .angular_velocity
+            .norm();
+        context.gyro_movement.fill_if_subscribed(|| gyro_movement);
+        let line_measurement_noise = Matrix::from_diagonal(
+            &(context.line_measurement_noise
+                + context.additional_moving_noise_line * gyro_movement),
+        );
+        let circle_measurement_noise = Matrix::from_diagonal(
+            &(context.circle_measurement_noise
+                + context.additional_moving_noise_circle * gyro_movement),
+        );
+
         let line_data = context
             .line_data_top
             .persistent
@@ -491,8 +513,7 @@ impl Localization {
                                 .state
                                 .update_with_1d_translation_and_rotation(
                                     update,
-                                    Matrix::from_diagonal(context.line_measurement_noise)
-                                        * uncertainty_weight,
+                                    line_measurement_noise * uncertainty_weight,
                                     |state| match direction {
                                         Direction::PositiveX => {
                                             nalgebra::vector![state.y, state.z]
@@ -507,8 +528,7 @@ impl Localization {
                                 .state
                                 .update_with_2d_translation(
                                     update,
-                                    Matrix::from_diagonal(context.circle_measurement_noise)
-                                        * uncertainty_weight,
+                                    circle_measurement_noise * uncertainty_weight,
                                     |state| nalgebra::vector![state.x, state.y],
                                 )
                                 .context("Failed to update pose filter")?,
