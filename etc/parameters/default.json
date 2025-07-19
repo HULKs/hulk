@@ -749,7 +749,7 @@
     "filter_gain": 0.01,
     "calibration_steady_threshold": 0.02,
     "calibration_smoothing_factor": 0.1,
-    "number_of_calibration_cycles": 10
+    "number_of_calibration_cycles": 25
   },
   "fall_state_estimation": {
     "linear_acceleration_low_pass_factor": 0.05,
