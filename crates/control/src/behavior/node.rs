@@ -401,6 +401,7 @@ impl Behavior {
                             .parameters
                             .walk_and_stand
                             .normal_distance_to_be_aligned,
+                        context.cycle_time.start_time,
                     ),
                     Action::SearchForLostBall => lost_ball::execute(
                         world_state,

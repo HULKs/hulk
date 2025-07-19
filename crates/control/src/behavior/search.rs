@@ -1,3 +1,5 @@
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
 use coordinate_systems::{Field, Ground};
 use framework::AdditionalOutput;
 use linear_algebra::{point, Isometry2, Orientation2, Point2, Pose2};
@@ -75,6 +77,7 @@ pub fn execute(
     previous_role: Role,
     walk_speed: WalkSpeed,
     distance_to_be_aligned: f32,
+    cycle_start_time: SystemTime,
 ) -> Option<MotionCommand> {
     let ground_to_field = world_state.robot.ground_to_field?;
     let search_role = assign_search_role(world_state);
@@ -122,17 +125,34 @@ pub fn execute(
         );
         let path_length: f32 = path.segments.iter().map(|segment| segment.length()).sum();
         let is_reached = path_length < parameters.position_reached_distance;
-        let orientation_mode = if is_reached {
-            OrientationMode::Override(Orientation2::new(parameters.rotation_per_step))
+        if is_reached {
+            let search_duration = cycle_start_time
+                .duration_since(UNIX_EPOCH)
+                .expect("time ran backwards");
+
+            let turn_cycle_duration =
+                Duration::from_secs_f32(parameters.stand_secs + parameters.turn_secs);
+            let turn_cycle_fraction =
+                search_duration.as_secs_f32() % turn_cycle_duration.as_secs_f32();
+
+            if turn_cycle_fraction < parameters.stand_secs {
+                Some(MotionCommand::Stand { head })
+            } else {
+                Some(walk_path_planner.walk_with_obstacle_avoiding_arms(
+                    head,
+                    OrientationMode::Override(Orientation2::new(parameters.rotation_per_step)),
+                    path,
+                    walk_speed,
+                ))
+            }
         } else {
-            OrientationMode::AlignWithPath
-        };
-        Some(walk_path_planner.walk_with_obstacle_avoiding_arms(
-            head,
-            orientation_mode,
-            path,
-            walk_speed,
-        ))
+            Some(walk_path_planner.walk_with_obstacle_avoiding_arms(
+                head,
+                OrientationMode::AlignWithPath,
+                path,
+                walk_speed,
+            ))
+        }
     }
 }
 
