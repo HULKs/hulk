@@ -88,7 +88,7 @@ impl StandUpFront {
 
                         let estimated_remaining_duration = self
                             .interpolator
-                            .estimated_remaining_duration(self.slow_state)
+                            .estimated_remaining_duration(self.state)
                             .map(RemainingStandUpDuration::Running)
                             .unwrap_or(RemainingStandUpDuration::NotRunning);
 
