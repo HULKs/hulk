@@ -325,7 +325,7 @@
     "request_scale": {
       "forward": 1.0,
       "left": 1.4,
-      "turn": 1.0
+      "turn": 1.5
     }
   },
   "zero_moment_point": {
@@ -513,7 +513,7 @@
       },
       {
         "base_step": { "forward": 0.08, "left": 0.0, "turn": 0.0 },
-        "step_duration": { "nanos": 280000000, "secs": 0 },
+        "step_duration": { "nanos": 260000000, "secs": 0 },
         "foot_lift_apex": 0.02,
         "midpoint": 0.5,
         "support_overrides": {
@@ -598,10 +598,10 @@
         }
       },
       {
-        "base_step": { "forward": 0.06, "left": 0.0, "turn": -0.2 },
+        "base_step": { "forward": 0.06, "left": 0.0, "turn": -0.25 },
         "step_duration": { "nanos": 260000000, "secs": 0 },
         "foot_lift_apex": 0.02,
-        "midpoint": 0.5,
+        "midpoint": 0.6,
         "support_overrides": {
           "hip_pitch": [
             { "value": 0.0, "timepoint": { "nanos": 0, "secs": 0 } },
@@ -1129,7 +1129,7 @@
   },
   "in_walk_kicks": {
     "forward": {
-      "position": [-0.18, -0.04],
+      "position": [-0.23, -0.05],
       "position_offset": [0.0, 0.0],
       "orientation": 0.0,
       "reached_x": {
@@ -1148,7 +1148,7 @@
       "enabled": true
     },
     "turn": {
-      "position": [-0.16, -0.09],
+      "position": [-0.17, -0.11],
       "position_offset": [0.0, 0.0],
       "orientation": 0.9,
       "reached_x": {
