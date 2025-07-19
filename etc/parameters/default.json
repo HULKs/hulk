@@ -1099,19 +1099,19 @@
       "pitch": 0.4
     },
     "left_positions": {
-      "yaw": 1.3,
+      "yaw": 1.0,
       "pitch": 0.0
     },
     "right_positions": {
-      "yaw": -1.3,
+      "yaw": -1.0,
       "pitch": 0.0
     },
     "halfway_left_positions": {
-      "yaw": 0.9,
+      "yaw": 0.4,
       "pitch": 0.0
     },
     "halfway_right_positions": {
-      "yaw": -0.9,
+      "yaw": -0.4,
       "pitch": 0.0
     },
     "initial_left_positions": {
