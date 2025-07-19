@@ -63,8 +63,6 @@ pub struct Robot {
     pub parameters: Parameters,
     pub last_kick_time: Duration,
     pub simulator_parameters: SimulatedRobotParameters,
-    pub anchor: Pose2<Field>,
-    pub anchor_side: Option<Side>,
 
     pub cycler: Cycler<Interfake>,
     control_receiver: Receiver<(SystemTime, Database)>,
@@ -145,8 +143,6 @@ impl Robot {
             parameters,
             last_kick_time: Duration::default(),
             simulator_parameters,
-            anchor: Pose2::zero(),
-            anchor_side: None,
 
             cycler,
             control_receiver,
@@ -321,15 +317,12 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
             .support_foot
             .support_side
             .unwrap();
-        if robot.anchor_side != Some(support_foot) {
-            robot.anchor_side = Some(support_foot);
-            let support_sole = match support_foot {
-                Side::Left => left_sole,
-                Side::Right => right_sole,
-            };
-            let ground = robot.database.main_outputs.robot_to_ground.unwrap() * support_sole;
-            robot.anchor = robot.ground_to_field() * to2d(ground);
-        }
+        let support_sole = match support_foot {
+            Side::Left => left_sole,
+            Side::Right => right_sole,
+        };
+        let ground = robot.database.main_outputs.robot_to_ground.unwrap() * support_sole;
+        let anchor = robot.ground_to_field() * to2d(ground);
 
         let target = robot.database.main_outputs.walk_motor_commands.positions;
         let positions = &mut robot.database.main_outputs.sensor_data.positions;
@@ -350,7 +343,7 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
         };
         let ground = robot.database.main_outputs.robot_to_ground.unwrap() * support_sole;
         let new_anchor = robot.ground_to_field() * to2d(ground);
-        let movement = robot.anchor.as_transform() * new_anchor.as_transform::<Field>().inverse();
+        let movement = anchor.as_transform() * new_anchor.as_transform::<Field>().inverse();
         let step = robot.ground_to_field().inverse() * movement * robot.ground_to_field();
         let ground_to_field_change = Some(Isometry2::from_parts(
             step.translation().coords(),
