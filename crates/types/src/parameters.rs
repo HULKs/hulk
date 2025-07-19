@@ -37,6 +37,7 @@ pub struct BehaviorParameters {
     pub look_action: LookActionParameters,
     pub intercept_ball: InterceptBallParameters,
     pub maximum_lookaround_duration: Duration,
+    pub time_to_reach_delay_when_fallen: Duration,
     pub maximum_standup_attempts: u32,
 }
 
