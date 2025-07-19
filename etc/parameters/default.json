@@ -1209,7 +1209,7 @@
     "keeper_replacementkeeper_switch_time": { "nanos": 0, "secs": 12 },
     "maximum_trusted_team_ball_age": { "nanos": 0, "secs": 1 },
     "loser_timeout": { "nanos": 0, "secs": 5 },
-    "claim_striker_from_team_ball": true
+    "claim_striker_from_team_ball": false
   },
   "walk_speed": {
     "defend": "Normal",
