@@ -72,6 +72,7 @@ impl Standing {
                 midpoint: 0.5,
             },
             time_since_start: Duration::ZERO,
+            xy_time_since_start: Duration::ZERO,
             gyro_balancing: Default::default(),
             foot_leveling: Default::default(),
             last_engine_feet: feet,
