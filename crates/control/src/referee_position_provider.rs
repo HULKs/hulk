@@ -37,9 +37,9 @@ impl RefereePositionProvider {
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let expected_referee_position =
             if context.filtered_game_controller_state.global_field_side == GlobalFieldSide::Home {
-                point![0.0, context.field_dimensions.width / 2.0,]
+                point![0.0, context.field_dimensions.width / 2.0 + 0.3,]
             } else {
-                point![0.0, -context.field_dimensions.width / 2.0,]
+                point![0.0, -(context.field_dimensions.width / 2.0 + 0.3),]
             };
 
         Ok(MainOutputs {
