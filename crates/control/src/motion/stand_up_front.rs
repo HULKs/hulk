@@ -88,7 +88,7 @@ impl StandUpFront {
 
                         let estimated_remaining_duration = self
                             .interpolator
-                            .estimated_remaining_duration(self.slow_state)
+                            .estimated_remaining_duration(self.state)
                             .map(RemainingStandUpDuration::Running)
                             .unwrap_or(RemainingStandUpDuration::NotRunning);
 
@@ -146,6 +146,8 @@ impl StandUpFront {
         positions.right_leg.hip_yaw_pitch += context.leg_balancing_factor.x * gyro.x;
 
         *context.stand_up_front_estimated_remaining_duration = estimated_remaining_duration;
+
+        dbg!(estimated_remaining_duration);
 
         Ok(MainOutputs {
             stand_up_front_positions: positions.into(),
