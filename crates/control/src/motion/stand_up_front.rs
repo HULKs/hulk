@@ -147,8 +147,6 @@ impl StandUpFront {
 
         *context.stand_up_front_estimated_remaining_duration = estimated_remaining_duration;
 
-        dbg!(estimated_remaining_duration);
-
         Ok(MainOutputs {
             stand_up_front_positions: positions.into(),
         })
