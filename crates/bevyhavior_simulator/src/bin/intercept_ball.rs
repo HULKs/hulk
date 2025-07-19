@@ -3,7 +3,7 @@ use bevy::{ecs::system::SystemParam, prelude::*};
 use linear_algebra::{point, vector, Isometry2, Point2, Vector};
 use scenario::scenario;
 use spl_network_messages::{GameState, PlayerNumber};
-use types::ball_position::SimulatorBallState;
+use types::{ball_position::SimulatorBallState, step::Step};
 
 use bevyhavior_simulator::{
     ball::BallResource,
@@ -34,6 +34,12 @@ fn startup(
     let mut robot = Robot::new(PlayerNumber::One);
     *robot.ground_to_field_mut() = Isometry2::from_parts(vector![-2.0, 0.0], 0.0);
     robot.parameters.step_planner.max_step_size.forward = 1.0;
+    robot.parameters.step_planner.max_step_size.left = 1.0;
+    robot.parameters.step_planner.request_scale = Step {
+        forward: 1.0,
+        left: 1.0,
+        turn: 1.0,
+    };
     commands.spawn(robot);
     game_controller.state.game_state = GameState::Playing;
     game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Playing));
