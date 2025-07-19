@@ -7,7 +7,7 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use crate::{
     camera_position::CameraPosition,
     fall_state::{FallenKind, FallingDirection, StandUpSpeed},
-    planned_path::PathSegment,
+    planned_path::Path,
     support_foot::Side,
 };
 
@@ -93,7 +93,7 @@ pub enum MotionCommand {
     },
     Walk {
         head: HeadMotion,
-        path: Vec<PathSegment>,
+        path: Path,
         left_arm: ArmMotion,
         right_arm: ArmMotion,
         orientation_mode: OrientationMode,

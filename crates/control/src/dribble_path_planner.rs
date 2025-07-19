@@ -18,7 +18,7 @@ use types::{
     obstacles::Obstacle,
     parameters::{DribblingParameters, PathPlanningParameters},
     path_obstacles::PathObstacle,
-    planned_path::PathSegment,
+    planned_path::Path,
     rule_obstacles::RuleObstacle,
     world_state::BallState,
 };
@@ -141,7 +141,7 @@ pub fn plan(
     filtered_game_controller_state: Option<&FilteredGameControllerState>,
     dribbling_parameters: &DribblingParameters,
     path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
-) -> Option<Vec<PathSegment>> {
+) -> Option<Path> {
     let robot_to_ball = ball.ball_in_ground.coords();
     let dribble_pose_to_ball = ball.ball_in_ground - best_pose.position();
     let angle = robot_to_ball.angle(&dribble_pose_to_ball);

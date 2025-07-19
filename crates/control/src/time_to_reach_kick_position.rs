@@ -53,6 +53,7 @@ impl TimeToReachKickPosition {
         };
 
         let walk_time = dribble_path
+            .segments
             .iter()
             .map(|segment: &PathSegment| {
                 let length = segment.length();
@@ -70,7 +71,7 @@ impl TimeToReachKickPosition {
 
         let turn_angle = match orientation_mode {
             OrientationMode::Override(orientation) => orientation.angle().abs(),
-            _ => match dribble_path.first() {
+            _ => match dribble_path.segments.first() {
                 Some(PathSegment::LineSegment(line_segment)) => {
                     line_segment.1.coords().angle(&Vector2::x_axis()).abs()
                 }

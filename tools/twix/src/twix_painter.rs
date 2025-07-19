@@ -15,7 +15,10 @@ use geometry::{arc::Arc, circle::Circle, direction::AngleTo, rectangle::Rectangl
 use linear_algebra::{
     point, vector, IntoTransform, Isometry2, Orientation2, Point2, Pose2, Transform, Vector2,
 };
-use types::{field_dimensions::FieldDimensions, planned_path::PathSegment};
+use types::{
+    field_dimensions::FieldDimensions,
+    planned_path::{Path, PathSegment},
+};
 
 type ScreenTransform<Frame> = Transform<Frame, Screen, Similarity2<f32>>;
 
@@ -440,14 +443,8 @@ impl<World> TwixPainter<World> {
     }
 }
 impl TwixPainter<Ground> {
-    pub fn path(
-        &self,
-        path: Vec<PathSegment>,
-        line_color: Color32,
-        arc_color: Color32,
-        width: f32,
-    ) {
-        for segment in path {
+    pub fn path(&self, path: Path, line_color: Color32, arc_color: Color32, width: f32) {
+        for segment in path.segments {
             match segment {
                 PathSegment::LineSegment(line_segment) => self.line_segment(
                     line_segment.0,
