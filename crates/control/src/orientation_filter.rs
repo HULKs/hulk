@@ -94,9 +94,15 @@ impl OrientationFilter {
                 *number_of_cycles += 1;
 
                 if *number_of_cycles >= *context.number_of_calibration_cycles {
+                    let starting_yaw = match self.calibration {
+                        Some(calibration) => calibration.euler_angles().2,
+                        None => 0.0,
+                    };
                     let gravity = -filtered_gravity.state().inner;
                     let up = nalgebra::Vector3::y();
-                    let orientation = UnitQuaternion::look_at_rh(&gravity, &up);
+                    let (roll, pitch, _) = UnitQuaternion::look_at_rh(&gravity, &up).euler_angles();
+                    let orientation = UnitQuaternion::from_euler_angles(roll, pitch, starting_yaw);
+
                     recalibrated_this_cycle = true;
                     self.calibration = Some(orientation);
                     *number_of_cycles = 0;
