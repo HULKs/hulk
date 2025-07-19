@@ -1287,7 +1287,8 @@
       "position_reached_distance": 0.4,
       "rotation_per_step": 0.4,
       "turn_secs": 3.0,
-      "stand_secs": 1.0
+      "stand_secs": 1.0,
+      "estimated_ball_speed": 0.75
     },
     "look_action": {
       "angle_threshold": 0.95,
