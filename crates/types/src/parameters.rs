@@ -105,6 +105,7 @@ pub struct RolePositionsParameters {
 pub struct SearchParameters {
     pub position_reached_distance: f32,
     pub rotation_per_step: f32,
+    pub estimated_ball_speed: f32,
 }
 
 #[derive(
