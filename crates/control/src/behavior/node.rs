@@ -281,6 +281,7 @@ impl Behavior {
                     Action::Penalize => penalize::execute(world_state),
                     Action::Initial => initial::execute(
                         world_state,
+                        context.expected_referee_position,
                         *context.enable_pose_detection,
                         context.initial_poses,
                     ),
