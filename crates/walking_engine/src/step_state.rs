@@ -74,8 +74,12 @@ impl StepState {
             .tick(context, self.normalized_time_since_start());
 
         let small_weight_on_sensors = match self.plan.support_side {
-            Side::Left => context.force_sensitive_resistors.right.sum() > 0.2,
-            Side::Right => context.force_sensitive_resistors.left.sum() > 0.2,
+            Side::Left => {
+                context.force_sensitive_resistors.right.sum() > parameters.xy_offset_stop_weight
+            }
+            Side::Right => {
+                context.force_sensitive_resistors.left.sum() > parameters.xy_offset_stop_weight
+            }
         };
 
         let xy_slip_stop = if small_weight_on_sensors
