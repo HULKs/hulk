@@ -46,6 +46,7 @@ pub struct RoleAssignment {
     last_received_striker_message: Option<SystemTime>,
     last_system_time_transmitted_game_controller_return_message: Option<SystemTime>,
     last_transmitted_spl_message: Option<SystemTime>,
+    loser_since: Option<SystemTime>,
     role: Role,
     last_time_player_was_penalized: Players<Option<SystemTime>>,
     last_sent_state: SentState,
@@ -117,6 +118,7 @@ impl RoleAssignment {
             last_received_striker_message: None,
             last_system_time_transmitted_game_controller_return_message: None,
             last_transmitted_spl_message: None,
+            loser_since: None,
             role,
             last_time_player_was_penalized: Players::new(None),
             last_sent_state: SentState::Loser,
@@ -203,7 +205,7 @@ impl RoleAssignment {
                     self.try_sending_striker_message(&mut context)?;
                 }
 
-                (Role::Striker, Role::Loser { .. }) => {
+                (Role::Striker, Role::Loser) => {
                     self.try_sending_loser_message(&mut context)?;
                 }
                 _ => {}
@@ -329,10 +331,17 @@ impl RoleAssignment {
                 context.filtered_game_controller_state,
                 *context.player_number,
                 *context.maximum_trusted_team_ball_age,
+                self.loser_since,
                 *context.loser_timeout,
                 *context.claim_striker_from_team_ball,
                 context.optional_roles,
             );
+
+            self.loser_since = match (new_role, self.loser_since) {
+                (Role::Loser, None) => Some(SystemTime::now()),
+                (Role::Loser, loser_since) => loser_since,
+                _ => None,
+            }
         }
 
         new_role
@@ -561,6 +570,7 @@ fn update_role_state_machine(
     filtered_game_controller_state: Option<&FilteredGameControllerState>,
     player_number: PlayerNumber,
     maximum_trusted_team_ball_age: Duration,
+    loser_since: Option<SystemTime>,
     loser_timeout: Duration,
     claim_striker_from_team_ball: bool,
     optional_roles: &[Role],
@@ -579,7 +589,7 @@ fn update_role_state_machine(
             Some(team_ball) if is_team_ball_trusted(team_ball) => Role::Striker,
             _ => match player_number{
                 PlayerNumber::One => Role::Keeper,
-                _ => Role::Loser { since: SystemTime::now() },
+                _ => Role::Loser,
             }
         },
 
@@ -598,19 +608,19 @@ fn update_role_state_machine(
         (Role::Striker, true, Event::Loser) => Role::Striker,
 
         // Loser remains Loser, but becomes Searcher after a timeout
-        (Role::Loser { since }, false, Event::None | Event::Loser) => {
-            if since.elapsed().expect("time ran backwards") < loser_timeout {
-                Role::Loser { since }
+        (Role::Loser, false, Event::None | Event::Loser) => {
+            if loser_since.unwrap_or(SystemTime::UNIX_EPOCH).elapsed().expect("time ran backwards") < loser_timeout {
+                Role::Loser
             } else {
                 Role::Searcher
             }
         },
 
         // Loser found ball and becomes Striker
-        (Role::Loser { .. }, true, Event::None) => Role::Striker,
+        (Role::Loser, true, Event::None) => Role::Striker,
 
         // Edge-case, Loser found Ball at the same time as receiving a loser message
-        (Role::Loser { .. }, true, Event::Loser) => Role::Striker,
+        (Role::Loser, true, Event::Loser) => Role::Striker,
 
         // Searcher remains Searcher
         (Role::Searcher, false, Event::None) |
@@ -883,7 +893,7 @@ mod test {
                 Just(Role::DefenderLeft),
                 Just(Role::DefenderRight),
                 Just(Role::Keeper),
-                Just(Role::Loser{ since: SystemTime::now() }),
+                Just(Role::Loser),
                 Just(Role::MidfielderLeft),
                 Just(Role::MidfielderRight),
                 Just(Role::ReplacementKeeper),
@@ -903,7 +913,8 @@ mod test {
             filtered_game_controller_state in prop_oneof![Just(None), Just(Some(FilteredGameControllerState{game_phase: GamePhase::PenaltyShootout{kicking_team: Team::Hulks}, ..Default::default()}))],
             player_number in Just(PlayerNumber::Five),
             maximum_trusted_team_ball_age in  Just(Duration::from_secs(5)),
-            loser_timeout in  Just(Duration::from_secs(5)),
+            loser_since in Just(Some(SystemTime::now() - Duration::from_secs(4))),
+            loser_timeout in Just(Duration::from_secs(5)),
             claim_striker_from_team_ball: bool,
             optional_roles in Just(&[Role::DefenderLeft, Role::StrikerSupporter])
         ) {
@@ -918,6 +929,7 @@ mod test {
                 filtered_game_controller_state.as_ref(),
                 player_number,
                 maximum_trusted_team_ball_age,
+                loser_since,
                 loser_timeout,
                 claim_striker_from_team_ball,
                 optional_roles,
@@ -932,6 +944,7 @@ mod test {
                 filtered_game_controller_state.as_ref(),
                 player_number,
                 maximum_trusted_team_ball_age,
+                loser_since,
                 loser_timeout,
                 claim_striker_from_team_ball,
                     optional_roles,
