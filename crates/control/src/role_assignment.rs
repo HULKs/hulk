@@ -79,6 +79,7 @@ pub struct CycleContext {
         Parameter<Duration, "role_assignment.keeper_replacementkeeper_switch_time">,
     maximum_trusted_team_ball_age:
         Parameter<Duration, "role_assignment.maximum_trusted_team_ball_age">,
+    loser_timeout: Parameter<Duration, "role_assignment.loser_timeout">,
     claim_striker_from_team_ball: Parameter<bool, "role_assignment.claim_striker_from_team_ball">,
     initial_poses: Parameter<Players<InitialPose>, "localization.initial_poses">,
     optional_roles: Parameter<Vec<Role>, "behavior.optional_roles">,
@@ -202,7 +203,7 @@ impl RoleAssignment {
                     self.try_sending_striker_message(&mut context)?;
                 }
 
-                (Role::Striker, Role::Loser) => {
+                (Role::Striker, Role::Loser { .. }) => {
                     self.try_sending_loser_message(&mut context)?;
                 }
                 _ => {}
@@ -328,6 +329,7 @@ impl RoleAssignment {
                 context.filtered_game_controller_state,
                 *context.player_number,
                 *context.maximum_trusted_team_ball_age,
+                *context.loser_timeout,
                 *context.claim_striker_from_team_ball,
                 context.optional_roles,
             );
@@ -559,6 +561,7 @@ fn update_role_state_machine(
     filtered_game_controller_state: Option<&FilteredGameControllerState>,
     player_number: PlayerNumber,
     maximum_trusted_team_ball_age: Duration,
+    loser_timeout: Duration,
     claim_striker_from_team_ball: bool,
     optional_roles: &[Role],
 ) -> Role {
@@ -576,7 +579,7 @@ fn update_role_state_machine(
             Some(team_ball) if is_team_ball_trusted(team_ball) => Role::Striker,
             _ => match player_number{
                 PlayerNumber::One => Role::Keeper,
-                _ => Role::Loser,
+                _ => Role::Loser { since: SystemTime::now() },
             }
         },
 
@@ -594,15 +597,20 @@ fn update_role_state_machine(
         // Edge-case, another Striker became Loser, so we claim striker since we see a ball
         (Role::Striker, true, Event::Loser) => Role::Striker,
 
-        // Loser remains Loser
-        (Role::Loser, false, Event::None) => Role::Loser,
-        (Role::Loser, false, Event::Loser) => Role::Loser,
+        // Loser remains Loser, but becomes Searcher after a timeout
+        (Role::Loser { since }, false, Event::None | Event::Loser) => {
+            if since.elapsed().expect("time ran backwards") < loser_timeout {
+                Role::Loser { since }
+            } else {
+                Role::Searcher
+            }
+        },
 
         // Loser found ball and becomes Striker
-        (Role::Loser, true, Event::None) => Role::Striker,
+        (Role::Loser { .. }, true, Event::None) => Role::Striker,
 
         // Edge-case, Loser found Ball at the same time as receiving a loser message
-        (Role::Loser, true, Event::Loser) => Role::Striker,
+        (Role::Loser { .. }, true, Event::Loser) => Role::Striker,
 
         // Searcher remains Searcher
         (Role::Searcher, false, Event::None) |
@@ -875,7 +883,7 @@ mod test {
                 Just(Role::DefenderLeft),
                 Just(Role::DefenderRight),
                 Just(Role::Keeper),
-                Just(Role::Loser),
+                Just(Role::Loser{ since: SystemTime::now() }),
                 Just(Role::MidfielderLeft),
                 Just(Role::MidfielderRight),
                 Just(Role::ReplacementKeeper),
@@ -895,6 +903,7 @@ mod test {
             filtered_game_controller_state in prop_oneof![Just(None), Just(Some(FilteredGameControllerState{game_phase: GamePhase::PenaltyShootout{kicking_team: Team::Hulks}, ..Default::default()}))],
             player_number in Just(PlayerNumber::Five),
             maximum_trusted_team_ball_age in  Just(Duration::from_secs(5)),
+            loser_timeout in  Just(Duration::from_secs(5)),
             claim_striker_from_team_ball: bool,
             optional_roles in Just(&[Role::DefenderLeft, Role::StrikerSupporter])
         ) {
@@ -909,6 +918,7 @@ mod test {
                 filtered_game_controller_state.as_ref(),
                 player_number,
                 maximum_trusted_team_ball_age,
+                loser_timeout,
                 claim_striker_from_team_ball,
                 optional_roles,
             );
@@ -922,6 +932,7 @@ mod test {
                 filtered_game_controller_state.as_ref(),
                 player_number,
                 maximum_trusted_team_ball_age,
+                loser_timeout,
                 claim_striker_from_team_ball,
                     optional_roles,
                 );

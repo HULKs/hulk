@@ -1,3 +1,5 @@
+use std::time::SystemTime;
+
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
@@ -18,7 +20,9 @@ pub enum Role {
     DefenderLeft,
     DefenderRight,
     Keeper,
-    Loser,
+    Loser {
+        since: SystemTime,
+    },
     MidfielderLeft,
     MidfielderRight,
     ReplacementKeeper,
