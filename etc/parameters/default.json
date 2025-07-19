@@ -417,7 +417,7 @@
       "max": [0.04, 0.02]
     },
     "max_rotation_speed": 50000.0,
-    "max_forward_acceleration": 0.01,
+    "max_forward_acceleration": 0.009,
     "max_base_inside_turn": 0.1,
     "max_inside_turn_increase": 4,
     "max_foot_speed": 0.6,
