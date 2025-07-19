@@ -173,7 +173,10 @@ opusfile-ng = "0.1.0"
 ordered-float = "4.6.0"
 parameters = { path = "crates/parameters" }
 parking_lot = "0.12.3"
-parry2d = "0.21.1"
+parry2d = { version = "0.21.1", default-features = false, features = [
+  "alloc",
+  "required-features",
+] }
 path_serde = { path = "crates/path_serde" }
 path_serde_derive = { path = "crates/path_serde_derive" }
 pathdiff = "0.2.3"
