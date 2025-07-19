@@ -1516,8 +1516,8 @@
       "secs": 3
     },
     "spl_striker_message_send_interval": {
-      "nanos": 0,
-      "secs": 2
+      "nanos": 500000000,
+      "secs": 1
     }
   },
   "team_ball": {
