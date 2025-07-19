@@ -748,7 +748,7 @@
     "odometry_scale_factor": [1.2, 1.2]
   },
   "orientation_filter": {
-    "filter_gain": 0.01,
+    "filter_gain": 0.017,
     "calibration_steady_threshold": 0.02,
     "calibration_smoothing_factor": 0.1,
     "number_of_calibration_cycles": 25
