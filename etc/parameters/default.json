@@ -1061,11 +1061,11 @@
   },
   "head_motion": {
     "maximum_velocity": {
-      "yaw": 4.0,
+      "yaw": 3.0,
       "pitch": 1.5
     },
     "maximum_defender_velocity": {
-      "yaw": 3.5,
+      "yaw": 2,
       "pitch": 1.5
     },
     "outer_maximum_pitch": 0.0,
