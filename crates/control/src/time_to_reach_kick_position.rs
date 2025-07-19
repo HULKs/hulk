@@ -90,12 +90,6 @@ impl TimeToReachKickPosition {
             Duration::ZERO
         };
 
-        // dbg!(
-        //     *context.stand_up_back_estimated_remaining_duration,
-        //     *context.stand_up_front_estimated_remaining_duration,
-        //     *context.stand_up_sitting_estimated_remaining_duration
-        // );
-
         let time_to_reach_kick_position = [
             Some(walk_duration),
             (*context.stand_up_back_estimated_remaining_duration).into(),
