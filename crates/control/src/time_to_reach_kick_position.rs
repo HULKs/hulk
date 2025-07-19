@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use framework::MainOutput;
 use linear_algebra::Vector2;
 use types::{
-    dribble_path_plan::DribblePathPlan, motion_command::OrientationMode,
+    dribble_path_plan::DribblePathPlan, fall_state::FallState, motion_command::OrientationMode,
     parameters::BehaviorParameters, planned_path::PathSegment, stand_up::RemainingStandUpDuration,
 };
 
@@ -17,6 +17,7 @@ use context_attribute::context;
 #[context]
 pub struct CycleContext {
     dribble_path_plan: Input<Option<DribblePathPlan>, "dribble_path_plan?">,
+    fall_state: Input<FallState, "fall_state">,
 
     configuration: Parameter<BehaviorParameters, "behavior">,
 
@@ -84,11 +85,18 @@ impl TimeToReachKickPosition {
             .half_rotation
             .mul_f32(turn_angle / PI);
 
+        let stand_up_penalty = if *context.fall_state != FallState::Upright {
+            context.configuration.time_to_reach_delay_when_fallen
+        } else {
+            Duration::ZERO
+        };
+
         let time_to_reach_kick_position = [
             Some(walk_duration),
             (*context.stand_up_back_estimated_remaining_duration).into(),
             (*context.stand_up_front_estimated_remaining_duration).into(),
             (*context.stand_up_sitting_estimated_remaining_duration).into(),
+            Some(stand_up_penalty),
             Some(turn_duration),
         ]
         .into_iter()

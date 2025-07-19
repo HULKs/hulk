@@ -163,6 +163,9 @@ fn transition_motion(
             MotionType::Dispatching
         }
         (MotionType::StandUpBack, true, MotionType::StandUpBack, _) => MotionType::Dispatching,
+        (MotionType::StandUpBack, true, MotionType::StandUpSitting(speed), _) => {
+            MotionType::StandUpSitting(speed)
+        }
         (MotionType::StandUpSitting(_), true, MotionType::StandUpSitting(_), _) => {
             MotionType::Dispatching
         }
