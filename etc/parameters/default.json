@@ -1285,13 +1285,9 @@
     "search": {
       "position_reached_distance": 0.4,
       "rotation_per_step": 0.4,
-<<<<<<< HEAD
-      "estimated_ball_speed": 1.0
-=======
-      "estimated_ball_speed": 1.0,
+      "estimated_ball_speed": 0.75,
       "turn_secs": 3.0,
       "stand_secs": 1.0
->>>>>>> deploy/eckiger-leuchtturm
     },
     "look_action": {
       "angle_threshold": 0.95,
