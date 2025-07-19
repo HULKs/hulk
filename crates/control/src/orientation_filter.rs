@@ -54,7 +54,7 @@ impl OrientationFilter {
         Ok(Default::default())
     }
 
-    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let measured_angular_velocity = context
             .sensor_data
             .inertial_measurement_unit
