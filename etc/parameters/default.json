@@ -1189,7 +1189,7 @@
     "corner_kick_target_distance_to_goal": 1.3,
     "min_obstacle_distance": 1.0,
     "kick_pose_robot_radius": 0.1,
-    "kick_off_angle": 0.5,
+    "kick_off_angle": 0.9,
     "default_kick_variants": ["Forward", "Side", "Turn"],
     "corner_kick_variants": ["Forward", "Side", "Turn"],
     "kick_off_kick_variants": ["Forward"],
