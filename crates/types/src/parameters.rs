@@ -179,6 +179,7 @@ pub struct WalkAndStandParameters {
     pub normal_distance_to_be_aligned: f32,
     pub defender_distance_to_be_aligned: f32,
     pub defender_hysteresis: nalgebra::Vector2<f32>,
+    pub supporter_hysteresis: nalgebra::Vector2<f32>,
 }
 
 #[derive(
