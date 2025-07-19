@@ -686,7 +686,8 @@
     ]
   },
   "localization": {
-    "circle_measurement_noise": [1000.0, 1000.0],
+    "circle_measurement_noise": [600.0, 600.0],
+    "additional_moving_noise_circle": [600.0, 600.0],
     "gradient_convergence_threshold": 1e-2,
     "gradient_descent_step_size": 0.01,
     "hypothesis_prediction_score_reduction_factor": 0.9,
@@ -726,7 +727,8 @@
       }
     },
     "line_length_acceptance_factor": 1.5,
-    "line_measurement_noise": [800.0, 320.0],
+    "line_measurement_noise": [600.0, 100.0],
+    "additional_moving_noise_line": [600.0, 200.0],
     "maximum_amount_of_gradient_descent_iterations": 20,
     "maximum_amount_of_outer_iterations": 10,
     "minimum_fit_error": 0.001,
