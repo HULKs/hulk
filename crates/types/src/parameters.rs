@@ -107,6 +107,7 @@ pub struct SearchParameters {
     pub rotation_per_step: f32,
     pub stand_secs: f32,
     pub turn_secs: f32,
+    pub estimated_ball_speed: f32,
 }
 
 #[derive(
