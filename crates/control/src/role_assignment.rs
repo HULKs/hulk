@@ -338,7 +338,7 @@ impl RoleAssignment {
             );
 
             self.loser_since = match (new_role, self.loser_since) {
-                (Role::Loser, None) => Some(SystemTime::now()),
+                (Role::Loser, None) => Some(cycle_start_time),
                 (Role::Loser, loser_since) => loser_since,
                 _ => None,
             }
@@ -609,7 +609,7 @@ fn update_role_state_machine(
 
         // Loser remains Loser, but becomes Searcher after a timeout
         (Role::Loser, false, Event::None | Event::Loser) => {
-            if loser_since.unwrap_or(SystemTime::UNIX_EPOCH).elapsed().expect("time ran backwards") < loser_timeout {
+            if cycle_start_time.duration_since(loser_since.unwrap_or(SystemTime::UNIX_EPOCH)).expect("time ran backwards") < loser_timeout {
                 Role::Loser
             } else {
                 Role::Searcher
@@ -913,11 +913,11 @@ mod test {
             filtered_game_controller_state in prop_oneof![Just(None), Just(Some(FilteredGameControllerState{game_phase: GamePhase::PenaltyShootout{kicking_team: Team::Hulks}, ..Default::default()}))],
             player_number in Just(PlayerNumber::Five),
             maximum_trusted_team_ball_age in  Just(Duration::from_secs(5)),
-            loser_since in Just(Some(SystemTime::now() - Duration::from_secs(4))),
             loser_timeout in Just(Duration::from_secs(5)),
             claim_striker_from_team_ball: bool,
             optional_roles in Just(&[Role::DefenderLeft, Role::StrikerSupporter])
         ) {
+            let loser_since = Some(cycle_start_time - Duration::from_secs(4));
             let filtered_game_controller_state: Option<FilteredGameControllerState> = filtered_game_controller_state;
             let new_role = update_role_state_machine(
                 initial_role,
