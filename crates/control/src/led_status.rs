@@ -320,7 +320,7 @@ impl LedStatus {
                     | Role::MidfielderLeft
                     | Role::MidfielderRight => Rgb::BLUE,
                     Role::Keeper | Role::ReplacementKeeper => Rgb::YELLOW,
-                    Role::Loser { .. } => Rgb::BLACK,
+                    Role::Loser => Rgb::BLACK,
                     Role::Searcher => Rgb::WHITE,
                     Role::Striker => Rgb::RED,
                     Role::StrikerSupporter => Rgb::TURQUOISE,

@@ -126,10 +126,8 @@ impl Behavior {
         }
 
         if self.previous_role != context.world_state.robot.role
-            && !matches!(
-                context.world_state.robot.role,
-                Role::Searcher | Role::Loser { .. }
-            )
+            && context.world_state.robot.role != Role::Searcher
+            && context.world_state.robot.role != Role::Loser
             && self.previous_role != Role::Keeper
         {
             self.previous_role = context.world_state.robot.role;
@@ -203,7 +201,7 @@ impl Behavior {
                 }
                 _ => actions.push(Action::DefendGoal),
             },
-            Role::Loser { .. } => actions.push(Action::SearchForLostBall),
+            Role::Loser => actions.push(Action::SearchForLostBall),
             Role::MidfielderLeft if should_do_kick_in_pose_detection(world_state) => {
                 actions.push(Action::LookAtReferee);
                 actions.push(Action::SupportLeft);

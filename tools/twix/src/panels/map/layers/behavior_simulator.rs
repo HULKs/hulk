@@ -92,7 +92,7 @@ impl Layer<Field> for BehaviorSimulator {
                     | Role::MidfielderRight,
                 ) => Color32::BLUE,
                 Some(Role::Keeper | Role::ReplacementKeeper) => Color32::YELLOW,
-                Some(Role::Loser { .. }) => Color32::BLACK,
+                Some(Role::Loser) => Color32::BLACK,
                 Some(Role::Searcher) => Color32::WHITE,
                 Some(Role::Striker) => Color32::RED,
                 Some(Role::StrikerSupporter) => Color32::LIGHT_BLUE,
