@@ -11,138 +11,138 @@
 */
 
 pub struct Features {
-    pub center: f32,
-    pub right: f32,
-    pub top: f32,
-    pub left: f32,
-    pub bottom: f32,
+pub center: f32,
+pub right: f32,
+pub top: f32,
+pub left: f32,
+pub bottom: f32,
 }
 
 #[allow(
-    clippy::collapsible_else_if,
-    clippy::excessive_precision,
-    clippy::needless_return
+clippy::collapsible_else_if,
+clippy::excessive_precision,
+clippy::needless_return
 )]
 pub fn predict(features: &Features) -> f32 {
-    if features.center <= 0.4176470588235295 {
-        if features.center <= 0.3941176470588236 {
-            if features.right <= 0.3823529411764706 {
-                if features.left <= 0.37843137254901965 {
-                    if features.left <= 0.2843137254901961 {
-                        return 0.12886987279155843;
-                    } else {
-                        return 0.1212221082469262;
-                    }
-                } else {
-                    if features.center <= 0.2960784313725491 {
-                        return 0.18658499285585473;
-                    } else {
-                        return 0.13228514319471357;
-                    }
-                }
-            } else {
-                if features.left <= 0.3823529411764706 {
-                    if features.center <= 0.303921568627451 {
-                        return 0.17641368593053208;
-                    } else {
-                        return 0.13276288403061828;
-                    }
-                } else {
-                    if features.bottom <= 0.3823529411764706 {
-                        return 0.15470478884094854;
-                    } else {
-                        return 0.23830679645549777;
-                    }
-                }
-            }
-        } else {
-            if features.right <= 0.3901960784313726 {
-                if features.left <= 0.38627450980392164 {
-                    return 0.13683437281921776;
-                } else {
-                    if features.bottom <= 0.3823529411764706 {
-                        return 0.1703009738805902;
-                    } else {
-                        return 0.24299087359451027;
-                    }
-                }
-            } else {
-                if features.left <= 0.3901960784313726 {
-                    if features.left <= 0.3823529411764706 {
-                        return 0.20103568926900833;
-                    } else {
-                        return 0.32017111860092673;
-                    }
-                } else {
-                    if features.top <= 0.48431372549019613 {
-                        return 0.631942558231881;
-                    } else {
-                        return 0.2928143765274028;
-                    }
-                }
-            }
-        }
-    } else {
-        if features.right <= 0.41372549019607846 {
-            if features.left <= 0.4058823529411765 {
-                if features.bottom <= 0.39803921568627454 {
-                    if features.center <= 0.4960784313725491 {
-                        return 0.15842406703637488;
-                    } else {
-                        return 0.23096003183492772;
-                    }
-                } else {
-                    if features.right <= 0.39803921568627454 {
-                        return 0.23908277395246438;
-                    } else {
-                        return 0.3866008442937028;
-                    }
-                }
-            } else {
-                if features.bottom <= 0.4058823529411765 {
-                    if features.top <= 0.4058823529411765 {
-                        return 0.2511718586608732;
-                    } else {
-                        return 0.5251074813968122;
-                    }
-                } else {
-                    if features.center <= 0.48039215686274517 {
-                        return 0.5726155285940048;
-                    } else {
-                        return 0.7269162443845337;
-                    }
-                }
-            }
-        } else {
-            if features.left <= 0.41372549019607846 {
-                if features.bottom <= 0.4058823529411765 {
-                    if features.top <= 0.4098039215686275 {
-                        return 0.25604398337606676;
-                    } else {
-                        return 0.5681447797785855;
-                    }
-                } else {
-                    if features.center <= 0.48039215686274517 {
-                        return 0.6016854390884664;
-                    } else {
-                        return 0.7299388976259975;
-                    }
-                }
-            } else {
-                if features.bottom <= 0.41372549019607846 {
-                    if features.top <= 0.4098039215686275 {
-                        return 0.508852100462204;
-                    } else {
-                        return 0.77431898518854;
-                    }
-                } else {
-                    if features.top <= 0.4176470588235295 {
-                        return 0.8063226295654063;
-                    } else {
-                        return 0.8686042704408621;
-                    }
-                }
-            }
-        }
-    }
+if features.center <= 0.41372549019607846 {
+if features.center <= 0.38627450980392164 {
+if features.left <= 0.37843137254901965 {
+if features.right <= 0.3705882352941177 {
+if features.bottom <= 0.39803921568627454 {
+return 0.12116682623258168;
+} else {
+return 0.12784465347975446;
+}
+} else {
+if features.center <= 0.3705882352941177 {
+return 0.12973564792927733;
+} else {
+return 0.15302289428583216;
+}
+}
+} else {
+if features.right <= 0.37843137254901965 {
+if features.center <= 0.303921568627451 {
+return 0.17272543082255798;
+} else {
+return 0.13206022094846728;
+}
+} else {
+if features.bottom <= 0.37843137254901965 {
+return 0.15212753723088504;
+} else {
+return 0.24999857056862332;
+}
+}
+}
+} else {
+if features.right <= 0.3823529411764706 {
+if features.left <= 0.37843137254901965 {
+return 0.13442821190419835;
+} else {
+if features.bottom <= 0.37843137254901965 {
+return 0.16967578449554185;
+} else {
+return 0.23894101889265834;
+}
+}
+} else {
+if features.left <= 0.3823529411764706 {
+if features.bottom <= 0.37843137254901965 {
+return 0.17284697746801755;
+} else {
+return 0.2457767941966458;
+}
+} else {
+if features.bottom <= 0.37843137254901965 {
+return 0.3012658492199801;
+} else {
+return 0.5964499205008726;
+}
+}
+}
+}
+} else {
+if features.left <= 0.41372549019607846 {
+if features.right <= 0.40196078431372556 {
+if features.bottom <= 0.3941176470588236 {
+if features.top <= 0.3941176470588236 {
+return 0.15010415460259663;
+} else {
+return 0.21040891818393506;
+}
+} else {
+if features.left <= 0.3941176470588236 {
+return 0.2533435647807847;
+} else {
+return 0.416101069835509;
+}
+}
+} else {
+if features.bottom <= 0.40196078431372556 {
+if features.top <= 0.40196078431372556 {
+return 0.2557250840428251;
+} else {
+return 0.5632677671511223;
+}
+} else {
+if features.top <= 0.4058823529411765 {
+return 0.5919476612870447;
+} else {
+return 0.7223066256709855;
+}
+}
+}
+} else {
+if features.right <= 0.41372549019607846 {
+if features.bottom <= 0.4058823529411765 {
+if features.top <= 0.4058823529411765 {
+return 0.2766886127748117;
+} else {
+return 0.5776273836602992;
+}
+} else {
+if features.center <= 0.4607843137254902 {
+return 0.6322608028508981;
+} else {
+return 0.7447113217587108;
+}
+}
+} else {
+if features.bottom <= 0.4098039215686275 {
+if features.top <= 0.4058823529411765 {
+return 0.5156280479884553;
+} else {
+return 0.785876202251901;
+}
+} else {
+if features.top <= 0.41372549019607846 {
+return 0.8042369938047145;
+} else {
+return 0.8694056947714173;
+}
+}
+}
+}
+}
 }
