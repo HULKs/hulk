@@ -40,7 +40,7 @@ impl ObstacleReceiver {
             .network_message
             .persistent
             .values()
-            .flat_map(|messages| messages.iter().filter_map(|message| (*message)))
+            .flat_map(|messages| messages.iter().filter_map(|message| *message))
             .filter_map(|message| match message {
                 IncomingMessage::Spl(message) => Some(*message),
                 _ => None,
