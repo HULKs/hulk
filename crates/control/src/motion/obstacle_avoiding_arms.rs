@@ -136,7 +136,7 @@ impl Arm {
                 )
                 .unwrap()
                 .into();
-                Self::PullingTight { interpolator }
+                Self::ReleasingTight { interpolator }
             }
             Self::ReleasingTight { mut interpolator } => {
                 interpolator.advance_by(last_cycle_duration);
