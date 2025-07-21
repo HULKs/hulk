@@ -26,6 +26,8 @@ mod step_plan;
 pub mod step_state;
 mod stiffness;
 
+pub use kick_state::KickState;
+
 /// # WalkingEngine
 /// This node generates foot positions and thus leg angles for the robot to execute a walk.
 /// The algorithm to compute the feet trajectories is loosely based on the work of Bernhard Hengst
