@@ -10,7 +10,7 @@ use linear_algebra::{Isometry2, Isometry3, Orientation3, Point2};
 use projection::camera_matrices::CameraMatrices;
 use spl_network_messages::HulkMessage;
 use types::{
-    ball_position::{BallPosition, HypotheticalBallPosition},
+    ball_position::HypotheticalBallPosition,
     buttons::Buttons,
     calibration::CalibrationCommand,
     cycle_time::CycleTime,
@@ -49,7 +49,6 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub ball_position: MainOutput<Option<BallPosition<Ground>>>,
     pub buttons: MainOutput<Buttons>,
     pub cycle_time: MainOutput<CycleTime>,
     pub fall_state: MainOutput<FallState>,
@@ -89,7 +88,6 @@ impl FakeData {
             .lock();
         let last_database = &receiver.borrow_and_mark_as_seen().main_outputs;
         Ok(MainOutputs {
-            ball_position: last_database.ball_position.into(),
             buttons: last_database.buttons.into(),
             cycle_time: last_database.cycle_time.into(),
             fall_state: last_database.fall_state.into(),
