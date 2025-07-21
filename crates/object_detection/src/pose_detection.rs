@@ -147,7 +147,7 @@ impl PoseDetection {
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let (behavior_requests_pose_detection, image_size_used_for_detection) =
             match context.motion_command {
-                MotionCommand::Initial {
+                MotionCommand::Standby {
                     head: HeadMotion::LookAtReferee { .. },
                     ..
                 } => (true, DetectionRegion::Narrow),
