@@ -1207,8 +1207,9 @@
   "role_assignment": {
     "forced_role": null,
     "keeper_replacementkeeper_switch_time": { "nanos": 0, "secs": 12 },
+    "claim_striker_from_team_ball": false,
     "maximum_trusted_team_ball_age": { "nanos": 0, "secs": 1 },
-    "claim_striker_from_team_ball": false
+    "maximum_trusted_team_ball_distance": 0.5
   },
   "walk_speed": {
     "defend": "Normal",
