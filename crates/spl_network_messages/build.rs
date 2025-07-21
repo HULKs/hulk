@@ -5,7 +5,6 @@ use bindgen::Builder;
 fn main() {
     let bindings = Builder::default()
         .header("headers/RoboCupGameControlData.hpp")
-        .header("headers/VisualRefereeChallenge.hpp")
         .parse_callbacks(Box::new(bindgen::CargoCallbacks::new()))
         .layout_tests(false)
         .fit_macro_constants(true)
