@@ -1578,9 +1578,9 @@
     "cells_per_meter": 2.0,
     "heatmap_convolution_kernel_weight": 0.001007049,
     "minimum_validity": 0.01,
-    "own_ball_weight": 1.0,
-    "team_ball_weight": 1.0,
-    "rule_ball_weight": 1.0
+    "own_ball_weight": 0.1,
+    "team_ball_weight": 0.1,
+    "rule_ball_weight": 0.5
   },
   "physical_constants": {
     "gravity_acceleration": 9.81
