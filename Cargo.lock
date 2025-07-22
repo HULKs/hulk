@@ -1821,6 +1821,7 @@ dependencies = [
  "bevy",
  "bincode",
  "buffered_watch",
+ "calibration",
  "chrono",
  "clap 4.5.40",
  "code_generation",
