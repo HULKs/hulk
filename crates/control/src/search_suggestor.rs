@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeMap,
     ops::{Index, IndexMut},
     time::SystemTime,
 };
@@ -8,7 +9,7 @@ use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use itertools::Itertools;
-use linear_algebra::{point, Isometry2, Point2, Vector2};
+use linear_algebra::{point, Isometry2, Point2};
 use nalgebra::clamp;
 use ndarray::{array, Array2};
 use ndarray_conv::{ConvExt, ConvMode, PaddingMode};
@@ -23,11 +24,10 @@ use types::{
     primary_state::PrimaryState,
 };
 
-use crate::team_ball_receiver::get_spl_messages;
-
 #[derive(Deserialize, Serialize)]
 pub struct SearchSuggestor {
     heatmap: Heatmap,
+    previous_filtered_game_controller_state: Option<FilteredGameControllerState>,
 }
 
 #[context]
@@ -75,11 +75,16 @@ impl SearchSuggestor {
             field_dimensions: *context.field_dimensions,
             cells_per_meter: context.search_suggestor_configuration.cells_per_meter,
         };
-        Ok(Self { heatmap })
+        Ok(Self {
+            heatmap,
+            previous_filtered_game_controller_state: None,
+        })
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         self.update_heatmap(&context)?;
+        self.previous_filtered_game_controller_state =
+            context.filtered_game_controller_state.cloned();
         let suggested_search_position = self
             .heatmap
             .get_maximum_position(context.search_suggestor_configuration.minimum_validity);
@@ -96,7 +101,8 @@ impl SearchSuggestor {
     fn update_heatmap(&mut self, context: &CycleContext) -> Result<()> {
         if let Some(ball_position) = context.ball_position {
             if let Some(ground_to_field) = context.ground_to_field {
-                self.heatmap[ground_to_field * ball_position.position] = 1.0;
+                self.heatmap[ground_to_field * ball_position.position] =
+                    context.search_suggestor_configuration.own_ball_weight;
             }
         }
         for ball_hypothesis in context.hypothetical_ball_positions {
@@ -117,12 +123,21 @@ impl SearchSuggestor {
                 self.heatmap[rule_ball_hypothesis] =
                     context.search_suggestor_configuration.rule_ball_weight;
             }
+            if let Some(previous_filtered_game_controller_state) =
+                &self.previous_filtered_game_controller_state
+            {
+                if filtered_game_controller_state.sub_state == Some(SubState::KickIn)
+                    && previous_filtered_game_controller_state.sub_state
+                        != filtered_game_controller_state.sub_state
+                {
+                    self.heatmap.project_to_sidelines();
+                }
+            }
         }
 
         let messages = get_spl_messages(&context.network_message.persistent);
-        for (time, message) in messages {
+        for message in messages {
             self.heatmap.add_teamballs(
-                time,
                 message,
                 context.search_suggestor_configuration.team_ball_weight,
             );
@@ -190,20 +205,24 @@ impl Heatmap {
         None
     }
 
-    fn add_teamballs(&mut self, time: SystemTime, message: HulkMessage, team_ball_weight: f32) {
-        let (_, ball) = match message {
-            HulkMessage::Striker(striker_message) => (
-                striker_message.player_number,
-                Some(BallPosition {
-                    position: striker_message.ball_position.position,
-                    velocity: Vector2::zeros(),
-                    last_seen: time - striker_message.ball_position.age,
-                }),
-            ),
+    fn add_teamballs(&mut self, message: HulkMessage, team_ball_weight: f32) {
+        let ball_position = match message {
+            HulkMessage::Striker(striker_message) => striker_message.ball_position.position,
             HulkMessage::Loser(_) | HulkMessage::VisualReferee(_) => return,
         };
-        if let Some(ball_position) = ball {
-            self[ball_position.position] = team_ball_weight;
+        self[ball_position] = team_ball_weight;
+    }
+
+    fn project_to_sidelines(&mut self) {
+        let (width, height) = self.map.dim();
+        for x in 0..width {
+            for y in 1..height - 1 {
+                let bottom_fraction = y as f32 / (height - 1) as f32;
+                let top_fraction = 1.0 - bottom_fraction;
+                self.map[(x, 0)] += self.map[(x, y)] * top_fraction;
+                self.map[(x, height - 1)] += self.map[(x, y)] * bottom_fraction;
+                self.map[(x, y)] = 0.0;
+            }
         }
     }
 }
@@ -278,4 +297,17 @@ fn kicking_team_half(kicking_team: Option<Team>) -> Option<Half> {
         Some(Team::Hulks) => Some(Half::Own),
         None => None,
     }
+}
+
+pub fn get_spl_messages<'a>(
+    persistent_messages: &'a BTreeMap<SystemTime, Vec<Option<&'_ IncomingMessage>>>,
+) -> impl Iterator<Item = HulkMessage> + 'a {
+    persistent_messages
+        .values()
+        .flatten()
+        .flatten()
+        .filter_map(|message| match message {
+            IncomingMessage::Spl(message) => Some(*message),
+            _ => None,
+        })
 }
