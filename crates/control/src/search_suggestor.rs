@@ -1,6 +1,6 @@
 use std::{
     f32::consts,
-    ops::{Index, IndexMut},
+    ops::{ControlFlow, Index, IndexMut, Range},
     time::SystemTime,
 };
 
@@ -176,6 +176,10 @@ impl SearchSuggestor {
                     left_edge,
                     right_edge,
                     context.search_suggestor_configuration.decay_distance_factor,
+                    context
+                        .search_suggestor_configuration
+                        .heatmap_decay_range
+                        .clone(),
                 );
             }
         }
@@ -263,6 +267,7 @@ impl Heatmap {
         left_edge: Vector2<Field>,
         right_edge: Vector2<Field>,
         decay_distance_factor: f32,
+        heatmap_decay_range: Range<f32>,
     ) {
         self.map.indexed_iter_mut().for_each(|((x, y), value)| {
             let tile_center_in_field: Vector2<Field> = vector![
@@ -276,8 +281,8 @@ impl Heatmap {
                 && get_direction(right_edge, robot_to_tile) == Direction::Clockwise;
             let distancse_to_tile = robot_to_tile.norm();
             let relative_distance_to_tile =
-                clamp(distancse_to_tile / self.field_dimensions.length, 0.0, 1.0);
-            if is_inside_sight && distancse_to_tile > 0.25 {
+                clamp(distancse_to_tile / heatmap_decay_range.end, 0.0, 1.0);
+            if is_inside_sight && heatmap_decay_range.contains(&distancse_to_tile) {
                 *value *= 1.0 - decay_distance_factor * relative_distance_to_tile;
             }
         });
