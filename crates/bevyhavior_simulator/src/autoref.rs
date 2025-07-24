@@ -165,8 +165,8 @@ pub fn auto_assistant_referee(
 
                 match sub_state {
                     Some(SubState::CornerKick) => {
-                        let side = if let Some(ball) = ball.state.as_mut() {
-                            if ball.position.y() <= 0.0 {
+                        let side = if let Some(ball) = ball.state {
+                            if ball.position.y() >= 0.0 {
                                 Side::Left
                             } else {
                                 Side::Right
@@ -194,8 +194,8 @@ pub fn auto_assistant_referee(
                         });
                     }
                     Some(SubState::GoalKick) => {
-                        let side = if let Some(ball) = ball.state.as_mut() {
-                            if ball.position.x() >= 0.0 {
+                        let side = if let Some(ball) = ball.state {
+                            if ball.position.y() >= 0.0 {
                                 Side::Left
                             } else {
                                 Side::Right
@@ -213,22 +213,19 @@ pub fn auto_assistant_referee(
                         });
                     }
                     Some(SubState::KickIn) => {
-                        let x = if let Some(ball) = ball.state.as_mut() {
-                            ball.position.x()
-                        } else {
-                            0.0
-                        };
-                        let side = if let Some(ball) = ball.state.as_mut() {
-                            if ball.position.x() >= 0.0 {
+                        let position = if let Some(ball) = ball.state {
+                            let x = ball.position.x();
+                            let y = if ball.position.y() >= 0.0 {
                                 field_dimensions.width / 2.0
                             } else {
                                 -field_dimensions.width / 2.0
-                            }
+                            };
+                            point![x, y]
                         } else {
-                            field_dimensions.width / 2.0
+                            point![0.0, field_dimensions.width / 2.0]
                         };
                         ball.state = Some(SimulatorBallState {
-                            position: point!(x, side),
+                            position,
                             velocity: vector![0.0, 0.0],
                         });
                     }
