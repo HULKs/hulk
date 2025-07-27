@@ -1,8 +1,6 @@
-use std::f32::consts::FRAC_PI_3;
-
 use coordinate_systems::Field;
 use framework::AdditionalOutput;
-use linear_algebra::{vector, Orientation2, Point2, Pose2, Rotation2};
+use linear_algebra::{Point2, Pose2, Rotation2};
 use types::{
     motion_command::{MotionCommand, OrientationMode, WalkSpeed},
     path_obstacles::PathObstacle,
@@ -31,10 +29,7 @@ pub fn execute(
         look_action.execute(),
         path_obstacles_output,
         walk_speed,
-        OrientationMode::LookTowards {
-            direction: Orientation2::from_vector(field_to_ground * vector![1.0, 0.0]),
-            tolerance: FRAC_PI_3,
-        },
+        OrientationMode::AlignWithPath,
         distance_to_be_aligned,
         walk_and_stand.parameters.hysteresis,
     )
