@@ -10,7 +10,7 @@ use repository::{inspect_version::check_for_update, Repository};
 
 use aliveness::aliveness;
 use analyze::analyze;
-use cargo::{build, cargo, check, clippy, install, run, test};
+use cargo::{build, cargo, check, clippy, install, nextest, run, test};
 use communication::communication;
 use completions::completions;
 use game_branch::game_branch;
@@ -100,6 +100,8 @@ enum Command {
     /// Interact with logs on NAOs
     #[command(subcommand)]
     Logs(logs::Arguments),
+    /// Run cargo nextest
+    Nextest(cargo::Arguments<nextest::Arguments>),
     /// Change player numbers of NAOs in local parameters
     Playernumber(player_number::Arguments),
     /// Ping NAOs
@@ -204,6 +206,9 @@ async fn main() -> Result<()> {
         Command::Logs(arguments) => logs(arguments)
             .await
             .wrap_err("failed to execute logs command")?,
+        Command::Nextest(arguments) => cargo(arguments, &repository?, &[] as &[&str])
+            .await
+            .wrap_err("failed to execute nextest command")?,
         Command::Ping(arguments) => ping(arguments).await,
         Command::Playernumber(arguments) => player_number(arguments, &repository?)
             .await

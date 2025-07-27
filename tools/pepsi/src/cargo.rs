@@ -24,6 +24,7 @@ pub mod clippy;
 pub mod common;
 pub mod environment;
 pub mod install;
+pub mod nextest;
 pub mod run;
 pub mod test;
 mod heading {
