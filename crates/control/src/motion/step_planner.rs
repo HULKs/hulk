@@ -101,12 +101,7 @@ impl StepPlanner {
             self.last_step_plan = None;
             self.last_support_side = None;
             return Ok(MainOutputs {
-                planned_step: Step {
-                    forward: 0.0,
-                    left: 0.0,
-                    turn: 0.0,
-                }
-                .into(),
+                planned_step: Step::ZERO.into(),
             });
         };
 
@@ -164,19 +159,11 @@ impl StepPlanner {
             }
         };
 
-        let next_support_side = context
-            .walking_engine_mode
-            .support_side()
-            .unwrap_or(Side::Left)
-            .opposite();
-
         let step = Step {
             forward: step.forward * context.request_scale.forward,
             left: step.left * context.request_scale.left,
             turn: step.turn * context.request_scale.turn,
         };
-
-        let step = clamp_step_size(step, next_support_side, walk_volume_extents);
 
         Ok(MainOutputs {
             planned_step: step.into(),
@@ -256,9 +243,9 @@ impl StepPlanner {
                 Some(result)
             })
             .collect_array()
-            .unwrap();
+            .expect("failed to collect steps into fixed-size array");
 
-        let next_step = *step_plan.first().unwrap();
+        let next_step = *step_plan.first().expect("step plan was empty");
 
         context.step_plan.fill_if_subscribed(|| step_plan);
         context.step_plan_gradient.fill_if_subscribed(|| gradient);
@@ -313,11 +300,7 @@ fn step_plan_greedy(
                         let rotation = if direction.norm_squared() < f32::EPSILON {
                             Orientation2::identity()
                         } else {
-                            let normalized_direction = direction.normalize();
-                            Orientation2::from_cos_sin_unchecked(
-                                normalized_direction.x(),
-                                normalized_direction.y(),
-                            )
+                            Orientation2::from_vector(direction)
                         };
                         Pose2::from_parts(line_segment.1, rotation)
                     }
