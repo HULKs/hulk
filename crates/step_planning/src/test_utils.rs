@@ -5,9 +5,10 @@ pub mod verify_gradient;
 use std::f32::consts::{PI, TAU};
 
 use approx::AbsDiffEq;
+use proptest::test_runner::Config as ProptestConfig;
+
 use coordinate_systems::Ground;
 use linear_algebra::{point, vector, Orientation2, Point2};
-use proptest::test_runner::Config as ProptestConfig;
 
 pub fn proptest_config() -> ProptestConfig {
     ProptestConfig {
