@@ -480,7 +480,7 @@ pub struct StepPlanningOptimizationParameters {
     pub path_progress_smoothness: f32,
     pub target_orientation_ahead_tolerance: f32,
     pub target_orientation_side_alignment_tolerance: f32,
-    pub alignment_ramp_steepness: f32,
+    pub hybrid_align_distance: f32,
     pub warm_start: bool,
 }
 

@@ -1,4 +1,4 @@
-use std::f32::consts::FRAC_PI_2;
+use std::f32::consts::{FRAC_PI_2, PI};
 
 use nalgebra::RealField;
 use num_dual::DualNum;
@@ -130,12 +130,20 @@ impl StepPlanning<'_> {
             + target_orientation_gradient
     }
 
-    // https://www.desmos.com/calculator/mzuvbmrxym
+    // https://www.desmos.com/calculator/ng03egi9mp
     fn target_alignment_importance(&self, distance_to_target: f32) -> f32 {
-        (1.0 - f32::tanh(
-            (distance_to_target - self.distance_to_be_aligned)
-                * self.parameters.alignment_ramp_steepness,
-        )) / 2.0
+        if distance_to_target < self.distance_to_be_aligned {
+            1.0
+        } else if distance_to_target
+            < self.distance_to_be_aligned + self.parameters.hybrid_align_distance
+        {
+            (1.0 + f32::cos(
+                PI * (distance_to_target - self.distance_to_be_aligned)
+                    / self.parameters.hybrid_align_distance,
+            )) * 0.5
+        } else {
+            0.0
+        }
     }
 
     fn path_distance(&self) -> PathDistanceField<'_> {
