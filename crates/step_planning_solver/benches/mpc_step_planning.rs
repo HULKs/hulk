@@ -30,7 +30,7 @@ fn plan_steps(path: &Path) {
             path_progress_smoothness: 0.05,
             target_orientation_ahead_tolerance: 0.5,
             target_orientation_side_alignment_tolerance: 1.4,
-            alignment_ramp_steepness: 50.0,
+            hybrid_align_distance: 0.1,
             warm_start: true,
         };
     const WALK_VOLUME_EXTENTS: WalkVolumeExtents = WalkVolumeExtents {
