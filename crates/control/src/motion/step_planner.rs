@@ -1,4 +1,4 @@
-use std::array;
+use std::{array, f32::consts::PI};
 
 use color_eyre::Result;
 use itertools::Itertools;
@@ -137,6 +137,7 @@ impl StepPlanner {
                 &mut context,
                 *orientation_mode,
                 *target_orientation,
+                *distance_to_be_aligned,
                 walk_volume_extents,
             )
             .expect("greedy step planning failed");
@@ -269,7 +270,8 @@ fn step_plan_greedy(
     path: &Path,
     context: &mut CycleContext,
     orientation_mode: OrientationMode,
-    _target_orientation: Orientation2<Ground>,
+    target_orientation: Orientation2<Ground>,
+    distance_to_be_aligned: f32,
     walk_volume_extents: &WalkVolumeExtents,
 ) -> Result<[Step; NUM_STEPS]> {
     let initial_pose = context.ground_to_upcoming_support.inverse().as_pose();
@@ -316,15 +318,26 @@ fn step_plan_greedy(
                     }
                 };
 
-                let step_target = pose.as_transform::<Ground>().inverse() * target_pose;
+                struct CurrentPose;
+                let ground_to_current_pose = pose.as_transform::<CurrentPose>().inverse();
+
+                let step_target = ground_to_current_pose * target_pose;
 
                 let step = Step {
                     forward: step_target.position().x(),
                     left: step_target.position().y(),
                     turn: match orientation_mode {
-                        OrientationMode::Unspecified => step_target.orientation().angle(),
-                        OrientationMode::AlignWithPath => {
-                            pose.position().look_at(&target_pose.position()).angle()
+                        OrientationMode::Unspecified | OrientationMode::AlignWithPath => {
+                            let to_step_target = target_pose.position() - pose.position();
+                            let step_target_orientation = hybrid_alignment(
+                                target_orientation,
+                                Orientation2::from_vector(to_step_target),
+                                to_step_target.norm(),
+                                context.optimization_parameters.hybrid_align_distance,
+                                distance_to_be_aligned,
+                            );
+
+                            step_target_orientation.angle()
                         }
                         OrientationMode::LookTowards { direction, .. } => {
                             (pose.orientation().as_transform::<Ground>().inverse() * direction)
@@ -371,5 +384,123 @@ fn upcoming_support_pose_in_ground(context: &CycleContext) -> Pose<f32> {
     Pose {
         position: pose.position(),
         orientation: Orientation(pose.orientation().angle()),
+    }
+}
+
+pub fn hybrid_alignment(
+    target_orientation: Orientation2<Ground>,
+    forward_orientation: Orientation2<Ground>,
+    distance_to_target: f32,
+    hybrid_align_distance: f32,
+    distance_to_be_aligned: f32,
+) -> Orientation2<Ground> {
+    if distance_to_target > distance_to_be_aligned + hybrid_align_distance {
+        return forward_orientation;
+    }
+
+    let angle_limit = ((distance_to_target - distance_to_be_aligned) / hybrid_align_distance)
+        .clamp(0.0, 1.0)
+        * PI;
+
+    clamp_around(forward_orientation, target_orientation, angle_limit)
+}
+
+pub fn clamp_around(
+    input: Orientation2<Ground>,
+    center: Orientation2<Ground>,
+    angle_limit: f32,
+) -> Orientation2<Ground> {
+    let center_to_input = center.rotation_to(input);
+    let clamped = center_to_input.clamp_angle::<Ground>(-angle_limit, angle_limit);
+
+    clamped * center
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    use std::f32::consts::{FRAC_PI_2, PI};
+
+    use approx::assert_relative_eq;
+    use num_traits::Zero;
+
+    #[test]
+    fn clamp_noop_when_less_than_limit_around_center() {
+        let testcases = [
+            (0.0, 0.0),
+            (0.0, PI),
+            (1.0, FRAC_PI_2),
+            (-1.0, FRAC_PI_2),
+            (FRAC_PI_2, FRAC_PI_2),
+            (-FRAC_PI_2, FRAC_PI_2),
+        ];
+
+        for (input, angle_limit) in testcases {
+            let input = Orientation2::new(input);
+            let center = Orientation2::new(0.0);
+            assert_relative_eq!(clamp_around(input, center, angle_limit), input);
+        }
+    }
+
+    #[test]
+    fn clamp_clamps_to_limit_around_center() {
+        let testcases = [
+            (0.0, 0.0),
+            (PI, PI),
+            (2.0, FRAC_PI_2),
+            (-2.0, FRAC_PI_2),
+            (FRAC_PI_2, FRAC_PI_2),
+            (-FRAC_PI_2, FRAC_PI_2),
+            (PI - f32::EPSILON, FRAC_PI_2),
+            (-PI + f32::EPSILON, FRAC_PI_2),
+        ];
+
+        for (input, angle_limit) in testcases {
+            let input = Orientation2::new(input);
+            let center = Orientation2::new(0.0);
+
+            let output = clamp_around(input, center, angle_limit);
+
+            assert_relative_eq!(output.angle().abs(), angle_limit);
+            assert_eq!(output.angle().signum(), input.angle().signum())
+        }
+    }
+
+    #[test]
+    fn clamped_always_closer_than_limit() {
+        let angles = [
+            0.0,
+            PI - 0.01,
+            -PI + 0.01,
+            FRAC_PI_2,
+            -FRAC_PI_2,
+            1.0,
+            -1.0,
+            2.0,
+            -2.0,
+        ];
+
+        for input in angles {
+            for center in angles {
+                for angle_limit in angles {
+                    let angle_limit = angle_limit.abs();
+                    let input = Orientation2::new(input);
+                    let center = Orientation2::new(center);
+
+                    let output = clamp_around(input, center, angle_limit);
+
+                    let relative_output = center.rotation_to(output);
+                    let relative_input = center.rotation_to(input);
+                    assert!(relative_output.angle().abs() <= angle_limit);
+                    if !relative_output.angle().is_zero() {
+                        assert_eq!(
+                            relative_output.angle().signum(),
+                            relative_input.angle().signum()
+                        )
+                    }
+                }
+            }
+        }
     }
 }
