@@ -22,7 +22,7 @@ pub struct PlannedSteps {
     ground_to_upcoming_support: BufferHandle<Option<Isometry2<Ground, UpcomingSupport>>>,
     // foot_offset_left: BufferHandle<Option<Vector3<Ground>>>,
     // foot_offset_right: BufferHandle<Option<Vector3<Ground>>>,
-    current_support_side: BufferHandle<Option<Option<Side>>>,
+    next_support_side: BufferHandle<Option<Side>>,
 }
 
 impl Layer<Ground> for PlannedSteps {
@@ -40,8 +40,7 @@ impl Layer<Ground> for PlannedSteps {
         //     nao.subscribe_value("parameters.walking_engine.base.foot_offset_left");
         // let foot_offset_right =
         //     nao.subscribe_value("parameters.walking_engine.base.foot_offset_right");
-        let current_support_side =
-            nao.subscribe_value("Control.additional_outputs.current_support_side");
+        let next_support_side = nao.subscribe_value("Control.additional_outputs.next_support_side");
 
         Self {
             direct_step,
@@ -51,7 +50,7 @@ impl Layer<Ground> for PlannedSteps {
             ground_to_upcoming_support,
             // foot_offset_left,
             // foot_offset_right,
-            current_support_side,
+            next_support_side,
         }
     }
 
@@ -62,12 +61,8 @@ impl Layer<Ground> for PlannedSteps {
     ) -> Result<()> {
         let direct_step = self.direct_step.get_last_value()?.flatten();
         let step_plan = self.step_plan.get_last_value()?.flatten();
-        let Some(step_plan_greedy) = self.step_plan_greedy.get_last_value()?.flatten() else {
-            return Ok(());
-        };
-        let Some(step_plan_gradient) = self.step_plan_gradient.get_last_value()?.flatten() else {
-            return Ok(());
-        };
+        let step_plan_gradient = self.step_plan_gradient.get_last_value()?.flatten();
+        let step_plan_greedy = self.step_plan_greedy.get_last_value()?.flatten();
         let Some(ground_to_upcoming_support) =
             self.ground_to_upcoming_support.get_last_value()?.flatten()
         else {
@@ -79,13 +74,11 @@ impl Layer<Ground> for PlannedSteps {
         // let Some(foot_offset_right) = self.foot_offset_right.get_last_value()?.flatten() else {
         //     return Ok(());
         // };
-        let Some(current_support_side) = self.current_support_side.get_last_value()?.flatten()
-        else {
+        let Some(next_support_side) = self.next_support_side.get_last_value()?.flatten() else {
             return Ok(());
         };
 
         let upcoming_support_to_ground = ground_to_upcoming_support.inverse();
-
         let upcoming_support_pose = upcoming_support_to_ground.as_pose();
 
         painter.pose(
@@ -109,32 +102,34 @@ impl Layer<Ground> for PlannedSteps {
 
             paint_planned_step(
                 painter,
-                Color32::GREEN,
+                Color32::WHITE,
                 direct_step_end_pose,
-                current_support_side.unwrap_or(Side::Left).opposite(),
+                next_support_side,
             );
         }
 
-        if let Some(step_plan) = step_plan {
+        if let (Some(step_plan), Some(step_plan_gradient)) = (step_plan, step_plan_gradient) {
             paint_step_plan(
                 painter,
                 Color32::RED,
                 ground_to_upcoming_support,
                 step_plan,
                 step_plan_gradient,
-                current_support_side.unwrap_or(Side::Left).opposite(),
+                next_support_side,
             );
         }
 
-        let dummy_gradient = [0.0; NUM_VARIABLES];
-        paint_step_plan(
-            painter,
-            Color32::BLUE,
-            ground_to_upcoming_support,
-            step_plan_greedy,
-            dummy_gradient,
-            current_support_side.unwrap_or(Side::Left).opposite(),
-        );
+        if let Some(step_plan_greedy) = step_plan_greedy {
+            let dummy_gradient = [0.0; NUM_VARIABLES];
+            paint_step_plan(
+                painter,
+                Color32::BLUE,
+                ground_to_upcoming_support,
+                step_plan_greedy,
+                dummy_gradient,
+                next_support_side,
+            );
+        }
 
         Ok(())
     }
