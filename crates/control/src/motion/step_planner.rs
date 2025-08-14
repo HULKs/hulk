@@ -65,7 +65,7 @@ pub struct CycleContext {
     step_plan_gradient:
         AdditionalOutput<SVector<f32, { step_planning::NUM_VARIABLES }>, "step_plan_gradient">,
     step_plan_cost: AdditionalOutput<f32, "step_plan_cost">,
-    current_support_side: AdditionalOutput<Option<Side>, "current_support_side">,
+    next_support_side: AdditionalOutput<Side, "next_support_side">,
 }
 
 #[context]
@@ -129,14 +129,30 @@ impl StepPlanner {
             _ => context.walk_volume_extents,
         };
 
+        let current_support_side = context.walking_engine_mode.support_side();
+        let next_support_side = current_support_side.unwrap_or(Side::Left).opposite();
+
+        context
+            .next_support_side
+            .fill_if_subscribed(|| next_support_side);
+
         let step = if let Some(injected_step) = context.injected_step {
             *injected_step
+        } else if let Some(direct_step) =
+            self.try_direct_step(&mut context, path, *target_orientation, next_support_side)
+        {
+            context.direct_step.fill_if_subscribed(|| direct_step);
+
+            self.last_step_plan = None;
+
+            direct_step
         } else {
             let step_plan_greedy = step_plan_greedy(
                 path,
                 &mut context,
                 *orientation_mode,
                 *target_orientation,
+                next_support_side,
                 *distance_to_be_aligned,
                 walk_volume_extents,
             )
@@ -154,6 +170,7 @@ impl StepPlanner {
                     &mut context,
                     *orientation_mode,
                     *target_orientation,
+                    next_support_side,
                     *distance_to_be_aligned,
                 )?,
                 StepPlannerMode::Greedy => greedy_step,
@@ -177,42 +194,16 @@ impl StepPlanner {
         context: &mut CycleContext,
         orientation_mode: OrientationMode,
         target_orientation: Orientation2<Ground>,
+        next_support_side: Side,
         distance_to_be_aligned: f32,
     ) -> Result<Step> {
         let current_support_side = context.walking_engine_mode.support_side();
-
-        context
-            .current_support_side
-            .fill_if_subscribed(|| current_support_side);
 
         match (current_support_side, self.last_support_side) {
             (Some(current_side), Some(last_side)) if current_side != last_side => {
                 self.last_step_plan = None;
             }
             _ => {}
-        }
-
-        let next_support_side = current_support_side.unwrap_or(Side::Left).opposite();
-
-        let target_point = path.end_point();
-        let target_pose = Pose2::from_parts(target_point, target_orientation);
-
-        let target_pose_in_upcoming_support = *context.ground_to_upcoming_support * target_pose;
-        let direct_step_to_target = Step::from_pose(target_pose_in_upcoming_support);
-        let normalized_direct_step_to_target = NormalizedStep::from_step(
-            direct_step_to_target,
-            context.walk_volume_extents,
-            next_support_side,
-        );
-
-        if normalized_direct_step_to_target.is_inside_walk_volume() {
-            context
-                .direct_step
-                .fill_if_subscribed(|| direct_step_to_target);
-
-            self.last_step_plan = None;
-
-            return Ok(direct_step_to_target);
         }
 
         let variables = if context.optimization_parameters.warm_start {
@@ -254,6 +245,30 @@ impl StepPlanner {
 
         Ok(next_step)
     }
+
+    fn try_direct_step(
+        &mut self,
+        context: &mut CycleContext<'_>,
+        path: &Path,
+        target_orientation: Orientation2<Ground>,
+        next_support_side: Side,
+    ) -> Option<Step> {
+        let target_point = path.end_point();
+        let target_pose = Pose2::from_parts(target_point, target_orientation);
+        let target_pose_in_upcoming_support = *context.ground_to_upcoming_support * target_pose;
+        let direct_step_to_target = Step::from_pose(target_pose_in_upcoming_support);
+        let normalized_direct_step_to_target = NormalizedStep::from_step(
+            direct_step_to_target,
+            context.walk_volume_extents,
+            next_support_side,
+        );
+
+        if normalized_direct_step_to_target.is_inside_walk_volume() {
+            Some(direct_step_to_target)
+        } else {
+            None
+        }
+    }
 }
 
 fn clamp_step_size(
@@ -271,19 +286,15 @@ fn step_plan_greedy(
     context: &mut CycleContext,
     orientation_mode: OrientationMode,
     target_orientation: Orientation2<Ground>,
+    next_support_side: Side,
     distance_to_be_aligned: f32,
     walk_volume_extents: &WalkVolumeExtents,
 ) -> Result<[Step; NUM_STEPS]> {
     let initial_pose = context.ground_to_upcoming_support.inverse().as_pose();
-    let initial_support_side = context
-        .walking_engine_mode
-        .support_side()
-        .unwrap_or(Side::Left)
-        .opposite();
 
     let steps = (0..NUM_STEPS)
         .scan(
-            (initial_pose, initial_support_side),
+            (initial_pose, next_support_side),
             |(pose, support_side), _i| {
                 let segment = path
                     .segments
