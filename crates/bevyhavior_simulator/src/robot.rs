@@ -24,18 +24,20 @@ use geometry::{circle::Circle, polygon::circle_overlaps_polygon};
 use hula_types::hardware::Ids;
 use linear_algebra::{
     point, vector, Isometry2, Isometry3, Orientation2, Orientation3, Point2, Pose2, Pose3,
-    Rotation2, Vector2,
+    Rotation2, Vector2, Vector3,
 };
+use nalgebra::Matrix2;
 use parameters::directory::deserialize;
 use projection::intrinsic::Intrinsic;
 use spl_network_messages::{HulkMessage, PlayerNumber};
 use types::{
-    ball_position::BallPosition,
+    ball_detection::BallPercept,
     filtered_whistle::FilteredWhistle,
     joints::Joints,
     messages::{IncomingMessage, OutgoingMessage},
     motion_command::{HeadMotion, KickVariant},
     motion_selection::MotionSafeExits,
+    multivariate_normal_distribution::MultivariateNormalDistribution,
     pose_kinds::PoseKind,
     robot_dimensions::RobotDimensions,
     sensor_data::Foot,
@@ -69,6 +71,8 @@ pub struct Robot {
     parameters_sender: Sender<(SystemTime, Parameters)>,
     spl_network_sender: Producer<crate::structs::spl_network::MainOutputs>,
     object_detection_top_sender: Producer<crate::structs::object_detection::MainOutputs>,
+    vision_top_sender: Producer<crate::structs::vision::MainOutputs>,
+    _vision_bottom_sender: Producer<crate::structs::vision::MainOutputs>,
 }
 
 impl Robot {
@@ -99,6 +103,8 @@ impl Robot {
         let (spl_network_sender, spl_network_consumer) = future_queue();
         let (recording_sender, _recording_receiver) = mpsc::sync_channel(0);
         let (object_detection_top_sender, object_detection_top_consumer) = future_queue();
+        let (vision_top_sender, vision_top_consumer) = future_queue();
+        let (vision_bottom_sender, vision_bottom_consumer) = future_queue();
 
         *parameters_sender.borrow_mut() = (SystemTime::now(), parameters.clone());
 
@@ -110,6 +116,8 @@ impl Robot {
             parameters_receiver,
             spl_network_consumer,
             object_detection_top_consumer,
+            vision_top_consumer,
+            vision_bottom_consumer,
             recording_sender,
             RecordingTrigger::new(0),
         )?;
@@ -149,6 +157,8 @@ impl Robot {
             parameters_sender,
             spl_network_sender,
             object_detection_top_sender,
+            vision_top_sender,
+            _vision_bottom_sender: vision_bottom_sender,
         })
     }
 
@@ -156,6 +166,8 @@ impl Robot {
         &mut self,
         messages: &[Message],
         referee_pose_kind: &Option<PoseKind>,
+        balls_top: Vec<BallPercept>,
+        // balls_bottom: Vec<BallPercept>,
     ) -> Result<()> {
         for Message { sender, payload } in messages {
             let source_is_other = *sender != self.parameters.player_number;
@@ -172,6 +184,13 @@ impl Robot {
         self.object_detection_top_sender
             .finalize(crate::structs::object_detection::MainOutputs {
                 referee_pose_kind: referee_pose_kind.clone(),
+                ..Default::default()
+            });
+
+        self.vision_top_sender.announce();
+        self.vision_top_sender
+            .finalize(crate::structs::vision::MainOutputs {
+                balls: Some(balls_top),
                 ..Default::default()
             });
 
@@ -399,10 +418,6 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
                 let obstacle_in_field = old_ground_to_field * obstacle.position;
                 obstacle.position = new_ground_to_field.inverse() * obstacle_in_field;
             }
-            if let Some(ball) = robot.database.main_outputs.ball_position.as_mut() {
-                ball.velocity = movement.inverse() * ball.velocity;
-                ball.position = movement.inverse() * ball.position;
-            }
 
             *robot.ground_to_field_mut() = new_ground_to_field;
         }
@@ -437,7 +452,7 @@ pub fn cycle_robots(
         robot.database.main_outputs.cycle_time.start_time = now;
         robot.database.main_outputs.cycle_time.last_cycle_duration = time.delta();
 
-        let ball_visible = ball.state.as_ref().is_some_and(|ball| {
+        let visible_ball = ball.state.as_ref().filter(|ball| {
             let ball_in_ground = robot.ground_to_field().inverse() * ball.position;
             let head_to_ground =
                 Rotation2::new(robot.database.main_outputs.sensor_data.positions.head.yaw);
@@ -448,30 +463,20 @@ pub fn cycle_robots(
             angle_to_ball.abs() < field_of_view / 2.0
                 && ball_in_head.coords().norm() < robot.simulator_parameters.ball_view_range
         });
-        if ball_visible {
-            robot.database.main_outputs.ball_position =
-                ball.state.as_ref().map(|ball| BallPosition {
-                    position: robot.ground_to_field().inverse() * ball.position,
-                    velocity: robot.ground_to_field().inverse() * ball.velocity,
-                    last_seen: now,
-                });
-        }
-        if !robot
-            .database
-            .main_outputs
-            .ball_position
-            .is_some_and(|ball_position| {
-                now.duration_since(ball_position.last_seen)
-                    .expect("time ran backwards")
-                    < robot
-                        .parameters
-                        .ball_filter
-                        .hypothesis_timeout
-                        .mul_f32(robot.simulator_parameters.ball_timeout_factor)
+        let balls_top = visible_ball
+            .map(|ball| {
+                let percept = BallPercept {
+                    percept_in_ground: MultivariateNormalDistribution {
+                        mean: (robot.ground_to_field().inverse() * ball.position)
+                            .inner
+                            .coords,
+                        covariance: Matrix2::identity(),
+                    },
+                    image_location: Circle::default(),
+                };
+                vec![percept]
             })
-        {
-            robot.database.main_outputs.ball_position = None
-        };
+            .unwrap_or_default();
         *robot.whistle_mut() = FilteredWhistle {
             is_detected: Some(time.elapsed()) == whistle.last_whistle,
             last_detection: whistle
@@ -489,13 +494,15 @@ pub fn cycle_robots(
         robot.database.main_outputs.game_controller_state = Some(game_controller.state.clone());
         robot.cycler.cycler_state.ground_to_field = Some(robot.ground_to_field());
         robot.interface.set_time(now);
-        robot.database.main_outputs.robot_orientation = robot
-            .database
-            .main_outputs
-            .robot_orientation
-            .or(Some(Orientation3::default()));
+        robot.database.main_outputs.robot_orientation = Some(Orientation3::new(
+            Vector3::z_axis() * robot.ground_to_field().orientation().angle(),
+        ));
         robot
-            .cycle(&messages_sent_last_cycle, &visual_referee_pose_kind)
+            .cycle(
+                &messages_sent_last_cycle,
+                &visual_referee_pose_kind,
+                balls_top,
+            )
             .unwrap();
 
         // Walking physics

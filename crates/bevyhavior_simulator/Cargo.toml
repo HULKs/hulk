@@ -11,6 +11,7 @@ ball_filter = { workspace = true }
 bevy = { workspace = true }
 bincode = { workspace = true }
 buffered_watch = { workspace = true }
+calibration = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
 color-eyre = { workspace = true }
