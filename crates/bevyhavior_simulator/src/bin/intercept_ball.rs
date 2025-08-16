@@ -1,6 +1,6 @@
 use bevy::{ecs::system::SystemParam, prelude::*};
 
-use linear_algebra::{point, vector, Isometry2, Point2, Vector};
+use linear_algebra::{distance, point, vector, Isometry2, Point2, Vector};
 use scenario::scenario;
 use spl_network_messages::{GameState, PlayerNumber};
 use types::{ball_position::SimulatorBallState, step::Step};
@@ -32,7 +32,7 @@ fn startup(
     mut ball: ResMut<BallResource>,
 ) {
     let mut robot = Robot::new(PlayerNumber::One);
-    *robot.ground_to_field_mut() = Isometry2::from_parts(vector![-2.0, 0.0], 0.0);
+    *robot.ground_to_field_mut() = Isometry2::from_parts(vector![-4.4, 0.0], 0.0);
     robot.parameters.step_planner.max_step_size.forward = 1.0;
     robot.parameters.step_planner.max_step_size.left = 1.0;
     robot.parameters.step_planner.request_scale = Step {
@@ -60,11 +60,13 @@ fn update(
     mut state: State,
     mut soft_error: SoftErrorSender,
 ) {
+    let mut robot = robots.single_mut();
+    robot.database.main_outputs.has_ground_contact = true;
     if let Some(ball) = ball.state.as_mut() {
-        let mut robot = robots.single_mut();
         let field_dimensions = robot.parameters.field_dimensions;
 
-        if ball.velocity.x() > 0.0 {
+        let ball_rolling_towards_goal = ball.velocity.x() < 0.0;
+        if !ball_rolling_towards_goal {
             robot.database.main_outputs.ground_to_field =
                 Some(Isometry2::from_parts(vector![-4.0, 0.0], 0.0));
             ball.position = point![2.0, 0.0];
@@ -73,6 +75,8 @@ fn update(
                 field_dimensions.goal_inner_width * ((*state.count as f32 / 20.0) - 0.5) * 0.99
             ];
             ball.velocity = (target - ball.position).normalize() * 1.0;
+            *robot.ground_to_field_mut() = Isometry2::from_parts(vector![-4.4, 0.0], 0.0);
+            robot.database.main_outputs.has_ground_contact = false;
             *state.count += 1;
         }
 
