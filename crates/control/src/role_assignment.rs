@@ -14,7 +14,7 @@ use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use hardware::NetworkInterface;
-use linear_algebra::Isometry2;
+use linear_algebra::{distance, Isometry2};
 use spl_network_messages::{
     GameControllerReturnMessage, GamePhase, HulkMessage, LoserMessage, Penalty, PlayerNumber,
     StrikerMessage, SubState, Team,
@@ -80,6 +80,8 @@ pub struct CycleContext {
         Parameter<Duration, "role_assignment.keeper_replacementkeeper_switch_time">,
     maximum_trusted_team_ball_age:
         Parameter<Duration, "role_assignment.maximum_trusted_team_ball_age">,
+    maximum_trusted_team_ball_distance:
+        Parameter<f32, "role_assignment.maximum_trusted_team_ball_distance">,
     loser_timeout: Parameter<Duration, "role_assignment.loser_timeout">,
     claim_striker_from_team_ball: Parameter<bool, "role_assignment.claim_striker_from_team_ball">,
     initial_poses: Parameter<Players<InitialPose>, "localization.initial_poses">,
@@ -294,16 +296,18 @@ impl RoleAssignment {
         let messages: Vec<_> = context
             .network_message
             .persistent
-            .values()
-            .flatten()
-            .filter_map(|message| match message {
+            .iter()
+            .flat_map(|(time, messages)| messages.iter().map(|message| (*time, message)))
+            .filter_map(|(time, message)| match message {
                 Some(IncomingMessage::Spl(HulkMessage::Striker(StrikerMessage {
                     player_number,
                     time_to_reach_kick_position,
+                    ball_position,
                     ..
                 }))) => Some(Event::Striker(StrikerEvent {
                     player_number: *player_number,
                     time_to_reach_kick_position: *time_to_reach_kick_position,
+                    ball_position: BallPosition::from_network_ball(*ball_position, time),
                 })),
                 Some(IncomingMessage::Spl(HulkMessage::Loser(..))) => Some(Event::Loser),
                 _ => None,
@@ -323,17 +327,20 @@ impl RoleAssignment {
 
             new_role = update_role_state_machine(
                 new_role,
-                context.ball_position.is_some(),
+                context
+                    .ball_position
+                    .and_then(|ball_position| Some(*context.ground_to_field? * *ball_position)),
                 event,
                 context.time_to_reach_kick_position.copied(),
                 context.team_ball.copied(),
                 cycle_start_time,
                 context.filtered_game_controller_state,
                 *context.player_number,
-                *context.maximum_trusted_team_ball_age,
                 self.loser_since,
                 *context.loser_timeout,
                 *context.claim_striker_from_team_ball,
+                *context.maximum_trusted_team_ball_age,
+                *context.maximum_trusted_team_ball_distance,
                 context.optional_roles,
             );
 
@@ -557,22 +564,24 @@ enum Event {
 struct StrikerEvent {
     player_number: PlayerNumber,
     time_to_reach_kick_position: Duration,
+    ball_position: BallPosition<Field>,
 }
 
 #[allow(clippy::too_many_arguments)]
 fn update_role_state_machine(
     current_role: Role,
-    detected_own_ball: bool,
+    own_ball: Option<BallPosition<Field>>,
     event: Event,
     time_to_reach_kick_position: Option<Duration>,
     team_ball: Option<BallPosition<Field>>,
     cycle_start_time: SystemTime,
     filtered_game_controller_state: Option<&FilteredGameControllerState>,
     player_number: PlayerNumber,
-    maximum_trusted_team_ball_age: Duration,
     loser_since: Option<SystemTime>,
     loser_timeout: Duration,
     claim_striker_from_team_ball: bool,
+    maximum_trusted_team_ball_age: Duration,
+    maximum_trusted_team_ball_distance: f32,
     optional_roles: &[Role],
 ) -> Role {
     let is_team_ball_trusted = |team_ball: BallPosition<Field>| {
@@ -583,7 +592,7 @@ fn update_role_state_machine(
                 <= maximum_trusted_team_ball_age
     };
 
-    match (current_role, detected_own_ball, event) {
+    match (current_role, own_ball.is_some(), event) {
         // Striker lost Ball
         (Role::Striker, false, Event::None | Event::Loser) => match team_ball {
             Some(team_ball) if is_team_ball_trusted(team_ball) => Role::Striker,
@@ -593,6 +602,20 @@ fn update_role_state_machine(
             }
         },
 
+        (Role::Striker, true, Event::Striker(striker_event)) => {
+            let distance_between_balls = distance(own_ball.unwrap().position, striker_event.ball_position.position);
+            if distance_between_balls > maximum_trusted_team_ball_distance {
+                Role::Striker}
+            else {
+                claim_striker_or_other_role(
+                striker_event,
+                    time_to_reach_kick_position,
+                    player_number,
+                    filtered_game_controller_state,
+                    optional_roles,
+                )
+            }
+        }
         (_other_role, _, Event::Striker(striker_event)) => claim_striker_or_other_role(
             striker_event,
             time_to_reach_kick_position,
@@ -688,16 +711,18 @@ fn role_for_penalty_kick(
     persistent: BTreeMap<SystemTime, Vec<Option<&IncomingMessage>>>,
 ) -> Option<Role> {
     let messages: Vec<_> = persistent
-        .values()
-        .flatten()
-        .filter_map(|message| match message {
+        .iter()
+        .flat_map(|(time, messages)| messages.iter().map(|message| (*time, message)))
+        .filter_map(|(time, message)| match message {
             Some(IncomingMessage::Spl(HulkMessage::Striker(StrikerMessage {
                 player_number,
                 time_to_reach_kick_position,
+                ball_position,
                 ..
             }))) => Some(Event::Striker(StrikerEvent {
                 player_number: *player_number,
                 time_to_reach_kick_position: *time_to_reach_kick_position,
+                ball_position: BallPosition::from_network_ball(*ball_position, time),
             })),
             Some(IncomingMessage::Spl(HulkMessage::Loser(..))) => Some(Event::Loser),
             _ => None,
@@ -705,10 +730,7 @@ fn role_for_penalty_kick(
         .collect();
 
     let striker_number: Option<PlayerNumber> = messages.iter().find_map(|message| match message {
-        Event::Striker(StrikerEvent {
-            player_number,
-            time_to_reach_kick_position: _,
-        }) => Some(*player_number),
+        Event::Striker(StrikerEvent { player_number, .. }) => Some(*player_number),
         _ => None,
     });
 
@@ -901,7 +923,7 @@ mod test {
                 Just(Role::Striker),
                 Just(Role::StrikerSupporter),
             ],
-            detected_own_ball: bool,
+            detected_own_ball in prop_oneof![Just(None), Just(Some(BallPosition::<Field>{ last_seen: SystemTime::UNIX_EPOCH, position: Default::default(), velocity: Default::default() }))],
             event in Just(Event::None),
             time_to_reach_kick_position in prop_oneof![Just(None), Just(Some(Duration::ZERO)), Just(Some(Duration::from_secs(10_000)))],
             team_ball in prop_oneof![
@@ -914,6 +936,7 @@ mod test {
             player_number in Just(PlayerNumber::Five),
             maximum_trusted_team_ball_age in  Just(Duration::from_secs(5)),
             loser_timeout in Just(Duration::from_secs(5)),
+            maximum_trusted_team_ball_distance in 0.0..1.0f32,
             claim_striker_from_team_ball: bool,
             optional_roles in Just(&[Role::DefenderLeft, Role::StrikerSupporter])
         ) {
@@ -928,10 +951,11 @@ mod test {
                 cycle_start_time,
                 filtered_game_controller_state.as_ref(),
                 player_number,
-                maximum_trusted_team_ball_age,
                 loser_since,
                 loser_timeout,
                 claim_striker_from_team_ball,
+                maximum_trusted_team_ball_age,
+                maximum_trusted_team_ball_distance,
                 optional_roles,
             );
             let third_role = update_role_state_machine(
@@ -943,13 +967,14 @@ mod test {
                 cycle_start_time,
                 filtered_game_controller_state.as_ref(),
                 player_number,
-                maximum_trusted_team_ball_age,
                 loser_since,
                 loser_timeout,
                 claim_striker_from_team_ball,
-                    optional_roles,
-                );
-                assert_eq!(new_role, third_role);
+                maximum_trusted_team_ball_age,
+                maximum_trusted_team_ball_distance,
+                optional_roles,
+            );
+            assert_eq!(new_role, third_role);
         }
     }
 }
