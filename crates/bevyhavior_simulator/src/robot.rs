@@ -15,6 +15,7 @@ use bevy::{
     time::Time,
 };
 use color_eyre::{eyre::WrapErr, Result};
+use nalgebra::Matrix2;
 
 use buffered_watch::{Receiver, Sender};
 use control::{localization::generate_initial_pose, zero_moment_point_provider::LEFT_FOOT_OUTLINE};
@@ -23,21 +24,22 @@ use framework::{future_queue, Producer, RecordingTrigger};
 use geometry::{circle::Circle, polygon::circle_overlaps_polygon};
 use hula_types::hardware::Ids;
 use linear_algebra::{
-    point, vector, Isometry2, Isometry3, Orientation2, Orientation3, Point2, Pose2, Pose3,
-    Rotation2, Vector2, Vector3,
+    point, vector, IntoFramed, Isometry2, Isometry3, Orientation2, Orientation3, Point2, Pose2,
+    Pose3, Rotation2, Vector2, Vector3,
 };
-use nalgebra::Matrix2;
 use parameters::directory::deserialize;
-use projection::intrinsic::Intrinsic;
+use projection::{camera_matrix::CameraMatrix, intrinsic::Intrinsic, Projection};
 use spl_network_messages::{HulkMessage, PlayerNumber};
 use types::{
     ball_detection::BallPercept,
+    ball_position::SimulatorBallState,
     filtered_whistle::FilteredWhistle,
     joints::Joints,
     messages::{IncomingMessage, OutgoingMessage},
     motion_command::{HeadMotion, KickVariant},
     motion_selection::MotionSafeExits,
     multivariate_normal_distribution::MultivariateNormalDistribution,
+    parameters::BallDetectionParameters,
     pose_kinds::PoseKind,
     robot_dimensions::RobotDimensions,
     sensor_data::Foot,
@@ -462,20 +464,18 @@ pub fn cycle_robots(
             angle_to_ball.abs() < field_of_view / 2.0
                 && ball_in_head.coords().norm() < robot.simulator_parameters.ball_view_range
         });
-        let balls_top = visible_ball
-            .map(|ball| {
-                let percept = BallPercept {
-                    percept_in_ground: MultivariateNormalDistribution {
-                        mean: (robot.ground_to_field().inverse() * ball.position)
-                            .inner
-                            .coords,
-                        covariance: Matrix2::identity(),
-                    },
-                    image_location: Circle::default(),
-                };
-                vec![percept]
-            })
-            .unwrap_or_default();
+        let balls_top = Vec::from_iter(generate_ball_percept(
+            robot.ground_to_field(),
+            robot.parameters.field_dimensions.ball_radius,
+            &robot.parameters.ball_detection.vision_top,
+            robot
+                .database
+                .main_outputs
+                .camera_matrices
+                .as_ref()
+                .map(|camera_matrices| &camera_matrices.top),
+            visible_ball,
+        ));
         *robot.whistle_mut() = FilteredWhistle {
             is_detected: Some(time.elapsed()) == whistle.last_whistle,
             last_detection: whistle
@@ -556,6 +556,50 @@ pub fn cycle_robots(
             }
         }
     }
+}
+
+fn generate_ball_percept(
+    ground_to_field: Isometry2<Ground, Field>,
+    ball_radius: f32,
+    parameters: &BallDetectionParameters,
+    camera_matrix: Option<&CameraMatrix>,
+    visible_ball: Option<&SimulatorBallState>,
+) -> Option<BallPercept> {
+    let ball_in_ground = ground_to_field.inverse() * visible_ball?.position;
+    let camera_matrix = camera_matrix?;
+
+    let projected_covariance = {
+        let ball_in_image = camera_matrix
+            .robot_to_pixel(camera_matrix.ground_to_robot * ball_in_ground.extend(ball_radius))
+            .ok()?;
+        let radius_in_image = camera_matrix
+            .get_pixel_radius(ball_radius, ball_in_image)
+            .ok()?;
+
+        let distance = ball_in_ground.coords().norm();
+        let distance_noise_increase = 1.0
+            + (distance - parameters.noise_increase_distance_threshold).max(0.0)
+                * parameters.noise_increase_slope;
+
+        let scaled_noise = parameters
+            .detection_noise
+            .inner
+            .map(|x| (radius_in_image * x).powi(2))
+            .framed();
+        camera_matrix
+            .project_noise_to_ground(ball_in_ground, scaled_noise)
+            .ok()?
+            * (Matrix2::identity() * distance_noise_increase.powi(2))
+    };
+    let percept = BallPercept {
+        percept_in_ground: MultivariateNormalDistribution {
+            mean: ball_in_ground.inner.coords,
+            covariance: projected_covariance,
+        },
+        image_location: Circle::default(),
+    };
+
+    Some(percept)
 }
 
 pub struct SimulatedRobotParameters {
