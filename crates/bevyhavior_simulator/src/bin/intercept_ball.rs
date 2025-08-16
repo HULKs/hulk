@@ -81,17 +81,8 @@ fn update(
         }
 
         // basic collision physics
-        let field_to_ground = robot.ground_to_field().inverse();
-        let ball_in_ground = field_to_ground * ball.position;
-        let velocity_in_ground = field_to_ground * ball.velocity;
-
-        if ball_in_ground.coords().norm() < 0.2
-            && ball_in_ground
-                .coords()
-                .normalize()
-                .dot(&velocity_in_ground.normalize())
-                < -0.3
-        {
+        let robot_position = robot.ground_to_field().as_pose().position();
+        if distance(robot_position, ball.position) < 0.2 {
             ball.velocity = Vector::zeros();
         }
     }
