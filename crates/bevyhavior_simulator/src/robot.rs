@@ -330,44 +330,43 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
 
         let (left_sole, right_sole) =
             sole_positions(&robot.database.main_outputs.sensor_data.positions);
-        let support_foot = robot
-            .database
-            .main_outputs
-            .support_foot
-            .support_side
-            .unwrap();
-        let support_sole = match support_foot {
-            Side::Left => left_sole,
-            Side::Right => right_sole,
-        };
-        let ground = robot.database.main_outputs.robot_to_ground.unwrap() * support_sole;
-        let anchor = robot.ground_to_field() * to2d(ground);
+        let ground_to_field_change =
+            if let Some(support_foot) = robot.database.main_outputs.support_foot.support_side {
+                let support_sole = match support_foot {
+                    Side::Left => left_sole,
+                    Side::Right => right_sole,
+                };
+                let ground = robot.database.main_outputs.robot_to_ground.unwrap() * support_sole;
+                let anchor = robot.ground_to_field() * to2d(ground);
 
-        let target = robot.database.main_outputs.walk_motor_commands.positions;
-        let positions = &mut robot.database.main_outputs.sensor_data.positions;
-        positions.left_leg =
-            positions.left_leg + (target.left_leg - positions.left_leg) * time.delta_secs() * 10.0;
-        positions.right_leg = positions.right_leg
-            + (target.right_leg - positions.right_leg) * time.delta_secs() * 10.0;
-        positions.left_arm =
-            positions.left_arm + (target.left_arm - positions.left_arm) * time.delta_secs() * 10.0;
-        positions.right_arm = positions.right_arm
-            + (target.right_arm - positions.right_arm) * time.delta_secs() * 10.0;
+                let target = robot.database.main_outputs.walk_motor_commands.positions;
+                let positions = &mut robot.database.main_outputs.sensor_data.positions;
+                positions.left_leg = positions.left_leg
+                    + (target.left_leg - positions.left_leg) * time.delta_secs() * 10.0;
+                positions.right_leg = positions.right_leg
+                    + (target.right_leg - positions.right_leg) * time.delta_secs() * 10.0;
+                positions.left_arm = positions.left_arm
+                    + (target.left_arm - positions.left_arm) * time.delta_secs() * 10.0;
+                positions.right_arm = positions.right_arm
+                    + (target.right_arm - positions.right_arm) * time.delta_secs() * 10.0;
 
-        let (new_left_sole, new_right_sole) =
-            sole_positions(&robot.database.main_outputs.sensor_data.positions);
-        let support_sole = match support_foot {
-            Side::Left => new_left_sole,
-            Side::Right => new_right_sole,
-        };
-        let ground = robot.database.main_outputs.robot_to_ground.unwrap() * support_sole;
-        let new_anchor = robot.ground_to_field() * to2d(ground);
-        let movement = anchor.as_transform() * new_anchor.as_transform::<Field>().inverse();
-        let step = robot.ground_to_field().inverse() * movement * robot.ground_to_field();
-        let ground_to_field_change = Some(Isometry2::from_parts(
-            step.translation().coords(),
-            step.orientation().angle(),
-        ));
+                let (new_left_sole, new_right_sole) =
+                    sole_positions(&robot.database.main_outputs.sensor_data.positions);
+                let support_sole = match support_foot {
+                    Side::Left => new_left_sole,
+                    Side::Right => new_right_sole,
+                };
+                let ground = robot.database.main_outputs.robot_to_ground.unwrap() * support_sole;
+                let new_anchor = robot.ground_to_field() * to2d(ground);
+                let movement = anchor.as_transform() * new_anchor.as_transform::<Field>().inverse();
+                let step = robot.ground_to_field().inverse() * movement * robot.ground_to_field();
+                Some(Isometry2::from_parts(
+                    step.translation().coords(),
+                    step.orientation().angle(),
+                ))
+            } else {
+                None
+            };
 
         let head_motion = robot
             .database
@@ -506,27 +505,30 @@ pub fn cycle_robots(
             .unwrap();
 
         // Walking physics
-        let support_foot = robot
-            .database
-            .main_outputs
-            .support_foot
-            .support_side
-            .unwrap();
-        let is_step_finished = robot
-            .cycler
-            .cycler_state
-            .walking_engine_mode
-            .step_state()
-            .is_some_and(|step_state| step_state.time_since_start >= step_state.plan.step_duration);
-        let next_support_foot = if is_step_finished {
-            support_foot.opposite()
-        } else {
-            support_foot
-        };
-        let (left_pressure, right_pressure) = match next_support_foot {
-            Side::Left => (1.0, 0.0),
-            Side::Right => (0.0, 1.0),
-        };
+        let (left_pressure, right_pressure) =
+            if let Some(support_foot) = robot.database.main_outputs.support_foot.support_side {
+                let is_step_finished = robot
+                    .cycler
+                    .cycler_state
+                    .walking_engine_mode
+                    .step_state()
+                    .is_some_and(|step_state| {
+                        step_state.time_since_start >= step_state.plan.step_duration
+                    });
+                let next_support_foot = if is_step_finished {
+                    support_foot.opposite()
+                } else {
+                    support_foot
+                };
+                let (left_pressure, right_pressure) = match next_support_foot {
+                    Side::Left => (1.0, 0.0),
+                    Side::Right => (0.0, 1.0),
+                };
+
+                (left_pressure, right_pressure)
+            } else {
+                (0.0, 0.0)
+            };
 
         robot
             .database
