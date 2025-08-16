@@ -74,7 +74,7 @@ pub struct Robot {
     spl_network_sender: Producer<crate::structs::spl_network::MainOutputs>,
     object_detection_top_sender: Producer<crate::structs::object_detection::MainOutputs>,
     vision_top_sender: Producer<crate::structs::vision::MainOutputs>,
-    _vision_bottom_sender: Producer<crate::structs::vision::MainOutputs>,
+    vision_bottom_sender: Producer<crate::structs::vision::MainOutputs>,
 }
 
 impl Robot {
@@ -160,7 +160,7 @@ impl Robot {
             spl_network_sender,
             object_detection_top_sender,
             vision_top_sender,
-            _vision_bottom_sender: vision_bottom_sender,
+            vision_bottom_sender,
         })
     }
 
@@ -169,7 +169,7 @@ impl Robot {
         messages: &[Message],
         referee_pose_kind: &Option<PoseKind>,
         balls_top: Vec<BallPercept>,
-        // balls_bottom: Vec<BallPercept>,
+        balls_bottom: Vec<BallPercept>,
     ) -> Result<()> {
         for Message { sender, payload } in messages {
             let source_is_other = *sender != self.parameters.player_number;
@@ -193,6 +193,12 @@ impl Robot {
         self.vision_top_sender
             .finalize(crate::structs::vision::MainOutputs {
                 balls: Some(balls_top),
+                ..Default::default()
+            });
+        self.vision_bottom_sender.announce();
+        self.vision_bottom_sender
+            .finalize(crate::structs::vision::MainOutputs {
+                balls: Some(balls_bottom),
                 ..Default::default()
             });
 
@@ -476,6 +482,18 @@ pub fn cycle_robots(
                 .map(|camera_matrices| &camera_matrices.top),
             visible_ball,
         ));
+        let balls_bottom = Vec::from_iter(generate_ball_percept(
+            robot.ground_to_field(),
+            robot.parameters.field_dimensions.ball_radius,
+            &robot.parameters.ball_detection.vision_bottom,
+            robot
+                .database
+                .main_outputs
+                .camera_matrices
+                .as_ref()
+                .map(|camera_matrices| &camera_matrices.bottom),
+            visible_ball,
+        ));
         *robot.whistle_mut() = FilteredWhistle {
             is_detected: Some(time.elapsed()) == whistle.last_whistle,
             last_detection: whistle
@@ -501,6 +519,7 @@ pub fn cycle_robots(
                 &messages_sent_last_cycle,
                 &visual_referee_pose_kind,
                 balls_top,
+                balls_bottom,
             )
             .unwrap();
 
