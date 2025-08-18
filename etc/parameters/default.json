@@ -1582,7 +1582,10 @@
     "minimum_validity": 0.01,
     "own_ball_weight": 1.0,
     "team_ball_weight": 1.0,
-    "rule_ball_weight": 1.0
+    "rule_ball_weight": 1.0,
+    "decay_distance_factor": 0.3,
+    "heatmap_decay_range": [0.25, 2.0],
+    "tile_target_heat_threshold_factor": 0.5
   },
   "physical_constants": {
     "gravity_acceleration": 9.81
