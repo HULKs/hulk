@@ -1,17 +1,31 @@
 use std::f32::consts::PI;
 
+use linear_algebra::Pose3;
 use nalgebra::{geometry::Isometry3, Rotation3, Translation3, Vector3};
 
-use coordinate_systems::Robot;
+use coordinate_systems::{LeftSole, RightSole, Robot};
 use types::{
     joints::{body::LowerBodyJoints, leg::LegJoints},
     robot_dimensions::RobotDimensions,
 };
 
 pub fn leg_angles(
-    left_foot: linear_algebra::Pose3<Robot>,
-    right_foot: linear_algebra::Pose3<Robot>,
+    left_sole_to_robot: linear_algebra::Transform<LeftSole, Robot, Isometry3<f32>>,
+    right_sole_to_robot: linear_algebra::Transform<RightSole, Robot, Isometry3<f32>>,
 ) -> LowerBodyJoints<f32> {
+    let left_foot: Pose3<LeftSole> =
+        linear_algebra::Isometry3::from(RobotDimensions::LEFT_ANKLE_TO_LEFT_SOLE)
+            .inverse()
+            .as_pose();
+
+    let right_foot: Pose3<RightSole> =
+        linear_algebra::Isometry3::from(RobotDimensions::RIGHT_ANKLE_TO_RIGHT_SOLE)
+            .inverse()
+            .as_pose();
+
+    let left_foot = left_sole_to_robot * left_foot;
+    let right_foot = right_sole_to_robot * right_foot;
+
     let ratio = 0.5;
     let robot_to_left_pelvis = Isometry3::rotation(Vector3::x() * -1.0 * PI / 4.0)
         * Translation3::from(-RobotDimensions::ROBOT_TO_LEFT_PELVIS.inner);
