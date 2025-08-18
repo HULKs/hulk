@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{iter::once, sync::Arc};
 
 use eframe::{
     egui::{ComboBox, Response, Ui, Widget},
@@ -13,7 +13,7 @@ use serde_json::{json, Value};
 use types::{
     camera_position::CameraPosition,
     color::{Hsv, RgChromaticity, Rgb},
-    image_segments::{Direction, EdgeType, ImageSegments, Segment},
+    image_segments::{Direction, EdgeType, ImageSegments, ScanLine, Segment},
 };
 
 use crate::{
@@ -218,30 +218,28 @@ impl Widget for &mut ImageSegmentsPanel {
             Direction::Horizontal => image_segments.scan_grid.horizontal_scan_lines,
             Direction::Vertical => image_segments.scan_grid.vertical_scan_lines,
         };
+        let max = match self.direction {
+            Direction::Horizontal => 480,
+            Direction::Vertical => 640,
+        };
 
-        if let Some([left, right]) = scan_lines.get(0..2) {
-            let width = (right.position - left.position) as f32 / 2.0;
-            let position = left.position as f32 + width / 2.0;
-            for segment in &left.segments {
-                self.draw_segment(position, width, self.direction, segment, &painter);
-            }
-        }
-
-        for (left, center, right) in scan_lines.iter().tuple_windows() {
+        for (left, center, right) in once(ScanLine {
+            position: 0,
+            segments: Vec::new(),
+        })
+        .chain(scan_lines)
+        .chain(once(ScanLine {
+            position: max,
+            segments: Vec::new(),
+        }))
+        .tuple_windows()
+        {
             let start = left.position as f32 + (center.position - left.position) as f32 / 2.0;
             let end = center.position as f32 + (right.position - center.position) as f32 / 2.0;
             let width = end - start;
             let position = start + width / 2.0;
 
             for segment in &center.segments {
-                self.draw_segment(position, width, self.direction, segment, &painter);
-            }
-        }
-
-        if let Some([left, right]) = scan_lines.windows(2).last() {
-            let width = (right.position - left.position) as f32 / 2.0;
-            let position = left.position as f32 + width / 2.0;
-            for segment in &left.segments {
                 self.draw_segment(position, width, self.direction, segment, &painter);
             }
         }
