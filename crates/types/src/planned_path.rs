@@ -21,6 +21,16 @@ pub struct Path {
     pub segments: Vec<PathSegment>,
 }
 
+impl Path {
+    pub fn first_segment(&self) -> &PathSegment {
+        self.segments.first().expect("path was empty")
+    }
+
+    pub fn last_segment(&self) -> &PathSegment {
+        self.segments.last().expect("path was empty")
+    }
+}
+
 pub fn direct_path(start: Point2<Ground>, destination: Point2<Ground>) -> Path {
     Path {
         segments: vec![PathSegment::LineSegment(LineSegment(start, destination))],

@@ -46,10 +46,10 @@ impl EndPoints<Ground> for PathSegment {
 
 impl EndPoints<Ground> for Path {
     fn start_point(&self) -> Point2<Ground> {
-        self.segments.first().expect("path was empty").start_point()
+        self.first_segment().start_point()
     }
 
     fn end_point(&self) -> Point2<Ground> {
-        self.segments.last().expect("path was empty").end_point()
+        self.last_segment().end_point()
     }
 }

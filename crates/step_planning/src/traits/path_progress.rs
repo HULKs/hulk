@@ -107,7 +107,7 @@ impl PathProgress for Path {
             .min_by(|(_, _, squared_distance_1), (_, _, squared_distance_2)| {
                 squared_distance_1.total_cmp(squared_distance_2)
             })
-            .expect("Path was empty");
+            .expect("path was empty");
 
         progress_before_segment_start + segment.progress(point)
     }
@@ -125,7 +125,7 @@ impl PathProgress for Path {
             .min_by(|(_, squared_distance_1), (_, squared_distance_2)| {
                 squared_distance_1.total_cmp(squared_distance_2)
             })
-            .expect("Path was empty");
+            .expect("path was empty");
 
         segment.forward(point)
     }

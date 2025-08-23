@@ -35,7 +35,7 @@ impl Layer<Ground> for Path {
             ..
         }) = self.motion_command.get_last_value()?
         {
-            let path_end_point = path.segments.last().unwrap().end_point();
+            let path_end_point = path.end_point();
             let target_direction = target_orientation.as_unit_vector();
             painter.line_segment(
                 path_end_point,
