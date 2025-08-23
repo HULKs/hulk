@@ -23,7 +23,7 @@ impl Project<Ground> for Path {
                 (projection, squared_distance)
             })
             .min_by(|(_, distance_1), (_, distance_2)| distance_1.total_cmp(distance_2))
-            .expect("Path was empty");
+            .expect("path was empty");
 
         projected_point
     }

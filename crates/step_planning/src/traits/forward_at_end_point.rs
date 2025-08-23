@@ -31,9 +31,6 @@ impl ForwardAtEndPoint for PathSegment {
 
 impl ForwardAtEndPoint for Path {
     fn forward_at_end_point(&self) -> Orientation<f32> {
-        self.segments
-            .last()
-            .expect("path was empty")
-            .forward_at_end_point()
+        self.last_segment().forward_at_end_point()
     }
 }
