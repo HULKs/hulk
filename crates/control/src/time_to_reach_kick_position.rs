@@ -46,6 +46,7 @@ impl TimeToReachKickPosition {
         let Some(DribblePathPlan {
             orientation_mode,
             path: dribble_path,
+            ..
         }) = context.dribble_path_plan
         else {
             return Ok(MainOutputs {
@@ -71,13 +72,18 @@ impl TimeToReachKickPosition {
         let walk_duration = Duration::from_secs_f32(walk_time);
 
         let turn_angle = match orientation_mode {
-            OrientationMode::Override(orientation) => orientation.angle().abs(),
-            _ => match dribble_path.segments.first() {
-                Some(PathSegment::LineSegment(line_segment)) => {
-                    line_segment.1.coords().angle(&Vector2::x_axis()).abs()
+            OrientationMode::LookTowards { direction, .. } => direction.angle().abs(),
+            OrientationMode::LookAt { target, .. } => {
+                target.coords().angle(&Vector2::x_axis()).abs()
+            }
+            OrientationMode::Unspecified | OrientationMode::AlignWithPath => {
+                match dribble_path.segments.first() {
+                    Some(PathSegment::LineSegment(line_segment)) => {
+                        line_segment.1.coords().angle(&Vector2::x_axis()).abs()
+                    }
+                    _ => 0.0,
                 }
-                _ => 0.0,
-            },
+            }
         };
         let turn_duration = context
             .configuration

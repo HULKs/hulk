@@ -2,7 +2,7 @@ use coordinate_systems::Field;
 use framework::AdditionalOutput;
 use linear_algebra::{Point2, Pose2, Rotation2};
 use types::{
-    motion_command::{MotionCommand, WalkSpeed},
+    motion_command::{MotionCommand, OrientationMode, WalkSpeed},
     path_obstacles::PathObstacle,
     world_state::WorldState,
 };
@@ -20,14 +20,16 @@ pub fn execute(
     walk_speed: WalkSpeed,
     distance_to_be_aligned: f32,
 ) -> Option<MotionCommand> {
-    let ground_to_field = world_state.robot.ground_to_field?;
     let kick_off_pose =
         Rotation2::<Field, Field>::new(-kick_off_angle) * Pose2::from(kickoff_position);
+    let field_to_ground = world_state.robot.ground_to_field?.inverse();
+
     walk_and_stand.execute(
-        ground_to_field.inverse() * kick_off_pose,
+        field_to_ground * kick_off_pose,
         look_action.execute(),
         path_obstacles_output,
         walk_speed,
+        OrientationMode::AlignWithPath,
         distance_to_be_aligned,
         walk_and_stand.parameters.hysteresis,
     )

@@ -3,6 +3,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use coordinate_systems::{Field, Ground};
 use framework::AdditionalOutput;
 use linear_algebra::{point, Isometry2, Orientation2, Point2, Pose2};
+use step_planning::traits::Length;
 use types::{
     field_dimensions::FieldDimensions,
     motion_command::{HeadMotion, MotionCommand, OrientationMode, WalkSpeed},
@@ -128,6 +129,7 @@ pub fn execute(
             head,
             path_obstacles_output,
             walk_speed,
+            OrientationMode::AlignWithPath,
             distance_to_be_aligned,
             walk_and_stand.parameters.hysteresis,
         )
@@ -141,8 +143,7 @@ pub fn execute(
             &world_state.rule_obstacles,
             path_obstacles_output,
         );
-        let path_length: f32 = path.segments.iter().map(|segment| segment.length()).sum();
-        let is_reached = path_length < parameters.position_reached_distance;
+        let is_reached = path.length() < parameters.position_reached_distance;
         if is_reached {
             let search_duration = cycle_start_time
                 .duration_since(UNIX_EPOCH)
@@ -156,9 +157,15 @@ pub fn execute(
             if turn_cycle_fraction < parameters.stand_secs {
                 Some(MotionCommand::Stand { head })
             } else {
+                let orientation = Orientation2::new(parameters.rotation_per_step);
                 Some(walk_path_planner.walk_with_obstacle_avoiding_arms(
                     head,
-                    OrientationMode::Override(Orientation2::new(parameters.rotation_per_step)),
+                    OrientationMode::LookTowards {
+                        direction: orientation,
+                        tolerance: 0.0,
+                    },
+                    orientation,
+                    distance_to_be_aligned,
                     path,
                     walk_speed,
                 ))
@@ -167,6 +174,8 @@ pub fn execute(
             Some(walk_path_planner.walk_with_obstacle_avoiding_arms(
                 head,
                 OrientationMode::AlignWithPath,
+                Orientation2::identity(),
+                distance_to_be_aligned,
                 path,
                 walk_speed,
             ))
