@@ -318,7 +318,6 @@ fn step_plan_greedy(
                         Pose2::from_parts(line_segment.1, rotation)
                     }
                     PathSegment::Arc(arc) => {
-                        // let start_point = arc.start_point();
                         let start_point = arc.project(pose.position());
                         let direction =
                             (start_point - arc.circle.center).rotate_90_degrees(arc.direction);
