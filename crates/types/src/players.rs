@@ -28,6 +28,20 @@ pub struct Players<T> {
     pub seven: T,
 }
 
+impl<T> Players<T> {
+    pub fn as_ref(&self) -> Players<&T> {
+        Players {
+            one: &self.one,
+            two: &self.two,
+            three: &self.three,
+            four: &self.four,
+            five: &self.five,
+            six: &self.six,
+            seven: &self.seven,
+        }
+    }
+}
+
 impl<From> Players<From> {
     pub fn map<To>(self, mut f: impl FnMut(From) -> To) -> Players<To> {
         Players {

@@ -37,6 +37,7 @@ async fn timeline_server(
     mut simulator_state_reader: buffered_watch::Receiver<(SystemTime, SimulatorState)>,
     mut outputs_writer: buffered_watch::Sender<(SystemTime, BehaviorSimulatorDatabase)>,
     mut control_writer: buffered_watch::Sender<(SystemTime, Database)>,
+    mut parameter_writer: buffered_watch::Sender<(SystemTime, Parameters)>,
     mut frame_receiver: UnboundedReceiver<Frame>,
 ) {
     let mut frames = Vec::<Frame>::new();
@@ -72,14 +73,34 @@ async fn timeline_server(
                 let (time, outputs) = &mut *outputs_writer.borrow_mut();
                 outputs.main_outputs.frame_count = frames.len();
                 outputs.main_outputs.ball.clone_from(&frame.ball);
-                outputs.main_outputs.databases = frame.robots.clone();
+                outputs.main_outputs.databases = frame.robots.as_ref().map(|maybe_robot_frame| {
+                    maybe_robot_frame
+                        .as_ref()
+                        .map(|robot_frame| robot_frame.database.clone())
+                });
                 *time = frame.timestamp;
             }
             {
                 let (time, control) = &mut *control_writer.borrow_mut();
                 *control = to_player_number(simulator_state.selected_robot)
                     .ok()
-                    .and_then(|player_number| frame.robots[player_number].clone())
+                    .and_then(|player_number| {
+                        frame.robots[player_number]
+                            .as_ref()
+                            .map(|robot_frame| robot_frame.database.clone())
+                    })
+                    .unwrap_or_default();
+                *time = frame.timestamp;
+            }
+            {
+                let (time, parameters) = &mut *parameter_writer.borrow_mut();
+                *parameters = to_player_number(simulator_state.selected_robot)
+                    .ok()
+                    .and_then(|player_number| {
+                        frame.robots[player_number]
+                            .as_ref()
+                            .map(|robot_frame| robot_frame.parameters.clone())
+                    })
                     .unwrap_or_default();
                 *time = frame.timestamp;
             }
@@ -96,14 +117,9 @@ pub async fn run(
         body_id: "behavior_simulator".to_string(),
         head_id: "behavior_simulator".to_string(),
     };
-    let initial_parameters: Parameters =
-        parameters::directory::deserialize("etc/parameters", &ids, true)
-            .wrap_err("failed to parse initial parameters")?;
     let initial_simulator_state: SimulatorState =
         parameters::directory::deserialize("crates/bevyhavior_simulator", &ids, true)
             .wrap_err("failed to parse initial parameters")?;
-    let (parameters_sender, parameters_receiver) =
-        buffered_watch::channel((std::time::SystemTime::now(), initial_parameters));
 
     let (simulator_state_sender, simulator_state_receiver) =
         buffered_watch::channel((std::time::SystemTime::now(), initial_simulator_state));
@@ -117,29 +133,27 @@ pub async fn run(
     let (control_writer, control_reader) =
         buffered_watch::channel((UNIX_EPOCH, Default::default()));
 
-    let (subscribed_control_writer, _subscribed_control_reader) =
-        buffered_watch::channel(Default::default());
+    let (parameter_writer, parameter_reader) =
+        buffered_watch::channel((UNIX_EPOCH, Default::default()));
 
     let mut communication_server = communication::server::Server::default();
+
+    let (subscribed_control_writer, _) = buffered_watch::channel(Default::default());
     let (parameters_subscriptions, _) = buffered_watch::channel(Default::default());
     let (simulator_state_subscriptions, _) = buffered_watch::channel(Default::default());
+
     communication_server.expose_source(
         "BehaviorSimulator",
         outputs_receiver,
         subscribed_outputs_sender,
     )?;
     communication_server.expose_source("Control", control_reader, subscribed_control_writer)?;
-    communication_server.expose_source(
-        "parameters",
-        parameters_receiver.clone(),
-        parameters_subscriptions,
-    )?;
+    communication_server.expose_source("parameters", parameter_reader, parameters_subscriptions)?;
     communication_server.expose_source(
         "simulator",
         simulator_state_receiver.clone(),
         simulator_state_subscriptions,
     )?;
-    communication_server.expose_sink("parameters", parameters_sender)?;
     communication_server.expose_sink("simulator", simulator_state_sender)?;
 
     {
@@ -150,6 +164,7 @@ pub async fn run(
                 simulator_state_receiver,
                 outputs_sender,
                 control_writer,
+                parameter_writer,
                 frame_receiver,
             )
             .await
