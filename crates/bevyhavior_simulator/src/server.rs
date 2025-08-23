@@ -138,7 +138,7 @@ pub async fn run(
 
     let mut communication_server = communication::server::Server::default();
 
-    let (subscribed_control_writer, _) = buffered_watch::channel(Default::default());
+    let (control_subscriptions, _) = buffered_watch::channel(Default::default());
     let (parameters_subscriptions, _) = buffered_watch::channel(Default::default());
     let (simulator_state_subscriptions, _) = buffered_watch::channel(Default::default());
 
@@ -147,7 +147,7 @@ pub async fn run(
         outputs_receiver,
         subscribed_outputs_sender,
     )?;
-    communication_server.expose_source("Control", control_reader, subscribed_control_writer)?;
+    communication_server.expose_source("Control", control_reader, control_subscriptions)?;
     communication_server.expose_source("parameters", parameter_reader, parameters_subscriptions)?;
     communication_server.expose_source(
         "simulator",
