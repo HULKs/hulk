@@ -24,8 +24,8 @@ use crate::{
     game_controller::{game_controller_plugin, GameController},
     recorder::Recording,
     robot::{cycle_robots, move_robots, Messages},
-    server::Parameters,
     soft_error::{soft_error_plugin, SoftErrorResource},
+    structs::Parameters,
     test_rules::check_robots_dont_walk_into_rule_obstacles,
     time::{update_time, Ticks},
     visual_referee::VisualRefereeResource,
@@ -127,7 +127,7 @@ fn load_parameters() -> Result<Parameters> {
     let current_directory = current_dir().wrap_err("failed to get current directory")?;
     let repository =
         Repository::find_root(current_directory).wrap_err("failed to get repository root")?;
-    let parameters_path = repository.root.join("crates/bevyhavior_simulator");
+    let parameters_path = repository.root.join("etc/parameters");
 
     parameters::directory::deserialize(parameters_path, &ids, true)
         .wrap_err("failed to parse initial parameters")
