@@ -10,20 +10,20 @@ use crate::test_utils::{
 
 pub fn verify_gradient<A: Clone + Debug + Decompose<F> + GradientType, F: Real + NumAssignOps>(
     func: &impl Fn(A) -> F,
-    grad: &impl Fn(A) -> Gradient<A>,
+    gradient: &impl Fn(A) -> Gradient<A>,
     epsilon: <Gradient<A> as AbsDiffEq>::Epsilon,
     x: A,
 ) where
     Gradient<A>: Debug + RelativeEq + Decompose<F>,
     <Gradient<A> as AbsDiffEq>::Epsilon: From<f32>,
 {
-    let real_gradient = grad(x.clone());
-    let numerical_gradient = numerical_grad(func, x);
+    let real_gradient = gradient(x.clone());
+    let numerical_gradient = numerical_gradient(func, x);
 
     assert_relative_eq!(real_gradient, numerical_gradient, epsilon = epsilon);
 }
 
-fn numerical_grad<A: Clone + Decompose<F> + GradientType, F: Real + NumAssignOps>(
+fn numerical_gradient<A: Clone + Decompose<F> + GradientType, F: Real + NumAssignOps>(
     func: &impl Fn(A) -> F,
     x: A,
 ) -> Gradient<A>
