@@ -68,6 +68,9 @@ pub enum MotionCommand {
     Initial {
         head: HeadMotion,
     },
+    Standby {
+        head: HeadMotion,
+    },
     Jump {
         direction: JumpDirection,
     },
@@ -115,6 +118,7 @@ impl MotionCommand {
             MotionCommand::ArmsUpStand { head }
             | MotionCommand::SitDown { head }
             | MotionCommand::Initial { head, .. }
+            | MotionCommand::Standby { head, .. }
             | MotionCommand::Stand { head, .. }
             | MotionCommand::Walk { head, .. }
             | MotionCommand::InWalkKick { head, .. } => Some(*head),
