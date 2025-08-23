@@ -8,17 +8,16 @@ use tokio_util::sync::CancellationToken;
 
 use hula_types::hardware::Ids;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
-use types::{
-    ball_position::SimulatorBallState, field_dimensions::FieldDimensions, players::Players,
+use types::{ball_position::SimulatorBallState, players::Players};
+
+use crate::{
+    cyclers::control::Database, recorder::Frame, robot::to_player_number, structs::Parameters,
 };
 
-use crate::{cyclers::control::Database, recorder::Frame, robot::to_player_number};
-
 #[derive(Clone, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect)]
-pub struct Parameters {
+pub struct SimulatorState {
     selected_frame: usize,
     selected_robot: usize,
-    pub field_dimensions: FieldDimensions,
 }
 
 #[derive(Clone, Default, Serialize, PathSerialize, PathIntrospect)]
@@ -35,9 +34,10 @@ struct BehaviorSimulatorDatabase {
 
 async fn timeline_server(
     keep_running: CancellationToken,
-    mut parameters_reader: buffered_watch::Receiver<(SystemTime, Parameters)>,
+    mut simulator_state_reader: buffered_watch::Receiver<(SystemTime, SimulatorState)>,
     mut outputs_writer: buffered_watch::Sender<(SystemTime, BehaviorSimulatorDatabase)>,
     mut control_writer: buffered_watch::Sender<(SystemTime, Database)>,
+    mut parameter_writer: buffered_watch::Sender<(SystemTime, Parameters)>,
     mut frame_receiver: UnboundedReceiver<Frame>,
 ) {
     let mut frames = Vec::<Frame>::new();
@@ -61,26 +61,46 @@ async fn timeline_server(
                     }
                 }
             }
-            _ = parameters_reader.wait_for_change() => { }
+            _ = simulator_state_reader.wait_for_change() => { }
             _ = keep_running.cancelled() => {
                 break
             }
         }
 
-        let (_, parameters) = &*parameters_reader.borrow_and_mark_as_seen();
-        if let Some(frame) = &frames.get(parameters.selected_frame) {
+        let (_, simulator_state) = &*simulator_state_reader.borrow_and_mark_as_seen();
+        if let Some(frame) = &frames.get(simulator_state.selected_frame) {
             {
                 let (time, outputs) = &mut *outputs_writer.borrow_mut();
                 outputs.main_outputs.frame_count = frames.len();
                 outputs.main_outputs.ball.clone_from(&frame.ball);
-                outputs.main_outputs.databases = frame.robots.clone();
+                outputs.main_outputs.databases = frame.robots.as_ref().map(|maybe_robot_frame| {
+                    maybe_robot_frame
+                        .as_ref()
+                        .map(|robot_frame| robot_frame.database.clone())
+                });
                 *time = frame.timestamp;
             }
             {
                 let (time, control) = &mut *control_writer.borrow_mut();
-                *control = to_player_number(parameters.selected_robot)
+                *control = to_player_number(simulator_state.selected_robot)
                     .ok()
-                    .and_then(|player_number| frame.robots[player_number].clone())
+                    .and_then(|player_number| {
+                        frame.robots[player_number]
+                            .as_ref()
+                            .map(|robot_frame| robot_frame.database.clone())
+                    })
+                    .unwrap_or_default();
+                *time = frame.timestamp;
+            }
+            {
+                let (time, parameters) = &mut *parameter_writer.borrow_mut();
+                *parameters = to_player_number(simulator_state.selected_robot)
+                    .ok()
+                    .and_then(|player_number| {
+                        frame.robots[player_number]
+                            .as_ref()
+                            .map(|robot_frame| robot_frame.parameters.clone())
+                    })
                     .unwrap_or_default();
                 *time = frame.timestamp;
             }
@@ -97,12 +117,12 @@ pub async fn run(
         body_id: "behavior_simulator".to_string(),
         head_id: "behavior_simulator".to_string(),
     };
-    let parameters_from_disk: Parameters =
+    let initial_simulator_state: SimulatorState =
         parameters::directory::deserialize("crates/bevyhavior_simulator", &ids, true)
             .wrap_err("failed to parse initial parameters")?;
-    let initial_parameters = parameters_from_disk;
-    let (parameters_sender, parameters_receiver) =
-        buffered_watch::channel((std::time::SystemTime::now(), initial_parameters));
+
+    let (simulator_state_sender, simulator_state_receiver) =
+        buffered_watch::channel((std::time::SystemTime::now(), initial_simulator_state));
 
     let (outputs_sender, outputs_receiver) =
         buffered_watch::channel((UNIX_EPOCH, Default::default()));
@@ -113,32 +133,38 @@ pub async fn run(
     let (control_writer, control_reader) =
         buffered_watch::channel((UNIX_EPOCH, Default::default()));
 
-    let (subscribed_control_writer, _subscribed_control_reader) =
-        buffered_watch::channel(Default::default());
+    let (parameter_writer, parameter_reader) =
+        buffered_watch::channel((UNIX_EPOCH, Default::default()));
 
     let mut communication_server = communication::server::Server::default();
+
+    let (control_subscriptions, _) = buffered_watch::channel(Default::default());
     let (parameters_subscriptions, _) = buffered_watch::channel(Default::default());
+    let (simulator_state_subscriptions, _) = buffered_watch::channel(Default::default());
+
     communication_server.expose_source(
         "BehaviorSimulator",
         outputs_receiver,
         subscribed_outputs_sender,
     )?;
-    communication_server.expose_source("Control", control_reader, subscribed_control_writer)?;
+    communication_server.expose_source("Control", control_reader, control_subscriptions)?;
+    communication_server.expose_source("parameters", parameter_reader, parameters_subscriptions)?;
     communication_server.expose_source(
-        "parameters",
-        parameters_receiver.clone(),
-        parameters_subscriptions,
+        "simulator",
+        simulator_state_receiver.clone(),
+        simulator_state_subscriptions,
     )?;
-    communication_server.expose_sink("parameters", parameters_sender)?;
+    communication_server.expose_sink("simulator", simulator_state_sender)?;
 
     {
         let keep_running = keep_running.clone();
         tokio::spawn(async {
             timeline_server(
                 keep_running,
-                parameters_receiver,
+                simulator_state_receiver,
                 outputs_sender,
                 control_writer,
+                parameter_writer,
                 frame_receiver,
             )
             .await
