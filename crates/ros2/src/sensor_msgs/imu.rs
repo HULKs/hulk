@@ -18,7 +18,7 @@ use crate::{
     std_msgs::header::Header,
 };
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Imu {
     pub header: Header,
 

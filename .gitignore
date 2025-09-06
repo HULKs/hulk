@@ -24,9 +24,12 @@ default.nix
 .direnv/
 
 target/
+node_modules/
+dist/
 
 .nao_cargo_home
 .REMOTE_WORKSPACE
+MUJOCO_LOG.TXT
 
 rust-toolchain.toml
 

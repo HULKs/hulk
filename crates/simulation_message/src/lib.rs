@@ -12,7 +12,7 @@ pub struct SimulationMessage<T> {
     pub payload: T,
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ServerMessageKind {
     LowState(LowState),
     FallDownState(FallDownState),
@@ -22,7 +22,7 @@ pub enum ServerMessageKind {
     RGBDSensors(Box<RGBDSensors>),
 }
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ClientMessageKind {
     LowCommand(LowCommand),
 }

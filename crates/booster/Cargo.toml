@@ -5,12 +5,19 @@ edition.workspace = true
 license.workspace = true
 homepage.workspace = true
 
+[lib]
+name = "booster"
+crate-type = ["rlib", "cdylib"]
+
 [dependencies]
 coordinate_systems = { workspace = true }
 linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
 path_serde = { workspace = true }
 ros2 = { workspace = true }
+pyo3 = { version = "0.26.0", features = [
+    "abi3-py313",
+    "extension-module",
+    "experimental-inspect",
+]}
 serde = { workspace = true }
-serde_json = { workspace = true }
-tokio = { workspace = true }

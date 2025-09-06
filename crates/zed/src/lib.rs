@@ -4,7 +4,7 @@ use ros2::{
 };
 use serde::{Deserialize, Serialize};
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RGBDSensors {
     pub header: Header,
 

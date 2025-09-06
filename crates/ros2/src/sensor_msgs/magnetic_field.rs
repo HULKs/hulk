@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{geometry_msgs::vector3::Vector3, std_msgs::header::Header};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MagneticField {
     /// timestamp is the time the
     /// frame_id is the location and orientation

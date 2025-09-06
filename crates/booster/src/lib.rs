@@ -1,9 +1,11 @@
 use coordinate_systems::Robot;
-use linear_algebra::Vector3;
+use linear_algebra::{vector, Vector3};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
-use ros2::geometry_msgs::transform_stamped::TransformStamped;
+use pyo3::{pyclass, pymethods};
+use ros2::{geometry_msgs::transform_stamped::TransformStamped, sensor_msgs::imu::Imu};
 use serde::{Deserialize, Serialize};
 
+#[pyclass(frozen, get_all)]
 #[derive(
     Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
@@ -16,6 +18,23 @@ pub struct LowState {
     pub motor_state_serial: Vec<MotorState>,
 }
 
+#[pymethods]
+impl LowState {
+    #[new]
+    pub fn new(
+        imu_state: ImuState,
+        motor_state_parallel: Vec<MotorState>,
+        motor_state_serial: Vec<MotorState>,
+    ) -> Self {
+        Self {
+            imu_state,
+            motor_state_parallel,
+            motor_state_serial,
+        }
+    }
+}
+
+#[pyclass(frozen)]
 #[derive(
     Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
@@ -31,6 +50,31 @@ pub struct ImuState {
     pub linear_acceleration: Vector3<Robot>,
 }
 
+#[pymethods]
+impl ImuState {
+    #[new]
+    pub fn new(
+        roll_pitch_yaw: [f32; 3],
+        angular_velocity: [f32; 3],
+        linear_acceleration: [f32; 3],
+    ) -> Self {
+        Self {
+            roll_pitch_yaw: vector![roll_pitch_yaw[0], roll_pitch_yaw[1], roll_pitch_yaw[2]],
+            angular_velocity: vector![
+                angular_velocity[0],
+                angular_velocity[1],
+                angular_velocity[2]
+            ],
+            linear_acceleration: vector![
+                linear_acceleration[0],
+                linear_acceleration[1],
+                linear_acceleration[2]
+            ],
+        }
+    }
+}
+
+#[pyclass(frozen)]
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct MotorState {
     #[serde(rename = "q")]
@@ -47,12 +91,27 @@ pub struct MotorState {
     pub torque: f32,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[pymethods]
+impl MotorState {
+    #[new]
+    pub fn new(position: f32, velocity: f32, acceleration: f32, torque: f32) -> Self {
+        Self {
+            position,
+            velocity,
+            acceleration,
+            torque,
+        }
+    }
+}
+
+#[pyclass(frozen, eq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
 pub enum CommandType {
     Parallel,
     Serial,
 }
 
+#[pyclass(frozen, get_all)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LowCommand {
     #[serde(rename = "cmd_type")]
@@ -61,13 +120,14 @@ pub struct LowCommand {
     pub motor_commands: Vec<MotorCommand>,
 }
 
+#[pyclass(frozen, get_all)]
 #[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
 pub struct MotorCommand {
     #[serde(rename = "q")]
     /// Joint angle position, unit: rad.
     pub position: f32,
     #[serde(rename = "dq")]
-    /// Joint angular velocity, unit: rad/s.  
+    /// Joint angular velocity, unit: rad/s.
     pub velocity: f32,
     #[serde(rename = "tau")]
     /// Joint torque, unit: nm
@@ -80,6 +140,22 @@ pub struct MotorCommand {
     pub weight: f32,
 }
 
+#[pymethods]
+impl MotorCommand {
+    #[new]
+    pub fn new(position: f32, velocity: f32, torque: f32, kp: f32, kd: f32, weight: f32) -> Self {
+        Self {
+            position,
+            velocity,
+            torque,
+            kp,
+            kd,
+            weight,
+        }
+    }
+}
+
+#[pyclass(frozen, get_all)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum FallDownStateType {
     IsReady,
@@ -88,6 +164,7 @@ pub enum FallDownStateType {
     IsGettingUp,
 }
 
+#[pyclass(frozen, get_all)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FallDownState {
     pub fall_down_state: FallDownStateType,
@@ -95,6 +172,18 @@ pub struct FallDownState {
     pub is_recovery_available: bool,
 }
 
+#[pymethods]
+impl FallDownState {
+    #[new]
+    pub fn new(fall_down_state: FallDownStateType, is_recovery_available: bool) -> Self {
+        Self {
+            fall_down_state,
+            is_recovery_available,
+        }
+    }
+}
+
+#[pyclass(frozen, get_all)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ButtonEventType {
     PressDown,
@@ -107,12 +196,22 @@ pub enum ButtonEventType {
     LongPressEnd,
 }
 
+#[pyclass(frozen, get_all)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ButtonEventMsg {
     pub button: i64,
     pub event: ButtonEventType,
 }
 
+#[pymethods]
+impl ButtonEventMsg {
+    #[new]
+    pub fn new(button: i64, event: ButtonEventType) -> Self {
+        Self { button, event }
+    }
+}
+
+#[pyclass(frozen, get_all)]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RemoteControllerState {
     /** This feature can be used in user programs to implement custom gamepad/controller button functionality.
@@ -180,8 +279,29 @@ pub struct RemoteControllerState {
     pub reserved: u8,
 }
 
-#[derive(Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename = "TFMessage")]
 pub struct TransformMessage {
     pub transforms: Vec<TransformStamped>,
+}
+
+pub mod python_bindings {
+    use pyo3::{prelude::PyModule, pymodule, types::PyModuleMethods, Bound, PyResult};
+
+    #[pymodule(name = "booster")]
+    pub fn extension(m: &Bound<'_, PyModule>) -> PyResult<()> {
+        m.add_class::<crate::LowState>()?;
+        m.add_class::<crate::ImuState>()?;
+        m.add_class::<crate::MotorState>()?;
+        m.add_class::<crate::CommandType>()?;
+        m.add_class::<crate::LowCommand>()?;
+        m.add_class::<crate::MotorCommand>()?;
+        m.add_class::<crate::FallDownStateType>()?;
+        m.add_class::<crate::FallDownState>()?;
+        m.add_class::<crate::ButtonEventType>()?;
+        m.add_class::<crate::ButtonEventMsg>()?;
+        m.add_class::<crate::RemoteControllerState>()?;
+
+        Ok(())
+    }
 }
