@@ -1,0 +1,10 @@
+[package]
+name = "booster_low_level_interface"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[dependencies]
+nalgebra = { workspace = true }
+tokio = { workspace = true }

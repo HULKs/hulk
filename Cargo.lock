@@ -2113,6 +2113,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "booster_low_level_interface"
+version = "0.1.0"
+dependencies = [
+ "nalgebra",
+ "tokio",
+]
+
+[[package]]
 name = "bstr"
 version = "1.12.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

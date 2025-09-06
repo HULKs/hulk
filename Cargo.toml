@@ -6,6 +6,7 @@ members = [
   "crates/audio",
   "crates/ball_filter",
   "crates/bevyhavior_simulator",
+  "crates/booster_low_level_interface",
   "crates/buffered_watch",
   "crates/calibration",
   "crates/code_generation",
