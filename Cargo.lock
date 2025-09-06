@@ -2117,6 +2117,7 @@ name = "booster_low_level_interface"
 version = "0.1.0"
 dependencies = [
  "nalgebra",
+ "serde",
  "tokio",
 ]
 

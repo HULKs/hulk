@@ -1,44 +1,52 @@
 use nalgebra::Isometry3;
+use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast::{Receiver, Sender};
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LowState {
-    imu_state: ImuState,                   // IMU feedback.
-    motor_state_parallel: Vec<MotorState>, // Parallel structure joint feedback.
-    motor_state_serial: Vec<MotorState>,   // Serial structure joint feedback.
+    pub imu_state: ImuState,                   // IMU feedback.
+    pub motor_state_parallel: Vec<MotorState>, // Parallel structure joint feedback.
+    pub motor_state_serial: Vec<MotorState>,   // Serial structure joint feedback.
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImuState {
-    rpy: [f32; 3],  // Euler angle information（0 -> roll ,1 -> pitch ,2 -> yaw）
-    gyro: [f32; 3], // Angular velocity information（0 -> x ,1 -> y ,2 -> z）
-    acc: [f32; 3],  // Acceleration information.（0 -> x ,1 -> y ,2 -> z）
+    pub rpy: [f32; 3],  // Euler angle information（0 -> roll ,1 -> pitch ,2 -> yaw）
+    pub gyro: [f32; 3], // Angular velocity information（0 -> x ,1 -> y ,2 -> z）
+    pub acc: [f32; 3],  // Acceleration information.（0 -> x ,1 -> y ,2 -> z）
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MotorState {
-    q: f32,       // Joint angle position, unit: rad.
-    dq: f32,      // Joint angular velocity, unit: rad/s.
-    ddq: f32,     // Joint angular acceleration, unit: rad/s².
-    tau_est: f32, // Joint torque, unit: nm
+    pub q: f32,       // Joint angle position, unit: rad.
+    pub dq: f32,      // Joint angular velocity, unit: rad/s.
+    pub ddq: f32,     // Joint angular acceleration, unit: rad/s².
+    pub tau_est: f32, // Joint torque, unit: nm
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum CmdType {
     Parallel, // Parallel type.
     Serial,   // Serial type.
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LowCmd {
-    cmd_type: CmdType, // Set whether the joint command follows the serial mode or the parallel mode.
-    motor_cmd: Vec<MotorCmd>, // Joint command array.
+    pub cmd_type: CmdType, // Set whether the joint command follows the serial mode or the parallel mode.
+    pub motor_cmd: Vec<MotorCmd>, // Joint command array.
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MotorCmd {
-    q: f32,      // Joint angle position, unit: rad.
-    dq: f32,     // Joint angular velocity, unit: rad/s.
-    tau: f32,    // Joint torque, unit: nm
-    kp: f32,     // Proportional coefficient.
-    kd: f32,     // Gain coefficient.
-    weight: f32, // Weight, range [0, 1], specify the proportion of user set motor cmd is mixed with the original cmd sent by the internal controller, which is usually used for gradually move to a user custom motor state from internal controlled motor state. Weight 0 means fully controlled by internal controller, weight 1 means fully controlled by user sent cmds. This parameter is not working if in custom mode, as in custom mode, internal controller will send no motor cmds.
+    pub q: f32,      // Joint angle position, unit: rad.
+    pub dq: f32,     // Joint angular velocity, unit: rad/s.
+    pub tau: f32,    // Joint torque, unit: nm
+    pub kp: f32,     // Proportional coefficient.
+    pub kd: f32,     // Gain coefficient.
+    pub weight: f32, // Weight, range [0, 1], specify the proportion of user set motor cmd is mixed with the original cmd sent by the internal controller, which is usually used for gradually move to a user custom motor state from internal controlled motor state. Weight 0 means fully controlled by internal controller, weight 1 means fully controlled by user sent cmds. This parameter is not working if in custom mode, as in custom mode, internal controller will send no motor cmds.
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum FallDownStateType {
     IsReady,     // Not fallen state
     IsFalling,   // Currently falling
@@ -46,11 +54,13 @@ pub enum FallDownStateType {
     IsGettingUp, // Currently getting up
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FallDownState {
-    fall_down_state: FallDownStateType,
-    is_recovery_available: bool, // Whether recovery (getting up) action is available
+    pub fall_down_state: FallDownStateType,
+    pub is_recovery_available: bool, // Whether recovery (getting up) action is available
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ButtonEventType {
     PressDown,
     PressUp,
@@ -62,58 +72,63 @@ pub enum ButtonEventType {
     LongPressEnd,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ButtonEventMsg {
-    button: i64,
-    event: ButtonEventType,
+    pub button: i64,
+    pub event: ButtonEventType,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RemoteControllerState {
-    event: u64, // refer to remarks
+    pub event: u64, // refer to remarks
 
-    lx: f32, // left stick horizontal direction, push left to -1, push right to 1
-    ly: f32, // left stick vertical direction, push front to -1, push back to 1
-    rx: f32, // right stick horizontal direction, push left to -1, push right to 1
-    ry: f32, // right stick vertical direction, push front to -1, push back to 1
+    pub lx: f32, // left stick horizontal direction, push left to -1, push right to 1
+    pub ly: f32, // left stick vertical direction, push front to -1, push back to 1
+    pub rx: f32, // right stick horizontal direction, push left to -1, push right to 1
+    pub ry: f32, // right stick vertical direction, push front to -1, push back to 1
 
-    a: bool,
-    b: bool,
-    x: bool,
-    y: bool,
-    lb: bool,
-    rb: bool,
-    lt: bool,
-    rt: bool,
-    ls: bool,
-    rs: bool,
-    back: bool,
-    start: bool,
+    pub a: bool,
+    pub b: bool,
+    pub x: bool,
+    pub y: bool,
+    pub lb: bool,
+    pub rb: bool,
+    pub lt: bool,
+    pub rt: bool,
+    pub ls: bool,
+    pub rs: bool,
+    pub back: bool,
+    pub start: bool,
 
-    hat_c: bool,  // Hat centered
-    hat_u: bool,  // Hat up
-    hat_d: bool,  // Hat down
-    hat_l: bool,  // Hat left
-    hat_r: bool,  // Hat right
-    hat_lu: bool, // Hat left up
-    hat_ld: bool, // Hat left down
-    hat_ru: bool, // Hat right up
-    hat_rd: bool, // Hat right down
-    reserved: u8,
+    pub hat_c: bool,  // Hat centered
+    pub hat_u: bool,  // Hat up
+    pub hat_d: bool,  // Hat down
+    pub hat_l: bool,  // Hat left
+    pub hat_r: bool,  // Hat right
+    pub hat_lu: bool, // Hat left up
+    pub hat_ld: bool, // Hat left down
+    pub hat_ru: bool, // Hat right up
+    pub hat_rd: bool, // Hat right down
+    pub reserved: u8,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct TransformStamped {
-    header: Header,
-    child_frame_id: String,
-    transform: Isometry3<f32>,
+    pub header: Header,
+    pub child_frame_id: String,
+    pub transform: Isometry3<f32>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Header {
-    stamp: Time,
-    frame_id: String,
+    pub stamp: Time,
+    pub frame_id: String,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Time {
-    seconds: i32,
-    nanos: u32,
+    pub seconds: i32,
+    pub nanos: u32,
 }
 
 pub trait BoosterLowLevelInterface {
