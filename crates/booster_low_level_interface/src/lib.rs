@@ -1,5 +1,5 @@
-use nalgebra::Isometry3;
-use serde::{Deserialize, Serialize};
+use nalgebra::{Isometry3, Quaternion, Unit, Vector3};
+use serde::{Deserialize, Deserializer, Serialize, Serializer};
 use tokio::sync::broadcast::{Receiver, Sender};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -11,53 +11,77 @@ pub struct LowState {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ImuState {
-    pub rpy: [f32; 3],  // Euler angle information（0 -> roll ,1 -> pitch ,2 -> yaw）
-    pub gyro: [f32; 3], // Angular velocity information（0 -> x ,1 -> y ,2 -> z）
-    pub acc: [f32; 3],  // Acceleration information.（0 -> x ,1 -> y ,2 -> z）
+    #[serde(rename = "rpy")]
+    /// Euler angle information（0 -> roll ,1 -> pitch ,2 -> yaw）
+    pub roll_pitch_yaw: [f32; 3],
+    /// Angular velocity information（0 -> x ,1 -> y ,2 -> z）
+    pub gyro: [f32; 3],
+    /// Acceleration information.（0 -> x ,1 -> y ,2 -> z）
+    pub acc: [f32; 3],
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct MotorState {
-    pub q: f32,       // Joint angle position, unit: rad.
-    pub dq: f32,      // Joint angular velocity, unit: rad/s.
-    pub ddq: f32,     // Joint angular acceleration, unit: rad/s².
-    pub tau_est: f32, // Joint torque, unit: nm
+    #[serde(rename = "q")]
+    /// Joint angle position (q), unit: rad.
+    pub position: f32,
+    #[serde(rename = "dq")]
+    /// Joint angular velocity (dq), unit: rad/s.
+    pub velocity: f32,
+    #[serde(rename = "ddq")]
+    /// Joint angular acceleration (ddq), unit: rad/s².
+    pub acceleration: f32,
+    #[serde(rename = "tau_est")]
+    /// Joint torque (tau_est), unit: nm
+    pub torque: f32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub enum CmdType {
-    Parallel, // Parallel type.
-    Serial,   // Serial type.
+pub enum CommandType {
+    Parallel,
+    Serial,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct LowCmd {
-    pub cmd_type: CmdType, // Set whether the joint command follows the serial mode or the parallel mode.
-    pub motor_cmd: Vec<MotorCmd>, // Joint command array.
+pub struct LowCommand {
+    #[serde(rename = "cmd_type")]
+    pub command_type: CommandType,
+    #[serde(rename = "motor_cmd")]
+    pub motor_command: Vec<MotorCommand>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct MotorCmd {
-    pub q: f32,      // Joint angle position, unit: rad.
-    pub dq: f32,     // Joint angular velocity, unit: rad/s.
-    pub tau: f32,    // Joint torque, unit: nm
-    pub kp: f32,     // Proportional coefficient.
-    pub kd: f32,     // Gain coefficient.
-    pub weight: f32, // Weight, range [0, 1], specify the proportion of user set motor cmd is mixed with the original cmd sent by the internal controller, which is usually used for gradually move to a user custom motor state from internal controlled motor state. Weight 0 means fully controlled by internal controller, weight 1 means fully controlled by user sent cmds. This parameter is not working if in custom mode, as in custom mode, internal controller will send no motor cmds.
+pub struct MotorCommand {
+    #[serde(rename = "q")]
+    /// Joint angle position, unit: rad.
+    pub position: f32,
+    #[serde(rename = "dq")]
+    /// Joint angular velocity, unit: rad/s.  
+    pub velocity: f32,
+    #[serde(rename = "tau")]
+    /// Joint torque, unit: nm
+    pub torque: f32,
+    /// Proportional coefficient.
+    pub kp: f32,
+    /// Gain coefficient.
+    pub kd: f32,
+    /// Weight, range [0, 1], specify the proportion of user set motor cmd is mixed with the original cmd sent by the internal controller, which is usually used for gradually move to a user custom motor state from internal controlled motor state. Weight 0 means fully controlled by internal controller, weight 1 means fully controlled by user sent cmds. This parameter is not working if in custom mode, as in custom mode, internal controller will send no motor cmds.
+    pub weight: f32,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum FallDownStateType {
-    IsReady,     // Not fallen state
-    IsFalling,   // Currently falling
-    HasFallen,   // Already fallen
-    IsGettingUp, // Currently getting up
+    IsReady,
+    IsFalling,
+    HasFallen,
+    IsGettingUp,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FallDownState {
     pub fall_down_state: FallDownStateType,
-    pub is_recovery_available: bool, // Whether recovery (getting up) action is available
+    /// Whether recovery (getting up) action is available
+    pub is_recovery_available: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -80,35 +104,68 @@ pub struct ButtonEventMsg {
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RemoteControllerState {
+    /** This feature can be used in user programs to implement custom gamepad/controller button functionality.
+    |type | code | description|
+    |-|-|-|
+    |NONE|  0 |no event |
+    |AXIS | 0x600 | axis motion |
+    |HAT | 0x602 | hat position change |
+    |BUTTON_DOWN | 0x603 | button pressed |
+    |BUTTON_UP | 0x604 | button released |
+    |REMOVE | 0x606 | device has been removed |
+    */
     pub event: u64, // refer to remarks
 
-    pub lx: f32, // left stick horizontal direction, push left to -1, push right to 1
-    pub ly: f32, // left stick vertical direction, push front to -1, push back to 1
-    pub rx: f32, // right stick horizontal direction, push left to -1, push right to 1
-    pub ry: f32, // right stick vertical direction, push front to -1, push back to 1
+    #[serde(rename = "lx")]
+    /// left stick horizontal direction, push left to -1, push right to 1
+    pub left_joystick_x: f32,
+    #[serde(rename = "ly")]
+    /// left stick vertical direction, push front to -1, push back to 1
+    pub left_joystick_y: f32,
+    #[serde(rename = "rx")]
+    /// right stick horizontal direction, push left to -1, push right to 1
+    pub right_joystick_x: f32,
+    #[serde(rename = "ry")]
+    /// right stick vertical direction, push front to -1, push back to 1
+    pub right_joystick_y: f32,
 
     pub a: bool,
     pub b: bool,
     pub x: bool,
     pub y: bool,
-    pub lb: bool,
-    pub rb: bool,
-    pub lt: bool,
-    pub rt: bool,
-    pub ls: bool,
-    pub rs: bool,
+    #[serde(rename = "lb")]
+    pub left_button: bool,
+    #[serde(rename = "rb")]
+    pub right_button: bool,
+    #[serde(rename = "lt")]
+    pub left_trigger: bool,
+    #[serde(rename = "rt")]
+    pub right_trigger: bool,
+    #[serde(rename = "ls")]
+    pub left_joystick: bool,
+    #[serde(rename = "rs")]
+    pub right_joystick: bool,
     pub back: bool,
     pub start: bool,
 
-    pub hat_c: bool,  // Hat centered
-    pub hat_u: bool,  // Hat up
-    pub hat_d: bool,  // Hat down
-    pub hat_l: bool,  // Hat left
-    pub hat_r: bool,  // Hat right
-    pub hat_lu: bool, // Hat left up
-    pub hat_ld: bool, // Hat left down
-    pub hat_ru: bool, // Hat right up
-    pub hat_rd: bool, // Hat right down
+    #[serde(rename = "hat_c")]
+    pub dpad_centered: bool,
+    #[serde(rename = "hat_u")]
+    pub dpad_up: bool,
+    #[serde(rename = "hat_d")]
+    pub dpad_down: bool,
+    #[serde(rename = "hat_l")]
+    pub dpad_left: bool,
+    #[serde(rename = "hat_r")]
+    pub dpad_right: bool,
+    #[serde(rename = "hat_lu")]
+    pub dpad_left_up: bool,
+    #[serde(rename = "hat_ld")]
+    pub dpad_left_down: bool,
+    #[serde(rename = "hat_ru")]
+    pub dpad_right_up: bool,
+    #[serde(rename = "hat_rd")]
+    pub dpad_right_: bool,
     pub reserved: u8,
 }
 
@@ -116,9 +173,41 @@ pub struct RemoteControllerState {
 pub struct TransformStamped {
     pub header: Header,
     pub child_frame_id: String,
-    pub transform: Isometry3<f32>,
+    #[serde(
+        serialize_with = "serialize_isometry3_to_transform",
+        deserialize_with = "deserialize_transform_to_isometry3"
+    )]
+    pub transform: Isometry3<f64>,
 }
 
+fn deserialize_transform_to_isometry3<'de, D>(deserializer: D) -> Result<Isometry3<f64>, D::Error>
+where
+    D: Deserializer<'de>,
+{
+    Transform::deserialize(deserializer)
+        .map(|transform| {
+            Isometry3::<f64>::from_parts(
+                nalgebra::Translation::from(transform.translation),
+                Unit::from_quaternion(transform.rotation),
+            )
+        })
+        .map_err(serde::de::Error::custom)
+}
+
+fn serialize_isometry3_to_transform<S>(
+    isometry: &Isometry3<f64>,
+    serializer: S,
+) -> Result<S::Ok, S::Error>
+where
+    S: Serializer,
+{
+    let transform = Transform {
+        translation: isometry.translation.vector,
+        rotation: *isometry.rotation,
+    };
+
+    transform.serialize(serializer)
+}
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Header {
     pub stamp: Time,
@@ -126,15 +215,23 @@ pub struct Header {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Transform {
+    pub translation: Vector3<f64>,
+    pub rotation: Quaternion<f64>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Time {
+    #[serde(rename = "sec")]
     pub seconds: i32,
+    #[serde(rename = "nanosec")]
     pub nanos: u32,
 }
 
 pub trait BoosterLowLevelInterface {
     fn subscribe_low_state(&self) -> Receiver<LowState>;
 
-    fn publish_joint_ctrl(&self) -> Sender<LowCmd>;
+    fn publish_joint_ctrl(&self) -> Sender<LowCommand>;
 
     fn subscribe_fall_down(&self) -> Receiver<FallDownState>;
 
