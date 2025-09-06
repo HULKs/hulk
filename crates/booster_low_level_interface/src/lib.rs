@@ -1,5 +1,5 @@
-use nalgebra::{Isometry3, Quaternion, Unit, Vector3};
-use serde::{Deserialize, Deserializer, Serialize, Serializer};
+use nalgebra::{Isometry3, Quaternion, Vector3};
+use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast::{Receiver, Sender};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -173,51 +173,52 @@ pub struct RemoteControllerState {
 pub struct TransformStamped {
     pub header: Header,
     pub child_frame_id: String,
-    #[serde(
-        serialize_with = "serialize_isometry3_to_transform",
-        deserialize_with = "deserialize_transform_to_isometry3"
-    )]
+    #[serde(with = "serde_transform_isometry")]
     pub transform: Isometry3<f64>,
-}
-
-fn deserialize_transform_to_isometry3<'de, D>(deserializer: D) -> Result<Isometry3<f64>, D::Error>
-where
-    D: Deserializer<'de>,
-{
-    Transform::deserialize(deserializer)
-        .map(|transform| {
-            Isometry3::<f64>::from_parts(
-                nalgebra::Translation::from(transform.translation),
-                Unit::from_quaternion(transform.rotation),
-            )
-        })
-        .map_err(serde::de::Error::custom)
-}
-
-fn serialize_isometry3_to_transform<S>(
-    isometry: &Isometry3<f64>,
-    serializer: S,
-) -> Result<S::Ok, S::Error>
-where
-    S: Serializer,
-{
-    let transform = Transform {
-        translation: isometry.translation.vector,
-        rotation: *isometry.rotation,
-    };
-
-    transform.serialize(serializer)
-}
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Header {
-    pub stamp: Time,
-    pub frame_id: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Transform {
     pub translation: Vector3<f64>,
     pub rotation: Quaternion<f64>,
+}
+
+mod serde_transform_isometry {
+    use nalgebra::{Isometry3, Unit};
+    use serde::{Deserializer, Serializer};
+
+    use crate::Transform;
+
+    pub fn deserialize<'de, D>(deserializer: D) -> Result<Isometry3<f64>, D::Error>
+    where
+        D: Deserializer<'de>,
+    {
+        <Transform as serde::Deserialize>::deserialize(deserializer)
+            .map(|transform| {
+                Isometry3::<f64>::from_parts(
+                    nalgebra::Translation::from(transform.translation),
+                    Unit::from_quaternion(transform.rotation),
+                )
+            })
+            .map_err(serde::de::Error::custom)
+    }
+
+    pub fn serialize<S>(isometry: &Isometry3<f64>, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: Serializer,
+    {
+        let transform = Transform {
+            translation: isometry.translation.vector,
+            rotation: *isometry.rotation,
+        };
+
+        serde::Serialize::serialize(&transform, serializer)
+    }
+}
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct Header {
+    pub stamp: Time,
+    pub frame_id: String,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
