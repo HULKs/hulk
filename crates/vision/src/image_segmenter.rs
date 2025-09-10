@@ -102,7 +102,7 @@ fn padding_size(median_mode: MedianModeParameters) -> u32 {
 fn find_minimum_y_on_limbs(image: &YCbCr422Image, projected_limbs: &[Limb]) -> u32 {
     let limb_pixels = projected_limbs
         .iter()
-        .flat_map(|limb| &limb.pixel_polygon)
+        .flat_map(|limb| &limb.pixel_polyline)
         .map(|point| point.map(|x| x as u32));
     let inside_image = limb_pixels.filter(|point| (0..image.width()).contains(&point.x()));
     // minimum means higher in the image, the minimum in y is the top-most pixel

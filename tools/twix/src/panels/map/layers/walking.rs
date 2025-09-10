@@ -332,8 +332,6 @@ fn paint_sole_polygon(
         point![-0.045156, 0.042039, 0.0],
         point![-0.04905, 0.037599, 0.0],
         point![-0.054657, 0.029814, 0.0],
-        point![-0.05457, -0.015151, 0.0],
-        point![-0.050723, -0.021379, 0.0],
     ];
 
     let sole_to_ground = sole.as_transform::<Sole>();

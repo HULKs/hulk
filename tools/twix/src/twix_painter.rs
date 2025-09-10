@@ -231,6 +231,16 @@ impl<World> TwixPainter<World> {
             .collect();
         let stroke = self.transform_stroke(stroke);
         self.painter
+            .add(Shape::Path(PathShape::closed_line(points, stroke)));
+    }
+
+    pub fn polyline(&self, points: impl IntoIterator<Item = Point2<World>>, stroke: Stroke) {
+        let points: Vec<_> = points
+            .into_iter()
+            .map(|point| self.transform_world_to_pixel(point))
+            .collect();
+        let stroke = self.transform_stroke(stroke);
+        self.painter
             .add(Shape::Path(PathShape::line(points, stroke)));
     }
 
