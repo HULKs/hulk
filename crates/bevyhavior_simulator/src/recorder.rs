@@ -16,12 +16,19 @@ use tokio_util::sync::CancellationToken;
 
 use types::{ball_position::SimulatorBallState, players::Players};
 
-use crate::{ball::BallResource, cyclers::control::Database, robot::Robot, server};
+use crate::{
+    ball::BallResource, cyclers::control::Database, robot::Robot, server, structs::Parameters,
+};
 
 pub struct Frame {
     pub timestamp: SystemTime,
     pub ball: Option<SimulatorBallState>,
-    pub robots: Players<Option<Database>>,
+    pub robots: Players<Option<RobotFrame>>,
+}
+
+pub struct RobotFrame {
+    pub database: Database,
+    pub parameters: Parameters,
 }
 
 #[derive(Resource)]
@@ -37,9 +44,12 @@ pub fn frame_recorder(
     recording: ResMut<Recording>,
     time: Res<Time>,
 ) {
-    let mut players = Players::<Option<Database>>::default();
+    let mut players = Players::<Option<RobotFrame>>::default();
     for robot in &robots {
-        players[robot.parameters.player_number] = Some(robot.database.clone())
+        players[robot.parameters.player_number] = Some(RobotFrame {
+            database: robot.database.clone(),
+            parameters: robot.parameters.clone(),
+        })
     }
     recording
         .frame_sender

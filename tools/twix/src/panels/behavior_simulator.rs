@@ -23,7 +23,7 @@ impl Panel for BehaviorSimulatorPanel {
     const NAME: &'static str = "Behavior Simulator";
 
     fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
-        let selected_frame_updater = nao.subscribe_value("parameters.selected_frame");
+        let selected_frame_updater = nao.subscribe_value("simulator.selected_frame");
 
         let frame_count = nao.subscribe_value("BehaviorSimulator.main_outputs.frame_count");
         let selected_frame = value
@@ -117,7 +117,7 @@ impl Widget for &mut BehaviorSimulatorPanel {
                         .ui(ui);
                         if response.changed() {
                             self.nao.write(
-                                "parameters.selected_robot",
+                                "simulator.selected_robot",
                                 TextOrBinary::Text(robots[self.selected_robot].into()),
                             );
                         };
@@ -138,7 +138,7 @@ impl Widget for &mut BehaviorSimulatorPanel {
         if let Some(new_frame) = new_frame {
             self.selected_frame = (new_frame + frame_count as f64) % frame_count as f64;
             self.nao.write(
-                "parameters.selected_frame",
+                "simulator.selected_frame",
                 TextOrBinary::Text((self.selected_frame as usize).into()),
             );
         }
