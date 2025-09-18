@@ -29,7 +29,7 @@ impl Overlay for LimbProjector {
             return Ok(());
         };
         for limb in projected_limbs.limbs {
-            painter.polygon(limb.pixel_polygon, Stroke::new(3.0, Color32::WHITE));
+            painter.polyline(limb.pixel_polyline, Stroke::new(3.0, Color32::WHITE));
         }
         Ok(())
     }

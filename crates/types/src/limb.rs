@@ -11,14 +11,14 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
     Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
 pub struct Limb {
-    pub pixel_polygon: Vec<Point2<Pixel>>,
+    pub pixel_polyline: Vec<Point2<Pixel>>,
 }
 
 pub fn project_onto_limbs(position: Point2<Pixel>, projected_limbs: &[Limb]) -> Option<f32> {
     projected_limbs
         .iter()
         .flat_map(|limb| {
-            limb.pixel_polygon
+            limb.pixel_polyline
                 .as_slice()
                 .windows(2)
                 .filter_map(|points| {
@@ -64,7 +64,7 @@ mod tests {
     fn left_limb_is_ignored() {
         let position = point![2.0, 0.0];
         let projected_limbs = vec![Limb {
-            pixel_polygon: vec![point![0.0, 0.0], point![1.0, 1.0]],
+            pixel_polyline: vec![point![0.0, 0.0], point![1.0, 1.0]],
         }];
         assert!(is_above_limbs(position, &projected_limbs));
     }
@@ -73,7 +73,7 @@ mod tests {
     fn right_limb_is_ignored() {
         let position = point![2.0, 0.0];
         let projected_limbs = vec![Limb {
-            pixel_polygon: vec![point![3.0, 0.0], point![4.0, 1.0]],
+            pixel_polyline: vec![point![3.0, 0.0], point![4.0, 1.0]],
         }];
         assert!(is_above_limbs(position, &projected_limbs));
     }
@@ -82,7 +82,7 @@ mod tests {
     fn too_low_limb_leads_to_point_being_above() {
         let position = point![2.0, 0.0];
         let projected_limbs = vec![Limb {
-            pixel_polygon: vec![point![1.0, 10.0], point![3.0, 11.0]],
+            pixel_polyline: vec![point![1.0, 10.0], point![3.0, 11.0]],
         }];
         assert!(is_above_limbs(position, &projected_limbs));
     }
@@ -91,7 +91,7 @@ mod tests {
     fn high_limb_leads_to_point_being_below() {
         let position = point![2.0, 10.0];
         let projected_limbs = vec![Limb {
-            pixel_polygon: vec![point![1.0, 0.0], point![3.0, 1.0]],
+            pixel_polyline: vec![point![1.0, 0.0], point![3.0, 1.0]],
         }];
         assert!(!is_above_limbs(position, &projected_limbs));
     }
