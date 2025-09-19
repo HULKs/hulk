@@ -9,7 +9,7 @@ pub type Point<Frame, const DIMENSION: usize, T = f32> =
 pub type Point2<Frame, T = f32> = Point<Frame, 2, T>;
 pub type Point3<Frame, T = f32> = Point<Frame, 3, T>;
 
-/// Construct a coordinate-safe point with a frame.
+/// Construct a frame-safe point with a frame.
 ///
 /// This macro works like [`nalgebra::point!`], but wraps the result with a frame.
 ///

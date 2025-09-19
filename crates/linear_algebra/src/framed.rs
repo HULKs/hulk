@@ -7,7 +7,7 @@ use std::{
 
 /// Tag any value with a coordinate frame.
 ///
-/// This is the core wrapper type for all coordinate-safe types in this crate.
+/// This is the core wrapper type for all frame-safe types in this crate.
 ///
 /// # Example
 /// ```rust

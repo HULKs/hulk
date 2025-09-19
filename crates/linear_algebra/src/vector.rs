@@ -8,7 +8,7 @@ pub type Vector<Frame, const DIMENSION: usize, Scalar = f32> =
 pub type Vector2<Frame, Scalar = f32> = Vector<Frame, 2, Scalar>;
 pub type Vector3<Frame, Scalar = f32> = Vector<Frame, 3, Scalar>;
 
-/// Construct a coordinate-safe vector with a frame.
+/// Construct a frame-safe vector with a frame.
 ///
 /// This macro works like [`nalgebra::vector!`], but wraps the result with a frame.
 ///
