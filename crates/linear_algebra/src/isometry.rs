@@ -38,14 +38,32 @@ where
     T::Element: SimdRealField,
     T: SimdRealField + Copy,
 {
-    pub fn from_parts(translation: Vector2<To, T>, angle: T) -> Self {
-        Transform::wrap(nalgebra::Isometry2::new(translation.inner, angle))
+    pub fn new(translation: Vector2<To, T>, angle: T) -> Self {
+        Self::wrap(nalgebra::Isometry2::new(translation.inner, angle))
+    }
+
+    pub fn from_parts(translation: Vector2<To, T>, orientation: Orientation2<To, T>) -> Self {
+        Self::wrap(nalgebra::Isometry2::from_parts(
+            translation.inner.into(),
+            orientation.inner,
+        ))
     }
 
     pub fn rotation(angle: T) -> Self {
         Self::wrap(nalgebra::Isometry2::rotation(angle))
     }
 
+    /// Converts this isometry (transform) into a pose in the destination frame.
+    ///
+    /// # Example
+    /// ```
+    /// use linear_algebra::{vector, Isometry2, Pose2};
+    ///
+    /// struct Robot;
+    /// struct Ground;
+    /// let robot_to_ground: Isometry2<Robot, Ground> = Isometry2::new(vector![1.0, 2.0], 0.5);
+    /// let robot: Pose2<Ground> = robot_to_ground.as_pose();
+    /// ```
     pub fn as_pose(&self) -> Pose2<To, T> {
         Pose2::wrap(self.inner)
     }
@@ -97,6 +115,18 @@ where
         Self::wrap(nalgebra::Isometry3::translation(x, y, z))
     }
 
+    /// Converts this isometry (transform) into a pose in the destination frame.
+    ///
+    /// # Example
+    /// ```
+    /// use linear_algebra::{vector, Isometry3, Orientation3, Pose3};
+    ///
+    /// struct Robot;
+    /// struct Ground;
+    /// let robot_to_ground: Isometry3<Robot, Ground> =
+    ///     Isometry3::from_parts(vector![1.0, 2.0, 3.0], Orientation3::identity());
+    /// let robot: Pose3<Ground> = robot_to_ground.as_pose();
+    /// ```
     pub fn as_pose(&self) -> Pose3<To, T> {
         Pose3::wrap(self.inner)
     }

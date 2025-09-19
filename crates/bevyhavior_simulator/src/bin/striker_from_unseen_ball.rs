@@ -24,11 +24,11 @@ fn startup(
     mut game_controller_commands: EventWriter<GameControllerCommand>,
 ) {
     let mut one = Robot::new(PlayerNumber::One);
-    *one.ground_to_field_mut() = Isometry2::from_parts(vector![-2.0, -0.2], 0.0);
+    *one.ground_to_field_mut() = Isometry2::new(vector![-2.0, -0.2], 0.0);
     commands.spawn(one);
     let mut two = Robot::new(PlayerNumber::Two);
     // 0.00001 is necessary to avoid #1038 for some reason
-    *two.ground_to_field_mut() = Isometry2::from_parts(vector![0.0, 0.00001], 0.0);
+    *two.ground_to_field_mut() = Isometry2::new(vector![0.0, 0.00001], 0.0);
     commands.spawn(two);
 
     ball.state = Some(SimulatorBallState {

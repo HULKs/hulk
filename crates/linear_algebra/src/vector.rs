@@ -8,6 +8,17 @@ pub type Vector<Frame, const DIMENSION: usize, Scalar = f32> =
 pub type Vector2<Frame, Scalar = f32> = Vector<Frame, 2, Scalar>;
 pub type Vector3<Frame, Scalar = f32> = Vector<Frame, 3, Scalar>;
 
+/// Construct a frame-safe vector with a frame.
+///
+/// This macro works like [`nalgebra::vector!`], but wraps the result with a frame.
+///
+/// # Example
+/// ```rust
+/// use linear_algebra::{vector, Vector2};
+///
+/// struct World;
+/// let v: Vector2<World> = vector![1.0, 2.0];
+/// ```
 #[macro_export]
 macro_rules! vector {
     (<$frame:ty>, $($parameters:expr),* $(,)?) => {
@@ -19,7 +30,6 @@ macro_rules! vector {
 }
 
 // Any dimension
-
 impl<Frame, const DIMENSION: usize, T> Framed<Frame, SVector<T, DIMENSION>> {
     pub fn zeros() -> Self
     where
@@ -107,7 +117,6 @@ impl<Frame, const DIMENSION: usize, T> Framed<Frame, SVector<T, DIMENSION>> {
 }
 
 // 2 Dimension
-
 impl<Frame, T> Framed<Frame, SVector<T, 2>>
 where
     T: Scalar + Zero + One + Copy,
@@ -130,7 +139,6 @@ where
 }
 
 // 3 Dimension
-
 impl<Frame, T> Framed<Frame, SVector<T, 3>>
 where
     T: Scalar + Zero + One + Copy,

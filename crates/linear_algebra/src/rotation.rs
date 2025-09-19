@@ -14,6 +14,9 @@ where
         Self::wrap(nalgebra::UnitComplex::new(angle))
     }
 
+    /// Creates a rotation that aligns the x-axis with the given direction vector.
+    ///
+    /// The resulting rotation transforms the x-axis to point in the direction of `direction`.
     pub fn from_vector(direction: Vector2<To, T>) -> Self
     where
         T: RealField,
@@ -32,6 +35,11 @@ where
         Rotation2::wrap(self.inner.inverse())
     }
 
+    /// Converts this rotation (transform) into an orientation in the destination frame.
+    ///
+    /// This forgets the source frame, yielding an orientation that is only labeled with the
+    /// destination frame. Use this when you want to treat the result as an orientation in the `To`
+    /// frame, rather than as a transform from `From` to `To`.
     pub fn as_orientation(&self) -> Orientation2<To, T> {
         Orientation2::wrap(self.inner.clone())
     }

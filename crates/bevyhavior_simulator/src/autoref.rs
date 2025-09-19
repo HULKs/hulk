@@ -148,7 +148,7 @@ pub fn auto_assistant_referee(
     mut visual_referee: ResMut<VisualRefereeResource>,
 ) {
     let penalized_walk_in_position: Isometry2<Ground, Field> =
-        Isometry2::from_parts(vector![-3.2, -3.3], FRAC_PI_2);
+        Isometry2::new(vector![-3.2, -3.3], FRAC_PI_2);
 
     for command in game_controller_commands.read() {
         match *command {

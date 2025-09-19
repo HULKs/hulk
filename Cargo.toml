@@ -151,7 +151,7 @@ kinematics = { path = "crates/kinematics" }
 lazy_static = "1.5.0"
 levenberg-marquardt = "0.14.0"
 libc = "0.2.169"
-linear_algebra = { path = "crates/linear_algebra" }
+linear_algebra = { path = "crates/linear_algebra", features = ["full"] }
 log = "0.4.25"
 mcap = "0.15.0"
 mlua = { version = "0.10.3", features = ["luajit", "serialize", "vendored"] }

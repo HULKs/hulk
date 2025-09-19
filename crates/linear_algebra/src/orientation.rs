@@ -36,6 +36,10 @@ where
         ))
     }
 
+    /// Converts this orientation into a rotation (transform) from a source frame to this frame.
+    ///
+    /// This adds a source frame, yielding a transform from `From` to `Frame`. Use this when you
+    /// want to treat the orientation as a transform from another frame into this frame.
     pub fn as_transform<From>(&self) -> Rotation2<From, Frame, T> {
         Rotation2::wrap(self.inner)
     }
@@ -68,6 +72,10 @@ where
         Self::wrap(nalgebra::UnitQuaternion::new(axis_angle.inner))
     }
 
+    pub fn identity() -> Self {
+        Self::wrap(nalgebra::UnitQuaternion::identity())
+    }
+
     pub fn from_euler_angles(roll: T, pitch: T, yaw: T) -> Self {
         Self::wrap(nalgebra::UnitQuaternion::from_euler_angles(
             roll, pitch, yaw,
@@ -86,7 +94,11 @@ where
         Rotation3::wrap(self.inner.rotation_to(&other.inner))
     }
 
-    pub fn rotation<From>(self) -> Rotation3<From, Frame, T> {
+    /// Converts this orientation into a rotation (transform) from a source frame to this frame.
+    ///
+    /// This adds a source frame, yielding a transform from `From` to `Frame`. Use this when you
+    /// want to treat the orientation as a transform from another frame into this frame.
+    pub fn as_transform<From>(self) -> Rotation3<From, Frame, T> {
         Rotation3::wrap(self.inner)
     }
 

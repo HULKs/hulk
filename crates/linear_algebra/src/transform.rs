@@ -1,31 +1,75 @@
-use std::{collections::HashSet, marker::PhantomData, ops::Mul};
-
-use approx::{AbsDiffEq, RelativeEq};
-use path_serde::{deserialize, serialize, PathDeserialize, PathIntrospect, PathSerialize};
-use serde::{Deserialize, Serialize};
+use std::{
+    hash::{Hash, Hasher},
+    marker::PhantomData,
+    ops::Mul,
+};
 
 use crate::framed::Framed;
 
+/// Tag any value as a transform between two coordinate frames.
+///
+/// This is the core wrapper type for all frame-safe transforms in this crate. It encodes both
+/// the source `From` and destination `To` frames at the type level, ensuring that only compatible
+/// operations are allowed.
+///
+/// # Example
+/// ```rust
+/// use linear_algebra::{Transform, Vector2};
+///
+/// struct A;
+/// struct B;
+/// let t: Transform<A, B, nalgebra::Matrix2<f32>> = Transform::wrap(nalgebra::Matrix2::identity());
+/// ```
 #[derive(Debug)]
-pub struct Transform<From, To, Inner> {
+pub struct Transform<From, To, T> {
     from: PhantomData<From>,
     to: PhantomData<To>,
-    pub inner: Inner,
+    pub inner: T,
 }
 
-impl<From, To, Inner> Clone for Transform<From, To, Inner>
+impl<From, To, T> Clone for Transform<From, To, T>
 where
-    Inner: Clone,
+    T: Clone,
 {
     fn clone(&self) -> Self {
         Self::wrap(self.inner.clone())
     }
 }
 
-impl<From, To, Inner> Copy for Transform<From, To, Inner> where Inner: Copy {}
+impl<From, To, T> Copy for Transform<From, To, T> where T: Copy {}
 
-impl<From, To, Transformer> Transform<From, To, Transformer> {
-    pub fn wrap(inner: Transformer) -> Self {
+impl<From, To, T> Default for Transform<From, To, T>
+where
+    T: Default,
+{
+    fn default() -> Self {
+        Self::wrap(T::default())
+    }
+}
+
+impl<From, To, T> PartialEq for Transform<From, To, T>
+where
+    T: PartialEq,
+{
+    fn eq(&self, other: &Self) -> bool {
+        self.inner == other.inner
+    }
+}
+
+impl<From, To, Inner> Eq for Transform<From, To, Inner> where Inner: Eq {}
+
+impl<From, To, T> Hash for Transform<From, To, T>
+where
+    T: Hash,
+{
+    fn hash<H: Hasher>(&self, state: &mut H) {
+        self.inner.hash(state);
+    }
+}
+
+impl<From, To, T> Transform<From, To, T> {
+    /// Wrap a value in its frame.
+    pub fn wrap(inner: T) -> Self {
         Self {
             from: PhantomData,
             to: PhantomData,
@@ -34,180 +78,222 @@ impl<From, To, Transformer> Transform<From, To, Transformer> {
     }
 }
 
-impl<From, To, Inner> Default for Transform<From, To, Inner>
+impl<From, To, Lhs, Rhs> Mul<Framed<From, Rhs>> for Transform<From, To, Lhs>
 where
-    Inner: Default,
+    Lhs: Mul<Rhs>,
 {
-    fn default() -> Self {
-        Self::wrap(Inner::default())
+    type Output = Framed<To, Lhs::Output>;
+
+    fn mul(self, rhs: Framed<From, Rhs>) -> Self::Output {
+        let inner = self.inner * rhs.inner;
+        Self::Output::wrap(inner)
     }
 }
 
-impl<From, To, Inner> AbsDiffEq for Transform<From, To, Inner>
+impl<'lhs, From, To, Lhs, Rhs> Mul<Framed<From, Rhs>> for &'lhs Transform<From, To, Lhs>
 where
-    Transform<From, To, Inner>: PartialEq,
-    Inner: AbsDiffEq,
+    &'lhs Lhs: Mul<Rhs>,
 {
-    type Epsilon = Inner::Epsilon;
+    type Output = Framed<To, <&'lhs Lhs as Mul<Rhs>>::Output>;
 
-    fn default_epsilon() -> Self::Epsilon {
-        Inner::default_epsilon()
-    }
-
-    fn abs_diff_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool {
-        Inner::abs_diff_eq(&self.inner, &other.inner, epsilon)
+    fn mul(self, rhs: Framed<From, Rhs>) -> Self::Output {
+        let inner = &self.inner * rhs.inner;
+        Self::Output::wrap(inner)
     }
 }
 
-impl<From, To, Inner> RelativeEq for Transform<From, To, Inner>
+impl<'rhs, From, To, Lhs, Rhs> Mul<&'rhs Framed<From, Rhs>> for Transform<From, To, Lhs>
 where
-    Transform<From, To, Inner>: PartialEq,
-    Inner: RelativeEq,
+    Lhs: Mul<&'rhs Rhs>,
 {
-    fn default_max_relative() -> Self::Epsilon {
-        Inner::default_max_relative()
-    }
+    type Output = Framed<To, Lhs::Output>;
 
-    fn relative_eq(
-        &self,
-        other: &Self,
-        epsilon: Self::Epsilon,
-        max_relative: Self::Epsilon,
-    ) -> bool {
-        Inner::relative_eq(&self.inner, &other.inner, epsilon, max_relative)
+    fn mul(self, rhs: &'rhs Framed<From, Rhs>) -> Self::Output {
+        let inner = self.inner * &rhs.inner;
+        Self::Output::wrap(inner)
     }
 }
 
-impl<From, To, Inner> Eq for Transform<From, To, Inner> where Inner: Eq {}
-
-impl<From, To, Transformer, Entity> Mul<Framed<From, Entity>> for Transform<From, To, Transformer>
+impl<'lhs, 'rhs, From, To, Lhs, Rhs> Mul<&'rhs Framed<From, Rhs>> for &'lhs Transform<From, To, Lhs>
 where
-    Transformer: Mul<Entity, Output = Entity>,
+    &'lhs Lhs: Mul<&'rhs Rhs>,
 {
-    type Output = Framed<To, Entity>;
+    type Output = Framed<To, <&'lhs Lhs as Mul<&'rhs Rhs>>::Output>;
 
-    fn mul(self, rhs: Framed<From, Entity>) -> Self::Output {
-        Self::Output::wrap(self.inner * rhs.inner)
+    fn mul(self, rhs: &'rhs Framed<From, Rhs>) -> Self::Output {
+        let inner = &self.inner * &rhs.inner;
+        Self::Output::wrap(inner)
     }
 }
 
-impl<From, Intermediate, To, Transformer, Inner, Output> Mul<Transform<From, Intermediate, Inner>>
-    for Transform<Intermediate, To, Transformer>
+impl<From, Mid, To, Lhs, Rhs> Mul<Transform<From, Mid, Rhs>> for Transform<Mid, To, Lhs>
 where
-    Transformer: Mul<Inner, Output = Output>,
+    Lhs: Mul<Rhs>,
 {
-    type Output = Transform<From, To, Output>;
+    type Output = Transform<From, To, Lhs::Output>;
 
-    fn mul(self, rhs: Transform<From, Intermediate, Inner>) -> Self::Output {
-        Self::Output::wrap(self.inner * rhs.inner)
+    fn mul(self, rhs: Transform<From, Mid, Rhs>) -> Self::Output {
+        let inner = self.inner * rhs.inner;
+        Self::Output::wrap(inner)
     }
 }
 
-impl<From, Intermediate, To, Transformer, Inner, Output> Mul<Transform<From, Intermediate, Inner>>
-    for &Transform<Intermediate, To, Transformer>
+impl<'lhs, From, Mid, To, Lhs, Rhs> Mul<Transform<From, Mid, Rhs>> for &'lhs Transform<Mid, To, Lhs>
 where
-    Transformer: Mul<Inner, Output = Output> + Copy,
+    &'lhs Lhs: Mul<Rhs>,
 {
-    type Output = Transform<From, To, Output>;
+    type Output = Transform<From, To, <&'lhs Lhs as Mul<Rhs>>::Output>;
 
-    fn mul(self, rhs: Transform<From, Intermediate, Inner>) -> Self::Output {
-        Self::Output::wrap(self.inner * rhs.inner)
+    fn mul(self, rhs: Transform<From, Mid, Rhs>) -> Self::Output {
+        let inner = &self.inner * rhs.inner;
+        Self::Output::wrap(inner)
     }
 }
 
-impl<From, To, Transformer, Entity> Mul<&Framed<From, Entity>> for Transform<From, To, Transformer>
+impl<'rhs, From, Mid, To, Lhs, Rhs> Mul<&'rhs Transform<From, Mid, Rhs>> for Transform<Mid, To, Lhs>
 where
-    Transformer: Mul<Entity, Output = Entity>,
-    Entity: Copy,
+    Lhs: Mul<&'rhs Rhs>,
 {
-    type Output = Framed<To, Entity>;
+    type Output = Transform<From, To, <Lhs as Mul<&'rhs Rhs>>::Output>;
 
-    fn mul(self, rhs: &Framed<From, Entity>) -> Self::Output {
-        Self::Output::wrap(self.inner * rhs.inner)
+    fn mul(self, rhs: &'rhs Transform<From, Mid, Rhs>) -> Self::Output {
+        let inner = self.inner * &rhs.inner;
+        Self::Output::wrap(inner)
     }
 }
 
-impl<From, To, Transformer, Entity> Mul<Framed<From, Entity>> for &Transform<From, To, Transformer>
+impl<'lhs, 'rhs, From, Mid, To, Lhs, Rhs> Mul<&'rhs Transform<From, Mid, Rhs>>
+    for &'lhs Transform<Mid, To, Lhs>
 where
-    Transformer: Mul<Entity, Output = Entity> + Copy,
+    &'lhs Lhs: Mul<&'rhs Rhs>,
 {
-    type Output = Framed<To, Entity>;
+    type Output = Transform<From, To, <&'lhs Lhs as Mul<&'rhs Rhs>>::Output>;
 
-    fn mul(self, rhs: Framed<From, Entity>) -> Self::Output {
-        Self::Output::wrap(self.inner * rhs.inner)
+    fn mul(self, rhs: &'rhs Transform<From, Mid, Rhs>) -> Self::Output {
+        let inner = &self.inner * &rhs.inner;
+        Self::Output::wrap(inner)
     }
 }
 
-impl<From, To, Inner> PartialEq for Transform<From, To, Inner>
-where
-    Inner: PartialEq,
-{
-    fn eq(&self, other: &Self) -> bool {
-        self.inner.eq(&other.inner)
-    }
-}
+#[cfg(feature = "serde")]
+mod _serde {
+    use super::Transform;
+    use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-impl<From, To, Inner> Serialize for Transform<From, To, Inner>
-where
-    Inner: Serialize,
-{
-    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    impl<From, To, T> Serialize for Transform<From, To, T>
     where
-        S: serde::Serializer,
+        T: Serialize,
     {
-        self.inner.serialize(serializer)
+        fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+        where
+            S: Serializer,
+        {
+            self.inner.serialize(serializer)
+        }
     }
-}
 
-impl<'a, From, To, Inner> Deserialize<'a> for Transform<From, To, Inner>
-where
-    Inner: Deserialize<'a>,
-{
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    impl<'a, From, To, Inner> Deserialize<'a> for Transform<From, To, Inner>
     where
-        D: serde::Deserializer<'a>,
+        Inner: Deserialize<'a>,
     {
-        Ok(Self::wrap(Inner::deserialize(deserializer)?))
+        fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+        where
+            D: Deserializer<'a>,
+        {
+            Ok(Self::wrap(Inner::deserialize(deserializer)?))
+        }
     }
 }
 
-impl<From, To, Inner> PathSerialize for Transform<From, To, Inner>
-where
-    Inner: PathSerialize,
-{
-    fn serialize_path<S>(
-        &self,
-        path: &str,
-        serializer: S,
-    ) -> Result<S::Ok, serialize::Error<S::Error>>
+#[cfg(feature = "path_serde")]
+mod _path_serde {
+    use super::Transform;
+    use path_serde::{
+        deserialize::{self, PathDeserialize},
+        serialize::{self, PathSerialize},
+        PathIntrospect,
+    };
+    use std::collections::HashSet;
+
+    impl<From, To, T> PathSerialize for Transform<From, To, T>
     where
-        S: serde::Serializer,
+        T: PathSerialize,
     {
-        self.inner.serialize_path(path, serializer)
+        fn serialize_path<S>(
+            &self,
+            path: &str,
+            serializer: S,
+        ) -> Result<S::Ok, serialize::Error<S::Error>>
+        where
+            S: serde::Serializer,
+        {
+            self.inner.serialize_path(path, serializer)
+        }
     }
-}
 
-impl<From, To, Inner> PathDeserialize for Transform<From, To, Inner>
-where
-    Inner: PathDeserialize,
-{
-    fn deserialize_path<'de, D>(
-        &mut self,
-        path: &str,
-        deserializer: D,
-    ) -> Result<(), deserialize::Error<D::Error>>
+    impl<From, To, T> PathDeserialize for Transform<From, To, T>
     where
-        D: serde::Deserializer<'de>,
+        T: PathDeserialize,
     {
-        self.inner.deserialize_path(path, deserializer)
+        fn deserialize_path<'de, D>(
+            &mut self,
+            path: &str,
+            deserializer: D,
+        ) -> Result<(), deserialize::Error<D::Error>>
+        where
+            D: serde::Deserializer<'de>,
+        {
+            self.inner.deserialize_path(path, deserializer)
+        }
+    }
+
+    impl<From, To, T> PathIntrospect for Transform<From, To, T>
+    where
+        T: PathIntrospect,
+    {
+        fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
+            T::extend_with_fields(fields, prefix)
+        }
     }
 }
 
-impl<From, To, Inner> PathIntrospect for Transform<From, To, Inner>
-where
-    Inner: PathIntrospect,
-{
-    fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
-        Inner::extend_with_fields(fields, prefix)
+#[cfg(feature = "approx")]
+mod _approx {
+    use super::Transform;
+    use approx::{AbsDiffEq, RelativeEq};
+
+    impl<From, To, T> AbsDiffEq for Transform<From, To, T>
+    where
+        Transform<From, To, T>: PartialEq,
+        T: AbsDiffEq,
+    {
+        type Epsilon = T::Epsilon;
+
+        fn default_epsilon() -> Self::Epsilon {
+            T::default_epsilon()
+        }
+
+        fn abs_diff_eq(&self, other: &Self, epsilon: Self::Epsilon) -> bool {
+            self.inner.abs_diff_eq(&other.inner, epsilon)
+        }
+    }
+
+    impl<From, To, T> RelativeEq for Transform<From, To, T>
+    where
+        Transform<From, To, T>: PartialEq,
+        T: RelativeEq,
+    {
+        fn default_max_relative() -> Self::Epsilon {
+            T::default_max_relative()
+        }
+
+        fn relative_eq(
+            &self,
+            other: &Self,
+            epsilon: Self::Epsilon,
+            max_relative: Self::Epsilon,
+        ) -> bool {
+            self.inner.relative_eq(&other.inner, epsilon, max_relative)
+        }
     }
 }

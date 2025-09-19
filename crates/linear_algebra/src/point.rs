@@ -9,6 +9,17 @@ pub type Point<Frame, const DIMENSION: usize, T = f32> =
 pub type Point2<Frame, T = f32> = Point<Frame, 2, T>;
 pub type Point3<Frame, T = f32> = Point<Frame, 3, T>;
 
+/// Construct a frame-safe point with a frame.
+///
+/// This macro works like [`nalgebra::point!`], but wraps the result with a frame.
+///
+/// # Example
+/// ```rust
+/// use linear_algebra::{point, Point2};
+///
+/// struct World;
+/// let p: Point2<World> = point![1.0, 2.0];
+/// ```
 #[macro_export]
 macro_rules! point {
     (<$frame:ty>, $($parameters:expr),* $(,)?) => {
@@ -19,6 +30,7 @@ macro_rules! point {
     };
 }
 
+/// Computes the distance between two points (wraps [`nalgebra::distance`]).
 pub fn distance<Frame, const DIMENSION: usize, T>(
     p1: Point<Frame, DIMENSION, T>,
     p2: Point<Frame, DIMENSION, T>,
@@ -29,6 +41,7 @@ where
     nalgebra::distance(&p1.inner, &p2.inner)
 }
 
+/// Computes the squared distance between two points (wraps [`nalgebra::distance_squared`]).
 pub fn distance_squared<Frame, const DIMENSION: usize, T>(
     p1: Point<Frame, DIMENSION, T>,
     p2: Point<Frame, DIMENSION, T>,
@@ -39,6 +52,7 @@ where
     nalgebra::distance_squared(&p1.inner, &p2.inner)
 }
 
+/// Computes the center (midpoint) between two points (wraps [`nalgebra::center`]).
 pub fn center<Frame, const DIMENSION: usize, T>(
     p1: Point<Frame, DIMENSION, T>,
     p2: Point<Frame, DIMENSION, T>,
@@ -50,7 +64,6 @@ where
 }
 
 // Any Dimension
-
 impl<Frame, const DIMENSION: usize, T: Scalar> Point<Frame, DIMENSION, T> {
     pub fn origin() -> Self
     where
@@ -91,7 +104,6 @@ impl<Frame, const DIMENSION: usize, T: Scalar> Point<Frame, DIMENSION, T> {
 }
 
 // 2 Dimension
-
 impl<Frame, T> Point2<Frame, T>
 where
     T: Scalar + Copy,
@@ -110,7 +122,6 @@ where
 }
 
 // 3 Dimension
-
 impl<Frame, T> Point3<Frame, T>
 where
     T: Scalar + Copy,
@@ -146,6 +157,7 @@ where
     T: Scalar,
 {
     fn from(value: nalgebra::SVector<T, DIMENSION>) -> Self {
-        Self::wrap(value.into())
+        let point = nalgebra::Point::<T, DIMENSION>::from(value);
+        Self::wrap(point)
     }
 }
