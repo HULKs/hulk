@@ -98,7 +98,7 @@ where
     ///
     /// This adds a source frame, yielding a transform from `From` to `Frame`. Use this when you
     /// want to treat the orientation as a transform from another frame into this frame.
-    pub fn rotation<From>(self) -> Rotation3<From, Frame, T> {
+    pub fn as_transform<From>(self) -> Rotation3<From, Frame, T> {
         Rotation3::wrap(self.inner)
     }
 

@@ -28,7 +28,7 @@ impl FootLeveling {
         // The default torso rotation represents the desired, slightly leaned forward/backward configuration
         let robot_to_walk = context.robot_to_walk.rotation();
 
-        let current_orientation = context.robot_orientation.rotation::<Robot>();
+        let current_orientation = context.robot_orientation.as_transform::<Robot>();
 
         let walk_to_field = current_orientation * robot_to_walk.inverse();
         let leveling_error = walk_to_field.inverse().as_orientation();
