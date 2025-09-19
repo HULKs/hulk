@@ -8,7 +8,7 @@ use crate::framed::Framed;
 
 /// Tag any value as a transform between two coordinate frames.
 ///
-/// This is the core wrapper type for all coordinate-safe transforms in this crate. It encodes both
+/// This is the core wrapper type for all frame-safe transforms in this crate. It encodes both
 /// the source `From` and destination `To` frames at the type level, ensuring that only compatible
 /// operations are allowed.
 ///

@@ -1,6 +1,6 @@
 //! # linear_algebra
 //!
-//! A crate for coordinate-safe linear algebra, wrapping [`nalgebra`] types with coordinate system tags.
+//! A crate for frame-safe linear algebra, wrapping [`nalgebra`] types with coordinate system tags.
 //!
 //! ## Motivation
 //!
@@ -12,7 +12,7 @@
 //!
 //! - Enforces coordinate system correctness at compile time using Rust's type system.
 //! - Separates Vectors from Points, Isometries from Poses, etc.
-//! - Wraps commonly used parts of the [`nalgebra`] API to provide coordinate-safe abstractions.
+//! - Wraps commonly used parts of the [`nalgebra`] API to provide frame-safe abstractions.
 //! - Supports 2D and 3D geometry with extensible coordinate system tagging.
 //! - Provides clear and explicit geometric transformations.
 //!
