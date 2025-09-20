@@ -1,5 +1,6 @@
 use std::{
-    ops::{Index, IndexMut},
+    f32::consts,
+    ops::{ControlFlow, Index, IndexMut, Range},
     time::SystemTime,
 };
 
@@ -7,8 +8,9 @@ use color_eyre::{eyre::Context, Result};
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
+use geometry::direction::{Direction, Rotate90Degrees};
 use itertools::Itertools;
-use linear_algebra::{point, Isometry2, Point2, Vector2};
+use linear_algebra::{point, vector, Isometry2, Point2, Vector2};
 use nalgebra::clamp;
 use ndarray::{array, Array2};
 use ndarray_conv::{ConvExt, ConvMode, PaddingMode};
@@ -21,6 +23,7 @@ use types::{
     messages::IncomingMessage,
     parameters::SearchSuggestorParameters,
     primary_state::PrimaryState,
+    sensor_data::SensorData,
 };
 
 use crate::team_ball_receiver::get_spl_messages;
@@ -45,6 +48,7 @@ pub struct CycleContext {
     hypothetical_ball_positions:
         Input<Vec<HypotheticalBallPosition<Ground>>, "hypothetical_ball_positions">,
     ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
+    sensor_data: Input<SensorData, "sensor_data">,
     primary_state: Input<PrimaryState, "primary_state">,
     filtered_game_controller_state:
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
@@ -74,15 +78,43 @@ impl SearchSuggestor {
                 / (heatmap_length * heatmap_width) as f32,
             field_dimensions: *context.field_dimensions,
             cells_per_meter: context.search_suggestor_configuration.cells_per_meter,
+            last_maximum_heatmap_position: None,
+            has_decided_for_heatmap_tile: false,
+            heat_change_threshold: 0.0,
         };
         Ok(Self { heatmap })
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         self.update_heatmap(&context)?;
-        let suggested_search_position = self
-            .heatmap
-            .get_maximum_position(context.search_suggestor_configuration.minimum_validity);
+        if !self.heatmap.has_decided_for_heatmap_tile {
+            let suggested_search_index = self
+                .heatmap
+                .get_maximum_position(context.search_suggestor_configuration.minimum_validity);
+            if let Some(some_suggested_search_index) = suggested_search_index {
+                self.heatmap.has_decided_for_heatmap_tile = true;
+                let max_heatmap_value = self.heatmap.map[some_suggested_search_index];
+                self.heatmap.heat_change_threshold = max_heatmap_value
+                    * context
+                        .search_suggestor_configuration
+                        .tile_target_heat_threshold_factor;
+            }
+            self.heatmap.last_maximum_heatmap_position = suggested_search_index;
+        } else if let Some(last_maximum_heatmap_index) = self.heatmap.last_maximum_heatmap_position
+        {
+            if self.heatmap.map[last_maximum_heatmap_index] < self.heatmap.heat_change_threshold {
+                self.heatmap.has_decided_for_heatmap_tile = false;
+            }
+        }
+        let mut suggested_search_position: Option<Point2<Field>> = None;
+        if let Some((x, y)) = self.heatmap.last_maximum_heatmap_position {
+            suggested_search_position = Some(point![
+                ((x as f32 + 1.0 / 2.0) / self.heatmap.cells_per_meter
+                    - self.heatmap.field_dimensions.length / 2.0),
+                ((y as f32 + 1.0 / 2.0) / self.heatmap.cells_per_meter
+                    - self.heatmap.field_dimensions.width / 2.0)
+            ]);
+        }
 
         context
             .heatmap
@@ -128,6 +160,30 @@ impl SearchSuggestor {
             );
         }
 
+        if context.ball_position.is_none() {
+            if let Some(ground_to_field) = context.ground_to_field {
+                let robot_position = ground_to_field.as_pose().position().coords();
+                let head_orientation =
+                    ground_to_field.orientation().angle() + context.sensor_data.positions.head.yaw;
+                let fov_angle_offset = 25.0 * consts::PI / 180.0;
+                let left_angle = head_orientation - fov_angle_offset;
+                let right_angle = head_orientation + fov_angle_offset;
+                let left_edge: Vector2<Field> = vector!(left_angle.cos(), left_angle.sin());
+                let right_edge: Vector2<Field> = vector!(right_angle.cos(), right_angle.sin());
+
+                self.heatmap.decay_tiles_in_fov(
+                    robot_position,
+                    left_edge,
+                    right_edge,
+                    context.search_suggestor_configuration.decay_distance_factor,
+                    context
+                        .search_suggestor_configuration
+                        .heatmap_decay_range
+                        .clone(),
+                );
+            }
+        }
+
         let kernel = create_kernel(
             context
                 .search_suggestor_configuration
@@ -156,6 +212,9 @@ struct Heatmap {
     map: Array2<f32>,
     field_dimensions: FieldDimensions,
     cells_per_meter: f32,
+    last_maximum_heatmap_position: Option<(usize, usize)>,
+    heat_change_threshold: f32,
+    has_decided_for_heatmap_tile: bool,
 }
 
 impl Heatmap {
@@ -171,7 +230,7 @@ impl Heatmap {
         )
     }
 
-    fn get_maximum_position(&self, minimum_validity: f32) -> Option<Point2<Field>> {
+    fn get_maximum_position(&self, minimum_validity: f32) -> Option<(usize, usize)> {
         let linear_maximum_heat_heatmap_position =
             self.map.iter().position_max_by(|a, b| a.total_cmp(b))?;
         let maximum_heat_heatmap_position = (
@@ -179,14 +238,9 @@ impl Heatmap {
             linear_maximum_heat_heatmap_position % self.map.dim().1,
         );
         if self.map[maximum_heat_heatmap_position] > minimum_validity {
-            let search_suggestion = point![
-                ((maximum_heat_heatmap_position.0 as f32 + 1.0 / 2.0) / self.cells_per_meter
-                    - self.field_dimensions.length / 2.0),
-                ((maximum_heat_heatmap_position.1 as f32 + 1.0 / 2.0) / self.cells_per_meter
-                    - self.field_dimensions.width / 2.0)
-            ];
-            return Some(search_suggestion);
+            return Some(maximum_heat_heatmap_position);
         }
+
         None
     }
 
@@ -205,6 +259,33 @@ impl Heatmap {
         if let Some(ball_position) = ball {
             self[ball_position.position] = team_ball_weight;
         }
+    }
+
+    fn decay_tiles_in_fov(
+        &mut self,
+        robot_position: Vector2<Field>,
+        left_edge: Vector2<Field>,
+        right_edge: Vector2<Field>,
+        decay_distance_factor: f32,
+        heatmap_decay_range: Range<f32>,
+    ) {
+        self.map.indexed_iter_mut().for_each(|((x, y), value)| {
+            let tile_center_in_field: Vector2<Field> = vector![
+                ((x as f32 + 1.0 / 2.0) / self.cells_per_meter
+                    - self.field_dimensions.length / 2.0),
+                ((y as f32 + 1.0 / 2.0) / self.cells_per_meter - self.field_dimensions.width / 2.0)
+            ];
+            let robot_to_tile = tile_center_in_field - robot_position;
+            let is_inside_sight = get_direction(left_edge, robot_to_tile)
+                == Direction::Counterclockwise
+                && get_direction(right_edge, robot_to_tile) == Direction::Clockwise;
+            let distancse_to_tile = robot_to_tile.norm();
+            let relative_distance_to_tile =
+                clamp(distancse_to_tile / heatmap_decay_range.end, 0.0, 1.0);
+            if is_inside_sight && heatmap_decay_range.contains(&distancse_to_tile) {
+                *value *= 1.0 - decay_distance_factor * relative_distance_to_tile;
+            }
+        });
     }
 }
 
@@ -277,5 +358,17 @@ fn kicking_team_half(kicking_team: Option<Team>) -> Option<Half> {
         Some(Team::Opponent) => Some(Half::Opponent),
         Some(Team::Hulks) => Some(Half::Own),
         None => None,
+    }
+}
+
+fn get_direction(base_vector: Vector2<Field>, vector_to_test: Vector2<Field>) -> Direction {
+    let clockwise_normal_vector = base_vector.rotate_90_degrees(Direction::Clockwise);
+    let directed_cathetus = clockwise_normal_vector.dot(&vector_to_test);
+
+    match directed_cathetus {
+        0.0 => Direction::Collinear,
+        f if f > 0.0 => Direction::Clockwise,
+        f if f < 0.0 => Direction::Counterclockwise,
+        f => panic!("directed cathetus was not a real number: {f}"),
     }
 }
