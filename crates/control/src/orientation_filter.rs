@@ -66,9 +66,10 @@ impl OrientationFilter {
         let angular_velocity_sum = measured_angular_velocity.abs().inner.sum();
 
         let mut recalibrated_this_cycle = false;
+        let is_steady = angular_velocity_sum < *context.calibration_steady_threshold;
         match &mut self.calibration_state {
             State::WaitingForSteady => {
-                if angular_velocity_sum < *context.calibration_steady_threshold {
+                if is_steady {
                     self.calibration_state = State::CalibratingGravity {
                         filtered_gravity: LowPassFilter::with_smoothing_factor(
                             measured_acceleration,
@@ -82,7 +83,7 @@ impl OrientationFilter {
                 filtered_gravity,
                 number_of_cycles,
             } => 'update: {
-                if angular_velocity_sum >= *context.calibration_steady_threshold {
+                if !is_steady {
                     self.calibration_state = State::WaitingForSteady;
                     break 'update;
                 }
