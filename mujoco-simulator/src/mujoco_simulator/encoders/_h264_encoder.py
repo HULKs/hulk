@@ -31,7 +31,8 @@ class H264Encoder:
         for packet in self.stream.encode(video_frame):
             encoded_bytes += bytes(packet)
 
-        # print(self.stream.codec_context.extradata) # contains sps and pps (annex-b)
+        # contains sps and pps (annex-b)
+        # print(self.stream.codec_context.extradata)
         return encoded_bytes
 
     def flush(self) -> bytes:

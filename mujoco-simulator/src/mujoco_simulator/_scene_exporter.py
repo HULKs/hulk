@@ -60,7 +60,9 @@ class SceneExporter:
         #     tex_data = self.model.tex_data[
         #         address : address + width * height * 3
         #     ].tolist()
-        #     textures[name] = {"width": width, "height": height, "rgb": tex_data}
+        #     textures[name] = {
+        #         "width": width, "height": height, "rgb": tex_data
+        #     }
 
         # Lights
         lights = []

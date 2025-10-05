@@ -1,4 +1,7 @@
+from dataclasses import dataclass
+
 import mujoco
+import mujoco.glfw
 import numpy as np
 from mujoco import (
     MjData,
@@ -9,17 +12,24 @@ from mujoco import (
     MjvOption,
     MjvScene,
 )
+from numpy.typing import NDArray
 
 
 def setup_offscreen_rendering_gl_context(
     width: int, height: int
-) -> mujoco.GLContext:
-    ctx = mujoco.GLContext(width, height)
+) -> mujoco.glfw.GLContext:
+    ctx = mujoco.glfw.GLContext(width, height)
     ctx.make_current()
     return ctx
 
 
-class CameraEncoder:
+@dataclass(frozen=True, kw_only=True)
+class CameraImage:
+    rgb: NDArray[np.uint8]
+    depth: NDArray[np.uint16]
+
+
+class CameraRenderer:
     def __init__(
         self,
         *,
@@ -44,11 +54,7 @@ class CameraEncoder:
             model, mujoco.mjtFontScale.mjFONTSCALE_150.value
         )
 
-        self.rgb_buffer = np.zeros((height, width, 3), dtype=np.uint8)
-        self.depth_buffer = np.zeros((height, width), dtype=np.float32)
-        self.combined_buffer = np.zeros((height, width, 4), dtype=np.uint16)
-
-    def render(self, data: MjData) -> bytes | bytearray:
+    def render(self, data: MjData) -> CameraImage:
         mujoco.mjv_updateScene(
             self.model,
             data,
@@ -59,15 +65,14 @@ class CameraEncoder:
             self.scene,
         )
         mujoco.mjr_render(self.viewport, self.scene, self.context)
+
+        height = self.viewport.height
+        width = self.viewport.width
+        rgb_buffer = np.zeros((height, width, 3), dtype=np.uint8)
+        depth_buffer = np.zeros((height, width), dtype=np.float32)
         mujoco.mjr_readPixels(
-            self.rgb_buffer, self.depth_buffer, self.viewport, self.context
+            rgb_buffer, depth_buffer, self.viewport, self.context
         )
-        self.combined_buffer[:, :, :3] = self.rgb_buffer.astype(np.uint16)
-        self.combined_buffer[:, :, 3] = (self.depth_buffer * 1000).astype(
-            np.uint16
+        return CameraImage(
+            rgb=rgb_buffer, depth=(depth_buffer * 1000).astype(np.uint16)
         )
-        return self.rgb_buffer
-        # return imagecodecs.jpegxl_encode(
-        #     self.combined_buffer, lossless=True, level=7
-        # )
-        return b"data"
