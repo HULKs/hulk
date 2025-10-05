@@ -12,6 +12,7 @@ dependencies = [
     "click>=8.3.0",
     "imagecodecs>=2025.8.2",
     "av>=15.1.0",
+    "rich>=14.1.0",
 ]
 
 [tool.uv.sources]

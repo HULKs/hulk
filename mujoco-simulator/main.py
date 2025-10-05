@@ -21,6 +21,7 @@ def handle_server_command(
         return
     match command:
         case ServerCommand.Reset:
+            logging.info("Resetting simulation")
             mj_resetData(model, data)
 
 
@@ -28,6 +29,8 @@ def run_simulation(server: SimulationServer, *, gui: bool) -> None:
     model = MjModel.from_xml_path("K1/K1.xml")
     data = MjData(model)
     dt = model.opt.timestep
+    logging.info(f"Timestep: {1000 * dt}ms")
+
     target_time_factor = 1
     current_low_command = None
     scene_exporter = SceneExporter(
@@ -91,7 +94,12 @@ def run_simulation(server: SimulationServer, *, gui: bool) -> None:
 )
 @click.option("--gui", is_flag=True, default=False, help="Enable GUI")
 def main(*, bind_address: str, gui: bool) -> None:
-    logging.basicConfig(level=logging.DEBUG)
+    logging.basicConfig(
+    level="DEBUG",
+    format="%(message)s",
+    datefmt="[%X]",
+    handlers=[RichHandler(rich_tracebacks=True)]
+)
     server = SimulationServer(bind_address)
 
     try:
