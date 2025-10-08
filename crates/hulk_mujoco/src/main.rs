@@ -8,8 +8,8 @@ use color_eyre::{
 use ctrlc::set_handler;
 use framework::Parameters as FrameworkParameters;
 use hardware::{
-    CameraInterface, IdInterface, LowCommandInterface, LowStateInterface, MicrophoneInterface,
-    NetworkInterface, PathsInterface, RecordingInterface, SpeakerInterface, TimeInterface,
+    IdInterface, LowCommandInterface, LowStateInterface, MicrophoneInterface, NetworkInterface,
+    PathsInterface, RGBDSensorsInterface, RecordingInterface, SpeakerInterface, TimeInterface,
 };
 use hula_types::hardware::Ids;
 use serde_json::from_reader;
@@ -38,10 +38,10 @@ pub fn setup_logger() -> Result<(), fern::InitError> {
 }
 
 pub trait HardwareInterface:
-    CameraInterface
-    + IdInterface
+    IdInterface
     + LowStateInterface
     + LowCommandInterface
+    + RGBDSensorsInterface
     + MicrophoneInterface
     + NetworkInterface
     + PathsInterface

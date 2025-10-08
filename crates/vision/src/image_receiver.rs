@@ -3,8 +3,9 @@ use std::time::SystemTime;
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use hardware::{CameraInterface, TimeInterface};
+use hardware::{RGBDSensorsInterface, TimeInterface};
 use serde::{Deserialize, Serialize};
+use simulation_message::SimulationMessage;
 use types::{
     camera_position::CameraPosition, cycle_time::CycleTime, ycbcr422_image::YCbCr422Image,
 };
@@ -38,11 +39,10 @@ impl ImageReceiver {
 
     pub fn cycle(
         &mut self,
-        context: CycleContext<impl CameraInterface + TimeInterface>,
+        context: CycleContext<impl RGBDSensorsInterface + TimeInterface>,
     ) -> Result<MainOutputs> {
-        let image = context
-            .hardware_interface
-            .read_from_camera(*context.camera_position)?;
+        let SimulationMessage { payload, .. } = context.hardware_interface.read_rgbd_sensors()?;
+        let ycbcr422_image: YCbCr422Image = (&payload.rgb).into();
 
         let now = context.hardware_interface.get_now();
         let cycle_time = CycleTime {
@@ -54,7 +54,7 @@ impl ImageReceiver {
         self.last_cycle_start = now;
 
         Ok(MainOutputs {
-            image: image.into(),
+            image: ycbcr422_image.into(),
             cycle_time: cycle_time.into(),
         })
     }

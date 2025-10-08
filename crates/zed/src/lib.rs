@@ -6,17 +6,17 @@ use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Deserialize, Serialize)]
 pub struct RGBDSensors {
-    header: Header,
+    pub header: Header,
 
     #[serde(rename = "rgbCameraInfo")]
-    rgb_camera_info: CameraInfo,
+    pub rgb_camera_info: CameraInfo,
     #[serde(rename = "depthCameraInfo")]
-    depth_camera_info: CameraInfo,
+    pub depth_camera_info: CameraInfo,
 
-    rgb: Image,
-    depth: Image,
+    pub rgb: Image,
+    pub depth: Image,
 
-    imu: Imu,
+    pub imu: Imu,
 
-    mag: MagneticField,
+    pub mag: MagneticField,
 }

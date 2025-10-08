@@ -18,6 +18,7 @@ use crate::{
     color::{Rgb, YCbCr422, YCbCr444},
     jpeg::JpegImage,
 };
+use ros2::sensor_msgs::image::Image as Ros2Image;
 
 pub const SAMPLE_SIZE: usize = 32;
 
@@ -106,6 +107,42 @@ impl From<&YCbCr422Image> for RgbImage {
 impl From<YCbCr422Image> for RgbImage {
     fn from(ycbcr422_image: YCbCr422Image) -> Self {
         Self::from(&ycbcr422_image)
+    }
+}
+
+impl From<&Ros2Image> for YCbCr422Image {
+    fn from(ros2_image: &Ros2Image) -> Self {
+        let width_422 = ros2_image.width / 2;
+        let height = ros2_image.height;
+
+        let data = match ros2_image.encoding.as_str() {
+            "rgb8" => ros2_image
+                .data
+                .chunks(6)
+                .map(|pixel| {
+                    let left_color: YCbCr444 = Rgb {
+                        red: pixel[0],
+                        green: pixel[1],
+                        blue: pixel[2],
+                    }
+                    .into();
+                    let right_color: YCbCr444 = Rgb {
+                        red: pixel[3],
+                        green: pixel[4],
+                        blue: pixel[5],
+                    }
+                    .into();
+                    [left_color, right_color].into()
+                })
+                .collect(),
+            _ => unimplemented!("image encoding not supported"),
+        };
+
+        Self {
+            width_422,
+            height,
+            buffer: Arc::new(data),
+        }
     }
 }
 

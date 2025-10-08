@@ -4414,6 +4414,7 @@ dependencies = [
  "ros2",
  "simulation-message",
  "types",
+ "zed",
 ]
 
 [[package]]
@@ -9497,6 +9498,7 @@ dependencies = [
  "num-traits",
  "ordered-float 4.6.0",
  "path_serde",
+ "ros2",
  "serde",
  "spl_network_messages",
  "splines",
@@ -9727,6 +9729,7 @@ dependencies = [
  "rand_chacha 0.9.0",
  "ransac",
  "serde",
+ "simulation-message",
  "types",
 ]
 

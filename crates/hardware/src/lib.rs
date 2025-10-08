@@ -16,6 +16,7 @@ use types::{
     sensor_data::SensorData,
     ycbcr422_image::YCbCr422Image,
 };
+use zed::RGBDSensors;
 
 pub trait ActuatorInterface {
     fn write_to_actuators(
@@ -75,6 +76,10 @@ pub trait RemoteControllerStateInterface {
 }
 pub trait TransformStampedInterface {
     fn read_transform_stamped(&self) -> Result<SimulationMessage<TransformStamped>>;
+}
+
+pub trait RGBDSensorsInterface {
+    fn read_rgbd_sensors(&self) -> Result<SimulationMessage<RGBDSensors>>;
 }
 
 pub trait SpeakerInterface {

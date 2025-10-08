@@ -12,3 +12,4 @@ hula_types = { workspace = true }
 ros2 = { workspace = true }
 simulation-message = { workspace = true }
 types = { workspace = true }
+zed = { workspace = true }

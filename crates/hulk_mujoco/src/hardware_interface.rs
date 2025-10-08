@@ -8,8 +8,8 @@ use color_eyre::Result;
 use futures_util::SinkExt;
 use futures_util::StreamExt;
 use hardware::{
-    ButtonEventMsgInterface, CameraInterface, IdInterface, MicrophoneInterface, NetworkInterface,
-    PathsInterface, RecordingInterface, SpeakerInterface, TimeInterface,
+    ButtonEventMsgInterface, IdInterface, MicrophoneInterface, NetworkInterface, PathsInterface,
+    RGBDSensorsInterface, RecordingInterface, SpeakerInterface, TimeInterface,
 };
 use hardware::{
     FallDownStateInterface, LowCommandInterface, LowStateInterface, RemoteControllerStateInterface,
@@ -29,10 +29,9 @@ use tokio::{
 use tokio_tungstenite::tungstenite::Message;
 use tokio_util::sync::CancellationToken;
 use types::audio::SpeakerRequest;
-use types::camera_position::CameraPosition;
 use types::messages::{IncomingMessage, OutgoingMessage};
 use types::samples::Samples;
-use types::ycbcr422_image::YCbCr422Image;
+use zed::RGBDSensors;
 
 use crate::HardwareInterface;
 
@@ -45,6 +44,7 @@ struct WorkerChannels {
     button_event_msg_sender: Sender<SimulationMessage<ButtonEventMsg>>,
     remote_controller_state_sender: Sender<SimulationMessage<RemoteControllerState>>,
     transform_stamped_sender: Sender<SimulationMessage<TransformStamped>>,
+    rgbd_sensors_sender: Sender<SimulationMessage<RGBDSensors>>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -68,6 +68,7 @@ pub struct MujocoHardwareInterface {
     button_event_msg_receiver: Mutex<Receiver<SimulationMessage<ButtonEventMsg>>>,
     remote_controller_state_receiver: Mutex<Receiver<SimulationMessage<RemoteControllerState>>>,
     transform_stamped_receiver: Mutex<Receiver<SimulationMessage<TransformStamped>>>,
+    rgbd_sensors_receiver: Mutex<Receiver<SimulationMessage<RGBDSensors>>>,
 }
 
 impl MujocoHardwareInterface {
@@ -84,6 +85,7 @@ impl MujocoHardwareInterface {
         let (remote_controller_state_sender, remote_controller_state_receiver) =
             channel(CHANNEL_CAPACITY);
         let (transform_stamped_sender, transform_stamped_receiver) = channel(CHANNEL_CAPACITY);
+        let (rgbd_sensors_sender, rgbd_sensors_receiver) = channel(CHANNEL_CAPACITY);
 
         let worker_channels = WorkerChannels {
             low_state_sender,
@@ -92,6 +94,7 @@ impl MujocoHardwareInterface {
             button_event_msg_sender,
             remote_controller_state_sender,
             transform_stamped_sender,
+            rgbd_sensors_sender,
         };
 
         let time = Arc::new(Mutex::new(SystemTime::UNIX_EPOCH));
@@ -118,6 +121,7 @@ impl MujocoHardwareInterface {
             button_event_msg_receiver: Mutex::new(button_event_msg_receiver),
             remote_controller_state_receiver: Mutex::new(remote_controller_state_receiver),
             transform_stamped_receiver: Mutex::new(transform_stamped_receiver),
+            rgbd_sensors_receiver: Mutex::new(rgbd_sensors_receiver),
         })
     }
 }
@@ -221,9 +225,15 @@ async fn handle_message(
                 .await?
         }
         SimulationMessage {
-            payload: ServerMessageKind::RGBDSensors(_),
-            ..
-        } => todo!(),
+            payload: ServerMessageKind::RGBDSensors(rgbd_sensors),
+            time,
+        } => {
+            *hardware_interface_time.lock() = time;
+            worker_channels
+                .rgbd_sensors_sender
+                .send(SimulationMessage::new(time, rgbd_sensors))
+                .await?
+        }
     };
 
     Ok(())
@@ -234,7 +244,7 @@ impl LowStateInterface for MujocoHardwareInterface {
         self.low_state_receiver
             .lock()
             .blocking_recv()
-            .ok_or_eyre("channel closed")
+            .ok_or_eyre("low state channel closed")
     }
 }
 
@@ -242,7 +252,7 @@ impl LowCommandInterface for MujocoHardwareInterface {
     fn write_low_command(&self, low_command: LowCommand) -> Result<()> {
         self.low_command_sender
             .blocking_send(low_command)
-            .wrap_err("send error")
+            .wrap_err("low command send error")
     }
 }
 
@@ -251,7 +261,7 @@ impl FallDownStateInterface for MujocoHardwareInterface {
         self.fall_down_receiver
             .lock()
             .blocking_recv()
-            .ok_or_eyre("channel closed")
+            .ok_or_eyre("fall down state channel closed")
     }
 }
 
@@ -260,7 +270,7 @@ impl ButtonEventMsgInterface for MujocoHardwareInterface {
         self.button_event_msg_receiver
             .lock()
             .blocking_recv()
-            .ok_or_eyre("channel closed")
+            .ok_or_eyre("button event msg channel closed")
     }
 }
 
@@ -276,6 +286,15 @@ impl RemoteControllerStateInterface for MujocoHardwareInterface {
 impl TransformStampedInterface for MujocoHardwareInterface {
     fn read_transform_stamped(&self) -> Result<SimulationMessage<TransformStamped>> {
         self.transform_stamped_receiver
+            .lock()
+            .blocking_recv()
+            .ok_or_eyre("channel closed")
+    }
+}
+
+impl RGBDSensorsInterface for MujocoHardwareInterface {
+    fn read_rgbd_sensors(&self) -> Result<SimulationMessage<RGBDSensors>> {
+        self.rgbd_sensors_receiver
             .lock()
             .blocking_recv()
             .ok_or_eyre("channel closed")
@@ -345,12 +364,6 @@ impl RecordingInterface for MujocoHardwareInterface {
 
     fn set_whether_to_record(&self, enable: bool) {
         self.enable_recording.store(enable, Ordering::SeqCst)
-    }
-}
-
-impl CameraInterface for MujocoHardwareInterface {
-    fn read_from_camera(&self, camera_position: CameraPosition) -> Result<YCbCr422Image> {
-        Ok(YCbCr422Image::default())
     }
 }
 
