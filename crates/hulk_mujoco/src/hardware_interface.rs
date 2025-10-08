@@ -20,7 +20,6 @@ use log::{error, warn};
 use parking_lot::Mutex;
 use ros2::geometry_msgs::transform_stamped::TransformStamped;
 use serde::Deserialize;
-use simulation_message::{ClientMessageKind, ServerMessageKind, SimulationMessage};
 use spl_network::endpoint::{Endpoint, Ports};
 use tokio::{
     runtime::{Builder, Runtime},
@@ -33,18 +32,19 @@ use types::messages::{IncomingMessage, OutgoingMessage};
 use types::samples::Samples;
 use zed::RGBDSensors;
 
+use crate::simulation_message::{ClientMessageKind, ServerMessageKind, SimulationMessage};
 use crate::HardwareInterface;
 
 const CHANNEL_CAPACITY: usize = 32;
 
 struct WorkerChannels {
-    low_state_sender: Sender<SimulationMessage<LowState>>,
+    low_state_sender: Sender<LowState>,
     low_command_receiver: Receiver<LowCommand>,
-    fall_down_sender: Sender<SimulationMessage<FallDownState>>,
-    button_event_msg_sender: Sender<SimulationMessage<ButtonEventMsg>>,
-    remote_controller_state_sender: Sender<SimulationMessage<RemoteControllerState>>,
-    transform_stamped_sender: Sender<SimulationMessage<TransformStamped>>,
-    rgbd_sensors_sender: Sender<SimulationMessage<RGBDSensors>>,
+    fall_down_sender: Sender<FallDownState>,
+    button_event_msg_sender: Sender<ButtonEventMsg>,
+    remote_controller_state_sender: Sender<RemoteControllerState>,
+    transform_stamped_sender: Sender<TransformStamped>,
+    rgbd_sensors_sender: Sender<RGBDSensors>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -62,13 +62,13 @@ pub struct MujocoHardwareInterface {
     enable_recording: AtomicBool,
     time: Arc<Mutex<SystemTime>>,
 
-    low_state_receiver: Mutex<Receiver<SimulationMessage<LowState>>>,
+    low_state_receiver: Mutex<Receiver<LowState>>,
     low_command_sender: Sender<LowCommand>,
-    fall_down_receiver: Mutex<Receiver<SimulationMessage<FallDownState>>>,
-    button_event_msg_receiver: Mutex<Receiver<SimulationMessage<ButtonEventMsg>>>,
-    remote_controller_state_receiver: Mutex<Receiver<SimulationMessage<RemoteControllerState>>>,
-    transform_stamped_receiver: Mutex<Receiver<SimulationMessage<TransformStamped>>>,
-    rgbd_sensors_receiver: Mutex<Receiver<SimulationMessage<RGBDSensors>>>,
+    fall_down_receiver: Mutex<Receiver<FallDownState>>,
+    button_event_msg_receiver: Mutex<Receiver<ButtonEventMsg>>,
+    remote_controller_state_receiver: Mutex<Receiver<RemoteControllerState>>,
+    transform_stamped_receiver: Mutex<Receiver<TransformStamped>>,
+    rgbd_sensors_receiver: Mutex<Receiver<RGBDSensors>>,
 }
 
 impl MujocoHardwareInterface {
@@ -180,10 +180,7 @@ async fn handle_message(
             time,
         } => {
             *hardware_interface_time.lock() = time;
-            worker_channels
-                .low_state_sender
-                .send(SimulationMessage::new(time, low_state))
-                .await?
+            worker_channels.low_state_sender.send(low_state).await?
         }
         SimulationMessage {
             payload: ServerMessageKind::FallDownState(fall_down_state),
@@ -192,16 +189,17 @@ async fn handle_message(
             *hardware_interface_time.lock() = time;
             worker_channels
                 .fall_down_sender
-                .send(SimulationMessage::new(time, fall_down_state))
+                .send(fall_down_state)
                 .await?
         }
         SimulationMessage {
             payload: ServerMessageKind::ButtonEventMsg(button_event_msg),
             time,
         } => {
+            *hardware_interface_time.lock() = time;
             worker_channels
                 .button_event_msg_sender
-                .send(SimulationMessage::new(time, button_event_msg))
+                .send(button_event_msg)
                 .await?
         }
         SimulationMessage {
@@ -211,7 +209,7 @@ async fn handle_message(
             *hardware_interface_time.lock() = time;
             worker_channels
                 .remote_controller_state_sender
-                .send(SimulationMessage::new(time, remote_controller_state))
+                .send(remote_controller_state)
                 .await?
         }
         SimulationMessage {
@@ -221,7 +219,7 @@ async fn handle_message(
             *hardware_interface_time.lock() = time;
             worker_channels
                 .transform_stamped_sender
-                .send(SimulationMessage::new(time, transform_stamped))
+                .send(transform_stamped)
                 .await?
         }
         SimulationMessage {
@@ -231,7 +229,7 @@ async fn handle_message(
             *hardware_interface_time.lock() = time;
             worker_channels
                 .rgbd_sensors_sender
-                .send(SimulationMessage::new(time, rgbd_sensors))
+                .send(rgbd_sensors)
                 .await?
         }
     };
@@ -240,7 +238,7 @@ async fn handle_message(
 }
 
 impl LowStateInterface for MujocoHardwareInterface {
-    fn read_low_state(&self) -> Result<SimulationMessage<LowState>> {
+    fn read_low_state(&self) -> Result<LowState> {
         self.low_state_receiver
             .lock()
             .blocking_recv()
@@ -257,7 +255,7 @@ impl LowCommandInterface for MujocoHardwareInterface {
 }
 
 impl FallDownStateInterface for MujocoHardwareInterface {
-    fn read_fall_down_state(&self) -> Result<SimulationMessage<FallDownState>> {
+    fn read_fall_down_state(&self) -> Result<FallDownState> {
         self.fall_down_receiver
             .lock()
             .blocking_recv()
@@ -266,7 +264,7 @@ impl FallDownStateInterface for MujocoHardwareInterface {
 }
 
 impl ButtonEventMsgInterface for MujocoHardwareInterface {
-    fn read_button_event_msg(&self) -> Result<SimulationMessage<ButtonEventMsg>> {
+    fn read_button_event_msg(&self) -> Result<ButtonEventMsg> {
         self.button_event_msg_receiver
             .lock()
             .blocking_recv()
@@ -275,7 +273,7 @@ impl ButtonEventMsgInterface for MujocoHardwareInterface {
 }
 
 impl RemoteControllerStateInterface for MujocoHardwareInterface {
-    fn read_remote_controller_state(&self) -> Result<SimulationMessage<RemoteControllerState>> {
+    fn read_remote_controller_state(&self) -> Result<RemoteControllerState> {
         self.remote_controller_state_receiver
             .lock()
             .blocking_recv()
@@ -284,7 +282,7 @@ impl RemoteControllerStateInterface for MujocoHardwareInterface {
 }
 
 impl TransformStampedInterface for MujocoHardwareInterface {
-    fn read_transform_stamped(&self) -> Result<SimulationMessage<TransformStamped>> {
+    fn read_transform_stamped(&self) -> Result<TransformStamped> {
         self.transform_stamped_receiver
             .lock()
             .blocking_recv()
@@ -293,7 +291,7 @@ impl TransformStampedInterface for MujocoHardwareInterface {
 }
 
 impl RGBDSensorsInterface for MujocoHardwareInterface {
-    fn read_rgbd_sensors(&self) -> Result<SimulationMessage<RGBDSensors>> {
+    fn read_rgbd_sensors(&self) -> Result<RGBDSensors> {
         self.rgbd_sensors_receiver
             .lock()
             .blocking_recv()

@@ -5,7 +5,6 @@ use color_eyre::eyre::Result;
 
 use hula_types::hardware::{Ids, Paths};
 use ros2::geometry_msgs::transform_stamped::TransformStamped;
-use simulation_message::SimulationMessage;
 use types::{
     audio::SpeakerRequest,
     camera_position::CameraPosition,
@@ -58,7 +57,7 @@ pub trait SensorInterface {
 }
 
 pub trait LowStateInterface {
-    fn read_low_state(&self) -> Result<SimulationMessage<LowState>>;
+    fn read_low_state(&self) -> Result<LowState>;
 }
 
 pub trait LowCommandInterface {
@@ -66,20 +65,20 @@ pub trait LowCommandInterface {
 }
 
 pub trait FallDownStateInterface {
-    fn read_fall_down_state(&self) -> Result<SimulationMessage<FallDownState>>;
+    fn read_fall_down_state(&self) -> Result<FallDownState>;
 }
 pub trait ButtonEventMsgInterface {
-    fn read_button_event_msg(&self) -> Result<SimulationMessage<ButtonEventMsg>>;
+    fn read_button_event_msg(&self) -> Result<ButtonEventMsg>;
 }
 pub trait RemoteControllerStateInterface {
-    fn read_remote_controller_state(&self) -> Result<SimulationMessage<RemoteControllerState>>;
+    fn read_remote_controller_state(&self) -> Result<RemoteControllerState>;
 }
 pub trait TransformStampedInterface {
-    fn read_transform_stamped(&self) -> Result<SimulationMessage<TransformStamped>>;
+    fn read_transform_stamped(&self) -> Result<TransformStamped>;
 }
 
 pub trait RGBDSensorsInterface {
-    fn read_rgbd_sensors(&self) -> Result<SimulationMessage<RGBDSensors>>;
+    fn read_rgbd_sensors(&self) -> Result<RGBDSensors>;
 }
 
 pub trait SpeakerInterface {

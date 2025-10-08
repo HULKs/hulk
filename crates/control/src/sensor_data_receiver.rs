@@ -9,7 +9,6 @@ use hardware::{LowStateInterface, TimeInterface};
 use linear_algebra::Vector3;
 use nalgebra::UnitQuaternion;
 use serde::{Deserialize, Serialize};
-use simulation_message::SimulationMessage;
 use types::{
     cycle_time::CycleTime,
     joints::Joints,
@@ -77,12 +76,10 @@ impl SensorDataReceiver {
         &mut self,
         mut context: CycleContext<impl LowStateInterface + TimeInterface>,
     ) -> Result<MainOutputs> {
-        let SimulationMessage { time, payload } = context
+        let low_state = context
             .hardware_interface
             .read_low_state()
             .wrap_err("failed to read from sensors")?;
-
-        let low_state = payload;
 
         // let measured_angular_velocity = low_state.imu_state.angular_velocity;
         // let measured_acceleration = low_state.imu_state.linear_acceleration;

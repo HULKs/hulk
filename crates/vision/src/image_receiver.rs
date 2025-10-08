@@ -5,7 +5,6 @@ use context_attribute::context;
 use framework::MainOutput;
 use hardware::{RGBDSensorsInterface, TimeInterface};
 use serde::{Deserialize, Serialize};
-use simulation_message::SimulationMessage;
 use types::{
     camera_position::CameraPosition, cycle_time::CycleTime, ycbcr422_image::YCbCr422Image,
 };
@@ -41,8 +40,8 @@ impl ImageReceiver {
         &mut self,
         context: CycleContext<impl RGBDSensorsInterface + TimeInterface>,
     ) -> Result<MainOutputs> {
-        let SimulationMessage { payload, .. } = context.hardware_interface.read_rgbd_sensors()?;
-        let ycbcr422_image: YCbCr422Image = (&payload.rgb).into();
+        let rgbd_image = context.hardware_interface.read_rgbd_sensors()?;
+        let ycbcr422_image: YCbCr422Image = (&rgbd_image.rgb).into();
 
         let now = context.hardware_interface.get_now();
         let cycle_time = CycleTime {

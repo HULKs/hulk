@@ -26,5 +26,4 @@ rand = { workspace = true }
 rand_chacha = { workspace = true }
 ransac = { workspace = true }
 serde = { workspace = true }
-simulation-message = { workspace = true }
 types = { workspace = true }

@@ -19,6 +19,7 @@ use crate::execution::run;
 use crate::hardware_interface::{MujocoHardwareInterface, Parameters as HardwareParameters};
 
 mod hardware_interface;
+mod simulation_message;
 
 pub fn setup_logger() -> Result<(), fern::InitError> {
     fern::Dispatch::new()
