@@ -1,10 +1,11 @@
 use std::time::SystemTime;
 
-use booster::{ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState};
+use booster::{
+    ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState, TFMessage,
+};
 use color_eyre::eyre::Result;
 
 use hula_types::hardware::{Ids, Paths};
-use ros2::geometry_msgs::transform_stamped::TransformStamped;
 use types::{
     audio::SpeakerRequest,
     camera_position::CameraPosition,
@@ -73,8 +74,8 @@ pub trait ButtonEventMsgInterface {
 pub trait RemoteControllerStateInterface {
     fn read_remote_controller_state(&self) -> Result<RemoteControllerState>;
 }
-pub trait TransformStampedInterface {
-    fn read_transform_stamped(&self) -> Result<TransformStamped>;
+pub trait TFMessageInterface {
+    fn read_tf_message(&self) -> Result<TFMessage>;
 }
 
 pub trait RGBDSensorsInterface {

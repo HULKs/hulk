@@ -2,7 +2,9 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
-use booster::{ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState};
+use booster::{
+    ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState, TFMessage,
+};
 use color_eyre::eyre::{Context, OptionExt};
 use color_eyre::Result;
 use futures_util::SinkExt;
@@ -13,12 +15,11 @@ use hardware::{
 };
 use hardware::{
     FallDownStateInterface, LowCommandInterface, LowStateInterface, RemoteControllerStateInterface,
-    TransformStampedInterface,
+    TFMessageInterface,
 };
 use hula_types::hardware::{Ids, Paths};
 use log::{error, warn};
 use parking_lot::Mutex;
-use ros2::geometry_msgs::transform_stamped::TransformStamped;
 use serde::Deserialize;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::time::sleep;
@@ -40,7 +41,7 @@ struct WorkerChannels {
     fall_down_sender: Sender<FallDownState>,
     button_event_msg_sender: Sender<ButtonEventMsg>,
     remote_controller_state_sender: Sender<RemoteControllerState>,
-    transform_stamped_sender: Sender<TransformStamped>,
+    transform_stamped_sender: Sender<TFMessage>,
     rgbd_sensors_sender: Sender<RGBDSensors>,
 }
 
@@ -60,7 +61,7 @@ pub struct MujocoHardwareInterface {
     fall_down_receiver: Mutex<Receiver<FallDownState>>,
     button_event_msg_receiver: Mutex<Receiver<ButtonEventMsg>>,
     remote_controller_state_receiver: Mutex<Receiver<RemoteControllerState>>,
-    transform_stamped_receiver: Mutex<Receiver<TransformStamped>>,
+    transform_stamped_receiver: Mutex<Receiver<TFMessage>>,
     rgbd_sensors_receiver: Mutex<Receiver<RGBDSensors>>,
 }
 
@@ -198,7 +199,7 @@ async fn handle_message(
                 .await?
         }
         SimulationMessage {
-            payload: ServerMessageKind::TransformStamped(transform_stamped),
+            payload: ServerMessageKind::TFMessage(transform_stamped),
             time,
         } => {
             *hardware_interface_time.lock() = time;
@@ -266,8 +267,8 @@ impl RemoteControllerStateInterface for MujocoHardwareInterface {
     }
 }
 
-impl TransformStampedInterface for MujocoHardwareInterface {
-    fn read_transform_stamped(&self) -> Result<TransformStamped> {
+impl TFMessageInterface for MujocoHardwareInterface {
+    fn read_tf_message(&self) -> Result<TFMessage> {
         self.transform_stamped_receiver
             .lock()
             .blocking_recv()

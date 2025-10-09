@@ -1,7 +1,8 @@
 use std::time::SystemTime;
 
-use booster::{ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState};
-use ros2::geometry_msgs::transform_stamped::TransformStamped;
+use booster::{
+    ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState, TFMessage,
+};
 use serde::{Deserialize, Serialize};
 use zed::RGBDSensors;
 
@@ -17,7 +18,7 @@ pub enum ServerMessageKind {
     FallDownState(FallDownState),
     ButtonEventMsg(ButtonEventMsg),
     RemoteControllerState(RemoteControllerState),
-    TransformStamped(TransformStamped),
+    TFMessage(TFMessage),
     RGBDSensors(Box<RGBDSensors>),
 }
 
