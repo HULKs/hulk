@@ -1,6 +1,6 @@
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
-use std::time::SystemTime;
+use std::time::{Duration, SystemTime};
 
 use booster::{ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState};
 use color_eyre::eyre::{Context, OptionExt};
@@ -21,6 +21,7 @@ use parking_lot::Mutex;
 use ros2::geometry_msgs::transform_stamped::TransformStamped;
 use serde::Deserialize;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
+use tokio::time::sleep;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_util::sync::CancellationToken;
 use types::audio::SpeakerRequest;
@@ -85,12 +86,12 @@ impl MujocoHardwareInterface {
         };
 
         let time = Arc::new(Mutex::new(SystemTime::UNIX_EPOCH));
-        tokio::spawn(worker(
+        tokio::spawn(keep_running.clone().run_until_cancelled_owned(worker(
             time.clone(),
             parameters.mujoco_websocket_address,
             keep_running.clone(),
             worker_channels,
-        ));
+        )));
 
         Ok(Self {
             paths: parameters.paths,
@@ -114,13 +115,15 @@ async fn worker(
     keep_running: CancellationToken,
     mut worker_channels: WorkerChannels,
 ) -> Result<()> {
-    let websocket = tokio_tungstenite::connect_async(address).await;
-
-    let Ok((mut websocket, _)) = websocket else {
-        log::warn!("connecting to websocket failed");
-        keep_running.cancel();
-        return Ok(());
+    let mut websocket = loop {
+        let websocket = tokio_tungstenite::connect_async(&address).await;
+        if let Ok((websocket, _)) = websocket {
+            break websocket;
+        };
+        log::info!("connecting to websocket failed, retrying...");
+        sleep(Duration::from_secs_f32(1.0)).await;
     };
+
     loop {
         tokio::select! {
             maybe_websocket_event = websocket.next() => {
