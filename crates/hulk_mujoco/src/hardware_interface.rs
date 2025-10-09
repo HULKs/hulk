@@ -266,7 +266,7 @@ impl RemoteControllerStateInterface for MujocoHardwareInterface {
         self.remote_controller_state_receiver
             .lock()
             .blocking_recv()
-            .ok_or_eyre("channel closed")
+            .ok_or_eyre("remote controller state channel closed")
     }
 }
 
@@ -275,7 +275,7 @@ impl TransformMessageInterface for MujocoHardwareInterface {
         self.transform_stamped_receiver
             .lock()
             .blocking_recv()
-            .ok_or_eyre("channel closed")
+            .ok_or_eyre("tfmessage channel closed")
     }
 }
 
@@ -284,7 +284,7 @@ impl RGBDSensorsInterface for MujocoHardwareInterface {
         self.rgbd_sensors_receiver
             .lock()
             .blocking_recv()
-            .ok_or_eyre("channel closed")
+            .ok_or_eyre("rgbd sensors channel closed")
     }
 }
 
