@@ -1,7 +1,7 @@
 use std::time::SystemTime;
 
 use booster::{
-    ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState, TFMessage,
+    ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState, TransformMessage,
 };
 use color_eyre::eyre::Result;
 
@@ -74,8 +74,8 @@ pub trait ButtonEventMsgInterface {
 pub trait RemoteControllerStateInterface {
     fn read_remote_controller_state(&self) -> Result<RemoteControllerState>;
 }
-pub trait TFMessageInterface {
-    fn read_tf_message(&self) -> Result<TFMessage>;
+pub trait TransformMessageInterface {
+    fn read_transform_message(&self) -> Result<TransformMessage>;
 }
 
 pub trait RGBDSensorsInterface {

@@ -1,4 +1,4 @@
-// # This represents the transform between two coordinate frames in free space.
+/// This represents the transform between two coordinate frames in free space.
 
 use serde::{Deserialize, Serialize};
 

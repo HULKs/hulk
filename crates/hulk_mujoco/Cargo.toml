@@ -50,9 +50,9 @@ spl_network.workspace = true
 spl_network_messages = { workspace = true }
 systemd = { workspace = true, optional = true }
 tokio = { workspace = true }
-tokio-tungstenite.workspace = true
+tokio-tungstenite = { workspace = true }
 tokio-util = { workspace = true }
-types.workspace = true
+types = { workspace = true }
 vision = { workspace = true }
 walking_engine = { workspace = true }
 zed = { workspace = true }

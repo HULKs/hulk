@@ -2081,7 +2081,6 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
- "types",
 ]
 
 [[package]]
@@ -4560,7 +4559,7 @@ dependencies = [
 name = "hulk_mujoco"
 version = "0.1.0"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "audio",
  "ball_filter",
  "bincode",
@@ -4593,7 +4592,7 @@ dependencies = [
  "log",
  "motionfile",
  "nalgebra",
- "ndarray",
+ "ndarray 0.16.1",
  "object_detection",
  "parameters",
  "parking_lot",

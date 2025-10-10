@@ -1,7 +1,7 @@
 use std::time::SystemTime;
 
 use booster::{
-    ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState, TFMessage,
+    ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState, TransformMessage,
 };
 use serde::{Deserialize, Serialize};
 use zed::RGBDSensors;
@@ -18,7 +18,7 @@ pub enum ServerMessageKind {
     FallDownState(FallDownState),
     ButtonEventMsg(ButtonEventMsg),
     RemoteControllerState(RemoteControllerState),
-    TFMessage(TFMessage),
+    TransformMessage(TransformMessage),
     RGBDSensors(Box<RGBDSensors>),
 }
 

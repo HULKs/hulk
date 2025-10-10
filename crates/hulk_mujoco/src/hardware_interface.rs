@@ -3,9 +3,9 @@ use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 
 use booster::{
-    ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState, TFMessage,
+    ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState, TransformMessage,
 };
-use color_eyre::eyre::{Context, OptionExt};
+use color_eyre::eyre::{eyre, Context, OptionExt};
 use color_eyre::Result;
 use futures_util::SinkExt;
 use futures_util::StreamExt;
@@ -15,7 +15,7 @@ use hardware::{
 };
 use hardware::{
     FallDownStateInterface, LowCommandInterface, LowStateInterface, RemoteControllerStateInterface,
-    TFMessageInterface,
+    TransformMessageInterface,
 };
 use hula_types::hardware::{Ids, Paths};
 use log::{error, warn};
@@ -41,7 +41,7 @@ struct WorkerChannels {
     fall_down_sender: Sender<FallDownState>,
     button_event_msg_sender: Sender<ButtonEventMsg>,
     remote_controller_state_sender: Sender<RemoteControllerState>,
-    transform_stamped_sender: Sender<TFMessage>,
+    transform_stamped_sender: Sender<TransformMessage>,
     rgbd_sensors_sender: Sender<RGBDSensors>,
 }
 
@@ -61,7 +61,7 @@ pub struct MujocoHardwareInterface {
     fall_down_receiver: Mutex<Receiver<FallDownState>>,
     button_event_msg_receiver: Mutex<Receiver<ButtonEventMsg>>,
     remote_controller_state_receiver: Mutex<Receiver<RemoteControllerState>>,
-    transform_stamped_receiver: Mutex<Receiver<TFMessage>>,
+    transform_stamped_receiver: Mutex<Receiver<TransformMessage>>,
     rgbd_sensors_receiver: Mutex<Receiver<RGBDSensors>>,
 }
 
@@ -199,7 +199,7 @@ async fn handle_message(
                 .await?
         }
         SimulationMessage {
-            payload: ServerMessageKind::TFMessage(transform_stamped),
+            payload: ServerMessageKind::TransformMessage(transform_stamped),
             time,
         } => {
             *hardware_interface_time.lock() = time;
@@ -267,8 +267,8 @@ impl RemoteControllerStateInterface for MujocoHardwareInterface {
     }
 }
 
-impl TFMessageInterface for MujocoHardwareInterface {
-    fn read_tf_message(&self) -> Result<TFMessage> {
+impl TransformMessageInterface for MujocoHardwareInterface {
+    fn read_transform_message(&self) -> Result<TransformMessage> {
         self.transform_stamped_receiver
             .lock()
             .blocking_recv()
@@ -309,7 +309,7 @@ impl NetworkInterface for MujocoHardwareInterface {
 
 impl SpeakerInterface for MujocoHardwareInterface {
     fn write_to_speakers(&self, _request: SpeakerRequest) {
-        // not implemented
+        todo!()
     }
 }
 
@@ -325,8 +325,7 @@ impl IdInterface for MujocoHardwareInterface {
 
 impl MicrophoneInterface for MujocoHardwareInterface {
     fn read_from_microphones(&self) -> Result<Samples> {
-        Ok(Samples::default())
-        // Err(eyre!("not implemented"))
+        Err(eyre!("microphone interface is not implemented"))
     }
 }
 
