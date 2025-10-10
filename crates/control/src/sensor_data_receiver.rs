@@ -1,15 +1,20 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use booster_low_level_interface::SimulationMessage;
 use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
 use coordinate_systems::Robot;
 use filtering::low_pass_filter::LowPassFilter;
 use framework::{AdditionalOutput, MainOutput};
-use hardware::{SensorInterface, TimeInterface};
-use linear_algebra::{Orientation3, Vector2, Vector3};
+use hardware::{LowStateInterface, TimeInterface};
+use linear_algebra::Vector3;
 use nalgebra::UnitQuaternion;
 use serde::{Deserialize, Serialize};
-use types::{cycle_time::CycleTime, joints::Joints, sensor_data::SensorData};
+use types::{
+    cycle_time::CycleTime,
+    joints::Joints,
+    sensor_data::{InertialMeasurementUnitData, SensorData},
+};
 
 #[derive(Default, Serialize, Deserialize)]
 enum State {
@@ -17,7 +22,7 @@ enum State {
     WaitingForSteady,
     CalibratingGravity {
         filtered_gravity: LowPassFilter<Vector3<Robot>>,
-        filtered_roll_pitch: LowPassFilter<Vector2<Robot>>,
+        filtered_roll_pitch_yaw: LowPassFilter<Vector3<Robot>>,
         remaining_cycles: usize,
     },
     Calibrated {
@@ -70,87 +75,92 @@ impl SensorDataReceiver {
 
     pub fn cycle(
         &mut self,
-        mut context: CycleContext<impl SensorInterface + TimeInterface>,
+        mut context: CycleContext<impl LowStateInterface + TimeInterface>,
     ) -> Result<MainOutputs> {
-        let mut sensor_data = context
+        let SimulationMessage { time, payload } = context
             .hardware_interface
-            .read_from_sensors()
+            .read_low_state()
             .wrap_err("failed to read from sensors")?;
 
-        let measured_angular_velocity = sensor_data.inertial_measurement_unit.angular_velocity;
-        let measured_acceleration = sensor_data.inertial_measurement_unit.linear_acceleration;
-        let measured_roll_pitch = sensor_data.inertial_measurement_unit.roll_pitch;
-        let angular_velocity_sum = measured_angular_velocity.abs().inner.sum();
+        let low_state = payload;
 
-        let is_steady = angular_velocity_sum < *context.calibration_steady_threshold;
-        match &mut self.calibration_state {
-            State::WaitingForSteady => {
-                if is_steady {
-                    self.calibration_state = State::CalibratingGravity {
-                        filtered_gravity: LowPassFilter::with_smoothing_factor(
-                            measured_acceleration,
-                            *context.gravity_calibration_smoothing_factor,
-                        ),
-                        filtered_roll_pitch: LowPassFilter::with_smoothing_factor(
-                            measured_roll_pitch,
-                            *context.roll_pitch_calibration_smoothing_factor,
-                        ),
-                        remaining_cycles: *context.number_of_calibration_cycles,
-                    }
-                }
-            }
-            State::CalibratingGravity {
-                filtered_gravity,
-                filtered_roll_pitch,
-                remaining_cycles,
-            } => {
-                if is_steady {
-                    filtered_gravity.update(measured_acceleration);
-                    filtered_roll_pitch.update(measured_roll_pitch);
-                    *remaining_cycles -= 1;
+        // let measured_angular_velocity = low_state.imu_state.angular_velocity;
+        // let measured_acceleration = low_state.imu_state.linear_acceleration;
+        // let measured_roll_pitch_yaw = low_state.imu_state.roll_pitch_yaw;
 
-                    if *remaining_cycles == 0 {
-                        let gravity = -filtered_gravity.state().inner;
-                        let up = nalgebra::Vector3::y();
-                        let orientation = UnitQuaternion::look_at_rh(&gravity, &up);
-                        let roll_pitch_orientation = Orientation3::<Robot>::from_euler_angles(
-                            -filtered_roll_pitch.state().x(),
-                            -filtered_roll_pitch.state().y(),
-                            0.0,
-                        )
-                        .mirror();
+        // match &mut self.calibration_state {
+        //     State::WaitingForSteady => {
+        //         if measured_angular_velocity.abs().inner.sum()
+        //             < *context.calibration_steady_threshold
+        //         {
+        //             self.calibration_state = State::CalibratingGravity {
+        //                 filtered_gravity: LowPassFilter::with_smoothing_factor(
+        //                     measured_acceleration,
+        //                     *context.gravity_calibration_smoothing_factor,
+        //                 ),
+        //                 filtered_roll_pitch_yaw: LowPassFilter::with_smoothing_factor(
+        //                     measured_roll_pitch_yaw,
+        //                     *context.roll_pitch_calibration_smoothing_factor,
+        //                 ),
+        //                 remaining_cycles: *context.number_of_calibration_cycles,
+        //             }
+        //         }
+        //     }
+        //     State::CalibratingGravity {
+        //         filtered_gravity,
+        //         filtered_roll_pitch_yaw: filtered_roll_pitch,
+        //         remaining_cycles,
+        //     } => {
+        //         if measured_angular_velocity.abs().inner.sum()
+        //             < *context.calibration_steady_threshold
+        //         {
+        //             filtered_gravity.update(measured_acceleration);
+        //             filtered_roll_pitch.update(measured_roll_pitch_yaw);
+        //             *remaining_cycles -= 1;
 
-                        let roll_pitch_calibration =
-                            roll_pitch_orientation.inner.rotation_to(&orientation);
+        //             if *remaining_cycles == 0 {
+        //                 let gravity = -filtered_gravity.state().inner;
+        //                 let up = nalgebra::Vector3::y();
+        //                 let orientation = UnitQuaternion::look_at_rh(&gravity, &up);
+        //                 let roll_pitch_orientation = Orientation3::<Robot>::from_euler_angles(
+        //                     -filtered_roll_pitch.state().x(),
+        //                     -filtered_roll_pitch.state().y(),
+        //                     0.0,
+        //                 )
+        //                 .mirror();
 
-                        self.calibration_state = State::Calibrated {
-                            calibration: roll_pitch_calibration,
-                        };
-                    }
-                } else {
-                    self.calibration_state = State::WaitingForSteady;
-                }
-            }
-            State::Calibrated { .. } => {}
-        }
+        //                 let roll_pitch_calibration =
+        //                     roll_pitch_orientation.inner.rotation_to(&orientation);
 
-        if let State::Calibrated { calibration } = self.calibration_state {
-            let mut roll_pitch_orientation = Orientation3::<Robot>::from_euler_angles(
-                -sensor_data.inertial_measurement_unit.roll_pitch.x(),
-                -sensor_data.inertial_measurement_unit.roll_pitch.y(),
-                0.0,
-            )
-            .mirror();
+        //                 self.calibration_state = State::Calibrated {
+        //                     calibration: roll_pitch_calibration,
+        //                 };
+        //             }
+        //         } else {
+        //             self.calibration_state = State::WaitingForSteady;
+        //         }
+        //     }
+        //     State::Calibrated { .. } => {}
+        // }
 
-            roll_pitch_orientation.inner = calibration * roll_pitch_orientation.inner;
+        // if let State::Calibrated { calibration } = self.calibration_state {
+        //     let mut roll_pitch_orientation = Orientation3::<Robot>::from_euler_angles(
+        //         -low_state.imu_state.roll_pitch_yaw.x(),
+        //         -low_state.imu_state.roll_pitch_yaw.y(),
+        //         0.0,
+        //     )
+        //     .mirror();
 
-            let (roll, pitch, _) = roll_pitch_orientation.euler_angles();
+        //     roll_pitch_orientation.inner = calibration * roll_pitch_orientation.inner;
 
-            sensor_data.inertial_measurement_unit.roll_pitch.inner.x = roll;
-            sensor_data.inertial_measurement_unit.roll_pitch.inner.y = pitch;
-        }
+        //     let (roll, pitch, _) = roll_pitch_orientation.euler_angles();
 
-        sensor_data.positions = sensor_data.positions - (*context.joint_calibration_offsets);
+        //     low_state.imu_state.roll_pitch_yaw.inner.x = roll;
+        //     low_state.imu_state.roll_pitch_yaw.inner.y = pitch;
+        //     low_state.imu_state.roll_pitch_yaw.inner.z = pitch;
+        // }
+
+        // sensor_data.positions = sensor_data.positions - (*context.joint_calibration_offsets);
 
         let now = context.hardware_interface.get_now();
         let cycle_time = CycleTime {
@@ -160,24 +170,30 @@ impl SensorDataReceiver {
                 .expect("time ran backwards"),
         };
 
-        context.maximum_temperature.fill_if_subscribed(|| {
-            sensor_data
-                .temperature_sensors
-                .into_iter()
-                .fold(0.0, f32::max)
-        });
+        // Faked data
+        context.maximum_temperature.fill_if_subscribed(|| 42.);
 
-        context
-            .total_current
-            .fill_if_subscribed(|| sensor_data.currents.into_iter().sum());
+        // Faked data
+        context.total_current.fill_if_subscribed(|| 42.);
 
         context
             .roll_pitch_calibrated
             .fill_if_subscribed(|| matches!(self.calibration_state, State::Calibrated { .. }));
 
+        let half_fake_senor_data = SensorData {
+            positions: (&low_state).into(),
+            inertial_measurement_unit: InertialMeasurementUnitData {
+                linear_acceleration: low_state.imu_state.linear_acceleration,
+                angular_velocity: low_state.imu_state.angular_velocity,
+                roll_pitch: low_state.imu_state.roll_pitch_yaw.clone().xy(),
+            },
+            ..Default::default()
+        };
+
         self.last_cycle_start = now;
+
         Ok(MainOutputs {
-            sensor_data: sensor_data.into(),
+            sensor_data: half_fake_senor_data.into(),
             cycle_time: cycle_time.into(),
         })
     }

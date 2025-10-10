@@ -1,6 +1,13 @@
-use nalgebra::{Isometry3, Quaternion, Vector3};
+use std::time::SystemTime;
+
+use coordinate_systems::Robot;
+use linear_algebra::Vector3;
 use serde::{Deserialize, Serialize};
 use tokio::sync::broadcast::{Receiver, Sender};
+use types::{
+    joints::{arm::ArmJoints, head::HeadJoints, leg::LegJoints, Joints},
+    motor_commands::MotorCommands,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LowState {
@@ -9,18 +16,102 @@ pub struct LowState {
     pub motor_state_serial: Vec<MotorState>,   // Serial structure joint feedback.
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[repr(C)]
+struct BoosterJoints {
+    head_yaw: MotorState,
+    head_pitch: MotorState,
+    left_shoulder_pitch: MotorState,
+    left_shoulder_roll: MotorState,
+    left_shoulder_yaw: MotorState,
+    left_elbow: MotorState,
+    right_shoulder_pitch: MotorState,
+    right_shoulder_roll: MotorState,
+    right_shoulder_yaw: MotorState,
+    right_elbow: MotorState,
+    left_hip_pitch: MotorState,
+    left_hip_roll: MotorState,
+    left_hip_yaw: MotorState,
+    left_knee: MotorState,
+    left_ankle_up: MotorState,
+    left_ankle_down: MotorState,
+    right_hip_pitch: MotorState,
+    right_hip_roll: MotorState,
+    right_hip_yaw: MotorState,
+    right_knee: MotorState,
+    right_ankle_up: MotorState,
+    right_ankle_down: MotorState,
+}
+
+impl From<&LowState> for Joints<f32> {
+    fn from(low_state: &LowState) -> Joints<f32> {
+        let booster_serial_joints: BoosterJoints = unsafe {
+            let try_into: [MotorState; 22] = low_state
+                .motor_state_serial
+                .clone()
+                .try_into()
+                .expect("failed to try into MotorState array");
+            std::mem::transmute(try_into)
+        };
+        Joints::<f32> {
+            head: HeadJoints::<f32> {
+                yaw: booster_serial_joints.head_yaw.position,
+                pitch: booster_serial_joints.head_pitch.position,
+            },
+            left_arm: ArmJoints::<f32> {
+                shoulder_pitch: booster_serial_joints.left_shoulder_pitch.position,
+                shoulder_roll: booster_serial_joints.left_shoulder_roll.position,
+                elbow_yaw: booster_serial_joints.left_elbow.position,
+                elbow_roll: 42.0,
+                wrist_yaw: 42.0,
+                hand: 42.0,
+            },
+            right_arm: ArmJoints::<f32> {
+                shoulder_pitch: booster_serial_joints.right_shoulder_pitch.position,
+                shoulder_roll: booster_serial_joints.right_shoulder_roll.position,
+                elbow_yaw: booster_serial_joints.right_elbow.position,
+                elbow_roll: 42.0,
+                wrist_yaw: 42.0,
+                hand: 42.0,
+            },
+            left_leg: LegJoints::<f32> {
+                // Huh?! What is ankle_up down?
+                ankle_pitch: booster_serial_joints.left_ankle_up.position,
+                ankle_roll: booster_serial_joints.left_ankle_down.position,
+                hip_pitch: booster_serial_joints.left_hip_pitch.position,
+                hip_roll: booster_serial_joints.left_hip_roll.position,
+                // Not quite analogous but good enough for now
+                hip_yaw_pitch: booster_serial_joints.left_hip_yaw.position,
+
+                knee_pitch: booster_serial_joints.left_knee.position,
+            },
+            right_leg: LegJoints::<f32> {
+                // Huh?! What is ankle_up down?
+                ankle_pitch: booster_serial_joints.right_ankle_up.position,
+                ankle_roll: booster_serial_joints.right_ankle_down.position,
+                hip_pitch: booster_serial_joints.right_hip_pitch.position,
+                hip_roll: booster_serial_joints.right_hip_roll.position,
+                // Not quite analogous but good enough for now
+                hip_yaw_pitch: booster_serial_joints.right_hip_yaw.position,
+
+                knee_pitch: booster_serial_joints.right_knee.position,
+            },
+        }
+    }
+}
+#[derive(Debug, Default, Clone, Serialize, Deserialize)]
 pub struct ImuState {
     #[serde(rename = "rpy")]
     /// Euler angle information（0 -> roll ,1 -> pitch ,2 -> yaw）
-    pub roll_pitch_yaw: [f32; 3],
+    pub roll_pitch_yaw: Vector3<Robot>,
     /// Angular velocity information（0 -> x ,1 -> y ,2 -> z）
-    pub gyro: [f32; 3],
+    #[serde(rename = "gyro")]
+    pub angular_velocity: Vector3<Robot>,
     /// Acceleration information.（0 -> x ,1 -> y ,2 -> z）
-    pub acc: [f32; 3],
+    #[serde(rename = "acc")]
+    pub linear_acceleration: Vector3<Robot>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct MotorState {
     #[serde(rename = "q")]
     /// Joint angle position (q), unit: rad.
@@ -47,10 +138,86 @@ pub struct LowCommand {
     #[serde(rename = "cmd_type")]
     pub command_type: CommandType,
     #[serde(rename = "motor_cmd")]
-    pub motor_command: Vec<MotorCommand>,
+    pub motor_commands: Vec<MotorCommand>,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+impl From<&MotorCommands<Joints>> for LowCommand {
+    fn from(motor_commands: &MotorCommands<Joints>) -> Self {
+        let joint_positions = vec![
+            motor_commands.positions.head.yaw,
+            motor_commands.positions.head.pitch,
+            motor_commands.positions.left_arm.shoulder_pitch,
+            motor_commands.positions.left_arm.shoulder_roll,
+            // left_shoulder_yaw,
+            0.0,
+            motor_commands.positions.left_arm.elbow_yaw,
+            motor_commands.positions.right_arm.shoulder_pitch,
+            motor_commands.positions.right_arm.shoulder_roll,
+            // right_shoulder_yaw,
+            0.0,
+            motor_commands.positions.right_arm.elbow_yaw,
+            motor_commands.positions.left_leg.hip_pitch,
+            motor_commands.positions.left_leg.hip_roll,
+            motor_commands.positions.left_leg.hip_yaw_pitch,
+            motor_commands.positions.left_leg.knee_pitch,
+            motor_commands.positions.left_leg.ankle_pitch,
+            motor_commands.positions.left_leg.ankle_roll,
+            motor_commands.positions.right_leg.hip_pitch,
+            motor_commands.positions.right_leg.hip_roll,
+            motor_commands.positions.right_leg.hip_yaw_pitch,
+            motor_commands.positions.right_leg.knee_pitch,
+            motor_commands.positions.right_leg.ankle_pitch,
+            motor_commands.positions.right_leg.ankle_roll,
+        ];
+
+        let joint_stiffnesses = vec![
+            motor_commands.stiffnesses.head.yaw,
+            motor_commands.stiffnesses.head.pitch,
+            motor_commands.stiffnesses.left_arm.shoulder_pitch,
+            motor_commands.stiffnesses.left_arm.shoulder_roll,
+            // left_shoulder_yaw,
+            0.0,
+            motor_commands.stiffnesses.left_arm.elbow_yaw,
+            motor_commands.stiffnesses.right_arm.shoulder_pitch,
+            motor_commands.stiffnesses.right_arm.shoulder_roll,
+            // right_shoulder_yaw,
+            0.0,
+            motor_commands.stiffnesses.right_arm.elbow_yaw,
+            motor_commands.stiffnesses.left_leg.hip_pitch,
+            motor_commands.stiffnesses.left_leg.hip_roll,
+            motor_commands.stiffnesses.left_leg.hip_yaw_pitch,
+            motor_commands.stiffnesses.left_leg.knee_pitch,
+            motor_commands.stiffnesses.left_leg.ankle_pitch,
+            motor_commands.stiffnesses.left_leg.ankle_roll,
+            motor_commands.stiffnesses.right_leg.hip_pitch,
+            motor_commands.stiffnesses.right_leg.hip_roll,
+            motor_commands.stiffnesses.right_leg.hip_yaw_pitch,
+            motor_commands.stiffnesses.right_leg.knee_pitch,
+            motor_commands.stiffnesses.right_leg.ankle_pitch,
+            motor_commands.stiffnesses.right_leg.ankle_roll,
+        ];
+
+        let motor_commands = joint_positions
+            .into_iter()
+            .zip(joint_stiffnesses)
+            .map(|(position, stiffness)| MotorCommand {
+                position,
+                velocity: 0.0,
+                torque: stiffness,
+                kp: 40.0,
+                kd: 0.1,
+                weight: 1.0,
+            })
+            .collect();
+
+        Self {
+            command_type: CommandType::Serial,
+            motor_commands,
+        }
+    }
+}
+
+#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
 pub struct MotorCommand {
     #[serde(rename = "q")]
     /// Joint angle position, unit: rad.
@@ -174,17 +341,17 @@ pub struct TransformStamped {
     pub header: Header,
     pub child_frame_id: String,
     #[serde(with = "serde_transform_isometry")]
-    pub transform: Isometry3<f64>,
+    pub transform: nalgebra::Isometry3<f64>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Transform {
-    pub translation: Vector3<f64>,
-    pub rotation: Quaternion<f64>,
+    pub translation: nalgebra::Vector3<f64>,
+    pub rotation: nalgebra::Quaternion<f64>,
 }
 
 mod serde_transform_isometry {
-    use nalgebra::{Isometry3, Unit};
+    use nalgebra::{Isometry3, Translation, Unit};
     use serde::{Deserializer, Serializer};
 
     use crate::Transform;
@@ -196,7 +363,7 @@ mod serde_transform_isometry {
         <Transform as serde::Deserialize>::deserialize(deserializer)
             .map(|transform| {
                 Isometry3::<f64>::from_parts(
-                    nalgebra::Translation::from(transform.translation),
+                    Translation::from(transform.translation),
                     Unit::from_quaternion(transform.rotation),
                 )
             })
@@ -227,6 +394,38 @@ pub struct Time {
     pub seconds: i32,
     #[serde(rename = "nanosec")]
     pub nanos: u32,
+}
+
+impl Time {
+    pub fn new(seconds: i32, nanos: u32) -> Self {
+        Self { seconds, nanos }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub struct SimulationMessage<T> {
+    pub time: SystemTime,
+    pub payload: T,
+}
+
+impl<T> SimulationMessage<T> {
+    pub fn new(time: SystemTime, payload: T) -> Self {
+        Self { time, payload }
+    }
+}
+
+#[derive(Clone, Debug, Deserialize, Serialize)]
+pub enum ServerMessageKind {
+    LowState(LowState),
+    FallDownState(FallDownState),
+    ButtonEventMsg(ButtonEventMsg),
+    RemoteControllerState(RemoteControllerState),
+    TransformStamped(TransformStamped),
+}
+
+#[derive(Debug, Deserialize, Serialize)]
+pub enum ClientMessageKind {
+    LowCommand(LowCommand),
 }
 
 pub trait BoosterLowLevelInterface {

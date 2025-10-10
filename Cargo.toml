@@ -23,6 +23,7 @@ members = [
   "crates/hulk",
   "crates/hulk_imagine",
   "crates/hulk_manifest",
+  "crates/hulk_mujoco",
   "crates/hulk_nao",
   "crates/hulk_replayer",
   "crates/hulk_webots",
@@ -98,6 +99,7 @@ bevy_panorbit_camera = { version = "0.23.0", features = ["bevy_egui"] }
 bincode = "1.3.3"
 bindgen = "0.71.1"
 blake3 = { version = "1.8.2", features = ["mmap", "serde"] }
+booster_low_level_interface = { path = "crates/booster_low_level_interface" }
 buffered_watch = { path = "crates/buffered_watch" }
 build_script_helpers = { path = "crates/build_script_helpers" }
 byteorder = "1.5.0"

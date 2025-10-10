@@ -1,5 +1,9 @@
 use std::time::SystemTime;
 
+use booster_low_level_interface::{
+    ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState, SimulationMessage,
+    TransformStamped,
+};
 use color_eyre::eyre::Result;
 
 use hula_types::hardware::{Ids, Paths};
@@ -51,6 +55,27 @@ pub trait RecordingInterface {
 
 pub trait SensorInterface {
     fn read_from_sensors(&self) -> Result<SensorData>;
+}
+
+pub trait LowStateInterface {
+    fn read_low_state(&self) -> Result<SimulationMessage<LowState>>;
+}
+
+pub trait LowCommandInterface {
+    fn write_low_command(&self, low_command: LowCommand) -> Result<()>;
+}
+
+pub trait FallDownStateInterface {
+    fn read_fall_down_state(&self) -> Result<SimulationMessage<FallDownState>>;
+}
+pub trait ButtonEventMsgInterface {
+    fn read_button_event_msg(&self) -> Result<SimulationMessage<ButtonEventMsg>>;
+}
+pub trait RemoteControllerStateInterface {
+    fn read_remote_controller_state(&self) -> Result<SimulationMessage<RemoteControllerState>>;
+}
+pub trait TransformStampedInterface {
+    fn read_transform_stamped(&self) -> Result<SimulationMessage<TransformStamped>>;
 }
 
 pub trait SpeakerInterface {

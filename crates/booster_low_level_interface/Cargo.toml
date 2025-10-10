@@ -6,6 +6,10 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
+coordinate_systems = { workspace = true }
 nalgebra = { workspace = true }
+linear_algebra = { workspace = true }
 serde = { workspace = true }
 tokio = { workspace = true }
+types.workspace = true
+serde_json.workspace = true

@@ -2116,9 +2116,13 @@ dependencies = [
 name = "booster_low_level_interface"
 version = "0.1.0"
 dependencies = [
+ "coordinate_systems",
+ "linear_algebra",
  "nalgebra",
  "serde",
+ "serde_json",
  "tokio",
+ "types",
 ]
 
 [[package]]
@@ -2706,6 +2710,7 @@ dependencies = [
  "approx 0.5.1",
  "ball_filter",
  "bincode",
+ "booster_low_level_interface",
  "calibration",
  "color-eyre",
  "context_attribute",
@@ -4401,6 +4406,7 @@ dependencies = [
 name = "hardware"
 version = "0.1.0"
 dependencies = [
+ "booster_low_level_interface",
  "color-eyre",
  "hula_types",
  "types",
@@ -4630,6 +4636,61 @@ name = "hulk_manifest"
 version = "0.1.0"
 dependencies = [
  "source_analyzer",
+]
+
+[[package]]
+name = "hulk_mujoco"
+version = "0.1.0"
+dependencies = [
+ "approx",
+ "audio",
+ "ball_filter",
+ "bincode",
+ "blake3",
+ "booster_low_level_interface",
+ "buffered_watch",
+ "calibration",
+ "chrono",
+ "code_generation",
+ "color-eyre",
+ "communication",
+ "control",
+ "coordinate_systems",
+ "ctrlc",
+ "derive_more 2.0.1",
+ "eframe",
+ "energy_optimization",
+ "env_logger",
+ "fern",
+ "framework",
+ "futures-util",
+ "geometry",
+ "hardware",
+ "hula_types",
+ "hulk_manifest",
+ "hulk_widgets",
+ "ittapi",
+ "linear_algebra",
+ "log",
+ "motionfile",
+ "nalgebra",
+ "ndarray",
+ "object_detection",
+ "parameters",
+ "parking_lot",
+ "path_serde",
+ "projection",
+ "serde",
+ "serde_json",
+ "source_analyzer",
+ "spl_network",
+ "spl_network_messages",
+ "tokio",
+ "tokio-tungstenite",
+ "tokio-util",
+ "types",
+ "vision",
+ "walking_engine",
 ]
 
 [[package]]

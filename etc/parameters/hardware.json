@@ -86,6 +86,7 @@
     "width": 640
   },
   "communication_addresses": "[::]:1337",
+  "mujoco_websocket_address": "ws://127.0.0.1:8000/simulation/subscribe",
   "microphones": {
     "access": "RWInterleaved",
     "format": "FloatLE",

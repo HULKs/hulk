@@ -1,7 +1,8 @@
+use booster_low_level_interface::LowCommand;
 use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
 use framework::AdditionalOutput;
-use hardware::ActuatorInterface;
+use hardware::{ActuatorInterface, LowCommandInterface, LowStateInterface};
 use serde::{Deserialize, Serialize};
 use types::{
     joints::Joints, led::Leds, motion_selection::MotionSafeExits, motor_commands::MotorCommands,
@@ -42,17 +43,13 @@ impl CommandSender {
 
     pub fn cycle(
         &mut self,
-        mut context: CycleContext<impl ActuatorInterface>,
+        mut context: CycleContext<impl LowCommandInterface>,
     ) -> Result<MainOutputs> {
         let motor_commands = context.optimized_motor_commands;
 
         context
             .hardware_interface
-            .write_to_actuators(
-                motor_commands.positions + *context.joint_calibration_offsets,
-                motor_commands.stiffnesses,
-                *context.leds,
-            )
+            .write_low_command(motor_commands.into())
             .wrap_err("failed to write to actuators")?;
 
         context
