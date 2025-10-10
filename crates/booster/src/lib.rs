@@ -43,8 +43,8 @@ struct BoosterJoints {
     right_ankle_down: MotorState,
 }
 
-impl From<&LowState> for Joints<f32> {
-    fn from(low_state: &LowState) -> Joints<f32> {
+impl From<&LowState> for Joints {
+    fn from(low_state: &LowState) -> Joints {
         let booster_serial_joints: BoosterJoints = unsafe {
             let try_into: [MotorState; 22] = low_state
                 .motor_state_serial
@@ -53,12 +53,12 @@ impl From<&LowState> for Joints<f32> {
                 .expect("failed to try into MotorState array");
             std::mem::transmute(try_into)
         };
-        Joints::<f32> {
-            head: HeadJoints::<f32> {
+        Joints {
+            head: HeadJoints {
                 yaw: booster_serial_joints.head_yaw.position,
                 pitch: booster_serial_joints.head_pitch.position,
             },
-            left_arm: ArmJoints::<f32> {
+            left_arm: ArmJoints {
                 shoulder_pitch: booster_serial_joints.left_shoulder_pitch.position,
                 shoulder_roll: booster_serial_joints.left_shoulder_roll.position,
                 elbow_yaw: booster_serial_joints.left_elbow.position,
@@ -66,7 +66,7 @@ impl From<&LowState> for Joints<f32> {
                 wrist_yaw: 42.0,
                 hand: 42.0,
             },
-            right_arm: ArmJoints::<f32> {
+            right_arm: ArmJoints {
                 shoulder_pitch: booster_serial_joints.right_shoulder_pitch.position,
                 shoulder_roll: booster_serial_joints.right_shoulder_roll.position,
                 elbow_yaw: booster_serial_joints.right_elbow.position,
@@ -74,7 +74,7 @@ impl From<&LowState> for Joints<f32> {
                 wrist_yaw: 42.0,
                 hand: 42.0,
             },
-            left_leg: LegJoints::<f32> {
+            left_leg: LegJoints {
                 // Huh?! What is ankle_up down?
                 ankle_pitch: booster_serial_joints.left_ankle_up.position,
                 ankle_roll: booster_serial_joints.left_ankle_down.position,
@@ -85,7 +85,7 @@ impl From<&LowState> for Joints<f32> {
 
                 knee_pitch: booster_serial_joints.left_knee.position,
             },
-            right_leg: LegJoints::<f32> {
+            right_leg: LegJoints {
                 // Huh?! What is ankle_up down?
                 ankle_pitch: booster_serial_joints.right_ankle_up.position,
                 ankle_roll: booster_serial_joints.right_ankle_down.position,
@@ -99,6 +99,7 @@ impl From<&LowState> for Joints<f32> {
         }
     }
 }
+
 #[derive(
     Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
