@@ -80,12 +80,12 @@ impl SensorDataReceiver {
         let measured_angular_velocity = sensor_data.inertial_measurement_unit.angular_velocity;
         let measured_acceleration = sensor_data.inertial_measurement_unit.linear_acceleration;
         let measured_roll_pitch = sensor_data.inertial_measurement_unit.roll_pitch;
+        let angular_velocity_sum = measured_angular_velocity.abs().inner.sum();
 
+        let is_steady = angular_velocity_sum < *context.calibration_steady_threshold;
         match &mut self.calibration_state {
             State::WaitingForSteady => {
-                if measured_angular_velocity.abs().inner.sum()
-                    < *context.calibration_steady_threshold
-                {
+                if is_steady {
                     self.calibration_state = State::CalibratingGravity {
                         filtered_gravity: LowPassFilter::with_smoothing_factor(
                             measured_acceleration,
@@ -104,9 +104,7 @@ impl SensorDataReceiver {
                 filtered_roll_pitch,
                 remaining_cycles,
             } => {
-                if measured_angular_velocity.abs().inner.sum()
-                    < *context.calibration_steady_threshold
-                {
+                if is_steady {
                     filtered_gravity.update(measured_acceleration);
                     filtered_roll_pitch.update(measured_roll_pitch);
                     *remaining_cycles -= 1;
