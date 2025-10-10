@@ -1,5 +1,4 @@
 /// This represents an orientation in free space in quaternion form.
-
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]

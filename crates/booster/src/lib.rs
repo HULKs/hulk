@@ -8,9 +8,12 @@ use serde::{Deserialize, Serialize};
     Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
 pub struct LowState {
-    pub imu_state: ImuState,                   // IMU feedback.
-    pub motor_state_parallel: Vec<MotorState>, // Parallel structure joint feedback.
-    pub motor_state_serial: Vec<MotorState>,   // Serial structure joint feedback.
+    /// IMU feedback
+    pub imu_state: ImuState,
+    /// Parallel structure joint feedback
+    pub motor_state_parallel: Vec<MotorState>,
+    /// Serial structure joint feedback
+    pub motor_state_serial: Vec<MotorState>,
 }
 
 #[derive(

@@ -1,5 +1,4 @@
 /// This represents the transform between two coordinate frames in free space.
-
 use serde::{Deserialize, Serialize};
 
 use crate::geometry_msgs::{quaternion::Quaternion, vector3::Vector3};

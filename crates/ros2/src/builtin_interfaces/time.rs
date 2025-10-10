@@ -1,11 +1,10 @@
 /// This message communicates ROS Time defined here:
 /// https://design.ros2.org/articles/clock_and_time.html
-
-/// The seconds component, valid over all int32 values.
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct Time {
+    /// The seconds component, valid over all int32 values.
     pub sec: i32,
 
     /// The nanoseconds component, valid in the range [0, 1e9), to be added to the seconds component.

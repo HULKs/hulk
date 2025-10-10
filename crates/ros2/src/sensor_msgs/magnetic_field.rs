@@ -13,10 +13,10 @@ use crate::{geometry_msgs::vector3::Vector3, std_msgs::header::Header};
 #[derive(Debug, Serialize, Deserialize)]
 pub struct MagneticField {
     /// timestamp is the time the
-    pub header: Header,
-    /// field was measured
     /// frame_id is the location and orientation
     /// of the field measurement
+    pub header: Header,
+    /// field was measured
     /// x, y, and z components of the
     pub magnetic_field: Vector3,
     /// field vector in Tesla

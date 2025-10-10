@@ -8,15 +8,13 @@
 /// The child_frame_id is necessary in addition to the frame_id
 /// in the Header to communicate the full reference for the transform
 /// in a self contained message.
-
-/// The frame id in the header is used as the reference frame of this transform.
-
 use serde::{Deserialize, Serialize};
 
 use crate::{geometry_msgs::transform::Transform, std_msgs::header::Header};
 
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TransformStamped {
+    /// The frame id in the header is used as the reference frame of this transform.
     pub header: Header,
 
     /// The frame id of the child frame to which this transform points.
