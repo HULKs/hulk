@@ -3,8 +3,6 @@
 
 // # The seconds component, valid over all int32 values.
 
-use std::time::{SystemTime, SystemTimeError};
-
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -16,15 +14,4 @@ pub struct Time {
     // # The time -1.7 seconds is represented as {sec: -2, nanosec: 3e8}
     // # The time 1.7 seconds is represented as {sec: 1, nanosec: 7e8}
     pub nanosec: u32,
-}
-
-impl TryFrom<SystemTime> for Time {
-    type Error = SystemTimeError;
-
-    fn try_from(system_time: SystemTime) -> Result<Self, SystemTimeError> {
-        Ok(Self {
-            sec: system_time.elapsed()?.as_secs() as i32,
-            nanosec: todo!(),
-        })
-    }
 }

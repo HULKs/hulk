@@ -39,9 +39,8 @@ lazy_static! {
     pub static ref MANIFEST_PATHS: HashMap<&'static str, &'static str> = {
         HashMap::from([
             ("imagine", "crates/hulk_imagine"),
-            ("nao", "crates/hulk_nao"),
             ("replayer", "crates/hulk_replayer"),
-            ("webots", "crates/hulk_webots"),
+            ("mujoco", "crates/hulk_mujoco"),
             ("aliveness", "services/aliveness"),
             ("breeze", "services/breeze"),
             ("hula", "services/hula"),

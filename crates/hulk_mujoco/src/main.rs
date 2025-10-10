@@ -54,7 +54,8 @@ pub trait HardwareInterface:
 
 include!(concat!(env!("OUT_DIR"), "/generated_code.rs"));
 
-fn main() -> Result<()> {
+#[tokio::main(flavor = "multi_thread")]
+async fn main() -> Result<()> {
     setup_logger()?;
     install()?;
     let framework_parameters_path = args()
@@ -99,102 +100,4 @@ fn main() -> Result<()> {
         keep_running,
         framework_parameters.recording_intervals,
     )
-}
-
-#[cfg(test)]
-mod mujoco_test {
-    use std::{
-        env::args,
-        f32::{self, consts::PI},
-        fs::File,
-    };
-
-    use approx::abs_diff_eq;
-    use booster::{CommandType, LowCommand, MotorCommand};
-    use ctrlc::set_handler;
-    use framework::Parameters as FrameworkParameters;
-    use hardware::{LowCommandInterface, LowStateInterface};
-    use serde_json::from_reader;
-    use tokio_util::sync::CancellationToken;
-
-    use crate::hardware_interface::{MujocoHardwareInterface, Parameters as HardwareParameters};
-
-    #[tokio::test]
-    async fn test_mujoco_connection() {
-        let framework_parameters_path = args()
-            .nth(1)
-            .unwrap_or("etc/parameters/framework.json".to_string());
-        let keep_running = CancellationToken::new();
-        set_handler({
-            let keep_running = keep_running.clone();
-            move || {
-                keep_running.cancel();
-            }
-        })
-        .expect("could not set handler");
-
-        let file =
-            File::open(framework_parameters_path).expect("failed to open framework parameters");
-        let framework_parameters: FrameworkParameters =
-            from_reader(file).expect("failed to parse framework parameters");
-
-        let hardware_parameters_file = File::open(framework_parameters.hardware_parameters)
-            .expect("failed to open hardware parameters");
-        let hardware_parameters: HardwareParameters =
-            from_reader(hardware_parameters_file).expect("failed to parse hardware parameters");
-
-        let hardware_interface =
-            MujocoHardwareInterface::new(keep_running.clone(), hardware_parameters)
-                .expect("failed to create hardware interface");
-
-        let tokio_runtime_handle = tokio::runtime::Handle::current();
-
-        tokio_runtime_handle
-            .spawn_blocking(move || {
-                let mut time_index: f32 = 0.0;
-                let mut motor_index: usize = 0;
-                loop {
-                    let low_state = hardware_interface
-                        .read_low_state()
-                        .expect("failed to read low state");
-
-                    let motor_commands = generate_random_motor_commands(motor_index, time_index);
-
-                    hardware_interface
-                        .write_low_command(LowCommand {
-                            command_type: CommandType::Serial,
-                            motor_commands: motor_commands.to_vec(),
-                        })
-                        .expect("failed to write low command");
-
-                    time_index += PI / 100.0;
-                    if abs_diff_eq!(time_index % (8.0 * PI), 0.0, epsilon = 0.001) {
-                        motor_index = (motor_index + 1) % 22;
-                        time_index = 0.0;
-                    }
-                }
-            })
-            .await
-            .expect("failed to join");
-    }
-
-    fn generate_random_motor_commands(motor_index: usize, time_index: f32) -> [MotorCommand; 22] {
-        let mut motor_commands: [MotorCommand; 22] = [MotorCommand {
-            position: 0.0,
-            velocity: 0.0,
-            torque: 0.0,
-            kp: 45.0,
-            kd: 0.1,
-            weight: 1.0,
-        }; 22];
-        motor_commands[motor_index] = MotorCommand {
-            position: time_index.sin(),
-            velocity: time_index.sin(),
-            torque: 1.0,
-            kp: 10.0,
-            kd: 1.0,
-            weight: 1.0,
-        };
-        motor_commands
-    }
 }

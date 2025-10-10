@@ -189,28 +189,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "683d7910e743518b0e34f1186f92494becacb047c7b6bf616c96772180fef923"
 
 [[package]]
-name = "alsa"
-version = "0.9.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed7572b7ba83a31e20d1b48970ee402d2e3e0537dcfe0a3ff4d6eb7508617d43"
-dependencies = [
- "alsa-sys",
- "bitflags 2.9.1",
- "cfg-if",
- "libc",
-]
-
-[[package]]
-name = "alsa-sys"
-version = "0.3.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "db8fee663d06c4e303404ef5f40488a53e062f89ba8bfed81f42325aafad1527"
-dependencies = [
- "libc",
- "pkg-config",
-]
-
-[[package]]
 name = "android-activity"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1835,6 +1813,7 @@ dependencies = [
  "ball_filter",
  "bevy",
  "bincode",
+ "booster",
  "buffered_watch",
  "chrono",
  "clap 4.5.40",
@@ -1877,6 +1856,7 @@ dependencies = [
  "types",
  "vision",
  "walking_engine",
+ "zed",
 ]
 
 [[package]]
@@ -1913,29 +1893,6 @@ dependencies = [
  "rustc-hash 1.1.0",
  "shlex",
  "syn 1.0.109",
- "which 4.4.2",
-]
-
-[[package]]
-name = "bindgen"
-version = "0.66.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f2b84e06fc203107bfbad243f4aba2af864eb7db3b1cf46ea0a023b0b433d2a7"
-dependencies = [
- "bitflags 2.9.1",
- "cexpr",
- "clang-sys",
- "lazy_static",
- "lazycell",
- "log",
- "peeking_take_while",
- "prettyplease",
- "proc-macro2",
- "quote",
- "regex",
- "rustc-hash 1.1.0",
- "shlex",
- "syn 2.0.103",
  "which 4.4.2",
 ]
 
@@ -2119,6 +2076,7 @@ dependencies = [
  "coordinate_systems",
  "linear_algebra",
  "nalgebra",
+ "path_serde",
  "ros2",
  "serde",
  "serde_json",
@@ -4547,57 +4505,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "hulk"
-version = "0.1.0"
-dependencies = [
- "audio",
- "ball_filter",
- "bincode",
- "buffered_watch",
- "calibration",
- "code_generation",
- "color-eyre",
- "communication",
- "control",
- "coordinate_systems",
- "energy_optimization",
- "framework",
- "geometry",
- "hardware",
- "hula_types",
- "hulk_manifest",
- "ittapi",
- "libc",
- "linear_algebra",
- "log",
- "motionfile",
- "nalgebra",
- "ndarray 0.16.1",
- "object_detection",
- "parameters",
- "path_serde",
- "projection",
- "serde",
- "serde_json",
- "source_analyzer",
- "spl_network",
- "spl_network_messages",
- "step_planning",
- "systemd",
- "tokio",
- "tokio-util",
- "types",
- "vision",
- "walking_engine",
-]
-
-[[package]]
 name = "hulk_imagine"
 version = "0.1.0"
 dependencies = [
  "audio",
  "ball_filter",
  "bincode",
+ "booster",
  "buffered_watch",
  "calibration",
  "clap 4.5.40",
@@ -4632,6 +4546,7 @@ dependencies = [
  "types",
  "vision",
  "walking_engine",
+ "zed",
 ]
 
 [[package]]
@@ -4673,6 +4588,7 @@ dependencies = [
  "hulk_manifest",
  "hulk_widgets",
  "ittapi",
+ "libc",
  "linear_algebra",
  "log",
  "motionfile",
@@ -4689,6 +4605,7 @@ dependencies = [
  "source_analyzer",
  "spl_network",
  "spl_network_messages",
+ "systemd",
  "tokio",
  "tokio-tungstenite",
  "tokio-util",
@@ -4699,39 +4616,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "hulk_nao"
-version = "0.1.0"
-dependencies = [
- "alsa",
- "ball_filter",
- "chrono",
- "clap 4.5.40",
- "color-eyre",
- "ctrlc",
- "enum-iterator",
- "fern",
- "framework",
- "hardware",
- "hula_types",
- "hulk",
- "libc",
- "linear_algebra",
- "log",
- "nalgebra",
- "nao_camera",
- "opusfile-ng",
- "parking_lot",
- "serde",
- "serde_json",
- "spl_network",
- "thiserror 2.0.12",
- "tokio",
- "tokio-util",
- "types",
- "watch",
-]
-
-[[package]]
 name = "hulk_replayer"
 version = "0.1.0"
 dependencies = [
@@ -4739,6 +4623,7 @@ dependencies = [
  "ball_filter",
  "bincode",
  "blake3",
+ "booster",
  "buffered_watch",
  "calibration",
  "chrono",
@@ -4779,34 +4664,7 @@ dependencies = [
  "types",
  "vision",
  "walking_engine",
-]
-
-[[package]]
-name = "hulk_webots"
-version = "0.1.0"
-dependencies = [
- "ball_filter",
- "chrono",
- "color-eyre",
- "ctrlc",
- "fern",
- "framework",
- "hardware",
- "hula_types",
- "hulk",
- "linear_algebra",
- "log",
- "nalgebra",
- "ndarray 0.16.1",
- "parking_lot",
- "rand 0.9.1",
- "serde",
- "serde_json",
- "spl_network",
- "tokio",
- "tokio-util",
- "types",
- "webots",
+ "zed",
 ]
 
 [[package]]
@@ -5479,11 +5337,12 @@ dependencies = [
 
 [[package]]
 name = "libsystemd-sys"
-version = "0.9.3"
+version = "0.9.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ed080163caa59cc29b34bce2209b737149a4bac148cd9a8b04e4c12822798119"
+checksum = "976306de183e6046819ef6505888d00996214766a3f4660a2ed5761c84a20aed"
 dependencies = [
  "build-env",
+ "cfg-if",
  "libc",
  "pkg-config",
 ]
@@ -6772,19 +6631,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "04744f49eae99ab78e0d5c0b603ab218f515ea8cfe5a456d7629ad883a3b6e7d"
 
 [[package]]
-name = "opusfile-ng"
-version = "0.1.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7f40c412371d87b6055dc8015d3054efe957fd375321bd5b5a045475f6bbc0c5"
-dependencies = [
- "bindgen 0.66.1",
- "num-derive",
- "num-traits",
- "pkg-config",
- "thiserror 1.0.69",
-]
-
-[[package]]
 name = "orbclient"
 version = "0.3.48"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6862,6 +6708,7 @@ name = "parameter_tester"
 version = "0.1.0"
 dependencies = [
  "ball_filter",
+ "booster",
  "calibration",
  "code_generation",
  "color-eyre",
@@ -8809,9 +8656,9 @@ dependencies = [
 
 [[package]]
 name = "systemd"
-version = "0.10.0"
+version = "0.10.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "afec0101d9ae8ab26aedf0840109df689938ea7e538aa03df4369f1854f11562"
+checksum = "01e9d1976a15b86245def55d20d52b5818e1a1e81aa030b6a608d3ce57709423"
 dependencies = [
  "cstr-argument",
  "foreign-types 0.5.0",
@@ -9864,12 +9711,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "watch"
-version = "0.2.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5ed390fa2f6c6036b4dad0a2695711971998ac185f629e4b5d3d5cb3e4ff5c65"
-
-[[package]]
 name = "wayland-backend"
 version = "0.3.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10012,26 +9853,6 @@ dependencies = [
  "objc2-foundation 0.3.1",
  "url",
  "web-sys",
-]
-
-[[package]]
-name = "webots"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f67ba38a7b03bdc1bb8ed6354e8ba5faafaea2135b9ce65b1b2c6d51e7b9a1c7"
-dependencies = [
- "thiserror 1.0.69",
- "webots-bindings",
-]
-
-[[package]]
-name = "webots-bindings"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8da14b8ba2e18594584870331d272b733414674c333265ddcc4ce476597d5c8b"
-dependencies = [
- "bindgen 0.63.0",
- "walkdir",
 ]
 
 [[package]]

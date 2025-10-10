@@ -3,7 +3,7 @@ use std::sync::Arc;
 use std::time::SystemTime;
 
 use booster::{ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState};
-use color_eyre::eyre::{eyre, Context, Error, OptionExt};
+use color_eyre::eyre::{Context, OptionExt};
 use color_eyre::Result;
 use futures_util::SinkExt;
 use futures_util::StreamExt;
@@ -20,11 +20,7 @@ use log::{error, warn};
 use parking_lot::Mutex;
 use ros2::geometry_msgs::transform_stamped::TransformStamped;
 use serde::Deserialize;
-use spl_network::endpoint::{Endpoint, Ports};
-use tokio::{
-    runtime::{Builder, Runtime},
-    sync::mpsc::{channel, Receiver, Sender},
-};
+use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio_tungstenite::tungstenite::Message;
 use tokio_util::sync::CancellationToken;
 use types::audio::SpeakerRequest;
@@ -50,15 +46,11 @@ struct WorkerChannels {
 #[derive(Clone, Debug, Deserialize)]
 pub struct Parameters {
     pub paths: Paths,
-    pub spl_network_ports: Ports,
     pub mujoco_websocket_address: String,
 }
 
 pub struct MujocoHardwareInterface {
     paths: Paths,
-    runtime: Runtime,
-    spl_network_endpoint: Endpoint,
-    keep_running: CancellationToken,
     enable_recording: AtomicBool,
     time: Arc<Mutex<SystemTime>>,
 
@@ -73,11 +65,6 @@ pub struct MujocoHardwareInterface {
 
 impl MujocoHardwareInterface {
     pub fn new(keep_running: CancellationToken, parameters: Parameters) -> Result<Self> {
-        let runtime = Builder::new_current_thread()
-            .enable_all()
-            .build()
-            .wrap_err("failed to create tokio runtime")?;
-
         let (low_state_sender, low_state_receiver) = channel(CHANNEL_CAPACITY);
         let (low_command_sender, low_command_receiver) = channel(CHANNEL_CAPACITY);
         let (fall_down_sender, fall_down_receiver) = channel(CHANNEL_CAPACITY);
@@ -98,7 +85,7 @@ impl MujocoHardwareInterface {
         };
 
         let time = Arc::new(Mutex::new(SystemTime::UNIX_EPOCH));
-        runtime.spawn(worker(
+        tokio::spawn(worker(
             time.clone(),
             parameters.mujoco_websocket_address,
             keep_running.clone(),
@@ -107,11 +94,6 @@ impl MujocoHardwareInterface {
 
         Ok(Self {
             paths: parameters.paths,
-            spl_network_endpoint: runtime
-                .block_on(Endpoint::new(parameters.spl_network_ports))
-                .wrap_err("failed to initialize SPL network")?,
-            runtime,
-            keep_running,
             enable_recording: AtomicBool::new(false),
             time,
 
@@ -135,6 +117,7 @@ async fn worker(
     let websocket = tokio_tungstenite::connect_async(address).await;
 
     let Ok((mut websocket, _)) = websocket else {
+        log::warn!("connecting to websocket failed");
         keep_running.cancel();
         return Ok(());
     };
@@ -173,7 +156,6 @@ async fn handle_message(
         }
         _ => return Ok(()),
     };
-
     match message {
         SimulationMessage {
             payload: ServerMessageKind::LowState(low_state),
@@ -229,7 +211,7 @@ async fn handle_message(
             *hardware_interface_time.lock() = time;
             worker_channels
                 .rgbd_sensors_sender
-                .send(rgbd_sensors)
+                .send(*rgbd_sensors)
                 .await?
         }
     };
@@ -313,22 +295,11 @@ impl PathsInterface for MujocoHardwareInterface {
 
 impl NetworkInterface for MujocoHardwareInterface {
     fn read_from_network(&self) -> Result<IncomingMessage> {
-        self.runtime.block_on(async {
-            tokio::select! {
-                result = self.spl_network_endpoint.read() => {
-                    result.map_err(Error::from)
-                },
-                _ = self.keep_running.cancelled() => {
-                    Err(eyre!("termination requested"))
-                }
-            }
-        })
+        todo!()
     }
 
-    fn write_to_network(&self, message: OutgoingMessage) -> Result<()> {
-        self.runtime
-            .block_on(self.spl_network_endpoint.write(message));
-        Ok(())
+    fn write_to_network(&self, _message: OutgoingMessage) -> Result<()> {
+        todo!()
     }
 }
 

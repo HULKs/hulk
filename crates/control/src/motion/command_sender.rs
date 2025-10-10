@@ -1,34 +1,23 @@
-use booster::LowCommand;
+use std::f32::consts::PI;
+
+use approx::abs_diff_eq;
+use booster::{CommandType, LowCommand, MotorCommand};
 use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
-use framework::AdditionalOutput;
-use hardware::{ActuatorInterface, LowCommandInterface, LowStateInterface};
+use hardware::LowCommandInterface;
 use serde::{Deserialize, Serialize};
-use types::{
-    joints::Joints, led::Leds, motion_selection::MotionSafeExits, motor_commands::MotorCommands,
-};
 
 #[derive(Deserialize, Serialize)]
-pub struct CommandSender {}
+pub struct CommandSender {
+    time_index: f32,
+    motor_index: usize,
+}
 
 #[context]
 pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    optimized_motor_commands: Input<MotorCommands<Joints<f32>>, "motor_commands">,
-    leds: Input<Leds, "leds">,
-    joint_calibration_offsets: Parameter<Joints<f32>, "joint_calibration_offsets">,
-    motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
-    last_actuated_motor_commands:
-        CyclerState<MotorCommands<Joints<f32>>, "last_actuated_motor_commands">,
-
-    motion_safe_exits_output: AdditionalOutput<MotionSafeExits, "motion_safe_exits_output">,
-    actuated_motor_commands:
-        AdditionalOutput<MotorCommands<Joints<f32>>, "actuated_motor_commands">,
-    actuated_motor_commands_difference:
-        AdditionalOutput<Joints<f32>, "actuated_motor_commands_difference">,
-
     hardware_interface: HardwareInterface,
 }
 
@@ -38,36 +27,55 @@ pub struct MainOutputs {}
 
 impl CommandSender {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {})
+        Ok(Self {
+            time_index: 0.0,
+            motor_index: 0,
+        })
     }
 
     pub fn cycle(
         &mut self,
-        mut context: CycleContext<impl LowCommandInterface>,
+        context: CycleContext<impl LowCommandInterface>,
     ) -> Result<MainOutputs> {
-        let motor_commands = context.optimized_motor_commands;
+        let motor_commands =
+            Self::generate_random_motor_commands(self.motor_index, self.time_index);
+
+        self.time_index += PI / 100.0;
+        if abs_diff_eq!(self.time_index % (8.0 * PI), 0.0, epsilon = 0.001) {
+            self.motor_index = (self.motor_index + 1) % 22;
+            self.time_index = 0.0;
+        }
+
+        let low_command = LowCommand {
+            command_type: CommandType::Serial,
+            motor_commands: motor_commands.to_vec(),
+        };
 
         context
             .hardware_interface
-            .write_low_command(motor_commands.into())
+            .write_low_command(low_command)
             .wrap_err("failed to write to actuators")?;
 
-        context
-            .actuated_motor_commands
-            .fill_if_subscribed(|| *motor_commands);
-        context
-            .motion_safe_exits_output
-            .fill_if_subscribed(|| context.motion_safe_exits.clone());
-
-        context
-            .actuated_motor_commands_difference
-            .fill_if_subscribed(|| {
-                motor_commands.positions - context.last_actuated_motor_commands.positions
-            });
-
-        context.last_actuated_motor_commands.positions = motor_commands.positions;
-        context.last_actuated_motor_commands.stiffnesses = motor_commands.stiffnesses;
-
         Ok(MainOutputs {})
+    }
+
+    fn generate_random_motor_commands(motor_index: usize, time_index: f32) -> [MotorCommand; 22] {
+        let mut motor_commands: [MotorCommand; 22] = [MotorCommand {
+            position: 0.0,
+            velocity: 0.0,
+            torque: 0.0,
+            kp: 45.0,
+            kd: 0.2,
+            weight: 1.0,
+        }; 22];
+        motor_commands[motor_index] = MotorCommand {
+            position: time_index.sin(),
+            velocity: time_index.sin(),
+            torque: 1.0,
+            kp: 25.0,
+            kd: 0.3,
+            weight: 1.0,
+        };
+        motor_commands
     }
 }

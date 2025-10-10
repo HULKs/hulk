@@ -11,12 +11,6 @@ pub struct SimulationMessage<T> {
     pub payload: T,
 }
 
-impl<T> SimulationMessage<T> {
-    pub fn new(time: SystemTime, payload: T) -> Self {
-        Self { time, payload }
-    }
-}
-
 #[derive(Debug, Serialize, Deserialize)]
 pub enum ServerMessageKind {
     LowState(LowState),
@@ -24,7 +18,7 @@ pub enum ServerMessageKind {
     ButtonEventMsg(ButtonEventMsg),
     RemoteControllerState(RemoteControllerState),
     TransformStamped(TransformStamped),
-    RGBDSensors(RGBDSensors),
+    RGBDSensors(Box<RGBDSensors>),
 }
 
 #[derive(Debug, Serialize, Deserialize)]

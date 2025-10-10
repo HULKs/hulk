@@ -13,8 +13,8 @@ pub struct RGBDSensors {
     #[serde(rename = "depthCameraInfo")]
     pub depth_camera_info: CameraInfo,
 
-    pub rgb: Image,
-    pub depth: Image,
+    pub rgb: Box<Image>,
+    pub depth: Box<Image>,
 
     pub imu: Imu,
 

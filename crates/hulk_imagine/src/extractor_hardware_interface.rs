@@ -1,5 +1,6 @@
 use hardware::{
-    ActuatorInterface, NetworkInterface, PathsInterface, RecordingInterface, SpeakerInterface,
+    ActuatorInterface, LowCommandInterface, LowStateInterface, NetworkInterface, PathsInterface,
+    RecordingInterface, SpeakerInterface,
 };
 
 use color_eyre::eyre::Result;
@@ -13,7 +14,13 @@ use types::{
 };
 
 pub trait HardwareInterface:
-    ActuatorInterface + NetworkInterface + PathsInterface + RecordingInterface + SpeakerInterface
+    ActuatorInterface
+    + LowCommandInterface
+    + LowStateInterface
+    + NetworkInterface
+    + PathsInterface
+    + RecordingInterface
+    + SpeakerInterface
 {
 }
 
@@ -28,6 +35,18 @@ impl ActuatorInterface for ExtractorHardwareInterface {
         _leds: Leds,
     ) -> Result<()> {
         Ok(())
+    }
+}
+
+impl LowCommandInterface for ExtractorHardwareInterface {
+    fn write_low_command(&self, _low_command: booster::LowCommand) -> Result<()> {
+        unimplemented!()
+    }
+}
+
+impl LowStateInterface for ExtractorHardwareInterface {
+    fn read_low_state(&self) -> Result<booster::LowState> {
+        unimplemented!()
     }
 }
 

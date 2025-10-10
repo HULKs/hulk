@@ -5,9 +5,7 @@ use context_attribute::context;
 use framework::MainOutput;
 use hardware::{RGBDSensorsInterface, TimeInterface};
 use serde::{Deserialize, Serialize};
-use types::{
-    camera_position::CameraPosition, cycle_time::CycleTime, ycbcr422_image::YCbCr422Image,
-};
+use types::{cycle_time::CycleTime, ycbcr422_image::YCbCr422Image};
 
 #[derive(Deserialize, Serialize)]
 pub struct ImageReceiver {
@@ -20,7 +18,6 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     hardware_interface: HardwareInterface,
-    camera_position: Parameter<CameraPosition, "image_receiver.$cycler_instance.camera_position">,
 }
 
 #[context]
@@ -41,7 +38,7 @@ impl ImageReceiver {
         context: CycleContext<impl RGBDSensorsInterface + TimeInterface>,
     ) -> Result<MainOutputs> {
         let rgbd_image = context.hardware_interface.read_rgbd_sensors()?;
-        let ycbcr422_image: YCbCr422Image = (&rgbd_image.rgb).into();
+        let ycbcr422_image: YCbCr422Image = rgbd_image.rgb.as_ref().into();
 
         let now = context.hardware_interface.get_now();
         let cycle_time = CycleTime {

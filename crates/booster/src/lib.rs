@@ -1,5 +1,6 @@
 use coordinate_systems::Robot;
 use linear_algebra::Vector3;
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use ros2::geometry_msgs::transform_stamped::TransformStamped;
 use serde::{Deserialize, Serialize};
 use types::{
@@ -7,7 +8,9 @@ use types::{
     motor_commands::MotorCommands,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(
+    Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct LowState {
     pub imu_state: ImuState,                   // IMU feedback.
     pub motor_state_parallel: Vec<MotorState>, // Parallel structure joint feedback.
@@ -96,7 +99,9 @@ impl From<&LowState> for Joints<f32> {
         }
     }
 }
-#[derive(Debug, Default, Clone, Serialize, Deserialize)]
+#[derive(
+    Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct ImuState {
     #[serde(rename = "rpy")]
     /// Euler angle information（0 -> roll ,1 -> pitch ,2 -> yaw）
