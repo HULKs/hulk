@@ -272,7 +272,7 @@ fn paint_target_feet(
     );
 }
 
-fn paint_sole_polygon(
+pub fn paint_sole_polygon(
     painter: &TwixPainter<Ground>,
     sole: Pose3<Ground>,
     stroke: Stroke,

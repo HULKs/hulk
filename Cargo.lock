@@ -259,6 +259,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "anes"
+version = "0.1.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "4b46cbb362ab8752921c97e041f5e366ee6297bd428a31275b9fcf1e380f7299"
+
+[[package]]
 name = "annotato"
 version = "0.1.0"
 dependencies = [
@@ -349,6 +355,15 @@ name = "anyhow"
 version = "1.0.98"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e16d2d3311acee920a9eb8d33b8cbc1787ce4a264e85f964c2404b969bdcd487"
+
+[[package]]
+name = "approx"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "3f2a05fd1bd10b2527e20a2cd32d8873d115b8b39fe219ee25f42a8aca6ba278"
+dependencies = [
+ "num-traits",
+]
 
 [[package]]
 name = "approx"
@@ -1787,7 +1802,7 @@ checksum = "e158a73d6d896b1600a61bc115017707ecb467d1a5ad49231c5e58294f6f6e13"
 dependencies = [
  "accesskit",
  "accesskit_winit",
- "approx",
+ "approx 0.5.1",
  "bevy_a11y",
  "bevy_app",
  "bevy_asset",
@@ -1816,7 +1831,7 @@ dependencies = [
 name = "bevyhavior_simulator"
 version = "0.1.0"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "ball_filter",
  "bevy",
  "bincode",
@@ -1841,7 +1856,7 @@ dependencies = [
  "linear_algebra",
  "log",
  "nalgebra",
- "ndarray",
+ "ndarray 0.16.1",
  "object_detection",
  "parameters",
  "parking_lot",
@@ -1856,6 +1871,7 @@ dependencies = [
  "source_analyzer",
  "spl_network",
  "spl_network_messages",
+ "step_planning",
  "tokio",
  "tokio-util",
  "types",
@@ -2181,7 +2197,7 @@ checksum = "2e93abca9e28e0a1b9877922aacb20576e05d4679ffa78c3d6dc22a26a216659"
 name = "calibration"
 version = "0.1.0"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "approx_derive",
  "coordinate_systems",
  "geometry",
@@ -2231,6 +2247,12 @@ dependencies = [
  "serde_json",
  "structopt",
 ]
+
+[[package]]
+name = "cast"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "37b2a672a2cb129a2e41c10b1224bb368f9f37a2b16b612598138befd7b37eb5"
 
 [[package]]
 name = "cc"
@@ -2307,6 +2329,33 @@ dependencies = [
  "num-traits",
  "wasm-bindgen",
  "windows-link",
+]
+
+[[package]]
+name = "ciborium"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "42e69ffd6f0917f5c029256a24d0161db17cea3997d185db0d35926308770f0e"
+dependencies = [
+ "ciborium-io",
+ "ciborium-ll",
+ "serde",
+]
+
+[[package]]
+name = "ciborium-io"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "05afea1e0a06c9be33d539b876f1ce3692f4afea2cb41f740e7743225ed1c757"
+
+[[package]]
+name = "ciborium-ll"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "57663b653d948a338bfb3eeba9bb2fd5fcfaecb9e199e87e1eda4d9e8b240fd9"
+dependencies = [
+ "ciborium-io",
+ "half",
 ]
 
 [[package]]
@@ -2645,7 +2694,7 @@ dependencies = [
 name = "control"
 version = "0.1.0"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "ball_filter",
  "bincode",
  "calibration",
@@ -2664,7 +2713,7 @@ dependencies = [
  "log",
  "motionfile",
  "nalgebra",
- "ndarray",
+ "ndarray 0.16.1",
  "ndarray-conv",
  "num-traits",
  "ordered-float 4.6.0",
@@ -2677,6 +2726,8 @@ dependencies = [
  "smallvec",
  "spl_network_messages",
  "splines",
+ "step_planning",
+ "step_planning_solver",
  "types",
  "walking_engine",
 ]
@@ -2694,7 +2745,7 @@ dependencies = [
 name = "coordinate_systems"
 version = "0.1.0"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "approx_derive",
  "path_serde",
  "serde",
@@ -2789,6 +2840,42 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a97769d94ddab943e4510d138150169a2758b5ef3eb191a9ee688de3e23ef7b3"
 dependencies = [
  "cfg-if",
+]
+
+[[package]]
+name = "criterion"
+version = "0.5.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f2b12d017a929603d80db1831cd3a24082f8137ce19c69e6447f54f5fc8d692f"
+dependencies = [
+ "anes",
+ "cast",
+ "ciborium",
+ "clap 4.5.40",
+ "criterion-plot",
+ "is-terminal",
+ "itertools 0.10.5",
+ "num-traits",
+ "once_cell",
+ "oorandom",
+ "plotters",
+ "rayon",
+ "regex",
+ "serde",
+ "serde_derive",
+ "serde_json",
+ "tinytemplate",
+ "walkdir",
+]
+
+[[package]]
+name = "criterion-plot"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6b50826342786a51a89e2da3a28f1c32b06e387201bc2d19791f622c673706b1"
+dependencies = [
+ "cast",
+ "itertools 0.10.5",
 ]
 
 [[package]]
@@ -3725,7 +3812,7 @@ dependencies = [
 name = "filtering"
 version = "0.1.0"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "coordinate_systems",
  "linear_algebra",
  "nalgebra",
@@ -3963,7 +4050,7 @@ dependencies = [
 name = "geometry"
 version = "0.1.0"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "approx_derive",
  "coordinate_systems",
  "linear_algebra",
@@ -4467,7 +4554,7 @@ dependencies = [
  "log",
  "motionfile",
  "nalgebra",
- "ndarray",
+ "ndarray 0.16.1",
  "object_detection",
  "parameters",
  "path_serde",
@@ -4477,6 +4564,7 @@ dependencies = [
  "source_analyzer",
  "spl_network",
  "spl_network_messages",
+ "step_planning",
  "systemd",
  "tokio",
  "tokio-util",
@@ -4511,7 +4599,7 @@ dependencies = [
  "mcap",
  "motionfile",
  "nalgebra",
- "ndarray",
+ "ndarray 0.16.1",
  "parameters",
  "path_serde",
  "projection",
@@ -4521,6 +4609,7 @@ dependencies = [
  "source_analyzer",
  "spl_network",
  "spl_network_messages",
+ "step_planning",
  "tokio",
  "types",
  "vision",
@@ -4599,7 +4688,7 @@ dependencies = [
  "log",
  "motionfile",
  "nalgebra",
- "ndarray",
+ "ndarray 0.16.1",
  "object_detection",
  "parameters",
  "path_serde",
@@ -4609,6 +4698,7 @@ dependencies = [
  "source_analyzer",
  "spl_network",
  "spl_network_messages",
+ "step_planning",
  "tokio",
  "tokio-util",
  "types",
@@ -4632,7 +4722,7 @@ dependencies = [
  "linear_algebra",
  "log",
  "nalgebra",
- "ndarray",
+ "ndarray 0.16.1",
  "parking_lot",
  "rand 0.9.1",
  "serde",
@@ -4658,7 +4748,7 @@ dependencies = [
 name = "hungarian_algorithm"
 version = "0.1.0"
 dependencies = [
- "ndarray",
+ "ndarray 0.16.1",
  "ordered-float 4.6.0",
  "pathfinding",
 ]
@@ -4989,6 +5079,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "instant"
+version = "0.1.13"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e0242819d153cba4b4b05a5a8f2a7e9bbf97b6055b2a002b395c96b5ff3c0222"
+dependencies = [
+ "cfg-if",
+]
+
+[[package]]
 name = "integer-sqrt"
 version = "0.1.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5035,10 +5134,30 @@ dependencies = [
 ]
 
 [[package]]
+name = "is-terminal"
+version = "0.4.16"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e04d7f318608d35d4b61ddd75cbdaee86b023ebe2bd5a66ee0915f0bf93095a9"
+dependencies = [
+ "hermit-abi 0.5.2",
+ "libc",
+ "windows-sys 0.59.0",
+]
+
+[[package]]
 name = "is_terminal_polyfill"
 version = "1.70.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7943c866cc5cd64cbc25b2e01621d07fa8eb2a1a23160ee81ce38704e97b8ecf"
+
+[[package]]
+name = "itertools"
+version = "0.10.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b0fd2260e829bddf4cb6ea802289de2f86d6a7a690192fbe91b3f46e0f2c8473"
+dependencies = [
+ "either",
+]
 
 [[package]]
 name = "itertools"
@@ -5214,6 +5333,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "830d08ce1d1d941e6b30645f1a0eb5643013d835ce3779a5fc208261dbe10f55"
 
 [[package]]
+name = "lbfgs"
+version = "0.2.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "44bf19986e8fbf7566eab563e23d68549797cc9d4d63d1a9d63b2e9dfbc15772"
+dependencies = [
+ "num-traits",
+]
+
+[[package]]
 name = "lebe"
 version = "0.5.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5299,7 +5427,7 @@ dependencies = [
 name = "linear_algebra"
 version = "0.1.0"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "nalgebra",
  "num-traits",
  "path_serde",
@@ -5618,6 +5746,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "modcholesky"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ccccfee0ebe2798f7dac9beaa505dd9a627d3ce3919f25117c79f89de8880955"
+dependencies = [
+ "ndarray 0.15.6",
+ "ndarray-rand 0.14.0",
+ "num",
+ "rand 0.8.5",
+ "rand_xorshift 0.3.0",
+]
+
+[[package]]
 name = "motionfile"
 version = "0.1.0"
 dependencies = [
@@ -5702,7 +5843,7 @@ version = "0.33.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "26aecdf64b707efd1310e3544d709c5c0ac61c13756046aaaba41be5c4f66a3b"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "matrixmultiply",
  "nalgebra-macros",
  "num-complex",
@@ -5765,6 +5906,20 @@ dependencies = [
 
 [[package]]
 name = "ndarray"
+version = "0.15.6"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "adb12d4e967ec485a5f71c6311fe28158e9d6f4bc4a447b474184d0f91a8fa32"
+dependencies = [
+ "approx 0.4.0",
+ "matrixmultiply",
+ "num-complex",
+ "num-integer",
+ "num-traits",
+ "rawpointer",
+]
+
+[[package]]
+name = "ndarray"
 version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "882ed72dce9365842bf196bdeedf5055305f11fc8c03dee7bb0194a6cad34841"
@@ -5786,8 +5941,8 @@ version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "61a04cd712622c289a7b523d3195e4fb5e2bf30c44de12355463fe58aa12213b"
 dependencies = [
- "ndarray",
- "ndarray-rand",
+ "ndarray 0.16.1",
+ "ndarray-rand 0.15.0",
  "num",
  "realfft",
  "rustfft",
@@ -5796,11 +5951,22 @@ dependencies = [
 
 [[package]]
 name = "ndarray-rand"
+version = "0.14.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "65608f937acc725f5b164dcf40f4f0bc5d67dc268ab8a649d3002606718c4588"
+dependencies = [
+ "ndarray 0.15.6",
+ "rand 0.8.5",
+ "rand_distr 0.4.3",
+]
+
+[[package]]
+name = "ndarray-rand"
 version = "0.15.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f093b3db6fd194718dcdeea6bd8c829417deae904e3fcc7732dabcd4416d25d8"
 dependencies = [
- "ndarray",
+ "ndarray 0.16.1",
  "rand 0.8.5",
  "rand_distr 0.4.3",
 ]
@@ -5993,6 +6159,18 @@ dependencies = [
  "proc-macro2",
  "quote",
  "syn 2.0.103",
+]
+
+[[package]]
+name = "num-dual"
+version = "0.11.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "c8af2c4f45e74b48064e1023c1dabe753b8ca1d398b1bd80956bc36fb79442d0"
+dependencies = [
+ "approx 0.5.1",
+ "nalgebra",
+ "num-traits",
+ "simba",
 ]
 
 [[package]]
@@ -6376,7 +6554,7 @@ dependencies = [
  "itertools 0.14.0",
  "linear_algebra",
  "nalgebra",
- "ndarray",
+ "ndarray 0.16.1",
  "openvino",
  "ordered-float 4.6.0",
  "projection",
@@ -6406,6 +6584,12 @@ name = "once_cell_polyfill"
 version = "1.70.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "a4895175b425cb1f87721b59f0f286c2092bd4af812243672510e1ac53e2e0ad"
+
+[[package]]
+name = "oorandom"
+version = "11.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d6790f58c7ff633d8771f42965289203411a5e5c68388703c06e14f24770b41e"
 
 [[package]]
 name = "openssl"
@@ -6490,6 +6674,20 @@ dependencies = [
  "byteorder",
  "color-eyre",
  "sha2",
+]
+
+[[package]]
+name = "optimization_engine"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "ce13a62c069832c867ae2b0bf95506f7678d371b9d83d37f5e0da989f6b763f0"
+dependencies = [
+ "instant",
+ "lbfgs",
+ "modcholesky",
+ "ndarray 0.15.6",
+ "num",
+ "roots",
 ]
 
 [[package]]
@@ -6601,7 +6799,7 @@ dependencies = [
  "linear_algebra",
  "motionfile",
  "nalgebra",
- "ndarray",
+ "ndarray 0.16.1",
  "parameters",
  "path_serde",
  "projection",
@@ -6610,6 +6808,7 @@ dependencies = [
  "serde_json",
  "source_analyzer",
  "spl_network_messages",
+ "step_planning",
  "types",
  "walking_engine",
 ]
@@ -6660,7 +6859,7 @@ version = "0.21.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "fcc75102c1fac2294401262c78e5a42abe7168244c9436df2fec8fe0c27395c7"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "arrayvec",
  "bitflags 2.9.1",
  "downcast-rs 2.0.1",
@@ -6701,7 +6900,7 @@ name = "path_serde"
 version = "0.1.0"
 dependencies = [
  "nalgebra",
- "ndarray",
+ "ndarray 0.16.1",
  "num-traits",
  "path_serde_derive",
  "serde",
@@ -6900,6 +7099,34 @@ dependencies = [
 ]
 
 [[package]]
+name = "plotters"
+version = "0.3.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "5aeb6f403d7a4911efb1e33402027fc44f29b5bf6def3effcc22d7bb75f2b747"
+dependencies = [
+ "num-traits",
+ "plotters-backend",
+ "plotters-svg",
+ "wasm-bindgen",
+ "web-sys",
+]
+
+[[package]]
+name = "plotters-backend"
+version = "0.3.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "df42e13c12958a16b3f7f4386b9ab1f3e7933914ecea48da7139435263a4172a"
+
+[[package]]
+name = "plotters-svg"
+version = "0.3.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "51bae2ac328883f7acdfea3d66a7c35751187f870bc81f94563733a154d7a670"
+dependencies = [
+ "plotters-backend",
+]
+
+[[package]]
 name = "png"
 version = "0.17.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7078,7 +7305,7 @@ dependencies = [
 name = "projection"
 version = "0.1.0"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "coordinate_systems",
  "linear_algebra",
  "nalgebra",
@@ -7101,7 +7328,7 @@ dependencies = [
  "num-traits",
  "rand 0.9.1",
  "rand_chacha 0.9.0",
- "rand_xorshift",
+ "rand_xorshift 0.4.0",
  "regex-syntax 0.8.5",
  "rusty-fork",
  "tempfile",
@@ -7261,6 +7488,15 @@ dependencies = [
 
 [[package]]
 name = "rand_xorshift"
+version = "0.3.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d25bf25ec5ae4a3f1b92f929810509a2f53d7dca2f50b794ff57e3face536c8f"
+dependencies = [
+ "rand_core 0.6.4",
+]
+
+[[package]]
+name = "rand_xorshift"
 version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "513962919efc330f829edb2535844d1b912b0fbe2ca165d613e4e8788bb05a5a"
@@ -7284,7 +7520,7 @@ checksum = "f60fcc7d6849342eff22c4350c8b9a989ee8ceabc4b481253e8946b9fe83d684"
 name = "ransac"
 version = "0.1.0"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "geometry",
  "linear_algebra",
  "nalgebra",
@@ -7600,6 +7836,12 @@ dependencies = [
  "serde",
  "serde_derive",
 ]
+
+[[package]]
+name = "roots"
+version = "0.0.8"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "082f11ffa03bbef6c2c6ea6bea1acafaade2fd9050ae0234ab44a2153742b058"
 
 [[package]]
 name = "roxmltree"
@@ -8047,7 +8289,7 @@ version = "0.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b3a386a501cd104797982c15ae17aafe8b9261315b5d07e3ec803f2ea26be0fa"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "num-complex",
  "num-traits",
  "paste",
@@ -8205,7 +8447,7 @@ dependencies = [
 name = "spl_network_messages"
 version = "0.1.0"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "bincode",
  "bindgen 0.71.1",
  "color-eyre",
@@ -8250,6 +8492,39 @@ name = "std_prelude"
 version = "0.2.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8207e78455ffdf55661170876f88daf85356e4edd54e0a3dbc79586ca1e50cbe"
+
+[[package]]
+name = "step_planning"
+version = "0.1.0"
+dependencies = [
+ "approx 0.5.1",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "itertools 0.14.0",
+ "linear_algebra",
+ "nalgebra",
+ "num-dual",
+ "num-traits",
+ "proptest",
+ "types",
+]
+
+[[package]]
+name = "step_planning_solver"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "coordinate_systems",
+ "criterion",
+ "geometry",
+ "linear_algebra",
+ "nalgebra",
+ "num-dual",
+ "optimization_engine",
+ "step_planning",
+ "types",
+]
 
 [[package]]
 name = "strength_reduce"
@@ -8682,6 +8957,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "tinytemplate"
+version = "1.2.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "be4d6b5f19ff7664e8c98d03e2139cb510db9b0a60b55f8e8709b689d939b6bc"
+dependencies = [
+ "serde",
+ "serde_json",
+]
+
+[[package]]
 name = "tinyvec"
 version = "1.9.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9056,12 +9341,13 @@ dependencies = [
  "log",
  "mlua",
  "nalgebra",
- "ndarray",
+ "ndarray 0.16.1",
  "parameters",
  "projection",
  "repository",
  "serde",
  "serde_json",
+ "step_planning",
  "thiserror 2.0.12",
  "tokio",
  "toml",
@@ -9104,7 +9390,7 @@ checksum = "1dccffe3ce07af9386bfd29e80c0ab1a8205a2fc34e4bcd40364df902cfa8f3f"
 name = "types"
 version = "0.1.0"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "approx_derive",
  "color-eyre",
  "coordinate_systems",
@@ -9326,7 +9612,7 @@ checksum = "0b928f33d975fc6ad9f86c8f283853ad26bdd5b10b7f1542aa2fa15e2289105a"
 name = "vision"
 version = "0.1.0"
 dependencies = [
- "approx",
+ "approx 0.5.1",
  "calibration",
  "color-eyre",
  "compiled-nn",

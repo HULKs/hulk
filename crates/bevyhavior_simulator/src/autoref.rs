@@ -13,11 +13,11 @@ use bevy::{
 use coordinate_systems::{Field, Ground};
 use linear_algebra::{point, vector, Isometry2};
 use spl_network_messages::{GameState, Penalty, SubState, Team};
+use step_planning::traits::Length;
 use types::{
     ball_position::SimulatorBallState,
     field_dimensions::{FieldDimensions, Half, Side},
     motion_command::MotionCommand,
-    planned_path::PathSegment,
 };
 
 use crate::{
@@ -71,11 +71,7 @@ pub fn autoref(
                     MotionCommand::Unstiff
                     | MotionCommand::Penalized
                     | MotionCommand::Stand { .. } => false,
-                    MotionCommand::Walk { path, .. }
-                        if path.segments.iter().map(PathSegment::length).sum::<f32>() < 0.01 =>
-                    {
-                        false
-                    }
+                    MotionCommand::Walk { path, .. } if path.length() < 0.01 => false,
                     _ => true,
                 }
             });

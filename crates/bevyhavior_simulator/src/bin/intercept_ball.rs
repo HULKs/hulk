@@ -33,8 +33,8 @@ fn startup(
 ) {
     let mut robot = Robot::new(PlayerNumber::One);
     *robot.ground_to_field_mut() = Isometry2::from_parts(vector![-2.0, 0.0], 0.0);
-    robot.parameters.step_planner.max_step_size.forward = 1.0;
-    robot.parameters.step_planner.max_step_size.left = 1.0;
+    robot.parameters.step_planner.walk_volume_extents.forward = 1.0;
+    robot.parameters.step_planner.walk_volume_extents.outward = 1.0;
     robot.parameters.step_planner.request_scale = Step {
         forward: 1.0,
         left: 1.0,

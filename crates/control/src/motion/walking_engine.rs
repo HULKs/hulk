@@ -17,9 +17,9 @@ use types::{
     motor_commands::MotorCommands,
     obstacle_avoiding_arms::{ArmCommand, ArmCommands},
     sensor_data::SensorData,
-    step::Step,
     support_foot::Side,
     walk_command::WalkCommand,
+    walk_volume_extents::WalkVolumeExtents,
 };
 use walking_engine::{kick_steps::KickSteps, mode::Mode, parameters::Parameters, Context, Engine};
 
@@ -38,7 +38,7 @@ pub struct CreationContext {
 #[derive(Debug)]
 pub struct CycleContext {
     parameters: Parameter<Parameters, "walking_engine">,
-    max_step_size: Parameter<Step, "step_planner.max_step_size">,
+    walk_volume_extents: Parameter<WalkVolumeExtents, "step_planner.walk_volume_extents">,
     kick_steps: Parameter<KickSteps, "kick_steps">,
 
     motion_safe_exits: CyclerState<MotionSafeExits, "motion_safe_exits">,
@@ -132,7 +132,7 @@ impl WalkingEngine {
 
         let context = Context {
             parameters: cycle_context.parameters,
-            max_step_size: cycle_context.max_step_size,
+            walk_volume_extents: cycle_context.walk_volume_extents,
             kick_steps: cycle_context.kick_steps,
             cycle_time: cycle_context.cycle_time,
             center_of_mass: cycle_context.center_of_mass,

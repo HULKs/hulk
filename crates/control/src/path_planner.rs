@@ -547,7 +547,9 @@ mod tests {
     use std::f32::consts::{FRAC_PI_3, PI};
 
     use approx::assert_relative_eq;
+
     use linear_algebra::point;
+    use step_planning::traits::Length;
 
     use super::*;
 
@@ -564,23 +566,10 @@ mod tests {
             .expect("Path was none");
 
         println!("Map {map:#?}");
-        println!(
-            "Total cost: {:?}",
-            path.segments
-                .iter()
-                .map(|segment| segment.length())
-                .sum::<f32>()
-        );
+        println!("Total cost: {:?}", path.length());
 
         assert_relative_eq!(path.segments.as_slice(), expected_segments, epsilon = 0.01);
-        assert_relative_eq!(
-            path.segments
-                .iter()
-                .map(|segment| segment.length())
-                .sum::<f32>(),
-            expected_cost,
-            epsilon = 0.01
-        );
+        assert_relative_eq!(path.length(), expected_cost, epsilon = 0.01);
     }
 
     #[test]

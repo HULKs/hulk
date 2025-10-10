@@ -42,8 +42,16 @@ pub enum WalkSpeed {
     PartialEq,
 )]
 pub enum OrientationMode {
+    Unspecified,
     AlignWithPath,
-    Override(Orientation2<Ground>),
+    LookTowards {
+        direction: Orientation2<Ground>,
+        tolerance: f32,
+    },
+    LookAt {
+        target: Point2<Ground>,
+        tolerance: f32,
+    },
 }
 
 #[derive(
@@ -97,6 +105,8 @@ pub enum MotionCommand {
         left_arm: ArmMotion,
         right_arm: ArmMotion,
         orientation_mode: OrientationMode,
+        target_orientation: Orientation2<Ground>,
+        distance_to_be_aligned: f32,
         speed: WalkSpeed,
     },
     InWalkKick {
