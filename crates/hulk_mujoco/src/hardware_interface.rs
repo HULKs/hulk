@@ -2,11 +2,7 @@ use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::time::SystemTime;
 
-use booster_low_level_interface::{
-    ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState, SimulationMessage,
-    TransformStamped,
-};
-use booster_low_level_interface::{ClientMessageKind, ServerMessageKind};
+use booster::{ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState};
 use color_eyre::eyre::{eyre, Context, Error, OptionExt};
 use color_eyre::Result;
 use futures_util::SinkExt;
@@ -22,7 +18,9 @@ use hardware::{
 use hula_types::hardware::{Ids, Paths};
 use log::{error, warn};
 use parking_lot::Mutex;
+use ros2::geometry_msgs::transform_stamped::TransformStamped;
 use serde::Deserialize;
+use simulation_message::{ClientMessageKind, ServerMessageKind, SimulationMessage};
 use spl_network::endpoint::{Endpoint, Ports};
 use tokio::{
     runtime::{Builder, Runtime},
@@ -222,6 +220,10 @@ async fn handle_message(
                 .send(SimulationMessage::new(time, transform_stamped))
                 .await?
         }
+        SimulationMessage {
+            payload: ServerMessageKind::RGBDSensors(_),
+            ..
+        } => todo!(),
     };
 
     Ok(())

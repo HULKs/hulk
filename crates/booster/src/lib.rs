@@ -1,9 +1,7 @@
-use std::time::SystemTime;
-
 use coordinate_systems::Robot;
 use linear_algebra::Vector3;
+use ros2::geometry_msgs::transform_stamped::TransformStamped;
 use serde::{Deserialize, Serialize};
-use tokio::sync::broadcast::{Receiver, Sender};
 use types::{
     joints::{arm::ArmJoints, head::HeadJoints, leg::LegJoints, Joints},
     motor_commands::MotorCommands,
@@ -336,108 +334,7 @@ pub struct RemoteControllerState {
     pub reserved: u8,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct TransformStamped {
-    pub header: Header,
-    pub child_frame_id: String,
-    #[serde(with = "serde_transform_isometry")]
-    pub transform: nalgebra::Isometry3<f64>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Transform {
-    pub translation: nalgebra::Vector3<f64>,
-    pub rotation: nalgebra::Quaternion<f64>,
-}
-
-mod serde_transform_isometry {
-    use nalgebra::{Isometry3, Translation, Unit};
-    use serde::{Deserializer, Serializer};
-
-    use crate::Transform;
-
-    pub fn deserialize<'de, D>(deserializer: D) -> Result<Isometry3<f64>, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        <Transform as serde::Deserialize>::deserialize(deserializer)
-            .map(|transform| {
-                Isometry3::<f64>::from_parts(
-                    Translation::from(transform.translation),
-                    Unit::from_quaternion(transform.rotation),
-                )
-            })
-            .map_err(serde::de::Error::custom)
-    }
-
-    pub fn serialize<S>(isometry: &Isometry3<f64>, serializer: S) -> Result<S::Ok, S::Error>
-    where
-        S: Serializer,
-    {
-        let transform = Transform {
-            translation: isometry.translation.vector,
-            rotation: *isometry.rotation,
-        };
-
-        serde::Serialize::serialize(&transform, serializer)
-    }
-}
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Header {
-    pub stamp: Time,
-    pub frame_id: String,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct Time {
-    #[serde(rename = "sec")]
-    pub seconds: i32,
-    #[serde(rename = "nanosec")]
-    pub nanos: u32,
-}
-
-impl Time {
-    pub fn new(seconds: i32, nanos: u32) -> Self {
-        Self { seconds, nanos }
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub struct SimulationMessage<T> {
-    pub time: SystemTime,
-    pub payload: T,
-}
-
-impl<T> SimulationMessage<T> {
-    pub fn new(time: SystemTime, payload: T) -> Self {
-        Self { time, payload }
-    }
-}
-
-#[derive(Clone, Debug, Deserialize, Serialize)]
-pub enum ServerMessageKind {
-    LowState(LowState),
-    FallDownState(FallDownState),
-    ButtonEventMsg(ButtonEventMsg),
-    RemoteControllerState(RemoteControllerState),
-    TransformStamped(TransformStamped),
-}
-
 #[derive(Debug, Deserialize, Serialize)]
-pub enum ClientMessageKind {
-    LowCommand(LowCommand),
-}
-
-pub trait BoosterLowLevelInterface {
-    fn subscribe_low_state(&self) -> Receiver<LowState>;
-
-    fn publish_joint_ctrl(&self) -> Sender<LowCommand>;
-
-    fn subscribe_fall_down(&self) -> Receiver<FallDownState>;
-
-    fn subscribe_button_event(&self) -> Receiver<ButtonEventMsg>;
-
-    fn subscribe_remote_controller_state(&self) -> Receiver<RemoteControllerState>;
-
-    fn subscribe_frame_transform(&self) -> Receiver<TransformStamped>;
+pub struct TFMessage {
+    pub transforms: Vec<TransformStamped>,
 }

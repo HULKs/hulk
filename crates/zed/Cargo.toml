@@ -1,0 +1,10 @@
+[package]
+name = "zed"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[dependencies]
+serde = { workspace = true }
+ros2 = { workspace = true }

@@ -2113,12 +2113,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "booster_low_level_interface"
+name = "booster"
 version = "0.1.0"
 dependencies = [
  "coordinate_systems",
  "linear_algebra",
  "nalgebra",
+ "ros2",
  "serde",
  "serde_json",
  "tokio",
@@ -2710,7 +2711,7 @@ dependencies = [
  "approx 0.5.1",
  "ball_filter",
  "bincode",
- "booster_low_level_interface",
+ "booster",
  "calibration",
  "color-eyre",
  "context_attribute",
@@ -2737,6 +2738,7 @@ dependencies = [
  "rand 0.9.1",
  "rand_chacha 0.9.0",
  "serde",
+ "simulation-message",
  "smallvec",
  "spl_network_messages",
  "splines",
@@ -4406,9 +4408,11 @@ dependencies = [
 name = "hardware"
 version = "0.1.0"
 dependencies = [
- "booster_low_level_interface",
+ "booster",
  "color-eyre",
  "hula_types",
+ "ros2",
+ "simulation-message",
  "types",
 ]
 
@@ -4647,7 +4651,7 @@ dependencies = [
  "ball_filter",
  "bincode",
  "blake3",
- "booster_low_level_interface",
+ "booster",
  "buffered_watch",
  "calibration",
  "chrono",
@@ -4680,8 +4684,10 @@ dependencies = [
  "parking_lot",
  "path_serde",
  "projection",
+ "ros2",
  "serde",
  "serde_json",
+ "simulation-message",
  "source_analyzer",
  "spl_network",
  "spl_network_messages",
@@ -4691,6 +4697,7 @@ dependencies = [
  "types",
  "vision",
  "walking_engine",
+ "zed",
 ]
 
 [[package]]
@@ -7914,6 +7921,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "082f11ffa03bbef6c2c6ea6bea1acafaade2fd9050ae0234ab44a2153742b058"
 
 [[package]]
+name = "ros2"
+version = "0.1.0"
+dependencies = [
+ "nalgebra",
+ "serde",
+]
+
+[[package]]
 name = "roxmltree"
 version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8379,6 +8394,16 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "95890f873bec569a0362c235787f3aca6e1e887302ba4840839bcc6459c42da6"
 dependencies = [
  "quote",
+]
+
+[[package]]
+name = "simulation-message"
+version = "0.1.0"
+dependencies = [
+ "booster",
+ "ros2",
+ "serde",
+ "zed",
 ]
 
 [[package]]
@@ -11185,6 +11210,14 @@ dependencies = [
  "static_assertions",
  "zbus_names 3.0.0",
  "zvariant 4.2.0",
+]
+
+[[package]]
+name = "zed"
+version = "0.1.0"
+dependencies = [
+ "ros2",
+ "serde",
 ]
 
 [[package]]

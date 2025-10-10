@@ -1,4 +1,4 @@
-use booster_low_level_interface::LowCommand;
+use booster::LowCommand;
 use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
 use framework::AdditionalOutput;

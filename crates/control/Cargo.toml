@@ -8,8 +8,8 @@ homepage.workspace = true
 [dependencies]
 approx = { workspace = true }
 ball_filter = { workspace = true }
-booster_low_level_interface = { workspace = true }
 bincode = { workspace = true }
+booster = { workspace = true }
 calibration = { workspace = true }
 color-eyre = { workspace = true }
 context_attribute = { workspace = true }
@@ -36,6 +36,7 @@ proptest = { workspace = true }
 rand = { workspace = true }
 rand_chacha = { workspace = true }
 serde = { workspace = true }
+simulation-message = { workspace = true }
 smallvec = { workspace = true }
 spl_network_messages = { workspace = true }
 splines = { workspace = true }

@@ -109,7 +109,7 @@ mod mujoco_test {
     };
 
     use approx::abs_diff_eq;
-    use booster_low_level_interface::{CommandType, LowCommand, MotorCommand};
+    use booster::{CommandType, LowCommand, MotorCommand};
     use ctrlc::set_handler;
     use framework::Parameters as FrameworkParameters;
     use hardware::{LowCommandInterface, LowStateInterface};

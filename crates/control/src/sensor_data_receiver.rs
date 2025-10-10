@@ -1,6 +1,5 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use booster_low_level_interface::SimulationMessage;
 use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
 use coordinate_systems::Robot;
@@ -10,6 +9,7 @@ use hardware::{LowStateInterface, TimeInterface};
 use linear_algebra::Vector3;
 use nalgebra::UnitQuaternion;
 use serde::{Deserialize, Serialize};
+use simulation_message::SimulationMessage;
 use types::{
     cycle_time::CycleTime,
     joints::Joints,

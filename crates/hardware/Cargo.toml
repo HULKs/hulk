@@ -6,7 +6,9 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
+booster.workspace = true
 color-eyre = { workspace = true }
 hula_types = { workspace = true }
+ros2 = { workspace = true }
+simulation-message = { workspace = true }
 types = { workspace = true }
-booster_low_level_interface.workspace = true
