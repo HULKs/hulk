@@ -1,5 +1,8 @@
 use std::time::SystemTime;
 
+use booster::{
+    ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState, TransformMessage,
+};
 use color_eyre::eyre::Result;
 
 use hula_types::hardware::{Ids, Paths};
@@ -13,6 +16,7 @@ use types::{
     sensor_data::SensorData,
     ycbcr422_image::YCbCr422Image,
 };
+use zed::RGBDSensors;
 
 pub trait ActuatorInterface {
     fn write_to_actuators(
@@ -51,6 +55,31 @@ pub trait RecordingInterface {
 
 pub trait SensorInterface {
     fn read_from_sensors(&self) -> Result<SensorData>;
+}
+
+pub trait LowStateInterface {
+    fn read_low_state(&self) -> Result<LowState>;
+}
+
+pub trait LowCommandInterface {
+    fn write_low_command(&self, low_command: LowCommand) -> Result<()>;
+}
+
+pub trait FallDownStateInterface {
+    fn read_fall_down_state(&self) -> Result<FallDownState>;
+}
+pub trait ButtonEventMsgInterface {
+    fn read_button_event_msg(&self) -> Result<ButtonEventMsg>;
+}
+pub trait RemoteControllerStateInterface {
+    fn read_remote_controller_state(&self) -> Result<RemoteControllerState>;
+}
+pub trait TransformMessageInterface {
+    fn read_transform_message(&self) -> Result<TransformMessage>;
+}
+
+pub trait RGBDSensorsInterface {
+    fn read_rgbd_sensors(&self) -> Result<RGBDSensors>;
 }
 
 pub trait SpeakerInterface {

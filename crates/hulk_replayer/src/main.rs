@@ -12,8 +12,9 @@ mod worker_thread;
 
 use color_eyre::{eyre::Result, install};
 use hardware::{
-    ActuatorInterface, CameraInterface, IdInterface, MicrophoneInterface, NetworkInterface,
-    PathsInterface, RecordingInterface, SensorInterface, SpeakerInterface,
+    ActuatorInterface, CameraInterface, IdInterface, LowCommandInterface, LowStateInterface,
+    MicrophoneInterface, NetworkInterface, PathsInterface, RGBDSensorsInterface,
+    RecordingInterface, SensorInterface, SpeakerInterface,
 };
 use hula_types::hardware::{Ids, Paths};
 use replayer::replayer;
@@ -27,15 +28,19 @@ use types::{
     sensor_data::SensorData,
     ycbcr422_image::YCbCr422Image,
 };
+use zed::RGBDSensors;
 
 pub trait HardwareInterface:
     ActuatorInterface
     + CameraInterface
     + IdInterface
+    + LowCommandInterface
+    + LowStateInterface
     + MicrophoneInterface
     + NetworkInterface
     + PathsInterface
     + RecordingInterface
+    + RGBDSensorsInterface
     + SensorInterface
     + SpeakerInterface
 {
@@ -60,7 +65,7 @@ impl ActuatorInterface for ReplayerHardwareInterface {
 
 impl CameraInterface for ReplayerHardwareInterface {
     fn read_from_camera(&self, _camera_position: CameraPosition) -> Result<YCbCr422Image> {
-        panic!("Replayer cannot produce data from hardware")
+        unimplemented!("Replayer cannot produce data from hardware")
     }
 }
 
@@ -70,15 +75,27 @@ impl IdInterface for ReplayerHardwareInterface {
     }
 }
 
+impl LowCommandInterface for ReplayerHardwareInterface {
+    fn write_low_command(&self, _low_command: booster::LowCommand) -> Result<()> {
+        unimplemented!()
+    }
+}
+
+impl LowStateInterface for ReplayerHardwareInterface {
+    fn read_low_state(&self) -> Result<booster::LowState> {
+        unimplemented!()
+    }
+}
+
 impl MicrophoneInterface for ReplayerHardwareInterface {
     fn read_from_microphones(&self) -> Result<Samples> {
-        panic!("Replayer cannot produce data from hardware")
+        unimplemented!("Replayer cannot produce data from hardware")
     }
 }
 
 impl NetworkInterface for ReplayerHardwareInterface {
     fn read_from_network(&self) -> Result<IncomingMessage> {
-        panic!("Replayer cannot produce data from hardware")
+        unimplemented!("Replayer cannot produce data from hardware")
     }
 
     fn write_to_network(&self, _message: OutgoingMessage) -> Result<()> {
@@ -102,6 +119,12 @@ impl RecordingInterface for ReplayerHardwareInterface {
     }
 
     fn set_whether_to_record(&self, _enable: bool) {}
+}
+
+impl RGBDSensorsInterface for ReplayerHardwareInterface {
+    fn read_rgbd_sensors(&self) -> Result<RGBDSensors> {
+        unimplemented!()
+    }
 }
 
 impl SensorInterface for ReplayerHardwareInterface {

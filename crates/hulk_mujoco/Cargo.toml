@@ -1,0 +1,72 @@
+[package]
+name = "hulk_mujoco"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[dependencies]
+approx.workspace = true
+audio = { workspace = true }
+ball_filter = { workspace = true }
+bincode = { workspace = true }
+blake3 = { workspace = true }
+booster = { workspace = true }
+buffered_watch = { workspace = true }
+calibration = { workspace = true }
+chrono = { workspace = true }
+color-eyre.workspace = true
+communication = { workspace = true }
+control = { workspace = true }
+coordinate_systems = { workspace = true }
+ctrlc = { workspace = true }
+derive_more = { workspace = true }
+eframe = { workspace = true }
+energy_optimization = { workspace = true }
+env_logger = { workspace = true }
+fern = { workspace = true }
+framework = { workspace = true }
+futures-util.workspace = true
+geometry = { workspace = true }
+hardware = { workspace = true }
+hula_types.workspace = true
+hulk_widgets = { workspace = true }
+ittapi = { workspace = true }
+libc = { workspace = true, optional = true }
+linear_algebra = { workspace = true }
+log.workspace = true
+motionfile = { workspace = true }
+nalgebra = { workspace = true }
+ndarray = { workspace = true }
+object_detection = { workspace = true }
+parameters = { workspace = true }
+parking_lot = { workspace = true }
+path_serde = { workspace = true }
+projection = { workspace = true }
+ros2 = { workspace = true }
+serde.workspace = true
+serde_json.workspace = true
+simulation_message = { workspace = true }
+spl_network.workspace = true
+spl_network_messages = { workspace = true }
+systemd = { workspace = true, optional = true }
+tokio = { workspace = true }
+tokio-tungstenite = { workspace = true }
+tokio-util = { workspace = true }
+types = { workspace = true }
+vision = { workspace = true }
+walking_engine = { workspace = true }
+zed = { workspace = true }
+
+
+[build-dependencies]
+code_generation = { workspace = true }
+color-eyre = { workspace = true }
+hulk_manifest = { workspace = true }
+source_analyzer = { workspace = true }
+
+
+[features]
+realtime = ["libc"]
+systemd = ["dep:systemd"]
+is_webots = []

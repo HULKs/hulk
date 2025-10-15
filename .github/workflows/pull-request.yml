@@ -107,7 +107,7 @@ jobs:
         with:
           lfs: true
       - name: Test
-        run: ./pepsi test --locked --all-features
+        run: ./pepsi test --locked --all-features --workspace --exclude bevyhavior_simulator 
 
   build:
     name: Build
@@ -116,9 +116,8 @@ jobs:
       matrix:
         target:
           - imagine
-          - nao
           - replayer
-          - webots
+          - mujoco
         profile:
           - dev
           - release

@@ -9,13 +9,14 @@ use parking_lot::Mutex;
 use buffered_watch::{Receiver, Sender};
 use color_eyre::Result;
 use hardware::{
-    CameraInterface, NetworkInterface, PathsInterface, RecordingInterface, SpeakerInterface,
-    TimeInterface,
+    CameraInterface, NetworkInterface, PathsInterface, RGBDSensorsInterface, RecordingInterface,
+    SpeakerInterface, TimeInterface,
 };
 use types::{
     audio::SpeakerRequest,
     messages::{IncomingMessage, OutgoingMessage},
 };
+use zed::RGBDSensors;
 
 use crate::{cyclers::control::Database, HardwareInterface};
 
@@ -79,6 +80,12 @@ impl CameraInterface for Interfake {
         &self,
         _camera_position: types::camera_position::CameraPosition,
     ) -> Result<types::ycbcr422_image::YCbCr422Image> {
+        unimplemented!()
+    }
+}
+
+impl RGBDSensorsInterface for Interfake {
+    fn read_rgbd_sensors(&self) -> Result<RGBDSensors> {
         unimplemented!()
     }
 }
