@@ -28,18 +28,28 @@ pub enum BallMode {
 
 #[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect)]
 pub struct BallHypothesis {
+    pub(crate) identifier: u64,
     pub mode: BallMode,
     pub last_seen: SystemTime,
     pub validity: f32,
 }
 
 impl BallHypothesis {
-    pub fn new(hypothesis: MultivariateNormalDistribution<4>, last_seen: SystemTime) -> Self {
+    pub fn new(
+        hypothesis: MultivariateNormalDistribution<4>,
+        identifier: u64,
+        last_seen: SystemTime,
+    ) -> Self {
         Self {
             mode: BallMode::Moving(hypothesis),
             last_seen,
+            identifier,
             validity: 1.0,
         }
+    }
+
+    pub fn identifier(&self) -> u64 {
+        self.identifier
     }
 
     pub fn position(&self) -> BallPosition<Ground> {

@@ -21,9 +21,13 @@ use types::{
     cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
     limb::{is_above_limbs, Limb, ProjectedLimbs},
+    motion_command::KickVariant,
     parameters::BallFilterParameters,
 };
-use walking_engine::mode::Mode;
+use walking_engine::{
+    mode::{kicking::Kicking, Mode},
+    KickState,
+};
 
 #[derive(Deserialize, Serialize)]
 pub struct BallFilter {
@@ -187,11 +191,21 @@ impl BallFilter {
                 .expect("time ran backwards");
             let validity_high_enough =
                 hypothesis.validity >= filter_parameters.validity_discard_threshold;
-            let ball_kicked = matches!(walking_engine_mode, Mode::Kicking(_));
+
+            let ball_kicked_with_side_kick = matches!(
+                walking_engine_mode,
+                Mode::Kicking(Kicking {
+                    kick: KickState {
+                        variant: KickVariant::Side,
+                        ..
+                    },
+                    ..
+                })
+            );
             is_ball_inside_field(ball, field_dimensions)
                 && validity_high_enough
                 && duration_since_last_observation < filter_parameters.hypothesis_timeout
-                && !ball_kicked
+                && !ball_kicked_with_side_kick
         };
 
         let should_merge_hypotheses =
@@ -239,14 +253,15 @@ impl BallFilter {
             .filter_state
             .fill_if_subscribed(|| self.ball_filter.clone());
 
-        let best_hypothesis = self
+        let output_hypothesis = self
             .ball_filter
-            .best_hypothesis(filter_parameters.validity_output_threshold);
+            .select_hypothesis(context.ball_filter_configuration.validity_output_threshold);
+
         context
             .best_ball_hypothesis
-            .fill_if_subscribed(|| best_hypothesis.cloned());
+            .fill_if_subscribed(|| output_hypothesis.clone());
 
-        let filtered_ball = best_hypothesis.map(|hypothesis| hypothesis.position());
+        let filtered_ball = output_hypothesis.map(|hypothesis| hypothesis.position());
 
         let output_balls: Vec<_> = self
             .ball_filter
@@ -421,22 +436,22 @@ mod tests {
 
     #[test]
     fn hypothesis_update_matching() {
-        let hypothesis1 = BallHypothesis {
-            mode: BallMode::Moving(MultivariateNormalDistribution {
+        let hypothesis1 = BallHypothesis::new(
+            MultivariateNormalDistribution {
                 mean: nalgebra::vector![0.0, 1.0, 0.0, 0.0],
                 covariance: Matrix4::identity(),
-            }),
-            last_seen: SystemTime::now(),
-            validity: 0.0,
-        };
-        let hypothesis2 = BallHypothesis {
-            mode: BallMode::Moving(MultivariateNormalDistribution {
+            },
+            0,
+            SystemTime::now(),
+        );
+        let hypothesis2 = BallHypothesis::new(
+            MultivariateNormalDistribution {
                 mean: nalgebra::vector![0.0, -1.0, 0.0, 0.0],
                 covariance: Matrix4::identity(),
-            }),
-            last_seen: SystemTime::now(),
-            validity: 0.0,
-        };
+            },
+            0,
+            SystemTime::now(),
+        );
 
         let percept1 = BallPercept {
             percept_in_ground: MultivariateNormalDistribution {
