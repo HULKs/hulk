@@ -4601,6 +4601,7 @@ dependencies = [
  "ros2",
  "serde",
  "serde_json",
+ "simulation_message",
  "source_analyzer",
  "spl_network",
  "spl_network_messages",
@@ -8238,6 +8239,15 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "95890f873bec569a0362c235787f3aca6e1e887302ba4840839bcc6459c42da6"
 dependencies = [
  "quote",
+]
+
+[[package]]
+name = "simulation_message"
+version = "0.1.0"
+dependencies = [
+ "booster",
+ "serde",
+ "zed",
 ]
 
 [[package]]

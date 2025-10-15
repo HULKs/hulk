@@ -11,7 +11,7 @@ audio = { workspace = true }
 ball_filter = { workspace = true }
 bincode = { workspace = true }
 blake3 = { workspace = true }
-booster = { version = "0.1.0", path = "../booster" }
+booster = { workspace = true }
 buffered_watch = { workspace = true }
 calibration = { workspace = true }
 chrono = { workspace = true }
@@ -46,6 +46,7 @@ projection = { workspace = true }
 ros2 = { workspace = true }
 serde.workspace = true
 serde_json.workspace = true
+simulation_message = { workspace = true }
 spl_network.workspace = true
 spl_network_messages = { workspace = true }
 systemd = { workspace = true, optional = true }

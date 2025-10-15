@@ -1,0 +1,11 @@
+[package]
+name = "simulation_message"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[dependencies]
+booster = { workspace = true }
+serde = { workspace = true }
+zed = { workspace = true }

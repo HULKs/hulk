@@ -21,6 +21,7 @@ use hula_types::hardware::{Ids, Paths};
 use log::{error, warn};
 use parking_lot::Mutex;
 use serde::Deserialize;
+use simulation_message::{ClientMessageKind, ServerMessageKind, SimulationMessage};
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::time::sleep;
 use tokio_tungstenite::tungstenite::Message;
@@ -30,7 +31,6 @@ use types::messages::{IncomingMessage, OutgoingMessage};
 use types::samples::Samples;
 use zed::RGBDSensors;
 
-use crate::simulation_message::{ClientMessageKind, ServerMessageKind, SimulationMessage};
 use crate::HardwareInterface;
 
 const CHANNEL_CAPACITY: usize = 32;
