@@ -92,7 +92,9 @@ generate_coordinate_system!(
     /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#torso)
     Torso,
     /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#left-shoulder)
-    LeftShoulder,
+    LeftInnerShoulder,
+    /// TODO
+    LeftOuterShoulder,
     /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#left-biceps)
     LeftUpperArm,
     /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#left-elbow)
@@ -102,7 +104,9 @@ generate_coordinate_system!(
     /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#left-hand)
     LeftWrist,
     /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#right-shoulder)
-    RightShoulder,
+    RightInnerShoulder,
+    /// TODO: DOKU!!!
+    RightOuterShoulder,
     /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#right-biceps)
     RightUpperArm,
     /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#right-elbow)

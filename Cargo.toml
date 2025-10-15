@@ -54,7 +54,6 @@ members = [
   "tools/camera_matrix_extractor",
   "tools/depp",
   "tools/fanta",
-  "tools/mio",
   "tools/parameter_tester",
   "tools/pepsi",
   "tools/twix",

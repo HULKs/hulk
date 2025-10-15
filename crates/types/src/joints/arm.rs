@@ -23,12 +23,10 @@ use super::mirror::Mirror;
     PathIntrospect,
 )]
 pub enum ArmJoint {
+    Elbow,
     ShoulderPitch,
     ShoulderRoll,
-    ElbowYaw,
-    ElbowRoll,
-    WristYaw,
-    Hand,
+    ShoulderYaw,
 }
 
 #[derive(
@@ -47,10 +45,8 @@ pub enum ArmJoint {
 pub struct ArmJoints<T = f32> {
     pub shoulder_pitch: T,
     pub shoulder_roll: T,
-    pub elbow_yaw: T,
-    pub elbow_roll: T,
-    pub wrist_yaw: T,
-    pub hand: T,
+    pub shoulder_yaw: T,
+    pub elbow: T,
 }
 
 impl_Interpolate!(f32, ArmJoints<f32>, PI);
@@ -63,10 +59,8 @@ where
         Self {
             shoulder_pitch: value.clone(),
             shoulder_roll: value.clone(),
-            elbow_yaw: value.clone(),
-            elbow_roll: value.clone(),
-            wrist_yaw: value.clone(),
-            hand: value,
+            shoulder_yaw: value.clone(),
+            elbow: value,
         }
     }
 }
@@ -74,16 +68,14 @@ where
 impl<T> IntoIterator for ArmJoints<T> {
     type Item = T;
 
-    type IntoIter = std::array::IntoIter<T, 6>;
+    type IntoIter = std::array::IntoIter<T, 4>;
 
     fn into_iter(self) -> Self::IntoIter {
         [
             self.shoulder_pitch,
             self.shoulder_roll,
-            self.elbow_yaw,
-            self.elbow_roll,
-            self.wrist_yaw,
-            self.hand,
+            self.shoulder_yaw,
+            self.elbow,
         ]
         .into_iter()
     }
@@ -99,10 +91,8 @@ where
         Self::Output {
             shoulder_pitch: self.shoulder_pitch + right.shoulder_pitch,
             shoulder_roll: self.shoulder_roll + right.shoulder_roll,
-            elbow_yaw: self.elbow_yaw + right.elbow_yaw,
-            elbow_roll: self.elbow_roll + right.elbow_roll,
-            wrist_yaw: self.wrist_yaw + right.wrist_yaw,
-            hand: self.hand + right.hand,
+            shoulder_yaw: self.shoulder_yaw + right.shoulder_yaw,
+            elbow: self.elbow + right.elbow,
         }
     }
 }
@@ -117,10 +107,8 @@ where
         Self::Output {
             shoulder_pitch: self.shoulder_pitch - right.shoulder_pitch,
             shoulder_roll: self.shoulder_roll - right.shoulder_roll,
-            elbow_yaw: self.elbow_yaw - right.elbow_yaw,
-            elbow_roll: self.elbow_roll - right.elbow_roll,
-            wrist_yaw: self.wrist_yaw - right.wrist_yaw,
-            hand: self.hand - right.hand,
+            shoulder_yaw: self.shoulder_yaw - right.shoulder_yaw,
+            elbow: self.elbow - right.elbow,
         }
     }
 }
@@ -132,10 +120,8 @@ impl Mul<f32> for ArmJoints<f32> {
         Self::Output {
             shoulder_pitch: self.shoulder_pitch * right,
             shoulder_roll: self.shoulder_roll * right,
-            elbow_yaw: self.elbow_yaw * right,
-            elbow_roll: self.elbow_roll * right,
-            wrist_yaw: self.wrist_yaw * right,
-            hand: self.hand * right,
+            shoulder_yaw: self.shoulder_yaw * right,
+            elbow: self.elbow * right,
         }
     }
 }
@@ -147,10 +133,8 @@ impl Div<f32> for ArmJoints<f32> {
         Self::Output {
             shoulder_pitch: self.shoulder_pitch / right,
             shoulder_roll: self.shoulder_roll / right,
-            elbow_yaw: self.elbow_yaw / right,
-            elbow_roll: self.elbow_roll / right,
-            wrist_yaw: self.wrist_yaw / right,
-            hand: self.hand / right,
+            shoulder_yaw: self.shoulder_yaw / right,
+            elbow: self.elbow / right,
         }
     }
 }
@@ -166,10 +150,8 @@ impl Div<ArmJoints<f32>> for ArmJoints<f32> {
             shoulder_roll: Duration::from_secs_f32(
                 (self.shoulder_roll / right.shoulder_roll).abs(),
             ),
-            elbow_yaw: Duration::from_secs_f32((self.elbow_yaw / right.elbow_yaw).abs()),
-            elbow_roll: Duration::from_secs_f32((self.elbow_roll / right.elbow_roll).abs()),
-            wrist_yaw: Duration::from_secs_f32((self.wrist_yaw / right.wrist_yaw).abs()),
-            hand: Duration::from_secs_f32((self.hand / right.hand).abs()),
+            shoulder_yaw: Duration::from_secs_f32((self.shoulder_yaw / right.shoulder_yaw).abs()),
+            elbow: Duration::from_secs_f32((self.elbow / right.elbow).abs()),
         }
     }
 }
@@ -179,10 +161,8 @@ impl Mirror for ArmJoints<f32> {
         Self {
             shoulder_pitch: self.shoulder_pitch,
             shoulder_roll: -self.shoulder_roll,
-            elbow_yaw: -self.elbow_yaw,
-            elbow_roll: -self.elbow_roll,
-            wrist_yaw: -self.wrist_yaw,
-            hand: self.hand,
+            shoulder_yaw: -self.shoulder_yaw,
+            elbow: -self.elbow,
         }
     }
 }
@@ -194,10 +174,8 @@ impl<T> Index<ArmJoint> for ArmJoints<T> {
         match index {
             ArmJoint::ShoulderPitch => &self.shoulder_pitch,
             ArmJoint::ShoulderRoll => &self.shoulder_roll,
-            ArmJoint::ElbowYaw => &self.elbow_yaw,
-            ArmJoint::ElbowRoll => &self.elbow_roll,
-            ArmJoint::WristYaw => &self.wrist_yaw,
-            ArmJoint::Hand => &self.hand,
+            ArmJoint::ShoulderYaw => &self.shoulder_yaw,
+            ArmJoint::Elbow => &self.elbow,
         }
     }
 }
@@ -207,10 +185,8 @@ impl<T> IndexMut<ArmJoint> for ArmJoints<T> {
         match index {
             ArmJoint::ShoulderPitch => &mut self.shoulder_pitch,
             ArmJoint::ShoulderRoll => &mut self.shoulder_roll,
-            ArmJoint::ElbowYaw => &mut self.elbow_yaw,
-            ArmJoint::ElbowRoll => &mut self.elbow_roll,
-            ArmJoint::WristYaw => &mut self.wrist_yaw,
-            ArmJoint::Hand => &mut self.hand,
+            ArmJoint::ShoulderYaw => &mut self.shoulder_yaw,
+            ArmJoint::Elbow => &mut self.elbow,
         }
     }
 }
