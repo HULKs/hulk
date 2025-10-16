@@ -58,8 +58,9 @@ def run_simulation(server: SimulationServer, *, gui: bool) -> None:
         scene_exporter.publish(data)
 
         # TODO(oleflb): issue with SIGINT when connected via websocket
-        received_command = server.receive_low_command_blocking()
-        data.ctrl[:] = get_control_input(model, data, received_command)
+        if publisher.should_expect_low_command_update(data):
+            received_command = server.receive_low_command_blocking()
+            data.ctrl[:] = get_control_input(model, data, received_command)
 
         update_duration = time.time() - start
         time.sleep(max(0, dt / target_time_factor - update_duration))

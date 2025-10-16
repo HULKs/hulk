@@ -31,3 +31,13 @@ class Publisher:
             ):
                 topic.topic.publish(server=server, model=model, data=data)
                 topic.last_published = time
+
+    def should_expect_low_command_update(self, data: MjData) -> bool:
+        for published_topic in self.__published_topics:
+            if (
+                published_topic.topic.name == "low_state"
+                and published_topic.last_published == data.time
+            ):
+                return True
+
+        return False
