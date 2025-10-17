@@ -124,6 +124,7 @@ async fn worker(
         log::info!("connecting to websocket failed, retrying...");
         sleep(Duration::from_secs_f32(1.0)).await;
     };
+    log::info!("connected to mujoco websocket at {address}");
 
     loop {
         tokio::select! {
