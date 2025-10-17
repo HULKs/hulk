@@ -36,10 +36,25 @@ enum RawOrJpeg {
 
 pub struct ImagePanel {
     nao: Arc<Nao>,
+    show_depth_image: bool,
     image_buffer: RawOrJpeg,
     cycler: VisionCycler,
     overlays: Overlays,
     zoom_and_pan: ZoomAndPanTransform,
+}
+
+fn subscribe_image(nao: &Arc<Nao>, cycler_path: String, is_jpeg: bool, is_depth: bool) -> RawOrJpeg {
+    let base_name = if is_depth {
+        "depth_image"
+    } else {
+        "image"
+    };
+    if is_jpeg {
+        let path = format!("{cycler_path}.main_outputs.{base_name}.jpeg");
+        return RawOrJpeg::Jpeg(nao.subscribe_value(path))
+    }
+    let path = format!("{cycler_path}.main_outputs.{base_name}");
+    RawOrJpeg::Raw(nao.subscribe_value(path))
 }
 
 impl Panel for ImagePanel {
@@ -59,13 +74,7 @@ impl Panel for ImagePanel {
             .and_then(|value| value.as_bool())
             .unwrap_or(true);
 
-        let image_buffer = if is_jpeg {
-            let path = format!("{cycler_path}.main_outputs.image.jpeg");
-            RawOrJpeg::Jpeg(nao.subscribe_value(path))
-        } else {
-            let path = format!("{cycler_path}.main_outputs.image");
-            RawOrJpeg::Raw(nao.subscribe_value(path))
-        };
+        let image_buffer = subscribe_image(&nao, cycler_path, is_jpeg, false);
 
         let overlays = Overlays::new(
             nao.clone(),
@@ -78,6 +87,7 @@ impl Panel for ImagePanel {
             cycler,
             overlays,
             zoom_and_pan: ZoomAndPanTransform::default(),
+            show_depth_image: false,
         }
     }
 
@@ -119,8 +129,12 @@ impl Widget for &mut ImagePanel {
                 self.resubscribe(jpeg);
                 self.overlays.update_cycler(self.cycler);
             }
+
             self.overlays.combo_box(ui, self.cycler);
             if ui.checkbox(&mut jpeg, "JPEG").changed() {
+                self.resubscribe(jpeg);
+            }
+            if ui.checkbox(&mut self.show_depth_image, "Depth").changed() {
                 self.resubscribe(jpeg);
             }
             let maybe_timestamp = match &self.image_buffer {
@@ -184,17 +198,7 @@ impl Widget for &mut ImagePanel {
 impl ImagePanel {
     fn resubscribe(&mut self, jpeg: bool) {
         let cycler_path = self.cycler.as_path();
-        self.image_buffer = if jpeg {
-            RawOrJpeg::Jpeg(
-                self.nao
-                    .subscribe_value(format!("{cycler_path}.main_outputs.image.jpeg")),
-            )
-        } else {
-            RawOrJpeg::Raw(
-                self.nao
-                    .subscribe_value(format!("{cycler_path}.main_outputs.image")),
-            )
-        };
+        self.image_buffer = subscribe_image(&self.nao, cycler_path, jpeg, self.show_depth_image);
     }
 
     fn show_image(&self, painter: &TwixPainter<Pixel>) -> Result<()> {
