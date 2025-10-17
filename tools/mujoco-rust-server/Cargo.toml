@@ -14,11 +14,7 @@ axum = { workspace = true }
 booster = { workspace = true }
 bytes = "1.10.0"
 log = { workspace = true }
-pyo3 = { version = "0.26.0", features = [
-    "abi3-py313",
-    "extension-module",
-    "experimental-inspect",
-] }
+pyo3 = { workspace = true }
 pyo3-log = { version = "0.13.0" }
 serde = { workspace = true }
 serde_json = { workspace = true }
@@ -26,3 +22,4 @@ simulation_message = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
 tower-http = { version = "0.6.6", features = ["cors"] }
+zed = { workspace = true }

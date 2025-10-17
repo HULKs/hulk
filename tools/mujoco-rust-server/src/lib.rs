@@ -23,6 +23,7 @@ use tokio_util::sync::CancellationToken;
 use booster::{LowCommand, LowState};
 use simulation_message::{ClientMessageKind, ServerMessageKind, SimulationMessage};
 use tower_http::cors::{Any, CorsLayer};
+use zed::RGBDSensors;
 
 #[pyclass]
 pub struct SimulationServer {
@@ -185,12 +186,15 @@ impl SimulationServer {
         }
     }
 
-    pub fn send_camera_frame(&self, time: f32, frame: Vec<u8>) -> PyResult<()> {
-        // ignore the error, as it just means there are no receivers
-        log::debug!("Sending frame of size {}", frame.len());
+    pub fn send_camera_frame(
+        &self,
+        simulation_time: f32,
+        rgbd_sensors: Py<RGBDSensors>,
+    ) -> PyResult<()> {
+        log::debug!("Sending frame");
         let _ = self.simulation.message_sender.send(SimulationMessage {
-            time: SystemTime::UNIX_EPOCH + Duration::from_secs_f32(time),
-            payload: ServerMessageKind::RGBDSensors(todo!()),
+            time: SystemTime::UNIX_EPOCH + Duration::from_secs_f32(simulation_time),
+            payload: ServerMessageKind::RGBDSensors(rgbd_sensors.get().clone()),
         });
         Ok(())
     }
@@ -219,6 +223,15 @@ mod python_bindings {
             m.py(),
             submodule,
             "import sys; sys.modules['mujoco_rust_server.booster_types'] = submodule"
+        );
+        m.add_submodule(&submodule)?;
+
+        let submodule = PyModule::new(m.py(), "zed_types")?;
+        zed::python_bindings::extension(&submodule)?;
+        py_run!(
+            m.py(),
+            submodule,
+            "import sys; sys.modules['mujoco_rust_server.zed_types'] = submodule"
         );
         m.add_submodule(&submodule)?;
 

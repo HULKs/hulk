@@ -25,3 +25,13 @@ pub struct MagneticField {
     /// Row major about x, y, z axes
     pub magnetic_field_covariance: [f64; 9],
 }
+
+impl MagneticField {
+    pub fn default_with_header(header: Header) -> Self {
+        Self {
+            header,
+            magnetic_field: Vector3::default(),
+            magnetic_field_covariance: [0.0; 9],
+        }
+    }
+}

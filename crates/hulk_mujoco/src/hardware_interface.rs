@@ -216,7 +216,7 @@ async fn handle_message(
             *hardware_interface_time.lock() = time;
             worker_channels
                 .rgbd_sensors_sender
-                .send(*rgbd_sensors)
+                .send(rgbd_sensors)
                 .await?
         }
     };

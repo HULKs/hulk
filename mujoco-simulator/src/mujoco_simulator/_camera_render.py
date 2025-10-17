@@ -28,6 +28,12 @@ class CameraImage:
     rgb: NDArray[np.uint8]
     depth: NDArray[np.uint16]
 
+    def height(self) -> int:
+        return self.rgb.shape[0]
+
+    def width(self) -> int:
+        return self.rgb.shape[1]
+
 
 class CameraRenderer:
     def __init__(
@@ -79,5 +85,6 @@ class CameraRenderer:
         depth_buffer = znear / (1 - zbuffer * (1 - znear / zfar))
 
         return CameraImage(
-            rgb=rgb_buffer, depth=(depth_buffer * 1000).astype(np.uint16)
+            rgb=np.flip(rgb_buffer, axis=0),
+            depth=np.flip((depth_buffer * 1000).astype(np.uint16), axis=0),
         )

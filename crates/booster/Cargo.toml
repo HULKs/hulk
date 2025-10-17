@@ -14,10 +14,6 @@ coordinate_systems = { workspace = true }
 linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
 path_serde = { workspace = true }
+pyo3 = { workspace = true }
 ros2 = { workspace = true }
-pyo3 = { version = "0.26.0", features = [
-    "abi3-py313",
-    "extension-module",
-    "experimental-inspect",
-]}
 serde = { workspace = true }

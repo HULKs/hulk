@@ -5,6 +5,7 @@ from mujoco import MjData, MjModel
 from mujoco_rust_server import SimulationServer
 
 from mujoco_simulator._camera_render import CameraRenderer
+from mujoco_rust_server.zed_types import RGBDSensors
 
 from ._base_topic import BaseTopic
 
@@ -29,3 +30,13 @@ class CameraTopic(BaseTopic):
         self, *, server: SimulationServer, model: MjModel, data: MjData
     ) -> None:
         image = self.camera_encoder.render(data)
+        server.send_camera_frame(
+            data.time,
+            RGBDSensors(
+                data.time,
+                image.rgb.flatten(),
+                image.depth.flatten(),
+                image.height(),
+                image.width(),
+            ),
+        )
