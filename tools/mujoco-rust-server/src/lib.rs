@@ -2,11 +2,12 @@ mod scene;
 mod simulation;
 
 use std::{
-    sync::Arc, time::{Duration, SystemTime}
+    sync::Arc,
+    time::{Duration, SystemTime},
 };
 
 use axum::{routing::get, Router};
-use pyo3::{exceptions::PyValueError, pyclass, pymethods, Py, PyErr, PyResult, Python};
+use pyo3::{exceptions::PyValueError, pyclass, pymethods, Py, PyResult, Python};
 use tokio::{
     net::TcpListener,
     runtime::Runtime,
@@ -143,28 +144,26 @@ impl SimulationServer {
     }
 
     pub fn receive_low_command_blocking(&mut self, py: Python) -> PyResult<LowCommand> {
-        let check_signals = async {
+        let check_signals = async move || -> PyResult<()> {
             loop {
                 tokio::time::sleep(Duration::from_millis(100)).await;
+                println!("Checking");
                 py.check_signals()?
             }
-            return Ok::<_, PyErr>(());
         };
 
-        let receive_low_command = async {
-            match self.simulation.message_receiver.recv().await {
-                Ok(ClientMessageKind::LowCommand(low_command)) => Ok(low_command),
-                Err(error) => {
-                    log::error!("Failed to receive motor command: {error}");
-                    return Err(PyValueError::new_err("Failed to receive motor command"));
-                }
+        let mut receive_low_command = async || match self.simulation.message_receiver.recv().await {
+            Ok(ClientMessageKind::LowCommand(low_command)) => Ok(low_command),
+            Err(error) => {
+                log::error!("Failed to receive motor command: {error}");
+                return Err(PyValueError::new_err("Failed to receive motor command"));
             }
         };
 
         self.runtime.block_on(async {
             select! {
-                _ = check_signals => Err(PyValueError::new_err("Interrupted by signal")),
-                result = receive_low_command => return result,
+                _ = check_signals() => Err(PyValueError::new_err("Interrupted by signal")),
+                result = receive_low_command() => return result,
             }
         })
     }

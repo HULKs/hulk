@@ -2,7 +2,7 @@ use coordinate_systems::Robot;
 use linear_algebra::{vector, Vector3};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use pyo3::{pyclass, pymethods};
-use ros2::{geometry_msgs::transform_stamped::TransformStamped, sensor_msgs::imu::Imu};
+use ros2::geometry_msgs::transform_stamped::TransformStamped;
 use serde::{Deserialize, Serialize};
 
 #[pyclass(frozen, get_all)]
