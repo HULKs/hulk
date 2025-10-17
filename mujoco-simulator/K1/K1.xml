@@ -79,6 +79,16 @@
             condim="1"
         />
 
+        <geom name="static_box" 
+          type="box" 
+          size="0.2 0.2 1"   pos="2 1 0"    rgba="0.8 0.2 0.2 1"/>
+
+        <geom type="sphere" 
+            size="0.2" 
+            pos="2 -1 0.2"
+            rgba="0.2 0.8 0.2 1" 
+            mass="1"/>
+
         <body name="Trunk" pos="0 0 0.6">
             <site name='imu' size='0.01' pos='0.0 0.0 0.0' />
             <inertial
