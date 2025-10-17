@@ -14,14 +14,17 @@ use pyo3::pyclass;
 use simulation_message::{ClientMessageKind, ServerMessageKind, SimulationMessage};
 use tokio::{
     select,
-    sync::broadcast::{error::SendError, Receiver, Sender},
+    sync::{
+        broadcast::{error::SendError, Receiver, Sender},
+        Semaphore,
+    },
 };
 
 pub struct SimulationState {
+    pub is_connected: Arc<Semaphore>,
     pub to_simulation: Sender<ClientMessageKind>,
     pub from_simulation: Sender<SimulationMessage<ServerMessageKind>>,
     pub simulation_control: Sender<ServerCommand>,
-    pub camera_stream: Sender<Vec<u8>>,
 }
 
 #[pyclass(frozen, eq)]
@@ -31,22 +34,20 @@ pub enum ServerCommand {
 }
 
 pub fn setup() -> (Router, Arc<SimulationState>) {
-    let from_simulation = Sender::new(8);
-    let to_simulation = Sender::new(8);
-    let simulation_control = Sender::new(8);
-    let camera_stream = Sender::new(8);
+    let from_simulation = Sender::new(4);
+    let to_simulation = Sender::new(4);
+    let simulation_control = Sender::new(4);
 
     let state = Arc::new(SimulationState {
+        is_connected: Arc::new(Semaphore::new(1)),
         to_simulation,
         from_simulation,
         simulation_control,
-        camera_stream,
     });
 
     let router = Router::new()
         .route("/subscribe", get(ws_connection))
         .route("/reset", post(reset))
-        .route("/camera", get(ws_camera))
         .layer(Extension(state.clone()));
 
     (router, state)
@@ -59,31 +60,24 @@ async fn reset(Extension(state): Extension<Arc<SimulationState>>) -> impl IntoRe
     }
 }
 
-async fn ws_camera(
-    Extension(state): Extension<Arc<SimulationState>>,
-    ws: WebSocketUpgrade,
-) -> impl IntoResponse {
-    log::info!("Got camera stream request");
-    let mut receiver = state.camera_stream.subscribe();
-    ws.on_upgrade(async move |mut socket| {
-        while let Ok(packet) = receiver.recv().await {
-            if let Err(error) = socket.send(Message::Binary(packet.into())).await {
-                log::error!("Camera ws: {error}");
-                break;
-            }
-        }
-    })
-}
-
 async fn ws_connection(
     Extension(state): Extension<Arc<SimulationState>>,
     ws: WebSocketUpgrade,
 ) -> impl IntoResponse {
-    log::info!("Got websocket request");
+    let permit = match state.is_connected.clone().try_acquire_owned() {
+        Ok(permit) => permit,
+        Err(_) => {
+            log::warn!("someone is already connected, rejecting new connection");
+            return StatusCode::SERVICE_UNAVAILABLE.into_response();
+        }
+    };
+
     let to_simulation = state.to_simulation.clone();
     let from_simulation = state.from_simulation.subscribe();
 
     ws.on_upgrade(async move |socket| {
+        // keep the permit alive while the connection is active
+        let _permit = permit;
         log::info!("Starting communication");
         handle_socket(socket, from_simulation, to_simulation).await;
     })

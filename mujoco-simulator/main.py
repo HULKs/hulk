@@ -56,9 +56,13 @@ def run_simulation(server: SimulationServer, *, gui: bool) -> None:
         mj_step(model, data)
         publisher.check_for_updates(server=server, model=model, data=data)
         scene_exporter.publish(data)
-
+        # TODO(oleflb): possible deadlock if client connects
+        #               but does not receive sensor data
         # TODO(oleflb): issue with SIGINT when connected via websocket
-        if publisher.should_expect_low_command_update(data):
+        if (
+            publisher.should_expect_low_command_update(data)
+            and server.is_client_connected()
+        ):
             received_command = server.receive_low_command_blocking()
             data.ctrl[:] = get_control_input(model, data, received_command)
 

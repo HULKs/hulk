@@ -7,12 +7,16 @@ use std::{
 };
 
 use axum::{routing::get, Router};
+use bytes::Bytes;
 use pyo3::{exceptions::PyValueError, pyclass, pymethods, Py, PyResult, Python};
 use tokio::{
     net::TcpListener,
     runtime::Runtime,
     select,
-    sync::broadcast::{error::TryRecvError, Receiver, Sender},
+    sync::{
+        broadcast::{error::TryRecvError, Receiver, Sender},
+        Semaphore,
+    },
 };
 use tokio_util::sync::CancellationToken;
 
@@ -29,7 +33,7 @@ pub struct SimulationServer {
 }
 
 struct SimulationSideChannels {
-    camera_stream: Sender<Vec<u8>>,
+    permits: Arc<Semaphore>,
     simulation_control: Receiver<simulation::ServerCommand>,
     message_receiver: Receiver<ClientMessageKind>,
     message_sender: Sender<SimulationMessage<ServerMessageKind>>,
@@ -50,7 +54,7 @@ impl SimulationServer {
             runtime,
             cancel_token,
             simulation: SimulationSideChannels {
-                camera_stream: simulation_state.camera_stream.clone(),
+                permits: simulation_state.is_connected.clone(),
                 simulation_control: simulation_state.simulation_control.subscribe(),
                 message_receiver: simulation_state.to_simulation.subscribe(),
                 message_sender: simulation_state.from_simulation.clone(),
@@ -68,7 +72,6 @@ impl SimulationServer {
 
             let app = Router::new()
                 .route("/health", get(health_check))
-                // .route("/offer", post(video::handle_offer))
                 .nest("/simulation", simulation_router)
                 .nest("/scene", scene_router)
                 .layer(cors_layer);
@@ -108,15 +111,19 @@ impl SimulationServer {
         Ok(())
     }
 
+    pub fn is_client_connected(&self) -> bool {
+        self.simulation.permits.available_permits() == 0
+    }
+
     pub fn register_scene(&self, scene: Vec<u8>) -> PyResult<()> {
         self.simulation
             .scene_state
             .scene
             .set(Bytes::from(scene))
             .map_err(|_| {
-            log::error!("Scene already set");
-            PyValueError::new_err("Scene already set")
-        })?;
+                log::error!("Scene already set");
+                PyValueError::new_err("Scene already set")
+            })?;
 
         log::info!("Scene registered");
         Ok(())
@@ -178,12 +185,13 @@ impl SimulationServer {
         }
     }
 
-    pub fn send_camera_frame(&self, frame: Vec<u8>) -> PyResult<()> {
+    pub fn send_camera_frame(&self, time: f32, frame: Vec<u8>) -> PyResult<()> {
         // ignore the error, as it just means there are no receivers
         log::debug!("Sending frame of size {}", frame.len());
-        if self.simulation.camera_stream.receiver_count() != 0 {
-            let _ = self.simulation.camera_stream.send(frame);
-        }
+        let _ = self.simulation.message_sender.send(SimulationMessage {
+            time: SystemTime::UNIX_EPOCH + Duration::from_secs_f32(time),
+            payload: ServerMessageKind::RGBDSensors(todo!()),
+        });
         Ok(())
     }
 
