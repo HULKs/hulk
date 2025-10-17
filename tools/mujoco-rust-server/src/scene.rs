@@ -2,12 +2,14 @@ use std::sync::Arc;
 
 use axum::{
     extract::{
-        ws::{Message, WebSocket}, WebSocketUpgrade,
+        ws::{Message, WebSocket},
+        WebSocketUpgrade,
     },
     response::{IntoResponse, Response},
     routing::get,
     Extension, Json, Router,
 };
+use bytes::Bytes;
 use serde_json::Value;
 use tokio::sync::{
     broadcast::{Receiver, Sender},
@@ -30,13 +32,13 @@ pub fn setup() -> (Router, Arc<SceneState>) {
 }
 
 pub struct SceneState {
-    pub scene: SetOnce<Value>,
+    pub scene: SetOnce<Bytes>,
     pub scene_sender: Sender<String>,
 }
 
 async fn scene(Extension(state): Extension<Arc<SceneState>>) -> Response {
     log::info!("Got scene request");
-    Json(state.scene.wait().await).into_response()
+    state.scene.wait().await.clone().into_response()
 }
 
 async fn subscribe_scene(

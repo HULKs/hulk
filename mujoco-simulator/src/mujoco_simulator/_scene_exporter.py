@@ -1,13 +1,36 @@
 import json
 from dataclasses import asdict, dataclass
 
+import msgpack
 import mujoco
 from mujoco_rust_server import SimulationServer
 
 
 @dataclass(frozen=True, kw_only=True)
+class Mesh:
+    vertices: list[list[float]]
+    faces: list[list[int]]
+
+
+@dataclass(frozen=True, kw_only=True)
+class Geom:
+    name: str
+    mesh: str | None
+    rgba: list[float]
+    pos: list[float]
+    quat: list[float]
+
+
+@dataclass(frozen=True, kw_only=True)
+class Body:
+    id: int
+    parent: str | None
+    geoms: list[Geom]
+
+
+@dataclass(frozen=True, kw_only=True)
 class SceneDescription:
-    meshes: dict
+    meshes: dict[str, Mesh]
     # textures: dict
     lights: list
     bodies: dict
@@ -24,7 +47,8 @@ class SceneExporter:
         self.model = model
 
         scene_description = self.export_scene()
-        server.register_scene(json.dumps(asdict(scene_description)))
+        data = msgpack.packb(asdict(scene_description))
+        server.register_scene(data)
 
     def export_scene(self) -> SceneDescription:
         """
@@ -46,7 +70,7 @@ class SceneExporter:
             verts = self.model.mesh_vert[vert_adr : vert_adr + nvert].tolist()
             faces = self.model.mesh_face[face_adr : face_adr + nface].tolist()
 
-            meshes[name] = {"vertices": verts, "faces": faces}
+            meshes[name] = Mesh(vertices=verts, faces=faces)
 
         # Textures (export raw for now)
         # textures = {}
@@ -97,24 +121,24 @@ class SceneExporter:
                         )
                     rgba = self.model.geom_rgba[g].tolist()
                     geoms.append(
-                        {
-                            "name": geom_name,
-                            "mesh": mesh_name,
-                            "rgba": rgba,
-                            "pos": self.model.geom_pos[g].tolist(),
-                            "quat": self.model.geom_quat[g].tolist(),
-                        }
+                        Geom(
+                            name=geom_name,
+                            mesh=mesh_name,
+                            rgba=rgba,
+                            pos=self.model.geom_pos[g].tolist(),
+                            quat=self.model.geom_quat[g].tolist(),
+                        )
                     )
 
-            bodies[body_name] = {
-                "id": i,
-                "parent": mujoco.mj_id2name(
+            bodies[body_name] = Body(
+                id=i,
+                parent=mujoco.mj_id2name(
                     self.model, mujoco.mjtObj.mjOBJ_BODY.value, parent
                 )
                 if parent != -1
                 else None,
-                "geoms": geoms,
-            }
+                geoms=geoms,
+            )
 
         return SceneDescription(meshes=meshes, lights=lights, bodies=bodies)
 
@@ -130,36 +154,3 @@ class SceneExporter:
             state["bodies"][name] = {"pos": pos, "quat": quat}
 
         self.server.update_scene_state(json.dumps(state))
-
-
-# @app.get("/scene")
-# async def get_scene():
-#     return JSONResponse(content=export_scene(model))
-
-
-# ========== 2. Dynamic State WebSocket ==========
-
-# async def sim_loop(websocket: WebSocket):
-#     await websocket.accept()
-#     while True:
-#         mujoco.mj_step(model, data)
-
-#         state = {
-#             "timestamp": data.time,
-#             "bodies": {}
-#         }
-
-#         for i in range(model.nbody):
-#             name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY, i)
-#             pos = data.xpos[i].tolist()
-#             quat = data.xquat[i].tolist()  # (w, x, y, z)
-#             state["bodies"][name] = {"pos": pos, "quat": quat}
-
-#         await websocket.send_text(json.dumps(state))
-#         await asyncio.sleep(1.0 / 60.0)  # stream at ~60Hz
-
-
-# @app.websocket("/state")
-# async def websocket_endpoint(websocket: WebSocket):
-#     await sim_loop(websocket)
-# ```

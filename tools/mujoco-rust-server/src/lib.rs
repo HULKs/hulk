@@ -108,12 +108,12 @@ impl SimulationServer {
         Ok(())
     }
 
-    pub fn register_scene(&self, scene: &str) -> PyResult<()> {
-        let scene = serde_json::from_str(scene).map_err(|_| {
-            log::error!("Failed to parse scene JSON");
-            PyValueError::new_err("Invalid JSON")
-        })?;
-        self.simulation.scene_state.scene.set(scene).map_err(|_| {
+    pub fn register_scene(&self, scene: Vec<u8>) -> PyResult<()> {
+        self.simulation
+            .scene_state
+            .scene
+            .set(Bytes::from(scene))
+            .map_err(|_| {
             log::error!("Scene already set");
             PyValueError::new_err("Scene already set")
         })?;
@@ -147,8 +147,7 @@ impl SimulationServer {
         let check_signals = async move || -> PyResult<()> {
             loop {
                 tokio::time::sleep(Duration::from_millis(100)).await;
-                println!("Checking");
-                py.check_signals()?
+                py.check_signals()?;
             }
         };
 

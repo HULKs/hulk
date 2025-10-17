@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/addons/controls/OrbitControls.js';
 import Stats from 'three/addons/libs/stats.module.js';
+import * as msgpack from '@msgpack/msgpack';
 
 function setupLighting(scene, sceneData) {
     const ambientLight = new THREE.AmbientLight(0x404040); // soft white light
@@ -59,6 +60,13 @@ function setupMeshGroups(scene, sceneData, bodyMeshes) {
     return bodyGroups;
 }
 
+async function fetchSceneData() {
+    const response = await fetch("http://localhost:8000/scene");
+    const arrayBuffer = await response.arrayBuffer();
+    const binaryData = new Uint8Array(arrayBuffer);
+    return msgpack.decode(binaryData);
+}
+
 async function init() {
     // ======= 1. Setup Three.js =======
     const scene = new THREE.Scene();
@@ -84,9 +92,8 @@ async function init() {
         renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
-    const response = await fetch("http://localhost:8000/scene");
-    const sceneData = await response.json();
-    
+    const sceneData = await fetchSceneData();
+
     setupGround(scene);
     setupLighting(scene, sceneData);
     const bodyMeshes = loadMeshes(sceneData);

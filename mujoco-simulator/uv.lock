@@ -187,6 +187,12 @@ wheels = [
 ]
 
 [[package]]
+name = "msgpack-python"
+version = "0.5.6"
+source = { registry = "https://pypi.org/simple" }
+sdist = { url = "https://files.pythonhosted.org/packages/8a/20/6eca772d1a5830336f84aca1d8198e5a3f4715cd1c7fc36d3cc7f7185091/msgpack-python-0.5.6.tar.gz", hash = "sha256:378cc8a6d3545b532dfd149da715abae4fda2a3adb6d74e525d0d5e51f46909b", size = 138996, upload-time = "2018-03-10T09:22:56.493Z" }
+
+[[package]]
 name = "mujoco"
 version = "3.3.6"
 source = { registry = "https://pypi.org/simple" }
@@ -220,6 +226,7 @@ dependencies = [
     { name = "click" },
     { name = "glfw" },
     { name = "imagecodecs" },
+    { name = "msgpack-python" },
     { name = "mujoco" },
     { name = "mujoco-rust-server" },
     { name = "rich" },
@@ -239,6 +246,7 @@ requires-dist = [
     { name = "click", specifier = ">=8.3.0" },
     { name = "glfw", specifier = ">=2.10.0" },
     { name = "imagecodecs", specifier = ">=2025.8.2" },
+    { name = "msgpack-python", specifier = ">=0.5.6" },
     { name = "mujoco", specifier = ">=3.3.6" },
     { name = "mujoco-rust-server", directory = "../tools/mujoco-rust-server" },
     { name = "rich", specifier = ">=14.1.0" },
