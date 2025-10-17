@@ -163,8 +163,10 @@
                         mesh="Head_2"
                     />
                     <geom type="mesh" rgba="0.75294 0.75294 0.75294 1" mesh="Head_2" />
-                    <camera pos="0.05868 0.00002 0.09849" euler="0.0 -0.2125811028 3.1415926"
+                    <body name="camera_body" pos="0.05868 0.00002 0.09849" euler="0 -1.5707963267 0">
+                    <camera euler="0.0 -0.2125811028 -1.5707963267"
                         ipd="0.064" resolution="1936 1216" name="camera" />
+                    </body>
                 </body>
             </body>
             <body name="Left_Arm_1" pos="0 0.077 0.1845">
