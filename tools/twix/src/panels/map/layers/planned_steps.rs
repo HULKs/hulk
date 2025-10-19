@@ -4,7 +4,7 @@ use color_eyre::Result;
 use eframe::{egui::Color32, epaint::Stroke};
 
 use coordinate_systems::{Ground, UpcomingSupport};
-use linear_algebra::{point, vector, Isometry2, Orientation2, Orientation3, Pose2, Pose3};
+use linear_algebra::{point, vector, Isometry2, Orientation2, Orientation3, Pose2, Pose3, Vector3};
 use step_planning::{NUM_STEPS, NUM_VARIABLES};
 use types::{field_dimensions::FieldDimensions, step::Step, support_foot::Side};
 
@@ -20,8 +20,8 @@ pub struct PlannedSteps {
     step_plan_greedy: BufferHandle<Option<[Step; NUM_STEPS]>>,
     step_plan_gradient: BufferHandle<Option<[f32; NUM_VARIABLES]>>,
     ground_to_upcoming_support: BufferHandle<Option<Isometry2<Ground, UpcomingSupport>>>,
-    // foot_offset_left: BufferHandle<Option<Vector3<Ground>>>,
-    // foot_offset_right: BufferHandle<Option<Vector3<Ground>>>,
+    foot_offset_left: BufferHandle<Option<Vector3<Ground>>>,
+    foot_offset_right: BufferHandle<Option<Vector3<Ground>>>,
     next_support_side: BufferHandle<Option<Side>>,
 }
 
@@ -36,10 +36,10 @@ impl Layer<Ground> for PlannedSteps {
             nao.subscribe_value("Control.additional_outputs.step_plan_gradient");
         let ground_to_upcoming_support =
             nao.subscribe_value("Control.additional_outputs.ground_to_upcoming_support");
-        // let foot_offset_left =
-        //     nao.subscribe_value("parameters.walking_engine.base.foot_offset_left");
-        // let foot_offset_right =
-        //     nao.subscribe_value("parameters.walking_engine.base.foot_offset_right");
+        let foot_offset_left =
+            nao.subscribe_value("parameters.walking_engine.base.foot_offset_left");
+        let foot_offset_right =
+            nao.subscribe_value("parameters.walking_engine.base.foot_offset_right");
         let next_support_side = nao.subscribe_value("Control.additional_outputs.next_support_side");
 
         Self {
@@ -48,8 +48,8 @@ impl Layer<Ground> for PlannedSteps {
             step_plan_greedy,
             step_plan_gradient,
             ground_to_upcoming_support,
-            // foot_offset_left,
-            // foot_offset_right,
+            foot_offset_left,
+            foot_offset_right,
             next_support_side,
         }
     }
@@ -68,12 +68,12 @@ impl Layer<Ground> for PlannedSteps {
         else {
             return Ok(());
         };
-        // let Some(foot_offset_left) = self.foot_offset_left.get_last_value()?.flatten() else {
-        //     return Ok(());
-        // };
-        // let Some(foot_offset_right) = self.foot_offset_right.get_last_value()?.flatten() else {
-        //     return Ok(());
-        // };
+        let Some(foot_offset_left) = self.foot_offset_left.get_last_value()?.flatten() else {
+            return Ok(());
+        };
+        let Some(foot_offset_right) = self.foot_offset_right.get_last_value()?.flatten() else {
+            return Ok(());
+        };
         let Some(next_support_side) = self.next_support_side.get_last_value()?.flatten() else {
             return Ok(());
         };
@@ -105,6 +105,8 @@ impl Layer<Ground> for PlannedSteps {
                 Color32::WHITE,
                 direct_step_end_pose,
                 next_support_side,
+                foot_offset_left,
+                foot_offset_right,
             );
         }
 
@@ -116,6 +118,8 @@ impl Layer<Ground> for PlannedSteps {
                 step_plan,
                 step_plan_gradient,
                 next_support_side,
+                foot_offset_left,
+                foot_offset_right,
             );
         }
 
@@ -128,6 +132,8 @@ impl Layer<Ground> for PlannedSteps {
                 step_plan_greedy,
                 dummy_gradient,
                 next_support_side,
+                foot_offset_left,
+                foot_offset_right,
             );
         }
 
@@ -140,6 +146,7 @@ struct PlannedStep {
     support_side: Side,
 }
 
+#[expect(clippy::too_many_arguments)]
 fn paint_step_plan(
     painter: &TwixPainter<Ground>,
     color: Color32,
@@ -147,8 +154,8 @@ fn paint_step_plan(
     step_plan: [Step; NUM_STEPS],
     step_plan_gradient: [f32; NUM_VARIABLES],
     next_support_side: Side,
-    // foot_offset_left: Vector3<Ground>,
-    // foot_offset_right: Vector3<Ground>,
+    foot_offset_left: Vector3<Ground>,
+    foot_offset_right: Vector3<Ground>,
 ) {
     let upcoming_support_to_ground = ground_to_upcoming_support.inverse();
 
@@ -159,6 +166,8 @@ fn paint_step_plan(
         color,
         upcoming_support_pose,
         next_support_side.opposite(),
+        foot_offset_left,
+        foot_offset_right,
     );
 
     let planned_steps = step_plan.iter().scan(
@@ -184,7 +193,14 @@ fn paint_step_plan(
 
     let gradients = step_plan_gradient.chunks_exact(3);
     for (PlannedStep { pose, support_side }, gradient) in planned_steps.zip(gradients) {
-        paint_planned_step(painter, color, pose, support_side);
+        paint_planned_step(
+            painter,
+            color,
+            pose,
+            support_side,
+            foot_offset_left,
+            foot_offset_right,
+        );
 
         let [df, dl, da] = gradient.try_into().unwrap();
         painter.line_segment(
@@ -205,16 +221,16 @@ fn paint_planned_step(
     color: Color32,
     pose: Pose2<Ground>,
     support_side: Side,
+    foot_offset_left: Vector3<Ground>,
+    foot_offset_right: Vector3<Ground>,
 ) {
     let offset = match support_side {
-        // Side::Left => foot_offset_left,
-        // Side::Right => foot_offset_right,
-        Side::Left => point!(0.0, -0.052),
-        Side::Right => point!(0.0, 0.052),
+        Side::Left => foot_offset_left,
+        Side::Right => foot_offset_right,
     };
 
-    let pose_with_offset: Pose2<Ground> =
-        pose.as_transform::<Ground>() * Pose2::from_parts(offset, Orientation2::identity());
+    let pose_with_offset: Pose2<Ground> = pose.as_transform::<Ground>()
+        * Pose2::from_parts(offset.xy().as_point(), Orientation2::identity());
 
     let sole = Pose3::from_parts(
         point![
