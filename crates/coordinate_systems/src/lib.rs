@@ -98,24 +98,16 @@ generate_coordinate_system!(
     /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#left-biceps)
     LeftUpperArm,
     /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#left-elbow)
-    LeftElbow,
-    /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#left-forearm)
     LeftForearm,
     /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#left-hand)
-    LeftWrist,
-    /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#right-shoulder)
     RightInnerShoulder,
     /// TODO: DOKU!!!
     RightOuterShoulder,
     /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#right-biceps)
     RightUpperArm,
     /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#right-elbow)
-    RightElbow,
-    /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#right-forearm)
     RightForearm,
     /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#right-hand)
-    RightWrist,
-    /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#left-pelvis)
     LeftPelvis,
     /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#left-hip)
     LeftHip,

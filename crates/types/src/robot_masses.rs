@@ -13,17 +13,17 @@ pub struct RobotMass<Frame> {
 }
 
 pub const TORSO: RobotMass<Torso> = RobotMass {
-    mass: 1.0496,
-    center: point![0.0, 0.0, 0.0],
+    mass: 6.3921,
+    center: point![-0.0043392, -0.00065534, 0.065686],
 };
 // head
 pub const NECK: RobotMass<Neck> = RobotMass {
-    mass: 0.07842,
-    center: point![-0.00001, 0.0, -0.02742],
+    mass: 0.29729,
+    center: point![-0.00069503, -0.00038527, 0.031688],
 };
 pub const HEAD: RobotMass<Head> = RobotMass {
-    mass: 0.65937,
-    center: point![0.00109, 0.00146, 0.05719],
+    mass: 0.61387,
+    center: point![0.011042, -0.00092871, 0.080698],
 };
 // left arm
 pub const LEFT_SHOULDER: RobotMass<LeftShoulder> = RobotMass {

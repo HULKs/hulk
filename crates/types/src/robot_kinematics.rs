@@ -4,10 +4,7 @@ use linear_algebra::Isometry3;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use coordinate_systems::{
-    Head, LeftAnkle, LeftElbow, LeftFoot, LeftForearm, LeftHip, LeftPelvis, LeftShoulder, LeftSole,
-    LeftThigh, LeftTibia, LeftUpperArm, LeftWrist, Neck, RightAnkle, RightElbow, RightFoot,
-    RightForearm, RightHip, RightPelvis, RightShoulder, RightSole, RightThigh, RightTibia,
-    RightUpperArm, RightWrist, Robot, Torso,
+    Head, LeftAnkle, LeftFoot, LeftForearm, LeftHip, LeftInnerShoulder, LeftOuterShoulder, LeftPelvis, LeftSole, LeftThigh, LeftTibia, LeftUpperArm, Neck, RightAnkle, RightFoot, RightForearm, RightHip, RightInnerShoulder, RightOuterShoulder, RightPelvis, RightSole, RightThigh, RightTibia, RightUpperArm, Robot, Torso
 };
 
 #[derive(
@@ -29,22 +26,20 @@ pub struct RobotTorsoKinematics {
     Debug, Clone, Default, PathSerialize, PathDeserialize, PathIntrospect, Serialize, Deserialize,
 )]
 pub struct RobotLeftArmKinematics {
-    pub shoulder_to_robot: Isometry3<LeftShoulder, Robot>,
+    pub inner_shoulder_to_robot: Isometry3<LeftInnerShoulder, Robot>,
+    pub outer_shoulder_to_robot: Isometry3<LeftOuterShoulder, Robot>,
     pub upper_arm_to_robot: Isometry3<LeftUpperArm, Robot>,
-    pub elbow_to_robot: Isometry3<LeftElbow, Robot>,
     pub forearm_to_robot: Isometry3<LeftForearm, Robot>,
-    pub wrist_to_robot: Isometry3<LeftWrist, Robot>,
 }
 
 #[derive(
     Debug, Clone, Default, PathSerialize, PathDeserialize, PathIntrospect, Serialize, Deserialize,
 )]
 pub struct RobotRightArmKinematics {
-    pub shoulder_to_robot: Isometry3<RightShoulder, Robot>,
+    pub inner_shoulder_to_robot: Isometry3<RightInnerShoulder, Robot>,
+    pub outer_shoulder_to_robot: Isometry3<RightOuterShoulder, Robot>,
     pub upper_arm_to_robot: Isometry3<RightUpperArm, Robot>,
-    pub elbow_to_robot: Isometry3<RightElbow, Robot>,
     pub forearm_to_robot: Isometry3<RightForearm, Robot>,
-    pub wrist_to_robot: Isometry3<RightWrist, Robot>,
 }
 
 #[derive(
