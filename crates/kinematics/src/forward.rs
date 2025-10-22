@@ -104,14 +104,14 @@ pub fn left_thigh_to_left_hip(angles: &LegJoints<f32>) -> Isometry3<LeftThigh, L
 
 pub fn left_tibia_to_left_thigh(angles: &LegJoints<f32>) -> Isometry3<LeftTibia, LeftThigh> {
     Isometry3::from_parts(
-        RobotDimensions::LEFT_HIP_TO_LEFT_KNEE,
+        RobotDimensions::LEFT_THIGH_TO_LEFT_TIBIA,
         Orientation3::new(Vector3::y_axis() * angles.knee),
     )
 }
 
 pub fn left_ankle_to_left_tibia(angles: &LegJoints<f32>) -> Isometry3<LeftAnkle, LeftTibia> {
     Isometry3::from_parts(
-        RobotDimensions::LEFT_KNEE_TO_LEFT_ANKLE,
+        RobotDimensions::LEFT_TIBIA_TO_LEFT_ANKLE,
         Orientation3::new(Vector3::y_axis() * angles.ankle_up),
     )
 }
@@ -149,7 +149,7 @@ pub fn right_thigh_to_right_hip(angles: &LegJoints<f32>) -> Isometry3<RightThigh
 
 pub fn right_tibia_to_right_thigh(angles: &LegJoints<f32>) -> Isometry3<RightTibia, RightThigh> {
     Isometry3::from_parts(
-        RobotDimensions::RIGHT_HIP_TO_RIGHT_KNEE,
+        RobotDimensions::RIGHT_THIGH_TO_RIGHT_TIBIA,
         Orientation3::new(Vector3::y_axis() * angles.knee),
     )
 }
@@ -157,7 +157,7 @@ pub fn right_tibia_to_right_thigh(angles: &LegJoints<f32>) -> Isometry3<RightTib
 // TODO: wie bewegen sich ankle????
 pub fn right_ankle_to_right_tibia(angles: &LegJoints<f32>) -> Isometry3<RightAnkle, RightTibia> {
     Isometry3::from_parts(
-        RobotDimensions::RIGHT_KNEE_TO_RIGHT_ANKLE,
+        RobotDimensions::RIGHT_TIBIA_TO_RIGHT_ANKLE,
         Orientation3::new(Vector3::y_axis() * angles.ankle_up),
     )
 }
