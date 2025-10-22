@@ -100,7 +100,7 @@ pub const RIGHT_THIGH: RobotMass<RightThigh> = RobotMass {
 };
 pub const RIGHT_TIBIA: RobotMass<RightTibia> = RobotMass {
     mass: 1.48334,
-    center: point![-0.000805 - 0.003146 - 0.109215],
+    center: point![-0.000805, -0.003146, -0.109215],
 };
 pub const RIGHT_ANKLE: RobotMass<RightAnkle> = RobotMass {
     mass: 0.038836,
