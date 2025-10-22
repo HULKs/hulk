@@ -1,10 +1,8 @@
-
 use coordinate_systems::{
-    Head, LeftAnkle, LeftFoot, LeftForearm, LeftHip, LeftInnerShoulder,
-    LeftOuterShoulder, LeftPelvis, LeftSole, LeftThigh, LeftTibia, LeftUpperArm, Neck,
-    RightAnkle, RightFoot, RightForearm, RightHip, RightInnerShoulder,
-    RightOuterShoulder, RightPelvis, RightSole, RightThigh, RightTibia, RightUpperArm,
-    Robot,
+    Head, LeftAnkle, LeftFoot, LeftForearm, LeftHip, LeftInnerShoulder, LeftOuterShoulder,
+    LeftPelvis, LeftSole, LeftThigh, LeftTibia, LeftUpperArm, Neck, RightAnkle, RightFoot,
+    RightForearm, RightHip, RightInnerShoulder, RightOuterShoulder, RightPelvis, RightSole,
+    RightThigh, RightTibia, RightUpperArm, Robot,
 };
 use linear_algebra::{Isometry3, Orientation3, Vector3};
 use types::{
@@ -20,7 +18,10 @@ pub fn neck_to_robot(angles: &HeadJoints<f32>) -> Isometry3<Neck, Robot> {
 }
 
 pub fn head_to_neck(angles: &HeadJoints<f32>) -> Isometry3<Head, Neck> {
-    Isometry3::from_rotation(Vector3::y_axis() * angles.pitch)
+    Isometry3::from_parts(
+        RobotDimensions::NECK_TO_HEAD,
+        Orientation3::new(Vector3::y_axis() * angles.pitch),
+    )
 }
 
 // TODO: translation
@@ -29,7 +30,7 @@ pub fn left_inner_shoulder_to_robot(
     angles: &ArmJoints<f32>,
 ) -> Isometry3<LeftInnerShoulder, Robot> {
     Isometry3::from_parts(
-        RobotDimensions::ROBOT_TO_LEFT_SHOULDER,
+        RobotDimensions::ROBOT_TO_LEFT_INNER_SHOULDER,
         Orientation3::new(Vector3::y_axis() * angles.shoulder_pitch),
     )
 }
@@ -50,7 +51,7 @@ pub fn left_forearm_to_left_upper_arm(
     angles: &ArmJoints<f32>,
 ) -> Isometry3<LeftForearm, LeftUpperArm> {
     Isometry3::from_parts(
-        RobotDimensions::LEFT_SHOULDER_TO_LEFT_ELBOW,
+        RobotDimensions::LEFT_UPPER_ARM_TO_LEFT_FOREARM,
         Orientation3::new(Vector3::z_axis() * angles.elbow),
     )
 }
@@ -60,7 +61,7 @@ pub fn right_inner_shoulder_to_robot(
     angles: &ArmJoints<f32>,
 ) -> Isometry3<RightInnerShoulder, Robot> {
     Isometry3::from_parts(
-        RobotDimensions::ROBOT_TO_RIGHT_SHOULDER,
+        RobotDimensions::ROBOT_TO_RIGHT_INNER_SHOULDER,
         Orientation3::new(Vector3::y_axis() * angles.shoulder_pitch),
     )
 }
@@ -81,7 +82,7 @@ pub fn right_forearm_to_right_upper_arm(
     angles: &ArmJoints<f32>,
 ) -> Isometry3<RightForearm, RightUpperArm> {
     Isometry3::from_parts(
-        RobotDimensions::RIGHT_SHOULDER_TO_RIGHT_ELBOW,
+        RobotDimensions::RIGHT_UPPER_ARM_TO_RIGHT_FOREARM,
         Orientation3::new(Vector3::z_axis() * angles.elbow),
     )
 }
