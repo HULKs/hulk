@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use coordinate_systems::{Field, Ground};
 use eframe::egui::{ComboBox, Ui, Widget};
 use linear_algebra::{point, vector, Isometry2};
@@ -8,8 +6,7 @@ use serde_json::{json, Value};
 use types::field_dimensions::FieldDimensions;
 
 use crate::{
-    nao::Nao,
-    panel::Panel,
+    panel::{Panel, PanelCreationContext},
     twix_painter::{Orientation, TwixPainter},
     value_buffer::BufferHandle,
     zoom_and_pan::ZoomAndPanTransform,
@@ -88,38 +85,42 @@ pub struct MapPanel {
     localization: EnabledLayer<layers::Localization, Field>,
 }
 
-impl Panel for MapPanel {
+impl<'a> Panel<'a> for MapPanel {
     const NAME: &'static str = "Map";
 
-    fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
-        let field = EnabledLayer::new(nao.clone(), value, true);
-        let image_segments = EnabledLayer::new(nao.clone(), value, false);
-        let line_correspondences = EnabledLayer::new(nao.clone(), value, false);
-        let lines = EnabledLayer::new(nao.clone(), value, true);
-        let ball_search_heatmap = EnabledLayer::new(nao.clone(), value, false);
-        let path_obstacles = EnabledLayer::new(nao.clone(), value, false);
-        let obstacles = EnabledLayer::new(nao.clone(), value, false);
-        let path = EnabledLayer::new(nao.clone(), value, false);
-        let behavior_simulator = EnabledLayer::new(nao.clone(), value, false);
-        let referee_position = EnabledLayer::new(nao.clone(), value, false);
-        let robot_pose = EnabledLayer::new(nao.clone(), value, true);
-        let ball_measurement = EnabledLayer::new(nao.clone(), value, false);
-        let pose_detection = EnabledLayer::new(nao.clone(), value, false);
-        let ball_position = EnabledLayer::new(nao.clone(), value, true);
-        let kick_decisions = EnabledLayer::new(nao.clone(), value, false);
-        let feet_detection = EnabledLayer::new(nao.clone(), value, false);
-        let ball_filter = EnabledLayer::new(nao.clone(), value, false);
-        let obstacle_filter = EnabledLayer::new(nao.clone(), value, false);
-        let localization = EnabledLayer::new(nao.clone(), value, false);
+    fn new(context: PanelCreationContext) -> Self {
+        let field = EnabledLayer::new(context.nao.clone(), context.value, true);
+        let image_segments = EnabledLayer::new(context.nao.clone(), context.value, false);
+        let line_correspondences = EnabledLayer::new(context.nao.clone(), context.value, false);
+        let lines = EnabledLayer::new(context.nao.clone(), context.value, true);
+        let ball_search_heatmap = EnabledLayer::new(context.nao.clone(), context.value, false);
+        let path_obstacles = EnabledLayer::new(context.nao.clone(), context.value, false);
+        let obstacles = EnabledLayer::new(context.nao.clone(), context.value, false);
+        let path = EnabledLayer::new(context.nao.clone(), context.value, false);
+        let behavior_simulator = EnabledLayer::new(context.nao.clone(), context.value, false);
+        let referee_position = EnabledLayer::new(context.nao.clone(), context.value, false);
+        let robot_pose = EnabledLayer::new(context.nao.clone(), context.value, true);
+        let ball_measurement = EnabledLayer::new(context.nao.clone(), context.value, false);
+        let pose_detection = EnabledLayer::new(context.nao.clone(), context.value, false);
+        let ball_position = EnabledLayer::new(context.nao.clone(), context.value, true);
+        let kick_decisions = EnabledLayer::new(context.nao.clone(), context.value, false);
+        let feet_detection = EnabledLayer::new(context.nao.clone(), context.value, false);
+        let ball_filter = EnabledLayer::new(context.nao.clone(), context.value, false);
+        let obstacle_filter = EnabledLayer::new(context.nao.clone(), context.value, false);
+        let localization = EnabledLayer::new(context.nao.clone(), context.value, false);
 
-        let field_dimensions = nao.subscribe_value("parameters.field_dimensions");
-        let ground_to_field = nao.subscribe_value("Control.main_outputs.ground_to_field");
+        let field_dimensions = context.nao.subscribe_value("parameters.field_dimensions");
+        let ground_to_field = context
+            .nao
+            .subscribe_value("Control.main_outputs.ground_to_field");
 
-        let current_plot_type = value
+        let current_plot_type = context
+            .value
             .and_then(|value| value.get("current_plot_type"))
             .and_then(|value| serde_json::from_value::<PlotType>(value.clone()).ok())
             .unwrap_or(PlotType::Ground);
-        let zoom_and_pan = value
+        let zoom_and_pan = context
+            .value
             .and_then(|value| value.get("zoom_and_pan"))
             .and_then(|value| serde_json::from_value::<ZoomAndPanTransform>(value.clone()).ok())
             .unwrap_or_default();

@@ -5,7 +5,11 @@ use eframe::egui::{Label, Response, ScrollArea, Sense, Ui, Widget};
 use hulk_widgets::{NaoPathCompletionEdit, PathFilter};
 use serde_json::{json, Value};
 
-use crate::{nao::Nao, panel::Panel, value_buffer::BufferHandle};
+use crate::{
+    nao::Nao,
+    panel::{Panel, PanelCreationContext},
+    value_buffer::BufferHandle,
+};
 
 pub struct TextPanel {
     nao: Arc<Nao>,
@@ -13,20 +17,24 @@ pub struct TextPanel {
     buffer: Option<BufferHandle<Value>>,
 }
 
-impl Panel for TextPanel {
+impl<'a> Panel<'a> for TextPanel {
     const NAME: &'static str = "Text";
 
-    fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
-        let path = match value.and_then(|value| value.get("path")) {
+    fn new(context: PanelCreationContext) -> Self {
+        let path = match context.value.and_then(|value| value.get("path")) {
             Some(Value::String(string)) => string.to_string(),
             _ => String::new(),
         };
         let buffer = if !path.is_empty() {
-            Some(nao.subscribe_json(path.clone()))
+            Some(context.nao.subscribe_json(path.clone()))
         } else {
             None
         };
-        Self { nao, path, buffer }
+        Self {
+            nao: context.nao,
+            path,
+            buffer,
+        }
     }
 
     fn save(&self) -> Value {

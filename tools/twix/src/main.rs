@@ -14,9 +14,10 @@ use eframe::{
         CentralPanel, Context, CornerRadius, Id, Label, Layout, Sense, StrokeKind, TopBottomPanel,
         Ui, Widget, WidgetText,
     },
+    egui_wgpu::{WgpuConfiguration, WgpuSetup},
     emath::Align,
     epaint::Color32,
-    run_native, App, CreationContext, Frame, NativeOptions, Storage,
+    run_native, App, CreationContext, Frame, NativeOptions, Renderer, Storage,
 };
 use egui_dock::{DockArea, DockState, Node, NodeIndex, Split, SurfaceIndex, TabAddAlign, TabIndex};
 use fern::{colors::ColoredLevelConfig, Dispatch, InitError};
@@ -32,12 +33,12 @@ use configuration::{
 use hulk_widgets::CompletionEdit;
 use log::{error, warn};
 use nao::Nao;
-use panel::Panel;
+use panel::{Panel, PanelCreationContext};
 use panels::{
     BallCandidatePanel, BehaviorSimulatorPanel, CameraCalibrationExportPanel, EnumPlotPanel,
     ImageColorSelectPanel, ImagePanel, ImageSegmentsPanel, LookAtPanel, ManualCalibrationPanel,
-    MapPanel, ParameterPanel, PlotPanel, RemotePanel, SemiAutomaticCameraCalibrationPanel,
-    TextPanel, VisionTunerPanel,
+    MapPanel, MujocoSimulatorPanel, ParameterPanel, PlotPanel, RemotePanel,
+    SemiAutomaticCameraCalibrationPanel, TextPanel, VisionTunerPanel,
 };
 use reachable_naos::ReachableNaos;
 use repository::{inspect_version::check_for_update, Repository};
@@ -116,9 +117,25 @@ fn main() -> Result<(), eframe::Error> {
     let configuration = Configuration::load()
         .unwrap_or_else(|error| panic!("failed to load configuration: {error}"));
 
+    let mut wgpu_options = WgpuConfiguration::default();
+    match &mut wgpu_options.wgpu_setup {
+        WgpuSetup::CreateNew(wgpu_setup_create_new) => {
+            let old_closure = wgpu_setup_create_new.device_descriptor.clone();
+            wgpu_setup_create_new.device_descriptor = Arc::new(move |adapter| {
+                let mut old = (old_closure)(adapter);
+                old.required_limits.max_storage_buffers_per_shader_stage = 9;
+                old
+            })
+        }
+        WgpuSetup::Existing(_wgpu_setup_existing) => unimplemented!(),
+    }
     run_native(
         "Twix",
-        NativeOptions::default(),
+        NativeOptions {
+            wgpu_options,
+            renderer: Renderer::Wgpu,
+            ..Default::default()
+        },
         Box::new(|creation_context| {
             egui_extras::install_image_loaders(&creation_context.egui_ctx);
             Ok(Box::new(TwixApp::create(
@@ -142,6 +159,7 @@ impl_selectable_panel!(
     LookAtPanel,
     ManualCalibrationPanel,
     MapPanel,
+    MujocoSimulatorPanel,
     ParameterPanel,
     PlotPanel,
     RemotePanel,
@@ -218,10 +236,25 @@ impl TwixApp {
         };
 
         let dock_state = match dock_state {
-            Some(dock_state) => dock_state.map_tabs(|value| Tab::new(nao.clone(), value)),
+            Some(dock_state) => dock_state.map_tabs(|value| {
+                Tab::new(PanelCreationContext {
+                    nao: nao.clone(),
+                    value: Some(value),
+                    wgpu_state: creation_context
+                        .wgpu_render_state
+                        .clone()
+                        .expect("no wgpu render state found"),
+                })
+            }),
             None => DockState::new(vec![SelectablePanel::TextPanel(TextPanel::new(
-                nao.clone(),
-                None,
+                PanelCreationContext {
+                    nao: nao.clone(),
+                    value: None,
+                    wgpu_state: creation_context
+                        .wgpu_render_state
+                        .clone()
+                        .expect("no wgpu render state found"),
+                },
             ))
             .into()]),
         };
@@ -366,7 +399,7 @@ impl TwixApp {
 }
 
 impl App for TwixApp {
-    fn update(&mut self, context: &Context, _frame: &mut Frame) {
+    fn update(&mut self, context: &Context, frame: &mut Frame) {
         self.reachable_naos.update();
 
         TopBottomPanel::top("top_bar").show(context, |ui| {
@@ -452,8 +485,14 @@ impl App for TwixApp {
                     if panel_input.changed() {
                         match SelectablePanel::try_from_name(
                             &self.panel_selection,
-                            self.nao.clone(),
-                            None,
+                            PanelCreationContext {
+                                nao: self.nao.clone(),
+                                value: None,
+                                wgpu_state: frame
+                                    .wgpu_render_state()
+                                    .cloned()
+                                    .expect("no wgpu render state found"),
+                            },
                         ) {
                             Ok(panel) => {
                                 if let Some(active_tab) = self.active_tab() {
@@ -482,7 +521,14 @@ impl App for TwixApp {
         });
         CentralPanel::default().show(context, |ui| {
             if context.keybind_pressed(KeybindAction::OpenSplit) {
-                let tab = SelectablePanel::TextPanel(TextPanel::new(self.nao.clone(), None));
+                let tab = SelectablePanel::TextPanel(TextPanel::new(PanelCreationContext {
+                    nao: self.nao.clone(),
+                    value: None,
+                    wgpu_state: frame
+                        .wgpu_render_state()
+                        .cloned()
+                        .expect("no wgpu render state found"),
+                }));
                 if let Some((surface_index, node_id)) = self.dock_state.focused_leaf() {
                     let node = &mut self.dock_state[surface_index][node_id];
                     if node.tabs_count() == 0 {
@@ -504,7 +550,14 @@ impl App for TwixApp {
                 }
             }
             if context.keybind_pressed(KeybindAction::OpenTab) {
-                let tab = SelectablePanel::TextPanel(TextPanel::new(self.nao.clone(), None));
+                let tab = SelectablePanel::TextPanel(TextPanel::new(PanelCreationContext {
+                    nao: self.nao.clone(),
+                    value: None,
+                    wgpu_state: frame
+                        .wgpu_render_state()
+                        .cloned()
+                        .expect("no wgpu render state found"),
+                }));
                 self.dock_state.push_to_focused_leaf(tab.into());
             }
 
@@ -533,7 +586,15 @@ impl App for TwixApp {
                 if let Some((_, tab)) = self.dock_state.find_active_focused() {
                     let new_tab = tab.save();
                     self.dock_state.push_to_focused_leaf(Tab::from(
-                        SelectablePanel::new(self.nao.clone(), Some(&new_tab)).unwrap(),
+                        SelectablePanel::new(PanelCreationContext {
+                            nao: self.nao.clone(),
+                            value: Some(&new_tab),
+                            wgpu_state: frame
+                                .wgpu_render_state()
+                                .cloned()
+                                .expect("no wgpu render state found"),
+                        })
+                        .unwrap(),
                     ));
                 }
             }
@@ -557,8 +618,14 @@ impl App for TwixApp {
 
             if context.keybind_pressed(KeybindAction::CloseAll) {
                 self.dock_state = DockState::new(vec![SelectablePanel::TextPanel(TextPanel::new(
-                    self.nao.clone(),
-                    None,
+                    PanelCreationContext {
+                        nao: self.nao.clone(),
+                        value: None,
+                        wgpu_state: frame
+                            .wgpu_render_state()
+                            .cloned()
+                            .expect("no wgpu render state found"),
+                    },
                 ))
                 .into()]);
                 self.last_focused_tab = (0.into(), 0.into());
@@ -575,7 +642,14 @@ impl App for TwixApp {
                 .show_inside(ui, &mut tab_viewer);
 
             for (surface_index, node_id) in tab_viewer.nodes_to_add_tabs_to {
-                let tab = SelectablePanel::TextPanel(TextPanel::new(self.nao.clone(), None));
+                let tab = SelectablePanel::TextPanel(TextPanel::new(PanelCreationContext {
+                    nao: self.nao.clone(),
+                    value: None,
+                    wgpu_state: frame
+                        .wgpu_render_state()
+                        .cloned()
+                        .expect("no wgpu render state found"),
+                }));
                 let index = self.dock_state[surface_index][node_id].tabs_count();
                 self.dock_state[surface_index][node_id].insert_tab(index.into(), tab.into());
                 self.dock_state
@@ -631,7 +705,7 @@ impl TwixApp {
 
 struct Tab {
     id: Id,
-    panel: Result<SelectablePanel, (Report, Value)>,
+    panel: Result<SelectablePanel, (Report, Option<Value>)>,
 }
 
 impl From<SelectablePanel> for Tab {
@@ -644,17 +718,18 @@ impl From<SelectablePanel> for Tab {
 }
 
 impl Tab {
-    fn new(nao: Arc<Nao>, value: &Value) -> Self {
+    fn new(context: PanelCreationContext) -> Self {
+        let value = context.value.cloned();
         Self {
             id: Id::new(SystemTime::now()),
-            panel: SelectablePanel::new(nao, Some(value)).map_err(|error| (error, value.clone())),
+            panel: SelectablePanel::new(context).map_err(|error| (error, value)),
         }
     }
 
     fn save(&self) -> Value {
         match &self.panel {
             Ok(panel) => panel.save(),
-            Err((_report, value)) => value.clone(),
+            Err((_report, value)) => value.clone().unwrap_or_default(),
         }
     }
 }

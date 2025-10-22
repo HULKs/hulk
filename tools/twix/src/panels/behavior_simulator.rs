@@ -5,7 +5,11 @@ use eframe::egui::{Align, Color32, Layout, Response, Slider, Ui, Widget};
 use hulk_widgets::SegmentedControl;
 use serde_json::{json, Value};
 
-use crate::{nao::Nao, panel::Panel, value_buffer::BufferHandle};
+use crate::{
+    nao::Nao,
+    panel::{Panel, PanelCreationContext},
+    value_buffer::BufferHandle,
+};
 
 pub struct BehaviorSimulatorPanel {
     nao: Arc<Nao>,
@@ -19,28 +23,33 @@ pub struct BehaviorSimulatorPanel {
     frame_count: BufferHandle<usize>,
 }
 
-impl Panel for BehaviorSimulatorPanel {
+impl<'a> Panel<'a> for BehaviorSimulatorPanel {
     const NAME: &'static str = "Behavior Simulator";
 
-    fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
-        let selected_frame_updater = nao.subscribe_value("simulator.selected_frame");
+    fn new(context: PanelCreationContext) -> Self {
+        let selected_frame_updater = context.nao.subscribe_value("simulator.selected_frame");
 
-        let frame_count = nao.subscribe_value("BehaviorSimulator.main_outputs.frame_count");
-        let selected_frame = value
+        let frame_count = context
+            .nao
+            .subscribe_value("BehaviorSimulator.main_outputs.frame_count");
+        let selected_frame = context
+            .value
             .and_then(|value| value.get("selected_frame"))
             .and_then(|value| value.as_f64())
             .unwrap_or_default();
-        let selected_robot = value
+        let selected_robot = context
+            .value
             .and_then(|value| value.get("selected_robot"))
             .and_then(|value| value.as_u64())
             .unwrap_or_default() as usize;
-        let playing = value
+        let playing = context
+            .value
             .and_then(|value| value.get("playing"))
             .and_then(|value| value.as_bool())
             .unwrap_or_default();
 
         Self {
-            nao,
+            nao: context.nao,
 
             selected_frame,
             selected_robot,

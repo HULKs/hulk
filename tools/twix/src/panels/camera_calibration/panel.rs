@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use calibration::goal_and_penalty_box::LineType;
 use color_eyre::{
     eyre::{eyre, ContextCompat},
@@ -14,12 +12,10 @@ use geometry::{line_segment::LineSegment, rectangle::Rectangle};
 use image::RgbImage;
 use linear_algebra::{distance, point, vector, Point2};
 use projection::camera_matrix::CameraMatrix;
-use serde_json::Value;
 use types::ycbcr422_image::YCbCr422Image;
 
 use crate::{
-    nao::Nao,
-    panel::Panel,
+    panel::{Panel, PanelCreationContext},
     panels::camera_calibration::optimization::{
         DrawnLine, SavedMeasurement, SemiAutomaticCalibrationContext,
     },
@@ -60,15 +56,17 @@ pub struct SemiAutomaticCameraCalibrationPanel {
     optimization: SemiAutomaticCalibrationContext,
 }
 
-impl Panel for SemiAutomaticCameraCalibrationPanel {
+impl<'a> Panel<'a> for SemiAutomaticCameraCalibrationPanel {
     const NAME: &'static str = "Semi-Automatic Camera Calibration";
 
-    fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
-        let camera = nao.subscribe_value("Control.main_outputs.uncalibrated_camera_matrix");
+    fn new(context: PanelCreationContext) -> Self {
+        let camera = context
+            .nao
+            .subscribe_value("Control.main_outputs.uncalibrated_camera_matrix");
 
         let image_buffer = {
             let path = "Vision.main_outputs.image";
-            nao.subscribe_value(path)
+            context.nao.subscribe_value(path)
         };
 
         Self {
@@ -79,7 +77,7 @@ impl Panel for SemiAutomaticCameraCalibrationPanel {
             user_state: UserState::Idle,
             drawn_lines: Vec::new(),
             saved_measurements: Vec::new(),
-            optimization: SemiAutomaticCalibrationContext::new(nao.clone()),
+            optimization: SemiAutomaticCalibrationContext::new(context.nao.clone()),
         }
     }
 }
