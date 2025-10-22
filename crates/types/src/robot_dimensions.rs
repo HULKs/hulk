@@ -1,7 +1,7 @@
 use linear_algebra::{point, vector, Isometry3, Point3, Vector3};
 
 use coordinate_systems::{
-    Head, LeftAnkle, LeftFoot, LeftHip, LeftInnerShoulder, LeftOuterShoulder, LeftPelvis, LeftSole, LeftThigh, LeftTibia, LeftUpperArm, Neck, RightAnkle, RightFoot, RightHip, RightInnerShoulder, RightOuterShoulder, RightPelvis, RightSole, RightThigh, RightTibia, RightUpperArm, Robot
+    Head, LeftFoot, LeftHip, LeftInnerShoulder, LeftOuterShoulder, LeftPelvis, LeftSole, LeftThigh, LeftTibia, LeftUpperArm, Neck, RightFoot, RightHip, RightInnerShoulder, RightOuterShoulder, RightPelvis, RightSole, RightThigh, RightTibia, RightUpperArm, Robot
 };
 
 #[derive(Debug)]
