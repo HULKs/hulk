@@ -128,7 +128,7 @@ pub fn left_sole_to_robot(angles: &LegJoints<f32>) -> Isometry3<LeftSole, Robot>
         * left_tibia_to_left_thigh(angles)
         * left_ankle_to_left_tibia(angles)
         * left_foot_to_left_ankle(angles)
-        * Isometry3::from(RobotDimensions::LEFT_ANKLE_TO_LEFT_SOLE)
+        * Isometry3::from(RobotDimensions::LEFT_FOOT_TO_LEFT_SOLE)
 }
 
 // right leg
@@ -173,5 +173,5 @@ pub fn right_sole_to_robot(angles: &LegJoints<f32>) -> Isometry3<RightSole, Robo
         * right_tibia_to_right_thigh(angles)
         * right_ankle_to_right_tibia(angles)
         * right_foot_to_right_ankle(angles)
-        * Isometry3::from(RobotDimensions::RIGHT_ANKLE_TO_RIGHT_SOLE)
+        * Isometry3::from(RobotDimensions::RIGHT_FOOT_TO_RIGHT_SOLE)
 }
