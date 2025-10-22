@@ -9,20 +9,20 @@ macro_rules! impl_selectable_panel {
         }
 
         impl SelectablePanel {
-            fn new(nao: Arc<Nao>, value: Option<&Value>) -> Result<SelectablePanel> {
-                let name = value
+            fn new(context: $crate::panel::PanelCreationContext) -> Result<SelectablePanel> {
+                let name = context.value
                     .ok_or(eyre!("Got none value"))?
                     .get("_panel_type")
-                    .ok_or(eyre!("value has no _panel_type: {value:?}"))?
+                    .ok_or(eyre!("value has no _panel_type: {:?}", context.value))?
                     .as_str()
                     .ok_or(eyre!("_panel_type is not a string"))?;
-                Self::try_from_name(&name.to_owned(), nao, value)
+                Self::try_from_name(&name.to_owned(), context)
             }
 
-            pub fn try_from_name(panel_name: &String, nao: Arc<Nao>, value: Option<&Value>) -> Result<SelectablePanel> {
+            pub fn try_from_name(panel_name: &String, context: $crate::panel::PanelCreationContext) -> Result<SelectablePanel> {
                 match panel_name.as_str() {
                     $(
-                        $name::NAME => Ok(SelectablePanel::$name($name::new(nao, value))),
+                        $name::NAME => Ok(SelectablePanel::$name($name::new(context))),
                     )*
                     _ => bail!("\"{panel_name}\": no such panel"),
                 }

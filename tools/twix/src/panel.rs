@@ -1,12 +1,19 @@
 use std::sync::Arc;
 
+use eframe::egui_wgpu::RenderState;
 use serde_json::{json, Value};
 
 use crate::nao::Nao;
 
-pub trait Panel {
+pub struct PanelCreationContext<'a> {
+    pub nao: Arc<Nao>,
+    pub value: Option<&'a Value>,
+    pub wgpu_state: RenderState,
+}
+
+pub trait Panel<'a> {
     const NAME: &'static str;
-    fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self;
+    fn new(context: PanelCreationContext<'a>) -> Self;
     fn save(&self) -> Value {
         json!({})
     }
