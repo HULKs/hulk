@@ -5,7 +5,7 @@ use geometry::convex_hull::reduce_to_convex_hull;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::{LeftElbow, LeftSole, LeftThigh, LeftWrist, Robot};
+use coordinate_systems::{LeftForearm, LeftSole, LeftThigh, LeftUpperArm, Robot};
 use framework::MainOutput;
 use linear_algebra::{point, Isometry3, Point3};
 use projection::{camera_matrix::CameraMatrix, Projection};
@@ -30,14 +30,14 @@ pub struct CycleContext {
         Parameter<Vec<Point3<LeftSole>>, "projected_limbs.foot_bounding_polyline">,
     thigh_bounding_polyline:
         Parameter<Vec<Point3<LeftThigh>>, "projected_limbs.knee_bounding_polyline">,
-    wrist_bounding_polyline:
-        Parameter<Vec<Point3<LeftWrist>>, "projected_limbs.lower_arm_bounding_polyline">,
+    forearm_bounding_polyline:
+        Parameter<Vec<Point3<LeftForearm>>, "projected_limbs.lower_arm_bounding_polyline">,
     torso_bounding_polyline:
         Parameter<Vec<Point3<Robot>>, "projected_limbs.torso_bounding_polyline">,
     upper_arm_bounding_polyline:
-        Parameter<Vec<Point3<LeftElbow>>, "projected_limbs.upper_arm_bounding_polyline">,
+        Parameter<Vec<Point3<LeftUpperArm>>, "projected_limbs.upper_arm_bounding_polyline">,
 }
-
+// TODO Outlines updaten
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
@@ -62,25 +62,25 @@ impl LimbProjector {
             false,
         );
         let left_lower_arm_limb = project_bounding_polyline(
-            context.robot_kinematics.left_arm.wrist_to_robot,
+            context.robot_kinematics.left_arm.forearm_to_robot,
             context.camera_matrix,
-            context.wrist_bounding_polyline,
+            context.forearm_bounding_polyline,
             true,
         );
         let right_lower_arm_limb = project_bounding_polyline(
-            context.robot_kinematics.right_arm.wrist_to_robot,
+            context.robot_kinematics.right_arm.forearm_to_robot,
             context.camera_matrix,
-            &mirror_polyline(context.wrist_bounding_polyline),
+            &mirror_polyline(context.forearm_bounding_polyline),
             true,
         );
         let left_upper_arm_limb = project_bounding_polyline(
-            context.robot_kinematics.left_arm.elbow_to_robot,
+            context.robot_kinematics.left_arm.upper_arm_to_robot,
             context.camera_matrix,
             context.upper_arm_bounding_polyline,
             true,
         );
         let right_upper_arm_limb = project_bounding_polyline(
-            context.robot_kinematics.right_arm.elbow_to_robot,
+            context.robot_kinematics.right_arm.upper_arm_to_robot,
             context.camera_matrix,
             &mirror_polyline(context.upper_arm_bounding_polyline),
             true,
