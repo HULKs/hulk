@@ -36,7 +36,7 @@ impl RobotDimensions {
     pub const LEFT_HIP_TO_LEFT_THIGH: Vector3<LeftHip> = vector![0.012, 0.0, -0.0485];
     pub const LEFT_THIGH_TO_LEFT_TIBIA: Vector3<LeftThigh> = vector![-0.014, 0.0, -0.117];
     pub const LEFT_TIBIA_TO_LEFT_ANKLE: Vector3<LeftTibia> = vector![0.00019706, 0.0002, -0.24519];
-    pub const LEFT_ANKLE_TO_LEFT_SOLE: Vector3<LeftAnkle> = vector![0.0, 0.0, 0.0]; // TODO
+    pub const LEFT_ANKLE_TO_LEFT_SOLE: Vector3<LeftAnkle> = vector![0.0, 0.0, 0.0]; //TODO
 
     pub const ROBOT_TO_RIGHT_PELVIS: Vector3<Robot> = vector![0.0, -0.096, -0.062];
     pub const RIGHT_PELVIS_TO_RIGHT_HIP: Vector3<RightPelvis> = vector![0.0, 0.0, -0.026];
@@ -79,7 +79,7 @@ impl RobotDimensions {
         point![-0.045156, 0.042039, 0.0],
         point![-0.04905, 0.037599, 0.0],
         point![-0.054657, 0.029814, 0.0],
-    ];
+    ]; //TODO
 }
 
 pub fn transform_left_sole_outline<Frame>(
