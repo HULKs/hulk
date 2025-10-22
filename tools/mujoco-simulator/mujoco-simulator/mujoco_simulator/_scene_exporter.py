@@ -141,16 +141,3 @@ class SceneExporter:
             )
 
         return SceneDescription(meshes=meshes, lights=lights, bodies=bodies)
-
-    def publish(self, data: mujoco.MjData) -> None:
-        state = {"timestamp": data.time, "bodies": {}}
-
-        for i in range(self.model.nbody):
-            name = mujoco.mj_id2name(
-                self.model, mujoco.mjtObj.mjOBJ_BODY.value, i
-            )
-            pos = data.xpos[i].tolist()
-            quat = data.xquat[i].tolist()  # (w, x, y, z)
-            state["bodies"][name] = {"pos": pos, "quat": quat}
-
-        self.server.update_scene_state(json.dumps(state))

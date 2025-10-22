@@ -5,19 +5,19 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+    "av>=15.1.0",
+    "click>=8.3.0",
     "glfw>=2.10.0",
+    "imagecodecs>=2025.8.2",
+    "msgpack-python>=0.5.6",
     "mujoco-rust-server==0.1.0",
     "mujoco>=3.3.6",
-    "scipy>=1.16.2",
-    "click>=8.3.0",
-    "imagecodecs>=2025.8.2",
-    "av>=15.1.0",
     "rich>=14.1.0",
-    "msgpack-python>=0.5.6",
+    "scipy>=1.16.2",
 ]
 
 [tool.uv.sources]
-mujoco-rust-server = { path = "../tools/mujoco-rust-server" }
+mujoco-rust-server = { path = "../mujoco-rust-server" }
 
 [tool.pyright]
 stubPath = "stubs/"

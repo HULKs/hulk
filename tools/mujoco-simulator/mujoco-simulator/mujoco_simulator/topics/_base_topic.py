@@ -13,6 +13,17 @@ class BaseTopic(ABC):
     def __init__(self, update_interval: timedelta) -> None:
         self.update_interval = update_interval
 
+
+class ReceiveTopic[T](BaseTopic):
+    def receive(self, server: SimulationServer) -> T:
+        raise NotImplementedError
+
+
+class SendTopic[T](BaseTopic):
+    @abstractmethod
+    def compute(self, *, model: MjModel, data: MjData) -> T:
+        raise NotImplementedError
+
     @abstractmethod
     def publish(
         self, *, server: SimulationServer, model: MjModel, data: MjData

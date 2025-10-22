@@ -3,14 +3,14 @@ from typing import override
 
 from mujoco import MjData, MjModel
 from mujoco_rust_server import SimulationServer
-
-from mujoco_simulator._camera_render import CameraRenderer
 from mujoco_rust_server.zed_types import RGBDSensors
 
-from ._base_topic import BaseTopic
+from mujoco_simulator._camera_render import CameraRenderer
+
+from ._base_topic import SendTopic
 
 
-class CameraTopic(BaseTopic):
+class CameraTopic(SendTopic):
     name = "camera"
     camera_encoder: CameraRenderer
 
@@ -26,17 +26,20 @@ class CameraTopic(BaseTopic):
         )
 
     @override
+    def compute(self, *, model: MjModel, data: MjData) -> RGBDSensors:
+        image = self.camera_encoder.render(data)
+        return RGBDSensors(
+            data.time,
+            image.rgb.flatten(),
+            image.depth.flatten(),
+            image.height(),
+            image.width(),
+        )
+
+    @override
     def publish(
         self, *, server: SimulationServer, model: MjModel, data: MjData
     ) -> None:
-        image = self.camera_encoder.render(data)
         server.send_camera_frame(
-            data.time,
-            RGBDSensors(
-                data.time,
-                image.rgb.flatten(),
-                image.depth.flatten(),
-                image.height(),
-                image.width(),
-            ),
+            data.time, self.compute(model=model, data=data)
         )

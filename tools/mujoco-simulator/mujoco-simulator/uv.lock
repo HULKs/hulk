@@ -215,7 +215,7 @@ wheels = [
 [[package]]
 name = "mujoco-rust-server"
 version = "0.1.0"
-source = { directory = "../tools/mujoco-rust-server" }
+source = { directory = "../mujoco-rust-server" }
 
 [[package]]
 name = "mujoco-simulator"
@@ -248,7 +248,7 @@ requires-dist = [
     { name = "imagecodecs", specifier = ">=2025.8.2" },
     { name = "msgpack-python", specifier = ">=0.5.6" },
     { name = "mujoco", specifier = ">=3.3.6" },
-    { name = "mujoco-rust-server", directory = "../tools/mujoco-rust-server" },
+    { name = "mujoco-rust-server", directory = "../mujoco-rust-server" },
     { name = "rich", specifier = ">=14.1.0" },
     { name = "scipy", specifier = ">=1.16.2" },
 ]

@@ -3,16 +3,22 @@ import time
 from datetime import timedelta
 
 import click
-from mujoco import MjData, MjModel, mj_resetData, mj_step
+from mujoco import MjData, MjModel, mj_resetData, mj_step, mj_forward
 from mujoco_rust_server import ServerCommand, SimulationServer
 from rich.logging import RichHandler
 
 from mujoco_simulator import (
+    Publisher,
+    Receiver,
     SceneExporter,
     get_control_input,
 )
-from mujoco_simulator._publisher import Publisher
-from mujoco_simulator.topics import CameraTopic, LowStateTopic
+from mujoco_simulator.topics import (
+    CameraTopic,
+    LowCommandTopic,
+    LowStateTopic,
+    SceneStateTopic,
+)
 
 
 def handle_server_command(
@@ -24,11 +30,12 @@ def handle_server_command(
         case ServerCommand.Reset:
             logging.info("Resetting simulation")
             mj_resetData(model, data)
+            mj_forward(model, data)
 
 
-def run_simulation(server: SimulationServer, *, gui: bool) -> None:
-    model = MjModel.from_xml_path("K1/K1.xml")
-    data = MjData(model)
+def run_simulation(
+    server: SimulationServer, model: MjModel, data: MjData
+) -> None:
     dt = model.opt.timestep
     logging.info(f"Timestep: {1000 * dt}ms")
 
@@ -43,10 +50,11 @@ def run_simulation(server: SimulationServer, *, gui: bool) -> None:
             update_interval=timedelta(milliseconds=10),
             model=model,
         ),
+        SceneStateTopic(update_interval=timedelta(milliseconds=2)),
     )
-
-    if gui:
-        raise NotImplementedError
+    receiver = Receiver(
+        LowCommandTopic(update_interval=timedelta(milliseconds=10)),
+    )
 
     while True:
         start = time.time()
@@ -54,17 +62,12 @@ def run_simulation(server: SimulationServer, *, gui: bool) -> None:
         handle_server_command(command, model, data)
 
         mj_step(model, data)
-        publisher.check_for_updates(server=server, model=model, data=data)
-        scene_exporter.publish(data)
+        publisher.send_updates(server=server, model=model, data=data)
         # TODO(oleflb): possible deadlock if client connects
         #               but does not receive sensor data
-        # TODO(oleflb): issue with SIGINT when connected via websocket
-        if (
-            publisher.should_expect_low_command_update(data)
-            and server.is_client_connected()
-        ):
-            received_command = server.receive_low_command_blocking()
-            data.ctrl[:] = get_control_input(model, data, received_command)
+        for reception in receiver.receive_updates(server=server, data=data):
+            if isinstance(reception, LowCommand):
+                data.ctrl[:] = get_control_input(model, data, received_command)
 
         update_duration = time.time() - start
         time.sleep(max(0, dt / target_time_factor - update_duration))
@@ -74,18 +77,25 @@ def run_simulation(server: SimulationServer, *, gui: bool) -> None:
 @click.option(
     "--bind-address", default="0.0.0.0:8000", help="Bind address for the server"
 )
-@click.option("--gui", is_flag=True, default=False, help="Enable GUI")
-def main(*, bind_address: str, gui: bool) -> None:
+def main(*, bind_address: str) -> None:
     logging.basicConfig(
         level="DEBUG",
         format="%(message)s",
         datefmt="[%X]",
         handlers=[RichHandler(rich_tracebacks=True)],
     )
-    server = SimulationServer(bind_address)
+    model = MjModel.from_xml_path("K1/K1.xml")
+    data = MjData(model)
+    mj_resetData(model, data)
+    mj_forward(model, data)
+
+    server = SimulationServer(
+        bind_address,
+        LowStateTopic(timedelta(0)).compute(model=model, data=data),
+    )
 
     try:
-        run_simulation(server, gui=gui)
+        run_simulation(server, model, data)
     finally:
         server.stop()
 

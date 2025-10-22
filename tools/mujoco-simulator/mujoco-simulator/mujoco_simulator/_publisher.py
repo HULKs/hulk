@@ -3,23 +3,23 @@ from dataclasses import dataclass
 from mujoco import MjData, MjModel
 from mujoco_rust_server import SimulationServer
 
-from .topics._base_topic import BaseTopic
+from mujoco_simulator.topics import SendTopic
 
 
 @dataclass
 class PublishedTopic:
     last_published: float
-    topic: BaseTopic
+    topic: SendTopic
 
 
 class Publisher:
-    def __init__(self, *topics: BaseTopic) -> None:
+    def __init__(self, *topics: SendTopic) -> None:
         self.__published_topics = [
             PublishedTopic(last_published=float("-inf"), topic=topic)
             for topic in topics
         ]
 
-    def check_for_updates(
+    def send_updates(
         self, *, server: SimulationServer, model: MjModel, data: MjData
     ) -> None:
         time = data.time

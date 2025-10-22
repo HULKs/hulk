@@ -15,7 +15,7 @@ use tokio::{
     select,
     sync::{
         broadcast::{error::TryRecvError, Receiver, Sender},
-        Semaphore,
+        RwLock, Semaphore,
     },
 };
 use tokio_util::sync::CancellationToken;
@@ -44,7 +44,7 @@ struct SimulationSideChannels {
 #[pymethods]
 impl SimulationServer {
     #[new]
-    pub fn start(bind_address: &str) -> PyResult<Self> {
+    pub fn start(bind_address: &str, low_state: LowState) -> PyResult<Self> {
         let runtime = Runtime::new()?;
         let cancel_token = CancellationToken::new();
 

@@ -31,6 +31,8 @@ pub struct SimulationState {
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum ServerCommand {
     Reset,
+    RequestLowState,
+    RequestRGBDSensors,
 }
 
 pub fn setup() -> (Router, Arc<SimulationState>) {

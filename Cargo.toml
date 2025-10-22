@@ -54,7 +54,7 @@ members = [
   "tools/depp",
   "tools/fanta",
   "tools/mio",
-  "tools/mujoco-rust-server",
+  "tools/mujoco-simulator/mujoco-rust-server",
   "tools/parameter_tester",
   "tools/pepsi",
   "tools/twix",
