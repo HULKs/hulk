@@ -56,7 +56,7 @@ impl RemotePanel {
 
     fn update_step(&self, step: Value) {
         self.nao.write(
-            "parameters.step_planner.injected_step",
+            "parameters.remote_controll_parameters.walk",
             TextOrBinary::Text(step),
         )
     }
@@ -107,14 +107,6 @@ impl Widget for &mut RemotePanel {
                 .unwrap_or_default();
             let turn = turn_left - turn_right;
 
-            let head_pitch = get_axis_value(gamepad, Axis::RightStickY).unwrap_or(0.0);
-            let head_yaw = -get_axis_value(gamepad, Axis::RightStickX).unwrap_or(0.0);
-
-            let injected_head_joints = HeadJoints {
-                yaw: head_yaw * HEAD_YAW_SCALE,
-                pitch: head_pitch * HEAD_PITCH_SCALE,
-            };
-
             let step = Step {
                 forward,
                 left,
@@ -130,15 +122,11 @@ impl Widget for &mut RemotePanel {
                 {
                     self.last_update = now;
                     self.update_step(serde_json::to_value(step).unwrap());
-                    self.update_look_at_angle(serde_json::to_value(injected_head_joints).unwrap());
                 }
             }
 
             ui.vertical(|ui| {
-                let label_1 = ui.label(format!("{step:#?}"));
-                let label_2 = ui.label(format!("{injected_head_joints:#?}"));
-
-                label_1.union(label_2)
+                ui.label(format!("{step:#?}"))
             })
             .inner
         } else {
