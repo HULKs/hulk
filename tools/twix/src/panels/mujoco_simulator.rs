@@ -102,11 +102,21 @@ fn setup_scene(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    // commands.spawn((
-    //     Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
-    //     MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
-    //     Transform::from_xyz(0.0, 0.5, 0.0),
-    // ));
+    commands.spawn((
+        PointLight {
+            shadows_enabled: true,
+            intensity: 10_000_000.,
+            range: 100.0,
+            shadow_depth_bias: 0.2,
+            ..default()
+        },
+        Transform::from_xyz(8.0, 16.0, 8.0),
+    ));
+    commands.spawn((
+        Mesh3d(meshes.add(Cuboid::new(0.1, 0.1, 0.7))),
+        MeshMaterial3d(materials.add(Color::srgb_u8(0, 255, 0))),
+        Transform::from_xyz(0.0, 0.5, 0.0),
+    ));
 }
 
 fn setup_camera(
@@ -169,30 +179,24 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
                     RenderAssetUsages::RENDER_WORLD,
                 )
                 .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, mesh.vertices.clone())
-                .with_inserted_indices(Indices::U32(mesh.faces.concat())),
+                .with_inserted_indices(Indices::U32(mesh.faces.concat()))
+                .with_computed_normals(),
             );
             meshes.insert(name.clone(), mesh);
         }
         for (name, body) in &scene.bodies {
             let mut materials = Vec::new();
             for geom in &body.geoms {
-                let texture = bevy_app
-                    .world_mut()
-                    .resource_mut::<Assets<Image>>()
-                    .add(uv_debug_texture());
                 materials.push(
                     bevy_app
                         .world_mut()
                         .resource_mut::<Assets<StandardMaterial>>()
-                        .add(StandardMaterial {
-                            base_color_texture: Some(texture),
-                            ..default()
-                        }), // .add(Color::linear_rgba(
-                            //     geom.rgba[0],
-                            //     geom.rgba[1],
-                            //     geom.rgba[2],
-                            //     geom.rgba[3],
-                            // )),
+                        .add(Color::srgba_u8(
+                            (geom.rgba[0] * 255.0) as u8,
+                            (geom.rgba[1] * 255.0) as u8,
+                            (geom.rgba[2] * 255.0) as u8,
+                            (geom.rgba[3] * 255.0) as u8,
+                        )),
                 );
             }
             bevy_app
@@ -218,35 +222,6 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
 
         Self { bevy_app }
     }
-}
-
-/// Creates a colorful test pattern
-fn uv_debug_texture() -> Image {
-    const TEXTURE_SIZE: usize = 8;
-
-    let mut palette: [u8; 32] = [
-        255, 102, 159, 255, 255, 159, 102, 255, 236, 255, 102, 255, 121, 255, 102, 255, 102, 255,
-        198, 255, 102, 198, 255, 255, 121, 102, 255, 255, 236, 102, 255, 255,
-    ];
-
-    let mut texture_data = [0; TEXTURE_SIZE * TEXTURE_SIZE * 4];
-    for y in 0..TEXTURE_SIZE {
-        let offset = TEXTURE_SIZE * y * 4;
-        texture_data[offset..(offset + TEXTURE_SIZE * 4)].copy_from_slice(&palette);
-        palette.rotate_right(4);
-    }
-
-    Image::new_fill(
-        Extent3d {
-            width: TEXTURE_SIZE as u32,
-            height: TEXTURE_SIZE as u32,
-            depth_or_array_layers: 1,
-        },
-        TextureDimension::D2,
-        &texture_data,
-        TextureFormat::Rgba8UnormSrgb,
-        RenderAssetUsages::RENDER_WORLD,
-    )
 }
 
 impl Widget for &mut MujocoSimulatorPanel {
