@@ -224,7 +224,7 @@ impl<World> TwixPainter<World> {
         )));
     }
 
-    pub fn polygon(&self, points: impl IntoIterator<Item = Point2<World>>, stroke: Stroke) {
+    pub fn _polygon(&self, points: impl IntoIterator<Item = Point2<World>>, stroke: Stroke) {
         let points: Vec<_> = points
             .into_iter()
             .map(|point| self.transform_world_to_pixel(point))

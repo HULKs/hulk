@@ -1,6 +1,5 @@
 use std::{
     convert::Into,
-    f32::consts::FRAC_PI_2,
     mem::take,
     sync::{mpsc, Arc},
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -17,14 +16,13 @@ use bevy::{
 use color_eyre::{eyre::WrapErr, Result};
 
 use buffered_watch::{Receiver, Sender};
-use control::{localization::generate_initial_pose, zero_moment_point_provider::LEFT_FOOT_OUTLINE};
+use control::localization::generate_initial_pose;
 use coordinate_systems::{Field, Ground, Head, LeftSole, RightSole, Robot as RobotCoordinates};
 use framework::{future_queue, Producer, RecordingTrigger};
-use geometry::{circle::Circle, polygon::circle_overlaps_polygon};
 use hula_types::hardware::Ids;
 use linear_algebra::{
-    point, vector, Isometry2, Isometry3, Orientation2, Orientation3, Point2, Pose2, Pose3,
-    Rotation2, Vector2,
+    vector, Isometry2, Isometry3, Orientation2, Orientation3, Point2, Pose2, Pose3, Rotation2,
+    Vector2,
 };
 use parameters::directory::deserialize;
 use projection::intrinsic::Intrinsic;
@@ -34,16 +32,12 @@ use types::{
     filtered_whistle::FilteredWhistle,
     joints::Joints,
     messages::{IncomingMessage, OutgoingMessage},
-    motion_command::{HeadMotion, KickVariant},
+    motion_command::HeadMotion,
     motion_selection::MotionSafeExits,
     pose_kinds::PoseKind,
     robot_dimensions::RobotDimensions,
     sensor_data::Foot,
     support_foot::Side,
-};
-use walking_engine::{
-    kick_state::KickState,
-    mode::{kicking::Kicking, Mode},
 };
 
 use crate::{
@@ -249,65 +243,12 @@ pub fn from_player_number(val: PlayerNumber) -> usize {
     }
 }
 
-pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>, time: Res<Time>) {
+pub fn move_robots(mut robots: Query<&mut Robot>, _ball: ResMut<BallResource>, time: Res<Time>) {
     for mut robot in &mut robots {
         if let Some(ball) = robot.database.main_outputs.ball_position.as_mut() {
             ball.position += ball.velocity * time.delta_secs();
             ball.velocity *= 0.98
         }
-        if let Mode::Kicking(Kicking {
-            kick:
-                KickState {
-                    variant,
-                    side: kicking_side,
-                    strength,
-                    ..
-                },
-            ..
-        }) = robot.cycler.cycler_state.walking_engine_mode
-        {
-            if let Some(ball) = ball.state.as_mut() {
-                let side = match kicking_side {
-                    Side::Left => -1.0,
-                    Side::Right => 1.0,
-                };
-
-                let robot_to_ground = robot.database.main_outputs.robot_to_ground.unwrap();
-                let kinematics = &robot.database.main_outputs.robot_kinematics;
-                let left_sole_to_ground = robot_to_ground * kinematics.left_leg.sole_to_robot;
-                let right_sole_to_ground = robot_to_ground * kinematics.right_leg.sole_to_robot;
-                let left_sole_in_ground: Vec<_> = LEFT_FOOT_OUTLINE
-                    .into_iter()
-                    .map(|point| (left_sole_to_ground * point).xy())
-                    .collect();
-                let right_sole_in_ground: Vec<_> = LEFT_FOOT_OUTLINE
-                    .into_iter()
-                    .map(|point| {
-                        (right_sole_to_ground * point![point.x(), -point.y(), point.z()]).xy()
-                    })
-                    .collect();
-
-                let ball_circle = Circle::new(
-                    robot.ground_to_field().inverse() * ball.position,
-                    robot.parameters.field_dimensions.ball_radius,
-                );
-                let in_range = circle_overlaps_polygon(&left_sole_in_ground, ball_circle)
-                    || circle_overlaps_polygon(&right_sole_in_ground, ball_circle);
-                let previous_kick_finished =
-                    (time.elapsed() - robot.last_kick_time).as_secs_f32() > 1.0;
-                if in_range && previous_kick_finished {
-                    let direction = match variant {
-                        KickVariant::Forward => Orientation2::identity(),
-                        KickVariant::Turn => Orientation2::new(0.35),
-                        KickVariant::Side => Orientation2::new(-FRAC_PI_2),
-                    }
-                    .as_unit_vector()
-                    .component_mul(&vector![1.0, side]);
-                    ball.velocity += robot.ground_to_field() * direction * strength * 2.5;
-                    robot.last_kick_time = time.elapsed();
-                };
-            }
-        };
 
         let (left_sole, right_sole) =
             sole_positions(&robot.database.main_outputs.sensor_data.positions);
@@ -323,17 +264,6 @@ pub fn move_robots(mut robots: Query<&mut Robot>, mut ball: ResMut<BallResource>
         };
         let ground = robot.database.main_outputs.robot_to_ground.unwrap() * support_sole;
         let anchor = robot.ground_to_field() * to2d(ground);
-
-        let target = robot.database.main_outputs.walk_motor_commands.positions;
-        let positions = &mut robot.database.main_outputs.sensor_data.positions;
-        positions.left_leg =
-            positions.left_leg + (target.left_leg - positions.left_leg) * time.delta_secs() * 10.0;
-        positions.right_leg = positions.right_leg
-            + (target.right_leg - positions.right_leg) * time.delta_secs() * 10.0;
-        positions.left_arm =
-            positions.left_arm + (target.left_arm - positions.left_arm) * time.delta_secs() * 10.0;
-        positions.right_arm = positions.right_arm
-            + (target.right_arm - positions.right_arm) * time.delta_secs() * 10.0;
 
         let (new_left_sole, new_right_sole) =
             sole_positions(&robot.database.main_outputs.sensor_data.positions);
@@ -505,12 +435,7 @@ pub fn cycle_robots(
             .support_foot
             .support_side
             .unwrap();
-        let is_step_finished = robot
-            .cycler
-            .cycler_state
-            .walking_engine_mode
-            .step_state()
-            .is_some_and(|step_state| step_state.time_since_start >= step_state.plan.step_duration);
+        let is_step_finished = false;
         let next_support_foot = if is_step_finished {
             support_foot.opposite()
         } else {
@@ -568,7 +493,7 @@ fn sole_positions(joint_positions: &Joints) -> (Pose3<RobotCoordinates>, Pose3<R
     let left_foot_to_robot =
         left_ankle_to_robot * left_foot_to_left_ankle(&joint_positions.left_leg);
     let left_sole_to_robot: Isometry3<LeftSole, RobotCoordinates> =
-        left_foot_to_robot * Isometry3::from(RobotDimensions::LEFT_ANKLE_TO_LEFT_SOLE);
+        left_foot_to_robot * Isometry3::from(RobotDimensions::LEFT_FOOT_TO_LEFT_SOLE);
     // right leg
     let right_pelvis_to_robot = right_pelvis_to_robot(&joint_positions.right_leg);
     let right_hip_to_robot =
@@ -582,7 +507,7 @@ fn sole_positions(joint_positions: &Joints) -> (Pose3<RobotCoordinates>, Pose3<R
     let right_foot_to_robot =
         right_ankle_to_robot * right_foot_to_right_ankle(&joint_positions.right_leg);
     let right_sole_to_robot: Isometry3<RightSole, RobotCoordinates> =
-        right_foot_to_robot * Isometry3::from(RobotDimensions::RIGHT_ANKLE_TO_RIGHT_SOLE);
+        right_foot_to_robot * Isometry3::from(RobotDimensions::RIGHT_FOOT_TO_RIGHT_SOLE);
 
     (left_sole_to_robot.as_pose(), right_sole_to_robot.as_pose())
 }

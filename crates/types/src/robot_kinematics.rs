@@ -4,7 +4,10 @@ use linear_algebra::Isometry3;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use coordinate_systems::{
-    Head, LeftAnkle, LeftFoot, LeftForearm, LeftHip, LeftInnerShoulder, LeftOuterShoulder, LeftPelvis, LeftSole, LeftThigh, LeftTibia, LeftUpperArm, Neck, RightAnkle, RightFoot, RightForearm, RightHip, RightInnerShoulder, RightOuterShoulder, RightPelvis, RightSole, RightThigh, RightTibia, RightUpperArm, Robot, Torso
+    Head, LeftAnkle, LeftFoot, LeftForearm, LeftHip, LeftInnerShoulder, LeftOuterShoulder,
+    LeftPelvis, LeftSole, LeftThigh, LeftTibia, LeftUpperArm, Neck, RightAnkle, RightFoot,
+    RightForearm, RightHip, RightInnerShoulder, RightOuterShoulder, RightPelvis, RightSole,
+    RightThigh, RightTibia, RightUpperArm, Robot, Torso,
 };
 
 #[derive(

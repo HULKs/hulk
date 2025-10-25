@@ -48,7 +48,6 @@ members = [
   "crates/step_planning_solver",
   "crates/types",
   "crates/vision",
-  "crates/walking_engine",
   "crates/zed",
   "tools/annotato",
   "tools/camera_matrix_extractor",
@@ -242,7 +241,6 @@ uuid = { version = "1.12.1", features = ["v4"] }
 v4l = { version = "0.12.1", git = "https://github.com/HULKs/libv4l-rs", rev = "be65819073514b193d082dd37dbcc2cfac3f6183" }
 vision = { path = "crates/vision" }
 walkdir = "2.5.0"
-walking_engine = { path = "crates/walking_engine" }
 watch = "0.2.3"
 webots = { version = "0.8.0" }
 xdg = "2.5.2"
