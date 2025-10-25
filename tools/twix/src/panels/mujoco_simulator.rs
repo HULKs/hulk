@@ -230,6 +230,7 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
 
         let (tx, rx) = mpsc::channel(10);
 
+        let egui_ctx = context.egui_context.clone();
         thread::spawn(|| {
             let rt = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
@@ -243,10 +244,9 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
                 let (_sender, mut receiver) = stream.split();
                 while let Some(Ok(message)) = receiver.next().await {
                     let text = message.to_text().unwrap();
-                    println!("{}", text);
                     let update: SceneUpdate = serde_json::from_str(text).unwrap();
-                    dbg!(&update);
                     tx.send(update).await.unwrap();
+                    egui_ctx.request_repaint();
                 }
             });
         });
