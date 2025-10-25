@@ -8722,6 +8722,7 @@ dependencies = [
  "parameters",
  "projection",
  "repository",
+ "rmp-serde",
  "serde",
  "serde_json",
  "step_planning",
