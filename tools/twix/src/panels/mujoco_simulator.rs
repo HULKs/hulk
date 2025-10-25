@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, fs::File, sync::Arc};
+use std::{collections::BTreeMap, fs::File, sync::Arc, thread};
 
 use bevy::{
     asset::RenderAssetUsages,
@@ -20,10 +20,13 @@ use bevy::{
 use eframe::{
     egui::{self, load::SizedTexture, vec2, Response, Ui, Widget},
     egui_wgpu::wgpu,
-    wgpu::{Extent3d, PrimitiveTopology, TextureDimension, TextureFormat},
+    wgpu::PrimitiveTopology,
 };
+use futures_util::StreamExt;
 use nalgebra::{Point3, Vector3};
 use serde::{Deserialize, Serialize};
+use tokio::sync::mpsc;
+use tokio_tungstenite::connect_async;
 
 use crate::panel::{Panel, PanelCreationContext};
 
@@ -149,6 +152,7 @@ fn setup_camera(
 }
 
 pub struct MujocoSimulatorPanel {
+    rx: mpsc::Receiver<SceneUpdate>,
     bevy_app: App,
 }
 
@@ -201,14 +205,19 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
             }
             bevy_app
                 .world_mut()
-                .spawn((Transform::default(), Visibility::default()))
+                .spawn((
+                    Transform::default(),
+                    Visibility::default(),
+                    BodyMarker { name: name.clone() },
+                ))
                 .with_children(|parent| {
                     for (geom, material) in body.geoms.iter().zip(materials) {
                         let Some(mesh_name) = geom.mesh.as_ref() else {
                             continue;
                         };
                         parent.spawn((
-                            Transform::from_translation(geom.pos).with_rotation(geom.quat),
+                            Transform::from_translation(geom.pos)
+                                .with_rotation(bevy_quat(geom.quat)),
                             Visibility::default(),
                             Mesh3d(meshes.get(mesh_name).cloned().unwrap()),
                             MeshMaterial3d(material),
@@ -216,16 +225,49 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
                     }
                 });
         }
-        // dbg!(scene);
         bevy_app.finish();
         bevy_app.cleanup();
 
-        Self { bevy_app }
+        let (tx, rx) = mpsc::channel(10);
+
+        thread::spawn(|| {
+            let rt = tokio::runtime::Builder::new_current_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+            rt.block_on(async move {
+                println!("starting background task");
+                let (stream, _response) = connect_async("ws://localhost:8000/scene/subscribe")
+                    .await
+                    .unwrap();
+                let (_sender, mut receiver) = stream.split();
+                while let Some(Ok(message)) = receiver.next().await {
+                    let text = message.to_text().unwrap();
+                    println!("{}", text);
+                    let update: SceneUpdate = serde_json::from_str(text).unwrap();
+                    dbg!(&update);
+                    tx.send(update).await.unwrap();
+                }
+            });
+        });
+
+        Self { rx, bevy_app }
     }
 }
 
 impl Widget for &mut MujocoSimulatorPanel {
     fn ui(self, ui: &mut Ui) -> Response {
+        if let Ok(update) = self.rx.try_recv() {
+            let mut query = self
+                .bevy_app
+                .world_mut()
+                .query::<(&mut Transform, &BodyMarker)>();
+            for (mut transform, marker) in query.iter_mut(self.bevy_app.world_mut()) {
+                let body_update = &update.bodies[&marker.name];
+                *transform = Transform::from_translation(body_update.pos)
+                    .with_rotation(bevy_quat(body_update.quat));
+            }
+        }
         self.bevy_app.update();
         let texture_id = self
             .bevy_app
@@ -239,6 +281,11 @@ impl Widget for &mut MujocoSimulatorPanel {
         });
         ui.image(image_source)
     }
+}
+
+#[derive(Component)]
+struct BodyMarker {
+    name: String,
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -276,4 +323,19 @@ struct Geom {
     rgba: Vec<f32>,
     pos: Vec3,
     quat: Quat,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct SceneUpdate {
+    time: Option<String>,
+    bodies: BTreeMap<String, BodyUpdate>,
+}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct BodyUpdate {
+    pos: Vec3,
+    quat: Quat,
+}
+
+fn bevy_quat(quat: Quat) -> Quat {
+    Quat::from_xyzw(quat.y, quat.z, quat.w, quat.x)
 }
