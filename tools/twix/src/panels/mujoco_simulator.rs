@@ -1,6 +1,9 @@
-use std::sync::Arc;
+use std::{collections::BTreeMap, fs::File, sync::Arc};
 
-use bevy::render::RenderDebugFlags;
+use bevy::{
+    asset::RenderAssetUsages,
+    render::{mesh::Indices, RenderDebugFlags},
+};
 use bevy::{
     prelude::*,
     render::{
@@ -16,20 +19,13 @@ use bevy::{
 };
 use eframe::{
     egui::{self, load::SizedTexture, vec2, Response, Ui, Widget},
-    egui_wgpu::{wgpu, WgpuConfiguration, WgpuSetup},
+    egui_wgpu::wgpu,
+    wgpu::{Extent3d, PrimitiveTopology, TextureDimension, TextureFormat},
 };
-use eframe::{
-    egui::{CentralPanel, Context},
-    run_native, CreationContext, Frame, NativeOptions, Renderer,
-};
-use serde_json::Value;
+use nalgebra::{Point3, Vector3};
+use serde::{Deserialize, Serialize};
 
-use crate::{
-    nao::Nao,
-    panel::{Panel, PanelCreationContext},
-};
-
-struct EguiApp {}
+use crate::panel::{Panel, PanelCreationContext};
 
 #[derive(Resource)]
 struct BevyRenderTarget {
@@ -106,11 +102,11 @@ fn setup_scene(
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
 ) {
-    commands.spawn((
-        Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
-        MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
-        Transform::from_xyz(0.0, 0.5, 0.0),
-    ));
+    // commands.spawn((
+    //     Mesh3d(meshes.add(Cuboid::new(1.0, 1.0, 1.0))),
+    //     MeshMaterial3d(materials.add(Color::srgb_u8(124, 144, 255))),
+    //     Transform::from_xyz(0.0, 0.5, 0.0),
+    // ));
 }
 
 fn setup_camera(
@@ -135,10 +131,10 @@ fn setup_camera(
         Camera3d::default(),
         Camera {
             target: RenderTarget::TextureView(manual_texture_view_handle),
-            clear_color: Color::WHITE.into(),
+            clear_color: Color::linear_rgba(0.3, 0.3, 0.3, 0.3).into(),
             ..Default::default()
         },
-        Transform::from_xyz(-2.5, 4.5, 9.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
     ));
 }
 
@@ -160,11 +156,97 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
             )
             .add_systems(Startup, setup_camera)
             .add_systems(Startup, setup_scene);
+        let file = File::open("/tmp/scene").unwrap();
+        // let mut bytes = Vec::new();
+        // file.read_to_end(&mut bytes).unwrap();
+        // println!("Read bytes: {}", bytes.len());
+        let scene: SceneDescription = rmp_serde::from_read(file).unwrap();
+        let mut meshes = BTreeMap::new();
+        for (name, mesh) in &scene.meshes {
+            let mesh = bevy_app.world_mut().resource_mut::<Assets<Mesh>>().add(
+                Mesh::new(
+                    PrimitiveTopology::TriangleList,
+                    RenderAssetUsages::RENDER_WORLD,
+                )
+                .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, mesh.vertices.clone())
+                .with_inserted_indices(Indices::U32(mesh.faces.concat())),
+            );
+            meshes.insert(name.clone(), mesh);
+        }
+        for (name, body) in &scene.bodies {
+            let mut materials = Vec::new();
+            for geom in &body.geoms {
+                let texture = bevy_app
+                    .world_mut()
+                    .resource_mut::<Assets<Image>>()
+                    .add(uv_debug_texture());
+                materials.push(
+                    bevy_app
+                        .world_mut()
+                        .resource_mut::<Assets<StandardMaterial>>()
+                        .add(StandardMaterial {
+                            base_color_texture: Some(texture),
+                            ..default()
+                        }), // .add(Color::linear_rgba(
+                            //     geom.rgba[0],
+                            //     geom.rgba[1],
+                            //     geom.rgba[2],
+                            //     geom.rgba[3],
+                            // )),
+                );
+            }
+            bevy_app
+                .world_mut()
+                .spawn((Transform::default(), Visibility::default()))
+                .with_children(|parent| {
+                    for (geom, material) in body.geoms.iter().zip(materials) {
+                        let Some(mesh_name) = geom.mesh.as_ref() else {
+                            continue;
+                        };
+                        parent.spawn((
+                            Transform::from_translation(geom.pos).with_rotation(geom.quat),
+                            Visibility::default(),
+                            Mesh3d(meshes.get(mesh_name).cloned().unwrap()),
+                            MeshMaterial3d(material),
+                        ));
+                    }
+                });
+        }
+        // dbg!(scene);
         bevy_app.finish();
         bevy_app.cleanup();
 
         Self { bevy_app }
     }
+}
+
+/// Creates a colorful test pattern
+fn uv_debug_texture() -> Image {
+    const TEXTURE_SIZE: usize = 8;
+
+    let mut palette: [u8; 32] = [
+        255, 102, 159, 255, 255, 159, 102, 255, 236, 255, 102, 255, 121, 255, 102, 255, 102, 255,
+        198, 255, 102, 198, 255, 255, 121, 102, 255, 255, 236, 102, 255, 255,
+    ];
+
+    let mut texture_data = [0; TEXTURE_SIZE * TEXTURE_SIZE * 4];
+    for y in 0..TEXTURE_SIZE {
+        let offset = TEXTURE_SIZE * y * 4;
+        texture_data[offset..(offset + TEXTURE_SIZE * 4)].copy_from_slice(&palette);
+        palette.rotate_right(4);
+    }
+
+    Image::new_fill(
+        Extent3d {
+            width: TEXTURE_SIZE as u32,
+            height: TEXTURE_SIZE as u32,
+            depth_or_array_layers: 1,
+        },
+        TextureDimension::D2,
+        &texture_data,
+        TextureFormat::Rgba8UnormSrgb,
+        RenderAssetUsages::RENDER_WORLD,
+    )
 }
 
 impl Widget for &mut MujocoSimulatorPanel {
@@ -182,4 +264,41 @@ impl Widget for &mut MujocoSimulatorPanel {
         });
         ui.image(image_source)
     }
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct SceneDescription {
+    meshes: BTreeMap<String, SceneMesh>,
+    // textures: dict
+    lights: Vec<Light>,
+    bodies: BTreeMap<String, Body>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct SceneMesh {
+    vertices: Vec<[f32; 3]>,
+    faces: Vec<[u32; 3]>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct Light {
+    name: Option<String>,
+    pos: Point3<f32>,
+    dir: Vector3<f32>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct Body {
+    id: i64,
+    parent: Option<String>,
+    geoms: Vec<Geom>,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+struct Geom {
+    name: Option<String>,
+    mesh: Option<String>,
+    rgba: Vec<f32>,
+    pos: Vec3,
+    quat: Quat,
 }
