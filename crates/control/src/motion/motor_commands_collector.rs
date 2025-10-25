@@ -203,9 +203,6 @@ impl MotorCommandCollector {
             .current_minimizer
             .fill_if_subscribed(|| self.current_minimizer);
 
-        motor_commands.stiffnesses.left_arm.hand = 0.0;
-        motor_commands.stiffnesses.right_arm.hand = 0.0;
-
         if (*context.only_one_foot_has_ground_contact || !*context.has_ground_contact)
             && (*context.primary_state == PrimaryState::Initial
                 || *context.primary_state == PrimaryState::Penalized)

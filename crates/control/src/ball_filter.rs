@@ -23,7 +23,6 @@ use types::{
     limb::{is_above_limbs, Limb, ProjectedLimbs},
     parameters::BallFilterParameters,
 };
-use walking_engine::mode::Mode;
 
 #[derive(Deserialize, Serialize)]
 pub struct BallFilter {
@@ -54,7 +53,6 @@ pub struct CycleContext {
 
     balls: PerceptionInput<Option<Vec<BallPercept>>, "Vision", "balls?">,
     projected_limbs: PerceptionInput<Option<ProjectedLimbs>, "Vision", "projected_limbs?">,
-    walking_engine_mode: CyclerState<Mode, "walking_engine_mode">,
 }
 
 #[context]
@@ -83,7 +81,6 @@ impl BallFilter {
         filter_parameters: &BallFilterParameters,
         field_dimensions: &FieldDimensions,
         cycle_time: &CycleTime,
-        walking_engine_mode: Mode,
     ) {
         for (detection_time, balls) in measurements {
             self.ball_filter.hypotheses.retain(|hypothesis| {
@@ -183,11 +180,9 @@ impl BallFilter {
                 .expect("time ran backwards");
             let validity_high_enough =
                 hypothesis.validity >= filter_parameters.validity_discard_threshold;
-            let ball_kicked = matches!(walking_engine_mode, Mode::Kicking(_));
             is_ball_inside_field(ball, field_dimensions)
                 && validity_high_enough
                 && duration_since_last_observation < filter_parameters.hypothesis_timeout
-                && !ball_kicked
         };
 
         let should_merge_hypotheses =
@@ -225,7 +220,6 @@ impl BallFilter {
             filter_parameters,
             context.field_dimensions,
             context.cycle_time,
-            *context.walking_engine_mode,
         );
 
         context

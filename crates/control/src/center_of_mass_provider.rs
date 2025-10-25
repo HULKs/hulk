@@ -37,37 +37,35 @@ impl CenterOfMassProvider {
                 * robot_masses::NECK.mass
             + (robot_kinematics.head.head_to_robot * robot_masses::HEAD.center).coords()
                 * robot_masses::HEAD.mass
-            + (robot_kinematics.left_arm.shoulder_to_robot * robot_masses::LEFT_SHOULDER.center)
+            + (robot_kinematics.left_arm.inner_shoulder_to_robot
+                * robot_masses::LEFT_INNER_SHOULDER.center)
                 .coords()
-                * robot_masses::LEFT_SHOULDER.mass
+                * robot_masses::LEFT_INNER_SHOULDER.mass
+            + (robot_kinematics.left_arm.outer_shoulder_to_robot
+                * robot_masses::LEFT_OUTER_SHOULDER.center)
+                .coords()
+                * robot_masses::LEFT_OUTER_SHOULDER.mass
             + (robot_kinematics.left_arm.upper_arm_to_robot * robot_masses::LEFT_UPPER_ARM.center)
                 .coords()
                 * robot_masses::LEFT_UPPER_ARM.mass
-            + (robot_kinematics.left_arm.elbow_to_robot * robot_masses::LEFT_ELBOW.center)
-                .coords()
-                * robot_masses::LEFT_ELBOW.mass
             + (robot_kinematics.left_arm.forearm_to_robot * robot_masses::LEFT_FOREARM.center)
                 .coords()
                 * robot_masses::LEFT_FOREARM.mass
-            + (robot_kinematics.left_arm.wrist_to_robot * robot_masses::LEFT_WRIST.center)
+            + (robot_kinematics.right_arm.inner_shoulder_to_robot
+                * robot_masses::RIGHT_INNER_SHOULDER.center)
                 .coords()
-                * robot_masses::LEFT_WRIST.mass
-            + (robot_kinematics.right_arm.shoulder_to_robot * robot_masses::RIGHT_SHOULDER.center)
+                * robot_masses::RIGHT_INNER_SHOULDER.mass
+            + (robot_kinematics.right_arm.outer_shoulder_to_robot
+                * robot_masses::RIGHT_OUTER_SHOULDER.center)
                 .coords()
-                * robot_masses::RIGHT_SHOULDER.mass
+                * robot_masses::RIGHT_OUTER_SHOULDER.mass
             + (robot_kinematics.right_arm.upper_arm_to_robot
                 * robot_masses::RIGHT_UPPER_ARM.center)
                 .coords()
                 * robot_masses::RIGHT_UPPER_ARM.mass
-            + (robot_kinematics.right_arm.elbow_to_robot * robot_masses::RIGHT_ELBOW.center)
-                .coords()
-                * robot_masses::RIGHT_ELBOW.mass
             + (robot_kinematics.right_arm.forearm_to_robot * robot_masses::RIGHT_FOREARM.center)
                 .coords()
                 * robot_masses::RIGHT_FOREARM.mass
-            + (robot_kinematics.right_arm.wrist_to_robot * robot_masses::RIGHT_WRIST.center)
-                .coords()
-                * robot_masses::RIGHT_WRIST.mass
             + (robot_kinematics.left_leg.pelvis_to_robot * robot_masses::LEFT_PELVIS.center)
                 .coords()
                 * robot_masses::LEFT_PELVIS.mass

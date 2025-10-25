@@ -43,8 +43,6 @@ use reachable_naos::ReachableNaos;
 use repository::{inspect_version::check_for_update, Repository};
 use visuals::Visuals;
 
-use crate::panels::WalkPanel;
-
 mod change_buffer;
 mod configuration;
 mod log_error;
@@ -150,7 +148,6 @@ impl_selectable_panel!(
     SemiAutomaticCameraCalibrationPanel,
     TextPanel,
     VisionTunerPanel,
-    WalkPanel,
 );
 
 struct TwixApp {

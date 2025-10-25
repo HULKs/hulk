@@ -67,12 +67,6 @@ fn update(
     });
 
     let optimizer_steps = time.ticks() as usize;
-    robots
-        .single_mut()
-        .parameters
-        .step_planner
-        .optimization_parameters
-        .optimizer_steps = optimizer_steps;
 
     println!("tick {}: {optimizer_steps} steps", time.ticks());
 

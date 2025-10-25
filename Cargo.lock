@@ -1115,7 +1115,6 @@ dependencies = [
  "tokio-util",
  "types",
  "vision",
- "walking_engine",
  "zed",
 ]
 
@@ -1926,7 +1925,6 @@ dependencies = [
  "step_planning",
  "step_planning_solver",
  "types",
- "walking_engine",
 ]
 
 [[package]]
@@ -3599,7 +3597,6 @@ dependencies = [
  "tokio",
  "types",
  "vision",
- "walking_engine",
  "zed",
 ]
 
@@ -3666,7 +3663,6 @@ dependencies = [
  "tokio-util",
  "types",
  "vision",
- "walking_engine",
  "zed",
 ]
 
@@ -3718,7 +3714,6 @@ dependencies = [
  "tokio-util",
  "types",
  "vision",
- "walking_engine",
  "zed",
 ]
 
@@ -5675,7 +5670,6 @@ dependencies = [
  "spl_network_messages",
  "step_planning",
  "types",
- "walking_engine",
 ]
 
 [[package]]
@@ -8141,7 +8135,6 @@ dependencies = [
  "tokio",
  "toml",
  "types",
- "walking_engine",
 ]
 
 [[package]]
@@ -8401,24 +8394,6 @@ checksum = "29790946404f91d9c5d06f9874efddea1dc06c5efe94541a7d6863108e3a5e4b"
 dependencies = [
  "same-file",
  "winapi-util",
-]
-
-[[package]]
-name = "walking_engine"
-version = "0.1.0"
-dependencies = [
- "coordinate_systems",
- "geometry",
- "itertools 0.14.0",
- "kinematics",
- "linear_algebra",
- "motionfile",
- "nalgebra",
- "num-traits",
- "path_serde",
- "serde",
- "splines",
- "types",
 ]
 
 [[package]]

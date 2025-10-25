@@ -95,10 +95,7 @@ impl<T> Joints<T> {
                     JointsName::LeftArm(ArmJoint::ShoulderYaw),
                     self.left_arm.shoulder_yaw,
                 ),
-                elbow: (
-                    JointsName::LeftArm(ArmJoint::Elbow),
-                    self.left_arm.elbow,
-                ),
+                elbow: (JointsName::LeftArm(ArmJoint::Elbow), self.left_arm.elbow),
             },
             right_arm: ArmJoints {
                 shoulder_pitch: (
@@ -113,10 +110,7 @@ impl<T> Joints<T> {
                     JointsName::RightArm(ArmJoint::ShoulderYaw),
                     self.right_arm.shoulder_yaw,
                 ),
-                elbow: (
-                    JointsName::RightArm(ArmJoint::Elbow),
-                    self.right_arm.elbow,
-                ),
+                elbow: (JointsName::RightArm(ArmJoint::Elbow), self.right_arm.elbow),
             },
             left_leg: LegJoints {
                 ankle_down: (
@@ -135,14 +129,8 @@ impl<T> Joints<T> {
                     JointsName::LeftLeg(LegJoint::HipRoll),
                     self.left_leg.hip_roll,
                 ),
-                hip_yaw: (
-                    JointsName::LeftLeg(LegJoint::HipYaw),
-                    self.left_leg.hip_yaw,
-                ),
-                knee: (
-                    JointsName::LeftLeg(LegJoint::Knee),
-                    self.left_leg.knee,
-                ),
+                hip_yaw: (JointsName::LeftLeg(LegJoint::HipYaw), self.left_leg.hip_yaw),
+                knee: (JointsName::LeftLeg(LegJoint::Knee), self.left_leg.knee),
             },
             right_leg: LegJoints {
                 ankle_down: (
@@ -165,10 +153,7 @@ impl<T> Joints<T> {
                     JointsName::RightLeg(LegJoint::HipYaw),
                     self.right_leg.hip_yaw,
                 ),
-                knee: (
-                    JointsName::RightLeg(LegJoint::Knee),
-                    self.right_leg.knee,
-                ),
+                knee: (JointsName::RightLeg(LegJoint::Knee), self.right_leg.knee),
             },
         }
         .into_iter()

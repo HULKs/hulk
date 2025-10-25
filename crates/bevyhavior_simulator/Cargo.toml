@@ -48,7 +48,6 @@ tokio = { workspace = true }
 tokio-util = { workspace = true }
 types = { workspace = true }
 vision = { workspace = true }
-walking_engine = { workspace = true }
 zed = { workspace = true }
 
 [build-dependencies]
