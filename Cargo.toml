@@ -122,10 +122,10 @@ derive_more = { version = "2.0.1", features = [
   "not",
 ] }
 dirs = "6.0.0"
-eframe = { version = "0.31.0", features = ["persistence", "wgpu"] }
-egui = { version = "=0.31.0", features = ["persistence"] }
+eframe = { version = "0.31.1", features = ["persistence", "wgpu"] }
+egui = { version = "=0.31.1", features = ["persistence"] }
 egui_dock = { version = "0.16.0", features = ["serde"] }
-egui_extras = { version = "0.31.0", features = ["image"] }
+egui_extras = { version = "0.31.1", features = ["image"] }
 egui_plot = "0.31.0"
 energy_optimization = { path = "crates/energy_optimization" }
 enum-iterator = "2.1.0"
@@ -261,8 +261,8 @@ serde_derive = { git = "https://github.com/HULKs/serde.git", rev = "ef30eb8fdd0e
 # Pinned to forked serde version since https://github.com/serde-rs/serde/pull/2513 is not merged
 serde_core = { git = "https://github.com/HULKs/serde.git", rev = "ef30eb8fdd0ee12e4e6f3f5615c6bb022e02d1b2" }
 
-egui = { path = "../egui-bevy/egui/crates/egui/" }
-egui-wgpu = { path = "../egui-bevy/egui/crates/egui-wgpu/" }
+egui = { path = "../egui/crates/egui/" }
+egui-wgpu = { path = "../egui/crates/egui-wgpu/" }
 
 [profile.dev]
 opt-level = 3
