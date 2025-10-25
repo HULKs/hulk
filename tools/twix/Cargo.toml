@@ -10,7 +10,7 @@ aliveness = { workspace = true }
 argument_parsers = { workspace = true }
 ball_filter = { workspace = true }
 bincode = { workspace = true }
-bevy = { workspace = true, features = ["bevy_render", "bevy_asset", "bevy_core_pipeline", "bevy_window", "bevy_pbr"] }
+bevy = { workspace = true, features = ["bevy_render", "bevy_asset", "bevy_core_pipeline", "bevy_window", "bevy_pbr", "tonemapping_luts" ] }
 buffered_watch = { workspace = true }
 calibration = { workspace = true }
 chrono = { workspace = true }
