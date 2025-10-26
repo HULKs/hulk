@@ -7,10 +7,9 @@ use axum::{
     },
     response::{IntoResponse, Response},
     routing::get,
-    Extension, Json, Router,
+    Extension, Router,
 };
 use bytes::Bytes;
-use serde_json::Value;
 use tokio::sync::{
     broadcast::{Receiver, Sender},
     SetOnce,

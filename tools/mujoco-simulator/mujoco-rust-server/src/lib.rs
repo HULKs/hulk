@@ -1,71 +1,74 @@
+mod controller;
 mod scene;
 mod simulation;
+mod state_machine;
+mod task;
 
 use std::{
+    future::IntoFuture,
     sync::Arc,
     time::{Duration, SystemTime},
 };
 
-use axum::{routing::get, Router};
+use axum::{error_handling::future, routing::get, Router};
 use bytes::Bytes;
-use pyo3::{exceptions::PyValueError, pyclass, pymethods, Py, PyResult, Python};
+use pyo3::{exceptions::PyValueError, pyclass, pymethods, Bound, PyAny, PyResult, Python};
+use pyo3_async_runtimes::tokio::future_into_py;
 use tokio::{
     net::TcpListener,
     runtime::Runtime,
-    select,
     sync::{
-        broadcast::{error::TryRecvError, Receiver, Sender},
-        RwLock, Semaphore,
+        mpsc::{self, Receiver},
+        Mutex,
     },
+    task::JoinSet,
+    time::{sleep, timeout},
 };
 use tokio_util::sync::CancellationToken;
 
-use booster::{LowCommand, LowState};
-use simulation_message::{ClientMessageKind, ServerMessageKind, SimulationMessage};
 use tower_http::cors::{Any, CorsLayer};
-use zed::RGBDSensors;
+
+use crate::{
+    controller::{Controller, ControllerHandle},
+    task::{ControllerTask, TaskState},
+};
 
 #[pyclass]
 pub struct SimulationServer {
     runtime: Runtime,
-    cancel_token: CancellationToken,
-
-    simulation: SimulationSideChannels,
-}
-
-struct SimulationSideChannels {
-    permits: Arc<Semaphore>,
-    simulation_control: Receiver<simulation::ServerCommand>,
-    message_receiver: Receiver<ClientMessageKind>,
-    message_sender: Sender<SimulationMessage<ServerMessageKind>>,
+    cancellation_token: CancellationToken,
     scene_state: Arc<scene::SceneState>,
+    task_receiver: Arc<Mutex<Receiver<TaskState>>>,
+    controller_handle: ControllerHandle,
+
+    tasks: JoinSet<()>,
 }
 
 #[pymethods]
 impl SimulationServer {
     #[new]
-    pub fn start(bind_address: &str, low_state: LowState) -> PyResult<Self> {
+    pub fn start(bind_address: &str) -> PyResult<Self> {
+        let id = unsafe { libc::pthread_self() };
+        log::info!("Thread id in next_task: {:?}", id);
+
         let runtime = Runtime::new()?;
-        let cancel_token = CancellationToken::new();
+        let _guard = runtime.enter();
+        let cancellation_token = CancellationToken::new();
+
+        let (task_sender, task_receiver) = mpsc::channel(16);
+        let controller = Controller::new(task_sender);
+        let handle = controller.handle();
+        let mut tasks = JoinSet::new();
+
+        tasks.spawn(controller.start(cancellation_token.clone()));
 
         let (scene_router, scene_state) = scene::setup();
-        let (simulation_router, simulation_state) = simulation::setup();
-
-        let this = SimulationServer {
-            runtime,
-            cancel_token,
-            simulation: SimulationSideChannels {
-                permits: simulation_state.is_connected.clone(),
-                simulation_control: simulation_state.simulation_control.subscribe(),
-                message_receiver: simulation_state.to_simulation.subscribe(),
-                message_sender: simulation_state.from_simulation.clone(),
-                scene_state: scene_state.clone(),
-            },
-        };
+        let simulation_router = simulation::setup(handle.clone());
 
         let bind_address = bind_address.to_string();
-        let token = this.cancel_token.clone();
-        this.runtime.spawn(async move {
+
+        let token = cancellation_token.clone();
+        tasks.spawn(async move {
             let cors_layer = CorsLayer::new()
                 .allow_origin(Any)
                 .allow_methods(Any)
@@ -84,41 +87,52 @@ impl SimulationServer {
                     return;
                 }
             };
+
             log::info!("Server listening on {}", listener.local_addr().unwrap());
-
-            select! {
-                _ = token.cancelled() => {
-                    log::info!("Shutdown signal received, stopping server.");
-                }
-                result = axum::serve(listener, app) => {
-                    match result {
-                        Ok(_) => log::info!("Server stopped"),
-                        Err(e) => log::error!("Error serving the application: {}", e),
-                    }
-                }
-            };
+            token
+                .run_until_cancelled_owned(axum::serve(listener, app).into_future())
+                .await;
+            log::info!("Server stopped");
         });
 
-        Ok(this)
+        Ok(SimulationServer {
+            runtime,
+            cancellation_token,
+            scene_state,
+            task_receiver: Arc::new(Mutex::new(task_receiver)),
+            controller_handle: handle,
+            tasks,
+        })
     }
 
-    pub fn send_low_state(&self, simulation_time: f32, low_state: Py<LowState>) -> PyResult<()> {
-        // ignore the error, as it just means there are no receivers
+    pub fn next_task<'py>(
+        &mut self,
+        py: Python<'py>,
+        simulation_time: f32,
+    ) -> PyResult<Bound<'py, PyAny>> {
+        let now = SystemTime::UNIX_EPOCH + Duration::from_secs_f32(simulation_time);
+        let handle = self.controller_handle.clone();
+        let receiver = self.task_receiver.clone();
 
-        let _ = self.simulation.message_sender.send(SimulationMessage {
-            time: SystemTime::UNIX_EPOCH + Duration::from_secs_f32(simulation_time),
-            payload: ServerMessageKind::LowState(low_state.get().clone()),
-        });
-        Ok(())
+        future_into_py(py, async move {
+            handle.advance_time(now).await;
+            match receiver.lock().await.recv().await {
+                Some(task) => Ok(ControllerTask::from(task)),
+                None => Err(PyValueError::new_err("Channel closed")),
+            }
+        })
     }
 
-    pub fn is_client_connected(&self) -> bool {
-        self.simulation.permits.available_permits() == 0
+    pub fn example_async_task<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        future_into_py(py, async {
+            sleep(Duration::from_secs(5)).await;
+            log::info!("Async task wrapper completed.");
+            Ok(())
+        })
     }
 
     pub fn register_scene(&self, scene: Vec<u8>) -> PyResult<()> {
-        self.simulation
-            .scene_state
+        self.scene_state
             .scene
             .set(Bytes::from(scene))
             .map_err(|_| {
@@ -132,76 +146,18 @@ impl SimulationServer {
 
     pub fn update_scene_state(&self, scene_state: &str) -> PyResult<()> {
         // ignore the error, as it just means there are no receivers
-        let _ = self
-            .simulation
-            .scene_state
-            .scene_sender
-            .send(scene_state.to_string());
+        let _ = self.scene_state.scene_sender.send(scene_state.to_string());
         Ok(())
     }
 
-    pub fn receive_low_command(&mut self) -> Option<LowCommand> {
-        match self.simulation.message_receiver.try_recv() {
-            Ok(ClientMessageKind::LowCommand(low_command)) => Some(low_command),
-            Err(TryRecvError::Empty) => None,
-            Err(error) => {
-                log::error!("Failed to receive motor command: {error}");
-                None
-            }
-        }
-    }
-
-    pub fn receive_low_command_blocking(&mut self, py: Python) -> PyResult<LowCommand> {
-        let check_signals = async move || -> PyResult<()> {
-            loop {
-                tokio::time::sleep(Duration::from_millis(100)).await;
-                py.check_signals()?;
-            }
-        };
-
-        let mut receive_low_command = async || match self.simulation.message_receiver.recv().await {
-            Ok(ClientMessageKind::LowCommand(low_command)) => Ok(low_command),
-            Err(error) => {
-                log::error!("Failed to receive motor command: {error}");
-                return Err(PyValueError::new_err("Failed to receive motor command"));
-            }
-        };
-
-        self.runtime.block_on(async {
-            select! {
-                _ = check_signals() => Err(PyValueError::new_err("Interrupted by signal")),
-                result = receive_low_command() => return result,
-            }
-        })
-    }
-
-    pub fn receive_simulation_command(&mut self) -> Option<simulation::ServerCommand> {
-        match self.simulation.simulation_control.try_recv() {
-            Ok(command) => Some(command),
-            Err(TryRecvError::Empty) => None,
-            Err(error) => {
-                log::error!("Failed to receive simulation command: {error}");
-                None
-            }
-        }
-    }
-
-    pub fn send_camera_frame(
-        &self,
-        simulation_time: f32,
-        rgbd_sensors: Py<RGBDSensors>,
-    ) -> PyResult<()> {
-        log::debug!("Sending frame");
-        let _ = self.simulation.message_sender.send(SimulationMessage {
-            time: SystemTime::UNIX_EPOCH + Duration::from_secs_f32(simulation_time),
-            payload: ServerMessageKind::RGBDSensors(rgbd_sensors.get().clone()),
-        });
-        Ok(())
-    }
-
-    pub fn stop(&self) {
+    pub fn stop<'py>(&mut self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
         log::info!("Stopping server");
-        self.cancel_token.cancel();
+        self.cancellation_token.cancel();
+        let mut tasks = std::mem::take(&mut self.tasks);
+        future_into_py(py, async move {
+            tasks.shutdown().await;
+            Ok(())
+        })
     }
 }
 

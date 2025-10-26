@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use axum::{
     extract::{
         ws::{Message, WebSocket},
@@ -10,135 +8,116 @@ use axum::{
     routing::{get, post},
     Extension, Router,
 };
+use booster::{LowCommand, LowState};
 use pyo3::pyclass;
-use simulation_message::{ClientMessageKind, ServerMessageKind, SimulationMessage};
-use tokio::{
-    select,
-    sync::{
-        broadcast::{error::SendError, Receiver, Sender},
-        Semaphore,
-    },
-};
+use serde::Serialize;
+use tokio::sync::mpsc::Receiver;
+use uuid::Uuid;
+use zed::RGBDSensors;
 
-pub struct SimulationState {
-    pub is_connected: Arc<Semaphore>,
-    pub to_simulation: Sender<ClientMessageKind>,
-    pub from_simulation: Sender<SimulationMessage<ServerMessageKind>>,
-    pub simulation_control: Sender<ServerCommand>,
-}
+use crate::controller::{ControllerData, ControllerHandle};
 
-#[pyclass(frozen, eq)]
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[pyclass(frozen)]
+#[derive(Clone, Debug)]
 pub enum ServerCommand {
-    Reset,
-    RequestLowState,
-    RequestRGBDSensors,
+    Reset(),
+    RequestLowState(),
+    RequestRGBDSensors(),
+    ApplyLowCommand(LowCommand),
 }
 
-pub fn setup() -> (Router, Arc<SimulationState>) {
-    let from_simulation = Sender::new(4);
-    let to_simulation = Sender::new(4);
-    let simulation_control = Sender::new(4);
+#[pyclass(frozen)]
+#[derive(Clone, Debug)]
+pub enum SimulationResponse {
+    ResponseLowState(LowState),
+    ResponseRGBDSensors(RGBDSensors),
+}
 
-    let state = Arc::new(SimulationState {
-        is_connected: Arc::new(Semaphore::new(1)),
-        to_simulation,
-        from_simulation,
-        simulation_control,
-    });
-
-    let router = Router::new()
+pub fn setup(handle: ControllerHandle) -> Router {
+    Router::new()
         .route("/subscribe", get(ws_connection))
         .route("/reset", post(reset))
-        .layer(Extension(state.clone()));
-
-    (router, state)
+        .layer(Extension(handle))
 }
 
-async fn reset(Extension(state): Extension<Arc<SimulationState>>) -> impl IntoResponse {
-    match state.simulation_control.send(ServerCommand::Reset) {
-        Ok(_) => StatusCode::OK,
-        Err(SendError(_)) => StatusCode::INTERNAL_SERVER_ERROR,
-    }
+async fn reset(Extension(handle): Extension<ControllerHandle>) -> impl IntoResponse {
+    handle.reset().await;
+    StatusCode::OK
 }
 
 async fn ws_connection(
-    Extension(state): Extension<Arc<SimulationState>>,
+    Extension(handle): Extension<ControllerHandle>,
     ws: WebSocketUpgrade,
 ) -> impl IntoResponse {
-    let permit = match state.is_connected.clone().try_acquire_owned() {
-        Ok(permit) => permit,
-        Err(_) => {
-            log::warn!("someone is already connected, rejecting new connection");
-            return StatusCode::SERVICE_UNAVAILABLE.into_response();
-        }
-    };
-
-    let to_simulation = state.to_simulation.clone();
-    let from_simulation = state.from_simulation.subscribe();
+    let connection_id = Uuid::new_v4();
+    log::info!("Got new websocket request (id={connection_id})");
 
     ws.on_upgrade(async move |socket| {
-        // keep the permit alive while the connection is active
-        let _permit = permit;
-        log::info!("Starting communication");
-        handle_socket(socket, from_simulation, to_simulation).await;
+        let receiver = handle.add_connection(connection_id).await;
+        handle.request_low_state(connection_id).await;
+        handle.request_rgbd_sensors(connection_id).await;
+
+        log::info!("Starting communication with {connection_id}");
+        handle_socket(socket, receiver).await;
+        log::info!("Ending communication with {connection_id}");
+        handle.remove_connection(connection_id).await;
     })
+}
+
+fn serialize<T: Serialize>(data: &T) -> Option<Message> {
+    match serde_json::to_string(data) {
+        Ok(string) => Some(Message::Text(string.into())),
+        Err(error) => {
+            log::error!("Failed to serialize message: {error}");
+            None
+        }
+    }
 }
 
 async fn handle_socket(
     mut socket: WebSocket,
-    mut from_simulation: Receiver<SimulationMessage<ServerMessageKind>>,
-    to_simulation: Sender<ClientMessageKind>,
-) {
-    loop {
-        select! {
-            simulator_message = from_simulation.recv() => {
-                match simulator_message {
-                    Ok(message) => {
-                        let string = match serde_json::to_string(&message) {
-                            Ok(string) => string,
+    mut controller: Receiver<ControllerData>,
+) -> Option<()> {
+    while let Some(message) = controller.recv().await {
+        match message {
+            ControllerData::LowState(low_state) => {
+                // TODO(oleflb): this is really bad for performance, this should be fixed by not blocking
+                let data = low_state.await.unwrap();
+                let data = serialize(&data)?;
+                socket.send(data).await.ok()?;
+            }
+            ControllerData::RGBDSensors(rgbdsensors) => {
+                let data = rgbdsensors.await.unwrap();
+                let data = serialize(&data)?;
+                socket.send(data).await.ok()?;
+            }
+            ControllerData::GetLowCommand(sender) => {
+                let message = match socket.recv().await? {
+                    Ok(message) => message,
+                    Err(error) => {
+                        log::error!("WebSocket error: {error}");
+                        return None;
+                    }
+                };
+                match message {
+                    Message::Text(text) => {
+                        let low_command: LowCommand = match serde_json::from_str(text.as_str()) {
+                            Ok(command) => command,
                             Err(error) => {
-                                log::error!("Failed to serialize message: {error}");
-                                continue
-                            }
-                        };
-                        match socket.send(Message::Text(string.into())).await {
-                            Ok(()) => {},
-                            Err(error) => {
-                                log::error!("Failed to send into websocket, closing connection: {error}");
-                                return
-                            }
-                        }
-                    },
-                    Err(error) => log::error!("{error}")
-                }
-            },
-            interface_message = socket.recv() => {
-                match interface_message {
-                    Some(Ok(Message::Text(message))) => {
-                        let message = match serde_json::from_str(message.as_str()) {
-                            Ok(message) => message,
-                            Err(error) => {
-                                log::error!("Failed to deserialize: {error}");
+                                log::error!("Failed to deserialize LowCommand: {error}");
                                 continue;
                             }
                         };
-                        if let Err(error) = to_simulation.send(message) {
-                            log::error!("Failed to send message: {error}")
+                        if sender.send(low_command).is_err() {
+                            log::error!("Failed to send LowCommand to controller");
                         }
-                    },
-                    Some(Ok(Message::Binary(_))) => {
-                        log::info!("Got unsupported binary message");
-                    },
-                    Some(Ok(_)) => {},
-                    Some(Err(error)) => {
-                        log::error!("{error}")
-                    },
-                    None => {
-                        return
+                    }
+                    _ => {
+                        log::error!("Expected text message for LowCommand");
                     }
                 }
             }
         }
     }
+    Some(())
 }

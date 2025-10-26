@@ -1,9 +1,10 @@
 import logging
 import time
 from datetime import timedelta
+import asyncio
 
 import click
-from mujoco import MjData, MjModel, mj_resetData, mj_step, mj_forward
+from mujoco import MjData, MjModel, mj_forward, mj_resetData, mj_step
 from mujoco_rust_server import ServerCommand, SimulationServer
 from rich.logging import RichHandler
 
@@ -33,7 +34,7 @@ def handle_server_command(
             mj_forward(model, data)
 
 
-def run_simulation(
+async def run_simulation(
     server: SimulationServer, model: MjModel, data: MjData
 ) -> None:
     dt = model.opt.timestep
@@ -44,40 +45,27 @@ def run_simulation(
         server=server,
         model=model,
     )
-    publisher = Publisher(
-        LowStateTopic(update_interval=timedelta(milliseconds=10)),
-        CameraTopic(
-            update_interval=timedelta(milliseconds=10),
-            model=model,
-        ),
-        SceneStateTopic(update_interval=timedelta(milliseconds=2)),
-    )
-    receiver = Receiver(
-        LowCommandTopic(update_interval=timedelta(milliseconds=10)),
-    )
+    # publisher = Publisher(
+    #     LowStateTopic(update_interval=timedelta(milliseconds=10)),
+    #     CameraTopic(
+    #         update_interval=timedelta(milliseconds=10),
+    #         model=model,
+    #     ),
+    #     SceneStateTopic(update_interval=timedelta(milliseconds=2)),
+    # )
+    # receiver = Receiver(
+    #     LowCommandTopic(update_interval=timedelta(milliseconds=10)),
+    # )
 
     while True:
-        start = time.time()
-        command = server.receive_simulation_command()
-        handle_server_command(command, model, data)
-
-        mj_step(model, data)
-        publisher.send_updates(server=server, model=model, data=data)
-        # TODO(oleflb): possible deadlock if client connects
-        #               but does not receive sensor data
-        for reception in receiver.receive_updates(server=server, data=data):
-            if isinstance(reception, LowCommand):
-                data.ctrl[:] = get_control_input(model, data, received_command)
-
-        update_duration = time.time() - start
-        time.sleep(max(0, dt / target_time_factor - update_duration))
+        task = await server.next_task(data.time)
+        match task:
+            case something:
+                logging.info(f"Received task: {something}")
+        quit()
 
 
-@click.command()
-@click.option(
-    "--bind-address", default="0.0.0.0:8000", help="Bind address for the server"
-)
-def main(*, bind_address: str) -> None:
+async def main(*, bind_address: str) -> None:
     logging.basicConfig(
         level="DEBUG",
         format="%(message)s",
@@ -89,16 +77,26 @@ def main(*, bind_address: str) -> None:
     mj_resetData(model, data)
     mj_forward(model, data)
 
-    server = SimulationServer(
-        bind_address,
-        LowStateTopic(timedelta(0)).compute(model=model, data=data),
-    )
+    server = SimulationServer(bind_address)
+    import threading
+
+    logging.info(f"Main thread id: {threading.get_ident()}")
+    for thread in threading.enumerate():
+        logging.info(f"Thread: {thread.name}, id: {thread.ident}")
 
     try:
-        run_simulation(server, model, data)
+        await run_simulation(server, model, data)
     finally:
-        server.stop()
+        await server.stop()
+
+
+@click.command()
+@click.option(
+    "--bind-address", default="0.0.0.0:8000", help="Bind address for the server"
+)
+def cli(*, bind_address: str) -> None:
+    asyncio.run(main(bind_address=bind_address))
 
 
 if __name__ == "__main__":
-    main()
+    cli()
