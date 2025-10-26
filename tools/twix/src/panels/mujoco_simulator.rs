@@ -116,9 +116,9 @@ fn setup_scene(
         Transform::from_xyz(8.0, 16.0, 8.0),
     ));
     commands.spawn((
-        Mesh3d(meshes.add(Cuboid::new(0.1, 0.1, 0.7))),
+        Mesh3d(meshes.add(Plane3d::new(Vec3::Z, Vec2::new(5.0, 5.0)))),
         MeshMaterial3d(materials.add(Color::srgb_u8(0, 255, 0))),
-        Transform::from_xyz(0.0, 0.5, 0.0),
+        Transform::from_xyz(0.0, 0.0, 0.0),
     ));
 }
 
@@ -294,6 +294,11 @@ impl Widget for &mut MujocoSimulatorPanel {
                     .with_rotation(bevy_quat(body_update.quat));
             }
         }
+        // if ui.button("Reset").clicked() {
+        //     self.command_sender
+        //         .blocking_send(ServerCommand::Reset)
+        //         .unwrap();
+        // }
         self.bevy_app.update();
         let texture_id = self
             .bevy_app
