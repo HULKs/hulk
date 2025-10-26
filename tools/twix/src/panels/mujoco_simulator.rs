@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, fs::File, sync::Arc, thread};
+use std::{collections::BTreeMap, fs::File, sync::Arc, thread, time::Duration};
 
 use bevy::{
     asset::RenderAssetUsages,
@@ -22,11 +22,11 @@ use eframe::{
     egui_wgpu::wgpu,
     wgpu::PrimitiveTopology,
 };
-use futures_util::StreamExt;
+use futures_util::{SinkExt, StreamExt};
 use nalgebra::{Point3, Vector3};
 use serde::{Deserialize, Serialize};
-use tokio::sync::mpsc;
-use tokio_tungstenite::connect_async;
+use tokio::{select, sync::mpsc};
+use tokio_tungstenite::{connect_async, tungstenite};
 
 use crate::panel::{Panel, PanelCreationContext};
 
@@ -147,13 +147,20 @@ fn setup_camera(
             clear_color: Color::linear_rgba(0.3, 0.3, 0.3, 0.3).into(),
             ..Default::default()
         },
-        Transform::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
+        Transform::from_xyz(1.0, -1.0, 1.0).looking_at(Vec3::ZERO, Vec3::Z),
     ));
 }
 
 pub struct MujocoSimulatorPanel {
-    rx: mpsc::Receiver<SceneUpdate>,
+    update_receiver: mpsc::Receiver<SceneUpdate>,
+    command_sender: mpsc::Sender<ServerCommand>,
     bevy_app: App,
+}
+
+// TODO: Use same type as on server
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub enum ServerCommand {
+    Reset,
 }
 
 impl<'a> Panel<'a> for MujocoSimulatorPanel {
@@ -228,7 +235,8 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
         bevy_app.finish();
         bevy_app.cleanup();
 
-        let (tx, rx) = mpsc::channel(10);
+        let (update_sender, update_receiver) = mpsc::channel(10);
+        let (command_sender, mut command_receiver) = mpsc::channel(10);
 
         let egui_ctx = context.egui_context.clone();
         thread::spawn(|| {
@@ -238,26 +246,44 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
                 .unwrap();
             rt.block_on(async move {
                 println!("starting background task");
-                let (stream, _response) = connect_async("ws://localhost:8000/scene/subscribe")
-                    .await
-                    .unwrap();
-                let (_sender, mut receiver) = stream.split();
-                while let Some(Ok(message)) = receiver.next().await {
-                    let text = message.to_text().unwrap();
-                    let update: SceneUpdate = serde_json::from_str(text).unwrap();
-                    tx.send(update).await.unwrap();
-                    egui_ctx.request_repaint();
+                loop {
+                    let Ok((stream, _response)) = connect_async("ws://localhost:8000/scene/subscribe")
+                        .await else {
+                            println!("Websocket connection failed, retrying...");
+                            tokio::time::sleep(Duration::from_secs(1)).await;
+                            continue;
+                        };
+                    let (mut sender, mut receiver) = stream.split();
+                    loop {
+                        select! {
+                            maybe_message = receiver.next() => {
+                                let Some(Ok(message)) = maybe_message else { println!("websocket receive failed"); break; };
+                                let text = message.to_text().unwrap();
+                                let update: SceneUpdate = serde_json::from_str(text).unwrap();
+                                update_sender.send(update).await.unwrap();
+                                egui_ctx.request_repaint();
+                            }
+                            maybe_command = command_receiver.recv() => {
+                                let Some(command) = maybe_command else { println!("command receive failed"); return; };
+                                sender.send(tungstenite::Message::text(dbg!(serde_json::to_string(&command).unwrap()))).await.unwrap();
+                            }
+                        }
+                    }
                 }
             });
         });
 
-        Self { rx, bevy_app }
+        Self {
+            update_receiver,
+            bevy_app,
+            command_sender,
+        }
     }
 }
 
 impl Widget for &mut MujocoSimulatorPanel {
     fn ui(self, ui: &mut Ui) -> Response {
-        if let Ok(update) = self.rx.try_recv() {
+        while let Ok(update) = self.update_receiver.try_recv() {
             let mut query = self
                 .bevy_app
                 .world_mut()
