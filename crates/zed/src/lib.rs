@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use pyo3::{pyclass, pymethods};
+use pyo3::{pyclass, pymethods, pymodule};
 use ros2::{
     builtin_interfaces::time::Time,
     sensor_msgs::{
@@ -97,13 +97,8 @@ impl RGBDSensors {
     }
 }
 
-pub mod python_bindings {
-    use pyo3::{prelude::PyModule, pymodule, types::PyModuleMethods, Bound, PyResult};
-
-    #[pymodule(name = "zed")]
-    pub fn extension(m: &Bound<'_, PyModule>) -> PyResult<()> {
-        m.add_class::<crate::RGBDSensors>()?;
-
-        Ok(())
-    }
+#[pymodule(name = "zed_types")]
+pub mod python_module {
+    #[pymodule_export]
+    use crate::RGBDSensors;
 }

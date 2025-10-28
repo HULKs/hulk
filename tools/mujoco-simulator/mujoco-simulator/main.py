@@ -1,11 +1,11 @@
+import asyncio
 import logging
 import time
 from datetime import timedelta
-import asyncio
 
 import click
 from mujoco import MjData, MjModel, mj_forward, mj_resetData, mj_step
-from mujoco_rust_server import ServerCommand, SimulationServer
+from mujoco_rust_server import ControllerTask, SimulationServer
 from rich.logging import RichHandler
 
 from mujoco_simulator import (
@@ -23,7 +23,7 @@ from mujoco_simulator.topics import (
 
 
 def handle_server_command(
-    command: ServerCommand | None, model: MjModel, data: MjData
+    command: ControllerTask | None, model: MjModel, data: MjData
 ) -> None:
     if command is None:
         return
@@ -78,12 +78,6 @@ async def main(*, bind_address: str) -> None:
     mj_forward(model, data)
 
     server = SimulationServer(bind_address)
-    import threading
-
-    logging.info(f"Main thread id: {threading.get_ident()}")
-    for thread in threading.enumerate():
-        logging.info(f"Thread: {thread.name}, id: {thread.ident}")
-
     try:
         await run_simulation(server, model, data)
     finally:

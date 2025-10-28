@@ -76,9 +76,7 @@ class CameraRenderer:
         width = self.viewport.width
         rgb_buffer = np.zeros((height, width, 3), dtype=np.uint8)
         zbuffer = np.zeros((height, width), dtype=np.float32)
-        mujoco.mjr_readPixels(
-            rgb_buffer, zbuffer, self.viewport, self.context
-        )
+        mujoco.mjr_readPixels(rgb_buffer, zbuffer, self.viewport, self.context)
 
         znear = self.model.vis.map.znear
         zfar = self.model.vis.map.zfar

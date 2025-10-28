@@ -10,7 +10,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use axum::{error_handling::future, routing::get, Router};
+use axum::{routing::get, Router};
 use bytes::Bytes;
 use pyo3::{exceptions::PyValueError, pyclass, pymethods, Bound, PyAny, PyResult, Python};
 use pyo3_async_runtimes::tokio::future_into_py;
@@ -22,7 +22,6 @@ use tokio::{
         Mutex,
     },
     task::JoinSet,
-    time::{sleep, timeout},
 };
 use tokio_util::sync::CancellationToken;
 
@@ -48,9 +47,6 @@ pub struct SimulationServer {
 impl SimulationServer {
     #[new]
     pub fn start(bind_address: &str) -> PyResult<Self> {
-        let id = unsafe { libc::pthread_self() };
-        log::info!("Thread id in next_task: {:?}", id);
-
         let runtime = Runtime::new()?;
         let _guard = runtime.enter();
         let cancellation_token = CancellationToken::new();
@@ -123,14 +119,6 @@ impl SimulationServer {
         })
     }
 
-    pub fn example_async_task<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        future_into_py(py, async {
-            sleep(Duration::from_secs(5)).await;
-            log::info!("Async task wrapper completed.");
-            Ok(())
-        })
-    }
-
     pub fn register_scene(&self, scene: Vec<u8>) -> PyResult<()> {
         self.scene_state
             .scene
@@ -165,32 +153,45 @@ async fn health_check() -> &'static str {
     "OK"
 }
 
-mod python_bindings {
-    use pyo3::{prelude::*, py_run, pymodule};
+use pyo3::pymodule;
 
-    #[pymodule(name = "mujoco_rust_server")]
-    fn extension(m: &Bound<'_, PyModule>) -> PyResult<()> {
-        pyo3_log::init();
-        m.add_class::<crate::SimulationServer>()?;
-        m.add_class::<crate::simulation::ServerCommand>()?;
-        let submodule = PyModule::new(m.py(), "booster_types")?;
-        booster::python_bindings::extension(&submodule)?;
-        py_run!(
-            m.py(),
-            submodule,
-            "import sys; sys.modules['mujoco_rust_server.booster_types'] = submodule"
-        );
-        m.add_submodule(&submodule)?;
+#[pymodule(name = "mujoco_rust_server")]
+mod python_module {
+    #[pymodule_export]
+    use crate::{
+        task::{ControllerTask, TaskName},
+        SimulationServer,
+    };
 
-        let submodule = PyModule::new(m.py(), "zed_types")?;
-        zed::python_bindings::extension(&submodule)?;
-        py_run!(
-            m.py(),
-            submodule,
-            "import sys; sys.modules['mujoco_rust_server.zed_types'] = submodule"
-        );
-        m.add_submodule(&submodule)?;
+    #[pymodule_export(name = "booster_types")]
+    use booster::python_module as booster_types;
 
-        Ok(())
-    }
+    #[pymodule_export(name = "zed_types")]
+    use zed::python_module as zed_types;
+
+    // #[pymodule(name = "mujoco_rust_server")]
+    // fn extension(m: &Bound<'_, PyModule>) -> PyResult<()> {
+    //     pyo3_log::init();
+    //     m.add_class::<crate::SimulationServer>()?;
+    //     m.add_class::<crate::simulation::ServerCommand>()?;
+    //     let submodule = PyModule::new(m.py(), "booster_types")?;
+    //     booster::python_bindings::extension(&submodule)?;
+    //     py_run!(
+    //         m.py(),
+    //         submodule,
+    //         "import sys; sys.modules['mujoco_rust_server.booster_types'] = submodule"
+    //     );
+    //     m.add_submodule(&submodule)?;
+
+    //     let submodule = PyModule::new(m.py(), "zed_types")?;
+    //     zed::python_bindings::extension(&submodule)?;
+    //     py_run!(
+    //         m.py(),
+    //         submodule,
+    //         "import sys; sys.modules['mujoco_rust_server.zed_types'] = submodule"
+    //     );
+    //     m.add_submodule(&submodule)?;
+
+    //     Ok(())
+    // }
 }

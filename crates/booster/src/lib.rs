@@ -1,7 +1,7 @@
 use coordinate_systems::Robot;
 use linear_algebra::{vector, Vector3};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
-use pyo3::{pyclass, pymethods};
+use pyo3::{pyclass, pymethods, pymodule};
 use ros2::geometry_msgs::transform_stamped::TransformStamped;
 use serde::{Deserialize, Serialize};
 
@@ -74,7 +74,7 @@ impl ImuState {
     }
 }
 
-#[pyclass(frozen)]
+#[pyclass(frozen, get_all)]
 #[derive(Debug, Copy, Clone, Serialize, Deserialize)]
 pub struct MotorState {
     #[serde(rename = "q")]
@@ -275,7 +275,7 @@ pub struct RemoteControllerState {
     #[serde(rename = "hat_ru")]
     pub dpad_right_up: bool,
     #[serde(rename = "hat_rd")]
-    pub dpad_right_: bool,
+    pub dpad_right_down: bool,
     pub reserved: u8,
 }
 
@@ -285,23 +285,12 @@ pub struct TransformMessage {
     pub transforms: Vec<TransformStamped>,
 }
 
-pub mod python_bindings {
-    use pyo3::{prelude::PyModule, pymodule, types::PyModuleMethods, Bound, PyResult};
+#[pymodule(name = "booster_types")]
+pub mod python_module {
 
-    #[pymodule(name = "booster")]
-    pub fn extension(m: &Bound<'_, PyModule>) -> PyResult<()> {
-        m.add_class::<crate::LowState>()?;
-        m.add_class::<crate::ImuState>()?;
-        m.add_class::<crate::MotorState>()?;
-        m.add_class::<crate::CommandType>()?;
-        m.add_class::<crate::LowCommand>()?;
-        m.add_class::<crate::MotorCommand>()?;
-        m.add_class::<crate::FallDownStateType>()?;
-        m.add_class::<crate::FallDownState>()?;
-        m.add_class::<crate::ButtonEventType>()?;
-        m.add_class::<crate::ButtonEventMsg>()?;
-        m.add_class::<crate::RemoteControllerState>()?;
-
-        Ok(())
-    }
+    #[pymodule_export]
+    use crate::{
+        ButtonEventMsg, ButtonEventType, CommandType, FallDownState, FallDownStateType, ImuState,
+        LowCommand, LowState, MotorCommand, MotorState, RemoteControllerState,
+    };
 }
