@@ -34,6 +34,7 @@ pub enum Action {
     NoGroundContact,
     Penalize,
     PrepareJump,
+    RemoteControl,
     Search,
     SearchForLostBall,
     SitDown,

@@ -14,6 +14,7 @@ mod no_ground_contact;
 pub mod node;
 mod penalize;
 mod prepare_jump;
+mod remote_control;
 mod search;
 mod sit_down;
 mod stand;
