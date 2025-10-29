@@ -2,6 +2,10 @@ use std::{collections::BTreeMap, fs::File, sync::Arc, thread, time::Duration};
 
 use bevy::{
     asset::RenderAssetUsages,
+    input::{
+        mouse::{MouseButtonInput, MouseMotion},
+        ButtonState,
+    },
     render::{camera::Viewport, mesh::Indices, RenderDebugFlags},
 };
 use bevy::{
@@ -17,8 +21,12 @@ use bevy::{
         RenderPlugin,
     },
 };
+use bevy_panorbit_camera::{ActiveCameraData, PanOrbitCamera, PanOrbitCameraPlugin};
 use eframe::{
-    egui::{self, load::SizedTexture, Image, ImageSource, Pos2, Response, Sense, Ui, Widget},
+    egui::{
+        self, load::SizedTexture, Event, Image, ImageSource, PointerButton, Pos2, Response, Sense,
+        Ui, Widget,
+    },
     egui_wgpu::wgpu,
     wgpu::PrimitiveTopology,
 };
@@ -48,7 +56,7 @@ impl BevyRenderTarget {
             while new_size.x < size.x || new_size.y < size.y {
                 new_size *= 2.0;
             }
-            println!("New size: {}", new_size);
+            println!("New render texture size: {}", new_size);
             (self.texture, self.texture_id) = Self::create_texture(new_size, &self.wgpu_state);
         }
         self.output_size = size;
@@ -211,8 +219,10 @@ fn setup_camera(
             ..Default::default()
         },
         Transform::from_xyz(1.0, -1.0, 1.0).looking_at(Vec3::ZERO, Vec3::Z),
+        PanOrbitCamera::default(),
     ));
 }
+
 fn update_camera_render_target(
     mut camera: Single<&mut Camera>,
     target: Res<BevyRenderTarget>,
@@ -230,6 +240,17 @@ fn update_camera_render_target(
         physical_size: UVec2::new(target.output_size.x as u32, target.output_size.y as u32),
         ..Viewport::default()
     });
+}
+
+fn update_active_camera(
+    camera: Single<(Entity, &mut Camera)>,
+    target: Res<BevyRenderTarget>,
+    mut active_cam: ResMut<ActiveCameraData>,
+) {
+    active_cam.entity = Some(camera.0);
+    active_cam.viewport_size = Some(Vec2::new(target.output_size.x, target.output_size.y));
+    active_cam.window_size = Some(Vec2::new(target.output_size.x, target.output_size.y));
+    active_cam.manual = true;
 }
 
 pub struct MujocoSimulatorPanel {
@@ -255,8 +276,10 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
                     .add_before::<RenderPlugin>(EguiRenderPlugin::new(context.wgpu_state.clone()))
                     .disable::<RenderPlugin>(),
             )
+            .add_plugins(PanOrbitCameraPlugin)
             .add_systems(Startup, setup_camera)
-            .add_systems(Startup, setup_scene);
+            .add_systems(Startup, setup_scene)
+            .add_systems(Update, update_active_camera);
         let file = File::open("/tmp/scene").unwrap();
         // let mut bytes = Vec::new();
         // file.read_to_end(&mut bytes).unwrap();
@@ -365,6 +388,7 @@ impl Widget for &mut MujocoSimulatorPanel {
     fn ui(self, ui: &mut Ui) -> Response {
         self.process_scene_updates();
         let response = ui.allocate_response(ui.available_size(), Sense::all());
+        self.process_egui_input(ui, &response);
 
         let mut render_target = self
             .bevy_app
@@ -372,16 +396,14 @@ impl Widget for &mut MujocoSimulatorPanel {
             .get_resource_mut::<BevyRenderTarget>()
             .unwrap();
         render_target.set_output_size(response.rect.size() * ui.pixels_per_point());
-        let image_source = render_target.image_source();
-        let uv = render_target.uv();
+        let image = Image::new(render_target.image_source())
+            .maintain_aspect_ratio(false)
+            .fit_to_exact_size(response.rect.size())
+            .uv(render_target.uv());
+
         self.bevy_app.update();
-        ui.put(
-            response.rect,
-            Image::new(image_source)
-                .maintain_aspect_ratio(false)
-                .fit_to_exact_size(response.rect.size())
-                .uv(uv),
-        )
+
+        ui.put(response.rect, image)
     }
 }
 
@@ -398,6 +420,77 @@ impl MujocoSimulatorPanel {
                     .with_rotation(bevy_quat(body_update.quat));
             }
         }
+    }
+
+    fn process_egui_input(&mut self, ui: &mut Ui, response: &Response) {
+        let world = self.bevy_app.world_mut();
+        // if response.is_pointer_button_down_on()
+        ui.input(|input| {
+            for event in &input.events {
+                match event {
+                    Event::Copy => todo!(),
+                    Event::Cut => todo!(),
+                    Event::Paste(_) => todo!(),
+                    Event::Text(_) => todo!(),
+                    Event::Key {
+                        key,
+                        physical_key,
+                        pressed,
+                        repeat,
+                        modifiers,
+                    } => todo!(),
+                    Event::PointerMoved(pos2) => {}
+                    Event::MouseMoved(egui::Vec2 { x, y }) => {
+                        let mut mouse = world.get_resource_mut::<Events<MouseMotion>>().unwrap();
+                        mouse.send(MouseMotion {
+                            delta: Vec2 { x: *x, y: *y },
+                        });
+                    }
+                    Event::PointerButton {
+                        pos,
+                        button,
+                        pressed,
+                        modifiers,
+                    } => {
+                        let button = match button {
+                            PointerButton::Primary => MouseButton::Left,
+                            PointerButton::Secondary => MouseButton::Right,
+                            PointerButton::Middle => MouseButton::Middle,
+                            PointerButton::Extra1 => MouseButton::Forward,
+                            PointerButton::Extra2 => MouseButton::Back,
+                        };
+                        let mut buttons = world
+                            .get_resource_mut::<Events<MouseButtonInput>>()
+                            .unwrap();
+                        buttons.send(MouseButtonInput {
+                            button,
+                            state: if *pressed {
+                                ButtonState::Pressed
+                            } else {
+                                ButtonState::Released
+                            },
+                            window: Entity::PLACEHOLDER,
+                        });
+                    }
+                    Event::PointerGone => {}
+                    Event::Zoom(_) => todo!(),
+                    Event::Ime(ime_event) => todo!(),
+                    Event::Touch {
+                        device_id,
+                        id,
+                        phase,
+                        pos,
+                        force,
+                    } => todo!(),
+                    Event::MouseWheel {
+                        unit,
+                        delta,
+                        modifiers,
+                    } => todo!(),
+                    _ => {}
+                }
+            }
+        });
     }
 }
 

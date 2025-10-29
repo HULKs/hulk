@@ -9,8 +9,9 @@ homepage.workspace = true
 aliveness = { workspace = true }
 argument_parsers = { workspace = true }
 ball_filter = { workspace = true }
-bincode = { workspace = true }
 bevy = { workspace = true, features = ["bevy_render", "bevy_asset", "bevy_core_pipeline", "bevy_window", "bevy_pbr", "tonemapping_luts" ] }
+bevy_panorbit_camera = { workspace = true }
+bincode = { workspace = true }
 buffered_watch = { workspace = true }
 calibration = { workspace = true }
 chrono = { workspace = true }
@@ -25,11 +26,10 @@ egui_dock = { workspace = true }
 egui_extras = { workspace = true }
 egui_plot = { workspace = true }
 fern = { workspace = true }
-rmp-serde = { workspace = true }
 framework = { workspace = true }
+futures-util = { workspace = true }
 geometry = { workspace = true }
 gilrs = { workspace = true }
-futures-util = { workspace = true }
 hula_types = { workspace = true }
 hulk_widgets = { workspace = true }
 image = { workspace = true }
@@ -44,6 +44,7 @@ ndarray = { workspace = true }
 parameters = { workspace = true }
 projection = { workspace = true }
 repository = { workspace = true }
+rmp-serde = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 step_planning = { workspace = true }
