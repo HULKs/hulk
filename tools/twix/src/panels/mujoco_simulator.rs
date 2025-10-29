@@ -1,4 +1,6 @@
-use std::{collections::BTreeMap, fs::File, sync::Arc, thread, time::Duration};
+use std::{
+    collections::BTreeMap, f32::consts::FRAC_PI_2, fs::File, sync::Arc, thread, time::Duration,
+};
 
 use bevy::{
     asset::RenderAssetUsages,
@@ -183,7 +185,7 @@ fn setup_scene(
         Transform::from_xyz(8.0, 16.0, 8.0),
     ));
     commands.spawn((
-        Mesh3d(meshes.add(Plane3d::new(Vec3::Z, Vec2::new(5.0, 5.0)))),
+        Mesh3d(meshes.add(Plane3d::new(Vec3::Y, Vec2::new(5.0, 5.0)))),
         MeshMaterial3d(materials.add(Color::srgb_u8(0, 255, 0))),
         Transform::from_xyz(0.0, 0.0, 0.0),
     ));
@@ -218,7 +220,7 @@ fn setup_camera(
             clear_color: Color::linear_rgba(0.3, 0.3, 0.3, 0.3).into(),
             ..Default::default()
         },
-        Transform::from_xyz(1.0, -1.0, 1.0).looking_at(Vec3::ZERO, Vec3::Z),
+        Transform::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
         PanOrbitCamera::default(),
     ));
 }
@@ -298,6 +300,10 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
             );
             meshes.insert(name.clone(), mesh);
         }
+        let scene_root = bevy_app
+            .world_mut()
+            .spawn(Transform::from_rotation(Quat::from_rotation_x(FRAC_PI_2)))
+            .id();
         for (name, body) in &scene.bodies {
             let mut materials = Vec::new();
             for geom in &body.geoms {
@@ -320,6 +326,7 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
                     Visibility::default(),
                     BodyComponent { name: name.clone() },
                 ))
+                .set_parent_in_place(scene_root)
                 .with_children(|parent| {
                     for (geom, material) in body.geoms.iter().zip(materials) {
                         let Some(mesh_name) = geom.mesh.as_ref() else {
@@ -386,6 +393,7 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
 
 impl Widget for &mut MujocoSimulatorPanel {
     fn ui(self, ui: &mut Ui) -> Response {
+        ui.ctx().request_repaint();
         self.process_scene_updates();
         let response = ui.allocate_response(ui.available_size(), Sense::all());
         self.process_egui_input(ui, &response);
@@ -438,7 +446,7 @@ impl MujocoSimulatorPanel {
                         pressed,
                         repeat,
                         modifiers,
-                    } => todo!(),
+                    } => {}
                     Event::PointerMoved(pos2) => {}
                     Event::MouseMoved(egui::Vec2 { x, y }) => {
                         let mut mouse = world.get_resource_mut::<Events<MouseMotion>>().unwrap();
