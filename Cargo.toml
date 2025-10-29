@@ -47,7 +47,9 @@ members = [
   "crates/step_planning_solver",
   "crates/types",
   "crates/vision",
-  "crates/zed",
+  "crates/walking_engine",
+  "crates/zed", 
+  "crates/motion",
   "tools/annotato",
   "tools/depp",
   "tools/fanta",
@@ -57,6 +59,7 @@ members = [
   "tools/twix",
   "tools/vista",
   "tools/widget_gallery",
+
 ]
 resolver = "2"
 # services are built independently by yocto
