@@ -8,7 +8,7 @@ pub fn remote_controll(context: &Context) {
         forward: walk_parameters.forward,
         left: walk_parameters.left,
         turn: walk_parameters.turn,
-    }
+    };
 
-    
+
 }
