@@ -94,7 +94,7 @@ bevy-inspector-egui = "0.29.1"
 bevy_asset_loader = "0.22.0"
 bevy_egui = "0.33.0"
 bevy_obj = "0.15"
-bevy_panorbit_camera = { version = "0.23.0", features = ["bevy_egui"] }
+bevy_panorbit_camera = { version = "0.26.0", features = ["bevy_egui"] }
 bincode = "1.3.3"
 bindgen = "0.71.1"
 blake3 = { version = "1.8.2", features = ["mmap", "serde"] }
