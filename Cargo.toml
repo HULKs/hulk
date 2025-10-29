@@ -49,7 +49,6 @@ members = [
   "crates/vision",
   "crates/walking_engine",
   "crates/zed", 
-  "crates/motion",
   "tools/annotato",
   "tools/depp",
   "tools/fanta",
