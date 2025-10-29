@@ -436,18 +436,18 @@ impl MujocoSimulatorPanel {
         ui.input(|input| {
             for event in &input.events {
                 match event {
-                    Event::Copy => todo!(),
-                    Event::Cut => todo!(),
-                    Event::Paste(_) => todo!(),
-                    Event::Text(_) => todo!(),
-                    Event::Key {
-                        key,
-                        physical_key,
-                        pressed,
-                        repeat,
-                        modifiers,
-                    } => {}
-                    Event::PointerMoved(pos2) => {}
+                    // Event::Copy => todo!(),
+                    // Event::Cut => todo!(),
+                    // Event::Paste(_) => todo!(),
+                    // Event::Text(_) => todo!(),
+                    // Event::Key {
+                    //     key,
+                    //     physical_key,
+                    //     pressed,
+                    //     repeat,
+                    //     modifiers,
+                    // } => {}
+                    // Event::PointerMoved(pos2) => {}
                     Event::MouseMoved(egui::Vec2 { x, y }) => {
                         let mut mouse = world.get_resource_mut::<Events<MouseMotion>>().unwrap();
                         mouse.send(MouseMotion {
@@ -455,10 +455,10 @@ impl MujocoSimulatorPanel {
                         });
                     }
                     Event::PointerButton {
-                        pos,
+                        pos: _,
                         button,
                         pressed,
-                        modifiers,
+                        modifiers: _,
                     } => {
                         let button = match button {
                             PointerButton::Primary => MouseButton::Left,
@@ -480,21 +480,21 @@ impl MujocoSimulatorPanel {
                             window: Entity::PLACEHOLDER,
                         });
                     }
-                    Event::PointerGone => {}
-                    Event::Zoom(_) => todo!(),
-                    Event::Ime(ime_event) => todo!(),
-                    Event::Touch {
-                        device_id,
-                        id,
-                        phase,
-                        pos,
-                        force,
-                    } => todo!(),
-                    Event::MouseWheel {
-                        unit,
-                        delta,
-                        modifiers,
-                    } => todo!(),
+                    // Event::PointerGone => {}
+                    // Event::Zoom(_) => todo!(),
+                    // Event::Ime(ime_event) => todo!(),
+                    // Event::Touch {
+                    //     device_id,
+                    //     id,
+                    //     phase,
+                    //     pos,
+                    //     force,
+                    // } => todo!(),
+                    // Event::MouseWheel {
+                    //     unit,
+                    //     delta,
+                    //     modifiers,
+                    // } => todo!(),
                     _ => {}
                 }
             }
