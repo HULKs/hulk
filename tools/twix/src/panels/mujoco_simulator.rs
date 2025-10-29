@@ -215,7 +215,7 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
                 .spawn((
                     Transform::default(),
                     Visibility::default(),
-                    BodyMarker { name: name.clone() },
+                    BodyComponent { name: name.clone() },
                 ))
                 .with_children(|parent| {
                     for (geom, material) in body.geoms.iter().zip(materials) {
@@ -283,22 +283,7 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
 
 impl Widget for &mut MujocoSimulatorPanel {
     fn ui(self, ui: &mut Ui) -> Response {
-        while let Ok(update) = self.update_receiver.try_recv() {
-            let mut query = self
-                .bevy_app
-                .world_mut()
-                .query::<(&mut Transform, &BodyMarker)>();
-            for (mut transform, marker) in query.iter_mut(self.bevy_app.world_mut()) {
-                let body_update = &update.bodies[&marker.name];
-                *transform = Transform::from_translation(body_update.pos)
-                    .with_rotation(bevy_quat(body_update.quat));
-            }
-        }
-        // if ui.button("Reset").clicked() {
-        //     self.command_sender
-        //         .blocking_send(ServerCommand::Reset)
-        //         .unwrap();
-        // }
+        self.process_scene_updates();
         self.bevy_app.update();
         let texture_id = self
             .bevy_app
@@ -310,12 +295,29 @@ impl Widget for &mut MujocoSimulatorPanel {
             id: texture_id,
             size: vec2(512.0, 512.0),
         });
-        ui.image(image_source)
+        let response = ui.allocate_response(vec2(512.0, 512.0), Sense::all());
+        ui.put(response.rect, Image::new(image_source))
+    }
+}
+
+impl MujocoSimulatorPanel {
+    fn process_scene_updates(&mut self) {
+        while let Ok(update) = self.update_receiver.try_recv() {
+            let mut query = self
+                .bevy_app
+                .world_mut()
+                .query::<(&mut Transform, &BodyComponent)>();
+            for (mut transform, marker) in query.iter_mut(self.bevy_app.world_mut()) {
+                let body_update = &update.bodies[&marker.name];
+                *transform = Transform::from_translation(body_update.pos)
+                    .with_rotation(bevy_quat(body_update.quat));
+            }
+        }
     }
 }
 
 #[derive(Component)]
-struct BodyMarker {
+struct BodyComponent {
     name: String,
 }
 
