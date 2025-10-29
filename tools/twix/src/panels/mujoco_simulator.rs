@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, fs::File, sync::Arc, thread, time::Duration};
 
 use bevy::{
     asset::RenderAssetUsages,
-    render::{mesh::Indices, RenderDebugFlags},
+    render::{camera::Viewport, mesh::Indices, RenderDebugFlags},
 };
 use bevy::{
     prelude::*,
@@ -18,38 +18,70 @@ use bevy::{
     },
 };
 use eframe::{
-    egui::{self, load::SizedTexture, vec2, Response, Ui, Widget},
+    egui::{self, load::SizedTexture, Image, ImageSource, Pos2, Response, Sense, Ui, Widget},
     egui_wgpu::wgpu,
     wgpu::PrimitiveTopology,
 };
-use futures_util::{SinkExt, StreamExt};
+use futures_util::StreamExt;
 use nalgebra::{Point3, Vector3};
 use serde::{Deserialize, Serialize};
 use tokio::{select, sync::mpsc};
-use tokio_tungstenite::{connect_async, tungstenite};
+use tokio_tungstenite::connect_async;
 
 use crate::panel::{Panel, PanelCreationContext};
 
 #[derive(Resource)]
 struct BevyRenderTarget {
     texture: wgpu::Texture,
-    texture_id: eframe::egui::TextureId,
-}
-
-struct EguiRenderPlugin {
+    texture_id: egui::TextureId,
+    output_size: egui::Vec2,
     wgpu_state: eframe::egui_wgpu::RenderState,
 }
 
-impl Plugin for EguiRenderPlugin {
-    fn build(&self, app: &mut App) {
-        let instance = self.wgpu_state.instance.clone();
-        let queue = self.wgpu_state.queue.clone();
-        let device = self.wgpu_state.device.clone();
-        let adapter = self.wgpu_state.adapter.clone();
+impl BevyRenderTarget {
+    fn set_output_size(&mut self, size: egui::Vec2) {
+        if self.texture.size().width < size.x as u32 || self.texture.size().height < size.y as u32 {
+            let mut new_size = Vec2::new(
+                self.texture.size().width as f32,
+                self.texture.size().height as f32,
+            );
+            while new_size.x < size.x || new_size.y < size.y {
+                new_size *= 2.0;
+            }
+            println!("New size: {}", new_size);
+            (self.texture, self.texture_id) = Self::create_texture(new_size, &self.wgpu_state);
+        }
+        self.output_size = size;
+    }
 
+    fn uv(&self) -> egui::Rect {
+        egui::Rect::from_min_max(
+            Pos2::ZERO,
+            (self.output_size / self.allocated_size()).to_pos2(),
+        )
+    }
+
+    fn image_source<'a>(&self) -> ImageSource<'a> {
+        ImageSource::Texture(SizedTexture {
+            id: self.texture_id,
+            size: self.allocated_size(),
+        })
+    }
+
+    fn allocated_size(&self) -> egui::Vec2 {
+        egui::Vec2::new(
+            self.texture.size().width as f32,
+            self.texture.size().height as f32,
+        )
+    }
+
+    fn create_texture(
+        size: Vec2,
+        wgpu_state: &eframe::egui_wgpu::RenderState,
+    ) -> (wgpu::Texture, egui::TextureId) {
         let size = wgpu::Extent3d {
-            width: 512,
-            height: 512,
+            width: size.x as u32,
+            height: size.y as u32,
             depth_or_array_layers: 1,
         };
 
@@ -66,14 +98,31 @@ impl Plugin for EguiRenderPlugin {
             view_formats: &[],
         };
 
-        let bevy_render_target = device.create_texture(&texture_desc);
+        let bevy_render_target = wgpu_state.device.create_texture(&texture_desc);
         let texture_view = bevy_render_target.create_view(&wgpu::TextureViewDescriptor::default());
 
-        let texture_id = self.wgpu_state.renderer.write().register_native_texture(
-            &device,
+        let texture_id = wgpu_state.renderer.write().register_native_texture(
+            &wgpu_state.device,
             &texture_view,
             wgpu::FilterMode::Linear,
         );
+        (bevy_render_target, texture_id)
+    }
+}
+
+struct EguiRenderPlugin {
+    wgpu_state: eframe::egui_wgpu::RenderState,
+}
+
+impl Plugin for EguiRenderPlugin {
+    fn build(&self, app: &mut App) {
+        let instance = self.wgpu_state.instance.clone();
+        let queue = self.wgpu_state.queue.clone();
+        let device = self.wgpu_state.device.clone();
+        let adapter = self.wgpu_state.adapter.clone();
+
+        let (bevy_render_target, texture_id) =
+            BevyRenderTarget::create_texture(Vec2::new(512.0, 512.0), &self.wgpu_state);
         let plugin = RenderPlugin {
             render_creation: RenderCreation::manual(
                 RenderDevice::new(WgpuWrapper::new(device)),
@@ -90,7 +139,17 @@ impl Plugin for EguiRenderPlugin {
         app.insert_resource(BevyRenderTarget {
             texture: bevy_render_target,
             texture_id,
+            output_size: egui::Vec2::new(512.0, 512.0),
+            wgpu_state: self.wgpu_state.clone(),
         });
+        app.add_systems(Update, rotate);
+        app.add_systems(PostUpdate, update_camera_render_target);
+    }
+}
+
+fn rotate(mut query: Query<&mut Transform, With<BodyComponent>>, time: Res<Time>) {
+    for mut transform in &mut query {
+        transform.rotate_y(time.delta_secs() / 2.);
     }
 }
 
@@ -144,24 +203,45 @@ fn setup_camera(
         Camera3d::default(),
         Camera {
             target: RenderTarget::TextureView(manual_texture_view_handle),
+            viewport: Some(Viewport {
+                physical_size: UVec2::new(1, 1),
+                ..Viewport::default()
+            }),
             clear_color: Color::linear_rgba(0.3, 0.3, 0.3, 0.3).into(),
             ..Default::default()
         },
         Transform::from_xyz(1.0, -1.0, 1.0).looking_at(Vec3::ZERO, Vec3::Z),
     ));
 }
+fn update_camera_render_target(
+    mut camera: Single<&mut Camera>,
+    target: Res<BevyRenderTarget>,
+    mut manual_tex_view: ResMut<ManualTextureViews>,
+) {
+    let texture = Texture::from(target.texture.clone());
+    let manual_texture_view = ManualTextureView::with_default_format(
+        texture.create_view(&wgpu::TextureViewDescriptor::default()),
+        UVec2::new(target.texture.size().width, target.texture.size().width),
+    );
+    let manual_texture_view_handle = ManualTextureViewHandle(0);
+    manual_tex_view.insert(manual_texture_view_handle, manual_texture_view);
+    camera.target = RenderTarget::TextureView(manual_texture_view_handle);
+    camera.viewport = Some(Viewport {
+        physical_size: UVec2::new(target.output_size.x as u32, target.output_size.y as u32),
+        ..Viewport::default()
+    });
+}
 
 pub struct MujocoSimulatorPanel {
     update_receiver: mpsc::Receiver<SceneUpdate>,
-    command_sender: mpsc::Sender<ServerCommand>,
+    // command_sender: mpsc::Sender<ServerCommand>,
     bevy_app: App,
 }
 
-// TODO: Use same type as on server
-#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-pub enum ServerCommand {
-    Reset,
-}
+// #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+// pub enum ServerCommand {
+//     Reset,
+// }
 
 impl<'a> Panel<'a> for MujocoSimulatorPanel {
     const NAME: &'static str = "Mujoco Simulator";
@@ -236,7 +316,7 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
         bevy_app.cleanup();
 
         let (update_sender, update_receiver) = mpsc::channel(10);
-        let (command_sender, mut command_receiver) = mpsc::channel(10);
+        // let (command_sender, mut command_receiver) = mpsc::channel(10);
 
         let egui_ctx = context.egui_context.clone();
         thread::spawn(|| {
@@ -249,11 +329,11 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
                 loop {
                     let Ok((stream, _response)) = connect_async("ws://localhost:8000/scene/subscribe")
                         .await else {
-                            println!("Websocket connection failed, retrying...");
+                            // println!("Websocket connection failed, retrying...");
                             tokio::time::sleep(Duration::from_secs(1)).await;
                             continue;
                         };
-                    let (mut sender, mut receiver) = stream.split();
+                    let (mut _sender, mut receiver) = stream.split();
                     loop {
                         select! {
                             maybe_message = receiver.next() => {
@@ -263,10 +343,10 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
                                 update_sender.send(update).await.unwrap();
                                 egui_ctx.request_repaint();
                             }
-                            maybe_command = command_receiver.recv() => {
-                                let Some(command) = maybe_command else { println!("command receive failed"); return; };
-                                sender.send(tungstenite::Message::text(dbg!(serde_json::to_string(&command).unwrap()))).await.unwrap();
-                            }
+                            // maybe_command = command_receiver.recv() => {
+                            //     let Some(command) = maybe_command else { println!("command receive failed"); return; };
+                            //     sender.send(tungstenite::Message::text(dbg!(serde_json::to_string(&command).unwrap()))).await.unwrap();
+                            // }
                         }
                     }
                 }
@@ -276,7 +356,7 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
         Self {
             update_receiver,
             bevy_app,
-            command_sender,
+            // command_sender,
         }
     }
 }
@@ -284,19 +364,24 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
 impl Widget for &mut MujocoSimulatorPanel {
     fn ui(self, ui: &mut Ui) -> Response {
         self.process_scene_updates();
-        self.bevy_app.update();
-        let texture_id = self
+        let response = ui.allocate_response(ui.available_size(), Sense::all());
+
+        let mut render_target = self
             .bevy_app
-            .world()
-            .get_resource::<BevyRenderTarget>()
-            .unwrap()
-            .texture_id;
-        let image_source = egui::ImageSource::Texture(SizedTexture {
-            id: texture_id,
-            size: vec2(512.0, 512.0),
-        });
-        let response = ui.allocate_response(vec2(512.0, 512.0), Sense::all());
-        ui.put(response.rect, Image::new(image_source))
+            .world_mut()
+            .get_resource_mut::<BevyRenderTarget>()
+            .unwrap();
+        render_target.set_output_size(response.rect.size());
+        let image_source = render_target.image_source();
+        let uv = render_target.uv();
+        self.bevy_app.update();
+        ui.put(
+            response.rect,
+            Image::new(image_source)
+                .maintain_aspect_ratio(false)
+                .fit_to_exact_size(response.rect.size())
+                .uv(uv),
+        )
     }
 }
 
