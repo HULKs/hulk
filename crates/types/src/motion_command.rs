@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Ground;
-use linear_algebra::{Orientation2, Point2};
+use linear_algebra::{Orientation2, Point2, Vector3};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{
@@ -117,6 +117,10 @@ pub enum MotionCommand {
         kicking_side: Side,
         strength: f32,
     },
+    WalkWithVelocity {
+        head: HeadMotion,
+        velocity: Vector3<Ground>,
+    },
 }
 
 impl MotionCommand {
@@ -127,7 +131,9 @@ impl MotionCommand {
             | MotionCommand::Initial { head, .. }
             | MotionCommand::Stand { head, .. }
             | MotionCommand::Walk { head, .. }
-            | MotionCommand::InWalkKick { head, .. } => Some(*head),
+            | MotionCommand::InWalkKick { head, .. }
+            | MotionCommand::WalkWithVelocity { head, .. } 
+            => Some(*head),
             MotionCommand::Penalized => Some(HeadMotion::ZeroAngles),
             MotionCommand::Unstiff => Some(HeadMotion::Unstiff),
             MotionCommand::Animation { stiff } => Some(HeadMotion::Animation { stiff: *stiff }),

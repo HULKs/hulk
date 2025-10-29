@@ -134,6 +134,7 @@ fn motion_type_from_command(command: &MotionCommand) -> MotionType {
         MotionCommand::Animation { stiff: true } => MotionType::AnimationStiff,
         MotionCommand::Walk { .. } => MotionType::Walk,
         MotionCommand::InWalkKick { .. } => MotionType::Walk,
+        MotionCommand::WalkWithVelocity { .. } => MotionType::Walk,
     }
 }
 

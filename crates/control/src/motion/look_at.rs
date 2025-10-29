@@ -86,6 +86,7 @@ impl LookAt {
             MotionCommand::SitDown { head } => head,
             MotionCommand::Stand { head, .. } => head,
             MotionCommand::Walk { head, .. } => head,
+            MotionCommand::WalkWithVelocity { head, .. } => head,
             _ => return default_output,
         };
 
