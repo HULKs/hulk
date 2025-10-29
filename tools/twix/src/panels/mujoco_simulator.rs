@@ -371,7 +371,7 @@ impl Widget for &mut MujocoSimulatorPanel {
             .world_mut()
             .get_resource_mut::<BevyRenderTarget>()
             .unwrap();
-        render_target.set_output_size(response.rect.size());
+        render_target.set_output_size(response.rect.size() * ui.pixels_per_point());
         let image_source = render_target.image_source();
         let uv = render_target.uv();
         self.bevy_app.update();
