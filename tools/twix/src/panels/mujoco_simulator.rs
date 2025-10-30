@@ -295,7 +295,7 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
         }
         let scene_root = bevy_app
             .world_mut()
-            .spawn(Transform::from_rotation(Quat::from_rotation_x(FRAC_PI_2)))
+            .spawn(Transform::from_rotation(Quat::from_rotation_x(-FRAC_PI_2)))
             .id();
         for (name, body) in &scene.bodies {
             let mut materials = Vec::new();
