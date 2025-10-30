@@ -175,6 +175,7 @@ opn = { path = "crates/opn" }
 optimization_engine = "0.9.1"
 opusfile-ng = "0.1.0"
 ordered-float = "4.6.0"
+ort = "=2.0.0-rc.10"
 parameters = { path = "crates/parameters" }
 parking_lot = "0.12.3"
 parry2d = { version = "0.21.1", default-features = false, features = [

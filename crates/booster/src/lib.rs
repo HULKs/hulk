@@ -5,7 +5,7 @@ use pyo3::{pyclass, pymethods, pymodule};
 use ros2::geometry_msgs::transform_stamped::TransformStamped;
 use serde::{Deserialize, Serialize};
 
-#[pyclass(frozen, get_all)]
+#[pyclass(frozen)]
 #[derive(
     Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]

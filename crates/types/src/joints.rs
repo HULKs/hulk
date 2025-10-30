@@ -11,6 +11,7 @@ use std::{
     ops::{Add, Div, Index, IndexMut, Mul, Sub},
 };
 
+use booster::MotorState;
 use mirror::SwapSides;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
@@ -49,7 +50,6 @@ pub enum JointsName {
     Copy,
     Debug,
     Default,
-    Deserialize,
     PartialEq,
     Eq,
     Serialize,
@@ -63,6 +63,74 @@ pub struct Joints<T = f32> {
     pub right_arm: ArmJoints<T>,
     pub left_leg: LegJoints<T>,
     pub right_leg: LegJoints<T>,
+}
+
+impl<'de> Deserialize<'de> for Joints<f32> {
+    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
+    where
+        D: serde::Deserializer<'de>,
+    {
+        struct JointsVisitor;
+
+        impl<'de> serde::de::Visitor<'de> for JointsVisitor {
+            type Value = Joints<f32>;
+
+            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
+                formatter.write_str("a sequence of 22 floats or a map")
+            }
+
+            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
+            where
+                A: serde::de::SeqAccess<'de>,
+            {
+                let mut values = Vec::with_capacity(22);
+                while let Some(value) = seq.next_element()? {
+                    values.push(value);
+                }
+
+                if values.len() != 22 {
+                    return Err(serde::de::Error::invalid_length(values.len(), &self));
+                }
+
+                Ok(Joints {
+                    head: HeadJoints {
+                        yaw: values[0],
+                        pitch: values[1],
+                    },
+                    left_arm: ArmJoints {
+                        shoulder_pitch: values[2],
+                        shoulder_roll: values[3],
+                        shoulder_yaw: values[4],
+                        elbow: values[5],
+                    },
+                    right_arm: ArmJoints {
+                        shoulder_pitch: values[6],
+                        shoulder_roll: values[7],
+                        shoulder_yaw: values[8],
+                        elbow: values[9],
+                    },
+                    left_leg: LegJoints {
+                        hip_pitch: values[10],
+                        hip_roll: values[11],
+                        hip_yaw: values[12],
+                        knee: values[13],
+                        ankle_up: values[14],
+                        ankle_down: values[15],
+                    },
+                    right_leg: LegJoints {
+                        hip_pitch: values[16],
+                        hip_roll: values[17],
+                        hip_yaw: values[18],
+                        knee: values[19],
+                        ankle_up: values[20],
+                        ankle_down: values[21],
+                    },
+                })
+            }
+        }
+
+        deserializer.deserialize_any(JointsVisitor)
+    }
 }
 
 impl<T> Joints<T> {
@@ -165,6 +233,136 @@ impl<T> Joints<T> {
             right_arm: self.right_arm,
             left_leg: self.left_leg,
             right_leg: self.right_leg,
+        }
+    }
+
+    pub fn joint_positions(motor_states_serial: &[MotorState]) -> Joints {
+        let ms = &motor_states_serial;
+        if ms.len() != 22 {
+            panic!("expected 22 motor states, got {}", ms.len());
+        }
+
+        let head_yaw = ms[0].position;
+        let head_pitch = ms[1].position;
+        let left_shoulder_pitch = ms[2].position;
+        let left_shoulder_roll = ms[3].position;
+        let left_shoulder_yaw = ms[4].position;
+        let left_elbow = ms[5].position;
+        let right_shoulder_pitch = ms[6].position;
+        let right_shoulder_roll = ms[7].position;
+        let right_shoulder_yaw = ms[8].position;
+        let right_elbow = ms[9].position;
+        let left_hip_pitch = ms[10].position;
+        let left_hip_roll = ms[11].position;
+        let left_hip_yaw = ms[12].position;
+        let left_knee = ms[13].position;
+        let left_ankle_up = ms[14].position;
+        let left_ankle_down = ms[15].position;
+        let right_hip_pitch = ms[16].position;
+        let right_hip_roll = ms[17].position;
+        let right_hip_yaw = ms[18].position;
+        let right_knee = ms[19].position;
+        let right_ankle_up = ms[20].position;
+        let right_ankle_down = ms[21].position;
+
+        Joints {
+            head: HeadJoints {
+                yaw: head_yaw,
+                pitch: head_pitch,
+            },
+            left_arm: ArmJoints {
+                shoulder_pitch: left_shoulder_pitch,
+                shoulder_roll: left_shoulder_roll,
+                shoulder_yaw: left_shoulder_yaw,
+                elbow: left_elbow,
+            },
+            right_arm: ArmJoints {
+                shoulder_pitch: right_shoulder_pitch,
+                shoulder_roll: right_shoulder_roll,
+                shoulder_yaw: right_shoulder_yaw,
+                elbow: right_elbow,
+            },
+            left_leg: LegJoints {
+                hip_pitch: left_hip_pitch,
+                hip_yaw: left_hip_yaw,
+                hip_roll: left_hip_roll,
+                knee: left_knee,
+                ankle_up: left_ankle_up,
+                ankle_down: left_ankle_down,
+            },
+            right_leg: LegJoints {
+                hip_pitch: right_hip_pitch,
+                hip_yaw: right_hip_yaw,
+                hip_roll: right_hip_roll,
+                knee: right_knee,
+                ankle_up: right_ankle_up,
+                ankle_down: right_ankle_down,
+            },
+        }
+    }
+
+    pub fn joint_velocities(motor_states_serial: &[MotorState]) -> Joints {
+        let ms = &motor_states_serial;
+        if ms.len() != 22 {
+            panic!("expected 22 motor states, got {}", ms.len());
+        }
+
+        let head_yaw = ms[0].velocity;
+        let head_pitch = ms[1].velocity;
+        let left_shoulder_pitch = ms[2].velocity;
+        let left_shoulder_roll = ms[3].velocity;
+        let left_shoulder_yaw = ms[4].velocity;
+        let left_elbow = ms[5].velocity;
+        let right_shoulder_pitch = ms[6].velocity;
+        let right_shoulder_roll = ms[7].velocity;
+        let right_shoulder_yaw = ms[8].velocity;
+        let right_elbow = ms[9].velocity;
+        let left_hip_pitch = ms[10].velocity;
+        let left_hip_roll = ms[11].velocity;
+        let left_hip_yaw = ms[12].velocity;
+        let left_knee = ms[13].velocity;
+        let left_ankle_up = ms[14].velocity;
+        let left_ankle_down = ms[15].velocity;
+        let right_hip_pitch = ms[16].velocity;
+        let right_hip_roll = ms[17].velocity;
+        let right_hip_yaw = ms[18].velocity;
+        let right_knee = ms[19].velocity;
+        let right_ankle_up = ms[20].velocity;
+        let right_ankle_down = ms[21].velocity;
+
+        Joints {
+            head: HeadJoints {
+                yaw: head_yaw,
+                pitch: head_pitch,
+            },
+            left_arm: ArmJoints {
+                shoulder_pitch: left_shoulder_pitch,
+                shoulder_roll: left_shoulder_roll,
+                shoulder_yaw: left_shoulder_yaw,
+                elbow: left_elbow,
+            },
+            right_arm: ArmJoints {
+                shoulder_pitch: right_shoulder_pitch,
+                shoulder_roll: right_shoulder_roll,
+                shoulder_yaw: right_shoulder_yaw,
+                elbow: right_elbow,
+            },
+            left_leg: LegJoints {
+                hip_pitch: left_hip_pitch,
+                hip_yaw: left_hip_yaw,
+                hip_roll: left_hip_roll,
+                knee: left_knee,
+                ankle_up: left_ankle_up,
+                ankle_down: left_ankle_down,
+            },
+            right_leg: LegJoints {
+                hip_pitch: right_hip_pitch,
+                hip_yaw: right_hip_yaw,
+                hip_roll: right_hip_roll,
+                knee: right_knee,
+                ankle_up: right_ankle_up,
+                ankle_down: right_ankle_down,
+            },
         }
     }
 }

@@ -1,1 +1,52 @@
-{}
+{
+  "rl_walking": {
+    "gait_frequency": 1,
+    "number_of_actions": 12,
+    "number_of_observations": 47,
+    "torque_limits": [
+      7, 7, 10, 10, 10, 10, 10, 10, 10, 10, 60, 25, 30, 60, 24, 15, 60, 25, 30,
+      60, 24, 15
+    ],
+    "normalization": {
+      "gravity": 1.0,
+      "linear_velocity": 1.0,
+      "angular_velocity": 1.0,
+      "joint_position": 1.0,
+      "joint_velocity": 0.1,
+      "clip_actions": 1
+    },
+    "control": {
+      "dt": 0.002,
+      "action_scale": 1.0,
+      "decimation": 10.0
+    }
+  },
+  "prepare_motor_command": {
+    "default_positions": [
+      0, 0, 0.2, -1.35, 0, -0.5, 0.2, 1.35, 0, 0.5, -0.2, 0, 0, 0.4, -0.25, 0,
+      -0.2, 0, 0, 0.4, -0.25, 0
+    ],
+    "proportional_coefficients": [
+      20, 20, 20, 20, 20, 20, 20, 20, 20, 20, 200, 200, 200, 200, 50, 50, 200,
+      200, 200, 200, 50, 50
+    ],
+    "derivative_coefficients": [
+      0.2, 0.2, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 5, 5, 5, 5, 3, 3, 5, 5,
+      5, 5, 3, 3
+    ]
+  },
+  "common_motor_command": {
+    "default_positions": [
+      0.0, 0.0, 0.25, -1.4, 0.0, -0.5, 0.25, 1.4, 0.0, 0.5, -0.1, 0.0, 0.0, 0.2,
+      -0.1, 0.0, -0.1, 0.0, 0.0, 0.2, -0.1, 0.0
+    ],
+    "proportional_coefficients": [
+      5, 5, 40, 50, 20, 10, 40, 50, 20, 10, 350, 350, 180, 350, 450, 450, 350,
+      350, 180, 350, 450, 450
+    ],
+    "derivative_coefficients": [
+      0.1, 0.1, 0.5, 1.5, 0.2, 0.2, 0.5, 1.5, 0.2, 0.2, 7.5, 7.5, 3, 5.5, 0.5,
+      0.5, 7.5, 7.5, 3, 5.5, 0.5, 0.5
+    ]
+  }
+}
