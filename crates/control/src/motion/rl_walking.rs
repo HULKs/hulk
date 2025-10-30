@@ -39,10 +39,8 @@ pub struct CreationContext {
 pub struct CycleContext {
     parameters: Parameter<RLWalkingParameters, "rl_walking">,
     default_joint_positions: Parameter<Joints, "common_motor_command.default_positions">,
-    common_motor_command:
-        Parameter<MotorCommandParameters, "common_motor_command.derivative_coefficients">,
-    prepare_motor_command:
-        Parameter<MotorCommandParameters, "common_motor_command.proportional_coefficients">,
+    common_motor_command: Parameter<MotorCommandParameters, "common_motor_command">,
+    prepare_motor_command: Parameter<MotorCommandParameters, "prepare_motor_command">,
 
     imu_state: Input<ImuState, "low_state.imu_state">,
     joint_positions: Input<Joints, "joint_positions">,

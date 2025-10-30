@@ -1341,6 +1341,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
+ "types",
 ]
 
 [[package]]
@@ -8266,7 +8267,6 @@ version = "0.1.0"
 dependencies = [
  "approx 0.5.1",
  "approx_derive",
- "booster",
  "color-eyre",
  "coordinate_systems",
  "enum-iterator",

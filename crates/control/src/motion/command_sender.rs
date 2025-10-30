@@ -1,11 +1,9 @@
-use std::f32::consts::PI;
-
-use approx::abs_diff_eq;
-use booster::{CommandType, LowCommand, MotorCommand};
+use booster::LowCommand;
 use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
 use hardware::LowCommandInterface;
 use serde::{Deserialize, Serialize};
+use types::{joints::Joints, parameters::MotorCommandParameters};
 
 #[derive(Deserialize, Serialize)]
 pub struct CommandSender {
@@ -18,6 +16,11 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
+    target_joint_velocities: Input<Joints, "target_joint_velocities">,
+
+    motor_command_parameters: Parameter<MotorCommandParameters, "common_motor_command">,
+    prepare_motor_command_parameters: Parameter<MotorCommandParameters, "prepare_motor_command">,
+
     hardware_interface: HardwareInterface,
 }
 
@@ -37,19 +40,10 @@ impl CommandSender {
         &mut self,
         context: CycleContext<impl LowCommandInterface>,
     ) -> Result<MainOutputs> {
-        let motor_commands =
-            Self::generate_random_motor_commands(self.motor_index, self.time_index);
-
-        self.time_index += PI / 100.0;
-        if abs_diff_eq!(self.time_index % (8.0 * PI), 0.0, epsilon = 0.001) {
-            self.motor_index = (self.motor_index + 1) % 22;
-            self.time_index = 0.0;
-        }
-
-        let low_command = LowCommand {
-            command_type: CommandType::Serial,
-            motor_commands: motor_commands.to_vec(),
-        };
+        let low_command = LowCommand::new(
+            context.target_joint_velocities,
+            context.motor_command_parameters,
+        );
 
         context
             .hardware_interface
@@ -57,25 +51,5 @@ impl CommandSender {
             .wrap_err("failed to write to actuators")?;
 
         Ok(MainOutputs {})
-    }
-
-    fn generate_random_motor_commands(motor_index: usize, time_index: f32) -> [MotorCommand; 22] {
-        let mut motor_commands: [MotorCommand; 22] = [MotorCommand {
-            position: 0.0,
-            velocity: 0.0,
-            torque: 0.0,
-            kp: 45.0,
-            kd: 0.2,
-            weight: 1.0,
-        }; 22];
-        motor_commands[motor_index] = MotorCommand {
-            position: time_index.sin(),
-            velocity: time_index.sin(),
-            torque: 1.0,
-            kp: 25.0,
-            kd: 0.3,
-            weight: 1.0,
-        };
-        motor_commands
     }
 }

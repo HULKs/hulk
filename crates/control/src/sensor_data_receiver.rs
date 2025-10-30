@@ -74,8 +74,8 @@ impl SensorDataReceiver {
         };
 
         Ok(MainOutputs {
-            joint_positions: Joints::<f32>::joint_positions(&low_state.motor_state_serial).into(),
-            joint_velocities: Joints::<f32>::joint_velocities(&low_state.motor_state_serial).into(),
+            joint_positions: low_state.joint_positions().into(),
+            joint_velocities: low_state.joint_velocities().into(),
             low_state: low_state.into(),
             cycle_time: cycle_time.into(),
         })
