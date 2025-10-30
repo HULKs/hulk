@@ -152,14 +152,7 @@ impl Plugin for EguiRenderPlugin {
             output_size: egui::Vec2::new(512.0, 512.0),
             wgpu_state: self.wgpu_state.clone(),
         });
-        app.add_systems(Update, rotate);
         app.add_systems(PostUpdate, update_camera_render_target);
-    }
-}
-
-fn rotate(mut query: Query<&mut Transform, With<BodyComponent>>, time: Res<Time>) {
-    for mut transform in &mut query {
-        transform.rotate_y(time.delta_secs() / 2.);
     }
 }
 
