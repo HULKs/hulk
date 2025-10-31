@@ -21,20 +21,24 @@ class SceneState:
     bodies: dict[str, BodyState]
 
 
+def get_scene_state(model: MjModel, data: MjData) -> SceneState:
+    bodies = {}
+
+    for i in range(model.nbody):
+        name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY.value, i)
+        pos = data.xpos[i].tolist()
+        quat = data.xquat[i].tolist()  # (w, x, y, z)
+        bodies[name] = {"pos": pos, "quat": quat}
+
+    return SceneState(timestamp=data.time, bodies=bodies)
+
+
 class SceneStateTopic(SendTopic):
     name = "scene_state"
 
     @override
     def compute(self, *, model: MjModel, data: MjData) -> SceneState:
-        bodies = {}
-
-        for i in range(model.nbody):
-            name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY.value, i)
-            pos = data.xpos[i].tolist()
-            quat = data.xquat[i].tolist()  # (w, x, y, z)
-            bodies[name] = {"pos": pos, "quat": quat}
-
-        return SceneState(timestamp=data.time, bodies=bodies)
+        return get_scene_state(model, data)
 
     @override
     def publish(

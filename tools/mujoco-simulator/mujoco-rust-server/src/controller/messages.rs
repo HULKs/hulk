@@ -8,6 +8,7 @@ use booster::{LowCommand, LowState};
 use bytes::Bytes;
 use pyo3::{exceptions::PyValueError, pyclass, pymethods, Bound, Py, PyAny, PyResult, Python};
 use pyo3_async_runtimes::tokio::future_into_py;
+use simulation_message::{ConnectionInfo, TaskName};
 use tokio::sync::{mpsc, oneshot};
 use uuid::Uuid;
 use zed::RGBDSensors;
@@ -17,6 +18,7 @@ use crate::controller::handle::ConnectionHandle;
 pub enum ControlCommand {
     Connect {
         sender: oneshot::Sender<ConnectionHandle>,
+        connection_info: ConnectionInfo,
     },
     Disconnect {
         id: Uuid,
@@ -31,7 +33,7 @@ impl Debug for ControlCommand {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             ControlCommand::Connect { .. } => f.debug_struct("Connect").finish(),
-            ControlCommand::Disconnect { .. } => f.debug_struct("Connect").finish(),
+            ControlCommand::Disconnect { .. } => f.debug_struct("Disconnect").finish(),
             ControlCommand::Reset => f.debug_struct("Reset").finish(),
             ControlCommand::Play => f.debug_struct("Play").finish(),
             ControlCommand::Pause => f.debug_struct("Pause").finish(),
@@ -48,6 +50,9 @@ pub enum SimulationTask {
     LowState {
         sender: mpsc::Sender<SimulationData>,
     },
+    RGBDSensors {
+        sender: mpsc::Sender<SimulationData>,
+    },
     ApplyLowCommand {
         receiver: oneshot::Receiver<LowCommand>,
     },
@@ -62,9 +67,15 @@ pub enum SimulationTask {
 
 pub enum SimulationData {
     SceneDescription(Bytes),
-    SceneState(Bytes),
-    LowState { time: SystemTime, data: LowState },
-    Image { time: SystemTime, data: Box<RGBDSensors> },
+    SceneState(String),
+    LowState {
+        time: SystemTime,
+        data: LowState,
+    },
+    Image {
+        time: SystemTime,
+        data: Box<RGBDSensors>,
+    },
 }
 
 #[pyclass]
@@ -89,6 +100,7 @@ impl PySimulationTask {
             SimulationTask::ApplyLowCommand { .. } => TaskName::ApplyLowCommand,
             SimulationTask::SceneDescription { .. } => TaskName::RequestSceneDescription,
             SimulationTask::SceneState { .. } => TaskName::RequestSceneState,
+            SimulationTask::RGBDSensors { .. } => TaskName::RequestRGBDSensors,
         }
     }
 
@@ -96,9 +108,8 @@ impl PySimulationTask {
         let task = std::mem::replace(&mut self.task, SimulationTask::Invalid);
         match task {
             SimulationTask::ApplyLowCommand { receiver } => future_into_py(py, async move {
-                receiver
-                    .await
-                    .map_err(|_| PyValueError::new_err("failed to receive LowCommand"))
+                // Channel may be closed if websocket closes.
+                Ok(receiver.await.ok())
             }),
             _ => Err(PyValueError::new_err("no implentation for receive")),
         }
@@ -111,7 +122,6 @@ impl PySimulationTask {
         response: Py<PyAny>,
     ) -> PyResult<Bound<'py, PyAny>> {
         let time = SystemTime::UNIX_EPOCH + Duration::from_secs_f32(time);
-        log::info!("Responding to task: {:?}", self.kind());
 
         let task = std::mem::replace(&mut self.task, SimulationTask::Invalid);
         match task {
@@ -125,28 +135,39 @@ impl PySimulationTask {
             SimulationTask::LowState { sender } => {
                 let data = response.extract(py)?;
                 future_into_py(py, async move {
-                    sender
-                        .send(SimulationData::LowState { time, data })
-                        .await
-                        .map_err(|_| PyValueError::new_err("failed to send LowState update"))
+                    // Channel may be closed if websocket disconnects
+                    let _ = sender.send(SimulationData::LowState { time, data }).await;
+                    Ok(())
+                })
+            }
+            SimulationTask::RGBDSensors { sender } => {
+                let data = response.extract(py)?;
+                future_into_py(py, async move {
+                    // Channel may be closed if websocket disconnects
+                    let _ = sender
+                        .send(SimulationData::Image {
+                            time,
+                            data: Box::new(data),
+                        })
+                        .await;
+                    Ok(())
                 })
             }
             SimulationTask::SceneDescription { sender } => {
                 let data: Vec<u8> = response.extract(py)?;
                 future_into_py(py, async move {
-                    sender
+                    // Channel may be closed if websocket disconnects
+                    let _ = sender
                         .send(SimulationData::SceneDescription(data.into()))
-                        .await
-                        .map_err(|_| PyValueError::new_err("failed to send LowState update"))
+                        .await;
+                    Ok(())
                 })
             }
             SimulationTask::SceneState { sender } => {
-                let data: Vec<u8> = response.extract(py)?;
+                let data = response.extract(py)?;
                 future_into_py(py, async move {
-                    sender
-                        .send(SimulationData::SceneState(data.into()))
-                        .await
-                        .map_err(|_| PyValueError::new_err("failed to send LowState update"))
+                    let _ = sender.send(SimulationData::SceneState(data)).await;
+                    Ok(())
                 })
             }
             SimulationTask::ApplyLowCommand { .. } => Err(PyValueError::new_err(
@@ -155,17 +176,4 @@ impl PySimulationTask {
             SimulationTask::Invalid => Err(PyValueError::new_err("encountered Invalid task")),
         }
     }
-}
-
-#[pyclass(frozen, eq)]
-#[derive(Copy, Clone, Debug, PartialEq, Eq)]
-pub enum TaskName {
-    ApplyLowCommand,
-    RequestLowState,
-    RequestRGBDSensors,
-    StepSimulation,
-    Reset,
-    Invalid,
-    RequestSceneState,
-    RequestSceneDescription,
 }

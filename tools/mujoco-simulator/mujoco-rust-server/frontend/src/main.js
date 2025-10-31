@@ -60,7 +60,7 @@ function setupMeshGroups(scene, sceneData, bodyMeshes) {
     return bodyGroups;
 }
 
-async function fetchSceneData() {
+async function unpack_binary(data) {
     const response = await fetch("http://localhost:8000/scene");
     const arrayBuffer = await response.arrayBuffer();
     const binaryData = new Uint8Array(arrayBuffer);
@@ -85,6 +85,7 @@ async function init() {
 
     scene.background = new THREE.Color(0xa0a0a0);
     scene.fog = new THREE.Fog(0xa0a0a0, 10, 50);
+    setupGround(scene);
 
     window.addEventListener('resize', () => {
         camera.aspect = window.innerWidth / window.innerHeight;
@@ -92,24 +93,57 @@ async function init() {
         renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
-    const sceneData = await fetchSceneData();
+    const ws = new WebSocket("ws://localhost:8000/simulation/subscribe");
+    ws.binaryType = "arraybuffer"
+    let isSceneInitialized = false;
 
-    setupGround(scene);
-    setupLighting(scene, sceneData);
-    const bodyMeshes = loadMeshes(sceneData);
-    const bodyGroups = setupMeshGroups(scene, sceneData, bodyMeshes);
+    ws.onopen = () => {
+        ws.send(JSON.stringify({
+            "schedule": [
+                {
+                    "Once": "RequestSceneDescription"
+                },
+                {
+                    "OnStep": "RequestSceneState"
+                }
+            ]
+        }))
+        console.log("Sent ConnectionInfo")
+    }
 
-    const ws = new WebSocket("ws://localhost:8000/scene/subscribe");
+    let bodyGroups = null
+
     ws.onmessage = (event) => {
-        const state = JSON.parse(event.data);
-        for (const [name, t] of Object.entries(state.bodies)) {
-            const group = bodyGroups[name];
-            if (!group) continue;
-            group.position.fromArray(t.pos);
-            group.quaternion.set(t.quat[1], t.quat[2], t.quat[3], t.quat[0]);
+        if (!isSceneInitialized) {
+            if (event.data instanceof ArrayBuffer) {
+                try {
+                    const sceneDescription = msgpack.decode(event.data)
+                    isSceneInitialized = true
+                    setupLighting(scene, sceneDescription);
+                    const bodyMeshes = loadMeshes(sceneDescription);
+                    bodyGroups = setupMeshGroups(scene, sceneDescription, bodyMeshes);
+                } catch (e) {
+                    console.error("Failed to decode initial scene (MessagePack):", e);
+                    ws.close()
+                }
+            } else {
+                console.error("Protocol Error: Expected first message to be binary")
+                ws.close()
+            }
+        } else {
+            const state = JSON.parse(event.data);
+            for (const [name, t] of Object.entries(state.bodies)) {
+                const group = bodyGroups[name];
+                if (!group) continue;
+                group.position.fromArray(t.pos);
+                group.quaternion.set(t.quat[1], t.quat[2], t.quat[3], t.quat[0]);
+            }
         }
+
         stats.update();
     };
+
+
 
     function animate() {
         requestAnimationFrame(animate);

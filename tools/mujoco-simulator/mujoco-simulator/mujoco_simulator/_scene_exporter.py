@@ -36,6 +36,97 @@ class SceneDescription:
     bodies: dict
 
 
+def export_scene(model: mujoco.MjModel) -> SceneDescription:
+    """
+    Extract static scene info:
+    meshes, textures, lights, and body→geom mapping.
+    """
+
+    # Meshes
+    meshes = {}
+    for i in range(model.nmesh):
+        name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_MESH.value, i)
+        vert_adr = model.mesh_vertadr[i]
+        nvert = model.mesh_vertnum[i]
+        face_adr = model.mesh_faceadr[i]
+        nface = model.mesh_facenum[i]
+
+        verts = model.mesh_vert[vert_adr : vert_adr + nvert].tolist()
+        faces = model.mesh_face[face_adr : face_adr + nface].tolist()
+
+        meshes[name] = Mesh(vertices=verts, faces=faces)
+
+    # Textures (export raw for now)
+    # textures = {}
+    # for i in range(model.ntex):
+    #     name = mujoco.mj_id2name(
+    #         model, mujoco.mjtObj.mjOBJ_TEXTURE.value, i
+    #     )
+    #     width = model.tex_width[i]
+    #     height = model.tex_height[i]
+    #     address = model.tex_adr[i]
+    #     tex_data = model.tex_data[
+    #         address : address + width * height * 3
+    #     ].tolist()
+    #     textures[name] = {
+    #         "width": width, "height": height, "rgb": tex_data
+    #     }
+
+    # Lights
+    lights = []
+    for i in range(model.nlight):
+        name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_LIGHT.value, i)
+        position = model.light_pos[i].tolist()
+        direction = model.light_dir[i].tolist()
+        lights.append({"name": name, "pos": position, "dir": direction})
+
+    # Bodies and attached geoms
+    bodies = {}
+    for i in range(model.nbody):
+        body_name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY.value, i)
+        parent = model.body_parentid[i]
+
+        geoms = []
+        for g in range(model.ngeom):
+            if model.geom_bodyid[g] == i:
+                geom_name = mujoco.mj_id2name(
+                    model, mujoco.mjtObj.mjOBJ_GEOM.value, g
+                )
+                mesh_name = None
+                if model.geom_type[g] == mujoco.mjtGeom.mjGEOM_MESH:
+                    mesh_name = mujoco.mj_id2name(
+                        model,
+                        mujoco.mjtObj.mjOBJ_MESH.value,
+                        model.geom_dataid[g],
+                    )
+                rgba = model.geom_rgba[g].tolist()
+                geoms.append(
+                    Geom(
+                        name=geom_name,
+                        mesh=mesh_name,
+                        rgba=rgba,
+                        pos=model.geom_pos[g].tolist(),
+                        quat=model.geom_quat[g].tolist(),
+                    )
+                )
+
+        bodies[body_name] = Body(
+            id=i,
+            parent=mujoco.mj_id2name(
+                model, mujoco.mjtObj.mjOBJ_BODY.value, parent
+            )
+            if parent != -1
+            else None,
+            geoms=geoms,
+        )
+
+    return SceneDescription(meshes=meshes, lights=lights, bodies=bodies)
+
+
+def serialize(scene_description: SceneDescription) -> bytes:
+    return msgpack.packb(asdict(scene_description))
+
+
 class SceneExporter:
     def __init__(
         self,
@@ -44,100 +135,7 @@ class SceneExporter:
         model: mujoco.MjModel,
     ) -> None:
         self.server = server
-        self.model = model
 
-        scene_description = self.export_scene()
-        data = msgpack.packb(asdict(scene_description))
+        scene_description = export_scene(model)
+        data = serialize(scene_description)
         server.register_scene(data)
-
-    def export_scene(self) -> SceneDescription:
-        """
-        Extract static scene info:
-        meshes, textures, lights, and body→geom mapping.
-        """
-
-        # Meshes
-        meshes = {}
-        for i in range(self.model.nmesh):
-            name = mujoco.mj_id2name(
-                self.model, mujoco.mjtObj.mjOBJ_MESH.value, i
-            )
-            vert_adr = self.model.mesh_vertadr[i]
-            nvert = self.model.mesh_vertnum[i]
-            face_adr = self.model.mesh_faceadr[i]
-            nface = self.model.mesh_facenum[i]
-
-            verts = self.model.mesh_vert[vert_adr : vert_adr + nvert].tolist()
-            faces = self.model.mesh_face[face_adr : face_adr + nface].tolist()
-
-            meshes[name] = Mesh(vertices=verts, faces=faces)
-
-        # Textures (export raw for now)
-        # textures = {}
-        # for i in range(self.model.ntex):
-        #     name = mujoco.mj_id2name(
-        #         self.model, mujoco.mjtObj.mjOBJ_TEXTURE.value, i
-        #     )
-        #     width = self.model.tex_width[i]
-        #     height = self.model.tex_height[i]
-        #     address = self.model.tex_adr[i]
-        #     tex_data = self.model.tex_data[
-        #         address : address + width * height * 3
-        #     ].tolist()
-        #     textures[name] = {
-        #         "width": width, "height": height, "rgb": tex_data
-        #     }
-
-        # Lights
-        lights = []
-        for i in range(self.model.nlight):
-            name = mujoco.mj_id2name(
-                self.model, mujoco.mjtObj.mjOBJ_LIGHT.value, i
-            )
-            position = self.model.light_pos[i].tolist()
-            direction = self.model.light_dir[i].tolist()
-            lights.append({"name": name, "pos": position, "dir": direction})
-
-        # Bodies and attached geoms
-        bodies = {}
-        for i in range(self.model.nbody):
-            body_name = mujoco.mj_id2name(
-                self.model, mujoco.mjtObj.mjOBJ_BODY.value, i
-            )
-            parent = self.model.body_parentid[i]
-
-            geoms = []
-            for g in range(self.model.ngeom):
-                if self.model.geom_bodyid[g] == i:
-                    geom_name = mujoco.mj_id2name(
-                        self.model, mujoco.mjtObj.mjOBJ_GEOM.value, g
-                    )
-                    mesh_name = None
-                    if self.model.geom_type[g] == mujoco.mjtGeom.mjGEOM_MESH:
-                        mesh_name = mujoco.mj_id2name(
-                            self.model,
-                            mujoco.mjtObj.mjOBJ_MESH.value,
-                            self.model.geom_dataid[g],
-                        )
-                    rgba = self.model.geom_rgba[g].tolist()
-                    geoms.append(
-                        Geom(
-                            name=geom_name,
-                            mesh=mesh_name,
-                            rgba=rgba,
-                            pos=self.model.geom_pos[g].tolist(),
-                            quat=self.model.geom_quat[g].tolist(),
-                        )
-                    )
-
-            bodies[body_name] = Body(
-                id=i,
-                parent=mujoco.mj_id2name(
-                    self.model, mujoco.mjtObj.mjOBJ_BODY.value, parent
-                )
-                if parent != -1
-                else None,
-                geoms=geoms,
-            )
-
-        return SceneDescription(meshes=meshes, lights=lights, bodies=bodies)

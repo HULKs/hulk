@@ -9,3 +9,4 @@ homepage.workspace = true
 booster = { workspace = true }
 serde = { workspace = true }
 zed = { workspace = true }
+pyo3 = { workspace = true }

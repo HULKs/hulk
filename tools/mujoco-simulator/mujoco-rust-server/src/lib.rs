@@ -1,7 +1,5 @@
 mod controller;
-mod scene;
 mod simulation;
-mod state_machine;
 
 use std::{future::IntoFuture, sync::Arc};
 
@@ -28,7 +26,6 @@ use crate::controller::{Controller, PySimulationTask, SimulationTask};
 pub struct SimulationServer {
     _runtime: Runtime,
     cancellation_token: CancellationToken,
-    scene_state: Arc<scene::SceneState>,
     task_receiver: Arc<Mutex<Receiver<SimulationTask>>>,
 }
 
@@ -45,7 +42,6 @@ impl SimulationServer {
         let controller = Controller::new(task_sender);
         let handle = controller.start(cancellation_token.clone());
 
-        let (scene_router, scene_state) = scene::setup();
         let simulation_router = simulation::setup(handle.clone());
 
         let bind_address = bind_address.to_string();
@@ -60,7 +56,6 @@ impl SimulationServer {
             let app = Router::new()
                 .route("/health", get(health_check))
                 .nest("/simulation", simulation_router)
-                .nest("/scene", scene_router)
                 .layer(cors_layer);
 
             let listener = match TcpListener::bind(bind_address).await {
@@ -81,7 +76,6 @@ impl SimulationServer {
         Ok(SimulationServer {
             _runtime: runtime,
             cancellation_token,
-            scene_state,
             task_receiver: Arc::new(Mutex::new(task_receiver)),
         })
     }
@@ -94,25 +88,6 @@ impl SimulationServer {
                 None => Err(PyValueError::new_err("Channel closed")),
             }
         })
-    }
-
-    pub fn register_scene(&self, scene: Vec<u8>) -> PyResult<()> {
-        self.scene_state
-            .scene
-            .set(Bytes::from(scene))
-            .map_err(|_| {
-                log::error!("Scene already set");
-                PyValueError::new_err("Scene already set")
-            })?;
-
-        log::info!("Scene registered");
-        Ok(())
-    }
-
-    pub fn update_scene_state(&self, scene_state: &str) -> PyResult<()> {
-        // ignore the error, as it just means there are no receivers
-        let _ = self.scene_state.scene_sender.send(scene_state.to_string());
-        Ok(())
     }
 
     pub fn stop<'py>(&mut self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
@@ -132,10 +107,10 @@ async fn health_check() -> &'static str {
 #[pymodule(name = "mujoco_rust_server")]
 mod python_module {
     #[pymodule_export]
-    use crate::{
-        controller::{PySimulationTask, TaskName},
-        SimulationServer,
-    };
+    use crate::{controller::PySimulationTask, SimulationServer};
+
+    #[pymodule_export]
+    use simulation_message::TaskName;
 
     #[pymodule_export(name = "booster_types")]
     use booster::python_module as booster_types;

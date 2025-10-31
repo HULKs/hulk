@@ -8502,6 +8502,7 @@ name = "simulation_message"
 version = "0.1.0"
 dependencies = [
  "booster",
+ "pyo3",
  "serde",
  "zed",
 ]
