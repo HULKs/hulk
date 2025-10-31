@@ -43,15 +43,16 @@ pub struct ImagePanel {
     zoom_and_pan: ZoomAndPanTransform,
 }
 
-fn subscribe_image(nao: &Arc<Nao>, cycler_path: String, is_jpeg: bool, is_depth: bool) -> RawOrJpeg {
-    let base_name = if is_depth {
-        "depth_image"
-    } else {
-        "image"
-    };
+fn subscribe_image(
+    nao: &Arc<Nao>,
+    cycler_path: String,
+    is_jpeg: bool,
+    is_depth: bool,
+) -> RawOrJpeg {
+    let base_name = if is_depth { "depth_image" } else { "image" };
     if is_jpeg {
         let path = format!("{cycler_path}.main_outputs.{base_name}.jpeg");
-        return RawOrJpeg::Jpeg(nao.subscribe_value(path))
+        return RawOrJpeg::Jpeg(nao.subscribe_value(path));
     }
     let path = format!("{cycler_path}.main_outputs.{base_name}");
     RawOrJpeg::Raw(nao.subscribe_value(path))

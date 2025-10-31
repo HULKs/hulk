@@ -25,3 +25,5 @@ tokio-util = { workspace = true }
 tower-http = { version = "0.6.6", features = ["cors"] }
 uuid = { workspace = true }
 zed = { workspace = true }
+color-eyre = { workspace = true }
+futures = { workspace = true }

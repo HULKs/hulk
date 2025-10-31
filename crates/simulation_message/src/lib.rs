@@ -19,7 +19,7 @@ pub enum ServerMessageKind {
     ButtonEventMsg(ButtonEventMsg),
     RemoteControllerState(RemoteControllerState),
     TransformMessage(TransformMessage),
-    RGBDSensors(RGBDSensors),
+    RGBDSensors(Box<RGBDSensors>),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
