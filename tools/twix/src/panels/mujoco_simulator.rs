@@ -423,9 +423,13 @@ impl MujocoSimulatorPanel {
         }
     }
 
-    fn process_egui_input(&mut self, ui: &mut Ui, _response: &Response) {
+    fn process_egui_input(&mut self, ui: &mut Ui, response: &Response) {
+        if !response.hovered() && !response.is_pointer_button_down_on() && !response.drag_stopped()
+        {
+            return;
+        };
+
         let world = self.bevy_app.world_mut();
-        // if response.is_pointer_button_down_on()
         ui.input(|input| {
             for event in &input.events {
                 match event {
