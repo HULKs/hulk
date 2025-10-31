@@ -1,13 +1,8 @@
-from typing import override
-
 import numpy as np
 from mujoco import MjData, MjModel
-from mujoco_rust_server import SimulationServer
 from mujoco_rust_server.booster_types import ImuState, LowState, MotorState
 
 from mujoco_simulator._utils import mj_quaternion_to_rpy
-
-from ._base_topic import SendTopic
 
 
 def generate_low_state(model: MjModel, data: MjData) -> LowState:
@@ -32,17 +27,3 @@ def generate_low_state(model: MjModel, data: MjData) -> LowState:
         ],
         motor_state_parallel=[],
     )
-
-
-class LowStateTopic(SendTopic):
-    name = "low_state"
-
-    @override
-    def compute(self, *, model: MjModel, data: MjData) -> LowState:
-        return generate_low_state(model, data)
-
-    @override
-    def publish(
-        self, *, server: SimulationServer, model: MjModel, data: MjData
-    ) -> None:
-        server.send_low_state(data.time, self.compute(model=model, data=data))

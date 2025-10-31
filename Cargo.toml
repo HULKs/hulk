@@ -137,7 +137,6 @@ fast_image_resize = "5.1.2"
 fern = { version = "0.7.1", features = ["colored"] }
 filtering = { path = "crates/filtering" }
 framework = { path = "crates/framework" }
-futures = "0.3.31"
 futures-util = "0.3.31"
 geometry = { path = "crates/geometry" }
 gilrs = "0.11.0"

@@ -10,20 +10,18 @@ name = "mujoco_rust_server"
 crate-type = ["cdylib"]
 
 [dependencies]
-axum = { workspace = true }
 booster = { workspace = true }
-bytes = "1.10.0"
+color-eyre = { workspace = true }
 log = { workspace = true }
 pyo3 = { workspace = true, features = ["abi3-py313", "extension-module"] }
-pyo3-log = { workspace = true }
 pyo3-async-runtimes = { workspace = true }
+pyo3-log = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 simulation_message = { workspace = true }
 tokio = { workspace = true }
+tokio-tungstenite = { workspace = true }
 tokio-util = { workspace = true }
-tower-http = { version = "0.6.6", features = ["cors"] }
 uuid = { workspace = true }
 zed = { workspace = true }
-color-eyre = { workspace = true }
-futures = { workspace = true }
+futures-util = { workspace = true }

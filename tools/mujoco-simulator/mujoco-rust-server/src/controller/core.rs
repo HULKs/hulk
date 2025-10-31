@@ -7,7 +7,6 @@ use color_eyre::Result;
 use simulation_message::{ConnectionInfo, OnceTask, PeriodicalTask};
 use tokio::sync::{mpsc, oneshot, watch, Mutex};
 use tokio::task::JoinSet;
-use tokio_util::sync::CancellationToken;
 use uuid::Uuid;
 
 use super::connection::Connection;
@@ -44,16 +43,16 @@ impl Controller {
         }
     }
 
-    pub fn start(self, cancellation_token: CancellationToken) -> ControllerHandle {
-        let handle = ControllerHandle {
+    pub fn handle(&self) -> ControllerHandle {
+        ControllerHandle {
             sender: self.control_sender.clone(),
-        };
-        tokio::spawn(cancellation_token.run_until_cancelled_owned(async move {
-            if let Err(error) = self.start_worker().await {
-                log::error!("controller stopped unexpectedly: {error}")
-            }
-        }));
-        handle
+        }
+    }
+
+    pub async fn start(self) {
+        if let Err(error) = self.start_worker().await {
+            log::error!("controller stopped unexpectedly: {error}")
+        }
     }
 
     async fn create_connection(&mut self, connection_info: ConnectionInfo) -> ConnectionHandle {

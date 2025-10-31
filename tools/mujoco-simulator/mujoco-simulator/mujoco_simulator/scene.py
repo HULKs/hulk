@@ -3,7 +3,8 @@ from dataclasses import asdict, dataclass
 
 import msgpack
 import mujoco
-from mujoco_rust_server import SimulationServer
+from mujoco import MjModel
+from mujoco._structs import MjData
 
 
 @dataclass(frozen=True, kw_only=True)
@@ -36,12 +37,19 @@ class SceneDescription:
     bodies: dict
 
 
-def export_scene(model: mujoco.MjModel) -> SceneDescription:
-    """
-    Extract static scene info:
-    meshes, textures, lights, and body→geom mapping.
-    """
+@dataclass(kw_only=True, frozen=True)
+class BodyState:
+    pos: list[float]
+    quat: list[float]
 
+
+@dataclass(kw_only=True, frozen=True)
+class SceneState:
+    timestamp: float
+    bodies: dict[str, BodyState]
+
+
+def generate_scene_description(model: MjModel) -> SceneDescription:
     # Meshes
     meshes = {}
     for i in range(model.nmesh):
@@ -123,19 +131,23 @@ def export_scene(model: mujoco.MjModel) -> SceneDescription:
     return SceneDescription(meshes=meshes, lights=lights, bodies=bodies)
 
 
-def serialize(scene_description: SceneDescription) -> bytes:
+def generate_scene_description_binary(model: MjModel) -> bytes:
+    scene_description = generate_scene_description(model)
     return msgpack.packb(asdict(scene_description))
 
 
-class SceneExporter:
-    def __init__(
-        self,
-        *,
-        server: SimulationServer,
-        model: mujoco.MjModel,
-    ) -> None:
-        self.server = server
+def generate_scene_state(model: MjModel, data: MjData) -> SceneState:
+    bodies = {}
 
-        scene_description = export_scene(model)
-        data = serialize(scene_description)
-        server.register_scene(data)
+    for i in range(model.nbody):
+        name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY.value, i)
+        pos = data.xpos[i].tolist()
+        quat = data.xquat[i].tolist()  # (w, x, y, z)
+        bodies[name] = {"pos": pos, "quat": quat}
+
+    return SceneState(timestamp=data.time, bodies=bodies)
+
+
+def generate_scene_state_json(model: MjModel, data: MjData) -> str:
+    scene_state = generate_scene_state(model, data)
+    return json.dumps(asdict(scene_state))

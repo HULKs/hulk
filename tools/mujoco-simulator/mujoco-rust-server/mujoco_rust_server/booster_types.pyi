@@ -3,7 +3,7 @@ from enum import Enum, auto
 
 class LowCommand:
     command_type: CommandType
-    motor_command: Collection[MotorCommand]
+    motor_commands: Collection[MotorCommand]
 
     def __new__(
         cls,

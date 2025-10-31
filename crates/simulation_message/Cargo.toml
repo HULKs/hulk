@@ -7,6 +7,6 @@ homepage.workspace = true
 
 [dependencies]
 booster = { workspace = true }
+pyo3 = { workspace = true }
 serde = { workspace = true }
 zed = { workspace = true }
-pyo3 = { workspace = true }

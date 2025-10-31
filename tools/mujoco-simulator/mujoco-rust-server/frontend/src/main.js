@@ -93,7 +93,7 @@ async function init() {
         renderer.setSize(window.innerWidth, window.innerHeight);
     });
 
-    const ws = new WebSocket("ws://localhost:8000/simulation/subscribe");
+    const ws = new WebSocket("ws://localhost:8000");
     ws.binaryType = "arraybuffer"
     let isSceneInitialized = false;
 

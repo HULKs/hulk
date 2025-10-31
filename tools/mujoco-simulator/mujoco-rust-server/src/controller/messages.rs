@@ -5,15 +5,15 @@ use std::{
 };
 
 use booster::{LowCommand, LowState};
-use bytes::Bytes;
 use pyo3::{exceptions::PyValueError, pyclass, pymethods, Bound, Py, PyAny, PyResult, Python};
 use pyo3_async_runtimes::tokio::future_into_py;
 use simulation_message::{ConnectionInfo, TaskName};
 use tokio::sync::{mpsc, oneshot};
+use tokio_util::bytes::Bytes;
 use uuid::Uuid;
 use zed::RGBDSensors;
 
-use crate::controller::handle::ConnectionHandle;
+use super::handle::ConnectionHandle;
 
 pub enum ControlCommand {
     Connect {

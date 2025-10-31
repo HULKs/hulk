@@ -4,11 +4,11 @@ version = "0.1.0"
 
 [tool.uv]
 cache-keys = [
-    { file = "pyproject.toml" },
-    { file = "mujoco_rust_server/**" },
-    { file = "src/**" },
-    { file = "Cargo.toml" },
-    { file = "Cargo.lock" },
+  { file = "Cargo.lock" },
+  { file = "Cargo.toml" },
+  { file = "mujoco_rust_server/**" },
+  { file = "pyproject.toml" },
+  { file = "src/**" },
 ]
 
 [build-system]
