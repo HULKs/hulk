@@ -82,7 +82,7 @@ impl RGBDSensors {
             encoding: "mono16".to_string(),
             is_bigendian: 1,
             step: width * 2,
-            data: depth.iter().map(|x| x.to_be_bytes()).flatten().collect(),
+            data: depth.iter().flat_map(|x| x.to_be_bytes()).collect(),
         };
 
         Self {
