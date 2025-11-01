@@ -24,7 +24,6 @@ pub fn head_to_neck(angles: &HeadJoints<f32>) -> Isometry3<Head, Neck> {
     )
 }
 
-// TODO: translation
 // left arm
 pub fn left_inner_shoulder_to_robot(
     angles: &ArmJoints<f32>,
@@ -116,7 +115,7 @@ pub fn left_ankle_to_left_tibia(angles: &LegJoints<f32>) -> Isometry3<LeftAnkle,
     )
 }
 
-// TODO: wie bewegt sich das Ankle down
+// TODO: how is ankle down/up moving?
 pub fn left_foot_to_left_ankle(angles: &LegJoints<f32>) -> Isometry3<LeftFoot, LeftAnkle> {
     Isometry3::from_rotation(Vector3::x_axis() * angles.ankle_up)
 }
@@ -154,7 +153,6 @@ pub fn right_tibia_to_right_thigh(angles: &LegJoints<f32>) -> Isometry3<RightTib
     )
 }
 
-// TODO: wie bewegen sich ankle????
 pub fn right_ankle_to_right_tibia(angles: &LegJoints<f32>) -> Isometry3<RightAnkle, RightTibia> {
     Isometry3::from_parts(
         RobotDimensions::RIGHT_TIBIA_TO_RIGHT_ANKLE,
