@@ -42,7 +42,7 @@ pub struct CycleContext {
     hardware_interface: HardwareInterface,
 
     referee_pose_kind:
-        PerceptionInput<Option<PoseKind>, "ObjectDetectionTop", "referee_pose_kind?">,
+        PerceptionInput<Option<PoseKind>, "ObjectDetection", "referee_pose_kind?">,
     network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
 
     game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,

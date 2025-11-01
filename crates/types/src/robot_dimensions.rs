@@ -14,8 +14,7 @@ impl RobotDimensions {
     pub const ROBOT_TO_NECK: Vector3<Robot> = vector![0.0056, 0.0, 0.2149];
     pub const NECK_TO_HEAD: Vector3<Neck> = vector![0.0, 0.0, 0.033];
 
-    pub const HEAD_TO_TOP_CAMERA: Vector3<Head> = vector![0.05871, 0.0, 0.06364]; // TODO
-    pub const HEAD_TO_BOTTOM_CAMERA: Vector3<Head> = vector![0.05071, 0.0, 0.01774]; // TODO
+    pub const HEAD_TO_CAMERA: Vector3<Head> = vector![0.05868, 0.00002, 0.09849];
 
     pub const ROBOT_TO_LEFT_INNER_SHOULDER: Vector3<Robot> = vector![0.0, 0.077, 0.1845];
     pub const LEFT_INNER_SHOULDER_TO_LEFT_OUTER_SHOULDER: Vector3<LeftInnerShoulder> =

@@ -1,12 +1,7 @@
 {
   "camera_matrix_parameters": {
     "calibration": {
-      "correction_in_camera_bottom": [
-        0.032806701958179474,
-        -0.07109411805868149,
-        -0.007871470414102077
-      ],
-      "correction_in_camera_top": [
+      "correction_in_camera": [
         0.02659399621188641,
         -0.06907980889081955,
         -0.0033997613936662674

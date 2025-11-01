@@ -10,7 +10,6 @@ use serde_json::Value;
 use coordinate_systems::Ground;
 use linear_algebra::{point, Point2};
 use types::{
-    camera_position::CameraPosition,
     field_dimensions::FieldDimensions,
     motion_command::{HeadMotion, ImageRegion, MotionCommand},
 };
@@ -25,7 +24,6 @@ enum LookAtType {
 
 pub struct LookAtPanel {
     nao: Arc<Nao>,
-    camera_position: Option<CameraPosition>,
     look_at_target: Point2<Ground, f32>,
     look_at_mode: LookAtType,
     is_enabled: bool,
@@ -45,7 +43,6 @@ impl Panel for LookAtPanel {
         let motion_command_buffer = nao.subscribe_value("Control.main_outputs.motion_command");
         Self {
             nao,
-            camera_position: Some(CameraPosition::Top),
             look_at_target: DEFAULT_TARGET,
             look_at_mode: LookAtType::PenaltyBoxFromCenter,
             is_enabled: false,
@@ -115,11 +112,7 @@ impl Widget for &mut LookAtPanel {
                     .changed()
                 {
                     if self.is_enabled {
-                        send_standing_look_at(
-                            self.nao.as_ref(),
-                            self.look_at_target,
-                            self.camera_position,
-                        );
+                        send_standing_look_at(self.nao.as_ref(), self.look_at_target);
                     } else {
                         self.nao
                             .write(INJECTED_MOTION_COMMAND, TextOrBinary::Text(Value::Null));
@@ -165,20 +158,6 @@ impl Widget for &mut LookAtPanel {
                         "Manual target (Robot Coordinates)",
                     );
                 });
-                ui.vertical(|ui| {
-                    ui.label("Camera to look at with:");
-                    ui.radio_value(
-                        &mut self.camera_position,
-                        Some(CameraPosition::Top),
-                        "Top Camera",
-                    );
-                    ui.radio_value(
-                        &mut self.camera_position,
-                        Some(CameraPosition::Bottom),
-                        "Bottom Camera",
-                    );
-                    ui.radio_value(&mut self.camera_position, None, "Automatic");
-                });
             });
 
             self.look_at_target = match self.look_at_mode {
@@ -218,11 +197,7 @@ impl Widget for &mut LookAtPanel {
 
             ui.add_enabled_ui(self.is_enabled, |ui| {
                 if ui.button("Send Command").clicked() {
-                    send_standing_look_at(
-                        self.nao.as_ref(),
-                        self.look_at_target,
-                        self.camera_position,
-                    );
+                    send_standing_look_at(self.nao.as_ref(), self.look_at_target);
                 }
             });
 
@@ -232,16 +207,11 @@ impl Widget for &mut LookAtPanel {
     }
 }
 
-fn send_standing_look_at(
-    nao: &Nao,
-    look_at_target: Point2<Ground, f32>,
-    camera_option: Option<CameraPosition>,
-) {
+fn send_standing_look_at(nao: &Nao, look_at_target: Point2<Ground, f32>) {
     let motion_command = Some(MotionCommand::Stand {
         head: HeadMotion::LookAt {
             target: look_at_target,
             image_region_target: ImageRegion::Center,
-            camera: camera_option,
         },
     });
     nao.write(

@@ -19,10 +19,9 @@ pub fn execute(
     }
 
     let head =
-        if let Some(CalibrationCommand { target, camera, .. }) = world_state.calibration_command {
+        if let Some(CalibrationCommand { target, .. }) = world_state.calibration_command {
             HeadMotion::LookAt {
                 target,
-                camera: Some(camera),
                 image_region_target: ImageRegion::Bottom,
             }
         } else {

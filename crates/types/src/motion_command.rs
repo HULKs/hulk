@@ -5,7 +5,6 @@ use linear_algebra::{Orientation2, Point2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{
-    camera_position::CameraPosition,
     fall_state::{FallenKind, FallingDirection, StandUpSpeed},
     planned_path::Path,
     support_foot::Side,
@@ -181,11 +180,9 @@ pub enum HeadMotion {
     LookAt {
         target: Point2<Ground>,
         image_region_target: ImageRegion,
-        camera: Option<CameraPosition>,
     },
     LookAtReferee {
         image_region_target: ImageRegion,
-        camera: Option<CameraPosition>,
     },
     LookLeftAndRightOf {
         target: Point2<Ground>,

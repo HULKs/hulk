@@ -16,7 +16,7 @@ mod text;
 mod vision_tuner;
 
 pub use automatic_camera_calibration_export::{
-    CameraCalibrationExportPanel, BOTTOM_CAMERA_EXTRINSICS_PATH, TOP_CAMERA_EXTRINSICS_PATH,
+    CameraCalibrationExportPanel, CAMERA_EXTRINSICS_PATH,
 };
 pub use ball_candidates::BallCandidatePanel;
 pub use behavior_simulator::BehaviorSimulatorPanel;

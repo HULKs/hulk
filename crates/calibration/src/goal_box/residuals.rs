@@ -26,7 +26,7 @@ impl CalculateResiduals for GoalBoxResiduals {
         field_dimensions: &FieldDimensions,
     ) -> Result<Self, Self::Error> {
         let corrected =
-            get_corrected_camera_matrix(&measurement.matrix, measurement.position, parameters);
+            get_corrected_camera_matrix(&measurement.matrix, parameters);
 
         let projected_lines = measurement
             .lines

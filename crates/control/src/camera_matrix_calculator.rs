@@ -1,7 +1,7 @@
 use std::f32::consts::FRAC_PI_2;
 
 use color_eyre::Result;
-use projection::{camera_matrices::CameraMatrices, camera_matrix::CameraMatrix, Projection};
+use projection::{camera_matrix::CameraMatrix, Projection};
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
@@ -31,30 +31,23 @@ pub struct CycleContext {
     robot_to_ground: RequiredInput<Option<Isometry3<Robot, Ground>>, "robot_to_ground?">,
     ground_to_field: CyclerState<Option<Isometry2<Ground, Field>>, "ground_to_field">,
 
-    bottom_camera_matrix_parameters:
-        Parameter<CameraMatrixParameters, "camera_matrix_parameters.vision_bottom">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    top_camera_matrix_parameters:
-        Parameter<CameraMatrixParameters, "camera_matrix_parameters.vision_top">,
+    camera_matrix_parameters: Parameter<CameraMatrixParameters, "camera_matrix_parameters.vision">,
     correction_in_robot: Parameter<
         nalgebra::Vector3<f32>,
         "camera_matrix_parameters.calibration.correction_in_robot",
     >,
-    correction_in_camera_top: Parameter<
+    correction_in_camera: Parameter<
         nalgebra::Vector3<f32>,
-        "camera_matrix_parameters.calibration.correction_in_camera_top",
-    >,
-    correction_in_camera_bottom: Parameter<
-        nalgebra::Vector3<f32>,
-        "camera_matrix_parameters.calibration.correction_in_camera_bottom",
+        "camera_matrix_parameters.calibration.correction_in_camera",
     >,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub uncalibrated_camera_matrices: MainOutput<Option<CameraMatrices>>,
-    pub camera_matrices: MainOutput<Option<CameraMatrices>>,
+    pub uncalibrated_camera_matrix: MainOutput<Option<CameraMatrix>>,
+    pub camera_matrices: MainOutput<Option<CameraMatrix>>,
 }
 
 impl CameraMatrixCalculator {
@@ -64,36 +57,17 @@ impl CameraMatrixCalculator {
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let image_size = vector![640.0, 480.0];
-        let head_to_top_camera = head_to_camera(
-            context
-                .top_camera_matrix_parameters
-                .camera_pitch
-                .to_radians(),
-            RobotDimensions::HEAD_TO_TOP_CAMERA,
+        let head_to_camera = head_to_camera(
+            context.camera_matrix_parameters.camera_pitch.to_radians(),
+            RobotDimensions::HEAD_TO_CAMERA,
         );
-        let uncalibrated_top_camera_matrix = CameraMatrix::from_normalized_focal_and_center(
-            context.top_camera_matrix_parameters.focal_lengths,
-            context.top_camera_matrix_parameters.cc_optical_center,
+        let uncalibrated_camera_matrix = CameraMatrix::from_normalized_focal_and_center(
+            context.camera_matrix_parameters.focal_lengths,
+            context.camera_matrix_parameters.cc_optical_center,
             image_size,
             context.robot_to_ground.inverse(),
             context.robot_kinematics.head.head_to_robot.inverse(),
-            head_to_top_camera,
-        );
-
-        let head_to_bottom_camera = head_to_camera(
-            context
-                .bottom_camera_matrix_parameters
-                .camera_pitch
-                .to_radians(),
-            RobotDimensions::HEAD_TO_BOTTOM_CAMERA,
-        );
-        let uncalibrated_bottom_camera_matrix = CameraMatrix::from_normalized_focal_and_center(
-            context.bottom_camera_matrix_parameters.focal_lengths,
-            context.bottom_camera_matrix_parameters.cc_optical_center,
-            image_size,
-            context.robot_to_ground.inverse(),
-            context.robot_kinematics.head.head_to_robot.inverse(),
-            head_to_bottom_camera,
+            head_to_camera,
         );
 
         let correction_in_robot = Rotation3::from_euler_angles(
@@ -101,51 +75,31 @@ impl CameraMatrixCalculator {
             context.correction_in_robot.y,
             context.correction_in_robot.z,
         );
-        let correction_in_camera_top = Rotation3::from_euler_angles(
-            context.correction_in_camera_top.x,
-            context.correction_in_camera_top.y,
-            context.correction_in_camera_top.z,
-        );
-        let correction_in_camera_bottom = Rotation3::from_euler_angles(
-            context.correction_in_camera_bottom.x,
-            context.correction_in_camera_bottom.y,
-            context.correction_in_camera_bottom.z,
+        let correction_in_camera = Rotation3::from_euler_angles(
+            context.correction_in_camera.x,
+            context.correction_in_camera.y,
+            context.correction_in_camera.z,
         );
 
-        let calibrated_top_camera_matrix = uncalibrated_top_camera_matrix
-            .to_corrected(correction_in_robot, correction_in_camera_top);
-        let calibrated_bottom_camera_matrix = uncalibrated_bottom_camera_matrix
-            .to_corrected(correction_in_robot, correction_in_camera_bottom);
+        let calibrated_camera_matrix =
+            uncalibrated_camera_matrix.to_corrected(correction_in_robot, correction_in_camera);
 
         let field_dimensions = context.field_dimensions;
         context.projected_field_lines.fill_if_subscribed(|| {
             context
                 .ground_to_field
                 .map(|ground_to_field| ProjectedFieldLines {
-                    top: project_lines_onto_image(
+                    field_lines: project_lines_onto_image(
                         field_dimensions,
-                        &calibrated_top_camera_matrix,
-                        ground_to_field,
-                    ),
-                    bottom: project_lines_onto_image(
-                        field_dimensions,
-                        &calibrated_bottom_camera_matrix,
+                        &calibrated_camera_matrix,
                         ground_to_field,
                     ),
                 })
         });
 
         Ok(MainOutputs {
-            uncalibrated_camera_matrices: Some(CameraMatrices {
-                top: uncalibrated_top_camera_matrix,
-                bottom: uncalibrated_bottom_camera_matrix,
-            })
-            .into(),
-            camera_matrices: Some(CameraMatrices {
-                top: calibrated_top_camera_matrix,
-                bottom: calibrated_bottom_camera_matrix,
-            })
-            .into(),
+            uncalibrated_camera_matrix: Some(uncalibrated_camera_matrix).into(),
+            camera_matrices: Some(calibrated_camera_matrix).into(),
         })
     }
 }

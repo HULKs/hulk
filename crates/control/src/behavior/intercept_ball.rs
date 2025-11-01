@@ -75,7 +75,6 @@ pub fn execute(
                 head: HeadMotion::LookAt {
                     target: ball.ball_in_ground,
                     image_region_target: ImageRegion::Center,
-                    camera: None,
                 },
                 path,
                 left_arm: types::motion_command::ArmMotion::Swing,

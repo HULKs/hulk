@@ -14,7 +14,7 @@ use coordinate_systems::{Ground, Pixel};
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use geometry::circle::Circle;
 use linear_algebra::{IntoTransform, Isometry2};
-use projection::{camera_matrices::CameraMatrices, camera_matrix::CameraMatrix, Projection};
+use projection::{camera_matrix::CameraMatrix, Projection};
 use types::{
     ball_detection::BallPercept,
     ball_position::{BallPosition, HypotheticalBallPosition},
@@ -37,26 +37,22 @@ pub struct CycleContext {
     filter_state: AdditionalOutput<BallFiltering, "ball_filter_state">,
     best_ball_hypothesis: AdditionalOutput<Option<BallHypothesis>, "best_ball_hypothesis">,
 
-    filtered_balls_in_image_bottom:
-        AdditionalOutput<Vec<Circle<Pixel>>, "filtered_balls_in_image_bottom">,
-    filtered_balls_in_image_top:
-        AdditionalOutput<Vec<Circle<Pixel>>, "filtered_balls_in_image_top">,
+    filtered_balls_in_image: AdditionalOutput<Vec<Circle<Pixel>>, "filtered_balls_in_image">,
 
     current_odometry_to_last_odometry:
         HistoricInput<Option<nalgebra::Isometry2<f32>>, "current_odometry_to_last_odometry?">,
-    historic_camera_matrices: HistoricInput<Option<CameraMatrices>, "camera_matrices?">,
+    historic_camera_matrix: HistoricInput<Option<CameraMatrix>, "camera_matrix?">,
     had_ground_contact: HistoricInput<bool, "has_ground_contact">,
     historic_cycle_times: HistoricInput<CycleTime, "cycle_time">,
 
-    camera_matrices: Input<Option<CameraMatrices>, "camera_matrices?">,
+    camera_matrix: Input<Option<CameraMatrix>, "camera_matrix?">,
     cycle_time: Input<CycleTime, "cycle_time">,
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     ball_filter_configuration: Parameter<BallFilterParameters, "ball_filter">,
 
-    balls_bottom: PerceptionInput<Option<Vec<BallPercept>>, "VisionBottom", "balls?">,
-    balls_top: PerceptionInput<Option<Vec<BallPercept>>, "VisionTop", "balls?">,
-    projected_limbs: PerceptionInput<Option<ProjectedLimbs>, "VisionBottom", "projected_limbs?">,
+    balls: PerceptionInput<Option<Vec<BallPercept>>, "Vision", "balls?">,
+    projected_limbs: PerceptionInput<Option<ProjectedLimbs>, "Vision", "projected_limbs?">,
 }
 
 #[context]
@@ -78,7 +74,7 @@ impl BallFilter {
         &mut self,
         measurements: BTreeMap<SystemTime, Vec<&BallPercept>>,
         current_to_last_odometry: HistoricInput<Option<&nalgebra::Isometry2<f32>>>,
-        camera_matrices: HistoricInput<Option<&CameraMatrices>>,
+        camera_matrix: HistoricInput<Option<&CameraMatrix>>,
         had_ground_contact: HistoricInput<&bool>,
         historic_cycle_times: HistoricInput<&CycleTime>,
         projected_limbs: PerceptionInput<Vec<Option<&ProjectedLimbs>>>,
@@ -113,7 +109,7 @@ impl BallFilter {
                 self.ball_filter.reset();
                 continue;
             }
-            let camera_matrices = camera_matrices.get(&detection_time);
+            let camera_matrix = camera_matrix.get(&detection_time);
 
             let projected_limbs_bottom = projected_limbs
                 .persistent
@@ -124,7 +120,7 @@ impl BallFilter {
             self.ball_filter.decay_hypotheses(|hypothesis| {
                 decide_validity_decay_for_hypothesis(
                     hypothesis,
-                    camera_matrices,
+                    camera_matrix,
                     projected_limbs_bottom,
                     field_dimensions.ball_radius,
                     filter_parameters,
@@ -211,16 +207,13 @@ impl BallFilter {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        let persistent_updates = time_ordered_balls(
-            context.balls_top.persistent,
-            context.balls_bottom.persistent,
-        );
+        let persistent_updates = time_ordered_balls(context.balls.persistent);
 
         let filter_parameters = context.ball_filter_configuration;
         self.advance_all_hypotheses(
             persistent_updates,
             context.current_odometry_to_last_odometry,
-            context.historic_camera_matrices,
+            context.historic_camera_matrix,
             context.had_ground_contact,
             context.historic_cycle_times,
             context.projected_limbs,
@@ -256,18 +249,11 @@ impl BallFilter {
             .collect();
 
         let ball_radius = context.field_dimensions.ball_radius;
-        context.filtered_balls_in_image_top.fill_if_subscribed(|| {
-            context.camera_matrices.map_or(vec![], |camera_matrices| {
-                project_to_image(&output_balls, &camera_matrices.top, ball_radius)
+        context.filtered_balls_in_image.fill_if_subscribed(|| {
+            context.camera_matrix.map_or(vec![], |camera_matrix| {
+                project_to_image(&output_balls, &camera_matrix, ball_radius)
             })
         });
-        context
-            .filtered_balls_in_image_bottom
-            .fill_if_subscribed(|| {
-                context.camera_matrices.map_or(vec![], |camera_matrices| {
-                    project_to_image(&output_balls, &camera_matrices.bottom, ball_radius)
-                })
-            });
 
         Ok(MainOutputs {
             ball_position: filtered_ball.into(),
@@ -322,11 +308,10 @@ fn mahalanobis_matrix_of_hypotheses_and_percepts(
 }
 
 fn time_ordered_balls<'a>(
-    balls_top: BTreeMap<SystemTime, Vec<Option<&'a Vec<BallPercept>>>>,
-    balls_bottom: BTreeMap<SystemTime, Vec<Option<&'a Vec<BallPercept>>>>,
+    balls: BTreeMap<SystemTime, Vec<Option<&'a Vec<BallPercept>>>>,
 ) -> BTreeMap<SystemTime, Vec<&'a BallPercept>> {
     let mut time_ordered_balls = BTreeMap::<SystemTime, Vec<&BallPercept>>::new();
-    for (detection_time, balls) in balls_top.into_iter().chain(balls_bottom) {
+    for (detection_time, balls) in balls.into_iter() {
         let balls = balls.into_iter().flatten().flatten();
         time_ordered_balls
             .entry(detection_time)
@@ -338,22 +323,17 @@ fn time_ordered_balls<'a>(
 
 fn decide_validity_decay_for_hypothesis(
     hypothesis: &BallHypothesis,
-    camera_matrices: Option<&CameraMatrices>,
+    camera_matrix: Option<&CameraMatrix>,
     projected_limbs: Option<&ProjectedLimbs>,
     ball_radius: f32,
     configuration: &BallFilterParameters,
 ) -> f32 {
     let is_ball_in_view =
-        camera_matrices
+        camera_matrix
             .zip(projected_limbs)
-            .is_some_and(|(camera_matrices, projected_limbs)| {
+            .is_some_and(|(camera_matrix, projected_limbs)| {
                 let ball = hypothesis.position();
-                is_visible_to_camera(
-                    &ball,
-                    &camera_matrices.bottom,
-                    ball_radius,
-                    &projected_limbs.limbs,
-                ) || is_visible_to_camera(&ball, &camera_matrices.top, ball_radius, &[])
+                is_visible_to_camera(&ball, &camera_matrix, ball_radius, &projected_limbs.limbs)
             });
 
     match is_ball_in_view {

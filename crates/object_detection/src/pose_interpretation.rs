@@ -9,7 +9,7 @@ use coordinate_systems::{Field, Ground, Pixel};
 use framework::{AdditionalOutput, MainOutput};
 use hardware::{NetworkInterface, PathsInterface};
 use linear_algebra::{center, distance, Isometry2, Point2, Rotation2};
-use projection::{camera_matrices::CameraMatrices, camera_matrix::CameraMatrix, Projection};
+use projection::{camera_matrix::CameraMatrix, Projection};
 use spl_network_messages::PlayerNumber;
 use types::{
     field_dimensions::GlobalFieldSide,
@@ -30,7 +30,7 @@ pub struct CycleContext {
     hardware_interface: HardwareInterface,
     time_to_reach_kick_position: CyclerState<Duration, "time_to_reach_kick_position">,
 
-    camera_matrices: RequiredInput<Option<CameraMatrices>, "Control", "camera_matrices?">,
+    camera_matrix: RequiredInput<Option<CameraMatrix>, "Control", "camera_matrix?">,
     rejected_human_poses: Input<Vec<HumanPose>, "rejected_human_poses">,
     accepted_human_poses: Input<Vec<HumanPose>, "accepted_human_poses">,
     ground_to_field: Input<Option<Isometry2<Ground, Field>>, "Control", "ground_to_field?">,
@@ -87,7 +87,7 @@ impl PoseInterpretation {
 
         let referee_pose = get_position_filtered_pose(
             context.accepted_human_poses.clone(),
-            context.camera_matrices.top.clone(),
+            context.camera_matrix.clone(),
             *context.maximum_distance_to_referee_position,
             ground_to_field.inverse() * expected_referee_position,
             *context.foot_z_offset,
@@ -104,7 +104,7 @@ impl PoseInterpretation {
         context.rejected_pose_kind_positions.fill_if_subscribed(|| {
             get_all_pose_kind_positions(
                 context.rejected_human_poses,
-                context.camera_matrices.top.clone(),
+                context.camera_matrix.clone(),
                 context.ground_to_field,
                 *context.foot_z_offset,
                 *context.minimum_shoulder_angle,
@@ -115,7 +115,7 @@ impl PoseInterpretation {
         context.accepted_pose_kind_positions.fill_if_subscribed(|| {
             get_all_pose_kind_positions(
                 context.accepted_human_poses,
-                context.camera_matrices.top.clone(),
+                context.camera_matrix.clone(),
                 context.ground_to_field,
                 *context.foot_z_offset,
                 *context.minimum_shoulder_angle,
@@ -126,7 +126,7 @@ impl PoseInterpretation {
         context.referee_pose_kind_position.fill_if_subscribed(|| {
             get_pose_kind_position(
                 referee_pose,
-                &context.camera_matrices.top,
+                &context.camera_matrix,
                 context.ground_to_field,
                 *context.foot_z_offset,
                 *context.minimum_shoulder_angle,
@@ -142,14 +142,14 @@ impl PoseInterpretation {
 
 fn get_position_filtered_pose(
     filtered_poses: Vec<HumanPose>,
-    camera_matrix_top: CameraMatrix,
+    camera_matrix: CameraMatrix,
     maximum_distance_to_referee_position: f32,
     expected_referee_position: Point2<Ground>,
     foot_z_offset: f32,
 ) -> Option<HumanPose> {
     let located_pose_candidate: RefereePoseCandidate = get_closest_referee_pose(
         filtered_poses,
-        camera_matrix_top,
+        camera_matrix,
         expected_referee_position,
         foot_z_offset,
     )?;
@@ -163,17 +163,17 @@ fn get_position_filtered_pose(
 
 fn get_closest_referee_pose(
     poses: Vec<HumanPose>,
-    camera_matrix_top: CameraMatrix,
+    camera_matrix: CameraMatrix,
     expected_referee_position: Point2<Ground>,
     foot_z_offset: f32,
 ) -> Option<RefereePoseCandidate> {
     poses
         .iter()
         .filter_map(|pose| {
-            let left_foot_ground_position = camera_matrix_top
+            let left_foot_ground_position = camera_matrix
                 .pixel_to_ground_with_z(pose.keypoints.left_foot.point, foot_z_offset)
                 .ok()?;
-            let right_foot_ground_position = camera_matrix_top
+            let right_foot_ground_position = camera_matrix
                 .pixel_to_ground_with_z(pose.keypoints.right_foot.point, foot_z_offset)
                 .ok()?;
             let distance_to_referee_position = distance(
@@ -290,7 +290,7 @@ fn is_left_shoulder_angled_up(
 
 fn get_all_pose_kind_positions(
     poses: &[HumanPose],
-    camera_matrix_top: CameraMatrix,
+    camera_matrix: CameraMatrix,
     ground_to_field: Option<&Isometry2<Ground, Field>>,
     foot_z_offset: f32,
     minimum_shoulder_angle: f32,
@@ -301,7 +301,7 @@ fn get_all_pose_kind_positions(
         .filter_map(|pose: &HumanPose| {
             get_pose_kind_position(
                 Some(*pose),
-                &camera_matrix_top,
+                &camera_matrix,
                 ground_to_field,
                 foot_z_offset,
                 minimum_shoulder_angle,
@@ -313,16 +313,16 @@ fn get_all_pose_kind_positions(
 
 fn get_pose_kind_position(
     pose: Option<HumanPose>,
-    camera_matrix_top: &CameraMatrix,
+    camera_matrix: &CameraMatrix,
     ground_to_field: Option<&Isometry2<Ground, Field>>,
     foot_z_offset: f32,
     minimum_shoulder_angle: f32,
     free_kick_signal_angle_range: &Range<f32>,
 ) -> Option<PoseKindPosition<Field>> {
-    let left_foot_ground_position = camera_matrix_top
+    let left_foot_ground_position = camera_matrix
         .pixel_to_ground_with_z(pose?.keypoints.left_foot.point, foot_z_offset)
         .ok()?;
-    let right_foot_ground_position = camera_matrix_top
+    let right_foot_ground_position = camera_matrix
         .pixel_to_ground_with_z(pose?.keypoints.right_foot.point, foot_z_offset)
         .ok()?;
     let interpreted_pose_kind =

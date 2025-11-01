@@ -1,9 +1,8 @@
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use projection::{camera_matrices::CameraMatrices, camera_matrix::CameraMatrix};
+use projection::camera_matrix::CameraMatrix;
 use serde::{Deserialize, Serialize};
-use types::camera_position::CameraPosition;
 
 #[derive(Deserialize, Serialize)]
 pub struct CameraMatrixExtractor {}
@@ -13,8 +12,7 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    camera_matrices: RequiredInput<Option<CameraMatrices>, "Control", "camera_matrices?">,
-    camera_position: Parameter<CameraPosition, "image_receiver.$cycler_instance.camera_position">,
+    camera_matrix: RequiredInput<Option<CameraMatrix>, "Control", "camera_matrix?">,
 }
 
 #[context]
@@ -29,13 +27,8 @@ impl CameraMatrixExtractor {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let camera_matrix = match context.camera_position {
-            CameraPosition::Top => &context.camera_matrices.top,
-            CameraPosition::Bottom => &context.camera_matrices.bottom,
-        };
-
         Ok(MainOutputs {
-            camera_matrix: Some(camera_matrix.clone()).into(),
+            camera_matrix: Some(context.camera_matrix.clone()).into(),
         })
     }
 }

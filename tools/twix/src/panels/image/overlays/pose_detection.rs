@@ -12,11 +12,7 @@ use types::{
     },
 };
 
-use crate::{
-    nao::Nao,
-    panels::image::{cycler_selector::VisionCycler, overlay::Overlay},
-    value_buffer::BufferHandle,
-};
+use crate::{nao::Nao, panels::image::overlay::Overlay, value_buffer::BufferHandle};
 
 const POSE_SKELETON: [(usize, usize); 16] = [
     (0, 1),
@@ -51,11 +47,8 @@ pub struct PoseDetection {
 impl Overlay for PoseDetection {
     const NAME: &'static str = "Pose Detection";
 
-    fn new(nao: Arc<Nao>, selected_cycler: VisionCycler) -> Self {
-        let cycler = match selected_cycler {
-            VisionCycler::Top => "ObjectDetectionTop",
-            VisionCycler::Bottom => "ObjectDetectionBottom",
-        };
+    fn new(nao: Arc<Nao>) -> Self {
+        let cycler = "ObjectDetection";
         let accepted_human_poses =
             nao.subscribe_value(format!("{cycler}.main_outputs.accepted_human_poses"));
         let rejected_human_poses =

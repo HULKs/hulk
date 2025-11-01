@@ -1,66 +1,8 @@
 {
-  "camera_bottom": {
+  "camera": {
     "amount_of_buffers": 3,
     "automatic_exposure_control_weights": [
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      0,
-      0,
-      0,
-      0
-    ],
-    "brightness": 0,
-    "contrast": 32,
-    "disable_digital_effects": true,
-    "exposure_absolute": 512,
-    "exposure_auto": "Auto",
-    "flip_sensor": false,
-    "focus_absolute": 0,
-    "focus_auto": false,
-    "format": "YUVU",
-    "gain": 16,
-    "height": 480,
-    "hue": 0,
-    "hue_auto": true,
-    "saturation": 64,
-    "sharpness": 4,
-    "time_per_frame": {
-      "denominator": 30,
-      "numerator": 1
-    },
-    "white_balance_temperature": 2500,
-    "white_balance_temperature_auto": true,
-    "width": 640
-  },
-  "camera_top": {
-    "amount_of_buffers": 3,
-    "automatic_exposure_control_weights": [
-      0,
-      0,
-      0,
-      0,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      1,
-      5,
-      5,
-      1
+      0, 0, 0, 0, 1, 1, 1, 1, 1, 1, 1, 1, 1, 5, 5, 1
     ],
     "brightness": 0,
     "contrast": 32,
