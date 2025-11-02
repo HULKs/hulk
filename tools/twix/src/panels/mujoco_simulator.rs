@@ -3,7 +3,7 @@ use std::{collections::BTreeMap, f32::consts::FRAC_PI_2, sync::Arc, thread, time
 use bevy::{
     asset::RenderAssetUsages,
     input::{
-        mouse::{MouseButtonInput, MouseMotion},
+        mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
         ButtonState,
     },
     render::{camera::Viewport, mesh::Indices, RenderDebugFlags},
@@ -24,8 +24,8 @@ use bevy::{
 use bevy_panorbit_camera::{ActiveCameraData, PanOrbitCamera, PanOrbitCameraPlugin};
 use eframe::{
     egui::{
-        self, load::SizedTexture, Event, Image, ImageSource, PointerButton, Pos2, Response, Sense,
-        Ui, Widget,
+        self, load::SizedTexture, Event, Image, ImageSource, MouseWheelUnit, PointerButton, Pos2,
+        Response, Sense, Ui, Widget,
     },
     egui_wgpu::wgpu,
     wgpu::PrimitiveTopology,
@@ -507,11 +507,26 @@ impl MujocoSimulatorPanel {
                     //     pos,
                     //     force,
                     // } => todo!(),
-                    // Event::MouseWheel {
-                    //     unit,
-                    //     delta,
-                    //     modifiers,
-                    // } => todo!(),
+                    Event::MouseWheel {
+                        unit,
+                        delta,
+                        modifiers: _,
+                    } => {
+                        let unit = match unit {
+                            MouseWheelUnit::Point => MouseScrollUnit::Pixel,
+                            MouseWheelUnit::Line => MouseScrollUnit::Line,
+                            MouseWheelUnit::Page => {
+                                unimplemented!("this seems to be unused anyways")
+                            }
+                        };
+                        let mut buttons = world.get_resource_mut::<Events<MouseWheel>>().unwrap();
+                        buttons.send(MouseWheel {
+                            unit,
+                            x: delta.x,
+                            y: delta.y,
+                            window: Entity::PLACEHOLDER,
+                        });
+                    }
                     _ => {}
                 }
             }
