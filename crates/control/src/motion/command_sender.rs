@@ -1,3 +1,5 @@
+use std::time::UNIX_EPOCH;
+
 use booster::LowCommand;
 use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
@@ -40,10 +42,27 @@ impl CommandSender {
         &mut self,
         context: CycleContext<impl LowCommandInterface + TimeInterface>,
     ) -> Result<MainOutputs> {
-        let low_command = LowCommand::new(
+        let prepare_low_command = LowCommand::new(
+            &context.prepare_motor_command_parameters.default_positions,
+            context.prepare_motor_command_parameters,
+        );
+
+        let walk_low_command = LowCommand::new(
             context.target_joint_positions,
             context.walk_motor_command_parameters,
         );
+
+        let low_command = if context
+            .hardware_interface
+            .get_now()
+            .duration_since(UNIX_EPOCH)?
+            .as_secs()
+            > 5
+        {
+            walk_low_command
+        } else {
+            prepare_low_command
+        };
 
         context
             .hardware_interface

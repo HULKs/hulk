@@ -531,6 +531,7 @@ pub struct ControlParameters {
     Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
 pub struct MotorCommandParameters {
+    pub weight: f32,
     pub default_positions: Joints,
     pub proportional_coefficients: Joints,
     pub derivative_coefficients: Joints,
