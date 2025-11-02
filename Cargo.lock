@@ -8886,6 +8886,7 @@ dependencies = [
  "rmp-serde",
  "serde",
  "serde_json",
+ "simulation_message",
  "step_planning",
  "thiserror 2.0.17",
  "tokio",
