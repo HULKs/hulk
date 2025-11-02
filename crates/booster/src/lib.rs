@@ -258,12 +258,12 @@ pub struct LowCommand {
 
 impl LowCommand {
     pub fn new(
-        joint_velocities: &Joints,
+        joint_positions: &Joints,
         motor_command_parameters: &MotorCommandParameters,
     ) -> Self {
         LowCommand {
             command_type: CommandType::Serial,
-            motor_commands: joint_velocities
+            motor_commands: joint_positions
                 .into_iter()
                 .zip(motor_command_parameters.proportional_coefficients)
                 .zip(motor_command_parameters.derivative_coefficients)

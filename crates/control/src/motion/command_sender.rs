@@ -1,7 +1,7 @@
 use booster::LowCommand;
 use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
-use hardware::LowCommandInterface;
+use hardware::{LowCommandInterface, TimeInterface};
 use serde::{Deserialize, Serialize};
 use types::{joints::Joints, parameters::MotorCommandParameters};
 
@@ -16,9 +16,9 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    target_joint_velocities: Input<Joints, "target_joint_velocities">,
+    target_joint_positions: Input<Joints, "target_joint_positions">,
 
-    motor_command_parameters: Parameter<MotorCommandParameters, "common_motor_command">,
+    walk_motor_command_parameters: Parameter<MotorCommandParameters, "common_motor_command">,
     prepare_motor_command_parameters: Parameter<MotorCommandParameters, "prepare_motor_command">,
 
     hardware_interface: HardwareInterface,
@@ -38,11 +38,11 @@ impl CommandSender {
 
     pub fn cycle(
         &mut self,
-        context: CycleContext<impl LowCommandInterface>,
+        context: CycleContext<impl LowCommandInterface + TimeInterface>,
     ) -> Result<MainOutputs> {
         let low_command = LowCommand::new(
-            context.target_joint_velocities,
-            context.motor_command_parameters,
+            context.target_joint_positions,
+            context.walk_motor_command_parameters,
         );
 
         context
