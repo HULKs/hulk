@@ -1,6 +1,4 @@
-use std::{
-    collections::BTreeMap, f32::consts::FRAC_PI_2, fs::File, sync::Arc, thread, time::Duration,
-};
+use std::{collections::BTreeMap, f32::consts::FRAC_PI_2, sync::Arc, thread, time::Duration};
 
 use bevy::{
     asset::RenderAssetUsages,
@@ -276,8 +274,6 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
             .add_systems(Startup, setup_camera)
             .add_systems(Startup, setup_scene)
             .add_systems(Update, update_active_camera);
-        let file = File::open("/tmp/scene").unwrap();
-        spawn_scene(&mut bevy_app, rmp_serde::from_read(file).unwrap());
         bevy_app.finish();
         bevy_app.cleanup();
 
