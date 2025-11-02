@@ -32,11 +32,12 @@ use eframe::{
     egui_wgpu::wgpu,
     wgpu::PrimitiveTopology,
 };
-use futures_util::StreamExt;
+use futures_util::{SinkExt, StreamExt};
 use nalgebra::{Point3, Vector3};
 use serde::{Deserialize, Serialize};
+use simulation_message::ConnectionInfo;
 use tokio::{select, sync::mpsc};
-use tokio_tungstenite::connect_async;
+use tokio_tungstenite::{connect_async, tungstenite::Message};
 
 use crate::panel::{Panel, PanelCreationContext};
 
@@ -249,7 +250,7 @@ fn update_active_camera(
 }
 
 pub struct MujocoSimulatorPanel {
-    update_receiver: mpsc::Receiver<SceneUpdate>,
+    update_receiver: mpsc::Receiver<SceneMessage>,
     // command_sender: mpsc::Sender<ServerCommand>,
     bevy_app: App,
 }
@@ -276,65 +277,7 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
             .add_systems(Startup, setup_scene)
             .add_systems(Update, update_active_camera);
         let file = File::open("/tmp/scene").unwrap();
-        // let mut bytes = Vec::new();
-        // file.read_to_end(&mut bytes).unwrap();
-        // println!("Read bytes: {}", bytes.len());
-        let scene: SceneDescription = rmp_serde::from_read(file).unwrap();
-        let mut meshes = BTreeMap::new();
-        for (name, mesh) in &scene.meshes {
-            let mesh = bevy_app.world_mut().resource_mut::<Assets<Mesh>>().add(
-                Mesh::new(
-                    PrimitiveTopology::TriangleList,
-                    RenderAssetUsages::RENDER_WORLD,
-                )
-                .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, mesh.vertices.clone())
-                .with_inserted_indices(Indices::U32(mesh.faces.concat()))
-                .with_computed_normals(),
-            );
-            meshes.insert(name.clone(), mesh);
-        }
-        let scene_root = bevy_app
-            .world_mut()
-            .spawn(Transform::from_rotation(Quat::from_rotation_x(-FRAC_PI_2)))
-            .id();
-        for (name, body) in &scene.bodies {
-            let mut materials = Vec::new();
-            for geom in &body.geoms {
-                materials.push(
-                    bevy_app
-                        .world_mut()
-                        .resource_mut::<Assets<StandardMaterial>>()
-                        .add(Color::srgba_u8(
-                            (geom.rgba[0] * 255.0) as u8,
-                            (geom.rgba[1] * 255.0) as u8,
-                            (geom.rgba[2] * 255.0) as u8,
-                            (geom.rgba[3] * 255.0) as u8,
-                        )),
-                );
-            }
-            bevy_app
-                .world_mut()
-                .spawn((
-                    Transform::default(),
-                    Visibility::default(),
-                    BodyComponent { name: name.clone() },
-                ))
-                .set_parent_in_place(scene_root)
-                .with_children(|parent| {
-                    for (geom, material) in body.geoms.iter().zip(materials) {
-                        let Some(mesh_name) = geom.mesh.as_ref() else {
-                            continue;
-                        };
-                        parent.spawn((
-                            Transform::from_translation(geom.pos)
-                                .with_rotation(bevy_quat(geom.quat)),
-                            Visibility::default(),
-                            Mesh3d(meshes.get(mesh_name).cloned().unwrap()),
-                            MeshMaterial3d(material),
-                        ));
-                    }
-                });
-        }
+        spawn_scene(&mut bevy_app, rmp_serde::from_read(file).unwrap());
         bevy_app.finish();
         bevy_app.cleanup();
 
@@ -348,22 +291,27 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
                 .build()
                 .unwrap();
             rt.block_on(async move {
-                println!("starting background task");
                 loop {
                     let Ok((stream, _response)) = connect_async("ws://localhost:8000/scene/subscribe")
                         .await else {
-                            // println!("Websocket connection failed, retrying...");
+                            println!("Websocket connection failed, retrying...");
                             tokio::time::sleep(Duration::from_secs(1)).await;
                             continue;
                         };
-                    let (mut _sender, mut receiver) = stream.split();
+                            println!("Websocket connected");
+                    let (mut sender, mut receiver) = stream.split();
+                    let initial_request = ConnectionInfo::viewer();
+                    sender.send(Message::text(serde_json::to_string(&initial_request).unwrap())).await.unwrap();
                     loop {
                         select! {
                             maybe_message = receiver.next() => {
                                 let Some(Ok(message)) = maybe_message else { println!("websocket receive failed"); break; };
-                                let text = message.to_text().unwrap();
-                                let update: SceneUpdate = serde_json::from_str(text).unwrap();
-                                update_sender.send(update).await.unwrap();
+                                let message: SceneMessage = match message {
+                                    Message::Binary(bytes) => SceneMessage::Description(rmp_serde::from_slice(&bytes).unwrap()),
+                                    Message::Text(text) => SceneMessage::Update(serde_json::from_str(text.as_str()).unwrap()),
+                                    _ => continue
+                                };
+                                update_sender.send(message).await.unwrap();
                                 egui_ctx.request_repaint();
                             }
                             // maybe_command = command_receiver.recv() => {
@@ -381,6 +329,75 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
             bevy_app,
             // command_sender,
         }
+    }
+}
+
+fn spawn_scene(bevy_app: &mut App, scene: SceneDescription) {
+    if let Some(mut query) = bevy_app
+        .world()
+        .try_query_filtered::<Entity, With<SceneRootMarker>>()
+    {
+        if let Ok(previous_scene) = query.single(bevy_app.world()) {
+            bevy_app.world_mut().despawn(previous_scene);
+        }
+    }
+
+    let mut meshes = BTreeMap::new();
+    for (name, mesh) in &scene.meshes {
+        let mesh = bevy_app.world_mut().resource_mut::<Assets<Mesh>>().add(
+            Mesh::new(
+                PrimitiveTopology::TriangleList,
+                RenderAssetUsages::RENDER_WORLD,
+            )
+            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, mesh.vertices.clone())
+            .with_inserted_indices(Indices::U32(mesh.faces.concat()))
+            .with_computed_normals(),
+        );
+        meshes.insert(name.clone(), mesh);
+    }
+    let scene_root = bevy_app
+        .world_mut()
+        .spawn((
+            SceneRootMarker,
+            Transform::from_rotation(Quat::from_rotation_x(-FRAC_PI_2)),
+        ))
+        .id();
+    for (name, body) in &scene.bodies {
+        let mut materials = Vec::new();
+        for geom in &body.geoms {
+            materials.push(
+                bevy_app
+                    .world_mut()
+                    .resource_mut::<Assets<StandardMaterial>>()
+                    .add(Color::srgba_u8(
+                        (geom.rgba[0] * 255.0) as u8,
+                        (geom.rgba[1] * 255.0) as u8,
+                        (geom.rgba[2] * 255.0) as u8,
+                        (geom.rgba[3] * 255.0) as u8,
+                    )),
+            );
+        }
+        bevy_app
+            .world_mut()
+            .spawn((
+                Transform::default(),
+                Visibility::default(),
+                BodyComponent { name: name.clone() },
+            ))
+            .set_parent_in_place(scene_root)
+            .with_children(|parent| {
+                for (geom, material) in body.geoms.iter().zip(materials) {
+                    let Some(mesh_name) = geom.mesh.as_ref() else {
+                        continue;
+                    };
+                    parent.spawn((
+                        Transform::from_translation(geom.pos).with_rotation(bevy_quat(geom.quat)),
+                        Visibility::default(),
+                        Mesh3d(meshes.get(mesh_name).cloned().unwrap()),
+                        MeshMaterial3d(material),
+                    ));
+                }
+            });
     }
 }
 
@@ -411,14 +428,21 @@ impl Widget for &mut MujocoSimulatorPanel {
 impl MujocoSimulatorPanel {
     fn process_scene_updates(&mut self) {
         while let Ok(update) = self.update_receiver.try_recv() {
-            let mut query = self
-                .bevy_app
-                .world_mut()
-                .query::<(&mut Transform, &BodyComponent)>();
-            for (mut transform, marker) in query.iter_mut(self.bevy_app.world_mut()) {
-                let body_update = &update.bodies[&marker.name];
-                *transform = Transform::from_translation(body_update.pos)
-                    .with_rotation(bevy_quat(body_update.quat));
+            match update {
+                SceneMessage::Description(scene_description) => {
+                    spawn_scene(&mut self.bevy_app, scene_description);
+                }
+                SceneMessage::Update(scene_update) => {
+                    let mut query = self
+                        .bevy_app
+                        .world_mut()
+                        .query::<(&mut Transform, &BodyComponent)>();
+                    for (mut transform, marker) in query.iter_mut(self.bevy_app.world_mut()) {
+                        let body_update = &scene_update.bodies[&marker.name];
+                        *transform = Transform::from_translation(body_update.pos)
+                            .with_rotation(bevy_quat(body_update.quat));
+                    }
+                }
             }
         }
     }
@@ -500,8 +524,16 @@ impl MujocoSimulatorPanel {
 }
 
 #[derive(Component)]
+struct SceneRootMarker;
+
+#[derive(Component)]
 struct BodyComponent {
     name: String,
+}
+
+enum SceneMessage {
+    Description(SceneDescription),
+    Update(SceneUpdate),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
