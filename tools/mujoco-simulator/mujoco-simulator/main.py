@@ -11,7 +11,7 @@ from rich.logging import RichHandler
 
 from mujoco_simulator.exceptions import UnknownTaskException
 from mujoco_simulator.low_command import get_control_input
-from mujoco_simulator.low_state import generate_low_state
+from mujoco_simulator.low_state import JointActuatorInfo, generate_low_state
 from mujoco_simulator.rate_logger import SimulationRateLogger
 from mujoco_simulator.render import CameraRenderer
 from mujoco_simulator.scene import (
@@ -37,6 +37,34 @@ def request_rgbd_sensors(renderer: CameraRenderer, data: MjData) -> RGBDSensors:
     )
 
 
+def joint_actuator_info_list(model: MjModel) -> list:
+    joints = [
+        "AAHead_yaw",
+        "Head_pitch",
+        "ALeft_Shoulder_Pitch",
+        "Left_Shoulder_Roll",
+        "Left_Elbow_Pitch",
+        "Left_Elbow_Yaw",
+        "ARight_Shoulder_Pitch",
+        "Right_Shoulder_Roll",
+        "Right_Elbow_Pitch",
+        "Right_Elbow_Yaw",
+        "Left_Hip_Pitch",
+        "Left_Hip_Roll",
+        "Left_Hip_Yaw",
+        "Left_Knee_Pitch",
+        "Left_Ankle_Pitch",
+        "Left_Ankle_Roll",
+        "Right_Hip_Pitch",
+        "Right_Hip_Roll",
+        "Right_Hip_Yaw",
+        "Right_Knee_Pitch",
+        "Right_Ankle_Pitch",
+        "Right_Ankle_Roll",
+    ]
+    return [JointActuatorInfo(name, model) for name in joints]
+
+
 async def run_simulation(
     server: SimulationServer, model: MjModel, data: MjData
 ) -> None:
@@ -49,6 +77,7 @@ async def run_simulation(
     renderer = CameraRenderer(
         model=model, camera_name="camera", height=480, width=640
     )
+    actuator_info_list = joint_actuator_info_list(model)
 
     last_tick = time.time()
     while True:
@@ -58,7 +87,7 @@ async def run_simulation(
                 rgbd_sensors = request_rgbd_sensors(renderer, data)
                 await task.respond(data.time, rgbd_sensors)
             case TaskName.RequestLowState:
-                low_state = generate_low_state(model, data)
+                low_state = generate_low_state(data, actuator_info_list)
                 await task.respond(data.time, low_state)
             case TaskName.ApplyLowCommand:
                 if low_command := await task.receive():
