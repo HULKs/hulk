@@ -261,8 +261,8 @@ serde_derive = { git = "https://github.com/HULKs/serde.git", rev = "ef30eb8fdd0e
 # Pinned to forked serde version since https://github.com/serde-rs/serde/pull/2513 is not merged
 serde_core = { git = "https://github.com/HULKs/serde.git", rev = "ef30eb8fdd0ee12e4e6f3f5615c6bb022e02d1b2" }
 
-egui = { path = "../egui/crates/egui/" }
-egui-wgpu = { path = "../egui/crates/egui-wgpu/" }
+egui = { git = "https://github.com/HULKs/egui/", rev = "7a3a88dcbb46a24d49a2388b2d9c8a6a273a9d4e" }
+egui-wgpu = { git = "https://github.com/HULKs/egui/", rev = "7a3a88dcbb46a24d49a2388b2d9c8a6a273a9d4e" }
 
 [profile.dev]
 opt-level = 3
