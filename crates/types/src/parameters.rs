@@ -504,6 +504,7 @@ pub struct RLWalkingParameters {
     pub torque_limits: Joints,
     pub normalization: NormalizationParameters,
     pub control: ControlParameters,
+    pub walk_command: [f32; 3],
 }
 
 #[derive(

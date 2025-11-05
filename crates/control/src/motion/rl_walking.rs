@@ -1,10 +1,10 @@
 use booster::ImuState;
 use color_eyre::Result;
 use context_attribute::context;
-use coordinate_systems::{Ground, Robot};
+use coordinate_systems::Ground;
 use framework::{deserialize_not_implemented, AdditionalOutput, MainOutput};
 use hardware::{PathsInterface, TimeInterface};
-use linear_algebra::{vector, Vector2, Vector3};
+use linear_algebra::{vector, Vector2};
 use ndarray::{Array1, Axis};
 use ort::{
     inputs,
@@ -87,8 +87,11 @@ impl RLWalking {
             context.imu_state.roll_pitch_yaw,
             context.imu_state.angular_velocity,
             &MotionCommand::WalkWithVelocity {
-                velocity: vector!(0.0, 0.0),
-                angular_velocity: 0.0,
+                velocity: vector!(
+                    context.walking_parameters.walk_command[0],
+                    context.walking_parameters.walk_command[1]
+                ),
+                angular_velocity: context.walking_parameters.walk_command[2],
                 head: HeadMotion::Center,
             },
             *context.joint_positions,

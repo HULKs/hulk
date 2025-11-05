@@ -50,7 +50,7 @@
       "action_scale": 1.0,
       "decimation": 10.0
     },
-    "walking_command": [0.0, 0.0, 0.0]
+    "walk_command": [0.0, 0.0, 0.0]
   },
   "prepare_motor_command": {
     "weight": 1.0,
