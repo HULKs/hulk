@@ -12,10 +12,13 @@ use types::{joints::Joints, parameters::MotorCommandParameters};
 pub struct CommandSender {
     time_index: f32,
     motor_index: usize,
+    filtered_target_joint_positions: Joints,
 }
 
 #[context]
-pub struct CreationContext {}
+pub struct CreationContext {
+    prepare_motor_command_parameters: Parameter<MotorCommandParameters, "prepare_motor_command">,
+}
 
 #[context]
 pub struct CycleContext {
@@ -34,10 +37,13 @@ pub struct MainOutputs {
 }
 
 impl CommandSender {
-    pub fn new(_context: CreationContext) -> Result<Self> {
+    pub fn new(context: CreationContext) -> Result<Self> {
         Ok(Self {
             time_index: 0.0,
             motor_index: 0,
+            filtered_target_joint_positions: context
+                .prepare_motor_command_parameters
+                .default_positions,
         })
     }
 
@@ -50,8 +56,11 @@ impl CommandSender {
             context.prepare_motor_command_parameters,
         );
 
+        self.filtered_target_joint_positions =
+            self.filtered_target_joint_positions * 0.8 + *context.target_joint_positions * 0.2;
+
         let walk_low_command = LowCommand::new(
-            context.target_joint_positions,
+            &self.filtered_target_joint_positions,
             context.walk_motor_command_parameters,
         );
 
