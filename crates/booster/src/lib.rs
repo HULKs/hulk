@@ -279,8 +279,8 @@ impl LowCommand {
             command_type: CommandType::Serial,
             motor_commands: joint_positions
                 .into_iter()
-                .zip(motor_command_parameters.proportional_coefficients / 2.0)
-                .zip(motor_command_parameters.derivative_coefficients / 4.0)
+                .zip(motor_command_parameters.proportional_coefficients)
+                .zip(motor_command_parameters.derivative_coefficients / 2.0)
                 .map(|((joint_position, kp), kd)| MotorCommand {
                     position: joint_position,
                     velocity: 0.0,

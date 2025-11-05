@@ -60,31 +60,31 @@
         "pitch": 0.0
       },
       "left_arm": {
-        "shoulder_pitch": 0.25,
+        "shoulder_pitch": 0.2,
         "shoulder_roll": -1.4,
         "shoulder_yaw": 0.0,
         "elbow": -0.5
       },
       "right_arm": {
-        "shoulder_pitch": 0.25,
+        "shoulder_pitch": 0.2,
         "shoulder_roll": 1.4,
         "shoulder_yaw": 0.0,
         "elbow": 0.5
       },
       "left_leg": {
-        "hip_pitch": -0.1,
+        "hip_pitch": -0.2,
         "hip_roll": 0.0,
         "hip_yaw": 0.0,
-        "knee": 0.2,
-        "ankle_up": -0.1,
+        "knee": 0.4,
+        "ankle_up": -0.175,
         "ankle_down": 0.0
       },
       "right_leg": {
-        "hip_pitch": -0.1,
+        "hip_pitch": -0.2,
         "hip_roll": 0.0,
         "hip_yaw": 0.0,
-        "knee": 0.2,
-        "ankle_up": -0.1,
+        "knee": 0.4,
+        "ankle_up": -0.175,
         "ankle_down": 0.0
       }
     },
@@ -110,7 +110,7 @@
         "hip_roll": 140,
         "hip_yaw": 140,
         "knee": 140,
-        "ankle_up": 35,
+        "ankle_up": 50,
         "ankle_down": 10
       },
       "right_leg": {
@@ -118,7 +118,7 @@
         "hip_roll": 140,
         "hip_yaw": 140,
         "knee": 140,
-        "ankle_up": 35,
+        "ankle_up": 50,
         "ankle_down": 10
       }
     },
