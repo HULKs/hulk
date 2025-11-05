@@ -20,13 +20,12 @@ use types::{
     motion_command::{MotionCommand, WalkSpeed},
     parameters::{
         BehaviorParameters, InWalkKicksParameters, InterceptBallParameters, KeeperMotionParameters,
-        LostBallParameters,
+        LostBallParameters, RemoteControlParameters,
     },
     path_obstacles::PathObstacle,
     players::Players,
     primary_state::PrimaryState,
     roles::Role,
-    step::Step,
     world_state::WorldState,
 };
 
@@ -51,10 +50,6 @@ pub struct Behavior {
     previous_cycle_role: Role,
     last_defender_mode: DefendMode,
     last_time_role_changed: SystemTime,
-}
-
-pub struct RemoteControlParameters {
-    pub walk: Step,
 }
 #[context]
 pub struct CreationContext {}

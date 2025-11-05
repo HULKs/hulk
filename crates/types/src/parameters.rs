@@ -14,8 +14,15 @@ use crate::{
     joints::head::HeadJoints,
     joints::Joints,
     motion_command::{KickVariant, MotionCommand},
-    roles::Role,
+    roles::Role, step::Step,
 };
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct RemoteControlParameters {
+    pub walk: Step,
+}
 
 #[derive(
     Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,

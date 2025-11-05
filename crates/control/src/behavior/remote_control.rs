@@ -1,7 +1,8 @@
 use linear_algebra::vector;
-use types::motion_command::{HeadMotion, MotionCommand};
-
-use crate::behavior::node::RemoteControlParameters;
+use types::{
+    motion_command::{HeadMotion, MotionCommand},
+    parameters::RemoteControlParameters,
+};
 
 pub fn execute(remote_control_parameters: &RemoteControlParameters) -> Option<MotionCommand> {
     Some(MotionCommand::WalkWithVelocity {
