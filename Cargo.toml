@@ -212,10 +212,10 @@ ros2 = { path = "crates/ros2" }
 rustfft = "6.2.0"
 scenario = { path = "crates/scenario" }
 semver = "1.0.25"
-serde = { version = "1.0.226", features = ["derive", "rc"] }
+serde = { version = "1.0.228", features = ["derive", "rc"] }
 serde-transcode = "1.1.1"
 serde_bytes = "0.11.15"
-serde_derive = "1.0.226"
+serde_derive = "1.0.228"
 serde_ignored = "0.1.10"
 serde_json = "1.0.138"
 serde_test = "1.0.177"
@@ -257,11 +257,11 @@ zed = { path = "crates/zed" }
 
 [patch.crates-io]
 # Pinned to forked serde version since https://github.com/serde-rs/serde/pull/2513 is not merged
-serde = { git = "https://github.com/HULKs/serde.git", rev = "09f6d0930357b8c4e69f4daa25bcb993af0921d0" }
+serde = { git = "https://github.com/HULKs/serde.git", rev = "ef30eb8fdd0ee12e4e6f3f5615c6bb022e02d1b2" }
 # Pinned to forked serde version since https://github.com/serde-rs/serde/pull/2513 is not merged
-serde_derive = { git = "https://github.com/HULKs/serde.git", rev = "09f6d0930357b8c4e69f4daa25bcb993af0921d0" }
+serde_derive = { git = "https://github.com/HULKs/serde.git", rev = "ef30eb8fdd0ee12e4e6f3f5615c6bb022e02d1b2" }
 # Pinned to forked serde version since https://github.com/serde-rs/serde/pull/2513 is not merged
-serde_core = { git = "https://github.com/HULKs/serde.git", rev = "09f6d0930357b8c4e69f4daa25bcb993af0921d0" }
+serde_core = { git = "https://github.com/HULKs/serde.git", rev = "ef30eb8fdd0ee12e4e6f3f5615c6bb022e02d1b2" }
 
 [profile.dev]
 opt-level = 3

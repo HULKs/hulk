@@ -774,7 +774,7 @@ dependencies = [
  "regex",
  "semver",
  "serde",
- "serde_derive 1.0.226",
+ "serde_derive",
  "serde_with",
  "serde_yaml",
  "shell-words",
@@ -1986,7 +1986,7 @@ version = "2.10.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "812e12b5285cc515a9c72a5c1d3b6d46a19dac5acfef5265968c166106e31dd3"
 dependencies = [
- "serde_core 1.0.228",
+ "serde_core",
 ]
 
 [[package]]
@@ -2822,7 +2822,7 @@ dependencies = [
  "rayon",
  "regex",
  "serde",
- "serde_derive 1.0.226",
+ "serde_derive",
  "serde_json",
  "tinytemplate",
  "walkdir",
@@ -3631,7 +3631,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "259d404d09818dec19332e31d94558aeb442fea04c817006456c24b5460bbd4b"
 dependencies = [
  "serde",
- "serde_core 1.0.226",
+ "serde_core",
  "typeid",
 ]
 
@@ -5009,7 +5009,7 @@ dependencies = [
  "equivalent",
  "hashbrown 0.16.0",
  "serde",
- "serde_core 1.0.226",
+ "serde_core",
 ]
 
 [[package]]
@@ -7901,7 +7901,7 @@ dependencies = [
  "base64 0.21.7",
  "bitflags 2.10.0",
  "serde",
- "serde_derive 1.0.226",
+ "serde_derive",
 ]
 
 [[package]]
@@ -8179,11 +8179,11 @@ checksum = "cd0b0ec5f1c1ca621c432a25813d8d60c88abe6d3e08a3eb9cf37d97a0fe3d73"
 
 [[package]]
 name = "serde"
-version = "1.0.226"
-source = "git+https://github.com/HULKs/serde.git?rev=09f6d0930357b8c4e69f4daa25bcb993af0921d0#09f6d0930357b8c4e69f4daa25bcb993af0921d0"
+version = "1.0.228"
+source = "git+https://github.com/HULKs/serde.git?rev=ef30eb8fdd0ee12e4e6f3f5615c6bb022e02d1b2#ef30eb8fdd0ee12e4e6f3f5615c6bb022e02d1b2"
 dependencies = [
- "serde_core 1.0.226",
- "serde_derive 1.0.226",
+ "serde_core",
+ "serde_derive",
 ]
 
 [[package]]
@@ -8210,36 +8210,16 @@ dependencies = [
 
 [[package]]
 name = "serde_core"
-version = "1.0.226"
-source = "git+https://github.com/HULKs/serde.git?rev=09f6d0930357b8c4e69f4daa25bcb993af0921d0#09f6d0930357b8c4e69f4daa25bcb993af0921d0"
-dependencies = [
- "serde_derive 1.0.226",
-]
-
-[[package]]
-name = "serde_core"
 version = "1.0.228"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "41d385c7d4ca58e59fc732af25c3983b67ac852c1a25000afe1175de458b67ad"
+source = "git+https://github.com/HULKs/serde.git?rev=ef30eb8fdd0ee12e4e6f3f5615c6bb022e02d1b2#ef30eb8fdd0ee12e4e6f3f5615c6bb022e02d1b2"
 dependencies = [
- "serde_derive 1.0.228",
-]
-
-[[package]]
-name = "serde_derive"
-version = "1.0.226"
-source = "git+https://github.com/HULKs/serde.git?rev=09f6d0930357b8c4e69f4daa25bcb993af0921d0#09f6d0930357b8c4e69f4daa25bcb993af0921d0"
-dependencies = [
- "proc-macro2",
- "quote",
- "syn 2.0.109",
+ "serde_derive",
 ]
 
 [[package]]
 name = "serde_derive"
 version = "1.0.228"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d540f220d3187173da220f885ab66608367b6574e925011a9353e4badda91d79"
+source = "git+https://github.com/HULKs/serde.git?rev=ef30eb8fdd0ee12e4e6f3f5615c6bb022e02d1b2#ef30eb8fdd0ee12e4e6f3f5615c6bb022e02d1b2"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -8253,7 +8233,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "115dffd5f3853e06e746965a20dcbae6ee747ae30b543d91b0e089668bb07798"
 dependencies = [
  "serde",
- "serde_core 1.0.226",
+ "serde_core",
 ]
 
 [[package]]
@@ -8266,7 +8246,7 @@ dependencies = [
  "memchr",
  "ryu",
  "serde",
- "serde_core 1.0.226",
+ "serde_core",
 ]
 
 [[package]]
@@ -8307,7 +8287,7 @@ version = "3.15.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aa66c845eee442168b2c8134fec70ac50dc20e760769c8ba0ad1319ca1959b04"
 dependencies = [
- "serde_core 1.0.226",
+ "serde_core",
  "serde_with_macros",
 ]
 
@@ -8786,7 +8766,7 @@ dependencies = [
  "once_cell",
  "regex-syntax",
  "serde",
- "serde_derive 1.0.226",
+ "serde_derive",
  "thiserror 2.0.17",
  "walkdir",
 ]
@@ -9202,7 +9182,7 @@ version = "0.7.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f2cdb639ebbc97961c51720f858597f7f24c4fc295327923af55b74c3c724533"
 dependencies = [
- "serde_core 1.0.226",
+ "serde_core",
 ]
 
 [[package]]
