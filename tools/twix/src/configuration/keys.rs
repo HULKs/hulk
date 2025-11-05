@@ -86,7 +86,7 @@ pub fn parse_shortcut(raw_shortcut: &str) -> Result<KeyboardShortcut, Error> {
             return Err(Error::DuplicateModifier(String::from(*raw_modifier)));
         }
 
-        modifiers = modifiers | modifier;
+        modifiers |= modifier;
     }
 
     let result = KeyboardShortcut {

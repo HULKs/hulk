@@ -9,8 +9,8 @@ use std::{
 
 use eframe::{
     egui::{
-        show_tooltip_at_pointer, widgets::Label, Align2, Button, ComboBox, FontId, Response,
-        RichText, Sense, StrokeKind, TextStyle, TextWrapMode, Ui, Widget, WidgetText,
+        Align2, Button, ComboBox, FontId, Label, PopupAnchor, Response, RichText, Sense,
+        StrokeKind, TextStyle, TextWrapMode, Tooltip, Ui, Widget, WidgetText,
     },
     emath::{remap, Rangef, RectTransform},
     epaint::{Color32, CornerRadius, Rect, Shape, Stroke, TextShape, Vec2},
@@ -101,7 +101,14 @@ impl Segment {
 
         if ui.rect_contains_pointer(screenspace_rect) {
             if let Some(tooltip) = self.tooltip() {
-                show_tooltip_at_pointer(ui.ctx(), ui.layer_id(), "Fridolin".into(), |ui| {
+                Tooltip::new(
+                    "Fridolin".into(),
+                    ui.ctx().clone(),
+                    PopupAnchor::Pointer,
+                    ui.layer_id(),
+                )
+                .gap(12.0)
+                .show(|ui| {
                     ui.add(Label::new(tooltip).wrap_mode(TextWrapMode::Extend));
                 });
             }
