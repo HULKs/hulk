@@ -12,8 +12,9 @@ crate-type = ["cdylib"]
 [dependencies]
 booster = { workspace = true }
 color-eyre = { workspace = true }
+futures-util = { workspace = true }
 log = { workspace = true }
-pyo3 = { workspace = true, features = ["abi3-py313", "extension-module"] }
+pyo3 = { workspace = true }
 pyo3-async-runtimes = { workspace = true }
 pyo3-log = { workspace = true }
 serde = { workspace = true }
@@ -24,4 +25,3 @@ tokio-tungstenite = { workspace = true }
 tokio-util = { workspace = true }
 uuid = { workspace = true }
 zed = { workspace = true }
-futures-util = { workspace = true }
