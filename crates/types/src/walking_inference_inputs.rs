@@ -141,10 +141,13 @@ impl WalkingInferenceInputs {
             roll_pitch_yaw.y(),
             roll_pitch_yaw.z(),
         );
-        let gravity = rotation.transform_vector(&-nalgebra::Vector3::z_axis());
+        let gravity = rotation
+            .inverse()
+            .transform_vector(&-nalgebra::Vector3::z_axis())
+            .framed();
 
         Ok(WalkingInferenceInputs {
-            gravity: vector!(gravity.x, gravity.y, gravity.z),
+            gravity,
             angular_velocity,
             linear_velocity_command,
             angular_velocity_command,
