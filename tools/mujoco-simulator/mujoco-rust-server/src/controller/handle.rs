@@ -65,13 +65,6 @@ impl ConnectionHandle {
         }
     }
 
-    pub async fn send_control_command(&self, control_command: ControlCommand) -> Result<()> {
-        self.control_sender
-            .send(control_command)
-            .await
-            .wrap_err("failed to send ControlCommand")
-    }
-
     pub async fn receive_data(&mut self) -> Result<SimulationData> {
         self.websocket_receiver
             .recv()

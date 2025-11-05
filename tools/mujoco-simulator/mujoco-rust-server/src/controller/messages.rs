@@ -24,9 +24,6 @@ pub enum ControlCommand {
         id: Uuid,
         sender: oneshot::Sender<()>,
     },
-    Reset,
-    Play,
-    Pause,
 }
 
 impl Debug for ControlCommand {
