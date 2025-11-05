@@ -1,13 +1,12 @@
 use std::{cmp::Reverse, fmt::Debug};
 
 use egui::{
-    popup_below_widget,
     response::Flags,
     text::{CCursor, CCursorRange},
     text_edit::{TextEditOutput, TextEditState},
     util::cache::{ComputerMut, FrameCache},
-    Color32, Context, EventFilter, Id, Key, Modifiers, PopupCloseBehavior, Response, ScrollArea,
-    TextEdit, TextStyle, Ui, Widget,
+    Color32, Context, EventFilter, Id, Key, Modifiers, Popup, PopupCloseBehavior, Response,
+    ScrollArea, TextEdit, TextStyle, Ui, Widget,
 };
 use nucleo_matcher::{
     pattern::{CaseMatching, Normalization, Pattern},
@@ -233,12 +232,12 @@ impl<'a, T: ToString + Debug + std::hash::Hash> CompletionEdit<'a, T> {
         let text_size = ui.text_style_height(&TextStyle::Body);
 
         let selection_may_have_changed = response.changed() || pressed_down || pressed_up;
-        let should_close_popup = popup_below_widget(
-            ui,
-            popup_id,
-            &response,
-            PopupCloseBehavior::CloseOnClickOutside,
-            |ui| {
+        let should_close_popup = Popup::from_response(&response)
+            .id(popup_id)
+            .open_memory(None)
+            .close_behavior(PopupCloseBehavior::CloseOnClickOutside)
+            .show(|ui| {
+                ui.set_max_width(f32::INFINITY);
                 ui.set_max_height(text_size * 20.0);
 
                 if matching_items.is_empty() {
@@ -273,16 +272,15 @@ impl<'a, T: ToString + Debug + std::hash::Hash> CompletionEdit<'a, T> {
                 });
 
                 close_me
-            },
-        );
+            })
+            .is_some_and(|response| response.inner);
 
         if response.lost_focus() {
             state.typed_since_focused = false;
         }
         let should_open_popup = response.has_focus() && state.typed_since_focused;
         let pressed_enter = ui.input(|reader| reader.key_pressed(Key::Enter));
-        let user_completed_search =
-            matches!(should_close_popup, Some(true)) || response.lost_focus() && pressed_enter;
+        let user_completed_search = should_close_popup || response.lost_focus() && pressed_enter;
 
         ui.memory_mut(|memory| {
             if should_open_popup {

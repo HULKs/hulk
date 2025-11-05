@@ -5,8 +5,8 @@ use color_eyre::{
 };
 use coordinate_systems::Pixel;
 use eframe::egui::{
-    popup_below_widget, vec2, Align2, Button, Color32, ColorImage, Key, PopupCloseBehavior, Rect,
-    Response, Sense, Shape, Stroke, TextureHandle, TextureOptions, Ui, UiBuilder, Widget,
+    vec2, Align2, Button, Color32, ColorImage, Key, Popup, PopupCloseBehavior, Rect, Response,
+    Sense, Shape, Stroke, TextureHandle, TextureOptions, Ui, UiBuilder, Widget,
 };
 use geometry::{line_segment::LineSegment, rectangle::Rectangle};
 use image::RgbImage;
@@ -328,13 +328,15 @@ impl SemiAutomaticCameraCalibrationPanel {
                     Sense::CLICK,
                 );
 
-                let response = popup_below_widget(
-                    ui,
-                    popup_id,
-                    &local_response,
-                    PopupCloseBehavior::CloseOnClickOutside,
-                    |ui| self.line_type_ui(ui),
-                );
+                let response = Popup::from_response(&local_response)
+                    .id(popup_id)
+                    .open_memory(None)
+                    .close_behavior(PopupCloseBehavior::CloseOnClickOutside)
+                    .show(|ui| {
+                        ui.set_min_width(ui.available_width());
+                        self.line_type_ui(ui)
+                    })
+                    .map(|response| response.inner);
 
                 match response {
                     Some(Some(line_type)) => {

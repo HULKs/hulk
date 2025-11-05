@@ -57,7 +57,7 @@ impl BevyRenderTarget {
             while new_size.x < size.x || new_size.y < size.y {
                 new_size *= 2.0;
             }
-            println!("New render texture size: {}", new_size);
+            println!("New render texture size: {new_size}");
             (self.texture, self.texture_id) = Self::create_texture(new_size, &self.wgpu_state);
         }
         self.output_size = size;
