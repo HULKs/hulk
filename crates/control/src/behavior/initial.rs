@@ -1,7 +1,6 @@
 use coordinate_systems::Field;
 use linear_algebra::{point, Point2};
 use types::{
-    camera_position::CameraPosition,
     field_dimensions::GlobalFieldSide,
     filtered_game_state::FilteredGameState,
     initial_pose::InitialPose,
@@ -62,12 +61,10 @@ pub fn execute(
         ) {
             (true, true, false) => HeadMotion::LookAtReferee {
                 image_region_target: ImageRegion::Bottom,
-                camera: Some(CameraPosition::Top),
             },
             (false, true, true) => HeadMotion::LookAt {
                 target: expected_referee_position,
                 image_region_target: ImageRegion::Bottom,
-                camera: Some(CameraPosition::Top),
             },
             _ => HeadMotion::Center,
         },

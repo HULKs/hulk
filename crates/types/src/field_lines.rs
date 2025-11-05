@@ -7,6 +7,5 @@ use serde::{Deserialize, Serialize};
     Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
 pub struct ProjectedFieldLines {
-    pub top: Vec<LineSegment<Pixel>>,
-    pub bottom: Vec<LineSegment<Pixel>>,
+    pub field_lines: Vec<LineSegment<Pixel>>,
 }

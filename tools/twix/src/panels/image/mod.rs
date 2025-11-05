@@ -20,10 +20,7 @@ use crate::{
     zoom_and_pan::ZoomAndPanTransform,
 };
 
-use self::{
-    cycler_selector::{VisionCycler, VisionCyclerSelector},
-    overlay::Overlays,
-};
+use self::overlay::Overlays;
 
 pub mod cycler_selector;
 pub mod overlay;
@@ -38,23 +35,17 @@ pub struct ImagePanel {
     nao: Arc<Nao>,
     show_depth_image: bool,
     image_buffer: RawOrJpeg,
-    cycler: VisionCycler,
     overlays: Overlays,
     zoom_and_pan: ZoomAndPanTransform,
 }
 
-fn subscribe_image(
-    nao: &Arc<Nao>,
-    cycler_path: String,
-    is_jpeg: bool,
-    is_depth: bool,
-) -> RawOrJpeg {
+fn subscribe_image(nao: &Arc<Nao>, is_jpeg: bool, is_depth: bool) -> RawOrJpeg {
     let base_name = if is_depth { "depth_image" } else { "image" };
     if is_jpeg {
-        let path = format!("{cycler_path}.main_outputs.{base_name}.jpeg");
+        let path = format!("Vision.main_outputs.{base_name}.jpeg");
         return RawOrJpeg::Jpeg(nao.subscribe_value(path));
     }
-    let path = format!("{cycler_path}.main_outputs.{base_name}");
+    let path = format!("Vision.main_outputs.{base_name}");
     RawOrJpeg::Raw(nao.subscribe_value(path))
 }
 
@@ -62,30 +53,17 @@ impl Panel for ImagePanel {
     const NAME: &'static str = "Image";
 
     fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
-        let cycler = value
-            .and_then(|value| {
-                let string = value.get("cycler")?.as_str()?;
-                VisionCycler::try_from(string).ok()
-            })
-            .unwrap_or(VisionCycler::Top);
-        let cycler_path = cycler.as_path();
-
         let is_jpeg = value
             .and_then(|value| value.get("is_jpeg"))
             .and_then(|value| value.as_bool())
             .unwrap_or(true);
 
-        let image_buffer = subscribe_image(&nao, cycler_path, is_jpeg, false);
+        let image_buffer = subscribe_image(&nao, is_jpeg, false);
 
-        let overlays = Overlays::new(
-            nao.clone(),
-            value.and_then(|value| value.get("overlays")),
-            cycler,
-        );
+        let overlays = Overlays::new(nao.clone(), value.and_then(|value| value.get("overlays")));
         Self {
             nao,
             image_buffer,
-            cycler,
             overlays,
             zoom_and_pan: ZoomAndPanTransform::default(),
             show_depth_image: false,
@@ -97,7 +75,7 @@ impl Panel for ImagePanel {
 
         json!({
             "is_jpeg": matches!(self.image_buffer, RawOrJpeg::Jpeg(_)),
-            "cycler": self.cycler.as_path(),
+            "cycler": "Vision",
             "overlays": overlays,
         })
     }
@@ -125,13 +103,7 @@ impl Widget for &mut ImagePanel {
     fn ui(self, ui: &mut Ui) -> Response {
         ui.horizontal(|ui| {
             let mut jpeg = matches!(self.image_buffer, RawOrJpeg::Jpeg(_));
-            let mut cycler_selector = VisionCyclerSelector::new(&mut self.cycler);
-            if cycler_selector.ui(ui).changed() {
-                self.resubscribe(jpeg);
-                self.overlays.update_cycler(self.cycler);
-            }
-
-            self.overlays.combo_box(ui, self.cycler);
+            self.overlays.combo_box(ui);
             if ui.checkbox(&mut jpeg, "JPEG").changed() {
                 self.resubscribe(jpeg);
             }
@@ -152,8 +124,7 @@ impl Widget for &mut ImagePanel {
                 if let Err(error) = create_dir_all(&directory) {
                     warn!("failed to create temporary folder /tmp/twix: {error}");
                 } else {
-                    let cycler_name = format!("{:?}", self.cycler);
-                    let path = directory.join(format!("image_{cycler_name}_{time_stamp}.png"));
+                    let path = directory.join(format!("image_vision_{time_stamp}.png"));
                     let result = match &self.image_buffer {
                         RawOrJpeg::Raw(buffer) => save_raw_image(buffer, path),
                         RawOrJpeg::Jpeg(buffer) => {
@@ -198,14 +169,13 @@ impl Widget for &mut ImagePanel {
 
 impl ImagePanel {
     fn resubscribe(&mut self, jpeg: bool) {
-        let cycler_path = self.cycler.as_path();
-        self.image_buffer = subscribe_image(&self.nao, cycler_path, jpeg, self.show_depth_image);
+        self.image_buffer = subscribe_image(&self.nao, jpeg, self.show_depth_image);
     }
 
     fn show_image(&self, painter: &TwixPainter<Pixel>) -> Result<()> {
         let context = painter.context();
 
-        let image_identifier = format!("bytes://image-{:?}", self.cycler);
+        let image_identifier = format!("bytes://image-vision");
         let image = match &self.image_buffer {
             RawOrJpeg::Raw(buffer) => {
                 let ycbcr = buffer

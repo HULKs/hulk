@@ -78,7 +78,6 @@ impl PathsInterface for Interfake {
 impl CameraInterface for Interfake {
     fn read_from_camera(
         &self,
-        _camera_position: types::camera_position::CameraPosition,
     ) -> Result<types::ycbcr422_image::YCbCr422Image> {
         unimplemented!()
     }

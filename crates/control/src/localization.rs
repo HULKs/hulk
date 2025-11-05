@@ -107,8 +107,7 @@ pub struct CycleContext {
         "injected_ground_to_field_of_home_after_coin_toss_before_second_half?",
     >,
 
-    line_data_bottom: PerceptionInput<Option<LineData>, "VisionBottom", "line_data?">,
-    line_data_top: PerceptionInput<Option<LineData>, "VisionTop", "line_data?">,
+    line_data: PerceptionInput<Option<LineData>, "Vision", "line_data?">,
 
     ground_to_field: CyclerState<Option<Isometry2<Ground, Field>>, "ground_to_field">,
     stand_up_back_estimated_remaining_duration:
@@ -342,20 +341,11 @@ impl Localization {
                 + context.additional_moving_noise_circle * gyro_movement),
         );
 
-        let line_data = context
-            .line_data_top
-            .persistent
-            .iter()
-            .zip(context.line_data_bottom.persistent.iter());
-        for (
-            (line_data_top_timestamp, line_data_top),
-            (line_data_bottom_timestamp, line_data_bottom),
-        ) in line_data
-        {
-            assert_eq!(line_data_top_timestamp, line_data_bottom_timestamp);
+        let line_data = context.line_data.persistent.iter();
+        for (line_data_timestamp, line_data) in line_data {
             let current_odometry_to_last_odometry = context
                 .current_odometry_to_last_odometry
-                .get(line_data_top_timestamp);
+                .get(line_data_timestamp);
 
             let mut fit_errors_per_hypothesis = vec![];
             for (hypothesis_index, scored_state) in self.hypotheses.iter_mut().enumerate() {
@@ -374,9 +364,8 @@ impl Localization {
                 {
                     let ground_to_field: Isometry2<Ground, Field> =
                         scored_state.state.as_isometry().framed_transform();
-                    let current_measured_lines_in_field: Vec<_> = line_data_top
+                    let current_measured_lines_in_field: Vec<_> = line_data
                         .iter()
-                        .chain(line_data_bottom.iter())
                         .filter_map(|data| data.as_ref())
                         .flat_map(|line_data| {
                             line_data.lines.iter().map(|&measured_line_in_ground| {

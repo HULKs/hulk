@@ -12,17 +12,14 @@ use types::primary_state::PrimaryState;
 
 use crate::{log_error::LogError, nao::Nao, panel::Panel, value_buffer::BufferHandle};
 
-pub const TOP_CAMERA_EXTRINSICS_PATH: &str =
-    "camera_matrix_parameters.calibration.correction_in_camera_top";
-pub const BOTTOM_CAMERA_EXTRINSICS_PATH: &str =
-    "camera_matrix_parameters.calibration.correction_in_camera_bottom";
+pub const CAMERA_EXTRINSICS_PATH: &str =
+    "camera_matrix_parameters.calibration.correction_in_camera";
 pub const ROBOT_BODY_ROTATION_PATH: &str =
     "camera_matrix_parameters.calibration.correction_in_robot";
 
 pub struct CameraCalibrationExportPanel {
     nao: Arc<Nao>,
-    top_camera: BufferHandle<Vector3<f32>>,
-    bottom_camera: BufferHandle<Vector3<f32>>,
+    camera: BufferHandle<Vector3<f32>>,
     body_rotations: BufferHandle<Vector3<f32>>,
     calibration_corrections: BufferHandle<Value>,
     calibration_measurements: BufferHandle<Value>,
@@ -33,9 +30,7 @@ impl Panel for CameraCalibrationExportPanel {
     const NAME: &'static str = "Camera Calibration Export";
 
     fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
-        let top_camera = nao.subscribe_value(format!("parameters.{TOP_CAMERA_EXTRINSICS_PATH}"));
-        let bottom_camera =
-            nao.subscribe_value(format!("parameters.{BOTTOM_CAMERA_EXTRINSICS_PATH}"));
+        let camera = nao.subscribe_value(format!("parameters.{CAMERA_EXTRINSICS_PATH}"));
         let body_rotations = nao.subscribe_value(format!("parameters.{ROBOT_BODY_ROTATION_PATH}"));
         let calibration_corrections =
             nao.subscribe_json("Control.additional_outputs.last_corrections");
@@ -45,8 +40,7 @@ impl Panel for CameraCalibrationExportPanel {
 
         Self {
             nao,
-            top_camera,
-            bottom_camera,
+            camera,
             body_rotations,
             calibration_corrections,
             calibration_measurements,
@@ -66,22 +60,17 @@ impl Widget for &mut CameraCalibrationExportPanel {
                 .flatten()
                 .and_then(|value| serde_json::from_value::<Corrections>(value).ok())
             {
-                let top_angles = value.correction_in_camera_top.euler_angles();
-                let bottom_angles = value.correction_in_camera_bottom.euler_angles();
+                let camera_angles = value.correction_in_camera.euler_angles();
                 let body_angles = value.correction_in_robot.euler_angles();
-
-                draw_group(ui, "Top", top_angles, &self.nao, TOP_CAMERA_EXTRINSICS_PATH);
-                draw_angles_from_buffer(ui, &self.top_camera);
-                ui.separator();
 
                 draw_group(
                     ui,
-                    "Bottom",
-                    bottom_angles,
+                    "Vision",
+                    camera_angles,
                     &self.nao,
-                    BOTTOM_CAMERA_EXTRINSICS_PATH,
+                    CAMERA_EXTRINSICS_PATH,
                 );
-                draw_angles_from_buffer(ui, &self.bottom_camera);
+                draw_angles_from_buffer(ui, &self.camera);
                 ui.separator();
 
                 draw_group(ui, "Body", body_angles, &self.nao, ROBOT_BODY_ROTATION_PATH);

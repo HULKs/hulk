@@ -23,8 +23,7 @@ impl CalculateResiduals for CenterCircleResiduals {
         measurement: &Measurement,
         field_dimensions: &FieldDimensions,
     ) -> Result<Self, Self::Error> {
-        let corrected =
-            get_corrected_camera_matrix(&measurement.matrix, measurement.position, parameters);
+        let corrected = get_corrected_camera_matrix(&measurement.matrix, parameters);
 
         let radius_squared = field_dimensions.center_circle_diameter / 2.0;
 

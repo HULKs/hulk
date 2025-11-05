@@ -7,9 +7,7 @@ use geometry::line_segment::LineSegment;
 use linear_algebra::Point2;
 
 use crate::{
-    panels::image::{cycler_selector::VisionCycler, overlay::Overlay},
-    twix_painter::TwixPainter,
-    value_buffer::BufferHandle,
+    panels::image::overlay::Overlay, twix_painter::TwixPainter, value_buffer::BufferHandle,
 };
 
 pub struct FieldBorder {
@@ -20,13 +18,11 @@ pub struct FieldBorder {
 impl Overlay for FieldBorder {
     const NAME: &'static str = "Field Border";
 
-    fn new(nao: Arc<crate::nao::Nao>, selected_cycler: VisionCycler) -> Self {
-        let cycler_path = selected_cycler.as_path();
+    fn new(nao: Arc<crate::nao::Nao>) -> Self {
         Self {
-            border_lines: nao.subscribe_value(format!("{cycler_path}.main_outputs.field_border")),
-            candidates: nao.subscribe_value(format!(
-                "{cycler_path}.additional_outputs.field_border_points"
-            )),
+            border_lines: nao.subscribe_value(format!("Vision.main_outputs.field_border")),
+            candidates: nao
+                .subscribe_value(format!("Vision.additional_outputs.field_border_points")),
         }
     }
 

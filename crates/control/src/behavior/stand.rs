@@ -68,14 +68,12 @@ pub fn execute(
                     head: HeadMotion::LookAt {
                         target,
                         image_region_target: Default::default(),
-                        camera: None,
                     },
                 }),
                 _ => Some(MotionCommand::Stand {
                     head: HeadMotion::LookAt {
                         target,
                         image_region_target: Default::default(),
-                        camera: None,
                     },
                 }),
             }
@@ -131,7 +129,6 @@ pub fn execute(
                         head: HeadMotion::LookAt {
                             target,
                             image_region_target: ImageRegion::Center,
-                            camera: None,
                         },
                     })
                 }

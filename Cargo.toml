@@ -30,7 +30,6 @@ members = [
   "crates/linear_algebra",
   "crates/motionfile",
   "crates/nao",
-  "crates/nao_camera",
   "crates/object_detection",
   "crates/opn",
   "crates/parameters",
@@ -164,7 +163,6 @@ mlua = { version = "0.10.3", features = ["luajit", "serialize", "vendored"] }
 motionfile = { path = "crates/motionfile" }
 nalgebra = { version = "0.33.2", features = ["serde", "serde-serialize"] }
 nao = { path = "crates/nao" }
-nao_camera = { path = "crates/nao_camera" }
 ndarray = { version = "0.16.1", features = ["serde"] }
 ndarray-conv = "0.4.1"
 nix = { version = "0.29", features = ["ioctl"] }

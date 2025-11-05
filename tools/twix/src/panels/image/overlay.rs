@@ -10,17 +10,14 @@ use coordinate_systems::Pixel;
 
 use crate::{nao::Nao, twix_painter::TwixPainter};
 
-use super::{
-    cycler_selector::VisionCycler,
-    overlays::{
-        BallDetection, FeetDetection, FieldBorder, FieldLines, Horizon, LimbProjector,
-        LineDetection, PerspectiveGrid, PoseDetection,
-    },
+use super::overlays::{
+    BallDetection, FeetDetection, FieldBorder, FieldLines, Horizon, LimbProjector, LineDetection,
+    PerspectiveGrid, PoseDetection,
 };
 
 pub trait Overlay {
     const NAME: &'static str;
-    fn new(nao: Arc<Nao>, selected_cycler: VisionCycler) -> Self;
+    fn new(nao: Arc<Nao>) -> Self;
     fn paint(&self, painter: &TwixPainter<Pixel>) -> Result<()>;
     fn config_ui(&mut self, _ui: &mut Ui) {}
 }
@@ -37,32 +34,21 @@ impl<T> EnabledOverlay<T>
 where
     T: Overlay,
 {
-    pub fn new(
-        nao: Arc<Nao>,
-        value: Option<&Value>,
-        active: bool,
-        selected_cycler: VisionCycler,
-    ) -> Self {
+    pub fn new(nao: Arc<Nao>, value: Option<&Value>, active: bool) -> Self {
         let active = value
             .and_then(|value| value.get(T::NAME.to_case(convert_case::Case::Snake)))
             .and_then(|value| value.get("active"))
             .and_then(|value| value.as_bool())
             .unwrap_or(active);
-        let overlay = active.then(|| T::new(nao.clone(), selected_cycler));
+        let overlay = active.then(|| T::new(nao.clone()));
         Self { nao, overlay }
     }
 
-    pub fn update_cycler(&mut self, selected_cycler: VisionCycler) {
-        if let Some(overlay) = self.overlay.as_mut() {
-            *overlay = T::new(self.nao.clone(), selected_cycler);
-        }
-    }
-
-    pub fn checkbox(&mut self, ui: &mut Ui, selected_cycler: VisionCycler) {
+    pub fn checkbox(&mut self, ui: &mut Ui) {
         let mut active = self.overlay.is_some();
         if ui.checkbox(&mut active, T::NAME).changed() {
             match self.overlay.is_some() {
-                false => self.overlay = Some(T::new(self.nao.clone(), selected_cycler)),
+                false => self.overlay = Some(T::new(self.nao.clone())),
                 true => self.overlay = None,
             }
         }
@@ -98,16 +84,16 @@ pub struct Overlays {
 }
 
 impl Overlays {
-    pub fn new(nao: Arc<Nao>, storage: Option<&Value>, selected_cycler: VisionCycler) -> Self {
-        let line_detection = EnabledOverlay::new(nao.clone(), storage, false, selected_cycler);
-        let ball_detection = EnabledOverlay::new(nao.clone(), storage, false, selected_cycler);
-        let perspective_grid = EnabledOverlay::new(nao.clone(), storage, false, selected_cycler);
-        let horizon = EnabledOverlay::new(nao.clone(), storage, false, selected_cycler);
-        let penalty_boxes = EnabledOverlay::new(nao.clone(), storage, false, selected_cycler);
-        let feet_detection = EnabledOverlay::new(nao.clone(), storage, false, selected_cycler);
-        let field_border = EnabledOverlay::new(nao.clone(), storage, false, selected_cycler);
-        let limb_projector = EnabledOverlay::new(nao.clone(), storage, false, selected_cycler);
-        let pose_detection = EnabledOverlay::new(nao.clone(), storage, false, selected_cycler);
+    pub fn new(nao: Arc<Nao>, storage: Option<&Value>) -> Self {
+        let line_detection = EnabledOverlay::new(nao.clone(), storage, false);
+        let ball_detection = EnabledOverlay::new(nao.clone(), storage, false);
+        let perspective_grid = EnabledOverlay::new(nao.clone(), storage, false);
+        let horizon = EnabledOverlay::new(nao.clone(), storage, false);
+        let penalty_boxes = EnabledOverlay::new(nao.clone(), storage, false);
+        let feet_detection = EnabledOverlay::new(nao.clone(), storage, false);
+        let field_border = EnabledOverlay::new(nao.clone(), storage, false);
+        let limb_projector = EnabledOverlay::new(nao.clone(), storage, false);
+        let pose_detection = EnabledOverlay::new(nao.clone(), storage, false);
 
         Self {
             line_detection,
@@ -122,29 +108,17 @@ impl Overlays {
         }
     }
 
-    pub fn update_cycler(&mut self, selected_cycler: VisionCycler) {
-        self.line_detection.update_cycler(selected_cycler);
-        self.ball_detection.update_cycler(selected_cycler);
-        self.perspective_grid.update_cycler(selected_cycler);
-        self.horizon.update_cycler(selected_cycler);
-        self.penalty_boxes.update_cycler(selected_cycler);
-        self.feet_detection.update_cycler(selected_cycler);
-        self.field_border.update_cycler(selected_cycler);
-        self.limb_projector.update_cycler(selected_cycler);
-        self.pose_detection.update_cycler(selected_cycler);
-    }
-
-    pub fn combo_box(&mut self, ui: &mut Ui, selected_cycler: VisionCycler) {
+    pub fn combo_box(&mut self, ui: &mut Ui) {
         ui.menu_button("Overlays", |ui| {
-            self.line_detection.checkbox(ui, selected_cycler);
-            self.ball_detection.checkbox(ui, selected_cycler);
-            self.perspective_grid.checkbox(ui, selected_cycler);
-            self.horizon.checkbox(ui, selected_cycler);
-            self.penalty_boxes.checkbox(ui, selected_cycler);
-            self.feet_detection.checkbox(ui, selected_cycler);
-            self.field_border.checkbox(ui, selected_cycler);
-            self.limb_projector.checkbox(ui, selected_cycler);
-            self.pose_detection.checkbox(ui, selected_cycler);
+            self.line_detection.checkbox(ui);
+            self.ball_detection.checkbox(ui);
+            self.perspective_grid.checkbox(ui);
+            self.horizon.checkbox(ui);
+            self.penalty_boxes.checkbox(ui);
+            self.feet_detection.checkbox(ui);
+            self.field_border.checkbox(ui);
+            self.limb_projector.checkbox(ui);
+            self.pose_detection.checkbox(ui);
         });
     }
 

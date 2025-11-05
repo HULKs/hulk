@@ -14,7 +14,6 @@ use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use linear_algebra::{point, Point2};
 use types::{
     calibration::{CalibrationCaptureResponse, CalibrationCommand},
-    camera_position::CameraPosition,
     cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
     primary_state::PrimaryState,
@@ -24,7 +23,7 @@ use types::{
 pub struct CalibrationController {
     inner_states: StateTracking,
     corrections: Option<Corrections>,
-    look_at_list: Vec<(Point2<Ground>, CameraPosition)>,
+    look_at_list: Vec<Point2<Ground>>,
 }
 
 #[context]
@@ -34,14 +33,9 @@ pub struct CreationContext {}
 pub struct CycleContext {
     primary_state: Input<PrimaryState, "primary_state">,
     cycle_time: Input<CycleTime, "cycle_time">,
-    measurement_bottom: PerceptionInput<
+    measurement: PerceptionInput<
         Option<CalibrationCaptureResponse<Measurement>>,
-        "VisionBottom",
-        "calibration_measurement?",
-    >,
-    measurement_top: PerceptionInput<
-        Option<CalibrationCaptureResponse<Measurement>>,
-        "VisionTop",
+        "Vision",
         "calibration_measurement?",
     >,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
@@ -76,12 +70,10 @@ enum CalibrationState {
     },
     LookAt {
         target: Point2<Ground>,
-        camera: CameraPosition,
         dispatch_time: CycleTime,
     },
     Capture {
         target: Point2<Ground>,
-        camera: CameraPosition,
         dispatch_time: CycleTime,
     },
     Finish,
@@ -92,21 +84,17 @@ impl CalibrationState {
         match *self {
             CalibrationState::LookAt {
                 target,
-                camera,
                 dispatch_time,
             } => Some(CalibrationCommand {
                 target,
-                camera,
                 dispatch_time,
                 capture: false,
             }),
             CalibrationState::Capture {
                 target,
-                camera,
                 dispatch_time,
             } => Some(CalibrationCommand {
                 target,
-                camera,
                 dispatch_time,
                 capture: true,
             }),
@@ -154,7 +142,6 @@ impl CalibrationController {
             }
             CalibrationState::LookAt {
                 dispatch_time,
-                camera,
                 target,
             } => {
                 let time_diff = context
@@ -167,17 +154,12 @@ impl CalibrationController {
                     self.inner_states.last_capture_retries = 0;
                     self.inner_states.calibration_state = CalibrationState::Capture {
                         target,
-                        camera,
                         dispatch_time: *context.cycle_time,
                     };
                 }
             }
-            CalibrationState::Capture {
-                dispatch_time,
-                camera,
-                ..
-            } => {
-                self.process_capture(camera, &context, dispatch_time);
+            CalibrationState::Capture { dispatch_time, .. } => {
+                self.process_capture(&context, dispatch_time);
             }
             CalibrationState::Finish => {}
         };
@@ -205,19 +187,8 @@ impl CalibrationController {
         })
     }
 
-    fn process_capture(
-        &mut self,
-        camera: CameraPosition,
-        context: &CycleContext,
-        dispatch_time: CycleTime,
-    ) {
-        let calibration_response = collect_filtered_values(
-            match camera {
-                CameraPosition::Top => &context.measurement_top,
-                CameraPosition::Bottom => &context.measurement_bottom,
-            },
-            &dispatch_time,
-        );
+    fn process_capture(&mut self, context: &CycleContext, dispatch_time: CycleTime) {
+        let calibration_response = collect_filtered_values(&context.measurement, &dispatch_time);
 
         let goto_next_lookat = calibration_response.is_some_and(|response| {
             if let Some(measurement) = response.measurement {
@@ -253,8 +224,7 @@ impl CalibrationController {
         self.look_at_list
             .get(index)
             .copied()
-            .map(|(target, camera)| CalibrationState::LookAt {
-                camera,
+            .map(|target| CalibrationState::LookAt {
                 target,
                 dispatch_time,
             })
@@ -280,18 +250,13 @@ fn collect_filtered_values(
 }
 
 // TODO Add fancier logic to either set this via parameters OR detect the location, walk, etc
-fn generate_look_at_list() -> Vec<(Point2<Ground>, CameraPosition)> {
-    let look_at_points: Vec<Point2<Ground>> = vec![
+fn generate_look_at_list() -> Vec<Point2<Ground>> {
+    vec![
         point![1.0, 0.0],
         point![1.0, -0.5],
         point![3.0, -0.5],
         point![3.0, 0.0],
         point![3.0, 0.5],
         point![1.0, -0.5],
-    ];
-
-    look_at_points
-        .iter()
-        .map(|&point| (point, CameraPosition::Top))
-        .collect()
+    ]
 }

@@ -33,13 +33,11 @@ impl<'cycle> LookAction<'cycle> {
             HeadMotion::LookAt {
                 target,
                 image_region_target: ImageRegion::Center,
-                camera: None,
             }
         } else {
             HeadMotion::LookAt {
                 target: self.world_state.position_of_interest,
                 image_region_target: ImageRegion::Center,
-                camera: None,
             }
         }
     }

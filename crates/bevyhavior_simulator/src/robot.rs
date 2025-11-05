@@ -68,7 +68,7 @@ pub struct Robot {
     control_receiver: Receiver<(SystemTime, Database)>,
     parameters_sender: Sender<(SystemTime, Parameters)>,
     spl_network_sender: Producer<crate::structs::spl_network::MainOutputs>,
-    object_detection_top_sender: Producer<crate::structs::object_detection::MainOutputs>,
+    object_detection_sender: Producer<crate::structs::object_detection::MainOutputs>,
 }
 
 impl Robot {
@@ -98,7 +98,7 @@ impl Robot {
             buffered_watch::channel((UNIX_EPOCH, Default::default()));
         let (spl_network_sender, spl_network_consumer) = future_queue();
         let (recording_sender, _recording_receiver) = mpsc::sync_channel(0);
-        let (object_detection_top_sender, object_detection_top_consumer) = future_queue();
+        let (object_detection_sender, object_detection_consumer) = future_queue();
 
         *parameters_sender.borrow_mut() = (SystemTime::now(), parameters.clone());
 
@@ -109,7 +109,7 @@ impl Robot {
             subscriptions_receiver,
             parameters_receiver,
             spl_network_consumer,
-            object_detection_top_consumer,
+            object_detection_consumer,
             recording_sender,
             RecordingTrigger::new(0),
         )?;
@@ -148,7 +148,7 @@ impl Robot {
             control_receiver,
             parameters_sender,
             spl_network_sender,
-            object_detection_top_sender,
+            object_detection_sender,
         })
     }
 
@@ -168,8 +168,8 @@ impl Robot {
                 });
         }
 
-        self.object_detection_top_sender.announce();
-        self.object_detection_top_sender
+        self.object_detection_sender.announce();
+        self.object_detection_sender
             .finalize(crate::structs::object_detection::MainOutputs {
                 referee_pose_kind: referee_pose_kind.clone(),
                 ..Default::default()
@@ -194,7 +194,7 @@ impl Robot {
         let focal_lengths = self
             .parameters
             .camera_matrix_parameters
-            .vision_top
+            .vision
             .focal_lengths;
         let focal_lengths_scaled = image_size.inner.cast().component_mul(&focal_lengths);
         let field_of_view = Intrinsic::calculate_field_of_view(focal_lengths_scaled, image_size);

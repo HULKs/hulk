@@ -22,8 +22,7 @@ use types::{
 pub struct LedStatus {
     blink_state: bool,
     last_blink_toggle: SystemTime,
-    last_ball_top: SystemTime,
-    last_ball_bottom: SystemTime,
+    last_ball: SystemTime,
     last_game_controller_message: Option<SystemTime>,
 }
 
@@ -43,8 +42,7 @@ pub struct CycleContext {
         Input<FreeKickSignalDetectionResult, "own_free_kick_signal_detection_result">,
     detected_free_kick_kicking_team: Input<Option<Team>, "detected_free_kick_kicking_team?">,
 
-    balls_bottom: PerceptionInput<Option<Vec<BallPercept>>, "VisionBottom", "balls?">,
-    balls_top: PerceptionInput<Option<Vec<BallPercept>>, "VisionTop", "balls?">,
+    balls: PerceptionInput<Option<Vec<BallPercept>>, "Vision", "balls?">,
     network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
     sensor_data: Input<SensorData, "sensor_data">,
 }
@@ -56,10 +54,8 @@ pub struct MainOutputs {
 }
 
 struct BallPercepts {
-    at_least_one_ball_top: bool,
-    at_least_one_ball_bottom: bool,
-    last_ball_top_too_old: bool,
-    last_ball_bottom_too_old: bool,
+    at_least_one_ball: bool,
+    last_ball_too_old: bool,
 }
 
 impl LedStatus {
@@ -67,8 +63,7 @@ impl LedStatus {
         Ok(Self {
             blink_state: true,
             last_blink_toggle: UNIX_EPOCH,
-            last_ball_top: UNIX_EPOCH,
-            last_ball_bottom: UNIX_EPOCH,
+            last_ball: UNIX_EPOCH,
             last_game_controller_message: None,
         })
     }
@@ -105,45 +100,8 @@ impl LedStatus {
             PrimaryState::Standby => Rgb::TURQUOISE,
         };
 
-        let at_least_one_ball_top =
-            context
-                .balls_top
-                .persistent
-                .values()
-                .rev()
-                .flatten()
-                .any(|balls| {
-                    if let Some(balls) = balls {
-                        !balls.is_empty()
-                    } else {
-                        false
-                    }
-                });
-        let newer_ball_top = context
-            .balls_top
-            .persistent
-            .values()
-            .rev()
-            .flatten()
-            .find_map(|balls| {
-                if balls.is_some() {
-                    Some(context.cycle_time.start_time)
-                } else {
-                    None
-                }
-            });
-        if let Some(newer_ball_top) = newer_ball_top {
-            self.last_ball_top = newer_ball_top;
-        }
-        let last_ball_top_too_old = context
-            .cycle_time
-            .start_time
-            .duration_since(self.last_ball_top)
-            .unwrap()
-            > Duration::from_secs(1);
-
-        let at_least_one_ball_bottom = context
-            .balls_bottom
+        let at_least_one_ball = context
+            .balls
             .persistent
             .values()
             .rev()
@@ -155,8 +113,8 @@ impl LedStatus {
                     false
                 }
             });
-        let newer_ball_bottom = context
-            .balls_bottom
+        let newer_ball = context
+            .balls
             .persistent
             .values()
             .rev()
@@ -168,21 +126,19 @@ impl LedStatus {
                     None
                 }
             });
-        if let Some(newer_ball_bottom) = newer_ball_bottom {
-            self.last_ball_bottom = newer_ball_bottom;
+        if let Some(newer_ball) = newer_ball {
+            self.last_ball = newer_ball;
         }
-        let last_ball_bottom_too_old = context
+        let last_ball_too_old = context
             .cycle_time
             .start_time
-            .duration_since(self.last_ball_bottom)
+            .duration_since(self.last_ball)
             .unwrap()
             > Duration::from_secs(1);
 
         let ball_percepts = BallPercepts {
-            at_least_one_ball_top,
-            at_least_one_ball_bottom,
-            last_ball_top_too_old,
-            last_ball_bottom_too_old,
+            at_least_one_ball,
+            last_ball_too_old,
         };
 
         let (left_eye, right_eye) = Self::get_eyes(
@@ -297,19 +253,12 @@ impl LedStatus {
                 (rainbow_eye, rainbow_eye)
             }
             _ => {
-                let ball_background_color = if ball_percepts.at_least_one_ball_top
-                    || ball_percepts.at_least_one_ball_bottom
-                {
+                let ball_background_color = if ball_percepts.at_least_one_ball {
                     Some(Rgb::GREEN)
                 } else {
                     None
                 };
-                let ball_color_top = if ball_percepts.last_ball_top_too_old {
-                    Some(Rgb::RED)
-                } else {
-                    None
-                };
-                let ball_color_bottom = if ball_percepts.last_ball_bottom_too_old {
+                let ball_color = if ball_percepts.last_ball_too_old {
                     Some(Rgb::RED)
                 } else {
                     None
@@ -343,12 +292,12 @@ impl LedStatus {
                 };
                 (
                     Eye {
-                        color_at_0: ball_color_top
+                        color_at_0: ball_color
                             .or(majority_voted_visual_referee_color)
                             .or(visual_referee_percept_color)
                             .or(ball_background_color)
                             .unwrap_or(Rgb::BLACK),
-                        color_at_45: ball_color_top
+                        color_at_45: ball_color
                             .or(majority_voted_visual_referee_color)
                             .or(visual_referee_percept_color)
                             .or(ball_background_color)
@@ -357,18 +306,15 @@ impl LedStatus {
                             .or(majority_voted_visual_referee_color)
                             .or(visual_referee_percept_color)
                             .unwrap_or(Rgb::BLACK),
-                        color_at_135: ball_color_bottom
-                            .or(majority_voted_visual_referee_color)
+                        color_at_135: majority_voted_visual_referee_color
                             .or(visual_referee_percept_color)
                             .or(ball_background_color)
                             .unwrap_or(Rgb::BLACK),
-                        color_at_180: ball_color_bottom
-                            .or(majority_voted_visual_referee_color)
+                        color_at_180: majority_voted_visual_referee_color
                             .or(visual_referee_percept_color)
                             .or(ball_background_color)
                             .unwrap_or(Rgb::BLACK),
-                        color_at_225: ball_color_bottom
-                            .or(majority_voted_visual_referee_color)
+                        color_at_225: majority_voted_visual_referee_color
                             .or(visual_referee_percept_color)
                             .or(ball_background_color)
                             .unwrap_or(Rgb::BLACK),
@@ -376,7 +322,7 @@ impl LedStatus {
                             .or(majority_voted_visual_referee_color)
                             .or(visual_referee_percept_color)
                             .unwrap_or(Rgb::BLACK),
-                        color_at_315: ball_color_top
+                        color_at_315: ball_color
                             .or(majority_voted_visual_referee_color)
                             .or(visual_referee_percept_color)
                             .or(ball_background_color)

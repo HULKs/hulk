@@ -4,9 +4,7 @@ use eframe::epaint::{Color32, Stroke};
 use linear_algebra::point;
 
 use crate::{
-    panels::image::{cycler_selector::VisionCycler, overlay::Overlay},
-    twix_painter::TwixPainter,
-    value_buffer::BufferHandle,
+    panels::image::overlay::Overlay, twix_painter::TwixPainter, value_buffer::BufferHandle,
 };
 
 pub struct Horizon {
@@ -16,15 +14,9 @@ pub struct Horizon {
 impl Overlay for Horizon {
     const NAME: &'static str = "Horizon";
 
-    fn new(nao: std::sync::Arc<crate::nao::Nao>, selected_cycler: VisionCycler) -> Self {
-        let camera_position = match selected_cycler {
-            VisionCycler::Top => "top",
-            VisionCycler::Bottom => "bottom",
-        };
+    fn new(nao: std::sync::Arc<crate::nao::Nao>) -> Self {
         Self {
-            horizon: nao.subscribe_value(format!(
-                "Control.main_outputs.camera_matrices.{camera_position}.horizon",
-            )),
+            horizon: nao.subscribe_value(format!("Control.main_outputs.camera_matrix.horizon",)),
         }
     }
 

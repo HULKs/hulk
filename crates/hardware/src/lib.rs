@@ -8,7 +8,6 @@ use color_eyre::eyre::Result;
 use hula_types::hardware::{Ids, Paths};
 use types::{
     audio::SpeakerRequest,
-    camera_position::CameraPosition,
     joints::Joints,
     led::Leds,
     messages::{IncomingMessage, OutgoingMessage},
@@ -28,7 +27,7 @@ pub trait ActuatorInterface {
 }
 
 pub trait CameraInterface {
-    fn read_from_camera(&self, camera_position: CameraPosition) -> Result<YCbCr422Image>;
+    fn read_from_camera(&self) -> Result<YCbCr422Image>;
 }
 
 pub trait IdInterface {
