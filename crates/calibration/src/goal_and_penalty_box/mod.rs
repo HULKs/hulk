@@ -10,7 +10,7 @@ mod tests {
     use levenberg_marquardt::LevenbergMarquardt;
     use linear_algebra::{point, vector, Isometry2, Isometry3, Vector2};
     use projection::camera_matrix::CameraMatrix;
-    use types::{camera_position::CameraPosition, field_dimensions::FieldDimensions};
+    use types::field_dimensions::FieldDimensions;
 
     use crate::{corrections::Corrections, problem::CalibrationProblem};
 
