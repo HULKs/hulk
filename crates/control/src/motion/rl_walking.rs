@@ -14,7 +14,7 @@ use ort::{
 use serde::{Deserialize, Serialize};
 use types::{
     joints::{leg::LegJoints, Joints},
-    motion_command::{HeadMotion, MotionCommand},
+    motion_command::MotionCommand,
     parameters::{MotorCommandParameters, RLWalkingParameters},
     walking_inference_inputs::WalkingInferenceInputs,
 };
@@ -48,6 +48,7 @@ pub struct CycleContext {
     joint_velocities: Input<Joints, "joint_velocities">,
 
     hardware_interface: HardwareInterface,
+    remote_motion_command: Input<MotionCommand, "remote_motion_command">,
 }
 
 #[context]
@@ -86,14 +87,7 @@ impl RLWalking {
             context.hardware_interface.get_now(),
             context.imu_state.roll_pitch_yaw,
             context.imu_state.angular_velocity,
-            &MotionCommand::WalkWithVelocity {
-                velocity: vector!(
-                    context.walking_parameters.walk_command[0],
-                    context.walking_parameters.walk_command[1]
-                ),
-                angular_velocity: context.walking_parameters.walk_command[2],
-                head: HeadMotion::Center,
-            },
+            context.remote_motion_command,
             *context.joint_positions,
             *context.joint_velocities,
             self.last_target_left_joint_positions,
