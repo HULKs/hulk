@@ -241,14 +241,28 @@ impl MotorState {
 }
 
 #[pyclass(frozen, eq)]
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(
+    Debug,
+    Default,
+    Clone,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 pub enum CommandType {
     Parallel,
+    #[default]
     Serial,
 }
 
 #[pyclass(frozen, get_all)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(
+    Debug, Default, Clone, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct LowCommand {
     #[serde(rename = "cmd_type")]
     pub command_type: CommandType,

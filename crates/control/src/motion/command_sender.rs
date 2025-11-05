@@ -3,6 +3,7 @@ use std::time::UNIX_EPOCH;
 use booster::LowCommand;
 use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
+use framework::MainOutput;
 use hardware::{LowCommandInterface, TimeInterface};
 use serde::{Deserialize, Serialize};
 use types::{joints::Joints, parameters::MotorCommandParameters};
@@ -28,7 +29,9 @@ pub struct CycleContext {
 
 #[context]
 #[derive(Default)]
-pub struct MainOutputs {}
+pub struct MainOutputs {
+    pub low_command: MainOutput<LowCommand>,
+}
 
 impl CommandSender {
     pub fn new(_context: CreationContext) -> Result<Self> {
@@ -66,9 +69,11 @@ impl CommandSender {
 
         context
             .hardware_interface
-            .write_low_command(low_command)
+            .write_low_command(low_command.clone())
             .wrap_err("failed to write to actuators")?;
 
-        Ok(MainOutputs {})
+        Ok(MainOutputs {
+            low_command: low_command.into(),
+        })
     }
 }
