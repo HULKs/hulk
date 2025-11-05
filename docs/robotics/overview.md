@@ -12,9 +12,9 @@ This cycler runs with higher priority than the other cyclers and with a higher f
 
     For more insights, open the [code](https://github.com/hulks/hulk) and have a look at the behavior and motion folders in the `control` crate. Follow the documentation here and in the code in parallel.
 
-## VisionTop & VisionBottom
+## Vision
 
-These two cyclers handle all image related tasks for top and bottom camera.
+This cycler handles all image related tasks for the camera.
 This includes the image segmenter, ball detection, line detection and other nodes. <br>
 Both cyclers run with the frequency of the cameras which is 30 Hz.
 
@@ -27,6 +27,6 @@ It includes currently only one node, the whistle detection.
 
 This cycler handles all spl network messages, i.e. it is responsible for the communication with the GameController and other robots.
 
-## ObjectDetectionTop
+## ObjectDetection
 
 This cycler runs the pose detection of the referee.

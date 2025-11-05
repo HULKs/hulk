@@ -50,8 +50,8 @@ pub struct PreGameArguments {
     /// Enable communication, communication is disabled by default
     #[arg(long)]
     pub with_communication: bool,
-    /// Intervals between cycle recordings, e.g. Control=1,VisionTop=30 to record every cycle in Control
-    /// and one out of every 30 in VisionTop. Set to 0 or don't specify to disable recording for a cycler.
+    /// Intervals between cycle recordings, e.g. Control=1,Vision=30 to record every cycle in Control
+    /// and one out of every 30 in Vision. Set to 0 or don't specify to disable recording for a cycler.
     #[arg(
         long,
         value_delimiter=',',
