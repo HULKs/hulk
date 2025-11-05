@@ -140,11 +140,14 @@ impl RLWalking {
             ankle_down: predictions[11],
         };
 
-        let mut target_joint_positions = *context.joint_positions;
-        target_joint_positions.left_leg = context.joint_positions.left_leg
-            + (left_leg_predictions * context.walking_parameters.control.action_scale);
-        target_joint_positions.right_leg = context.joint_positions.right_leg
-            + (right_leg_predictions * context.walking_parameters.control.action_scale);
+        self.last_target_left_joint_positions = left_leg_predictions;
+        self.last_target_right_joint_positions = right_leg_predictions;
+
+        let mut target_joint_positions = context.common_motor_command_parameters.default_positions;
+        target_joint_positions.left_leg +=
+            left_leg_predictions * context.walking_parameters.control.action_scale;
+        target_joint_positions.right_leg +=
+            right_leg_predictions * context.walking_parameters.control.action_scale;
 
         Ok(MainOutputs {
             target_joint_positions: target_joint_positions.into(),
