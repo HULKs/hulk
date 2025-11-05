@@ -28,7 +28,7 @@ fn startup(
 ) {
     commands.spawn(Robot::new(PlayerNumber::Seven));
 
-    game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Playing));
+    game_controller_commands.write(GameControllerCommand::SetGameState(GameState::Playing));
 }
 
 fn update(
@@ -37,7 +37,7 @@ fn update(
     mut exit: EventWriter<AppExit>,
     mut robots: Query<&mut Robot>,
 ) {
-    let mut robot = robots.single_mut();
+    let mut robot = robots.single_mut().expect("no robot found");
 
     robot.database.main_outputs.ground_to_field =
         Some(Isometry2::from_parts(vector![-1.0, -1.0], FRAC_PI_2));
@@ -71,6 +71,6 @@ fn update(
     println!("tick {}: {optimizer_steps} steps", time.ticks());
 
     if time.ticks() >= 500 {
-        exit.send(AppExit::Success);
+        exit.write(AppExit::Success);
     }
 }
