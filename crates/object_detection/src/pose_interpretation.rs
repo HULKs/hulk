@@ -126,7 +126,7 @@ impl PoseInterpretation {
         context.referee_pose_kind_position.fill_if_subscribed(|| {
             get_pose_kind_position(
                 referee_pose,
-                &context.camera_matrix,
+                context.camera_matrix,
                 context.ground_to_field,
                 *context.foot_z_offset,
                 *context.minimum_shoulder_angle,

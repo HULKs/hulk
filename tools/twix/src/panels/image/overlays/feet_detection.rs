@@ -22,11 +22,10 @@ impl Overlay for FeetDetection {
 
     fn new(nao: Arc<Nao>) -> Self {
         Self {
-            camera_matrix: nao.subscribe_value(format!("Vision.main_outputs.camera_matrix")),
-            cluster_points: nao.subscribe_value(format!(
-                "Vision.additional_outputs.feet_detection.cluster_points"
-            )),
-            detected_feet: nao.subscribe_value(format!("Vision.main_outputs.detected_feet")),
+            camera_matrix: nao.subscribe_value("Vision.main_outputs.camera_matrix"),
+            cluster_points: nao
+                .subscribe_value("Vision.additional_outputs.feet_detection.cluster_points"),
+            detected_feet: nao.subscribe_value("Vision.main_outputs.detected_feet"),
         }
     }
 

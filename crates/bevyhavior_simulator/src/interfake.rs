@@ -76,9 +76,7 @@ impl PathsInterface for Interfake {
 }
 
 impl CameraInterface for Interfake {
-    fn read_from_camera(
-        &self,
-    ) -> Result<types::ycbcr422_image::YCbCr422Image> {
+    fn read_from_camera(&self) -> Result<types::ycbcr422_image::YCbCr422Image> {
         unimplemented!()
     }
 }

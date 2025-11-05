@@ -16,7 +16,7 @@ impl Overlay for LimbProjector {
 
     fn new(nao: std::sync::Arc<crate::nao::Nao>) -> Self {
         Self {
-            projected_limbs: nao.subscribe_value(format!("Vision.main_outputs.projected_limbs")),
+            projected_limbs: nao.subscribe_value("Vision.main_outputs.projected_limbs"),
         }
     }
 

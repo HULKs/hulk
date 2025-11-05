@@ -53,12 +53,12 @@ impl VisionTunerPanel {
         let vertical_edge_threshold_value = to_value(vertical_edge_threshold).unwrap();
 
         self.nao.store_parameters(
-            &format!("image_segmenter.vision.horizontal_edge_threshold"),
+            "image_segmenter.vision.horizontal_edge_threshold",
             horizontal_edge_threshold_value,
             scope,
         )?;
         self.nao.store_parameters(
-            &format!("image_segmenter.vision.vertical_edge_threshold"),
+            "image_segmenter.vision.vertical_edge_threshold",
             vertical_edge_threshold_value,
             scope,
         )?;
@@ -77,12 +77,10 @@ impl Panel for VisionTunerPanel {
     const NAME: &'static str = "Vision Tuner";
 
     fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
-        let horizontal_edge_threshold = nao.subscribe_value(format!(
-            "parameters.image_segmenter.vision.horizontal_edge_threshold",
-        ));
-        let vertical_edge_threshold = nao.subscribe_value(format!(
-            "parameters.image_segmenter.vision.vertical_edge_threshold",
-        ));
+        let horizontal_edge_threshold =
+            nao.subscribe_value("parameters.image_segmenter.vision.horizontal_edge_threshold");
+        let vertical_edge_threshold =
+            nao.subscribe_value("parameters.image_segmenter.vision.vertical_edge_threshold");
 
         Self {
             nao,

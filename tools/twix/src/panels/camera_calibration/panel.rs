@@ -67,7 +67,7 @@ impl Panel for SemiAutomaticCameraCalibrationPanel {
         let camera = nao.subscribe_value("Control.main_outputs.uncalibrated_camera_matrix");
 
         let image_buffer = {
-            let path = format!("Vision.main_outputs.image");
+            let path = "Vision.main_outputs.image";
             nao.subscribe_value(path)
         };
 
@@ -165,7 +165,7 @@ impl SemiAutomaticCameraCalibrationPanel {
                 RgbImage::from(ycbcr).as_raw(),
             );
 
-            let image_identifier = format!("bytes://image-vision");
+            let image_identifier = "bytes://image-vision".to_string();
             let texture_handle =
                 context.load_texture(&image_identifier, image, TextureOptions::NEAREST);
             self.image_handle = Some(texture_handle);

@@ -16,7 +16,7 @@ impl Overlay for Horizon {
 
     fn new(nao: std::sync::Arc<crate::nao::Nao>) -> Self {
         Self {
-            horizon: nao.subscribe_value(format!("Control.main_outputs.camera_matrix.horizon",)),
+            horizon: nao.subscribe_value("Control.main_outputs.camera_matrix.horizon"),
         }
     }
 

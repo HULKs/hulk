@@ -257,7 +257,7 @@ impl BallFilter {
         let ball_radius = context.field_dimensions.ball_radius;
         context.filtered_balls_in_image.fill_if_subscribed(|| {
             context.camera_matrix.map_or(vec![], |camera_matrix| {
-                project_to_image(&output_balls, &camera_matrix, ball_radius)
+                project_to_image(&output_balls, camera_matrix, ball_radius)
             })
         });
 
@@ -313,9 +313,9 @@ fn mahalanobis_matrix_of_hypotheses_and_percepts(
     })
 }
 
-fn time_ordered_balls<'a>(
-    balls: BTreeMap<SystemTime, Vec<Option<&'a Vec<BallPercept>>>>,
-) -> BTreeMap<SystemTime, Vec<&'a BallPercept>> {
+fn time_ordered_balls(
+    balls: BTreeMap<SystemTime, Vec<Option<&Vec<BallPercept>>>>,
+) -> BTreeMap<SystemTime, Vec<&BallPercept>> {
     let mut time_ordered_balls = BTreeMap::<SystemTime, Vec<&BallPercept>>::new();
     for (detection_time, balls) in balls.into_iter() {
         let balls = balls.into_iter().flatten().flatten();
@@ -339,7 +339,7 @@ fn decide_validity_decay_for_hypothesis(
             .zip(projected_limbs)
             .is_some_and(|(camera_matrix, projected_limbs)| {
                 let ball = hypothesis.position();
-                is_visible_to_camera(&ball, &camera_matrix, ball_radius, &projected_limbs.limbs)
+                is_visible_to_camera(&ball, camera_matrix, ball_radius, &projected_limbs.limbs)
             });
 
     match is_ball_in_view {

@@ -51,7 +51,7 @@ impl Panel for ImageSegmentsPanel {
     const NAME: &'static str = "Image Segments";
 
     fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
-        let value_buffer = nao.subscribe_value(format!("Vision.main_outputs.image_segments"));
+        let value_buffer = nao.subscribe_value("Vision.main_outputs.image_segments");
         let color_mode = match value.and_then(|value| value.get("color_mode")) {
             Some(Value::String(string)) => serde_json::from_str(&format!("\"{string}\"")).unwrap(),
             _ => ColorMode::Original,

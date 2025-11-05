@@ -34,8 +34,7 @@ pub struct FakeData {}
 #[allow(dead_code)]
 pub struct CreationContext {
     maximum_velocity: Parameter<HeadJoints<f32>, "head_motion.maximum_velocity">,
-    camera_matrix_parameters:
-        Parameter<CameraMatrixParameters, "camera_matrix_parameters.vision">,
+    camera_matrix_parameters: Parameter<CameraMatrixParameters, "camera_matrix_parameters.vision">,
     ball_filter: Parameter<BallFilterParameters, "ball_filter">,
     glance_angle: Parameter<f32, "look_at.glance_angle">,
 }

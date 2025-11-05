@@ -21,15 +21,12 @@ impl Overlay for BallDetection {
 
     fn new(nao: std::sync::Arc<crate::nao::Nao>) -> Self {
         Self {
-            balls: nao.subscribe_value(format!("Vision.main_outputs.balls")),
-            filtered_balls: nao.subscribe_value(format!(
-                "Control.additional_outputs.filtered_balls_in_image",
-            )),
-            ball_candidates: nao
-                .subscribe_value(format!("Vision.additional_outputs.ball_candidates")),
-            ball_radius_enlargement_factor: nao.subscribe_value(format!(
-                "parameters.ball_detection.vision.ball_radius_enlargement_factor",
-            )),
+            balls: nao.subscribe_value("Vision.main_outputs.balls"),
+            filtered_balls: nao
+                .subscribe_value("Control.additional_outputs.filtered_balls_in_image"),
+            ball_candidates: nao.subscribe_value("Vision.additional_outputs.ball_candidates"),
+            ball_radius_enlargement_factor: nao
+                .subscribe_value("parameters.ball_detection.vision.ball_radius_enlargement_factor"),
         }
     }
 

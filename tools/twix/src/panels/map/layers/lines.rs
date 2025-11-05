@@ -24,8 +24,8 @@ impl Layer<Ground> for Lines {
         let lines_in_image = nao.subscribe_value("Vision.additional_outputs.lines_in_image");
         let camera_matrix = nao.subscribe_value("Vision.main_outputs.camera_matrix");
         Self {
-            lines_in_image: lines_in_image,
-            camera_matrix: camera_matrix,
+            lines_in_image,
+            camera_matrix,
         }
     }
 

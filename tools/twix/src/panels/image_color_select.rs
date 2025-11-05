@@ -45,7 +45,7 @@ impl Panel for ImageColorSelectPanel {
     const NAME: &'static str = "Image Color Select";
 
     fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
-        let image = nao.subscribe_value(format!("Vision.main_outputs.image"));
+        let image = nao.subscribe_value("Vision.main_outputs.image");
 
         let brush_size = 50.0;
 

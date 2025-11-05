@@ -20,9 +20,8 @@ impl Overlay for PerspectiveGrid {
 
     fn new(nao: Arc<Nao>) -> Self {
         Self {
-            perspective_grid: nao.subscribe_value(format!(
-                "Vision.additional_outputs.perspective_grid_ball_sizes"
-            )),
+            perspective_grid: nao
+                .subscribe_value("Vision.additional_outputs.perspective_grid_ball_sizes"),
         }
     }
 

@@ -30,12 +30,10 @@ impl Panel for BallCandidatePanel {
     const NAME: &'static str = "Ball Candidates";
 
     fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
-        let ball_radius_enlargement_factor = nao.subscribe_value(format!(
-            "parameters.ball_detection.vision.ball_radius_enlargement_factor",
-        ));
-        let ball_candidates =
-            nao.subscribe_value(format!("Vision.additional_outputs.ball_candidates"));
-        let image = nao.subscribe_value(format!("Vision.main_outputs.image"));
+        let ball_radius_enlargement_factor =
+            nao.subscribe_value("parameters.ball_detection.vision.ball_radius_enlargement_factor");
+        let ball_candidates = nao.subscribe_value("Vision.additional_outputs.ball_candidates");
+        let image = nao.subscribe_value("Vision.main_outputs.image");
         Self {
             ball_radius_enlargement_factor,
             ball_candidates,

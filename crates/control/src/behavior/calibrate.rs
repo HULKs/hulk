@@ -18,14 +18,13 @@ pub fn execute(
         });
     }
 
-    let head =
-        if let Some(CalibrationCommand { target, .. }) = world_state.calibration_command {
-            HeadMotion::LookAt {
-                target,
-                image_region_target: ImageRegion::Bottom,
-            }
-        } else {
-            HeadMotion::Unstiff
-        };
+    let head = if let Some(CalibrationCommand { target, .. }) = world_state.calibration_command {
+        HeadMotion::LookAt {
+            target,
+            image_region_target: ImageRegion::Bottom,
+        }
+    } else {
+        HeadMotion::Unstiff
+    };
     Some(MotionCommand::Stand { head })
 }

@@ -24,13 +24,10 @@ impl Overlay for LineDetection {
 
     fn new(nao: std::sync::Arc<crate::nao::Nao>) -> Self {
         Self {
-            lines_in_image: nao
-                .subscribe_value(format!("Vision.additional_outputs.lines_in_image")),
-            discarded_lines: nao
-                .subscribe_value(format!("Vision.additional_outputs.discarded_lines")),
-            filtered_segments: nao.subscribe_value(format!(
-                "Vision.additional_outputs.line_detection.filtered_segments"
-            )),
+            lines_in_image: nao.subscribe_value("Vision.additional_outputs.lines_in_image"),
+            discarded_lines: nao.subscribe_value("Vision.additional_outputs.discarded_lines"),
+            filtered_segments: nao
+                .subscribe_value("Vision.additional_outputs.line_detection.filtered_segments"),
         }
     }
 

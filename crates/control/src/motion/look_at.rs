@@ -169,7 +169,7 @@ fn look_at(
     look_at_with_camera(
         target,
         head_to_camera * ground_to_zero_head,
-        &camera_matrix,
+        camera_matrix,
         image_region_target,
         image_region_parameters,
     )

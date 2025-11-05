@@ -22,7 +22,6 @@ use crate::{
 
 use self::overlay::Overlays;
 
-pub mod cycler_selector;
 pub mod overlay;
 mod overlays;
 
@@ -175,7 +174,7 @@ impl ImagePanel {
     fn show_image(&self, painter: &TwixPainter<Pixel>) -> Result<()> {
         let context = painter.context();
 
-        let image_identifier = format!("bytes://image-vision");
+        let image_identifier = "bytes://image-vision".to_string();
         let image = match &self.image_buffer {
             RawOrJpeg::Raw(buffer) => {
                 let ycbcr = buffer
