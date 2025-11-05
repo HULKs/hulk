@@ -39,6 +39,7 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+#[allow(dead_code)]
 mod structs {
     include!(concat!(env!("OUT_DIR"), "/generated_code.rs"));
 }

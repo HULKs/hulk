@@ -1,6 +1,6 @@
 use std::time::SystemTime;
 
-use bevy::{ecs::system::SystemParam, prelude::*};
+use bevy::prelude::*;
 
 use linear_algebra::vector;
 use scenario::scenario;
@@ -27,9 +27,6 @@ fn kicking_team_filtering(app: &mut App) {
     app.add_systems(Startup, startup);
     app.add_systems(Update, update);
 }
-
-#[derive(SystemParam)]
-struct State {}
 
 /// Runs at the start of the behavior simulator and is used to spawn in robots and set GameStates
 fn startup(

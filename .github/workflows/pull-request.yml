@@ -161,7 +161,6 @@ jobs:
       matrix:
         tool:
           - annotato
-          - camera_matrix_extractor
           - depp
           - fanta
           - pepsi
