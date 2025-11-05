@@ -4,8 +4,9 @@ use bevy::{
     app::{App, Update},
     ecs::{
         event::{EventReader, EventWriter},
-        schedule::IntoSystemConfigs,
-        system::{Query, ResMut, Resource},
+        resource::Resource,
+        schedule::IntoScheduleConfigs,
+        system::{Query, ResMut},
     },
     prelude::Res,
     time::{Time, Timer, TimerMode},
@@ -87,7 +88,7 @@ pub fn autoref(
                 .as_ref()
                 .is_some_and(|timer| timer.finished())
             {
-                game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Set));
+                game_controller_commands.write(GameControllerCommand::SetGameState(GameState::Set));
             }
         }
         GameState::Set => {
@@ -103,7 +104,7 @@ pub fn autoref(
             {
                 match state.goal_mode {
                     GoalMode::GoToReady => {
-                        game_controller_commands.send(GameControllerCommand::Goal(scoring_team));
+                        game_controller_commands.write(GameControllerCommand::Goal(scoring_team));
                         ball.state = None;
                     }
                     GoalMode::ReturnBall => {

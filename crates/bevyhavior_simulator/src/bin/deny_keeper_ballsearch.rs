@@ -27,7 +27,7 @@ fn startup(
     for number in [PlayerNumber::One, PlayerNumber::Seven] {
         commands.spawn(Robot::new(number));
     }
-    game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
+    game_controller_commands.write(GameControllerCommand::SetGameState(GameState::Ready));
 }
 
 fn update(
@@ -54,7 +54,7 @@ fn update(
             PlayerNumber::Six,
             PlayerNumber::Seven,
         ] {
-            game_controller_commands.send(GameControllerCommand::Penalize(
+            game_controller_commands.write(GameControllerCommand::Penalize(
                 player_numer,
                 penalty,
                 Team::Hulks,
@@ -76,10 +76,10 @@ fn update(
         == Some(Action::Search)
     {
         println!("Keeper tried to enter ball search");
-        exit.send(AppExit::from_code(1));
+        exit.write(AppExit::from_code(1));
     }
     if time.ticks() >= 10_000 {
         println!("Done");
-        exit.send(AppExit::Success);
+        exit.write(AppExit::Success);
     }
 }

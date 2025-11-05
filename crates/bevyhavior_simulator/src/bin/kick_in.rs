@@ -32,7 +32,7 @@ fn startup(
     ] {
         commands.spawn(Robot::new(number));
     }
-    game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
+    game_controller_commands.write(GameControllerCommand::SetGameState(GameState::Ready));
 }
 
 fn update(
@@ -43,7 +43,7 @@ fn update(
     mut exit: EventWriter<AppExit>,
 ) {
     if time.ticks() == 5000 {
-        game_controller_commands.send(GameControllerCommand::SetSubState(
+        game_controller_commands.write(GameControllerCommand::SetSubState(
             Some(SubState::KickIn),
             Team::Hulks,
             None,
@@ -62,13 +62,13 @@ fn update(
                     "Robot {} did not correctly detect kicking team during kick in.",
                     robot.parameters.player_number
                 );
-                exit.send(AppExit::from_code(1));
+                exit.write(AppExit::from_code(1));
             }
         }
     }
 
     if time.ticks() == 12000 {
-        game_controller_commands.send(GameControllerCommand::SetSubState(
+        game_controller_commands.write(GameControllerCommand::SetSubState(
             Some(SubState::KickIn),
             Team::Opponent,
             None,
@@ -87,7 +87,7 @@ fn update(
                     "Robot {} did not correctly detect kicking team during kick in.",
                     robot.parameters.player_number
                 );
-                exit.send(AppExit::from_code(1));
+                exit.write(AppExit::from_code(1));
             }
         }
     }
@@ -96,10 +96,10 @@ fn update(
         println!(
             "Done. Successfully detected the kicking team during kick ins and then scored a goal."
         );
-        exit.send(AppExit::Success);
+        exit.write(AppExit::Success);
     }
     if time.ticks() >= 24_000 {
         println!("No goal was scored :(");
-        exit.send(AppExit::from_code(1));
+        exit.write(AppExit::from_code(1));
     }
 }

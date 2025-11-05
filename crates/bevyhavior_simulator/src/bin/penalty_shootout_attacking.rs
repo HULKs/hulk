@@ -30,12 +30,12 @@ fn startup(
         position: point!(3.2, 0.0),
         velocity: Vector::zeros(),
     });
-    game_controller_commands.send(GameControllerCommand::SetGamePhase(
+    game_controller_commands.write(GameControllerCommand::SetGamePhase(
         spl_network_messages::GamePhase::PenaltyShootout {
             kicking_team: Team::Hulks,
         },
     ));
-    game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Set));
+    game_controller_commands.write(GameControllerCommand::SetGameState(GameState::Set));
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -46,10 +46,10 @@ fn update(
 ) {
     if game_controller.state.hulks_team.score > 0 {
         println!("Done");
-        exit.send(AppExit::Success);
+        exit.write(AppExit::Success);
     }
     if time.ticks() >= 10_000 {
         println!("No goal was scored :(");
-        exit.send(AppExit::from_code(1));
+        exit.write(AppExit::from_code(1));
     }
 }

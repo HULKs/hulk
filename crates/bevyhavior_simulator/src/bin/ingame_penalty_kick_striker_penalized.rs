@@ -32,7 +32,7 @@ fn startup(
     ] {
         commands.spawn(Robot::new(number));
     }
-    game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
+    game_controller_commands.write(GameControllerCommand::SetGameState(GameState::Ready));
 }
 
 fn update(
@@ -42,14 +42,14 @@ fn update(
     mut exit: EventWriter<AppExit>,
 ) {
     if time.ticks() == 3000 {
-        game_controller_commands.send(GameControllerCommand::SetSubState(
+        game_controller_commands.write(GameControllerCommand::SetSubState(
             Some(SubState::PenaltyKick),
             Team::Hulks,
             Some(PlayerNumber::Three),
         ));
     }
     if time.ticks() == 3050 {
-        game_controller_commands.send(GameControllerCommand::Penalize(
+        game_controller_commands.write(GameControllerCommand::Penalize(
             PlayerNumber::Seven,
             Penalty::Manual {
                 remaining: Duration::from_secs(10),
@@ -58,7 +58,7 @@ fn update(
         ));
     }
     if time.ticks() == 3100 {
-        game_controller_commands.send(GameControllerCommand::Penalize(
+        game_controller_commands.write(GameControllerCommand::Penalize(
             PlayerNumber::Six,
             Penalty::Manual {
                 remaining: Duration::from_secs(10),
@@ -67,7 +67,7 @@ fn update(
         ));
     }
     if time.ticks() == 3150 {
-        game_controller_commands.send(GameControllerCommand::Penalize(
+        game_controller_commands.write(GameControllerCommand::Penalize(
             PlayerNumber::Five,
             Penalty::Manual {
                 remaining: Duration::from_secs(10),
@@ -77,10 +77,10 @@ fn update(
     }
     if game_controller.state.hulks_team.score > 0 {
         println!("Done");
-        exit.send(AppExit::Success);
+        exit.write(AppExit::Success);
     }
     if time.ticks() >= 10_000 {
         println!("No goal was scored :(");
-        exit.send(AppExit::from_code(1));
+        exit.write(AppExit::from_code(1));
     }
 }

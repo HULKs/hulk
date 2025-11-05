@@ -41,7 +41,7 @@ fn startup(
     ] {
         commands.spawn(Robot::new(number));
     }
-    game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
+    game_controller_commands.write(GameControllerCommand::SetGameState(GameState::Ready));
 }
 
 fn update(
@@ -55,12 +55,12 @@ fn update(
 ) {
     if time.ticks() >= 10_000 {
         println!("Scenario failed: Time ran out. Behavior for detecting free kick kicking team was not executed correctly.");
-        exit.send(AppExit::from_code(1));
+        exit.write(AppExit::from_code(1));
     }
 
     if time.ticks() == 3000 {
         // Set substate
-        game_controller_commands.send(GameControllerCommand::SetSubState(
+        game_controller_commands.write(GameControllerCommand::SetSubState(
             Some(SubState::KickIn),
             Team::Opponent,
             None,
@@ -89,7 +89,7 @@ fn update(
 
     if time.ticks() == 7000 {
         // Set substate
-        game_controller_commands.send(GameControllerCommand::SetSubState(
+        game_controller_commands.write(GameControllerCommand::SetSubState(
             Some(SubState::KickIn),
             Team::Opponent,
             None,
@@ -125,6 +125,6 @@ fn update(
         && (*state.number_of_detecting_robots_when_away >= 2)
     {
         println!("Done! Successfully performed behavior for free kick kicking team detection.");
-        exit.send(AppExit::Success);
+        exit.write(AppExit::Success);
     }
 }

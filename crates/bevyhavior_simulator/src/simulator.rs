@@ -1,11 +1,11 @@
 use std::env::current_dir;
 
 use bevy::{
-    app::{App, AppExit, First, Plugin, Update},
-    core::{FrameCountPlugin, TaskPoolPlugin, TypeRegistrationPlugin},
+    app::{App, AppExit, First, Plugin, TaskPoolPlugin, Update},
+    diagnostic::FrameCountPlugin,
     ecs::{
         event::{EventCursor, Events},
-        schedule::IntoSystemConfigs,
+        schedule::IntoScheduleConfigs,
     },
     time::Time,
 };
@@ -49,32 +49,28 @@ impl Plugin for SimulatorPlugin {
     fn build(&self, app: &mut App) {
         let parameters = load_parameters().expect("failed to load parameters");
 
-        app.add_plugins((
-            TaskPoolPlugin::default(),
-            TypeRegistrationPlugin,
-            FrameCountPlugin,
-        ))
-        .add_plugins(autoref_plugin)
-        .add_plugins(game_controller_plugin)
-        .add_plugins(soft_error_plugin)
-        .insert_resource(SimulatorFieldDimensions::from(parameters.field_dimensions))
-        .insert_resource(GameController::default())
-        .insert_resource(BallResource::default())
-        .insert_resource(WhistleResource::default())
-        .insert_resource(VisualRefereeResource::default())
-        .insert_resource(Messages::default())
-        .insert_resource(Time::<()>::default())
-        .insert_resource(Time::<Ticks>::default())
-        .add_systems(First, update_time)
-        .add_systems(Update, cycle_robots.before(move_robots).after(autoref))
-        .add_systems(
-            Update,
-            check_robots_dont_walk_into_rule_obstacles
-                .before(move_robots)
-                .after(cycle_robots),
-        )
-        .add_systems(Update, move_robots)
-        .add_systems(Update, move_ball.after(move_robots));
+        app.add_plugins((TaskPoolPlugin::default(), FrameCountPlugin))
+            .add_plugins(autoref_plugin)
+            .add_plugins(game_controller_plugin)
+            .add_plugins(soft_error_plugin)
+            .insert_resource(SimulatorFieldDimensions::from(parameters.field_dimensions))
+            .insert_resource(GameController::default())
+            .insert_resource(BallResource::default())
+            .insert_resource(WhistleResource::default())
+            .insert_resource(VisualRefereeResource::default())
+            .insert_resource(Messages::default())
+            .insert_resource(Time::<()>::default())
+            .insert_resource(Time::<Ticks>::default())
+            .add_systems(First, update_time)
+            .add_systems(Update, cycle_robots.before(move_robots).after(autoref))
+            .add_systems(
+                Update,
+                check_robots_dont_walk_into_rule_obstacles
+                    .before(move_robots)
+                    .after(cycle_robots),
+            )
+            .add_systems(Update, move_robots)
+            .add_systems(Update, move_ball.after(move_robots));
 
         if self.use_recording {
             app.add_plugins(crate::recorder::recording_plugin);

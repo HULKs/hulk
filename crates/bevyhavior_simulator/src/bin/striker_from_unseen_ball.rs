@@ -36,7 +36,7 @@ fn startup(
         velocity: Vector2::zeros(),
     });
 
-    game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Playing));
+    game_controller_commands.write(GameControllerCommand::SetGameState(GameState::Playing));
 }
 
 fn update(
@@ -59,15 +59,15 @@ fn update(
             .claim_striker_from_team_ball
     {
         println!("Error: Two didn't become striker when sent a nearby ball position");
-        exit.send(AppExit::from_code(2));
+        exit.write(AppExit::from_code(2));
     }
 
     if game_controller.state.hulks_team.score > 0 {
         println!("Done");
-        exit.send(AppExit::Success);
+        exit.write(AppExit::Success);
     }
     if time.ticks() >= 10_000 {
         println!("No goal was scored :(");
-        exit.send(AppExit::from_code(1));
+        exit.write(AppExit::from_code(1));
     }
 }

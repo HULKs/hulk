@@ -33,7 +33,7 @@ fn startup(
     ] {
         commands.spawn(Robot::new(number));
     }
-    game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
+    game_controller_commands.write(GameControllerCommand::SetGameState(GameState::Ready));
 }
 
 fn update(
@@ -58,7 +58,7 @@ fn update(
                         MotionCommand::Stand { .. } => {}
                         _ => {
                             println!("Defenders moved unnecessarily because of the following command at tick {}: \n{:?}", time.ticks(), motion_command);
-                            exit.send(AppExit::from_code(1));
+                            exit.write(AppExit::from_code(1));
                         }
                     }
                 }
@@ -68,10 +68,10 @@ fn update(
     }
     if game_controller.state.hulks_team.score > 0 {
         println!("Done. Goal was scored.");
-        exit.send(AppExit::Success);
+        exit.write(AppExit::Success);
     }
     if time.ticks() >= 8_000 {
         println!("Done. But no goal was scored");
-        exit.send(AppExit::Success);
+        exit.write(AppExit::Success);
     }
 }

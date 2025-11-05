@@ -2,7 +2,10 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use bevy::{
     app::{App, PostUpdate},
-    ecs::system::{Query, Res, ResMut, Resource},
+    ecs::{
+        resource::Resource,
+        system::{Query, Res, ResMut},
+    },
     time::Time,
 };
 use color_eyre::Result;

@@ -25,7 +25,7 @@ fn startup(
     mut game_controller_commands: EventWriter<GameControllerCommand>,
 ) {
     commands.spawn(Robot::new(PlayerNumber::Seven));
-    game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
+    game_controller_commands.write(GameControllerCommand::SetGameState(GameState::Ready));
 }
 
 fn update(
@@ -40,7 +40,7 @@ fn update(
             ball.position = point![0.0, 0.0];
 
             // loser never looks behind itself, so we need to tell it where the ball is
-            let mut robot = robots.get_single_mut().unwrap();
+            let mut robot = robots.single_mut().expect("no robot found");
             robot.database.main_outputs.ball_position = Some(BallPosition {
                 position: robot.ground_to_field().inverse() * ball.position,
                 velocity: Vector2::zeros(),
@@ -50,10 +50,10 @@ fn update(
     }
     if game_controller.state.hulks_team.score > 0 {
         println!("Done");
-        exit.send(AppExit::Success);
+        exit.write(AppExit::Success);
     }
     if time.ticks() >= 10_000 {
         println!("No goal was scored :(");
-        exit.send(AppExit::from_code(1));
+        exit.write(AppExit::from_code(1));
     }
 }
