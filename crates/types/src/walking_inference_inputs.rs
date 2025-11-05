@@ -161,6 +161,12 @@ impl WalkingInferenceInputs {
         self.gravity *= parameters.linear_velocity;
         self.linear_velocity_command *= parameters.linear_velocity;
         self.angular_velocity_command *= parameters.angular_velocity;
+        self.joint_position_differences = self
+            .joint_position_differences
+            .map(|elem| elem * parameters.joint_position);
+        self.joint_velocities = self
+            .joint_velocities
+            .map(|elem| elem * parameters.joint_velocity);
         self
     }
 
