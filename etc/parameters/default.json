@@ -3,10 +3,40 @@
     "gait_frequency": 1,
     "number_of_actions": 12,
     "number_of_observations": 47,
-    "torque_limits": [
-      7, 7, 10, 10, 10, 10, 10, 10, 10, 10, 60, 25, 30, 60, 24, 15, 60, 25, 30,
-      60, 24, 15
-    ],
+    "torque_limits": {
+      "head": {
+        "yaw": 7,
+        "pitch": 7
+      },
+      "left_arm": {
+        "shoulder_pitch": 10,
+        "shoulder_roll": 10,
+        "shoulder_yaw": 10,
+        "elbow": 10
+      },
+      "right_arm": {
+        "shoulder_pitch": 10,
+        "shoulder_roll": 10,
+        "shoulder_yaw": 10,
+        "elbow": 10
+      },
+      "left_leg": {
+        "hip_pitch": 60,
+        "hip_roll": 25,
+        "hip_yaw": 30,
+        "knee": 60,
+        "ankle_up": 24,
+        "ankle_down": 15
+      },
+      "right_leg": {
+        "hip_pitch": 60,
+        "hip_roll": 25,
+        "hip_yaw": 30,
+        "knee": 60,
+        "ankle_up": 24,
+        "ankle_down": 15
+      }
+    },
     "normalization": {
       "gravity": 1.0,
       "linear_velocity": 1.0,
@@ -16,39 +46,220 @@
       "clip_actions": 1
     },
     "control": {
-      "dt": 0.002,
+      "dt": 0.01,
       "action_scale": 1.0,
       "decimation": 10.0
-    }
+    },
+    "walking_command": [0.0, 0.0, 0.0]
   },
   "prepare_motor_command": {
     "weight": 1.0,
-    "default_positions": [
-      0, 0, 0.2, -1.35, 0, -0.5, 0.2, 1.35, 0, 0.5, -0.225, 0, 0, 0.4, -0.175,
-      0, -0.225, 0, 0, 0.4, -0.175, 0
-    ],
-    "proportional_coefficients": [
-      40, 40, 20, 20, 20, 20, 20, 20, 20, 20, 200, 200, 200, 200, 100, 50, 200,
-      200, 200, 200, 100, 50
-    ],
-    "derivative_coefficients": [
-      0.8, 0.8, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 0.5, 5, 5, 5, 5, 3, 3, 5, 5,
-      5, 5, 3, 3
-    ]
+    "default_positions": {
+      "head": {
+        "yaw": 0.0,
+        "pitch": 0.0
+      },
+      "left_arm": {
+        "shoulder_pitch": 0.25,
+        "shoulder_roll": -1.4,
+        "shoulder_yaw": 0.0,
+        "elbow": -0.5
+      },
+      "right_arm": {
+        "shoulder_pitch": 0.25,
+        "shoulder_roll": 1.4,
+        "shoulder_yaw": 0.0,
+        "elbow": 0.5
+      },
+      "left_leg": {
+        "hip_pitch": -0.1,
+        "hip_roll": 0.0,
+        "hip_yaw": 0.0,
+        "knee": 0.2,
+        "ankle_up": -0.1,
+        "ankle_down": 0.0
+      },
+      "right_leg": {
+        "hip_pitch": -0.1,
+        "hip_roll": 0.0,
+        "hip_yaw": 0.0,
+        "knee": 0.2,
+        "ankle_up": -0.1,
+        "ankle_down": 0.0
+      }
+    },
+    "proportional_coefficients": {
+      "head": {
+        "yaw": 10,
+        "pitch": 10
+      },
+      "left_arm": {
+        "shoulder_pitch": 10,
+        "shoulder_roll": 10,
+        "shoulder_yaw": 10,
+        "elbow": 10
+      },
+      "right_arm": {
+        "shoulder_pitch": 10,
+        "shoulder_roll": 10,
+        "shoulder_yaw": 10,
+        "elbow": 10
+      },
+      "left_leg": {
+        "hip_pitch": 140,
+        "hip_roll": 140,
+        "hip_yaw": 140,
+        "knee": 140,
+        "ankle_up": 35,
+        "ankle_down": 10
+      },
+      "right_leg": {
+        "hip_pitch": 140,
+        "hip_roll": 140,
+        "hip_yaw": 140,
+        "knee": 140,
+        "ankle_up": 35,
+        "ankle_down": 10
+      }
+    },
+    "derivative_coefficients": {
+      "head": {
+        "yaw": 1,
+        "pitch": 1
+      },
+      "left_arm": {
+        "shoulder_pitch": 1,
+        "shoulder_roll": 1,
+        "shoulder_yaw": 1,
+        "elbow": 1
+      },
+      "right_arm": {
+        "shoulder_pitch": 1,
+        "shoulder_roll": 1,
+        "shoulder_yaw": 1,
+        "elbow": 1
+      },
+      "left_leg": {
+        "hip_pitch": 3.5,
+        "hip_roll": 3.5,
+        "hip_yaw": 3.5,
+        "knee": 3.5,
+        "ankle_up": 1.5,
+        "ankle_down": 1
+      },
+      "right_leg": {
+        "hip_pitch": 3.5,
+        "hip_roll": 3.5,
+        "hip_yaw": 3.5,
+        "knee": 3.5,
+        "ankle_up": 1.5,
+        "ankle_down": 1
+      }
+    }
   },
   "common_motor_command": {
-    "weight": 0.05,
-    "default_positions": [
-      0.0, 0.0, 0.25, -1.4, 0.0, -0.5, 0.25, 1.4, 0.0, 0.5, -0.1, 0.0, 0.0, 0.2,
-      -0.1, 0.0, -0.1, 0.0, 0.0, 0.2, -0.1, 0.0
-    ],
-    "proportional_coefficients": [
-      10, 10, 10, 50, 20, 10, 10, 50, 20, 10, 80, 80, 80, 80, 35, 20, 80, 80,
-      80, 80, 35, 20
-    ],
-    "derivative_coefficients": [
-      1.2, 1.2, 0.5, 1.5, 0.2, 0.2, 0.5, 1.5, 0.2, 0.2, 4, 4, 4, 4, 1.0, 1.0, 4,
-      4, 4, 4, 1.0, 1.0
-    ]
+    "weight": 1.0,
+    "default_positions": {
+      "head": {
+        "yaw": 0.0,
+        "pitch": 0.0
+      },
+      "left_arm": {
+        "shoulder_pitch": 0.2,
+        "shoulder_roll": -1.35,
+        "shoulder_yaw": 0.0,
+        "elbow": -0.5
+      },
+      "right_arm": {
+        "shoulder_pitch": 0.2,
+        "shoulder_roll": 1.35,
+        "shoulder_yaw": 0.0,
+        "elbow": 0.5
+      },
+      "left_leg": {
+        "hip_pitch": -0.2,
+        "hip_roll": 0.0,
+        "hip_yaw": 0.0,
+        "knee": 0.4,
+        "ankle_up": -0.25,
+        "ankle_down": 0.0
+      },
+      "right_leg": {
+        "hip_pitch": -0.2,
+        "hip_roll": 0.0,
+        "hip_yaw": 0.0,
+        "knee": 0.4,
+        "ankle_up": -0.25,
+        "ankle_down": 0.0
+      }
+    },
+    "proportional_coefficients": {
+      "head": {
+        "yaw": 10,
+        "pitch": 10
+      },
+      "left_arm": {
+        "shoulder_pitch": 10,
+        "shoulder_roll": 10,
+        "shoulder_yaw": 10,
+        "elbow": 10
+      },
+      "right_arm": {
+        "shoulder_pitch": 10,
+        "shoulder_roll": 10,
+        "shoulder_yaw": 10,
+        "elbow": 10
+      },
+      "left_leg": {
+        "hip_pitch": 140,
+        "hip_roll": 140,
+        "hip_yaw": 140,
+        "knee": 140,
+        "ankle_up": 35,
+        "ankle_down": 10
+      },
+      "right_leg": {
+        "hip_pitch": 140,
+        "hip_roll": 140,
+        "hip_yaw": 140,
+        "knee": 140,
+        "ankle_up": 35,
+        "ankle_down": 10
+      }
+    },
+    "derivative_coefficients": {
+      "head": {
+        "yaw": 1,
+        "pitch": 1
+      },
+      "left_arm": {
+        "shoulder_pitch": 1,
+        "shoulder_roll": 1,
+        "shoulder_yaw": 1,
+        "elbow": 1
+      },
+      "right_arm": {
+        "shoulder_pitch": 1,
+        "shoulder_roll": 1,
+        "shoulder_yaw": 1,
+        "elbow": 1
+      },
+      "left_leg": {
+        "hip_pitch": 3.5,
+        "hip_roll": 3.5,
+        "hip_yaw": 3.5,
+        "knee": 3.5,
+        "ankle_up": 1.5,
+        "ankle_down": 1
+      },
+      "right_leg": {
+        "hip_pitch": 3.5,
+        "hip_roll": 3.5,
+        "hip_yaw": 3.5,
+        "knee": 3.5,
+        "ankle_up": 1.5,
+        "ankle_down": 1
+      }
+    }
   }
 }

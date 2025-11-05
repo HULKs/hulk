@@ -52,6 +52,7 @@ pub enum JointsName {
     PartialEq,
     Eq,
     Serialize,
+    Deserialize,
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
@@ -62,74 +63,6 @@ pub struct Joints<T = f32> {
     pub right_arm: ArmJoints<T>,
     pub left_leg: LegJoints<T>,
     pub right_leg: LegJoints<T>,
-}
-
-impl<'de> Deserialize<'de> for Joints<f32> {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: serde::Deserializer<'de>,
-    {
-        struct JointsVisitor;
-
-        impl<'de> serde::de::Visitor<'de> for JointsVisitor {
-            type Value = Joints<f32>;
-
-            fn expecting(&self, formatter: &mut std::fmt::Formatter) -> std::fmt::Result {
-                formatter.write_str("a sequence of 22 floats or a map")
-            }
-
-            fn visit_seq<A>(self, mut seq: A) -> Result<Self::Value, A::Error>
-            where
-                A: serde::de::SeqAccess<'de>,
-            {
-                let mut values = Vec::with_capacity(22);
-                while let Some(value) = seq.next_element()? {
-                    values.push(value);
-                }
-
-                if values.len() != 22 {
-                    return Err(serde::de::Error::invalid_length(values.len(), &self));
-                }
-
-                Ok(Joints {
-                    head: HeadJoints {
-                        yaw: values[0],
-                        pitch: values[1],
-                    },
-                    left_arm: ArmJoints {
-                        shoulder_pitch: values[2],
-                        shoulder_roll: values[3],
-                        shoulder_yaw: values[4],
-                        elbow: values[5],
-                    },
-                    right_arm: ArmJoints {
-                        shoulder_pitch: values[6],
-                        shoulder_roll: values[7],
-                        shoulder_yaw: values[8],
-                        elbow: values[9],
-                    },
-                    left_leg: LegJoints {
-                        hip_pitch: values[10],
-                        hip_roll: values[11],
-                        hip_yaw: values[12],
-                        knee: values[13],
-                        ankle_up: values[14],
-                        ankle_down: values[15],
-                    },
-                    right_leg: LegJoints {
-                        hip_pitch: values[16],
-                        hip_roll: values[17],
-                        hip_yaw: values[18],
-                        knee: values[19],
-                        ankle_up: values[20],
-                        ankle_down: values[21],
-                    },
-                })
-            }
-        }
-
-        deserializer.deserialize_any(JointsVisitor)
-    }
 }
 
 impl<T> Joints<T> {
