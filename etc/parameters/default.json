@@ -263,7 +263,7 @@
       }
     }
   },
-  "remote_controll_parameters": {
+  "remote_control_parameters": {
     "walk": {
       "forward": 0.0,
       "left": 0.0,
