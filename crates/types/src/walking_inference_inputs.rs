@@ -1,8 +1,12 @@
-use std::{f32::consts::PI, time::SystemTime};
+use std::{
+    f32::consts::PI,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
-use color_eyre::{eyre::eyre, Result};
+use color_eyre::{eyre::ContextCompat, Result};
 use coordinate_systems::{Ground, Robot};
-use linear_algebra::{vector, Vector2, Vector3};
+use itertools::Itertools;
+use linear_algebra::{vector, IntoFramed, Vector2, Vector3};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
@@ -12,29 +16,6 @@ use crate::{
     parameters::{MotorCommandParameters, RLWalkingParameters},
 };
 
-/// # Model Input
-///     Input dimension: (47)
-///     - gravtiy 3
-///     - angular velocity 3
-///     - commands 3
-///         - linear velocity x 1
-///         - linear velocity y 1
-///         - angular velocity yaw 1
-///     - cos gait process 1
-///     - sin gait process 1
-///     - joint positions 12
-///         ["left_hip_pitch", "left_hip_roll", "left_hip_yaw",
-///         "left_knee_pitch", "left_ankle_pitch", "left_ankle_roll",
-///         "right_hip_pitch", "right_hip_roll", "right_hip_yaw",
-///         "right_knee_pitch", "right_ankle_pitch", "right_ankle_roll",]
-///     - joint velocities 12
-///     - actions 12
-///         - last joint velocity targets (normalized)
-///  # Model Output
-///     Output Dimension: (12)
-///     - Joint velocity targets
-///
-///
 #[derive(
     Debug, Default, Clone, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
@@ -43,8 +24,7 @@ pub struct WalkingInferenceInputs {
     pub angular_velocity: Vector3<Robot>,
     pub linear_velocity_command: Vector2<Ground>,
     pub angular_velocity_command: f32,
-    pub gait_progress_cos: f32,
-    pub gait_progress_sin: f32,
+    pub gait_process: nalgebra::Vector2<f32>,
     pub joint_position_differences: [f32; 12],
     pub joint_velocities: [f32; 12],
     pub last_target_joint_positions: [f32; 12],
@@ -100,10 +80,14 @@ impl WalkingInferenceInputs {
         } else {
             walking_parameters.gait_frequency
         };
-        let gait_process = (gait_frequency * now.elapsed()?.as_secs_f32()) % 1.0;
+        let gait_progress = (gait_frequency * now.duration_since(UNIX_EPOCH)?.as_secs_f32()) % 1.0;
 
-        let gait_progress_cos = f32::cos(2.0 * PI * gait_process);
-        let gait_progress_sin = f32::sin(2.0 * PI * gait_process);
+        let is_walking = gait_frequency > 1.0e-8;
+        let gait_process = if is_walking {
+            nalgebra::Rotation2::new(2.0 * PI * gait_progress) * nalgebra::Vector2::x()
+        } else {
+            Default::default()
+        };
 
         let left_leg_position_difference =
             current_joint_positions.left_leg - motor_command_parameters.default_positions.left_leg;
@@ -112,29 +96,21 @@ impl WalkingInferenceInputs {
         let joint_position_differences = left_leg_position_difference
             .into_iter()
             .chain(right_leg_position_difference.into_iter())
-            .collect::<Vec<f32>>()
-            .try_into()
-            .map_err(|v: Vec<f32>| eyre!("expected 12 joint positions but got {}", v.len()))?;
+            .collect_array()
+            .wrap_err("expected 12 joint position differences")?;
 
         let joint_velocities = current_joint_velocities
             .left_leg
             .into_iter()
             .chain(current_joint_velocities.right_leg.into_iter())
-            .collect::<Vec<f32>>()
-            .try_into()
-            .map_err(|v: Vec<f32>| eyre!("expected 12 joint velocities but got {}", v.len()))?;
+            .collect_array()
+            .wrap_err("expected 12 joint velocities")?;
 
         let last_target_joint_positions = last_target_left_joint_positions
             .into_iter()
             .chain(last_target_right_joint_positions.into_iter())
-            .collect::<Vec<f32>>()
-            .try_into()
-            .map_err(|v: Vec<f32>| {
-                eyre!(
-                    "expected 12 last target joint positions but got {}",
-                    v.len()
-                )
-            })?;
+            .collect_array()
+            .wrap_err("expected 12 last targetjoint positions")?;
 
         let rotation = nalgebra::Rotation3::from_euler_angles(
             roll_pitch_yaw.x(),
@@ -151,8 +127,7 @@ impl WalkingInferenceInputs {
             angular_velocity,
             linear_velocity_command,
             angular_velocity_command,
-            gait_progress_cos,
-            gait_progress_sin,
+            gait_process,
             joint_position_differences,
             joint_velocities,
             last_target_joint_positions,
@@ -184,8 +159,8 @@ impl WalkingInferenceInputs {
             self.linear_velocity_command.x(),
             self.linear_velocity_command.y(),
             self.angular_velocity_command,
-            self.gait_progress_cos,
-            self.gait_progress_sin,
+            self.gait_process.x,
+            self.gait_process.y,
         ]
         .iter()
         .chain(self.joint_position_differences.iter())
@@ -194,32 +169,4 @@ impl WalkingInferenceInputs {
         .copied()
         .collect::<Vec<f32>>()
     }
-}
-
-pub fn rotate_vector_inverse(
-    linear_acceleration: Vector3<Robot>,
-    rotation_vector: Vector3<Robot>,
-) -> Vector3<Robot> {
-    // todo!("Implement this properly using linear_algebra");
-
-    let cos_roll = linear_acceleration.x().cos();
-    let sin_roll = linear_acceleration.x().sin();
-    let cos_pitch = linear_acceleration.y().cos();
-    let sin_pitch = linear_acceleration.y().sin();
-    let cos_yaw = linear_acceleration.z().cos();
-    let sin_yaw = linear_acceleration.z().sin();
-
-    let r_x = nalgebra::Matrix3::new(
-        1.0, 0.0, 0.0, 0.0, cos_roll, -sin_roll, 0.0, sin_roll, cos_roll,
-    );
-
-    let r_y = nalgebra::Matrix3::new(
-        cos_pitch, 0.0, sin_pitch, 0.0, 1.0, 0.0, -sin_pitch, 0.0, cos_pitch,
-    );
-
-    let r_z = nalgebra::Matrix3::new(cos_yaw, -sin_yaw, 0.0, sin_yaw, cos_yaw, 0.0, 0.0, 0.0, 1.0);
-
-    let rotation_matrix = r_z * r_y * r_x;
-    let vector = rotation_matrix.transpose() * rotation_vector.inner;
-    vector!(vector[0], vector[1], vector[2])
 }

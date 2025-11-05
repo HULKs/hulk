@@ -8272,6 +8272,7 @@ dependencies = [
  "enum-iterator",
  "geometry",
  "image",
+ "itertools 0.14.0",
  "linear_algebra",
  "nalgebra",
  "num-traits",

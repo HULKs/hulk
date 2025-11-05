@@ -13,6 +13,7 @@ coordinate_systems = { workspace = true }
 enum-iterator = { workspace = true }
 geometry = { workspace = true }
 image = { workspace = true }
+itertools = { workspace = true }
 linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
 num-traits = { workspace = true }
