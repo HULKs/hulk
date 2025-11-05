@@ -31,6 +31,8 @@ pub struct RLWalking {
 
 #[context]
 pub struct CreationContext {
+    prepare_motor_command_parameters: Parameter<MotorCommandParameters, "prepare_motor_command">,
+
     hardware_interface: HardwareInterface,
 }
 
@@ -66,8 +68,14 @@ impl RLWalking {
             .commit_from_file(neural_network_path)?;
         Ok(Self {
             session,
-            last_target_left_joint_positions: Default::default(),
-            last_target_right_joint_positions: Default::default(),
+            last_target_left_joint_positions: context
+                .prepare_motor_command_parameters
+                .default_positions
+                .left_leg,
+            last_target_right_joint_positions: context
+                .prepare_motor_command_parameters
+                .default_positions
+                .right_leg,
             last_linear_velocity_command: vector!(0.0, 0.0),
             last_angular_velocity_command: 0.0,
         })
