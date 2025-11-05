@@ -31,9 +31,6 @@ impl Debug for ControlCommand {
         match self {
             ControlCommand::Connect { .. } => f.debug_struct("Connect").finish(),
             ControlCommand::Disconnect { .. } => f.debug_struct("Disconnect").finish(),
-            ControlCommand::Reset => f.debug_struct("Reset").finish(),
-            ControlCommand::Play => f.debug_struct("Play").finish(),
-            ControlCommand::Pause => f.debug_struct("Pause").finish(),
         }
     }
 }

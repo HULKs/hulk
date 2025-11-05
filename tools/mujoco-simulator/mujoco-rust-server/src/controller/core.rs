@@ -113,16 +113,6 @@ impl Controller {
                     .map_err(|_| eyre!("failed to reply to Disconnect"));
                 log_result_info(result);
             }
-            ControlCommand::Reset => {
-                let result = self
-                    .simulation_task_sender
-                    .send(SimulationTask::Reset)
-                    .await
-                    .wrap_err("failed to send Reset");
-                log_result_info(result);
-            }
-            ControlCommand::Play => log_result_info(self.paused.send(false)),
-            ControlCommand::Pause => log_result_info(self.paused.send(true)),
         }
     }
 

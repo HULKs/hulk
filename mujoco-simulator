@@ -1,0 +1,4 @@
+#! /usr/bin/env sh
+
+cd tools/mujoco-simulator/mujoco-simulator
+uv run main.py
