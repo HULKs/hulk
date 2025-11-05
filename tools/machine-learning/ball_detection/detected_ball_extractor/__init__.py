@@ -17,7 +17,7 @@ def main(**config):
                 print(os.path.join(root, file), '...')
 
                 for frame in parsed_replay['frames']:
-                    image_path = frame['topImage'] if 'topImage' in frame else frame['bottomImage']
+                    image_path = frame['image']
                     rooted_image_path = os.path.join(root, image_path)
 
                     annotations[rooted_image_path] = []

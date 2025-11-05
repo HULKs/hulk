@@ -107,13 +107,10 @@ if __name__ == "__main__":
         None, "Select your files", IMAGE_DIRECTORY
     )
 
-    pixels_YCrCb_top = np.empty((0, 3), dtype=np.uint8)
-    pixels_BGR_top = np.empty((0, 3), dtype=np.uint8)
-    y_top = np.empty(0)
+    pixels_YCrCb = np.empty((0, 3), dtype=np.uint8)
+    pixels_BGR = np.empty((0, 3), dtype=np.uint8)
+    y = np.empty(0)
 
-    pixels_YCrCb_bottom = np.empty((0, 3), dtype=np.uint8)
-    pixels_BGR_bottom = np.empty((0, 3), dtype=np.uint8)
-    y_bottom = np.empty(0)
 
     labeled_images_folder = os.path.join(IMAGE_DIRECTORY, "labeled")
     os.makedirs(labeled_images_folder, exist_ok=True)
@@ -129,30 +126,15 @@ if __name__ == "__main__":
             os.path.join(labeled_images_folder, f"{file_name[:-4]}_labeled.png")
         )
 
-        top = re.search("top", file_name.lower())
-        bottom = re.search("bottom", file_name.lower())
-
         if overlay is not None:
-            if top is None and bottom is not None:
-                pixels_YCrCb_bottom, pixels_BGR_bottom, y_bottom = (
-                    extract_pixels(
-                        overlay,
-                        pixels_YCrCb_bottom,
-                        pixels_BGR_bottom,
-                        image_YCrCb,
-                        image_BGR,
-                        y_bottom,
-                    )
-                )
-            elif top is not None and bottom is None:
-                pixels_YCrCb_top, pixels_BGR_top, y_top = extract_pixels(
-                    overlay,
-                    pixels_YCrCb_top,
-                    pixels_BGR_top,
-                    image_YCrCb,
-                    image_BGR,
-                    y_top,
-                )
+            pixels_YCrCb, pixels_BGR, y = extract_pixels(
+                overlay,
+                pixels_YCrCb,
+                pixels_BGR,
+                image_YCrCb,
+                image_BGR,
+                y,
+            )
         else:
             overlay = np.zeros_like(image_BGR, dtype=np.uint8)
             canvas = np.zeros_like(image_BGR, dtype=np.uint8)
@@ -202,52 +184,32 @@ if __name__ == "__main__":
                         ),
                         overlay,
                     )
-                    if top is None and bottom is not None:
-                        pixels_YCrCb_bottom, pixels_BGR_bottom, y_bottom = (
-                            extract_pixels(
-                                overlay,
-                                pixels_YCrCb_bottom,
-                                pixels_BGR_bottom,
-                                image_YCrCb,
-                                image_BGR,
-                                y_bottom,
-                            )
+                    pixels_YCrCb, pixels_BGR, y = (
+                        extract_pixels(
+                            overlay,
+                            pixels_YCrCb,
+                            pixels_BGR,
+                            image_YCrCb,
+                            image_BGR,
+                            y,
                         )
-                    elif top is not None and bottom is None:
-                        pixels_YCrCb_top, pixels_BGR_top, y_top = (
-                            extract_pixels(
-                                overlay,
-                                pixels_YCrCb_top,
-                                pixels_BGR_top,
-                                image_YCrCb,
-                                image_BGR,
-                                y_top,
-                            )
-                        )
+                    )
                     break
                 drawing_board.color = color
 
             cv2.destroyAllWindows()
 
-    top_duration = 0
-    bottom_duration = 0
+    duration = 0
 
-    if len(pixels_YCrCb_top) > 0:
+    if len(pixels_YCrCb) > 0:
         start = time.time()
         model = optimize_thresholds(
-            pixels_BGR_top, pixels_YCrCb_top, y_top, "top"
+            pixels_BGR, pixels_YCrCb, y, ""
         )
         end = time.time()
-        top_duration = end - start
+        duration = end - start
 
-    if len(pixels_YCrCb_bottom) > 0:
-        start = time.time()
-        model = optimize_thresholds(
-            pixels_BGR_bottom, pixels_YCrCb_bottom, y_bottom, "bottom"
-        )
-        end = time.time()
-        bottom_duration = end - start
+
 
     print("\nTraing times:")
-    print(f"  - Top:    {(top_duration / 60):.2f}min")
-    print(f"  - Bottom: {(bottom_duration / 60):.2f}min")
+    print(f"  - Camera:    {(duration / 60):.2f}min")

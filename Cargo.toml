@@ -49,7 +49,6 @@ members = [
   "crates/vision",
   "crates/zed",
   "tools/annotato",
-  "tools/camera_matrix_extractor",
   "tools/depp",
   "tools/fanta",
   "tools/parameter_tester",

@@ -1,6 +1,5 @@
 pub mod ball_detection;
 pub mod calibration_measurement_provider;
-pub mod camera_matrix_extractor;
 pub mod feet_detection;
 pub mod field_border_detection;
 mod field_color_tree;

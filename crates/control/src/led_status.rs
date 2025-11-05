@@ -306,15 +306,18 @@ impl LedStatus {
                             .or(majority_voted_visual_referee_color)
                             .or(visual_referee_percept_color)
                             .unwrap_or(Rgb::BLACK),
-                        color_at_135: majority_voted_visual_referee_color
+                        color_at_135: ball_color
+                            .or(majority_voted_visual_referee_color)
                             .or(visual_referee_percept_color)
                             .or(ball_background_color)
                             .unwrap_or(Rgb::BLACK),
-                        color_at_180: majority_voted_visual_referee_color
+                        color_at_180: ball_color
+                            .or(majority_voted_visual_referee_color)
                             .or(visual_referee_percept_color)
                             .or(ball_background_color)
                             .unwrap_or(Rgb::BLACK),
-                        color_at_225: majority_voted_visual_referee_color
+                        color_at_225: ball_color
+                            .or(majority_voted_visual_referee_color)
                             .or(visual_referee_percept_color)
                             .or(ball_background_color)
                             .unwrap_or(Rgb::BLACK),

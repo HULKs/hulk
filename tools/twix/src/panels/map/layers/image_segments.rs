@@ -9,25 +9,19 @@ use types::{color::Rgb, field_dimensions::FieldDimensions};
 use crate::{panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::BufferHandle};
 
 pub struct ImageSegments {
-    camera_matrix_bottom: BufferHandle<Option<CameraMatrix>>,
-    image_segments_bottom: BufferHandle<types::image_segments::ImageSegments>,
-    camera_matrix_top: BufferHandle<Option<CameraMatrix>>,
-    image_segments_top: BufferHandle<types::image_segments::ImageSegments>,
+    camera_matrix: BufferHandle<Option<CameraMatrix>>,
+    image_segments: BufferHandle<types::image_segments::ImageSegments>,
 }
 
 impl Layer<Ground> for ImageSegments {
     const NAME: &'static str = "Image Segments";
 
     fn new(nao: std::sync::Arc<crate::nao::Nao>) -> Self {
-        let camera_matrix_bottom = nao.subscribe_value("VisionBottom.main_outputs.camera_matrix");
-        let image_segments_bottom = nao.subscribe_value("VisionBottom.main_outputs.image_segments");
-        let camera_matrix_top = nao.subscribe_value("VisionTop.main_outputs.camera_matrix");
-        let image_segments_top = nao.subscribe_value("VisionTop.main_outputs.image_segments");
+        let camera_matrix = nao.subscribe_value("Vision.main_outputs.camera_matrix");
+        let image_segments = nao.subscribe_value("Vision.main_outputs.image_segments");
         Self {
-            camera_matrix_bottom,
-            image_segments_bottom,
-            camera_matrix_top,
-            image_segments_top,
+            camera_matrix,
+            image_segments,
         }
     }
 
@@ -36,22 +30,14 @@ impl Layer<Ground> for ImageSegments {
         painter: &TwixPainter<Ground>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        let Some(camera_matrix_bottom) = self.camera_matrix_bottom.get_last_value()?.flatten()
-        else {
+        let Some(camera_matrix) = self.camera_matrix.get_last_value()?.flatten() else {
             return Ok(());
         };
-        let Some(image_segments_bottom) = self.image_segments_bottom.get_last_value()? else {
-            return Ok(());
-        };
-        let Some(camera_matrix_top) = self.camera_matrix_top.get_last_value()?.flatten() else {
-            return Ok(());
-        };
-        let Some(image_segments_top) = self.image_segments_top.get_last_value()? else {
+        let Some(image_segments) = self.image_segments.get_last_value()? else {
             return Ok(());
         };
 
-        paint_segments(painter, &camera_matrix_bottom, &image_segments_bottom)?;
-        paint_segments(painter, &camera_matrix_top, &image_segments_top)?;
+        paint_segments(painter, &camera_matrix, &image_segments)?;
         Ok(())
     }
 }

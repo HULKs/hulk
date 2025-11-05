@@ -168,12 +168,11 @@ def print_summary(distribution, label):
     print(f"\n--- {label} Summary ---")
     print(df["File Format"].value_counts().to_string())
     print(df["Color Space"].value_counts().to_string())
-    print("\nTop/Bottom Camera Count:")
+    print("\camera Count:")
     print(
         df["Path"]
-        .str.contains("bottomCamera")
+        .str.contains("camera")
         .value_counts()
-        .rename(index={True: "Bottom", False: "Top"})
     )
 
 
@@ -208,9 +207,7 @@ if SAMPLE:
                 continue
             for robot_dir in game_folder.iterdir():
                 cam_dirs = (
-                    ["topCamera", "bottomCamera"]
-                    if resolution == "480x640"
-                    else ["topCamera"]
+                    ["camera"]
                 )
                 for cam_dir in cam_dirs:
                     img_dir = robot_dir / cam_dir

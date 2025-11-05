@@ -26,7 +26,6 @@ color_channels = Enum(
 )
 
 data_types = Literal["u8", "f32", "u16"]
-camera = Literal["top", "bottom"]
 
 
 def convert_pixels_BGR2bgrI(
@@ -43,7 +42,6 @@ def optimize_thresholds(
     pixels_BGR: NDArray[np.integer],
     pixels_YCrCb: NDArray[np.integer],
     y: NDArray[np.integer],
-    camera: camera,
 ) -> DecisionTreeClassifier:
     pixels_bgrI = convert_pixels_BGR2bgrI(pixels_BGR)
     pixels_HSV = cv2.cvtColor(
@@ -73,10 +71,10 @@ def optimize_thresholds(
     ]
     labels = ["Intensity::Low", "Intensity::High"]
     rust_expression = tree_to_rust_code(model, features, labels)
-    with open(f"{camera}_field_color_tree.rs", "w") as text_file:
+    with open(f"field_color_tree.rs", "w") as text_file:
         text_file.write(rust_expression)
 
-    print(f"\n\n*** {camera} camera ***\n")
+    print(f"\n\n*** camera ***\n")
     print(rust_expression)
     print("*** END ***")
     return model
