@@ -70,7 +70,7 @@ pub struct CycleContext {
         Parameter<bool, "calibration_controller.use_stand_head_unstiff_calibration">,
 
     dribble_walk_speed: Parameter<f32, "walk_speed.dribble">,
-    max_angular_velocity: Parameter<f32, "walk_speed.max_angular_velocity">,
+    max_turning_angular_velocity: Parameter<f32, "walk_speed.max_turning_angular_velocity">,
     initial_poses: Parameter<Players<InitialPose>, "localization.initial_poses">,
     intercept_ball_walk_speed: Parameter<WalkSpeed, "walk_speed.intercept_ball">,
     lost_ball_walk_speed: Parameter<WalkSpeed, "walk_speed.lost_ball">,
@@ -393,7 +393,7 @@ impl Behavior {
                         world_state,
                         &context.parameters.dribbling,
                         *context.dribble_walk_speed,
-                        *context.max_angular_velocity,
+                        *context.max_turning_angular_velocity,
                     ),
                     Action::Jump => jump::execute(world_state),
                     Action::PrepareJump => prepare_jump::execute(world_state),

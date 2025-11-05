@@ -9,7 +9,7 @@ pub fn execute(
     world_state: &WorldState,
     parameters: &DribblingParameters,
     walk_speed: f32,
-    max_angular_velocity: f32,
+    max_turning_angular_velocity: f32,
 ) -> Option<MotionCommand> {
     let ball_position = world_state.ball?.ball_in_ground;
     let distance_to_ball = ball_position.coords().norm();
@@ -31,6 +31,6 @@ pub fn execute(
         angular_velocity: ball_position
             .coords()
             .y()
-            .clamp(-max_angular_velocity, max_angular_velocity),
+            .clamp(-max_turning_angular_velocity, max_turning_angular_velocity),
     })
 }

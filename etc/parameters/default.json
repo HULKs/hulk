@@ -1,7 +1,7 @@
 {
   "walk_speed": {
     "dribble": 0.2,
-    "max_angular_velocity": 0.25
+    "max_turning_angular_velocity": 0.25
   },
   "behavior": {
     "dribbling": {
