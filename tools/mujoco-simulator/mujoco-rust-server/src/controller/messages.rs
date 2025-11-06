@@ -41,20 +41,20 @@ pub enum SimulationTask {
         sender: oneshot::Sender<SystemTime>,
     },
     Reset,
-    LowState {
+    RequestLowState {
         sender: mpsc::Sender<SimulationData>,
     },
-    RGBDSensors {
+    RequestRGBDSensors {
         sender: mpsc::Sender<SimulationData>,
     },
     ApplyLowCommand {
         receiver: oneshot::Receiver<LowCommand>,
     },
     Invalid,
-    SceneDescription {
+    RequestSceneDescription {
         sender: mpsc::Sender<SimulationData>,
     },
-    SceneState {
+    RequestSceneState {
         sender: mpsc::Sender<SimulationData>,
     },
 }
@@ -89,12 +89,12 @@ impl PySimulationTask {
         match self.task {
             SimulationTask::Reset => TaskName::Reset,
             SimulationTask::StepSimulation { .. } => TaskName::StepSimulation,
-            SimulationTask::LowState { .. } => TaskName::RequestLowState,
+            SimulationTask::RequestLowState { .. } => TaskName::RequestLowState,
             SimulationTask::Invalid => TaskName::Invalid,
             SimulationTask::ApplyLowCommand { .. } => TaskName::ApplyLowCommand,
-            SimulationTask::SceneDescription { .. } => TaskName::RequestSceneDescription,
-            SimulationTask::SceneState { .. } => TaskName::RequestSceneState,
-            SimulationTask::RGBDSensors { .. } => TaskName::RequestRGBDSensors,
+            SimulationTask::RequestSceneDescription { .. } => TaskName::RequestSceneDescription,
+            SimulationTask::RequestSceneState { .. } => TaskName::RequestSceneState,
+            SimulationTask::RequestRGBDSensors { .. } => TaskName::RequestRGBDSensors,
         }
     }
 
@@ -126,7 +126,7 @@ impl PySimulationTask {
                 future_into_py(py, ready(Ok(())))
             }
             SimulationTask::Reset => future_into_py(py, ready(Ok(()))),
-            SimulationTask::LowState { sender } => {
+            SimulationTask::RequestLowState { sender } => {
                 let data = response.extract(py)?;
                 future_into_py(py, async move {
                     // Channel may be closed if websocket disconnects
@@ -134,7 +134,7 @@ impl PySimulationTask {
                     Ok(())
                 })
             }
-            SimulationTask::RGBDSensors { sender } => {
+            SimulationTask::RequestRGBDSensors { sender } => {
                 let data = response.extract(py)?;
                 future_into_py(py, async move {
                     // Channel may be closed if websocket disconnects
@@ -147,7 +147,7 @@ impl PySimulationTask {
                     Ok(())
                 })
             }
-            SimulationTask::SceneDescription { sender } => {
+            SimulationTask::RequestSceneDescription { sender } => {
                 let data: Vec<u8> = response.extract(py)?;
                 future_into_py(py, async move {
                     // Channel may be closed if websocket disconnects
@@ -157,7 +157,7 @@ impl PySimulationTask {
                     Ok(())
                 })
             }
-            SimulationTask::SceneState { sender } => {
+            SimulationTask::RequestSceneState { sender } => {
                 let data = response.extract(py)?;
                 future_into_py(py, async move {
                     let _ = sender.send(SimulationData::SceneState(data)).await;

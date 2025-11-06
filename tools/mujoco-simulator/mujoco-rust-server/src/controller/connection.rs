@@ -33,7 +33,7 @@ impl Connection {
         simulation_sender: &mpsc::Sender<SimulationTask>,
     ) -> Result<()> {
         simulation_sender
-            .send(SimulationTask::LowState {
+            .send(SimulationTask::RequestLowState {
                 sender: self.websocket_sender.clone(),
             })
             .await
@@ -45,7 +45,7 @@ impl Connection {
         simulation_sender: &mpsc::Sender<SimulationTask>,
     ) -> Result<()> {
         simulation_sender
-            .send(SimulationTask::RGBDSensors {
+            .send(SimulationTask::RequestRGBDSensors {
                 sender: self.websocket_sender.clone(),
             })
             .await
@@ -57,7 +57,7 @@ impl Connection {
         simulation_sender: &mpsc::Sender<SimulationTask>,
     ) -> Result<()> {
         simulation_sender
-            .send(SimulationTask::SceneState {
+            .send(SimulationTask::RequestSceneState {
                 sender: self.websocket_sender.clone(),
             })
             .await
@@ -69,7 +69,7 @@ impl Connection {
         simulation_sender: &mpsc::Sender<SimulationTask>,
     ) -> Result<()> {
         simulation_sender
-            .send(SimulationTask::SceneDescription {
+            .send(SimulationTask::RequestSceneDescription {
                 sender: self.websocket_sender.clone(),
             })
             .await
