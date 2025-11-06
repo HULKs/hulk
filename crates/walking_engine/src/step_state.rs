@@ -1,14 +1,13 @@
 use std::{f32::consts::FRAC_PI_2, time::Duration};
 
-use coordinate_systems::{LeftSole, RightSole, Walk};
+use coordinate_systems::Walk;
 use kinematics::inverse::leg_angles;
-use linear_algebra::{point, Isometry3, Orientation3, Point3, Pose3, Rotation3};
+use linear_algebra::{point, Orientation3, Point3, Pose3, Rotation3};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use splines::Interpolate;
 use types::{
     joints::{arm::ArmJoints, body::BodyJoints, leg::LegJoints, mirror::Mirror},
-    robot_dimensions::RobotDimensions,
     support_foot::Side,
 };
 
@@ -127,28 +126,18 @@ impl StepState {
         };
         let walk_to_robot = context.robot_to_walk.inverse();
 
-        let left_foot: Pose3<LeftSole> = Isometry3::from(RobotDimensions::LEFT_ANKLE_TO_LEFT_SOLE)
-            .inverse()
-            .as_pose();
         let left_sole_to_robot = (walk_to_robot * left_sole).as_transform();
-        let right_foot: Pose3<RightSole> =
-            Isometry3::from(RobotDimensions::RIGHT_ANKLE_TO_RIGHT_SOLE)
-                .inverse()
-                .as_pose();
         let right_sole_to_robot = (walk_to_robot * right_sole).as_transform();
 
-        let leg_joints = leg_angles(
-            left_sole_to_robot * left_foot,
-            right_sole_to_robot * right_foot,
-        )
-        .balance_using_gyro(&self.gyro_balancing, self.plan.support_side)
-        .level_swing_foot(&self.foot_leveling, self.plan.support_side)
-        .compensate_stiffness_loss(
-            &context.parameters.stiffness_loss_compensation,
-            &context.last_actuated_joints.into(),
-            &context.measured_joints.into(),
-            self.plan.support_side,
-        );
+        let leg_joints = leg_angles(left_sole_to_robot, right_sole_to_robot)
+            .balance_using_gyro(&self.gyro_balancing, self.plan.support_side)
+            .level_swing_foot(&self.foot_leveling, self.plan.support_side)
+            .compensate_stiffness_loss(
+                &context.parameters.stiffness_loss_compensation,
+                &context.last_actuated_joints.into(),
+                &context.measured_joints.into(),
+                self.plan.support_side,
+            );
 
         let left_arm = swinging_arm(
             &context.parameters.swinging_arms,
