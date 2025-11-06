@@ -31,13 +31,17 @@ use eframe::{
     wgpu::PrimitiveTopology,
 };
 use futures_util::{SinkExt, StreamExt};
-use nalgebra::{Point3, Vector3};
+use nalgebra::{Isometry3, Point3, Vector3};
 use serde::{Deserialize, Serialize};
 use simulation_message::ConnectionInfo;
 use tokio::{select, sync::mpsc};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
+use types::robot_kinematics::RobotKinematics;
 
-use crate::panel::{Panel, PanelCreationContext};
+use crate::{
+    panel::{Panel, PanelCreationContext},
+    value_buffer::BufferHandle,
+};
 
 #[derive(Resource)]
 struct BevyRenderTarget {
@@ -251,6 +255,8 @@ pub struct MujocoSimulatorPanel {
     update_receiver: mpsc::Receiver<SceneMessage>,
     // command_sender: mpsc::Sender<ServerCommand>,
     bevy_app: App,
+
+    kinematics: BufferHandle<RobotKinematics>,
 }
 
 // #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
@@ -270,9 +276,12 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
                     .add_before::<RenderPlugin>(EguiRenderPlugin::new(context.wgpu_state.clone()))
                     .disable::<RenderPlugin>(),
             )
+            .init_resource::<KinematicsResource>()
             .add_plugins(PanOrbitCameraPlugin)
+            .init_gizmo_group::<DefaultGizmoConfigGroup>()
             .add_systems(Startup, setup_camera)
             .add_systems(Startup, setup_scene)
+            .add_systems(Update, draw_gizmos)
             .add_systems(Update, update_active_camera);
         bevy_app.finish();
         bevy_app.cleanup();
@@ -320,10 +329,14 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
             });
         });
 
+        let kinematics = context
+            .nao
+            .subscribe_value("Control.main_outputs.robot_kinematics");
         Self {
             update_receiver,
-            bevy_app,
             // command_sender,
+            bevy_app,
+            kinematics,
         }
     }
 }
@@ -386,12 +399,16 @@ fn spawn_scene(bevy_app: &mut App, scene: SceneDescription) {
                     let Some(mesh_name) = geom.mesh.as_ref() else {
                         continue;
                     };
-                    parent.spawn((
+                    println!("'{mesh_name}'");
+                    let mut entity = parent.spawn((
                         Transform::from_translation(geom.pos).with_rotation(bevy_quat(geom.quat)),
                         Visibility::default(),
                         Mesh3d(meshes.get(mesh_name).cloned().unwrap()),
                         MeshMaterial3d(material),
                     ));
+                    if mesh_name == "Trunk" {
+                        entity.insert(TrunkComponent);
+                    }
                 }
             });
     }
@@ -415,10 +432,35 @@ impl Widget for &mut MujocoSimulatorPanel {
             .fit_to_exact_size(response.rect.size())
             .uv(render_target.uv());
 
+        if let Ok(Some(kinematics)) = self.kinematics.get_last_value() {
+            self.bevy_app
+                .world_mut()
+                .insert_resource(KinematicsResource { value: kinematics });
+        };
         self.bevy_app.update();
 
         ui.put(response.rect, image)
     }
+}
+
+#[derive(Resource, Default)]
+struct KinematicsResource {
+    value: RobotKinematics,
+}
+
+fn draw_gizmos(
+    robot: Single<(&GlobalTransform, &TrunkComponent)>,
+    kinematics: Res<KinematicsResource>,
+    mut gizmos: Gizmos,
+) {
+    let mut draw = |pose: Isometry3<f32>| {
+        let (translation, rotation) = pose.into();
+        gizmos.axes(
+            *robot.0 * Transform::from_isometry(Isometry3d::new(translation, rotation)),
+            10.0,
+        );
+    };
+    draw(kinematics.value.left_arm.wrist_to_robot.inner);
 }
 
 impl MujocoSimulatorPanel {
@@ -541,6 +583,9 @@ struct SceneRootMarker;
 struct BodyComponent {
     name: String,
 }
+
+#[derive(Component)]
+struct TrunkComponent;
 
 enum SceneMessage {
     Description(SceneDescription),
