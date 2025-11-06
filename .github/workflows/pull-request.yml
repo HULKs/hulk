@@ -17,7 +17,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.84.1
+      image: ghcr.io/hulks/hulk-ci:1.91.0
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -39,7 +39,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.84.1
+      image: ghcr.io/hulks/hulk-ci:1.91.0
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -54,7 +54,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.84.1
+      image: ghcr.io/hulks/hulk-ci:1.91.0
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -69,7 +69,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.84.1
+      image: ghcr.io/hulks/hulk-ci:1.91.0
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -84,7 +84,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.84.1
+      image: ghcr.io/hulks/hulk-ci:1.91.0
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -100,14 +100,14 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.84.1
+      image: ghcr.io/hulks/hulk-ci:1.91.0
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
         with:
           lfs: true
       - name: Test
-        run: ./pepsi test --locked --all-features --workspace --exclude bevyhavior_simulator 
+        run: ./pepsi test --locked --all-features --workspace --exclude bevyhavior_simulator
 
   build:
     name: Build
@@ -125,7 +125,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.84.1
+      image: ghcr.io/hulks/hulk-ci:1.91.0
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -146,7 +146,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.84.1
+      image: ghcr.io/hulks/hulk-ci:1.91.0
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -161,7 +161,6 @@ jobs:
       matrix:
         tool:
           - annotato
-          - camera_matrix_extractor
           - depp
           - fanta
           - pepsi
@@ -171,7 +170,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.84.1
+      image: ghcr.io/hulks/hulk-ci:1.91.0
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -198,7 +197,7 @@ jobs:
   #     - self-hosted
   #     - v3
   #   container:
-  #     image: ghcr.io/hulks/hulk-ci:1.84.1
+  #     image: ghcr.io/hulks/hulk-ci:1.91.0
   #     options: --user=1000:1000
   #   defaults:
   #     run:
@@ -224,7 +223,7 @@ jobs:
   #     - self-hosted
   #     - v3
   #   container:
-  #     image: ghcr.io/hulks/hulk-ci:1.84.1
+  #     image: ghcr.io/hulks/hulk-ci:1.91.0
   #     options: --user=1000:1000
   #   defaults:
   #     run:
@@ -250,7 +249,7 @@ jobs:
   #     - self-hosted
   #     - v3
   #   container:
-  #     image: ghcr.io/hulks/hulk-ci:1.84.1
+  #     image: ghcr.io/hulks/hulk-ci:1.91.0
   #     options: --user=1000:1000
   #   defaults:
   #     run:
@@ -276,7 +275,7 @@ jobs:
   #     - self-hosted
   #     - v3
   #   container:
-  #     image: ghcr.io/hulks/hulk-ci:1.84.1
+  #     image: ghcr.io/hulks/hulk-ci:1.91.0
   #     options: --user=1000:1000
   #   defaults:
   #     run:
