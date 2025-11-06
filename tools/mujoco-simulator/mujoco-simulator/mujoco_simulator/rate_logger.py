@@ -4,8 +4,8 @@ from datetime import timedelta
 
 
 class SimulationRateLogger:
-    def __init__(self, log_rate: timedelta) -> None:
-        self.log_rate = log_rate
+    def __init__(self, log_interval: timedelta) -> None:
+        self.log_interval = log_interval
         self.last_log = None
         self.steps_since_last_log = 0
 
@@ -15,8 +15,8 @@ class SimulationRateLogger:
         if self.last_log is None:
             self.last_log = now
 
-        if now - self.last_log >= self.log_rate.total_seconds():
-            rate = self.steps_since_last_log / self.log_rate.total_seconds()
+        if now - self.last_log >= self.log_interval.total_seconds():
+            rate = self.steps_since_last_log / self.log_interval.total_seconds()
             logging.info(f"Simulation [steps/second]: {int(rate)}")
             self.steps_since_last_log = 0
             self.last_log = now

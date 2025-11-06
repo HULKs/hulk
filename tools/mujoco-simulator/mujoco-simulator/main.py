@@ -68,7 +68,7 @@ def joint_actuator_info_list(model: MjModel) -> list:
 async def run_simulation(
     server: SimulationServer, model: MjModel, data: MjData
 ) -> None:
-    rate_logger = SimulationRateLogger(log_rate=timedelta(seconds=5))
+    rate_logger = SimulationRateLogger(log_interval=timedelta(seconds=5))
     logging.info("Starting simulation loop")
     dt = model.opt.timestep
     logging.info(f"Timestep: {1000 * dt}ms")
