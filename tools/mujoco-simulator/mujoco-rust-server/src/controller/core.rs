@@ -154,6 +154,8 @@ impl Controller {
             log_result_info(paused.wait_for(|paused| !paused).await);
         });
 
+        // This is a clippy bug as of clippy version 0.1.91
+        #[allow(clippy::unnecessary_to_owned)]
         for connection in self.connections.values().cloned() {
             let sender = self.simulation_task_sender.clone();
             let range = range.clone();
