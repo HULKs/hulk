@@ -21,7 +21,7 @@ use hula_types::hardware::{Ids, Paths};
 use log::{error, warn};
 use parking_lot::Mutex;
 use serde::Deserialize;
-use simulation_message::{ClientMessageKind, ServerMessageKind, SimulationMessage};
+use simulation_message::{ClientMessageKind, ConnectionInfo, ServerMessageKind, SimulationMessage};
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::time::sleep;
 use tokio_tungstenite::tungstenite::Message;
@@ -118,7 +118,15 @@ async fn worker(
 ) -> Result<()> {
     let mut websocket = loop {
         let websocket = tokio_tungstenite::connect_async(&address).await;
-        if let Ok((websocket, _)) = websocket {
+        if let Ok((mut websocket, _)) = websocket {
+            let connection_info = ConnectionInfo::control_only();
+            log::info!("connected to mujoco websocket at {address}");
+            log::info!("sending ConnectionInfo");
+            websocket
+                .send(Message::Text(
+                    serde_json::to_string(&connection_info)?.into(),
+                ))
+                .await?;
             break websocket;
         };
         log::info!("connecting to websocket failed, retrying...");

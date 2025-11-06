@@ -34,7 +34,7 @@ hulk_widgets = { workspace = true }
 ittapi = { workspace = true }
 libc = { workspace = true, optional = true }
 linear_algebra = { workspace = true }
-log.workspace = true
+log = { workspace = true }
 motionfile = { workspace = true }
 nalgebra = { workspace = true }
 ndarray = { workspace = true }
@@ -44,10 +44,10 @@ parking_lot = { workspace = true }
 path_serde = { workspace = true }
 projection = { workspace = true }
 ros2 = { workspace = true }
-serde.workspace = true
-serde_json.workspace = true
+serde = { workspace = true }
+serde_json = { workspace = true }
 simulation_message = { workspace = true }
-spl_network.workspace = true
+spl_network = { workspace = true }
 spl_network_messages = { workspace = true }
 systemd = { workspace = true, optional = true }
 tokio = { workspace = true }

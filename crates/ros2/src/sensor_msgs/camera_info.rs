@@ -40,7 +40,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{sensor_msgs::region_of_interest::RegionOfInterest, std_msgs::header::Header};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CameraInfo {
     /// Time of image acquisition, camera coordinate frame ID
     /// Header timestamp should be acquisition time of image

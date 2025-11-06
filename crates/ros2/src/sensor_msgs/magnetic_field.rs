@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{geometry_msgs::vector3::Vector3, std_msgs::header::Header};
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MagneticField {
     /// timestamp is the time the
     /// frame_id is the location and orientation
@@ -24,4 +24,14 @@ pub struct MagneticField {
     /// put NaNs in the components not reported.
     /// Row major about x, y, z axes
     pub magnetic_field_covariance: [f64; 9],
+}
+
+impl MagneticField {
+    pub fn default_with_header(header: Header) -> Self {
+        Self {
+            header,
+            magnetic_field: Vector3::default(),
+            magnetic_field_covariance: [0.0; 9],
+        }
+    }
 }

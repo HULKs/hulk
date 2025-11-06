@@ -1,0 +1,19 @@
+[project]
+name = "mujoco-rust-server"
+version = "0.1.0"
+
+[tool.uv]
+cache-keys = [
+  { file = "Cargo.lock" },
+  { file = "Cargo.toml" },
+  { file = "mujoco_rust_server/**" },
+  { file = "pyproject.toml" },
+  { file = "src/**" },
+]
+
+[build-system]
+requires = ["maturin>=1.0,<2.0"]
+build-backend = "maturin"
+
+[tool.maturin]
+features = []

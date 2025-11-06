@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::builtin_interfaces::time::Time;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Header {
     /// Two-integer timestamp that is expressed as seconds and nanoseconds.
     pub stamp: Time,

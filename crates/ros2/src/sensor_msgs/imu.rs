@@ -18,7 +18,7 @@ use crate::{
     std_msgs::header::Header,
 };
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Imu {
     pub header: Header,
 
@@ -33,4 +33,18 @@ pub struct Imu {
     pub linear_acceleration: Vector3,
     /// Row major x, y z
     pub linear_acceleration_covariance: [f64; 9],
+}
+
+impl Imu {
+    pub fn default_with_header(header: Header) -> Self {
+        Self {
+            header,
+            orientation: Quaternion::default(),
+            orientation_covariance: [0.0; 9],
+            angular_velocity: Vector3::default(),
+            angular_velocity_covariance: [0.0; 9],
+            linear_acceleration: Vector3::default(),
+            linear_acceleration_covariance: [0.0; 9],
+        }
+    }
 }

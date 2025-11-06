@@ -54,6 +54,7 @@ members = [
   "tools/depp",
   "tools/fanta",
   "tools/mio",
+  "tools/mujoco-simulator/mujoco-rust-server",
   "tools/parameter_tester",
   "tools/pepsi",
   "tools/twix",
@@ -83,6 +84,7 @@ approx_derive = { path = "crates/approx_derive" }
 argument_parsers = { path = "crates/argument_parsers" }
 audio = { path = "crates/audio" }
 awaitgroup = "0.7.0"
+axum = { version = "0.8.4", features = ["ws"] }
 ball_filter = { path = "crates/ball_filter" }
 base64 = "0.22.1"
 bat = { version = "0.25.0", default-features = false, features = [
@@ -143,6 +145,7 @@ hardware = { path = "crates/hardware" }
 home = "=0.5.9"
 hula_types = { path = "crates/hula_types" }
 hulk_manifest = { path = "crates/hulk_manifest" }
+hulk_mujoco = { path = "crates/hulk_mujoco" }
 hulk_widgets = { path = "crates/hulk_widgets" }
 hungarian_algorithm = { path = "crates/hungarian_algorithm" }
 i2cdev = "0.6.1"
@@ -193,6 +196,9 @@ proc-macro-error = "1.0.4"
 proc-macro2 = { version = "1.0.93", features = ["span-locations"] }
 projection = { path = "crates/projection" }
 proptest = "1.6.0"
+pyo3 = { version = "0.27.1", features = ["abi3-py313", "extension-module"] }
+pyo3-async-runtimes = { version = "0.27.0", features = ["tokio-runtime"] }
+pyo3-log = { version = "0.14.0", git = "https://github.com/oleflb/pyo3-log.git", rev = "13a516dc494fd73c037b434a66d71ec069574211" }
 quote = "1.0.38"
 rand = "0.9.0"
 rand_chacha = { version = "0.9.0", features = ["serde"] }
@@ -206,10 +212,10 @@ ros2 = { path = "crates/ros2" }
 rustfft = "6.2.0"
 scenario = { path = "crates/scenario" }
 semver = "1.0.25"
-serde = { version = "1.0.217", features = ["derive", "rc"] }
+serde = { version = "1.0.228", features = ["derive", "rc"] }
 serde-transcode = "1.1.1"
 serde_bytes = "0.11.15"
-serde_derive = "1.0.217"
+serde_derive = "1.0.228"
 serde_ignored = "0.1.10"
 serde_json = "1.0.138"
 serde_test = "1.0.177"
@@ -251,9 +257,11 @@ zed = { path = "crates/zed" }
 
 [patch.crates-io]
 # Pinned to forked serde version since https://github.com/serde-rs/serde/pull/2513 is not merged
-serde = { git = "https://github.com/HULKs/serde.git", rev = "2e5e545dc9958ab39d7b83120c16f15d864ea8a6" }
+serde = { git = "https://github.com/HULKs/serde.git", rev = "ef30eb8fdd0ee12e4e6f3f5615c6bb022e02d1b2" }
 # Pinned to forked serde version since https://github.com/serde-rs/serde/pull/2513 is not merged
-serde_derive = { git = "https://github.com/HULKs/serde.git", rev = "2e5e545dc9958ab39d7b83120c16f15d864ea8a6" }
+serde_derive = { git = "https://github.com/HULKs/serde.git", rev = "ef30eb8fdd0ee12e4e6f3f5615c6bb022e02d1b2" }
+# Pinned to forked serde version since https://github.com/serde-rs/serde/pull/2513 is not merged
+serde_core = { git = "https://github.com/HULKs/serde.git", rev = "ef30eb8fdd0ee12e4e6f3f5615c6bb022e02d1b2" }
 
 [profile.dev]
 opt-level = 3

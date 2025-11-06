@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::std_msgs::header::Header;
 
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Image {
     /// Header timestamp should be acquisition time of image
     /// Header frame_id should be optical frame of camera

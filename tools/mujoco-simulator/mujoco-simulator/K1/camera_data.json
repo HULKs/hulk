@@ -1,0 +1,28 @@
+{
+    "position": [0.05868, 0.00002, 0.09849],
+    "orientation": [0.0, -12.18, 180.0],
+    "scale": [1.032229, 1.0, 1.0],
+    "fisheye": {
+        "focal_length": 1.93,
+        "focus_distance": 0.6,
+        "f_stop": 2.0,
+        "projection": "perspective",
+        "horizontal_aperture": 3.896,
+        "vertical_aperture": 2.453,
+        "fisheye": {
+            "projection_type": "fisheye_equidistant",
+            "nominal_width": 1936.0,
+            "nominal_height": 1216.0,
+            "optical_center_x": 970.94244,
+            "optical_center_y": 600.37482,
+            "opencv_fx": 731.78788,
+            "opencv_fy": 731.78788,
+            "max_fov": 100.6,
+            "polynomial_coefficients": [0.0, 0.00245, 0.0, 0.0, 0.0],
+            "p": [-0.00037, -0.00074],
+            "s": [-0.00058, -0.00022, 0.00019, -0.0002],
+            "interpupillary_distance_cm": 6.4
+        }
+
+    }
+}
