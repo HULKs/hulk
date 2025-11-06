@@ -49,12 +49,7 @@ pub struct ConnectionInfo {
     pub schedule: Vec<TaskSchedule>,
 }
 
-/// Checks if offset + k * interval is in the interval [range.start, range.end)
-/// Eg. offset = 2, interval = 3
-/// Timepoints are 2, 5, 8, 11, ...
-/// [6, 7) factors are (6 - 2) / 3 = 4/3, (7 - 2) / 3 = 5/3
-/// [7, 12) factor is (7 - 2) / 3 = 5/3, (12 - 2) / 3 = 10/3
-///
+/// This functions returns `true` if for any non-negative `k`, `offset + k * interval` is in the half-open interval `[range.start, range.end)`.
 fn is_due(interval: Duration, offset: SystemTime, range: Range<SystemTime>) -> bool {
     let (lower, upper) = (range.start, range.end);
     if offset > upper {
@@ -186,7 +181,7 @@ mod tests {
         time::{Duration, SystemTime},
     };
 
-    use crate::{is_due, ConnectionInfo};
+    use crate::is_due;
 
     fn millis_duration(millis: u64) -> Duration {
         Duration::from_millis(millis)
@@ -201,54 +196,96 @@ mod tests {
     }
 
     #[test]
-    pub fn test_is_due() {
-        let test_cases = vec![
-            (
-                millis_systemtime(0),
-                millis_duration(2),
-                millis_range(4, 5),
-                true,
-            ),
-            (
-                millis_systemtime(10),
-                millis_duration(2),
-                millis_range(4, 5),
-                false,
-            ),
-            (
-                millis_systemtime(4),
-                millis_duration(4),
-                millis_range(7, 9),
-                true,
-            ),
-            (
-                millis_systemtime(4),
-                millis_duration(4),
-                millis_range(8, 11),
-                false,
-            ),
-            (
-                millis_systemtime(4),
-                millis_duration(4),
-                millis_range(101, 1000),
-                true,
-            ),
-            (
-                millis_systemtime(0),
-                millis_duration(10),
-                millis_range(1, 10),
-                false,
-            ),
-            (
-                millis_systemtime(0),
-                millis_duration(9),
-                millis_range(1, 11),
-                true,
-            ),
-        ];
+    pub fn test_is_due_in_range() {
+        assert!(is_due(
+            millis_duration(2),
+            millis_systemtime(0),
+            millis_range(0, 1)
+        ));
 
-        for (offset, interval, range, expected) in test_cases {
-            assert_eq!(expected, is_due(interval, offset, range));
-        }
+        assert!(is_due(
+            millis_duration(2000),
+            millis_systemtime(0),
+            millis_range(0, 1)
+        ));
+
+        assert!(is_due(
+            millis_duration(1),
+            millis_systemtime(1000),
+            millis_range(1000, 2000)
+        ));
+    }
+
+    #[test]
+    pub fn test_is_not_due_at_end() {
+        assert!(!is_due(
+            millis_duration(2),
+            millis_systemtime(0),
+            millis_range(1, 2)
+        ));
+
+        assert!(!is_due(
+            millis_duration(2000),
+            millis_systemtime(0),
+            millis_range(1999, 2000)
+        ));
+
+        assert!(!is_due(
+            millis_duration(2),
+            millis_systemtime(2),
+            millis_range(3, 4)
+        ));
+    }
+
+    #[test]
+    pub fn test_is_due_with_step() {
+        assert!(is_due(
+            millis_duration(2),
+            millis_systemtime(0),
+            millis_range(2, 3)
+        ));
+
+        assert!(is_due(
+            millis_duration(2),
+            millis_systemtime(0),
+            millis_range(4, 1000)
+        ));
+
+        assert!(is_due(
+            millis_duration(2),
+            millis_systemtime(1),
+            millis_range(5, 6)
+        ));
+        assert!(is_due(
+            millis_duration(8),
+            millis_systemtime(10),
+            millis_range(26, 27)
+        ))
+    }
+
+    #[test]
+    pub fn test_is_due_skip_with_step() {
+        assert!(!is_due(
+            millis_duration(3),
+            millis_systemtime(0),
+            millis_range(2, 3)
+        ));
+
+        assert!(!is_due(
+            millis_duration(10),
+            millis_systemtime(5),
+            millis_range(6, 8)
+        ));
+
+        assert!(!is_due(
+            millis_duration(2000),
+            millis_systemtime(1),
+            millis_range(500, 1500)
+        ));
+        assert!(!is_due(
+            millis_duration(8),
+            millis_systemtime(10),
+            millis_range(11, 18)
+        ))
     }
 }
