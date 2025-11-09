@@ -115,6 +115,14 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
                 ],
                 execution_time_warning_threshold: Some(Duration::from_secs_f32(1.0 / 83.0)),
             },
+            CyclerManifest {
+                name: "Behavior",
+                kind: CyclerKind::RealTime,
+                instances: vec![""],
+                setup_nodes: vec!["behavior::data_receiver"],
+                nodes: vec!["behavior::walk_to_ball"],
+                execution_time_warning_threshold: Some(Duration::from_secs_f32(1.0 / 83.0)),
+            },
             // CyclerManifest {
             //     name: "SplNetwork",
             //     kind: CyclerKind::Perception,
