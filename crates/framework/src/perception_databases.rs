@@ -312,7 +312,7 @@ mod tests {
                 },
                 vision: Update {
                     items: vec![],
-                    first_timestamp_of_non_finalized_database: None,
+                    first_timestamp_of_non_finalized_database: Some(instant_b),
                 },
             },
         );
