@@ -26,7 +26,7 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
+    camera_matrix: RequiredInput<Option<CameraMatrix>, "Control", "camera_matrix?">,
     image: Input<YCbCr422Image, "image">,
     calibration_command: Input<Option<CalibrationCommand>, "control", "calibration_command?">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,

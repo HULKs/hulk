@@ -25,7 +25,7 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
+    camera_matrix: RequiredInput<Option<CameraMatrix>,"Control", "camera_matrix?">,
     filtered_segments: Input<FilteredSegments, "filtered_segments">,
     line_data: RequiredInput<Option<LineData>, "line_data?">,
     image: Input<YCbCr422Image, "image">,

@@ -74,7 +74,7 @@ pub struct CycleContext {
         Parameter<usize, "line_detection.$cycler_instance.minimum_number_of_points_on_line">,
     ransac_iterations: Parameter<usize, "line_detection.$cycler_instance.ransac_iterations">,
 
-    camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
+    camera_matrix: RequiredInput<Option<CameraMatrix>, "Control", "camera_matrix?">,
     filtered_segments: Input<FilteredSegments, "filtered_segments">,
     image: Input<YCbCr422Image, "image">,
 }

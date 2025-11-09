@@ -44,7 +44,7 @@ pub struct CycleContext {
         Parameter<f32, "feet_detection.$cycler_instance.minimum_segment_height">,
 
     balls: RequiredInput<Option<Vec<BallPercept>>, "balls?">,
-    camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
+    camera_matrix: RequiredInput<Option<CameraMatrix>, "Control", "camera_matrix?">,
     filtered_segments: Input<FilteredSegments, "filtered_segments">,
     line_data: RequiredInput<Option<LineData>, "line_data?">,
 }

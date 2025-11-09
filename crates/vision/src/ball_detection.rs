@@ -48,7 +48,7 @@ pub struct CreationContext {
 pub struct CycleContext {
     ball_candidates: AdditionalOutput<Vec<CandidateEvaluation>, "ball_candidates">,
 
-    camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
+    camera_matrix: RequiredInput<Option<CameraMatrix>, "Control", "camera_matrix?">,
     perspective_grid_candidates:
         RequiredInput<Option<PerspectiveGridCandidates>, "perspective_grid_candidates?">,
     image: Input<YCbCr422Image, "image">,

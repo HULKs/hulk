@@ -22,7 +22,7 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
+    camera_matrix: RequiredInput<Option<CameraMatrix>, "Control", "camera_matrix?">,
     robot_kinematics: Input<RobotKinematics, "Control", "robot_kinematics">,
 
     enable: Parameter<bool, "projected_limbs.$cycler_instance.enable">,

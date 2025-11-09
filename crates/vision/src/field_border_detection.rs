@@ -37,7 +37,7 @@ pub struct CycleContext {
     second_line_association_distance:
         Parameter<f32, "field_border_detection.$cycler_instance.second_line_association_distance">,
 
-    camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
+    camera_matrix: RequiredInput<Option<CameraMatrix>, "Control", "camera_matrix?">,
     image_segments: Input<ImageSegments, "image_segments">,
 }
 
