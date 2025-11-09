@@ -5,6 +5,7 @@ members = [
   "crates/argument_parsers",
   "crates/audio",
   "crates/ball_filter",
+  "crates/behavior",
   "crates/bevy_mujoco",
   "crates/bevyhavior_simulator",
   "crates/booster",
