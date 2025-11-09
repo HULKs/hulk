@@ -454,13 +454,35 @@ fn draw_gizmos(
     mut gizmos: Gizmos,
 ) {
     let mut draw = |pose: Isometry3<f32>| {
-        let (translation, rotation) = pose.into();
+        let (translation, rotation) =
+            (kinematics.value.torso.torso_to_robot.inner.inverse() * pose).into();
         gizmos.axes(
             *robot.0 * Transform::from_isometry(Isometry3d::new(translation, rotation)),
-            10.0,
+            0.1,
         );
     };
-    draw(kinematics.value.left_arm.wrist_to_robot.inner);
+    draw(kinematics.value.head.neck_to_robot.inner);
+    draw(kinematics.value.head.head_to_robot.inner);
+    draw(kinematics.value.left_arm.inner_shoulder_to_robot.inner);
+    draw(kinematics.value.left_arm.outer_shoulder_to_robot.inner);
+    draw(kinematics.value.left_arm.upper_arm_to_robot.inner);
+    draw(kinematics.value.left_arm.forearm_to_robot.inner);
+    draw(kinematics.value.right_arm.inner_shoulder_to_robot.inner);
+    draw(kinematics.value.right_arm.outer_shoulder_to_robot.inner);
+    draw(kinematics.value.right_arm.upper_arm_to_robot.inner);
+    draw(kinematics.value.right_arm.forearm_to_robot.inner);
+    draw(kinematics.value.left_leg.pelvis_to_robot.inner);
+    draw(kinematics.value.left_leg.hip_to_robot.inner);
+    draw(kinematics.value.left_leg.thigh_to_robot.inner);
+    draw(kinematics.value.left_leg.tibia_to_robot.inner);
+    draw(kinematics.value.left_leg.ankle_to_robot.inner);
+    draw(kinematics.value.left_leg.foot_to_robot.inner);
+    draw(kinematics.value.right_leg.pelvis_to_robot.inner);
+    draw(kinematics.value.right_leg.hip_to_robot.inner);
+    draw(kinematics.value.right_leg.thigh_to_robot.inner);
+    draw(kinematics.value.right_leg.tibia_to_robot.inner);
+    draw(kinematics.value.right_leg.ankle_to_robot.inner);
+    draw(kinematics.value.right_leg.foot_to_robot.inner);
 }
 
 impl MujocoSimulatorPanel {
