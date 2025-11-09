@@ -50,6 +50,7 @@ members = [
   "crates/types",
   "crates/vision",
   "crates/walking_engine",
+  "crates/world_state",
   "crates/zed",
   "tools/annotato",
   "tools/camera_matrix_extractor",

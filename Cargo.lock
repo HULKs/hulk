@@ -10759,6 +10759,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "world_state"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "context_attribute",
+ "coordinate_systems",
+ "filtering",
+ "framework",
+ "hardware",
+ "linear_algebra",
+ "serde",
+ "spl_network_messages",
+ "tokio",
+ "types",
+]
+
+[[package]]
 name = "writeable"
 version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"

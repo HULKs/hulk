@@ -21,7 +21,7 @@ pub struct CreationContext {}
 pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
     world_state: Input<WorldState, "world_state">,
-    ball_state: Input<BallState, "Filtering", "ball_state">,
+    ball_state: Input<BallState, "World_state", "ball_state">,
     // dribble_walk_speed: Parameter<WalkSpeed, "walk_speed.dribble">,
     // parameters: Parameter<BehaviorParameters, "behavior">,
 }
