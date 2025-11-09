@@ -11,6 +11,7 @@ use spl_network_messages::{GamePhase, PlayerNumber, SubState, Team};
 use types::{
     action::Action,
     cycle_time::CycleTime,
+    dribble_path_plan::DribblePathPlan,
     field_dimensions::{FieldDimensions, GlobalFieldSide, Side},
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState,
@@ -18,7 +19,8 @@ use types::{
     kick_decision::DecisionParameters,
     motion_command::{MotionCommand, WalkSpeed},
     parameters::{
-        BehaviorParameters, InterceptBallParameters, KeeperMotionParameters, LostBallParameters,
+        BehaviorParameters, InWalkKicksParameters, InterceptBallParameters, KeeperMotionParameters,
+        LostBallParameters,
     },
     path_obstacles::PathObstacle,
     players::Players,
@@ -55,12 +57,14 @@ pub struct CreationContext {}
 pub struct CycleContext {
     has_ground_contact: Input<bool, "has_ground_contact">,
     world_state: Input<WorldState, "world_state">,
+    dribble_path_plan: Input<Option<DribblePathPlan>, "dribble_path_plan?">,
     cycle_time: Input<CycleTime, "cycle_time">,
     is_localization_converged: Input<bool, "is_localization_converged">,
     expected_referee_position: Input<Option<Point2<Field>>, "expected_referee_position?">,
 
     parameters: Parameter<BehaviorParameters, "behavior">,
     kick_decision_parameters: Parameter<DecisionParameters, "kick_selector">,
+    in_walk_kicks: Parameter<InWalkKicksParameters, "in_walk_kicks">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     lost_ball_parameters: Parameter<LostBallParameters, "behavior.lost_ball">,
     intercept_ball_parameters: Parameter<InterceptBallParameters, "behavior.intercept_ball">,
@@ -69,8 +73,7 @@ pub struct CycleContext {
     use_stand_head_unstiff_calibration:
         Parameter<bool, "calibration_controller.use_stand_head_unstiff_calibration">,
 
-    dribble_walk_speed: Parameter<f32, "walk_speed.dribble">,
-    max_turning_angular_velocity: Parameter<f32, "walk_speed.max_turning_angular_velocity">,
+    dribble_walk_speed: Parameter<WalkSpeed, "walk_speed.dribble">,
     initial_poses: Parameter<Players<InitialPose>, "localization.initial_poses">,
     intercept_ball_walk_speed: Parameter<WalkSpeed, "walk_speed.intercept_ball">,
     lost_ball_walk_speed: Parameter<WalkSpeed, "walk_speed.lost_ball">,
@@ -391,9 +394,12 @@ impl Behavior {
                     ),
                     Action::Dribble => dribble::execute(
                         world_state,
+                        &walk_path_planner,
+                        context.in_walk_kicks,
                         &context.parameters.dribbling,
+                        context.dribble_path_plan.cloned(),
                         *context.dribble_walk_speed,
-                        *context.max_turning_angular_velocity,
+                        context.parameters.dribbling.distance_to_be_aligned,
                     ),
                     Action::Jump => jump::execute(world_state),
                     Action::PrepareJump => prepare_jump::execute(world_state),
