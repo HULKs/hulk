@@ -1,6 +1,7 @@
 use types::{
     camera_position::CameraPosition,
     field_dimensions::GlobalFieldSide,
+    filtered_game_state::FilteredGameState,
     initial_pose::InitialPose,
     motion_command::{HeadMotion, ImageRegion, MotionCommand},
     players::Players,
@@ -11,16 +12,11 @@ use types::{
 
 pub fn execute(
     world_state: &WorldState,
+    enable_pose_detection: bool,
     initial_poses: &Players<InitialPose>,
 ) -> Option<MotionCommand> {
-    if world_state.robot.primary_state != PrimaryState::Initial {
+    if world_state.robot.primary_state != PrimaryState::Standby {
         return None;
-    }
-
-    if world_state.filtered_game_controller_state.is_none() {
-        return Some(MotionCommand::Initial {
-            head: HeadMotion::Center,
-        });
     }
 
     let filtered_game_controller_state = world_state.filtered_game_controller_state.clone()?;
@@ -35,8 +31,12 @@ pub fn execute(
         (Side::Right, GlobalFieldSide::Away) => false,
     };
 
-    Some(MotionCommand::Initial {
-        head: if initial_pose_should_look_for_referee {
+    let should_pose_detection_be_active = world_state.robot.primary_state == PrimaryState::Standby
+        && filtered_game_controller_state.game_state == FilteredGameState::Standby
+        && enable_pose_detection;
+
+    Some(MotionCommand::Standby {
+        head: if initial_pose_should_look_for_referee && should_pose_detection_be_active {
             HeadMotion::LookAtReferee {
                 image_region_target: ImageRegion::Bottom,
                 camera: Some(CameraPosition::Top),

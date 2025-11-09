@@ -38,6 +38,7 @@ pub enum Action {
     SearchForLostBall,
     SitDown,
     Stand,
+    Standby,
     StandUp,
     KeeperMotion,
     SupportLeft,

@@ -35,8 +35,8 @@ use super::{
     dribble, fall_safely,
     head::LookAction,
     initial, intercept_ball, jump, look_around, look_at_referee, lost_ball, no_ground_contact,
-    penalize, prepare_jump, search, sit_down, stand, stand_up, support, unstiff, walk_to_kick_off,
-    walk_to_penalty_kick,
+    penalize, prepare_jump, search, sit_down, stand, stand_up, standby, support, unstiff,
+    walk_to_kick_off, walk_to_penalty_kick,
     walk_to_pose::{WalkAndStand, WalkPathPlanner},
 };
 
@@ -148,6 +148,7 @@ impl Behavior {
             Action::SitDown,
             Action::Penalize,
             Action::Initial,
+            Action::Standby,
             Action::FallSafely,
             Action::StandUp,
             Action::NoGroundContact,
@@ -288,9 +289,9 @@ impl Behavior {
                     Action::Unstiff => unstiff::execute(world_state),
                     Action::SitDown => sit_down::execute(world_state),
                     Action::Penalize => penalize::execute(world_state),
-                    Action::Initial => initial::execute(
+                    Action::Initial => initial::execute(world_state, context.initial_poses),
+                    Action::Standby => standby::execute(
                         world_state,
-                        context.expected_referee_position,
                         *context.enable_pose_detection,
                         context.initial_poses,
                     ),

@@ -10,7 +10,11 @@ use bevyhavior_simulator::{
     robot::Robot,
     time::{Ticks, TicksTime},
 };
-use types::{field_dimensions::GlobalFieldSide, motion_command::HeadMotion, roles::Role};
+use types::{
+    field_dimensions::GlobalFieldSide,
+    motion_command::{HeadMotion, MotionCommand},
+    roles::Role,
+};
 
 /// Is used to generate the test functions for cargo test
 #[scenario]
@@ -75,12 +79,13 @@ fn update(
             )
         }) {
             if matches!(
-                relevant_robot
-                    .database
-                    .main_outputs
-                    .motion_command
-                    .head_motion(),
-                Some(HeadMotion::LookAtReferee { .. })
+                relevant_robot.database.main_outputs.motion_command,
+                MotionCommand::Stand {
+                    head: HeadMotion::LookAtReferee { .. }
+                } | MotionCommand::Walk {
+                    head: HeadMotion::LookAtReferee { .. },
+                    ..
+                }
             ) {
                 *state.number_of_detecting_robots_when_home += 1;
             }
@@ -109,12 +114,13 @@ fn update(
             )
         }) {
             if matches!(
-                relevant_robot
-                    .database
-                    .main_outputs
-                    .motion_command
-                    .head_motion(),
-                Some(HeadMotion::LookAtReferee { .. })
+                relevant_robot.database.main_outputs.motion_command,
+                MotionCommand::Stand {
+                    head: HeadMotion::LookAtReferee { .. }
+                } | MotionCommand::Walk {
+                    head: HeadMotion::LookAtReferee { .. },
+                    ..
+                }
             ) {
                 *state.number_of_detecting_robots_when_away += 1;
             }
