@@ -1,1 +1,11 @@
-{}
+{
+  "walk_speed": {
+    "dribble": 0.2,
+    "max_turning_angular_velocity": 0.25
+  },
+  "behavior": {
+    "dribbling": {
+      "distance_to_look_directly_at_the_ball": 1.0
+    }
+  }
+}
