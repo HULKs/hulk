@@ -63,8 +63,7 @@ pub struct CycleContext {
         Parameter<f32, "obstacle_filter.robot_obstacle_radius_at_hip_height">,
     unknown_obstacle_radius: Parameter<f32, "obstacle_filter.unknown_obstacle_radius">,
 
-    detected_feet_bottom: PerceptionInput<DetectedFeet, "VisionBottom", "detected_feet">,
-    detected_feet_top: PerceptionInput<DetectedFeet, "VisionTop", "detected_feet">,
+    detected_feet: PerceptionInput<DetectedFeet, "Vision", "detected_feet">,
 }
 
 #[context]
@@ -84,12 +83,8 @@ impl ObstacleFilter {
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let field_dimensions = context.field_dimensions;
         let cycle_start_time = context.cycle_time.start_time;
-        let measurements = context
-            .detected_feet_top
-            .persistent
-            .iter()
-            .zip(context.detected_feet_bottom.persistent.values());
-        for ((detection_time, feet_top), feet_bottom) in measurements {
+        let measurements = context.detected_feet.persistent.iter();
+        for (detection_time, feet) in measurements {
             let current_odometry_to_last_odometry = context
                 .current_odometry_to_last_odometry
                 .get(detection_time)
@@ -127,10 +122,8 @@ impl ObstacleFilter {
                 .obstacle_filter_parameters
                 .use_feet_detection_measurements
             {
-                let measured_positions_in_control_cycle = feet_top
-                    .iter()
-                    .chain(feet_bottom.iter())
-                    .flat_map(|obstacles| obstacles.positions.iter());
+                let measured_positions_in_control_cycle =
+                    feet.iter().flat_map(|obstacles| obstacles.positions.iter());
 
                 for position in measured_positions_in_control_cycle {
                     self.update_hypotheses_with_measurement(

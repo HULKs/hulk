@@ -43,7 +43,6 @@ pub fn execute(
         Some(hypothesis) => HeadMotion::LookAt {
             target: hypothesis.position,
             image_region_target: Default::default(),
-            camera: None,
         },
         None => HeadMotion::SearchForLostBall,
     };

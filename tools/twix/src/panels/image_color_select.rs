@@ -30,15 +30,11 @@ use crate::{
     value_buffer::BufferHandle,
 };
 
-use super::image::cycler_selector::{VisionCycler, VisionCyclerSelector};
-
 const FIELD_SELECTION_COLOR: Color32 = Color32::from_rgba_premultiplied(255, 0, 0, 50);
 const OTHER_SELECTION_COLOR: Color32 = Color32::from_rgba_premultiplied(0, 0, 255, 50);
 
 pub struct ImageColorSelectPanel {
-    nao: Arc<Nao>,
     image: BufferHandle<YCbCr422Image>,
-    cycler: VisionCycler,
     brush_size: f32,
     selection_mask: ColorImage,
     x_axis: Axis,
@@ -49,16 +45,7 @@ impl Panel for ImageColorSelectPanel {
     const NAME: &'static str = "Image Color Select";
 
     fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
-        let cycler = value
-            .and_then(|value| {
-                let string = value.get("cycler")?.as_str()?;
-                VisionCycler::try_from(string).ok()
-            })
-            .unwrap_or(VisionCycler::Top);
-        let image = nao.subscribe_value(format!(
-            "{cycler_path}.main_outputs.image",
-            cycler_path = cycler.as_path()
-        ));
+        let image = nao.subscribe_value("Vision.main_outputs.image");
 
         let brush_size = 50.0;
 
@@ -72,9 +59,7 @@ impl Panel for ImageColorSelectPanel {
             .unwrap_or(Axis::Luminance);
 
         Self {
-            nao,
             image,
-            cycler,
             brush_size,
             selection_mask,
             x_axis,
@@ -84,7 +69,7 @@ impl Panel for ImageColorSelectPanel {
 
     fn save(&self) -> Value {
         json!({
-            "cycler": self.cycler.as_path(),
+            "cycler": "Vision",
             "x_axis": self.x_axis,
             "y_axis": self.y_axis,
         })
@@ -188,14 +173,6 @@ impl Widget for &mut ImageColorSelectPanel {
         CentralPanel::default()
             .show_inside(ui, |ui| {
                 ui.horizontal(|ui| {
-                    let mut cycler_selector = VisionCyclerSelector::new(&mut self.cycler);
-                    if cycler_selector.ui(ui).changed() {
-                        self.image = self.nao.subscribe_value(format!(
-                            "{cycler_path}.main_outputs.image",
-                            cycler_path = self.cycler.as_path()
-                        ));
-                    }
-
                     if ui.button("reset").clicked() {
                         self.selection_mask = ColorImage::new([640, 480], Color32::TRANSPARENT);
                     };

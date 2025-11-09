@@ -2,7 +2,6 @@ use coordinate_systems::{Field, Ground};
 use framework::AdditionalOutput;
 use linear_algebra::{Point2, Pose2, Rotation2};
 use types::{
-    camera_position::CameraPosition,
     motion_command::{HeadMotion, ImageRegion, MotionCommand, OrientationMode, WalkSpeed},
     path_obstacles::PathObstacle,
     world_state::WorldState,
@@ -31,7 +30,6 @@ pub fn execute(
     let head_motion = if enable_pose_detection {
         HeadMotion::LookAtReferee {
             image_region_target: ImageRegion::Bottom,
-            camera: Some(CameraPosition::Top),
         }
     } else {
         HeadMotion::Center

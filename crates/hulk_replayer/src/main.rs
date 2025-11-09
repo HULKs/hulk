@@ -20,7 +20,6 @@ use hula_types::hardware::{Ids, Paths};
 use replayer::replayer;
 use types::{
     audio::SpeakerRequest,
-    camera_position::CameraPosition,
     joints::Joints,
     led::Leds,
     messages::{IncomingMessage, OutgoingMessage},
@@ -64,7 +63,7 @@ impl ActuatorInterface for ReplayerHardwareInterface {
 }
 
 impl CameraInterface for ReplayerHardwareInterface {
-    fn read_from_camera(&self, _camera_position: CameraPosition) -> Result<YCbCr422Image> {
+    fn read_from_camera(&self) -> Result<YCbCr422Image> {
         unimplemented!("Replayer cannot produce data from hardware")
     }
 }

@@ -22,12 +22,12 @@ impl Layer<Field> for PoseDetection {
     const NAME: &'static str = "Pose Positions";
 
     fn new(nao: Arc<Nao>) -> Self {
-        let accepted_pose_kind_positions = nao
-            .subscribe_value("ObjectDetectionTop.additional_outputs.accepted_pose_kind_positions");
-        let rejected_pose_kind_positions = nao
-            .subscribe_value("ObjectDetectionTop.additional_outputs.rejected_pose_kind_positions");
+        let accepted_pose_kind_positions =
+            nao.subscribe_value("ObjectDetection.additional_outputs.accepted_pose_kind_positions");
+        let rejected_pose_kind_positions =
+            nao.subscribe_value("ObjectDetection.additional_outputs.rejected_pose_kind_positions");
         let referee_pose_kind_position =
-            nao.subscribe_value("ObjectDetectionTop.additional_outputs.referee_pose_kind_position");
+            nao.subscribe_value("ObjectDetection.additional_outputs.referee_pose_kind_position");
         Self {
             accepted_pose_kind_positions,
             rejected_pose_kind_positions,

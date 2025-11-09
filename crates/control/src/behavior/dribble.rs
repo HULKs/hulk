@@ -2,7 +2,6 @@ use coordinate_systems::{Ground, UpcomingSupport};
 use linear_algebra::{Isometry2, Pose2};
 use spl_network_messages::GamePhase;
 use types::{
-    camera_position::CameraPosition,
     dribble_path_plan::DribblePathPlan,
     filtered_game_controller_state::FilteredGameControllerState,
     motion_command::{ArmMotion, HeadMotion, ImageRegion, MotionCommand, WalkSpeed},
@@ -27,7 +26,6 @@ pub fn execute(
         HeadMotion::LookAt {
             target: ball_position,
             image_region_target: ImageRegion::Center,
-            camera: Some(CameraPosition::Bottom),
         }
     } else {
         HeadMotion::LookLeftAndRightOf {

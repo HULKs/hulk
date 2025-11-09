@@ -2,17 +2,16 @@ use std::{time::Duration, time::SystemTime};
 
 use color_eyre::Result;
 use kinematics::forward::{head_to_neck, neck_to_robot};
-use projection::{camera_matrices::CameraMatrices, camera_matrix::CameraMatrix};
+use projection::camera_matrix::CameraMatrix;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::{Camera, Field, Ground, Head, Robot};
+use coordinate_systems::{Camera, Field, Ground, Robot};
 use framework::MainOutput;
 use linear_algebra::{distance, point, vector, Isometry3, Point2};
 use types::{
-    camera_position::CameraPosition,
     cycle_time::CycleTime,
-    joints::{head::HeadJoints, Joints},
+    joints::head::HeadJoints,
     motion_command::{GlanceDirection, HeadMotion, ImageRegion, MotionCommand},
     parameters::ImageRegionParameters,
     sensor_data::SensorData,
@@ -30,7 +29,7 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    camera_matrices: Input<Option<CameraMatrices>, "camera_matrices?">,
+    camera_matrix: Input<Option<CameraMatrix>, "camera_matrix?">,
     cycle_time: Input<CycleTime, "cycle_time">,
     ground_to_robot: Input<Option<Isometry3<Ground, Robot>>, "ground_to_robot?">,
     motion_command: Input<MotionCommand, "motion_command">,
@@ -42,7 +41,6 @@ pub struct CycleContext {
     image_region_parameters: Parameter<ImageRegionParameters, "look_at.image_regions">,
     glance_direction_toggle_interval:
         Parameter<Duration, "look_at.glance_direction_toggle_interval">,
-    minimum_bottom_focus_pitch: Parameter<f32, "look_at.minimum_bottom_focus_pitch">,
 }
 
 #[context]
@@ -66,8 +64,8 @@ impl LookAt {
             look_at: measured_head_angles.into(),
         });
 
-        let camera_matrices = match context.camera_matrices {
-            Some(camera_matrices) => camera_matrices,
+        let camera_matrix = match context.camera_matrix {
+            Some(camera_matrix) => camera_matrix,
             None => return default_output,
         };
 
@@ -106,16 +104,14 @@ impl LookAt {
                 .expected_referee_position
                 .unwrap_or(&point!(0.0, 0.0));
 
-        let (target, image_region_target, camera) = match *head_motion {
+        let (target, image_region_target, with_camera) = match *head_motion {
             HeadMotion::LookAt {
                 target,
                 image_region_target,
-                camera,
-            } => (target, image_region_target, camera),
+            } => (target, image_region_target, true),
             HeadMotion::LookAtReferee {
                 image_region_target,
-                camera,
-            } => (expected_referee_position, image_region_target, camera),
+            } => (expected_referee_position, image_region_target, true),
             HeadMotion::LookLeftAndRightOf { target } => {
                 let left_right_shift = vector![
                     0.0,
@@ -127,7 +123,7 @@ impl LookAt {
                         GlanceDirection::RightOfTarget => target - left_right_shift,
                     },
                     ImageRegion::default(),
-                    None,
+                    false,
                 )
             }
             _ => return default_output,
@@ -138,27 +134,19 @@ impl LookAt {
         let robot_to_zero_head = zero_head_to_robot.inverse();
         let ground_to_zero_head = robot_to_zero_head * ground_to_robot;
 
-        let request = match camera {
-            Some(camera) => {
-                let camera_matrix = match camera {
-                    CameraPosition::Top => &camera_matrices.top,
-                    CameraPosition::Bottom => &camera_matrices.bottom,
-                };
-                look_at_with_camera(
-                    target,
-                    camera_matrix.head_to_camera * ground_to_zero_head,
-                    camera_matrix,
-                    image_region_target,
-                    *context.image_region_parameters,
-                )
-            }
-            None => look_at(
-                context.sensor_data.positions,
-                ground_to_zero_head,
-                camera_matrices,
-                ImageRegion::default(),
+        let request = match with_camera {
+            true => look_at_with_camera(
                 target,
-                *context.minimum_bottom_focus_pitch,
+                camera_matrix.head_to_camera * ground_to_zero_head,
+                camera_matrix,
+                image_region_target,
+                *context.image_region_parameters,
+            ),
+            false => look_at_with_camera(
+                target,
+                camera_matrix.head_to_camera * ground_to_zero_head,
+                camera_matrix,
+                ImageRegion::default(),
                 *context.image_region_parameters,
             ),
         };
@@ -166,45 +154,6 @@ impl LookAt {
         Ok(MainOutputs {
             look_at: request.into(),
         })
-    }
-}
-
-fn look_at(
-    joint_angles: Joints<f32>,
-    ground_to_zero_head: Isometry3<Ground, Head>,
-    camera_matrices: &CameraMatrices,
-    image_region_target: ImageRegion,
-    target: Point2<Ground>,
-    minimum_bottom_focus_pitch: f32,
-    image_region_parameters: ImageRegionParameters,
-) -> HeadJoints<f32> {
-    let head_to_top_camera = camera_matrices.top.head_to_camera;
-    let head_to_bottom_camera = camera_matrices.bottom.head_to_camera;
-
-    let top_focus_angles = look_at_with_camera(
-        target,
-        head_to_top_camera * ground_to_zero_head,
-        &camera_matrices.top,
-        image_region_target,
-        image_region_parameters,
-    );
-    let bottom_focus_angles = look_at_with_camera(
-        target,
-        head_to_bottom_camera * ground_to_zero_head,
-        &camera_matrices.bottom,
-        image_region_target,
-        image_region_parameters,
-    );
-
-    let pitch_movement_top = (top_focus_angles.pitch - joint_angles.head.pitch).abs();
-    let pitch_movement_bottom = (bottom_focus_angles.pitch - joint_angles.head.pitch).abs();
-
-    let force_top_focus = bottom_focus_angles.pitch < minimum_bottom_focus_pitch;
-
-    if force_top_focus || pitch_movement_top < pitch_movement_bottom {
-        top_focus_angles
-    } else {
-        bottom_focus_angles
     }
 }
 

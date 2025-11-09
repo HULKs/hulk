@@ -25,8 +25,9 @@ impl RobotDimensions {
     pub const RIGHT_SHOULDER_TO_RIGHT_ELBOW: Vector3<RightUpperArm> = vector![0.105, -0.015, 0.0];
     pub const LEFT_ELBOW_TO_LEFT_WRIST: Vector3<LeftForearm> = vector![0.05595, 0.0, 0.0];
     pub const RIGHT_ELBOW_TO_RIGHT_WRIST: Vector3<RightForearm> = vector![0.05595, 0.0, 0.0];
-    pub const HEAD_TO_TOP_CAMERA: Vector3<Head> = vector![0.05871, 0.0, 0.06364];
-    pub const HEAD_TO_BOTTOM_CAMERA: Vector3<Head> = vector![0.05071, 0.0, 0.01774];
+
+    pub const HEAD_TO_CAMERA: Vector3<Head> = vector![0.05868, 0.00002, 0.09849];
+
     pub const LEFT_SOLE_OUTLINE: [Point3<LeftSole>; 32] = [
         point![-0.05457, -0.015151, 0.0],
         point![-0.050723, -0.021379, 0.0],

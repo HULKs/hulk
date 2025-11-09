@@ -18,23 +18,20 @@ use linear_algebra::Isometry2;
 use parameters::directory::Scope;
 use projection::camera_matrix::CameraMatrix;
 use serde_json::Value;
-use types::{camera_position::CameraPosition, field_dimensions::FieldDimensions};
+use types::field_dimensions::FieldDimensions;
 
 use crate::{nao::Nao, value_buffer::BufferHandle};
 
 const ROBOT_CORRECTION_PATH: &str =
     "parameters.camera_matrix_parameters.calibration.correction_in_robot";
-const CAMERA_TOP_CORRECTION_PATH: &str =
-    "parameters.camera_matrix_parameters.calibration.correction_in_camera_top";
-const CAMERA_BOTTOM_CORRECTION_PATH: &str =
-    "parameters.camera_matrix_parameters.calibration.correction_in_camera_bottom";
+const CAMERA_CORRECTION_PATH: &str =
+    "parameters.camera_matrix_parameters.calibration.correction_in_camera";
 
 pub struct SemiAutomaticCalibrationContext {
     nao: Arc<Nao>,
     state: OptimizationState,
 
-    top_camera_correction: BufferHandle<nalgebra::Vector3<f32>>,
-    bottom_camera_correction: BufferHandle<nalgebra::Vector3<f32>>,
+    camera_correction: BufferHandle<nalgebra::Vector3<f32>>,
     robot_correction: BufferHandle<nalgebra::Vector3<f32>>,
     field_dimensions: BufferHandle<FieldDimensions>,
 }
@@ -47,7 +44,6 @@ pub struct DrawnLine {
 
 #[derive(Clone, Debug)]
 pub struct SavedMeasurement {
-    pub camera_position: CameraPosition,
     pub camera_matrix: CameraMatrix,
     pub drawn_lines: Vec<DrawnLine>,
 }
@@ -62,16 +58,14 @@ enum OptimizationState {
 
 impl SemiAutomaticCalibrationContext {
     pub fn new(nao: Arc<Nao>) -> Self {
-        let top_camera_correction = nao.subscribe_value(ROBOT_CORRECTION_PATH);
-        let bottom_camera_correction = nao.subscribe_value(CAMERA_BOTTOM_CORRECTION_PATH);
-        let robot_correction = nao.subscribe_value(CAMERA_TOP_CORRECTION_PATH);
+        let camera_correction = nao.subscribe_value(ROBOT_CORRECTION_PATH);
+        let robot_correction = nao.subscribe_value(CAMERA_CORRECTION_PATH);
         let field_dimensions = nao.subscribe_value("parameters.field_dimensions");
 
         Self {
             nao,
             state: OptimizationState::NotOptimized,
-            top_camera_correction,
-            bottom_camera_correction,
+            camera_correction,
             robot_correction,
             field_dimensions,
         }
@@ -89,35 +83,25 @@ impl SemiAutomaticCalibrationContext {
             .robot_correction
             .get_last_value()?
             .wrap_err("failed to get robot correction")?;
-        let correction_in_camera_top = self
-            .top_camera_correction
+        let correction_in_camera = self
+            .camera_correction
             .get_last_value()?
-            .wrap_err("failed to get camera top correction")?;
-        let correction_in_camera_bottom = self
-            .bottom_camera_correction
-            .get_last_value()?
-            .wrap_err("failed to get camera bottom correction")?;
+            .wrap_err("failed to get camera correction")?;
 
         let correction_in_robot = nalgebra::Rotation3::from_euler_angles(
             correction_in_robot.x,
             correction_in_robot.y,
             correction_in_robot.z,
         );
-        let correction_in_camera_top = nalgebra::Rotation3::from_euler_angles(
-            correction_in_camera_top.x,
-            correction_in_camera_top.y,
-            correction_in_camera_top.z,
-        );
-        let correction_in_camera_bottom = nalgebra::Rotation3::from_euler_angles(
-            correction_in_camera_bottom.x,
-            correction_in_camera_bottom.y,
-            correction_in_camera_bottom.z,
+        let correction_in_camera = nalgebra::Rotation3::from_euler_angles(
+            correction_in_camera.x,
+            correction_in_camera.y,
+            correction_in_camera.z,
         );
 
         Ok(Corrections {
             correction_in_robot,
-            correction_in_camera_top,
-            correction_in_camera_bottom,
+            correction_in_camera,
         })
     }
 
@@ -129,14 +113,8 @@ impl SemiAutomaticCalibrationContext {
         let (x, y, z) = corrections.correction_in_robot.euler_angles();
         save_function(ROBOT_CORRECTION_PATH, serde_json::to_value([x, y, z])?)?;
 
-        let (x, y, z) = corrections.correction_in_camera_top.euler_angles();
-        save_function(CAMERA_TOP_CORRECTION_PATH, serde_json::to_value([x, y, z])?)?;
-
-        let (x, y, z) = corrections.correction_in_camera_bottom.euler_angles();
-        save_function(
-            CAMERA_BOTTOM_CORRECTION_PATH,
-            serde_json::to_value([x, y, z])?,
-        )?;
+        let (x, y, z) = corrections.correction_in_camera.euler_angles();
+        save_function(CAMERA_CORRECTION_PATH, serde_json::to_value([x, y, z])?)?;
 
         Ok(())
     }
@@ -205,7 +183,6 @@ fn optimize(
                     camera_matrix: measurement.camera_matrix.clone(),
                     line_type: line.line_type,
                     line_segment: line.line_segment,
-                    position: measurement.camera_position,
                     field_to_ground: Isometry2::identity(),
                 })
         })

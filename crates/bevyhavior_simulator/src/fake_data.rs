@@ -7,7 +7,7 @@ use context_attribute::context;
 use coordinate_systems::{Field, Ground, Robot};
 use framework::MainOutput;
 use linear_algebra::{Isometry2, Isometry3, Orientation3, Point2};
-use projection::camera_matrices::CameraMatrices;
+use projection::camera_matrix::CameraMatrix;
 use spl_network_messages::HulkMessage;
 use types::{
     ball_position::{BallPosition, HypotheticalBallPosition},
@@ -34,8 +34,7 @@ pub struct FakeData {}
 #[allow(dead_code)]
 pub struct CreationContext {
     maximum_velocity: Parameter<HeadJoints<f32>, "head_motion.maximum_velocity">,
-    top_camera_matrix_parameters:
-        Parameter<CameraMatrixParameters, "camera_matrix_parameters.vision_top">,
+    camera_matrix_parameters: Parameter<CameraMatrixParameters, "camera_matrix_parameters.vision">,
     ball_filter: Parameter<BallFilterParameters, "ball_filter">,
     glance_angle: Parameter<f32, "look_at.glance_angle">,
 }
@@ -68,7 +67,7 @@ pub struct MainOutputs {
     pub stand_up_back_estimated_remaining_duration: MainOutput<Option<Duration>>,
     pub calibration_command: MainOutput<Option<CalibrationCommand>>,
     pub stand_up_front_estimated_remaining_duration: MainOutput<Option<Duration>>,
-    pub camera_matrices: MainOutput<Option<CameraMatrices>>,
+    pub camera_matrix: MainOutput<Option<CameraMatrix>>,
     pub robot_to_ground: MainOutput<Option<Isometry3<Robot, Ground>>>,
     pub robot_orientation: MainOutput<Option<Orientation3<Field>>>,
     pub obstacle_avoiding_arms: MainOutput<ArmCommands>,
@@ -114,7 +113,7 @@ impl FakeData {
                 .stand_up_back_estimated_remaining_duration
                 .into(),
             calibration_command: last_database.calibration_command.into(),
-            camera_matrices: last_database.camera_matrices.clone().into(),
+            camera_matrix: last_database.camera_matrix.clone().into(),
             robot_to_ground: last_database.robot_to_ground.into(),
             robot_orientation: last_database.robot_orientation.into(),
             obstacle_avoiding_arms: last_database.obstacle_avoiding_arms.into(),

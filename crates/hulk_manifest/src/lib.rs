@@ -17,7 +17,6 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
                 nodes: vec![
                     // "vision::ball_detection",
                     // "vision::calibration_measurement_provider",
-                    // "vision::camera_matrix_extractor",
                     // "vision::feet_detection",
                     // "vision::field_border_detection",
                     // "vision::image_segmenter",
@@ -31,7 +30,7 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
             // CyclerManifest {
             //     name: "ObjectDetection",
             //     kind: CyclerKind::Perception,
-            //     instances: vec!["Top"],
+            //     instances: vec![""],
             //     setup_nodes: vec!["vision::image_receiver"],
             //     nodes: vec![
             //         "object_detection::pose_detection",

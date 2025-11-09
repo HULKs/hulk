@@ -6,10 +6,7 @@ use geometry::line_segment::LineSegment;
 use types::{image_segments::GenericSegment, line_data::LineDiscardReason};
 
 use crate::{
-    panels::{
-        image::{cycler_selector::VisionCycler, overlay::Overlay},
-        image_segments::edge_type_to_color,
-    },
+    panels::{image::overlay::Overlay, image_segments::edge_type_to_color},
     twix_painter::TwixPainter,
     value_buffer::BufferHandle,
 };
@@ -25,16 +22,12 @@ pub struct LineDetection {
 impl Overlay for LineDetection {
     const NAME: &'static str = "Line Detection";
 
-    fn new(nao: std::sync::Arc<crate::nao::Nao>, selected_cycler: VisionCycler) -> Self {
-        let cycler_path = selected_cycler.as_path();
+    fn new(nao: std::sync::Arc<crate::nao::Nao>) -> Self {
         Self {
-            lines_in_image: nao
-                .subscribe_value(format!("{cycler_path}.additional_outputs.lines_in_image")),
-            discarded_lines: nao
-                .subscribe_value(format!("{cycler_path}.additional_outputs.discarded_lines")),
-            filtered_segments: nao.subscribe_value(format!(
-                "{cycler_path}.additional_outputs.line_detection.filtered_segments"
-            )),
+            lines_in_image: nao.subscribe_value("Vision.additional_outputs.lines_in_image"),
+            discarded_lines: nao.subscribe_value("Vision.additional_outputs.discarded_lines"),
+            filtered_segments: nao
+                .subscribe_value("Vision.additional_outputs.line_detection.filtered_segments"),
         }
     }
 

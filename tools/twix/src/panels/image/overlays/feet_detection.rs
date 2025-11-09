@@ -7,9 +7,7 @@ use projection::{camera_matrix::CameraMatrix, Projection};
 use types::detected_feet::{ClusterPoint, DetectedFeet};
 
 use crate::{
-    nao::Nao,
-    panels::image::{cycler_selector::VisionCycler, overlay::Overlay},
-    twix_painter::TwixPainter,
+    nao::Nao, panels::image::overlay::Overlay, twix_painter::TwixPainter,
     value_buffer::BufferHandle,
 };
 
@@ -22,14 +20,12 @@ pub struct FeetDetection {
 impl Overlay for FeetDetection {
     const NAME: &'static str = "Feet Detection";
 
-    fn new(nao: Arc<Nao>, selected_cycler: VisionCycler) -> Self {
-        let cycler_path = selected_cycler.as_path();
+    fn new(nao: Arc<Nao>) -> Self {
         Self {
-            camera_matrix: nao.subscribe_value(format!("{cycler_path}.main_outputs.camera_matrix")),
-            cluster_points: nao.subscribe_value(format!(
-                "{cycler_path}.additional_outputs.feet_detection.cluster_points"
-            )),
-            detected_feet: nao.subscribe_value(format!("{cycler_path}.main_outputs.detected_feet")),
+            camera_matrix: nao.subscribe_value("Vision.main_outputs.camera_matrix"),
+            cluster_points: nao
+                .subscribe_value("Vision.additional_outputs.feet_detection.cluster_points"),
+            detected_feet: nao.subscribe_value("Vision.main_outputs.detected_feet"),
         }
     }
 

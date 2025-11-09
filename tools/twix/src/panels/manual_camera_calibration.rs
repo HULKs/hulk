@@ -8,32 +8,22 @@ use parameters::directory::Scope;
 use serde_json::Value;
 
 use crate::{
-    log_error::LogError,
-    nao::Nao,
-    panel::Panel,
-    panels::{BOTTOM_CAMERA_EXTRINSICS_PATH, TOP_CAMERA_EXTRINSICS_PATH},
+    log_error::LogError, nao::Nao, panel::Panel, panels::CAMERA_EXTRINSICS_PATH,
     value_buffer::BufferHandle,
 };
 
 pub struct ManualCalibrationPanel {
     nao: Arc<Nao>,
-    top_camera: BufferHandle<Vector3<f32>>,
-    bottom_camera: BufferHandle<Vector3<f32>>,
+    camera: BufferHandle<Vector3<f32>>,
 }
 
 impl Panel for ManualCalibrationPanel {
     const NAME: &'static str = "Manual Calibration";
 
     fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
-        let top_camera = nao.subscribe_value(format!("parameters.{TOP_CAMERA_EXTRINSICS_PATH}"));
-        let bottom_camera =
-            nao.subscribe_value(format!("parameters.{BOTTOM_CAMERA_EXTRINSICS_PATH}"));
+        let camera = nao.subscribe_value(format!("parameters.{CAMERA_EXTRINSICS_PATH}"));
 
-        Self {
-            nao,
-            top_camera,
-            bottom_camera,
-        }
+        Self { nao, camera }
     }
 }
 
@@ -41,24 +31,8 @@ impl Widget for &mut ManualCalibrationPanel {
     fn ui(self, ui: &mut Ui) -> Response {
         ui.style_mut().spacing.slider_width = ui.available_size().x - 250.0;
         ui.vertical(|ui| {
-            if let Ok(Some(value)) = self.top_camera.get_last_value() {
-                draw_calibration_ui(
-                    ui,
-                    "Top Camera",
-                    value,
-                    &self.nao,
-                    TOP_CAMERA_EXTRINSICS_PATH,
-                );
-            }
-            ui.separator();
-            if let Ok(Some(value)) = self.bottom_camera.get_last_value() {
-                draw_calibration_ui(
-                    ui,
-                    "Bottom Camera",
-                    value,
-                    &self.nao,
-                    BOTTOM_CAMERA_EXTRINSICS_PATH,
-                );
+            if let Ok(Some(value)) = self.camera.get_last_value() {
+                draw_calibration_ui(ui, "Camera", value, &self.nao, CAMERA_EXTRINSICS_PATH);
             }
         })
         .response

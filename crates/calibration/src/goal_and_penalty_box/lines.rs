@@ -2,10 +2,7 @@ use coordinate_systems::{Field, Ground, Pixel};
 use geometry::line_segment::LineSegment;
 use linear_algebra::{distance, Isometry2};
 use projection::{camera_matrix::CameraMatrix, Error as ProjectionError, Projection};
-use types::{
-    camera_position::CameraPosition,
-    field_dimensions::{FieldDimensions, Half, Side},
-};
+use types::field_dimensions::{FieldDimensions, Half, Side};
 
 use crate::{
     corrections::{get_corrected_camera_matrix, Corrections},
@@ -67,7 +64,6 @@ pub struct Measurement<Frame> {
     pub line_type: LineType,
     pub line_segment: LineSegment<Frame>,
     pub camera_matrix: CameraMatrix,
-    pub position: CameraPosition,
     pub field_to_ground: Isometry2<Field, Ground>,
 }
 
@@ -111,11 +107,7 @@ impl CalculateResiduals for Residuals {
     where
         Self: Sized,
     {
-        let camera_matrix = get_corrected_camera_matrix(
-            &measurement.camera_matrix,
-            measurement.position,
-            parameters,
-        );
+        let camera_matrix = get_corrected_camera_matrix(&measurement.camera_matrix, parameters);
 
         let expected_line = measurement
             .line_type

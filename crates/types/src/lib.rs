@@ -6,7 +6,6 @@ pub mod ball_position;
 pub mod bounding_box;
 pub mod buttons;
 pub mod calibration;
-pub mod camera_position;
 pub mod color;
 pub mod condition_input;
 pub mod cycle_time;

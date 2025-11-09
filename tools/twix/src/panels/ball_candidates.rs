@@ -20,11 +20,7 @@ use crate::{
     value_buffer::BufferHandle,
 };
 
-use super::image::cycler_selector::{VisionCycler, VisionCyclerSelector};
-
 pub struct BallCandidatePanel {
-    nao: Arc<Nao>,
-    cycler: VisionCycler,
     ball_radius_enlargement_factor: BufferHandle<f32>,
     ball_candidates: BufferHandle<Option<Vec<CandidateEvaluation>>>,
     image: BufferHandle<YCbCr422Image>,
@@ -33,25 +29,12 @@ pub struct BallCandidatePanel {
 impl Panel for BallCandidatePanel {
     const NAME: &'static str = "Ball Candidates";
 
-    fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
-        let cycler = value
-            .and_then(|value| {
-                let string = value.get("cycler")?.as_str()?;
-                VisionCycler::try_from(string).ok()
-            })
-            .unwrap_or(VisionCycler::Top);
-
-        let cycler_path = cycler.as_snake_case_path();
-        let ball_radius_enlargement_factor = nao.subscribe_value(format!(
-            "parameters.ball_detection.{cycler_path}.ball_radius_enlargement_factor",
-        ));
-        let cycler_path = cycler.as_path();
-        let ball_candidates =
-            nao.subscribe_value(format!("{cycler_path}.additional_outputs.ball_candidates"));
-        let image = nao.subscribe_value(format!("{cycler_path}.main_outputs.image"));
+    fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
+        let ball_radius_enlargement_factor =
+            nao.subscribe_value("parameters.ball_detection.vision.ball_radius_enlargement_factor");
+        let ball_candidates = nao.subscribe_value("Vision.additional_outputs.ball_candidates");
+        let image = nao.subscribe_value("Vision.main_outputs.image");
         Self {
-            nao,
-            cycler,
             ball_radius_enlargement_factor,
             ball_candidates,
             image,
@@ -60,7 +43,7 @@ impl Panel for BallCandidatePanel {
 
     fn save(&self) -> Value {
         json!({
-            "cycler": self.cycler.as_path(),
+            "cycler": "Vision",
         })
     }
 }
@@ -68,13 +51,6 @@ impl Panel for BallCandidatePanel {
 impl Widget for &mut BallCandidatePanel {
     fn ui(self, ui: &mut Ui) -> Response {
         ui.vertical(|ui| {
-            ui.horizontal(|ui| {
-                let mut cycler_selector = VisionCyclerSelector::new(&mut self.cycler);
-                if cycler_selector.ui(ui).changed() {
-                    self.resubscribe();
-                }
-            });
-            ui.separator();
             if let Some((ball_radius_enlargement_factor, ball_candidates, image)) = self
                 .ball_radius_enlargement_factor
                 .get_last_value()
@@ -113,21 +89,7 @@ impl Widget for &mut BallCandidatePanel {
     }
 }
 
-impl BallCandidatePanel {
-    fn resubscribe(&mut self) {
-        let cycler_path = self.cycler.as_snake_case_path();
-        self.ball_radius_enlargement_factor = self.nao.subscribe_value(format!(
-            "parameters.ball_detection.{cycler_path}.ball_radius_enlargement_factor",
-        ));
-        let cycler_path = self.cycler.as_path();
-        self.ball_candidates = self
-            .nao
-            .subscribe_value(format!("{cycler_path}.additional_outputs.ball_candidates"));
-        self.image = self
-            .nao
-            .subscribe_value(format!("{cycler_path}.main_outputs.image"));
-    }
-}
+impl BallCandidatePanel {}
 
 struct CandidateSample {
     ball_radius_enlargement_factor: f32,

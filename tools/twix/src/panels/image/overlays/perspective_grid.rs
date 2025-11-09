@@ -7,9 +7,7 @@ use linear_algebra::point;
 use types::perspective_grid_candidates::Row;
 
 use crate::{
-    nao::Nao,
-    panels::image::{cycler_selector::VisionCycler, overlay::Overlay},
-    twix_painter::TwixPainter,
+    nao::Nao, panels::image::overlay::Overlay, twix_painter::TwixPainter,
     value_buffer::BufferHandle,
 };
 
@@ -20,12 +18,10 @@ pub struct PerspectiveGrid {
 impl Overlay for PerspectiveGrid {
     const NAME: &'static str = "Perspective Grid";
 
-    fn new(nao: Arc<Nao>, selected_cycler: VisionCycler) -> Self {
-        let cycler_path = selected_cycler.as_path();
+    fn new(nao: Arc<Nao>) -> Self {
         Self {
-            perspective_grid: nao.subscribe_value(format!(
-                "{cycler_path}.additional_outputs.perspective_grid_ball_sizes"
-            )),
+            perspective_grid: nao
+                .subscribe_value("Vision.additional_outputs.perspective_grid_ball_sizes"),
         }
     }
 

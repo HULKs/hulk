@@ -54,7 +54,7 @@ This action returns a so-called `motion_command`, which is handed over to the `m
 
 Multiple different things in the following order:
 
-1. Red: in top or bottom half of the eye, latest processed image is longer than 1 second ago of respectively top or bottom camera (vision cycler is stalled/crashed/restarting)
+1. Red: in the eye, latest processed image is longer than 1 second ago (vision cycler is stalled/crashed/restarting)
 2. Yellow: Referee Ready or FreeKick pose detected
 3. Purple: Referee Ready or FreeKick pose percepted this cycle
 4. Green: Ball Percept this control cycle

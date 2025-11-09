@@ -15,7 +15,7 @@ use image::RgbImage;
 use linear_algebra::{distance, point, vector, Point2};
 use projection::camera_matrix::CameraMatrix;
 use serde_json::Value;
-use types::{camera_position::CameraPosition, ycbcr422_image::YCbCr422Image};
+use types::ycbcr422_image::YCbCr422Image;
 
 use crate::{
     nao::Nao,
@@ -23,7 +23,6 @@ use crate::{
     panels::camera_calibration::optimization::{
         DrawnLine, SavedMeasurement, SemiAutomaticCalibrationContext,
     },
-    panels::image::cycler_selector::{VisionCycler, VisionCyclerSelector},
     twix_painter::{Orientation, TwixPainter},
     value_buffer::BufferHandle,
     zoom_and_pan::ZoomAndPanTransform,
@@ -49,14 +48,11 @@ enum UserState {
 }
 
 pub struct SemiAutomaticCameraCalibrationPanel {
-    nao: Arc<Nao>,
-    top_camera: BufferHandle<CameraMatrix>,
-    bottom_camera: BufferHandle<CameraMatrix>,
+    camera: BufferHandle<CameraMatrix>,
     image_handle: Option<TextureHandle>,
 
     image_buffer: BufferHandle<YCbCr422Image>,
     zoom_and_pan: ZoomAndPanTransform,
-    cycler: VisionCycler,
 
     user_state: UserState,
     drawn_lines: Vec<DrawnLine>,
@@ -67,33 +63,19 @@ pub struct SemiAutomaticCameraCalibrationPanel {
 impl Panel for SemiAutomaticCameraCalibrationPanel {
     const NAME: &'static str = "Semi-Automatic Camera Calibration";
 
-    fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
-        let top_camera =
-            nao.subscribe_value("Control.main_outputs.uncalibrated_camera_matrices.top");
-        let bottom_camera =
-            nao.subscribe_value("Control.main_outputs.uncalibrated_camera_matrices.bottom");
-
-        let cycler = value
-            .and_then(|value| {
-                let string = value.get("cycler")?.as_str()?;
-                VisionCycler::try_from(string).ok()
-            })
-            .unwrap_or(VisionCycler::Top);
-        let cycler_path = cycler.as_path();
+    fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
+        let camera = nao.subscribe_value("Control.main_outputs.uncalibrated_camera_matrix");
 
         let image_buffer = {
-            let path = format!("{cycler_path}.main_outputs.image");
+            let path = "Vision.main_outputs.image";
             nao.subscribe_value(path)
         };
 
         Self {
-            nao: nao.clone(),
-            top_camera,
-            bottom_camera,
+            camera,
             image_buffer,
             image_handle: None,
             zoom_and_pan: ZoomAndPanTransform::default(),
-            cycler,
             user_state: UserState::Idle,
             drawn_lines: Vec::new(),
             saved_measurements: Vec::new(),
@@ -104,11 +86,6 @@ impl Panel for SemiAutomaticCameraCalibrationPanel {
 
 impl Widget for &mut SemiAutomaticCameraCalibrationPanel {
     fn ui(self, ui: &mut Ui) -> Response {
-        let mut cycler_selector = VisionCyclerSelector::new(&mut self.cycler);
-        if cycler_selector.ui(ui).changed() {
-            self.resubscribe();
-        }
-
         ui.horizontal(|ui| {
             if ui.button("Next (and save lines)").clicked() {
                 let result = self.save_measurement();
@@ -173,13 +150,6 @@ impl Widget for &mut SemiAutomaticCameraCalibrationPanel {
 }
 
 impl SemiAutomaticCameraCalibrationPanel {
-    fn resubscribe(&mut self) {
-        let cycler_path = self.cycler.as_path();
-        self.image_buffer = self
-            .nao
-            .subscribe_value(format!("{cycler_path}.main_outputs.image"));
-    }
-
     fn show_image(&mut self, painter: &TwixPainter<Pixel>) -> Result<()> {
         let context = painter.context();
 
@@ -195,7 +165,7 @@ impl SemiAutomaticCameraCalibrationPanel {
                 RgbImage::from(ycbcr).as_raw(),
             );
 
-            let image_identifier = format!("bytes://image-{:?}", self.cycler);
+            let image_identifier = "bytes://image-vision".to_string();
             let texture_handle =
                 context.load_texture(&image_identifier, image, TextureOptions::NEAREST);
             self.image_handle = Some(texture_handle);
@@ -216,25 +186,14 @@ impl SemiAutomaticCameraCalibrationPanel {
     }
 
     pub fn save_measurement(&mut self) -> Result<()> {
-        if self.cycler == VisionCycler::Top {
-            self.saved_measurements.push(SavedMeasurement {
-                camera_position: CameraPosition::Top,
-                camera_matrix: self
-                    .top_camera
-                    .get_last_value()?
-                    .wrap_err("no camera_matrix found")?,
-                drawn_lines: self.drawn_lines.clone(),
-            });
-        } else {
-            self.saved_measurements.push(SavedMeasurement {
-                camera_position: CameraPosition::Bottom,
-                camera_matrix: self
-                    .bottom_camera
-                    .get_last_value()?
-                    .wrap_err("no camera_matrix found")?,
-                drawn_lines: self.drawn_lines.clone(),
-            });
-        }
+        self.saved_measurements.push(SavedMeasurement {
+            camera_matrix: self
+                .camera
+                .get_last_value()?
+                .wrap_err("no camera_matrix found")?,
+            drawn_lines: self.drawn_lines.clone(),
+        });
+
         Ok(())
     }
 

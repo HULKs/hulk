@@ -59,7 +59,7 @@ fn main() -> Result<()> {
             CyclerManifest {
                 name: "ObjectDetection",
                 kind: CyclerKind::Perception,
-                instances: vec!["Top"],
+                instances: vec![""],
                 setup_nodes: vec!["vision::image_receiver"],
                 nodes: vec![
                     "object_detection::pose_detection",

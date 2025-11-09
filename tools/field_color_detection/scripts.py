@@ -55,7 +55,7 @@ def create_RGB_previews(
         print(f"Processed {len(selected_files)} images from {subfolder}")
 
 
-def count_top_bottom_images(parent_folder: str) -> None:
+def count_images(parent_folder: str) -> None:
     subfolders = os.listdir(parent_folder)
     subfolders.sort()
     for subfolder in subfolders:
@@ -67,14 +67,7 @@ def count_top_bottom_images(parent_folder: str) -> None:
         if len(png_files) == 0:
             continue
 
-        top_count = sum(
-            1 for path in png_files if "top" in os.path.basename(path).lower()
-        )
-        bottom_count = sum(
-            1
-            for path in png_files
-            if "bottom" in os.path.basename(path).lower()
-        )
+        count = len(png_files)
         dataset_id = os.path.basename(subfolder)[:5]
 
         subsubfolders = [
@@ -85,7 +78,7 @@ def count_top_bottom_images(parent_folder: str) -> None:
         ]
 
         print(
-            f"{dataset_id} {len(png_files):d} {top_count + bottom_count:d} {top_count:d} {bottom_count:d} {len(subsubfolders)}"
+            f"{dataset_id} {len(png_files):d} {count:d} {count:d} {len(subsubfolders)}"
         )
 
 
@@ -107,19 +100,16 @@ def rename_folders(parent_folder: str, start_number: int) -> None:
 
 
 def count_images_in_log_folders(root_directory: str) -> tuple[int, int]:
-    top_count = 0
-    bottom_count = 0
+    count = 0
 
     for root, _, files in os.walk(root_directory):
         folder_name = os.path.basename(root)
         image_files = [f for f in files if f.lower().endswith(".png")]
 
-        if folder_name == "log_top":
-            top_count += len(image_files)
-        elif folder_name == "log_bottom":
-            bottom_count += len(image_files)
+        if folder_name == "log":
+            count += len(image_files)
 
-    return top_count, bottom_count
+    return count
 
 
 def count_upper_lower_per_subfolder(root_dir: str) -> None:
@@ -155,10 +145,8 @@ def split_images_into_camera_folders(root_dir: str):
             if not os.path.isdir(level2_path):
                 continue
 
-            top_dir = os.path.join(level2_path, "topCamera")
-            bottom_dir = os.path.join(level2_path, "bottomCamera")
-            os.makedirs(top_dir, exist_ok=True)
-            os.makedirs(bottom_dir, exist_ok=True)
+            dir = os.path.join(level2_path, "camera")
+            os.makedirs(dir, exist_ok=True)
 
             for filename in os.listdir(level2_path):
                 file_path = os.path.join(level2_path, filename)
@@ -168,9 +156,7 @@ def split_images_into_camera_folders(root_dir: str):
                     continue
 
                 if filename.startswith("upper_"):
-                    shutil.copy(file_path, os.path.join(top_dir, filename))
-                elif filename.startswith("lower_"):
-                    shutil.copy(file_path, os.path.join(bottom_dir, filename))
+                    shutil.copy(file_path, os.path.join(dir, filename))
 
 
 def analyze_dataset(root_dir: str):
@@ -182,8 +168,7 @@ def analyze_dataset(root_dir: str):
             continue
 
         ip_set = set()
-        vision_top_count = 0
-        vision_bottom_count = 0
+        vision_count = 0
 
         for half in ["first-half", "second-half", "golden-goal"]:
             half_path = os.path.join(match_path, half)
@@ -203,35 +188,25 @@ def analyze_dataset(root_dir: str):
                     if not os.path.isdir(ts_path):
                         continue
 
-                    vision_top = os.path.join(ts_path, "VisionTop")
-                    vision_bottom = os.path.join(ts_path, "VisionBottom")
+                    vision = os.path.join(ts_path, "Vision")
 
-                    if os.path.isdir(vision_top):
-                        vision_top_count += len(
+                    if os.path.isdir(vision):
+                        vision_count += len(
                             [
                                 f
-                                for f in os.listdir(vision_top)
+                                for f in os.listdir(vision)
                                 if f.endswith(".png")
                             ]
                         )
 
-                    if os.path.isdir(vision_bottom):
-                        vision_bottom_count += len(
-                            [
-                                f
-                                for f in os.listdir(vision_bottom)
-                                if f.endswith(".png")
-                            ]
-                        )
 
         results[match_folder] = {
             "unique_ip_count": len(ip_set),
-            "vision_top_images": vision_top_count,
-            "vision_bottom_images": vision_bottom_count,
+            "vision_images": vision_count,
         }
 
         print(
-            f"{match_folder[:5]} {vision_top_count} {vision_bottom_count} {len(ip_set)}"
+            f"{match_folder[:5]} {vision_count} {len(ip_set)}"
         )
     return results
 
@@ -247,6 +222,6 @@ if __name__ == "__main__":
 
     # rename_folders(source_directory, 160)
     # create_RGB_previews(source_directory, target_directory)
-    # count_top_bottom_images(source_directory)
+    # count_images(source_directory)
 
     analyze_dataset(source_directory)

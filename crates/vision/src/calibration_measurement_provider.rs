@@ -14,7 +14,6 @@ use linear_algebra::point;
 use projection::{camera_matrix::CameraMatrix, Projection};
 use types::{
     calibration::{CalibrationCaptureResponse, CalibrationCommand},
-    camera_position::CameraPosition,
     field_dimensions::FieldDimensions,
     ycbcr422_image::YCbCr422Image,
 };
@@ -27,10 +26,9 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
+    camera_matrix: RequiredInput<Option<CameraMatrix>, "Control", "camera_matrix?">,
     image: Input<YCbCr422Image, "image">,
     calibration_command: Input<Option<CalibrationCommand>, "control", "calibration_command?">,
-    camera_position: Parameter<CameraPosition, "image_receiver.$cycler_instance.camera_position">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 }
 
@@ -47,17 +45,15 @@ impl CalibrationMeasurementProvider {
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let calibration_measurement = if let Some(CalibrationCommand {
-            camera,
             dispatch_time,
             capture,
             ..
         }) = context.calibration_command
         {
-            if *capture && camera == context.camera_position {
+            if *capture {
                 let measurement = get_measurement_from_image(
                     context.image,
                     context.camera_matrix,
-                    *context.camera_position,
                     context.field_dimensions,
                 );
 
@@ -81,12 +77,11 @@ impl CalibrationMeasurementProvider {
 fn get_measurement_from_image(
     image: &YCbCr422Image,
     matrix: &CameraMatrix,
-    position: CameraPosition,
     field_dimensions: &FieldDimensions,
 ) -> Result<Measurement> {
     // TODO replace with a real implementation
 
-    get_fake_measurement(image, matrix, position, field_dimensions)
+    get_fake_measurement(image, matrix, field_dimensions)
 }
 
 fn project_line_to_camera(
@@ -102,7 +97,6 @@ fn project_line_to_camera(
 fn get_fake_measurement(
     _image: &YCbCr422Image,
     matrix: &CameraMatrix,
-    position: CameraPosition,
     field_dimensions: &FieldDimensions,
 ) -> Result<Measurement> {
     // Minimal length lines representing the 3 lines to make sure they are in the camera's FOV
@@ -122,7 +116,6 @@ fn get_fake_measurement(
     if rng.random_range(0..10) > 5 {
         Ok(Measurement {
             matrix: matrix.clone(),
-            position,
             lines: Lines {
                 border_line: project_line_to_camera(matrix, border_line)?,
                 connecting_line: project_line_to_camera(matrix, connecting_line)?,

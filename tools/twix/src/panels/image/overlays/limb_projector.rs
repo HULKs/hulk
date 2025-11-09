@@ -4,9 +4,7 @@ use eframe::epaint::{Color32, Stroke};
 use types::limb::ProjectedLimbs;
 
 use crate::{
-    panels::image::{cycler_selector::VisionCycler, overlay::Overlay},
-    twix_painter::TwixPainter,
-    value_buffer::BufferHandle,
+    panels::image::overlay::Overlay, twix_painter::TwixPainter, value_buffer::BufferHandle,
 };
 
 pub struct LimbProjector {
@@ -16,11 +14,9 @@ pub struct LimbProjector {
 impl Overlay for LimbProjector {
     const NAME: &'static str = "Projected Limbs";
 
-    fn new(nao: std::sync::Arc<crate::nao::Nao>, selected_cycler: VisionCycler) -> Self {
-        let cycler_path = selected_cycler.as_path();
+    fn new(nao: std::sync::Arc<crate::nao::Nao>) -> Self {
         Self {
-            projected_limbs: nao
-                .subscribe_value(format!("{cycler_path}.main_outputs.projected_limbs")),
+            projected_limbs: nao.subscribe_value("Vision.main_outputs.projected_limbs"),
         }
     }
 

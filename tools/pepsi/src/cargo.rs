@@ -46,7 +46,6 @@ lazy_static! {
             ("hula", "services/hula"),
             ("power-panic", "services/power-panic"),
             ("annotato", "tools/annotato"),
-            ("camera_matrix_extractor", "tools/camera_matrix_extractor"),
             ("depp", "tools/depp"),
             ("fanta", "tools/fanta"),
             ("mio", "tools/mio"),

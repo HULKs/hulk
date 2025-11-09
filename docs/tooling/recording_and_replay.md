@@ -8,14 +8,14 @@ A started communication server during replay can be used to investigate the reco
 ## Record
 
 - Manual upload to a robot
-    - Use `./pepsi recording ...` to enable recording at different recording rates, e.g., `./pepsi recording Control=1,VisionTop=30`
+    - Use `./pepsi recording ...` to enable recording at different recording rates, e.g., `./pepsi recording Control=1,Vision=30`
         - This will set the cycler instances and recording rate in `etc/parameters/framework.json`
     - Use `./pepsi upload ...` to upload as usual (this includes the framework configuration with the cycler instances)
 - Pregame
-    - Use `./pepsi pregame --recording-intervals ... ...` to enable recording at different recording rates and upload to the robot in one step, e.g., `./pepsi pregame --recording-intervals Control=1,VisionTop=30 ...`
+    - Use `./pepsi pregame --recording-intervals ... ...` to enable recording at different recording rates and upload to the robot in one step, e.g., `./pepsi pregame --recording-intervals Control=1,Vision=30 ...`
         - This will set and overwrite the recording intervals in `etc/parameters/framework.json`
 
-Be careful enabling vision cyclers because this will result in a lot of data being recorded. Top and bottom vision cyclers may fill the entire disk within approximately 10 minutes.
+Be careful enabling vision cyclers because this will result in a lot of data being recorded. The vision cycler may fill the entire disk fast (NAO: within approximately 10 minutes).
 
 Data is only recorded during `PrimaryState::Ready`, `PrimaryState::Set`, and `PrimaryState::Play`.
 

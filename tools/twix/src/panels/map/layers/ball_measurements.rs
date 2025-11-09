@@ -12,20 +12,15 @@ use crate::{
 };
 
 pub struct BallMeasurement {
-    balls_top: BufferHandle<Option<Vec<BallPercept>>>,
-    balls_bottom: BufferHandle<Option<Vec<BallPercept>>>,
+    balls: BufferHandle<Option<Vec<BallPercept>>>,
 }
 
 impl Layer<Ground> for BallMeasurement {
     const NAME: &'static str = "Ball Measurements";
 
     fn new(nao: Arc<Nao>) -> Self {
-        let balls_top = nao.subscribe_value("VisionTop.main_outputs.balls");
-        let balls_bottom = nao.subscribe_value("VisionBottom.main_outputs.balls");
-        Self {
-            balls_top,
-            balls_bottom,
-        }
+        let balls = nao.subscribe_value("Vision.main_outputs.balls");
+        Self { balls }
     }
 
     fn paint(
@@ -33,14 +28,9 @@ impl Layer<Ground> for BallMeasurement {
         painter: &TwixPainter<Ground>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        let balls_top = self.balls_top.get_last_value()?.flatten();
-        let balls_bottom = self.balls_bottom.get_last_value()?.flatten();
+        let balls = self.balls.get_last_value()?.flatten();
 
-        for ball in balls_top
-            .iter()
-            .flatten()
-            .chain(balls_bottom.iter().flatten())
-        {
+        for ball in balls.iter().flatten() {
             let position = Point2::from(ball.percept_in_ground.mean);
             let covariance = ball.percept_in_ground.covariance;
 

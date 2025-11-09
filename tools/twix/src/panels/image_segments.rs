@@ -11,7 +11,6 @@ use serde::{Deserialize, Serialize};
 use coordinate_systems::Pixel;
 use serde_json::{json, Value};
 use types::{
-    camera_position::CameraPosition,
     color::{Hsv, RgChromaticity, Rgb},
     image_segments::{Direction, EdgeType, ImageSegments, Segment},
 };
@@ -42,7 +41,6 @@ enum ColorMode {
 pub struct ImageSegmentsPanel {
     nao: Arc<Nao>,
     buffer: BufferHandle<ImageSegments>,
-    camera_position: CameraPosition,
     direction: Direction,
     color_mode: ColorMode,
     use_filtered_segments: bool,
@@ -53,13 +51,7 @@ impl Panel for ImageSegmentsPanel {
     const NAME: &'static str = "Image Segments";
 
     fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
-        let camera_position = match value.and_then(|value| value.get("camera_position")) {
-            Some(Value::String(string)) if string == "Bottom" => CameraPosition::Bottom,
-            _ => CameraPosition::Top,
-        };
-        let value_buffer = nao.subscribe_value(format!(
-            "Vision{camera_position:?}.main_outputs.image_segments"
-        ));
+        let value_buffer = nao.subscribe_value("Vision.main_outputs.image_segments");
         let color_mode = match value.and_then(|value| value.get("color_mode")) {
             Some(Value::String(string)) => serde_json::from_str(&format!("\"{string}\"")).unwrap(),
             _ => ColorMode::Original,
@@ -71,7 +63,6 @@ impl Panel for ImageSegmentsPanel {
         Self {
             nao,
             buffer: value_buffer,
-            camera_position,
             direction: Direction::Vertical,
             color_mode,
             use_filtered_segments,
@@ -81,7 +72,6 @@ impl Panel for ImageSegmentsPanel {
 
     fn save(&self) -> Value {
         json!({
-            "camera_position": self.camera_position.clone(),
             "color_mode": self.color_mode.clone(),
             "use_filtered_segments": self.use_filtered_segments.clone()
         })
@@ -91,27 +81,6 @@ impl Panel for ImageSegmentsPanel {
 impl Widget for &mut ImageSegmentsPanel {
     fn ui(self, ui: &mut Ui) -> Response {
         ui.horizontal(|ui| {
-            let mut camera_selection_changed = false;
-            let _camera_selector = ComboBox::from_label("Camera")
-                .selected_text(format!("{:?}", self.camera_position))
-                .show_ui(ui, |ui| {
-                    if ui
-                        .selectable_value(&mut self.camera_position, CameraPosition::Top, "Top")
-                        .clicked()
-                    {
-                        camera_selection_changed = true;
-                    };
-                    if ui
-                        .selectable_value(
-                            &mut self.camera_position,
-                            CameraPosition::Bottom,
-                            "Bottom",
-                        )
-                        .changed()
-                    {
-                        camera_selection_changed = true;
-                    };
-                });
             ComboBox::from_label("Direction")
                 .selected_text(format!("{:?}", self.direction))
                 .show_ui(ui, |ui| {
@@ -120,20 +89,10 @@ impl Widget for &mut ImageSegmentsPanel {
                 });
             let filtered_segments_checkbox =
                 ui.checkbox(&mut self.use_filtered_segments, "Filtered Segments");
-            if camera_selection_changed || filtered_segments_checkbox.changed() {
-                let output = match (self.camera_position, self.use_filtered_segments) {
-                    (CameraPosition::Top, false) => {
-                        "VisionTop.main_outputs.image_segments".to_string()
-                    }
-                    (CameraPosition::Top, true) => {
-                        "VisionTop.main_outputs.filtered_segments".to_string()
-                    }
-                    (CameraPosition::Bottom, false) => {
-                        "VisionBottom.main_outputs.image_segments".to_string()
-                    }
-                    (CameraPosition::Bottom, true) => {
-                        "VisionBottom.main_outputs.filtered_segments".to_string()
-                    }
+            if filtered_segments_checkbox.changed() {
+                let output = match self.use_filtered_segments {
+                    false => "Vision.main_outputs.image_segments".to_string(),
+                    true => "Vision.main_outputs.filtered_segments".to_string(),
                 };
                 self.buffer = self.nao.subscribe_value(output);
             }

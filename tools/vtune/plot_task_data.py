@@ -111,46 +111,30 @@ if args.output == "plot":
     results = c.fetchall()
     conn.close()
 
-    brain_top_data = defaultdict(list)
-    brain_bot_data = defaultdict(list)
+    brain_data = defaultdict(list)
     motion_data = defaultdict(list)
     for result in results:
-        if result[2] == "VisionTop":
+        if result[2] == "Vision":
             if args.supress_wait_modules and result[1] == "ImageReceiver":
                 continue
-            brain_top_data[result[1]].append(result[0])
-        if result[2] == "VisionBottom":
-            if args.supress_wait_modules and result[1] == "ImageReceiver":
-                continue
-            brain_bot_data[result[1]].append(result[0])
+            brain_data[result[1]].append(result[0])
         if result[2] == "Control":
             if args.supress_wait_modules and result[1] == "SensorDataReceiver":
                 continue
             motion_data[result[1]].append(result[0])
 
-    pandas_vision_top_data = pandas.DataFrame(
-        dict([(k, pandas.Series(v)) for k, v in brain_top_data.items()])
-    )
-    pandas_vision_bot_data = pandas.DataFrame(
-        dict([(k, pandas.Series(v)) for k, v in brain_bot_data.items()])
+    pandas_vision_data = pandas.DataFrame(
+        dict([(k, pandas.Series(v)) for k, v in brain_data.items()])
     )
     pandas_control_data = pandas.DataFrame(
         dict([(k, pandas.Series(v)) for k, v in motion_data.items()])
     )
 
-    # Plot Brain Top Image Data
+    # Plot Brain Image Data
     make_boxplot(
         1,
-        pandas_vision_top_data,
-        "Vision Top Image Nodes\n" + project_name,
-        "ms/cycle",
-    )
-
-    # Plot Brain Bottom Image Data
-    make_boxplot(
-        2,
-        pandas_vision_bot_data,
-        "Vision Bottom Image Nodes\n" + project_name,
+        pandas_vision_data,
+        "Vision Image Nodes\n" + project_name,
         "ms/cycle",
     )
 

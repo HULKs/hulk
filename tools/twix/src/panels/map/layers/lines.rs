@@ -13,26 +13,19 @@ use crate::{
 };
 
 pub struct Lines {
-    lines_in_image_top: BufferHandle<Option<Vec<LineSegment<Pixel>>>>,
-    camera_matrix_top: BufferHandle<Option<CameraMatrix>>,
-    lines_in_image_bottom: BufferHandle<Option<Vec<LineSegment<Pixel>>>>,
-    camera_matrix_bottom: BufferHandle<Option<CameraMatrix>>,
+    lines_in_image: BufferHandle<Option<Vec<LineSegment<Pixel>>>>,
+    camera_matrix: BufferHandle<Option<CameraMatrix>>,
 }
 
 impl Layer<Ground> for Lines {
     const NAME: &'static str = "Lines";
 
     fn new(nao: Arc<Nao>) -> Self {
-        let lines_in_image_top = nao.subscribe_value("VisionTop.additional_outputs.lines_in_image");
-        let camera_matrix_top = nao.subscribe_value("VisionTop.main_outputs.camera_matrix");
-        let lines_in_image_bottom =
-            nao.subscribe_value("VisionBottom.additional_outputs.lines_in_image");
-        let camera_matrix_bottom = nao.subscribe_value("VisionBottom.main_outputs.camera_matrix");
+        let lines_in_image = nao.subscribe_value("Vision.additional_outputs.lines_in_image");
+        let camera_matrix = nao.subscribe_value("Vision.main_outputs.camera_matrix");
         Self {
-            lines_in_image_top,
-            camera_matrix_top,
-            lines_in_image_bottom,
-            camera_matrix_bottom,
+            lines_in_image,
+            camera_matrix,
         }
     }
 
@@ -41,21 +34,14 @@ impl Layer<Ground> for Lines {
         painter: &TwixPainter<Ground>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        let Some(lines_in_image_top) = self.lines_in_image_top.get_last_value()? else {
+        let Some(lines_in_image) = self.lines_in_image.get_last_value()? else {
             return Ok(());
         };
-        let Some(camera_matrix_top) = self.camera_matrix_top.get_last_value()? else {
+        let Some(camera_matrix) = self.camera_matrix.get_last_value()? else {
             return Ok(());
         };
-        paint_lines(painter, lines_in_image_top, camera_matrix_top);
+        paint_lines(painter, lines_in_image, camera_matrix);
 
-        let Some(lines_in_image_bottom) = self.lines_in_image_bottom.get_last_value()? else {
-            return Ok(());
-        };
-        let Some(camera_matrix_bottom) = self.camera_matrix_bottom.get_last_value()? else {
-            return Ok(());
-        };
-        paint_lines(painter, lines_in_image_bottom, camera_matrix_bottom);
         Ok(())
     }
 }
