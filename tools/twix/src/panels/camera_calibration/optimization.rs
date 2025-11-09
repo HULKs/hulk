@@ -57,13 +57,13 @@ enum OptimizationState {
 }
 
 impl SemiAutomaticCalibrationContext {
-    pub fn new(robot: Arc<Nao>) -> Self {
-        let camera_correction = robot.subscribe_value(ROBOT_CORRECTION_PATH);
-        let robot_correction = robot.subscribe_value(CAMERA_CORRECTION_PATH);
-        let field_dimensions = robot.subscribe_value("parameters.field_dimensions");
+    pub fn new(nao: Arc<Nao>) -> Self {
+        let camera_correction = nao.subscribe_value(ROBOT_CORRECTION_PATH);
+        let robot_correction = nao.subscribe_value(CAMERA_CORRECTION_PATH);
+        let field_dimensions = nao.subscribe_value("parameters.field_dimensions");
 
         Self {
-            nao: robot,
+            nao,
             state: OptimizationState::NotOptimized,
             camera_correction,
             robot_correction,

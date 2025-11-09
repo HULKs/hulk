@@ -6,7 +6,7 @@ use projection::camera_matrix::CameraMatrix;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::{Camera, Field, Ground, Head, Robot};
+use coordinate_systems::{Camera, Field, Ground, Robot};
 use framework::MainOutput;
 use linear_algebra::{distance, point, vector, Isometry3, Point2};
 use types::{
@@ -142,11 +142,11 @@ impl LookAt {
                 image_region_target,
                 *context.image_region_parameters,
             ),
-            false => look_at(
-                ground_to_zero_head,
+            false => look_at_with_camera(
+                target,
+                camera_matrix.head_to_camera * ground_to_zero_head,
                 camera_matrix,
                 ImageRegion::default(),
-                target,
                 *context.image_region_parameters,
             ),
         };
@@ -155,24 +155,6 @@ impl LookAt {
             look_at: request.into(),
         })
     }
-}
-
-fn look_at(
-    ground_to_zero_head: Isometry3<Ground, Head>,
-    camera_matrix: &CameraMatrix,
-    image_region_target: ImageRegion,
-    target: Point2<Ground>,
-    image_region_parameters: ImageRegionParameters,
-) -> HeadJoints<f32> {
-    let head_to_camera = camera_matrix.head_to_camera;
-
-    look_at_with_camera(
-        target,
-        head_to_camera * ground_to_zero_head,
-        camera_matrix,
-        image_region_target,
-        image_region_parameters,
-    )
 }
 
 fn look_at_with_camera(

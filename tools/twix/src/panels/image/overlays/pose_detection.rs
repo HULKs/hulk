@@ -48,11 +48,10 @@ impl Overlay for PoseDetection {
     const NAME: &'static str = "Pose Detection";
 
     fn new(nao: Arc<Nao>) -> Self {
-        let cycler = "ObjectDetection";
         let accepted_human_poses =
-            nao.subscribe_value(format!("{cycler}.main_outputs.accepted_human_poses"));
+            nao.subscribe_value("ObjectDetection.main_outputs.accepted_human_poses");
         let rejected_human_poses =
-            nao.subscribe_value(format!("{cycler}.main_outputs.rejected_human_poses"));
+            nao.subscribe_value("ObjectDetection.main_outputs.rejected_human_poses");
         let filtered_game_controller_state =
             nao.subscribe_value("Control.main_outputs.filtered_game_controller_state".to_string());
         Self {

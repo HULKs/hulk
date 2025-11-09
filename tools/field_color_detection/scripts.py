@@ -67,9 +67,7 @@ def count_images(parent_folder: str) -> None:
         if len(png_files) == 0:
             continue
 
-        count = sum(
-            1 for path in png_files
-        )
+        count = len(png_files)
         dataset_id = os.path.basename(subfolder)[:5]
 
         subsubfolders = [

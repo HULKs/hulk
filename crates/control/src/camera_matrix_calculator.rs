@@ -47,7 +47,7 @@ pub struct CycleContext {
 #[derive(Default)]
 pub struct MainOutputs {
     pub uncalibrated_camera_matrix: MainOutput<Option<CameraMatrix>>,
-    pub camera_matrices: MainOutput<Option<CameraMatrix>>,
+    pub camera_matrix: MainOutput<Option<CameraMatrix>>,
 }
 
 impl CameraMatrixCalculator {
@@ -99,7 +99,7 @@ impl CameraMatrixCalculator {
 
         Ok(MainOutputs {
             uncalibrated_camera_matrix: Some(uncalibrated_camera_matrix).into(),
-            camera_matrices: Some(calibrated_camera_matrix).into(),
+            camera_matrix: Some(calibrated_camera_matrix).into(),
         })
     }
 }
