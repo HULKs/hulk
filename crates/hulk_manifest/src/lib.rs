@@ -117,10 +117,21 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
             },
             CyclerManifest {
                 name: "Behavior",
-                kind: CyclerKind::RealTime,
+                kind: CyclerKind::Perception,
                 instances: vec![""],
                 setup_nodes: vec!["behavior::data_receiver"],
                 nodes: vec!["behavior::walk_to_ball"],
+                execution_time_warning_threshold: Some(Duration::from_secs_f32(1.0 / 83.0)),
+            },
+            CyclerManifest {
+                name: "World_state",
+                kind: CyclerKind::Perception,
+                instances: vec![""],
+                setup_nodes: vec!["world_state::data_receiver"],
+                nodes: vec![
+                    "world_state::ball_filter",
+                    "world_state::ball_state_composer",
+                ],
                 execution_time_warning_threshold: Some(Duration::from_secs_f32(1.0 / 83.0)),
             },
             // CyclerManifest {

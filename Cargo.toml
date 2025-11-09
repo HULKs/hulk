@@ -52,6 +52,7 @@ members = [
   "crates/types",
   "crates/vision",
   "crates/walking_inference",
+  "crates/world_state",
   "crates/zed",
   "tools/annotato",
   "tools/depp",
