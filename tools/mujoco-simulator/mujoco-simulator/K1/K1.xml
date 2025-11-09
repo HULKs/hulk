@@ -21,6 +21,9 @@
             mark="cross"
             markrgb=".8 .8 .8"
         />
+        <texture 
+        name="ball"
+        file = "https://raw.githubusercontent.com/cyberbotics/webots/R2021b/projects/objects/balls/protos/textures/football_base_color.jpg"/>
         <material
             name="matplane"
             reflectance="0.3"
@@ -79,15 +82,26 @@
             condim="1"
         />
 
-        <geom name="static_box" 
-          type="box" 
-          size="0.2 0.2 1"   pos="2 1 0"    rgba="0.8 0.2 0.2 1"/>
+        <geom name="static_box"
+            type="box"
+            size="0.2 0.2 1" pos="2 1 0" rgba="0.8 0.2 0.2 1" />
 
-        <geom type="sphere" 
-            size="0.2" 
-            pos="2 -1 0.2"
-            rgba="0.2 0.8 0.2 1" 
-            mass="1"/>
+        <body>
+            <geom name="ball"
+                type="sphere"
+                size="0.095"
+                pos="2 -1 2.0"
+                rgba="0.2 0.8 0.2 1"
+                mass="0.450"
+                solref="0.15 0.25"
+                priority="1" />
+            <joint
+                name="ball_joint"
+                type="free"
+                limited="false"
+                actuatorfrclimited="false"
+            />
+        </body>
 
         <body name="Trunk" pos="0 0 0.6">
             <site name='imu' size='0.01' pos='0.0 0.0 0.0' />
@@ -174,8 +188,8 @@
                     />
                     <geom type="mesh" rgba="0.75294 0.75294 0.75294 1" mesh="Head_2" />
                     <body name="camera_body" pos="0.05868 0.00002 0.09849" euler="0 -1.5707963267 0">
-                    <camera euler="0.0 -0.2125811028 -1.5707963267"
-                        ipd="0.064" resolution="1936 1216" name="camera" />
+                        <camera euler="0.0 -0.2125811028 -1.5707963267"
+                            ipd="0.064" resolution="1936 1216" name="camera" />
                     </body>
                 </body>
             </body>
