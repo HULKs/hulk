@@ -8,6 +8,7 @@ homepage.workspace = true
 [dependencies]
 audio = { workspace = true }
 ball_filter = { workspace = true }
+behavior = { workspace = true }
 bincode = { workspace = true }
 booster = { workspace = true }
 buffered_watch = { workspace = true }

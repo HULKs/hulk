@@ -1,3 +1,4 @@
+pub mod ball_filter;
 pub mod ball_projector;
 pub mod camera_matrix_calculator;
 pub mod game_controller_filter;

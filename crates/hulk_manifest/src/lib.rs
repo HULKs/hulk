@@ -107,6 +107,7 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
                 instances: vec![""],
                 setup_nodes: vec!["world_state::trigger"],
                 nodes: vec![
+                    "world_state::ball_filter",
                     "world_state::game_controller_filter",
                     "world_state::game_controller_state_filter",
                     "world_state::ball_projector",
