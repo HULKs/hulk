@@ -1,5 +1,5 @@
 #![recursion_limit = "256"]
-use std::{env::args, fs::File, io::stdout, sync::Arc};
+use std::{env::args, fs::File, io::stdout, path::Path, sync::Arc};
 
 use color_eyre::{
     eyre::{Result, WrapErr},
@@ -67,6 +67,10 @@ async fn main() -> Result<()> {
             keep_running.cancel();
         }
     })?;
+
+    if !Path::new("logs").exists() {
+        std::fs::create_dir("logs").wrap_err("failed to create logs directory")?;
+    }
 
     let file =
         File::open(framework_parameters_path).wrap_err("failed to open framework parameters")?;
