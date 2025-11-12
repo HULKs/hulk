@@ -160,7 +160,11 @@ log = "0.4.25"
 mcap = "0.15.0"
 mlua = { version = "0.10.3", features = ["luajit", "serialize", "vendored"] }
 motionfile = { path = "crates/motionfile" }
-nalgebra = { version = "0.33.2", features = ["serde", "serde-serialize", "convert-glam029"] }
+nalgebra = { version = "0.33.2", features = [
+  "convert-glam029",
+  "serde",
+  "serde-serialize",
+] }
 nao = { path = "crates/nao" }
 ndarray = { version = "0.16.1", features = ["serde"] }
 ndarray-conv = "0.4.1"
