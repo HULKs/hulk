@@ -31,6 +31,7 @@ use eframe::{
     wgpu::PrimitiveTopology,
 };
 use futures_util::{SinkExt, StreamExt};
+use log::debug;
 use nalgebra::{Isometry3, Point3, Vector3};
 use serde::{Deserialize, Serialize};
 use simulation_message::ConnectionInfo;
@@ -61,7 +62,7 @@ impl BevyRenderTarget {
             while new_size.x < size.x || new_size.y < size.y {
                 new_size *= 2.0;
             }
-            println!("New render texture size: {new_size}");
+            debug!("New render texture size: {new_size}");
             (self.texture, self.texture_id) = Self::create_texture(new_size, &self.wgpu_state);
         }
         self.output_size = size;
@@ -296,7 +297,7 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
                             tokio::time::sleep(Duration::from_secs(1)).await;
                             continue;
                         };
-                            println!("Websocket connected");
+                    println!("Websocket connected");
                     let (mut sender, mut receiver) = stream.split();
                     let initial_request = ConnectionInfo::viewer();
                     sender.send(Message::text(serde_json::to_string(&initial_request).unwrap())).await.unwrap();
