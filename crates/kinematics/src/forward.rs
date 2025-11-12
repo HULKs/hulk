@@ -166,7 +166,7 @@ pub fn right_hip_to_right_pelvis(angles: &LegJoints<f32>) -> Isometry3<RightHip,
 pub fn right_thigh_to_right_hip(angles: &LegJoints<f32>) -> Isometry3<RightThigh, RightHip> {
     Isometry3::from_parts(
         RobotDimensions::RIGHT_HIP_TO_RIGHT_THIGH,
-        Orientation3::new(Vector3::y_axis() * angles.hip_pitch),
+        Orientation3::new(Vector3::y_axis() * angles.hip_yaw),
     )
 }
 

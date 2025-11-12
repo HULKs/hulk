@@ -23,10 +23,10 @@ use super::mirror::Mirror;
     PathIntrospect,
 )]
 pub enum ArmJoint {
-    Elbow,
     ShoulderPitch,
     ShoulderRoll,
     ShoulderYaw,
+    Elbow,
 }
 
 #[derive(
