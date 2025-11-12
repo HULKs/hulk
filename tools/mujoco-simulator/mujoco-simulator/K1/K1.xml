@@ -21,16 +21,7 @@
             mark="cross"
             markrgb=".8 .8 .8"
         />
-        <texture
-            name="ball"
-            type="2d"
-            file="football_base_color.png"
-        />
 
-        <material name="ball">
-            <layer texture="ball" role="rgb" />
-
-        </material>
         <material
             name="matplane"
             reflectance="0.3"
@@ -65,6 +56,8 @@
         <mesh name="ball" file="ball.obj" scale="0.095 0.095 0.095" />
     </asset>
 
+    <include file="ball.xml" />
+
     <worldbody>
         <light
             directional="true"
@@ -93,33 +86,6 @@
         <geom name="static_box"
             type="box"
             size="0.2 0.2 1" pos="2 1 0" rgba="0.8 0.2 0.2 1" />
-
-        <body pos="2 -1 2.0">
-            <geom name="ball"
-                type="sphere"
-                size="0.095"
-                mass="0.450"
-                solref="0.08 0.25"
-                priority="1"
-                rgba="1 1 1 0"
-            />
-
-            <geom name="ball_visual"
-                type="mesh"
-                size="0.095"
-                mesh="ball"
-                mass="0"
-                contype="0"
-                conaffinity="0"
-                material="ball"
-            />
-            <joint
-                name="ball_joint"
-                type="free"
-                limited="false"
-                actuatorfrclimited="false"
-            />
-        </body>
 
         <body name="Trunk" pos="0 0 0.6">
             <site name='imu' size='0.01' pos='0.0 0.0 0.0' />
