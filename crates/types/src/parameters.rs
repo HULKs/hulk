@@ -14,7 +14,8 @@ use crate::{
     joints::head::HeadJoints,
     joints::Joints,
     motion_command::{KickVariant, MotionCommand},
-    roles::Role, step::Step,
+    roles::Role,
+    step::Step,
 };
 
 #[derive(

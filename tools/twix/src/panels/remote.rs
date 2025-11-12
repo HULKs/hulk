@@ -7,7 +7,7 @@ use communication::messages::TextOrBinary;
 use eframe::egui::Widget;
 use gilrs::{Axis, Button, Gamepad, GamepadId, Gilrs};
 use serde_json::{json, Value};
-use types::{joints::head::HeadJoints, step::Step};
+use types::step::Step;
 
 use crate::{
     nao::Nao,
@@ -56,7 +56,7 @@ impl RemotePanel {
 
     fn update_step(&self, step: Value) {
         self.nao.write(
-            "parameters.remote_controll_parameters.walk",
+            "parameters.remote_control_parameters.walk",
             TextOrBinary::Text(step),
         )
     }
@@ -72,9 +72,6 @@ impl RemotePanel {
 impl Widget for &mut RemotePanel {
     fn ui(self, ui: &mut eframe::egui::Ui) -> eframe::egui::Response {
         const UPDATE_DELAY: Duration = Duration::from_millis(100);
-        const HEAD_PITCH_SCALE: f32 = 1.0;
-        const HEAD_YAW_SCALE: f32 = 1.0;
-
         self.gilrs.inc();
 
         if ui.checkbox(&mut self.enabled, "Enabled (Start)").changed() {
@@ -125,10 +122,7 @@ impl Widget for &mut RemotePanel {
                 }
             }
 
-            ui.vertical(|ui| {
-                ui.label(format!("{step:#?}"))
-            })
-            .inner
+            ui.vertical(|ui| ui.label(format!("{step:#?}"))).inner
         } else {
             ui.label("no controller found")
         }
