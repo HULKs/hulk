@@ -31,6 +31,7 @@ use eframe::{
     wgpu::PrimitiveTopology,
 };
 use futures_util::{SinkExt, StreamExt};
+use log::{debug, error, info};
 use nalgebra::{Isometry3, Point3, Vector3};
 use serde::{Deserialize, Serialize};
 use simulation_message::ConnectionInfo;
@@ -61,7 +62,7 @@ impl BevyRenderTarget {
             while new_size.x < size.x || new_size.y < size.y {
                 new_size *= 2.0;
             }
-            println!("New render texture size: {new_size}");
+            debug!("New render texture size: {new_size}");
             (self.texture, self.texture_id) = Self::create_texture(new_size, &self.wgpu_state);
         }
         self.output_size = size;
@@ -292,18 +293,18 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
                 loop {
                     let Ok((stream, _response)) = connect_async("ws://localhost:8000/scene/subscribe")
                         .await else {
-                            println!("Websocket connection failed, retrying...");
+                            info!("Websocket connection failed, retrying...");
                             tokio::time::sleep(Duration::from_secs(1)).await;
                             continue;
                         };
-                            println!("Websocket connected");
+                    info!("Websocket connected");
                     let (mut sender, mut receiver) = stream.split();
                     let initial_request = ConnectionInfo::viewer();
                     sender.send(Message::text(serde_json::to_string(&initial_request).unwrap())).await.unwrap();
                     loop {
                         select! {
                             maybe_message = receiver.next() => {
-                                let Some(Ok(message)) = maybe_message else { println!("websocket receive failed"); break; };
+                                let Some(Ok(message)) = maybe_message else { error!("websocket receive failed"); break; };
                                 let message: SceneMessage = match message {
                                     Message::Binary(bytes) => SceneMessage::Description(rmp_serde::from_slice(&bytes).unwrap()),
                                     Message::Text(text) => SceneMessage::Update(serde_json::from_str(text.as_str()).unwrap()),
