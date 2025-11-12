@@ -386,31 +386,32 @@ fn spawn_scene(bevy_app: &mut App, scene: SceneDescription) {
                     )),
             );
         }
-        bevy_app
-            .world_mut()
-            .spawn((
-                Transform::default(),
-                Visibility::default(),
-                BodyComponent { name: name.clone() },
-            ))
-            .set_parent_in_place(scene_root)
-            .with_children(|parent| {
-                for (geom, material) in body.geoms.iter().zip(materials) {
-                    let Some(mesh_name) = geom.mesh.as_ref() else {
-                        continue;
-                    };
-                    println!("'{mesh_name}'");
-                    let mut entity = parent.spawn((
-                        Transform::from_translation(geom.pos).with_rotation(bevy_quat(geom.quat)),
-                        Visibility::default(),
-                        Mesh3d(meshes.get(mesh_name).cloned().unwrap()),
-                        MeshMaterial3d(material),
-                    ));
-                    if mesh_name == "Trunk" {
-                        entity.insert(TrunkComponent);
-                    }
-                }
-            });
+        let mut parent = bevy_app.world_mut().spawn((
+            Transform::default(),
+            Visibility::default(),
+            BodyComponent { name: name.clone() },
+        ));
+        parent.set_parent_in_place(scene_root);
+        parent.with_children(|parent| {
+            for (geom, material) in body.geoms.iter().zip(materials) {
+                let Some(mesh_name) = geom.mesh.as_ref() else {
+                    continue;
+                };
+                parent.spawn((
+                    Transform::from_translation(geom.pos).with_rotation(bevy_quat(geom.quat)),
+                    Visibility::default(),
+                    Mesh3d(meshes.get(mesh_name).cloned().unwrap()),
+                    MeshMaterial3d(material),
+                ));
+            }
+        });
+        if body
+            .geoms
+            .iter()
+            .any(|geom| geom.mesh.as_deref() == Some("Trunk"))
+        {
+            parent.insert(TrunkComponent);
+        }
     }
 }
 
