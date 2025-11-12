@@ -1,5 +1,5 @@
 <mujoco model="K1">
-    <compiler angle="radian" meshdir="meshes/" />
+    <compiler angle="radian" meshdir="meshes/" texturedir="textures/" />
 
     <asset>
         <texture
@@ -21,9 +21,16 @@
             mark="cross"
             markrgb=".8 .8 .8"
         />
-        <texture 
-        name="ball"
-        file = "https://raw.githubusercontent.com/cyberbotics/webots/R2021b/projects/objects/balls/protos/textures/football_base_color.jpg"/>
+        <texture
+            name="ball"
+            type="2d"
+            file="football_base_color.png"
+        />
+
+        <material name="ball">
+            <layer texture="ball" role="rgb" />
+
+        </material>
         <material
             name="matplane"
             reflectance="0.3"
@@ -55,6 +62,7 @@
         <mesh name="Right_Shank" file="Right_Shank.STL" />
         <mesh name="Right_Ankle_Cross" file="Right_Ankle_Cross.STL" />
         <mesh name="Right_Foot" file="Right_Foot.STL" />
+        <mesh name="ball" file="ball.obj" scale="0.095 0.095 0.095" />
     </asset>
 
     <worldbody>
@@ -86,15 +94,25 @@
             type="box"
             size="0.2 0.2 1" pos="2 1 0" rgba="0.8 0.2 0.2 1" />
 
-        <body>
+        <body pos="2 -1 2.0">
             <geom name="ball"
                 type="sphere"
                 size="0.095"
-                pos="2 -1 2.0"
-                rgba="0.2 0.8 0.2 1"
                 mass="0.450"
-                solref="0.15 0.25"
-                priority="1" />
+                solref="0.08 0.25"
+                priority="1"
+                rgba="1 1 1 0"
+            />
+
+            <geom name="ball_visual"
+                type="mesh"
+                size="0.095"
+                mesh="ball"
+                mass="0"
+                contype="0"
+                conaffinity="0"
+                material="ball"
+            />
             <joint
                 name="ball_joint"
                 type="free"
