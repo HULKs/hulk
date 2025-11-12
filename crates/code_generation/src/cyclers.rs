@@ -134,6 +134,7 @@ fn generate_struct(cycler: &Cycler, cyclers: &Cyclers, mode: CyclerMode) -> Toke
             own_subscribed_outputs_receiver: buffered_watch::Receiver<std::collections::HashSet<String>>,
             parameters_receiver: buffered_watch::Receiver<(std::time::SystemTime, crate::structs::Parameters)>,
             pub cycler_state: crate::structs::#module_name::CyclerState,
+            keep_running: tokio_util::sync::CancellationToken,
             #realtime_inputs
             #input_output_fields
             #node_fields
@@ -257,6 +258,7 @@ fn generate_new_method(cycler: &Cycler, cyclers: &Cyclers, mode: CyclerMode) -> 
             own_sender: buffered_watch::Sender<(std::time::SystemTime, Database)>,
             own_subscribed_outputs_receiver: buffered_watch::Receiver<std::collections::HashSet<String>>,
             mut parameters_receiver: buffered_watch::Receiver<(std::time::SystemTime, crate::structs::Parameters)>,
+            keep_running: tokio_util::sync::CancellationToken,
             #input_output_fields
             #recording_parameter_fields
         ) -> color_eyre::Result<Self> {
@@ -272,6 +274,7 @@ fn generate_new_method(cycler: &Cycler, cyclers: &Cyclers, mode: CyclerMode) -> 
                 own_subscribed_outputs_receiver,
                 parameters_receiver,
                 cycler_state,
+                keep_running,
                 #input_output_identifiers
                 #(#node_identifiers,)*
                 #recording_initializer_fields
@@ -412,16 +415,15 @@ fn generate_start_method(cycler_kind: CyclerKind) -> TokenStream {
     quote! {
         pub(crate) fn start(
             mut self,
-            keep_running: tokio_util::sync::CancellationToken,
         ) -> color_eyre::Result<std::thread::JoinHandle<color_eyre::Result<()>>> {
             let instance_name = format!("{:?}", self.instance);
             std::thread::Builder::new()
                 .name(instance_name.clone())
                 .spawn(move || {
                     #scheduler_tokens
-                    while !keep_running.is_cancelled() {
+                    while !self.keep_running.is_cancelled() {
                         if let Err(error) = self.cycle() {
-                            keep_running.cancel();
+                            self.keep_running.cancel();
                             return Err(error).wrap_err_with(|| {
                                 format!("failed to execute cycle of cycler `{:?}`", self.instance)
                             });
@@ -439,7 +441,7 @@ fn generate_start_method(cycler_kind: CyclerKind) -> TokenStream {
 fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: CyclerMode) -> TokenStream {
     let cycle_function_signature = match mode {
         CyclerMode::Run => quote! {
-            pub(crate) fn cycle(&mut self) -> color_eyre::Result<()>
+            pub(crate) fn cycle(&mut self,) -> color_eyre::Result<()>
         },
         CyclerMode::Replay => quote! {
             pub fn cycle(&mut self, now: std::time::SystemTime, mut recording_frame: &[u8]) -> color_eyre::Result<()>
@@ -581,6 +583,7 @@ fn generate_cycle_method(cycler: &Cycler, cyclers: &Cyclers, mode: CyclerMode) -
                 let (_, parameters) = &* parameters_guard;
                 #(#setup_node_executions)*
             }
+            self.keep_running.cancel();
 
             #post_setup
 

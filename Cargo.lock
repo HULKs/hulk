@@ -3595,6 +3595,7 @@ dependencies = [
  "spl_network_messages",
  "step_planning",
  "tokio",
+ "tokio-util",
  "types",
  "vision",
  "zed",
