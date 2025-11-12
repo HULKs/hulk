@@ -47,7 +47,7 @@ members = [
   "crates/step_planning_solver",
   "crates/types",
   "crates/vision",
-  "crates/zed", 
+  "crates/zed",
   "tools/annotato",
   "tools/depp",
   "tools/fanta",
