@@ -10,7 +10,7 @@ use hardware::{LowStateInterface, TimeInterface};
 use linear_algebra::Vector3;
 use nalgebra::UnitQuaternion;
 use serde::{Deserialize, Serialize};
-use types::cycle_time::CycleTime;
+use types::{cycle_time::CycleTime, joints::Joints};
 
 #[derive(Default, Serialize, Deserialize)]
 enum State {
@@ -43,6 +43,8 @@ pub struct CycleContext {
 #[context]
 pub struct MainOutputs {
     pub low_state: MainOutput<LowState>,
+    pub joint_positions: MainOutput<Joints>,
+    pub joint_velocities: MainOutput<Joints>,
     pub cycle_time: MainOutput<CycleTime>,
 }
 
@@ -72,6 +74,8 @@ impl SensorDataReceiver {
         };
 
         Ok(MainOutputs {
+            joint_positions: low_state.joint_positions().into(),
+            joint_velocities: low_state.joint_velocities().into(),
             low_state: low_state.into(),
             cycle_time: cycle_time.into(),
         })

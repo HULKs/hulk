@@ -13,3 +13,6 @@ path_serde = { workspace = true }
 pyo3 = { workspace = true }
 ros2 = { workspace = true }
 serde = { workspace = true }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+types = { workspace = true }

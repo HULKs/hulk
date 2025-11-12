@@ -7,7 +7,7 @@ use communication::messages::TextOrBinary;
 use eframe::egui::Widget;
 use gilrs::{Axis, Button, Gamepad, GamepadId, Gilrs};
 use serde_json::{json, Value};
-use types::{joints::head::HeadJoints, step::Step};
+use types::step::Step;
 
 use crate::{nao::Nao, panel::Panel};
 
@@ -53,7 +53,7 @@ impl RemotePanel {
 
     fn update_step(&self, step: Value) {
         self.nao.write(
-            "parameters.step_planner.injected_step",
+            "parameters.remote_control_parameters.walk",
             TextOrBinary::Text(step),
         )
     }
@@ -69,9 +69,6 @@ impl RemotePanel {
 impl Widget for &mut RemotePanel {
     fn ui(self, ui: &mut eframe::egui::Ui) -> eframe::egui::Response {
         const UPDATE_DELAY: Duration = Duration::from_millis(100);
-        const HEAD_PITCH_SCALE: f32 = 1.0;
-        const HEAD_YAW_SCALE: f32 = 1.0;
-
         self.gilrs.inc();
 
         if ui.checkbox(&mut self.enabled, "Enabled (Start)").changed() {
@@ -104,14 +101,6 @@ impl Widget for &mut RemotePanel {
                 .unwrap_or_default();
             let turn = turn_left - turn_right;
 
-            let head_pitch = get_axis_value(gamepad, Axis::RightStickY).unwrap_or(0.0);
-            let head_yaw = -get_axis_value(gamepad, Axis::RightStickX).unwrap_or(0.0);
-
-            let injected_head_joints = HeadJoints {
-                yaw: head_yaw * HEAD_YAW_SCALE,
-                pitch: head_pitch * HEAD_PITCH_SCALE,
-            };
-
             let step = Step {
                 forward,
                 left,
@@ -127,17 +116,10 @@ impl Widget for &mut RemotePanel {
                 {
                     self.last_update = now;
                     self.update_step(serde_json::to_value(step).unwrap());
-                    self.update_look_at_angle(serde_json::to_value(injected_head_joints).unwrap());
                 }
             }
 
-            ui.vertical(|ui| {
-                let label_1 = ui.label(format!("{step:#?}"));
-                let label_2 = ui.label(format!("{injected_head_joints:#?}"));
-
-                label_1.union(label_2)
-            })
-            .inner
+            ui.vertical(|ui| ui.label(format!("{step:#?}"))).inner
         } else {
             ui.label("no controller found")
         }

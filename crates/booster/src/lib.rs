@@ -4,8 +4,12 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use pyo3::{pyclass, pymethods, pymodule};
 use ros2::geometry_msgs::transform_stamped::TransformStamped;
 use serde::{Deserialize, Serialize};
+use types::{
+    joints::{arm::ArmJoints, head::HeadJoints, leg::LegJoints, Joints},
+    parameters::MotorCommandParameters,
+};
 
-#[pyclass(frozen, get_all)]
+#[pyclass(frozen)]
 #[derive(
     Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
@@ -30,6 +34,138 @@ impl LowState {
             imu_state,
             motor_state_parallel,
             motor_state_serial,
+        }
+    }
+}
+
+impl LowState {
+    pub fn joint_positions(&self) -> Joints {
+        let ms = &self.motor_state_serial;
+        if ms.len() != 22 {
+            panic!("expected 22 motor states, got {}", ms.len());
+        }
+
+        let head_yaw = ms[0].position;
+        let head_pitch = ms[1].position;
+        let left_shoulder_pitch = ms[2].position;
+        let left_shoulder_roll = ms[3].position;
+        let left_shoulder_yaw = ms[4].position;
+        let left_elbow = ms[5].position;
+        let right_shoulder_pitch = ms[6].position;
+        let right_shoulder_roll = ms[7].position;
+        let right_shoulder_yaw = ms[8].position;
+        let right_elbow = ms[9].position;
+        let left_hip_pitch = ms[10].position;
+        let left_hip_roll = ms[11].position;
+        let left_hip_yaw = ms[12].position;
+        let left_knee = ms[13].position;
+        let left_ankle_up = ms[14].position;
+        let left_ankle_down = ms[15].position;
+        let right_hip_pitch = ms[16].position;
+        let right_hip_roll = ms[17].position;
+        let right_hip_yaw = ms[18].position;
+        let right_knee = ms[19].position;
+        let right_ankle_up = ms[20].position;
+        let right_ankle_down = ms[21].position;
+
+        Joints {
+            head: HeadJoints {
+                yaw: head_yaw,
+                pitch: head_pitch,
+            },
+            left_arm: ArmJoints {
+                shoulder_pitch: left_shoulder_pitch,
+                shoulder_roll: left_shoulder_roll,
+                shoulder_yaw: left_shoulder_yaw,
+                elbow: left_elbow,
+            },
+            right_arm: ArmJoints {
+                shoulder_pitch: right_shoulder_pitch,
+                shoulder_roll: right_shoulder_roll,
+                shoulder_yaw: right_shoulder_yaw,
+                elbow: right_elbow,
+            },
+            left_leg: LegJoints {
+                hip_pitch: left_hip_pitch,
+                hip_yaw: left_hip_yaw,
+                hip_roll: left_hip_roll,
+                knee: left_knee,
+                ankle_up: left_ankle_up,
+                ankle_down: left_ankle_down,
+            },
+            right_leg: LegJoints {
+                hip_pitch: right_hip_pitch,
+                hip_yaw: right_hip_yaw,
+                hip_roll: right_hip_roll,
+                knee: right_knee,
+                ankle_up: right_ankle_up,
+                ankle_down: right_ankle_down,
+            },
+        }
+    }
+
+    pub fn joint_velocities(&self) -> Joints {
+        let ms = &self.motor_state_serial;
+        if ms.len() != 22 {
+            panic!("expected 22 motor states, got {}", ms.len());
+        }
+
+        let head_yaw = ms[0].velocity;
+        let head_pitch = ms[1].velocity;
+        let left_shoulder_pitch = ms[2].velocity;
+        let left_shoulder_roll = ms[3].velocity;
+        let left_shoulder_yaw = ms[4].velocity;
+        let left_elbow = ms[5].velocity;
+        let right_shoulder_pitch = ms[6].velocity;
+        let right_shoulder_roll = ms[7].velocity;
+        let right_shoulder_yaw = ms[8].velocity;
+        let right_elbow = ms[9].velocity;
+        let left_hip_pitch = ms[10].velocity;
+        let left_hip_roll = ms[11].velocity;
+        let left_hip_yaw = ms[12].velocity;
+        let left_knee = ms[13].velocity;
+        let left_ankle_up = ms[14].velocity;
+        let left_ankle_down = ms[15].velocity;
+        let right_hip_pitch = ms[16].velocity;
+        let right_hip_roll = ms[17].velocity;
+        let right_hip_yaw = ms[18].velocity;
+        let right_knee = ms[19].velocity;
+        let right_ankle_up = ms[20].velocity;
+        let right_ankle_down = ms[21].velocity;
+
+        Joints {
+            head: HeadJoints {
+                yaw: head_yaw,
+                pitch: head_pitch,
+            },
+            left_arm: ArmJoints {
+                shoulder_pitch: left_shoulder_pitch,
+                shoulder_roll: left_shoulder_roll,
+                shoulder_yaw: left_shoulder_yaw,
+                elbow: left_elbow,
+            },
+            right_arm: ArmJoints {
+                shoulder_pitch: right_shoulder_pitch,
+                shoulder_roll: right_shoulder_roll,
+                shoulder_yaw: right_shoulder_yaw,
+                elbow: right_elbow,
+            },
+            left_leg: LegJoints {
+                hip_pitch: left_hip_pitch,
+                hip_yaw: left_hip_yaw,
+                hip_roll: left_hip_roll,
+                knee: left_knee,
+                ankle_up: left_ankle_up,
+                ankle_down: left_ankle_down,
+            },
+            right_leg: LegJoints {
+                hip_pitch: right_hip_pitch,
+                hip_yaw: right_hip_yaw,
+                hip_roll: right_hip_roll,
+                knee: right_knee,
+                ankle_up: right_ankle_up,
+                ankle_down: right_ankle_down,
+            },
         }
     }
 }
@@ -105,19 +241,57 @@ impl MotorState {
 }
 
 #[pyclass(frozen, eq)]
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(
+    Debug,
+    Default,
+    Clone,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 pub enum CommandType {
     Parallel,
+    #[default]
     Serial,
 }
 
 #[pyclass(frozen, get_all)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(
+    Debug, Default, Clone, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct LowCommand {
     #[serde(rename = "cmd_type")]
     pub command_type: CommandType,
     #[serde(rename = "motor_cmd")]
     pub motor_commands: Vec<MotorCommand>,
+}
+
+impl LowCommand {
+    pub fn new(
+        joint_positions: &Joints,
+        motor_command_parameters: &MotorCommandParameters,
+    ) -> Self {
+        LowCommand {
+            command_type: CommandType::Serial,
+            motor_commands: joint_positions
+                .into_iter()
+                .zip(motor_command_parameters.proportional_coefficients)
+                .zip(motor_command_parameters.derivative_coefficients / 2.0)
+                .map(|((joint_position, kp), kd)| MotorCommand {
+                    position: joint_position,
+                    velocity: 0.0,
+                    torque: 0.0,
+                    kp,
+                    kd,
+                    weight: motor_command_parameters.weight,
+                })
+                .collect(),
+        }
+    }
 }
 
 #[pyclass(frozen, get_all)]
