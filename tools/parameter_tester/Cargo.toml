@@ -28,7 +28,6 @@ serde_json = { workspace = true }
 spl_network_messages = { workspace = true }
 step_planning = { workspace = true }
 types = { workspace = true }
-walking_engine = { workspace = true }
 
 [build-dependencies]
 code_generation = { workspace = true }

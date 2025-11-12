@@ -2,14 +2,14 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use kinematics::forward::{
-    head_to_neck, left_ankle_to_left_tibia, left_elbow_to_left_upper_arm, left_foot_to_left_ankle,
-    left_forearm_to_left_elbow, left_hip_to_left_pelvis, left_pelvis_to_robot,
-    left_shoulder_to_robot, left_thigh_to_left_hip, left_tibia_to_left_thigh,
-    left_upper_arm_to_left_shoulder, left_wrist_to_left_forearm, neck_to_robot,
-    right_ankle_to_right_tibia, right_elbow_to_right_upper_arm, right_foot_to_right_ankle,
-    right_forearm_to_right_elbow, right_hip_to_right_pelvis, right_pelvis_to_robot,
-    right_shoulder_to_robot, right_thigh_to_right_hip, right_tibia_to_right_thigh,
-    right_upper_arm_to_right_shoulder, right_wrist_to_right_forearm,
+    head_to_neck, left_ankle_to_left_tibia, left_foot_to_left_ankle,
+    left_forearm_to_left_upper_arm, left_hip_to_left_pelvis, left_inner_shoulder_to_robot,
+    left_outer_shoulder_to_left_inner_shoulder, left_pelvis_to_robot, left_thigh_to_left_hip,
+    left_tibia_to_left_thigh, left_upper_arm_to_left_outer_shoulder, neck_to_robot,
+    right_ankle_to_right_tibia, right_foot_to_right_ankle, right_forearm_to_right_upper_arm,
+    right_hip_to_right_pelvis, right_inner_shoulder_to_robot,
+    right_outer_shoulder_to_right_inner_shoulder, right_pelvis_to_robot, right_thigh_to_right_hip,
+    right_tibia_to_right_thigh, right_upper_arm_to_right_outer_shoulder,
 };
 use linear_algebra::Isometry3;
 use serde::{Deserialize, Serialize};
@@ -51,25 +51,26 @@ impl KinematicsProvider {
         // torso
         let torso_to_robot = Isometry3::from(RobotDimensions::ROBOT_TO_TORSO);
         // left arm
-        let left_shoulder_to_robot = left_shoulder_to_robot(&measured_positions.left_arm);
-        let left_upper_arm_to_robot =
-            left_shoulder_to_robot * left_upper_arm_to_left_shoulder(&measured_positions.left_arm);
-        let left_elbow_to_robot =
-            left_upper_arm_to_robot * left_elbow_to_left_upper_arm(&measured_positions.left_arm);
+        let left_inner_shoulder_to_robot =
+            left_inner_shoulder_to_robot(&measured_positions.left_arm);
+        let left_outer_shoulder_to_robot = left_inner_shoulder_to_robot
+            * left_outer_shoulder_to_left_inner_shoulder(&measured_positions.left_arm);
+        let left_upper_arm_to_robot = left_outer_shoulder_to_robot
+            * left_upper_arm_to_left_outer_shoulder(&measured_positions.left_arm);
         let left_forearm_to_robot =
-            left_elbow_to_robot * left_forearm_to_left_elbow(&measured_positions.left_arm);
-        let left_wrist_to_robot =
-            left_forearm_to_robot * left_wrist_to_left_forearm(&measured_positions.left_arm);
+            left_upper_arm_to_robot * left_forearm_to_left_upper_arm(&measured_positions.left_arm);
+
         // right arm
-        let right_shoulder_to_robot = right_shoulder_to_robot(&measured_positions.right_arm);
-        let right_upper_arm_to_robot = right_shoulder_to_robot
-            * right_upper_arm_to_right_shoulder(&measured_positions.right_arm);
-        let right_elbow_to_robot = right_upper_arm_to_robot
-            * right_elbow_to_right_upper_arm(&measured_positions.right_arm);
-        let right_forearm_to_robot =
-            right_elbow_to_robot * right_forearm_to_right_elbow(&measured_positions.right_arm);
-        let right_wrist_to_robot =
-            right_forearm_to_robot * right_wrist_to_right_forearm(&measured_positions.right_arm);
+        let right_inner_shoulder_to_robot =
+            right_inner_shoulder_to_robot(&measured_positions.right_arm);
+        let right_outer_shoulder_to_robot = right_inner_shoulder_to_robot
+            * right_outer_shoulder_to_right_inner_shoulder(&measured_positions.right_arm);
+        let right_upper_arm_to_robot = right_outer_shoulder_to_robot
+            * right_upper_arm_to_right_outer_shoulder(&measured_positions.right_arm);
+
+        let right_forearm_to_robot = right_upper_arm_to_robot
+            * right_forearm_to_right_upper_arm(&measured_positions.right_arm);
+
         // left leg
         let left_pelvis_to_robot = left_pelvis_to_robot(&measured_positions.left_leg);
         let left_hip_to_robot =
@@ -83,7 +84,7 @@ impl KinematicsProvider {
         let left_foot_to_robot =
             left_ankle_to_robot * left_foot_to_left_ankle(&measured_positions.left_leg);
         let left_sole_to_robot =
-            left_foot_to_robot * Isometry3::from(RobotDimensions::LEFT_ANKLE_TO_LEFT_SOLE);
+            left_foot_to_robot * Isometry3::from(RobotDimensions::LEFT_FOOT_TO_LEFT_SOLE);
         // right leg
         let right_pelvis_to_robot = right_pelvis_to_robot(&measured_positions.right_leg);
         let right_hip_to_robot =
@@ -97,7 +98,7 @@ impl KinematicsProvider {
         let right_foot_to_robot =
             right_ankle_to_robot * right_foot_to_right_ankle(&measured_positions.right_leg);
         let right_sole_to_robot =
-            right_foot_to_robot * Isometry3::from(RobotDimensions::RIGHT_ANKLE_TO_RIGHT_SOLE);
+            right_foot_to_robot * Isometry3::from(RobotDimensions::RIGHT_FOOT_TO_RIGHT_SOLE);
 
         let head = RobotHeadKinematics {
             neck_to_robot,
@@ -107,19 +108,17 @@ impl KinematicsProvider {
         let torso = RobotTorsoKinematics { torso_to_robot };
 
         let left_arm = RobotLeftArmKinematics {
-            shoulder_to_robot: left_shoulder_to_robot,
+            inner_shoulder_to_robot: left_inner_shoulder_to_robot,
+            outer_shoulder_to_robot: left_outer_shoulder_to_robot,
             upper_arm_to_robot: left_upper_arm_to_robot,
-            elbow_to_robot: left_elbow_to_robot,
             forearm_to_robot: left_forearm_to_robot,
-            wrist_to_robot: left_wrist_to_robot,
         };
 
         let right_arm = RobotRightArmKinematics {
-            shoulder_to_robot: right_shoulder_to_robot,
+            inner_shoulder_to_robot: right_inner_shoulder_to_robot,
+            outer_shoulder_to_robot: right_outer_shoulder_to_robot,
             upper_arm_to_robot: right_upper_arm_to_robot,
-            elbow_to_robot: right_elbow_to_robot,
             forearm_to_robot: right_forearm_to_robot,
-            wrist_to_robot: right_wrist_to_robot,
         };
 
         let left_leg = RobotLeftLegKinematics {

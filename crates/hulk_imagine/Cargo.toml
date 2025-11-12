@@ -40,7 +40,6 @@ step_planning = { workspace = true }
 tokio = { workspace = true }
 types = { workspace = true }
 vision = { workspace = true }
-walking_engine = { workspace = true }
 zed = { workspace = true }
 
 [build-dependencies]

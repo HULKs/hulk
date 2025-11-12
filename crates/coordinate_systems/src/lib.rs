@@ -73,8 +73,6 @@ generate_coordinate_system!(
     /// X axis pointing right, Y axis pointing down, Z axis pointing forward
     NormalizedDeviceCoordinates,
     /// 3D coordinate system centered on the camera
-    ///
-    /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/video_naov6.html)
     Camera,
     /// 2D Coordinate system of the camera image.
     ///
@@ -85,61 +83,57 @@ generate_coordinate_system!(
     /// 2D Coordinate system of the camera image.
     /// Same as [Pixel] but the dimensions are normalized to (0.0, 1.0) of the image width and height.
     NormalizedPixel,
-    /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#head)
+    /// See [official documentation](https://booster.feishu.cn/wiki/AHctwLAYjiyThnkZctIc6iYunmf
     Head,
-    /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#neck)
+    /// See [official documentation](https://booster.feishu.cn/wiki/AHctwLAYjiyThnkZctIc6iYunmf
     Neck,
-    /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#torso)
+    /// See [official documentation](https://booster.feishu.cn/wiki/AHctwLAYjiyThnkZctIc6iYunmf
     Torso,
-    /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#left-shoulder)
-    LeftShoulder,
-    /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#left-biceps)
+    /// See [official documentation](https://booster.feishu.cn/wiki/AHctwLAYjiyThnkZctIc6iYunmf)
+    LeftInnerShoulder,
+    /// See [official documentation](https://booster.feishu.cn/wiki/AHctwLAYjiyThnkZctIc6iYunmf)
+    LeftOuterShoulder,
+    /// See [official documentation](https://booster.feishu.cn/wiki/AHctwLAYjiyThnkZctIc6iYunmf)
     LeftUpperArm,
-    /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#left-elbow)
-    LeftElbow,
-    /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#left-forearm)
+    /// See [official documentation](https://booster.feishu.cn/wiki/AHctwLAYjiyThnkZctIc6iYunmf)
     LeftForearm,
-    /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#left-hand)
-    LeftWrist,
-    /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#right-shoulder)
-    RightShoulder,
-    /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#right-biceps)
+    /// See [official documentation](https://booster.feishu.cn/wiki/AHctwLAYjiyThnkZctIc6iYunmf)
+    RightInnerShoulder,
+    /// See [official documentation](https://booster.feishu.cn/wiki/AHctwLAYjiyThnkZctIc6iYunmf)
+    RightOuterShoulder,
+    /// See [official documentation](https://booster.feishu.cn/wiki/AHctwLAYjiyThnkZctIc6iYunmf)
     RightUpperArm,
-    /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#right-elbow)
-    RightElbow,
-    /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#right-forearm)
+    /// See [official documentation](https://booster.feishu.cn/wiki/AHctwLAYjiyThnkZctIc6iYunmf)
     RightForearm,
-    /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#right-hand)
-    RightWrist,
-    /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#left-pelvis)
+    /// See [official documentation](https://booster.feishu.cn/wiki/AHctwLAYjiyThnkZctIc6iYunmf)
     LeftPelvis,
-    /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#left-hip)
+    /// See [official documentation](https://booster.feishu.cn/wiki/AHctwLAYjiyThnkZctIc6iYunmf)
     LeftHip,
-    /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#left-thigh)
+    /// See [official documentation](https://booster.feishu.cn/wiki/AHctwLAYjiyThnkZctIc6iYunmf)
     LeftThigh,
-    /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#left-tibia)
+    /// See [official documentation](https://booster.feishu.cn/wiki/AHctwLAYjiyThnkZctIc6iYunmf)
     LeftTibia,
-    /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#left-ankle)
+    /// See [official documentation](https://booster.feishu.cn/wiki/AHctwLAYjiyThnkZctIc6iYunmf)
     LeftAnkle,
-    /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#left-foot)
+    /// See [official documentation](https://booster.feishu.cn/wiki/AHctwLAYjiyThnkZctIc6iYunmf)
     LeftFoot,
     /// Same as [LeftFoot] but shifted down to the sole.
-    /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#left-foot)
+    /// See [official documentation](https://booster.feishu.cn/wiki/AHctwLAYjiyThnkZctIc6iYunmf)
     LeftSole,
-    /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#right-pelvis)
+    /// See [official documentation](https://booster.feishu.cn/wiki/AHctwLAYjiyThnkZctIc6iYunmf)
     RightPelvis,
-    /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#right-hip)
+    /// See [official documentation](https://booster.feishu.cn/wiki/AHctwLAYjiyThnkZctIc6iYunmf)
     RightHip,
-    /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#right-thigh)
+    /// See [official documentation](https://booster.feishu.cn/wiki/AHctwLAYjiyThnkZctIc6iYunmf)
     RightThigh,
-    /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#right-tibia)
+    /// See [official documentation](https://booster.feishu.cn/wiki/AHctwLAYjiyThnkZctIc6iYunmf)
     RightTibia,
-    /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#right-ankle)
+    /// See [official documentation](https://booster.feishu.cn/wiki/AHctwLAYjiyThnkZctIc6iYunmf)
     RightAnkle,
-    /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#right-foot)
+    /// See [official documentation](https://booster.feishu.cn/wiki/AHctwLAYjiyThnkZctIc6iYunmf)
     RightFoot,
     /// Same as [RightFoot] but shifted down to the sole.
-    /// See [official documentation](http://doc.aldebaran.com/2-8/family/nao_technical/masses_naov6.html#right-foot)
+    /// See [official documentation](https://booster.feishu.cn/wiki/AHctwLAYjiyThnkZctIc6iYunmf)
     RightSole,
     /// 2D Coordinate System for Twix Widgets
     ///

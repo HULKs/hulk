@@ -91,19 +91,11 @@ impl<T> Joints<T> {
                     JointsName::LeftArm(ArmJoint::ShoulderRoll),
                     self.left_arm.shoulder_roll,
                 ),
-                elbow_yaw: (
-                    JointsName::LeftArm(ArmJoint::ElbowYaw),
-                    self.left_arm.elbow_yaw,
+                shoulder_yaw: (
+                    JointsName::LeftArm(ArmJoint::ShoulderYaw),
+                    self.left_arm.shoulder_yaw,
                 ),
-                elbow_roll: (
-                    JointsName::LeftArm(ArmJoint::ElbowRoll),
-                    self.left_arm.elbow_roll,
-                ),
-                wrist_yaw: (
-                    JointsName::LeftArm(ArmJoint::WristYaw),
-                    self.left_arm.wrist_yaw,
-                ),
-                hand: (JointsName::LeftArm(ArmJoint::Hand), self.left_arm.hand),
+                elbow: (JointsName::LeftArm(ArmJoint::Elbow), self.left_arm.elbow),
             },
             right_arm: ArmJoints {
                 shoulder_pitch: (
@@ -114,28 +106,20 @@ impl<T> Joints<T> {
                     JointsName::RightArm(ArmJoint::ShoulderRoll),
                     self.right_arm.shoulder_roll,
                 ),
-                elbow_yaw: (
-                    JointsName::RightArm(ArmJoint::ElbowYaw),
-                    self.right_arm.elbow_yaw,
+                shoulder_yaw: (
+                    JointsName::RightArm(ArmJoint::ShoulderYaw),
+                    self.right_arm.shoulder_yaw,
                 ),
-                elbow_roll: (
-                    JointsName::RightArm(ArmJoint::ElbowRoll),
-                    self.right_arm.elbow_roll,
-                ),
-                wrist_yaw: (
-                    JointsName::RightArm(ArmJoint::WristYaw),
-                    self.right_arm.wrist_yaw,
-                ),
-                hand: (JointsName::RightArm(ArmJoint::Hand), self.right_arm.hand),
+                elbow: (JointsName::RightArm(ArmJoint::Elbow), self.right_arm.elbow),
             },
             left_leg: LegJoints {
-                ankle_pitch: (
-                    JointsName::LeftLeg(LegJoint::AnklePitch),
-                    self.left_leg.ankle_pitch,
+                ankle_down: (
+                    JointsName::LeftLeg(LegJoint::AnkleDown),
+                    self.left_leg.ankle_down,
                 ),
-                ankle_roll: (
-                    JointsName::LeftLeg(LegJoint::AnkleRoll),
-                    self.left_leg.ankle_roll,
+                ankle_up: (
+                    JointsName::LeftLeg(LegJoint::AnkleUp),
+                    self.left_leg.ankle_up,
                 ),
                 hip_pitch: (
                     JointsName::LeftLeg(LegJoint::HipPitch),
@@ -145,23 +129,17 @@ impl<T> Joints<T> {
                     JointsName::LeftLeg(LegJoint::HipRoll),
                     self.left_leg.hip_roll,
                 ),
-                hip_yaw_pitch: (
-                    JointsName::LeftLeg(LegJoint::HipYawPitch),
-                    self.left_leg.hip_yaw_pitch,
-                ),
-                knee_pitch: (
-                    JointsName::LeftLeg(LegJoint::KneePitch),
-                    self.left_leg.knee_pitch,
-                ),
+                hip_yaw: (JointsName::LeftLeg(LegJoint::HipYaw), self.left_leg.hip_yaw),
+                knee: (JointsName::LeftLeg(LegJoint::Knee), self.left_leg.knee),
             },
             right_leg: LegJoints {
-                ankle_pitch: (
-                    JointsName::RightLeg(LegJoint::AnklePitch),
-                    self.right_leg.ankle_pitch,
+                ankle_down: (
+                    JointsName::RightLeg(LegJoint::AnkleDown),
+                    self.right_leg.ankle_down,
                 ),
-                ankle_roll: (
-                    JointsName::RightLeg(LegJoint::AnkleRoll),
-                    self.right_leg.ankle_roll,
+                ankle_up: (
+                    JointsName::RightLeg(LegJoint::AnkleUp),
+                    self.right_leg.ankle_up,
                 ),
                 hip_pitch: (
                     JointsName::RightLeg(LegJoint::HipPitch),
@@ -171,14 +149,11 @@ impl<T> Joints<T> {
                     JointsName::RightLeg(LegJoint::HipRoll),
                     self.right_leg.hip_roll,
                 ),
-                hip_yaw_pitch: (
-                    JointsName::RightLeg(LegJoint::HipYawPitch),
-                    self.right_leg.hip_yaw_pitch,
+                hip_yaw: (
+                    JointsName::RightLeg(LegJoint::HipYaw),
+                    self.right_leg.hip_yaw,
                 ),
-                knee_pitch: (
-                    JointsName::RightLeg(LegJoint::KneePitch),
-                    self.right_leg.knee_pitch,
-                ),
+                knee: (JointsName::RightLeg(LegJoint::Knee), self.right_leg.knee),
             },
         }
         .into_iter()
@@ -239,7 +214,7 @@ impl<T> IntoIterator for Joints<T> {
     type Item = T;
 
     type IntoIter = Chain<
-        Chain<Chain<Chain<IntoIter<T, 2>, IntoIter<T, 6>>, IntoIter<T, 6>>, IntoIter<T, 6>>,
+        Chain<Chain<Chain<IntoIter<T, 2>, IntoIter<T, 4>>, IntoIter<T, 4>>, IntoIter<T, 6>>,
         IntoIter<T, 6>,
     >;
 
