@@ -20,7 +20,7 @@ use types::{
     motion_command::{MotionCommand, WalkSpeed},
     parameters::{
         BehaviorParameters, InWalkKicksParameters, InterceptBallParameters, KeeperMotionParameters,
-        LostBallParameters, RemoteControlParameters,
+        LostBallParameters,
     },
     path_obstacles::PathObstacle,
     players::Players,
@@ -28,8 +28,6 @@ use types::{
     roles::Role,
     world_state::WorldState,
 };
-
-use crate::behavior::remote_control;
 
 use super::{
     animation, calibrate,
@@ -51,6 +49,7 @@ pub struct Behavior {
     last_defender_mode: DefendMode,
     last_time_role_changed: SystemTime,
 }
+
 #[context]
 pub struct CreationContext {}
 
@@ -88,7 +87,6 @@ pub struct CycleContext {
     active_action_output: AdditionalOutput<Action, "active_action">,
 
     last_motion_command: CyclerState<MotionCommand, "last_motion_command">,
-    remote_control_parameters: Parameter<RemoteControlParameters, "remote_control_parameters">,
 }
 
 #[context]
@@ -156,8 +154,6 @@ impl Behavior {
             Action::Stand,
             Action::Calibrate,
         ];
-
-        actions.push(Action::RemoteControl);
 
         if let Some(active_since) = self.active_since {
             let duration_active = now.duration_since(active_since)?;
@@ -288,9 +284,6 @@ impl Behavior {
             .iter()
             .find_map(|action| {
                 let motion_command = match action {
-                    Action::RemoteControl => {
-                        remote_control::execute(context.remote_control_parameters)
-                    }
                     Action::Animation => animation::execute(world_state),
                     Action::Unstiff => unstiff::execute(world_state),
                     Action::SitDown => sit_down::execute(world_state),
