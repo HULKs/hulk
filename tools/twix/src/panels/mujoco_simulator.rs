@@ -253,16 +253,10 @@ fn update_active_camera(
 
 pub struct MujocoSimulatorPanel {
     update_receiver: mpsc::Receiver<SceneMessage>,
-    // command_sender: mpsc::Sender<ServerCommand>,
     bevy_app: App,
 
     kinematics: BufferHandle<RobotKinematics>,
 }
-
-// #[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
-// pub enum ServerCommand {
-//     Reset,
-// }
 
 impl<'a> Panel<'a> for MujocoSimulatorPanel {
     const NAME: &'static str = "Mujoco Simulator";
@@ -287,7 +281,6 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
         bevy_app.cleanup();
 
         let (update_sender, update_receiver) = mpsc::channel(10);
-        // let (command_sender, mut command_receiver) = mpsc::channel(10);
 
         let egui_ctx = context.egui_context.clone();
         thread::spawn(|| {
@@ -319,10 +312,6 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
                                 update_sender.send(message).await.unwrap();
                                 egui_ctx.request_repaint();
                             }
-                            // maybe_command = command_receiver.recv() => {
-                            //     let Some(command) = maybe_command else { println!("command receive failed"); return; };
-                            //     sender.send(tungstenite::Message::text(dbg!(serde_json::to_string(&command).unwrap()))).await.unwrap();
-                            // }
                         }
                     }
                 }
@@ -334,7 +323,6 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
             .subscribe_value("Control.main_outputs.robot_kinematics");
         Self {
             update_receiver,
-            // command_sender,
             bevy_app,
             kinematics,
         }
@@ -518,6 +506,7 @@ impl MujocoSimulatorPanel {
         ui.input(|input| {
             for event in &input.events {
                 match event {
+                    // TODO: Forward these events
                     // Event::Copy => todo!(),
                     // Event::Cut => todo!(),
                     // Event::Paste(_) => todo!(),
@@ -618,7 +607,6 @@ enum SceneMessage {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 struct SceneDescription {
     meshes: BTreeMap<String, SceneMesh>,
-    // textures: dict
     lights: Vec<Light>,
     bodies: BTreeMap<String, Body>,
 }
