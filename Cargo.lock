@@ -1935,6 +1935,7 @@ dependencies = [
  "step_planning",
  "step_planning_solver",
  "types",
+ "walking_inference",
 ]
 
 [[package]]
@@ -3629,6 +3630,7 @@ dependencies = [
  "tokio",
  "types",
  "vision",
+ "walking_inference",
  "zed",
 ]
 
@@ -3695,6 +3697,7 @@ dependencies = [
  "tokio-util",
  "types",
  "vision",
+ "walking_inference",
  "zed",
 ]
 
@@ -3746,6 +3749,7 @@ dependencies = [
  "tokio-util",
  "types",
  "vision",
+ "walking_inference",
  "zed",
 ]
 
@@ -5727,6 +5731,7 @@ dependencies = [
  "spl_network_messages",
  "step_planning",
  "types",
+ "walking_inference",
 ]
 
 [[package]]
@@ -8529,6 +8534,27 @@ checksum = "29790946404f91d9c5d06f9874efddea1dc06c5efe94541a7d6863108e3a5e4b"
 dependencies = [
  "same-file",
  "winapi-util",
+]
+
+[[package]]
+name = "walking_inference"
+version = "0.1.0"
+dependencies = [
+ "booster",
+ "color-eyre",
+ "context_attribute",
+ "coordinate_systems",
+ "framework",
+ "hardware",
+ "itertools 0.14.0",
+ "linear_algebra",
+ "nalgebra",
+ "ndarray 0.16.1",
+ "ort",
+ "parameters",
+ "path_serde",
+ "serde",
+ "types",
 ]
 
 [[package]]

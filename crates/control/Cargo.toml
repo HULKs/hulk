@@ -43,3 +43,4 @@ splines = { workspace = true }
 step_planning = { workspace = true }
 step_planning_solver = { workspace = true }
 types = { workspace = true }
+walking_inference = { workspace = true }
