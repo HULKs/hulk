@@ -1,6 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use booster::LowState;
+use booster::{ImuState, MotorState};
 use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
 use coordinate_systems::Robot;
@@ -42,9 +42,8 @@ pub struct CycleContext {
 
 #[context]
 pub struct MainOutputs {
-    pub low_state: MainOutput<LowState>,
-    pub joint_positions: MainOutput<Joints>,
-    pub joint_velocities: MainOutput<Joints>,
+    pub imu_state: MainOutput<ImuState>,
+    pub serial_motor_states: MainOutput<Joints<MotorState>>,
     pub cycle_time: MainOutput<CycleTime>,
 }
 
@@ -74,9 +73,12 @@ impl SensorDataReceiver {
         };
 
         Ok(MainOutputs {
-            joint_positions: low_state.joint_positions().into(),
-            joint_velocities: low_state.joint_velocities().into(),
-            low_state: low_state.into(),
+            imu_state: low_state.imu_state.into(),
+            serial_motor_states: low_state
+                .motor_state_serial
+                .into_iter()
+                .collect::<Joints<MotorState>>()
+                .into(),
             cycle_time: cycle_time.into(),
         })
     }
