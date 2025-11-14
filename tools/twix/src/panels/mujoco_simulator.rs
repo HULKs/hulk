@@ -287,7 +287,7 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
             let rt = tokio::runtime::Builder::new_current_thread()
                 .enable_all()
                 .build()
-                .unwrap();
+                .expect("failed to build async runtime");
             rt.block_on(async move {
                 loop {
                     let Ok((stream, _response)) = connect_async("ws://localhost:8000/")
@@ -299,17 +299,17 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
                     println!("Websocket connected");
                     let (mut sender, mut receiver) = stream.split();
                     let initial_request = ConnectionInfo::viewer();
-                    sender.send(Message::text(serde_json::to_string(&initial_request).unwrap())).await.unwrap();
+                    sender.send(Message::text(serde_json::to_string(&initial_request).expect("failed to serialize initial request"))).await.expect("failed send initial request");
                     loop {
                         select! {
                             maybe_message = receiver.next() => {
                                 let Some(Ok(message)) = maybe_message else { println!("websocket receive failed"); break; };
                                 let message: SceneMessage = match message {
-                                    Message::Binary(bytes) => SceneMessage::Description(rmp_serde::from_slice(&bytes).unwrap()),
-                                    Message::Text(text) => SceneMessage::Update(serde_json::from_str(text.as_str()).unwrap()),
+                                    Message::Binary(bytes) => SceneMessage::Description(rmp_serde::from_slice(&bytes).expect("failed to parse msgpack")),
+                                    Message::Text(text) => SceneMessage::Update(serde_json::from_str(text.as_str()).expect("failed to parse json")),
                                     _ => continue
                                 };
-                                update_sender.send(message).await.unwrap();
+                                update_sender.send(message).await.expect("failed to send update to UI");
                                 egui_ctx.request_repaint();
                             }
                         }
@@ -388,7 +388,7 @@ fn spawn_scene(bevy_app: &mut App, scene: SceneDescription) {
                 parent.spawn((
                     Transform::from_translation(geom.pos).with_rotation(bevy_quat(geom.quat)),
                     Visibility::default(),
-                    Mesh3d(meshes.get(mesh_name).cloned().unwrap()),
+                    Mesh3d(meshes.get(mesh_name).cloned().expect("mesh is missing")),
                     MeshMaterial3d(material),
                 ));
             }
@@ -410,11 +410,7 @@ impl Widget for &mut MujocoSimulatorPanel {
         let response = ui.allocate_response(ui.available_size(), Sense::all());
         self.process_egui_input(ui, &response);
 
-        let mut render_target = self
-            .bevy_app
-            .world_mut()
-            .get_resource_mut::<BevyRenderTarget>()
-            .unwrap();
+        let mut render_target = self.bevy_app.world_mut().resource_mut::<BevyRenderTarget>();
         render_target.set_output_size(response.rect.size() * ui.pixels_per_point());
         let image = Image::new(render_target.image_source())
             .maintain_aspect_ratio(false)
@@ -520,7 +516,7 @@ impl MujocoSimulatorPanel {
                     // } => {}
                     // Event::PointerMoved(pos2) => {}
                     Event::MouseMoved(egui::Vec2 { x, y }) => {
-                        let mut mouse = world.get_resource_mut::<Events<MouseMotion>>().unwrap();
+                        let mut mouse = world.resource_mut::<Events<MouseMotion>>();
                         mouse.send(MouseMotion {
                             delta: Vec2 { x: *x, y: *y },
                         });
@@ -538,9 +534,7 @@ impl MujocoSimulatorPanel {
                             PointerButton::Extra1 => MouseButton::Forward,
                             PointerButton::Extra2 => MouseButton::Back,
                         };
-                        let mut buttons = world
-                            .get_resource_mut::<Events<MouseButtonInput>>()
-                            .unwrap();
+                        let mut buttons = world.resource_mut::<Events<MouseButtonInput>>();
                         buttons.send(MouseButtonInput {
                             button,
                             state: if *pressed {
@@ -573,7 +567,7 @@ impl MujocoSimulatorPanel {
                                 unimplemented!("this seems to be unused anyways")
                             }
                         };
-                        let mut buttons = world.get_resource_mut::<Events<MouseWheel>>().unwrap();
+                        let mut buttons = world.resource_mut::<Events<MouseWheel>>();
                         buttons.send(MouseWheel {
                             unit,
                             x: delta.x,
