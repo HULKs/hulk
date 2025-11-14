@@ -393,11 +393,7 @@ fn spawn_scene(bevy_app: &mut App, scene: SceneDescription) {
                 ));
             }
         });
-        if body
-            .geoms
-            .iter()
-            .any(|geom| geom.mesh.as_deref() == Some("Trunk"))
-        {
+        if name == "Trunk" {
             parent.insert(TrunkComponent);
         }
     }
