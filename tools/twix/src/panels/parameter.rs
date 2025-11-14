@@ -1,6 +1,11 @@
 use std::sync::Arc;
 
-use crate::{log_error::LogError, nao::Nao, panel::Panel, value_buffer::BufferHandle};
+use crate::{
+    log_error::LogError,
+    nao::Nao,
+    panel::{Panel, PanelCreationContext},
+    value_buffer::BufferHandle,
+};
 use color_eyre::{
     eyre::{eyre, Error},
     Result,
@@ -19,18 +24,19 @@ pub struct ParameterPanel {
     parameter_value: Result<String>,
 }
 
-impl Panel for ParameterPanel {
+impl<'a> Panel<'a> for ParameterPanel {
     const NAME: &'static str = "Parameter";
 
-    fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
-        let path = value
+    fn new(context: PanelCreationContext) -> Self {
+        let path = context
+            .value
             .and_then(|value| value.get("path"))
             .and_then(|path| path.as_str());
 
-        let value_buffer = path.map(|path| nao.subscribe_json(path));
+        let value_buffer = path.map(|path| context.nao.subscribe_json(path));
 
         Self {
-            nao,
+            nao: context.nao,
             path: path.unwrap_or("").to_string(),
             buffer: value_buffer,
             parameter_value: Err(eyre!("no subscription")),

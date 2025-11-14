@@ -26,7 +26,7 @@ fn startup(
     mut game_controller_commands: EventWriter<GameControllerCommand>,
 ) {
     commands.spawn(Robot::new(PlayerNumber::Seven));
-    game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Playing));
+    game_controller_commands.write(GameControllerCommand::SetGameState(GameState::Playing));
 }
 
 fn update(time: Res<Time<Ticks>>, mut exit: EventWriter<AppExit>, mut robots: Query<&mut Robot>) {
@@ -73,7 +73,7 @@ fn update(time: Res<Time<Ticks>>, mut exit: EventWriter<AppExit>, mut robots: Qu
             orientation,
         ),
         _ => {
-            exit.send(AppExit::Success);
+            exit.write(AppExit::Success);
             return;
         }
     };

@@ -14,7 +14,11 @@ use types::{
     motion_command::{HeadMotion, ImageRegion, MotionCommand},
 };
 
-use crate::{nao::Nao, panel::Panel, value_buffer::BufferHandle};
+use crate::{
+    nao::Nao,
+    panel::{Panel, PanelCreationContext},
+    value_buffer::BufferHandle,
+};
 
 #[derive(PartialEq)]
 enum LookAtType {
@@ -35,14 +39,16 @@ const INJECTED_MOTION_COMMAND: &str = "parameters.behavior.injected_motion_comma
 const DEFAULT_TARGET: Point2<Ground, f32> = point![1.0, 0.0];
 const FALLBACK_MAX_FIELD_DIMENSION: f32 = 10.0;
 
-impl Panel for LookAtPanel {
+impl<'a> Panel<'a> for LookAtPanel {
     const NAME: &'static str = "Look At";
 
-    fn new(nao: Arc<Nao>, _: Option<&Value>) -> Self {
-        let field_dimensions_buffer = nao.subscribe_value("parameters.field_dimensions");
-        let motion_command_buffer = nao.subscribe_value("Control.main_outputs.motion_command");
+    fn new(context: PanelCreationContext) -> Self {
+        let field_dimensions_buffer = context.nao.subscribe_value("parameters.field_dimensions");
+        let motion_command_buffer = context
+            .nao
+            .subscribe_value("Control.main_outputs.motion_command");
         Self {
-            nao,
+            nao: context.nao,
             look_at_target: DEFAULT_TARGET,
             look_at_mode: LookAtType::PenaltyBoxFromCenter,
             is_enabled: false,

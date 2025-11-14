@@ -44,7 +44,7 @@ fn startup(
     ] {
         commands.spawn(Robot::new(number));
     }
-    game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
+    game_controller_commands.write(GameControllerCommand::SetGameState(GameState::Ready));
 }
 
 fn update(
@@ -103,28 +103,28 @@ fn update(
     }
 
     if time.ticks() == 18_000 + PENALTY_DURATION_IN_TICKS {
-        game_controller_commands.send(GameControllerCommand::Unpenalize(
+        game_controller_commands.write(GameControllerCommand::Unpenalize(
             PlayerNumber::Six,
             Team::Opponent,
         ));
     }
 
     if time.ticks() == 42_000 + PENALTY_DURATION_IN_TICKS {
-        game_controller_commands.send(GameControllerCommand::Unpenalize(
+        game_controller_commands.write(GameControllerCommand::Unpenalize(
             PlayerNumber::Six,
             Team::Hulks,
         ));
     }
 
     if time.ticks() == 52_000 + PENALTY_DURATION_IN_TICKS {
-        game_controller_commands.send(GameControllerCommand::Unpenalize(
+        game_controller_commands.write(GameControllerCommand::Unpenalize(
             PlayerNumber::Six,
             Team::Hulks,
         ));
     }
 
     if time.ticks() == 60_000 + PENALTY_DURATION_IN_TICKS {
-        game_controller_commands.send(GameControllerCommand::Unpenalize(
+        game_controller_commands.write(GameControllerCommand::Unpenalize(
             PlayerNumber::Six,
             Team::Opponent,
         ));
@@ -132,7 +132,7 @@ fn update(
 
     if time.ticks() >= 66_000 {
         println!("Done! Successfully and correctly inferred kicking team in all passively inferrable sub states.");
-        exit.send(AppExit::Success);
+        exit.write(AppExit::Success);
     }
 }
 
@@ -160,7 +160,7 @@ fn check_kicking_team_inference(
                 dbg!(ball_is_free);
                 dbg!(kicking_team);
                 println!("{} Scenario failed. kicking_team and/or ball_is_free was not correctly inferred during {:?} with kicking team {:?}. {}", time.ticks(), sub_state.unwrap(), correct_kicking_team, robot.parameters.player_number);
-                exit.send(AppExit::from_code(1));
+                exit.write(AppExit::from_code(1));
                 return;
             }
             _ => (),
@@ -194,7 +194,7 @@ fn set_substate_at_tick_start(
                 None
             };
 
-        game_controller_commands.send(GameControllerCommand::SetSubState(
+        game_controller_commands.write(GameControllerCommand::SetSubState(
             Some(checked_sub_state),
             correct_kicking_team,
             penalized_player_number,

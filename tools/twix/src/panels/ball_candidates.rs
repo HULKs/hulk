@@ -1,5 +1,3 @@
-use std::sync::Arc;
-
 use coordinate_systems::Pixel;
 use eframe::{
     egui::{Color32, Pos2, Rect, Response, Stroke, Ui, Vec2, Widget},
@@ -14,8 +12,7 @@ use types::{
 };
 
 use crate::{
-    nao::Nao,
-    panel::Panel,
+    panel::{Panel, PanelCreationContext},
     twix_painter::{Orientation, TwixPainter},
     value_buffer::BufferHandle,
 };
@@ -26,14 +23,17 @@ pub struct BallCandidatePanel {
     image: BufferHandle<YCbCr422Image>,
 }
 
-impl Panel for BallCandidatePanel {
+impl<'a> Panel<'a> for BallCandidatePanel {
     const NAME: &'static str = "Ball Candidates";
 
-    fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
-        let ball_radius_enlargement_factor =
-            nao.subscribe_value("parameters.ball_detection.vision.ball_radius_enlargement_factor");
-        let ball_candidates = nao.subscribe_value("Vision.additional_outputs.ball_candidates");
-        let image = nao.subscribe_value("Vision.main_outputs.image");
+    fn new(context: PanelCreationContext) -> Self {
+        let ball_radius_enlargement_factor = context
+            .nao
+            .subscribe_value("parameters.ball_detection.vision.ball_radius_enlargement_factor");
+        let ball_candidates = context
+            .nao
+            .subscribe_value("Vision.additional_outputs.ball_candidates");
+        let image = context.nao.subscribe_value("Vision.main_outputs.image");
         Self {
             ball_radius_enlargement_factor,
             ball_candidates,

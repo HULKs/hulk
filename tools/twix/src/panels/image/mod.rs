@@ -14,7 +14,7 @@ use types::{jpeg::JpegImage, ycbcr422_image::YCbCr422Image};
 
 use crate::{
     nao::Nao,
-    panel::Panel,
+    panel::{Panel, PanelCreationContext},
     twix_painter::{Orientation, TwixPainter},
     value_buffer::BufferHandle,
     zoom_and_pan::ZoomAndPanTransform,
@@ -48,20 +48,24 @@ fn subscribe_image(nao: &Arc<Nao>, is_jpeg: bool, is_depth: bool) -> RawOrJpeg {
     RawOrJpeg::Raw(nao.subscribe_value(path))
 }
 
-impl Panel for ImagePanel {
+impl<'a> Panel<'a> for ImagePanel {
     const NAME: &'static str = "Image";
 
-    fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
-        let is_jpeg = value
+    fn new(context: PanelCreationContext) -> Self {
+        let is_jpeg = context
+            .value
             .and_then(|value| value.get("is_jpeg"))
             .and_then(|value| value.as_bool())
             .unwrap_or(true);
 
-        let image_buffer = subscribe_image(&nao, is_jpeg, false);
+        let image_buffer = subscribe_image(&context.nao, is_jpeg, false);
 
-        let overlays = Overlays::new(nao.clone(), value.and_then(|value| value.get("overlays")));
+        let overlays = Overlays::new(
+            context.nao.clone(),
+            context.value.and_then(|value| value.get("overlays")),
+        );
         Self {
-            nao,
+            nao: context.nao,
             image_buffer,
             overlays,
             zoom_and_pan: ZoomAndPanTransform::default(),

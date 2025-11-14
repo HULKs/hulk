@@ -57,9 +57,9 @@ async fn start_connection(
 }
 
 fn serialize<T: Serialize>(data: &SimulationMessage<T>) -> Result<Message> {
-    serde_json::to_string(data)
-        .map(|string| Message::Text(string.into()))
-        .wrap_err("failed to serialize data")
+    let string = serde_json::to_string(data).wrap_err("failed to serialize data")?;
+
+    Ok(Message::text(string))
 }
 
 async fn handle_received_message(connection: &ConnectionHandle, message: Message) -> Result<()> {
