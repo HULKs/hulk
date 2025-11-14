@@ -629,7 +629,7 @@ struct Body {
 struct Geom {
     name: Option<String>,
     mesh: Option<String>,
-    rgba: Vec<f32>,
+    rgba: [f32; 4],
     pos: Vec3,
     quat: Quat,
 }
