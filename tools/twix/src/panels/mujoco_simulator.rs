@@ -291,7 +291,7 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
                 .unwrap();
             rt.block_on(async move {
                 loop {
-                    let Ok((stream, _response)) = connect_async("ws://localhost:8000/scene/subscribe")
+                    let Ok((stream, _response)) = connect_async("ws://localhost:8000/")
                         .await else {
                             println!("Websocket connection failed, retrying...");
                             tokio::time::sleep(Duration::from_secs(1)).await;
