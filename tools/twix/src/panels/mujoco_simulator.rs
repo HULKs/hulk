@@ -53,6 +53,8 @@ struct BevyRenderTarget {
 }
 
 impl BevyRenderTarget {
+    const TEXTURE_HANDLE: ManualTextureViewHandle = ManualTextureViewHandle(0);
+
     fn set_output_size(&mut self, size: egui::Vec2) {
         if self.texture.size().width < size.x as u32 || self.texture.size().height < size.y as u32 {
             let mut new_size = Vec2::new(
@@ -190,17 +192,18 @@ fn setup_scene(
 
 fn setup_camera(
     mut commands: Commands,
-    mut manual_tex_view: ResMut<ManualTextureViews>,
-    texture: Res<BevyRenderTarget>,
+    mut texture_views: ResMut<ManualTextureViews>,
+    render_target: Res<BevyRenderTarget>,
 ) {
-    let texture = Texture::from(texture.texture.clone());
-    let manual_texture_view = ManualTextureView::with_default_format(
-        texture.create_view(&wgpu::TextureViewDescriptor::default()),
-        UVec2::new(512, 512),
-    );
-    let manual_texture_view_handle = ManualTextureViewHandle(0);
-    if manual_tex_view
-        .insert(manual_texture_view_handle, manual_texture_view)
+    let texture = Texture::from(render_target.texture.clone());
+    if texture_views
+        .insert(
+            BevyRenderTarget::TEXTURE_HANDLE,
+            ManualTextureView::with_default_format(
+                texture.create_view(&wgpu::TextureViewDescriptor::default()),
+                UVec2::new(512, 512),
+            ),
+        )
         .is_some()
     {
         panic!("ManualTextureViewHandle 0 already exists");
@@ -209,11 +212,7 @@ fn setup_camera(
     commands.spawn((
         Camera3d::default(),
         Camera {
-            target: RenderTarget::TextureView(manual_texture_view_handle),
-            viewport: Some(Viewport {
-                physical_size: UVec2::new(1, 1),
-                ..Viewport::default()
-            }),
+            target: RenderTarget::TextureView(BevyRenderTarget::TEXTURE_HANDLE),
             clear_color: Color::linear_rgba(0.3, 0.3, 0.3, 0.3).into(),
             ..Default::default()
         },
@@ -228,13 +227,13 @@ fn update_camera_render_target(
     mut manual_tex_view: ResMut<ManualTextureViews>,
 ) {
     let texture = Texture::from(target.texture.clone());
-    let manual_texture_view = ManualTextureView::with_default_format(
-        texture.create_view(&wgpu::TextureViewDescriptor::default()),
-        UVec2::new(target.texture.size().width, target.texture.size().width),
+    manual_tex_view.insert(
+        BevyRenderTarget::TEXTURE_HANDLE,
+        ManualTextureView::with_default_format(
+            texture.create_view(&wgpu::TextureViewDescriptor::default()),
+            UVec2::new(target.texture.size().width, target.texture.size().width),
+        ),
     );
-    let manual_texture_view_handle = ManualTextureViewHandle(0);
-    manual_tex_view.insert(manual_texture_view_handle, manual_texture_view);
-    camera.target = RenderTarget::TextureView(manual_texture_view_handle);
     camera.viewport = Some(Viewport {
         physical_size: UVec2::new(target.output_size.x as u32, target.output_size.y as u32),
         ..Viewport::default()
