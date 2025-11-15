@@ -23,8 +23,8 @@ pub struct WalkingInference {
 }
 
 impl WalkingInference {
-    pub fn new(neural_network_folder: &Path) -> Result<Self> {
-        let neural_network_path = neural_network_folder.join("T1.onnx");
+    pub fn new(neural_network_folder: impl AsRef<Path>) -> Result<Self> {
+        let neural_network_path = neural_network_folder.as_ref().join("T1.onnx");
 
         let session = Session::builder()?
             .with_optimization_level(GraphOptimizationLevel::Level3)?

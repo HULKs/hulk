@@ -1,18 +1,14 @@
-use std::{
-    f32::consts::PI,
-    time::{SystemTime, UNIX_EPOCH},
-};
+use std::f32::consts::PI;
 
 use booster::{JointsMotorState, MotorState};
 use color_eyre::{eyre::ContextCompat, Result};
 use coordinate_systems::{Ground, Robot};
 use itertools::Itertools;
-use linear_algebra::{vector, IntoFramed, Vector2, Vector3};
+use linear_algebra::{IntoFramed, Vector2, Vector3};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use types::{
     joints::Joints,
-    motion_command::MotionCommand,
     parameters::{MotorCommandParameters, RLWalkingParameters},
 };
 
@@ -33,62 +29,20 @@ pub struct WalkingInferenceInputs {
 impl WalkingInferenceInputs {
     #[allow(clippy::too_many_arguments)]
     pub fn try_new(
-        now: SystemTime,
         roll_pitch_yaw: Vector3<Robot>,
         angular_velocity: Vector3<Robot>,
-        motion_command: &MotionCommand,
+        linear_velocity_command: Vector2<Ground>,
+        angular_velocity_command: f32,
+        gait_progress: f32,
         current_serial_joints: Joints<MotorState>,
         last_target_joint_positions: Joints,
-        last_linear_velocity_command: Vector2<Ground>,
-        last_angular_velocity_command: f32,
-        walking_parameters: RLWalkingParameters,
         motor_command_parameters: MotorCommandParameters,
     ) -> Result<Self> {
-        let policy_interval = walking_parameters.control.dt * walking_parameters.control.decimation;
+        let gait_process =
+            nalgebra::Rotation2::new(2.0 * PI * gait_progress) * nalgebra::Vector2::x();
 
-        let (linear_velocity_command, angular_velocity_command) = match motion_command {
-            MotionCommand::WalkWithVelocity {
-                velocity,
-                angular_velocity,
-                ..
-            } => {
-                let linear_velocity_command_difference = velocity - last_linear_velocity_command;
-                let angular_velocity_command_difference =
-                    angular_velocity - last_angular_velocity_command;
-                (
-                    last_linear_velocity_command
-                        + vector!(
-                            linear_velocity_command_difference
-                                .x()
-                                .clamp(-policy_interval, policy_interval,),
-                            linear_velocity_command_difference
-                                .y()
-                                .clamp(-policy_interval, policy_interval,)
-                        ),
-                    last_angular_velocity_command
-                        + angular_velocity_command_difference
-                            .clamp(-policy_interval, policy_interval),
-                )
-            }
-            _ => todo!(),
-        };
-
-        let gait_frequency = if linear_velocity_command.norm() < 1e-5 {
-            0.0
-        } else {
-            walking_parameters.gait_frequency
-        };
-        let gait_progress = (gait_frequency * now.duration_since(UNIX_EPOCH)?.as_secs_f32()) % 1.0;
-
-        let is_walking = gait_frequency > 1.0e-8;
-        let gait_process = if is_walking {
-            nalgebra::Rotation2::new(2.0 * PI * gait_progress) * nalgebra::Vector2::x()
-        } else {
-            Default::default()
-        };
-
-        let current_joint_position = current_serial_joints.joint_positions();
-        let current_joint_velocities = current_serial_joints.joint_velocities();
+        let current_joint_position = current_serial_joints.positions();
+        let current_joint_velocities = current_serial_joints.velocities();
 
         let left_leg_position_difference =
             current_joint_position.left_leg - motor_command_parameters.default_positions.left_leg;
