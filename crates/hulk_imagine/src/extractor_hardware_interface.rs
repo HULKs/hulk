@@ -1,6 +1,6 @@
 use hardware::{
     ActuatorInterface, LowCommandInterface, LowStateInterface, NetworkInterface, PathsInterface,
-    RecordingInterface, SpeakerInterface,
+    RecordingInterface, SpeakerInterface, TimeInterface,
 };
 
 use color_eyre::eyre::Result;
@@ -21,6 +21,7 @@ pub trait HardwareInterface:
     + PathsInterface
     + RecordingInterface
     + SpeakerInterface
+    + TimeInterface
 {
 }
 
@@ -83,6 +84,12 @@ impl PathsInterface for ExtractorHardwareInterface {
             neural_networks: "etc/neural_networks".into(),
             sounds: "etc/sounds".into(),
         }
+    }
+}
+
+impl TimeInterface for ExtractorHardwareInterface {
+    fn get_now(&self) -> std::time::SystemTime {
+        unimplemented!()
     }
 }
 

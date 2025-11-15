@@ -1,18 +1,23 @@
 [package]
-name = "booster"
+name = "walking_inference"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 homepage.workspace = true
 
 [dependencies]
+booster = { workspace = true }
+color-eyre = { workspace = true }
+context_attribute = { workspace = true }
 coordinate_systems = { workspace = true }
+framework = { workspace = true }
+hardware = { workspace = true }
+itertools = { workspace = true }
 linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
+ndarray = { workspace = true }
+ort = { workspace = true }
+parameters = { workspace = true }
 path_serde = { workspace = true }
-pyo3 = { workspace = true }
-ros2 = { workspace = true }
 serde = { workspace = true }
-serde_json = { workspace = true }
-tokio = { workspace = true }
 types = { workspace = true }

@@ -14,7 +14,7 @@ use color_eyre::{eyre::Result, install};
 use hardware::{
     ActuatorInterface, CameraInterface, IdInterface, LowCommandInterface, LowStateInterface,
     MicrophoneInterface, NetworkInterface, PathsInterface, RGBDSensorsInterface,
-    RecordingInterface, SensorInterface, SpeakerInterface,
+    RecordingInterface, SensorInterface, SpeakerInterface, TimeInterface,
 };
 use hula_types::hardware::{Ids, Paths};
 use replayer::replayer;
@@ -42,6 +42,7 @@ pub trait HardwareInterface:
     + RGBDSensorsInterface
     + SensorInterface
     + SpeakerInterface
+    + TimeInterface
 {
 }
 
@@ -134,6 +135,12 @@ impl SensorInterface for ReplayerHardwareInterface {
 
 impl SpeakerInterface for ReplayerHardwareInterface {
     fn write_to_speakers(&self, _request: SpeakerRequest) {}
+}
+
+impl TimeInterface for ReplayerHardwareInterface {
+    fn get_now(&self) -> std::time::SystemTime {
+        unimplemented!()
+    }
 }
 
 impl HardwareInterface for ReplayerHardwareInterface {}

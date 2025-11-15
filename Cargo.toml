@@ -47,6 +47,7 @@ members = [
   "crates/step_planning_solver",
   "crates/types",
   "crates/vision",
+  "crates/walking_inference",
   "crates/zed",
   "tools/annotato",
   "tools/depp",
@@ -175,6 +176,7 @@ opn = { path = "crates/opn" }
 optimization_engine = "0.9.1"
 opusfile-ng = "0.1.0"
 ordered-float = "4.6.0"
+ort = "=2.0.0-rc.10"
 parameters = { path = "crates/parameters" }
 parking_lot = "0.12.3"
 parry2d = { version = "0.21.1", default-features = false, features = [
@@ -244,6 +246,7 @@ uuid = { version = "1.12.1", features = ["v4"] }
 v4l = { version = "0.12.1", git = "https://github.com/HULKs/libv4l-rs", rev = "be65819073514b193d082dd37dbcc2cfac3f6183" }
 vision = { path = "crates/vision" }
 walkdir = "2.5.0"
+walking_inference = { path = "crates/walking_inference" }
 watch = "0.2.3"
 webots = { version = "0.8.0" }
 xdg = "2.5.2"

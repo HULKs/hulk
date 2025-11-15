@@ -1,6 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use booster::LowState;
+use booster::{ImuState, MotorState};
 use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
 use coordinate_systems::Robot;
@@ -10,7 +10,7 @@ use hardware::{LowStateInterface, TimeInterface};
 use linear_algebra::Vector3;
 use nalgebra::UnitQuaternion;
 use serde::{Deserialize, Serialize};
-use types::cycle_time::CycleTime;
+use types::{cycle_time::CycleTime, joints::Joints};
 
 #[derive(Default, Serialize, Deserialize)]
 enum State {
@@ -42,7 +42,8 @@ pub struct CycleContext {
 
 #[context]
 pub struct MainOutputs {
-    pub low_state: MainOutput<LowState>,
+    pub imu_state: MainOutput<ImuState>,
+    pub serial_motor_states: MainOutput<Joints<MotorState>>,
     pub cycle_time: MainOutput<CycleTime>,
 }
 
@@ -72,7 +73,12 @@ impl SensorDataReceiver {
         };
 
         Ok(MainOutputs {
-            low_state: low_state.into(),
+            imu_state: low_state.imu_state.into(),
+            serial_motor_states: low_state
+                .motor_state_serial
+                .into_iter()
+                .collect::<Joints<MotorState>>()
+                .into(),
             cycle_time: cycle_time.into(),
         })
     }

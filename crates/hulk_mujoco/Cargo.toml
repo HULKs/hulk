@@ -55,6 +55,7 @@ tokio-tungstenite = { workspace = true }
 tokio-util = { workspace = true }
 types = { workspace = true }
 vision = { workspace = true }
+walking_inference = { workspace = true }
 zed = { workspace = true }
 
 
