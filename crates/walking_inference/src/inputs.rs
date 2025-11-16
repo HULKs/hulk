@@ -1,4 +1,4 @@
-use std::{f32::consts::PI, time::UNIX_EPOCH};
+use std::f32::consts::PI;
 
 use booster::{JointsMotorState, MotorState};
 use color_eyre::{eyre::ContextCompat, Result};
@@ -22,6 +22,7 @@ pub struct WalkingInferenceInputs {
     pub angular_velocity: Vector3<Robot>,
     pub linear_velocity_command: Vector2<Ground>,
     pub angular_velocity_command: f32,
+    pub gait_progress: f32,
     pub gait_process: nalgebra::Vector2<f32>,
     pub joint_position_differences: [f32; 12],
     pub joint_velocities: [f32; 12],
@@ -38,6 +39,7 @@ impl WalkingInferenceInputs {
         current_serial_joints: Joints<MotorState>,
         last_linear_velocity_command: Vector2<Ground>,
         last_angular_velocity_command: f32,
+        last_gait_progress: f32,
         last_target_joint_positions: Joints,
         walking_parameters: &RLWalkingParameters,
         motor_command_parameters: &MotorCommandParameters,
@@ -78,11 +80,10 @@ impl WalkingInferenceInputs {
             } else {
                 walking_parameters.gait_frequency
             };
-        let gait_progress = gait_frequency
-            * cycle_time
-                .start_time
-                .duration_since(UNIX_EPOCH)?
-                .as_secs_f32();
+        let gait_progress =
+            last_gait_progress + gait_frequency * cycle_time.last_cycle_duration.as_secs_f32();
+
+        dbg!(cycle_time.last_cycle_duration.as_secs_f32());
 
         let gait_process =
             nalgebra::Rotation2::new(2.0 * PI * gait_progress) * nalgebra::Vector2::x();
@@ -139,6 +140,7 @@ impl WalkingInferenceInputs {
             angular_velocity,
             linear_velocity_command,
             angular_velocity_command,
+            gait_progress,
             gait_process,
             joint_position_differences,
             joint_velocities,

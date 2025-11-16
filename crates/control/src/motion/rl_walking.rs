@@ -19,6 +19,7 @@ pub struct RLWalking {
     walking_inference: WalkingInference,
     last_linear_velocity_command: Vector2<Ground>,
     last_angular_velocity_command: f32,
+    last_gait_progress: f32,
     last_target_joint_positions: Joints,
     smoothed_target_joint_positions: Joints,
 }
@@ -59,6 +60,7 @@ impl RLWalking {
             walking_inference,
             last_linear_velocity_command: vector![0.0, 0.0],
             last_angular_velocity_command: 0.0,
+            last_gait_progress: 0.0,
             last_target_joint_positions: context.prepare_motor_command_parameters.default_positions,
             smoothed_target_joint_positions: context
                 .prepare_motor_command_parameters
@@ -84,6 +86,7 @@ impl RLWalking {
             *context.serial_motor_states,
             self.last_linear_velocity_command,
             self.last_angular_velocity_command,
+            self.last_gait_progress,
             self.last_target_joint_positions,
             context.walking_parameters,
             context.common_motor_command_parameters,
@@ -91,6 +94,7 @@ impl RLWalking {
 
         self.last_linear_velocity_command = walking_inference_inputs.linear_velocity_command;
         self.last_angular_velocity_command = walking_inference_inputs.angular_velocity_command;
+        self.last_gait_progress = walking_inference_inputs.gait_progress;
 
         context
             .walking_inference_inputs

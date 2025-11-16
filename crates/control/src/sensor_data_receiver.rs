@@ -71,6 +71,7 @@ impl SensorDataReceiver {
                 .duration_since(self.last_cycle_start)
                 .expect("time ran backwards"),
         };
+        self.last_cycle_start = now;
 
         Ok(MainOutputs {
             imu_state: low_state.imu_state.into(),
