@@ -109,8 +109,10 @@ impl RLWalking {
         let target_joint_positions = context.common_motor_command_parameters.default_positions
             + inference_output_positions * context.walking_parameters.control.action_scale;
 
-        self.smoothed_target_joint_positions =
-            self.smoothed_target_joint_positions * 0.8 + target_joint_positions * 0.2;
+        self.smoothed_target_joint_positions = self.smoothed_target_joint_positions
+            * context.walking_parameters.joint_position_smoothing_factor
+            + target_joint_positions
+                * (1.0 - context.walking_parameters.joint_position_smoothing_factor);
 
         Ok(MainOutputs {
             target_joint_positions: self.smoothed_target_joint_positions.into(),

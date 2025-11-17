@@ -118,8 +118,8 @@ impl MotorState {
 pub trait JointsMotorState {
     fn positions(&self) -> Joints;
     fn velocities(&self) -> Joints;
-    fn acceleration(&self) -> Joints;
-    fn torque(&self) -> Joints;
+    fn accelerations(&self) -> Joints;
+    fn torques(&self) -> Joints;
 }
 
 impl JointsMotorState for Joints<MotorState> {
@@ -135,13 +135,13 @@ impl JointsMotorState for Joints<MotorState> {
             .collect::<Joints<f32>>()
     }
 
-    fn acceleration(&self) -> Joints {
+    fn accelerations(&self) -> Joints {
         self.into_iter()
             .map(|motor_state| motor_state.acceleration)
             .collect::<Joints<f32>>()
     }
 
-    fn torque(&self) -> Joints {
+    fn torques(&self) -> Joints {
         self.into_iter()
             .map(|motor_state| motor_state.torque)
             .collect::<Joints<f32>>()

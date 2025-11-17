@@ -505,6 +505,7 @@ pub struct RLWalkingParameters {
     pub normalization: NormalizationParameters,
     pub control: ControlParameters,
     pub walk_command: [f32; 3],
+    pub joint_position_smoothing_factor: f32,
 }
 
 #[derive(
