@@ -1,5 +1,5 @@
 <mujoco model="ball">
-    <compiler angle="radian" meshdir="meshes/"/>
+    <compiler angle="radian" meshdir="meshes/" />
 
     <asset>
         <texture
@@ -23,6 +23,13 @@
 
     <worldbody>
         <body pos="2 -1 2.0">
+            <joint
+                name="ball_free_joint"
+                type="free"
+                limited="false"
+                actuatorfrclimited="false"
+            />
+
             <geom name="ball"
                 type="sphere"
                 size="0.095"
@@ -40,12 +47,6 @@
                 contype="0"
                 conaffinity="0"
                 material="ball"
-            />
-            <joint
-                name="ball_free_joint"
-                type="free"
-                limited="false"
-                actuatorfrclimited="false"
             />
         </body>
     </worldbody>
