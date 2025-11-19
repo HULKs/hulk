@@ -6,12 +6,10 @@ use ball_filter::BallFilter as BallFiltering;
 use context_attribute::context;
 use coordinate_systems::Ground;
 use framework::{MainOutput, PerceptionInput};
-use projection::camera_matrices::CameraMatrices;
 use types::{
     ball_detection::BallPercept,
     ball_position::{BallPosition, HypotheticalBallPosition},
     cycle_time::CycleTime,
-    field_dimensions::FieldDimensions,
 };
 
 #[derive(Deserialize, Serialize)]

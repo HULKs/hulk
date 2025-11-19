@@ -1,15 +1,10 @@
-use color_eyre::{eyre::WrapErr, Result};
+use color_eyre::Result;
 use context_attribute::context;
-use framework::{MainOutput, PerceptionInput};
+use coordinate_systems::Ground;
+use framework::MainOutput;
 use serde::{Deserialize, Serialize};
-use types::cycle_time::CycleTime;
-use types::world_state::BallState;
-use types::{
-    camera_position::CameraPosition,
-    motion_command::{HeadMotion, ImageRegion, MotionCommand},
-    parameters::DribblingParameters,
-    world_state::WorldState,
-};
+use types::ball_position::BallPosition;
+use types::motion_command::{HeadMotion, ImageRegion, MotionCommand};
 
 #[derive(Deserialize, Serialize)]
 pub struct WalkToBall {}
@@ -19,11 +14,7 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    cycle_time: Input<CycleTime, "cycle_time">,
-    world_state: Input<WorldState, "world_state">,
-    ball_state: Input<BallState, "World_state", "ball_state">,
-    // dribble_walk_speed: Parameter<WalkSpeed, "walk_speed.dribble">,
-    // parameters: Parameter<BehaviorParameters, "behavior">,
+    ball_position: Input<Option<BallPosition<Ground>>, "World_state", "ball_position">,
 }
 
 #[context]
@@ -38,20 +29,26 @@ impl WalkToBall {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let ball_position = context.ball_state.ball_in_ground;
-        let head = HeadMotion::LookAt {
-            target: ball_position,
-            image_region_target: ImageRegion::Center,
-            camera: Some(CameraPosition::Bottom),
+        let next_motion_command = match context.ball_position {
+            Some(ball_position) => {
+                let ball_coordinates_in_ground = ball_position.position.coords();
+                let head = HeadMotion::LookAt {
+                    target: ball_coordinates_in_ground.as_point(),
+                    image_region_target: ImageRegion::Center,
+                };
+                MotionCommand::WalkWithVelocity {
+                    head,
+                    velocity: ball_coordinates_in_ground.normalize() * 0.1, // TODO: parameterize
+                    angular_velocity: ball_coordinates_in_ground.y().clamp(-0.25, 0.25), // TODO: parameterize
+                }
+            }
+            None => MotionCommand::Stand {
+                head: HeadMotion::LookAround,
+            },
         };
 
         Ok(MainOutputs {
-            motion_command: MotionCommand::WalkWithVelocity {
-                head,
-                velocity: ball_position.coords().normalize() * 0.1,
-                angular_velocity: ball_position.coords().y().clamp(-0.25, 0.25), // TODO: parameterize
-            }
-            .into(),
+            motion_command: next_motion_command.into(),
         })
     }
 }
