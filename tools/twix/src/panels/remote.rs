@@ -9,7 +9,10 @@ use gilrs::{Axis, Button, Gamepad, GamepadId, Gilrs};
 use serde_json::{json, Value};
 use types::{joints::head::HeadJoints, step::Step};
 
-use crate::{nao::Nao, panel::Panel};
+use crate::{
+    nao::Nao,
+    panel::{Panel, PanelCreationContext},
+};
 
 pub struct RemotePanel {
     nao: Arc<Nao>,
@@ -19,16 +22,16 @@ pub struct RemotePanel {
     last_update: SystemTime,
 }
 
-impl Panel for RemotePanel {
+impl<'a> Panel<'a> for RemotePanel {
     const NAME: &'static str = "Remote";
 
-    fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
+    fn new(context: PanelCreationContext) -> Self {
         let gilrs = Gilrs::new().expect("could not initialize gamepad library");
         let active_gamepad = None;
         let enabled = false;
 
         Self {
-            nao,
+            nao: context.nao,
             gilrs,
             active_gamepad,
             enabled,

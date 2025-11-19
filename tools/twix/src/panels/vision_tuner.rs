@@ -5,11 +5,16 @@ use communication::messages::TextOrBinary;
 use eframe::egui::{Response, Slider, Ui, Widget};
 use log::error;
 use parameters::directory::Scope;
-use serde_json::{to_value, Value};
+use serde_json::to_value;
 
 use types::image_segments::Direction;
 
-use crate::{log_error::LogError, nao::Nao, panel::Panel, value_buffer::BufferHandle};
+use crate::{
+    log_error::LogError,
+    nao::Nao,
+    panel::{Panel, PanelCreationContext},
+    value_buffer::BufferHandle,
+};
 
 pub struct VisionTunerPanel {
     nao: Arc<Nao>,
@@ -73,17 +78,19 @@ impl VisionTunerPanel {
     }
 }
 
-impl Panel for VisionTunerPanel {
+impl<'a> Panel<'a> for VisionTunerPanel {
     const NAME: &'static str = "Vision Tuner";
 
-    fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
-        let horizontal_edge_threshold =
-            nao.subscribe_value("parameters.image_segmenter.vision.horizontal_edge_threshold");
-        let vertical_edge_threshold =
-            nao.subscribe_value("parameters.image_segmenter.vision.vertical_edge_threshold");
+    fn new(context: PanelCreationContext) -> Self {
+        let horizontal_edge_threshold = context
+            .nao
+            .subscribe_value("parameters.image_segmenter.vision.horizontal_edge_threshold");
+        let vertical_edge_threshold = context
+            .nao
+            .subscribe_value("parameters.image_segmenter.vision.vertical_edge_threshold");
 
         Self {
-            nao,
+            nao: context.nao,
             horizontal_edge_threshold,
             vertical_edge_threshold,
         }

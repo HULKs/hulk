@@ -15,7 +15,11 @@ use mlua::{Function, Lua, LuaSerdeExt};
 use serde::{Deserialize, Serialize};
 use serde_json::{json, to_string_pretty, Value};
 
-use crate::{nao::Nao, panel::Panel, value_buffer::BufferHandle};
+use crate::{
+    nao::Nao,
+    panel::{Panel, PanelCreationContext},
+    value_buffer::BufferHandle,
+};
 
 const DEFAULT_LINE_COLORS: &[Color32] = &[
     Color32::from_rgb(31, 119, 180),
@@ -195,13 +199,14 @@ pub struct PlotPanel {
     nao: Arc<Nao>,
 }
 
-impl Panel for PlotPanel {
+impl<'a> Panel<'a> for PlotPanel {
     const NAME: &'static str = "Plot";
 
-    fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
+    fn new(context: PanelCreationContext) -> Self {
         const DEFAULT_BUFFER_HISTORY: Duration = Duration::from_secs(10);
 
-        let lines = value
+        let lines = context
+            .value
             .and_then(|value| value["lines"].as_array())
             .map(|lines| {
                 lines
@@ -211,7 +216,8 @@ impl Panel for PlotPanel {
                             serde_json::from_value::<LineData>(line_data.clone()).ok()?;
                         line_data.set_lua();
                         if !line_data.path.is_empty() {
-                            let handle = nao
+                            let handle = context
+                                .nao
                                 .subscribe_buffered_json(&line_data.path, DEFAULT_BUFFER_HISTORY);
                             line_data.buffer = Some(handle);
                         }
@@ -224,7 +230,7 @@ impl Panel for PlotPanel {
         PlotPanel {
             lines,
             buffer_history: DEFAULT_BUFFER_HISTORY,
-            nao,
+            nao: context.nao,
         }
     }
 

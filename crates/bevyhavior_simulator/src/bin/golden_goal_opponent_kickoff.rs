@@ -30,8 +30,8 @@ fn startup(
     ] {
         commands.spawn(Robot::new(number));
     }
-    game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
-    game_controller_commands.send(GameControllerCommand::SetKickingTeam(Team::Opponent));
+    game_controller_commands.write(GameControllerCommand::SetGameState(GameState::Ready));
+    game_controller_commands.write(GameControllerCommand::SetKickingTeam(Team::Opponent));
 }
 
 fn update(
@@ -41,10 +41,10 @@ fn update(
 ) {
     if game_controller.state.hulks_team.score > 0 {
         println!("Done");
-        exit.send(AppExit::Success);
+        exit.write(AppExit::Success);
     }
     if time.ticks() >= 10_000 {
         println!("No goal was scored :(");
-        exit.send(AppExit::from_code(1));
+        exit.write(AppExit::from_code(1));
     }
 }

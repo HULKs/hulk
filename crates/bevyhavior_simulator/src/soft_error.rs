@@ -1,6 +1,9 @@
 use bevy::{
     app::App,
-    ecs::system::{Res, ResMut, Resource, SystemParam},
+    ecs::{
+        resource::Resource,
+        system::{Res, ResMut, SystemParam},
+    },
     time::Time,
 };
 

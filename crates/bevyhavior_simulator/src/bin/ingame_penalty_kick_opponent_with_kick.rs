@@ -32,7 +32,7 @@ fn startup(
     ] {
         commands.spawn(Robot::new(number));
     }
-    game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
+    game_controller_commands.write(GameControllerCommand::SetGameState(GameState::Ready));
 }
 
 fn update(
@@ -43,24 +43,24 @@ fn update(
     mut exit: EventWriter<AppExit>,
 ) {
     if time.ticks() == 3000 {
-        game_controller_commands.send(GameControllerCommand::SetSubState(
+        game_controller_commands.write(GameControllerCommand::SetSubState(
             Some(SubState::PenaltyKick),
             Team::Opponent,
             Some(PlayerNumber::Four),
         ));
     }
     if time.ticks() == 6000 {
-        game_controller_commands.send(GameControllerCommand::BallIsFree);
+        game_controller_commands.write(GameControllerCommand::BallIsFree);
         if let Some(ball) = ball.state.as_mut() {
             ball.velocity = vector![-2.0, 0.0];
         }
     }
     if game_controller.state.opponent_team.score > 0 {
         println!("Failed to prevent opponents from scoring");
-        exit.send(AppExit::from_code(1));
+        exit.write(AppExit::from_code(1));
     }
     if time.ticks() >= 10_000 {
         println!("Done");
-        exit.send(AppExit::Success);
+        exit.write(AppExit::Success);
     }
 }

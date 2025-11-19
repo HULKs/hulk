@@ -10,7 +10,12 @@ use communication::messages::TextOrBinary;
 use parameters::directory::Scope;
 use types::primary_state::PrimaryState;
 
-use crate::{log_error::LogError, nao::Nao, panel::Panel, value_buffer::BufferHandle};
+use crate::{
+    log_error::LogError,
+    nao::Nao,
+    panel::{Panel, PanelCreationContext},
+    value_buffer::BufferHandle,
+};
 
 pub const CAMERA_EXTRINSICS_PATH: &str =
     "camera_matrix_parameters.calibration.correction_in_camera";
@@ -26,20 +31,28 @@ pub struct CameraCalibrationExportPanel {
     primary_state: BufferHandle<PrimaryState>,
 }
 
-impl Panel for CameraCalibrationExportPanel {
+impl<'a> Panel<'a> for CameraCalibrationExportPanel {
     const NAME: &'static str = "Camera Calibration Export";
 
-    fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
-        let camera = nao.subscribe_value(format!("parameters.{CAMERA_EXTRINSICS_PATH}"));
-        let body_rotations = nao.subscribe_value(format!("parameters.{ROBOT_BODY_ROTATION_PATH}"));
-        let calibration_corrections =
-            nao.subscribe_json("Control.additional_outputs.last_corrections");
-        let calibration_measurements =
-            nao.subscribe_json("Control.additional_outputs.last_measurements");
-        let primary_state = nao.subscribe_value("Control.main_outputs.primary_state");
+    fn new(context: PanelCreationContext) -> Self {
+        let camera = context
+            .nao
+            .subscribe_value(format!("parameters.{CAMERA_EXTRINSICS_PATH}"));
+        let body_rotations = context
+            .nao
+            .subscribe_value(format!("parameters.{ROBOT_BODY_ROTATION_PATH}"));
+        let calibration_corrections = context
+            .nao
+            .subscribe_json("Control.additional_outputs.last_corrections");
+        let calibration_measurements = context
+            .nao
+            .subscribe_json("Control.additional_outputs.last_measurements");
+        let primary_state = context
+            .nao
+            .subscribe_value("Control.main_outputs.primary_state");
 
         Self {
-            nao,
+            nao: context.nao,
             camera,
             body_rotations,
             calibration_corrections,

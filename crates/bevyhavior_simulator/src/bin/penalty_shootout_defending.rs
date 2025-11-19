@@ -32,12 +32,12 @@ fn startup(
         position: point!(-3.2, 0.0),
         velocity: Vector::zeros(),
     });
-    game_controller_commands.send(GameControllerCommand::SetGamePhase(
+    game_controller_commands.write(GameControllerCommand::SetGamePhase(
         spl_network_messages::GamePhase::PenaltyShootout {
             kicking_team: Team::Opponent,
         },
     ));
-    game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Set));
+    game_controller_commands.write(GameControllerCommand::SetGameState(GameState::Set));
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -57,9 +57,9 @@ fn update(
         if let Some(ball) = ball.state.as_mut() {
             if ball.velocity.norm() < 0.01 {
                 println!("Prevented opponent from scoring!");
-                exit.send(AppExit::Success);
+                exit.write(AppExit::Success);
             }
-            let robot = robots.single_mut();
+            let robot = robots.single_mut().expect("no robot found");
 
             // basic collision physics
             let field_to_ground = robot.ground_to_field().inverse();
@@ -87,10 +87,10 @@ fn update(
     }
     if game_controller.state.opponent_team.score > 0 {
         println!("Failed to prevent opponents from scoring");
-        exit.send(AppExit::from_code(1));
+        exit.write(AppExit::from_code(1));
     }
     if time.ticks() >= 10_000 {
         println!("Done");
-        exit.send(AppExit::Success);
+        exit.write(AppExit::Success);
     }
 }

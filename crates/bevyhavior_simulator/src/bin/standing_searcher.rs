@@ -34,7 +34,7 @@ fn startup(
     ] {
         commands.spawn(Robot::new(number));
     }
-    game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
+    game_controller_commands.write(GameControllerCommand::SetGameState(GameState::Ready));
 }
 
 fn update(
@@ -45,7 +45,7 @@ fn update(
     mut game_controller_commands: EventWriter<GameControllerCommand>,
 ) {
     if time.ticks() == 4150 {
-        game_controller_commands.send(GameControllerCommand::Penalize(
+        game_controller_commands.write(GameControllerCommand::Penalize(
             PlayerNumber::Two,
             Penalty::Manual {
                 remaining: Duration::from_secs(1),
@@ -55,7 +55,7 @@ fn update(
     }
 
     if time.ticks() == 4155 {
-        game_controller_commands.send(GameControllerCommand::Unpenalize(
+        game_controller_commands.write(GameControllerCommand::Unpenalize(
             PlayerNumber::Two,
             Team::Hulks,
         ));
@@ -75,7 +75,7 @@ fn update(
             .motion_command
         {
             println!("Standing searcher at penalty walk-in");
-            exit.send(AppExit::from_code(1));
+            exit.write(AppExit::from_code(1));
         }
         if let MotionCommand::Walk { .. } = robots
             .iter_mut()
@@ -86,7 +86,7 @@ fn update(
             .motion_command
         {
             println!("Moving searcher after ball loss");
-            exit.send(AppExit::from_code(1));
+            exit.write(AppExit::from_code(1));
         }
     }
 
@@ -110,6 +110,6 @@ fn update(
     }
     if time.ticks() >= 10_000 {
         println!("Done");
-        exit.send(AppExit::Success);
+        exit.write(AppExit::Success);
     }
 }

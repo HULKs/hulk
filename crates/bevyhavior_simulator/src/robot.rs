@@ -9,7 +9,8 @@ use bevy::{
     ecs::{
         component::Component,
         event::Event,
-        system::{Query, Res, ResMut, Resource},
+        resource::Resource,
+        system::{Query, Res, ResMut},
     },
     time::Time,
 };

@@ -35,7 +35,7 @@ fn startup(
     *robot.ground_to_field_mut() = Isometry2::from_parts(vector![-2.0, 0.0], 0.0);
     commands.spawn(robot);
     game_controller.state.game_state = GameState::Playing;
-    game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Playing));
+    game_controller_commands.write(GameControllerCommand::SetGameState(GameState::Playing));
     ball.state = Some(SimulatorBallState {
         position: Point2::origin(),
         velocity: vector![2.0, 0.1],
@@ -54,7 +54,7 @@ fn update(
     mut soft_error: SoftErrorSender,
 ) {
     if let Some(ball) = ball.state.as_mut() {
-        let mut robot = robots.single_mut();
+        let mut robot = robots.single_mut().expect("no robot found");
         let field_dimensions = robot.parameters.field_dimensions;
 
         if ball.velocity.x() > 0.0 {
@@ -90,10 +90,10 @@ fn update(
         soft_error.send("Failed to prevent goals from being scored :(");
     }
     if *state.count > 20 {
-        exit.send(AppExit::Success);
+        exit.write(AppExit::Success);
     }
     if time.ticks() >= 20_000 {
         println!("Scenario timed out with insufficient balls held, please fix");
-        exit.send(AppExit::from_code(2));
+        exit.write(AppExit::from_code(2));
     }
 }

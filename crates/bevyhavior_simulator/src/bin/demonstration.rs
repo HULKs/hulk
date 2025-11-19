@@ -33,7 +33,7 @@ fn startup(
     ] {
         commands.spawn(Robot::new(number));
     }
-    game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Ready));
+    game_controller_commands.write(GameControllerCommand::SetGameState(GameState::Ready));
 }
 
 /// Allows for checks to run during the scenario such that it can be decided whether the scenario passes or fails.
@@ -56,17 +56,17 @@ fn update(
     // Scenarios can pass if a certain condition is met
     if game_controller.state.hulks_team.score > 0 {
         println!("Done");
-        exit.send(AppExit::Success);
+        exit.write(AppExit::Success);
     }
     // Or fail based on a certain condition, such as if scoring takes too long
     if time.ticks() >= 20_000 {
         println!("No goal was scored :(");
-        exit.send(AppExit::from_code(1));
+        exit.write(AppExit::from_code(1));
     }
     // Based on time or other conditions you can modify the game state
     if time.ticks() == 6000 {
         // Set substate
-        game_controller_commands.send(GameControllerCommand::SetSubState(
+        game_controller_commands.write(GameControllerCommand::SetSubState(
             Some(SubState::PushingFreeKick),
             Team::Opponent,
             Some(PlayerNumber::Four),

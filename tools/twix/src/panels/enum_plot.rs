@@ -9,8 +9,8 @@ use std::{
 
 use eframe::{
     egui::{
-        show_tooltip_at_pointer, widgets::Label, Align2, Button, ComboBox, FontId, Response,
-        RichText, Sense, StrokeKind, TextStyle, TextWrapMode, Ui, Widget, WidgetText,
+        Align2, Button, ComboBox, FontId, Label, PopupAnchor, Response, RichText, Sense,
+        StrokeKind, TextStyle, TextWrapMode, Tooltip, Ui, Widget, WidgetText,
     },
     emath::{remap, Rangef, RectTransform},
     epaint::{Color32, CornerRadius, Rect, Shape, Stroke, TextShape, Vec2},
@@ -23,7 +23,7 @@ use hulk_widgets::{NaoPathCompletionEdit, PathFilter};
 use crate::{
     change_buffer::{Change, ChangeBufferHandle},
     nao::Nao,
-    panel::Panel,
+    panel::{Panel, PanelCreationContext},
 };
 
 fn color_hash(value: impl Hash) -> Color32 {
@@ -101,7 +101,14 @@ impl Segment {
 
         if ui.rect_contains_pointer(screenspace_rect) {
             if let Some(tooltip) = self.tooltip() {
-                show_tooltip_at_pointer(ui.ctx(), ui.layer_id(), "Fridolin".into(), |ui| {
+                Tooltip::new(
+                    "Fridolin".into(),
+                    ui.ctx().clone(),
+                    PopupAnchor::Pointer,
+                    ui.layer_id(),
+                )
+                .gap(12.0)
+                .show(|ui| {
                     ui.add(Label::new(tooltip).wrap_mode(TextWrapMode::Extend));
                 });
             }
@@ -205,11 +212,12 @@ pub struct EnumPlotPanel {
     viewport_mode: ViewportMode,
 }
 
-impl Panel for EnumPlotPanel {
+impl<'a> Panel<'a> for EnumPlotPanel {
     const NAME: &'static str = "Enum Plot";
 
-    fn new(nao: Arc<Nao>, value: Option<&Value>) -> Self {
-        let output_keys: Vec<_> = value
+    fn new(context: PanelCreationContext) -> Self {
+        let output_keys: Vec<_> = context
+            .value
             .and_then(|value| value.get("paths"))
             .and_then(|value| value.as_array())
             .map(|values| values.iter().flat_map(|value| value.as_str()).collect())
@@ -222,14 +230,14 @@ impl Panel for EnumPlotPanel {
                     path: String::from(output_key),
                     ..Default::default()
                 };
-                result.subscribe(nao.clone());
+                result.subscribe(context.nao.clone());
 
                 result
             })
             .collect();
 
         Self {
-            nao,
+            nao: context.nao,
             segment_rows,
             x_range: Rangef::new(-3.0, 0.0),
             viewport_mode: ViewportMode::Follow,

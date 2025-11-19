@@ -30,7 +30,7 @@ fn startup(
     *robot.ground_to_field_mut() = Isometry2::from_parts(vector![-2.0, 0.0], 0.0);
     commands.spawn(robot);
     game_controller.state.game_state = GameState::Playing;
-    game_controller_commands.send(GameControllerCommand::SetGameState(GameState::Playing));
+    game_controller_commands.write(GameControllerCommand::SetGameState(GameState::Playing));
     ball.state = Some(SimulatorBallState {
         position: Point2::origin(),
         velocity: vector![2.0, 0.1],
@@ -44,7 +44,7 @@ fn update(
     mut exit: EventWriter<AppExit>,
     mut robots: Query<&mut Robot>,
 ) {
-    let mut robot = robots.single_mut();
+    let mut robot = robots.single_mut().expect("no robot found");
     let field_to_ground = robot.ground_to_field().inverse();
     robot.database.main_outputs.obstacles = vec![Obstacle {
         kind: ObstacleKind::Unknown,
@@ -59,10 +59,10 @@ fn update(
 
     if game_controller.state.hulks_team.score > 0 {
         println!("Done");
-        exit.send(AppExit::Success);
+        exit.write(AppExit::Success);
     }
     if time.ticks() >= 10_000 {
         println!("No goal was scored :(");
-        exit.send(AppExit::from_code(1));
+        exit.write(AppExit::from_code(1));
     }
 }
