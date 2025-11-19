@@ -934,6 +934,7 @@ version = "0.1.0"
 dependencies = [
  "color-eyre",
  "context_attribute",
+ "coordinate_systems",
  "framework",
  "hardware",
  "serde",
@@ -11341,6 +11342,7 @@ checksum = "f17a85883d4e6d00e8a97c586de764dabcc06133f7f1d55dce5cdc070ad7fe59"
 name = "world_state"
 version = "0.1.0"
 dependencies = [
+ "ball_filter",
  "color-eyre",
  "context_attribute",
  "coordinate_systems",
@@ -11348,6 +11350,8 @@ dependencies = [
  "framework",
  "hardware",
  "linear_algebra",
+ "nalgebra",
+ "projection",
  "serde",
  "spl_network_messages",
  "tokio",
