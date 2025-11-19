@@ -8,6 +8,7 @@ homepage.workspace = true
 [dependencies]
 color-eyre = { workspace = true }
 context_attribute = { workspace = true }
+coordinate_systems = { workspace = true }
 framework = { workspace = true }
 hardware = { workspace = true }
 serde = { workspace = true }
