@@ -12,6 +12,7 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{
     joints::head::HeadJoints,
+    joints::Joints,
     motion_command::{KickVariant, MotionCommand},
     roles::Role,
 };
@@ -491,4 +492,49 @@ pub enum StepPlannerMode {
     #[default]
     Mpc,
     Greedy,
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct RLWalkingParameters {
+    pub gait_frequency: f32,
+    pub number_of_actions: usize,
+    pub number_of_observations: usize,
+    pub torque_limits: Joints,
+    pub normalization: NormalizationParameters,
+    pub control: ControlParameters,
+    pub walk_command: [f32; 3],
+    pub joint_position_smoothing_factor: f32,
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct NormalizationParameters {
+    pub gravity: f32,
+    pub linear_velocity: f32,
+    pub angular_velocity: f32,
+    pub joint_position: f32,
+    pub joint_velocity: f32,
+    pub clip_actions: f32,
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct ControlParameters {
+    pub dt: f32,
+    pub action_scale: f32,
+    pub decimation: f32,
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct MotorCommandParameters {
+    pub weight: f32,
+    pub default_positions: Joints,
+    pub proportional_coefficients: Joints,
+    pub derivative_coefficients: Joints,
 }

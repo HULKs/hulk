@@ -49,10 +49,10 @@ pub enum JointsName {
     Copy,
     Debug,
     Default,
-    Deserialize,
     PartialEq,
     Eq,
     Serialize,
+    Deserialize,
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
@@ -225,6 +225,49 @@ impl<T> IntoIterator for Joints<T> {
             .chain(self.right_arm)
             .chain(self.left_leg)
             .chain(self.right_leg)
+    }
+}
+
+impl<T> FromIterator<T> for Joints<T> {
+    fn from_iter<I: IntoIterator<Item = T>>(iter: I) -> Self {
+        let mut iter = iter.into_iter();
+
+        let joints = Joints {
+            head: HeadJoints {
+                yaw: iter.next().unwrap(),
+                pitch: iter.next().unwrap(),
+            },
+            left_arm: ArmJoints {
+                shoulder_pitch: iter.next().unwrap(),
+                shoulder_roll: iter.next().unwrap(),
+                shoulder_yaw: iter.next().unwrap(),
+                elbow: iter.next().unwrap(),
+            },
+            right_arm: ArmJoints {
+                shoulder_pitch: iter.next().unwrap(),
+                shoulder_roll: iter.next().unwrap(),
+                shoulder_yaw: iter.next().unwrap(),
+                elbow: iter.next().unwrap(),
+            },
+            left_leg: LegJoints {
+                hip_pitch: iter.next().unwrap(),
+                hip_roll: iter.next().unwrap(),
+                hip_yaw: iter.next().unwrap(),
+                knee: iter.next().unwrap(),
+                ankle_up: iter.next().unwrap(),
+                ankle_down: iter.next().unwrap(),
+            },
+            right_leg: LegJoints {
+                hip_pitch: iter.next().unwrap(),
+                hip_roll: iter.next().unwrap(),
+                hip_yaw: iter.next().unwrap(),
+                knee: iter.next().unwrap(),
+                ankle_up: iter.next().unwrap(),
+                ankle_down: iter.next().unwrap(),
+            },
+        };
+        assert!(iter.next().is_none());
+        joints
     }
 }
 

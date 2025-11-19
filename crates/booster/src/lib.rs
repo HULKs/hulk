@@ -4,8 +4,9 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use pyo3::{pyclass, pymethods, pymodule};
 use ros2::geometry_msgs::transform_stamped::TransformStamped;
 use serde::{Deserialize, Serialize};
+use types::{joints::Joints, parameters::MotorCommandParameters};
 
-#[pyclass(frozen, get_all)]
+#[pyclass(frozen)]
 #[derive(
     Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
@@ -75,7 +76,17 @@ impl ImuState {
 }
 
 #[pyclass(frozen, get_all)]
-#[derive(Debug, Copy, Clone, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Default,
+    Copy,
+    Clone,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 pub struct MotorState {
     #[serde(rename = "q")]
     /// Joint angle position (q), unit: rad.
@@ -104,20 +115,91 @@ impl MotorState {
     }
 }
 
+pub trait JointsMotorState {
+    fn positions(&self) -> Joints;
+    fn velocities(&self) -> Joints;
+    fn accelerations(&self) -> Joints;
+    fn torques(&self) -> Joints;
+}
+
+impl JointsMotorState for Joints<MotorState> {
+    fn positions(&self) -> Joints {
+        self.into_iter()
+            .map(|motor_state| motor_state.position)
+            .collect::<Joints<f32>>()
+    }
+
+    fn velocities(&self) -> Joints {
+        self.into_iter()
+            .map(|motor_state| motor_state.velocity)
+            .collect::<Joints<f32>>()
+    }
+
+    fn accelerations(&self) -> Joints {
+        self.into_iter()
+            .map(|motor_state| motor_state.acceleration)
+            .collect::<Joints<f32>>()
+    }
+
+    fn torques(&self) -> Joints {
+        self.into_iter()
+            .map(|motor_state| motor_state.torque)
+            .collect::<Joints<f32>>()
+    }
+}
+
 #[pyclass(frozen, eq)]
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Eq)]
+#[derive(
+    Debug,
+    Default,
+    Clone,
+    Serialize,
+    Deserialize,
+    PartialEq,
+    Eq,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 pub enum CommandType {
     Parallel,
+    #[default]
     Serial,
 }
 
 #[pyclass(frozen, get_all)]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(
+    Debug, Default, Clone, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct LowCommand {
     #[serde(rename = "cmd_type")]
     pub command_type: CommandType,
     #[serde(rename = "motor_cmd")]
     pub motor_commands: Vec<MotorCommand>,
+}
+
+impl LowCommand {
+    pub fn new(
+        joint_positions: &Joints,
+        motor_command_parameters: &MotorCommandParameters,
+    ) -> Self {
+        LowCommand {
+            command_type: CommandType::Serial,
+            motor_commands: joint_positions
+                .into_iter()
+                .zip(motor_command_parameters.proportional_coefficients)
+                .zip(motor_command_parameters.derivative_coefficients / 2.0)
+                .map(|((joint_position, kp), kd)| MotorCommand {
+                    position: joint_position,
+                    velocity: 0.0,
+                    torque: 0.0,
+                    kp,
+                    kd,
+                    weight: motor_command_parameters.weight,
+                })
+                .collect(),
+        }
+    }
 }
 
 #[pyclass(frozen, get_all)]
