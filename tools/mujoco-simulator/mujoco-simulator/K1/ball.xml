@@ -41,7 +41,7 @@
                 material="ball"
             />
             <joint
-                name="ball_joint"
+                name="ball_free_joint"
                 type="free"
                 limited="false"
                 actuatorfrclimited="false"
