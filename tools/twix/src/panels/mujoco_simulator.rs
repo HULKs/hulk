@@ -31,7 +31,7 @@ use eframe::{
     wgpu::PrimitiveTopology,
 };
 use futures_util::{SinkExt, StreamExt};
-use log::debug;
+use log::{debug, info};
 use nalgebra::{Isometry3, Point3, Vector3};
 use serde::{Deserialize, Serialize};
 use simulation_message::ConnectionInfo;
@@ -224,10 +224,10 @@ fn setup_camera(
 fn update_camera_render_target(
     mut camera: Single<&mut Camera>,
     target: Res<BevyRenderTarget>,
-    mut manual_tex_view: ResMut<ManualTextureViews>,
+    mut manual_texture_view: ResMut<ManualTextureViews>,
 ) {
     let texture = Texture::from(target.texture.clone());
-    manual_tex_view.insert(
+    manual_texture_view.insert(
         BevyRenderTarget::TEXTURE_HANDLE,
         ManualTextureView::with_default_format(
             texture.create_view(&wgpu::TextureViewDescriptor::default()),
@@ -243,12 +243,12 @@ fn update_camera_render_target(
 fn update_active_camera(
     camera: Single<(Entity, &mut Camera)>,
     target: Res<BevyRenderTarget>,
-    mut active_cam: ResMut<ActiveCameraData>,
+    mut active_camera: ResMut<ActiveCameraData>,
 ) {
-    active_cam.entity = Some(camera.0);
-    active_cam.viewport_size = Some(Vec2::new(target.output_size.x, target.output_size.y));
-    active_cam.window_size = Some(Vec2::new(target.output_size.x, target.output_size.y));
-    active_cam.manual = true;
+    active_camera.entity = Some(camera.0);
+    active_camera.viewport_size = Some(Vec2::new(target.output_size.x, target.output_size.y));
+    active_camera.window_size = Some(Vec2::new(target.output_size.x, target.output_size.y));
+    active_camera.manual = true;
 }
 
 pub struct MujocoSimulatorPanel {
@@ -292,11 +292,11 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
                 loop {
                     let Ok((stream, _response)) = connect_async("ws://localhost:8000/")
                         .await else {
-                            println!("Websocket connection failed, retrying...");
+                            info!("Websocket connection failed, retrying...");
                             tokio::time::sleep(Duration::from_secs(1)).await;
                             continue;
                         };
-                    println!("Websocket connected");
+                    info!("Websocket connected");
                     let (mut sender, mut receiver) = stream.split();
                     let initial_request = ConnectionInfo::viewer();
                     sender.send(Message::text(serde_json::to_string(&initial_request).expect("failed to serialize initial request"))).await.expect("failed send initial request");
