@@ -36,6 +36,7 @@ pub struct CycleContext {
     imu_state: Input<ImuState, "imu_state">,
     serial_motor_states: Input<Joints<MotorState>, "serial_motor_states">,
     cycle_time: Input<CycleTime, "cycle_time">,
+    motion_command: Input<MotionCommand, "motion_command">,
 }
 
 #[context]
@@ -63,19 +64,10 @@ impl RLWalking {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        let motion_command = &MotionCommand::WalkWithVelocity {
-            velocity: vector!(
-                context.walking_parameters.walk_command[0],
-                context.walking_parameters.walk_command[1]
-            ),
-            angular_velocity: context.walking_parameters.walk_command[2],
-            head: HeadMotion::Center,
-        };
-
         let (walking_inference_inputs, inference_output_positions) =
             self.walking_inference.do_inference(
                 *context.cycle_time,
-                motion_command,
+                context.motion_command,
                 context.imu_state,
                 *context.serial_motor_states,
                 context.walking_parameters,
