@@ -23,7 +23,7 @@ pub struct RemoteControl {}
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub remote_motion_command: MainOutput<MotionCommand>,
+    pub motion_command: MainOutput<MotionCommand>,
 }
 
 impl RemoteControl {
@@ -42,7 +42,7 @@ impl RemoteControl {
         };
 
         Ok(MainOutputs {
-            remote_motion_command: motion_command.into(),
+            motion_command: motion_command.into(),
         })
     }
 }
