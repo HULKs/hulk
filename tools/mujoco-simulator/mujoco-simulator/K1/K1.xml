@@ -53,7 +53,6 @@
         <mesh name="Right_Shank" file="Right_Shank.STL" />
         <mesh name="Right_Ankle_Cross" file="Right_Ankle_Cross.STL" />
         <mesh name="Right_Foot" file="Right_Foot.STL" />
-        <mesh name="ball" file="ball.obj" scale="0.095 0.095 0.095" />
     </asset>
 
     <include file="ball.xml" />

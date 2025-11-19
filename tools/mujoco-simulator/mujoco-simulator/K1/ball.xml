@@ -1,5 +1,5 @@
 <mujoco model="ball">
-    <compiler angle="radian" meshdir="meshes/" texturedir="textures/" />
+    <compiler angle="radian" meshdir="meshes/"/>
 
     <asset>
         <texture
@@ -16,8 +16,9 @@
         <material name="ball">
             <layer texture="ball_rgb" role="rgb" />
             <layer texture="ball_normal" role="normal" />
-
         </material>
+
+        <mesh name="ball" file="ball.obj" scale="0.095 0.095 0.095" />
     </asset>
 
     <worldbody>
