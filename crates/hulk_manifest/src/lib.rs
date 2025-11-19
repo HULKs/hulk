@@ -71,7 +71,7 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
                     // "control::motion::arms_up_stand",
                     // "control::motion::center_jump",
                     "control::motion::command_sender",
-                    "control::motion::rl_walking",
+                    "control::motion::booster_walking",
                     // "control::motion::condition_input_provider",
                     // "control::motion::dispatching_interpolator",
                     // "control::motion::fall_protector",

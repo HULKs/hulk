@@ -1,6 +1,7 @@
 pub mod animation;
 pub mod arms_up_squat;
 pub mod arms_up_stand;
+pub mod booster_walking;
 pub mod center_jump;
 pub mod command_sender;
 pub mod condition_input_provider;
@@ -14,6 +15,5 @@ pub mod look_around;
 pub mod look_at;
 pub mod motion_selector;
 pub mod motor_commands_collector;
-pub mod rl_walking;
 pub mod sit_down;
 pub mod wide_stance;
