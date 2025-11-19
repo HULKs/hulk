@@ -33,9 +33,9 @@ impl WalkingInferenceInputs {
     #[allow(clippy::too_many_arguments)]
     pub fn try_new(
         cycle_time: CycleTime,
+        motion_command: &MotionCommand,
         roll_pitch_yaw: Vector3<Robot>,
         angular_velocity: Vector3<Robot>,
-        motion_command: &MotionCommand,
         current_serial_joints: Joints<MotorState>,
         last_linear_velocity_command: Vector2<Ground>,
         last_angular_velocity_command: f32,
@@ -111,7 +111,7 @@ impl WalkingInferenceInputs {
             .into_iter()
             .chain(last_target_joint_positions.right_leg.into_iter())
             .collect_array()
-            .wrap_err("expected 12 last targetjoint positions")?;
+            .wrap_err("expected 12 last target joint positions")?;
 
         let rotation = nalgebra::Rotation3::from_euler_angles(
             roll_pitch_yaw.x(),

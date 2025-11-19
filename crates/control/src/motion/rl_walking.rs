@@ -1,10 +1,9 @@
 use booster::{ImuState, MotorState};
 use color_eyre::Result;
 use context_attribute::context;
-use coordinate_systems::Ground;
 use framework::{AdditionalOutput, MainOutput};
 use hardware::PathsInterface;
-use linear_algebra::{vector, Vector2};
+use linear_algebra::vector;
 use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime,
@@ -17,10 +16,6 @@ use walking_inference::{inference::WalkingInference, inputs::WalkingInferenceInp
 #[derive(Deserialize, Serialize)]
 pub struct RLWalking {
     walking_inference: WalkingInference,
-    last_linear_velocity_command: Vector2<Ground>,
-    last_angular_velocity_command: f32,
-    last_gait_progress: f32,
-    last_target_joint_positions: Joints,
     smoothed_target_joint_positions: Joints,
 }
 
@@ -54,14 +49,13 @@ impl RLWalking {
         let paths = context.hardware_interface.get_paths();
         let neural_network_folder = paths.neural_networks;
 
-        let walking_inference = WalkingInference::new(&neural_network_folder)?;
+        let walking_inference = WalkingInference::new(
+            &neural_network_folder,
+            context.prepare_motor_command_parameters,
+        )?;
 
         Ok(Self {
             walking_inference,
-            last_linear_velocity_command: vector![0.0, 0.0],
-            last_angular_velocity_command: 0.0,
-            last_gait_progress: 0.0,
-            last_target_joint_positions: context.prepare_motor_command_parameters.default_positions,
             smoothed_target_joint_positions: context
                 .prepare_motor_command_parameters
                 .default_positions,
@@ -78,33 +72,19 @@ impl RLWalking {
             head: HeadMotion::Center,
         };
 
-        let walking_inference_inputs = WalkingInferenceInputs::try_new(
-            *context.cycle_time,
-            context.imu_state.roll_pitch_yaw,
-            context.imu_state.angular_velocity,
-            motion_command,
-            *context.serial_motor_states,
-            self.last_linear_velocity_command,
-            self.last_angular_velocity_command,
-            self.last_gait_progress,
-            self.last_target_joint_positions,
-            context.walking_parameters,
-            context.common_motor_command_parameters,
-        )?;
-
-        self.last_linear_velocity_command = walking_inference_inputs.linear_velocity_command;
-        self.last_angular_velocity_command = walking_inference_inputs.angular_velocity_command;
-        self.last_gait_progress = walking_inference_inputs.gait_progress;
+        let (walking_inference_inputs, inference_output_positions) =
+            self.walking_inference.do_inference(
+                *context.cycle_time,
+                motion_command,
+                context.imu_state,
+                *context.serial_motor_states,
+                context.walking_parameters,
+                context.common_motor_command_parameters,
+            )?;
 
         context
             .walking_inference_inputs
             .fill_if_subscribed(|| walking_inference_inputs.clone());
-
-        let inference_output_positions = self
-            .walking_inference
-            .do_inference(walking_inference_inputs, context.walking_parameters)?;
-
-        self.last_target_joint_positions = inference_output_positions;
 
         let target_joint_positions = context.common_motor_command_parameters.default_positions
             + inference_output_positions * context.walking_parameters.control.action_scale;
