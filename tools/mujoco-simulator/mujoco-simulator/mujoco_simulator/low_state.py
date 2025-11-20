@@ -1,22 +1,8 @@
-from mujoco import MjData, MjModel
+from mujoco import MjData
 from mujoco_rust_server.booster_types import ImuState, LowState, MotorState
 
 from mujoco_simulator._utils import mj_quaternion_to_rpy
-
-
-class JointActuatorInfo:
-    name: str
-    qpos_addr: int
-    qvel_addr: int
-    qacc_addr: int
-    qfrc_actuator_addr: int
-
-    def __init__(self, name: str, model: MjModel) -> None:
-        self.name = name
-        self.qpos_addr = model.joint(name).qposadr
-        self.qvel_addr = model.joint(name).dofadr
-        self.qacc_addr = model.joint(name).dofadr
-        self.qfrc_actuator_addr = model.actuator(name).id
+from mujoco_simulator.joint_actuator_info import JointActuatorInfo
 
 
 def generate_low_state(
