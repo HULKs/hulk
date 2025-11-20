@@ -22,7 +22,7 @@
     </asset>
 
     <worldbody>
-        <body pos="2 -1 2.0">
+        <body pos="2 -1 2.0" name="ball">
             <joint
                 name="ball_free_joint"
                 type="free"
