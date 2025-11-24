@@ -8971,7 +8971,6 @@ dependencies = [
  "egui_dock",
  "egui_extras",
  "egui_plot",
- "fern",
  "framework",
  "futures-util",
  "geometry",
@@ -8999,6 +8998,8 @@ dependencies = [
  "tokio",
  "tokio-tungstenite",
  "toml",
+ "tracing",
+ "tracing-subscriber",
  "types",
 ]
 

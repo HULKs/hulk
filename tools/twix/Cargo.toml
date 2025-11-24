@@ -33,7 +33,6 @@ eframe = { workspace = true }
 egui_dock = { workspace = true }
 egui_extras = { workspace = true }
 egui_plot = { workspace = true }
-fern = { workspace = true }
 framework = { workspace = true }
 futures-util = { workspace = true }
 geometry = { workspace = true }
@@ -61,4 +60,6 @@ thiserror = { workspace = true }
 tokio = { workspace = true }
 tokio-tungstenite = { workspace = true }
 toml = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
 types = { workspace = true }

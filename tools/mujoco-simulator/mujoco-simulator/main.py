@@ -42,6 +42,8 @@ async def run_simulation(
     server: SimulationServer, model: MjModel, data: MjData
 ) -> None:
     rate_logger = SimulationRateLogger(log_interval=timedelta(seconds=5))
+    scene_description = generate_scene_description(model)
+
     logging.info("Starting simulation loop")
     dt = model.opt.timestep
     logging.info(f"Timestep: {1000 * dt}ms")
@@ -78,7 +80,6 @@ async def run_simulation(
                 last_tick = time.time()
                 await task.respond(data.time, None)
             case TaskName.RequestSceneDescription:
-                scene_description = generate_scene_description(model)
                 await task.respond(data.time, scene_description)
             case TaskName.RequestSceneState:
                 scene_state = generate_scene_state(model, data)

@@ -2,6 +2,7 @@ use std::{collections::BTreeMap, f32::consts::FRAC_PI_2, sync::Arc, thread, time
 
 use bevy::{
     asset::RenderAssetUsages,
+    ecs::relationship::RelatedSpawnerCommands,
     input::{
         mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
         ButtonState,
@@ -33,7 +34,10 @@ use eframe::{
 use futures_util::{SinkExt, StreamExt};
 use log::{debug, info};
 use nalgebra::Isometry3;
-use simulation_message::{ConnectionInfo, SceneDescription, ServerMessageKind, SimulatorMessage};
+use simulation_message::{
+    ConnectionInfo, Geom, GeomVariant, SceneDescription, SceneUpdate, ServerMessageKind,
+    SimulatorMessage,
+};
 use tokio::{select, sync::mpsc};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use types::robot_kinematics::RobotKinematics;
@@ -167,11 +171,7 @@ impl EguiRenderPlugin {
     }
 }
 
-fn setup_scene(
-    mut commands: Commands,
-    mut meshes: ResMut<Assets<Mesh>>,
-    mut materials: ResMut<Assets<StandardMaterial>>,
-) {
+fn setup_scene(mut commands: Commands) {
     commands.spawn((
         PointLight {
             shadows_enabled: true,
@@ -181,11 +181,6 @@ fn setup_scene(
             ..default()
         },
         Transform::from_xyz(8.0, 16.0, 8.0),
-    ));
-    commands.spawn((
-        Mesh3d(meshes.add(Plane3d::new(Vec3::Y, Vec2::new(5.0, 5.0)))),
-        MeshMaterial3d(materials.add(Color::srgb_u8(0, 255, 0))),
-        Transform::from_xyz(0.0, 0.0, 0.0),
     ));
 }
 
@@ -272,9 +267,13 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
             .init_resource::<KinematicsResource>()
             .add_plugins(PanOrbitCameraPlugin)
             .init_gizmo_group::<DefaultGizmoConfigGroup>()
+            .add_event::<SceneDescriptionEvent>()
+            .add_event::<SceneUpdateEvent>()
             .add_systems(Startup, setup_camera)
             .add_systems(Startup, setup_scene)
             .add_systems(Update, draw_gizmos)
+            .add_systems(Update, update_bodies)
+            .add_systems(Update, spawn_mujoco_scene)
             .add_systems(Update, update_active_camera);
         bevy_app.finish();
         bevy_app.cleanup();
@@ -304,7 +303,7 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
                             maybe_message = receiver.next() => {
                                 let Some(Ok(message)) = maybe_message else { println!("websocket receive failed"); break; };
                                 let message: SimulatorMessage<ServerMessageKind> = match message {
-                                    Message::Binary(bytes) => {bincode::deserialize(&bytes).expect("failed to parse bincode")},
+                                    Message::Binary(bytes) => bincode::deserialize(&bytes).expect("failed to parse bincode"),
                                     _ => continue
                                 };
                                 update_sender.send(message.payload).await.expect("failed to send update to UI");
@@ -323,77 +322,6 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
             update_receiver,
             bevy_app,
             kinematics,
-        }
-    }
-}
-
-fn spawn_scene(bevy_app: &mut App, scene: SceneDescription) {
-    if let Some(mut query) = bevy_app
-        .world()
-        .try_query_filtered::<Entity, With<SceneRootMarker>>()
-    {
-        if let Ok(previous_scene) = query.single(bevy_app.world()) {
-            bevy_app.world_mut().despawn(previous_scene);
-        }
-    }
-
-    let mut meshes = BTreeMap::new();
-    for (name, mesh) in &scene.meshes {
-        let mesh = bevy_app.world_mut().resource_mut::<Assets<Mesh>>().add(
-            Mesh::new(
-                PrimitiveTopology::TriangleList,
-                RenderAssetUsages::RENDER_WORLD,
-            )
-            .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, mesh.vertices.clone())
-            .with_inserted_indices(Indices::U32(mesh.faces.concat()))
-            .with_computed_normals(),
-        );
-        meshes.insert(name.clone(), mesh);
-    }
-    let scene_root = bevy_app
-        .world_mut()
-        .spawn((
-            SceneRootMarker,
-            Transform::from_rotation(Quat::from_rotation_x(-FRAC_PI_2)),
-        ))
-        .id();
-    for (name, body) in &scene.bodies {
-        let mut materials = Vec::new();
-        for geom in &body.geoms {
-            materials.push(
-                bevy_app
-                    .world_mut()
-                    .resource_mut::<Assets<StandardMaterial>>()
-                    .add(Color::srgba_u8(
-                        (geom.rgba[0] * 255.0) as u8,
-                        (geom.rgba[1] * 255.0) as u8,
-                        (geom.rgba[2] * 255.0) as u8,
-                        (geom.rgba[3] * 255.0) as u8,
-                    )),
-            );
-        }
-        let mut parent = bevy_app.world_mut().spawn((
-            Transform::default(),
-            Visibility::default(),
-            BodyComponent { name: name.clone() },
-        ));
-        parent.set_parent_in_place(scene_root);
-        parent.with_children(|parent| {
-            for (geom, material) in body.geoms.iter().zip(materials) {
-                let Some(mesh_name) = geom.mesh.as_ref() else {
-                    continue;
-                };
-                parent.spawn((
-                    Transform::from_translation(Vec3::from(geom.pos))
-                        .with_rotation(bevy_quat(geom.quat)),
-                    Visibility::default(),
-                    Mesh3d(meshes.get(mesh_name).cloned().expect("mesh is missing")),
-                    MeshMaterial3d(material),
-                ));
-            }
-        });
-        if name == "Trunk" {
-            parent.insert(TrunkComponent);
         }
     }
 }
@@ -465,23 +393,141 @@ fn draw_gizmos(
     draw(kinematics.value.right_leg.foot_to_robot.inner);
 }
 
+fn update_bodies(
+    mut scene_update: EventReader<SceneUpdateEvent>,
+    mut query: Query<(&mut Transform, &BodyComponent)>,
+) {
+    let Some(SceneUpdateEvent(scene_update)) = scene_update.read().last() else {
+        return;
+    };
+    for (mut transform, marker) in query.iter_mut() {
+        let body_update = &scene_update.bodies[&marker.id];
+        *transform = Transform::from_translation(Vec3::from(body_update.pos))
+            .with_rotation(bevy_quat(body_update.quat));
+    }
+}
+
+fn spawn_geom(
+    entity_commands: &mut RelatedSpawnerCommands<'_, ChildOf>,
+    materials: &mut Assets<StandardMaterial>,
+    meshes: &mut Assets<Mesh>,
+    mesh_handles: &BTreeMap<usize, Handle<Mesh>>,
+    geom: &Geom,
+) {
+    let material = materials.add(Color::srgba_u8(
+        (geom.rgba[0] * 255.0) as u8,
+        (geom.rgba[1] * 255.0) as u8,
+        (geom.rgba[2] * 255.0) as u8,
+        (geom.rgba[3] * 255.0) as u8,
+    ));
+
+    match &geom.geom_variant {
+        GeomVariant::Mesh { mesh_index } => entity_commands.spawn((
+            Transform::from_translation(Vec3::from(geom.pos)).with_rotation(bevy_quat(geom.quat)),
+            Visibility::default(),
+            Mesh3d(mesh_handles[mesh_index].clone()),
+            MeshMaterial3d(material),
+        )),
+        GeomVariant::Sphere { radius } => entity_commands.spawn((
+            Transform::from_translation(Vec3::from(geom.pos)).with_rotation(bevy_quat(geom.quat)),
+            Visibility::default(),
+            Mesh3d(meshes.add(Sphere::new(*radius))),
+            MeshMaterial3d(material),
+        )),
+        GeomVariant::Box {
+            extent: [hx, hy, hz],
+        } => entity_commands.spawn((
+            Transform::from_translation(Vec3::from(geom.pos)).with_rotation(bevy_quat(geom.quat)),
+            Visibility::default(),
+            Mesh3d(meshes.add(Cuboid::new(*hx, *hy, *hz))),
+            MeshMaterial3d(material),
+        )),
+        GeomVariant::Plane {
+            normal: [nx, ny, nz],
+        } => entity_commands.spawn((
+            Transform::from_translation(Vec3::from(geom.pos)).with_rotation(bevy_quat(geom.quat)),
+            Visibility::default(),
+            Mesh3d(meshes.add(Plane3d::new(Vec3::new(*nx, *ny, *nz), Vec2::splat(100.0)))),
+            MeshMaterial3d(material),
+        )),
+        GeomVariant::Cylinder {
+            radius,
+            half_height,
+        } => entity_commands.spawn((
+            Transform::from_translation(Vec3::from(geom.pos)).with_rotation(bevy_quat(geom.quat)),
+            Visibility::default(),
+            Mesh3d(meshes.add(Cylinder::new(*radius, *half_height))),
+            MeshMaterial3d(material),
+        )),
+    };
+}
+
+fn spawn_mujoco_scene(
+    mut scene_description: EventReader<SceneDescriptionEvent>,
+    mut meshes: ResMut<Assets<Mesh>>,
+    mut materials: ResMut<Assets<StandardMaterial>>,
+    mut commands: Commands,
+) {
+    let Some(SceneDescriptionEvent(scene)) = scene_description.read().last() else {
+        return;
+    };
+    // TODO(oleflb): Add MuJoCo marker component used to cleanup before spawning
+
+    let mesh_handles: BTreeMap<_, _> = scene
+        .meshes
+        .iter()
+        .map(|(id, mesh)| {
+            let handle = meshes.add(
+                Mesh::new(
+                    PrimitiveTopology::TriangleList,
+                    RenderAssetUsages::RENDER_WORLD,
+                )
+                .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, mesh.vertices.clone())
+                .with_inserted_indices(Indices::U32(mesh.faces.concat()))
+                .with_computed_normals(),
+            );
+            (*id, handle)
+        })
+        .collect();
+
+    let scene_root = commands
+        .spawn((
+            SceneRootMarker,
+            Transform::from_rotation(Quat::from_rotation_x(-FRAC_PI_2)),
+        ))
+        .id();
+
+    for body in scene.bodies.values() {
+        let mut parent = commands.spawn((
+            Transform::default(),
+            Visibility::default(),
+            BodyComponent { id: body.id },
+        ));
+        parent.set_parent_in_place(scene_root);
+        parent.with_children(|parent| {
+            for geom in body.geoms.iter().map(|index| &scene.geoms[index]) {
+                spawn_geom(parent, &mut *materials, &mut *meshes, &mesh_handles, geom);
+            }
+        });
+        if body.parent.is_none() && body.name.as_ref().map_or(false, |name| name == "Trunk") {
+            parent.insert(TrunkComponent);
+        }
+    }
+}
+
 impl MujocoSimulatorPanel {
     fn process_scene_updates(&mut self) {
         while let Ok(update) = self.update_receiver.try_recv() {
             match update {
                 ServerMessageKind::SceneUpdate(scene_update) => {
-                    let mut query = self
-                        .bevy_app
+                    self.bevy_app
                         .world_mut()
-                        .query::<(&mut Transform, &BodyComponent)>();
-                    for (mut transform, marker) in query.iter_mut(self.bevy_app.world_mut()) {
-                        let body_update = &scene_update.bodies[&marker.name];
-                        *transform = Transform::from_translation(Vec3::from(body_update.pos))
-                            .with_rotation(bevy_quat(body_update.quat));
-                    }
+                        .send_event(SceneUpdateEvent(scene_update));
                 }
                 ServerMessageKind::SceneDescription(scene_description) => {
-                    spawn_scene(&mut self.bevy_app, scene_description);
+                    self.bevy_app
+                        .world_mut()
+                        .send_event(SceneDescriptionEvent(scene_description));
                 }
                 _ => info!("Received unexpected simulator data"),
             }
@@ -583,7 +629,7 @@ struct SceneRootMarker;
 
 #[derive(Component)]
 struct BodyComponent {
-    name: String,
+    id: usize,
 }
 
 #[derive(Component)]
@@ -593,3 +639,9 @@ fn bevy_quat(quat: [f32; 4]) -> Quat {
     let [w, x, y, z] = quat;
     Quat::from_xyzw(x, y, z, w)
 }
+
+#[derive(Event)]
+pub struct SceneDescriptionEvent(SceneDescription);
+
+#[derive(Event)]
+pub struct SceneUpdateEvent(SceneUpdate);
