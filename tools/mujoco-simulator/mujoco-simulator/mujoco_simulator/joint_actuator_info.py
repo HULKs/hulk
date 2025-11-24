@@ -10,9 +10,9 @@ class JointActuatorInfo:
 
     def __init__(self, name: str, model: MjModel) -> None:
         self.name = name
-        self.qpos_addr = model.joint(name).qposadr
-        self.qvel_addr = model.joint(name).dofadr
-        self.qacc_addr = model.joint(name).dofadr
+        self.qpos_addr = model.joint(name).qposadr.item()
+        self.qvel_addr = model.joint(name).dofadr.item()
+        self.qacc_addr = model.joint(name).dofadr.item()
         self.qfrc_actuator_addr = model.actuator(name).id
 
 
