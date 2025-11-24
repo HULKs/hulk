@@ -6,47 +6,7 @@ import mujoco
 from mujoco import MjModel
 from mujoco._structs import MjData
 
-
-@dataclass(frozen=True, kw_only=True)
-class Mesh:
-    vertices: list[list[float]]
-    faces: list[list[int]]
-
-
-@dataclass(frozen=True, kw_only=True)
-class Geom:
-    name: str
-    mesh: str | None
-    rgba: list[float]
-    pos: list[float]
-    quat: list[float]
-
-
-@dataclass(frozen=True, kw_only=True)
-class Body:
-    id: int
-    parent: str | None
-    geoms: list[Geom]
-
-
-@dataclass(frozen=True, kw_only=True)
-class SceneDescription:
-    meshes: dict[str, Mesh]
-    # textures: dict
-    lights: list
-    bodies: dict
-
-
-@dataclass(kw_only=True, frozen=True)
-class BodyState:
-    pos: list[float]
-    quat: list[float]
-
-
-@dataclass(kw_only=True, frozen=True)
-class SceneState:
-    timestamp: float
-    bodies: dict[str, BodyState]
+from mujoco_rust_server import (Body, BodyUpdate, Geom, Light, SceneDescription, SceneMesh, SceneUpdate)
 
 
 def generate_scene_description(model: MjModel) -> SceneDescription:
@@ -62,7 +22,7 @@ def generate_scene_description(model: MjModel) -> SceneDescription:
         verts = model.mesh_vert[vert_adr : vert_adr + nvert].tolist()
         faces = model.mesh_face[face_adr : face_adr + nface].tolist()
 
-        meshes[name] = Mesh(vertices=verts, faces=faces)
+        meshes[name] = SceneMesh(vertices=verts, faces=faces)
 
     # Textures (export raw for now)
     # textures = {}
@@ -86,12 +46,13 @@ def generate_scene_description(model: MjModel) -> SceneDescription:
         name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_LIGHT.value, i)
         position = model.light_pos[i].tolist()
         direction = model.light_dir[i].tolist()
-        lights.append({"name": name, "pos": position, "dir": direction})
+        lights.append(Light(name, position, direction))
 
     # Bodies and attached geoms
     bodies = {}
     for i in range(model.nbody):
         body_name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY.value, i)
+        assert body_name is not None, f"Body name is None for body id {i}"
         parent = model.body_parentid[i]
 
         geoms = []
@@ -131,23 +92,14 @@ def generate_scene_description(model: MjModel) -> SceneDescription:
     return SceneDescription(meshes=meshes, lights=lights, bodies=bodies)
 
 
-def generate_scene_description_binary(model: MjModel) -> bytes:
-    scene_description = generate_scene_description(model)
-    return msgpack.packb(asdict(scene_description))
-
-
-def generate_scene_state(model: MjModel, data: MjData) -> SceneState:
+def generate_scene_state(model: MjModel, data: MjData) -> SceneUpdate:
     bodies = {}
 
     for i in range(model.nbody):
         name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY.value, i)
         pos = data.xpos[i].tolist()
         quat = data.xquat[i].tolist()  # (w, x, y, z)
-        bodies[name] = {"pos": pos, "quat": quat}
+        bodies[name] = BodyUpdate(pos=pos, quat=quat)
 
-    return SceneState(timestamp=data.time, bodies=bodies)
+    return SceneUpdate(time=data.time, bodies=bodies)
 
-
-def generate_scene_state_json(model: MjModel, data: MjData) -> str:
-    scene_state = generate_scene_state(model, data)
-    return json.dumps(asdict(scene_state))

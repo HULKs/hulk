@@ -1,4 +1,5 @@
 use std::{
+    collections::BTreeMap,
     ops::Range,
     time::{Duration, SystemTime},
 };
@@ -6,12 +7,12 @@ use std::{
 use booster::{
     ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState, TransformMessage,
 };
-use pyo3::pyclass;
+use pyo3::{pyclass, pymethods};
 use serde::{Deserialize, Serialize};
 use zed::RGBDSensors;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
-pub struct SimulationMessage<T> {
+pub struct SimulatorMessage<T> {
     pub time: SystemTime,
     pub payload: T,
 }
@@ -24,6 +25,8 @@ pub enum ServerMessageKind {
     RemoteControllerState(RemoteControllerState),
     TransformMessage(TransformMessage),
     RGBDSensors(Box<RGBDSensors>),
+    SceneUpdate(SceneUpdate),
+    SceneDescription(SceneDescription),
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -42,6 +45,137 @@ pub enum TaskName {
     Invalid,
     RequestSceneState,
     RequestSceneDescription,
+}
+
+#[pyclass(frozen)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SceneDescription {
+    pub meshes: BTreeMap<String, SceneMesh>,
+    pub lights: Vec<Light>,
+    pub bodies: BTreeMap<String, Body>,
+}
+
+#[pymethods]
+impl SceneDescription {
+    #[new]
+    pub fn new(
+        meshes: BTreeMap<String, SceneMesh>,
+        lights: Vec<Light>,
+        bodies: BTreeMap<String, Body>,
+    ) -> Self {
+        Self {
+            meshes,
+            lights,
+            bodies,
+        }
+    }
+}
+
+#[pyclass(frozen)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SceneMesh {
+    pub vertices: Vec<[f32; 3]>,
+    pub faces: Vec<[u32; 3]>,
+}
+
+#[pymethods]
+impl SceneMesh {
+    #[new]
+    pub fn new(vertices: Vec<[f32; 3]>, faces: Vec<[u32; 3]>) -> Self {
+        Self { vertices, faces }
+    }
+}
+
+#[pyclass(frozen)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Light {
+    pub name: Option<String>,
+    pub pos: [f32; 3],
+    pub dir: [f32; 3],
+}
+
+#[pymethods]
+impl Light {
+    #[new]
+    pub fn new(name: Option<String>, pos: [f32; 3], dir: [f32; 3]) -> Self {
+        Self { name, pos, dir }
+    }
+}
+
+#[pyclass(frozen)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Body {
+    pub id: i64,
+    pub parent: Option<String>,
+    pub geoms: Vec<Geom>,
+}
+
+#[pymethods]
+impl Body {
+    #[new]
+    pub fn new(id: i64, parent: Option<String>, geoms: Vec<Geom>) -> Self {
+        Self { id, parent, geoms }
+    }
+}
+
+#[pyclass(frozen)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Geom {
+    pub name: Option<String>,
+    pub mesh: Option<String>,
+    pub rgba: [f32; 4],
+    pub pos: [f32; 3],
+    pub quat: [f32; 4],
+}
+
+#[pymethods]
+impl Geom {
+    #[new]
+    pub fn new(
+        name: Option<String>,
+        mesh: Option<String>,
+        rgba: [f32; 4],
+        pos: [f32; 3],
+        quat: [f32; 4],
+    ) -> Self {
+        Self {
+            name,
+            mesh,
+            rgba,
+            pos,
+            quat,
+        }
+    }
+}
+
+#[pyclass(frozen)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct SceneUpdate {
+    pub time: f32,
+    pub bodies: BTreeMap<String, BodyUpdate>,
+}
+
+#[pymethods]
+impl SceneUpdate {
+    #[new]
+    pub fn new(time: f32, bodies: BTreeMap<String, BodyUpdate>) -> Self {
+        Self { time, bodies }
+    }
+}
+
+#[pyclass(frozen)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct BodyUpdate {
+    pub pos: [f32; 3],
+    pub quat: [f32; 4],
+}
+
+#[pymethods]
+impl BodyUpdate {
+    #[new]
+    pub fn new(pos: [f32; 3], quat: [f32; 4]) -> Self {
+        Self { pos, quat }
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]

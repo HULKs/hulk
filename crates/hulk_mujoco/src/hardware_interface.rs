@@ -18,10 +18,10 @@ use hardware::{
     TransformMessageInterface,
 };
 use hula_types::hardware::{Ids, Paths};
-use log::{error, warn};
+use log::{error, info, warn};
 use parking_lot::Mutex;
 use serde::Deserialize;
-use simulation_message::{ClientMessageKind, ConnectionInfo, ServerMessageKind, SimulationMessage};
+use simulation_message::{ClientMessageKind, ConnectionInfo, ServerMessageKind, SimulatorMessage};
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::time::sleep;
 use tokio_tungstenite::tungstenite::Message;
@@ -123,9 +123,7 @@ async fn worker(
             log::info!("connected to mujoco websocket at {address}");
             log::info!("sending ConnectionInfo");
             websocket
-                .send(Message::Text(
-                    serde_json::to_string(&connection_info)?.into(),
-                ))
+                .send(Message::binary(bincode::serialize(&connection_info)?))
                 .await?;
             break websocket;
         };
@@ -144,7 +142,7 @@ async fn worker(
             },
             maybe_low_command_event = worker_channels.low_command_receiver.recv() => {
                 match maybe_low_command_event {
-                    Some(low_command) => websocket.send(Message::Text(serde_json::to_string(&ClientMessageKind::LowCommand(low_command))?.into())).await?,
+                    Some(low_command) => websocket.send(Message::binary(bincode::serialize(&ClientMessageKind::LowCommand(low_command))?)).await?,
                     None => break,
                 };
             },
@@ -161,7 +159,7 @@ async fn handle_message(
     worker_channels: &WorkerChannels,
 ) -> Result<()> {
     let message = match message {
-        Message::Text(string) => serde_json::from_str(&string)?,
+        Message::Binary(data) => bincode::deserialize(&data)?,
         Message::Close(maybe_frame) => {
             warn!("server closed connections: {maybe_frame:#?}");
             return Ok(());
@@ -169,14 +167,14 @@ async fn handle_message(
         _ => return Ok(()),
     };
     match message {
-        SimulationMessage {
+        SimulatorMessage {
             payload: ServerMessageKind::LowState(low_state),
             time,
         } => {
             *hardware_interface_time.lock() = time;
             worker_channels.low_state_sender.send(low_state).await?
         }
-        SimulationMessage {
+        SimulatorMessage {
             payload: ServerMessageKind::FallDownState(fall_down_state),
             time,
         } => {
@@ -186,7 +184,7 @@ async fn handle_message(
                 .send(fall_down_state)
                 .await?
         }
-        SimulationMessage {
+        SimulatorMessage {
             payload: ServerMessageKind::ButtonEventMsg(button_event_msg),
             time,
         } => {
@@ -196,7 +194,7 @@ async fn handle_message(
                 .send(button_event_msg)
                 .await?
         }
-        SimulationMessage {
+        SimulatorMessage {
             payload: ServerMessageKind::RemoteControllerState(remote_controller_state),
             time,
         } => {
@@ -206,7 +204,7 @@ async fn handle_message(
                 .send(remote_controller_state)
                 .await?
         }
-        SimulationMessage {
+        SimulatorMessage {
             payload: ServerMessageKind::TransformMessage(transform_stamped),
             time,
         } => {
@@ -216,7 +214,7 @@ async fn handle_message(
                 .send(transform_stamped)
                 .await?
         }
-        SimulationMessage {
+        SimulatorMessage {
             payload: ServerMessageKind::RGBDSensors(rgbd_sensors),
             time,
         } => {
@@ -225,6 +223,9 @@ async fn handle_message(
                 .rgbd_sensors_sender
                 .send(*rgbd_sensors)
                 .await?
+        }
+        _ => {
+            info!("Received unexpected simulator data")
         }
     };
 

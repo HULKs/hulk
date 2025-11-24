@@ -26,10 +26,52 @@ class TaskName(Enum):
     Reset = auto()
     Invalid = auto()
 
+class Body:
+    id: int
+    parent: str | None
+    geoms: list[Geom]
+
+class BodyUpdate:
+    pos: list[float]
+    quat: list[float]
+
+class Geom:
+    name: str
+    mesh: str | None
+    rgba: list[float]
+    pos: list[float]
+    quat: list[float]
+
+class Light:
+    name: str | None
+    pos: list[float]
+    dir: list[float]
+
+class SceneDescription:
+    meshes: dict[str, SceneMesh]
+    lights: list[Light]
+    bodies: dict[str, Body]
+
+class SceneMesh:
+    vertices: list[list[float]]
+    faces: list[list[int]]
+
+class SceneUpdate:
+    time: float
+    bodies: dict[str, BodyUpdate]
+
+
 __all__ = [
     "PySimulationTask",
     "SimulationServer",
     "TaskName",
+    "SceneDescription",
+    "SceneMesh",
+    "SceneUpdate",
+    "Body",
+    "BodyUpdate",
+    "Geom",
+    "Light",
     "booster_types",
     "zed_types",
 ]
