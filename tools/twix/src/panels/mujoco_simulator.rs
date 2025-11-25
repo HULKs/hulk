@@ -421,45 +421,27 @@ fn spawn_geom(
         (geom.rgba[3] * 255.0) as u8,
     ));
 
-    match &geom.geom_variant {
-        GeomVariant::Mesh { mesh_index } => entity_commands.spawn((
-            Transform::from_translation(Vec3::from(geom.pos)).with_rotation(bevy_quat(geom.quat)),
-            Visibility::default(),
-            Mesh3d(mesh_handles[mesh_index].clone()),
-            MeshMaterial3d(material),
-        )),
-        GeomVariant::Sphere { radius } => entity_commands.spawn((
-            Transform::from_translation(Vec3::from(geom.pos)).with_rotation(bevy_quat(geom.quat)),
-            Visibility::default(),
-            Mesh3d(meshes.add(Sphere::new(*radius))),
-            MeshMaterial3d(material),
-        )),
+    let mut geom_entity = entity_commands.spawn((
+        Transform::from_translation(Vec3::from(geom.pos)).with_rotation(bevy_quat(geom.quat)),
+        MeshMaterial3d(material),
+    ));
+
+    let mesh_handle = match &geom.geom_variant {
+        GeomVariant::Mesh { mesh_index } => Mesh3d(mesh_handles[mesh_index].clone()),
+        GeomVariant::Sphere { radius } => Mesh3d(meshes.add(Sphere::new(*radius))),
         GeomVariant::Box {
             extent: [hx, hy, hz],
-        } => entity_commands.spawn((
-            Transform::from_translation(Vec3::from(geom.pos)).with_rotation(bevy_quat(geom.quat)),
-            Visibility::default(),
-            Mesh3d(meshes.add(Cuboid::new(*hx, *hy, *hz))),
-            MeshMaterial3d(material),
-        )),
+        } => Mesh3d(meshes.add(Cuboid::new(*hx, *hy, *hz))),
         GeomVariant::Plane {
             normal: [nx, ny, nz],
-        } => entity_commands.spawn((
-            Transform::from_translation(Vec3::from(geom.pos)).with_rotation(bevy_quat(geom.quat)),
-            Visibility::default(),
-            Mesh3d(meshes.add(Plane3d::new(Vec3::new(*nx, *ny, *nz), Vec2::splat(100.0)))),
-            MeshMaterial3d(material),
-        )),
+        } => Mesh3d(meshes.add(Plane3d::new(Vec3::new(*nx, *ny, *nz), Vec2::splat(100.0)))),
         GeomVariant::Cylinder {
             radius,
             half_height,
-        } => entity_commands.spawn((
-            Transform::from_translation(Vec3::from(geom.pos)).with_rotation(bevy_quat(geom.quat)),
-            Visibility::default(),
-            Mesh3d(meshes.add(Cylinder::new(*radius, *half_height))),
-            MeshMaterial3d(material),
-        )),
+        } => Mesh3d(meshes.add(Cylinder::new(*radius, *half_height))),
     };
+
+    geom_entity.insert(mesh_handle);
 }
 
 fn spawn_mujoco_scene(
