@@ -39,9 +39,24 @@ class BodyUpdate:
     pos: list[float]
     quat: list[float]
 
+class Material:
+    @staticmethod
+    def rgba(rgba: list[float]) -> Material: ...
+    @staticmethod
+    def pbr(material_index: int) -> Material: ...
+
+class PbrMaterial:
+    def __init__(
+        self,
+        rgba: list[float],
+        reflectance: float,
+        shininess: float,
+        specular: float,
+    ) -> None: ...
+
 class Geom:
     id: int
-    rgba: list[float]
+    material: Material
     pos: list[float]
     quat: list[float]
 
@@ -49,7 +64,7 @@ class Geom:
     def mesh(
         index: int,
         mesh_index: int,
-        rgba: list[float],
+        material: Material,
         pos: list[float],
         quat: list[float],
     ) -> Geom: ...
@@ -57,7 +72,7 @@ class Geom:
     def sphere(
         index: int,
         radius: str,
-        rgba: list[float],
+        material: Material,
         pos: list[float],
         quat: list[float],
     ) -> Geom: ...
@@ -65,7 +80,7 @@ class Geom:
     def box(
         index: int,
         extent: list[float],
-        rgba: list[float],
+        material: Material,
         pos: list[float],
         quat: list[float],
     ) -> Geom: ...
@@ -73,7 +88,7 @@ class Geom:
     def plane(
         index: int,
         normal: list[float],
-        rgba: list[float],
+        material: Material,
         pos: list[float],
         quat: list[float],
     ) -> Geom: ...
@@ -82,7 +97,7 @@ class Geom:
         index: int,
         radius: float,
         half_height: float,
-        rgba: list[float],
+        material: Material,
         pos: list[float],
         quat: list[float],
     ) -> Geom: ...
@@ -94,6 +109,7 @@ class Light:
 
 class SceneDescription:
     meshes: dict[int, SceneMesh]
+    materials: dict[int, PbrMaterial]
     lights: list[Light]
     bodies: dict[int, Body]
     geoms: dict[int, Geom]

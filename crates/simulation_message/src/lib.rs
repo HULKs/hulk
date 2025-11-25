@@ -51,6 +51,7 @@ pub enum TaskName {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SceneDescription {
     pub meshes: BTreeMap<usize, SceneMesh>,
+    pub materials: BTreeMap<usize, PbrMaterial>,
     pub geoms: BTreeMap<usize, Geom>,
     pub lights: Vec<Light>,
     pub bodies: BTreeMap<usize, Body>,
@@ -61,12 +62,14 @@ impl SceneDescription {
     #[new]
     pub fn new(
         meshes: BTreeMap<usize, SceneMesh>,
+        materials: BTreeMap<usize, PbrMaterial>,
         lights: Vec<Light>,
         bodies: BTreeMap<usize, Body>,
         geoms: BTreeMap<usize, Geom>,
     ) -> Self {
         Self {
             meshes,
+            materials,
             lights,
             bodies,
             geoms,
@@ -131,10 +134,52 @@ impl Body {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Geom {
     pub index: usize,
-    pub rgba: [f32; 4],
     pub pos: [f32; 3],
     pub quat: [f32; 4],
+    pub material: Material,
     pub geom_variant: GeomVariant,
+}
+
+#[pyclass(frozen)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum Material {
+    Rgba { rgba: [f32; 4] },
+    Pbr { material_index: usize },
+}
+
+#[pymethods]
+impl Material {
+    #[staticmethod]
+    fn rgba(rgba: [f32; 4]) -> Self {
+        Self::Rgba { rgba }
+    }
+
+    #[staticmethod]
+    fn pbr(material_index: usize) -> Self {
+        Self::Pbr { material_index }
+    }
+}
+
+#[pyclass(frozen, get_all)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct PbrMaterial {
+    pub rgba: [f32; 4],
+    pub reflectance: f32,
+    pub shininess: f32,
+    pub specular: f32,
+}
+
+#[pymethods]
+impl PbrMaterial {
+    #[new]
+    pub fn new(rgba: [f32; 4], reflectance: f32, shininess: f32, specular: f32) -> Self {
+        Self {
+            rgba,
+            reflectance,
+            shininess,
+            specular,
+        }
+    }
 }
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
@@ -152,13 +197,13 @@ impl Geom {
     pub fn mesh(
         index: usize,
         mesh_index: usize,
-        rgba: [f32; 4],
+        material: Material,
         pos: [f32; 3],
         quat: [f32; 4],
     ) -> Self {
         Self {
             index,
-            rgba,
+            material,
             pos,
             quat,
             geom_variant: GeomVariant::Mesh { mesh_index },
@@ -169,13 +214,13 @@ impl Geom {
     pub fn sphere(
         index: usize,
         radius: f32,
-        rgba: [f32; 4],
+        material: Material,
         pos: [f32; 3],
         quat: [f32; 4],
     ) -> Self {
         Self {
             index,
-            rgba,
+            material,
             pos,
             quat,
             geom_variant: GeomVariant::Sphere { radius },
@@ -186,13 +231,13 @@ impl Geom {
     pub fn r#box(
         index: usize,
         extent: [f32; 3],
-        rgba: [f32; 4],
+        material: Material,
         pos: [f32; 3],
         quat: [f32; 4],
     ) -> Self {
         Self {
             index,
-            rgba,
+            material,
             pos,
             quat,
             geom_variant: GeomVariant::Box { extent },
@@ -203,13 +248,13 @@ impl Geom {
     pub fn plane(
         index: usize,
         normal: [f32; 3],
-        rgba: [f32; 4],
+        material: Material,
         pos: [f32; 3],
         quat: [f32; 4],
     ) -> Self {
         Self {
             index,
-            rgba,
+            material,
             pos,
             quat,
             geom_variant: GeomVariant::Plane { normal },
@@ -221,13 +266,13 @@ impl Geom {
         index: usize,
         radius: f32,
         half_height: f32,
-        rgba: [f32; 4],
+        material: Material,
         pos: [f32; 3],
         quat: [f32; 4],
     ) -> Self {
         Self {
             index,
-            rgba,
+            material,
             pos,
             quat,
             geom_variant: GeomVariant::Cylinder {
