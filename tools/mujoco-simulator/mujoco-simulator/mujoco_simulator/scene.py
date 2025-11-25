@@ -5,8 +5,15 @@ import msgpack
 import mujoco
 from mujoco import MjModel
 from mujoco._structs import MjData
-
-from mujoco_rust_server import (Body, BodyUpdate, Geom, Light, SceneDescription, SceneMesh, SceneUpdate)
+from mujoco_rust_server import (
+    Body,
+    BodyUpdate,
+    Geom,
+    Light,
+    SceneDescription,
+    SceneMesh,
+    SceneUpdate,
+)
 
 
 def generate_scene_description(model: MjModel) -> SceneDescription:
@@ -102,4 +109,3 @@ def generate_scene_state(model: MjModel, data: MjData) -> SceneUpdate:
         bodies[name] = BodyUpdate(pos=pos, quat=quat)
 
     return SceneUpdate(time=data.time, bodies=bodies)
-
