@@ -124,12 +124,9 @@ def generate_scene_description(model: MjModel) -> SceneDescription:
     bodies = {}
     for i in range(model.nbody):
         body_name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY.value, i)
-        assert body_name is not None, f"Body name is None for body id {i}"
         parent = model.body_parentid[i]
-
         geom_indices = np.where(model.geom_bodyid == i)[0].tolist()
 
-        body_name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_BODY.value, i)
         bodies[i] = Body(
             id=i,
             name=body_name,
