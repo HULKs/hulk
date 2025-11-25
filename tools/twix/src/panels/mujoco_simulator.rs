@@ -328,7 +328,6 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
 
 impl Widget for &mut MujocoSimulatorPanel {
     fn ui(self, ui: &mut Ui) -> Response {
-        ui.ctx().request_repaint();
         self.process_scene_updates();
         let response = ui.allocate_response(ui.available_size(), Sense::all());
         self.process_egui_input(ui, &response);
