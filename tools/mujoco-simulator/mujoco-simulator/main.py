@@ -17,7 +17,7 @@ from mujoco_simulator.rate_logger import SimulationRateLogger
 from mujoco_simulator.render import CameraRenderer
 from mujoco_simulator.scene import (
     generate_scene_description,
-    generate_scene_state
+    generate_scene_state,
 )
 
 
