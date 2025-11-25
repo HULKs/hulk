@@ -1,7 +1,3 @@
-import json
-from dataclasses import asdict, dataclass
-
-import msgpack
 import mujoco
 from mujoco import MjModel
 from mujoco._structs import MjData
