@@ -5402,6 +5402,7 @@ dependencies = [
 name = "mujoco-rust-server"
 version = "0.1.0"
 dependencies = [
+ "bincode",
  "booster",
  "color-eyre",
  "futures-util",

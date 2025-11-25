@@ -32,9 +32,8 @@ use eframe::{
 };
 use futures_util::{SinkExt, StreamExt};
 use log::{debug, info};
-use nalgebra::{Isometry3, Point3, Vector3};
-use serde::{Deserialize, Serialize};
-use simulation_message::ConnectionInfo;
+use nalgebra::Isometry3;
+use simulation_message::{ConnectionInfo, SceneDescription, ServerMessageKind, SimulatorMessage};
 use tokio::{select, sync::mpsc};
 use tokio_tungstenite::{connect_async, tungstenite::Message};
 use types::robot_kinematics::RobotKinematics;
@@ -252,7 +251,7 @@ fn update_active_camera(
 }
 
 pub struct MujocoSimulatorPanel {
-    update_receiver: mpsc::Receiver<SceneMessage>,
+    update_receiver: mpsc::Receiver<ServerMessageKind>,
     bevy_app: App,
 
     kinematics: BufferHandle<RobotKinematics>,
@@ -304,12 +303,11 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
                         select! {
                             maybe_message = receiver.next() => {
                                 let Some(Ok(message)) = maybe_message else { println!("websocket receive failed"); break; };
-                                let message: SceneMessage = match message {
-                                    Message::Binary(bytes) => SceneMessage::Description(rmp_serde::from_slice(&bytes).expect("failed to parse msgpack")),
-                                    Message::Text(text) => SceneMessage::Update(serde_json::from_str(text.as_str()).expect("failed to parse json")),
+                                let message: SimulatorMessage<ServerMessageKind> = match message {
+                                    Message::Binary(bytes) => {bincode::deserialize(&bytes).expect("failed to parse bincode")},
                                     _ => continue
                                 };
-                                update_sender.send(message).await.expect("failed to send update to UI");
+                                update_sender.send(message.payload).await.expect("failed to send update to UI");
                                 egui_ctx.request_repaint();
                             }
                         }
@@ -386,7 +384,8 @@ fn spawn_scene(bevy_app: &mut App, scene: SceneDescription) {
                     continue;
                 };
                 parent.spawn((
-                    Transform::from_translation(geom.pos).with_rotation(bevy_quat(geom.quat)),
+                    Transform::from_translation(Vec3::from(geom.pos))
+                        .with_rotation(bevy_quat(geom.quat)),
                     Visibility::default(),
                     Mesh3d(meshes.get(mesh_name).cloned().expect("mesh is missing")),
                     MeshMaterial3d(material),
@@ -470,20 +469,21 @@ impl MujocoSimulatorPanel {
     fn process_scene_updates(&mut self) {
         while let Ok(update) = self.update_receiver.try_recv() {
             match update {
-                SceneMessage::Description(scene_description) => {
-                    spawn_scene(&mut self.bevy_app, scene_description);
-                }
-                SceneMessage::Update(scene_update) => {
+                ServerMessageKind::SceneUpdate(scene_update) => {
                     let mut query = self
                         .bevy_app
                         .world_mut()
                         .query::<(&mut Transform, &BodyComponent)>();
                     for (mut transform, marker) in query.iter_mut(self.bevy_app.world_mut()) {
                         let body_update = &scene_update.bodies[&marker.name];
-                        *transform = Transform::from_translation(body_update.pos)
+                        *transform = Transform::from_translation(Vec3::from(body_update.pos))
                             .with_rotation(bevy_quat(body_update.quat));
                     }
                 }
+                ServerMessageKind::SceneDescription(scene_description) => {
+                    spawn_scene(&mut self.bevy_app, scene_description);
+                }
+                _ => info!("Received unexpected simulator data"),
             }
         }
     }
@@ -589,58 +589,7 @@ struct BodyComponent {
 #[derive(Component)]
 struct TrunkComponent;
 
-enum SceneMessage {
-    Description(SceneDescription),
-    Update(SceneUpdate),
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-struct SceneDescription {
-    meshes: BTreeMap<String, SceneMesh>,
-    lights: Vec<Light>,
-    bodies: BTreeMap<String, Body>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-struct SceneMesh {
-    vertices: Vec<[f32; 3]>,
-    faces: Vec<[u32; 3]>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-struct Light {
-    name: Option<String>,
-    pos: Point3<f32>,
-    dir: Vector3<f32>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-struct Body {
-    id: i64,
-    parent: Option<String>,
-    geoms: Vec<Geom>,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-struct Geom {
-    name: Option<String>,
-    mesh: Option<String>,
-    rgba: [f32; 4],
-    pos: Vec3,
-    quat: Quat,
-}
-
-#[derive(Clone, Debug, Serialize, Deserialize)]
-struct SceneUpdate {
-    time: Option<String>,
-    bodies: BTreeMap<String, BodyUpdate>,
-}
-#[derive(Clone, Debug, Serialize, Deserialize)]
-struct BodyUpdate {
-    pos: Vec3,
-    quat: Quat,
-}
-
-fn bevy_quat(quat: Quat) -> Quat {
-    Quat::from_xyzw(quat.y, quat.z, quat.w, quat.x)
+fn bevy_quat(quat: [f32; 4]) -> Quat {
+    let [w, x, y, z] = quat;
+    Quat::from_xyzw(x, y, z, w)
 }

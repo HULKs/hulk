@@ -16,8 +16,8 @@ from mujoco_simulator.position_control import RobotPositionControl
 from mujoco_simulator.rate_logger import SimulationRateLogger
 from mujoco_simulator.render import CameraRenderer
 from mujoco_simulator.scene import (
-    generate_scene_description_binary,
-    generate_scene_state_json,
+    generate_scene_description,
+    generate_scene_state,
 )
 
 
@@ -78,10 +78,10 @@ async def run_simulation(
                 last_tick = time.time()
                 await task.respond(data.time, None)
             case TaskName.RequestSceneDescription:
-                scene_description = generate_scene_description_binary(model)
+                scene_description = generate_scene_description(model)
                 await task.respond(data.time, scene_description)
             case TaskName.RequestSceneState:
-                scene_state = generate_scene_state_json(model, data)
+                scene_state = generate_scene_state(model, data)
                 await task.respond(data.time, scene_state)
             case _:
                 raise UnknownTaskException(task.kind())

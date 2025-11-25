@@ -7,9 +7,8 @@ use std::{
 use booster::{LowCommand, LowState};
 use pyo3::{exceptions::PyValueError, pyclass, pymethods, Bound, Py, PyAny, PyResult, Python};
 use pyo3_async_runtimes::tokio::future_into_py;
-use simulation_message::{ConnectionInfo, TaskName};
+use simulation_message::{ConnectionInfo, SceneDescription, SceneUpdate, TaskName};
 use tokio::sync::{mpsc, oneshot};
-use tokio_util::bytes::Bytes;
 use uuid::Uuid;
 use zed::RGBDSensors;
 
@@ -60,8 +59,14 @@ pub enum SimulationTask {
 }
 
 pub enum SimulationData {
-    SceneDescription(Bytes),
-    SceneState(String),
+    SceneDescription {
+        time: SystemTime,
+        data: SceneDescription,
+    },
+    SceneState {
+        time: SystemTime,
+        data: SceneUpdate,
+    },
     LowState {
         time: SystemTime,
         data: LowState,
@@ -105,7 +110,7 @@ impl PySimulationTask {
                 // Channel may be closed if websocket closes.
                 Ok(receiver.await.ok())
             }),
-            _ => Err(PyValueError::new_err("no implentation for receive")),
+            _ => Err(PyValueError::new_err("no implementation for receive")),
         }
     }
 
@@ -148,11 +153,11 @@ impl PySimulationTask {
                 })
             }
             SimulationTask::RequestSceneDescription { sender } => {
-                let data: Vec<u8> = response.extract(py)?;
+                let data = response.extract(py)?;
                 future_into_py(py, async move {
                     // Channel may be closed if websocket disconnects
                     let _ = sender
-                        .send(SimulationData::SceneDescription(data.into()))
+                        .send(SimulationData::SceneDescription { time, data })
                         .await;
                     Ok(())
                 })
@@ -160,7 +165,8 @@ impl PySimulationTask {
             SimulationTask::RequestSceneState { sender } => {
                 let data = response.extract(py)?;
                 future_into_py(py, async move {
-                    let _ = sender.send(SimulationData::SceneState(data)).await;
+                    // Channel may be closed if websocket disconnects
+                    let _ = sender.send(SimulationData::SceneState { time, data }).await;
                     Ok(())
                 })
             }

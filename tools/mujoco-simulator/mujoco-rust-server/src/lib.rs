@@ -110,7 +110,9 @@ mod python_module {
     use crate::{controller::PySimulationTask, SimulationServer};
 
     #[pymodule_export]
-    use simulation_message::TaskName;
+    use simulation_message::{
+        Body, BodyUpdate, Geom, Light, SceneDescription, SceneMesh, SceneUpdate, TaskName,
+    };
 
     #[pymodule_export(name = "booster_types")]
     use booster::python_module as booster_types;

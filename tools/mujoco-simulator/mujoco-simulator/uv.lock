@@ -181,7 +181,7 @@ dev = [
 requires-dist = [
     { name = "click", specifier = ">=8.3.0" },
     { name = "glfw", specifier = ">=2.10.0" },
-    { name = "msgpack-python", specifier = ">=0.5.6" },
+    { name = "msgpack-python", specifier = "==0.5.6" },
     { name = "mujoco", specifier = ">=3.3.6" },
     { name = "mujoco-rust-server", directory = "../mujoco-rust-server" },
     { name = "rich", specifier = ">=14.1.0" },
