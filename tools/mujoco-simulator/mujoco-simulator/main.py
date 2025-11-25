@@ -10,8 +10,9 @@ from mujoco_rust_server.zed_types import RGBDSensors
 from rich.logging import RichHandler
 
 from mujoco_simulator.exceptions import UnknownTaskException
-from mujoco_simulator.low_command import get_control_input
-from mujoco_simulator.low_state import JointActuatorInfo, generate_low_state
+from mujoco_simulator.joint_actuator_info import joint_actuator_info_list
+from mujoco_simulator.low_state import generate_low_state
+from mujoco_simulator.position_control import RobotPositionControl
 from mujoco_simulator.rate_logger import SimulationRateLogger
 from mujoco_simulator.render import CameraRenderer
 from mujoco_simulator.scene import (
@@ -37,34 +38,6 @@ def request_rgbd_sensors(renderer: CameraRenderer, data: MjData) -> RGBDSensors:
     )
 
 
-def joint_actuator_info_list(model: MjModel) -> list:
-    joints = [
-        "AAHead_yaw",
-        "Head_pitch",
-        "ALeft_Shoulder_Pitch",
-        "Left_Shoulder_Roll",
-        "Left_Elbow_Pitch",
-        "Left_Elbow_Yaw",
-        "ARight_Shoulder_Pitch",
-        "Right_Shoulder_Roll",
-        "Right_Elbow_Pitch",
-        "Right_Elbow_Yaw",
-        "Left_Hip_Pitch",
-        "Left_Hip_Roll",
-        "Left_Hip_Yaw",
-        "Left_Knee_Pitch",
-        "Left_Ankle_Pitch",
-        "Left_Ankle_Roll",
-        "Right_Hip_Pitch",
-        "Right_Hip_Roll",
-        "Right_Hip_Yaw",
-        "Right_Knee_Pitch",
-        "Right_Ankle_Pitch",
-        "Right_Ankle_Roll",
-    ]
-    return [JointActuatorInfo(name, model) for name in joints]
-
-
 async def run_simulation(
     server: SimulationServer, model: MjModel, data: MjData
 ) -> None:
@@ -78,6 +51,7 @@ async def run_simulation(
         model=model, camera_name="camera", height=480, width=640
     )
     actuator_info_list = joint_actuator_info_list(model)
+    position_control = RobotPositionControl(model, actuator_info_list)
 
     last_tick = time.time()
     while True:
@@ -91,7 +65,7 @@ async def run_simulation(
                 await task.respond(data.time, low_state)
             case TaskName.ApplyLowCommand:
                 if low_command := await task.receive():
-                    data.ctrl[:] = get_control_input(model, data, low_command)
+                    position_control.apply_control(data, low_command)
             case TaskName.Reset:
                 reset_simulation(model, data)
             case TaskName.StepSimulation:
