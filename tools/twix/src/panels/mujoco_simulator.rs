@@ -506,10 +506,10 @@ fn spawn_mujoco_scene(
         parent.set_parent_in_place(scene_root);
         parent.with_children(|parent| {
             for geom in body.geoms.iter().map(|index| &scene.geoms[index]) {
-                spawn_geom(parent, &mut *materials, &mut *meshes, &mesh_handles, geom);
+                spawn_geom(parent, &mut materials, &mut meshes, &mesh_handles, geom);
             }
         });
-        if body.parent.is_none() && body.name.as_ref().map_or(false, |name| name == "Trunk") {
+        if body.parent.is_none() && body.name.as_ref().is_some_and(|name| name == "Trunk") {
             parent.insert(TrunkComponent);
         }
     }
