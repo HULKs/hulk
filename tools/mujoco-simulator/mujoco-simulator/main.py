@@ -11,8 +11,8 @@ from rich.logging import RichHandler
 
 from mujoco_simulator.exceptions import UnknownTaskException
 from mujoco_simulator.joint_actuator_info import joint_actuator_info_list
-from mujoco_simulator.low_command import RobotPositionControl
 from mujoco_simulator.low_state import generate_low_state
+from mujoco_simulator.position_control import RobotPositionControl
 from mujoco_simulator.rate_logger import SimulationRateLogger
 from mujoco_simulator.render import CameraRenderer
 from mujoco_simulator.scene import (
