@@ -3,7 +3,6 @@ use color_eyre::{
     Result,
 };
 use futures_util::{SinkExt, StreamExt};
-use serde::Serialize;
 use simulation_message::{ClientMessageKind, ConnectionInfo, ServerMessageKind, SimulatorMessage};
 use tokio::net::TcpStream;
 use tokio_tungstenite::{accept_async, tungstenite::Message, WebSocketStream};
@@ -58,7 +57,7 @@ async fn start_connection(
     Ok(())
 }
 
-fn serialize<T: Serialize>(data: &SimulatorMessage<T>) -> Result<Message> {
+fn serialize(data: &SimulatorMessage<ServerMessageKind>) -> Result<Message> {
     let data = bincode::serialize(data).wrap_err("failed to serialize data")?;
     Ok(Message::binary(data))
 }

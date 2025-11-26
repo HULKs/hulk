@@ -40,11 +40,52 @@ class BodyUpdate:
     quat: list[float]
 
 class Geom:
-    name: str
-    mesh: str | None
+    id: int
     rgba: list[float]
     pos: list[float]
     quat: list[float]
+
+    @staticmethod
+    def mesh(
+        index: int,
+        mesh_index: int,
+        rgba: list[float],
+        pos: list[float],
+        quat: list[float],
+    ) -> Geom: ...
+    @staticmethod
+    def sphere(
+        index: int,
+        radius: str,
+        rgba: list[float],
+        pos: list[float],
+        quat: list[float],
+    ) -> Geom: ...
+    @staticmethod
+    def box(
+        index: int,
+        extent: list[float],
+        rgba: list[float],
+        pos: list[float],
+        quat: list[float],
+    ) -> Geom: ...
+    @staticmethod
+    def plane(
+        index: int,
+        normal: list[float],
+        rgba: list[float],
+        pos: list[float],
+        quat: list[float],
+    ) -> Geom: ...
+    @staticmethod
+    def cylinder(
+        index: int,
+        radius: float,
+        half_height: float,
+        rgba: list[float],
+        pos: list[float],
+        quat: list[float],
+    ) -> Geom: ...
 
 class Light:
     name: str | None
@@ -52,9 +93,10 @@ class Light:
     dir: list[float]
 
 class SceneDescription:
-    meshes: dict[str, SceneMesh]
+    meshes: dict[int, SceneMesh]
     lights: list[Light]
-    bodies: dict[str, Body]
+    bodies: dict[int, Body]
+    geoms: dict[int, Geom]
 
 class SceneMesh:
     vertices: list[list[float]]
@@ -62,7 +104,7 @@ class SceneMesh:
 
 class SceneUpdate:
     time: float
-    bodies: dict[str, BodyUpdate]
+    bodies: dict[int, BodyUpdate]
 
 __all__ = [
     "Body",

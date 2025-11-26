@@ -20,9 +20,9 @@ use eframe::{
     run_native, App, CreationContext, Frame, NativeOptions, Renderer, Storage,
 };
 use egui_dock::{DockArea, DockState, Node, NodeIndex, Split, SurfaceIndex, TabAddAlign, TabIndex};
-use fern::{colors::ColoredLevelConfig, Dispatch, InitError};
 use itertools::chain;
 use serde_json::{from_str, to_string, Value};
+use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
 
 use communication::client::Status;
 use configuration::{
@@ -70,24 +70,29 @@ struct Arguments {
     pub clear: bool,
 }
 
-fn setup_logger() -> Result<(), InitError> {
-    Dispatch::new()
-        .format(|out, message, record| {
-            let colors = ColoredLevelConfig::new();
-            out.finish(format_args!(
-                "[{}] {}",
-                colors.color(record.level()),
-                message
-            ))
-        })
-        .level(log::LevelFilter::Info)
-        .chain(std::io::stdout())
-        .apply()?;
+fn setup_logger() -> Result<(), Report> {
+    let filter = EnvFilter::try_from_default_env()
+        .unwrap_or_else(|_| EnvFilter::new("info,bevy_render=warn"));
+
+    let layer = fmt::layer()
+        .with_target(true)
+        .with_thread_ids(false)
+        .with_level(true)
+        .with_file(false)
+        .with_line_number(true)
+        .compact();
+
+    tracing_subscriber::registry()
+        .with(filter)
+        .with(layer)
+        .try_init()
+        .wrap_err("failed to initialize tracing subscriber")?;
+
     Ok(())
 }
 
 fn main() -> Result<(), eframe::Error> {
-    setup_logger().unwrap();
+    setup_logger().expect("failed to setup logger");
 
     let arguments = Arguments::parse();
     let repository = arguments

@@ -50,23 +50,26 @@ pub enum TaskName {
 #[pyclass(frozen)]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SceneDescription {
-    pub meshes: BTreeMap<String, SceneMesh>,
+    pub meshes: BTreeMap<usize, SceneMesh>,
+    pub geoms: BTreeMap<usize, Geom>,
     pub lights: Vec<Light>,
-    pub bodies: BTreeMap<String, Body>,
+    pub bodies: BTreeMap<usize, Body>,
 }
 
 #[pymethods]
 impl SceneDescription {
     #[new]
     pub fn new(
-        meshes: BTreeMap<String, SceneMesh>,
+        meshes: BTreeMap<usize, SceneMesh>,
         lights: Vec<Light>,
-        bodies: BTreeMap<String, Body>,
+        bodies: BTreeMap<usize, Body>,
+        geoms: BTreeMap<usize, Geom>,
     ) -> Self {
         Self {
             meshes,
             lights,
             bodies,
+            geoms,
         }
     }
 }
@@ -105,45 +108,132 @@ impl Light {
 #[pyclass(frozen)]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Body {
-    pub id: i64,
-    pub parent: Option<String>,
-    pub geoms: Vec<Geom>,
+    pub id: usize,
+    pub name: Option<String>,
+    pub parent: Option<usize>,
+    pub geoms: Vec<usize>,
 }
 
 #[pymethods]
 impl Body {
     #[new]
-    pub fn new(id: i64, parent: Option<String>, geoms: Vec<Geom>) -> Self {
-        Self { id, parent, geoms }
+    pub fn new(id: usize, name: Option<String>, parent: Option<usize>, geoms: Vec<usize>) -> Self {
+        Self {
+            id,
+            name,
+            parent,
+            geoms,
+        }
     }
 }
 
 #[pyclass(frozen)]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Geom {
-    pub name: Option<String>,
-    pub mesh: Option<String>,
+    pub index: usize,
     pub rgba: [f32; 4],
     pub pos: [f32; 3],
     pub quat: [f32; 4],
+    pub geom_variant: GeomVariant,
+}
+
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub enum GeomVariant {
+    Mesh { mesh_index: usize },
+    Sphere { radius: f32 },
+    Box { extent: [f32; 3] },
+    Plane { normal: [f32; 3] },
+    Cylinder { radius: f32, half_height: f32 },
 }
 
 #[pymethods]
 impl Geom {
-    #[new]
-    pub fn new(
-        name: Option<String>,
-        mesh: Option<String>,
+    #[staticmethod]
+    pub fn mesh(
+        index: usize,
+        mesh_index: usize,
         rgba: [f32; 4],
         pos: [f32; 3],
         quat: [f32; 4],
     ) -> Self {
         Self {
-            name,
-            mesh,
+            index,
             rgba,
             pos,
             quat,
+            geom_variant: GeomVariant::Mesh { mesh_index },
+        }
+    }
+
+    #[staticmethod]
+    pub fn sphere(
+        index: usize,
+        radius: f32,
+        rgba: [f32; 4],
+        pos: [f32; 3],
+        quat: [f32; 4],
+    ) -> Self {
+        Self {
+            index,
+            rgba,
+            pos,
+            quat,
+            geom_variant: GeomVariant::Sphere { radius },
+        }
+    }
+
+    #[staticmethod]
+    pub fn r#box(
+        index: usize,
+        extent: [f32; 3],
+        rgba: [f32; 4],
+        pos: [f32; 3],
+        quat: [f32; 4],
+    ) -> Self {
+        Self {
+            index,
+            rgba,
+            pos,
+            quat,
+            geom_variant: GeomVariant::Box { extent },
+        }
+    }
+
+    #[staticmethod]
+    pub fn plane(
+        index: usize,
+        normal: [f32; 3],
+        rgba: [f32; 4],
+        pos: [f32; 3],
+        quat: [f32; 4],
+    ) -> Self {
+        Self {
+            index,
+            rgba,
+            pos,
+            quat,
+            geom_variant: GeomVariant::Plane { normal },
+        }
+    }
+
+    #[staticmethod]
+    pub fn cylinder(
+        index: usize,
+        radius: f32,
+        half_height: f32,
+        rgba: [f32; 4],
+        pos: [f32; 3],
+        quat: [f32; 4],
+    ) -> Self {
+        Self {
+            index,
+            rgba,
+            pos,
+            quat,
+            geom_variant: GeomVariant::Cylinder {
+                radius,
+                half_height,
+            },
         }
     }
 }
@@ -152,13 +242,13 @@ impl Geom {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SceneUpdate {
     pub time: f32,
-    pub bodies: BTreeMap<String, BodyUpdate>,
+    pub bodies: BTreeMap<usize, BodyUpdate>,
 }
 
 #[pymethods]
 impl SceneUpdate {
     #[new]
-    pub fn new(time: f32, bodies: BTreeMap<String, BodyUpdate>) -> Self {
+    pub fn new(time: f32, bodies: BTreeMap<usize, BodyUpdate>) -> Self {
         Self { time, bodies }
     }
 }
