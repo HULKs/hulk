@@ -475,12 +475,17 @@ fn spawn_mujoco_scene(
     let scene_root = commands
         .spawn((
             SceneRootMarker,
+            Visibility::default(),
             Transform::from_rotation(Quat::from_rotation_x(-FRAC_PI_2)),
         ))
         .id();
 
     for body in scene.bodies.values() {
-        let mut parent = commands.spawn((Transform::default(), BodyComponent { id: body.id }));
+        let mut parent = commands.spawn((
+            Transform::default(),
+            Visibility::default(),
+            BodyComponent { id: body.id },
+        ));
         parent.set_parent_in_place(scene_root);
         parent.with_children(|parent| {
             for geom in body.geoms.iter().map(|index| &scene.geoms[index]) {
