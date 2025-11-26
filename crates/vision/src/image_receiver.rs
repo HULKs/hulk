@@ -5,7 +5,7 @@ use context_attribute::context;
 use framework::MainOutput;
 use hardware::{RGBDSensorsInterface, TimeInterface};
 use serde::{Deserialize, Serialize};
-use types::{cycle_time::CycleTime, ycbcr422_image::YCbCr422Image};
+use types::{ball_detection::BallPercept, cycle_time::CycleTime, ycbcr422_image::YCbCr422Image};
 
 #[derive(Deserialize, Serialize)]
 pub struct ImageReceiver {
@@ -24,6 +24,7 @@ pub struct CycleContext {
 pub struct MainOutputs {
     pub image: MainOutput<YCbCr422Image>,
     pub cycle_time: MainOutput<CycleTime>,
+    pub balls: MainOutput<Option<Vec<BallPercept>>>,
 }
 
 impl ImageReceiver {
@@ -52,6 +53,7 @@ impl ImageReceiver {
         Ok(MainOutputs {
             image: ycbcr422_image.into(),
             cycle_time: cycle_time.into(),
+            balls: None.into(),
         })
     }
 }

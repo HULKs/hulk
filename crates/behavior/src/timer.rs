@@ -1,4 +1,7 @@
-use std::{thread::sleep, time::{Duration, SystemTime, UNIX_EPOCH}};
+use std::{
+    thread::sleep,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
 
 use color_eyre::Result;
 use context_attribute::context;

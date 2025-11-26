@@ -24,7 +24,7 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
-    ball_percepts_from_vision: PerceptionInput<Option<Vec<BallPercept>>, "VisionBottom", "balls?">,
+    ball_percepts_from_vision: PerceptionInput<Option<Vec<BallPercept>>, "Vision", "balls?">,
 }
 
 #[context]
