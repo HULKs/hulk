@@ -96,6 +96,8 @@ jobs:
 
   test:
     name: Test
+    env:
+      XDG_CACHE_HOME: /__w/hulk/.cache/${{ github.run_id }}-${{ github.job }}
     runs-on:
       - self-hosted
       - v3
