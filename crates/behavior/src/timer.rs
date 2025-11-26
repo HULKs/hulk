@@ -1,15 +1,14 @@
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::{thread::sleep, time::{Duration, SystemTime, UNIX_EPOCH}};
 
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use hardware::TimeInterface;
 use serde::{Deserialize, Serialize};
-use tokio::time::sleep;
 use types::cycle_time::CycleTime;
 
 #[derive(Deserialize, Serialize)]
-pub struct DataReceiver {
+pub struct Timer {
     last_cycle_start: SystemTime,
 }
 
@@ -26,7 +25,7 @@ pub struct MainOutputs {
     pub cycle_time: MainOutput<CycleTime>,
 }
 
-impl DataReceiver {
+impl Timer {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             last_cycle_start: UNIX_EPOCH,
