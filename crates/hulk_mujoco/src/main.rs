@@ -89,11 +89,13 @@ async fn main() -> Result<()> {
         framework_parameters.communication_addresses = Some(fallback.to_string());
     }
 
-    let hardware_interface =
-        MujocoHardwareInterface::new(keep_running.clone(), hardware_parameters)?;
+    let hardware_interface = Arc::new(MujocoHardwareInterface::new(
+        keep_running.clone(),
+        hardware_parameters,
+    )?);
 
     run(
-        Arc::new(hardware_interface),
+        hardware_interface.clone(),
         framework_parameters.communication_addresses,
         framework_parameters.parameters_directory,
         "logs",
@@ -103,5 +105,11 @@ async fn main() -> Result<()> {
         },
         keep_running,
         framework_parameters.recording_intervals,
-    )
+    )?;
+
+    Arc::into_inner(hardware_interface)
+        .expect("hardware interface is still used by someone else")
+        .worker_handle
+        .await?
+        .unwrap_or(Ok(()))
 }

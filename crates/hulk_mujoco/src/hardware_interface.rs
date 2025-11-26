@@ -23,6 +23,7 @@ use parking_lot::Mutex;
 use serde::Deserialize;
 use simulation_message::{ClientMessageKind, ConnectionInfo, ServerMessageKind, SimulatorMessage};
 use tokio::sync::mpsc::{channel, Receiver, Sender};
+use tokio::task::JoinHandle;
 use tokio::time::sleep;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_util::sync::CancellationToken;
@@ -55,6 +56,7 @@ pub struct MujocoHardwareInterface {
     paths: Paths,
     enable_recording: AtomicBool,
     time: Arc<Mutex<SystemTime>>,
+    pub worker_handle: JoinHandle<Option<Result<()>>>,
 
     low_state_receiver: Mutex<Receiver<LowState>>,
     low_command_sender: Sender<LowCommand>,
@@ -87,7 +89,7 @@ impl MujocoHardwareInterface {
         };
 
         let time = Arc::new(Mutex::new(SystemTime::UNIX_EPOCH));
-        tokio::spawn(keep_running.clone().run_until_cancelled_owned(worker(
+        let worker_handle = tokio::spawn(keep_running.clone().run_until_cancelled_owned(worker(
             time.clone(),
             parameters.mujoco_websocket_address,
             keep_running.clone(),
@@ -98,6 +100,7 @@ impl MujocoHardwareInterface {
             paths: parameters.paths,
             enable_recording: AtomicBool::new(false),
             time,
+            worker_handle,
 
             low_state_receiver: Mutex::new(low_state_receiver),
             low_command_sender,
@@ -272,7 +275,7 @@ impl RemoteControllerStateInterface for MujocoHardwareInterface {
         self.remote_controller_state_receiver
             .lock()
             .blocking_recv()
-            .ok_or_eyre("channel closed")
+            .ok_or_eyre("remote controller state channel closed")
     }
 }
 
@@ -281,7 +284,7 @@ impl TransformMessageInterface for MujocoHardwareInterface {
         self.transform_stamped_receiver
             .lock()
             .blocking_recv()
-            .ok_or_eyre("channel closed")
+            .ok_or_eyre("tfmessage channel closed")
     }
 }
 
@@ -290,7 +293,7 @@ impl RGBDSensorsInterface for MujocoHardwareInterface {
         self.rgbd_sensors_receiver
             .lock()
             .blocking_recv()
-            .ok_or_eyre("channel closed")
+            .ok_or_eyre("rgbd sensors channel closed")
     }
 }
 
