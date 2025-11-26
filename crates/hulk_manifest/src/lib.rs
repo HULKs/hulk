@@ -127,9 +127,7 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
                 kind: CyclerKind::RealTime,
                 instances: vec![""],
                 setup_nodes: vec!["world_state::timer"],
-                nodes: vec![
-                    "world_state::ball_filter",
-                ],
+                nodes: vec!["world_state::ball_filter"],
                 execution_time_warning_threshold: Some(Duration::from_secs_f32(1.0 / 83.0)),
             },
             // CyclerManifest {
