@@ -14,7 +14,7 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    ball_position: Input<Option<BallPosition<Ground>>, "World_state", "ball_position">,
+    ball_position: Input<Option<BallPosition<Ground>>, "WorldState", "ball_position?">,
 }
 
 #[context]

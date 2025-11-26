@@ -8,6 +8,7 @@ homepage.workspace = true
 [dependencies]
 audio = { workspace = true }
 ball_filter = { workspace = true }
+behavior = { workspace = true }
 bincode = { workspace = true }
 blake3 = { workspace = true }
 booster = { workspace = true }
@@ -48,6 +49,7 @@ tokio-util = { workspace = true }
 types = { workspace = true }
 vision = { workspace = true }
 walking_inference = { workspace = true }
+world_state ={ workspace = true}
 zed = { workspace = true }
 
 [build-dependencies]

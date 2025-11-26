@@ -4256,6 +4256,7 @@ version = "0.1.0"
 dependencies = [
  "audio",
  "ball_filter",
+ "behavior",
  "bincode",
  "booster",
  "buffered_watch",
@@ -4292,6 +4293,7 @@ dependencies = [
  "types",
  "vision",
  "walking_inference",
+ "world_state",
  "zed",
 ]
 
@@ -4309,6 +4311,7 @@ dependencies = [
  "approx 0.5.1",
  "audio",
  "ball_filter",
+ "behavior",
  "bincode",
  "blake3",
  "booster",
@@ -4359,6 +4362,7 @@ dependencies = [
  "types",
  "vision",
  "walking_inference",
+ "world_state",
  "zed",
 ]
 
@@ -4368,6 +4372,7 @@ version = "0.1.0"
 dependencies = [
  "audio",
  "ball_filter",
+ "behavior",
  "bincode",
  "blake3",
  "booster",
@@ -4411,6 +4416,7 @@ dependencies = [
  "types",
  "vision",
  "walking_inference",
+ "world_state",
  "zed",
 ]
 
