@@ -427,21 +427,21 @@ fn spawn_geom(
     ));
 
     let mesh_handle = match &geom.geom_variant {
-        GeomVariant::Mesh { mesh_index } => Mesh3d(mesh_handles[mesh_index].clone()),
-        GeomVariant::Sphere { radius } => Mesh3d(meshes.add(Sphere::new(*radius))),
+        GeomVariant::Mesh { mesh_index } => mesh_handles[mesh_index].clone(),
+        GeomVariant::Sphere { radius } => meshes.add(Sphere::new(*radius)),
         GeomVariant::Box {
             extent: [hx, hy, hz],
-        } => Mesh3d(meshes.add(Cuboid::new(*hx, *hy, *hz))),
+        } => meshes.add(Cuboid::new(*hx, *hy, *hz)),
         GeomVariant::Plane {
             normal: [nx, ny, nz],
-        } => Mesh3d(meshes.add(Plane3d::new(Vec3::new(*nx, *ny, *nz), Vec2::splat(100.0)))),
+        } => meshes.add(Plane3d::new(Vec3::new(*nx, *ny, *nz), Vec2::splat(100.0))),
         GeomVariant::Cylinder {
             radius,
             half_height,
-        } => Mesh3d(meshes.add(Cylinder::new(*radius, *half_height))),
+        } => meshes.add(Cylinder::new(*radius, *half_height)),
     };
 
-    geom_entity.insert(mesh_handle);
+    geom_entity.insert(Mesh3d(mesh_handle));
 }
 
 fn spawn_mujoco_scene(
@@ -480,11 +480,7 @@ fn spawn_mujoco_scene(
         .id();
 
     for body in scene.bodies.values() {
-        let mut parent = commands.spawn((
-            Transform::default(),
-            Visibility::default(),
-            BodyComponent { id: body.id },
-        ));
+        let mut parent = commands.spawn((Transform::default(), BodyComponent { id: body.id }));
         parent.set_parent_in_place(scene_root);
         parent.with_children(|parent| {
             for geom in body.geoms.iter().map(|index| &scene.geoms[index]) {
