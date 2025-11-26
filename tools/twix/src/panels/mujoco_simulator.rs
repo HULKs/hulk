@@ -35,7 +35,7 @@ use futures_util::{SinkExt, StreamExt};
 use log::{debug, info};
 use nalgebra::Isometry3;
 use simulation_message::{
-    ConnectionInfo, Geom, GeomVariant, SceneDescription, SceneUpdate, ServerMessageKind,
+    ConnectionInfo, Geom, GeomVariant, Material, SceneDescription, SceneUpdate, ServerMessageKind,
     SimulatorMessage,
 };
 use tokio::{select, sync::mpsc};
@@ -328,7 +328,6 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
 
 impl Widget for &mut MujocoSimulatorPanel {
     fn ui(self, ui: &mut Ui) -> Response {
-        ui.ctx().request_repaint();
         self.process_scene_updates();
         let response = ui.allocate_response(ui.available_size(), Sense::all());
         self.process_egui_input(ui, &response);
@@ -412,14 +411,18 @@ fn spawn_geom(
     materials: &mut Assets<StandardMaterial>,
     meshes: &mut Assets<Mesh>,
     mesh_handles: &BTreeMap<usize, Handle<Mesh>>,
+    material_handles: &BTreeMap<usize, Handle<StandardMaterial>>,
     geom: &Geom,
 ) {
-    let material = materials.add(Color::srgba_u8(
-        (geom.rgba[0] * 255.0) as u8,
-        (geom.rgba[1] * 255.0) as u8,
-        (geom.rgba[2] * 255.0) as u8,
-        (geom.rgba[3] * 255.0) as u8,
-    ));
+    let material = match geom.material {
+        Material::Rgba { rgba: [r, g, b, a] } => materials.add(Color::srgba_u8(
+            (r * 255.0) as u8,
+            (g * 255.0) as u8,
+            (b * 255.0) as u8,
+            (a * 255.0) as u8,
+        )),
+        Material::Pbr { material_index } => material_handles[&material_index].clone(),
+    };
 
     let mut geom_entity = entity_commands.spawn((
         Transform::from_translation(Vec3::from(geom.pos)).with_rotation(bevy_quat(geom.quat)),
@@ -472,6 +475,26 @@ fn spawn_mujoco_scene(
         })
         .collect();
 
+    let material_handles: BTreeMap<_, _> = scene
+        .materials
+        .iter()
+        .map(|(id, material)| {
+            let [r, g, b, a] = material.rgba;
+            let mut bevy_material = StandardMaterial::from(Color::srgba_u8(
+                (r * 255.0) as u8,
+                (g * 255.0) as u8,
+                (b * 255.0) as u8,
+                (a * 255.0) as u8,
+            ));
+            bevy_material.reflectance = material.specular;
+            bevy_material.metallic = material.reflectance;
+            bevy_material.perceptual_roughness = 1.0 - material.shininess;
+
+            let handle = materials.add(bevy_material);
+            (*id, handle)
+        })
+        .collect();
+
     let scene_root = commands
         .spawn((
             SceneRootMarker,
@@ -489,7 +512,14 @@ fn spawn_mujoco_scene(
         parent.set_parent_in_place(scene_root);
         parent.with_children(|parent| {
             for geom in body.geoms.iter().map(|index| &scene.geoms[index]) {
-                spawn_geom(parent, &mut materials, &mut meshes, &mesh_handles, geom);
+                spawn_geom(
+                    parent,
+                    &mut materials,
+                    &mut meshes,
+                    &mesh_handles,
+                    &material_handles,
+                    geom,
+                );
             }
         });
         if body.parent.is_none() && body.name.as_ref().is_some_and(|name| name == "Trunk") {

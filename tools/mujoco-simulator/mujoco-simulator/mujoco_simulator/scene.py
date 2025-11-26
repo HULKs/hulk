@@ -9,23 +9,33 @@ from mujoco_rust_server import (
     BodyUpdate,
     Geom,
     Light,
+    Material,
+    PbrMaterial,
     SceneDescription,
     SceneMesh,
     SceneUpdate,
 )
 
 
+def material_for_geom(model: MjModel, geom_index: int) -> Material:
+    material_index = model.geom_matid[geom_index]
+    if material_index < 0:
+        rgba: list[float] = model.geom_rgba[geom_index].tolist()
+        return Material.rgba(rgba)
+    return Material.pbr(material_index)
+
+
 def resolve_geom(model: MjModel, geom_index: int) -> Geom | None:
     geom_type = mujoco.mjtGeom(model.geom_type[geom_index])
-    rgba: list[float] = model.geom_rgba[geom_index].tolist()
     pos: list[float] = model.geom_pos[geom_index].tolist()
     quat: list[float] = model.geom_quat[geom_index].tolist()
+    material = material_for_geom(model, geom_index)
 
     if geom_type == mujoco.mjtGeom.mjGEOM_MESH:
         return Geom.mesh(
             index=geom_index,
             mesh_index=model.geom_dataid[geom_index],
-            rgba=rgba,
+            material=material,
             pos=pos,
             quat=quat,
         )
@@ -35,7 +45,7 @@ def resolve_geom(model: MjModel, geom_index: int) -> Geom | None:
         return Geom.sphere(
             index=geom_index,
             radius=radius,
-            rgba=rgba,
+            material=material,
             pos=pos,
             quat=quat,
         )
@@ -45,7 +55,7 @@ def resolve_geom(model: MjModel, geom_index: int) -> Geom | None:
         return Geom.box(
             index=geom_index,
             extent=extent,
-            rgba=rgba,
+            material=material,
             pos=pos,
             quat=quat,
         )
@@ -55,7 +65,7 @@ def resolve_geom(model: MjModel, geom_index: int) -> Geom | None:
         return Geom.plane(
             index=geom_index,
             normal=normal,
-            rgba=rgba,
+            material=material,
             pos=pos,
             quat=quat,
         )
@@ -67,7 +77,7 @@ def resolve_geom(model: MjModel, geom_index: int) -> Geom | None:
             index=geom_index,
             radius=radius,
             half_height=half_height,
-            rgba=rgba,
+            material=material,
             pos=pos,
             quat=quat,
         )
@@ -90,6 +100,16 @@ def generate_scene_description(model: MjModel) -> SceneDescription:
         faces = model.mesh_face[face_adr : face_adr + nface].tolist()
 
         meshes[i] = SceneMesh(vertices=verts, faces=faces)
+
+    # Materials
+    materials = {}
+    for i in range(model.nmat):
+        rgba = model.mat_rgba[i]
+        reflectance = model.mat_reflectance[i]
+        shininess = model.mat_shininess[i]
+        specular = model.mat_specular[i]
+
+        materials[i] = PbrMaterial(rgba, reflectance, shininess, specular)
 
     # Textures (export raw for now)
     # textures = {}
@@ -135,7 +155,11 @@ def generate_scene_description(model: MjModel) -> SceneDescription:
         )
 
     return SceneDescription(
-        meshes=meshes, lights=lights, bodies=bodies, geoms=geoms
+        meshes=meshes,
+        materials=materials,
+        lights=lights,
+        bodies=bodies,
+        geoms=geoms,
     )
 
 
