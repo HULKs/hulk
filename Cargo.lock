@@ -835,6 +835,20 @@ dependencies = [
 ]
 
 [[package]]
+name = "behavior"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "context_attribute",
+ "coordinate_systems",
+ "framework",
+ "hardware",
+ "serde",
+ "tokio",
+ "types",
+]
+
+[[package]]
 name = "bevy"
 version = "0.16.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4242,6 +4256,7 @@ version = "0.1.0"
 dependencies = [
  "audio",
  "ball_filter",
+ "behavior",
  "bincode",
  "booster",
  "buffered_watch",
@@ -4278,6 +4293,7 @@ dependencies = [
  "types",
  "vision",
  "walking_inference",
+ "world_state",
  "zed",
 ]
 
@@ -4295,6 +4311,7 @@ dependencies = [
  "approx 0.5.1",
  "audio",
  "ball_filter",
+ "behavior",
  "bincode",
  "blake3",
  "booster",
@@ -4345,6 +4362,7 @@ dependencies = [
  "types",
  "vision",
  "walking_inference",
+ "world_state",
  "zed",
 ]
 
@@ -4354,6 +4372,7 @@ version = "0.1.0"
 dependencies = [
  "audio",
  "ball_filter",
+ "behavior",
  "bincode",
  "blake3",
  "booster",
@@ -4397,6 +4416,7 @@ dependencies = [
  "types",
  "vision",
  "walking_inference",
+ "world_state",
  "zed",
 ]
 
@@ -10355,6 +10375,26 @@ name = "wit-bindgen"
 version = "0.46.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f17a85883d4e6d00e8a97c586de764dabcc06133f7f1d55dce5cdc070ad7fe59"
+
+[[package]]
+name = "world_state"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "color-eyre",
+ "context_attribute",
+ "coordinate_systems",
+ "filtering",
+ "framework",
+ "hardware",
+ "linear_algebra",
+ "nalgebra",
+ "projection",
+ "serde",
+ "spl_network_messages",
+ "tokio",
+ "types",
+]
 
 [[package]]
 name = "writeable"

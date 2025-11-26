@@ -41,7 +41,7 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
             // },
             CyclerManifest {
                 name: "Control",
-                kind: CyclerKind::RealTime,
+                kind: CyclerKind::Perception,
                 instances: vec![""],
                 setup_nodes: vec!["control::sensor_data_receiver"],
                 nodes: vec![
@@ -112,6 +112,22 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
                     // "control::world_state_composer",
                     // "control::zero_moment_point_provider",
                 ],
+                execution_time_warning_threshold: Some(Duration::from_secs_f32(1.0 / 83.0)),
+            },
+            CyclerManifest {
+                name: "Behavior",
+                kind: CyclerKind::Perception,
+                instances: vec![""],
+                setup_nodes: vec!["behavior::timer"],
+                nodes: vec!["behavior::walk_to_ball"],
+                execution_time_warning_threshold: Some(Duration::from_secs_f32(1.0 / 83.0)),
+            },
+            CyclerManifest {
+                name: "WorldState",
+                kind: CyclerKind::RealTime,
+                instances: vec![""],
+                setup_nodes: vec!["world_state::timer"],
+                nodes: vec!["world_state::ball_filter"],
                 execution_time_warning_threshold: Some(Duration::from_secs_f32(1.0 / 83.0)),
             },
             // CyclerManifest {
