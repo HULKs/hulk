@@ -1,0 +1,11 @@
+[package]
+name = "hulk_booster"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[package.metadata.pepsi]
+cross-compile = true
+
+[dependencies]
