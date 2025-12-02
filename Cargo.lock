@@ -4210,6 +4210,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "hulk_booster"
+version = "0.1.0"
+
+[[package]]
 name = "hulk_imagine"
 version = "0.1.0"
 dependencies = [

@@ -22,6 +22,7 @@ members = [
   "crates/geometry",
   "crates/hardware",
   "crates/hula_types",
+  "crates/hulk_booster",
   "crates/hulk_imagine",
   "crates/hulk_manifest",
   "crates/hulk_mujoco",
