@@ -87,9 +87,9 @@ async fn configure_repository(repository: &Repository, config: DeployConfig) -> 
         .wrap_err("failed to apply recording settings")?;
 
     repository
-        .set_location("nao", &config.location)
+        .set_location("robot", &config.location)
         .await
-        .wrap_err_with(|| format!("failed to set location for nao to {}", config.location))?;
+        .wrap_err_with(|| format!("failed to set location for robot to {}", config.location))?;
 
     repository
         .configure_communication(config.with_communication)

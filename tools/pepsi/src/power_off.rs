@@ -1,21 +1,21 @@
 use clap::Args;
 use color_eyre::{eyre::WrapErr, Result};
 
-use argument_parsers::{number_to_ip, Connection, NaoAddress};
+use argument_parsers::{number_to_ip, Connection, RobotAddress};
 use futures_util::{stream::FuturesUnordered, StreamExt};
-use nao::Nao;
 use repository::Repository;
+use robot::Booster;
 
 use crate::progress_indicator::ProgressIndicator;
 
 #[derive(Args)]
 pub struct Arguments {
-    /// Power off all NAOs
+    /// Power off all Robots
     #[arg(long)]
     pub all: bool,
-    /// The NAOs to power off e.g. 20w or 10.1.24.22
+    /// The Robots to power off e.g. 20w or 10.1.24.22
     #[arg(required = true, conflicts_with = "all", num_args = 1..)]
-    pub naos: Vec<NaoAddress>,
+    pub robots: Vec<RobotAddress>,
 }
 
 pub async fn power_off(arguments: Arguments, repository: &Repository) -> Result<()> {
@@ -25,15 +25,15 @@ pub async fn power_off(arguments: Arguments, repository: &Repository) -> Result<
             .await
             .wrap_err("failed to get team configuration")?;
         let addresses = team
-            .naos
+            .robots
             .iter()
-            .map(|nao| async move {
-                let host = number_to_ip(nao.number, Connection::Wired)?;
-                match Nao::try_new_with_ping(host).await {
-                    Ok(nao) => Ok(nao),
+            .map(|robot| async move {
+                let host = number_to_ip(robot.number, Connection::Wired)?;
+                match Booster::try_new_with_ping(host).await {
+                    Ok(robot) => Ok(robot),
                     Err(_) => {
-                        let host = number_to_ip(nao.number, Connection::Wireless)?;
-                        Nao::try_new_with_ping(host).await
+                        let host = number_to_ip(robot.number, Connection::Wireless)?;
+                        Booster::try_new_with_ping(host).await
                     }
                 }
             })
@@ -42,24 +42,26 @@ pub async fn power_off(arguments: Arguments, repository: &Repository) -> Result<
             .await;
 
         ProgressIndicator::map_tasks(
-            addresses.into_iter().filter_map(|nao| nao.ok()),
+            addresses.into_iter().filter_map(|robot| robot.ok()),
             "Powering off...",
-            |nao, _progress_bar| async move {
-                nao.power_off()
+            |robot, _progress_bar| async move {
+                robot
+                    .power_off()
                     .await
-                    .wrap_err_with(|| format!("failed to power {nao} off"))
+                    .wrap_err_with(|| format!("failed to power {robot} off"))
             },
         )
         .await;
     } else {
         ProgressIndicator::map_tasks(
-            arguments.naos,
+            arguments.robots,
             "Powering off...",
-            |nao_address, _progress_bar| async move {
-                let nao = Nao::try_new_with_ping(nao_address.ip).await?;
-                nao.power_off()
+            |robot_address, _progress_bar| async move {
+                let robot = Booster::try_new_with_ping(robot_address.ip).await?;
+                robot
+                    .power_off()
                     .await
-                    .wrap_err_with(|| format!("failed to power {nao_address} off"))
+                    .wrap_err_with(|| format!("failed to power {robot_address} off"))
             },
         )
         .await;

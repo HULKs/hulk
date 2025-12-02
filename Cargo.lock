@@ -467,8 +467,8 @@ name = "argument_parsers"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
- "nao",
  "regex",
+ "robot",
  "spl_network_messages",
 ]
 
@@ -5838,15 +5838,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "nao"
-version = "0.1.0"
-dependencies = [
- "color-eyre",
- "serde",
- "tokio",
-]
-
-[[package]]
 name = "native-tls"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6957,11 +6948,11 @@ dependencies = [
  "glob",
  "indicatif",
  "lazy_static",
- "nao",
  "opn",
  "pathdiff",
  "regex",
  "repository",
+ "robot",
  "serde",
  "serde_json",
  "source_analyzer",
@@ -8004,9 +7995,9 @@ dependencies = [
  "home",
  "hula_types",
  "itertools 0.14.0",
- "nao",
  "parameters",
  "pathdiff",
+ "robot",
  "semver",
  "serde",
  "serde_json",
@@ -8113,6 +8104,15 @@ dependencies = [
  "byteorder",
  "rmp",
  "serde",
+]
+
+[[package]]
+name = "robot"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "serde",
+ "tokio",
 ]
 
 [[package]]
