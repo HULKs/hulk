@@ -104,7 +104,7 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()>
         manifest: Some(
             repository
                 .root
-                .join("crates/hulk_nao/Cargo.toml")
+                .join("crates/hulk_booster/Cargo.toml")
                 .into_os_string(),
         ),
         environment: arguments.environment,
