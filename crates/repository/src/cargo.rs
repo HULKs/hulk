@@ -5,10 +5,7 @@ use std::{
     path::Path,
 };
 
-use color_eyre::{
-    eyre::{bail, Context},
-    Result,
-};
+use color_eyre::{eyre::Context, Result};
 use tokio::process::Command;
 
 use crate::{sdk::download_and_install, Repository};
@@ -16,7 +13,7 @@ use crate::{sdk::download_and_install, Repository};
 #[derive(Debug, Clone)]
 pub enum Environment {
     Native,
-    Sdk { version: String },
+    Podman { image: String },
     Docker { image: String },
 }
 
@@ -24,7 +21,7 @@ impl Display for Environment {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Environment::Native => write!(f, "Native"),
-            Environment::Sdk { version } => write!(f, "SDK ({version})"),
+            Environment::Podman { image } => write!(f, "Podman ({image})"),
             Environment::Docker { image } => write!(f, "Docker ({image})"),
         }
     }
@@ -58,36 +55,31 @@ impl Cargo {
         }
     }
 
-    pub async fn setup(&self, repository: &Repository) -> Result<()> {
-        if let Environment::Sdk { version } = &self.environment {
+    pub async fn setup(&self) -> Result<()> {
+        if let Environment::Podman { image } = &self.environment {
             match self.host {
                 Host::Local => {
-                    let data_home = repository
-                        .resolve_data_home()
-                        .await
-                        .wrap_err("failed to resolve data home")?;
-
-                    download_and_install(version, data_home)
+                    download_and_install(image)
                         .await
                         .wrap_err("failed to download and install SDK")?;
                 }
                 Host::Remote => {
-                    let mut command =
-                        Command::new(repository.root.join("scripts/remote_workspace"));
+                    // let mut command =
+                    //     Command::new(repository.root.join("scripts/remote_workspace"));
 
-                    let status = command
-                        .arg("pepsi")
-                        .arg("sdk")
-                        .arg("install")
-                        .arg("--version")
-                        .arg(version)
-                        .status()
-                        .await
-                        .wrap_err("failed to run pepsi")?;
+                    // let status = command
+                    //     .arg("pepsi")
+                    //     .arg("sdk")
+                    //     .arg("install")
+                    //     .arg("--version")
+                    //     .arg(version)
+                    //     .status()
+                    //     .await
+                    //     .wrap_err("failed to run pepsi")?;
 
-                    if !status.success() {
-                        bail!("pepsi failed with {status}");
-                    }
+                    // if !status.success() {
+                    //     bail!("pepsi failed with {status}");
+                    // }
                 }
             }
         }
@@ -120,12 +112,32 @@ impl Cargo {
                 command.push(arguments);
                 command
             }
-            Environment::Sdk { version } => {
-                let environment_file = format!(
-                    "$({data_home_script})/sdk/{version}/environment-setup-corei7-64-aldebaran-linux",
-                );
-                let mut command = OsString::from(format!(". {environment_file} && cargo "));
+            Environment::Podman { image } => {
+                let cargo_home = format!("$({data_home_script})/container-cargo-home/");
+                // TODO: Make image generic over SDK/native by modifying entry point; source SDK not here
+                let pwd = Path::new("/hulk").join(&repository.root_to_current_dir()?);
+                let root = repository.current_dir_to_root()?;
+                let mut command = OsString::from(format!(
+                    "\
+                    mkdir -p {cargo_home}/git && \
+                    mkdir -p {cargo_home}/registry && \
+                    podman run \
+                        --volume={root}:/hulk:z \
+                        --volume={cargo_home}/git:/root/.cargo/git:z \
+                        --volume={cargo_home}/registry:/root/.cargo/registry:z \
+                        --rm \
+                        --interactive \
+                        --tty {image} \
+                        /bin/sh -c '\
+                            cd {pwd} && \
+                            echo $PATH && \
+                            /root/.cargo/bin/cargo \
+                    ",
+                    root = root.display(),
+                    pwd = pwd.display(),
+                ));
                 command.push(arguments);
+                command.push(OsStr::new("'"));
                 command
             }
             Environment::Docker { image } => {
@@ -135,16 +147,17 @@ impl Cargo {
                 let root = repository.current_dir_to_root()?;
                 let mut command = OsString::from(format!(
                     "\
-                    mkdir -p {cargo_home} && \
+                    mkdir -p {cargo_home}/git && \
+                    mkdir -p {cargo_home}/registry && \
                     docker run \
                         --volume={root}:/hulk:z \
-                        --volume={cargo_home}:/root/.cargo:z \
+                        --volume={cargo_home}/git:/root/.cargo/git:z \
+                        --volume={cargo_home}/registry:/root/.cargo/registry:z \
                         --rm \
                         --interactive \
                         --tty {image} \
                         /bin/sh -c '\
                             cd {pwd} && \
-                            . /naosdk/environment-setup-corei7-64-aldebaran-linux && \
                             echo $PATH && \
                             cargo \
                     ",
