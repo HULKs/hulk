@@ -11,9 +11,9 @@ futures-util = { workspace = true }
 home = { workspace = true }
 hula_types = { workspace = true }
 itertools = { workspace = true }
-nao = { workspace = true }
 parameters = { workspace = true }
 pathdiff = { workspace = true }
+robot = { workspace = true }
 semver = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

@@ -239,7 +239,7 @@ fn location_directory_from_head_id(head_id: &str) -> &'static str {
     } else if behavior_simulator_id_found {
         "behavior_simulator_location"
     } else {
-        "nao_location"
+        "robot_location"
     }
 }
 
