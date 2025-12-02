@@ -162,11 +162,10 @@ impl Cargo {
                 let mut command = OsString::from(format!(
                     "\
                     mkdir -p {cargo_home}/git && \
-                    mkdir -p {cargo_home}/registry && \
-                    docker run \
                         --volume={root}:/hulk:z \
                         --volume={cargo_home}/git:/root/.cargo/git:z \
                         --volume={cargo_home}/registry:/root/.cargo/registry:z \
+                        --net=host \
                         --rm \
                         --interactive \
                         --pull=never \

@@ -8,14 +8,14 @@ pub enum PathFilter {
     Writable,
 }
 
-pub struct NaoPathCompletionEdit<'ui> {
+pub struct RobotPathCompletionEdit<'ui> {
     id: Id,
     paths_events: PathsEvent,
     path: &'ui mut String,
     filter: PathFilter,
 }
 
-impl<'ui> NaoPathCompletionEdit<'ui> {
+impl<'ui> RobotPathCompletionEdit<'ui> {
     pub fn new(
         id_salt: impl Into<Id>,
         paths_events: PathsEvent,
@@ -45,7 +45,7 @@ impl<'ui> NaoPathCompletionEdit<'ui> {
     }
 }
 
-impl Widget for NaoPathCompletionEdit<'_> {
+impl Widget for RobotPathCompletionEdit<'_> {
     fn ui(self, ui: &mut Ui) -> Response {
         let paths = self.list_paths();
         ui.add(CompletionEdit::new(self.id, &paths, self.path))

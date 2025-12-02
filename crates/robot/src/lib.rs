@@ -22,8 +22,8 @@ use tokio::{
 
 const PING_TIMEOUT: Duration = Duration::from_secs(2);
 
-const NAO_SSH_FLAGS: &[&str] = &[
-    "-lnao",
+const BOOSTER_SSH_FLAGS: &[&str] = &[
+    "-lbooster",
     "-oLogLevel=quiet",
     "-oStrictHostKeyChecking=no",
     "-oUserKnownHostsFile=/dev/null",
@@ -31,34 +31,34 @@ const NAO_SSH_FLAGS: &[&str] = &[
 
 #[derive(Debug, Deserialize, Hash, Eq, PartialEq)]
 #[serde(try_from = "String")]
-pub struct NaoNumber {
+pub struct RobotNumber {
     pub id: u8,
 }
 
-impl TryFrom<String> for NaoNumber {
+impl TryFrom<String> for RobotNumber {
     type Error = eyre::Error;
 
     fn try_from(value: String) -> Result<Self> {
         let id = value
             .parse()
-            .wrap_err_with(|| format!("failed to parse `{value}` into Nao number"))?;
+            .wrap_err_with(|| format!("failed to parse `{value}` into Robot number"))?;
         Ok(Self { id })
     }
 }
 
-pub struct Nao {
+pub struct Booster {
     pub address: Ipv4Addr,
 }
 
-impl Nao {
+impl Booster {
     pub fn new(address: Ipv4Addr) -> Self {
         Self { address }
     }
 
     pub async fn ping_until_available(host: Ipv4Addr) -> Self {
         loop {
-            if let Ok(nao) = Self::try_new_with_ping(host).await {
-                return nao;
+            if let Ok(robot) = Self::try_new_with_ping(host).await {
+                return robot;
             }
         }
     }
@@ -92,7 +92,7 @@ impl Nao {
 
     pub async fn get_os_version(&self) -> Result<String> {
         let output = self
-            .ssh_to_nao()?
+            .ssh_to_booster()?
             .arg("cat /etc/os-release")
             .output()
             .await
@@ -103,10 +103,10 @@ impl Nao {
     }
 
     fn create_login_script() -> Result<PathBuf> {
-        let path = temp_dir().join("nao_login_script");
+        let path = temp_dir().join("booster_login_script");
 
-        std::fs::write(&path, b"#!/usr/bin/env sh\necho nao")
-            .wrap_err("failed to write to nao login script")?;
+        std::fs::write(&path, b"#!/usr/bin/env sh\necho booster")
+            .wrap_err("failed to write to robot login script")?;
 
         #[cfg(unix)]
         {
@@ -117,7 +117,7 @@ impl Nao {
         Ok(path)
     }
 
-    fn ssh_to_nao(&self) -> Result<Command> {
+    fn ssh_to_booster(&self) -> Result<Command> {
         let temp_file = Self::create_login_script().wrap_err("failed to create login script")?;
 
         let mut command = Command::new("ssh");
@@ -125,14 +125,14 @@ impl Nao {
         command.env("SSH_ASKPASS", temp_file.as_os_str());
         command.env("SSH_ASKPASS_REQUIRE", "force");
 
-        for flag in NAO_SSH_FLAGS {
+        for flag in BOOSTER_SSH_FLAGS {
             command.arg(flag);
         }
         command.arg(self.address.to_string());
         Ok(command)
     }
 
-    pub fn rsync_with_nao(&self) -> Result<Command> {
+    pub fn rsync_with_booster(&self) -> Result<Command> {
         let mut command = Command::new("rsync");
 
         let temp_file = Self::create_login_script().wrap_err("failed to create login script")?;
@@ -140,7 +140,7 @@ impl Nao {
         command.env("SSH_ASKPASS", temp_file.as_os_str());
         command.env("SSH_ASKPASS_REQUIRE", "force");
 
-        let ssh_flags = NAO_SSH_FLAGS.join(" ");
+        let ssh_flags = BOOSTER_SSH_FLAGS.join(" ");
         command
             .stdout(Stdio::piped())
             .arg("--recursive")
@@ -153,7 +153,7 @@ impl Nao {
 
     pub async fn execute_shell(&self) -> Result<()> {
         let status = self
-            .ssh_to_nao()?
+            .ssh_to_booster()?
             .status()
             .await
             .wrap_err("failed to execute shell ssh command")?;
@@ -167,8 +167,9 @@ impl Nao {
 
     pub async fn execute_systemctl(&self, action: SystemctlAction, unit: &str) -> Result<String> {
         let output = self
-            .ssh_to_nao()?
+            .ssh_to_booster()?
             .arg("systemctl")
+            .arg("--user")
             .arg(match action {
                 SystemctlAction::Disable => "disable",
                 SystemctlAction::Enable => "enable",
@@ -200,11 +201,11 @@ impl Nao {
 
     pub async fn delete_logs(&self) -> Result<()> {
         let status = self
-            .ssh_to_nao()?
+            .ssh_to_booster()?
             .arg("rm")
             .arg("-r")
             .arg("-f")
-            .arg("/home/nao/hulk/logs/*")
+            .arg("/home/robot/hulk/logs/*")
             .status()
             .await
             .wrap_err("failed to remove the log directory")?;
@@ -222,8 +223,8 @@ impl Nao {
         progress_callback: impl Fn(&str),
     ) -> Result<()> {
         let status = self
-            .ssh_to_nao()?
-            .arg("sudo dmesg > /home/nao/hulk/logs/kernel.log")
+            .ssh_to_booster()?
+            .arg("sudo dmesg > /home/robot/hulk/logs/kernel.log")
             .status()
             .await
             .wrap_err("failed to write dmesg to kernel.log")?;
@@ -233,7 +234,7 @@ impl Nao {
         }
 
         let rsync = self
-            .rsync_with_nao()?
+            .rsync_with_booster()?
             .arg("--mkpath")
             .arg("--info=progress2")
             .arg(format!("{}:hulk/logs/", self.address))
@@ -246,7 +247,7 @@ impl Nao {
 
     pub async fn list_logs(&self) -> Result<String> {
         let output = self
-            .ssh_to_nao()?
+            .ssh_to_booster()?
             .arg("ls")
             .arg("hulk/logs/*")
             .output()
@@ -262,7 +263,7 @@ impl Nao {
 
     pub async fn retrieve_logs(&self) -> Result<String> {
         let output = self
-            .ssh_to_nao()?
+            .ssh_to_booster()?
             .arg("tail")
             .arg("-n+1")
             .arg("hulk/logs/hulk.{out,err}")
@@ -279,7 +280,7 @@ impl Nao {
 
     pub async fn power_off(&self) -> Result<()> {
         let status = self
-            .ssh_to_nao()?
+            .ssh_to_booster()?
             .arg("systemctl")
             .arg("poweroff")
             .status()
@@ -295,7 +296,7 @@ impl Nao {
 
     pub async fn reboot(&self) -> Result<()> {
         let status = self
-            .ssh_to_nao()?
+            .ssh_to_booster()?
             .arg("systemctl")
             .arg("reboot")
             .status()
@@ -316,7 +317,7 @@ impl Nao {
         delete_remaining: bool,
         progress_callback: impl Fn(&str),
     ) -> Result<()> {
-        let mut command = self.rsync_with_nao()?;
+        let mut command = self.rsync_with_booster()?;
         command
             .arg("--mkpath")
             .arg("--copy-dirlinks")
@@ -347,7 +348,7 @@ impl Nao {
 
     pub async fn get_network_status(&self) -> Result<String> {
         let output = self
-            .ssh_to_nao()?
+            .ssh_to_booster()?
             .arg("iwctl")
             .arg("station")
             .arg("wlan0")
@@ -365,7 +366,7 @@ impl Nao {
 
     pub async fn get_available_networks(&self) -> Result<String> {
         let output = self
-            .ssh_to_nao()?
+            .ssh_to_booster()?
             .arg("iwctl")
             .arg("station")
             .arg("wlan0")
@@ -383,7 +384,7 @@ impl Nao {
 
     pub async fn scan_networks(&self) -> Result<()> {
         let output = self
-            .ssh_to_nao()?
+            .ssh_to_booster()?
             .arg("iwctl")
             .arg("station")
             .arg("wlan0")
@@ -430,7 +431,7 @@ impl Nao {
             }
         );
         let status = self
-            .ssh_to_nao()?
+            .ssh_to_booster()?
             .arg(command_string)
             .status()
             .await
@@ -449,7 +450,7 @@ impl Nao {
         progress_callback: impl Fn(&str),
     ) -> Result<()> {
         let rsync = self
-            .rsync_with_nao()?
+            .rsync_with_booster()?
             .arg("--copy-links")
             .arg("--info=progress2")
             .arg(image_path.as_ref().to_str().unwrap())
@@ -462,7 +463,7 @@ impl Nao {
     }
 }
 
-impl Display for Nao {
+impl Display for Booster {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         Display::fmt(&self.address, formatter)
     }
