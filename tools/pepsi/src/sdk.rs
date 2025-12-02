@@ -27,7 +27,9 @@ pub async fn sdk(arguments: Arguments, repository: &Repository) -> Result<()> {
                     .await
                     .wrap_err("failed to get OS version")?,
             };
-            download_and_install(&version, data_home).await?;
+            let image = format!("ghcr.io/k1sdk:{version}");
+
+            download_and_install(&image).await?;
         }
         Arguments::Path => {
             let sdk_version = repository
