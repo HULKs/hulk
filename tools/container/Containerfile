@@ -117,13 +117,10 @@ RUN git clone https://github.com/microsoft/onnxruntime.git /onnxruntime && \
     git submodule update && \
     mkdir build && cd build && \
     /cmake/build/bin/cmake -Donnxruntime_ENABLE_CPUINFO=ON -Donnxruntime_BUILD_UNIT_TESTS=OFF -DCMAKE_TOOLCHAIN_FILE=/toolchains/toolchains.cmake ../cmake && \
-    make -j$(nproc) &&\
-    rm -rf /onnxruntime/build/CMakeFiles && \
-    rm -rf /onnxruntime/build/_deps && \
-    rm -rf /onnxruntime/build/libonnxruntime_providers.a && \
+    make -j$(nproc) && \
     rm -rf /onnxruntime/.git
 
-ENV ORT_LIB_LOCATION=/onnxruntime/build
+# ENV ORT_LIB_LOCATION=/onnxruntime/build
 
 # Build and install librealsense2 for arm64
 # RUN git clone --depth 1 --branch v2.55.1 https://github.com/IntelRealSense/librealsense.git /third_party/librealsense && \
