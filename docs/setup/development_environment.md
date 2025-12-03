@@ -38,23 +38,24 @@ Use your distribution's package manager to install the following dependencies:
 -   [hdf5](https://www.hdfgroup.org/solutions/hdf5/)
 -   [luajit](https://luajit.org/)
 -   [systemd](https://www.freedesktop.org/wiki/Software/systemd/)
+-   [podman](https://podman.io/)
 
 === "Arch Linux"
 
     ```sh
-    sudo pacman -S git git-lfs clang cmake python3 which zstd xz file rsync alsa-lib opusfile hdf5 luajit systemd-libs
+    sudo pacman -S git git-lfs clang cmake python3 which zstd xz file rsync alsa-lib opusfile hdf5 luajit systemd-libs podman
     ```
 
 === "Fedora"
 
     ```sh
-    sudo dnf install git git-lfs clang cmake python3 awk which zstd xz file rsync alsa-lib-devel opusfile-devel hdf5-devel systemd-devel luajit-devel
+    sudo dnf install git git-lfs clang cmake python3 awk which zstd xz file rsync alsa-lib-devel opusfile-devel hdf5-devel systemd-devel luajit-devel podman
     ```
 
 === "Ubuntu"
 
     ```sh
-    sudo apt install git git-lfs clang cmake python3 zstd xz-utils file rsync libasound2-dev libopusfile-dev libhdf5-dev libsystemd-dev libluajit-5.1-dev pkg-config
+    sudo apt install git git-lfs clang cmake python3 zstd xz-utils file rsync libasound2-dev libopusfile-dev libhdf5-dev libsystemd-dev libluajit-5.1-dev pkg-config podman
     ```
 
 If you are using a non-linux operating system (e.g. macOS or Windows), you additionally have to install [docker](https://docs.docker.com/engine/install/).
