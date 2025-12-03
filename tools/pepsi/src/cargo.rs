@@ -41,6 +41,7 @@ lazy_static! {
             ("imagine", "crates/hulk_imagine"),
             ("replayer", "crates/hulk_replayer"),
             ("mujoco", "crates/hulk_mujoco"),
+            ("booster", "crates/hulk_booster"),
             ("aliveness", "services/aliveness"),
             ("breeze", "services/breeze"),
             ("hula", "services/hula"),
