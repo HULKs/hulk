@@ -7,6 +7,7 @@ use framework::deserialize_not_implemented;
 use linear_algebra::{vector, Vector2};
 use ndarray::{Array1, Axis};
 use ort::{
+    execution_providers::TensorRTExecutionProvider,
     inputs,
     session::{builder::GraphOptimizationLevel, Session},
     value::Tensor,
@@ -38,10 +39,18 @@ impl WalkingInference {
     ) -> Result<Self> {
         let neural_network_path = neural_network_folder.as_ref().join("T1.onnx");
 
-        let session = Session::builder()?
-            .with_optimization_level(GraphOptimizationLevel::Level3)?
-            .with_intra_threads(4)?
-            .commit_from_file(neural_network_path)?;
+        let session = if cfg!(feature = "tensorrt") {
+            Session::builder()?
+                .with_execution_providers([TensorRTExecutionProvider::default().build()])?
+                .with_optimization_level(GraphOptimizationLevel::Level3)?
+                .with_intra_threads(4)?
+                .commit_from_file(neural_network_path)?
+        } else {
+            Session::builder()?
+                .with_optimization_level(GraphOptimizationLevel::Level3)?
+                .with_intra_threads(4)?
+                .commit_from_file(neural_network_path)?
+        };
 
         Ok(Self {
             session,

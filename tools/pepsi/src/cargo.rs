@@ -41,6 +41,7 @@ lazy_static! {
             ("imagine", "crates/hulk_imagine"),
             ("replayer", "crates/hulk_replayer"),
             ("mujoco", "crates/hulk_mujoco"),
+            ("booster", "crates/hulk_booster"),
             ("aliveness", "services/aliveness"),
             ("breeze", "services/breeze"),
             ("hula", "services/hula"),
@@ -116,7 +117,7 @@ pub async fn cargo<CargoArguments: Args + CargoCommand>(
     };
 
     cargo
-        .setup(repository)
+        .setup()
         .await
         .wrap_err("failed to set up cargo environment")?;
 
@@ -181,11 +182,7 @@ async fn read_requested_environment(manifest_path: &Option<PathBuf>) -> Result<E
         return Ok(Environment::Native);
     }
 
-    if cfg!(target_os = "linux") {
-        Ok(Environment::Sdk { version: None })
-    } else {
-        Ok(Environment::Docker { image: None })
-    }
+    Ok(Environment::Podman { image: None })
 }
 
 async fn resolve_manifest_path(
