@@ -1,5 +1,9 @@
 use std::{
-    sync::Arc,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    thread,
     time::{Duration, SystemTime},
 };
 
@@ -9,33 +13,94 @@ use gilrs::{Axis, Button, Gamepad, GamepadId, Gilrs};
 use serde_json::{json, Value};
 use types::step::Step;
 
-use crate::{
-    nao::Nao,
-    panel::{Panel, PanelCreationContext},
-};
+use crate::{nao::Nao, panel::Panel, value_buffer::BufferHandle};
 
 pub struct RemotePanel {
     nao: Arc<Nao>,
-    gilrs: Gilrs,
-    active_gamepad: Option<GamepadId>,
-    enabled: bool,
-    last_update: SystemTime,
+    enabled: Arc<AtomicBool>,
+    latest_step: BufferHandle<Step>,
 }
-
-impl<'a> Panel<'a> for RemotePanel {
+impl Panel for RemotePanel {
     const NAME: &'static str = "Remote";
 
-    fn new(context: PanelCreationContext) -> Self {
-        let gilrs = Gilrs::new().expect("could not initialize gamepad library");
-        let active_gamepad = None;
-        let enabled = false;
+    fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
+        let enabled = Arc::new(AtomicBool::new(false));
+        let latest_step = nao.subscribe_value("parameters.remote_control_parameters.walk");
 
+        let nao_clone = nao.clone();
+        let enabled_clone = enabled.clone();
+
+        thread::spawn(move || {
+            let mut gilrs = match Gilrs::new() {
+                Ok(g) => g,
+                Err(e) => {
+                    eprintln!("failed to init gilrs in bg thread: {e}");
+                    return;
+                }
+            };
+            const UPDATE_DELAY: Duration = Duration::from_millis(100);
+            const SLEEP_DELAY: Duration = Duration::from_millis(10);
+
+            let mut active_gamepad: Option<GamepadId> = None;
+            let mut last_update = SystemTime::now()
+                .checked_sub(UPDATE_DELAY)
+                .unwrap_or(SystemTime::now());
+
+            loop { // TODO stop thread
+                gilrs.inc();
+                while let Some(event) = gilrs.next_event() {
+                    active_gamepad = Some(event.id);
+                }
+                if let Some(gamepad) = active_gamepad.map(|id| gilrs.gamepad(id)) {
+                    let right = get_axis_value(gamepad, Axis::LeftStickX).unwrap_or(0.0);
+                    let forward = get_axis_value(gamepad, Axis::LeftStickY).unwrap_or(0.0);
+
+                    let left = -right;
+
+                    let turn_right = gamepad
+                        .button_data(Button::RightTrigger2)
+                        .map(|button| button.value())
+                        .unwrap_or_default();
+                    let turn_left = gamepad
+                        .button_data(Button::LeftTrigger2)
+                        .map(|button| button.value())
+                        .unwrap_or_default();
+                    let turn = turn_left - turn_right;
+
+                    let step = Step {
+                        forward,
+                        left,
+                        turn,
+                    };
+
+                    if gamepad
+                        .button_data(Button::Start)
+                        .map(|button| button.is_pressed())
+                        .unwrap_or(false)
+                    {
+                        enabled_clone.store(!enabled_clone.load(Ordering::Relaxed), Ordering::Relaxed);
+                    } //TODO not working
+
+                    if enabled_clone.load(Ordering::Relaxed) {
+                        let now = SystemTime::now();
+                        if now.duration_since(last_update).expect("Time ran backwards")
+                            > UPDATE_DELAY
+                        {
+                            last_update = now;
+                            nao_clone.write(
+                                "parameters.remote_control_parameters.walk",
+                                TextOrBinary::Text(serde_json::to_value(step).unwrap()),
+                            )
+                        }
+                    }
+                }
+                thread::sleep(SLEEP_DELAY);
+            }
+        });
         Self {
-            nao: context.nao,
-            gilrs,
-            active_gamepad,
+            nao,
             enabled,
-            last_update: SystemTime::now(),
+            latest_step,
         }
     }
 
@@ -50,8 +115,7 @@ fn get_axis_value(gamepad: Gamepad, axis: Axis) -> Option<f32> {
 
 impl RemotePanel {
     fn reset(&self) {
-        self.update_step(Value::Null);
-        self.update_look_at_angle(Value::Null);
+        self.update_step(serde_json::to_value(Step::<f32>::default()).unwrap());
     }
 
     fn update_step(&self, step: Value) {
@@ -60,71 +124,23 @@ impl RemotePanel {
             TextOrBinary::Text(step),
         )
     }
-
-    fn update_look_at_angle(&self, joints: Value) {
-        self.nao.write(
-            "parameters.head_motion.injected_head_joints",
-            TextOrBinary::Text(joints),
-        )
-    }
 }
 
 impl Widget for &mut RemotePanel {
     fn ui(self, ui: &mut eframe::egui::Ui) -> eframe::egui::Response {
-        const UPDATE_DELAY: Duration = Duration::from_millis(100);
-        self.gilrs.inc();
-
-        if ui.checkbox(&mut self.enabled, "Enabled (Start)").changed() {
-            self.reset();
+        let mut enabled = self.enabled.load(Ordering::Relaxed);
+        if ui.checkbox(&mut enabled, "Enabled (Start)").changed() {
+            self.enabled.store(enabled, Ordering::Relaxed);
+            if !enabled {
+                self.reset();
+            }
         };
 
-        while let Some(event) = self.gilrs.next_event() {
-            if let gilrs::EventType::ButtonPressed(Button::Start, _) = event.event {
-                self.enabled = !self.enabled;
-                if !self.enabled {
-                    self.reset();
-                }
-            };
-            self.active_gamepad = Some(event.id);
-        }
+        let step = match self.latest_step.get_last_value() {
+            Ok(Some(step)) => step,
+            _ => Step::default(),
+        };
 
-        if let Some(gamepad) = self.active_gamepad.map(|id| self.gilrs.gamepad(id)) {
-            let right = get_axis_value(gamepad, Axis::LeftStickX).unwrap_or(0.0);
-            let forward = get_axis_value(gamepad, Axis::LeftStickY).unwrap_or(0.0);
-
-            let left = -right;
-
-            let turn_right = gamepad
-                .button_data(Button::RightTrigger2)
-                .map(|button| button.value())
-                .unwrap_or_default();
-            let turn_left = gamepad
-                .button_data(Button::LeftTrigger2)
-                .map(|button| button.value())
-                .unwrap_or_default();
-            let turn = turn_left - turn_right;
-
-            let step = Step {
-                forward,
-                left,
-                turn,
-            };
-
-            if self.enabled {
-                let now = SystemTime::now();
-                if now
-                    .duration_since(self.last_update)
-                    .expect("Time ran backwards")
-                    > UPDATE_DELAY
-                {
-                    self.last_update = now;
-                    self.update_step(serde_json::to_value(step).unwrap());
-                }
-            }
-
-            ui.vertical(|ui| ui.label(format!("{step:#?}"))).inner
-        } else {
-            ui.label("no controller found")
-        }
+        ui.label(format!("{step:#?}"))
     }
 }
