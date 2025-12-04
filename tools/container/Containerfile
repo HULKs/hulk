@@ -3,125 +3,104 @@ FROM nvcr.io/nvidia/jetpack-linux-aarch64-crosscompile-x86:6.1
 
 LABEL maintainer="HULKs"
 LABEL description="Cross-compilation toolchain for T1 and K1 robots"
-LABEL version="6.0"
+LABEL version="6.1"
 LABEL target="k1"
 
-SHELL ["/bin/bash", "-c"]
+USER root
 
-RUN cd /l4t/ && cat targetfs.tbz2.* > targetfs.tbz2 && rm -f targetfs.tbz2.* && tar -I lbzip2 -xf targetfs.tbz2 && rm targetfs.tbz2 && \
-    mkdir -p toolchain && tar -C toolchain -xf toolchain.tar.bz2 && rm toolchain.tar.bz2 && \
-    rm -f /l4t/legal.tbz2 && cd / && \
-    export DEBIAN_FRONTEND=noninteractive && \
-    dpkg --add-architecture arm64 && \
-    echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy main restricted universe multiverse" > /etc/apt/sources.list.d/ubuntu-ports.list && \
-    echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-updates main restricted universe multiverse" >> /etc/apt/sources.list.d/ubuntu-ports.list && \
-    echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-security main restricted universe multiverse" >> /etc/apt/sources.list.d/ubuntu-ports.list && \
-    echo "deb [arch=arm64] http://ports.ubuntu.com/ubuntu-ports jammy-backports main restricted universe multiverse" >> /etc/apt/sources.list.d/ubuntu-ports.list && \
-    mkdir -p /tmp/apt-sources-backup && \
-    mv /etc/apt/sources.list /tmp/apt-sources-backup/sources.list.original || true && \
-    apt-get update && \
-    apt-get download libusb-1.0-0-dev:arm64 libudev-dev:arm64 && \
-    for deb in *.deb; do dpkg -x "$deb" /l4t/targetfs; done && \
-    rm *.deb && \
-    mv /tmp/apt-sources-backup/sources.list.original /etc/apt/sources.list || true && \
-    rm -f /etc/apt/sources.list.d/ubuntu-ports.list && \
-    dpkg --remove-architecture arm64 && \
-    rm -rf /tmp/apt-sources-backup && \
-    apt-get update && apt-get remove -y libboost-* && apt-get install -y \
-    clangd-15 clang-format-15 libclang-dev flatbuffers-compiler python3 python-is-python3 zstd unzip wget git curl ca-certificates && \
-    rm -f /l4t/targetfs/usr/lib/aarch64-linux-gnu/libboost*.1.74.* && \
-    rm -rf /l4t/targetfs/usr/lib/aarch64-linux-gnu/cmake/Boost-1.74.0/ && \
-    rm -rf /l4t/targetfs/usr/lib/aarch64-linux-gnu/cmake/boost_headers-1.74.0/ && \
-    rm -f /l4t/targetfs/usr/lib/aarch64-linux-gnu/cmake/BoostDetectToolset-1.74.0.cmake && \
-    rm -f /l4t/targetfs/usr/lib/aarch64-linux-gnu/lib/libcudnn_engines_precompiled_static_v9.a && \
-    rm -f /l4t/targetfs/usr/lib/aarch64-linux-gnu/lib/libnvinfer_static.a && \
-    rm -f /l4t/targetfs/usr/lib/aarch64-linux-gnu/lib/libcudnn_engines_precompiled.so.9.3.0 && \
-    rm -rf /l4t/targetfs/usr/lib/aarch64-linux-gnu/lib/nvidia && \
-    rm -f /l4t/targetfs/usr/lib/aarch64-linux-gnu/lib/libcudnn_adv_static_v9.a && \
-    rm -f /l4t/targetfs/usr/lib/aarch64-linux-gnu/lib/libnvinfer.so.10.3.0 && \
-    rm -rf /l4t/targetfs/usr/local/cuda-12.6 && \
-    rm -f /usr/lib/aarch64-linux-gnu/lib/libcudnn_engines_precompiled_static_v9.a && \
-    rm -f /usr/lib/aarch64-linux-gnu/lib/libnvinfer_static.a && \
-    rm -f /usr/lib/aarch64-linux-gnu/lib/libcudnn_engines_precompiled.so.9.3.0 && \
-    rm -f /usr/lib/aarch64-linux-gnu/lib/libcudnn_adv_static_v9.a && \
-    rm -f /usr/lib/aarch64-linux-gnu/lib/libnvinfer.so.10.3.0 && \
-    rm -rf /usr/local/cuda-12.6 && \
-    rm -rf /tmp/* /third_party /opt/nvidia /usr/local/cuda-12.6/targets/x86_64-linux \
-    /l4t/targetfs/var/l4t-cuda-tegra-repo-ubuntu2204-12-6-local \
-    /l4t/targetfs/var/cudnn-local-tegra-repo-ubuntu2204-9.3.0 \
-    /l4t/targetfs/var/nv-tensorrt-local-tegra-repo-ubuntu2204-10.3.0-cuda-12.5 \
-    /l4t/targetfs/opt/nvidia /l4t/targetfs/usr/lib/firmware \
-    /l4t/targetfs/usr/lib/aarch64-linux-gnu/dri \
-    /l4t/targetfs/usr/lib/libreoffice /l4t/targetfs/usr/lib/thunderbird \
-    /l4t/targetfs/usr/lib/python3 /l4t/targetfs/opt \
-    /l4t/targetfs/usr/include/tensorflow/lite/build \
-    /l4t/targetfs/usr/share/AAVMF /l4t/targetfs/usr/share/icons \
-    /l4t/targetfs/usr/share/fonts /l4t/targetfs/usr/share/help \
-    /l4t/targetfs/var/lib/dpkg /l4t/targetfs/var/cache \
-    /l4t/targetfs/boot /var/lib/apt
+WORKDIR /l4t
 
-# Set up cross-compilation environment
-ENV TARGET_FS=/l4t/targetfs
+# Combine and extract the Target File System (Sysroot)
+RUN cat targetfs.tbz2.* > targetfs.tbz2 && \
+    tar -I lbzip2 -xf targetfs.tbz2 && \
+    rm targetfs.tbz2*
 
-# Install ZED SDK
-RUN mkdir -p /zed2  && \
-    wget -nv "https://download.stereolabs.com/zedsdk/5.0/l4t36.4/jetsons" -O /zed2/ZED_SDK_Tegra_L4T36.3_v5.0.1.zstd.run && \
-    chmod +x /zed2/ZED_SDK_Tegra_L4T36.3_v5.0.1.zstd.run && \
-    /zed2/ZED_SDK_Tegra_L4T36.3_v5.0.1.zstd.run --noexec --target /l4t/targetfs/usr/ && \
-    rm -rf /zed2 && \
+# Extract the Cross-Compilation Toolchain
+RUN mkdir -p toolchain && \
+    tar -C toolchain -xf toolchain.tar.bz2 && \
+    rm toolchain.tar.bz2
+
+# Point to the extracted toolchain
+ENV CROSS_ROOT=/l4t/toolchain/aarch64--glibc--stable-2022.08-1
+ENV SYSROOT=/l4t/targetfs
+
+# Add the toolchain binary path to PATH
+ENV PATH="${CROSS_ROOT}/bin:${PATH}"
+
+ENV PKG_CONFIG=/usr/bin/pkg-config
+ENV PKG_CONFIG_SYSROOT_DIR_aarch64_unknown_linux_gnu="${SYSROOT}"
+ENV PKG_CONFIG_PATH_aarch64_unknown_linux_gnu="${SYSROOT}/usr/lib/aarch64-linux-gnu/pkgconfig:${SYSROOT}/usr/share/pkgconfig:${SYSROOT}/usr/lib/pkgconfig"
+ENV PKG_CONFIG_ALLOW_CROSS=1
+
+# C compiler variables for cc-rs (used by build.rs scripts)
+ENV CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc
+ENV CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++
+ENV AR_aarch64_unknown_linux_gnu=aarch64-linux-gnu-ar
+
+# Install standard tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl=7.81.* \
+    build-essential=12.* \
+    pkg-config=0.29.* \
+    libclang-dev=1:14.* \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Rust and add the AArch64 target
+ENV RUSTUP_TOOLCHAIN=1.91.1
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+RUN rustup target add --toolchain ${RUSTUP_TOOLCHAIN} aarch64-unknown-linux-gnu
+
+COPY cargo-config.toml /root/.cargo/config.toml
+
+ENV BINDGEN_EXTRA_CLANG_ARGS_aarch64_unknown_linux_gnu="\
+    --sysroot=/l4t/targetfs \
+    -I/l4t/targetfs/usr/include \
+    -I/l4t/targetfs/usr/include/aarch64-linux-gnu"
+
+ENV MOLD_VERSION=2.40.4
+RUN curl -L https://github.com/rui314/mold/releases/download/v${MOLD_VERSION}/mold-${MOLD_VERSION}-x86_64-linux.tar.gz \
+    -o mold.tar.gz && \
+    tar -xf mold.tar.gz && \
+    mv mold-${MOLD_VERSION}-x86_64-linux/bin/mold /usr/bin/mold && \
+    mv mold-${MOLD_VERSION}-x86_64-linux/lib/mold /usr/lib/mold && \
+    rm -rf mold.tar.gz mold-${MOLD_VERSION}-x86_64-linux && \
+    chmod +x /usr/bin/mold && \
+    mkdir -p /usr/libexec/mold && \
+    ln -sf /usr/bin/mold /usr/libexec/mold/ld
+
+# Install HULKs specific dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libssl-dev=3.0.* && \
     rm -rf /var/lib/apt/lists/*
 
-# Clone and build booster SDK for arm64
-# Upstream currently has no 'install' target; build and copy artifacts manually
-RUN git clone https://github.com/BoosterRobotics/booster_robotics_sdk.git /tmp/booster-sdk && \
-    cd /tmp/booster-sdk && \
-    git checkout 75e38b19f98becfcbf298b1c1a04171c2e7d8b8f && \
-    mkdir -p ${TARGET_FS}/usr/lib ${TARGET_FS}/usr/include && \
-    cp -a /tmp/booster-sdk/third_party/include/. ${TARGET_FS}/usr/include/ && \
-    cp -a /tmp/booster-sdk/third_party/lib/aarch64/libfastcdr.so* ${TARGET_FS}/usr/lib/ && \
-    cp -a /tmp/booster-sdk/third_party/lib/aarch64/libfastrtps.so* ${TARGET_FS}/usr/lib/ && \
-    cp -a /tmp/booster-sdk/third_party/lib/aarch64/libfoonathan_memory-0.7.3.a ${TARGET_FS}/usr/lib/ && \
-    cp -a /tmp/booster-sdk/lib/aarch64/libbooster_robotics_sdk.a ${TARGET_FS}/usr/lib/ && \
-    cp -a /tmp/booster-sdk/include/. ${TARGET_FS}/usr/include/ && \
-    rm -rf /tmp/booster-sdk
+# Reset working directory
+WORKDIR /workspace
 
-# Compile protobuf
-#RUN git clone https://github.com/protocolbuffers/protobuf.git /protobuf && \
-#    cd /protobuf && \
-#    git switch -d 0dab03b && \
-#    git submodule init && \
-#    git submodule update && \
-#    mkdir build && cd build && \
-#    cmake -Dprotobuf_BUILD_TESTS=OFF -Dprotobuf_BUILD_SHARED_LIBS=OFF ../cmake && \
-#    make -j$(nproc) protoc
+# # Install ZED SDK
+# RUN mkdir -p /zed2  && \
+#     wget -nv "https://download.stereolabs.com/zedsdk/5.0/l4t36.4/jetsons" -O /zed2/ZED_SDK_Tegra_L4T36.3_v5.0.1.zstd.run && \
+#     chmod +x /zed2/ZED_SDK_Tegra_L4T36.3_v5.0.1.zstd.run && \
+#     /zed2/ZED_SDK_Tegra_L4T36.3_v5.0.1.zstd.run --noexec --target /l4t/targetfs/usr/ && \
+#     rm -rf /zed2 && \
+#     rm -rf /var/lib/apt/lists/*
 
-# Compile cmake
-# The sed command is a patch for a bug in older onnx runtime versions when crosscompiling...
-RUN git clone https://github.com/Kitware/CMake.git /cmake && \
-    cd /cmake && \
-    git checkout v3.28.6 && \
-    git submodule init && \
-    git submodule update && \
-    mkdir build && cd build && \
-    cmake .. && \
-    make -j$(nproc)
-
-COPY toolchains.cmake /toolchains/toolchains.cmake
-
-# Compile onnx runtime
-# The sed command is a patch for a bug in older onnx runtime versions when crosscompiling...
-RUN git clone https://github.com/microsoft/onnxruntime.git /onnxruntime && \
-    cd /onnxruntime && \
-    git checkout v1.23.2 && \
-    git submodule init && \
-    git submodule update && \
-    mkdir build && cd build && \
-    /cmake/build/bin/cmake -Donnxruntime_ENABLE_CPUINFO=ON -Donnxruntime_BUILD_UNIT_TESTS=OFF -DCMAKE_TOOLCHAIN_FILE=/toolchains/toolchains.cmake ../cmake && \
-    make -j$(nproc) && \
-    rm -rf /onnxruntime/.git
-
-# ENV ORT_LIB_LOCATION=/onnxruntime/build
-
+# # Clone and build booster SDK for arm64
+# # Upstream currently has no 'install' target; build and copy artifacts manually
+# RUN git clone https://github.com/BoosterRobotics/booster_robotics_sdk.git /tmp/booster-sdk && \
+#     cd /tmp/booster-sdk && \
+#     git checkout 75e38b19f98becfcbf298b1c1a04171c2e7d8b8f && \
+#     mkdir -p ${TARGET_FS}/usr/lib ${TARGET_FS}/usr/include && \
+#     cp -a /tmp/booster-sdk/third_party/include/. ${TARGET_FS}/usr/include/ && \
+#     cp -a /tmp/booster-sdk/third_party/lib/aarch64/libfastcdr.so* ${TARGET_FS}/usr/lib/ && \
+#     cp -a /tmp/booster-sdk/third_party/lib/aarch64/libfastrtps.so* ${TARGET_FS}/usr/lib/ && \
+#     cp -a /tmp/booster-sdk/third_party/lib/aarch64/libfoonathan_memory-0.7.3.a ${TARGET_FS}/usr/lib/ && \
+#     cp -a /tmp/booster-sdk/lib/aarch64/libbooster_robotics_sdk.a ${TARGET_FS}/usr/lib/ && \
+#     cp -a /tmp/booster-sdk/include/. ${TARGET_FS}/usr/include/ && \
+#     rm -rf /tmp/booster-sdk
+#
+# COPY toolchains.cmake /toolchains/toolchains.cmake
+#
 # Build and install librealsense2 for arm64
 # RUN git clone --depth 1 --branch v2.55.1 https://github.com/IntelRealSense/librealsense.git /third_party/librealsense && \
 #     cd /third_party/librealsense && \
@@ -147,22 +126,3 @@ RUN git clone https://github.com/microsoft/onnxruntime.git /onnxruntime && \
 #        -DCMAKE_INSTALL_PREFIX=${TARGET_FS}/usr \
 #        .. && \
 #    make -j$(nproc) install
-
-# Install a recent Rust toolchain (for Cargo lockfile v4 support)
-ENV PATH=/root/.cargo/bin:${PATH}
-ENV RUSTUP_TOOLCHAIN=1.91.1
-ENV CARGO=/root/.cargo/bin/cargo
-ENV CARGO_BUILD_TARGET=aarch64-unknown-linux-gnu
-ENV RUSTC=/root/.cargo/bin/rustc
-ENV CARGO_TARGET_AARCH64_UNKNOWN_LINUX_GNU_RUSTFLAGS="-C link-arg=--sysroot=/l4t/toolchain/aarch64--glibc--stable-2022.08-1/aarch64-buildroot-linux-gnu/sysroot"
-ENV BINDGEN_EXTRA_CLANG_ARGS_aarch64_unknown_linux_gnu="--sysroot=/l4t/toolchain/aarch64--glibc--stable-2022.08-1/aarch64-buildroot-linux-gnu/sysroot"
-ENV PKG_CONFIG_LIB_DIR=/l4t/toolchain/aarch64--glibc--stable-2022.08-1/lib/pkgconfig
-ENV PKG_CONFIG_ALLOW_CROSS=true
-RUN curl https://sh.rustup.rs -sSf | sh -s -- -y --profile minimal --target aarch64-unknown-linux-gnu --default-toolchain 1.91.1-aarch64-unknown-linux-gnu && \
-    /root/.cargo/bin/rustup toolchain install 1.91.1 --target aarch64-unknown-linux-gnu && \
-    mkdir -p /root/.cargo && \
-    printf "[target.aarch64-unknown-linux-gnu]\nlinker = \"/l4t/toolchain/aarch64--glibc--stable-2022.08-1/bin/aarch64-buildroot-linux-gnu-gcc\"\nar = \"/l4t/toolchain/aarch64--glibc--stable-2022.08-1/bin/aarch64-buildroot-linux-gnu-ar\"\n" > /root/.cargo/config.toml
-
-# Patch FindCUDA to skip validation in cross-compilation
-RUN sed -i '1264,1273d' /usr/share/cmake-3.22/Modules/FindCUDA.cmake && \
-    sed -i '1263a\set(CUDA_FOUND TRUE)' /usr/share/cmake-3.22/Modules/FindCUDA.cmake
