@@ -1,4 +1,3 @@
-pub mod ball_detection;
 pub mod calibration_measurement_provider;
 pub mod feet_detection;
 pub mod field_border_detection;
