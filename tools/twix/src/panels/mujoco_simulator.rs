@@ -504,6 +504,26 @@ fn spawn_mujoco_scene(
         .meshes
         .iter()
         .map(|(id, mesh)| {
+            let mut normals_mesh = Mesh::new(
+                PrimitiveTopology::TriangleList,
+                RenderAssetUsages::RENDER_WORLD,
+            );
+
+            normals_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, mesh.vertices.clone());
+            normals_mesh.insert_indices(bevy::render::mesh::Indices::U32(
+                mesh.vertex_indices
+                    .iter()
+                    .flatten()
+                    .map(|index| *index as u32)
+                    .collect(),
+            ));
+
+            normals_mesh.compute_smooth_normals();
+            let normals = normals_mesh
+                .remove_attribute(Mesh::ATTRIBUTE_NORMAL)
+                .expect("we calculates these earlier");
+            let normals = normals.as_float3().unwrap();
+
             let mut asset = Mesh::new(
                 PrimitiveTopology::TriangleList,
                 RenderAssetUsages::RENDER_WORLD,
@@ -535,7 +555,15 @@ fn spawn_mujoco_scene(
                 asset.insert_attribute(Mesh::ATTRIBUTE_UV_0, uv);
             }
 
-            asset.compute_normals();
+            let normals: Vec<_> = mesh
+                .vertex_indices
+                .iter()
+                .flat_map(|[a, b, c]| [normals[*a], normals[*b], normals[*c]])
+                .collect();
+            asset.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+            asset
+                .generate_tangents()
+                .expect("generating tangents should succeed");
 
             (*id, meshes.add(asset))
         })
@@ -556,6 +584,9 @@ fn spawn_mujoco_scene(
             bevy_material.metallic = material.reflectance;
             bevy_material.perceptual_roughness = 1.0 - material.shininess;
             bevy_material.base_color_texture = material.textures[1]
+                .as_ref()
+                .map(|id| texture_handles[id].clone());
+            bevy_material.normal_map_texture = material.textures[5]
                 .as_ref()
                 .map(|id| texture_handles[id].clone());
 
