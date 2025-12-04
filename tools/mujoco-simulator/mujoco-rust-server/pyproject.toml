@@ -9,6 +9,8 @@ cache-keys = [
   { file = "mujoco_rust_server/**" },
   { file = "pyproject.toml" },
   { file = "src/**" },
+  { file = "../../../crates/booster/**" },
+  { file = "../../../crates/simulation_message/**" },
 ]
 
 [build-system]
