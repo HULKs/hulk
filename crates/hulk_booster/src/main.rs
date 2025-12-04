@@ -1,10 +1,12 @@
+use booster::{FallDownState, LowState};
 use byteorder::{BigEndian, LittleEndian};
 use bytes::Bytes;
 use cdr_encoding::CdrDeserializer;
 use color_eyre::eyre::{eyre, Context, Result};
 use flume::bounded;
-use ros2::sensor_msgs::camera_info::CameraInfo;
+use ros2::{geometry_msgs::transform::Transform, sensor_msgs::camera_info::CameraInfo};
 use serde::Deserialize;
+use zenoh::sample::Sample;
 
 pub fn setup_logger() -> Result<(), fern::InitError> {
     env_logger::init();
@@ -33,34 +35,94 @@ async fn main() -> Result<()> {
     setup_logger()?;
     let session = zenoh::open(zenoh::Config::default()).await.unwrap();
 
+    println!("{}", zenoh::Config::default());
+
     log::info!("Creating subscriber...");
     let subscriber = session
-        .declare_subscriber("StereoNetNode/camera_info")
-        .with(bounded(32))
+        .declare_subscriber("**")
+        .with(bounded(1000))
         .await
         .unwrap();
     log::info!("Created subscriber...");
     loop {
-        log::info!("Receiving...");
         let sample = subscriber
             .recv_async()
             .await
             .map_err(|err| eyre!(err.to_string()))
             .wrap_err("recv failed")?;
-        println!("Received: {} {:?}", sample.key_expr(), sample.payload());
-        let ddsdata_wrapper = DDSDataWrapper::new(&sample.payload().to_bytes());
-        let message: Option<CameraInfo> = match ddsdata_wrapper.representation_identifier {
-            [0x00, 0x01] => {
-                let mut deserializer = CdrDeserializer::<LittleEndian>::new(&ddsdata_wrapper.bytes);
-                Some(serde::de::Deserialize::deserialize(&mut deserializer).unwrap())
+        if sample.key_expr().as_str() == "tf" {
+            continue;
+        }
+        log::info!("{}", sample.key_expr().as_str());
+        match sample.key_expr().as_str() {
+            "rt/tf" => {
+                let ddsdata_wrapper = DDSDataWrapper::new(&sample.payload().to_bytes());
+                let message: Option<Transform> = match ddsdata_wrapper.representation_identifier {
+                    [0x00, 0x01] => {
+                        let mut deserializer =
+                            CdrDeserializer::<LittleEndian>::new(&ddsdata_wrapper.bytes);
+                        Some(serde::de::Deserialize::deserialize(&mut deserializer).unwrap())
+                    }
+                    [0x00, 0x00] => {
+                        let mut deserializer =
+                            CdrDeserializer::<BigEndian>::new(&ddsdata_wrapper.bytes);
+                        Some(serde::de::Deserialize::deserialize(&mut deserializer).unwrap())
+                    }
+                    _ => None,
+                };
+                println!("{:?}", message);
             }
-            [0x00, 0x00] => {
-                let mut deserializer = CdrDeserializer::<BigEndian>::new(&ddsdata_wrapper.bytes);
-                Some(serde::de::Deserialize::deserialize(&mut deserializer).unwrap())
+            "rt/low_state" => {
+                let ddsdata_wrapper = DDSDataWrapper::new(&sample.payload().to_bytes());
+                let message: Option<LowState> = match ddsdata_wrapper.representation_identifier {
+                    [0x00, 0x01] => {
+                        let mut deserializer =
+                            CdrDeserializer::<LittleEndian>::new(&ddsdata_wrapper.bytes);
+                        Some(serde::de::Deserialize::deserialize(&mut deserializer).unwrap())
+                    }
+                    [0x00, 0x00] => {
+                        let mut deserializer =
+                            CdrDeserializer::<BigEndian>::new(&ddsdata_wrapper.bytes);
+                        Some(serde::de::Deserialize::deserialize(&mut deserializer).unwrap())
+                    }
+                    _ => None,
+                };
+                println!("{:?}", message);
             }
-            _ => None,
-        };
 
-        println!("{:?}", message);
+            "rt/robot_description" => {
+                let ddsdata_wrapper = DDSDataWrapper::new(&sample.payload().to_bytes());
+                let message: Option<String> = match ddsdata_wrapper.representation_identifier {
+                    [0x00, 0x01] => {
+                        let mut deserializer =
+                            CdrDeserializer::<LittleEndian>::new(&ddsdata_wrapper.bytes);
+                        Some(serde::de::Deserialize::deserialize(&mut deserializer).unwrap())
+                    }
+                    [0x00, 0x00] => {
+                        let mut deserializer =
+                            CdrDeserializer::<BigEndian>::new(&ddsdata_wrapper.bytes);
+                        Some(serde::de::Deserialize::deserialize(&mut deserializer).unwrap())
+                    }
+                    _ => None,
+                };
+                println!("{:?}", message);
+            }
+            _ => {}
+        };
     }
 }
+
+// fn receive_message<T>(sample: Sample) -> Option<T> {
+//     let ddsdata_wrapper = DDSDataWrapper::new(&sample.payload().to_bytes());
+//     match ddsdata_wrapper.representation_identifier {
+//         [0x00, 0x01] => {
+//             let mut deserializer = CdrDeserializer::<LittleEndian>::new(&ddsdata_wrapper.bytes);
+//             Some(serde::de::Deserialize::deserialize(&mut deserializer).unwrap())
+//         }
+//         [0x00, 0x00] => {
+//             let mut deserializer = CdrDeserializer::<BigEndian>::new(&ddsdata_wrapper.bytes);
+//             Some(serde::de::Deserialize::deserialize(&mut deserializer).unwrap())
+//         }
+//         _ => None,
+//     }
+// }
