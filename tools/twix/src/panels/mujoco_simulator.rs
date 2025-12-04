@@ -3,14 +3,13 @@ use std::{collections::BTreeMap, f32::consts::FRAC_PI_2, sync::Arc, thread, time
 use bevy::{
     asset::RenderAssetUsages,
     ecs::relationship::RelatedSpawnerCommands,
+    image::Image,
     input::{
         mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
         ButtonState,
     },
-    render::{camera::Viewport, mesh::Indices, RenderDebugFlags},
-};
-use bevy::{
     prelude::*,
+    render::{camera::Viewport, RenderDebugFlags},
     render::{
         camera::{ManualTextureView, ManualTextureViewHandle, ManualTextureViews, RenderTarget},
         render_resource::Texture,
@@ -25,21 +24,24 @@ use bevy::{
 use bevy_panorbit_camera::{ActiveCameraData, PanOrbitCamera, PanOrbitCameraPlugin};
 use eframe::{
     egui::{
-        self, load::SizedTexture, Event, Image, ImageSource, MouseWheelUnit, PointerButton, Pos2,
+        self, load::SizedTexture, Event, ImageSource, MouseWheelUnit, PointerButton, Pos2,
         Response, Sense, Ui, Widget,
     },
     egui_wgpu::wgpu,
-    wgpu::PrimitiveTopology,
+    wgpu::{Extent3d, PrimitiveTopology, TextureDimension},
 };
 use futures_util::{SinkExt, StreamExt};
-use log::{debug, info};
+use log::{debug, error, info};
 use nalgebra::Isometry3;
 use simulation_message::{
     ConnectionInfo, Geom, GeomVariant, Material, SceneDescription, SceneUpdate, ServerMessageKind,
     SimulatorMessage,
 };
 use tokio::{select, sync::mpsc};
-use tokio_tungstenite::{connect_async, tungstenite::Message};
+use tokio_tungstenite::{
+    connect_async_with_config,
+    tungstenite::{protocol::WebSocketConfig, Message},
+};
 use types::robot_kinematics::RobotKinematics;
 
 use crate::{
@@ -288,7 +290,9 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
                 .expect("failed to build async runtime");
             rt.block_on(async move {
                 loop {
-                    let Ok((stream, _response)) = connect_async("ws://localhost:8000/")
+                    // Increase size limit for all the texture data to fit into the websocket message
+                    let config = WebSocketConfig::default().max_frame_size(Some(2_usize.pow(30)));
+                    let Ok((stream, _response)) = connect_async_with_config("ws://localhost:8000/", Some(config), false)
                         .await else {
                             info!("Websocket connection failed, retrying...");
                             tokio::time::sleep(Duration::from_secs(1)).await;
@@ -301,7 +305,11 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
                     loop {
                         select! {
                             maybe_message = receiver.next() => {
-                                let Some(Ok(message)) = maybe_message else { println!("websocket receive failed"); break; };
+                                let message = match maybe_message {
+                                    Some(Ok(message)) => message,
+                                    Some(Err(error)) => { error!("websocket receive failed: {error}"); break; }
+                                    None => { error!("socket closed?"); break; }
+                                };
                                 let message: SimulatorMessage<ServerMessageKind> = match message {
                                     Message::Binary(bytes) => bincode::deserialize(&bytes).expect("failed to parse bincode"),
                                     _ => continue
@@ -334,7 +342,7 @@ impl Widget for &mut MujocoSimulatorPanel {
 
         let mut render_target = self.bevy_app.world_mut().resource_mut::<BevyRenderTarget>();
         render_target.set_output_size(response.rect.size() * ui.pixels_per_point());
-        let image = Image::new(render_target.image_source())
+        let image = egui::Image::new(render_target.image_source())
             .maintain_aspect_ratio(false)
             .fit_to_exact_size(response.rect.size())
             .uv(render_target.uv());
@@ -451,6 +459,7 @@ fn spawn_mujoco_scene(
     mut scene_description: EventReader<SceneDescriptionEvent>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
+    mut images: ResMut<Assets<Image>>,
     mut commands: Commands,
 ) {
     let Some(SceneDescriptionEvent(scene)) = scene_description.read().last() else {
@@ -458,20 +467,77 @@ fn spawn_mujoco_scene(
     };
     // TODO(oleflb): Add MuJoCo marker component used to cleanup before spawning
 
+    let texture_handles: BTreeMap<_, _> = scene
+        .textures
+        .iter()
+        .map(|(id, image)| {
+            let handle = images.add(Image::new(
+                Extent3d {
+                    width: image.width,
+                    height: image.height,
+                    depth_or_array_layers: 1,
+                },
+                TextureDimension::D2,
+                image
+                    .rgb
+                    .chunks(3)
+                    .flat_map(|rgb| [rgb[0], rgb[1], rgb[2], 255])
+                    .collect(),
+                wgpu::TextureFormat::Rgba8UnormSrgb,
+                RenderAssetUsages::RENDER_WORLD,
+            ));
+
+            // Display texture in the world for debugging
+            // let mut material = StandardMaterial::default();
+            // material.base_color_texture = Some(handle.clone());
+            // commands.spawn((
+            //     Mesh3d(meshes.add(Rectangle::new(0.7, 0.7))),
+            //     MeshMaterial3d(materials.add(material)),
+            //     Transform::default().with_translation(Vec3::new(1.0 * *id as f32, 1.0, 0.0)),
+            // ));
+
+            (*id, handle)
+        })
+        .collect();
+
     let mesh_handles: BTreeMap<_, _> = scene
         .meshes
         .iter()
         .map(|(id, mesh)| {
-            let handle = meshes.add(
-                Mesh::new(
-                    PrimitiveTopology::TriangleList,
-                    RenderAssetUsages::RENDER_WORLD,
-                )
-                .with_inserted_attribute(Mesh::ATTRIBUTE_POSITION, mesh.vertices.clone())
-                .with_inserted_indices(Indices::U32(mesh.faces.concat()))
-                .with_computed_normals(),
+            let mut asset = Mesh::new(
+                PrimitiveTopology::TriangleList,
+                RenderAssetUsages::RENDER_WORLD,
             );
-            (*id, handle)
+
+            // Manually resolve indices because the bevy::Mesh type does not support separate
+            // indices for vertices and uv coordinates but that's what we get from MuJoCo
+            let vertices: Vec<_> = mesh
+                .vertex_indices
+                .iter()
+                .flat_map(|[a, b, c]| [mesh.vertices[*a], mesh.vertices[*b], mesh.vertices[*c]])
+                .collect();
+            asset.insert_attribute(Mesh::ATTRIBUTE_POSITION, vertices);
+
+            let uv: Vec<_> = mesh
+                .uv_indices
+                .iter()
+                .flat_map(|[a, b, c]| {
+                    // For some reason MuJoCo sometimes provides UV indices without UV coordinates
+                    Some([
+                        *mesh.uv_coordinates.get(*a)?,
+                        *mesh.uv_coordinates.get(*b)?,
+                        *mesh.uv_coordinates.get(*c)?,
+                    ])
+                })
+                .flatten()
+                .collect();
+            if !mesh.uv_coordinates.is_empty() {
+                asset.insert_attribute(Mesh::ATTRIBUTE_UV_0, uv);
+            }
+
+            asset.compute_normals();
+
+            (*id, meshes.add(asset))
         })
         .collect();
 
@@ -489,9 +555,11 @@ fn spawn_mujoco_scene(
             bevy_material.reflectance = material.specular;
             bevy_material.metallic = material.reflectance;
             bevy_material.perceptual_roughness = 1.0 - material.shininess;
+            bevy_material.base_color_texture = material.textures[1]
+                .as_ref()
+                .map(|id| texture_handles[id].clone());
 
-            let handle = materials.add(bevy_material);
-            (*id, handle)
+            (*id, materials.add(bevy_material))
         })
         .collect();
 

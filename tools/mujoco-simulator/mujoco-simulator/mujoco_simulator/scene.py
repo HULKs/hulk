@@ -14,6 +14,7 @@ from mujoco_rust_server import (
     SceneDescription,
     SceneMesh,
     SceneUpdate,
+    Texture,
 )
 
 
@@ -95,37 +96,49 @@ def generate_scene_description(model: MjModel) -> SceneDescription:
         nvert = model.mesh_vertnum[i]
         face_adr = model.mesh_faceadr[i]
         nface = model.mesh_facenum[i]
+        texcoord_adr = model.mesh_texcoordadr[i]
+        ntexcoord = model.mesh_texcoordnum[i]
 
-        verts = model.mesh_vert[vert_adr : vert_adr + nvert].tolist()
-        faces = model.mesh_face[face_adr : face_adr + nface].tolist()
+        vertices = model.mesh_vert[vert_adr : vert_adr + nvert].tolist()
+        vertex_indices = model.mesh_face[face_adr : face_adr + nface].tolist()
+        uv_coordinates = model.mesh_texcoord[
+            texcoord_adr : texcoord_adr + ntexcoord
+        ].tolist()
+        uv_indices = model.mesh_facetexcoord[face_adr : face_adr + nface].tolist()
 
-        meshes[i] = SceneMesh(vertices=verts, faces=faces)
+        meshes[i] = SceneMesh(vertices=vertices, vertex_indices=vertex_indices, uv_coordinates=uv_coordinates, uv_indices=uv_indices)
 
     # Materials
     materials = {}
     for i in range(model.nmat):
         rgba = model.mat_rgba[i]
+        textures = model.mat_texid[i]
         reflectance = model.mat_reflectance[i]
         shininess = model.mat_shininess[i]
         specular = model.mat_specular[i]
 
-        materials[i] = PbrMaterial(rgba, reflectance, shininess, specular)
+        textures = [texture if texture >= 0 else None for texture in textures]
+
+        materials[i] = PbrMaterial(
+            rgba, textures, reflectance, shininess, specular
+        )
 
     # Textures (export raw for now)
-    # textures = {}
-    # for i in range(model.ntex):
-    #     name = mujoco.mj_id2name(
-    #         model, mujoco.mjtObj.mjOBJ_TEXTURE.value, i
-    #     )
-    #     width = model.tex_width[i]
-    #     height = model.tex_height[i]
-    #     address = model.tex_adr[i]
-    #     tex_data = model.tex_data[
-    #         address : address + width * height * 3
-    #     ].tolist()
-    #     textures[name] = {
-    #         "width": width, "height": height, "rgb": tex_data
-    #     }
+    textures = {}
+    for i in range(model.ntex):
+        name = mujoco.mj_id2name(model, mujoco.mjtObj.mjOBJ_TEXTURE.value, i)
+        width = model.tex_width[i]
+        height = model.tex_height[i]
+        address = model.tex_adr[i]
+        tex_data = model.tex_data[
+            address : address + width * height * 3
+        ].tolist()
+        textures[i] = Texture(
+            name=name,
+            width=width,
+            height=height,
+            rgb=tex_data,
+        )
 
     # Lights
     lights = []
@@ -160,6 +173,7 @@ def generate_scene_description(model: MjModel) -> SceneDescription:
         lights=lights,
         bodies=bodies,
         geoms=geoms,
+        textures=textures,
     )
 
 
