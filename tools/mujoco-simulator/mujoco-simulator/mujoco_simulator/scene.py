@@ -93,7 +93,7 @@ def generate_scene_description(model: MjModel) -> SceneDescription:
     meshes = {}
     for i in range(model.nmesh):
 
-        def get_values(i: int, field: str, suffix: str="") -> list:
+        def get_values(i: int, field: str, suffix: str = "") -> list:
             start = getattr(model, f"mesh_{field}adr")[i]
             count = getattr(model, f"mesh_{field}num")[i]
             data = getattr(model, f"mesh_{field}{suffix}")
@@ -101,12 +101,16 @@ def generate_scene_description(model: MjModel) -> SceneDescription:
 
         vertices = get_values(i, "vert")
         vertex_indices = get_values(i, "face")
+        normals = get_values(i, "normal")
+        normal_indices = get_values(i, "face", "normal")
         uv_coordinates = get_values(i, "texcoord")
         uv_indices = get_values(i, "face", "texcoord")
 
         meshes[i] = SceneMesh(
             vertices=vertices,
             vertex_indices=vertex_indices,
+            normals=normals,
+            normal_indices=normal_indices,
             uv_coordinates=uv_coordinates,
             uv_indices=uv_indices,
         )

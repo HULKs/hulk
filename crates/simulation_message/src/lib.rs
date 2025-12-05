@@ -85,6 +85,8 @@ impl SceneDescription {
 pub struct SceneMesh {
     pub vertices: Vec<[f32; 3]>,
     pub vertex_indices: Vec<[usize; 3]>,
+    pub normals: Vec<[f32; 3]>,
+    pub normal_indices: Vec<[usize; 3]>,
     pub uv_coordinates: Vec<[f32; 2]>,
     pub uv_indices: Vec<[usize; 3]>,
 }
@@ -95,12 +97,16 @@ impl SceneMesh {
     pub fn new(
         vertices: Vec<[f32; 3]>,
         vertex_indices: Vec<[usize; 3]>,
+        normals: Vec<[f32; 3]>,
+        normal_indices: Vec<[usize; 3]>,
         uv_coordinates: Vec<[f32; 2]>,
         uv_indices: Vec<[usize; 3]>,
     ) -> Self {
         Self {
             vertices,
             vertex_indices,
+            normals,
+            normal_indices,
             uv_coordinates,
             uv_indices,
         }

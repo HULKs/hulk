@@ -36,8 +36,7 @@ use futures_util::{SinkExt, StreamExt};
 use log::{debug, error, info};
 use nalgebra::Isometry3;
 use simulation_message::{
-    ConnectionInfo, Geom, GeomVariant, Material, SceneDescription, SceneUpdate, ServerMessageKind,
-    SimulatorMessage,
+    ConnectionInfo, Geom, GeomVariant, Material, SceneDescription, SceneMesh, SceneUpdate, ServerMessageKind, SimulatorMessage
 };
 use tokio::{select, sync::mpsc};
 use tokio_tungstenite::{
@@ -506,40 +505,6 @@ fn spawn_mujoco_scene(
         .meshes
         .iter()
         .map(|(id, mesh)| {
-            let mut normals_mesh = Mesh::new(
-                PrimitiveTopology::TriangleList,
-                RenderAssetUsages::RENDER_WORLD,
-            );
-
-            normals_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, mesh.vertices.clone());
-            normals_mesh
-                .insert_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0]; mesh.vertices.len()]);
-            normals_mesh.insert_indices(bevy::render::mesh::Indices::U32(
-                mesh.vertex_indices
-                    .iter()
-                    .flatten()
-                    .map(|index| *index as u32)
-                    .collect(),
-            ));
-
-            normals_mesh.compute_smooth_normals();
-            normals_mesh
-                .generate_tangents()
-                .expect("generating tangents should succeed");
-
-            let normals = normals_mesh
-                .remove_attribute(Mesh::ATTRIBUTE_NORMAL)
-                .expect("we calculates these earlier");
-            let normals = normals.as_float3().unwrap();
-            let tangents = normals_mesh
-                .remove_attribute(Mesh::ATTRIBUTE_TANGENT)
-                .expect("we calculates these earlier");
-            let tangents = match tangents {
-                VertexAttributeValues::Float32x4(values) => values,
-                _ => panic!(
-                    "expected tangents to be in Float32x4 format but got {tangents:?} instead"
-                ),
-            };
 
             let mut asset = Mesh::new(
                 PrimitiveTopology::TriangleList,
@@ -573,11 +538,13 @@ fn spawn_mujoco_scene(
             }
 
             let normals: Vec<_> = mesh
-                .vertex_indices
+                .normal_indices
                 .iter()
-                .flat_map(|[a, b, c]| [normals[*a], normals[*b], normals[*c]])
+                .flat_map(|[a, b, c]| [mesh.normals[*a], mesh.normals[*b], mesh.normals[*c]])
                 .collect();
             asset.insert_attribute(Mesh::ATTRIBUTE_NORMAL, normals);
+
+            let tangents = calculate_tangents(mesh);
             let tangents: Vec<_> = mesh
                 .vertex_indices
                 .iter()
@@ -645,6 +612,40 @@ fn spawn_mujoco_scene(
             parent.insert(TrunkComponent);
         }
     }
+}
+
+fn calculate_tangents(mesh: &SceneMesh) -> Vec<[f32; 4]> {
+    let mut helper_mesh = Mesh::new(
+        PrimitiveTopology::TriangleList,
+        RenderAssetUsages::RENDER_WORLD,
+    );
+
+    helper_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, mesh.vertices.clone());
+    helper_mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, mesh.normals.clone());
+    helper_mesh.insert_indices(bevy::render::mesh::Indices::U32(
+        mesh.vertex_indices
+            .iter()
+            .flatten()
+            .map(|index| *index as u32)
+            .collect(),
+    ));
+    helper_mesh
+        .insert_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0]; mesh.vertices.len()]);
+
+    helper_mesh
+        .generate_tangents()
+        .expect("generating tangents should succeed");
+
+    let tangents = helper_mesh
+        .remove_attribute(Mesh::ATTRIBUTE_TANGENT)
+        .expect("we calculates these earlier");
+    let tangents = match tangents {
+        VertexAttributeValues::Float32x4(values) => values,
+        _ => panic!(
+            "expected tangents to be in Float32x4 format but got {tangents:?} instead"
+        ),
+    };
+    tangents
 }
 
 impl MujocoSimulatorPanel {
