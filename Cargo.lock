@@ -1296,6 +1296,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_mujoco"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "bincode",
+ "egui",
+ "futures-util",
+ "log",
+ "serde_json",
+ "simulation_message",
+ "tokio",
+ "tokio-tungstenite",
+ "wgpu",
+]
+
+[[package]]
 name = "bevy_panorbit_camera"
 version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8891,6 +8907,7 @@ dependencies = [
  "argument_parsers",
  "ball_filter",
  "bevy",
+ "bevy_mujoco",
  "bevy_panorbit_camera",
  "bincode",
  "buffered_watch",
@@ -8927,7 +8944,6 @@ dependencies = [
  "rmp-serde",
  "serde",
  "serde_json",
- "simulation_message",
  "step_planning",
  "thiserror 2.0.17",
  "tokio",

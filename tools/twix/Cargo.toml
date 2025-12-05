@@ -46,6 +46,7 @@ levenberg-marquardt = { workspace = true }
 linear_algebra = { workspace = true }
 log = { workspace = true }
 mlua = { workspace = true }
+bevy_mujoco = { workspace = true }
 nalgebra = { workspace = true }
 ndarray = { workspace = true }
 parameters = { workspace = true }
@@ -54,7 +55,6 @@ repository = { workspace = true }
 rmp-serde = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-simulation_message = { workspace = true }
 step_planning = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }

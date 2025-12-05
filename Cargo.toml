@@ -29,6 +29,7 @@ members = [
   "crates/kinematics",
   "crates/linear_algebra",
   "crates/motionfile",
+  "crates/bevy_mujoco",
   "crates/nao",
   "crates/object_detection",
   "crates/opn",
@@ -160,6 +161,7 @@ log = "0.4.25"
 mcap = "0.15.0"
 mlua = { version = "0.10.3", features = ["luajit", "serialize", "vendored"] }
 motionfile = { path = "crates/motionfile" }
+bevy_mujoco = { path = "crates/bevy_mujoco" }
 nalgebra = { version = "0.33.2", features = [
   "convert-glam029",
   "serde",
@@ -253,6 +255,7 @@ walkdir = "2.5.0"
 walking_inference = { path = "crates/walking_inference" }
 watch = "0.2.3"
 webots = { version = "0.8.0" }
+wgpu = "24.0.5"
 xdg = "2.5.2"
 zbus = "5.5.0"
 zed = { path = "crates/zed" }
