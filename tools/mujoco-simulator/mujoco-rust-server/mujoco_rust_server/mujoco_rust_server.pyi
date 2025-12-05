@@ -122,6 +122,12 @@ class SceneUpdate:
     time: float
     bodies: dict[int, BodyUpdate]
 
+class Texture:
+    name: str | None
+    width: int
+    height: int
+    rgb: list[int]
+
 __all__ = [
     "Body",
     "BodyUpdate",
@@ -133,6 +139,7 @@ __all__ = [
     "SceneUpdate",
     "SimulationServer",
     "TaskName",
+    "Texture",
     "booster_types",
     "zed_types",
 ]
