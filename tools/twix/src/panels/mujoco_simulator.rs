@@ -638,7 +638,7 @@ fn calculate_tangents(mesh: &SceneMesh) -> Vec<[f32; 4]> {
 
     let tangents = helper_mesh
         .remove_attribute(Mesh::ATTRIBUTE_TANGENT)
-        .expect("we calculates these earlier");
+        .expect("we calculated these earlier");
     let tangents = match tangents {
         VertexAttributeValues::Float32x4(values) => values,
         _ => panic!(
