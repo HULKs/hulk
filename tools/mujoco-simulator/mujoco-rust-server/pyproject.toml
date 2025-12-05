@@ -4,13 +4,13 @@ version = "0.1.0"
 
 [tool.uv]
 cache-keys = [
+  { file = "../../../crates/booster/**" },
+  { file = "../../../crates/simulation_message/**" },
   { file = "Cargo.lock" },
   { file = "Cargo.toml" },
   { file = "mujoco_rust_server/**" },
   { file = "pyproject.toml" },
   { file = "src/**" },
-  { file = "../../../crates/booster/**" },
-  { file = "../../../crates/simulation_message/**" },
 ]
 
 [build-system]
