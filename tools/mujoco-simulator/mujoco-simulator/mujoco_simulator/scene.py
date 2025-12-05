@@ -92,21 +92,24 @@ def generate_scene_description(model: MjModel) -> SceneDescription:
     # Meshes
     meshes = {}
     for i in range(model.nmesh):
-        vert_adr = model.mesh_vertadr[i]
-        nvert = model.mesh_vertnum[i]
-        face_adr = model.mesh_faceadr[i]
-        nface = model.mesh_facenum[i]
-        texcoord_adr = model.mesh_texcoordadr[i]
-        ntexcoord = model.mesh_texcoordnum[i]
 
-        vertices = model.mesh_vert[vert_adr : vert_adr + nvert].tolist()
-        vertex_indices = model.mesh_face[face_adr : face_adr + nface].tolist()
-        uv_coordinates = model.mesh_texcoord[
-            texcoord_adr : texcoord_adr + ntexcoord
-        ].tolist()
-        uv_indices = model.mesh_facetexcoord[face_adr : face_adr + nface].tolist()
+        def get_values(i: int, field: str, suffix: str="") -> list:
+            start = getattr(model, f"mesh_{field}adr")[i]
+            count = getattr(model, f"mesh_{field}num")[i]
+            data = getattr(model, f"mesh_{field}{suffix}")
+            return data[start : start + count].tolist()
 
-        meshes[i] = SceneMesh(vertices=vertices, vertex_indices=vertex_indices, uv_coordinates=uv_coordinates, uv_indices=uv_indices)
+        vertices = get_values(i, "vert")
+        vertex_indices = get_values(i, "face")
+        uv_coordinates = get_values(i, "texcoord")
+        uv_indices = get_values(i, "face", "texcoord")
+
+        meshes[i] = SceneMesh(
+            vertices=vertices,
+            vertex_indices=vertex_indices,
+            uv_coordinates=uv_coordinates,
+            uv_indices=uv_indices,
+        )
 
     # Materials
     materials = {}
