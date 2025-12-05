@@ -36,7 +36,8 @@ use futures_util::{SinkExt, StreamExt};
 use log::{debug, error, info};
 use nalgebra::Isometry3;
 use simulation_message::{
-    ConnectionInfo, Geom, GeomVariant, Material, SceneDescription, SceneMesh, SceneUpdate, ServerMessageKind, SimulatorMessage
+    ConnectionInfo, Geom, GeomVariant, Material, SceneDescription, SceneMesh, SceneUpdate,
+    ServerMessageKind, SimulatorMessage,
 };
 use tokio::{select, sync::mpsc};
 use tokio_tungstenite::{
@@ -505,7 +506,6 @@ fn spawn_mujoco_scene(
         .meshes
         .iter()
         .map(|(id, mesh)| {
-
             let mut asset = Mesh::new(
                 PrimitiveTopology::TriangleList,
                 RenderAssetUsages::RENDER_WORLD,
@@ -629,8 +629,7 @@ fn calculate_tangents(mesh: &SceneMesh) -> Vec<[f32; 4]> {
             .map(|index| *index as u32)
             .collect(),
     ));
-    helper_mesh
-        .insert_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0]; mesh.vertices.len()]);
+    helper_mesh.insert_attribute(Mesh::ATTRIBUTE_UV_0, vec![[0.0, 0.0]; mesh.vertices.len()]);
 
     helper_mesh
         .generate_tangents()
@@ -641,9 +640,7 @@ fn calculate_tangents(mesh: &SceneMesh) -> Vec<[f32; 4]> {
         .expect("we calculated these earlier");
     let tangents = match tangents {
         VertexAttributeValues::Float32x4(values) => values,
-        _ => panic!(
-            "expected tangents to be in Float32x4 format but got {tangents:?} instead"
-        ),
+        _ => panic!("expected tangents to be in Float32x4 format but got {tangents:?} instead"),
     };
     tangents
 }
