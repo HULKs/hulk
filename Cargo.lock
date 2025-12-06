@@ -3009,6 +3009,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "egui_bevy"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "bevy_panorbit_camera",
+ "eframe",
+ "log",
+]
+
+[[package]]
 name = "egui_dock"
 version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8908,7 +8918,6 @@ dependencies = [
  "ball_filter",
  "bevy",
  "bevy_mujoco",
- "bevy_panorbit_camera",
  "bincode",
  "buffered_watch",
  "calibration",
@@ -8920,6 +8929,7 @@ dependencies = [
  "coordinate_systems",
  "dirs",
  "eframe",
+ "egui_bevy",
  "egui_dock",
  "egui_extras",
  "egui_plot",
