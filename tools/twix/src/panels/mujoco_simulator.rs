@@ -489,15 +489,6 @@ fn spawn_mujoco_scene(
                 RenderAssetUsages::RENDER_WORLD,
             ));
 
-            // Display texture in the world for debugging
-            // let mut material = StandardMaterial::default();
-            // material.base_color_texture = Some(handle.clone());
-            // commands.spawn((
-            //     Mesh3d(meshes.add(Rectangle::new(0.7, 0.7))),
-            //     MeshMaterial3d(materials.add(material)),
-            //     Transform::default().with_translation(Vec3::new(1.0 * *id as f32, 1.0, 0.0)),
-            // ));
-
             (*id, handle)
         })
         .collect();
@@ -570,6 +561,8 @@ fn spawn_mujoco_scene(
             bevy_material.reflectance = material.specular;
             bevy_material.metallic = material.reflectance;
             bevy_material.perceptual_roughness = 1.0 - material.shininess;
+            // These indices correspond to the RGB and Normal textures
+            // See https://mujoco.readthedocs.io/en/latest/APIreference/APItypes.html#mjttexturerole
             bevy_material.base_color_texture = material.textures[1]
                 .as_ref()
                 .map(|id| texture_handles[id].clone());
