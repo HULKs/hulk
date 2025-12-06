@@ -120,6 +120,7 @@ def generate_scene_description(model: MjModel) -> SceneDescription:
     for i in range(model.nmat):
         rgba = model.mat_rgba[i]
         textures = model.mat_texid[i]
+        texrepeat = model.mat_texrepeat[i]
         reflectance = model.mat_reflectance[i]
         shininess = model.mat_shininess[i]
         specular = model.mat_specular[i]
@@ -127,7 +128,7 @@ def generate_scene_description(model: MjModel) -> SceneDescription:
         textures = [texture if texture >= 0 else None for texture in textures]
 
         materials[i] = PbrMaterial(
-            rgba, textures, reflectance, shininess, specular
+            rgba, textures, texrepeat, reflectance, shininess, specular
         )
 
     # Textures (export raw for now)
