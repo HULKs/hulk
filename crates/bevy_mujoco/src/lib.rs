@@ -3,6 +3,8 @@ use std::{collections::BTreeMap, f32::consts::FRAC_PI_2, thread, time::Duration}
 use bevy::{
     asset::RenderAssetUsages,
     ecs::relationship::RelatedSpawnerCommands,
+    image::{ImageAddressMode, ImageSampler, ImageSamplerDescriptor},
+    math::Affine2,
     prelude::*,
     render::{
         mesh::{PrimitiveTopology, VertexAttributeValues},
@@ -163,7 +165,7 @@ fn spawn_mujoco_scene(
         .textures
         .iter()
         .map(|(id, image)| {
-            let handle = images.add(Image::new(
+            let mut image = Image::new(
                 Extent3d {
                     width: image.width,
                     height: image.height,
@@ -177,9 +179,14 @@ fn spawn_mujoco_scene(
                     .collect(),
                 wgpu::TextureFormat::Rgba8UnormSrgb,
                 RenderAssetUsages::RENDER_WORLD,
-            ));
+            );
+            image.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
+                address_mode_u: ImageAddressMode::Repeat,
+                address_mode_v: ImageAddressMode::Repeat,
+                ..default()
+            });
 
-            (*id, handle)
+            (*id, images.add(image))
         })
         .collect();
 
@@ -259,6 +266,7 @@ fn spawn_mujoco_scene(
             bevy_material.normal_map_texture = material.textures[5]
                 .as_ref()
                 .map(|id| texture_handles[id].clone());
+            bevy_material.uv_transform = Affine2::from_scale(material.texrepeat.into());
 
             (*id, materials.add(bevy_material))
         })
@@ -328,7 +336,30 @@ fn spawn_geom(
         } => meshes.add(Cuboid::new(*hx, *hy, *hz)),
         GeomVariant::Plane {
             normal: [nx, ny, nz],
-        } => meshes.add(Plane3d::new(Vec3::new(*nx, *ny, *nz), Vec2::splat(100.0))),
+        } => {
+            // The plane is supposed to be infinite but that seems mighty expensive.
+            // Use a finite size instead
+            const SCALE: f32 = 100.0;
+
+            let mut mesh = Plane3d::new(Vec3::new(*nx, *ny, *nz), Vec2::splat(SCALE))
+                .mesh()
+                .build();
+            let uv = mesh
+                .attribute_mut(Mesh::ATTRIBUTE_UV_0)
+                .expect("Plane3d should generate UV attributes");
+
+            match uv {
+                VertexAttributeValues::Float32x2(items) => {
+                    for item in items {
+                        item[0] *= SCALE;
+                        item[1] *= SCALE;
+                    }
+                }
+                _ => panic!("expected UV coordinates to be Float32x2"),
+            }
+
+            meshes.add(mesh)
+        }
         GeomVariant::Cylinder {
             radius,
             half_height,

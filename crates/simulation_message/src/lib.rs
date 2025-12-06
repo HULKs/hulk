@@ -186,6 +186,7 @@ impl Material {
 pub struct PbrMaterial {
     pub rgba: [f32; 4],
     pub textures: Vec<Option<usize>>,
+    pub texrepeat: [f32; 2],
     pub reflectance: f32,
     pub shininess: f32,
     pub specular: f32,
@@ -197,6 +198,7 @@ impl PbrMaterial {
     pub fn new(
         rgba: [f32; 4],
         textures: Vec<Option<usize>>,
+        texrepeat: [f32; 2],
         reflectance: f32,
         shininess: f32,
         specular: f32,
@@ -204,6 +206,7 @@ impl PbrMaterial {
         Self {
             rgba,
             textures,
+            texrepeat,
             reflectance,
             shininess,
             specular,
