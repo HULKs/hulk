@@ -6,6 +6,9 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
-pyo3 = { workspace = true }
+pyo3 = { workspace = true, optional = true }
 ros2 = { workspace = true }
 serde = { workspace = true }
+
+[features]
+pyo3 = ["dep:pyo3"]
