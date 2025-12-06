@@ -20,12 +20,10 @@
 			<geom name="field_ground" type="box" size="5.2 3.7 0.1" material="field"/>
 		</body>
 			<body name="left_goal" pos="-4.5 0 0">
-					<include file="goal_frame.xml"/>
-					<include file="goal_net.xml"/>
+					<include file="goal.xml"/>
 			</body>
 			<body name="right_goal" pos="4.5 0 0" euler="0 0 3.14159">
-					<include file="goal_frame.xml"/>
-					<include file="goal_net.xml"/>
+					<include file="goal.xml"/>
 			</body>
 	</worldbody>
 </mujoco>
