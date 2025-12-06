@@ -17,7 +17,7 @@ pub struct EnvironmentArguments {
 #[derive(Debug, Clone)]
 pub enum Environment {
     Native,
-    Sdk { version: Option<String> },
+    Podman { image: Option<String> },
     Docker { image: Option<String> },
 }
 
@@ -31,8 +31,8 @@ impl FromStr for Environment {
 
         Ok(match left {
             "native" => Self::Native,
-            "sdk" => Self::Sdk {
-                version: right.map(str::to_owned),
+            "podman" => Self::Podman {
+                image: right.map(str::to_owned),
             },
             "docker" => Self::Docker {
                 image: right.map(str::to_owned),
@@ -51,11 +51,11 @@ impl Environment {
 
         Ok(match self {
             Environment::Native => RepositoryEnvironment::Native,
-            Environment::Sdk { version } => RepositoryEnvironment::Sdk {
-                version: version.unwrap_or(sdk_version),
+            Environment::Podman { image } => RepositoryEnvironment::Podman {
+                image: image.unwrap_or(format!("ghcr.io/hulks/k1sdk:{sdk_version}")),
             },
             Environment::Docker { image } => RepositoryEnvironment::Docker {
-                image: image.unwrap_or(format!("ghcr.io/hulks/naosdk:{sdk_version}")),
+                image: image.unwrap_or(format!("ghcr.io/hulks/k1sdk:{sdk_version}")),
             },
         })
     }

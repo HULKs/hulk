@@ -73,7 +73,7 @@ enum Command {
     /// Analyze source code
     #[clap(subcommand)]
     Analyze(analyze::Arguments),
-    /// Get aliveness information from NAOs
+    /// Get aliveness information from Robots
     Aliveness(aliveness::Arguments),
     /// Compile a local package and all of its dependencies
     Build(cargo::Arguments<build::Arguments>),
@@ -88,7 +88,7 @@ enum Command {
     Completions(completions::Arguments),
     /// Create a game branch from the deploy.toml in the repository root
     Gamebranch(game_branch::Arguments),
-    /// Flash a HULKs-OS image to NAOs
+    /// Flash a HULKs-OS image to Robots
     Gammaray(gammaray::Arguments),
     /// Control the HULK service
     Hulk(hulk::Arguments),
@@ -97,39 +97,39 @@ enum Command {
     /// Set the parameter location
     #[command(subcommand)]
     Location(location::Arguments),
-    /// Interact with logs on NAOs
+    /// Interact with logs on Robots
     #[command(subcommand)]
     Logs(logs::Arguments),
     /// Run cargo nextest
     Nextest(cargo::Arguments<nextest::Arguments>),
-    /// Change player numbers of NAOs in local parameters
+    /// Change player numbers of Robots in local parameters
     Playernumber(player_number::Arguments),
-    /// Ping NAOs
+    /// Ping Robots
     Ping(ping::Arguments),
-    /// Disable NAOs after a game (download logs, unset WiFi network, ...)
+    /// Disable Robots after a game (download logs, unset WiFi network, ...)
     Postgame(post_game::Arguments),
-    /// Power NAOs off
+    /// Power Robots off
     #[command(alias = "shutdown")]
     Poweroff(power_off::Arguments),
-    /// Get NAOs ready for a game (set player numbers, upload, set WiFi network, ...)
+    /// Get Robots ready for a game (set player numbers, upload, set WiFi network, ...)
     Pregame(pre_game::Arguments),
-    /// Reboot NAOs
+    /// Reboot Robots
     Reboot(reboot::Arguments),
     /// Set cycler instances to be recorded
     Recording(recording::Arguments),
     /// Run a binary or example of the local package
     Run(cargo::Arguments<run::Arguments>),
-    /// Manage the NAO SDK
+    /// Manage the Robot SDK
     #[command(subcommand)]
     Sdk(sdk::Arguments),
-    /// Open a command line shell to a NAO
+    /// Open a command line shell to a Robot
     Shell(shell::Arguments),
     /// Execute all unit and integration tests
     Test(cargo::Arguments<test::Arguments>),
-    /// Upload the code to NAOs
+    /// Upload the code to Robots
     #[command(alias = "hochlad")]
     Upload(upload::Arguments),
-    /// Control WiFi on NAOs
+    /// Control WiFi on Robots
     #[command(subcommand, name = "wifi", alias = "wlan", alias = "wireless")]
     WiFi(wifi::Arguments),
 }

@@ -11,6 +11,7 @@ use ros2::{
 };
 use serde::{Deserialize, Serialize};
 
+#[repr(C)]
 #[pyclass(frozen)]
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RGBDSensors {
