@@ -55,6 +55,7 @@ pub struct SceneDescription {
     pub geoms: BTreeMap<usize, Geom>,
     pub lights: Vec<Light>,
     pub bodies: BTreeMap<usize, Body>,
+    pub textures: BTreeMap<usize, Texture>,
 }
 
 #[pymethods]
@@ -66,6 +67,7 @@ impl SceneDescription {
         lights: Vec<Light>,
         bodies: BTreeMap<usize, Body>,
         geoms: BTreeMap<usize, Geom>,
+        textures: BTreeMap<usize, Texture>,
     ) -> Self {
         Self {
             meshes,
@@ -73,6 +75,7 @@ impl SceneDescription {
             lights,
             bodies,
             geoms,
+            textures,
         }
     }
 }
@@ -81,14 +84,32 @@ impl SceneDescription {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SceneMesh {
     pub vertices: Vec<[f32; 3]>,
-    pub faces: Vec<[u32; 3]>,
+    pub vertex_indices: Vec<[usize; 3]>,
+    pub normals: Vec<[f32; 3]>,
+    pub normal_indices: Vec<[usize; 3]>,
+    pub uv_coordinates: Vec<[f32; 2]>,
+    pub uv_indices: Vec<[usize; 3]>,
 }
 
 #[pymethods]
 impl SceneMesh {
     #[new]
-    pub fn new(vertices: Vec<[f32; 3]>, faces: Vec<[u32; 3]>) -> Self {
-        Self { vertices, faces }
+    pub fn new(
+        vertices: Vec<[f32; 3]>,
+        vertex_indices: Vec<[usize; 3]>,
+        normals: Vec<[f32; 3]>,
+        normal_indices: Vec<[usize; 3]>,
+        uv_coordinates: Vec<[f32; 2]>,
+        uv_indices: Vec<[usize; 3]>,
+    ) -> Self {
+        Self {
+            vertices,
+            vertex_indices,
+            normals,
+            normal_indices,
+            uv_coordinates,
+            uv_indices,
+        }
     }
 }
 
@@ -164,6 +185,7 @@ impl Material {
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PbrMaterial {
     pub rgba: [f32; 4],
+    pub textures: Vec<Option<usize>>,
     pub reflectance: f32,
     pub shininess: f32,
     pub specular: f32,
@@ -172,9 +194,16 @@ pub struct PbrMaterial {
 #[pymethods]
 impl PbrMaterial {
     #[new]
-    pub fn new(rgba: [f32; 4], reflectance: f32, shininess: f32, specular: f32) -> Self {
+    pub fn new(
+        rgba: [f32; 4],
+        textures: Vec<Option<usize>>,
+        reflectance: f32,
+        shininess: f32,
+        specular: f32,
+    ) -> Self {
         Self {
             rgba,
+            textures,
             reflectance,
             shininess,
             specular,
@@ -279,6 +308,28 @@ impl Geom {
                 radius,
                 half_height,
             },
+        }
+    }
+}
+
+#[pyclass(frozen)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct Texture {
+    pub name: Option<String>,
+    pub width: u32,
+    pub height: u32,
+    pub rgb: Vec<u8>,
+}
+
+#[pymethods]
+impl Texture {
+    #[new]
+    pub fn new(name: Option<String>, width: u32, height: u32, rgb: Vec<u8>) -> Self {
+        Self {
+            name,
+            width,
+            height,
+            rgb,
         }
     }
 }
