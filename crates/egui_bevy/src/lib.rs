@@ -184,7 +184,7 @@ impl Plugin for EguiRenderPlugin {
             .add_systems(Startup, setup_camera)
             .add_systems(Startup, setup_scene)
             .add_systems(Update, update_active_camera)
-            .add_systems(PostUpdate, update_camera_render_target);
+            .add_systems(Update, update_camera_render_target);
     }
 }
 
