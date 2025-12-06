@@ -1,12 +1,16 @@
 use coordinate_systems::Robot;
-use linear_algebra::{vector, Vector3};
+use linear_algebra::Vector3;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
-use pyo3::{pyclass, pymethods, pymodule};
 use ros2::geometry_msgs::transform_stamped::TransformStamped;
 use serde::{Deserialize, Serialize};
 use types::{joints::Joints, parameters::MotorCommandParameters};
 
-#[pyclass(frozen)]
+#[cfg(feature = "pyo3")]
+use linear_algebra::vector;
+#[cfg(feature = "pyo3")]
+use pyo3::prelude::*;
+
+#[cfg_attr(feature = "pyo3", pyclass(frozen))]
 #[derive(
     Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
@@ -19,6 +23,7 @@ pub struct LowState {
     pub motor_state_serial: Vec<MotorState>,
 }
 
+#[cfg(feature = "pyo3")]
 #[pymethods]
 impl LowState {
     #[new]
@@ -35,7 +40,7 @@ impl LowState {
     }
 }
 
-#[pyclass(frozen)]
+#[cfg_attr(feature = "pyo3", pyclass(frozen))]
 #[derive(
     Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
@@ -51,6 +56,7 @@ pub struct ImuState {
     pub linear_acceleration: Vector3<Robot>,
 }
 
+#[cfg(feature = "pyo3")]
 #[pymethods]
 impl ImuState {
     #[new]
@@ -75,7 +81,7 @@ impl ImuState {
     }
 }
 
-#[pyclass(frozen, get_all)]
+#[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
 #[derive(
     Debug,
     Default,
@@ -102,6 +108,7 @@ pub struct MotorState {
     pub torque: f32,
 }
 
+#[cfg(feature = "pyo3")]
 #[pymethods]
 impl MotorState {
     #[new]
@@ -148,7 +155,7 @@ impl JointsMotorState for Joints<MotorState> {
     }
 }
 
-#[pyclass(frozen, eq)]
+#[cfg_attr(feature = "pyo3", pyclass(frozen, eq))]
 #[derive(
     Debug,
     Default,
@@ -167,7 +174,7 @@ pub enum CommandType {
     Serial,
 }
 
-#[pyclass(frozen, get_all)]
+#[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
 #[derive(
     Debug, Default, Clone, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
@@ -202,7 +209,7 @@ impl LowCommand {
     }
 }
 
-#[pyclass(frozen, get_all)]
+#[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
 #[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
 pub struct MotorCommand {
     #[serde(rename = "q")]
@@ -222,6 +229,7 @@ pub struct MotorCommand {
     pub weight: f32,
 }
 
+#[cfg(feature = "pyo3")]
 #[pymethods]
 impl MotorCommand {
     #[new]
@@ -237,7 +245,7 @@ impl MotorCommand {
     }
 }
 
-#[pyclass(frozen, get_all)]
+#[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum FallDownStateType {
     IsReady,
@@ -246,7 +254,7 @@ pub enum FallDownStateType {
     IsGettingUp,
 }
 
-#[pyclass(frozen, get_all)]
+#[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FallDownState {
     pub fall_down_state: FallDownStateType,
@@ -254,6 +262,7 @@ pub struct FallDownState {
     pub is_recovery_available: bool,
 }
 
+#[cfg(feature = "pyo3")]
 #[pymethods]
 impl FallDownState {
     #[new]
@@ -265,7 +274,7 @@ impl FallDownState {
     }
 }
 
-#[pyclass(frozen, get_all)]
+#[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ButtonEventType {
     PressDown,
@@ -278,13 +287,14 @@ pub enum ButtonEventType {
     LongPressEnd,
 }
 
-#[pyclass(frozen, get_all)]
+#[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ButtonEventMsg {
     pub button: i64,
     pub event: ButtonEventType,
 }
 
+#[cfg(feature = "pyo3")]
 #[pymethods]
 impl ButtonEventMsg {
     #[new]
@@ -293,7 +303,7 @@ impl ButtonEventMsg {
     }
 }
 
-#[pyclass(frozen, get_all)]
+#[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RemoteControllerState {
     /** This feature can be used in user programs to implement custom gamepad/controller button functionality.
@@ -367,6 +377,7 @@ pub struct TransformMessage {
     pub transforms: Vec<TransformStamped>,
 }
 
+#[cfg(feature = "pyo3")]
 #[pymodule(name = "booster_types")]
 pub mod python_module {
 

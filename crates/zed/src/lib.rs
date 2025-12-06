@@ -1,17 +1,18 @@
+#[cfg(feature = "pyo3")]
 use std::time::Duration;
 
-use pyo3::{pyclass, pymethods, pymodule};
+#[cfg(feature = "pyo3")]
+use ros2::{builtin_interfaces::time::Time, sensor_msgs::region_of_interest::RegionOfInterest};
 use ros2::{
-    builtin_interfaces::time::Time,
-    sensor_msgs::{
-        camera_info::CameraInfo, image::Image, imu::Imu, magnetic_field::MagneticField,
-        region_of_interest::RegionOfInterest,
-    },
+    sensor_msgs::{camera_info::CameraInfo, image::Image, imu::Imu, magnetic_field::MagneticField},
     std_msgs::header::Header,
 };
 use serde::{Deserialize, Serialize};
 
-#[pyclass(frozen)]
+#[cfg(feature = "pyo3")]
+use pyo3::{pyclass, pymethods, pymodule};
+
+#[cfg_attr(feature = "pyo3", pyclass(frozen))]
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RGBDSensors {
     pub header: Header,
@@ -29,6 +30,7 @@ pub struct RGBDSensors {
     pub mag: MagneticField,
 }
 
+#[cfg(feature = "pyo3")]
 #[pymethods]
 impl RGBDSensors {
     #[new]
@@ -97,6 +99,7 @@ impl RGBDSensors {
     }
 }
 
+#[cfg(feature = "pyo3")]
 #[pymodule(name = "zed_types")]
 pub mod python_module {
     #[pymodule_export]
