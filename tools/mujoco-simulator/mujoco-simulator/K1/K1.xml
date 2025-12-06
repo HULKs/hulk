@@ -160,6 +160,7 @@
     </asset>
 
     <include file="ball.xml" />
+    <include file="field.xml" />
 
     <worldbody>
         <light
