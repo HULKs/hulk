@@ -1296,6 +1296,22 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevy_mujoco"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "bincode",
+ "egui",
+ "futures-util",
+ "log",
+ "serde_json",
+ "simulation_message",
+ "tokio",
+ "tokio-tungstenite",
+ "wgpu",
+]
+
+[[package]]
 name = "bevy_panorbit_camera"
 version = "0.26.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2990,6 +3006,16 @@ dependencies = [
  "web-time",
  "webbrowser",
  "winit",
+]
+
+[[package]]
+name = "egui_bevy"
+version = "0.1.0"
+dependencies = [
+ "bevy",
+ "bevy_panorbit_camera",
+ "eframe",
+ "log",
 ]
 
 [[package]]
@@ -8885,13 +8911,13 @@ dependencies = [
 
 [[package]]
 name = "twix"
-version = "0.12.0"
+version = "0.12.3"
 dependencies = [
  "aliveness",
  "argument_parsers",
  "ball_filter",
  "bevy",
- "bevy_panorbit_camera",
+ "bevy_mujoco",
  "bincode",
  "buffered_watch",
  "calibration",
@@ -8903,6 +8929,7 @@ dependencies = [
  "coordinate_systems",
  "dirs",
  "eframe",
+ "egui_bevy",
  "egui_dock",
  "egui_extras",
  "egui_plot",
@@ -8927,7 +8954,6 @@ dependencies = [
  "rmp-serde",
  "serde",
  "serde_json",
- "simulation_message",
  "step_planning",
  "thiserror 2.0.17",
  "tokio",
