@@ -18,7 +18,7 @@ bevy = { workspace = true, features = [
   "bevy_pbr",
   "tonemapping_luts",
 ] }
-bevy_panorbit_camera = { workspace = true }
+bevy_mujoco = { workspace = true }
 bincode = { workspace = true }
 buffered_watch = { workspace = true }
 calibration = { workspace = true }
@@ -30,6 +30,7 @@ convert_case = { workspace = true }
 coordinate_systems = { workspace = true }
 dirs = { workspace = true }
 eframe = { workspace = true }
+egui_bevy = { workspace = true }
 egui_dock = { workspace = true }
 egui_extras = { workspace = true }
 egui_plot = { workspace = true }
@@ -54,7 +55,6 @@ repository = { workspace = true }
 rmp-serde = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-simulation_message = { workspace = true }
 step_planning = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }
