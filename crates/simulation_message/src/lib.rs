@@ -221,6 +221,7 @@ pub enum GeomVariant {
     Box { extent: [f32; 3] },
     Plane { normal: [f32; 3] },
     Cylinder { radius: f32, half_height: f32 },
+    Capsule { radius: f32, half_height: f32 },
 }
 
 #[pymethods]
@@ -308,6 +309,27 @@ impl Geom {
             pos,
             quat,
             geom_variant: GeomVariant::Cylinder {
+                radius,
+                half_height,
+            },
+        }
+    }
+
+    #[staticmethod]
+    pub fn capsule(
+        index: usize,
+        radius: f32,
+        half_height: f32,
+        material: Material,
+        pos: [f32; 3],
+        quat: [f32; 4],
+    ) -> Self {
+        Self {
+            index,
+            material,
+            pos,
+            quat,
+            geom_variant: GeomVariant::Capsule {
                 radius,
                 half_height,
             },
