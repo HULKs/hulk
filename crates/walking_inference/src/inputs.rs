@@ -76,7 +76,7 @@ impl WalkingInferenceInputs {
 
         let (gait_frequency, last_gait_progress) =
             if linear_velocity_command.norm() < 1e-5 && angular_velocity_command.abs() < 1e-5 {
-                (0.0,0.0)
+                (0.0, 0.0)
             } else {
                 (walking_parameters.gait_frequency, last_gait_progress)
             };

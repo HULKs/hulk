@@ -34,10 +34,10 @@ impl RemoteControl {
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let motion_command = MotionCommand::WalkWithVelocity {
             head: HeadMotion::Center,
-            velocity: vector!(
+            velocity: vector![
                 context.remote_control_parameters.walk.forward,
                 context.remote_control_parameters.walk.left,
-            ),
+            ],
             angular_velocity: context.remote_control_parameters.walk.turn,
         };
 
