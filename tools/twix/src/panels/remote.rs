@@ -13,7 +13,7 @@ use gilrs::{Axis, Button, Gamepad, GamepadId, Gilrs};
 use serde_json::{json, Value};
 use types::step::Step;
 
-use crate::{nao::Nao, panel::Panel, value_buffer::BufferHandle};
+use crate::{nao::Nao, panel::{Panel, PanelCreationContext}, value_buffer::BufferHandle};
 
 pub struct RemotePanel {
     nao: Arc<Nao>,
@@ -22,10 +22,11 @@ pub struct RemotePanel {
     bg_running: Arc<AtomicBool>,
     bg_handle: Option<JoinHandle<()>>,
 }
-impl Panel for RemotePanel {
+impl <'a> Panel<'a> for RemotePanel {
     const NAME: &'static str = "Remote";
 
-    fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
+    fn new(context: PanelCreationContext) -> Self {
+        let nao = context.nao.clone();
         let enabled = Arc::new(AtomicBool::new(false));
         let latest_step = nao.subscribe_value("parameters.remote_control_parameters.walk");
         let bg_running = Arc::new(AtomicBool::new(true));
@@ -36,9 +37,9 @@ impl Panel for RemotePanel {
 
         let handle = thread::spawn(move || {
             let mut gilrs = match Gilrs::new() {
-                Ok(g) => g,
-                Err(e) => {
-                    eprintln!("failed to init gilrs in bg thread: {e}");
+                Ok(gilrs) => gilrs,
+                Err(error) => {
+                    eprintln!("failed to init gilrs in bg thread: {error}");
                     return;
                 }
             };
