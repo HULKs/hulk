@@ -3,7 +3,7 @@ use std::{
         atomic::{AtomicBool, Ordering},
         Arc,
     },
-    thread,
+    thread::{self, JoinHandle},
     time::{Duration, SystemTime},
 };
 
@@ -19,6 +19,8 @@ pub struct RemotePanel {
     nao: Arc<Nao>,
     enabled: Arc<AtomicBool>,
     latest_step: BufferHandle<Step>,
+    bg_running: Arc<AtomicBool>,
+    bg_handle: Option<JoinHandle<()>>,
 }
 impl Panel for RemotePanel {
     const NAME: &'static str = "Remote";
@@ -26,11 +28,13 @@ impl Panel for RemotePanel {
     fn new(nao: Arc<Nao>, _value: Option<&Value>) -> Self {
         let enabled = Arc::new(AtomicBool::new(false));
         let latest_step = nao.subscribe_value("parameters.remote_control_parameters.walk");
+        let bg_running = Arc::new(AtomicBool::new(true));
 
         let nao_clone = nao.clone();
         let enabled_clone = enabled.clone();
+        let bg_running_clone = bg_running.clone();
 
-        thread::spawn(move || {
+        let handle = thread::spawn(move || {
             let mut gilrs = match Gilrs::new() {
                 Ok(g) => g,
                 Err(e) => {
@@ -46,7 +50,9 @@ impl Panel for RemotePanel {
                 .checked_sub(UPDATE_DELAY)
                 .unwrap_or(SystemTime::now());
 
-            loop { // TODO stop thread
+            let mut start_was_pressed = false;
+
+            while bg_running_clone.load(Ordering::Relaxed) {
                 gilrs.inc();
                 while let Some(event) = gilrs.next_event() {
                     active_gamepad = Some(event.id);
@@ -73,13 +79,20 @@ impl Panel for RemotePanel {
                         turn,
                     };
 
-                    if gamepad
+                    let start_pressed = gamepad
                         .button_data(Button::Start)
                         .map(|button| button.is_pressed())
-                        .unwrap_or(false)
-                    {
-                        enabled_clone.store(!enabled_clone.load(Ordering::Relaxed), Ordering::Relaxed);
-                    } //TODO not working
+                        .unwrap_or(false);
+
+                    if start_pressed && !start_was_pressed {
+                        let new_state = !enabled_clone.load(Ordering::Relaxed);
+                        enabled_clone.store(new_state, Ordering::Relaxed);
+
+                        if !new_state {
+                            reset(&nao_clone);
+                        }
+                    }
+                    start_was_pressed = start_pressed;
 
                     if enabled_clone.load(Ordering::Relaxed) {
                         let now = SystemTime::now();
@@ -87,10 +100,7 @@ impl Panel for RemotePanel {
                             > UPDATE_DELAY
                         {
                             last_update = now;
-                            nao_clone.write(
-                                "parameters.remote_control_parameters.walk",
-                                TextOrBinary::Text(serde_json::to_value(step).unwrap()),
-                            )
+                            update_step(&nao_clone, step);
                         }
                     }
                 }
@@ -101,6 +111,8 @@ impl Panel for RemotePanel {
             nao,
             enabled,
             latest_step,
+            bg_running,
+            bg_handle: Some(handle),
         }
     }
 
@@ -113,16 +125,23 @@ fn get_axis_value(gamepad: Gamepad, axis: Axis) -> Option<f32> {
     Some(gamepad.axis_data(axis)?.value())
 }
 
-impl RemotePanel {
-    fn reset(&self) {
-        self.update_step(serde_json::to_value(Step::<f32>::default()).unwrap());
-    }
+fn reset(nao: &Arc<Nao>) {
+    update_step(nao, Step::<f32>::default());
+}
 
-    fn update_step(&self, step: Value) {
-        self.nao.write(
-            "parameters.remote_control_parameters.walk",
-            TextOrBinary::Text(step),
-        )
+fn update_step(nao: &Arc<Nao>, step: Step) {
+    nao.write(
+        "parameters.remote_control_parameters.walk",
+        TextOrBinary::Text(serde_json::to_value(step).unwrap()),
+    );
+}
+
+impl Drop for RemotePanel {
+    fn drop(&mut self) {
+        self.bg_running.store(false, Ordering::Relaxed);
+        if let Some(handle) = self.bg_handle.take() {
+            let _ = handle.join();
+        }
     }
 }
 
@@ -132,7 +151,7 @@ impl Widget for &mut RemotePanel {
         if ui.checkbox(&mut enabled, "Enabled (Start)").changed() {
             self.enabled.store(enabled, Ordering::Relaxed);
             if !enabled {
-                self.reset();
+                reset(&self.nao);
             }
         };
 
