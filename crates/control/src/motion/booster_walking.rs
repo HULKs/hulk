@@ -3,12 +3,11 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use hardware::PathsInterface;
-use linear_algebra::vector;
 use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime,
     joints::Joints,
-    motion_command::{HeadMotion, MotionCommand},
+    motion_command::MotionCommand,
     parameters::{MotorCommandParameters, RLWalkingParameters},
 };
 use walking_inference::{inference::WalkingInference, inputs::WalkingInferenceInputs};

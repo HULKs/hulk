@@ -13,7 +13,11 @@ use gilrs::{Axis, Button, Gamepad, GamepadId, Gilrs};
 use serde_json::{json, Value};
 use types::step::Step;
 
-use crate::{nao::Nao, panel::{Panel, PanelCreationContext}, value_buffer::BufferHandle};
+use crate::{
+    nao::Nao,
+    panel::{Panel, PanelCreationContext},
+    value_buffer::BufferHandle,
+};
 
 pub struct RemotePanel {
     nao: Arc<Nao>,
@@ -22,7 +26,7 @@ pub struct RemotePanel {
     bg_running: Arc<AtomicBool>,
     bg_handle: Option<JoinHandle<()>>,
 }
-impl <'a> Panel<'a> for RemotePanel {
+impl<'a> Panel<'a> for RemotePanel {
     const NAME: &'static str = "Remote";
 
     fn new(context: PanelCreationContext) -> Self {
