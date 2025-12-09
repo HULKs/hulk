@@ -324,6 +324,7 @@ fn spawn_geom(
         GeomVariant::Box {
             extent: [hx, hy, hz],
         } => (
+            // MuJoCo box extent is half-lengths, whereas bevy cuboid takes full lengths
             meshes.add(Cuboid::new(2. * hx, 2. * hy, 2. * hz)),
             Quat::IDENTITY,
         ),
