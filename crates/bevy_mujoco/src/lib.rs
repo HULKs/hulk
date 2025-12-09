@@ -314,36 +314,28 @@ fn spawn_geom(
     geom: &Geom,
 ) {
     let material = match geom.material {
-        Material::Rgba { rgba: [r, g, b, a] } => materials.add(Color::srgba_u8(
-            (r * 255.0) as u8,
-            (g * 255.0) as u8,
-            (b * 255.0) as u8,
-            (a * 255.0) as u8,
-        )),
+        Material::Rgba { rgba: [r, g, b, a] } => materials.add(Color::srgba(r, g, b, a)),
         Material::Pbr { material_index } => material_handles[&material_index].clone(),
     };
 
-    let mut geom_entity = entity_commands.spawn((
-        Transform::from_translation(Vec3::from(geom.pos)).with_rotation(bevy_quat(geom.quat)),
-        MeshMaterial3d(material),
-    ));
-
-    let mesh_handle = match &geom.geom_variant {
-        GeomVariant::Mesh { mesh_index } => mesh_handles[mesh_index].clone(),
-        GeomVariant::Sphere { radius } => meshes.add(Sphere::new(*radius)),
+    let (mesh_handle, alignment_rotation) = match geom.geom_variant {
+        GeomVariant::Mesh { mesh_index } => (mesh_handles[&mesh_index].clone(), Quat::IDENTITY),
+        GeomVariant::Sphere { radius } => (meshes.add(Sphere::new(radius)), Quat::IDENTITY),
         GeomVariant::Box {
             extent: [hx, hy, hz],
-        } => meshes.add(Cuboid::new(*hx, *hy, *hz)),
+        } => (
+            // MuJoCo box extent is half-lengths, whereas bevy cuboid takes full lengths
+            meshes.add(Cuboid::new(2. * hx, 2. * hy, 2. * hz)),
+            Quat::IDENTITY,
+        ),
         GeomVariant::Plane {
             normal: [nx, ny, nz],
         } => {
-            // The plane is supposed to be infinite but that seems mighty expensive.
-            // Use a finite size instead
             const SCALE: f32 = 100.0;
-
-            let mut mesh = Plane3d::new(Vec3::new(*nx, *ny, *nz), Vec2::splat(SCALE))
+            let mut mesh = Plane3d::new(Vec3::new(nx, ny, nz), Vec2::splat(SCALE))
                 .mesh()
                 .build();
+
             let uv = mesh
                 .attribute_mut(Mesh::ATTRIBUTE_UV_0)
                 .expect("Plane3d should generate UV attributes");
@@ -357,16 +349,35 @@ fn spawn_geom(
                 }
                 _ => panic!("expected UV coordinates to be Float32x2"),
             }
-
-            meshes.add(mesh)
+            (meshes.add(mesh), Quat::IDENTITY)
         }
         GeomVariant::Cylinder {
             radius,
             half_height,
-        } => meshes.add(Cylinder::new(*radius, *half_height)),
+        } => (
+            meshes.add(Cylinder::new(radius, 2. * half_height)),
+            Quat::from_rotation_x(FRAC_PI_2),
+        ),
+        GeomVariant::Capsule {
+            radius,
+            half_height,
+        } => (
+            meshes.add(Capsule3d::new(radius, 2. * half_height)),
+            Quat::from_rotation_x(FRAC_PI_2),
+        ),
     };
 
-    geom_entity.insert(Mesh3d(mesh_handle));
+    entity_commands
+        .spawn((
+            Transform::from_translation(Vec3::from(geom.pos)).with_rotation(bevy_quat(geom.quat)),
+        ))
+        .with_children(|parent| {
+            parent.spawn((
+                Mesh3d(mesh_handle),
+                MeshMaterial3d(material),
+                Transform::from_rotation(alignment_rotation),
+            ));
+        });
 }
 
 fn update_bodies(

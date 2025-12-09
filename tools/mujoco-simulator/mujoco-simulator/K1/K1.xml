@@ -50,7 +50,7 @@
             reflectance="0"
         />
 
-            <material
+        <material
             name="black_metal_rough"
             rgba="0.1 0.1 0.1 1"
             specular="0.8"
@@ -191,6 +191,21 @@
             type="box"
             size="0.2 0.2 1"
             pos="2 1 0"
+            rgba="0.8 0.2 0.2 1"
+        />
+        <geom
+            name="static_capsule"
+            type="capsule"
+            size="0.2 0.5"
+            pos="-2 1 0"
+            rgba="0.8 0.2 0.2 1"
+        />
+
+        <geom
+            name="static_cylinder"
+            type="cylinder"
+            size="0.2 0.5"
+            pos="-2 -1 0"
             rgba="0.8 0.2 0.2 1"
         />
 

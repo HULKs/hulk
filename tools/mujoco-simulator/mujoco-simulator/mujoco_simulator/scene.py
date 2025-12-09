@@ -1,4 +1,5 @@
 import logging
+from operator import ge
 
 import mujoco
 import numpy as np
@@ -83,7 +84,19 @@ def resolve_geom(model: MjModel, geom_index: int) -> Geom | None:
             quat=quat,
         )
 
-    logging.warning("Unhandled mujoco geom type:", geom_type)
+    if geom_type == mujoco.mjtGeom.mjGEOM_CAPSULE:
+        radius: float = model.geom_size[geom_index][0]
+        half_height: float = model.geom_size[geom_index][1]
+        return Geom.capsule(
+            index=geom_index,
+            radius=radius,
+            half_height=half_height,
+            material=material,
+            pos=pos,
+            quat=quat,
+        )
+
+    logging.warning(f"Unhandled mujoco geom type: {geom_type.name}")
 
     return None
 
