@@ -12,7 +12,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="1" name="__module.model.23/aten::unsqueeze/Unsqueeze" type="Const" version="opset1">
+		<layer id="1" name="__module.model.23/aten::unsqueeze/Unsqueeze" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 2, 6300" offset="0" size="50400" />
 			<output>
 				<port id="0" precision="FP32" names="1362,anchor_points">
@@ -33,8 +34,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="3" name="__module.model.0.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="2, 2" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="3" name="__module.model.0.conv/aten::_convolution/Convolution" type="Convolution"
+			version="opset1">
+			<data strides="2, 2" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -58,7 +61,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="4" name="__module.model.0.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="4" name="__module.model.0.conv/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 16, 1, 1" offset="52128" size="64" />
 			<output>
 				<port id="0" precision="FP32">
@@ -69,7 +73,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="5" name="__module.model.0.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="5" name="__module.model.0.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -94,7 +99,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="6" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish" type="Swish" version="opset4">
+		<layer id="6" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -123,8 +129,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="8" name="__module.model.1.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="2, 2" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="8" name="__module.model.1.conv/aten::_convolution/Convolution" type="Convolution"
+			version="opset1">
+			<data strides="2, 2" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -148,7 +156,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="9" name="__module.model.1.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="9" name="__module.model.1.conv/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 32, 1, 1" offset="70624" size="128" />
 			<output>
 				<port id="0" precision="FP32">
@@ -159,7 +168,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="10" name="__module.model.1.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="10" name="__module.model.1.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -184,7 +194,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="11" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_1" type="Swish" version="opset4">
+		<layer id="11" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_1" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -213,8 +224,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="13" name="__module.model.2.cv1.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="13" name="__module.model.2.cv1.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -238,7 +251,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="14" name="__module.model.2.cv1.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="14" name="__module.model.2.cv1.conv/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 32, 1, 1" offset="74848" size="128" />
 			<output>
 				<port id="0" precision="FP32">
@@ -249,7 +263,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="15" name="__module.model.2.cv1.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="15" name="__module.model.2.cv1.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -274,7 +289,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="16" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_2" type="Swish" version="opset4">
+		<layer id="16" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_2" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -306,7 +322,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="19" name="__module.model.2/prim::ListUnpack" type="VariadicSplit" version="opset1">
+		<layer id="19" name="__module.model.2/prim::ListUnpack" type="VariadicSplit"
+			version="opset1">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -345,8 +362,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="21" name="__module.model.2.m.0.cv1.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="21" name="__module.model.2.m.0.cv1.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -370,7 +389,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="22" name="__module.model.2.m.0.cv1.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="22" name="__module.model.2.m.0.cv1.conv/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 8, 1, 1" offset="79608" size="32" />
 			<output>
 				<port id="0" precision="FP32">
@@ -381,7 +401,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="23" name="__module.model.2.m.0.cv1.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="23" name="__module.model.2.m.0.cv1.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -406,7 +427,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="24" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_3" type="Swish" version="opset4">
+		<layer id="24" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_3" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -435,8 +457,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="26" name="__module.model.2.m.0.cv2.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="26" name="__module.model.2.m.0.cv2.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -460,7 +484,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="27" name="__module.model.2.m.0.cv2.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="27" name="__module.model.2.m.0.cv2.conv/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 16, 1, 1" offset="84248" size="64" />
 			<output>
 				<port id="0" precision="FP32">
@@ -471,7 +496,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="28" name="__module.model.2.m.0.cv2.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="28" name="__module.model.2.m.0.cv2.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -496,7 +522,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="29" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_4" type="Swish" version="opset4">
+		<layer id="29" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_4" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -581,8 +608,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="33" name="__module.model.2.cv2.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="33" name="__module.model.2.cv2.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -606,7 +635,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="34" name="__module.model.2.cv2.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="34" name="__module.model.2.cv2.conv/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="96600" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -617,7 +647,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="35" name="__module.model.2.cv2.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="35" name="__module.model.2.cv2.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -642,7 +673,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="36" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_5" type="Swish" version="opset4">
+		<layer id="36" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_5" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -671,8 +703,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="38" name="__module.model.3.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="2, 2" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="38" name="__module.model.3.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="2, 2" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -696,7 +730,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="39" name="__module.model.3.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="39" name="__module.model.3.conv/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="244312" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -707,7 +742,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="40" name="__module.model.3.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="40" name="__module.model.3.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -732,7 +768,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="41" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_6" type="Swish" version="opset4">
+		<layer id="41" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_6" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -761,8 +798,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="43" name="__module.model.4.cv1.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="43" name="__module.model.4.cv1.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -786,7 +825,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="44" name="__module.model.4.cv1.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="44" name="__module.model.4.cv1.conv/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="260952" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -797,7 +837,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="45" name="__module.model.4.cv1.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="45" name="__module.model.4.cv1.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -822,7 +863,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="46" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_7" type="Swish" version="opset4">
+		<layer id="46" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_7" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -854,7 +896,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="49" name="__module.model.4/prim::ListUnpack" type="VariadicSplit" version="opset1">
+		<layer id="49" name="__module.model.4/prim::ListUnpack" type="VariadicSplit"
+			version="opset1">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -893,8 +936,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="51" name="__module.model.4.m.0.cv1.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="51" name="__module.model.4.m.0.cv1.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -918,7 +963,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="52" name="__module.model.4.m.0.cv1.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="52" name="__module.model.4.m.0.cv1.conv/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 16, 1, 1" offset="279656" size="64" />
 			<output>
 				<port id="0" precision="FP32">
@@ -929,7 +975,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="53" name="__module.model.4.m.0.cv1.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="53" name="__module.model.4.m.0.cv1.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -954,7 +1001,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="54" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_8" type="Swish" version="opset4">
+		<layer id="54" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_8" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -983,8 +1031,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="56" name="__module.model.4.m.0.cv2.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="56" name="__module.model.4.m.0.cv2.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -1008,7 +1058,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="57" name="__module.model.4.m.0.cv2.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="57" name="__module.model.4.m.0.cv2.conv/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 32, 1, 1" offset="298152" size="128" />
 			<output>
 				<port id="0" precision="FP32">
@@ -1019,7 +1070,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="58" name="__module.model.4.m.0.cv2.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="58" name="__module.model.4.m.0.cv2.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -1044,7 +1096,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="59" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_9" type="Swish" version="opset4">
+		<layer id="59" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_9" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -1129,8 +1182,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="63" name="__module.model.4.cv2.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="63" name="__module.model.4.cv2.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -1154,7 +1209,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="64" name="__module.model.4.cv2.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="64" name="__module.model.4.cv2.conv/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 128, 1, 1" offset="347432" size="512" />
 			<output>
 				<port id="0" precision="FP32">
@@ -1165,7 +1221,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="65" name="__module.model.4.cv2.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="65" name="__module.model.4.cv2.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -1190,7 +1247,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="66" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_10" type="Swish" version="opset4">
+		<layer id="66" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_10" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -1219,8 +1277,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="68" name="__module.model.5.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="2, 2" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="68" name="__module.model.5.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="2, 2" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -1244,7 +1304,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="69" name="__module.model.5.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="69" name="__module.model.5.conv/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 128, 1, 1" offset="937768" size="512" />
 			<output>
 				<port id="0" precision="FP32">
@@ -1255,7 +1316,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="70" name="__module.model.5.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="70" name="__module.model.5.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -1280,7 +1342,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="71" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_11" type="Swish" version="opset4">
+		<layer id="71" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_11" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -1309,8 +1372,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="73" name="__module.model.6.cv1.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="73" name="__module.model.6.cv1.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -1334,7 +1399,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="74" name="__module.model.6.cv1.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="74" name="__module.model.6.cv1.conv/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 128, 1, 1" offset="1003816" size="512" />
 			<output>
 				<port id="0" precision="FP32">
@@ -1345,7 +1411,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="75" name="__module.model.6.cv1.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="75" name="__module.model.6.cv1.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -1370,7 +1437,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="76" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_12" type="Swish" version="opset4">
+		<layer id="76" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_12" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -1402,7 +1470,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="79" name="__module.model.6/prim::ListUnpack" type="VariadicSplit" version="opset1">
+		<layer id="79" name="__module.model.6/prim::ListUnpack" type="VariadicSplit"
+			version="opset1">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -1441,8 +1510,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="81" name="__module.model.6.m.0.cv1.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="81" name="__module.model.6.m.0.cv1.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -1466,7 +1537,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="82" name="__module.model.6.m.0.cv1.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="82" name="__module.model.6.m.0.cv1.conv/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 32, 1, 1" offset="1012536" size="128" />
 			<output>
 				<port id="0" precision="FP32">
@@ -1477,7 +1549,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="83" name="__module.model.6.m.0.cv1.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="83" name="__module.model.6.m.0.cv1.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -1502,7 +1575,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="84" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_13" type="Swish" version="opset4">
+		<layer id="84" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_13" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -1531,8 +1605,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="86" name="__module.model.6.m.0.m.0.cv1.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="86" name="__module.model.6.m.0.m.0.cv1.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -1556,7 +1632,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="87" name="__module.model.6.m.0.m.0.cv1.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="87" name="__module.model.6.m.0.m.0.cv1.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 32, 1, 1" offset="1049528" size="128" />
 			<output>
 				<port id="0" precision="FP32">
@@ -1567,7 +1644,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="88" name="__module.model.6.m.0.m.0.cv1.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="88" name="__module.model.6.m.0.m.0.cv1.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -1592,7 +1670,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="89" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_14" type="Swish" version="opset4">
+		<layer id="89" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_14" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -1621,8 +1700,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="91" name="__module.model.6.m.0.m.0.cv2.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="91" name="__module.model.6.m.0.m.0.cv2.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -1646,7 +1727,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="92" name="__module.model.6.m.0.m.0.cv2.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="92" name="__module.model.6.m.0.m.0.cv2.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 32, 1, 1" offset="1086520" size="128" />
 			<output>
 				<port id="0" precision="FP32">
@@ -1657,7 +1739,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="93" name="__module.model.6.m.0.m.0.cv2.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="93" name="__module.model.6.m.0.m.0.cv2.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -1682,7 +1765,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="94" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_15" type="Swish" version="opset4">
+		<layer id="94" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_15" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -1736,8 +1820,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="97" name="__module.model.6.m.0.m.1.cv1.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="97" name="__module.model.6.m.0.m.1.cv1.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -1761,7 +1847,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="98" name="__module.model.6.m.0.m.1.cv1.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="98" name="__module.model.6.m.0.m.1.cv1.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 32, 1, 1" offset="1123512" size="128" />
 			<output>
 				<port id="0" precision="FP32">
@@ -1772,7 +1859,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="99" name="__module.model.6.m.0.m.1.cv1.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="99" name="__module.model.6.m.0.m.1.cv1.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -1797,7 +1885,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="100" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_16" type="Swish" version="opset4">
+		<layer id="100" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_16" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -1826,8 +1915,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="102" name="__module.model.6.m.0.m.1.cv2.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="102" name="__module.model.6.m.0.m.1.cv2.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -1851,7 +1942,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="103" name="__module.model.6.m.0.m.1.cv2.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="103" name="__module.model.6.m.0.m.1.cv2.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 32, 1, 1" offset="1160504" size="128" />
 			<output>
 				<port id="0" precision="FP32">
@@ -1862,7 +1954,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="104" name="__module.model.6.m.0.m.1.cv2.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="104" name="__module.model.6.m.0.m.1.cv2.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -1887,7 +1980,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="105" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_17" type="Swish" version="opset4">
+		<layer id="105" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_17" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -1941,8 +2035,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="108" name="__module.model.6.m.0.cv2.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="108" name="__module.model.6.m.0.cv2.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -1966,7 +2062,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="109" name="__module.model.6.m.0.cv2.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="109" name="__module.model.6.m.0.cv2.conv/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 32, 1, 1" offset="1168824" size="128" />
 			<output>
 				<port id="0" precision="FP32">
@@ -1977,7 +2074,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="110" name="__module.model.6.m.0.cv2.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="110" name="__module.model.6.m.0.cv2.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -2002,7 +2100,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="111" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_18" type="Swish" version="opset4">
+		<layer id="111" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_18" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -2056,8 +2155,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="114" name="__module.model.6.m.0.cv3.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="114" name="__module.model.6.m.0.cv3.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -2081,7 +2182,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="115" name="__module.model.6.m.0.cv3.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="115" name="__module.model.6.m.0.cv3.conv/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="1185336" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -2092,7 +2194,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="116" name="__module.model.6.m.0.cv3.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="116" name="__module.model.6.m.0.cv3.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -2117,7 +2220,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="117" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_19" type="Swish" version="opset4">
+		<layer id="117" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_19" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -2177,8 +2281,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="120" name="__module.model.6.cv2.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="120" name="__module.model.6.cv2.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -2202,7 +2308,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="121" name="__module.model.6.cv2.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="121" name="__module.model.6.cv2.conv/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 128, 1, 1" offset="1283896" size="512" />
 			<output>
 				<port id="0" precision="FP32">
@@ -2213,7 +2320,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="122" name="__module.model.6.cv2.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="122" name="__module.model.6.cv2.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -2238,7 +2346,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="123" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_20" type="Swish" version="opset4">
+		<layer id="123" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_20" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -2267,8 +2376,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="125" name="__module.model.7.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="2, 2" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="125" name="__module.model.7.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="2, 2" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -2292,7 +2403,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="126" name="__module.model.7.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="126" name="__module.model.7.conv/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 256, 1, 1" offset="2464056" size="1024" />
 			<output>
 				<port id="0" precision="FP32">
@@ -2303,7 +2415,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="127" name="__module.model.7.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="127" name="__module.model.7.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -2328,7 +2441,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="128" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_21" type="Swish" version="opset4">
+		<layer id="128" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_21" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -2357,8 +2471,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="130" name="__module.model.8.cv1.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="130" name="__module.model.8.cv1.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -2382,7 +2498,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="131" name="__module.model.8.cv1.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="131" name="__module.model.8.cv1.conv/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 256, 1, 1" offset="2727224" size="1024" />
 			<output>
 				<port id="0" precision="FP32">
@@ -2393,7 +2510,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="132" name="__module.model.8.cv1.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="132" name="__module.model.8.cv1.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -2418,7 +2536,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="133" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_22" type="Swish" version="opset4">
+		<layer id="133" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_22" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -2450,7 +2569,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="136" name="__module.model.8/prim::ListUnpack" type="VariadicSplit" version="opset1">
+		<layer id="136" name="__module.model.8/prim::ListUnpack" type="VariadicSplit"
+			version="opset1">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -2489,8 +2609,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="138" name="__module.model.8.m.0.cv1.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="138" name="__module.model.8.m.0.cv1.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -2514,7 +2636,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="139" name="__module.model.8.m.0.cv1.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="139" name="__module.model.8.m.0.cv1.conv/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="2761032" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -2525,7 +2648,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="140" name="__module.model.8.m.0.cv1.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="140" name="__module.model.8.m.0.cv1.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -2550,7 +2674,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="141" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_23" type="Swish" version="opset4">
+		<layer id="141" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_23" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -2579,8 +2704,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="143" name="__module.model.8.m.0.m.0.cv1.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="143" name="__module.model.8.m.0.m.0.cv1.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -2604,7 +2731,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="144" name="__module.model.8.m.0.m.0.cv1.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="144" name="__module.model.8.m.0.m.0.cv1.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="2908744" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -2615,7 +2743,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="145" name="__module.model.8.m.0.m.0.cv1.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="145" name="__module.model.8.m.0.m.0.cv1.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -2640,7 +2769,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="146" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_24" type="Swish" version="opset4">
+		<layer id="146" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_24" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -2669,8 +2799,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="148" name="__module.model.8.m.0.m.0.cv2.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="148" name="__module.model.8.m.0.m.0.cv2.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -2694,7 +2826,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="149" name="__module.model.8.m.0.m.0.cv2.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="149" name="__module.model.8.m.0.m.0.cv2.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="3056456" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -2705,7 +2838,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="150" name="__module.model.8.m.0.m.0.cv2.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="150" name="__module.model.8.m.0.m.0.cv2.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -2730,7 +2864,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="151" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_25" type="Swish" version="opset4">
+		<layer id="151" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_25" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -2784,8 +2919,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="154" name="__module.model.8.m.0.m.1.cv1.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="154" name="__module.model.8.m.0.m.1.cv1.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -2809,7 +2946,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="155" name="__module.model.8.m.0.m.1.cv1.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="155" name="__module.model.8.m.0.m.1.cv1.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="3204168" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -2820,7 +2958,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="156" name="__module.model.8.m.0.m.1.cv1.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="156" name="__module.model.8.m.0.m.1.cv1.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -2845,7 +2984,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="157" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_26" type="Swish" version="opset4">
+		<layer id="157" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_26" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -2874,8 +3014,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="159" name="__module.model.8.m.0.m.1.cv2.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="159" name="__module.model.8.m.0.m.1.cv2.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -2899,7 +3041,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="160" name="__module.model.8.m.0.m.1.cv2.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="160" name="__module.model.8.m.0.m.1.cv2.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="3351880" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -2910,7 +3053,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="161" name="__module.model.8.m.0.m.1.cv2.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="161" name="__module.model.8.m.0.m.1.cv2.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -2935,7 +3079,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="162" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_27" type="Swish" version="opset4">
+		<layer id="162" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_27" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -2989,8 +3134,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="165" name="__module.model.8.m.0.cv2.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="165" name="__module.model.8.m.0.cv2.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -3014,7 +3161,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="166" name="__module.model.8.m.0.cv2.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="166" name="__module.model.8.m.0.cv2.conv/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="3384904" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -3025,7 +3173,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="167" name="__module.model.8.m.0.cv2.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="167" name="__module.model.8.m.0.cv2.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -3050,7 +3199,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="168" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_28" type="Swish" version="opset4">
+		<layer id="168" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_28" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -3104,8 +3254,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="171" name="__module.model.8.m.0.cv3.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="171" name="__module.model.8.m.0.cv3.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -3129,7 +3281,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="172" name="__module.model.8.m.0.cv3.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="172" name="__module.model.8.m.0.cv3.conv/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 128, 1, 1" offset="3450696" size="512" />
 			<output>
 				<port id="0" precision="FP32">
@@ -3140,7 +3293,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="173" name="__module.model.8.m.0.cv3.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="173" name="__module.model.8.m.0.cv3.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -3165,7 +3319,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="174" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_29" type="Swish" version="opset4">
+		<layer id="174" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_29" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -3225,8 +3380,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="177" name="__module.model.8.cv2.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="177" name="__module.model.8.cv2.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -3250,7 +3407,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="178" name="__module.model.8.cv2.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="178" name="__module.model.8.cv2.conv/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 256, 1, 1" offset="3844424" size="1024" />
 			<output>
 				<port id="0" precision="FP32">
@@ -3261,7 +3419,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="179" name="__module.model.8.cv2.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="179" name="__module.model.8.cv2.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -3286,7 +3445,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="180" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_30" type="Swish" version="opset4">
+		<layer id="180" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_30" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -3315,8 +3475,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="182" name="__module.model.9.cv1.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="182" name="__module.model.9.cv1.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -3340,7 +3502,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="183" name="__module.model.9.cv1.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="183" name="__module.model.9.cv1.conv/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 128, 1, 1" offset="3976520" size="512" />
 			<output>
 				<port id="0" precision="FP32">
@@ -3351,7 +3514,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="184" name="__module.model.9.cv1.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="184" name="__module.model.9.cv1.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -3376,7 +3540,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="185" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_31" type="Swish" version="opset4">
+		<layer id="185" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_31" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -3394,8 +3559,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="186" name="__module.model.9.m/aten::max_pool2d/MaxPool" type="MaxPool" version="opset14">
-			<data strides="1, 1" dilations="1, 1" pads_begin="2, 2" pads_end="2, 2" kernel="5, 5" rounding_type="floor" auto_pad="explicit" index_element_type="i64" axis="2" />
+		<layer id="186" name="__module.model.9.m/aten::max_pool2d/MaxPool" type="MaxPool"
+			version="opset14">
+			<data strides="1, 1" dilations="1, 1" pads_begin="2, 2" pads_end="2, 2" kernel="5, 5"
+				rounding_type="floor" auto_pad="explicit" index_element_type="i64" axis="2" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -3419,8 +3586,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="187" name="__module.model.9.m/aten::max_pool2d/MaxPool_1" type="MaxPool" version="opset14">
-			<data strides="1, 1" dilations="1, 1" pads_begin="2, 2" pads_end="2, 2" kernel="5, 5" rounding_type="floor" auto_pad="explicit" index_element_type="i64" axis="2" />
+		<layer id="187" name="__module.model.9.m/aten::max_pool2d/MaxPool_1" type="MaxPool"
+			version="opset14">
+			<data strides="1, 1" dilations="1, 1" pads_begin="2, 2" pads_end="2, 2" kernel="5, 5"
+				rounding_type="floor" auto_pad="explicit" index_element_type="i64" axis="2" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -3444,8 +3613,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="188" name="__module.model.9.m/aten::max_pool2d/MaxPool_2" type="MaxPool" version="opset14">
-			<data strides="1, 1" dilations="1, 1" pads_begin="2, 2" pads_end="2, 2" kernel="5, 5" rounding_type="floor" auto_pad="explicit" index_element_type="i64" axis="2" />
+		<layer id="188" name="__module.model.9.m/aten::max_pool2d/MaxPool_2" type="MaxPool"
+			version="opset14">
+			<data strides="1, 1" dilations="1, 1" pads_begin="2, 2" pads_end="2, 2" kernel="5, 5"
+				rounding_type="floor" auto_pad="explicit" index_element_type="i64" axis="2" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -3517,8 +3688,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="191" name="__module.model.9.cv2.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="191" name="__module.model.9.cv2.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -3542,7 +3715,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="192" name="__module.model.9.cv2.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="192" name="__module.model.9.cv2.conv/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 256, 1, 1" offset="4501320" size="1024" />
 			<output>
 				<port id="0" precision="FP32">
@@ -3553,7 +3727,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="193" name="__module.model.9.cv2.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="193" name="__module.model.9.cv2.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -3578,7 +3753,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="194" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_32" type="Swish" version="opset4">
+		<layer id="194" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_32" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -3607,8 +3783,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="196" name="__module.model.10.cv1.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="196" name="__module.model.10.cv1.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -3632,7 +3810,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="197" name="__module.model.10.cv1.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="197" name="__module.model.10.cv1.conv/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 256, 1, 1" offset="4764488" size="1024" />
 			<output>
 				<port id="0" precision="FP32">
@@ -3643,7 +3822,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="198" name="__module.model.10.cv1.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="198" name="__module.model.10.cv1.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -3668,7 +3848,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="199" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_33" type="Swish" version="opset4">
+		<layer id="199" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_33" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -3700,7 +3881,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="202" name="__module.model.10/prim::ListUnpack" type="VariadicSplit" version="opset1">
+		<layer id="202" name="__module.model.10/prim::ListUnpack" type="VariadicSplit"
+			version="opset1">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -3739,8 +3921,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="204" name="__module.model.10.m.0.attn.qkv.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="204" name="__module.model.10.m.0.attn.qkv.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -3764,7 +3948,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="205" name="__module.model.10.m.0.attn.qkv.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="205" name="__module.model.10.m.0.attn.qkv.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 256, 1, 1" offset="4896584" size="1024" />
 			<output>
 				<port id="0" precision="FP32">
@@ -3775,7 +3960,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="206" name="__module.model.10.m.0.attn.qkv.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="206" name="__module.model.10.m.0.attn.qkv.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -3808,7 +3994,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="208" name="__module.model.10.m.0.attn/aten::view/Reshape" type="Reshape" version="opset1">
+		<layer id="208" name="__module.model.10.m.0.attn/aten::view/Reshape" type="Reshape"
+			version="opset1">
 			<data special_zero="true" />
 			<input>
 				<port id="0" precision="FP32">
@@ -3844,7 +4031,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="211" name="__module.model.10.m.0.attn/prim::ListUnpack" type="VariadicSplit" version="opset1">
+		<layer id="211" name="__module.model.10.m.0.attn/prim::ListUnpack" type="VariadicSplit"
+			version="opset1">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -3914,7 +4102,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="214" name="__module.model.10.m.0.attn/aten::mul/Multiply_1" type="MatMul" version="opset1">
+		<layer id="214" name="__module.model.10.m.0.attn/aten::mul/Multiply_1" type="MatMul"
+			version="opset1">
 			<data transpose_a="true" transpose_b="false" />
 			<input>
 				<port id="0" precision="FP32">
@@ -3939,7 +4128,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="215" name="__module.model.10.m.0.attn/aten::softmax/Softmax" type="SoftMax" version="opset8">
+		<layer id="215" name="__module.model.10.m.0.attn/aten::softmax/Softmax" type="SoftMax"
+			version="opset8">
 			<data axis="-1" />
 			<input>
 				<port id="0" precision="FP32">
@@ -3958,7 +4148,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="216" name="__module.model.10.m.0.attn/aten::matmul/MatMul_1" type="MatMul" version="opset1">
+		<layer id="216" name="__module.model.10.m.0.attn/aten::matmul/MatMul_1" type="MatMul"
+			version="opset1">
 			<data transpose_a="false" transpose_b="true" />
 			<input>
 				<port id="0" precision="FP32">
@@ -3983,7 +4174,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="217" name="__module.model.10.m.0.attn/aten::size/ShapeOf" type="ShapeOf" version="opset3">
+		<layer id="217" name="__module.model.10.m.0.attn/aten::size/ShapeOf" type="ShapeOf"
+			version="opset3">
 			<data output_type="i64" />
 			<input>
 				<port id="0" precision="FP32">
@@ -3999,7 +4191,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="218" name="__module.model.10.m.0.attn/aten::view/Reshape_1" type="Reshape" version="opset1">
+		<layer id="218" name="__module.model.10.m.0.attn/aten::view/Reshape_1" type="Reshape"
+			version="opset1">
 			<data special_zero="false" />
 			<input>
 				<port id="0" precision="FP32">
@@ -4021,7 +4214,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="219" name="__module.model.10.m.0.attn/aten::reshape/Reshape" type="Reshape" version="opset1">
+		<layer id="219" name="__module.model.10.m.0.attn/aten::reshape/Reshape" type="Reshape"
+			version="opset1">
 			<data special_zero="false" />
 			<input>
 				<port id="0" precision="FP32">
@@ -4043,7 +4237,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="220" name="__module.model.10.m.0.attn.pe.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="220" name="__module.model.10.m.0.attn.pe.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="128, 1, 1, 3, 3" offset="4897676" size="4608" />
 			<output>
 				<port id="0" precision="FP32">
@@ -4055,8 +4250,11 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="221" name="__module.model.10.m.0.attn.pe.conv/aten::_convolution/GroupConvolution" type="GroupConvolution" version="opset1">
-			<data strides="1, 1" pads_begin="1, 1" pads_end="1, 1" dilations="1, 1" auto_pad="explicit" />
+		<layer id="221"
+			name="__module.model.10.m.0.attn.pe.conv/aten::_convolution/GroupConvolution"
+			type="GroupConvolution" version="opset1">
+			<data strides="1, 1" pads_begin="1, 1" pads_end="1, 1" dilations="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -4081,7 +4279,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="222" name="__module.model.10.m.0.attn.pe.conv/aten::_convolution/Reshape_1" type="Const" version="opset1">
+		<layer id="222" name="__module.model.10.m.0.attn.pe.conv/aten::_convolution/Reshape_1"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 128, 1, 1" offset="4902284" size="512" />
 			<output>
 				<port id="0" precision="FP32">
@@ -4092,7 +4291,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="223" name="__module.model.10.m.0.attn.pe.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="223" name="__module.model.10.m.0.attn.pe.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -4153,8 +4353,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="226" name="__module.model.10.m.0.attn.proj.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="226" name="__module.model.10.m.0.attn.proj.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -4178,7 +4380,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="227" name="__module.model.10.m.0.attn.proj.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="227" name="__module.model.10.m.0.attn.proj.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 128, 1, 1" offset="4968332" size="512" />
 			<output>
 				<port id="0" precision="FP32">
@@ -4189,7 +4392,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="228" name="__module.model.10.m.0.attn.proj.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="228" name="__module.model.10.m.0.attn.proj.conv/aten::_convolution/Add"
+			type="Add" version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -4250,8 +4454,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="231" name="__module.model.10.m.0.ffn.0.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="231" name="__module.model.10.m.0.ffn.0.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -4275,7 +4481,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="232" name="__module.model.10.m.0.ffn.0.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="232" name="__module.model.10.m.0.ffn.0.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 256, 1, 1" offset="5099916" size="1024" />
 			<output>
 				<port id="0" precision="FP32">
@@ -4286,7 +4493,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="233" name="__module.model.10.m.0.ffn.0.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="233" name="__module.model.10.m.0.ffn.0.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -4311,7 +4519,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="234" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_34" type="Swish" version="opset4">
+		<layer id="234" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_34" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -4340,8 +4549,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="236" name="__module.model.10.m.0.ffn.1.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="236" name="__module.model.10.m.0.ffn.1.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -4365,7 +4576,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="237" name="__module.model.10.m.0.ffn.1.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="237" name="__module.model.10.m.0.ffn.1.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 128, 1, 1" offset="5232012" size="512" />
 			<output>
 				<port id="0" precision="FP32">
@@ -4376,7 +4588,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="238" name="__module.model.10.m.0.ffn.1.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="238" name="__module.model.10.m.0.ffn.1.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -4462,8 +4675,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="242" name="__module.model.10.cv2.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="242" name="__module.model.10.cv2.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -4487,7 +4702,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="243" name="__module.model.10.cv2.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="243" name="__module.model.10.cv2.conv/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 256, 1, 1" offset="5494668" size="1024" />
 			<output>
 				<port id="0" precision="FP32">
@@ -4498,7 +4714,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="244" name="__module.model.10.cv2.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="244" name="__module.model.10.cv2.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -4523,7 +4740,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="245" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_35" type="Swish" version="opset4">
+		<layer id="245" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_35" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -4541,7 +4759,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="246" name="__module.model.11/aten::upsample_nearest2d/Multiply" type="Const" version="opset1">
+		<layer id="246" name="__module.model.11/aten::upsample_nearest2d/Multiply" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="2" offset="5495692" size="8" />
 			<output>
 				<port id="0" precision="FP32">
@@ -4557,8 +4776,11 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="248" name="__module.model.11/aten::upsample_nearest2d/Interpolate" type="Interpolate" version="opset11">
-			<data mode="nearest" shape_calculation_mode="scales" coordinate_transformation_mode="asymmetric" nearest_mode="floor" antialias="false" pads_begin="0, 0, 0, 0" pads_end="0, 0, 0, 0" cube_coeff="-0.75" />
+		<layer id="248" name="__module.model.11/aten::upsample_nearest2d/Interpolate"
+			type="Interpolate" version="opset11">
+			<data mode="nearest" shape_calculation_mode="scales"
+				coordinate_transformation_mode="asymmetric" nearest_mode="floor" antialias="false"
+				pads_begin="0, 0, 0, 0" pads_end="0, 0, 0, 0" cube_coeff="-0.75" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -4618,8 +4840,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="251" name="__module.model.13.cv1.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="251" name="__module.model.13.cv1.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -4643,7 +4867,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="252" name="__module.model.13.cv1.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="252" name="__module.model.13.cv1.conv/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 128, 1, 1" offset="5692316" size="512" />
 			<output>
 				<port id="0" precision="FP32">
@@ -4654,7 +4879,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="253" name="__module.model.13.cv1.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="253" name="__module.model.13.cv1.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -4679,7 +4905,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="254" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_36" type="Swish" version="opset4">
+		<layer id="254" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_36" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -4711,7 +4938,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="257" name="__module.model.13/prim::ListUnpack" type="VariadicSplit" version="opset1">
+		<layer id="257" name="__module.model.13/prim::ListUnpack" type="VariadicSplit"
+			version="opset1">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -4750,8 +4978,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="259" name="__module.model.13.m.0.cv1.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="259" name="__module.model.13.m.0.cv1.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -4775,7 +5005,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="260" name="__module.model.13.m.0.cv1.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="260" name="__module.model.13.m.0.cv1.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 32, 1, 1" offset="5766556" size="128" />
 			<output>
 				<port id="0" precision="FP32">
@@ -4786,7 +5017,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="261" name="__module.model.13.m.0.cv1.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="261" name="__module.model.13.m.0.cv1.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -4811,7 +5043,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="262" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_37" type="Swish" version="opset4">
+		<layer id="262" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_37" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -4840,8 +5073,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="264" name="__module.model.13.m.0.cv2.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="264" name="__module.model.13.m.0.cv2.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -4865,7 +5100,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="265" name="__module.model.13.m.0.cv2.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="265" name="__module.model.13.m.0.cv2.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="5840412" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -4876,7 +5112,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="266" name="__module.model.13.m.0.cv2.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="266" name="__module.model.13.m.0.cv2.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -4901,7 +5138,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="267" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_38" type="Swish" version="opset4">
+		<layer id="267" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_38" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -4986,8 +5224,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="271" name="__module.model.13.cv2.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="271" name="__module.model.13.cv2.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -5011,7 +5251,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="272" name="__module.model.13.cv2.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="272" name="__module.model.13.cv2.conv/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 128, 1, 1" offset="5938972" size="512" />
 			<output>
 				<port id="0" precision="FP32">
@@ -5022,7 +5263,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="273" name="__module.model.13.cv2.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="273" name="__module.model.13.cv2.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -5047,7 +5289,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="274" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_39" type="Swish" version="opset4">
+		<layer id="274" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_39" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -5065,7 +5308,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="275" name="__module.model.14/aten::upsample_nearest2d/Multiply" type="Const" version="opset1">
+		<layer id="275" name="__module.model.14/aten::upsample_nearest2d/Multiply" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="2" offset="5495692" size="8" />
 			<output>
 				<port id="0" precision="FP32">
@@ -5081,8 +5325,11 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="277" name="__module.model.14/aten::upsample_nearest2d/Interpolate" type="Interpolate" version="opset11">
-			<data mode="nearest" shape_calculation_mode="scales" coordinate_transformation_mode="asymmetric" nearest_mode="floor" antialias="false" pads_begin="0, 0, 0, 0" pads_end="0, 0, 0, 0" cube_coeff="-0.75" />
+		<layer id="277" name="__module.model.14/aten::upsample_nearest2d/Interpolate"
+			type="Interpolate" version="opset11">
+			<data mode="nearest" shape_calculation_mode="scales"
+				coordinate_transformation_mode="asymmetric" nearest_mode="floor" antialias="false"
+				pads_begin="0, 0, 0, 0" pads_end="0, 0, 0, 0" cube_coeff="-0.75" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -5142,8 +5389,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="280" name="__module.model.16.cv1.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="280" name="__module.model.16.cv1.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -5167,7 +5416,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="281" name="__module.model.16.cv1.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="281" name="__module.model.16.cv1.conv/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="6005020" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -5178,7 +5428,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="282" name="__module.model.16.cv1.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="282" name="__module.model.16.cv1.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -5203,7 +5454,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="283" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_40" type="Swish" version="opset4">
+		<layer id="283" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_40" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -5235,7 +5487,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="286" name="__module.model.16/prim::ListUnpack" type="VariadicSplit" version="opset1">
+		<layer id="286" name="__module.model.16/prim::ListUnpack" type="VariadicSplit"
+			version="opset1">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -5274,8 +5527,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="288" name="__module.model.16.m.0.cv1.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="288" name="__module.model.16.m.0.cv1.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -5299,7 +5554,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="289" name="__module.model.16.m.0.cv1.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="289" name="__module.model.16.m.0.cv1.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 16, 1, 1" offset="6023708" size="64" />
 			<output>
 				<port id="0" precision="FP32">
@@ -5310,7 +5566,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="290" name="__module.model.16.m.0.cv1.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="290" name="__module.model.16.m.0.cv1.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -5335,7 +5592,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="291" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_41" type="Swish" version="opset4">
+		<layer id="291" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_41" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -5364,8 +5622,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="293" name="__module.model.16.m.0.cv2.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="293" name="__module.model.16.m.0.cv2.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -5389,7 +5649,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="294" name="__module.model.16.m.0.cv2.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="294" name="__module.model.16.m.0.cv2.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 32, 1, 1" offset="6042204" size="128" />
 			<output>
 				<port id="0" precision="FP32">
@@ -5400,7 +5661,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="295" name="__module.model.16.m.0.cv2.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="295" name="__module.model.16.m.0.cv2.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -5425,7 +5687,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="296" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_42" type="Swish" version="opset4">
+		<layer id="296" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_42" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -5510,8 +5773,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="300" name="__module.model.16.cv2.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="300" name="__module.model.16.cv2.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -5535,7 +5800,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="301" name="__module.model.16.cv2.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="301" name="__module.model.16.cv2.conv/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="6066908" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -5546,7 +5812,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="302" name="__module.model.16.cv2.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="302" name="__module.model.16.cv2.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -5571,7 +5838,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="303" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_43" type="Swish" version="opset4">
+		<layer id="303" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_43" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -5600,8 +5868,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="305" name="__module.model.23.cv2.0.0.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="305" name="__module.model.23.cv2.0.0.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -5625,7 +5895,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="306" name="__module.model.23.cv2.0.0.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="306" name="__module.model.23.cv2.0.0.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="6214620" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -5636,7 +5907,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="307" name="__module.model.23.cv2.0.0.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="307" name="__module.model.23.cv2.0.0.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -5661,7 +5933,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="308" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_44" type="Swish" version="opset4">
+		<layer id="308" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_44" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -5690,8 +5963,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="310" name="__module.model.23.cv2.0.1.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="310" name="__module.model.23.cv2.0.1.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -5715,7 +5990,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="311" name="__module.model.23.cv2.0.1.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="311" name="__module.model.23.cv2.0.1.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="6362332" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -5726,7 +6002,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="312" name="__module.model.23.cv2.0.1.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="312" name="__module.model.23.cv2.0.1.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -5751,7 +6028,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="313" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_45" type="Swish" version="opset4">
+		<layer id="313" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_45" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -5780,8 +6058,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="315" name="__module.model.23.cv2.0.2/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="315" name="__module.model.23.cv2.0.2/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -5805,7 +6085,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="316" name="__module.model.23.cv2.0.2/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="316" name="__module.model.23.cv2.0.2/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="6378972" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -5816,7 +6097,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="317" name="__module.model.23.cv2.0.2/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="317" name="__module.model.23.cv2.0.2/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -5841,7 +6123,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="318" name="__module.model.23.cv3.0.0.0.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="318" name="__module.model.23.cv3.0.0.0.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="64, 1, 1, 3, 3" offset="6379228" size="2304" />
 			<output>
 				<port id="0" precision="FP32">
@@ -5853,8 +6136,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="319" name="__module.model.23.cv3.0.0.0.conv/aten::_convolution/GroupConvolution" type="GroupConvolution" version="opset1">
-			<data strides="1, 1" pads_begin="1, 1" pads_end="1, 1" dilations="1, 1" auto_pad="explicit" />
+		<layer id="319" name="__module.model.23.cv3.0.0.0.conv/aten::_convolution/GroupConvolution"
+			type="GroupConvolution" version="opset1">
+			<data strides="1, 1" pads_begin="1, 1" pads_end="1, 1" dilations="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -5879,7 +6164,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="320" name="__module.model.23.cv3.0.0.0.conv/aten::_convolution/Reshape_1" type="Const" version="opset1">
+		<layer id="320" name="__module.model.23.cv3.0.0.0.conv/aten::_convolution/Reshape_1"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="6381532" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -5890,7 +6176,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="321" name="__module.model.23.cv3.0.0.0.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="321" name="__module.model.23.cv3.0.0.0.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -5915,7 +6202,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="322" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_46" type="Swish" version="opset4">
+		<layer id="322" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_46" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -5944,8 +6232,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="324" name="__module.model.23.cv3.0.0.1.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="324" name="__module.model.23.cv3.0.0.1.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -5969,7 +6259,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="325" name="__module.model.23.cv3.0.0.1.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="325" name="__module.model.23.cv3.0.0.1.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="6398172" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -5980,7 +6271,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="326" name="__module.model.23.cv3.0.0.1.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="326" name="__module.model.23.cv3.0.0.1.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -6005,7 +6297,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="327" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_47" type="Swish" version="opset4">
+		<layer id="327" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_47" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -6023,7 +6316,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="328" name="__module.model.23.cv3.0.1.0.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="328" name="__module.model.23.cv3.0.1.0.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="64, 1, 1, 3, 3" offset="6398428" size="2304" />
 			<output>
 				<port id="0" precision="FP32">
@@ -6035,8 +6329,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="329" name="__module.model.23.cv3.0.1.0.conv/aten::_convolution/GroupConvolution" type="GroupConvolution" version="opset1">
-			<data strides="1, 1" pads_begin="1, 1" pads_end="1, 1" dilations="1, 1" auto_pad="explicit" />
+		<layer id="329" name="__module.model.23.cv3.0.1.0.conv/aten::_convolution/GroupConvolution"
+			type="GroupConvolution" version="opset1">
+			<data strides="1, 1" pads_begin="1, 1" pads_end="1, 1" dilations="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -6061,7 +6357,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="330" name="__module.model.23.cv3.0.1.0.conv/aten::_convolution/Reshape_1" type="Const" version="opset1">
+		<layer id="330" name="__module.model.23.cv3.0.1.0.conv/aten::_convolution/Reshape_1"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="6400732" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -6072,7 +6369,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="331" name="__module.model.23.cv3.0.1.0.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="331" name="__module.model.23.cv3.0.1.0.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -6097,7 +6395,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="332" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_48" type="Swish" version="opset4">
+		<layer id="332" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_48" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -6126,8 +6425,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="334" name="__module.model.23.cv3.0.1.1.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="334" name="__module.model.23.cv3.0.1.1.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -6151,7 +6452,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="335" name="__module.model.23.cv3.0.1.1.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="335" name="__module.model.23.cv3.0.1.1.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="6417372" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -6162,7 +6464,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="336" name="__module.model.23.cv3.0.1.1.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="336" name="__module.model.23.cv3.0.1.1.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -6187,7 +6490,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="337" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_49" type="Swish" version="opset4">
+		<layer id="337" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_49" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -6216,8 +6520,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="339" name="__module.model.23.cv3.0.2/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="339" name="__module.model.23.cv3.0.2/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -6241,7 +6547,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="340" name="__module.model.23.cv3.0.2/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="340" name="__module.model.23.cv3.0.2/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 1, 1, 1" offset="6417884" size="4" />
 			<output>
 				<port id="0" precision="FP32">
@@ -6252,7 +6559,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="341" name="__module.model.23.cv3.0.2/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="341" name="__module.model.23.cv3.0.2/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -6342,8 +6650,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="346" name="__module.model.17.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="2, 2" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="346" name="__module.model.17.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="2, 2" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -6367,7 +6677,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="347" name="__module.model.17.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="347" name="__module.model.17.conv/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="6565368" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -6378,7 +6689,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="348" name="__module.model.17.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="348" name="__module.model.17.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -6403,7 +6715,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="349" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_50" type="Swish" version="opset4">
+		<layer id="349" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_50" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -6457,8 +6770,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="352" name="__module.model.19.cv1.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="352" name="__module.model.19.cv1.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -6482,7 +6797,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="353" name="__module.model.19.cv1.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="353" name="__module.model.19.cv1.conv/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 128, 1, 1" offset="6663928" size="512" />
 			<output>
 				<port id="0" precision="FP32">
@@ -6493,7 +6809,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="354" name="__module.model.19.cv1.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="354" name="__module.model.19.cv1.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -6518,7 +6835,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="355" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_51" type="Swish" version="opset4">
+		<layer id="355" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_51" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -6550,7 +6868,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="358" name="__module.model.19/prim::ListUnpack" type="VariadicSplit" version="opset1">
+		<layer id="358" name="__module.model.19/prim::ListUnpack" type="VariadicSplit"
+			version="opset1">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -6589,8 +6908,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="360" name="__module.model.19.m.0.cv1.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="360" name="__module.model.19.m.0.cv1.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -6614,7 +6935,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="361" name="__module.model.19.m.0.cv1.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="361" name="__module.model.19.m.0.cv1.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 32, 1, 1" offset="6738168" size="128" />
 			<output>
 				<port id="0" precision="FP32">
@@ -6625,7 +6947,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="362" name="__module.model.19.m.0.cv1.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="362" name="__module.model.19.m.0.cv1.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -6650,7 +6973,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="363" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_52" type="Swish" version="opset4">
+		<layer id="363" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_52" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -6679,8 +7003,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="365" name="__module.model.19.m.0.cv2.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="365" name="__module.model.19.m.0.cv2.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -6704,7 +7030,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="366" name="__module.model.19.m.0.cv2.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="366" name="__module.model.19.m.0.cv2.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="6812024" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -6715,7 +7042,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="367" name="__module.model.19.m.0.cv2.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="367" name="__module.model.19.m.0.cv2.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -6740,7 +7068,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="368" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_53" type="Swish" version="opset4">
+		<layer id="368" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_53" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -6825,8 +7154,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="372" name="__module.model.19.cv2.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="372" name="__module.model.19.cv2.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -6850,7 +7181,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="373" name="__module.model.19.cv2.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="373" name="__module.model.19.cv2.conv/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 128, 1, 1" offset="6910584" size="512" />
 			<output>
 				<port id="0" precision="FP32">
@@ -6861,7 +7193,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="374" name="__module.model.19.cv2.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="374" name="__module.model.19.cv2.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -6886,7 +7219,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="375" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_54" type="Swish" version="opset4">
+		<layer id="375" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_54" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -6915,8 +7249,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="377" name="__module.model.23.cv2.1.0.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="377" name="__module.model.23.cv2.1.0.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -6940,7 +7276,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="378" name="__module.model.23.cv2.1.0.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="378" name="__module.model.23.cv2.1.0.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="7206008" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -6951,7 +7288,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="379" name="__module.model.23.cv2.1.0.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="379" name="__module.model.23.cv2.1.0.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -6976,7 +7314,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="380" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_55" type="Swish" version="opset4">
+		<layer id="380" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_55" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -7005,8 +7344,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="382" name="__module.model.23.cv2.1.1.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="382" name="__module.model.23.cv2.1.1.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -7030,7 +7371,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="383" name="__module.model.23.cv2.1.1.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="383" name="__module.model.23.cv2.1.1.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="7353720" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -7041,7 +7383,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="384" name="__module.model.23.cv2.1.1.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="384" name="__module.model.23.cv2.1.1.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -7066,7 +7409,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="385" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_56" type="Swish" version="opset4">
+		<layer id="385" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_56" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -7095,8 +7439,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="387" name="__module.model.23.cv2.1.2/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="387" name="__module.model.23.cv2.1.2/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -7120,7 +7466,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="388" name="__module.model.23.cv2.1.2/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="388" name="__module.model.23.cv2.1.2/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="7370360" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -7131,7 +7478,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="389" name="__module.model.23.cv2.1.2/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="389" name="__module.model.23.cv2.1.2/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -7156,7 +7504,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="390" name="__module.model.23.cv3.1.0.0.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="390" name="__module.model.23.cv3.1.0.0.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="128, 1, 1, 3, 3" offset="7370616" size="4608" />
 			<output>
 				<port id="0" precision="FP32">
@@ -7168,8 +7517,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="391" name="__module.model.23.cv3.1.0.0.conv/aten::_convolution/GroupConvolution" type="GroupConvolution" version="opset1">
-			<data strides="1, 1" pads_begin="1, 1" pads_end="1, 1" dilations="1, 1" auto_pad="explicit" />
+		<layer id="391" name="__module.model.23.cv3.1.0.0.conv/aten::_convolution/GroupConvolution"
+			type="GroupConvolution" version="opset1">
+			<data strides="1, 1" pads_begin="1, 1" pads_end="1, 1" dilations="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -7194,7 +7545,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="392" name="__module.model.23.cv3.1.0.0.conv/aten::_convolution/Reshape_1" type="Const" version="opset1">
+		<layer id="392" name="__module.model.23.cv3.1.0.0.conv/aten::_convolution/Reshape_1"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 128, 1, 1" offset="7375224" size="512" />
 			<output>
 				<port id="0" precision="FP32">
@@ -7205,7 +7557,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="393" name="__module.model.23.cv3.1.0.0.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="393" name="__module.model.23.cv3.1.0.0.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -7230,7 +7583,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="394" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_57" type="Swish" version="opset4">
+		<layer id="394" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_57" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -7259,8 +7613,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="396" name="__module.model.23.cv3.1.0.1.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="396" name="__module.model.23.cv3.1.0.1.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -7284,7 +7640,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="397" name="__module.model.23.cv3.1.0.1.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="397" name="__module.model.23.cv3.1.0.1.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="7408504" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -7295,7 +7652,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="398" name="__module.model.23.cv3.1.0.1.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="398" name="__module.model.23.cv3.1.0.1.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -7320,7 +7678,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="399" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_58" type="Swish" version="opset4">
+		<layer id="399" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_58" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -7338,7 +7697,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="400" name="__module.model.23.cv3.1.1.0.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="400" name="__module.model.23.cv3.1.1.0.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="64, 1, 1, 3, 3" offset="7408760" size="2304" />
 			<output>
 				<port id="0" precision="FP32">
@@ -7350,8 +7710,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="401" name="__module.model.23.cv3.1.1.0.conv/aten::_convolution/GroupConvolution" type="GroupConvolution" version="opset1">
-			<data strides="1, 1" pads_begin="1, 1" pads_end="1, 1" dilations="1, 1" auto_pad="explicit" />
+		<layer id="401" name="__module.model.23.cv3.1.1.0.conv/aten::_convolution/GroupConvolution"
+			type="GroupConvolution" version="opset1">
+			<data strides="1, 1" pads_begin="1, 1" pads_end="1, 1" dilations="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -7376,7 +7738,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="402" name="__module.model.23.cv3.1.1.0.conv/aten::_convolution/Reshape_1" type="Const" version="opset1">
+		<layer id="402" name="__module.model.23.cv3.1.1.0.conv/aten::_convolution/Reshape_1"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="7411064" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -7387,7 +7750,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="403" name="__module.model.23.cv3.1.1.0.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="403" name="__module.model.23.cv3.1.1.0.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -7412,7 +7776,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="404" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_59" type="Swish" version="opset4">
+		<layer id="404" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_59" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -7441,8 +7806,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="406" name="__module.model.23.cv3.1.1.1.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="406" name="__module.model.23.cv3.1.1.1.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -7466,7 +7833,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="407" name="__module.model.23.cv3.1.1.1.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="407" name="__module.model.23.cv3.1.1.1.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="7427704" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -7477,7 +7845,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="408" name="__module.model.23.cv3.1.1.1.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="408" name="__module.model.23.cv3.1.1.1.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -7502,7 +7871,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="409" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_60" type="Swish" version="opset4">
+		<layer id="409" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_60" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -7531,8 +7901,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="411" name="__module.model.23.cv3.1.2/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="411" name="__module.model.23.cv3.1.2/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -7556,7 +7928,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="412" name="__module.model.23.cv3.1.2/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="412" name="__module.model.23.cv3.1.2/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 1, 1, 1" offset="7428216" size="4" />
 			<output>
 				<port id="0" precision="FP32">
@@ -7567,7 +7940,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="413" name="__module.model.23.cv3.1.2/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="413" name="__module.model.23.cv3.1.2/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -7625,7 +7999,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="416" name="__module.model.23/aten::view/Reshape_1" type="Reshape" version="opset1">
+		<layer id="416" name="__module.model.23/aten::view/Reshape_1" type="Reshape"
+			version="opset1">
 			<data special_zero="true" />
 			<input>
 				<port id="0" precision="FP32">
@@ -7657,8 +8032,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="418" name="__module.model.20.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="2, 2" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="418" name="__module.model.20.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="2, 2" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -7682,7 +8059,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="419" name="__module.model.20.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="419" name="__module.model.20.conv/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 128, 1, 1" offset="8018044" size="512" />
 			<output>
 				<port id="0" precision="FP32">
@@ -7693,7 +8071,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="420" name="__module.model.20.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="420" name="__module.model.20.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -7718,7 +8097,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="421" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_61" type="Swish" version="opset4">
+		<layer id="421" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_61" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -7772,8 +8152,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="424" name="__module.model.22.cv1.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="424" name="__module.model.22.cv1.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -7797,7 +8179,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="425" name="__module.model.22.cv1.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="425" name="__module.model.22.cv1.conv/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 256, 1, 1" offset="8411772" size="1024" />
 			<output>
 				<port id="0" precision="FP32">
@@ -7808,7 +8191,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="426" name="__module.model.22.cv1.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="426" name="__module.model.22.cv1.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -7833,7 +8217,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="427" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_62" type="Swish" version="opset4">
+		<layer id="427" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_62" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -7865,7 +8250,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="430" name="__module.model.22/prim::ListUnpack" type="VariadicSplit" version="opset1">
+		<layer id="430" name="__module.model.22/prim::ListUnpack" type="VariadicSplit"
+			version="opset1">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -7904,8 +8290,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="432" name="__module.model.22.m.0.cv1.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="432" name="__module.model.22.m.0.cv1.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -7929,7 +8317,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="433" name="__module.model.22.m.0.cv1.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="433" name="__module.model.22.m.0.cv1.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="8445564" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -7940,7 +8329,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="434" name="__module.model.22.m.0.cv1.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="434" name="__module.model.22.m.0.cv1.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -7965,7 +8355,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="435" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_63" type="Swish" version="opset4">
+		<layer id="435" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_63" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -7994,8 +8385,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="437" name="__module.model.22.m.0.m.0.cv1.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="437" name="__module.model.22.m.0.m.0.cv1.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -8019,7 +8412,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="438" name="__module.model.22.m.0.m.0.cv1.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="438" name="__module.model.22.m.0.m.0.cv1.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="8593276" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -8030,7 +8424,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="439" name="__module.model.22.m.0.m.0.cv1.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="439" name="__module.model.22.m.0.m.0.cv1.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -8055,7 +8450,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="440" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_64" type="Swish" version="opset4">
+		<layer id="440" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_64" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -8084,8 +8480,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="442" name="__module.model.22.m.0.m.0.cv2.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="442" name="__module.model.22.m.0.m.0.cv2.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -8109,7 +8507,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="443" name="__module.model.22.m.0.m.0.cv2.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="443" name="__module.model.22.m.0.m.0.cv2.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="8740988" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -8120,7 +8519,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="444" name="__module.model.22.m.0.m.0.cv2.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="444" name="__module.model.22.m.0.m.0.cv2.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -8145,7 +8545,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="445" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_65" type="Swish" version="opset4">
+		<layer id="445" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_65" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -8199,8 +8600,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="448" name="__module.model.22.m.0.m.1.cv1.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="448" name="__module.model.22.m.0.m.1.cv1.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -8224,7 +8627,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="449" name="__module.model.22.m.0.m.1.cv1.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="449" name="__module.model.22.m.0.m.1.cv1.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="8888700" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -8235,7 +8639,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="450" name="__module.model.22.m.0.m.1.cv1.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="450" name="__module.model.22.m.0.m.1.cv1.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -8260,7 +8665,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="451" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_66" type="Swish" version="opset4">
+		<layer id="451" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_66" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -8289,8 +8695,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="453" name="__module.model.22.m.0.m.1.cv2.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="453" name="__module.model.22.m.0.m.1.cv2.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -8314,7 +8722,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="454" name="__module.model.22.m.0.m.1.cv2.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="454" name="__module.model.22.m.0.m.1.cv2.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="9036412" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -8325,7 +8734,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="455" name="__module.model.22.m.0.m.1.cv2.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="455" name="__module.model.22.m.0.m.1.cv2.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -8350,7 +8760,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="456" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_67" type="Swish" version="opset4">
+		<layer id="456" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_67" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -8404,8 +8815,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="459" name="__module.model.22.m.0.cv2.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="459" name="__module.model.22.m.0.cv2.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -8429,7 +8842,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="460" name="__module.model.22.m.0.cv2.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="460" name="__module.model.22.m.0.cv2.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="9069436" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -8440,7 +8854,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="461" name="__module.model.22.m.0.cv2.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="461" name="__module.model.22.m.0.cv2.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -8465,7 +8880,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="462" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_68" type="Swish" version="opset4">
+		<layer id="462" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_68" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -8519,8 +8935,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="465" name="__module.model.22.m.0.cv3.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="465" name="__module.model.22.m.0.cv3.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -8544,7 +8962,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="466" name="__module.model.22.m.0.cv3.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="466" name="__module.model.22.m.0.cv3.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 128, 1, 1" offset="9135228" size="512" />
 			<output>
 				<port id="0" precision="FP32">
@@ -8555,7 +8974,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="467" name="__module.model.22.m.0.cv3.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="467" name="__module.model.22.m.0.cv3.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -8580,7 +9000,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="468" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_69" type="Swish" version="opset4">
+		<layer id="468" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_69" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -8640,8 +9061,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="471" name="__module.model.22.cv2.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="471" name="__module.model.22.cv2.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -8665,7 +9088,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="472" name="__module.model.22.cv2.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="472" name="__module.model.22.cv2.conv/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 256, 1, 1" offset="9528956" size="1024" />
 			<output>
 				<port id="0" precision="FP32">
@@ -8676,7 +9100,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="473" name="__module.model.22.cv2.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="473" name="__module.model.22.cv2.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -8701,7 +9126,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="474" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_70" type="Swish" version="opset4">
+		<layer id="474" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_70" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -8730,8 +9156,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="476" name="__module.model.23.cv2.2.0.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="476" name="__module.model.23.cv2.2.0.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -8755,7 +9183,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="477" name="__module.model.23.cv2.2.0.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="477" name="__module.model.23.cv2.2.0.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="10119804" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -8766,7 +9195,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="478" name="__module.model.23.cv2.2.0.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="478" name="__module.model.23.cv2.2.0.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -8791,7 +9221,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="479" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_71" type="Swish" version="opset4">
+		<layer id="479" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_71" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -8820,8 +9251,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="481" name="__module.model.23.cv2.2.1.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="481" name="__module.model.23.cv2.2.1.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -8845,7 +9278,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="482" name="__module.model.23.cv2.2.1.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="482" name="__module.model.23.cv2.2.1.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="10267516" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -8856,7 +9290,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="483" name="__module.model.23.cv2.2.1.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="483" name="__module.model.23.cv2.2.1.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -8881,7 +9316,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="484" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_72" type="Swish" version="opset4">
+		<layer id="484" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_72" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -8910,8 +9346,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="486" name="__module.model.23.cv2.2.2/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="486" name="__module.model.23.cv2.2.2/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -8935,7 +9373,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="487" name="__module.model.23.cv2.2.2/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="487" name="__module.model.23.cv2.2.2/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="10284156" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -8946,7 +9385,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="488" name="__module.model.23.cv2.2.2/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="488" name="__module.model.23.cv2.2.2/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -8971,7 +9411,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="489" name="__module.model.23.cv3.2.0.0.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="489" name="__module.model.23.cv3.2.0.0.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="256, 1, 1, 3, 3" offset="10284412" size="9216" />
 			<output>
 				<port id="0" precision="FP32">
@@ -8983,8 +9424,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="490" name="__module.model.23.cv3.2.0.0.conv/aten::_convolution/GroupConvolution" type="GroupConvolution" version="opset1">
-			<data strides="1, 1" pads_begin="1, 1" pads_end="1, 1" dilations="1, 1" auto_pad="explicit" />
+		<layer id="490" name="__module.model.23.cv3.2.0.0.conv/aten::_convolution/GroupConvolution"
+			type="GroupConvolution" version="opset1">
+			<data strides="1, 1" pads_begin="1, 1" pads_end="1, 1" dilations="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -9009,7 +9452,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="491" name="__module.model.23.cv3.2.0.0.conv/aten::_convolution/Reshape_1" type="Const" version="opset1">
+		<layer id="491" name="__module.model.23.cv3.2.0.0.conv/aten::_convolution/Reshape_1"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 256, 1, 1" offset="10293628" size="1024" />
 			<output>
 				<port id="0" precision="FP32">
@@ -9020,7 +9464,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="492" name="__module.model.23.cv3.2.0.0.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="492" name="__module.model.23.cv3.2.0.0.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -9045,7 +9490,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="493" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_73" type="Swish" version="opset4">
+		<layer id="493" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_73" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -9074,8 +9520,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="495" name="__module.model.23.cv3.2.0.1.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="495" name="__module.model.23.cv3.2.0.1.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -9099,7 +9547,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="496" name="__module.model.23.cv3.2.0.1.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="496" name="__module.model.23.cv3.2.0.1.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="10360188" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -9110,7 +9559,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="497" name="__module.model.23.cv3.2.0.1.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="497" name="__module.model.23.cv3.2.0.1.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -9135,7 +9585,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="498" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_74" type="Swish" version="opset4">
+		<layer id="498" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_74" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -9153,7 +9604,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="499" name="__module.model.23.cv3.2.1.0.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="499" name="__module.model.23.cv3.2.1.0.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="64, 1, 1, 3, 3" offset="10360444" size="2304" />
 			<output>
 				<port id="0" precision="FP32">
@@ -9165,8 +9617,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="500" name="__module.model.23.cv3.2.1.0.conv/aten::_convolution/GroupConvolution" type="GroupConvolution" version="opset1">
-			<data strides="1, 1" pads_begin="1, 1" pads_end="1, 1" dilations="1, 1" auto_pad="explicit" />
+		<layer id="500" name="__module.model.23.cv3.2.1.0.conv/aten::_convolution/GroupConvolution"
+			type="GroupConvolution" version="opset1">
+			<data strides="1, 1" pads_begin="1, 1" pads_end="1, 1" dilations="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -9191,7 +9645,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="501" name="__module.model.23.cv3.2.1.0.conv/aten::_convolution/Reshape_1" type="Const" version="opset1">
+		<layer id="501" name="__module.model.23.cv3.2.1.0.conv/aten::_convolution/Reshape_1"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="10362748" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -9202,7 +9657,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="502" name="__module.model.23.cv3.2.1.0.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="502" name="__module.model.23.cv3.2.1.0.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -9227,7 +9683,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="503" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_75" type="Swish" version="opset4">
+		<layer id="503" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_75" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -9256,8 +9713,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="505" name="__module.model.23.cv3.2.1.1.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="505" name="__module.model.23.cv3.2.1.1.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -9281,7 +9740,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="506" name="__module.model.23.cv3.2.1.1.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="506" name="__module.model.23.cv3.2.1.1.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 64, 1, 1" offset="10379388" size="256" />
 			<output>
 				<port id="0" precision="FP32">
@@ -9292,7 +9752,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="507" name="__module.model.23.cv3.2.1.1.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="507" name="__module.model.23.cv3.2.1.1.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -9317,7 +9778,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="508" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_76" type="Swish" version="opset4">
+		<layer id="508" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_76" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -9346,8 +9808,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="510" name="__module.model.23.cv3.2.2/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="510" name="__module.model.23.cv3.2.2/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -9371,7 +9835,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="511" name="__module.model.23.cv3.2.2/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="511" name="__module.model.23.cv3.2.2/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 1, 1, 1" offset="10379900" size="4" />
 			<output>
 				<port id="0" precision="FP32">
@@ -9382,7 +9847,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="512" name="__module.model.23.cv3.2.2/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="512" name="__module.model.23.cv3.2.2/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -9440,7 +9906,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="515" name="__module.model.23/aten::view/Reshape_2" type="Reshape" version="opset1">
+		<layer id="515" name="__module.model.23/aten::view/Reshape_2" type="Reshape"
+			version="opset1">
 			<data special_zero="true" />
 			<input>
 				<port id="0" precision="FP32">
@@ -9502,7 +9969,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="519" name="__module.model.23/prim::ListUnpack" type="VariadicSplit" version="opset1">
+		<layer id="519" name="__module.model.23/prim::ListUnpack" type="VariadicSplit"
+			version="opset1">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -9535,7 +10003,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="521" name="__module.model.23.dfl/aten::view/Reshape" type="Reshape" version="opset1">
+		<layer id="521" name="__module.model.23.dfl/aten::view/Reshape" type="Reshape"
+			version="opset1">
 			<data special_zero="true" />
 			<input>
 				<port id="0" precision="FP32">
@@ -9556,7 +10025,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="522" name="__module.model.23.dfl/aten::transpose/Constant" type="Const" version="opset1">
+		<layer id="522" name="__module.model.23.dfl/aten::transpose/Constant" type="Const"
+			version="opset1">
 			<data element_type="i32" shape="4" offset="10379952" size="16" />
 			<output>
 				<port id="0" precision="I32">
@@ -9564,7 +10034,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="523" name="__module.model.23.dfl/aten::transpose/Transpose" type="Transpose" version="opset1">
+		<layer id="523" name="__module.model.23.dfl/aten::transpose/Transpose" type="Transpose"
+			version="opset1">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -9585,7 +10056,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="524" name="__module.model.23.dfl/aten::softmax/Softmax" type="SoftMax" version="opset8">
+		<layer id="524" name="__module.model.23.dfl/aten::softmax/Softmax" type="SoftMax"
+			version="opset8">
 			<data axis="1" />
 			<input>
 				<port id="0" precision="FP32">
@@ -9615,8 +10087,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="526" name="__module.model.23.dfl.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="526" name="__module.model.23.dfl.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -9648,7 +10122,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="528" name="__module.model.23.dfl/aten::view/Reshape_1" type="Reshape" version="opset1">
+		<layer id="528" name="__module.model.23.dfl/aten::view/Reshape_1" type="Reshape"
+			version="opset1">
 			<data special_zero="true" />
 			<input>
 				<port id="0" precision="FP32">
@@ -9754,7 +10229,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="537" name="__module.model.23.dfl/prim::ListConstruct_1" type="Concat" version="opset1">
+		<layer id="537" name="__module.model.23.dfl/prim::ListConstruct_1" type="Concat"
+			version="opset1">
 			<data axis="0" />
 			<input>
 				<port id="0" precision="I64">
@@ -9794,7 +10270,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="540" name="__module.model.23/prim::ListUnpack/Gather" type="Gather" version="opset8">
+		<layer id="540" name="__module.model.23/prim::ListUnpack/Gather" type="Gather"
+			version="opset8">
 			<data batch_dims="0" />
 			<input>
 				<port id="0" precision="I32">
@@ -9809,13 +10286,15 @@
 				<port id="3" precision="I32" />
 			</output>
 		</layer>
-		<layer id="541" name="__module.model.23/prim::ListUnpack/Convert" type="Const" version="opset1">
+		<layer id="541" name="__module.model.23/prim::ListUnpack/Convert" type="Const"
+			version="opset1">
 			<data element_type="i32" shape="" offset="10380076" size="4" />
 			<output>
 				<port id="0" precision="I32" />
 			</output>
 		</layer>
-		<layer id="542" name="__module.model.23/prim::ListUnpack/Divide" type="Divide" version="opset1">
+		<layer id="542" name="__module.model.23/prim::ListUnpack/Divide" type="Divide"
+			version="opset1">
 			<data auto_broadcast="numpy" m_pythondiv="true" />
 			<input>
 				<port id="0" precision="I32" />
@@ -9835,7 +10314,8 @@
 				<port id="2" precision="I32" />
 			</output>
 		</layer>
-		<layer id="544" name="__module.model.23/prim::ListUnpack/Greater" type="Greater" version="opset1">
+		<layer id="544" name="__module.model.23/prim::ListUnpack/Greater" type="Greater"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="I32" />
@@ -9849,7 +10329,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="545" name="__module.model.23/prim::ListUnpack/Convert_0" type="Convert" version="opset1">
+		<layer id="545" name="__module.model.23/prim::ListUnpack/Convert_0" type="Convert"
+			version="opset1">
 			<data destination_type="i32" />
 			<input>
 				<port id="0" precision="BOOL">
@@ -9884,7 +10365,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="548" name="__module.model.23/prim::ListUnpack/Concat" type="Concat" version="opset1">
+		<layer id="548" name="__module.model.23/prim::ListUnpack/Concat" type="Concat"
+			version="opset1">
 			<data axis="0" />
 			<input>
 				<port id="0" precision="I32">
@@ -9900,7 +10382,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="549" name="__module.model.23/prim::ListUnpack/VariadicSplit" type="VariadicSplit" version="opset1">
+		<layer id="549" name="__module.model.23/prim::ListUnpack/VariadicSplit" type="VariadicSplit"
+			version="opset1">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -10023,7 +10506,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="555" name="__module.model.23/aten::sub/Subtract_1" type="Subtract" version="opset1">
+		<layer id="555" name="__module.model.23/aten::sub/Subtract_1" type="Subtract"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -10099,7 +10583,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="559" name="__module.model.23/aten::sigmoid/Sigmoid" type="Sigmoid" version="opset1">
+		<layer id="559" name="__module.model.23/aten::sigmoid/Sigmoid" type="Sigmoid"
+			version="opset1">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -10126,8 +10611,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="561" name="__module.model.23.cv4.0.0.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="561" name="__module.model.23.cv4.0.0.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -10151,7 +10638,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="562" name="__module.model.23.cv4.0.0.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="562" name="__module.model.23.cv4.0.0.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 51, 1, 1" offset="10522792" size="204" />
 			<output>
 				<port id="0" precision="FP32">
@@ -10162,7 +10650,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="563" name="__module.model.23.cv4.0.0.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="563" name="__module.model.23.cv4.0.0.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -10187,7 +10676,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="564" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_77" type="Swish" version="opset4">
+		<layer id="564" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_77" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -10216,8 +10706,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="566" name="__module.model.23.cv4.0.1.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="566" name="__module.model.23.cv4.0.1.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -10241,7 +10733,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="567" name="__module.model.23.cv4.0.1.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="567" name="__module.model.23.cv4.0.1.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 51, 1, 1" offset="10616632" size="204" />
 			<output>
 				<port id="0" precision="FP32">
@@ -10252,7 +10745,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="568" name="__module.model.23.cv4.0.1.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="568" name="__module.model.23.cv4.0.1.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -10277,7 +10771,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="569" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_78" type="Swish" version="opset4">
+		<layer id="569" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_78" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -10306,8 +10801,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="571" name="__module.model.23.cv4.0.2/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="571" name="__module.model.23.cv4.0.2/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -10331,7 +10828,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="572" name="__module.model.23.cv4.0.2/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="572" name="__module.model.23.cv4.0.2/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 51, 1, 1" offset="10627240" size="204" />
 			<output>
 				<port id="0" precision="FP32">
@@ -10342,7 +10840,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="573" name="__module.model.23.cv4.0.2/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="573" name="__module.model.23.cv4.0.2/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -10375,7 +10874,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="575" name="__module.model.23/aten::view/Reshape_3" type="Reshape" version="opset1">
+		<layer id="575" name="__module.model.23/aten::view/Reshape_3" type="Reshape"
+			version="opset1">
 			<data special_zero="true" />
 			<input>
 				<port id="0" precision="FP32">
@@ -10407,8 +10907,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="577" name="__module.model.23.cv4.1.0.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="577" name="__module.model.23.cv4.1.0.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -10432,7 +10934,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="578" name="__module.model.23.cv4.1.0.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="578" name="__module.model.23.cv4.1.0.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 51, 1, 1" offset="10862476" size="204" />
 			<output>
 				<port id="0" precision="FP32">
@@ -10443,7 +10946,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="579" name="__module.model.23.cv4.1.0.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="579" name="__module.model.23.cv4.1.0.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -10468,7 +10972,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="580" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_79" type="Swish" version="opset4">
+		<layer id="580" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_79" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -10497,8 +11002,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="582" name="__module.model.23.cv4.1.1.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="582" name="__module.model.23.cv4.1.1.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -10522,7 +11029,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="583" name="__module.model.23.cv4.1.1.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="583" name="__module.model.23.cv4.1.1.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 51, 1, 1" offset="10956316" size="204" />
 			<output>
 				<port id="0" precision="FP32">
@@ -10533,7 +11041,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="584" name="__module.model.23.cv4.1.1.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="584" name="__module.model.23.cv4.1.1.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -10558,7 +11067,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="585" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_80" type="Swish" version="opset4">
+		<layer id="585" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_80" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -10587,8 +11097,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="587" name="__module.model.23.cv4.1.2/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="587" name="__module.model.23.cv4.1.2/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -10612,7 +11124,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="588" name="__module.model.23.cv4.1.2/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="588" name="__module.model.23.cv4.1.2/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 51, 1, 1" offset="10966924" size="204" />
 			<output>
 				<port id="0" precision="FP32">
@@ -10623,7 +11136,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="589" name="__module.model.23.cv4.1.2/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="589" name="__module.model.23.cv4.1.2/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -10656,7 +11170,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="591" name="__module.model.23/aten::view/Reshape_4" type="Reshape" version="opset1">
+		<layer id="591" name="__module.model.23/aten::view/Reshape_4" type="Reshape"
+			version="opset1">
 			<data special_zero="true" />
 			<input>
 				<port id="0" precision="FP32">
@@ -10688,8 +11203,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="593" name="__module.model.23.cv4.2.0.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="593" name="__module.model.23.cv4.2.0.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -10713,7 +11230,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="594" name="__module.model.23.cv4.2.0.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="594" name="__module.model.23.cv4.2.0.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 51, 1, 1" offset="11437144" size="204" />
 			<output>
 				<port id="0" precision="FP32">
@@ -10724,7 +11242,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="595" name="__module.model.23.cv4.2.0.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="595" name="__module.model.23.cv4.2.0.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -10749,7 +11268,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="596" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_81" type="Swish" version="opset4">
+		<layer id="596" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_81" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -10778,8 +11298,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="598" name="__module.model.23.cv4.2.1.conv/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1" auto_pad="explicit" />
+		<layer id="598" name="__module.model.23.cv4.2.1.conv/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="1, 1" pads_end="1, 1"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -10803,7 +11325,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="599" name="__module.model.23.cv4.2.1.conv/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="599" name="__module.model.23.cv4.2.1.conv/aten::_convolution/Reshape"
+			type="Const" version="opset1">
 			<data element_type="f32" shape="1, 51, 1, 1" offset="11530984" size="204" />
 			<output>
 				<port id="0" precision="FP32">
@@ -10814,7 +11337,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="600" name="__module.model.23.cv4.2.1.conv/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="600" name="__module.model.23.cv4.2.1.conv/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -10839,7 +11363,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="601" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_82" type="Swish" version="opset4">
+		<layer id="601" name="__module.model.23.cv4.2.1.act/aten::silu_/Swish_82" type="Swish"
+			version="opset4">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -10868,8 +11393,10 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="603" name="__module.model.23.cv4.2.2/aten::_convolution/Convolution" type="Convolution" version="opset1">
-			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0" auto_pad="explicit" />
+		<layer id="603" name="__module.model.23.cv4.2.2/aten::_convolution/Convolution"
+			type="Convolution" version="opset1">
+			<data strides="1, 1" dilations="1, 1" pads_begin="0, 0" pads_end="0, 0"
+				auto_pad="explicit" />
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -10893,7 +11420,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="604" name="__module.model.23.cv4.2.2/aten::_convolution/Reshape" type="Const" version="opset1">
+		<layer id="604" name="__module.model.23.cv4.2.2/aten::_convolution/Reshape" type="Const"
+			version="opset1">
 			<data element_type="f32" shape="1, 51, 1, 1" offset="11541592" size="204" />
 			<output>
 				<port id="0" precision="FP32">
@@ -10904,7 +11432,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="605" name="__module.model.23.cv4.2.2/aten::_convolution/Add" type="Add" version="opset1">
+		<layer id="605" name="__module.model.23.cv4.2.2/aten::_convolution/Add" type="Add"
+			version="opset1">
 			<data auto_broadcast="numpy" />
 			<input>
 				<port id="0" precision="FP32">
@@ -10937,7 +11466,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="607" name="__module.model.23/aten::view/Reshape_5" type="Reshape" version="opset1">
+		<layer id="607" name="__module.model.23/aten::view/Reshape_5" type="Reshape"
+			version="opset1">
 			<data special_zero="true" />
 			<input>
 				<port id="0" precision="FP32">
@@ -10993,7 +11523,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="610" name="__module.model.23/aten::view/Reshape_6" type="Reshape" version="opset1">
+		<layer id="610" name="__module.model.23/aten::view/Reshape_6" type="Reshape"
+			version="opset1">
 			<data special_zero="true" />
 			<input>
 				<port id="0" precision="FP32">
@@ -11202,7 +11733,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="624" name="__module.model.23/aten::sigmoid/Sigmoid_1" type="Sigmoid" version="opset1">
+		<layer id="624" name="__module.model.23/aten::sigmoid/Sigmoid_1" type="Sigmoid"
+			version="opset1">
 			<input>
 				<port id="0" precision="FP32">
 					<dim>1</dim>
@@ -11253,7 +11785,8 @@
 				</port>
 			</output>
 		</layer>
-		<layer id="627" name="__module.model.23/aten::view/Reshape_7" type="Reshape" version="opset1">
+		<layer id="627" name="__module.model.23/aten::view/Reshape_7" type="Reshape"
+			version="opset1">
 			<data special_zero="true" />
 			<input>
 				<port id="0" precision="FP32">
