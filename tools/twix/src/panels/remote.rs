@@ -11,6 +11,7 @@ use communication::messages::TextOrBinary;
 use eframe::egui::Widget;
 use gilrs::{Axis, Button, Gamepad, GamepadId, Gilrs};
 use serde_json::{json, Value};
+use tokio::sync::watch::{channel, Receiver};
 use types::step::Step;
 
 use crate::{
@@ -25,12 +26,15 @@ pub struct RemotePanel {
     latest_step: BufferHandle<Step>,
     bg_running: Arc<AtomicBool>,
     bg_handle: Option<JoinHandle<()>>,
+    receiver: Receiver<Step>,
 }
 impl<'a> Panel<'a> for RemotePanel {
     const NAME: &'static str = "Remote";
 
     fn new(context: PanelCreationContext) -> Self {
         let nao = context.nao.clone();
+        let (sender, receiver) = channel(Step::<f32>::default());
+
         let enabled = Arc::new(AtomicBool::new(false));
         let latest_step = nao.subscribe_value("parameters.remote_control_parameters.walk");
         let bg_running = Arc::new(AtomicBool::new(true));
@@ -38,6 +42,7 @@ impl<'a> Panel<'a> for RemotePanel {
         let nao_clone = nao.clone();
         let enabled_clone = enabled.clone();
         let bg_running_clone = bg_running.clone();
+        let egui_context_clone = context.egui_context.clone();
 
         let handle = thread::spawn(move || {
             let mut gilrs = match Gilrs::new() {
@@ -63,6 +68,8 @@ impl<'a> Panel<'a> for RemotePanel {
                     active_gamepad = Some(event.id);
                 }
                 if let Some(gamepad) = active_gamepad.map(|id| gilrs.gamepad(id)) {
+                    egui_context_clone.request_repaint();
+
                     let right = get_axis_value(gamepad, Axis::LeftStickX).unwrap_or(0.0);
                     let forward = get_axis_value(gamepad, Axis::LeftStickY).unwrap_or(0.0);
 
@@ -108,6 +115,7 @@ impl<'a> Panel<'a> for RemotePanel {
                             update_step(&nao_clone, step);
                         }
                     }
+                    let _ = sender.send(step);
                 }
                 thread::sleep(SLEEP_DELAY);
             }
@@ -118,6 +126,7 @@ impl<'a> Panel<'a> for RemotePanel {
             latest_step,
             bg_running,
             bg_handle: Some(handle),
+            receiver,
         }
     }
 
@@ -159,12 +168,16 @@ impl Widget for &mut RemotePanel {
                 reset(&self.nao);
             }
         };
-
-        let step = match self.latest_step.get_last_value() {
+        ui.separator();
+        ui.strong("Controller:");
+        let controller_step = *self.receiver.borrow();
+        ui.label(format!("{controller_step:#?}"));
+        ui.add_space(ui.spacing().item_spacing.y);
+        ui.strong("Robot:");
+        let saved_step = match self.latest_step.get_last_value() {
             Ok(Some(step)) => step,
             _ => Step::default(),
         };
-
-        ui.label(format!("{step:#?}"))
+        ui.label(format!("{saved_step:#?}"))
     }
 }
