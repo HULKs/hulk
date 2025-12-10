@@ -8,10 +8,10 @@ use context_attribute::context;
 use framework::MainOutput;
 use hardware::TimeInterface;
 use serde::{Deserialize, Serialize};
-use types::cycle_time::CycleTime;
+use types::{cycle_time::CycleTime, field_dimensions::FieldDimensions};
 
 #[derive(Deserialize, Serialize)]
-pub struct Timer {
+pub struct Trigger {
     last_cycle_start: SystemTime,
 }
 
@@ -21,6 +21,7 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     hardware_interface: HardwareInterface,
+    _field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 }
 
 #[context]
@@ -28,7 +29,7 @@ pub struct MainOutputs {
     pub cycle_time: MainOutput<CycleTime>,
 }
 
-impl Timer {
+impl Trigger {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             last_cycle_start: UNIX_EPOCH,
