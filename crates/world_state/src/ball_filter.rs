@@ -2,7 +2,6 @@ use color_eyre::Result;
 use linear_algebra::Vector2;
 use serde::{Deserialize, Serialize};
 
-use ball_filter::BallFilter as BallFiltering;
 use context_attribute::context;
 use coordinate_systems::Ground;
 use framework::{MainOutput, PerceptionInput};
@@ -14,7 +13,6 @@ use types::{
 
 #[derive(Deserialize, Serialize)]
 pub struct BallFilter {
-    ball_filter: BallFiltering,
     last_ball_position: Option<BallPosition<Ground>>,
 }
 
@@ -37,7 +35,6 @@ pub struct MainOutputs {
 impl BallFilter {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
-            ball_filter: Default::default(),
             last_ball_position: None,
         })
     }
