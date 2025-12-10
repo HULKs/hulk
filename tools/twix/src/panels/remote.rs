@@ -1,5 +1,9 @@
 use std::{
-    sync::Arc,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+    thread::{self, JoinHandle},
     time::{Duration, SystemTime},
 };
 
@@ -7,35 +11,113 @@ use communication::messages::TextOrBinary;
 use eframe::egui::Widget;
 use gilrs::{Axis, Button, Gamepad, GamepadId, Gilrs};
 use serde_json::{json, Value};
-use types::{joints::head::HeadJoints, step::Step};
+use types::step::Step;
 
 use crate::{
     nao::Nao,
     panel::{Panel, PanelCreationContext},
+    value_buffer::BufferHandle,
 };
 
 pub struct RemotePanel {
     nao: Arc<Nao>,
-    gilrs: Gilrs,
-    active_gamepad: Option<GamepadId>,
-    enabled: bool,
-    last_update: SystemTime,
+    enabled: Arc<AtomicBool>,
+    latest_step: BufferHandle<Step>,
+    bg_running: Arc<AtomicBool>,
+    bg_handle: Option<JoinHandle<()>>,
 }
-
 impl<'a> Panel<'a> for RemotePanel {
     const NAME: &'static str = "Remote";
 
     fn new(context: PanelCreationContext) -> Self {
-        let gilrs = Gilrs::new().expect("could not initialize gamepad library");
-        let active_gamepad = None;
-        let enabled = false;
+        let nao = context.nao.clone();
+        let enabled = Arc::new(AtomicBool::new(false));
+        let latest_step = nao.subscribe_value("parameters.remote_control_parameters.walk");
+        let bg_running = Arc::new(AtomicBool::new(true));
 
+        let nao_clone = nao.clone();
+        let enabled_clone = enabled.clone();
+        let bg_running_clone = bg_running.clone();
+
+        let handle = thread::spawn(move || {
+            let mut gilrs = match Gilrs::new() {
+                Ok(gilrs) => gilrs,
+                Err(error) => {
+                    eprintln!("failed to init gilrs in bg thread: {error}");
+                    return;
+                }
+            };
+            const UPDATE_DELAY: Duration = Duration::from_millis(100);
+            const SLEEP_DELAY: Duration = Duration::from_millis(10);
+
+            let mut active_gamepad: Option<GamepadId> = None;
+            let mut last_update = SystemTime::now()
+                .checked_sub(UPDATE_DELAY)
+                .unwrap_or(SystemTime::now());
+
+            let mut start_was_pressed = false;
+
+            while bg_running_clone.load(Ordering::Relaxed) {
+                gilrs.inc();
+                while let Some(event) = gilrs.next_event() {
+                    active_gamepad = Some(event.id);
+                }
+                if let Some(gamepad) = active_gamepad.map(|id| gilrs.gamepad(id)) {
+                    let right = get_axis_value(gamepad, Axis::LeftStickX).unwrap_or(0.0);
+                    let forward = get_axis_value(gamepad, Axis::LeftStickY).unwrap_or(0.0);
+
+                    let left = -right;
+
+                    let turn_right = gamepad
+                        .button_data(Button::RightTrigger2)
+                        .map(|button| button.value())
+                        .unwrap_or_default();
+                    let turn_left = gamepad
+                        .button_data(Button::LeftTrigger2)
+                        .map(|button| button.value())
+                        .unwrap_or_default();
+                    let turn = turn_left - turn_right;
+
+                    let step = Step {
+                        forward,
+                        left,
+                        turn,
+                    };
+
+                    let start_pressed = gamepad
+                        .button_data(Button::Start)
+                        .map(|button| button.is_pressed())
+                        .unwrap_or(false);
+
+                    if start_pressed && !start_was_pressed {
+                        let new_state = !enabled_clone.load(Ordering::Relaxed);
+                        enabled_clone.store(new_state, Ordering::Relaxed);
+
+                        if !new_state {
+                            reset(&nao_clone);
+                        }
+                    }
+                    start_was_pressed = start_pressed;
+
+                    if enabled_clone.load(Ordering::Relaxed) {
+                        let now = SystemTime::now();
+                        if now.duration_since(last_update).expect("Time ran backwards")
+                            > UPDATE_DELAY
+                        {
+                            last_update = now;
+                            update_step(&nao_clone, step);
+                        }
+                    }
+                }
+                thread::sleep(SLEEP_DELAY);
+            }
+        });
         Self {
-            nao: context.nao,
-            gilrs,
-            active_gamepad,
+            nao,
             enabled,
-            last_update: SystemTime::now(),
+            latest_step,
+            bg_running,
+            bg_handle: Some(handle),
         }
     }
 
@@ -48,101 +130,41 @@ fn get_axis_value(gamepad: Gamepad, axis: Axis) -> Option<f32> {
     Some(gamepad.axis_data(axis)?.value())
 }
 
-impl RemotePanel {
-    fn reset(&self) {
-        self.update_step(Value::Null);
-        self.update_look_at_angle(Value::Null);
-    }
+fn reset(nao: &Arc<Nao>) {
+    update_step(nao, Step::<f32>::default());
+}
 
-    fn update_step(&self, step: Value) {
-        self.nao.write(
-            "parameters.step_planner.injected_step",
-            TextOrBinary::Text(step),
-        )
-    }
+fn update_step(nao: &Arc<Nao>, step: Step) {
+    nao.write(
+        "parameters.remote_control_parameters.walk",
+        TextOrBinary::Text(serde_json::to_value(step).unwrap()),
+    );
+}
 
-    fn update_look_at_angle(&self, joints: Value) {
-        self.nao.write(
-            "parameters.head_motion.injected_head_joints",
-            TextOrBinary::Text(joints),
-        )
+impl Drop for RemotePanel {
+    fn drop(&mut self) {
+        self.bg_running.store(false, Ordering::Relaxed);
+        if let Some(handle) = self.bg_handle.take() {
+            let _ = handle.join();
+        }
     }
 }
 
 impl Widget for &mut RemotePanel {
     fn ui(self, ui: &mut eframe::egui::Ui) -> eframe::egui::Response {
-        const UPDATE_DELAY: Duration = Duration::from_millis(100);
-        const HEAD_PITCH_SCALE: f32 = 1.0;
-        const HEAD_YAW_SCALE: f32 = 1.0;
-
-        self.gilrs.inc();
-
-        if ui.checkbox(&mut self.enabled, "Enabled (Start)").changed() {
-            self.reset();
+        let mut enabled = self.enabled.load(Ordering::Relaxed);
+        if ui.checkbox(&mut enabled, "Enabled (Start)").changed() {
+            self.enabled.store(enabled, Ordering::Relaxed);
+            if !enabled {
+                reset(&self.nao);
+            }
         };
 
-        while let Some(event) = self.gilrs.next_event() {
-            if let gilrs::EventType::ButtonPressed(Button::Start, _) = event.event {
-                self.enabled = !self.enabled;
-                if !self.enabled {
-                    self.reset();
-                }
-            };
-            self.active_gamepad = Some(event.id);
-        }
+        let step = match self.latest_step.get_last_value() {
+            Ok(Some(step)) => step,
+            _ => Step::default(),
+        };
 
-        if let Some(gamepad) = self.active_gamepad.map(|id| self.gilrs.gamepad(id)) {
-            let right = get_axis_value(gamepad, Axis::LeftStickX).unwrap_or(0.0);
-            let forward = get_axis_value(gamepad, Axis::LeftStickY).unwrap_or(0.0);
-
-            let left = -right;
-
-            let turn_right = gamepad
-                .button_data(Button::RightTrigger2)
-                .map(|button| button.value())
-                .unwrap_or_default();
-            let turn_left = gamepad
-                .button_data(Button::LeftTrigger2)
-                .map(|button| button.value())
-                .unwrap_or_default();
-            let turn = turn_left - turn_right;
-
-            let head_pitch = get_axis_value(gamepad, Axis::RightStickY).unwrap_or(0.0);
-            let head_yaw = -get_axis_value(gamepad, Axis::RightStickX).unwrap_or(0.0);
-
-            let injected_head_joints = HeadJoints {
-                yaw: head_yaw * HEAD_YAW_SCALE,
-                pitch: head_pitch * HEAD_PITCH_SCALE,
-            };
-
-            let step = Step {
-                forward,
-                left,
-                turn,
-            };
-
-            if self.enabled {
-                let now = SystemTime::now();
-                if now
-                    .duration_since(self.last_update)
-                    .expect("Time ran backwards")
-                    > UPDATE_DELAY
-                {
-                    self.last_update = now;
-                    self.update_step(serde_json::to_value(step).unwrap());
-                    self.update_look_at_angle(serde_json::to_value(injected_head_joints).unwrap());
-                }
-            }
-
-            ui.vertical(|ui| {
-                let label_1 = ui.label(format!("{step:#?}"));
-                let label_2 = ui.label(format!("{injected_head_joints:#?}"));
-
-                label_1.union(label_2)
-            })
-            .inner
-        } else {
-            ui.label("no controller found")
-        }
+        ui.label(format!("{step:#?}"))
     }
 }
