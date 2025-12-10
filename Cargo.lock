@@ -4599,7 +4599,6 @@ dependencies = [
  "types",
  "walking_inference",
  "world_state",
- "world_state",
  "zed",
 ]
 
