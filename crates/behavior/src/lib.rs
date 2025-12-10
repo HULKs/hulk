@@ -1,2 +1,2 @@
-pub mod timer;
+pub mod trigger;
 pub mod walk_to_ball;
