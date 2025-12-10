@@ -5,6 +5,7 @@ members = [
   "crates/argument_parsers",
   "crates/audio",
   "crates/ball_filter",
+  "crates/behavior",
   "crates/bevy_mujoco",
   "crates/bevyhavior_simulator",
   "crates/booster",
@@ -50,6 +51,7 @@ members = [
   "crates/types",
   "crates/vision",
   "crates/walking_inference",
+  "crates/world_state",
   "crates/zed",
   "tools/annotato",
   "tools/depp",
@@ -91,6 +93,7 @@ bat = { version = "0.25.0", default-features = false, features = [
   "paging",
   "regex-fancy",
 ] }
+behavior = { path = "crates/behavior"}
 bevy = { version = "0.16.0", default-features = false }
 bevy-inspector-egui = "0.29.1"
 bevy_asset_loader = "0.22.0"
@@ -257,6 +260,7 @@ walkdir = "2.5.0"
 walking_inference = { path = "crates/walking_inference" }
 watch = "0.2.3"
 webots = { version = "0.8.0" }
+world_state = { path = "crates/world_state" }
 wgpu = "24.0.5"
 xdg = "2.5.2"
 zbus = "5.5.0"
