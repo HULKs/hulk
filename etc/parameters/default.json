@@ -50,7 +50,11 @@
       "action_scale": 1.0,
       "decimation": 10.0
     },
-    "walk_command": [0.0, 0.0, 0.0],
+    "walk_command": [
+      0.0,
+      0.0,
+      0.0
+    ],
     "joint_position_smoothing_factor": 0.8
   },
   "prepare_motor_command": {
@@ -200,16 +204,16 @@
         "pitch": 10
       },
       "left_arm": {
-        "shoulder_pitch": 10,
-        "shoulder_roll": 10,
-        "shoulder_yaw": 10,
-        "elbow": 10
+        "shoulder_pitch": 5,
+        "shoulder_roll": 5,
+        "shoulder_yaw": 5,
+        "elbow": 5
       },
       "right_arm": {
-        "shoulder_pitch": 10,
-        "shoulder_roll": 10,
-        "shoulder_yaw": 10,
-        "elbow": 10
+        "shoulder_pitch": 5,
+        "shoulder_roll": 5,
+        "shoulder_yaw": 5,
+        "elbow": 5
       },
       "left_leg": {
         "hip_pitch": 140,
@@ -234,16 +238,16 @@
         "pitch": 1
       },
       "left_arm": {
-        "shoulder_pitch": 1,
-        "shoulder_roll": 1,
-        "shoulder_yaw": 1,
-        "elbow": 1
+        "shoulder_pitch": 0.2,
+        "shoulder_roll": 0.2,
+        "shoulder_yaw": 0.2,
+        "elbow": 0.2
       },
       "right_arm": {
-        "shoulder_pitch": 1,
-        "shoulder_roll": 1,
-        "shoulder_yaw": 1,
-        "elbow": 1
+        "shoulder_pitch": 0.2,
+        "shoulder_roll": 0.2,
+        "shoulder_yaw": 0.2,
+        "elbow": 0.2
       },
       "left_leg": {
         "hip_pitch": 3.5,
