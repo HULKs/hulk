@@ -101,6 +101,15 @@ class Geom:
         pos: list[float],
         quat: list[float],
     ) -> Geom: ...
+    @staticmethod
+    def capsule(
+        index: int,
+        radius: float,
+        half_height: float,
+        material: Material,
+        pos: list[float],
+        quat: list[float],
+    ) -> Geom: ...
 
 class Light:
     name: str | None

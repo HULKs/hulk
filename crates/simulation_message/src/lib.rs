@@ -7,9 +7,11 @@ use std::{
 use booster::{
     ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState, TransformMessage,
 };
-use pyo3::{pyclass, pymethods};
 use serde::{Deserialize, Serialize};
 use zed::RGBDSensors;
+
+#[cfg(feature = "pyo3")]
+use pyo3::prelude::*;
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SimulatorMessage<T> {
@@ -34,7 +36,7 @@ pub enum ClientMessageKind {
     LowCommand(LowCommand),
 }
 
-#[pyclass(frozen, eq)]
+#[cfg_attr(feature = "pyo3", pyo3::pyclass(frozen, eq))]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
 pub enum TaskName {
     ApplyLowCommand,
@@ -47,7 +49,7 @@ pub enum TaskName {
     RequestSceneDescription,
 }
 
-#[pyclass(frozen)]
+#[cfg_attr(feature = "pyo3", pyo3::pyclass(frozen))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SceneDescription {
     pub meshes: BTreeMap<usize, SceneMesh>,
@@ -58,6 +60,7 @@ pub struct SceneDescription {
     pub textures: BTreeMap<usize, Texture>,
 }
 
+#[cfg(feature = "pyo3")]
 #[pymethods]
 impl SceneDescription {
     #[new]
@@ -80,7 +83,7 @@ impl SceneDescription {
     }
 }
 
-#[pyclass(frozen)]
+#[cfg_attr(feature = "pyo3", pyo3::pyclass(frozen))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SceneMesh {
     pub vertices: Vec<[f32; 3]>,
@@ -91,6 +94,7 @@ pub struct SceneMesh {
     pub uv_indices: Vec<[usize; 3]>,
 }
 
+#[cfg(feature = "pyo3")]
 #[pymethods]
 impl SceneMesh {
     #[new]
@@ -113,7 +117,7 @@ impl SceneMesh {
     }
 }
 
-#[pyclass(frozen)]
+#[cfg_attr(feature = "pyo3", pyo3::pyclass(frozen))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Light {
     pub name: Option<String>,
@@ -121,6 +125,7 @@ pub struct Light {
     pub dir: [f32; 3],
 }
 
+#[cfg(feature = "pyo3")]
 #[pymethods]
 impl Light {
     #[new]
@@ -129,7 +134,7 @@ impl Light {
     }
 }
 
-#[pyclass(frozen)]
+#[cfg_attr(feature = "pyo3", pyo3::pyclass(frozen))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Body {
     pub id: usize,
@@ -138,6 +143,7 @@ pub struct Body {
     pub geoms: Vec<usize>,
 }
 
+#[cfg(feature = "pyo3")]
 #[pymethods]
 impl Body {
     #[new]
@@ -151,7 +157,7 @@ impl Body {
     }
 }
 
-#[pyclass(frozen)]
+#[cfg_attr(feature = "pyo3", pyo3::pyclass(frozen))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Geom {
     pub index: usize,
@@ -161,27 +167,28 @@ pub struct Geom {
     pub geom_variant: GeomVariant,
 }
 
-#[pyclass(frozen)]
+#[cfg_attr(feature = "pyo3", pyo3::pyclass(frozen))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum Material {
     Rgba { rgba: [f32; 4] },
     Pbr { material_index: usize },
 }
 
+#[cfg(feature = "pyo3")]
 #[pymethods]
 impl Material {
     #[staticmethod]
-    fn rgba(rgba: [f32; 4]) -> Self {
+    pub fn rgba(rgba: [f32; 4]) -> Self {
         Self::Rgba { rgba }
     }
 
     #[staticmethod]
-    fn pbr(material_index: usize) -> Self {
+    pub fn pbr(material_index: usize) -> Self {
         Self::Pbr { material_index }
     }
 }
 
-#[pyclass(frozen, get_all)]
+#[cfg_attr(feature = "pyo3", pyo3::pyclass(frozen, get_all))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct PbrMaterial {
     pub rgba: [f32; 4],
@@ -192,6 +199,7 @@ pub struct PbrMaterial {
     pub specular: f32,
 }
 
+#[cfg(feature = "pyo3")]
 #[pymethods]
 impl PbrMaterial {
     #[new]
@@ -221,8 +229,10 @@ pub enum GeomVariant {
     Box { extent: [f32; 3] },
     Plane { normal: [f32; 3] },
     Cylinder { radius: f32, half_height: f32 },
+    Capsule { radius: f32, half_height: f32 },
 }
 
+#[cfg(feature = "pyo3")]
 #[pymethods]
 impl Geom {
     #[staticmethod]
@@ -313,9 +323,30 @@ impl Geom {
             },
         }
     }
+
+    #[staticmethod]
+    pub fn capsule(
+        index: usize,
+        radius: f32,
+        half_height: f32,
+        material: Material,
+        pos: [f32; 3],
+        quat: [f32; 4],
+    ) -> Self {
+        Self {
+            index,
+            material,
+            pos,
+            quat,
+            geom_variant: GeomVariant::Capsule {
+                radius,
+                half_height,
+            },
+        }
+    }
 }
 
-#[pyclass(frozen)]
+#[cfg_attr(feature = "pyo3", pyo3::pyclass(frozen))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Texture {
     pub name: Option<String>,
@@ -324,6 +355,7 @@ pub struct Texture {
     pub rgb: Vec<u8>,
 }
 
+#[cfg(feature = "pyo3")]
 #[pymethods]
 impl Texture {
     #[new]
@@ -337,13 +369,14 @@ impl Texture {
     }
 }
 
-#[pyclass(frozen)]
+#[cfg_attr(feature = "pyo3", pyo3::pyclass(frozen))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct SceneUpdate {
     pub time: f32,
     pub bodies: BTreeMap<usize, BodyUpdate>,
 }
 
+#[cfg(feature = "pyo3")]
 #[pymethods]
 impl SceneUpdate {
     #[new]
@@ -352,13 +385,14 @@ impl SceneUpdate {
     }
 }
 
-#[pyclass(frozen)]
+#[cfg_attr(feature = "pyo3", pyo3::pyclass(frozen))]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct BodyUpdate {
     pub pos: [f32; 3],
     pub quat: [f32; 4],
 }
 
+#[cfg(feature = "pyo3")]
 #[pymethods]
 impl BodyUpdate {
     #[new]

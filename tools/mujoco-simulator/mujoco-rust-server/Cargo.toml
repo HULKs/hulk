@@ -11,7 +11,7 @@ crate-type = ["cdylib"]
 
 [dependencies]
 bincode = { workspace = true }
-booster = { workspace = true }
+booster = { workspace = true, features = ["pyo3"] }
 color-eyre = { workspace = true }
 futures-util = { workspace = true }
 log = { workspace = true }
@@ -20,9 +20,9 @@ pyo3-async-runtimes = { workspace = true }
 pyo3-log = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-simulation_message = { workspace = true }
+simulation_message = { workspace = true, features = ["pyo3"] }
 tokio = { workspace = true }
 tokio-tungstenite = { workspace = true }
 tokio-util = { workspace = true }
 uuid = { workspace = true }
-zed = { workspace = true }
+zed = { workspace = true, features = ["pyo3"] }
