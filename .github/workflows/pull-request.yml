@@ -33,7 +33,6 @@ jobs:
         path:
           - .
           - services/aliveness
-          - services/hula
     runs-on:
       - self-hosted
       - v3
@@ -139,7 +138,6 @@ jobs:
       matrix:
         service:
           - aliveness
-          - hula
     runs-on:
       - self-hosted
       - v3
