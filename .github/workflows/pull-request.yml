@@ -116,6 +116,7 @@ jobs:
           - imagine
           - replayer
           - mujoco
+          - booster
         profile:
           - dev
           - release
