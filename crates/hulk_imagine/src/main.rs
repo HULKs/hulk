@@ -22,6 +22,7 @@ use serde_json::from_str;
 
 use hula_types::hardware::Ids;
 use structs::Parameters;
+use tokio_util::sync::CancellationToken;
 
 use crate::execution::Replayer;
 use crate::{
@@ -75,11 +76,14 @@ fn main() -> Result<()> {
         .to_str()
         .wrap_err("replay directory name is no valid UTF-8")?;
 
+    let keep_running = CancellationToken::new();
+
     let mut replayer = Replayer::new(
         Arc::new(ExtractorHardwareInterface),
         parameters_directory,
         ids,
         arguments.replay_path_string,
+        keep_running,
     )
     .wrap_err("failed to create image extractor")?;
 
