@@ -25,5 +25,10 @@ RUN apt-get update && apt-get install --no-install-recommends --yes \
 
 RUN rustup component add clippy rustfmt
 
+RUN useradd -u 1000 hulk
+RUN usermod --add-subuids 10000-75535 hulk
+RUN usermod --add-subgids 10000-75535 hulk
+RUN podman system migrate
+
 RUN --mount=type=cache,target=/cargo_home \
     CARGO_HOME=/cargo_home cargo install --locked taplo-cli --root /usr/local
