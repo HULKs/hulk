@@ -1,14 +1,8 @@
 use lazy_static::lazy_static;
 use serde::{Deserialize, Serialize};
 
-pub const HULA_DBUS_INTERFACE: &str = "org.hulks.hula";
-pub const HULA_DBUS_PATH: &str = "/org/hulks/HuLA";
-pub const HULA_DBUS_SERVICE: &str = "org.hulks.hula";
-pub const HULA_SOCKET_PATH: &str = "/tmp/hula";
 pub const OS_IS_NOT_LINUX: bool = !cfg!(target_os = "linux");
 pub const OS_RELEASE_PATH: &str = "/etc/os-release";
-pub const OS_VERSION: &str = "8.0.2";
-pub const SDK_VERSION: &str = "8.0.0";
 
 #[derive(Serialize, Deserialize)]
 pub struct Team {
