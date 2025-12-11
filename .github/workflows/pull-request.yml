@@ -33,7 +33,6 @@ jobs:
         path:
           - .
           - services/aliveness
-          - services/breeze
           - services/hula
     runs-on:
       - self-hosted
@@ -140,7 +139,6 @@ jobs:
       matrix:
         service:
           - aliveness
-          - breeze
           - hula
     runs-on:
       - self-hosted
