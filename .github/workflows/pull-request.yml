@@ -8,6 +8,7 @@ env:
   CARGO_TARGET_DIR: /__w/hulk/target
   CARGO_TERM_COLOR: always
   HULK_DATA_HOME: /__w/hulk/data
+  CONTAINERS_STORAGE_CONF: /__w/hulk/containers/storage.conf
   NAOSDK_AUTOMATIC_YES: 1
 
 jobs:
@@ -126,7 +127,7 @@ jobs:
       - v3
     container:
       image: ghcr.io/hulks/hulk-ci:1.92.0
-      options: --user=1000:1000
+      options: --user=1000:1000 --privileged --device /dev/fuse:rw
     steps:
       - uses: actions/checkout@v4
         with:
@@ -147,7 +148,7 @@ jobs:
       - v3
     container:
       image: ghcr.io/hulks/hulk-ci:1.92.0
-      options: --user=1000:1000
+      options: --user=1000:1000 --privileged --device /dev/fuse:rw
     steps:
       - uses: actions/checkout@v4
         with:
