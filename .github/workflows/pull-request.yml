@@ -17,7 +17,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.91.0
+      image: ghcr.io/hulks/hulk-ci:1.92.0
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -39,7 +39,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.91.0
+      image: ghcr.io/hulks/hulk-ci:1.92.0
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -54,7 +54,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.91.0
+      image: ghcr.io/hulks/hulk-ci:1.92.0
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -69,7 +69,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.91.0
+      image: ghcr.io/hulks/hulk-ci:1.92.0
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -84,7 +84,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.91.0
+      image: ghcr.io/hulks/hulk-ci:1.92.0
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -100,7 +100,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.91.0
+      image: ghcr.io/hulks/hulk-ci:1.92.0
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -125,7 +125,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.91.0
+      image: ghcr.io/hulks/hulk-ci:1.92.0
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -146,7 +146,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.91.0
+      image: ghcr.io/hulks/hulk-ci:1.92.0
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -170,7 +170,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.91.0
+      image: ghcr.io/hulks/hulk-ci:1.92.0
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -197,7 +197,7 @@ jobs:
   #     - self-hosted
   #     - v3
   #   container:
-  #     image: ghcr.io/hulks/hulk-ci:1.91.0
+  #     image: ghcr.io/hulks/hulk-ci:1.92.0
   #     options: --user=1000:1000
   #   defaults:
   #     run:
@@ -223,7 +223,7 @@ jobs:
   #     - self-hosted
   #     - v3
   #   container:
-  #     image: ghcr.io/hulks/hulk-ci:1.91.0
+  #     image: ghcr.io/hulks/hulk-ci:1.92.0
   #     options: --user=1000:1000
   #   defaults:
   #     run:
@@ -249,7 +249,7 @@ jobs:
   #     - self-hosted
   #     - v3
   #   container:
-  #     image: ghcr.io/hulks/hulk-ci:1.91.0
+  #     image: ghcr.io/hulks/hulk-ci:1.92.0
   #     options: --user=1000:1000
   #   defaults:
   #     run:
@@ -275,7 +275,7 @@ jobs:
   #     - self-hosted
   #     - v3
   #   container:
-  #     image: ghcr.io/hulks/hulk-ci:1.91.0
+  #     image: ghcr.io/hulks/hulk-ci:1.92.0
   #     options: --user=1000:1000
   #   defaults:
   #     run:
