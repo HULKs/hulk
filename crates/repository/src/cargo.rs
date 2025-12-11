@@ -8,21 +8,28 @@ use std::{
 use color_eyre::{eyre::Context, Result};
 use tokio::process::Command;
 
-use crate::{sdk::download_and_install, Repository};
+use crate::{
+    sdk::{build_sdk_container, image_exists_locally, SDKImage},
+    Repository,
+};
 
 #[derive(Debug, Clone)]
 pub enum Environment {
     Native,
-    Podman { image: String },
-    Docker { image: String },
+    Podman { sdk_image: SDKImage },
+    Docker { sdk_image: SDKImage },
 }
 
 impl Display for Environment {
     fn fmt(&self, f: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Environment::Native => write!(f, "Native"),
-            Environment::Podman { image } => write!(f, "Podman ({image})"),
-            Environment::Docker { image } => write!(f, "Docker ({image})"),
+            Environment::Podman { sdk_image } => {
+                write!(f, "Podman ({})", sdk_image.name_tagged())
+            }
+            Environment::Docker { sdk_image } => {
+                write!(f, "Docker ({})", sdk_image.name_tagged())
+            }
         }
     }
 }
@@ -55,13 +62,15 @@ impl Cargo {
         }
     }
 
-    pub async fn setup(&self) -> Result<()> {
-        if let Environment::Podman { image } = &self.environment {
+    pub async fn setup(&self, repository: &Repository) -> Result<()> {
+        if let Environment::Podman { sdk_image } = &self.environment {
             match self.host {
                 Host::Local => {
-                    download_and_install(image)
-                        .await
-                        .wrap_err("failed to download and install SDK")?;
+                    if !image_exists_locally(sdk_image).await {
+                        build_sdk_container(repository, sdk_image)
+                            .await
+                            .wrap_err("failed to build SDK container")?
+                    }
                 }
                 Host::Remote => {
                     // let mut command =
@@ -70,7 +79,7 @@ impl Cargo {
                     // let status = command
                     //     .arg("pepsi")
                     //     .arg("sdk")
-                    //     .arg("install")
+                    //     .adownload_and_installrg("install")
                     //     .arg("--version")
                     //     .arg(version)
                     //     .status()
@@ -112,11 +121,12 @@ impl Cargo {
                 command.push(arguments);
                 command
             }
-            Environment::Podman { image } => {
+            Environment::Podman { sdk_image } => {
                 let cargo_home = format!("$({data_home_script})/container-cargo-home/");
                 // TODO: Make image generic over SDK/native by modifying entry point; source SDK not here
                 let pwd = Path::new("/hulk").join(&repository.root_to_current_dir()?);
                 let root = repository.current_dir_to_root()?;
+                let tagged_image_name = sdk_image.name_tagged();
                 let mut command = OsString::from(format!(
                     "\
                     mkdir -p {cargo_home}/git && \
@@ -127,7 +137,9 @@ impl Cargo {
                         --volume={cargo_home}/registry:/root/.cargo/registry:z \
                         --rm \
                         --interactive \
-                        --tty {image} \
+                        --pull=never \
+                        --tty \
+                        {tagged_image_name} \
                         /bin/sh -c '\
                             cd {pwd} && \
                             echo $PATH && \
@@ -140,11 +152,12 @@ impl Cargo {
                 command.push(OsStr::new("'"));
                 command
             }
-            Environment::Docker { image } => {
+            Environment::Docker { sdk_image } => {
                 let cargo_home = format!("$({data_home_script})/container-cargo-home/");
                 // TODO: Make image generic over SDK/native by modifying entry point; source SDK not here
                 let pwd = Path::new("/hulk").join(&repository.root_to_current_dir()?);
                 let root = repository.current_dir_to_root()?;
+                let tagged_image_name = sdk_image.name_tagged();
                 let mut command = OsString::from(format!(
                     "\
                     mkdir -p {cargo_home}/git && \
@@ -155,7 +168,9 @@ impl Cargo {
                         --volume={cargo_home}/registry:/root/.cargo/registry:z \
                         --rm \
                         --interactive \
-                        --tty {image} \
+                        --pull=never \
+                        --tty \
+                        {tagged_image_name} \
                         /bin/sh -c '\
                             cd {pwd} && \
                             echo $PATH && \
