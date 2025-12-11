@@ -117,7 +117,7 @@ pub async fn cargo<CargoArguments: Args + CargoCommand>(
     };
 
     cargo
-        .setup()
+        .setup(repository)
         .await
         .wrap_err("failed to set up cargo environment")?;
 

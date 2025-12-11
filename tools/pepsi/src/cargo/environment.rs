@@ -2,7 +2,7 @@ use std::str::FromStr;
 
 use clap::Args;
 use color_eyre::eyre::{bail, Context, Error, Result};
-use repository::{cargo::Environment as RepositoryEnvironment, Repository};
+use repository::{cargo::Environment as RepositoryEnvironment, sdk::SDKImage, Repository};
 
 #[derive(Args, Debug, Clone)]
 pub struct EnvironmentArguments {
@@ -49,14 +49,22 @@ impl Environment {
             .await
             .wrap_err("failed to get HULK OS version")?;
 
+        let sdk_image = SDKImage {
+            registry: "ghcr.io/hulks".to_string(),
+            name: "k1sdk".to_string(),
+            tag: sdk_version,
+        };
+
         Ok(match self {
             Environment::Native => RepositoryEnvironment::Native,
-            Environment::Podman { image } => RepositoryEnvironment::Podman {
-                image: image.unwrap_or(format!("ghcr.io/hulks/k1sdk:{sdk_version}")),
+            Environment::Podman { image: Some(image) } => RepositoryEnvironment::Podman {
+                sdk_image: { sdk_image.parse_and_update(&image) },
             },
-            Environment::Docker { image } => RepositoryEnvironment::Docker {
-                image: image.unwrap_or(format!("ghcr.io/hulks/k1sdk:{sdk_version}")),
+            Environment::Podman { image: None } => RepositoryEnvironment::Podman { sdk_image },
+            Environment::Docker { image: Some(image) } => RepositoryEnvironment::Docker {
+                sdk_image: { sdk_image.parse_and_update(&image) },
             },
+            Environment::Docker { image: None } => RepositoryEnvironment::Docker { sdk_image },
         })
     }
 }
