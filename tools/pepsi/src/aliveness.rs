@@ -176,15 +176,9 @@ fn print_summary(states: &AlivenessList, expected_os_version: Option<String>) {
         if let Some(expected_os_version) = &expected_os_version {
             output.append_os_version(&state.hulks_os_version, expected_os_version);
         }
-        let SystemServices {
-            hal,
-            hula,
-            hulk,
-            lola,
-        } = state.system_services;
+        let SystemServices { hal, hulk, lola } = state.system_services;
         output.append_service("[HAL]", hal);
         output.append_service("[LoLA]", lola);
-        output.append_service("[HuLA]", hula);
         output.append_service("[HULK]", hulk);
 
         let no_network = "None ".to_owned();
@@ -214,12 +208,7 @@ fn print_verbose(states: &AlivenessList) {
             temperature,
         } = state;
 
-        let SystemServices {
-            hal,
-            hula,
-            hulk,
-            lola,
-        } = system_services;
+        let SystemServices { hal, hulk, lola } = system_services;
 
         let unknown = "Unknown".to_owned();
         let body_id = body_id.as_ref().unwrap_or(&unknown);
@@ -265,14 +254,14 @@ fn print_verbose(states: &AlivenessList) {
             {:INDENTATION$}Hostname:          {hostname}\n\
             {:INDENTATION$}Interface name:    {interface_name}\n\
             {:INDENTATION$}HULKs-OS version:  {hulks_os_version}\n\
-            {:INDENTATION$}Services:          HAL: {hal}{:SPACING$}HuLA: {hula}{:SPACING$}\
+            {:INDENTATION$}Services:          HAL: {hal}{:SPACING$}\
                                               HULK: {hulk}{:SPACING$}LoLA: {lola}\n\
             {:INDENTATION$}Battery:           {battery}\n\
             {:INDENTATION$}Network:           {network}\n\
             {:INDENTATION$}Temperature:       {temperature}\n\
             {:INDENTATION$}Head ID:           {head_id}\n\
             {:INDENTATION$}Body ID:           {body_id}\n",
-            "", "", "", "", "", "", "", "", "", "", "", ""
+            "", "", "", "", "", "", "", "", "", "", ""
         )
     }
 }

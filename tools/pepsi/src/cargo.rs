@@ -43,7 +43,6 @@ lazy_static! {
             ("mujoco", "crates/hulk_mujoco"),
             ("booster", "crates/hulk_booster"),
             ("aliveness", "services/aliveness"),
-            ("hula", "services/hula"),
             ("power-panic", "services/power-panic"),
             ("annotato", "tools/annotato"),
             ("depp", "tools/depp"),
