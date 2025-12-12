@@ -17,7 +17,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.91.0
+      image: ghcr.io/hulks/hulk-ci:1.92.0
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -33,13 +33,11 @@ jobs:
         path:
           - .
           - services/aliveness
-          - services/breeze
-          - services/hula
     runs-on:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.91.0
+      image: ghcr.io/hulks/hulk-ci:1.92.0
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -54,7 +52,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.91.0
+      image: ghcr.io/hulks/hulk-ci:1.92.0
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -69,7 +67,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.91.0
+      image: ghcr.io/hulks/hulk-ci:1.92.0
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -84,7 +82,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.91.0
+      image: ghcr.io/hulks/hulk-ci:1.92.0
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -100,7 +98,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.91.0
+      image: ghcr.io/hulks/hulk-ci:1.92.0
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -118,6 +116,7 @@ jobs:
           - imagine
           - replayer
           - mujoco
+          - booster
         profile:
           - dev
           - release
@@ -125,8 +124,8 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.91.0
-      options: --user=1000:1000
+      image: ghcr.io/hulks/hulk-ci:1.92.0
+      options: --user=1000:1000 --privileged --device /dev/fuse:rw
     steps:
       - uses: actions/checkout@v4
         with:
@@ -140,14 +139,12 @@ jobs:
       matrix:
         service:
           - aliveness
-          - breeze
-          - hula
     runs-on:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.91.0
-      options: --user=1000:1000
+      image: ghcr.io/hulks/hulk-ci:1.92.0
+      options: --user=1000:1000 --privileged --device /dev/fuse:rw
     steps:
       - uses: actions/checkout@v4
         with:
@@ -170,7 +167,7 @@ jobs:
       - self-hosted
       - v3
     container:
-      image: ghcr.io/hulks/hulk-ci:1.91.0
+      image: ghcr.io/hulks/hulk-ci:1.92.0
       options: --user=1000:1000
     steps:
       - uses: actions/checkout@v4
@@ -197,7 +194,7 @@ jobs:
   #     - self-hosted
   #     - v3
   #   container:
-  #     image: ghcr.io/hulks/hulk-ci:1.91.0
+  #     image: ghcr.io/hulks/hulk-ci:1.92.0
   #     options: --user=1000:1000
   #   defaults:
   #     run:
@@ -223,7 +220,7 @@ jobs:
   #     - self-hosted
   #     - v3
   #   container:
-  #     image: ghcr.io/hulks/hulk-ci:1.91.0
+  #     image: ghcr.io/hulks/hulk-ci:1.92.0
   #     options: --user=1000:1000
   #   defaults:
   #     run:
@@ -249,7 +246,7 @@ jobs:
   #     - self-hosted
   #     - v3
   #   container:
-  #     image: ghcr.io/hulks/hulk-ci:1.91.0
+  #     image: ghcr.io/hulks/hulk-ci:1.92.0
   #     options: --user=1000:1000
   #   defaults:
   #     run:
@@ -275,7 +272,7 @@ jobs:
   #     - self-hosted
   #     - v3
   #   container:
-  #     image: ghcr.io/hulks/hulk-ci:1.91.0
+  #     image: ghcr.io/hulks/hulk-ci:1.92.0
   #     options: --user=1000:1000
   #   defaults:
   #     run:
