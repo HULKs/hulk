@@ -8,7 +8,6 @@ env:
   CARGO_TARGET_DIR: /__w/hulk/target
   CARGO_TERM_COLOR: always
   HULK_DATA_HOME: /__w/hulk/data
-  CONTAINERS_STORAGE_CONF: /__w/hulk/containers/storage.conf
   NAOSDK_AUTOMATIC_YES: 1
 
 jobs:
