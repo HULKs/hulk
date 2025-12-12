@@ -66,7 +66,8 @@ impl InterpolatorError {
         current_time: Duration,
     ) -> InterpolatorError {
         let current_control_key = keys
-            .iter().rfind(|key| key.t <= current_time.as_secs_f32())
+            .iter()
+            .rfind(|key| key.t <= current_time.as_secs_f32())
             .unwrap();
 
         let prior_control_points = keys
