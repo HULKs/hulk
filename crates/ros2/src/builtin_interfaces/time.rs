@@ -2,6 +2,7 @@
 /// https://design.ros2.org/articles/clock_and_time.html
 use serde::{Deserialize, Serialize};
 
+#[repr(C)]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Time {
     /// The seconds component, valid over all int32 values.

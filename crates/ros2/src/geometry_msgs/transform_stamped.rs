@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{geometry_msgs::transform::Transform, std_msgs::header::Header};
 
+#[repr(C)]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct TransformStamped {
     /// The frame id in the header is used as the reference frame of this transform.

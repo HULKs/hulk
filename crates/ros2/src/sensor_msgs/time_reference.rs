@@ -3,6 +3,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{builtin_interfaces::time::Time, std_msgs::header::Header};
 
+#[repr(C)]
 #[derive(Debug, Serialize, Deserialize)]
 pub struct TimeReference {
     /// stamp is system time for which measurement was valid
