@@ -19,7 +19,6 @@ RUN apt-get update && apt-get install --no-install-recommends --yes \
     python3-click \
     python3-git \
     podman \
-    passt \
     rsync \
     zstd \
     && rm --recursive --force /var/lib/apt/lists/*
