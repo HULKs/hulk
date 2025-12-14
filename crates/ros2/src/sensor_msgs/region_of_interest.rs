@@ -6,6 +6,7 @@
 /// indicates that the full resolution image was captured.
 use serde::{Deserialize, Serialize};
 
+#[repr(C)]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct RegionOfInterest {
     /// Leftmost pixel of the ROI

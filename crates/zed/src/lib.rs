@@ -12,6 +12,7 @@ use serde::{Deserialize, Serialize};
 #[cfg(feature = "pyo3")]
 use pyo3::{pyclass, pymethods, pymodule};
 
+#[repr(C)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen))]
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct RGBDSensors {
