@@ -135,6 +135,7 @@ impl Cargo {
                         --volume={root}:/hulk:z \
                         --volume={cargo_home}/git:/root/.cargo/git:z \
                         --volume={cargo_home}/registry:/root/.cargo/registry:z \
+                        --net=host \
                         --rm \
                         --interactive \
                         --pull=never \
