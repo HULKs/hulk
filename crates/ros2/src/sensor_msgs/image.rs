@@ -4,6 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::std_msgs::header::Header;
 
+#[repr(C)]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct Image {
     /// Header timestamp should be acquisition time of image
