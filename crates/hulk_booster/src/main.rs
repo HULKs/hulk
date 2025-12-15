@@ -3,7 +3,7 @@ use bytes::Bytes;
 use cdr_encoding::CdrDeserializer;
 use color_eyre::eyre::{eyre, Context, Result};
 use flume::bounded;
-use ros2::sensor_msgs::camera_info::CameraInfo;
+use ros2::geometry_msgs::transform::Transform;
 use serde::Deserialize;
 
 pub fn setup_logger() -> Result<(), fern::InitError> {
@@ -33,34 +33,38 @@ async fn main() -> Result<()> {
     setup_logger()?;
     let session = zenoh::open(zenoh::Config::default()).await.unwrap();
 
+    println!("{}", zenoh::Config::default());
+
     log::info!("Creating subscriber...");
     let subscriber = session
-        .declare_subscriber("StereoNetNode/camera_info")
-        .with(bounded(32))
+        .declare_subscriber("**")
+        .with(bounded(1000))
         .await
         .unwrap();
     log::info!("Created subscriber...");
     loop {
-        log::info!("Receiving...");
         let sample = subscriber
             .recv_async()
             .await
             .map_err(|err| eyre!(err.to_string()))
             .wrap_err("recv failed")?;
-        println!("Received: {} {:?}", sample.key_expr(), sample.payload());
-        let ddsdata_wrapper = DDSDataWrapper::new(&sample.payload().to_bytes());
-        let message: Option<CameraInfo> = match ddsdata_wrapper.representation_identifier {
-            [0x00, 0x01] => {
-                let mut deserializer = CdrDeserializer::<LittleEndian>::new(&ddsdata_wrapper.bytes);
-                Some(serde::de::Deserialize::deserialize(&mut deserializer).unwrap())
-            }
-            [0x00, 0x00] => {
-                let mut deserializer = CdrDeserializer::<BigEndian>::new(&ddsdata_wrapper.bytes);
-                Some(serde::de::Deserialize::deserialize(&mut deserializer).unwrap())
-            }
-            _ => None,
+        log::info!("{}", sample.key_expr().as_str());
+        if sample.key_expr().contains("tf") {
+            let ddsdata_wrapper = DDSDataWrapper::new(&sample.payload().to_bytes());
+            let message: Option<Transform> = match ddsdata_wrapper.representation_identifier {
+                [0x00, 0x01] => {
+                    let mut deserializer =
+                        CdrDeserializer::<LittleEndian>::new(&ddsdata_wrapper.bytes);
+                    Some(serde::de::Deserialize::deserialize(&mut deserializer).unwrap())
+                }
+                [0x00, 0x00] => {
+                    let mut deserializer =
+                        CdrDeserializer::<BigEndian>::new(&ddsdata_wrapper.bytes);
+                    Some(serde::de::Deserialize::deserialize(&mut deserializer).unwrap())
+                }
+                _ => None,
+            };
+            println!("{:?}", message);
         };
-
-        println!("{:?}", message);
     }
 }
