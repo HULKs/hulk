@@ -1,3 +1,12 @@
+use crate::{
+    nao::Nao,
+    panel::{Panel, PanelCreationContext},
+    value_buffer::BufferHandle,
+};
+use communication::messages::TextOrBinary;
+use eframe::egui::Widget;
+use gilrs::{Axis, Button, Gamepad, Gilrs};
+use serde_json::{json, Value};
 use std::{
     sync::{
         atomic::{AtomicBool, Ordering},
@@ -6,19 +15,8 @@ use std::{
     thread::{self, JoinHandle},
     time::{Duration, SystemTime},
 };
-
-use communication::messages::TextOrBinary;
-use eframe::egui::Widget;
-use gilrs::{Axis, Button, Gamepad, GamepadId, Gilrs};
-use serde_json::{json, Value};
 use tokio::sync::watch::{channel, Receiver};
 use types::step::Step;
-
-use crate::{
-    nao::Nao,
-    panel::{Panel, PanelCreationContext},
-    value_buffer::BufferHandle,
-};
 
 pub struct RemotePanel {
     nao: Arc<Nao>,
@@ -28,6 +26,7 @@ pub struct RemotePanel {
     bg_handle: Option<JoinHandle<()>>,
     receiver: Receiver<Step>,
 }
+
 impl<'a> Panel<'a> for RemotePanel {
     const NAME: &'static str = "Remote";
 
@@ -53,9 +52,6 @@ impl<'a> Panel<'a> for RemotePanel {
                 }
             };
             const UPDATE_DELAY: Duration = Duration::from_millis(100);
-            const SLEEP_DELAY: Duration = Duration::from_millis(10);
-
-            let mut active_gamepad: Option<GamepadId> = None;
             let mut last_update = SystemTime::now()
                 .checked_sub(UPDATE_DELAY)
                 .unwrap_or(SystemTime::now());
@@ -63,10 +59,20 @@ impl<'a> Panel<'a> for RemotePanel {
             let mut start_was_pressed = false;
 
             while bg_running_clone.load(Ordering::Relaxed) {
+                let Some(event) = gilrs.next_event_blocking(Some(Duration::from_secs(1))) else {
+                    continue;
+                };
                 gilrs.inc();
-                while let Some(event) = gilrs.next_event() {
-                    active_gamepad = Some(event.id);
+
+                if gilrs.gamepads().next().is_none() {
+                    let _ = sender.send(Step::default());
+                    if enabled_clone.load(Ordering::Relaxed) {
+                        reset(&nao_clone);
+                    }
+                    continue;
                 }
+                
+                let active_gamepad = Some(event.id);
                 if let Some(gamepad) = active_gamepad.map(|id| gilrs.gamepad(id)) {
                     egui_context_clone.request_repaint();
 
@@ -117,9 +123,9 @@ impl<'a> Panel<'a> for RemotePanel {
                     }
                     let _ = sender.send(step);
                 }
-                thread::sleep(SLEEP_DELAY);
             }
         });
+
         Self {
             nao,
             enabled,
