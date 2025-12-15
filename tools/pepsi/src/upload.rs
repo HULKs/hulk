@@ -67,7 +67,9 @@ async fn upload_with_progress(
             .await
             .wrap_err("failed to get configured OS version")?;
         if robot_os_version != expected_os_version {
-            bail!("mismatched OS versions: Expected {expected_os_version}, found {robot_os_version}");
+            bail!(
+                "mismatched OS versions: Expected {expected_os_version}, found {robot_os_version}"
+            );
         }
     }
 
