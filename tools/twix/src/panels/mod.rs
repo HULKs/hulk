@@ -12,7 +12,7 @@ mod map;
 mod mujoco_simulator;
 mod parameter;
 mod plot;
-mod remote;
+mod remote_control;
 mod text;
 mod vision_tuner;
 
@@ -32,6 +32,6 @@ pub use map::MapPanel;
 pub use mujoco_simulator::MujocoSimulatorPanel;
 pub use parameter::ParameterPanel;
 pub use plot::PlotPanel;
-pub use remote::RemotePanel;
+pub use remote_control::RemotePanel;
 pub use text::TextPanel;
 pub use vision_tuner::VisionTunerPanel;
