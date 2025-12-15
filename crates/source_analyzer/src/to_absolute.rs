@@ -79,18 +79,18 @@ impl ToAbsolute for Type {
         let mut data_type = self.clone();
         match &mut data_type {
             Type::Array(array) => {
-                array.elem = Box::new(array.elem.to_absolute(uses));
+                *array.elem = array.elem.to_absolute(uses);
             }
             Type::BareFn(function) => {
                 for input in function.inputs.iter_mut() {
                     input.ty = input.ty.to_absolute(uses);
                 }
                 if let ReturnType::Type(_arrow, return_type) = &mut function.output {
-                    *return_type = Box::new(return_type.to_absolute(uses));
+                    **return_type = return_type.to_absolute(uses);
                 }
             }
             Type::Group(group) => {
-                group.elem = Box::new(group.elem.to_absolute(uses));
+                *group.elem = group.elem.to_absolute(uses);
             }
             Type::ImplTrait(trait_implementation) => {
                 for bound in trait_implementation.bounds.iter_mut() {
@@ -105,22 +105,22 @@ impl ToAbsolute for Type {
             }
             Type::Never(_) => {}
             Type::Paren(parenthesized) => {
-                parenthesized.elem = Box::new(parenthesized.elem.to_absolute(uses));
+                *parenthesized.elem = parenthesized.elem.to_absolute(uses);
             }
             Type::Path(path) => {
                 if let Some(qself) = &mut path.qself {
-                    qself.ty = Box::new(qself.ty.to_absolute(uses));
+                    *qself.ty = qself.ty.to_absolute(uses);
                 }
                 path.path = path.path.to_absolute(uses);
             }
             Type::Ptr(pointer) => {
-                pointer.elem = Box::new(pointer.elem.to_absolute(uses));
+                *pointer.elem = pointer.elem.to_absolute(uses);
             }
             Type::Reference(reference) => {
-                reference.elem = Box::new(reference.elem.to_absolute(uses));
+                *reference.elem = reference.elem.to_absolute(uses);
             }
             Type::Slice(slice) => {
-                slice.elem = Box::new(slice.elem.to_absolute(uses));
+                *slice.elem = slice.elem.to_absolute(uses);
             }
             Type::TraitObject(trait_object) => {
                 for bound in trait_object.bounds.iter_mut() {
