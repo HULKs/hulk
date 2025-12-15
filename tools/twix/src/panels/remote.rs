@@ -71,7 +71,7 @@ impl<'a> Panel<'a> for RemotePanel {
                     }
                     continue;
                 }
-                
+
                 let active_gamepad = Some(event.id);
                 if let Some(gamepad) = active_gamepad.map(|id| gilrs.gamepad(id)) {
                     egui_context_clone.request_repaint();
