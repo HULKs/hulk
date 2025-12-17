@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, net::IpAddr, num::ParseIntError, time::Duration};
 
-use clap::{arg, Args};
+use clap::Args;
 use color_eyre::{
     eyre::Context,
     owo_colors::{OwoColorize, Style},

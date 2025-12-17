@@ -4,7 +4,6 @@ use std::{
 };
 
 use bincode::{DefaultOptions, Options};
-use log::error;
 use path_serde::PathSerialize;
 use serde::Serialize;
 use serde_json::Value;
