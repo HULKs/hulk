@@ -17,7 +17,7 @@ impl Repository {
     pub async fn list_configured_locations(&self) -> Result<Vec<(String, Option<String>)>> {
         let parameters_root = &self.root.join("etc/parameters");
         let results: Vec<_> = [
-            "nao_location",
+            "robot_location",
             "webots_location",
             "behavior_simulator_location",
         ]

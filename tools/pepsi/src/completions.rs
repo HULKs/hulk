@@ -3,12 +3,12 @@ use clap_complete::{generate, Shell};
 use color_eyre::Result;
 use regex::Regex;
 
-use crate::{aliveness::completions as complete_naos, cargo::MANIFEST_PATHS};
+use crate::{aliveness::completions as complete_robots, cargo::MANIFEST_PATHS};
 
 #[derive(Args)]
 pub struct Arguments {
     #[arg(long, hide = true)]
-    complete_naos: bool,
+    complete_robots: bool,
     #[arg(long, hide = true)]
     complete_assignments: bool,
     #[clap(name = "shell")]
@@ -16,8 +16,8 @@ pub struct Arguments {
 }
 
 pub async fn completions(arguments: Arguments, mut command: Command) -> Result<()> {
-    if arguments.complete_naos || arguments.complete_assignments {
-        let naos = complete_naos().await?;
+    if arguments.complete_robots || arguments.complete_assignments {
+        let robots = complete_robots().await?;
 
         let separator = match arguments.shell {
             Shell::Bash => ' ',
@@ -33,8 +33,8 @@ pub async fn completions(arguments: Arguments, mut command: Command) -> Result<(
             false => "",
         };
 
-        for nao in naos {
-            print!("{nao}{colon}{separator}");
+        for robot in robots {
+            print!("{robot}{colon}{separator}");
         }
         return Ok(());
     }
@@ -53,14 +53,16 @@ pub async fn completions(arguments: Arguments, mut command: Command) -> Result<(
 }
 
 fn dynamic_completions(shell: Shell, static_completions: String) {
-    let nao_completion_command = format!("pepsi completions --complete-naos {shell}");
+    let robot_completion_command = format!("pepsi completions --complete-robots {shell}");
     let assignment_completion_command = format!("pepsi completions --complete-assignments {shell}");
 
     match shell {
         Shell::Bash => {
-            let re = Regex::new("(?:<NAOS?>|\\[NAOS\\])(.{3})?").unwrap();
-            let completions =
-                re.replace_all(&static_completions, format!("$({nao_completion_command})"));
+            let re = Regex::new("(?:<RobotS?>|\\[RobotS\\])(.{3})?").unwrap();
+            let completions = re.replace_all(
+                &static_completions,
+                format!("$({robot_completion_command})"),
+            );
 
             let re = Regex::new("<ASSIGNMENTS>...").unwrap();
             let completions =
@@ -71,7 +73,7 @@ fn dynamic_completions(shell: Shell, static_completions: String) {
         Shell::Fish => {
             print!("{static_completions}");
 
-            const NAO_COMPLETION_SUBCOMMANDS: [(&str, &str); 18] = [
+            const ROBOT_COMPLETION_SUBCOMMANDS: [(&str, &str); 18] = [
                 ("aliveness", ""),
                 ("gammaray", ""),
                 ("hulk", ""),
@@ -91,17 +93,17 @@ fn dynamic_completions(shell: Shell, static_completions: String) {
                 ("wifi", "set"),
                 ("wifi", "status"),
             ];
-            for (subcommand, argument) in NAO_COMPLETION_SUBCOMMANDS {
+            for (subcommand, argument) in ROBOT_COMPLETION_SUBCOMMANDS {
                 if argument.is_empty() {
                     println!(
                         "complete -c pepsi -n \"__fish_pepsi_using_subcommand {subcommand}\" \
-                             -f -a \"({nao_completion_command})\""
+                             -f -a \"({robot_completion_command})\""
                     );
                 } else {
                     println!(
                         "complete -c pepsi -n \"__fish_pepsi_using_subcommand {subcommand}; \
                              and __fish_seen_subcommand_from {argument}\" \
-                             -f -a \"({nao_completion_command})\""
+                             -f -a \"({robot_completion_command})\""
                     );
                 }
             }
@@ -129,8 +131,8 @@ fn dynamic_completions(shell: Shell, static_completions: String) {
             }
         }
         Shell::Zsh => {
-            let re = Regex::new("(:naos? -- .*):").unwrap();
-            let completions = re.replace_all(&static_completions, "$1:_pepsi__complete_naos");
+            let re = Regex::new("(:robots? -- .*):").unwrap();
+            let completions = re.replace_all(&static_completions, "$1:_pepsi__complete_robots");
 
             let re = Regex::new("(:assignments -- .*):").unwrap();
             let completions = re.replace_all(&completions, "$1:_pepsi__complete_assignments");
@@ -138,10 +140,10 @@ fn dynamic_completions(shell: Shell, static_completions: String) {
             println!(
                 "{completions}\
                 \n\
-                (( $+functions[_pepsi__complete_naos] )) ||\n\
-                _pepsi__complete_naos() {{\n    \
-                    local commands; commands=(\"${{(@f)$({nao_completion_command})}}\")\n    \
-                    _describe -t commands 'pepsi complete naos' commands \"$@\"\n\
+                (( $+functions[_pepsi__complete_robots] )) ||\n\
+                _pepsi__complete_robots() {{\n    \
+                    local commands; commands=(\"${{(@f)$({robot_completion_command})}}\")\n    \
+                    _describe -t commands 'pepsi complete robots' commands \"$@\"\n\
                 }}\n\
                 (( $+functions[_pepsi__complete_assignments] )) ||\n\
                 _pepsi__complete_assignments() {{\n    \

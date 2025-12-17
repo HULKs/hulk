@@ -10,7 +10,6 @@ use zbus::{
 #[derive(Debug)]
 enum Service {
     Hal,
-    Hula,
     Hulk,
     Lola,
 }
@@ -59,7 +58,6 @@ impl Display for ServiceState {
 #[derive(Copy, Clone, Debug, Serialize, Deserialize)]
 pub struct SystemServices {
     pub hal: ServiceState,
-    pub hula: ServiceState,
     pub hulk: ServiceState,
     pub lola: ServiceState,
 }
@@ -68,7 +66,6 @@ impl SystemServices {
     pub async fn query(dbus_connection: &Connection) -> Result<Self, Error> {
         Ok(Self {
             hal: get_service_state(dbus_connection, Service::Hal).await?,
-            hula: get_service_state(dbus_connection, Service::Hula).await?,
             hulk: get_service_state(dbus_connection, Service::Hulk).await?,
             lola: get_service_state(dbus_connection, Service::Lola).await?,
         })
@@ -81,7 +78,6 @@ async fn get_unit_path(
 ) -> Result<OwnedObjectPath, Error> {
     let service_name = match service {
         Service::Hal => "hal.service",
-        Service::Hula => "hula.service",
         Service::Hulk => "hulk.service",
         Service::Lola => "lola.service",
     };
