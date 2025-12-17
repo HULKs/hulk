@@ -1,0 +1,77 @@
+# Unified cross-compilation toolchain for T1 and K1 robots
+FROM nvcr.io/nvidia/jetpack-linux-aarch64-crosscompile-x86:6.1
+
+LABEL maintainer="HULKs"
+LABEL description="Cross-compilation toolchain for T1 and K1 robots"
+LABEL version="6.1"
+LABEL target="k1"
+
+USER root
+
+WORKDIR /l4t
+
+# Combine and extract the Target File System (Sysroot)
+RUN cat targetfs.tbz2.* > targetfs.tbz2 && \
+    tar -I lbzip2 -xf targetfs.tbz2 && \
+    rm targetfs.tbz2*
+
+# Extract the Cross-Compilation Toolchain
+RUN mkdir -p toolchain && \
+    tar -C toolchain -xf toolchain.tar.bz2 && \
+    rm toolchain.tar.bz2
+
+# Point to the extracted toolchain
+ENV CROSS_ROOT=/l4t/toolchain/aarch64--glibc--stable-2022.08-1
+ENV SYSROOT=/l4t/targetfs
+
+# Add the toolchain binary path to PATH
+ENV PATH="${CROSS_ROOT}/bin:${PATH}"
+
+ENV PKG_CONFIG=/usr/bin/pkg-config
+ENV PKG_CONFIG_SYSROOT_DIR_aarch64_unknown_linux_gnu="${SYSROOT}"
+ENV PKG_CONFIG_PATH_aarch64_unknown_linux_gnu="${SYSROOT}/usr/lib/aarch64-linux-gnu/pkgconfig:${SYSROOT}/usr/share/pkgconfig:${SYSROOT}/usr/lib/pkgconfig"
+ENV PKG_CONFIG_ALLOW_CROSS=1
+
+# C compiler variables for cc-rs (used by build.rs scripts)
+ENV CC_aarch64_unknown_linux_gnu=aarch64-linux-gnu-gcc
+ENV CXX_aarch64_unknown_linux_gnu=aarch64-linux-gnu-g++
+ENV AR_aarch64_unknown_linux_gnu=aarch64-linux-gnu-ar
+
+# Install standard tools
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    curl=7.81.* \
+    build-essential=12.* \
+    pkg-config=0.29.* \
+    libclang-dev=1:14.* \
+    && rm -rf /var/lib/apt/lists/*
+
+# Install Rust and add the AArch64 target
+ENV RUSTUP_TOOLCHAIN=1.91.1
+RUN curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs | sh -s -- -y
+ENV PATH="/root/.cargo/bin:${PATH}"
+RUN rustup target add --toolchain ${RUSTUP_TOOLCHAIN} aarch64-unknown-linux-gnu
+
+COPY cargo-config.toml /root/.cargo/config.toml
+
+ENV BINDGEN_EXTRA_CLANG_ARGS_aarch64_unknown_linux_gnu="\
+    --sysroot=/l4t/targetfs \
+    -I/l4t/targetfs/usr/include \
+    -I/l4t/targetfs/usr/include/aarch64-linux-gnu"
+
+ENV MOLD_VERSION=2.40.4
+RUN curl -L https://github.com/rui314/mold/releases/download/v${MOLD_VERSION}/mold-${MOLD_VERSION}-x86_64-linux.tar.gz \
+    -o mold.tar.gz && \
+    tar -xf mold.tar.gz && \
+    mv mold-${MOLD_VERSION}-x86_64-linux/bin/mold /usr/bin/mold && \
+    mv mold-${MOLD_VERSION}-x86_64-linux/lib/mold /usr/lib/mold && \
+    rm -rf mold.tar.gz mold-${MOLD_VERSION}-x86_64-linux && \
+    chmod +x /usr/bin/mold && \
+    mkdir -p /usr/libexec/mold && \
+    ln -sf /usr/bin/mold /usr/libexec/mold/ld
+
+# Install HULKs specific dependencies
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    libssl-dev=3.0.* && \
+    rm -rf /var/lib/apt/lists/*
+
+WORKDIR /workspace
