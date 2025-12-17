@@ -50,7 +50,11 @@
       "action_scale": 1.0,
       "decimation": 10.0
     },
-    "walk_command": [0.0, 0.0, 0.0],
+    "walk_command": [
+      0.0,
+      0.0,
+      0.0
+    ],
     "joint_position_smoothing_factor": 0.8
   },
   "prepare_motor_command": {
@@ -230,20 +234,20 @@
     },
     "derivative_coefficients": {
       "head": {
-        "yaw": 1,
-        "pitch": 1
+        "yaw": 0.5,
+        "pitch": 0.5
       },
       "left_arm": {
-        "shoulder_pitch": 1,
-        "shoulder_roll": 1,
-        "shoulder_yaw": 1,
-        "elbow": 1
+        "shoulder_pitch": 0.2,
+        "shoulder_roll": 0.2,
+        "shoulder_yaw": 0.2,
+        "elbow": 0.2
       },
       "right_arm": {
-        "shoulder_pitch": 1,
-        "shoulder_roll": 1,
-        "shoulder_yaw": 1,
-        "elbow": 1
+        "shoulder_pitch": 0.2,
+        "shoulder_roll": 0.2,
+        "shoulder_yaw": 0.2,
+        "elbow": 0.2
       },
       "left_leg": {
         "hip_pitch": 3.5,

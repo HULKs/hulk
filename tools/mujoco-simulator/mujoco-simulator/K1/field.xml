@@ -1,15 +1,7 @@
 <mujoco model="field">
   <asset>
-    <texture
-      name="field_full_normal"
-      type="2d"
-      file="field_full_normal.png"
-    />
-    <texture
-      name="field_full_base_color"
-      type="2d"
-      file="field_full_base_color.png"
-    />
+    <texture name="field_full_normal" type="2d" file="field_full_normal.png" />
+    <texture name="field_full_base_color" type="2d" file="field_full_base_color.png" />
     <material name="field">
       <layer texture="field_full_normal" role="rgb" />
       <layer texture="field_full_base_color" role="rgb" />
