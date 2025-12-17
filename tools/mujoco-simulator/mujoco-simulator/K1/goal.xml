@@ -3,11 +3,12 @@
   <!-- Back -->
   <geom type="cylinder" size="0.01 0.4" pos="-0.4 -0.8 0.4" rgba="1 1 1 1" />
   <geom type="cylinder" size="0.01 0.4" pos="-0.4 0.8 0.4" rgba="1 1 1 1" />
-  <geom type="capsule" size="0.01 0.8" pos="-0.4 0 0.1" rgba="1 1 1 1" euler="1.57079 0 0" />
+  <geom type="capsule" size="0.01 0.8" pos="-0.4 0 0.01" rgba="1 1 1 1" euler="1.57079 0 0" />
   <geom type="capsule" size="0.01 0.8" pos="-0.4 0 0.8" rgba="1 1 1 1" euler="1.57079 0 0" />
   <!-- Connectors -->
-  <geom type="cylinder" size="0.01 0.2" pos="-0.2 -0.8 0.1" rgba="1 1 1 1" euler="1.57079 1.57079 0" />
-  <geom type="cylinder" size="0.01 0.2" pos="-0.2 0.8 0.1" rgba="1 1 1 1" euler="1.57079 1.57079 0" />
+  <geom type="cylinder" size="0.01 0.2" pos="-0.2 -0.8 0.01" rgba="1 1 1 1"
+    euler="1.57079 1.57079 0" />
+  <geom type="cylinder" size="0.01 0.2" pos="-0.2 0.8 0.01" rgba="1 1 1 1" euler="1.57079 1.57079 0" />
   <geom type="cylinder" size="0.01 0.2" pos="-0.2 -0.8 0.8" rgba="1 1 1 1" euler="1.57079 1.57079 0" />
   <geom type="cylinder" size="0.01 0.2" pos="-0.2 0.8 0.8" rgba="1 1 1 1" euler="1.57079 1.57079 0" />
   <!-- Front -->
