@@ -14,12 +14,16 @@ framework = { workspace = true }
 geometry = { workspace = true }
 hardware = { workspace = true }
 hsl_network_messages = { workspace = true }
+image = { workspace = true }
 itertools = { workspace = true }
 linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
 ndarray = { workspace = true }
 openvino = { workspace = true }
 ordered-float = { workspace = true }
+ort = { workspace = true, features = ["tensorrt"] }
+path_serde = { workspace = true }
 projection = { workspace = true }
+ros2 = { workspace = true }
 serde = { workspace = true }
 types = { workspace = true }
