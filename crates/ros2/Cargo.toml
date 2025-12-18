@@ -7,4 +7,5 @@ homepage.workspace = true
 
 [dependencies]
 nalgebra = { workspace = true }
+path_serde = { workspace = true }
 serde = { workspace = true }
