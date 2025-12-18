@@ -28,6 +28,7 @@ use linear_algebra::{
 use parameters::directory::deserialize;
 use projection::intrinsic::Intrinsic;
 use spl_network_messages::{HulkMessage, PlayerNumber};
+use tokio_util::sync::CancellationToken;
 use types::{
     ball_position::BallPosition,
     filtered_whistle::FilteredWhistle,
@@ -97,12 +98,15 @@ impl Robot {
 
         *parameters_sender.borrow_mut() = (SystemTime::now(), parameters.clone());
 
+        let keep_running = CancellationToken::new();
+
         let mut cycler = Cycler::new(
             CyclerInstance::Control,
             interface.clone(),
             control_sender,
             subscriptions_receiver,
             parameters_receiver,
+            keep_running,
             spl_network_consumer,
             object_detection_consumer,
             recording_sender,

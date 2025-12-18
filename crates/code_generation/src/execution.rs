@@ -169,7 +169,10 @@ pub fn generate_replayer_struct(cyclers: &Cyclers, with_communication: bool) -> 
             },
         )
     } else {
-        (Default::default(), Default::default())
+        (
+            quote! {keep_running: tokio_util::sync::CancellationToken},
+            Default::default(),
+        )
     };
     let cycler_parameters = generate_cycler_parameters(cyclers);
     let recording_index_entries =
@@ -530,6 +533,7 @@ fn generate_cycler_constructors(cyclers: &Cyclers, mode: CyclerMode) -> TokenStr
                 #own_sender_identifier,
                 #own_subscriptions_receiver_identifier,
                 parameters_receiver.clone(),
+                keep_running.clone(),
                 #own_producer_identifier
                 #(#other_cycler_inputs,)*
                 #recording_parameters
@@ -570,7 +574,7 @@ fn generate_cycler_starts(cyclers: &Cyclers) -> TokenStream {
             let error_message = format!("failed to start cycler `{instance}`");
             quote! {
                 let #cycler_handle_identifier = #cycler_variable_identifier
-                    .start(keep_running.clone())
+                    .start()
                     .wrap_err(#error_message)?;
             }
         })

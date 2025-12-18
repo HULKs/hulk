@@ -38,6 +38,7 @@ spl_network = { workspace = true }
 spl_network_messages = { workspace = true }
 step_planning = { workspace = true }
 tokio = { workspace = true }
+tokio-util = { workspace = true }
 types = { workspace = true }
 vision = { workspace = true }
 walking_inference = { workspace = true }
