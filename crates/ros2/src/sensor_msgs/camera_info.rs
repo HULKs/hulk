@@ -36,11 +36,14 @@
 ///
 /// The image dimensions with which the camera was calibrated.
 /// Normally this will be the full camera resolution in pixels.
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
 use crate::{sensor_msgs::region_of_interest::RegionOfInterest, std_msgs::header::Header};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(
+    Clone, Debug, Default, Serialize, Deserialize, PathIntrospect, PathSerialize, PathDeserialize,
+)]
 pub struct CameraInfo {
     /// Time of image acquisition, camera coordinate frame ID
     /// Header timestamp should be acquisition time of image

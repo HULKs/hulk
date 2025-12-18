@@ -1,10 +1,13 @@
 /// This message contains an uncompressed image
 /// (0, 0) is at top-left corner of image
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
 use crate::std_msgs::header::Header;
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(
+    Clone, Debug, Default, Serialize, Deserialize, PathIntrospect, PathSerialize, PathDeserialize,
+)]
 pub struct Image {
     /// Header timestamp should be acquisition time of image
     /// Header frame_id should be optical frame of camera
