@@ -13,8 +13,8 @@ mod worker_thread;
 use color_eyre::{eyre::Result, install};
 use hardware::{
     ActuatorInterface, CameraInterface, IdInterface, LowCommandInterface, LowStateInterface,
-    MicrophoneInterface, NetworkInterface, PathsInterface, RGBDSensorsInterface,
-    RecordingInterface, SensorInterface, SpeakerInterface, TimeInterface,
+    MicrophoneInterface, NetworkInterface, PathsInterface, RecordingInterface, SensorInterface,
+    SpeakerInterface, TimeInterface,
 };
 use hula_types::hardware::{Ids, Paths};
 use replayer::replayer;
@@ -25,7 +25,6 @@ use types::{
     messages::{IncomingMessage, OutgoingMessage},
     samples::Samples,
     sensor_data::SensorData,
-    ycbcr422_image::YCbCr422Image,
 };
 use zed::RGBDSensors;
 
@@ -39,7 +38,6 @@ pub trait HardwareInterface:
     + NetworkInterface
     + PathsInterface
     + RecordingInterface
-    + RGBDSensorsInterface
     + SensorInterface
     + SpeakerInterface
     + TimeInterface
@@ -64,7 +62,7 @@ impl ActuatorInterface for ReplayerHardwareInterface {
 }
 
 impl CameraInterface for ReplayerHardwareInterface {
-    fn read_from_camera(&self) -> Result<YCbCr422Image> {
+    fn read_rgbd_sensors(&self) -> Result<RGBDSensors> {
         unimplemented!("Replayer cannot produce data from hardware")
     }
 }
@@ -119,12 +117,6 @@ impl RecordingInterface for ReplayerHardwareInterface {
     }
 
     fn set_whether_to_record(&self, _enable: bool) {}
-}
-
-impl RGBDSensorsInterface for ReplayerHardwareInterface {
-    fn read_rgbd_sensors(&self) -> Result<RGBDSensors> {
-        unimplemented!()
-    }
 }
 
 impl SensorInterface for ReplayerHardwareInterface {
