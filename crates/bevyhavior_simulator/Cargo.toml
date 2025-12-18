@@ -38,6 +38,7 @@ parking_lot = { workspace = true }
 path_serde = { workspace = true }
 projection = { workspace = true }
 repository = { workspace = true }
+ros2 = { workspace = true }
 scenario = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

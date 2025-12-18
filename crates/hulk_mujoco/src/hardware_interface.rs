@@ -10,8 +10,8 @@ use color_eyre::Result;
 use futures_util::SinkExt;
 use futures_util::StreamExt;
 use hardware::{
-    ButtonEventMsgInterface, IdInterface, MicrophoneInterface, NetworkInterface, PathsInterface,
-    RGBDSensorsInterface, RecordingInterface, SpeakerInterface, TimeInterface,
+    ButtonEventMsgInterface, CameraInterface, IdInterface, MicrophoneInterface, NetworkInterface,
+    PathsInterface, RecordingInterface, SpeakerInterface, TimeInterface,
 };
 use hardware::{
     FallDownStateInterface, LowCommandInterface, LowStateInterface, RemoteControllerStateInterface,
@@ -285,7 +285,7 @@ impl TransformMessageInterface for MujocoHardwareInterface {
     }
 }
 
-impl RGBDSensorsInterface for MujocoHardwareInterface {
+impl CameraInterface for MujocoHardwareInterface {
     fn read_rgbd_sensors(&self) -> Result<RGBDSensors> {
         self.rgbd_sensors_receiver
             .lock()

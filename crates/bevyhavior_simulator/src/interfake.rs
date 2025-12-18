@@ -9,8 +9,8 @@ use parking_lot::Mutex;
 use buffered_watch::{Receiver, Sender};
 use color_eyre::Result;
 use hardware::{
-    CameraInterface, NetworkInterface, PathsInterface, RGBDSensorsInterface, RecordingInterface,
-    SpeakerInterface, TimeInterface,
+    CameraInterface, NetworkInterface, PathsInterface, RecordingInterface, SpeakerInterface,
+    TimeInterface,
 };
 use types::{
     audio::SpeakerRequest,
@@ -76,12 +76,6 @@ impl PathsInterface for Interfake {
 }
 
 impl CameraInterface for Interfake {
-    fn read_from_camera(&self) -> Result<types::ycbcr422_image::YCbCr422Image> {
-        unimplemented!()
-    }
-}
-
-impl RGBDSensorsInterface for Interfake {
     fn read_rgbd_sensors(&self) -> Result<RGBDSensors> {
         unimplemented!()
     }
