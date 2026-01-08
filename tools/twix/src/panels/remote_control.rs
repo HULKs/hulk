@@ -58,22 +58,31 @@ impl<'a> Panel<'a> for RemotePanel {
 
             let mut start_was_pressed = false;
 
+            let mut last_gamepad_id = None;
+
             while bg_running_clone.load(Ordering::Relaxed) {
-                let Some(event) = gilrs.next_event_blocking(Some(Duration::from_secs(1))) else {
-                    continue;
-                };
-                gilrs.inc();
+                let event = gilrs.next_event_blocking(Some(Duration::from_secs(1)));
+                if let Some(event) = &event {
+                    gilrs.inc();
+                    last_gamepad_id = Some(event.id);
+                }
 
                 if gilrs.gamepads().next().is_none() {
                     let _ = sender.send(Step::default());
-                    if enabled_clone.load(Ordering::Relaxed) {
+                 i w   if enabled_clone.load(Ordering::Relaxed) {
                         reset(&nao_clone);
                     }
                     continue;
                 }
 
-                let active_gamepad = Some(event.id);
+                let active_gamepad = event
+                    .map(|e| e.id)
+                    .or(last_gamepad_id)
+                    .filter(|&id| gilrs.gamepads().any(|(g_id, _)| g_id == id))
+                    .or_else(|| gilrs.gamepads().next().map(|(id, _)| id));
+
                 if let Some(gamepad) = active_gamepad.map(|id| gilrs.gamepad(id)) {
+                    last_gamepad_id = Some(gamepad.id());
                     egui_context_clone.request_repaint();
 
                     let right = get_axis_value(gamepad, Axis::LeftStickX).unwrap_or(0.0);
@@ -81,7 +90,7 @@ impl<'a> Panel<'a> for RemotePanel {
 
                     let left = -right;
 
-                    let turn_right = gamepad
+                    let turn_right = gamepad            
                         .button_data(Button::RightTrigger2)
                         .map(|button| button.value())
                         .unwrap_or_default();
