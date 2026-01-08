@@ -125,7 +125,7 @@ jobs:
       - v3
     container:
       image: ghcr.io/hulks/hulk-ci:1.92.0
-      options: --user=1000:1000 --privileged --device /dev/fuse:rw --network=host
+      options: --user=1000:1000 --privileged --device /dev/fuse:rw
     steps:
       - uses: actions/checkout@v4
         with:

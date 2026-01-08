@@ -196,6 +196,7 @@ fn build_command_string(
                 --volume={cargo_home}/git:/root/.cargo/git:z \
                 --volume={cargo_home}/registry:/root/.cargo/registry:z \
                 --rm \
+                --network=host \
                 --interactive \
                 --pull=never \
                 --tty \
