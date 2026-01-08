@@ -33,8 +33,6 @@ jobs:
         path:
           - .
           - services/aliveness
-          - services/breeze
-          - services/hula
     runs-on:
       - self-hosted
       - v3
@@ -118,6 +116,7 @@ jobs:
           - imagine
           - replayer
           - mujoco
+          - booster
         profile:
           - dev
           - release
@@ -140,8 +139,6 @@ jobs:
       matrix:
         service:
           - aliveness
-          - breeze
-          - hula
     runs-on:
       - self-hosted
       - v3

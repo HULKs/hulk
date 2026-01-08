@@ -1,0 +1,21 @@
+[package]
+name = "hulk_booster"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[package.metadata.pepsi]
+cross-compile = true
+
+[dependencies]
+color-eyre = { workspace = true }
+control = { workspace = true }
+vision = { workspace = true }
+walking_inference = { workspace = true }
+
+[build-dependencies]
+code_generation = { workspace = true }
+color-eyre = { workspace = true }
+hulk_manifest = { workspace = true }
+source_analyzer = { workspace = true }

@@ -4210,6 +4210,19 @@ dependencies = [
 ]
 
 [[package]]
+name = "hulk_booster"
+version = "0.1.0"
+dependencies = [
+ "code_generation",
+ "color-eyre",
+ "control",
+ "hulk_manifest",
+ "source_analyzer",
+ "vision",
+ "walking_inference",
+]
+
+[[package]]
 name = "hulk_imagine"
 version = "0.1.0"
 dependencies = [
@@ -6520,7 +6533,7 @@ dependencies = [
 
 [[package]]
 name = "pepsi"
-version = "6.5.0"
+version = "7.0.0"
 dependencies = [
  "aliveness",
  "argument_parsers",
