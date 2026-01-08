@@ -8,7 +8,7 @@ pub enum Arguments {
     List,
     /// Set location for repository
     Set {
-        /// The target to set a location for (nao, webots, behavior_simulator)
+        /// The target to set a location for (robot, webots, behavior_simulator)
         #[arg(required = true)]
         target: String,
         /// The location to set for the repository

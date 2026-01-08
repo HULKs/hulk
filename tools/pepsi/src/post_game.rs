@@ -3,15 +3,15 @@ use std::{
     path::PathBuf,
 };
 
-use argument_parsers::NaoAddress;
+use argument_parsers::RobotAddress;
 use clap::{Args, ValueEnum};
 use color_eyre::{
     eyre::{bail, WrapErr},
     Result,
 };
 
-use nao::{Nao, Network, SystemctlAction};
 use repository::Repository;
+use robot::{Booster, Network, SystemctlAction};
 
 use crate::{deploy_config::DeployConfig, progress_indicator::ProgressIndicator};
 
@@ -26,8 +26,8 @@ pub struct Arguments {
     /// Current game phase
     #[arg(value_enum)]
     pub phase: Phase,
-    /// The NAOs to apply the postgame to, queried from the deploy.toml if not specified
-    pub naos: Option<Vec<NaoAddress>>,
+    /// The robots to apply the postgame to, queried from the deploy.toml if not specified
+    pub robots: Option<Vec<RobotAddress>>,
 }
 
 #[derive(Clone, Copy, ValueEnum)]
@@ -52,16 +52,16 @@ pub async fn post_game(arguments: Arguments, repository: &Repository) -> Result<
         .await
         .wrap_err("failed to read deploy config from file")?;
 
-    let all_naos = config.all_naos();
-    let naos = if let Some(naos) = &arguments.naos {
-        for nao in naos {
-            if !all_naos.contains(nao) {
-                bail!("NAO with IP {nao} is not specified in the deploy.toml");
+    let all_robots = config.all_robots();
+    let robots = if let Some(robots) = &arguments.robots {
+        for robot in robots {
+            if !all_robots.contains(robot) {
+                bail!("robot with IP {robot} is not specified in the deploy.toml");
             }
         }
-        naos.iter().copied().collect()
+        robots.iter().copied().collect()
     } else {
-        all_naos
+        all_robots
     };
 
     let log_directory = &arguments.log_directory.unwrap_or_else(|| {
@@ -71,33 +71,36 @@ pub async fn post_game(arguments: Arguments, repository: &Repository) -> Result<
     });
 
     ProgressIndicator::map_tasks(
-        naos,
+        robots,
         "Executing postgame tasks...",
-        |nao_address, progress_bar| async move {
-            progress_bar.set_message("Pinging NAO...");
-            let nao = Nao::ping_until_available(nao_address.ip).await;
+        |robot_address, progress_bar| async move {
+            progress_bar.set_message("Pinging Robot...");
+            let robot = Booster::ping_until_available(robot_address.ip).await;
 
             progress_bar.set_message("Stopping HULK service...");
-            nao.execute_systemctl(SystemctlAction::Stop, "hulk")
+            robot
+                .execute_systemctl(SystemctlAction::Stop, "hulk")
                 .await
-                .wrap_err_with(|| format!("failed to execute systemctl hulk on {nao_address}"))?;
+                .wrap_err_with(|| format!("failed to execute systemctl hulk on {robot_address}"))?;
 
             if !arguments.no_disconnect {
                 progress_bar.set_message("Disconnecting from WiFi...");
-                nao.set_wifi(Network::None)
+                robot
+                    .set_wifi(Network::None)
                     .await
-                    .wrap_err_with(|| format!("failed to set network on {nao_address}"))?;
+                    .wrap_err_with(|| format!("failed to set network on {robot_address}"))?;
             }
 
             progress_bar.set_message("Downloading logs...");
             let log_directory = log_directory
                 .join(arguments.phase.to_string())
-                .join(nao_address.to_string());
-            nao.download_logs(log_directory, |status| {
-                progress_bar.set_message(format!("Downloading logs: {status}"))
-            })
-            .await
-            .wrap_err_with(|| format!("failed to download logs from {nao_address}"))?;
+                .join(robot_address.to_string());
+            robot
+                .download_logs(log_directory, |status| {
+                    progress_bar.set_message(format!("Downloading logs: {status}"))
+                })
+                .await
+                .wrap_err_with(|| format!("failed to download logs from {robot_address}"))?;
 
             Ok(())
         },

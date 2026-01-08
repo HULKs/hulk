@@ -1,14 +1,14 @@
 use std::path::Path;
 
-use argument_parsers::NaoAddress;
+use argument_parsers::RobotAddress;
 use clap::Args;
 use color_eyre::{
     eyre::{bail, WrapErr},
     Result,
 };
 use futures_util::{stream::FuturesUnordered, StreamExt};
-use nao::{Nao, SystemctlAction};
 use repository::{upload::get_hulk_binary, Repository};
+use robot::{Booster, SystemctlAction};
 use tempfile::tempdir;
 
 use crate::{
@@ -41,52 +41,57 @@ pub struct UploadArguments {
     /// Skip the OS version check
     #[arg(long)]
     pub skip_os_check: bool,
-    /// The NAOs to upload to e.g. 20w or 10.1.24.22
+    /// The Robots to upload to e.g. 20w or 10.1.24.22
     #[arg(required = true)]
-    pub naos: Vec<NaoAddress>,
+    pub robots: Vec<RobotAddress>,
 }
 
 async fn upload_with_progress(
-    nao_address: &NaoAddress,
+    booster_address: &RobotAddress,
     upload_directory: impl AsRef<Path>,
     arguments: &UploadArguments,
     progress: &Task,
     repository: &Repository,
 ) -> Result<()> {
-    progress.set_message("Pinging NAO...");
-    let nao = Nao::try_new_with_ping(nao_address.ip).await?;
+    progress.set_message("Pinging Robot...");
+    let booster = Booster::try_new_with_ping(booster_address.ip).await?;
 
     if !arguments.skip_os_check {
         progress.set_message("Checking OS version...");
-        let nao_os_version = nao
+        let robot_os_version = booster
             .get_os_version()
             .await
-            .wrap_err_with(|| format!("failed to get OS version of {nao_address}"))?;
+            .wrap_err_with(|| format!("failed to get OS version of {booster_address}"))?;
         let expected_os_version = repository
             .read_os_version()
             .await
             .wrap_err("failed to get configured OS version")?;
-        if nao_os_version != expected_os_version {
-            bail!("mismatched OS versions: Expected {expected_os_version}, found {nao_os_version}");
+        if robot_os_version != expected_os_version {
+            bail!("mismatched OS versions: Expected {expected_os_version}, found {robot_os_version}");
         }
     }
 
     progress.set_message("Stopping HULK...");
-    nao.execute_systemctl(SystemctlAction::Stop, "hulk")
+    booster
+        .execute_systemctl(SystemctlAction::Stop, "hulk")
         .await
-        .wrap_err_with(|| format!("failed to stop HULK service on {nao_address}"))?;
+        .wrap_err_with(|| format!("failed to stop HULK service on {booster_address}"))?;
 
     progress.set_message("Uploading: ...");
-    nao.upload(upload_directory, "hulk", !arguments.no_clean, |status| {
-        progress.set_message(format!("Uploading: {status}"))
-    })
-    .await
-    .wrap_err_with(|| format!("failed to upload binary to {nao_address}"))?;
+    booster
+        .upload(upload_directory, "hulk", !arguments.no_clean, |status| {
+            progress.set_message(format!("Uploading: {status}"))
+        })
+        .await
+        .wrap_err_with(|| format!("failed to upload binary to {booster_address}"))?;
 
     if !arguments.no_restart {
         progress.set_message("Restarting HULK...");
-        if let Err(error) = nao.execute_systemctl(SystemctlAction::Start, "hulk").await {
-            let logs = nao
+        if let Err(error) = booster
+            .execute_systemctl(SystemctlAction::Start, "hulk")
+            .await
+        {
+            let logs = booster
                 .retrieve_logs()
                 .await
                 .wrap_err("failed to retrieve logs")?;
@@ -128,15 +133,15 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()>
     let multi_progress = ProgressIndicator::new();
     arguments
         .upload
-        .naos
+        .robots
         .iter()
-        .map(|nao_address| {
-            let progress = multi_progress.task(nao_address.to_string());
+        .map(|robot_address| {
+            let progress = multi_progress.task(robot_address.to_string());
             progress.enable_steady_tick();
             async move {
                 progress.finish_with(
                     upload_with_progress(
-                        nao_address,
+                        robot_address,
                         upload_directory,
                         upload_arguments,
                         &progress,
