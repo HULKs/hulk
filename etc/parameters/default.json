@@ -272,7 +272,8 @@
       "forward": 0.0,
       "left": 0.0,
       "turn": 0.0
-    },
+    }
+  },
   "field_dimensions": {
     "ball_radius": 0.05,
     "length": 9.0,

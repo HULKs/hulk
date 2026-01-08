@@ -38,7 +38,7 @@ impl WalkToBall {
                 };
                 MotionCommand::WalkWithVelocity {
                     head,
-                    velocity: ball_coordinates_in_ground.normalize() * 0.1, // TODO: parameterize
+                    velocity: ball_coordinates_in_ground.normalize() * 0.5, // TODO: parameterize
                     angular_velocity: ball_coordinates_in_ground.y().clamp(-0.25, 0.25), // TODO: parameterize
                 }
             }
