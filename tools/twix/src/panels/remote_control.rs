@@ -69,7 +69,7 @@ impl<'a> Panel<'a> for RemotePanel {
 
                 if gilrs.gamepads().next().is_none() {
                     let _ = sender.send(Step::default());
-                 i w   if enabled_clone.load(Ordering::Relaxed) {
+                    if enabled_clone.load(Ordering::Relaxed) {
                         reset(&nao_clone);
                     }
                     continue;
@@ -85,12 +85,14 @@ impl<'a> Panel<'a> for RemotePanel {
                     last_gamepad_id = Some(gamepad.id());
                     egui_context_clone.request_repaint();
 
-                    let right = get_axis_value(gamepad, Axis::LeftStickX).unwrap_or(0.0);
-                    let forward = get_axis_value(gamepad, Axis::LeftStickY).unwrap_or(0.0);
+                    let right =
+                        apply_dead_zone(get_axis_value(gamepad, Axis::LeftStickX).unwrap_or(0.0));
+                    let forward =
+                        apply_dead_zone(get_axis_value(gamepad, Axis::LeftStickY).unwrap_or(0.0));
 
                     let left = -right;
 
-                    let turn_right = gamepad            
+                    let turn_right = gamepad
                         .button_data(Button::RightTrigger2)
                         .map(|button| button.value())
                         .unwrap_or_default();
@@ -147,6 +149,15 @@ impl<'a> Panel<'a> for RemotePanel {
 
     fn save(&self) -> Value {
         json!({})
+    }
+}
+
+fn apply_dead_zone(value: f32) -> f32 {
+    const DEAD_ZONE: f32 = 0.1;
+    if value.abs() < DEAD_ZONE {
+        0.0
+    } else {
+        value
     }
 }
 
