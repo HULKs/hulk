@@ -1,4 +1,7 @@
-use color_eyre::{eyre::bail, Result};
+use color_eyre::{
+    eyre::{bail, ContextCompat},
+    Result,
+};
 use tokio::process::Command;
 
 use crate::Repository;
@@ -54,7 +57,9 @@ pub async fn pull_sdk_image(sdk_image: &SDKImage) -> Result<()> {
 
 pub async fn build_sdk_container(repository: &Repository, sdk_image: &SDKImage) -> Result<()> {
     let containerfile_path = repository.root.join("tools/sdk_container/");
-    let containerfile_path_str = containerfile_path.to_str().unwrap_or("tools/sdk_container");
+    let containerfile_path_str = containerfile_path
+        .to_str()
+        .wrap_err("failed to convert containerfile path to string")?;
 
     let status = Command::new("podman")
         .args([

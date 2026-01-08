@@ -79,7 +79,7 @@ impl Cargo {
                     // let status = command
                     //     .arg("pepsi")
                     //     .arg("sdk")
-                    //     .adownload_and_installrg("install")
+                    //     .arg("install")
                     //     .arg("--version")
                     //     .arg(version)
                     //     .status()
@@ -127,27 +127,12 @@ impl Cargo {
                 let pwd = Path::new("/hulk").join(&repository.root_to_current_dir()?);
                 let root = repository.current_dir_to_root()?;
                 let tagged_image_name = sdk_image.name_tagged();
-                let mut command = OsString::from(format!(
-                    "\
-                    mkdir -p {cargo_home}/git && \
-                    mkdir -p {cargo_home}/registry && \
-                    podman run \
-                        --volume={root}:/hulk:z \
-                        --volume={cargo_home}/git:/root/.cargo/git:z \
-                        --volume={cargo_home}/registry:/root/.cargo/registry:z \
-                        --net=host \
-                        --rm \
-                        --interactive \
-                        --pull=never \
-                        --tty \
-                        {tagged_image_name} \
-                        /bin/sh -c '\
-                            cd {pwd} && \
-                            echo $PATH && \
-                            /root/.cargo/bin/cargo \
-                    ",
-                    root = root.display(),
-                    pwd = pwd.display(),
+                let mut command = OsString::from(build_command_string(
+                    "podman",
+                    cargo_home,
+                    root.display().to_string(),
+                    tagged_image_name,
+                    pwd.display().to_string(),
                 ));
                 command.push(arguments);
                 command.push(OsStr::new("'"));
@@ -159,26 +144,12 @@ impl Cargo {
                 let pwd = Path::new("/hulk").join(&repository.root_to_current_dir()?);
                 let root = repository.current_dir_to_root()?;
                 let tagged_image_name = sdk_image.name_tagged();
-                let mut command = OsString::from(format!(
-                    "\
-                    mkdir -p {cargo_home}/git && \
-                    mkdir -p {cargo_home}/registry && \
-                    docker run \
-                        --volume={root}:/hulk:z \
-                        --volume={cargo_home}/git:/root/.cargo/git:z \
-                        --volume={cargo_home}/registry:/root/.cargo/registry:z \
-                        --rm \
-                        --interactive \
-                        --pull=never \
-                        --tty \
-                        {tagged_image_name} \
-                        /bin/sh -c '\
-                            cd {pwd} && \
-                            echo $PATH && \
-                            cargo \
-                    ",
-                    root = root.display(),
-                    pwd = pwd.display(),
+                let mut command = OsString::from(build_command_string(
+                    "docker",
+                    cargo_home,
+                    root.display().to_string(),
+                    tagged_image_name,
+                    pwd.display().to_string(),
                 ));
                 command.push(arguments);
                 command.push(OsStr::new("'"));
@@ -207,4 +178,32 @@ impl Cargo {
 
         Ok(command)
     }
+}
+
+fn build_command_string(
+    container_runtime: &str,
+    cargo_home: String,
+    root: String,
+    tagged_image_name: String,
+    pwd: String,
+) -> String {
+    format!(
+        "\
+            mkdir -p {cargo_home}/git && \
+            mkdir -p {cargo_home}/registry && \
+            {container_runtime} run \
+                --volume={root}:/hulk:z \
+                --volume={cargo_home}/git:/root/.cargo/git:z \
+                --volume={cargo_home}/registry:/root/.cargo/registry:z \
+                --rm \
+                --interactive \
+                --pull=never \
+                --tty \
+                {tagged_image_name} \
+                /bin/sh -c '\
+                    cd {pwd} && \
+                    echo $PATH && \
+                    cargo \
+        "
+    )
 }

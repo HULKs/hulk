@@ -58,11 +58,11 @@ impl Environment {
         Ok(match self {
             Environment::Native => RepositoryEnvironment::Native,
             Environment::Podman { image: Some(image) } => RepositoryEnvironment::Podman {
-                sdk_image: { sdk_image.parse_and_update(&image) },
+                sdk_image: sdk_image.parse_and_update(&image),
             },
             Environment::Podman { image: None } => RepositoryEnvironment::Podman { sdk_image },
             Environment::Docker { image: Some(image) } => RepositoryEnvironment::Docker {
-                sdk_image: { sdk_image.parse_and_update(&image) },
+                sdk_image: sdk_image.parse_and_update(&image),
             },
             Environment::Docker { image: None } => RepositoryEnvironment::Docker { sdk_image },
         })
