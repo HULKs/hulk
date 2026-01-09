@@ -56,7 +56,7 @@ pub struct CycleContext {
         Parameter<usize, "ready_signal_detection_filter.minimum_number_poses_before_message">,
     message_grace_period: Parameter<Duration, "ready_signal_detection_filter.message_grace_period">,
     message_interval: Parameter<Duration, "ready_signal_detection_filter.message_interval">,
-    hsl_network_parameters: Parameter<HslNetworkParameters, "Hsl_network">,
+    hsl_network_parameters: Parameter<HslNetworkParameters, "hsl_network">,
 
     ready_signal_detection_times:
         AdditionalOutput<Players<Option<SystemTime>>, "player_referee_detection_times">,

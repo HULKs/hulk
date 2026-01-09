@@ -31,7 +31,7 @@ pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
     filtered_game_controller_state:
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
-    network_message: PerceptionInput<Option<IncomingMessage>, "Network", "filtered_message?">,
+    network_message: PerceptionInput<Option<IncomingMessage>, "HslNetwork", "filtered_message?">,
 
     maximum_age: Parameter<Duration, "team_ball.maximum_age">,
 
