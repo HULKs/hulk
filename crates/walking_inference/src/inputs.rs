@@ -74,11 +74,11 @@ impl WalkingInferenceInputs {
             _ => todo!(),
         };
 
-        let gait_frequency =
+        let (gait_frequency, last_gait_progress) =
             if linear_velocity_command.norm() < 1e-5 && angular_velocity_command.abs() < 1e-5 {
-                0.0
+                (0.0, 0.0)
             } else {
-                walking_parameters.gait_frequency
+                (walking_parameters.gait_frequency, last_gait_progress)
             };
         let gait_progress =
             last_gait_progress + gait_frequency * cycle_time.last_cycle_duration.as_secs_f32();
