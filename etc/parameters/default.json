@@ -325,6 +325,7 @@
     "goal_depth": 0.5
   },
   "object_detection": {
+    "enable": true,
     "maximum_intersection_over_union": 0.7
   },
   "ball_detection": {

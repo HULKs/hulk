@@ -49,6 +49,7 @@ pub struct CycleContext {
 
     maximum_intersection_over_union:
         Parameter<f32, "object_detection.maximum_intersection_over_union">,
+    enable: Parameter<bool, "object_detection.enable">,
 }
 
 #[context]
@@ -73,6 +74,10 @@ impl ObjectDetection {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+        if !context.enable {
+            return Ok(MainOutputs::default());
+        }
+
         let height = context.rgb_image_camera_info.height;
         let width = context.rgb_image_camera_info.width;
         let rgb_image = if context.rgb_image.encoding == "rgb8" {
