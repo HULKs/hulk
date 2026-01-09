@@ -163,7 +163,7 @@
     "default_positions": {
       "head": {
         "yaw": 0.0,
-        "pitch": 0.0
+        "pitch": 0.4
       },
       "left_arm": {
         "shoulder_pitch": 0.2,

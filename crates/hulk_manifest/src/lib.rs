@@ -42,7 +42,7 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
             },
             CyclerManifest {
                 name: "Control",
-                kind: CyclerKind::RealTime,
+                kind: CyclerKind::Perception,
                 instances: vec![""],
                 setup_nodes: vec!["control::sensor_data_receiver"],
                 nodes: vec![
