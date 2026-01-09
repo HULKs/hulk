@@ -16,7 +16,7 @@ impl Overlay for ObjectDetection {
 
     fn new(nao: Arc<Nao>) -> Self {
         let object_detections =
-            nao.subscribe_value("ObjectDetection.main_outputs.object_detections");
+            nao.subscribe_value("ObjectDetection.main_outputs.detected_objects");
         Self { object_detections }
     }
 
