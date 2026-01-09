@@ -152,7 +152,7 @@ impl<'a> Panel<'a> for RemotePanel {
 }
 
 fn apply_dead_zone(x: f32, y: f32) -> (f32, f32) {
-    const DEAD_ZONE: f32 = 0.1;
+    const DEAD_ZONE: f32 = 0.15;
     if (x * x + y * y).sqrt() < DEAD_ZONE {
         return (0.0, 0.0);
     }
@@ -198,10 +198,10 @@ impl Widget for &mut RemotePanel {
         ui.label(format!("{controller_step:#?}"));
         ui.add_space(ui.spacing().item_spacing.y);
         ui.strong("Robot:");
-        let saved_step = match self.latest_step.get_last_value() {
-            Ok(Some(step)) => step,
-            _ => Step::default(),
-        };
-        ui.label(format!("{saved_step:#?}"))
+
+        match self.latest_step.get_last_value() {
+            Ok(Some(step)) => ui.label(format!("{step:#?}")),
+            _ => ui.label("No data"),
+        }
     }
 }
