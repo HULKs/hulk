@@ -84,11 +84,10 @@ impl<'a> Panel<'a> for RemotePanel {
                 if let Some(gamepad) = active_gamepad.map(|id| gilrs.gamepad(id)) {
                     last_gamepad_id = Some(gamepad.id());
                     egui_context_clone.request_repaint();
-
-                    let right =
-                        apply_dead_zone(get_axis_value(gamepad, Axis::LeftStickX).unwrap_or(0.0));
-                    let forward =
-                        apply_dead_zone(get_axis_value(gamepad, Axis::LeftStickY).unwrap_or(0.0));
+                    let (forward, right) = apply_dead_zone(
+                        get_axis_value(gamepad, Axis::LeftStickX).unwrap_or(0.0),
+                        get_axis_value(gamepad, Axis::LeftStickY).unwrap_or(0.0),
+                    );
 
                     let left = -right;
 
@@ -152,13 +151,12 @@ impl<'a> Panel<'a> for RemotePanel {
     }
 }
 
-fn apply_dead_zone(value: f32) -> f32 {
+fn apply_dead_zone(x: f32, y: f32) -> (f32, f32) {
     const DEAD_ZONE: f32 = 0.1;
-    if value.abs() < DEAD_ZONE {
-        0.0
-    } else {
-        value
+    if (x * x + y * y).sqrt() < DEAD_ZONE {
+        return (0.0, 0.0);
     }
+    (y, x)
 }
 
 fn get_axis_value(gamepad: Gamepad, axis: Axis) -> Option<f32> {
