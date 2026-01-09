@@ -266,5 +266,12 @@
         "ankle_down": 1
       }
     }
+  },
+  "remote_control_parameters": {
+    "walk": {
+      "forward": 0.0,
+      "left": 0.0,
+      "turn": 0.0
+    }
   }
 }

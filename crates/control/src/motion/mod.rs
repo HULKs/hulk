@@ -15,5 +15,6 @@ pub mod look_around;
 pub mod look_at;
 pub mod motion_selector;
 pub mod motor_commands_collector;
+pub mod remote_control;
 pub mod sit_down;
 pub mod wide_stance;
