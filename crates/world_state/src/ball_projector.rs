@@ -54,11 +54,7 @@ impl BallProjector {
                         }
 
                         let area = detection.bounding_box.area;
-                        let camera_matrix = context
-                            .past_camera_matrices
-                            .get(time)
-                            .expect("no camera matrix found for detected object");
-
+                        let camera_matrix = context.past_camera_matrices.get(time)?;
                         let position = camera_matrix
                             .pixel_to_ground_with_z(area.center(), *context.ball_radius)
                             .ok()?;
