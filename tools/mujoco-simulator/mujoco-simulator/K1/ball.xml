@@ -15,7 +15,7 @@
 
   <worldbody>
     <body pos="2 -1 2.0" name="ball">
-      <joint name="ball_free_joint" type="free" limited="false" actuatorfrclimited="false" />
+      <joint name="ball_free_joint" type="free" limited="false" actuatorfrclimited="false" damping="0.002" />
 
       <geom name="ball" type="sphere" size="0.095" mass="0.450" solref="0.08 0.25" priority="1"
         rgba="1 1 1 0" />
