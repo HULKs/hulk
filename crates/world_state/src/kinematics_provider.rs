@@ -1,6 +1,7 @@
+use booster::{JointsMotorState, MotorState};
 use color_eyre::Result;
 use context_attribute::context;
-use framework::MainOutput;
+use framework::{MainOutput, PerceptionInput};
 use kinematics::forward::{
     head_to_neck, left_ankle_to_left_tibia, left_foot_to_left_ankle,
     left_forearm_to_left_upper_arm, left_hip_to_left_pelvis, left_inner_shoulder_to_robot,
@@ -13,23 +14,24 @@ use kinematics::forward::{
 };
 use linear_algebra::Isometry3;
 use serde::{Deserialize, Serialize};
+use types::joints::Joints;
 use types::robot_kinematics::{
     RobotHeadKinematics, RobotLeftArmKinematics, RobotLeftLegKinematics, RobotRightArmKinematics,
     RobotRightLegKinematics, RobotTorsoKinematics,
 };
-use types::{
-    robot_dimensions::RobotDimensions, robot_kinematics::RobotKinematics, sensor_data::SensorData,
-};
+use types::{robot_dimensions::RobotDimensions, robot_kinematics::RobotKinematics};
 
 #[derive(Deserialize, Serialize)]
-pub struct KinematicsProvider {}
+pub struct KinematicsProvider {
+    last_robot_kinematics: RobotKinematics,
+}
 
 #[context]
 pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    sensor_data: Input<SensorData, "sensor_data">,
+    serial_motor_states: PerceptionInput<Joints<MotorState>, "Control", "serial_motor_states">,
 }
 
 #[context]
@@ -40,11 +42,33 @@ pub struct MainOutputs {
 
 impl KinematicsProvider {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {})
+        Ok(Self {
+            last_robot_kinematics: RobotKinematics::default(),
+        })
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let measured_positions = &context.sensor_data.positions;
+        // TOOD USE TEMPORARIES
+        let Some(time_tagged_serial_motor_states) = &context
+            .serial_motor_states
+            .persistent
+            .iter()
+            .chain(&context.serial_motor_states.temporary)
+            .last()
+        else {
+            return Ok(MainOutputs {
+                robot_kinematics: self.last_robot_kinematics.clone().into(),
+            });
+        };
+
+        let Some(newest_serial_motor_states) = time_tagged_serial_motor_states.1.last() else {
+            return Ok(MainOutputs {
+                robot_kinematics: self.last_robot_kinematics.clone().into(),
+            });
+        };
+
+        let measured_positions = newest_serial_motor_states.positions();
+
         // head
         let neck_to_robot = neck_to_robot(&measured_positions.head);
         let head_to_robot = neck_to_robot * head_to_neck(&measured_positions.head);
@@ -141,15 +165,19 @@ impl KinematicsProvider {
             sole_to_robot: right_sole_to_robot,
         };
 
+        let robot_kinematics = RobotKinematics {
+            head,
+            torso,
+            left_arm,
+            right_arm,
+            left_leg,
+            right_leg,
+        };
+
+        self.last_robot_kinematics = robot_kinematics.clone();
+
         Ok(MainOutputs {
-            robot_kinematics: MainOutput::from(RobotKinematics {
-                head,
-                torso,
-                left_arm,
-                right_arm,
-                left_leg,
-                right_leg,
-            }),
+            robot_kinematics: robot_kinematics.into(),
         })
     }
 }

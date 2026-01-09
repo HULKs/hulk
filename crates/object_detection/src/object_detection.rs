@@ -54,7 +54,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub object_detections: MainOutput<Vec<Detection>>,
+    pub detected_objects: MainOutput<Vec<Detection>>,
 }
 
 impl ObjectDetection {
@@ -101,7 +101,7 @@ impl ObjectDetection {
             .into_owned();
 
         let output = output.slice(s![.., .., 0]);
-        let mut candidate_detection: Vec<Detection> = output
+        let mut candidate_detections: Vec<Detection> = output
             .axis_iter(Axis(0))
             .filter_map(|row| {
                 let row: Vec<_> = row.iter().copied().collect();
@@ -135,20 +135,20 @@ impl ObjectDetection {
             })
             .collect();
 
-        candidate_detection.sort_by(|detection1, detection2| {
+        candidate_detections.sort_by(|detection1, detection2| {
             detection1
                 .bounding_box
                 .confidence
                 .total_cmp(&detection2.bounding_box.confidence)
         });
 
-        let detections = non_maximum_suppression(
-            candidate_detection,
+        let detected_objects = non_maximum_suppression(
+            candidate_detections,
             *context.maximum_intersection_over_union,
         );
 
         Ok(MainOutputs {
-            object_detections: detections.into(),
+            detected_objects: detected_objects.into(),
         })
     }
 }

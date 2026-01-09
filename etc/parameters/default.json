@@ -289,5 +289,33 @@
   },
   "object_detection": {
     "maximum_intersection_over_union": 0.7
+  },
+  "ball_detection": {
+    "minimal_radius": 42.0,
+    "preclassifier_neural_network": "preclassifier.hdf5",
+    "classifier_neural_network": "classifier.hdf5",
+    "positioner_neural_network": "positioner.hdf5",
+    "maximum_number_of_candidate_evaluations": 75,
+    "preclassifier_confidence_threshold": 0.9,
+    "classifier_confidence_threshold": 0.9,
+    "confidence_merge_factor": 1.0,
+    "correction_proximity_merge_factor": 1.0,
+    "image_containment_merge_factor": 1.0,
+    "cluster_merge_radius_factor": 1.5,
+    "ball_radius_enlargement_factor": 1.8,
+    "detection_noise": [8.0, 8.0],
+    "noise_increase_slope": 8.0,
+    "noise_increase_distance_threshold": 3.0
+  },
+  "camera_matrix_parameters": {
+    "intrinsics": {
+      "camera_pitch": 0,
+      "focal_lengths": [0.96666, 1.28574],
+      "cc_optical_center": [0.5, 0.5]
+    },
+    "extrinsics": {
+      "correction_in_robot": [0.0, 0.0, 0.0],
+      "correction_in_camera": [0.0, 0.0, 0.0]
+    }
   }
 }

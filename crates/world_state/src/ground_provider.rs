@@ -1,9 +1,10 @@
+use booster::ImuState;
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::{Field, Ground, Robot};
-use framework::MainOutput;
+use coordinate_systems::{Ground, Robot};
+use framework::{MainOutput, PerceptionInput};
 use linear_algebra::{vector, Isometry3, Orientation3};
 use types::{robot_kinematics::RobotKinematics, support_foot::Side};
 
@@ -16,8 +17,8 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
-    support_side: RequiredInput<Option<Side>, "support_foot.support_side?">,
-    robot_orientation: RequiredInput<Option<Orientation3<Field>>, "robot_orientation?">,
+    // support_side: RequiredInput<Option<Side>, "support_foot.support_side?">,
+    imu_state: PerceptionInput<ImuState, "Control", "imu_state">,
 }
 
 #[context]
@@ -36,7 +37,29 @@ impl GroundProvider {
         struct LeftSoleHorizontal;
         struct RightSoleHorizontal;
 
-        let (roll, pitch, _) = context.robot_orientation.inner.euler_angles();
+        let Some(imu_state) = &context
+            .imu_state
+            .persistent
+            .iter()
+            .chain(&context.imu_state.temporary)
+            .last()
+        else {
+            return Ok(MainOutputs {
+                ground_to_robot: None.into(),
+                robot_to_ground: None.into(),
+            });
+        };
+
+        let Some(imu_state) = imu_state.1.last() else {
+            return Ok(MainOutputs {
+                ground_to_robot: None.into(),
+                robot_to_ground: None.into(),
+            });
+        };
+
+        let roll = imu_state.roll_pitch_yaw.x();
+        let pitch = imu_state.roll_pitch_yaw.y();
+
         let imu_orientation = Orientation3::from_euler_angles(roll, pitch, 0.0).mirror();
 
         let left_sole_horizontal_to_robot = Isometry3::from_parts(
@@ -85,7 +108,10 @@ impl GroundProvider {
             ] / 2.0,
         );
 
-        let ground_to_robot = match context.support_side {
+        // todo: Rewrite control::ground_contact_detector
+        let support_side = Side::Left;
+
+        let ground_to_robot = match support_side {
             Side::Left => left_sole_horizontal_to_robot * ground_to_left_sole,
             Side::Right => right_sole_horizontal_to_robot * ground_to_right_sole, //ground_to_right_sole * robot_to_right_support_sole,
         };
