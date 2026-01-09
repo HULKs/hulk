@@ -2,7 +2,7 @@ use bevy::{ecs::system::SystemParam, prelude::*};
 
 use linear_algebra::{point, vector, Isometry2, Point2, Vector};
 use scenario::scenario;
-use spl_network_messages::{GameState, PlayerNumber};
+use hsl_network_messages::{GameState, PlayerNumber};
 use types::ball_position::SimulatorBallState;
 
 use bevyhavior_simulator::{

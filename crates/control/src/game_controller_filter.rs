@@ -9,7 +9,7 @@ use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use hardware::SpeakerInterface;
 use serde::{Deserialize, Serialize};
-use spl_network_messages::GameControllerStateMessage;
+use hsl_network_messages::GameControllerStateMessage;
 use types::{
     audio::{Sound, SpeakerRequest},
     cycle_time::CycleTime,
@@ -34,7 +34,7 @@ pub struct CreationContext {}
 pub struct CycleContext {
     hardware_interface: HardwareInterface,
     cycle_time: Input<CycleTime, "cycle_time">,
-    network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
+    network_message: PerceptionInput<Option<IncomingMessage>, "HslNetwork", "filtered_message?">,
 
     time_since_last_message_to_consider_ip_active:
         Parameter<Duration, "game_controller_filter.time_since_last_message_to_consider_ip_active">,

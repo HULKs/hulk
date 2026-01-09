@@ -10,7 +10,7 @@ use bevyhavior_simulator::{
 use geometry::{arc::Arc, circle::Circle, direction::Direction, line_segment::LineSegment};
 use linear_algebra::{point, vector, Isometry2, Orientation2, Point2};
 use scenario::scenario;
-use spl_network_messages::{GameState, PlayerNumber};
+use hsl_network_messages::{GameState, PlayerNumber};
 use types::{
     motion_command::{ArmMotion, HeadMotion, MotionCommand, OrientationMode, WalkSpeed},
     planned_path::{Path, PathSegment},

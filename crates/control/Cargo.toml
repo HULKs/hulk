@@ -38,7 +38,7 @@ rand = { workspace = true }
 rand_chacha = { workspace = true }
 serde = { workspace = true }
 smallvec = { workspace = true }
-spl_network_messages = { workspace = true }
+hsl_network_messages = { workspace = true }
 splines = { workspace = true }
 step_planning = { workspace = true }
 step_planning_solver = { workspace = true }

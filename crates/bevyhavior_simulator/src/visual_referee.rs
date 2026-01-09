@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use bevy::prelude::*;
-use spl_network_messages::Team;
+use hsl_network_messages::Team;
 use types::{field_dimensions::GlobalFieldSide, pose_kinds::PoseKind};
 
 const FREE_KICK_POSE_DURATION: Duration = Duration::from_secs(5);

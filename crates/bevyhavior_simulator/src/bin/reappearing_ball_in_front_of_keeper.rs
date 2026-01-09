@@ -8,7 +8,7 @@ use bevyhavior_simulator::{
 };
 use linear_algebra::point;
 use scenario::scenario;
-use spl_network_messages::{GameState, PlayerNumber};
+use hsl_network_messages::{GameState, PlayerNumber};
 use types::roles::Role;
 
 #[scenario]

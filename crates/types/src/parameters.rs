@@ -310,12 +310,12 @@ pub struct HeadMotionParameters {
 #[derive(
     Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
-pub struct SplNetworkParameters {
+pub struct HslNetworkParameters {
     pub game_controller_return_message_interval: Duration,
     pub remaining_amount_of_messages_to_stop_sending: u16,
     pub silence_interval_between_messages: Duration,
-    pub spl_striker_message_receive_timeout: Duration,
-    pub spl_striker_message_send_interval: Duration,
+    pub hsl_striker_message_receive_timeout: Duration,
+    pub hsl_striker_message_send_interval: Duration,
 }
 
 #[derive(

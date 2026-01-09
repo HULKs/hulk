@@ -15,7 +15,7 @@ use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use hardware::NetworkInterface;
 use linear_algebra::{distance, Isometry2};
-use spl_network_messages::{
+use hsl_network_messages::{
     GameControllerReturnMessage, GamePhase, HulkMessage, LoserMessage, Penalty, PlayerNumber,
     StrikerMessage, SubState, Team,
 };
@@ -27,7 +27,7 @@ use types::{
     filtered_game_controller_state::FilteredGameControllerState,
     initial_pose::InitialPose,
     messages::{IncomingMessage, OutgoingMessage},
-    parameters::SplNetworkParameters,
+    parameters::HslNetworkParameters,
     players::Players,
     primary_state::PrimaryState,
     roles::Role,
@@ -45,7 +45,7 @@ enum SentState {
 pub struct RoleAssignment {
     last_received_striker_message: Option<SystemTime>,
     last_system_time_transmitted_game_controller_return_message: Option<SystemTime>,
-    last_transmitted_spl_message: Option<SystemTime>,
+    last_transmitted_hsl_message: Option<SystemTime>,
     loser_since: Option<SystemTime>,
     role: Role,
     last_time_player_was_penalized: Players<Option<SystemTime>>,
@@ -69,7 +69,7 @@ pub struct CycleContext {
     primary_state: Input<PrimaryState, "primary_state">,
     ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
     cycle_time: Input<CycleTime, "cycle_time">,
-    network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
+    network_message: PerceptionInput<Option<IncomingMessage>, "HslNetwork", "filtered_message?">,
     game_controller_address: Input<Option<SocketAddr>, "game_controller_address?">,
     time_to_reach_kick_position: Input<Option<Duration>, "time_to_reach_kick_position?">,
     team_ball: Input<Option<BallPosition<Field>>, "team_ball?">,
@@ -87,7 +87,7 @@ pub struct CycleContext {
     initial_poses: Parameter<Players<InitialPose>, "localization.initial_poses">,
     optional_roles: Parameter<Vec<Role>, "behavior.optional_roles">,
     player_number: Parameter<PlayerNumber, "player_number">,
-    spl_network_parameters: Parameter<SplNetworkParameters, "spl_network">,
+    hsl_network_parameters: Parameter<HslNetworkParameters, "hsl_network">,
 
     hardware: HardwareInterface,
 
@@ -119,7 +119,7 @@ impl RoleAssignment {
         Ok(Self {
             last_received_striker_message: None,
             last_system_time_transmitted_game_controller_return_message: None,
-            last_transmitted_spl_message: None,
+            last_transmitted_hsl_message: None,
             loser_since: None,
             role,
             last_time_player_was_penalized: Players::new(None),
@@ -272,15 +272,15 @@ impl RoleAssignment {
         cycle_start_time: SystemTime,
         current_role: Role,
     ) -> Role {
-        let spl_striker_message_timeout = match self.last_received_striker_message {
+        let hsl_striker_message_timeout = match self.last_received_striker_message {
             None => false,
-            Some(last_received_spl_striker_message) => {
+            Some(last_received_hsl_striker_message) => {
                 if cycle_start_time
-                    .duration_since(last_received_spl_striker_message)
+                    .duration_since(last_received_hsl_striker_message)
                     .expect("time ran backwards")
                     > context
-                        .spl_network_parameters
-                        .spl_striker_message_receive_timeout
+                        .hsl_network_parameters
+                        .hsl_striker_message_receive_timeout
                 {
                     self.last_received_striker_message = None;
                     true
@@ -289,7 +289,7 @@ impl RoleAssignment {
                 }
             }
         };
-        let striker_message_timeout_event = spl_striker_message_timeout
+        let striker_message_timeout_event = hsl_striker_message_timeout
             .then_some(Event::Loser)
             .into_iter();
 
@@ -299,7 +299,7 @@ impl RoleAssignment {
             .iter()
             .flat_map(|(time, messages)| messages.iter().map(|message| (*time, message)))
             .filter_map(|(time, message)| match message {
-                Some(IncomingMessage::Spl(HulkMessage::Striker(StrikerMessage {
+                Some(IncomingMessage::Hsl(HulkMessage::Striker(StrikerMessage {
                     player_number,
                     time_to_reach_kick_position,
                     ball_position,
@@ -309,7 +309,7 @@ impl RoleAssignment {
                     time_to_reach_kick_position: *time_to_reach_kick_position,
                     ball_position: BallPosition::from_network_ball(*ball_position, time),
                 })),
-                Some(IncomingMessage::Spl(HulkMessage::Loser(..))) => Some(Event::Loser),
+                Some(IncomingMessage::Hsl(HulkMessage::Loser(..))) => Some(Event::Loser),
                 _ => None,
             })
             .collect();
@@ -362,7 +362,7 @@ impl RoleAssignment {
             context.cycle_time.start_time,
             self.last_system_time_transmitted_game_controller_return_message,
             context
-                .spl_network_parameters
+                .hsl_network_parameters
                 .game_controller_return_message_interval,
         )
     }
@@ -373,10 +373,10 @@ impl RoleAssignment {
     ) -> bool {
         is_cooldown_elapsed(
             context.cycle_time.start_time,
-            self.last_transmitted_spl_message,
+            self.last_transmitted_hsl_message,
             context
-                .spl_network_parameters
-                .spl_striker_message_send_interval,
+                .hsl_network_parameters
+                .hsl_striker_message_send_interval,
         )
     }
 
@@ -386,9 +386,9 @@ impl RoleAssignment {
     ) -> bool {
         is_cooldown_elapsed(
             context.cycle_time.start_time,
-            self.last_transmitted_spl_message,
+            self.last_transmitted_hsl_message,
             context
-                .spl_network_parameters
+                .hsl_network_parameters
                 .silence_interval_between_messages,
         )
     }
@@ -436,14 +436,14 @@ impl RoleAssignment {
             .is_some_and(|remaining_amount_of_messages| {
                 *remaining_amount_of_messages
                     < context
-                        .spl_network_parameters
+                        .hsl_network_parameters
                         .remaining_amount_of_messages_to_stop_sending
             })
         {
             return Ok(());
         }
 
-        self.last_transmitted_spl_message = Some(context.cycle_time.start_time);
+        self.last_transmitted_hsl_message = Some(context.cycle_time.start_time);
         self.last_received_striker_message = None;
 
         let ground_to_field = ground_to_field_or_initial_pose(context);
@@ -468,7 +468,7 @@ impl RoleAssignment {
             .fill_if_subscribed(|| "Striker".to_string());
         context
             .hardware
-            .write_to_network(OutgoingMessage::Spl(HulkMessage::Striker(StrikerMessage {
+            .write_to_network(OutgoingMessage::Hsl(HulkMessage::Striker(StrikerMessage {
                 player_number: *context.player_number,
                 pose,
                 ball_position,
@@ -486,7 +486,7 @@ impl RoleAssignment {
             .is_some_and(|remaining_amount_of_messages| {
                 *remaining_amount_of_messages
                     < context
-                        .spl_network_parameters
+                        .hsl_network_parameters
                         .remaining_amount_of_messages_to_stop_sending
             })
         {
@@ -498,7 +498,7 @@ impl RoleAssignment {
         }
         self.last_sent_state = SentState::Loser;
 
-        self.last_transmitted_spl_message = Some(context.cycle_time.start_time);
+        self.last_transmitted_hsl_message = Some(context.cycle_time.start_time);
         self.last_received_striker_message = None;
 
         let ground_to_field = ground_to_field_or_initial_pose(context);
@@ -507,7 +507,7 @@ impl RoleAssignment {
             .fill_if_subscribed(|| "Loser".to_string());
         context
             .hardware
-            .write_to_network(OutgoingMessage::Spl(HulkMessage::Loser(LoserMessage {
+            .write_to_network(OutgoingMessage::Hsl(HulkMessage::Loser(LoserMessage {
                 player_number: *context.player_number,
                 pose: ground_to_field.as_pose(),
             })))
@@ -714,7 +714,7 @@ fn role_for_penalty_kick(
         .iter()
         .flat_map(|(time, messages)| messages.iter().map(|message| (*time, message)))
         .filter_map(|(time, message)| match message {
-            Some(IncomingMessage::Spl(HulkMessage::Striker(StrikerMessage {
+            Some(IncomingMessage::Hsl(HulkMessage::Striker(StrikerMessage {
                 player_number,
                 time_to_reach_kick_position,
                 ball_position,
@@ -724,7 +724,7 @@ fn role_for_penalty_kick(
                 time_to_reach_kick_position: *time_to_reach_kick_position,
                 ball_position: BallPosition::from_network_ball(*ball_position, time),
             })),
-            Some(IncomingMessage::Spl(HulkMessage::Loser(..))) => Some(Event::Loser),
+            Some(IncomingMessage::Hsl(HulkMessage::Loser(..))) => Some(Event::Loser),
             _ => None,
         })
         .collect();
@@ -817,8 +817,8 @@ fn claim_striker_or_other_role(
 fn seen_ball_to_game_controller_ball_position(
     ball: Option<&BallPosition<Ground>>,
     cycle_start_time: SystemTime,
-) -> Option<spl_network_messages::BallPosition<Ground>> {
-    ball.map(|ball| spl_network_messages::BallPosition {
+) -> Option<hsl_network_messages::BallPosition<Ground>> {
+    ball.map(|ball| hsl_network_messages::BallPosition {
         age: cycle_start_time.duration_since(ball.last_seen).unwrap(),
         position: ball.position,
     })
@@ -828,8 +828,8 @@ fn own_ball_to_hulks_network_ball_position(
     ball: BallPosition<Ground>,
     ground_to_field: Isometry2<Ground, Field>,
     cycle_start_time: SystemTime,
-) -> spl_network_messages::BallPosition<Field> {
-    spl_network_messages::BallPosition {
+) -> hsl_network_messages::BallPosition<Field> {
+    hsl_network_messages::BallPosition {
         age: cycle_start_time.duration_since(ball.last_seen).unwrap(),
         position: ground_to_field * ball.position,
     }
@@ -838,8 +838,8 @@ fn own_ball_to_hulks_network_ball_position(
 fn team_ball_to_network_ball_position(
     team_ball: BallPosition<Field>,
     cycle_start_time: SystemTime,
-) -> spl_network_messages::BallPosition<Field> {
-    spl_network_messages::BallPosition {
+) -> hsl_network_messages::BallPosition<Field> {
+    hsl_network_messages::BallPosition {
         age: cycle_start_time
             .duration_since(team_ball.last_seen)
             .unwrap(),

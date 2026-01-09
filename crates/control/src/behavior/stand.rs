@@ -1,4 +1,4 @@
-use spl_network_messages::{GamePhase, SubState, Team};
+use hsl_network_messages::{GamePhase, SubState, Team};
 use types::{
     field_dimensions::{FieldDimensions, Half},
     filtered_game_controller_state::FilteredGameControllerState,

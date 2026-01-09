@@ -6,7 +6,7 @@ use std::{
 use chrono::Utc;
 use color_eyre::{eyre::WrapErr, Result};
 use serde::{de::Error as DeserializeError, Deserialize, Deserializer};
-use spl_network_messages::PlayerNumber;
+use hsl_network_messages::PlayerNumber;
 use tokio::fs::read_to_string;
 use toml::from_str;
 

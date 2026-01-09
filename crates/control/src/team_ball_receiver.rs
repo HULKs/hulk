@@ -10,7 +10,7 @@ use context_attribute::context;
 use coordinate_systems::Field;
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use linear_algebra::{Point2, Vector2};
-use spl_network_messages::{GamePhase, HulkMessage, SubState};
+use hsl_network_messages::{GamePhase, HulkMessage, SubState};
 use types::{
     ball_position::BallPosition, cycle_time::CycleTime,
     filtered_game_controller_state::FilteredGameControllerState,
@@ -31,7 +31,7 @@ pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
     filtered_game_controller_state:
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
-    network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
+    network_message: PerceptionInput<Option<IncomingMessage>, "Network", "filtered_message?">,
 
     maximum_age: Parameter<Duration, "team_ball.maximum_age">,
 
@@ -52,7 +52,7 @@ impl TeamBallReceiver {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        let messages = get_spl_messages(&context.network_message.persistent);
+        let messages = get_hsl_messages(&context.network_message.persistent);
         for (time, message) in messages {
             self.process_message(time, message);
         }
@@ -136,7 +136,7 @@ impl TeamBallReceiver {
     }
 }
 
-pub fn get_spl_messages<'a>(
+pub fn get_hsl_messages<'a>(
     persistent_messages: &'a BTreeMap<SystemTime, Vec<Option<&'_ IncomingMessage>>>,
 ) -> impl Iterator<Item = (SystemTime, HulkMessage)> + 'a {
     persistent_messages
@@ -147,7 +147,7 @@ pub fn get_spl_messages<'a>(
                 .filter_map(|message| Some((*time, (*message)?)))
         })
         .filter_map(|(time, message)| match message {
-            IncomingMessage::Spl(message) => Some((time, *message)),
+            IncomingMessage::Hsl(message) => Some((time, *message)),
             _ => None,
         })
 }

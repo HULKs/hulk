@@ -8,7 +8,7 @@ use bevyhavior_simulator::{
 };
 use linear_algebra::{point, Vector2};
 use scenario::scenario;
-use spl_network_messages::{GameState, PlayerNumber};
+use hsl_network_messages::{GameState, PlayerNumber};
 use types::roles::Role;
 
 /// Regression test against an offensive keeper staying loser and never returning to the goal when losing the ball.

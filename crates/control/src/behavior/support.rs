@@ -4,7 +4,7 @@ use coordinate_systems::{Field, Ground};
 use framework::AdditionalOutput;
 use geometry::look_at::LookAt;
 use linear_algebra::{point, Pose2, Rotation2, Vector2};
-use spl_network_messages::SubState;
+use hsl_network_messages::SubState;
 use types::{
     field_dimensions::{FieldDimensions, Side},
     filtered_game_controller_state::FilteredGameControllerState,

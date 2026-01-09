@@ -9,7 +9,7 @@ use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{distance, Isometry2, Point2, Vector2};
 use serde::{Deserialize, Serialize};
-use spl_network_messages::{GamePhase, GameState, Penalty, PlayerNumber, SubState, Team};
+use hsl_network_messages::{GamePhase, GameState, Penalty, PlayerNumber, SubState, Team};
 use types::{
     ball_position::BallPosition,
     cycle_time::CycleTime,

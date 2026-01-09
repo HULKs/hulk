@@ -5,7 +5,7 @@ use context_attribute::context;
 use coordinate_systems::{Field, Ground, UpcomingSupport};
 use framework::MainOutput;
 use linear_algebra::{Isometry2, Point2};
-use spl_network_messages::PlayerNumber;
+use hsl_network_messages::PlayerNumber;
 use types::{
     ball_position::HypotheticalBallPosition,
     calibration::CalibrationCommand,

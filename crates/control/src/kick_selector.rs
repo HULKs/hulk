@@ -12,7 +12,7 @@ use linear_algebra::{
     distance, point, vector, IntoFramed, Isometry2, Orientation2, Point, Point2, Pose2, Rotation2,
     Vector2,
 };
-use spl_network_messages::{GamePhase, SubState, Team};
+use hsl_network_messages::{GamePhase, SubState, Team};
 use types::{
     field_dimensions::{self, FieldDimensions, Half},
     filtered_game_controller_state::FilteredGameControllerState,

@@ -4,7 +4,7 @@ use bevy::prelude::*;
 
 use linear_algebra::{vector, Isometry2};
 use scenario::scenario;
-use spl_network_messages::{GameState, PlayerNumber, Team};
+use hsl_network_messages::{GameState, PlayerNumber, Team};
 use types::action::Action;
 
 use bevyhavior_simulator::{
@@ -43,7 +43,7 @@ fn update(
 
     // Penalize all except golkipör
     if time.ticks() == 4000 {
-        let penalty = spl_network_messages::Penalty::Manual {
+        let penalty = hsl_network_messages::Penalty::Manual {
             remaining: Duration::from_secs(5),
         };
         for player_numer in [

@@ -10,7 +10,7 @@ use framework::{AdditionalOutput, MainOutput};
 use hardware::{NetworkInterface, PathsInterface};
 use linear_algebra::{center, distance, Isometry2, Point2, Rotation2};
 use projection::{camera_matrix::CameraMatrix, Projection};
-use spl_network_messages::PlayerNumber;
+use hsl_network_messages::PlayerNumber;
 use types::{
     field_dimensions::GlobalFieldSide,
     pose_detection::{HumanPose, Keypoints, RefereePoseCandidate},

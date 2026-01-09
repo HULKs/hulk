@@ -10,12 +10,12 @@ use serde::{Deserialize, Serialize};
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use hardware::NetworkInterface;
-use spl_network_messages::{GameState, HulkMessage, PlayerNumber, VisualRefereeMessage};
+use hsl_network_messages::{GameState, HulkMessage, PlayerNumber, VisualRefereeMessage};
 use types::{
     cycle_time::CycleTime,
     game_controller_state::GameControllerState,
     messages::{IncomingMessage, OutgoingMessage},
-    parameters::SplNetworkParameters,
+    parameters::HslNetworkParameters,
     players::Players,
     pose_detection::{ReadySignalDetectionResult, ReadySignalState},
     pose_kinds::PoseKind,
@@ -40,7 +40,7 @@ pub struct CycleContext {
     hardware_interface: HardwareInterface,
 
     referee_pose_kind: PerceptionInput<Option<PoseKind>, "ObjectDetection", "referee_pose_kind?">,
-    network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
+    network_message: PerceptionInput<Option<IncomingMessage>, "HslNetwork", "filtered_message?">,
 
     game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
 
@@ -56,7 +56,7 @@ pub struct CycleContext {
         Parameter<usize, "ready_signal_detection_filter.minimum_number_poses_before_message">,
     message_grace_period: Parameter<Duration, "ready_signal_detection_filter.message_grace_period">,
     message_interval: Parameter<Duration, "ready_signal_detection_filter.message_interval">,
-    spl_network_parameters: Parameter<SplNetworkParameters, "spl_network">,
+    hsl_network_parameters: Parameter<HslNetworkParameters, "Hsl_network">,
 
     ready_signal_detection_times:
         AdditionalOutput<Players<Option<SystemTime>>, "player_referee_detection_times">,
@@ -160,7 +160,7 @@ impl ReadySignalDetectionFilter {
                 |remaining_amount_of_messages| {
                     *remaining_amount_of_messages
                         > context
-                            .spl_network_parameters
+                            .hsl_network_parameters
                             .remaining_amount_of_messages_to_stop_sending
                 },
             ) {
@@ -226,7 +226,7 @@ fn unpack_other_detections(
         .iter()
         .flat_map(|(time, messages)| messages.iter().map(|message| (*time, message)))
         .filter_map(|(time, message)| match message {
-            Some(IncomingMessage::Spl(HulkMessage::VisualReferee(message))) => {
+            Some(IncomingMessage::Hsl(HulkMessage::VisualReferee(message))) => {
                 Some((time, *message))
             }
             _ => None,
@@ -251,7 +251,7 @@ fn send_own_detection_message<T: NetworkInterface>(
     hardware_interface: Arc<T>,
     player_number: PlayerNumber,
 ) -> Result<()> {
-    hardware_interface.write_to_network(OutgoingMessage::Spl(HulkMessage::VisualReferee(
+    hardware_interface.write_to_network(OutgoingMessage::Hsl(HulkMessage::VisualReferee(
         VisualRefereeMessage {
             player_number,
             kicking_team: None,

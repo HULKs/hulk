@@ -9,4 +9,4 @@ homepage.workspace = true
 color-eyre = { workspace = true }
 regex = { workspace = true }
 robot = { workspace = true }
-spl_network_messages = { workspace = true }
+hsl_network_messages = { workspace = true }

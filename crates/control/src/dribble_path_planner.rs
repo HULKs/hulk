@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use color_eyre::{eyre::Ok, Result};
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
-use spl_network_messages::Team;
+use hsl_network_messages::Team;
 use types::{
     dribble_path_plan::DribblePathPlan,
     field_dimensions::FieldDimensions,

@@ -52,17 +52,17 @@
 
 #define PENALTY_NONE                          0
 // SPL
-#define PENALTY_SPL_ILLEGAL_BALL_CONTACT      1 // ball holding / playing with hands
-#define PENALTY_SPL_PLAYER_PUSHING            2
-#define PENALTY_SPL_ILLEGAL_MOTION_IN_SET     3 // heard whistle too early?
-#define PENALTY_SPL_INACTIVE_PLAYER           4 // fallen, inactive
-#define PENALTY_SPL_ILLEGAL_POSITION          5
-#define PENALTY_SPL_LEAVING_THE_FIELD         6
-#define PENALTY_SPL_REQUEST_FOR_PICKUP        7
-#define PENALTY_SPL_LOCAL_GAME_STUCK          8
-#define PENALTY_SPL_ILLEGAL_POSITION_IN_SET   9
-#define PENALTY_SPL_PLAYER_STANCE             10
-#define PENALTY_SPL_ILLEGAL_MOTION_IN_STANDBY 11
+#define PENALTY_HSL_ILLEGAL_BALL_CONTACT      1 // ball holding / playing with hands
+#define PENALTY_HSL_PLAYER_PUSHING            2
+#define PENALTY_HSL_ILLEGAL_MOTION_IN_SET     3 // heard whistle too early?
+#define PENALTY_HSL_INACTIVE_PLAYER           4 // fallen, inactive
+#define PENALTY_HSL_ILLEGAL_POSITION          5
+#define PENALTY_HSL_LEAVING_THE_FIELD         6
+#define PENALTY_HSL_REQUEST_FOR_PICKUP        7
+#define PENALTY_HSL_LOCAL_GAME_STUCK          8
+#define PENALTY_HSL_ILLEGAL_POSITION_IN_SET   9
+#define PENALTY_HSL_PLAYER_STANCE             10
+#define PENALTY_HSL_ILLEGAL_MOTION_IN_STANDBY 11
 
 #define PENALTY_SUBSTITUTE                    14
 #define PENALTY_MANUAL                        15

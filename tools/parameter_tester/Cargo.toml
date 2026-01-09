@@ -25,7 +25,7 @@ projection = { workspace = true }
 repository = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-spl_network_messages = { workspace = true }
+hsl_network_messages = { workspace = true }
 step_planning = { workspace = true }
 types = { workspace = true }
 walking_inference = { workspace = true }

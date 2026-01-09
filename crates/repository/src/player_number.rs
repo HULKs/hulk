@@ -4,7 +4,7 @@ use parameters::{
     directory::{serialize, Id, Location, Scope},
     json::nest_value_at_path,
 };
-use spl_network_messages::PlayerNumber;
+use hsl_network_messages::PlayerNumber;
 
 use crate::Repository;
 

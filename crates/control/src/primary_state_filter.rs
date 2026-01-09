@@ -5,7 +5,7 @@ use context_attribute::context;
 use framework::MainOutput;
 use hardware::{RecordingInterface, SpeakerInterface};
 use serde::{Deserialize, Serialize};
-use spl_network_messages::PlayerNumber;
+use hsl_network_messages::PlayerNumber;
 use types::{
     audio::{Sound, SpeakerRequest},
     buttons::Buttons,

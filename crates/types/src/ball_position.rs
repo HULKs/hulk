@@ -17,7 +17,7 @@ pub struct BallPosition<Frame> {
 
 impl<Frame> BallPosition<Frame> {
     pub fn from_network_ball(
-        network_ball: spl_network_messages::BallPosition<Frame>,
+        network_ball: hsl_network_messages::BallPosition<Frame>,
         message_time: SystemTime,
     ) -> Self {
         Self {

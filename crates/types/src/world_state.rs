@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use coordinate_systems::{Field, Ground, UpcomingSupport};
 use linear_algebra::{Isometry2, Point2, Vector2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
-use spl_network_messages::PlayerNumber;
+use hsl_network_messages::PlayerNumber;
 
 use crate::{
     ball_position::HypotheticalBallPosition, calibration::CalibrationCommand,

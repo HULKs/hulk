@@ -2,7 +2,7 @@ use std::{collections::HashMap, time::Duration};
 
 use path_serde::{PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use spl_network_messages::{GamePhase, Penalty, PlayerNumber, SubState, Team};
+use hsl_network_messages::{GamePhase, Penalty, PlayerNumber, SubState, Team};
 
 use crate::{
     field_dimensions::GlobalFieldSide, filtered_game_state::FilteredGameState, players::Players,

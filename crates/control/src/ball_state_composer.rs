@@ -7,7 +7,7 @@ use filtering::hysteresis::greater_than_with_hysteresis;
 use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{point, Isometry2, Point2, Vector2};
 use serde::{Deserialize, Serialize};
-use spl_network_messages::{GamePhase, SubState, Team};
+use hsl_network_messages::{GamePhase, SubState, Team};
 use types::{
     ball_position::BallPosition,
     cycle_time::CycleTime,

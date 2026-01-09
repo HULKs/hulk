@@ -4,7 +4,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::{MainOutput, PerceptionInput};
 use serde::{Deserialize, Serialize};
-use spl_network_messages::Team;
+use hsl_network_messages::Team;
 use types::{
     ball_detection::BallPercept,
     color::Rgb,
@@ -43,7 +43,7 @@ pub struct CycleContext {
     detected_free_kick_kicking_team: Input<Option<Team>, "detected_free_kick_kicking_team?">,
 
     balls: PerceptionInput<Option<Vec<BallPercept>>, "Vision", "balls?">,
-    network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
+    network_message: PerceptionInput<Option<IncomingMessage>, "HslNetwork", "filtered_message?">,
     sensor_data: Input<SensorData, "sensor_data">,
 }
 

@@ -7,7 +7,7 @@ use context_attribute::context;
 use coordinate_systems::Field;
 use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{point, Point2};
-use spl_network_messages::{GamePhase, PlayerNumber, SubState, Team};
+use hsl_network_messages::{GamePhase, PlayerNumber, SubState, Team};
 use types::{
     action::Action,
     cycle_time::CycleTime,

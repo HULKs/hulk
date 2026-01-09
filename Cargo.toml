@@ -44,8 +44,8 @@ members = [
   "crates/ros2",
   "crates/simulation_message",
   "crates/source_analyzer",
-  "crates/spl_network",
-  "crates/spl_network_messages",
+  "crates/hsl_network",
+  "crates/hsl_network_messages",
   "crates/step_planning",
   "crates/step_planning_solver",
   "crates/types",
@@ -229,8 +229,8 @@ simba = "0.9.0"
 simulation_message = { path = "crates/simulation_message" }
 smallvec = "1.14.0"
 source_analyzer = { path = "crates/source_analyzer" }
-spl_network = { path = "crates/spl_network" }
-spl_network_messages = { path = "crates/spl_network_messages" }
+hsl_network = { path = "crates/hsl_network" }
+hsl_network_messages = { path = "crates/hsl_network_messages" }
 splines = { version = "=4.2.0", features = ["serde"] }
 step_planning = { path = "crates/step_planning" }
 step_planning_solver = { path = "crates/step_planning_solver" }

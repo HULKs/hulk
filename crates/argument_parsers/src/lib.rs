@@ -11,7 +11,7 @@ use color_eyre::{
 use regex::Regex;
 
 use robot::{Network, SystemctlAction};
-use spl_network_messages::PlayerNumber;
+use hsl_network_messages::PlayerNumber;
 
 pub const SYSTEMCTL_ACTION_POSSIBLE_VALUES: &[&str] =
     &["disable", "enable", "restart", "start", "status", "stop"];
