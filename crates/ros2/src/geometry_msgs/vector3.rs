@@ -5,6 +5,7 @@
 /// When a transform is applied to a vector, only the rotational component is applied.
 use serde::{Deserialize, Serialize};
 
+#[repr(C)]
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Vector3 {
     pub x: f64,

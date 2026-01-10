@@ -32,7 +32,6 @@ members = [
   "crates/kinematics",
   "crates/linear_algebra",
   "crates/motionfile",
-  "crates/nao",
   "crates/object_detection",
   "crates/opn",
   "crates/parameters",
@@ -41,6 +40,7 @@ members = [
   "crates/projection",
   "crates/ransac",
   "crates/repository",
+  "crates/robot",
   "crates/ros2",
   "crates/simulation_message",
   "crates/source_analyzer",
@@ -168,7 +168,6 @@ nalgebra = { version = "0.33.2", features = [
   "serde",
   "serde-serialize",
 ] }
-nao = { path = "crates/nao" }
 ndarray = { version = "0.16.1", features = ["serde"] }
 ndarray-conv = "0.4.1"
 nix = { version = "0.29", features = ["ioctl"] }
@@ -213,6 +212,7 @@ regex = "1.11.1"
 repository = { path = "crates/repository" }
 reqwest = { version = "0.12.12", features = ["blocking"] }
 rmp-serde = "1.3.0"
+robot = { path = "crates/robot" }
 ros2 = { path = "crates/ros2" }
 rustfft = "6.2.0"
 scenario = { path = "crates/scenario" }

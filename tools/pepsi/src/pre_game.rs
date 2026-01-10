@@ -6,10 +6,10 @@ use color_eyre::{
     Result,
 };
 
-use argument_parsers::NaoAddress;
+use argument_parsers::RobotAddress;
 use indicatif::ProgressBar;
-use nao::{Nao, Network, SystemctlAction};
 use repository::{upload::get_hulk_binary, Repository};
+use robot::{Network, Robot, SystemctlAction};
 use tempfile::tempdir;
 
 use crate::{
@@ -61,8 +61,8 @@ pub struct PreGameArguments {
     /// Prepare everything for the upload without performing the actual one
     #[arg(long)]
     pub prepare: bool,
-    /// The NAOs to apply the pregame to, queried from the deploy.toml if not specified
-    pub naos: Option<Vec<NaoAddress>>,
+    /// The Robots to apply the pregame to, queried from the deploy.toml if not specified
+    pub robots: Option<Vec<RobotAddress>>,
 }
 
 pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<()> {
@@ -79,16 +79,16 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
         config.recording_intervals = HashMap::from_iter(recording_intervals.iter().cloned());
     }
 
-    let playing_naos = config.playing_naos()?;
-    let naos = if let Some(naos) = &arguments.pre_game.naos {
-        for nao in naos {
-            if !playing_naos.contains(nao) {
-                bail!("NAO with IP {nao} is not one of the playing NAOs in the deploy.toml");
+    let playing_robots = config.playing_robots()?;
+    let robots = if let Some(robots) = &arguments.pre_game.robots {
+        for robot in robots {
+            if !playing_robots.contains(robot) {
+                bail!("Robot with IP {robot} is not one of the playing Robots in the deploy.toml");
             }
         }
-        naos
+        robots
     } else {
-        &playing_naos
+        &playing_robots
     };
     let wifi = config.wifi;
 
@@ -130,11 +130,11 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
     let upload_directory = &upload_directory;
 
     ProgressIndicator::map_tasks(
-        naos,
+        robots,
         "Executing pregame tasks",
-        |nao_address, progress_bar| async move {
-            setup_nao(
-                nao_address,
+        |robot_address, progress_bar| async move {
+            setup_robot(
+                robot_address,
                 upload_directory,
                 arguments,
                 wifi,
@@ -169,60 +169,69 @@ async fn run_parameter_tester(
         .wrap_err("failed to run parameter tester")
 }
 
-async fn setup_nao(
-    nao_address: &NaoAddress,
+async fn setup_robot(
+    robot_address: &RobotAddress,
     upload_directory: impl AsRef<Path>,
     arguments: &PreGameArguments,
     wifi: Network,
     progress: ProgressBar,
     repository: &Repository,
 ) -> Result<()> {
-    progress.set_message("Pinging NAO...");
-    let nao = Nao::ping_until_available(nao_address.ip).await;
+    progress.set_message("Pinging Robot...");
+    let robot = Robot::ping_until_available(robot_address.ip).await;
 
     if !arguments.skip_os_check {
         progress.set_message("Checking OS version...");
-        let nao_os_version = nao
+        let robot_os_version = robot
             .get_os_version()
             .await
-            .wrap_err_with(|| format!("failed to get OS version of {nao_address}"))?;
+            .wrap_err_with(|| format!("failed to get OS version of {robot_address}"))?;
         let expected_os_version = repository
             .read_os_version()
             .await
             .wrap_err("failed to get configured OS version")?;
-        if nao_os_version != expected_os_version {
-            bail!("mismatched OS versions: Expected {expected_os_version}, found {nao_os_version}");
+        if robot_os_version != expected_os_version {
+            bail!(
+                "mismatched OS versions: Expected {expected_os_version}, found {robot_os_version}"
+            );
         }
     }
 
     progress.set_message("Stopping HULK...");
-    nao.execute_systemctl(SystemctlAction::Stop, "hulk")
+    robot
+        .execute_systemctl(SystemctlAction::Stop, "hulk")
         .await
-        .wrap_err_with(|| format!("failed to stop HULK service on {nao_address}"))?;
+        .wrap_err_with(|| format!("failed to stop HULK service on {robot_address}"))?;
 
     progress.set_message("Uploading: ...");
-    nao.upload(upload_directory, "hulk", !arguments.no_clean, |status| {
-        progress.set_message(format!("Uploading: {status}"))
-    })
-    .await
-    .wrap_err_with(|| format!("failed to upload binary to {nao_address}"))?;
+    robot
+        .upload(upload_directory, "hulk", !arguments.no_clean, |status| {
+            progress.set_message(format!("Uploading: {status}"))
+        })
+        .await
+        .wrap_err_with(|| format!("failed to upload binary to {robot_address}"))?;
 
     if wifi != Network::None {
         progress.set_message("Scanning for WiFi...");
-        nao.scan_networks()
+        robot
+            .scan_networks()
             .await
-            .wrap_err_with(|| format!("failed to scan for networks on {nao_address}"))?;
+            .wrap_err_with(|| format!("failed to scan for networks on {robot_address}"))?;
     }
 
     progress.set_message("Setting WiFi...");
-    nao.set_wifi(wifi)
+    robot
+        .set_wifi(wifi)
         .await
-        .wrap_err_with(|| format!("failed to set network on {nao_address}"))?;
+        .wrap_err_with(|| format!("failed to set network on {robot_address}"))?;
 
     if !arguments.no_restart {
         progress.set_message("Restarting HULK...");
-        if let Err(error) = nao.execute_systemctl(SystemctlAction::Start, "hulk").await {
-            let logs = nao
+        if let Err(error) = robot
+            .execute_systemctl(SystemctlAction::Start, "hulk")
+            .await
+        {
+            let logs = robot
                 .retrieve_logs()
                 .await
                 .wrap_err("failed to retrieve logs")?;

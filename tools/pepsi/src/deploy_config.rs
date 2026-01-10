@@ -11,10 +11,10 @@ use tokio::fs::read_to_string;
 use toml::from_str;
 
 use argument_parsers::{
-    parse_network, NaoAddress, NaoAddressPlayerAssignment, NaoNumberPlayerAssignment,
+    parse_network, RobotAddress, RobotAddressPlayerAssignment, RobotNumberPlayerAssignment,
 };
-use nao::Network;
 use repository::Repository;
+use robot::Network;
 
 use crate::player_number::{check_for_duplication, player_number, Arguments};
 
@@ -28,9 +28,9 @@ pub struct DeployConfig {
     pub base: String,
     pub branches: Vec<Branch>,
     #[serde(deserialize_with = "deserialize_assignments")]
-    pub assignments: Vec<NaoAddressPlayerAssignment>,
+    pub assignments: Vec<RobotAddressPlayerAssignment>,
     #[serde(deserialize_with = "deserialize_assignments")]
-    pub substitutions: Vec<NaoAddressPlayerAssignment>,
+    pub substitutions: Vec<RobotAddressPlayerAssignment>,
     pub with_communication: bool,
     pub recording_intervals: HashMap<String, usize>,
 }
@@ -65,18 +65,18 @@ impl DeployConfig {
         branch_name
     }
 
-    pub fn playing_naos(&self) -> Result<Vec<NaoAddress>> {
+    pub fn playing_robots(&self) -> Result<Vec<RobotAddress>> {
         Ok(self
             .assignments_with_substitutions()?
             .into_values()
             .collect())
     }
 
-    pub fn all_naos(&self) -> BTreeSet<NaoAddress> {
+    pub fn all_robots(&self) -> BTreeSet<RobotAddress> {
         self.assignments
             .iter()
             .chain(&self.substitutions)
-            .map(|assignment| assignment.nao_address)
+            .map(|assignment| assignment.robot_address)
             .collect()
     }
 
@@ -86,16 +86,16 @@ impl DeployConfig {
                 assignments: self
                     .assignments_with_substitutions()?
                     .into_iter()
-                    .map(|(player_number, nao_address)| {
-                        nao_address
+                    .map(|(player_number, robot_address)| {
+                        robot_address
                             .try_into()
-                            .map(|nao_number| NaoNumberPlayerAssignment {
-                                nao_number,
+                            .map(|robot_number| RobotNumberPlayerAssignment {
+                                robot_number,
                                 player_number,
                             })
                     })
                     .collect::<Result<Vec<_>, _>>()
-                    .wrap_err("failed to convert NAO addresses to NAO numbers")?,
+                    .wrap_err("failed to convert Robot addresses to Robot numbers")?,
             },
             repository,
         )
@@ -108,9 +108,9 @@ impl DeployConfig {
             .wrap_err("failed to apply recording settings")?;
 
         repository
-            .set_location("nao", &self.location)
+            .set_location("robot", &self.location)
             .await
-            .wrap_err_with(|| format!("failed to set location for nao to {}", self.location))?;
+            .wrap_err_with(|| format!("failed to set location for robot to {}", self.location))?;
 
         repository
             .configure_communication(self.with_communication)
@@ -120,7 +120,7 @@ impl DeployConfig {
         Ok(())
     }
 
-    fn assignments_with_substitutions(&self) -> Result<HashMap<PlayerNumber, NaoAddress>> {
+    fn assignments_with_substitutions(&self) -> Result<HashMap<PlayerNumber, RobotAddress>> {
         let initial_assignments = self
             .assignments
             .iter()
@@ -132,11 +132,11 @@ impl DeployConfig {
         let mut assignments: HashMap<_, _> = self
             .assignments
             .iter()
-            .map(|assignment| (assignment.player_number, assignment.nao_address))
+            .map(|assignment| (assignment.player_number, assignment.robot_address))
             .collect();
 
         for substitution in &self.substitutions {
-            assignments.insert(substitution.player_number, substitution.nao_address);
+            assignments.insert(substitution.player_number, substitution.robot_address);
         }
 
         Ok(assignments)
@@ -153,7 +153,9 @@ where
     parse_network(&network).map_err(|error| E::custom(format!("{error:?}")))
 }
 
-fn deserialize_assignments<'de, D, E>(deserializer: D) -> Result<Vec<NaoAddressPlayerAssignment>, E>
+fn deserialize_assignments<'de, D, E>(
+    deserializer: D,
+) -> Result<Vec<RobotAddressPlayerAssignment>, E>
 where
     D: Deserializer<'de>,
     E: DeserializeError + From<D::Error>,
@@ -163,7 +165,7 @@ where
     assignments
         .into_iter()
         .map(|assignment| {
-            NaoAddressPlayerAssignment::from_str(&assignment)
+            RobotAddressPlayerAssignment::from_str(&assignment)
                 .map_err(|error| E::custom(format!("{error:?}")))
         })
         .collect()

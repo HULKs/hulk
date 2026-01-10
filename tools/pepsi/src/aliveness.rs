@@ -12,7 +12,7 @@ use aliveness::{
     service_manager::{ServiceState, SystemServices},
     AlivenessError, AlivenessState, Battery, JointsArray,
 };
-use argument_parsers::NaoAddress;
+use argument_parsers::RobotAddress;
 use repository::Repository;
 use tracing::error;
 
@@ -27,8 +27,8 @@ pub struct Arguments {
     /// Timeout in ms for waiting for responses
     #[arg(long, short = 't', value_parser = parse_duration, default_value = "200")]
     timeout: Duration,
-    /// The NAOs to show the aliveness information from, e.g. 20w or 10.1.24.22
-    naos: Option<Vec<NaoAddress>>,
+    /// The Robots to show the aliveness information from, e.g. 20w or 10.1.24.22
+    robots: Option<Vec<RobotAddress>>,
 }
 
 fn parse_duration(arg: &str) -> Result<Duration, ParseIntError> {
@@ -268,9 +268,9 @@ fn print_verbose(states: &AlivenessList) {
 
 async fn query_aliveness_list(arguments: &Arguments) -> Result<AlivenessList, AlivenessError> {
     let ips = arguments
-        .naos
+        .robots
         .as_ref()
-        .map(|naos| naos.iter().map(|nao| nao.ip).collect());
+        .map(|robots| robots.iter().map(|robot| robot.ip).collect());
     let responses = query_aliveness(arguments.timeout, ips).await?;
     Ok(responses.into_iter().collect())
 }

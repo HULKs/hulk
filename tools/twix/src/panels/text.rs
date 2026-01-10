@@ -2,7 +2,7 @@ use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use eframe::egui::{Label, Response, ScrollArea, Sense, Ui, Widget};
-use hulk_widgets::{NaoPathCompletionEdit, PathFilter};
+use hulk_widgets::{PathFilter, RobotPathCompletionEdit};
 use serde_json::{json, Value};
 
 use crate::{
@@ -48,7 +48,7 @@ impl Widget for &mut TextPanel {
     fn ui(self, ui: &mut Ui) -> Response {
         let edit_response = ui
             .horizontal(|ui| {
-                let edit_response = ui.add(NaoPathCompletionEdit::new(
+                let edit_response = ui.add(RobotPathCompletionEdit::new(
                     ui.id().with("text-panel"),
                     self.nao.latest_paths(),
                     &mut self.path,
