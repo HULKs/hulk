@@ -5,8 +5,6 @@ use std::{
 };
 
 use booster::{LowCommand, LowState};
-use coordinate_systems::{Camera, World};
-use linear_algebra::Isometry3;
 use pyo3::{exceptions::PyValueError, pyclass, pymethods, Bound, Py, PyAny, PyResult, Python};
 use pyo3_async_runtimes::tokio::future_into_py;
 use simulation_message::{ConnectionInfo, SceneDescription, SceneUpdate, TaskName};
