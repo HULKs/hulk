@@ -1,4 +1,4 @@
-use booster::{FallDownState, LowState};
+use booster::{ButtonEventMsg, FallDownState, LowState};
 use cdr::{CdrLe, Infinite};
 use color_eyre::eyre::{bail, Result, WrapErr};
 use futures_util::{pin_mut, select, FutureExt, StreamExt};
@@ -20,6 +20,11 @@ async fn main() -> Result<()> {
         )
         .unwrap();
 
+    let button_event_subscription: Subscription<ButtonEventMsg> = subscribe_ros_topic(
+        &mut node,
+        "button_event",
+        MessageTypeName::new("booster_interface", "ButtonEventMsg"),
+    );
     let fall_down_state_subscription: Subscription<FallDownState> = subscribe_ros_topic(
         &mut node,
         "fall_down",
@@ -31,16 +36,20 @@ async fn main() -> Result<()> {
         MessageTypeName::new("booster_interface", "LowState"),
     );
 
+    let button_event_forwarder =
+        forward_ros_to_zenoh(button_event_subscription, &session, "button_event").fuse();
     let fall_down_state_forwarder =
         forward_ros_to_zenoh(fall_down_state_subscription, &session, "fall_down_state").fuse();
     let low_state_forwarder =
         forward_ros_to_zenoh(low_state_subscription, &session, "low_state").fuse();
 
+    pin_mut!(button_event_forwarder);
     pin_mut!(fall_down_state_forwarder);
     pin_mut!(low_state_forwarder);
 
     // If no errors occur, none of these futures will complete
     let result = select! {
+        result = button_event_forwarder => result,
         result = fall_down_state_forwarder => result,
         result = low_state_forwarder => result,
     };
