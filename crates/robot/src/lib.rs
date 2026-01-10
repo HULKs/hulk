@@ -46,11 +46,11 @@ impl TryFrom<String> for RobotNumber {
     }
 }
 
-pub struct Booster {
+pub struct Robot {
     pub address: Ipv4Addr,
 }
 
-impl Booster {
+impl Robot {
     pub fn new(address: Ipv4Addr) -> Self {
         Self { address }
     }
@@ -92,7 +92,7 @@ impl Booster {
 
     pub async fn get_os_version(&self) -> Result<String> {
         let output = self
-            .ssh_to_booster()?
+            .ssh_to_robot()?
             .arg("cat /etc/os-release")
             .output()
             .await
@@ -117,7 +117,7 @@ impl Booster {
         Ok(path)
     }
 
-    fn ssh_to_booster(&self) -> Result<Command> {
+    fn ssh_to_robot(&self) -> Result<Command> {
         let temp_file = Self::create_login_script().wrap_err("failed to create login script")?;
 
         let mut command = Command::new("ssh");
@@ -132,7 +132,7 @@ impl Booster {
         Ok(command)
     }
 
-    pub fn rsync_with_booster(&self) -> Result<Command> {
+    pub fn rsync_with_robot(&self) -> Result<Command> {
         let mut command = Command::new("rsync");
 
         let temp_file = Self::create_login_script().wrap_err("failed to create login script")?;
@@ -153,7 +153,7 @@ impl Booster {
 
     pub async fn execute_shell(&self) -> Result<()> {
         let status = self
-            .ssh_to_booster()?
+            .ssh_to_robot()?
             .status()
             .await
             .wrap_err("failed to execute shell ssh command")?;
@@ -167,7 +167,7 @@ impl Booster {
 
     pub async fn execute_systemctl(&self, action: SystemctlAction, unit: &str) -> Result<String> {
         let output = self
-            .ssh_to_booster()?
+            .ssh_to_robot()?
             .arg("systemctl")
             .arg("--user")
             .arg(match action {
@@ -201,7 +201,7 @@ impl Booster {
 
     pub async fn delete_logs(&self) -> Result<()> {
         let status = self
-            .ssh_to_booster()?
+            .ssh_to_robot()?
             .arg("rm")
             .arg("-r")
             .arg("-f")
@@ -223,7 +223,7 @@ impl Booster {
         progress_callback: impl Fn(&str),
     ) -> Result<()> {
         let status = self
-            .ssh_to_booster()?
+            .ssh_to_robot()?
             .arg("sudo dmesg > /home/robot/hulk/logs/kernel.log")
             .status()
             .await
@@ -234,7 +234,7 @@ impl Booster {
         }
 
         let rsync = self
-            .rsync_with_booster()?
+            .rsync_with_robot()?
             .arg("--mkpath")
             .arg("--info=progress2")
             .arg(format!("{}:hulk/logs/", self.address))
@@ -247,7 +247,7 @@ impl Booster {
 
     pub async fn list_logs(&self) -> Result<String> {
         let output = self
-            .ssh_to_booster()?
+            .ssh_to_robot()?
             .arg("ls")
             .arg("hulk/logs/*")
             .output()
@@ -263,7 +263,7 @@ impl Booster {
 
     pub async fn retrieve_logs(&self) -> Result<String> {
         let output = self
-            .ssh_to_booster()?
+            .ssh_to_robot()?
             .arg("tail")
             .arg("-n+1")
             .arg("hulk/logs/hulk.{out,err}")
@@ -280,7 +280,7 @@ impl Booster {
 
     pub async fn power_off(&self) -> Result<()> {
         let status = self
-            .ssh_to_booster()?
+            .ssh_to_robot()?
             .arg("systemctl")
             .arg("poweroff")
             .status()
@@ -296,7 +296,7 @@ impl Booster {
 
     pub async fn reboot(&self) -> Result<()> {
         let status = self
-            .ssh_to_booster()?
+            .ssh_to_robot()?
             .arg("systemctl")
             .arg("reboot")
             .status()
@@ -317,7 +317,7 @@ impl Booster {
         delete_remaining: bool,
         progress_callback: impl Fn(&str),
     ) -> Result<()> {
-        let mut command = self.rsync_with_booster()?;
+        let mut command = self.rsync_with_robot()?;
         command
             .arg("--mkpath")
             .arg("--copy-dirlinks")
@@ -348,7 +348,7 @@ impl Booster {
 
     pub async fn get_network_status(&self) -> Result<String> {
         let output = self
-            .ssh_to_booster()?
+            .ssh_to_robot()?
             .arg("iwctl")
             .arg("station")
             .arg("wlan0")
@@ -366,7 +366,7 @@ impl Booster {
 
     pub async fn get_available_networks(&self) -> Result<String> {
         let output = self
-            .ssh_to_booster()?
+            .ssh_to_robot()?
             .arg("iwctl")
             .arg("station")
             .arg("wlan0")
@@ -384,7 +384,7 @@ impl Booster {
 
     pub async fn scan_networks(&self) -> Result<()> {
         let output = self
-            .ssh_to_booster()?
+            .ssh_to_robot()?
             .arg("iwctl")
             .arg("station")
             .arg("wlan0")
@@ -431,7 +431,7 @@ impl Booster {
             }
         );
         let status = self
-            .ssh_to_booster()?
+            .ssh_to_robot()?
             .arg(command_string)
             .status()
             .await
@@ -450,7 +450,7 @@ impl Booster {
         progress_callback: impl Fn(&str),
     ) -> Result<()> {
         let rsync = self
-            .rsync_with_booster()?
+            .rsync_with_robot()?
             .arg("--copy-links")
             .arg("--info=progress2")
             .arg(image_path.as_ref().to_str().unwrap())
@@ -463,7 +463,7 @@ impl Booster {
     }
 }
 
-impl Display for Booster {
+impl Display for Robot {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         Display::fmt(&self.address, formatter)
     }

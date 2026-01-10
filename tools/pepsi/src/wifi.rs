@@ -5,7 +5,7 @@ use clap::{
 use color_eyre::{eyre::WrapErr, Result};
 
 use argument_parsers::{parse_network, RobotAddress, NETWORK_POSSIBLE_VALUES};
-use robot::{Booster, Network};
+use robot::{Network, Robot};
 
 use crate::progress_indicator::ProgressIndicator;
 
@@ -59,7 +59,7 @@ async fn status(robots: Vec<RobotAddress>) {
         robots,
         "Retrieving network status...",
         |robot_address, _progress_bar| async move {
-            let robot = Booster::try_new_with_ping(robot_address.ip).await?;
+            let robot = Robot::try_new_with_ping(robot_address.ip).await?;
             robot
                 .get_network_status()
                 .await
@@ -74,7 +74,7 @@ async fn scan(robots: Vec<RobotAddress>) {
         robots,
         "Starting network scan...",
         |robot_address, _progress_bar| async move {
-            let robot = Booster::try_new_with_ping(robot_address.ip).await?;
+            let robot = Robot::try_new_with_ping(robot_address.ip).await?;
             robot
                 .scan_networks()
                 .await
@@ -89,7 +89,7 @@ async fn available_networks(robots: Vec<RobotAddress>) {
         robots,
         "Retrieving available networks...",
         |robot_address, _progress_bar| async move {
-            let robot = Booster::try_new_with_ping(robot_address.ip).await?;
+            let robot = Robot::try_new_with_ping(robot_address.ip).await?;
             robot
                 .get_available_networks()
                 .await
@@ -104,7 +104,7 @@ async fn set(robots: Vec<RobotAddress>, network: Network) {
         robots,
         "Setting network...",
         |robot_address, _progress_bar| async move {
-            let robot = Booster::try_new_with_ping(robot_address.ip).await?;
+            let robot = Robot::try_new_with_ping(robot_address.ip).await?;
             robot
                 .set_wifi(network)
                 .await

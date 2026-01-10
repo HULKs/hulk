@@ -3,7 +3,7 @@ use std::time::Duration;
 use clap::Args;
 
 use argument_parsers::RobotAddress;
-use robot::Booster;
+use robot::Robot;
 
 use crate::progress_indicator::ProgressIndicator;
 
@@ -22,7 +22,7 @@ pub async fn ping(arguments: Arguments) {
         arguments.robots,
         "Pinging Robot...",
         |robot_address, _progress_bar| async move {
-            Booster::try_new_with_ping_and_arguments(
+            Robot::try_new_with_ping_and_arguments(
                 robot_address.ip,
                 Duration::from_secs(arguments.timeout),
             )

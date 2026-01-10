@@ -9,7 +9,7 @@ use color_eyre::{
 use argument_parsers::RobotAddress;
 use indicatif::ProgressBar;
 use repository::{upload::get_hulk_binary, Repository};
-use robot::{Booster, Network, SystemctlAction};
+use robot::{Network, Robot, SystemctlAction};
 use tempfile::tempdir;
 
 use crate::{
@@ -178,7 +178,7 @@ async fn setup_robot(
     repository: &Repository,
 ) -> Result<()> {
     progress.set_message("Pinging Robot...");
-    let robot = Booster::ping_until_available(robot_address.ip).await;
+    let robot = Robot::ping_until_available(robot_address.ip).await;
 
     if !arguments.skip_os_check {
         progress.set_message("Checking OS version...");

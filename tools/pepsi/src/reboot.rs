@@ -2,7 +2,7 @@ use clap::Args;
 use color_eyre::{eyre::WrapErr, Result};
 
 use argument_parsers::RobotAddress;
-use robot::Booster;
+use robot::Robot;
 
 use crate::progress_indicator::ProgressIndicator;
 
@@ -18,7 +18,7 @@ pub async fn reboot(arguments: Arguments) -> Result<()> {
         arguments.robots,
         "Rebooting...",
         |robot_address, _progress_bar| async move {
-            let robot = Booster::try_new_with_ping(robot_address.ip).await?;
+            let robot = Robot::try_new_with_ping(robot_address.ip).await?;
             robot
                 .reboot()
                 .await

@@ -4,7 +4,7 @@ use clap::Subcommand;
 use color_eyre::{eyre::WrapErr, Result};
 
 use argument_parsers::RobotAddress;
-use robot::Booster;
+use robot::Robot;
 
 use crate::progress_indicator::ProgressIndicator;
 
@@ -45,7 +45,7 @@ pub async fn logs(arguments: Arguments) -> Result<()> {
                 robots,
                 "Deleting logs...",
                 |robot_address, _progress_bar| async move {
-                    let robot = Booster::try_new_with_ping(robot_address.ip).await?;
+                    let robot = Robot::try_new_with_ping(robot_address.ip).await?;
                     robot
                         .delete_logs()
                         .await
@@ -64,7 +64,7 @@ pub async fn logs(arguments: Arguments) -> Result<()> {
                 |robot_address, progress| {
                     let log_directory = log_directory.join(robot_address.to_string());
                     async move {
-                        let robot = Booster::try_new_with_ping(robot_address.ip).await?;
+                        let robot = Robot::try_new_with_ping(robot_address.ip).await?;
                         robot
                             .download_logs(log_directory, |status| {
                                 progress.set_message(format!("Downloading logs: {status}"))
@@ -83,7 +83,7 @@ pub async fn logs(arguments: Arguments) -> Result<()> {
                 robots,
                 "Retrieving all logs...",
                 |robot_address, _progress_bar| async move {
-                    let robot = Booster::try_new_with_ping(robot_address.ip).await?;
+                    let robot = Robot::try_new_with_ping(robot_address.ip).await?;
                     robot.list_logs().await.wrap_err("failed to retrieve logs")
                 },
             )
@@ -94,7 +94,7 @@ pub async fn logs(arguments: Arguments) -> Result<()> {
                 robots,
                 "Retrieving latest logs...",
                 |robot_address, _progress_bar| async move {
-                    let robot = Booster::try_new_with_ping(robot_address.ip).await?;
+                    let robot = Robot::try_new_with_ping(robot_address.ip).await?;
                     robot
                         .retrieve_logs()
                         .await

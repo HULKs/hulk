@@ -8,7 +8,7 @@ use color_eyre::{
 };
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use repository::{upload::get_hulk_binary, Repository};
-use robot::{Booster, SystemctlAction};
+use robot::{Robot, SystemctlAction};
 use tempfile::tempdir;
 
 use crate::{
@@ -47,21 +47,21 @@ pub struct UploadArguments {
 }
 
 async fn upload_with_progress(
-    booster_address: &RobotAddress,
+    robot_address: &RobotAddress,
     upload_directory: impl AsRef<Path>,
     arguments: &UploadArguments,
     progress: &Task,
     repository: &Repository,
 ) -> Result<()> {
     progress.set_message("Pinging Robot...");
-    let booster = Booster::try_new_with_ping(booster_address.ip).await?;
+    let robot = Robot::try_new_with_ping(robot_address.ip).await?;
 
     if !arguments.skip_os_check {
         progress.set_message("Checking OS version...");
-        let robot_os_version = booster
+        let robot_os_version = robot
             .get_os_version()
             .await
-            .wrap_err_with(|| format!("failed to get OS version of {booster_address}"))?;
+            .wrap_err_with(|| format!("failed to get OS version of {robot_address}"))?;
         let expected_os_version = repository
             .read_os_version()
             .await
@@ -74,26 +74,26 @@ async fn upload_with_progress(
     }
 
     progress.set_message("Stopping HULK...");
-    booster
+    robot
         .execute_systemctl(SystemctlAction::Stop, "hulk")
         .await
-        .wrap_err_with(|| format!("failed to stop HULK service on {booster_address}"))?;
+        .wrap_err_with(|| format!("failed to stop HULK service on {robot_address}"))?;
 
     progress.set_message("Uploading: ...");
-    booster
+    robot
         .upload(upload_directory, "hulk", !arguments.no_clean, |status| {
             progress.set_message(format!("Uploading: {status}"))
         })
         .await
-        .wrap_err_with(|| format!("failed to upload binary to {booster_address}"))?;
+        .wrap_err_with(|| format!("failed to upload binary to {robot_address}"))?;
 
     if !arguments.no_restart {
         progress.set_message("Restarting HULK...");
-        if let Err(error) = booster
+        if let Err(error) = robot
             .execute_systemctl(SystemctlAction::Start, "hulk")
             .await
         {
-            let logs = booster
+            let logs = robot
                 .retrieve_logs()
                 .await
                 .wrap_err("failed to retrieve logs")?;

@@ -6,7 +6,7 @@ use color_eyre::{eyre::WrapErr, Result};
 use argument_parsers::RobotAddress;
 use opn::verify_image;
 use repository::{image::download_image, Repository};
-use robot::Booster;
+use robot::Robot;
 
 use crate::progress_indicator::ProgressIndicator;
 
@@ -52,7 +52,7 @@ pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<(
         arguments.robots,
         format!("Uploading image v{version}: ..."),
         |robot_address, progress_bar| async move {
-            let robot = Booster::try_new_with_ping(robot_address.ip).await?;
+            let robot = Robot::try_new_with_ping(robot_address.ip).await?;
             robot
                 .flash_image(image_path, |msg| {
                     progress_bar.set_message(format!("Uploading image v{version}: {msg}"))
@@ -61,7 +61,7 @@ pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<(
                 .wrap_err_with(|| format!("failed to flash image to {robot_address}"))?;
             progress_bar.set_message("Uploading team configuration...");
             robot
-                .rsync_with_booster()?
+                .rsync_with_robot()?
                 .arg(team_toml)
                 .arg(format!("{}:/media/internal/", robot.address))
                 .spawn()

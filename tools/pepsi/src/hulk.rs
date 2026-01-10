@@ -5,7 +5,7 @@ use clap::{
 use color_eyre::{eyre::WrapErr, Result};
 
 use argument_parsers::{parse_systemctl_action, RobotAddress, SYSTEMCTL_ACTION_POSSIBLE_VALUES};
-use robot::{Booster, SystemctlAction};
+use robot::{Robot, SystemctlAction};
 
 use crate::progress_indicator::ProgressIndicator;
 
@@ -27,7 +27,7 @@ pub async fn hulk(arguments: Arguments) -> Result<()> {
         arguments.robots,
         "Executing systemctl hulk...",
         |robot_address, _progress_bar| async move {
-            let robot = Booster::try_new_with_ping(robot_address.ip).await?;
+            let robot = Robot::try_new_with_ping(robot_address.ip).await?;
             robot
                 .execute_systemctl(arguments.action, "hulk")
                 .await

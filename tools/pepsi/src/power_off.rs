@@ -4,7 +4,7 @@ use color_eyre::{eyre::WrapErr, Result};
 use argument_parsers::{number_to_ip, Connection, RobotAddress};
 use futures_util::{stream::FuturesUnordered, StreamExt};
 use repository::Repository;
-use robot::Booster;
+use robot::Robot;
 
 use crate::progress_indicator::ProgressIndicator;
 
@@ -29,11 +29,11 @@ pub async fn power_off(arguments: Arguments, repository: &Repository) -> Result<
             .iter()
             .map(|robot| async move {
                 let host = number_to_ip(robot.number, Connection::Wired)?;
-                match Booster::try_new_with_ping(host).await {
+                match Robot::try_new_with_ping(host).await {
                     Ok(robot) => Ok(robot),
                     Err(_) => {
                         let host = number_to_ip(robot.number, Connection::Wireless)?;
-                        Booster::try_new_with_ping(host).await
+                        Robot::try_new_with_ping(host).await
                     }
                 }
             })
@@ -57,7 +57,7 @@ pub async fn power_off(arguments: Arguments, repository: &Repository) -> Result<
             arguments.robots,
             "Powering off...",
             |robot_address, _progress_bar| async move {
-                let robot = Booster::try_new_with_ping(robot_address.ip).await?;
+                let robot = Robot::try_new_with_ping(robot_address.ip).await?;
                 robot
                     .power_off()
                     .await

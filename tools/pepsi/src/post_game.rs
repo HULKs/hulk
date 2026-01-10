@@ -11,7 +11,7 @@ use color_eyre::{
 };
 
 use repository::Repository;
-use robot::{Booster, Network, SystemctlAction};
+use robot::{Network, Robot, SystemctlAction};
 
 use crate::{deploy_config::DeployConfig, progress_indicator::ProgressIndicator};
 
@@ -75,7 +75,7 @@ pub async fn post_game(arguments: Arguments, repository: &Repository) -> Result<
         "Executing postgame tasks...",
         |robot_address, progress_bar| async move {
             progress_bar.set_message("Pinging Robot...");
-            let robot = Booster::ping_until_available(robot_address.ip).await;
+            let robot = Robot::ping_until_available(robot_address.ip).await;
 
             progress_bar.set_message("Stopping HULK service...");
             robot

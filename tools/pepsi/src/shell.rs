@@ -1,7 +1,7 @@
 use clap::Args;
 use color_eyre::{eyre::WrapErr, Result};
 
-use robot::Booster;
+use robot::Robot;
 
 use argument_parsers::RobotAddress;
 
@@ -13,7 +13,7 @@ pub struct Arguments {
 }
 
 pub async fn shell(arguments: Arguments) -> Result<()> {
-    let robot = Booster::try_new_with_ping(arguments.robot.ip).await?;
+    let robot = Robot::try_new_with_ping(arguments.robot.ip).await?;
 
     robot
         .execute_shell()
