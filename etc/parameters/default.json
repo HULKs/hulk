@@ -329,9 +329,7 @@
     "maximum_intersection_over_union": 0.7
   },
   "ball_projection": {
-    "detection_noise": [8.0, 8.0],
-    "noise_increase_slope": 8.0,
-    "noise_increase_distance_threshold": 3.0
+    "detection_noise": [8.0, 8.0]
   },
   "camera_matrix_parameters": {
     "camera_to_head_pitch": -0.2125811028,

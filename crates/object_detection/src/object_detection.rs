@@ -17,19 +17,10 @@ use ort::{
 };
 use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
 use serde::{Deserialize, Serialize};
-use types::{bounding_box::BoundingBox, object_detection::Detection};
-
-#[rustfmt::skip]
-const YOLOV8_CLASS_LABELS: [&str; 80] = [
-    "person", "bicycle", "car", "motorcycle", "airplane", "bus", "train", "truck", "boat", "traffic light",
-	"fire hydrant", "stop sign", "parking meter", "bench", "bird", "cat", "dog", "horse", "sheep", "cow", "elephant",
-	"bear", "zebra", "giraffe", "backpack", "umbrella", "handbag", "tie", "suitcase", "frisbee", "skis", "snowboard",
-	"sports ball", "kite", "baseball bat", "baseball glove", "skateboard", "surfboard", "tennis racket", "bottle",
-	"wine glass", "cup", "fork", "knife", "spoon", "bowl", "banana", "apple", "sandwich", "orange", "broccoli",
-	"carrot", "hot dog", "pizza", "donut", "cake", "chair", "couch", "potted plant", "bed", "dining table", "toilet",
-	"tv", "laptop", "mouse", "remote", "keyboard", "cell phone", "microwave", "oven", "toaster", "sink", "refrigerator",
-	"book", "clock", "vase", "scissors", "teddy bear", "hair drier", "toothbrush"
-];
+use types::{
+    bounding_box::BoundingBox,
+    object_detection::{Detection, YOLOv8ObjectDetectionLabel},
+};
 
 #[derive(Deserialize, Serialize)]
 pub struct ObjectDetection {
@@ -96,7 +87,6 @@ impl ObjectDetection {
             input[[0, 2, y, x]] = (b as f32) / 255.;
         }
 
-        // Run YOLOv8 inference
         let outputs: SessionOutputs = self
             .session
             .run(inputs!["images" => TensorRef::from_array_view(&input)?])?;
@@ -110,7 +100,7 @@ impl ObjectDetection {
             .axis_iter(Axis(0))
             .filter_map(|row| {
                 let row: Vec<_> = row.iter().copied().collect();
-                let (class_id, prob) = row
+                let (class_id, confidence) = row
                     .iter()
                     // skip bounding box coordinates
                     .skip(4)
@@ -118,8 +108,8 @@ impl ObjectDetection {
                     .map(|(index, value)| (index, *value))
                     .reduce(|accum, row| if row.1 > accum.1 { row } else { accum })
                     .unwrap();
-                if prob >= 0.5 {
-                    let label = YOLOV8_CLASS_LABELS[class_id];
+                if confidence >= 0.5 {
+                    let label = YOLOv8ObjectDetectionLabel::from_index(class_id);
                     let xc = row[0] / width as f32 * (width as f32);
                     let yc = row[1] / height as f32 * (height as f32);
                     let w = row[2] / width as f32 * (width as f32);
@@ -130,9 +120,9 @@ impl ObjectDetection {
                                 point!(xc, yc),
                                 vector!(w, h),
                             ),
-                            confidence: prob,
+                            confidence,
                         },
-                        label: label.to_string(),
+                        label,
                     })
                 } else {
                     None

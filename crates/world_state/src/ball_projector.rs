@@ -1,5 +1,4 @@
 use color_eyre::Result;
-use nalgebra::Matrix2;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
@@ -8,8 +7,10 @@ use geometry::circle::Circle;
 use linear_algebra::IntoFramed;
 use projection::{camera_matrix::CameraMatrix, Projection};
 use types::{
-    ball_detection::BallPercept, multivariate_normal_distribution::MultivariateNormalDistribution,
-    object_detection::Detection, parameters::BallProjectionParameters,
+    ball_detection::BallPercept,
+    multivariate_normal_distribution::MultivariateNormalDistribution,
+    object_detection::{Detection, YOLOv8ObjectDetectionLabel},
+    parameters::BallProjectionParameters,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -49,7 +50,7 @@ impl BallProjector {
                     .copied()
                     .flatten()
                     .flat_map(|detection| {
-                        if detection.label != "sports ball" {
+                        if detection.label != YOLOv8ObjectDetectionLabel::Sportsball {
                             return None;
                         }
 
@@ -68,12 +69,6 @@ impl BallProjector {
                         };
 
                         let projected_covariance = {
-                            let distance = position.coords().norm();
-                            let distance_noise_increase = 1.0
-                                + (distance - context.parameters.noise_increase_distance_threshold)
-                                    .max(0.0)
-                                    * context.parameters.noise_increase_slope;
-
                             let scaled_noise = context
                                 .parameters
                                 .detection_noise
@@ -83,7 +78,6 @@ impl BallProjector {
                             camera_matrix
                                 .project_noise_to_ground(position, scaled_noise)
                                 .ok()?
-                                * (Matrix2::identity() * distance_noise_increase.powi(2))
                         };
 
                         Some(BallPercept {

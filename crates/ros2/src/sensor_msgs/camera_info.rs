@@ -194,15 +194,15 @@ impl CameraInfo {
 
         #[rustfmt::skip]
         let k = [
-            fx, 0.0, cx, 
-            0.0, fy, cy, 
+            fx, 0.0, cx,
+            0.0, fy, cy,
             0.0, 0.0, 1.0
         ];
 
         #[rustfmt::skip]
         let p = [
-            fx, 0.0, cx, tx, 
-            0.0, fy, cy, ty, 
+            fx, 0.0, cx, tx,
+            0.0, fy, cy, ty,
             0.0, 0.0, 1.0, 0.0
         ];
 
