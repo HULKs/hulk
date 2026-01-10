@@ -13086,6 +13086,7 @@ dependencies = [
  "color-eyre",
  "env_logger",
  "fern",
+ "futures-util",
  "log",
  "ros2",
  "ros2-client",
