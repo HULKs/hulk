@@ -30,10 +30,6 @@ impl FeatureProvider {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        // let field_to_camera = Isometry3::from_parts(
-        //     vector![-0.75, 0.0, 0.0],
-        //     Orientation3::from_euler_angles(PI, -FRAC_PI_2, 0.0),
-        // );
         let world_to_camera = context.camera_to_world.inverse();
 
         let upper_left_goal_post = point![<World>,
