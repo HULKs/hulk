@@ -12,6 +12,7 @@ use hardware::{
     CameraInterface, NetworkInterface, PathsInterface, RecordingInterface, SpeakerInterface,
     TimeInterface,
 };
+use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
 use types::{
     audio::SpeakerRequest,
     messages::{IncomingMessage, OutgoingMessage},
