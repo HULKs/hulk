@@ -41,6 +41,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::{sensor_msgs::region_of_interest::RegionOfInterest, std_msgs::header::Header};
 
+#[cfg(feature = "pyo3")]
+use pyo3::{pyclass, pymethods};
+
+#[cfg_attr(feature = "pyo3", pyclass(frozen))]
 #[repr(C)]
 #[derive(
     Clone, Debug, Default, Serialize, Deserialize, PathIntrospect, PathSerialize, PathDeserialize,
@@ -142,4 +146,84 @@ pub struct CameraInfo {
     /// The default setting of roi (all values 0) is considered the same as
     /// full resolution (roi.width = width, roi.height = height).
     pub roi: RegionOfInterest,
+}
+
+impl CameraInfo {
+    pub fn focal_lengths(&self) -> nalgebra::Vector2<f32> {
+        nalgebra::Vector2::new(self.p[0] as f32, self.p[5] as f32)
+    }
+
+    pub fn optical_center(&self) -> nalgebra::Point2<f32> {
+        nalgebra::Point2::new(self.p[3] as f32, self.p[7] as f32)
+    }
+}
+
+#[cfg(feature = "pyo3")]
+#[pymethods]
+impl CameraInfo {
+    #[new]
+    pub fn from_mujoco(
+        time: f32,
+        height: u32,
+        width: u32,
+        focal_length_x: f32,
+        focal_length_y: f32,
+        optical_center_x: f32,
+        optical_center_y: f32,
+    ) -> Self {
+        use crate::builtin_interfaces::time::Time;
+        use std::time::Duration;
+        let simulation_duration = Duration::from_secs_f32(time);
+
+        let header = Header {
+            stamp: Time {
+                sec: simulation_duration.as_secs() as i32,
+                nanosec: simulation_duration.subsec_nanos(),
+            },
+            frame_id: "".to_string(),
+        };
+
+        let (fx, fy, cx, cy) = (
+            focal_length_x as f64,
+            focal_length_y as f64,
+            optical_center_x as f64,
+            optical_center_y as f64,
+        );
+
+        let (tx, ty) = (0.0, 0.0);
+
+        #[rustfmt::skip]
+        let k = [
+            fx, 0.0, cx, 
+            0.0, fy, cy, 
+            0.0, 0.0, 1.0
+        ];
+
+        #[rustfmt::skip]
+        let p = [
+            fx, 0.0, cx, tx, 
+            0.0, fy, cy, ty, 
+            0.0, 0.0, 1.0, 0.0
+        ];
+
+        CameraInfo {
+            header: header.clone(),
+            width,
+            height,
+            distortion_model: "".to_string(),
+            roi: RegionOfInterest {
+                x_offset: 0,
+                y_offset: 0,
+                height: 0,
+                width: 0,
+                do_rectify: false,
+            },
+            d: Default::default(),
+            k,
+            r: Default::default(),
+            p,
+            binning_x: Default::default(),
+            binning_y: Default::default(),
+        }
+    }
 }

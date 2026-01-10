@@ -1,6 +1,6 @@
 from enum import Enum, auto
 
-from . import booster_types, zed_types
+from . import booster_types, ros2_types
 
 class SimulationServer:
     def __new__(cls, bind_address: str) -> SimulationServer: ...
@@ -13,7 +13,8 @@ class PySimulationTask:
         self,
         time: float,
         response: booster_types.LowState
-        | zed_types.RGBDSensors
+        | ros2_types.Image
+        | ros2_types.CameraInfo
         | bytes
         | str
         | None,
@@ -23,7 +24,8 @@ class PySimulationTask:
 class TaskName(Enum):
     ApplyLowCommand = auto()
     RequestLowState = auto()
-    RequestRGBDSensors = auto()
+    RequestImage = auto()
+    RequestCameraInfo = auto()
     RequestSceneState = auto()
     RequestSceneDescription = auto()
     StepSimulation = auto()

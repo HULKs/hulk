@@ -20,6 +20,7 @@ kinematics = { workspace = true }
 linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
 projection = { workspace = true }
+ros2 = { workspace = true }
 serde = { workspace = true }
 tokio = { workspace = true }
 types = { workspace = true }

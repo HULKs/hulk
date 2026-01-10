@@ -4,9 +4,10 @@ import time
 from datetime import timedelta
 
 import click
+import numpy as np
 from mujoco import MjData, MjModel, mj_forward, mj_resetData, mj_step
 from mujoco_rust_server import SimulationServer, TaskName
-from mujoco_rust_server.zed_types import RGBDSensors
+from mujoco_rust_server.ros2_types import CameraInfo, Image
 from rich.logging import RichHandler
 
 from mujoco_simulator.exceptions import UnknownTaskException
@@ -27,14 +28,35 @@ def reset_simulation(model: MjModel, data: MjData) -> None:
     mj_forward(model, data)
 
 
-def request_rgbd_sensors(renderer: CameraRenderer, data: MjData) -> RGBDSensors:
+def request_image(renderer: CameraRenderer, data: MjData) -> Image:
     image = renderer.render(data)
-    return RGBDSensors(
+    return Image(
         data.time,
         image.rgb.flatten().tobytes(),
-        image.depth.flatten().tobytes(),
         image.height(),
         image.width(),
+    )
+
+
+def request_camera_info(
+    renderer: CameraRenderer, data: MjData, model: MjModel
+) -> CameraInfo:
+    fov = model.vis.global_.fovy
+
+    focal_scaling = (
+        (1.0 / np.tan(np.deg2rad(fov) / 2)) * renderer.viewport.height / 2.0
+    )
+    optical_center_x = (renderer.viewport.width - 1) / 2.0
+    optical_center_y = (renderer.viewport.height - 1) / 2.0
+
+    return CameraInfo(
+        data.time,
+        renderer.viewport.height,
+        renderer.viewport.width,
+        focal_scaling,
+        -focal_scaling,
+        optical_center_x,
+        optical_center_y,
     )
 
 
@@ -59,9 +81,12 @@ async def run_simulation(
     while True:
         task = await server.next_task()
         match task.kind():
-            case TaskName.RequestRGBDSensors:
-                rgbd_sensors = request_rgbd_sensors(renderer, data)
-                await task.respond(data.time, rgbd_sensors)
+            case TaskName.RequestImage:
+                image = request_image(renderer, data)
+                await task.respond(data.time, image)
+            case TaskName.RequestCameraInfo:
+                camera_info = request_camera_info(renderer, data, model)
+                await task.respond(data.time, camera_info)
             case TaskName.RequestLowState:
                 low_state = generate_low_state(data, actuator_info_list)
                 await task.respond(data.time, low_state)

@@ -58,8 +58,6 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
                     // "control::filtered_game_controller_state_timer",
                     // "control::foot_bumper_filter",
                     // "control::free_kick_signal_filter",
-                    "control::game_controller_filter",
-                    "control::game_controller_state_filter",
                     // "control::ground_contact_detector",
                     // "control::kick_selector",
                     // "control::led_status",
@@ -127,6 +125,8 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
                 instances: vec![""],
                 setup_nodes: vec!["world_state::trigger"],
                 nodes: vec![
+                    "world_state::game_controller_filter",
+                    "world_state::game_controller_state_filter",
                     "world_state::ball_projector",
                     "world_state::camera_matrix_calculator",
                     "world_state::ground_provider",

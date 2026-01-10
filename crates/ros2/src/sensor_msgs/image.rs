@@ -5,6 +5,10 @@ use serde::{Deserialize, Serialize};
 
 use crate::std_msgs::header::Header;
 
+#[cfg(feature = "pyo3")]
+use pyo3::{pyclass, pymethods};
+
+#[cfg_attr(feature = "pyo3", pyclass(frozen))]
 #[repr(C)]
 #[derive(
     Clone, Debug, Default, Serialize, Deserialize, PathIntrospect, PathSerialize, PathDeserialize,
@@ -40,4 +44,33 @@ pub struct Image {
     pub step: u32,
     /// actual matrix data, size is (step * rows)
     pub data: Vec<u8>,
+}
+
+#[cfg(feature = "pyo3")]
+#[pymethods]
+impl Image {
+    #[new]
+    pub fn from_mujoco(time: f32, rgb: Vec<u8>, height: u32, width: u32) -> Self {
+        use crate::builtin_interfaces::time::Time;
+        use std::time::Duration;
+        let simulation_duration = Duration::from_secs_f32(time);
+
+        let header = Header {
+            stamp: Time {
+                sec: simulation_duration.as_secs() as i32,
+                nanosec: simulation_duration.subsec_nanos(),
+            },
+            frame_id: "".to_string(),
+        };
+
+        Image {
+            header: header.clone(),
+            height,
+            width,
+            encoding: "rgb8".to_string(),
+            is_bigendian: 0,
+            step: width,
+            data: rgb,
+        }
+    }
 }

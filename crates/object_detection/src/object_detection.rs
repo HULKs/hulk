@@ -44,8 +44,8 @@ pub struct CreationContext {
 
 #[context]
 pub struct CycleContext {
-    rgb_image: Input<Image, "rgb_image">,
-    rgb_image_camera_info: Input<CameraInfo, "rgb_image_camera_info">,
+    image: Input<Image, "image">,
+    camera_info: Input<CameraInfo, "camera_info">,
 
     maximum_intersection_over_union:
         Parameter<f32, "object_detection.maximum_intersection_over_union">,
@@ -78,10 +78,10 @@ impl ObjectDetection {
             return Ok(MainOutputs::default());
         }
 
-        let height = context.rgb_image_camera_info.height;
-        let width = context.rgb_image_camera_info.width;
-        let rgb_image = if context.rgb_image.encoding == "rgb8" {
-            RgbImage::from_raw(width, height, context.rgb_image.data.clone()).unwrap()
+        let height = context.camera_info.height;
+        let width = context.camera_info.width;
+        let rgb_image = if context.image.encoding == "rgb8" {
+            RgbImage::from_raw(width, height, context.image.data.clone()).unwrap()
         } else {
             return Err(eyre!("unsupported image encoding"));
         };

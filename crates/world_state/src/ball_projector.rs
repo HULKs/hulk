@@ -9,7 +9,7 @@ use linear_algebra::IntoFramed;
 use projection::{camera_matrix::CameraMatrix, Projection};
 use types::{
     ball_detection::BallPercept, multivariate_normal_distribution::MultivariateNormalDistribution,
-    object_detection::Detection, parameters::BallDetectionParameters,
+    object_detection::Detection, parameters::BallProjectionParameters,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -23,7 +23,7 @@ pub struct CycleContext {
     past_camera_matrices: HistoricInput<Option<CameraMatrix>, "camera_matrix?">,
     detected_objects: PerceptionInput<Vec<Detection>, "ObjectDetection", "detected_objects">,
 
-    parameters: Parameter<BallDetectionParameters, "ball_detection">,
+    parameters: Parameter<BallProjectionParameters, "ball_projection">,
     ball_radius: Parameter<f32, "field_dimensions.ball_radius">,
 }
 

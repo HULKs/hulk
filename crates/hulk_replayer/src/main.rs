@@ -18,6 +18,7 @@ use hardware::{
 };
 use hula_types::hardware::{Ids, Paths};
 use replayer::replayer;
+use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
 use types::{
     audio::SpeakerRequest,
     joints::Joints,
@@ -26,7 +27,6 @@ use types::{
     samples::Samples,
     sensor_data::SensorData,
 };
-use zed::RGBDSensors;
 
 pub trait HardwareInterface:
     ActuatorInterface
@@ -62,7 +62,10 @@ impl ActuatorInterface for ReplayerHardwareInterface {
 }
 
 impl CameraInterface for ReplayerHardwareInterface {
-    fn read_rgbd_sensors(&self) -> Result<RGBDSensors> {
+    fn read_image(&self) -> Result<Image> {
+        unimplemented!("Replayer cannot produce data from hardware")
+    }
+    fn read_camera_info(&self) -> Result<CameraInfo> {
         unimplemented!("Replayer cannot produce data from hardware")
     }
 }

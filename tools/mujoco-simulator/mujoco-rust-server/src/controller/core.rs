@@ -169,8 +169,9 @@ impl Controller {
                         PeriodicalTask::RequestLowState => {
                             connection.request_low_state(&sender).await
                         }
-                        PeriodicalTask::RequestRGBDSensors => {
-                            connection.request_rgbd_sensors(&sender).await
+                        PeriodicalTask::RequestImage => connection.request_image(&sender).await,
+                        PeriodicalTask::RequestCameraInfo => {
+                            connection.request_camera_info(&sender).await
                         }
                         PeriodicalTask::RequestSceneState => {
                             connection.request_scene_state(&sender).await

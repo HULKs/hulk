@@ -16,7 +16,6 @@ use types::{
     audio::SpeakerRequest,
     messages::{IncomingMessage, OutgoingMessage},
 };
-use zed::RGBDSensors;
 
 use crate::{cyclers::control::Database, HardwareInterface};
 
@@ -76,7 +75,10 @@ impl PathsInterface for Interfake {
 }
 
 impl CameraInterface for Interfake {
-    fn read_rgbd_sensors(&self) -> Result<RGBDSensors> {
+    fn read_image(&self) -> Result<Image> {
+        unimplemented!()
+    }
+    fn read_camera_info(&self) -> Result<CameraInfo> {
         unimplemented!()
     }
 }
