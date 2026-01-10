@@ -7,9 +7,9 @@ use color_eyre::Result;
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput};
-use linear_algebra::{distance, Isometry2, Point2, Vector2};
-use serde::{Deserialize, Serialize};
 use hsl_network_messages::{GamePhase, GameState, Penalty, PlayerNumber, SubState, Team};
+use linear_algebra::{distance, point, vector, Isometry2, Point2, Vector2};
+use serde::{Deserialize, Serialize};
 use types::{
     ball_position::BallPosition,
     cycle_time::CycleTime,
@@ -39,11 +39,11 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
+    //ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">, // TODO
     cycle_time: Input<CycleTime, "cycle_time">,
-    filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
-    visual_referee_proceed_to_ready: Input<bool, "visual_referee_proceed_to_ready">,
-    detected_free_kick_kicking_team: Input<Option<Team>, "detected_free_kick_kicking_team?">,
+    // filtered_whistle: Input<FilteredWhistle, "filtered_whistle">, // TODO
+    // visual_referee_proceed_to_ready: Input<bool, "visual_referee_proceed_to_ready">, // TODO
+    // detected_free_kick_kicking_team: Input<Option<Team>, "detected_free_kick_kicking_team?">, // TODO
     game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
     config: Parameter<GameStateFilterParameters, "game_state_filter">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
@@ -94,22 +94,41 @@ impl GameControllerStateFilter {
             .chain(new_opponent_penalties_last_cycle.iter())
             .any(|(_, penalty)| matches!(penalty, Penalty::IllegalMotionInSet { .. }));
 
+        // TODO: Remove fakes
+        let fake_ball_position = Some(BallPosition {
+            position: point!(0.0, 0.0),
+            velocity: vector!(0.0, 0.0),
+            last_seen: SystemTime::now(),
+        });
+
+        let fake_filtered_whistle = FilteredWhistle {
+            is_detected: false,
+            last_detection: None,
+        };
+        let fake_visual_referee_proceed_to_ready = false;
+        let fake_detected_free_kick_kicking_team = None;
+
+        
         let kicking_team = self.find_kicking_team(
             &context,
             &new_own_penalties_last_cycle,
             &new_opponent_penalties_last_cycle,
-            context.detected_free_kick_kicking_team.copied(),
+            // context.detected_free_kick_kicking_team.copied(),
+            fake_detected_free_kick_kicking_team,
         );
 
         let game_states = self.filter_game_states(
             *context.ground_to_field,
-            context.ball_position,
+            // context.ball_position,
+            fake_ball_position.as_ref(),
             context.field_dimensions,
             context.config,
             context.game_controller_state,
-            context.filtered_whistle,
+            // context.filtered_whistle,
+            &fake_filtered_whistle,
             context.cycle_time,
-            *context.visual_referee_proceed_to_ready,
+            // *context.visual_referee_proceed_to_ready,
+            fake_visual_referee_proceed_to_ready,
             *context.player_number,
             did_receive_motion_in_set_penalty,
             kicking_team,
@@ -352,7 +371,8 @@ impl GameControllerStateFilter {
                 sub_state: None,
                 ..
             } => match (
-                context.filtered_whistle.is_detected,
+                //context.filtered_whistle.is_detected, // TODO
+                false,
                 ball_is_in_opponent_half?,
             ) {
                 (true, false) => Some(Team::Opponent),
