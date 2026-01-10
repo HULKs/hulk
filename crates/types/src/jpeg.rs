@@ -1,5 +1,6 @@
 use color_eyre::eyre;
 use image::{codecs::jpeg::JpegEncoder, ImageBuffer, ImageError, Luma, RgbImage};
+use ros2::sensor_msgs::image::Image;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 
@@ -31,6 +32,19 @@ impl TryFrom<&YCbCr422Image> for JpegImage {
 
     fn try_from(image: &YCbCr422Image) -> Result<Self, Self::Error> {
         let rgb_image = RgbImage::from(image);
+        let mut jpeg_buffer = vec![];
+        let quality = 15;
+        let mut encoder = JpegEncoder::new_with_quality(&mut jpeg_buffer, quality);
+        encoder.encode_image(&rgb_image)?;
+        Ok(Self { data: jpeg_buffer })
+    }
+}
+
+impl TryFrom<Image> for JpegImage {
+    type Error = ImageError;
+
+    fn try_from(image: Image) -> Result<Self, Self::Error> {
+        let rgb_image = RgbImage::try_from(image)?;
         let mut jpeg_buffer = vec![];
         let quality = 15;
         let mut encoder = JpegEncoder::new_with_quality(&mut jpeg_buffer, quality);

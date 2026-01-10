@@ -1,3 +1,7 @@
+use std::path::Path;
+
+use color_eyre::Result;
+use image::{error::DecodingError, ImageError, RgbImage};
 /// This message contains an uncompressed image
 /// (0, 0) is at top-left corner of image
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
@@ -71,6 +75,28 @@ impl Image {
             is_bigendian: 0,
             step: width,
             data: rgb,
+        }
+    }
+}
+
+impl Image {
+    pub fn save_to_file(self, file: impl AsRef<Path>) -> Result<()> {
+        let rgb_image: RgbImage = self.try_into()?;
+        Ok(rgb_image.save(file)?)
+    }
+}
+
+impl TryFrom<Image> for RgbImage {
+    type Error = ImageError;
+
+    fn try_from(image: Image) -> Result<Self, ImageError> {
+        match image.encoding.as_str() {
+            "rgb8" => RgbImage::from_raw(image.height, image.height, image.data).ok_or(
+                ImageError::Decoding(DecodingError::from_format_hint(
+                    image::error::ImageFormatHint::Unknown,
+                )),
+            ),
+            _ => unimplemented!(),
         }
     }
 }

@@ -9952,6 +9952,7 @@ dependencies = [
  "projection",
  "repository",
  "rmp-serde",
+ "ros2",
  "serde",
  "serde_json",
  "step_planning",
