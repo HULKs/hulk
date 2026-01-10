@@ -2,11 +2,12 @@ use std::f32::consts::FRAC_PI_2;
 
 use color_eyre::Result;
 use projection::camera_matrix::CameraMatrix;
+use ros2::sensor_msgs::camera_info::CameraInfo;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
 use coordinate_systems::{Camera, Ground, Head, Robot};
-use framework::MainOutput;
+use framework::{MainOutput, PerceptionInput};
 use linear_algebra::{vector, IntoTransform, Isometry3, Rotation3, Vector3};
 use types::{
     parameters::CameraMatrixParameters, robot_dimensions::RobotDimensions,
@@ -26,16 +27,11 @@ pub struct CycleContext {
     robot_to_ground: RequiredInput<Option<Isometry3<Robot, Ground>>, "robot_to_ground?">,
     // ground_to_field: CyclerState<Option<Isometry2<Ground, Field>>, "ground_to_field">,
     // field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    camera_matrix_parameters:
-        Parameter<CameraMatrixParameters, "camera_matrix_parameters.intrinsics">,
-    correction_in_robot: Parameter<
-        nalgebra::Vector3<f32>,
-        "camera_matrix_parameters.extrinsics.correction_in_robot",
-    >,
-    correction_in_camera: Parameter<
-        nalgebra::Vector3<f32>,
-        "camera_matrix_parameters.extrinsics.correction_in_camera",
-    >,
+    camera_matrix_parameters: Parameter<CameraMatrixParameters, "camera_matrix_parameters">,
+    camera_info: PerceptionInput<CameraInfo, "ObjectDetection", "camera_info">,
+    correction_in_robot: Parameter<Vector3<Robot>, "camera_matrix_parameters.correction_in_robot">,
+    correction_in_camera:
+        Parameter<Vector3<Camera>, "camera_matrix_parameters.correction_in_camera">,
 }
 
 #[context]
@@ -51,14 +47,31 @@ impl CameraMatrixCalculator {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let image_size = vector![640.0, 480.0];
+        let Some(time_tagged_camera_infos) = &context
+            .camera_info
+            .persistent
+            .iter()
+            .chain(&context.camera_info.temporary)
+            .last()
+        else {
+            return Ok(MainOutputs::default());
+        };
+
+        let Some(camera_info) = time_tagged_camera_infos.1.last() else {
+            return Ok(MainOutputs::default());
+        };
+
+        let image_size = vector![camera_info.width as f32, camera_info.height as f32];
         let head_to_camera = head_to_camera(
-            context.camera_matrix_parameters.camera_pitch.to_radians(),
+            context
+                .camera_matrix_parameters
+                .camera_to_head_pitch
+                .to_radians(),
             RobotDimensions::HEAD_TO_CAMERA,
         );
-        let uncalibrated_camera_matrix = CameraMatrix::from_normalized_focal_and_center(
-            context.camera_matrix_parameters.focal_lengths,
-            context.camera_matrix_parameters.cc_optical_center,
+
+        let uncalibrated_camera_matrix = CameraMatrix::from_camera_info(
+            camera_info,
             image_size,
             context.robot_to_ground.inverse(),
             context.robot_kinematics.head.head_to_robot.inverse(),
@@ -66,14 +79,14 @@ impl CameraMatrixCalculator {
         );
 
         let correction_in_robot = Rotation3::from_euler_angles(
-            context.correction_in_robot.x,
-            context.correction_in_robot.y,
-            context.correction_in_robot.z,
+            context.correction_in_robot.x(),
+            context.correction_in_robot.y(),
+            context.correction_in_robot.z(),
         );
         let correction_in_camera = Rotation3::from_euler_angles(
-            context.correction_in_camera.x,
-            context.correction_in_camera.y,
-            context.correction_in_camera.z,
+            context.correction_in_camera.x(),
+            context.correction_in_camera.y(),
+            context.correction_in_camera.z(),
         );
 
         let calibrated_camera_matrix =

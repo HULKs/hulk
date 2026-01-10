@@ -1709,7 +1709,6 @@ dependencies = [
  "tokio-util",
  "types",
  "vision",
- "zed",
 ]
 
 [[package]]
@@ -4122,7 +4121,6 @@ dependencies = [
  "hula_types",
  "ros2",
  "types",
- "zed",
 ]
 
 [[package]]
@@ -4433,7 +4431,6 @@ dependencies = [
  "vision",
  "walking_inference",
  "world_state",
- "zed",
 ]
 
 [[package]]
@@ -5431,6 +5428,7 @@ dependencies = [
  "pyo3",
  "pyo3-async-runtimes",
  "pyo3-log",
+ "ros2",
  "serde",
  "serde_json",
  "simulation_message",
@@ -5438,7 +5436,6 @@ dependencies = [
  "tokio-tungstenite",
  "tokio-util",
  "uuid",
- "zed",
 ]
 
 [[package]]
@@ -6943,6 +6940,7 @@ dependencies = [
  "linear_algebra",
  "nalgebra",
  "path_serde",
+ "ros2",
  "serde",
  "thiserror 2.0.17",
  "types",
@@ -7537,8 +7535,11 @@ checksum = "082f11ffa03bbef6c2c6ea6bea1acafaade2fd9050ae0234ab44a2153742b058"
 name = "ros2"
 version = "0.1.0"
 dependencies = [
+ "color-eyre",
+ "image",
  "nalgebra",
  "path_serde",
+ "pyo3",
  "serde",
 ]
 
@@ -7986,8 +7987,8 @@ version = "0.1.0"
 dependencies = [
  "booster",
  "pyo3",
+ "ros2",
  "serde",
- "zed",
 ]
 
 [[package]]
@@ -10340,6 +10341,7 @@ dependencies = [
  "linear_algebra",
  "nalgebra",
  "projection",
+ "ros2",
  "serde",
  "spl_network_messages",
  "tokio",

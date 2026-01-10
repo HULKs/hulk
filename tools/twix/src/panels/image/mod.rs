@@ -39,12 +39,16 @@ pub struct ImagePanel {
 }
 
 fn subscribe_image(nao: &Arc<Nao>, is_jpeg: bool, is_depth: bool) -> RawOrJpeg {
-    let base_name = if is_depth { "depth_image" } else { "image" };
+    let base_name = if is_depth {
+        "depth_image"
+    } else {
+        "ycbcr422_image"
+    };
     if is_jpeg {
-        let path = format!("Vision.main_outputs.{base_name}.jpeg");
+        let path = format!("ObjectDetection.main_outputs.{base_name}.jpeg");
         return RawOrJpeg::Jpeg(nao.subscribe_value(path));
     }
-    let path = format!("Vision.main_outputs.{base_name}");
+    let path = format!("ObjectDetection.main_outputs.{base_name}");
     RawOrJpeg::Raw(nao.subscribe_value(path))
 }
 

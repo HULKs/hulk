@@ -44,17 +44,11 @@ impl GroundProvider {
             .chain(&context.imu_state.temporary)
             .last()
         else {
-            return Ok(MainOutputs {
-                ground_to_robot: None.into(),
-                robot_to_ground: None.into(),
-            });
+            return Ok(MainOutputs::default());
         };
 
         let Some(imu_state) = imu_state.1.last() else {
-            return Ok(MainOutputs {
-                ground_to_robot: None.into(),
-                robot_to_ground: None.into(),
-            });
+            return Ok(MainOutputs::default());
         };
 
         let roll = imu_state.roll_pitch_yaw.x();

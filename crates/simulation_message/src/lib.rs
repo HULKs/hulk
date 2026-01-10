@@ -7,8 +7,8 @@ use std::{
 use booster::{
     ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState, TransformMessage,
 };
+use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
 use serde::{Deserialize, Serialize};
-use zed::RGBDSensors;
 
 #[cfg(feature = "pyo3")]
 use pyo3::prelude::*;
@@ -26,7 +26,8 @@ pub enum ServerMessageKind {
     ButtonEventMsg(ButtonEventMsg),
     RemoteControllerState(RemoteControllerState),
     TransformMessage(TransformMessage),
-    RGBDSensors(Box<RGBDSensors>),
+    Image(Box<Image>),
+    CameraInfo(Box<CameraInfo>),
     SceneUpdate(SceneUpdate),
     SceneDescription(SceneDescription),
 }
@@ -41,7 +42,8 @@ pub enum ClientMessageKind {
 pub enum TaskName {
     ApplyLowCommand,
     RequestLowState,
-    RequestRGBDSensors,
+    RequestImage,
+    RequestCameraInfo,
     StepSimulation,
     Reset,
     Invalid,
@@ -457,7 +459,12 @@ impl ConnectionInfo {
                 TaskSchedule::Periodical {
                     interval: Duration::from_millis(33),
                     offset: SystemTime::UNIX_EPOCH,
-                    task: PeriodicalTask::RequestRGBDSensors,
+                    task: PeriodicalTask::RequestImage,
+                },
+                TaskSchedule::Periodical {
+                    interval: Duration::from_millis(33),
+                    offset: SystemTime::UNIX_EPOCH,
+                    task: PeriodicalTask::RequestCameraInfo,
                 },
                 TaskSchedule::Periodical {
                     interval: Duration::from_millis(10),
@@ -515,7 +522,8 @@ pub enum OnceTask {
 pub enum PeriodicalTask {
     ApplyLowCommand,
     RequestLowState,
-    RequestRGBDSensors,
+    RequestImage,
+    RequestCameraInfo,
     RequestSceneState,
     RequestSceneDescription,
 }

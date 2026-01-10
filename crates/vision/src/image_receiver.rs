@@ -23,9 +23,9 @@ pub struct CycleContext {
 
 #[context]
 pub struct MainOutputs {
-    pub image: MainOutput<YCbCr422Image>,
-    pub rgb_image: MainOutput<Image>,
-    pub rgb_image_camera_info: MainOutput<CameraInfo>,
+    pub ycbcr422_image: MainOutput<YCbCr422Image>,
+    pub image: MainOutput<Image>,
+    pub camera_info: MainOutput<CameraInfo>,
     pub cycle_time: MainOutput<CycleTime>,
 }
 
@@ -40,10 +40,9 @@ impl ImageReceiver {
         &mut self,
         context: CycleContext<impl CameraInterface + TimeInterface>,
     ) -> Result<MainOutputs> {
-        let rgbd_sensors = context.hardware_interface.read_rgbd_sensors()?;
-        let rgb_image = rgbd_sensors.rgb;
-        let rgb_image_camera_info = rgbd_sensors.rgb_camera_info;
-        let image: YCbCr422Image = (&(*rgb_image)).into();
+        let image = context.hardware_interface.read_image()?;
+        let camera_info = context.hardware_interface.read_camera_info()?;
+        let ycbcr422_image: YCbCr422Image = (&image).into();
 
         let now = context.hardware_interface.get_now();
         let cycle_time = CycleTime {
@@ -55,9 +54,9 @@ impl ImageReceiver {
         self.last_cycle_start = now;
 
         Ok(MainOutputs {
+            ycbcr422_image: ycbcr422_image.into(),
             image: image.into(),
-            rgb_image: (*rgb_image).into(),
-            rgb_image_camera_info: rgb_image_camera_info.into(),
+            camera_info: camera_info.into(),
             cycle_time: cycle_time.into(),
         })
     }
