@@ -357,8 +357,6 @@ pub enum EdgeDetectionSourceParameters {
 )]
 pub struct BallProjectionParameters {
     pub detection_noise: Vector2<Pixel>,
-    pub noise_increase_slope: f32,
-    pub noise_increase_distance_threshold: f32,
 }
 
 #[derive(
