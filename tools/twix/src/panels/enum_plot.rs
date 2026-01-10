@@ -18,7 +18,7 @@ use eframe::{
 use itertools::Itertools;
 use serde_json::{json, Value};
 
-use hulk_widgets::{NaoPathCompletionEdit, PathFilter};
+use hulk_widgets::{PathFilter, RobotPathCompletionEdit};
 
 use crate::{
     change_buffer::{Change, ChangeBufferHandle},
@@ -163,7 +163,7 @@ impl SegmentRow {
     }
 
     fn show_settings(&mut self, ui: &mut Ui, nao: Arc<Nao>) {
-        let subscription_field = ui.add(NaoPathCompletionEdit::new(
+        let subscription_field = ui.add(RobotPathCompletionEdit::new(
             ui.auto_id_with("enum-plot"),
             nao.latest_paths(),
             &mut self.path,

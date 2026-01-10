@@ -12,7 +12,7 @@ use color_eyre::{
 };
 use communication::messages::TextOrBinary;
 use eframe::egui::{Response, ScrollArea, TextEdit, Ui, Widget};
-use hulk_widgets::{NaoPathCompletionEdit, PathFilter};
+use hulk_widgets::{PathFilter, RobotPathCompletionEdit};
 use log::error;
 use parameters::directory::Scope;
 use serde_json::{json, Value};
@@ -53,7 +53,7 @@ impl Widget for &mut ParameterPanel {
     fn ui(self, ui: &mut Ui) -> Response {
         ui.vertical(|ui| {
             ui.horizontal(|ui| {
-                let path_edit = ui.add(NaoPathCompletionEdit::new(
+                let path_edit = ui.add(RobotPathCompletionEdit::new(
                     ui.id().with("parameter"),
                     self.nao.latest_paths(),
                     &mut self.path,
