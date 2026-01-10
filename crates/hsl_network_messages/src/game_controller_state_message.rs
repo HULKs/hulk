@@ -16,11 +16,11 @@ use crate::{
         COMPETITION_TYPE_NORMAL, COMPETITION_TYPE_SHARED_AUTONOMY, GAMECONTROLLER_STRUCT_HEADER,
         GAMECONTROLLER_STRUCT_VERSION, GAME_PHASE_NORMAL, GAME_PHASE_OVERTIME,
         GAME_PHASE_PENALTYSHOOT, GAME_PHASE_TIMEOUT, MAX_NUM_PLAYERS, PENALTY_MANUAL, PENALTY_NONE,
-        PENALTY_HSL_ILLEGAL_BALL_CONTACT, PENALTY_HSL_ILLEGAL_MOTION_IN_SET,
-        PENALTY_HSL_ILLEGAL_MOTION_IN_STANDBY, PENALTY_HSL_ILLEGAL_POSITION,
-        PENALTY_HSL_ILLEGAL_POSITION_IN_SET, PENALTY_HSL_INACTIVE_PLAYER,
-        PENALTY_HSL_LEAVING_THE_FIELD, PENALTY_HSL_LOCAL_GAME_STUCK, PENALTY_HSL_PLAYER_PUSHING,
-        PENALTY_HSL_PLAYER_STANCE, PENALTY_HSL_REQUEST_FOR_PICKUP, PENALTY_SUBSTITUTE,
+        PENALTY_SPL_ILLEGAL_BALL_CONTACT, PENALTY_SPL_ILLEGAL_MOTION_IN_SET,
+        PENALTY_SPL_ILLEGAL_MOTION_IN_STANDBY, PENALTY_SPL_ILLEGAL_POSITION,
+        PENALTY_SPL_ILLEGAL_POSITION_IN_SET, PENALTY_SPL_INACTIVE_PLAYER,
+        PENALTY_SPL_LEAVING_THE_FIELD, PENALTY_SPL_LOCAL_GAME_STUCK, PENALTY_SPL_PLAYER_PUSHING,
+        PENALTY_SPL_PLAYER_STANCE, PENALTY_SPL_REQUEST_FOR_PICKUP, PENALTY_SUBSTITUTE,
         SET_PLAY_CORNER_KICK, SET_PLAY_GOAL_KICK, SET_PLAY_KICK_IN, SET_PLAY_NONE,
         SET_PLAY_PENALTY_KICK, SET_PLAY_PUSHING_FREE_KICK, STATE_FINISHED, STATE_INITIAL,
         STATE_PLAYING, STATE_READY, STATE_SET, STATE_STANDBY, TEAM_BLACK, TEAM_BLUE, TEAM_BROWN,
@@ -507,23 +507,23 @@ impl Penalty {
     fn try_from(remaining: Duration, penalty: u8) -> Result<Option<Self>> {
         match penalty {
             PENALTY_NONE => Ok(None),
-            PENALTY_HSL_ILLEGAL_BALL_CONTACT => Ok(Some(Penalty::IllegalBallContact { remaining })),
-            PENALTY_HSL_PLAYER_PUSHING => Ok(Some(Penalty::PlayerPushing { remaining })),
-            PENALTY_HSL_ILLEGAL_MOTION_IN_STANDBY => {
+            PENALTY_SPL_ILLEGAL_BALL_CONTACT => Ok(Some(Penalty::IllegalBallContact { remaining })),
+            PENALTY_SPL_PLAYER_PUSHING => Ok(Some(Penalty::PlayerPushing { remaining })),
+            PENALTY_SPL_ILLEGAL_MOTION_IN_STANDBY => {
                 Ok(Some(Penalty::IllegalMotionInStandby { remaining }))
             }
-            PENALTY_HSL_ILLEGAL_MOTION_IN_SET => {
+            PENALTY_SPL_ILLEGAL_MOTION_IN_SET => {
                 Ok(Some(Penalty::IllegalMotionInSet { remaining }))
             }
-            PENALTY_HSL_INACTIVE_PLAYER => Ok(Some(Penalty::InactivePlayer { remaining })),
-            PENALTY_HSL_ILLEGAL_POSITION => Ok(Some(Penalty::IllegalPosition { remaining })),
-            PENALTY_HSL_LEAVING_THE_FIELD => Ok(Some(Penalty::LeavingTheField { remaining })),
-            PENALTY_HSL_REQUEST_FOR_PICKUP => Ok(Some(Penalty::RequestForPickup { remaining })),
-            PENALTY_HSL_LOCAL_GAME_STUCK => Ok(Some(Penalty::LocalGameStuck { remaining })),
-            PENALTY_HSL_ILLEGAL_POSITION_IN_SET => {
+            PENALTY_SPL_INACTIVE_PLAYER => Ok(Some(Penalty::InactivePlayer { remaining })),
+            PENALTY_SPL_ILLEGAL_POSITION => Ok(Some(Penalty::IllegalPosition { remaining })),
+            PENALTY_SPL_LEAVING_THE_FIELD => Ok(Some(Penalty::LeavingTheField { remaining })),
+            PENALTY_SPL_REQUEST_FOR_PICKUP => Ok(Some(Penalty::RequestForPickup { remaining })),
+            PENALTY_SPL_LOCAL_GAME_STUCK => Ok(Some(Penalty::LocalGameStuck { remaining })),
+            PENALTY_SPL_ILLEGAL_POSITION_IN_SET => {
                 Ok(Some(Penalty::IllegalPositionInSet { remaining }))
             }
-            PENALTY_HSL_PLAYER_STANCE => Ok(Some(Penalty::PlayerStance { remaining })),
+            PENALTY_SPL_PLAYER_STANCE => Ok(Some(Penalty::PlayerStance { remaining })),
             PENALTY_SUBSTITUTE => Ok(Some(Penalty::Substitute { remaining })),
             PENALTY_MANUAL => Ok(Some(Penalty::Manual { remaining })),
             _ => bail!("unexpected penalty type"),
