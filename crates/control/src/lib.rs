@@ -8,6 +8,7 @@ pub mod calibration_controller;
 pub mod camera_matrix_calculator;
 pub mod center_of_mass_provider;
 pub mod dribble_path_planner;
+pub mod feature_provider;
 pub mod filtered_game_controller_state_timer;
 pub mod foot_bumper_filter;
 pub mod free_kick_signal_filter;

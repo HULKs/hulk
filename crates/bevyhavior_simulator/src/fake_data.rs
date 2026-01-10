@@ -4,7 +4,7 @@ use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::{Field, Ground, Robot};
+use coordinate_systems::{Camera, Field, Ground, Robot, World};
 use framework::MainOutput;
 use linear_algebra::{Isometry2, Isometry3, Orientation3, Point2};
 use projection::camera_matrix::CameraMatrix;
@@ -68,6 +68,7 @@ pub struct MainOutputs {
     pub calibration_command: MainOutput<Option<CalibrationCommand>>,
     pub stand_up_front_estimated_remaining_duration: MainOutput<Option<Duration>>,
     pub camera_matrix: MainOutput<Option<CameraMatrix>>,
+    pub camera_to_world: MainOutput<Isometry3<Camera, World>>,
     pub robot_to_ground: MainOutput<Option<Isometry3<Robot, Ground>>>,
     pub robot_orientation: MainOutput<Option<Orientation3<Field>>>,
     pub obstacle_avoiding_arms: MainOutput<ArmCommands>,
@@ -114,6 +115,7 @@ impl FakeData {
                 .into(),
             calibration_command: last_database.calibration_command.into(),
             camera_matrix: last_database.camera_matrix.clone().into(),
+            camera_to_world: last_database.camera_to_world.into(),
             robot_to_ground: last_database.robot_to_ground.into(),
             robot_orientation: last_database.robot_orientation.into(),
             obstacle_avoiding_arms: last_database.obstacle_avoiding_arms.into(),

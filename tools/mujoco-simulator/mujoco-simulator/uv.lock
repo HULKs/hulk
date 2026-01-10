@@ -166,6 +166,7 @@ dependencies = [
     { name = "msgpack-python" },
     { name = "mujoco" },
     { name = "mujoco-rust-server" },
+    { name = "numpy" },
     { name = "rich" },
     { name = "scipy" },
 ]
@@ -184,6 +185,7 @@ requires-dist = [
     { name = "msgpack-python", specifier = "==0.5.6" },
     { name = "mujoco", specifier = ">=3.3.6" },
     { name = "mujoco-rust-server", directory = "../mujoco-rust-server" },
+    { name = "numpy", specifier = ">=2.3.3" },
     { name = "rich", specifier = ">=14.1.0" },
     { name = "scipy", specifier = ">=1.16.2" },
 ]
