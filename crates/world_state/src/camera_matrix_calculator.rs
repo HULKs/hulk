@@ -1,4 +1,4 @@
-use std::f32::consts::FRAC_PI_2;
+use std::{f32::consts::FRAC_PI_2, time::SystemTime};
 
 use color_eyre::Result;
 use projection::camera_matrix::CameraMatrix;
@@ -15,7 +15,9 @@ use types::{
 };
 
 #[derive(Deserialize, Serialize)]
-pub struct CameraMatrixCalculator {}
+pub struct CameraMatrixCalculator {
+    last_camera_info: CameraInfo,
+}
 
 #[context]
 pub struct CreationContext {}
@@ -43,23 +45,31 @@ pub struct MainOutputs {
 
 impl CameraMatrixCalculator {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {})
+        Ok(Self {
+            last_camera_info: CameraInfo::default(),
+        })
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let Some(time_tagged_camera_infos) = &context
+        let last_camera_info = self.last_camera_info.clone();
+        let last_camera_infos = vec![&last_camera_info];
+
+        let camera_infos = context
             .camera_info
             .persistent
             .iter()
             .chain(&context.camera_info.temporary)
             .last()
-        else {
-            return Ok(MainOutputs::default());
-        };
+            .unwrap_or((&SystemTime::now(), &last_camera_infos))
+            .1;
 
-        let Some(camera_info) = time_tagged_camera_infos.1.last() else {
-            return Ok(MainOutputs::default());
-        };
+        let camera_info = camera_infos
+            .iter()
+            .copied()
+            .last()
+            .unwrap_or(&last_camera_info);
+
+        self.last_camera_info = camera_info.clone();
 
         let image_size = vector![camera_info.width as f32, camera_info.height as f32];
         let head_to_camera = head_to_camera(
