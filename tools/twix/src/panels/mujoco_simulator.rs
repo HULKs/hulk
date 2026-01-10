@@ -1,3 +1,5 @@
+use std::f32::consts::FRAC_PI_2;
+
 use bevy::{prelude::*, render::view::RenderLayers};
 use bevy_mujoco::{MujocoVisualizerPlugin, TrunkComponent};
 use eframe::egui::{Response, Ui, Widget};
@@ -88,7 +90,8 @@ fn draw_gizmos(
 ) {
     let (translation, rotation) = camera.value.inner.into();
     gizmos.axes(
-        Transform::from_isometry(Isometry3d::new(translation, rotation)),
+        Transform::from_rotation(Quat::from_rotation_x(-FRAC_PI_2))
+            * Transform::from_isometry(Isometry3d::new(translation, rotation)),
         0.1,
     );
     gizmos.axes(Transform::IDENTITY, 1.0);

@@ -130,8 +130,7 @@ impl SensorDataReceiver {
         );
         let translation =
             nalgebra::Translation3::from(nalgebra::Vector3::from_row_slice(&raw[..3]));
-        let camera_to_world = UnitQuaternion::from_euler_angles(-FRAC_PI_2, 0.0, 0.0)
-            * nalgebra::Isometry3::from_parts(translation, rotation.into())
+        let camera_to_world = nalgebra::Isometry3::from_parts(translation, rotation.into())
             * UnitQuaternion::from_euler_angles(-FRAC_PI_2, FRAC_PI_2, 0.0);
 
         Ok(MainOutputs {

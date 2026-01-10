@@ -33,10 +33,6 @@ impl GroundProvider {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        return Ok(MainOutputs {
-            robot_to_ground: Default::default(),
-            ground_to_robot: Default::default(),
-        });
         struct LeftSoleHorizontal;
         struct RightSoleHorizontal;
 
