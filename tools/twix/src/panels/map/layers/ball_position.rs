@@ -22,11 +22,13 @@ impl Layer<Field> for BallPosition {
 
     fn new(nao: Arc<Nao>) -> Self {
         let ground_to_field = nao.subscribe_buffered_value(
-            "Control.main_outputs.ground_to_field",
+            "WorldState.main_outputs.ground_to_field",
             Duration::from_secs(2),
         );
-        let ball_position = nao
-            .subscribe_buffered_value("Control.main_outputs.ball_position", Duration::from_secs(2));
+        let ball_position = nao.subscribe_buffered_value(
+            "WorldState.main_outputs.ball_position",
+            Duration::from_secs(2),
+        );
         let team_ball = nao.subscribe_value("Control.main_outputs.team_ball");
         Self {
             ground_to_field,

@@ -19,7 +19,7 @@ impl Layer<Ground> for BallMeasurement {
     const NAME: &'static str = "Ball Measurements";
 
     fn new(nao: Arc<Nao>) -> Self {
-        let balls = nao.subscribe_value("Vision.main_outputs.balls");
+        let balls = nao.subscribe_value("WorldState.main_outputs.balls");
         Self { balls }
     }
 

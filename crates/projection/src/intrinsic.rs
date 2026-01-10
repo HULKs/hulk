@@ -1,6 +1,7 @@
 use coordinate_systems::{Camera, NormalizedDeviceCoordinates, Pixel};
 use linear_algebra::{point, vector, Point2, Vector2, Vector3};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
+use ros2::sensor_msgs::camera_info::CameraInfo;
 use serde::{Deserialize, Serialize};
 
 #[derive(
@@ -76,6 +77,15 @@ impl Intrinsic {
             .zip_map(&focal_lengths, |image_dim, focal_length| -> f32 {
                 2.0 * (image_dim * 0.5 / focal_length).atan()
             })
+    }
+}
+
+impl From<&CameraInfo> for Intrinsic {
+    fn from(camera_info: &CameraInfo) -> Self {
+        Intrinsic {
+            focals: nalgebra::vector![camera_info.p[0] as f32, camera_info.p[5] as f32],
+            optical_center: point!(camera_info.p[2] as f32, camera_info.p[6] as f32),
+        }
     }
 }
 

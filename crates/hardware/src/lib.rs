@@ -6,6 +6,7 @@ use booster::{
 use color_eyre::eyre::Result;
 
 use hula_types::hardware::{Ids, Paths};
+use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
 use types::{
     audio::SpeakerRequest,
     joints::Joints,
@@ -13,9 +14,7 @@ use types::{
     messages::{IncomingMessage, OutgoingMessage},
     samples::Samples,
     sensor_data::SensorData,
-    ycbcr422_image::YCbCr422Image,
 };
-use zed::RGBDSensors;
 
 pub trait ActuatorInterface {
     fn write_to_actuators(
@@ -27,7 +26,8 @@ pub trait ActuatorInterface {
 }
 
 pub trait CameraInterface {
-    fn read_from_camera(&self) -> Result<YCbCr422Image>;
+    fn read_image(&self) -> Result<Image>;
+    fn read_camera_info(&self) -> Result<CameraInfo>;
 }
 
 pub trait IdInterface {
@@ -75,10 +75,6 @@ pub trait RemoteControllerStateInterface {
 }
 pub trait TransformMessageInterface {
     fn read_transform_message(&self) -> Result<TransformMessage>;
-}
-
-pub trait RGBDSensorsInterface {
-    fn read_rgbd_sensors(&self) -> Result<RGBDSensors>;
 }
 
 pub trait SpeakerInterface {

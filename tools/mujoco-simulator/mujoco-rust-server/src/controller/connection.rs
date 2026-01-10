@@ -40,12 +40,24 @@ impl Connection {
             .wrap_err("channel closed")
     }
 
-    pub(super) async fn request_rgbd_sensors(
+    pub(super) async fn request_image(
         &self,
         simulation_sender: &mpsc::Sender<SimulationTask>,
     ) -> Result<()> {
         simulation_sender
-            .send(SimulationTask::RequestRGBDSensors {
+            .send(SimulationTask::RequestImage {
+                sender: self.websocket_sender.clone(),
+            })
+            .await
+            .wrap_err("channel closed")
+    }
+
+    pub(super) async fn request_camera_info(
+        &self,
+        simulation_sender: &mpsc::Sender<SimulationTask>,
+    ) -> Result<()> {
+        simulation_sender
+            .send(SimulationTask::RequestCameraInfo {
                 sender: self.websocket_sender.clone(),
             })
             .await

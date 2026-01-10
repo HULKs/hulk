@@ -100,7 +100,11 @@ async fn handle_send_message(
         }),
         SimulationData::Image { time, data } => serialize(&SimulatorMessage {
             time,
-            payload: ServerMessageKind::RGBDSensors(data),
+            payload: ServerMessageKind::Image(data),
+        }),
+        SimulationData::CameraInfo { time, data } => serialize(&SimulatorMessage {
+            time,
+            payload: ServerMessageKind::CameraInfo(data),
         }),
     }?;
     websocket

@@ -1,8 +1,8 @@
 #![allow(unexpected_cfgs)]
 
 use hardware::{
-    CameraInterface, NetworkInterface, PathsInterface, RGBDSensorsInterface, RecordingInterface,
-    SpeakerInterface, TimeInterface,
+    CameraInterface, NetworkInterface, PathsInterface, RecordingInterface, SpeakerInterface,
+    TimeInterface,
 };
 use interfake::FakeDataInterface;
 
@@ -33,6 +33,5 @@ pub trait HardwareInterface:
     + SpeakerInterface
     + PathsInterface
     + CameraInterface
-    + RGBDSensorsInterface
 {
 }

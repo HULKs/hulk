@@ -10,8 +10,8 @@ use color_eyre::Result;
 use futures_util::SinkExt;
 use futures_util::StreamExt;
 use hardware::{
-    ButtonEventMsgInterface, IdInterface, MicrophoneInterface, NetworkInterface, PathsInterface,
-    RGBDSensorsInterface, RecordingInterface, SpeakerInterface, TimeInterface,
+    ButtonEventMsgInterface, CameraInterface, IdInterface, MicrophoneInterface, NetworkInterface,
+    PathsInterface, RecordingInterface, SpeakerInterface, TimeInterface,
 };
 use hardware::{
     FallDownStateInterface, LowCommandInterface, LowStateInterface, RemoteControllerStateInterface,
@@ -20,6 +20,7 @@ use hardware::{
 use hula_types::hardware::{Ids, Paths};
 use log::{error, info, warn};
 use parking_lot::Mutex;
+use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
 use serde::Deserialize;
 use simulation_message::{ClientMessageKind, ConnectionInfo, ServerMessageKind, SimulatorMessage};
 use tokio::sync::mpsc::{channel, Receiver, Sender};
@@ -29,7 +30,6 @@ use tokio_util::sync::CancellationToken;
 use types::audio::SpeakerRequest;
 use types::messages::{IncomingMessage, OutgoingMessage};
 use types::samples::Samples;
-use zed::RGBDSensors;
 
 use crate::HardwareInterface;
 
@@ -42,7 +42,8 @@ struct WorkerChannels {
     button_event_msg_sender: Sender<ButtonEventMsg>,
     remote_controller_state_sender: Sender<RemoteControllerState>,
     transform_stamped_sender: Sender<TransformMessage>,
-    rgbd_sensors_sender: Sender<RGBDSensors>,
+    image_sender: Sender<Image>,
+    camera_info_sender: Sender<CameraInfo>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -62,7 +63,8 @@ pub struct MujocoHardwareInterface {
     button_event_msg_receiver: Mutex<Receiver<ButtonEventMsg>>,
     remote_controller_state_receiver: Mutex<Receiver<RemoteControllerState>>,
     transform_stamped_receiver: Mutex<Receiver<TransformMessage>>,
-    rgbd_sensors_receiver: Mutex<Receiver<RGBDSensors>>,
+    image_receiver: Mutex<Receiver<Image>>,
+    camera_info_receiver: Mutex<Receiver<CameraInfo>>,
 }
 
 impl MujocoHardwareInterface {
@@ -74,7 +76,8 @@ impl MujocoHardwareInterface {
         let (remote_controller_state_sender, remote_controller_state_receiver) =
             channel(CHANNEL_CAPACITY);
         let (transform_stamped_sender, transform_stamped_receiver) = channel(CHANNEL_CAPACITY);
-        let (rgbd_sensors_sender, rgbd_sensors_receiver) = channel(CHANNEL_CAPACITY);
+        let (image_sender, image_receiver) = channel(CHANNEL_CAPACITY);
+        let (camera_info_sender, camera_info_receiver) = channel(CHANNEL_CAPACITY);
 
         let worker_channels = WorkerChannels {
             low_state_sender,
@@ -83,7 +86,8 @@ impl MujocoHardwareInterface {
             button_event_msg_sender,
             remote_controller_state_sender,
             transform_stamped_sender,
-            rgbd_sensors_sender,
+            image_sender,
+            camera_info_sender,
         };
 
         let time = Arc::new(Mutex::new(SystemTime::UNIX_EPOCH));
@@ -105,7 +109,8 @@ impl MujocoHardwareInterface {
             button_event_msg_receiver: Mutex::new(button_event_msg_receiver),
             remote_controller_state_receiver: Mutex::new(remote_controller_state_receiver),
             transform_stamped_receiver: Mutex::new(transform_stamped_receiver),
-            rgbd_sensors_receiver: Mutex::new(rgbd_sensors_receiver),
+            image_receiver: Mutex::new(image_receiver),
+            camera_info_receiver: Mutex::new(camera_info_receiver),
         })
     }
 }
@@ -119,7 +124,7 @@ async fn worker(
     let mut websocket = loop {
         let websocket = tokio_tungstenite::connect_async(&address).await;
         if let Ok((mut websocket, _)) = websocket {
-            let connection_info = ConnectionInfo::control_only();
+            let connection_info = ConnectionInfo::control_and_vision();
             log::info!("connected to mujoco websocket at {address}");
             log::info!("sending ConnectionInfo");
             websocket
@@ -215,13 +220,20 @@ async fn handle_message(
                 .await?
         }
         SimulatorMessage {
-            payload: ServerMessageKind::RGBDSensors(rgbd_sensors),
+            payload: ServerMessageKind::Image(image),
+            time,
+        } => {
+            *hardware_interface_time.lock() = time;
+            worker_channels.image_sender.send(*image).await?
+        }
+        SimulatorMessage {
+            payload: ServerMessageKind::CameraInfo(camera_info),
             time,
         } => {
             *hardware_interface_time.lock() = time;
             worker_channels
-                .rgbd_sensors_sender
-                .send(*rgbd_sensors)
+                .camera_info_sender
+                .send(*camera_info)
                 .await?
         }
         _ => {
@@ -285,9 +297,16 @@ impl TransformMessageInterface for MujocoHardwareInterface {
     }
 }
 
-impl RGBDSensorsInterface for MujocoHardwareInterface {
-    fn read_rgbd_sensors(&self) -> Result<RGBDSensors> {
-        self.rgbd_sensors_receiver
+impl CameraInterface for MujocoHardwareInterface {
+    fn read_image(&self) -> Result<Image> {
+        self.image_receiver
+            .lock()
+            .blocking_recv()
+            .ok_or_eyre("channel closed")
+    }
+
+    fn read_camera_info(&self) -> Result<CameraInfo> {
+        self.camera_info_receiver
             .lock()
             .blocking_recv()
             .ok_or_eyre("channel closed")

@@ -4,25 +4,25 @@ use color_eyre::{
     eyre::{bail, eyre, Context, ContextCompat},
     Result,
 };
+use coordinate_systems::Pixel;
+use image::{Pixel as _, RgbImage};
 use itertools::Itertools;
 use ndarray::{s, ArrayView};
 use openvino::{
     CompiledModel, Core, DeviceType, ElementType, InferenceError::GeneralError, Tensor,
 };
+use ros2::sensor_msgs::image::Image;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::Pixel;
 use framework::{deserialize_not_implemented, AdditionalOutput, MainOutput};
 use geometry::rectangle::Rectangle;
 use hardware::PathsInterface;
 use linear_algebra::{point, vector};
 use types::{
     bounding_box::BoundingBox,
-    color::Rgb,
     motion_command::{HeadMotion, MotionCommand},
     pose_detection::{DetectionRegion, HumanPose, Keypoints},
-    ycbcr422_image::YCbCr422Image,
 };
 
 const DETECTION_IMAGE_HEIGHT: usize = 480;
@@ -57,7 +57,7 @@ pub struct CycleContext {
     inference_duration: AdditionalOutput<Duration, "inference_duration">,
     postprocess_duration: AdditionalOutput<Duration, "postprocess_duration">,
 
-    image: Input<YCbCr422Image, "image">,
+    image: Input<Image, "image">,
     motion_command: Input<MotionCommand, "Control", "motion_command">,
 
     maximum_intersection_over_union:
@@ -174,7 +174,7 @@ impl PoseDetection {
 
                     load_into_scratchpad(
                         tensor.get_data_mut()?,
-                        image,
+                        image.clone().try_into()?,
                         image_size_used_for_detection,
                     );
 
@@ -199,7 +199,7 @@ impl PoseDetection {
 
                     load_into_scratchpad(
                         tensor.get_data_mut()?,
-                        image,
+                        image.clone().try_into()?,
                         image_size_used_for_detection,
                     );
 
@@ -290,11 +290,7 @@ impl PoseDetection {
     }
 }
 
-fn load_into_scratchpad(
-    scratchpad: &mut [f32],
-    image: &YCbCr422Image,
-    image_size: DetectionRegion,
-) {
+fn load_into_scratchpad(scratchpad: &mut [f32], image: RgbImage, image_size: DetectionRegion) {
     let (detection_image_width, detection_image_start, stride) = match image_size {
         DetectionRegion::Narrow => (
             DETECTION_IMAGE_WIDTH_NARROW,
@@ -309,11 +305,11 @@ fn load_into_scratchpad(
         for x in
             detection_image_start as u32..(detection_image_start + detection_image_width) as u32
         {
-            let pixel: Rgb = image.at(x, y).into();
+            let pixel = image.get_pixel(x, y).to_rgb().0;
 
-            scratchpad[scratchpad_index] = pixel.red as f32 / 255.;
-            scratchpad[scratchpad_index + stride] = pixel.green as f32 / 255.;
-            scratchpad[scratchpad_index + 2 * stride] = pixel.blue as f32 / 255.;
+            scratchpad[scratchpad_index] = pixel[0] as f32 / 255.;
+            scratchpad[scratchpad_index + stride] = pixel[1] as f32 / 255.;
+            scratchpad[scratchpad_index + 2 * stride] = pixel[2] as f32 / 255.;
 
             scratchpad_index += 1;
         }

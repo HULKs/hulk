@@ -4,9 +4,12 @@
 /// taken, the height and width fields should either match the height and
 /// width fields for the associated image; or height = width = 0
 /// indicates that the full resolution image was captured.
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(
+    Clone, Debug, Default, Serialize, Deserialize, PathIntrospect, PathSerialize, PathDeserialize,
+)]
 pub struct RegionOfInterest {
     /// Leftmost pixel of the ROI
     /// (0 if the ROI includes the left edge of the image)
