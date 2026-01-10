@@ -21,6 +21,8 @@ pub struct LowState {
     pub motor_state_parallel: Vec<MotorState>,
     /// Serial structure joint feedback
     pub motor_state_serial: Vec<MotorState>,
+    /// Serial structure joint feedback
+    pub camera_to_world: [f32; 12],
 }
 
 #[cfg(feature = "pyo3")]
@@ -31,18 +33,28 @@ impl LowState {
         imu_state: ImuState,
         motor_state_parallel: Vec<MotorState>,
         motor_state_serial: Vec<MotorState>,
+        camera_to_world: [f32; 12],
     ) -> Self {
         Self {
             imu_state,
             motor_state_parallel,
             motor_state_serial,
+            camera_to_world,
         }
     }
 }
 
 #[cfg_attr(feature = "pyo3", pyclass(frozen))]
 #[derive(
-    Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
 )]
 pub struct ImuState {
     #[serde(rename = "rpy")]

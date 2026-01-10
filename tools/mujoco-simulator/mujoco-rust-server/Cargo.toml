@@ -15,6 +15,8 @@ booster = { workspace = true, features = ["pyo3"] }
 color-eyre = { workspace = true }
 futures-util = { workspace = true }
 log = { workspace = true }
+coordinate_systems = { workspace = true }
+linear_algebra = { workspace = true }
 pyo3 = { workspace = true }
 pyo3-async-runtimes = { workspace = true }
 pyo3-log = { workspace = true }

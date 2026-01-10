@@ -1,13 +1,16 @@
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::{
+    f32::consts::FRAC_PI_2,
+    time::{SystemTime, UNIX_EPOCH},
+};
 
-use booster::{ImuState, MotorState};
+use booster::{ImuState, LowState, MotorState};
 use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
-use coordinate_systems::Robot;
+use coordinate_systems::{Camera, Robot, World};
 use filtering::low_pass_filter::LowPassFilter;
 use framework::MainOutput;
 use hardware::{LowStateInterface, TimeInterface};
-use linear_algebra::Vector3;
+use linear_algebra::{IntoTransform, Isometry3, Vector3};
 use nalgebra::UnitQuaternion;
 use serde::{Deserialize, Serialize};
 use types::{
@@ -50,6 +53,8 @@ pub struct MainOutputs {
     pub serial_motor_states: MainOutput<Joints<MotorState>>,
     pub cycle_time: MainOutput<CycleTime>,
     pub sensor_data: MainOutput<SensorData>,
+    pub low_state: MainOutput<LowState>,
+    pub camera_to_world: MainOutput<Isometry3<Camera, World>>,
 }
 
 impl SensorDataReceiver {
@@ -118,15 +123,29 @@ impl SensorDataReceiver {
             ..SensorData::default()
         };
 
+        let raw = low_state.camera_to_world;
+
+        let rotation = nalgebra::Rotation3::from_matrix_unchecked(
+            nalgebra::Matrix3::from_row_slice(&raw[3..]),
+        );
+        let translation =
+            nalgebra::Translation3::from(nalgebra::Vector3::from_row_slice(&raw[..3]));
+        let camera_to_world = UnitQuaternion::from_euler_angles(-FRAC_PI_2, 0.0, 0.0)
+            * nalgebra::Isometry3::from_parts(translation, rotation.into())
+            * UnitQuaternion::from_euler_angles(-FRAC_PI_2, FRAC_PI_2, 0.0);
+
         Ok(MainOutputs {
             imu_state: low_state.imu_state.into(),
             serial_motor_states: low_state
                 .motor_state_serial
-                .into_iter()
+                .iter()
+                .cloned()
                 .collect::<Joints<MotorState>>()
                 .into(),
             cycle_time: cycle_time.into(),
             sensor_data: sensor_data.into(),
+            low_state: low_state.into(),
+            camera_to_world: camera_to_world.framed_transform().into(),
         })
     }
 }

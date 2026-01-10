@@ -65,6 +65,11 @@ generate_coordinate_system!(
     /// 2D coordinate system centered on the field,
     ///
     /// Origin: center of the field
+    /// X axis pointing towards the opponent goal during the first half but flips for the second
+    World,
+    /// 2D coordinate system centered on the field,
+    ///
+    /// Origin: center of the field
     /// X axis pointing towards the opponent goal
     Field,
     /// 3D Intrinsic coordinate system of the camera.
