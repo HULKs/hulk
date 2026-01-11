@@ -54,7 +54,7 @@ def request_camera_info(
         renderer.viewport.height,
         renderer.viewport.width,
         focal_scaling,
-        -focal_scaling,
+        focal_scaling,
         optical_center_x,
         optical_center_y,
     )
