@@ -7,6 +7,6 @@ homepage.workspace = true
 
 [dependencies]
 color-eyre = { workspace = true }
+hsl_network_messages = { workspace = true }
 regex = { workspace = true }
 robot = { workspace = true }
-hsl_network_messages = { workspace = true }

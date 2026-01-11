@@ -14,6 +14,7 @@ coordinate_systems = { workspace = true }
 energy_optimization = { workspace = true }
 framework = { workspace = true }
 geometry = { workspace = true }
+hsl_network_messages = { workspace = true }
 hula_types = { workspace = true }
 linear_algebra = { workspace = true }
 motionfile = { workspace = true }
@@ -25,7 +26,6 @@ projection = { workspace = true }
 repository = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-hsl_network_messages = { workspace = true }
 step_planning = { workspace = true }
 types = { workspace = true }
 walking_inference = { workspace = true }

@@ -1,8 +1,8 @@
 use coordinate_systems::{Field, Ground};
 use geometry::line_segment::LineSegment;
 use geometry::{line::Line, look_at::LookAt};
-use linear_algebra::{Isometry2, Point};
 use hsl_network_messages::{GamePhase, SubState};
+use linear_algebra::{Isometry2, Point};
 use types::{
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState,

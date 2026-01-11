@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use context_attribute::context;
 use framework::MainOutput;
 use geometry::{circle::Circle, rectangle::Rectangle};
-use linear_algebra::{point, vector, Point};
 use hsl_network_messages::{SubState, Team};
+use linear_algebra::{point, vector, Point};
 use types::{
     field_dimensions::FieldDimensions, filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState, rule_obstacles::RuleObstacle, world_state::BallState,

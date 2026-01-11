@@ -6,8 +6,8 @@ use std::{
 
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
-use serde::{Deserialize, Serialize};
 use hsl_network_messages::{GameControllerStateMessage, Penalty, PlayerNumber};
+use serde::{Deserialize, Serialize};
 use types::{cycle_time::CycleTime, messages::IncomingMessage, pose_detection::ReadySignalState};
 
 #[derive(Deserialize, Serialize)]

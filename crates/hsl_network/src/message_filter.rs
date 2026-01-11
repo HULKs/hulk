@@ -1,8 +1,8 @@
 use color_eyre::{eyre::Ok, Result};
 use context_attribute::context;
 use framework::MainOutput;
-use serde::{Deserialize, Serialize};
 use hsl_network_messages::{HulkMessage, PlayerNumber, StrikerMessage, VisualRefereeMessage};
+use serde::{Deserialize, Serialize};
 use types::messages::IncomingMessage;
 
 #[derive(Deserialize, Serialize)]

@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 
+use hsl_network_messages::{GameState, PlayerNumber, Team};
 use linear_algebra::{point, vector, Isometry2, Vector};
 use scenario::scenario;
-use hsl_network_messages::{GameState, PlayerNumber, Team};
 use types::ball_position::SimulatorBallState;
 
 use bevyhavior_simulator::{

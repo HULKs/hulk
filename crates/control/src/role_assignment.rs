@@ -14,11 +14,11 @@ use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use hardware::NetworkInterface;
-use linear_algebra::{distance, Isometry2};
 use hsl_network_messages::{
     GameControllerReturnMessage, GamePhase, HulkMessage, LoserMessage, Penalty, PlayerNumber,
     StrikerMessage, SubState, Team,
 };
+use linear_algebra::{distance, Isometry2};
 use types::{
     ball_position::BallPosition,
     cycle_time::CycleTime,

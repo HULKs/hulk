@@ -15,6 +15,7 @@ clap_complete = { workspace = true }
 color-eyre = { workspace = true }
 futures-util = { workspace = true }
 glob = { workspace = true }
+hsl_network_messages = { workspace = true }
 indicatif = { workspace = true }
 lazy_static = { workspace = true }
 opn = { workspace = true }
@@ -25,7 +26,6 @@ robot = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 source_analyzer = { workspace = true }
-hsl_network_messages = { workspace = true }
 tempfile = { workspace = true }
 thiserror = { workspace = true }
 tokio = { workspace = true }

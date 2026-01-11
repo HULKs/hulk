@@ -108,7 +108,6 @@ impl GameControllerStateFilter {
         let fake_visual_referee_proceed_to_ready = false;
         let fake_detected_free_kick_kicking_team = None;
 
-        
         let kicking_team = self.find_kicking_team(
             &context,
             &new_own_penalties_last_cycle,

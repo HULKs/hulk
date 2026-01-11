@@ -8,8 +8,8 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use hardware::SpeakerInterface;
-use serde::{Deserialize, Serialize};
 use hsl_network_messages::GameControllerStateMessage;
+use serde::{Deserialize, Serialize};
 use types::{
     audio::{Sound, SpeakerRequest},
     cycle_time::CycleTime,

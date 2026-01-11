@@ -12,6 +12,7 @@ use regex::Regex;
 
 use robot::{Network, SystemctlAction};
 use hsl_network_messages::PlayerNumber;
+use nao::{Network, SystemctlAction};
 
 pub const SYSTEMCTL_ACTION_POSSIBLE_VALUES: &[&str] =
     &["disable", "enable", "restart", "start", "status", "stop"];

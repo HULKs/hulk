@@ -2,9 +2,9 @@ use color_eyre::Result;
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use framework::MainOutput;
+use hsl_network_messages::{GamePhase, SubState, Team};
 use linear_algebra::{Isometry2, Point2};
 use serde::{Deserialize, Serialize};
-use hsl_network_messages::{GamePhase, SubState, Team};
 use types::{
     ball_position::BallPosition,
     field_dimensions::{FieldDimensions, Half},

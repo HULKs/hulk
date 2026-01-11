@@ -3,8 +3,8 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use color_eyre::Result;
 use context_attribute::context;
 use framework::{MainOutput, PerceptionInput};
-use serde::{Deserialize, Serialize};
 use hsl_network_messages::Team;
+use serde::{Deserialize, Serialize};
 use types::{
     ball_detection::BallPercept,
     color::Rgb,

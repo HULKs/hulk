@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 
+use hsl_network_messages::{GameState, PlayerNumber};
 use linear_algebra::vector;
 use scenario::scenario;
-use hsl_network_messages::{GameState, PlayerNumber};
 
 use bevyhavior_simulator::{
     ball::BallResource,

@@ -3,8 +3,8 @@ use std::time::SystemTime;
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use serde::{Deserialize, Serialize};
 use hsl_network_messages::Penalty;
+use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime, filtered_game_controller_state::FilteredGameControllerState,
     last_filtered_game_controller_state_change::LastFilteredGameControllerStateChanges,

@@ -7,9 +7,9 @@ use geometry::{
     line::{Line, Line2},
     look_at::LookAt,
 };
+use hsl_network_messages::{GamePhase, SubState, Team};
 use linear_algebra::{distance, point, Point2, Pose2, Vector2};
 use serde::{Deserialize, Serialize};
-use hsl_network_messages::{GamePhase, SubState, Team};
 use types::{
     field_dimensions::{FieldDimensions, Side},
     filtered_game_controller_state::FilteredGameControllerState,

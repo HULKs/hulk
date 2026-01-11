@@ -8,9 +8,9 @@ use bevyhavior_simulator::{
     time::{Ticks, TicksTime},
 };
 use geometry::{arc::Arc, circle::Circle, direction::Direction, line_segment::LineSegment};
+use hsl_network_messages::{GameState, PlayerNumber};
 use linear_algebra::{point, vector, Isometry2, Orientation2, Point2};
 use scenario::scenario;
-use hsl_network_messages::{GameState, PlayerNumber};
 use types::{
     motion_command::{ArmMotion, HeadMotion, MotionCommand, OrientationMode, WalkSpeed},
     planned_path::{Path, PathSegment},

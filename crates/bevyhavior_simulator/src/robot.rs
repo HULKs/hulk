@@ -20,6 +20,7 @@ use buffered_watch::{Receiver, Sender};
 use control::localization::generate_initial_pose;
 use coordinate_systems::{Field, Ground, Head, LeftSole, RightSole, Robot as RobotCoordinates};
 use framework::{future_queue, Producer, RecordingTrigger};
+use hsl_network_messages::{HulkMessage, PlayerNumber};
 use hula_types::hardware::Ids;
 use linear_algebra::{
     vector, Isometry2, Isometry3, Orientation2, Orientation3, Point2, Pose2, Pose3, Rotation2,
@@ -27,7 +28,6 @@ use linear_algebra::{
 };
 use parameters::directory::deserialize;
 use projection::intrinsic::Intrinsic;
-use hsl_network_messages::{HulkMessage, PlayerNumber};
 use types::{
     ball_position::BallPosition,
     filtered_whistle::FilteredWhistle,

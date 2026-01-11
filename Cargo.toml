@@ -21,6 +21,8 @@ members = [
   "crates/framework",
   "crates/geometry",
   "crates/hardware",
+  "crates/hsl_network",
+  "crates/hsl_network_messages",
   "crates/hula_types",
   "crates/hulk_booster",
   "crates/hulk_imagine",
@@ -44,8 +46,6 @@ members = [
   "crates/ros2",
   "crates/simulation_message",
   "crates/source_analyzer",
-  "crates/hsl_network",
-  "crates/hsl_network_messages",
   "crates/step_planning",
   "crates/step_planning_solver",
   "crates/types",
@@ -144,6 +144,8 @@ gilrs = "0.11.0"
 glob = "0.3.2"
 hardware = { path = "crates/hardware" }
 home = "=0.5.9"
+hsl_network = { path = "crates/hsl_network" }
+hsl_network_messages = { path = "crates/hsl_network_messages" }
 hula_types = { path = "crates/hula_types" }
 hulk_manifest = { path = "crates/hulk_manifest" }
 hulk_mujoco = { path = "crates/hulk_mujoco" }
@@ -229,8 +231,6 @@ simba = "0.9.0"
 simulation_message = { path = "crates/simulation_message" }
 smallvec = "1.14.0"
 source_analyzer = { path = "crates/source_analyzer" }
-hsl_network = { path = "crates/hsl_network" }
-hsl_network_messages = { path = "crates/hsl_network_messages" }
 splines = { version = "=4.2.0", features = ["serde"] }
 step_planning = { path = "crates/step_planning" }
 step_planning_solver = { path = "crates/step_planning_solver" }

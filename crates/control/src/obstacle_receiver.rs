@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use framework::{MainOutput, PerceptionInput};
-use linear_algebra::{Isometry2, Point2};
 use hsl_network_messages::{GamePhase, HulkMessage, SubState};
+use linear_algebra::{Isometry2, Point2};
 use types::{
     filtered_game_controller_state::FilteredGameControllerState, messages::IncomingMessage,
 };

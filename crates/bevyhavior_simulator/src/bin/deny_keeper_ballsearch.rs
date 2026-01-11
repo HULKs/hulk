@@ -2,9 +2,9 @@ use std::{f32::consts::FRAC_PI_2, time::Duration};
 
 use bevy::prelude::*;
 
+use hsl_network_messages::{GameState, PlayerNumber, Team};
 use linear_algebra::{vector, Isometry2};
 use scenario::scenario;
-use hsl_network_messages::{GameState, PlayerNumber, Team};
 use types::action::Action;
 
 use bevyhavior_simulator::{

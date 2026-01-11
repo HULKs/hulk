@@ -2,8 +2,8 @@ use std::time::Duration;
 
 use bevy::prelude::*;
 
-use scenario::scenario;
 use hsl_network_messages::{GameState, Penalty, PlayerNumber, Team};
+use scenario::scenario;
 
 use bevyhavior_simulator::{
     game_controller::{GameController, GameControllerCommand},

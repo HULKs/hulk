@@ -3,9 +3,9 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::{Field, Ground, UpcomingSupport};
+use hsl_network_messages::PlayerNumber;
 use linear_algebra::{Isometry2, Point2, Vector2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
-use hsl_network_messages::PlayerNumber;
 
 use crate::{
     ball_position::HypotheticalBallPosition, calibration::CalibrationCommand,

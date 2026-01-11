@@ -9,8 +9,8 @@ use serde::{Deserialize, Serialize};
 use context_attribute::context;
 use coordinate_systems::Field;
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
-use linear_algebra::{Point2, Vector2};
 use hsl_network_messages::{GamePhase, HulkMessage, SubState};
+use linear_algebra::{Point2, Vector2};
 use types::{
     ball_position::BallPosition, cycle_time::CycleTime,
     filtered_game_controller_state::FilteredGameControllerState,

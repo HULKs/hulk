@@ -4,8 +4,8 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use hardware::{RecordingInterface, SpeakerInterface};
-use serde::{Deserialize, Serialize};
 use hsl_network_messages::PlayerNumber;
+use serde::{Deserialize, Serialize};
 use types::{
     audio::{Sound, SpeakerRequest},
     buttons::Buttons,

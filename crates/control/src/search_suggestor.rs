@@ -7,13 +7,13 @@ use color_eyre::{eyre::Context, Result};
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
+use hsl_network_messages::{HulkMessage, SubState, Team};
 use itertools::Itertools;
 use linear_algebra::{point, Isometry2, Point2, Vector2};
 use nalgebra::clamp;
 use ndarray::{array, Array2};
 use ndarray_conv::{ConvExt, ConvMode, PaddingMode};
 use serde::{Deserialize, Serialize};
-use hsl_network_messages::{HulkMessage, SubState, Team};
 use types::{
     ball_position::{BallPosition, HypotheticalBallPosition},
     field_dimensions::{FieldDimensions, Half, Side},

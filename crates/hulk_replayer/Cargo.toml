@@ -26,6 +26,8 @@ env_logger = { workspace = true }
 framework = { workspace = true }
 geometry = { workspace = true }
 hardware = { workspace = true }
+hsl_network = { workspace = true }
+hsl_network_messages = { workspace = true }
 hula_types = { workspace = true }
 hulk_widgets = { workspace = true }
 ittapi = { workspace = true }
@@ -40,8 +42,6 @@ path_serde = { workspace = true }
 projection = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-hsl_network = { workspace = true }
-hsl_network_messages = { workspace = true }
 step_planning = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }

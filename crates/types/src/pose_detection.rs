@@ -5,8 +5,8 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Pixel;
-use linear_algebra::{point, Point2};
 use hsl_network_messages::Team;
+use linear_algebra::{point, Point2};
 
 use crate::bounding_box::BoundingBox;
 

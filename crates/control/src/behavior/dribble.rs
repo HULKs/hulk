@@ -1,6 +1,6 @@
 use coordinate_systems::{Ground, UpcomingSupport};
-use linear_algebra::{Isometry2, Pose2};
 use hsl_network_messages::GamePhase;
+use linear_algebra::{Isometry2, Pose2};
 use types::{
     dribble_path_plan::DribblePathPlan,
     filtered_game_controller_state::FilteredGameControllerState,

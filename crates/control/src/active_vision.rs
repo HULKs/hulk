@@ -7,8 +7,8 @@ use serde::{Deserialize, Serialize};
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use framework::MainOutput;
-use linear_algebra::{point, Isometry2, Point2, Vector2};
 use hsl_network_messages::GamePhase;
+use linear_algebra::{point, Isometry2, Point2, Vector2};
 use types::{
     cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
