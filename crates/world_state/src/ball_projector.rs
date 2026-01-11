@@ -61,7 +61,7 @@ impl BallProjector {
                             .ok()?;
 
                         let detected_ball_radius =
-                            (area.max.x() - area.min.x()).min(area.max.y() - area.min.y());
+                            (area.max.x() - area.min.x()).min(area.max.y() - area.min.y()) / 2.0;
 
                         let circle = Circle {
                             center: area.center(),
