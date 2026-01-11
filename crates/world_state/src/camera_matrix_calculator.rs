@@ -46,7 +46,10 @@ pub struct MainOutputs {
 impl CameraMatrixCalculator {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
-            last_camera_info: CameraInfo::default(),
+            last_camera_info: CameraInfo {
+                p: [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
+                ..Default::default()
+            },
         })
     }
 
