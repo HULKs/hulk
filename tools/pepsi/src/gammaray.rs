@@ -3,10 +3,10 @@ use std::path::PathBuf;
 use clap::Args;
 use color_eyre::{eyre::WrapErr, Result};
 
-use argument_parsers::NaoAddress;
-use nao::Nao;
+use argument_parsers::RobotAddress;
 use opn::verify_image;
 use repository::{image::download_image, Repository};
+use robot::Robot;
 
 use crate::progress_indicator::ProgressIndicator;
 
@@ -18,9 +18,9 @@ pub struct Arguments {
     /// Alternative HULKs-OS version e.g. 3.3
     #[arg(long)]
     version: Option<String>,
-    /// The NAOs to flash the image to, e.g. 20w or 10.1.24.22
+    /// The Robots to flash the image to, e.g. 20w or 10.1.24.22
     #[arg(required = true)]
-    naos: Vec<NaoAddress>,
+    robots: Vec<RobotAddress>,
 }
 
 pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<()> {
@@ -49,24 +49,27 @@ pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<(
     let version = &version;
 
     ProgressIndicator::map_tasks(
-        arguments.naos,
+        arguments.robots,
         format!("Uploading image v{version}: ..."),
-        |nao_address, progress_bar| async move {
-            let nao = Nao::try_new_with_ping(nao_address.ip).await?;
-            nao.flash_image(image_path, |msg| {
-                progress_bar.set_message(format!("Uploading image v{version}: {msg}"))
-            })
-            .await
-            .wrap_err_with(|| format!("failed to flash image to {nao_address}"))?;
+        |robot_address, progress_bar| async move {
+            let robot = Robot::try_new_with_ping(robot_address.ip).await?;
+            robot
+                .flash_image(image_path, |msg| {
+                    progress_bar.set_message(format!("Uploading image v{version}: {msg}"))
+                })
+                .await
+                .wrap_err_with(|| format!("failed to flash image to {robot_address}"))?;
             progress_bar.set_message("Uploading team configuration...");
-            nao.rsync_with_nao()?
+            robot
+                .rsync_with_robot()?
                 .arg(team_toml)
-                .arg(format!("{}:/media/internal/", nao.address))
+                .arg(format!("{}:/media/internal/", robot.address))
                 .spawn()
                 .wrap_err("failed to upload team configuration")?;
-            nao.reboot()
+            robot
+                .reboot()
                 .await
-                .wrap_err_with(|| format!("failed to reboot {nao_address}"))
+                .wrap_err_with(|| format!("failed to reboot {robot_address}"))
         },
     )
     .await;

@@ -10,6 +10,7 @@ use linear_algebra::vector;
 #[cfg(feature = "pyo3")]
 use pyo3::prelude::*;
 
+#[repr(C)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen))]
 #[derive(
     Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
@@ -40,6 +41,7 @@ impl LowState {
     }
 }
 
+#[repr(C)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen))]
 #[derive(
     Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
@@ -81,6 +83,7 @@ impl ImuState {
     }
 }
 
+#[repr(C)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
 #[derive(
     Debug,
@@ -155,6 +158,7 @@ impl JointsMotorState for Joints<MotorState> {
     }
 }
 
+#[repr(C)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, eq))]
 #[derive(
     Debug,
@@ -174,6 +178,7 @@ pub enum CommandType {
     Serial,
 }
 
+#[repr(C)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
 #[derive(
     Debug, Default, Clone, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
@@ -209,6 +214,7 @@ impl LowCommand {
     }
 }
 
+#[repr(C)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
 #[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
 pub struct MotorCommand {
@@ -245,6 +251,7 @@ impl MotorCommand {
     }
 }
 
+#[repr(C)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum FallDownStateType {
@@ -254,6 +261,7 @@ pub enum FallDownStateType {
     IsGettingUp,
 }
 
+#[repr(C)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct FallDownState {
@@ -274,6 +282,7 @@ impl FallDownState {
     }
 }
 
+#[repr(C)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ButtonEventType {
@@ -287,6 +296,7 @@ pub enum ButtonEventType {
     LongPressEnd,
 }
 
+#[repr(C)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ButtonEventMsg {
@@ -303,6 +313,7 @@ impl ButtonEventMsg {
     }
 }
 
+#[repr(C)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct RemoteControllerState {
@@ -371,6 +382,7 @@ pub struct RemoteControllerState {
     pub reserved: u8,
 }
 
+#[repr(C)]
 #[derive(Clone, Debug, Deserialize, Serialize)]
 #[serde(rename = "TFMessage")]
 pub struct TransformMessage {

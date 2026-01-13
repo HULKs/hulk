@@ -10,6 +10,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::{geometry_msgs::vector3::Vector3, std_msgs::header::Header};
 
+#[repr(C)]
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct MagneticField {
     /// timestamp is the time the

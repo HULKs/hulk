@@ -9,7 +9,7 @@ use eframe::{
     epaint::Color32,
 };
 use egui_plot::{Line, MarkerShape, Plot as EguiPlot, PlotPoints, Points};
-use hulk_widgets::{NaoPathCompletionEdit, PathFilter};
+use hulk_widgets::{PathFilter, RobotPathCompletionEdit};
 use itertools::Itertools;
 use mlua::{Function, Lua, LuaSerdeExt};
 use serde::{Deserialize, Serialize};
@@ -122,7 +122,7 @@ impl LineData {
 
     fn show_settings(&mut self, ui: &mut Ui, id: usize, nao: &Nao, buffer_history: Duration) {
         ui.horizontal_top(|ui| {
-            let subscription_field = ui.add(NaoPathCompletionEdit::new(
+            let subscription_field = ui.add(RobotPathCompletionEdit::new(
                 ui.id().with(id).with("plot-panel"),
                 nao.latest_paths(),
                 &mut self.path,
