@@ -2,6 +2,7 @@ use booster::{ButtonEventMsg, FallDownState, LowCommand, LowState};
 use cdr::{CdrLe, Infinite};
 use color_eyre::eyre::{bail, Result, WrapErr};
 use futures_util::{pin_mut, select, FutureExt, StreamExt};
+use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
 use ros2_client::{
     Context, MessageTypeName, Name, Node, NodeName, NodeOptions, Publisher, Subscription,
 };
@@ -152,6 +153,21 @@ async fn main() -> Result<()> {
         "low_state",
         MessageTypeName::new("booster_interface", "LowState"),
     );
+    let rectified_image_subscriber: Subscription<Image> = node.subscribe(
+        "/booster_camera_bridge/StereoNetNode",
+        "rectified_image",
+        MessageTypeName::new("sensor_msgs", "Image"),
+    );
+    let image_left_raw_subscriber: Subscription<Image> = node.subscribe(
+        "/booster_camera_bridge",
+        "image_left_raw",
+        MessageTypeName::new("sensor_msgs", "Image"),
+    );
+    let image_left_raw_camera_info_subscriber: Subscription<CameraInfo> = node.subscribe(
+        "/booster_camera_bridge/image_left_raw",
+        "camera_info",
+        MessageTypeName::new("sensor_msgs", "CameraInfo"),
+    );
     let low_command_publisher: Publisher<LowCommand> = node.publisher(
         "/",
         "joint_ctrl",
@@ -167,6 +183,18 @@ async fn main() -> Result<()> {
     let low_state_forwarder = session
         .forward_from_subscriber(low_state_subscription, "low_state")
         .fuse();
+    let rectified_image_forwarder = session
+        .forward_from_subscriber(rectified_image_subscriber, "rectified_image")
+        .fuse();
+    let image_left_raw_forwarder = session
+        .forward_from_subscriber(image_left_raw_subscriber, "image_left_raw")
+        .fuse();
+    let image_left_raw_camera_info_forwarder = session
+        .forward_from_subscriber(
+            image_left_raw_camera_info_subscriber,
+            "image_left_raw/camera_info",
+        )
+        .fuse();
     let low_command_forwarder = session
         .forward_to_publisher(low_command_publisher, "low_command")
         .fuse();
@@ -175,6 +203,9 @@ async fn main() -> Result<()> {
     pin_mut!(fall_down_state_forwarder);
     pin_mut!(low_state_forwarder);
     pin_mut!(low_command_forwarder);
+    pin_mut!(image_left_raw_forwarder);
+    pin_mut!(image_left_raw_camera_info_forwarder);
+    pin_mut!(rectified_image_forwarder);
 
     // If no errors occur, none of these futures will complete
     let result = select! {
@@ -182,6 +213,9 @@ async fn main() -> Result<()> {
         result = fall_down_state_forwarder => result,
         result = low_state_forwarder => result,
         result = low_command_forwarder => result,
+        result = image_left_raw_forwarder => result,
+        result = image_left_raw_camera_info_forwarder => result,
+        result = rectified_image_forwarder => result,
     };
     result.wrap_err("forwarder error occurred")?;
 
