@@ -11,10 +11,13 @@ pub type Vector3<Frame, Scalar = f32> = Vector<Frame, 3, Scalar>;
 #[macro_export]
 macro_rules! vector {
     (<$frame:ty>, $($parameters:expr),* $(,)?) => {
-        $crate::Framed::<$frame, _>::wrap(nalgebra::vector![$($parameters),*])
+        $crate::Framed::<$frame, _>::wrap($crate::nalgebra::vector![$($parameters),*])
     };
     ($($parameters:expr),* $(,)?) => {
-        $crate::Framed::wrap(nalgebra::vector![$($parameters),*])
+        {
+            use $crate::nalgebra;
+            $crate::Framed::wrap(nalgebra::vector![$($parameters),*])
+        }
     };
 }
 

@@ -15,7 +15,10 @@ macro_rules! point {
         $crate::Framed::<$frame, _>::wrap(nalgebra::point![$($parameters),*])
     };
     ($($parameters:expr),* $(,)?) => {
-        $crate::Framed::wrap(nalgebra::point![$($parameters),*])
+        {
+            use $crate::nalgebra;
+            $crate::Framed::wrap(nalgebra::point![$($parameters),*])
+        }
     };
 }
 
