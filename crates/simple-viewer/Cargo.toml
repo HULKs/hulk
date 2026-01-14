@@ -1,0 +1,15 @@
+[package]
+name = "simple-viewer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[dependencies]
+booster = { workspace = true }
+color-eyre = { workspace = true }
+hulkz = { workspace = true }
+rerun = { workspace = true }
+ros2 = { workspace = true }
+tokio = { workspace = true }
+tracing-subscriber = { workspace = true }
