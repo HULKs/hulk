@@ -274,6 +274,12 @@
       "turn": 0.0
     }
   },
+  "behavior": {
+    "walk_with_velocity": {
+      "max_velocity": 0.5,
+      "max_angular_velocity": 0.25
+    }
+  },
   "field_dimensions": {
     "ball_radius": 0.05,
     "length": 9.0,

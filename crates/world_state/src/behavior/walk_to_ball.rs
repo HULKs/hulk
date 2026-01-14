@@ -5,6 +5,7 @@ use framework::MainOutput;
 use serde::{Deserialize, Serialize};
 use types::ball_position::BallPosition;
 use types::motion_command::{HeadMotion, MotionCommand};
+use types::parameters::WalkWithVelocityParameters;
 
 #[derive(Deserialize, Serialize)]
 pub struct WalkToBall {}
@@ -15,6 +16,8 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
+    walk_with_velocity_parameter:
+        Parameter<WalkWithVelocityParameters, "behavior.walk_with_velocity">,
 }
 
 #[context]
@@ -35,8 +38,12 @@ impl WalkToBall {
                 let head = HeadMotion::Center;
                 MotionCommand::WalkWithVelocity {
                     head,
-                    velocity: ball_coordinates_in_ground.normalize() * 0.5, // TODO: parameterize
-                    angular_velocity: ball_coordinates_in_ground.y().clamp(-0.25, 0.25), // TODO: parameterize
+                    velocity: ball_coordinates_in_ground.normalize()
+                        * context.walk_with_velocity_parameter.max_velocity,
+                    angular_velocity: ball_coordinates_in_ground.y().clamp(
+                        -context.walk_with_velocity_parameter.max_angular_velocity,
+                        context.walk_with_velocity_parameter.max_angular_velocity,
+                    ),
                 }
             }
             None => MotionCommand::Stand {
