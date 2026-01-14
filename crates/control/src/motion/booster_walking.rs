@@ -35,7 +35,7 @@ pub struct CycleContext {
     imu_state: Input<ImuState, "imu_state">,
     serial_motor_states: Input<Joints<MotorState>, "serial_motor_states">,
     cycle_time: Input<CycleTime, "cycle_time">,
-    motion_command: Input<MotionCommand, "motion_command">,
+    motion_command: Input<MotionCommand, "WorldState", "motion_command">,
 }
 
 #[context]

@@ -71,6 +71,7 @@ impl WalkingInferenceInputs {
                             .clamp(-policy_interval, policy_interval),
                 )
             }
+            MotionCommand::Stand { .. } | MotionCommand::Unstiff => (Vector2::zeros(), 0.0),
             _ => todo!(),
         };
 

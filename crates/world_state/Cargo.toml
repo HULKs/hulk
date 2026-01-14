@@ -12,6 +12,7 @@ context_attribute = { workspace = true }
 coordinate_systems = { workspace = true }
 filtering = { workspace = true }
 framework = { workspace = true }
+geometry = { workspace = true }
 hardware = { workspace = true }
 linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
