@@ -9,7 +9,6 @@ homepage.workspace = true
 approx.workspace = true
 audio = { workspace = true }
 ball_filter = { workspace = true }
-behavior = { workspace = true }
 bincode = { workspace = true }
 blake3 = { workspace = true }
 booster = { workspace = true }

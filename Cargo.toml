@@ -5,7 +5,6 @@ members = [
   "crates/argument_parsers",
   "crates/audio",
   "crates/ball_filter",
-  "crates/behavior",
   "crates/bevy_mujoco",
   "crates/bevyhavior_simulator",
   "crates/booster",
@@ -92,7 +91,6 @@ bat = { version = "0.25.0", default-features = false, features = [
   "paging",
   "regex-fancy",
 ] }
-behavior = { path = "crates/behavior" }
 bevy = { version = "0.16.0", default-features = false }
 bevy-inspector-egui = "0.29.1"
 bevy_asset_loader = "0.22.0"
