@@ -15,11 +15,6 @@ def generate_low_state(
     acceleration = data.sensor("accelerometer").data
     orientation = mj_quaternion_to_rpy(data.sensor("orientation").data)
 
-    # position = -data.cam_xpos[0]
-    # camera_matrix = data.cam_xmat[0]
-    # camera_orientation = np.zeros(4)
-    # mujoco.mju_mat2Quat(camera_orientation, camera_matrix)
-
     return LowState(
         imu_state=ImuState(
             roll_pitch_yaw=orientation.tolist(),

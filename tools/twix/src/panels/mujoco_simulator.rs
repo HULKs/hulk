@@ -1,6 +1,6 @@
 use std::f32::consts::FRAC_PI_2;
 
-use bevy::{prelude::*, render::view::RenderLayers};
+use bevy::prelude::*;
 use bevy_mujoco::{MujocoVisualizerPlugin, TrunkComponent};
 use eframe::egui::{Response, Ui, Widget};
 use egui_bevy::BevyWidget;
@@ -29,7 +29,6 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
             .init_resource::<KinematicsResource>()
             .init_resource::<FakeCameraResource>()
             .init_gizmo_group::<DefaultGizmoConfigGroup>()
-            .add_systems(Startup, toggle_gizmos)
             .add_systems(Update, draw_gizmos);
         widget.bevy_app.finish();
         widget.bevy_app.cleanup();
@@ -47,12 +46,6 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
             camera_to_world,
         }
     }
-}
-
-fn toggle_gizmos(mut config_store: ResMut<GizmoConfigStore>) {
-    let (config, _) = config_store.config_mut::<DefaultGizmoConfigGroup>();
-    config.enabled = true;
-    config.render_layers = RenderLayers::from_layers(&[0, 1, 2, 3, 4, 5, 6, 7, 8]);
 }
 
 impl Widget for &mut MujocoSimulatorPanel {
