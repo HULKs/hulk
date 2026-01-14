@@ -123,7 +123,7 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
                 nodes: vec![
                     "world_state::ball_filter",
                     "world_state::ball_projector",
-                    "world_state::walk_to_ball",
+                    "world_state::behavior::walk_to_ball",
                 ],
                 execution_time_warning_threshold: Some(Duration::from_secs_f32(1.0 / 83.0)),
             },
