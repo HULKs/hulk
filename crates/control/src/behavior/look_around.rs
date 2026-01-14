@@ -1,4 +1,4 @@
-use spl_network_messages::GamePhase;
+use hsl_network_messages::GamePhase;
 use types::{
     filtered_game_controller_state::FilteredGameControllerState,
     motion_command::{HeadMotion, MotionCommand},

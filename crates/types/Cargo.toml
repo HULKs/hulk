@@ -12,6 +12,7 @@ color-eyre = { workspace = true }
 coordinate_systems = { workspace = true }
 enum-iterator = { workspace = true }
 geometry = { workspace = true }
+hsl_network_messages = { workspace = true }
 image = { workspace = true }
 itertools = { workspace = true }
 linear_algebra = { workspace = true }
@@ -21,5 +22,4 @@ ordered-float = { workspace = true }
 path_serde = { workspace = true }
 ros2 = { workspace = true }
 serde = { workspace = true }
-spl_network_messages = { workspace = true }
 splines = { workspace = true }

@@ -6,8 +6,8 @@ use std::{
 
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
+use hsl_network_messages::{GameControllerStateMessage, Penalty, PlayerNumber};
 use serde::{Deserialize, Serialize};
-use spl_network_messages::{GameControllerStateMessage, Penalty, PlayerNumber};
 use types::{cycle_time::CycleTime, messages::IncomingMessage, pose_detection::ReadySignalState};
 
 #[derive(Deserialize, Serialize)]
@@ -22,7 +22,7 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
+    network_message: PerceptionInput<Option<IncomingMessage>, "HslNetwork", "filtered_message?">,
 
     cycle_time: Input<CycleTime, "cycle_time">,
     ready_signal_detected: Input<bool, "ready_signal_detected">,
@@ -162,7 +162,7 @@ fn unpack_game_controller_messages<'a>(
         .flatten()
         .filter_map(|message| match message {
             Some(IncomingMessage::GameController(_, message)) => Some(message),
-            Some(IncomingMessage::Spl(..)) | None => None,
+            Some(IncomingMessage::Hsl(..)) | None => None,
         })
         .collect()
 }

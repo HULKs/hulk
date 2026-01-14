@@ -15,7 +15,7 @@ use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use filtering::pose_filter::PoseFilter;
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
-use spl_network_messages::{GamePhase, Penalty, PlayerNumber, SubState, Team};
+use hsl_network_messages::{GamePhase, Penalty, PlayerNumber, SubState, Team};
 use types::{
     cycle_time::CycleTime,
     fall_state::FallState,

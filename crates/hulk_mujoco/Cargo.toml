@@ -29,6 +29,8 @@ framework = { workspace = true }
 futures-util.workspace = true
 geometry = { workspace = true }
 hardware = { workspace = true }
+hsl_network = { workspace = true }
+hsl_network_messages = { workspace = true }
 hula_types.workspace = true
 hulk_widgets = { workspace = true }
 ittapi = { workspace = true }
@@ -47,8 +49,6 @@ ros2 = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 simulation_message = { workspace = true }
-spl_network = { workspace = true }
-spl_network_messages = { workspace = true }
 systemd = { workspace = true, optional = true }
 tokio = { workspace = true }
 tokio-tungstenite = { workspace = true }

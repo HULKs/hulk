@@ -2,7 +2,7 @@ use std::time::{Duration, SystemTime};
 
 use bevy::prelude::*;
 
-use spl_network_messages::{
+use hsl_network_messages::{
     GamePhase, GameState, Penalty, PlayerNumber, SubState, Team, TeamColor, TeamState,
 };
 use types::{

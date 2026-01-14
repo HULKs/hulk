@@ -2,9 +2,9 @@ use std::time::SystemTime;
 
 use bevy::prelude::*;
 
+use hsl_network_messages::{GameState, PlayerNumber};
 use linear_algebra::{point, Vector2};
 use scenario::scenario;
-use spl_network_messages::{GameState, PlayerNumber};
 
 use bevyhavior_simulator::{
     ball::BallResource,

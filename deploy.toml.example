@@ -17,6 +17,6 @@ with_communication = false
 [recording_intervals]
 Control = 1
 Vision
-SplNetwork = 1
+HslNetwork = 1
 # ObjectDetection = 1
 # Audio = 1

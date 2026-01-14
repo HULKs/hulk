@@ -4,5 +4,10 @@
     "motions": "etc/motions",
     "neural_networks": "etc/neural_networks",
     "sounds": "etc/sounds"
+  },
+  "hsl_network_ports": {
+    "game_controller_return": 3939,
+    "game_controller_state": 3838,
+    "hsl": 10024
   }
 }

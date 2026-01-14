@@ -1,8 +1,8 @@
 use bevy::{ecs::system::SystemParam, prelude::*};
 
+use hsl_network_messages::{GameState, PlayerNumber, SubState, Team};
 use linear_algebra::point;
 use scenario::scenario;
-use spl_network_messages::{GameState, PlayerNumber, SubState, Team};
 
 use bevyhavior_simulator::{
     ball::BallResource,

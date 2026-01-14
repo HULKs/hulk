@@ -4,8 +4,8 @@ use serde::{Deserialize, Serialize};
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use framework::{MainOutput, PerceptionInput};
+use hsl_network_messages::{GamePhase, HulkMessage, SubState};
 use linear_algebra::{Isometry2, Point2};
-use spl_network_messages::{GamePhase, HulkMessage, SubState};
 use types::{
     filtered_game_controller_state::FilteredGameControllerState, messages::IncomingMessage,
 };
@@ -21,7 +21,7 @@ pub struct CycleContext {
     filtered_game_controller_state:
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
     ground_to_field: RequiredInput<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
-    network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
+    network_message: PerceptionInput<Option<IncomingMessage>, "HslNetwork", "filtered_message?">,
 }
 
 #[context]
@@ -42,7 +42,7 @@ impl ObstacleReceiver {
             .values()
             .flat_map(|messages| messages.iter().filter_map(|message| *message))
             .filter_map(|message| match message {
-                IncomingMessage::Spl(message) => Some(*message),
+                IncomingMessage::Hsl(message) => Some(*message),
                 _ => None,
             });
         let mut network_robot_obstacles = Vec::new();

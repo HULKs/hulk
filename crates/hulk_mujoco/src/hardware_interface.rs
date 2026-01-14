@@ -5,7 +5,7 @@ use std::time::{Duration, SystemTime};
 use booster::{
     ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState, TransformMessage,
 };
-use color_eyre::eyre::{eyre, Context, OptionExt};
+use color_eyre::eyre::{eyre, Context, Error, OptionExt};
 use color_eyre::Result;
 use futures_util::SinkExt;
 use futures_util::StreamExt;
@@ -17,11 +17,13 @@ use hardware::{
     FallDownStateInterface, LowCommandInterface, LowStateInterface, RemoteControllerStateInterface,
     TransformMessageInterface,
 };
+use hsl_network::endpoint::{Endpoint, Ports};
 use hula_types::hardware::{Ids, Paths};
 use log::{error, info, warn};
 use parking_lot::Mutex;
 use serde::Deserialize;
 use simulation_message::{ClientMessageKind, ConnectionInfo, ServerMessageKind, SimulatorMessage};
+use tokio::select;
 use tokio::sync::mpsc::{channel, Receiver, Sender};
 use tokio::time::sleep;
 use tokio_tungstenite::tungstenite::Message;
@@ -49,6 +51,7 @@ struct WorkerChannels {
 pub struct Parameters {
     pub paths: Paths,
     pub mujoco_websocket_address: String,
+    pub hsl_network_ports: Ports,
 }
 
 pub struct MujocoHardwareInterface {
@@ -63,6 +66,10 @@ pub struct MujocoHardwareInterface {
     remote_controller_state_receiver: Mutex<Receiver<RemoteControllerState>>,
     transform_stamped_receiver: Mutex<Receiver<TransformMessage>>,
     rgbd_sensors_receiver: Mutex<Receiver<RGBDSensors>>,
+
+    hsl_network_endpoint: Endpoint,
+    async_runtime: tokio::runtime::Handle,
+    keep_running: CancellationToken,
 }
 
 impl MujocoHardwareInterface {
@@ -94,6 +101,8 @@ impl MujocoHardwareInterface {
             worker_channels,
         )));
 
+        let runtime = tokio::runtime::Handle::current();
+
         Ok(Self {
             paths: parameters.paths,
             enable_recording: AtomicBool::new(false),
@@ -106,6 +115,13 @@ impl MujocoHardwareInterface {
             remote_controller_state_receiver: Mutex::new(remote_controller_state_receiver),
             transform_stamped_receiver: Mutex::new(transform_stamped_receiver),
             rgbd_sensors_receiver: Mutex::new(rgbd_sensors_receiver),
+
+            hsl_network_endpoint: tokio::task::block_in_place(|| {
+                runtime.block_on(Endpoint::new(parameters.hsl_network_ports))
+            })
+            .wrap_err("failed to initialize HSL network")?,
+            async_runtime: runtime,
+            keep_running,
         })
     }
 }
@@ -308,11 +324,22 @@ impl PathsInterface for MujocoHardwareInterface {
 
 impl NetworkInterface for MujocoHardwareInterface {
     fn read_from_network(&self) -> Result<IncomingMessage> {
-        todo!()
+        self.async_runtime.block_on(async {
+            select! {
+                result = self.hsl_network_endpoint.read() => {
+                    result.map_err(Error::from)
+                },
+                _ = self.keep_running.cancelled() => {
+                    Err(eyre!("termination requested"))
+                }
+            }
+        })
     }
 
-    fn write_to_network(&self, _message: OutgoingMessage) -> Result<()> {
-        todo!()
+    fn write_to_network(&self, message: OutgoingMessage) -> Result<()> {
+        self.async_runtime
+            .block_on(self.hsl_network_endpoint.write(message));
+        Ok(())
     }
 }
 

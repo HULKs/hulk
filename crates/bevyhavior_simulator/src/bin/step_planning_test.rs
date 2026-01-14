@@ -7,9 +7,9 @@ use bevyhavior_simulator::{
     robot::Robot,
     time::{Ticks, TicksTime},
 };
+use hsl_network_messages::{GameState, PlayerNumber};
 use linear_algebra::{point, Isometry2, Orientation2, Point2};
 use scenario::scenario;
-use spl_network_messages::{GameState, PlayerNumber};
 use types::{
     motion_command::{ArmMotion, HeadMotion, MotionCommand, OrientationMode, WalkSpeed},
     planned_path::{Path, PathSegment},

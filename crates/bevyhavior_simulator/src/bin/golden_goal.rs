@@ -1,7 +1,7 @@
 use bevy::prelude::*;
 
+use hsl_network_messages::{GameState, PlayerNumber};
 use scenario::scenario;
-use spl_network_messages::{GameState, PlayerNumber};
 
 use bevyhavior_simulator::{
     game_controller::{GameController, GameControllerCommand},

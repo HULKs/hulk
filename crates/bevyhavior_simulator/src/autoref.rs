@@ -12,8 +12,8 @@ use bevy::{
     time::{Time, Timer, TimerMode},
 };
 use coordinate_systems::{Field, Ground};
+use hsl_network_messages::{GameState, Penalty, SubState, Team};
 use linear_algebra::{point, vector, Isometry2};
-use spl_network_messages::{GameState, Penalty, SubState, Team};
 use step_planning::traits::Length;
 use types::{
     ball_position::SimulatorBallState,

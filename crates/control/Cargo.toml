@@ -19,6 +19,7 @@ filtering = { workspace = true }
 framework = { workspace = true }
 geometry = { workspace = true }
 hardware = { workspace = true }
+hsl_network_messages = { workspace = true }
 hungarian_algorithm = { workspace = true }
 itertools = { workspace = true }
 kinematics = { workspace = true }
@@ -38,7 +39,6 @@ rand = { workspace = true }
 rand_chacha = { workspace = true }
 serde = { workspace = true }
 smallvec = { workspace = true }
-spl_network_messages = { workspace = true }
 splines = { workspace = true }
 step_planning = { workspace = true }
 step_planning_solver = { workspace = true }

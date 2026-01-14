@@ -46,11 +46,11 @@ fn main() -> Result<()> {
                 execution_time_warning_threshold: None,
             },
             CyclerManifest {
-                name: "SplNetwork",
+                name: "HslNetwork",
                 kind: CyclerKind::Perception,
                 instances: vec![""],
-                setup_nodes: vec!["spl_network::message_receiver"],
-                nodes: vec!["spl_network::message_filter"],
+                setup_nodes: vec!["hsl_network::message_receiver"],
+                nodes: vec!["hsl_network::message_filter"],
                 execution_time_warning_threshold: None,
             },
             CyclerManifest {
