@@ -3,6 +3,7 @@ use crate::{
     panel::{Panel, PanelCreationContext},
     value_buffer::BufferHandle,
 };
+use color_eyre::eyre::OptionExt;
 use communication::messages::TextOrBinary;
 use eframe::egui::Widget;
 use gilrs::{Axis, Button, Gamepad, Gilrs};
@@ -36,6 +37,7 @@ impl<'a> Panel<'a> for RemotePanel {
 
         let enabled = Arc::new(AtomicBool::new(false));
         let latest_step = nao.subscribe_value("parameters.remote_control_parameters.walk");
+        let gait_parameter_value = nao.subscribe_value("parameters.rl_walking.gait_frequency");
         let bg_running = Arc::new(AtomicBool::new(true));
 
         let nao_clone = nao.clone();
@@ -122,13 +124,49 @@ impl<'a> Panel<'a> for RemotePanel {
                     }
                     start_was_pressed = start_pressed;
 
+                    let up_pressed = gamepad
+                        .button_data(Button::DPadUp)
+                        .map(|button| button.is_pressed())
+                        .unwrap_or(false);
+
+                    let down_pressed = gamepad
+                        .button_data(Button::DPadDown)
+                        .map(|button| button.is_pressed())
+                        .unwrap_or(false);
+
+                    // if up_pressed || down_pressed {
+                    //     println!("d-pad pressed");
+                    // }
+
+                    // if start_pressed {
+                    //     println!("start pressed");
+                    // }
+
+                    let gait_parameter_value = gait_parameter_value.get_last_value().ok().flatten();
+
+                    let new_gait_parameter_value;
+
+                    if up_pressed && !down_pressed {
+                        new_gait_parameter_value = match gait_parameter_value {
+                            Some(value) => value + 0.1,
+                            None => 1.0,
+                        };
+                    } else if down_pressed {
+                        new_gait_parameter_value = match gait_parameter_value {
+                            Some(value) => value - 0.1,
+                            None => 1.0,
+                        };
+                    } else {
+                        new_gait_parameter_value = gait_parameter_value.unwrap_or(1.0);
+                    }
+
                     if enabled_clone.load(Ordering::Relaxed) {
                         let now = SystemTime::now();
                         if now.duration_since(last_update).expect("Time ran backwards")
                             > UPDATE_DELAY
                         {
                             last_update = now;
-                            update_step(&nao_clone, step);
+                            update_step(&nao_clone, step, new_gait_parameter_value);
                         }
                     }
                     let _ = sender.send(step);
@@ -164,13 +202,17 @@ fn get_axis_value(gamepad: Gamepad, axis: Axis) -> Option<f32> {
 }
 
 fn reset(nao: &Arc<Nao>) {
-    update_step(nao, Step::<f32>::default());
+    update_step(nao, Step::<f32>::default(), 1.0);
 }
 
-fn update_step(nao: &Arc<Nao>, step: Step) {
+fn update_step(nao: &Arc<Nao>, step: Step, gait_frequency: f64) {
     nao.write(
         "parameters.remote_control_parameters.walk",
         TextOrBinary::Text(serde_json::to_value(step).unwrap()),
+    );
+    nao.write(
+        "parameters.rl_walking.gait_frequency",
+        TextOrBinary::Text(serde_json::to_value(gait_frequency).unwrap()),
     );
 }
 
