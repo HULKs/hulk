@@ -11,7 +11,6 @@ use color_eyre::{
 use regex::Regex;
 
 use hsl_network_messages::PlayerNumber;
-use nao::{Network, SystemctlAction};
 use robot::{Network, SystemctlAction};
 
 pub const SYSTEMCTL_ACTION_POSSIBLE_VALUES: &[&str] =
