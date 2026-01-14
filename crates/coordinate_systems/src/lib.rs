@@ -65,6 +65,11 @@ generate_coordinate_system!(
     /// 2D coordinate system centered on the field,
     ///
     /// Origin: center of the field
+    /// X axis pointing towards the opponent goal during the first half but flips for the second
+    World,
+    /// 2D coordinate system centered on the field,
+    ///
+    /// Origin: center of the field
     /// X axis pointing towards the opponent goal
     Field,
     /// 3D Intrinsic coordinate system of the camera.
@@ -83,11 +88,11 @@ generate_coordinate_system!(
     /// 2D Coordinate system of the camera image.
     /// Same as [Pixel] but the dimensions are normalized to (0.0, 1.0) of the image width and height.
     NormalizedPixel,
-    /// See [official documentation](https://booster.feishu.cn/wiki/AHctwLAYjiyThnkZctIc6iYunmf
+    /// See [official documentation](https://booster.feishu.cn/wiki/AHctwLAYjiyThnkZctIc6iYunmf)
     Head,
-    /// See [official documentation](https://booster.feishu.cn/wiki/AHctwLAYjiyThnkZctIc6iYunmf
+    /// See [official documentation](https://booster.feishu.cn/wiki/AHctwLAYjiyThnkZctIc6iYunmf)
     Neck,
-    /// See [official documentation](https://booster.feishu.cn/wiki/AHctwLAYjiyThnkZctIc6iYunmf
+    /// See [official documentation](https://booster.feishu.cn/wiki/AHctwLAYjiyThnkZctIc6iYunmf)
     Torso,
     /// See [official documentation](https://booster.feishu.cn/wiki/AHctwLAYjiyThnkZctIc6iYunmf)
     LeftInnerShoulder,

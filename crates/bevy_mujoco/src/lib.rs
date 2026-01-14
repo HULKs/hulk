@@ -299,7 +299,7 @@ fn spawn_mujoco_scene(
                 );
             }
         });
-        if body.parent.is_none() && body.name.as_ref().is_some_and(|name| name == "Trunk") {
+        if body.name.as_ref().is_some_and(|name| name == "Trunk") {
             parent.insert(TrunkComponent);
         }
     }

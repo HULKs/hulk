@@ -1,4 +1,6 @@
 from mujoco import MjData
+import mujoco
+import numpy as np
 from mujoco_rust_server.booster_types import ImuState, LowState, MotorState
 
 from mujoco_simulator._utils import mj_quaternion_to_rpy
@@ -11,6 +13,7 @@ def generate_low_state(
     orientation = mj_quaternion_to_rpy(data.sensor("orientation").data)
     gyro = data.sensor("angular-velocity").data
     acceleration = data.sensor("accelerometer").data
+    orientation = mj_quaternion_to_rpy(data.sensor("orientation").data)
 
     return LowState(
         imu_state=ImuState(
@@ -28,4 +31,5 @@ def generate_low_state(
             for info in actuator_info
         ],
         motor_state_parallel=[],
+        camera_to_world=[*data.cam_xpos[0], *data.cam_xmat[0]],
     )

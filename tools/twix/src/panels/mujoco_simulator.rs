@@ -1,8 +1,10 @@
+use std::f32::consts::FRAC_PI_2;
+
 use bevy::prelude::*;
 use bevy_mujoco::{MujocoVisualizerPlugin, TrunkComponent};
 use eframe::egui::{Response, Ui, Widget};
 use egui_bevy::BevyWidget;
-use nalgebra::Isometry3;
+use linear_algebra::Isometry3;
 use types::robot_kinematics::RobotKinematics;
 
 use crate::{
@@ -13,6 +15,7 @@ use crate::{
 pub struct MujocoSimulatorPanel {
     widget: BevyWidget,
     kinematics: BufferHandle<RobotKinematics>,
+    camera_to_world: BufferHandle<Isometry3<Camera, World>>,
 }
 
 impl<'a> Panel<'a> for MujocoSimulatorPanel {
@@ -24,6 +27,7 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
             .bevy_app
             .add_plugins(MujocoVisualizerPlugin::new(context.egui_context.clone()))
             .init_resource::<KinematicsResource>()
+            .init_resource::<FakeCameraResource>()
             .init_gizmo_group::<DefaultGizmoConfigGroup>()
             .add_systems(Update, draw_gizmos);
         widget.bevy_app.finish();
@@ -32,17 +36,31 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
         let kinematics = context
             .nao
             .subscribe_value("Control.main_outputs.robot_kinematics");
-        Self { widget, kinematics }
+        let camera_to_world = context
+            .nao
+            .subscribe_value("Control.main_outputs.camera_to_world");
+
+        Self {
+            widget,
+            kinematics,
+            camera_to_world,
+        }
     }
 }
 
 impl Widget for &mut MujocoSimulatorPanel {
     fn ui(self, ui: &mut Ui) -> Response {
-        if let Ok(Some(kinematics)) = self.kinematics.get_last_value() {
+        if let Ok(Some(value)) = self.kinematics.get_last_value() {
             self.widget
                 .bevy_app
                 .world_mut()
-                .insert_resource(KinematicsResource { value: kinematics });
+                .insert_resource(KinematicsResource { value });
+        };
+        if let Ok(Some(value)) = self.camera_to_world.get_last_value() {
+            self.widget
+                .bevy_app
+                .world_mut()
+                .insert_resource(FakeCameraResource { value });
         };
         self.widget.ui(ui)
     }
@@ -52,13 +70,25 @@ impl Widget for &mut MujocoSimulatorPanel {
 struct KinematicsResource {
     value: RobotKinematics,
 }
+#[derive(Resource, Default)]
+struct FakeCameraResource {
+    value: Isometry3<Camera, World>,
+}
 
 fn draw_gizmos(
     robot: Single<(&GlobalTransform, &TrunkComponent)>,
     kinematics: Res<KinematicsResource>,
+    camera: Res<FakeCameraResource>,
     mut gizmos: Gizmos,
 ) {
-    let mut draw = |pose: Isometry3<f32>| {
+    let (translation, rotation) = camera.value.inner.into();
+    gizmos.axes(
+        Transform::from_rotation(Quat::from_rotation_x(-FRAC_PI_2))
+            * Transform::from_isometry(Isometry3d::new(translation, rotation)),
+        0.1,
+    );
+    gizmos.axes(Transform::IDENTITY, 1.0);
+    let mut draw = |pose: nalgebra::Isometry3<f32>| {
         let (translation, rotation) =
             (kinematics.value.torso.torso_to_robot.inner.inverse() * pose).into();
         gizmos.axes(

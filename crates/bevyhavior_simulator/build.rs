@@ -22,6 +22,7 @@ fn main() -> Result<()> {
                     "control::behavior::node",
                     "control::center_of_mass_provider",
                     "control::dribble_path_planner",
+                    "control::feature_provider",
                     "control::filtered_game_controller_state_timer",
                     "control::free_kick_signal_filter",
                     "control::game_controller_state_filter",
