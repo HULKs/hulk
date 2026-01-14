@@ -12,12 +12,14 @@ use zenoh::Session;
 trait RosNode {
     fn subscribe<T: 'static>(
         &mut self,
+        namespace: &'static str,
         topic_name: &'static str,
         type_name: MessageTypeName,
     ) -> Subscription<T>;
 
     fn publisher<T: Serialize>(
         &mut self,
+        namespace: &'static str,
         topic_name: &'static str,
         type_name: MessageTypeName,
     ) -> Publisher<T>;
@@ -26,12 +28,13 @@ trait RosNode {
 impl RosNode for Node {
     fn subscribe<T: 'static>(
         &mut self,
+        namespace: &'static str,
         topic_name: &'static str,
         type_name: MessageTypeName,
     ) -> Subscription<T> {
         let topic = self
             .create_topic(
-                &Name::new("/", topic_name).unwrap(),
+                &Name::new(namespace, topic_name).unwrap(),
                 type_name,
                 &ros2_client::DEFAULT_SUBSCRIPTION_QOS,
             )
@@ -43,12 +46,13 @@ impl RosNode for Node {
 
     fn publisher<T: Serialize>(
         &mut self,
+        namespace: &'static str,
         topic_name: &'static str,
         type_name: MessageTypeName,
     ) -> Publisher<T> {
         let topic = self
             .create_topic(
-                &Name::new("/", topic_name).unwrap(),
+                &Name::new(namespace, topic_name).unwrap(),
                 type_name,
                 &ros2_client::DEFAULT_SUBSCRIPTION_QOS,
             )
@@ -134,18 +138,22 @@ async fn main() -> Result<()> {
         .unwrap();
 
     let button_event_subscription: Subscription<ButtonEventMsg> = node.subscribe(
+        "/",
         "button_event",
         MessageTypeName::new("booster_interface", "ButtonEventMsg"),
     );
     let fall_down_state_subscription: Subscription<FallDownState> = node.subscribe(
+        "/",
         "fall_down",
         MessageTypeName::new("booster_interface", "FallDownState"),
     );
     let low_state_subscription: Subscription<LowState> = node.subscribe(
+        "/",
         "low_state",
         MessageTypeName::new("booster_interface", "LowState"),
     );
     let low_command_publisher: Publisher<LowCommand> = node.publisher(
+        "/",
         "joint_ctrl",
         MessageTypeName::new("booster_interface", "LowCmd"),
     );
