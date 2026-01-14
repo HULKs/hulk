@@ -37,7 +37,7 @@ impl<'a> Panel<'a> for RemotePanel {
 
         let enabled = Arc::new(AtomicBool::new(false));
         let latest_step = nao.subscribe_value("parameters.remote_control_parameters.walk");
-        let gait_parameter_value = nao.subscribe_value("parameters.rl_walking.gait_frequency");
+        let gait_parameter_value = nao.subscribe_json("parameters.rl_walking.gait_frequency");
         let bg_running = Arc::new(AtomicBool::new(true));
 
         let nao_clone = nao.clone();
@@ -147,17 +147,17 @@ impl<'a> Panel<'a> for RemotePanel {
                     let new_gait_parameter_value;
 
                     if up_pressed && !down_pressed {
-                        new_gait_parameter_value = match gait_parameter_value {
-                            Some(value) => value + 0.1,
-                            None => 1.0,
-                        };
+                        new_gait_parameter_value = gait_parameter_value
+                            .and_then(|v| v.as_f64())
+                            .map_or(1.0, |v| v + 0.1);
                     } else if down_pressed {
-                        new_gait_parameter_value = match gait_parameter_value {
-                            Some(value) => value - 0.1,
-                            None => 1.0,
-                        };
+                        new_gait_parameter_value = gait_parameter_value
+                            .and_then(|v| v.as_f64())
+                            .map_or(1.0, |v| v - 0.1);
                     } else {
-                        new_gait_parameter_value = gait_parameter_value.unwrap_or(1.0);
+                        new_gait_parameter_value = gait_parameter_value
+                            .and_then(|v| v.as_f64())
+                            .map_or(1.0, |v| v);
                     }
 
                     if enabled_clone.load(Ordering::Relaxed) {
