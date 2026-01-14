@@ -270,7 +270,7 @@
       "turn": 0.0
     }
   },
-  "player_number": "Seven",
+  "player_number": "Three",
   "game_controller_filter": {
     "time_since_last_message_to_consider_ip_active": {
       "nanos": 0,
@@ -308,7 +308,7 @@
     "duration_to_keep_new_penalties": { "nanos": 0, "secs": 30 }
   },
   "field_dimensions": {
-    "ball_radius": 0.05,
+    "ball_radius": 0.095,
     "length": 9.0,
     "width": 6.0,
     "line_width": 0.05,
