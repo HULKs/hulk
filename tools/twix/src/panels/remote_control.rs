@@ -14,7 +14,7 @@ use std::{
         Arc,
     },
     thread::{self, JoinHandle},
-    time::{Duration, SystemTime},
+    time::{Duration, Instant, SystemTime},
 };
 use tokio::sync::watch::{channel, Receiver};
 use types::step::Step;
@@ -124,6 +124,8 @@ impl<'a> Panel<'a> for RemotePanel {
                     }
                     start_was_pressed = start_pressed;
 
+                    let start_time = Instant::now();
+
                     let up_pressed = gamepad
                         .button_data(Button::DPadUp)
                         .map(|button| button.is_pressed())
@@ -150,7 +152,7 @@ impl<'a> Panel<'a> for RemotePanel {
                     if left_pressed {
                         // Reset
                         new_gait_parameter_value = 1.0;
-                    } else if up_pressed && !down_pressed {
+                    } else if up_pressed {
                         // Increase
                         new_gait_parameter_value =
                             gait_parameter_value.map_or(1.0, |v| (v + 0.25).min(10.0));
@@ -162,6 +164,8 @@ impl<'a> Panel<'a> for RemotePanel {
                         // Stay
                         new_gait_parameter_value = gait_parameter_value.map_or(1.0, |v| v);
                     }
+
+                    dbg!(start_time.elapsed());
 
                     if enabled_clone.load(Ordering::Relaxed) {
                         let now = SystemTime::now();
