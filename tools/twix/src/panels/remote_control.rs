@@ -153,11 +153,11 @@ impl<'a> Panel<'a> for RemotePanel {
                     } else if up_pressed && !down_pressed {
                         // Increase
                         new_gait_parameter_value =
-                            gait_parameter_value.map_or(1.0, |v| (v + 0.25).max(10.0));
+                            gait_parameter_value.map_or(1.0, |v| (v + 0.25).min(10.0));
                     } else if down_pressed {
                         // Decrease
                         new_gait_parameter_value =
-                            gait_parameter_value.map_or(1.0, |v| (v - 0.25).min(0.25));
+                            gait_parameter_value.map_or(1.0, |v| (v - 0.25).max(0.25));
                     } else {
                         // Stay
                         new_gait_parameter_value = gait_parameter_value.map_or(1.0, |v| v);
@@ -241,13 +241,12 @@ impl Widget for &mut RemotePanel {
         ui.strong("Controller:");
         let controller_step = self.receiver.borrow().0;
         ui.label(format!("{controller_step:#?}"));
-        let gait_freq = self.receiver.borrow().1;
-        ui.label(format!("Gait frequency: {gait_freq:#?}"));
         ui.add_space(ui.spacing().item_spacing.y);
         ui.strong("Robot:");
 
+        let gait_freq = self.receiver.borrow().1;
         match self.latest_step.get_last_value() {
-            Ok(Some(step)) => ui.label(format!("{step:#?}")),
+            Ok(Some(step)) => ui.label(format!("{step:#?}\nGait frequency: {gait_freq:#?}")),
             _ => ui.label("No data"),
         }
     }
