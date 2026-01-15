@@ -25,7 +25,7 @@ pub struct RemotePanel {
     latest_step: BufferHandle<Step>,
     bg_running: Arc<AtomicBool>,
     bg_handle: Option<JoinHandle<()>>,
-    receiver: Receiver<Step>,
+    receiver: Receiver<(Step, f64)>,
 }
 
 impl<'a> Panel<'a> for RemotePanel {
@@ -33,7 +33,7 @@ impl<'a> Panel<'a> for RemotePanel {
 
     fn new(context: PanelCreationContext) -> Self {
         let nao = context.nao.clone();
-        let (sender, receiver) = channel(Step::<f32>::default());
+        let (sender, receiver) = channel((Step::<f32>::default(), f64::default()));
 
         let enabled = Arc::new(AtomicBool::new(false));
         let latest_step = nao.subscribe_value("parameters.remote_control_parameters.walk");
@@ -70,7 +70,7 @@ impl<'a> Panel<'a> for RemotePanel {
                 }
 
                 if gilrs.gamepads().next().is_none() {
-                    let _ = sender.send(Step::default());
+                    let _ = sender.send((Step::default(), 1.0));
                     if enabled_clone.load(Ordering::Relaxed) {
                         reset(&nao_clone);
                     }
@@ -134,30 +134,33 @@ impl<'a> Panel<'a> for RemotePanel {
                         .map(|button| button.is_pressed())
                         .unwrap_or(false);
 
-                    // if up_pressed || down_pressed {
-                    //     println!("d-pad pressed");
-                    // }
+                    let left_pressed = gamepad
+                        .button_data(Button::DPadLeft)
+                        .map(|button| button.is_pressed())
+                        .unwrap_or(false);
 
-                    // if start_pressed {
-                    //     println!("start pressed");
-                    // }
+                    let gait_parameter_value = gait_parameter_value
+                        .get_last_value()
+                        .ok()
+                        .flatten()
+                        .and_then(|v| v.as_f64());
 
-                    let gait_parameter_value = gait_parameter_value.get_last_value().ok().flatten();
+                    let new_gait_parameter_value: f64;
 
-                    let new_gait_parameter_value;
-
-                    if up_pressed && !down_pressed {
-                        new_gait_parameter_value = gait_parameter_value
-                            .and_then(|v| v.as_f64())
-                            .map_or(1.0, |v| v + 0.1);
+                    if left_pressed {
+                        // Reset
+                        new_gait_parameter_value = 1.0;
+                    } else if up_pressed && !down_pressed {
+                        // Increase
+                        new_gait_parameter_value =
+                            gait_parameter_value.map_or(1.0, |v| (v + 0.25).max(10.0));
                     } else if down_pressed {
-                        new_gait_parameter_value = gait_parameter_value
-                            .and_then(|v| v.as_f64())
-                            .map_or(1.0, |v| v - 0.1);
+                        // Decrease
+                        new_gait_parameter_value =
+                            gait_parameter_value.map_or(1.0, |v| (v - 0.25).min(0.25));
                     } else {
-                        new_gait_parameter_value = gait_parameter_value
-                            .and_then(|v| v.as_f64())
-                            .map_or(1.0, |v| v);
+                        // Stay
+                        new_gait_parameter_value = gait_parameter_value.map_or(1.0, |v| v);
                     }
 
                     if enabled_clone.load(Ordering::Relaxed) {
@@ -169,7 +172,7 @@ impl<'a> Panel<'a> for RemotePanel {
                             update_step(&nao_clone, step, new_gait_parameter_value);
                         }
                     }
-                    let _ = sender.send(step);
+                    let _ = sender.send((step, new_gait_parameter_value));
                 }
             }
         });
@@ -236,8 +239,10 @@ impl Widget for &mut RemotePanel {
         };
         ui.separator();
         ui.strong("Controller:");
-        let controller_step = *self.receiver.borrow();
+        let controller_step = self.receiver.borrow().0;
         ui.label(format!("{controller_step:#?}"));
+        let gait_freq = self.receiver.borrow().1;
+        ui.label(format!("Gait frequency: {gait_freq:#?}"));
         ui.add_space(ui.spacing().item_spacing.y);
         ui.strong("Robot:");
 
