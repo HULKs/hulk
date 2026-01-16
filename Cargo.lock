@@ -2058,6 +2058,9 @@ name = "bytes"
 version = "1.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b35204fbdc0b3f4446b89fc1ac2cf84a8a68971995d0bf2e925ec7cd960f9cb3"
+dependencies = [
+ "serde",
+]
 
 [[package]]
 name = "bytesize"
@@ -4644,8 +4647,12 @@ dependencies = [
  "blake3",
  "booster",
  "buffered_watch",
+ "byteorder",
+ "bytes",
  "calibration",
+ "cdr-encoding",
  "chrono",
+ "clap",
  "code_generation",
  "color-eyre",
  "communication",
@@ -4657,6 +4664,7 @@ dependencies = [
  "energy_optimization",
  "env_logger",
  "fern",
+ "flume",
  "framework",
  "futures-util",
  "geometry",
@@ -4692,6 +4700,7 @@ dependencies = [
  "vision",
  "walking_inference",
  "world_state",
+ "yuv",
  "zenoh",
 ]
 
@@ -5126,6 +5135,7 @@ dependencies = [
  "ravif",
  "rayon",
  "rgb",
+ "serde",
  "tiff",
  "zune-core 0.5.1",
  "zune-jpeg 0.5.9",
@@ -6872,6 +6882,7 @@ dependencies = [
  "image",
  "itertools 0.14.0",
  "linear_algebra",
+ "log",
  "nalgebra",
  "ndarray 0.16.1",
  "openvino",
@@ -7246,6 +7257,7 @@ dependencies = [
 name = "path_serde"
 version = "0.1.0"
 dependencies = [
+ "image",
  "nalgebra",
  "ndarray 0.16.1",
  "num-traits",
@@ -8598,6 +8610,7 @@ dependencies = [
  "path_serde",
  "pyo3",
  "serde",
+ "yuv",
 ]
 
 [[package]]
@@ -10756,6 +10769,7 @@ dependencies = [
  "hardware",
  "itertools 0.14.0",
  "linear_algebra",
+ "log",
  "nalgebra",
  "ordered-float 4.6.0",
  "projection",
@@ -12067,6 +12081,15 @@ dependencies = [
  "quote",
  "syn 2.0.114",
  "synstructure",
+]
+
+[[package]]
+name = "yuv"
+version = "0.8.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "28f1bad143caadcfcaec93039dc9c40a30fc86f23d9e7cc03764a39fe51d9d43"
+dependencies = [
+ "num-traits",
 ]
 
 [[package]]

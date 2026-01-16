@@ -1,6 +1,12 @@
 #![recursion_limit = "256"]
-use std::{env::args, fs::File, io::stdout, sync::Arc};
+use std::{
+    fs::File,
+    io::stdout,
+    path::{Path, PathBuf},
+    sync::Arc,
+};
 
+use clap::Parser;
 use color_eyre::{
     eyre::{Result, WrapErr},
     install,
@@ -10,6 +16,7 @@ use framework::Parameters as FrameworkParameters;
 use hardware::{
     CameraInterface, IdInterface, LowCommandInterface, LowStateInterface, MicrophoneInterface,
     NetworkInterface, PathsInterface, RecordingInterface, SpeakerInterface, TimeInterface,
+    TransformMessageInterface,
 };
 use hula_types::hardware::Ids;
 use serde_json::from_reader;
@@ -48,18 +55,29 @@ pub trait HardwareInterface:
     + RecordingInterface
     + SpeakerInterface
     + TimeInterface
+    + TransformMessageInterface
 {
 }
 
 include!(concat!(env!("OUT_DIR"), "/generated_code.rs"));
 
+#[derive(Parser)]
+struct Arguments {
+    #[arg(short, long, default_value = "logs")]
+    log_path: PathBuf,
+
+    #[arg(short, long, default_value = "etc/parameters/framework.json")]
+    framework_parameters_path: PathBuf,
+}
+
 #[tokio::main(flavor = "multi_thread")]
 async fn main() -> Result<()> {
     setup_logger()?;
     install()?;
-    let framework_parameters_path = args()
-        .nth(1)
-        .unwrap_or("etc/parameters/framework.json".to_string());
+
+    let arguments = Arguments::parse();
+    let framework_parameters_path = Path::new(&arguments.framework_parameters_path);
+
     let keep_running = CancellationToken::new();
     set_handler({
         let keep_running = keep_running.clone();
@@ -84,7 +102,10 @@ async fn main() -> Result<()> {
         framework_parameters.communication_addresses = Some(fallback.to_string());
     }
 
-    let hardware_interface = BoosterHardwareInterface::new(hardware_parameters)?;
+    let runtime_handle = tokio::runtime::Handle::current();
+    let hardware_interface =
+        BoosterHardwareInterface::new(runtime_handle, keep_running.clone(), hardware_parameters)
+            .await?;
 
     run(
         Arc::new(hardware_interface),

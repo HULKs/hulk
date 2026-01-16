@@ -153,7 +153,7 @@ hulk_mujoco = { path = "crates/hulk_mujoco" }
 hulk_widgets = { path = "crates/hulk_widgets" }
 hungarian_algorithm = { path = "crates/hungarian_algorithm" }
 i2cdev = "0.6.1"
-image = "0.25.5"
+image = { version = "0.25.5", features = ["serde"] }
 indicatif = "0.17.11"
 itertools = "0.14.0"
 ittapi = "0.4.0"
@@ -261,6 +261,7 @@ webots = { version = "0.8.0" }
 wgpu = "24.0.5"
 world_state = { path = "crates/world_state" }
 xdg = "2.5.2"
+yuv = "0.8.9"
 zbus = "5.5.0"
 zed = { path = "crates/zed" }
 
