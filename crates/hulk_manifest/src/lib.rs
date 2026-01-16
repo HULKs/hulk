@@ -10,28 +10,10 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
     let manifest = FrameworkManifest {
         cyclers: vec![
             CyclerManifest {
-                name: "Vision",
-                kind: CyclerKind::Perception,
-                instances: vec![""],
-                setup_nodes: vec!["vision::image_receiver"],
-                nodes: vec![
-                    // "vision::ball_detection",
-                    // "vision::calibration_measurement_provider",
-                    // "vision::feet_detection",
-                    // "vision::field_border_detection",
-                    // "vision::image_segmenter",
-                    // "vision::limb_projector",
-                    // "vision::line_detection",
-                    // "vision::perspective_grid_candidates_provider",
-                    // "vision::segment_filter",
-                ],
-                execution_time_warning_threshold: Some(Duration::from_secs_f32(1.0 / 30.0)),
-            },
-            CyclerManifest {
                 name: "ObjectDetection",
                 kind: CyclerKind::Perception,
                 instances: vec![""],
-                setup_nodes: vec!["vision::image_receiver"],
+                setup_nodes: vec!["object_detection::image_receiver"],
                 nodes: vec![
                     "object_detection::object_detection",
                     // "object_detection::pose_detection",

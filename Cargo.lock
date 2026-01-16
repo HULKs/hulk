@@ -4583,7 +4583,6 @@ dependencies = [
  "step_planning",
  "tokio",
  "types",
- "vision",
  "walking_inference",
  "world_state",
  "zed",
@@ -4651,7 +4650,6 @@ dependencies = [
  "tokio-tungstenite 0.26.2",
  "tokio-util",
  "types",
- "vision",
  "walking_inference",
  "world_state",
  "zed",
@@ -4705,7 +4703,6 @@ dependencies = [
  "tokio",
  "tokio-util",
  "types",
- "vision",
  "walking_inference",
  "world_state",
 ]
@@ -6546,6 +6543,8 @@ dependencies = [
 name = "object_detection"
 version = "0.1.0"
 dependencies = [
+ "approx 0.5.1",
+ "calibration",
  "color-eyre",
  "context_attribute",
  "control",
@@ -6564,6 +6563,7 @@ dependencies = [
  "ort",
  "path_serde",
  "projection",
+ "rand 0.9.2",
  "ros2",
  "serde",
  "types",

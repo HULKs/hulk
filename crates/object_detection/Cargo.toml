@@ -6,6 +6,8 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
+approx = { workspace = true }
+calibration = { workspace = true }
 color-eyre = { workspace = true }
 context_attribute = { workspace = true }
 control = { workspace = true }
@@ -24,6 +26,7 @@ ordered-float = { workspace = true }
 ort = { workspace = true, features = ["cuda", "tensorrt"] }
 path_serde = { workspace = true }
 projection = { workspace = true }
+rand = { workspace = true }
 ros2 = { workspace = true }
 serde = { workspace = true }
 types = { workspace = true }

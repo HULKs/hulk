@@ -40,7 +40,6 @@ serde_json = { workspace = true }
 step_planning = { workspace = true }
 tokio = { workspace = true }
 types = { workspace = true }
-vision = { workspace = true }
 walking_inference = { workspace = true }
 world_state = { workspace = true }
 zed = { workspace = true }

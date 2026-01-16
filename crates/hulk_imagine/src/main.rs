@@ -87,10 +87,6 @@ fn main() -> Result<()> {
         .control_subscriptions_sender
         .borrow_mut()
         .insert("additional_outputs".to_string());
-    replayer
-        .vision_subscriptions_sender
-        .borrow_mut()
-        .insert("additional_outputs".to_string());
 
     create_dir_all(&output_folder).wrap_err("failed to create output folder")?;
 
@@ -129,7 +125,6 @@ fn main() -> Result<()> {
     mcap_converter.attach(attachment)?;
 
     let control_receiver = replayer.control_receiver();
-    let vision_receiver = replayer.vision_receiver();
 
     write_to_mcap(
         &mut replayer,
@@ -138,13 +133,6 @@ fn main() -> Result<()> {
         control_receiver,
     )
     .wrap_err("failed to write control data to mcap")?;
-    write_to_mcap(
-        &mut replayer,
-        "Vision",
-        &mut mcap_converter,
-        vision_receiver,
-    )
-    .wrap_err("failed to write vision top data to mcap")?;
 
     mcap_converter.finish()?;
 
