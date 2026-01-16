@@ -6,6 +6,7 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
+approx = { workspace = true }
 booster = { workspace = true }
 color-eyre = { workspace = true }
 context_attribute = { workspace = true }
