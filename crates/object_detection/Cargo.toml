@@ -19,6 +19,7 @@ hsl_network_messages = { workspace = true }
 image = { workspace = true }
 itertools = { workspace = true }
 linear_algebra = { workspace = true }
+log = { workspace = true }
 nalgebra = { workspace = true }
 ndarray = { workspace = true }
 openvino = { workspace = true }

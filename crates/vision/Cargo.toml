@@ -18,6 +18,7 @@ geometry = { workspace = true }
 hardware = { workspace = true }
 itertools = { workspace = true }
 linear_algebra = { workspace = true }
+log = { workspace = true }
 nalgebra = { workspace = true }
 ordered-float = { workspace = true }
 projection = { workspace = true }

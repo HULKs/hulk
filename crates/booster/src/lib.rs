@@ -391,7 +391,9 @@ pub struct RemoteControllerState {
 }
 
 #[repr(C)]
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 #[serde(rename = "TFMessage")]
 pub struct TransformMessage {
     pub transforms: Vec<TransformStamped>,

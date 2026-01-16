@@ -116,7 +116,7 @@ impl From<&Ros2Image> for YCbCr422Image {
         let height = ros2_image.height;
 
         let data = match ros2_image.encoding.as_str() {
-            "rgb8" => ros2_image
+            "rgb8" | "bgr8" => ros2_image
                 .data
                 .chunks(6)
                 .map(|pixel| {

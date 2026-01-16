@@ -5,6 +5,7 @@ use color_eyre::{eyre::eyre, Result};
 use coordinate_systems::Pixel;
 use eframe::egui::{ColorImage, Response, SizeHint, TextureOptions, Ui, UiBuilder, Widget};
 use geometry::rectangle::Rectangle;
+use image::{EncodableLayout, RgbImage};
 use linear_algebra::{point, vector};
 use log::{info, warn};
 use ros2::sensor_msgs::image::Image;
@@ -39,7 +40,11 @@ pub struct ImagePanel {
 }
 
 fn subscribe_image(nao: &Arc<Nao>, is_jpeg: bool, is_depth: bool) -> RawOrJpeg {
-    let base_name = if is_depth { "depth_image" } else { "image" };
+    let base_name = if is_depth {
+        "rectified_image"
+    } else {
+        "left_image_raw"
+    };
     if is_jpeg {
         let path = format!("ObjectDetection.main_outputs.{base_name}.jpeg");
         return RawOrJpeg::Jpeg(nao.subscribe_value(path));
@@ -142,7 +147,7 @@ impl Widget for &mut ImagePanel {
         });
         let (response, mut painter) = TwixPainter::allocate(
             ui,
-            vector![640.0, 480.0],
+            vector![544.0, 448.0],
             point![0.0, 0.0],
             Orientation::LeftHanded,
         );
@@ -184,9 +189,16 @@ impl ImagePanel {
                 let ros_image = buffer
                     .get_last_value()?
                     .ok_or_else(|| eyre!("no image available"))?;
+
+                if ros_image.encoding.as_str() == "" {
+                    return Err(eyre!("no image available"));
+                }
+
+                let rgb_image: RgbImage = ros_image.try_into()?;
+
                 let image = ColorImage::from_rgb(
-                    [ros_image.width as usize, ros_image.height as usize],
-                    &ros_image.data,
+                    [rgb_image.width() as usize, rgb_image.height() as usize],
+                    rgb_image.as_bytes(),
                 );
                 context
                     .load_texture(&image_identifier, image, TextureOptions::NEAREST)
@@ -202,7 +214,7 @@ impl ImagePanel {
                     .try_load_texture(
                         &image_identifier,
                         TextureOptions::NEAREST,
-                        SizeHint::Size(640, 480),
+                        SizeHint::Size(544, 448),
                     )?
                     .texture_id()
                     .unwrap()
@@ -213,7 +225,7 @@ impl ImagePanel {
             image,
             Rectangle {
                 min: point!(0.0, 0.0),
-                max: point!(640.0, 480.0),
+                max: point!(544.0, 448.0),
             },
         );
         Ok(())
