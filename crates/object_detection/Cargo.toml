@@ -21,7 +21,7 @@ nalgebra = { workspace = true }
 ndarray = { workspace = true }
 openvino = { workspace = true }
 ordered-float = { workspace = true }
-ort = { workspace = true, features = ["tensorrt"] }
+ort = { workspace = true, features = ["cuda", "tensorrt"] }
 path_serde = { workspace = true }
 projection = { workspace = true }
 ros2 = { workspace = true }
