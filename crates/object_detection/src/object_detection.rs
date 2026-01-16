@@ -58,7 +58,7 @@ impl ObjectDetection {
                 TensorRTExecutionProvider::default().build(),
                 CUDAExecutionProvider::default().build(),
             ])?
-            .commit_from_file(neural_network_folder.join("yolo12n.onnx"))?;
+            .commit_from_file(neural_network_folder.join("yolo11n.onnx"))?;
 
         Ok(Self { session })
     }
