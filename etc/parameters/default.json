@@ -326,7 +326,8 @@
   },
   "object_detection": {
     "enable": true,
-    "maximum_intersection_over_union": 0.7
+    "maximum_intersection_over_union": 0.7,
+    "confidence_threshold": 0.5
   },
   "ball_projection": {
     "detection_noise": [8.0, 8.0]

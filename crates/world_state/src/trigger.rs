@@ -8,7 +8,7 @@ use context_attribute::context;
 use framework::MainOutput;
 use hardware::TimeInterface;
 use serde::{Deserialize, Serialize};
-use types::{cycle_time::CycleTime, field_dimensions::FieldDimensions};
+use types::cycle_time::CycleTime;
 
 #[derive(Deserialize, Serialize)]
 pub struct Trigger {
@@ -21,7 +21,6 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     hardware_interface: HardwareInterface,
-    _field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 }
 
 #[context]

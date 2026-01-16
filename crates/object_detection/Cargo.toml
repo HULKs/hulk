@@ -24,6 +24,7 @@ ndarray = { workspace = true }
 openvino = { workspace = true }
 ordered-float = { workspace = true }
 ort = { workspace = true, features = ["cuda", "tensorrt"] }
+parameters = { workspace = true }
 path_serde = { workspace = true }
 projection = { workspace = true }
 rand = { workspace = true }

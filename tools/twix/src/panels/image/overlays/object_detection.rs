@@ -25,7 +25,7 @@ impl Overlay for ObjectDetection {
             return Ok(());
         };
 
-        paint_bounding_boxes(painter, object_detections, Color32::LIGHT_RED)?;
+        paint_bounding_boxes(painter, object_detections, Color32::LIGHT_RED);
 
         Ok(())
     }
@@ -41,9 +41,8 @@ fn paint_bounding_boxes(
     painter: &crate::twix_painter::TwixPainter<Pixel>,
     detections: Vec<Detection>,
     line_color: Color32,
-) -> Result<()> {
+) {
     for detection in detections {
-        // draw bounding box
         let bounding_box = detection.bounding_box;
         painter.rect_stroke(
             bounding_box.area.min,
@@ -65,5 +64,4 @@ fn paint_bounding_boxes(
             Color32::WHITE,
         );
     }
-    Ok(())
 }

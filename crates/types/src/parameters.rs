@@ -531,3 +531,12 @@ pub struct MotorCommandParameters {
     pub proportional_coefficients: Joints,
     pub derivative_coefficients: Joints,
 }
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct ObjectDetectionParameters {
+    pub enable: bool,
+    pub maximum_intersection_over_union: f32,
+    pub confidence_threshold: f32,
+}

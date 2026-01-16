@@ -48,20 +48,14 @@ impl KinematicsProvider {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        // TOOD USE TEMPORARIES
-        let Some(time_tagged_serial_motor_states) = &context
+        let Some(newest_serial_motor_states) = context
             .serial_motor_states
             .persistent
-            .iter()
-            .chain(&context.serial_motor_states.temporary)
+            .into_iter()
+            .chain(context.serial_motor_states.temporary)
+            .flat_map(|(_time, motor_states)| motor_states)
             .last()
         else {
-            return Ok(MainOutputs {
-                robot_kinematics: self.last_robot_kinematics.clone().into(),
-            });
-        };
-
-        let Some(newest_serial_motor_states) = time_tagged_serial_motor_states.1.last() else {
             return Ok(MainOutputs {
                 robot_kinematics: self.last_robot_kinematics.clone().into(),
             });

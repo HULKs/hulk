@@ -9,7 +9,9 @@ use linear_algebra::{vector, Isometry3, Orientation3};
 use types::{robot_kinematics::RobotKinematics, support_foot::Side};
 
 #[derive(Deserialize, Serialize)]
-pub struct GroundProvider {}
+pub struct GroundProvider {
+    last_imu_state: ImuState,
+}
 
 #[context]
 pub struct CreationContext {}
@@ -30,26 +32,26 @@ pub struct MainOutputs {
 
 impl GroundProvider {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {})
+        Ok(Self {
+            last_imu_state: Default::default(),
+        })
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         struct LeftSoleHorizontal;
         struct RightSoleHorizontal;
+        let last_imu_state = self.last_imu_state.clone();
 
-        let Some(imu_state) = &context
+        let imu_state = context
             .imu_state
             .persistent
-            .iter()
-            .chain(&context.imu_state.temporary)
+            .into_iter()
+            .chain(context.imu_state.temporary)
+            .flat_map(|(_time, info)| info)
             .last()
-        else {
-            return Ok(MainOutputs::default());
-        };
+            .unwrap_or(&last_imu_state);
 
-        let Some(imu_state) = imu_state.1.last() else {
-            return Ok(MainOutputs::default());
-        };
+        self.last_imu_state = imu_state.clone();
 
         let roll = imu_state.roll_pitch_yaw.x();
         let pitch = imu_state.roll_pitch_yaw.y();
@@ -107,7 +109,7 @@ impl GroundProvider {
 
         let ground_to_robot = match support_side {
             Side::Left => left_sole_horizontal_to_robot * ground_to_left_sole,
-            Side::Right => right_sole_horizontal_to_robot * ground_to_right_sole, //ground_to_right_sole * robot_to_right_support_sole,
+            Side::Right => right_sole_horizontal_to_robot * ground_to_right_sole,
         };
 
         Ok(MainOutputs {

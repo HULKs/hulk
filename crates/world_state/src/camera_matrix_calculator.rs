@@ -1,4 +1,4 @@
-use std::{f32::consts::FRAC_PI_2, time::SystemTime};
+use std::f32::consts::FRAC_PI_2;
 
 use color_eyre::Result;
 use projection::camera_matrix::CameraMatrix;
@@ -55,20 +55,13 @@ impl CameraMatrixCalculator {
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let last_camera_info = self.last_camera_info.clone();
-        let last_camera_infos = vec![&last_camera_info];
 
-        let camera_infos = context
+        let camera_info = context
             .camera_info
             .persistent
-            .iter()
-            .chain(&context.camera_info.temporary)
-            .last()
-            .unwrap_or((&SystemTime::now(), &last_camera_infos))
-            .1;
-
-        let camera_info = camera_infos
-            .iter()
-            .copied()
+            .into_iter()
+            .chain(context.camera_info.temporary)
+            .flat_map(|(_time, info)| info)
             .last()
             .unwrap_or(&last_camera_info);
 

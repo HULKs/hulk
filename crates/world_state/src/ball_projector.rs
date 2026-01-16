@@ -8,6 +8,7 @@ use linear_algebra::IntoFramed;
 use projection::{camera_matrix::CameraMatrix, Projection};
 use types::{
     ball_detection::BallPercept,
+    field_dimensions::FieldDimensions,
     multivariate_normal_distribution::MultivariateNormalDistribution,
     object_detection::{Detection, YOLOv8ObjectDetectionLabel},
     parameters::BallProjectionParameters,
@@ -25,7 +26,7 @@ pub struct CycleContext {
     detected_objects: PerceptionInput<Vec<Detection>, "ObjectDetection", "detected_objects">,
 
     parameters: Parameter<BallProjectionParameters, "ball_projection">,
-    ball_radius: Parameter<f32, "field_dimensions.ball_radius">,
+    field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 }
 
 #[context]
@@ -57,7 +58,10 @@ impl BallProjector {
                         let area = detection.bounding_box.area;
                         let camera_matrix = context.past_camera_matrices.get(time)?;
                         let position = camera_matrix
-                            .pixel_to_ground_with_z(area.center(), *context.ball_radius)
+                            .pixel_to_ground_with_z(
+                                area.center(),
+                                context.field_dimensions.ball_radius,
+                            )
                             .ok()?;
 
                         let detected_ball_radius =

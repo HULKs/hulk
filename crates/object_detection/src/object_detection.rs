@@ -20,6 +20,7 @@ use serde::{Deserialize, Serialize};
 use types::{
     bounding_box::BoundingBox,
     object_detection::{Detection, YOLOv8ObjectDetectionLabel},
+    parameters::ObjectDetectionParameters,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -38,9 +39,7 @@ pub struct CycleContext {
     image: Input<Image, "image">,
     camera_info: Input<CameraInfo, "camera_info">,
 
-    maximum_intersection_over_union:
-        Parameter<f32, "object_detection.maximum_intersection_over_union">,
-    enable: Parameter<bool, "object_detection.enable">,
+    parameters: Parameter<ObjectDetectionParameters, "object_detection">,
 }
 
 #[context]
@@ -65,7 +64,7 @@ impl ObjectDetection {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        if !context.enable {
+        if !context.parameters.enable {
             return Ok(MainOutputs::default());
         }
 
@@ -99,34 +98,27 @@ impl ObjectDetection {
         let mut candidate_detections: Vec<Detection> = output
             .axis_iter(Axis(0))
             .filter_map(|row| {
-                let row: Vec<_> = row.iter().copied().collect();
                 let (class_id, confidence) = row
                     .iter()
-                    // skip bounding box coordinates
                     .skip(4)
+                    // skip bounding box coordinates
                     .enumerate()
-                    .map(|(index, value)| (index, *value))
-                    .reduce(|accum, row| if row.1 > accum.1 { row } else { accum })
+                    .max_by(|(_, value_x), (_, value_y)| value_x.total_cmp(value_y))
                     .unwrap();
-                if confidence >= 0.5 {
-                    let label = YOLOv8ObjectDetectionLabel::from_index(class_id);
-                    let xc = row[0] / width as f32 * (width as f32);
-                    let yc = row[1] / height as f32 * (height as f32);
-                    let w = row[2] / width as f32 * (width as f32);
-                    let h = row[3] / height as f32 * (height as f32);
-                    Some(Detection {
-                        bounding_box: BoundingBox {
-                            area: Rectangle::new_with_center_and_size(
-                                point!(xc, yc),
-                                vector!(w, h),
-                            ),
-                            confidence,
-                        },
-                        label,
-                    })
-                } else {
-                    None
+                if *confidence < context.parameters.confidence_threshold {
+                    return None;
                 }
+                let label = YOLOv8ObjectDetectionLabel::from_index(class_id);
+                Some(Detection {
+                    bounding_box: BoundingBox {
+                        area: Rectangle::new_with_center_and_size(
+                            point!(row[0usize], row[1usize]),
+                            vector!(row[2usize], row[3usize]),
+                        ),
+                        confidence: *confidence,
+                    },
+                    label,
+                })
             })
             .collect();
 
@@ -139,7 +131,7 @@ impl ObjectDetection {
 
         let detected_objects = non_maximum_suppression(
             candidate_detections,
-            *context.maximum_intersection_over_union,
+            context.parameters.maximum_intersection_over_union,
         );
 
         Ok(MainOutputs {
@@ -153,12 +145,6 @@ fn non_maximum_suppression(
     maximum_intersection_over_union: f32,
 ) -> Vec<Detection> {
     let mut poses = Vec::new();
-    candidate_detection.sort_unstable_by(|pose1, pose2| {
-        pose1
-            .bounding_box
-            .confidence
-            .total_cmp(&pose2.bounding_box.confidence)
-    });
 
     while let Some(detection) = candidate_detection.pop() {
         candidate_detection.retain(|detection_candidate| {
