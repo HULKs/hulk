@@ -44,7 +44,15 @@ impl LowState {
 #[repr(C)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen))]
 #[derive(
-    Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
 )]
 pub struct ImuState {
     #[serde(rename = "rpy")]

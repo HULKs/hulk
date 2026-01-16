@@ -40,7 +40,7 @@ impl GroundProvider {
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         struct LeftSoleHorizontal;
         struct RightSoleHorizontal;
-        let last_imu_state = self.last_imu_state.clone();
+        let last_imu_state = self.last_imu_state;
 
         let imu_state = context
             .imu_state
@@ -51,7 +51,7 @@ impl GroundProvider {
             .last()
             .unwrap_or(&last_imu_state);
 
-        self.last_imu_state = imu_state.clone();
+        self.last_imu_state = *imu_state;
 
         let roll = imu_state.roll_pitch_yaw.x();
         let pitch = imu_state.roll_pitch_yaw.y();

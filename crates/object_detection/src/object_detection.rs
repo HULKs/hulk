@@ -141,13 +141,13 @@ impl ObjectDetection {
 }
 
 fn non_maximum_suppression(
-    mut candidate_detection: Vec<Detection>,
+    mut sorted_candidate_detections: Vec<Detection>,
     maximum_intersection_over_union: f32,
 ) -> Vec<Detection> {
     let mut poses = Vec::new();
 
-    while let Some(detection) = candidate_detection.pop() {
-        candidate_detection.retain(|detection_candidate| {
+    while let Some(detection) = sorted_candidate_detections.pop() {
+        sorted_candidate_detections.retain(|detection_candidate| {
             detection
                 .bounding_box
                 .intersection_over_union(&detection_candidate.bounding_box)
