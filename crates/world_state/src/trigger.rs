@@ -1,0 +1,64 @@
+use std::{
+    thread::sleep,
+    time::{Duration, SystemTime, UNIX_EPOCH},
+};
+
+use color_eyre::Result;
+use context_attribute::context;
+use framework::MainOutput;
+use hardware::TimeInterface;
+use serde::{Deserialize, Serialize};
+use types::cycle_time::CycleTime;
+
+#[derive(Deserialize, Serialize)]
+pub struct Trigger {
+    last_cycle_start: SystemTime,
+}
+
+#[context]
+pub struct CreationContext {}
+
+#[context]
+pub struct CycleContext {
+    cycler_frequency: Parameter<f32, "cycler_frequencies.world_state">,
+
+    hardware_interface: HardwareInterface,
+}
+
+#[context]
+pub struct MainOutputs {
+    pub cycle_time: MainOutput<CycleTime>,
+}
+
+impl Trigger {
+    pub fn new(_context: CreationContext) -> Result<Self> {
+        Ok(Self {
+            last_cycle_start: UNIX_EPOCH,
+        })
+    }
+
+    pub fn cycle(&mut self, context: CycleContext<impl TimeInterface>) -> Result<MainOutputs> {
+        let current_cycle_start_time =
+            self.last_cycle_start + Duration::from_secs_f32(1.0 / context.cycler_frequency);
+        if let Ok(duration_to_sleep) =
+            current_cycle_start_time.duration_since(context.hardware_interface.get_now())
+        {
+            sleep(duration_to_sleep);
+        }
+
+        let now = context.hardware_interface.get_now();
+
+        let cycle_time = CycleTime {
+            start_time: now,
+            last_cycle_duration: now
+                .duration_since(self.last_cycle_start)
+                .expect("time ran backwards"),
+        };
+
+        self.last_cycle_start = now;
+
+        Ok(MainOutputs {
+            cycle_time: cycle_time.into(),
+        })
+    }
+}

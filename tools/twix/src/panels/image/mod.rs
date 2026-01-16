@@ -5,12 +5,12 @@ use color_eyre::{eyre::eyre, Result};
 use coordinate_systems::Pixel;
 use eframe::egui::{ColorImage, Response, SizeHint, TextureOptions, Ui, UiBuilder, Widget};
 use geometry::rectangle::Rectangle;
-use image::RgbImage;
 use linear_algebra::{point, vector};
 use log::{info, warn};
+use ros2::sensor_msgs::image::Image;
 use serde_json::{json, Value};
 
-use types::{jpeg::JpegImage, ycbcr422_image::YCbCr422Image};
+use types::jpeg::JpegImage;
 
 use crate::{
     nao::Nao,
@@ -26,7 +26,7 @@ pub mod overlay;
 mod overlays;
 
 enum RawOrJpeg {
-    Raw(BufferHandle<YCbCr422Image>),
+    Raw(BufferHandle<Image>),
     Jpeg(BufferHandle<JpegImage>),
 }
 
@@ -41,10 +41,10 @@ pub struct ImagePanel {
 fn subscribe_image(nao: &Arc<Nao>, is_jpeg: bool, is_depth: bool) -> RawOrJpeg {
     let base_name = if is_depth { "depth_image" } else { "image" };
     if is_jpeg {
-        let path = format!("Vision.main_outputs.{base_name}.jpeg");
+        let path = format!("ObjectDetection.main_outputs.{base_name}.jpeg");
         return RawOrJpeg::Jpeg(nao.subscribe_value(path));
     }
-    let path = format!("Vision.main_outputs.{base_name}");
+    let path = format!("ObjectDetection.main_outputs.{base_name}");
     RawOrJpeg::Raw(nao.subscribe_value(path))
 }
 
@@ -78,7 +78,7 @@ impl<'a> Panel<'a> for ImagePanel {
 
         json!({
             "is_jpeg": matches!(self.image_buffer, RawOrJpeg::Jpeg(_)),
-            "cycler": "Vision",
+            "cycler": "ObjectDetection",
             "overlays": overlays,
         })
     }
@@ -93,11 +93,11 @@ fn save_jpeg_image(buffer: &BufferHandle<JpegImage>, path: PathBuf) -> Result<()
     Ok(())
 }
 
-fn save_raw_image(buffer: &BufferHandle<YCbCr422Image>, path: PathBuf) -> Result<()> {
+fn save_raw_image(buffer: &BufferHandle<Image>, path: PathBuf) -> Result<()> {
     let buffer = buffer
         .get_last_value()?
         .ok_or_else(|| eyre!("no image available"))?;
-    buffer.save_to_ycbcr_444_file(&path)?;
+    buffer.save_to_file(&path)?;
     info!("image saved to '{}'", path.display());
     Ok(())
 }
@@ -181,12 +181,12 @@ impl ImagePanel {
         let image_identifier = "bytes://image-vision".to_string();
         let image = match &self.image_buffer {
             RawOrJpeg::Raw(buffer) => {
-                let ycbcr = buffer
+                let ros_image = buffer
                     .get_last_value()?
                     .ok_or_else(|| eyre!("no image available"))?;
                 let image = ColorImage::from_rgb(
-                    [ycbcr.width() as usize, ycbcr.height() as usize],
-                    RgbImage::from(ycbcr).as_raw(),
+                    [ros_image.width as usize, ros_image.height as usize],
+                    &ros_image.data,
                 );
                 context
                     .load_texture(&image_identifier, image, TextureOptions::NEAREST)

@@ -55,6 +55,13 @@ impl<Frame> Rectangle<Frame> {
             point.y().clamp(self.min.y(), self.max.y()),
         ]
     }
+
+    pub fn center(&self) -> Point2<Frame> {
+        point![
+            (self.min.x() + self.max.x()) / 2.0,
+            (self.min.y() + self.max.y()) / 2.0
+        ]
+    }
 }
 
 #[cfg(test)]

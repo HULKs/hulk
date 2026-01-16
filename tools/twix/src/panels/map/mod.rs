@@ -169,7 +169,7 @@ impl<'a> Panel<'a> for MapPanel {
             "pose_detection": self.referee_position.save(),
             "robot_pose": self.robot_pose.save(),
             "referee_position": self.referee_position.save(),
-            "ball_measurement": self.ball_measurement.save(),
+            "ball_measurements": self.ball_measurement.save(),
             "ball_position": self.ball_position.save(),
             "kick_decisions": self.kick_decisions.save(),
             "feet_detection": self.feet_detection.save(),

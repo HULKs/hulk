@@ -163,7 +163,7 @@
     "default_positions": {
       "head": {
         "yaw": 0.0,
-        "pitch": 0.0
+        "pitch": 0.4
       },
       "left_arm": {
         "shoulder_pitch": 0.2,
@@ -323,5 +323,21 @@
     "goal_inner_width": 1.5,
     "goal_post_diameter": 0.1,
     "goal_depth": 0.5
+  },
+  "object_detection": {
+    "enable": true,
+    "maximum_intersection_over_union": 0.7,
+    "confidence_threshold": 0.5
+  },
+  "ball_projection": {
+    "detection_noise": [8.0, 8.0]
+  },
+  "camera_matrix_parameters": {
+    "camera_to_head_pitch": -0.2125811028,
+    "correction_in_robot": [0.0, 0.0, 0.0],
+    "correction_in_camera": [0.0, 0.0, 0.0]
+  },
+  "cycler_frequencies": {
+    "world_state": 100
   }
 }

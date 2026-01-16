@@ -1,12 +1,15 @@
 /// Standard metadata for higher-level stamped data types.
 /// This is generally used to communicate timestamped data
 /// in a particular coordinate frame.
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
 use crate::builtin_interfaces::time::Time;
 
 #[repr(C)]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(
+    Clone, Debug, Default, Serialize, Deserialize, PathIntrospect, PathSerialize, PathDeserialize,
+)]
 pub struct Header {
     /// Two-integer timestamp that is expressed as seconds and nanoseconds.
     pub stamp: Time,

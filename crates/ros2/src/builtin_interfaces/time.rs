@@ -1,9 +1,12 @@
 /// This message communicates ROS Time defined here:
 /// https://design.ros2.org/articles/clock_and_time.html
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
 #[repr(C)]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(
+    Clone, Debug, Default, Serialize, Deserialize, PathIntrospect, PathSerialize, PathDeserialize,
+)]
 pub struct Time {
     /// The seconds component, valid over all int32 values.
     pub sec: i32,

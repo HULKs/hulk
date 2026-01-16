@@ -57,7 +57,7 @@ fn main() -> Result<()> {
                 name: "ObjectDetection",
                 kind: CyclerKind::Perception,
                 instances: vec![""],
-                setup_nodes: vec!["vision::image_receiver"],
+                setup_nodes: vec!["object_detection::image_receiver"],
                 nodes: vec![
                     "object_detection::pose_detection",
                     "object_detection::pose_filter",
