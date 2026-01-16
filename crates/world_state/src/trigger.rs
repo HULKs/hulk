@@ -20,6 +20,8 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
+    cycler_frequency: Parameter<f32, "cycler_frequencies.world_state">,
+
     hardware_interface: HardwareInterface,
 }
 
@@ -36,7 +38,8 @@ impl Trigger {
     }
 
     pub fn cycle(&mut self, context: CycleContext<impl TimeInterface>) -> Result<MainOutputs> {
-        let current_cycle_start_time = self.last_cycle_start + Duration::from_millis(10);
+        let current_cycle_start_time =
+            self.last_cycle_start + Duration::from_secs_f32(1.0 / context.cycler_frequency);
         if let Ok(duration_to_sleep) =
             current_cycle_start_time.duration_since(context.hardware_interface.get_now())
         {
