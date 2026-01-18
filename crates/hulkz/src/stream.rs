@@ -10,7 +10,7 @@ pub enum StreamError {
     Zenoh(#[from] zenoh::Error),
 }
 
-pub type Result<T> = std::result::Result<T, StreamError>;
+pub type Result<T, E = StreamError> = std::result::Result<T, E>;
 
 pub struct TopicStream<T> {
     inner: ZenohSubscriber<RingChannelHandler<Sample>>,

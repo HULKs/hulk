@@ -11,7 +11,7 @@ pub enum PublisherError {
     Zenoh(#[from] zenoh::Error),
 }
 
-pub type Result<T> = std::result::Result<T, PublisherError>;
+pub type Result<T, E = PublisherError> = std::result::Result<T, E>;
 
 pub struct Publisher<'a, T>
 where

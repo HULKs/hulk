@@ -6,7 +6,15 @@ use std::{
 
 use serde::Deserialize;
 
-use crate::{Cache, Timestamped, TopicStream};
+use crate::{stream::StreamError, Cache, Timestamped, TopicStream};
+
+#[derive(Debug, thiserror::Error)]
+pub enum BufferError {
+    #[error("Stream error: {0}")]
+    StreamError(StreamError),
+}
+
+pub type Result<T, E = BufferError> = std::result::Result<T, E>;
 
 #[derive(Clone)]
 pub struct TopicBuffer<T> {
@@ -17,15 +25,25 @@ impl<T> TopicBuffer<T>
 where
     for<'de> T: Deserialize<'de> + Timestamped + Clone + Send + 'static,
 {
-    pub fn new(mut stream: TopicStream<T>, capacity: usize) -> (Self, impl Future<Output = ()>) {
+    pub fn new(
+        mut stream: TopicStream<T>,
+        capacity: usize,
+    ) -> (Self, impl Future<Output = Result<()>>) {
         let cache = Arc::new(RwLock::new(Cache::new(capacity)));
 
         let driver = {
             let cache = cache.clone();
             async move {
-                while let Ok(msg) = stream.recv_async().await {
-                    let mut cache = cache.write().expect("lock is poisoned");
-                    cache.add(msg);
+                loop {
+                    match stream.recv_async().await {
+                        Ok(msg) => {
+                            let mut cache = cache.write().expect("lock is poisoned");
+                            cache.add(msg);
+                        }
+                        Err(err) => {
+                            return Err(BufferError::StreamError(err));
+                        }
+                    }
                 }
             }
         };

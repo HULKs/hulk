@@ -7415,6 +7415,10 @@ dependencies = [
 ]
 
 [[package]]
+name = "kinematics-provider"
+version = "0.1.0"
+
+[[package]]
 name = "kqueue"
 version = "1.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -13552,6 +13556,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cd0b0ec5f1c1ca621c432a25813d8d60c88abe6d3e08a3eb9cf37d97a0fe3d73"
 
 [[package]]
+name = "sensor-receiver"
+version = "0.1.0"
+dependencies = [
+ "booster",
+ "color-eyre",
+ "hulkz",
+ "tokio",
+ "tracing",
+ "tracing-subscriber",
+ "types",
+]
+
+[[package]]
 name = "seq-macro"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -13928,10 +13945,12 @@ dependencies = [
  "booster",
  "color-eyre",
  "hulkz",
+ "image",
  "rerun",
  "ros2",
  "tokio",
  "tracing-subscriber",
+ "yuv",
 ]
 
 [[package]]
@@ -17305,6 +17324,15 @@ dependencies = [
  "quote",
  "syn 2.0.114",
  "synstructure",
+]
+
+[[package]]
+name = "yuv"
+version = "0.8.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "28f1bad143caadcfcaec93039dc9c40a30fc86f23d9e7cc03764a39fe51d9d43"
+dependencies = [
+ "num-traits",
 ]
 
 [[package]]

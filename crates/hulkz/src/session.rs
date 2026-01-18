@@ -3,7 +3,7 @@ use std::{future::Future, sync::Arc};
 use serde::{Deserialize, Serialize};
 use zenoh::handlers::RingChannel;
 
-use crate::{Publisher, Timestamped, TopicBuffer, TopicStream};
+use crate::{buffer::BufferError, Publisher, Timestamped, TopicBuffer, TopicStream};
 
 #[derive(Debug, thiserror::Error)]
 pub enum SessionError {
@@ -11,7 +11,7 @@ pub enum SessionError {
     Zenoh(#[from] zenoh::Error),
 }
 
-pub type Result<T> = std::result::Result<T, SessionError>;
+pub type Result<T, E = SessionError> = std::result::Result<T, E>;
 
 pub struct Session {
     session: Arc<zenoh::Session>,
@@ -54,7 +54,10 @@ impl Session {
         &self,
         key_exp: &str,
         capacity: usize,
-    ) -> Result<(TopicBuffer<T>, impl Future<Output = ()>)>
+    ) -> Result<(
+        TopicBuffer<T>,
+        impl Future<Output = Result<(), BufferError>>,
+    )>
     where
         for<'de> T: Deserialize<'de> + Timestamped + Clone + Send + 'static,
     {

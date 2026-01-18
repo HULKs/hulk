@@ -1,17 +1,18 @@
 [package]
-name = "simple-viewer"
+name = "sensor-receiver"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 homepage.workspace = true
 
+[package.metadata.pepsi]
+cross-compile = true
+
 [dependencies]
 booster = { workspace = true }
 color-eyre = { workspace = true }
 hulkz = { workspace = true }
-image = { workspace = true }
-rerun = { workspace = true }
-ros2 = { workspace = true }
 tokio = { workspace = true }
+tracing = { workspace = true }
 tracing-subscriber = { workspace = true }
-yuv = { workspace = true }
+types = { workspace = true }

@@ -32,7 +32,7 @@ members = [
   "crates/hulk_widgets",
   "crates/hulkz",
   "crates/hungarian_algorithm",
-  "crates/kinematics",
+  "crates/kinematics", "crates/kinematics-provider",
   "crates/linear_algebra",
   "crates/motionfile",
   "crates/object_detection",
@@ -44,7 +44,7 @@ members = [
   "crates/ransac",
   "crates/repository",
   "crates/robot",
-  "crates/ros2",
+  "crates/ros2", "crates/sensor-receiver",
   "crates/simple-node",
   "crates/simple-viewer",
   "crates/simulation_message",
@@ -267,6 +267,7 @@ webots = { version = "0.8.0" }
 wgpu = "24.0.5"
 world_state = { path = "crates/world_state" }
 xdg = "2.5.2"
+yuv = "0.8.9"
 zbus = "5.5.0"
 zed = { path = "crates/zed" }
 zenoh = "1.7.2"
