@@ -224,7 +224,17 @@ impl LowCommand {
 
 #[repr(C)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
-#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Default,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 pub struct MotorCommand {
     #[serde(rename = "q")]
     /// Joint angle position, unit: rad.
@@ -261,8 +271,11 @@ impl MotorCommand {
 
 #[repr(C)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub enum FallDownStateType {
+    #[default]
     IsReady,
     IsFalling,
     HasFallen,
@@ -271,7 +284,9 @@ pub enum FallDownStateType {
 
 #[repr(C)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct FallDownState {
     pub fall_down_state: FallDownStateType,
     /// Whether recovery (getting up) action is available
@@ -323,7 +338,9 @@ impl ButtonEventMsg {
 
 #[repr(C)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct RemoteControllerState {
     /** This feature can be used in user programs to implement custom gamepad/controller button functionality.
     |type | code | description|
@@ -391,7 +408,9 @@ pub struct RemoteControllerState {
 }
 
 #[repr(C)]
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 #[serde(rename = "TFMessage")]
 pub struct TransformMessage {
     pub transforms: Vec<TransformStamped>,
