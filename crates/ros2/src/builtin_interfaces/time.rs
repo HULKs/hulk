@@ -20,3 +20,23 @@ pub struct Time {
     /// The time 1.7 seconds is represented as {sec: 1, nanosec: 7e8}
     pub nanosec: u32,
 }
+
+impl From<Time> for SystemTime {
+    fn from(time: Time) -> Self {
+        let second_duration = Duration::from_secs(time.sec as u64);
+        SystemTime::UNIX_EPOCH
+            + Duration::from_nanos(time.nanosec as u64 + second_duration.as_nanos() as u64)
+    }
+}
+
+impl From<SystemTime> for Time {
+    fn from(system_time: SystemTime) -> Self {
+        let duration = system_time
+            .duration_since(SystemTime::UNIX_EPOCH)
+            .expect("no time earlier than UNIX_EPOCH");
+        Time {
+            sec: duration.as_secs() as i32,
+            nanosec: duration.subsec_nanos(),
+        }
+    }
+}
