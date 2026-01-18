@@ -72,10 +72,10 @@ impl CommandSender {
             context.walk_motor_command_parameters,
         );
 
-        context
-            .hardware_interface
-            .write_low_command(walk_low_command.clone())
-            .wrap_err("failed to write to actuators")?;
+        // context
+        //     .hardware_interface
+        //     .write_low_command(walk_low_command.clone())
+        //     .wrap_err("failed to write to actuators")?;
 
         context
             .low_command
