@@ -1,8 +1,11 @@
-/// This message communicates ROS Time defined here:
-/// https://design.ros2.org/articles/clock_and_time.html
+use color_eyre::Result;
+use std::time::{Duration, SystemTime};
+
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
+/// This message communicates ROS Time defined here:
+/// https://design.ros2.org/articles/clock_and_time.html
 #[repr(C)]
 #[derive(
     Clone, Debug, Default, Serialize, Deserialize, PathIntrospect, PathSerialize, PathDeserialize,

@@ -1,3 +1,7 @@
+use serde::{Deserialize, Serialize};
+
+use crate::{geometry_msgs::transform::Transform, std_msgs::header::Header};
+
 /// This expresses a transform from coordinate frame header.frame_id
 /// to the coordinate frame child_frame_id at the time of header.stamp
 ///
@@ -8,12 +12,8 @@
 /// The child_frame_id is necessary in addition to the frame_id
 /// in the Header to communicate the full reference for the transform
 /// in a self contained message.
-use serde::{Deserialize, Serialize};
-
-use crate::{geometry_msgs::transform::Transform, std_msgs::header::Header};
-
 #[repr(C)]
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct TransformStamped {
     /// The frame id in the header is used as the reference frame of this transform.
     pub header: Header,
