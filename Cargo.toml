@@ -105,7 +105,9 @@ booster = { path = "crates/booster" }
 buffered_watch = { path = "crates/buffered_watch" }
 build_script_helpers = { path = "crates/build_script_helpers" }
 byteorder = "1.5.0"
+bytes = { version = "1.11.0", features = ["serde"] }
 calibration = { path = "crates/calibration" }
+cdr-encoding = "0.10.2"
 chrono = "0.4.39"
 clap = { version = "4.5.29", features = ["derive", "env"] }
 clap_complete = "4.5.44"
@@ -264,6 +266,7 @@ xdg = "2.5.2"
 yuv = "0.8.9"
 zbus = "5.5.0"
 zed = { path = "crates/zed" }
+zenoh = "1.6.2"
 
 [patch.crates-io]
 # Pinned to forked serde version since https://github.com/serde-rs/serde/pull/2513 is not merged

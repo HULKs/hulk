@@ -18,9 +18,9 @@ blake3 = { workspace = true }
 booster = { workspace = true }
 buffered_watch = { workspace = true }
 byteorder = { workspace = true }
-bytes = { version = "1.11.0", features = ["serde"] }
+bytes = { workspace = true }
 calibration = { workspace = true }
-cdr-encoding = "0.10.2"
+cdr-encoding = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
 color-eyre = { workspace = true }
@@ -54,7 +54,6 @@ parking_lot = { workspace = true }
 path_serde = { workspace = true }
 projection = { workspace = true }
 ros2 = { workspace = true }
-rustdds = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 simulation_message = { workspace = true }
@@ -67,7 +66,7 @@ vision = { workspace = true }
 walking_inference = { workspace = true }
 world_state = { workspace = true }
 yuv = { workspace = true }
-zenoh = "1.6.2"
+zenoh = { workspace = true }
 
 [build-dependencies]
 code_generation = { workspace = true }
