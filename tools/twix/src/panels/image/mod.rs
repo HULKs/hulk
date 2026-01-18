@@ -8,6 +8,7 @@ use color_eyre::{
 use coordinate_systems::Pixel;
 use eframe::egui::{ColorImage, Response, SizeHint, TextureOptions, Ui, UiBuilder, Widget};
 use geometry::rectangle::Rectangle;
+use image::{EncodableLayout, RgbImage};
 use linear_algebra::{point, vector};
 use log::{info, warn};
 use ros2::sensor_msgs::image::Image;
@@ -42,7 +43,11 @@ pub struct ImagePanel {
 }
 
 fn subscribe_image(nao: &Arc<Nao>, is_jpeg: bool, is_depth: bool) -> RawOrJpeg {
-    let base_name = if is_depth { "depth_image" } else { "image" };
+    let base_name = if is_depth {
+        "rectified_image"
+    } else {
+        "left_image_raw"
+    };
     if is_jpeg {
         let path = format!("ObjectDetection.main_outputs.{base_name}.jpeg");
         return RawOrJpeg::Jpeg(nao.subscribe_value(path));
@@ -145,7 +150,7 @@ impl Widget for &mut ImagePanel {
         });
         let (response, mut painter) = TwixPainter::allocate(
             ui,
-            vector![640.0, 480.0],
+            vector![544.0, 448.0],
             point![0.0, 0.0],
             Orientation::LeftHanded,
         );
@@ -194,9 +199,16 @@ impl ImagePanel {
                         ros_image.height
                     );
                 }
+
+                if ros_image.encoding.as_str() == "" {
+                    bail!("no image available");
+                }
+
+                let rgb_image: RgbImage = ros_image.try_into()?;
+
                 let image = ColorImage::from_rgb(
-                    [ros_image.width as usize, ros_image.height as usize],
-                    &ros_image.data,
+                    [rgb_image.width() as usize, rgb_image.height() as usize],
+                    rgb_image.as_bytes(),
                 );
                 context
                     .load_texture(&image_identifier, image, TextureOptions::NEAREST)
@@ -213,8 +225,8 @@ impl ImagePanel {
                         &image_identifier,
                         TextureOptions::NEAREST,
                         SizeHint::Size {
-                            width: 640,
-                            height: 480,
+                            width: 544,
+                            height: 448,
                             maintain_aspect_ratio: true,
                         },
                     )?
@@ -227,7 +239,7 @@ impl ImagePanel {
             image,
             Rectangle {
                 min: point!(0.0, 0.0),
-                max: point!(640.0, 480.0),
+                max: point!(544.0, 448.0),
             },
         );
         Ok(())
