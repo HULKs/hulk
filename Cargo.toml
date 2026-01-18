@@ -261,6 +261,7 @@ webots = { version = "0.8.0" }
 wgpu = "27.0.0"
 world_state = { path = "crates/world_state" }
 xdg = "2.5.2"
+yuv = "0.8.9"
 zbus = "5.5.0"
 zed = { path = "crates/zed" }
 
