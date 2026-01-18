@@ -12,7 +12,10 @@ pub type Point3<Frame, T = f32> = Point<Frame, 3, T>;
 #[macro_export]
 macro_rules! point {
     (<$frame:ty>, $($parameters:expr),* $(,)?) => {
-        $crate::Framed::<$frame, _>::wrap(nalgebra::point![$($parameters),*])
+        {
+            use $crate::nalgebra;
+            $crate::Framed::<$frame, _>::wrap(nalgebra::point![$($parameters),*])
+        }
     };
     ($($parameters:expr),* $(,)?) => {
         {
