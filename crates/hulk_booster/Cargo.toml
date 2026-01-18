@@ -5,6 +5,9 @@ edition.workspace = true
 license.workspace = true
 homepage.workspace = true
 
+[package.metadata.pepsi]
+cross-compile = true
+
 [dependencies]
 
 approx = { workspace = true }
@@ -14,8 +17,12 @@ bincode = { workspace = true }
 blake3 = { workspace = true }
 booster = { workspace = true }
 buffered_watch = { workspace = true }
+byteorder = { workspace = true }
+bytes = { version = "1.11.0", features = ["serde"] }
 calibration = { workspace = true }
+cdr-encoding = "0.10.2"
 chrono = { workspace = true }
+clap = { workspace = true }
 color-eyre = { workspace = true }
 communication = { workspace = true }
 control = { workspace = true }
@@ -59,6 +66,7 @@ types = { workspace = true }
 vision = { workspace = true }
 walking_inference = { workspace = true }
 world_state = { workspace = true }
+yuv = { workspace = true }
 zenoh = "1.6.2"
 
 [build-dependencies]
