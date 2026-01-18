@@ -4583,6 +4583,7 @@ dependencies = [
  "tokio",
  "types",
  "walking_inference",
+ "world_state",
  "zed",
 ]
 

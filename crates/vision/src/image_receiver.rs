@@ -26,7 +26,6 @@ pub struct MainOutputs {
     pub image: MainOutput<Image>,
     pub camera_info: MainOutput<CameraInfo>,
     pub cycle_time: MainOutput<CycleTime>,
-    pub balls: MainOutput<Option<Vec<BallPercept>>>,
 }
 
 impl ImageReceiver {
@@ -56,7 +55,6 @@ impl ImageReceiver {
             image: image.into(),
             camera_info: camera_info.into(),
             cycle_time: cycle_time.into(),
-            balls: None.into(),
         })
     }
 }

@@ -51,6 +51,7 @@ pub struct BehaviorParameters {
     pub maximum_lookaround_duration: Duration,
     pub time_to_reach_delay_when_fallen: Duration,
     pub maximum_standup_attempts: u32,
+    pub walk_with_velocity: WalkWithVelocityParameters,
 }
 
 #[derive(
@@ -501,6 +502,14 @@ pub struct RLWalkingParameters {
     pub control: ControlParameters,
     pub walk_command: [f32; 3],
     pub joint_position_smoothing_factor: f32,
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct WalkWithVelocityParameters {
+    pub max_velocity: f32,
+    pub max_angular_velocity: f32,
 }
 
 #[derive(

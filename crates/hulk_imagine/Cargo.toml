@@ -41,6 +41,7 @@ step_planning = { workspace = true }
 tokio = { workspace = true }
 types = { workspace = true }
 walking_inference = { workspace = true }
+world_state = { workspace = true }
 zed = { workspace = true }
 
 [build-dependencies]
