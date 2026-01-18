@@ -17,3 +17,5 @@ pub use pose::{Pose2, Pose3};
 pub use rotation::{Rotation2, Rotation3};
 pub use transform::Transform;
 pub use vector::{Vector, Vector2, Vector3};
+
+pub use nalgebra;
