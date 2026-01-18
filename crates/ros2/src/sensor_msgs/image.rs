@@ -1,17 +1,16 @@
-use std::path::Path;
-
+use crate::std_msgs::header::Header;
 use color_eyre::Result;
 use image::{error::DecodingError, ImageError, RgbImage};
-/// This message contains an uncompressed image
-/// (0, 0) is at top-left corner of image
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-
-use crate::std_msgs::header::Header;
+use std::path::Path;
+use yuv::{yuv_nv12_to_rgb, YuvBiPlanarImage, YuvConversionMode, YuvRange, YuvStandardMatrix};
 
 #[cfg(feature = "pyo3")]
 use pyo3::{pyclass, pymethods};
 
+/// This message contains an uncompressed image
+/// (0, 0) is at top-left corner of image
 #[cfg_attr(feature = "pyo3", pyclass(frozen))]
 #[repr(C)]
 #[derive(
@@ -96,6 +95,60 @@ impl TryFrom<Image> for RgbImage {
                     image::error::ImageFormatHint::Unknown,
                 )),
             ),
+            "nv12" => {
+                let y_plane_size = (image.step * image.height) as usize;
+                // UV plane is half height, but same stride as Y in NV12 (usually)
+                let uv_plane_size = (image.step * image.height / 2) as usize;
+
+                if image.data.len() < y_plane_size + uv_plane_size {
+                    return Err(ImageError::Decoding(DecodingError::from_format_hint(
+                        image::error::ImageFormatHint::Name(
+                            "NV12: Source buffer is too small for the given dimensions".to_string(),
+                        ),
+                    )));
+                }
+
+                // 2. Prepare Output Buffer
+                // RgbImage is a flattened Vec<u8> (R, G, B, R, G, B...)
+                let mut rgb_image = RgbImage::new(image.width, image.height);
+
+                // 3. Define Strides
+                // ROS 'step' is the stride for the Y plane.
+                let y_stride = image.step;
+                // NV12 UV plane usually has the same stride as Y
+                let uv_stride = image.step;
+                // RGB output stride (3 bytes per pixel * width)
+                let rgb_stride = image.width * 3;
+
+                // 4. Split Input Data into Planes
+                let (y_plane, remaining) = image.data.split_at(y_plane_size);
+                let uv_plane = &remaining[..uv_plane_size];
+
+                let yuv_bi_planar_image = YuvBiPlanarImage {
+                    y_plane,
+                    y_stride,
+                    uv_plane,
+                    uv_stride,
+                    width: image.width,
+                    height: image.height,
+                };
+
+                yuv_nv12_to_rgb(
+                    &yuv_bi_planar_image,
+                    rgb_image.as_flat_samples_mut().as_mut_slice(),
+                    rgb_stride,
+                    YuvRange::Limited, // Standard for video (16-235). Use 'Full' for JPEGs.
+                    YuvStandardMatrix::Bt709, // Standard for HD Video. Use Bt601 for SD/Webcams.
+                    YuvConversionMode::Balanced,
+                )
+                .map_err(|e| {
+                    ImageError::Decoding(DecodingError::from_format_hint(
+                        image::error::ImageFormatHint::Name(format!("NV12: {e}")),
+                    ))
+                })?;
+
+                Ok(rgb_image)
+            }
             _ => unimplemented!(),
         }
     }
