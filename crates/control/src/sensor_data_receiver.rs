@@ -10,11 +10,7 @@ use hardware::{LowStateInterface, TimeInterface};
 use linear_algebra::Vector3;
 use nalgebra::UnitQuaternion;
 use serde::{Deserialize, Serialize};
-use types::{
-    cycle_time::CycleTime,
-    joints::{arm::ArmJoints, head::HeadJoints, leg::LegJoints, Joints},
-    sensor_data::SensorData,
-};
+use types::{cycle_time::CycleTime, joints::Joints};
 
 #[derive(Default, Serialize, Deserialize)]
 enum State {
@@ -49,7 +45,6 @@ pub struct MainOutputs {
     pub imu_state: MainOutput<ImuState>,
     pub serial_motor_states: MainOutput<Joints<MotorState>>,
     pub cycle_time: MainOutput<CycleTime>,
-    pub sensor_data: MainOutput<SensorData>,
 }
 
 impl SensorDataReceiver {
@@ -78,55 +73,16 @@ impl SensorDataReceiver {
         };
         self.last_cycle_start = now;
 
-        let positions = Joints {
-            head: HeadJoints {
-                yaw: low_state.motor_state_serial[0].position,
-                pitch: low_state.motor_state_serial[1].position,
-            },
-            left_arm: ArmJoints {
-                shoulder_pitch: low_state.motor_state_serial[2].position,
-                shoulder_roll: low_state.motor_state_serial[3].position,
-                shoulder_yaw: low_state.motor_state_serial[4].position,
-                elbow: low_state.motor_state_serial[5].position,
-            },
-            right_arm: ArmJoints {
-                shoulder_pitch: low_state.motor_state_serial[6].position,
-                shoulder_roll: low_state.motor_state_serial[7].position,
-                shoulder_yaw: low_state.motor_state_serial[8].position,
-                elbow: low_state.motor_state_serial[9].position,
-            },
-            left_leg: LegJoints {
-                hip_pitch: low_state.motor_state_serial[10].position,
-                hip_roll: low_state.motor_state_serial[11].position,
-                hip_yaw: low_state.motor_state_serial[12].position,
-                knee: low_state.motor_state_serial[13].position,
-                ankle_up: low_state.motor_state_serial[14].position,
-                ankle_down: low_state.motor_state_serial[15].position,
-            },
-            right_leg: LegJoints {
-                hip_pitch: low_state.motor_state_serial[16].position,
-                hip_roll: low_state.motor_state_serial[17].position,
-                hip_yaw: low_state.motor_state_serial[18].position,
-                knee: low_state.motor_state_serial[19].position,
-                ankle_up: low_state.motor_state_serial[20].position,
-                ankle_down: low_state.motor_state_serial[21].position,
-            },
-        };
-
-        let sensor_data = SensorData {
-            positions,
-            ..SensorData::default()
-        };
-
+        // TODO: the simulator sends serial motor states, while
+        // the robot sends parallel motor states
         Ok(MainOutputs {
             imu_state: low_state.imu_state.into(),
             serial_motor_states: low_state
-                .motor_state_serial
+                .motor_state_parallel
                 .into_iter()
                 .collect::<Joints<MotorState>>()
                 .into(),
             cycle_time: cycle_time.into(),
-            sensor_data: sensor_data.into(),
         })
     }
 }
