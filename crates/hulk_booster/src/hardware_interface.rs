@@ -7,6 +7,7 @@ use booster::{
 };
 use byteorder::{BigEndian, LittleEndian};
 use bytes::Bytes;
+use cdr_encoding::{from_bytes, to_vec};
 use color_eyre::eyre::{eyre, Context, Error};
 use color_eyre::Result;
 use hardware::{
@@ -20,8 +21,7 @@ use hsl_network::endpoint::{Endpoint, Ports};
 use hula_types::hardware::{Ids, Paths};
 use ros2::sensor_msgs::camera_info::CameraInfo;
 use ros2::sensor_msgs::image::Image;
-use rustdds::CdrDeserializer;
-use serde::Deserialize;
+use serde::{Deserialize, Serialize};
 use tokio::runtime::Handle;
 use tokio::select;
 use tokio_util::sync::CancellationToken;
@@ -50,6 +50,14 @@ impl DDSDataWrapper {
             representation_options: bytes[2..4].try_into().unwrap(),
             bytes: bytes[4..].to_owned().into(),
         }
+    }
+
+    fn to_bytes(&self) -> Vec<u8> {
+        let mut bytes = Vec::new();
+        bytes.extend_from_slice(&self.representation_identifier);
+        bytes.extend_from_slice(&self.representation_options);
+        bytes.extend_from_slice(&self.bytes);
+        bytes
     }
 }
 
@@ -203,12 +211,14 @@ where
     let ddsdata_wrapper = DDSDataWrapper::from_bytes(&sample.payload().to_bytes());
     match ddsdata_wrapper.representation_identifier {
         [0x00, 0x01] => {
-            let mut deserializer = CdrDeserializer::<LittleEndian>::new(&ddsdata_wrapper.bytes);
-            serde::de::Deserialize::deserialize(&mut deserializer).map_err(|err| eyre!(err))
+            let (deserialized_message, _consumed_byte_count) =
+                from_bytes::<T, LittleEndian>(&ddsdata_wrapper.bytes).map_err(|err| eyre!(err))?;
+            Ok(deserialized_message)
         }
         [0x00, 0x00] => {
-            let mut deserializer = CdrDeserializer::<BigEndian>::new(&ddsdata_wrapper.bytes);
-            serde::de::Deserialize::deserialize(&mut deserializer).map_err(|err| eyre!(err))
+            let (deserialized_message, _consumed_byte_count) =
+                from_bytes::<T, BigEndian>(&ddsdata_wrapper.bytes).map_err(|err| eyre!(err))?;
+            Ok(deserialized_message)
         }
         _ => Err(eyre!(
             "Representation identifier {:#?} not supported",
@@ -217,8 +227,18 @@ where
     }
 }
 
-fn serialize_sample<T>(payload: T) -> ZBytes {
-    todo!();
+fn serialize_sample<T>(payload: T) -> ZBytes
+where
+    T: Serialize,
+{
+    let serialized_payload = to_vec::<T, LittleEndian>(&payload).unwrap();
+    let dds_data_wrapper = DDSDataWrapper {
+        representation_identifier: [0x00, 0x01],
+        representation_options: [0x00, 0x00],
+        bytes: serialized_payload.into(),
+    };
+
+    ZBytes::from(dds_data_wrapper.to_bytes())
 }
 
 impl LowStateInterface for BoosterHardwareInterface {
