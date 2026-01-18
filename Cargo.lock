@@ -7021,6 +7021,7 @@ dependencies = [
  "image",
  "itertools 0.14.0",
  "linear_algebra",
+ "log",
  "nalgebra",
  "ndarray 0.16.1",
  "openvino",
