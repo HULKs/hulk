@@ -57,7 +57,7 @@ pub struct CycleContext {
     inference_duration: AdditionalOutput<Duration, "inference_duration">,
     postprocess_duration: AdditionalOutput<Duration, "postprocess_duration">,
 
-    image: Input<Image, "image">,
+    left_image_raw: Input<Image, "left_image_raw">,
     motion_command: Input<MotionCommand, "Control", "motion_command">,
 
     maximum_intersection_over_union:
@@ -161,7 +161,7 @@ impl PoseDetection {
             return Ok(MainOutputs::default());
         };
 
-        let image = context.image;
+        let image = context.left_image_raw;
 
         let mut infer_request = match image_size_used_for_detection {
             DetectionRegion::Narrow => {

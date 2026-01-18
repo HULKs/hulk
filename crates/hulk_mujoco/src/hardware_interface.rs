@@ -314,18 +314,30 @@ impl TransformMessageInterface for MujocoHardwareInterface {
 }
 
 impl CameraInterface for MujocoHardwareInterface {
-    fn read_image(&self) -> Result<Image> {
+    fn read_image_left_raw(&self) -> Result<Image> {
         self.image_receiver
             .lock()
             .blocking_recv()
             .ok_or_eyre("channel closed")
     }
 
-    fn read_camera_info(&self) -> Result<CameraInfo> {
+    fn read_image_left_raw_camera_info(&self) -> Result<CameraInfo> {
         self.camera_info_receiver
             .lock()
             .blocking_recv()
             .ok_or_eyre("channel closed")
+    }
+
+    fn read_rectified_image(&self) -> Result<Image> {
+        todo!()
+    }
+
+    fn read_stereonet_visual(&self) -> Result<Image> {
+        todo!()
+    }
+
+    fn read_stereonet_camera_info(&self) -> Result<CameraInfo> {
+        todo!()
     }
 }
 

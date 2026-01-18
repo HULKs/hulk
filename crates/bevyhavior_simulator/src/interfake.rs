@@ -76,10 +76,23 @@ impl PathsInterface for Interfake {
 }
 
 impl CameraInterface for Interfake {
-    fn read_image(&self) -> Result<Image> {
+    fn read_image_left_raw(&self) -> Result<Image> {
         unimplemented!()
     }
-    fn read_camera_info(&self) -> Result<CameraInfo> {
+
+    fn read_image_left_raw_camera_info(&self) -> Result<CameraInfo> {
+        unimplemented!()
+    }
+
+    fn read_stereonet_visual(&self) -> Result<Image> {
+        unimplemented!()
+    }
+
+    fn read_stereonet_camera_info(&self) -> Result<CameraInfo> {
+        unimplemented!()
+    }
+
+    fn read_rectified_image(&self) -> Result<Image> {
         unimplemented!()
     }
 }
