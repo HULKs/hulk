@@ -1,7 +1,10 @@
 use std::{env::temp_dir, fs::create_dir_all, path::PathBuf, sync::Arc};
 
 use chrono::{DateTime, Utc};
-use color_eyre::{eyre::eyre, Result};
+use color_eyre::{
+    eyre::{bail, eyre},
+    Result,
+};
 use coordinate_systems::Pixel;
 use eframe::egui::{ColorImage, Response, SizeHint, TextureOptions, Ui, UiBuilder, Widget};
 use geometry::rectangle::Rectangle;
@@ -184,6 +187,13 @@ impl ImagePanel {
                 let ros_image = buffer
                     .get_last_value()?
                     .ok_or_else(|| eyre!("no image available"))?;
+                if ros_image.height == 0 || ros_image.width == 0 {
+                    bail!(
+                        "Image has no pixels. Dimensions: {}x{}",
+                        ros_image.width,
+                        ros_image.height
+                    );
+                }
                 let image = ColorImage::from_rgb(
                     [ros_image.width as usize, ros_image.height as usize],
                     &ros_image.data,
