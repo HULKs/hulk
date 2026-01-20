@@ -1,6 +1,8 @@
 {
   "rl_walking": {
     "gait_frequency": 1,
+    "stabilizing_interval_completion_threshold": 0.01,
+    "stabilizing_interval_compression_factor": 1.0,
     "number_of_actions": 12,
     "number_of_observations": 47,
     "torque_limits": {

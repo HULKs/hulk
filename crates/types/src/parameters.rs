@@ -492,6 +492,8 @@ pub enum StepPlannerMode {
 )]
 pub struct RLWalkingParameters {
     pub gait_frequency: f32,
+    pub stabilizing_interval_compression_factor: f32,
+    pub stabilizing_interval_completion_threshold: f32,
     pub number_of_actions: usize,
     pub number_of_observations: usize,
     pub torque_limits: Joints,
