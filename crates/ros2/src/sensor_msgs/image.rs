@@ -4,7 +4,9 @@ use image::{error::DecodingError, ImageError, RgbImage};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
-use yuv::{yuv_nv12_to_rgb, YuvBiPlanarImage, YuvConversionMode, YuvRange, YuvStandardMatrix};
+use yuv::{
+    bgr_to_rgb, yuv_nv12_to_rgb, YuvBiPlanarImage, YuvConversionMode, YuvRange, YuvStandardMatrix,
+};
 
 #[cfg(feature = "pyo3")]
 use pyo3::{pyclass, pymethods};
@@ -149,7 +151,31 @@ impl TryFrom<Image> for RgbImage {
 
                 Ok(rgb_image)
             }
-            _ => unimplemented!(),
+            "bgr8" => {
+                let mut rgb_image = RgbImage::new(image.width, image.height);
+
+                bgr_to_rgb(
+                    &image.data,
+                    image.step,
+                    rgb_image.as_flat_samples_mut().as_mut_slice(),
+                    image.step,
+                    image.width,
+                    image.height,
+                )
+                .map_err(|e| {
+                    ImageError::Decoding(DecodingError::from_format_hint(
+                        image::error::ImageFormatHint::Name(format!("bgr8: {e}")),
+                    ))
+                })?;
+
+                Ok(rgb_image)
+            }
+            _ => Err(ImageError::Decoding(DecodingError::from_format_hint(
+                image::error::ImageFormatHint::Name(format!(
+                    "unknown encoding: {}",
+                    image.encoding
+                )),
+            ))),
         }
     }
 }
