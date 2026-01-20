@@ -62,6 +62,22 @@ impl ActuatorInterface for ReplayerHardwareInterface {
 }
 
 impl CameraInterface for ReplayerHardwareInterface {
+    fn read_rectified_image(&self) -> Result<Image> {
+        unimplemented!("Replayer cannot produce data from hardware")
+    }
+
+    fn read_rectified_right_image(&self) -> Result<Image> {
+        unimplemented!("Replayer cannot produce data from hardware")
+    }
+
+    fn read_stereonet_depth_image(&self) -> Result<Image> {
+        unimplemented!("Replayer cannot produce data from hardware")
+    }
+
+    fn read_stereonet_visual_image(&self) -> Result<Image> {
+        unimplemented!("Replayer cannot produce data from hardware")
+    }
+
     fn read_image_left_raw(&self) -> Result<Image> {
         unimplemented!("Replayer cannot produce data from hardware")
     }
@@ -70,15 +86,11 @@ impl CameraInterface for ReplayerHardwareInterface {
         unimplemented!("Replayer cannot produce data from hardware")
     }
 
-    fn read_stereonet_visual(&self) -> Result<Image> {
+    fn read_image_right_raw(&self) -> Result<Image> {
         unimplemented!("Replayer cannot produce data from hardware")
     }
 
-    fn read_stereonet_camera_info(&self) -> Result<CameraInfo> {
-        unimplemented!("Replayer cannot produce data from hardware")
-    }
-
-    fn read_rectified_image(&self) -> Result<Image> {
+    fn read_image_right_raw_camera_info(&self) -> Result<CameraInfo> {
         unimplemented!("Replayer cannot produce data from hardware")
     }
 }

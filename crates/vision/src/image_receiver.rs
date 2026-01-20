@@ -23,8 +23,8 @@ pub struct CycleContext {
 
 #[context]
 pub struct MainOutputs {
-    pub left_image_raw: MainOutput<Image>,
-    pub left_image_raw_camera_info: MainOutput<CameraInfo>,
+    pub image_left_raw: MainOutput<Image>,
+    pub image_left_raw_camera_info: MainOutput<CameraInfo>,
     pub cycle_time: MainOutput<CycleTime>,
 }
 
@@ -39,10 +39,10 @@ impl ImageReceiver {
         &mut self,
         context: CycleContext<impl CameraInterface + TimeInterface>,
     ) -> Result<MainOutputs> {
-        let left_image_raw_camera_info = context
+        let image_left_raw_camera_info = context
             .hardware_interface
             .read_image_left_raw_camera_info()?;
-        let left_image_raw = context.hardware_interface.read_image_left_raw()?;
+        let image_left_raw = context.hardware_interface.read_image_left_raw()?;
 
         let now = context.hardware_interface.get_now();
         let cycle_time = CycleTime {
@@ -54,8 +54,8 @@ impl ImageReceiver {
         self.last_cycle_start = now;
 
         Ok(MainOutputs {
-            left_image_raw: left_image_raw.into(),
-            left_image_raw_camera_info: left_image_raw_camera_info.into(),
+            image_left_raw: image_left_raw.into(),
+            image_left_raw_camera_info: image_left_raw_camera_info.into(),
             cycle_time: cycle_time.into(),
         })
     }

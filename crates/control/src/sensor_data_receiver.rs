@@ -1,12 +1,12 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use booster::{ImuState, MotorState};
+use booster::{FallDownState, ImuState, MotorState};
 use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
 use coordinate_systems::Robot;
 use filtering::low_pass_filter::LowPassFilter;
 use framework::MainOutput;
-use hardware::{LowStateInterface, TimeInterface};
+use hardware::{FallDownStateInterface, LowStateInterface, TimeInterface};
 use linear_algebra::Vector3;
 use nalgebra::UnitQuaternion;
 use serde::{Deserialize, Serialize};
@@ -44,6 +44,7 @@ pub struct CycleContext {
 pub struct MainOutputs {
     pub imu_state: MainOutput<ImuState>,
     pub serial_motor_states: MainOutput<Joints<MotorState>>,
+    pub fall_down_state: MainOutput<FallDownState>,
     pub cycle_time: MainOutput<CycleTime>,
 }
 
@@ -57,11 +58,16 @@ impl SensorDataReceiver {
 
     pub fn cycle(
         &mut self,
-        context: CycleContext<impl LowStateInterface + TimeInterface>,
+        context: CycleContext<impl LowStateInterface + FallDownStateInterface + TimeInterface>,
     ) -> Result<MainOutputs> {
         let low_state = context
             .hardware_interface
             .read_low_state()
+            .wrap_err("failed to read from sensors")?;
+
+        let fall_down_state = context
+            .hardware_interface
+            .read_fall_down_state()
             .wrap_err("failed to read from sensors")?;
 
         let now = context.hardware_interface.get_now();
@@ -82,6 +88,7 @@ impl SensorDataReceiver {
                 .into_iter()
                 .collect::<Joints<MotorState>>()
                 .into(),
+            fall_down_state: fall_down_state.into(),
             cycle_time: cycle_time.into(),
         })
     }

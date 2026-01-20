@@ -30,8 +30,8 @@ pub struct CycleContext {
     // ground_to_field: CyclerState<Option<Isometry2<Ground, Field>>, "ground_to_field">,
     // field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     camera_matrix_parameters: Parameter<CameraMatrixParameters, "camera_matrix_parameters">,
-    left_image_raw_camera_info:
-        PerceptionInput<CameraInfo, "ObjectDetection", "left_image_raw_camera_info">,
+    image_left_raw_camera_info:
+        PerceptionInput<CameraInfo, "ObjectDetection", "image_left_raw_camera_info">,
     correction_in_robot: Parameter<Vector3<Robot>, "camera_matrix_parameters.correction_in_robot">,
     correction_in_camera:
         Parameter<Vector3<Camera>, "camera_matrix_parameters.correction_in_camera">,
@@ -58,10 +58,10 @@ impl CameraMatrixCalculator {
         let last_camera_info = self.last_camera_info.clone();
 
         let camera_info = context
-            .left_image_raw_camera_info
+            .image_left_raw_camera_info
             .persistent
             .into_iter()
-            .chain(context.left_image_raw_camera_info.temporary)
+            .chain(context.image_left_raw_camera_info.temporary)
             .flat_map(|(_time, info)| info)
             .last()
             .unwrap_or(&last_camera_info);
