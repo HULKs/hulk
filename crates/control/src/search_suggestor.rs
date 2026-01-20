@@ -7,13 +7,13 @@ use color_eyre::{eyre::Context, Result};
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
+use hsl_network_messages::{HulkMessage, SubState, Team};
 use itertools::Itertools;
 use linear_algebra::{point, Isometry2, Point2, Vector2};
 use nalgebra::clamp;
 use ndarray::{array, Array2};
 use ndarray_conv::{ConvExt, ConvMode, PaddingMode};
 use serde::{Deserialize, Serialize};
-use spl_network_messages::{HulkMessage, SubState, Team};
 use types::{
     ball_position::{BallPosition, HypotheticalBallPosition},
     field_dimensions::{FieldDimensions, Half, Side},
@@ -23,7 +23,7 @@ use types::{
     primary_state::PrimaryState,
 };
 
-use crate::team_ball_receiver::get_spl_messages;
+use crate::team_ball_receiver::get_hsl_messages;
 
 #[derive(Deserialize, Serialize)]
 pub struct SearchSuggestor {
@@ -48,7 +48,7 @@ pub struct CycleContext {
     primary_state: Input<PrimaryState, "primary_state">,
     filtered_game_controller_state:
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
-    network_message: PerceptionInput<Option<IncomingMessage>, "SplNetwork", "filtered_message?">,
+    network_message: PerceptionInput<Option<IncomingMessage>, "HslNetwork", "filtered_message?">,
 
     heatmap: AdditionalOutput<Array2<f32>, "ball_search_heatmap">,
 }
@@ -119,7 +119,7 @@ impl SearchSuggestor {
             }
         }
 
-        let messages = get_spl_messages(&context.network_message.persistent);
+        let messages = get_hsl_messages(&context.network_message.persistent);
         for (time, message) in messages {
             self.heatmap.add_teamballs(
                 time,

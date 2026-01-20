@@ -3,7 +3,7 @@ use std::{
     sync::Arc, time::SystemTime,
 };
 
-use argument_parsers::NaoAddress;
+use argument_parsers::RobotAddress;
 use clap::Parser;
 use color_eyre::{
     eyre::{bail, eyre, Context as _, ContextCompat},
@@ -202,7 +202,7 @@ impl TwixApp {
         let address = arguments
             .address
             .and_then(|address| {
-                NaoAddress::from_str(&address)
+                RobotAddress::from_str(&address)
                     .map(|nao| nao.ip.to_string())
                     .ok()
             })

@@ -12,7 +12,7 @@ use types::messages::{IncomingMessage, OutgoingMessage};
 pub struct Endpoint {
     ports: Ports,
     game_controller_state_socket: UdpSocket,
-    spl_socket: UdpSocket,
+    hsl_socket: UdpSocket,
 }
 
 #[derive(Error, Debug)]
@@ -33,23 +33,23 @@ impl Endpoint {
         ))
         .await
         .map_err(Error::CannotBind)?;
-        let spl_socket = UdpSocket::bind(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, parameters.spl))
+        let hsl_socket = UdpSocket::bind(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, parameters.hsl))
             .await
             .map_err(Error::CannotBind)?;
-        spl_socket
+        hsl_socket
             .set_broadcast(true)
             .map_err(Error::EnableBroadcast)?;
         Ok(Self {
             ports: parameters,
             game_controller_state_socket,
-            spl_socket,
+            hsl_socket,
         })
     }
 
     pub async fn read(&self) -> Result<IncomingMessage, Error> {
         loop {
             let mut game_controller_state_buffer = [0; 1024];
-            let mut spl_buffer = [0; 1024];
+            let mut hsl_buffer = [0; 1024];
             select! {
                 result = self.game_controller_state_socket.recv_from(&mut game_controller_state_buffer) => {
                     let (received_bytes, address) = result.map_err(Error::ReadError)?;
@@ -63,14 +63,14 @@ impl Endpoint {
                         }
                     }
                 },
-                result = self.spl_socket.recv_from(&mut spl_buffer) => {
+                result = self.hsl_socket.recv_from(&mut hsl_buffer) => {
                     let (received_bytes, _address) = result.map_err(Error::ReadError)?;
-                    match bincode::deserialize(&spl_buffer[0..received_bytes]) {
+                    match bincode::deserialize(&hsl_buffer[0..received_bytes]) {
                         Ok(parsed_message) => {
-                            break Ok(IncomingMessage::Spl(parsed_message));
+                            break Ok(IncomingMessage::Hsl(parsed_message));
                         }
                         Err(error) => {
-                            warn!("Failed to parse SPL message (will be discarded): {error:?}");
+                            warn!("Failed to parse HSL message (will be discarded): {error:?}");
                             continue;
                         }
                     }
@@ -86,17 +86,17 @@ impl Endpoint {
                 self.send_game_controller_visual_referee_message(destination, message)
                     .await;
             }
-            OutgoingMessage::Spl(message) => match bincode::serialize(&message) {
+            OutgoingMessage::Hsl(message) => match bincode::serialize(&message) {
                 Ok(message) => {
                     if let Err(error) = self
-                        .spl_socket
+                        .hsl_socket
                         .send_to(
                             message.as_slice(),
-                            SocketAddr::new(Ipv4Addr::BROADCAST.into(), self.ports.spl),
+                            SocketAddr::new(Ipv4Addr::BROADCAST.into(), self.ports.hsl),
                         )
                         .await
                     {
-                        warn!("Failed to send UDP datagram via SPL socket: {error:?}")
+                        warn!("Failed to send UDP datagram via HSL socket: {error:?}")
                     }
                 }
                 Err(error) => {
@@ -128,5 +128,5 @@ impl Endpoint {
 pub struct Ports {
     game_controller_state: u16,
     game_controller_return: u16,
-    spl: u16,
+    hsl: u16,
 }

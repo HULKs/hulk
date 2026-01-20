@@ -21,6 +21,8 @@ members = [
   "crates/framework",
   "crates/geometry",
   "crates/hardware",
+  "crates/hsl_network",
+  "crates/hsl_network_messages",
   "crates/hula_types",
   "crates/hulk_booster",
   "crates/hulk_imagine",
@@ -32,7 +34,6 @@ members = [
   "crates/kinematics",
   "crates/linear_algebra",
   "crates/motionfile",
-  "crates/nao",
   "crates/object_detection",
   "crates/opn",
   "crates/parameters",
@@ -41,16 +42,16 @@ members = [
   "crates/projection",
   "crates/ransac",
   "crates/repository",
+  "crates/robot",
   "crates/ros2",
   "crates/simulation_message",
   "crates/source_analyzer",
-  "crates/spl_network",
-  "crates/spl_network_messages",
   "crates/step_planning",
   "crates/step_planning_solver",
   "crates/types",
   "crates/vision",
   "crates/walking_inference",
+  "crates/world_state",
   "crates/zed",
   "tools/annotato",
   "tools/depp",
@@ -144,6 +145,8 @@ gilrs = "0.11.0"
 glob = "0.3.2"
 hardware = { path = "crates/hardware" }
 home = "=0.5.9"
+hsl_network = { path = "crates/hsl_network" }
+hsl_network_messages = { path = "crates/hsl_network_messages" }
 hula_types = { path = "crates/hula_types" }
 hulk_manifest = { path = "crates/hulk_manifest" }
 hulk_mujoco = { path = "crates/hulk_mujoco" }
@@ -168,7 +171,6 @@ nalgebra = { version = "0.33.2", features = [
   "serde",
   "serde-serialize",
 ] }
-nao = { path = "crates/nao" }
 ndarray = { version = "0.16.1", features = ["serde"] }
 ndarray-conv = "0.4.1"
 nix = { version = "0.29", features = ["ioctl"] }
@@ -203,7 +205,7 @@ projection = { path = "crates/projection" }
 proptest = "1.6.0"
 pyo3 = { version = "0.27.1", features = ["abi3-py313", "extension-module"] }
 pyo3-async-runtimes = { version = "0.27.0", features = ["tokio-runtime"] }
-pyo3-log = { version = "0.14.0", git = "https://github.com/oleflb/pyo3-log.git", rev = "13a516dc494fd73c037b434a66d71ec069574211" }
+pyo3-log = "0.13.2"
 quote = "1.0.38"
 rand = "0.9.0"
 rand_chacha = { version = "0.9.0", features = ["serde"] }
@@ -213,6 +215,7 @@ regex = "1.11.1"
 repository = { path = "crates/repository" }
 reqwest = { version = "0.12.12", features = ["blocking"] }
 rmp-serde = "1.3.0"
+robot = { path = "crates/robot" }
 ros2 = { path = "crates/ros2" }
 rustfft = "6.2.0"
 scenario = { path = "crates/scenario" }
@@ -229,8 +232,6 @@ simba = "0.9.0"
 simulation_message = { path = "crates/simulation_message" }
 smallvec = "1.14.0"
 source_analyzer = { path = "crates/source_analyzer" }
-spl_network = { path = "crates/spl_network" }
-spl_network_messages = { path = "crates/spl_network_messages" }
 splines = { version = "=4.2.0", features = ["serde"] }
 step_planning = { path = "crates/step_planning" }
 step_planning_solver = { path = "crates/step_planning_solver" }
@@ -257,6 +258,7 @@ walking_inference = { path = "crates/walking_inference" }
 watch = "0.2.3"
 webots = { version = "0.8.0" }
 wgpu = "24.0.5"
+world_state = { path = "crates/world_state" }
 xdg = "2.5.2"
 zbus = "5.5.0"
 zed = { path = "crates/zed" }

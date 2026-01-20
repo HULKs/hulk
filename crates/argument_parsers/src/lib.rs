@@ -10,8 +10,8 @@ use color_eyre::{
 };
 use regex::Regex;
 
-use nao::{Network, SystemctlAction};
-use spl_network_messages::PlayerNumber;
+use hsl_network_messages::PlayerNumber;
+use robot::{Network, SystemctlAction};
 
 pub const SYSTEMCTL_ACTION_POSSIBLE_VALUES: &[&str] =
     &["disable", "enable", "restart", "start", "status", "stop"];
@@ -54,11 +54,11 @@ pub fn parse_network(network: &str) -> Result<Network> {
 }
 
 #[derive(Clone, Copy, Debug, Eq, Hash, PartialEq, PartialOrd, Ord)]
-pub struct NaoAddress {
+pub struct RobotAddress {
     pub ip: Ipv4Addr,
 }
 
-impl FromStr for NaoAddress {
+impl FromStr for RobotAddress {
     type Err = Report;
 
     fn from_str(input: &str) -> Result<Self> {
@@ -70,24 +70,24 @@ impl FromStr for NaoAddress {
                     .unwrap()
                     .as_str()
                     .parse()
-                    .wrap_err("failed to parse NaoAddress")?;
+                    .wrap_err("failed to parse RobotAddress")?;
                 let connection = if captures.get(2).unwrap().as_str() == "w" {
                     Connection::Wireless
                 } else {
                     Connection::Wired
                 };
                 let ip =
-                    number_to_ip(number, connection).wrap_err("cannot parse from NAO number")?;
+                    number_to_ip(number, connection).wrap_err("cannot parse from Robot number")?;
                 Ok(Self { ip })
             }
             None => Ok(Self {
-                ip: input.parse().wrap_err("failed to parse NaoAddress")?,
+                ip: input.parse().wrap_err("failed to parse RobotAddress")?,
             }),
         }
     }
 }
 
-impl Display for NaoAddress {
+impl Display for RobotAddress {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         self.ip.fmt(formatter)
     }
@@ -99,97 +99,97 @@ pub enum Connection {
     Wired,
 }
 
-pub fn number_to_ip(nao_number: u8, connection: Connection) -> Result<Ipv4Addr> {
-    if nao_number == 0 || nao_number > 254 {
-        bail!("NAO number is either the network (0) or broadcast (255) which is not supported");
+pub fn number_to_ip(robot_number: u8, connection: Connection) -> Result<Ipv4Addr> {
+    if robot_number == 0 || robot_number > 254 {
+        bail!("Robot number is either the network (0) or broadcast (255) which is not supported");
     }
     let subnet = match connection {
         Connection::Wireless => 0,
         Connection::Wired => 1,
     };
-    Ok(Ipv4Addr::new(10, subnet, 24, nao_number))
+    Ok(Ipv4Addr::new(10, subnet, 24, robot_number))
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
-pub struct NaoNumber {
+pub struct RobotNumber {
     pub number: u8,
 }
 
-impl FromStr for NaoNumber {
+impl FromStr for RobotNumber {
     type Err = Report;
 
     fn from_str(input: &str) -> Result<Self> {
         Ok(Self {
-            number: input.parse().wrap_err("failed to parse NaoNumber")?,
+            number: input.parse().wrap_err("failed to parse RobotNumber")?,
         })
     }
 }
 
-impl Display for NaoNumber {
+impl Display for RobotNumber {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         self.number.fmt(formatter)
     }
 }
 
-impl TryFrom<NaoAddress> for NaoNumber {
+impl TryFrom<RobotAddress> for RobotNumber {
     type Error = Report;
 
-    fn try_from(nao_address: NaoAddress) -> Result<Self> {
-        if nao_address.ip.octets()[0] != 10
-            || (nao_address.ip.octets()[1] != 0 && nao_address.ip.octets()[1] != 1)
-            || nao_address.ip.octets()[2] != 24
+    fn try_from(robot_address: RobotAddress) -> Result<Self> {
+        if robot_address.ip.octets()[0] != 10
+            || (robot_address.ip.octets()[1] != 0 && robot_address.ip.octets()[1] != 1)
+            || robot_address.ip.octets()[2] != 24
         {
-            bail!("failed to extract NAO number from IP {nao_address}");
+            bail!("failed to extract Robot number from IP {robot_address}");
         }
 
         Ok(Self {
-            number: nao_address.ip.octets()[3],
+            number: robot_address.ip.octets()[3],
         })
     }
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct NaoAddressPlayerAssignment {
-    pub nao_address: NaoAddress,
+pub struct RobotAddressPlayerAssignment {
+    pub robot_address: RobotAddress,
     pub player_number: PlayerNumber,
 }
 
-impl FromStr for NaoAddressPlayerAssignment {
+impl FromStr for RobotAddressPlayerAssignment {
     type Err = Report;
 
     fn from_str(input: &str) -> Result<Self> {
         let (prefix, player_number) = parse_assignment(input)
             .wrap_err_with(|| format!("failed to parse assignment {input}"))?;
         Ok(Self {
-            nao_address: prefix
+            robot_address: prefix
                 .parse()
-                .wrap_err_with(|| format!("failed to parse nao address {prefix}"))?,
+                .wrap_err_with(|| format!("failed to parse robot address {prefix}"))?,
             player_number,
         })
     }
 }
 
 #[derive(Clone, Copy, Debug)]
-pub struct NaoNumberPlayerAssignment {
-    pub nao_number: NaoNumber,
+pub struct RobotNumberPlayerAssignment {
+    pub robot_number: RobotNumber,
     pub player_number: PlayerNumber,
 }
 
-impl FromStr for NaoNumberPlayerAssignment {
+impl FromStr for RobotNumberPlayerAssignment {
     type Err = Report;
 
     fn from_str(input: &str) -> Result<Self> {
         let (prefix, player_number) = parse_assignment(input)?;
         Ok(Self {
-            nao_number: prefix.parse()?,
+            robot_number: prefix.parse()?,
             player_number,
         })
     }
 }
 
-impl Display for NaoNumberPlayerAssignment {
+impl Display for RobotNumberPlayerAssignment {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
-        write!(formatter, "{}:{}", self.nao_number, self.player_number)
+        write!(formatter, "{}:{}", self.robot_number, self.player_number)
     }
 }
 
@@ -208,15 +208,15 @@ fn parse_assignment(input: &str) -> Result<(&str, PlayerNumber)> {
     Ok((prefix, player_number))
 }
 
-impl TryFrom<NaoAddressPlayerAssignment> for NaoNumberPlayerAssignment {
+impl TryFrom<RobotAddressPlayerAssignment> for RobotNumberPlayerAssignment {
     type Error = Report;
 
-    fn try_from(assignment: NaoAddressPlayerAssignment) -> Result<Self> {
+    fn try_from(assignment: RobotAddressPlayerAssignment) -> Result<Self> {
         Ok(Self {
-            nao_number: assignment
-                .nao_address
+            robot_number: assignment
+                .robot_address
                 .try_into()
-                .wrap_err("failed to convert NAO address into NAO number")?,
+                .wrap_err("failed to convert Robot address into Robot number")?,
             player_number: assignment.player_number,
         })
     }

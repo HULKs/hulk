@@ -72,14 +72,14 @@ mod tests {
 
     struct Updates {
         audio: Update<MainOutputs>,
-        spl_network: Update<MainOutputs>,
+        hsl_network: Update<MainOutputs>,
         vision: Update<MainOutputs>,
     }
 
     #[derive(Default)]
     struct Databases {
         pub vision: Vec<MainOutputs>,
-        pub spl_network: Vec<MainOutputs>,
+        pub hsl_network: Vec<MainOutputs>,
         pub audio: Vec<MainOutputs>,
     }
 
@@ -87,7 +87,7 @@ mod tests {
         fn first_timestamp_of_temporary_databases(&self) -> Option<std::time::SystemTime> {
             [
                 self.vision.first_timestamp_of_non_finalized_database,
-                self.spl_network.first_timestamp_of_non_finalized_database,
+                self.hsl_network.first_timestamp_of_non_finalized_database,
                 self.audio.first_timestamp_of_non_finalized_database,
             ]
             .iter()
@@ -106,11 +106,11 @@ mod tests {
                     .vision
                     .push(timestamped_database.data);
             }
-            for timestamped_database in self.spl_network.items {
+            for timestamped_database in self.hsl_network.items {
                 databases
                     .get_mut(&timestamped_database.timestamp)
                     .unwrap()
-                    .spl_network
+                    .hsl_network
                     .push(timestamped_database.data);
             }
             for timestamped_database in self.audio.items {
@@ -140,7 +140,7 @@ mod tests {
                     items: vec![],
                     first_timestamp_of_non_finalized_database: None,
                 },
-                spl_network: Update {
+                hsl_network: Update {
                     items: vec![],
                     first_timestamp_of_non_finalized_database: None,
                 },
@@ -182,7 +182,7 @@ mod tests {
                     items: vec![],
                     first_timestamp_of_non_finalized_database: None,
                 },
-                spl_network: Update {
+                hsl_network: Update {
                     items: vec![],
                     first_timestamp_of_non_finalized_database: None,
                 },
@@ -227,7 +227,7 @@ mod tests {
                     items: vec![],
                     first_timestamp_of_non_finalized_database: None,
                 },
-                spl_network: Update {
+                hsl_network: Update {
                     items: vec![],
                     first_timestamp_of_non_finalized_database: None,
                 },
@@ -262,7 +262,7 @@ mod tests {
                     items: vec![],
                     first_timestamp_of_non_finalized_database: None,
                 },
-                spl_network: Update {
+                hsl_network: Update {
                     items: vec![],
                     first_timestamp_of_non_finalized_database: Some(instant_a),
                 },
@@ -306,7 +306,7 @@ mod tests {
                     items: vec![],
                     first_timestamp_of_non_finalized_database: None,
                 },
-                spl_network: Update {
+                hsl_network: Update {
                     items: vec![],
                     first_timestamp_of_non_finalized_database: None,
                 },
@@ -357,7 +357,7 @@ mod tests {
                     items: vec![],
                     first_timestamp_of_non_finalized_database: None,
                 },
-                spl_network: Update {
+                hsl_network: Update {
                     items: vec![],
                     first_timestamp_of_non_finalized_database: None,
                 },
@@ -406,7 +406,7 @@ mod tests {
                     items: vec![],
                     first_timestamp_of_non_finalized_database: None,
                 },
-                spl_network: Update {
+                hsl_network: Update {
                     items: vec![],
                     first_timestamp_of_non_finalized_database: None,
                 },

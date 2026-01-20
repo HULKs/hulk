@@ -24,6 +24,8 @@ fern = { workspace = true }
 framework = { workspace = true }
 geometry = { workspace = true }
 hardware = { workspace = true }
+hsl_network = { workspace = true }
+hsl_network_messages = { workspace = true }
 hula_types = { workspace = true }
 indicatif = { workspace = true }
 ittapi = { workspace = true }
@@ -38,17 +40,15 @@ parking_lot = { workspace = true }
 path_serde = { workspace = true }
 projection = { workspace = true }
 repository = { workspace = true }
+ros2 = { workspace = true }
 scenario = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-spl_network = { workspace = true }
-spl_network_messages = { workspace = true }
 step_planning = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
 types = { workspace = true }
 vision = { workspace = true }
-zed = { workspace = true }
 
 [build-dependencies]
 code_generation = { workspace = true }

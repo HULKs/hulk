@@ -77,7 +77,7 @@ nav:
           - Vision: robotics/perception/vision.md
           - Audio: robotics/perception/audio.md
           - Filters: robotics/perception/filters.md
-          - SPL Network: robotics/perception/spl_network.md
+          - HSL Network: robotics/perception/hsl_network.md
       - Behavior: robotics/behavior/overview.md
       - Motion:
           - Overview: robotics/motion/overview.md

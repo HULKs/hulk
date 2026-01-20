@@ -6,9 +6,9 @@ use serde::{Deserialize, Serialize};
 use context_attribute::context;
 use coordinate_systems::{Field, Ground, Robot};
 use framework::MainOutput;
+use hsl_network_messages::HulkMessage;
 use linear_algebra::{Isometry2, Isometry3, Orientation3, Point2};
 use projection::camera_matrix::CameraMatrix;
-use spl_network_messages::HulkMessage;
 use types::{
     ball_position::{BallPosition, HypotheticalBallPosition},
     buttons::Buttons,

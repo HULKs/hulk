@@ -1,8 +1,8 @@
 use bevy::prelude::*;
 
+use hsl_network_messages::{GameState, PlayerNumber, Team};
 use linear_algebra::{point, vector, Isometry2, Vector};
 use scenario::scenario;
-use spl_network_messages::{GameState, PlayerNumber, Team};
 use types::{
     ball_position::SimulatorBallState,
     motion_command::{JumpDirection, MotionCommand},
@@ -33,7 +33,7 @@ fn startup(
         velocity: Vector::zeros(),
     });
     game_controller_commands.write(GameControllerCommand::SetGamePhase(
-        spl_network_messages::GamePhase::PenaltyShootout {
+        hsl_network_messages::GamePhase::PenaltyShootout {
             kicking_team: Team::Opponent,
         },
     ));

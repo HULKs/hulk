@@ -1,6 +1,6 @@
 [package]
 name = "twix"
-version = "0.12.3"
+version = "0.12.4"
 edition.workspace = true
 license.workspace = true
 homepage.workspace = true
@@ -53,6 +53,7 @@ parameters = { workspace = true }
 projection = { workspace = true }
 repository = { workspace = true }
 rmp-serde = { workspace = true }
+ros2 = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 step_planning = { workspace = true }

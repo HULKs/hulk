@@ -17,7 +17,7 @@ itertools = { workspace = true }
 linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
 ndarray = { workspace = true }
-ort = { workspace = true }
+ort = { workspace = true, features = ["cuda", "tensorrt"] }
 parameters = { workspace = true }
 path_serde = { workspace = true }
 serde = { workspace = true }

@@ -9,10 +9,23 @@ homepage.workspace = true
 cross-compile = true
 
 [dependencies]
+booster = { workspace = true }
+byteorder = { workspace = true }
+bytes = { version = "1.11.0", features = ["serde"] }
+cdr-encoding = "0.10.2"
+chrono = { workspace = true }
 color-eyre = { workspace = true }
 control = { workspace = true }
+env_logger = { workspace = true }
+fern = { workspace = true }
+flume = "0.11.1"
+log = { workspace = true }
+ros2 = { workspace = true }
+serde = { workspace = true }
+tokio = { workspace = true }
 vision = { workspace = true }
 walking_inference = { workspace = true }
+zenoh = "1.6.2"
 
 [build-dependencies]
 code_generation = { workspace = true }

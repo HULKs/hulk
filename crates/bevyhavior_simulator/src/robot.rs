@@ -20,6 +20,7 @@ use buffered_watch::{Receiver, Sender};
 use control::localization::generate_initial_pose;
 use coordinate_systems::{Field, Ground, Head, LeftSole, RightSole, Robot as RobotCoordinates};
 use framework::{future_queue, Producer, RecordingTrigger};
+use hsl_network_messages::{HulkMessage, PlayerNumber};
 use hula_types::hardware::Ids;
 use linear_algebra::{
     vector, Isometry2, Isometry3, Orientation2, Orientation3, Point2, Pose2, Pose3, Rotation2,
@@ -27,7 +28,6 @@ use linear_algebra::{
 };
 use parameters::directory::deserialize;
 use projection::intrinsic::Intrinsic;
-use spl_network_messages::{HulkMessage, PlayerNumber};
 use types::{
     ball_position::BallPosition,
     filtered_whistle::FilteredWhistle,
@@ -62,7 +62,7 @@ pub struct Robot {
     pub cycler: Cycler<Interfake>,
     control_receiver: Receiver<(SystemTime, Database)>,
     parameters_sender: Sender<(SystemTime, Parameters)>,
-    spl_network_sender: Producer<crate::structs::spl_network::MainOutputs>,
+    hsl_network_sender: Producer<crate::structs::hsl_network::MainOutputs>,
     object_detection_sender: Producer<crate::structs::object_detection::MainOutputs>,
 }
 
@@ -91,7 +91,7 @@ impl Robot {
             buffered_watch::channel(Default::default());
         let (mut parameters_sender, parameters_receiver) =
             buffered_watch::channel((UNIX_EPOCH, Default::default()));
-        let (spl_network_sender, spl_network_consumer) = future_queue();
+        let (hsl_network_sender, hsl_network_consumer) = future_queue();
         let (recording_sender, _recording_receiver) = mpsc::sync_channel(0);
         let (object_detection_sender, object_detection_consumer) = future_queue();
 
@@ -103,7 +103,7 @@ impl Robot {
             control_sender,
             subscriptions_receiver,
             parameters_receiver,
-            spl_network_consumer,
+            hsl_network_consumer,
             object_detection_consumer,
             recording_sender,
             RecordingTrigger::new(0),
@@ -142,7 +142,7 @@ impl Robot {
             cycler,
             control_receiver,
             parameters_sender,
-            spl_network_sender,
+            hsl_network_sender,
             object_detection_sender,
         })
     }
@@ -154,10 +154,10 @@ impl Robot {
     ) -> Result<()> {
         for Message { sender, payload } in messages {
             let source_is_other = *sender != self.parameters.player_number;
-            let message = IncomingMessage::Spl(*payload);
-            self.spl_network_sender.announce();
-            self.spl_network_sender
-                .finalize(crate::structs::spl_network::MainOutputs {
+            let message = IncomingMessage::Hsl(*payload);
+            self.hsl_network_sender.announce();
+            self.hsl_network_sender
+                .finalize(crate::structs::hsl_network::MainOutputs {
                     filtered_message: source_is_other.then(|| message.clone()),
                     message,
                 });
@@ -186,11 +186,7 @@ impl Robot {
 
     pub fn field_of_view(&self) -> f32 {
         let image_size = vector![640.0, 480.0];
-        let focal_lengths = self
-            .parameters
-            .camera_matrix_parameters
-            .vision
-            .focal_lengths;
+        let focal_lengths = nalgebra::vector![0.96666, 1.28574];
         let focal_lengths_scaled = image_size.inner.cast().component_mul(&focal_lengths);
         let field_of_view = Intrinsic::calculate_field_of_view(focal_lengths_scaled, image_size);
 
@@ -461,7 +457,7 @@ pub fn cycle_robots(
             .right = Foot::fill(right_pressure);
 
         for message in robot.interface.take_outgoing_messages() {
-            if let OutgoingMessage::Spl(message) = message {
+            if let OutgoingMessage::Hsl(message) = message {
                 messages.messages.push(Message {
                     sender: robot.parameters.player_number,
                     payload: message,

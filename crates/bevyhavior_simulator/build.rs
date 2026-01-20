@@ -46,18 +46,18 @@ fn main() -> Result<()> {
                 execution_time_warning_threshold: None,
             },
             CyclerManifest {
-                name: "SplNetwork",
+                name: "HslNetwork",
                 kind: CyclerKind::Perception,
                 instances: vec![""],
-                setup_nodes: vec!["spl_network::message_receiver"],
-                nodes: vec!["spl_network::message_filter"],
+                setup_nodes: vec!["hsl_network::message_receiver"],
+                nodes: vec!["hsl_network::message_filter"],
                 execution_time_warning_threshold: None,
             },
             CyclerManifest {
                 name: "ObjectDetection",
                 kind: CyclerKind::Perception,
                 instances: vec![""],
-                setup_nodes: vec!["vision::image_receiver"],
+                setup_nodes: vec!["object_detection::image_receiver"],
                 nodes: vec![
                     "object_detection::pose_detection",
                     "object_detection::pose_filter",

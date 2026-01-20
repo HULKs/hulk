@@ -1,13 +1,12 @@
 use std::{
     ops::{Index, Range},
-    path::PathBuf,
     time::Duration,
 };
 
 use serde::{Deserialize, Serialize};
 
-use coordinate_systems::{Field, Ground, NormalizedPixel, Pixel};
-use linear_algebra::{Point2, Vector2};
+use coordinate_systems::{Camera, Field, Ground, NormalizedPixel, Pixel, Robot};
+use linear_algebra::{Point2, Vector2, Vector3};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{
@@ -310,12 +309,12 @@ pub struct HeadMotionParameters {
 #[derive(
     Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
-pub struct SplNetworkParameters {
+pub struct HslNetworkParameters {
     pub game_controller_return_message_interval: Duration,
     pub remaining_amount_of_messages_to_stop_sending: u16,
     pub silence_interval_between_messages: Duration,
-    pub spl_striker_message_receive_timeout: Duration,
-    pub spl_striker_message_send_interval: Duration,
+    pub hsl_striker_message_receive_timeout: Duration,
+    pub hsl_striker_message_send_interval: Duration,
 }
 
 #[derive(
@@ -356,22 +355,8 @@ pub enum EdgeDetectionSourceParameters {
 #[derive(
     Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
-pub struct BallDetectionParameters {
-    pub minimal_radius: f32,
-    pub preclassifier_neural_network: PathBuf,
-    pub classifier_neural_network: PathBuf,
-    pub positioner_neural_network: PathBuf,
-    pub maximum_number_of_candidate_evaluations: usize,
-    pub preclassifier_confidence_threshold: f32,
-    pub classifier_confidence_threshold: f32,
-    pub confidence_merge_factor: f32,
-    pub correction_proximity_merge_factor: f32,
-    pub image_containment_merge_factor: f32,
-    pub cluster_merge_radius_factor: f32,
-    pub ball_radius_enlargement_factor: f32,
+pub struct BallProjectionParameters {
     pub detection_noise: Vector2<Pixel>,
-    pub noise_increase_slope: f32,
-    pub noise_increase_distance_threshold: f32,
 }
 
 #[derive(
@@ -431,9 +416,9 @@ pub struct ObstacleFilterParameters {
     Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
 pub struct CameraMatrixParameters {
-    pub camera_pitch: f32,
-    pub focal_lengths: nalgebra::Vector2<f32>,
-    pub cc_optical_center: nalgebra::Point2<f32>,
+    pub camera_to_head_pitch: f32,
+    pub correction_in_robot: Vector3<Robot>,
+    pub correction_in_camera: Vector3<Camera>,
 }
 
 #[derive(
@@ -547,4 +532,13 @@ pub struct MotorCommandParameters {
     pub default_positions: Joints,
     pub proportional_coefficients: Joints,
     pub derivative_coefficients: Joints,
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct ObjectDetectionParameters {
+    pub enable: bool,
+    pub maximum_intersection_over_union: f32,
+    pub confidence_threshold: f32,
 }

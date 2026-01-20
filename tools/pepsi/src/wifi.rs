@@ -4,8 +4,8 @@ use clap::{
 };
 use color_eyre::{eyre::WrapErr, Result};
 
-use argument_parsers::{parse_network, NaoAddress, NETWORK_POSSIBLE_VALUES};
-use nao::{Nao, Network};
+use argument_parsers::{parse_network, RobotAddress, NETWORK_POSSIBLE_VALUES};
+use robot::{Network, Robot};
 
 use crate::progress_indicator::ProgressIndicator;
 
@@ -13,15 +13,15 @@ use crate::progress_indicator::ProgressIndicator;
 pub enum Arguments {
     /// List available networks
     List {
-        /// The NAOs to execute that command on e.g. 20w or 10.1.24.22
+        /// The Robots to execute that command on e.g. 20w or 10.1.24.22
         #[arg(required = true)]
-        naos: Vec<NaoAddress>,
+        robots: Vec<RobotAddress>,
     },
     /// Scan for networks
     Scan {
-        /// The NAOs to execute that command on e.g. 20w or 10.1.24.22
+        /// The Robots to execute that command on e.g. 20w or 10.1.24.22
         #[arg(required = true)]
-        naos: Vec<NaoAddress>,
+        robots: Vec<RobotAddress>,
     },
     /// Set active network
     Set {
@@ -31,80 +31,84 @@ pub enum Arguments {
                 .map(|s| parse_network(&s).unwrap()))
         ]
         network: Network,
-        /// The NAOs to execute that command on e.g. 20w or 10.1.24.22
+        /// The Robots to execute that command on e.g. 20w or 10.1.24.22
         #[arg(required = true)]
-        naos: Vec<NaoAddress>,
+        robots: Vec<RobotAddress>,
     },
     /// Show current network status
     Status {
-        /// The NAOs to execute that command on e.g. 20w or 10.1.24.22
+        /// The Robots to execute that command on e.g. 20w or 10.1.24.22
         #[arg(required = true)]
-        naos: Vec<NaoAddress>,
+        robots: Vec<RobotAddress>,
     },
 }
 
 pub async fn wifi(arguments: Arguments) -> Result<()> {
     match arguments {
-        Arguments::Status { naos } => status(naos).await,
-        Arguments::Scan { naos } => scan(naos).await,
-        Arguments::List { naos } => available_networks(naos).await,
-        Arguments::Set { network, naos } => set(naos, network).await,
+        Arguments::Status { robots } => status(robots).await,
+        Arguments::Scan { robots } => scan(robots).await,
+        Arguments::List { robots } => available_networks(robots).await,
+        Arguments::Set { network, robots } => set(robots, network).await,
     };
 
     Ok(())
 }
 
-async fn status(naos: Vec<NaoAddress>) {
+async fn status(robots: Vec<RobotAddress>) {
     ProgressIndicator::map_tasks(
-        naos,
+        robots,
         "Retrieving network status...",
-        |nao_address, _progress_bar| async move {
-            let nao = Nao::try_new_with_ping(nao_address.ip).await?;
-            nao.get_network_status()
+        |robot_address, _progress_bar| async move {
+            let robot = Robot::try_new_with_ping(robot_address.ip).await?;
+            robot
+                .get_network_status()
                 .await
-                .wrap_err_with(|| format!("failed to get network status from {nao_address}"))
+                .wrap_err_with(|| format!("failed to get network status from {robot_address}"))
         },
     )
     .await;
 }
 
-async fn scan(naos: Vec<NaoAddress>) {
+async fn scan(robots: Vec<RobotAddress>) {
     ProgressIndicator::map_tasks(
-        naos,
+        robots,
         "Starting network scan...",
-        |nao_address, _progress_bar| async move {
-            let nao = Nao::try_new_with_ping(nao_address.ip).await?;
-            nao.scan_networks()
+        |robot_address, _progress_bar| async move {
+            let robot = Robot::try_new_with_ping(robot_address.ip).await?;
+            robot
+                .scan_networks()
                 .await
-                .wrap_err_with(|| format!("failed to scan for networks on {nao_address}"))
+                .wrap_err_with(|| format!("failed to scan for networks on {robot_address}"))
         },
     )
     .await;
 }
 
-async fn available_networks(naos: Vec<NaoAddress>) {
+async fn available_networks(robots: Vec<RobotAddress>) {
     ProgressIndicator::map_tasks(
-        naos,
+        robots,
         "Retrieving available networks...",
-        |nao_address, _progress_bar| async move {
-            let nao = Nao::try_new_with_ping(nao_address.ip).await?;
-            nao.get_available_networks()
+        |robot_address, _progress_bar| async move {
+            let robot = Robot::try_new_with_ping(robot_address.ip).await?;
+            robot
+                .get_available_networks()
                 .await
-                .wrap_err_with(|| format!("failed to get available networks from {nao_address}"))
+                .wrap_err_with(|| format!("failed to get available networks from {robot_address}"))
         },
     )
     .await;
 }
 
-async fn set(naos: Vec<NaoAddress>, network: Network) {
+async fn set(robots: Vec<RobotAddress>, network: Network) {
     ProgressIndicator::map_tasks(
-        naos,
+        robots,
         "Setting network...",
-        |nao_address, _progress_bar| async move {
-            let nao = Nao::try_new_with_ping(nao_address.ip).await?;
-            nao.set_wifi(network)
+        |robot_address, _progress_bar| async move {
+            let robot = Robot::try_new_with_ping(robot_address.ip).await?;
+            robot
+                .set_wifi(network)
                 .await
-                .wrap_err_with(|| format!("failed to set network on {nao_address}"))
+                .wrap_err_with(|| format!("failed to set network on {robot_address}"))
         },
     )
     .await;

@@ -19,7 +19,7 @@ pub fn check_robots_dont_walk_into_rule_obstacles(
         };
         let destination_in_field = robot.ground_to_field() * segment.1;
 
-        if game_controller.state.sub_state == Some(spl_network_messages::SubState::PenaltyKick)
+        if game_controller.state.sub_state == Some(hsl_network_messages::SubState::PenaltyKick)
             && robot.database.main_outputs.role == Role::Striker
         {
             continue;
