@@ -158,6 +158,21 @@ async fn main() -> Result<()> {
         "rectified_image",
         MessageTypeName::new("sensor_msgs", "Image"),
     );
+    let rectified_right_image_subscriber: Subscription<Image> = node.subscribe(
+        "/booster_camera_bridge/StereoNetNode",
+        "rectified_right_image",
+        MessageTypeName::new("sensor_msgs", "Image"),
+    );
+    let stereonet_depth_subscriber: Subscription<Image> = node.subscribe(
+        "/booster_camera_bridge/StereoNetNode",
+        "stereonet_depth",
+        MessageTypeName::new("sensor_msgs", "Image"),
+    );
+    let stereonet_visual_subscriber: Subscription<Image> = node.subscribe(
+        "/booster_camera_bridge/StereoNetNode",
+        "stereonet_visual",
+        MessageTypeName::new("sensor_msgs", "Image"),
+    );
     let image_left_raw_subscriber: Subscription<Image> = node.subscribe(
         "/booster_camera_bridge",
         "image_left_raw",
@@ -165,6 +180,16 @@ async fn main() -> Result<()> {
     );
     let image_left_raw_camera_info_subscriber: Subscription<CameraInfo> = node.subscribe(
         "/booster_camera_bridge/image_left_raw",
+        "camera_info",
+        MessageTypeName::new("sensor_msgs", "CameraInfo"),
+    );
+    let image_right_raw_subscriber: Subscription<Image> = node.subscribe(
+        "/booster_camera_bridge",
+        "image_right_raw",
+        MessageTypeName::new("sensor_msgs", "Image"),
+    );
+    let image_right_raw_camera_info_subscriber: Subscription<CameraInfo> = node.subscribe(
+        "/booster_camera_bridge/image_right_raw",
         "camera_info",
         MessageTypeName::new("sensor_msgs", "CameraInfo"),
     );
@@ -186,6 +211,15 @@ async fn main() -> Result<()> {
     let rectified_image_forwarder = session
         .forward_from_subscriber(rectified_image_subscriber, "rectified_image")
         .fuse();
+    let rectified_right_image_forwarder = session
+        .forward_from_subscriber(rectified_right_image_subscriber, "rectified_right_image")
+        .fuse();
+    let stereonet_depth_forwarder = session
+        .forward_from_subscriber(stereonet_depth_subscriber, "stereonet_depth")
+        .fuse();
+    let stereonet_visual_forwarder = session
+        .forward_from_subscriber(stereonet_visual_subscriber, "stereonet_visual")
+        .fuse();
     let image_left_raw_forwarder = session
         .forward_from_subscriber(image_left_raw_subscriber, "image_left_raw")
         .fuse();
@@ -193,6 +227,15 @@ async fn main() -> Result<()> {
         .forward_from_subscriber(
             image_left_raw_camera_info_subscriber,
             "image_left_raw/camera_info",
+        )
+        .fuse();
+    let image_right_raw_forwarder = session
+        .forward_from_subscriber(image_right_raw_subscriber, "image_right_raw")
+        .fuse();
+    let image_right_raw_camera_info_forwarder = session
+        .forward_from_subscriber(
+            image_right_raw_camera_info_subscriber,
+            "image_right_raw/camera_info",
         )
         .fuse();
     let low_command_forwarder = session
@@ -203,9 +246,14 @@ async fn main() -> Result<()> {
     pin_mut!(fall_down_state_forwarder);
     pin_mut!(low_state_forwarder);
     pin_mut!(low_command_forwarder);
+    pin_mut!(rectified_image_forwarder);
+    pin_mut!(rectified_right_image_forwarder);
+    pin_mut!(stereonet_depth_forwarder);
+    pin_mut!(stereonet_visual_forwarder);
     pin_mut!(image_left_raw_forwarder);
     pin_mut!(image_left_raw_camera_info_forwarder);
-    pin_mut!(rectified_image_forwarder);
+    pin_mut!(image_right_raw_forwarder);
+    pin_mut!(image_right_raw_camera_info_forwarder);
 
     // If no errors occur, none of these futures will complete
     let result = select! {
@@ -213,9 +261,14 @@ async fn main() -> Result<()> {
         result = fall_down_state_forwarder => result,
         result = low_state_forwarder => result,
         result = low_command_forwarder => result,
+        result = rectified_image_forwarder => result,
+        result = rectified_right_image_forwarder => result,
+        result = stereonet_depth_forwarder => result,
+        result = stereonet_visual_forwarder => result,
         result = image_left_raw_forwarder => result,
         result = image_left_raw_camera_info_forwarder => result,
-        result = rectified_image_forwarder => result,
+        result = image_right_raw_forwarder => result,
+        result = image_right_raw_camera_info_forwarder => result,
     };
     result.wrap_err("forwarder error occurred")?;
 
