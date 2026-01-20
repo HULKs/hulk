@@ -92,7 +92,7 @@ impl TryFrom<Image> for RgbImage {
 
     fn try_from(image: Image) -> Result<Self, ImageError> {
         match image.encoding.as_str() {
-            "rgb8" => RgbImage::from_raw(image.height, image.height, image.data).ok_or(
+            "rgb8" => RgbImage::from_raw(image.width, image.height, image.data).ok_or(
                 ImageError::Decoding(DecodingError::from_format_hint(
                     image::error::ImageFormatHint::Unknown,
                 )),
