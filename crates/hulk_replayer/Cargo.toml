@@ -49,7 +49,6 @@ tokio-util = { workspace = true }
 types = { workspace = true }
 walking_inference = { workspace = true }
 world_state = { workspace = true }
-zed = { workspace = true }
 
 [build-dependencies]
 booster = { workspace = true }

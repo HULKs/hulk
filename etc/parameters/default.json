@@ -52,11 +52,7 @@
       "action_scale": 1.0,
       "decimation": 10.0
     },
-    "walk_command": [
-      0.0,
-      0.0,
-      0.0
-    ],
+    "walk_command": [0.0, 0.0, 0.0],
     "joint_position_smoothing_factor": 0.8
   },
   "prepare_motor_command": {
@@ -309,10 +305,7 @@
       "secs": 4
     },
     "distance_to_consider_ball_moved_in_kick_off": 0.3,
-    "whistle_acceptance_goal_distance": [
-      0.5,
-      0.5
-    ],
+    "whistle_acceptance_goal_distance": [0.5, 0.5],
     "duration_to_keep_observed_ball": {
       "nanos": 0,
       "secs": 14
@@ -351,23 +344,12 @@
     "confidence_threshold": 0.5
   },
   "ball_projection": {
-    "detection_noise": [
-      8.0,
-      8.0
-    ]
+    "detection_noise": [8.0, 8.0]
   },
   "camera_matrix_parameters": {
     "camera_to_head_pitch": -0.2125811028,
-    "correction_in_robot": [
-      0.0,
-      0.0,
-      0.0
-    ],
-    "correction_in_camera": [
-      0.0,
-      0.0,
-      0.0
-    ]
+    "correction_in_robot": [0.0, 0.0, 0.0],
+    "correction_in_camera": [0.0, 0.0, 0.0]
   },
   "cycler_frequencies": {
     "world_state": 100

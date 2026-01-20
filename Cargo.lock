@@ -4704,7 +4704,6 @@ dependencies = [
  "types",
  "walking_inference",
  "world_state",
- "zed",
 ]
 
 [[package]]

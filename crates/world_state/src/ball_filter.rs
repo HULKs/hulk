@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use color_eyre::{eyre::OptionExt, Result};
 use linear_algebra::Vector2;
 use serde::{Deserialize, Serialize};
@@ -14,6 +16,7 @@ use types::{
 #[derive(Deserialize, Serialize)]
 pub struct BallFilter {
     last_ball_position: Option<BallPosition<Ground>>,
+    last_ball_time: Option<CycleTime>,
 }
 
 #[context]
@@ -36,6 +39,7 @@ impl BallFilter {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             last_ball_position: None,
+            last_ball_time: None,
         })
     }
 
@@ -53,9 +57,22 @@ impl BallFilter {
                     last_seen: context.cycle_time.start_time,
                 });
                 self.last_ball_position = ball_position;
+                self.last_ball_time = Some(*context.cycle_time);
                 ball_position
             }
-            (None, Some(last_ball_position)) => Some(last_ball_position),
+            (None, Some(last_ball_position)) => {
+                if self.last_ball_time.is_some()
+                    && Duration::from_secs_f32(2.0)
+                        < context
+                            .cycle_time
+                            .start_time
+                            .duration_since(self.last_ball_time.unwrap().start_time)?
+                {
+                    self.last_ball_position = None;
+                    self.last_ball_time = None;
+                }
+                Some(last_ball_position)
+            }
             _ => None,
         };
 
