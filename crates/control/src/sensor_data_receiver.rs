@@ -1,6 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use booster::{FallDownState, ImuState, MotorState};
+use booster::{CommandType, FallDownState, ImuState, MotorState};
 use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
 use coordinate_systems::Robot;
@@ -43,7 +43,8 @@ pub struct CycleContext {
 #[context]
 pub struct MainOutputs {
     pub imu_state: MainOutput<ImuState>,
-    pub serial_motor_states: MainOutput<Joints<MotorState>>,
+    pub motor_states: MainOutput<Joints<MotorState>>,
+    pub motor_command_type: MainOutput<CommandType>,
     pub fall_down_state: MainOutput<FallDownState>,
     pub cycle_time: MainOutput<CycleTime>,
 }
@@ -79,15 +80,27 @@ impl SensorDataReceiver {
         };
         self.last_cycle_start = now;
 
-        // TODO: the simulator sends serial motor states, while
-        // the robot sends parallel motor states
+        let (motor_states, command_type) = if !low_state.motor_state_parallel.is_empty() {
+            (
+                low_state
+                    .motor_state_parallel
+                    .into_iter()
+                    .collect::<Joints<MotorState>>(),
+                CommandType::Parallel,
+            )
+        } else {
+            (
+                low_state
+                    .motor_state_serial
+                    .into_iter()
+                    .collect::<Joints<MotorState>>(),
+                CommandType::Serial,
+            )
+        };
         Ok(MainOutputs {
             imu_state: low_state.imu_state.into(),
-            serial_motor_states: low_state
-                .motor_state_parallel
-                .into_iter()
-                .collect::<Joints<MotorState>>()
-                .into(),
+            motor_states: motor_states.into(),
+            motor_command_type: command_type.into(),
             fall_down_state: fall_down_state.into(),
             cycle_time: cycle_time.into(),
         })

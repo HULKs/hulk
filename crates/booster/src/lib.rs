@@ -202,9 +202,10 @@ impl LowCommand {
     pub fn new(
         joint_positions: &Joints,
         motor_command_parameters: &MotorCommandParameters,
+        command_type: CommandType,
     ) -> Self {
         LowCommand {
-            command_type: CommandType::Serial,
+            command_type,
             motor_commands: joint_positions
                 .into_iter()
                 .zip(motor_command_parameters.proportional_coefficients)
