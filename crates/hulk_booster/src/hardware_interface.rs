@@ -69,8 +69,13 @@ struct TopicInfos {
     remote_controller_state: TopicInfo,
     transform: TopicInfo,
     rectified_image: TopicInfo,
+    rectified_right_image: TopicInfo,
+    stereonet_depth: TopicInfo,
+    stereonet_visual: TopicInfo,
     image_left_raw: TopicInfo,
     image_left_raw_camera_info: TopicInfo,
+    image_right_raw: TopicInfo,
+    image_right_raw_camera_info: TopicInfo,
 }
 
 impl Default for TopicInfos {
@@ -78,13 +83,18 @@ impl Default for TopicInfos {
         Self {
             low_state: TopicInfo::new("booster/low_state"),
             joint_ctrl: TopicInfo::new("booster/joint_ctrl"),
-            fall_down: TopicInfo::new("booster/fall_down"),
+            fall_down: TopicInfo::new("booster/fall_down_state"),
             button_event: TopicInfo::new("booster/button_event"),
             remote_controller_state: TopicInfo::new("booster/remote_controller_state"),
             transform: TopicInfo::new("booster/tf"),
             rectified_image: TopicInfo::new("booster/rectified_image"),
+            rectified_right_image: TopicInfo::new("booster/rectified_right_image"),
+            stereonet_depth: TopicInfo::new("booster/stereonet_depth"),
+            stereonet_visual: TopicInfo::new("booster/stereonet_visual"),
             image_left_raw: TopicInfo::new("booster/image_left_raw"),
             image_left_raw_camera_info: TopicInfo::new("booster/image_left_raw/camera_info"),
+            image_right_raw: TopicInfo::new("booster/image_right_raw"),
+            image_right_raw_camera_info: TopicInfo::new("booster/image_right_raw/camera_info"),
         }
     }
 }
@@ -117,8 +127,13 @@ pub struct BoosterHardwareInterface {
     remote_controller_state_subscriber: Subscriber<RingChannelHandler<Sample>>,
     transform_subscriber: Subscriber<RingChannelHandler<Sample>>,
     rectified_image_subscriber: Subscriber<RingChannelHandler<Sample>>,
+    rectified_right_image_subscriber: Subscriber<RingChannelHandler<Sample>>,
+    stereonet_depth_subscriber: Subscriber<RingChannelHandler<Sample>>,
+    stereonet_visual_subscriber: Subscriber<RingChannelHandler<Sample>>,
     image_left_raw_subscriber: Subscriber<RingChannelHandler<Sample>>,
     image_left_raw_camera_info_subscriber: Subscriber<RingChannelHandler<Sample>>,
+    image_right_raw_subscriber: Subscriber<RingChannelHandler<Sample>>,
+    image_right_raw_camera_info_subscriber: Subscriber<RingChannelHandler<Sample>>,
 
     _session: Session,
     runtime_handle: Handle,
@@ -154,11 +169,30 @@ impl BoosterHardwareInterface {
             transform_subscriber: declare_subscriber(&session, &topic_infos.transform).await?,
             rectified_image_subscriber: declare_subscriber(&session, &topic_infos.rectified_image)
                 .await?,
+            rectified_right_image_subscriber: declare_subscriber(
+                &session,
+                &topic_infos.rectified_right_image,
+            )
+            .await?,
+            stereonet_depth_subscriber: declare_subscriber(&session, &topic_infos.stereonet_depth)
+                .await?,
+            stereonet_visual_subscriber: declare_subscriber(
+                &session,
+                &topic_infos.stereonet_visual,
+            )
+            .await?,
             image_left_raw_subscriber: declare_subscriber(&session, &topic_infos.image_left_raw)
                 .await?,
             image_left_raw_camera_info_subscriber: declare_subscriber(
                 &session,
                 &topic_infos.image_left_raw_camera_info,
+            )
+            .await?,
+            image_right_raw_subscriber: declare_subscriber(&session, &topic_infos.image_right_raw)
+                .await?,
+            image_right_raw_camera_info_subscriber: declare_subscriber(
+                &session,
+                &topic_infos.image_right_raw_camera_info,
             )
             .await?,
 
@@ -296,6 +330,38 @@ impl RemoteControllerStateInterface for BoosterHardwareInterface {
 }
 
 impl CameraInterface for BoosterHardwareInterface {
+    fn read_rectified_image(&self) -> Result<Image> {
+        let sample = self
+            .rectified_image_subscriber
+            .recv()
+            .map_err(|e| eyre!("{e}"))?;
+        deserialize_sample(sample)
+    }
+
+    fn read_rectified_right_image(&self) -> Result<Image> {
+        let sample = self
+            .rectified_right_image_subscriber
+            .recv()
+            .map_err(|e| eyre!("{e}"))?;
+        deserialize_sample(sample)
+    }
+
+    fn read_stereonet_depth_image(&self) -> Result<Image> {
+        let sample = self
+            .stereonet_depth_subscriber
+            .recv()
+            .map_err(|e| eyre!("{e}"))?;
+        deserialize_sample(sample)
+    }
+
+    fn read_stereonet_visual_image(&self) -> Result<Image> {
+        let sample = self
+            .stereonet_visual_subscriber
+            .recv()
+            .map_err(|e| eyre!("{e}"))?;
+        deserialize_sample(sample)
+    }
+
     fn read_image_left_raw(&self) -> Result<Image> {
         let sample = self
             .image_left_raw_subscriber
@@ -312,17 +378,17 @@ impl CameraInterface for BoosterHardwareInterface {
         deserialize_sample(sample)
     }
 
-    fn read_stereonet_visual(&self) -> Result<Image> {
-        todo!()
-    }
-
-    fn read_stereonet_camera_info(&self) -> Result<CameraInfo> {
-        todo!()
-    }
-
-    fn read_rectified_image(&self) -> Result<Image> {
+    fn read_image_right_raw(&self) -> Result<Image> {
         let sample = self
-            .rectified_image_subscriber
+            .image_right_raw_subscriber
+            .recv()
+            .map_err(|e| eyre!("{e}"))?;
+        deserialize_sample(sample)
+    }
+
+    fn read_image_right_raw_camera_info(&self) -> Result<CameraInfo> {
+        let sample = self
+            .image_right_raw_camera_info_subscriber
             .recv()
             .map_err(|e| eyre!("{e}"))?;
         deserialize_sample(sample)

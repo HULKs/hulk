@@ -33,8 +33,8 @@ pub struct CreationContext {
 
 #[context]
 pub struct CycleContext {
-    left_image_raw: Input<Image, "left_image_raw">,
-    left_image_raw_camera_info: Input<CameraInfo, "left_image_raw_camera_info">,
+    image_left_raw: Input<Image, "image_left_raw">,
+    image_left_raw_camera_info: Input<CameraInfo, "image_left_raw_camera_info">,
 
     parameters: Parameter<ObjectDetectionParameters, "object_detection">,
 }
@@ -65,10 +65,10 @@ impl ObjectDetection {
             return Ok(MainOutputs::default());
         }
 
-        let height = context.left_image_raw_camera_info.height;
-        let width = context.left_image_raw_camera_info.width;
+        let height = context.image_left_raw_camera_info.height;
+        let width = context.image_left_raw_camera_info.width;
 
-        let Ok(rgb_image): Result<RgbImage, _> = context.left_image_raw.clone().try_into() else {
+        let Ok(rgb_image): Result<RgbImage, _> = context.image_left_raw.clone().try_into() else {
             return Ok(MainOutputs::default());
         };
 

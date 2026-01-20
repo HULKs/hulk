@@ -24,8 +24,12 @@ pub struct CycleContext {
 #[context]
 pub struct MainOutputs {
     pub rectified_image: MainOutput<Image>,
-    pub left_image_raw: MainOutput<Image>,
-    pub left_image_raw_camera_info: MainOutput<CameraInfo>,
+    pub depth_image: MainOutput<Image>,
+    pub visual_image: MainOutput<Image>,
+    pub image_left_raw: MainOutput<Image>,
+    pub image_left_raw_camera_info: MainOutput<CameraInfo>,
+    pub image_right_raw: MainOutput<Image>,
+    pub image_right_raw_camera_info: MainOutput<CameraInfo>,
     pub cycle_time: MainOutput<CycleTime>,
 }
 
@@ -41,10 +45,16 @@ impl ImageReceiver {
         context: CycleContext<impl CameraInterface + TimeInterface>,
     ) -> Result<MainOutputs> {
         let rectified_image = context.hardware_interface.read_rectified_image()?;
-        let left_image_raw = context.hardware_interface.read_image_left_raw()?;
-        let left_image_raw_camera_info = context
+        let depth_image = context.hardware_interface.read_stereonet_depth_image()?;
+        let visual_image = context.hardware_interface.read_stereonet_visual_image()?;
+        let image_left_raw = context.hardware_interface.read_image_left_raw()?;
+        let image_left_raw_camera_info = context
             .hardware_interface
             .read_image_left_raw_camera_info()?;
+        let image_right_raw = context.hardware_interface.read_image_right_raw()?;
+        let image_right_raw_camera_info = context
+            .hardware_interface
+            .read_image_right_raw_camera_info()?;
 
         let now = context.hardware_interface.get_now();
         let cycle_time = CycleTime {
@@ -57,8 +67,13 @@ impl ImageReceiver {
 
         Ok(MainOutputs {
             rectified_image: rectified_image.into(),
-            left_image_raw: left_image_raw.into(),
-            left_image_raw_camera_info: left_image_raw_camera_info.into(),
+            depth_image: depth_image.into(),
+            visual_image: visual_image.into(),
+            image_left_raw: image_left_raw.into(),
+            image_left_raw_camera_info: image_left_raw_camera_info.into(),
+            image_right_raw: image_right_raw.into(),
+            image_right_raw_camera_info: image_right_raw_camera_info.into(),
+
             cycle_time: cycle_time.into(),
         })
     }
