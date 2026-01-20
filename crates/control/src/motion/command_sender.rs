@@ -1,4 +1,4 @@
-use booster::LowCommand;
+use booster::{CommandType, LowCommand};
 use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
 use framework::AdditionalOutput;
@@ -27,6 +27,7 @@ pub struct CycleContext {
     low_command: AdditionalOutput<LowCommand, "low_command">,
 
     target_joint_positions: Input<Joints, "target_joint_positions">,
+    motor_command_type: Input<CommandType, "motor_command_type">,
 
     walk_motor_command_parameters: Parameter<MotorCommandParameters, "common_motor_command">,
     _prepare_motor_command_parameters: Parameter<MotorCommandParameters, "prepare_motor_command">,
@@ -70,12 +71,13 @@ impl CommandSender {
         let walk_low_command = LowCommand::new(
             &target_joint_positions,
             context.walk_motor_command_parameters,
+            context.motor_command_type.clone(),
         );
 
-        // context
-        //     .hardware_interface
-        //     .write_low_command(walk_low_command.clone())
-        //     .wrap_err("failed to write to actuators")?;
+        context
+            .hardware_interface
+            .write_low_command(walk_low_command.clone())
+            .wrap_err("failed to write to actuators")?;
 
         context
             .low_command
