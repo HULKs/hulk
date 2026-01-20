@@ -72,7 +72,7 @@ async def run_simulation(
 
     target_time_factor = 1
     renderer = CameraRenderer(
-        model=model, camera_name="camera", height=480, width=640
+        model=model, camera_name="camera", height=448, width=544
     )
     actuator_info_list = joint_actuator_info_list(model)
     position_control = RobotPositionControl(model, actuator_info_list)
