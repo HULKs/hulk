@@ -18,7 +18,7 @@ fn striker_dies(app: &mut App) {
 
 fn startup(
     mut commands: Commands,
-    mut game_controller_commands: EventWriter<GameControllerCommand>,
+    mut game_controller_commands: MessageWriter<GameControllerCommand>,
 ) {
     for number in [
         PlayerNumber::One,
@@ -38,7 +38,7 @@ fn update(
     mut commands: Commands,
     game_controller: ResMut<GameController>,
     time: Res<Time<Ticks>>,
-    mut exit: EventWriter<AppExit>,
+    mut exit: MessageWriter<AppExit>,
     robots: Query<(Entity, &Robot)>,
 ) {
     if time.ticks() == 5000 {

@@ -18,7 +18,7 @@ fn vanishing_ball(app: &mut App) {
 
 fn startup(
     mut commands: Commands,
-    mut game_controller_commands: EventWriter<GameControllerCommand>,
+    mut game_controller_commands: MessageWriter<GameControllerCommand>,
 ) {
     for number in [
         PlayerNumber::One,
@@ -34,7 +34,11 @@ fn startup(
     game_controller_commands.write(GameControllerCommand::SetGameState(GameState::Ready));
 }
 
-fn update(time: Res<Time<Ticks>>, mut ball: ResMut<BallResource>, mut exit: EventWriter<AppExit>) {
+fn update(
+    time: Res<Time<Ticks>>,
+    mut ball: ResMut<BallResource>,
+    mut exit: MessageWriter<AppExit>,
+) {
     if time.ticks() == 2800 {
         ball.state = None;
     }

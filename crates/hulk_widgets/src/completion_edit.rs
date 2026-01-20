@@ -144,7 +144,7 @@ impl<'a, T: ToString + Debug + std::hash::Hash> CompletionEdit<'a, T> {
             cache.get((self.selected, self.suggestions))
         });
         let popup_id = self.id.with("popup");
-        let is_popup_open = ui.memory(|reader| reader.is_popup_open(popup_id));
+        let is_popup_open = Popup::is_id_open(ui.ctx(), popup_id);
 
         let (pressed_up, pressed_down) = if is_popup_open {
             ui.input_mut(|reader| {
@@ -282,14 +282,13 @@ impl<'a, T: ToString + Debug + std::hash::Hash> CompletionEdit<'a, T> {
         let pressed_enter = ui.input(|reader| reader.key_pressed(Key::Enter));
         let user_completed_search = should_close_popup || response.lost_focus() && pressed_enter;
 
-        ui.memory_mut(|memory| {
-            if should_open_popup {
-                memory.open_popup(popup_id);
-            }
-            if user_completed_search {
-                memory.close_popup();
-            }
-        });
+        if should_open_popup {
+            Popup::open_id(ui.ctx(), popup_id);
+        }
+        if user_completed_search {
+            Popup::close_id(ui.ctx(), popup_id);
+        }
+
         if user_completed_search {
             response.mark_changed();
             if pressed_enter && state.user_state == UserState::Typing && !matching_items.is_empty()

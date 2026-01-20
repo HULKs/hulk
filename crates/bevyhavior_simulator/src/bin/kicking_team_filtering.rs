@@ -31,7 +31,7 @@ fn kicking_team_filtering(app: &mut App) {
 /// Runs at the start of the behavior simulator and is used to spawn in robots and set GameStates
 fn startup(
     mut commands: Commands,
-    mut game_controller_commands: EventWriter<GameControllerCommand>,
+    mut game_controller_commands: MessageWriter<GameControllerCommand>,
 ) {
     for number in [
         PlayerNumber::One,
@@ -48,9 +48,9 @@ fn startup(
 }
 
 fn update(
-    mut game_controller_commands: EventWriter<GameControllerCommand>,
+    mut game_controller_commands: MessageWriter<GameControllerCommand>,
     time: Res<Time<Ticks>>,
-    mut exit: EventWriter<AppExit>,
+    mut exit: MessageWriter<AppExit>,
     mut robots: Query<&mut Robot>,
     mut ball: ResMut<BallResource>,
 ) {
@@ -139,7 +139,7 @@ fn update(
 #[allow(clippy::too_many_arguments)]
 fn check_kicking_team_inference(
     time: &Res<Time<Ticks>>,
-    exit: &mut EventWriter<AppExit>,
+    exit: &mut MessageWriter<AppExit>,
     robots: &Query<&mut Robot>,
     checked_sub_state: SubState,
     correct_kicking_team: Team,
@@ -173,7 +173,7 @@ fn set_substate_at_tick_start(
     tick_start: u32,
     ball: &ResMut<BallResource>,
     robots: &mut Query<&mut Robot>,
-    game_controller_commands: &mut EventWriter<GameControllerCommand>,
+    game_controller_commands: &mut MessageWriter<GameControllerCommand>,
     checked_sub_state: SubState,
     correct_kicking_team: Team,
 ) {

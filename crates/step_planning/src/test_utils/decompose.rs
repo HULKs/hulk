@@ -152,7 +152,7 @@ impl<F: Scalar, D: DimName> Decompose<F> for OPoint<F, D>
 where
     DefaultAllocator: Allocator<D>,
 {
-    const N: usize = D::USIZE;
+    const N: usize = D::DIM;
 
     fn decompose(self) -> Vec<F> {
         self.coords.decompose()
@@ -167,7 +167,7 @@ impl<F: Scalar, R: DimName, C: DimName> Decompose<F> for Matrix<F, R, C, Owned<F
 where
     DefaultAllocator: Allocator<R, C>,
 {
-    const N: usize = R::USIZE * C::USIZE;
+    const N: usize = R::DIM * C::DIM;
 
     fn decompose(self) -> Vec<F> {
         self.as_slice().to_vec()

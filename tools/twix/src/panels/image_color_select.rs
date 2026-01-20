@@ -46,7 +46,7 @@ impl<'a> Panel<'a> for ImageColorSelectPanel {
 
         let brush_size = 50.0;
 
-        let selection_mask = ColorImage::new([640, 480], Color32::TRANSPARENT);
+        let selection_mask = ColorImage::filled([640, 480], Color32::TRANSPARENT);
 
         let x_axis = context
             .value
@@ -173,7 +173,7 @@ impl Widget for &mut ImageColorSelectPanel {
             .show_inside(ui, |ui| {
                 ui.horizontal(|ui| {
                     if ui.button("reset").clicked() {
-                        self.selection_mask = ColorImage::new([640, 480], Color32::TRANSPARENT);
+                        self.selection_mask = ColorImage::filled([640, 480], Color32::TRANSPARENT);
                     };
                     ui.add(egui::Slider::new(&mut self.brush_size, 1.0..=200.0).text("Brush"))
                 });
@@ -358,6 +358,7 @@ fn generate_points(
     y_axis: Axis,
 ) -> Points<'static> {
     Points::new(
+        "brush",
         image
             .pixels
             .iter()

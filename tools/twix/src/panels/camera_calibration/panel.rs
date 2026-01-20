@@ -301,9 +301,7 @@ impl SemiAutomaticCameraCalibrationPanel {
                     });
                     UserState::Idle
                 } else {
-                    ui.memory_mut(|memory| {
-                        memory.open_popup(popup_id);
-                    });
+                    Popup::open_id(ui.ctx(), popup_id);
                     UserState::AnnotatingLine {
                         line: LineSegment(start, end),
                     }

@@ -20,7 +20,7 @@ fn demonstration(app: &mut App) {
 /// Runs at the start of the behavior simulator and is used to spawn in robots and set GameStates
 fn startup(
     mut commands: Commands,
-    mut game_controller_commands: EventWriter<GameControllerCommand>,
+    mut game_controller_commands: MessageWriter<GameControllerCommand>,
 ) {
     for number in [
         PlayerNumber::One,
@@ -47,9 +47,9 @@ fn startup(
 /// * `ball` - allows manually changing the balls position and velocity
 fn update(
     game_controller: ResMut<GameController>,
-    mut game_controller_commands: EventWriter<GameControllerCommand>,
+    mut game_controller_commands: MessageWriter<GameControllerCommand>,
     time: Res<Time<Ticks>>,
-    mut exit: EventWriter<AppExit>,
+    mut exit: MessageWriter<AppExit>,
     mut robots: Query<&mut Robot>,
     mut ball: ResMut<BallResource>,
 ) {

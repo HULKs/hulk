@@ -22,7 +22,7 @@ fn standing_searcher(app: &mut App) {
 
 fn startup(
     mut commands: Commands,
-    mut game_controller_commands: EventWriter<GameControllerCommand>,
+    mut game_controller_commands: MessageWriter<GameControllerCommand>,
 ) {
     for number in [
         PlayerNumber::One,
@@ -40,9 +40,9 @@ fn startup(
 fn update(
     time: Res<Time<Ticks>>,
     mut ball: ResMut<BallResource>,
-    mut exit: EventWriter<AppExit>,
+    mut exit: MessageWriter<AppExit>,
     mut robots: Query<&mut Robot>,
-    mut game_controller_commands: EventWriter<GameControllerCommand>,
+    mut game_controller_commands: MessageWriter<GameControllerCommand>,
 ) {
     if time.ticks() == 4150 {
         game_controller_commands.write(GameControllerCommand::Penalize(

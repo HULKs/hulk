@@ -5,11 +5,9 @@ use bevy::{
     ecs::relationship::RelatedSpawnerCommands,
     image::{ImageAddressMode, ImageSampler, ImageSamplerDescriptor},
     math::Affine2,
+    mesh::{Indices, PrimitiveTopology, VertexAttributeValues},
     prelude::*,
-    render::{
-        mesh::{PrimitiveTopology, VertexAttributeValues},
-        render_resource::{Extent3d, TextureDimension},
-    },
+    render::render_resource::{Extent3d, TextureDimension},
 };
 use futures_util::{SinkExt, StreamExt};
 use log::{error, info};
@@ -38,9 +36,9 @@ impl Plugin for MujocoVisualizerPlugin {
         let receiver = spawn_workers_thread(self.egui_ctx.clone());
 
         app.insert_resource(MujocoVisualizerData { receiver })
-            .add_event::<SceneDescriptionEvent>()
-            .add_event::<SceneUpdateEvent>()
-            .add_systems(PreUpdate, process_simultator_messages)
+            .add_message::<SceneDescriptionMessage>()
+            .add_message::<SceneUpdateMessage>()
+            .add_systems(PreUpdate, process_simulator_messages)
             .add_systems(Update, spawn_mujoco_scene)
             .add_systems(Update, update_bodies);
     }
@@ -97,18 +95,18 @@ fn spawn_workers_thread(egui_ctx: egui::Context) -> mpsc::Receiver<ServerMessage
     update_receiver
 }
 
-fn process_simultator_messages(
-    mut scene_description_writer: EventWriter<SceneDescriptionEvent>,
-    mut scene_update_writer: EventWriter<SceneUpdateEvent>,
+fn process_simulator_messages(
+    mut scene_description_writer: MessageWriter<SceneDescriptionMessage>,
+    mut scene_update_writer: MessageWriter<SceneUpdateMessage>,
     mut data: ResMut<MujocoVisualizerData>,
 ) {
     while let Ok(update) = data.receiver.try_recv() {
         match update {
             ServerMessageKind::SceneUpdate(scene_update) => {
-                scene_update_writer.write(SceneUpdateEvent(scene_update));
+                scene_update_writer.write(SceneUpdateMessage(scene_update));
             }
             ServerMessageKind::SceneDescription(scene_description) => {
-                scene_description_writer.write(SceneDescriptionEvent(scene_description));
+                scene_description_writer.write(SceneDescriptionMessage(scene_description));
             }
             _ => info!("Received unexpected simulator data"),
         }
@@ -123,7 +121,7 @@ fn calculate_tangents(mesh: &SceneMesh) -> Vec<[f32; 4]> {
 
     helper_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, mesh.vertices.clone());
     helper_mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, mesh.normals.clone());
-    helper_mesh.insert_indices(bevy::render::mesh::Indices::U32(
+    helper_mesh.insert_indices(Indices::U32(
         mesh.vertex_indices
             .iter()
             .flatten()
@@ -150,13 +148,13 @@ fn calculate_tangents(mesh: &SceneMesh) -> Vec<[f32; 4]> {
 }
 
 fn spawn_mujoco_scene(
-    mut scene_description: EventReader<SceneDescriptionEvent>,
+    mut scene_description: MessageReader<SceneDescriptionMessage>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
     mut commands: Commands,
 ) {
-    let Some(SceneDescriptionEvent(scene)) = scene_description.read().last() else {
+    let Some(SceneDescriptionMessage(scene)) = scene_description.read().last() else {
         return;
     };
     // TODO(oleflb): Add MuJoCo marker component used to cleanup before spawning
@@ -381,10 +379,10 @@ fn spawn_geom(
 }
 
 fn update_bodies(
-    mut scene_update: EventReader<SceneUpdateEvent>,
+    mut scene_update: MessageReader<SceneUpdateMessage>,
     mut query: Query<(&mut Transform, &BodyComponent)>,
 ) {
-    let Some(SceneUpdateEvent(scene_update)) = scene_update.read().last() else {
+    let Some(SceneUpdateMessage(scene_update)) = scene_update.read().last() else {
         return;
     };
     for (mut transform, marker) in query.iter_mut() {
@@ -410,8 +408,8 @@ fn bevy_quat(quat: [f32; 4]) -> Quat {
     Quat::from_xyzw(x, y, z, w)
 }
 
-#[derive(Event)]
-pub struct SceneDescriptionEvent(SceneDescription);
+#[derive(Message)]
+pub struct SceneDescriptionMessage(SceneDescription);
 
-#[derive(Event)]
-pub struct SceneUpdateEvent(SceneUpdate);
+#[derive(Message)]
+pub struct SceneUpdateMessage(SceneUpdate);

@@ -22,7 +22,7 @@ fn penalty_shootout_defending(app: &mut App) {
 }
 fn startup(
     mut commands: Commands,
-    mut game_controller_commands: EventWriter<GameControllerCommand>,
+    mut game_controller_commands: MessageWriter<GameControllerCommand>,
     mut ball: ResMut<BallResource>,
 ) {
     let mut robot = Robot::new(PlayerNumber::Two);
@@ -45,7 +45,7 @@ fn update(
     game_controller: ResMut<GameController>,
     time: ResMut<Time<Ticks>>,
     mut ball: ResMut<BallResource>,
-    mut exit: EventWriter<AppExit>,
+    mut exit: MessageWriter<AppExit>,
     mut robots: Query<&mut Robot>,
 ) {
     if time.ticks() == 2 {

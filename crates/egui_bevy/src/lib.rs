@@ -1,21 +1,20 @@
 use std::sync::Arc;
 
 use bevy::{
+    camera::{ManualTextureViewHandle, RenderTarget, Viewport},
     input::{
         mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
         ButtonState,
     },
     prelude::*,
     render::{
-        camera::{
-            ManualTextureView, ManualTextureViewHandle, ManualTextureViews, RenderTarget, Viewport,
-        },
         render_resource::Texture,
         renderer::{
             RenderAdapter, RenderAdapterInfo, RenderDevice, RenderInstance, RenderQueue,
             WgpuWrapper,
         },
         settings::RenderCreation,
+        texture::ManualTextureView,
         RenderDebugFlags, RenderPlugin,
     },
 };
@@ -232,10 +231,10 @@ fn setup_camera(
     commands.spawn((
         Camera3d::default(),
         Camera {
-            target: RenderTarget::TextureView(BevyRenderTarget::TEXTURE_HANDLE),
             clear_color: Color::linear_rgba(0.3, 0.3, 0.3, 0.3).into(),
             ..Default::default()
         },
+        RenderTarget::TextureView(BevyRenderTarget::TEXTURE_HANDLE),
         Transform::from_xyz(1.0, 1.0, 1.0).looking_at(Vec3::ZERO, Vec3::Y),
         PanOrbitCamera::default(),
     ));
@@ -293,8 +292,8 @@ fn process_egui_input(world: &mut World, ui: &mut Ui, response: &Response) {
                 // } => {}
                 // Event::PointerMoved(pos2) => {}
                 Event::MouseMoved(egui::Vec2 { x, y }) => {
-                    let mut mouse = world.resource_mut::<Events<MouseMotion>>();
-                    mouse.send(MouseMotion {
+                    let mut mouse = world.resource_mut::<Messages<MouseMotion>>();
+                    mouse.write(MouseMotion {
                         delta: Vec2 { x: *x, y: *y },
                     });
                 }
@@ -311,8 +310,8 @@ fn process_egui_input(world: &mut World, ui: &mut Ui, response: &Response) {
                         PointerButton::Extra1 => MouseButton::Forward,
                         PointerButton::Extra2 => MouseButton::Back,
                     };
-                    let mut buttons = world.resource_mut::<Events<MouseButtonInput>>();
-                    buttons.send(MouseButtonInput {
+                    let mut buttons = world.resource_mut::<Messages<MouseButtonInput>>();
+                    buttons.write(MouseButtonInput {
                         button,
                         state: if *pressed {
                             ButtonState::Pressed
@@ -344,8 +343,8 @@ fn process_egui_input(world: &mut World, ui: &mut Ui, response: &Response) {
                             unimplemented!("this seems to be unused anyways")
                         }
                     };
-                    let mut buttons = world.resource_mut::<Events<MouseWheel>>();
-                    buttons.send(MouseWheel {
+                    let mut buttons = world.resource_mut::<Messages<MouseWheel>>();
+                    buttons.write(MouseWheel {
                         unit,
                         x: delta.x,
                         y: delta.y,

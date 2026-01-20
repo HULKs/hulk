@@ -17,7 +17,7 @@ fn golden_goal_opponent_kickoff(app: &mut App) {
 
 fn startup(
     mut commands: Commands,
-    mut game_controller_commands: EventWriter<GameControllerCommand>,
+    mut game_controller_commands: MessageWriter<GameControllerCommand>,
 ) {
     for number in [
         PlayerNumber::One,
@@ -37,7 +37,7 @@ fn startup(
 fn update(
     game_controller: ResMut<GameController>,
     time: Res<Time<Ticks>>,
-    mut exit: EventWriter<AppExit>,
+    mut exit: MessageWriter<AppExit>,
 ) {
     if game_controller.state.hulks_team.score > 0 {
         println!("Done");
