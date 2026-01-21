@@ -22,7 +22,6 @@ pub struct CycleContext {
 
     walk_with_velocity_parameter:
         Parameter<WalkWithVelocityParameters, "behavior.walk_with_velocity">,
-    angular_velocitiy_scaling_factor: Parameter<f32, "behavior.angular_velocitiy_scaling_factor">,
 }
 
 #[context]
@@ -54,7 +53,9 @@ impl WalkToBall {
                     velocity: ball_coordinates_in_ground.normalize()
                         * context.walk_with_velocity_parameter.max_velocity,
                     angular_velocity: (normalized_angle_to_ball
-                        * context.angular_velocitiy_scaling_factor)
+                        * context
+                            .walk_with_velocity_parameter
+                            .angular_velocity_scaling_factor)
                         .clamp(-max_angular_velocity_abs, max_angular_velocity_abs),
                 }
             }

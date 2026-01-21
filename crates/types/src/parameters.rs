@@ -52,7 +52,6 @@ pub struct BehaviorParameters {
     pub time_to_reach_delay_when_fallen: Duration,
     pub maximum_standup_attempts: u32,
     pub walk_with_velocity: WalkWithVelocityParameters,
-    pub angular_velocitiy_scaling_factor: f32,
 }
 
 #[derive(
@@ -500,6 +499,7 @@ pub struct RLWalkingParameters {
 pub struct WalkWithVelocityParameters {
     pub max_velocity: f32,
     pub max_angular_velocity: f32,
+    pub angular_velocity_scaling_factor: f32,
 }
 
 #[derive(

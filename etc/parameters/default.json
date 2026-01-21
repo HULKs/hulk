@@ -318,11 +318,13 @@
   "behavior": {
     "walk_with_velocity": {
       "max_velocity": 1.0,
-      "max_angular_velocity": 1.0
-    },
-    "angular_velocitiy_scaling_factor": 2.0
+      "max_angular_velocity": 1.0,
+      "angular_velocity_scaling_factor": 2.0
+    }
   },
-  "use_remote_control_for_motion_selection": true,
+  "motion": {
+    "use_remote_control_for_motion_selection": true
+  },
   "field_dimensions": {
     "ball_radius": 0.095,
     "length": 9.0,

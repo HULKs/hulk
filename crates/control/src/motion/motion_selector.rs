@@ -15,7 +15,7 @@ pub struct CycleContext {
     motion_command_from_behavior: Input<MotionCommand, "WorldState", "motion_command">,
     motion_command_from_remote_control: Input<MotionCommand, "motion_command">,
     use_remote_control_for_motion_selection:
-        Parameter<bool, "use_remote_control_for_motion_selection">,
+        Parameter<bool, "motion.use_remote_control_for_motion_selection">,
 }
 
 #[context]
