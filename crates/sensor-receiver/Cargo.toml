@@ -1,0 +1,18 @@
+[package]
+name = "sensor-receiver"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[package.metadata.pepsi]
+cross-compile = true
+
+[dependencies]
+booster = { workspace = true }
+color-eyre = { workspace = true }
+hulkz = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+types = { workspace = true }
