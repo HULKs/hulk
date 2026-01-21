@@ -110,11 +110,9 @@ impl TryFrom<Image> for RgbImage {
                     )));
                 }
 
-                // 2. Prepare Output Buffer
                 // RgbImage is a flattened Vec<u8> (R, G, B, R, G, B...)
                 let mut rgb_image = RgbImage::new(image.width, image.height);
 
-                // 3. Define Strides
                 // ROS 'step' is the stride for the Y plane.
                 let y_stride = image.step;
                 // NV12 UV plane usually has the same stride as Y
@@ -122,7 +120,6 @@ impl TryFrom<Image> for RgbImage {
                 // RGB output stride (3 bytes per pixel * width)
                 let rgb_stride = image.width * 3;
 
-                // 4. Split Input Data into Planes
                 let (y_plane, remaining) = image.data.split_at(y_plane_size);
                 let uv_plane = &remaining[..uv_plane_size];
 
@@ -168,6 +165,26 @@ impl TryFrom<Image> for RgbImage {
                     ))
                 })?;
 
+                Ok(rgb_image)
+            }
+            "mono16" => {
+                let pixel_count = (image.width * image.height) as usize;
+                let u16_data: &[u16] = unsafe {
+                    std::slice::from_raw_parts(image.data.as_ptr() as *const u16, pixel_count)
+                };
+
+                let mut rgb_image = RgbImage::new(image.width, image.height);
+                let mut output_buffer = rgb_image.as_flat_samples_mut();
+                let output_buffer = output_buffer.as_mut_slice();
+
+                for (i, &pixel_val) in u16_data.iter().enumerate() {
+                    let gray_8 = (pixel_val >> 8) as u8;
+
+                    let rgb_idx = i * 3;
+                    output_buffer[rgb_idx] = gray_8; // R
+                    output_buffer[rgb_idx + 1] = gray_8; // G
+                    output_buffer[rgb_idx + 2] = gray_8; // B
+                }
                 Ok(rgb_image)
             }
             _ => Err(ImageError::Decoding(DecodingError::from_format_hint(
