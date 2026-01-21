@@ -10,16 +10,12 @@ cross-compile = true
 
 [dependencies]
 booster = { workspace = true }
-byteorder = { workspace = true }
 cdr = { workspace = true }
 color-eyre = { workspace = true }
 env_logger = { workspace = true }
-fern = { workspace = true }
 futures-util = { workspace = true }
-log = { workspace = true }
 ros2 = { workspace = true }
 ros2-client = { workspace = true }
 serde = { workspace = true }
 tokio = { workspace = true }
-walking_inference = { workspace = true }
 zenoh = { workspace = true }
