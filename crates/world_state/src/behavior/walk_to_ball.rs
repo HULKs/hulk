@@ -2,6 +2,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use coordinate_systems::Ground;
 use framework::MainOutput;
+use linear_algebra::{Rotation2, Vector2};
 use serde::{Deserialize, Serialize};
 use types::ball_position::BallPosition;
 use types::motion_command::{HeadMotion, MotionCommand};
@@ -44,9 +45,12 @@ impl WalkToBall {
                     head,
                     velocity: ball_coordinates_in_ground.normalize()
                         * context.walk_with_velocity_parameter.max_velocity,
-                    angular_velocity: ball_coordinates_in_ground
-                        .y()
-                        .clamp(-max_angular_velocity_abs, max_angular_velocity_abs),
+                    angular_velocity: Rotation2::rotation_between(
+                        Vector2::x_axis(),
+                        ball_coordinates_in_ground,
+                    )
+                    .angle()
+                    .clamp(-max_angular_velocity_abs, max_angular_velocity_abs),
                 }
             }
             None => MotionCommand::Stand {
