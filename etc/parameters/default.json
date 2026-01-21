@@ -346,6 +346,12 @@
   "ball_projection": {
     "detection_noise": [8.0, 8.0]
   },
+  "ball_filter": {
+    "hypothesis_timeout": {
+      "nanos": 0,
+      "secs": 2
+    }
+  },
   "camera_matrix_parameters": {
     "camera_to_head_pitch": -0.2125811028,
     "correction_in_robot": [0.0, 0.0, 0.0],

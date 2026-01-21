@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use color_eyre::{eyre::OptionExt, Result};
 use linear_algebra::Vector2;
 use serde::{Deserialize, Serialize};
@@ -11,6 +9,7 @@ use types::{
     ball_detection::BallPercept,
     ball_position::{BallPosition, HypotheticalBallPosition},
     cycle_time::CycleTime,
+    parameters::BallFilterParameters,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -25,6 +24,7 @@ pub struct CreationContext {}
 pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
     ball_percepts: Input<Option<Vec<BallPercept>>, "balls?">,
+    ball_filter_parameter: Parameter<BallFilterParameters, "ball_filter">,
 }
 
 #[context]
@@ -55,7 +55,7 @@ impl BallFilter {
                 ball_position
             }
             (None, Some(last_ball_position)) => {
-                if Duration::from_secs_f32(2.0)
+                if context.ball_filter_parameter.hypothesis_timeout
                     < context
                         .cycle_time
                         .start_time
