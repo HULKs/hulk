@@ -3,7 +3,6 @@ use crate::{
     panel::{Panel, PanelCreationContext},
     value_buffer::BufferHandle,
 };
-use color_eyre::eyre::OptionExt;
 use communication::messages::TextOrBinary;
 use eframe::egui::Widget;
 use gilrs::{Axis, Button, Gamepad, Gilrs};
@@ -14,7 +13,7 @@ use std::{
         Arc,
     },
     thread::{self, JoinHandle},
-    time::{Duration, Instant, SystemTime},
+    time::{Duration, SystemTime},
 };
 use tokio::sync::watch::{channel, Receiver};
 use types::step::Step;
@@ -124,8 +123,6 @@ impl<'a> Panel<'a> for RemotePanel {
                     }
                     start_was_pressed = start_pressed;
 
-                    let start_time = Instant::now();
-
                     let up_pressed = gamepad
                         .button_data(Button::DPadUp)
                         .map(|button| button.is_pressed())
@@ -164,8 +161,6 @@ impl<'a> Panel<'a> for RemotePanel {
                         // Stay
                         new_gait_parameter_value = gait_parameter_value.map_or(1.0, |v| v);
                     }
-
-                    dbg!(start_time.elapsed());
 
                     if enabled_clone.load(Ordering::Relaxed) {
                         let now = SystemTime::now();
