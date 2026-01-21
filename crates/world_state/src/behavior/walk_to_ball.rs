@@ -1,3 +1,5 @@
+use std::f32::consts::PI;
+
 use color_eyre::Result;
 use context_attribute::context;
 use coordinate_systems::Ground;
@@ -17,8 +19,10 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
+
     walk_with_velocity_parameter:
         Parameter<WalkWithVelocityParameters, "behavior.walk_with_velocity">,
+    angular_velocitiy_scaling_factor: Parameter<f32, "behavior.angular_velocitiy_scaling_factor">,
 }
 
 #[context]
@@ -41,16 +45,17 @@ impl WalkToBall {
                     .walk_with_velocity_parameter
                     .max_angular_velocity
                     .abs();
+                let normalized_angle_to_ball =
+                    Rotation2::rotation_between(Vector2::x_axis(), ball_coordinates_in_ground)
+                        .angle()
+                        / (0.5 * PI);
                 MotionCommand::WalkWithVelocity {
                     head,
                     velocity: ball_coordinates_in_ground.normalize()
                         * context.walk_with_velocity_parameter.max_velocity,
-                    angular_velocity: Rotation2::rotation_between(
-                        Vector2::x_axis(),
-                        ball_coordinates_in_ground,
-                    )
-                    .angle()
-                    .clamp(-max_angular_velocity_abs, max_angular_velocity_abs),
+                    angular_velocity: (normalized_angle_to_ball
+                        * context.angular_velocitiy_scaling_factor)
+                        .clamp(-max_angular_velocity_abs, max_angular_velocity_abs),
                 }
             }
             None => MotionCommand::Stand {

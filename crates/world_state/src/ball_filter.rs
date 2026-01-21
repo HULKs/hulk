@@ -44,29 +44,31 @@ impl BallFilter {
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let filtered_ball_percept = context.ball_percepts.ok_or_eyre("no ball percept")?.last();
 
-        let ball_position = match (filtered_ball_percept, self.last_ball_position) {
-            (Some(ball_percepts), _) => {
-                let ball_position = Some(BallPosition {
-                    position: ball_percepts.percept_in_ground.mean.into(),
+        let ball_position = filtered_ball_percept
+            .and_then(|ball_percept| {
+                self.last_ball_position = Some(BallPosition {
+                    position: ball_percept.percept_in_ground.mean.into(),
                     velocity: Vector2::zeros(),
                     last_seen: context.cycle_time.start_time,
                 });
-                self.last_ball_position = ball_position;
-                ball_position
-            }
-            (None, Some(last_ball_position)) => {
-                if context.ball_filter_parameter.hypothesis_timeout
-                    < context
+                self.last_ball_position
+            })
+            .or_else(|| {
+                if let Some(last_ball_position) = self.last_ball_position {
+                    if context
                         .cycle_time
                         .start_time
-                        .duration_since(last_ball_position.last_seen)?
-                {
-                    self.last_ball_position = None;
+                        .duration_since(last_ball_position.last_seen)
+                        .expect("time ran backwards")
+                        < context.ball_filter_parameter.hypothesis_timeout
+                    {
+                        return Some(last_ball_position);
+                    } else {
+                        self.last_ball_position = None;
+                    }
                 }
-                Some(last_ball_position)
-            }
-            _ => None,
-        };
+                None
+            });
 
         Ok(MainOutputs {
             ball_position: ball_position.into(),
