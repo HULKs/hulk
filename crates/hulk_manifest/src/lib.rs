@@ -61,7 +61,7 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
                     // "control::motion::keeper_jump_right",
                     // "control::motion::look_around",
                     // "control::motion::look_at",
-                    // "control::motion::motion_selector",
+                    "control::motion::motion_selector",
                     // "control::motion::motor_commands_collector",
                     // "control::motion::obstacle_avoiding_arms",
                     // "control::motion::sit_down",
