@@ -4788,6 +4788,7 @@ dependencies = [
  "path_serde",
  "projection",
  "ros2",
+ "sensor_receiver",
  "serde",
  "serde_json",
  "simulation_message",
@@ -4839,6 +4840,7 @@ dependencies = [
  "projection",
  "rmp-serde",
  "ros2",
+ "sensor_receiver",
  "serde",
  "serde_json",
  "source_analyzer",
@@ -4903,6 +4905,7 @@ dependencies = [
  "path_serde",
  "projection",
  "ros2",
+ "sensor_receiver",
  "serde",
  "serde_json",
  "simulation_message",
@@ -4958,6 +4961,7 @@ dependencies = [
  "path_serde",
  "projection",
  "ros2",
+ "sensor_receiver",
  "serde",
  "serde_json",
  "source_analyzer",
@@ -8710,6 +8714,39 @@ name = "send_wrapper"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cd0b0ec5f1c1ca621c432a25813d8d60c88abe6d3e08a3eb9cf37d97a0fe3d73"
+
+[[package]]
+name = "sensor_receiver"
+version = "0.1.0"
+dependencies = [
+ "approx 0.5.1",
+ "booster",
+ "calibration",
+ "color-eyre",
+ "context_attribute",
+ "control",
+ "coordinate_systems",
+ "framework",
+ "geometry",
+ "hardware",
+ "hsl_network_messages",
+ "image",
+ "itertools 0.14.0",
+ "linear_algebra",
+ "log",
+ "nalgebra",
+ "ndarray 0.16.1",
+ "openvino",
+ "ordered-float 4.6.0",
+ "ort",
+ "parameters",
+ "path_serde",
+ "projection",
+ "rand 0.9.2",
+ "ros2",
+ "serde",
+ "types",
+]
 
 [[package]]
 name = "serde"

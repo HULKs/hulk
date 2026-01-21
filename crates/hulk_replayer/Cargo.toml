@@ -41,6 +41,7 @@ parameters = { workspace = true }
 path_serde = { workspace = true }
 projection = { workspace = true }
 ros2 = { workspace = true }
+sensor_receiver = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 step_planning = { workspace = true }

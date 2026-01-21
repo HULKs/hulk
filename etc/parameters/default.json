@@ -343,7 +343,7 @@
     "goal_depth": 0.5
   },
   "object_detection": {
-    "enable": true,
+    "enable": false,
     "maximum_intersection_over_union": 0.7,
     "confidence_threshold": 0.5
   },
@@ -371,14 +371,15 @@
       "secs": 1
     },
     "image_regions": {
-      "bottom": [
-        0.5,
-        0.85
-      ],
-      "center": [
-        0.5,
-        0.5
-      ]
+      "bottom": [0.5, 0.85],
+      "center": [0.5, 0.5]
     }
+  },
+  "image_receiver": {
+    "image_rectified": "Rectified",
+    "image_right_rectified": "RightRectified",
+    "image_right_raw": "RightRaw",
+    "image_stereonet_depth": "StereonetDepth",
+    "image_stereonet_visual": "StereonetVisual"
   }
 }
