@@ -12785,19 +12785,14 @@ name = "zenoh_bridge"
 version = "0.1.0"
 dependencies = [
  "booster",
- "byteorder",
  "cdr",
  "color-eyre",
  "env_logger",
- "fern",
  "futures-util",
- "log",
  "ros2",
  "ros2-client",
  "serde",
  "tokio",
- "vision",
- "walking_inference",
  "zenoh",
 ]
 
