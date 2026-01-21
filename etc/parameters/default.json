@@ -317,8 +317,8 @@
   },
   "behavior": {
     "walk_with_velocity": {
-      "max_velocity": 0.5,
-      "max_angular_velocity": 0.25
+      "max_velocity": 1.0,
+      "max_angular_velocity": 0.4
     }
   },
   "field_dimensions": {
