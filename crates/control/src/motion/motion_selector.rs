@@ -21,7 +21,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub motion_selection: MainOutput<MotionCommand>,
+    pub selected_motion_command: MainOutput<MotionCommand>,
 }
 
 impl MotionSelector {
@@ -36,7 +36,7 @@ impl MotionSelector {
             context.motion_command_from_behavior.clone()
         };
         Ok(MainOutputs {
-            motion_selection: seleciton.into(),
+            selected_motion_command: seleciton.into(),
         })
     }
 }

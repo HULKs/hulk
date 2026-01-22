@@ -1715,59 +1715,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "bevyhavior_simulator"
-version = "0.1.0"
-dependencies = [
- "approx 0.5.1",
- "ball_filter",
- "bevy",
- "bincode",
- "booster",
- "buffered_watch",
- "chrono",
- "clap",
- "code_generation",
- "color-eyre",
- "communication",
- "context_attribute",
- "control",
- "coordinate_systems",
- "ctrlc",
- "fern",
- "framework",
- "geometry",
- "hardware",
- "hsl_network",
- "hsl_network_messages",
- "hula_types",
- "indicatif",
- "ittapi",
- "kinematics",
- "linear_algebra",
- "log",
- "nalgebra",
- "ndarray 0.16.1",
- "object_detection",
- "parameters",
- "parking_lot",
- "path_serde",
- "proc-macro2",
- "projection",
- "quote",
- "repository",
- "ros2",
- "scenario",
- "serde",
- "serde_json",
- "source_analyzer",
- "step_planning",
- "tokio",
- "tokio-util",
- "types",
- "vision",
-]
-
-[[package]]
 name = "bimap"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8431,16 +8378,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93fc1dc3aaa9bfed95e02e6eadabb4baf7e3078b0bd1b4d7b6b0b68378900502"
 dependencies = [
  "winapi-util",
-]
-
-[[package]]
-name = "scenario"
-version = "0.1.0"
-dependencies = [
- "proc-macro-error",
- "proc-macro2",
- "quote",
- "syn 2.0.114",
 ]
 
 [[package]]

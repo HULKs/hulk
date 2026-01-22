@@ -6,7 +6,7 @@ members = [
   "crates/audio",
   "crates/ball_filter",
   "crates/bevy_mujoco",
-  "crates/bevyhavior_simulator",
+  # "crates/bevyhavior_simulator",
   "crates/booster",
   "crates/buffered_watch",
   "crates/calibration",
