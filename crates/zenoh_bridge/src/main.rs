@@ -1,4 +1,5 @@
 mod bridge;
+mod error;
 mod ros;
 
 use std::fmt::Debug;
@@ -14,6 +15,7 @@ use zenoh::Session;
 
 use crate::{
     bridge::{forward_ros_to_zenoh, forward_zenoh_to_ros},
+    error::Error,
     ros::RosNode,
 };
 
@@ -21,15 +23,18 @@ use crate::{
 async fn main() -> Result<()> {
     env_logger::init();
 
-    let ros_context = Context::new().unwrap();
+    let ros_context = Context::new().wrap_err("failed to create ROS context")?;
     let mut ros_node = ros_context
         .new_node(
-            NodeName::new("/", "booster_zenoh_bridge").unwrap(),
+            NodeName::new("/", "booster_zenoh_bridge").wrap_err("failed to create node name")?,
             NodeOptions::new(),
         )
-        .unwrap();
+        .wrap_err("failed to create ROS node")?;
 
-    let zenoh_session = zenoh::open(zenoh::Config::default()).await.unwrap();
+    let zenoh_session = zenoh::open(zenoh::Config::default())
+        .await
+        .map_err(Error::Zenoh)
+        .wrap_err("failed to create Zenoh session")?;
 
     let mut button_event_forwarder = spawn_ros_to_zenoh_forwarder::<ButtonEventMsg>(
         &mut ros_node,

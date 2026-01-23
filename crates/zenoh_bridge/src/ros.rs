@@ -34,7 +34,8 @@ impl RosNode for Node {
             )
             .wrap_err("failed to create ROS topic")?;
 
-        Ok(self.create_subscription(&topic, None).unwrap())
+        self.create_subscription(&topic, None)
+            .wrap_err("failed to create subscription")
     }
 
     fn publisher<T: Serialize>(
@@ -51,6 +52,7 @@ impl RosNode for Node {
             )
             .wrap_err("failed to create ROS topic")?;
 
-        Ok(self.create_publisher(&topic, None).unwrap())
+        self.create_publisher(&topic, None)
+            .wrap_err("failed to create publisher")
     }
 }
