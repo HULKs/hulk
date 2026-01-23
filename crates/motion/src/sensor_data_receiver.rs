@@ -3,33 +3,14 @@ use std::time::{SystemTime, UNIX_EPOCH};
 use booster::{ImuState, MotorState};
 use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
-use coordinate_systems::Robot;
-use filtering::low_pass_filter::LowPassFilter;
 use framework::MainOutput;
 use hardware::{LowStateInterface, TimeInterface};
-use linear_algebra::Vector3;
-use nalgebra::UnitQuaternion;
 use serde::{Deserialize, Serialize};
 use types::{cycle_time::CycleTime, joints::Joints};
-
-#[derive(Default, Serialize, Deserialize)]
-enum State {
-    #[default]
-    WaitingForSteady,
-    CalibratingGravity {
-        filtered_gravity: LowPassFilter<Vector3<Robot>>,
-        filtered_roll_pitch_yaw: LowPassFilter<Vector3<Robot>>,
-        remaining_cycles: usize,
-    },
-    Calibrated {
-        calibration: UnitQuaternion<f32>,
-    },
-}
 
 #[derive(Deserialize, Serialize)]
 pub struct SensorDataReceiver {
     last_cycle_start: SystemTime,
-    calibration_state: State,
 }
 
 #[context]
@@ -52,7 +33,6 @@ impl SensorDataReceiver {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             last_cycle_start: UNIX_EPOCH,
-            calibration_state: State::WaitingForSteady,
         })
     }
 

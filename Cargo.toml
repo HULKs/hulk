@@ -13,7 +13,6 @@ members = [
   "crates/code_generation",
   "crates/communication",
   "crates/context_attribute",
-  "crates/control",
   "crates/coordinate_systems",
   "crates/egui_bevy",
   "crates/energy_optimization",
@@ -33,6 +32,7 @@ members = [
   "crates/hungarian_algorithm",
   "crates/kinematics",
   "crates/linear_algebra",
+  "crates/motion",
   "crates/motionfile",
   "crates/object_detection",
   "crates/opn",
@@ -116,7 +116,6 @@ color-eyre = "0.6.3"
 communication = { path = "crates/communication" }
 compiled-nn = "0.12.0"
 context_attribute = { path = "crates/context_attribute" }
-control = { path = "crates/control" }
 convert_case = "0.7.1"
 coordinate_systems = { path = "crates/coordinate_systems" }
 ctrlc = { version = "3.4.5", features = ["termination"] }
@@ -167,6 +166,7 @@ linear_algebra = { path = "crates/linear_algebra" }
 log = "0.4.25"
 mcap = "0.15.0"
 mlua = { version = "0.10.3", features = ["luajit", "serialize", "vendored"] }
+motion = { path = "crates/motion" }
 motionfile = { path = "crates/motionfile" }
 nalgebra = { version = "0.34.1", features = [
   "convert-glam030",

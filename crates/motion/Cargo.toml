@@ -1,5 +1,5 @@
 [package]
-name = "sensor_receiver"
+name = "motion"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -8,27 +8,16 @@ homepage.workspace = true
 [dependencies]
 approx = { workspace = true }
 booster = { workspace = true }
-calibration = { workspace = true }
 color-eyre = { workspace = true }
 context_attribute = { workspace = true }
 coordinate_systems = { workspace = true }
 framework = { workspace = true }
-geometry = { workspace = true }
 hardware = { workspace = true }
-hsl_network_messages = { workspace = true }
-image = { workspace = true }
-itertools = { workspace = true }
+kinematics = { workspace = true }
 linear_algebra = { workspace = true }
 log = { workspace = true }
-nalgebra = { workspace = true }
-ndarray = { workspace = true }
-openvino = { workspace = true }
-ordered-float = { workspace = true }
-ort = { workspace = true, features = ["cuda", "tensorrt"] }
-parameters = { workspace = true }
 path_serde = { workspace = true }
 projection = { workspace = true }
-rand = { workspace = true }
-ros2 = { workspace = true }
 serde = { workspace = true }
 types = { workspace = true }
+walking_inference = { workspace = true }

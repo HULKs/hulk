@@ -22,7 +22,6 @@ chrono = { workspace = true }
 clap = { workspace = true }
 color-eyre = { workspace = true }
 communication = { workspace = true }
-control = { workspace = true }
 coordinate_systems = { workspace = true }
 ctrlc = { workspace = true }
 derive_more = { workspace = true }
@@ -40,6 +39,7 @@ ittapi = { workspace = true }
 libc = { workspace = true, optional = true }
 linear_algebra = { workspace = true }
 log = { workspace = true }
+motion = { workspace = true }
 object_detection = { workspace = true }
 parameters = { workspace = true }
 parking_lot = { workspace = true }
