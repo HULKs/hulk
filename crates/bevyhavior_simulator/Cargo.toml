@@ -48,7 +48,6 @@ step_planning = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
 types = { workspace = true }
-vision = { workspace = true }
 
 [build-dependencies]
 code_generation = { workspace = true }

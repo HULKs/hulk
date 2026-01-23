@@ -50,7 +50,6 @@ members = [
   "crates/step_planning",
   "crates/step_planning_solver",
   "crates/types",
-  "crates/vision",
   "crates/walking_inference",
   "crates/world_state",
   "crates/zed",
@@ -257,7 +256,6 @@ types = { path = "crates/types" }
 urdf-rs = "0.9.0"
 uuid = { version = "1.12.1", features = ["v4"] }
 v4l = { version = "0.12.1", git = "https://github.com/HULKs/libv4l-rs", rev = "be65819073514b193d082dd37dbcc2cfac3f6183" }
-vision = { path = "crates/vision" }
 walkdir = "2.5.0"
 walking_inference = { path = "crates/walking_inference" }
 watch = "0.2.3"
