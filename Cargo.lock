@@ -2633,9 +2633,6 @@ name = "bytes"
 version = "1.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b35204fbdc0b3f4446b89fc1ac2cf84a8a68971995d0bf2e925ec7cd960f9cb3"
-dependencies = [
- "serde",
-]
 
 [[package]]
 name = "bytesize"
@@ -3329,6 +3326,7 @@ dependencies = [
  "geometry",
  "hardware",
  "hsl_network_messages",
+ "hulkz",
  "hungarian_algorithm",
  "itertools 0.14.0",
  "kinematics",
@@ -3351,6 +3349,8 @@ dependencies = [
  "splines",
  "step_planning",
  "step_planning_solver",
+ "tokio",
+ "tracing",
  "types",
  "walking_inference",
 ]
@@ -6504,26 +6504,11 @@ dependencies = [
 name = "hulk_booster"
 version = "0.1.0"
 dependencies = [
- "booster",
- "byteorder",
- "bytes",
- "cdr-encoding",
- "chrono",
- "code_generation",
  "color-eyre",
  "control",
- "env_logger",
- "fern",
- "flume",
- "hulk_manifest",
- "log",
- "ros2",
- "serde",
- "source_analyzer",
  "tokio",
- "vision",
- "walking_inference",
- "zenoh",
+ "tracing",
+ "tracing-subscriber",
 ]
 
 [[package]]
@@ -6708,7 +6693,10 @@ dependencies = [
  "cdr",
  "futures",
  "serde",
+ "serde_json",
  "thiserror 2.0.18",
+ "tokio",
+ "toml",
  "tracing",
  "zenoh",
 ]
@@ -13554,19 +13542,6 @@ name = "send_wrapper"
 version = "0.6.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cd0b0ec5f1c1ca621c432a25813d8d60c88abe6d3e08a3eb9cf37d97a0fe3d73"
-
-[[package]]
-name = "sensor-receiver"
-version = "0.1.0"
-dependencies = [
- "booster",
- "color-eyre",
- "hulkz",
- "tokio",
- "tracing",
- "tracing-subscriber",
- "types",
-]
 
 [[package]]
 name = "seq-macro"

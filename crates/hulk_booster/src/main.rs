@@ -1,70 +1,32 @@
-use byteorder::{BigEndian, LittleEndian};
-use bytes::Bytes;
-use cdr_encoding::CdrDeserializer;
-use color_eyre::eyre::{eyre, Context, Result};
-use flume::bounded;
-use ros2::geometry_msgs::transform::Transform;
-use serde::Deserialize;
+use color_eyre::Result;
+use tokio::task::JoinSet;
 
-pub fn setup_logger() -> Result<(), fern::InitError> {
-    env_logger::init();
-    Ok(())
-}
+#[tokio::main]
+async fn main() -> Result<()> {
+    color_eyre::install()?;
 
-#[derive(Deserialize)]
-struct DDSDataWrapper {
-    representation_identifier: [u8; 2],
-    representation_options: [u8; 2],
-    bytes: Bytes,
-}
+    tracing_subscriber::fmt()
+        .with_env_filter(tracing_subscriber::EnvFilter::from_default_env())
+        .with_target(false)
+        .init();
 
-impl DDSDataWrapper {
-    fn new(bytes: &[u8]) -> Self {
-        Self {
-            representation_identifier: bytes[0..2].try_into().unwrap(),
-            representation_options: bytes[2..4].try_into().unwrap(),
-            bytes: bytes[4..].to_owned().into(),
+    let mut set = JoinSet::new();
+
+    set.spawn(control::sensor_data_receiver::run());
+    // set.spawn(control::motion::booster_walking::run());
+
+    let res = set.join_next().await.expect("at least one task");
+    match res {
+        Ok(Ok(())) => {
+            tracing::warn!("Task finished unexpectedly");
+        }
+        Ok(Err(e)) => {
+            tracing::error!("Task failed: {e:?}");
+        }
+        Err(e) => {
+            tracing::error!("Task panicked: {e:?}");
         }
     }
-}
 
-#[tokio::main(flavor = "multi_thread")]
-async fn main() -> Result<()> {
-    setup_logger()?;
-    let session = zenoh::open(zenoh::Config::default()).await.unwrap();
-
-    println!("{}", zenoh::Config::default());
-
-    log::info!("Creating subscriber...");
-    let subscriber = session
-        .declare_subscriber("**")
-        .with(bounded(1000))
-        .await
-        .unwrap();
-    log::info!("Created subscriber...");
-    loop {
-        let sample = subscriber
-            .recv_async()
-            .await
-            .map_err(|err| eyre!(err.to_string()))
-            .wrap_err("recv failed")?;
-        log::info!("{}", sample.key_expr().as_str());
-        if sample.key_expr().contains("tf") {
-            let ddsdata_wrapper = DDSDataWrapper::new(&sample.payload().to_bytes());
-            let message: Option<Transform> = match ddsdata_wrapper.representation_identifier {
-                [0x00, 0x01] => {
-                    let mut deserializer =
-                        CdrDeserializer::<LittleEndian>::new(&ddsdata_wrapper.bytes);
-                    Some(serde::de::Deserialize::deserialize(&mut deserializer).unwrap())
-                }
-                [0x00, 0x00] => {
-                    let mut deserializer =
-                        CdrDeserializer::<BigEndian>::new(&ddsdata_wrapper.bytes);
-                    Some(serde::de::Deserialize::deserialize(&mut deserializer).unwrap())
-                }
-                _ => None,
-            };
-            println!("{:?}", message);
-        };
-    }
+    Ok(())
 }

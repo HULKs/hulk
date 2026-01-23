@@ -1,92 +1,126 @@
-use booster::{ImuState, MotorState};
-use color_eyre::Result;
-use context_attribute::context;
-use framework::{AdditionalOutput, MainOutput};
-use hardware::PathsInterface;
+use color_eyre::{
+    eyre::{Context as _, ContextCompat as _},
+    Result,
+};
+use hulkz::Session;
 use serde::{Deserialize, Serialize};
+use tracing::debug;
 use types::{
     cycle_time::CycleTime,
-    joints::Joints,
     motion_command::MotionCommand,
     parameters::{MotorCommandParameters, RLWalkingParameters},
 };
-use walking_inference::{inference::WalkingInference, inputs::WalkingInferenceInputs};
+use walking_inference::inference::WalkingInference;
 
-#[derive(Deserialize, Serialize)]
-pub struct RLWalking {
-    walking_inference: WalkingInference,
-    smoothed_target_joint_positions: Joints,
+#[derive(Serialize, Deserialize, Debug)]
+struct Parameters {
+    prepare_motor_command: MotorCommandParameters,
+    common_motor_command: MotorCommandParameters,
+    rl_walking: RLWalkingParameters,
 }
 
-#[context]
-pub struct CreationContext {
-    prepare_motor_command_parameters: Parameter<MotorCommandParameters, "prepare_motor_command">,
+pub async fn run() -> Result<()> {
+    let session = Session::new().await.wrap_err("failed to create session")?;
 
-    hardware_interface: HardwareInterface,
-}
+    let pub_target_joint_positions = session
+        .publish("target_joint_positions")
+        .await
+        .wrap_err("failed to create publisher")?;
 
-#[context]
-pub struct CycleContext {
-    walking_parameters: Parameter<RLWalkingParameters, "rl_walking">,
-    common_motor_command_parameters: Parameter<MotorCommandParameters, "common_motor_command">,
+    let (imu_state, imu_state_driver) = session
+        .buffer("imu_state", 10)
+        .await
+        .wrap_err("failed to create imu_state buffer")?;
+    tokio::spawn(imu_state_driver);
 
-    walking_inference_inputs: AdditionalOutput<WalkingInferenceInputs, "walking_inference_inputs">,
+    let (serial_motor_states, serial_motor_states_driver) = session
+        .buffer("serial_motor_states", 10)
+        .await
+        .wrap_err("failed to create serial_motor_states buffer")?;
+    tokio::spawn(serial_motor_states_driver);
 
-    imu_state: Input<ImuState, "imu_state">,
-    serial_motor_states: Input<Joints<MotorState>, "serial_motor_states">,
-    motion_command: Input<MotionCommand, "motion_command">,
-    cycle_time: Input<CycleTime, "cycle_time">,
-}
+    let pub_walking_inference_inputs = session.publish("walking_inference_inputs").await?;
 
-#[context]
-#[derive(Default)]
-pub struct MainOutputs {
-    pub target_joint_positions: MainOutput<Joints>,
-}
+    let mut motion_command = session.stream::<MotionCommand>("motion_command").await?;
 
-impl RLWalking {
-    pub fn new(context: CreationContext<impl PathsInterface>) -> Result<Self> {
-        let paths = context.hardware_interface.get_paths();
-        let neural_network_folder = paths.neural_networks;
+    let parameters = session.parameters::<Parameters>().await?;
+    let neural_network_folder = "hulk/etc/neural_networks/";
 
-        let walking_inference = WalkingInference::new(
-            &neural_network_folder,
-            context.prepare_motor_command_parameters,
-        )?;
+    let mut walking_inference = WalkingInference::new(
+        neural_network_folder,
+        &parameters.get().await.prepare_motor_command,
+    )?;
 
-        Ok(Self {
-            walking_inference,
-            smoothed_target_joint_positions: context
-                .prepare_motor_command_parameters
-                .default_positions,
-        })
-    }
+    let mut smoothed_target_joint_positions = parameters
+        .get()
+        .await
+        .prepare_motor_command
+        .default_positions;
 
-    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        let (walking_inference_inputs, inference_output_positions) =
-            self.walking_inference.do_inference(
-                *context.cycle_time,
-                context.motion_command,
-                context.imu_state,
-                *context.serial_motor_states,
-                context.walking_parameters,
-                context.common_motor_command_parameters,
+    let mut last_cycle_start = session.now();
+
+    loop {
+        debug!("waiting for motion_command...");
+        let motion_command = motion_command
+            .recv_async()
+            .await
+            .wrap_err("failed to receive motion_command")?;
+        debug!("received motion_command: {:?}", motion_command);
+        let now = &motion_command.timestamp;
+        let imu_state = imu_state
+            .lookup_nearest(now)
+            .wrap_err("failed to get latest imu_state")?;
+        let serial_motor_states = serial_motor_states
+            .lookup_nearest(now)
+            .wrap_err("failed to get latest serial_motor_states")?;
+        let cycle_time = CycleTime {
+            start_time: now.get_time().to_system_time(),
+            last_cycle_duration: now
+                .get_time()
+                .to_system_time()
+                .duration_since(last_cycle_start.get_time().to_system_time())
+                .expect("Time ran backwards"),
+        };
+
+        let (walking_inference_inputs, inference_output_positions) = walking_inference
+            .do_inference(
+                cycle_time,
+                &motion_command.payload,
+                &imu_state.payload,
+                serial_motor_states.payload,
+                &parameters.get().await.rl_walking,
+                &parameters.get().await.common_motor_command,
             )?;
 
-        context
-            .walking_inference_inputs
-            .fill_if_subscribed(|| walking_inference_inputs.clone());
+        pub_walking_inference_inputs
+            .put_with_subscription(|| walking_inference_inputs.clone())
+            .await?;
 
-        let target_joint_positions = context.common_motor_command_parameters.default_positions
-            + inference_output_positions * context.walking_parameters.control.action_scale;
+        let target_joint_positions = parameters
+            .get()
+            .await
+            .common_motor_command
+            .default_positions
+            + inference_output_positions * parameters.get().await.rl_walking.control.action_scale;
 
-        self.smoothed_target_joint_positions = self.smoothed_target_joint_positions
-            * context.walking_parameters.joint_position_smoothing_factor
+        smoothed_target_joint_positions = smoothed_target_joint_positions
+            * parameters
+                .get()
+                .await
+                .rl_walking
+                .joint_position_smoothing_factor
             + target_joint_positions
-                * (1.0 - context.walking_parameters.joint_position_smoothing_factor);
+                * (1.0
+                    - parameters
+                        .get()
+                        .await
+                        .rl_walking
+                        .joint_position_smoothing_factor);
 
-        Ok(MainOutputs {
-            target_joint_positions: self.smoothed_target_joint_positions.into(),
-        })
+        pub_target_joint_positions
+            .put(&smoothed_target_joint_positions)
+            .await?;
+
+        last_cycle_start = *now;
     }
 }

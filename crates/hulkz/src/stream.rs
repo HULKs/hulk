@@ -1,6 +1,9 @@
 use serde::Deserialize;
 use std::marker::PhantomData;
+use tracing::warn;
 use zenoh::{handlers::RingChannelHandler, pubsub::Subscriber as ZenohSubscriber, sample::Sample};
+
+use crate::Message;
 
 #[derive(Debug, thiserror::Error)]
 pub enum StreamError {
@@ -13,7 +16,8 @@ pub enum StreamError {
 pub type Result<T, E = StreamError> = std::result::Result<T, E>;
 
 pub struct TopicStream<T> {
-    inner: ZenohSubscriber<RingChannelHandler<Sample>>,
+    sub: ZenohSubscriber<RingChannelHandler<Sample>>,
+    session: zenoh::Session,
     _phantom: PhantomData<T>,
 }
 
@@ -21,30 +25,24 @@ impl<T> TopicStream<T>
 where
     for<'de> T: Deserialize<'de>,
 {
-    pub fn new(sub: ZenohSubscriber<RingChannelHandler<Sample>>) -> Self {
+    pub fn new(sub: ZenohSubscriber<RingChannelHandler<Sample>>, session: zenoh::Session) -> Self {
         Self {
-            inner: sub,
+            sub,
+            session,
             _phantom: PhantomData,
         }
     }
 
-    pub async fn recv_async(&mut self) -> Result<T> {
-        let sample = self.inner.recv_async().await.map_err(StreamError::Zenoh)?;
+    pub async fn recv_async(&mut self) -> Result<Message<T>> {
+        let sample = self.sub.recv_async().await.map_err(StreamError::Zenoh)?;
 
-        let value = cdr::deserialize::<T>(&sample.payload().to_bytes())
-            .map_err(StreamError::Deserialization)?;
-
-        Ok(value)
+        let payload =
+            cdr::deserialize(&sample.payload().to_bytes()).map_err(StreamError::Deserialization)?;
+        let timestamp = sample.timestamp().copied().unwrap_or_else(|| {
+            warn!("Sample has no timestamp, using current time instead");
+            self.session.new_timestamp()
+        });
+        let message = Message { timestamp, payload };
+        Ok(message)
     }
 }
-
-// impl<T> Stream for TopicStream<T>
-// where
-//     T:,
-// {
-//     type Item = T;
-//
-//     fn poll_next(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Option<Self::Item>> {
-//          todo!()
-//     }
-// }

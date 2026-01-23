@@ -1,82 +1,42 @@
-use std::time::{SystemTime, UNIX_EPOCH};
-
-use booster::{ImuState, MotorState};
+use booster::{LowState, MotorState};
 use color_eyre::{eyre::WrapErr, Result};
-use context_attribute::context;
-use coordinate_systems::Robot;
-use filtering::low_pass_filter::LowPassFilter;
-use framework::MainOutput;
-use hardware::{LowStateInterface, TimeInterface};
-use linear_algebra::Vector3;
-use nalgebra::UnitQuaternion;
-use serde::{Deserialize, Serialize};
+use hulkz::Session;
+use tracing::debug;
 use types::{
-    cycle_time::CycleTime,
     joints::{arm::ArmJoints, head::HeadJoints, leg::LegJoints, Joints},
     sensor_data::SensorData,
 };
 
-#[derive(Default, Serialize, Deserialize)]
-enum State {
-    #[default]
-    WaitingForSteady,
-    CalibratingGravity {
-        filtered_gravity: LowPassFilter<Vector3<Robot>>,
-        filtered_roll_pitch_yaw: LowPassFilter<Vector3<Robot>>,
-        remaining_cycles: usize,
-    },
-    Calibrated {
-        calibration: UnitQuaternion<f32>,
-    },
-}
+#[tracing::instrument]
+pub async fn run() -> Result<()> {
+    let session = Session::new().await.wrap_err("failed to create session")?;
 
-#[derive(Deserialize, Serialize)]
-pub struct SensorDataReceiver {
-    last_cycle_start: SystemTime,
-    calibration_state: State,
-}
+    let pub_imu_state = session
+        .publish("imu_state")
+        .await
+        .wrap_err("failed to create imu_state publisher")?;
+    let pub_serial_motor_states = session
+        .publish("serial_motor_states")
+        .await
+        .wrap_err("failed to create serial_motor_states publisher")?;
+    let pub_sensor_data = session
+        .publish("sensor_data")
+        .await
+        .wrap_err("failed to create sensor_data publisher")?;
 
-#[context]
-pub struct CreationContext {}
+    let mut low_state = session
+        .stream("booster/low_state")
+        .await
+        .wrap_err("failed to create low_state stream")?;
 
-#[context]
-pub struct CycleContext {
-    hardware_interface: HardwareInterface,
-}
-
-#[context]
-pub struct MainOutputs {
-    pub imu_state: MainOutput<ImuState>,
-    pub serial_motor_states: MainOutput<Joints<MotorState>>,
-    pub cycle_time: MainOutput<CycleTime>,
-    pub sensor_data: MainOutput<SensorData>,
-}
-
-impl SensorDataReceiver {
-    pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {
-            last_cycle_start: UNIX_EPOCH,
-            calibration_state: State::WaitingForSteady,
-        })
-    }
-
-    pub fn cycle(
-        &mut self,
-        context: CycleContext<impl LowStateInterface + TimeInterface>,
-    ) -> Result<MainOutputs> {
-        let low_state = context
-            .hardware_interface
-            .read_low_state()
-            .wrap_err("failed to read from sensors")?;
-
-        let now = context.hardware_interface.get_now();
-        let cycle_time = CycleTime {
-            start_time: now,
-            last_cycle_duration: now
-                .duration_since(self.last_cycle_start)
-                .expect("time ran backwards"),
-        };
-        self.last_cycle_start = now;
+    loop {
+        debug!("waiting for low_state...");
+        let low_state: LowState = low_state
+            .recv_async()
+            .await
+            .wrap_err("failed to receive low_state")?
+            .payload;
+        debug!("received low_state");
 
         let positions = Joints {
             head: HeadJoints {
@@ -118,15 +78,22 @@ impl SensorDataReceiver {
             ..SensorData::default()
         };
 
-        Ok(MainOutputs {
-            imu_state: low_state.imu_state.into(),
-            serial_motor_states: low_state
-                .motor_state_serial
-                .into_iter()
-                .collect::<Joints<MotorState>>()
-                .into(),
-            cycle_time: cycle_time.into(),
-            sensor_data: sensor_data.into(),
-        })
+        let serial_motor_states = low_state
+            .motor_state_serial
+            .into_iter()
+            .collect::<Joints<MotorState>>();
+
+        pub_imu_state
+            .put(&low_state.imu_state)
+            .await
+            .wrap_err("failed to publish imu_state")?;
+        pub_serial_motor_states
+            .put(&serial_motor_states)
+            .await
+            .wrap_err("failed to publish serial_motor_states")?;
+        pub_sensor_data
+            .put(&sensor_data)
+            .await
+            .wrap_err("failed to publish sensor_data")?;
     }
 }

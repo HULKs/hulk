@@ -1,7 +1,8 @@
 use cdr::{CdrLe, Infinite};
 use serde::Serialize;
 use std::marker::PhantomData;
-use zenoh::pubsub::Publisher as ZenohPublisher;
+use tracing::debug;
+use zenoh::{bytes::Encoding, pubsub::Publisher as ZenohPublisher};
 
 #[derive(Debug, thiserror::Error)]
 pub enum PublisherError {
@@ -43,10 +44,14 @@ where
 
     #[tracing::instrument(skip(self, value), level = "debug", err)]
     pub async fn put(&self, value: &T) -> Result<()> {
+        debug!("Publishing value to topic");
         let payload = cdr::serialize::<_, _, CdrLe>(value, Infinite)
             .map_err(PublisherError::Serialization)?;
 
-        self.publisher.put(payload).await?;
+        self.publisher
+            .put(payload)
+            .encoding(Encoding::APPLICATION_CDR)
+            .await?;
         Ok(())
     }
 

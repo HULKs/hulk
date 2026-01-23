@@ -1,12 +1,11 @@
 use std::{
     future::Future,
     sync::{Arc, RwLock},
-    time::Duration,
 };
 
 use serde::Deserialize;
 
-use crate::{stream::StreamError, Cache, Timestamped, TopicStream};
+use crate::{stream::StreamError, Cache, Message, Timestamp, TopicStream};
 
 #[derive(Debug, thiserror::Error)]
 pub enum BufferError {
@@ -18,12 +17,12 @@ pub type Result<T, E = BufferError> = std::result::Result<T, E>;
 
 #[derive(Clone)]
 pub struct TopicBuffer<T> {
-    cache: Arc<RwLock<Cache<T>>>,
+    cache: Arc<RwLock<Cache<Arc<Message<T>>>>>,
 }
 
 impl<T> TopicBuffer<T>
 where
-    for<'de> T: Deserialize<'de> + Timestamped + Clone + Send + 'static,
+    for<'de> T: Deserialize<'de> + Clone + Send + 'static,
 {
     pub fn new(
         mut stream: TopicStream<T>,
@@ -36,9 +35,9 @@ where
             async move {
                 loop {
                     match stream.recv_async().await {
-                        Ok(msg) => {
+                        Ok(message) => {
                             let mut cache = cache.write().expect("lock is poisoned");
-                            cache.add(msg);
+                            cache.add(message.timestamp, Arc::new(message));
                         }
                         Err(err) => {
                             return Err(BufferError::StreamError(err));
@@ -53,7 +52,7 @@ where
         (handle, driver)
     }
 
-    pub fn lookup_nearest(&self, timestamp: Duration) -> Option<T> {
+    pub fn lookup_nearest(&self, timestamp: &Timestamp) -> Option<Arc<Message<T>>> {
         let cache = self.cache.read().expect("lock is poisoned");
 
         let before = cache.get_elem_before_time(timestamp);
@@ -61,21 +60,31 @@ where
 
         match (before, after) {
             (Some(before), Some(after)) => {
-                let diff_to_before = timestamp.abs_diff(before.timestamp());
-                let diff_to_after = timestamp.abs_diff(after.timestamp());
+                let diff_to_before = timestamp
+                    .get_time()
+                    .to_duration()
+                    .abs_diff(before.timestamp.get_time().to_duration());
+                let diff_to_after = timestamp
+                    .get_time()
+                    .to_duration()
+                    .abs_diff(after.timestamp.get_time().to_duration());
                 if diff_to_before < diff_to_after {
-                    Some(before)
+                    Some(before.clone())
                 } else {
-                    Some(after)
+                    Some(after.clone())
                 }
             }
-            (Some(x), None) => Some(x),
-            (None, Some(x)) => Some(x),
+            (Some(x), None) => Some(x.clone()),
+            (None, Some(x)) => Some(x.clone()),
             (None, None) => None,
         }
     }
 
-    pub fn get_latest(&self) -> Option<T> {
-        self.cache.read().expect("lock is poisoned").get_latest()
+    pub fn get_latest(&self) -> Option<Arc<Message<T>>> {
+        self.cache
+            .read()
+            .expect("lock is poisoned")
+            .get_latest()
+            .cloned()
     }
 }

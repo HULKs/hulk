@@ -1,20 +1,22 @@
-use std::{future::Future, sync::Arc};
+use std::future::Future;
 
 use serde::{Deserialize, Serialize};
 use zenoh::handlers::RingChannel;
 
-use crate::{buffer::BufferError, Publisher, Timestamped, TopicBuffer, TopicStream};
+use crate::{buffer::BufferError, Parameters, Publisher, Timestamp, TopicBuffer, TopicStream};
 
 #[derive(Debug, thiserror::Error)]
 pub enum SessionError {
     #[error("Zenoh session error: {0}")]
     Zenoh(#[from] zenoh::Error),
+    #[error("Parameter error: {0}")]
+    Parameter(#[from] crate::parameter::ParameterError),
 }
 
 pub type Result<T, E = SessionError> = std::result::Result<T, E>;
 
 pub struct Session {
-    session: Arc<zenoh::Session>,
+    session: zenoh::Session,
 }
 
 impl Session {
@@ -29,9 +31,7 @@ impl Session {
         };
 
         let session = zenoh::open(config).await?;
-        Ok(Self {
-            session: Arc::new(session),
-        })
+        Ok(Self { session })
     }
 
     #[tracing::instrument(skip(self))]
@@ -46,7 +46,7 @@ impl Session {
             .with(RingChannel::new(10))
             .await?;
 
-        Ok(TopicStream::new(subscriber))
+        Ok(TopicStream::new(subscriber, self.session.clone()))
     }
 
     #[tracing::instrument(skip(self))]
@@ -59,7 +59,7 @@ impl Session {
         impl Future<Output = Result<(), BufferError>>,
     )>
     where
-        for<'de> T: Deserialize<'de> + Timestamped + Clone + Send + 'static,
+        for<'de> T: Deserialize<'de> + Clone + Send + 'static,
     {
         tracing::debug!(topic = key_exp, capacity, "Creating topic buffer");
         let stream = self.stream::<T>(key_exp).await?;
@@ -75,5 +75,20 @@ impl Session {
         tracing::debug!(topic = key_expr, "Declaring publisher");
         let publisher = self.session.declare_publisher(key_expr).await?;
         Ok(Publisher::new(publisher))
+    }
+
+    #[tracing::instrument(skip(self))]
+    pub async fn parameters<T>(&self) -> Result<Parameters<T>>
+    where
+        for<'de> T: Deserialize<'de>,
+    {
+        tracing::debug!("Loading parameters");
+        let parameters = Parameters::load().await?;
+        Ok(parameters)
+    }
+
+    #[tracing::instrument(skip(self))]
+    pub fn now(&self) -> Timestamp {
+        self.session.new_timestamp()
     }
 }
