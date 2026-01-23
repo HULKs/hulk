@@ -4794,13 +4794,10 @@ name = "hulk_mujoco"
 version = "0.1.0"
 dependencies = [
  "approx 0.5.1",
- "audio",
  "ball_filter",
  "bincode",
- "blake3",
  "booster",
  "buffered_watch",
- "calibration",
  "chrono",
  "code_generation",
  "color-eyre",
@@ -4809,7 +4806,6 @@ dependencies = [
  "ctrlc",
  "derive_more",
  "eframe",
- "energy_optimization",
  "env_logger",
  "fern",
  "framework",
@@ -4847,7 +4843,6 @@ dependencies = [
  "types",
  "walking_inference",
  "world_state",
- "zed",
 ]
 
 [[package]]
@@ -8643,16 +8638,9 @@ dependencies = [
  "framework",
  "geometry",
  "hardware",
- "hsl_network_messages",
- "image",
  "itertools 0.14.0",
- "linear_algebra",
  "log",
- "nalgebra",
- "ndarray 0.16.1",
- "openvino",
  "ordered-float 4.6.0",
- "ort",
  "parameters",
  "path_serde",
  "projection",

@@ -6,31 +6,27 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
-approx.workspace = true
-audio = { workspace = true }
+approx = { workspace = true }
 ball_filter = { workspace = true }
 bincode = { workspace = true }
-blake3 = { workspace = true }
 booster = { workspace = true }
 buffered_watch = { workspace = true }
-calibration = { workspace = true }
 chrono = { workspace = true }
-color-eyre.workspace = true
+color-eyre = { workspace = true }
 communication = { workspace = true }
 coordinate_systems = { workspace = true }
 ctrlc = { workspace = true }
 derive_more = { workspace = true }
 eframe = { workspace = true }
-energy_optimization = { workspace = true }
 env_logger = { workspace = true }
 fern = { workspace = true }
 framework = { workspace = true }
-futures-util.workspace = true
+futures-util = { workspace = true }
 geometry = { workspace = true }
 hardware = { workspace = true }
 hsl_network = { workspace = true }
 hsl_network_messages = { workspace = true }
-hula_types.workspace = true
+hula_types = { workspace = true }
 hulk_widgets = { workspace = true }
 ittapi = { workspace = true }
 libc = { workspace = true, optional = true }
@@ -57,7 +53,6 @@ tokio-util = { workspace = true }
 types = { workspace = true }
 walking_inference = { workspace = true }
 world_state = { workspace = true }
-zed = { workspace = true }
 
 
 [build-dependencies]
