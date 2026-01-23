@@ -17,5 +17,6 @@ futures-util = { workspace = true }
 ros2 = { workspace = true }
 ros2-client = { workspace = true }
 serde = { workspace = true }
+thiserror = { workspace = true }
 tokio = { workspace = true }
 zenoh = { workspace = true }
