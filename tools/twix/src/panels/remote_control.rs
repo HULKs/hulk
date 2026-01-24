@@ -90,6 +90,12 @@ impl<'a> Panel<'a> for RemotePanel {
                         get_axis_value(gamepad, Axis::LeftStickY).unwrap_or(0.0),
                     );
 
+                    let is_pressed = |button| {
+                        gamepad
+                            .button_data(button)
+                            .is_some_and(|button| button.is_pressed())
+                    };
+
                     let left = -right;
 
                     let turn_right = gamepad
@@ -108,10 +114,7 @@ impl<'a> Panel<'a> for RemotePanel {
                         turn,
                     };
 
-                    let start_pressed = gamepad
-                        .button_data(Button::Start)
-                        .map(|button| button.is_pressed())
-                        .unwrap_or(false);
+                    let start_pressed = is_pressed(Button::Start);
 
                     if start_pressed && !start_was_pressed {
                         let new_state = !enabled_clone.load(Ordering::Relaxed);
@@ -123,44 +126,25 @@ impl<'a> Panel<'a> for RemotePanel {
                     }
                     start_was_pressed = start_pressed;
 
-                    let up_pressed = gamepad
-                        .button_data(Button::DPadUp)
-                        .map(|button| button.is_pressed())
-                        .unwrap_or(false);
-
-                    let down_pressed = gamepad
-                        .button_data(Button::DPadDown)
-                        .map(|button| button.is_pressed())
-                        .unwrap_or(false);
-
-                    let left_pressed = gamepad
-                        .button_data(Button::DPadLeft)
-                        .map(|button| button.is_pressed())
-                        .unwrap_or(false);
-
-                    let gait_parameter_value = gait_parameter_value
+                    let current_value = gait_parameter_value
                         .get_last_value()
                         .ok()
                         .flatten()
-                        .and_then(|v| v.as_f64());
-
-                    let new_gait_parameter_value: f64;
-
-                    if left_pressed {
+                        .and_then(|value| value.as_f64())
+                        .unwrap_or(1.0);
+                    let new_gait_parameter_value = if is_pressed(Button::DPadLeft) {
                         // Reset
-                        new_gait_parameter_value = 1.0;
-                    } else if up_pressed {
+                        1.0
+                    } else if is_pressed(Button::DPadUp) {
                         // Increase
-                        new_gait_parameter_value =
-                            gait_parameter_value.map_or(1.0, |v| (v + 0.25).min(10.0));
-                    } else if down_pressed {
+                        (current_value + 0.25).min(10.0)
+                    } else if is_pressed(Button::DPadDown) {
                         // Decrease
-                        new_gait_parameter_value =
-                            gait_parameter_value.map_or(1.0, |v| (v - 0.25).max(0.25));
+                        (current_value - 0.25).max(0.25)
                     } else {
                         // Stay
-                        new_gait_parameter_value = gait_parameter_value.map_or(1.0, |v| v);
-                    }
+                        current_value
+                    };
 
                     if enabled_clone.load(Ordering::Relaxed) {
                         let now = SystemTime::now();
@@ -169,9 +153,9 @@ impl<'a> Panel<'a> for RemotePanel {
                         {
                             last_update = now;
                             update_step(&nao_clone, step, new_gait_parameter_value);
+                            let _ = sender.send((step, new_gait_parameter_value));
                         }
                     }
-                    let _ = sender.send((step, new_gait_parameter_value));
                 }
             }
         });
@@ -238,14 +222,13 @@ impl Widget for &mut RemotePanel {
         };
         ui.separator();
         ui.strong("Controller:");
-        let controller_step = self.receiver.borrow().0;
+        let (controller_step, gait_frequency) = *self.receiver.borrow();
         ui.label(format!("{controller_step:#?}"));
         ui.add_space(ui.spacing().item_spacing.y);
         ui.strong("Robot:");
 
-        let gait_freq = self.receiver.borrow().1;
         match self.latest_step.get_last_value() {
-            Ok(Some(step)) => ui.label(format!("{step:#?}\nGait frequency: {gait_freq:#?}")),
+            Ok(Some(step)) => ui.label(format!("{step:#?}\nGait frequency: {gait_frequency:#?}")),
             _ => ui.label("No data"),
         }
     }
