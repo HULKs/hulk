@@ -363,5 +363,22 @@
   },
   "cycler_frequencies": {
     "world_state": 100
+  },
+  "look_at": {
+    "glance_angle": 0.25,
+    "glance_direction_toggle_interval": {
+      "nanos": 0,
+      "secs": 1
+    },
+    "image_regions": {
+      "bottom": [
+        0.5,
+        0.85
+      ],
+      "center": [
+        0.5,
+        0.5
+      ]
+    }
   }
 }

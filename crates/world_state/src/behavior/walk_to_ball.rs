@@ -7,7 +7,7 @@ use framework::MainOutput;
 use linear_algebra::{Rotation2, Vector2};
 use serde::{Deserialize, Serialize};
 use types::ball_position::BallPosition;
-use types::motion_command::{HeadMotion, MotionCommand};
+use types::motion_command::{HeadMotion, ImageRegion, MotionCommand};
 use types::parameters::WalkWithVelocityParameters;
 
 #[derive(Deserialize, Serialize)]
@@ -39,7 +39,10 @@ impl WalkToBall {
         let next_motion_command = match context.ball_position {
             Some(ball_position) => {
                 let ball_coordinates_in_ground = ball_position.position.coords();
-                let head = HeadMotion::Center;
+                let head = HeadMotion::LookAt {
+                    target: ball_position.position,
+                    image_region_target: ImageRegion::Center,
+                };
                 let max_angular_velocity_abs = context
                     .walk_with_velocity_parameter
                     .max_angular_velocity
