@@ -272,8 +272,10 @@ where
 
 impl LowStateInterface for BoosterHardwareInterface {
     fn read_low_state(&self) -> Result<LowState> {
-        let sample = self.low_state_subscriber.recv().map_err(|e| eyre!("{e}"))?;
-        deserialize_sample(sample)
+        self.low_state_subscriber
+            .recv()
+            .map_err(|error| eyre!(error))
+            .and_then(deserialize_sample)
     }
 }
 
@@ -289,104 +291,95 @@ impl LowCommandInterface for BoosterHardwareInterface {
 
 impl FallDownStateInterface for BoosterHardwareInterface {
     fn read_fall_down_state(&self) -> Result<FallDownState> {
-        let sample = self
-            .fall_down_state_subscriber
+        self.fall_down_state_subscriber
             .recv()
-            .map_err(|e| eyre!("{e}"))?;
-        deserialize_sample(sample)
+            .map_err(|error| eyre!(error))
+            .and_then(deserialize_sample)
     }
 }
 
 impl ButtonEventMsgInterface for BoosterHardwareInterface {
     fn read_button_event_msg(&self) -> Result<ButtonEventMsg> {
-        let sample = self
-            .button_event_msg_subscriber
+        self.button_event_msg_subscriber
             .recv()
-            .map_err(|e| eyre!("{e}"))?;
-        deserialize_sample(sample)
+            .map_err(|error| eyre!(error))
+            .and_then(deserialize_sample)
     }
 }
 
 impl TransformMessageInterface for BoosterHardwareInterface {
     fn read_transform_message(&self) -> Result<TransformMessage> {
-        let sample = self.transform_subscriber.recv().map_err(|e| eyre!("{e}"))?;
-        deserialize_sample(sample)
+        self.transform_subscriber
+            .recv()
+            .map_err(|error| eyre!(error))
+            .and_then(deserialize_sample)
     }
 }
 
 impl RemoteControllerStateInterface for BoosterHardwareInterface {
     fn read_remote_controller_state(&self) -> Result<RemoteControllerState> {
-        let sample = self
-            .remote_controller_state_subscriber
+        self.remote_controller_state_subscriber
             .recv()
-            .map_err(|e| eyre!("{e}"))?;
-        deserialize_sample(sample)
+            .map_err(|error| eyre!(error))
+            .and_then(deserialize_sample)
     }
 }
 
 impl CameraInterface for BoosterHardwareInterface {
     fn read_rectified_image(&self) -> Result<Image> {
-        let sample = self
-            .rectified_image_subscriber
+        self.rectified_image_subscriber
             .recv()
-            .map_err(|e| eyre!("{e}"))?;
-        deserialize_sample(sample)
+            .map_err(|error| eyre!(error))
+            .and_then(deserialize_sample)
     }
 
     fn read_rectified_right_image(&self) -> Result<Image> {
-        let sample = self
-            .rectified_right_image_subscriber
+        self.rectified_right_image_subscriber
             .recv()
-            .map_err(|e| eyre!("{e}"))?;
-        deserialize_sample(sample)
+            .map_err(|error| eyre!(error))
+            .and_then(deserialize_sample)
     }
 
     fn read_stereonet_depth_image(&self) -> Result<Image> {
-        let sample = self
-            .stereonet_depth_subscriber
+        self.stereonet_depth_subscriber
             .recv()
-            .map_err(|e| eyre!("{e}"))?;
-        deserialize_sample(sample)
+            .map_err(|error| eyre!(error))
+            .and_then(deserialize_sample)
     }
 
     fn read_stereonet_visual_image(&self) -> Result<Image> {
-        let sample = self
-            .stereonet_visual_subscriber
+        self.stereonet_visual_subscriber
             .recv()
-            .map_err(|e| eyre!("{e}"))?;
-        deserialize_sample(sample)
+            .map_err(|error| eyre!(error))
+            .and_then(deserialize_sample)
     }
 
     fn read_image_left_raw(&self) -> Result<Image> {
-        let sample = self
-            .image_left_raw_subscriber
+        self.image_left_raw_subscriber
             .recv()
-            .map_err(|e| eyre!("{e}"))?;
-        deserialize_sample(sample)
+            .map_err(|error| eyre!(error))
+            .and_then(deserialize_sample)
     }
 
     fn read_image_left_raw_camera_info(&self) -> Result<CameraInfo> {
-        let sample = self
-            .image_left_raw_camera_info_subscriber
+        self.image_left_raw_camera_info_subscriber
             .recv()
-            .map_err(|e| eyre!("{e}"))?;
-        deserialize_sample(sample)
+            .map_err(|error| eyre!(error))
+            .and_then(deserialize_sample)
     }
 
     fn read_image_right_raw(&self) -> Result<Image> {
-        let sample = self
-            .image_right_raw_subscriber
+        self.image_right_raw_subscriber
             .recv()
-            .map_err(|e| eyre!("{e}"))?;
-        deserialize_sample(sample)
+            .map_err(|error| eyre!(error))
+            .and_then(deserialize_sample)
     }
 
     fn read_image_right_raw_camera_info(&self) -> Result<CameraInfo> {
-        let sample = self
-            .image_right_raw_camera_info_subscriber
+        self.image_right_raw_camera_info_subscriber
             .recv()
-            .map_err(|e| eyre!("{e}"))?;
-        deserialize_sample(sample)
+            .map_err(|error| eyre!(error))
+            .and_then(deserialize_sample)
     }
 }
 

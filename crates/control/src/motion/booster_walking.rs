@@ -33,7 +33,7 @@ pub struct CycleContext {
     walking_inference_inputs: AdditionalOutput<WalkingInferenceInputs, "walking_inference_inputs">,
 
     imu_state: Input<ImuState, "imu_state">,
-    motor_states: Input<Joints<MotorState>, "motor_states">,
+    serial_motor_states: Input<Joints<MotorState>, "serial_motor_states">,
     motion_command: Input<MotionCommand, "selected_motion_command">,
     cycle_time: Input<CycleTime, "cycle_time">,
 }
@@ -68,7 +68,7 @@ impl RLWalking {
                 *context.cycle_time,
                 context.motion_command,
                 context.imu_state,
-                *context.motor_states,
+                *context.serial_motor_states,
                 context.walking_parameters,
                 context.common_motor_command_parameters,
             )?;
