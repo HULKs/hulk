@@ -6,9 +6,7 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
-bevy = { workspace = true, features = [
-    "3d_bevy_render",
-] }
+bevy = { workspace = true, features = ["3d_bevy_render"] }
 bincode = { workspace = true }
 egui = { workspace = true }
 futures-util = { workspace = true }
