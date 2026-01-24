@@ -20,7 +20,7 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
                     // "object_detection::pose_filter",
                     // "object_detection::pose_interpretation",
                 ],
-                execution_time_warning_threshold: Some(Duration::from_secs_f32(1.0)),
+                execution_time_warning_threshold: Some(Duration::from_secs_f32(33.0)),
             },
             CyclerManifest {
                 name: "Control",
@@ -91,7 +91,7 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
                     // "control::world_state_composer",
                     // "control::zero_moment_point_provider",
                 ],
-                execution_time_warning_threshold: Some(Duration::from_secs_f32(1.0 / 83.0)),
+                execution_time_warning_threshold: Some(Duration::from_secs_f32(1.0 / 500.0)),
             },
             CyclerManifest {
                 name: "HslNetwork",
@@ -116,7 +116,7 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
                     "world_state::ground_provider",
                     "world_state::kinematics_provider",
                 ],
-                execution_time_warning_threshold: Some(Duration::from_secs_f32(1.0 / 83.0)),
+                execution_time_warning_threshold: Some(Duration::from_secs_f32(1.0 / 100.0)),
             },
             // CyclerManifest {
             //     name: "Audio",
