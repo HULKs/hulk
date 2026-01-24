@@ -1,27 +1,32 @@
-FROM debian:bookworm-slim
+# Download and extract
+FROM debian:bookworm-slim AS builder
 
-RUN apt-get update && apt-get install -y \
-    build-essential \
+RUN apt-get update && apt-get install -y --no-install-recommends \
+    ca-certificates \
     curl \
     lbzip2 \
-    sudo \
+    && rm -rf /var/lib/apt/lists/*
+
+WORKDIR /download
+
+RUN curl -sLO https://github.com/RoboCup-SPL/GameController3/releases/download/v5.0.0-rc.3/game_controller-5.0.0-rc.3-x86_64-unknown-linux-gnu.tar.bz2 \
+    && tar -xf game_controller-5.0.0-rc.3-x86_64-unknown-linux-gnu.tar.bz2 --strip-components=1
+
+# Runtime
+FROM debian:bookworm-slim
+
+RUN apt-get update && apt-get install -y --no-install-recommends \
     libwebkit2gtk-4.1-0 \
     libgtk-3-0 \
     libsoup-3.0-0 \
     libjavascriptcoregtk-4.1-0 \
     libgdk-pixbuf-2.0-0 \
     libglib2.0-0 \
-    git \
-    pkg-config \
-    glib2.0 \
     && rm -rf /var/lib/apt/lists/*
 
-WORKDIR /game_controller 
+WORKDIR /game_controller
 
-RUN curl -sLO https://github.com/RoboCup-SPL/GameController3/releases/download/v5.0.0-rc.3/game_controller-5.0.0-rc.3-x86_64-unknown-linux-gnu.tar.bz2
-RUN tar -xf game_controller-5.0.0-rc.3-x86_64-unknown-linux-gnu.tar.bz2 --strip-components=1
-RUN rm game_controller-5.0.0-rc.3-x86_64-unknown-linux-gnu.tar.bz2
-RUN chmod +x ./game_controller
-RUN chmod +x ./target/release/game_controller_app
+COPY --from=builder /download ./
+RUN chmod +x ./game_controller ./target/release/game_controller_app
 
 ENTRYPOINT ["./game_controller"]
