@@ -11,4 +11,3 @@ color-eyre = { workspace = true }
 hula_types = { workspace = true }
 ros2 = { workspace = true }
 types = { workspace = true }
-zed = { workspace = true }

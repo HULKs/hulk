@@ -8,8 +8,8 @@ use color_eyre::{
 use ctrlc::set_handler;
 use framework::Parameters as FrameworkParameters;
 use hardware::{
-    IdInterface, LowCommandInterface, LowStateInterface, MicrophoneInterface, NetworkInterface,
-    PathsInterface, RGBDSensorsInterface, RecordingInterface, SpeakerInterface, TimeInterface,
+    CameraInterface, IdInterface, LowCommandInterface, LowStateInterface, MicrophoneInterface,
+    NetworkInterface, PathsInterface, RecordingInterface, SpeakerInterface, TimeInterface,
 };
 use hula_types::hardware::Ids;
 use serde_json::from_reader;
@@ -42,7 +42,7 @@ pub trait HardwareInterface:
     IdInterface
     + LowStateInterface
     + LowCommandInterface
-    + RGBDSensorsInterface
+    + CameraInterface
     + MicrophoneInterface
     + NetworkInterface
     + PathsInterface

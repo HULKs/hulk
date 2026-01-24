@@ -7,6 +7,7 @@ use framework::deserialize_not_implemented;
 use linear_algebra::{vector, Vector2};
 use ndarray::{Array1, Axis};
 use ort::{
+    execution_providers::{CUDAExecutionProvider, TensorRTExecutionProvider},
     inputs,
     session::{builder::GraphOptimizationLevel, Session},
     value::Tensor,
@@ -40,7 +41,10 @@ impl WalkingInference {
 
         let session = Session::builder()?
             .with_optimization_level(GraphOptimizationLevel::Level3)?
-            .with_intra_threads(4)?
+            .with_execution_providers([
+                TensorRTExecutionProvider::default().build(),
+                CUDAExecutionProvider::default().build(),
+            ])?
             .commit_from_file(neural_network_path)?;
 
         Ok(Self {

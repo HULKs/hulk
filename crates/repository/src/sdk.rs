@@ -81,7 +81,7 @@ pub async fn build_sdk_container(repository: &Repository, sdk_image: &SDKImage) 
 
 pub async fn image_exists_locally(sdk_image: &SDKImage) -> bool {
     let status = Command::new("podman")
-        .args(["image", "exists", &sdk_image.name_latest()])
+        .args(["image", "exists", &sdk_image.name_tagged()])
         .status()
         .await
         .expect("failed to check for image existence");

@@ -8,7 +8,7 @@ use serde_json::{json, Value};
 
 use coordinate_systems::Pixel;
 
-use crate::{nao::Nao, twix_painter::TwixPainter};
+use crate::{nao::Nao, panels::image::overlays::ObjectDetection, twix_painter::TwixPainter};
 
 use super::overlays::{
     BallDetection, FeetDetection, FieldBorder, FieldLines, Horizon, LimbProjector, LineDetection,
@@ -81,6 +81,7 @@ pub struct Overlays {
     pub field_border: EnabledOverlay<FieldBorder>,
     pub limb_projector: EnabledOverlay<LimbProjector>,
     pub pose_detection: EnabledOverlay<PoseDetection>,
+    pub object_detection: EnabledOverlay<ObjectDetection>,
 }
 
 impl Overlays {
@@ -94,6 +95,7 @@ impl Overlays {
         let field_border = EnabledOverlay::new(nao.clone(), storage, false);
         let limb_projector = EnabledOverlay::new(nao.clone(), storage, false);
         let pose_detection = EnabledOverlay::new(nao.clone(), storage, false);
+        let object_detection = EnabledOverlay::new(nao.clone(), storage, false);
 
         Self {
             line_detection,
@@ -105,6 +107,7 @@ impl Overlays {
             field_border,
             limb_projector,
             pose_detection,
+            object_detection,
         }
     }
 
@@ -119,6 +122,7 @@ impl Overlays {
             self.field_border.checkbox(ui);
             self.limb_projector.checkbox(ui);
             self.pose_detection.checkbox(ui);
+            self.object_detection.checkbox(ui);
         });
     }
 
@@ -132,6 +136,7 @@ impl Overlays {
         self.field_border.paint(painter);
         self.limb_projector.paint(painter);
         self.pose_detection.paint(painter);
+        self.object_detection.paint(painter);
     }
 
     pub fn save(&self) -> Value {
@@ -145,6 +150,7 @@ impl Overlays {
             "field_border": self.field_border.save(),
             "limb_projector": self.limb_projector.save(),
             "pose_detection": self.pose_detection.save(),
+            "object_detection": self.object_detection.save(),
         })
     }
 }

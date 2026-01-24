@@ -1,0 +1,26 @@
+[package]
+name = "world_state"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[dependencies]
+ball_filter = { workspace = true }
+booster = { workspace = true }
+color-eyre = { workspace = true }
+context_attribute = { workspace = true }
+coordinate_systems = { workspace = true }
+filtering = { workspace = true }
+framework = { workspace = true }
+geometry = { workspace = true }
+hardware = { workspace = true }
+hsl_network_messages = { workspace = true }
+kinematics = { workspace = true }
+linear_algebra = { workspace = true }
+nalgebra = { workspace = true }
+projection = { workspace = true }
+ros2 = { workspace = true }
+serde = { workspace = true }
+tokio = { workspace = true }
+types = { workspace = true }

@@ -1,6 +1,8 @@
 {
   "rl_walking": {
     "gait_frequency": 1,
+    "stabilizing_interval_completion_threshold": 0.01,
+    "stabilizing_interval_compression_factor": 1.0,
     "number_of_actions": 12,
     "number_of_observations": 47,
     "torque_limits": {
@@ -163,7 +165,7 @@
     "default_positions": {
       "head": {
         "yaw": 0.0,
-        "pitch": 0.0
+        "pitch": 0.4
       },
       "left_arm": {
         "shoulder_pitch": 0.2,
@@ -304,8 +306,24 @@
     },
     "distance_to_consider_ball_moved_in_kick_off": 0.3,
     "whistle_acceptance_goal_distance": [0.5, 0.5],
-    "duration_to_keep_observed_ball": { "nanos": 0, "secs": 14 },
-    "duration_to_keep_new_penalties": { "nanos": 0, "secs": 30 }
+    "duration_to_keep_observed_ball": {
+      "nanos": 0,
+      "secs": 14
+    },
+    "duration_to_keep_new_penalties": {
+      "nanos": 0,
+      "secs": 30
+    }
+  },
+  "behavior": {
+    "walk_with_velocity": {
+      "max_velocity": 1.0,
+      "max_angular_velocity": 1.0,
+      "angular_velocity_scaling_factor": 2.0
+    }
+  },
+  "motion": {
+    "use_remote_control_for_motion_selection": true
   },
   "field_dimensions": {
     "ball_radius": 0.095,
@@ -323,5 +341,27 @@
     "goal_inner_width": 1.5,
     "goal_post_diameter": 0.1,
     "goal_depth": 0.5
+  },
+  "object_detection": {
+    "enable": true,
+    "maximum_intersection_over_union": 0.7,
+    "confidence_threshold": 0.5
+  },
+  "ball_projection": {
+    "detection_noise": [8.0, 8.0]
+  },
+  "ball_filter": {
+    "hypothesis_timeout": {
+      "nanos": 0,
+      "secs": 2
+    }
+  },
+  "camera_matrix_parameters": {
+    "camera_to_head_pitch": -0.2125811028,
+    "correction_in_robot": [0.0, 0.0, 0.0],
+    "correction_in_camera": [0.0, 0.0, 0.0]
+  },
+  "cycler_frequencies": {
+    "world_state": 100
   }
 }

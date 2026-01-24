@@ -1,6 +1,7 @@
 use coordinate_systems::{Camera, Ground, Head, Pixel, Robot};
 use linear_algebra::{IntoFramed, Isometry3, Rotation3, Vector2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
+use ros2::sensor_msgs::camera_info::CameraInfo;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -54,6 +55,34 @@ impl CameraMatrix {
             .as_point();
 
         let intrinsics = Intrinsic::new(focal_length_scaled, optical_center_scaled);
+        let field_of_view = Intrinsic::calculate_field_of_view(intrinsics.focals, image_size);
+
+        let ground_to_camera = head_to_camera * robot_to_head * ground_to_robot;
+        let horizon = Horizon::from_parameters(ground_to_camera, &intrinsics);
+
+        Self {
+            intrinsics,
+            field_of_view,
+            horizon,
+            ground_to_robot,
+            robot_to_head,
+            head_to_camera,
+            image_size,
+            // Precomputed values
+            ground_to_camera,
+            ground_to_pixel: CameraProjection::new(ground_to_camera, intrinsics),
+            pixel_to_ground: CameraProjection::new(ground_to_camera, intrinsics).inverse(0.0),
+        }
+    }
+
+    pub fn from_camera_info(
+        camera_info: &CameraInfo,
+        image_size: Vector2<Pixel>,
+        ground_to_robot: Isometry3<Ground, Robot>,
+        robot_to_head: Isometry3<Robot, Head>,
+        head_to_camera: Isometry3<Head, Camera>,
+    ) -> Self {
+        let intrinsics = Intrinsic::from(camera_info);
         let field_of_view = Intrinsic::calculate_field_of_view(intrinsics.focals, image_size);
 
         let ground_to_camera = head_to_camera * robot_to_head * ground_to_robot;

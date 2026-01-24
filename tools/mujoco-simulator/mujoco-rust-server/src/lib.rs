@@ -118,6 +118,6 @@ mod python_module {
     #[pymodule_export(name = "booster_types")]
     use booster::python_module as booster_types;
 
-    #[pymodule_export(name = "zed_types")]
-    use zed::python_module as zed_types;
+    #[pymodule_export(name = "ros2_types")]
+    use ros2::python_module as ros2_types;
 }

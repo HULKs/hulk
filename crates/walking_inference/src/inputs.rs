@@ -1,5 +1,6 @@
 use std::f32::consts::PI;
 
+use approx::AbsDiffEq;
 use booster::{JointsMotorState, MotorState};
 use color_eyre::{eyre::ContextCompat, Result};
 use coordinate_systems::{Ground, Robot};
@@ -71,15 +72,38 @@ impl WalkingInferenceInputs {
                             .clamp(-policy_interval, policy_interval),
                 )
             }
+            MotionCommand::Stand { .. } | MotionCommand::Unstiff => (vector![0.0, 0.0], 0.0),
             _ => todo!(),
         };
 
-        let (gait_frequency, last_gait_progress) =
-            if linear_velocity_command.norm() < 1e-5 && angular_velocity_command.abs() < 1e-5 {
-                (0.0, 0.0)
-            } else {
-                (walking_parameters.gait_frequency, last_gait_progress)
-            };
+        let stabilizing_interval_progress = last_gait_progress
+            + walking_parameters.gait_frequency * cycle_time.last_cycle_duration.as_secs_f32();
+
+        let is_step_finished = (stabilizing_interval_progress
+            * walking_parameters.stabilizing_interval_compression_factor
+            * PI)
+            .sin()
+            .abs_diff_eq(
+                &0.0,
+                walking_parameters.stabilizing_interval_completion_threshold,
+            )
+            || (stabilizing_interval_progress
+                * walking_parameters.stabilizing_interval_compression_factor
+                * PI)
+                .cos()
+                .abs_diff_eq(
+                    &1.0,
+                    walking_parameters.stabilizing_interval_completion_threshold,
+                );
+
+        let (gait_frequency, last_gait_progress) = if linear_velocity_command.norm() < 1e-5
+            && angular_velocity_command.abs() < 1e-5
+            && is_step_finished
+        {
+            (0.0, 0.0)
+        } else {
+            (walking_parameters.gait_frequency, last_gait_progress)
+        };
         let gait_progress =
             last_gait_progress + gait_frequency * cycle_time.last_cycle_duration.as_secs_f32();
 

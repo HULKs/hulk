@@ -1,13 +1,12 @@
 use std::{
     ops::{Index, Range},
-    path::PathBuf,
     time::Duration,
 };
 
 use serde::{Deserialize, Serialize};
 
-use coordinate_systems::{Field, Ground, NormalizedPixel, Pixel};
-use linear_algebra::{Point2, Vector2};
+use coordinate_systems::{Camera, Field, Ground, NormalizedPixel, Pixel, Robot};
+use linear_algebra::{Point2, Vector2, Vector3};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{
@@ -52,6 +51,7 @@ pub struct BehaviorParameters {
     pub maximum_lookaround_duration: Duration,
     pub time_to_reach_delay_when_fallen: Duration,
     pub maximum_standup_attempts: u32,
+    pub walk_with_velocity: WalkWithVelocityParameters,
 }
 
 #[derive(
@@ -356,22 +356,8 @@ pub enum EdgeDetectionSourceParameters {
 #[derive(
     Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
-pub struct BallDetectionParameters {
-    pub minimal_radius: f32,
-    pub preclassifier_neural_network: PathBuf,
-    pub classifier_neural_network: PathBuf,
-    pub positioner_neural_network: PathBuf,
-    pub maximum_number_of_candidate_evaluations: usize,
-    pub preclassifier_confidence_threshold: f32,
-    pub classifier_confidence_threshold: f32,
-    pub confidence_merge_factor: f32,
-    pub correction_proximity_merge_factor: f32,
-    pub image_containment_merge_factor: f32,
-    pub cluster_merge_radius_factor: f32,
-    pub ball_radius_enlargement_factor: f32,
+pub struct BallProjectionParameters {
     pub detection_noise: Vector2<Pixel>,
-    pub noise_increase_slope: f32,
-    pub noise_increase_distance_threshold: f32,
 }
 
 #[derive(
@@ -388,17 +374,6 @@ pub struct BallFilterNoise {
 )]
 pub struct BallFilterParameters {
     pub hypothesis_timeout: Duration,
-    pub maximum_number_of_hypotheses: usize,
-    pub log_likelihood_of_zero_velocity_threshold: f32,
-    pub hypothesis_merge_distance: f32,
-    pub visible_validity_exponential_decay_factor: f32,
-    pub hidden_validity_exponential_decay_factor: f32,
-    pub validity_output_threshold: f32,
-    pub validity_discard_threshold: f32,
-    pub velocity_decay_factor: f32,
-    pub noise: BallFilterNoise,
-    pub maximum_matching_cost: f32,
-    pub maximum_matching_cost_validity_penalty_factor: f32,
 }
 
 #[derive(
@@ -431,9 +406,9 @@ pub struct ObstacleFilterParameters {
     Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
 pub struct CameraMatrixParameters {
-    pub camera_pitch: f32,
-    pub focal_lengths: nalgebra::Vector2<f32>,
-    pub cc_optical_center: nalgebra::Point2<f32>,
+    pub camera_to_head_pitch: f32,
+    pub correction_in_robot: Vector3<Robot>,
+    pub correction_in_camera: Vector3<Camera>,
 }
 
 #[derive(
@@ -507,6 +482,8 @@ pub enum StepPlannerMode {
 )]
 pub struct RLWalkingParameters {
     pub gait_frequency: f32,
+    pub stabilizing_interval_compression_factor: f32,
+    pub stabilizing_interval_completion_threshold: f32,
     pub number_of_actions: usize,
     pub number_of_observations: usize,
     pub torque_limits: Joints,
@@ -514,6 +491,15 @@ pub struct RLWalkingParameters {
     pub control: ControlParameters,
     pub walk_command: [f32; 3],
     pub joint_position_smoothing_factor: f32,
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct WalkWithVelocityParameters {
+    pub max_velocity: f32,
+    pub max_angular_velocity: f32,
+    pub angular_velocity_scaling_factor: f32,
 }
 
 #[derive(
@@ -545,4 +531,13 @@ pub struct MotorCommandParameters {
     pub default_positions: Joints,
     pub proportional_coefficients: Joints,
     pub derivative_coefficients: Joints,
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct ObjectDetectionParameters {
+    pub enable: bool,
+    pub maximum_intersection_over_union: f32,
+    pub confidence_threshold: f32,
 }

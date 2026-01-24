@@ -7,10 +7,10 @@ use std::{
 use booster::{LowCommand, LowState};
 use pyo3::{exceptions::PyValueError, pyclass, pymethods, Bound, Py, PyAny, PyResult, Python};
 use pyo3_async_runtimes::tokio::future_into_py;
+use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
 use simulation_message::{ConnectionInfo, SceneDescription, SceneUpdate, TaskName};
 use tokio::sync::{mpsc, oneshot};
 use uuid::Uuid;
-use zed::RGBDSensors;
 
 use super::handle::ConnectionHandle;
 
@@ -43,7 +43,10 @@ pub enum SimulationTask {
     RequestLowState {
         sender: mpsc::Sender<SimulationData>,
     },
-    RequestRGBDSensors {
+    RequestImage {
+        sender: mpsc::Sender<SimulationData>,
+    },
+    RequestCameraInfo {
         sender: mpsc::Sender<SimulationData>,
     },
     ApplyLowCommand {
@@ -73,7 +76,11 @@ pub enum SimulationData {
     },
     Image {
         time: SystemTime,
-        data: Box<RGBDSensors>,
+        data: Box<Image>,
+    },
+    CameraInfo {
+        time: SystemTime,
+        data: Box<CameraInfo>,
     },
 }
 
@@ -99,7 +106,8 @@ impl PySimulationTask {
             SimulationTask::ApplyLowCommand { .. } => TaskName::ApplyLowCommand,
             SimulationTask::RequestSceneDescription { .. } => TaskName::RequestSceneDescription,
             SimulationTask::RequestSceneState { .. } => TaskName::RequestSceneState,
-            SimulationTask::RequestRGBDSensors { .. } => TaskName::RequestRGBDSensors,
+            SimulationTask::RequestImage { .. } => TaskName::RequestImage,
+            SimulationTask::RequestCameraInfo { .. } => TaskName::RequestCameraInfo,
         }
     }
 
@@ -139,12 +147,25 @@ impl PySimulationTask {
                     Ok(())
                 })
             }
-            SimulationTask::RequestRGBDSensors { sender } => {
+            SimulationTask::RequestImage { sender } => {
                 let data = response.extract(py)?;
                 future_into_py(py, async move {
                     // Channel may be closed if websocket disconnects
                     let _ = sender
                         .send(SimulationData::Image {
+                            time,
+                            data: Box::new(data),
+                        })
+                        .await;
+                    Ok(())
+                })
+            }
+            SimulationTask::RequestCameraInfo { sender } => {
+                let data = response.extract(py)?;
+                future_into_py(py, async move {
+                    // Channel may be closed if websocket disconnects
+                    let _ = sender
+                        .send(SimulationData::CameraInfo {
                             time,
                             data: Box::new(data),
                         })
