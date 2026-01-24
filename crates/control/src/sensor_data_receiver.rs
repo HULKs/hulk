@@ -1,6 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use booster::{CommandType, ImuState, MotorState};
+use booster::{ImuState, MotorState};
 use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
 use coordinate_systems::Robot;
@@ -43,8 +43,8 @@ pub struct CycleContext {
 #[context]
 pub struct MainOutputs {
     pub imu_state: MainOutput<ImuState>,
-    pub motor_states: MainOutput<Joints<MotorState>>,
-    pub motor_command_type: MainOutput<CommandType>,
+    pub serial_motor_states: MainOutput<Joints<MotorState>>,
+    pub parallel_motor_states: MainOutput<Option<Joints<MotorState>>>,
     pub cycle_time: MainOutput<CycleTime>,
 }
 
@@ -74,27 +74,10 @@ impl SensorDataReceiver {
         };
         self.last_cycle_start = now;
 
-        let (motor_states, command_type) = if !low_state.motor_state_parallel.is_empty() {
-            (
-                low_state
-                    .motor_state_parallel
-                    .into_iter()
-                    .collect::<Joints<MotorState>>(),
-                CommandType::Parallel,
-            )
-        } else {
-            (
-                low_state
-                    .motor_state_serial
-                    .into_iter()
-                    .collect::<Joints<MotorState>>(),
-                CommandType::Serial,
-            )
-        };
         Ok(MainOutputs {
             imu_state: low_state.imu_state.into(),
-            motor_states: motor_states.into(),
-            motor_command_type: command_type.into(),
+            serial_motor_states: low_state.serial_motor_states()?.into(),
+            parallel_motor_states: low_state.parallel_motor_states().ok().into(),
             cycle_time: cycle_time.into(),
         })
     }

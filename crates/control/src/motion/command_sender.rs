@@ -27,7 +27,6 @@ pub struct CycleContext {
     low_command: AdditionalOutput<LowCommand, "low_command">,
 
     target_joint_positions: Input<Joints, "target_joint_positions">,
-    motor_command_type: Input<CommandType, "motor_command_type">,
 
     walk_motor_command_parameters: Parameter<MotorCommandParameters, "common_motor_command">,
     _prepare_motor_command_parameters: Parameter<MotorCommandParameters, "prepare_motor_command">,
@@ -71,7 +70,7 @@ impl CommandSender {
         let walk_low_command = LowCommand::new(
             &target_joint_positions,
             context.walk_motor_command_parameters,
-            context.motor_command_type.clone(),
+            CommandType::Serial,
         );
 
         context

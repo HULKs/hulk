@@ -31,7 +31,7 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    motor_states: PerceptionInput<Joints<MotorState>, "Control", "motor_states">,
+    serial_motor_states: PerceptionInput<Joints<MotorState>, "Control", "serial_motor_states">,
 }
 
 #[context]
@@ -49,10 +49,10 @@ impl KinematicsProvider {
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let Some(newest_motor_states) = context
-            .motor_states
+            .serial_motor_states
             .persistent
             .into_iter()
-            .chain(context.motor_states.temporary)
+            .chain(context.serial_motor_states.temporary)
             .flat_map(|(_time, motor_states)| motor_states)
             .last()
         else {

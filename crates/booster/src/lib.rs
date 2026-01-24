@@ -1,3 +1,4 @@
+use color_eyre::eyre::{bail, Result};
 use coordinate_systems::Robot;
 use linear_algebra::Vector3;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
@@ -37,6 +38,32 @@ impl LowState {
             imu_state,
             motor_state_parallel,
             motor_state_serial,
+        }
+    }
+}
+
+impl LowState {
+    pub fn serial_motor_states(&self) -> Result<Joints<MotorState>> {
+        if self.motor_state_serial.len() == 22 {
+            Ok(self
+                .motor_state_serial
+                .iter()
+                .cloned()
+                .collect::<Joints<MotorState>>())
+        } else {
+            bail!("failed to construct motor states")
+        }
+    }
+
+    pub fn parallel_motor_states(&self) -> Result<Joints<MotorState>> {
+        if self.motor_state_parallel.len() == 22 {
+            Ok(self
+                .motor_state_parallel
+                .iter()
+                .cloned()
+                .collect::<Joints<MotorState>>())
+        } else {
+            bail!("failed to construct motor states")
         }
     }
 }
