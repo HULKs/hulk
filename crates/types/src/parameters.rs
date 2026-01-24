@@ -51,6 +51,7 @@ pub struct BehaviorParameters {
     pub maximum_lookaround_duration: Duration,
     pub time_to_reach_delay_when_fallen: Duration,
     pub maximum_standup_attempts: u32,
+    pub walk_with_velocity: WalkWithVelocityParameters,
 }
 
 #[derive(
@@ -373,17 +374,6 @@ pub struct BallFilterNoise {
 )]
 pub struct BallFilterParameters {
     pub hypothesis_timeout: Duration,
-    pub maximum_number_of_hypotheses: usize,
-    pub log_likelihood_of_zero_velocity_threshold: f32,
-    pub hypothesis_merge_distance: f32,
-    pub visible_validity_exponential_decay_factor: f32,
-    pub hidden_validity_exponential_decay_factor: f32,
-    pub validity_output_threshold: f32,
-    pub validity_discard_threshold: f32,
-    pub velocity_decay_factor: f32,
-    pub noise: BallFilterNoise,
-    pub maximum_matching_cost: f32,
-    pub maximum_matching_cost_validity_penalty_factor: f32,
 }
 
 #[derive(
@@ -501,6 +491,15 @@ pub struct RLWalkingParameters {
     pub control: ControlParameters,
     pub walk_command: [f32; 3],
     pub joint_position_smoothing_factor: f32,
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct WalkWithVelocityParameters {
+    pub max_velocity: f32,
+    pub max_angular_velocity: f32,
+    pub angular_velocity_scaling_factor: f32,
 }
 
 #[derive(
