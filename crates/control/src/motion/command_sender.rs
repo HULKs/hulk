@@ -4,7 +4,11 @@ use context_attribute::context;
 use framework::AdditionalOutput;
 use hardware::{LowCommandInterface, TimeInterface};
 use serde::{Deserialize, Serialize};
-use types::{joints::Joints, parameters::MotorCommandParameters};
+use types::{
+    joints::{head::HeadJoints, Joints},
+    motion_command::{HeadMotion, MotionCommand},
+    parameters::MotorCommandParameters,
+};
 
 #[derive(Deserialize, Serialize)]
 pub struct CommandSender {
@@ -28,6 +32,8 @@ pub struct CycleContext {
     _prepare_motor_command_parameters: Parameter<MotorCommandParameters, "prepare_motor_command">,
 
     hardware_interface: HardwareInterface,
+    look_at: Input<HeadJoints<f32>, "look_at">,
+    motion_command: Input<MotionCommand, "selected_motion_command">,
 }
 
 #[context]
@@ -49,8 +55,20 @@ impl CommandSender {
         &mut self,
         mut context: CycleContext<impl LowCommandInterface + TimeInterface>,
     ) -> Result<MainOutputs> {
+        let look_at_head_joints = match context.motion_command.head_motion() {
+            Some(HeadMotion::LookAt { .. }) => Some(*context.look_at),
+            _ => None,
+        };
+
+        let target_joint_positions = Joints {
+            head: look_at_head_joints.unwrap_or(context.target_joint_positions.head),
+            left_arm: context.target_joint_positions.left_arm,
+            right_arm: context.target_joint_positions.right_arm,
+            left_leg: context.target_joint_positions.left_leg,
+            right_leg: context.target_joint_positions.right_leg,
+        };
         let walk_low_command = LowCommand::new(
-            context.target_joint_positions,
+            &target_joint_positions,
             context.walk_motor_command_parameters,
         );
 

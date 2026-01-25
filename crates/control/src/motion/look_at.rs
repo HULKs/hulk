@@ -6,7 +6,7 @@ use projection::camera_matrix::CameraMatrix;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::{Camera, Field, Ground, Robot};
+use coordinate_systems::{Camera, Ground, Robot};
 use framework::MainOutput;
 use linear_algebra::{distance, point, vector, Isometry3, Point2};
 use types::{
@@ -15,7 +15,7 @@ use types::{
     motion_command::{GlanceDirection, HeadMotion, ImageRegion, MotionCommand},
     parameters::ImageRegionParameters,
     sensor_data::SensorData,
-    world_state::WorldState,
+    // world_state::WorldState,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -29,14 +29,13 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    camera_matrix: Input<Option<CameraMatrix>, "camera_matrix?">,
+    camera_matrix: Input<Option<CameraMatrix>, "WorldState", "camera_matrix?">,
     cycle_time: Input<CycleTime, "cycle_time">,
-    ground_to_robot: Input<Option<Isometry3<Ground, Robot>>, "ground_to_robot?">,
-    motion_command: Input<MotionCommand, "motion_command">,
+    ground_to_robot: Input<Option<Isometry3<Ground, Robot>>, "WorldState", "ground_to_robot?">,
+    motion_command: Input<MotionCommand, "selected_motion_command">,
     sensor_data: Input<SensorData, "sensor_data">,
-    expected_referee_position: Input<Option<Point2<Field>>, "expected_referee_position?">,
-    world_state: Input<WorldState, "world_state">,
-
+    // expected_referee_position: Input<Option<Point2<Field>>, "expected_referee_position?">,
+    // world_state: Input<WorldState, "world_state">,
     glance_angle: Parameter<f32, "look_at.glance_angle">,
     image_region_parameters: Parameter<ImageRegionParameters, "look_at.image_regions">,
     glance_direction_toggle_interval:
@@ -74,10 +73,10 @@ impl LookAt {
             None => return default_output,
         };
 
-        let ground_to_field = match context.world_state.robot.ground_to_field {
-            Some(ground_to_robot) => ground_to_robot,
-            None => return default_output,
-        };
+        // let ground_to_field = match context.world_state.robot.ground_to_field {
+        //     Some(ground_to_robot) => ground_to_robot,
+        //     None => return default_output,
+        // };
 
         let head_motion = match context.motion_command {
             MotionCommand::Initial { head, .. } => head,
@@ -99,19 +98,19 @@ impl LookAt {
             self.last_glance_direction_toggle = Some(cycle_start_time);
         }
 
-        let expected_referee_position = ground_to_field.inverse()
-            * context
-                .expected_referee_position
-                .unwrap_or(&point!(0.0, 0.0));
+        // let expected_referee_position = ground_to_field.inverse()
+        //     * context
+        //         .expected_referee_position
+        //         .unwrap_or(&point!(0.0, 0.0));
 
         let (target, image_region_target, with_camera) = match *head_motion {
             HeadMotion::LookAt {
                 target,
                 image_region_target,
             } => (target, image_region_target, true),
-            HeadMotion::LookAtReferee {
-                image_region_target,
-            } => (expected_referee_position, image_region_target, true),
+            // HeadMotion::LookAtReferee {
+            //     image_region_target,
+            // } => (expected_referee_position, image_region_target, true),
             HeadMotion::LookLeftAndRightOf { target } => {
                 let left_right_shift = vector![
                     0.0,
