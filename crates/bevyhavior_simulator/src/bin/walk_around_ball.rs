@@ -22,7 +22,7 @@ fn walk_around_ball(app: &mut App) {
 
 fn startup(
     mut commands: Commands,
-    mut game_controller_commands: EventWriter<GameControllerCommand>,
+    mut game_controller_commands: MessageWriter<GameControllerCommand>,
 ) {
     commands.spawn(Robot::new(PlayerNumber::Seven));
     game_controller_commands.write(GameControllerCommand::SetGameState(GameState::Ready));
@@ -33,7 +33,7 @@ fn update(
     time: Res<Time<Ticks>>,
     mut robots: Query<&mut Robot>,
     mut ball: ResMut<BallResource>,
-    mut exit: EventWriter<AppExit>,
+    mut exit: MessageWriter<AppExit>,
 ) {
     if time.ticks() == 3200 {
         if let Some(ball) = ball.state.as_mut() {

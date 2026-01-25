@@ -272,7 +272,8 @@ impl PlotPanel {
             .show(ui, |plot_ui| {
                 for (plot_points, show_scatter, is_highlighted, color) in &plot_points {
                     if *show_scatter {
-                        let points = Points::new(plot_points.points())
+                        // TODO(oleflb): use actual name?
+                        let points = Points::new("time-series", plot_points.points())
                             .color(*color)
                             .radius(3.0)
                             .shape(MarkerShape::Diamond)
@@ -280,7 +281,7 @@ impl PlotPanel {
                         plot_ui.points(points);
                     }
 
-                    let line = Line::new(plot_points.points())
+                    let line = Line::new("time-series", plot_points.points())
                         .color(*color)
                         .highlight(*is_highlighted);
                     plot_ui.line(line);

@@ -3,15 +3,14 @@ use std::{collections::BTreeMap, f32::consts::FRAC_PI_2, thread, time::Duration}
 use bevy::{
     asset::RenderAssetUsages,
     ecs::relationship::RelatedSpawnerCommands,
-    image::{ImageAddressMode, ImageSampler, ImageSamplerDescriptor},
+    image::{ImageAddressMode, ImageFilterMode, ImageSampler, ImageSamplerDescriptor},
     math::Affine2,
+    mesh::{Indices, PrimitiveTopology, VertexAttributeValues},
     prelude::*,
-    render::{
-        mesh::{PrimitiveTopology, VertexAttributeValues},
-        render_resource::{Extent3d, TextureDimension},
-    },
+    render::render_resource::{Extent3d, TextureDimension},
 };
 use futures_util::{SinkExt, StreamExt};
+use image::{imageops::FilterType, DynamicImage, ImageBuffer};
 use log::{error, info};
 use simulation_message::{
     ConnectionInfo, Geom, GeomVariant, Material, SceneDescription, SceneMesh, SceneUpdate,
@@ -38,9 +37,9 @@ impl Plugin for MujocoVisualizerPlugin {
         let receiver = spawn_workers_thread(self.egui_ctx.clone());
 
         app.insert_resource(MujocoVisualizerData { receiver })
-            .add_event::<SceneDescriptionEvent>()
-            .add_event::<SceneUpdateEvent>()
-            .add_systems(PreUpdate, process_simultator_messages)
+            .add_message::<SceneDescriptionMessage>()
+            .add_message::<SceneUpdateMessage>()
+            .add_systems(PreUpdate, process_simulator_messages)
             .add_systems(Update, spawn_mujoco_scene)
             .add_systems(Update, update_bodies);
     }
@@ -97,18 +96,18 @@ fn spawn_workers_thread(egui_ctx: egui::Context) -> mpsc::Receiver<ServerMessage
     update_receiver
 }
 
-fn process_simultator_messages(
-    mut scene_description_writer: EventWriter<SceneDescriptionEvent>,
-    mut scene_update_writer: EventWriter<SceneUpdateEvent>,
+fn process_simulator_messages(
+    mut scene_description_writer: MessageWriter<SceneDescriptionMessage>,
+    mut scene_update_writer: MessageWriter<SceneUpdateMessage>,
     mut data: ResMut<MujocoVisualizerData>,
 ) {
     while let Ok(update) = data.receiver.try_recv() {
         match update {
             ServerMessageKind::SceneUpdate(scene_update) => {
-                scene_update_writer.write(SceneUpdateEvent(scene_update));
+                scene_update_writer.write(SceneUpdateMessage(scene_update));
             }
             ServerMessageKind::SceneDescription(scene_description) => {
-                scene_description_writer.write(SceneDescriptionEvent(scene_description));
+                scene_description_writer.write(SceneDescriptionMessage(scene_description));
             }
             _ => info!("Received unexpected simulator data"),
         }
@@ -123,7 +122,7 @@ fn calculate_tangents(mesh: &SceneMesh) -> Vec<[f32; 4]> {
 
     helper_mesh.insert_attribute(Mesh::ATTRIBUTE_POSITION, mesh.vertices.clone());
     helper_mesh.insert_attribute(Mesh::ATTRIBUTE_NORMAL, mesh.normals.clone());
-    helper_mesh.insert_indices(bevy::render::mesh::Indices::U32(
+    helper_mesh.insert_indices(Indices::U32(
         mesh.vertex_indices
             .iter()
             .flatten()
@@ -150,39 +149,61 @@ fn calculate_tangents(mesh: &SceneMesh) -> Vec<[f32; 4]> {
 }
 
 fn spawn_mujoco_scene(
-    mut scene_description: EventReader<SceneDescriptionEvent>,
+    mut scene_description: MessageReader<SceneDescriptionMessage>,
     mut meshes: ResMut<Assets<Mesh>>,
     mut materials: ResMut<Assets<StandardMaterial>>,
     mut images: ResMut<Assets<Image>>,
     mut commands: Commands,
 ) {
-    let Some(SceneDescriptionEvent(scene)) = scene_description.read().last() else {
+    let Some(SceneDescriptionMessage(scene)) = scene_description.read().last() else {
         return;
     };
     // TODO(oleflb): Add MuJoCo marker component used to cleanup before spawning
-
     let texture_handles: BTreeMap<_, _> = scene
         .textures
         .iter()
-        .map(|(id, image)| {
+        .map(|(id, image_data)| {
+            let width = image_data.width;
+            let height = image_data.height;
+
+            let mut all_mips_data: Vec<u8> = image_data
+                .rgb
+                .chunks_exact(3)
+                .flat_map(|rgb| [rgb[0], rgb[1], rgb[2], 255])
+                .collect();
+
+            let mut image = DynamicImage::ImageRgba8(
+                ImageBuffer::from_raw(width, height, all_mips_data.clone())
+                    .expect("failed to create image buffer"),
+            );
+            let mip_level_count = width.min(height).ilog2();
+            for _ in 0..mip_level_count {
+                image =
+                    image.resize_exact(image.width() / 2, image.height() / 2, FilterType::Triangle);
+                all_mips_data.extend_from_slice(image.as_bytes());
+            }
+
             let mut image = Image::new(
                 Extent3d {
-                    width: image.width,
-                    height: image.height,
+                    width,
+                    height,
                     depth_or_array_layers: 1,
                 },
                 TextureDimension::D2,
-                image
-                    .rgb
-                    .chunks(3)
-                    .flat_map(|rgb| [rgb[0], rgb[1], rgb[2], 255])
-                    .collect(),
+                all_mips_data,
                 wgpu::TextureFormat::Rgba8UnormSrgb,
                 RenderAssetUsages::RENDER_WORLD,
             );
+
+            image.texture_descriptor.mip_level_count = mip_level_count;
+
             image.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
                 address_mode_u: ImageAddressMode::Repeat,
                 address_mode_v: ImageAddressMode::Repeat,
+                mipmap_filter: ImageFilterMode::Linear,
+                min_filter: ImageFilterMode::Linear,
+                mag_filter: ImageFilterMode::Linear,
+                anisotropy_clamp: 16,
                 ..default()
             });
 
@@ -370,9 +391,11 @@ fn spawn_geom(
     entity_commands
         .spawn((
             Transform::from_translation(Vec3::from(geom.pos)).with_rotation(bevy_quat(geom.quat)),
+            InheritedVisibility::default(),
         ))
         .with_children(|parent| {
             parent.spawn((
+                InheritedVisibility::default(),
                 Mesh3d(mesh_handle),
                 MeshMaterial3d(material),
                 Transform::from_rotation(alignment_rotation),
@@ -381,10 +404,10 @@ fn spawn_geom(
 }
 
 fn update_bodies(
-    mut scene_update: EventReader<SceneUpdateEvent>,
+    mut scene_update: MessageReader<SceneUpdateMessage>,
     mut query: Query<(&mut Transform, &BodyComponent)>,
 ) {
-    let Some(SceneUpdateEvent(scene_update)) = scene_update.read().last() else {
+    let Some(SceneUpdateMessage(scene_update)) = scene_update.read().last() else {
         return;
     };
     for (mut transform, marker) in query.iter_mut() {
@@ -410,8 +433,8 @@ fn bevy_quat(quat: [f32; 4]) -> Quat {
     Quat::from_xyzw(x, y, z, w)
 }
 
-#[derive(Event)]
-pub struct SceneDescriptionEvent(SceneDescription);
+#[derive(Message)]
+pub struct SceneDescriptionMessage(SceneDescription);
 
-#[derive(Event)]
-pub struct SceneUpdateEvent(SceneUpdate);
+#[derive(Message)]
+pub struct SceneUpdateMessage(SceneUpdate);

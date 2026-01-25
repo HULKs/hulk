@@ -58,18 +58,12 @@
     <light directional="true" diffuse=".6 .6 .6" specular="0.2 0.2 0.2" pos="0 0 4" dir="0 0 -1" />
     <geom name="ground" type="plane" pos="0 0 -0.01" size="0 0 1" material="matplane" condim="1" friction="0.4 0.005 0.0001"/>
 
-    <geom name="static_box" type="box" size="0.2 0.2 1" pos="2 1 0" rgba="0.8 0.2 0.2 1" />
-    <geom name="static_capsule" type="capsule" size="0.2 0.5" pos="-2 1 0" rgba="0.8 0.2 0.2 1" />
-    <geom name="static_cylinder" type="cylinder" size="0.2 0.5" pos="-2 -1 0" rgba="0.8 0.2 0.2 1" />
-
     <body name="Trunk" pos="0 0 0.6">
       <site name='imu' size='0.01' pos='0.0 0.0 0.0' />
       <inertial pos="-0.0043392 -0.00065534 0.065686" quat="0.999896 -0.00411546 0.0137413 -0.00168959" mass="6.5" diaginertia="0.0962166 0.0895166 0.0201248"/>
       <joint name="world_joint" type="free" limited="false" actuatorfrclimited="false"/>
       <geom class="mesh_visual" mesh="Trunk"/>
 
-      <geom class="colliderprimitive" size="0.06 0.08 0.1" pos="0 0 0.1" type="box" rgba="0.75294 0.75294 0.75294 0.0"/>
-      <geom class="colliderprimitive" size="0.05 0.05" pos="0 0 -0.06" quat="0.707105 0.707108 0 0" type="cylinder"/>
       <geom class="mesh_visual" rgba="0.792156862745098 0.819607843137255 0.933333333333333 1" mesh="K1logo"/>
       <body name="Head_1" pos="0.0056 0 0.2149">
         <inertial pos="-0.00069503 -0.00038527 0.031688" quat="0.993827 -0.00957801 0.00894723 -0.110168" mass="0.3" diaginertia="0.000429546 0.000420659 0.000125795"/>

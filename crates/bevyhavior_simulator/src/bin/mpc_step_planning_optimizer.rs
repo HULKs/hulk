@@ -24,7 +24,7 @@ fn mpc_step_planner_optimizer(app: &mut App) {
 
 fn startup(
     mut commands: Commands,
-    mut game_controller_commands: EventWriter<GameControllerCommand>,
+    mut game_controller_commands: MessageWriter<GameControllerCommand>,
 ) {
     commands.spawn(Robot::new(PlayerNumber::Seven));
 
@@ -34,7 +34,7 @@ fn startup(
 fn update(
     _game_controller: ResMut<GameController>,
     time: Res<Time<Ticks>>,
-    mut exit: EventWriter<AppExit>,
+    mut exit: MessageWriter<AppExit>,
     mut robots: Query<&mut Robot>,
 ) {
     let mut robot = robots.single_mut().expect("no robot found");

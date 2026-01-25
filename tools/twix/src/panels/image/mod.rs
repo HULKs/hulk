@@ -212,7 +212,11 @@ impl ImagePanel {
                     .try_load_texture(
                         &image_identifier,
                         TextureOptions::NEAREST,
-                        SizeHint::Size(640, 480),
+                        SizeHint::Size {
+                            width: 640,
+                            height: 480,
+                            maintain_aspect_ratio: true,
+                        },
                     )?
                     .texture_id()
                     .unwrap()

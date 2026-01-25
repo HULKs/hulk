@@ -364,7 +364,7 @@ impl NetworkInterface for MujocoHardwareInterface {
 
 impl SpeakerInterface for MujocoHardwareInterface {
     fn write_to_speakers(&self, _request: SpeakerRequest) {
-        todo!()
+        log::warn!("Tried to play audio request, not implemented!")
     }
 }
 

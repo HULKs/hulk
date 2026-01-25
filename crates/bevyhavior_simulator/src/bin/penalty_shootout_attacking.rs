@@ -20,7 +20,7 @@ fn penalty_shootout_attacking(app: &mut App) {
 
 fn startup(
     mut commands: Commands,
-    mut game_controller_commands: EventWriter<GameControllerCommand>,
+    mut game_controller_commands: MessageWriter<GameControllerCommand>,
     mut ball: ResMut<BallResource>,
 ) {
     let mut robot = Robot::new(PlayerNumber::One);
@@ -42,7 +42,7 @@ fn startup(
 fn update(
     game_controller: ResMut<GameController>,
     time: ResMut<Time<Ticks>>,
-    mut exit: EventWriter<AppExit>,
+    mut exit: MessageWriter<AppExit>,
 ) {
     if game_controller.state.hulks_team.score > 0 {
         println!("Done");

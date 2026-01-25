@@ -17,7 +17,7 @@ fn flickering_ball(app: &mut App) {
 
 fn startup(
     mut commands: Commands,
-    mut game_controller_commands: EventWriter<GameControllerCommand>,
+    mut game_controller_commands: MessageWriter<GameControllerCommand>,
 ) {
     for number in [
         PlayerNumber::One,
@@ -38,7 +38,7 @@ fn startup(
 fn update(
     game_controller: ResMut<GameController>,
     time: Res<Time<Ticks>>,
-    mut exit: EventWriter<AppExit>,
+    mut exit: MessageWriter<AppExit>,
     mut robots: Query<&mut Robot>,
 ) {
     for mut robot in robots.iter_mut() {

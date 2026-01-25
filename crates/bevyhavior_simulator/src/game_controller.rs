@@ -18,7 +18,7 @@ struct GameControllerControllerState {
     last_state_change: Time,
 }
 
-#[derive(Clone, Copy, Event)]
+#[derive(Clone, Copy, Message)]
 pub enum GameControllerCommand {
     SetGameState(GameState),
     SetGamePhase(GamePhase),
@@ -31,7 +31,7 @@ pub enum GameControllerCommand {
 }
 
 fn game_controller_controller(
-    mut commands: EventReader<GameControllerCommand>,
+    mut commands: MessageReader<GameControllerCommand>,
     mut state: ResMut<GameControllerControllerState>,
     mut game_controller: ResMut<GameController>,
     whistle: ResMut<WhistleResource>,
@@ -197,7 +197,7 @@ impl Default for GameController {
 }
 
 pub fn game_controller_plugin(app: &mut App) {
-    app.add_systems(Update, game_controller_controller.after(autoref));
-    app.init_resource::<GameControllerControllerState>();
-    app.init_resource::<Events<GameControllerCommand>>();
+    app.init_resource::<GameControllerControllerState>()
+        .add_message::<GameControllerCommand>()
+        .add_systems(Update, game_controller_controller.after(autoref));
 }

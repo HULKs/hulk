@@ -28,7 +28,7 @@ struct State<'s> {
 fn startup(
     mut commands: Commands,
     mut game_controller: ResMut<GameController>,
-    mut game_controller_commands: EventWriter<GameControllerCommand>,
+    mut game_controller_commands: MessageWriter<GameControllerCommand>,
     mut ball: ResMut<BallResource>,
 ) {
     let mut robot = Robot::new(PlayerNumber::One);
@@ -48,7 +48,7 @@ fn update(
     game_controller: ResMut<GameController>,
     time: Res<Time<Ticks>>,
     mut ball: ResMut<BallResource>,
-    mut exit: EventWriter<AppExit>,
+    mut exit: MessageWriter<AppExit>,
     mut robots: Query<&mut Robot>,
     mut state: State,
     mut soft_error: SoftErrorSender,

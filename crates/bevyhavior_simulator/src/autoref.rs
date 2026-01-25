@@ -3,7 +3,7 @@ use std::f32::consts::FRAC_PI_2;
 use bevy::{
     app::{App, Update},
     ecs::{
-        event::{EventReader, EventWriter},
+        message::{MessageReader, MessageWriter},
         resource::Resource,
         schedule::IntoScheduleConfigs,
         system::{Query, ResMut},
@@ -60,7 +60,7 @@ pub fn autoref(
     field_dimensions: Res<SimulatorFieldDimensions>,
     mut referee_whistle: ResMut<WhistleResource>,
     game_controller: ResMut<GameController>,
-    mut game_controller_commands: EventWriter<GameControllerCommand>,
+    mut game_controller_commands: MessageWriter<GameControllerCommand>,
     robots: Query<&Robot>,
     time: ResMut<Time>,
     mut visual_referee: ResMut<VisualRefereeResource>,
@@ -86,7 +86,7 @@ pub fn autoref(
             if state
                 .robots_standing_still
                 .as_ref()
-                .is_some_and(|timer| timer.finished())
+                .is_some_and(|timer| timer.is_finished())
             {
                 game_controller_commands.write(GameControllerCommand::SetGameState(GameState::Set));
             }
@@ -136,7 +136,7 @@ fn ball_in_goal(ball: SimulatorBallState, field_dimensions: FieldDimensions) -> 
 }
 
 pub fn auto_assistant_referee(
-    mut game_controller_commands: EventReader<GameControllerCommand>,
+    mut game_controller_commands: MessageReader<GameControllerCommand>,
     field_dimensions: Res<SimulatorFieldDimensions>,
     mut robots: Query<&mut Robot>,
     mut ball: ResMut<BallResource>,
@@ -272,7 +272,6 @@ pub fn auto_assistant_referee(
 }
 
 pub fn autoref_plugin(app: &mut App) {
-    app.add_systems(Update, autoref);
-    app.add_systems(Update, auto_assistant_referee.after(autoref));
-    app.init_resource::<AutorefState>();
+    app.init_resource::<AutorefState>()
+        .add_systems(Update, (autoref, auto_assistant_referee.after(autoref)));
 }

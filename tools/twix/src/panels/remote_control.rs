@@ -24,7 +24,7 @@ pub struct RemotePanel {
     latest_step: BufferHandle<Step>,
     bg_running: Arc<AtomicBool>,
     bg_handle: Option<JoinHandle<()>>,
-    receiver: Receiver<Step>,
+    receiver: Receiver<(Step, f64)>,
 }
 
 impl<'a> Panel<'a> for RemotePanel {
@@ -32,10 +32,11 @@ impl<'a> Panel<'a> for RemotePanel {
 
     fn new(context: PanelCreationContext) -> Self {
         let nao = context.nao.clone();
-        let (sender, receiver) = channel(Step::<f32>::default());
+        let (sender, receiver) = channel((Step::<f32>::default(), f64::default()));
 
         let enabled = Arc::new(AtomicBool::new(false));
         let latest_step = nao.subscribe_value("parameters.remote_control_parameters.walk");
+        let gait_parameter_value = nao.subscribe_json("parameters.rl_walking.gait_frequency");
         let bg_running = Arc::new(AtomicBool::new(true));
 
         let nao_clone = nao.clone();
@@ -68,7 +69,7 @@ impl<'a> Panel<'a> for RemotePanel {
                 }
 
                 if gilrs.gamepads().next().is_none() {
-                    let _ = sender.send(Step::default());
+                    let _ = sender.send((Step::default(), 1.0));
                     if enabled_clone.load(Ordering::Relaxed) {
                         reset(&nao_clone);
                     }
@@ -89,6 +90,12 @@ impl<'a> Panel<'a> for RemotePanel {
                         get_axis_value(gamepad, Axis::LeftStickY).unwrap_or(0.0),
                     );
 
+                    let is_pressed = |button| {
+                        gamepad
+                            .button_data(button)
+                            .is_some_and(|button| button.is_pressed())
+                    };
+
                     let left = -right;
 
                     let turn_right = gamepad
@@ -107,10 +114,7 @@ impl<'a> Panel<'a> for RemotePanel {
                         turn,
                     };
 
-                    let start_pressed = gamepad
-                        .button_data(Button::Start)
-                        .map(|button| button.is_pressed())
-                        .unwrap_or(false);
+                    let start_pressed = is_pressed(Button::Start);
 
                     if start_pressed && !start_was_pressed {
                         let new_state = !enabled_clone.load(Ordering::Relaxed);
@@ -122,16 +126,36 @@ impl<'a> Panel<'a> for RemotePanel {
                     }
                     start_was_pressed = start_pressed;
 
+                    let current_value = gait_parameter_value
+                        .get_last_value()
+                        .ok()
+                        .flatten()
+                        .and_then(|value| value.as_f64())
+                        .unwrap_or(1.0);
+                    let new_gait_parameter_value = if is_pressed(Button::DPadLeft) {
+                        // Reset
+                        1.0
+                    } else if is_pressed(Button::DPadUp) {
+                        // Increase
+                        (current_value + 0.25).min(10.0)
+                    } else if is_pressed(Button::DPadDown) {
+                        // Decrease
+                        (current_value - 0.25).max(0.25)
+                    } else {
+                        // Stay
+                        current_value
+                    };
+
                     if enabled_clone.load(Ordering::Relaxed) {
                         let now = SystemTime::now();
                         if now.duration_since(last_update).expect("Time ran backwards")
                             > UPDATE_DELAY
                         {
                             last_update = now;
-                            update_step(&nao_clone, step);
+                            update_step(&nao_clone, step, new_gait_parameter_value);
+                            let _ = sender.send((step, new_gait_parameter_value));
                         }
                     }
-                    let _ = sender.send(step);
                 }
             }
         });
@@ -164,13 +188,17 @@ fn get_axis_value(gamepad: Gamepad, axis: Axis) -> Option<f32> {
 }
 
 fn reset(nao: &Arc<Nao>) {
-    update_step(nao, Step::<f32>::default());
+    update_step(nao, Step::<f32>::default(), 1.0);
 }
 
-fn update_step(nao: &Arc<Nao>, step: Step) {
+fn update_step(nao: &Arc<Nao>, step: Step, gait_frequency: f64) {
     nao.write(
         "parameters.remote_control_parameters.walk",
         TextOrBinary::Text(serde_json::to_value(step).unwrap()),
+    );
+    nao.write(
+        "parameters.rl_walking.gait_frequency",
+        TextOrBinary::Text(serde_json::to_value(gait_frequency).unwrap()),
     );
 }
 
@@ -194,13 +222,13 @@ impl Widget for &mut RemotePanel {
         };
         ui.separator();
         ui.strong("Controller:");
-        let controller_step = *self.receiver.borrow();
+        let (controller_step, gait_frequency) = *self.receiver.borrow();
         ui.label(format!("{controller_step:#?}"));
         ui.add_space(ui.spacing().item_spacing.y);
         ui.strong("Robot:");
 
         match self.latest_step.get_last_value() {
-            Ok(Some(step)) => ui.label(format!("{step:#?}")),
+            Ok(Some(step)) => ui.label(format!("{step:#?}\nGait frequency: {gait_frequency:#?}")),
             _ => ui.label("No data"),
         }
     }

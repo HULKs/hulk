@@ -22,7 +22,7 @@ fn deny_keeper_ballsearch(app: &mut App) {
 
 fn startup(
     mut commands: Commands,
-    mut game_controller_commands: EventWriter<GameControllerCommand>,
+    mut game_controller_commands: MessageWriter<GameControllerCommand>,
 ) {
     for number in [PlayerNumber::One, PlayerNumber::Seven] {
         commands.spawn(Robot::new(number));
@@ -31,11 +31,11 @@ fn startup(
 }
 
 fn update(
-    mut game_controller_commands: EventWriter<GameControllerCommand>,
+    mut game_controller_commands: MessageWriter<GameControllerCommand>,
     time: Res<Time<Ticks>>,
     mut robots: Query<&mut Robot>,
     mut ball: ResMut<BallResource>,
-    mut exit: EventWriter<AppExit>,
+    mut exit: MessageWriter<AppExit>,
 ) {
     if time.ticks() == 3000 {
         ball.state = None;

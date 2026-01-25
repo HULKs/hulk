@@ -19,7 +19,7 @@ fn reappearing_ball_in_front_of_keeper(app: &mut App) {
 
 fn startup(
     mut commands: Commands,
-    mut game_controller_commands: EventWriter<GameControllerCommand>,
+    mut game_controller_commands: MessageWriter<GameControllerCommand>,
 ) {
     for number in [
         PlayerNumber::One,
@@ -40,7 +40,7 @@ fn update(
     time: Res<Time<Ticks>>,
     mut ball: ResMut<BallResource>,
     robots: Query<&Robot>,
-    mut exit: EventWriter<AppExit>,
+    mut exit: MessageWriter<AppExit>,
     mut keeper_was_striker_once: Local<bool>,
 ) {
     if time.ticks() == 2800 {

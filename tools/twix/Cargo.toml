@@ -9,15 +9,7 @@ homepage.workspace = true
 aliveness = { workspace = true }
 argument_parsers = { workspace = true }
 ball_filter = { workspace = true }
-bevy = { workspace = true, features = [
-  "bevy_render",
-  "bevy_asset",
-  "bevy_core_pipeline",
-  "bevy_gizmos",
-  "bevy_window",
-  "bevy_pbr",
-  "tonemapping_luts",
-] }
+bevy = { workspace = true, features = ["3d_bevy_render"] }
 bevy_mujoco = { workspace = true }
 bincode = { workspace = true }
 buffered_watch = { workspace = true }
