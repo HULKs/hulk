@@ -1,8 +1,11 @@
 use color_eyre::eyre;
-use image::{codecs::jpeg::JpegEncoder, ImageBuffer, ImageError, Luma, RgbImage};
+use image::{
+    codecs::jpeg::JpegEncoder, ImageBuffer, ImageError, ImageFormat, ImageReader, ImageResult,
+    Luma, RgbImage,
+};
 use ros2::sensor_msgs::image::Image;
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::{io, path::Path};
 
 use crate::{grayscale_image::GrayscaleImage, ycbcr422_image::YCbCr422Image};
 
@@ -56,5 +59,28 @@ impl TryFrom<Image> for JpegImage {
 impl JpegImage {
     pub fn save_to_jpeg_file(&self, file: impl AsRef<Path>) -> eyre::Result<()> {
         Ok(std::fs::write(file, self.data.clone())?)
+    }
+
+    /// Returns width and height of the ´JpegImage´
+    pub fn dimensions(&self) -> ImageResult<(u32, u32)> {
+        ImageReader::with_format(io::Cursor::new(self.data.as_slice()), ImageFormat::Jpeg)
+            .into_dimensions()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{GrayscaleImage, JpegImage};
+
+    #[test]
+    fn jpeg_image_dimension() {
+        let image = GrayscaleImage::from_vec(10, 20, vec![0; 200]);
+        let jpeg_image = JpegImage::try_from(&image).expect("failed to convert grayscale to jpeg");
+        assert_eq!(
+            jpeg_image
+                .dimensions()
+                .expect("failed to get image dimensions"),
+            (10, 20)
+        );
     }
 }
