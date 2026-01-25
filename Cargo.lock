@@ -1437,6 +1437,7 @@ dependencies = [
  "bincode",
  "egui",
  "futures-util",
+ "image",
  "log",
  "serde_json",
  "simulation_message",

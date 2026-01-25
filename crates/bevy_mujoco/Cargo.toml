@@ -10,6 +10,7 @@ bevy = { workspace = true, features = ["3d_bevy_render"] }
 bincode = { workspace = true }
 egui = { workspace = true }
 futures-util = { workspace = true }
+image = { workspace = true }
 log = { workspace = true }
 serde_json = { workspace = true }
 simulation_message = { workspace = true }

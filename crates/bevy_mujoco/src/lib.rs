@@ -3,13 +3,14 @@ use std::{collections::BTreeMap, f32::consts::FRAC_PI_2, thread, time::Duration}
 use bevy::{
     asset::RenderAssetUsages,
     ecs::relationship::RelatedSpawnerCommands,
-    image::{ImageAddressMode, ImageSampler, ImageSamplerDescriptor},
+    image::{ImageAddressMode, ImageFilterMode, ImageSampler, ImageSamplerDescriptor},
     math::Affine2,
     mesh::{Indices, PrimitiveTopology, VertexAttributeValues},
     prelude::*,
     render::render_resource::{Extent3d, TextureDimension},
 };
 use futures_util::{SinkExt, StreamExt};
+use image::{imageops::FilterType, DynamicImage, ImageBuffer};
 use log::{error, info};
 use simulation_message::{
     ConnectionInfo, Geom, GeomVariant, Material, SceneDescription, SceneMesh, SceneUpdate,
@@ -158,29 +159,51 @@ fn spawn_mujoco_scene(
         return;
     };
     // TODO(oleflb): Add MuJoCo marker component used to cleanup before spawning
-
     let texture_handles: BTreeMap<_, _> = scene
         .textures
         .iter()
-        .map(|(id, image)| {
+        .map(|(id, image_data)| {
+            let width = image_data.width;
+            let height = image_data.height;
+
+            let mut all_mips_data: Vec<u8> = image_data
+                .rgb
+                .chunks_exact(3)
+                .flat_map(|rgb| [rgb[0], rgb[1], rgb[2], 255])
+                .collect();
+
+            let mut image = DynamicImage::ImageRgba8(
+                ImageBuffer::from_raw(width, height, all_mips_data.clone())
+                    .expect("failed to create image buffer"),
+            );
+            let mip_level_count = width.min(height).ilog2();
+            for _ in 0..mip_level_count {
+                image =
+                    image.resize_exact(image.width() / 2, image.height() / 2, FilterType::Triangle);
+                all_mips_data.extend_from_slice(image.as_bytes());
+            }
+
             let mut image = Image::new(
                 Extent3d {
-                    width: image.width,
-                    height: image.height,
+                    width,
+                    height,
                     depth_or_array_layers: 1,
                 },
                 TextureDimension::D2,
-                image
-                    .rgb
-                    .chunks(3)
-                    .flat_map(|rgb| [rgb[0], rgb[1], rgb[2], 255])
-                    .collect(),
+                all_mips_data,
                 wgpu::TextureFormat::Rgba8UnormSrgb,
                 RenderAssetUsages::RENDER_WORLD,
             );
+
+            image.texture_descriptor.mip_level_count = mip_level_count;
+
             image.sampler = ImageSampler::Descriptor(ImageSamplerDescriptor {
                 address_mode_u: ImageAddressMode::Repeat,
                 address_mode_v: ImageAddressMode::Repeat,
+                mipmap_filter: ImageFilterMode::Linear,
+                min_filter: ImageFilterMode::Linear,
+                mag_filter: ImageFilterMode::Linear,
+                anisotropy_clamp: 16,
                 ..default()
             });
 
