@@ -6,15 +6,7 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
-bevy = { workspace = true, features = [
-  "bevy_render",
-  "bevy_asset",
-  "bevy_core_pipeline",
-  "bevy_gizmos",
-  "bevy_window",
-  "bevy_pbr",
-  "tonemapping_luts",
-] }
+bevy = { workspace = true, features = ["3d_bevy_render"] }
 bincode = { workspace = true }
 egui = { workspace = true }
 futures-util = { workspace = true }

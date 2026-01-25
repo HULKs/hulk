@@ -101,11 +101,11 @@ impl Segment {
 
         if ui.rect_contains_pointer(screenspace_rect) {
             if let Some(tooltip) = self.tooltip() {
-                Tooltip::new(
-                    "Fridolin".into(),
+                Tooltip::always_open(
                     ui.ctx().clone(),
-                    PopupAnchor::Pointer,
                     ui.layer_id(),
+                    "Fridolin".into(),
+                    PopupAnchor::Pointer,
                 )
                 .gap(12.0)
                 .show(|ui| {

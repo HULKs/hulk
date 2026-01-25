@@ -23,13 +23,13 @@ fn demonstration(app: &mut App) {
 
 fn startup(
     mut commands: Commands,
-    mut game_controller_commands: EventWriter<GameControllerCommand>,
+    mut game_controller_commands: MessageWriter<GameControllerCommand>,
 ) {
     commands.spawn(Robot::new(PlayerNumber::Seven));
     game_controller_commands.write(GameControllerCommand::SetGameState(GameState::Playing));
 }
 
-fn update(time: Res<Time<Ticks>>, mut exit: EventWriter<AppExit>, mut robots: Query<&mut Robot>) {
+fn update(time: Res<Time<Ticks>>, mut exit: MessageWriter<AppExit>, mut robots: Query<&mut Robot>) {
     let mut robot = robots.iter_mut().next().unwrap();
 
     robot.database.main_outputs.ground_to_field = Some(Isometry2::identity());

@@ -17,7 +17,7 @@ fn ingame_penalty_kick_opponent(app: &mut App) {
 
 fn startup(
     mut commands: Commands,
-    mut game_controller_commands: EventWriter<GameControllerCommand>,
+    mut game_controller_commands: MessageWriter<GameControllerCommand>,
 ) {
     for number in [
         PlayerNumber::One,
@@ -35,9 +35,9 @@ fn startup(
 
 fn update(
     game_controller: ResMut<GameController>,
-    mut game_controller_commands: EventWriter<GameControllerCommand>,
+    mut game_controller_commands: MessageWriter<GameControllerCommand>,
     time: Res<Time<Ticks>>,
-    mut exit: EventWriter<AppExit>,
+    mut exit: MessageWriter<AppExit>,
 ) {
     if time.ticks() == 3000 {
         game_controller_commands.write(GameControllerCommand::SetSubState(

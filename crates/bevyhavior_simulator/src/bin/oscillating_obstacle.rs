@@ -23,7 +23,7 @@ fn oscillating_obstacle(app: &mut App) {
 fn startup(
     mut commands: Commands,
     mut game_controller: ResMut<GameController>,
-    mut game_controller_commands: EventWriter<GameControllerCommand>,
+    mut game_controller_commands: MessageWriter<GameControllerCommand>,
     mut ball: ResMut<BallResource>,
 ) {
     let mut robot = Robot::new(PlayerNumber::Seven);
@@ -41,7 +41,7 @@ fn startup(
 fn update(
     game_controller: ResMut<GameController>,
     time: ResMut<Time<Ticks>>,
-    mut exit: EventWriter<AppExit>,
+    mut exit: MessageWriter<AppExit>,
     mut robots: Query<&mut Robot>,
 ) {
     let mut robot = robots.single_mut().expect("no robot found");

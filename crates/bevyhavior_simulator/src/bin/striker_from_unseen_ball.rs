@@ -21,7 +21,7 @@ fn striker_from_unseen_ball(app: &mut App) {
 fn startup(
     mut commands: Commands,
     mut ball: ResMut<BallResource>,
-    mut game_controller_commands: EventWriter<GameControllerCommand>,
+    mut game_controller_commands: MessageWriter<GameControllerCommand>,
 ) {
     let mut one = Robot::new(PlayerNumber::One);
     *one.ground_to_field_mut() = Isometry2::from_parts(vector![-2.0, -0.2], 0.0);
@@ -43,7 +43,7 @@ fn update(
     game_controller: ResMut<GameController>,
     time: Res<Time<Ticks>>,
     robots: Query<&Robot>,
-    mut exit: EventWriter<AppExit>,
+    mut exit: MessageWriter<AppExit>,
 ) {
     if time.ticks() == 40
         && !robots.iter().any(|robot| {

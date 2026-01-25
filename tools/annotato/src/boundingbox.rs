@@ -17,7 +17,7 @@ impl From<&BoundingBox> for Polygon<'_> {
         let x2 = value.opposing_corner.x;
         let y2 = value.opposing_corner.y;
         let plotpoints = PlotPoints::new(vec![[x1, y1], [x1, y2], [x2, y2], [x2, y1]]);
-        Polygon::new(plotpoints)
+        Polygon::new("bounding-box", plotpoints)
     }
 }
 

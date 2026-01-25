@@ -20,7 +20,7 @@ fn passive_defender_positioning(app: &mut App) {
 
 fn startup(
     mut commands: Commands,
-    mut game_controller_commands: EventWriter<GameControllerCommand>,
+    mut game_controller_commands: MessageWriter<GameControllerCommand>,
 ) {
     for number in [
         PlayerNumber::One,
@@ -39,7 +39,7 @@ fn startup(
 fn update(
     time: Res<Time<Ticks>>,
     game_controller: Res<GameController>,
-    mut exit: EventWriter<AppExit>,
+    mut exit: MessageWriter<AppExit>,
     mut ball: ResMut<BallResource>,
     mut robots: Query<&mut Robot>,
 ) {

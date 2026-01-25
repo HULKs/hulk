@@ -21,7 +21,7 @@ fn replacement_keeper(app: &mut App) {
 
 fn startup(
     mut commands: Commands,
-    mut game_controller_commands: EventWriter<GameControllerCommand>,
+    mut game_controller_commands: MessageWriter<GameControllerCommand>,
     mut autoref: ResMut<AutorefState>,
 ) {
     for number in [
@@ -40,10 +40,10 @@ fn startup(
 }
 
 fn update(
-    mut game_controller_commands: EventWriter<GameControllerCommand>,
+    mut game_controller_commands: MessageWriter<GameControllerCommand>,
     mut robots: Query<&mut Robot>,
     time: Res<Time<Ticks>>,
-    mut exit: EventWriter<AppExit>,
+    mut exit: MessageWriter<AppExit>,
 ) {
     let replacement_keeper_count = robots
         .iter_mut()

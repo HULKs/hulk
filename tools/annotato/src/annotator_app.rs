@@ -220,7 +220,7 @@ impl App for AnnotatorApp {
     fn update(&mut self, ctx: &Context, _frame: &mut eframe::Frame) {
         egui_extras::install_image_loaders(ctx);
 
-        let width = ctx.screen_rect().x_range().span();
+        let width = ctx.content_rect().width();
         SidePanel::left("image-path-list")
             .default_width(0.3 * width)
             .show(ctx, |ui| {

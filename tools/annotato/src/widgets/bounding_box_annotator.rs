@@ -138,6 +138,7 @@ impl Widget for BoundingBoxAnnotator<'_> {
                 focus_when_e_held_down(plot_ui);
 
                 plot_ui.image(PlotImage::new(
+                    "image",
                     &self.texture_handle,
                     PlotPoint::new(320., 240.),
                     Vec2::new(640., 480.),
@@ -155,6 +156,7 @@ impl Widget for BoundingBoxAnnotator<'_> {
                         );
                         plot_ui.text(
                             Text::new(
+                                "bbox-annotation",
                                 bbox.top_left(),
                                 RichText::new(format!("{:?}", bbox.class))
                                     .color(Color32::GRAY)

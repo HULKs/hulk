@@ -19,7 +19,9 @@ use eframe::{
     epaint::Color32,
     run_native, App, CreationContext, Frame, NativeOptions, Renderer, Storage,
 };
-use egui_dock::{DockArea, DockState, Node, NodeIndex, Split, SurfaceIndex, TabAddAlign, TabIndex};
+use egui_dock::{
+    DockArea, DockState, LeafNode, Node, NodeIndex, Split, SurfaceIndex, TabAddAlign, TabIndex,
+};
 use itertools::chain;
 use serde_json::{from_str, to_string, Value};
 use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
@@ -613,7 +615,7 @@ impl App for TwixApp {
             if context.keybind_pressed(KeybindAction::CloseTab) {
                 if let Some((surface_index, node_id)) = self.dock_state.focused_leaf() {
                     let active_node = &mut self.dock_state[surface_index][node_id];
-                    if let Node::Leaf { active, tabs, .. } = active_node {
+                    if let Node::Leaf(LeafNode { active, tabs, .. }) = active_node {
                         if !tabs.is_empty() {
                             tabs.remove(active.0);
 
@@ -708,7 +710,7 @@ impl TwixApp {
 
     fn active_tab_index(&self) -> Option<(NodeIndex, TabIndex)> {
         let (surface, node) = self.dock_state.focused_leaf()?;
-        if let Node::Leaf { active, .. } = &self.dock_state[surface][node] {
+        if let Node::Leaf(LeafNode { active, .. }) = &self.dock_state[surface][node] {
             Some((node, *active))
         } else {
             None
