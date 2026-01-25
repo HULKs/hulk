@@ -1,4 +1,4 @@
-use std::{borrow::Cow, time::Duration};
+use std::{borrow::Cow, fmt::Display, time::Duration};
 
 use color_eyre::{Report, Result, owo_colors::OwoColorize};
 use futures_util::{Future, StreamExt, stream::FuturesUnordered};
@@ -24,7 +24,7 @@ impl ProgressIndicator {
         }
     }
 
-    pub fn task(&self, prefix: String) -> Task {
+    pub fn task<'a>(&self, prefix: impl Display) -> Task {
         let spinner = ProgressBar::new_spinner()
             .with_style(self.default_style.clone())
             .with_prefix(format!("[{prefix}]"));
