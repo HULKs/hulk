@@ -343,7 +343,7 @@
     "goal_depth": 0.5
   },
   "object_detection": {
-    "enable": false,
+    "enable": true,
     "maximum_intersection_over_union": 0.7,
     "confidence_threshold": 0.5
   },
