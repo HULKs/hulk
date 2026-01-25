@@ -48,7 +48,7 @@ impl LowState {
             Ok(self
                 .motor_state_serial
                 .iter()
-                .cloned()
+                .copied()
                 .collect::<Joints<MotorState>>())
         } else {
             bail!("failed to construct motor states")
@@ -60,7 +60,7 @@ impl LowState {
             Ok(self
                 .motor_state_parallel
                 .iter()
-                .cloned()
+                .copied()
                 .collect::<Joints<MotorState>>())
         } else {
             bail!("failed to construct motor states")
