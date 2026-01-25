@@ -195,14 +195,8 @@ impl EguiRenderPlugin {
 
 fn setup_scene(mut commands: Commands) {
     commands.spawn((
-        PointLight {
-            shadows_enabled: true,
-            intensity: 10_000_000.,
-            range: 100.0,
-            shadow_depth_bias: 0.2,
-            ..default()
-        },
-        Transform::from_xyz(8.0, 16.0, 8.0),
+        DirectionalLight::default(),
+        Transform::from_xyz(6.0, 16.0, 8.0).looking_at(Vec3::ZERO, Vec3::Z),
     ));
 }
 
