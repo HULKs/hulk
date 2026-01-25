@@ -8,7 +8,7 @@ use booster::{
 use byteorder::{BigEndian, LittleEndian};
 use bytes::Bytes;
 use cdr_encoding::{from_bytes, to_vec};
-use color_eyre::eyre::{eyre, Context, Error};
+use color_eyre::eyre::{bail, eyre, Context, Error};
 use color_eyre::Result;
 use hardware::{
     ButtonEventMsgInterface, CameraInterface, IdInterface, MicrophoneInterface, NetworkInterface,
@@ -36,28 +36,32 @@ use zenoh::Session;
 
 use crate::HardwareInterface;
 
+#[repr(C)]
 #[derive(Deserialize)]
-struct DDSDataWrapper {
+struct DDSDataWrapper<'a> {
+    #[serde(with = "serde_bytes")]
     representation_identifier: [u8; 2],
+    #[serde(with = "serde_bytes")]
     representation_options: [u8; 2],
-    bytes: Bytes,
+    #[serde(with = "serde_bytes")]
+    bytes: &'a [u8],
 }
 
-impl DDSDataWrapper {
-    fn from_bytes(bytes: &[u8]) -> Self {
+impl<'a> DDSDataWrapper<'a> {
+    fn from_bytes(bytes: &'a [u8]) -> Self {
         Self {
             representation_identifier: bytes[0..2].try_into().unwrap(),
             representation_options: bytes[2..4].try_into().unwrap(),
-            bytes: bytes[4..].to_owned().into(),
+            bytes: &bytes[4..],
         }
     }
 
-    fn to_bytes(&self) -> Vec<u8> {
+    fn to_bytes(&self) -> Bytes {
         let mut bytes = Vec::new();
         bytes.extend_from_slice(&self.representation_identifier);
         bytes.extend_from_slice(&self.representation_options);
         bytes.extend_from_slice(&self.bytes);
-        bytes
+        bytes.into()
     }
 }
 
@@ -147,7 +151,9 @@ impl BoosterHardwareInterface {
         keep_running: CancellationToken,
         parameters: Parameters,
     ) -> Result<Self> {
-        let session = zenoh::open(zenoh::Config::default()).await.unwrap();
+        let session = zenoh::open(zenoh::Config::default())
+            .await
+            .expect("failed to open zenoh session");
 
         let topic_infos = TopicInfos::default();
 
@@ -197,10 +203,11 @@ impl BoosterHardwareInterface {
             .await?,
 
             _session: session,
-            hsl_network_endpoint: tokio::task::block_in_place(|| {
-                runtime_handle.block_on(Endpoint::new(parameters.hsl_network_ports))
-            })
-            .wrap_err("failed to initialize HSL network")?,
+            hsl_network_endpoint: keep_running
+                .run_until_cancelled(Endpoint::new(parameters.hsl_network_ports))
+                .await
+                .ok_or(eyre!("termination requested"))?
+                .wrap_err("failed to initialize HSL network")?,
             runtime_handle,
             keep_running,
         })
@@ -237,7 +244,8 @@ fn deserialize_sample<T>(sample: Sample) -> Result<T>
 where
     for<'de> T: Deserialize<'de>,
 {
-    let ddsdata_wrapper = DDSDataWrapper::from_bytes(&sample.payload().to_bytes());
+    let bytes = sample.payload().to_bytes();
+    let ddsdata_wrapper = DDSDataWrapper::from_bytes(&bytes);
     match ddsdata_wrapper.representation_identifier {
         [0x00, 0x01] => {
             let (deserialized_message, _consumed_byte_count) =
@@ -249,10 +257,10 @@ where
                 from_bytes::<T, BigEndian>(&ddsdata_wrapper.bytes).map_err(|err| eyre!(err))?;
             Ok(deserialized_message)
         }
-        _ => Err(eyre!(
-            "Representation identifier {:#?} not supported",
+        _ => bail!(
+            "representation identifier {:#?} not supported",
             ddsdata_wrapper.representation_identifier
-        )),
+        ),
     }
 }
 
@@ -264,7 +272,7 @@ where
     let dds_data_wrapper = DDSDataWrapper {
         representation_identifier: [0x00, 0x01],
         representation_options: [0x00, 0x00],
-        bytes: serialized_payload.into(),
+        bytes: &serialized_payload,
     };
 
     ZBytes::from(dds_data_wrapper.to_bytes())
@@ -285,7 +293,7 @@ impl LowCommandInterface for BoosterHardwareInterface {
 
         self.runtime_handle
             .block_on(self.joint_control_publisher.put(payload).into_future())
-            .map_err(|err| eyre!(err))
+            .map_err(|error| eyre!(error))
     }
 }
 
@@ -403,7 +411,7 @@ impl NetworkInterface for BoosterHardwareInterface {
                     result.map_err(Error::from)
                 },
                 _ = self.keep_running.cancelled() => {
-                    Err(eyre!("termination requested"))
+                    bail!("termination requested")
                 }
             }
         })
@@ -418,7 +426,7 @@ impl NetworkInterface for BoosterHardwareInterface {
 
 impl SpeakerInterface for BoosterHardwareInterface {
     fn write_to_speakers(&self, _request: SpeakerRequest) {
-        log::warn!("Tried to play audio request, not implemented!")
+        log::warn!("tried to play audio request, not implemented!")
     }
 }
 
@@ -434,7 +442,7 @@ impl IdInterface for BoosterHardwareInterface {
 
 impl MicrophoneInterface for BoosterHardwareInterface {
     fn read_from_microphones(&self) -> Result<Samples> {
-        Err(eyre!("microphone interface is not implemented"))
+        bail!("microphone interface is not implemented")
     }
 }
 

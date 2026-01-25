@@ -47,7 +47,7 @@ pub struct ImagePanel {
 
 fn subscribe_image(nao: &Arc<Nao>, is_jpeg: bool, image_path: &str) -> RawOrJpeg {
     if is_jpeg {
-        let path: String = format!("{image_path}.jpeg");
+        let path = format!("{image_path}.jpeg");
         return RawOrJpeg::Jpeg(nao.subscribe_value(path));
     }
     RawOrJpeg::Raw(nao.subscribe_value(image_path.to_string()))
