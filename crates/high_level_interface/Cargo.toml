@@ -1,0 +1,16 @@
+[package]
+name = "high_level_interface"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[package.metadata.pepsi]
+cross-compile = true
+
+[dependencies]
+color-eyre = { workspace = true }
+env_logger = { workspace = true }
+ros2-client = { workspace = true }
+serde = { workspace = true }
+uuid = { workspace = true }

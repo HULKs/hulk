@@ -20,6 +20,7 @@ members = [
   "crates/framework",
   "crates/geometry",
   "crates/hardware",
+  "crates/high_level_interface",
   "crates/hsl_network",
   "crates/hsl_network_messages",
   "crates/hula_types",
