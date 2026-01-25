@@ -60,7 +60,7 @@ impl<'a> DDSDataWrapper<'a> {
         let mut bytes = Vec::new();
         bytes.extend_from_slice(&self.representation_identifier);
         bytes.extend_from_slice(&self.representation_options);
-        bytes.extend_from_slice(&self.bytes);
+        bytes.extend_from_slice(self.bytes);
         bytes.into()
     }
 }
@@ -249,12 +249,12 @@ where
     match ddsdata_wrapper.representation_identifier {
         [0x00, 0x01] => {
             let (deserialized_message, _consumed_byte_count) =
-                from_bytes::<T, LittleEndian>(&ddsdata_wrapper.bytes).map_err(|err| eyre!(err))?;
+                from_bytes::<T, LittleEndian>(ddsdata_wrapper.bytes).map_err(|err| eyre!(err))?;
             Ok(deserialized_message)
         }
         [0x00, 0x00] => {
             let (deserialized_message, _consumed_byte_count) =
-                from_bytes::<T, BigEndian>(&ddsdata_wrapper.bytes).map_err(|err| eyre!(err))?;
+                from_bytes::<T, BigEndian>(ddsdata_wrapper.bytes).map_err(|err| eyre!(err))?;
             Ok(deserialized_message)
         }
         _ => bail!(
