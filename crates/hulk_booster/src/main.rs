@@ -100,7 +100,7 @@ async fn main() -> Result<()> {
 
     if framework_parameters.communication_addresses.is_none() {
         let fallback = "127.0.0.1:1337";
-        println!("framework.json disabled communication, falling back to {fallback}");
+        log::warn!("framework.json disabled communication, falling back to {fallback}");
         framework_parameters.communication_addresses = Some(fallback.to_string());
     }
 
