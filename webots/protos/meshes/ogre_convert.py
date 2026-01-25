@@ -37,7 +37,11 @@ class Submesh:
 
 
 def vec3_from_element(element: ElementTree.Element) -> Vec3:
-    assert "x" in element.attrib and "y" in element.attrib and "z" in element.attrib
+    assert (
+        "x" in element.attrib
+        and "y" in element.attrib
+        and "z" in element.attrib
+    )
     return Vec3(
         x=float(element.attrib["x"]),
         y=float(element.attrib["y"]),
@@ -60,7 +64,8 @@ def vertices_from_geometry(
     vertex_buffer = geometry.find("vertexbuffer")
     assert vertex_buffer is not None
     vertices = [
-        vertex_from_element(vertex) for vertex in vertex_buffer.findall("vertex")
+        vertex_from_element(vertex)
+        for vertex in vertex_buffer.findall("vertex")
     ]
     assert len(vertices) == int(geometry.attrib["vertexcount"])
     return vertices
@@ -127,7 +132,9 @@ def parse_ogre_xml(xml_file: Path) -> list[Submesh]:
 
     submeshes = root.find("submeshes")
     assert submeshes is not None
-    return [submesh_from_element(submesh, shared_vertices) for submesh in submeshes]
+    return [
+        submesh_from_element(submesh, shared_vertices) for submesh in submeshes
+    ]
 
 
 # def write_stl(stl_file: Path, triangles: list[Triangle]):

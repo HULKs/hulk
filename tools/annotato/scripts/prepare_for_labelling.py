@@ -21,8 +21,9 @@ CLASS_CONVERSION = [
 def generate_random_chunk_name():
     rng = RandomWord()
 
-    adjective = rng.word(include_categories=[
-                         "adjective"], regex="[a-zA-Z]+").lower()
+    adjective = rng.word(
+        include_categories=["adjective"], regex="[a-zA-Z]+"
+    ).lower()
     noun = rng.word(include_categories=["noun"], regex="[a-zA-Z]+").lower()
 
     return f"{adjective}-{noun}"
@@ -69,7 +70,7 @@ def main(args):
             image_name = str(uuid4()) + ".png"
             cv2.imwrite(str(images_path.joinpath(image_name)), image)
 
-        with open(images_path.parent.joinpath("data.json"), 'w') as f:
+        with open(images_path.parent.joinpath("data.json"), "w") as f:
             json.dump(chunk_annotations, f)
 
 
@@ -77,10 +78,13 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     parser.add_argument("--image_folder", help="the images folder")
     parser.add_argument(
-        "--yolo", help="the yolo checkpoint used for inference", default=None)
+        "--yolo", help="the yolo checkpoint used for inference", default=None
+    )
     parser.add_argument(
-        "--chunksize", help="the chunksize of one labelling task", default=200)
-    parser.add_argument("--convert-colors",
-                        help="whether to convert ycbcr to rgb", default=True)
+        "--chunksize", help="the chunksize of one labelling task", default=200
+    )
+    parser.add_argument(
+        "--convert-colors", help="whether to convert ycbcr to rgb", default=True
+    )
 
     main(parser.parse_args())
