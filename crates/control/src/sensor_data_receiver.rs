@@ -6,7 +6,7 @@ use context_attribute::context;
 use coordinate_systems::Robot;
 use filtering::low_pass_filter::LowPassFilter;
 use framework::MainOutput;
-use hardware::{FallDownStateInterface, LowStateInterface, TimeInterface};
+use hardware::{LowStateInterface, TimeInterface};
 use linear_algebra::Vector3;
 use nalgebra::UnitQuaternion;
 use serde::{Deserialize, Serialize};
@@ -58,7 +58,7 @@ impl SensorDataReceiver {
 
     pub fn cycle(
         &mut self,
-        context: CycleContext<impl LowStateInterface + FallDownStateInterface + TimeInterface>,
+        context: CycleContext<impl LowStateInterface + TimeInterface>,
     ) -> Result<MainOutputs> {
         let low_state = context
             .hardware_interface
