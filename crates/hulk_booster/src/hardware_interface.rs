@@ -1,4 +1,4 @@
-use std::future::IntoFuture;
+use std::future::{Future, IntoFuture};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::SystemTime;
 
@@ -8,7 +8,7 @@ use booster::{
 use byteorder::{BigEndian, LittleEndian};
 use bytes::Bytes;
 use cdr_encoding::{from_bytes, to_vec};
-use color_eyre::eyre::{bail, eyre, Context, Error};
+use color_eyre::eyre::{bail, eyre, Context};
 use color_eyre::Result;
 use hardware::{
     ButtonEventMsgInterface, CameraInterface, IdInterface, MicrophoneInterface, NetworkInterface,
@@ -23,7 +23,6 @@ use ros2::sensor_msgs::camera_info::CameraInfo;
 use ros2::sensor_msgs::image::Image;
 use serde::{Deserialize, Serialize};
 use tokio::runtime::Handle;
-use tokio::select;
 use tokio_util::sync::CancellationToken;
 use types::audio::SpeakerRequest;
 use types::messages::{IncomingMessage, OutgoingMessage};
@@ -233,6 +232,7 @@ impl BoosterHardwareInterface {
 
             _session: session,
             hsl_network_endpoint: keep_running
+                .clone()
                 .run_until_cancelled(Endpoint::new(parameters.hsl_network_ports))
                 .await
                 .ok_or(eyre!("termination requested"))?
@@ -240,6 +240,13 @@ impl BoosterHardwareInterface {
             runtime_handle,
             keep_running,
         })
+    }
+
+    fn run_until_cancelled<T>(&self, fut: impl Future<Output = T>) -> Result<T> {
+        self.runtime_handle
+            .clone()
+            .block_on(self.keep_running.run_until_cancelled(fut))
+            .ok_or(eyre!("termination_requested"))
     }
 }
 
@@ -309,8 +316,7 @@ where
 
 impl LowStateInterface for BoosterHardwareInterface {
     fn read_low_state(&self) -> Result<LowState> {
-        self.low_state_subscriber
-            .recv()
+        self.run_until_cancelled(self.low_state_subscriber.recv_async())?
             .map_err(|error| eyre!(error))
             .and_then(deserialize_sample)
     }
@@ -320,16 +326,14 @@ impl LowCommandInterface for BoosterHardwareInterface {
     fn write_low_command(&self, low_command: LowCommand) -> Result<()> {
         let payload = serialize_sample(low_command);
 
-        self.runtime_handle
-            .block_on(self.joint_control_publisher.put(payload).into_future())
+        self.run_until_cancelled(self.joint_control_publisher.put(payload).into_future())?
             .map_err(|error| eyre!(error))
     }
 }
 
 impl FallDownStateInterface for BoosterHardwareInterface {
     fn read_fall_down_state(&self) -> Result<FallDownState> {
-        self.fall_down_state_subscriber
-            .recv()
+        self.run_until_cancelled(self.fall_down_state_subscriber.recv_async())?
             .map_err(|error| eyre!(error))
             .and_then(deserialize_sample)
     }
@@ -337,8 +341,7 @@ impl FallDownStateInterface for BoosterHardwareInterface {
 
 impl ButtonEventMsgInterface for BoosterHardwareInterface {
     fn read_button_event_msg(&self) -> Result<ButtonEventMsg> {
-        self.button_event_msg_subscriber
-            .recv()
+        self.run_until_cancelled(self.button_event_msg_subscriber.recv_async())?
             .map_err(|error| eyre!(error))
             .and_then(deserialize_sample)
     }
@@ -346,8 +349,7 @@ impl ButtonEventMsgInterface for BoosterHardwareInterface {
 
 impl TransformMessageInterface for BoosterHardwareInterface {
     fn read_transform_message(&self) -> Result<TransformMessage> {
-        self.transform_subscriber
-            .recv()
+        self.run_until_cancelled(self.transform_subscriber.recv_async())?
             .map_err(|error| eyre!(error))
             .and_then(deserialize_sample)
     }
@@ -355,8 +357,7 @@ impl TransformMessageInterface for BoosterHardwareInterface {
 
 impl RemoteControllerStateInterface for BoosterHardwareInterface {
     fn read_remote_controller_state(&self) -> Result<RemoteControllerState> {
-        self.remote_controller_state_subscriber
-            .recv()
+        self.run_until_cancelled(self.remote_controller_state_subscriber.recv_async())?
             .map_err(|error| eyre!(error))
             .and_then(deserialize_sample)
     }
@@ -364,85 +365,73 @@ impl RemoteControllerStateInterface for BoosterHardwareInterface {
 
 impl CameraInterface for BoosterHardwareInterface {
     fn read_rectified_image(&self) -> Result<Image> {
-        self.rectified_image_subscriber
-            .recv()
+        self.run_until_cancelled(self.rectified_image_subscriber.recv_async())?
             .map_err(|error| eyre!(error))
             .and_then(deserialize_sample)
     }
 
     fn read_rectified_right_image(&self) -> Result<Image> {
-        self.rectified_right_image_subscriber
-            .recv()
+        self.run_until_cancelled(self.rectified_right_image_subscriber.recv_async())?
             .map_err(|error| eyre!(error))
             .and_then(deserialize_sample)
     }
 
     fn read_origin_left_image(&self) -> Result<Image> {
-        self.origin_left_raw_subscriber
-            .recv()
+        self.run_until_cancelled(self.origin_left_raw_subscriber.recv_async())?
             .map_err(|error| eyre!(error))
             .and_then(deserialize_sample)
     }
 
     fn read_origin_right_image(&self) -> Result<Image> {
-        self.origin_right_raw_subscriber
-            .recv()
+        self.run_until_cancelled(self.origin_right_raw_subscriber.recv_async())?
             .map_err(|error| eyre!(error))
             .and_then(deserialize_sample)
     }
 
     fn read_stereonet_depth_image(&self) -> Result<Image> {
-        self.stereonet_depth_subscriber
-            .recv()
+        self.run_until_cancelled(self.stereonet_depth_subscriber.recv_async())?
             .map_err(|error| eyre!(error))
             .and_then(deserialize_sample)
     }
 
     fn read_stereonet_depth_camera_info(&self) -> Result<CameraInfo> {
-        self.stereonet_depth_camera_info_subscriber
-            .recv()
+        self.run_until_cancelled(self.stereonet_depth_camera_info_subscriber.recv_async())?
             .map_err(|error| eyre!(error))
             .and_then(deserialize_sample)
     }
 
     fn read_stereonet_visual_image(&self) -> Result<Image> {
-        self.stereonet_visual_subscriber
-            .recv()
+        self.run_until_cancelled(self.stereonet_visual_subscriber.recv_async())?
             .map_err(|error| eyre!(error))
             .and_then(deserialize_sample)
     }
 
     fn read_image_combine_raw(&self) -> Result<Image> {
-        self.image_combine_raw_subscriber
-            .recv()
+        self.run_until_cancelled(self.image_combine_raw_subscriber.recv_async())?
             .map_err(|error| eyre!(error))
             .and_then(deserialize_sample)
     }
 
     fn read_image_left_raw(&self) -> Result<Image> {
-        self.image_left_raw_subscriber
-            .recv()
+        self.run_until_cancelled(self.image_left_raw_subscriber.recv_async())?
             .map_err(|error| eyre!(error))
             .and_then(deserialize_sample)
     }
 
     fn read_image_left_raw_camera_info(&self) -> Result<CameraInfo> {
-        self.image_left_raw_camera_info_subscriber
-            .recv()
+        self.run_until_cancelled(self.image_left_raw_camera_info_subscriber.recv_async())?
             .map_err(|error| eyre!(error))
             .and_then(deserialize_sample)
     }
 
     fn read_image_right_raw(&self) -> Result<Image> {
-        self.image_right_raw_subscriber
-            .recv()
+        self.run_until_cancelled(self.image_right_raw_subscriber.recv_async())?
             .map_err(|error| eyre!(error))
             .and_then(deserialize_sample)
     }
 
     fn read_image_right_raw_camera_info(&self) -> Result<CameraInfo> {
-        self.image_right_raw_camera_info_subscriber
-            .recv()
+        self.run_until_cancelled(self.image_right_raw_camera_info_subscriber.recv_async())?
             .map_err(|error| eyre!(error))
             .and_then(deserialize_sample)
     }
@@ -462,22 +451,12 @@ impl PathsInterface for BoosterHardwareInterface {
 
 impl NetworkInterface for BoosterHardwareInterface {
     fn read_from_network(&self) -> Result<IncomingMessage> {
-        self.runtime_handle.block_on(async {
-            select! {
-                result = self.hsl_network_endpoint.read() => {
-                    result.map_err(Error::from)
-                },
-                _ = self.keep_running.cancelled() => {
-                    bail!("termination requested")
-                }
-            }
-        })
+        self.run_until_cancelled(self.hsl_network_endpoint.read())?
+            .wrap_err("failed to read from network")
     }
 
     fn write_to_network(&self, message: OutgoingMessage) -> Result<()> {
-        self.runtime_handle
-            .block_on(self.hsl_network_endpoint.write(message));
-        Ok(())
+        self.run_until_cancelled(self.hsl_network_endpoint.write(message))
     }
 }
 
