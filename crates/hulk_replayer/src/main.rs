@@ -93,6 +93,22 @@ impl CameraInterface for ReplayerHardwareInterface {
     fn read_image_right_raw_camera_info(&self) -> Result<CameraInfo> {
         unimplemented!("Replayer cannot produce data from hardware")
     }
+
+    fn read_origin_left_image(&self) -> Result<Image> {
+        unimplemented!("Replayer cannot produce data from hardware")
+    }
+
+    fn read_origin_right_image(&self) -> Result<Image> {
+        unimplemented!("Replayer cannot produce data from hardware")
+    }
+
+    fn read_stereonet_depth_camera_info(&self) -> Result<CameraInfo> {
+        unimplemented!("Replayer cannot produce data from hardware")
+    }
+
+    fn read_image_combine_raw(&self) -> Result<Image> {
+        unimplemented!("Replayer cannot produce data from hardware")
+    }
 }
 
 impl IdInterface for ReplayerHardwareInterface {

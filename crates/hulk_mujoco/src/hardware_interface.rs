@@ -192,7 +192,7 @@ async fn handle_message(
             time,
         } => {
             *hardware_interface_time.lock() = time;
-            worker_channels.low_state_sender.send(low_state).await?
+            worker_channels.low_state_sender.send(*low_state).await?
         }
         SimulatorMessage {
             payload: ServerMessageKind::FallDownState(fall_down_state),
@@ -345,6 +345,22 @@ impl CameraInterface for MujocoHardwareInterface {
     }
 
     fn read_image_right_raw_camera_info(&self) -> Result<CameraInfo> {
+        Ok(Default::default())
+    }
+
+    fn read_origin_left_image(&self) -> Result<Image> {
+        Ok(Default::default())
+    }
+
+    fn read_origin_right_image(&self) -> Result<Image> {
+        Ok(Default::default())
+    }
+
+    fn read_stereonet_depth_camera_info(&self) -> Result<CameraInfo> {
+        Ok(Default::default())
+    }
+
+    fn read_image_combine_raw(&self) -> Result<Image> {
         Ok(Default::default())
     }
 }

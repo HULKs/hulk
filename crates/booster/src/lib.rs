@@ -19,10 +19,10 @@ use pyo3::prelude::*;
 pub struct LowState {
     /// IMU feedback
     pub imu_state: ImuState,
+    /// Serial structure joint feedback
+    pub motor_state_serial: [MotorState; 22],
     /// Parallel structure joint feedback
     pub motor_state_parallel: Vec<MotorState>,
-    /// Serial structure joint feedback
-    pub motor_state_serial: Vec<MotorState>,
 }
 
 #[cfg(feature = "pyo3")]
@@ -31,13 +31,13 @@ impl LowState {
     #[new]
     pub fn new(
         imu_state: ImuState,
+        motor_state_serial: [MotorState; 22],
         motor_state_parallel: Vec<MotorState>,
-        motor_state_serial: Vec<MotorState>,
     ) -> Self {
         Self {
             imu_state,
-            motor_state_parallel,
             motor_state_serial,
+            motor_state_parallel,
         }
     }
 }
