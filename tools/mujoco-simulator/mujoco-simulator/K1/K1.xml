@@ -75,7 +75,7 @@
           <joint name="Head_pitch" pos="0 0 0" axis="0 1 0" range="-0.349 0.855" armature="0.002"/>
           <geom class="mesh_collision" mesh="Head_2"/>
           <body name="camera_body" pos="0.05868 0.00002 0.09849" euler="0 -1.5707963267 0">
-            <camera euler="0.0 -0.2125811028 -1.5707963267" ipd="0.064" resolution="1936 1216" name="camera" />
+            <camera euler="0.0 -0.2125811028 -1.5707963267" ipd="0.064" fovy="94" resolution="640 480" name="camera" />
           </body>
         </body>
       </body>
