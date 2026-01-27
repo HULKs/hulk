@@ -559,7 +559,10 @@ pub enum ImageReceiverInstance {
     #[default]
     Rectified,
     RightRectified,
+    CombinedRaw,
     RightRaw,
     StereonetDepth,
     StereonetVisual,
+    OriginLeft,
+    OriginRight,
 }

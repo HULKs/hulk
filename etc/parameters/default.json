@@ -379,7 +379,10 @@
     "image_rectified": "Rectified",
     "image_right_rectified": "RightRectified",
     "image_right_raw": "RightRaw",
+    "image_combined_raw": "CombinedRaw",
     "image_stereonet_depth": "StereonetDepth",
-    "image_stereonet_visual": "StereonetVisual"
+    "image_stereonet_visual": "StereonetVisual",
+    "image_origin_left": "OriginLeft",
+    "image_origin_right": "OriginRight"
   }
 }

@@ -138,10 +138,19 @@ impl Widget for &mut ImagePanel {
                         "Image Left Raw",
                     );
                     selectable_item("ImageRightRaw.main_outputs.image", "Image Right Raw");
+                    selectable_item("ImageCombinedRaw.main_outputs.image", "Combined Raw Image");
                     selectable_item("ImageRectified.main_outputs.image", "Rectified Image");
                     selectable_item(
                         "ImageRightRectified.main_outputs.image",
                         "Rectified Right Image",
+                    );
+                    selectable_item(
+                        "ImageOriginLeft.main_outputs.image",
+                        "StereoNet Origin Left Image",
+                    );
+                    selectable_item(
+                        "ImageOriginRight.main_outputs.image",
+                        "StereoNet Origin Right Image",
                     );
                     selectable_item(
                         "ImageStereonetDepth.main_outputs.image",
