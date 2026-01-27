@@ -27,13 +27,13 @@ pub struct CycleContext {
     low_command: AdditionalOutput<LowCommand, "low_command">,
 
     target_joint_positions: Input<Joints, "target_joint_positions">,
+    look_at: Input<HeadJoints<f32>, "look_at">,
+    motion_command: Input<MotionCommand, "selected_motion_command">,
 
     walk_motor_command_parameters: Parameter<MotorCommandParameters, "common_motor_command">,
     _prepare_motor_command_parameters: Parameter<MotorCommandParameters, "prepare_motor_command">,
 
     hardware_interface: HardwareInterface,
-    look_at: Input<HeadJoints<f32>, "look_at">,
-    motion_command: Input<MotionCommand, "selected_motion_command">,
 }
 
 #[context]
