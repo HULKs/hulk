@@ -1,4 +1,4 @@
-use booster::LowCommand;
+use booster::{CommandType, LowCommand};
 use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
 use framework::AdditionalOutput;
@@ -27,13 +27,13 @@ pub struct CycleContext {
     low_command: AdditionalOutput<LowCommand, "low_command">,
 
     target_joint_positions: Input<Joints, "target_joint_positions">,
+    look_at: Input<HeadJoints<f32>, "look_at">,
+    motion_command: Input<MotionCommand, "selected_motion_command">,
 
     walk_motor_command_parameters: Parameter<MotorCommandParameters, "common_motor_command">,
     _prepare_motor_command_parameters: Parameter<MotorCommandParameters, "prepare_motor_command">,
 
     hardware_interface: HardwareInterface,
-    look_at: Input<HeadJoints<f32>, "look_at">,
-    motion_command: Input<MotionCommand, "selected_motion_command">,
 }
 
 #[context]
@@ -70,6 +70,7 @@ impl CommandSender {
         let walk_low_command = LowCommand::new(
             &target_joint_positions,
             context.walk_motor_command_parameters,
+            CommandType::Serial,
         );
 
         context

@@ -48,7 +48,7 @@ impl KinematicsProvider {
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let Some(newest_serial_motor_states) = context
+        let Some(newest_motor_states) = context
             .serial_motor_states
             .persistent
             .into_iter()
@@ -61,7 +61,7 @@ impl KinematicsProvider {
             });
         };
 
-        let measured_positions = newest_serial_motor_states.positions();
+        let measured_positions = newest_motor_states.positions();
 
         // head
         let neck_to_robot = neck_to_robot(&measured_positions.head);

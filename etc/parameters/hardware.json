@@ -1,5 +1,6 @@
 {
   "mujoco_websocket_address": "ws://127.0.0.1:8000",
+  "dds_domain_id": 0,
   "paths": {
     "motions": "etc/motions",
     "neural_networks": "etc/neural_networks",

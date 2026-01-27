@@ -1,5 +1,5 @@
 [package]
-name = "object_detection"
+name = "sensor_receiver"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -7,6 +7,7 @@ homepage.workspace = true
 
 [dependencies]
 approx = { workspace = true }
+booster = { workspace = true }
 calibration = { workspace = true }
 color-eyre = { workspace = true }
 context_attribute = { workspace = true }

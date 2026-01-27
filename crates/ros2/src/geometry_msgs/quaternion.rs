@@ -1,6 +1,6 @@
-/// This represents an orientation in free space in quaternion form.
 use serde::{Deserialize, Serialize};
 
+/// This represents an orientation in free space in quaternion form.
 #[repr(C)]
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
 pub struct Quaternion {

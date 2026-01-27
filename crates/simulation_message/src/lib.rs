@@ -21,7 +21,7 @@ pub struct SimulatorMessage<T> {
 
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ServerMessageKind {
-    LowState(LowState),
+    LowState(Box<LowState>),
     FallDownState(FallDownState),
     ButtonEventMsg(ButtonEventMsg),
     RemoteControllerState(RemoteControllerState),

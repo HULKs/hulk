@@ -26,8 +26,18 @@ pub trait ActuatorInterface {
 }
 
 pub trait CameraInterface {
-    fn read_image(&self) -> Result<Image>;
-    fn read_camera_info(&self) -> Result<CameraInfo>;
+    fn read_rectified_image(&self) -> Result<Image>;
+    fn read_rectified_right_image(&self) -> Result<Image>;
+    fn read_origin_left_image(&self) -> Result<Image>;
+    fn read_origin_right_image(&self) -> Result<Image>;
+    fn read_stereonet_depth_image(&self) -> Result<Image>;
+    fn read_stereonet_depth_camera_info(&self) -> Result<CameraInfo>;
+    fn read_stereonet_visual_image(&self) -> Result<Image>;
+    fn read_image_combine_raw(&self) -> Result<Image>;
+    fn read_image_left_raw(&self) -> Result<Image>;
+    fn read_image_left_raw_camera_info(&self) -> Result<CameraInfo>;
+    fn read_image_right_raw(&self) -> Result<Image>;
+    fn read_image_right_raw_camera_info(&self) -> Result<CameraInfo>;
 }
 
 pub trait IdInterface {
@@ -73,6 +83,7 @@ pub trait ButtonEventMsgInterface {
 pub trait RemoteControllerStateInterface {
     fn read_remote_controller_state(&self) -> Result<RemoteControllerState>;
 }
+
 pub trait TransformMessageInterface {
     fn read_transform_message(&self) -> Result<TransformMessage>;
 }

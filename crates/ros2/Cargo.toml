@@ -12,6 +12,7 @@ nalgebra = { workspace = true }
 path_serde = { workspace = true }
 pyo3 = { workspace = true, optional = true }
 serde = { workspace = true }
+yuv = { workspace = true }
 
 [features]
 pyo3 = ["dep:pyo3"]

@@ -72,7 +72,7 @@ pub enum SimulationData {
     },
     LowState {
         time: SystemTime,
-        data: LowState,
+        data: Box<LowState>,
     },
     Image {
         time: SystemTime,
@@ -140,7 +140,7 @@ impl PySimulationTask {
             }
             SimulationTask::Reset => future_into_py(py, ready(Ok(()))),
             SimulationTask::RequestLowState { sender } => {
-                let data = response.extract(py)?;
+                let data = Box::new(response.extract(py)?);
                 future_into_py(py, async move {
                     // Channel may be closed if websocket disconnects
                     let _ = sender.send(SimulationData::LowState { time, data }).await;

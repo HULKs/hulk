@@ -11,11 +11,10 @@ use futures_util::SinkExt;
 use futures_util::StreamExt;
 use hardware::{
     ButtonEventMsgInterface, CameraInterface, IdInterface, MicrophoneInterface, NetworkInterface,
-    PathsInterface, RecordingInterface, SpeakerInterface, TimeInterface,
+    PathsInterface, RecordingInterface, SpeakerInterface, TimeInterface, TransformMessageInterface,
 };
 use hardware::{
     FallDownStateInterface, LowCommandInterface, LowStateInterface, RemoteControllerStateInterface,
-    TransformMessageInterface,
 };
 use hsl_network::endpoint::{Endpoint, Ports};
 use hula_types::hardware::{Ids, Paths};
@@ -62,7 +61,7 @@ pub struct MujocoHardwareInterface {
 
     low_state_receiver: Mutex<Receiver<LowState>>,
     low_command_sender: Sender<LowCommand>,
-    fall_down_receiver: Mutex<Receiver<FallDownState>>,
+    _fall_down_receiver: Mutex<Receiver<FallDownState>>,
     button_event_msg_receiver: Mutex<Receiver<ButtonEventMsg>>,
     remote_controller_state_receiver: Mutex<Receiver<RemoteControllerState>>,
     transform_stamped_receiver: Mutex<Receiver<TransformMessage>>,
@@ -114,7 +113,7 @@ impl MujocoHardwareInterface {
 
             low_state_receiver: Mutex::new(low_state_receiver),
             low_command_sender,
-            fall_down_receiver: Mutex::new(fall_down_receiver),
+            _fall_down_receiver: Mutex::new(fall_down_receiver),
             button_event_msg_receiver: Mutex::new(button_event_msg_receiver),
             remote_controller_state_receiver: Mutex::new(remote_controller_state_receiver),
             transform_stamped_receiver: Mutex::new(transform_stamped_receiver),
@@ -193,7 +192,7 @@ async fn handle_message(
             time,
         } => {
             *hardware_interface_time.lock() = time;
-            worker_channels.low_state_sender.send(low_state).await?
+            worker_channels.low_state_sender.send(*low_state).await?
         }
         SimulatorMessage {
             payload: ServerMessageKind::FallDownState(fall_down_state),
@@ -269,6 +268,15 @@ impl LowStateInterface for MujocoHardwareInterface {
     }
 }
 
+impl TransformMessageInterface for MujocoHardwareInterface {
+    fn read_transform_message(&self) -> Result<TransformMessage> {
+        self.transform_stamped_receiver
+            .lock()
+            .blocking_recv()
+            .ok_or_eyre("low state channel closed")
+    }
+}
+
 impl LowCommandInterface for MujocoHardwareInterface {
     fn write_low_command(&self, low_command: LowCommand) -> Result<()> {
         self.low_command_sender
@@ -279,10 +287,7 @@ impl LowCommandInterface for MujocoHardwareInterface {
 
 impl FallDownStateInterface for MujocoHardwareInterface {
     fn read_fall_down_state(&self) -> Result<FallDownState> {
-        self.fall_down_receiver
-            .lock()
-            .blocking_recv()
-            .ok_or_eyre("fall down state channel closed")
+        Ok(Default::default())
     }
 }
 
@@ -304,28 +309,59 @@ impl RemoteControllerStateInterface for MujocoHardwareInterface {
     }
 }
 
-impl TransformMessageInterface for MujocoHardwareInterface {
-    fn read_transform_message(&self) -> Result<TransformMessage> {
-        self.transform_stamped_receiver
-            .lock()
-            .blocking_recv()
-            .ok_or_eyre("channel closed")
-    }
-}
-
 impl CameraInterface for MujocoHardwareInterface {
-    fn read_image(&self) -> Result<Image> {
+    fn read_image_left_raw(&self) -> Result<Image> {
         self.image_receiver
             .lock()
             .blocking_recv()
             .ok_or_eyre("channel closed")
     }
 
-    fn read_camera_info(&self) -> Result<CameraInfo> {
+    fn read_image_left_raw_camera_info(&self) -> Result<CameraInfo> {
         self.camera_info_receiver
             .lock()
             .blocking_recv()
             .ok_or_eyre("channel closed")
+    }
+
+    fn read_rectified_image(&self) -> Result<Image> {
+        Ok(Default::default())
+    }
+
+    fn read_rectified_right_image(&self) -> Result<Image> {
+        Ok(Default::default())
+    }
+
+    fn read_stereonet_depth_image(&self) -> Result<Image> {
+        Ok(Default::default())
+    }
+
+    fn read_stereonet_visual_image(&self) -> Result<Image> {
+        Ok(Default::default())
+    }
+
+    fn read_image_right_raw(&self) -> Result<Image> {
+        Ok(Default::default())
+    }
+
+    fn read_image_right_raw_camera_info(&self) -> Result<CameraInfo> {
+        Ok(Default::default())
+    }
+
+    fn read_origin_left_image(&self) -> Result<Image> {
+        Ok(Default::default())
+    }
+
+    fn read_origin_right_image(&self) -> Result<Image> {
+        Ok(Default::default())
+    }
+
+    fn read_stereonet_depth_camera_info(&self) -> Result<CameraInfo> {
+        Ok(Default::default())
+    }
+
+    fn read_image_combine_raw(&self) -> Result<Image> {
+        Ok(Default::default())
     }
 }
 
