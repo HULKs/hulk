@@ -66,4 +66,3 @@ class MotorCommand:
         kd: float,
         weight: float,
     ) -> MotorCommand: ...
-

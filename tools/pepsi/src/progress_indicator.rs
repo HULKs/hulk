@@ -24,7 +24,7 @@ impl ProgressIndicator {
         }
     }
 
-    pub fn task(&self, prefix: String) -> Task {
+    pub fn task(&self, prefix: &str) -> Task {
         let spinner = ProgressBar::new_spinner()
             .with_style(self.default_style.clone())
             .with_prefix(format!("[{prefix}]"));
@@ -48,7 +48,7 @@ impl ProgressIndicator {
         let multi_progress = Self::new();
         items
             .into_iter()
-            .map(|item| (multi_progress.task(item.to_string()), item))
+            .map(|item| (multi_progress.task(&item.to_string()), item))
             .map(|(progress, item)| {
                 progress.enable_steady_tick();
                 progress.set_message(message.clone());

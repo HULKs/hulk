@@ -199,15 +199,12 @@ def analyze_dataset(root_dir: str):
                             ]
                         )
 
-
         results[match_folder] = {
             "unique_ip_count": len(ip_set),
             "vision_images": vision_count,
         }
 
-        print(
-            f"{match_folder[:5]} {vision_count} {len(ip_set)}"
-        )
+        print(f"{match_folder[:5]} {vision_count} {len(ip_set)}")
     return results
 
 
