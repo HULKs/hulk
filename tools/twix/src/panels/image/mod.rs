@@ -2,11 +2,12 @@ use std::{env::temp_dir, fs::create_dir_all, path::PathBuf, sync::Arc};
 
 use chrono::{DateTime, Utc};
 use color_eyre::{
-    eyre::{bail, eyre},
+    eyre::{bail, eyre, Context as _},
     Result,
 };
-use coordinate_systems::Pixel;
-use eframe::egui::{ColorImage, Response, SizeHint, TextureOptions, Ui, UiBuilder, Widget};
+use eframe::egui::{
+    ColorImage, Context, Response, SizeHint, TextureId, TextureOptions, Ui, Widget,
+};
 use geometry::rectangle::Rectangle;
 use linear_algebra::{point, vector};
 use log::{info, warn};
@@ -143,19 +144,28 @@ impl Widget for &mut ImagePanel {
                 }
             }
         });
+
+        let (texture_id, (width, height)) = match self.load_latest_texture(ui.ctx()) {
+            Ok(result) => result,
+            Err(error) => {
+                return ui.scope(|ui| ui.label(format!("{error}"))).response;
+            }
+        };
+
         let (response, mut painter) = TwixPainter::allocate(
             ui,
-            vector![640.0, 480.0],
+            vector![width as f32, height as f32],
             point![0.0, 0.0],
             Orientation::LeftHanded,
         );
         self.zoom_and_pan.apply(ui, &mut painter, &response);
-
-        if let Err(error) = self.show_image(&painter) {
-            ui.scope_builder(UiBuilder::new().max_rect(response.rect), |ui| {
-                ui.label(format!("{error}"))
-            });
-        };
+        painter.image(
+            texture_id,
+            Rectangle {
+                min: point!(0.0, 0.0),
+                max: point!(width as f32, height as f32),
+            },
+        );
 
         self.overlays.paint(&painter);
 
@@ -178,11 +188,9 @@ impl ImagePanel {
         self.image_buffer = subscribe_image(&self.nao, jpeg, self.show_depth_image);
     }
 
-    fn show_image(&self, painter: &TwixPainter<Pixel>) -> Result<()> {
-        let context = painter.context();
-
+    fn load_latest_texture(&self, context: &Context) -> Result<(TextureId, (u32, u32))> {
         let image_identifier = "bytes://image-vision".to_string();
-        let image = match &self.image_buffer {
+        match &self.image_buffer {
             RawOrJpeg::Raw(buffer) => {
                 let ros_image = buffer
                     .get_last_value()?
@@ -198,38 +206,35 @@ impl ImagePanel {
                     [ros_image.width as usize, ros_image.height as usize],
                     &ros_image.data,
                 );
-                context
+                let id = context
                     .load_texture(&image_identifier, image, TextureOptions::NEAREST)
-                    .id()
+                    .id();
+
+                Ok((id, (ros_image.width, ros_image.height)))
             }
             RawOrJpeg::Jpeg(buffer) => {
                 let jpeg = buffer
                     .get_last_value()?
                     .ok_or_else(|| eyre!("no image available"))?;
+                let (width, height) = jpeg
+                    .dimensions()
+                    .wrap_err("failed to read image dimensions")?;
                 context.forget_image(&image_identifier);
                 context.include_bytes(image_identifier.clone(), jpeg.data);
-                context
+                let id = context
                     .try_load_texture(
                         &image_identifier,
                         TextureOptions::NEAREST,
                         SizeHint::Size {
-                            width: 640,
-                            height: 480,
+                            width,
+                            height,
                             maintain_aspect_ratio: true,
                         },
                     )?
                     .texture_id()
-                    .unwrap()
+                    .unwrap();
+                Ok((id, (width, height)))
             }
-        };
-
-        painter.image(
-            image,
-            Rectangle {
-                min: point!(0.0, 0.0),
-                max: point!(640.0, 480.0),
-            },
-        );
-        Ok(())
+        }
     }
 }
