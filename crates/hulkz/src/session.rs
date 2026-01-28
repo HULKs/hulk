@@ -1,27 +1,27 @@
-use std::future::Future;
+use std::sync::Arc;
 
-use serde::{Deserialize, Serialize};
-use zenoh::handlers::RingChannel;
-
-use crate::{buffer::BufferError, Parameters, Publisher, Timestamp, TopicBuffer, TopicStream};
+use crate::{node::NodeBuilder, Timestamp};
 
 #[derive(Debug, thiserror::Error)]
 pub enum SessionError {
     #[error("Zenoh session error: {0}")]
     Zenoh(#[from] zenoh::Error),
-    #[error("Parameter error: {0}")]
-    Parameter(#[from] crate::parameter::ParameterError),
 }
 
 pub type Result<T, E = SessionError> = std::result::Result<T, E>;
 
-pub struct Session {
-    session: zenoh::Session,
+pub struct SessionBuilder {
+    namespace: String,
 }
 
-impl Session {
-    #[tracing::instrument]
-    pub async fn new() -> Result<Self> {
+impl SessionBuilder {
+    pub fn new(namespace: impl Into<String>) -> Self {
+        Self {
+            namespace: namespace.into(),
+        }
+    }
+
+    pub async fn build(self) -> Result<Session> {
         tracing::info!("Opening new Zenoh session");
 
         let config = if std::env::var(zenoh::Config::DEFAULT_CONFIG_PATH_ENV).is_ok() {
@@ -31,64 +31,49 @@ impl Session {
         };
 
         let session = zenoh::open(config).await?;
-        Ok(Self { session })
+        let inner = SessionInner {
+            zenoh: session,
+            namespace: self.namespace,
+        };
+        Ok(Session {
+            inner: Arc::new(inner),
+        })
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct Session {
+    inner: Arc<SessionInner>,
+}
+
+#[derive(Debug)]
+struct SessionInner {
+    zenoh: zenoh::Session,
+    namespace: String,
+}
+
+impl Session {
+    pub async fn create(namespace: impl Into<String>) -> Result<Self> {
+        let builder = SessionBuilder::new(namespace);
+        builder.build().await
     }
 
-    #[tracing::instrument(skip(self))]
-    pub async fn stream<T>(&self, key_expr: &str) -> Result<TopicStream<T>>
-    where
-        for<'de> T: Deserialize<'de>,
-    {
-        tracing::debug!(topic = key_expr, "Declaring subscriber");
-        let subscriber = self
-            .session
-            .declare_subscriber(key_expr)
-            .with(RingChannel::new(10))
-            .await?;
-
-        Ok(TopicStream::new(subscriber, self.session.clone()))
+    pub fn create_node(&self, name: impl Into<String>) -> NodeBuilder {
+        NodeBuilder {
+            session: self.clone(),
+            name: name.into(),
+        }
     }
 
-    #[tracing::instrument(skip(self))]
-    pub async fn buffer<T>(
-        &self,
-        key_exp: &str,
-        capacity: usize,
-    ) -> Result<(
-        TopicBuffer<T>,
-        impl Future<Output = Result<(), BufferError>>,
-    )>
-    where
-        for<'de> T: Deserialize<'de> + Clone + Send + 'static,
-    {
-        tracing::debug!(topic = key_exp, capacity, "Creating topic buffer");
-        let stream = self.stream::<T>(key_exp).await?;
-        let (buffer, driver) = TopicBuffer::new(stream, capacity);
-        Ok((buffer, driver))
-    }
-
-    #[tracing::instrument(skip(self))]
-    pub async fn publish<'a, T>(&self, key_expr: &'a str) -> Result<Publisher<'a, T>>
-    where
-        T: Serialize,
-    {
-        tracing::debug!(topic = key_expr, "Declaring publisher");
-        let publisher = self.session.declare_publisher(key_expr).await?;
-        Ok(Publisher::new(publisher))
-    }
-
-    #[tracing::instrument(skip(self))]
-    pub async fn parameters<T>(&self) -> Result<Parameters<T>>
-    where
-        for<'de> T: Deserialize<'de>,
-    {
-        tracing::debug!("Loading parameters");
-        let parameters = Parameters::load().await?;
-        Ok(parameters)
-    }
-
-    #[tracing::instrument(skip(self))]
     pub fn now(&self) -> Timestamp {
-        self.session.new_timestamp()
+        self.inner.zenoh.new_timestamp()
+    }
+
+    pub(crate) fn zenoh(&self) -> &zenoh::Session {
+        &self.inner.zenoh
+    }
+
+    pub fn namespace(&self) -> &str {
+        &self.inner.namespace
     }
 }

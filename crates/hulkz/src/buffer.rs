@@ -1,31 +1,29 @@
-use std::{
-    future::Future,
-    sync::{Arc, RwLock},
-};
+use std::{future::Future, sync::Arc};
 
 use serde::Deserialize;
+use tokio::sync::RwLock;
 
-use crate::{stream::StreamError, Cache, Message, Timestamp, TopicStream};
+use crate::{subscriber::SubscriberError, Cache, Message, Subscriber, Timestamp};
 
 #[derive(Debug, thiserror::Error)]
 pub enum BufferError {
-    #[error("Stream error: {0}")]
-    StreamError(StreamError),
+    #[error("Subscriber error: {0}")]
+    SubscriberError(#[from] SubscriberError),
 }
 
 pub type Result<T, E = BufferError> = std::result::Result<T, E>;
 
 #[derive(Clone)]
-pub struct TopicBuffer<T> {
+pub struct Buffer<T> {
     cache: Arc<RwLock<Cache<Arc<Message<T>>>>>,
 }
 
-impl<T> TopicBuffer<T>
+impl<T> Buffer<T>
 where
     for<'de> T: Deserialize<'de> + Clone + Send + 'static,
 {
     pub fn new(
-        mut stream: TopicStream<T>,
+        mut subscriber: Subscriber<T>,
         capacity: usize,
     ) -> (Self, impl Future<Output = Result<()>>) {
         let cache = Arc::new(RwLock::new(Cache::new(capacity)));
@@ -34,15 +32,9 @@ where
             let cache = cache.clone();
             async move {
                 loop {
-                    match stream.recv_async().await {
-                        Ok(message) => {
-                            let mut cache = cache.write().expect("lock is poisoned");
-                            cache.add(message.timestamp, Arc::new(message));
-                        }
-                        Err(err) => {
-                            return Err(BufferError::StreamError(err));
-                        }
-                    }
+                    let message = subscriber.recv_async().await?;
+                    let mut cache = cache.write().await;
+                    cache.add(message.timestamp, Arc::new(message));
                 }
             }
         };
@@ -52,8 +44,8 @@ where
         (handle, driver)
     }
 
-    pub fn lookup_nearest(&self, timestamp: &Timestamp) -> Option<Arc<Message<T>>> {
-        let cache = self.cache.read().expect("lock is poisoned");
+    pub async fn lookup_nearest(&self, timestamp: &Timestamp) -> Option<Arc<Message<T>>> {
+        let cache = self.cache.read().await;
 
         let before = cache.get_elem_before_time(timestamp);
         let after = cache.get_elem_after_time(timestamp);
@@ -80,11 +72,7 @@ where
         }
     }
 
-    pub fn get_latest(&self) -> Option<Arc<Message<T>>> {
-        self.cache
-            .read()
-            .expect("lock is poisoned")
-            .get_latest()
-            .cloned()
+    pub async fn get_latest(&self) -> Option<Arc<Message<T>>> {
+        self.cache.read().await.get_latest().cloned()
     }
 }

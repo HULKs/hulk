@@ -13,7 +13,7 @@ async fn main() -> Result<()> {
     let mut set = JoinSet::new();
 
     set.spawn(control::sensor_data_receiver::run());
-    // set.spawn(control::motion::booster_walking::run());
+    set.spawn(control::booster_walking::run());
 
     let res = set.join_next().await.expect("at least one task");
     match res {

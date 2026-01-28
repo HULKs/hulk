@@ -16,7 +16,12 @@ async fn main() -> Result<()> {
 
     let rec = rerun::RecordingStreamBuilder::new("simple-viewer").spawn()?;
 
-    let session = Session::new().await?;
+    // let namespace = "HULK10";
+    // let session = Session::create(namespace)
+    //     .await
+    //     .wrap_err("failed to create session")?;
+
+
 
     // let mut stream = session.stream::<Image>("booster/rectified_image").await?;
     //
@@ -28,24 +33,26 @@ async fn main() -> Result<()> {
     //     )?;
     // }
 
-    let mut stream = session.stream::<LowState>("booster/low_state").await?;
-
-    while let Ok(value) = stream.recv_async().await {
-        let accelerometer = value.imu_state.linear_acceleration;
-        rec.log(
-            "booster/imu/accelerometer",
-            &rerun::archetypes::Scalars::new([
-                accelerometer.x(),
-                accelerometer.y(),
-                accelerometer.z(),
-            ]),
-        )?;
-        let rpy = value.imu_state.roll_pitch_yaw;
-        rec.log(
-            "booster/imu/roll_pitch_yaw",
-            &rerun::archetypes::Scalars::new([rpy.x(), rpy.y(), rpy.z()]),
-        )?;
-    }
+    // let mut stream = session
+    //     .create_stream::<LowState>("booster/low_state")
+    //     .await?;
+    //
+    // while let Ok(value) = stream.recv_async().await {
+    //     let accelerometer = value.imu_state.linear_acceleration;
+    //     rec.log(
+    //         "booster/imu/accelerometer",
+    //         &rerun::archetypes::Scalars::new([
+    //             accelerometer.x(),
+    //             accelerometer.y(),
+    //             accelerometer.z(),
+    //         ]),
+    //     )?;
+    //     let rpy = value.imu_state.roll_pitch_yaw;
+    //     rec.log(
+    //         "booster/imu/roll_pitch_yaw",
+    //         &rerun::archetypes::Scalars::new([rpy.x(), rpy.y(), rpy.z()]),
+    //     )?;
+    // }
 
     Ok(())
 }

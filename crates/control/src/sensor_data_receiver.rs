@@ -9,23 +9,40 @@ use types::{
 
 #[tracing::instrument]
 pub async fn run() -> Result<()> {
-    let session = Session::new().await.wrap_err("failed to create session")?;
+    let namespace = "HULK10";
+    let session = Session::create(namespace)
+        .await
+        .wrap_err("failed to create session")?;
 
-    let pub_imu_state = session
-        .publish("imu_state")
+    let node = session
+        .create_node("sensor_data_reiceiver")
+        .build()
+        .await
+        .wrap_err("failed to create node")?;
+
+    let pub_imu_state = node
+        .create_publisher("imu_state")
+        .build()
         .await
         .wrap_err("failed to create imu_state publisher")?;
-    let pub_serial_motor_states = session
-        .publish("serial_motor_states")
+    let pub_serial_motor_states = node
+        .create_publisher("serial_motor_states")
+        .build()
         .await
         .wrap_err("failed to create serial_motor_states publisher")?;
-    let pub_sensor_data = session
-        .publish("sensor_data")
+    let pub_sensor_data = node
+        .create_publisher("sensor_data")
+        .build()
         .await
         .wrap_err("failed to create sensor_data publisher")?;
 
-    let mut low_state = session
-        .stream("booster/low_state")
+    let mut low_state = node
+        // booster/low_state -> HULK10/booster/low_state
+        // /banana -> banana
+        // ~/banana -> HULK10/sensor_data_reiceiver/banana
+        // /HULK11/sensor_data_reiceiver/banana -> HULK11/sensor_data_reiceiver/banana
+        .create_subscriber("booster/low_state")
+        .build()
         .await
         .wrap_err("failed to create low_state stream")?;
 
