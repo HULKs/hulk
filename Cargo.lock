@@ -8755,8 +8755,7 @@ dependencies = [
 [[package]]
 name = "rustdds"
 version = "0.11.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54aa8af0cee7a6cad5a1fb81ae338ee5ffe5e41d26fc02d8798ce4a071fa4ac6"
+source = "git+https://github.com/HULKs/RustDDS.git?rev=0232af0c67e25e39afb5eef0166edfe493762320#0232af0c67e25e39afb5eef0166edfe493762320"
 dependencies = [
  "bit-vec",
  "byteorder",
