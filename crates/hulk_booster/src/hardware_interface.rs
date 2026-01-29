@@ -211,13 +211,8 @@ async fn declare_subscriber(
     session: &Session,
     topic_info: &TopicInfo,
 ) -> Result<Subscriber<RingChannelHandler<Sample>>> {
-    let key_expression = session
-        .declare_keyexpr(topic_info.name)
-        .await
-        .map_err(|err| eyre!(err))?;
-
     session
-        .declare_subscriber(key_expression)
+        .declare_subscriber(topic_info.name)
         .with(RingChannel::new(10))
         .await
         .map_err(|err| eyre!(err))

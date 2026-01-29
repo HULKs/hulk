@@ -5,7 +5,6 @@ use color_eyre::{
     eyre::{bail, eyre, Context as _},
     Result,
 };
-use convert_case::Casing;
 use eframe::egui::{
     ColorImage, ComboBox, Context, Response, SizeHint, TextureId, TextureOptions, Ui, Widget,
 };
@@ -41,17 +40,17 @@ pub struct ImagePanel {
     image_buffer: RawOrJpeg,
     overlays: Overlays,
     zoom_and_pan: ZoomAndPanTransform,
-    last_image_name: String,
-    current_image_name: String,
+    last_image_path: String,
+    current_image_path: String,
+    current_image_label: String,
 }
 
-fn subscribe_image(nao: &Arc<Nao>, is_jpeg: bool, image_name: &str) -> RawOrJpeg {
+fn subscribe_image(nao: &Arc<Nao>, is_jpeg: bool, image_path: &str) -> RawOrJpeg {
     if is_jpeg {
-        let path: String = format!("ObjectDetection.main_outputs.{image_name}.jpeg");
+        let path: String = format!("{image_path}.jpeg");
         return RawOrJpeg::Jpeg(nao.subscribe_value(path));
     }
-    let path = format!("ObjectDetection.main_outputs.{image_name}");
-    RawOrJpeg::Raw(nao.subscribe_value(path))
+    RawOrJpeg::Raw(nao.subscribe_value(image_path.to_string()))
 }
 
 impl<'a> Panel<'a> for ImagePanel {
@@ -64,9 +63,10 @@ impl<'a> Panel<'a> for ImagePanel {
             .and_then(|value| value.as_bool())
             .unwrap_or(true);
 
-        let default_image_name = "image_left_raw".to_string();
+        let default_image_path = "ObjectDetection.main_outputs.image_left_raw".to_string();
+        let default_image_label = "Image Left Raw".to_string();
 
-        let image_buffer = subscribe_image(&context.nao, is_jpeg, &default_image_name);
+        let image_buffer = subscribe_image(&context.nao, is_jpeg, &default_image_path);
 
         let overlays = Overlays::new(
             context.nao.clone(),
@@ -77,8 +77,9 @@ impl<'a> Panel<'a> for ImagePanel {
             image_buffer,
             overlays,
             zoom_and_pan: ZoomAndPanTransform::default(),
-            current_image_name: default_image_name.clone(),
-            last_image_name: default_image_name,
+            current_image_path: default_image_path.clone(),
+            last_image_path: default_image_path,
+            current_image_label: default_image_label,
         }
     }
 
@@ -121,25 +122,39 @@ impl Widget for &mut ImagePanel {
             }
 
             ComboBox::from_label("Image Topic")
-                .selected_text(self.current_image_name.to_case(convert_case::Case::Title))
+                .selected_text(self.current_image_label.clone())
                 .show_ui(ui, |ui| {
                     let mut selectable_item = |value: &str, label: &str| {
-                        let is_selected = self.current_image_name == value;
+                        let is_selected = self.current_image_path == value;
 
                         if ui.selectable_label(is_selected, label).clicked() {
-                            self.current_image_name = value.to_string();
+                            self.current_image_path = value.to_string();
+                            self.current_image_label = label.to_string();
                         }
                     };
 
-                    selectable_item("image_left_raw", "Image Left Raw");
-                    selectable_item("image_right_raw", "Image Right Raw");
-                    selectable_item("rectified_image", "Rectified Image");
-                    selectable_item("depth_image", "StereoNet Depth Image");
-                    selectable_item("visual_image", "StereoNet Visual Image");
+                    selectable_item(
+                        "ObjectDetection.main_outputs.image_left_raw",
+                        "Image Left Raw",
+                    );
+                    selectable_item("ImageRightRaw.main_outputs.image", "Image Right Raw");
+                    selectable_item("ImageRectified.main_outputs.image", "Rectified Image");
+                    selectable_item(
+                        "ImageRightRectified.main_outputs.image",
+                        "Rectified Right Image",
+                    );
+                    selectable_item(
+                        "ImageStereonetDepth.main_outputs.image",
+                        "StereoNet Depth Image",
+                    );
+                    selectable_item(
+                        "ImageStereonetVisual.main_outputs.image",
+                        "StereoNet Visual Image",
+                    );
                 });
-            if self.last_image_name != self.current_image_name {
+            if self.last_image_path != self.current_image_path {
                 self.resubscribe(jpeg);
-                self.last_image_name = self.current_image_name.clone();
+                self.last_image_path = self.current_image_path.clone();
             }
 
             let maybe_timestamp = match &self.image_buffer {
@@ -210,7 +225,7 @@ impl Widget for &mut ImagePanel {
 
 impl ImagePanel {
     fn resubscribe(&mut self, jpeg: bool) {
-        self.image_buffer = subscribe_image(&self.nao, jpeg, &self.current_image_name);
+        self.image_buffer = subscribe_image(&self.nao, jpeg, &self.current_image_path);
     }
 
     fn load_latest_texture(&self, context: &Context) -> Result<(TextureId, (u32, u32))> {

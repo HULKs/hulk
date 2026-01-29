@@ -1,6 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
-use booster::{CommandType, FallDownState, ImuState, MotorState};
+use booster::{CommandType, ImuState, MotorState};
 use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
 use coordinate_systems::Robot;
@@ -45,7 +45,6 @@ pub struct MainOutputs {
     pub imu_state: MainOutput<ImuState>,
     pub motor_states: MainOutput<Joints<MotorState>>,
     pub motor_command_type: MainOutput<CommandType>,
-    pub fall_down_state: MainOutput<FallDownState>,
     pub cycle_time: MainOutput<CycleTime>,
 }
 
@@ -64,11 +63,6 @@ impl SensorDataReceiver {
         let low_state = context
             .hardware_interface
             .read_low_state()
-            .wrap_err("failed to read from sensors")?;
-
-        let fall_down_state = context
-            .hardware_interface
-            .read_fall_down_state()
             .wrap_err("failed to read from sensors")?;
 
         let now = context.hardware_interface.get_now();
@@ -101,7 +95,6 @@ impl SensorDataReceiver {
             imu_state: low_state.imu_state.into(),
             motor_states: motor_states.into(),
             motor_command_type: command_type.into(),
-            fall_down_state: fall_down_state.into(),
             cycle_time: cycle_time.into(),
         })
     }

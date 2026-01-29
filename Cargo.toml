@@ -44,6 +44,7 @@ members = [
   "crates/repository",
   "crates/robot",
   "crates/ros2",
+  "crates/sensor_receiver",
   "crates/simulation_message",
   "crates/source_analyzer",
   "crates/step_planning",
@@ -223,6 +224,7 @@ rustdds = "0.11.5"
 rustfft = "6.2.0"
 scenario = { path = "crates/scenario" }
 semver = "1.0.25"
+sensor_receiver = { path = "crates/sensor_receiver" }
 serde = { version = "1.0.228", features = ["derive", "rc"] }
 serde-transcode = "1.1.1"
 serde_bytes = "0.11.15"
