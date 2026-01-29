@@ -8700,6 +8700,7 @@ dependencies = [
  "path_serde",
  "pyo3",
  "serde",
+ "yuv",
 ]
 
 [[package]]
@@ -12311,6 +12312,15 @@ dependencies = [
  "quote",
  "syn 2.0.114",
  "synstructure",
+]
+
+[[package]]
+name = "yuv"
+version = "0.8.9"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "28f1bad143caadcfcaec93039dc9c40a30fc86f23d9e7cc03764a39fe51d9d43"
+dependencies = [
+ "num-traits",
 ]
 
 [[package]]
