@@ -273,6 +273,8 @@ serde = { git = "https://github.com/HULKs/serde.git", rev = "ef30eb8fdd0ee12e4e6
 serde_derive = { git = "https://github.com/HULKs/serde.git", rev = "ef30eb8fdd0ee12e4e6f3f5615c6bb022e02d1b2" }
 # Pinned to forked serde version since https://github.com/serde-rs/serde/pull/2513 is not merged
 serde_core = { git = "https://github.com/HULKs/serde.git", rev = "ef30eb8fdd0ee12e4e6f3f5615c6bb022e02d1b2" }
+# Pin RTPS protocol version to 2.3
+rustdds = { git = "https://github.com/HULKs/RustDDS.git", rev = "0232af0c67e25e39afb5eef0166edfe493762320" }
 
 egui = { git = "https://github.com/HULKs/egui/", rev = "7a3a88dcbb46a24d49a2388b2d9c8a6a273a9d4e" }
 egui-wgpu = { git = "https://github.com/HULKs/egui/", rev = "7a3a88dcbb46a24d49a2388b2d9c8a6a273a9d4e" }
