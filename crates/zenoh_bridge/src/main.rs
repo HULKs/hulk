@@ -8,7 +8,10 @@ use booster::{ButtonEventMsg, FallDownState, LowCommand, LowState};
 use color_eyre::eyre::{Result, WrapErr};
 use futures_util::{future::Fuse, select, FutureExt};
 use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
-use ros2_client::{Context, MessageTypeName, Node, NodeName, NodeOptions, Publisher, Subscription};
+use ros2_client::{
+    Context, MessageTypeName, Node, NodeName, NodeOptions, Publisher, Subscription,
+    DEFAULT_PUBLISHER_QOS, DEFAULT_SUBSCRIPTION_QOS,
+};
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::task::JoinHandle;
 use zenoh::Session;
@@ -16,7 +19,6 @@ use zenoh::Session;
 use crate::{
     bridge::{forward_ros_to_zenoh, forward_zenoh_to_ros},
     error::Error,
-    ros::RosNode,
 };
 
 #[tokio::main(flavor = "multi_thread")]
@@ -200,8 +202,16 @@ fn spawn_ros_to_zenoh_forwarder<T: 'static + Serialize + DeserializeOwned + Send
     ros_type_name: MessageTypeName,
     zenoh_topic_name: &'static str,
 ) -> Result<Fuse<JoinHandle<Result<()>>>> {
-    let ros_subscription: Subscription<T> =
-        ros_node.subscribe(ros_namespace, ros_topic_name, ros_type_name)?;
+    let ros_topic = ros::create_topic(
+        ros_node,
+        ros_namespace,
+        ros_topic_name,
+        ros_type_name,
+        &DEFAULT_SUBSCRIPTION_QOS,
+    )?;
+    let ros_subscription: Subscription<T> = ros_node
+        .create_subscription(&ros_topic, None)
+        .wrap_err("failed to create subscription")?;
 
     Ok(tokio::spawn(forward_ros_to_zenoh(
         ros_subscription,
@@ -219,8 +229,16 @@ fn spawn_zenoh_to_ros_forwarder<T: 'static + Serialize + DeserializeOwned + Send
     ros_type_name: MessageTypeName,
     zenoh_topic_name: &'static str,
 ) -> Result<Fuse<JoinHandle<Result<()>>>> {
-    let ros_publisher: Publisher<T> =
-        ros_node.publisher(ros_namespace, ros_topic_name, ros_type_name)?;
+    let ros_topic = ros::create_topic(
+        ros_node,
+        ros_namespace,
+        ros_topic_name,
+        ros_type_name,
+        &DEFAULT_PUBLISHER_QOS,
+    )?;
+    let ros_publisher: Publisher<T> = ros_node
+        .create_publisher(&ros_topic, None)
+        .wrap_err("failed to create publisher")?;
 
     Ok(tokio::spawn(forward_zenoh_to_ros(
         zenoh_session,
