@@ -9,8 +9,5 @@ homepage.workspace = true
 cross-compile = true
 
 [dependencies]
-color-eyre = { workspace = true }
-env_logger = { workspace = true }
-ros2-client = { workspace = true }
 serde = { workspace = true }
 uuid = { workspace = true }
