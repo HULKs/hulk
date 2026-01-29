@@ -7,6 +7,8 @@ use std::fmt::Debug;
 use booster::{ButtonEventMsg, FallDownState, LowCommand, LowState};
 use color_eyre::eyre::{Result, WrapErr};
 use futures_util::{future::Fuse, select, FutureExt};
+use high_level_interface::Request;
+use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
 use ros2_client::{
     ros2::{
         policy::{Deadline, Durability, History, Lifespan, Liveliness, Ownership, Reliability},
@@ -74,6 +76,14 @@ async fn main() -> Result<()> {
         MessageTypeName::new("booster_interface", "LowCmd"),
         "joint_ctrl",
     )?;
+    let mut loco_api_forwarder = spawn_zenoh_to_ros_forwarder::<Request>(
+        &mut ros_node,
+        zenoh_session.clone(),
+        "/",
+        "LocoApiTopicReq",
+        MessageTypeName::new("booster_msgs", "RpcReqMsg"),
+        "high_level_interface",
+    )?;
 
     // If no errors occur, none of these futures will complete
     let result = select! {
@@ -81,6 +91,7 @@ async fn main() -> Result<()> {
         result = fall_down_state_forwarder => result,
         result = low_state_forwarder => result,
         result = low_command_forwarder => result,
+        result = loco_api_forwarder => result,
     }
     .wrap_err("failed to run forwarder to completion")?;
 
