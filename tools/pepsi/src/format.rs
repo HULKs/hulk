@@ -1,5 +1,6 @@
 use std::{path::Path, process::Stdio};
 
+use clap::Args;
 use color_eyre::{
     eyre::{bail, Context},
     Result,
@@ -10,11 +11,22 @@ use tokio::process::Command;
 
 use crate::progress_indicator::ProgressIndicator;
 
-async fn rustfmt(root: impl AsRef<Path>) -> Result<()> {
+#[derive(Args)]
+pub struct Arguments {
+    /// Run only in check mode and do not make changes in the filesystem
+    #[arg(long)]
+    check: bool,
+}
+
+async fn rustfmt(root: impl AsRef<Path>, check: bool) -> Result<()> {
+    let check_flag = if check { "--check" } else { "" };
     let output = Command::new("sh")
         .stderr(Stdio::piped())
         .arg("-c")
-        .arg(format!("cd {} && cargo fmt", root.as_ref().display()))
+        .arg(format!(
+            "cd {} && cargo fmt {check_flag}",
+            root.as_ref().display()
+        ))
         .output()
         .await
         .wrap_err("rustfmt failed")?;
@@ -26,12 +38,13 @@ async fn rustfmt(root: impl AsRef<Path>) -> Result<()> {
     bail!(String::from_utf8(output.stderr).expect("stderr was not utf8"))
 }
 
-async fn taplo_fmt(root: impl AsRef<Path>) -> Result<()> {
+async fn taplo_fmt(root: impl AsRef<Path>, check: bool) -> Result<()> {
+    let format_or_check = if check { "check" } else { "format" };
     let output = Command::new("sh")
         .stderr(Stdio::piped())
         .arg("-c")
         .arg(format!(
-            "cd {} && git ls-files -z '*.toml' | xargs -0 taplo fmt",
+            "cd {} && git ls-files -z '*.toml' | xargs -0 taplo {format_or_check}",
             root.as_ref().display()
         ))
         .output()
@@ -45,12 +58,13 @@ async fn taplo_fmt(root: impl AsRef<Path>) -> Result<()> {
     bail!(String::from_utf8(output.stderr).expect("stderr was not utf8"))
 }
 
-async fn ruff_fmt(root: impl AsRef<Path>) -> Result<()> {
+async fn ruff_fmt(root: impl AsRef<Path>, check: bool) -> Result<()> {
+    let check_flag = if check { "--check" } else { "" };
     let output = Command::new("sh")
         .stderr(Stdio::piped())
         .arg("-c")
         .arg(format!(
-            "cd {} && git ls-files -z '*.py' '*.pyi' | xargs -0 uvx ruff format",
+            "cd {} && git ls-files -z '*.py' '*.pyi' | xargs -0 uvx ruff format {check_flag}",
             root.as_ref().display()
         ))
         .output()
@@ -64,31 +78,33 @@ async fn ruff_fmt(root: impl AsRef<Path>) -> Result<()> {
     bail!(String::from_utf8(output.stderr).expect("stderr was not utf8"))
 }
 
-pub async fn format(repository: &Repository) -> Result<()> {
+pub async fn format(arguments: Arguments, repository: &Repository) -> Result<()> {
     let progress_indicator = ProgressIndicator::new();
 
     let (rustfmt_result, taplo_result, ruff_result) = tokio::join!(
         async {
             let task = progress_indicator.task("rustfmt");
-            let result = rustfmt(&repository.root).await;
+            let result = rustfmt(&repository.root, arguments.check).await;
             task.finish_with(result.as_ref());
             result
         },
         async {
             let task = progress_indicator.task("taplo");
-            let result = taplo_fmt(&repository.root).await;
+            let result = taplo_fmt(&repository.root, arguments.check).await;
             task.finish_with(result.as_ref());
             result
         },
         async {
             let task = progress_indicator.task("ruff");
-            let result = ruff_fmt(&repository.root).await;
+            let result = ruff_fmt(&repository.root, arguments.check).await;
             task.finish_with(result.as_ref());
             result
         }
     );
 
-    rustfmt_result?;
-    taplo_result?;
-    ruff_result
+    if rustfmt_result.is_err() || taplo_result.is_err() || ruff_result.is_err() {
+        bail!("formatting failed");
+    }
+
+    Ok(())
 }
