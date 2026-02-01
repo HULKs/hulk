@@ -149,7 +149,8 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()>
                         &progress,
                         repository,
                     )
-                    .await,
+                    .await
+                    .as_ref(),
                 )
             }
         })
