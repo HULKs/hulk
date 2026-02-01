@@ -67,20 +67,28 @@ async fn ruff_fmt(root: impl AsRef<Path>) -> Result<()> {
 pub async fn format(repository: &Repository) -> Result<()> {
     let progress_indicator = ProgressIndicator::new();
 
-    tokio::join!(
+    let (rustfmt_result, taplo_result, ruff_result) = tokio::join!(
         async {
             let task = progress_indicator.task("rustfmt");
-            task.finish_with(rustfmt(&repository.root).await);
+            let result = rustfmt(&repository.root).await;
+            task.finish_with(result.as_ref());
+            result
         },
         async {
             let task = progress_indicator.task("taplo");
-            task.finish_with(taplo_fmt(&repository.root).await);
+            let result = taplo_fmt(&repository.root).await;
+            task.finish_with(result.as_ref());
+            result
         },
         async {
             let task = progress_indicator.task("ruff");
-            task.finish_with(ruff_fmt(&repository.root).await);
+            let result = ruff_fmt(&repository.root).await;
+            task.finish_with(result.as_ref());
+            result
         }
     );
 
-    Ok(())
+    rustfmt_result?;
+    taplo_result?;
+    ruff_result
 }
