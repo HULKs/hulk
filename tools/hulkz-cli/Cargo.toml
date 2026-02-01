@@ -1,0 +1,17 @@
+[package]
+name = "hulkz-cli"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[[bin]]
+name = "hulkz"
+path = "src/main.rs"
+
+[dependencies]
+hulkz = { path = "../../crates/hulkz" }
+clap = { workspace = true }
+tokio = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
