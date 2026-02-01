@@ -411,7 +411,7 @@ async fn build_bridge(
     let status = process.wait().await.unwrap();
     if !status.success() {
         zenoh_bridge_status_sender.send(Some(false)).unwrap();
-        progress_bar.finish_with_error(eyre!("failed with code {}", status.code().unwrap()));
+        progress_bar.finish_with_error(&eyre!("failed with code {}", status.code().unwrap()));
         bail!("process failed");
     }
     progress_bar.finish_with_success(());

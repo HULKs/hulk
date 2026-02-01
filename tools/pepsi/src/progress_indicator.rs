@@ -1,4 +1,8 @@
-use std::{borrow::Cow, fmt::Display, time::Duration};
+use std::{
+    borrow::Cow,
+    fmt::{Debug, Display},
+    time::Duration,
+};
 
 use color_eyre::{Report, Result, owo_colors::OwoColorize};
 use futures_util::{Future, StreamExt, stream::FuturesUnordered};
@@ -119,10 +123,10 @@ impl Task {
         self.progress.finish_with_message(message);
     }
 
-    pub fn finish_with_error(&self, report: impl Display) {
+    pub fn finish_with_error(&self, report: &impl Debug) {
         self.progress.set_style(self.error_style.clone());
         self.progress
-            .finish_with_message(format!("{}{report}", "✗".red()));
+            .finish_with_message(format!("{}{report:?}", "✗".red()));
     }
 
     pub fn finish_with(&self, result: Result<&impl TaskMessage, &Report>) {
