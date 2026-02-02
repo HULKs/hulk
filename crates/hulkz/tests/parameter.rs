@@ -4,7 +4,7 @@ mod common;
 
 use serde::{Deserialize, Serialize};
 
-use common::test_namespace;
+use common::{test_namespace, test_session};
 use hulkz::Session;
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
@@ -15,7 +15,7 @@ struct Config {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn local_parameter() {
-    let session = Session::create(test_namespace("param")).await.unwrap();
+    let session = test_session("param").await.unwrap();
     let node = session.create_node("test_node").build().await.unwrap();
 
     // Local parameter (robot-scoped) - no prefix
@@ -37,7 +37,7 @@ async fn local_parameter() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn global_parameter() {
-    let session = Session::create(test_namespace("param_global")).await.unwrap();
+    let session = test_session("param_global").await.unwrap();
     let node = session.create_node("test_node").build().await.unwrap();
 
     // Global parameter (fleet-wide) - "/" prefix
@@ -59,7 +59,7 @@ async fn global_parameter() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn private_parameter() {
-    let session = Session::create(test_namespace("param_private")).await.unwrap();
+    let session = test_session("param_private").await.unwrap();
     let node = session.create_node("test_node").build().await.unwrap();
 
     // Private parameter (node-scoped) - "~/" prefix
@@ -81,7 +81,7 @@ async fn private_parameter() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn private_nested_parameter() {
-    let session = Session::create(test_namespace("param_nested")).await.unwrap();
+    let session = test_session("param_nested").await.unwrap();
     let node = session.create_node("test_node").build().await.unwrap();
 
     // Private nested parameter
@@ -127,7 +127,7 @@ async fn parameter_with_default() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn config_overrides_default() {
-    let session = Session::create(test_namespace("param_override")).await.unwrap();
+    let session = test_session("param_override").await.unwrap();
     let node = session.create_node("test_node").build().await.unwrap();
 
     // Config value should override default
@@ -165,7 +165,7 @@ async fn missing_parameter_no_default_error() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn parameter_validation_initial() {
-    let session = Session::create(test_namespace("param_validate")).await.unwrap();
+    let session = test_session("param_validate").await.unwrap();
     let node = session.create_node("test_node").build().await.unwrap();
 
     // Validation passes
@@ -180,7 +180,7 @@ async fn parameter_validation_initial() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn parameter_validation_fails() {
-    let session = Session::create(test_namespace("param_validate_fail")).await.unwrap();
+    let session = test_session("param_validate_fail").await.unwrap();
     let node = session.create_node("test_node").build().await.unwrap();
 
     // Validation fails (max_speed is 1.5, but we require > 100)
