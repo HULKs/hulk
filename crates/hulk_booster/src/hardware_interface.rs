@@ -5,9 +5,7 @@ use std::time::SystemTime;
 use booster::{
     ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState, TransformMessage,
 };
-use byteorder::{BigEndian, LittleEndian};
-use bytes::Bytes;
-use cdr_encoding::{from_bytes, to_vec};
+use cdr::{CdrLe, Infinite};
 use color_eyre::eyre::{bail, eyre, Context};
 use color_eyre::Result;
 use hardware::{
@@ -34,35 +32,6 @@ use zenoh::sample::Sample;
 use zenoh::Session;
 
 use crate::HardwareInterface;
-
-#[repr(C)]
-#[derive(Deserialize)]
-struct DDSDataWrapper<'a> {
-    #[serde(with = "serde_bytes")]
-    representation_identifier: [u8; 2],
-    #[serde(with = "serde_bytes")]
-    representation_options: [u8; 2],
-    #[serde(with = "serde_bytes")]
-    bytes: &'a [u8],
-}
-
-impl<'a> DDSDataWrapper<'a> {
-    fn from_bytes(bytes: &'a [u8]) -> Self {
-        Self {
-            representation_identifier: bytes[0..2].try_into().unwrap(),
-            representation_options: bytes[2..4].try_into().unwrap(),
-            bytes: &bytes[4..],
-        }
-    }
-
-    fn to_bytes(&self) -> Bytes {
-        let mut bytes = Vec::new();
-        bytes.extend_from_slice(&self.representation_identifier);
-        bytes.extend_from_slice(&self.representation_options);
-        bytes.extend_from_slice(self.bytes);
-        bytes.into()
-    }
-}
 
 struct TopicInfos {
     low_state: TopicInfo,
@@ -280,38 +249,17 @@ fn deserialize_sample<T>(sample: Sample) -> Result<T>
 where
     for<'de> T: Deserialize<'de>,
 {
-    let bytes = sample.payload().to_bytes();
-    let ddsdata_wrapper = DDSDataWrapper::from_bytes(&bytes);
-    match ddsdata_wrapper.representation_identifier {
-        [0x00, 0x01] => {
-            let (deserialized_message, _consumed_byte_count) =
-                from_bytes::<T, LittleEndian>(ddsdata_wrapper.bytes).map_err(|err| eyre!(err))?;
-            Ok(deserialized_message)
-        }
-        [0x00, 0x00] => {
-            let (deserialized_message, _consumed_byte_count) =
-                from_bytes::<T, BigEndian>(ddsdata_wrapper.bytes).map_err(|err| eyre!(err))?;
-            Ok(deserialized_message)
-        }
-        _ => bail!(
-            "representation identifier {:#?} not supported",
-            ddsdata_wrapper.representation_identifier
-        ),
-    }
+    let deserialized_message = cdr::deserialize(&sample.payload().to_bytes())?;
+    Ok(deserialized_message)
 }
 
-fn serialize_sample<T>(payload: T) -> ZBytes
+fn serialize_sample<T>(payload: T) -> Result<ZBytes>
 where
     T: Serialize,
 {
-    let serialized_payload = to_vec::<T, LittleEndian>(&payload).unwrap();
-    let dds_data_wrapper = DDSDataWrapper {
-        representation_identifier: [0x00, 0x01],
-        representation_options: [0x00, 0x00],
-        bytes: &serialized_payload,
-    };
+    let message = cdr::serialize::<_, _, CdrLe>(&payload, Infinite)?;
 
-    ZBytes::from(dds_data_wrapper.to_bytes())
+    Ok(ZBytes::from(message))
 }
 
 impl LowStateInterface for BoosterHardwareInterface {
@@ -324,7 +272,7 @@ impl LowStateInterface for BoosterHardwareInterface {
 
 impl LowCommandInterface for BoosterHardwareInterface {
     fn write_low_command(&self, low_command: LowCommand) -> Result<()> {
-        let payload = serialize_sample(low_command);
+        let payload = serialize_sample(low_command)?;
 
         self.run_until_cancelled(self.joint_control_publisher.put(payload).into_future())?
             .map_err(|error| eyre!(error))

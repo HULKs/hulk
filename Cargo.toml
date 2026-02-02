@@ -108,7 +108,7 @@ build_script_helpers = { path = "crates/build_script_helpers" }
 byteorder = "1.5.0"
 bytes = { version = "1.11.0", features = ["serde"] }
 calibration = { path = "crates/calibration" }
-cdr-encoding = "0.10.2"
+cdr = "0.2.4"
 chrono = "0.4.39"
 clap = { version = "4.5.29", features = ["derive", "env"] }
 clap_complete = "4.5.44"

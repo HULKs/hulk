@@ -20,7 +20,7 @@ buffered_watch = { workspace = true }
 byteorder = { workspace = true }
 bytes = { workspace = true }
 calibration = { workspace = true }
-cdr-encoding = { workspace = true }
+cdr = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
 color-eyre = { workspace = true }

@@ -2219,18 +2219,13 @@ dependencies = [
 ]
 
 [[package]]
-name = "cdr-encoding"
-version = "0.10.2"
+name = "cdr"
+version = "0.2.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "73f0cdb643d85bb03b1b786ab8d332747f386f0a25b19367d559b437f44f1e46"
+checksum = "9617422bf43fde9280707a7e90f8f7494389c182f5c70b0f67592d0f06d41dfa"
 dependencies = [
  "byteorder",
- "log",
- "paste",
  "serde",
- "serde_repr",
- "static_assertions",
- "thiserror 1.0.69",
 ]
 
 [[package]]
@@ -4753,7 +4748,7 @@ dependencies = [
  "byteorder",
  "bytes",
  "calibration",
- "cdr-encoding",
+ "cdr",
  "chrono",
  "clap",
  "code_generation",
