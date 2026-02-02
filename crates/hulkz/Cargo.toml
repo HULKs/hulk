@@ -1,0 +1,19 @@
+[package]
+name = "hulkz"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[dependencies]
+cdr = { workspace = true }
+futures = { workspace = true }
+gethostname = { workspace = true }
+json5 = { workspace = true }
+serde = { workspace = true }
+serde_json = { workspace = true }
+thiserror = { workspace = true }
+tokio = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+zenoh = { workspace = true }

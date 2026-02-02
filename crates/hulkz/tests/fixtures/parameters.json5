@@ -1,0 +1,21 @@
+// Test parameters for integration tests
+{
+    // Global parameters
+    "/": {
+        fleet_id: "test_fleet",
+    },
+
+    // Local parameters (robot-scoped)
+    max_speed: 1.5,
+    robot_name: "test_robot",
+    enabled: true,
+
+    // Private parameters (node-scoped)
+    "~test_node": {
+        debug_level: 2,
+        config: {
+            threshold: 0.1,
+            count: 42,
+        },
+    },
+}
