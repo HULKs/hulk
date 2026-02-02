@@ -9,9 +9,6 @@ use zenoh::bytes::Encoding;
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
     #[error("{0}")]
-    Key(#[from] KeyError),
-
-    #[error("{0}")]
     ScopedPath(#[from] ScopedPathError),
 
     #[error("CDR serialization: {0}")]
@@ -55,15 +52,9 @@ pub enum Error {
 
     #[error("unsupported encoding: {0}")]
     UnsupportedEncoding(Encoding),
-}
 
-/// Key expression construction errors.
-#[derive(Debug, Clone, thiserror::Error)]
-pub enum KeyError {
-    #[error("local and private scopes require a namespace")]
-    MissingNamespace,
-    #[error("private scope requires a node name")]
-    MissingNode,
+    #[error("private parameters require a node target, use .on_node(\"node_name\")")]
+    NodeRequiredForPrivate,
 }
 
 /// Scoped path parsing errors.

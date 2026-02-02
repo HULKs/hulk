@@ -1,103 +1,9 @@
 //! Integration tests for the Hulkz key space structure.
+//!
+//! These tests verify the public API for scoped paths and scope parsing.
+//! Internal key-building logic is tested via unit tests in the respective modules.
 
-use hulkz::{graph_node_key, KeyError, KeyExpr, ParamIntent, Plane, Scope, ScopedPath};
-
-mod data_plane {
-    use super::*;
-
-    #[test]
-    fn global_path() {
-        let path: ScopedPath = "/imu".try_into().unwrap();
-        assert_eq!(path.to_data_key("ns", "node"), "hulkz/data/global/imu");
-    }
-
-    #[test]
-    fn local_path() {
-        let path: ScopedPath = "camera/front".try_into().unwrap();
-        assert_eq!(
-            path.to_data_key("chappie", "vision"),
-            "hulkz/data/local/chappie/camera/front"
-        );
-    }
-
-    #[test]
-    fn private_path() {
-        let path: ScopedPath = "~/debug/state".try_into().unwrap();
-        assert_eq!(
-            path.to_data_key("chappie", "nav"),
-            "hulkz/data/private/chappie/nav/debug/state"
-        );
-    }
-}
-
-mod view_plane {
-    use super::*;
-
-    #[test]
-    fn mirrors_data_structure() {
-        let path: ScopedPath = "odometry".try_into().unwrap();
-        assert_eq!(
-            path.to_view_key("chappie", "odom"),
-            "hulkz/view/local/chappie/odometry"
-        );
-    }
-}
-
-mod param_plane {
-    use super::*;
-
-    #[test]
-    fn private_read() {
-        let path = ScopedPath::parse("~/max_speed");
-        let key = path.to_param_key(ParamIntent::Read, "chappie", "motor");
-        assert_eq!(key, "hulkz/param/read/private/chappie/motor/max_speed");
-    }
-
-    #[test]
-    fn local_write() {
-        let path = ScopedPath::parse("wheel_radius");
-        let key = path.to_param_key(ParamIntent::Write, "chappie", "motor");
-        assert_eq!(key, "hulkz/param/write/local/chappie/wheel_radius");
-    }
-}
-
-mod graph_plane {
-    use super::*;
-
-    #[test]
-    fn node_liveliness() {
-        assert_eq!(
-            graph_node_key("chappie", "nav"),
-            "hulkz/graph/nodes/chappie/nav"
-        );
-    }
-}
-
-mod key_expr_builder {
-    use super::*;
-
-    #[test]
-    fn build_returns_result() {
-        let result = KeyExpr::new(Plane::Data, Scope::Local, "path")
-            .namespace("ns")
-            .build();
-        assert!(result.is_ok());
-    }
-
-    #[test]
-    fn missing_namespace_is_error() {
-        let result = KeyExpr::new(Plane::Data, Scope::Local, "path").build();
-        assert!(matches!(result, Err(KeyError::MissingNamespace)));
-    }
-
-    #[test]
-    fn missing_node_is_error() {
-        let result = KeyExpr::new(Plane::Data, Scope::Private, "path")
-            .namespace("ns")
-            .build();
-        assert!(matches!(result, Err(KeyError::MissingNode)));
-    }
-}
+use hulkz::{Scope, ScopedPath};
 
 mod scoped_path_syntax {
     use super::*;
@@ -128,5 +34,35 @@ mod scoped_path_syntax {
     #[test]
     fn double_slash_rejected() {
         assert!(ScopedPath::try_from("foo//bar").is_err());
+    }
+
+    #[test]
+    fn path_accessor() {
+        let path: ScopedPath = "/fleet/status".try_into().unwrap();
+        assert_eq!(path.path(), "fleet/status");
+
+        let path: ScopedPath = "~/debug/level".try_into().unwrap();
+        assert_eq!(path.path(), "debug/level");
+
+        let path: ScopedPath = "camera/front".try_into().unwrap();
+        assert_eq!(path.path(), "camera/front");
+    }
+
+    #[test]
+    fn parse_infallible() {
+        // ScopedPath::parse is infallible, accepts any string
+        let path = ScopedPath::parse("");
+        assert_eq!(path.path(), "");
+
+        let path = ScopedPath::parse("//weird//path//");
+        assert_eq!(path.scope(), Scope::Global);
+        assert_eq!(path.path(), "/weird//path//");
+    }
+
+    #[test]
+    fn new_with_explicit_scope() {
+        let path = ScopedPath::new(Scope::Private, "my/path");
+        assert_eq!(path.scope(), Scope::Private);
+        assert_eq!(path.path(), "my/path");
     }
 }

@@ -172,18 +172,18 @@ pub use crate::{
     buffer::{Buffer, BufferBuilder},
     cache::Cache,
     config::Config,
-    error::{Error, KeyError, Result, ScopedPathError},
+    error::{Error, Result, ScopedPathError},
     graph::{
         NodeEvent, NodeWatcher, ParameterInfo, PublisherEvent, PublisherInfo, PublisherWatcher,
         SessionEvent, SessionWatcher,
     },
-    key::{graph_node_key, KeyExpr, ParamIntent, Plane, Scope},
+    key::Scope,
     message::Message,
     node::Node,
     parameter::Parameter,
     publisher::Publisher,
     scoped_path::ScopedPath,
-    session::Session,
+    session::{ParamAccessBuilder, Session},
     subscriber::Subscriber,
 };
 

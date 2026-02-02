@@ -1,7 +1,7 @@
 //! Parameter command - get, set, and list parameter values.
 
 use clap::Args;
-use hulkz::{key::ParamIntent, scoped_path::ScopedPath, Session};
+use hulkz::Session;
 use serde::Serialize;
 
 use crate::output::OutputFormat;
@@ -107,15 +107,15 @@ pub async fn list(namespace: &str, args: ListArgs, format: OutputFormat) -> hulk
 pub async fn get(namespace: &str, args: GetArgs, format: OutputFormat) -> hulkz::Result<()> {
     let session = Session::create(namespace).await?;
 
-    let path = ScopedPath::parse(&args.path);
-    let node_name = args.node.as_deref().unwrap_or("*");
-
-    // Build the read key
-    let read_key = path.to_param_key(ParamIntent::Read, namespace, node_name);
+    // Build the parameter query
+    let mut builder = session.parameter(&args.path);
+    if let Some(ref node) = args.node {
+        builder = builder.on_node(node);
+    }
 
     // Query the parameter
-    match session.query_parameter(&read_key).await? {
-        Some(value) => {
+    match builder.get().await {
+        Ok(Some(value)) => {
             if matches!(format, OutputFormat::Human) {
                 println!(
                     "{}: {}",
@@ -126,13 +126,27 @@ pub async fn get(namespace: &str, args: GetArgs, format: OutputFormat) -> hulkz:
                 println!("{}", serde_json::to_string(&value).unwrap_or_default());
             }
         }
-        None => {
+        Ok(None) => {
             if matches!(format, OutputFormat::Human) {
                 println!("Parameter '{}' not found", args.path);
             } else {
                 println!("null");
             }
         }
+        Err(hulkz::Error::NodeRequiredForPrivate) => {
+            if matches!(format, OutputFormat::Human) {
+                eprintln!(
+                    "Private parameter '{}' requires --node argument",
+                    args.path
+                );
+            } else {
+                println!(
+                    r#"{{"error":"node required for private parameter","path":"{}"}}"#,
+                    args.path
+                );
+            }
+        }
+        Err(e) => return Err(e),
     }
 
     Ok(())
@@ -146,14 +160,14 @@ pub async fn set(namespace: &str, args: SetArgs, format: OutputFormat) -> hulkz:
     let value: serde_json::Value =
         serde_json::from_str(&args.value).map_err(hulkz::Error::JsonDeserialize)?;
 
-    let path = ScopedPath::parse(&args.path);
-    let node_name = args.node.as_deref().unwrap_or("*");
-
-    // Build the write key
-    let write_key = path.to_param_key(ParamIntent::Write, namespace, node_name);
+    // Build the parameter query
+    let mut builder = session.parameter(&args.path);
+    if let Some(ref node) = args.node {
+        builder = builder.on_node(node);
+    }
 
     // Set the parameter
-    match session.set_parameter(&write_key, &value).await {
+    match builder.set(&value).await {
         Ok(()) => {
             // Success
             if matches!(format, OutputFormat::Human) {
@@ -187,6 +201,19 @@ pub async fn set(namespace: &str, args: SetArgs, format: OutputFormat) -> hulkz:
             } else {
                 println!(
                     r#"{{"success":false,"path":"{}","error":"not found"}}"#,
+                    args.path
+                );
+            }
+        }
+        Err(hulkz::Error::NodeRequiredForPrivate) => {
+            if matches!(format, OutputFormat::Human) {
+                eprintln!(
+                    "Private parameter '{}' requires --node argument",
+                    args.path
+                );
+            } else {
+                println!(
+                    r#"{{"success":false,"path":"{}","error":"node required for private parameter"}}"#,
                     args.path
                 );
             }

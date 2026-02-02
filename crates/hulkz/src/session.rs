@@ -27,16 +27,18 @@ use zenoh::{handlers::FifoChannelHandler, liveliness::LivelinessToken, sample::S
 
 use crate::{
     config::Config,
-    error::Result,
+    error::{Error, Result},
     graph::{
         parse_node_key, parse_session_key, NodeEvent, NodeWatcher, ParameterInfo, PublisherEvent,
         PublisherInfo, PublisherWatcher, SessionEvent, SessionWatcher,
     },
     key::{
         graph_nodes_pattern, graph_publishers_pattern, graph_session_key, graph_sessions_pattern,
-        param_read_global_pattern, param_read_pattern, param_read_private_pattern,
+        param_read_global_pattern, param_read_pattern, param_read_private_pattern, ParamIntent,
+        Scope,
     },
     node::NodeBuilder,
+    scoped_path::ScopedPath,
     Timestamp,
 };
 
@@ -400,10 +402,47 @@ impl Session {
         Ok((watcher, driver))
     }
 
-    /// Queries a parameter value by key expression.
+    /// Access a parameter by path for reading or writing.
+    ///
+    /// Uses DSL syntax:
+    /// - `/param` → Global scope (fleet-wide)
+    /// - `param` → Local scope (robot-wide)
+    /// - `~/param` → Private scope (requires `.on_node()`)
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// # use hulkz::{Session, Result};
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<()> {
+    /// let session = Session::create("robot").await?;
+    ///
+    /// // Get local parameter
+    /// let value = session.parameter("max_speed").get().await?;
+    ///
+    /// // Set global parameter
+    /// session.parameter("/fleet_id").set(&serde_json::json!("fleet-01")).await?;
+    ///
+    /// // Get private parameter (requires node)
+    /// let debug = session.parameter("~/debug").on_node("motor").get().await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn parameter(&self, path: &str) -> ParamAccessBuilder<'_> {
+        ParamAccessBuilder {
+            session: self,
+            path: ScopedPath::parse(path),
+            node: None,
+        }
+    }
+
+    /// Queries a parameter value by raw key expression.
     ///
     /// Returns the JSON value if found, or None if not found.
-    pub async fn query_parameter(&self, key_expr: &str) -> Result<Option<serde_json::Value>> {
+    pub(crate) async fn query_parameter_raw(
+        &self,
+        key_expr: &str,
+    ) -> Result<Option<serde_json::Value>> {
         let replies = self.inner.zenoh.get(key_expr).await?;
 
         while let Ok(reply) = replies.recv_async().await {
@@ -421,8 +460,12 @@ impl Session {
         Ok(None)
     }
 
-    /// Sets a parameter value by key expression.
-    pub async fn set_parameter(&self, key_expr: &str, value: &serde_json::Value) -> Result<()> {
+    /// Sets a parameter value by raw key expression.
+    pub(crate) async fn set_parameter_raw(
+        &self,
+        key_expr: &str,
+        value: &serde_json::Value,
+    ) -> Result<()> {
         let payload = serde_json::to_vec(value).map_err(crate::Error::JsonSerialize)?;
 
         let replies = self
@@ -456,6 +499,94 @@ impl Session {
         }
 
         Ok(())
+    }
+}
+
+/// Builder for parameter access operations.
+///
+/// Created via [`Session::parameter()`]. Use `.on_node()` to target a specific
+/// node (required for private parameters).
+///
+/// # Example
+///
+/// ```rust,no_run
+/// # use hulkz::{Session, Result};
+/// # #[tokio::main]
+/// # async fn main() -> Result<()> {
+/// let session = Session::create("robot").await?;
+///
+/// // Local parameter (default scope)
+/// let value = session.parameter("max_speed").get().await?;
+///
+/// // Global parameter
+/// session.parameter("/fleet_id").set(&serde_json::json!("fleet-01")).await?;
+///
+/// // Private parameter on specific node
+/// let debug = session.parameter("~/debug").on_node("motor").get().await?;
+/// # Ok(())
+/// # }
+/// ```
+pub struct ParamAccessBuilder<'a> {
+    session: &'a Session,
+    path: ScopedPath,
+    node: Option<String>,
+}
+
+impl<'a> ParamAccessBuilder<'a> {
+    /// Target a specific node.
+    ///
+    /// Required for private parameters (`~/path`). For global and local
+    /// parameters, this targets the parameter on that specific node rather
+    /// than using a wildcard query.
+    pub fn on_node(mut self, node: &str) -> Self {
+        self.node = Some(node.to_string());
+        self
+    }
+
+    /// Get the parameter value.
+    ///
+    /// Returns `Ok(Some(value))` if found, `Ok(None)` if not found.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::NodeRequiredForPrivate`] if this is a private parameter
+    /// and `.on_node()` was not called.
+    pub async fn get(self) -> Result<Option<serde_json::Value>> {
+        let node_name = self.resolve_node()?;
+        let read_key =
+            self.path
+                .to_param_key(ParamIntent::Read, self.session.namespace(), &node_name);
+        self.session.query_parameter_raw(&read_key).await
+    }
+
+    /// Set the parameter value.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::NodeRequiredForPrivate`] if this is a private parameter
+    /// and `.on_node()` was not called.
+    ///
+    /// Returns [`Error::ParameterNotFound`] if no node is serving this parameter.
+    ///
+    /// Returns [`Error::ParameterRejected`] if the parameter validation failed.
+    pub async fn set(self, value: &serde_json::Value) -> Result<()> {
+        let node_name = self.resolve_node()?;
+        let write_key =
+            self.path
+                .to_param_key(ParamIntent::Write, self.session.namespace(), &node_name);
+        self.session.set_parameter_raw(&write_key, value).await
+    }
+
+    /// Resolves the node name for the key expression.
+    ///
+    /// - For private scope: requires explicit node, returns error if not set
+    /// - For global/local scope: uses explicit node if set, otherwise wildcard
+    fn resolve_node(&self) -> Result<String> {
+        match (self.path.scope(), &self.node) {
+            (Scope::Private, None) => Err(Error::NodeRequiredForPrivate),
+            (_, Some(node)) => Ok(node.clone()),
+            (_, None) => Ok("*".to_string()),
+        }
     }
 }
 

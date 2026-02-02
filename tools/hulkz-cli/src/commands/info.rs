@@ -1,7 +1,7 @@
 //! Info command - show information about a topic.
 
 use clap::Args;
-use hulkz::{scoped_path::ScopedPath, Session};
+use hulkz::{ScopedPath, Session};
 use serde::Serialize;
 
 use crate::output::OutputFormat;
@@ -18,8 +18,6 @@ struct TopicInfo {
     topic: String,
     scope: String,
     path: String,
-    data_key: String,
-    view_key: String,
     publishers: Vec<PublisherMatch>,
 }
 
@@ -35,10 +33,6 @@ pub async fn run(namespace: &str, args: InfoArgs, format: OutputFormat) -> hulkz
     // Parse the topic
     let scoped_path = ScopedPath::parse(&args.topic);
 
-    // Build keys (using a placeholder node name for display)
-    let data_key = scoped_path.to_data_key(namespace, "<node>");
-    let view_key = scoped_path.to_view_key(namespace, "<node>");
-
     // Give time for discovery
     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
@@ -53,8 +47,6 @@ pub async fn run(namespace: &str, args: InfoArgs, format: OutputFormat) -> hulkz
         topic: args.topic.clone(),
         scope: format!("{}", scoped_path.scope()),
         path: scoped_path.path().to_string(),
-        data_key,
-        view_key,
         publishers: matching_publishers
             .iter()
             .map(|p| PublisherMatch {
@@ -68,8 +60,6 @@ pub async fn run(namespace: &str, args: InfoArgs, format: OutputFormat) -> hulkz
         println!("  Topic:     {}", info.topic);
         println!("  Scope:     {}", info.scope);
         println!("  Path:      {}", info.path);
-        println!("  Data key:  {}", info.data_key);
-        println!("  View key:  {}", info.view_key);
         println!();
         println!("PUBLISHERS ({})", info.publishers.len());
         if info.publishers.is_empty() {

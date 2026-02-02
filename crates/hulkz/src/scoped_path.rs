@@ -103,12 +103,12 @@ impl ScopedPath {
     }
 
     /// Generates a key expression for this path on the Data plane.
-    pub fn to_data_key(&self, namespace: &str, node: &str) -> String {
+    pub(crate) fn to_data_key(&self, namespace: &str, node: &str) -> String {
         self.to_plane_key(Plane::Data, namespace, node)
     }
 
     /// Generates a key expression for this path on the View plane.
-    pub fn to_view_key(&self, namespace: &str, node: &str) -> String {
+    pub(crate) fn to_view_key(&self, namespace: &str, node: &str) -> String {
         self.to_plane_key(Plane::View, namespace, node)
     }
 
@@ -128,7 +128,7 @@ impl ScopedPath {
     }
 
     /// Generates a parameter key expression with the given intent.
-    pub fn to_param_key(&self, intent: ParamIntent, namespace: &str, node: &str) -> String {
+    pub(crate) fn to_param_key(&self, intent: ParamIntent, namespace: &str, node: &str) -> String {
         match self.scope {
             Scope::Global => {
                 format!("{}/param/{}/{}/{}", ROOT, intent, self.scope, self.path)
@@ -151,7 +151,7 @@ impl ScopedPath {
     /// Generates a graph publisher liveliness key.
     ///
     /// Schema: `hulkz/graph/publishers/{namespace}/{node}/{scope}/{path}`
-    pub fn to_graph_publisher_key(&self, namespace: &str, node: &str) -> String {
+    pub(crate) fn to_graph_publisher_key(&self, namespace: &str, node: &str) -> String {
         format!(
             "{}/graph/publishers/{}/{}/{}/{}",
             ROOT, namespace, node, self.scope, self.path
