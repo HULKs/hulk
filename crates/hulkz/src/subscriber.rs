@@ -44,13 +44,22 @@ use crate::{
 /// Builder for creating a [`Subscriber`].
 pub struct SubscriberBuilder<T> {
     pub(crate) node: Node,
-    pub topic: Result<ScopedPath, ScopedPathError>,
-    pub capacity: usize,
-    pub view_only: bool,
+    pub(crate) topic: Result<ScopedPath, ScopedPathError>,
+    pub(crate) capacity: usize,
+    pub(crate) view_only: bool,
     pub(crate) _phantom: PhantomData<T>,
 }
 
 impl<T> SubscriberBuilder<T> {
+    /// Sets the ring buffer capacity for incoming messages.
+    ///
+    /// When the buffer is full, the oldest messages are dropped to make room
+    /// for new ones. Default capacity is 3.
+    pub fn capacity(mut self, capacity: usize) -> Self {
+        self.capacity = capacity;
+        self
+    }
+
     /// Subscribe only to the View plane (JSON), ignoring the Data plane (CDR).
     ///
     /// This is useful for CLI tools or debugging scenarios where you want

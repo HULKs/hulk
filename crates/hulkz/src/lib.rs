@@ -192,7 +192,6 @@ pub mod cache;
 pub mod config;
 pub mod error;
 pub mod graph;
-pub mod key;
 pub mod message;
 pub mod node;
 pub mod parameter;
@@ -200,6 +199,8 @@ pub mod publisher;
 pub mod scoped_path;
 pub mod session;
 pub mod subscriber;
+
+mod key;
 
 /// Zenoh timestamp - used for temporal ordering and alignment.
 ///

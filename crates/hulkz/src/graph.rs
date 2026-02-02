@@ -63,7 +63,7 @@ impl PublisherInfo {
     /// Parses publisher info from a graph publisher key.
     ///
     /// Expected format: `hulkz/graph/publishers/{namespace}/{node}/{scope}/{path...}`
-    pub fn from_key(key: &str) -> Option<Self> {
+    pub(crate) fn from_key(key: &str) -> Option<Self> {
         let parts: Vec<&str> = key.split('/').collect();
         // Minimum: hulkz/graph/publishers/ns/node/scope/path (7 parts)
         if parts.len() < 7 {
@@ -110,7 +110,7 @@ impl ParameterInfo {
     /// Parses parameter info from a graph parameter key.
     ///
     /// Expected format: `hulkz/graph/parameters/{namespace}/{node}/{scope}/{path...}`
-    pub fn from_key(key: &str) -> Option<Self> {
+    pub(crate) fn from_key(key: &str) -> Option<Self> {
         let parts: Vec<&str> = key.split('/').collect();
         // Minimum: hulkz/graph/parameters/ns/node/scope/path (7 parts)
         if parts.len() < 7 {
@@ -256,7 +256,7 @@ impl ParameterWatcher {
 /// Extracts the session ID from a graph session key.
 ///
 /// Expected format: `hulkz/graph/sessions/{namespace}/{session_id}`
-pub fn parse_session_key(key: &str) -> Option<String> {
+pub(crate) fn parse_session_key(key: &str) -> Option<String> {
     let parts: Vec<&str> = key.split('/').collect();
     if parts.len() != 5 {
         return None;
@@ -270,7 +270,7 @@ pub fn parse_session_key(key: &str) -> Option<String> {
 /// Extracts the node name from a graph node key.
 ///
 /// Expected format: `hulkz/graph/nodes/{namespace}/{node}`
-pub fn parse_node_key(key: &str) -> Option<String> {
+pub(crate) fn parse_node_key(key: &str) -> Option<String> {
     let parts: Vec<&str> = key.split('/').collect();
     if parts.len() != 5 {
         return None;

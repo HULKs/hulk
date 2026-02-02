@@ -58,8 +58,8 @@ where
     T: Serialize,
 {
     pub(crate) node: Node,
-    pub topic: Result<ScopedPath, ScopedPathError>,
-    pub enable_view: bool,
+    pub(crate) topic: Result<ScopedPath, ScopedPathError>,
+    pub(crate) enable_view: bool,
     pub(crate) _phantom: PhantomData<T>,
 }
 

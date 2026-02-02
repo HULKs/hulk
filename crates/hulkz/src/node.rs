@@ -48,7 +48,7 @@ use crate::{
 /// Builder for creating a [`Node`].
 pub struct NodeBuilder {
     pub(crate) session: Session,
-    pub name: String,
+    pub(crate) name: String,
 }
 
 impl NodeBuilder {
