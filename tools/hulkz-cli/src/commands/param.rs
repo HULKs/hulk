@@ -154,7 +154,7 @@ pub async fn set(namespace: &str, args: SetArgs, format: OutputFormat) -> hulkz:
 
     // Set the parameter
     match session.set_parameter(&write_key, &value).await {
-        Ok(None) => {
+        Ok(()) => {
             // Success
             if matches!(format, OutputFormat::Human) {
                 println!("Set {} = {}", args.path, args.value);
@@ -165,8 +165,9 @@ pub async fn set(namespace: &str, args: SetArgs, format: OutputFormat) -> hulkz:
                 );
             }
         }
-        Ok(Some(error_msg)) => {
-            // Parameter rejected the value (e.g., validation failed)
+        Err(hulkz::Error::ParameterRejected(reasons)) => {
+            // Parameter(s) rejected the value (e.g., validation failed)
+            let error_msg = reasons.join("; ");
             if matches!(format, OutputFormat::Human) {
                 eprintln!("Failed to set '{}': {}", args.path, error_msg);
             } else {

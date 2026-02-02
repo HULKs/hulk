@@ -23,7 +23,7 @@
 use std::{future::Future, sync::Arc};
 
 use tokio::sync::mpsc;
-use zenoh::liveliness::LivelinessToken;
+use zenoh::{handlers::FifoChannelHandler, liveliness::LivelinessToken, sample::Sample};
 
 use crate::{
     config::Config,
@@ -83,17 +83,12 @@ impl SessionBuilder {
         let session = zenoh::open(zenoh_config).await?;
 
         // Generate session ID: {uuid}@{hostname}
-        let hostname = gethostname::gethostname()
-            .to_string_lossy()
-            .into_owned();
+        let hostname = gethostname::gethostname().to_string_lossy().into_owned();
         let session_id = format!("{}@{}", uuid::Uuid::new_v4(), hostname);
 
         // Declare session liveliness token for discovery
         let liveliness_key = graph_session_key(&self.namespace, &session_id);
-        let liveliness_token = session
-            .liveliness()
-            .declare_token(&liveliness_key)
-            .await?;
+        let liveliness_token = session.liveliness().declare_token(&liveliness_key).await?;
 
         let inner = SessionInner {
             zenoh: session,
@@ -188,7 +183,7 @@ impl Session {
         let mut sessions = Vec::new();
 
         while let Ok(reply) = replies.recv_async().await {
-            if let Ok(sample) = reply.into_result() {
+            if let Ok(sample) = reply.result() {
                 if let Some(session_id) = parse_session_key(sample.key_expr().as_str()) {
                     sessions.push(session_id);
                 }
@@ -210,7 +205,7 @@ impl Session {
         let mut nodes = Vec::new();
 
         while let Ok(reply) = replies.recv_async().await {
-            if let Ok(sample) = reply.into_result() {
+            if let Ok(sample) = reply.result() {
                 if let Some(node_name) = parse_node_key(sample.key_expr().as_str()) {
                     nodes.push(node_name);
                 }
@@ -227,13 +222,16 @@ impl Session {
     }
 
     /// Lists all publishers in the given namespace.
-    pub async fn list_publishers_in_namespace(&self, namespace: &str) -> Result<Vec<PublisherInfo>> {
+    pub async fn list_publishers_in_namespace(
+        &self,
+        namespace: &str,
+    ) -> Result<Vec<PublisherInfo>> {
         let pattern = graph_publishers_pattern(namespace);
         let replies = self.inner.zenoh.liveliness().get(&pattern).await?;
         let mut publishers = Vec::new();
 
         while let Ok(reply) = replies.recv_async().await {
-            if let Ok(sample) = reply.into_result() {
+            if let Ok(sample) = reply.result() {
                 if let Some(info) = PublisherInfo::from_key(sample.key_expr().as_str()) {
                     publishers.push(info);
                 }
@@ -256,7 +254,10 @@ impl Session {
     ///
     /// This discovers parameters by querying the param read plane.
     /// Returns parameters from all scopes (global, local, private).
-    pub async fn list_parameters_in_namespace(&self, namespace: &str) -> Result<Vec<ParameterInfo>> {
+    pub async fn list_parameters_in_namespace(
+        &self,
+        namespace: &str,
+    ) -> Result<Vec<ParameterInfo>> {
         let mut parameters = Vec::new();
 
         // Query global parameters
@@ -291,7 +292,7 @@ impl Session {
             .await?;
 
         while let Ok(reply) = replies.recv_async().await {
-            if let Ok(sample) = reply.into_result() {
+            if let Ok(sample) = reply.result() {
                 if let Some(info) = ParameterInfo::from_key(sample.key_expr().as_str()) {
                     parameters.push(info);
                 }
@@ -301,14 +302,12 @@ impl Session {
         Ok(())
     }
 
-    // =========================================================================
-    // Discovery API - Watch methods
-    // =========================================================================
-
     /// Watches for node join/leave events in the current namespace.
     ///
     /// Returns a watcher and a driver future that must be spawned.
-    pub async fn watch_nodes(&self) -> Result<(NodeWatcher, impl Future<Output = ()> + Send)> {
+    pub async fn watch_nodes(
+        &self,
+    ) -> Result<(NodeWatcher, impl Future<Output = Result<()>> + Send)> {
         self.watch_nodes_in_namespace(&self.inner.namespace).await
     }
 
@@ -318,7 +317,7 @@ impl Session {
     pub async fn watch_nodes_in_namespace(
         &self,
         namespace: &str,
-    ) -> Result<(NodeWatcher, impl Future<Output = ()> + Send)> {
+    ) -> Result<(NodeWatcher, impl Future<Output = Result<()>> + Send)> {
         let pattern = graph_nodes_pattern(namespace);
         let subscriber = self
             .inner
@@ -330,26 +329,7 @@ impl Session {
         let (tx, rx) = mpsc::channel(32);
         let watcher = NodeWatcher::new(rx);
 
-        let driver = async move {
-            loop {
-                match subscriber.recv_async().await {
-                    Ok(sample) => {
-                        let key = sample.key_expr().as_str();
-                        if let Some(node_name) = parse_node_key(key) {
-                            let event = if sample.kind() == zenoh::sample::SampleKind::Put {
-                                NodeEvent::Joined(node_name)
-                            } else {
-                                NodeEvent::Left(node_name)
-                            };
-                            if tx.send(event).await.is_err() {
-                                break;
-                            }
-                        }
-                    }
-                    Err(_) => break,
-                }
-            }
-        };
+        let driver = drive_node_watcher(subscriber, tx);
 
         Ok((watcher, driver))
     }
@@ -357,8 +337,11 @@ impl Session {
     /// Watches for session join/leave events in the current namespace.
     ///
     /// Returns a watcher and a driver future that must be spawned.
-    pub async fn watch_sessions(&self) -> Result<(SessionWatcher, impl Future<Output = ()> + Send)> {
-        self.watch_sessions_in_namespace(&self.inner.namespace).await
+    pub async fn watch_sessions(
+        &self,
+    ) -> Result<(SessionWatcher, impl Future<Output = Result<()>> + Send)> {
+        self.watch_sessions_in_namespace(&self.inner.namespace)
+            .await
     }
 
     /// Watches for session join/leave events in the given namespace.
@@ -367,7 +350,7 @@ impl Session {
     pub async fn watch_sessions_in_namespace(
         &self,
         namespace: &str,
-    ) -> Result<(SessionWatcher, impl Future<Output = ()> + Send)> {
+    ) -> Result<(SessionWatcher, impl Future<Output = Result<()>> + Send)> {
         let pattern = graph_sessions_pattern(namespace);
         let subscriber = self
             .inner
@@ -379,26 +362,7 @@ impl Session {
         let (tx, rx) = mpsc::channel(32);
         let watcher = SessionWatcher::new(rx);
 
-        let driver = async move {
-            loop {
-                match subscriber.recv_async().await {
-                    Ok(sample) => {
-                        let key = sample.key_expr().as_str();
-                        if let Some(session_id) = parse_session_key(key) {
-                            let event = if sample.kind() == zenoh::sample::SampleKind::Put {
-                                SessionEvent::Joined(session_id)
-                            } else {
-                                SessionEvent::Left(session_id)
-                            };
-                            if tx.send(event).await.is_err() {
-                                break;
-                            }
-                        }
-                    }
-                    Err(_) => break,
-                }
-            }
-        };
+        let driver = drive_session_watcher(subscriber, tx);
 
         Ok((watcher, driver))
     }
@@ -406,7 +370,9 @@ impl Session {
     /// Watches for publisher advertise/unadvertise events in the current namespace.
     ///
     /// Returns a watcher and a driver future that must be spawned.
-    pub async fn watch_publishers(&self) -> Result<(PublisherWatcher, impl Future<Output = ()> + Send)> {
+    pub async fn watch_publishers(
+        &self,
+    ) -> Result<(PublisherWatcher, impl Future<Output = Result<()>> + Send)> {
         self.watch_publishers_in_namespace(&self.inner.namespace)
             .await
     }
@@ -417,7 +383,7 @@ impl Session {
     pub async fn watch_publishers_in_namespace(
         &self,
         namespace: &str,
-    ) -> Result<(PublisherWatcher, impl Future<Output = ()> + Send)> {
+    ) -> Result<(PublisherWatcher, impl Future<Output = Result<()>> + Send)> {
         let pattern = graph_publishers_pattern(namespace);
         let subscriber = self
             .inner
@@ -429,33 +395,10 @@ impl Session {
         let (tx, rx) = mpsc::channel(32);
         let watcher = PublisherWatcher::new(rx);
 
-        let driver = async move {
-            loop {
-                match subscriber.recv_async().await {
-                    Ok(sample) => {
-                        let key = sample.key_expr().as_str();
-                        if let Some(info) = PublisherInfo::from_key(key) {
-                            let event = if sample.kind() == zenoh::sample::SampleKind::Put {
-                                PublisherEvent::Advertised(info)
-                            } else {
-                                PublisherEvent::Unadvertised(info)
-                            };
-                            if tx.send(event).await.is_err() {
-                                break;
-                            }
-                        }
-                    }
-                    Err(_) => break,
-                }
-            }
-        };
+        let driver = drive_publisher_watcher(subscriber, tx);
 
         Ok((watcher, driver))
     }
-
-    // =========================================================================
-    // Parameter API - Query and set parameters remotely
-    // =========================================================================
 
     /// Queries a parameter value by key expression.
     ///
@@ -464,7 +407,7 @@ impl Session {
         let replies = self.inner.zenoh.get(key_expr).await?;
 
         while let Ok(reply) = replies.recv_async().await {
-            match reply.into_result() {
+            match reply.result() {
                 Ok(sample) => {
                     let value: serde_json::Value =
                         serde_json::from_slice(&sample.payload().to_bytes())
@@ -479,16 +422,8 @@ impl Session {
     }
 
     /// Sets a parameter value by key expression.
-    ///
-    /// Returns `Ok(None)` if successful, `Ok(Some(error_message))` if the parameter
-    /// rejected the value (e.g., validation failed), or `Err` if no responder was found.
-    pub async fn set_parameter(
-        &self,
-        key_expr: &str,
-        value: &serde_json::Value,
-    ) -> Result<Option<String>> {
-        let payload =
-            serde_json::to_vec(value).map_err(crate::Error::JsonSerialize)?;
+    pub async fn set_parameter(&self, key_expr: &str, value: &serde_json::Value) -> Result<()> {
+        let payload = serde_json::to_vec(value).map_err(crate::Error::JsonSerialize)?;
 
         let replies = self
             .inner
@@ -498,22 +433,91 @@ impl Session {
             .encoding(zenoh::bytes::Encoding::APPLICATION_JSON)
             .await?;
 
+        let mut success_count = 0;
+        let mut rejections = Vec::new();
+
         while let Ok(reply) = replies.recv_async().await {
-            match reply.into_result() {
-                Ok(_sample) => {
-                    // Success
-                    return Ok(None);
-                }
+            match reply.result() {
+                Ok(_sample) => success_count += 1,
                 Err(err_reply) => {
-                    // Parameter rejected the value (e.g., validation failed)
-                    let error_msg = String::from_utf8_lossy(&err_reply.payload().to_bytes())
-                        .to_string();
-                    return Ok(Some(error_msg));
+                    let reason =
+                        String::from_utf8_lossy(&err_reply.payload().to_bytes()).to_string();
+                    rejections.push(reason);
                 }
             }
         }
 
-        // No replies received
-        Err(crate::Error::ParameterNotFound(key_expr.to_string()))
+        if !rejections.is_empty() {
+            return Err(crate::Error::ParameterRejected(rejections));
+        }
+
+        if success_count == 0 {
+            return Err(crate::Error::ParameterNotFound(key_expr.to_string()));
+        }
+
+        Ok(())
     }
+}
+
+async fn drive_node_watcher(
+    subscriber: zenoh::pubsub::Subscriber<FifoChannelHandler<Sample>>,
+    tx: mpsc::Sender<NodeEvent>,
+) -> Result<()> {
+    loop {
+        let sample = subscriber.recv_async().await?;
+        let key = sample.key_expr().as_str();
+        if let Some(node_name) = parse_node_key(key) {
+            let event = if sample.kind() == zenoh::sample::SampleKind::Put {
+                NodeEvent::Joined(node_name)
+            } else {
+                NodeEvent::Left(node_name)
+            };
+            if tx.send(event).await.is_err() {
+                break;
+            }
+        }
+    }
+    Ok(())
+}
+
+async fn drive_session_watcher(
+    subscriber: zenoh::pubsub::Subscriber<FifoChannelHandler<Sample>>,
+    tx: mpsc::Sender<SessionEvent>,
+) -> Result<()> {
+    loop {
+        let sample = subscriber.recv_async().await?;
+        let key = sample.key_expr().as_str();
+        if let Some(session_id) = parse_session_key(key) {
+            let event = if sample.kind() == zenoh::sample::SampleKind::Put {
+                SessionEvent::Joined(session_id)
+            } else {
+                SessionEvent::Left(session_id)
+            };
+            if tx.send(event).await.is_err() {
+                break;
+            }
+        }
+    }
+    Ok(())
+}
+
+async fn drive_publisher_watcher(
+    subscriber: zenoh::pubsub::Subscriber<FifoChannelHandler<Sample>>,
+    tx: mpsc::Sender<PublisherEvent>,
+) -> Result<()> {
+    loop {
+        let sample = subscriber.recv_async().await?;
+        let key = sample.key_expr().as_str();
+        if let Some(info) = PublisherInfo::from_key(key) {
+            let event = if sample.kind() == zenoh::sample::SampleKind::Put {
+                PublisherEvent::Advertised(info)
+            } else {
+                PublisherEvent::Unadvertised(info)
+            };
+            if tx.send(event).await.is_err() {
+                break;
+            }
+        }
+    }
+    Ok(())
 }

@@ -93,7 +93,7 @@ async fn main() -> Result<()> {
             .as_ref()
             .map(|last| msg.timestamp.get_diff_duration(last))
             .unwrap_or(Duration::ZERO);
-        last_timestamp = Some(msg.timestamp.clone());
+        last_timestamp = Some(msg.timestamp);
 
         // Apply filter
         let filtered = filter.update(&msg.payload, dt);
@@ -126,7 +126,11 @@ fn spawn_imu_publisher(session: Session) {
             let noise = |phase: f64| (t * 17.3 + phase).sin() * 0.3;
             let imu = Imu {
                 accel: [noise(0.0), noise(1.0), 9.81 + noise(2.0)],
-                gyro: [0.01 * t.sin() + noise(3.0) * 0.1, noise(4.0) * 0.1, noise(5.0) * 0.1],
+                gyro: [
+                    0.01 * t.sin() + noise(3.0) * 0.1,
+                    noise(4.0) * 0.1,
+                    noise(5.0) * 0.1,
+                ],
             };
             publisher.put(&imu, &session.now()).await.unwrap();
             t += 0.1;

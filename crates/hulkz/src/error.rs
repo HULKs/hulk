@@ -44,6 +44,9 @@ pub enum Error {
     #[error("parameter validation failed: {0}")]
     ParameterValidation(String),
 
+    #[error("parameter rejected: {}", .0.join("; "))]
+    ParameterRejected(Vec<String>),
+
     #[error("config parse error: {0}")]
     ConfigParse(String),
 

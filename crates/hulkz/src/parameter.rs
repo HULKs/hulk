@@ -51,13 +51,15 @@ use crate::{
     Node,
 };
 
+type ValidatorFn<T> = dyn Fn(&T) -> bool + Send + Sync;
+
 /// Builder for creating a [`Parameter`].
 pub struct ParameterBuilder<T> {
     pub(crate) node: Node,
     pub(crate) path: ScopedPath,
     pub(crate) default: Option<T>,
     pub(crate) read_only: bool,
-    pub(crate) validator: Option<Box<dyn Fn(&T) -> bool + Send + Sync>>,
+    pub(crate) validator: Option<Box<ValidatorFn<T>>>,
     pub(crate) _phantom: PhantomData<T>,
 }
 
@@ -187,7 +189,7 @@ where
                 error!("Failed to read parameter value: {e}");
                 query
                     .reply_err(format!("Error: {e}").into_bytes())
-                    .encoding(Encoding::APPLICATION_JSON)
+                    .encoding(Encoding::TEXT_PLAIN)
                     .await?;
             }
         }
@@ -207,9 +209,7 @@ where
         .cloned()
         .unwrap_or(Encoding::APPLICATION_JSON);
     let payload = match encoding {
-        Encoding::APPLICATION_JSON => {
-            serde_json::to_vec(&*value).map_err(Error::JsonSerialize)?
-        }
+        Encoding::APPLICATION_JSON => serde_json::to_vec(&*value).map_err(Error::JsonSerialize)?,
         Encoding::APPLICATION_CDR => {
             cdr::serialize::<_, _, CdrLe>(&*value, Infinite).map_err(Error::CdrSerialize)?
         }
@@ -225,7 +225,7 @@ async fn drive_writer<T>(
     writer: Queryable<FifoChannelHandler<Query>>,
     value: Arc<Mutex<Arc<T>>>,
     broadcaster: Publisher<'static>,
-    validator: Option<Box<dyn Fn(&T) -> bool + Send + Sync>>,
+    validator: Option<Box<ValidatorFn<T>>>,
 ) -> Result<()>
 where
     for<'de> T: Serialize + Deserialize<'de>,
@@ -241,14 +241,14 @@ where
 
                 query
                     .reply(&key_expr, b"OK".to_vec())
-                    .encoding(Encoding::APPLICATION_JSON)
+                    .encoding(Encoding::TEXT_PLAIN)
                     .await?;
             }
             Err(e) => {
                 error!("Failed to write parameter value: {e}");
                 query
                     .reply_err(format!("Error: {e}").into_bytes())
-                    .encoding(Encoding::APPLICATION_JSON)
+                    .encoding(Encoding::TEXT_PLAIN)
                     .await?;
             }
         }
@@ -258,7 +258,7 @@ where
 async fn handle_write<T>(
     query: &Query,
     value: &Arc<Mutex<Arc<T>>>,
-    validator: Option<&(dyn Fn(&T) -> bool + Send + Sync)>,
+    validator: Option<&ValidatorFn<T>>,
 ) -> Result<Arc<T>>
 where
     for<'de> T: Deserialize<'de>,

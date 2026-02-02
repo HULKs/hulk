@@ -211,7 +211,7 @@ where
         self.publisher
             .put(payload)
             .encoding(Encoding::APPLICATION_CDR)
-            .timestamp(timestamp.clone())
+            .timestamp(*timestamp)
             .await?;
         self.put_view(value, timestamp).await?;
         Ok(())
@@ -231,7 +231,7 @@ where
         view_publisher
             .put(json_payload)
             .encoding(Encoding::APPLICATION_JSON)
-            .timestamp(timestamp.clone())
+            .timestamp(*timestamp)
             .await?;
         Ok(())
     }
