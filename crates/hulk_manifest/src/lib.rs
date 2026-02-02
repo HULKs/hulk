@@ -129,16 +129,7 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
             CyclerManifest {
                 name: "Image",
                 kind: CyclerKind::Perception,
-                instances: vec![
-                    "Rectified",
-                    "RightRectified",
-                    "RightRaw",
-                    "CombinedRaw",
-                    "StereonetDepth",
-                    "StereonetVisual",
-                    "OriginLeft",
-                    "OriginRight",
-                ],
+                instances: vec!["Rectified", "StereonetDepth"],
                 setup_nodes: vec!["sensor_receiver::image_receiver"],
                 nodes: vec![],
                 execution_time_warning_threshold: None,
