@@ -18,14 +18,18 @@ def generate_low_state(
             angular_velocity=gyro.tolist(),
             linear_acceleration=acceleration.tolist(),
         ),
+        motor_state_parallel=[],
         motor_state_serial=[
             MotorState(
+                mode=0,
                 position=data.qpos[info.qpos_addr].item(),
                 velocity=data.qvel[info.qvel_addr].item(),
                 acceleration=data.qacc[info.qacc_addr].item(),
                 torque=data.qfrc_actuator[info.qfrc_actuator_addr].item(),
+                temperature=0,
+                lost=0,
+                reserve=[0, 0],
             )
             for info in actuator_info
         ],
-        motor_state_parallel=[],
     )

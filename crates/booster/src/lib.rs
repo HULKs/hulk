@@ -19,10 +19,10 @@ use pyo3::prelude::*;
 pub struct LowState {
     /// IMU feedback
     pub imu_state: ImuState,
-    /// Serial structure joint feedback
-    pub motor_state_serial: [MotorState; 22],
     /// Parallel structure joint feedback
     pub motor_state_parallel: Vec<MotorState>,
+    /// Serial structure joint feedback
+    pub motor_state_serial: Vec<MotorState>,
 }
 
 #[cfg(feature = "pyo3")]
@@ -31,13 +31,13 @@ impl LowState {
     #[new]
     pub fn new(
         imu_state: ImuState,
-        motor_state_serial: [MotorState; 22],
         motor_state_parallel: Vec<MotorState>,
+        motor_state_serial: Vec<MotorState>,
     ) -> Self {
         Self {
             imu_state,
-            motor_state_serial,
             motor_state_parallel,
+            motor_state_serial,
         }
     }
 }
@@ -132,6 +132,7 @@ impl ImuState {
     PathIntrospect,
 )]
 pub struct MotorState {
+    pub mode: i8,
     #[serde(rename = "q")]
     /// Joint angle position (q), unit: rad.
     pub position: f32,
@@ -144,18 +145,35 @@ pub struct MotorState {
     #[serde(rename = "tau_est")]
     /// Joint torque (tau_est), unit: nm
     pub torque: f32,
+    pub temperature: i8,
+    pub lost: u32,
+    pub reserve: [u32; 2],
 }
 
+#[allow(clippy::too_many_arguments)]
 #[cfg(feature = "pyo3")]
 #[pymethods]
 impl MotorState {
     #[new]
-    pub fn new(position: f32, velocity: f32, acceleration: f32, torque: f32) -> Self {
+    pub fn new(
+        mode: i8,
+        position: f32,
+        velocity: f32,
+        acceleration: f32,
+        torque: f32,
+        temperature: i8,
+        lost: u32,
+        reserve: [u32; 2],
+    ) -> Self {
         Self {
+            mode,
             position,
             velocity,
             acceleration,
             torque,
+            temperature,
+            lost,
+            reserve,
         }
     }
 }

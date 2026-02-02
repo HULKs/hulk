@@ -13,14 +13,14 @@ class LowCommand:
 
 class LowState:
     imu_state: ImuState
-    motor_state_serial: Collection[MotorState]
     motor_state_parallel: Collection[MotorState]
+    motor_state_serial: Collection[MotorState]
 
     def __new__(
         cls,
         imu_state: ImuState,
-        motor_state_serial: Collection[MotorState],
         motor_state_parallel: Collection[MotorState],
+        motor_state_serial: Collection[MotorState],
     ) -> LowState: ...
 
 class CommandType(Enum):
@@ -36,17 +36,25 @@ class ImuState:
     ) -> ImuState: ...
 
 class MotorState:
+    mode: int
     position: float
     velocity: float
     acceleration: float
     torque: float
+    temperature: int
+    lost: int
+    reserve: tuple[int, int]
 
     def __new__(
         cls,
+        mode: int,
         position: float,
         velocity: float,
         acceleration: float,
         torque: float,
+        temperature: int,
+        lost: int,
+        reserve: tuple[int, int],
     ) -> MotorState: ...
 
 class MotorCommand:
@@ -66,4 +74,3 @@ class MotorCommand:
         kd: float,
         weight: float,
     ) -> MotorCommand: ...
-
