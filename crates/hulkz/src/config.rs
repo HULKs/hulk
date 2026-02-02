@@ -77,9 +77,19 @@ impl Config {
     /// Loads and merges a configuration file.
     ///
     /// Later loads override earlier values for the same keys.
+    ///
+    /// # Errors
+    ///
+    /// Returns [`Error::ConfigFileIo`] if the file cannot be read, with the
+    /// file path included in the error message.
     pub async fn load_file(&mut self, path: impl AsRef<Path>) -> Result<()> {
         let path = path.as_ref();
-        let content = tokio::fs::read_to_string(path).await?;
+        let content = tokio::fs::read_to_string(path)
+            .await
+            .map_err(|source| Error::ConfigFileIo {
+                path: path.to_path_buf(),
+                source,
+            })?;
         self.merge_json5(&content)?;
         Ok(())
     }
