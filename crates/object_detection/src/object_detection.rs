@@ -52,7 +52,12 @@ impl ObjectDetection {
 
         let session = Session::builder()?
             .with_execution_providers([
-                TensorRTExecutionProvider::default().build(),
+                TensorRTExecutionProvider::default()
+                    .with_engine_cache(true)
+                    .with_engine_cache_path(
+                        neural_network_folder.join("./trt_engine_cache").display(),
+                    )
+                    .build(),
                 CUDAExecutionProvider::default().build(),
             ])?
             .commit_from_file(neural_network_folder.join("yolo11n-544x448.onnx"))?;
