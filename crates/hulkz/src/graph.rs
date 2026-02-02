@@ -4,6 +4,7 @@
 //! - Sessions: `hulkz/graph/sessions/{namespace}/{session_id}`
 //! - Nodes: `hulkz/graph/nodes/{namespace}/{node}`
 //! - Publishers: `hulkz/graph/publishers/{namespace}/{node}/{scope}/{path}`
+//! - Parameters: `hulkz/graph/parameters/{namespace}/{node}/{scope}/{path}`
 
 use tokio::sync::mpsc;
 
@@ -34,6 +35,15 @@ pub enum PublisherEvent {
     Advertised(PublisherInfo),
     /// A publisher has been unadvertised.
     Unadvertised(PublisherInfo),
+}
+
+/// Event indicating a parameter being declared or undeclared.
+#[derive(Debug, Clone, PartialEq, Eq)]
+pub enum ParameterEvent {
+    /// A new parameter has been declared.
+    Declared(ParameterInfo),
+    /// A parameter has been undeclared.
+    Undeclared(ParameterInfo),
 }
 
 /// Information about a discovered publisher.
@@ -86,72 +96,47 @@ impl PublisherInfo {
 /// Information about a discovered parameter.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParameterInfo {
+    /// The namespace this parameter belongs to.
+    pub namespace: String,
+    /// The node name that owns this parameter.
+    pub node: String,
     /// The scope of the parameter.
     pub scope: Scope,
-    /// The namespace (for local/private parameters).
-    pub namespace: Option<String>,
-    /// The node name (for private parameters).
-    pub node: Option<String>,
     /// The parameter path.
     pub path: String,
 }
 
 impl ParameterInfo {
-    /// Parses parameter info from a param read key.
+    /// Parses parameter info from a graph parameter key.
     ///
-    /// Expected formats:
-    /// - Global: `hulkz/param/read/global/{path...}`
-    /// - Local: `hulkz/param/read/local/{namespace}/{path...}`
-    /// - Private: `hulkz/param/read/private/{namespace}/{node}/{path...}`
+    /// Expected format: `hulkz/graph/parameters/{namespace}/{node}/{scope}/{path...}`
     pub fn from_key(key: &str) -> Option<Self> {
         let parts: Vec<&str> = key.split('/').collect();
-        // Minimum: hulkz/param/read/scope/... (at least 5 parts)
-        if parts.len() < 5 {
+        // Minimum: hulkz/graph/parameters/ns/node/scope/path (7 parts)
+        if parts.len() < 7 {
             return None;
         }
-        if parts[0] != "hulkz" || parts[1] != "param" || parts[2] != "read" {
+        if parts[0] != "hulkz" || parts[1] != "graph" || parts[2] != "parameters" {
             return None;
         }
 
-        match parts[3] {
-            "global" => {
-                // hulkz/param/read/global/{path...}
-                if parts.len() < 5 {
-                    return None;
-                }
-                Some(Self {
-                    scope: Scope::Global,
-                    namespace: None,
-                    node: None,
-                    path: parts[4..].join("/"),
-                })
-            }
-            "local" => {
-                // hulkz/param/read/local/{namespace}/{path...}
-                if parts.len() < 6 {
-                    return None;
-                }
-                Some(Self {
-                    scope: Scope::Local,
-                    namespace: Some(parts[4].to_string()),
-                    node: None,
-                    path: parts[5..].join("/"),
-                })
-            }
-            "private" => {
-                // hulkz/param/read/private/{namespace}/{node}/{path...}
-                if parts.len() < 7 {
-                    return None;
-                }
-                Some(Self {
-                    scope: Scope::Private,
-                    namespace: Some(parts[4].to_string()),
-                    node: Some(parts[5].to_string()),
-                    path: parts[6..].join("/"),
-                })
-            }
-            _ => None,
-        }
+        let namespace = parts[3].to_string();
+        let node = parts[4].to_string();
+        let scope = match parts[5] {
+            "global" => Scope::Global,
+            "local" => Scope::Local,
+            "private" => Scope::Private,
+            _ => return None,
+        };
+        // Path is everything after the scope, joined back together
+        let path = parts[6..].join("/");
+
+        Some(Self {
+            namespace,
+            node,
+            scope,
+            path,
+        })
     }
 
     /// Returns the display path with scope prefix.
@@ -239,6 +224,31 @@ impl PublisherWatcher {
 
     /// Tries to receive a publisher event without blocking.
     pub fn try_recv(&mut self) -> Option<PublisherEvent> {
+        self.receiver.try_recv().ok()
+    }
+}
+
+/// Watcher for parameter events.
+///
+/// Receives events when parameters are declared or undeclared.
+pub struct ParameterWatcher {
+    receiver: mpsc::Receiver<ParameterEvent>,
+}
+
+impl ParameterWatcher {
+    pub(crate) fn new(receiver: mpsc::Receiver<ParameterEvent>) -> Self {
+        Self { receiver }
+    }
+
+    /// Receives the next parameter event.
+    ///
+    /// Returns `None` if the watcher has been closed.
+    pub async fn recv(&mut self) -> Option<ParameterEvent> {
+        self.receiver.recv().await
+    }
+
+    /// Tries to receive a parameter event without blocking.
+    pub fn try_recv(&mut self) -> Option<ParameterEvent> {
         self.receiver.try_recv().ok()
     }
 }
@@ -340,49 +350,56 @@ mod tests {
 
     #[test]
     fn parameter_info_from_key_global() {
-        let key = "hulkz/param/read/global/fleet_id";
+        let key = "hulkz/graph/parameters/chappie/coordinator/global/fleet_id";
         let info = ParameterInfo::from_key(key).unwrap();
+        assert_eq!(info.namespace, "chappie");
+        assert_eq!(info.node, "coordinator");
         assert_eq!(info.scope, Scope::Global);
-        assert_eq!(info.namespace, None);
-        assert_eq!(info.node, None);
         assert_eq!(info.path, "fleet_id");
         assert_eq!(info.display_path(), "/fleet_id");
     }
 
     #[test]
     fn parameter_info_from_key_local() {
-        let key = "hulkz/param/read/local/chappie/max_speed";
+        let key = "hulkz/graph/parameters/chappie/motor/local/max_speed";
         let info = ParameterInfo::from_key(key).unwrap();
+        assert_eq!(info.namespace, "chappie");
+        assert_eq!(info.node, "motor");
         assert_eq!(info.scope, Scope::Local);
-        assert_eq!(info.namespace, Some("chappie".to_string()));
-        assert_eq!(info.node, None);
         assert_eq!(info.path, "max_speed");
         assert_eq!(info.display_path(), "max_speed");
     }
 
     #[test]
     fn parameter_info_from_key_private() {
-        let key = "hulkz/param/read/private/chappie/navigation/debug_level";
+        let key = "hulkz/graph/parameters/chappie/navigation/private/debug_level";
         let info = ParameterInfo::from_key(key).unwrap();
+        assert_eq!(info.namespace, "chappie");
+        assert_eq!(info.node, "navigation");
         assert_eq!(info.scope, Scope::Private);
-        assert_eq!(info.namespace, Some("chappie".to_string()));
-        assert_eq!(info.node, Some("navigation".to_string()));
         assert_eq!(info.path, "debug_level");
         assert_eq!(info.display_path(), "~/debug_level");
     }
 
     #[test]
     fn parameter_info_from_key_nested_path() {
-        let key = "hulkz/param/read/local/chappie/motor/wheel/radius";
+        let key = "hulkz/graph/parameters/chappie/motor/local/wheel/radius";
         let info = ParameterInfo::from_key(key).unwrap();
-        assert_eq!(info.path, "motor/wheel/radius");
-        assert_eq!(info.display_path(), "motor/wheel/radius");
+        assert_eq!(info.namespace, "chappie");
+        assert_eq!(info.node, "motor");
+        assert_eq!(info.path, "wheel/radius");
+        assert_eq!(info.display_path(), "wheel/radius");
     }
 
     #[test]
     fn parameter_info_from_key_invalid() {
-        assert!(ParameterInfo::from_key("hulkz/param/write/local/chappie/speed").is_none());
-        assert!(ParameterInfo::from_key("hulkz/param/read/local/chappie").is_none());
+        // Wrong prefix
+        assert!(ParameterInfo::from_key("hulkz/param/read/local/chappie/speed").is_none());
+        // Too few parts
+        assert!(ParameterInfo::from_key("hulkz/graph/parameters/chappie/motor").is_none());
+        // Wrong type
         assert!(ParameterInfo::from_key("hulkz/graph/nodes/chappie/nav").is_none());
+        // Wrong plane
+        assert!(ParameterInfo::from_key("hulkz/graph/publishers/chappie/nav/local/topic").is_none());
     }
 }

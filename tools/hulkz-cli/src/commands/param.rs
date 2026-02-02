@@ -45,8 +45,7 @@ pub struct ListArgs {
 struct ParameterListItem {
     path: String,
     scope: String,
-    #[serde(skip_serializing_if = "Option::is_none")]
-    node: Option<String>,
+    node: String,
 }
 
 /// Lists all parameters.
@@ -56,7 +55,7 @@ pub async fn list(namespace: &str, args: ListArgs, format: OutputFormat) -> hulk
 
     // Filter by node if specified
     if let Some(ref node_filter) = args.node {
-        parameters.retain(|p| p.node.as_deref() == Some(node_filter.as_str()));
+        parameters.retain(|p| p.node == *node_filter);
     }
 
     // Sort by scope (global, local, private) then by path
@@ -78,12 +77,7 @@ pub async fn list(namespace: &str, args: ListArgs, format: OutputFormat) -> hulk
             println!("Parameters in namespace '{}':", namespace);
             println!();
             for param in &parameters {
-                let node_info = param
-                    .node
-                    .as_ref()
-                    .map(|n| format!(" (node: {})", n))
-                    .unwrap_or_default();
-                println!("  {}{}", param.display_path(), node_info);
+                println!("  {} (node: {})", param.display_path(), param.node);
             }
             println!();
             println!("Total: {} parameter(s)", parameters.len());

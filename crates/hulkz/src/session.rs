@@ -29,13 +29,13 @@ use crate::{
     config::Config,
     error::{Error, Result},
     graph::{
-        parse_node_key, parse_session_key, NodeEvent, NodeWatcher, ParameterInfo, PublisherEvent,
-        PublisherInfo, PublisherWatcher, SessionEvent, SessionWatcher,
+        parse_node_key, parse_session_key, NodeEvent, NodeWatcher, ParameterEvent, ParameterInfo,
+        ParameterWatcher, PublisherEvent, PublisherInfo, PublisherWatcher, SessionEvent,
+        SessionWatcher,
     },
     key::{
-        graph_nodes_pattern, graph_publishers_pattern, graph_session_key, graph_sessions_pattern,
-        param_read_global_pattern, param_read_pattern, param_read_private_pattern, ParamIntent,
-        Scope,
+        graph_nodes_pattern, graph_parameters_pattern, graph_publishers_pattern,
+        graph_session_key, graph_sessions_pattern, ParamIntent, Scope,
     },
     node::NodeBuilder,
     scoped_path::ScopedPath,
@@ -245,7 +245,7 @@ impl Session {
 
     /// Lists all parameters in the current namespace.
     ///
-    /// This discovers parameters by querying the param read plane.
+    /// This discovers parameters via liveliness tokens on the graph plane.
     /// Returns parameters from all scopes (global, local, private).
     pub async fn list_parameters(&self) -> Result<Vec<ParameterInfo>> {
         self.list_parameters_in_namespace(&self.inner.namespace)
@@ -254,44 +254,15 @@ impl Session {
 
     /// Lists all parameters in the given namespace.
     ///
-    /// This discovers parameters by querying the param read plane.
+    /// This discovers parameters via liveliness tokens on the graph plane.
     /// Returns parameters from all scopes (global, local, private).
     pub async fn list_parameters_in_namespace(
         &self,
         namespace: &str,
     ) -> Result<Vec<ParameterInfo>> {
+        let pattern = graph_parameters_pattern(namespace);
+        let replies = self.inner.zenoh.liveliness().get(&pattern).await?;
         let mut parameters = Vec::new();
-
-        // Query global parameters
-        let global_pattern = param_read_global_pattern();
-        self.collect_parameters(&global_pattern, &mut parameters)
-            .await?;
-
-        // Query local parameters for this namespace
-        let local_pattern = param_read_pattern(namespace);
-        self.collect_parameters(&local_pattern, &mut parameters)
-            .await?;
-
-        // Query private parameters for this namespace
-        let private_pattern = param_read_private_pattern(namespace);
-        self.collect_parameters(&private_pattern, &mut parameters)
-            .await?;
-
-        Ok(parameters)
-    }
-
-    /// Helper to collect parameters from a query pattern.
-    async fn collect_parameters(
-        &self,
-        pattern: &str,
-        parameters: &mut Vec<ParameterInfo>,
-    ) -> Result<()> {
-        let replies = self
-            .inner
-            .zenoh
-            .get(pattern)
-            .timeout(std::time::Duration::from_millis(500))
-            .await?;
 
         while let Ok(reply) = replies.recv_async().await {
             if let Ok(sample) = reply.result() {
@@ -301,7 +272,7 @@ impl Session {
             }
         }
 
-        Ok(())
+        Ok(parameters)
     }
 
     /// Watches for node join/leave events in the current namespace.
@@ -398,6 +369,39 @@ impl Session {
         let watcher = PublisherWatcher::new(rx);
 
         let driver = drive_publisher_watcher(subscriber, tx);
+
+        Ok((watcher, driver))
+    }
+
+    /// Watches for parameter declare/undeclare events in the current namespace.
+    ///
+    /// Returns a watcher and a driver future that must be spawned.
+    pub async fn watch_parameters(
+        &self,
+    ) -> Result<(ParameterWatcher, impl Future<Output = Result<()>> + Send)> {
+        self.watch_parameters_in_namespace(&self.inner.namespace)
+            .await
+    }
+
+    /// Watches for parameter declare/undeclare events in the given namespace.
+    ///
+    /// Returns a watcher and a driver future that must be spawned.
+    pub async fn watch_parameters_in_namespace(
+        &self,
+        namespace: &str,
+    ) -> Result<(ParameterWatcher, impl Future<Output = Result<()>> + Send)> {
+        let pattern = graph_parameters_pattern(namespace);
+        let subscriber = self
+            .inner
+            .zenoh
+            .liveliness()
+            .declare_subscriber(&pattern)
+            .await?;
+
+        let (tx, rx) = mpsc::channel(32);
+        let watcher = ParameterWatcher::new(rx);
+
+        let driver = drive_parameter_watcher(subscriber, tx);
 
         Ok((watcher, driver))
     }
@@ -644,6 +648,27 @@ async fn drive_publisher_watcher(
                 PublisherEvent::Advertised(info)
             } else {
                 PublisherEvent::Unadvertised(info)
+            };
+            if tx.send(event).await.is_err() {
+                break;
+            }
+        }
+    }
+    Ok(())
+}
+
+async fn drive_parameter_watcher(
+    subscriber: zenoh::pubsub::Subscriber<FifoChannelHandler<Sample>>,
+    tx: mpsc::Sender<ParameterEvent>,
+) -> Result<()> {
+    loop {
+        let sample = subscriber.recv_async().await?;
+        let key = sample.key_expr().as_str();
+        if let Some(info) = ParameterInfo::from_key(key) {
+            let event = if sample.kind() == zenoh::sample::SampleKind::Put {
+                ParameterEvent::Declared(info)
+            } else {
+                ParameterEvent::Undeclared(info)
             };
             if tx.send(event).await.is_err() {
                 break;

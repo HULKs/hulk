@@ -157,6 +157,16 @@ impl ScopedPath {
             ROOT, namespace, node, self.scope, self.path
         )
     }
+
+    /// Generates a graph parameter liveliness key.
+    ///
+    /// Schema: `hulkz/graph/parameters/{namespace}/{node}/{scope}/{path}`
+    pub(crate) fn to_graph_parameter_key(&self, namespace: &str, node: &str) -> String {
+        format!(
+            "{}/graph/parameters/{}/{}/{}/{}",
+            ROOT, namespace, node, self.scope, self.path
+        )
+    }
 }
 
 impl TryFrom<&str> for ScopedPath {
@@ -274,6 +284,33 @@ mod tests {
         assert_eq!(
             path.to_graph_publisher_key("chappie", "coordinator"),
             "hulkz/graph/publishers/chappie/coordinator/global/fleet_status"
+        );
+    }
+
+    #[test]
+    fn to_graph_parameter_key_local() {
+        let path = ScopedPath::parse("max_speed");
+        assert_eq!(
+            path.to_graph_parameter_key("chappie", "motor"),
+            "hulkz/graph/parameters/chappie/motor/local/max_speed"
+        );
+    }
+
+    #[test]
+    fn to_graph_parameter_key_private() {
+        let path = ScopedPath::parse("~/debug_level");
+        assert_eq!(
+            path.to_graph_parameter_key("chappie", "nav"),
+            "hulkz/graph/parameters/chappie/nav/private/debug_level"
+        );
+    }
+
+    #[test]
+    fn to_graph_parameter_key_global() {
+        let path = ScopedPath::parse("/fleet_id");
+        assert_eq!(
+            path.to_graph_parameter_key("chappie", "coordinator"),
+            "hulkz/graph/parameters/chappie/coordinator/global/fleet_id"
         );
     }
 }

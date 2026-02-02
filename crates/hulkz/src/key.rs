@@ -134,28 +134,9 @@ pub(crate) fn graph_publishers_pattern(namespace: &str) -> String {
 
 /// Pattern for querying all parameters in a namespace.
 ///
-/// This queries the read branch for parameter discovery.
-/// Schema: `hulkz/param/read/**` (all scopes)
-pub(crate) fn param_read_pattern(namespace: &str) -> String {
-    // Query global, local for this namespace, and private for this namespace
-    // We use alternation: global + local/ns + private/ns
-    // Zenoh doesn't support OR in patterns, so we return local/private pattern
-    // and handle global separately if needed
-    format!("{}/param/read/local/{}/**", ROOT, namespace)
-}
-
-/// Pattern for querying global parameters.
-///
-/// Schema: `hulkz/param/read/global/**`
-pub(crate) fn param_read_global_pattern() -> String {
-    format!("{}/param/read/global/**", ROOT)
-}
-
-/// Pattern for querying private parameters in a namespace.
-///
-/// Schema: `hulkz/param/read/private/{namespace}/**`
-pub(crate) fn param_read_private_pattern(namespace: &str) -> String {
-    format!("{}/param/read/private/{}/**", ROOT, namespace)
+/// Schema: `hulkz/graph/parameters/{namespace}/**`
+pub(crate) fn graph_parameters_pattern(namespace: &str) -> String {
+    format!("{}/graph/parameters/{}/**", ROOT, namespace)
 }
 
 #[cfg(test)]
@@ -190,5 +171,11 @@ mod tests {
     fn graph_publishers_pattern_test() {
         let pattern = graph_publishers_pattern("chappie");
         assert_eq!(pattern, "hulkz/graph/publishers/chappie/**");
+    }
+
+    #[test]
+    fn graph_parameters_pattern_test() {
+        let pattern = graph_parameters_pattern("chappie");
+        assert_eq!(pattern, "hulkz/graph/parameters/chappie/**");
     }
 }

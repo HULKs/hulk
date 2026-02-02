@@ -174,8 +174,8 @@ pub use crate::{
     config::Config,
     error::{Error, Result, ScopedPathError},
     graph::{
-        NodeEvent, NodeWatcher, ParameterInfo, PublisherEvent, PublisherInfo, PublisherWatcher,
-        SessionEvent, SessionWatcher,
+        NodeEvent, NodeWatcher, ParameterEvent, ParameterInfo, ParameterWatcher, PublisherEvent,
+        PublisherInfo, PublisherWatcher, SessionEvent, SessionWatcher,
     },
     key::Scope,
     message::Message,

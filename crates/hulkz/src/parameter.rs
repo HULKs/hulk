@@ -40,6 +40,7 @@ use tracing::error;
 use zenoh::{
     bytes::Encoding,
     handlers::FifoChannelHandler,
+    liveliness::LivelinessToken,
     pubsub::Publisher,
     query::{Query, Queryable},
 };
@@ -148,6 +149,12 @@ where
             None
         };
 
+        // Declare liveliness token for parameter discovery
+        let liveliness_key = self
+            .path
+            .to_graph_parameter_key(&namespace, &node_name);
+        let liveliness_token = z_session.liveliness().declare_token(&liveliness_key).await?;
+
         let driver = {
             let value = value.clone();
             let read_key = read_key_expr.clone();
@@ -167,7 +174,7 @@ where
             }
         };
 
-        Ok((Parameter { value }, driver))
+        Ok((Parameter { value, _liveliness_token: liveliness_token }, driver))
     }
 }
 
@@ -313,8 +320,11 @@ where
 ///
 /// Parameters are loaded from configuration files and exposed via the param plane.
 /// Updates to the write key are broadcast on the read key.
+///
+/// The parameter advertises itself via a liveliness token for discovery.
 pub struct Parameter<T> {
     value: Arc<Mutex<Arc<T>>>,
+    _liveliness_token: LivelinessToken,
 }
 
 impl<T> Parameter<T>
