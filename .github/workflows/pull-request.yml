@@ -74,23 +74,7 @@ jobs:
         with:
           lfs: true
       - name: Check
-        run: cargo fmt --check
-
-  format-toml:
-    name: Format TOML files
-    runs-on:
-      - self-hosted
-      - v3
-    container:
-      image: ghcr.io/hulks/hulk-ci:1.92.0
-      options: --user=1000:1000
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          lfs: true
-      - name: Check
-        run: |
-          taplo fmt --check --diff
+        run: ./pepsi fmt --check
 
   test:
     name: Test
