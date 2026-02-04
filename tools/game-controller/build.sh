@@ -1,3 +1,3 @@
 #!/bin/sh
 
-sudo podman build . --tag gamecontroller
+sudo podman build . --tag gamecontroller --network host
