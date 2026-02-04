@@ -27,15 +27,15 @@ pub async fn run(namespace: &str, format: OutputFormat) -> hulkz::Result<()> {
     // Give time for discovery
     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
-    // Gather data
-    let sessions = session.list_sessions().await?;
-    let nodes = session.list_nodes().await?;
-    let publishers = session.list_publishers().await?;
+    // Gather data using new fluent Graph API
+    let sessions = session.graph().sessions().list().await?;
+    let nodes = session.graph().nodes().list().await?;
+    let publishers = session.graph().publishers().list().await?;
 
-    // Group publishers by node
+    // Group publishers by node (keyed by node name)
     let mut node_publishers: HashMap<String, Vec<String>> = HashMap::new();
-    for node in &nodes {
-        node_publishers.insert(node.clone(), Vec::new());
+    for node_info in &nodes {
+        node_publishers.insert(node_info.name.clone(), Vec::new());
     }
     for pub_info in &publishers {
         node_publishers
@@ -49,9 +49,12 @@ pub async fn run(namespace: &str, format: OutputFormat) -> hulkz::Result<()> {
         sessions: sessions.len(),
         nodes: nodes
             .iter()
-            .map(|name| NodeSummary {
-                name: name.clone(),
-                publishers: node_publishers.get(name).cloned().unwrap_or_default(),
+            .map(|node_info| NodeSummary {
+                name: node_info.name.clone(),
+                publishers: node_publishers
+                    .get(&node_info.name)
+                    .cloned()
+                    .unwrap_or_default(),
             })
             .collect(),
     };
@@ -66,11 +69,7 @@ pub async fn run(namespace: &str, format: OutputFormat) -> hulkz::Result<()> {
             println!("  (none)");
         } else {
             for node in &graph.nodes {
-                println!(
-                    "  {} ({} publishers)",
-                    node.name,
-                    node.publishers.len()
-                );
+                println!("  {} ({} publishers)", node.name, node.publishers.len());
                 for pub_topic in &node.publishers {
                     println!("    - {}", pub_topic);
                 }

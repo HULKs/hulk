@@ -1,6 +1,6 @@
 //! Watch command implementations.
 
-use hulkz::{NodeEvent, PublisherEvent, PublisherInfo, Session, SessionEvent};
+use hulkz::{GraphEvent, PublisherInfo, Session};
 use serde::Serialize;
 
 use crate::output::OutputFormat;
@@ -9,7 +9,7 @@ use crate::output::OutputFormat;
 pub async fn nodes(namespace: &str, format: OutputFormat) -> hulkz::Result<()> {
     let session = Session::create(namespace).await?;
 
-    let (mut watcher, driver) = session.watch_nodes().await?;
+    let (mut watcher, driver) = session.graph().nodes().watch().await?;
     tokio::spawn(driver);
 
     if matches!(format, OutputFormat::Human) {
@@ -20,11 +20,21 @@ pub async fn nodes(namespace: &str, format: OutputFormat) -> hulkz::Result<()> {
 
     while let Some(event) = watcher.recv().await {
         match &event {
-            NodeEvent::Joined(name) => {
-                format.print_event("node.joined", &NodeEventData { node: name.clone() });
+            GraphEvent::Joined(info) => {
+                format.print_event(
+                    "node.joined",
+                    &NodeEventData {
+                        node: info.name.clone(),
+                    },
+                );
             }
-            NodeEvent::Left(name) => {
-                format.print_event("node.left", &NodeEventData { node: name.clone() });
+            GraphEvent::Left(info) => {
+                format.print_event(
+                    "node.left",
+                    &NodeEventData {
+                        node: info.name.clone(),
+                    },
+                );
             }
         }
     }
@@ -36,24 +46,21 @@ pub async fn nodes(namespace: &str, format: OutputFormat) -> hulkz::Result<()> {
 pub async fn publishers(namespace: &str, format: OutputFormat) -> hulkz::Result<()> {
     let session = Session::create(namespace).await?;
 
-    let (mut watcher, driver) = session.watch_publishers().await?;
+    let (mut watcher, driver) = session.graph().publishers().watch().await?;
     tokio::spawn(driver);
 
     if matches!(format, OutputFormat::Human) {
-        println!(
-            "Watching for publisher events in namespace: {}",
-            namespace
-        );
+        println!("Watching for publisher events in namespace: {}", namespace);
         println!("(Press Ctrl+C to exit)");
         println!();
     }
 
     while let Some(event) = watcher.recv().await {
         match &event {
-            PublisherEvent::Advertised(info) => {
+            GraphEvent::Joined(info) => {
                 format.print_event("publisher.advertised", &PublisherEventData::from(info));
             }
-            PublisherEvent::Unadvertised(info) => {
+            GraphEvent::Left(info) => {
                 format.print_event("publisher.unadvertised", &PublisherEventData::from(info));
             }
         }
@@ -66,7 +73,7 @@ pub async fn publishers(namespace: &str, format: OutputFormat) -> hulkz::Result<
 pub async fn sessions(namespace: &str, format: OutputFormat) -> hulkz::Result<()> {
     let session = Session::create(namespace).await?;
 
-    let (mut watcher, driver) = session.watch_sessions().await?;
+    let (mut watcher, driver) = session.graph().sessions().watch().await?;
     tokio::spawn(driver);
 
     if matches!(format, OutputFormat::Human) {
@@ -77,19 +84,19 @@ pub async fn sessions(namespace: &str, format: OutputFormat) -> hulkz::Result<()
 
     while let Some(event) = watcher.recv().await {
         match &event {
-            SessionEvent::Joined(id) => {
+            GraphEvent::Joined(info) => {
                 format.print_event(
                     "session.joined",
                     &SessionEventData {
-                        session_id: id.clone(),
+                        session_id: info.id.clone(),
                     },
                 );
             }
-            SessionEvent::Left(id) => {
+            GraphEvent::Left(info) => {
                 format.print_event(
                     "session.left",
                     &SessionEventData {
-                        session_id: id.clone(),
+                        session_id: info.id.clone(),
                     },
                 );
             }

@@ -13,8 +13,10 @@ pub async fn nodes(namespace: &str, format: OutputFormat) -> hulkz::Result<()> {
     // Give time for discovery to settle
     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
-    let nodes = session.list_nodes().await?;
-    format.print_list("NODES", namespace, &nodes);
+    // Get nodes as NodeInfo, extract just names for display
+    let nodes = session.graph().nodes().list().await?;
+    let node_names: Vec<String> = nodes.into_iter().map(|n| n.name).collect();
+    format.print_list("NODES", namespace, &node_names);
 
     Ok(())
 }
@@ -30,7 +32,7 @@ pub async fn publishers(
     // Give time for discovery to settle
     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
-    let publishers = session.list_publishers().await?;
+    let publishers = session.graph().publishers().list().await?;
 
     // Filter by node if specified
     let filtered: Vec<_> = if let Some(node) = node_filter {
@@ -55,8 +57,10 @@ pub async fn sessions(namespace: &str, format: OutputFormat) -> hulkz::Result<()
     // Give time for discovery to settle
     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
-    let sessions = session.list_sessions().await?;
-    format.print_list("SESSIONS", namespace, &sessions);
+    // Get sessions as SessionInfo, extract just IDs for display
+    let sessions = session.graph().sessions().list().await?;
+    let session_ids: Vec<String> = sessions.into_iter().map(|s| s.id).collect();
+    format.print_list("SESSIONS", namespace, &session_ids);
 
     Ok(())
 }

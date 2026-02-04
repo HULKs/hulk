@@ -25,7 +25,7 @@ pub async fn run(namespace: &str, args: ViewArgs, format: OutputFormat) -> hulkz
     let topic: &str = &args.topic;
 
     // Subscribe to view plane (JSON) for CLI introspection
-    let mut subscriber = node.subscribe::<Value>(topic).view_only().build().await?;
+    let mut subscriber = node.subscribe::<Value>(topic).view().build().await?;
 
     if matches!(format, OutputFormat::Human) {
         println!(

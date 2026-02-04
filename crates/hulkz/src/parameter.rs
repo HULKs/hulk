@@ -46,9 +46,9 @@ use zenoh::{
 
 use crate::{
     error::{Error, Result},
-    key::{ParamIntent, Scope},
+    key::{GraphKey, ParamIntent, ParamKey},
     scoped_path::ScopedPath,
-    Node,
+    Node, Scope,
 };
 
 type ValidatorFn<T> = dyn Fn(&T) -> bool + Send + Sync;
@@ -114,10 +114,14 @@ where
         let namespace = self.node.session().namespace().to_string();
         let node_name = self.node.name().to_string();
 
-        // Build key expressions using ScopedPath
-        let read_key_expr = self
-            .path
-            .to_param_key(ParamIntent::Read, &namespace, &node_name);
+        // Build key expressions using key builders
+        let read_key_expr = ParamKey::from_scope(
+            ParamIntent::Read,
+            self.path.scope(),
+            &namespace,
+            &node_name,
+            self.path.path(),
+        );
 
         let z_session = self.node.session().zenoh();
         let value = Arc::new(Mutex::new(Arc::new(initial)));
@@ -126,14 +130,19 @@ where
         let broadcaster = z_session.declare_publisher(read_key_expr.clone()).await?;
 
         // Only create writer if not read-only
-        let write_key_expr = self
-            .path
-            .to_param_key(ParamIntent::Write, &namespace, &node_name);
+        let write_key_expr = ParamKey::from_scope(
+            ParamIntent::Write,
+            self.path.scope(),
+            &namespace,
+            &node_name,
+            self.path.path(),
+        );
 
         let writer = z_session.declare_queryable(&write_key_expr).await?;
 
         // Declare liveliness token for parameter discovery
-        let liveliness_key = self.path.to_graph_parameter_key(&namespace, &node_name);
+        let liveliness_key =
+            GraphKey::parameter(&namespace, &node_name, self.path.scope(), self.path.path());
         let liveliness_token = z_session
             .liveliness()
             .declare_token(&liveliness_key)

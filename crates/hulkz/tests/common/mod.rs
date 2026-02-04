@@ -18,7 +18,7 @@ pub fn test_namespace(name: &str) -> String {
 #[allow(dead_code)]
 pub async fn test_session(name: &str) -> hulkz::Result<Session> {
     Session::builder(test_namespace(name))
-        .parameters_file(TEST_PARAMETERS)
+        .overlay_parameters_file(TEST_PARAMETERS)
         .build()
         .await
 }

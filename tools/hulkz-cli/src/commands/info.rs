@@ -36,8 +36,8 @@ pub async fn run(namespace: &str, args: InfoArgs, format: OutputFormat) -> hulkz
     // Give time for discovery
     tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
-    // Find publishers for this topic
-    let all_publishers = session.list_publishers().await?;
+    // Find publishers for this topic using new Graph API
+    let all_publishers = session.graph().publishers().list().await?;
     let matching_publishers: Vec<_> = all_publishers
         .iter()
         .filter(|p| p.path == scoped_path.path() && p.scope == scoped_path.scope())

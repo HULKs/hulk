@@ -36,6 +36,7 @@ use zenoh::{
 
 use crate::{
     error::{Error, Result, ScopedPathError},
+    key::{DataKey, ViewKey},
     scoped_path::ScopedPath,
     Message, Node, Session,
 };
@@ -86,7 +87,7 @@ impl<T> SubscriberBuilder<T> {
     /// // Subscribe to a topic in a different namespace
     /// let mut subscriber = node.subscribe::<Value>("camera/front")
     ///     .in_namespace("robot-nao22")
-    ///     .view_only()
+    ///     .view()
     ///     .build()
     ///     .await?;
     /// # Ok(())
@@ -108,9 +109,9 @@ impl<T> SubscriberBuilder<T> {
             .unwrap_or_else(|| self.node.session().namespace());
 
         let key = if self.view {
-            topic.to_view_key(namespace, self.node.name())
+            ViewKey::from_scope(topic.scope(), namespace, self.node.name(), topic.path())
         } else {
-            topic.to_data_key(namespace, self.node.name())
+            DataKey::from_scope(topic.scope(), namespace, self.node.name(), topic.path())
         };
 
         let subscriber = session

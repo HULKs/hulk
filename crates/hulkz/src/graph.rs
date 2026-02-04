@@ -5,45 +5,137 @@
 //! - Nodes: `hulkz/graph/nodes/{namespace}/{node}`
 //! - Publishers: `hulkz/graph/publishers/{namespace}/{node}/{scope}/{path}`
 //! - Parameters: `hulkz/graph/parameters/{namespace}/{node}/{scope}/{path}`
+//!
+//! # Graph Access API
+//!
+//! Use [`Session::graph()`](crate::Session::graph) to access the graph plane:
+//!
+//! ```rust,no_run
+//! # use hulkz::{Session, Result};
+//! # #[tokio::main]
+//! # async fn main() -> Result<()> {
+//! let session = Session::create("robot").await?;
+//!
+//! // List nodes in current namespace
+//! let nodes = session.graph().nodes().list().await?;
+//!
+//! // List publishers in a specific namespace
+//! let pubs = session.graph().in_namespace("other").publishers().list().await?;
+//!
+//! // Watch all nodes across all namespaces
+//! let (mut watcher, driver) = session.graph().all_namespaces().nodes().watch().await?;
+//! tokio::spawn(driver);
+//! while let Some(event) = watcher.recv().await {
+//!     match event {
+//!         hulkz::GraphEvent::Joined(info) => println!("+ {}", info.node),
+//!         hulkz::GraphEvent::Left(info) => println!("- {}", info.node),
+//!     }
+//! }
+//! # Ok(())
+//! # }
+//! ```
 
+use std::fmt;
+use std::future::Future;
+use std::marker::PhantomData;
+
+use serde::Serialize;
 use tokio::sync::mpsc;
+use tracing::error;
+use zenoh::handlers::FifoChannelHandler;
+use zenoh::sample::{Sample, SampleKind};
 
-use crate::key::Scope;
+use crate::error::Result;
+use crate::key::GraphKey;
+use crate::{Error, Scope, Session};
 
-/// Event indicating a session joining or leaving the network.
+/// Event for any graph entity appearing or disappearing.
 #[derive(Debug, Clone, PartialEq, Eq)]
-pub enum SessionEvent {
-    /// A new session has joined.
-    Joined(String),
-    /// A session has left.
-    Left(String),
+pub enum GraphEvent<T> {
+    /// An entity has joined/appeared.
+    Joined(T),
+    /// An entity has left/disappeared.
+    Left(T),
 }
 
-/// Event indicating a node joining or leaving the network.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum NodeEvent {
-    /// A new node has joined.
-    Joined(String),
-    /// A node has left.
-    Left(String),
+/// Trait for types that can be parsed from graph keys.
+pub trait GraphInfo: Sized + Clone + Send + 'static {
+    /// Parse from a Zenoh key expression.
+    fn from_key(key: &str) -> Result<Self>;
 }
 
-/// Event indicating a publisher appearing or disappearing.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum PublisherEvent {
-    /// A new publisher has been advertised.
-    Advertised(PublisherInfo),
-    /// A publisher has been unadvertised.
-    Unadvertised(PublisherInfo),
+/// Information about a discovered session.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
+pub struct SessionInfo {
+    /// The namespace this session belongs to.
+    pub namespace: String,
+    /// The session ID (format: `{uuid}@{hostname}`).
+    pub id: String,
 }
 
-/// Event indicating a parameter being declared or undeclared.
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub enum ParameterEvent {
-    /// A new parameter has been declared.
-    Declared(ParameterInfo),
-    /// A parameter has been undeclared.
-    Undeclared(ParameterInfo),
+impl fmt::Display for SessionInfo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.id)
+    }
+}
+
+impl GraphInfo for SessionInfo {
+    fn from_key(key: &str) -> Result<Self> {
+        let parts: Vec<&str> = key.split('/').collect();
+        if parts.len() != 5 {
+            return Err(Error::GraphKeyParsing {
+                key: key.to_string(),
+                reason: format!("expected 5 parts, found {}", parts.len()),
+            });
+        }
+        if parts[0] != "hulkz" || parts[1] != "graph" || parts[2] != "sessions" {
+            return Err(Error::GraphKeyParsing {
+                key: key.to_string(),
+                reason: "invalid prefix".to_string(),
+            });
+        }
+        Ok(Self {
+            namespace: parts[3].to_string(),
+            id: parts[4].to_string(),
+        })
+    }
+}
+
+/// Information about a discovered node.
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
+pub struct NodeInfo {
+    /// The namespace this node belongs to.
+    pub namespace: String,
+    /// The node name.
+    pub name: String,
+}
+
+impl fmt::Display for NodeInfo {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{}", self.name)
+    }
+}
+
+impl GraphInfo for NodeInfo {
+    fn from_key(key: &str) -> Result<Self> {
+        let parts: Vec<&str> = key.split('/').collect();
+        if parts.len() != 5 {
+            return Err(Error::GraphKeyParsing {
+                key: key.to_string(),
+                reason: format!("expected 5 parts, found {}", parts.len()),
+            });
+        }
+        if parts[0] != "hulkz" || parts[1] != "graph" || parts[2] != "nodes" {
+            return Err(Error::GraphKeyParsing {
+                key: key.to_string(),
+                reason: "invalid prefix".to_string(),
+            });
+        }
+        Ok(Self {
+            namespace: parts[3].to_string(),
+            name: parts[4].to_string(),
+        })
+    }
 }
 
 /// Information about a discovered publisher.
@@ -59,18 +151,20 @@ pub struct PublisherInfo {
     pub path: String,
 }
 
-impl PublisherInfo {
-    /// Parses publisher info from a graph publisher key.
-    ///
-    /// Expected format: `hulkz/graph/publishers/{namespace}/{node}/{scope}/{path...}`
-    pub(crate) fn from_key(key: &str) -> Option<Self> {
+impl GraphInfo for PublisherInfo {
+    fn from_key(key: &str) -> Result<Self> {
         let parts: Vec<&str> = key.split('/').collect();
-        // Minimum: hulkz/graph/publishers/ns/node/scope/path (7 parts)
         if parts.len() < 7 {
-            return None;
+            return Err(Error::GraphKeyParsing {
+                key: key.to_string(),
+                reason: format!("expected at least 7 parts, found {}", parts.len()),
+            });
         }
         if parts[0] != "hulkz" || parts[1] != "graph" || parts[2] != "publishers" {
-            return None;
+            return Err(Error::GraphKeyParsing {
+                key: key.to_string(),
+                reason: "invalid prefix".to_string(),
+            });
         }
 
         let namespace = parts[3].to_string();
@@ -79,17 +173,32 @@ impl PublisherInfo {
             "global" => Scope::Global,
             "local" => Scope::Local,
             "private" => Scope::Private,
-            _ => return None,
+            _ => {
+                return Err(Error::GraphKeyParsing {
+                    key: key.to_string(),
+                    reason: format!("invalid scope '{}'", parts[5]),
+                })
+            }
         };
-        // Path is everything after the scope, joined back together
         let path = parts[6..].join("/");
 
-        Some(Self {
+        Ok(Self {
             namespace,
             node,
             scope,
             path,
         })
+    }
+}
+
+impl PublisherInfo {
+    /// Returns the display path with scope prefix.
+    pub fn display_path(&self) -> String {
+        match self.scope {
+            Scope::Global => format!("/{}", self.path),
+            Scope::Local => self.path.clone(),
+            Scope::Private => format!("~/{}", self.path),
+        }
     }
 }
 
@@ -106,18 +215,20 @@ pub struct ParameterInfo {
     pub path: String,
 }
 
-impl ParameterInfo {
-    /// Parses parameter info from a graph parameter key.
-    ///
-    /// Expected format: `hulkz/graph/parameters/{namespace}/{node}/{scope}/{path...}`
-    pub(crate) fn from_key(key: &str) -> Option<Self> {
+impl GraphInfo for ParameterInfo {
+    fn from_key(key: &str) -> Result<Self> {
         let parts: Vec<&str> = key.split('/').collect();
-        // Minimum: hulkz/graph/parameters/ns/node/scope/path (7 parts)
         if parts.len() < 7 {
-            return None;
+            return Err(Error::GraphKeyParsing {
+                key: key.to_string(),
+                reason: format!("expected at least 7 parts, found {}", parts.len()),
+            });
         }
         if parts[0] != "hulkz" || parts[1] != "graph" || parts[2] != "parameters" {
-            return None;
+            return Err(Error::GraphKeyParsing {
+                key: key.to_string(),
+                reason: "invalid prefix".to_string(),
+            });
         }
 
         let namespace = parts[3].to_string();
@@ -126,24 +237,26 @@ impl ParameterInfo {
             "global" => Scope::Global,
             "local" => Scope::Local,
             "private" => Scope::Private,
-            _ => return None,
+            _ => {
+                return Err(Error::GraphKeyParsing {
+                    key: key.to_string(),
+                    reason: format!("invalid scope '{}'", parts[5]),
+                })
+            }
         };
-        // Path is everything after the scope, joined back together
         let path = parts[6..].join("/");
 
-        Some(Self {
+        Ok(Self {
             namespace,
             node,
             scope,
             path,
         })
     }
+}
 
+impl ParameterInfo {
     /// Returns the display path with scope prefix.
-    ///
-    /// - Global: `/path`
-    /// - Local: `path`
-    /// - Private: `~/path`
     pub fn display_path(&self) -> String {
         match self.scope {
             Scope::Global => format!("/{}", self.path),
@@ -153,188 +266,210 @@ impl ParameterInfo {
     }
 }
 
-/// Watcher for session events.
-///
-/// Receives events when sessions join or leave the network.
-pub struct SessionWatcher {
-    receiver: mpsc::Receiver<SessionEvent>,
+/// Namespace scope for graph queries.
+#[derive(Clone)]
+enum NamespaceScope {
+    /// Use session's namespace.
+    Session,
+    /// Use a specific namespace.
+    Specific(String),
+    /// Query all namespaces.
+    All,
 }
 
-impl SessionWatcher {
-    pub(crate) fn new(receiver: mpsc::Receiver<SessionEvent>) -> Self {
+/// Entry point for graph plane operations.
+///
+/// Created via [`Session::graph()`](crate::Session::graph).
+pub struct GraphAccess<'session> {
+    session: &'session Session,
+    namespace: NamespaceScope,
+}
+
+impl<'session> GraphAccess<'session> {
+    pub(crate) fn new(session: &'session Session) -> Self {
+        Self {
+            session,
+            namespace: NamespaceScope::Session,
+        }
+    }
+
+    /// Query a specific namespace instead of the session's namespace.
+    pub fn in_namespace(mut self, namespace: impl Into<String>) -> Self {
+        self.namespace = NamespaceScope::Specific(namespace.into());
+        self
+    }
+
+    /// Query all namespaces.
+    pub fn all_namespaces(mut self) -> Self {
+        self.namespace = NamespaceScope::All;
+        self
+    }
+
+    /// Access session discovery operations.
+    pub fn sessions(self) -> EntityAccess<'session, SessionInfo> {
+        EntityAccess::new(self.session, self.namespace, GraphEntity::Sessions)
+    }
+
+    /// Access node discovery operations.
+    pub fn nodes(self) -> EntityAccess<'session, NodeInfo> {
+        EntityAccess::new(self.session, self.namespace, GraphEntity::Nodes)
+    }
+
+    /// Access publisher discovery operations.
+    pub fn publishers(self) -> EntityAccess<'session, PublisherInfo> {
+        EntityAccess::new(self.session, self.namespace, GraphEntity::Publishers)
+    }
+
+    /// Access parameter discovery operations.
+    pub fn parameters(self) -> EntityAccess<'session, ParameterInfo> {
+        EntityAccess::new(self.session, self.namespace, GraphEntity::Parameters)
+    }
+}
+
+/// Graph entity type for pattern generation.
+#[derive(Clone, Copy)]
+enum GraphEntity {
+    Sessions,
+    Nodes,
+    Publishers,
+    Parameters,
+}
+
+/// Access to a specific entity type for list/watch operations.
+pub struct EntityAccess<'session, T> {
+    session: &'session Session,
+    namespace: NamespaceScope,
+    entity: GraphEntity,
+    _phantom: PhantomData<T>,
+}
+
+impl<'session, T: GraphInfo> EntityAccess<'session, T> {
+    fn new(session: &'session Session, namespace: NamespaceScope, entity: GraphEntity) -> Self {
+        Self {
+            session,
+            namespace,
+            entity,
+            _phantom: PhantomData,
+        }
+    }
+
+    /// Get the pattern for this entity/namespace combination.
+    fn pattern(&self) -> String {
+        let ns = match &self.namespace {
+            NamespaceScope::Session => self.session.namespace(),
+            NamespaceScope::Specific(ns) => ns.as_str(),
+            NamespaceScope::All => "",
+        };
+
+        match (&self.namespace, self.entity) {
+            (NamespaceScope::All, GraphEntity::Sessions) => GraphKey::all_sessions(),
+            (NamespaceScope::All, GraphEntity::Nodes) => GraphKey::all_nodes(),
+            (NamespaceScope::All, GraphEntity::Publishers) => GraphKey::all_publishers(),
+            (NamespaceScope::All, GraphEntity::Parameters) => GraphKey::all_parameters(),
+            (_, GraphEntity::Sessions) => GraphKey::sessions_in(ns),
+            (_, GraphEntity::Nodes) => GraphKey::nodes_in(ns),
+            (_, GraphEntity::Publishers) => GraphKey::publishers_in(ns),
+            (_, GraphEntity::Parameters) => GraphKey::parameters_in(ns),
+        }
+    }
+
+    /// List all entities matching this query.
+    pub async fn list(&self) -> Result<Vec<T>> {
+        let pattern = self.pattern();
+        let replies = self.session.zenoh().liveliness().get(&pattern).await?;
+        let mut results = Vec::new();
+
+        while let Ok(reply) = replies.recv_async().await {
+            let sample = match reply.result() {
+                Ok(sample) => sample,
+                Err(error) => {
+                    error!("Error receiving graph sample: {}", error);
+                    continue;
+                }
+            };
+            if let Ok(info) = T::from_key(sample.key_expr().as_str()) {
+                results.push(info);
+            }
+        }
+
+        Ok(results)
+    }
+
+    /// Watch for entity events.
+    ///
+    /// Returns a watcher and a driver future that must be spawned.
+    pub async fn watch(
+        &self,
+    ) -> Result<(
+        Watcher<GraphEvent<T>>,
+        impl Future<Output = Result<()>> + Send,
+    )> {
+        let pattern = self.pattern();
+        let subscriber = self
+            .session
+            .zenoh()
+            .liveliness()
+            .declare_subscriber(&pattern)
+            .await?;
+
+        let (tx, rx) = mpsc::channel(32);
+        let watcher = Watcher::new(rx);
+
+        let driver = drive_watcher(subscriber, tx);
+
+        Ok((watcher, driver))
+    }
+}
+
+/// Generic watcher for graph events.
+///
+/// Receives events when entities join or leave the network.
+pub struct Watcher<E> {
+    receiver: mpsc::Receiver<E>,
+}
+
+impl<E> Watcher<E> {
+    pub(crate) fn new(receiver: mpsc::Receiver<E>) -> Self {
         Self { receiver }
     }
 
-    /// Receives the next session event.
+    /// Receives the next event.
     ///
     /// Returns `None` if the watcher has been closed.
-    pub async fn recv(&mut self) -> Option<SessionEvent> {
+    pub async fn recv(&mut self) -> Option<E> {
         self.receiver.recv().await
     }
 
-    /// Tries to receive a session event without blocking.
-    pub fn try_recv(&mut self) -> Option<SessionEvent> {
+    /// Tries to receive an event without blocking.
+    pub fn try_recv(&mut self) -> Option<E> {
         self.receiver.try_recv().ok()
     }
 }
 
-/// Watcher for node events.
-///
-/// Receives events when nodes join or leave the network.
-pub struct NodeWatcher {
-    receiver: mpsc::Receiver<NodeEvent>,
-}
-
-impl NodeWatcher {
-    pub(crate) fn new(receiver: mpsc::Receiver<NodeEvent>) -> Self {
-        Self { receiver }
-    }
-
-    /// Receives the next node event.
-    ///
-    /// Returns `None` if the watcher has been closed.
-    pub async fn recv(&mut self) -> Option<NodeEvent> {
-        self.receiver.recv().await
-    }
-
-    /// Tries to receive a node event without blocking.
-    pub fn try_recv(&mut self) -> Option<NodeEvent> {
-        self.receiver.try_recv().ok()
-    }
-}
-
-/// Watcher for publisher events.
-///
-/// Receives events when publishers are advertised or unadvertised.
-pub struct PublisherWatcher {
-    receiver: mpsc::Receiver<PublisherEvent>,
-}
-
-impl PublisherWatcher {
-    pub(crate) fn new(receiver: mpsc::Receiver<PublisherEvent>) -> Self {
-        Self { receiver }
-    }
-
-    /// Receives the next publisher event.
-    ///
-    /// Returns `None` if the watcher has been closed.
-    pub async fn recv(&mut self) -> Option<PublisherEvent> {
-        self.receiver.recv().await
-    }
-
-    /// Tries to receive a publisher event without blocking.
-    pub fn try_recv(&mut self) -> Option<PublisherEvent> {
-        self.receiver.try_recv().ok()
-    }
-}
-
-/// Watcher for parameter events.
-///
-/// Receives events when parameters are declared or undeclared.
-pub struct ParameterWatcher {
-    receiver: mpsc::Receiver<ParameterEvent>,
-}
-
-impl ParameterWatcher {
-    pub(crate) fn new(receiver: mpsc::Receiver<ParameterEvent>) -> Self {
-        Self { receiver }
-    }
-
-    /// Receives the next parameter event.
-    ///
-    /// Returns `None` if the watcher has been closed.
-    pub async fn recv(&mut self) -> Option<ParameterEvent> {
-        self.receiver.recv().await
-    }
-
-    /// Tries to receive a parameter event without blocking.
-    pub fn try_recv(&mut self) -> Option<ParameterEvent> {
-        self.receiver.try_recv().ok()
-    }
-}
-
-/// Extracts the session ID from a graph session key.
-///
-/// Expected format: `hulkz/graph/sessions/{namespace}/{session_id}`
-pub(crate) fn parse_session_key(key: &str) -> Option<String> {
-    let parts: Vec<&str> = key.split('/').collect();
-    if parts.len() != 5 {
-        return None;
-    }
-    if parts[0] != "hulkz" || parts[1] != "graph" || parts[2] != "sessions" {
-        return None;
-    }
-    Some(parts[4].to_string())
-}
-
-/// Extracts the node name from a graph node key.
-///
-/// Expected format: `hulkz/graph/nodes/{namespace}/{node}`
-pub(crate) fn parse_node_key(key: &str) -> Option<String> {
-    let parts: Vec<&str> = key.split('/').collect();
-    if parts.len() != 5 {
-        return None;
-    }
-    if parts[0] != "hulkz" || parts[1] != "graph" || parts[2] != "nodes" {
-        return None;
-    }
-    Some(parts[4].to_string())
-}
-
-/// Information about a discovered session including its namespace.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct SessionInfo {
-    /// The namespace this session belongs to.
-    pub namespace: String,
-    /// The session ID (format: `{uuid}@{hostname}`).
-    pub session_id: String,
-}
-
-impl SessionInfo {
-    /// Parse a session info from a graph key.
-    ///
-    /// Expected format: `hulkz/graph/sessions/{namespace}/{session_id}`
-    pub(crate) fn from_key(key: &str) -> Option<Self> {
-        let parts: Vec<&str> = key.split('/').collect();
-        if parts.len() != 5 {
-            return None;
+/// Generic driver for graph watchers.
+async fn drive_watcher<T: GraphInfo>(
+    subscriber: zenoh::pubsub::Subscriber<FifoChannelHandler<Sample>>,
+    tx: mpsc::Sender<GraphEvent<T>>,
+) -> Result<()> {
+    loop {
+        let sample = subscriber.recv_async().await?;
+        match T::from_key(sample.key_expr().as_str()) {
+            Ok(info) => {
+                let event = if sample.kind() == SampleKind::Put {
+                    GraphEvent::Joined(info)
+                } else {
+                    GraphEvent::Left(info)
+                };
+                if tx.send(event).await.is_err() {
+                    break;
+                }
+            }
+            Err(err) => {
+                error!("Error parsing graph key '{}': {}", sample.key_expr(), err);
+            }
         }
-        if parts[0] != "hulkz" || parts[1] != "graph" || parts[2] != "sessions" {
-            return None;
-        }
-        Some(Self {
-            namespace: parts[3].to_string(),
-            session_id: parts[4].to_string(),
-        })
     }
-}
-
-/// Information about a discovered node including its namespace.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
-pub struct NodeInfo {
-    /// The namespace this node belongs to.
-    pub namespace: String,
-    /// The node name.
-    pub node: String,
-}
-
-impl NodeInfo {
-    /// Parse a node info from a graph key.
-    ///
-    /// Expected format: `hulkz/graph/nodes/{namespace}/{node}`
-    pub(crate) fn from_key(key: &str) -> Option<Self> {
-        let parts: Vec<&str> = key.split('/').collect();
-        if parts.len() != 5 {
-            return None;
-        }
-        if parts[0] != "hulkz" || parts[1] != "graph" || parts[2] != "nodes" {
-            return None;
-        }
-        Some(Self {
-            namespace: parts[3].to_string(),
-            node: parts[4].to_string(),
-        })
-    }
+    Ok(())
 }
 
 #[cfg(test)]
@@ -344,25 +479,29 @@ mod tests {
     #[test]
     fn parse_session_key_valid() {
         let key = "hulkz/graph/sessions/chappie/abc123@robot1";
-        assert_eq!(parse_session_key(key), Some("abc123@robot1".to_string()));
+        let info = SessionInfo::from_key(key).unwrap();
+        assert_eq!(info.namespace, "chappie");
+        assert_eq!(info.id, "abc123@robot1");
     }
 
     #[test]
     fn parse_session_key_invalid() {
-        assert_eq!(parse_session_key("hulkz/graph/sessions/chappie"), None);
-        assert_eq!(parse_session_key("hulkz/graph/nodes/chappie/nav"), None);
+        assert!(SessionInfo::from_key("invalid").is_err());
+        assert!(SessionInfo::from_key("hulkz/graph/nodes/ns/node").is_err());
     }
 
     #[test]
     fn parse_node_key_valid() {
-        let key = "hulkz/graph/nodes/chappie/navigation";
-        assert_eq!(parse_node_key(key), Some("navigation".to_string()));
+        let key = "hulkz/graph/nodes/robot/navigation";
+        let info = NodeInfo::from_key(key).unwrap();
+        assert_eq!(info.namespace, "robot");
+        assert_eq!(info.name, "navigation");
     }
 
     #[test]
     fn parse_node_key_invalid() {
-        assert_eq!(parse_node_key("hulkz/graph/nodes/chappie"), None);
-        assert_eq!(parse_node_key("hulkz/graph/sessions/chappie/abc123"), None);
+        assert!(NodeInfo::from_key("invalid").is_err());
+        assert!(NodeInfo::from_key("hulkz/graph/sessions/ns/id").is_err());
     }
 
     #[test]
@@ -376,40 +515,26 @@ mod tests {
     }
 
     #[test]
-    fn publisher_info_from_key_private() {
-        let key = "hulkz/graph/publishers/chappie/nav/private/debug/state";
-        let info = PublisherInfo::from_key(key).unwrap();
-        assert_eq!(info.namespace, "chappie");
-        assert_eq!(info.node, "nav");
-        assert_eq!(info.scope, Scope::Private);
-        assert_eq!(info.path, "debug/state");
-    }
-
-    #[test]
     fn publisher_info_from_key_global() {
-        let key = "hulkz/graph/publishers/chappie/coordinator/global/fleet_status";
+        let key = "hulkz/graph/publishers/robot/sensors/global/fleet_status";
         let info = PublisherInfo::from_key(key).unwrap();
-        assert_eq!(info.namespace, "chappie");
-        assert_eq!(info.node, "coordinator");
         assert_eq!(info.scope, Scope::Global);
         assert_eq!(info.path, "fleet_status");
     }
 
     #[test]
-    fn publisher_info_from_key_invalid() {
-        assert!(PublisherInfo::from_key("hulkz/graph/nodes/chappie/nav").is_none());
-        assert!(PublisherInfo::from_key("hulkz/graph/publishers/chappie/nav").is_none());
+    fn publisher_info_from_key_private() {
+        let key = "hulkz/graph/publishers/ns/node/private/debug/state";
+        let info = PublisherInfo::from_key(key).unwrap();
+        assert_eq!(info.scope, Scope::Private);
+        assert_eq!(info.path, "debug/state");
     }
 
     #[test]
-    fn parameter_info_from_key_global() {
-        let key = "hulkz/graph/parameters/chappie/coordinator/global/fleet_id";
-        let info = ParameterInfo::from_key(key).unwrap();
-        assert_eq!(info.namespace, "chappie");
-        assert_eq!(info.node, "coordinator");
-        assert_eq!(info.scope, Scope::Global);
-        assert_eq!(info.path, "fleet_id");
-        assert_eq!(info.display_path(), "/fleet_id");
+    fn publisher_info_from_key_invalid() {
+        assert!(PublisherInfo::from_key("invalid").is_err());
+        assert!(PublisherInfo::from_key("hulkz/graph/publishers/ns/node").is_err());
+        assert!(PublisherInfo::from_key("hulkz/graph/publishers/ns/node/bad_scope/path").is_err());
     }
 
     #[test]
@@ -420,41 +545,34 @@ mod tests {
         assert_eq!(info.node, "motor");
         assert_eq!(info.scope, Scope::Local);
         assert_eq!(info.path, "max_speed");
-        assert_eq!(info.display_path(), "max_speed");
+    }
+
+    #[test]
+    fn parameter_info_from_key_global() {
+        let key = "hulkz/graph/parameters/robot/config/global/fleet_id";
+        let info = ParameterInfo::from_key(key).unwrap();
+        assert_eq!(info.scope, Scope::Global);
+        assert_eq!(info.path, "fleet_id");
     }
 
     #[test]
     fn parameter_info_from_key_private() {
-        let key = "hulkz/graph/parameters/chappie/navigation/private/debug_level";
+        let key = "hulkz/graph/parameters/ns/node/private/debug/level";
         let info = ParameterInfo::from_key(key).unwrap();
-        assert_eq!(info.namespace, "chappie");
-        assert_eq!(info.node, "navigation");
         assert_eq!(info.scope, Scope::Private);
-        assert_eq!(info.path, "debug_level");
-        assert_eq!(info.display_path(), "~/debug_level");
+        assert_eq!(info.path, "debug/level");
     }
 
     #[test]
     fn parameter_info_from_key_nested_path() {
-        let key = "hulkz/graph/parameters/chappie/motor/local/wheel/radius";
+        let key = "hulkz/graph/parameters/ns/node/local/a/b/c/d";
         let info = ParameterInfo::from_key(key).unwrap();
-        assert_eq!(info.namespace, "chappie");
-        assert_eq!(info.node, "motor");
-        assert_eq!(info.path, "wheel/radius");
-        assert_eq!(info.display_path(), "wheel/radius");
+        assert_eq!(info.path, "a/b/c/d");
     }
 
     #[test]
     fn parameter_info_from_key_invalid() {
-        // Wrong prefix
-        assert!(ParameterInfo::from_key("hulkz/param/read/local/chappie/speed").is_none());
-        // Too few parts
-        assert!(ParameterInfo::from_key("hulkz/graph/parameters/chappie/motor").is_none());
-        // Wrong type
-        assert!(ParameterInfo::from_key("hulkz/graph/nodes/chappie/nav").is_none());
-        // Wrong plane
-        assert!(
-            ParameterInfo::from_key("hulkz/graph/publishers/chappie/nav/local/topic").is_none()
-        );
+        assert!(ParameterInfo::from_key("invalid").is_err());
+        assert!(ParameterInfo::from_key("hulkz/graph/parameters/ns/node").is_err());
     }
 }

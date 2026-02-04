@@ -4,7 +4,7 @@
 //!
 //! Run with: `cargo run --example discovery`
 
-use hulkz::{NodeEvent, PublisherEvent, Result, Session, SessionEvent};
+use hulkz::{GraphEvent, Result, Session};
 use tokio::select;
 
 #[tokio::main]
@@ -14,22 +14,22 @@ async fn main() -> Result<()> {
     println!("Session created: {}", session.id());
     println!("Discovering network...\n");
 
-    // List current sessions (returns Vec<String> of session IDs)
-    let sessions = session.list_sessions().await?;
+    // List current sessions using the fluent API
+    let sessions = session.graph().sessions().list().await?;
     println!("Sessions ({}):", sessions.len());
     for s in &sessions {
         println!("  - {}", s);
     }
 
-    // List current nodes (returns Vec<String> of node names)
-    let nodes = session.list_nodes().await?;
+    // List current nodes using the fluent API
+    let nodes = session.graph().nodes().list().await?;
     println!("\nNodes ({}):", nodes.len());
     for n in &nodes {
         println!("  - {}", n);
     }
 
     // List current publishers (returns Vec<PublisherInfo>)
-    let publishers = session.list_publishers().await?;
+    let publishers = session.graph().publishers().list().await?;
     println!("\nPublishers ({}):", publishers.len());
     for p in &publishers {
         println!("  - {} on {} (scope: {:?})", p.path, p.node, p.scope);
@@ -37,37 +37,37 @@ async fn main() -> Result<()> {
 
     println!("\n--- Watching for changes (Ctrl+C to stop) ---\n");
 
-    // Watch for events (async methods that return (Watcher, driver))
-    let (mut session_watcher, session_driver) = session.watch_sessions().await?;
-    let (mut node_watcher, node_driver) = session.watch_nodes().await?;
-    let (mut pub_watcher, pub_driver) = session.watch_publishers().await?;
+    // Watch for events using the new fluent API
+    let (mut session_watcher, session_driver) = session.graph().sessions().watch().await?;
+    let (mut node_watcher, node_driver) = session.graph().nodes().watch().await?;
+    let (mut pub_watcher, pub_driver) = session.graph().publishers().watch().await?;
 
     // Spawn the driver futures
     tokio::spawn(session_driver);
     tokio::spawn(node_driver);
     tokio::spawn(pub_driver);
 
-    // Handle events
+    // Handle events using the new GraphEvent<T> enum
     loop {
         select! {
             Some(event) = session_watcher.recv() => {
                 match event {
-                    SessionEvent::Joined(id) => println!("[Session] Joined: {}", id),
-                    SessionEvent::Left(id) => println!("[Session] Left: {}", id),
+                    GraphEvent::Joined(info) => println!("[Session] Joined: {}", info.id),
+                    GraphEvent::Left(info) => println!("[Session] Left: {}", info.id),
                 }
             }
             Some(event) = node_watcher.recv() => {
                 match event {
-                    NodeEvent::Joined(name) => println!("[Node] Joined: {}", name),
-                    NodeEvent::Left(name) => println!("[Node] Left: {}", name),
+                    GraphEvent::Joined(info) => println!("[Node] Joined: {}", info.name),
+                    GraphEvent::Left(info) => println!("[Node] Left: {}", info.name),
                 }
             }
             Some(event) = pub_watcher.recv() => {
                 match event {
-                    PublisherEvent::Advertised(info) => {
+                    GraphEvent::Joined(info) => {
                         println!("[Publisher] Advertised: {} on {} (scope: {:?})", info.path, info.node, info.scope)
                     }
-                    PublisherEvent::Unadvertised(info) => {
+                    GraphEvent::Left(info) => {
                         println!("[Publisher] Unadvertised: {} on {}", info.path, info.node)
                     }
                 }

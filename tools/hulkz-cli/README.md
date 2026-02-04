@@ -22,12 +22,12 @@ hulkz [OPTIONS] <COMMAND>
 
 ### Global Options
 
-| Option | Description |
-|--------|-------------|
+| Option                   | Description                                                          |
+| ------------------------ | -------------------------------------------------------------------- |
 | `-n, --namespace <NAME>` | Namespace to operate in (default: `default`, env: `HULKZ_NAMESPACE`) |
-| `--json` | Output in JSON format for machine parsing |
-| `-h, --help` | Print help |
-| `-V, --version` | Print version |
+| `--json`                 | Output in JSON format for machine parsing                            |
+| `-h, --help`             | Print help                                                           |
+| `-V, --version`          | Print version                                                        |
 
 ## Commands
 
@@ -151,15 +151,15 @@ hulkz --json list nodes
 
 ```json
 [
-  {"name": "navigation", "session_id": "abc123@robot1"},
-  {"name": "perception", "session_id": "abc123@robot1"}
+  { "name": "navigation", "session_id": "abc123@robot1" },
+  { "name": "perception", "session_id": "abc123@robot1" }
 ]
 ```
 
 ## Environment Variables
 
-| Variable | Description |
-|----------|-------------|
+| Variable          | Description                                        |
+| ----------------- | -------------------------------------------------- |
 | `HULKZ_NAMESPACE` | Default namespace (overridden by `-n/--namespace`) |
 
 ## Examples

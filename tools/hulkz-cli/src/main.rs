@@ -1,4 +1,4 @@
-//! Hulkz CLI - Command-line tool for interacting with the hulkz middleware.
+//! hulkz CLI - Command-line tool for interacting with the hulkz middleware.
 
 use clap::{Parser, Subcommand};
 
@@ -8,7 +8,7 @@ mod output;
 use commands::{graph, info, list, param, view, watch};
 use output::OutputFormat;
 
-/// Hulkz CLI - Introspection and debugging tool for hulkz middleware
+/// hulkz CLI - Introspection and debugging tool for hulkz middleware
 #[derive(Parser)]
 #[command(name = "hulkz")]
 #[command(version, about, long_about = None)]

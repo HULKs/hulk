@@ -51,7 +51,7 @@ struct ParameterListItem {
 /// Lists all parameters.
 pub async fn list(namespace: &str, args: ListArgs, format: OutputFormat) -> hulkz::Result<()> {
     let session = Session::create(namespace).await?;
-    let mut parameters = session.list_parameters().await?;
+    let mut parameters = session.graph().parameters().list().await?;
 
     // Filter by node if specified
     if let Some(ref node_filter) = args.node {
@@ -129,10 +129,7 @@ pub async fn get(namespace: &str, args: GetArgs, format: OutputFormat) -> hulkz:
         }
         Err(hulkz::Error::NodeRequiredForPrivate) => {
             if matches!(format, OutputFormat::Human) {
-                eprintln!(
-                    "Private parameter '{}' requires --node argument",
-                    args.path
-                );
+                eprintln!("Private parameter '{}' requires --node argument", args.path);
             } else {
                 println!(
                     r#"{{"error":"node required for private parameter","path":"{}"}}"#,
@@ -201,10 +198,7 @@ pub async fn set(namespace: &str, args: SetArgs, format: OutputFormat) -> hulkz:
         }
         Err(hulkz::Error::NodeRequiredForPrivate) => {
             if matches!(format, OutputFormat::Human) {
-                eprintln!(
-                    "Private parameter '{}' requires --node argument",
-                    args.path
-                );
+                eprintln!("Private parameter '{}' requires --node argument", args.path);
             } else {
                 println!(
                     r#"{{"success":false,"path":"{}","error":"node required for private parameter"}}"#,

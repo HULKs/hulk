@@ -10,7 +10,7 @@ use zenoh::bytes::Encoding;
 /// The unified error type for hulkz operations.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error("{0}")]
+    #[error(transparent)]
     ScopedPath(#[from] ScopedPathError),
 
     #[error("CDR serialization failed: {0}")]
@@ -69,6 +69,9 @@ pub enum Error {
 
     #[error("subscriber closed")]
     SubscriberClosed,
+
+    #[error("failed to parse graph key `{key}`: {reason}")]
+    GraphKeyParsing { key: String, reason: String },
 }
 
 #[derive(Debug, Clone, thiserror::Error)]

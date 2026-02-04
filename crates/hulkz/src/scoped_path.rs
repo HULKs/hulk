@@ -21,8 +21,36 @@
 //! let private: ScopedPath = "~/debug".try_into().unwrap();
 //! ```
 
+use std::fmt;
+
 use crate::error::ScopedPathError;
-use crate::key::{ParamIntent, Scope, ROOT};
+
+/// Hierarchical scope for data visibility.
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum Scope {
+    /// Fleet-wide shared data.
+    Global,
+    /// Robot-wide public data (namespaced).
+    Local,
+    /// Node-internal debug data (namespaced + node name).
+    Private,
+}
+
+impl Scope {
+    pub const fn as_str(&self) -> &'static str {
+        match self {
+            Scope::Global => "global",
+            Scope::Local => "local",
+            Scope::Private => "private",
+        }
+    }
+}
+
+impl fmt::Display for Scope {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.write_str(self.as_str())
+    }
+}
 
 /// A parsed path with scope information.
 ///
@@ -100,59 +128,6 @@ impl ScopedPath {
     pub fn path(&self) -> &str {
         &self.path
     }
-
-    /// Generates a key expression for this path on the Data plane.
-    pub(crate) fn to_data_key(&self, namespace: &str, node: &str) -> String {
-        let scope = &self.scope;
-        let path = &self.path;
-        match scope {
-            Scope::Global => format!("{ROOT}/data/{scope}/{path}"),
-            Scope::Local => format!("{ROOT}/data/{scope}/{namespace}/{path}"),
-            Scope::Private => format!("{ROOT}/data/{scope}/{namespace}/{node}/{path}"),
-        }
-    }
-
-    /// Generates a key expression for this path on the View plane.
-    pub(crate) fn to_view_key(&self, namespace: &str, node: &str) -> String {
-        let scope = &self.scope;
-        let path = &self.path;
-        match scope {
-            Scope::Global => format!("{ROOT}/view/{scope}/{path}"),
-            Scope::Local => format!("{ROOT}/view/{scope}/{namespace}/{path}"),
-            Scope::Private => format!("{ROOT}/view/{scope}/{namespace}/{node}/{path}"),
-        }
-    }
-
-    /// Generates a parameter key expression with the given intent.
-    pub(crate) fn to_param_key(&self, intent: ParamIntent, namespace: &str, node: &str) -> String {
-        let scope = &self.scope;
-        let path = &self.path;
-        match scope {
-            Scope::Global => {
-                format!("{ROOT}/param/{intent}/{scope}/{path}")
-            }
-            Scope::Local => {
-                format!("{ROOT}/param/{intent}/{scope}/{namespace}/{path}")
-            }
-            Scope::Private => {
-                format!("{ROOT}/param/{intent}/{scope}/{namespace}/{node}/{path}")
-            }
-        }
-    }
-
-    /// Generates a graph publisher liveliness key.
-    pub(crate) fn to_graph_publisher_key(&self, namespace: &str, node: &str) -> String {
-        let scope = &self.scope;
-        let path = &self.path;
-        format!("{ROOT}/graph/publishers/{namespace}/{node}/{scope}/{path}")
-    }
-
-    /// Generates a graph parameter liveliness key.
-    pub(crate) fn to_graph_parameter_key(&self, namespace: &str, node: &str) -> String {
-        let scope = &self.scope;
-        let path = &self.path;
-        format!("{ROOT}/graph/parameters/{namespace}/{node}/{scope}/{path}")
-    }
 }
 
 impl TryFrom<&str> for ScopedPath {
@@ -202,101 +177,9 @@ mod tests {
     }
 
     #[test]
-    fn to_data_key_local() {
-        let path = ScopedPath::parse("camera/front");
-        assert_eq!(
-            path.to_data_key("chappie", "vision"),
-            "hulkz/data/local/chappie/camera/front"
-        );
-    }
-
-    #[test]
-    fn to_data_key_global() {
-        let path = ScopedPath::parse("/imu");
-        assert_eq!(
-            path.to_data_key("chappie", "vision"),
-            "hulkz/data/global/imu"
-        );
-    }
-
-    #[test]
-    fn to_view_key_private() {
-        let path = ScopedPath::parse("~/debug");
-        assert_eq!(
-            path.to_view_key("robot1", "nav"),
-            "hulkz/view/private/robot1/nav/debug"
-        );
-    }
-
-    #[test]
-    fn to_param_key_read() {
-        let path = ScopedPath::parse("~/max_speed");
-        assert_eq!(
-            path.to_param_key(ParamIntent::Read, "chappie", "motor"),
-            "hulkz/param/read/private/chappie/motor/max_speed"
-        );
-    }
-
-    #[test]
-    fn to_param_key_write_local() {
-        let path = ScopedPath::parse("wheel_radius");
-        assert_eq!(
-            path.to_param_key(ParamIntent::Write, "chappie", "motor"),
-            "hulkz/param/write/local/chappie/wheel_radius"
-        );
-    }
-
-    #[test]
-    fn to_graph_publisher_key_local() {
-        let path = ScopedPath::parse("camera/front");
-        assert_eq!(
-            path.to_graph_publisher_key("chappie", "vision"),
-            "hulkz/graph/publishers/chappie/vision/local/camera/front"
-        );
-    }
-
-    #[test]
-    fn to_graph_publisher_key_private() {
-        let path = ScopedPath::parse("~/debug/state");
-        assert_eq!(
-            path.to_graph_publisher_key("chappie", "nav"),
-            "hulkz/graph/publishers/chappie/nav/private/debug/state"
-        );
-    }
-
-    #[test]
-    fn to_graph_publisher_key_global() {
-        let path = ScopedPath::parse("/fleet_status");
-        assert_eq!(
-            path.to_graph_publisher_key("chappie", "coordinator"),
-            "hulkz/graph/publishers/chappie/coordinator/global/fleet_status"
-        );
-    }
-
-    #[test]
-    fn to_graph_parameter_key_local() {
-        let path = ScopedPath::parse("max_speed");
-        assert_eq!(
-            path.to_graph_parameter_key("chappie", "motor"),
-            "hulkz/graph/parameters/chappie/motor/local/max_speed"
-        );
-    }
-
-    #[test]
-    fn to_graph_parameter_key_private() {
-        let path = ScopedPath::parse("~/debug_level");
-        assert_eq!(
-            path.to_graph_parameter_key("chappie", "nav"),
-            "hulkz/graph/parameters/chappie/nav/private/debug_level"
-        );
-    }
-
-    #[test]
-    fn to_graph_parameter_key_global() {
-        let path = ScopedPath::parse("/fleet_id");
-        assert_eq!(
-            path.to_graph_parameter_key("chappie", "coordinator"),
-            "hulkz/graph/parameters/chappie/coordinator/global/fleet_id"
-        );
+    fn new_with_explicit_scope() {
+        let path = ScopedPath::new(Scope::Private, "my/path");
+        assert_eq!(path.scope(), Scope::Private);
+        assert_eq!(path.path(), "my/path");
     }
 }

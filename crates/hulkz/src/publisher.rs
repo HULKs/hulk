@@ -47,6 +47,7 @@ use zenoh::{bytes::Encoding, liveliness::LivelinessToken, pubsub::Publisher as Z
 
 use crate::{
     error::{Error, Result, ScopedPathError},
+    key::{DataKey, GraphKey, ViewKey},
     scoped_path::ScopedPath,
     Node, Timestamp,
 };
@@ -83,22 +84,24 @@ where
 
     pub async fn build(self) -> Result<Publisher<T>> {
         let topic = self.topic?;
+        let namespace = self.node.session().namespace();
+        let node_name = self.node.name();
 
+        let data_key = DataKey::from_scope(topic.scope(), namespace, node_name, topic.path());
         let publisher = self
             .node
             .session()
             .zenoh()
-            .declare_publisher(topic.to_data_key(self.node.session().namespace(), self.node.name()))
+            .declare_publisher(data_key)
             .await?;
 
         let view_publisher = if self.enable_view {
-            let key_expression =
-                topic.to_view_key(self.node.session().namespace(), self.node.name());
+            let view_key = ViewKey::from_scope(topic.scope(), namespace, node_name, topic.path());
             Some(
                 self.node
                     .session()
                     .zenoh()
-                    .declare_publisher(key_expression)
+                    .declare_publisher(view_key)
                     .await?,
             )
         } else {
@@ -106,8 +109,7 @@ where
         };
 
         // Declare liveliness token for publisher discovery
-        let liveliness_key =
-            topic.to_graph_publisher_key(self.node.session().namespace(), self.node.name());
+        let liveliness_key = GraphKey::publisher(namespace, node_name, topic.scope(), topic.path());
         let liveliness_token = self
             .node
             .session()

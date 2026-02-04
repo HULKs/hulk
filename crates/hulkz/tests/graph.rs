@@ -9,12 +9,16 @@ use std::time::Duration;
 use tokio::time::timeout;
 
 use common::test_namespace;
-use hulkz::{NodeEvent, ParameterEvent, PublisherEvent, Scope, Session, SessionEvent};
+use hulkz::{GraphEvent, Scope, Session};
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn session_has_unique_id() {
-    let session1 = Session::create(test_namespace("session_id1")).await.unwrap();
-    let session2 = Session::create(test_namespace("session_id2")).await.unwrap();
+    let session1 = Session::create(test_namespace("session_id1"))
+        .await
+        .unwrap();
+    let session2 = Session::create(test_namespace("session_id2"))
+        .await
+        .unwrap();
 
     // Session IDs should be in format {uuid}@{hostname}
     assert!(session1.id().contains('@'));
@@ -32,10 +36,10 @@ async fn list_sessions_discovers_self() {
     // Give liveliness time to propagate
     tokio::time::sleep(Duration::from_millis(100)).await;
 
-    let sessions = session.list_sessions().await.unwrap();
+    let sessions = session.graph().sessions().list().await.unwrap();
 
-    // Should find our own session
-    assert!(sessions.contains(&session.id().to_string()));
+    // Should find our own session (sessions are SessionInfo now, contains session_id)
+    assert!(sessions.iter().any(|s| s.id == session.id()));
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -50,10 +54,10 @@ async fn list_nodes_discovers_created_nodes() {
     // Give liveliness time to propagate
     tokio::time::sleep(Duration::from_millis(100)).await;
 
-    let nodes = session.list_nodes().await.unwrap();
+    let nodes = session.graph().nodes().list().await.unwrap();
 
-    assert!(nodes.contains(&"navigation".to_string()));
-    assert!(nodes.contains(&"vision".to_string()));
+    assert!(nodes.iter().any(|n| n.name == "navigation"));
+    assert!(nodes.iter().any(|n| n.name == "vision"));
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -63,11 +67,7 @@ async fn list_publishers_discovers_advertised_topics() {
     let node = session.create_node("sensor_node").build().await.unwrap();
 
     // Advertise some topics
-    let _pub1 = node
-        .advertise::<i32>("camera/front")
-        .build()
-        .await
-        .unwrap();
+    let _pub1 = node.advertise::<i32>("camera/front").build().await.unwrap();
     let _pub2 = node
         .advertise::<i32>("~/debug/internal")
         .build()
@@ -77,7 +77,7 @@ async fn list_publishers_discovers_advertised_topics() {
     // Give liveliness time to propagate
     tokio::time::sleep(Duration::from_millis(100)).await;
 
-    let publishers = session.list_publishers().await.unwrap();
+    let publishers = session.graph().publishers().list().await.unwrap();
 
     // Should find both publishers
     assert_eq!(publishers.len(), 2);
@@ -104,8 +104,8 @@ async fn watch_nodes_receives_join_event() {
     let namespace = test_namespace("watch_nodes");
     let session = Session::create(&namespace).await.unwrap();
 
-    // Set up the watcher before creating nodes
-    let (mut watcher, driver) = session.watch_nodes().await.unwrap();
+    // Set up the watcher before creating nodes using new Graph API
+    let (mut watcher, driver) = session.graph().nodes().watch().await.unwrap();
     let driver_handle = tokio::spawn(driver);
 
     // Give watcher time to establish
@@ -114,13 +114,13 @@ async fn watch_nodes_receives_join_event() {
     // Create a node
     let _node = session.create_node("late_joiner").build().await.unwrap();
 
-    // Should receive join event
+    // Should receive join event (now GraphEvent<NodeInfo>)
     let event = timeout(Duration::from_secs(1), watcher.recv())
         .await
         .expect("timeout waiting for node event")
         .expect("watcher closed");
 
-    assert!(matches!(event, NodeEvent::Joined(name) if name == "late_joiner"));
+    assert!(matches!(event, GraphEvent::Joined(info) if info.name == "late_joiner"));
 
     driver_handle.abort();
 }
@@ -131,7 +131,7 @@ async fn watch_nodes_receives_leave_event() {
     let session = Session::create(&namespace).await.unwrap();
 
     // Set up the watcher
-    let (mut watcher, driver) = session.watch_nodes().await.unwrap();
+    let (mut watcher, driver) = session.graph().nodes().watch().await.unwrap();
     let driver_handle = tokio::spawn(driver);
 
     // Give watcher time to establish
@@ -154,10 +154,10 @@ async fn watch_nodes_receives_leave_event() {
 
     assert!(events
         .iter()
-        .any(|e| matches!(e, NodeEvent::Joined(n) if n == "ephemeral")));
+        .any(|e| matches!(e, GraphEvent::Joined(info) if info.name == "ephemeral")));
     assert!(events
         .iter()
-        .any(|e| matches!(e, NodeEvent::Left(n) if n == "ephemeral")));
+        .any(|e| matches!(e, GraphEvent::Left(info) if info.name == "ephemeral")));
 
     driver_handle.abort();
 }
@@ -168,7 +168,7 @@ async fn watch_sessions_receives_events() {
     let session = Session::create(&namespace).await.unwrap();
 
     // Set up the watcher
-    let (mut watcher, driver) = session.watch_sessions().await.unwrap();
+    let (mut watcher, driver) = session.graph().sessions().watch().await.unwrap();
     let driver_handle = tokio::spawn(driver);
 
     // Give watcher time to establish
@@ -184,7 +184,7 @@ async fn watch_sessions_receives_events() {
         .expect("timeout waiting for session event")
         .expect("watcher closed");
 
-    assert!(matches!(event, SessionEvent::Joined(id) if id == expected_id));
+    assert!(matches!(event, GraphEvent::Joined(info) if info.id == expected_id));
 
     driver_handle.abort();
 }
@@ -196,7 +196,7 @@ async fn watch_publishers_receives_events() {
     let node = session.create_node("publisher_node").build().await.unwrap();
 
     // Set up the watcher
-    let (mut watcher, driver) = session.watch_publishers().await.unwrap();
+    let (mut watcher, driver) = session.graph().publishers().watch().await.unwrap();
     let driver_handle = tokio::spawn(driver);
 
     // Give watcher time to establish
@@ -212,12 +212,12 @@ async fn watch_publishers_receives_events() {
         .expect("watcher closed");
 
     match event {
-        PublisherEvent::Advertised(info) => {
+        GraphEvent::Joined(info) => {
             assert_eq!(info.node, "publisher_node");
             assert_eq!(info.path, "sensor/data");
             assert_eq!(info.scope, Scope::Local);
         }
-        _ => panic!("expected Advertised event"),
+        _ => panic!("expected Joined event"),
     }
 
     driver_handle.abort();
@@ -237,13 +237,19 @@ async fn cross_namespace_discovery() {
     tokio::time::sleep(Duration::from_millis(100)).await;
 
     // Session1 can discover nodes in namespace2
-    let nodes_in_ns2 = session1.list_nodes_in_namespace(&namespace2).await.unwrap();
-    assert!(nodes_in_ns2.contains(&"node_in_ns2".to_string()));
+    let nodes_in_ns2 = session1
+        .graph()
+        .in_namespace(&namespace2)
+        .nodes()
+        .list()
+        .await
+        .unwrap();
+    assert!(nodes_in_ns2.iter().any(|n| n.name == "node_in_ns2"));
 
     // Session1's own namespace shouldn't include namespace2's nodes
-    let nodes_in_ns1 = session1.list_nodes().await.unwrap();
-    assert!(nodes_in_ns1.contains(&"node_in_ns1".to_string()));
-    assert!(!nodes_in_ns1.contains(&"node_in_ns2".to_string()));
+    let nodes_in_ns1 = session1.graph().nodes().list().await.unwrap();
+    assert!(nodes_in_ns1.iter().any(|n| n.name == "node_in_ns1"));
+    assert!(!nodes_in_ns1.iter().any(|n| n.name == "node_in_ns2"));
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -272,7 +278,7 @@ async fn list_parameters_discovers_declared_parameters() {
     // Give liveliness time to propagate
     tokio::time::sleep(Duration::from_millis(100)).await;
 
-    let parameters = session.list_parameters().await.unwrap();
+    let parameters = session.graph().parameters().list().await.unwrap();
 
     // Should find both parameters
     assert_eq!(parameters.len(), 2);
@@ -304,7 +310,7 @@ async fn watch_parameters_receives_declared_event() {
     let node = session.create_node("param_node").build().await.unwrap();
 
     // Set up the watcher
-    let (mut watcher, watcher_driver) = session.watch_parameters().await.unwrap();
+    let (mut watcher, watcher_driver) = session.graph().parameters().watch().await.unwrap();
     let watcher_handle = tokio::spawn(watcher_driver);
 
     // Give watcher time to establish
@@ -319,19 +325,19 @@ async fn watch_parameters_receives_declared_event() {
         .unwrap();
     let param_handle = tokio::spawn(param_driver);
 
-    // Should receive declared event
+    // Should receive declared event (GraphEvent::Joined)
     let event = timeout(Duration::from_secs(1), watcher.recv())
         .await
         .expect("timeout waiting for parameter event")
         .expect("watcher closed");
 
     match event {
-        ParameterEvent::Declared(info) => {
+        GraphEvent::Joined(info) => {
             assert_eq!(info.node, "param_node");
             assert_eq!(info.path, "speed");
             assert_eq!(info.scope, Scope::Local);
         }
-        _ => panic!("expected Declared event"),
+        _ => panic!("expected Joined event"),
     }
 
     watcher_handle.abort();
@@ -345,7 +351,7 @@ async fn watch_parameters_receives_undeclared_event() {
     let node = session.create_node("param_node").build().await.unwrap();
 
     // Set up the watcher
-    let (mut watcher, watcher_driver) = session.watch_parameters().await.unwrap();
+    let (mut watcher, watcher_driver) = session.graph().parameters().watch().await.unwrap();
     let watcher_handle = tokio::spawn(watcher_driver);
 
     // Give watcher time to establish
@@ -361,35 +367,35 @@ async fn watch_parameters_receives_undeclared_event() {
             .unwrap();
         let param_handle = tokio::spawn(param_driver);
 
-        // Should receive declared event
+        // Should receive declared event (GraphEvent::Joined)
         let event = timeout(Duration::from_secs(1), watcher.recv())
             .await
             .expect("timeout waiting for declared event")
             .expect("watcher closed");
 
         match event {
-            ParameterEvent::Declared(info) => {
+            GraphEvent::Joined(info) => {
                 assert_eq!(info.path, "temp_param");
             }
-            _ => panic!("expected Declared event"),
+            _ => panic!("expected Joined event"),
         }
 
         // Abort the driver to undeclare the parameter
         param_handle.abort();
     }
 
-    // Should receive undeclared event
+    // Should receive undeclared event (GraphEvent::Left)
     let event = timeout(Duration::from_secs(1), watcher.recv())
         .await
         .expect("timeout waiting for undeclared event")
         .expect("watcher closed");
 
     match event {
-        ParameterEvent::Undeclared(info) => {
+        GraphEvent::Left(info) => {
             assert_eq!(info.path, "temp_param");
             assert_eq!(info.node, "param_node");
         }
-        _ => panic!("expected Undeclared event"),
+        _ => panic!("expected Left event"),
     }
 
     watcher_handle.abort();

@@ -171,15 +171,14 @@ pub use crate::{
     config::Config,
     error::{Error, Result, ScopedPathError},
     graph::{
-        NodeEvent, NodeInfo, NodeWatcher, ParameterEvent, ParameterInfo, ParameterWatcher,
-        PublisherEvent, PublisherInfo, PublisherWatcher, SessionEvent, SessionInfo, SessionWatcher,
+        EntityAccess, GraphAccess, GraphEvent, NodeInfo, ParameterInfo, PublisherInfo, SessionInfo,
+        Watcher,
     },
-    key::Scope,
     message::Message,
     node::Node,
     parameter::Parameter,
     publisher::Publisher,
-    scoped_path::ScopedPath,
+    scoped_path::{Scope, ScopedPath},
     session::{ParamAccessBuilder, Session},
     subscriber::Subscriber,
 };

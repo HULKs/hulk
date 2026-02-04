@@ -5,33 +5,62 @@
 
 use std::fmt;
 
+use crate::Scope;
+
 /// Root prefix for all hulkz key expressions.
 pub(crate) const ROOT: &str = "hulkz";
 
-/// Hierarchical scope for data visibility.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-pub enum Scope {
-    /// Fleet-wide shared data.
-    Global,
-    /// Robot-wide public data (namespaced).
-    Local,
-    /// Node-internal debug data (namespaced + node name).
-    Private,
-}
+/// Builds data plane key expressions.
+pub(crate) struct DataKey;
 
-impl Scope {
-    pub const fn as_str(&self) -> &'static str {
-        match self {
-            Scope::Global => "global",
-            Scope::Local => "local",
-            Scope::Private => "private",
+impl DataKey {
+    /// Global scope: `hulkz/data/global/{path}`
+    pub fn global(path: &str) -> String {
+        format!("{ROOT}/data/global/{path}")
+    }
+
+    /// Local scope: `hulkz/data/local/{namespace}/{path}`
+    pub fn local(namespace: &str, path: &str) -> String {
+        format!("{ROOT}/data/local/{namespace}/{path}")
+    }
+
+    /// Private scope: `hulkz/data/private/{namespace}/{node}/{path}`
+    pub fn private(namespace: &str, node: &str, path: &str) -> String {
+        format!("{ROOT}/data/private/{namespace}/{node}/{path}")
+    }
+
+    /// Build key from scope (convenience for ScopedPath).
+    pub fn from_scope(scope: Scope, namespace: &str, node: &str, path: &str) -> String {
+        match scope {
+            Scope::Global => Self::global(path),
+            Scope::Local => Self::local(namespace, path),
+            Scope::Private => Self::private(namespace, node, path),
         }
     }
 }
 
-impl fmt::Display for Scope {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.as_str())
+/// Builds view plane key expressions (JSON debug mirror).
+pub(crate) struct ViewKey;
+
+impl ViewKey {
+    pub fn global(path: &str) -> String {
+        format!("{ROOT}/view/global/{path}")
+    }
+
+    pub fn local(namespace: &str, path: &str) -> String {
+        format!("{ROOT}/view/local/{namespace}/{path}")
+    }
+
+    pub fn private(namespace: &str, node: &str, path: &str) -> String {
+        format!("{ROOT}/view/private/{namespace}/{node}/{path}")
+    }
+
+    pub fn from_scope(scope: Scope, namespace: &str, node: &str, path: &str) -> String {
+        match scope {
+            Scope::Global => Self::global(path),
+            Scope::Local => Self::local(namespace, path),
+            Scope::Private => Self::private(namespace, node, path),
+        }
     }
 }
 
@@ -59,54 +88,100 @@ impl fmt::Display for ParamIntent {
     }
 }
 
-/// Builds a graph session liveliness key.
-pub(crate) fn graph_session_key(namespace: &str, session_id: &str) -> String {
-    format!("{ROOT}/graph/sessions/{namespace}/{session_id}")
+/// Builds parameter plane key expressions.
+pub(crate) struct ParamKey;
+
+impl ParamKey {
+    pub fn global(intent: ParamIntent, path: &str) -> String {
+        format!("{ROOT}/param/{intent}/global/{path}")
+    }
+
+    pub fn local(intent: ParamIntent, namespace: &str, path: &str) -> String {
+        format!("{ROOT}/param/{intent}/local/{namespace}/{path}")
+    }
+
+    pub fn private(intent: ParamIntent, namespace: &str, node: &str, path: &str) -> String {
+        format!("{ROOT}/param/{intent}/private/{namespace}/{node}/{path}")
+    }
+
+    pub fn from_scope(
+        intent: ParamIntent,
+        scope: Scope,
+        namespace: &str,
+        node: &str,
+        path: &str,
+    ) -> String {
+        match scope {
+            Scope::Global => Self::global(intent, path),
+            Scope::Local => Self::local(intent, namespace, path),
+            Scope::Private => Self::private(intent, namespace, node, path),
+        }
+    }
 }
 
-/// Builds a graph node liveliness key.
-pub(crate) fn graph_node_key(namespace: &str, node: &str) -> String {
-    format!("{ROOT}/graph/nodes/{namespace}/{node}")
-}
+/// Builds graph plane key expressions for liveliness tokens and discovery.
+pub(crate) struct GraphKey;
 
-/// Pattern for querying graph sessions.
-pub(crate) fn graph_sessions_pattern(namespace: &str) -> String {
-    format!("{ROOT}/graph/sessions/{namespace}/*")
-}
+impl GraphKey {
+    /// Session liveliness key
+    pub fn session(namespace: &str, session_id: &str) -> String {
+        format!("{ROOT}/graph/sessions/{namespace}/{session_id}")
+    }
 
-/// Pattern for querying graph nodes.
-pub(crate) fn graph_nodes_pattern(namespace: &str) -> String {
-    format!("{ROOT}/graph/nodes/{namespace}/*")
-}
+    /// Node liveliness key
+    pub fn node(namespace: &str, node: &str) -> String {
+        format!("{ROOT}/graph/nodes/{namespace}/{node}")
+    }
 
-/// Pattern for querying all publishers in a namespace.
-pub(crate) fn graph_publishers_pattern(namespace: &str) -> String {
-    format!("{ROOT}/graph/publishers/{namespace}/**")
-}
+    /// Publisher liveliness key
+    pub fn publisher(namespace: &str, node: &str, scope: Scope, path: &str) -> String {
+        format!("{ROOT}/graph/publishers/{namespace}/{node}/{scope}/{path}")
+    }
 
-/// Pattern for querying all parameters in a namespace.
-pub(crate) fn graph_parameters_pattern(namespace: &str) -> String {
-    format!("{ROOT}/graph/parameters/{namespace}/**")
-}
+    /// Parameter liveliness key
+    pub fn parameter(namespace: &str, node: &str, scope: Scope, path: &str) -> String {
+        format!("{ROOT}/graph/parameters/{namespace}/{node}/{scope}/{path}")
+    }
 
-/// Pattern for discovering all sessions across all namespaces.
-pub(crate) fn graph_all_sessions_pattern() -> String {
-    format!("{ROOT}/graph/sessions/*/*")
-}
+    /// Pattern for sessions in namespace
+    pub fn sessions_in(namespace: &str) -> String {
+        format!("{ROOT}/graph/sessions/{namespace}/*")
+    }
 
-/// Pattern for discovering all nodes across all namespaces.
-pub(crate) fn graph_all_nodes_pattern() -> String {
-    format!("{ROOT}/graph/nodes/*/*")
-}
+    /// Pattern for nodes in namespace
+    pub fn nodes_in(namespace: &str) -> String {
+        format!("{ROOT}/graph/nodes/{namespace}/*")
+    }
 
-/// Pattern for discovering all publishers across all namespaces.
-pub(crate) fn graph_all_publishers_pattern() -> String {
-    format!("{ROOT}/graph/publishers/**")
-}
+    /// Pattern for publishers in namespace
+    pub fn publishers_in(namespace: &str) -> String {
+        format!("{ROOT}/graph/publishers/{namespace}/**")
+    }
 
-/// Pattern for discovering all parameters across all namespaces.
-pub(crate) fn graph_all_parameters_pattern() -> String {
-    format!("{ROOT}/graph/parameters/**")
+    /// Pattern for parameters in namespace
+    pub fn parameters_in(namespace: &str) -> String {
+        format!("{ROOT}/graph/parameters/{namespace}/**")
+    }
+
+    /// Pattern for all sessions
+    pub fn all_sessions() -> String {
+        format!("{ROOT}/graph/sessions/*/*")
+    }
+
+    /// Pattern for all nodes
+    pub fn all_nodes() -> String {
+        format!("{ROOT}/graph/nodes/*/*")
+    }
+
+    /// Pattern for all publishers
+    pub fn all_publishers() -> String {
+        format!("{ROOT}/graph/publishers/**")
+    }
+
+    /// Pattern for all parameters
+    pub fn all_parameters() -> String {
+        format!("{ROOT}/graph/parameters/**")
+    }
 }
 
 #[cfg(test)]
@@ -114,38 +189,92 @@ mod tests {
     use super::*;
 
     #[test]
-    fn graph_session() {
-        let key = graph_session_key("chappie", "abc123@robot1");
-        assert_eq!(key, "hulkz/graph/sessions/chappie/abc123@robot1");
+    fn data_key_global() {
+        assert_eq!(
+            DataKey::global("fleet_status"),
+            "hulkz/data/global/fleet_status"
+        );
     }
 
     #[test]
-    fn graph_node() {
-        let key = graph_node_key("chappie", "navigation");
-        assert_eq!(key, "hulkz/graph/nodes/chappie/navigation");
+    fn data_key_local() {
+        assert_eq!(
+            DataKey::local("chappie", "camera/front"),
+            "hulkz/data/local/chappie/camera/front"
+        );
     }
 
     #[test]
-    fn graph_sessions_pattern_test() {
-        let pattern = graph_sessions_pattern("chappie");
-        assert_eq!(pattern, "hulkz/graph/sessions/chappie/*");
+    fn data_key_private() {
+        assert_eq!(
+            DataKey::private("chappie", "vision", "debug"),
+            "hulkz/data/private/chappie/vision/debug"
+        );
     }
 
     #[test]
-    fn graph_nodes_pattern_test() {
-        let pattern = graph_nodes_pattern("chappie");
-        assert_eq!(pattern, "hulkz/graph/nodes/chappie/*");
+    fn view_key_from_scope() {
+        assert_eq!(
+            ViewKey::from_scope(Scope::Private, "robot", "nav", "debug"),
+            "hulkz/view/private/robot/nav/debug"
+        );
     }
 
     #[test]
-    fn graph_publishers_pattern_test() {
-        let pattern = graph_publishers_pattern("chappie");
-        assert_eq!(pattern, "hulkz/graph/publishers/chappie/**");
+    fn param_key_read() {
+        assert_eq!(
+            ParamKey::private(ParamIntent::Read, "chappie", "motor", "max_speed"),
+            "hulkz/param/read/private/chappie/motor/max_speed"
+        );
     }
 
     #[test]
-    fn graph_parameters_pattern_test() {
-        let pattern = graph_parameters_pattern("chappie");
-        assert_eq!(pattern, "hulkz/graph/parameters/chappie/**");
+    fn param_key_write_local() {
+        assert_eq!(
+            ParamKey::local(ParamIntent::Write, "chappie", "wheel_radius"),
+            "hulkz/param/write/local/chappie/wheel_radius"
+        );
+    }
+
+    #[test]
+    fn graph_session_key() {
+        assert_eq!(
+            GraphKey::session("chappie", "abc123@robot1"),
+            "hulkz/graph/sessions/chappie/abc123@robot1"
+        );
+    }
+
+    #[test]
+    fn graph_node_key() {
+        assert_eq!(
+            GraphKey::node("chappie", "navigation"),
+            "hulkz/graph/nodes/chappie/navigation"
+        );
+    }
+
+    #[test]
+    fn graph_publisher_key() {
+        assert_eq!(
+            GraphKey::publisher("chappie", "vision", Scope::Local, "camera/front"),
+            "hulkz/graph/publishers/chappie/vision/local/camera/front"
+        );
+    }
+
+    #[test]
+    fn graph_sessions_pattern() {
+        assert_eq!(
+            GraphKey::sessions_in("chappie"),
+            "hulkz/graph/sessions/chappie/*"
+        );
+    }
+
+    #[test]
+    fn graph_all_nodes_pattern() {
+        assert_eq!(GraphKey::all_nodes(), "hulkz/graph/nodes/*/*");
+    }
+
+    #[test]
+    fn graph_all_publishers_pattern() {
+        assert_eq!(GraphKey::all_publishers(), "hulkz/graph/publishers/**");
     }
 }

@@ -36,7 +36,7 @@ use zenoh::liveliness::LivelinessToken;
 use crate::{
     buffer::{Buffer, BufferBuilder},
     error::{Result, ScopedPathError},
-    key::graph_node_key,
+    key::GraphKey,
     parameter::ParameterBuilder,
     publisher::PublisherBuilder,
     scoped_path::ScopedPath,
@@ -53,7 +53,7 @@ pub struct NodeBuilder {
 impl NodeBuilder {
     pub async fn build(self) -> Result<Node> {
         // Register node in the graph plane for discovery
-        let liveliness_key = graph_node_key(self.session.namespace(), &self.name);
+        let liveliness_key = GraphKey::node(self.session.namespace(), &self.name);
         let liveliness_token = self
             .session
             .zenoh()
