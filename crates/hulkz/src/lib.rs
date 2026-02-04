@@ -1,10 +1,9 @@
-//! # Hulkz
+//! # hulkz
 //!
 //! A native Zenoh robotics middleware designed as a ROS 2 replacement.
 //!
-//! Hulkz provides a structured key space for data, configuration, and commands,
-//! with dual-encoding (CDR for performance, JSON for debugging) and automatic
-//! network discovery.
+//! hulkz provides a structured key space for data, configuration, and commands, with dual-encoding
+//! (CDR for performance, JSON for debugging) and automatic network discovery.
 //!
 //! # Quick Start
 //!
@@ -41,17 +40,16 @@
 //! | [`Node`] | Unit of computation, registered for discovery |
 //! | [`Publisher`] | Sends data to data plane (CDR) + view plane (JSON) |
 //! | [`Subscriber`] | Receives data from a topic |
-//! | [`Buffer`] | Temporal message storage for timestamp-based lookups |
 //! | [`Parameter`] | Runtime-configurable values with remote read/write |
 //!
 //! # Functional Planes
 //!
-//! Hulkz divides the Zenoh key space into five planes that never collide:
+//! hulkz divides the Zenoh key space into five planes:
 //!
 //! | Plane | Key Prefix | Encoding | Purpose |
 //! |-------|------------|----------|---------|
 //! | **Data** | `hulkz/data/` | CDR | Production data streams |
-//! | **View** | `hulkz/view/` | JSON | Debug mirror (lazy serialization) |
+//! | **View** | `hulkz/view/` | JSON | Debug mirror |
 //! | **Param** | `hulkz/param/` | JSON | Configuration (read/write branches) |
 //! | **Graph** | `hulkz/graph/` | Liveliness | Node/publisher discovery |
 //! | **Cmd** | `hulkz/cmd/` | JSON | RPC services (planned) |
@@ -76,8 +74,8 @@
 //!
 //! # Timestamps
 //!
-//! [`Publisher::put`] requires an explicit timestamp. This forces consideration
-//! of temporal semantics:
+//! [`Publisher::put`] requires an explicit timestamp. This forces consideration of temporal
+//! semantics:
 //!
 //! - **Sensor data**: Use [`Session::now()`] - the capture time
 //! - **Derived data**: Use the source message's timestamp for temporal coherence
@@ -136,8 +134,7 @@
 //!
 //! # Discovery
 //!
-//! Sessions, nodes, and publishers register via liveliness tokens for automatic
-//! discovery:
+//! Sessions, nodes, and publishers register via liveliness tokens for automatic discovery:
 //!
 //! ```rust,no_run
 //! # use hulkz::{Session, NodeEvent, Result};
@@ -163,9 +160,9 @@
 //!
 //! # Runtime Agnostic
 //!
-//! Hulkz returns futures and does not spawn tasks internally. Callers control
-//! task spawning and error handling. APIs that require background processing
-//! return `(Handle, Driver)` tuples - spawn the driver on your runtime.
+//! hulkz returns futures and does not spawn tasks internally. Callers control task spawning and
+//! error handling. APIs that require background processing return `(Handle, Driver)` tuples -
+//! spawn the driver on your runtime.
 
 #[doc(inline)]
 pub use crate::{
@@ -174,8 +171,8 @@ pub use crate::{
     config::Config,
     error::{Error, Result, ScopedPathError},
     graph::{
-        NodeEvent, NodeWatcher, ParameterEvent, ParameterInfo, ParameterWatcher, PublisherEvent,
-        PublisherInfo, PublisherWatcher, SessionEvent, SessionWatcher,
+        NodeEvent, NodeInfo, NodeWatcher, ParameterEvent, ParameterInfo, ParameterWatcher,
+        PublisherEvent, PublisherInfo, PublisherWatcher, SessionEvent, SessionInfo, SessionWatcher,
     },
     key::Scope,
     message::Message,

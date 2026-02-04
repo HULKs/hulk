@@ -1,7 +1,7 @@
 //! Session management for Zenoh connections.
 //!
-//! A [`Session`] is the entry point for all hulkz operations. It manages the
-//! underlying Zenoh connection and provides the namespace context for nodes.
+//! A [`Session`] is the entry point for all hulkz operations. It manages the underlying Zenoh
+//! connection and provides the namespace context for nodes.
 //!
 //! # Example
 //!
@@ -29,13 +29,14 @@ use crate::{
     config::Config,
     error::{Error, Result},
     graph::{
-        parse_node_key, parse_session_key, NodeEvent, NodeWatcher, ParameterEvent, ParameterInfo,
-        ParameterWatcher, PublisherEvent, PublisherInfo, PublisherWatcher, SessionEvent,
-        SessionWatcher,
+        parse_node_key, parse_session_key, NodeEvent, NodeInfo, NodeWatcher, ParameterEvent,
+        ParameterInfo, ParameterWatcher, PublisherEvent, PublisherInfo, PublisherWatcher,
+        SessionEvent, SessionInfo, SessionWatcher,
     },
     key::{
-        graph_nodes_pattern, graph_parameters_pattern, graph_publishers_pattern,
-        graph_session_key, graph_sessions_pattern, ParamIntent, Scope,
+        graph_all_nodes_pattern, graph_all_parameters_pattern, graph_all_publishers_pattern,
+        graph_all_sessions_pattern, graph_nodes_pattern, graph_parameters_pattern,
+        graph_publishers_pattern, graph_session_key, graph_sessions_pattern, ParamIntent, Scope,
     },
     node::NodeBuilder,
     scoped_path::ScopedPath,
@@ -60,8 +61,8 @@ impl SessionBuilder {
 
     /// Adds a parameter configuration file to load.
     ///
-    /// Files are loaded in order, with later files overriding earlier values.
-    /// This is called after loading defaults from environment/convention.
+    /// Files are loaded in order, with later files overriding earlier values. This is called after
+    /// loading defaults from environment/convention.
     pub fn parameters_file(mut self, path: impl Into<String>) -> Self {
         self.config_files.push(path.into());
         self
@@ -85,8 +86,9 @@ impl SessionBuilder {
         let session = zenoh::open(zenoh_config).await?;
 
         // Generate session ID: {uuid}@{hostname}
+        let unique_id = uuid::Uuid::new_v4();
         let hostname = gethostname::gethostname().to_string_lossy().into_owned();
-        let session_id = format!("{}@{}", uuid::Uuid::new_v4(), hostname);
+        let session_id = format!("{unique_id}@{hostname}");
 
         // Declare session liveliness token for discovery
         let liveliness_key = graph_session_key(&self.namespace, &session_id);
@@ -107,8 +109,8 @@ impl SessionBuilder {
 
 /// A Zenoh session scoped to a robot namespace.
 ///
-/// The session is the entry point for all Hulkz operations. It manages the
-/// underlying Zenoh connection and provides the namespace context for nodes.
+/// The session is the entry point for all hulkz operations. It manages the underlying Zenoh
+/// connection and provides the namespace context for nodes.
 #[derive(Clone, Debug)]
 pub struct Session {
     inner: Arc<SessionInner>,
@@ -126,8 +128,8 @@ struct SessionInner {
 impl Session {
     /// Creates a new session with the given namespace.
     ///
-    /// This is a convenience method that uses default configuration.
-    /// For more control, use [`Session::builder`].
+    /// This is a convenience method that uses default configuration. For more control, use
+    /// [`Session::builder`].
     pub async fn create(namespace: impl Into<String>) -> Result<Self> {
         Self::builder(namespace).build().await
     }
@@ -163,15 +165,9 @@ impl Session {
     }
 
     /// Returns the unique session ID.
-    ///
-    /// Format: `{uuid}@{hostname}`
     pub fn id(&self) -> &str {
         &self.inner.session_id
     }
-
-    // =========================================================================
-    // Discovery API - List methods
-    // =========================================================================
 
     /// Lists all sessions in the current namespace.
     pub async fn list_sessions(&self) -> Result<Vec<String>> {
@@ -245,8 +241,8 @@ impl Session {
 
     /// Lists all parameters in the current namespace.
     ///
-    /// This discovers parameters via liveliness tokens on the graph plane.
-    /// Returns parameters from all scopes (global, local, private).
+    /// This discovers parameters via liveliness tokens on the graph plane. Returns parameters from
+    /// all scopes (global, local, private).
     pub async fn list_parameters(&self) -> Result<Vec<ParameterInfo>> {
         self.list_parameters_in_namespace(&self.inner.namespace)
             .await
@@ -254,8 +250,8 @@ impl Session {
 
     /// Lists all parameters in the given namespace.
     ///
-    /// This discovers parameters via liveliness tokens on the graph plane.
-    /// Returns parameters from all scopes (global, local, private).
+    /// This discovers parameters via liveliness tokens on the graph plane. Returns parameters from
+    /// all scopes (global, local, private).
     pub async fn list_parameters_in_namespace(
         &self,
         namespace: &str,
@@ -408,11 +404,6 @@ impl Session {
 
     /// Access a parameter by path for reading or writing.
     ///
-    /// Uses DSL syntax:
-    /// - `/param` → Global scope (fleet-wide)
-    /// - `param` → Local scope (robot-wide)
-    /// - `~/param` → Private scope (requires `.on_node()`)
-    ///
     /// # Example
     ///
     /// ```rust,no_run
@@ -437,6 +428,7 @@ impl Session {
             session: self,
             path: ScopedPath::parse(path),
             node: None,
+            namespace_override: None,
         }
     }
 
@@ -504,12 +496,108 @@ impl Session {
 
         Ok(())
     }
+
+    /// Lists all sessions across all namespaces.
+    ///
+    /// This discovers sessions globally, not limited to any particular namespace.
+    /// Useful for debug tools that need to see the entire network topology.
+    pub async fn list_all_sessions(&self) -> Result<Vec<SessionInfo>> {
+        let pattern = graph_all_sessions_pattern();
+        let replies = self.inner.zenoh.liveliness().get(&pattern).await?;
+        let mut sessions = Vec::new();
+
+        while let Ok(reply) = replies.recv_async().await {
+            if let Ok(sample) = reply.result() {
+                if let Some(info) = SessionInfo::from_key(sample.key_expr().as_str()) {
+                    sessions.push(info);
+                }
+            }
+        }
+
+        Ok(sessions)
+    }
+
+    /// Lists all nodes across all namespaces.
+    ///
+    /// This discovers nodes globally, not limited to any particular namespace. Useful for debug
+    /// tools that need to see the entire network topology.
+    pub async fn list_all_nodes(&self) -> Result<Vec<NodeInfo>> {
+        let pattern = graph_all_nodes_pattern();
+        let replies = self.inner.zenoh.liveliness().get(&pattern).await?;
+        let mut nodes = Vec::new();
+
+        while let Ok(reply) = replies.recv_async().await {
+            if let Ok(sample) = reply.result() {
+                if let Some(info) = NodeInfo::from_key(sample.key_expr().as_str()) {
+                    nodes.push(info);
+                }
+            }
+        }
+
+        Ok(nodes)
+    }
+
+    /// Lists all publishers across all namespaces.
+    ///
+    /// This discovers publishers globally, not limited to any particular namespace. Useful for
+    /// debug tools that need to see the entire network topology.
+    pub async fn list_all_publishers(&self) -> Result<Vec<PublisherInfo>> {
+        let pattern = graph_all_publishers_pattern();
+        let replies = self.inner.zenoh.liveliness().get(&pattern).await?;
+        let mut publishers = Vec::new();
+
+        while let Ok(reply) = replies.recv_async().await {
+            if let Ok(sample) = reply.result() {
+                if let Some(info) = PublisherInfo::from_key(sample.key_expr().as_str()) {
+                    publishers.push(info);
+                }
+            }
+        }
+
+        Ok(publishers)
+    }
+
+    /// Lists all parameters across all namespaces.
+    ///
+    /// This discovers parameters globally, not limited to any particular namespace. Useful for
+    /// debug tools that need to see the entire network topology.
+    pub async fn list_all_parameters(&self) -> Result<Vec<ParameterInfo>> {
+        let pattern = graph_all_parameters_pattern();
+        let replies = self.inner.zenoh.liveliness().get(&pattern).await?;
+        let mut parameters = Vec::new();
+
+        while let Ok(reply) = replies.recv_async().await {
+            if let Ok(sample) = reply.result() {
+                if let Some(info) = ParameterInfo::from_key(sample.key_expr().as_str()) {
+                    parameters.push(info);
+                }
+            }
+        }
+
+        Ok(parameters)
+    }
+
+    /// Lists all discovered namespaces.
+    ///
+    /// This is a convenience method that discovers all sessions and extracts unique namespaces
+    /// from them.
+    pub async fn list_namespaces(&self) -> Result<Vec<String>> {
+        let sessions = self.list_all_sessions().await?;
+        let mut namespaces: Vec<String> = sessions
+            .into_iter()
+            .map(|s| s.namespace)
+            .collect::<std::collections::HashSet<_>>()
+            .into_iter()
+            .collect();
+        namespaces.sort();
+        Ok(namespaces)
+    }
 }
 
 /// Builder for parameter access operations.
 ///
-/// Created via [`Session::parameter()`]. Use `.on_node()` to target a specific
-/// node (required for private parameters).
+/// Created via [`Session::parameter()`]. Use `.on_node()` to target a specific node (required for
+/// private parameters).
 ///
 /// # Example
 ///
@@ -534,32 +622,55 @@ pub struct ParamAccessBuilder<'a> {
     session: &'a Session,
     path: ScopedPath,
     node: Option<String>,
+    /// Optional namespace override for cross-namespace access.
+    namespace_override: Option<String>,
 }
 
 impl<'a> ParamAccessBuilder<'a> {
     /// Target a specific node.
     ///
-    /// Required for private parameters (`~/path`). For global and local
-    /// parameters, this targets the parameter on that specific node rather
-    /// than using a wildcard query.
+    /// Required for private parameters (`~/path`).
     pub fn on_node(mut self, node: &str) -> Self {
         self.node = Some(node.to_string());
         self
     }
 
-    /// Get the parameter value.
+    /// Override the namespace for this parameter access.
     ///
-    /// Returns `Ok(Some(value))` if found, `Ok(None)` if not found.
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// # use hulkz::{Session, Result};
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<()> {
+    /// let session = Session::create("twix").await?;
+    ///
+    /// // Read a parameter from a different namespace
+    /// let value = session.parameter("max_speed")
+    ///     .in_namespace("robot-nao22")
+    ///     .on_node("control")
+    ///     .get()
+    ///     .await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn in_namespace(mut self, namespace: impl Into<String>) -> Self {
+        self.namespace_override = Some(namespace.into());
+        self
+    }
+
+    /// Get the parameter value.
     ///
     /// # Errors
     ///
-    /// Returns [`Error::NodeRequiredForPrivate`] if this is a private parameter
-    /// and `.on_node()` was not called.
+    /// Returns [`Error::NodeRequiredForPrivate`] if this is a private parameter and `.on_node()`
+    /// was not called.
     pub async fn get(self) -> Result<Option<serde_json::Value>> {
         let node_name = self.resolve_node()?;
-        let read_key =
-            self.path
-                .to_param_key(ParamIntent::Read, self.session.namespace(), &node_name);
+        let namespace = self.resolve_namespace();
+        let read_key = self
+            .path
+            .to_param_key(ParamIntent::Read, &namespace, &node_name);
         self.session.query_parameter_raw(&read_key).await
     }
 
@@ -567,18 +678,26 @@ impl<'a> ParamAccessBuilder<'a> {
     ///
     /// # Errors
     ///
-    /// Returns [`Error::NodeRequiredForPrivate`] if this is a private parameter
-    /// and `.on_node()` was not called.
+    /// Returns [`Error::NodeRequiredForPrivate`] if this is a private parameter and `.on_node()`
+    /// was not called.
     ///
     /// Returns [`Error::ParameterNotFound`] if no node is serving this parameter.
     ///
     /// Returns [`Error::ParameterRejected`] if the parameter validation failed.
     pub async fn set(self, value: &serde_json::Value) -> Result<()> {
         let node_name = self.resolve_node()?;
-        let write_key =
-            self.path
-                .to_param_key(ParamIntent::Write, self.session.namespace(), &node_name);
+        let namespace = self.resolve_namespace();
+        let write_key = self
+            .path
+            .to_param_key(ParamIntent::Write, &namespace, &node_name);
         self.session.set_parameter_raw(&write_key, value).await
+    }
+
+    /// Resolves the namespace to use.
+    fn resolve_namespace(&self) -> String {
+        self.namespace_override
+            .clone()
+            .unwrap_or_else(|| self.session.namespace().to_string())
     }
 
     /// Resolves the node name for the key expression.

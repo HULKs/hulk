@@ -1,7 +1,7 @@
 //! Error types for hulkz.
 //!
-//! All fallible operations return [`Result<T>`](crate::Result) which uses
-//! [`Error`] as the error type.
+//! All fallible operations return [`Result<T>`](crate::Result) which uses [`Error`] as the error
+//! type.
 
 use std::path::PathBuf;
 

@@ -1,8 +1,7 @@
 //! Runtime-configurable parameters with read/write semantics.
 //!
-//! A [`Parameter`] exposes a value that can be queried and updated remotely
-//! via the param plane. Parameters support validation and are loaded from
-//! configuration files on startup.
+//! A [`Parameter`] exposes a value that can be queried and updated remotely via the param plane.
+//! Parameters support validation and are loaded from configuration files on startup.
 //!
 //! # Scope Syntax
 //!
@@ -59,7 +58,6 @@ pub struct ParameterBuilder<T> {
     pub(crate) node: Node,
     pub(crate) path: ScopedPath,
     pub(crate) default: Option<T>,
-    pub(crate) read_only: bool,
     pub(crate) validator: Option<Box<ValidatorFn<T>>>,
     pub(crate) _phantom: PhantomData<T>,
 }
@@ -71,12 +69,6 @@ where
     /// Sets a default value if the parameter is not found in configuration.
     pub fn default(mut self, value: T) -> Self {
         self.default = Some(value);
-        self
-    }
-
-    /// Makes the parameter read-only (no write key exposed).
-    pub fn read_only(mut self) -> Self {
-        self.read_only = true;
         self
     }
 
@@ -134,47 +126,41 @@ where
         let broadcaster = z_session.declare_publisher(read_key_expr.clone()).await?;
 
         // Only create writer if not read-only
-        let write_key_expr = if self.read_only {
-            None
-        } else {
-            Some(
-                self.path
-                    .to_param_key(ParamIntent::Write, &namespace, &node_name),
-            )
-        };
+        let write_key_expr = self
+            .path
+            .to_param_key(ParamIntent::Write, &namespace, &node_name);
 
-        let writer = if let Some(ref key) = write_key_expr {
-            Some(z_session.declare_queryable(key).await?)
-        } else {
-            None
-        };
+        let writer = z_session.declare_queryable(&write_key_expr).await?;
 
         // Declare liveliness token for parameter discovery
-        let liveliness_key = self
-            .path
-            .to_graph_parameter_key(&namespace, &node_name);
-        let liveliness_token = z_session.liveliness().declare_token(&liveliness_key).await?;
+        let liveliness_key = self.path.to_graph_parameter_key(&namespace, &node_name);
+        let liveliness_token = z_session
+            .liveliness()
+            .declare_token(&liveliness_key)
+            .await?;
 
         let driver = {
             let value = value.clone();
             let read_key = read_key_expr.clone();
+            let write_key = write_key_expr.clone();
             let validator = self.validator;
 
             async move {
-                if let Some(writer) = writer {
-                    let write_key = write_key_expr.unwrap();
-                    tokio::try_join!(
-                        drive_reader(read_key, reader, value.clone()),
-                        drive_writer(write_key, writer, value.clone(), broadcaster, validator),
-                    )?;
-                } else {
-                    drive_reader(read_key, reader, value).await?;
-                }
+                tokio::try_join!(
+                    drive_reader(read_key, reader, value.clone()),
+                    drive_writer(write_key, writer, value.clone(), broadcaster, validator),
+                )?;
                 Ok(())
             }
         };
 
-        Ok((Parameter { value, _liveliness_token: liveliness_token }, driver))
+        Ok((
+            Parameter {
+                value,
+                _liveliness_token: liveliness_token,
+            },
+            driver,
+        ))
     }
 }
 
@@ -317,11 +303,6 @@ where
 }
 
 /// A runtime parameter that can be queried and updated remotely.
-///
-/// Parameters are loaded from configuration files and exposed via the param plane.
-/// Updates to the write key are broadcast on the read key.
-///
-/// The parameter advertises itself via a liveliness token for discovery.
 pub struct Parameter<T> {
     value: Arc<Mutex<Arc<T>>>,
     _liveliness_token: LivelinessToken,

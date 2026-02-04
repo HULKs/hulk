@@ -281,6 +281,62 @@ pub(crate) fn parse_node_key(key: &str) -> Option<String> {
     Some(parts[4].to_string())
 }
 
+/// Information about a discovered session including its namespace.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct SessionInfo {
+    /// The namespace this session belongs to.
+    pub namespace: String,
+    /// The session ID (format: `{uuid}@{hostname}`).
+    pub session_id: String,
+}
+
+impl SessionInfo {
+    /// Parse a session info from a graph key.
+    ///
+    /// Expected format: `hulkz/graph/sessions/{namespace}/{session_id}`
+    pub(crate) fn from_key(key: &str) -> Option<Self> {
+        let parts: Vec<&str> = key.split('/').collect();
+        if parts.len() != 5 {
+            return None;
+        }
+        if parts[0] != "hulkz" || parts[1] != "graph" || parts[2] != "sessions" {
+            return None;
+        }
+        Some(Self {
+            namespace: parts[3].to_string(),
+            session_id: parts[4].to_string(),
+        })
+    }
+}
+
+/// Information about a discovered node including its namespace.
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+pub struct NodeInfo {
+    /// The namespace this node belongs to.
+    pub namespace: String,
+    /// The node name.
+    pub node: String,
+}
+
+impl NodeInfo {
+    /// Parse a node info from a graph key.
+    ///
+    /// Expected format: `hulkz/graph/nodes/{namespace}/{node}`
+    pub(crate) fn from_key(key: &str) -> Option<Self> {
+        let parts: Vec<&str> = key.split('/').collect();
+        if parts.len() != 5 {
+            return None;
+        }
+        if parts[0] != "hulkz" || parts[1] != "graph" || parts[2] != "nodes" {
+            return None;
+        }
+        Some(Self {
+            namespace: parts[3].to_string(),
+            node: parts[4].to_string(),
+        })
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -306,10 +362,7 @@ mod tests {
     #[test]
     fn parse_node_key_invalid() {
         assert_eq!(parse_node_key("hulkz/graph/nodes/chappie"), None);
-        assert_eq!(
-            parse_node_key("hulkz/graph/sessions/chappie/abc123"),
-            None
-        );
+        assert_eq!(parse_node_key("hulkz/graph/sessions/chappie/abc123"), None);
     }
 
     #[test]
@@ -400,6 +453,8 @@ mod tests {
         // Wrong type
         assert!(ParameterInfo::from_key("hulkz/graph/nodes/chappie/nav").is_none());
         // Wrong plane
-        assert!(ParameterInfo::from_key("hulkz/graph/publishers/chappie/nav/local/topic").is_none());
+        assert!(
+            ParameterInfo::from_key("hulkz/graph/publishers/chappie/nav/local/topic").is_none()
+        );
     }
 }

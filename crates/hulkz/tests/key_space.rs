@@ -1,4 +1,4 @@
-//! Integration tests for the Hulkz key space structure.
+//! Integration tests for the hulkz key space structure.
 //!
 //! These tests verify the public API for scoped paths and scope parsing.
 //! Internal key-building logic is tested via unit tests in the respective modules.

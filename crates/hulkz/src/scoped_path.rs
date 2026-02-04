@@ -1,8 +1,7 @@
 //! Scoped path parsing for topics, parameters, and other named resources.
 //!
-//! [`ScopedPath`] parses user-friendly path strings into scope + path pairs.
-//! This is used throughout hulkz to resolve topic and parameter names to their
-//! full Zenoh key expressions.
+//! [`ScopedPath`] parses user-friendly path strings into scope + path pairs. This is used
+//! throughout hulkz to resolve topic and parameter names to their full Zenoh key expressions.
 //!
 //! # Prefix Syntax
 //!
@@ -23,12 +22,12 @@
 //! ```
 
 use crate::error::ScopedPathError;
-use crate::key::{ParamIntent, Plane, Scope, ROOT};
+use crate::key::{ParamIntent, Scope, ROOT};
 
 /// A parsed path with scope information.
 ///
-/// Used for topics, parameters, and other named resources that follow the
-/// hulkz scoping convention.
+/// Used for topics, parameters, and other named resources that follow the hulkz scoping
+/// convention.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ScopedPath {
     scope: Scope,
@@ -50,8 +49,8 @@ impl ScopedPath {
     /// - `path` → Local scope (default)
     /// - `~/path` → Private scope
     ///
-    /// This is infallible - any string is accepted. Use [`ScopedPath::parse_validated`]
-    /// for stricter parsing.
+    /// This is infallible - any string is accepted. Use [`ScopedPath::parse_validated`] for
+    /// stricter parsing.
     pub fn parse(input: &str) -> Self {
         if let Some(path) = input.strip_prefix('/') {
             Self {
@@ -104,68 +103,55 @@ impl ScopedPath {
 
     /// Generates a key expression for this path on the Data plane.
     pub(crate) fn to_data_key(&self, namespace: &str, node: &str) -> String {
-        self.to_plane_key(Plane::Data, namespace, node)
+        let scope = &self.scope;
+        let path = &self.path;
+        match scope {
+            Scope::Global => format!("{ROOT}/data/{scope}/{path}"),
+            Scope::Local => format!("{ROOT}/data/{scope}/{namespace}/{path}"),
+            Scope::Private => format!("{ROOT}/data/{scope}/{namespace}/{node}/{path}"),
+        }
     }
 
     /// Generates a key expression for this path on the View plane.
     pub(crate) fn to_view_key(&self, namespace: &str, node: &str) -> String {
-        self.to_plane_key(Plane::View, namespace, node)
-    }
-
-    /// Generates a key expression for any plane.
-    fn to_plane_key(&self, plane: Plane, namespace: &str, node: &str) -> String {
-        match self.scope {
-            Scope::Global => format!("{}/{}/{}/{}", ROOT, plane, self.scope, self.path),
-            Scope::Local => format!(
-                "{}/{}/{}/{}/{}",
-                ROOT, plane, self.scope, namespace, self.path
-            ),
-            Scope::Private => format!(
-                "{}/{}/{}/{}/{}/{}",
-                ROOT, plane, self.scope, namespace, node, self.path
-            ),
+        let scope = &self.scope;
+        let path = &self.path;
+        match scope {
+            Scope::Global => format!("{ROOT}/view/{scope}/{path}"),
+            Scope::Local => format!("{ROOT}/view/{scope}/{namespace}/{path}"),
+            Scope::Private => format!("{ROOT}/view/{scope}/{namespace}/{node}/{path}"),
         }
     }
 
     /// Generates a parameter key expression with the given intent.
     pub(crate) fn to_param_key(&self, intent: ParamIntent, namespace: &str, node: &str) -> String {
-        match self.scope {
+        let scope = &self.scope;
+        let path = &self.path;
+        match scope {
             Scope::Global => {
-                format!("{}/param/{}/{}/{}", ROOT, intent, self.scope, self.path)
+                format!("{ROOT}/param/{intent}/{scope}/{path}")
             }
             Scope::Local => {
-                format!(
-                    "{}/param/{}/{}/{}/{}",
-                    ROOT, intent, self.scope, namespace, self.path
-                )
+                format!("{ROOT}/param/{intent}/{scope}/{namespace}/{path}")
             }
             Scope::Private => {
-                format!(
-                    "{}/param/{}/{}/{}/{}/{}",
-                    ROOT, intent, self.scope, namespace, node, self.path
-                )
+                format!("{ROOT}/param/{intent}/{scope}/{namespace}/{node}/{path}")
             }
         }
     }
 
     /// Generates a graph publisher liveliness key.
-    ///
-    /// Schema: `hulkz/graph/publishers/{namespace}/{node}/{scope}/{path}`
     pub(crate) fn to_graph_publisher_key(&self, namespace: &str, node: &str) -> String {
-        format!(
-            "{}/graph/publishers/{}/{}/{}/{}",
-            ROOT, namespace, node, self.scope, self.path
-        )
+        let scope = &self.scope;
+        let path = &self.path;
+        format!("{ROOT}/graph/publishers/{namespace}/{node}/{scope}/{path}")
     }
 
     /// Generates a graph parameter liveliness key.
-    ///
-    /// Schema: `hulkz/graph/parameters/{namespace}/{node}/{scope}/{path}`
     pub(crate) fn to_graph_parameter_key(&self, namespace: &str, node: &str) -> String {
-        format!(
-            "{}/graph/parameters/{}/{}/{}/{}",
-            ROOT, namespace, node, self.scope, self.path
-        )
+        let scope = &self.scope;
+        let path = &self.path;
+        format!("{ROOT}/graph/parameters/{namespace}/{node}/{scope}/{path}")
     }
 }
 

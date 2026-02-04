@@ -50,9 +50,9 @@ impl Config {
         Self::default()
     }
 
-    /// Loads configuration from the default sources:
-    /// 1. Files specified in HULKZ_PARAMETERS environment variable (colon-separated)
-    /// 2. Default file (parameters.json5) if it exists and no env var is set
+    /// Loads configuration from the files specified in HULKZ_PARAMETERS environment variable
+    /// (colon-separated), falling back to the default file (parameters.json5) if it exists and no
+    /// env var is set
     ///
     /// Files are layered in order, with later files overriding earlier ones.
     pub async fn load_default() -> Result<Self> {
@@ -80,16 +80,17 @@ impl Config {
     ///
     /// # Errors
     ///
-    /// Returns [`Error::ConfigFileIo`] if the file cannot be read, with the
-    /// file path included in the error message.
+    /// Returns [`Error::ConfigFileIo`] if the file cannot be read, with the file path included in
+    /// the error message.
     pub async fn load_file(&mut self, path: impl AsRef<Path>) -> Result<()> {
         let path = path.as_ref();
-        let content = tokio::fs::read_to_string(path)
-            .await
-            .map_err(|source| Error::ConfigFileIo {
-                path: path.to_path_buf(),
-                source,
-            })?;
+        let content =
+            tokio::fs::read_to_string(path)
+                .await
+                .map_err(|source| Error::ConfigFileIo {
+                    path: path.to_path_buf(),
+                    source,
+                })?;
         self.merge_json5(&content)?;
         Ok(())
     }
@@ -243,10 +244,7 @@ mod tests {
             config.get_local("max_speed"),
             Some(&Value::Number(serde_json::Number::from_f64(2.0).unwrap()))
         );
-        assert_eq!(
-            config.get_local("timeout"),
-            Some(&Value::Number(30.into()))
-        );
+        assert_eq!(config.get_local("timeout"), Some(&Value::Number(30.into())));
     }
 
     #[test]

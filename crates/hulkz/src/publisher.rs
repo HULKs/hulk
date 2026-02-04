@@ -1,13 +1,12 @@
 //! Publisher for dual-plane (data + view) message publishing.
 //!
-//! A [`Publisher`] sends messages to both the data plane (CDR encoding for
-//! performance) and optionally the view plane (JSON for debugging). View plane
-//! serialization is lazy - it only occurs when subscribers are present.
+//! A [`Publisher`] sends messages to both the data plane (CDR encoding for performance) and
+//! optionally the view plane (JSON for debugging). View plane serialization is lazy - it only
+//! occurs when subscribers are present.
 //!
 //! # Timestamps
 //!
-//! [`Publisher::put`] requires an explicit timestamp. This ensures correct
-//! temporal semantics:
+//! [`Publisher::put`] requires an explicit timestamp. This ensures correct temporal semantics:
 //!
 //! - **Sensor data**: Use `session.now()` (capture time)
 //! - **Derived data**: Use source message's timestamp (temporal coherence)
@@ -69,17 +68,14 @@ where
 {
     /// Enables publishing to the View plane (JSON mirror for debugging).
     ///
-    /// This is enabled by default. The View plane uses lazy serialization:
-    /// JSON is only serialized if there are subscribers on the view key.
+    /// This is enabled by default. The View plane uses lazy serialization: JSON is only serialized
+    /// if there are subscribers on the view key.
     pub fn enable_view(mut self) -> Self {
         self.enable_view = true;
         self
     }
 
     /// Disables publishing to the View plane.
-    ///
-    /// Use this for high-frequency topics where the JSON overhead is undesirable
-    /// even with lazy serialization.
     pub fn disable_view(mut self) -> Self {
         self.enable_view = false;
         self
@@ -131,8 +127,8 @@ where
 
 /// Publishes to the data plane (CDR) and optionally the view plane (JSON).
 ///
-/// The view plane uses lazy serialization: JSON is only serialized when
-/// subscribers are present on the view key.
+/// The view plane uses lazy serialization: JSON is only serialized when subscribers are present on
+/// the view key.
 pub struct Publisher<T>
 where
     T: Serialize,
@@ -147,6 +143,7 @@ impl<T> Publisher<T>
 where
     T: Serialize,
 {
+    /// Checks if there are any active subscribers (data or view plane).
     pub async fn is_subscribed(&self) -> Result<bool> {
         let cdr_matching = self.is_cdr_subscribed().await?;
         let view_matching = self.is_view_subscribed().await?;
@@ -169,10 +166,9 @@ where
 
     /// Publishes a value with an explicit timestamp.
     ///
-    /// The timestamp should represent when the data was captured or computed.
-    /// For sensor data, use the sensor's capture time. For derived data (e.g.,
-    /// filtered IMU), use the source data's timestamp to maintain temporal
-    /// coherence.
+    /// The timestamp should represent when the data was captured or computed. For sensor data, use
+    /// the sensor's capture time. For derived data (e.g., filtered IMU), use the source data's
+    /// timestamp to maintain temporal coherence.
     ///
     /// # Example
     ///
@@ -236,9 +232,7 @@ where
         Ok(())
     }
 
-    /// Publishes a value only if there are subscribers, with an explicit timestamp.
-    ///
-    /// The value closure is only called if there are active subscribers.
+    /// Publishes a value only if there are subscribers.
     pub async fn put_if_subscribed(
         &self,
         timestamp: &Timestamp,

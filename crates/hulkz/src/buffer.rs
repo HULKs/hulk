@@ -1,9 +1,8 @@
 //! Time-indexed message buffer for temporal lookups.
 //!
-//! The [`Buffer`] provides temporal data alignment by caching messages
-//! from a subscriber and allowing lookups by timestamp. This is essential
-//! for sensor fusion scenarios where data from multiple sources at different
-//! rates needs to be aligned temporally.
+//! The [`Buffer`] provides temporal data alignment by caching messages from a subscriber and
+//! allowing lookups by timestamp. This is essential for sensor fusion scenarios where data from
+//! multiple sources at different rates needs to be aligned temporally.
 //!
 //! # Quick Start
 //!
@@ -86,8 +85,8 @@ where
 
     /// Sets the maximum number of messages to retain in the buffer.
     ///
-    /// When the buffer exceeds this capacity, the oldest messages are evicted.
-    /// Default is 1.
+    /// When the buffer exceeds this capacity, the oldest messages are removed
+    /// from the buffer.
     pub fn capacity(mut self, capacity: usize) -> Self {
         self.capacity = capacity;
         self

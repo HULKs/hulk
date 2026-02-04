@@ -1,8 +1,7 @@
 //! Subscriber for receiving messages from the data or view plane.
 //!
-//! A [`Subscriber`] receives messages from a topic. By default it subscribes
-//! to the data plane (CDR). Use `.view_only()` to subscribe to the view plane
-//! (JSON) for debugging/CLI tools.
+//! A [`Subscriber`] receives messages from a topic. By default it subscribes to the data plane
+//! (CDR). Use `.view()` to subscribe to the view plane (JSON) for debugging/CLI tools.
 //!
 //! Messages are delivered as [`Message<T>`](crate::Message) with payload and timestamp.
 //!
@@ -46,26 +45,55 @@ pub struct SubscriberBuilder<T> {
     pub(crate) node: Node,
     pub(crate) topic: Result<ScopedPath, ScopedPathError>,
     pub(crate) capacity: usize,
-    pub(crate) view_only: bool,
+    pub(crate) view: bool,
+    pub(crate) namespace_override: Option<String>,
     pub(crate) _phantom: PhantomData<T>,
 }
 
 impl<T> SubscriberBuilder<T> {
     /// Sets the ring buffer capacity for incoming messages.
     ///
-    /// When the buffer is full, the oldest messages are dropped to make room
-    /// for new ones. Default capacity is 3.
+    /// When the buffer is full, the oldest messages are dropped to make room for new ones.
     pub fn capacity(mut self, capacity: usize) -> Self {
         self.capacity = capacity;
         self
     }
 
-    /// Subscribe only to the View plane (JSON), ignoring the Data plane (CDR).
+    /// Subscribe to the View plane (JSON) instead of the Data plane (CDR).
     ///
-    /// This is useful for CLI tools or debugging scenarios where you want
-    /// to receive human-readable JSON messages.
-    pub fn view_only(mut self) -> Self {
-        self.view_only = true;
+    /// This is useful for CLI tools or debugging scenarios where you want to receive
+    /// human-readable JSON messages.
+    pub fn view(mut self) -> Self {
+        self.view = true;
+        self
+    }
+
+    /// Override the namespace for this subscription.
+    ///
+    /// By default, subscriptions use the session's namespace. This method allows subscribing to
+    /// topics in a different namespace.
+    ///
+    /// # Example
+    ///
+    /// ```rust,no_run
+    /// # use hulkz::{Session, Result};
+    /// # use serde_json::Value;
+    /// # #[tokio::main]
+    /// # async fn main() -> Result<()> {
+    /// let session = Session::create("twix").await?;
+    /// let node = session.create_node("viewer").build().await?;
+    ///
+    /// // Subscribe to a topic in a different namespace
+    /// let mut subscriber = node.subscribe::<Value>("camera/front")
+    ///     .in_namespace("robot-nao22")
+    ///     .view_only()
+    ///     .build()
+    ///     .await?;
+    /// # Ok(())
+    /// # }
+    /// ```
+    pub fn in_namespace(mut self, namespace: impl Into<String>) -> Self {
+        self.namespace_override = Some(namespace.into());
         self
     }
 
@@ -73,10 +101,16 @@ impl<T> SubscriberBuilder<T> {
         let topic = self.topic?;
 
         let session = self.node.session().clone();
-        let key = if self.view_only {
-            topic.to_view_key(self.node.session().namespace(), self.node.name())
+
+        let namespace = self
+            .namespace_override
+            .as_deref()
+            .unwrap_or_else(|| self.node.session().namespace());
+
+        let key = if self.view {
+            topic.to_view_key(namespace, self.node.name())
         } else {
-            topic.to_data_key(self.node.session().namespace(), self.node.name())
+            topic.to_data_key(namespace, self.node.name())
         };
 
         let subscriber = session
@@ -104,6 +138,7 @@ impl<T> Subscriber<T>
 where
     for<'de> T: Deserialize<'de>,
 {
+    /// Receives the next message.
     pub async fn recv_async(&mut self) -> Result<Message<T>> {
         let sample = self.sub.recv_async().await?;
 
@@ -125,5 +160,3 @@ where
         Ok(message)
     }
 }
-
-

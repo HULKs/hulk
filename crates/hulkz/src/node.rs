@@ -1,8 +1,8 @@
 //! Node - the primary unit of computation in hulkz.
 //!
-//! A [`Node`] represents a logical component within a session. Nodes register
-//! themselves in the graph plane for discovery and provide factories for
-//! publishers, subscribers, parameters, and buffers.
+//! A [`Node`] represents a logical component within a session. Nodes register themselves in the
+//! graph plane for discovery and provide factories for publishers, subscribers, parameters, and
+//! buffers.
 //!
 //! # Example
 //!
@@ -44,7 +44,6 @@ use crate::{
     Session,
 };
 
-
 /// Builder for creating a [`Node`].
 pub struct NodeBuilder {
     pub(crate) session: Session,
@@ -75,8 +74,8 @@ impl NodeBuilder {
 
 /// A node within a session, registered in the graph plane.
 ///
-/// Nodes are the primary unit of computation. They register themselves
-/// in the graph plane via liveliness tokens for discovery.
+/// Nodes are the primary unit of computation. They register themselves in the graph plane via
+/// liveliness tokens for discovery.
 #[derive(Clone, Debug)]
 pub struct Node {
     inner: Arc<NodeInner>,
@@ -112,7 +111,8 @@ impl Node {
             node: self.clone(),
             topic: topic.try_into().map_err(Into::into),
             capacity: Self::DEFAULT_CAPACITY,
-            view_only: false,
+            view: false,
+            namespace_override: None,
             _phantom: PhantomData,
         }
     }
@@ -146,7 +146,6 @@ impl Node {
             node: self.clone(),
             path: ScopedPath::parse(&path.into()),
             default: None,
-            read_only: false,
             validator: None,
             _phantom: PhantomData,
         }
@@ -154,9 +153,9 @@ impl Node {
 
     /// Create a buffered subscription for temporal lookups.
     ///
-    /// This is a convenience method that combines [`subscribe()`](Self::subscribe)
-    /// with [`BufferBuilder`]. Returns `(Buffer<T>, driver)`. The driver future
-    /// must be spawned to populate the buffer with incoming messages.
+    /// This is a convenience method that combines [`subscribe()`](Self::subscribe) with
+    /// [`BufferBuilder`]. Returns `(Buffer<T>, driver)`. The driver future must be spawned to
+    /// populate the buffer with incoming messages.
     ///
     /// # Arguments
     ///
