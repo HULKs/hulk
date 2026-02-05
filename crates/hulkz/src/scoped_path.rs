@@ -23,8 +23,6 @@
 
 use std::fmt;
 
-use crate::error::ScopedPathError;
-
 /// Hierarchical scope for data visibility.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum Scope {
@@ -71,52 +69,30 @@ impl ScopedPath {
         }
     }
 
-    /// Parses a path string using prefix syntax.
+    /// Parses a path string using prefix syntax
     ///
     /// - `/path` → Global scope
     /// - `path` → Local scope (default)
     /// - `~/path` → Private scope
-    ///
-    /// This is infallible - any string is accepted. Use [`ScopedPath::parse_validated`] for
-    /// stricter parsing.
     pub fn parse(input: &str) -> Self {
         if let Some(path) = input.strip_prefix('/') {
-            Self {
+            return Self {
                 scope: Scope::Global,
                 path: path.to_string(),
-            }
-        } else if let Some(path) = input.strip_prefix("~/") {
-            Self {
+            };
+        }
+
+        if let Some(path) = input.strip_prefix("~/") {
+            return Self {
                 scope: Scope::Private,
                 path: path.to_string(),
-            }
-        } else {
-            Self {
-                scope: Scope::Local,
-                path: input.to_string(),
-            }
-        }
-    }
-
-    /// Parses a path string with validation.
-    ///
-    /// Rejects:
-    /// - Empty paths
-    /// - Paths with double slashes (`//`)
-    /// - Paths ending with a slash
-    pub fn parse_validated(input: &str) -> Result<Self, ScopedPathError> {
-        let parsed = Self::parse(input);
-
-        if parsed.path.is_empty() {
-            return Err(ScopedPathError::Empty);
+            };
         }
 
-        if parsed.path.starts_with('/') || parsed.path.ends_with('/') || parsed.path.contains("//")
-        {
-            return Err(ScopedPathError::Invalid(input.to_string()));
+        Self {
+            scope: Scope::Local,
+            path: input.to_string(),
         }
-
-        Ok(parsed)
     }
 
     /// Returns the scope of this path.
@@ -130,11 +106,9 @@ impl ScopedPath {
     }
 }
 
-impl TryFrom<&str> for ScopedPath {
-    type Error = ScopedPathError;
-
-    fn try_from(value: &str) -> Result<Self, Self::Error> {
-        Self::parse_validated(value)
+impl From<&str> for ScopedPath {
+    fn from(value: &str) -> Self {
+        Self::parse(value)
     }
 }
 
@@ -161,19 +135,6 @@ mod tests {
         let path = ScopedPath::parse("~/debug/state");
         assert_eq!(path.scope(), Scope::Private);
         assert_eq!(path.path(), "debug/state");
-    }
-
-    #[test]
-    fn validated_rejects_empty() {
-        assert!(ScopedPath::parse_validated("/").is_err());
-        assert!(ScopedPath::parse_validated("~/").is_err());
-        assert!(ScopedPath::parse_validated("").is_err());
-    }
-
-    #[test]
-    fn validated_rejects_invalid_slashes() {
-        assert!(ScopedPath::parse_validated("foo//bar").is_err());
-        assert!(ScopedPath::parse_validated("foo/bar/").is_err());
     }
 
     #[test]

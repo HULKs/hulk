@@ -77,11 +77,11 @@ Entry point for all hulkz operations. A session connects to the Zenoh network wi
 let session = Session::create("robot_name").await?;
 
 // Discovery APIs
-let nodes = session.list_nodes().await?;
-let publishers = session.list_publishers().await?;
+let nodes = session.graph().nodes().list().await?;
+let publishers = session.graph().publishers().list().await?;
 
 // Watch for changes (returns watcher + driver future)
-let (mut watcher, driver) = session.watch_nodes().await?;
+let (mut watcher, driver) = session.graph().nodes().watch().await?;
 tokio::spawn(driver);  // Must spawn to receive events
 while let Some(event) = watcher.recv().await {
     println!("{:?}", event);
@@ -161,18 +161,18 @@ Hulkz provides liveliness-based discovery for sessions, nodes, and publishers:
 
 ```rust
 // List current entities
-let sessions = session.list_sessions().await?;
-let nodes = session.list_nodes().await?;
-let publishers = session.list_publishers().await?;
+let sessions = session.graph().sessions().list().await?;
+let nodes = session.graph().nodes().list().await?;
+let publishers = session.graph().publishers().list().await?;
 
 // Watch for changes (returns watcher + driver future)
-let (mut watcher, driver) = session.watch_nodes().await?;
+let (mut watcher, driver) = session.graph().nodes().watch().await?;
 tokio::spawn(driver);
 
 while let Some(event) = watcher.recv().await {
     match event {
-        NodeEvent::Joined(name) => println!("Node joined: {name}"),
-        NodeEvent::Left(name) => println!("Node left: {name}"),
+        GraphEvent::Joined(info) => println!("Node joined: {}", info.name),
+        GraphEvent::Left(info) => println!("Node left: {}", info.name),
     }
 }
 ```
@@ -211,7 +211,6 @@ cargo run --example discovery    # List/watch nodes, publishers, sessions
 
 ## Documentation
 
-- [Architecture Guide](ARCHITECTURE.md) - Key concepts and design decisions
 - [API Documentation](https://docs.rs/hulkz) - Full API reference (or run `cargo doc -p hulkz --open`)
 
 ## License

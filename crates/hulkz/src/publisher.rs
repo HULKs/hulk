@@ -42,11 +42,11 @@
 use cdr::{CdrLe, Infinite};
 use serde::Serialize;
 use std::marker::PhantomData;
-use tracing::debug;
+use tracing::{debug, warn};
 use zenoh::{bytes::Encoding, liveliness::LivelinessToken, pubsub::Publisher as ZenohPublisher};
 
 use crate::{
-    error::{Error, Result, ScopedPathError},
+    error::{Error, Result},
     key::{DataKey, GraphKey, ViewKey},
     scoped_path::ScopedPath,
     Node, Timestamp,
@@ -58,7 +58,7 @@ where
     T: Serialize,
 {
     pub(crate) node: Node,
-    pub(crate) topic: Result<ScopedPath, ScopedPathError>,
+    pub(crate) topic: ScopedPath,
     pub(crate) enable_view: bool,
     pub(crate) _phantom: PhantomData<T>,
 }
@@ -83,7 +83,7 @@ where
     }
 
     pub async fn build(self) -> Result<Publisher<T>> {
-        let topic = self.topic?;
+        let topic = self.topic;
         let namespace = self.node.session().namespace();
         let node_name = self.node.name();
 
@@ -211,7 +211,9 @@ where
             .encoding(Encoding::APPLICATION_CDR)
             .timestamp(*timestamp)
             .await?;
-        self.put_view(value, timestamp).await?;
+        if let Err(err) = self.put_view(value, timestamp).await {
+            warn!("Failed to publish view payload: {err}");
+        }
         Ok(())
     }
 

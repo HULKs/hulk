@@ -169,17 +169,17 @@ pub use crate::{
     buffer::{Buffer, BufferBuilder},
     cache::Cache,
     config::Config,
-    error::{Error, Result, ScopedPathError},
+    error::{Error, Result},
     graph::{
         EntityAccess, GraphAccess, GraphEvent, NodeInfo, ParameterInfo, PublisherInfo, SessionInfo,
         Watcher,
     },
     message::Message,
     node::Node,
-    parameter::Parameter,
+    parameter::{ParamAccessBuilder, Parameter},
     publisher::Publisher,
     scoped_path::{Scope, ScopedPath},
-    session::{ParamAccessBuilder, Session},
+    session::Session,
     subscriber::Subscriber,
 };
 

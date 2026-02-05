@@ -41,7 +41,7 @@ use std::marker::PhantomData;
 
 use serde::Serialize;
 use tokio::sync::mpsc;
-use tracing::error;
+use tracing::{error, warn};
 use zenoh::handlers::FifoChannelHandler;
 use zenoh::sample::{Sample, SampleKind};
 
@@ -64,6 +64,50 @@ pub trait GraphInfo: Sized + Clone + Send + 'static {
     fn from_key(key: &str) -> Result<Self>;
 }
 
+fn split_graph_key<'a>(
+    key: &'a str,
+    entity: &str,
+    min_parts: usize,
+    exact_parts: Option<usize>,
+) -> Result<Vec<&'a str>> {
+    let parts: Vec<&str> = key.split('/').collect();
+
+    if let Some(exact) = exact_parts {
+        if parts.len() != exact {
+            return Err(Error::GraphKeyParsing {
+                key: key.to_string(),
+                reason: format!("expected {exact} parts, found {}", parts.len()),
+            });
+        }
+    } else if parts.len() < min_parts {
+        return Err(Error::GraphKeyParsing {
+            key: key.to_string(),
+            reason: format!("expected at least {min_parts} parts, found {}", parts.len()),
+        });
+    }
+
+    if parts.len() < 3 || parts[0] != "hulkz" || parts[1] != "graph" || parts[2] != entity {
+        return Err(Error::GraphKeyParsing {
+            key: key.to_string(),
+            reason: "invalid prefix".to_string(),
+        });
+    }
+
+    Ok(parts)
+}
+
+fn parse_scope(scope: &str, key: &str) -> Result<Scope> {
+    match scope {
+        "global" => Ok(Scope::Global),
+        "local" => Ok(Scope::Local),
+        "private" => Ok(Scope::Private),
+        _ => Err(Error::GraphKeyParsing {
+            key: key.to_string(),
+            reason: format!("invalid scope '{scope}'"),
+        }),
+    }
+}
+
 /// Information about a discovered session.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
 pub struct SessionInfo {
@@ -81,19 +125,7 @@ impl fmt::Display for SessionInfo {
 
 impl GraphInfo for SessionInfo {
     fn from_key(key: &str) -> Result<Self> {
-        let parts: Vec<&str> = key.split('/').collect();
-        if parts.len() != 5 {
-            return Err(Error::GraphKeyParsing {
-                key: key.to_string(),
-                reason: format!("expected 5 parts, found {}", parts.len()),
-            });
-        }
-        if parts[0] != "hulkz" || parts[1] != "graph" || parts[2] != "sessions" {
-            return Err(Error::GraphKeyParsing {
-                key: key.to_string(),
-                reason: "invalid prefix".to_string(),
-            });
-        }
+        let parts = split_graph_key(key, "sessions", 5, Some(5))?;
         Ok(Self {
             namespace: parts[3].to_string(),
             id: parts[4].to_string(),
@@ -118,19 +150,7 @@ impl fmt::Display for NodeInfo {
 
 impl GraphInfo for NodeInfo {
     fn from_key(key: &str) -> Result<Self> {
-        let parts: Vec<&str> = key.split('/').collect();
-        if parts.len() != 5 {
-            return Err(Error::GraphKeyParsing {
-                key: key.to_string(),
-                reason: format!("expected 5 parts, found {}", parts.len()),
-            });
-        }
-        if parts[0] != "hulkz" || parts[1] != "graph" || parts[2] != "nodes" {
-            return Err(Error::GraphKeyParsing {
-                key: key.to_string(),
-                reason: "invalid prefix".to_string(),
-            });
-        }
+        let parts = split_graph_key(key, "nodes", 5, Some(5))?;
         Ok(Self {
             namespace: parts[3].to_string(),
             name: parts[4].to_string(),
@@ -153,33 +173,11 @@ pub struct PublisherInfo {
 
 impl GraphInfo for PublisherInfo {
     fn from_key(key: &str) -> Result<Self> {
-        let parts: Vec<&str> = key.split('/').collect();
-        if parts.len() < 7 {
-            return Err(Error::GraphKeyParsing {
-                key: key.to_string(),
-                reason: format!("expected at least 7 parts, found {}", parts.len()),
-            });
-        }
-        if parts[0] != "hulkz" || parts[1] != "graph" || parts[2] != "publishers" {
-            return Err(Error::GraphKeyParsing {
-                key: key.to_string(),
-                reason: "invalid prefix".to_string(),
-            });
-        }
+        let parts = split_graph_key(key, "publishers", 7, None)?;
 
         let namespace = parts[3].to_string();
         let node = parts[4].to_string();
-        let scope = match parts[5] {
-            "global" => Scope::Global,
-            "local" => Scope::Local,
-            "private" => Scope::Private,
-            _ => {
-                return Err(Error::GraphKeyParsing {
-                    key: key.to_string(),
-                    reason: format!("invalid scope '{}'", parts[5]),
-                })
-            }
-        };
+        let scope = parse_scope(parts[5], key)?;
         let path = parts[6..].join("/");
 
         Ok(Self {
@@ -217,33 +215,11 @@ pub struct ParameterInfo {
 
 impl GraphInfo for ParameterInfo {
     fn from_key(key: &str) -> Result<Self> {
-        let parts: Vec<&str> = key.split('/').collect();
-        if parts.len() < 7 {
-            return Err(Error::GraphKeyParsing {
-                key: key.to_string(),
-                reason: format!("expected at least 7 parts, found {}", parts.len()),
-            });
-        }
-        if parts[0] != "hulkz" || parts[1] != "graph" || parts[2] != "parameters" {
-            return Err(Error::GraphKeyParsing {
-                key: key.to_string(),
-                reason: "invalid prefix".to_string(),
-            });
-        }
+        let parts = split_graph_key(key, "parameters", 7, None)?;
 
         let namespace = parts[3].to_string();
         let node = parts[4].to_string();
-        let scope = match parts[5] {
-            "global" => Scope::Global,
-            "local" => Scope::Local,
-            "private" => Scope::Private,
-            _ => {
-                return Err(Error::GraphKeyParsing {
-                    key: key.to_string(),
-                    reason: format!("invalid scope '{}'", parts[5]),
-                })
-            }
-        };
+        let scope = parse_scope(parts[5], key)?;
         let path = parts[6..].join("/");
 
         Ok(Self {
@@ -387,8 +363,11 @@ impl<'session, T: GraphInfo> EntityAccess<'session, T> {
                     continue;
                 }
             };
-            if let Ok(info) = T::from_key(sample.key_expr().as_str()) {
-                results.push(info);
+            match T::from_key(sample.key_expr().as_str()) {
+                Ok(info) => results.push(info),
+                Err(err) => {
+                    warn!("Failed to parse graph key '{}': {err}", sample.key_expr());
+                }
             }
         }
 

@@ -73,8 +73,8 @@ hulkz view camera/image
 # Subscribe to a global topic
 hulkz view /fleet_status
 
-# Subscribe to a private topic
-hulkz view ~/debug/state
+# Subscribe to a private topic (requires node)
+hulkz view ~/debug/state --node navigation
 
 # Exit after receiving 10 messages
 hulkz view sensor/data --count 10
@@ -190,4 +190,3 @@ hulkz -n chappie param set max_speed 1.5 --node navigation
 ## See Also
 
 - [`hulkz`](../../crates/hulkz/) - The core library crate
-- [Architecture Guide](../../crates/hulkz/ARCHITECTURE.md) - Key concepts and design

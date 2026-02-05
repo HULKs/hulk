@@ -10,8 +10,9 @@ name = "hulkz"
 path = "src/main.rs"
 
 [dependencies]
-hulkz = { path = "../../crates/hulkz" }
 clap = { workspace = true }
-tokio = { workspace = true }
+color-eyre = { workspace = true }
+hulkz = { path = "../../crates/hulkz" }
 serde = { workspace = true }
 serde_json = { workspace = true }
+tokio = { workspace = true }

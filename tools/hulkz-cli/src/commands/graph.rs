@@ -2,10 +2,9 @@
 
 use std::collections::HashMap;
 
+use color_eyre::Result;
 use hulkz::Session;
 use serde::Serialize;
-
-use crate::output::OutputFormat;
 
 #[derive(Serialize)]
 struct NetworkGraph {
@@ -21,7 +20,7 @@ struct NodeSummary {
 }
 
 /// Runs the graph command.
-pub async fn run(namespace: &str, format: OutputFormat) -> hulkz::Result<()> {
+pub async fn run(namespace: &str) -> Result<()> {
     let session = Session::create(namespace).await?;
 
     // Gather data using new fluent Graph API
@@ -38,7 +37,7 @@ pub async fn run(namespace: &str, format: OutputFormat) -> hulkz::Result<()> {
         node_publishers
             .entry(pub_info.node.clone())
             .or_default()
-            .push(format!("{}/{}", pub_info.scope, pub_info.path));
+            .push(pub_info.display_path());
     }
 
     let graph = NetworkGraph {
@@ -56,24 +55,20 @@ pub async fn run(namespace: &str, format: OutputFormat) -> hulkz::Result<()> {
             .collect(),
     };
 
-    if matches!(format, OutputFormat::Human) {
-        println!("NETWORK GRAPH");
-        println!("  Namespace: {}", graph.namespace);
-        println!("  Sessions:  {}", graph.sessions);
-        println!();
-        println!("NODES ({})", graph.nodes.len());
-        if graph.nodes.is_empty() {
-            println!("  (none)");
-        } else {
-            for node in &graph.nodes {
-                println!("  {} ({} publishers)", node.name, node.publishers.len());
-                for pub_topic in &node.publishers {
-                    println!("    - {}", pub_topic);
-                }
+    println!("NETWORK GRAPH");
+    println!("  Namespace: {}", graph.namespace);
+    println!("  Sessions:  {}", graph.sessions);
+    println!();
+    println!("NODES ({})", graph.nodes.len());
+    if graph.nodes.is_empty() {
+        println!("  (none)");
+    } else {
+        for node in &graph.nodes {
+            println!("  {} ({} publishers)", node.name, node.publishers.len());
+            for pub_topic in &node.publishers {
+                println!("    - {}", pub_topic);
             }
         }
-    } else {
-        println!("{}", serde_json::to_string(&graph).unwrap_or_default());
     }
 
     Ok(())

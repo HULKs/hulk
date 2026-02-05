@@ -26,7 +26,10 @@ async fn main() -> Result<()> {
         .build()
         .await?;
     tokio::spawn(max_speed_driver);
-    println!("Declared parameter: max_speed = {:?}", max_speed.get().await);
+    println!(
+        "Declared parameter: max_speed = {:?}",
+        max_speed.get().await
+    );
 
     let (enabled, enabled_driver) = node
         .declare_parameter::<bool>("enabled")
@@ -44,9 +47,6 @@ async fn main() -> Result<()> {
     tokio::spawn(robot_name_driver);
     println!("Declared parameter: name = {:?}", robot_name.get().await);
 
-    println!("\nParameters are now queryable. Use hulkz-cli to interact:");
-    println!("  hulkz -n demo param get max_speed --node controller");
-    println!("  hulkz -n demo param set max_speed 2.5 --node controller");
     println!("\nWaiting for parameter updates... (Ctrl+C to stop)\n");
 
     // Simulate using parameters in a control loop

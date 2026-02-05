@@ -27,7 +27,7 @@ use serde_json::Value;
 
 use crate::error::{Error, Result};
 
-/// Environment variable for specifying parameter file paths (colon-separated).
+/// Environment variable for specifying parameter file paths (path-separated).
 pub const PARAMETERS_ENV: &str = "HULKZ_PARAMETERS";
 
 /// Default parameter file name.
@@ -51,7 +51,7 @@ impl Config {
     }
 
     /// Loads configuration from the files specified in HULKZ_PARAMETERS environment variable
-    /// (colon-separated), falling back to the default file (parameters.json5) if it exists and no
+    /// (path-separated), falling back to the default file (parameters.json5) if it exists and no
     /// env var is set
     ///
     /// Files are layered in order, with later files overriding earlier ones.
@@ -59,9 +59,11 @@ impl Config {
         let mut config = Config::new();
 
         if let Ok(env_paths) = std::env::var(PARAMETERS_ENV) {
-            // Load from environment variable (colon-separated paths)
-            for path in env_paths.split(':').filter(|p| !p.is_empty()) {
-                config.load_file(path).await?;
+            // Load from environment variable (path-separated paths)
+            for path in std::env::split_paths(&env_paths) {
+                if !path.as_os_str().is_empty() {
+                    config.load_file(path).await?;
+                }
             }
         } else {
             // Try default file if it exists

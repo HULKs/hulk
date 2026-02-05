@@ -4,26 +4,27 @@ use hulkz::{PublisherInfo, Session};
 use serde::Serialize;
 use std::fmt;
 
-use crate::output::OutputFormat;
-
 /// Lists all nodes in the namespace.
-pub async fn nodes(namespace: &str, format: OutputFormat) -> hulkz::Result<()> {
+pub async fn nodes(namespace: &str) -> hulkz::Result<()> {
     let session = Session::create(namespace).await?;
 
     // Get nodes as NodeInfo, extract just names for display
     let nodes = session.graph().nodes().list().await?;
     let node_names: Vec<String> = nodes.into_iter().map(|n| n.name).collect();
-    format.print_list("NODES", namespace, &node_names);
+    println!("NODES in namespace '{}':", namespace);
+    if node_names.is_empty() {
+        println!("  (none)");
+    } else {
+        for node in node_names {
+            println!("  {}", node);
+        }
+    }
 
     Ok(())
 }
 
 /// Lists all publishers in the namespace, optionally filtered by node.
-pub async fn publishers(
-    namespace: &str,
-    node_filter: Option<&str>,
-    format: OutputFormat,
-) -> hulkz::Result<()> {
+pub async fn publishers(namespace: &str, node_filter: Option<&str>) -> hulkz::Result<()> {
     let session = Session::create(namespace).await?;
 
     let publishers = session.graph().publishers().list().await?;
@@ -39,19 +40,36 @@ pub async fn publishers(
     let display_items: Vec<PublisherDisplay> =
         filtered.iter().map(PublisherDisplay::from).collect();
 
-    format.print_list("PUBLISHERS", namespace, &display_items);
+    println!("PUBLISHERS in namespace '{}':", namespace);
+    if display_items.is_empty() {
+        println!("  (none)");
+    } else {
+        println!("{:<16} {:<8} PATH", "Node", "Scope");
+        println!("{}", "-".repeat(40));
+        for item in display_items {
+            println!("{}", item);
+        }
+    }
 
     Ok(())
 }
 
 /// Lists all sessions in the namespace.
-pub async fn sessions(namespace: &str, format: OutputFormat) -> hulkz::Result<()> {
+pub async fn sessions(namespace: &str) -> hulkz::Result<()> {
     let session = Session::create(namespace).await?;
 
     // Get sessions as SessionInfo, extract just IDs for display
     let sessions = session.graph().sessions().list().await?;
     let session_ids: Vec<String> = sessions.into_iter().map(|s| s.id).collect();
-    format.print_list("SESSIONS", namespace, &session_ids);
+
+    println!("SESSIONS in namespace '{}':", namespace);
+    if session_ids.is_empty() {
+        println!("  (none)");
+    } else {
+        for session in session_ids {
+            println!("  {}", session);
+        }
+    }
 
     Ok(())
 }

@@ -1,12 +1,11 @@
 //! hulkz CLI - Command-line tool for interacting with the hulkz middleware.
 
 use clap::{Parser, Subcommand};
+use color_eyre::Result;
 
 mod commands;
-mod output;
 
 use commands::{graph, info, list, param, view, watch};
-use output::OutputFormat;
 
 /// hulkz CLI - Introspection and debugging tool for hulkz middleware
 #[derive(Parser)]
@@ -16,10 +15,6 @@ struct Cli {
     /// Namespace to operate in
     #[arg(short, long, env = "HULKZ_NAMESPACE", default_value = "default")]
     namespace: String,
-
-    /// Output in JSON format
-    #[arg(long, global = true)]
-    json: bool,
 
     #[command(subcommand)]
     command: Commands,
@@ -85,35 +80,30 @@ enum ParamAction {
 }
 
 #[tokio::main]
-async fn main() -> hulkz::Result<()> {
+async fn main() -> Result<()> {
     let cli = Cli::parse();
-    let format = if cli.json {
-        OutputFormat::Json
-    } else {
-        OutputFormat::Human
-    };
 
     match cli.command {
         Commands::List { resource } => match resource {
-            ListResource::Nodes => list::nodes(&cli.namespace, format).await?,
+            ListResource::Nodes => list::nodes(&cli.namespace).await?,
             ListResource::Publishers { node } => {
-                list::publishers(&cli.namespace, node.as_deref(), format).await?
+                list::publishers(&cli.namespace, node.as_deref()).await?
             }
-            ListResource::Sessions => list::sessions(&cli.namespace, format).await?,
+            ListResource::Sessions => list::sessions(&cli.namespace).await?,
         },
         Commands::Watch { resource } => match resource {
-            WatchResource::Nodes => watch::nodes(&cli.namespace, format).await?,
-            WatchResource::Publishers => watch::publishers(&cli.namespace, format).await?,
-            WatchResource::Sessions => watch::sessions(&cli.namespace, format).await?,
+            WatchResource::Nodes => watch::nodes(&cli.namespace).await?,
+            WatchResource::Publishers => watch::publishers(&cli.namespace).await?,
+            WatchResource::Sessions => watch::sessions(&cli.namespace).await?,
         },
-        Commands::View(args) => view::run(&cli.namespace, args, format).await?,
+        Commands::View(args) => view::run(&cli.namespace, args).await?,
         Commands::Param { action } => match action {
-            ParamAction::List(args) => param::list(&cli.namespace, args, format).await?,
-            ParamAction::Get(args) => param::get(&cli.namespace, args, format).await?,
-            ParamAction::Set(args) => param::set(&cli.namespace, args, format).await?,
+            ParamAction::List(args) => param::list(&cli.namespace, args).await?,
+            ParamAction::Get(args) => param::get(&cli.namespace, args).await?,
+            ParamAction::Set(args) => param::set(&cli.namespace, args).await?,
         },
-        Commands::Info(args) => info::run(&cli.namespace, args, format).await?,
-        Commands::Graph => graph::run(&cli.namespace, format).await?,
+        Commands::Info(args) => info::run(&cli.namespace, args).await?,
+        Commands::Graph => graph::run(&cli.namespace).await?,
     }
 
     Ok(())

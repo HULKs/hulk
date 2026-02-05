@@ -35,7 +35,7 @@ use zenoh::liveliness::LivelinessToken;
 
 use crate::{
     buffer::{Buffer, BufferBuilder},
-    error::{Result, ScopedPathError},
+    error::Result,
     key::GraphKey,
     parameter::ParameterBuilder,
     publisher::PublisherBuilder,
@@ -100,34 +100,29 @@ impl Node {
     }
 
     /// Subscribe to a topic.
-    pub fn subscribe<T>(
-        &self,
-        topic: impl TryInto<ScopedPath, Error = impl Into<ScopedPathError>>,
-    ) -> SubscriberBuilder<T>
+    pub fn subscribe<T>(&self, topic: impl Into<ScopedPath>) -> SubscriberBuilder<T>
     where
         for<'de> T: Deserialize<'de>,
     {
         SubscriberBuilder {
-            node: self.clone(),
-            topic: topic.try_into().map_err(Into::into),
+            session: self.session().clone(),
+            topic: topic.into(),
             capacity: Self::DEFAULT_CAPACITY,
             view: false,
-            namespace_override: None,
+            namespace: self.session().namespace().to_string(),
+            node_name: self.name().to_string(),
             _phantom: PhantomData,
         }
     }
 
     /// Advertise a topic for publishing.
-    pub fn advertise<T>(
-        &self,
-        topic: impl TryInto<ScopedPath, Error = impl Into<ScopedPathError>>,
-    ) -> PublisherBuilder<T>
+    pub fn advertise<T>(&self, topic: impl Into<ScopedPath>) -> PublisherBuilder<T>
     where
         T: Serialize,
     {
         PublisherBuilder {
             node: self.clone(),
-            topic: topic.try_into().map_err(Into::into),
+            topic: topic.into(),
             enable_view: true,
             _phantom: PhantomData,
         }
@@ -138,13 +133,13 @@ impl Node {
     /// - `~/param` - Private (node-scoped)
     /// - `param` - Local (robot-scoped)
     /// - `/param` - Global (fleet-wide)
-    pub fn declare_parameter<T>(&self, path: impl Into<String>) -> ParameterBuilder<T>
+    pub fn declare_parameter<T>(&self, path: impl Into<ScopedPath>) -> ParameterBuilder<T>
     where
         for<'de> T: Serialize + Deserialize<'de> + Clone + Send + Sync + 'static,
     {
         ParameterBuilder {
             node: self.clone(),
-            path: ScopedPath::parse(&path.into()),
+            path: path.into(),
             default: None,
             validator: None,
             _phantom: PhantomData,
@@ -184,7 +179,7 @@ impl Node {
     /// ```
     pub async fn buffer<T>(
         &self,
-        topic: impl TryInto<ScopedPath, Error = impl Into<ScopedPathError>>,
+        topic: impl Into<ScopedPath>,
         capacity: usize,
     ) -> Result<(Buffer<T>, impl Future<Output = Result<()>> + Send)>
     where

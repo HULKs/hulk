@@ -25,13 +25,8 @@ use std::{path::PathBuf, sync::Arc};
 use zenoh::liveliness::LivelinessToken;
 
 use crate::{
-    config::Config,
-    error::{Error, Result},
-    graph::GraphAccess,
-    key::{GraphKey, ParamIntent, ParamKey},
-    node::NodeBuilder,
-    scoped_path::ScopedPath,
-    Scope, Timestamp,
+    key::GraphKey, node::NodeBuilder, Config, GraphAccess, ParamAccessBuilder, Result, ScopedPath,
+    Timestamp,
 };
 
 /// Builder for creating a [`Session`].
@@ -147,7 +142,7 @@ impl Session {
         &self.inner.zenoh
     }
 
-    pub(crate) fn config(&self) -> &Config {
+    pub fn config(&self) -> &Config {
         &self.inner.config
     }
 
@@ -205,214 +200,22 @@ impl Session {
     /// let session = Session::create("robot").await?;
     ///
     /// // Get local parameter
-    /// let value = session.parameter("max_speed").get().await?;
+    /// let value = session.parameter("max_speed").get::<f32>().await?;
     ///
     /// // Set global parameter
     /// session.parameter("/fleet_id").set(&serde_json::json!("fleet-01")).await?;
     ///
     /// // Get private parameter (requires node)
-    /// let debug = session.parameter("~/debug").on_node("motor").get().await?;
+    /// let debug = session.parameter("~/debug").on_node("motor").get::<bool>().await?;
     /// # Ok(())
     /// # }
     /// ```
-    pub fn parameter(&self, path: &str) -> ParamAccessBuilder<'_> {
+    pub fn parameter(&self, path: impl Into<ScopedPath>) -> ParamAccessBuilder<'_> {
         ParamAccessBuilder {
             session: self,
-            path: ScopedPath::parse(path),
+            path: path.into(),
             node: None,
             namespace_override: None,
-        }
-    }
-
-    /// Queries a parameter value by raw key expression.
-    ///
-    /// Returns the JSON value if found, or None if not found.
-    pub(crate) async fn query_parameter_raw(
-        &self,
-        key_expr: &str,
-    ) -> Result<Option<serde_json::Value>> {
-        let replies = self.inner.zenoh.get(key_expr).await?;
-
-        while let Ok(reply) = replies.recv_async().await {
-            match reply.result() {
-                Ok(sample) => {
-                    let value: serde_json::Value =
-                        serde_json::from_slice(&sample.payload().to_bytes())
-                            .map_err(crate::Error::JsonDeserialize)?;
-                    return Ok(Some(value));
-                }
-                Err(_) => continue,
-            }
-        }
-
-        Ok(None)
-    }
-
-    /// Sets a parameter value by raw key expression.
-    pub(crate) async fn set_parameter_raw(
-        &self,
-        key_expr: &str,
-        value: &serde_json::Value,
-    ) -> Result<()> {
-        let payload = serde_json::to_vec(value).map_err(crate::Error::JsonSerialize)?;
-
-        let replies = self
-            .inner
-            .zenoh
-            .get(key_expr)
-            .payload(payload)
-            .encoding(zenoh::bytes::Encoding::APPLICATION_JSON)
-            .await?;
-
-        let mut success_count = 0;
-        let mut rejections = Vec::new();
-
-        while let Ok(reply) = replies.recv_async().await {
-            match reply.result() {
-                Ok(_sample) => success_count += 1,
-                Err(err_reply) => {
-                    let reason =
-                        String::from_utf8_lossy(&err_reply.payload().to_bytes()).to_string();
-                    rejections.push(reason);
-                }
-            }
-        }
-
-        if !rejections.is_empty() {
-            return Err(crate::Error::ParameterRejected(rejections));
-        }
-
-        if success_count == 0 {
-            return Err(crate::Error::ParameterNotFound(key_expr.to_string()));
-        }
-
-        Ok(())
-    }
-}
-
-/// Builder for parameter access operations.
-///
-/// Created via [`Session::parameter()`]. Use `.on_node()` to target a specific node (required for
-/// private parameters).
-///
-/// # Example
-///
-/// ```rust,no_run
-/// # use hulkz::{Session, Result};
-/// # #[tokio::main]
-/// # async fn main() -> Result<()> {
-/// let session = Session::create("robot").await?;
-///
-/// // Local parameter (default scope)
-/// let value = session.parameter("max_speed").get().await?;
-///
-/// // Global parameter
-/// session.parameter("/fleet_id").set(&serde_json::json!("fleet-01")).await?;
-///
-/// // Private parameter on specific node
-/// let debug = session.parameter("~/debug").on_node("motor").get().await?;
-/// # Ok(())
-/// # }
-/// ```
-pub struct ParamAccessBuilder<'a> {
-    session: &'a Session,
-    path: ScopedPath,
-    node: Option<String>,
-    /// Optional namespace override for cross-namespace access.
-    namespace_override: Option<String>,
-}
-
-impl<'a> ParamAccessBuilder<'a> {
-    /// Target a specific node.
-    ///
-    /// Required for private parameters (`~/path`).
-    pub fn on_node(mut self, node: &str) -> Self {
-        self.node = Some(node.to_string());
-        self
-    }
-
-    /// Override the namespace for this parameter access.
-    ///
-    /// # Example
-    ///
-    /// ```rust,no_run
-    /// # use hulkz::{Session, Result};
-    /// # #[tokio::main]
-    /// # async fn main() -> Result<()> {
-    /// let session = Session::create("twix").await?;
-    ///
-    /// // Read a parameter from a different namespace
-    /// let value = session.parameter("max_speed")
-    ///     .in_namespace("robot-nao22")
-    ///     .on_node("control")
-    ///     .get()
-    ///     .await?;
-    /// # Ok(())
-    /// # }
-    /// ```
-    pub fn in_namespace(mut self, namespace: impl Into<String>) -> Self {
-        self.namespace_override = Some(namespace.into());
-        self
-    }
-
-    /// Get the parameter value.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`Error::NodeRequiredForPrivate`] if this is a private parameter and `.on_node()`
-    /// was not called.
-    pub async fn get(self) -> Result<Option<serde_json::Value>> {
-        let node_name = self.resolve_node()?;
-        let namespace = self.resolve_namespace();
-        let read_key = ParamKey::from_scope(
-            ParamIntent::Read,
-            self.path.scope(),
-            &namespace,
-            &node_name,
-            self.path.path(),
-        );
-        self.session.query_parameter_raw(&read_key).await
-    }
-
-    /// Set the parameter value.
-    ///
-    /// # Errors
-    ///
-    /// Returns [`Error::NodeRequiredForPrivate`] if this is a private parameter and `.on_node()`
-    /// was not called.
-    ///
-    /// Returns [`Error::ParameterNotFound`] if no node is serving this parameter.
-    ///
-    /// Returns [`Error::ParameterRejected`] if the parameter validation failed.
-    pub async fn set(self, value: &serde_json::Value) -> Result<()> {
-        let node_name = self.resolve_node()?;
-        let namespace = self.resolve_namespace();
-        let write_key = ParamKey::from_scope(
-            ParamIntent::Write,
-            self.path.scope(),
-            &namespace,
-            &node_name,
-            self.path.path(),
-        );
-        self.session.set_parameter_raw(&write_key, value).await
-    }
-
-    /// Resolves the namespace to use.
-    fn resolve_namespace(&self) -> String {
-        self.namespace_override
-            .clone()
-            .unwrap_or_else(|| self.session.namespace().to_string())
-    }
-
-    /// Resolves the node name for the key expression.
-    ///
-    /// - For private scope: requires explicit node, returns error if not set
-    /// - For global/local scope: uses explicit node if set, otherwise wildcard
-    fn resolve_node(&self) -> Result<String> {
-        match (self.path.scope(), &self.node) {
-            (Scope::Private, None) => Err(Error::NodeRequiredForPrivate),
-            (_, Some(node)) => Ok(node.clone()),
-            (_, None) => Ok("*".to_string()),
         }
     }
 }

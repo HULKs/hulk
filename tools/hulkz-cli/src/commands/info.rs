@@ -1,10 +1,9 @@
 //! Info command - show information about a topic.
 
 use clap::Args;
+use color_eyre::Result;
 use hulkz::{ScopedPath, Session};
 use serde::Serialize;
-
-use crate::output::OutputFormat;
 
 /// Arguments for the info command.
 #[derive(Args)]
@@ -27,11 +26,11 @@ struct PublisherMatch {
 }
 
 /// Runs the info command.
-pub async fn run(namespace: &str, args: InfoArgs, format: OutputFormat) -> hulkz::Result<()> {
+pub async fn run(namespace: &str, args: InfoArgs) -> Result<()> {
     let session = Session::create(namespace).await?;
 
     // Parse the topic
-    let scoped_path = ScopedPath::parse(&args.topic);
+    let scoped_path: ScopedPath = args.topic.as_str().into();
 
     // Find publishers for this topic using new Graph API
     let all_publishers = session.graph().publishers().list().await?;
@@ -52,22 +51,18 @@ pub async fn run(namespace: &str, args: InfoArgs, format: OutputFormat) -> hulkz
             .collect(),
     };
 
-    if matches!(format, OutputFormat::Human) {
-        println!("TOPIC INFO");
-        println!("  Topic:     {}", info.topic);
-        println!("  Scope:     {}", info.scope);
-        println!("  Path:      {}", info.path);
-        println!();
-        println!("PUBLISHERS ({})", info.publishers.len());
-        if info.publishers.is_empty() {
-            println!("  (none)");
-        } else {
-            for p in &info.publishers {
-                println!("  {}", p.node);
-            }
-        }
+    println!("TOPIC INFO");
+    println!("  Topic:     {}", info.topic);
+    println!("  Scope:     {}", info.scope);
+    println!("  Path:      {}", info.path);
+    println!();
+    println!("PUBLISHERS ({})", info.publishers.len());
+    if info.publishers.is_empty() {
+        println!("  (none)");
     } else {
-        println!("{}", serde_json::to_string(&info).unwrap_or_default());
+        for p in &info.publishers {
+            println!("  {}", p.node);
+        }
     }
 
     Ok(())

@@ -10,9 +10,6 @@ use zenoh::bytes::Encoding;
 /// The unified error type for hulkz operations.
 #[derive(Debug, thiserror::Error)]
 pub enum Error {
-    #[error(transparent)]
-    ScopedPath(#[from] ScopedPathError),
-
     #[error("CDR serialization failed: {0}")]
     CdrSerialize(#[source] cdr::Error),
 
@@ -43,17 +40,20 @@ pub enum Error {
     #[error("IO error: {0}")]
     Io(#[from] std::io::Error),
 
-    #[error("parameter not found: no node is serving '{0}'")]
-    ParameterNotFound(String),
-
     #[error("parameter '{0}' has no configured value and no default")]
     ParameterNoDefault(String),
 
     #[error("parameter validation failed: {0}")]
     ParameterValidation(String),
 
-    #[error("parameter rejected: {}", .0.join("; "))]
-    ParameterRejected(Vec<String>),
+    #[error("parameter rejected: {0}")]
+    ParameterRejected(String),
+
+    #[error("parameter query failed: {0}")]
+    ParameterQueryFailed(String),
+
+    #[error("parameter query returned {count} values for '{key_expr}'")]
+    ParameterAmbiguous { key_expr: String, count: usize },
 
     #[error("config parse error: {0}")]
     ConfigParse(String),
@@ -64,22 +64,11 @@ pub enum Error {
     #[error("unsupported encoding: {0}")]
     UnsupportedEncoding(Encoding),
 
-    #[error("private parameters require a node target, use .on_node(\"node_name\")")]
+    #[error("private scope requires a node target")]
     NodeRequiredForPrivate,
-
-    #[error("subscriber closed")]
-    SubscriberClosed,
 
     #[error("failed to parse graph key `{key}`: {reason}")]
     GraphKeyParsing { key: String, reason: String },
-}
-
-#[derive(Debug, Clone, thiserror::Error)]
-pub enum ScopedPathError {
-    #[error("path cannot be empty")]
-    Empty,
-    #[error("invalid path: {0}")]
-    Invalid(String),
 }
 
 pub type Result<T, E = Error> = std::result::Result<T, E>;

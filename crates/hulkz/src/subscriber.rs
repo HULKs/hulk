@@ -35,19 +35,20 @@ use zenoh::{
 };
 
 use crate::{
-    error::{Error, Result, ScopedPathError},
+    error::{Error, Result},
     key::{DataKey, ViewKey},
     scoped_path::ScopedPath,
-    Message, Node, Session,
+    Message, Session,
 };
 
 /// Builder for creating a [`Subscriber`].
 pub struct SubscriberBuilder<T> {
-    pub(crate) node: Node,
-    pub(crate) topic: Result<ScopedPath, ScopedPathError>,
+    pub(crate) session: Session,
+    pub(crate) topic: ScopedPath,
     pub(crate) capacity: usize,
     pub(crate) view: bool,
-    pub(crate) namespace_override: Option<String>,
+    pub(crate) namespace: String,
+    pub(crate) node_name: String,
     pub(crate) _phantom: PhantomData<T>,
 }
 
@@ -94,34 +95,46 @@ impl<T> SubscriberBuilder<T> {
     /// # }
     /// ```
     pub fn in_namespace(mut self, namespace: impl Into<String>) -> Self {
-        self.namespace_override = Some(namespace.into());
+        self.namespace = namespace.into();
+        self
+    }
+
+    /// Override the node for private scoped topics (`~/path`).
+    ///
+    /// By default, private scoped subscriptions target the current node's name.
+    pub fn on_node(mut self, name: impl Into<String>) -> Self {
+        self.node_name = name.into();
         self
     }
 
     pub async fn build(self) -> Result<Subscriber<T>> {
-        let topic = self.topic?;
-
-        let session = self.node.session().clone();
-
-        let namespace = self
-            .namespace_override
-            .as_deref()
-            .unwrap_or_else(|| self.node.session().namespace());
+        let topic = self.topic;
 
         let key = if self.view {
-            ViewKey::from_scope(topic.scope(), namespace, self.node.name(), topic.path())
+            ViewKey::from_scope(
+                topic.scope(),
+                &self.namespace,
+                &self.node_name,
+                topic.path(),
+            )
         } else {
-            DataKey::from_scope(topic.scope(), namespace, self.node.name(), topic.path())
+            DataKey::from_scope(
+                topic.scope(),
+                &self.namespace,
+                &self.node_name,
+                topic.path(),
+            )
         };
 
-        let subscriber = session
+        let subscriber = self
+            .session
             .zenoh()
             .declare_subscriber(key)
             .with(RingChannel::new(self.capacity))
             .await?;
 
         Ok(Subscriber {
-            session,
+            session: self.session,
             sub: subscriber,
             _phantom: PhantomData,
         })
