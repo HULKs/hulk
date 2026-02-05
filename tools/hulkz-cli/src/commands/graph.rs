@@ -24,9 +24,6 @@ struct NodeSummary {
 pub async fn run(namespace: &str, format: OutputFormat) -> hulkz::Result<()> {
     let session = Session::create(namespace).await?;
 
-    // Give time for discovery
-    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-
     // Gather data using new fluent Graph API
     let sessions = session.graph().sessions().list().await?;
     let nodes = session.graph().nodes().list().await?;

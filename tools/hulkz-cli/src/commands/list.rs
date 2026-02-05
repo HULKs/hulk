@@ -10,9 +10,6 @@ use crate::output::OutputFormat;
 pub async fn nodes(namespace: &str, format: OutputFormat) -> hulkz::Result<()> {
     let session = Session::create(namespace).await?;
 
-    // Give time for discovery to settle
-    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
-
     // Get nodes as NodeInfo, extract just names for display
     let nodes = session.graph().nodes().list().await?;
     let node_names: Vec<String> = nodes.into_iter().map(|n| n.name).collect();
@@ -28,9 +25,6 @@ pub async fn publishers(
     format: OutputFormat,
 ) -> hulkz::Result<()> {
     let session = Session::create(namespace).await?;
-
-    // Give time for discovery to settle
-    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
     let publishers = session.graph().publishers().list().await?;
 
@@ -53,9 +47,6 @@ pub async fn publishers(
 /// Lists all sessions in the namespace.
 pub async fn sessions(namespace: &str, format: OutputFormat) -> hulkz::Result<()> {
     let session = Session::create(namespace).await?;
-
-    // Give time for discovery to settle
-    tokio::time::sleep(tokio::time::Duration::from_millis(100)).await;
 
     // Get sessions as SessionInfo, extract just IDs for display
     let sessions = session.graph().sessions().list().await?;

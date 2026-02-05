@@ -137,21 +137,21 @@
 //! Sessions, nodes, and publishers register via liveliness tokens for automatic discovery:
 //!
 //! ```rust,no_run
-//! # use hulkz::{Session, NodeEvent, Result};
+//! # use hulkz::{Session, GraphEvent, Result};
 //! # #[tokio::main]
 //! # async fn main() -> Result<()> {
 //! # let session = Session::create("robot").await?;
 //! // List current state
-//! let nodes = session.list_nodes().await?;
-//! let publishers = session.list_publishers().await?;
+//! let nodes = session.graph().nodes().list().await?;
+//! let publishers = session.graph().publishers().list().await?;
 //!
 //! // Watch for changes
-//! let (mut watcher, driver) = session.watch_nodes().await?;
+//! let (mut watcher, driver) = session.graph().nodes().watch().await?;
 //! tokio::spawn(driver);
 //! while let Some(event) = watcher.recv().await {
 //!     match event {
-//!         NodeEvent::Joined(name) => println!("+ {name}"),
-//!         NodeEvent::Left(name) => println!("- {name}"),
+//!         GraphEvent::Joined(name) => println!("+ {name}"),
+//!         GraphEvent::Left(name) => println!("- {name}"),
 //!     }
 //! }
 //! # Ok(())

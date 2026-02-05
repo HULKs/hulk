@@ -27,8 +27,8 @@
 //! tokio::spawn(driver);
 //! while let Some(event) = watcher.recv().await {
 //!     match event {
-//!         hulkz::GraphEvent::Joined(info) => println!("+ {}", info.node),
-//!         hulkz::GraphEvent::Left(info) => println!("- {}", info.node),
+//!         hulkz::GraphEvent::Joined(info) => println!("+ {}", info.name),
+//!         hulkz::GraphEvent::Left(info) => println!("- {}", info.name),
 //!     }
 //! }
 //! # Ok(())

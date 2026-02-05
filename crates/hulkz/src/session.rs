@@ -13,8 +13,8 @@
 //! let node = session.create_node("navigation").build().await?;
 //!
 //! // Discovery
-//! let nodes = session.list_nodes().await?;
-//! let (watcher, driver) = session.watch_nodes().await?;
+//! let nodes = session.graph().nodes().list().await?;
+//! let (watcher, driver) = session.graph().nodes().watch().await?;
 //! tokio::spawn(driver);
 //! # Ok(())
 //! # }
@@ -183,8 +183,8 @@ impl Session {
     /// tokio::spawn(driver);
     /// while let Some(event) = watcher.recv().await {
     ///     match event {
-    ///         GraphEvent::Joined(info) => println!("+ {}", info.node),
-    ///         GraphEvent::Left(info) => println!("- {}", info.node),
+    ///         GraphEvent::Joined(info) => println!("+ {}", info.name),
+    ///         GraphEvent::Left(info) => println!("- {}", info.name),
     ///     }
     /// }
     /// # Ok(())
