@@ -39,6 +39,7 @@ use crate::{
     key::GraphKey,
     parameter::ParameterBuilder,
     publisher::PublisherBuilder,
+    raw_subscriber::RawSubscriberBuilder,
     scoped_path::ScopedPath,
     subscriber::SubscriberBuilder,
     Session,
@@ -105,13 +106,22 @@ impl Node {
         for<'de> T: Deserialize<'de>,
     {
         SubscriberBuilder {
+            raw: self.subscribe_raw(topic),
+            _phantom: PhantomData,
+        }
+    }
+
+    /// Subscribe to a topic and receive raw samples.
+    ///
+    /// This is useful for tooling that wants to defer deserialization.
+    pub fn subscribe_raw(&self, topic: impl Into<ScopedPath>) -> RawSubscriberBuilder {
+        RawSubscriberBuilder {
             session: self.session().clone(),
             topic: topic.into(),
             capacity: Self::DEFAULT_CAPACITY,
             view: false,
             namespace: self.session().namespace().to_string(),
             node_name: self.name().to_string(),
-            _phantom: PhantomData,
         }
     }
 

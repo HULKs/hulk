@@ -178,6 +178,8 @@ pub use crate::{
     node::Node,
     parameter::{ParamAccessBuilder, Parameter},
     publisher::Publisher,
+    raw_subscriber::{RawSubscriber, RawSubscriberBuilder},
+    sample::Sample,
     scoped_path::{Scope, ScopedPath},
     session::Session,
     subscriber::Subscriber,
@@ -192,6 +194,8 @@ pub mod message;
 pub mod node;
 pub mod parameter;
 pub mod publisher;
+pub mod raw_subscriber;
+pub mod sample;
 pub mod scoped_path;
 pub mod session;
 pub mod subscriber;

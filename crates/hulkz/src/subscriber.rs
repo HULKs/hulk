@@ -26,29 +26,16 @@
 
 use serde::Deserialize;
 use std::marker::PhantomData;
-use tracing::warn;
-use zenoh::{
-    bytes::Encoding,
-    handlers::{RingChannel, RingChannelHandler},
-    pubsub::Subscriber as ZenohSubscriber,
-    sample::Sample,
-};
 
 use crate::{
-    error::{Error, Result},
-    key::{DataKey, ViewKey},
-    scoped_path::ScopedPath,
-    Message, Session,
+    error::Result,
+    raw_subscriber::{RawSubscriber, RawSubscriberBuilder},
+    Message,
 };
 
 /// Builder for creating a [`Subscriber`].
 pub struct SubscriberBuilder<T> {
-    pub(crate) session: Session,
-    pub(crate) topic: ScopedPath,
-    pub(crate) capacity: usize,
-    pub(crate) view: bool,
-    pub(crate) namespace: String,
-    pub(crate) node_name: String,
+    pub(crate) raw: RawSubscriberBuilder,
     pub(crate) _phantom: PhantomData<T>,
 }
 
@@ -57,7 +44,7 @@ impl<T> SubscriberBuilder<T> {
     ///
     /// When the buffer is full, the oldest messages are dropped to make room for new ones.
     pub fn capacity(mut self, capacity: usize) -> Self {
-        self.capacity = capacity;
+        self.raw = self.raw.capacity(capacity);
         self
     }
 
@@ -66,7 +53,7 @@ impl<T> SubscriberBuilder<T> {
     /// This is useful for CLI tools or debugging scenarios where you want to receive
     /// human-readable JSON messages.
     pub fn view(mut self) -> Self {
-        self.view = true;
+        self.raw = self.raw.view();
         self
     }
 
@@ -95,7 +82,7 @@ impl<T> SubscriberBuilder<T> {
     /// # }
     /// ```
     pub fn in_namespace(mut self, namespace: impl Into<String>) -> Self {
-        self.namespace = namespace.into();
+        self.raw = self.raw.in_namespace(namespace);
         self
     }
 
@@ -103,39 +90,14 @@ impl<T> SubscriberBuilder<T> {
     ///
     /// By default, private scoped subscriptions target the current node's name.
     pub fn on_node(mut self, name: impl Into<String>) -> Self {
-        self.node_name = name.into();
+        self.raw = self.raw.on_node(name);
         self
     }
 
     pub async fn build(self) -> Result<Subscriber<T>> {
-        let topic = self.topic;
-
-        let key = if self.view {
-            ViewKey::from_scope(
-                topic.scope(),
-                &self.namespace,
-                &self.node_name,
-                topic.path(),
-            )
-        } else {
-            DataKey::from_scope(
-                topic.scope(),
-                &self.namespace,
-                &self.node_name,
-                topic.path(),
-            )
-        };
-
-        let subscriber = self
-            .session
-            .zenoh()
-            .declare_subscriber(key)
-            .with(RingChannel::new(self.capacity))
-            .await?;
-
+        let raw = self.raw.build().await?;
         Ok(Subscriber {
-            session: self.session,
-            sub: subscriber,
+            raw,
             _phantom: PhantomData,
         })
     }
@@ -143,8 +105,7 @@ impl<T> SubscriberBuilder<T> {
 
 /// Receives messages from the data plane with a ring buffer.
 pub struct Subscriber<T> {
-    session: Session,
-    sub: ZenohSubscriber<RingChannelHandler<Sample>>,
+    raw: RawSubscriber,
     _phantom: PhantomData<T>,
 }
 
@@ -154,23 +115,12 @@ where
 {
     /// Receives the next message.
     pub async fn recv_async(&mut self) -> Result<Message<T>> {
-        let sample = self.sub.recv_async().await?;
-
-        let payload = match sample.encoding() {
-            &Encoding::APPLICATION_CDR => {
-                cdr::deserialize(&sample.payload().to_bytes()).map_err(Error::CdrDeserialize)?
-            }
-            &Encoding::APPLICATION_JSON => serde_json::from_slice(&sample.payload().to_bytes())
-                .map_err(Error::JsonDeserialize)?,
-            encoding => {
-                return Err(Error::UnsupportedEncoding(encoding.clone()));
-            }
+        let sample = self.raw.recv_async().await?;
+        let payload = sample.decode::<T>()?;
+        let message = Message {
+            timestamp: sample.timestamp,
+            payload,
         };
-        let timestamp = sample.timestamp().copied().unwrap_or_else(|| {
-            warn!("Sample has no timestamp, using current time instead");
-            self.session.now()
-        });
-        let message = Message { timestamp, payload };
         Ok(message)
     }
 }

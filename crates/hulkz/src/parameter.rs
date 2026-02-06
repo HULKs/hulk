@@ -47,6 +47,8 @@ use zenoh::{
 use crate::{
     error::{Error, Result},
     key::{GraphKey, ParamIntent, ParamKey},
+    raw_subscriber::RawSubscriber,
+    sample::Sample,
     scoped_path::ScopedPath,
     Node, Scope, Session,
 };
@@ -450,6 +452,31 @@ impl<'a> ParamAccessBuilder<'a> {
         Ok(ParamSetReplies { replies })
     }
 
+    /// Subscribe to parameter updates on the param/read key.
+    ///
+    /// Parameters publish updates on their read key whenever the value changes (e.g. due to
+    /// external writes). This method subscribes to that update stream as raw samples.
+    pub async fn watch_updates_raw(self, capacity: usize) -> Result<ParamUpdateRawSubscriber> {
+        let ParamAccessBuilder {
+            session,
+            path,
+            node,
+            namespace_override,
+        } = self;
+
+        let node_name = Self::resolve_node(path.scope(), node)?;
+        let namespace = namespace_override.unwrap_or_else(|| session.namespace().to_string());
+        let key_expr = ParamKey::from_scope(
+            ParamIntent::Read,
+            path.scope(),
+            &namespace,
+            &node_name,
+            path.path(),
+        );
+        let inner = RawSubscriber::from_key_expr(session.clone(), key_expr, capacity).await?;
+        Ok(ParamUpdateRawSubscriber { inner })
+    }
+
     /// Resolves the node name for the key expression.
     ///
     /// - For private scope: requires explicit node, returns error if not set
@@ -460,6 +487,17 @@ impl<'a> ParamAccessBuilder<'a> {
             (_, Some(node)) => Ok(node),
             (_, None) => Ok("*".to_string()),
         }
+    }
+}
+
+/// Receives parameter updates as raw samples.
+pub struct ParamUpdateRawSubscriber {
+    inner: RawSubscriber,
+}
+
+impl ParamUpdateRawSubscriber {
+    pub async fn recv_async(&mut self) -> Result<Sample> {
+        self.inner.recv_async().await
     }
 }
 

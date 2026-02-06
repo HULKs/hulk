@@ -104,7 +104,9 @@ async fn private_nested_parameter() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn parameter_with_default() {
-    let session = Session::create(test_namespace("param_default")).await.unwrap();
+    let session = Session::create(test_namespace("param_default"))
+        .await
+        .unwrap();
     let node = session.create_node("test_node").build().await.unwrap();
 
     // Parameter not in config, but has default
@@ -151,7 +153,9 @@ async fn config_overrides_default() {
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn missing_parameter_no_default_error() {
-    let session = Session::create(test_namespace("param_missing")).await.unwrap();
+    let session = Session::create(test_namespace("param_missing"))
+        .await
+        .unwrap();
     let node = session.create_node("test_node").build().await.unwrap();
 
     // No config value and no default = error

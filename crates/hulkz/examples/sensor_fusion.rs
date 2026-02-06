@@ -86,10 +86,7 @@ async fn main() -> Result<()> {
         let odom = odom_buffer.lookup_nearest(&timestamp).await;
 
         // Print aligned data
-        print!(
-            "[Frame {:>4}] ",
-            frame.payload.seq
-        );
+        print!("[Frame {:>4}] ", frame.payload.seq);
 
         if let Some(imu) = imu {
             let dt = timestamp.get_diff_duration(&imu.timestamp);
