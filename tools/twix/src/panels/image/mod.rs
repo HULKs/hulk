@@ -6,9 +6,10 @@ use color_eyre::{
     Result,
 };
 use eframe::egui::{
-    ColorImage, Context, Response, SizeHint, TextureId, TextureOptions, Ui, Widget,
+    ColorImage, ComboBox, Context, Response, SizeHint, TextureId, TextureOptions, Ui, Widget,
 };
 use geometry::rectangle::Rectangle;
+use image::{EncodableLayout, RgbImage};
 use linear_algebra::{point, vector};
 use log::{info, warn};
 use ros2::sensor_msgs::image::Image;
@@ -36,20 +37,20 @@ enum RawOrJpeg {
 
 pub struct ImagePanel {
     nao: Arc<Nao>,
-    show_depth_image: bool,
     image_buffer: RawOrJpeg,
     overlays: Overlays,
     zoom_and_pan: ZoomAndPanTransform,
+    last_image_path: String,
+    current_image_path: String,
+    current_image_label: String,
 }
 
-fn subscribe_image(nao: &Arc<Nao>, is_jpeg: bool, is_depth: bool) -> RawOrJpeg {
-    let base_name = if is_depth { "depth_image" } else { "image" };
+fn subscribe_image(nao: &Arc<Nao>, is_jpeg: bool, image_path: &str) -> RawOrJpeg {
     if is_jpeg {
-        let path = format!("ObjectDetection.main_outputs.{base_name}.jpeg");
+        let path = format!("{image_path}.jpeg");
         return RawOrJpeg::Jpeg(nao.subscribe_value(path));
     }
-    let path = format!("ObjectDetection.main_outputs.{base_name}");
-    RawOrJpeg::Raw(nao.subscribe_value(path))
+    RawOrJpeg::Raw(nao.subscribe_value(image_path.to_string()))
 }
 
 impl<'a> Panel<'a> for ImagePanel {
@@ -62,7 +63,10 @@ impl<'a> Panel<'a> for ImagePanel {
             .and_then(|value| value.as_bool())
             .unwrap_or(true);
 
-        let image_buffer = subscribe_image(&context.nao, is_jpeg, false);
+        let default_image_path = "ObjectDetection.main_outputs.image_left_raw".to_string();
+        let default_image_label = "Image Left Raw".to_string();
+
+        let image_buffer = subscribe_image(&context.nao, is_jpeg, &default_image_path);
 
         let overlays = Overlays::new(
             context.nao.clone(),
@@ -73,7 +77,9 @@ impl<'a> Panel<'a> for ImagePanel {
             image_buffer,
             overlays,
             zoom_and_pan: ZoomAndPanTransform::default(),
-            show_depth_image: false,
+            current_image_path: default_image_path.clone(),
+            last_image_path: default_image_path,
+            current_image_label: default_image_label,
         }
     }
 
@@ -114,9 +120,34 @@ impl Widget for &mut ImagePanel {
             if ui.checkbox(&mut jpeg, "JPEG").changed() {
                 self.resubscribe(jpeg);
             }
-            if ui.checkbox(&mut self.show_depth_image, "Depth").changed() {
+
+            ComboBox::from_label("Image Topic")
+                .selected_text(self.current_image_label.clone())
+                .show_ui(ui, |ui| {
+                    let mut selectable_item = |value: &str, label: &str| {
+                        let is_selected = self.current_image_path == value;
+
+                        if ui.selectable_label(is_selected, label).clicked() {
+                            self.current_image_path = value.to_string();
+                            self.current_image_label = label.to_string();
+                        }
+                    };
+
+                    selectable_item(
+                        "ObjectDetection.main_outputs.image_left_raw",
+                        "Image Left Raw",
+                    );
+                    selectable_item("ImageRectified.main_outputs.image", "Rectified Image");
+                    selectable_item(
+                        "ImageStereonetDepth.main_outputs.image",
+                        "StereoNet Depth Image",
+                    );
+                });
+            if self.last_image_path != self.current_image_path {
                 self.resubscribe(jpeg);
+                self.last_image_path = self.current_image_path.clone();
             }
+
             let maybe_timestamp = match &self.image_buffer {
                 RawOrJpeg::Raw(buffer) => buffer.get_last_timestamp(),
                 RawOrJpeg::Jpeg(buffer) => buffer.get_last_timestamp(),
@@ -185,7 +216,7 @@ impl Widget for &mut ImagePanel {
 
 impl ImagePanel {
     fn resubscribe(&mut self, jpeg: bool) {
-        self.image_buffer = subscribe_image(&self.nao, jpeg, self.show_depth_image);
+        self.image_buffer = subscribe_image(&self.nao, jpeg, &self.current_image_path);
     }
 
     fn load_latest_texture(&self, context: &Context) -> Result<(TextureId, (u32, u32))> {
@@ -202,15 +233,20 @@ impl ImagePanel {
                         ros_image.height
                     );
                 }
+
+                let rgb_image: RgbImage = ros_image
+                    .try_into()
+                    .map_err(|e: image::ImageError| eyre!(e))?;
+
                 let image = ColorImage::from_rgb(
-                    [ros_image.width as usize, ros_image.height as usize],
-                    &ros_image.data,
+                    [rgb_image.width() as usize, rgb_image.height() as usize],
+                    rgb_image.as_bytes(),
                 );
                 let id = context
                     .load_texture(&image_identifier, image, TextureOptions::NEAREST)
                     .id();
 
-                Ok((id, (ros_image.width, ros_image.height)))
+                Ok((id, (rgb_image.width(), rgb_image.height())))
             }
             RawOrJpeg::Jpeg(buffer) => {
                 let jpeg = buffer

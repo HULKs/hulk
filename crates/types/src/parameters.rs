@@ -541,3 +541,28 @@ pub struct ObjectDetectionParameters {
     pub maximum_intersection_over_union: f32,
     pub confidence_threshold: f32,
 }
+
+#[derive(
+    Default,
+    Debug,
+    Clone,
+    Copy,
+    Eq,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
+pub enum ImageReceiverInstance {
+    #[default]
+    Rectified,
+    RightRectified,
+    CombinedRaw,
+    RightRaw,
+    StereonetDepth,
+    StereonetVisual,
+    OriginLeft,
+    OriginRight,
+}

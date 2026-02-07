@@ -124,6 +124,7 @@ implement_as_not_supported!(bool);
 implement_as_not_supported!(f32);
 implement_as_not_supported!(i16);
 implement_as_not_supported!(i32);
+implement_as_not_supported!(i8);
 implement_as_not_supported!(u8);
 implement_as_not_supported!(u16);
 implement_as_not_supported!(u32);

@@ -1,3 +1,4 @@
+use color_eyre::eyre::{bail, Result};
 use coordinate_systems::Robot;
 use linear_algebra::Vector3;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
@@ -37,6 +38,32 @@ impl LowState {
             imu_state,
             motor_state_parallel,
             motor_state_serial,
+        }
+    }
+}
+
+impl LowState {
+    pub fn serial_motor_states(&self) -> Result<Joints<MotorState>> {
+        if self.motor_state_serial.len() == 22 {
+            Ok(self
+                .motor_state_serial
+                .iter()
+                .copied()
+                .collect::<Joints<MotorState>>())
+        } else {
+            bail!("failed to construct motor states")
+        }
+    }
+
+    pub fn parallel_motor_states(&self) -> Result<Joints<MotorState>> {
+        if self.motor_state_parallel.len() == 22 {
+            Ok(self
+                .motor_state_parallel
+                .iter()
+                .copied()
+                .collect::<Joints<MotorState>>())
+        } else {
+            bail!("failed to construct motor states")
         }
     }
 }
@@ -105,6 +132,7 @@ impl ImuState {
     PathIntrospect,
 )]
 pub struct MotorState {
+    pub mode: i8,
     #[serde(rename = "q")]
     /// Joint angle position (q), unit: rad.
     pub position: f32,
@@ -117,18 +145,35 @@ pub struct MotorState {
     #[serde(rename = "tau_est")]
     /// Joint torque (tau_est), unit: nm
     pub torque: f32,
+    pub temperature: i8,
+    pub lost: u32,
+    pub reserve: [u32; 2],
 }
 
+#[allow(clippy::too_many_arguments)]
 #[cfg(feature = "pyo3")]
 #[pymethods]
 impl MotorState {
     #[new]
-    pub fn new(position: f32, velocity: f32, acceleration: f32, torque: f32) -> Self {
+    pub fn new(
+        mode: i8,
+        position: f32,
+        velocity: f32,
+        acceleration: f32,
+        torque: f32,
+        temperature: i8,
+        lost: u32,
+        reserve: [u32; 2],
+    ) -> Self {
         Self {
+            mode,
             position,
             velocity,
             acceleration,
             torque,
+            temperature,
+            lost,
+            reserve,
         }
     }
 }
@@ -202,9 +247,10 @@ impl LowCommand {
     pub fn new(
         joint_positions: &Joints,
         motor_command_parameters: &MotorCommandParameters,
+        command_type: CommandType,
     ) -> Self {
         LowCommand {
-            command_type: CommandType::Serial,
+            command_type,
             motor_commands: joint_positions
                 .into_iter()
                 .zip(motor_command_parameters.proportional_coefficients)
@@ -224,7 +270,17 @@ impl LowCommand {
 
 #[repr(C)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
-#[derive(Debug, Default, Clone, Copy, Serialize, Deserialize)]
+#[derive(
+    Debug,
+    Default,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 pub struct MotorCommand {
     #[serde(rename = "q")]
     /// Joint angle position, unit: rad.
@@ -261,8 +317,11 @@ impl MotorCommand {
 
 #[repr(C)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub enum FallDownStateType {
+    #[default]
     IsReady,
     IsFalling,
     HasFallen,
@@ -271,7 +330,9 @@ pub enum FallDownStateType {
 
 #[repr(C)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct FallDownState {
     pub fall_down_state: FallDownStateType,
     /// Whether recovery (getting up) action is available
@@ -323,7 +384,9 @@ impl ButtonEventMsg {
 
 #[repr(C)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(
+    Debug, Clone, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct RemoteControllerState {
     /** This feature can be used in user programs to implement custom gamepad/controller button functionality.
     |type | code | description|
@@ -391,7 +454,9 @@ pub struct RemoteControllerState {
 }
 
 #[repr(C)]
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 #[serde(rename = "TFMessage")]
 pub struct TransformMessage {
     pub transforms: Vec<TransformStamped>,

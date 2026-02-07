@@ -371,14 +371,12 @@
       "secs": 1
     },
     "image_regions": {
-      "bottom": [
-        0.5,
-        0.85
-      ],
-      "center": [
-        0.5,
-        0.5
-      ]
+      "bottom": [0.5, 0.85],
+      "center": [0.5, 0.5]
     }
+  },
+  "image_receiver": {
+    "image_rectified": "Rectified",
+    "image_stereonet_depth": "StereonetDepth"
   }
 }

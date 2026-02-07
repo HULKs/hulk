@@ -1,5 +1,6 @@
 use std::{time::Duration, time::SystemTime};
 
+use booster::{JointsMotorState, MotorState};
 use color_eyre::Result;
 use kinematics::forward::{head_to_neck, neck_to_robot};
 use projection::camera_matrix::CameraMatrix;
@@ -11,11 +12,9 @@ use framework::MainOutput;
 use linear_algebra::{distance, point, vector, Isometry3, Point2};
 use types::{
     cycle_time::CycleTime,
-    joints::head::HeadJoints,
+    joints::{head::HeadJoints, Joints},
     motion_command::{GlanceDirection, HeadMotion, ImageRegion, MotionCommand},
     parameters::ImageRegionParameters,
-    sensor_data::SensorData,
-    // world_state::WorldState,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -33,7 +32,7 @@ pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
     ground_to_robot: Input<Option<Isometry3<Ground, Robot>>, "WorldState", "ground_to_robot?">,
     motion_command: Input<MotionCommand, "selected_motion_command">,
-    sensor_data: Input<SensorData, "sensor_data">,
+    serial_motor_states: Input<Joints<MotorState>, "serial_motor_states">,
     // expected_referee_position: Input<Option<Point2<Field>>, "expected_referee_position?">,
     // world_state: Input<WorldState, "world_state">,
     glance_angle: Parameter<f32, "look_at.glance_angle">,
@@ -58,7 +57,7 @@ impl LookAt {
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let cycle_start_time = context.cycle_time.start_time;
-        let measured_head_angles = context.sensor_data.positions.head;
+        let measured_head_angles = context.serial_motor_states.positions().head;
         let default_output = Ok(MainOutputs {
             look_at: measured_head_angles.into(),
         });

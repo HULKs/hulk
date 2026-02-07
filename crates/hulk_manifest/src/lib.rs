@@ -126,6 +126,22 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
             //     nodes: vec!["audio::whistle_detection"],
             //     execution_time_warning_threshold: None,
             // },
+            CyclerManifest {
+                name: "Image",
+                kind: CyclerKind::Perception,
+                instances: vec!["Rectified", "StereonetDepth"],
+                setup_nodes: vec!["sensor_receiver::image_receiver"],
+                nodes: vec![],
+                execution_time_warning_threshold: None,
+            },
+            CyclerManifest {
+                name: "FallDownState",
+                kind: CyclerKind::Perception,
+                instances: vec![""],
+                setup_nodes: vec!["sensor_receiver::fall_down_state_receiver"],
+                nodes: vec![],
+                execution_time_warning_threshold: None,
+            },
         ],
     };
 

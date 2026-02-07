@@ -77,6 +77,7 @@ fn generate_cycler_instance(cycler: &Cycler) -> TokenStream {
         .iter()
         .map(|instance| format_ident!("{}", instance));
     quote! {
+        #[allow(clippy::enum_variant_names)]
         #[derive(Clone, Copy, Debug)]
         pub(crate) enum CyclerInstance {
             #(#instances,)*

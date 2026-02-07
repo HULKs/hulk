@@ -44,6 +44,7 @@ members = [
   "crates/repository",
   "crates/robot",
   "crates/ros2",
+  "crates/sensor_receiver",
   "crates/simulation_message",
   "crates/source_analyzer",
   "crates/step_planning",
@@ -105,7 +106,9 @@ booster = { path = "crates/booster" }
 buffered_watch = { path = "crates/buffered_watch" }
 build_script_helpers = { path = "crates/build_script_helpers" }
 byteorder = "1.5.0"
+bytes = { version = "1.11.0", features = ["serde"] }
 calibration = { path = "crates/calibration" }
+cdr = "0.2.4"
 chrono = "0.4.39"
 clap = { version = "4.5.29", features = ["derive", "env"] }
 clap_complete = "4.5.44"
@@ -217,9 +220,11 @@ reqwest = { version = "0.12.12", features = ["blocking"] }
 rmp-serde = "1.3.0"
 robot = { path = "crates/robot" }
 ros2 = { path = "crates/ros2" }
+rustdds = "0.11.5"
 rustfft = "6.2.0"
 scenario = { path = "crates/scenario" }
 semver = "1.0.25"
+sensor_receiver = { path = "crates/sensor_receiver" }
 serde = { version = "1.0.228", features = ["derive", "rc"] }
 serde-transcode = "1.1.1"
 serde_bytes = "0.11.15"
@@ -260,8 +265,10 @@ webots = { version = "0.8.0" }
 wgpu = "27.0.0"
 world_state = { path = "crates/world_state" }
 xdg = "2.5.2"
+yuv = "0.8.9"
 zbus = "5.5.0"
 zed = { path = "crates/zed" }
+zenoh = "1.6.2"
 
 [patch.crates-io]
 # Pinned to forked serde version since https://github.com/serde-rs/serde/pull/2513 is not merged

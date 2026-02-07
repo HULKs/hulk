@@ -1,7 +1,4 @@
-use color_eyre::{
-    eyre::{eyre, Ok},
-    Result,
-};
+use color_eyre::Result;
 use context_attribute::context;
 use framework::{deserialize_not_implemented, MainOutput};
 use geometry::rectangle::Rectangle;
@@ -36,8 +33,8 @@ pub struct CreationContext {
 
 #[context]
 pub struct CycleContext {
-    image: Input<Image, "image">,
-    camera_info: Input<CameraInfo, "camera_info">,
+    image_left_raw: Input<Image, "image_left_raw">,
+    image_left_raw_camera_info: Input<CameraInfo, "image_left_raw_camera_info">,
 
     parameters: Parameter<ObjectDetectionParameters, "object_detection">,
 }
@@ -55,10 +52,15 @@ impl ObjectDetection {
 
         let session = Session::builder()?
             .with_execution_providers([
-                TensorRTExecutionProvider::default().build(),
+                TensorRTExecutionProvider::default()
+                    .with_engine_cache(true)
+                    .with_engine_cache_path(
+                        neural_network_folder.join("./trt_engine_cache").display(),
+                    )
+                    .build(),
                 CUDAExecutionProvider::default().build(),
             ])?
-            .commit_from_file(neural_network_folder.join("yolo11n.onnx"))?;
+            .commit_from_file(neural_network_folder.join("yolo11n-544x448.onnx"))?;
 
         Ok(Self { session })
     }
@@ -68,12 +70,11 @@ impl ObjectDetection {
             return Ok(MainOutputs::default());
         }
 
-        let height = context.camera_info.height;
-        let width = context.camera_info.width;
-        let rgb_image = if context.image.encoding == "rgb8" {
-            RgbImage::from_raw(width, height, context.image.data.clone()).unwrap()
-        } else {
-            return Err(eyre!("unsupported image encoding"));
+        let height = context.image_left_raw_camera_info.height;
+        let width = context.image_left_raw_camera_info.width;
+
+        let Ok(rgb_image): Result<RgbImage, _> = context.image_left_raw.clone().try_into() else {
+            return Ok(MainOutputs::default());
         };
 
         let mut input = Array::zeros((1, 3, height as usize, width as usize));
