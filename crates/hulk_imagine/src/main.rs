@@ -84,7 +84,7 @@ fn main() -> Result<()> {
     .wrap_err("failed to create image extractor")?;
 
     replayer
-        .control_subscriptions_sender
+        .motion_subscriptions_sender
         .borrow_mut()
         .insert("additional_outputs".to_string());
 
@@ -124,7 +124,7 @@ fn main() -> Result<()> {
     };
     mcap_converter.attach(attachment)?;
 
-    let control_receiver = replayer.control_receiver();
+    let control_receiver = replayer.motion_receiver();
 
     write_to_mcap(
         &mut replayer,

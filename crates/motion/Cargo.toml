@@ -1,5 +1,5 @@
 [package]
-name = "vision"
+name = "motion"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
@@ -7,23 +7,17 @@ homepage.workspace = true
 
 [dependencies]
 approx = { workspace = true }
-calibration = { workspace = true }
+booster = { workspace = true }
 color-eyre = { workspace = true }
 context_attribute = { workspace = true }
 coordinate_systems = { workspace = true }
-fast_image_resize = { workspace = true }
-filtering = { workspace = true }
 framework = { workspace = true }
-geometry = { workspace = true }
 hardware = { workspace = true }
-itertools = { workspace = true }
+kinematics = { workspace = true }
 linear_algebra = { workspace = true }
-nalgebra = { workspace = true }
-ordered-float = { workspace = true }
+log = { workspace = true }
+path_serde = { workspace = true }
 projection = { workspace = true }
-rand = { workspace = true }
-rand_chacha = { workspace = true }
-ransac = { workspace = true }
-ros2 = { workspace = true }
 serde = { workspace = true }
 types = { workspace = true }
+walking_inference = { workspace = true }

@@ -31,7 +31,7 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    serial_motor_states: PerceptionInput<Joints<MotorState>, "Control", "serial_motor_states">,
+    serial_motor_states: PerceptionInput<Joints<MotorState>, "Motion", "serial_motor_states">,
 }
 
 #[context]
