@@ -57,7 +57,8 @@ impl ObjectDetection {
                     .with_engine_cache_path(
                         neural_network_folder.join("./trt_engine_cache").display(),
                     )
-                    .build(),
+                    .build()
+                    .error_on_failure(),
                 CUDAExecutionProvider::default().build(),
             ])?
             .commit_from_file(neural_network_folder.join("yolo11n-544x448.onnx"))?;
