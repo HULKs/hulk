@@ -1,12 +1,4 @@
-#!/usr/bin/env bash
-
-CURRENT_DATE=$(date +%Y-%m-%dT%H:%M:%S.%3N%:z)
-INTERNAL_LOG_PATH=/home/booster/hulk/logs/${CURRENT_DATE}
-
-mkdir -p ${INTERNAL_LOG_PATH}
-
-ln -sf ${INTERNAL_LOG_PATH}/hulk.out ${INTERNAL_LOG_PATH}/../hulk.out
-ln -sf ${INTERNAL_LOG_PATH}/hulk.err ${INTERNAL_LOG_PATH}/../hulk.err
+#!/bin/bash
 
 HOST_TEGRA_LIB_PATH="/usr/lib/aarch64-linux-gnu/tegra"
 DEVICES="--device nvidia.com/gpu=all"
@@ -22,8 +14,4 @@ sudo podman run -it --rm \
   --env LD_LIBRARY_PATH=${HOST_TEGRA_LIB_PATH}:$LD_LIBRARY_PATH \
   --env ORT_DYLIB_PATH=/usr/local/lib/libonnxruntime.so \
   rust-trt-inference:latest \
-  bash -c "cd /home/booster/hulk &&
-    ./bin/hulk --log-path ${INTERNAL_LOG_PATH}
-     > >(tee ${INTERNAL_LOG_PATH}/hulk.out)
-    2> >(tee ${INTERNAL_LOG_PATH}/hulk.err)
-  "
+  bash -c "cd /home/booster/hulk && ./bin/hulk"
