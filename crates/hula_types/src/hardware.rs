@@ -15,4 +15,5 @@ pub struct Paths {
     pub motions: PathBuf,
     pub neural_networks: PathBuf,
     pub sounds: PathBuf,
+    pub cache: PathBuf,
 }

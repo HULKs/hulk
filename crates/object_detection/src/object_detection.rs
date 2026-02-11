@@ -54,7 +54,7 @@ impl ObjectDetection {
             .with_device_id(0)
             .with_fp16(true)
             .with_engine_cache(true)
-            .with_engine_cache_path("/tmp/tensorrtcache")
+            .with_engine_cache_path(paths.cache.join("tensor-rt").display())
             .build()
             .error_on_failure();
         let cuda = CUDAExecutionProvider::default().build();
