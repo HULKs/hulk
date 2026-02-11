@@ -364,6 +364,10 @@
   "cycler_frequencies": {
     "world_state": 100
   },
+  "image_receiver": {
+    "image_rectified": "Rectified",
+    "image_stereonet_depth": "StereonetDepth"
+  },
   "look_at": {
     "glance_angle": 0.25,
     "glance_direction_toggle_interval": {
@@ -372,11 +376,24 @@
     },
     "image_regions": {
       "bottom": [0.5, 0.85],
-      "center": [0.5, 0.5]
+      "center": [0.5, 0.5],
+      "top": [0.5, 0.15]
     }
   },
-  "image_receiver": {
-    "image_rectified": "Rectified",
-    "image_stereonet_depth": "StereonetDepth"
+  "head_motion": {
+    "maximum_velocity": {
+      "yaw": 0.4,
+      "pitch": 0.4
+    },
+    "maximum_defender_velocity": {
+      "yaw": 2.0,
+      "pitch": 0.8
+    },
+    "outer_maximum_pitch": 0.5,
+    "inner_maximum_pitch": 0.4,
+    "outer_minimum_pitch": -0.5,
+    "inner_minimum_pitch": -0.4,
+    "outer_yaw": 0,
+    "injected_head_joints": null
   }
 }

@@ -180,7 +180,9 @@ impl MotionCommand {
 )]
 pub enum HeadMotion {
     ZeroAngles,
-    Center,
+    Center {
+        image_region_target: ImageRegion,
+    },
     LookAround,
     SearchForLostBall,
     LookAt {
@@ -215,6 +217,7 @@ pub enum ImageRegion {
     Bottom,
     #[default]
     Center,
+    Top,
 }
 
 #[derive(

@@ -33,7 +33,9 @@ pub fn execute(
             }
         }
         None => MotionCommand::Stand {
-            head: HeadMotion::Center,
+            head: HeadMotion::Center {
+                image_region_target: ImageRegion::Top,
+            },
         },
     };
     Some(next_motion_command)
