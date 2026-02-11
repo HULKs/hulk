@@ -1,0 +1,13 @@
+#!/usr/bin/env bash
+
+CURRENT_DATE=$(date +%Y-%m-%dT%H:%M:%S.%3N%:z)
+INTERNAL_LOG_PATH=/home/booster/hulk/logs/${CURRENT_DATE}
+
+mkdir -p ${INTERNAL_LOG_PATH}
+
+ln -sf ${INTERNAL_LOG_PATH}/hulk.out ${INTERNAL_LOG_PATH}/../hulk.out
+ln -sf ${INTERNAL_LOG_PATH}/hulk.err ${INTERNAL_LOG_PATH}/../hulk.err
+
+exec /home/booster/hulk/bin/hulk --log-path ${INTERNAL_LOG_PATH}   \
+         > >(tee ${INTERNAL_LOG_PATH}/hulk.out) \
+        2> >(tee ${INTERNAL_LOG_PATH}/hulk.err)
