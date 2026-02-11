@@ -20,7 +20,7 @@ pub struct CreationContext {}
 pub struct CycleContext {
     robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
     // support_side: RequiredInput<Option<Side>, "support_foot.support_side?">,
-    imu_state: PerceptionInput<ImuState, "Control", "imu_state">,
+    imu_state: PerceptionInput<ImuState, "Motion", "imu_state">,
 }
 
 #[context]

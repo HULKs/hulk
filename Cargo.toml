@@ -13,7 +13,6 @@ members = [
   "crates/code_generation",
   "crates/communication",
   "crates/context_attribute",
-  "crates/control",
   "crates/coordinate_systems",
   "crates/egui_bevy",
   "crates/energy_optimization",
@@ -33,6 +32,7 @@ members = [
   "crates/hungarian_algorithm",
   "crates/kinematics",
   "crates/linear_algebra",
+  "crates/motion",
   "crates/motionfile",
   "crates/object_detection",
   "crates/opn",
@@ -50,7 +50,6 @@ members = [
   "crates/step_planning",
   "crates/step_planning_solver",
   "crates/types",
-  "crates/vision",
   "crates/walking_inference",
   "crates/world_state",
   "crates/zed",
@@ -117,7 +116,6 @@ color-eyre = "0.6.3"
 communication = { path = "crates/communication" }
 compiled-nn = "0.12.0"
 context_attribute = { path = "crates/context_attribute" }
-control = { path = "crates/control" }
 convert_case = "0.7.1"
 coordinate_systems = { path = "crates/coordinate_systems" }
 ctrlc = { version = "3.4.5", features = ["termination"] }
@@ -168,6 +166,7 @@ linear_algebra = { path = "crates/linear_algebra" }
 log = "0.4.25"
 mcap = "0.15.0"
 mlua = { version = "0.10.3", features = ["luajit", "serialize", "vendored"] }
+motion = { path = "crates/motion" }
 motionfile = { path = "crates/motionfile" }
 nalgebra = { version = "0.34.1", features = [
   "convert-glam030",
@@ -257,7 +256,6 @@ types = { path = "crates/types" }
 urdf-rs = "0.9.0"
 uuid = { version = "1.12.1", features = ["v4"] }
 v4l = { version = "0.12.1", git = "https://github.com/HULKs/libv4l-rs", rev = "be65819073514b193d082dd37dbcc2cfac3f6183" }
-vision = { path = "crates/vision" }
 walkdir = "2.5.0"
 walking_inference = { path = "crates/walking_inference" }
 watch = "0.2.3"

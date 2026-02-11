@@ -1,15 +1,15 @@
-use std::time::SystemTime;
+use std::time::{SystemTime, UNIX_EPOCH};
 
-use color_eyre::Result;
+use booster::{ImuState, MotorState};
+use color_eyre::{eyre::WrapErr, Result};
 use context_attribute::context;
 use framework::MainOutput;
-use hardware::{CameraInterface, TimeInterface};
-use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
+use hardware::{LowStateInterface, TimeInterface};
 use serde::{Deserialize, Serialize};
-use types::cycle_time::CycleTime;
+use types::{cycle_time::CycleTime, joints::Joints};
 
 #[derive(Deserialize, Serialize)]
-pub struct ImageReceiver {
+pub struct SensorDataReceiver {
     last_cycle_start: SystemTime,
 }
 
@@ -23,26 +23,27 @@ pub struct CycleContext {
 
 #[context]
 pub struct MainOutputs {
-    pub image_left_raw: MainOutput<Image>,
-    pub image_left_raw_camera_info: MainOutput<CameraInfo>,
+    pub imu_state: MainOutput<ImuState>,
+    pub serial_motor_states: MainOutput<Joints<MotorState>>,
+    pub parallel_motor_states: MainOutput<Option<Joints<MotorState>>>,
     pub cycle_time: MainOutput<CycleTime>,
 }
 
-impl ImageReceiver {
+impl SensorDataReceiver {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
-            last_cycle_start: SystemTime::UNIX_EPOCH,
+            last_cycle_start: UNIX_EPOCH,
         })
     }
 
     pub fn cycle(
         &mut self,
-        context: CycleContext<impl CameraInterface + TimeInterface>,
+        context: CycleContext<impl LowStateInterface + TimeInterface>,
     ) -> Result<MainOutputs> {
-        let image_left_raw_camera_info = context
+        let low_state = context
             .hardware_interface
-            .read_image_left_raw_camera_info()?;
-        let image_left_raw = context.hardware_interface.read_image_left_raw()?;
+            .read_low_state()
+            .wrap_err("failed to read from sensors")?;
 
         let now = context.hardware_interface.get_now();
         let cycle_time = CycleTime {
@@ -54,8 +55,9 @@ impl ImageReceiver {
         self.last_cycle_start = now;
 
         Ok(MainOutputs {
-            image_left_raw: image_left_raw.into(),
-            image_left_raw_camera_info: image_left_raw_camera_info.into(),
+            imu_state: low_state.imu_state.into(),
+            serial_motor_states: low_state.serial_motor_states()?.into(),
+            parallel_motor_states: low_state.parallel_motor_states().ok().into(),
             cycle_time: cycle_time.into(),
         })
     }
