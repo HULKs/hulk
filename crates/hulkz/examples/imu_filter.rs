@@ -65,7 +65,7 @@ impl LowPassFilter {
 
 #[tokio::main]
 async fn main() -> Result<()> {
-    let session = Session::create("robot").await?;
+    let session = Session::create("demo").await?;
     println!("Session created: {}", session.id());
 
     // Spawn a simulated IMU publisher

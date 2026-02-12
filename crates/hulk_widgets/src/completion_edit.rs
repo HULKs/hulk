@@ -17,6 +17,7 @@ pub struct CompletionEdit<'a, T> {
     id: Id,
     suggestions: &'a [T],
     selected: &'a mut String,
+    open_on_focus: bool,
 }
 
 #[derive(Debug, Clone, Copy, Default, PartialEq)]
@@ -119,7 +120,13 @@ impl<'a, T: ToString + Debug + std::hash::Hash> CompletionEdit<'a, T> {
             id: id_salt.into(),
             suggestions: items,
             selected,
+            open_on_focus: false,
         }
+    }
+
+    pub fn open_on_focus(mut self, open_on_focus: bool) -> Self {
+        self.open_on_focus = open_on_focus;
+        self
     }
 
     pub fn ui(
@@ -278,7 +285,8 @@ impl<'a, T: ToString + Debug + std::hash::Hash> CompletionEdit<'a, T> {
         if response.lost_focus() {
             state.typed_since_focused = false;
         }
-        let should_open_popup = response.has_focus() && state.typed_since_focused;
+        let should_open_popup =
+            response.has_focus() && (state.typed_since_focused || self.open_on_focus);
         let pressed_enter = ui.input(|reader| reader.key_pressed(Key::Enter));
         let user_completed_search = should_close_popup || response.lost_focus() && pressed_enter;
 

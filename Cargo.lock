@@ -5000,11 +5000,16 @@ dependencies = [
 name = "hulkz-viewer"
 version = "0.1.0"
 dependencies = [
+ "chrono",
+ "clap",
  "color-eyre",
  "eframe",
  "egui",
+ "egui_dock",
+ "hulk_widgets",
  "hulkz",
  "hulkz-stream",
+ "serde",
  "serde_json",
  "tokio",
  "tokio-util",
