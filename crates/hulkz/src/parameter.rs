@@ -35,7 +35,7 @@ use cdr::{CdrLe, Infinite};
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::sync::Mutex;
-use tracing::error;
+use tracing::{debug, error, info, trace};
 use zenoh::{
     bytes::Encoding,
     handlers::FifoChannelHandler,
@@ -93,6 +93,15 @@ where
             validator,
             _phantom,
         } = self;
+        info!(
+            node = %node.name(),
+            namespace = %node.session().namespace(),
+            scope = %path.scope().as_str(),
+            path = %path.path(),
+            has_default = default.is_some(),
+            has_validator = validator.is_some(),
+            "building parameter",
+        );
 
         // Look up initial value from config
         let config = node.session().config();
@@ -104,8 +113,10 @@ where
 
         // Resolve initial value: config > default > error
         let initial: T = if let Some(value) = config_value {
+            debug!("using initial parameter value from config");
             serde_json::from_value(value.clone()).map_err(Error::JsonDeserialize)?
         } else if let Some(default) = default {
+            debug!("using initial parameter default value");
             default
         } else {
             return Err(Error::ParameterNoDefault(path.path().to_string()));
@@ -146,6 +157,11 @@ where
             &namespace,
             &node_name,
             path.path(),
+        );
+        debug!(
+            read_key = %read_key_expr,
+            write_key = %write_key_expr,
+            "parameter keys resolved",
         );
 
         let writer = z_session.declare_queryable(&write_key_expr).await?;
@@ -190,8 +206,10 @@ async fn drive_reader<T>(
 where
     for<'de> T: Serialize + Deserialize<'de>,
 {
+    trace!(%key_expr, "parameter read driver started");
     loop {
         let query = reader.recv_async().await?;
+        trace!(%key_expr, "received parameter read query");
         match handle_read(&query, &value).await {
             Ok((payload, encoding)) => {
                 query.reply(&key_expr, payload).encoding(encoding).await?;
@@ -241,8 +259,10 @@ async fn drive_writer<T>(
 where
     for<'de> T: Serialize + Deserialize<'de>,
 {
+    trace!(%key_expr, "parameter write driver started");
     loop {
         let query = writer.recv_async().await?;
+        trace!(%key_expr, "received parameter write query");
         match handle_write(&query, &value, validator.as_deref()).await {
             Ok(new_value) => {
                 // Broadcast the new value to subscribers
@@ -305,6 +325,7 @@ where
         let mut guard = value.lock().await;
         *guard = new_value.clone();
     }
+    debug!("parameter value updated");
     Ok(new_value)
 }
 
@@ -417,6 +438,14 @@ impl<'a> ParamAccessBuilder<'a> {
             &node_name,
             path.path(),
         );
+        debug!(
+            scope = %path.scope().as_str(),
+            path = %path.path(),
+            namespace = %namespace,
+            node = %node_name,
+            key_expr = %key_expr,
+            "querying parameter value",
+        );
 
         let replies = session.zenoh().get(&key_expr).await?;
         Ok(ParamGetReplies {
@@ -441,6 +470,14 @@ impl<'a> ParamAccessBuilder<'a> {
             &namespace,
             &node_name,
             path.path(),
+        );
+        debug!(
+            scope = %path.scope().as_str(),
+            path = %path.path(),
+            namespace = %namespace,
+            node = %node_name,
+            key_expr = %key_expr,
+            "setting parameter value",
         );
         let payload = serde_json::to_vec(value).map_err(Error::JsonSerialize)?;
         let replies = session
@@ -473,6 +510,15 @@ impl<'a> ParamAccessBuilder<'a> {
             &node_name,
             path.path(),
         );
+        debug!(
+            scope = %path.scope().as_str(),
+            path = %path.path(),
+            namespace = %namespace,
+            node = %node_name,
+            key_expr = %key_expr,
+            capacity,
+            "subscribing to parameter updates",
+        );
         let inner = RawSubscriber::from_key_expr(session.clone(), key_expr, capacity).await?;
         Ok(ParamUpdateRawSubscriber { inner })
     }
@@ -497,6 +543,7 @@ pub struct ParamUpdateRawSubscriber {
 
 impl ParamUpdateRawSubscriber {
     pub async fn recv_async(&mut self) -> Result<Sample> {
+        trace!("waiting for parameter update sample");
         self.inner.recv_async().await
     }
 }

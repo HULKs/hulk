@@ -1,0 +1,19 @@
+[package]
+name = "hulkz-viewer"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[dependencies]
+color-eyre = { workspace = true }
+eframe = { workspace = true }
+egui = { workspace = true }
+hulkz = { workspace = true }
+hulkz-stream = { path = "../../crates/hulkz_stream" }
+serde_json = { workspace = true }
+tokio = { workspace = true }
+tokio-util = { workspace = true }
+tracing = { workspace = true }
+tracing-subscriber = { workspace = true }
+zenoh = { workspace = true }

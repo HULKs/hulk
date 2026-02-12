@@ -4979,6 +4979,41 @@ dependencies = [
 ]
 
 [[package]]
+name = "hulkz-stream"
+version = "0.1.0"
+dependencies = [
+ "enumset",
+ "hulkz",
+ "mcap",
+ "parking_lot",
+ "serde",
+ "serde_json",
+ "tempfile",
+ "thiserror 2.0.18",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "zenoh",
+]
+
+[[package]]
+name = "hulkz-viewer"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "eframe",
+ "egui",
+ "hulkz",
+ "hulkz-stream",
+ "serde_json",
+ "tokio",
+ "tokio-util",
+ "tracing",
+ "tracing-subscriber",
+ "zenoh",
+]
+
+[[package]]
 name = "humantime"
 version = "2.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"

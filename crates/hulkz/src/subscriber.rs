@@ -26,6 +26,7 @@
 
 use serde::Deserialize;
 use std::marker::PhantomData;
+use tracing::trace;
 
 use crate::{
     error::Result,
@@ -116,6 +117,11 @@ where
     /// Receives the next message.
     pub async fn recv_async(&mut self) -> Result<Message<T>> {
         let sample = self.raw.recv_async().await?;
+        trace!(
+            timestamp_nanos = sample.timestamp.get_time().as_nanos(),
+            encoding = %sample.encoding,
+            "received typed subscriber sample",
+        );
         let payload = sample.decode::<T>()?;
         let message = Message {
             timestamp: sample.timestamp,

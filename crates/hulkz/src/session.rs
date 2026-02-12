@@ -22,6 +22,7 @@
 
 use std::{path::PathBuf, sync::Arc};
 
+use tracing::{debug, info};
 use zenoh::liveliness::LivelinessToken;
 
 use crate::{
@@ -55,11 +56,16 @@ impl SessionBuilder {
     }
 
     pub async fn build(mut self) -> Result<Session> {
-        tracing::info!("Opening new Zenoh session");
+        info!(
+            namespace = %self.namespace,
+            config_overlays = self.config_files.len(),
+            "opening new Zenoh session",
+        );
 
         // Load config: environment/convention first, then explicit files
         self.config = Config::load_default().await?;
         for path in &self.config_files {
+            debug!(path = %path.display(), "loading session parameter overlay");
             self.config.load_file(path).await?;
         }
 
@@ -79,6 +85,11 @@ impl SessionBuilder {
         // Declare session liveliness token for discovery
         let liveliness_key = GraphKey::session(&self.namespace, &session_id);
         let liveliness_token = session.liveliness().declare_token(&liveliness_key).await?;
+        info!(
+            namespace = %self.namespace,
+            session_id = %session_id,
+            "zenoh session opened and liveliness token declared",
+        );
 
         let inner = SessionInner {
             zenoh: session,

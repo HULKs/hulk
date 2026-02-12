@@ -107,6 +107,66 @@ jobs:
       - name: Test
         run: ./pepsi test --locked --all-features --workspace --exclude bevyhavior_simulator
 
+  check-hulkz-stream-examples:
+    name: Check hulkz-stream examples
+    runs-on:
+      - self-hosted
+      - v3
+    container:
+      image: ghcr.io/hulks/hulk-ci:1.92.0
+      options: --user=1000:1000
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - name: Check examples
+        run: cargo check --locked -p hulkz-stream --examples
+
+  check-hulkz-viewer:
+    name: Check hulkz-viewer
+    runs-on:
+      - self-hosted
+      - v3
+    container:
+      image: ghcr.io/hulks/hulk-ci:1.92.0
+      options: --user=1000:1000
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - name: Check
+        run: cargo check --locked -p hulkz-viewer
+
+  clippy-hulkz-viewer:
+    name: Clippy hulkz-viewer
+    runs-on:
+      - self-hosted
+      - v3
+    container:
+      image: ghcr.io/hulks/hulk-ci:1.92.0
+      options: --user=1000:1000
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - name: Clippy
+        run: cargo clippy --locked -p hulkz-viewer --all-targets -- -D warnings
+
+  test-hulkz-viewer:
+    name: Test hulkz-viewer
+    runs-on:
+      - self-hosted
+      - v3
+    container:
+      image: ghcr.io/hulks/hulk-ci:1.92.0
+      options: --user=1000:1000
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - name: Test
+        run: cargo test --locked -p hulkz-viewer
+
   build:
     name: Build
     strategy:

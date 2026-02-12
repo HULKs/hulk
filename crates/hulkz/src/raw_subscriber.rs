@@ -3,6 +3,7 @@
 //! This is useful for tooling that wants to defer deserialization (e.g. multiplexing, caching,
 //! and UI-driven typed decoding).
 
+use tracing::{debug, trace};
 use zenoh::{
     handlers::{RingChannel, RingChannelHandler},
     pubsub::Subscriber as ZenohSubscriber,
@@ -75,6 +76,16 @@ impl RawSubscriberBuilder {
                 topic.path(),
             )
         };
+        debug!(
+            plane = if self.view { "view" } else { "data" },
+            scope = %topic.scope().as_str(),
+            path = %topic.path(),
+            namespace = %self.namespace,
+            node = %self.node_name,
+            capacity = self.capacity,
+            key_expr = %key,
+            "building raw subscriber",
+        );
         RawSubscriber::from_key_expr(self.session, key, self.capacity).await
     }
 }
@@ -91,6 +102,7 @@ impl RawSubscriber {
         key_expr: String,
         capacity: usize,
     ) -> Result<Self> {
+        trace!(%key_expr, capacity, "declaring zenoh subscriber");
         let subscriber = session
             .zenoh()
             .declare_subscriber(key_expr)
@@ -106,6 +118,7 @@ impl RawSubscriber {
     /// Receives the next sample.
     pub async fn recv_async(&mut self) -> Result<Sample> {
         let sample = self.sub.recv_async().await?;
+        trace!(key = %sample.key_expr(), "received raw sample");
         Ok(Sample::from_zenoh(&self.session, sample))
     }
 }

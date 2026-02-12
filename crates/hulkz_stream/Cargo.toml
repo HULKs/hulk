@@ -1,15 +1,15 @@
 [package]
-name = "hulkz"
+name = "hulkz-stream"
 version.workspace = true
 edition.workspace = true
 license.workspace = true
 homepage.workspace = true
 
 [dependencies]
-cdr = { workspace = true }
-futures = { workspace = true }
-gethostname = { workspace = true }
-json5 = { workspace = true }
+enumset = "1.1.10"
+hulkz = { workspace = true }
+mcap = { workspace = true }
+parking_lot = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
@@ -20,6 +20,9 @@ tokio = { version = "1.43.0", default-features = false, features = [
   "sync",
   "time",
 ] }
+tokio-util = { version = "0.7.13", default-features = false, features = ["rt"] }
 tracing = { workspace = true }
-uuid = { workspace = true }
 zenoh = { workspace = true }
+
+[dev-dependencies]
+tempfile = { workspace = true }

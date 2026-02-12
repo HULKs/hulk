@@ -209,6 +209,15 @@ cargo run --example parameters   # Parameter declaration and remote config
 cargo run --example discovery    # List/watch nodes, publishers, sessions
 ```
 
+## Logging
+
+`hulkz` emits structured logs via `tracing` but does not install a global subscriber.
+Enable logs from your binary with `RUST_LOG`, for example:
+
+```bash
+RUST_LOG=hulkz=debug cargo run -p hulkz --example publisher
+```
+
 ## Documentation
 
 - [API Documentation](https://docs.rs/hulkz) - Full API reference (or run `cargo doc -p hulkz --open`)

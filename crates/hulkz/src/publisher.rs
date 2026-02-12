@@ -42,7 +42,7 @@
 use cdr::{CdrLe, Infinite};
 use serde::Serialize;
 use std::marker::PhantomData;
-use tracing::{debug, warn};
+use tracing::{debug, info, trace, warn};
 use zenoh::{bytes::Encoding, liveliness::LivelinessToken, pubsub::Publisher as ZenohPublisher};
 
 use crate::{
@@ -86,6 +86,14 @@ where
         let topic = self.topic;
         let namespace = self.node.session().namespace();
         let node_name = self.node.name();
+        info!(
+            scope = %topic.scope().as_str(),
+            topic = %topic.path(),
+            namespace = %namespace,
+            node = %node_name,
+            enable_view = self.enable_view,
+            "building publisher",
+        );
 
         let data_key = DataKey::from_scope(topic.scope(), namespace, node_name, topic.path());
         let publisher = self
@@ -117,6 +125,7 @@ where
             .liveliness()
             .declare_token(&liveliness_key)
             .await?;
+        debug!("publisher liveliness token declared");
 
         Ok(Publisher {
             publisher,
@@ -202,7 +211,10 @@ where
     /// # }
     /// ```
     pub async fn put(&self, value: &T, timestamp: &Timestamp) -> Result<()> {
-        debug!("Publishing value to topic");
+        trace!(
+            timestamp_nanos = timestamp.get_time().as_nanos(),
+            "publishing data-plane value"
+        );
         let payload =
             cdr::serialize::<_, _, CdrLe>(value, Infinite).map_err(Error::CdrSerialize)?;
 
@@ -224,6 +236,7 @@ where
 
         let is_matched = view_publisher.matching_status().await?.matching();
         if !is_matched {
+            trace!("skipping view publish; no matching subscribers");
             return Ok(());
         }
 

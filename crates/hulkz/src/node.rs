@@ -31,6 +31,7 @@
 use std::{future::Future, marker::PhantomData, sync::Arc};
 
 use serde::{Deserialize, Serialize};
+use tracing::{debug, info};
 use zenoh::liveliness::LivelinessToken;
 
 use crate::{
@@ -53,6 +54,11 @@ pub struct NodeBuilder {
 
 impl NodeBuilder {
     pub async fn build(self) -> Result<Node> {
+        info!(
+            node = %self.name,
+            namespace = %self.session.namespace(),
+            "building node",
+        );
         // Register node in the graph plane for discovery
         let liveliness_key = GraphKey::node(self.session.namespace(), &self.name);
         let liveliness_token = self
@@ -67,6 +73,7 @@ impl NodeBuilder {
             name: self.name,
             _liveliness_token: liveliness_token,
         };
+        info!(node = %inner.name, "node built and registered");
         Ok(Node {
             inner: Arc::new(inner),
         })
@@ -195,6 +202,14 @@ impl Node {
     where
         for<'de> T: Deserialize<'de> + Clone + Send + Sync + 'static,
     {
+        let topic = topic.into();
+        debug!(
+            node = %self.name(),
+            scope = %topic.scope().as_str(),
+            topic = %topic.path(),
+            capacity,
+            "building buffered subscription",
+        );
         let subscriber = self.subscribe::<T>(topic).build().await?;
         Ok(BufferBuilder::new(subscriber).capacity(capacity).build())
     }
