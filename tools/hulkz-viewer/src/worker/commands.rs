@@ -4,7 +4,7 @@ use color_eyre::{eyre::eyre, Result};
 use tokio::sync::mpsc::Sender;
 use tracing::warn;
 
-use crate::model::{WorkerEvent, WorkerEventEnvelope, WorkerWakeNotifier};
+use crate::protocol::{WorkerEvent, WorkerEventEnvelope, WorkerWakeNotifier};
 
 static WAKE_NOTIFIER: LazyLock<Mutex<Option<WorkerWakeNotifier>>> =
     LazyLock::new(|| Mutex::new(None));

@@ -13,6 +13,7 @@ Current MVP behavior:
   - collapsible `Discovery` pane on the left
   - collapsible `Timeline` pane on the bottom
   - `egui-dock` workspace tabs for `Text` and `Parameters`
+- uses a thin binary entrypoint with internal library root (`src/lib.rs`) and feature-sliced modules (`app`, `worker`, `protocol`, `config`)
 - global default namespace starts unset and can be edited inline; discovery is namespace-scoped
 - global default namespace applies on commit (Enter or focus-loss), not per keystroke
 - when default namespace is unset, global session discovery remains active for namespace completion
@@ -26,9 +27,11 @@ Current MVP behavior:
 - after leaving follow-live, a zoomed/manual timeline window stays fixed in absolute time (clamped if old data is trimmed) until `Jump Latest`
 - shows discovered publishers/parameters from `hulkz` graph (watch-based, namespace-scoped, with periodic reconciliation)
 - parameter tab supports select + refresh + staged JSON apply with explicit `Apply`
+- panel rendering is driven by `PanelContext` + `UiIntent` (panels emit intents; app applies centrally)
 - persists dock layout and core UI settings between runs
 - persistence keys were bumped for the shell/workspace split; old all-tab dock layouts are intentionally reset
 - persistence keys were bumped again for the responsiveness refactor; previous viewer layout/UI state is intentionally reset
+- persistence keys were bumped again for the internal architecture refactor (`workspace_dock_state_v7`, `ui_state_v6`), intentionally resetting prior local viewer state
 - supports CLI startup overrides for namespace/source/storage path
 - each `Text` panel shows only the value at the current global timeline anchor
 - text value resolution uses `before_or_equal(anchor)` per source (no per-panel record-list state)
@@ -99,7 +102,17 @@ UI soak checklist/runbook:
 
 - `tools/hulkz-viewer/SOAK_RUNBOOK.md`
 
+Import hygiene check:
+
+```bash
+rg -n "super::super" tools/hulkz-viewer/src/app tools/hulkz-viewer/src/worker
+```
+
 ## Notes
+
+- Internal terminology:
+  - `ShellPane`: fixed app panes (`Controls`, `Discovery`, `Timeline`, `Status`)
+  - `WorkspacePanel`: dockable tabs (`Text`, `Parameters`)
 
 - Path DSL examples in UI:
   - `odometry` (local)
@@ -108,3 +121,4 @@ UI soak checklist/runbook:
 - Discovery panel uses right-click context actions to open a new `Text` panel.
 - The viewer sends scrub hints to `hulkz-stream` via scrub-window + prefetch.
 - Timeline lane/sample retention is bounded by config defaults (`max_samples_per_lane`, `max_retained_lanes`).
+- Stream/key identity unification across `hulkz`, `hulkz-stream`, and `hulkz-viewer` is tracked as a future refactor.

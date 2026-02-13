@@ -5,7 +5,7 @@ use std::{
 };
 
 use crate::{
-    model::{should_emit_scrub_command, DisplayedRecord, WorkerCommand},
+    protocol::{should_emit_scrub_command, DisplayedRecord, WorkerCommand},
     timeline_canvas::timeline_lane_window_capacity,
 };
 
@@ -206,8 +206,8 @@ impl ViewerApp {
 
     pub(super) fn bind_stream_lane(
         &mut self,
-        stream_id: crate::model::StreamId,
-        binding: crate::model::SourceBindingInfo,
+        stream_id: crate::protocol::StreamId,
+        binding: crate::protocol::SourceBindingInfo,
     ) {
         let key = TimelineLaneKey {
             namespace: binding.namespace,
@@ -244,7 +244,7 @@ impl ViewerApp {
         }
     }
 
-    pub(super) fn unbind_stream_lane(&mut self, stream_id: crate::model::StreamId) {
+    pub(super) fn unbind_stream_lane(&mut self, stream_id: crate::protocol::StreamId) {
         if let Some(key) = self.timeline.stream_lane_bindings.remove(&stream_id) {
             self.decrement_lane_binding(&key);
         }
@@ -252,7 +252,7 @@ impl ViewerApp {
 
     pub(super) fn append_lane_samples(
         &mut self,
-        stream_id: crate::model::StreamId,
+        stream_id: crate::protocol::StreamId,
         records: &[DisplayedRecord],
     ) {
         let Some(lane_key) = self.timeline.stream_lane_bindings.get(&stream_id).cloned() else {

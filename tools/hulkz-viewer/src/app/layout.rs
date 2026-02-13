@@ -1,19 +1,22 @@
-use crate::model::StreamId;
+use crate::protocol::StreamId;
 use eframe::egui;
 use egui_dock::{DockState, Node, NodeIndex, SurfaceIndex};
 
 use super::{
-    panels,
-    state::{ParameterPanelTab, TextPanelTab, ViewerApp, ViewerTab},
+    panel_api::UiIntent,
+    state::ViewerApp,
+    workspace_panel::WorkspacePanel,
+    workspace_panels::{self, ParametersWorkspacePanelState, TextWorkspacePanelState},
 };
 
-pub(super) struct ViewerTabHost<'a> {
+pub(super) struct WorkspacePanelHost<'a> {
     pub(super) app: &'a mut ViewerApp,
+    pub(super) ui_intents: &'a mut Vec<UiIntent>,
     pub(super) text_panel_count: usize,
 }
 
-impl egui_dock::TabViewer for ViewerTabHost<'_> {
-    type Tab = ViewerTab;
+impl egui_dock::TabViewer for WorkspacePanelHost<'_> {
+    type Tab = WorkspacePanel;
 
     fn title(&mut self, tab: &mut Self::Tab) -> egui::WidgetText {
         tab.title_label().into()
@@ -25,8 +28,15 @@ impl egui_dock::TabViewer for ViewerTabHost<'_> {
 
     fn ui(&mut self, ui: &mut egui::Ui, tab: &mut Self::Tab) {
         match tab {
-            ViewerTab::Text(stream) => panels::draw_text_panel(self.app, ui, stream),
-            ViewerTab::Parameters(panel) => panels::draw_parameters_panel(self.app, ui, panel),
+            WorkspacePanel::Text(stream) => {
+                workspace_panels::draw_workspace_text_panel(self.app, self.ui_intents, ui, stream)
+            }
+            WorkspacePanel::Parameters(panel) => workspace_panels::draw_workspace_parameters_panel(
+                self.app,
+                self.ui_intents,
+                ui,
+                panel,
+            ),
         }
     }
 
@@ -35,24 +45,24 @@ impl egui_dock::TabViewer for ViewerTabHost<'_> {
     }
 }
 
-pub(super) fn ensure_stream_tab_exists(
-    dock_state: &mut DockState<ViewerTab>,
-    default_stream: TextPanelTab,
+pub(super) fn ensure_text_workspace_panel_exists(
+    dock_state: &mut DockState<WorkspacePanel>,
+    default_stream: TextWorkspacePanelState,
 ) {
     let has_stream = dock_state
         .iter_all_tabs()
-        .any(|(_, tab)| matches!(tab, ViewerTab::Text(_)));
+        .any(|(_, tab)| matches!(tab, WorkspacePanel::Text(_)));
     if !has_stream {
-        dock_state.push_to_focused_leaf(ViewerTab::Text(default_stream));
+        dock_state.push_to_focused_leaf(WorkspacePanel::Text(default_stream));
     }
 }
 
 pub(super) fn apply_overrides_to_primary_text_panel(
-    dock_state: &mut DockState<ViewerTab>,
+    dock_state: &mut DockState<WorkspacePanel>,
     source_expression: Option<&str>,
 ) {
     for (_, tab) in dock_state.iter_all_tabs_mut() {
-        if let ViewerTab::Text(stream) = tab {
+        if let WorkspacePanel::Text(stream) = tab {
             if let Some(source_expression) = source_expression {
                 stream.source_expression = source_expression.to_string();
             }
@@ -61,37 +71,37 @@ pub(super) fn apply_overrides_to_primary_text_panel(
     }
 }
 
-pub(super) fn highest_stream_id(dock_state: &DockState<ViewerTab>) -> StreamId {
+pub(super) fn highest_stream_id(dock_state: &DockState<WorkspacePanel>) -> StreamId {
     dock_state
         .iter_all_tabs()
         .filter_map(|(_, tab)| match tab {
-            ViewerTab::Text(stream) => Some(stream.id),
-            ViewerTab::Parameters(_) => None,
+            WorkspacePanel::Text(stream) => Some(stream.id),
+            WorkspacePanel::Parameters(_) => None,
         })
         .max()
         .unwrap_or(0)
 }
 
-pub(super) fn highest_parameter_panel_id(dock_state: &DockState<ViewerTab>) -> u64 {
+pub(super) fn highest_parameter_panel_id(dock_state: &DockState<WorkspacePanel>) -> u64 {
     dock_state
         .iter_all_tabs()
         .filter_map(|(_, tab)| match tab {
-            ViewerTab::Parameters(panel) => Some(panel.id),
-            ViewerTab::Text(_) => None,
+            WorkspacePanel::Parameters(panel) => Some(panel.id),
+            WorkspacePanel::Text(_) => None,
         })
         .max()
         .unwrap_or(0)
 }
 
 pub(super) fn initial_dock_state(
-    default_stream: TextPanelTab,
-    default_parameter_panel: ParameterPanelTab,
-) -> DockState<ViewerTab> {
-    let mut dock_state = DockState::new(vec![ViewerTab::Text(default_stream)]);
+    default_stream: TextWorkspacePanelState,
+    default_parameter_panel: ParametersWorkspacePanelState,
+) -> DockState<WorkspacePanel> {
+    let mut dock_state = DockState::new(vec![WorkspacePanel::Text(default_stream)]);
     let _ = dock_state.main_surface_mut().split_right(
         NodeIndex::root(),
         0.78,
-        vec![ViewerTab::Parameters(default_parameter_panel)],
+        vec![WorkspacePanel::Parameters(default_parameter_panel)],
     );
     dock_state
 }
@@ -99,7 +109,7 @@ pub(super) fn initial_dock_state(
 const MIN_SPLIT_FRACTION: f32 = 0.05;
 const MAX_SPLIT_FRACTION: f32 = 0.95;
 
-pub(super) fn sanitize_dock_splits(dock_state: &mut DockState<ViewerTab>) -> bool {
+pub(super) fn sanitize_dock_splits(dock_state: &mut DockState<WorkspacePanel>) -> bool {
     let mut changed = false;
     let mut surface_index = 0usize;
     loop {
@@ -128,17 +138,17 @@ pub(super) fn sanitize_dock_splits(dock_state: &mut DockState<ViewerTab>) -> boo
 #[cfg(test)]
 mod tests {
     use super::{
-        initial_dock_state, sanitize_dock_splits, ParameterPanelTab, TextPanelTab,
-        MAX_SPLIT_FRACTION, MIN_SPLIT_FRACTION,
+        initial_dock_state, sanitize_dock_splits, ParametersWorkspacePanelState,
+        TextWorkspacePanelState, MAX_SPLIT_FRACTION, MIN_SPLIT_FRACTION,
     };
-    use crate::app::state::ViewerTab;
+    use crate::app::workspace_panel::WorkspacePanel;
     use egui_dock::Node;
 
     #[test]
     fn sanitize_dock_splits_clamps_invalid_split_fractions() {
         let mut dock_state = initial_dock_state(
-            TextPanelTab::new(0, "odometry".to_string()),
-            ParameterPanelTab::new(0),
+            TextWorkspacePanelState::new(0, "odometry".to_string()),
+            ParametersWorkspacePanelState::new(0),
         );
         for node in dock_state.main_surface_mut().iter_mut() {
             if let Node::Vertical(split) | Node::Horizontal(split) = node {
@@ -158,8 +168,8 @@ mod tests {
     #[test]
     fn sanitize_dock_splits_noop_for_valid_layout() {
         let mut dock_state = initial_dock_state(
-            TextPanelTab::new(0, "odometry".to_string()),
-            ParameterPanelTab::new(0),
+            TextWorkspacePanelState::new(0, "odometry".to_string()),
+            ParametersWorkspacePanelState::new(0),
         );
         assert!(!sanitize_dock_splits(&mut dock_state));
     }
@@ -167,16 +177,18 @@ mod tests {
     #[test]
     fn initial_layout_contains_workspace_tabs() {
         let dock_state = initial_dock_state(
-            TextPanelTab::new(0, "odometry".to_string()),
-            ParameterPanelTab::new(0),
+            TextWorkspacePanelState::new(0, "odometry".to_string()),
+            ParametersWorkspacePanelState::new(0),
         );
         let tabs = dock_state
             .iter_all_tabs()
             .map(|(_, tab)| tab)
             .collect::<Vec<_>>();
-        assert!(tabs.iter().any(|tab| matches!(tab, ViewerTab::Text(_))));
         assert!(tabs
             .iter()
-            .any(|tab| matches!(tab, ViewerTab::Parameters(_))));
+            .any(|tab| matches!(tab, WorkspacePanel::Text(_))));
+        assert!(tabs
+            .iter()
+            .any(|tab| matches!(tab, WorkspacePanel::Parameters(_))));
     }
 }

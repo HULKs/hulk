@@ -14,7 +14,7 @@ use tokio::sync::mpsc::{Receiver, Sender};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, trace, warn};
 
-use crate::model::{
+use crate::protocol::{
     DiscoveryOp, DisplayedRecord, RecordChunkSource, StreamId, ViewerConfig, WorkerCommand,
     WorkerEvent, WorkerEventEnvelope, WorkerWakeNotifier,
 };

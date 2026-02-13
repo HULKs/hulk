@@ -9,7 +9,7 @@ use tokio::sync::mpsc::Sender;
 use tokio_util::sync::CancellationToken;
 use tracing::trace;
 
-use crate::model::{
+use crate::protocol::{
     DiscoveredParameter, DiscoveredPublisher, DiscoveredSession, WorkerEvent, WorkerEventEnvelope,
 };
 

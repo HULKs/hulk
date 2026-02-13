@@ -6,7 +6,7 @@ use color_eyre::{
 };
 use hulkz::{Scope, Session};
 
-use crate::model::ParameterReference;
+use crate::protocol::ParameterReference;
 
 use super::streams::{parse_source_path_expression, scoped_path_expression};
 

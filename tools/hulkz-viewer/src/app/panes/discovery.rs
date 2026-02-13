@@ -1,31 +1,33 @@
-use eframe::egui;
+use crate::app::{
+    panel_prelude::{egui, Panel, PanelContext, UiIntent},
+    workspace_panels::NamespaceSelection,
+};
 
-use super::super::state::NamespaceSelection;
+pub struct DiscoveryPane;
 
-use super::{Panel, ViewerApp};
-
-pub(super) struct DiscoveryPanel;
-
-impl Panel for DiscoveryPanel {
+impl Panel for DiscoveryPane {
     type State = ();
 
-    fn draw(app: &mut ViewerApp, ui: &mut egui::Ui, _state: &mut Self::State) {
-        let discovery_namespace = app.ui.default_namespace.trim();
+    fn draw(ctx: &mut PanelContext<'_>, ui: &mut egui::Ui, _state: &mut Self::State) {
+        let discovery_namespace = ctx.app().ui.default_namespace.trim().to_string();
+        let publisher_count = ctx.app().discovery.publishers.len();
+        let parameter_count = ctx.app().discovery.parameters.len();
+        let session_count = ctx.app().discovery.sessions.len();
         ui.horizontal_wrapped(|ui| {
-            ui.label(format!("Publishers {}", app.discovery.publishers.len()));
+            ui.label(format!("Publishers {publisher_count}"));
             ui.separator();
-            ui.label(format!("Parameters {}", app.discovery.parameters.len()));
+            ui.label(format!("Parameters {parameter_count}"));
             ui.separator();
-            ui.label(format!("Sessions {}", app.discovery.sessions.len()));
+            ui.label(format!("Sessions {session_count}"));
         });
-        if !app.discovery.sessions.is_empty() {
-            ui.collapsing(
-                format!("Sessions ({})", app.discovery.sessions.len()),
-                |ui| {
-                    for session in &app.discovery.sessions {
+        let sessions = ctx.app().discovery.sessions.clone();
+        if !sessions.is_empty() {
+            ui.collapsing(format!("Sessions ({})", sessions.len()), |ui| {
+                for session in &sessions {
+                    ui.horizontal_wrapped(|ui| {
+                        ui.label(egui::RichText::new(session.id.as_str()).monospace());
+                        ui.separator();
                         ui.horizontal_wrapped(|ui| {
-                            ui.label(egui::RichText::new(session.id.as_str()).monospace());
-                            ui.separator();
                             ui.label(
                                 egui::RichText::new(format!(
                                     "host {}",
@@ -34,9 +36,9 @@ impl Panel for DiscoveryPanel {
                                 .weak(),
                             );
                         });
-                    }
-                },
-            );
+                    });
+                }
+            });
         }
         ui.separator();
 
@@ -47,7 +49,8 @@ impl Panel for DiscoveryPanel {
             return;
         }
 
-        if app.discovery.publishers.is_empty() {
+        let publishers = ctx.app().discovery.publishers.clone();
+        if publishers.is_empty() {
             ui.label("No publishers discovered yet.");
             return;
         }
@@ -56,7 +59,7 @@ impl Panel for DiscoveryPanel {
         egui::ScrollArea::vertical()
             .id_salt("discovery_publishers")
             .show(ui, |ui| {
-                for publisher in &app.discovery.publishers {
+                for publisher in &publishers {
                     ui.horizontal_wrapped(|ui| {
                         let response = ui.add(
                             egui::Label::new(
@@ -87,12 +90,16 @@ impl Panel for DiscoveryPanel {
 
         if let Some((namespace, path_expression)) = open_panel_action {
             let namespace = namespace.trim().to_string();
-            let selection = if namespace == app.ui.default_namespace.trim() {
+            let default_namespace = ctx.app().ui.default_namespace.clone();
+            let selection = if namespace == default_namespace.trim() {
                 NamespaceSelection::FollowDefault
             } else {
                 NamespaceSelection::Override(namespace)
             };
-            app.open_text_panel(selection, path_expression);
+            ctx.emit(UiIntent::OpenTextWorkspacePanel {
+                namespace_selection: selection,
+                path_expression,
+            });
         }
     }
 }

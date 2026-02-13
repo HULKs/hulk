@@ -88,7 +88,8 @@ It must support:
 
 ## 6. Core Definitions
 
-- Panel: one focused workflow surface (shell pane or workspace dock tab).
+- ShellPane: fixed app chrome pane (`Controls`, `Discovery`, `Timeline`, `Status`).
+- WorkspacePanel: dockable/openable workspace tab (`Text`, `Parameters`).
 - Source Descriptor: `namespace + scope/path + optional node` identity used by viewer.
 - Active Binding: mapping from panel to one selected source descriptor.
 - Follow Live: global timeline mode that auto-advances to newest known timestamp.
@@ -205,7 +206,7 @@ Acceptance criteria:
 - FR-D08: Wheel interaction mapping is fixed: `Wheel = lane scroll`, `Shift+Wheel = time pan`, `Ctrl+Wheel = time zoom`.
 - FR-D09: Timeline markers use lane-local diamonds: one sample marker per visible sample at fine zoom; clustered stretched diamonds at coarse zoom using per-lane bucketing.
 - FR-D10: After follow-live is disabled, a zoomed/manual time window remains fixed in absolute time; if older history is trimmed, viewport clamps to nearest retained range without auto re-enabling follow-live.
-- FR-D10: Lane set includes active bindings and lanes that have produced samples in-session; unbound lanes with history can remain visible.
+- FR-D11: Lane set includes active bindings and lanes that have produced samples in-session; unbound lanes with history can remain visible.
 
 ### FR-E Multi-Panel Workspace
 
@@ -213,6 +214,7 @@ Acceptance criteria:
 - FR-E02: Multiple text panels can coexist with independent bindings while sharing one global timeline anchor controlled by the Timeline panel.
 - FR-E02a: Each text panel has explicit namespace mode: follow global default or override namespace.
 - FR-E03: Workspace dock layout, shell visibility toggles, and panel-local settings can be persisted and restored.
+- FR-E04: Panel draw code uses `PanelContext` + `UiIntent`; panel modules emit intents and app-side command dispatch applies mutations centrally.
 
 ### FR-F Parameters
 
@@ -296,6 +298,7 @@ Acceptance criteria:
 2. `cargo clippy -p hulkz-viewer --all-targets -- -D warnings`
 3. `cargo test -p hulkz-viewer`
 4. Optional manual soak harness: `cargo test -p hulkz-viewer soak_worker_stays_healthy_under_continuous_stream -- --ignored`
+5. Import hygiene check: `rg -n "super::super" tools/hulkz-viewer/src/app tools/hulkz-viewer/src/worker`
 
 ## 12. Assumptions and Defaults
 
@@ -321,7 +324,7 @@ Acceptance criteria:
 - Completed: manual soak harness test for continuous stream ingest (ignored by default).
 - Completed: UI-level soak runbook/checklist for long-running responsiveness and memory trend validation.
 - Completed: discovery metadata polish (scope labels plus session host visibility).
-- Completed: panel-type extensibility foundation (panel kind catalog + centralized open/title/close policy routing).
+- Completed: panel-type extensibility foundation (workspace panel kind list + centralized open/title/close policy routing).
 - Completed: visual cleanup pass (list-style discovery rows without namespace duplication, reduced text-panel chrome/debug labels, human-readable timestamps in text/timeline panels).
 - Completed: parameter panel entry UX refresh (node/path completion line edits with dropdown suggestions, compact load/apply flow).
 - Completed: default namespace input completion sourced from discovered sessions.
@@ -337,7 +340,7 @@ Acceptance criteria:
 - Completed: timeline lane lifecycle hardening with inactive-first eviction policy tests and lane-scroll clamping tests.
 - Completed: worker-side live event batching/coalescing to smooth high-frequency stream updates.
 - Completed: compact source stats in text panels (durable bounds and ingest/durable frontiers).
-- Completed: grouped `ViewerApp` state decomposition (`ShellState`, `DiscoveryState`, `TimelineState`, `WorkspaceState`, `RuntimeState`, `UiState`) and workspace-only `ViewerTab` model.
+- Completed: grouped `ViewerApp` state decomposition (`ShellState`, `DiscoveryState`, `TimelineState`, `WorkspaceState`, `RuntimeState`, `UiState`) and workspace-only `WorkspacePanel` model.
 - Completed: persistence version bump for shell/workspace split with intentional reset of legacy all-tab dock state.
 - Completed: bounded worker->UI event channel plus chunked history replay events (`StreamHistoryBegin/StreamRecordsChunk/StreamHistoryEnd`).
 - Completed: event envelope sizing and per-frame worker-event ingest budgets in the app update loop.
@@ -345,6 +348,12 @@ Acceptance criteria:
 - Completed: event-driven repaint scheduling for active backlog/follow-live activity (`~10 ms`) with idle polling removed, plus worker wake notifications for idle-to-active transitions.
 - Completed: discovery steady-state patch events (`DiscoveryPatch`) with full snapshots kept for reconcile fallback.
 - Completed: compact runtime diagnostics strip (frame timing, events/frame bytes, queued event depth, pending command depth).
+- Completed: internal crate root split with thin `main.rs` and reusable `src/lib.rs` entrypoints (`ViewerApp`, `ViewerStartupOverrides`, logging setup).
+- Completed: protocol/model split into `config.rs`, `discovery_types.rs`, and `protocol/{binding,commands,events}.rs`.
+- Completed: panel developer API split (`PanelContext` + `UiIntent`) with centralized intent application in app command dispatch.
+- Completed: module hierarchy split between shell panes (`app/panes/*`) and workspace panels (`app/workspace_panels/*`).
+- Completed: app loop decomposition modules (`bootstrap`, `event_ingest`, `command_dispatch`, `shell`, `workspace`, `update_loop`).
+- Completed: persistence key bump for internal architecture refactor (`workspace_dock_state_v7`, `ui_state_v6`) with intentional local state reset.
 
 ## 14. Known Limitations (Current Iteration)
 
@@ -354,5 +363,10 @@ Acceptance criteria:
 
 ## 15. Remaining TODOs
 
-1. Add first non-text panel type (2D canvas MVP) using the existing panel kind catalog.
+1. Add first non-text panel type (2D canvas MVP) using the existing workspace panel kind list.
 2. Add panel-type specific discovery actions (e.g., open as text vs open as canvas) once second stream panel exists.
+
+## 16. Future Alignment
+
+1. Viewer currently reuses `SourceBindingRequest` / `SourceBindingInfo` directly and does not introduce an extra binding identity layer.
+2. A dedicated cross-crate key-space/type alignment pass (`hulkz`, `hulkz-stream`, `hulkz-viewer`) is deferred to a future refactor.

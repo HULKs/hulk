@@ -1,15 +1,15 @@
-use eframe::egui::{self, Color32};
+use crate::app::{
+    format_timestamp,
+    panel_prelude::{egui, Panel, PanelContext},
+};
 
-use crate::app::format_timestamp;
+pub struct StatusPane;
 
-use super::{Panel, ViewerApp};
-
-pub(super) struct StatusPanel;
-
-impl Panel for StatusPanel {
+impl Panel for StatusPane {
     type State = ();
 
-    fn draw(app: &mut ViewerApp, ui: &mut egui::Ui, _state: &mut Self::State) {
+    fn draw(ctx: &mut PanelContext<'_>, ui: &mut egui::Ui, _state: &mut Self::State) {
+        let app = ctx.app();
         let total_records = app.timeline.global_timeline.len();
         let queued_events = app.runtime.event_rx.len();
         let pending_commands = app.runtime.pending_commands.len();
@@ -59,7 +59,7 @@ impl Panel for StatusPanel {
 
             if let Some(error) = &app.ui.last_error {
                 ui.separator();
-                ui.colored_label(Color32::RED, format!("Error: {error}"));
+                ui.colored_label(egui::Color32::RED, format!("Error: {error}"));
             }
         });
     }

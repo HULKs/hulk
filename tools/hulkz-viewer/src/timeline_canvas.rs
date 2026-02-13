@@ -35,26 +35,26 @@ const LANE_COLORS: [Color32; 10] = [
 ];
 
 #[derive(Debug, Clone, Copy)]
-pub struct TimelineCanvasInput<'a> {
-    pub full_range: TimelineRenderRange,
-    pub viewport_range: TimelineRenderRange,
-    pub anchor_timestamp_ns: u64,
-    pub hover_timestamp_ns: Option<u64>,
-    pub lane_rows: &'a [LaneRenderRow],
-    pub lane_window_start: usize,
-    pub total_lane_count: usize,
-    pub lane_height_px: f32,
-    pub canvas_height_px: f32,
+pub(crate) struct TimelineCanvasInput<'a> {
+    pub(crate) full_range: TimelineRenderRange,
+    pub(crate) viewport_range: TimelineRenderRange,
+    pub(crate) anchor_timestamp_ns: u64,
+    pub(crate) hover_timestamp_ns: Option<u64>,
+    pub(crate) lane_rows: &'a [LaneRenderRow],
+    pub(crate) lane_window_start: usize,
+    pub(crate) total_lane_count: usize,
+    pub(crate) lane_height_px: f32,
+    pub(crate) canvas_height_px: f32,
 }
 
 #[derive(Debug, Clone, Default)]
-pub struct TimelineCanvasOutput {
-    pub hover_timestamp_ns: Option<u64>,
-    pub selected_timestamp_ns: Option<u64>,
-    pub pan_delta_fraction: Option<f32>,
-    pub zoom_factor: Option<f32>,
-    pub zoom_center_timestamp_ns: Option<u64>,
-    pub lane_scroll_delta: Option<f32>,
+pub(crate) struct TimelineCanvasOutput {
+    pub(crate) hover_timestamp_ns: Option<u64>,
+    pub(crate) selected_timestamp_ns: Option<u64>,
+    pub(crate) pan_delta_fraction: Option<f32>,
+    pub(crate) zoom_factor: Option<f32>,
+    pub(crate) zoom_center_timestamp_ns: Option<u64>,
+    pub(crate) lane_scroll_delta: Option<f32>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq)]
@@ -64,12 +64,12 @@ pub(crate) enum WheelInteraction {
     Zoom(f32),
 }
 
-pub fn timeline_lane_window_capacity(lane_height_px: f32, canvas_height_px: f32) -> usize {
+pub(crate) fn timeline_lane_window_capacity(lane_height_px: f32, canvas_height_px: f32) -> usize {
     ((lane_plot_height(canvas_height_px) / lane_height_px.max(MIN_LANE_HEIGHT_PX)).floor() as usize)
         .max(1)
 }
 
-pub fn draw_timeline_canvas(
+pub(crate) fn draw_timeline_canvas(
     ui: &mut egui::Ui,
     input: TimelineCanvasInput<'_>,
 ) -> TimelineCanvasOutput {

@@ -5,7 +5,7 @@ use super::run_worker;
 use super::streams::{
     parse_source_path_expression, to_discovered_parameter, to_discovered_publisher,
 };
-use crate::model::{
+use crate::protocol::{
     ParameterReference, ViewerConfig, WorkerCommand, WorkerEvent, WorkerEventEnvelope,
 };
 use hulkz::{ParameterInfo, PublisherInfo, Scope, Session};
@@ -186,7 +186,7 @@ async fn integration_worker_binds_and_receives_live_updates() {
     command_tx
         .send(WorkerCommand::BindStream {
             stream_id: 1,
-            request: crate::model::SourceBindingRequest {
+            request: crate::protocol::SourceBindingRequest {
                 namespace: namespace.clone(),
                 plane: PlaneKind::View,
                 path_expression: "odometry".to_string(),
@@ -284,7 +284,7 @@ async fn integration_discovery_snapshot_includes_sessions() {
         matches!(
             event,
             WorkerEvent::DiscoveryPatch {
-                op: crate::model::DiscoveryOp::SessionUpsert(_)
+                op: crate::protocol::DiscoveryOp::SessionUpsert(_)
             }
         ) || matches!(event, WorkerEvent::DiscoverySnapshot { sessions, .. } if !sessions.is_empty())
         })
@@ -326,7 +326,7 @@ async fn integration_rebind_replays_history_snapshot() {
     command_tx
         .send(WorkerCommand::BindStream {
             stream_id: 2,
-            request: crate::model::SourceBindingRequest {
+            request: crate::protocol::SourceBindingRequest {
                 namespace: namespace.clone(),
                 plane: PlaneKind::View,
                 path_expression: "odometry".to_string(),
@@ -403,7 +403,7 @@ async fn integration_rebind_replays_history_snapshot() {
     command_tx
         .send(WorkerCommand::BindStream {
             stream_id: 2,
-            request: crate::model::SourceBindingRequest {
+            request: crate::protocol::SourceBindingRequest {
                 namespace: namespace.clone(),
                 plane: PlaneKind::View,
                 path_expression: "odometry".to_string(),
@@ -422,7 +422,7 @@ async fn integration_rebind_replays_history_snapshot() {
             event,
             WorkerEvent::StreamRecordsChunk {
                 stream_id: 2,
-                source: crate::model::RecordChunkSource::History,
+                source: crate::protocol::RecordChunkSource::History,
                 records,
                 ..
             } if !records.is_empty()
@@ -463,7 +463,7 @@ async fn integration_ingest_toggle_pauses_and_resumes_updates() {
     command_tx
         .send(WorkerCommand::BindStream {
             stream_id: 4,
-            request: crate::model::SourceBindingRequest {
+            request: crate::protocol::SourceBindingRequest {
                 namespace: namespace.clone(),
                 plane: PlaneKind::View,
                 path_expression: "odometry".to_string(),
@@ -622,7 +622,7 @@ async fn soak_worker_stays_healthy_under_continuous_stream() {
     command_tx
         .send(WorkerCommand::BindStream {
             stream_id: 7,
-            request: crate::model::SourceBindingRequest {
+            request: crate::protocol::SourceBindingRequest {
                 namespace: namespace.clone(),
                 plane: PlaneKind::View,
                 path_expression: "odometry".to_string(),

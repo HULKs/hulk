@@ -8,7 +8,7 @@ use tokio::sync::{broadcast::error::RecvError, mpsc::Sender};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info};
 
-use crate::model::{
+use crate::protocol::{
     DiscoveredParameter, DiscoveredPublisher, DiscoveredSession, DisplayedRecord,
     RecordChunkSource, SourceBindingInfo, SourceBindingRequest, StreamId, ViewerConfig,
     WorkerEvent, WorkerEventEnvelope,

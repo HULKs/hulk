@@ -7,7 +7,7 @@ use color_eyre::{eyre::eyre, eyre::WrapErr as _, Result};
 use hulkz_stream::StreamBackend;
 use tokio::sync::mpsc::Sender;
 
-use crate::model::{ViewerConfig, WorkerEventEnvelope};
+use crate::protocol::{ViewerConfig, WorkerEventEnvelope};
 
 pub(super) fn session_storage_path() -> PathBuf {
     let run_id = SystemTime::now()

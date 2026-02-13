@@ -3,7 +3,7 @@ use std::{num::NonZeroU128, time::Duration};
 use hulkz::Timestamp;
 use hulkz_stream::StreamRecord;
 
-use crate::model::DisplayedRecord;
+use crate::protocol::DisplayedRecord;
 
 pub(super) fn timestamp_from_nanos(nanos: u64) -> Timestamp {
     let id: zenoh::time::TimestampId = NonZeroU128::new(1).expect("non-zero").into();

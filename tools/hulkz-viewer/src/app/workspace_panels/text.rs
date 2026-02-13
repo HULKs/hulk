@@ -1,16 +1,89 @@
-use eframe::egui;
 use hulk_widgets::CompletionEdit;
+use serde::{Deserialize, Serialize};
 
-use crate::app::format_timestamp;
+use hulkz_stream::PlaneKind;
 
-use super::{super::state::TextPanelTab, Panel, ViewerApp};
+use crate::{
+    app::{
+        format_timestamp,
+        panel_prelude::{egui, Panel, PanelContext},
+    },
+    protocol::{SourceBindingRequest, StreamId},
+};
 
-pub(super) struct TextPanel;
+use super::shared::NamespaceSelection;
 
-impl Panel for TextPanel {
-    type State = TextPanelTab;
+#[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
+pub struct TextWorkspacePanelState {
+    pub(crate) id: StreamId,
+    #[serde(default)]
+    pub(crate) namespace_selection: NamespaceSelection,
+    pub(crate) source_expression: String,
+}
 
-    fn draw(app: &mut ViewerApp, ui: &mut egui::Ui, stream: &mut Self::State) {
+impl TextWorkspacePanelState {
+    pub fn new(id: StreamId, source_expression: String) -> Self {
+        Self {
+            id,
+            namespace_selection: NamespaceSelection::FollowDefault,
+            source_expression,
+        }
+    }
+
+    pub fn follows_default_namespace(&self) -> bool {
+        matches!(self.namespace_selection, NamespaceSelection::FollowDefault)
+    }
+
+    pub fn set_namespace_override_enabled(&mut self, enabled: bool, default_namespace: &str) {
+        if enabled {
+            let default_namespace = default_namespace.trim().to_string();
+            self.namespace_selection = NamespaceSelection::Override(default_namespace);
+        } else {
+            self.namespace_selection = NamespaceSelection::FollowDefault;
+        }
+    }
+
+    pub fn namespace_override_text_mut(&mut self) -> Option<&mut String> {
+        match &mut self.namespace_selection {
+            NamespaceSelection::FollowDefault => None,
+            NamespaceSelection::Override(value) => Some(value),
+        }
+    }
+
+    pub fn effective_namespace(&self, default_namespace: &str) -> Option<String> {
+        let raw = match &self.namespace_selection {
+            NamespaceSelection::FollowDefault => default_namespace,
+            NamespaceSelection::Override(value) => value,
+        };
+        let namespace = raw.trim();
+        if namespace.is_empty() {
+            None
+        } else {
+            Some(namespace.to_string())
+        }
+    }
+
+    pub fn binding_request(&self, default_namespace: &str) -> Option<SourceBindingRequest> {
+        let namespace = self.effective_namespace(default_namespace)?;
+        let path_expression = self.source_expression.trim().to_string();
+        if path_expression.is_empty() {
+            return None;
+        }
+        Some(SourceBindingRequest {
+            namespace,
+            plane: PlaneKind::View,
+            path_expression,
+        })
+    }
+}
+
+pub struct TextWorkspacePane;
+
+impl Panel for TextWorkspacePane {
+    type State = TextWorkspacePanelState;
+
+    fn draw(ctx: &mut PanelContext<'_>, ui: &mut egui::Ui, stream: &mut Self::State) {
+        let app = ctx.app();
         ui.horizontal(|ui| {
             let mut override_enabled = !stream.follows_default_namespace();
             if ui
@@ -112,5 +185,49 @@ impl Panel for TextPanel {
         } else {
             ui.label("Stream state unavailable.");
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::{NamespaceSelection, TextWorkspacePanelState};
+
+    #[test]
+    fn follow_default_namespace_tracks_input() {
+        let panel = TextWorkspacePanelState::new(1, "odometry".to_string());
+        let first = panel
+            .binding_request("robot-a")
+            .expect("valid binding with default namespace");
+        let second = panel
+            .binding_request("robot-b")
+            .expect("valid binding with updated namespace");
+
+        assert_eq!(first.namespace, "robot-a");
+        assert_eq!(second.namespace, "robot-b");
+    }
+
+    #[test]
+    fn override_namespace_ignores_default_changes() {
+        let mut panel = TextWorkspacePanelState::new(2, "odometry".to_string());
+        panel.namespace_selection = NamespaceSelection::Override("robot-x".to_string());
+
+        let first = panel
+            .binding_request("robot-a")
+            .expect("valid binding with namespace override");
+        let second = panel
+            .binding_request("robot-b")
+            .expect("valid binding with namespace override");
+
+        assert_eq!(first.namespace, "robot-x");
+        assert_eq!(second.namespace, "robot-x");
+    }
+
+    #[test]
+    fn binding_requires_namespace_and_path() {
+        let mut panel = TextWorkspacePanelState::new(3, "".to_string());
+        assert!(panel.binding_request("demo").is_none());
+
+        panel.source_expression = "odometry".to_string();
+        assert!(panel.binding_request("").is_none());
     }
 }

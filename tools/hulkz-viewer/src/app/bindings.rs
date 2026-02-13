@@ -1,12 +1,13 @@
 use std::collections::BTreeSet;
 
-use crate::model::{ParameterReference, WorkerCommand};
+use crate::protocol::{ParameterReference, WorkerCommand};
 
 use super::{
-    panel_catalog::PanelKind,
-    state::{
-        NamespaceSelection, ParameterPanelTab, StreamRuntimeState, TextPanelTab, ViewerApp,
-        ViewerTab,
+    state::{StreamRuntimeState, ViewerApp},
+    workspace_panel::WorkspacePanel,
+    workspace_panel_kind::WorkspacePanelKind,
+    workspace_panels::{
+        NamespaceSelection, ParametersWorkspacePanelState, TextWorkspacePanelState,
     },
 };
 
@@ -17,7 +18,7 @@ impl ViewerApp {
         ));
     }
 
-    fn apply_panel_binding(&mut self, panel: &TextPanelTab) {
+    fn apply_panel_binding(&mut self, panel: &TextWorkspacePanelState) {
         let stream_id = panel.id;
         if let Some(request) = panel.binding_request(&self.ui.default_namespace) {
             self.send_command(WorkerCommand::BindStream { stream_id, request });
@@ -30,7 +31,7 @@ impl ViewerApp {
     }
 
     pub(super) fn reconcile_text_panels(&mut self) {
-        let panels = self.text_panels();
+        let panels = self.workspace_text_panels();
         let panel_ids = panels.iter().map(|panel| panel.id).collect::<BTreeSet<_>>();
 
         for stream_id in self
@@ -86,28 +87,28 @@ impl ViewerApp {
         self.evict_inactive_lanes_if_needed();
     }
 
-    fn text_panels(&self) -> Vec<TextPanelTab> {
+    fn workspace_text_panels(&self) -> Vec<TextWorkspacePanelState> {
         self.workspace
             .dock_state
             .iter_all_tabs()
             .filter_map(|(_, tab)| match tab {
-                ViewerTab::Text(stream) => Some(stream.clone()),
-                ViewerTab::Parameters(_) => None,
+                WorkspacePanel::Text(stream) => Some(stream.clone()),
+                WorkspacePanel::Parameters(_) => None,
             })
             .collect()
     }
 
-    pub(super) fn create_text_stream_panel(&mut self) {
+    pub(super) fn create_text_workspace_panel(&mut self) {
         self.open_text_panel(
             NamespaceSelection::FollowDefault,
             self.config.source_expression.clone(),
         );
     }
 
-    pub(super) fn open_panel_kind(&mut self, kind: PanelKind) {
+    pub(super) fn open_workspace_panel_kind(&mut self, kind: WorkspacePanelKind) {
         match kind {
-            PanelKind::Text => self.create_text_stream_panel(),
-            PanelKind::Parameters => self.create_parameter_panel(),
+            WorkspacePanelKind::Text => self.create_text_workspace_panel(),
+            WorkspacePanelKind::Parameters => self.create_parameter_panel(),
         }
     }
 
@@ -119,12 +120,12 @@ impl ViewerApp {
         let stream_id = self.workspace.next_stream_id;
         self.workspace.next_stream_id = self.workspace.next_stream_id.saturating_add(1);
 
-        let mut panel = TextPanelTab::new(stream_id, path_expression);
+        let mut panel = TextWorkspacePanelState::new(stream_id, path_expression);
         panel.namespace_selection = namespace_selection;
 
         self.workspace
             .dock_state
-            .push_to_focused_leaf(ViewerTab::Text(panel.clone()));
+            .push_to_focused_leaf(WorkspacePanel::Text(panel.clone()));
         self.workspace.stream_states.insert(
             stream_id,
             StreamRuntimeState {
@@ -140,7 +141,9 @@ impl ViewerApp {
             self.workspace.next_parameter_panel_id.saturating_add(1);
         self.workspace
             .dock_state
-            .push_to_focused_leaf(ViewerTab::Parameters(ParameterPanelTab::new(panel_id)));
+            .push_to_focused_leaf(WorkspacePanel::Parameters(
+                ParametersWorkspacePanelState::new(panel_id),
+            ));
     }
 
     pub(super) fn set_default_namespace(&mut self) {
@@ -153,7 +156,10 @@ impl ViewerApp {
         self.update_discovery_namespace();
     }
 
-    pub(super) fn parameter_node_candidates(&self, panel: &ParameterPanelTab) -> Vec<String> {
+    pub(super) fn parameter_node_candidates(
+        &self,
+        panel: &ParametersWorkspacePanelState,
+    ) -> Vec<String> {
         let Some(namespace) = panel.effective_namespace(&self.ui.default_namespace) else {
             return Vec::new();
         };
@@ -175,7 +181,10 @@ impl ViewerApp {
         candidates.into_iter().collect()
     }
 
-    pub(super) fn parameter_path_candidates(&self, panel: &ParameterPanelTab) -> Vec<String> {
+    pub(super) fn parameter_path_candidates(
+        &self,
+        panel: &ParametersWorkspacePanelState,
+    ) -> Vec<String> {
         let Some(namespace) = panel.effective_namespace(&self.ui.default_namespace) else {
             return Vec::new();
         };
@@ -199,7 +208,7 @@ impl ViewerApp {
 
     pub(super) fn parameter_reference_from_inputs(
         &self,
-        panel: &ParameterPanelTab,
+        panel: &ParametersWorkspacePanelState,
     ) -> Result<ParameterReference, String> {
         let Some(namespace) = panel.effective_namespace(&self.ui.default_namespace) else {
             return Err("Set a default namespace first.".to_string());
@@ -246,7 +255,7 @@ impl ViewerApp {
         })
     }
 
-    pub(super) fn source_path_candidates(&self, stream: &TextPanelTab) -> Vec<String> {
+    pub(super) fn source_path_candidates(&self, stream: &TextWorkspacePanelState) -> Vec<String> {
         let effective_namespace = stream.effective_namespace(&self.ui.default_namespace);
 
         let mut candidates = BTreeSet::new();

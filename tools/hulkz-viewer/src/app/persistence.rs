@@ -2,17 +2,20 @@ use eframe::Storage;
 use egui_dock::DockState;
 use tracing::warn;
 
-use super::state::{PersistedUiState, ViewerApp, ViewerTab};
+use super::{
+    state::{PersistedUiState, ViewerApp},
+    workspace_panel::WorkspacePanel,
+};
 
-pub(super) const STORAGE_KEY_DOCK_STATE: &str = "hulkz_viewer/workspace_dock_state_v5";
-pub(super) const STORAGE_KEY_UI_STATE: &str = "hulkz_viewer/ui_state_v4";
+pub(super) const STORAGE_KEY_DOCK_STATE: &str = "hulkz_viewer/workspace_dock_state_v7";
+pub(super) const STORAGE_KEY_UI_STATE: &str = "hulkz_viewer/ui_state_v6";
 
 pub(super) fn load_persisted_dock_state(
     storage: Option<&dyn Storage>,
-) -> Option<DockState<ViewerTab>> {
+) -> Option<DockState<WorkspacePanel>> {
     let storage = storage?;
     let raw = storage.get_string(STORAGE_KEY_DOCK_STATE)?;
-    match serde_json::from_str::<DockState<ViewerTab>>(&raw) {
+    match serde_json::from_str::<DockState<WorkspacePanel>>(&raw) {
         Ok(state) => Some(state),
         Err(error) => {
             warn!(?error, "failed to deserialize persisted dock state");
