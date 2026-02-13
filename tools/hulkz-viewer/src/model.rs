@@ -1,5 +1,6 @@
 use std::{
     path::PathBuf,
+    sync::Arc,
     time::{Duration, Instant},
 };
 
@@ -22,6 +23,14 @@ pub struct ViewerConfig {
     pub max_retained_lanes: usize,
     pub live_event_batch_max: usize,
     pub live_event_batch_delay: Duration,
+    pub worker_command_channel_capacity: usize,
+    pub worker_event_channel_capacity: usize,
+    pub worker_internal_event_channel_capacity: usize,
+    pub discovery_event_channel_capacity: usize,
+    pub max_events_per_frame: usize,
+    pub max_event_bytes_per_frame: usize,
+    pub max_event_ingest_time_per_frame: Duration,
+    pub repaint_delay_on_activity: Duration,
 }
 
 impl Default for ViewerConfig {
@@ -40,7 +49,35 @@ impl Default for ViewerConfig {
             max_retained_lanes: 512,
             live_event_batch_max: 32,
             live_event_batch_delay: Duration::from_millis(40),
+            worker_command_channel_capacity: 256,
+            worker_event_channel_capacity: 512,
+            worker_internal_event_channel_capacity: 512,
+            discovery_event_channel_capacity: 512,
+            max_events_per_frame: 256,
+            max_event_bytes_per_frame: 1_500_000,
+            max_event_ingest_time_per_frame: Duration::from_millis(6),
+            repaint_delay_on_activity: Duration::from_millis(10),
         }
+    }
+}
+
+#[derive(Clone)]
+pub struct WorkerWakeNotifier {
+    notify_fn: Arc<dyn Fn() + Send + Sync>,
+}
+
+impl WorkerWakeNotifier {
+    pub fn new<F>(notify_fn: F) -> Self
+    where
+        F: Fn() + Send + Sync + 'static,
+    {
+        Self {
+            notify_fn: Arc::new(notify_fn),
+        }
+    }
+
+    pub fn notify(&self) {
+        (self.notify_fn)();
     }
 }
 
@@ -116,9 +153,20 @@ pub enum WorkerCommand {
 
 #[derive(Debug, Clone)]
 pub enum WorkerEvent {
-    RecordsAppended {
+    StreamHistoryBegin {
         stream_id: StreamId,
+        generation: u64,
+    },
+    StreamRecordsChunk {
+        stream_id: StreamId,
+        generation: u64,
         records: Vec<DisplayedRecord>,
+        source: RecordChunkSource,
+    },
+    StreamHistoryEnd {
+        stream_id: StreamId,
+        generation: u64,
+        total_records: usize,
     },
     AnchorRecord {
         stream_id: StreamId,
@@ -127,8 +175,12 @@ pub enum WorkerEvent {
     },
     SourceBound {
         stream_id: StreamId,
+        generation: u64,
         label: String,
         binding: SourceBindingInfo,
+    },
+    DiscoveryPatch {
+        op: DiscoveryOp,
     },
     DiscoverySnapshot {
         publishers: Vec<DiscoveredPublisher>,
@@ -153,6 +205,98 @@ pub enum WorkerEvent {
     },
     Error(String),
     Ready,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum RecordChunkSource {
+    History,
+    Live,
+}
+
+#[derive(Debug, Clone)]
+pub enum DiscoveryOp {
+    PublisherUpsert(DiscoveredPublisher),
+    PublisherRemove(DiscoveredPublisher),
+    ParameterUpsert(DiscoveredParameter),
+    ParameterRemove(DiscoveredParameter),
+    SessionUpsert(DiscoveredSession),
+    SessionRemove(DiscoveredSession),
+    ResetNamespace(String),
+}
+
+#[derive(Debug, Clone)]
+pub struct WorkerEventEnvelope {
+    pub event: WorkerEvent,
+    pub approx_bytes: usize,
+}
+
+impl WorkerEventEnvelope {
+    pub fn new(event: WorkerEvent) -> Self {
+        let approx_bytes = approximate_event_size_bytes(&event);
+        Self {
+            event,
+            approx_bytes,
+        }
+    }
+}
+
+fn approximate_event_size_bytes(event: &WorkerEvent) -> usize {
+    match event {
+        WorkerEvent::StreamHistoryBegin { .. } => 64,
+        WorkerEvent::StreamRecordsChunk { records, .. } => records
+            .iter()
+            .map(|record| {
+                64 + record
+                    .json_pretty
+                    .as_ref()
+                    .map(|value| value.len())
+                    .unwrap_or(0)
+                    + record
+                        .raw_fallback
+                        .as_ref()
+                        .map(|value| value.len())
+                        .unwrap_or(0)
+            })
+            .sum::<usize>()
+            .saturating_add(32),
+        WorkerEvent::StreamHistoryEnd { .. } => 64,
+        WorkerEvent::AnchorRecord { record, .. } => {
+            96 + record
+                .as_ref()
+                .and_then(|record| {
+                    record
+                        .json_pretty
+                        .as_ref()
+                        .map(|text| text.len())
+                        .or_else(|| record.raw_fallback.as_ref().map(|text| text.len()))
+                })
+                .unwrap_or(0)
+        }
+        WorkerEvent::SourceBound { label, .. } => 96 + label.len(),
+        WorkerEvent::DiscoveryPatch { op } => match op {
+            DiscoveryOp::PublisherUpsert(item) | DiscoveryOp::PublisherRemove(item) => {
+                64 + item.namespace.len() + item.node.len() + item.path_expression.len()
+            }
+            DiscoveryOp::ParameterUpsert(item) | DiscoveryOp::ParameterRemove(item) => {
+                64 + item.namespace.len() + item.node.len() + item.path_expression.len()
+            }
+            DiscoveryOp::SessionUpsert(item) | DiscoveryOp::SessionRemove(item) => {
+                64 + item.namespace.len() + item.id.len()
+            }
+            DiscoveryOp::ResetNamespace(namespace) => 64 + namespace.len(),
+        },
+        WorkerEvent::DiscoverySnapshot {
+            publishers,
+            parameters,
+            sessions,
+        } => 96 + publishers.len() * 96 + parameters.len() * 96 + sessions.len() * 64,
+        WorkerEvent::ParameterValueLoaded { value_pretty, .. } => 64 + value_pretty.len(),
+        WorkerEvent::ParameterWriteResult { message, .. } => 64 + message.len(),
+        WorkerEvent::StreamStats { .. } => 128,
+        WorkerEvent::BackendStats { .. } => 128,
+        WorkerEvent::Error(message) => 64 + message.len(),
+        WorkerEvent::Ready => 16,
+    }
 }
 
 pub fn should_emit_scrub_command(last_emitted: Instant, now: Instant, debounce: Duration) -> bool {

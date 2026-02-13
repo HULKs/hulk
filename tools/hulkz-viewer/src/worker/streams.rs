@@ -4,16 +4,18 @@ use color_eyre::{
 };
 use hulkz::{ParameterInfo, PublisherInfo, Scope, ScopedPath, SessionInfo};
 use hulkz_stream::{NamespaceBinding, SourceHandle, SourceSpec, StreamBackend, StreamRecord};
-use tokio::sync::{broadcast::error::RecvError, mpsc::UnboundedSender};
+use tokio::sync::{broadcast::error::RecvError, mpsc::Sender};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info};
 
 use crate::model::{
     DiscoveredParameter, DiscoveredPublisher, DiscoveredSession, DisplayedRecord,
-    SourceBindingInfo, SourceBindingRequest, StreamId, ViewerConfig, WorkerEvent,
+    RecordChunkSource, SourceBindingInfo, SourceBindingRequest, StreamId, ViewerConfig,
+    WorkerEvent, WorkerEventEnvelope,
 };
 
 use super::{
+    commands::send_event,
     encoding::{stream_record_to_displayed_record, timestamp_from_nanos},
     WorkerInternalEvent,
 };
@@ -27,38 +29,79 @@ pub(super) struct WorkerStreamContext {
 
 pub(super) async fn emit_history_snapshot(
     stream_id: StreamId,
+    generation: u64,
     source: &SourceHandle,
-    event_tx: &UnboundedSender<WorkerEvent>,
+    event_tx: &Sender<WorkerEventEnvelope>,
 ) -> Result<()> {
     let stats = source.stats_snapshot();
     let (Some(start), Some(end)) = (stats.durable_oldest, stats.durable_latest) else {
         debug!("no durable history available for source");
+        send_event(
+            event_tx,
+            WorkerEvent::StreamHistoryEnd {
+                stream_id,
+                generation,
+                total_records: 0,
+            },
+        )
+        .await?;
         return Ok(());
     };
 
-    let records = source
-        .range_inclusive(start, end)
+    send_event(
+        event_tx,
+        WorkerEvent::StreamHistoryBegin {
+            stream_id,
+            generation,
+        },
+    )
+    .await?;
+
+    let mut range_stream = source
+        .range_inclusive_stream(start, end, 1024)
         .await
         .wrap_err("failed to query durable source history")?;
-    if records.is_empty() {
-        return Ok(());
-    }
 
-    let displayed_records = records
-        .iter()
-        .map(stream_record_to_displayed_record)
-        .collect::<Vec<_>>();
+    let mut total_records = 0_usize;
+    while let Some(chunk_result) = range_stream.recv().await {
+        let chunk = chunk_result?;
+        if chunk.is_last {
+            break;
+        }
+        if chunk.records.is_empty() {
+            continue;
+        }
+
+        let records = chunk
+            .records
+            .iter()
+            .map(stream_record_to_displayed_record)
+            .collect::<Vec<_>>();
+        total_records = total_records.saturating_add(records.len());
+        send_event(
+            event_tx,
+            WorkerEvent::StreamRecordsChunk {
+                stream_id,
+                generation,
+                records,
+                source: RecordChunkSource::History,
+            },
+        )
+        .await?;
+    }
     info!(
         stream_id,
-        count = displayed_records.len(),
-        "emitting source history snapshot"
+        generation, total_records, "emitted source history"
     );
-    event_tx
-        .send(WorkerEvent::RecordsAppended {
+    send_event(
+        event_tx,
+        WorkerEvent::StreamHistoryEnd {
             stream_id,
-            records: displayed_records,
-        })
-        .map_err(|_| eyre!("failed to send history snapshot event: worker event channel closed"))?;
+            generation,
+            total_records,
+        },
+    )
+    .await?;
     Ok(())
 }
 
@@ -251,7 +294,7 @@ pub(super) fn spawn_live_updates_task(
     stream_id: StreamId,
     generation: u64,
     mut live_updates: tokio::sync::broadcast::Receiver<StreamRecord>,
-    internal_event_tx: UnboundedSender<WorkerInternalEvent>,
+    internal_event_tx: Sender<WorkerInternalEvent>,
     cancel: CancellationToken,
 ) -> tokio::task::JoinHandle<()> {
     tokio::spawn(async move {
@@ -269,6 +312,7 @@ pub(super) fn spawn_live_updates_task(
                                     generation,
                                     record,
                                 })
+                                .await
                                 .is_err()
                             {
                                 break;
@@ -281,16 +325,19 @@ pub(super) fn spawn_live_updates_task(
                                     generation,
                                     skipped,
                                 })
+                                .await
                                 .is_err()
                             {
                                 break;
                             }
                         }
                         Err(RecvError::Closed) => {
-                            let _ = internal_event_tx.send(WorkerInternalEvent::Closed {
-                                stream_id,
-                                generation,
-                            });
+                            let _ = internal_event_tx
+                                .send(WorkerInternalEvent::Closed {
+                                    stream_id,
+                                    generation,
+                                })
+                                .await;
                             break;
                         }
                     }

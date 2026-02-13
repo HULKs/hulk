@@ -200,10 +200,11 @@ Acceptance criteria:
 - FR-D03: Scrub anchors update scrub working window and prefetch hints.
 - FR-D04: Global follow-live mode can be toggled without losing per-panel record history.
 - FR-D05: Timeline supports pointer-centered zoom + drag-pan over a clamped viewport range.
-- FR-D06: Manual timeline interactions (scrub/pan/zoom/lane-scroll) immediately disable follow-live until `Jump Latest` or explicit re-enable.
+- FR-D06: Manual time interactions (scrub/pan/zoom) immediately disable follow-live until `Jump Latest` or explicit re-enable; lane-scroll does not disable follow-live.
 - FR-D07: Timeline y-axis is dynamic stream/topic lanes (virtualized window over many lanes), sorted lexicographically by canonical path then namespace.
 - FR-D08: Wheel interaction mapping is fixed: `Wheel = lane scroll`, `Shift+Wheel = time pan`, `Ctrl+Wheel = time zoom`.
 - FR-D09: Timeline markers use lane-local diamonds: one sample marker per visible sample at fine zoom; clustered stretched diamonds at coarse zoom using per-lane bucketing.
+- FR-D10: After follow-live is disabled, a zoomed/manual time window remains fixed in absolute time; if older history is trimmed, viewport clamps to nearest retained range without auto re-enabling follow-live.
 - FR-D10: Lane set includes active bindings and lanes that have produced samples in-session; unbound lanes with history can remain visible.
 
 ### FR-E Multi-Panel Workspace
@@ -238,6 +239,10 @@ Acceptance criteria:
 - FR-I01: UI frame loop must remain responsive under steady ingest.
 - FR-I02: Heavy operations (open/bind/query/decode) run off UI thread.
 - FR-I03: Scrub interactions avoid pathological query storms via debounce/rate limiting.
+- FR-I04: Worker->UI event ingestion is budgeted per frame by wall-time, event count, and byte budget.
+- FR-I05: Worker->UI event transport is bounded; backpressure prevents unbounded memory growth.
+- FR-I06: Repaint is event-driven with short-delay wakeups under activity; no unconditional idle polling loop.
+- FR-I07: UI->worker command transport is bounded; pending commands are buffered and flushed incrementally from the UI frame loop.
 
 ## 9. Non-Functional Requirements
 
@@ -326,6 +331,7 @@ Acceptance criteria:
 - Completed: parameter panel auto-loads values on committed node/path entry (no extra `Load` step), with `Apply` retained for explicit writes.
 - Completed: panel UI code split into individual modules under `app/panels/` and routed through a shared `Panel` trait-based interface.
 - Completed: timeline revamp phase 1 with viewport zoom/pan, manual-interaction follow-live handoff, viewport decimation, and dynamic lane-based rendering (`X = time`, `Y = stream lanes`).
+- Completed: timeline manual-window freeze semantics (absolute-time window while follow-live is off) with trim-time clamping to nearest retained range.
 - Completed: timeline canvas contract update (`TimelineCanvasInput`/`TimelineCanvasOutput`) with timestamp-based scrub selection plus pan/zoom gesture outputs.
 - Completed: timeline unit coverage for viewport math, manual-navigation handoff semantics, stream marker lifecycle, decimation properties, and pan/zoom mapping.
 - Completed: timeline lane lifecycle hardening with inactive-first eviction policy tests and lane-scroll clamping tests.
@@ -333,6 +339,12 @@ Acceptance criteria:
 - Completed: compact source stats in text panels (durable bounds and ingest/durable frontiers).
 - Completed: grouped `ViewerApp` state decomposition (`ShellState`, `DiscoveryState`, `TimelineState`, `WorkspaceState`, `RuntimeState`, `UiState`) and workspace-only `ViewerTab` model.
 - Completed: persistence version bump for shell/workspace split with intentional reset of legacy all-tab dock state.
+- Completed: bounded worker->UI event channel plus chunked history replay events (`StreamHistoryBegin/StreamRecordsChunk/StreamHistoryEnd`).
+- Completed: event envelope sizing and per-frame worker-event ingest budgets in the app update loop.
+- Completed: bounded UI->worker command channel with app-side pending command queue flushing.
+- Completed: event-driven repaint scheduling for active backlog/follow-live activity (`~10 ms`) with idle polling removed, plus worker wake notifications for idle-to-active transitions.
+- Completed: discovery steady-state patch events (`DiscoveryPatch`) with full snapshots kept for reconcile fallback.
+- Completed: compact runtime diagnostics strip (frame timing, events/frame bytes, queued event depth, pending command depth).
 
 ## 14. Known Limitations (Current Iteration)
 

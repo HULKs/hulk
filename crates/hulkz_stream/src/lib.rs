@@ -9,5 +9,5 @@ pub use backend::{SourceHandle, StreamBackend, StreamBackendBuilder, StreamDrive
 pub use error::{Error, Result};
 pub use types::{
     BackendStats, CacheStats, NamespaceBinding, OpenMode, PlaneKind, SourceSpec, SourceStats,
-    StreamRecord, TimelineBucket, TimelineSummary,
+    StreamChunk, StreamChunkReceiver, StreamRecord, TimelineBucket, TimelineSummary,
 };

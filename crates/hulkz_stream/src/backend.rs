@@ -16,8 +16,8 @@ use crate::{
     keyspace::{effective_namespace, from_nanos, source_key, to_nanos},
     storage::{DurableStats, Storage},
     types::{
-        BackendStats, OpenMode, PlaneKind, SourceSpec, SourceStats, StreamRecord, TimelineBucket,
-        TimelineSummary,
+        BackendStats, OpenMode, PlaneKind, SourceSpec, SourceStats, StreamChunk,
+        StreamChunkReceiver, StreamRecord, TimelineBucket, TimelineSummary,
     },
 };
 use hulkz::{Node, Session, Timestamp};
@@ -28,8 +28,10 @@ use tracing::{debug, info, trace, warn};
 const DEFAULT_CACHE_BUDGET_BYTES: usize = 64 * 1024 * 1024;
 const DEFAULT_MAX_SEGMENT_BYTES: u64 = 256 * 1024 * 1024;
 const DEFAULT_WRITE_QUEUE_CAPACITY: usize = 4096;
+const DEFAULT_SEGMENT_READ_CACHE_BYTES: usize = 64 * 1024 * 1024;
 const INGEST_CAPACITY: usize = 64;
 const LIVE_UPDATES_CAPACITY: usize = 1024;
+const RANGE_STREAM_CHANNEL_CAPACITY: usize = 8;
 
 pub struct StreamBackendBuilder {
     session: Session,
@@ -38,6 +40,7 @@ pub struct StreamBackendBuilder {
     cache_budget_bytes: usize,
     max_segment_bytes: u64,
     write_queue_capacity: usize,
+    segment_read_cache_bytes: usize,
 }
 
 impl StreamBackendBuilder {
@@ -50,6 +53,7 @@ impl StreamBackendBuilder {
             cache_budget_bytes: DEFAULT_CACHE_BUDGET_BYTES,
             max_segment_bytes: DEFAULT_MAX_SEGMENT_BYTES,
             write_queue_capacity: DEFAULT_WRITE_QUEUE_CAPACITY,
+            segment_read_cache_bytes: DEFAULT_SEGMENT_READ_CACHE_BYTES,
         }
     }
 
@@ -83,6 +87,12 @@ impl StreamBackendBuilder {
         self
     }
 
+    /// Sets read-cache budget for on-demand segment bytes used by durable queries.
+    pub fn segment_read_cache_bytes(mut self, bytes: usize) -> Self {
+        self.segment_read_cache_bytes = bytes;
+        self
+    }
+
     /// Builds backend handle and explicit driver future.
     pub async fn build(self) -> Result<(StreamBackend, StreamDriver)> {
         let storage_path = self
@@ -94,10 +104,17 @@ impl StreamBackendBuilder {
             cache_budget_bytes = self.cache_budget_bytes,
             max_segment_bytes = self.max_segment_bytes,
             write_queue_capacity = self.write_queue_capacity,
+            segment_read_cache_bytes = self.segment_read_cache_bytes,
             namespace = self.session.namespace(),
             "building stream backend",
         );
-        let storage = Storage::open(self.open_mode, storage_path, self.max_segment_bytes).await?;
+        let storage = Storage::open(
+            self.open_mode,
+            storage_path,
+            self.max_segment_bytes,
+            self.segment_read_cache_bytes,
+        )
+        .await?;
 
         let node = self
             .session
@@ -131,6 +148,8 @@ impl StreamBackendBuilder {
             writer_dequeued: AtomicU64::new(0),
             writer_queue_high_watermark: AtomicUsize::new(0),
             writer_backpressure_events: AtomicU64::new(0),
+            query_requests: AtomicU64::new(0),
+            range_stream_active: AtomicUsize::new(0),
         });
 
         let backend = StreamBackend {
@@ -248,6 +267,7 @@ impl StreamBackend {
         end: Timestamp,
         buckets: usize,
     ) -> Result<TimelineSummary> {
+        self.inner.note_query_request();
         if buckets == 0 {
             return Err(Error::InvalidBucketCount);
         }
@@ -324,6 +344,7 @@ impl SourceHandle {
 
     /// Returns the newest visible record for this logical source.
     pub async fn latest(&self) -> Result<Option<StreamRecord>> {
+        self.inner.note_query_request();
         let durable_frontier = self.stats_snapshot().durable_frontier;
         let cached_latest = {
             let mut cache = self.inner.cache.lock().await;
@@ -355,6 +376,7 @@ impl SourceHandle {
 
     /// Returns the newest visible record with timestamp `<= ts`.
     pub async fn before_or_equal(&self, ts: Timestamp) -> Result<Option<StreamRecord>> {
+        self.inner.note_query_request();
         let cached = {
             let mut cache = self.inner.cache.lock().await;
             let value = cache
@@ -385,6 +407,7 @@ impl SourceHandle {
 
     /// Returns the visible record closest to `ts`, preferring earlier timestamps on ties.
     pub async fn nearest(&self, ts: Timestamp) -> Result<Option<StreamRecord>> {
+        self.inner.note_query_request();
         let cached = {
             let mut cache = self.inner.cache.lock().await;
             let value = cache.nearest(&self.spec, ts).map(|r| r.as_ref().clone());
@@ -402,6 +425,7 @@ impl SourceHandle {
         start: Timestamp,
         end: Timestamp,
     ) -> Result<Vec<StreamRecord>> {
+        self.inner.note_query_request();
         let durable = self
             .inner
             .storage
@@ -425,6 +449,89 @@ impl SourceHandle {
         Ok(merged)
     }
 
+    /// Streams visible records in `[start, end]` using bounded chunks.
+    pub async fn range_inclusive_stream(
+        &self,
+        start: Timestamp,
+        end: Timestamp,
+        max_records_per_chunk: usize,
+    ) -> Result<StreamChunkReceiver> {
+        self.inner.note_query_request();
+        if max_records_per_chunk == 0 {
+            return Err(Error::InvalidBucketCount);
+        }
+        if start > end {
+            return Err(Error::InvalidTimelineRange);
+        }
+
+        self.inner.note_range_stream_start();
+        self.inner.publish_backend_stats_from_cache_lock().await;
+
+        let (tx, rx) = mpsc::channel(RANGE_STREAM_CHANNEL_CAPACITY);
+        let inner = self.inner.clone();
+        let spec = self.spec.clone();
+        let durable_frontier = self.stats_snapshot().durable_frontier;
+
+        tokio::spawn(async move {
+            let send_result = async {
+                inner
+                    .storage
+                    .stream_range_inclusive(&spec, start, end, max_records_per_chunk, &tx)
+                    .await?;
+
+                let cached_tail = inner
+                    .cache
+                    .lock()
+                    .await
+                    .range_inclusive_after(&spec, start, end, durable_frontier)
+                    .into_iter()
+                    .map(|record| record.as_ref().clone())
+                    .collect::<Vec<_>>();
+
+                for chunk in cached_tail.chunks(max_records_per_chunk) {
+                    if chunk.is_empty() {
+                        continue;
+                    }
+                    let records = chunk.to_vec();
+                    let approx_bytes = records
+                        .iter()
+                        .map(|record| record.payload.len())
+                        .sum::<usize>();
+                    if tx
+                        .send(Ok(StreamChunk {
+                            records,
+                            approx_bytes,
+                            is_last: false,
+                        }))
+                        .await
+                        .is_err()
+                    {
+                        return Ok::<(), Error>(());
+                    }
+                }
+
+                let _ = tx
+                    .send(Ok(StreamChunk {
+                        records: Vec::new(),
+                        approx_bytes: 0,
+                        is_last: true,
+                    }))
+                    .await;
+                Ok::<(), Error>(())
+            }
+            .await;
+
+            if let Err(error) = send_result {
+                let _ = tx.send(Err(error)).await;
+            }
+
+            inner.note_range_stream_finish();
+            inner.publish_backend_stats_from_cache_lock().await;
+        });
+
+        Ok(StreamChunkReceiver::new(rx))
+    }
+
     /// Returns bucketed timeline data for this source and range.
     pub async fn timeline(
         &self,
@@ -432,6 +539,7 @@ impl SourceHandle {
         end: Timestamp,
         buckets: usize,
     ) -> Result<TimelineSummary> {
+        self.inner.note_query_request();
         if buckets == 0 {
             return Err(Error::InvalidBucketCount);
         }
@@ -569,6 +677,8 @@ struct BackendInner {
     writer_dequeued: AtomicU64,
     writer_queue_high_watermark: AtomicUsize,
     writer_backpressure_events: AtomicU64,
+    query_requests: AtomicU64,
+    range_stream_active: AtomicUsize,
 }
 
 impl BackendInner {
@@ -576,6 +686,7 @@ impl BackendInner {
         let enqueued = self.writer_enqueued.load(Ordering::SeqCst);
         let dequeued = self.writer_dequeued.load(Ordering::SeqCst);
         let depth = enqueued.saturating_sub(dequeued) as usize;
+        let (query_cache_hits, query_cache_misses) = self.storage.query_cache_stats().await;
         self.backend_stats_tx.send_replace(BackendStats {
             active_sources: self.active_sources.load(Ordering::SeqCst),
             active_subscribers: self.active_subscribers.load(Ordering::SeqCst),
@@ -583,6 +694,10 @@ impl BackendInner {
             writer_queue_depth: depth,
             writer_queue_high_watermark: self.writer_queue_high_watermark.load(Ordering::SeqCst),
             writer_backpressure_events: self.writer_backpressure_events.load(Ordering::SeqCst),
+            query_requests: self.query_requests.load(Ordering::SeqCst),
+            query_cache_hits,
+            query_cache_misses,
+            range_stream_active: self.range_stream_active.load(Ordering::SeqCst),
         });
     }
 
@@ -618,6 +733,22 @@ impl BackendInner {
     fn note_backpressure_event(&self) {
         self.writer_backpressure_events
             .fetch_add(1, Ordering::SeqCst);
+    }
+
+    fn note_query_request(&self) {
+        self.query_requests.fetch_add(1, Ordering::SeqCst);
+    }
+
+    fn note_range_stream_start(&self) {
+        self.range_stream_active.fetch_add(1, Ordering::SeqCst);
+    }
+
+    fn note_range_stream_finish(&self) {
+        self.range_stream_active
+            .fetch_update(Ordering::SeqCst, Ordering::SeqCst, |value| {
+                Some(value.saturating_sub(1))
+            })
+            .ok();
     }
 }
 

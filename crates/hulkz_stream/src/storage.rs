@@ -1,5 +1,5 @@
 use std::{
-    collections::HashMap,
+    collections::{HashMap, VecDeque},
     fs::{self, File, OpenOptions},
     io::BufWriter,
     path::{Path, PathBuf},
@@ -14,7 +14,7 @@ use mcap::{
     write::{WriteOptions, Writer},
 };
 use serde::{Deserialize, Serialize};
-use tokio::sync::Mutex;
+use tokio::sync::{mpsc, Mutex};
 use tracing::{debug, info, trace, warn};
 
 use crate::{
@@ -24,7 +24,7 @@ use crate::{
         metadata_for_record, source_from_topic_and_metadata, source_key,
         timestamp_id_from_metadata, to_nanos,
     },
-    types::{OpenMode, SourceSpec, SourceStats, StreamRecord},
+    types::{OpenMode, SourceSpec, SourceStats, StreamChunk, StreamRecord},
 };
 
 /// Current on-disk manifest schema version.
@@ -111,6 +111,12 @@ struct StorageState {
     sealed_indexes: HashMap<u64, SegmentIndex>,
     source_index: HashMap<String, Vec<DurablePointer>>,
     next_external_segment_id: u64,
+    segment_read_cache_bytes: usize,
+    segment_cache_bytes_used: usize,
+    segment_bytes_cache: HashMap<u64, Arc<[u8]>>,
+    segment_cache_order: VecDeque<u64>,
+    query_cache_hits: u64,
+    query_cache_misses: u64,
 }
 
 #[derive(Clone)]
@@ -120,11 +126,17 @@ pub struct Storage {
 
 impl Storage {
     /// Opens managed storage (manifest + segments) or an external read-only MCAP path.
-    pub async fn open(mode: OpenMode, path: PathBuf, max_segment_bytes: u64) -> Result<Self> {
+    pub async fn open(
+        mode: OpenMode,
+        path: PathBuf,
+        max_segment_bytes: u64,
+        segment_read_cache_bytes: usize,
+    ) -> Result<Self> {
         info!(
             ?mode,
             storage_path = %path.display(),
             max_segment_bytes,
+            segment_read_cache_bytes,
             "opening storage",
         );
         let mut state = if path.is_file() {
@@ -149,6 +161,12 @@ impl Storage {
                 sealed_indexes: HashMap::new(),
                 source_index: HashMap::new(),
                 next_external_segment_id: 1,
+                segment_read_cache_bytes,
+                segment_cache_bytes_used: 0,
+                segment_bytes_cache: HashMap::new(),
+                segment_cache_order: VecDeque::new(),
+                query_cache_hits: 0,
+                query_cache_misses: 0,
             };
             state.rebuild_indexes_and_stats()?;
             state
@@ -181,6 +199,12 @@ impl Storage {
                 sealed_indexes: HashMap::new(),
                 source_index: HashMap::new(),
                 next_external_segment_id: 1,
+                segment_read_cache_bytes,
+                segment_cache_bytes_used: 0,
+                segment_bytes_cache: HashMap::new(),
+                segment_cache_order: VecDeque::new(),
+                query_cache_hits: 0,
+                query_cache_misses: 0,
             };
 
             if manifest_path.exists() {
@@ -249,7 +273,7 @@ impl Storage {
 
     /// Returns newest durable record for the source.
     pub async fn query_latest(&self, spec: &SourceSpec) -> Result<Option<StreamRecord>> {
-        let guard = self.inner.lock().await;
+        let mut guard = self.inner.lock().await;
         let source = source_key(spec);
 
         let sealed_candidate = guard
@@ -287,7 +311,7 @@ impl Storage {
         spec: &SourceSpec,
         timestamp: Timestamp,
     ) -> Result<Option<StreamRecord>> {
-        let guard = self.inner.lock().await;
+        let mut guard = self.inner.lock().await;
         let source = source_key(spec);
         let target = to_nanos(&timestamp);
 
@@ -329,7 +353,7 @@ impl Storage {
         spec: &SourceSpec,
         timestamp: Timestamp,
     ) -> Result<Option<StreamRecord>> {
-        let guard = self.inner.lock().await;
+        let mut guard = self.inner.lock().await;
         let source = source_key(spec);
         let target = to_nanos(&timestamp);
 
@@ -374,7 +398,7 @@ impl Storage {
         start: Timestamp,
         end: Timestamp,
     ) -> Result<Vec<StreamRecord>> {
-        let guard = self.inner.lock().await;
+        let mut guard = self.inner.lock().await;
         let source = source_key(spec);
         let start_nanos = to_nanos(&start);
         let end_nanos = to_nanos(&end);
@@ -407,7 +431,7 @@ impl Storage {
         start: Timestamp,
         end: Timestamp,
     ) -> Result<Vec<StreamRecord>> {
-        let guard = self.inner.lock().await;
+        let mut guard = self.inner.lock().await;
         let start_nanos = to_nanos(&start);
         let end_nanos = to_nanos(&end);
 
@@ -443,6 +467,92 @@ impl Storage {
         Ok(records)
     }
 
+    /// Streams durable records for a source in range without materializing all records at once.
+    pub async fn stream_range_inclusive(
+        &self,
+        spec: &SourceSpec,
+        start: Timestamp,
+        end: Timestamp,
+        max_records_per_chunk: usize,
+        tx: &mpsc::Sender<Result<StreamChunk>>,
+    ) -> Result<usize> {
+        if max_records_per_chunk == 0 {
+            return Ok(0);
+        }
+
+        let source = source_key(spec);
+        let start_nanos = to_nanos(&start);
+        let end_nanos = to_nanos(&end);
+
+        let (pointers, active_records) = {
+            let guard = self.inner.lock().await;
+            let pointers = guard
+                .source_index
+                .get(&source)
+                .map(|entries| select_range_pointers(entries, start_nanos, end_nanos))
+                .unwrap_or_default();
+
+            let active_records = guard
+                .active_by_source
+                .get(&source)
+                .map(|indices| {
+                    indices
+                        .iter()
+                        .copied()
+                        .filter_map(|index| guard.active_records.get(index).cloned())
+                        .filter(|record| record.timestamp >= start && record.timestamp <= end)
+                        .collect::<Vec<_>>()
+                })
+                .unwrap_or_default();
+
+            (pointers, active_records)
+        };
+
+        let mut emitted = 0_usize;
+        for pointer_chunk in pointers.chunks(max_records_per_chunk) {
+            let records = {
+                let mut guard = self.inner.lock().await;
+                guard.fetch_pointers(pointer_chunk)?
+            };
+            if records.is_empty() {
+                continue;
+            }
+            emitted = emitted.saturating_add(records.len());
+            let approx_bytes = records
+                .iter()
+                .map(|record| record.payload.len())
+                .sum::<usize>();
+            tx.send(Ok(StreamChunk {
+                records,
+                approx_bytes,
+                is_last: false,
+            }))
+            .await
+            .map_err(|_| Error::BackendClosed)?;
+        }
+
+        for active_chunk in active_records.chunks(max_records_per_chunk) {
+            if active_chunk.is_empty() {
+                continue;
+            }
+            let records = active_chunk.to_vec();
+            emitted = emitted.saturating_add(records.len());
+            let approx_bytes = records
+                .iter()
+                .map(|record| record.payload.len())
+                .sum::<usize>();
+            tx.send(Ok(StreamChunk {
+                records,
+                approx_bytes,
+                is_last: false,
+            }))
+            .await
+            .map_err(|_| Error::BackendClosed)?;
+        }
+
+        Ok(emitted)
+    }
+
     pub async fn shutdown(&self) -> Result<()> {
         let mut guard = self.inner.lock().await;
         guard.shutdown()
@@ -464,6 +574,11 @@ impl Storage {
     pub async fn durable_global_frontier(&self) -> Option<Timestamp> {
         let guard = self.inner.lock().await;
         guard.durable_stats.values().filter_map(|s| s.latest).max()
+    }
+
+    pub async fn query_cache_stats(&self) -> (u64, u64) {
+        let guard = self.inner.lock().await;
+        (guard.query_cache_hits, guard.query_cache_misses)
     }
 }
 
@@ -649,6 +764,9 @@ impl StorageState {
         self.sealed_indexes.clear();
         self.source_index.clear();
         self.durable_stats.clear();
+        self.segment_bytes_cache.clear();
+        self.segment_cache_order.clear();
+        self.segment_cache_bytes_used = 0;
 
         if let Some(manifest) = &self.manifest {
             let segments: Vec<ManifestSegment> = manifest.segments.to_vec();
@@ -770,7 +888,71 @@ impl StorageState {
             .and_then(|message| message.timestamp_id.clone())
     }
 
-    fn fetch_pointers(&self, pointers: &[DurablePointer]) -> Result<Vec<StreamRecord>> {
+    fn load_segment_bytes(&mut self, segment_id: u64, path: &Path) -> Result<Arc<[u8]>> {
+        if let Some(bytes) = self.segment_bytes_cache.get(&segment_id).cloned() {
+            self.query_cache_hits = self.query_cache_hits.saturating_add(1);
+            self.touch_segment_cache_entry(segment_id);
+            return Ok(bytes);
+        }
+
+        self.query_cache_misses = self.query_cache_misses.saturating_add(1);
+        let bytes = Arc::<[u8]>::from(fs::read(path)?.into_boxed_slice());
+        self.insert_segment_cache_entry(segment_id, bytes.clone());
+        Ok(bytes)
+    }
+
+    fn touch_segment_cache_entry(&mut self, segment_id: u64) {
+        if let Some(index) = self
+            .segment_cache_order
+            .iter()
+            .position(|id| *id == segment_id)
+        {
+            let _ = self.segment_cache_order.remove(index);
+        }
+        self.segment_cache_order.push_back(segment_id);
+    }
+
+    fn insert_segment_cache_entry(&mut self, segment_id: u64, bytes: Arc<[u8]>) {
+        if self.segment_read_cache_bytes == 0 {
+            return;
+        }
+
+        if let Some(existing) = self.segment_bytes_cache.remove(&segment_id) {
+            self.segment_cache_bytes_used =
+                self.segment_cache_bytes_used.saturating_sub(existing.len());
+        }
+        if let Some(index) = self
+            .segment_cache_order
+            .iter()
+            .position(|id| *id == segment_id)
+        {
+            let _ = self.segment_cache_order.remove(index);
+        }
+
+        let size = bytes.len();
+        if size > self.segment_read_cache_bytes {
+            self.segment_bytes_cache.clear();
+            self.segment_cache_order.clear();
+            self.segment_cache_bytes_used = 0;
+            return;
+        }
+
+        self.segment_cache_bytes_used = self.segment_cache_bytes_used.saturating_add(size);
+        self.segment_bytes_cache.insert(segment_id, bytes);
+        self.segment_cache_order.push_back(segment_id);
+
+        while self.segment_cache_bytes_used > self.segment_read_cache_bytes {
+            let Some(evicted_segment) = self.segment_cache_order.pop_front() else {
+                break;
+            };
+            if let Some(evicted) = self.segment_bytes_cache.remove(&evicted_segment) {
+                self.segment_cache_bytes_used =
+                    self.segment_cache_bytes_used.saturating_sub(evicted.len());
+            }
+        }
+    }
+
+    fn fetch_pointers(&mut self, pointers: &[DurablePointer]) -> Result<Vec<StreamRecord>> {
         let mut grouped: HashMap<u64, Vec<DurablePointer>> = HashMap::new();
         for pointer in pointers {
             grouped
@@ -782,32 +964,40 @@ impl StorageState {
         let mut records = Vec::with_capacity(pointers.len());
 
         for (segment_id, segment_pointers) in grouped {
-            let Some(segment_index) = self.sealed_indexes.get(&segment_id) else {
+            let Some(segment_path) = self
+                .sealed_indexes
+                .get(&segment_id)
+                .map(|segment_index| segment_index.path.clone())
+            else {
                 continue;
             };
 
             let needs_summary = segment_pointers.iter().any(|pointer| {
-                matches!(
-                    segment_index
-                        .messages
-                        .get(pointer.message_index)
-                        .map(|m| &m.locator),
-                    Some(MessageLocator::Summary { .. })
-                )
+                self.sealed_indexes
+                    .get(&segment_id)
+                    .and_then(|segment_index| segment_index.messages.get(pointer.message_index))
+                    .is_some_and(|message| {
+                        matches!(message.locator, MessageLocator::Summary { .. })
+                    })
             });
 
             let bytes = if needs_summary {
-                Some(fs::read(&segment_index.path)?)
+                Some(self.load_segment_bytes(segment_id, &segment_path)?)
             } else {
                 None
             };
             let summary = match &bytes {
-                Some(bytes) => Summary::read(bytes)?,
+                Some(bytes) => Summary::read(bytes.as_ref())?,
                 None => None,
             };
 
             for pointer in segment_pointers {
-                let Some(message) = segment_index.messages.get(pointer.message_index) else {
+                let Some(message) = self
+                    .sealed_indexes
+                    .get(&segment_id)
+                    .and_then(|segment_index| segment_index.messages.get(pointer.message_index))
+                    .cloned()
+                else {
                     continue;
                 };
 
@@ -823,7 +1013,7 @@ impl StorageState {
                             .chunk_indexes
                             .get(*chunk_index)
                             .ok_or(Error::BadDurableIndex)?;
-                        let fetched = summary.seek_message(bytes, chunk, entry)?;
+                        let fetched = summary.seek_message(bytes.as_ref(), chunk, entry)?;
                         Arc::from(fetched.data.into_owned().into_boxed_slice())
                     }
                 };
@@ -841,7 +1031,7 @@ impl StorageState {
         Ok(records)
     }
 
-    fn fetch_pointer(&self, pointer: DurablePointer) -> Result<StreamRecord> {
+    fn fetch_pointer(&mut self, pointer: DurablePointer) -> Result<StreamRecord> {
         self.fetch_pointers(&[pointer])
             .map(|mut records| records.pop())
             .and_then(|record| record.ok_or(Error::BadDurableIndex))

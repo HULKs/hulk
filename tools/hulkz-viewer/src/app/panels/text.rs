@@ -17,10 +17,7 @@ impl Panel for TextPanel {
                 .checkbox(&mut override_enabled, "Override namespace")
                 .changed()
             {
-                stream.set_namespace_override_enabled(
-                    override_enabled,
-                    &app.ui.default_namespace_input,
-                );
+                stream.set_namespace_override_enabled(override_enabled, &app.ui.default_namespace);
             }
 
             if let Some(override_namespace) = stream.namespace_override_text_mut() {
@@ -40,9 +37,7 @@ impl Panel for TextPanel {
             );
         });
 
-        let has_binding = stream
-            .binding_request(&app.ui.default_namespace_input)
-            .is_some();
+        let has_binding = stream.binding_request(&app.ui.default_namespace).is_some();
         let state = app.workspace.stream_states.get(&stream.id);
         ui.add_space(6.0);
         if let Some(state) = state {

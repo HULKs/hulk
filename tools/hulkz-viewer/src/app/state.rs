@@ -1,6 +1,7 @@
 use std::{
     collections::{BTreeMap, VecDeque},
     path::PathBuf,
+    sync::{atomic::AtomicBool, Arc},
     time::{Duration, Instant},
 };
 
@@ -13,7 +14,8 @@ use tokio_util::sync::CancellationToken;
 
 use crate::model::{
     DiscoveredParameter, DiscoveredPublisher, DiscoveredSession, DisplayedRecord,
-    ParameterReference, SourceBindingRequest, StreamId, ViewerConfig, WorkerCommand, WorkerEvent,
+    ParameterReference, SourceBindingRequest, StreamId, ViewerConfig, WorkerCommand,
+    WorkerEventEnvelope,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize, Default)]
@@ -194,15 +196,18 @@ pub(super) struct PersistedUiState {
 
 #[derive(Debug, Default)]
 pub(super) struct StreamRuntimeState {
+    pub(super) generation: u64,
     pub(super) source_label: String,
     pub(super) current_record: Option<DisplayedRecord>,
     pub(super) source_stats: Option<SourceStats>,
+    pub(super) history_loading: bool,
+    pub(super) history_total_records: usize,
 }
 
 #[derive(Debug, Clone, Copy, Default)]
 pub(crate) struct TimelineViewportState {
     pub(crate) span: Option<Duration>,
-    pub(crate) pan_offset_ns: i64,
+    pub(crate) manual_end_ns: Option<u64>,
     pub(crate) lane_scroll_offset: f32,
     pub(crate) lane_height_px: f32,
 }
@@ -282,6 +287,8 @@ pub(super) struct TimelineState {
     pub(super) timeline_viewport: TimelineViewportState,
     pub(super) stream_lane_bindings: BTreeMap<StreamId, TimelineLaneKey>,
     pub(super) timeline_lanes: BTreeMap<TimelineLaneKey, TimelineLaneState>,
+    pub(super) lane_order_cache: Vec<TimelineLaneKey>,
+    pub(super) lane_order_dirty: bool,
     pub(super) pending_scrub_anchor: Option<u64>,
     pub(super) last_scrub_emitted: Instant,
 }
@@ -299,8 +306,10 @@ pub(super) struct RuntimeState {
     pub(super) runtime: Runtime,
     pub(super) worker_task: Option<tokio::task::JoinHandle<()>>,
     pub(super) cancellation_token: CancellationToken,
-    pub(super) command_tx: mpsc::UnboundedSender<WorkerCommand>,
-    pub(super) event_rx: mpsc::UnboundedReceiver<WorkerEvent>,
+    pub(super) command_tx: mpsc::Sender<WorkerCommand>,
+    pub(super) pending_commands: VecDeque<WorkerCommand>,
+    pub(super) worker_wake_armed: Arc<AtomicBool>,
+    pub(super) event_rx: mpsc::Receiver<WorkerEventEnvelope>,
     pub(super) shutdown_started: bool,
 }
 
@@ -308,10 +317,15 @@ pub(super) struct RuntimeState {
 pub(super) struct UiState {
     pub(super) ingest_enabled: bool,
     pub(super) follow_live: bool,
+    pub(super) default_namespace: String,
     pub(super) default_namespace_input: String,
     pub(super) ready: bool,
     pub(super) last_error: Option<String>,
     pub(super) backend_stats: Option<BackendStats>,
+    pub(super) frame_last_ms: f32,
+    pub(super) frame_ema_ms: f32,
+    pub(super) frame_processed_events: usize,
+    pub(super) frame_processed_event_bytes: usize,
 }
 
 pub(super) const MIN_TIMELINE_SPAN: Duration = Duration::from_millis(50);

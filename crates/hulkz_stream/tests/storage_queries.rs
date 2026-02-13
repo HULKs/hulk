@@ -34,9 +34,14 @@ fn record(nanos: u64, payload: &'static [u8]) -> StreamRecord {
 #[tokio::test]
 async fn storage_query_operators_roundtrip() {
     let temp = tempfile::tempdir().unwrap();
-    let storage = Storage::open(OpenMode::ReadWrite, temp.path().to_path_buf(), 1024)
-        .await
-        .unwrap();
+    let storage = Storage::open(
+        OpenMode::ReadWrite,
+        temp.path().to_path_buf(),
+        1024,
+        1024 * 1024,
+    )
+    .await
+    .unwrap();
 
     storage.append(record(100, b"a")).await.unwrap();
     storage.append(record(200, b"b")).await.unwrap();
@@ -67,9 +72,14 @@ async fn storage_query_operators_roundtrip() {
 
     storage.shutdown().await.unwrap();
 
-    let readonly = Storage::open(OpenMode::ReadOnly, temp.path().to_path_buf(), 1024)
-        .await
-        .unwrap();
+    let readonly = Storage::open(
+        OpenMode::ReadOnly,
+        temp.path().to_path_buf(),
+        1024,
+        1024 * 1024,
+    )
+    .await
+    .unwrap();
     let latest_after_reopen = readonly.query_latest(&spec()).await.unwrap().unwrap();
     assert_eq!(latest_after_reopen.timestamp, ts(300));
 }
@@ -77,9 +87,14 @@ async fn storage_query_operators_roundtrip() {
 #[tokio::test]
 async fn indexed_queries_remain_correct_after_segment_roll_and_restart() {
     let temp = tempfile::tempdir().unwrap();
-    let storage = Storage::open(OpenMode::ReadWrite, temp.path().to_path_buf(), 1)
-        .await
-        .unwrap();
+    let storage = Storage::open(
+        OpenMode::ReadWrite,
+        temp.path().to_path_buf(),
+        1,
+        1024 * 1024,
+    )
+    .await
+    .unwrap();
 
     for ts in [10_u64, 20, 30, 40, 50] {
         storage.append(record(ts, b"x")).await.unwrap();
@@ -87,9 +102,14 @@ async fn indexed_queries_remain_correct_after_segment_roll_and_restart() {
 
     storage.shutdown().await.unwrap();
 
-    let reopened = Storage::open(OpenMode::ReadOnly, temp.path().to_path_buf(), 1)
-        .await
-        .unwrap();
+    let reopened = Storage::open(
+        OpenMode::ReadOnly,
+        temp.path().to_path_buf(),
+        1,
+        1024 * 1024,
+    )
+    .await
+    .unwrap();
 
     let latest = reopened.query_latest(&spec()).await.unwrap().unwrap();
     assert_eq!(latest.timestamp, ts(50));
@@ -119,17 +139,27 @@ async fn indexed_queries_remain_correct_after_segment_roll_and_restart() {
 async fn reopen_after_ungraceful_drop_recovers_latest_data() {
     let temp = tempfile::tempdir().unwrap();
     {
-        let storage = Storage::open(OpenMode::ReadWrite, temp.path().to_path_buf(), 1024)
-            .await
-            .unwrap();
+        let storage = Storage::open(
+            OpenMode::ReadWrite,
+            temp.path().to_path_buf(),
+            1024,
+            1024 * 1024,
+        )
+        .await
+        .unwrap();
         storage.append(record(10, b"a")).await.unwrap();
         storage.append(record(20, b"b")).await.unwrap();
         // Intentionally skip shutdown to exercise recovery path on next open.
     }
 
-    let reopened = Storage::open(OpenMode::ReadOnly, temp.path().to_path_buf(), 1024)
-        .await
-        .unwrap();
+    let reopened = Storage::open(
+        OpenMode::ReadOnly,
+        temp.path().to_path_buf(),
+        1024,
+        1024 * 1024,
+    )
+    .await
+    .unwrap();
     let latest = reopened.query_latest(&spec()).await.unwrap().unwrap();
     assert_eq!(latest.timestamp, ts(20));
 }
@@ -137,18 +167,28 @@ async fn reopen_after_ungraceful_drop_recovers_latest_data() {
 #[tokio::test]
 async fn indexed_query_smoke_with_many_segments() {
     let temp = tempfile::tempdir().unwrap();
-    let storage = Storage::open(OpenMode::ReadWrite, temp.path().to_path_buf(), 1)
-        .await
-        .unwrap();
+    let storage = Storage::open(
+        OpenMode::ReadWrite,
+        temp.path().to_path_buf(),
+        1,
+        1024 * 1024,
+    )
+    .await
+    .unwrap();
 
     for ts in 0..400_u64 {
         storage.append(record(ts, b"x")).await.unwrap();
     }
     storage.shutdown().await.unwrap();
 
-    let reopened = Storage::open(OpenMode::ReadOnly, temp.path().to_path_buf(), 1)
-        .await
-        .unwrap();
+    let reopened = Storage::open(
+        OpenMode::ReadOnly,
+        temp.path().to_path_buf(),
+        1,
+        1024 * 1024,
+    )
+    .await
+    .unwrap();
 
     timeout(Duration::from_secs(2), async {
         for query in [15_u64, 120, 255, 399] {
@@ -205,7 +245,7 @@ async fn load_external_mcap_best_effort() {
         writer.finish().unwrap();
     }
 
-    let storage = Storage::open(OpenMode::ReadOnly, file.clone(), 1024)
+    let storage = Storage::open(OpenMode::ReadOnly, file.clone(), 1024, 1024 * 1024)
         .await
         .unwrap();
 

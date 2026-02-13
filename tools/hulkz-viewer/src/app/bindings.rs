@@ -13,13 +13,13 @@ use super::{
 impl ViewerApp {
     pub(super) fn update_discovery_namespace(&mut self) {
         self.send_command(WorkerCommand::SetDiscoveryNamespace(
-            self.ui.default_namespace_input.trim().to_string(),
+            self.ui.default_namespace.trim().to_string(),
         ));
     }
 
     fn apply_panel_binding(&mut self, panel: &TextPanelTab) {
         let stream_id = panel.id;
-        if let Some(request) = panel.binding_request(&self.ui.default_namespace_input) {
+        if let Some(request) = panel.binding_request(&self.ui.default_namespace) {
             self.send_command(WorkerCommand::BindStream { stream_id, request });
         } else {
             self.send_command(WorkerCommand::RemoveStream { stream_id });
@@ -70,7 +70,7 @@ impl ViewerApp {
                     ..StreamRuntimeState::default()
                 });
 
-            let desired_request = panel.binding_request(&self.ui.default_namespace_input);
+            let desired_request = panel.binding_request(&self.ui.default_namespace);
             let previous_request = self.workspace.binding_cache.get(&panel.id);
             if previous_request != Some(&desired_request) {
                 self.apply_panel_binding(&panel);
@@ -146,11 +146,15 @@ impl ViewerApp {
     pub(super) fn set_default_namespace(&mut self) {
         let namespace = self.ui.default_namespace_input.trim().to_string();
         self.ui.default_namespace_input = namespace;
+        if self.ui.default_namespace == self.ui.default_namespace_input {
+            return;
+        }
+        self.ui.default_namespace = self.ui.default_namespace_input.clone();
         self.update_discovery_namespace();
     }
 
     pub(super) fn parameter_node_candidates(&self, panel: &ParameterPanelTab) -> Vec<String> {
-        let Some(namespace) = panel.effective_namespace(&self.ui.default_namespace_input) else {
+        let Some(namespace) = panel.effective_namespace(&self.ui.default_namespace) else {
             return Vec::new();
         };
         let namespace_filter = namespace.as_str();
@@ -172,7 +176,7 @@ impl ViewerApp {
     }
 
     pub(super) fn parameter_path_candidates(&self, panel: &ParameterPanelTab) -> Vec<String> {
-        let Some(namespace) = panel.effective_namespace(&self.ui.default_namespace_input) else {
+        let Some(namespace) = panel.effective_namespace(&self.ui.default_namespace) else {
             return Vec::new();
         };
         let namespace_filter = namespace.as_str();
@@ -197,7 +201,7 @@ impl ViewerApp {
         &self,
         panel: &ParameterPanelTab,
     ) -> Result<ParameterReference, String> {
-        let Some(namespace) = panel.effective_namespace(&self.ui.default_namespace_input) else {
+        let Some(namespace) = panel.effective_namespace(&self.ui.default_namespace) else {
             return Err("Set a default namespace first.".to_string());
         };
         let namespace_filter = namespace.as_str();
@@ -243,7 +247,7 @@ impl ViewerApp {
     }
 
     pub(super) fn source_path_candidates(&self, stream: &TextPanelTab) -> Vec<String> {
-        let effective_namespace = stream.effective_namespace(&self.ui.default_namespace_input);
+        let effective_namespace = stream.effective_namespace(&self.ui.default_namespace);
 
         let mut candidates = BTreeSet::new();
         for publisher in &self.discovery.publishers {

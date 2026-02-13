@@ -14,12 +14,16 @@ impl Panel for TimelinePanel {
 
     fn draw(app: &mut ViewerApp, ui: &mut egui::Ui, _state: &mut Self::State) {
         ui.horizontal(|ui| {
+            let before_follow_live = app.ui.follow_live;
             if ui
                 .checkbox(&mut app.ui.follow_live, "Follow live")
                 .changed()
-                && app.ui.follow_live
             {
-                app.jump_latest_internal(true);
+                if app.ui.follow_live {
+                    app.jump_latest_internal(true);
+                } else if before_follow_live {
+                    app.freeze_timeline_window_at_current_range();
+                }
             }
 
             if ui.button("Prev").clicked() {
@@ -114,7 +118,6 @@ impl Panel for TimelinePanel {
             canvas_output.selected_timestamp_ns,
             canvas_output.pan_delta_fraction,
             canvas_output.zoom_factor,
-            canvas_output.lane_scroll_delta,
         ) {
             app.mark_manual_timeline_navigation();
         }

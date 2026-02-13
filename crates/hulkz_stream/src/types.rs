@@ -4,7 +4,10 @@ use std::{
 };
 
 use hulkz::{Scope, ScopedPath, Timestamp};
+use tokio::sync::mpsc;
 use zenoh::bytes::Encoding;
+
+use crate::error::Result;
 
 /// Backend access mode.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -122,6 +125,14 @@ pub struct BackendStats {
     pub writer_queue_high_watermark: usize,
     /// Number of times ingest encountered a full writer queue and had to wait.
     pub writer_backpressure_events: u64,
+    /// Number of point/range query requests served since backend start.
+    pub query_requests: u64,
+    /// Read-cache hits while serving durable query paths.
+    pub query_cache_hits: u64,
+    /// Read-cache misses while serving durable query paths.
+    pub query_cache_misses: u64,
+    /// Number of active range stream workers.
+    pub range_stream_active: usize,
 }
 
 /// One aggregate timeline bucket.
@@ -140,4 +151,27 @@ pub struct TimelineSummary {
     pub buckets: Vec<TimelineBucket>,
     pub ingest_frontier: Option<Timestamp>,
     pub durable_frontier: Option<Timestamp>,
+}
+
+/// One chunk in a streamed historical range query.
+#[derive(Debug, Clone)]
+pub struct StreamChunk {
+    pub records: Vec<StreamRecord>,
+    pub approx_bytes: usize,
+    pub is_last: bool,
+}
+
+/// Receiver for chunked historical range responses.
+pub struct StreamChunkReceiver {
+    inner: mpsc::Receiver<Result<StreamChunk>>,
+}
+
+impl StreamChunkReceiver {
+    pub(crate) fn new(inner: mpsc::Receiver<Result<StreamChunk>>) -> Self {
+        Self { inner }
+    }
+
+    pub async fn recv(&mut self) -> Option<Result<StreamChunk>> {
+        self.inner.recv().await
+    }
 }

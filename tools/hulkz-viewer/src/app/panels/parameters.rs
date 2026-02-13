@@ -22,7 +22,7 @@ impl Panel for ParametersPanel {
                 .changed()
             {
                 panel.namespace_selection = if override_enabled {
-                    NamespaceSelection::Override(app.ui.default_namespace_input.trim().to_string())
+                    NamespaceSelection::Override(app.ui.default_namespace.trim().to_string())
                 } else {
                     NamespaceSelection::FollowDefault
                 };
@@ -34,7 +34,7 @@ impl Panel for ParametersPanel {
             }
         });
 
-        let Some(namespace) = panel.effective_namespace(&app.ui.default_namespace_input) else {
+        let Some(namespace) = panel.effective_namespace(&app.ui.default_namespace) else {
             ui.add_space(6.0);
             ui.label("Set a default namespace first.");
             return;

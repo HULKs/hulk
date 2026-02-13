@@ -5,7 +5,9 @@ use super::run_worker;
 use super::streams::{
     parse_source_path_expression, to_discovered_parameter, to_discovered_publisher,
 };
-use crate::model::{ParameterReference, ViewerConfig, WorkerCommand, WorkerEvent};
+use crate::model::{
+    ParameterReference, ViewerConfig, WorkerCommand, WorkerEvent, WorkerEventEnvelope,
+};
 use hulkz::{ParameterInfo, PublisherInfo, Scope, Session};
 use hulkz_stream::PlaneKind;
 use serde::Serialize;
@@ -29,7 +31,7 @@ fn unique_namespace(prefix: &str) -> String {
 }
 
 async fn recv_event_matching<F>(
-    rx: &mut mpsc::UnboundedReceiver<WorkerEvent>,
+    rx: &mut mpsc::Receiver<WorkerEventEnvelope>,
     timeout: Duration,
     mut predicate: F,
 ) -> Option<WorkerEvent>
@@ -44,9 +46,9 @@ where
         }
         let remaining = deadline - now;
         match tokio::time::timeout(remaining, rx.recv()).await {
-            Ok(Some(event)) => {
-                if predicate(&event) {
-                    return Some(event);
+            Ok(Some(envelope)) => {
+                if predicate(&envelope.event) {
+                    return Some(envelope.event);
                 }
             }
             Ok(None) | Err(_) => return None,
@@ -55,11 +57,11 @@ where
 }
 
 async fn shutdown_worker_task(
-    command_tx: mpsc::UnboundedSender<WorkerCommand>,
+    command_tx: mpsc::Sender<WorkerCommand>,
     cancel: CancellationToken,
     task: tokio::task::JoinHandle<()>,
 ) {
-    let _ = command_tx.send(WorkerCommand::Shutdown);
+    let _ = command_tx.send(WorkerCommand::Shutdown).await;
     cancel.cancel();
     let _ = tokio::time::timeout(Duration::from_secs(3), task).await;
 }
@@ -158,8 +160,8 @@ fn parameter_access_parts_normalize_private_path() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn integration_worker_binds_and_receives_live_updates() {
     let namespace = unique_namespace("viewer-live");
-    let (command_tx, command_rx) = mpsc::unbounded_channel();
-    let (event_tx, mut event_rx) = mpsc::unbounded_channel();
+    let (command_tx, command_rx) = mpsc::channel(128);
+    let (event_tx, mut event_rx) = mpsc::channel(512);
     let cancel = CancellationToken::new();
     let config = ViewerConfig {
         namespace: namespace.clone(),
@@ -167,7 +169,13 @@ async fn integration_worker_binds_and_receives_live_updates() {
         storage_path: Some(session_storage_path()),
         ..ViewerConfig::default()
     };
-    let worker_task = tokio::spawn(run_worker(config, command_rx, event_tx, cancel.clone()));
+    let worker_task = tokio::spawn(run_worker(
+        config,
+        command_rx,
+        event_tx,
+        cancel.clone(),
+        None,
+    ));
 
     let ready = recv_event_matching(&mut event_rx, Duration::from_secs(6), |event| {
         matches!(event, WorkerEvent::Ready)
@@ -184,6 +192,7 @@ async fn integration_worker_binds_and_receives_live_updates() {
                 path_expression: "odometry".to_string(),
             },
         })
+        .await
         .expect("bind command send failed");
 
     let bound = recv_event_matching(&mut event_rx, Duration::from_secs(6), |event| {
@@ -224,16 +233,17 @@ async fn integration_worker_binds_and_receives_live_updates() {
     let records_event = recv_event_matching(&mut event_rx, Duration::from_secs(6), |event| {
         matches!(
             event,
-            WorkerEvent::RecordsAppended {
+            WorkerEvent::StreamRecordsChunk {
                 stream_id: 1,
-                records
+                records,
+                ..
             } if !records.is_empty()
         )
     })
     .await;
     assert!(
         records_event.is_some(),
-        "worker did not emit RecordsAppended for live data"
+        "worker did not emit live stream chunk"
     );
 
     shutdown_worker_task(command_tx, cancel, worker_task).await;
@@ -242,8 +252,8 @@ async fn integration_worker_binds_and_receives_live_updates() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn integration_discovery_snapshot_includes_sessions() {
     let namespace = unique_namespace("viewer-discovery");
-    let (command_tx, command_rx) = mpsc::unbounded_channel();
-    let (event_tx, mut event_rx) = mpsc::unbounded_channel();
+    let (command_tx, command_rx) = mpsc::channel(128);
+    let (event_tx, mut event_rx) = mpsc::channel(512);
     let cancel = CancellationToken::new();
     let config = ViewerConfig {
         namespace: namespace.clone(),
@@ -251,7 +261,13 @@ async fn integration_discovery_snapshot_includes_sessions() {
         storage_path: Some(session_storage_path()),
         ..ViewerConfig::default()
     };
-    let worker_task = tokio::spawn(run_worker(config, command_rx, event_tx, cancel.clone()));
+    let worker_task = tokio::spawn(run_worker(
+        config,
+        command_rx,
+        event_tx,
+        cancel.clone(),
+        None,
+    ));
 
     let _ = recv_event_matching(&mut event_rx, Duration::from_secs(6), |event| {
         matches!(event, WorkerEvent::Ready)
@@ -261,15 +277,21 @@ async fn integration_discovery_snapshot_includes_sessions() {
 
     command_tx
         .send(WorkerCommand::SetDiscoveryNamespace(namespace.clone()))
+        .await
         .expect("set discovery namespace failed");
 
     let discovery = recv_event_matching(&mut event_rx, Duration::from_secs(6), |event| {
-            matches!(event, WorkerEvent::DiscoverySnapshot { sessions, .. } if !sessions.is_empty())
+        matches!(
+            event,
+            WorkerEvent::DiscoveryPatch {
+                op: crate::model::DiscoveryOp::SessionUpsert(_)
+            }
+        ) || matches!(event, WorkerEvent::DiscoverySnapshot { sessions, .. } if !sessions.is_empty())
         })
         .await;
     assert!(
         discovery.is_some(),
-        "expected discovery snapshot with at least one session"
+        "expected discovery patch with at least one session"
     );
 
     shutdown_worker_task(command_tx, cancel, worker_task).await;
@@ -278,8 +300,8 @@ async fn integration_discovery_snapshot_includes_sessions() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn integration_rebind_replays_history_snapshot() {
     let namespace = unique_namespace("viewer-rebind");
-    let (command_tx, command_rx) = mpsc::unbounded_channel();
-    let (event_tx, mut event_rx) = mpsc::unbounded_channel();
+    let (command_tx, command_rx) = mpsc::channel(128);
+    let (event_tx, mut event_rx) = mpsc::channel(512);
     let cancel = CancellationToken::new();
     let config = ViewerConfig {
         namespace: namespace.clone(),
@@ -287,7 +309,13 @@ async fn integration_rebind_replays_history_snapshot() {
         storage_path: Some(session_storage_path()),
         ..ViewerConfig::default()
     };
-    let worker_task = tokio::spawn(run_worker(config, command_rx, event_tx, cancel.clone()));
+    let worker_task = tokio::spawn(run_worker(
+        config,
+        command_rx,
+        event_tx,
+        cancel.clone(),
+        None,
+    ));
 
     let _ = recv_event_matching(&mut event_rx, Duration::from_secs(6), |event| {
         matches!(event, WorkerEvent::Ready)
@@ -304,6 +332,7 @@ async fn integration_rebind_replays_history_snapshot() {
                 path_expression: "odometry".to_string(),
             },
         })
+        .await
         .expect("bind command failed");
     let _ = recv_event_matching(&mut event_rx, Duration::from_secs(6), |event| {
         matches!(event, WorkerEvent::SourceBound { stream_id: 2, .. })
@@ -343,9 +372,10 @@ async fn integration_rebind_replays_history_snapshot() {
     let _ = recv_event_matching(&mut event_rx, Duration::from_secs(6), |event| {
         matches!(
             event,
-            WorkerEvent::RecordsAppended {
+            WorkerEvent::StreamRecordsChunk {
                 stream_id: 2,
-                records
+                records,
+                ..
             } if !records.is_empty()
         )
     })
@@ -366,6 +396,7 @@ async fn integration_rebind_replays_history_snapshot() {
 
     command_tx
         .send(WorkerCommand::RemoveStream { stream_id: 2 })
+        .await
         .expect("remove stream failed");
     tokio::time::sleep(Duration::from_millis(200)).await;
 
@@ -378,6 +409,7 @@ async fn integration_rebind_replays_history_snapshot() {
                 path_expression: "odometry".to_string(),
             },
         })
+        .await
         .expect("rebind command failed");
     let _ = recv_event_matching(&mut event_rx, Duration::from_secs(6), |event| {
         matches!(event, WorkerEvent::SourceBound { stream_id: 2, .. })
@@ -388,9 +420,11 @@ async fn integration_rebind_replays_history_snapshot() {
     let replay = recv_event_matching(&mut event_rx, Duration::from_secs(6), |event| {
         matches!(
             event,
-            WorkerEvent::RecordsAppended {
+            WorkerEvent::StreamRecordsChunk {
                 stream_id: 2,
-                records
+                source: crate::model::RecordChunkSource::History,
+                records,
+                ..
             } if !records.is_empty()
         )
     })
@@ -403,8 +437,8 @@ async fn integration_rebind_replays_history_snapshot() {
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn integration_ingest_toggle_pauses_and_resumes_updates() {
     let namespace = unique_namespace("viewer-ingest-toggle");
-    let (command_tx, command_rx) = mpsc::unbounded_channel();
-    let (event_tx, mut event_rx) = mpsc::unbounded_channel();
+    let (command_tx, command_rx) = mpsc::channel(128);
+    let (event_tx, mut event_rx) = mpsc::channel(512);
     let cancel = CancellationToken::new();
     let config = ViewerConfig {
         namespace: namespace.clone(),
@@ -412,7 +446,13 @@ async fn integration_ingest_toggle_pauses_and_resumes_updates() {
         storage_path: Some(session_storage_path()),
         ..ViewerConfig::default()
     };
-    let worker_task = tokio::spawn(run_worker(config, command_rx, event_tx, cancel.clone()));
+    let worker_task = tokio::spawn(run_worker(
+        config,
+        command_rx,
+        event_tx,
+        cancel.clone(),
+        None,
+    ));
 
     let _ = recv_event_matching(&mut event_rx, Duration::from_secs(6), |event| {
         matches!(event, WorkerEvent::Ready)
@@ -429,6 +469,7 @@ async fn integration_ingest_toggle_pauses_and_resumes_updates() {
                 path_expression: "odometry".to_string(),
             },
         })
+        .await
         .expect("bind command failed");
     let _ = recv_event_matching(&mut event_rx, Duration::from_secs(6), |event| {
         matches!(event, WorkerEvent::SourceBound { stream_id: 4, .. })
@@ -464,9 +505,10 @@ async fn integration_ingest_toggle_pauses_and_resumes_updates() {
     let _ = recv_event_matching(&mut event_rx, Duration::from_secs(6), |event| {
         matches!(
             event,
-            WorkerEvent::RecordsAppended {
+            WorkerEvent::StreamRecordsChunk {
                 stream_id: 4,
-                records
+                records,
+                ..
             } if !records.is_empty()
         )
     })
@@ -475,6 +517,7 @@ async fn integration_ingest_toggle_pauses_and_resumes_updates() {
 
     command_tx
         .send(WorkerCommand::SetIngestEnabled(false))
+        .await
         .expect("disable ingest command failed");
     tokio::time::sleep(Duration::from_millis(300)).await;
 
@@ -496,9 +539,10 @@ async fn integration_ingest_toggle_pauses_and_resumes_updates() {
     let paused_records = recv_event_matching(&mut event_rx, Duration::from_millis(900), |event| {
         matches!(
             event,
-            WorkerEvent::RecordsAppended {
+            WorkerEvent::StreamRecordsChunk {
                 stream_id: 4,
-                records
+                records,
+                ..
             } if !records.is_empty()
         )
     })
@@ -510,6 +554,7 @@ async fn integration_ingest_toggle_pauses_and_resumes_updates() {
 
     command_tx
         .send(WorkerCommand::SetIngestEnabled(true))
+        .await
         .expect("enable ingest command failed");
     tokio::time::sleep(Duration::from_millis(250)).await;
 
@@ -531,9 +576,10 @@ async fn integration_ingest_toggle_pauses_and_resumes_updates() {
     let resumed_records = recv_event_matching(&mut event_rx, Duration::from_secs(6), |event| {
         matches!(
             event,
-            WorkerEvent::RecordsAppended {
+            WorkerEvent::StreamRecordsChunk {
                 stream_id: 4,
-                records
+                records,
+                ..
             } if !records.is_empty()
         )
     })
@@ -550,8 +596,8 @@ async fn integration_ingest_toggle_pauses_and_resumes_updates() {
 #[ignore = "manual soak run; executes a longer live ingest loop"]
 async fn soak_worker_stays_healthy_under_continuous_stream() {
     let namespace = unique_namespace("viewer-soak");
-    let (command_tx, command_rx) = mpsc::unbounded_channel();
-    let (event_tx, mut event_rx) = mpsc::unbounded_channel();
+    let (command_tx, command_rx) = mpsc::channel(128);
+    let (event_tx, mut event_rx) = mpsc::channel(512);
     let cancel = CancellationToken::new();
     let config = ViewerConfig {
         namespace: namespace.clone(),
@@ -559,7 +605,13 @@ async fn soak_worker_stays_healthy_under_continuous_stream() {
         storage_path: Some(session_storage_path()),
         ..ViewerConfig::default()
     };
-    let worker_task = tokio::spawn(run_worker(config, command_rx, event_tx, cancel.clone()));
+    let worker_task = tokio::spawn(run_worker(
+        config,
+        command_rx,
+        event_tx,
+        cancel.clone(),
+        None,
+    ));
 
     let _ = recv_event_matching(&mut event_rx, Duration::from_secs(6), |event| {
         matches!(event, WorkerEvent::Ready)
@@ -576,6 +628,7 @@ async fn soak_worker_stays_healthy_under_continuous_stream() {
                 path_expression: "odometry".to_string(),
             },
         })
+        .await
         .expect("bind command failed");
     let _ = recv_event_matching(&mut event_rx, Duration::from_secs(6), |event| {
         matches!(event, WorkerEvent::SourceBound { stream_id: 7, .. })
@@ -618,9 +671,10 @@ async fn soak_worker_stays_healthy_under_continuous_stream() {
     let records_event = recv_event_matching(&mut event_rx, Duration::from_secs(6), |event| {
         matches!(
             event,
-            WorkerEvent::RecordsAppended {
+            WorkerEvent::StreamRecordsChunk {
                 stream_id: 7,
-                records
+                records,
+                ..
             } if !records.is_empty()
         )
     })

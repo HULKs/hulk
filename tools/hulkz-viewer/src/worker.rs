@@ -10,16 +10,18 @@ mod streams;
 use color_eyre::{eyre::WrapErr as _, Result};
 use hulkz::Session;
 use hulkz_stream::{OpenMode, StreamBackendBuilder, StreamRecord};
-use tokio::sync::mpsc::{UnboundedReceiver, UnboundedSender};
+use tokio::sync::mpsc::{Receiver, Sender};
 use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, trace, warn};
 
-use crate::model::{DisplayedRecord, StreamId, ViewerConfig, WorkerCommand, WorkerEvent};
-use commands::{send_error, send_event};
+use crate::model::{
+    DiscoveryOp, DisplayedRecord, RecordChunkSource, StreamId, ViewerConfig, WorkerCommand,
+    WorkerEvent, WorkerEventEnvelope, WorkerWakeNotifier,
+};
+use commands::{install_wake_notifier, send_error, send_event};
 use discovery::{
-    emit_discovery_snapshot, emit_discovery_snapshot_or_error, insert_discovered_entity,
-    reconcile_discovery_snapshot, remove_discovered_entity, restart_discovery_watchers,
-    stop_discovery_watchers, DiscoveryEvent, DiscoveryState,
+    insert_discovered_entity, reconcile_discovery_snapshot, remove_discovered_entity,
+    restart_discovery_watchers, stop_discovery_watchers, DiscoveryEvent, DiscoveryState,
 };
 use encoding::stream_record_to_displayed_record;
 use lifecycle::{shutdown_worker, storage_path_for_config};
@@ -31,16 +33,19 @@ use streams::{
 
 pub async fn run_worker(
     config: ViewerConfig,
-    command_rx: UnboundedReceiver<WorkerCommand>,
-    event_tx: UnboundedSender<WorkerEvent>,
+    command_rx: Receiver<WorkerCommand>,
+    event_tx: Sender<WorkerEventEnvelope>,
     cancellation_token: CancellationToken,
+    wake_notifier: Option<WorkerWakeNotifier>,
 ) {
+    install_wake_notifier(wake_notifier);
     if let Err(error) =
         run_worker_inner(config, command_rx, event_tx.clone(), cancellation_token).await
     {
         warn!("worker terminated with error: {error:?}");
-        send_error(&event_tx, format!("worker terminated: {error:#}"));
+        send_error(&event_tx, format!("worker terminated: {error:#}")).await;
     }
+    install_wake_notifier(None);
 }
 
 enum WorkerInternalEvent {
@@ -62,8 +67,8 @@ enum WorkerInternalEvent {
 
 async fn run_worker_inner(
     config: ViewerConfig,
-    mut command_rx: UnboundedReceiver<WorkerCommand>,
-    event_tx: UnboundedSender<WorkerEvent>,
+    mut command_rx: Receiver<WorkerCommand>,
+    event_tx: Sender<WorkerEventEnvelope>,
     cancellation_token: CancellationToken,
 ) -> Result<()> {
     info!(
@@ -96,12 +101,14 @@ async fn run_worker_inner(
     info!("stream driver spawned");
 
     let (internal_event_tx, mut internal_event_rx) =
-        tokio::sync::mpsc::unbounded_channel::<WorkerInternalEvent>();
+        tokio::sync::mpsc::channel::<WorkerInternalEvent>(
+            config.worker_internal_event_channel_capacity.max(1),
+        );
     let mut streams: BTreeMap<StreamId, WorkerStreamContext> = BTreeMap::new();
-    let mut pending_live_batches: BTreeMap<StreamId, Vec<DisplayedRecord>> = BTreeMap::new();
+    let mut pending_live_batches: BTreeMap<(StreamId, u64), Vec<DisplayedRecord>> = BTreeMap::new();
     let mut next_generation: u64 = 1;
 
-    send_event(&event_tx, WorkerEvent::Ready)?;
+    send_event(&event_tx, WorkerEvent::Ready).await?;
     info!("worker ready; awaiting stream bind commands");
 
     let mut stats_interval = tokio::time::interval(config.poll_interval);
@@ -113,8 +120,20 @@ async fn run_worker_inner(
     live_batch_flush_interval.set_missed_tick_behavior(tokio::time::MissedTickBehavior::Skip);
     let mut discovery_namespace = String::new();
     let mut discovery = DiscoveryState::new();
-    let (discovery_event_tx, mut discovery_event_rx) =
-        tokio::sync::mpsc::unbounded_channel::<DiscoveryEvent>();
+    let (discovery_event_tx, mut discovery_event_rx) = tokio::sync::mpsc::channel::<DiscoveryEvent>(
+        config.discovery_event_channel_capacity.max(1),
+    );
+    if let Err(error) = restart_discovery_watchers(
+        &discovery_session,
+        None,
+        &discovery_event_tx,
+        &event_tx,
+        &mut discovery,
+    )
+    .await
+    {
+        send_error(&event_tx, format!("{error:#}")).await;
+    }
 
     loop {
         tokio::select! {
@@ -131,7 +150,7 @@ async fn run_worker_inner(
                             .await
                             .wrap_err_with(|| format!("failed to set ingest state to {enabled}"))
                         {
-                            send_error(&event_tx, format!("{error:#}"));
+                            send_error(&event_tx, format!("{error:#}")).await;
                         }
                     }
                     Some(WorkerCommand::SetDiscoveryNamespace(namespace)) => {
@@ -139,36 +158,25 @@ async fn run_worker_inner(
                         if namespace == discovery_namespace {
                             continue;
                         }
-                        if namespace.is_empty() {
-                            discovery_namespace.clear();
-                            stop_discovery_watchers(&mut discovery.cancel, &mut discovery.tasks);
-                            discovery.cancel = CancellationToken::new();
-                            discovery.publishers.clear();
-                            discovery.parameters.clear();
-                            discovery.sessions.clear();
-                            if let Err(error) = emit_discovery_snapshot(
-                                &event_tx,
-                                &discovery.publishers,
-                                &discovery.parameters,
-                                &discovery.sessions,
-                            ) {
-                                send_error(&event_tx, format!("{error:#}"));
-                            }
-                            info!("cleared discovery namespace; discovery disabled until set");
-                            continue;
-                        }
                         discovery_namespace = namespace;
+                        let _ = send_event(
+                            &event_tx,
+                            WorkerEvent::DiscoveryPatch {
+                                op: DiscoveryOp::ResetNamespace(discovery_namespace.clone()),
+                            },
+                        )
+                        .await;
                         info!(namespace = %discovery_namespace, "updating discovery namespace");
                         if let Err(error) = restart_discovery_watchers(
                             &discovery_session,
-                            &discovery_namespace,
+                            (!discovery_namespace.is_empty()).then_some(discovery_namespace.as_str()),
                             &discovery_event_tx,
                             &event_tx,
                             &mut discovery,
                         )
                         .await
                         {
-                            send_error(&event_tx, format!("{error:#}"));
+                            send_error(&event_tx, format!("{error:#}")).await;
                         }
                     }
                     Some(WorkerCommand::BindStream { stream_id, request }) => {
@@ -182,7 +190,13 @@ async fn run_worker_inner(
                         match bind_source(&backend, &request).await {
                             Ok((new_source, binding_label, binding)) => {
                                 if let Some(existing) = streams.remove(&stream_id) {
-                                    flush_stream_batch(stream_id, &mut pending_live_batches, &event_tx)?;
+                                    flush_stream_batch(
+                                        stream_id,
+                                        existing.generation,
+                                        &mut pending_live_batches,
+                                        &event_tx,
+                                    )
+                                    .await?;
                                     stop_stream_context(existing);
                                 }
 
@@ -200,14 +214,21 @@ async fn run_worker_inner(
                                     &event_tx,
                                     WorkerEvent::SourceBound {
                                         stream_id,
+                                        generation,
                                         label: binding_label,
                                         binding,
                                     },
-                                );
-                                if let Err(error) =
-                                    emit_history_snapshot(stream_id, &new_source, &event_tx).await
+                                )
+                                .await;
+                                if let Err(error) = emit_history_snapshot(
+                                    stream_id,
+                                    generation,
+                                    &new_source,
+                                    &event_tx,
+                                )
+                                .await
                                 {
-                                    send_error(&event_tx, format!("{error:#}"));
+                                    send_error(&event_tx, format!("{error:#}")).await;
                                 }
                                 streams.insert(
                                     stream_id,
@@ -220,13 +241,19 @@ async fn run_worker_inner(
                                 );
                             }
                             Err(error) => {
-                                send_error(&event_tx, format!("{error:#}"));
+                                send_error(&event_tx, format!("{error:#}")).await;
                             }
                         }
                     }
                     Some(WorkerCommand::RemoveStream { stream_id }) => {
-                        flush_stream_batch(stream_id, &mut pending_live_batches, &event_tx)?;
                         if let Some(existing) = streams.remove(&stream_id) {
+                            flush_stream_batch(
+                                stream_id,
+                                existing.generation,
+                                &mut pending_live_batches,
+                                &event_tx,
+                            )
+                            .await?;
                             info!(stream_id, "removing stream binding");
                             stop_stream_context(existing);
                         }
@@ -237,10 +264,11 @@ async fn run_worker_inner(
                                 let _ = send_event(
                                     &event_tx,
                                     WorkerEvent::ParameterValueLoaded { target, value_pretty },
-                                );
+                                )
+                                .await;
                             }
                             Err(error) => {
-                                send_error(&event_tx, format!("{error:#}"));
+                                send_error(&event_tx, format!("{error:#}")).await;
                             }
                         }
                     }
@@ -254,7 +282,8 @@ async fn run_worker_inner(
                                         success: true,
                                         message,
                                     },
-                                );
+                                )
+                                .await;
                                 match read_parameter_value(&discovery_session, &target).await {
                                     Ok(value_pretty) => {
                                         let _ = send_event(
@@ -263,10 +292,11 @@ async fn run_worker_inner(
                                                 target,
                                                 value_pretty,
                                             },
-                                        );
+                                        )
+                                        .await;
                                     }
                                     Err(error) => {
-                                        send_error(&event_tx, format!("{error:#}"));
+                                        send_error(&event_tx, format!("{error:#}")).await;
                                     }
                                 }
                             }
@@ -278,7 +308,8 @@ async fn run_worker_inner(
                                         success: false,
                                         message: format!("{error:#}"),
                                     },
-                                );
+                                )
+                                .await;
                             }
                         }
                     }
@@ -294,10 +325,11 @@ async fn run_worker_inner(
                                             anchor_nanos,
                                             record,
                                         },
-                                    );
+                                    )
+                                    .await;
                                 }
                                 Err(error) => {
-                                    send_error(&event_tx, format!("{error:#}"));
+                                    send_error(&event_tx, format!("{error:#}")).await;
                                 }
                             }
                             if let Err(error) = apply_scrub_anchor(
@@ -308,7 +340,7 @@ async fn run_worker_inner(
                             )
                             .await
                             {
-                                send_error(&event_tx, format!("{error:#}"));
+                                send_error(&event_tx, format!("{error:#}")).await;
                             }
                         }
                     }
@@ -334,10 +366,18 @@ async fn run_worker_inner(
                             payload_bytes = record.payload.len(),
                             "live record received"
                         );
-                        let batch = pending_live_batches.entry(stream_id).or_default();
+                        let batch = pending_live_batches
+                            .entry((stream_id, generation))
+                            .or_default();
                         batch.push(stream_record_to_displayed_record(&record));
                         if batch.len() >= config.live_event_batch_max.max(1) {
-                            flush_stream_batch(stream_id, &mut pending_live_batches, &event_tx)?;
+                            flush_stream_batch(
+                                stream_id,
+                                generation,
+                                &mut pending_live_batches,
+                                &event_tx,
+                            )
+                            .await?;
                         }
                     }
                     WorkerInternalEvent::Lagged {
@@ -356,7 +396,8 @@ async fn run_worker_inner(
                         send_error(
                             &event_tx,
                             format!("stream {stream_id} live updates lagged; skipped {skipped} records"),
-                        );
+                        )
+                        .await;
                     }
                     WorkerInternalEvent::Closed { stream_id, generation } => {
                         let is_current = streams
@@ -368,113 +409,120 @@ async fn run_worker_inner(
                             send_error(
                                 &event_tx,
                                 format!("stream {stream_id} live updates channel closed"),
-                            );
+                            )
+                            .await;
                         }
                     }
                 }
             }
             _ = stats_interval.tick() => {
                 trace!("publishing stats snapshot");
-                flush_all_stream_batches(&mut pending_live_batches, &event_tx)?;
+                flush_all_stream_batches(&mut pending_live_batches, &event_tx).await?;
                 for (stream_id, context) in &streams {
                     send_event(&event_tx, WorkerEvent::StreamStats {
                             stream_id: *stream_id,
                             source: Box::new(context.source.stats_snapshot()),
-                        })?;
+                        }).await?;
                 }
                 send_event(&event_tx, WorkerEvent::BackendStats {
                     backend: Box::new(backend.stats_snapshot()),
-                })?;
+                }).await?;
             }
             Some(discovery_event) = discovery_event_rx.recv() => {
                 match discovery_event {
                     DiscoveryEvent::PublisherJoined(publisher) => {
+                        let item = publisher.clone();
                         if insert_discovered_entity(&mut discovery.publishers, publisher) {
-                            emit_discovery_snapshot_or_error(
+                            let _ = send_event(
                                 &event_tx,
-                                &discovery.publishers,
-                                &discovery.parameters,
-                                &discovery.sessions,
-                            );
+                                WorkerEvent::DiscoveryPatch {
+                                    op: DiscoveryOp::PublisherUpsert(item),
+                                },
+                            )
+                            .await;
                         }
                     }
                     DiscoveryEvent::PublisherLeft(publisher) => {
                         if remove_discovered_entity(&mut discovery.publishers, &publisher) {
-                            emit_discovery_snapshot_or_error(
+                            let _ = send_event(
                                 &event_tx,
-                                &discovery.publishers,
-                                &discovery.parameters,
-                                &discovery.sessions,
-                            );
+                                WorkerEvent::DiscoveryPatch {
+                                    op: DiscoveryOp::PublisherRemove(publisher),
+                                },
+                            )
+                            .await;
                         }
                     }
                     DiscoveryEvent::ParameterJoined(parameter) => {
+                        let item = parameter.clone();
                         if insert_discovered_entity(&mut discovery.parameters, parameter) {
-                            emit_discovery_snapshot_or_error(
+                            let _ = send_event(
                                 &event_tx,
-                                &discovery.publishers,
-                                &discovery.parameters,
-                                &discovery.sessions,
-                            );
+                                WorkerEvent::DiscoveryPatch {
+                                    op: DiscoveryOp::ParameterUpsert(item),
+                                },
+                            )
+                            .await;
                         }
                     }
                     DiscoveryEvent::ParameterLeft(parameter) => {
                         if remove_discovered_entity(&mut discovery.parameters, &parameter) {
-                            emit_discovery_snapshot_or_error(
+                            let _ = send_event(
                                 &event_tx,
-                                &discovery.publishers,
-                                &discovery.parameters,
-                                &discovery.sessions,
-                            );
+                                WorkerEvent::DiscoveryPatch {
+                                    op: DiscoveryOp::ParameterRemove(parameter),
+                                },
+                            )
+                            .await;
                         }
                     }
                     DiscoveryEvent::SessionJoined(session_info) => {
+                        let item = session_info.clone();
                         if insert_discovered_entity(&mut discovery.sessions, session_info) {
-                            emit_discovery_snapshot_or_error(
+                            let _ = send_event(
                                 &event_tx,
-                                &discovery.publishers,
-                                &discovery.parameters,
-                                &discovery.sessions,
-                            );
+                                WorkerEvent::DiscoveryPatch {
+                                    op: DiscoveryOp::SessionUpsert(item),
+                                },
+                            )
+                            .await;
                         }
                     }
                     DiscoveryEvent::SessionLeft(session_info) => {
                         if remove_discovered_entity(&mut discovery.sessions, &session_info) {
-                            emit_discovery_snapshot_or_error(
+                            let _ = send_event(
                                 &event_tx,
-                                &discovery.publishers,
-                                &discovery.parameters,
-                                &discovery.sessions,
-                            );
+                                WorkerEvent::DiscoveryPatch {
+                                    op: DiscoveryOp::SessionRemove(session_info),
+                                },
+                            )
+                            .await;
                         }
                     }
                     DiscoveryEvent::WatchFault(message) => {
-                        send_error(&event_tx, message);
+                        send_error(&event_tx, message).await;
                     }
                 }
             }
             _ = discovery_reconcile_interval.tick() => {
-                if discovery_namespace.is_empty() {
-                    continue;
-                }
                 if let Err(error) = reconcile_discovery_snapshot(
                     &discovery_session,
-                    &discovery_namespace,
+                    (!discovery_namespace.is_empty()).then_some(discovery_namespace.as_str()),
                     &event_tx,
                     &mut discovery.publishers,
                     &mut discovery.parameters,
                     &mut discovery.sessions,
                 ).await {
-                    send_error(&event_tx, format!("{error:#}"));
+                    send_error(&event_tx, format!("{error:#}")).await;
                 }
             }
             _ = live_batch_flush_interval.tick() => {
-                flush_all_stream_batches(&mut pending_live_batches, &event_tx)?;
+                flush_all_stream_batches(&mut pending_live_batches, &event_tx).await?;
             }
         }
     }
 
-    flush_all_stream_batches(&mut pending_live_batches, &event_tx)?;
+    flush_all_stream_batches(&mut pending_live_batches, &event_tx).await?;
     stop_discovery_watchers(&mut discovery.cancel, &mut discovery.tasks);
     for (_, context) in streams {
         stop_stream_context(context);
@@ -488,12 +536,13 @@ async fn run_worker_inner(
     Ok(())
 }
 
-fn flush_stream_batch(
+async fn flush_stream_batch(
     stream_id: StreamId,
-    pending_live_batches: &mut BTreeMap<StreamId, Vec<DisplayedRecord>>,
-    event_tx: &UnboundedSender<WorkerEvent>,
+    generation: u64,
+    pending_live_batches: &mut BTreeMap<(StreamId, u64), Vec<DisplayedRecord>>,
+    event_tx: &Sender<WorkerEventEnvelope>,
 ) -> Result<()> {
-    let Some(records) = pending_live_batches.remove(&stream_id) else {
+    let Some(records) = pending_live_batches.remove(&(stream_id, generation)) else {
         return Ok(());
     };
     if records.is_empty() {
@@ -501,18 +550,24 @@ fn flush_stream_batch(
     }
     send_event(
         event_tx,
-        WorkerEvent::RecordsAppended { stream_id, records },
-    )?;
+        WorkerEvent::StreamRecordsChunk {
+            stream_id,
+            generation,
+            records,
+            source: RecordChunkSource::Live,
+        },
+    )
+    .await?;
     Ok(())
 }
 
-fn flush_all_stream_batches(
-    pending_live_batches: &mut BTreeMap<StreamId, Vec<DisplayedRecord>>,
-    event_tx: &UnboundedSender<WorkerEvent>,
+async fn flush_all_stream_batches(
+    pending_live_batches: &mut BTreeMap<(StreamId, u64), Vec<DisplayedRecord>>,
+    event_tx: &Sender<WorkerEventEnvelope>,
 ) -> Result<()> {
-    let stream_ids = pending_live_batches.keys().copied().collect::<Vec<_>>();
-    for stream_id in stream_ids {
-        flush_stream_batch(stream_id, pending_live_batches, event_tx)?;
+    let keys = pending_live_batches.keys().copied().collect::<Vec<_>>();
+    for (stream_id, generation) in keys {
+        flush_stream_batch(stream_id, generation, pending_live_batches, event_tx).await?;
     }
     Ok(())
 }

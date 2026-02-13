@@ -8,6 +8,13 @@ mod time_fmt;
 mod timeline_state;
 
 use std::time::Duration;
+use std::{
+    collections::VecDeque,
+    sync::{
+        atomic::{AtomicBool, Ordering},
+        Arc,
+    },
+};
 use std::{panic::catch_unwind, panic::AssertUnwindSafe};
 
 use color_eyre::{eyre::WrapErr as _, Result};
@@ -18,7 +25,7 @@ use tokio_util::sync::CancellationToken;
 use tracing::{debug, info, warn};
 
 use crate::{
-    model::{WorkerCommand, WorkerEvent},
+    model::{DiscoveryOp, WorkerCommand, WorkerEvent},
     worker::run_worker,
 };
 
@@ -124,14 +131,26 @@ impl ViewerApp {
         }
 
         let cancellation_token = CancellationToken::new();
-        let (command_tx, command_rx) = mpsc::unbounded_channel();
-        let (event_tx, event_rx) = mpsc::unbounded_channel();
+        let (command_tx, command_rx) = mpsc::channel(config.worker_command_channel_capacity.max(1));
+        let (event_tx, event_rx) = mpsc::channel(config.worker_event_channel_capacity.max(1));
+        let worker_wake_armed = Arc::new(AtomicBool::new(false));
+        let wake_notifier = crate::model::WorkerWakeNotifier::new({
+            let egui_ctx = creation_context.egui_ctx.clone();
+            let worker_wake_armed = worker_wake_armed.clone();
+            let repaint_delay = config.repaint_delay_on_activity;
+            move || {
+                if !worker_wake_armed.swap(true, Ordering::SeqCst) {
+                    egui_ctx.request_repaint_after(repaint_delay);
+                }
+            }
+        });
 
         let worker_task = runtime.spawn(run_worker(
             config.clone(),
             command_rx,
             event_tx,
             cancellation_token.clone(),
+            Some(wake_notifier),
         ));
         info!("worker task spawned");
 
@@ -155,6 +174,8 @@ impl ViewerApp {
                 },
                 stream_lane_bindings: std::collections::BTreeMap::new(),
                 timeline_lanes: std::collections::BTreeMap::new(),
+                lane_order_cache: Vec::new(),
+                lane_order_dirty: true,
                 pending_scrub_anchor: None,
                 last_scrub_emitted,
             },
@@ -170,16 +191,23 @@ impl ViewerApp {
                 worker_task: Some(worker_task),
                 cancellation_token,
                 command_tx,
+                pending_commands: VecDeque::new(),
+                worker_wake_armed,
                 event_rx,
                 shutdown_started: false,
             },
             ui: UiState {
                 ingest_enabled,
                 follow_live,
+                default_namespace: default_namespace_input.clone(),
                 default_namespace_input,
                 ready: false,
                 last_error: None,
                 backend_stats: None,
+                frame_last_ms: 0.0,
+                frame_ema_ms: 0.0,
+                frame_processed_events: 0,
+                frame_processed_event_bytes: 0,
             },
         };
 
@@ -195,118 +223,210 @@ impl ViewerApp {
 
     fn send_command(&mut self, command: WorkerCommand) {
         debug!(?command, "sending worker command");
-        if self.runtime.command_tx.send(command).is_err() {
-            self.ui.last_error = Some("worker command channel is closed".to_string());
-            warn!("failed to send worker command: channel closed");
+        self.runtime.pending_commands.push_back(command);
+    }
+
+    fn run_pending_commands(&mut self) {
+        loop {
+            let Some(command) = self.runtime.pending_commands.pop_front() else {
+                break;
+            };
+            match self.runtime.command_tx.try_send(command) {
+                Ok(()) => {}
+                Err(mpsc::error::TrySendError::Full(command)) => {
+                    self.runtime.pending_commands.push_front(command);
+                    break;
+                }
+                Err(mpsc::error::TrySendError::Closed(_)) => {
+                    self.ui.last_error = Some("worker command channel is closed".to_string());
+                    warn!("failed to send worker command: channel closed");
+                    break;
+                }
+            }
         }
     }
 
     fn drain_worker_events(&mut self) {
-        loop {
-            match self.runtime.event_rx.try_recv() {
-                Ok(WorkerEvent::RecordsAppended { stream_id, records }) => {
-                    debug!(
-                        stream_id,
-                        count = records.len(),
-                        "received records from worker"
-                    );
-                    for record in &records {
-                        self.insert_global_timestamp(record.timestamp_nanos);
-                    }
-                    self.append_lane_samples(stream_id, records.as_slice());
+        let started = std::time::Instant::now();
+        let mut processed_events = 0_usize;
+        let mut processed_event_bytes = 0_usize;
 
-                    if self.ui.follow_live {
-                        if let Some(latest_record) = records.last().cloned() {
+        loop {
+            if processed_events >= self.config.max_events_per_frame
+                || processed_event_bytes >= self.config.max_event_bytes_per_frame
+                || started.elapsed() >= self.config.max_event_ingest_time_per_frame
+            {
+                break;
+            }
+
+            match self.runtime.event_rx.try_recv() {
+                Ok(envelope) => {
+                    processed_events = processed_events.saturating_add(1);
+                    processed_event_bytes =
+                        processed_event_bytes.saturating_add(envelope.approx_bytes);
+                    match envelope.event {
+                        WorkerEvent::StreamHistoryBegin {
+                            stream_id,
+                            generation,
+                        } => {
+                            if let Some(state) = self.workspace.stream_states.get_mut(&stream_id) {
+                                state.generation = generation;
+                                state.history_loading = true;
+                                state.history_total_records = 0;
+                            }
+                        }
+                        WorkerEvent::StreamRecordsChunk {
+                            stream_id,
+                            generation,
+                            records,
+                            source: _source,
+                        } => {
+                            if self
+                                .workspace
+                                .stream_states
+                                .get(&stream_id)
+                                .is_some_and(|state| state.generation != generation)
+                            {
+                                continue;
+                            }
+                            debug!(
+                                stream_id,
+                                count = records.len(),
+                                "received records from worker"
+                            );
+                            for record in &records {
+                                self.insert_global_timestamp(record.timestamp_nanos);
+                            }
+                            self.append_lane_samples(stream_id, records.as_slice());
+
+                            if let Some(state) = self.workspace.stream_states.get_mut(&stream_id) {
+                                state.history_total_records =
+                                    state.history_total_records.saturating_add(records.len());
+                            }
+
+                            if self.ui.follow_live {
+                                if let Some(latest_record) = records.last().cloned() {
+                                    let state =
+                                        self.workspace.stream_states.entry(stream_id).or_default();
+                                    state.current_record = Some(latest_record);
+                                }
+                                self.jump_latest_internal(false);
+                            }
+                        }
+                        WorkerEvent::StreamHistoryEnd {
+                            stream_id,
+                            generation,
+                            total_records,
+                        } => {
+                            if self
+                                .workspace
+                                .stream_states
+                                .get(&stream_id)
+                                .is_some_and(|state| state.generation != generation)
+                            {
+                                continue;
+                            }
+                            if let Some(state) = self.workspace.stream_states.get_mut(&stream_id) {
+                                state.history_loading = false;
+                                state.history_total_records = total_records;
+                            }
+                        }
+                        WorkerEvent::SourceBound {
+                            stream_id,
+                            generation,
+                            label,
+                            binding,
+                        } => {
+                            info!(stream_id, %label, "worker bound source");
                             let state = self.workspace.stream_states.entry(stream_id).or_default();
-                            state.current_record = Some(latest_record);
+                            state.generation = generation;
+                            state.source_label = label;
+                            state.current_record = None;
+                            state.source_stats = None;
+                            state.history_loading = true;
+                            state.history_total_records = 0;
+                            self.bind_stream_lane(stream_id, binding);
+                            if let Some(anchor) = self.current_anchor_nanos() {
+                                self.timeline.pending_scrub_anchor = Some(anchor);
+                            }
+                            self.ui.last_error = None;
                         }
-                        self.jump_latest_internal(false);
-                    }
-                }
-                Ok(WorkerEvent::SourceBound {
-                    stream_id,
-                    label,
-                    binding,
-                }) => {
-                    info!(stream_id, %label, "worker bound source");
-                    let state = self.workspace.stream_states.entry(stream_id).or_default();
-                    state.source_label = label;
-                    state.current_record = None;
-                    state.source_stats = None;
-                    self.bind_stream_lane(stream_id, binding);
-                    if let Some(anchor) = self.current_anchor_nanos() {
-                        self.timeline.pending_scrub_anchor = Some(anchor);
-                    }
-                    self.ui.last_error = None;
-                }
-                Ok(WorkerEvent::AnchorRecord {
-                    stream_id,
-                    anchor_nanos,
-                    record,
-                }) => {
-                    if self.current_anchor_nanos() == Some(anchor_nanos) {
-                        let state = self.workspace.stream_states.entry(stream_id).or_default();
-                        state.current_record = record;
-                    }
-                }
-                Ok(WorkerEvent::DiscoverySnapshot {
-                    publishers,
-                    parameters,
-                    sessions,
-                }) => {
-                    self.discovery.publishers = publishers;
-                    self.discovery.parameters = parameters;
-                    self.discovery.sessions = sessions;
-                }
-                Ok(WorkerEvent::ParameterValueLoaded {
-                    target,
-                    value_pretty,
-                }) => {
-                    for (_, tab) in self.workspace.dock_state.iter_all_tabs_mut() {
-                        if let ViewerTab::Parameters(panel) = tab {
-                            if panel.selected_parameter_reference.as_ref() == Some(&target) {
-                                panel.editor_text = value_pretty.clone();
-                                panel.status = Some(ParameterPanelStatus {
-                                    success: true,
-                                    message: "Parameter loaded".to_string(),
-                                });
+                        WorkerEvent::AnchorRecord {
+                            stream_id,
+                            anchor_nanos,
+                            record,
+                        } => {
+                            if self.current_anchor_nanos() == Some(anchor_nanos) {
+                                let state =
+                                    self.workspace.stream_states.entry(stream_id).or_default();
+                                state.current_record = record;
                             }
                         }
-                    }
-                }
-                Ok(WorkerEvent::ParameterWriteResult {
-                    target,
-                    success,
-                    message,
-                }) => {
-                    for (_, tab) in self.workspace.dock_state.iter_all_tabs_mut() {
-                        if let ViewerTab::Parameters(panel) = tab {
-                            if panel.selected_parameter_reference.as_ref() == Some(&target) {
-                                panel.status = Some(ParameterPanelStatus {
-                                    success,
-                                    message: message.clone(),
-                                });
+                        WorkerEvent::DiscoveryPatch { op } => {
+                            self.apply_discovery_patch(op);
+                        }
+                        WorkerEvent::DiscoverySnapshot {
+                            publishers,
+                            parameters,
+                            sessions,
+                        } => {
+                            self.discovery.publishers = publishers;
+                            self.discovery.parameters = parameters;
+                            self.discovery.sessions = sessions;
+                        }
+                        WorkerEvent::ParameterValueLoaded {
+                            target,
+                            value_pretty,
+                        } => {
+                            for (_, tab) in self.workspace.dock_state.iter_all_tabs_mut() {
+                                if let ViewerTab::Parameters(panel) = tab {
+                                    if panel.selected_parameter_reference.as_ref() == Some(&target)
+                                    {
+                                        panel.editor_text = value_pretty.clone();
+                                        panel.status = Some(ParameterPanelStatus {
+                                            success: true,
+                                            message: "Parameter loaded".to_string(),
+                                        });
+                                    }
+                                }
                             }
                         }
+                        WorkerEvent::ParameterWriteResult {
+                            target,
+                            success,
+                            message,
+                        } => {
+                            for (_, tab) in self.workspace.dock_state.iter_all_tabs_mut() {
+                                if let ViewerTab::Parameters(panel) = tab {
+                                    if panel.selected_parameter_reference.as_ref() == Some(&target)
+                                    {
+                                        panel.status = Some(ParameterPanelStatus {
+                                            success,
+                                            message: message.clone(),
+                                        });
+                                    }
+                                }
+                            }
+                        }
+                        WorkerEvent::StreamStats { stream_id, source } => {
+                            self.workspace
+                                .stream_states
+                                .entry(stream_id)
+                                .or_default()
+                                .source_stats = Some(*source);
+                        }
+                        WorkerEvent::BackendStats { backend } => {
+                            self.ui.backend_stats = Some(*backend);
+                        }
+                        WorkerEvent::Error(message) => {
+                            warn!(%message, "worker reported error");
+                            self.ui.last_error = Some(message);
+                        }
+                        WorkerEvent::Ready => {
+                            info!("worker is ready");
+                            self.ui.ready = true;
+                        }
                     }
-                }
-                Ok(WorkerEvent::StreamStats { stream_id, source }) => {
-                    self.workspace
-                        .stream_states
-                        .entry(stream_id)
-                        .or_default()
-                        .source_stats = Some(*source);
-                }
-                Ok(WorkerEvent::BackendStats { backend }) => {
-                    self.ui.backend_stats = Some(*backend);
-                }
-                Ok(WorkerEvent::Error(message)) => {
-                    warn!(%message, "worker reported error");
-                    self.ui.last_error = Some(message);
-                }
-                Ok(WorkerEvent::Ready) => {
-                    info!("worker is ready");
-                    self.ui.ready = true;
                 }
                 Err(mpsc::error::TryRecvError::Empty) => break,
                 Err(mpsc::error::TryRecvError::Disconnected) => {
@@ -314,6 +434,52 @@ impl ViewerApp {
                     warn!("worker event channel disconnected");
                     break;
                 }
+            }
+        }
+
+        self.ui.frame_processed_events = processed_events;
+        self.ui.frame_processed_event_bytes = processed_event_bytes;
+        if self.runtime.event_rx.is_empty() {
+            self.runtime
+                .worker_wake_armed
+                .store(false, Ordering::SeqCst);
+        }
+    }
+
+    fn apply_discovery_patch(&mut self, op: DiscoveryOp) {
+        fn upsert_sorted<T: Ord>(items: &mut Vec<T>, item: T) {
+            match items.binary_search(&item) {
+                Ok(index) => items[index] = item,
+                Err(index) => items.insert(index, item),
+            }
+        }
+
+        fn remove_sorted<T: Ord>(items: &mut Vec<T>, item: &T) {
+            if let Ok(index) = items.binary_search(item) {
+                items.remove(index);
+            }
+        }
+
+        match op {
+            DiscoveryOp::PublisherUpsert(item) => {
+                upsert_sorted(&mut self.discovery.publishers, item)
+            }
+            DiscoveryOp::PublisherRemove(item) => {
+                remove_sorted(&mut self.discovery.publishers, &item)
+            }
+            DiscoveryOp::ParameterUpsert(item) => {
+                upsert_sorted(&mut self.discovery.parameters, item)
+            }
+            DiscoveryOp::ParameterRemove(item) => {
+                remove_sorted(&mut self.discovery.parameters, &item)
+            }
+            DiscoveryOp::SessionUpsert(item) => upsert_sorted(&mut self.discovery.sessions, item),
+            DiscoveryOp::SessionRemove(item) => remove_sorted(&mut self.discovery.sessions, &item),
+            DiscoveryOp::ResetNamespace(namespace) => {
+                let _ = namespace;
+                self.discovery.publishers.clear();
+                self.discovery.parameters.clear();
+                self.discovery.sessions.clear();
             }
         }
     }
@@ -326,6 +492,7 @@ impl ViewerApp {
         info!("shutting down viewer app");
 
         self.send_command(WorkerCommand::Shutdown);
+        self.run_pending_commands();
         self.runtime.cancellation_token.cancel();
 
         if let Some(worker_task) = self.runtime.worker_task.take() {
@@ -339,6 +506,8 @@ impl ViewerApp {
 
 impl App for ViewerApp {
     fn update(&mut self, ctx: &egui::Context, _frame: &mut Frame) {
+        let frame_started = std::time::Instant::now();
+        self.run_pending_commands();
         self.drain_worker_events();
 
         egui::TopBottomPanel::top("controls").show(ctx, |ui| {
@@ -408,7 +577,20 @@ impl App for ViewerApp {
 
         self.reconcile_text_panels();
         self.maybe_emit_scrub_command();
-        ctx.request_repaint_after(Duration::from_millis(50));
+
+        let frame_ms = frame_started.elapsed().as_secs_f32() * 1000.0;
+        self.ui.frame_last_ms = frame_ms;
+        self.ui.frame_ema_ms = if self.ui.frame_ema_ms <= f32::EPSILON {
+            frame_ms
+        } else {
+            self.ui.frame_ema_ms * 0.9 + frame_ms * 0.1
+        };
+
+        let pending_events = !self.runtime.event_rx.is_empty();
+        let pending_commands = !self.runtime.pending_commands.is_empty();
+        if pending_events || pending_commands || (self.ui.follow_live && self.ui.ingest_enabled) {
+            ctx.request_repaint_after(self.config.repaint_delay_on_activity);
+        }
     }
 
     fn save(&mut self, storage: &mut dyn Storage) {

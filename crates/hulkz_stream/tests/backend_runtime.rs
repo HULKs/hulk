@@ -659,3 +659,107 @@ async fn prefetch_range_cancellable_respects_cancel_token() {
     backend.shutdown().await.expect("shutdown backend");
     driver_task.await.expect("join driver").expect("driver ok");
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn range_stream_returns_chunked_history_and_updates_query_stats() {
+    let namespace = unique_namespace("range_stream");
+    let temp = tempfile::tempdir().expect("temp dir");
+    let (backend, driver_task) = spawn_backend(&namespace, temp.path(), 1024 * 1024).await;
+    let source = backend
+        .source(pinned_data_spec("sensor/data", &namespace))
+        .await
+        .expect("acquire source");
+
+    let pub_session = Session::create(namespace.clone())
+        .await
+        .expect("publisher session");
+    let pub_node = pub_session
+        .create_node("publisher")
+        .build()
+        .await
+        .expect("publisher node");
+    let publisher = pub_node
+        .advertise::<i32>("sensor/data")
+        .build()
+        .await
+        .expect("publisher");
+
+    tokio::time::sleep(Duration::from_millis(150)).await;
+    for value in 0..25_i32 {
+        publisher
+            .put(&value, &pub_session.now())
+            .await
+            .expect("publish");
+    }
+    tokio::time::sleep(Duration::from_millis(250)).await;
+
+    let stats = source.stats_snapshot();
+    let (Some(start), Some(end)) = (stats.durable_oldest, stats.durable_latest) else {
+        panic!("expected durable bounds after publishing");
+    };
+
+    backend.shutdown().await.expect("shutdown writable backend");
+    driver_task.await.expect("join driver").expect("driver ok");
+
+    let replay_session = Session::create(namespace.clone())
+        .await
+        .expect("replay session");
+    let (replay_backend, replay_driver): (StreamBackend, StreamDriver) =
+        StreamBackendBuilder::new(replay_session)
+            .open_mode(OpenMode::ReadOnly)
+            .storage_path(temp.path().to_path_buf())
+            .build()
+            .await
+            .expect("build replay backend");
+    let replay_driver_task = tokio::spawn(replay_driver);
+    let replay_source = replay_backend
+        .source(pinned_data_spec("sensor/data", &namespace))
+        .await
+        .expect("acquire replay source");
+
+    let mut stream = replay_source
+        .range_inclusive_stream(start, end, 7)
+        .await
+        .expect("open range stream");
+    let mut total_records = 0usize;
+    let mut chunk_count = 0usize;
+    while let Some(chunk) = stream.recv().await {
+        let chunk = chunk.expect("stream chunk");
+        if chunk.is_last {
+            break;
+        }
+        assert!(
+            chunk.records.len() <= 7,
+            "chunk size exceeded requested bound"
+        );
+        total_records = total_records.saturating_add(chunk.records.len());
+        chunk_count = chunk_count.saturating_add(1);
+    }
+
+    assert!(chunk_count >= 2, "expected multiple history chunks");
+    assert!(total_records >= 25, "expected full streamed history");
+
+    tokio::time::sleep(Duration::from_millis(50)).await;
+    let backend_stats = replay_backend.stats_snapshot();
+    assert!(
+        backend_stats.query_requests >= 1,
+        "range stream should increment query request counter"
+    );
+    assert_eq!(
+        backend_stats.range_stream_active, 0,
+        "range stream worker should be inactive after completion"
+    );
+    assert!(
+        backend_stats.query_cache_hits + backend_stats.query_cache_misses >= 1,
+        "streamed reads should touch durable read cache counters"
+    );
+
+    replay_backend
+        .shutdown()
+        .await
+        .expect("shutdown replay backend");
+    replay_driver_task
+        .await
+        .expect("join driver")
+        .expect("driver ok");
+}

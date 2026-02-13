@@ -4,8 +4,8 @@ use tracing::warn;
 
 use super::state::{PersistedUiState, ViewerApp, ViewerTab};
 
-pub(super) const STORAGE_KEY_DOCK_STATE: &str = "hulkz_viewer/workspace_dock_state_v4";
-pub(super) const STORAGE_KEY_UI_STATE: &str = "hulkz_viewer/ui_state_v3";
+pub(super) const STORAGE_KEY_DOCK_STATE: &str = "hulkz_viewer/workspace_dock_state_v5";
+pub(super) const STORAGE_KEY_UI_STATE: &str = "hulkz_viewer/ui_state_v4";
 
 pub(super) fn load_persisted_dock_state(
     storage: Option<&dyn Storage>,
@@ -47,7 +47,7 @@ pub(super) fn save_persisted_state(app: &ViewerApp, storage: &mut dyn Storage) {
         follow_live: app.ui.follow_live,
         next_stream_id: app.workspace.next_stream_id,
         next_parameter_panel_id: app.workspace.next_parameter_panel_id,
-        default_namespace: app.ui.default_namespace_input.clone(),
+        default_namespace: app.ui.default_namespace.clone(),
         show_discovery: app.shell.show_discovery,
         show_timeline: app.shell.show_timeline,
     };

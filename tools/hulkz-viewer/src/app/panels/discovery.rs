@@ -10,7 +10,7 @@ impl Panel for DiscoveryPanel {
     type State = ();
 
     fn draw(app: &mut ViewerApp, ui: &mut egui::Ui, _state: &mut Self::State) {
-        let discovery_namespace = app.ui.default_namespace_input.trim();
+        let discovery_namespace = app.ui.default_namespace.trim();
         ui.horizontal_wrapped(|ui| {
             ui.label(format!("Publishers {}", app.discovery.publishers.len()));
             ui.separator();
@@ -42,7 +42,8 @@ impl Panel for DiscoveryPanel {
 
         if discovery_namespace.is_empty() {
             ui.add_space(6.0);
-            ui.label("Set a default namespace to enable discovery.");
+            ui.label("Set a default namespace to discover publishers and parameters.");
+            ui.label(egui::RichText::new("Session discovery remains active globally.").weak());
             return;
         }
 
@@ -86,7 +87,7 @@ impl Panel for DiscoveryPanel {
 
         if let Some((namespace, path_expression)) = open_panel_action {
             let namespace = namespace.trim().to_string();
-            let selection = if namespace == app.ui.default_namespace_input.trim() {
+            let selection = if namespace == app.ui.default_namespace.trim() {
                 NamespaceSelection::FollowDefault
             } else {
                 NamespaceSelection::Override(namespace)

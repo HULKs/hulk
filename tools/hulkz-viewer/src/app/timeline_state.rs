@@ -77,7 +77,7 @@ impl ViewerApp {
             return;
         }
 
-        self.timeline.timeline_viewport.pan_offset_ns = 0;
+        self.timeline.timeline_viewport.manual_end_ns = None;
         let latest_index = self.timeline.global_timeline.len().saturating_sub(1);
         self.timeline.global_timeline_index = Some(latest_index);
         let latest_anchor = self.timeline.global_timeline[latest_index];
@@ -115,7 +115,20 @@ impl ViewerApp {
     }
 
     pub(super) fn mark_manual_timeline_navigation(&mut self) {
+        if self.ui.follow_live {
+            self.freeze_timeline_window_at_current_range();
+        }
         self.ui.follow_live = false;
+    }
+
+    pub(super) fn freeze_timeline_window_at_current_range(&mut self) {
+        let Some(current_range) = self.timeline_render_range() else {
+            return;
+        };
+        if self.timeline.timeline_viewport.span.is_none() {
+            self.timeline.timeline_viewport.span = Some(current_range.span());
+        }
+        self.timeline.timeline_viewport.manual_end_ns = Some(current_range.end_ns);
     }
 
     pub(super) fn set_timeline_hover_preview(&mut self, timestamp_ns: Option<u64>) {
@@ -129,9 +142,6 @@ impl ViewerApp {
         let Some(current_range) = self.timeline_render_range() else {
             return;
         };
-        let Some(latest_ns) = self.timeline.global_timeline.last().copied() else {
-            return;
-        };
 
         let next_range = zoom_range_around_focus(
             full_range,
@@ -142,8 +152,7 @@ impl ViewerApp {
         );
         let lane_scroll_offset = self.timeline.timeline_viewport.lane_scroll_offset;
         let lane_height_px = self.timeline.timeline_viewport.lane_height_px;
-        self.timeline.timeline_viewport =
-            viewport_state_from_range(next_range, latest_ns, full_range);
+        self.timeline.timeline_viewport = viewport_state_from_range(next_range, full_range);
         self.timeline.timeline_viewport.lane_scroll_offset = lane_scroll_offset;
         self.timeline.timeline_viewport.lane_height_px = lane_height_px;
     }
@@ -160,25 +169,13 @@ impl ViewerApp {
             return;
         }
 
-        let delta_ns = (pan_delta_fraction as f64 * span_ns as f64).round() as i64;
-        self.timeline.timeline_viewport.pan_offset_ns = self
-            .timeline
-            .timeline_viewport
-            .pan_offset_ns
-            .saturating_add(delta_ns);
-
-        let Some(latest_ns) = self.timeline.global_timeline.last().copied() else {
-            return;
-        };
-        let clamped_range = derive_timeline_render_range(
-            full_range,
-            self.timeline.timeline_viewport,
-            self.ui.follow_live,
-        );
+        let delta_ns = (pan_delta_fraction as f64 * span_ns as f64).round() as i128;
+        let candidate_end = i128::from(current_range.end_ns).saturating_add(delta_ns);
+        let candidate_start = candidate_end.saturating_sub(i128::from(span_ns));
+        let clamped_range = clamp_timeline_range(full_range, candidate_start, span_ns);
         let lane_scroll_offset = self.timeline.timeline_viewport.lane_scroll_offset;
         let lane_height_px = self.timeline.timeline_viewport.lane_height_px;
-        self.timeline.timeline_viewport =
-            viewport_state_from_range(clamped_range, latest_ns, full_range);
+        self.timeline.timeline_viewport = viewport_state_from_range(clamped_range, full_range);
         self.timeline.timeline_viewport.lane_scroll_offset = lane_scroll_offset;
         self.timeline.timeline_viewport.lane_height_px = lane_height_px;
     }
@@ -199,7 +196,7 @@ impl ViewerApp {
     }
 
     fn lane_label_for_key(&self, key: &TimelineLaneKey) -> String {
-        let default_namespace = self.ui.default_namespace_input.trim();
+        let default_namespace = self.ui.default_namespace.trim();
         if default_namespace.is_empty() || default_namespace == key.namespace {
             key.path_expression.clone()
         } else {
@@ -237,11 +234,14 @@ impl ViewerApp {
                 active_bindings: 0,
             });
         lane.active_bindings = lane.active_bindings.saturating_add(1);
+        self.timeline.lane_order_dirty = true;
         self.evict_inactive_lanes_if_needed();
     }
 
     fn decrement_lane_binding(&mut self, lane_key: &TimelineLaneKey) {
-        decrement_lane_binding(&mut self.timeline.timeline_lanes, lane_key);
+        if decrement_lane_binding(&mut self.timeline.timeline_lanes, lane_key) {
+            self.timeline.lane_order_dirty = true;
+        }
     }
 
     pub(super) fn unbind_stream_lane(&mut self, stream_id: crate::model::StreamId) {
@@ -268,6 +268,9 @@ impl ViewerApp {
                 last_seen_ns: 0,
                 active_bindings: 0,
             });
+        if lane.sample_timestamps.is_empty() {
+            self.timeline.lane_order_dirty = true;
+        }
 
         for record in records {
             if lane.sample_timestamps.back().copied() != Some(record.timestamp_nanos) {
@@ -282,28 +285,38 @@ impl ViewerApp {
     }
 
     pub(super) fn evict_inactive_lanes_if_needed(&mut self) {
-        evict_inactive_lanes_if_needed(
+        if evict_inactive_lanes_if_needed(
             &mut self.timeline.timeline_lanes,
             self.config.max_retained_lanes,
-        );
+        ) {
+            self.timeline.lane_order_dirty = true;
+        }
     }
 
     pub(super) fn timeline_lane_rows(
-        &self,
+        &mut self,
         viewport_range: TimelineRenderRange,
         lane_window_start: usize,
         lane_window_count: usize,
         pixel_width: f32,
     ) -> (Vec<LaneRenderRow>, usize) {
-        let mut lanes = self.timeline.timeline_lanes.values().collect::<Vec<_>>();
-        lanes.sort_by(|left, right| {
-            left.key
-                .path_expression
-                .cmp(&right.key.path_expression)
-                .then_with(|| left.key.namespace.cmp(&right.key.namespace))
-        });
+        if self.timeline.lane_order_dirty {
+            let mut ordered = self
+                .timeline
+                .timeline_lanes
+                .keys()
+                .cloned()
+                .collect::<Vec<_>>();
+            ordered.sort_by(|left, right| {
+                left.path_expression
+                    .cmp(&right.path_expression)
+                    .then_with(|| left.namespace.cmp(&right.namespace))
+            });
+            self.timeline.lane_order_cache = ordered;
+            self.timeline.lane_order_dirty = false;
+        }
 
-        let total = lanes.len();
+        let total = self.timeline.lane_order_cache.len();
         if total == 0 || lane_window_count == 0 {
             return (Vec::new(), total);
         }
@@ -312,7 +325,10 @@ impl ViewerApp {
         let slot_count = ((pixel_width.max(80.0) / 8.0).round() as usize).clamp(32, 1024);
 
         let mut rows = Vec::with_capacity(end.saturating_sub(start));
-        for lane in &lanes[start..end] {
+        for key in &self.timeline.lane_order_cache[start..end] {
+            let Some(lane) = self.timeline.timeline_lanes.get(key) else {
+                continue;
+            };
             let clustered = cluster_lane_samples(
                 &lane.sample_timestamps,
                 viewport_range.start_ns,
@@ -409,10 +425,10 @@ fn derive_timeline_render_range(
         };
     }
 
-    let latest_i128 = i128::from(full_range.end_ns);
+    let manual_end_ns = viewport.manual_end_ns.unwrap_or(full_range.end_ns);
+    let manual_end_i128 = i128::from(manual_end_ns);
     let span_i128 = i128::from(span_ns);
-    let candidate_end = latest_i128 + i128::from(viewport.pan_offset_ns);
-    let candidate_start = candidate_end - span_i128;
+    let candidate_start = manual_end_i128 - span_i128;
     clamp_timeline_range(full_range, candidate_start, span_ns)
 }
 
@@ -478,18 +494,14 @@ fn zoom_range_around_focus(
 
 fn viewport_state_from_range(
     range: TimelineRenderRange,
-    latest_ns: u64,
     full_range: TimelineRenderRange,
 ) -> TimelineViewportState {
     if range == full_range {
         return TimelineViewportState::default();
     }
-    let span = range.span();
-    let pan_offset_i128 = i128::from(range.end_ns) - i128::from(latest_ns);
-    let pan_offset_ns = pan_offset_i128.clamp(i128::from(i64::MIN), i128::from(i64::MAX)) as i64;
     TimelineViewportState {
-        span: Some(span),
-        pan_offset_ns,
+        span: Some(range.span()),
+        manual_end_ns: Some(range.end_ns),
         lane_scroll_offset: 0.0,
         lane_height_px: DEFAULT_TIMELINE_LANE_HEIGHT_PX,
     }
@@ -519,7 +531,7 @@ fn next_lane_scroll_offset(
 fn decrement_lane_binding(
     lanes: &mut BTreeMap<TimelineLaneKey, super::state::TimelineLaneState>,
     lane_key: &TimelineLaneKey,
-) {
+) -> bool {
     let mut should_remove = false;
     if let Some(lane) = lanes.get_mut(lane_key) {
         lane.active_bindings = lane.active_bindings.saturating_sub(1);
@@ -527,15 +539,18 @@ fn decrement_lane_binding(
     }
     if should_remove {
         lanes.remove(lane_key);
+        true
+    } else {
+        false
     }
 }
 
 fn evict_inactive_lanes_if_needed(
     lanes: &mut BTreeMap<TimelineLaneKey, super::state::TimelineLaneState>,
     max_retained_lanes: usize,
-) {
+) -> bool {
     if lanes.len() <= max_retained_lanes {
-        return;
+        return false;
     }
 
     let mut candidates = lanes
@@ -546,13 +561,16 @@ fn evict_inactive_lanes_if_needed(
     candidates.sort_by_key(|(_, last_seen_ns)| *last_seen_ns);
 
     let mut over = lanes.len().saturating_sub(max_retained_lanes);
+    let mut removed_any = false;
     for (key, _) in candidates {
         if over == 0 {
             break;
         }
         lanes.remove(&key);
+        removed_any = true;
         over = over.saturating_sub(1);
     }
+    removed_any
 }
 
 fn lane_color_index(key: &TimelineLaneKey) -> usize {
@@ -700,12 +718,8 @@ pub(crate) fn is_manual_timeline_navigation(
     selected_timestamp_ns: Option<u64>,
     pan_delta_fraction: Option<f32>,
     zoom_factor: Option<f32>,
-    lane_scroll_delta: Option<f32>,
 ) -> bool {
-    selected_timestamp_ns.is_some()
-        || pan_delta_fraction.is_some()
-        || zoom_factor.is_some()
-        || lane_scroll_delta.is_some()
+    selected_timestamp_ns.is_some() || pan_delta_fraction.is_some() || zoom_factor.is_some()
 }
 
 fn trim_timeline_to_capacity(
@@ -777,7 +791,7 @@ mod tests {
             full,
             TimelineViewportState {
                 span: Some(Duration::from_secs(4)),
-                pan_offset_ns: -2_000,
+                manual_end_ns: Some(8_000_000_000),
                 ..TimelineViewportState::default()
             },
             true,
@@ -788,7 +802,7 @@ mod tests {
     }
 
     #[test]
-    fn timeline_range_manual_pan_is_clamped() {
+    fn timeline_range_manual_window_is_clamped() {
         let full = TimelineRenderRange {
             start_ns: 1_000_000_000,
             end_ns: 11_000_000_000,
@@ -797,7 +811,7 @@ mod tests {
             full,
             TimelineViewportState {
                 span: Some(Duration::from_secs(4)),
-                pan_offset_ns: -20_000_000_000,
+                manual_end_ns: Some(500_000_000),
                 ..TimelineViewportState::default()
             },
             false,
@@ -807,6 +821,58 @@ mod tests {
             TimelineRenderRange {
                 start_ns: 1_000_000_000,
                 end_ns: 5_000_000_000
+            }
+        );
+    }
+
+    #[test]
+    fn timeline_range_manual_window_ignores_latest_growth() {
+        let viewport = TimelineViewportState {
+            span: Some(Duration::from_secs(4)),
+            manual_end_ns: Some(8_000_000_000),
+            ..TimelineViewportState::default()
+        };
+        let first = derive_timeline_render_range(
+            TimelineRenderRange {
+                start_ns: 1_000_000_000,
+                end_ns: 11_000_000_000,
+            },
+            viewport,
+            false,
+        );
+        let second = derive_timeline_render_range(
+            TimelineRenderRange {
+                start_ns: 1_000_000_000,
+                end_ns: 15_000_000_000,
+            },
+            viewport,
+            false,
+        );
+        assert_eq!(first.start_ns, 4_000_000_000);
+        assert_eq!(first.end_ns, 8_000_000_000);
+        assert_eq!(first, second);
+    }
+
+    #[test]
+    fn timeline_range_manual_window_clamps_after_trim() {
+        let viewport = TimelineViewportState {
+            span: Some(Duration::from_secs(4)),
+            manual_end_ns: Some(8_000_000_000),
+            ..TimelineViewportState::default()
+        };
+        let clamped = derive_timeline_render_range(
+            TimelineRenderRange {
+                start_ns: 6_000_000_000,
+                end_ns: 15_000_000_000,
+            },
+            viewport,
+            false,
+        );
+        assert_eq!(
+            clamped,
+            TimelineRenderRange {
+                start_ns: 6_000_000_000,
+                end_ns: 10_000_000_000
             }
         );
     }
@@ -967,11 +1033,10 @@ mod tests {
 
     #[test]
     fn manual_navigation_flags_disable_follow_semantics() {
-        assert!(is_manual_timeline_navigation(Some(100), None, None, None));
-        assert!(is_manual_timeline_navigation(None, Some(0.2), None, None));
-        assert!(is_manual_timeline_navigation(None, None, Some(0.8), None));
-        assert!(is_manual_timeline_navigation(None, None, None, Some(12.0)));
-        assert!(!is_manual_timeline_navigation(None, None, None, None));
+        assert!(is_manual_timeline_navigation(Some(100), None, None));
+        assert!(is_manual_timeline_navigation(None, Some(0.2), None));
+        assert!(is_manual_timeline_navigation(None, None, Some(0.8)));
+        assert!(!is_manual_timeline_navigation(None, None, None));
     }
 
     #[test]

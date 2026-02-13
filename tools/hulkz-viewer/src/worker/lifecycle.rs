@@ -5,9 +5,9 @@ use std::{
 
 use color_eyre::{eyre::eyre, eyre::WrapErr as _, Result};
 use hulkz_stream::StreamBackend;
-use tokio::sync::mpsc::UnboundedSender;
+use tokio::sync::mpsc::Sender;
 
-use crate::model::{ViewerConfig, WorkerEvent};
+use crate::model::{ViewerConfig, WorkerEventEnvelope};
 
 pub(super) fn session_storage_path() -> PathBuf {
     let run_id = SystemTime::now()
@@ -27,7 +27,7 @@ pub(super) fn storage_path_for_config(config: &ViewerConfig) -> PathBuf {
 pub(super) async fn shutdown_worker(
     backend: StreamBackend,
     driver_task: &mut tokio::task::JoinHandle<hulkz_stream::Result<()>>,
-    event_tx: &UnboundedSender<WorkerEvent>,
+    event_tx: &Sender<WorkerEventEnvelope>,
 ) -> Result<()> {
     backend
         .shutdown()

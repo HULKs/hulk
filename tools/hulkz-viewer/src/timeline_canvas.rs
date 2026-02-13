@@ -65,8 +65,7 @@ pub(crate) enum WheelInteraction {
 }
 
 pub fn timeline_lane_window_capacity(lane_height_px: f32, canvas_height_px: f32) -> usize {
-    ((lane_plot_height(canvas_height_px) / lane_height_px.max(MIN_LANE_HEIGHT_PX)).floor()
-        as usize)
+    ((lane_plot_height(canvas_height_px) / lane_height_px.max(MIN_LANE_HEIGHT_PX)).floor() as usize)
         .max(1)
 }
 
@@ -511,7 +510,7 @@ fn format_timestamp_compact(nanos: u64) -> String {
 mod tests {
     use super::{
         pan_fraction_for_drag_delta, timeline_lane_window_capacity, wheel_interaction_from_scroll,
-        zoom_factor_for_scroll_delta, DEFAULT_CANVAS_HEIGHT, WheelInteraction,
+        zoom_factor_for_scroll_delta, WheelInteraction, DEFAULT_CANVAS_HEIGHT,
     };
     use eframe::egui::{Modifiers, Vec2};
 

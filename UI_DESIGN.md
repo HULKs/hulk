@@ -292,6 +292,17 @@ Before shipping a data-heavy egui app, confirm:
 - Errors are surfaced without freezing interaction.
 - Metrics exist for frame time, queue depth, and throughput.
 
+## Applied in hulkz-viewer
+
+The current `hulkz-viewer` implementation applies these guidelines with:
+
+- bounded worker->UI event channels (no unbounded queue growth),
+- per-frame ingest budgets (time/event-count/byte-budget),
+- event-driven repaint scheduling (`~10 ms` while active, no idle polling loop),
+- chunked history replay (`hulkz-stream` range streaming),
+- incremental timeline lane ordering and bounded lane/sample retention,
+- compact runtime diagnostics in the status strip (frame timing + event throughput + queue depth).
+
 ## Closing Notes
 
 Immediate-mode UI can scale to complex, high-throughput apps if you:

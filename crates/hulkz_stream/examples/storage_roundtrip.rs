@@ -17,7 +17,13 @@ async fn main() -> Result<()> {
         std::process::id()
     ));
 
-    let storage = Storage::open(OpenMode::ReadWrite, root.clone(), 1024 * 1024).await?;
+    let storage = Storage::open(
+        OpenMode::ReadWrite,
+        root.clone(),
+        1024 * 1024,
+        8 * 1024 * 1024,
+    )
+    .await?;
 
     let source = SourceSpec {
         plane: PlaneKind::Data,
