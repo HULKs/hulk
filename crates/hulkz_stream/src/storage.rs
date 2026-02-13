@@ -1162,7 +1162,7 @@ fn build_segment_index(
             if let Ok(indexes) = summary.read_message_indexes(&bytes, chunk) {
                 for (channel, entries) in indexes {
                     let (source, effective_namespace) =
-                        source_from_topic_and_metadata(&channel.topic, &channel.metadata);
+                        source_from_topic_and_metadata(&channel.topic, &channel.metadata)?;
                     let source_key = source_key(&source);
                     let encoding = encoding_from_mcap(&channel.message_encoding);
                     let timestamp_id = timestamp_id_from_metadata(&channel.metadata);
@@ -1211,7 +1211,7 @@ fn build_segment_index(
     for message in &mut stream {
         let message = message?;
         let (source, effective_namespace) =
-            source_from_topic_and_metadata(&message.channel.topic, &message.channel.metadata);
+            source_from_topic_and_metadata(&message.channel.topic, &message.channel.metadata)?;
         let source_key = source_key(&source);
         let timestamp_id = timestamp_id_from_metadata(&message.channel.metadata);
 

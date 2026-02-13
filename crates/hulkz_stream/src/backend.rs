@@ -936,7 +936,7 @@ async fn acquire_source(
     });
 
     let cancel_token = CancellationToken::new();
-    let can_ingest = inner.open_mode == OpenMode::ReadWrite && spec.plane != PlaneKind::ExternalRaw;
+    let can_ingest = inner.open_mode == OpenMode::ReadWrite;
 
     let task = if can_ingest {
         debug!(source_key = %source_key_value, "starting ingest worker");
@@ -1273,7 +1273,6 @@ async fn build_subscriber(
                 access.watch_updates_raw(capacity).await?,
             ))
         }
-        PlaneKind::ExternalRaw => Err(Error::InvalidSource),
     }
 }
 

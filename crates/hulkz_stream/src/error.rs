@@ -20,6 +20,12 @@ pub enum Error {
     #[error("invalid source scope for plane")]
     InvalidSource,
 
+    #[error("unknown plane mapping for topic '{topic}' (plane metadata: {plane:?})")]
+    UnknownPlaneMapping {
+        topic: String,
+        plane: Option<String>,
+    },
+
     #[error("source not found")]
     SourceNotFound,
 

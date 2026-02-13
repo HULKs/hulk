@@ -2,7 +2,7 @@ use std::{collections::BTreeMap, num::NonZeroU128, sync::Arc, time::Duration};
 
 use hulkz::{Scope, ScopedPath};
 use hulkz_stream::{
-    storage::Storage, NamespaceBinding, OpenMode, PlaneKind, SourceSpec, StreamRecord,
+    storage::Storage, Error, NamespaceBinding, OpenMode, PlaneKind, SourceSpec, StreamRecord,
 };
 use mcap::{records::MessageHeader, write::WriteOptions};
 use tokio::time::timeout;
@@ -256,4 +256,48 @@ async fn load_external_mcap_best_effort() {
     assert_eq!(rec.source.plane, PlaneKind::Data);
     assert_eq!(rec.source.path.scope(), Scope::Local);
     assert_eq!(rec.source.path.path(), "camera/front");
+}
+
+#[tokio::test]
+async fn load_external_mcap_errors_for_unknown_topic() {
+    let temp = tempfile::tempdir().unwrap();
+    let file = temp.path().join("external.mcap");
+
+    {
+        let mut writer = WriteOptions::default()
+            .create(std::io::BufWriter::new(
+                std::fs::File::create(&file).unwrap(),
+            ))
+            .unwrap();
+
+        let channel = writer
+            .add_channel(0, "external/topic/raw", "application/cdr", &BTreeMap::new())
+            .unwrap();
+
+        writer
+            .write_to_known_channel(
+                &MessageHeader {
+                    channel_id: channel,
+                    sequence: 0,
+                    log_time: 42,
+                    publish_time: 42,
+                },
+                b"payload",
+            )
+            .unwrap();
+        writer.finish().unwrap();
+    }
+
+    let error = match Storage::open(OpenMode::ReadOnly, file.clone(), 1024, 1024 * 1024).await {
+        Ok(_) => panic!("expected unknown topic to fail read-only storage open"),
+        Err(error) => error,
+    };
+
+    assert!(matches!(
+        error,
+        Error::UnknownPlaneMapping {
+            ref topic,
+            plane: None,
+        } if topic == "external/topic/raw"
+    ));
 }

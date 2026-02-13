@@ -8,6 +8,7 @@ use std::{
 use hulkz::{Scope, ScopedPath, Timestamp};
 use zenoh::{bytes::Encoding, time::TimestampId};
 
+use crate::error::{Error, Result};
 use crate::types::{NamespaceBinding, PlaneKind, SourceSpec, StreamRecord};
 
 pub(crate) const META_PREFIX: &str = "hulkz_stream";
@@ -69,7 +70,6 @@ pub(crate) fn key_expr_for_record(spec: &SourceSpec, effective_namespace: Option
                 )
             }
         },
-        PlaneKind::ExternalRaw => spec.path.path().to_string(),
     }
 }
 
@@ -139,7 +139,6 @@ pub(crate) fn metadata_for_record(record: &StreamRecord) -> BTreeMap<String, Str
             PlaneKind::Data => "data",
             PlaneKind::View => "view",
             PlaneKind::ParamReadUpdates => "param-read-updates",
-            PlaneKind::ExternalRaw => "external-raw",
         }
         .to_string(),
     );
@@ -176,7 +175,7 @@ pub(crate) fn metadata_for_record(record: &StreamRecord) -> BTreeMap<String, Str
 pub(crate) fn source_from_topic_and_metadata(
     topic: &str,
     metadata: &BTreeMap<String, String>,
-) -> (SourceSpec, Option<String>) {
+) -> Result<(SourceSpec, Option<String>)> {
     if let Some(plane) = metadata.get(&format!("{META_PREFIX}.plane")) {
         let scope = match metadata
             .get(&format!("{META_PREFIX}.scope"))
@@ -210,10 +209,15 @@ pub(crate) fn source_from_topic_and_metadata(
             "data" => PlaneKind::Data,
             "view" => PlaneKind::View,
             "param-read-updates" => PlaneKind::ParamReadUpdates,
-            _ => PlaneKind::ExternalRaw,
+            _ => {
+                return Err(Error::UnknownPlaneMapping {
+                    topic: topic.to_string(),
+                    plane: Some(plane.clone()),
+                });
+            }
         };
 
-        return (
+        return Ok((
             SourceSpec {
                 plane,
                 path: ScopedPath::new(scope, path),
@@ -221,13 +225,13 @@ pub(crate) fn source_from_topic_and_metadata(
                 namespace_binding,
             },
             effective_namespace,
-        );
+        ));
     }
 
     parse_topic_best_effort(topic)
 }
 
-fn parse_topic_best_effort(topic: &str) -> (SourceSpec, Option<String>) {
+fn parse_topic_best_effort(topic: &str) -> Result<(SourceSpec, Option<String>)> {
     let parts: Vec<&str> = topic.split('/').collect();
     if parts.len() >= 4 && parts[0] == "hulkz" && (parts[1] == "data" || parts[1] == "view") {
         let plane = if parts[1] == "data" {
@@ -238,7 +242,7 @@ fn parse_topic_best_effort(topic: &str) -> (SourceSpec, Option<String>) {
         match parts[2] {
             "global" => {
                 let path = parts[3..].join("/");
-                return (
+                return Ok((
                     SourceSpec {
                         plane,
                         path: ScopedPath::new(Scope::Global, path),
@@ -246,12 +250,12 @@ fn parse_topic_best_effort(topic: &str) -> (SourceSpec, Option<String>) {
                         namespace_binding: NamespaceBinding::FollowTarget,
                     },
                     None,
-                );
+                ));
             }
             "local" if parts.len() >= 5 => {
                 let namespace = parts[3].to_string();
                 let path = parts[4..].join("/");
-                return (
+                return Ok((
                     SourceSpec {
                         plane,
                         path: ScopedPath::new(Scope::Local, path),
@@ -259,13 +263,13 @@ fn parse_topic_best_effort(topic: &str) -> (SourceSpec, Option<String>) {
                         namespace_binding: NamespaceBinding::Pinned(namespace.clone()),
                     },
                     Some(namespace),
-                );
+                ));
             }
             "private" if parts.len() >= 6 => {
                 let namespace = parts[3].to_string();
                 let node = parts[4].to_string();
                 let path = parts[5..].join("/");
-                return (
+                return Ok((
                     SourceSpec {
                         plane,
                         path: ScopedPath::new(Scope::Private, path),
@@ -273,7 +277,7 @@ fn parse_topic_best_effort(topic: &str) -> (SourceSpec, Option<String>) {
                         namespace_binding: NamespaceBinding::Pinned(namespace.clone()),
                     },
                     Some(namespace),
-                );
+                ));
             }
             _ => {}
         }
@@ -288,7 +292,7 @@ fn parse_topic_best_effort(topic: &str) -> (SourceSpec, Option<String>) {
         match parts[3] {
             "global" => {
                 let path = parts[4..].join("/");
-                return (
+                return Ok((
                     SourceSpec {
                         plane: PlaneKind::ParamReadUpdates,
                         path: ScopedPath::new(Scope::Global, path),
@@ -296,12 +300,12 @@ fn parse_topic_best_effort(topic: &str) -> (SourceSpec, Option<String>) {
                         namespace_binding: NamespaceBinding::FollowTarget,
                     },
                     None,
-                );
+                ));
             }
             "local" if parts.len() >= 6 => {
                 let namespace = parts[4].to_string();
                 let path = parts[5..].join("/");
-                return (
+                return Ok((
                     SourceSpec {
                         plane: PlaneKind::ParamReadUpdates,
                         path: ScopedPath::new(Scope::Local, path),
@@ -309,13 +313,13 @@ fn parse_topic_best_effort(topic: &str) -> (SourceSpec, Option<String>) {
                         namespace_binding: NamespaceBinding::Pinned(namespace.clone()),
                     },
                     Some(namespace),
-                );
+                ));
             }
             "private" if parts.len() >= 7 => {
                 let namespace = parts[4].to_string();
                 let node = parts[5].to_string();
                 let path = parts[6..].join("/");
-                return (
+                return Ok((
                     SourceSpec {
                         plane: PlaneKind::ParamReadUpdates,
                         path: ScopedPath::new(Scope::Private, path),
@@ -323,35 +327,31 @@ fn parse_topic_best_effort(topic: &str) -> (SourceSpec, Option<String>) {
                         namespace_binding: NamespaceBinding::Pinned(namespace.clone()),
                     },
                     Some(namespace),
-                );
+                ));
             }
             _ => {}
         }
     }
 
-    (
-        SourceSpec {
-            plane: PlaneKind::ExternalRaw,
-            path: ScopedPath::new(Scope::Global, topic),
-            node_override: None,
-            namespace_binding: NamespaceBinding::Pinned("__external__".to_string()),
-        },
-        None,
-    )
+    Err(Error::UnknownPlaneMapping {
+        topic: topic.to_string(),
+        plane: None,
+    })
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{sync::Arc, time::Duration};
+    use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
     use hulkz::{Scope, ScopedPath};
     use zenoh::bytes::Encoding;
 
+    use crate::error::Error;
     use crate::types::{NamespaceBinding, PlaneKind, SourceSpec, StreamRecord};
 
     use super::{
-        from_nanos_with_id, metadata_for_record, parse_topic_best_effort, source_key,
-        timestamp_id_from_metadata, to_nanos,
+        from_nanos_with_id, metadata_for_record, parse_topic_best_effort,
+        source_from_topic_and_metadata, source_key, timestamp_id_from_metadata, to_nanos,
     };
 
     #[test]
@@ -374,12 +374,45 @@ mod tests {
 
     #[test]
     fn best_effort_topic_parse_for_local_data() {
-        let (spec, effective) = parse_topic_best_effort("hulkz/data/local/nao42/camera/front");
+        let (spec, effective) =
+            parse_topic_best_effort("hulkz/data/local/nao42/camera/front").unwrap();
 
         assert_eq!(spec.plane, PlaneKind::Data);
         assert_eq!(spec.path.scope(), Scope::Local);
         assert_eq!(spec.path.path(), "camera/front");
         assert_eq!(effective.as_deref(), Some("nao42"));
+    }
+
+    #[test]
+    fn metadata_parse_errors_for_unknown_plane() {
+        let mut metadata = BTreeMap::new();
+        metadata.insert(
+            format!("{}.plane", super::META_PREFIX),
+            "external-raw".to_string(),
+        );
+
+        let error = source_from_topic_and_metadata("hulkz/data/global/imu", &metadata).unwrap_err();
+
+        assert!(matches!(
+            error,
+            Error::UnknownPlaneMapping {
+                ref topic,
+                plane: Some(ref plane),
+            } if topic == "hulkz/data/global/imu" && plane == "external-raw"
+        ));
+    }
+
+    #[test]
+    fn best_effort_topic_parse_errors_for_unknown_topic() {
+        let error = parse_topic_best_effort("external/topic/raw").unwrap_err();
+
+        assert!(matches!(
+            error,
+            Error::UnknownPlaneMapping {
+                ref topic,
+                plane: None,
+            } if topic == "external/topic/raw"
+        ));
     }
 
     #[test]

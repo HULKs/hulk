@@ -24,8 +24,6 @@ pub enum PlaneKind {
     Data,
     View,
     ParamReadUpdates,
-    /// External topic that cannot be mapped back to a known hulkz plane.
-    ExternalRaw,
 }
 
 /// Namespace binding strategy used to resolve a source key expression.
