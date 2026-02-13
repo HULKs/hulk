@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use super::{ParameterPanelTab, TextPanelTab, ViewerApp};
+use super::state::{ParameterPanelTab, TextPanelTab, ViewerApp};
 
 mod controls;
 mod discovery;

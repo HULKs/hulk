@@ -20,6 +20,8 @@ pub struct ViewerConfig {
     pub max_timeline_points: usize,
     pub max_samples_per_lane: usize,
     pub max_retained_lanes: usize,
+    pub live_event_batch_max: usize,
+    pub live_event_batch_delay: Duration,
 }
 
 impl Default for ViewerConfig {
@@ -36,6 +38,8 @@ impl Default for ViewerConfig {
             max_timeline_points: 200_000,
             max_samples_per_lane: 50_000,
             max_retained_lanes: 512,
+            live_event_batch_max: 32,
+            live_event_batch_delay: Duration::from_millis(40),
         }
     }
 }

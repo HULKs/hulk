@@ -27,7 +27,10 @@ It must support:
 ### In scope (v2 plan target)
 
 - Dedicated crate: `tools/hulkz-viewer`.
-- Multi-panel egui app using `egui-dock`.
+- Hybrid-shell egui app:
+  - fixed/collapsible `Discovery` pane (left),
+  - fixed/collapsible `Timeline` pane (bottom),
+  - `egui-dock` workspace for `Text` and `Parameters`.
 - Initial panel set:
   - source discovery,
   - global timeline scrub,
@@ -48,7 +51,7 @@ It must support:
 
 ## 4. Locked Decisions
 
-1. Architecture: multi-source V2 using `egui-dock`.
+1. Architecture: multi-source V2 using a hybrid shell + workspace dock.
 2. Initial panel set: Discovery + Timeline + Text + Parameters.
 3. Discovery scope: current namespace first.
 4. Plane behavior: `Text` panels bind to `View` plane in this iteration.
@@ -85,7 +88,7 @@ It must support:
 
 ## 6. Core Definitions
 
-- Panel: dock tab implementing one focused workflow surface.
+- Panel: one focused workflow surface (shell pane or workspace dock tab).
 - Source Descriptor: `namespace + scope/path + optional node` identity used by viewer.
 - Active Binding: mapping from panel to one selected source descriptor.
 - Follow Live: global timeline mode that auto-advances to newest known timestamp.
@@ -121,7 +124,7 @@ As a debugger, I want to move backward/forward through records while live ingest
 
 Acceptance criteria:
 
-1. Timeline panel provides global `Prev`, `Next`, `Jump Latest`, and scrub slider/index controls.
+1. Timeline panel provides global `Prev`, `Next`, `Jump Latest`, and canvas scrub controls.
 2. When global `Follow live` is off, new records do not disturb the selected global anchor.
 3. Scrub triggers window/prefetch hints through `hulkz-stream` APIs for each bound text panel.
 
@@ -205,10 +208,10 @@ Acceptance criteria:
 
 ### FR-E Multi-Panel Workspace
 
-- FR-E01: Viewer uses `egui-dock` for tabbed/docked panel composition.
+- FR-E01: Viewer uses a hybrid shell with fixed/collapsible Discovery/Timeline panes and `egui-dock` for workspace tab composition (`Text`, `Parameters`).
 - FR-E02: Multiple text panels can coexist with independent bindings while sharing one global timeline anchor controlled by the Timeline panel.
 - FR-E02a: Each text panel has explicit namespace mode: follow global default or override namespace.
-- FR-E03: Panel layout and panel-local settings can be persisted and restored.
+- FR-E03: Workspace dock layout, shell visibility toggles, and panel-local settings can be persisted and restored.
 
 ### FR-F Parameters
 
@@ -219,7 +222,7 @@ Acceptance criteria:
 ### FR-G Configuration and Persistence
 
 - FR-G01: CLI args can override namespace and storage mode/path.
-- FR-G02: UI settings and dock layout persist between runs.
+- FR-G02: UI settings, shell visibility toggles, and workspace dock layout persist between runs.
 - FR-G03: Default mode uses session-only temporary storage path.
 - FR-G04: Optional persistent mode uses user-provided storage path.
 
@@ -300,7 +303,7 @@ Acceptance criteria:
 ## 13. Implementation Status
 
 - Completed: Phase 1 requirements lock and app shell baseline.
-- Completed: Phase 2 `egui-dock` tabbed layout with panel registry (`Discovery`, `Timeline`, `Text`, `Parameters`).
+- Completed: Phase 2 shell/workspace layout with fixed `Discovery` + `Timeline` panes and `egui-dock` workspace tabs (`Text`, `Parameters`).
 - Completed: Phase 3 namespace-scoped source discovery with bind actions.
 - Completed: Phase 4 text panel generalized to multiple text tabs with panel-local bindings and one global synchronized timeline control (text panels show value at anchor only).
 - Completed: Phase 5 parameter workflow core (read + staged JSON apply + explicit `Apply` + result feedback).
@@ -322,11 +325,22 @@ Acceptance criteria:
 - Completed: completion popups can open immediately on editor focus (`CompletionEdit::open_on_focus`), enabled for namespace/source/parameter entry fields in viewer.
 - Completed: parameter panel auto-loads values on committed node/path entry (no extra `Load` step), with `Apply` retained for explicit writes.
 - Completed: panel UI code split into individual modules under `app/panels/` and routed through a shared `Panel` trait-based interface.
-- Completed: timeline revamp phase 1 with viewport zoom/pan, manual-interaction follow-live handoff, viewport decimation, and shared stream activity marker rail.
+- Completed: timeline revamp phase 1 with viewport zoom/pan, manual-interaction follow-live handoff, viewport decimation, and dynamic lane-based rendering (`X = time`, `Y = stream lanes`).
 - Completed: timeline canvas contract update (`TimelineCanvasInput`/`TimelineCanvasOutput`) with timestamp-based scrub selection plus pan/zoom gesture outputs.
 - Completed: timeline unit coverage for viewport math, manual-navigation handoff semantics, stream marker lifecycle, decimation properties, and pan/zoom mapping.
+- Completed: timeline lane lifecycle hardening with inactive-first eviction policy tests and lane-scroll clamping tests.
+- Completed: worker-side live event batching/coalescing to smooth high-frequency stream updates.
+- Completed: compact source stats in text panels (durable bounds and ingest/durable frontiers).
+- Completed: grouped `ViewerApp` state decomposition (`ShellState`, `DiscoveryState`, `TimelineState`, `WorkspaceState`, `RuntimeState`, `UiState`) and workspace-only `ViewerTab` model.
+- Completed: persistence version bump for shell/workspace split with intentional reset of legacy all-tab dock state.
 
-## 14. Remaining TODOs
+## 14. Known Limitations (Current Iteration)
+
+1. No non-text stream visualization panel yet (for example 2D canvas).
+2. Timeline viewport/lane scroll state is session-only and not persisted across app restarts.
+3. Timeline lane universe is session-scoped (active bindings plus lanes with in-session samples).
+
+## 15. Remaining TODOs
 
 1. Add first non-text panel type (2D canvas MVP) using the existing panel kind catalog.
 2. Add panel-type specific discovery actions (e.g., open as text vs open as canvas) once second stream panel exists.

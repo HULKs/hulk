@@ -14,17 +14,21 @@ impl Panel for TimelinePanel {
 
     fn draw(app: &mut ViewerApp, ui: &mut egui::Ui, _state: &mut Self::State) {
         ui.horizontal(|ui| {
-            if ui.checkbox(&mut app.follow_live, "Follow live").changed() && app.follow_live {
+            if ui
+                .checkbox(&mut app.ui.follow_live, "Follow live")
+                .changed()
+                && app.ui.follow_live
+            {
                 app.jump_latest_internal(true);
             }
 
             if ui.button("Prev").clicked() {
                 app.mark_manual_timeline_navigation();
-                if let Some(index) = app.global_timeline_index {
+                if let Some(index) = app.timeline.global_timeline_index {
                     app.set_global_timeline_index(index.saturating_sub(1), true);
-                } else if !app.global_timeline.is_empty() {
+                } else if !app.timeline.global_timeline.is_empty() {
                     app.set_global_timeline_index(
-                        app.global_timeline.len().saturating_sub(1),
+                        app.timeline.global_timeline.len().saturating_sub(1),
                         true,
                     );
                 }
@@ -32,28 +36,32 @@ impl Panel for TimelinePanel {
 
             if ui.button("Next").clicked() {
                 app.mark_manual_timeline_navigation();
-                if !app.global_timeline.is_empty() {
-                    let max_index = app.global_timeline.len().saturating_sub(1);
-                    let index = app.global_timeline_index.unwrap_or(0).min(max_index);
+                if !app.timeline.global_timeline.is_empty() {
+                    let max_index = app.timeline.global_timeline.len().saturating_sub(1);
+                    let index = app
+                        .timeline
+                        .global_timeline_index
+                        .unwrap_or(0)
+                        .min(max_index);
                     app.set_global_timeline_index(index.saturating_add(1).min(max_index), true);
                 }
             }
 
             if ui.button("Jump Latest").clicked() {
-                app.follow_live = true;
+                app.ui.follow_live = true;
                 app.jump_latest_internal(true);
             }
         });
         ui.small("Wheel: lanes. Shift+Wheel: pan. Ctrl+Wheel: zoom.");
         ui.separator();
 
-        if app.global_timeline.is_empty() {
+        if app.timeline.global_timeline.is_empty() {
             app.set_timeline_hover_preview(None);
             ui.label("No timeline points yet.");
             return;
         }
 
-        if app.global_timeline_index.is_none() {
+        if app.timeline.global_timeline_index.is_none() {
             app.jump_latest_internal(false);
         }
 
@@ -67,8 +75,19 @@ impl Panel for TimelinePanel {
             return;
         };
 
-        let lane_window_count = timeline_lane_window_capacity(app.timeline_viewport.lane_height_px);
-        let lane_window_start = app.timeline_viewport.lane_scroll_offset.floor() as usize;
+        let hover_or_anchor_text = if let Some(hover_ts) = app.timeline.timeline_hover_preview {
+            format!("Hover {}", format_timestamp(hover_ts))
+        } else {
+            format!("Anchor {}", format_timestamp(anchor_ts))
+        };
+        ui.small(hover_or_anchor_text);
+
+        let canvas_height = ui.available_height();
+        let lane_window_count = timeline_lane_window_capacity(
+            app.timeline.timeline_viewport.lane_height_px,
+            canvas_height,
+        );
+        let lane_window_start = app.timeline.timeline_viewport.lane_scroll_offset.floor() as usize;
         let (lane_rows, total_lanes) = app.timeline_lane_rows(
             viewport_range,
             lane_window_start,
@@ -82,11 +101,12 @@ impl Panel for TimelinePanel {
                 full_range,
                 viewport_range,
                 anchor_timestamp_ns: anchor_ts,
-                hover_timestamp_ns: app.timeline_hover_preview,
+                hover_timestamp_ns: app.timeline.timeline_hover_preview,
                 lane_rows: lane_rows.as_slice(),
                 lane_window_start,
                 total_lane_count: total_lanes,
-                lane_height_px: app.timeline_viewport.lane_height_px,
+                lane_height_px: app.timeline.timeline_viewport.lane_height_px,
+                canvas_height_px: canvas_height,
             },
         );
 
@@ -109,14 +129,8 @@ impl Panel for TimelinePanel {
             app.apply_timeline_zoom(zoom_factor, focus_timestamp_ns);
         }
         if let Some(lane_scroll_delta) = canvas_output.lane_scroll_delta {
-            app.apply_timeline_lane_scroll(lane_scroll_delta, total_lanes);
+            app.apply_timeline_lane_scroll(lane_scroll_delta, total_lanes, canvas_height);
         }
         app.set_timeline_hover_preview(canvas_output.hover_timestamp_ns);
-
-        if let Some(hover_ts) = app.timeline_hover_preview {
-            ui.small(format!("Hover {}", format_timestamp(hover_ts)));
-        } else {
-            ui.small(format!("Anchor {}", format_timestamp(anchor_ts)));
-        }
     }
 }

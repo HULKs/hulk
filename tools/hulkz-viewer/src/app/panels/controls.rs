@@ -1,10 +1,10 @@
 use eframe::egui;
 use hulk_widgets::CompletionEdit;
 
+use crate::app::panel_catalog::OPENABLE_PANEL_KINDS;
 use crate::model::WorkerCommand;
 
 use super::{Panel, ViewerApp};
-use crate::app::panel_catalog::OPENABLE_PANEL_KINDS;
 
 pub(super) struct ControlsPanel;
 
@@ -13,17 +13,17 @@ impl Panel for ControlsPanel {
 
     fn draw(app: &mut ViewerApp, ui: &mut egui::Ui, _state: &mut Self::State) {
         ui.horizontal(|ui| {
-            if ui.checkbox(&mut app.ingest_enabled, "Ingest").changed() {
-                app.send_command(WorkerCommand::SetIngestEnabled(app.ingest_enabled));
+            if ui.checkbox(&mut app.ui.ingest_enabled, "Ingest").changed() {
+                app.send_command(WorkerCommand::SetIngestEnabled(app.ui.ingest_enabled));
             }
+
+            ui.separator();
+            ui.checkbox(&mut app.shell.show_discovery, "Show Discovery");
+            ui.checkbox(&mut app.shell.show_timeline, "Show Timeline");
 
             ui.menu_button("Open Panel", |ui| {
                 for kind in OPENABLE_PANEL_KINDS {
-                    let should_enable = !kind.is_singleton() || !app.has_panel_kind(*kind);
-                    if ui
-                        .add_enabled(should_enable, egui::Button::new(kind.label()))
-                        .clicked()
-                    {
+                    if ui.button(kind.label()).clicked() {
                         app.open_panel_kind(*kind);
                         ui.close();
                     }
@@ -38,7 +38,7 @@ impl Panel for ControlsPanel {
                 CompletionEdit::new(
                     ui.id().with("default_namespace"),
                     namespace_candidates.as_slice(),
-                    &mut app.default_namespace_input,
+                    &mut app.ui.default_namespace_input,
                 )
                 .open_on_focus(true),
             );

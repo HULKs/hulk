@@ -1,6 +1,6 @@
 use eframe::egui;
 
-use crate::app::NamespaceSelection;
+use super::super::state::NamespaceSelection;
 
 use super::{Panel, ViewerApp};
 
@@ -10,19 +10,19 @@ impl Panel for DiscoveryPanel {
     type State = ();
 
     fn draw(app: &mut ViewerApp, ui: &mut egui::Ui, _state: &mut Self::State) {
-        let discovery_namespace = app.default_namespace_input.trim();
+        let discovery_namespace = app.ui.default_namespace_input.trim();
         ui.horizontal_wrapped(|ui| {
-            ui.label(format!("Publishers {}", app.discovered_publishers.len()));
+            ui.label(format!("Publishers {}", app.discovery.publishers.len()));
             ui.separator();
-            ui.label(format!("Parameters {}", app.discovered_parameters.len()));
+            ui.label(format!("Parameters {}", app.discovery.parameters.len()));
             ui.separator();
-            ui.label(format!("Sessions {}", app.discovered_sessions.len()));
+            ui.label(format!("Sessions {}", app.discovery.sessions.len()));
         });
-        if !app.discovered_sessions.is_empty() {
+        if !app.discovery.sessions.is_empty() {
             ui.collapsing(
-                format!("Sessions ({})", app.discovered_sessions.len()),
+                format!("Sessions ({})", app.discovery.sessions.len()),
                 |ui| {
-                    for session in &app.discovered_sessions {
+                    for session in &app.discovery.sessions {
                         ui.horizontal_wrapped(|ui| {
                             ui.label(egui::RichText::new(session.id.as_str()).monospace());
                             ui.separator();
@@ -46,7 +46,7 @@ impl Panel for DiscoveryPanel {
             return;
         }
 
-        if app.discovered_publishers.is_empty() {
+        if app.discovery.publishers.is_empty() {
             ui.label("No publishers discovered yet.");
             return;
         }
@@ -55,7 +55,7 @@ impl Panel for DiscoveryPanel {
         egui::ScrollArea::vertical()
             .id_salt("discovery_publishers")
             .show(ui, |ui| {
-                for publisher in &app.discovered_publishers {
+                for publisher in &app.discovery.publishers {
                     ui.horizontal_wrapped(|ui| {
                         let response = ui.add(
                             egui::Label::new(
@@ -86,7 +86,7 @@ impl Panel for DiscoveryPanel {
 
         if let Some((namespace, path_expression)) = open_panel_action {
             let namespace = namespace.trim().to_string();
-            let selection = if namespace == app.default_namespace_input.trim() {
+            let selection = if namespace == app.ui.default_namespace_input.trim() {
                 NamespaceSelection::FollowDefault
             } else {
                 NamespaceSelection::Override(namespace)

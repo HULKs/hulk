@@ -1,10 +1,12 @@
 use eframe::egui::{self, Color32};
 use hulk_widgets::CompletionEdit;
 
-use crate::app::{NamespaceSelection, ParameterPanelStatus, ParameterPanelTab};
 use crate::model::WorkerCommand;
 
-use super::{Panel, ViewerApp};
+use super::{
+    super::state::{NamespaceSelection, ParameterPanelStatus, ParameterPanelTab},
+    Panel, ViewerApp,
+};
 
 pub(super) struct ParametersPanel;
 
@@ -20,7 +22,7 @@ impl Panel for ParametersPanel {
                 .changed()
             {
                 panel.namespace_selection = if override_enabled {
-                    NamespaceSelection::Override(app.default_namespace_input.trim().to_string())
+                    NamespaceSelection::Override(app.ui.default_namespace_input.trim().to_string())
                 } else {
                     NamespaceSelection::FollowDefault
                 };
@@ -32,7 +34,7 @@ impl Panel for ParametersPanel {
             }
         });
 
-        let Some(namespace) = panel.effective_namespace(&app.default_namespace_input) else {
+        let Some(namespace) = panel.effective_namespace(&app.ui.default_namespace_input) else {
             ui.add_space(6.0);
             ui.label("Set a default namespace first.");
             return;
@@ -93,6 +95,8 @@ impl Panel for ParametersPanel {
                     panel.status = None;
                     app.send_command(WorkerCommand::ReadParameter(target));
                 }
+            } else if panel.node_input.trim().is_empty() && panel.path_input.trim().is_empty() {
+                panel.selected_parameter_reference = None;
             }
         }
 
@@ -117,7 +121,8 @@ impl Panel for ParametersPanel {
             ui.separator();
             ui.small(format!(
                 "{} parameter(s) discovered",
-                app.discovered_parameters
+                app.discovery
+                    .parameters
                     .iter()
                     .filter(|parameter| parameter.namespace == namespace_filter)
                     .count()
@@ -125,6 +130,12 @@ impl Panel for ParametersPanel {
         });
 
         ui.separator();
+        if panel.selected_parameter_reference.is_none() {
+            ui.label(
+                egui::RichText::new("Unbound. Enter node/path to load a parameter value.").weak(),
+            );
+            ui.add_space(4.0);
+        }
         ui.add(
             egui::TextEdit::multiline(&mut panel.editor_text)
                 .font(egui::TextStyle::Monospace)

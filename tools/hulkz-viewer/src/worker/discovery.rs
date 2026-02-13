@@ -1,7 +1,20 @@
-use super::*;
 use std::future::Future;
 
-use hulkz::{GraphEvent, Watcher};
+use color_eyre::{
+    eyre::{eyre, WrapErr as _},
+    Result,
+};
+use hulkz::{GraphEvent, ParameterInfo, PublisherInfo, Session, SessionInfo, Watcher};
+use tokio::sync::mpsc::UnboundedSender;
+use tokio_util::sync::CancellationToken;
+use tracing::trace;
+
+use crate::model::{DiscoveredParameter, DiscoveredPublisher, DiscoveredSession, WorkerEvent};
+
+use super::{
+    commands::send_error,
+    streams::{to_discovered_parameter, to_discovered_publisher, to_discovered_session},
+};
 
 pub(super) enum DiscoveryEvent {
     PublisherJoined(DiscoveredPublisher),

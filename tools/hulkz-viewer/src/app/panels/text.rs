@@ -1,9 +1,9 @@
 use eframe::egui;
 use hulk_widgets::CompletionEdit;
 
-use crate::app::{format_timestamp, TextPanelTab};
+use crate::app::format_timestamp;
 
-use super::{Panel, ViewerApp};
+use super::{super::state::TextPanelTab, Panel, ViewerApp};
 
 pub(super) struct TextPanel;
 
@@ -17,8 +17,10 @@ impl Panel for TextPanel {
                 .checkbox(&mut override_enabled, "Override namespace")
                 .changed()
             {
-                stream
-                    .set_namespace_override_enabled(override_enabled, &app.default_namespace_input);
+                stream.set_namespace_override_enabled(
+                    override_enabled,
+                    &app.ui.default_namespace_input,
+                );
             }
 
             if let Some(override_namespace) = stream.namespace_override_text_mut() {
@@ -38,12 +40,53 @@ impl Panel for TextPanel {
             );
         });
 
-        let state = app.stream_states.get(&stream.id);
+        let has_binding = stream
+            .binding_request(&app.ui.default_namespace_input)
+            .is_some();
+        let state = app.workspace.stream_states.get(&stream.id);
         ui.add_space(6.0);
         if let Some(state) = state {
             ui.label(egui::RichText::new(state.source_label.as_str()).weak());
+            if let Some(source_stats) = &state.source_stats {
+                ui.horizontal_wrapped(|ui| {
+                    ui.small(format!("durable {}", source_stats.durable_len));
+                    if let Some(oldest) = source_stats.durable_oldest {
+                        ui.separator();
+                        ui.small(format!(
+                            "oldest {}",
+                            format_timestamp(oldest.get_time().as_nanos())
+                        ));
+                    }
+                    if let Some(latest) = source_stats.durable_latest {
+                        ui.separator();
+                        ui.small(format!(
+                            "latest {}",
+                            format_timestamp(latest.get_time().as_nanos())
+                        ));
+                    }
+                    if let Some(frontier) = source_stats.ingest_frontier {
+                        ui.separator();
+                        ui.small(format!(
+                            "ingest {}",
+                            format_timestamp(frontier.get_time().as_nanos())
+                        ));
+                    }
+                    if let Some(frontier) = source_stats.durable_frontier {
+                        ui.separator();
+                        ui.small(format!(
+                            "durable {}",
+                            format_timestamp(frontier.get_time().as_nanos())
+                        ));
+                    }
+                });
+            }
         }
         ui.separator();
+
+        if !has_binding {
+            ui.label("Unbound. Set namespace/path to subscribe.");
+            return;
+        }
 
         if let Some(state) = state {
             if let Some(record) = &state.current_record {
@@ -66,10 +109,10 @@ impl Panel for TextPanel {
                 if ui.button("Copy").clicked() {
                     ui.ctx().copy_text(body);
                 }
-            } else if app.global_timeline.is_empty() {
+            } else if app.timeline.global_timeline.is_empty() {
                 ui.label("Waiting for records.");
             } else {
-                ui.label("No value at current anchor.");
+                ui.label("No value at the current global anchor.");
             }
         } else {
             ui.label("Stream state unavailable.");

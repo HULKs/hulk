@@ -1,7 +1,5 @@
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub(super) enum PanelKind {
-    Discovery,
-    Timeline,
     Text,
     Parameters,
 }
@@ -11,18 +9,20 @@ pub(super) const OPENABLE_PANEL_KINDS: &[PanelKind] = &[PanelKind::Text, PanelKi
 impl PanelKind {
     pub(super) const fn label(self) -> &'static str {
         match self {
-            PanelKind::Discovery => "Discovery",
-            PanelKind::Timeline => "Timeline",
             PanelKind::Text => "Text",
             PanelKind::Parameters => "Parameters",
         }
     }
+}
 
-    pub(super) const fn is_singleton(self) -> bool {
-        matches!(self, PanelKind::Discovery | PanelKind::Timeline)
-    }
+#[cfg(test)]
+mod tests {
+    use super::{PanelKind, OPENABLE_PANEL_KINDS};
 
-    pub(super) const fn is_fixed(self) -> bool {
-        matches!(self, PanelKind::Discovery | PanelKind::Timeline)
+    #[test]
+    fn openable_kinds_are_workspace_only() {
+        assert_eq!(OPENABLE_PANEL_KINDS.len(), 2);
+        assert!(OPENABLE_PANEL_KINDS.contains(&PanelKind::Text));
+        assert!(OPENABLE_PANEL_KINDS.contains(&PanelKind::Parameters));
     }
 }

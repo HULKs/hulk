@@ -5,7 +5,7 @@ use std::time::Duration;
 use crate::app::{LaneRenderRow, TimelineRenderRange};
 
 const CANVAS_MIN_WIDTH: f32 = 420.0;
-const CANVAS_HEIGHT: f32 = 236.0;
+pub(crate) const DEFAULT_CANVAS_HEIGHT: f32 = 236.0;
 const INNER_MARGIN_PX: f32 = 10.0;
 const AXIS_HEIGHT_PX: f32 = 30.0;
 const LANE_RAIL_WIDTH_PX: f32 = 180.0;
@@ -44,6 +44,7 @@ pub struct TimelineCanvasInput<'a> {
     pub lane_window_start: usize,
     pub total_lane_count: usize,
     pub lane_height_px: f32,
+    pub canvas_height_px: f32,
 }
 
 #[derive(Debug, Clone, Default)]
@@ -63,16 +64,26 @@ pub(crate) enum WheelInteraction {
     Zoom(f32),
 }
 
-pub fn timeline_lane_window_capacity(lane_height_px: f32) -> usize {
-    ((lane_plot_height() / lane_height_px.max(MIN_LANE_HEIGHT_PX)).floor() as usize).max(1)
+pub fn timeline_lane_window_capacity(lane_height_px: f32, canvas_height_px: f32) -> usize {
+    ((lane_plot_height(canvas_height_px) / lane_height_px.max(MIN_LANE_HEIGHT_PX)).floor()
+        as usize)
+        .max(1)
 }
 
 pub fn draw_timeline_canvas(
     ui: &mut egui::Ui,
     input: TimelineCanvasInput<'_>,
 ) -> TimelineCanvasOutput {
+    let requested_height = if input.canvas_height_px.is_finite() {
+        input.canvas_height_px
+    } else {
+        DEFAULT_CANVAS_HEIGHT
+    };
     let (timeline_rect, response) = ui.allocate_exact_size(
-        egui::vec2(ui.available_width().max(CANVAS_MIN_WIDTH), CANVAS_HEIGHT),
+        egui::vec2(
+            ui.available_width().max(CANVAS_MIN_WIDTH),
+            requested_height.max(1.0),
+        ),
         egui::Sense::click_and_drag(),
     );
     let painter = ui.painter_at(timeline_rect);
@@ -151,9 +162,9 @@ pub fn draw_timeline_canvas(
             if x < plot_rect.left() - 2.0 || x > plot_rect.right() + 2.0 {
                 continue;
             }
-            let density_stretch = (1.0 + (point.count.max(1) as f32).log2()).clamp(1.0, 4.2);
+            let density_stretch = (1.0_f32 + (point.count.max(1) as f32).log2()).clamp(1.0, 4.2);
             let fill = lane_color(row.color_index)
-                .linear_multiply((0.42 + 0.11 * density_stretch).clamp(0.3, 0.95));
+                .linear_multiply((0.42_f32 + 0.11 * density_stretch).clamp(0.3, 0.95));
             draw_diamond(
                 &painter,
                 egui::pos2(x, y_center),
@@ -418,8 +429,8 @@ pub(crate) fn wheel_interaction_from_scroll(
     Some(WheelInteraction::LaneScroll(-scroll_signal))
 }
 
-fn lane_plot_height() -> f32 {
-    CANVAS_HEIGHT - INNER_MARGIN_PX * 2.0 - AXIS_HEIGHT_PX
+fn lane_plot_height(canvas_height_px: f32) -> f32 {
+    (canvas_height_px - INNER_MARGIN_PX * 2.0 - AXIS_HEIGHT_PX).max(1.0)
 }
 
 fn x_for_timestamp(
@@ -500,7 +511,7 @@ fn format_timestamp_compact(nanos: u64) -> String {
 mod tests {
     use super::{
         pan_fraction_for_drag_delta, timeline_lane_window_capacity, wheel_interaction_from_scroll,
-        zoom_factor_for_scroll_delta, WheelInteraction,
+        zoom_factor_for_scroll_delta, DEFAULT_CANVAS_HEIGHT, WheelInteraction,
     };
     use eframe::egui::{Modifiers, Vec2};
 
@@ -556,7 +567,7 @@ mod tests {
 
     #[test]
     fn lane_capacity_is_always_positive() {
-        assert!(timeline_lane_window_capacity(16.0) >= 1);
-        assert!(timeline_lane_window_capacity(42.0) >= 1);
+        assert!(timeline_lane_window_capacity(16.0, DEFAULT_CANVAS_HEIGHT) >= 1);
+        assert!(timeline_lane_window_capacity(42.0, DEFAULT_CANVAS_HEIGHT) >= 1);
     }
 }
