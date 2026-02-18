@@ -277,6 +277,8 @@ serde_derive = { git = "https://github.com/HULKs/serde.git", rev = "ef30eb8fdd0e
 serde_core = { git = "https://github.com/HULKs/serde.git", rev = "ef30eb8fdd0ee12e4e6f3f5615c6bb022e02d1b2" }
 # Pin RTPS protocol version to 2.3
 rustdds = { git = "https://github.com/HULKs/RustDDS.git", rev = "0232af0c67e25e39afb5eef0166edfe493762320" }
+# Pinned older version because of upstream issue with "v0.2.17", see https://github.com/rust-native-tls/rust-native-tls/issues/370
+native-tls = { git = "https://github.com/sfackler/rust-native-tls", tag = "v0.2.16" }
 
 egui = { git = "https://github.com/HULKs/egui/", rev = "c310aad9c54618e8845b6707899e2678fec8b842" }
 egui-wgpu = { git = "https://github.com/HULKs/egui/", rev = "c310aad9c54618e8845b6707899e2678fec8b842" }
