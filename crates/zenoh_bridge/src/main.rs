@@ -165,7 +165,7 @@ async fn main() -> Result<()> {
         "/",
         "joint_ctrl",
         MessageTypeName::new("booster_interface", "LowCmd"),
-        "low_command",
+        "joint_ctrl",
     )?;
 
     // If no errors occur, none of these futures will complete
