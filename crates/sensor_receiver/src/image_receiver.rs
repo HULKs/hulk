@@ -58,11 +58,7 @@ impl ImageReceiver {
             ),
             ImageReceiverInstance::StereonetDepth => (
                 context.hardware_interface.read_stereonet_depth_image()?,
-                Some(
-                    context
-                        .hardware_interface
-                        .read_stereonet_depth_camera_info()?,
-                ),
+                None,
             ),
             ImageReceiverInstance::StereonetVisual => (
                 context.hardware_interface.read_stereonet_visual_image()?,
