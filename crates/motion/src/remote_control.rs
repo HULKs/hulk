@@ -5,7 +5,7 @@ use framework::MainOutput;
 use linear_algebra::vector;
 use serde::{Deserialize, Serialize};
 use types::{
-    motion_command::{HeadMotion, MotionCommand},
+    motion_command::{HeadMotion, ImageRegion, MotionCommand},
     parameters::RemoteControlParameters,
 };
 
@@ -33,7 +33,9 @@ impl RemoteControl {
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let motion_command = MotionCommand::WalkWithVelocity {
-            head: HeadMotion::Center,
+            head: HeadMotion::Center {
+                image_region_target: ImageRegion::Center,
+            },
             velocity: vector![
                 context.remote_control_parameters.walk.forward,
                 context.remote_control_parameters.walk.left,

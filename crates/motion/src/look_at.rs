@@ -165,6 +165,7 @@ fn look_at_with_camera(
     let pixel_target = match image_region_target {
         ImageRegion::Center => image_region_parameters.center,
         ImageRegion::Bottom => image_region_parameters.bottom,
+        ImageRegion::Top => image_region_parameters.top,
     };
 
     let pixel_target = point![
