@@ -1,5 +1,10 @@
 from mujoco import MjData
-from mujoco_rust_server.booster_types import ImuState, LowState, MotorState
+from mujoco_rust_server.booster_types import (
+    ImuState,
+    LowState,
+    MotorState,
+    CommandType,
+)
 
 from mujoco_simulator._utils import mj_quaternion_to_rpy
 from mujoco_simulator.joint_actuator_info import JointActuatorInfo
@@ -21,7 +26,7 @@ def generate_low_state(
         motor_state_parallel=[],
         motor_state_serial=[
             MotorState(
-                mode=0,
+                command_type=CommandType.Serial,
                 position=data.qpos[info.qpos_addr].item(),
                 velocity=data.qvel[info.qvel_addr].item(),
                 acceleration=data.qacc[info.qacc_addr].item(),

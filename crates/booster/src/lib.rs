@@ -132,7 +132,9 @@ impl ImuState {
     PathIntrospect,
 )]
 pub struct MotorState {
-    pub mode: i8,
+    #[serde(rename = "mode")]
+    /// Current motor command type used.
+    pub command_type: CommandType,
     #[serde(rename = "q")]
     /// Joint angle position (q), unit: rad.
     pub position: f32,
@@ -156,7 +158,7 @@ pub struct MotorState {
 impl MotorState {
     #[new]
     pub fn new(
-        mode: i8,
+        command_type: CommandType,
         position: f32,
         velocity: f32,
         acceleration: f32,
@@ -166,7 +168,7 @@ impl MotorState {
         reserve: [u32; 2],
     ) -> Self {
         Self {
-            mode,
+            command_type,
             position,
             velocity,
             acceleration,
@@ -211,12 +213,13 @@ impl JointsMotorState for Joints<MotorState> {
     }
 }
 
-#[repr(C)]
+#[repr(i8)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, eq))]
 #[derive(
     Debug,
     Default,
     Clone,
+    Copy,
     Serialize,
     Deserialize,
     PartialEq,
@@ -226,9 +229,9 @@ impl JointsMotorState for Joints<MotorState> {
     PathIntrospect,
 )]
 pub enum CommandType {
-    Parallel,
+    Parallel = 0,
     #[default]
-    Serial,
+    Serial = 1,
 }
 
 #[repr(C)]
@@ -256,6 +259,7 @@ impl LowCommand {
                 .zip(motor_command_parameters.proportional_coefficients)
                 .zip(motor_command_parameters.derivative_coefficients)
                 .map(|((joint_position, kp), kd)| MotorCommand {
+                    command_type,
                     position: joint_position,
                     velocity: 0.0,
                     torque: 0.0,
@@ -282,6 +286,9 @@ impl LowCommand {
     PathIntrospect,
 )]
 pub struct MotorCommand {
+    #[serde(rename = "mode")]
+    /// Current motor command type used.
+    pub command_type: CommandType,
     #[serde(rename = "q")]
     /// Joint angle position, unit: rad.
     pub position: f32,
@@ -303,8 +310,17 @@ pub struct MotorCommand {
 #[pymethods]
 impl MotorCommand {
     #[new]
-    pub fn new(position: f32, velocity: f32, torque: f32, kp: f32, kd: f32, weight: f32) -> Self {
+    pub fn new(
+        command_type: CommandType,
+        position: f32,
+        velocity: f32,
+        torque: f32,
+        kp: f32,
+        kd: f32,
+        weight: f32,
+    ) -> Self {
         Self {
+            command_type,
             position,
             velocity,
             torque,
@@ -315,17 +331,17 @@ impl MotorCommand {
     }
 }
 
-#[repr(C)]
+#[repr(u32)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
 #[derive(
     Debug, Clone, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
 pub enum FallDownStateType {
     #[default]
-    IsReady,
-    IsFalling,
-    HasFallen,
-    IsGettingUp,
+    IsReady = 0,
+    IsFalling = 1,
+    HasFallen = 2,
+    IsGettingUp = 3,
 }
 
 #[repr(C)]
@@ -351,7 +367,7 @@ impl FallDownState {
     }
 }
 
-#[repr(C)]
+#[repr(i8)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub enum ButtonEventType {
@@ -369,7 +385,7 @@ pub enum ButtonEventType {
 #[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ButtonEventMsg {
-    pub button: i64,
+    pub button: i32,
     pub event: ButtonEventType,
 }
 
@@ -377,7 +393,7 @@ pub struct ButtonEventMsg {
 #[pymethods]
 impl ButtonEventMsg {
     #[new]
-    pub fn new(button: i64, event: ButtonEventType) -> Self {
+    pub fn new(button: i32, event: ButtonEventType) -> Self {
         Self { button, event }
     }
 }
@@ -398,7 +414,7 @@ pub struct RemoteControllerState {
     |BUTTON_UP | 0x604 | button released |
     |REMOVE | 0x606 | device has been removed |
     */
-    pub event: u64, // refer to remarks
+    pub event: u32, // refer to remarks
 
     #[serde(rename = "lx")]
     /// left stick horizontal direction, push left to -1, push right to 1
