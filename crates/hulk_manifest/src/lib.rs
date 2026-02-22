@@ -56,6 +56,7 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
                     "world_state::ball_projector",
                     "world_state::behavior::node",
                     "world_state::camera_matrix_calculator",
+                    "world_state::fake_localization",
                     "world_state::game_controller_filter",
                     "world_state::game_controller_state_filter",
                     "world_state::ground_provider",
