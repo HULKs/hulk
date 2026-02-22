@@ -9,8 +9,12 @@ use color_eyre::eyre::{Result, WrapErr};
 use futures_util::{future::Fuse, select, FutureExt};
 use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
 use ros2_client::{
+    ros2::{
+        policy::{Deadline, Durability, History, Lifespan, Liveliness, Ownership, Reliability},
+        Duration, QosPolicyBuilder,
+    },
     Context, MessageTypeName, Node, NodeName, NodeOptions, Publisher, Subscription,
-    DEFAULT_PUBLISHER_QOS, DEFAULT_SUBSCRIPTION_QOS,
+    DEFAULT_SUBSCRIPTION_QOS,
 };
 use serde::{de::DeserializeOwned, Serialize};
 use tokio::task::JoinHandle;
@@ -229,12 +233,29 @@ fn spawn_zenoh_to_ros_forwarder<T: 'static + Serialize + DeserializeOwned + Send
     ros_type_name: MessageTypeName,
     zenoh_topic_name: &'static str,
 ) -> Result<Fuse<JoinHandle<Result<()>>>> {
+    let publishing_qos = QosPolicyBuilder::new()
+        .durability(Durability::TransientLocal)
+        .deadline(Deadline(Duration::INFINITE))
+        .ownership(Ownership::Shared)
+        .reliability(Reliability::Reliable {
+            max_blocking_time: Duration::from_millis(1000),
+        })
+        // Reliability = Reliable is the default for DataWriters, different from above.
+        .history(History::KeepLast { depth: 10 })
+        .lifespan(Lifespan {
+            duration: Duration::INFINITE,
+        })
+        .liveliness(Liveliness::Automatic {
+            lease_duration: Duration::INFINITE,
+        })
+        .build();
+
     let ros_topic = ros::create_topic(
         ros_node,
         ros_namespace,
         ros_topic_name,
         ros_type_name,
-        &DEFAULT_PUBLISHER_QOS,
+        &publishing_qos,
     )?;
     let ros_publisher: Publisher<T> = ros_node
         .create_publisher(&ros_topic, None)
