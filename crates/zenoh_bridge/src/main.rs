@@ -7,7 +7,6 @@ use std::fmt::Debug;
 use booster::{ButtonEventMsg, FallDownState, LowCommand, LowState};
 use color_eyre::eyre::{Result, WrapErr};
 use futures_util::{future::Fuse, select, FutureExt};
-use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
 use ros2_client::{
     ros2::{
         policy::{Deadline, Durability, History, Lifespan, Liveliness, Ownership, Reliability},
@@ -66,102 +65,6 @@ async fn main() -> Result<()> {
         MessageTypeName::new("booster_interface", "LowState"),
         "low_state",
     )?;
-    // let mut origin_left_image_forwarder = spawn_ros_to_zenoh_forwarder::<Image>(
-    //     &mut ros_node,
-    //     zenoh_session.clone(),
-    //     "/StereoNetNode",
-    //     "origin_left_image",
-    //     MessageTypeName::new("sensor_msgs", "Image"),
-    //     "origin_left_image",
-    // )?;
-    // let mut origin_right_image_forwarder = spawn_ros_to_zenoh_forwarder::<Image>(
-    //     &mut ros_node,
-    //     zenoh_session.clone(),
-    //     "/StereoNetNode",
-    //     "origin_right_image",
-    //     MessageTypeName::new("sensor_msgs", "Image"),
-    //     "origin_right_image",
-    // )?;
-    let mut rectified_image_forwarder = spawn_ros_to_zenoh_forwarder::<Image>(
-        &mut ros_node,
-        zenoh_session.clone(),
-        "/booster_camera_bridge/StereoNetNode",
-        "rectified_image",
-        MessageTypeName::new("sensor_msgs", "Image"),
-        "rectified_image",
-    )?;
-    let mut rectified_right_image_forwarder = spawn_ros_to_zenoh_forwarder::<Image>(
-        &mut ros_node,
-        zenoh_session.clone(),
-        "/booster_camera_bridge/StereoNetNode",
-        "rectified_right_image",
-        MessageTypeName::new("sensor_msgs", "Image"),
-        "rectified_right_image",
-    )?;
-    let mut stereonet_depth_forwarder = spawn_ros_to_zenoh_forwarder::<Image>(
-        &mut ros_node,
-        zenoh_session.clone(),
-        "/booster_camera_bridge/StereoNetNode",
-        "stereonet_depth",
-        MessageTypeName::new("sensor_msgs", "Image"),
-        "stereonet_depth",
-    )?;
-    // let mut stereonet_depth_camera_info_forwarder = spawn_ros_to_zenoh_forwarder::<Image>(
-    //     &mut ros_node,
-    //     zenoh_session.clone(),
-    //     "/StereoNetNode/stereonet_depth",
-    //     "camera_info",
-    //     MessageTypeName::new("sensor_msgs", "CameraInfo"),
-    //     "stereonet_depth/camera_info",
-    // )?;
-    let mut stereonet_visual_forwarder = spawn_ros_to_zenoh_forwarder::<Image>(
-        &mut ros_node,
-        zenoh_session.clone(),
-        "/booster_camera_bridge/StereoNetNode",
-        "stereonet_visual",
-        MessageTypeName::new("sensor_msgs", "Image"),
-        "stereonet_visual",
-    )?;
-    // let mut image_combine_raw_forwarder = spawn_ros_to_zenoh_forwarder::<Image>(
-    //     &mut ros_node,
-    //     zenoh_session.clone(),
-    //     "/",
-    //     "image_combine_raw",
-    //     MessageTypeName::new("sensor_msgs", "Image"),
-    //     "image_combine_raw",
-    // )?;
-    let mut image_left_raw_forwarder = spawn_ros_to_zenoh_forwarder::<Image>(
-        &mut ros_node,
-        zenoh_session.clone(),
-        "/booster_camera_bridge",
-        "image_left_raw",
-        MessageTypeName::new("sensor_msgs", "Image"),
-        "image_left_raw",
-    )?;
-    let mut image_left_raw_camera_info_forwarder = spawn_ros_to_zenoh_forwarder::<CameraInfo>(
-        &mut ros_node,
-        zenoh_session.clone(),
-        "/booster_camera_bridge/image_left_raw",
-        "camera_info",
-        MessageTypeName::new("sensor_msgs", "CameraInfo"),
-        "image_left_raw/camera_info",
-    )?;
-    let mut image_right_raw_forwarder = spawn_ros_to_zenoh_forwarder::<Image>(
-        &mut ros_node,
-        zenoh_session.clone(),
-        "/booster_camera_bridge",
-        "image_right_raw",
-        MessageTypeName::new("sensor_msgs", "Image"),
-        "image_right_raw",
-    )?;
-    let mut image_right_raw_camera_info_forwarder = spawn_ros_to_zenoh_forwarder::<CameraInfo>(
-        &mut ros_node,
-        zenoh_session.clone(),
-        "/booster_camera_bridge/image_right_raw",
-        "camera_info",
-        MessageTypeName::new("sensor_msgs", "CameraInfo"),
-        "image_right_raw/camera_info",
-    )?;
 
     let mut low_command_forwarder = spawn_zenoh_to_ros_forwarder::<LowCommand>(
         &mut ros_node,
@@ -177,18 +80,6 @@ async fn main() -> Result<()> {
         result = button_event_forwarder => result,
         result = fall_down_state_forwarder => result,
         result = low_state_forwarder => result,
-        // result = origin_left_image_forwarder => result,
-        // result = origin_right_image_forwarder => result,
-        result = rectified_image_forwarder => result,
-        result = rectified_right_image_forwarder => result,
-        result = stereonet_depth_forwarder => result,
-        // result = stereonet_depth_camera_info_forwarder => result,
-        result = stereonet_visual_forwarder => result,
-        // result = image_combine_raw_forwarder => result,
-        result = image_left_raw_forwarder => result,
-        result = image_left_raw_camera_info_forwarder => result,
-        result = image_right_raw_forwarder => result,
-        result = image_right_raw_camera_info_forwarder => result,
         result = low_command_forwarder => result,
     }
     .wrap_err("failed to run forwarder to completion")?;
