@@ -44,35 +44,10 @@ impl ImageReceiver {
             ImageReceiverInstance::Rectified => {
                 (context.hardware_interface.read_rectified_image()?, None)
             }
-            ImageReceiverInstance::RightRectified => (
-                context.hardware_interface.read_rectified_right_image()?,
-                None,
-            ),
-            ImageReceiverInstance::RightRaw => (
-                context.hardware_interface.read_image_right_raw()?,
-                Some(
-                    context
-                        .hardware_interface
-                        .read_image_right_raw_camera_info()?,
-                ),
-            ),
             ImageReceiverInstance::StereonetDepth => (
                 context.hardware_interface.read_stereonet_depth_image()?,
                 None,
             ),
-            ImageReceiverInstance::StereonetVisual => (
-                context.hardware_interface.read_stereonet_visual_image()?,
-                None,
-            ),
-            ImageReceiverInstance::CombinedRaw => {
-                (context.hardware_interface.read_image_combine_raw()?, None)
-            }
-            ImageReceiverInstance::OriginLeft => {
-                (context.hardware_interface.read_origin_left_image()?, None)
-            }
-            ImageReceiverInstance::OriginRight => {
-                (context.hardware_interface.read_origin_right_image()?, None)
-            }
         };
         let now = context.hardware_interface.get_now();
         let cycle_time = CycleTime {

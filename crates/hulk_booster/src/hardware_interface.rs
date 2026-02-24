@@ -41,18 +41,11 @@ struct TopicInfos {
     button_event: TopicInfo,
     remote_controller_state: TopicInfo,
     transform: TopicInfo,
-    origin_left_raw: TopicInfo,
-    origin_right_raw: TopicInfo,
     rectified_image: TopicInfo,
-    rectified_right_image: TopicInfo,
     stereonet_depth: TopicInfo,
     stereonet_depth_camera_info: TopicInfo,
-    stereonet_visual: TopicInfo,
-    image_combine_raw: TopicInfo,
     image_left_raw: TopicInfo,
     image_left_raw_camera_info: TopicInfo,
-    image_right_raw: TopicInfo,
-    image_right_raw_camera_info: TopicInfo,
 }
 
 impl Default for TopicInfos {
@@ -64,18 +57,13 @@ impl Default for TopicInfos {
             button_event: TopicInfo::new("booster/button_event"),
             remote_controller_state: TopicInfo::new("booster/remote_controller_state"),
             transform: TopicInfo::new("booster/tf"),
-            origin_left_raw: TopicInfo::new("booster/origin_left_image"),
-            origin_right_raw: TopicInfo::new("booster/origin_right_image"),
-            rectified_image: TopicInfo::new("booster/rectified_image"),
-            rectified_right_image: TopicInfo::new("booster/rectified_right_image"),
-            stereonet_depth: TopicInfo::new("booster/stereonet_depth"),
-            stereonet_depth_camera_info: TopicInfo::new("booster/stereonet_depth/camera_info"),
-            stereonet_visual: TopicInfo::new("booster/stereonet_visual"),
-            image_combine_raw: TopicInfo::new("booster/image_combine_raw"),
-            image_left_raw: TopicInfo::new("booster/image_left_raw"),
-            image_left_raw_camera_info: TopicInfo::new("booster/image_left_raw/camera_info"),
-            image_right_raw: TopicInfo::new("booster/image_right_raw"),
-            image_right_raw_camera_info: TopicInfo::new("booster/image_right_raw/camera_info"),
+            rectified_image: TopicInfo::new("StereoNetNode/rectified_image"),
+            stereonet_depth: TopicInfo::new("StereoNetNode/stereonet_depth"),
+            stereonet_depth_camera_info: TopicInfo::new(
+                "StereoNetNode/stereonet_depth/camera_info",
+            ),
+            image_left_raw: TopicInfo::new("image_left_raw"),
+            image_left_raw_camera_info: TopicInfo::new("image_left_raw/camera_info"),
         }
     }
 }
@@ -108,17 +96,10 @@ pub struct BoosterHardwareInterface {
     remote_controller_state_subscriber: Subscriber<RingChannelHandler<Sample>>,
     transform_subscriber: Subscriber<RingChannelHandler<Sample>>,
     rectified_image_subscriber: Subscriber<RingChannelHandler<Sample>>,
-    rectified_right_image_subscriber: Subscriber<RingChannelHandler<Sample>>,
-    origin_left_raw_subscriber: Subscriber<RingChannelHandler<Sample>>,
-    origin_right_raw_subscriber: Subscriber<RingChannelHandler<Sample>>,
     stereonet_depth_subscriber: Subscriber<RingChannelHandler<Sample>>,
     stereonet_depth_camera_info_subscriber: Subscriber<RingChannelHandler<Sample>>,
-    stereonet_visual_subscriber: Subscriber<RingChannelHandler<Sample>>,
-    image_combine_raw_subscriber: Subscriber<RingChannelHandler<Sample>>,
     image_left_raw_subscriber: Subscriber<RingChannelHandler<Sample>>,
     image_left_raw_camera_info_subscriber: Subscriber<RingChannelHandler<Sample>>,
-    image_right_raw_subscriber: Subscriber<RingChannelHandler<Sample>>,
-    image_right_raw_camera_info_subscriber: Subscriber<RingChannelHandler<Sample>>,
 
     _session: Session,
     runtime_handle: Handle,
@@ -156,18 +137,6 @@ impl BoosterHardwareInterface {
             transform_subscriber: declare_subscriber(&session, &topic_infos.transform).await?,
             rectified_image_subscriber: declare_subscriber(&session, &topic_infos.rectified_image)
                 .await?,
-            rectified_right_image_subscriber: declare_subscriber(
-                &session,
-                &topic_infos.rectified_right_image,
-            )
-            .await?,
-            origin_left_raw_subscriber: declare_subscriber(&session, &topic_infos.origin_left_raw)
-                .await?,
-            origin_right_raw_subscriber: declare_subscriber(
-                &session,
-                &topic_infos.origin_right_raw,
-            )
-            .await?,
             stereonet_depth_subscriber: declare_subscriber(&session, &topic_infos.stereonet_depth)
                 .await?,
             stereonet_depth_camera_info_subscriber: declare_subscriber(
@@ -175,28 +144,11 @@ impl BoosterHardwareInterface {
                 &topic_infos.stereonet_depth_camera_info,
             )
             .await?,
-            stereonet_visual_subscriber: declare_subscriber(
-                &session,
-                &topic_infos.stereonet_visual,
-            )
-            .await?,
-            image_combine_raw_subscriber: declare_subscriber(
-                &session,
-                &topic_infos.image_combine_raw,
-            )
-            .await?,
             image_left_raw_subscriber: declare_subscriber(&session, &topic_infos.image_left_raw)
                 .await?,
             image_left_raw_camera_info_subscriber: declare_subscriber(
                 &session,
                 &topic_infos.image_left_raw_camera_info,
-            )
-            .await?,
-            image_right_raw_subscriber: declare_subscriber(&session, &topic_infos.image_right_raw)
-                .await?,
-            image_right_raw_camera_info_subscriber: declare_subscriber(
-                &session,
-                &topic_infos.image_right_raw_camera_info,
             )
             .await?,
 
@@ -319,24 +271,6 @@ impl CameraInterface for BoosterHardwareInterface {
             .and_then(deserialize_sample)
     }
 
-    fn read_rectified_right_image(&self) -> Result<Image> {
-        self.run_until_cancelled(self.rectified_right_image_subscriber.recv_async())?
-            .map_err(|error| eyre!(error))
-            .and_then(deserialize_sample)
-    }
-
-    fn read_origin_left_image(&self) -> Result<Image> {
-        self.run_until_cancelled(self.origin_left_raw_subscriber.recv_async())?
-            .map_err(|error| eyre!(error))
-            .and_then(deserialize_sample)
-    }
-
-    fn read_origin_right_image(&self) -> Result<Image> {
-        self.run_until_cancelled(self.origin_right_raw_subscriber.recv_async())?
-            .map_err(|error| eyre!(error))
-            .and_then(deserialize_sample)
-    }
-
     fn read_stereonet_depth_image(&self) -> Result<Image> {
         self.run_until_cancelled(self.stereonet_depth_subscriber.recv_async())?
             .map_err(|error| eyre!(error))
@@ -349,18 +283,6 @@ impl CameraInterface for BoosterHardwareInterface {
             .and_then(deserialize_sample)
     }
 
-    fn read_stereonet_visual_image(&self) -> Result<Image> {
-        self.run_until_cancelled(self.stereonet_visual_subscriber.recv_async())?
-            .map_err(|error| eyre!(error))
-            .and_then(deserialize_sample)
-    }
-
-    fn read_image_combine_raw(&self) -> Result<Image> {
-        self.run_until_cancelled(self.image_combine_raw_subscriber.recv_async())?
-            .map_err(|error| eyre!(error))
-            .and_then(deserialize_sample)
-    }
-
     fn read_image_left_raw(&self) -> Result<Image> {
         self.run_until_cancelled(self.image_left_raw_subscriber.recv_async())?
             .map_err(|error| eyre!(error))
@@ -369,18 +291,6 @@ impl CameraInterface for BoosterHardwareInterface {
 
     fn read_image_left_raw_camera_info(&self) -> Result<CameraInfo> {
         self.run_until_cancelled(self.image_left_raw_camera_info_subscriber.recv_async())?
-            .map_err(|error| eyre!(error))
-            .and_then(deserialize_sample)
-    }
-
-    fn read_image_right_raw(&self) -> Result<Image> {
-        self.run_until_cancelled(self.image_right_raw_subscriber.recv_async())?
-            .map_err(|error| eyre!(error))
-            .and_then(deserialize_sample)
-    }
-
-    fn read_image_right_raw_camera_info(&self) -> Result<CameraInfo> {
-        self.run_until_cancelled(self.image_right_raw_camera_info_subscriber.recv_async())?
             .map_err(|error| eyre!(error))
             .and_then(deserialize_sample)
     }
