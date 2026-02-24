@@ -5,7 +5,15 @@ from datetime import timedelta
 
 import click
 import numpy as np
-from mujoco import MjData, MjModel, mj_forward, mj_resetData, mj_step
+from mujoco import (
+    MjData,
+    MjModel,
+    mj_forward,
+    mj_name2id,
+    mj_resetData,
+    mj_step,
+    mjtObj,
+)
 from mujoco_rust_server import SimulationServer, TaskName
 from mujoco_rust_server.ros2_types import CameraInfo, Image
 from rich.logging import RichHandler
@@ -41,13 +49,14 @@ def request_image(renderer: CameraRenderer, data: MjData) -> Image:
 def request_camera_info(
     renderer: CameraRenderer, data: MjData, model: MjModel
 ) -> CameraInfo:
-    fov = model.vis.global_.fovy
+    camera_id = mj_name2id(model, mjtObj.mjOBJ_CAMERA, "camera")
+    fov = model.cam_fovy[camera_id]
 
     focal_scaling = (
         (1.0 / np.tan(np.deg2rad(fov) / 2)) * renderer.viewport.height / 2.0
     )
-    optical_center_x = (renderer.viewport.width - 1) / 2.0
-    optical_center_y = (renderer.viewport.height - 1) / 2.0
+    optical_center_x = renderer.viewport.width / 2.0
+    optical_center_y = renderer.viewport.height / 2.0
 
     return CameraInfo(
         data.time,
