@@ -34,7 +34,7 @@ pub async fn forward_zenoh_to_ros<'a, T: Debug + Serialize + Deserialize<'a>>(
 pub async fn forward_ros_to_zenoh<T: 'static + Serialize + DeserializeOwned>(
     ros_subscription: Subscription<T>,
     zenoh_session: Session,
-    zenoh_topic_name: &'static str,
+    zenoh_topic_name: &str,
 ) -> Result<()> {
     let stream = ros_subscription.async_stream();
     pin_mut!(stream);

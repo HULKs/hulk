@@ -92,8 +92,8 @@ async fn main() -> Result<()> {
 fn spawn_ros_to_zenoh_forwarder<T: 'static + Serialize + DeserializeOwned + Send + Sync>(
     ros_node: &mut Node,
     zenoh_session: Session,
-    ros_namespace: &'static str,
-    ros_topic_name: &'static str,
+    ros_namespace: &str,
+    ros_topic_name: &str,
     ros_type_name: MessageTypeName,
     zenoh_topic_name: &'static str,
 ) -> Result<Fuse<JoinHandle<Result<()>>>> {
@@ -119,8 +119,8 @@ fn spawn_ros_to_zenoh_forwarder<T: 'static + Serialize + DeserializeOwned + Send
 fn spawn_zenoh_to_ros_forwarder<T: 'static + Serialize + DeserializeOwned + Send + Sync + Debug>(
     ros_node: &mut Node,
     zenoh_session: Session,
-    ros_namespace: &'static str,
-    ros_topic_name: &'static str,
+    ros_namespace: &str,
+    ros_topic_name: &str,
     ros_type_name: MessageTypeName,
     zenoh_topic_name: &'static str,
 ) -> Result<Fuse<JoinHandle<Result<()>>>> {

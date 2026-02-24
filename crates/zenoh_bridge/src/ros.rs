@@ -4,8 +4,8 @@ use ros2_client::{ros2::QosPolicies, rustdds::Topic, MessageTypeName, Name, Node
 
 pub fn create_topic(
     node: &mut Node,
-    namespace: &'static str,
-    topic_name: &'static str,
+    namespace: &str,
+    topic_name: &str,
     type_name: MessageTypeName,
     qos_policy: &QosPolicies,
 ) -> Result<Topic> {
