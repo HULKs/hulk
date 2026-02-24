@@ -21,6 +21,7 @@ sudo podman run -it --rm \
   -v /home/booster/.cargo:/root/.cargo \
   --env LD_LIBRARY_PATH=${HOST_TEGRA_LIB_PATH}:$LD_LIBRARY_PATH \
   --env ORT_DYLIB_PATH=/usr/local/lib/libonnxruntime.so \
+  --name hulk \
   rust-trt-inference:latest \
   bash -c "cd /home/booster/hulk &&
     ./bin/hulk --log-path ${INTERNAL_LOG_PATH}

@@ -3,6 +3,7 @@ Description=HULK Service
 
 [Service]
 ExecStart=/usr/bin/launchHULK
+ExecStop=sudo /usr/bin/podman kill hulk
 Environment="RUST_BACKTRACE=1"
 TimeoutStopSec=10
 WorkingDirectory=/home/booster/hulk
