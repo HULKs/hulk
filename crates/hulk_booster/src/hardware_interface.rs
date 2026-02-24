@@ -2,16 +2,13 @@ use std::future::{Future, IntoFuture};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::SystemTime;
 
-use booster::{
-    ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState, TransformMessage,
-};
+use booster::{ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState};
 use cdr::{CdrLe, Infinite};
 use color_eyre::eyre::{bail, eyre, Context};
 use color_eyre::Result;
 use hardware::{
     ButtonEventMsgInterface, CameraInterface, IdInterface, MicrophoneInterface, NetworkInterface,
     PathsInterface, RecordingInterface, SafeToExitSafeInterface, SpeakerInterface, TimeInterface,
-    TransformMessageInterface,
 };
 use hardware::{
     FallDownStateInterface, LowCommandInterface, LowStateInterface, RemoteControllerStateInterface,
@@ -40,7 +37,6 @@ struct TopicInfos {
     fall_down: TopicInfo,
     button_event: TopicInfo,
     remote_controller_state: TopicInfo,
-    transform: TopicInfo,
     rectified_image: TopicInfo,
     stereonet_depth: TopicInfo,
     stereonet_depth_camera_info: TopicInfo,
@@ -56,7 +52,6 @@ impl Default for TopicInfos {
             fall_down: TopicInfo::new("booster/fall_down_state"),
             button_event: TopicInfo::new("booster/button_event"),
             remote_controller_state: TopicInfo::new("booster/remote_controller_state"),
-            transform: TopicInfo::new("booster/tf"),
             rectified_image: TopicInfo::new("StereoNetNode/rectified_image"),
             stereonet_depth: TopicInfo::new("StereoNetNode/stereonet_depth"),
             stereonet_depth_camera_info: TopicInfo::new(
@@ -94,7 +89,6 @@ pub struct BoosterHardwareInterface {
     fall_down_state_subscriber: Subscriber<RingChannelHandler<Sample>>,
     button_event_msg_subscriber: Subscriber<RingChannelHandler<Sample>>,
     remote_controller_state_subscriber: Subscriber<RingChannelHandler<Sample>>,
-    transform_subscriber: Subscriber<RingChannelHandler<Sample>>,
     rectified_image_subscriber: Subscriber<RingChannelHandler<Sample>>,
     stereonet_depth_subscriber: Subscriber<RingChannelHandler<Sample>>,
     stereonet_depth_camera_info_subscriber: Subscriber<RingChannelHandler<Sample>>,
@@ -134,7 +128,6 @@ impl BoosterHardwareInterface {
                 &topic_infos.remote_controller_state,
             )
             .await?,
-            transform_subscriber: declare_subscriber(&session, &topic_infos.transform).await?,
             rectified_image_subscriber: declare_subscriber(&session, &topic_infos.rectified_image)
                 .await?,
             stereonet_depth_subscriber: declare_subscriber(&session, &topic_infos.stereonet_depth)
@@ -243,14 +236,6 @@ impl FallDownStateInterface for BoosterHardwareInterface {
 impl ButtonEventMsgInterface for BoosterHardwareInterface {
     fn read_button_event_msg(&self) -> Result<ButtonEventMsg> {
         self.run_until_cancelled(self.button_event_msg_subscriber.recv_async())?
-            .map_err(|error| eyre!(error))
-            .and_then(deserialize_sample)
-    }
-}
-
-impl TransformMessageInterface for BoosterHardwareInterface {
-    fn read_transform_message(&self) -> Result<TransformMessage> {
-        self.run_until_cancelled(self.transform_subscriber.recv_async())?
             .map_err(|error| eyre!(error))
             .and_then(deserialize_sample)
     }
