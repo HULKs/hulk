@@ -117,7 +117,7 @@ impl Robot {
         Ok(path)
     }
 
-    fn ssh_to_robot(&self) -> Result<Command> {
+    pub fn ssh_to_robot(&self) -> Result<Command> {
         let temp_file = Self::create_login_script().wrap_err("failed to create login script")?;
 
         let mut command = Command::new("ssh");

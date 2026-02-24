@@ -1,0 +1,14 @@
+[Unit]
+Description=HULK Service
+
+[Service]
+ExecStart=/usr/bin/env bash -c 'source /opt/booster/BoosterRos2Interface/install/setup.bash && exec /usr/bin/zenoh-bridge-ros2dds -c /etc/zenoh-bridge-ros2dds/conf.json5'
+Environment="RUST_BACKTRACE=1"
+TimeoutStopSec=10
+WorkingDirectory=/home/booster
+Environment=RUST_LOG=DEBUG
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target
