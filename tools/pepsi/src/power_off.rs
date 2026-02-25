@@ -41,30 +41,32 @@ pub async fn power_off(arguments: Arguments, repository: &Repository) -> Result<
             .collect::<Vec<_>>()
             .await;
 
-        ProgressIndicator::map_tasks(
-            addresses.into_iter().filter_map(|robot| robot.ok()),
-            "Powering off...",
-            |robot, _progress_bar| async move {
-                robot
-                    .power_off()
-                    .await
-                    .wrap_err_with(|| format!("failed to power {robot} off"))
-            },
-        )
-        .await;
+        ProgressIndicator::new()
+            .map_tasks(
+                addresses.into_iter().filter_map(|robot| robot.ok()),
+                "Powering off...",
+                |robot, _progress_bar| async move {
+                    robot
+                        .power_off()
+                        .await
+                        .wrap_err_with(|| format!("failed to power {robot} off"))
+                },
+            )
+            .await;
     } else {
-        ProgressIndicator::map_tasks(
-            arguments.robots,
-            "Powering off...",
-            |robot_address, _progress_bar| async move {
-                let robot = Robot::try_new_with_ping(robot_address.ip).await?;
-                robot
-                    .power_off()
-                    .await
-                    .wrap_err_with(|| format!("failed to power {robot_address} off"))
-            },
-        )
-        .await;
+        ProgressIndicator::new()
+            .map_tasks(
+                arguments.robots,
+                "Powering off...",
+                |robot_address, _progress_bar| async move {
+                    let robot = Robot::try_new_with_ping(robot_address.ip).await?;
+                    robot
+                        .power_off()
+                        .await
+                        .wrap_err_with(|| format!("failed to power {robot_address} off"))
+                },
+            )
+            .await;
     }
     Ok(())
 }

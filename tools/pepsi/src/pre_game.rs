@@ -129,22 +129,23 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
     let arguments = &arguments.pre_game;
     let upload_directory = &upload_directory;
 
-    ProgressIndicator::map_tasks(
-        robots,
-        "Executing pregame tasks",
-        |robot_address, progress_bar| async move {
-            setup_robot(
-                robot_address,
-                upload_directory,
-                arguments,
-                wifi,
-                progress_bar,
-                repository,
-            )
-            .await
-        },
-    )
-    .await;
+    ProgressIndicator::new()
+        .map_tasks(
+            robots,
+            "Executing pregame tasks",
+            |robot_address, progress_bar| async move {
+                setup_robot(
+                    robot_address,
+                    upload_directory,
+                    arguments,
+                    wifi,
+                    progress_bar,
+                    repository,
+                )
+                .await
+            },
+        )
+        .await;
 
     Ok(())
 }

@@ -37,6 +37,7 @@ impl ProgressIndicator {
     }
 
     pub async fn map_tasks<T, F, M>(
+        &self,
         items: impl IntoIterator<Item = T>,
         message: impl Into<Cow<'static, str>> + Clone,
         task: impl Fn(T, ProgressBar) -> F,
@@ -45,10 +46,9 @@ impl ProgressIndicator {
         F: Future<Output = Result<M>>,
         M: Into<TaskMessage>,
     {
-        let multi_progress = Self::new();
         items
             .into_iter()
-            .map(|item| (multi_progress.task(item.to_string()), item))
+            .map(|item| (self.task(item.to_string()), item))
             .map(|(progress, item)| {
                 progress.enable_steady_tick();
                 progress.set_message(message.clone());
@@ -112,7 +112,7 @@ impl Task {
         let icon = "✔".green();
         let message = match message.into() {
             TaskMessage::EmptyMessage => icon.to_string(),
-            TaskMessage::Message(message) => format!("{icon}\n{message}"),
+            TaskMessage::Message(message) => format!("{icon} {message}"),
         };
         self.progress.finish_with_message(message);
     }

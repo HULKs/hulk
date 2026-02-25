@@ -24,6 +24,7 @@ pub mod team;
 pub mod upload;
 
 /// The HULK repository.
+#[derive(Debug, Clone)]
 pub struct Repository {
     pub root: PathBuf,
 }

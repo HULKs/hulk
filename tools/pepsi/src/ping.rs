@@ -18,17 +18,18 @@ pub struct Arguments {
 }
 
 pub async fn ping(arguments: Arguments) {
-    ProgressIndicator::map_tasks(
-        arguments.robots,
-        "Pinging Robot...",
-        |robot_address, _progress_bar| async move {
-            Robot::try_new_with_ping_and_arguments(
-                robot_address.ip,
-                Duration::from_secs(arguments.timeout),
-            )
-            .await
-            .map(|_| ())
-        },
-    )
-    .await;
+    ProgressIndicator::new()
+        .map_tasks(
+            arguments.robots,
+            "Pinging Robot...",
+            |robot_address, _progress_bar| async move {
+                Robot::try_new_with_ping_and_arguments(
+                    robot_address.ip,
+                    Duration::from_secs(arguments.timeout),
+                )
+                .await
+                .map(|_| ())
+            },
+        )
+        .await;
 }
