@@ -62,7 +62,7 @@ impl ProgressIndicator {
 }
 
 pub struct Task {
-    progress: ProgressBar,
+    pub progress: ProgressBar,
     success_style: ProgressStyle,
     error_style: ProgressStyle,
 }

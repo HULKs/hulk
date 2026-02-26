@@ -125,7 +125,6 @@ pub async fn construct_cargo_command<CargoArguments: Args + CargoCommand>(
     .resolve(repository)
     .await
     .wrap_err("failed to resolve environment")?;
-    eprintln!("Using cargo from {environment}");
     let mut cargo = if arguments.environment.remote {
         Cargo::remote(environment)
     } else {
