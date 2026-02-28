@@ -111,25 +111,19 @@ async fn gammaray_robot(
 
     robot
         .rsync_with_robot()?
+        .arg("--rsync-path=sudo rsync")
+        .arg(setup.join("conf.json5"))
+        .arg(format!("{}:/etc/zenoh-bridge-ros2dds/", robot.address))
+        .rsync_with_log("uploading zenoh-bridge-ros2dds config", &progress_bar)
+        .await?;
+
+    robot
+        .rsync_with_robot()?
         .arg(setup.join("hulk.service"))
         .arg(setup.join("zenoh-bridge.service"))
         .arg(setup.join("zenoh-bridge-ros2dds.service"))
         .arg(format!("{}:.config/systemd/user/", robot.address))
         .rsync_with_log("uploading service files", &progress_bar)
-        .await?;
-
-    robot
-        .ssh_to_robot()?
-        .arg("systemctl --user daemon-reload")
-        .run_with_log("reloading services", &progress_bar)
-        .await?;
-
-    robot
-        .rsync_with_robot()?
-        .arg("--rsync-path=sudo rsync")
-        .arg(setup.join("conf.json5"))
-        .arg(format!("{}:/etc/zenoh-bridge-ros2dds/", robot.address))
-        .rsync_with_log("uploading zenoh-bridge-ros2dds config", &progress_bar)
         .await?;
 
     progress_bar.set_message("Waiting for zenoh bridge to finish building");
@@ -153,6 +147,19 @@ async fn gammaray_robot(
         )
         .arg(format!("{}:/usr/bin/", robot.address))
         .rsync_with_log("uploading binaries", &progress_bar)
+        .await?;
+
+    robot
+        .ssh_to_robot()?
+        .arg("systemctl --user daemon-reload")
+        .run_with_log("reloading service daemon", &progress_bar)
+        .await?;
+
+    robot
+        .ssh_to_robot()?
+        .arg("systemctl --user enable --now")
+        .args(["hulk", "zenoh_bridge", "zenoh-bridge-ros2dds"])
+        .run_with_log("restarting services", &progress_bar)
         .await?;
 
     // TODO: (re)start bridge services
