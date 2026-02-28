@@ -9,7 +9,10 @@ use framework::{MainOutput, PerceptionInput};
 use types::joints::Joints;
 
 #[derive(Deserialize, Serialize)]
-pub struct SafeModeHandler {}
+pub struct SafeModeHandler {
+    pub last_imu_state: ImuState,
+    pub last_serial_motor_states: Joints<MotorState>,
+}
 
 #[context]
 pub struct CreationContext {}
@@ -40,7 +43,10 @@ pub struct MainOutputs {
 
 impl SafeModeHandler {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {})
+        Ok(Self {
+            last_imu_state: Default::default(),
+            last_serial_motor_states: Default::default(),
+        })
     }
 
     pub fn cycle(
@@ -57,7 +63,6 @@ impl SafeModeHandler {
             .maybe_button_event
             .persistent
             .into_iter()
-            .chain(context.maybe_button_event.temporary)
             .flat_map(|(_time, info)| info)
             .last()
             .flatten()
@@ -67,33 +72,31 @@ impl SafeModeHandler {
             });
         };
 
-        let Some(imu_state) = context
+        let imu_state = context
             .imu_state
             .persistent
             .into_iter()
             .chain(context.imu_state.temporary)
             .flat_map(|(_time, info)| info)
             .last()
-        else {
-            return Ok(MainOutputs {
-                safe_to_leave_safe_mode: false.into(),
-            });
-        };
+            .cloned()
+            .unwrap_or(self.last_imu_state);
 
-        let Some(serial_motor_states) = context
+        self.last_imu_state = imu_state;
+
+        let serial_motor_states = context
             .serial_motor_states
             .persistent
             .into_iter()
             .chain(context.serial_motor_states.temporary)
             .flat_map(|(_time, info)| info)
             .last()
-        else {
-            return Ok(MainOutputs {
-                safe_to_leave_safe_mode: false.into(),
-            });
-        };
+            .cloned()
+            .unwrap_or(self.last_serial_motor_states);
 
-        let is_stand_button_double_click = matches!(
+        self.last_serial_motor_states = serial_motor_states;
+
+        let is_stand_button_long_press = matches!(
             button_event,
             ButtonEventMsg {
                 button: 1,
@@ -102,21 +105,21 @@ impl SafeModeHandler {
         );
 
         let motor_states_are_safe = motor_states_are_safe(
-            serial_motor_states,
+            &serial_motor_states,
             context.prep_mode_serial_motor_states,
             context.joint_position_threshold,
             context.joint_velocity_threshold,
         );
 
         let imu_state_is_safe = imu_state_is_safe(
-            imu_state,
+            &imu_state,
             context.prep_mode_imu_state,
             context.angular_velocity_threshold,
             context.linear_acceleration_threshold,
         );
 
         let safe_to_leave_safe_mode =
-            is_stand_button_double_click && motor_states_are_safe && imu_state_is_safe;
+            is_stand_button_long_press && motor_states_are_safe && imu_state_is_safe;
 
         Ok(MainOutputs {
             safe_to_leave_safe_mode: safe_to_leave_safe_mode.into(),
