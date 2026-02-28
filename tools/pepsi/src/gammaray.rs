@@ -162,12 +162,6 @@ async fn gammaray_robot(
         .run_with_log("restarting services", &progress_bar)
         .await?;
 
-    // TODO: (re)start bridge services
-    // TODO: do we need/want to reboot?
-    // robot
-    //     .reboot()
-    //     .await
-    //     .wrap_err_with(|| format!("failed to reboot {robot_address}"))
     Ok(())
 }
 
