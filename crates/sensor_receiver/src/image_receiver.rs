@@ -46,7 +46,11 @@ impl ImageReceiver {
             }
             ImageReceiverInstance::StereonetDepth => (
                 context.hardware_interface.read_stereonet_depth_image()?,
-                None,
+                Some(
+                    context
+                        .hardware_interface
+                        .read_stereonet_depth_camera_info()?,
+                ),
             ),
         };
         let now = context.hardware_interface.get_now();
