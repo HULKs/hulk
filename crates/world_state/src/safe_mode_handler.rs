@@ -85,7 +85,7 @@ impl SafeModeHandler {
             button_event,
             ButtonEventMsg {
                 button: 1,
-                event: ButtonEventType::DoubleClick
+                event: ButtonEventType::LongPressStart
             }
         );
 
