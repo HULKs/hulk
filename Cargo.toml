@@ -42,7 +42,6 @@ members = [
   "crates/projection",
   "crates/ransac",
   "crates/repository",
-  "crates/robot",
   "crates/ros2",
   "crates/sensor_receiver",
   "crates/simulation_message",
@@ -53,6 +52,7 @@ members = [
   "crates/walking_inference",
   "crates/world_state",
   "crates/zed",
+  "crates/zenoh_bridge",
   "tools/annotato",
   "tools/depp",
   "tools/fanta",
@@ -219,7 +219,7 @@ reqwest = { version = "0.12.12", features = ["blocking"] }
 rmp-serde = "1.3.0"
 robot = { path = "crates/robot" }
 ros2 = { path = "crates/ros2" }
-rustdds = "0.11.5"
+ros2-client = { version = "0.8.2", features = ["pre-iron-gid"] }
 rustfft = "6.2.0"
 scenario = { path = "crates/scenario" }
 semver = "1.0.25"
@@ -275,6 +275,10 @@ serde = { git = "https://github.com/HULKs/serde.git", rev = "ef30eb8fdd0ee12e4e6
 serde_derive = { git = "https://github.com/HULKs/serde.git", rev = "ef30eb8fdd0ee12e4e6f3f5615c6bb022e02d1b2" }
 # Pinned to forked serde version since https://github.com/serde-rs/serde/pull/2513 is not merged
 serde_core = { git = "https://github.com/HULKs/serde.git", rev = "ef30eb8fdd0ee12e4e6f3f5615c6bb022e02d1b2" }
+# Pin RTPS protocol version to 2.3
+rustdds = { git = "https://github.com/HULKs/RustDDS.git", rev = "0232af0c67e25e39afb5eef0166edfe493762320" }
+# Pinned older version because of upstream issue with "v0.2.17", see https://github.com/rust-native-tls/rust-native-tls/issues/370
+native-tls = { git = "https://github.com/sfackler/rust-native-tls", tag = "v0.2.16" }
 
 egui = { git = "https://github.com/HULKs/egui/", rev = "c310aad9c54618e8845b6707899e2678fec8b842" }
 egui-wgpu = { git = "https://github.com/HULKs/egui/", rev = "c310aad9c54618e8845b6707899e2678fec8b842" }
