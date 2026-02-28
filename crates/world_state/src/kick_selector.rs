@@ -10,8 +10,8 @@ use framework::{AdditionalOutput, MainOutput};
 use geometry::{circle::Circle, line_segment::LineSegment, look_at::LookAt};
 use hsl_network_messages::{GamePhase, SubState, Team};
 use linear_algebra::{
-    distance, point, vector, IntoFramed, Isometry2, Orientation2, Point, Point2, Pose2, Rotation2,
-    Vector2,
+    IntoFramed, Isometry2, Orientation2, Point, Point2, Pose2, Rotation2, Vector2, distance, point,
+    vector,
 };
 use types::{
     field_dimensions::{self, FieldDimensions, Half},

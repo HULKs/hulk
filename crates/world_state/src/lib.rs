@@ -10,6 +10,7 @@ pub mod fake_odometry;
 pub mod game_controller_filter;
 pub mod game_controller_state_filter;
 pub mod ground_provider;
+pub mod kick_selector;
 pub mod kinematics_provider;
 pub mod obstacle_filter;
 pub mod obstacle_receiver;
