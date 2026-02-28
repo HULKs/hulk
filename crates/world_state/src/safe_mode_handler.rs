@@ -107,15 +107,15 @@ impl SafeModeHandler {
         let motor_states_are_safe = motor_states_are_safe(
             &serial_motor_states,
             context.prep_mode_serial_motor_states,
-            context.joint_position_threshold,
-            context.joint_velocity_threshold,
+            *context.joint_position_threshold,
+            *context.joint_velocity_threshold,
         );
 
         let imu_state_is_safe = imu_state_is_safe(
             &imu_state,
             context.prep_mode_imu_state,
-            context.angular_velocity_threshold,
-            context.linear_acceleration_threshold,
+            *context.angular_velocity_threshold,
+            *context.linear_acceleration_threshold,
         );
 
         let safe_to_leave_safe_mode =
@@ -130,8 +130,8 @@ impl SafeModeHandler {
 fn motor_states_are_safe(
     serial_motor_states: &Joints<MotorState>,
     prep_mode_serial_motor_states: &Joints<MotorState>,
-    joint_position_threshold: &f32,
-    joint_velocity_threshold: &f32,
+    joint_position_threshold: f32,
+    joint_velocity_threshold: f32,
 ) -> bool {
     serial_motor_states
         .into_iter()
@@ -139,24 +139,24 @@ fn motor_states_are_safe(
         .all(|(current_motor_state, safe_motor_state)| {
             current_motor_state
                 .position
-                .abs_diff_eq(&safe_motor_state.position, *joint_position_threshold)
+                .abs_diff_eq(&safe_motor_state.position, joint_position_threshold)
                 && current_motor_state
                     .velocity
-                    .abs_diff_eq(&safe_motor_state.velocity, *joint_velocity_threshold)
+                    .abs_diff_eq(&safe_motor_state.velocity, joint_velocity_threshold)
         })
 }
 
 fn imu_state_is_safe(
     imu_state: &ImuState,
     prep_mode_imu_state: &ImuState,
-    angular_velocity_threshold: &f32,
-    linear_acceleration_threshold: &f32,
+    angular_velocity_threshold: f32,
+    linear_acceleration_threshold: f32,
 ) -> bool {
     imu_state.angular_velocity.abs_diff_eq(
         &prep_mode_imu_state.angular_velocity,
-        *angular_velocity_threshold,
+        angular_velocity_threshold,
     ) && imu_state.linear_acceleration.abs_diff_eq(
         &prep_mode_imu_state.linear_acceleration,
-        *linear_acceleration_threshold,
+        linear_acceleration_threshold,
     )
 }
