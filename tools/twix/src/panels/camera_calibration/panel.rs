@@ -100,6 +100,17 @@ impl Widget for &mut SemiAutomaticCameraCalibrationPanel {
                 self.drawn_lines.clear();
             }
 
+            if ui.button("Remove last measurement").clicked() {
+                self.saved_measurements.pop();
+                let result = self
+                    .optimization
+                    .run_optimization(self.saved_measurements.clone());
+
+                if let Err(error) = result {
+                    println!("Error: {error}");
+                }
+            }
+
             if ui.button("Clear Drawings").clicked() {
                 self.drawn_lines.clear();
             }
