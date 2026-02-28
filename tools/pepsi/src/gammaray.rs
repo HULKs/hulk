@@ -270,10 +270,13 @@ async fn build_bridge(
                 env: None,
                 remote: false,
             },
-            cargo: CargoBuildArguments::default(),
+            cargo: CargoBuildArguments {
+                release: true,
+                ..Default::default()
+            },
         },
         &repository,
-        &["target/aarch64-unknown-linux-gnu/debug/zenoh_bridge"],
+        &["target/aarch64-unknown-linux-gnu/release/zenoh_bridge"],
     )
     .await
     .expect("failed to construct cargo command");
