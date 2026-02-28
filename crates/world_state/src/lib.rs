@@ -1,5 +1,6 @@
 pub mod ball_filter;
 pub mod ball_projector;
+pub mod ball_state_composer;
 pub mod behavior;
 pub mod camera_matrix_calculator;
 pub mod fake_localization;
