@@ -9,4 +9,5 @@ pub mod ground_provider;
 pub mod kinematics_provider;
 pub mod primary_state_filter;
 pub mod safe_mode_handler;
+pub mod team_ball_receiver;
 pub mod trigger;
