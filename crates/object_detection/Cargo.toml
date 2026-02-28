@@ -24,7 +24,7 @@ nalgebra = { workspace = true }
 ndarray = { workspace = true }
 openvino = { workspace = true }
 ordered-float = { workspace = true }
-ort = { workspace = true, features = ["cuda", "tensorrt", "load-dynamic"] }
+ort = { workspace = true, features = ["cuda", "tensorrt"] }
 parameters = { workspace = true }
 path_serde = { workspace = true }
 projection = { workspace = true }
@@ -32,3 +32,6 @@ rand = { workspace = true }
 ros2 = { workspace = true }
 serde = { workspace = true }
 types = { workspace = true }
+
+[features]
+ort-dynamic = ["ort/load-dynamic"]
