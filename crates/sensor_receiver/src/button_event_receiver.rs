@@ -1,10 +1,10 @@
 use std::time::SystemTime;
 
-use booster::FallDownState;
+use booster::ButtonEventMsg;
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use hardware::{FallDownStateInterface, TimeInterface};
+use hardware::{ButtonEventMsgInterface, TimeInterface};
 use serde::{Deserialize, Serialize};
 use types::cycle_time::CycleTime;
 
@@ -23,7 +23,7 @@ pub struct CycleContext {
 
 #[context]
 pub struct MainOutputs {
-    pub fall_down_state: MainOutput<Option<FallDownState>>,
+    pub button_event: MainOutput<Option<ButtonEventMsg>>,
     pub cycle_time: MainOutput<CycleTime>,
 }
 
@@ -36,9 +36,9 @@ impl FallDownStateReceiver {
 
     pub fn cycle(
         &mut self,
-        context: CycleContext<impl FallDownStateInterface + TimeInterface>,
+        context: CycleContext<impl ButtonEventMsgInterface + TimeInterface>,
     ) -> Result<MainOutputs> {
-        let fall_down_state = context.hardware_interface.read_fall_down_state()?;
+        let button_event_msg = context.hardware_interface.read_button_event_msg()?;
 
         let now = context.hardware_interface.get_now();
         let cycle_time = CycleTime {
@@ -50,7 +50,7 @@ impl FallDownStateReceiver {
         self.last_cycle_start = now;
 
         Ok(MainOutputs {
-            fall_down_state: Some(fall_down_state).into(),
+            button_event: Some(button_event_msg).into(),
             cycle_time: cycle_time.into(),
         })
     }

@@ -396,5 +396,252 @@
     "outer_yaw": 0,
     "injected_head_joints": null
   },
-  "recorded_primary_states": ["Ready", "Set", "Playing"]
+  "recorded_primary_states": ["Ready", "Set", "Playing"],
+  "safe_mode_handler": {
+    "joint_position_threshold": 0.1,
+    "joint_velocity_threshold": 0.1,
+    "angular_velocity_threshold": 0.1,
+    "linear_acceleration_threshold": 0.1,
+    "prep_mode_serial_motor_states": {
+      "head": {
+        "pitch": {
+          "ddq": 0.0,
+          "dq": -0.000022606302081840113,
+          "lost": 0,
+          "mode": "Parallel",
+          "q": -0.0031415927223861217,
+          "reserve": [0, 0],
+          "tau_est": 0.10224000364542007,
+          "temperature": 0
+        },
+        "yaw": {
+          "ddq": 0.0,
+          "dq": -0.0017464148113504052,
+          "lost": 0,
+          "mode": "Parallel",
+          "q": 0.005654866807162762,
+          "reserve": [0, 0],
+          "tau_est": -0.19844000041484833,
+          "temperature": 0
+        }
+      },
+      "left_arm": {
+        "elbow": {
+          "ddq": 0.0,
+          "dq": -0.0074350880458951,
+          "lost": 0,
+          "mode": "Parallel",
+          "q": -0.49855896830558777,
+          "reserve": [0, 0],
+          "tau_est": 0.0008545182645320892,
+          "temperature": 0
+        },
+        "shoulder_pitch": {
+          "ddq": 0.0,
+          "dq": 0.009164891205728054,
+          "lost": 0,
+          "mode": "Parallel",
+          "q": 0.1952050179243088,
+          "reserve": [0, 0],
+          "tau_est": 0.2076479345560074,
+          "temperature": 0
+        },
+        "shoulder_roll": {
+          "ddq": 0.0,
+          "dq": 0.02473975345492363,
+          "lost": 0,
+          "mode": "Parallel",
+          "q": -1.447738528251648,
+          "reserve": [0, 0],
+          "tau_est": -0.1033967137336731,
+          "temperature": 0
+        },
+        "shoulder_yaw": {
+          "ddq": 0.0,
+          "dq": 0.006378408521413803,
+          "lost": 0,
+          "mode": "Parallel",
+          "q": 0.019558852538466457,
+          "reserve": [0, 0],
+          "tau_est": -0.17773979902267456,
+          "temperature": 0
+        }
+      },
+      "left_leg": {
+        "ankle_down": {
+          "ddq": 0.0,
+          "dq": 0.004242384806275368,
+          "lost": 0,
+          "mode": "Parallel",
+          "q": 0.009327257052063942,
+          "reserve": [0, 0],
+          "tau_est": -1.186206579208374,
+          "temperature": 0
+        },
+        "ankle_up": {
+          "ddq": 0.0,
+          "dq": 0.0028177592903375626,
+          "lost": 0,
+          "mode": "Parallel",
+          "q": -0.09911879897117616,
+          "reserve": [0, 0],
+          "tau_est": 3.4232308864593506,
+          "temperature": 0
+        },
+        "hip_pitch": {
+          "ddq": 0.0,
+          "dq": -0.004223479889333248,
+          "lost": 0,
+          "mode": "Parallel",
+          "q": 0.0013351644156500695,
+          "reserve": [0, 0],
+          "tau_est": -0.06981685012578964,
+          "temperature": 0
+        },
+        "hip_roll": {
+          "ddq": 0.0,
+          "dq": -0.0018239779165014625,
+          "lost": 0,
+          "mode": "Parallel",
+          "q": -0.024223696440458298,
+          "reserve": [0, 0],
+          "tau_est": 8.051648139953613,
+          "temperature": 0
+        },
+        "hip_yaw": {
+          "ddq": 0.0,
+          "dq": 0.007127611897885799,
+          "lost": 0,
+          "mode": "Parallel",
+          "q": -0.0013351644156500695,
+          "reserve": [0, 0],
+          "tau_est": 0.2645421326160431,
+          "temperature": 0
+        },
+        "knee": {
+          "ddq": 0.0,
+          "dq": -0.01389146503061056,
+          "lost": 0,
+          "mode": "Parallel",
+          "q": 0.1039520874619484,
+          "reserve": [0, 0],
+          "tau_est": 0.9016117453575134,
+          "temperature": 0
+        }
+      },
+      "right_arm": {
+        "elbow": {
+          "ddq": 0.0,
+          "dq": 0.013980449177324772,
+          "lost": 0,
+          "mode": "Parallel",
+          "q": 0.4897383153438568,
+          "reserve": [0, 0],
+          "tau_est": 0.10040589421987534,
+          "temperature": 0
+        },
+        "shoulder_pitch": {
+          "ddq": 0.0,
+          "dq": 0.004891078453511,
+          "lost": 0,
+          "mode": "Parallel",
+          "q": 0.1959720253944397,
+          "reserve": [0, 0],
+          "tau_est": 0.17303994297981262,
+          "temperature": 0
+        },
+        "shoulder_roll": {
+          "ddq": 0.0,
+          "dq": 0.007801252882927656,
+          "lost": 0,
+          "mode": "Parallel",
+          "q": 1.4584767818450928,
+          "reserve": [0, 0],
+          "tau_est": -0.39393290877342224,
+          "temperature": 0
+        },
+        "shoulder_yaw": {
+          "ddq": 0.0,
+          "dq": -0.009751597419381142,
+          "lost": 0,
+          "mode": "Parallel",
+          "q": 0.013039235025644302,
+          "reserve": [0, 0],
+          "tau_est": -0.13330484926700592,
+          "temperature": 0
+        }
+      },
+      "right_leg": {
+        "ankle_down": {
+          "ddq": 0.0,
+          "dq": 0.012680582702159882,
+          "lost": 0,
+          "mode": "Parallel",
+          "q": -0.003430973505601287,
+          "reserve": [0, 0],
+          "tau_est": 1.411190629005432,
+          "temperature": 0
+        },
+        "ankle_up": {
+          "ddq": 0.0,
+          "dq": -0.0039587258361279964,
+          "lost": 0,
+          "mode": "Parallel",
+          "q": -0.08984225243330002,
+          "reserve": [0, 0],
+          "tau_est": 0.1483588665723801,
+          "temperature": 0
+        },
+        "hip_pitch": {
+          "ddq": 0.0,
+          "dq": 0.008492794819176197,
+          "lost": 0,
+          "mode": "Parallel",
+          "q": 0.0009536888683214784,
+          "reserve": [0, 0],
+          "tau_est": 0.4887179434299469,
+          "temperature": 0
+        },
+        "hip_roll": {
+          "ddq": 0.0,
+          "dq": -0.00501900352537632,
+          "lost": 0,
+          "mode": "Parallel",
+          "q": 0.02384222112596035,
+          "reserve": [0, 0],
+          "tau_est": -8.2384614944458,
+          "temperature": 0
+        },
+        "hip_yaw": {
+          "ddq": 0.0,
+          "dq": -0.005903711076825857,
+          "lost": 0,
+          "mode": "Parallel",
+          "q": -0.0032425422687083483,
+          "reserve": [0, 0],
+          "tau_est": 0.08051282167434692,
+          "temperature": 0
+        },
+        "knee": {
+          "ddq": 0.0,
+          "dq": 0.0019579383078962564,
+          "lost": 0,
+          "mode": "Parallel",
+          "q": 0.10891126841306686,
+          "reserve": [0, 0],
+          "tau_est": -1.3087912797927856,
+          "temperature": 0
+        }
+      }
+    },
+    "prep_mode_imu_state": {
+      "acc": [0.20725543797016144, -0.031506847590208054, 9.8461275100708],
+      "gyro": [
+        0.0014966947492212055, 0.002498219721019268, 0.0016458419850096109
+      ],
+      "rpy": [
+        -0.006131200585514307, -0.021629229187965393, -0.12838147580623627
+      ]
+    }
+  }
 }

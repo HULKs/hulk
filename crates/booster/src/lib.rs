@@ -75,6 +75,7 @@ impl LowState {
     Copy,
     Debug,
     Default,
+    PartialEq,
     Serialize,
     Deserialize,
     PathSerialize,
@@ -125,6 +126,7 @@ impl ImuState {
     Default,
     Copy,
     Clone,
+    PartialEq,
     Serialize,
     Deserialize,
     PathSerialize,
@@ -333,11 +335,8 @@ impl MotorCommand {
 
 #[repr(u32)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
-#[derive(
-    Debug, Clone, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
-)]
+#[derive(Debug, Clone, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect)]
 pub enum FallDownStateType {
-    #[default]
     IsReady = 0,
     IsFalling = 1,
     HasFallen = 2,
@@ -346,9 +345,7 @@ pub enum FallDownStateType {
 
 #[repr(C)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
-#[derive(
-    Debug, Clone, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
-)]
+#[derive(Debug, Clone, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect)]
 pub struct FallDownState {
     pub fall_down_state: FallDownStateType,
     /// Whether recovery (getting up) action is available
@@ -369,7 +366,7 @@ impl FallDownState {
 
 #[repr(i8)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect)]
 pub enum ButtonEventType {
     PressDown,
     PressUp,
@@ -383,7 +380,7 @@ pub enum ButtonEventType {
 
 #[repr(C)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect)]
 pub struct ButtonEventMsg {
     pub button: i32,
     pub event: ButtonEventType,

@@ -11,7 +11,8 @@ use futures_util::SinkExt;
 use futures_util::StreamExt;
 use hardware::{
     ButtonEventMsgInterface, CameraInterface, IdInterface, MicrophoneInterface, NetworkInterface,
-    PathsInterface, RecordingInterface, SpeakerInterface, TimeInterface, TransformMessageInterface,
+    PathsInterface, RecordingInterface, SafeToExitSafeInterface, SpeakerInterface, TimeInterface,
+    TransformMessageInterface,
 };
 use hardware::{
     FallDownStateInterface, LowCommandInterface, LowStateInterface, RemoteControllerStateInterface,
@@ -61,7 +62,7 @@ pub struct MujocoHardwareInterface {
 
     low_state_receiver: Mutex<Receiver<LowState>>,
     low_command_sender: Sender<LowCommand>,
-    _fall_down_receiver: Mutex<Receiver<FallDownState>>,
+    fall_down_receiver: Mutex<Receiver<FallDownState>>,
     button_event_msg_receiver: Mutex<Receiver<ButtonEventMsg>>,
     remote_controller_state_receiver: Mutex<Receiver<RemoteControllerState>>,
     transform_stamped_receiver: Mutex<Receiver<TransformMessage>>,
@@ -113,7 +114,7 @@ impl MujocoHardwareInterface {
 
             low_state_receiver: Mutex::new(low_state_receiver),
             low_command_sender,
-            _fall_down_receiver: Mutex::new(fall_down_receiver),
+            fall_down_receiver: Mutex::new(fall_down_receiver),
             button_event_msg_receiver: Mutex::new(button_event_msg_receiver),
             remote_controller_state_receiver: Mutex::new(remote_controller_state_receiver),
             transform_stamped_receiver: Mutex::new(transform_stamped_receiver),
@@ -287,7 +288,10 @@ impl LowCommandInterface for MujocoHardwareInterface {
 
 impl FallDownStateInterface for MujocoHardwareInterface {
     fn read_fall_down_state(&self) -> Result<FallDownState> {
-        Ok(Default::default())
+        self.fall_down_receiver
+            .lock()
+            .blocking_recv()
+            .ok_or_eyre("button event msg channel closed")
     }
 }
 
@@ -427,6 +431,12 @@ impl RecordingInterface for MujocoHardwareInterface {
 
     fn set_whether_to_record(&self, enable: bool) {
         self.enable_recording.store(enable, Ordering::SeqCst)
+    }
+}
+
+impl SafeToExitSafeInterface for MujocoHardwareInterface {
+    fn read_safe_to_exit_safe(&self) -> Result<bool> {
+        Ok(true)
     }
 }
 

@@ -1,6 +1,6 @@
 use hardware::{
     ActuatorInterface, LowCommandInterface, LowStateInterface, NetworkInterface, PathsInterface,
-    RecordingInterface, SpeakerInterface, TimeInterface,
+    RecordingInterface, SafeToExitSafeInterface, SpeakerInterface, TimeInterface,
 };
 
 use color_eyre::eyre::Result;
@@ -22,6 +22,7 @@ pub trait HardwareInterface:
     + RecordingInterface
     + SpeakerInterface
     + TimeInterface
+    + SafeToExitSafeInterface
 {
 }
 
@@ -89,6 +90,12 @@ impl PathsInterface for ExtractorHardwareInterface {
 
 impl TimeInterface for ExtractorHardwareInterface {
     fn get_now(&self) -> std::time::SystemTime {
+        unimplemented!()
+    }
+}
+
+impl SafeToExitSafeInterface for ExtractorHardwareInterface {
+    fn read_safe_to_exit_safe(&self) -> Result<bool> {
         unimplemented!()
     }
 }
