@@ -9,7 +9,7 @@ use ndarray::{s, Array, Axis};
 use ort::{
     execution_providers::{CUDAExecutionProvider, TensorRTExecutionProvider},
     inputs,
-    session::{Session, SessionOutputs},
+    session::{builder::GraphOptimizationLevel, Session, SessionOutputs},
     value::TensorRef,
 };
 use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
@@ -50,16 +50,18 @@ impl ObjectDetection {
         let paths = context.hardware_interface.get_paths();
         let neural_network_folder = paths.neural_networks;
 
+        let tensor_rt = TensorRTExecutionProvider::default()
+            .with_device_id(0)
+            .with_fp16(true)
+            .with_engine_cache(true)
+            .with_engine_cache_path(paths.cache.join("tensor-rt").display())
+            .build();
+        let cuda = CUDAExecutionProvider::default().build();
+
         let session = Session::builder()?
-            .with_execution_providers([
-                TensorRTExecutionProvider::default()
-                    .with_engine_cache(true)
-                    .with_engine_cache_path(
-                        neural_network_folder.join("./trt_engine_cache").display(),
-                    )
-                    .build(),
-                CUDAExecutionProvider::default().build(),
-            ])?
+            .with_execution_providers([tensor_rt, cuda])?
+            .with_optimization_level(GraphOptimizationLevel::Level3)?
+            .with_intra_threads(1)?
             .commit_from_file(neural_network_folder.join("yolo11n-544x448.onnx"))?;
 
         Ok(Self { session })

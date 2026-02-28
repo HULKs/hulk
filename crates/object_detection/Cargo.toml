@@ -32,3 +32,6 @@ rand = { workspace = true }
 ros2 = { workspace = true }
 serde = { workspace = true }
 types = { workspace = true }
+
+[features]
+ort-dynamic = ["ort/load-dynamic"]

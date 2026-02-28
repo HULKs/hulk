@@ -40,7 +40,7 @@ libc = { workspace = true, optional = true }
 linear_algebra = { workspace = true }
 log = { workspace = true }
 motion = { workspace = true }
-object_detection = { workspace = true }
+object_detection = { workspace = true, features = ["ort-dynamic"] }
 parameters = { workspace = true }
 parking_lot = { workspace = true }
 path_serde = { workspace = true }

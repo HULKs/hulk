@@ -4,7 +4,8 @@
   "paths": {
     "motions": "etc/motions",
     "neural_networks": "etc/neural_networks",
-    "sounds": "etc/sounds"
+    "sounds": "etc/sounds",
+    "cache": "../.cache/hulk"
   },
   "hsl_network_ports": {
     "game_controller_return": 3939,
