@@ -17,16 +17,11 @@ use serde::{Deserialize, Serialize};
 )]
 pub enum PrimaryState {
     #[default]
-    Unstiff,
-    Animation {
-        stiff: bool,
-    },
+    Safe,
     Initial,
     Ready,
     Set,
     Playing,
     Penalized,
     Finished,
-    Calibration,
-    Standby,
 }

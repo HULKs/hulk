@@ -395,5 +395,6 @@
     "inner_minimum_pitch": -0.4,
     "outer_yaw": 0,
     "injected_head_joints": null
-  }
+  },
+  "recorded_primary_states": ["Ready", "Set", "Playing"]
 }
