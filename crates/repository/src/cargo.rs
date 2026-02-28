@@ -203,7 +203,6 @@ fn build_command_string(
                 {tagged_image_name} \
                 /bin/sh -c '\
                     cd {pwd} && \
-                    echo $PATH && \
                     cargo \
         "
     )
