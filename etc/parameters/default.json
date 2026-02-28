@@ -396,6 +396,83 @@
     "outer_yaw": 0,
     "injected_head_joints": null
   },
+  "in_walk_kicks": {
+    "forward": {
+      "position": [-0.23, -0.05],
+      "position_offset": [0.0, 0.0],
+      "orientation": 0.0,
+      "reached_x": {
+        "start": -0.12,
+        "end": 0.06
+      },
+      "reached_y": {
+        "start": -0.02,
+        "end": 0.02
+      },
+      "reached_turn": {
+        "start": -0.1,
+        "end": 0.1
+      },
+      "shot_distance": 4.0,
+      "enabled": true
+    },
+    "turn": {
+      "position": [-0.17, -0.11],
+      "position_offset": [0.0, 0.0],
+      "orientation": 0.9,
+      "reached_x": {
+        "start": -0.02,
+        "end": 0.02
+      },
+      "reached_y": {
+        "start": -0.02,
+        "end": 0.02
+      },
+      "reached_turn": {
+        "start": -0.1,
+        "end": 0.1
+      },
+      "shot_distance": 3.5,
+      "enabled": true
+    },
+    "side": {
+      "position": [-0.15, 0.03],
+      "position_offset": [0.0, 0.0],
+      "orientation": -1.57,
+      "reached_x": {
+        "start": -0.05,
+        "end": 0.05
+      },
+      "reached_y": {
+        "start": -0.06,
+        "end": 0.06
+      },
+      "reached_turn": {
+        "start": -0.1,
+        "end": 0.1
+      },
+      "shot_distance": 0.8,
+      "enabled": true
+    }
+  },
+  "kick_selector": {
+    "distance_to_corner": 1.5,
+    "corner_kick_target_distance_to_goal": 1.3,
+    "min_obstacle_distance": 1.0,
+    "kick_pose_robot_radius": 0.1,
+    "kick_off_angle": 0.9,
+    "default_kick_variants": ["Forward", "Side", "Turn"],
+    "corner_kick_variants": ["Forward", "Side", "Turn"],
+    "kick_off_kick_variants": ["Forward"],
+    "penalty_shot_kick_variants": ["Forward"],
+    "default_kick_strength": 1.0,
+    "corner_kick_strength": 0.25,
+    "kick_off_kick_strength": 1.0,
+    "penalty_shot_kick_strength": 1.0,
+    "angle_distance_weight": 0.02,
+    "closer_to_goal_threshold": 1.0,
+    "goal_accuracy_margin": 0.25
+  },
   "recorded_primary_states": ["Ready", "Set", "Playing"],
   "safe_mode_handler": {
     "joint_position_threshold": 0.1,
