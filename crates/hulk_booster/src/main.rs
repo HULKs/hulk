@@ -16,7 +16,8 @@ use framework::Parameters as FrameworkParameters;
 use hardware::{
     ButtonEventMsgInterface, CameraInterface, FallDownStateInterface, IdInterface,
     LowCommandInterface, LowStateInterface, MicrophoneInterface, NetworkInterface, PathsInterface,
-    RecordingInterface, SpeakerInterface, TimeInterface, TransformMessageInterface,
+    RecordingInterface, SafeToExitSafeInterface, SpeakerInterface, TimeInterface,
+    TransformMessageInterface,
 };
 use hula_types::hardware::Ids;
 use serde_json::from_reader;
@@ -58,6 +59,7 @@ pub trait HardwareInterface:
     + RecordingInterface
     + SpeakerInterface
     + TimeInterface
+    + SafeToExitSafeInterface
 {
 }
 

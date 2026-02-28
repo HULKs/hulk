@@ -13,8 +13,8 @@ mod worker_thread;
 use color_eyre::{eyre::Result, install};
 use hardware::{
     ActuatorInterface, CameraInterface, IdInterface, LowCommandInterface, LowStateInterface,
-    MicrophoneInterface, NetworkInterface, PathsInterface, RecordingInterface, SensorInterface,
-    SpeakerInterface, TimeInterface,
+    MicrophoneInterface, NetworkInterface, PathsInterface, RecordingInterface,
+    SafeToExitSafeInterface, SensorInterface, SpeakerInterface, TimeInterface,
 };
 use hula_types::hardware::{Ids, Paths};
 use replayer::replayer;
@@ -41,6 +41,7 @@ pub trait HardwareInterface:
     + SensorInterface
     + SpeakerInterface
     + TimeInterface
+    + SafeToExitSafeInterface
 {
 }
 
@@ -175,6 +176,12 @@ impl SpeakerInterface for ReplayerHardwareInterface {
 
 impl TimeInterface for ReplayerHardwareInterface {
     fn get_now(&self) -> std::time::SystemTime {
+        unimplemented!()
+    }
+}
+
+impl SafeToExitSafeInterface for ReplayerHardwareInterface {
+    fn read_safe_to_exit_safe(&self) -> Result<bool> {
         unimplemented!()
     }
 }

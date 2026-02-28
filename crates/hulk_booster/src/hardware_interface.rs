@@ -10,7 +10,8 @@ use color_eyre::eyre::{bail, eyre, Context};
 use color_eyre::Result;
 use hardware::{
     ButtonEventMsgInterface, CameraInterface, IdInterface, MicrophoneInterface, NetworkInterface,
-    PathsInterface, RecordingInterface, SpeakerInterface, TimeInterface, TransformMessageInterface,
+    PathsInterface, RecordingInterface, SafeToExitSafeInterface, SpeakerInterface, TimeInterface,
+    TransformMessageInterface,
 };
 use hardware::{
     FallDownStateInterface, LowCommandInterface, LowStateInterface, RemoteControllerStateInterface,
@@ -437,6 +438,12 @@ impl RecordingInterface for BoosterHardwareInterface {
 
     fn set_whether_to_record(&self, enable: bool) {
         self.enable_recording.store(enable, Ordering::SeqCst)
+    }
+}
+
+impl SafeToExitSafeInterface for BoosterHardwareInterface {
+    fn read_safe_to_exit_safe(&self) -> Result<bool> {
+        Ok(false)
     }
 }
 

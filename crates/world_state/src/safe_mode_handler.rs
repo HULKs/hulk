@@ -1,4 +1,5 @@
 use color_eyre::Result;
+use hardware::SafeToExitSafeInterface;
 use serde::{Deserialize, Serialize};
 
 use approx::AbsDiffEq;
@@ -27,6 +28,8 @@ pub struct CycleContext {
     angular_velocity_threshold: Parameter<f32, "safe_mode_handler.angular_velocity_threshold">,
     linear_acceleration_threshold:
         Parameter<f32, "safe_mode_handler.linear_acceleration_threshold">,
+
+    hardware_interface: HardwareInterface,
 }
 
 #[context]
@@ -40,7 +43,16 @@ impl SafeModeHandler {
         Ok(Self {})
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(
+        &mut self,
+        context: CycleContext<impl SafeToExitSafeInterface>,
+    ) -> Result<MainOutputs> {
+        if context.hardware_interface.read_safe_to_exit_safe()? {
+            return Ok(MainOutputs {
+                safe_to_leave_safe_mode: true.into(),
+            });
+        }
+
         let Some(button_event) = context
             .maybe_button_event
             .persistent

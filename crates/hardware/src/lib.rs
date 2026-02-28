@@ -95,3 +95,7 @@ pub trait SpeakerInterface {
 pub trait TimeInterface {
     fn get_now(&self) -> SystemTime;
 }
+
+pub trait SafeToExitSafeInterface {
+    fn read_safe_to_exit_safe(&self) -> Result<bool>;
+}
