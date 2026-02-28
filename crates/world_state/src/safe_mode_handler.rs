@@ -38,7 +38,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub safe_to_leave_safe_mode: MainOutput<bool>,
+    pub should_exit_safe_mode: MainOutput<bool>,
 }
 
 impl SafeModeHandler {
@@ -55,7 +55,7 @@ impl SafeModeHandler {
     ) -> Result<MainOutputs> {
         if context.hardware_interface.read_safe_to_exit_safe()? {
             return Ok(MainOutputs {
-                safe_to_leave_safe_mode: true.into(),
+                should_exit_safe_mode: true.into(),
             });
         }
 
@@ -68,7 +68,7 @@ impl SafeModeHandler {
             .flatten()
         else {
             return Ok(MainOutputs {
-                safe_to_leave_safe_mode: false.into(),
+                should_exit_safe_mode: false.into(),
             });
         };
 
@@ -118,11 +118,11 @@ impl SafeModeHandler {
             *context.linear_acceleration_threshold,
         );
 
-        let safe_to_leave_safe_mode =
+        let should_exit_safe_mode =
             is_stand_button_long_press && motor_states_are_safe && imu_state_is_safe;
 
         Ok(MainOutputs {
-            safe_to_leave_safe_mode: safe_to_leave_safe_mode.into(),
+            should_exit_safe_mode: should_exit_safe_mode.into(),
         })
     }
 }

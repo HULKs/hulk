@@ -22,7 +22,7 @@ pub struct CreationContext {}
 pub struct CycleContext {
     filtered_game_controller_state:
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
-    safe_to_leave_safe_mode: Input<bool, "safe_to_leave_safe_mode">,
+    should_exit_safe_mode: Input<bool, "should_exit_safe_mode">,
 
     player_number: Parameter<PlayerNumber, "player_number">,
     recorded_primary_states: Parameter<HashSet<PrimaryState>, "recorded_primary_states">,
@@ -55,7 +55,7 @@ impl PrimaryStateFilter {
         };
 
         // TODO mode switching state machine
-        let next_primary_state = match (self.last_primary_state, context.safe_to_leave_safe_mode) {
+        let next_primary_state = match (self.last_primary_state, context.should_exit_safe_mode) {
             (PrimaryState::Safe, true) => PrimaryState::Initial,
             _ => PrimaryState::Safe,
         };
