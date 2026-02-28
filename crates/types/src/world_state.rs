@@ -11,7 +11,7 @@ use crate::{
     ball_position::HypotheticalBallPosition, calibration::CalibrationCommand,
     fall_state::FallState, field_dimensions::Side,
     filtered_game_controller_state::FilteredGameControllerState, kick_decision::KickDecision,
-    obstacles::Obstacle, penalty_shot_direction::PenaltyShotDirection, primary_state::PrimaryState,
+    obstacles::Obstacle, primary_state::PrimaryState,
     roles::Role, rule_obstacles::RuleObstacle,
 };
 
@@ -68,7 +68,6 @@ pub struct BallState {
     pub ball_in_field: Point2<Field>,
     pub ball_in_ground_velocity: Vector2<Ground>,
     pub last_seen_ball: SystemTime,
-    pub penalty_shot_direction: Option<PenaltyShotDirection>,
     pub field_side: Side,
 }
 
@@ -95,7 +94,6 @@ impl Default for BallState {
             ball_in_field: Point2::origin(),
             ball_in_ground_velocity: Vector2::zeros(),
             last_seen_ball: UNIX_EPOCH,
-            penalty_shot_direction: Default::default(),
             field_side: Side::Left,
         }
     }
@@ -108,7 +106,6 @@ impl BallState {
             ball_in_ground: ground_to_field.inverse() * Point2::origin(),
             ball_in_ground_velocity: Vector2::zeros(),
             last_seen_ball: UNIX_EPOCH,
-            penalty_shot_direction: Default::default(),
             field_side: Side::Left,
         }
     }
