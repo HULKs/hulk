@@ -11,8 +11,7 @@ use crate::{
     ball_position::HypotheticalBallPosition, calibration::CalibrationCommand,
     fall_state::FallState, field_dimensions::Side,
     filtered_game_controller_state::FilteredGameControllerState, kick_decision::KickDecision,
-    obstacles::Obstacle, primary_state::PrimaryState,
-    roles::Role, rule_obstacles::RuleObstacle,
+    obstacles::Obstacle, primary_state::PrimaryState, roles::Role, rule_obstacles::RuleObstacle,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathIntrospect)]
