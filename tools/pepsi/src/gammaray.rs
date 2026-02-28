@@ -99,14 +99,14 @@ async fn gammaray_robot(
     robot
         .ssh_to_robot()?
         .arg(ADD_APT_ROS2DDS_ZENOH_BRIDGE_SOURCES)
-        .run_with_log("adding zenoh-bridge-ros2dds sources", &progress_bar)
+        .ssh_with_log("adding zenoh-bridge-ros2dds sources", &progress_bar)
         .await?;
 
     robot
         .ssh_to_robot()?
         .arg("sudo apt update && sudo apt install")
         .args(PACKAGES)
-        .run_with_log("installing packages", &progress_bar)
+        .ssh_with_log("installing packages", &progress_bar)
         .await?;
 
     robot
@@ -152,14 +152,14 @@ async fn gammaray_robot(
     robot
         .ssh_to_robot()?
         .arg("systemctl --user daemon-reload")
-        .run_with_log("reloading service daemon", &progress_bar)
+        .ssh_with_log("reloading service daemon", &progress_bar)
         .await?;
 
     robot
         .ssh_to_robot()?
         .arg("systemctl --user enable --now")
-        .args(["hulk", "zenoh_bridge", "zenoh-bridge-ros2dds"])
-        .run_with_log("restarting services", &progress_bar)
+        .args(["hulk", "zenoh-bridge", "zenoh-bridge-ros2dds"])
+        .ssh_with_log("restarting services", &progress_bar)
         .await?;
 
     Ok(())
@@ -197,50 +197,38 @@ async fn fix_sudo_permissions(password: String, robot: &Robot) -> Result<(), Err
 }
 
 trait CommandExt {
-    async fn run_with_log(&mut self, prefix: &str, progress_bar: &ProgressBar) -> Result<()>;
+    async fn ssh_with_log(&mut self, prefix: &str, progress_bar: &ProgressBar) -> Result<()>;
 
     async fn rsync_with_log(&mut self, name: &str, progress_bar: &ProgressBar) -> Result<()>;
+
+    async fn run_with_log(
+        &mut self,
+        name: &str,
+        progress_bar: &ProgressBar,
+        line_delimiter: u8,
+    ) -> Result<()>;
 }
 
 impl CommandExt for Command {
-    async fn run_with_log(&mut self, name: &str, progress_bar: &ProgressBar) -> Result<()> {
-        progress_bar.set_message(name.to_string());
-        self.stdout(Stdio::piped());
-        self.stderr(Stdio::piped());
-        let mut process = self.spawn().unwrap();
-        let mut lines = BufReader::new(process.stdout.take().unwrap()).lines();
-
-        while let Ok(Some(text)) = lines.next_line().await {
-            progress_bar.set_message(format!("{name}: {text}"));
-        }
-
-        let maybe_code = process
-            .wait()
-            .await
-            .wrap_err_with(|| format!("failed at {name}"))?
-            .code();
-        match maybe_code {
-            Some(0) => Ok(()),
-            None => bail!("process was killed"),
-            Some(code) => {
-                let mut stderr = String::new();
-                process
-                    .stderr
-                    .take()
-                    .unwrap()
-                    .read_to_string(&mut stderr)
-                    .await?;
-                Err(eyre!("process exited with error code {code}\n{stderr}"))
-            }
-        }
+    async fn ssh_with_log(&mut self, name: &str, progress_bar: &ProgressBar) -> Result<()> {
+        self.run_with_log(name, progress_bar, b'\n').await
     }
 
     async fn rsync_with_log(&mut self, name: &str, progress_bar: &ProgressBar) -> Result<()> {
+        self.run_with_log(name, progress_bar, b'\r').await
+    }
+
+    async fn run_with_log(
+        &mut self,
+        name: &str,
+        progress_bar: &ProgressBar,
+        line_delimiter: u8,
+    ) -> Result<()> {
         progress_bar.set_message(name.to_string());
         self.stdout(Stdio::piped());
         self.stderr(Stdio::piped());
         let mut process = self.spawn().unwrap();
-        let mut lines = BufReader::new(process.stdout.take().unwrap()).split(b'\r');
+        let mut lines = BufReader::new(process.stdout.take().unwrap()).split(line_delimiter);
 
         while let Ok(Some(buffer)) = lines.next_segment().await {
             if let Ok(text) = std::str::from_utf8(&buffer) {
