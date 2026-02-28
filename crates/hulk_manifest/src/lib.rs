@@ -63,6 +63,7 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
                     "world_state::kinematics_provider",
                     "world_state::primary_state_filter",
                     "world_state::safe_mode_handler",
+                    "world_state::team_ball_receiver",
                 ],
                 execution_time_warning_threshold: Some(Duration::from_secs_f32(1.0 / 100.0)),
             },

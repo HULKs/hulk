@@ -1,0 +1,153 @@
+use std::{
+    collections::BTreeMap,
+    time::{Duration, SystemTime},
+};
+
+use color_eyre::eyre::Result;
+use serde::{Deserialize, Serialize};
+
+use context_attribute::context;
+use coordinate_systems::Field;
+use framework::{AdditionalOutput, MainOutput, PerceptionInput};
+use hsl_network_messages::{GamePhase, HulkMessage, SubState};
+use linear_algebra::{Point2, Vector2};
+use types::{
+    ball_position::BallPosition, cycle_time::CycleTime,
+    filtered_game_controller_state::FilteredGameControllerState,
+    filtered_game_state::FilteredGameState, messages::IncomingMessage, players::Players,
+};
+
+#[derive(Deserialize, Serialize)]
+pub struct TeamBallReceiver {
+    received_balls: Players<Option<BallPosition<Field>>>,
+    rule_team_ball: Option<BallPosition<Field>>,
+}
+
+#[context]
+pub struct CreationContext {}
+
+#[context]
+pub struct CycleContext {
+    cycle_time: Input<CycleTime, "cycle_time">,
+    filtered_game_controller_state:
+        Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
+    network_message: PerceptionInput<Option<IncomingMessage>, "HslNetwork", "filtered_message?">,
+
+    maximum_age: Parameter<Duration, "team_ball.maximum_age">,
+
+    team_balls: AdditionalOutput<Players<Option<BallPosition<Field>>>, "team_balls">,
+}
+
+#[context]
+pub struct MainOutputs {
+    pub team_ball: MainOutput<Option<BallPosition<Field>>>,
+}
+
+impl TeamBallReceiver {
+    pub fn new(_context: CreationContext) -> Result<Self> {
+        Ok(Self {
+            received_balls: Players::default(),
+            rule_team_ball: None,
+        })
+    }
+
+    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
+        let messages = get_hsl_messages(&context.network_message.persistent);
+        for (time, message) in messages {
+            self.process_message(time, message);
+        }
+
+        if let Some(game_controller_state) = context.filtered_game_controller_state {
+            // Ignore everything during penalty_*
+            let in_penalty_shootout = matches!(
+                game_controller_state.game_phase,
+                GamePhase::PenaltyShootout { .. }
+            );
+            let in_penalty_kick = game_controller_state.sub_state == Some(SubState::PenaltyKick);
+
+            if in_penalty_shootout || in_penalty_kick {
+                return Ok(MainOutputs {
+                    team_ball: None.into(),
+                });
+            }
+
+            // Prevent non-strikers from claiming striker at kickoff
+            if game_controller_state.game_state == FilteredGameState::Set {
+                self.rule_team_ball = Some(BallPosition {
+                    position: Point2::origin(),
+                    velocity: Vector2::zeros(),
+                    last_seen: context.cycle_time.start_time,
+                })
+            }
+        }
+
+        let team_ball =
+            self.get_best_received_ball(context.cycle_time.start_time, *context.maximum_age);
+
+        context.team_balls.fill_if_subscribed(|| {
+            self.received_balls.map(|ball| {
+                ball.filter(|ball| {
+                    context
+                        .cycle_time
+                        .start_time
+                        .duration_since(ball.last_seen)
+                        .expect("time ran backwards")
+                        < *context.maximum_age
+                })
+            })
+        });
+
+        Ok(MainOutputs {
+            team_ball: team_ball.into(),
+        })
+    }
+
+    fn process_message(&mut self, time: SystemTime, message: HulkMessage) {
+        let (player, ball) = match message {
+            HulkMessage::Striker(striker_message) => (
+                striker_message.player_number,
+                Some(BallPosition {
+                    position: striker_message.ball_position.position,
+                    velocity: Vector2::zeros(),
+                    last_seen: time - striker_message.ball_position.age,
+                }),
+            ),
+            HulkMessage::Loser(loser_message) => (loser_message.player_number, None),
+            HulkMessage::VisualReferee(_) => return,
+        };
+        self.received_balls[player] = ball;
+    }
+
+    fn get_best_received_ball(
+        &self,
+        now: SystemTime,
+        trust_duration: Duration,
+    ) -> Option<BallPosition<Field>> {
+        self.received_balls
+            .iter()
+            .filter_map(|(_player_number, ball)| *ball)
+            .chain(self.rule_team_ball)
+            .max_by_key(|ball| ball.last_seen)
+            .filter(|ball| {
+                now.duration_since(ball.last_seen)
+                    .expect("time ran backwards")
+                    < trust_duration
+            })
+    }
+}
+
+pub fn get_hsl_messages<'a>(
+    persistent_messages: &'a BTreeMap<SystemTime, Vec<Option<&'_ IncomingMessage>>>,
+) -> impl Iterator<Item = (SystemTime, HulkMessage)> + 'a {
+    persistent_messages
+        .iter()
+        .flat_map(|(time, messages)| {
+            messages
+                .iter()
+                .filter_map(|message| Some((*time, (*message)?)))
+        })
+        .filter_map(|(time, message)| match message {
+            IncomingMessage::Hsl(message) => Some((time, *message)),
+            _ => None,
+        })
+}
