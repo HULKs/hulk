@@ -53,7 +53,7 @@ lazy_static! {
             ("twix", "tools/twix"),
             ("vista", "tools/vista"),
             ("widget_gallery", "tools/widget_gallery"),
-            ("zenoh_bridge", "tools/zenoh_bridge"),
+            ("zenoh_bridge", "crates/zenoh_bridge"),
         ])
     };
 }
