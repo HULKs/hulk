@@ -11,6 +11,7 @@ ln -sf ${INTERNAL_LOG_PATH}/hulk.err ${INTERNAL_LOG_PATH}/../hulk.err
 HOST_TEGRA_LIB_PATH="/usr/lib/aarch64-linux-gnu/tegra"
 DEVICES="--device nvidia.com/gpu=all"
 
+sudo podman rm hulk
 sudo podman run -it --rm \
   --privileged \
   --network=host \
