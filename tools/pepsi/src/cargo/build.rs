@@ -12,19 +12,19 @@ use super::{common::CommonOptions, heading};
 #[command(display_order = 1)]
 pub struct Arguments {
     #[command(flatten)]
-    common: CommonOptions,
+    pub common: CommonOptions,
 
     /// Build artifacts in release mode, with optimizations
     #[arg(short = 'r', long, help_heading = heading::COMPILATION_OPTIONS)]
-    release: bool,
+    pub release: bool,
 
     /// Ignore `rust-version` specification in packages
     #[arg(long)]
-    ignore_rust_version: bool,
+    pub ignore_rust_version: bool,
 
     /// Output build graph in JSON (unstable)
     #[arg(long, help_heading = heading::COMPILATION_OPTIONS)]
-    unit_graph: bool,
+    pub unit_graph: bool,
 
     /// Package to build (see `cargo help pkgid`)
     #[arg(
@@ -35,11 +35,11 @@ pub struct Arguments {
         num_args=0..=1,
         help_heading = heading::PACKAGE_SELECTION,
     )]
-    packages: Vec<String>,
+    pub packages: Vec<String>,
 
     /// Build all packages in the workspace
     #[arg(long, help_heading = heading::PACKAGE_SELECTION)]
-    workspace: bool,
+    pub workspace: bool,
 
     /// Exclude packages from the build
     #[arg(
@@ -48,15 +48,15 @@ pub struct Arguments {
         action = ArgAction::Append,
         help_heading = heading::PACKAGE_SELECTION,
     )]
-    exclude: Vec<String>,
+    pub exclude: Vec<String>,
 
     /// Alias for workspace (deprecated)
     #[arg(long, help_heading = heading::PACKAGE_SELECTION)]
-    all: bool,
+    pub all: bool,
 
     /// Build only this package's library
     #[arg(long, help_heading = heading::TARGET_SELECTION)]
-    lib: bool,
+    pub lib: bool,
 
     /// Build only the specified binary
     #[arg(
@@ -66,11 +66,11 @@ pub struct Arguments {
         num_args=0..=1,
         help_heading = heading::TARGET_SELECTION,
     )]
-    bin: Vec<String>,
+    pub bin: Vec<String>,
 
     /// Build all binaries
     #[arg(long, help_heading = heading::TARGET_SELECTION)]
-    bins: bool,
+    pub bins: bool,
 
     /// Build only the specified example
     #[arg(
@@ -80,11 +80,11 @@ pub struct Arguments {
         num_args=0..=1,
         help_heading = heading::TARGET_SELECTION,
     )]
-    example: Vec<String>,
+    pub example: Vec<String>,
 
     /// Build all examples
     #[arg(long, help_heading = heading::TARGET_SELECTION)]
-    examples: bool,
+    pub examples: bool,
 
     /// Build only the specified test target
     #[arg(
@@ -93,11 +93,11 @@ pub struct Arguments {
         action = ArgAction::Append,
         help_heading = heading::TARGET_SELECTION,
     )]
-    test: Vec<String>,
+    pub test: Vec<String>,
 
     /// Build all tests
     #[arg(long, help_heading = heading::TARGET_SELECTION)]
-    tests: bool,
+    pub tests: bool,
 
     /// Build only the specified bench target
     #[arg(
@@ -106,27 +106,27 @@ pub struct Arguments {
         action = ArgAction::Append,
         help_heading = heading::TARGET_SELECTION,
     )]
-    bench: Vec<String>,
+    pub bench: Vec<String>,
 
     /// Build all benches
     #[arg(long, help_heading = heading::TARGET_SELECTION)]
-    benches: bool,
+    pub benches: bool,
 
     /// Build all targets
     #[arg(long, help_heading = heading::TARGET_SELECTION)]
-    all_targets: bool,
+    pub all_targets: bool,
 
     /// Copy final artifacts to this directory (unstable)
     #[arg(long, alias = "out-dir", value_name = "PATH", help_heading = heading::COMPILATION_OPTIONS)]
-    artifact_dir: Option<PathBuf>,
+    pub artifact_dir: Option<PathBuf>,
 
     /// Output the build plan in JSON (unstable)
     #[arg(long, help_heading = heading::COMPILATION_OPTIONS)]
-    build_plan: bool,
+    pub build_plan: bool,
 
     /// Outputs a future incompatibility report at the end of the build (unstable)
     #[arg(long)]
-    future_incompat_report: bool,
+    pub future_incompat_report: bool,
 }
 
 impl CargoCommand for Arguments {

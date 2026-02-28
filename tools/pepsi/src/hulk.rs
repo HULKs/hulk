@@ -23,18 +23,21 @@ pub struct Arguments {
 }
 
 pub async fn hulk(arguments: Arguments) -> Result<()> {
-    ProgressIndicator::map_tasks(
-        arguments.robots,
-        "Executing systemctl hulk...",
-        |robot_address, _progress_bar| async move {
-            let robot = Robot::try_new_with_ping(robot_address.ip).await?;
-            robot
-                .execute_systemctl(arguments.action, "hulk")
-                .await
-                .wrap_err_with(|| format!("failed to execute systemctl hulk on {robot_address}"))
-        },
-    )
-    .await;
+    ProgressIndicator::new()
+        .map_tasks(
+            arguments.robots,
+            "Executing systemctl hulk...",
+            |robot_address, _progress_bar| async move {
+                let robot = Robot::try_new_with_ping(robot_address.ip).await?;
+                robot
+                    .execute_systemctl(arguments.action, "hulk")
+                    .await
+                    .wrap_err_with(|| {
+                        format!("failed to execute systemctl hulk on {robot_address}")
+                    })
+            },
+        )
+        .await;
 
     Ok(())
 }

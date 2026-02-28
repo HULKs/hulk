@@ -1,0 +1,14 @@
+[Unit]
+Description=Zenoh Bridge
+
+[Service]
+ExecStart=/home/booster/zenoh_bridge
+Environment="RUST_BACKTRACE=1"
+TimeoutStopSec=10
+WorkingDirectory=/home/booster
+Environment=RUST_LOG=DEBUG
+StandardOutput=journal
+StandardError=journal
+
+[Install]
+WantedBy=default.target

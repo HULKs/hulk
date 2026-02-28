@@ -29,22 +29,23 @@ pub async fn player_number(arguments: Arguments, repository: &Repository) -> Res
     // reborrows the team to avoid moving it into the closure
     let robots = &team.robots;
 
-    ProgressIndicator::map_tasks(
-        arguments.assignments,
-        "Setting player number...",
-        |assignment, _progress_bar| async move {
-            let number = assignment.robot_number.number;
-            let robot = robots
-                .iter()
-                .find(|robot| robot.number == number)
-                .ok_or_else(|| eyre!("Robot with Hardware ID {number} does not exist"))?;
-            repository
-                .configure_player_number(&robot.head_id, assignment.player_number)
-                .await
-                .wrap_err_with(|| format!("failed to set player number for {assignment}"))
-        },
-    )
-    .await;
+    ProgressIndicator::new()
+        .map_tasks(
+            arguments.assignments,
+            "Setting player number...",
+            |assignment, _progress_bar| async move {
+                let number = assignment.robot_number.number;
+                let robot = robots
+                    .iter()
+                    .find(|robot| robot.number == number)
+                    .ok_or_else(|| eyre!("Robot with Hardware ID {number} does not exist"))?;
+                repository
+                    .configure_player_number(&robot.head_id, assignment.player_number)
+                    .await
+                    .wrap_err_with(|| format!("failed to set player number for {assignment}"))
+            },
+        )
+        .await;
 
     Ok(())
 }

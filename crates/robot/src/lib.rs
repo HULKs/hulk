@@ -105,7 +105,7 @@ impl Robot {
     fn create_login_script() -> Result<PathBuf> {
         let path = temp_dir().join("booster_login_script");
 
-        std::fs::write(&path, b"#!/usr/bin/env sh\necho booster")
+        std::fs::write(&path, b"#!/usr/bin/env sh\necho 123456")
             .wrap_err("failed to write to robot login script")?;
 
         #[cfg(unix)]
@@ -117,7 +117,7 @@ impl Robot {
         Ok(path)
     }
 
-    fn ssh_to_robot(&self) -> Result<Command> {
+    pub fn ssh_to_robot(&self) -> Result<Command> {
         let temp_file = Self::create_login_script().wrap_err("failed to create login script")?;
 
         let mut command = Command::new("ssh");

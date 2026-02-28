@@ -14,18 +14,19 @@ pub struct Arguments {
 }
 
 pub async fn reboot(arguments: Arguments) -> Result<()> {
-    ProgressIndicator::map_tasks(
-        arguments.robots,
-        "Rebooting...",
-        |robot_address, _progress_bar| async move {
-            let robot = Robot::try_new_with_ping(robot_address.ip).await?;
-            robot
-                .reboot()
-                .await
-                .wrap_err_with(|| format!("failed to reboot {robot_address}"))
-        },
-    )
-    .await;
+    ProgressIndicator::new()
+        .map_tasks(
+            arguments.robots,
+            "Rebooting...",
+            |robot_address, _progress_bar| async move {
+                let robot = Robot::try_new_with_ping(robot_address.ip).await?;
+                robot
+                    .reboot()
+                    .await
+                    .wrap_err_with(|| format!("failed to reboot {robot_address}"))
+            },
+        )
+        .await;
 
     Ok(())
 }

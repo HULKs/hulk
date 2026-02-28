@@ -53,6 +53,7 @@ lazy_static! {
             ("twix", "tools/twix"),
             ("vista", "tools/vista"),
             ("widget_gallery", "tools/widget_gallery"),
+            ("zenoh_bridge", "crates/zenoh_bridge"),
         ])
     };
 }
@@ -79,7 +80,27 @@ pub async fn cargo<CargoArguments: Args + CargoCommand>(
     repository: &Repository,
     compiler_artifacts: &[impl AsRef<Path>],
 ) -> Result<()> {
-    // Map with async closures would be nice here (not yet stabilized)
+    let mut cargo_command =
+        construct_cargo_command(arguments, repository, compiler_artifacts).await?;
+
+    debug!("Running `{cargo_command:?}`");
+    let status = cargo_command
+        .status()
+        .await
+        .wrap_err("failed to run cargo")?;
+
+    if !status.success() {
+        bail!("cargo failed with {status}");
+    }
+
+    Ok(())
+}
+
+pub async fn construct_cargo_command<CargoArguments: Args + CargoCommand>(
+    arguments: Arguments<CargoArguments>,
+    repository: &Repository,
+    compiler_artifacts: &[impl AsRef<Path>],
+) -> Result<tokio::process::Command, color_eyre::eyre::Error> {
     let manifest_path = match arguments.manifest {
         Some(manifest) => {
             let absolute_manifest = resolve_manifest_path(&manifest, repository)
@@ -95,7 +116,6 @@ pub async fn cargo<CargoArguments: Args + CargoCommand>(
         }
         None => None,
     };
-
     let environment = match arguments.environment.env {
         Some(environment) => environment,
         None => read_requested_environment(&manifest_path)
@@ -105,22 +125,16 @@ pub async fn cargo<CargoArguments: Args + CargoCommand>(
     .resolve(repository)
     .await
     .wrap_err("failed to resolve environment")?;
-
-    eprintln!("Using cargo from {environment}");
-
     let mut cargo = if arguments.environment.remote {
         Cargo::remote(environment)
     } else {
         Cargo::local(environment)
     };
-
     cargo
         .setup(repository)
         .await
         .wrap_err("failed to set up cargo environment")?;
-
     cargo.arg(CargoArguments::SUB_COMMAND);
-
     if let Some(manifest_path) = manifest_path {
         if CargoArguments::SUB_COMMAND == "install" {
             cargo.arg("--path");
@@ -134,25 +148,12 @@ pub async fn cargo<CargoArguments: Args + CargoCommand>(
             cargo.arg(manifest_path);
         }
     }
-
     arguments.cargo.apply(&mut cargo);
-
-    let mut cargo_command = cargo
+    let cargo_command = cargo
         .command(repository, compiler_artifacts)
         .wrap_err("failed to create cargo command")?;
 
-    debug!("Running `{cargo_command:?}`");
-
-    let status = cargo_command
-        .status()
-        .await
-        .wrap_err("failed to run cargo")?;
-
-    if !status.success() {
-        bail!("cargo failed with {status}");
-    }
-
-    Ok(())
+    Ok(cargo_command)
 }
 
 async fn read_requested_environment(manifest_path: &Option<PathBuf>) -> Result<Environment> {

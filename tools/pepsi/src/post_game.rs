@@ -70,42 +70,45 @@ pub async fn post_game(arguments: Arguments, repository: &Repository) -> Result<
         repository.root.join("logs").join(log_directory_name)
     });
 
-    ProgressIndicator::map_tasks(
-        robots,
-        "Executing postgame tasks...",
-        |robot_address, progress_bar| async move {
-            progress_bar.set_message("Pinging Robot...");
-            let robot = Robot::ping_until_available(robot_address.ip).await;
+    ProgressIndicator::new()
+        .map_tasks(
+            robots,
+            "Executing postgame tasks...",
+            |robot_address, progress_bar| async move {
+                progress_bar.set_message("Pinging Robot...");
+                let robot = Robot::ping_until_available(robot_address.ip).await;
 
-            progress_bar.set_message("Stopping HULK service...");
-            robot
-                .execute_systemctl(SystemctlAction::Stop, "hulk")
-                .await
-                .wrap_err_with(|| format!("failed to execute systemctl hulk on {robot_address}"))?;
-
-            if !arguments.no_disconnect {
-                progress_bar.set_message("Disconnecting from WiFi...");
+                progress_bar.set_message("Stopping HULK service...");
                 robot
-                    .set_wifi(Network::None)
+                    .execute_systemctl(SystemctlAction::Stop, "hulk")
                     .await
-                    .wrap_err_with(|| format!("failed to set network on {robot_address}"))?;
-            }
+                    .wrap_err_with(|| {
+                        format!("failed to execute systemctl hulk on {robot_address}")
+                    })?;
 
-            progress_bar.set_message("Downloading logs...");
-            let log_directory = log_directory
-                .join(arguments.phase.to_string())
-                .join(robot_address.to_string());
-            robot
-                .download_logs(log_directory, |status| {
-                    progress_bar.set_message(format!("Downloading logs: {status}"))
-                })
-                .await
-                .wrap_err_with(|| format!("failed to download logs from {robot_address}"))?;
+                if !arguments.no_disconnect {
+                    progress_bar.set_message("Disconnecting from WiFi...");
+                    robot
+                        .set_wifi(Network::None)
+                        .await
+                        .wrap_err_with(|| format!("failed to set network on {robot_address}"))?;
+                }
 
-            Ok(())
-        },
-    )
-    .await;
+                progress_bar.set_message("Downloading logs...");
+                let log_directory = log_directory
+                    .join(arguments.phase.to_string())
+                    .join(robot_address.to_string());
+                robot
+                    .download_logs(log_directory, |status| {
+                        progress_bar.set_message(format!("Downloading logs: {status}"))
+                    })
+                    .await
+                    .wrap_err_with(|| format!("failed to download logs from {robot_address}"))?;
+
+                Ok(())
+            },
+        )
+        .await;
 
     Ok(())
 }

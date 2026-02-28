@@ -55,61 +55,64 @@ pub async fn wifi(arguments: Arguments) -> Result<()> {
 }
 
 async fn status(robots: Vec<RobotAddress>) {
-    ProgressIndicator::map_tasks(
-        robots,
-        "Retrieving network status...",
-        |robot_address, _progress_bar| async move {
-            let robot = Robot::try_new_with_ping(robot_address.ip).await?;
-            robot
-                .get_network_status()
-                .await
-                .wrap_err_with(|| format!("failed to get network status from {robot_address}"))
-        },
-    )
-    .await;
+    ProgressIndicator::new()
+        .map_tasks(
+            robots,
+            "Retrieving network status...",
+            |robot_address, _progress_bar| async move {
+                let robot = Robot::try_new_with_ping(robot_address.ip).await?;
+                robot
+                    .get_network_status()
+                    .await
+                    .wrap_err_with(|| format!("failed to get network status from {robot_address}"))
+            },
+        )
+        .await;
 }
 
 async fn scan(robots: Vec<RobotAddress>) {
-    ProgressIndicator::map_tasks(
-        robots,
-        "Starting network scan...",
-        |robot_address, _progress_bar| async move {
-            let robot = Robot::try_new_with_ping(robot_address.ip).await?;
-            robot
-                .scan_networks()
-                .await
-                .wrap_err_with(|| format!("failed to scan for networks on {robot_address}"))
-        },
-    )
-    .await;
+    ProgressIndicator::new()
+        .map_tasks(
+            robots,
+            "Starting network scan...",
+            |robot_address, _progress_bar| async move {
+                let robot = Robot::try_new_with_ping(robot_address.ip).await?;
+                robot
+                    .scan_networks()
+                    .await
+                    .wrap_err_with(|| format!("failed to scan for networks on {robot_address}"))
+            },
+        )
+        .await;
 }
 
 async fn available_networks(robots: Vec<RobotAddress>) {
-    ProgressIndicator::map_tasks(
-        robots,
-        "Retrieving available networks...",
-        |robot_address, _progress_bar| async move {
-            let robot = Robot::try_new_with_ping(robot_address.ip).await?;
-            robot
-                .get_available_networks()
-                .await
-                .wrap_err_with(|| format!("failed to get available networks from {robot_address}"))
-        },
-    )
-    .await;
+    ProgressIndicator::new()
+        .map_tasks(
+            robots,
+            "Retrieving available networks...",
+            |robot_address, _progress_bar| async move {
+                let robot = Robot::try_new_with_ping(robot_address.ip).await?;
+                robot.get_available_networks().await.wrap_err_with(|| {
+                    format!("failed to get available networks from {robot_address}")
+                })
+            },
+        )
+        .await;
 }
 
 async fn set(robots: Vec<RobotAddress>, network: Network) {
-    ProgressIndicator::map_tasks(
-        robots,
-        "Setting network...",
-        |robot_address, _progress_bar| async move {
-            let robot = Robot::try_new_with_ping(robot_address.ip).await?;
-            robot
-                .set_wifi(network)
-                .await
-                .wrap_err_with(|| format!("failed to set network on {robot_address}"))
-        },
-    )
-    .await;
+    ProgressIndicator::new()
+        .map_tasks(
+            robots,
+            "Setting network...",
+            |robot_address, _progress_bar| async move {
+                let robot = Robot::try_new_with_ping(robot_address.ip).await?;
+                robot
+                    .set_wifi(network)
+                    .await
+                    .wrap_err_with(|| format!("failed to set network on {robot_address}"))
+            },
+        )
+        .await;
 }

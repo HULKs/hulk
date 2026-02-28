@@ -41,67 +41,71 @@ pub enum Arguments {
 pub async fn logs(arguments: Arguments) -> Result<()> {
     match arguments {
         Arguments::Delete { robots } => {
-            ProgressIndicator::map_tasks(
-                robots,
-                "Deleting logs...",
-                |robot_address, _progress_bar| async move {
-                    let robot = Robot::try_new_with_ping(robot_address.ip).await?;
-                    robot
-                        .delete_logs()
-                        .await
-                        .wrap_err_with(|| format!("failed to delete logs on {robot_address}"))
-                },
-            )
-            .await
+            ProgressIndicator::new()
+                .map_tasks(
+                    robots,
+                    "Deleting logs...",
+                    |robot_address, _progress_bar| async move {
+                        let robot = Robot::try_new_with_ping(robot_address.ip).await?;
+                        robot
+                            .delete_logs()
+                            .await
+                            .wrap_err_with(|| format!("failed to delete logs on {robot_address}"))
+                    },
+                )
+                .await
         }
         Arguments::Download {
             log_directory,
             robots,
         } => {
-            ProgressIndicator::map_tasks(
-                robots,
-                "Downloading logs: ...",
-                |robot_address, progress| {
-                    let log_directory = log_directory.join(robot_address.to_string());
-                    async move {
-                        let robot = Robot::try_new_with_ping(robot_address.ip).await?;
-                        robot
-                            .download_logs(log_directory, |status| {
-                                progress.set_message(format!("Downloading logs: {status}"))
-                            })
-                            .await
-                            .wrap_err_with(|| {
-                                format!("failed to download logs from {robot_address}")
-                            })
-                    }
-                },
-            )
-            .await
+            ProgressIndicator::new()
+                .map_tasks(
+                    robots,
+                    "Downloading logs: ...",
+                    |robot_address, progress| {
+                        let log_directory = log_directory.join(robot_address.to_string());
+                        async move {
+                            let robot = Robot::try_new_with_ping(robot_address.ip).await?;
+                            robot
+                                .download_logs(log_directory, |status| {
+                                    progress.set_message(format!("Downloading logs: {status}"))
+                                })
+                                .await
+                                .wrap_err_with(|| {
+                                    format!("failed to download logs from {robot_address}")
+                                })
+                        }
+                    },
+                )
+                .await
         }
         Arguments::List { robots } => {
-            ProgressIndicator::map_tasks(
-                robots,
-                "Retrieving all logs...",
-                |robot_address, _progress_bar| async move {
-                    let robot = Robot::try_new_with_ping(robot_address.ip).await?;
-                    robot.list_logs().await.wrap_err("failed to retrieve logs")
-                },
-            )
-            .await
+            ProgressIndicator::new()
+                .map_tasks(
+                    robots,
+                    "Retrieving all logs...",
+                    |robot_address, _progress_bar| async move {
+                        let robot = Robot::try_new_with_ping(robot_address.ip).await?;
+                        robot.list_logs().await.wrap_err("failed to retrieve logs")
+                    },
+                )
+                .await
         }
         Arguments::Show { robots } => {
-            ProgressIndicator::map_tasks(
-                robots,
-                "Retrieving latest logs...",
-                |robot_address, _progress_bar| async move {
-                    let robot = Robot::try_new_with_ping(robot_address.ip).await?;
-                    robot
-                        .retrieve_logs()
-                        .await
-                        .wrap_err("failed to retrieve logs")
-                },
-            )
-            .await
+            ProgressIndicator::new()
+                .map_tasks(
+                    robots,
+                    "Retrieving latest logs...",
+                    |robot_address, _progress_bar| async move {
+                        let robot = Robot::try_new_with_ping(robot_address.ip).await?;
+                        robot
+                            .retrieve_logs()
+                            .await
+                            .wrap_err("failed to retrieve logs")
+                    },
+                )
+                .await
         }
     }
 
