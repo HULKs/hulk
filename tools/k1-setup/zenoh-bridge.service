@@ -1,5 +1,5 @@
 [Unit]
-Description=HULK Service
+Description=Zenoh Bridge
 
 [Service]
 ExecStart=/home/booster/zenoh_bridge

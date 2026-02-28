@@ -1,5 +1,5 @@
 [Unit]
-Description=HULK Service
+Description=Zenoh Bridge (ROS2DDS)
 
 [Service]
 ExecStart=/usr/bin/env bash -c 'source /opt/booster/BoosterRos2Interface/install/setup.bash && exec /usr/bin/zenoh-bridge-ros2dds -c /etc/zenoh-bridge-ros2dds/conf.json5'
