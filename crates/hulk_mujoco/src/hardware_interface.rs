@@ -332,39 +332,11 @@ impl CameraInterface for MujocoHardwareInterface {
         Ok(Default::default())
     }
 
-    fn read_rectified_right_image(&self) -> Result<Image> {
-        Ok(Default::default())
-    }
-
     fn read_stereonet_depth_image(&self) -> Result<Image> {
         Ok(Default::default())
     }
 
-    fn read_stereonet_visual_image(&self) -> Result<Image> {
-        Ok(Default::default())
-    }
-
-    fn read_image_right_raw(&self) -> Result<Image> {
-        Ok(Default::default())
-    }
-
-    fn read_image_right_raw_camera_info(&self) -> Result<CameraInfo> {
-        Ok(Default::default())
-    }
-
-    fn read_origin_left_image(&self) -> Result<Image> {
-        Ok(Default::default())
-    }
-
-    fn read_origin_right_image(&self) -> Result<Image> {
-        Ok(Default::default())
-    }
-
     fn read_stereonet_depth_camera_info(&self) -> Result<CameraInfo> {
-        Ok(Default::default())
-    }
-
-    fn read_image_combine_raw(&self) -> Result<Image> {
         Ok(Default::default())
     }
 }
