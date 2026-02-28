@@ -37,10 +37,9 @@ use log::{error, warn};
 use nao::Nao;
 use panel::{Panel, PanelCreationContext};
 use panels::{
-    BallCandidatePanel, BehaviorSimulatorPanel, CameraCalibrationExportPanel, EnumPlotPanel,
-    ImageColorSelectPanel, ImagePanel, ImageSegmentsPanel, LookAtPanel, ManualCalibrationPanel,
-    MapPanel, MujocoSimulatorPanel, ParameterPanel, PlotPanel, RemotePanel,
-    SemiAutomaticCameraCalibrationPanel, TextPanel, VisionTunerPanel,
+    BallCandidatePanel, BehaviorSimulatorPanel, EnumPlotPanel, ImageColorSelectPanel, ImagePanel,
+    ImageSegmentsPanel, LookAtPanel, MapPanel, MujocoSimulatorPanel, ParameterPanel, PlotPanel,
+    RemotePanel, SemiAutomaticCameraCalibrationPanel, TextPanel, VisionTunerPanel,
 };
 use reachable_naos::ReachableNaos;
 use repository::{inspect_version::check_for_update, Repository};
@@ -158,13 +157,11 @@ fn main() -> Result<(), eframe::Error> {
 impl_selectable_panel!(
     BallCandidatePanel,
     BehaviorSimulatorPanel,
-    CameraCalibrationExportPanel,
     EnumPlotPanel,
     ImageColorSelectPanel,
     ImagePanel,
     ImageSegmentsPanel,
     LookAtPanel,
-    ManualCalibrationPanel,
     MapPanel,
     MujocoSimulatorPanel,
     ParameterPanel,
