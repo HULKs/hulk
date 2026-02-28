@@ -138,7 +138,7 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()>
         .robots
         .iter()
         .map(|robot_address| {
-            let progress = multi_progress.task(robot_address.to_string());
+            let progress = multi_progress.task(&robot_address.to_string());
             progress.enable_steady_tick();
             async move {
                 progress.finish_with(
@@ -149,7 +149,8 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()>
                         &progress,
                         repository,
                     )
-                    .await,
+                    .await
+                    .as_ref(),
                 )
             }
         })

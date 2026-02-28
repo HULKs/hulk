@@ -37,6 +37,7 @@ mod cargo;
 mod communication;
 mod completions;
 mod deploy_config;
+mod format;
 mod game_branch;
 mod gammaray;
 mod git;
@@ -86,6 +87,9 @@ enum Command {
     Communication(communication::Arguments),
     /// Generate shell completion files
     Completions(completions::Arguments),
+    /// Format all rust and toml files
+    #[command(alias = "fmt")]
+    Format(format::Arguments),
     /// Create a game branch from the deploy.toml in the repository root
     Gamebranch(game_branch::Arguments),
     /// Flash a HULKs-OS image to Robots
@@ -188,6 +192,9 @@ async fn main() -> Result<()> {
         Command::Completions(arguments) => completions(arguments, Arguments::command())
             .await
             .wrap_err("failed to execute completion command")?,
+        Command::Format(arguments) => format::format(arguments, &repository?)
+            .await
+            .wrap_err("failed to execute format command")?,
         Command::Gamebranch(arguments) => game_branch(arguments, &repository?)
             .await
             .wrap_err("failed to execute gamebranch command")?,

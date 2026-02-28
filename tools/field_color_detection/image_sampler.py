@@ -169,11 +169,7 @@ def print_summary(distribution, label):
     print(df["File Format"].value_counts().to_string())
     print(df["Color Space"].value_counts().to_string())
     print("\camera Count:")
-    print(
-        df["Path"]
-        .str.contains("camera")
-        .value_counts()
-    )
+    print(df["Path"].str.contains("camera").value_counts())
 
 
 metadata = pd.read_excel(METADATA_FILE, engine="odf").set_index("ID")
@@ -206,9 +202,7 @@ if SAMPLE:
             ):
                 continue
             for robot_dir in game_folder.iterdir():
-                cam_dirs = (
-                    ["camera"]
-                )
+                cam_dirs = ["camera"]
                 for cam_dir in cam_dirs:
                     img_dir = robot_dir / cam_dir
                     if img_dir.exists():

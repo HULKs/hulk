@@ -11,6 +11,31 @@ pub struct ProgressIndicator {
     error_style: ProgressStyle,
 }
 
+pub trait TaskMessage {
+    fn message(&self) -> Option<String>;
+}
+
+impl TaskMessage for str {
+    fn message(&self) -> Option<String> {
+        if self.is_empty() {
+            return None;
+        }
+        Some(String::from(self))
+    }
+}
+
+impl TaskMessage for String {
+    fn message(&self) -> Option<String> {
+        self.as_str().message()
+    }
+}
+
+impl TaskMessage for () {
+    fn message(&self) -> Option<String> {
+        None
+    }
+}
+
 impl ProgressIndicator {
     pub fn new() -> Self {
         Self {
@@ -24,7 +49,7 @@ impl ProgressIndicator {
         }
     }
 
-    pub fn task(&self, prefix: String) -> Task {
+    pub fn task(&self, prefix: &str) -> Task {
         let spinner = ProgressBar::new_spinner()
             .with_style(self.default_style.clone())
             .with_prefix(format!("[{prefix}]"));
@@ -43,17 +68,17 @@ impl ProgressIndicator {
     ) where
         T: ToString,
         F: Future<Output = Result<M>>,
-        M: Into<TaskMessage>,
+        M: TaskMessage,
     {
         let multi_progress = Self::new();
         items
             .into_iter()
-            .map(|item| (multi_progress.task(item.to_string()), item))
+            .map(|item| (multi_progress.task(&item.to_string()), item))
             .map(|(progress, item)| {
                 progress.enable_steady_tick();
                 progress.set_message(message.clone());
                 let future = task(item, progress.progress.clone());
-                async move { progress.finish_with(future.await) }
+                async move { progress.finish_with(future.await.as_ref()) }
             })
             .collect::<FuturesUnordered<_>>()
             .collect::<Vec<_>>()
@@ -67,37 +92,6 @@ pub struct Task {
     error_style: ProgressStyle,
 }
 
-pub enum TaskMessage {
-    EmptyMessage,
-    Message(String),
-}
-
-impl From<()> for TaskMessage {
-    fn from(_: ()) -> Self {
-        Self::EmptyMessage
-    }
-}
-
-impl From<String> for TaskMessage {
-    fn from(value: String) -> Self {
-        if value.is_empty() {
-            Self::EmptyMessage
-        } else {
-            Self::Message(value)
-        }
-    }
-}
-
-impl From<&str> for TaskMessage {
-    fn from(value: &str) -> Self {
-        if value.is_empty() {
-            Self::EmptyMessage
-        } else {
-            Self::Message(String::from(value))
-        }
-    }
-}
-
 impl Task {
     pub fn enable_steady_tick(&self) {
         self.progress.enable_steady_tick(Duration::from_millis(100));
@@ -107,23 +101,22 @@ impl Task {
         self.progress.set_message(message)
     }
 
-    pub fn finish_with_success(&self, message: impl Into<TaskMessage>) {
+    pub fn finish_with_success(&self, message: &impl TaskMessage) {
         self.progress.set_style(self.success_style.clone());
         let icon = "✔".green();
-        let message = match message.into() {
-            TaskMessage::EmptyMessage => icon.to_string(),
-            TaskMessage::Message(message) => format!("{icon}\n{message}"),
-        };
+        let message = message
+            .message()
+            .map_or_else(|| icon.to_string(), |message| format!("{icon}\n{message}"));
         self.progress.finish_with_message(message);
     }
 
-    pub fn finish_with_error(&self, report: Report) {
+    pub fn finish_with_error(&self, report: &Report) {
         self.progress.set_style(self.error_style.clone());
         self.progress
             .finish_with_message(format!("{}{report:?}", "✗".red()));
     }
 
-    pub fn finish_with(&self, result: Result<impl Into<TaskMessage>>) {
+    pub fn finish_with(&self, result: Result<&impl TaskMessage, &Report>) {
         match result {
             Ok(message) => self.finish_with_success(message),
             Err(report) => self.finish_with_error(report),

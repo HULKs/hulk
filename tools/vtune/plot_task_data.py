@@ -23,7 +23,9 @@ parser.add_argument(
     ),
 )
 parser.add_argument(
-    "output", help="Decide whether to output text or plot", choices=["plot", "text"]
+    "output",
+    help="Decide whether to output text or plot",
+    choices=["plot", "text"],
 )
 
 base_project_path = ""
@@ -88,7 +90,15 @@ if args.output == "text":
     print(
         pandas.DataFrame(
             results,
-            columns=["min", "max", "avg", "sum", "count", "Modulename", "Threadname"],
+            columns=[
+                "min",
+                "max",
+                "avg",
+                "sum",
+                "count",
+                "Modulename",
+                "Threadname",
+            ],
         )
     )
 
@@ -139,6 +149,8 @@ if args.output == "plot":
     )
 
     # Plot Motion Image Data
-    make_boxplot(3, pandas_control_data, "Control Nodes\n" + project_name, "ms/cycle")
+    make_boxplot(
+        3, pandas_control_data, "Control Nodes\n" + project_name, "ms/cycle"
+    )
 
     plt.show()
