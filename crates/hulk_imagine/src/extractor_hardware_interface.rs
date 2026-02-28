@@ -84,6 +84,7 @@ impl PathsInterface for ExtractorHardwareInterface {
             motions: "etc/motions".into(),
             neural_networks: "etc/neural_networks".into(),
             sounds: "etc/sounds".into(),
+            cache: ".cache".into(),
         }
     }
 }
