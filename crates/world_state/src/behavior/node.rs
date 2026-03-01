@@ -5,13 +5,11 @@ use context_attribute::context;
 use coordinate_systems::Ground;
 use framework::{AdditionalOutput, MainOutput};
 use types::{
-    action::Action,
-    ball_position::BallPosition,
-    motion_command::MotionCommand,
-    parameters::{RemoteControlParameters, WalkWithVelocityParameters},
+    action::Action, ball_position::BallPosition, motion_command::MotionCommand,
+    parameters::{RemoteControlParameters, WalkWithVelocityParameters}, world_state::WorldState,
 };
 
-use crate::behavior::{remote_control, walk_to_ball};
+use crate::behavior::{finish_pose, initial, penalize, safe, walk_to_ball};
 
 #[derive(Deserialize, Serialize)]
 pub struct Behavior {}
@@ -30,6 +28,7 @@ pub struct CycleContext {
     active_action_output: AdditionalOutput<Action, "active_action">,
 
     last_motion_command: CyclerState<MotionCommand, "last_motion_command">,
+    world_state: Input<WorldState, "world_state">,
 }
 
 #[context]
@@ -44,6 +43,8 @@ impl Behavior {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
+        let world_state = context.world_state;
+
         #[allow(clippy::useless_vec, unused_mut)]
         let mut actions = vec![Action::WalkToBall];
 
@@ -55,6 +56,11 @@ impl Behavior {
             .iter()
             .find_map(|action| {
                 let motion_command = match action {
+                    Action::Safe => safe::execute(world_state),
+                    Action::Penalize => penalize::execute(world_state),
+                    Action::Initial => initial::execute(world_state),
+                    Action::FinishPose => finish_pose::execute(world_state),
+
                     Action::WalkToBall => walk_to_ball::execute(
                         context.ball_position.copied(),
                         context.walk_with_velocity_parameter.clone(),

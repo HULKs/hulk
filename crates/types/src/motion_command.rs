@@ -85,6 +85,9 @@ pub enum MotionCommand {
     Stand {
         head: HeadMotion,
     },
+    BoosterStand {
+        head: HeadMotion,
+    },
     StandUp {
         kind: FallenKind,
         speed: StandUpSpeed,
@@ -130,6 +133,7 @@ impl MotionCommand {
             | MotionCommand::SitDown { head }
             | MotionCommand::Initial { head, .. }
             | MotionCommand::Stand { head, .. }
+            | MotionCommand::BoosterStand { head, .. }
             | MotionCommand::Walk { head, .. }
             | MotionCommand::InWalkKick { head, .. }
             | MotionCommand::WalkWithVelocity { head, .. } => Some(*head),
