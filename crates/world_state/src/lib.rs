@@ -7,6 +7,7 @@ pub mod fake_localization;
 pub mod game_controller_filter;
 pub mod game_controller_state_filter;
 pub mod ground_provider;
+pub mod kick_selector;
 pub mod kinematics_provider;
 pub mod primary_state_filter;
 pub mod safe_mode_handler;
