@@ -2,7 +2,7 @@ use std::{path::Path, process::Stdio};
 
 use clap::Args;
 use color_eyre::{
-    eyre::{bail, eyre, Error, WrapErr},
+    eyre::{bail, eyre, WrapErr},
     Result,
 };
 
@@ -11,7 +11,7 @@ use indicatif::ProgressBar;
 use repository::Repository;
 use robot::Robot;
 use tokio::{
-    io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader},
+    io::{AsyncBufReadExt, AsyncReadExt, BufReader},
     process::Command,
     sync::watch,
 };
@@ -85,8 +85,14 @@ async fn gammaray_robot(
 ) -> Result<()> {
     let robot = Robot::try_new_with_ping(robot.ip).await?;
 
-    progress_bar.set_message("fixing sudo permissions");
-    fix_sudo_permissions(password, &robot).await?;
+    robot
+        .ssh_to_robot()?
+        .arg(format!(
+            r#"sudo true 2>/dev/null || printf '{}\nbooster ALL=(ALL:ALL) NOPASSWD: ALL\nDefaults:booster verifypw=any\n' | sudo -S tee /etc/sudoers.d/booster"#,
+            password
+        ))
+        .ssh_with_log("enabling passwordless sudo", &progress_bar)
+        .await?;
 
     robot
         .ssh_to_robot()?
@@ -159,37 +165,6 @@ async fn gammaray_robot(
         .args(["hulk", "zenoh-bridge", "zenoh-bridge-ros2dds"])
         .ssh_with_log("restarting services", &progress_bar)
         .await?;
-
-    Ok(())
-}
-
-async fn fix_sudo_permissions(password: &str, robot: &Robot) -> Result<(), Error> {
-    let mut child = robot
-        .ssh_to_robot()?
-        .arg("sudo true 2>/dev/null || sudo -S tee /etc/sudoers.d/booster")
-        .stdin(Stdio::piped())
-        .spawn()
-        .wrap_err("failed to spawn ssh command")?;
-    child
-        .stdin
-        .as_mut()
-        .expect("child had no stdin")
-        .write_all(
-            format!(
-                "{}\nbooster ALL=(ALL:ALL) NOPASSWD: ALL\nDefaults:booster verifypw=any\n",
-                password
-            )
-            .as_bytes(),
-        )
-        .await?;
-    if !child
-        .wait()
-        .await
-        .wrap_err("failed to fix sudo permissions")?
-        .success()
-    {
-        bail!("failed to fix sudo permissions")
-    }
 
     Ok(())
 }
