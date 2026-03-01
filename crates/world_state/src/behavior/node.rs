@@ -5,11 +5,13 @@ use context_attribute::context;
 use coordinate_systems::Ground;
 use framework::{AdditionalOutput, MainOutput};
 use types::{
-    action::Action, ball_position::BallPosition, motion_command::MotionCommand,
-    parameters::WalkWithVelocityParameters,
+    action::Action,
+    ball_position::BallPosition,
+    motion_command::MotionCommand,
+    parameters::{RemoteControlParameters, WalkWithVelocityParameters},
 };
 
-use crate::behavior::walk_to_ball;
+use crate::behavior::{remote_control, walk_to_ball};
 
 #[derive(Deserialize, Serialize)]
 pub struct Behavior {}
@@ -20,9 +22,13 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
+
     walk_with_velocity_parameter:
         Parameter<WalkWithVelocityParameters, "behavior.walk_with_velocity">,
+    remote_control_parameters: Parameter<RemoteControlParameters, "behavior.remote_control">,
+
     active_action_output: AdditionalOutput<Action, "active_action">,
+
     last_motion_command: CyclerState<MotionCommand, "last_motion_command">,
 }
 
@@ -41,6 +47,10 @@ impl Behavior {
         #[allow(clippy::useless_vec, unused_mut)]
         let mut actions = vec![Action::WalkToBall];
 
+        if context.remote_control_parameters.enable {
+            actions.insert(0, Action::RemoteControl);
+        }
+
         let (action, motion_command) = actions
             .iter()
             .find_map(|action| {
@@ -49,6 +59,9 @@ impl Behavior {
                         context.ball_position.copied(),
                         context.walk_with_velocity_parameter.clone(),
                     ),
+                    Action::RemoteControl => {
+                        remote_control::execute(context.remote_control_parameters)
+                    }
                 }?;
                 Some((action, motion_command))
             })

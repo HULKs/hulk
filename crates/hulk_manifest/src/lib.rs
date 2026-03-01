@@ -30,10 +30,8 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
                 nodes: vec![
                     "motion::command_sender",
                     "motion::booster_walking",
-                    "motion::remote_control",
                     "motion::look_at",
                     "motion::head_motion",
-                    "motion::motion_selector",
                     "motion::motor_commands_collector",
                 ],
                 execution_time_warning_threshold: Some(Duration::from_secs_f32(1.0 / 500.0)),

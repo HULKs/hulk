@@ -265,13 +265,7 @@
       }
     }
   },
-  "remote_control_parameters": {
-    "walk": {
-      "forward": 0.0,
-      "left": 0.0,
-      "turn": 0.0
-    }
-  },
+
   "player_number": "Three",
   "game_controller_filter": {
     "time_since_last_message_to_consider_ip_active": {
@@ -320,10 +314,15 @@
       "max_velocity": 1.0,
       "max_angular_velocity": 1.0,
       "angular_velocity_scaling_factor": 2.0
+    },
+    "remote_control": {
+      "walk": {
+        "forward": 0.0,
+        "left": 0.0,
+        "turn": 0.0
+      },
+      "enable": true
     }
-  },
-  "motion": {
-    "use_remote_control_for_motion_selection": true
   },
   "field_dimensions": {
     "ball_radius": 0.095,
