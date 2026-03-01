@@ -31,7 +31,7 @@ pub struct Arguments {
     robots: Vec<RobotAddress>,
 
     // The password for the `booster` user
-    #[arg(short, long, default_value_t = {"123456".to_string()})]
+    #[arg(short, long, default_value = "123456")]
     password: String,
 }
 
