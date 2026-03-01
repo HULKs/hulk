@@ -152,8 +152,7 @@ impl ObstacleFilter {
             })
             .collect::<Vec<_>>();
 
-        let goal_posts =
-            calculate_goal_post_positions(context.ground_to_field.copied(), field_dimensions);
+        let goal_posts = calculate_goal_post_positions(context.ground_to_field, field_dimensions);
         let goal_post_obstacles = goal_posts
             .into_iter()
             .map(|goal_post| Obstacle::goal_post(goal_post, *context.goal_post_obstacle_radius));
@@ -293,7 +292,7 @@ impl ObstacleFilter {
 }
 
 fn calculate_goal_post_positions(
-    ground_to_field: Option<Isometry2<Ground, Field>>,
+    ground_to_field: Option<&Isometry2<Ground, Field>>,
     field_dimensions: &FieldDimensions,
 ) -> Vec<Point2<Ground>> {
     ground_to_field
