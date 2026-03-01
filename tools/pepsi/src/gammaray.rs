@@ -232,6 +232,7 @@ impl CommandExt for Command {
                     .read_to_string(&mut stderr)
                     .await?;
                 Err(eyre!("process exited with error code {code}\n{stderr}"))
+                    .wrap_err_with(|| format!("failed at {name}"))
             }
         }
     }
