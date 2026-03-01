@@ -24,7 +24,6 @@ pub struct BallStateComposer {
 
 #[context]
 pub struct CreationContext {}
-
 #[context]
 pub struct CycleContext {
     last_ball_state: CyclerState<Option<LastBallState>, "last_ball_state">,

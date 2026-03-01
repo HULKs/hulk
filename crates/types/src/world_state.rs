@@ -7,27 +7,25 @@ use linear_algebra::{Isometry2, Point2, Vector2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{
-    ball_position::HypotheticalBallPosition, calibration::CalibrationCommand,
-    fall_state::FallState, field_dimensions::Side,
-    filtered_game_controller_state::FilteredGameControllerState, kick_decision::KickDecision,
-    obstacles::Obstacle, primary_state::PrimaryState, roles::Role, rule_obstacles::RuleObstacle,
+    field_dimensions::Side, filtered_game_controller_state::FilteredGameControllerState,
+    primary_state::PrimaryState, roles::Role,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathIntrospect)]
 pub struct WorldState {
-    pub robot: RobotState,
+    pub ball: Option<BallState>,
     pub filtered_game_controller_state: Option<FilteredGameControllerState>,
+    pub robot: RobotState,
     pub rule_ball: Option<BallState>,
-
 }
-
 
 #[allow(clippy::derivable_impls)]
 impl Default for WorldState {
     fn default() -> Self {
         Self {
+            ball: Default::default(),
+            filtered_game_controller_state: Default::default(),
             robot: Default::default(),
-            filtered_game_controller_state: Default::default(),     
             rule_ball: Default::default(),
         }
     }
@@ -96,5 +94,7 @@ impl BallState {
     Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
 pub struct RobotState {
+    pub ground_to_field: Option<Isometry2<Ground, Field>>,
     pub primary_state: PrimaryState,
+    pub role: Role,
 }
