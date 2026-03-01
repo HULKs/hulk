@@ -1,11 +1,8 @@
-use std::{
-    path::{Path, PathBuf},
-    process::Stdio,
-};
+use std::{path::Path, process::Stdio};
 
 use clap::Args;
 use color_eyre::{
-    eyre::{bail, eyre, Error, WrapErr},
+    eyre::{bail, eyre, WrapErr},
     Result,
 };
 
@@ -14,7 +11,7 @@ use indicatif::ProgressBar;
 use repository::Repository;
 use robot::Robot;
 use tokio::{
-    io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader},
+    io::{AsyncBufReadExt, AsyncReadExt, BufReader},
     process::Command,
     sync::watch,
 };
@@ -29,17 +26,12 @@ use crate::{
 
 #[derive(Args)]
 pub struct Arguments {
-    /// Alternative path to an image
-    #[arg(long)]
-    image_path: Option<PathBuf>,
-    /// Alternative HULKs-OS version e.g. 3.3
-    #[arg(long)]
-    version: Option<String>,
     /// The Robots to flash the image to, e.g. 20w or 10.1.24.22
     #[arg(required = true)]
     robots: Vec<RobotAddress>,
 
-    #[arg(short, long, default_value_t = {"123456".to_string()})]
+    // The password for the `booster` user
+    #[arg(short, long, default_value = "123456")]
     password: String,
 }
 
@@ -51,9 +43,7 @@ grep \"https://download.eclipse.org/zenoh/debian-repo/\" /etc/apt/sources.list |
 static PACKAGES: [&str; 2] = ["zenoh-bridge-ros2dds", "podman"];
 
 pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<()> {
-    // convert things to references to prevent moving into task closures
-    let password = &arguments.password;
-    let setup: &PathBuf = &repository.root.join("tools/k1-setup");
+    let setup_path = &repository.root.join("tools/k1-setup");
 
     let progress = ProgressIndicator::new();
     let (zenoh_bridge_status_sender, zenoh_bridge_status) = watch::channel(None);
@@ -62,6 +52,7 @@ pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<(
         zenoh_bridge_status_sender,
         progress.task("Building zenoh bridge".to_owned()),
     ));
+
     progress
         .map_tasks(
             arguments.robots,
@@ -70,14 +61,15 @@ pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<(
                 gammaray_robot(
                     robot,
                     progress_bar,
-                    password.to_string(),
+                    &arguments.password,
                     repository,
-                    setup,
+                    setup_path,
                     zenoh_bridge_status.clone(),
                 )
             },
         )
         .await;
+
     zenoh_bridge_build_task.await??;
 
     Ok(())
@@ -86,15 +78,27 @@ pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<(
 async fn gammaray_robot(
     robot: RobotAddress,
     progress_bar: ProgressBar,
-    password: String,
+    password: &str,
     repository: &Repository,
     setup: &Path,
     mut zenoh_bridge_status: watch::Receiver<Option<bool>>,
 ) -> Result<()> {
     let robot = Robot::try_new_with_ping(robot.ip).await?;
 
-    progress_bar.set_message("fixing sudo permissions");
-    fix_sudo_permissions(password, &robot).await?;
+    robot
+        .ssh_to_robot()?
+        .arg(format!(
+            // `sudo true` only succeeds if passwordless sudo is already allowed.
+            // In that case the `||` skips the remainder of the command to make it idempotent.
+            // This is necessary because the two lines for the sudoers file and the password are
+            // all in the same stream. If passwordless sudo is already enabled, `sudo -S` does not
+            // consume the first line, causing the password to be written to the sudoers file as
+            // well.
+            r#"sudo true 2>/dev/null || printf '{}\nbooster ALL=(ALL:ALL) NOPASSWD: ALL\nDefaults:booster verifypw=any\n' | sudo -S tee /etc/sudoers.d/booster"#,
+            password
+        ))
+        .ssh_with_log("enabling passwordless sudo", &progress_bar)
+        .await?;
 
     robot
         .ssh_to_robot()?
@@ -126,6 +130,12 @@ async fn gammaray_robot(
         .rsync_with_log("uploading service files", &progress_bar)
         .await?;
 
+    robot
+        .ssh_to_robot()?
+        .arg("mkdir -p /home/booster/.cache/hulk/tensor-rt/")
+        .ssh_with_log("creating tensorrt cache directory", &progress_bar)
+        .await?;
+
     progress_bar.set_message("Waiting for zenoh bridge to finish building");
     if !zenoh_bridge_status
         .wait_for(|value| value.is_some())
@@ -143,7 +153,7 @@ async fn gammaray_robot(
         .arg(
             repository
                 .root
-                .join("target/aarch64-unknown-linux-gnu/debug/zenoh_bridge"),
+                .join("target/aarch64-unknown-linux-gnu/release/zenoh_bridge"),
         )
         .arg(format!("{}:/usr/bin/", robot.address))
         .rsync_with_log("uploading binaries", &progress_bar)
@@ -161,37 +171,6 @@ async fn gammaray_robot(
         .args(["hulk", "zenoh-bridge", "zenoh-bridge-ros2dds"])
         .ssh_with_log("restarting services", &progress_bar)
         .await?;
-
-    Ok(())
-}
-
-async fn fix_sudo_permissions(password: String, robot: &Robot) -> Result<(), Error> {
-    let mut child = robot
-        .ssh_to_robot()?
-        .arg("sudo true 2>/dev/null || sudo -S tee /etc/sudoers.d/booster")
-        .stdin(Stdio::piped())
-        .spawn()
-        .wrap_err("failed to spawn ssh command")?;
-    child
-        .stdin
-        .as_mut()
-        .expect("child had no stdin")
-        .write_all(
-            format!(
-                "{}\nbooster ALL=(ALL:ALL) NOPASSWD: ALL\nDefaults:booster verifypw=any\n",
-                password
-            )
-            .as_bytes(),
-        )
-        .await?;
-    if !child
-        .wait()
-        .await
-        .wrap_err("failed to fix sudo permissions")?
-        .success()
-    {
-        bail!("failed to fix sudo permissions")
-    }
 
     Ok(())
 }
@@ -253,6 +232,7 @@ impl CommandExt for Command {
                     .read_to_string(&mut stderr)
                     .await?;
                 Err(eyre!("process exited with error code {code}\n{stderr}"))
+                    .wrap_err_with(|| format!("failed at {name}"))
             }
         }
     }
@@ -296,8 +276,8 @@ async fn build_bridge(
     }
     let status = process.wait().await.unwrap();
     if !status.success() {
-        progress_bar.finish_with_error(eyre!("failed with code {}", status.code().unwrap()));
         zenoh_bridge_status_sender.send(Some(false)).unwrap();
+        progress_bar.finish_with_error(eyre!("failed with code {}", status.code().unwrap()));
         bail!("process failed");
     }
     progress_bar.finish_with_success(());
