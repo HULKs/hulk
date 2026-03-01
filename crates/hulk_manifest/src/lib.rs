@@ -61,6 +61,7 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
                     "world_state::game_controller_state_filter",
                     "world_state::ground_provider",
                     "world_state::kinematics_provider",
+                    "world_state::obstacle_filter",
                     "world_state::primary_state_filter",
                     "world_state::safe_mode_handler",
                     "world_state::team_ball_receiver",
