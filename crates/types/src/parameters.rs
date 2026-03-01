@@ -22,6 +22,7 @@ use crate::{
 )]
 pub struct RemoteControlParameters {
     pub walk: Step,
+    pub enable: bool,
 }
 
 #[derive(
