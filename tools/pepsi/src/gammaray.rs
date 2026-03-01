@@ -29,12 +29,6 @@ use crate::{
 
 #[derive(Args)]
 pub struct Arguments {
-    /// Alternative path to an image
-    #[arg(long)]
-    image_path: Option<PathBuf>,
-    /// Alternative HULKs-OS version e.g. 3.3
-    #[arg(long)]
-    version: Option<String>,
     /// The Robots to flash the image to, e.g. 20w or 10.1.24.22
     #[arg(required = true)]
     robots: Vec<RobotAddress>,
