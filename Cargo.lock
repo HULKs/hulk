@@ -12295,6 +12295,7 @@ dependencies = [
  "geometry",
  "hardware",
  "hsl_network_messages",
+ "itertools 0.14.0",
  "kinematics",
  "linear_algebra",
  "nalgebra",
