@@ -20,6 +20,7 @@ members = [
   "crates/framework",
   "crates/geometry",
   "crates/hardware",
+  "crates/high_level_interface",
   "crates/hsl_network",
   "crates/hsl_network_messages",
   "crates/hula_types",
@@ -134,6 +135,7 @@ geometry = { path = "crates/geometry" }
 gilrs = "0.11.0"
 glob = "0.3.2"
 hardware = { path = "crates/hardware" }
+high_level_interface = { path = "crates/high_level_interface" }
 home = "=0.5.9"
 hsl_network = { path = "crates/hsl_network" }
 hsl_network_messages = { path = "crates/hsl_network_messages" }

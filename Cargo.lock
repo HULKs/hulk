@@ -4739,6 +4739,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "dfa686283ad6dd069f105e5ab091b04c62850d3e4cf5d67debad1933f55023df"
 
 [[package]]
+name = "high_level_interface"
+version = "0.1.0"
+dependencies = [
+ "serde",
+ "uuid",
+]
+
+[[package]]
 name = "hmac"
 version = "0.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -13101,6 +13109,7 @@ dependencies = [
  "color-eyre",
  "env_logger",
  "futures-util",
+ "high_level_interface",
  "ros2",
  "ros2-client",
  "serde",
