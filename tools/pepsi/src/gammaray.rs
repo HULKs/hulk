@@ -1,7 +1,4 @@
-use std::{
-    path::{Path, PathBuf},
-    process::Stdio,
-};
+use std::{path::Path, process::Stdio};
 
 use clap::Args;
 use color_eyre::{
@@ -33,6 +30,7 @@ pub struct Arguments {
     #[arg(required = true)]
     robots: Vec<RobotAddress>,
 
+    // The password for the `booster` user
     #[arg(short, long, default_value_t = {"123456".to_string()})]
     password: String,
 }
@@ -45,9 +43,7 @@ grep \"https://download.eclipse.org/zenoh/debian-repo/\" /etc/apt/sources.list |
 static PACKAGES: [&str; 2] = ["zenoh-bridge-ros2dds", "podman"];
 
 pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<()> {
-    // convert things to references to prevent moving into task closures
-    let password = &arguments.password;
-    let setup: &PathBuf = &repository.root.join("tools/k1-setup");
+    let setup_path = &repository.root.join("tools/k1-setup");
 
     let progress = ProgressIndicator::new();
     let (zenoh_bridge_status_sender, zenoh_bridge_status) = watch::channel(None);
@@ -56,6 +52,7 @@ pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<(
         zenoh_bridge_status_sender,
         progress.task("Building zenoh bridge".to_owned()),
     ));
+
     progress
         .map_tasks(
             arguments.robots,
@@ -64,14 +61,15 @@ pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<(
                 gammaray_robot(
                     robot,
                     progress_bar,
-                    password.to_string(),
+                    &arguments.password,
                     repository,
-                    setup,
+                    setup_path,
                     zenoh_bridge_status.clone(),
                 )
             },
         )
         .await;
+
     zenoh_bridge_build_task.await??;
 
     Ok(())
@@ -80,7 +78,7 @@ pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<(
 async fn gammaray_robot(
     robot: RobotAddress,
     progress_bar: ProgressBar,
-    password: String,
+    password: &str,
     repository: &Repository,
     setup: &Path,
     mut zenoh_bridge_status: watch::Receiver<Option<bool>>,
@@ -165,7 +163,7 @@ async fn gammaray_robot(
     Ok(())
 }
 
-async fn fix_sudo_permissions(password: String, robot: &Robot) -> Result<(), Error> {
+async fn fix_sudo_permissions(password: &str, robot: &Robot) -> Result<(), Error> {
     let mut child = robot
         .ssh_to_robot()?
         .arg("sudo true 2>/dev/null || sudo -S tee /etc/sudoers.d/booster")
@@ -296,8 +294,8 @@ async fn build_bridge(
     }
     let status = process.wait().await.unwrap();
     if !status.success() {
-        progress_bar.finish_with_error(eyre!("failed with code {}", status.code().unwrap()));
         zenoh_bridge_status_sender.send(Some(false)).unwrap();
+        progress_bar.finish_with_error(eyre!("failed with code {}", status.code().unwrap()));
         bail!("process failed");
     }
     progress_bar.finish_with_success(());
