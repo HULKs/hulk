@@ -143,7 +143,7 @@ async fn gammaray_robot(
         .arg(
             repository
                 .root
-                .join("target/aarch64-unknown-linux-gnu/debug/zenoh_bridge"),
+                .join("target/aarch64-unknown-linux-gnu/release/zenoh_bridge"),
         )
         .arg(format!("{}:/usr/bin/", robot.address))
         .rsync_with_log("uploading binaries", &progress_bar)
