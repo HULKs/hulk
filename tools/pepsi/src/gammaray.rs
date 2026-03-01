@@ -88,6 +88,12 @@ async fn gammaray_robot(
     robot
         .ssh_to_robot()?
         .arg(format!(
+            // `sudo true` only succeeds if passwordless sudo is already allowed.
+            // In that case the `||` skips the remainder of the command to make it idempotent.
+            // This is necessary because the two lines for the sudoers file and the password are
+            // all in the same stream. If passwordless sudo is already enabled, `sudo -S` does not
+            // consume the first line, causing the password to be written to the sudoers file as
+            // well.
             r#"sudo true 2>/dev/null || printf '{}\nbooster ALL=(ALL:ALL) NOPASSWD: ALL\nDefaults:booster verifypw=any\n' | sudo -S tee /etc/sudoers.d/booster"#,
             password
         ))
