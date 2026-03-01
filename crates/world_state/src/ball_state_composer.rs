@@ -13,7 +13,6 @@ use types::{
     cycle_time::CycleTime,
     field_dimensions::{FieldDimensions, Side},
     filtered_game_controller_state::FilteredGameControllerState,
-    penalty_shot_direction::PenaltyShotDirection,
     primary_state::PrimaryState,
     world_state::{BallState, LastBallState},
 };
@@ -34,7 +33,6 @@ pub struct CycleContext {
 
     cycle_time: Input<CycleTime, "cycle_time">,
     ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
-    penalty_shot_direction: Input<Option<PenaltyShotDirection>, "penalty_shot_direction?">,
     ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
     team_ball: Input<Option<BallPosition<Field>>, "team_ball?">,
     primary_state: Input<PrimaryState, "primary_state">,
@@ -69,7 +67,6 @@ impl BallStateComposer {
                 ball_position.velocity,
                 ball_position.last_seen,
                 &mut self.last_ball_field_side,
-                context.penalty_shot_direction.copied(),
             )),
             (None, Some(team_ball), Some(ground_to_field)) => Some(create_ball_state(
                 ground_to_field.inverse() * team_ball.position,
@@ -77,7 +74,6 @@ impl BallStateComposer {
                 ground_to_field.inverse() * team_ball.velocity,
                 team_ball.last_seen,
                 &mut self.last_ball_field_side,
-                context.penalty_shot_direction.copied(),
             )),
             _ => None,
         };
@@ -118,7 +114,6 @@ impl BallStateComposer {
                     Vector2::zeros(),
                     context.cycle_time.start_time,
                     &mut self.last_ball_field_side,
-                    context.penalty_shot_direction.copied(),
                 ))
             }
             (PrimaryState::Ready, Some(ground_to_field), ..) => Some(create_ball_state(
@@ -127,7 +122,6 @@ impl BallStateComposer {
                 Vector2::zeros(),
                 context.cycle_time.start_time,
                 &mut self.last_ball_field_side,
-                context.penalty_shot_direction.copied(),
             )),
             _ => None,
         };
@@ -154,7 +148,6 @@ fn create_ball_state(
     ball_in_ground_velocity: Vector2<Ground>,
     last_seen_ball: SystemTime,
     last_ball_field_side: &mut Side,
-    penalty_shot_direction: Option<PenaltyShotDirection>,
 ) -> BallState {
     let was_in_left_half = *last_ball_field_side == Side::Left;
     let is_in_left_half =
@@ -172,6 +165,5 @@ fn create_ball_state(
         ball_in_ground_velocity,
         last_seen_ball,
         field_side,
-        penalty_shot_direction,
     }
 }
