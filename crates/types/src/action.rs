@@ -18,6 +18,7 @@ pub enum Action {
     Initial,
     Penalize,
     Safe,
+    StandUp,
     WalkToBall,
     RemoteControl,
 }

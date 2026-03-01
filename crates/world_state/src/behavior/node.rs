@@ -9,7 +9,7 @@ use types::{
     parameters::{RemoteControlParameters, WalkWithVelocityParameters}, world_state::WorldState,
 };
 
-use crate::behavior::{finish_pose, initial, penalize, safe, walk_to_ball};
+use crate::behavior::{finish_pose, initial, penalize, safe, stand_up, walk_to_ball};
 
 #[derive(Deserialize, Serialize)]
 pub struct Behavior {}
@@ -60,7 +60,9 @@ impl Behavior {
                     Action::Penalize => penalize::execute(world_state),
                     Action::Initial => initial::execute(world_state),
                     Action::FinishPose => finish_pose::execute(world_state),
-
+                    Action::StandUp => {
+                        stand_up::execute(world_state)
+                    }
                     Action::WalkToBall => walk_to_ball::execute(
                         context.ball_position.copied(),
                         context.walk_with_velocity_parameter.clone(),

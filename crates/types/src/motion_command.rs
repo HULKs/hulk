@@ -88,10 +88,7 @@ pub enum MotionCommand {
     BoosterStand {
         head: HeadMotion,
     },
-    StandUp {
-        kind: FallenKind,
-        speed: StandUpSpeed,
-    },
+    StandUp,
     KeeperMotion {
         direction: JumpDirection,
     },
