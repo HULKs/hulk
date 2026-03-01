@@ -126,6 +126,12 @@ async fn gammaray_robot(
         .rsync_with_log("uploading service files", &progress_bar)
         .await?;
 
+    robot
+        .ssh_to_robot()?
+        .arg("mkdir -p /home/booster/.cache/hulk/tensor-rt/")
+        .ssh_with_log("creating tensorrt cache directory", &progress_bar)
+        .await?;
+
     progress_bar.set_message("Waiting for zenoh bridge to finish building");
     if !zenoh_bridge_status
         .wait_for(|value| value.is_some())
