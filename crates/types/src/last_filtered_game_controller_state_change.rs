@@ -28,8 +28,6 @@ impl Default for LastFilteredGameControllerStateChanges {
                 three: None,
                 four: None,
                 five: None,
-                six: None,
-                seven: None,
             },
             sub_state: None,
         }

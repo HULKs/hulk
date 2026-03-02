@@ -24,8 +24,6 @@ pub struct Players<T> {
     pub three: T,
     pub four: T,
     pub five: T,
-    pub six: T,
-    pub seven: T,
 }
 
 impl<T> Players<T> {
@@ -36,8 +34,6 @@ impl<T> Players<T> {
             three: &self.three,
             four: &self.four,
             five: &self.five,
-            six: &self.six,
-            seven: &self.seven,
         }
     }
 }
@@ -50,8 +46,6 @@ impl<From> Players<From> {
             three: f(self.three),
             four: f(self.four),
             five: f(self.five),
-            six: f(self.six),
-            seven: f(self.seven),
         }
     }
 }
@@ -64,8 +58,6 @@ impl<T: Clone> Players<T> {
             three: value.clone(),
             four: value.clone(),
             five: value.clone(),
-            six: value.clone(),
-            seven: value,
         }
     }
 }
@@ -80,8 +72,6 @@ impl<T> Index<PlayerNumber> for Players<T> {
             PlayerNumber::Three => &self.three,
             PlayerNumber::Four => &self.four,
             PlayerNumber::Five => &self.five,
-            PlayerNumber::Six => &self.six,
-            PlayerNumber::Seven => &self.seven,
         }
     }
 }
@@ -94,8 +84,6 @@ impl<T> IndexMut<PlayerNumber> for Players<T> {
             PlayerNumber::Three => &mut self.three,
             PlayerNumber::Four => &mut self.four,
             PlayerNumber::Five => &mut self.five,
-            PlayerNumber::Six => &mut self.six,
-            PlayerNumber::Seven => &mut self.seven,
         }
     }
 }
@@ -116,8 +104,6 @@ impl From<TeamState> for Players<Option<Penalty>> {
             three: get_penalty(&team_state, 2),
             four: get_penalty(&team_state, 3),
             five: get_penalty(&team_state, 4),
-            six: get_penalty(&team_state, 5),
-            seven: get_penalty(&team_state, 6),
         }
     }
 }
@@ -134,7 +120,7 @@ impl<'a, T> PlayersIterator<'a, T> {
         Self {
             data,
             next_forward: Some(PlayerNumber::One),
-            next_back: Some(PlayerNumber::Seven),
+            next_back: Some(PlayerNumber::Five),
         }
     }
 }
@@ -152,9 +138,7 @@ impl<'a, T> Iterator for PlayersIterator<'a, T> {
             Some(PlayerNumber::Two) => Some(PlayerNumber::Three),
             Some(PlayerNumber::Three) => Some(PlayerNumber::Four),
             Some(PlayerNumber::Four) => Some(PlayerNumber::Five),
-            Some(PlayerNumber::Five) => Some(PlayerNumber::Six),
-            Some(PlayerNumber::Six) => Some(PlayerNumber::Seven),
-            Some(PlayerNumber::Seven) => None,
+            Some(PlayerNumber::Five) => None,
             None => None,
         };
         result
@@ -167,19 +151,15 @@ impl<'a, T> Iterator for PlayersIterator<'a, T> {
             Some(PlayerNumber::Three) => 2,
             Some(PlayerNumber::Four) => 3,
             Some(PlayerNumber::Five) => 4,
-            Some(PlayerNumber::Six) => 5,
-            Some(PlayerNumber::Seven) => 6,
-            None => 7,
+            None => 5,
         };
         let consumed_back = match self.next_back {
-            Some(PlayerNumber::One) => 6,
-            Some(PlayerNumber::Two) => 5,
-            Some(PlayerNumber::Three) => 4,
-            Some(PlayerNumber::Four) => 3,
-            Some(PlayerNumber::Five) => 2,
-            Some(PlayerNumber::Six) => 1,
-            Some(PlayerNumber::Seven) => 0,
-            None => 7,
+            Some(PlayerNumber::One) => 4,
+            Some(PlayerNumber::Two) => 3,
+            Some(PlayerNumber::Three) => 2,
+            Some(PlayerNumber::Four) => 1,
+            Some(PlayerNumber::Five) => 0,
+            None => 5,
         };
         let remaining = 7usize.saturating_sub(consumed_forward + consumed_back);
         (remaining, Some(remaining))
@@ -199,8 +179,6 @@ impl<T> DoubleEndedIterator for PlayersIterator<'_, T> {
             Some(PlayerNumber::Three) => Some(PlayerNumber::Two),
             Some(PlayerNumber::Four) => Some(PlayerNumber::Three),
             Some(PlayerNumber::Five) => Some(PlayerNumber::Four),
-            Some(PlayerNumber::Six) => Some(PlayerNumber::Five),
-            Some(PlayerNumber::Seven) => Some(PlayerNumber::Six),
             None => None,
         };
         result
@@ -254,19 +232,13 @@ mod test {
             three: 3,
             four: 4,
             five: 5,
-            six: 6,
-            seven: 7,
         };
         let mut iterator = players.iter();
 
-        assert_eq!(iterator.len(), 7);
-        assert_eq!(iterator.next(), Some((PlayerNumber::One, &1)));
-        assert_eq!(iterator.len(), 6);
-        assert_eq!(iterator.next(), Some((PlayerNumber::Two, &2)));
         assert_eq!(iterator.len(), 5);
-        assert_eq!(iterator.next_back(), Some((PlayerNumber::Seven, &7)));
+        assert_eq!(iterator.next(), Some((PlayerNumber::One, &1)));
         assert_eq!(iterator.len(), 4);
-        assert_eq!(iterator.next_back(), Some((PlayerNumber::Six, &6)));
+        assert_eq!(iterator.next(), Some((PlayerNumber::Two, &2)));
         assert_eq!(iterator.len(), 3);
         assert_eq!(iterator.next(), Some((PlayerNumber::Three, &3)));
         assert_eq!(iterator.len(), 2);
