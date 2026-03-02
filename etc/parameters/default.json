@@ -317,6 +317,13 @@
   "injected_primary_state": null,
   "behavior": {
     "injected_motion_command": null,
+    "optional_roles": [
+      "DefenderLeft",
+      "DefenderRight",
+      "StrikerSupporter",
+      "MidfielderRight",
+      "MidfielderLeft"
+    ],
     "walk_with_velocity": {
       "max_velocity": 1.0,
       "max_angular_velocity": 1.0,
@@ -330,6 +337,36 @@
       },
       "enable": false
     }
+  },
+  "role_assignment": {
+    "forced_role": null,
+    "keeper_replacementkeeper_switch_time": { "nanos": 0, "secs": 12 },
+    "claim_striker_from_team_ball": false,
+    "loser_timeout": { "nanos": 0, "secs": 5 },
+    "maximum_trusted_team_ball_age": { "nanos": 0, "secs": 1 },
+    "maximum_trusted_team_ball_distance": 0.5
+  },
+  "hsl_network": {
+    "game_controller_return_message_interval": {
+      "nanos": 0,
+      "secs": 1
+    },
+    "remaining_amount_of_messages_to_stop_sending": 20,
+    "silence_interval_between_messages": {
+      "nanos": 0,
+      "secs": 1
+    },
+    "hsl_striker_message_receive_timeout": {
+      "nanos": 0,
+      "secs": 3
+    },
+    "hsl_striker_message_send_interval": {
+      "nanos": 0,
+      "secs": 2
+    }
+  },
+  "motion": {
+    "use_remote_control_for_motion_selection": true
   },
   "field_dimensions": {
     "ball_radius": 0.095,

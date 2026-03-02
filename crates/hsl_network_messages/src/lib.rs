@@ -89,12 +89,10 @@ pub const NONE_TEAM_NUMBER: u8 = 255;
 pub enum PlayerNumber {
     One,
     Two,
+    #[default]
     Three,
     Four,
     Five,
-    Six,
-    #[default]
-    Seven,
 }
 
 impl Display for PlayerNumber {
@@ -105,8 +103,6 @@ impl Display for PlayerNumber {
             PlayerNumber::Three => "3",
             PlayerNumber::Four => "4",
             PlayerNumber::Five => "5",
-            PlayerNumber::Six => "6",
-            PlayerNumber::Seven => "7",
         };
 
         write!(formatter, "{number}")
@@ -122,7 +118,7 @@ mod tests {
     #[test]
     fn hulk_striker_message_size() {
         let test_message = HulkMessage::Striker(StrikerMessage {
-            player_number: PlayerNumber::Seven,
+            player_number: PlayerNumber::Five,
             pose: Pose2::default(),
             ball_position: BallPosition {
                 position: Point::origin(),
@@ -136,17 +132,8 @@ mod tests {
     #[test]
     fn hulk_loser_message_size() {
         let test_message = HulkMessage::Loser(LoserMessage {
-            player_number: PlayerNumber::Seven,
+            player_number: PlayerNumber::Five,
             pose: Pose2::default(),
-        });
-        assert!(bincode::serialize(&test_message).unwrap().len() <= 128)
-    }
-
-    #[test]
-    fn hulk_visual_referee_message_size() {
-        let test_message = HulkMessage::VisualReferee(VisualRefereeMessage {
-            player_number: PlayerNumber::Four,
-            kicking_team: Some(Team::Hulks),
         });
         assert!(bincode::serialize(&test_message).unwrap().len() <= 128)
     }
