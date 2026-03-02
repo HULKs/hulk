@@ -40,7 +40,7 @@ pub async fn player_number(arguments: Arguments, repository: &Repository) -> Res
                     .find(|robot| robot.number == number)
                     .ok_or_else(|| eyre!("Robot with Hardware ID {number} does not exist"))?;
                 repository
-                    .configure_player_number(&robot.head_id, assignment.player_number)
+                    .configure_player_number(&robot.id, assignment.player_number)
                     .await
                     .wrap_err_with(|| format!("failed to set player number for {assignment}"))
             },
