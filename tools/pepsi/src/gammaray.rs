@@ -11,7 +11,7 @@ use color_eyre::{
 
 use argument_parsers::RobotAddress;
 use indicatif::ProgressBar;
-use repository::Repository;
+use repository::{team::Team, Repository};
 use robot::Robot;
 use tokio::{
     io::{AsyncBufReadExt, AsyncReadExt, BufReader},
@@ -61,6 +61,8 @@ pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<(
         progress.task("Building zenoh bridge".to_owned()),
     ));
 
+    let team = repository.read_team_configuration().await?;
+
     progress
         .map_tasks(
             arguments.robots,
@@ -72,6 +74,7 @@ pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<(
                     &arguments.password,
                     arguments.image_file.as_deref(),
                     repository,
+                    &team,
                     setup_path,
                     zenoh_bridge_status.clone(),
                 )
@@ -84,16 +87,38 @@ pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn gammaray_robot(
     robot: RobotAddress,
     progress_bar: ProgressBar,
     password: &str,
     image_file: Option<&Path>,
     repository: &Repository,
+    team: &Team,
     setup: &Path,
     mut zenoh_bridge_status: watch::Receiver<Option<bool>>,
 ) -> Result<()> {
     let robot = Robot::try_new_with_ping(robot.ip).await?;
+
+    progress_bar.set_message("getting robot ID");
+    let output = robot.ssh_to_robot()?.arg("").output().await?;
+    let id = String::from_utf8(output.stdout).unwrap();
+    let Some(team_robot) = team.robots.iter().find(|robot| robot.id == id) else {
+        bail!(r#"ID "{id}" not found in team.toml"#);
+    };
+    progress_bar.set_prefix(format!("[{robot} {}]", team_robot.hostname));
+    let ip = format!("10.1.{}.{}", team.team_number, team_robot.number);
+
+    const CONNECTION_NAME: &str = "Wired Connection 2";
+    const INTERFACE: &str = "eth2";
+    robot.ssh_to_robot()?.arg(format!(
+        r#"nmcli connection modify "{CONNECTION_NAME}" ipv4.addresses "{ip}/24, 192.168.10.102/24""#,
+    )).ssh_with_log("setting static IP",& progress_bar).await?;
+    robot
+        .ssh_to_robot()?
+        .arg(format!("nmcli device reapply {INTERFACE}"))
+        .ssh_with_log("applying network configuration", &progress_bar)
+        .await?;
 
     robot
         .ssh_to_robot()?
