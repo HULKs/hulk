@@ -25,7 +25,6 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    active_action_output: AdditionalOutput<Action, "active_action">,
     ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
     world_state: Input<WorldState, "world_state">,
 
