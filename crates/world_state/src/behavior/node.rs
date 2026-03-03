@@ -5,12 +5,8 @@ use context_attribute::context;
 use coordinate_systems::Ground;
 use framework::{AdditionalOutput, MainOutput};
 use types::{
-    action::Action,
-    ball_position::BallPosition,
-    motion_command::MotionCommand,
-    parameters::{BehaviorParameters, RemoteControlParameters, WalkWithVelocityParameters},
-    primary_state::PrimaryState,
-    world_state::WorldState,
+    action::Action, ball_position::BallPosition, motion_command::MotionCommand,
+    parameters::BehaviorParameters, primary_state::PrimaryState, world_state::WorldState,
 };
 
 use crate::behavior::{
@@ -29,9 +25,6 @@ pub struct CycleContext {
     world_state: Input<WorldState, "world_state">,
 
     parameters: Parameter<BehaviorParameters, "behavior">,
-    remote_control_parameters: Parameter<RemoteControlParameters, "behavior.remote_control">,
-    walk_with_velocity_parameter:
-        Parameter<WalkWithVelocityParameters, "behavior.walk_with_velocity">,
 
     active_action: AdditionalOutput<Action, "active_action">,
 
@@ -51,13 +44,13 @@ impl Behavior {
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let world_state = context.world_state;
-        
+
         if let Some(command) = &context.parameters.injected_motion_command {
             return Ok(MainOutputs {
                 motion_command: command.clone().into(),
             });
         }
-        
+
         let mut actions = vec![
             Action::Safe,
             Action::Finish,
@@ -85,7 +78,7 @@ impl Behavior {
                     Action::StandUp => stand_up::execute(world_state),
                     Action::LookAround => look_around::execute(world_state),
                     Action::RemoteControl => {
-                        remote_control::execute(context.remote_control_parameters)
+                        remote_control::execute(&context.parameters.remote_control)
                     }
                     Action::WalkToBall => walk_to_ball::execute(
                         context.ball_position.copied(),
