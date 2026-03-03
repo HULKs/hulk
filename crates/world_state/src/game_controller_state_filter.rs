@@ -105,7 +105,6 @@ impl GameControllerStateFilter {
             is_detected: false,
             last_detection: None,
         };
-        let fake_visual_referee_proceed_to_ready = false;
         let fake_detected_free_kick_kicking_team = None;
 
         let kicking_team = self.find_kicking_team(
@@ -127,7 +126,6 @@ impl GameControllerStateFilter {
             &fake_filtered_whistle,
             context.cycle_time,
             // *context.visual_referee_proceed_to_ready,
-            fake_visual_referee_proceed_to_ready,
             *context.player_number,
             did_receive_motion_in_set_penalty,
             kicking_team,
@@ -169,7 +167,6 @@ impl GameControllerStateFilter {
         game_controller_state: &GameControllerState,
         filtered_whistle: &FilteredWhistle,
         cycle_time: &CycleTime,
-        visual_referee_proceed_to_ready: bool,
         player_number: PlayerNumber,
         did_receive_motion_in_set_penalty: bool,
         filtered_kicking_team: Option<Team>,
@@ -189,7 +186,6 @@ impl GameControllerStateFilter {
             cycle_time.start_time,
             config,
             ball_detected_far_from_any_goal,
-            visual_referee_proceed_to_ready,
             did_receive_motion_in_set_penalty,
         );
         self.opponent_state = next_filtered_state(
@@ -199,7 +195,6 @@ impl GameControllerStateFilter {
             cycle_time.start_time,
             config,
             ball_detected_far_from_any_goal,
-            visual_referee_proceed_to_ready,
             did_receive_motion_in_set_penalty,
         );
 
@@ -235,7 +230,6 @@ impl GameControllerStateFilter {
             cycle_time.start_time,
             ball_detected_far_from_kick_off_point,
             config,
-            visual_referee_proceed_to_ready,
             filtered_kicking_team,
         );
 
@@ -246,7 +240,6 @@ impl GameControllerStateFilter {
                 cycle_time.start_time,
                 ball_detected_far_from_kick_off_point,
                 config,
-                visual_referee_proceed_to_ready,
                 filtered_kicking_team,
             );
 
@@ -396,7 +389,6 @@ fn next_filtered_state(
     cycle_start_time: SystemTime,
     config: &GameStateFilterParameters,
     ball_detected_far_from_any_goal: bool,
-    visual_referee_proceed_to_ready: bool,
     did_receive_motion_in_set_penalty: bool,
 ) -> State {
     match (current_state, game_controller_state.game_state) {
@@ -429,32 +421,16 @@ fn next_filtered_state(
         (_, GameState::Finished) => State::TentativeFinished {
             time_when_finished_clicked: cycle_start_time,
         },
-        (State::Standby, GameState::Standby) => {
-            if visual_referee_proceed_to_ready {
-                State::Ready
-            } else {
-                State::Standby
-            }
-        }
-
-        (State::Ready, GameState::Standby) => State::Ready,
-
-        (State::Initial | State::Ready | State::Standby, _)
-        | (
-            State::Set,
-            GameState::Initial | GameState::Ready | GameState::Playing | GameState::Standby,
-        )
+        (State::Initial | State::Ready, _)
+        | (State::Set, GameState::Initial | GameState::Ready | GameState::Playing)
         | (
             State::WhistleInSet { .. },
-            GameState::Initial | GameState::Ready | GameState::Playing | GameState::Standby,
+            GameState::Initial | GameState::Ready | GameState::Playing,
         )
-        | (
-            State::Playing,
-            GameState::Initial | GameState::Ready | GameState::Set | GameState::Standby,
-        )
+        | (State::Playing, GameState::Initial | GameState::Ready | GameState::Set)
         | (
             State::WhistleInPlaying { .. },
-            GameState::Initial | GameState::Ready | GameState::Set | GameState::Standby,
+            GameState::Initial | GameState::Ready | GameState::Set,
         ) => State::from_game_state(game_controller_state.game_state),
         (State::Set, GameState::Set) => {
             if is_whistle_detected {
@@ -561,7 +537,6 @@ pub enum State {
         time_when_finished_clicked: SystemTime,
     },
     Finished,
-    Standby,
 }
 
 impl State {
@@ -572,7 +547,6 @@ impl State {
             GameState::Set => State::Set,
             GameState::Playing => State::Playing,
             GameState::Finished => State::Finished,
-            GameState::Standby => State::Standby,
         }
     }
 
@@ -584,7 +558,6 @@ impl State {
         cycle_start_time: SystemTime,
         ball_detected_far_from_kick_off_point: bool,
         config: &GameStateFilterParameters,
-        visual_referee_proceed_to_ready: bool,
         filtered_kicking_team: Option<Team>,
     ) -> FilteredGameState {
         let is_in_sub_state = game_controller_state.sub_state.is_some();
@@ -592,13 +565,6 @@ impl State {
 
         match self {
             State::Initial => FilteredGameState::Initial,
-            State::Standby => {
-                if visual_referee_proceed_to_ready {
-                    FilteredGameState::Ready
-                } else {
-                    FilteredGameState::Standby
-                }
-            }
             State::Ready => FilteredGameState::Ready,
             State::Set => FilteredGameState::Set,
             State::WhistleInSet {

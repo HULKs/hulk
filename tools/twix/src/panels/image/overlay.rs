@@ -12,7 +12,7 @@ use crate::{nao::Nao, panels::image::overlays::ObjectDetection, twix_painter::Tw
 
 use super::overlays::{
     BallDetection, FeetDetection, FieldBorder, FieldLines, Horizon, LimbProjector, LineDetection,
-    PerspectiveGrid, PoseDetection,
+    PerspectiveGrid,
 };
 
 pub trait Overlay {
@@ -80,7 +80,6 @@ pub struct Overlays {
     pub feet_detection: EnabledOverlay<FeetDetection>,
     pub field_border: EnabledOverlay<FieldBorder>,
     pub limb_projector: EnabledOverlay<LimbProjector>,
-    pub pose_detection: EnabledOverlay<PoseDetection>,
     pub object_detection: EnabledOverlay<ObjectDetection>,
 }
 
@@ -94,7 +93,6 @@ impl Overlays {
         let feet_detection = EnabledOverlay::new(nao.clone(), storage, false);
         let field_border = EnabledOverlay::new(nao.clone(), storage, false);
         let limb_projector = EnabledOverlay::new(nao.clone(), storage, false);
-        let pose_detection = EnabledOverlay::new(nao.clone(), storage, false);
         let object_detection = EnabledOverlay::new(nao.clone(), storage, false);
 
         Self {
@@ -106,7 +104,6 @@ impl Overlays {
             feet_detection,
             field_border,
             limb_projector,
-            pose_detection,
             object_detection,
         }
     }
@@ -121,7 +118,6 @@ impl Overlays {
             self.feet_detection.checkbox(ui);
             self.field_border.checkbox(ui);
             self.limb_projector.checkbox(ui);
-            self.pose_detection.checkbox(ui);
             self.object_detection.checkbox(ui);
         });
     }
@@ -135,7 +131,6 @@ impl Overlays {
         self.feet_detection.paint(painter);
         self.field_border.paint(painter);
         self.limb_projector.paint(painter);
-        self.pose_detection.paint(painter);
         self.object_detection.paint(painter);
     }
 
@@ -149,7 +144,6 @@ impl Overlays {
             "feet_detection": self.feet_detection.save(),
             "field_border": self.field_border.save(),
             "limb_projector": self.limb_projector.save(),
-            "pose_detection": self.pose_detection.save(),
             "object_detection": self.object_detection.save(),
         })
     }
