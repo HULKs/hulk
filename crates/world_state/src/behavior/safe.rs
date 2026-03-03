@@ -1,5 +1,5 @@
 use types::{
-    motion_command::{HeadMotion, ImageRegion, MotionCommand},
+    motion_command::MotionCommand,
     primary_state::PrimaryState,
     world_state::WorldState,
 };

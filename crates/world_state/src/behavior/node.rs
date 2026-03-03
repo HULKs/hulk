@@ -12,7 +12,9 @@ use types::{
     world_state::WorldState,
 };
 
-use crate::behavior::{finish, initial, look_around, penalize, safe, stand_up, walk_to_ball};
+use crate::behavior::{
+    finish, initial, look_around, penalize, remote_control, safe, stand_up, walk_to_ball,
+};
 
 #[derive(Deserialize, Serialize)]
 pub struct Behavior {}
@@ -24,11 +26,11 @@ pub struct CreationContext {}
 pub struct CycleContext {
     ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
     world_state: Input<WorldState, "world_state">,
-    
+
     remote_control_parameters: Parameter<RemoteControlParameters, "behavior.remote_control">,
     walk_with_velocity_parameter:
-    Parameter<WalkWithVelocityParameters, "behavior.walk_with_velocity">,
-    
+        Parameter<WalkWithVelocityParameters, "behavior.walk_with_velocity">,
+
     active_action_output: AdditionalOutput<Action, "active_action">,
 
     last_motion_command: CyclerState<MotionCommand, "last_motion_command">,
@@ -73,13 +75,13 @@ impl Behavior {
                     Action::StandUp => stand_up::execute(world_state),
                     Action::LookAround => look_around::execute(world_state),
 
+                    Action::RemoteControl => {
+                        remote_control::execute(context.remote_control_parameters)
+                    }
                     Action::WalkToBall => walk_to_ball::execute(
                         context.ball_position.copied(),
                         context.walk_with_velocity_parameter.clone(),
                     ),
-                    Action::RemoteControl => {
-                        remote_control::execute(context.remote_control_parameters)
-                    }
                 }?;
                 Some((action, motion_command))
             })
