@@ -9,10 +9,7 @@ use types::{
     parameters::{RemoteControlParameters, WalkWithVelocityParameters}, world_state::WorldState,
 };
 
-use crate::behavior::{
-    finish_pose, initial, look_around, penalize, safe, stand_up,
-    walk_to_ball,
-};
+use crate::behavior::{finish_pose, initial, look_around, penalize, safe, stand_up, walk_to_ball};
 
 #[derive(Deserialize, Serialize)]
 pub struct Behavior {}

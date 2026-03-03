@@ -8,7 +8,7 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{
     field_dimensions::Side, filtered_game_controller_state::FilteredGameControllerState,
-    primary_state::PrimaryState, roles::Role,
+    primary_state::PrimaryState,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathIntrospect)]

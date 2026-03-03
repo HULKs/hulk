@@ -8,7 +8,6 @@ use framework::MainOutput;
 use types::{
     filtered_game_controller_state::FilteredGameControllerState,
     primary_state::PrimaryState,
-    roles::Role,
     world_state::{BallState, RobotState, WorldState},
 };
 
