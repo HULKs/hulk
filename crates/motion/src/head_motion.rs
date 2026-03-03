@@ -1,5 +1,3 @@
-use std::f32::consts::PI;
-
 use booster::{JointsMotorState, MotorState};
 use color_eyre::Result;
 use context_attribute::context;
@@ -67,11 +65,15 @@ impl HeadMotion {
                     .clamp(-maximum_movement.pitch, maximum_movement.pitch),
         };
 
-        let clamped_pitch = compute_clamped_pitch(controlled_positions, context.parameters);
-
         let clamped_positions = HeadJoints {
-            pitch: clamped_pitch,
-            yaw: controlled_positions.yaw,
+            pitch: controlled_positions.pitch.clamp(
+                context.parameters.minimum_pitch,
+                context.parameters.maximum_pitch,
+            ),
+            yaw: controlled_positions.yaw.clamp(
+                context.parameters.minimum_yaw,
+                context.parameters.maximum_yaw,
+            ),
         };
 
         self.last_positions = clamped_positions;
@@ -103,68 +105,6 @@ impl HeadMotion {
                 context.motor_states.positions().head
             }
             Some(_) | None => Default::default(),
-        }
-    }
-}
-
-fn compute_clamped_pitch(
-    controlled_positions: HeadJoints<f32>,
-    head_motion_parameters: &HeadMotionParameters,
-) -> f32 {
-    let maximum_pitch = if controlled_positions.yaw.abs() >= head_motion_parameters.outer_yaw {
-        head_motion_parameters.outer_maximum_pitch
-    } else {
-        let interpolation_factor =
-            0.5 * (1.0 + (PI * controlled_positions.yaw / head_motion_parameters.outer_yaw).cos());
-        head_motion_parameters.outer_maximum_pitch
-            + interpolation_factor
-                * (head_motion_parameters.inner_maximum_pitch
-                    - head_motion_parameters.outer_maximum_pitch)
-    };
-
-    let minimum_pitch = if controlled_positions.yaw.abs() >= head_motion_parameters.outer_yaw {
-        head_motion_parameters.outer_minimum_pitch
-    } else {
-        let interpolation_factor =
-            0.5 * (1.0 + (PI * controlled_positions.yaw / head_motion_parameters.outer_yaw).cos());
-        head_motion_parameters.outer_minimum_pitch
-            + interpolation_factor
-                * (head_motion_parameters.inner_minimum_pitch
-                    - head_motion_parameters.outer_minimum_pitch)
-    };
-
-    let clamped_maximum_pitch = maximum_pitch.max(0.0);
-    let clamped_minimum_pitch = minimum_pitch.min(0.0);
-
-    controlled_positions
-        .pitch
-        .clamp(clamped_minimum_pitch, clamped_maximum_pitch)
-}
-
-#[cfg(test)]
-mod test {
-    use proptest::prelude::*;
-
-    use super::*;
-
-    proptest! {
-        #[test]
-        fn clamp_clamping_should_not_panic(yaw in -PI..PI) {
-            let head_motion_parameters = HeadMotionParameters {
-                inner_maximum_pitch: 0.61,
-                inner_minimum_pitch: -0.61,
-                outer_maximum_pitch: 0.0,
-                outer_minimum_pitch: 0.0,
-                outer_yaw: 1.3,
-                ..Default::default()
-            };
-
-            let controlled_positions = HeadJoints { yaw, ..Default::default() };
-
-            let clamped_pitch = compute_clamped_pitch(controlled_positions, &head_motion_parameters);
-
-            assert!(clamped_pitch <= head_motion_parameters.inner_maximum_pitch);
-            assert!(clamped_pitch >= head_motion_parameters.inner_minimum_pitch);
         }
     }
 }
