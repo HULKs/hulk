@@ -101,8 +101,16 @@ async fn gammaray_robot(
     let robot = Robot::try_new_with_ping(robot.ip).await?;
 
     progress_bar.set_message("getting robot ID");
-    let output = robot.ssh_to_robot()?.arg("").output().await?;
+    let output = robot
+        .ssh_to_robot()?
+        // jetson_release always outputs control chars to color the left side.
+        // The first grep gets rid of unwanted lines, the second matches only
+        // the digits of the serial number, ignoring the control characters.
+        .arg("jetson_release -s | grep 'Serial Number:' | grep '[0-9]*$' -o")
+        .output()
+        .await?;
     let id = String::from_utf8(output.stdout).unwrap();
+    let id = id.trim();
     let Some(team_robot) = team.robots.iter().find(|robot| robot.id == id) else {
         bail!(r#"ID "{id}" not found in team.toml"#);
     };
