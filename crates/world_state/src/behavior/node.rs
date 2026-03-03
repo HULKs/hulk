@@ -9,7 +9,7 @@ use types::{
     parameters::{RemoteControlParameters, WalkWithVelocityParameters}, world_state::WorldState,
 };
 
-use crate::behavior::{finish_pose, initial, look_around, penalize, safe, stand_up, walk_to_ball};
+use crate::behavior::{finish, initial, look_around, penalize, safe, stand_up, walk_to_ball};
 
 #[derive(Deserialize, Serialize)]
 pub struct Behavior {}
@@ -48,7 +48,7 @@ impl Behavior {
         #[allow(clippy::useless_vec, unused_mut)]
         let mut actions = vec![
             Action::Safe,
-            Action::FinishPose,
+            Action::Finish,
             Action::Penalize,
             Action::Initial,
             Action::StandUp,
@@ -66,7 +66,7 @@ impl Behavior {
                     Action::Safe => safe::execute(world_state),
                     Action::Penalize => penalize::execute(world_state),
                     Action::Initial => initial::execute(world_state),
-                    Action::FinishPose => finish_pose::execute(world_state),
+                    Action::Finish => finish::execute(world_state),
                     Action::StandUp => stand_up::execute(world_state),
                     Action::LookAround => look_around::execute(world_state),
 

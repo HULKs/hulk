@@ -14,7 +14,7 @@ use serde::{Deserialize, Serialize};
     Eq,
 )]
 pub enum Action {
-    FinishPose,
+    Finish,
     Initial,
     LookAround,
     Penalize,
