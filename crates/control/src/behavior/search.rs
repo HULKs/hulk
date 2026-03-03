@@ -108,7 +108,11 @@ pub fn execute(
     let distance_to_ball = (ground_to_field.inverse() * last_known_ball_position)
         .coords()
         .norm();
-    let estimated_ball_arrival_time = distance_to_ball / parameters.estimated_ball_speed;
+    let is_ball_near_opponent_goal = last_known_ball_position.x() > field_dimensions.length / 3.0;
+    let mut estimated_ball_arrival_time = distance_to_ball / parameters.estimated_ball_speed;
+    if is_ball_near_opponent_goal {
+        estimated_ball_arrival_time *= 1.5;
+    }
     let near_own_penalty_box = ground_to_field.as_pose().position().y().abs()
         < field_dimensions.penalty_area_width / 2.0
         && ground_to_field.as_pose().position().x() < 0.0;
