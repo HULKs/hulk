@@ -310,6 +310,7 @@
     }
   },
   "behavior": {
+    "injected_motion_command": null,
     "walk_with_velocity": {
       "max_velocity": 1.0,
       "max_angular_velocity": 1.0,

@@ -13,7 +13,6 @@ use crate::{
     joints::head::HeadJoints,
     joints::Joints,
     motion_command::{KickVariant, MotionCommand},
-    roles::Role,
     step::Step,
 };
 
@@ -40,18 +39,7 @@ pub struct WhistleDetectionParameters {
 )]
 pub struct BehaviorParameters {
     pub injected_motion_command: Option<MotionCommand>,
-    pub lost_ball: LostBallParameters,
-    pub optional_roles: Vec<Role>,
-    pub path_planning: PathPlanningParameters,
-    pub role_positions: RolePositionsParameters,
-    pub walk_and_stand: WalkAndStandParameters,
-    pub dribbling: DribblingParameters,
-    pub search: SearchParameters,
-    pub look_action: LookActionParameters,
-    pub intercept_ball: InterceptBallParameters,
-    pub maximum_lookaround_duration: Duration,
-    pub time_to_reach_delay_when_fallen: Duration,
-    pub maximum_standup_attempts: u32,
+    pub remote_control: RemoteControlParameters,
     pub walk_with_velocity: WalkWithVelocityParameters,
 }
 
