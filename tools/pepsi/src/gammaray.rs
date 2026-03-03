@@ -1,4 +1,7 @@
-use std::{path::Path, process::Stdio};
+use std::{
+    path::{Path, PathBuf},
+    process::Stdio,
+};
 
 use clap::Args;
 use color_eyre::{
@@ -30,9 +33,14 @@ pub struct Arguments {
     #[arg(required = true)]
     robots: Vec<RobotAddress>,
 
-    // The password for the `booster` user
+    /// The password for the `booster` user
     #[arg(short, long, default_value = "123456")]
     password: String,
+
+    /// Optional podman image for the hulk service environment
+    /// e.g. rust-trt-inference-image.tar
+    #[arg(short, long)]
+    image_file: Option<PathBuf>,
 }
 
 static ADD_APT_ROS2DDS_ZENOH_BRIDGE_SOURCES: &str = "
@@ -62,6 +70,7 @@ pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<(
                     robot,
                     progress_bar,
                     &arguments.password,
+                    arguments.image_file.as_deref(),
                     repository,
                     setup_path,
                     zenoh_bridge_status.clone(),
@@ -79,6 +88,7 @@ async fn gammaray_robot(
     robot: RobotAddress,
     progress_bar: ProgressBar,
     password: &str,
+    image_file: Option<&Path>,
     repository: &Repository,
     setup: &Path,
     mut zenoh_bridge_status: watch::Receiver<Option<bool>>,
@@ -135,6 +145,21 @@ async fn gammaray_robot(
         .arg("mkdir -p /home/booster/.cache/hulk/tensor-rt/")
         .ssh_with_log("creating tensorrt cache directory", &progress_bar)
         .await?;
+
+    if let Some(image_file) = image_file {
+        const REMOTE_IMAGE_PATH: &str = "/home/booster/.cache/hulk/runtime-container-image.tar";
+        robot
+            .rsync_with_robot()?
+            .arg(image_file)
+            .arg(format!("{}:{REMOTE_IMAGE_PATH}", robot.address))
+            .rsync_with_log("uploading podman image", &progress_bar)
+            .await?;
+        robot
+            .ssh_to_robot()?
+            .arg(format!("sudo podman load -i {REMOTE_IMAGE_PATH}"))
+            .ssh_with_log("loading podman image", &progress_bar)
+            .await?;
+    }
 
     progress_bar.set_message("Waiting for zenoh bridge to finish building");
     if !zenoh_bridge_status
