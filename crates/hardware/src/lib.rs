@@ -3,10 +3,11 @@ use std::time::SystemTime;
 use booster::{
     ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState, TransformMessage,
 };
+use booster_sdk::types::{GetModeResponse, RobotMode};
 use color_eyre::eyre::Result;
 
 use hula_types::hardware::{Ids, Paths};
-use kinematics::joints::Joints;
+use kinematics::joints::{Joints, head::HeadJoints};
 use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
 use types::{
     audio::SpeakerRequest,
@@ -14,6 +15,7 @@ use types::{
     messages::{IncomingMessage, OutgoingMessage},
     samples::Samples,
     sensor_data::SensorData,
+    step::Step,
 };
 
 pub trait ActuatorInterface {
@@ -91,4 +93,17 @@ pub trait TimeInterface {
 
 pub trait SimulatorInterface {
     fn is_simulation(&self) -> Result<bool>;
+}
+
+pub trait HighLevelInterface {
+    fn change_mode(&self, mode: RobotMode) -> Result<()>;
+    fn get_mode(&self) -> Result<GetModeResponse>;
+    fn move_robot(&self, step: Step) -> Result<()>;
+    fn rotate_head(&self, head_joints: HeadJoints<f32>) -> Result<()>;
+    fn rotate_head_with_direction(&self, head_joints: HeadJoints<i32>) -> Result<()>;
+    fn lie_down(&self) -> Result<()>;
+    fn get_up(&self) -> Result<()>;
+    fn get_up_with_mode(&self, mode: RobotMode) -> Result<()>;
+    fn enter_wbc_gait(&self) -> Result<()>;
+    fn exit_wbc_gait(&self) -> Result<()>;
 }

@@ -8,9 +8,9 @@ use color_eyre::{
 use ctrlc::set_handler;
 use framework::Parameters as FrameworkParameters;
 use hardware::{
-    ButtonEventMsgInterface, CameraInterface, FallDownStateInterface, IdInterface,
-    LowCommandInterface, LowStateInterface, MicrophoneInterface, NetworkInterface, PathsInterface,
-    RecordingInterface, SimulatorInterface, SpeakerInterface, TimeInterface,
+    ButtonEventMsgInterface, CameraInterface, FallDownStateInterface, HighLevelInterface,
+    IdInterface, LowCommandInterface, LowStateInterface, MicrophoneInterface, NetworkInterface,
+    PathsInterface, RecordingInterface, SimulatorInterface, SpeakerInterface, TimeInterface,
     TransformMessageInterface,
 };
 use serde_json::from_reader;
@@ -56,6 +56,7 @@ pub trait HardwareInterface:
     + SpeakerInterface
     + TimeInterface
     + SimulatorInterface
+    + HighLevelInterface
 {
 }
 

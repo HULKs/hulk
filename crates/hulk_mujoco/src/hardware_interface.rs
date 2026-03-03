@@ -7,21 +7,23 @@ use std::time::{Duration, SystemTime};
 use booster::{
     ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState, TransformMessage,
 };
+use booster_sdk::types::{GetModeResponse, RobotMode};
 use color_eyre::{
     Result,
     eyre::{Context, Error, OptionExt, eyre},
 };
 use futures_util::{SinkExt, StreamExt};
 use hardware::{
-    ButtonEventMsgInterface, CameraInterface, IdInterface, MicrophoneInterface, NetworkInterface,
-    PathsInterface, RecordingInterface, SimulatorInterface, SpeakerInterface, TimeInterface,
-    TransformMessageInterface,
+    ButtonEventMsgInterface, CameraInterface, HighLevelInterface, IdInterface, MicrophoneInterface,
+    NetworkInterface, PathsInterface, RecordingInterface, SimulatorInterface, SpeakerInterface,
+    TimeInterface, TransformMessageInterface,
 };
 use hardware::{
     FallDownStateInterface, LowCommandInterface, LowStateInterface, RemoteControllerStateInterface,
 };
 use hsl_network::endpoint::{Endpoint, Ports};
 use hula_types::hardware::{Ids, Paths};
+use kinematics::joints::head::HeadJoints;
 use log::{error, info, warn};
 use parking_lot::Mutex;
 use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
@@ -38,6 +40,7 @@ use types::{
     audio::SpeakerRequest,
     messages::{IncomingMessage, OutgoingMessage},
     samples::Samples,
+    step::Step,
 };
 
 use crate::HardwareInterface;
@@ -415,6 +418,48 @@ impl RecordingInterface for MujocoHardwareInterface {
 impl SimulatorInterface for MujocoHardwareInterface {
     fn is_simulation(&self) -> Result<bool> {
         Ok(true)
+    }
+}
+
+impl HighLevelInterface for MujocoHardwareInterface {
+    fn change_mode(&self, _mode: RobotMode) -> Result<()> {
+        unimplemented!()
+    }
+
+    fn get_mode(&self) -> Result<GetModeResponse> {
+        unimplemented!()
+    }
+
+    fn move_robot(&self, _step: Step) -> Result<()> {
+        unimplemented!()
+    }
+
+    fn rotate_head(&self, _head_joints: HeadJoints<f32>) -> Result<()> {
+        unimplemented!()
+    }
+
+    fn rotate_head_with_direction(&self, _head_joints: HeadJoints<i32>) -> Result<()> {
+        unimplemented!()
+    }
+
+    fn lie_down(&self) -> Result<()> {
+        unimplemented!()
+    }
+
+    fn get_up(&self) -> Result<()> {
+        unimplemented!()
+    }
+
+    fn get_up_with_mode(&self, _mode: RobotMode) -> Result<()> {
+        unimplemented!()
+    }
+
+    fn enter_wbc_gait(&self) -> Result<()> {
+        unimplemented!()
+    }
+
+    fn exit_wbc_gait(&self) -> Result<()> {
+        unimplemented!()
     }
 }
 

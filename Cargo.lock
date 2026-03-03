@@ -2054,6 +2054,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "booster_sdk"
+version = "0.1.0-alpha.11"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "62af599682f9b0df60ef2370f72e5a643baec826514966b534e047285f33050e"
+dependencies = [
+ "futures",
+ "rustdds",
+ "serde",
+ "serde_json",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "typed-builder",
+ "uuid",
+]
+
+[[package]]
 name = "bstr"
 version = "1.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4627,6 +4644,7 @@ name = "hardware"
 version = "0.1.0"
 dependencies = [
  "booster",
+ "booster_sdk",
  "color-eyre",
  "hula_types",
  "kinematics",
@@ -4848,6 +4866,7 @@ dependencies = [
  "ball_filter",
  "bincode",
  "booster",
+ "booster_sdk",
  "buffered_watch",
  "byteorder",
  "bytes",
@@ -4907,6 +4926,7 @@ dependencies = [
  "ball_filter",
  "bincode",
  "booster",
+ "booster_sdk",
  "buffered_watch",
  "calibration",
  "clap",
@@ -4962,6 +4982,7 @@ dependencies = [
  "ball_filter",
  "bincode",
  "booster",
+ "booster_sdk",
  "buffered_watch",
  "chrono",
  "code_generation",
@@ -5020,6 +5041,7 @@ dependencies = [
  "bincode",
  "blake3",
  "booster",
+ "booster_sdk",
  "buffered_watch",
  "calibration",
  "chrono",
@@ -10638,6 +10660,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cb30dbbd9036155e74adad6812e9898d03ec374946234fbcebd5dfc7b9187b90"
 dependencies = [
  "rustc-hash 2.1.1",
+]
+
+[[package]]
+name = "typed-builder"
+version = "0.23.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "31aa81521b70f94402501d848ccc0ecaa8f93c8eb6999eb9747e72287757ffda"
+dependencies = [
+ "typed-builder-macro",
+]
+
+[[package]]
+name = "typed-builder-macro"
+version = "0.23.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "076a02dc54dd46795c2e9c8282ed40bcfb1e22747e955de9389a1de28190fb26"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.116",
 ]
 
 [[package]]

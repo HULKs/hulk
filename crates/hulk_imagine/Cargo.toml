@@ -10,6 +10,7 @@ audio = { workspace = true }
 ball_filter = { workspace = true }
 bincode = { workspace = true }
 booster = { workspace = true }
+booster_sdk = { workspace = true }
 buffered_watch = { workspace = true }
 calibration = { workspace = true }
 clap = { workspace = true }

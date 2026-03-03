@@ -5,11 +5,16 @@ use std::{
     time::SystemTime,
 };
 
+use booster_sdk::{
+    client::BoosterClient,
+    types::{GetModeResponse, RobotMode},
+};
 use cdr::{CdrLe, Infinite};
 use color_eyre::{
     Result,
     eyre::{Context, ContextCompat, bail, eyre},
 };
+use kinematics::joints::head::HeadJoints;
 use serde::{Deserialize, Serialize};
 use tokio::runtime::Handle;
 use tokio_util::sync::CancellationToken;
@@ -23,10 +28,10 @@ use zenoh::{
 
 use booster::{ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState};
 use hardware::{
-    ButtonEventMsgInterface, CameraInterface, FallDownStateInterface, IdInterface,
-    LowCommandInterface, LowStateInterface, MicrophoneInterface, NetworkInterface, PathsInterface,
-    RecordingInterface, RemoteControllerStateInterface, SimulatorInterface, SpeakerInterface,
-    TimeInterface,
+    ButtonEventMsgInterface, CameraInterface, FallDownStateInterface, HighLevelInterface,
+    IdInterface, LowCommandInterface, LowStateInterface, MicrophoneInterface, NetworkInterface,
+    PathsInterface, RecordingInterface, RemoteControllerStateInterface, SimulatorInterface,
+    SpeakerInterface, TimeInterface,
 };
 use hsl_network::endpoint::{Endpoint, Ports};
 use hula_types::hardware::{Ids, Paths};
@@ -35,6 +40,7 @@ use types::{
     audio::SpeakerRequest,
     messages::{IncomingMessage, OutgoingMessage},
     samples::Samples,
+    step::Step,
 };
 
 use crate::HardwareInterface;
@@ -104,6 +110,8 @@ pub struct BoosterHardwareInterface {
     image_left_raw_subscriber: Subscriber<RingChannelHandler<Sample>>,
     image_left_raw_camera_info_subscriber: Subscriber<RingChannelHandler<Sample>>,
 
+    high_level_interface_client: BoosterClient,
+
     _session: Session,
     runtime_handle: Handle,
     hsl_network_endpoint: Endpoint,
@@ -131,6 +139,8 @@ impl BoosterHardwareInterface {
                 .ok()
                 .wrap_err("id was not valid UTF-8")?,
         };
+
+        let high_level_interface_client = BoosterClient::new()?;
 
         Ok(Self {
             ids,
@@ -165,6 +175,7 @@ impl BoosterHardwareInterface {
             )
             .await?,
 
+            high_level_interface_client,
             _session: session,
             hsl_network_endpoint: keep_running
                 .clone()
@@ -355,6 +366,68 @@ impl RecordingInterface for BoosterHardwareInterface {
 impl SimulatorInterface for BoosterHardwareInterface {
     fn is_simulation(&self) -> Result<bool> {
         Ok(false)
+    }
+}
+
+impl HighLevelInterface for BoosterHardwareInterface {
+    fn change_mode(&self, mode: RobotMode) -> Result<()> {
+        self.run_until_cancelled(self.high_level_interface_client.change_mode(mode))?
+            .wrap_err("failed to send change mode command")
+    }
+
+    fn get_mode(&self) -> Result<GetModeResponse> {
+        self.run_until_cancelled(self.high_level_interface_client.get_mode())?
+            .wrap_err("failed to send get mode request")
+    }
+
+    fn move_robot(&self, step: Step) -> Result<()> {
+        self.run_until_cancelled(self.high_level_interface_client.move_robot(
+            step.forward,
+            step.left,
+            step.turn,
+        ))?
+        .wrap_err("failed to send move robot command")
+    }
+
+    fn rotate_head(&self, head_joints: HeadJoints<f32>) -> Result<()> {
+        self.run_until_cancelled(
+            self.high_level_interface_client
+                .rotate_head(head_joints.pitch, head_joints.yaw),
+        )?
+        .wrap_err("failed to send rotate head command")
+    }
+
+    fn rotate_head_with_direction(&self, head_joints: HeadJoints<i32>) -> Result<()> {
+        self.run_until_cancelled(
+            self.high_level_interface_client
+                .rotate_head_with_direction(head_joints.pitch, head_joints.yaw),
+        )?
+        .wrap_err("failed to send rotate head with direction command")
+    }
+
+    fn lie_down(&self) -> Result<()> {
+        self.run_until_cancelled(self.high_level_interface_client.lie_down())?
+            .wrap_err("failed to send lie down command")
+    }
+
+    fn get_up(&self) -> Result<()> {
+        self.run_until_cancelled(self.high_level_interface_client.get_up())?
+            .wrap_err("failed to send get up command")
+    }
+
+    fn get_up_with_mode(&self, mode: RobotMode) -> Result<()> {
+        self.run_until_cancelled(self.high_level_interface_client.get_up_with_mode(mode))?
+            .wrap_err("failed to send get up with mode command")
+    }
+
+    fn enter_wbc_gait(&self) -> Result<()> {
+        self.run_until_cancelled(self.high_level_interface_client.enter_wbc_gait())?
+            .wrap_err("failed to send enter wbc gait command")
+    }
+
+    fn exit_wbc_gait(&self) -> Result<()> {
+        self.run_until_cancelled(self.high_level_interface_client.exit_wbc_gait())?
+            .wrap_err("failed to send exit wbc gait command")
     }
 }
 
