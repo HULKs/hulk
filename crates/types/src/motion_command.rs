@@ -68,13 +68,9 @@ pub enum MotionCommand {
     FallProtection {
         direction: FallingDirection,
     },
-    Initial {
-        head: HeadMotion,
-    },
     Jump {
         direction: JumpDirection,
     },
-    Penalized,
     SitDown {
         head: HeadMotion,
     },
