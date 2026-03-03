@@ -85,12 +85,7 @@ impl Layer<Field> for BehaviorSimulator {
                 .get_last_value()
                 .wrap_err("role")?
             {
-                Some(
-                    Role::DefenderLeft
-                    | Role::DefenderRight
-                    | Role::MidfielderLeft
-                    | Role::MidfielderRight,
-                ) => Color32::BLUE,
+                Some(Role::Defender | Role::Midfielder) => Color32::BLUE,
                 Some(Role::Keeper | Role::ReplacementKeeper) => Color32::YELLOW,
                 Some(Role::Loser) => Color32::BLACK,
                 Some(Role::Searcher) => Color32::WHITE,
