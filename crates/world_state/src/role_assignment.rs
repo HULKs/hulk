@@ -106,7 +106,7 @@ impl RoleAssignment {
             PlayerNumber::One => Some(Role::Keeper),
             PlayerNumber::Two => context.optional_roles.get(0).copied(),
             PlayerNumber::Three => Some(Role::Striker),
-            PlayerNumber::Four => context.optional_roles.get(4).copied(),
+            PlayerNumber::Four => context.optional_roles.get(1).copied(),
             PlayerNumber::Five => context.optional_roles.get(2).copied(),
         }
         .unwrap_or(Role::Striker);
@@ -231,7 +231,7 @@ impl RoleAssignment {
                 one: Some(Role::Keeper),
                 two: context.optional_roles.get(0).copied(),
                 three: Some(Role::Striker),
-                four: context.optional_roles.get(4).copied(),
+                four: context.optional_roles.get(1).copied(),
                 five: context.optional_roles.get(2).copied(),
             }
             .map(|role| role.unwrap_or(Role::Striker));
