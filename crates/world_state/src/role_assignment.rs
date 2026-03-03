@@ -4,6 +4,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
+use booster::FallDownState;
 use color_eyre::{
     eyre::{OptionExt, WrapErr},
     Result,
@@ -69,6 +70,7 @@ pub struct CycleContext {
     game_controller_address: Input<Option<SocketAddr>, "game_controller_address?">,
     time_to_reach_kick_position: Input<Option<Duration>, "time_to_reach_kick_position?">,
     team_ball: Input<Option<BallPosition<Field>>, "team_ball?">,
+    fall_down_state: PerceptionInput<Option<FallDownState>, "FallDownState", "fall_down_state?">,
 
     //field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     forced_role: Parameter<Option<Role>, "role_assignment.forced_role?">,
@@ -405,7 +407,22 @@ impl RoleAssignment {
                 *address,
                 GameControllerReturnMessage {
                     player_number: *context.player_number,
-                    fallen: false, //TODO: get fallen state from somewhere
+                    fallen: context
+                        .fall_down_state
+                        .persistent
+                        .iter()
+                        .flat_map(|(_, messages)| messages.iter())
+                        .any(|message| {
+                            matches!(
+                                message,
+                                Some(FallDownState {
+                                    fall_down_state: booster::FallDownStateType::IsFalling
+                                        | booster::FallDownStateType::HasFallen
+                                        | booster::FallDownStateType::IsGettingUp,
+                                    ..
+                                })
+                            )
+                        }),
                     pose: ground_to_field.as_pose(),
                     ball: seen_ball_to_game_controller_ball_position(
                         context.ball_position,
