@@ -389,11 +389,10 @@
       "yaw": 2.0,
       "pitch": 0.8
     },
-    "outer_maximum_pitch": 0.5,
-    "inner_maximum_pitch": 0.4,
-    "outer_minimum_pitch": -0.5,
-    "inner_minimum_pitch": -0.4,
-    "outer_yaw": 0,
+    "maximum_pitch": 1.0,
+    "minimum_pitch": -0.3,
+    "maximum_yaw": 0.785,
+    "minimum_yaw": -0.785,
     "injected_head_joints": null
   },
   "recorded_primary_states": ["Ready", "Set", "Playing"],
