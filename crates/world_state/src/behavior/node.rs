@@ -5,8 +5,11 @@ use context_attribute::context;
 use coordinate_systems::Ground;
 use framework::{AdditionalOutput, MainOutput};
 use types::{
-    action::Action, ball_position::BallPosition, motion_command::MotionCommand,
-    parameters::{RemoteControlParameters, WalkWithVelocityParameters}, world_state::WorldState,
+    action::Action,
+    ball_position::BallPosition,
+    motion_command::MotionCommand,
+    parameters::{RemoteControlParameters, WalkWithVelocityParameters},
+    world_state::WorldState,
 };
 
 use crate::behavior::{finish, initial, look_around, penalize, safe, stand_up, walk_to_ball};
@@ -19,16 +22,16 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    active_action_output: AdditionalOutput<Action, "active_action">,
     ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
-    walk_with_velocity_parameter:
-        Parameter<WalkWithVelocityParameters, "behavior.walk_with_velocity">,
+    world_state: Input<WorldState, "world_state">,
+    
     remote_control_parameters: Parameter<RemoteControlParameters, "behavior.remote_control">,
-
+    walk_with_velocity_parameter:
+    Parameter<WalkWithVelocityParameters, "behavior.walk_with_velocity">,
+    
     active_action_output: AdditionalOutput<Action, "active_action">,
 
     last_motion_command: CyclerState<MotionCommand, "last_motion_command">,
-    world_state: Input<WorldState, "world_state">,
 }
 
 #[context]
