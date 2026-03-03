@@ -50,7 +50,15 @@ impl Behavior {
         let world_state = context.world_state;
 
         #[allow(clippy::useless_vec, unused_mut)]
-        let mut actions = vec![Action::WalkToBall];
+        let mut actions = vec![
+            Action::Safe,
+            Action::FinishPose,
+            Action::Penalize,
+            Action::Initial,
+            Action::StandUp,
+            Action::StandAtPenaltyKick,
+            Action::WalkToBall,
+        ];
 
         if context.remote_control_parameters.enable {
             actions.insert(0, Action::RemoteControl);
