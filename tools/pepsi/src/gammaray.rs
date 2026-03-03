@@ -147,7 +147,7 @@ async fn gammaray_robot(
         .await?;
 
     if let Some(image_file) = image_file {
-        const REMOTE_IMAGE_PATH: &str = "/home/booster/.cache/hulk/inference-runtime.tar";
+        const REMOTE_IMAGE_PATH: &str = "/home/booster/.cache/hulk/runtime-container-image.tar";
         robot
             .rsync_with_robot()?
             .arg(image_file)
