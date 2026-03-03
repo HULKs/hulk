@@ -32,7 +32,7 @@ pub struct CycleContext {
     walk_with_velocity_parameter:
         Parameter<WalkWithVelocityParameters, "behavior.walk_with_velocity">,
 
-    active_action_output: AdditionalOutput<Action, "active_action">,
+    active_action: AdditionalOutput<Action, "active_action">,
 
     last_motion_command: CyclerState<MotionCommand, "last_motion_command">,
 }
