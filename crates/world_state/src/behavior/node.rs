@@ -8,7 +8,7 @@ use types::{
     action::Action,
     ball_position::BallPosition,
     motion_command::MotionCommand,
-    parameters::{RemoteControlParameters, WalkWithVelocityParameters},
+    parameters::{BehaviorParameters, RemoteControlParameters, WalkWithVelocityParameters},
     primary_state::PrimaryState,
     world_state::WorldState,
 };
@@ -25,9 +25,11 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
+    active_action_output: AdditionalOutput<Action, "active_action">,
     ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
     world_state: Input<WorldState, "world_state">,
 
+    parameters: Parameter<BehaviorParameters, "behavior">,
     remote_control_parameters: Parameter<RemoteControlParameters, "behavior.remote_control">,
     walk_with_velocity_parameter:
         Parameter<WalkWithVelocityParameters, "behavior.walk_with_velocity">,
@@ -50,7 +52,13 @@ impl Behavior {
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let world_state = context.world_state;
-
+        
+        if let Some(command) = &context.parameters.injected_motion_command {
+            return Ok(MainOutputs {
+                motion_command: command.clone().into(),
+            });
+        }
+        
         let mut actions = vec![
             Action::Safe,
             Action::Finish,
