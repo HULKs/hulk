@@ -1,18 +1,19 @@
+use booster_sdk::types::RobotMode;
 use color_eyre::Result;
 use context_attribute::context;
 use hardware::{HighLevelInterface, MotionRuntimeInteface, TimeInterface};
 use serde::{Deserialize, Serialize};
-use types::{motion_command::MotionCommand, motion_runtime::MotionRuntime, step::Step};
+use types::{motion_runtime::MotionRuntime, primary_state::PrimaryState};
 
 #[derive(Deserialize, Serialize)]
-pub struct BoosterWalking {}
+pub struct BoosterModeHandler {}
 
 #[context]
 pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    motion_command: Input<MotionCommand, "WorldState", "motion_command">,
+    primary_state: Input<PrimaryState, "primary_state">,
 
     hardware_interface: HardwareInterface,
 }
@@ -21,7 +22,7 @@ pub struct CycleContext {
 #[derive(Default)]
 pub struct MainOutputs {}
 
-impl BoosterWalking {
+impl BoosterModeHandler {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {})
     }
@@ -37,18 +38,19 @@ impl BoosterWalking {
             return Ok(MainOutputs {});
         }
 
-        #[allow(clippy::single_match)]
-        match context.motion_command {
-            MotionCommand::WalkWithVelocity {
-                velocity,
-                angular_velocity,
-                ..
-            } => context.hardware_interface.move_robot(Step {
-                forward: velocity.x(),
-                left: velocity.y(),
-                turn: *angular_velocity,
-            })?,
-            _ => (),
+        match context.primary_state {
+            PrimaryState::Safe
+            | PrimaryState::Stop
+            | PrimaryState::Penalized
+            | PrimaryState::Initial
+            | PrimaryState::Set
+            | PrimaryState::Finished => {
+                context.hardware_interface.change_mode(RobotMode::Prepare)?
+            }
+            PrimaryState::Ready | PrimaryState::Playing => {
+                context.hardware_interface.change_mode(RobotMode::Walking)?;
+                context.hardware_interface.enter_wbc_gait()?
+            }
         };
 
         Ok(MainOutputs {})

@@ -12381,6 +12381,7 @@ dependencies = [
  "approx 0.5.1",
  "ball_filter",
  "booster",
+ "booster_sdk",
  "color-eyre",
  "context_attribute",
  "coordinate_systems",

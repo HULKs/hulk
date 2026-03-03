@@ -1,8 +1,9 @@
 use color_eyre::Result;
 use context_attribute::context;
 use hardware::{HighLevelInterface, MotionRuntimeInteface, TimeInterface};
+use kinematics::joints::head::HeadJoints;
 use serde::{Deserialize, Serialize};
-use types::{joints::head::HeadJoints, motion_runtime::MotionRuntime};
+use types::motion_runtime::MotionRuntime;
 
 #[derive(Deserialize, Serialize)]
 pub struct RotateHead {}
