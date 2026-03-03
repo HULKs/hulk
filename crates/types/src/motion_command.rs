@@ -4,11 +4,7 @@ use coordinate_systems::Ground;
 use linear_algebra::{Orientation2, Point2, Vector2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
-use crate::{
-    fall_state::{FallenKind, FallingDirection, StandUpSpeed},
-    planned_path::Path,
-    support_foot::Side,
-};
+use crate::{fall_state::FallingDirection, planned_path::Path, support_foot::Side};
 
 #[derive(
     Clone,
@@ -72,23 +68,17 @@ pub enum MotionCommand {
     FallProtection {
         direction: FallingDirection,
     },
-    Initial {
-        head: HeadMotion,
-    },
     Jump {
         direction: JumpDirection,
     },
-    Penalized,
     SitDown {
         head: HeadMotion,
     },
     Stand {
         head: HeadMotion,
     },
-    StandUp {
-        kind: FallenKind,
-        speed: StandUpSpeed,
-    },
+    Prepare,
+    StandUp,
     KeeperMotion {
         direction: JumpDirection,
     },
@@ -128,18 +118,19 @@ impl MotionCommand {
         match self {
             MotionCommand::ArmsUpStand { head }
             | MotionCommand::SitDown { head }
-            | MotionCommand::Initial { head, .. }
             | MotionCommand::Stand { head, .. }
             | MotionCommand::Walk { head, .. }
             | MotionCommand::InWalkKick { head, .. }
             | MotionCommand::WalkWithVelocity { head, .. } => Some(*head),
-            MotionCommand::Penalized => Some(HeadMotion::ZeroAngles),
+            MotionCommand::Prepare => Some(HeadMotion::Center {
+                image_region_target: ImageRegion::Top,
+            }),
             MotionCommand::Unstiff => Some(HeadMotion::Unstiff),
             MotionCommand::Animation { stiff } => Some(HeadMotion::Animation { stiff: *stiff }),
             MotionCommand::ArmsUpSquat
             | MotionCommand::FallProtection { .. }
             | MotionCommand::Jump { .. }
-            | MotionCommand::StandUp { .. } => None,
+            | MotionCommand::StandUp => None,
             MotionCommand::KeeperMotion { .. } => None,
         }
     }

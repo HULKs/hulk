@@ -1,3 +1,9 @@
+pub mod finish;
+pub mod initial;
+pub mod look_around;
 pub mod node;
+pub mod penalize;
 pub mod remote_control;
+pub mod safe;
+pub mod stand_up;
 pub mod walk_to_ball;

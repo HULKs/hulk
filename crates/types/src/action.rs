@@ -14,6 +14,12 @@ use serde::{Deserialize, Serialize};
     Eq,
 )]
 pub enum Action {
+    Finish,
+    Initial,
+    LookAround,
+    Penalize,
+    Safe,
+    StandUp,
     WalkToBall,
     RemoteControl,
 }
