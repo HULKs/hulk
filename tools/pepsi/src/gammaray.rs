@@ -140,25 +140,26 @@ async fn gammaray_robot(
         .rsync_with_log("uploading service files", &progress_bar)
         .await?;
 
-    if let Some(image_file) = image_file {
-        robot
-            .rsync_with_robot()?
-            .arg(image_file)
-            .arg(format!("{}:rust-trt-inference-image.tar", robot.address))
-            .rsync_with_log("uploading podman image", &progress_bar)
-            .await?;
-        robot
-            .ssh_to_robot()?
-            .arg("sudo podman load -i rust-trt-inference-image.tar")
-            .ssh_with_log("loading podman image", &progress_bar)
-            .await?;
-    }
-
     robot
         .ssh_to_robot()?
         .arg("mkdir -p /home/booster/.cache/hulk/tensor-rt/")
         .ssh_with_log("creating tensorrt cache directory", &progress_bar)
         .await?;
+
+    if let Some(image_file) = image_file {
+        const REMOTE_IMAGE_PATH: &str = "/home/booster/.cache/hulk/inference-runtime.tar";
+        robot
+            .rsync_with_robot()?
+            .arg(image_file)
+            .arg(format!("{}:{REMOTE_IMAGE_PATH}", robot.address))
+            .rsync_with_log("uploading podman image", &progress_bar)
+            .await?;
+        robot
+            .ssh_to_robot()?
+            .arg(format!("sudo podman load -i {REMOTE_IMAGE_PATH}"))
+            .ssh_with_log("loading podman image", &progress_bar)
+            .await?;
+    }
 
     progress_bar.set_message("Waiting for zenoh bridge to finish building");
     if !zenoh_bridge_status
