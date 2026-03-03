@@ -77,7 +77,6 @@ impl Behavior {
                     Action::Finish => finish::execute(world_state),
                     Action::StandUp => stand_up::execute(world_state),
                     Action::LookAround => look_around::execute(world_state),
-
                     Action::RemoteControl => {
                         remote_control::execute(context.remote_control_parameters)
                     }
@@ -89,7 +88,7 @@ impl Behavior {
                 Some((action, motion_command))
             })
             .unwrap_or_else(|| panic!("there has to be at least one action available",));
-        context.active_action_output.fill_if_subscribed(|| *action);
+        context.active_action.fill_if_subscribed(|| *action);
 
         *context.last_motion_command = motion_command.clone();
 
