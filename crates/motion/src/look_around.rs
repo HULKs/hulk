@@ -6,14 +6,11 @@ use framework::{AdditionalOutput, MainOutput};
 use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime,
-    field_dimensions::GlobalFieldSide,
-    filtered_game_controller_state::FilteredGameControllerState,
     initial_look_around::{
         BallSearchLookAround, InitialLookAround, LookAroundMode, QuickLookAround,
     },
     joints::head::HeadJoints,
     motion_command::{HeadMotion, MotionCommand},
-    motion_selection::MotionSelection,
     parameters::LookAroundParameters,
     support_foot::Side,
 };
@@ -31,11 +28,7 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     config: Parameter<LookAroundParameters, "look_around">,
-
-    filtered_game_controller_state:
-        Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
-    motion_command: Input<MotionCommand, "motion_command">,
-    motion_selection: Input<MotionSelection, "motion_selection">,
+    motion_command: Input<MotionCommand, "selected_motion_command">,
     cycle_time: Input<CycleTime, "cycle_time">,
     current_mode: AdditionalOutput<LookAroundMode, "look_around_mode">,
 }
@@ -43,7 +36,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub look_around: MainOutput<HeadJoints<f32>>,
+    pub look_around_target_joints: MainOutput<HeadJoints<f32>>,
 }
 
 impl LookAround {
@@ -56,28 +49,17 @@ impl LookAround {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        if self.last_head_motion != context.motion_command.head_motion()
-            || context.motion_selection.dispatching_motion.is_some()
-        {
+        if self.last_head_motion != context.motion_command.head_motion() {
             self.last_mode_switch = context.cycle_time.start_time;
             self.current_mode = match context.motion_command.head_motion() {
-                Some(HeadMotion::LookAround) => context.filtered_game_controller_state.map_or(
-                    LookAroundMode::Initial(Default::default()),
-                    |filtered_game_controller_state| {
-                        if filtered_game_controller_state.global_field_side == GlobalFieldSide::Home
-                        {
-                            LookAroundMode::Initial(InitialLookAround::Left)
-                        } else {
-                            LookAroundMode::Initial(InitialLookAround::Right)
-                        }
-                    },
-                ),
                 Some(HeadMotion::SearchForLostBall) => {
-                    LookAroundMode::QuickSearch(Default::default())
+                    LookAroundMode::BallSearch(Default::default())
                 }
+                Some(HeadMotion::LookAround) => LookAroundMode::QuickSearch(Default::default()),
                 _ => LookAroundMode::Center,
             };
         }
+
         self.last_head_motion = context.motion_command.head_motion();
 
         match context.motion_command.head_motion() {
@@ -91,18 +73,13 @@ impl LookAround {
                 context.cycle_time.start_time,
                 context.config.quick_search_timeout,
             ),
-            Some(HeadMotion::ZeroAngles) => {
-                return Ok(MainOutputs {
-                    look_around: HeadJoints::fill(0.0).into(),
-                })
-            }
             _ => {
                 self.current_mode = LookAroundMode::Center;
                 context
                     .current_mode
                     .fill_if_subscribed(|| self.current_mode);
                 return Ok(MainOutputs {
-                    look_around: context.config.middle_positions.into(),
+                    look_around_target_joints: HeadJoints::fill(0.0).into(),
                 });
             }
         }
@@ -128,7 +105,7 @@ impl LookAround {
         };
 
         Ok(MainOutputs {
-            look_around: request.into(),
+            look_around_target_joints: request.into(),
         })
     }
 

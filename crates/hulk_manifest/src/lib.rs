@@ -31,6 +31,7 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
                     "motion::command_sender",
                     "motion::booster_walking",
                     "motion::look_at",
+                    "motion::look_around",
                     "motion::head_motion",
                     "motion::motor_commands_collector",
                 ],
