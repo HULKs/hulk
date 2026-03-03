@@ -39,6 +39,7 @@ pub struct WhistleDetectionParameters {
 )]
 pub struct BehaviorParameters {
     pub injected_motion_command: Option<MotionCommand>,
+    pub remote_control: RemoteControlParameters,
     pub walk_with_velocity: WalkWithVelocityParameters,
 }
 

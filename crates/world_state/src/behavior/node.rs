@@ -66,7 +66,7 @@ impl Behavior {
             Action::StandUp,
         ];
 
-        if context.remote_control_parameters.enable {
+        if context.parameters.remote_control.enable {
             actions.insert(0, Action::RemoteControl);
         }
 
@@ -89,7 +89,7 @@ impl Behavior {
                     }
                     Action::WalkToBall => walk_to_ball::execute(
                         context.ball_position.copied(),
-                        context.walk_with_velocity_parameter.clone(),
+                        context.parameters.walk_with_velocity.clone(),
                     ),
                 }?;
                 Some((action, motion_command))
