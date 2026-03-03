@@ -314,9 +314,9 @@
     "injected_motion_command": null,
     "optional_roles": [
       "DefenderLeft",
-      "DefenderRight",
-      "StrikerSupporter",
       "MidfielderRight",
+      "StrikerSupporter",
+      "DefenderRight",
       "MidfielderLeft"
     ],
     "walk_with_velocity": {
