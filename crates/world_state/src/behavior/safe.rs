@@ -6,11 +6,7 @@ use types::{
 
 pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
     match world_state.robot.primary_state {
-        PrimaryState::Safe => Some(MotionCommand::Prepare {
-            head: HeadMotion::Center {
-                image_region_target: ImageRegion::Top,
-            },
-        }),
+        PrimaryState::Safe => Some(MotionCommand::Prepare),
         _ => None,
     }
 }
