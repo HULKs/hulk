@@ -14,8 +14,9 @@ use booster_sdk::types::{GetModeResponse, RobotMode};
 use color_eyre::{eyre::Result, install};
 use hardware::{
     ActuatorInterface, CameraInterface, HighLevelInterface, IdInterface, LowCommandInterface,
-    LowStateInterface, MicrophoneInterface, NetworkInterface, PathsInterface, RecordingInterface,
-    SensorInterface, SimulatorInterface, SpeakerInterface, TimeInterface,
+    LowStateInterface, MicrophoneInterface, MotionRuntimeInteface, NetworkInterface,
+    PathsInterface, RecordingInterface, SensorInterface, SimulatorInterface, SpeakerInterface,
+    TimeInterface,
 };
 use hula_types::hardware::{Ids, Paths};
 use kinematics::joints::{Joints, head::HeadJoints};
@@ -25,6 +26,7 @@ use types::{
     audio::SpeakerRequest,
     led::Leds,
     messages::{IncomingMessage, OutgoingMessage},
+    motion_runtime::MotionRuntime,
     samples::Samples,
     sensor_data::SensorData,
     step::Step,
@@ -45,6 +47,7 @@ pub trait HardwareInterface:
     + TimeInterface
     + SimulatorInterface
     + HighLevelInterface
+    + MotionRuntimeInteface
 {
 }
 
@@ -200,6 +203,12 @@ impl HighLevelInterface for ReplayerHardwareInterface {
     }
 
     fn exit_wbc_gait(&self) -> Result<()> {
+        unimplemented!()
+    }
+}
+
+impl MotionRuntimeInteface for ReplayerHardwareInterface {
+    fn get_motion_runtime_type(&self) -> Result<MotionRuntime> {
         unimplemented!()
     }
 }

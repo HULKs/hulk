@@ -29,9 +29,9 @@ use zenoh::{
 use booster::{ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState};
 use hardware::{
     ButtonEventMsgInterface, CameraInterface, FallDownStateInterface, HighLevelInterface,
-    IdInterface, LowCommandInterface, LowStateInterface, MicrophoneInterface, NetworkInterface,
-    PathsInterface, RecordingInterface, RemoteControllerStateInterface, SimulatorInterface,
-    SpeakerInterface, TimeInterface,
+    IdInterface, LowCommandInterface, LowStateInterface, MicrophoneInterface,
+    MotionRuntimeInteface, NetworkInterface, PathsInterface, RecordingInterface,
+    RemoteControllerStateInterface, SimulatorInterface, SpeakerInterface, TimeInterface,
 };
 use hsl_network::endpoint::{Endpoint, Ports};
 use hula_types::hardware::{Ids, Paths};
@@ -39,6 +39,7 @@ use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
 use types::{
     audio::SpeakerRequest,
     messages::{IncomingMessage, OutgoingMessage},
+    motion_runtime::MotionRuntime,
     samples::Samples,
     step::Step,
 };
@@ -428,6 +429,12 @@ impl HighLevelInterface for BoosterHardwareInterface {
     fn exit_wbc_gait(&self) -> Result<()> {
         self.run_until_cancelled(self.high_level_interface_client.exit_wbc_gait())?
             .wrap_err("failed to send exit wbc gait command")
+    }
+}
+
+impl MotionRuntimeInteface for BoosterHardwareInterface {
+    fn get_motion_runtime_type(&self) -> Result<MotionRuntime> {
+        Ok(MotionRuntime::Booster)
     }
 }
 

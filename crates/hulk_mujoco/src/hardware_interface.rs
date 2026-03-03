@@ -15,8 +15,8 @@ use color_eyre::{
 use futures_util::{SinkExt, StreamExt};
 use hardware::{
     ButtonEventMsgInterface, CameraInterface, HighLevelInterface, IdInterface, MicrophoneInterface,
-    NetworkInterface, PathsInterface, RecordingInterface, SimulatorInterface, SpeakerInterface,
-    TimeInterface, TransformMessageInterface,
+    MotionRuntimeInteface, NetworkInterface, PathsInterface, RecordingInterface,
+    SimulatorInterface, SpeakerInterface, TimeInterface, TransformMessageInterface,
 };
 use hardware::{
     FallDownStateInterface, LowCommandInterface, LowStateInterface, RemoteControllerStateInterface,
@@ -39,6 +39,7 @@ use tokio_util::sync::CancellationToken;
 use types::{
     audio::SpeakerRequest,
     messages::{IncomingMessage, OutgoingMessage},
+    motion_runtime::MotionRuntime,
     samples::Samples,
     step::Step,
 };
@@ -460,6 +461,12 @@ impl HighLevelInterface for MujocoHardwareInterface {
 
     fn exit_wbc_gait(&self) -> Result<()> {
         unimplemented!()
+    }
+}
+
+impl MotionRuntimeInteface for MujocoHardwareInterface {
+    fn get_motion_runtime_type(&self) -> Result<MotionRuntime> {
+        Ok(MotionRuntime::Hulk)
     }
 }
 

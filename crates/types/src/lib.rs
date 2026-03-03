@@ -37,6 +37,7 @@ pub mod localization;
 pub mod message_event;
 pub mod messages;
 pub mod motion_command;
+pub mod motion_runtime;
 pub mod motion_selection;
 pub mod motor_commands;
 pub mod multivariate_normal_distribution;

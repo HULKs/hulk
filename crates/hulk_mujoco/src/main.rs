@@ -9,9 +9,9 @@ use ctrlc::set_handler;
 use framework::Parameters as FrameworkParameters;
 use hardware::{
     ButtonEventMsgInterface, CameraInterface, FallDownStateInterface, HighLevelInterface,
-    IdInterface, LowCommandInterface, LowStateInterface, MicrophoneInterface, NetworkInterface,
-    PathsInterface, RecordingInterface, SimulatorInterface, SpeakerInterface, TimeInterface,
-    TransformMessageInterface,
+    IdInterface, LowCommandInterface, LowStateInterface, MicrophoneInterface,
+    MotionRuntimeInteface, NetworkInterface, PathsInterface, RecordingInterface,
+    SimulatorInterface, SpeakerInterface, TimeInterface, TransformMessageInterface,
 };
 use serde_json::from_reader;
 use tokio_util::sync::CancellationToken;
@@ -57,6 +57,7 @@ pub trait HardwareInterface:
     + TimeInterface
     + SimulatorInterface
     + HighLevelInterface
+    + MotionRuntimeInteface
 {
 }
 

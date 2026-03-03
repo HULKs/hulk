@@ -13,6 +13,7 @@ use types::{
     audio::SpeakerRequest,
     led::Leds,
     messages::{IncomingMessage, OutgoingMessage},
+    motion_runtime::MotionRuntime,
     samples::Samples,
     sensor_data::SensorData,
     step::Step,
@@ -106,4 +107,8 @@ pub trait HighLevelInterface {
     fn get_up_with_mode(&self, mode: RobotMode) -> Result<()>;
     fn enter_wbc_gait(&self) -> Result<()>;
     fn exit_wbc_gait(&self) -> Result<()>;
+}
+
+pub trait MotionRuntimeInteface {
+    fn get_motion_runtime_type(&self) -> Result<MotionRuntime>;
 }

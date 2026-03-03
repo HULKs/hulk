@@ -1,8 +1,8 @@
 use booster_sdk::types::{GetModeResponse, RobotMode};
 use hardware::{
     ActuatorInterface, HighLevelInterface, LowCommandInterface, LowStateInterface,
-    NetworkInterface, PathsInterface, RecordingInterface, SimulatorInterface, SpeakerInterface,
-    TimeInterface,
+    MotionRuntimeInteface, NetworkInterface, PathsInterface, RecordingInterface,
+    SimulatorInterface, SpeakerInterface, TimeInterface,
 };
 
 use color_eyre::eyre::Result;
@@ -13,6 +13,7 @@ use types::{
     audio::SpeakerRequest,
     led::Leds,
     messages::{IncomingMessage, OutgoingMessage},
+    motion_runtime::MotionRuntime,
     step::Step,
 };
 
@@ -27,6 +28,7 @@ pub trait HardwareInterface:
     + TimeInterface
     + SimulatorInterface
     + HighLevelInterface
+    + MotionRuntimeInteface
 {
 }
 
@@ -143,6 +145,12 @@ impl HighLevelInterface for ExtractorHardwareInterface {
     }
 
     fn exit_wbc_gait(&self) -> Result<()> {
+        unimplemented!()
+    }
+}
+
+impl MotionRuntimeInteface for ExtractorHardwareInterface {
+    fn get_motion_runtime_type(&self) -> Result<MotionRuntime> {
         unimplemented!()
     }
 }
