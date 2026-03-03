@@ -313,7 +313,7 @@ impl Behavior {
                 //        stand_up::execute(world_state, context.parameters.maximum_standup_attempts)
                 //    }
                 //    Action::NoGroundContact => no_ground_contact::execute(world_state),
-                    Action::LookAround => look_around::execute(world_state),
+                //  Action::LookAround => look_around::execute(world_state),
                 //    Action::KeeperMotion => defend.keeper_motion(context.keeper_motion.clone()),
                     Action::InterceptBall => intercept_ball::execute(
                         world_state,
@@ -387,11 +387,11 @@ impl Behavior {
                                 .walk_and_stand
                                 .defender_distance_to_be_aligned,
                         ),
-                    Action::Stand => stand::execute(
-                        world_state,
-                        context.field_dimensions,
-                        &context.world_state.robot.role,
-                    ),
+                    // Action::Stand => stand::execute(
+                    //     world_state,
+                    //     context.field_dimensions,
+                    //     &context.world_state.robot.role,
+                    // ),
                     Action::Dribble => dribble::execute(
                         world_state,
                         &walk_path_planner,

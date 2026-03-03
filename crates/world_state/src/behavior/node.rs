@@ -10,7 +10,8 @@ use types::{
 };
 
 use crate::behavior::{
-    finish_pose, initial, penalize, safe, stand_at_penalty_kick, stand_up, walk_to_ball,
+    finish_pose, initial, look_around, penalize, safe, stand_at_penalty_kick, stand_up,
+    walk_to_ball,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -69,6 +70,8 @@ impl Behavior {
                         context.field_dimensions,
                         &context.world_state.robot.role,
                     ),
+                    Action::LookAround => look_around::execute(world_state),
+
                     Action::WalkToBall => walk_to_ball::execute(
                         context.ball_position.copied(),
                         context.walk_with_velocity_parameter.clone(),
