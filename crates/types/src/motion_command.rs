@@ -118,7 +118,6 @@ impl MotionCommand {
         match self {
             MotionCommand::ArmsUpStand { head }
             | MotionCommand::SitDown { head }
-            | MotionCommand::Initial { head, .. }
             | MotionCommand::Stand { head, .. }
             | MotionCommand::Walk { head, .. }
             | MotionCommand::InWalkKick { head, .. }
@@ -126,7 +125,6 @@ impl MotionCommand {
             MotionCommand::Prepare => Some(HeadMotion::Center {
                 image_region_target: ImageRegion::Top,
             }),
-            MotionCommand::Penalized => Some(HeadMotion::ZeroAngles),
             MotionCommand::Unstiff => Some(HeadMotion::Unstiff),
             MotionCommand::Animation { stiff } => Some(HeadMotion::Animation { stiff: *stiff }),
             MotionCommand::ArmsUpSquat
