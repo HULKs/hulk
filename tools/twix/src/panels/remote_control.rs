@@ -35,7 +35,7 @@ impl<'a> Panel<'a> for RemotePanel {
         let (sender, receiver) = channel((Step::<f32>::default(), f64::default()));
 
         let enabled = Arc::new(AtomicBool::new(false));
-        let latest_step = nao.subscribe_value("parameters.remote_control_parameters.walk");
+        let latest_step = nao.subscribe_value("parameters.behavior.remote_control.walk");
         let gait_parameter_value = nao.subscribe_json("parameters.rl_walking.gait_frequency");
         let bg_running = Arc::new(AtomicBool::new(true));
 
@@ -193,7 +193,7 @@ fn reset(nao: &Arc<Nao>) {
 
 fn update_step(nao: &Arc<Nao>, step: Step, gait_frequency: f64) {
     nao.write(
-        "parameters.remote_control_parameters.walk",
+        "parameters.behavior.remote_control.walk",
         TextOrBinary::Text(serde_json::to_value(step).unwrap()),
     );
     nao.write(

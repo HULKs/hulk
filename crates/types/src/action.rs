@@ -15,4 +15,5 @@ use serde::{Deserialize, Serialize};
 )]
 pub enum Action {
     WalkToBall,
+    RemoteControl,
 }

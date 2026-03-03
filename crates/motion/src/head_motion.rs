@@ -29,7 +29,7 @@ pub struct CycleContext {
     look_at: Input<HeadJoints<f32>, "look_at">,
     motor_states: Input<Joints<MotorState>, "serial_motor_states">,
     cycle_time: Input<CycleTime, "cycle_time">,
-    motion_command: Input<MotionCommand, "selected_motion_command">,
+    motion_command: Input<MotionCommand, "WorldState", "motion_command">,
 }
 
 #[context]

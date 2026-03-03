@@ -31,7 +31,7 @@ pub struct CycleContext {
     camera_matrix: Input<Option<CameraMatrix>, "WorldState", "camera_matrix?">,
     cycle_time: Input<CycleTime, "cycle_time">,
     ground_to_robot: Input<Option<Isometry3<Ground, Robot>>, "WorldState", "ground_to_robot?">,
-    motion_command: Input<MotionCommand, "selected_motion_command">,
+    motion_command: Input<MotionCommand, "WorldState", "motion_command">,
     serial_motor_states: Input<Joints<MotorState>, "serial_motor_states">,
     // expected_referee_position: Input<Option<Point2<Field>>, "expected_referee_position?">,
     // world_state: Input<WorldState, "world_state">,
