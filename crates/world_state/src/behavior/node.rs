@@ -9,6 +9,7 @@ use types::{
     ball_position::BallPosition,
     motion_command::MotionCommand,
     parameters::{RemoteControlParameters, WalkWithVelocityParameters},
+    primary_state::PrimaryState,
     world_state::WorldState,
 };
 
@@ -56,11 +57,14 @@ impl Behavior {
             Action::Penalize,
             Action::Initial,
             Action::StandUp,
-            Action::WalkToBall,
         ];
 
         if context.remote_control_parameters.enable {
             actions.insert(0, Action::RemoteControl);
+        }
+
+        if world_state.robot.primary_state == PrimaryState::Playing {
+            actions.push(Action::WalkToBall);
         }
 
         let (action, motion_command) = actions

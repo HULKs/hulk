@@ -96,8 +96,7 @@ impl Widget for &mut LookAtPanel {
             let is_safe_to_override_current_motion_command = matches!(
                 current_motion_command,
                 Some(
-                    MotionCommand::Penalized
-                        | MotionCommand::Stand { .. }
+                    MotionCommand::Stand { .. }
                         | MotionCommand::Walk { .. }
                         | MotionCommand::InWalkKick { .. }
                         | MotionCommand::WalkWithVelocity { .. }
