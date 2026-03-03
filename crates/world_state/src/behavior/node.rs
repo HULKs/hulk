@@ -10,7 +10,7 @@ use types::{
 };
 
 use crate::behavior::{
-    finish_pose, initial, look_around, penalize, safe, stand_at_penalty_kick, stand_up,
+    finish_pose, initial, look_around, penalize, safe, stand_up,
     walk_to_ball,
 };
 
@@ -24,7 +24,6 @@ pub struct CreationContext {}
 pub struct CycleContext {
     active_action_output: AdditionalOutput<Action, "active_action">,
     ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
-
     walk_with_velocity_parameter:
         Parameter<WalkWithVelocityParameters, "behavior.walk_with_velocity">,
     remote_control_parameters: Parameter<RemoteControlParameters, "behavior.remote_control">,
@@ -56,7 +55,6 @@ impl Behavior {
             Action::Penalize,
             Action::Initial,
             Action::StandUp,
-            Action::StandAtPenaltyKick,
             Action::WalkToBall,
         ];
 
@@ -73,11 +71,6 @@ impl Behavior {
                     Action::Initial => initial::execute(world_state),
                     Action::FinishPose => finish_pose::execute(world_state),
                     Action::StandUp => stand_up::execute(world_state),
-                    Action::StandAtPenaltyKick => stand_at_penalty_kick::execute(
-                        world_state,
-                        context.field_dimensions,
-                        &context.world_state.robot.role,
-                    ),
                     Action::LookAround => look_around::execute(world_state),
 
                     Action::WalkToBall => walk_to_ball::execute(
