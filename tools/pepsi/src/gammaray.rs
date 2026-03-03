@@ -115,18 +115,8 @@ async fn gammaray_robot(
         bail!(r#"ID "{id}" not found in team.toml"#);
     };
     progress_bar.set_prefix(format!("[{robot} {}]", team_robot.hostname));
-    let ip = format!("10.1.{}.{}", team.team_number, team_robot.number);
 
-    const CONNECTION_NAME: &str = "Wired Connection 2";
-    const INTERFACE: &str = "eth2";
-    robot.ssh_to_robot()?.arg(format!(
-        r#"nmcli connection modify "{CONNECTION_NAME}" ipv4.addresses "{ip}/24, 192.168.10.102/24""#,
-    )).ssh_with_log("setting static IP",& progress_bar).await?;
-    robot
-        .ssh_to_robot()?
-        .arg(format!("nmcli device reapply {INTERFACE}"))
-        .ssh_with_log("applying network configuration", &progress_bar)
-        .await?;
+    set_up_static_ips(&robot, team_robot, team.team_number, &progress_bar).await?;
 
     robot
         .ssh_to_robot()?
@@ -231,6 +221,30 @@ async fn gammaray_robot(
         .await?;
 
     Ok(())
+}
+
+async fn set_up_static_ips(
+    robot: &Robot,
+    team_robot: &repository::team::Robot,
+    team_number: u8,
+    progress_bar: &ProgressBar,
+) -> Result<(), color_eyre::eyre::Error> {
+    let ethernet_ip = format!("10.1.{}.{}", team_number, team_robot.number);
+    const CONNECTION_NAME: &str = "Wired connection 2";
+    const INTERFACE: &str = "enP9p1s0";
+
+    robot.ssh_to_robot()?.arg(format!(
+        // Set the new IP but preserve the 192.168.10.102 which is necessary for services on the
+        // robot to work
+        r#"sudo nmcli connection modify "{CONNECTION_NAME}" ipv4.addresses "{ethernet_ip}/24, 192.168.10.102/24""#,
+    )).ssh_with_log("setting static IP", progress_bar).await?;
+
+    robot
+        .ssh_to_robot()?
+        // Unlike up/down-ing the connection, reapply doesn't break existing connections
+        .arg(format!("sudo nmcli device reapply {INTERFACE}"))
+        .ssh_with_log("applying network configuration", progress_bar)
+        .await
 }
 
 trait CommandExt {
@@ -342,4 +356,33 @@ async fn build_bridge(
     zenoh_bridge_status_sender.send(Some(true)).unwrap();
 
     Ok(())
+}
+
+fn generate_nmconnection(ssid: &str, password: &str, last_ip_octet: &str) -> String {
+    format!(
+        "[connection]
+id={ssid}
+uuid=bedbefad-1540-43bd-88b6-55bf5f4765a0
+type=wifi
+interface-name=wlP1p1s0
+
+[wifi]
+mode=infrastructure
+ssid={ssid}
+
+[wifi-security]
+auth-alg=open
+key-mgmt=wpa-psk
+psk={password}
+
+[ipv4]
+address1=10.0.24.{last_ip_octet}/24
+method=manual
+
+[ipv6]
+method=disabled
+
+[proxy]
+"
+    )
 }
