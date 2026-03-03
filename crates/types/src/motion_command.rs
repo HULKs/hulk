@@ -5,7 +5,7 @@ use linear_algebra::{Orientation2, Point2, Vector2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{
-    fall_state::{FallenKind, FallingDirection, StandUpSpeed},
+    fall_state::FallingDirection,
     planned_path::Path,
     support_foot::Side,
 };
@@ -85,7 +85,7 @@ pub enum MotionCommand {
     Stand {
         head: HeadMotion,
     },
-    BoosterStand {
+    Prepare {
         head: HeadMotion,
     },
     StandUp,
@@ -130,7 +130,7 @@ impl MotionCommand {
             | MotionCommand::SitDown { head }
             | MotionCommand::Initial { head, .. }
             | MotionCommand::Stand { head, .. }
-            | MotionCommand::BoosterStand { head, .. }
+            | MotionCommand::Prepare { head, .. }
             | MotionCommand::Walk { head, .. }
             | MotionCommand::InWalkKick { head, .. }
             | MotionCommand::WalkWithVelocity { head, .. } => Some(*head),
@@ -140,7 +140,7 @@ impl MotionCommand {
             MotionCommand::ArmsUpSquat
             | MotionCommand::FallProtection { .. }
             | MotionCommand::Jump { .. }
-            | MotionCommand::StandUp { .. } => None,
+            | MotionCommand::StandUp => None,
             MotionCommand::KeeperMotion { .. } => None,
         }
     }

@@ -9,7 +9,7 @@ pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
         return None;
     }
 
-    Some(MotionCommand::BoosterStand {
+    Some(MotionCommand::Prepare {
         head: HeadMotion::Center {
             image_region_target: ImageRegion::Top,
         },
