@@ -95,14 +95,19 @@ impl WalkingInference {
         walking_parameters: &RLWalkingParameters,
         motor_command_parameters: &MotorCommandParameters,
     ) -> Result<(WalkingInferenceInputs, Joints)> {
-        let walking_inference_inputs = self.calculate_inputs(
+        let Ok(walking_inference_inputs) = self.calculate_inputs(
             cycle_time,
             motion_command,
             imu_state,
             current_serial_joints,
             walking_parameters,
             motor_command_parameters,
-        )?;
+        ) else {
+            return Ok((
+                WalkingInferenceInputs::default(),
+                motor_command_parameters.default_positions,
+            ));
+        };
 
         let inputs: Array1<f32> = walking_inference_inputs.as_vec().into();
 
