@@ -74,19 +74,6 @@ impl ButtonEventHandler {
             });
         }
 
-        let Some(button_event) = context
-            .maybe_button_event
-            .persistent
-            .into_iter()
-            .flat_map(|(_time, info)| info)
-            .last()
-            .flatten()
-        else {
-            return Ok(MainOutputs {
-                buttons: None.into(),
-            });
-        };
-
         let imu_state = context
             .imu_state
             .persistent
@@ -132,6 +119,19 @@ impl ButtonEventHandler {
             .fill_if_subscribed(|| {
                 imu_state.angular_velocity - context.prep_mode_imu_state.angular_velocity
             });
+
+        let Some(button_event) = context
+            .maybe_button_event
+            .persistent
+            .into_iter()
+            .flat_map(|(_time, info)| info)
+            .last()
+            .flatten()
+        else {
+            return Ok(MainOutputs {
+                buttons: None.into(),
+            });
+        };
 
         let motor_states_are_safe = motor_states_are_safe(
             &serial_motor_states,
