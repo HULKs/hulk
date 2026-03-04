@@ -1,4 +1,6 @@
+pub mod defend;
 pub mod finish;
+pub mod head;
 pub mod initial;
 pub mod look_around;
 pub mod node;

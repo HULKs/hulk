@@ -1,6 +1,6 @@
 use color_eyre::Result;
 use coordinate_systems::{Field, Ground};
-use linear_algebra::Isometry2;
+use linear_algebra::{Isometry2, Point2};
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
@@ -24,6 +24,7 @@ pub struct CycleContext {
     // instant_kick_decisions: Input<Option<Vec<KickDecision>>, "instant_kick_decisions?">,
     // kick_decisions: Input<Option<Vec<KickDecision>>, "kick_decisions?">,
     // obstacles: Input<Vec<Obstacle>, "obstacles">,
+    position_of_interest: Input<Point2<Ground>, "position_of_interest">,
     primary_state: Input<PrimaryState, "primary_state">,
     role: Input<Role, "role">,
     rule_ball: Input<Option<BallState>, "rule_ball_state?">,
@@ -57,6 +58,7 @@ impl WorldStateComposer {
             kick_decisions: Default::default(),
             //obstacles: context.obstacles.clone(),
             obstacles: Default::default(),
+            position_of_interest: *context.position_of_interest,
             robot,
             rule_ball: context.rule_ball.copied(),
             // rule_obstacles: context.rule_obstacles.clone(),
