@@ -105,4 +105,5 @@ impl BallState {
 pub struct RobotState {
     pub ground_to_field: Option<Isometry2<Ground, Field>>,
     pub primary_state: PrimaryState,
+    pub role: Role,
 }

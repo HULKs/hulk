@@ -5,13 +5,12 @@ use context_attribute::context;
 use coordinate_systems::Ground;
 use framework::{AdditionalOutput, MainOutput};
 use types::{
-    action::Action, ball_position::BallPosition, motion_command::MotionCommand,
-    parameters::BehaviorParameters, primary_state::PrimaryState, world_state::WorldState,
+    action::Action, ball_position::BallPosition, field_dimensions::FieldDimensions, motion_command::MotionCommand, parameters::BehaviorParameters, primary_state::PrimaryState, world_state::WorldState
 };
 
 use crate::behavior::{
-    finish, initial, look_around, penalize, remote_control, safe, stand_up, stop, visual_kick,
-    walk_to_ball,
+    finish, initial, look_around, penalize, remote_control, safe, stand_during_penalty_kick,
+    stand_up, walk_to_ball, stop
 };
 
 #[derive(Deserialize, Serialize)]
@@ -25,6 +24,7 @@ pub struct CycleContext {
     ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
     world_state: Input<WorldState, "world_state">,
 
+    field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     parameters: Parameter<BehaviorParameters, "behavior">,
 
     active_action: AdditionalOutput<Action, "active_action">,
@@ -79,9 +79,17 @@ impl Behavior {
                     Action::Finish => finish::execute(world_state),
                     Action::StandUp => stand_up::execute(world_state),
                     Action::LookAround => look_around::execute(world_state),
+
                     Action::RemoteControl => {
                         remote_control::execute(&context.parameters.remote_control)
                     }
+
+                    Action::StandDuringPenaltyKick => stand_during_penalty_kick::execute(
+                        world_state,
+                        context.field_dimensions,
+                        &context.world_state.robot.role,
+                    ),
+
                     Action::WalkToBall => walk_to_ball::execute(
                         context.ball_position.copied(),
                         context.parameters.walk_with_velocity.clone(),
