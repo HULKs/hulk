@@ -93,7 +93,7 @@ impl Robot {
     pub async fn get_os_version(&self) -> Result<String> {
         let output = self
             .ssh_to_robot()?
-            .arg("cat /etc/os-release")
+            .arg("cat /opt/booster/version.txt")
             .output()
             .await
             .wrap_err("failed to execute cat ssh command")?;
@@ -546,15 +546,17 @@ impl Display for Network {
 
 fn extract_version_number(input: &str) -> Option<String> {
     let lines = input.lines();
+    let mut last_installed_version = None;
     for line in lines {
-        if line.contains("VERSION_ID") {
-            let Some((_, os_version)) = line.split_once('=') else {
+        if line.contains("Version: ") {
+            let Some((_, os_version)) = line.split_once(": ") else {
                 continue;
             };
-            return Some(os_version.to_string());
+            last_installed_version = Some(os_version.to_string());
         }
     }
-    None
+
+    last_installed_version
 }
 
 #[cfg(test)]
