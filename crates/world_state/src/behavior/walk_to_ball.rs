@@ -33,7 +33,7 @@ pub fn execute(
             }
         }
         None => MotionCommand::Stand {
-            head: HeadMotion::LookAround,
+            head: HeadMotion::SearchForLostBall,
         },
     };
     Some(next_motion_command)

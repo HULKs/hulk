@@ -6,6 +6,8 @@ use framework::{AdditionalOutput, MainOutput};
 use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime,
+    field_dimensions::GlobalFieldSide,
+    filtered_game_controller_state::FilteredGameControllerState,
     initial_look_around::{
         BallSearchLookAround, InitialLookAround, LookAroundMode, QuickLookAround,
     },
@@ -28,9 +30,11 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     config: Parameter<LookAroundParameters, "look_around">,
-    motion_command: Input<MotionCommand, "selected_motion_command">,
+    motion_command: Input<MotionCommand, "WorldState", "motion_command">,
     cycle_time: Input<CycleTime, "cycle_time">,
     current_mode: AdditionalOutput<LookAroundMode, "look_around_mode">,
+    filtered_game_controller_state:
+        Input<Option<FilteredGameControllerState>, "WorldState", "filtered_game_controller_state?">,
 }
 
 #[context]
@@ -52,10 +56,20 @@ impl LookAround {
         if self.last_head_motion != context.motion_command.head_motion() {
             self.last_mode_switch = context.cycle_time.start_time;
             self.current_mode = match context.motion_command.head_motion() {
+                Some(HeadMotion::LookAround) => context.filtered_game_controller_state.map_or(
+                    LookAroundMode::Initial(Default::default()),
+                    |filtered_game_controller_state| {
+                        if filtered_game_controller_state.global_field_side == GlobalFieldSide::Home
+                        {
+                            LookAroundMode::Initial(InitialLookAround::Left)
+                        } else {
+                            LookAroundMode::Initial(InitialLookAround::Right)
+                        }
+                    },
+                ),
                 Some(HeadMotion::SearchForLostBall) => {
-                    LookAroundMode::BallSearch(Default::default())
+                    LookAroundMode::QuickSearch(Default::default())
                 }
-                Some(HeadMotion::LookAround) => LookAroundMode::QuickSearch(Default::default()),
                 _ => LookAroundMode::Center,
             };
         }
@@ -79,7 +93,7 @@ impl LookAround {
                     .current_mode
                     .fill_if_subscribed(|| self.current_mode);
                 return Ok(MainOutputs {
-                    look_around_target_joints: HeadJoints::fill(0.0).into(),
+                    look_around_target_joints: context.config.middle_positions.into(),
                 });
             }
         }
