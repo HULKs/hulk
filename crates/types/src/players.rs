@@ -161,7 +161,7 @@ impl<'a, T> Iterator for PlayersIterator<'a, T> {
             Some(PlayerNumber::Five) => 0,
             None => 5,
         };
-        let remaining = 7usize.saturating_sub(consumed_forward + consumed_back);
+        let remaining = 5usize.saturating_sub(consumed_forward + consumed_back);
         (remaining, Some(remaining))
     }
 }
@@ -204,10 +204,6 @@ mod test {
         let players = Players::<i32>::default();
         let mut iterator = players.iter();
 
-        assert_eq!(iterator.len(), 7);
-        iterator.next();
-        assert_eq!(iterator.len(), 6);
-        iterator.next();
         assert_eq!(iterator.len(), 5);
         iterator.next();
         assert_eq!(iterator.len(), 4);
