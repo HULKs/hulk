@@ -1,6 +1,6 @@
 use std::{num::NonZeroU128, sync::Arc, time::Duration};
 
-use hulkz::{Scope, ScopedPath};
+use hulkz::TopicExpression;
 use hulkz_stream::{
     storage::Storage, NamespaceBinding, OpenMode, PlaneKind, Result, SourceSpec, StreamRecord,
 };
@@ -27,8 +27,8 @@ async fn main() -> Result<()> {
 
     let source = SourceSpec {
         plane: PlaneKind::Data,
-        path: ScopedPath::new(Scope::Local, "camera/front"),
-        node_override: None,
+        topic_expression: TopicExpression::parse("camera/front")?,
+        default_node: None,
         namespace_binding: NamespaceBinding::Pinned("robot".to_string()),
     };
 

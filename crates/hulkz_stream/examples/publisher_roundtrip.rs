@@ -4,7 +4,7 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use hulkz::{Scope, ScopedPath, Session};
+use hulkz::{Session, TopicExpression};
 use hulkz_stream::{
     NamespaceBinding, OpenMode, PlaneKind, Result, SourceHandle, SourceSpec, StreamBackendBuilder,
     StreamRecord,
@@ -32,8 +32,8 @@ async fn main() -> Result<()> {
     let source = backend
         .source(SourceSpec {
             plane: PlaneKind::View,
-            path: ScopedPath::new(Scope::Local, SOURCE_PATH),
-            node_override: None,
+            topic_expression: TopicExpression::parse(SOURCE_PATH)?,
+            default_node: None,
             namespace_binding: NamespaceBinding::Pinned(SOURCE_NAMESPACE.to_string()),
         })
         .await?;

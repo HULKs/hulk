@@ -2,7 +2,7 @@
 
 use clap::Args;
 use color_eyre::{eyre::bail, Result};
-use hulkz::{Scope, ScopedPath, Session};
+use hulkz::{Session, TopicExpression};
 use serde_json::Value;
 
 /// Arguments for the view command.
@@ -25,13 +25,14 @@ pub async fn run(namespace: &str, args: ViewArgs) -> Result<()> {
     let session = Session::create(namespace).await?;
     let node = session.create_node("hulkz-cli").build().await?;
 
-    let scoped_path: ScopedPath = args.topic.as_str().into();
-    if scoped_path.scope() == Scope::Private && args.node.is_none() {
+    let topic_expression = TopicExpression::parse(args.topic.as_str())?;
+    if topic_expression.as_str().starts_with("~/") && args.node.is_none() {
         bail!("Private topic '{}' requires --node argument", args.topic);
     }
+    topic_expression.resolve(namespace, args.node.as_deref())?;
 
     // Subscribe to view plane (JSON) for CLI introspection
-    let mut builder = node.subscribe::<Value>(scoped_path).view();
+    let mut builder = node.subscribe::<Value>(topic_expression).view();
     if let Some(node_name) = args.node.as_deref() {
         builder = builder.on_node(node_name);
     }

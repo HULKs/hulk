@@ -1,6 +1,6 @@
 use std::{collections::BTreeMap, num::NonZeroU128, sync::Arc, time::Duration};
 
-use hulkz::{Scope, ScopedPath};
+use hulkz::TopicExpression;
 use hulkz_stream::{
     storage::Storage, Error, NamespaceBinding, OpenMode, PlaneKind, SourceSpec, StreamRecord,
 };
@@ -15,8 +15,8 @@ fn ts(nanos: u64) -> hulkz::Timestamp {
 fn spec() -> SourceSpec {
     SourceSpec {
         plane: PlaneKind::Data,
-        path: ScopedPath::new(Scope::Local, "camera/front"),
-        node_override: None,
+        topic_expression: TopicExpression::parse("camera/front").unwrap(),
+        default_node: None,
         namespace_binding: NamespaceBinding::Pinned("robot".to_string()),
     }
 }
@@ -225,7 +225,7 @@ async fn load_external_mcap_best_effort() {
         let channel = writer
             .add_channel(
                 0,
-                "hulkz/data/local/robot/camera/front",
+                "hulkz/data/0/robot/camera/front",
                 "application/cdr",
                 &BTreeMap::new(),
             )
@@ -254,8 +254,7 @@ async fn load_external_mcap_best_effort() {
     assert_eq!(records.len(), 1);
     let rec = &records[0];
     assert_eq!(rec.source.plane, PlaneKind::Data);
-    assert_eq!(rec.source.path.scope(), Scope::Local);
-    assert_eq!(rec.source.path.path(), "camera/front");
+    assert_eq!(rec.source.topic_expression.as_str(), "/robot/camera/front");
 }
 
 #[tokio::test]

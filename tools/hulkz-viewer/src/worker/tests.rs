@@ -8,7 +8,7 @@ use super::streams::{
 use crate::protocol::{
     ParameterReference, ViewerConfig, WorkerCommand, WorkerEvent, WorkerEventEnvelope,
 };
-use hulkz::{ParameterInfo, PublisherInfo, Scope, Session};
+use hulkz::{ParameterInfo, PublisherInfo, Session};
 use hulkz_stream::PlaneKind;
 use serde::Serialize;
 use std::time::{Duration, SystemTime, UNIX_EPOCH};
@@ -99,34 +99,32 @@ fn non_json_payload_uses_hex_fallback_when_not_utf8() {
 #[test]
 fn parses_local_path_expression() {
     let (path, node) = parse_source_path_expression("odometry").expect("must parse");
-    assert_eq!(path.scope(), Scope::Local);
-    assert_eq!(path.path(), "odometry");
+    assert_eq!(path.as_str(), "odometry");
     assert!(node.is_none());
 }
 
 #[test]
 fn parses_global_path_expression() {
     let (path, node) = parse_source_path_expression("/fleet/topic").expect("must parse");
-    assert_eq!(path.scope(), Scope::Global);
-    assert_eq!(path.path(), "fleet/topic");
+    assert_eq!(path.as_str(), "/fleet/topic");
     assert!(node.is_none());
 }
 
 #[test]
 fn parses_private_node_override_expression() {
     let (path, node) = parse_source_path_expression("~planner/debug").expect("must parse");
-    assert_eq!(path.scope(), Scope::Private);
-    assert_eq!(path.path(), "debug");
+    assert_eq!(path.as_str(), "~/debug");
     assert_eq!(node.as_deref(), Some("planner"));
 }
 
 #[test]
 fn discovered_private_publisher_uses_node_prefixed_expression() {
     let info = PublisherInfo {
+        domain_id: 0,
+        zenoh_id: "zid".to_string(),
         namespace: "demo".to_string(),
         node: "planner".to_string(),
-        scope: Scope::Private,
-        path: "debug/topic".to_string(),
+        topic: "demo/planner/debug/topic".to_string(),
     };
     let publisher = to_discovered_publisher(info);
     assert_eq!(publisher.path_expression, "~planner/debug/topic");
@@ -135,10 +133,11 @@ fn discovered_private_publisher_uses_node_prefixed_expression() {
 #[test]
 fn discovered_global_parameter_uses_global_expression() {
     let info = ParameterInfo {
+        domain_id: 0,
+        zenoh_id: "zid".to_string(),
         namespace: "demo".to_string(),
         node: "config".to_string(),
-        scope: Scope::Global,
-        path: "fleet/id".to_string(),
+        topic: "fleet/id".to_string(),
     };
     let parameter = to_discovered_parameter(info);
     assert_eq!(parameter.path_expression, "/fleet/id");

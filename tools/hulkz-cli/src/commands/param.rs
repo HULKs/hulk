@@ -48,16 +48,11 @@ pub async fn list(namespace: &str, args: ListArgs) -> Result<()> {
         parameters.retain(|p| p.node == *node_filter);
     }
 
-    // Sort by scope (global, local, private) then by path
+    // Sort by topic, then by node for stable output.
     parameters.sort_by(|a, b| {
-        let scope_ord = |s: &hulkz::Scope| match s {
-            hulkz::Scope::Global => 0,
-            hulkz::Scope::Local => 1,
-            hulkz::Scope::Private => 2,
-        };
-        scope_ord(&a.scope)
-            .cmp(&scope_ord(&b.scope))
-            .then_with(|| a.path.cmp(&b.path))
+        a.topic
+            .cmp(&b.topic)
+            .then_with(|| a.node.cmp(&b.node))
     });
 
     if parameters.is_empty() {
@@ -66,7 +61,7 @@ pub async fn list(namespace: &str, args: ListArgs) -> Result<()> {
         println!("Parameters in namespace '{}':", namespace);
         println!();
         for param in &parameters {
-            println!("  {} (node: {})", param.display_path(), param.node);
+            println!("  {} (node: {})", param.topic, param.node);
         }
         println!();
         println!("Total: {} parameter(s)", parameters.len());

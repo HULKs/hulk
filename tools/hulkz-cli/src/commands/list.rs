@@ -44,7 +44,7 @@ pub async fn publishers(namespace: &str, node_filter: Option<&str>) -> hulkz::Re
     if display_items.is_empty() {
         println!("  (none)");
     } else {
-        println!("{:<16} {:<8} PATH", "Node", "Scope");
+        println!("{:<16} TOPIC", "Node");
         println!("{}", "-".repeat(40));
         for item in display_items {
             println!("{}", item);
@@ -78,22 +78,20 @@ pub async fn sessions(namespace: &str) -> hulkz::Result<()> {
 #[derive(Serialize)]
 struct PublisherDisplay {
     node: String,
-    scope: String,
-    path: String,
+    topic: String,
 }
 
 impl From<&PublisherInfo> for PublisherDisplay {
     fn from(info: &PublisherInfo) -> Self {
         Self {
             node: info.node.clone(),
-            scope: format!("{}", info.scope),
-            path: info.path.clone(),
+            topic: info.topic.clone(),
         }
     }
 }
 
 impl fmt::Display for PublisherDisplay {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{:<16} {:<8} {}", self.node, self.scope, self.path)
+        write!(f, "{:<16} {}", self.node, self.topic)
     }
 }

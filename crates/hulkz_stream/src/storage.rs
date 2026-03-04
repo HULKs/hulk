@@ -586,7 +586,7 @@ impl StorageState {
     fn append_record(&mut self, record: StreamRecord) -> Result<DurableStats> {
         let active = self.active_writer.as_mut().ok_or(Error::BackendClosed)?;
 
-        let topic = key_expr_for_record(&record.source, record.effective_namespace.as_deref());
+        let topic = key_expr_for_record(&record.source, record.effective_namespace.as_deref())?;
         let metadata = metadata_for_record(&record);
         let channel_key = format!(
             "{}|{}|{}",

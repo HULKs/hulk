@@ -43,14 +43,14 @@ pub async fn publishers(namespace: &str) -> Result<()> {
         match &event {
             GraphEvent::Joined(info) => {
                 println!(
-                    "Publisher advertised: namespace={} node={} scope={} path={}",
-                    info.namespace, info.node, info.scope, info.path
+                    "Publisher advertised: namespace={} node={} topic={}",
+                    info.namespace, info.node, info.topic
                 );
             }
             GraphEvent::Left(info) => {
                 println!(
-                    "Publisher unadvertised: namespace={} node={} scope={} path={}",
-                    info.namespace, info.node, info.scope, info.path
+                    "Publisher unadvertised: namespace={} node={} topic={}",
+                    info.namespace, info.node, info.topic
                 );
             }
         }

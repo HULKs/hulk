@@ -48,8 +48,7 @@ use zenoh::{bytes::Encoding, liveliness::LivelinessToken, pubsub::Publisher as Z
 use crate::{
     error::{Error, Result},
     key::{DataKey, GraphKey, ViewKey},
-    scoped_path::ScopedPath,
-    Node, Timestamp,
+    Node, Timestamp, TopicExpression,
 };
 
 /// Builder for creating a [`Publisher`].
@@ -58,7 +57,7 @@ where
     T: Serialize,
 {
     pub(crate) node: Node,
-    pub(crate) topic: ScopedPath,
+    pub(crate) topic_expression: TopicExpression,
     pub(crate) enable_view: bool,
     pub(crate) _phantom: PhantomData<T>,
 }
@@ -83,19 +82,21 @@ where
     }
 
     pub async fn build(self) -> Result<Publisher<T>> {
-        let topic = self.topic;
+        let topic_expression = self.topic_expression;
         let namespace = self.node.session().namespace();
         let node_name = self.node.name();
+        let resolved_topic = topic_expression.resolve(namespace, Some(node_name))?;
         info!(
-            scope = %topic.scope().as_str(),
-            topic = %topic.path(),
+            topic_expression = %topic_expression.as_str(),
+            resolved_topic = %resolved_topic,
             namespace = %namespace,
             node = %node_name,
             enable_view = self.enable_view,
             "building publisher",
         );
 
-        let data_key = DataKey::from_scope(topic.scope(), namespace, node_name, topic.path());
+        let domain_id = self.node.session().domain_id();
+        let data_key = DataKey::topic(domain_id, &resolved_topic);
         let publisher = self
             .node
             .session()
@@ -104,7 +105,7 @@ where
             .await?;
 
         let view_publisher = if self.enable_view {
-            let view_key = ViewKey::from_scope(topic.scope(), namespace, node_name, topic.path());
+            let view_key = ViewKey::topic(domain_id, &resolved_topic);
             Some(
                 self.node
                     .session()
@@ -117,7 +118,13 @@ where
         };
 
         // Declare liveliness token for publisher discovery
-        let liveliness_key = GraphKey::publisher(namespace, node_name, topic.scope(), topic.path());
+        let liveliness_key = GraphKey::publisher(
+            self.node.session().domain_id(),
+            self.node.session().zenoh_id(),
+            namespace,
+            node_name,
+            &resolved_topic,
+        );
         let liveliness_token = self
             .node
             .session()

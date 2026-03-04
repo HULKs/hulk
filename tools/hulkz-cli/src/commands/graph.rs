@@ -37,7 +37,7 @@ pub async fn run(namespace: &str) -> Result<()> {
         node_publishers
             .entry(pub_info.node.clone())
             .or_default()
-            .push(pub_info.display_path());
+            .push(pub_info.topic.clone());
     }
 
     let graph = NetworkGraph {

@@ -1,10 +1,10 @@
 //! Graph plane types for discovery and liveliness.
 //!
 //! The graph plane tracks network topology through liveliness tokens:
-//! - Sessions: `hulkz/graph/sessions/{namespace}/{session_id}`
-//! - Nodes: `hulkz/graph/nodes/{namespace}/{node}`
-//! - Publishers: `hulkz/graph/publishers/{namespace}/{node}/{scope}/{path}`
-//! - Parameters: `hulkz/graph/parameters/{namespace}/{node}/{scope}/{path}`
+//! - Sessions: `hulkz/graph/{domain_id}/{zenoh_id}/sessions/{namespace}/{session_id}`
+//! - Nodes: `hulkz/graph/{domain_id}/{zenoh_id}/nodes/{namespace}/{node}`
+//! - Publishers: `hulkz/graph/{domain_id}/{zenoh_id}/publishers/{namespace}/{node}/{topic_encoded}`
+//! - Parameters: `hulkz/graph/{domain_id}/{zenoh_id}/parameters/{namespace}/{node}/{topic_encoded}`
 //!
 //! # Graph Access API
 //!
@@ -46,8 +46,9 @@ use zenoh::handlers::FifoChannelHandler;
 use zenoh::sample::{Sample, SampleKind};
 
 use crate::error::Result;
-use crate::key::GraphKey;
-use crate::{Error, Scope, Session};
+use crate::key::{GraphKey, ROOT};
+use crate::topic::decode_topic_segment;
+use crate::{Error, Session};
 
 /// Event for any graph entity appearing or disappearing.
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -64,53 +65,52 @@ pub trait GraphInfo: Sized + Clone + Send + 'static {
     fn from_key(key: &str) -> Result<Self>;
 }
 
-fn split_graph_key<'a>(
-    key: &'a str,
-    entity: &str,
-    min_parts: usize,
-    exact_parts: Option<usize>,
-) -> Result<Vec<&'a str>> {
-    let parts: Vec<&str> = key.split('/').collect();
+struct ParsedGraphKey {
+    domain_id: u32,
+    zenoh_id: String,
+    tail: Vec<String>,
+}
 
-    if let Some(exact) = exact_parts {
-        if parts.len() != exact {
-            return Err(Error::GraphKeyParsing {
-                key: key.to_string(),
-                reason: format!("expected {exact} parts, found {}", parts.len()),
-            });
-        }
-    } else if parts.len() < min_parts {
+fn parse_graph_key(key: &str, entity: &str, tail_len: usize) -> Result<ParsedGraphKey> {
+    let parts: Vec<&str> = key.split('/').collect();
+    let expected_parts = 5 + tail_len;
+
+    if parts.len() != expected_parts {
         return Err(Error::GraphKeyParsing {
             key: key.to_string(),
-            reason: format!("expected at least {min_parts} parts, found {}", parts.len()),
+            reason: format!("expected {expected_parts} parts, found {}", parts.len()),
         });
     }
 
-    if parts.len() < 3 || parts[0] != "hulkz" || parts[1] != "graph" || parts[2] != entity {
+    if parts[0] != ROOT || parts[1] != "graph" || parts[4] != entity {
         return Err(Error::GraphKeyParsing {
             key: key.to_string(),
             reason: "invalid prefix".to_string(),
         });
     }
 
-    Ok(parts)
-}
-
-fn parse_scope(scope: &str, key: &str) -> Result<Scope> {
-    match scope {
-        "global" => Ok(Scope::Global),
-        "local" => Ok(Scope::Local),
-        "private" => Ok(Scope::Private),
-        _ => Err(Error::GraphKeyParsing {
+    let domain_segment = parts[2];
+    let domain_id = domain_segment
+        .parse::<u32>()
+        .map_err(|error| Error::GraphKeyParsing {
             key: key.to_string(),
-            reason: format!("invalid scope '{scope}'"),
-        }),
-    }
+            reason: format!("invalid domain id '{domain_segment}': {error}"),
+        })?;
+
+    Ok(ParsedGraphKey {
+        domain_id,
+        zenoh_id: parts[3].to_string(),
+        tail: parts[5..].iter().map(|segment| (*segment).to_string()).collect(),
+    })
 }
 
 /// Information about a discovered session.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
 pub struct SessionInfo {
+    /// ROS domain id extracted from graph key.
+    pub domain_id: u32,
+    /// Zenoh id extracted from graph key.
+    pub zenoh_id: String,
     /// The namespace this session belongs to.
     pub namespace: String,
     /// The session ID (format: `{uuid}@{hostname}`).
@@ -125,10 +125,12 @@ impl fmt::Display for SessionInfo {
 
 impl GraphInfo for SessionInfo {
     fn from_key(key: &str) -> Result<Self> {
-        let parts = split_graph_key(key, "sessions", 5, Some(5))?;
+        let parsed = parse_graph_key(key, "sessions", 2)?;
         Ok(Self {
-            namespace: parts[3].to_string(),
-            id: parts[4].to_string(),
+            domain_id: parsed.domain_id,
+            zenoh_id: parsed.zenoh_id,
+            namespace: parsed.tail[0].clone(),
+            id: parsed.tail[1].clone(),
         })
     }
 }
@@ -136,6 +138,10 @@ impl GraphInfo for SessionInfo {
 /// Information about a discovered node.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize)]
 pub struct NodeInfo {
+    /// ROS domain id extracted from graph key.
+    pub domain_id: u32,
+    /// Zenoh id extracted from graph key.
+    pub zenoh_id: String,
     /// The namespace this node belongs to.
     pub namespace: String,
     /// The node name.
@@ -150,10 +156,12 @@ impl fmt::Display for NodeInfo {
 
 impl GraphInfo for NodeInfo {
     fn from_key(key: &str) -> Result<Self> {
-        let parts = split_graph_key(key, "nodes", 5, Some(5))?;
+        let parsed = parse_graph_key(key, "nodes", 2)?;
         Ok(Self {
-            namespace: parts[3].to_string(),
-            name: parts[4].to_string(),
+            domain_id: parsed.domain_id,
+            zenoh_id: parsed.zenoh_id,
+            namespace: parsed.tail[0].clone(),
+            name: parsed.tail[1].clone(),
         })
     }
 }
@@ -161,84 +169,60 @@ impl GraphInfo for NodeInfo {
 /// Information about a discovered publisher.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct PublisherInfo {
+    /// ROS domain id extracted from graph key.
+    pub domain_id: u32,
+    /// Zenoh id extracted from graph key.
+    pub zenoh_id: String,
     /// The namespace this publisher belongs to.
     pub namespace: String,
     /// The node name that owns this publisher.
     pub node: String,
-    /// The scope of the published topic.
-    pub scope: Scope,
-    /// The path/topic being published.
-    pub path: String,
+    /// Canonical resolved topic being published.
+    pub topic: String,
 }
 
 impl GraphInfo for PublisherInfo {
     fn from_key(key: &str) -> Result<Self> {
-        let parts = split_graph_key(key, "publishers", 7, None)?;
-
-        let namespace = parts[3].to_string();
-        let node = parts[4].to_string();
-        let scope = parse_scope(parts[5], key)?;
-        let path = parts[6..].join("/");
+        let parsed = parse_graph_key(key, "publishers", 3)?;
+        let topic = decode_topic_segment(&parsed.tail[2])?;
 
         Ok(Self {
-            namespace,
-            node,
-            scope,
-            path,
+            domain_id: parsed.domain_id,
+            zenoh_id: parsed.zenoh_id,
+            namespace: parsed.tail[0].clone(),
+            node: parsed.tail[1].clone(),
+            topic,
         })
-    }
-}
-
-impl PublisherInfo {
-    /// Returns the display path with scope prefix.
-    pub fn display_path(&self) -> String {
-        match self.scope {
-            Scope::Global => format!("/{}", self.path),
-            Scope::Local => self.path.clone(),
-            Scope::Private => format!("~/{}", self.path),
-        }
     }
 }
 
 /// Information about a discovered parameter.
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct ParameterInfo {
+    /// ROS domain id extracted from graph key.
+    pub domain_id: u32,
+    /// Zenoh id extracted from graph key.
+    pub zenoh_id: String,
     /// The namespace this parameter belongs to.
     pub namespace: String,
     /// The node name that owns this parameter.
     pub node: String,
-    /// The scope of the parameter.
-    pub scope: Scope,
-    /// The parameter path.
-    pub path: String,
+    /// Canonical resolved topic for this parameter.
+    pub topic: String,
 }
 
 impl GraphInfo for ParameterInfo {
     fn from_key(key: &str) -> Result<Self> {
-        let parts = split_graph_key(key, "parameters", 7, None)?;
-
-        let namespace = parts[3].to_string();
-        let node = parts[4].to_string();
-        let scope = parse_scope(parts[5], key)?;
-        let path = parts[6..].join("/");
+        let parsed = parse_graph_key(key, "parameters", 3)?;
+        let topic = decode_topic_segment(&parsed.tail[2])?;
 
         Ok(Self {
-            namespace,
-            node,
-            scope,
-            path,
+            domain_id: parsed.domain_id,
+            zenoh_id: parsed.zenoh_id,
+            namespace: parsed.tail[0].clone(),
+            node: parsed.tail[1].clone(),
+            topic,
         })
-    }
-}
-
-impl ParameterInfo {
-    /// Returns the display path with scope prefix.
-    pub fn display_path(&self) -> String {
-        match self.scope {
-            Scope::Global => format!("/{}", self.path),
-            Scope::Local => self.path.clone(),
-            Scope::Private => format!("~/{}", self.path),
-        }
     }
 }
 
@@ -457,8 +441,10 @@ mod tests {
 
     #[test]
     fn parse_session_key_valid() {
-        let key = "hulkz/graph/sessions/chappie/abc123@robot1";
+        let key = "hulkz/graph/0/zid-1/sessions/chappie/abc123@robot1";
         let info = SessionInfo::from_key(key).unwrap();
+        assert_eq!(info.domain_id, 0);
+        assert_eq!(info.zenoh_id, "zid-1");
         assert_eq!(info.namespace, "chappie");
         assert_eq!(info.id, "abc123@robot1");
     }
@@ -466,13 +452,15 @@ mod tests {
     #[test]
     fn parse_session_key_invalid() {
         assert!(SessionInfo::from_key("invalid").is_err());
-        assert!(SessionInfo::from_key("hulkz/graph/nodes/ns/node").is_err());
+        assert!(SessionInfo::from_key("hulkz/graph/0/zid/nodes/ns/node").is_err());
     }
 
     #[test]
     fn parse_node_key_valid() {
-        let key = "hulkz/graph/nodes/robot/navigation";
+        let key = "hulkz/graph/7/zid-9/nodes/robot/navigation";
         let info = NodeInfo::from_key(key).unwrap();
+        assert_eq!(info.domain_id, 7);
+        assert_eq!(info.zenoh_id, "zid-9");
         assert_eq!(info.namespace, "robot");
         assert_eq!(info.name, "navigation");
     }
@@ -480,78 +468,41 @@ mod tests {
     #[test]
     fn parse_node_key_invalid() {
         assert!(NodeInfo::from_key("invalid").is_err());
-        assert!(NodeInfo::from_key("hulkz/graph/sessions/ns/id").is_err());
+        assert!(NodeInfo::from_key("hulkz/graph/0/zid/sessions/ns/id").is_err());
     }
 
     #[test]
-    fn publisher_info_from_key_local() {
-        let key = "hulkz/graph/publishers/chappie/vision/local/camera/front";
+    fn publisher_info_from_key() {
+        let key = "hulkz/graph/0/zid-1/publishers/chappie/vision/chappie%2Fcamera%2Ffront";
         let info = PublisherInfo::from_key(key).unwrap();
+        assert_eq!(info.domain_id, 0);
+        assert_eq!(info.zenoh_id, "zid-1");
         assert_eq!(info.namespace, "chappie");
         assert_eq!(info.node, "vision");
-        assert_eq!(info.scope, Scope::Local);
-        assert_eq!(info.path, "camera/front");
-    }
-
-    #[test]
-    fn publisher_info_from_key_global() {
-        let key = "hulkz/graph/publishers/robot/sensors/global/fleet_status";
-        let info = PublisherInfo::from_key(key).unwrap();
-        assert_eq!(info.scope, Scope::Global);
-        assert_eq!(info.path, "fleet_status");
-    }
-
-    #[test]
-    fn publisher_info_from_key_private() {
-        let key = "hulkz/graph/publishers/ns/node/private/debug/state";
-        let info = PublisherInfo::from_key(key).unwrap();
-        assert_eq!(info.scope, Scope::Private);
-        assert_eq!(info.path, "debug/state");
+        assert_eq!(info.topic, "chappie/camera/front");
     }
 
     #[test]
     fn publisher_info_from_key_invalid() {
         assert!(PublisherInfo::from_key("invalid").is_err());
-        assert!(PublisherInfo::from_key("hulkz/graph/publishers/ns/node").is_err());
-        assert!(PublisherInfo::from_key("hulkz/graph/publishers/ns/node/bad_scope/path").is_err());
+        assert!(PublisherInfo::from_key("hulkz/graph/0/zid/publishers/ns/node").is_err());
+        assert!(PublisherInfo::from_key("hulkz/graph/0/zid/publishers/ns/node/%ZZ").is_err());
     }
 
     #[test]
-    fn parameter_info_from_key_local() {
-        let key = "hulkz/graph/parameters/chappie/motor/local/max_speed";
+    fn parameter_info_from_key() {
+        let key = "hulkz/graph/0/zid-1/parameters/chappie/motor/chappie%2Fmotor%2Fmax_speed";
         let info = ParameterInfo::from_key(key).unwrap();
+        assert_eq!(info.domain_id, 0);
+        assert_eq!(info.zenoh_id, "zid-1");
         assert_eq!(info.namespace, "chappie");
         assert_eq!(info.node, "motor");
-        assert_eq!(info.scope, Scope::Local);
-        assert_eq!(info.path, "max_speed");
-    }
-
-    #[test]
-    fn parameter_info_from_key_global() {
-        let key = "hulkz/graph/parameters/robot/config/global/fleet_id";
-        let info = ParameterInfo::from_key(key).unwrap();
-        assert_eq!(info.scope, Scope::Global);
-        assert_eq!(info.path, "fleet_id");
-    }
-
-    #[test]
-    fn parameter_info_from_key_private() {
-        let key = "hulkz/graph/parameters/ns/node/private/debug/level";
-        let info = ParameterInfo::from_key(key).unwrap();
-        assert_eq!(info.scope, Scope::Private);
-        assert_eq!(info.path, "debug/level");
-    }
-
-    #[test]
-    fn parameter_info_from_key_nested_path() {
-        let key = "hulkz/graph/parameters/ns/node/local/a/b/c/d";
-        let info = ParameterInfo::from_key(key).unwrap();
-        assert_eq!(info.path, "a/b/c/d");
+        assert_eq!(info.topic, "chappie/motor/max_speed");
     }
 
     #[test]
     fn parameter_info_from_key_invalid() {
         assert!(ParameterInfo::from_key("invalid").is_err());
-        assert!(ParameterInfo::from_key("hulkz/graph/parameters/ns/node").is_err());
+        assert!(ParameterInfo::from_key("hulkz/graph/0/zid/parameters/ns/node").is_err());
     }
 }

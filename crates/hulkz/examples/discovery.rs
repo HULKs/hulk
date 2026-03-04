@@ -32,7 +32,7 @@ async fn main() -> Result<()> {
     let publishers = session.graph().publishers().list().await?;
     println!("\nPublishers ({}):", publishers.len());
     for p in &publishers {
-        println!("  - {} on {} (scope: {:?})", p.path, p.node, p.scope);
+        println!("  - {} on {}", p.topic, p.node);
     }
 
     println!("\n--- Watching for changes (Ctrl+C to stop) ---\n");
@@ -65,10 +65,10 @@ async fn main() -> Result<()> {
             Some(event) = pub_watcher.recv() => {
                 match event {
                     GraphEvent::Joined(info) => {
-                        println!("[Publisher] Advertised: {} on {} (scope: {:?})", info.path, info.node, info.scope)
+                        println!("[Publisher] Advertised: {} on {}", info.topic, info.node)
                     }
                     GraphEvent::Left(info) => {
-                        println!("[Publisher] Unadvertised: {} on {}", info.path, info.node)
+                        println!("[Publisher] Unadvertised: {} on {}", info.topic, info.node)
                     }
                 }
             }

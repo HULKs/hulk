@@ -64,8 +64,14 @@ pub enum Error {
     #[error("unsupported encoding: {0}")]
     UnsupportedEncoding(Encoding),
 
-    #[error("private scope requires a node target")]
+    #[error("topic expression requires a node target")]
     NodeRequiredForPrivate,
+
+    #[error("invalid topic expression: {0}")]
+    InvalidTopicExpression(String),
+
+    #[error("failed to decode encoded topic '{encoded}': {reason}")]
+    InvalidEncodedTopic { encoded: String, reason: String },
 
     #[error("failed to parse graph key `{key}`: {reason}")]
     GraphKeyParsing { key: String, reason: String },

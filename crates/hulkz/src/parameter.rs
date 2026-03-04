@@ -49,8 +49,7 @@ use crate::{
     key::{GraphKey, ParamIntent, ParamKey},
     raw_subscriber::RawSubscriber,
     sample::Sample,
-    scoped_path::ScopedPath,
-    Node, Scope, Session,
+    Node, Session, TopicExpression,
 };
 
 type ValidatorFn<T> = dyn Fn(&T) -> bool + Send + Sync;
@@ -58,7 +57,7 @@ type ValidatorFn<T> = dyn Fn(&T) -> bool + Send + Sync;
 /// Builder for creating a [`Parameter`].
 pub struct ParameterBuilder<T> {
     pub(crate) node: Node,
-    pub(crate) path: ScopedPath,
+    pub(crate) topic_expression: TopicExpression,
     pub(crate) default: Option<T>,
     pub(crate) validator: Option<Box<ValidatorFn<T>>>,
     pub(crate) _phantom: PhantomData<T>,
@@ -88,7 +87,7 @@ where
     pub async fn build(self) -> Result<(Parameter<T>, impl Future<Output = Result<()>>)> {
         let ParameterBuilder {
             node,
-            path,
+            topic_expression,
             default,
             validator,
             _phantom,
@@ -96,8 +95,7 @@ where
         info!(
             node = %node.name(),
             namespace = %node.session().namespace(),
-            scope = %path.scope().as_str(),
-            path = %path.path(),
+            topic_expression = %topic_expression.as_str(),
             has_default = default.is_some(),
             has_validator = validator.is_some(),
             "building parameter",
@@ -105,11 +103,7 @@ where
 
         // Look up initial value from config
         let config = node.session().config();
-        let config_value: Option<&Value> = match path.scope() {
-            Scope::Global => config.get_global(path.path()),
-            Scope::Local => config.get_local(path.path()),
-            Scope::Private => config.get_private(node.name(), path.path()),
-        };
+        let config_value = config_value_for_topic(config, &topic_expression, node.name())?;
 
         // Resolve initial value: config > default > error
         let initial: T = if let Some(value) = config_value {
@@ -119,7 +113,9 @@ where
             debug!("using initial parameter default value");
             default
         } else {
-            return Err(Error::ParameterNoDefault(path.path().to_string()));
+            return Err(Error::ParameterNoDefault(
+                topic_expression.as_str().to_string(),
+            ));
         };
 
         // Validate initial value
@@ -127,37 +123,27 @@ where
             if !validator(&initial) {
                 return Err(Error::ParameterValidation(format!(
                     "initial value for '{}' failed validation",
-                    path.path()
+                    topic_expression.as_str()
                 )));
             }
         }
 
         let namespace = node.session().namespace().to_string();
         let node_name = node.name().to_string();
+        let resolved_topic = topic_expression.resolve(&namespace, Some(&node_name))?;
 
         // Build key expressions using key builders
-        let read_key_expr = ParamKey::from_scope(
-            ParamIntent::Read,
-            path.scope(),
-            &namespace,
-            &node_name,
-            path.path(),
-        );
+        let domain_id = node.session().domain_id();
+        let read_key_expr = ParamKey::topic(ParamIntent::Read, domain_id, &resolved_topic);
 
         let z_session = node.session().zenoh();
-        let value = Arc::new(Mutex::new(Arc::new(initial)));
+        let initial_value = Arc::new(initial);
+        let value = Arc::new(Mutex::new(initial_value.clone()));
 
         let reader = z_session.declare_queryable(&read_key_expr).await?;
         let broadcaster = z_session.declare_publisher(read_key_expr.clone()).await?;
 
-        // Only create writer if not read-only
-        let write_key_expr = ParamKey::from_scope(
-            ParamIntent::Write,
-            path.scope(),
-            &namespace,
-            &node_name,
-            path.path(),
-        );
+        let write_key_expr = ParamKey::topic(ParamIntent::Write, domain_id, &resolved_topic);
         debug!(
             read_key = %read_key_expr,
             write_key = %write_key_expr,
@@ -167,11 +153,20 @@ where
         let writer = z_session.declare_queryable(&write_key_expr).await?;
 
         // Declare liveliness token for parameter discovery
-        let liveliness_key = GraphKey::parameter(&namespace, &node_name, path.scope(), path.path());
+        let liveliness_key = GraphKey::parameter(
+            node.session().domain_id(),
+            node.session().zenoh_id(),
+            &namespace,
+            &node_name,
+            &resolved_topic,
+        );
         let liveliness_token = z_session
             .liveliness()
             .declare_token(&liveliness_key)
             .await?;
+
+        // Emit the current value once on declaration so watchers learn the parameter state.
+        broadcast_value(&broadcaster, initial_value.as_ref()).await?;
 
         let driver = {
             let value = value.clone();
@@ -196,6 +191,47 @@ where
             driver,
         ))
     }
+}
+
+fn config_value_for_topic<'a>(
+    config: &'a crate::Config,
+    topic_expression: &TopicExpression,
+    current_node: &str,
+) -> Result<Option<&'a Value>> {
+    let raw = topic_expression.as_str();
+    if let Some(path) = raw.strip_prefix('/') {
+        if path.is_empty() {
+            return Err(Error::InvalidTopicExpression(
+                "absolute topic path must not be empty".to_string(),
+            ));
+        }
+        return Ok(config.get_global(path));
+    }
+
+    if let Some(rest) = raw.strip_prefix('~') {
+        if let Some(path) = rest.strip_prefix('/') {
+            if path.is_empty() {
+                return Err(Error::InvalidTopicExpression(
+                    "private topic path must not be empty".to_string(),
+                ));
+            }
+            return Ok(config.get_private(current_node, path));
+        }
+
+        let Some((node, path)) = rest.split_once('/') else {
+            return Err(Error::InvalidTopicExpression(
+                "invalid private topic syntax; use ~/path or ~node/path".to_string(),
+            ));
+        };
+        if node.is_empty() || path.is_empty() {
+            return Err(Error::InvalidTopicExpression(
+                "invalid private topic syntax; use ~/path or ~node/path".to_string(),
+            ));
+        }
+        return Ok(config.get_private(node, path));
+    }
+
+    Ok(config.get_local(raw))
 }
 
 async fn drive_reader<T>(
@@ -383,7 +419,7 @@ where
 /// ```
 pub struct ParamAccessBuilder<'a> {
     pub(crate) session: &'a Session,
-    pub(crate) path: ScopedPath,
+    pub(crate) topic_expression: TopicExpression,
     pub(crate) node: Option<String>,
     pub(crate) namespace_override: Option<String>,
 }
@@ -425,24 +461,17 @@ impl<'a> ParamAccessBuilder<'a> {
     pub async fn get<T>(self) -> Result<ParamGetReplies<T>> {
         let ParamAccessBuilder {
             session,
-            path,
+            topic_expression,
             node,
             namespace_override,
         } = self;
-        let node_name = Self::resolve_node(path.scope(), node)?;
         let namespace = namespace_override.unwrap_or_else(|| session.namespace().to_string());
-        let key_expr = ParamKey::from_scope(
-            ParamIntent::Read,
-            path.scope(),
-            &namespace,
-            &node_name,
-            path.path(),
-        );
+        let resolved_topic = topic_expression.resolve(&namespace, node.as_deref())?;
+        let key_expr = ParamKey::topic(ParamIntent::Read, session.domain_id(), &resolved_topic);
         debug!(
-            scope = %path.scope().as_str(),
-            path = %path.path(),
+            topic_expression = %topic_expression.as_str(),
+            resolved_topic = %resolved_topic,
             namespace = %namespace,
-            node = %node_name,
             key_expr = %key_expr,
             "querying parameter value",
         );
@@ -458,24 +487,17 @@ impl<'a> ParamAccessBuilder<'a> {
     pub async fn set(self, value: &serde_json::Value) -> Result<ParamSetReplies> {
         let ParamAccessBuilder {
             session,
-            path,
+            topic_expression,
             node,
             namespace_override,
         } = self;
-        let node_name = Self::resolve_node(path.scope(), node)?;
         let namespace = namespace_override.unwrap_or_else(|| session.namespace().to_string());
-        let key_expr = ParamKey::from_scope(
-            ParamIntent::Write,
-            path.scope(),
-            &namespace,
-            &node_name,
-            path.path(),
-        );
+        let resolved_topic = topic_expression.resolve(&namespace, node.as_deref())?;
+        let key_expr = ParamKey::topic(ParamIntent::Write, session.domain_id(), &resolved_topic);
         debug!(
-            scope = %path.scope().as_str(),
-            path = %path.path(),
+            topic_expression = %topic_expression.as_str(),
+            resolved_topic = %resolved_topic,
             namespace = %namespace,
-            node = %node_name,
             key_expr = %key_expr,
             "setting parameter value",
         );
@@ -496,43 +518,24 @@ impl<'a> ParamAccessBuilder<'a> {
     pub async fn watch_updates_raw(self, capacity: usize) -> Result<ParamUpdateRawSubscriber> {
         let ParamAccessBuilder {
             session,
-            path,
+            topic_expression,
             node,
             namespace_override,
         } = self;
 
-        let node_name = Self::resolve_node(path.scope(), node)?;
         let namespace = namespace_override.unwrap_or_else(|| session.namespace().to_string());
-        let key_expr = ParamKey::from_scope(
-            ParamIntent::Read,
-            path.scope(),
-            &namespace,
-            &node_name,
-            path.path(),
-        );
+        let resolved_topic = topic_expression.resolve(&namespace, node.as_deref())?;
+        let key_expr = ParamKey::topic(ParamIntent::Read, session.domain_id(), &resolved_topic);
         debug!(
-            scope = %path.scope().as_str(),
-            path = %path.path(),
+            topic_expression = %topic_expression.as_str(),
+            resolved_topic = %resolved_topic,
             namespace = %namespace,
-            node = %node_name,
             key_expr = %key_expr,
             capacity,
             "subscribing to parameter updates",
         );
         let inner = RawSubscriber::from_key_expr(session.clone(), key_expr, capacity).await?;
         Ok(ParamUpdateRawSubscriber { inner })
-    }
-
-    /// Resolves the node name for the key expression.
-    ///
-    /// - For private scope: requires explicit node, returns error if not set
-    /// - For global/local scope: uses explicit node if set, otherwise wildcard
-    fn resolve_node(scope: Scope, node: Option<String>) -> Result<String> {
-        match (scope, node) {
-            (Scope::Private, None) => Err(Error::NodeRequiredForPrivate),
-            (_, Some(node)) => Ok(node),
-            (_, None) => Ok("*".to_string()),
-        }
     }
 }
 

@@ -4,11 +4,12 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use hulkz::{Scope, ScopedPath, Session};
+use hulkz::{Session, TopicExpression};
 use hulkz_stream::{
     NamespaceBinding, OpenMode, PlaneKind, SourceHandle, SourceSpec, StreamBackend,
     StreamBackendBuilder, StreamDriver,
 };
+use serde::Serialize;
 use tokio::{
     sync::broadcast::{self, error::RecvError},
     task::JoinHandle,
@@ -36,8 +37,8 @@ fn unique_namespace(prefix: &str) -> String {
 fn follow_target_data_spec(path: &str) -> SourceSpec {
     SourceSpec {
         plane: PlaneKind::Data,
-        path: ScopedPath::new(Scope::Local, path),
-        node_override: None,
+        topic_expression: TopicExpression::parse(path).unwrap(),
+        default_node: None,
         namespace_binding: NamespaceBinding::FollowTarget,
     }
 }
@@ -45,8 +46,8 @@ fn follow_target_data_spec(path: &str) -> SourceSpec {
 fn pinned_data_spec(path: &str, namespace: &str) -> SourceSpec {
     SourceSpec {
         plane: PlaneKind::Data,
-        path: ScopedPath::new(Scope::Local, path),
-        node_override: None,
+        topic_expression: TopicExpression::parse(path).unwrap(),
+        default_node: None,
         namespace_binding: NamespaceBinding::Pinned(namespace.to_string()),
     }
 }
@@ -132,6 +133,27 @@ async fn wait_for_live_record(
     }
 }
 
+async fn wait_for_subscriber_match<T>(publisher: &hulkz::Publisher<T>, timeout_after: Duration)
+where
+    T: Serialize,
+{
+    let started = tokio::time::Instant::now();
+    loop {
+        if publisher
+            .is_subscribed()
+            .await
+            .expect("publisher matching status should be available")
+        {
+            return;
+        }
+        assert!(
+            started.elapsed() < timeout_after,
+            "timed out waiting for publisher to match a subscriber",
+        );
+        tokio::time::sleep(Duration::from_millis(50)).await;
+    }
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn backend_deduplicates_equivalent_sources() {
     let namespace = unique_namespace("dedup");
@@ -191,8 +213,8 @@ async fn follow_target_namespace_switch_keeps_handle_valid() {
         .build()
         .await
         .expect("publisher A");
+    wait_for_subscriber_match(&publisher_a, Duration::from_secs(5)).await;
 
-    tokio::time::sleep(Duration::from_millis(150)).await;
     publisher_a
         .put(&1, &pub_session_a.now())
         .await
@@ -218,8 +240,8 @@ async fn follow_target_namespace_switch_keeps_handle_valid() {
         .build()
         .await
         .expect("publisher B");
+    wait_for_subscriber_match(&publisher_b, Duration::from_secs(5)).await;
 
-    tokio::time::sleep(Duration::from_millis(200)).await;
     for value in [2_i32, 3, 4] {
         publisher_b
             .put(&value, &pub_session_b.now())
@@ -272,8 +294,7 @@ async fn concurrent_query_during_ingest_is_stable() {
         .build()
         .await
         .expect("publisher");
-
-    tokio::time::sleep(Duration::from_millis(150)).await;
+    wait_for_subscriber_match(&publisher, Duration::from_secs(5)).await;
 
     let publish_task = tokio::spawn(async move {
         for value in 0..100_i32 {
@@ -337,8 +358,8 @@ async fn live_updates_are_delivered_without_polling_queries() {
         .build()
         .await
         .expect("publisher");
+    wait_for_subscriber_match(&publisher, Duration::from_secs(5)).await;
 
-    tokio::time::sleep(Duration::from_millis(150)).await;
     for value in 0..4_i32 {
         publisher
             .put(&value, &pub_session.now())
@@ -392,8 +413,7 @@ async fn ingest_frontier_can_lead_durable_frontier() {
         .build()
         .await
         .expect("publisher");
-
-    tokio::time::sleep(Duration::from_millis(150)).await;
+    wait_for_subscriber_match(&publisher, Duration::from_secs(5)).await;
 
     let publish_task = tokio::spawn(async move {
         for value in 0..400_i32 {
@@ -459,8 +479,7 @@ async fn ingest_gating_pauses_and_resumes_source_updates() {
         .build()
         .await
         .expect("publisher");
-
-    tokio::time::sleep(Duration::from_millis(150)).await;
+    wait_for_subscriber_match(&publisher, Duration::from_secs(5)).await;
     backend
         .set_ingest_enabled(false)
         .await
@@ -524,8 +543,7 @@ async fn writer_backpressure_metrics_are_observable() {
         .build()
         .await
         .expect("publisher");
-
-    tokio::time::sleep(Duration::from_millis(150)).await;
+    wait_for_subscriber_match(&publisher, Duration::from_secs(5)).await;
     for value in 0..256_i32 {
         publisher
             .put(&value, &pub_session.now())
@@ -574,8 +592,7 @@ async fn source_timeline_is_available_during_active_ingest() {
         .build()
         .await
         .expect("publisher");
-
-    tokio::time::sleep(Duration::from_millis(150)).await;
+    wait_for_subscriber_match(&publisher, Duration::from_secs(5)).await;
     for value in 0..16_i32 {
         publisher
             .put(&value, &pub_session.now())
@@ -631,8 +648,7 @@ async fn prefetch_range_cancellable_respects_cancel_token() {
         .build()
         .await
         .expect("publisher");
-
-    tokio::time::sleep(Duration::from_millis(150)).await;
+    wait_for_subscriber_match(&publisher, Duration::from_secs(5)).await;
     for value in 0..80_i32 {
         publisher
             .put(&value, &pub_session.now())
@@ -683,8 +699,7 @@ async fn range_stream_returns_chunked_history_and_updates_query_stats() {
         .build()
         .await
         .expect("publisher");
-
-    tokio::time::sleep(Duration::from_millis(150)).await;
+    wait_for_subscriber_match(&publisher, Duration::from_secs(5)).await;
     for value in 0..25_i32 {
         publisher
             .put(&value, &pub_session.now())

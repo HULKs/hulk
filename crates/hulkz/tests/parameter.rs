@@ -3,6 +3,7 @@
 mod common;
 
 use serde::{Deserialize, Serialize};
+use tokio::time::{sleep, timeout, Duration};
 
 use common::{test_namespace, test_session};
 use hulkz::Session;
@@ -123,6 +124,43 @@ async fn parameter_with_default() {
 
     let value = param.get().await;
     assert_eq!(*value, 42);
+
+    driver_handle.abort();
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn declaration_publishes_initial_value_once() {
+    let session = Session::create(test_namespace("param_initial_publish"))
+        .await
+        .unwrap();
+
+    let mut updates = session
+        .parameter("boot_mode")
+        .watch_updates_raw(16)
+        .await
+        .unwrap();
+
+    // Give the subscriber a moment to be fully established before declaration.
+    sleep(Duration::from_millis(100)).await;
+
+    let node = session.create_node("test_node").build().await.unwrap();
+    let (_param, driver) = node
+        .declare_parameter::<i32>("boot_mode")
+        .default(7)
+        .build()
+        .await
+        .unwrap();
+
+    let driver_handle = tokio::spawn(async move {
+        let _ = driver.await;
+    });
+
+    let sample = timeout(Duration::from_secs(3), updates.recv_async())
+        .await
+        .expect("timed out waiting for initial parameter update")
+        .expect("failed to receive initial parameter update");
+    let value: i32 = sample.decode().expect("failed to decode initial parameter value");
+    assert_eq!(value, 7);
 
     driver_handle.abort();
 }

@@ -3,7 +3,7 @@ use std::{
     sync::Arc,
 };
 
-use hulkz::{Scope, ScopedPath, Timestamp};
+use hulkz::{Timestamp, TopicExpression};
 use tokio::sync::mpsc;
 use zenoh::bytes::Encoding;
 
@@ -35,22 +35,21 @@ pub enum NamespaceBinding {
     Pinned(String),
 }
 
-/// Durable source identity aligned with hulkz scope/path semantics.
+/// Durable source identity aligned with hulkz topic-expression semantics.
 #[derive(Debug, Clone)]
 pub struct SourceSpec {
     pub plane: PlaneKind,
-    pub path: ScopedPath,
-    /// Required for private scope reads when no implicit node identity is available.
-    pub node_override: Option<String>,
+    pub topic_expression: TopicExpression,
+    /// Optional default node used for `~/...` expressions.
+    pub default_node: Option<String>,
     pub namespace_binding: NamespaceBinding,
 }
 
 impl PartialEq for SourceSpec {
     fn eq(&self, other: &Self) -> bool {
         self.plane == other.plane
-            && self.path.scope() == other.path.scope()
-            && self.path.path() == other.path.path()
-            && self.node_override == other.node_override
+            && self.topic_expression == other.topic_expression
+            && self.default_node == other.default_node
             && self.namespace_binding == other.namespace_binding
     }
 }
@@ -60,17 +59,9 @@ impl Eq for SourceSpec {}
 impl Hash for SourceSpec {
     fn hash<H: Hasher>(&self, state: &mut H) {
         self.plane.hash(state);
-        self.path.scope().hash(state);
-        self.path.path().hash(state);
-        self.node_override.hash(state);
+        self.topic_expression.hash(state);
+        self.default_node.hash(state);
         self.namespace_binding.hash(state);
-    }
-}
-
-impl SourceSpec {
-    /// Convenience access to the scoped path kind.
-    pub fn scope(&self) -> Scope {
-        self.path.scope()
     }
 }
 

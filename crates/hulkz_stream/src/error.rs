@@ -26,6 +26,9 @@ pub enum Error {
         plane: Option<String>,
     },
 
+    #[error("unsupported stream metadata version (expected {expected}, found {found})")]
+    UnsupportedStreamMetadataVersion { expected: String, found: String },
+
     #[error("source not found")]
     SourceNotFound,
 

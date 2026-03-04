@@ -147,3 +147,44 @@ async fn multiple_messages() {
     // Verify we received all expected values
     assert_eq!(received, vec![0, 1, 2]);
 }
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn roundtrip_local_topic_across_sessions() {
+    let namespace = test_namespace("roundtrip_cross_session");
+    let sub_session = Session::create(namespace.clone()).await.unwrap();
+    let pub_session = Session::create(namespace).await.unwrap();
+
+    let sub_node = sub_session.create_node("sub_node").build().await.unwrap();
+    let pub_node = pub_session.create_node("pub_node").build().await.unwrap();
+
+    let mut subscriber = sub_node
+        .subscribe::<TestMessage>("sensor/data")
+        .build()
+        .await
+        .unwrap();
+    let publisher = pub_node
+        .advertise::<TestMessage>("sensor/data")
+        .build()
+        .await
+        .unwrap();
+
+    let start = tokio::time::Instant::now();
+    while !publisher.is_subscribed().await.unwrap() {
+        if start.elapsed() > Duration::from_secs(5) {
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+
+    let sent = TestMessage {
+        value: 777,
+        name: "cross-session".to_string(),
+    };
+    publisher.put(&sent, &pub_session.now()).await.unwrap();
+
+    let received = timeout(Duration::from_secs(2), subscriber.recv_async())
+        .await
+        .expect("timeout waiting for cross-session message")
+        .unwrap();
+    assert_eq!(received.payload, sent);
+}

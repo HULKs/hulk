@@ -41,9 +41,8 @@ use crate::{
     parameter::ParameterBuilder,
     publisher::PublisherBuilder,
     raw_subscriber::RawSubscriberBuilder,
-    scoped_path::ScopedPath,
     subscriber::SubscriberBuilder,
-    Session,
+    Session, TopicExpression,
 };
 
 /// Builder for creating a [`Node`].
@@ -60,7 +59,12 @@ impl NodeBuilder {
             "building node",
         );
         // Register node in the graph plane for discovery
-        let liveliness_key = GraphKey::node(self.session.namespace(), &self.name);
+        let liveliness_key = GraphKey::node(
+            self.session.domain_id(),
+            self.session.zenoh_id(),
+            self.session.namespace(),
+            &self.name,
+        );
         let liveliness_token = self
             .session
             .zenoh()
@@ -108,7 +112,7 @@ impl Node {
     }
 
     /// Subscribe to a topic.
-    pub fn subscribe<T>(&self, topic: impl Into<ScopedPath>) -> SubscriberBuilder<T>
+    pub fn subscribe<T>(&self, topic: impl Into<TopicExpression>) -> SubscriberBuilder<T>
     where
         for<'de> T: Deserialize<'de>,
     {
@@ -121,10 +125,10 @@ impl Node {
     /// Subscribe to a topic and receive raw samples.
     ///
     /// This is useful for tooling that wants to defer deserialization.
-    pub fn subscribe_raw(&self, topic: impl Into<ScopedPath>) -> RawSubscriberBuilder {
+    pub fn subscribe_raw(&self, topic: impl Into<TopicExpression>) -> RawSubscriberBuilder {
         RawSubscriberBuilder {
             session: self.session().clone(),
-            topic: topic.into(),
+            topic_expression: topic.into(),
             capacity: Self::DEFAULT_CAPACITY,
             view: false,
             namespace: self.session().namespace().to_string(),
@@ -133,13 +137,13 @@ impl Node {
     }
 
     /// Advertise a topic for publishing.
-    pub fn advertise<T>(&self, topic: impl Into<ScopedPath>) -> PublisherBuilder<T>
+    pub fn advertise<T>(&self, topic: impl Into<TopicExpression>) -> PublisherBuilder<T>
     where
         T: Serialize,
     {
         PublisherBuilder {
             node: self.clone(),
-            topic: topic.into(),
+            topic_expression: topic.into(),
             enable_view: true,
             _phantom: PhantomData,
         }
@@ -150,13 +154,13 @@ impl Node {
     /// - `~/param` - Private (node-scoped)
     /// - `param` - Local (robot-scoped)
     /// - `/param` - Global (fleet-wide)
-    pub fn declare_parameter<T>(&self, path: impl Into<ScopedPath>) -> ParameterBuilder<T>
+    pub fn declare_parameter<T>(&self, topic: impl Into<TopicExpression>) -> ParameterBuilder<T>
     where
         for<'de> T: Serialize + Deserialize<'de> + Clone + Send + Sync + 'static,
     {
         ParameterBuilder {
             node: self.clone(),
-            path: path.into(),
+            topic_expression: topic.into(),
             default: None,
             validator: None,
             _phantom: PhantomData,
@@ -196,7 +200,7 @@ impl Node {
     /// ```
     pub async fn buffer<T>(
         &self,
-        topic: impl Into<ScopedPath>,
+        topic: impl Into<TopicExpression>,
         capacity: usize,
     ) -> Result<(Buffer<T>, impl Future<Output = Result<()>> + Send)>
     where
@@ -205,8 +209,7 @@ impl Node {
         let topic = topic.into();
         debug!(
             node = %self.name(),
-            scope = %topic.scope().as_str(),
-            topic = %topic.path(),
+            topic_expression = %topic.as_str(),
             capacity,
             "building buffered subscription",
         );

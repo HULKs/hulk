@@ -2,7 +2,7 @@ use color_eyre::{
     eyre::{eyre, WrapErr as _},
     Result,
 };
-use hulkz::{ParameterInfo, PublisherInfo, Scope, ScopedPath, SessionInfo};
+use hulkz::{ParameterInfo, PublisherInfo, SessionInfo, TopicExpression};
 use hulkz_stream::{NamespaceBinding, SourceHandle, SourceSpec, StreamBackend, StreamRecord};
 use tokio::sync::{broadcast::error::RecvError, mpsc::Sender};
 use tokio_util::sync::CancellationToken;
@@ -106,7 +106,7 @@ pub(super) async fn emit_history_snapshot(
 }
 
 pub(super) fn to_discovered_publisher(info: PublisherInfo) -> DiscoveredPublisher {
-    let path_expression = scoped_path_expression(info.scope, &info.path, Some(&info.node));
+    let path_expression = discovery_topic_expression(&info.namespace, &info.node, &info.topic);
     DiscoveredPublisher {
         namespace: info.namespace,
         node: info.node,
@@ -115,7 +115,7 @@ pub(super) fn to_discovered_publisher(info: PublisherInfo) -> DiscoveredPublishe
 }
 
 pub(super) fn to_discovered_parameter(info: ParameterInfo) -> DiscoveredParameter {
-    let path_expression = scoped_path_expression(info.scope, &info.path, Some(&info.node));
+    let path_expression = discovery_topic_expression(&info.namespace, &info.node, &info.topic);
     DiscoveredParameter {
         namespace: info.namespace,
         node: info.node,
@@ -213,8 +213,8 @@ fn source_spec_from_request(request: &SourceBindingRequest) -> Result<SourceSpec
         return Err(eyre!("namespace must not be empty"));
     }
 
-    let (path, node_override) = parse_source_path_expression(&request.path_expression)?;
-    if path.scope() == Scope::Private && node_override.is_none() {
+    let (topic_expression, default_node) = parse_source_path_expression(&request.path_expression)?;
+    if topic_expression.as_str().starts_with("~/") && default_node.is_none() {
         return Err(eyre!(
             "private source requires node override; use ~<node>/<path> syntax"
         ));
@@ -222,72 +222,71 @@ fn source_spec_from_request(request: &SourceBindingRequest) -> Result<SourceSpec
 
     Ok(SourceSpec {
         plane: request.plane,
-        path,
-        node_override,
+        topic_expression,
+        default_node,
         namespace_binding: NamespaceBinding::Pinned(namespace.to_string()),
     })
 }
 
-pub(super) fn parse_source_path_expression(input: &str) -> Result<(ScopedPath, Option<String>)> {
+pub(super) fn parse_source_path_expression(input: &str) -> Result<(TopicExpression, Option<String>)> {
     let expression = input.trim();
     if expression.is_empty() {
         return Err(eyre!("path expression must not be empty"));
     }
 
     if let Some(rest) = expression.strip_prefix('~') {
-        if let Some(path) = rest.strip_prefix('/') {
-            if path.is_empty() {
-                return Err(eyre!("private path must not be empty"));
+        if !rest.starts_with('/') {
+            let (node, private_path) = rest
+                .split_once('/')
+                .ok_or_else(|| eyre!("invalid private syntax; use ~<node>/<path>"))?;
+            if node.is_empty() || private_path.is_empty() {
+                return Err(eyre!("invalid private syntax; use ~<node>/<path>"));
             }
-            return Ok((ScopedPath::new(Scope::Private, path), None));
+            return Ok((
+                TopicExpression::parse(&format!("~/{private_path}"))?,
+                Some(node.to_string()),
+            ));
         }
-
-        let (node, private_path) = rest
-            .split_once('/')
-            .ok_or_else(|| eyre!("invalid private syntax; use ~<node>/<path>"))?;
-        if node.is_empty() || private_path.is_empty() {
-            return Err(eyre!("invalid private syntax; use ~<node>/<path>"));
-        }
-        return Ok((
-            ScopedPath::new(Scope::Private, private_path),
-            Some(node.to_string()),
-        ));
     }
 
-    let scoped_path = ScopedPath::parse(expression);
-    if scoped_path.path().is_empty() {
-        return Err(eyre!("path must not be empty"));
-    }
-    Ok((scoped_path, None))
+    Ok((TopicExpression::parse(expression)?, None))
 }
 
 fn source_label(request: &SourceBindingRequest, spec: &SourceSpec) -> String {
-    let scope_path = scoped_path_expression(
-        spec.path.scope(),
-        spec.path.path(),
-        spec.node_override.as_deref(),
-    );
+    let topic_expression =
+        topic_expression_display(&spec.topic_expression, spec.default_node.as_deref());
     format!(
         "namespace={} plane={:?} path={}",
         request.namespace.trim(),
         request.plane,
-        scope_path
+        topic_expression
     )
 }
 
-pub(super) fn scoped_path_expression(
-    scope: Scope,
-    path: &str,
-    private_node: Option<&str>,
+pub(super) fn topic_expression_display(
+    topic_expression: &TopicExpression,
+    default_node: Option<&str>,
 ) -> String {
-    match scope {
-        Scope::Global => format!("/{path}"),
-        Scope::Local => path.to_string(),
-        Scope::Private => match private_node {
-            Some(node) => format!("~{node}/{path}"),
-            None => format!("~/{path}"),
-        },
+    if let Some(path) = topic_expression.as_str().strip_prefix("~/") {
+        if let Some(node) = default_node {
+            return format!("~{node}/{path}");
+        }
     }
+    topic_expression.as_str().to_string()
+}
+
+fn discovery_topic_expression(namespace: &str, node: &str, topic: &str) -> String {
+    let node_prefix = format!("{namespace}/{node}/");
+    if let Some(path) = topic.strip_prefix(&node_prefix) {
+        return format!("~{node}/{path}");
+    }
+
+    let namespace_prefix = format!("{namespace}/");
+    if let Some(path) = topic.strip_prefix(&namespace_prefix) {
+        return path.to_string();
+    }
+
+    format!("/{topic}")
 }
 
 pub(super) fn spawn_live_updates_task(

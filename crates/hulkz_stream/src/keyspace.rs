@@ -5,14 +5,14 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use hulkz::{Scope, ScopedPath, Timestamp};
+use hulkz::{Timestamp, TopicExpression};
 use zenoh::{bytes::Encoding, time::TimestampId};
 
 use crate::error::{Error, Result};
 use crate::types::{NamespaceBinding, PlaneKind, SourceSpec, StreamRecord};
 
 pub(crate) const META_PREFIX: &str = "hulkz_stream";
-pub(crate) const STREAM_FORMAT_VERSION: &str = "1";
+pub(crate) const STREAM_FORMAT_VERSION: &str = "2";
 pub(crate) const FALLBACK_TIMESTAMP_ID_U128: u128 = 1;
 
 /// Returns a deterministic dedup key for logical source identity.
@@ -23,11 +23,10 @@ pub(crate) fn source_key(spec: &SourceSpec) -> String {
     };
 
     format!(
-        "{:?}|{}|{}|{}|{}",
+        "{:?}|{}|{}|{}",
         spec.plane,
-        spec.path.scope().as_str(),
-        spec.path.path(),
-        spec.node_override.as_deref().unwrap_or(""),
+        spec.topic_expression.as_str(),
+        spec.default_node.as_deref().unwrap_or(""),
         binding,
     )
 }
@@ -40,37 +39,36 @@ pub(crate) fn effective_namespace(spec: &SourceSpec, target_namespace: &str) -> 
     }
 }
 
-/// Builds a hulkz key expression for a source and resolved namespace.
-pub(crate) fn key_expr_for_record(spec: &SourceSpec, effective_namespace: Option<&str>) -> String {
+/// Resolves canonical topic for a source and namespace.
+pub(crate) fn resolved_topic_for_source(
+    spec: &SourceSpec,
+    effective_namespace: Option<&str>,
+) -> Result<String> {
     let namespace = effective_namespace.unwrap_or("default");
-    let node = spec.node_override.as_deref().unwrap_or("*");
+    Ok(spec
+        .topic_expression
+        .resolve(namespace, spec.default_node.as_deref())?)
+}
 
-    match spec.plane {
-        PlaneKind::Data => match spec.path.scope() {
-            Scope::Global => format!("hulkz/data/global/{}", spec.path.path()),
-            Scope::Local => format!("hulkz/data/local/{namespace}/{}", spec.path.path()),
-            Scope::Private => {
-                format!("hulkz/data/private/{namespace}/{node}/{}", spec.path.path())
-            }
-        },
-        PlaneKind::View => match spec.path.scope() {
-            Scope::Global => format!("hulkz/view/global/{}", spec.path.path()),
-            Scope::Local => format!("hulkz/view/local/{namespace}/{}", spec.path.path()),
-            Scope::Private => {
-                format!("hulkz/view/private/{namespace}/{node}/{}", spec.path.path())
-            }
-        },
-        PlaneKind::ParamReadUpdates => match spec.path.scope() {
-            Scope::Global => format!("hulkz/param/read/global/{}", spec.path.path()),
-            Scope::Local => format!("hulkz/param/read/local/{namespace}/{}", spec.path.path()),
-            Scope::Private => {
-                format!(
-                    "hulkz/param/read/private/{namespace}/{node}/{}",
-                    spec.path.path()
-                )
-            }
-        },
-    }
+/// Builds a hulkz key expression for a source and resolved namespace.
+pub(crate) fn key_expr_for_record(
+    spec: &SourceSpec,
+    effective_namespace: Option<&str>,
+) -> Result<String> {
+    let resolved_topic = resolved_topic_for_source(spec, effective_namespace)?;
+    let domain_id = current_domain_id();
+    Ok(match spec.plane {
+        PlaneKind::Data => format!("hulkz/data/{domain_id}/{resolved_topic}"),
+        PlaneKind::View => format!("hulkz/view/{domain_id}/{resolved_topic}"),
+        PlaneKind::ParamReadUpdates => format!("hulkz/param/read/{domain_id}/{resolved_topic}"),
+    })
+}
+
+fn current_domain_id() -> u32 {
+    std::env::var("ROS_DOMAIN_ID")
+        .ok()
+        .and_then(|value| value.parse::<u32>().ok())
+        .unwrap_or(0)
 }
 
 pub(crate) fn encoding_to_mcap(encoding: &Encoding) -> String {
@@ -143,16 +141,12 @@ pub(crate) fn metadata_for_record(record: &StreamRecord) -> BTreeMap<String, Str
         .to_string(),
     );
     metadata.insert(
-        format!("{META_PREFIX}.scope"),
-        record.source.path.scope().as_str().to_string(),
+        format!("{META_PREFIX}.topic_expression"),
+        record.source.topic_expression.as_str().to_string(),
     );
     metadata.insert(
-        format!("{META_PREFIX}.path"),
-        record.source.path.path().to_string(),
-    );
-    metadata.insert(
-        format!("{META_PREFIX}.node_override"),
-        record.source.node_override.clone().unwrap_or_default(),
+        format!("{META_PREFIX}.default_node"),
+        record.source.default_node.clone().unwrap_or_default(),
     );
     metadata.insert(
         format!("{META_PREFIX}.namespace_binding"),
@@ -177,20 +171,26 @@ pub(crate) fn source_from_topic_and_metadata(
     metadata: &BTreeMap<String, String>,
 ) -> Result<(SourceSpec, Option<String>)> {
     if let Some(plane) = metadata.get(&format!("{META_PREFIX}.plane")) {
-        let scope = match metadata
-            .get(&format!("{META_PREFIX}.scope"))
-            .map(|s| s.as_str())
+        if let Some(version) = metadata.get(&format!("{META_PREFIX}.version")) {
+            if version != STREAM_FORMAT_VERSION {
+                return Err(Error::UnsupportedStreamMetadataVersion {
+                    expected: STREAM_FORMAT_VERSION.to_string(),
+                    found: version.clone(),
+                });
+            }
+        }
+
+        let topic_expression = if let Some(expression) =
+            metadata.get(&format!("{META_PREFIX}.topic_expression"))
         {
-            Some("global") => Scope::Global,
-            Some("private") => Scope::Private,
-            _ => Scope::Local,
+            TopicExpression::parse(expression)?
+        } else {
+            let (spec, _) = parse_topic_best_effort(topic)?;
+            spec.topic_expression
         };
-        let path = metadata
-            .get(&format!("{META_PREFIX}.path"))
-            .cloned()
-            .unwrap_or_else(|| topic.to_string());
-        let node_override = metadata
-            .get(&format!("{META_PREFIX}.node_override"))
+
+        let default_node = metadata
+            .get(&format!("{META_PREFIX}.default_node"))
             .and_then(|v| (!v.is_empty()).then_some(v.clone()));
         let namespace_binding = match metadata
             .get(&format!("{META_PREFIX}.namespace_binding"))
@@ -220,8 +220,8 @@ pub(crate) fn source_from_topic_and_metadata(
         return Ok((
             SourceSpec {
                 plane,
-                path: ScopedPath::new(scope, path),
-                node_override,
+                topic_expression,
+                default_node,
                 namespace_binding,
             },
             effective_namespace,
@@ -232,140 +232,76 @@ pub(crate) fn source_from_topic_and_metadata(
 }
 
 fn parse_topic_best_effort(topic: &str) -> Result<(SourceSpec, Option<String>)> {
-    let parts: Vec<&str> = topic.split('/').collect();
-    if parts.len() >= 4 && parts[0] == "hulkz" && (parts[1] == "data" || parts[1] == "view") {
-        let plane = if parts[1] == "data" {
-            PlaneKind::Data
-        } else {
-            PlaneKind::View
-        };
-        match parts[2] {
-            "global" => {
-                let path = parts[3..].join("/");
-                return Ok((
-                    SourceSpec {
-                        plane,
-                        path: ScopedPath::new(Scope::Global, path),
-                        node_override: None,
-                        namespace_binding: NamespaceBinding::FollowTarget,
-                    },
-                    None,
-                ));
-            }
-            "local" if parts.len() >= 5 => {
-                let namespace = parts[3].to_string();
-                let path = parts[4..].join("/");
-                return Ok((
-                    SourceSpec {
-                        plane,
-                        path: ScopedPath::new(Scope::Local, path),
-                        node_override: None,
-                        namespace_binding: NamespaceBinding::Pinned(namespace.clone()),
-                    },
-                    Some(namespace),
-                ));
-            }
-            "private" if parts.len() >= 6 => {
-                let namespace = parts[3].to_string();
-                let node = parts[4].to_string();
-                let path = parts[5..].join("/");
-                return Ok((
-                    SourceSpec {
-                        plane,
-                        path: ScopedPath::new(Scope::Private, path),
-                        node_override: Some(node),
-                        namespace_binding: NamespaceBinding::Pinned(namespace.clone()),
-                    },
-                    Some(namespace),
-                ));
-            }
-            _ => {}
-        }
-    }
+    let (plane, rest) = if let Some(rest) = topic.strip_prefix("hulkz/data/") {
+        (PlaneKind::Data, rest)
+    } else if let Some(rest) = topic.strip_prefix("hulkz/view/") {
+        (PlaneKind::View, rest)
+    } else if let Some(rest) = topic.strip_prefix("hulkz/param/read/") {
+        (PlaneKind::ParamReadUpdates, rest)
+    } else {
+        return Err(Error::UnknownPlaneMapping {
+            topic: topic.to_string(),
+            plane: None,
+        });
+    };
 
-    if parts.len() >= 5
-        && parts[0] == "hulkz"
-        && parts[1] == "param"
-        && parts[2] == "read"
-        && (parts[3] == "global" || parts[3] == "local" || parts[3] == "private")
-    {
-        match parts[3] {
-            "global" => {
-                let path = parts[4..].join("/");
-                return Ok((
-                    SourceSpec {
-                        plane: PlaneKind::ParamReadUpdates,
-                        path: ScopedPath::new(Scope::Global, path),
-                        node_override: None,
-                        namespace_binding: NamespaceBinding::FollowTarget,
-                    },
-                    None,
-                ));
-            }
-            "local" if parts.len() >= 6 => {
-                let namespace = parts[4].to_string();
-                let path = parts[5..].join("/");
-                return Ok((
-                    SourceSpec {
-                        plane: PlaneKind::ParamReadUpdates,
-                        path: ScopedPath::new(Scope::Local, path),
-                        node_override: None,
-                        namespace_binding: NamespaceBinding::Pinned(namespace.clone()),
-                    },
-                    Some(namespace),
-                ));
-            }
-            "private" if parts.len() >= 7 => {
-                let namespace = parts[4].to_string();
-                let node = parts[5].to_string();
-                let path = parts[6..].join("/");
-                return Ok((
-                    SourceSpec {
-                        plane: PlaneKind::ParamReadUpdates,
-                        path: ScopedPath::new(Scope::Private, path),
-                        node_override: Some(node),
-                        namespace_binding: NamespaceBinding::Pinned(namespace.clone()),
-                    },
-                    Some(namespace),
-                ));
-            }
-            _ => {}
-        }
-    }
-
-    Err(Error::UnknownPlaneMapping {
+    let (domain_id, resolved_topic) = rest.split_once('/').ok_or_else(|| Error::UnknownPlaneMapping {
         topic: topic.to_string(),
         plane: None,
-    })
+    })?;
+    if domain_id.parse::<u32>().is_err() || resolved_topic.is_empty() {
+        return Err(Error::UnknownPlaneMapping {
+            topic: topic.to_string(),
+            plane: None,
+        });
+    }
+
+    if resolved_topic.is_empty() {
+        return Err(Error::UnknownPlaneMapping {
+            topic: topic.to_string(),
+            plane: None,
+        });
+    }
+
+    Ok((
+        SourceSpec {
+            plane,
+            topic_expression: TopicExpression::parse(&format!("/{resolved_topic}"))?,
+            default_node: None,
+            namespace_binding: NamespaceBinding::FollowTarget,
+        },
+        None,
+    ))
 }
 
 #[cfg(test)]
 mod tests {
     use std::{collections::BTreeMap, sync::Arc, time::Duration};
 
-    use hulkz::{Scope, ScopedPath};
+    use hulkz::TopicExpression;
     use zenoh::bytes::Encoding;
 
     use crate::error::Error;
     use crate::types::{NamespaceBinding, PlaneKind, SourceSpec, StreamRecord};
 
     use super::{
-        from_nanos_with_id, metadata_for_record, parse_topic_best_effort,
-        source_from_topic_and_metadata, source_key, timestamp_id_from_metadata, to_nanos,
+        current_domain_id, from_nanos_with_id, key_expr_for_record, metadata_for_record,
+        parse_topic_best_effort, source_from_topic_and_metadata, source_key,
+        timestamp_id_from_metadata, to_nanos,
     };
 
     #[test]
     fn source_key_distinguishes_namespace_binding() {
         let follow = SourceSpec {
             plane: PlaneKind::Data,
-            path: ScopedPath::new(Scope::Local, "imu"),
-            node_override: None,
+            topic_expression: TopicExpression::parse("imu").unwrap(),
+            default_node: None,
             namespace_binding: NamespaceBinding::FollowTarget,
         };
         let pinned = SourceSpec {
             plane: PlaneKind::Data,
-            path: ScopedPath::new(Scope::Local, "imu"),
-            node_override: None,
+            topic_expression: TopicExpression::parse("imu").unwrap(),
+            default_node: None,
             namespace_binding: NamespaceBinding::Pinned("robot".to_string()),
         };
 
@@ -373,32 +309,32 @@ mod tests {
     }
 
     #[test]
-    fn best_effort_topic_parse_for_local_data() {
+    fn best_effort_topic_parse_for_data() {
         let (spec, effective) =
-            parse_topic_best_effort("hulkz/data/local/nao42/camera/front").unwrap();
+            parse_topic_best_effort("hulkz/data/0/nao42/camera/front").unwrap();
 
         assert_eq!(spec.plane, PlaneKind::Data);
-        assert_eq!(spec.path.scope(), Scope::Local);
-        assert_eq!(spec.path.path(), "camera/front");
-        assert_eq!(effective.as_deref(), Some("nao42"));
+        assert_eq!(spec.topic_expression.as_str(), "/nao42/camera/front");
+        assert_eq!(effective, None);
     }
 
     #[test]
     fn metadata_parse_errors_for_unknown_plane() {
         let mut metadata = BTreeMap::new();
+        metadata.insert(format!("{}.version", super::META_PREFIX), "2".to_string());
         metadata.insert(
             format!("{}.plane", super::META_PREFIX),
             "external-raw".to_string(),
         );
 
-        let error = source_from_topic_and_metadata("hulkz/data/global/imu", &metadata).unwrap_err();
+        let error = source_from_topic_and_metadata("hulkz/data/0/imu", &metadata).unwrap_err();
 
         assert!(matches!(
             error,
             Error::UnknownPlaneMapping {
                 ref topic,
                 plane: Some(ref plane),
-            } if topic == "hulkz/data/global/imu" && plane == "external-raw"
+            } if topic == "hulkz/data/0/imu" && plane == "external-raw"
         ));
     }
 
@@ -416,6 +352,22 @@ mod tests {
     }
 
     #[test]
+    fn key_expr_for_record_uses_resolved_topic() {
+        let spec = SourceSpec {
+            plane: PlaneKind::Data,
+            topic_expression: TopicExpression::parse("camera/front").unwrap(),
+            default_node: None,
+            namespace_binding: NamespaceBinding::Pinned("robot".to_string()),
+        };
+
+        let key = key_expr_for_record(&spec, Some("robot")).unwrap();
+        assert_eq!(
+            key,
+            format!("hulkz/data/{}/robot/camera/front", current_domain_id())
+        );
+    }
+
+    #[test]
     fn timestamp_fallback_is_explicit_and_stable() {
         let ts = from_nanos_with_id(1_000, None);
         assert_eq!(to_nanos(&ts), 1_000);
@@ -426,8 +378,8 @@ mod tests {
     fn timestamp_id_metadata_roundtrip() {
         let source = SourceSpec {
             plane: PlaneKind::Data,
-            path: ScopedPath::new(Scope::Local, "imu"),
-            node_override: None,
+            topic_expression: TopicExpression::parse("imu").unwrap(),
+            default_node: None,
             namespace_binding: NamespaceBinding::Pinned("robot".to_string()),
         };
         let record = StreamRecord {

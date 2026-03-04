@@ -9,7 +9,7 @@ use std::time::Duration;
 use tokio::time::timeout;
 
 use common::test_namespace;
-use hulkz::{GraphEvent, Scope, Session};
+use hulkz::{GraphEvent, Session};
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn session_has_unique_id() {
@@ -82,21 +82,19 @@ async fn list_publishers_discovers_advertised_topics() {
     // Should find both publishers
     assert_eq!(publishers.len(), 2);
 
-    // Find the local publisher
+    // Find the namespace-resolved publisher
     let local_pub = publishers
         .iter()
-        .find(|p| p.path == "camera/front")
+        .find(|p| p.topic == format!("{namespace}/camera/front"))
         .expect("should find camera/front publisher");
     assert_eq!(local_pub.node, "sensor_node");
-    assert_eq!(local_pub.scope, Scope::Local);
 
-    // Find the private publisher
+    // Find the private node-resolved publisher
     let private_pub = publishers
         .iter()
-        .find(|p| p.path == "debug/internal")
+        .find(|p| p.topic == format!("{namespace}/sensor_node/debug/internal"))
         .expect("should find debug/internal publisher");
     assert_eq!(private_pub.node, "sensor_node");
-    assert_eq!(private_pub.scope, Scope::Private);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -178,13 +176,19 @@ async fn watch_sessions_receives_events() {
     let session2 = Session::create(&namespace).await.unwrap();
     let expected_id = session2.id().to_string();
 
-    // Should receive join event for the new session
-    let event = timeout(Duration::from_secs(1), watcher.recv())
-        .await
-        .expect("timeout waiting for session event")
-        .expect("watcher closed");
-
-    assert!(matches!(event, GraphEvent::Joined(info) if info.id == expected_id));
+    let started = tokio::time::Instant::now();
+    let mut saw_join = false;
+    while started.elapsed() < Duration::from_secs(3) {
+        if let Ok(Some(GraphEvent::Joined(info))) =
+            timeout(Duration::from_millis(200), watcher.recv()).await
+        {
+            if info.id == expected_id {
+                saw_join = true;
+                break;
+            }
+        }
+    }
+    assert!(saw_join, "expected cross-session join event for {expected_id}");
 
     driver_handle.abort();
 }
@@ -214,8 +218,7 @@ async fn watch_publishers_receives_events() {
     match event {
         GraphEvent::Joined(info) => {
             assert_eq!(info.node, "publisher_node");
-            assert_eq!(info.path, "sensor/data");
-            assert_eq!(info.scope, Scope::Local);
+            assert_eq!(info.topic, format!("{namespace}/sensor/data"));
         }
         _ => panic!("expected Joined event"),
     }
@@ -236,15 +239,23 @@ async fn cross_namespace_discovery() {
 
     tokio::time::sleep(Duration::from_millis(100)).await;
 
-    // Session1 can discover nodes in namespace2
-    let nodes_in_ns2 = session1
-        .graph()
-        .in_namespace(&namespace2)
-        .nodes()
-        .list()
-        .await
-        .unwrap();
-    assert!(nodes_in_ns2.iter().any(|n| n.name == "node_in_ns2"));
+    let started = tokio::time::Instant::now();
+    let mut found_in_ns2 = false;
+    while started.elapsed() < Duration::from_secs(3) {
+        let nodes_in_ns2 = session1
+            .graph()
+            .in_namespace(&namespace2)
+            .nodes()
+            .list()
+            .await
+            .unwrap();
+        if nodes_in_ns2.iter().any(|n| n.name == "node_in_ns2") {
+            found_in_ns2 = true;
+            break;
+        }
+        tokio::time::sleep(Duration::from_millis(100)).await;
+    }
+    assert!(found_in_ns2, "expected namespace2 node to become discoverable");
 
     // Session1's own namespace shouldn't include namespace2's nodes
     let nodes_in_ns1 = session1.graph().nodes().list().await.unwrap();
@@ -283,21 +294,19 @@ async fn list_parameters_discovers_declared_parameters() {
     // Should find both parameters
     assert_eq!(parameters.len(), 2);
 
-    // Find the local parameter
+    // Find the namespace-resolved parameter
     let local_param = parameters
         .iter()
-        .find(|p| p.path == "max_speed")
+        .find(|p| p.topic == format!("{namespace}/max_speed"))
         .expect("should find max_speed parameter");
     assert_eq!(local_param.node, "param_node");
-    assert_eq!(local_param.scope, Scope::Local);
 
-    // Find the private parameter
+    // Find the node-resolved private parameter
     let private_param = parameters
         .iter()
-        .find(|p| p.path == "debug_level")
+        .find(|p| p.topic == format!("{namespace}/param_node/debug_level"))
         .expect("should find debug_level parameter");
     assert_eq!(private_param.node, "param_node");
-    assert_eq!(private_param.scope, Scope::Private);
 
     driver_handle1.abort();
     driver_handle2.abort();
@@ -334,8 +343,7 @@ async fn watch_parameters_receives_declared_event() {
     match event {
         GraphEvent::Joined(info) => {
             assert_eq!(info.node, "param_node");
-            assert_eq!(info.path, "speed");
-            assert_eq!(info.scope, Scope::Local);
+            assert_eq!(info.topic, format!("{namespace}/speed"));
         }
         _ => panic!("expected Joined event"),
     }
@@ -375,7 +383,7 @@ async fn watch_parameters_receives_undeclared_event() {
 
         match event {
             GraphEvent::Joined(info) => {
-                assert_eq!(info.path, "temp_param");
+                assert_eq!(info.topic, format!("{namespace}/temp_param"));
             }
             _ => panic!("expected Joined event"),
         }
@@ -392,7 +400,7 @@ async fn watch_parameters_receives_undeclared_event() {
 
     match event {
         GraphEvent::Left(info) => {
-            assert_eq!(info.path, "temp_param");
+            assert_eq!(info.topic, format!("{namespace}/temp_param"));
             assert_eq!(info.node, "param_node");
         }
         _ => panic!("expected Left event"),

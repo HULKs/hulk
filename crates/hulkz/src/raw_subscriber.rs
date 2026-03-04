@@ -14,14 +14,13 @@ use crate::{
     error::Result,
     key::{DataKey, ViewKey},
     sample::Sample,
-    scoped_path::ScopedPath,
-    Session,
+    Session, TopicExpression,
 };
 
 /// Builder for creating a [`RawSubscriber`].
 pub struct RawSubscriberBuilder {
     pub(crate) session: Session,
-    pub(crate) topic: ScopedPath,
+    pub(crate) topic_expression: TopicExpression,
     pub(crate) capacity: usize,
     pub(crate) view: bool,
     pub(crate) namespace: String,
@@ -60,26 +59,19 @@ impl RawSubscriberBuilder {
     }
 
     pub async fn build(self) -> Result<RawSubscriber> {
-        let topic = self.topic;
+        let domain_id = self.session.domain_id();
+        let resolved_topic = self
+            .topic_expression
+            .resolve(&self.namespace, Some(&self.node_name))?;
         let key = if self.view {
-            ViewKey::from_scope(
-                topic.scope(),
-                &self.namespace,
-                &self.node_name,
-                topic.path(),
-            )
+            ViewKey::topic(domain_id, &resolved_topic)
         } else {
-            DataKey::from_scope(
-                topic.scope(),
-                &self.namespace,
-                &self.node_name,
-                topic.path(),
-            )
+            DataKey::topic(domain_id, &resolved_topic)
         };
         debug!(
             plane = if self.view { "view" } else { "data" },
-            scope = %topic.scope().as_str(),
-            path = %topic.path(),
+            topic_expression = %self.topic_expression.as_str(),
+            resolved_topic = %resolved_topic,
             namespace = %self.namespace,
             node = %self.node_name,
             capacity = self.capacity,

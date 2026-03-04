@@ -288,7 +288,7 @@ impl GlobalCache {
 mod tests {
     use std::sync::Arc;
 
-    use hulkz::{Scope, ScopedPath};
+    use hulkz::TopicExpression;
     use zenoh::bytes::Encoding;
 
     use crate::{
@@ -305,8 +305,8 @@ mod tests {
     fn spec(name: &str) -> SourceSpec {
         SourceSpec {
             plane: PlaneKind::Data,
-            path: ScopedPath::new(Scope::Local, name),
-            node_override: None,
+            topic_expression: TopicExpression::parse(name).unwrap(),
+            default_node: None,
             namespace_binding: NamespaceBinding::Pinned("robot".to_string()),
         }
     }

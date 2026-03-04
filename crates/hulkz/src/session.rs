@@ -26,8 +26,8 @@ use tracing::{debug, info};
 use zenoh::liveliness::LivelinessToken;
 
 use crate::{
-    key::GraphKey, node::NodeBuilder, Config, GraphAccess, ParamAccessBuilder, Result, ScopedPath,
-    Timestamp,
+    key::GraphKey, node::NodeBuilder, Config, GraphAccess, ParamAccessBuilder, Result, Timestamp,
+    TopicExpression,
 };
 
 /// Builder for creating a [`Session`].
@@ -81,9 +81,14 @@ impl SessionBuilder {
         let unique_id = uuid::Uuid::new_v4();
         let hostname = gethostname::gethostname().to_string_lossy().into_owned();
         let session_id = format!("{unique_id}@{hostname}");
+        let domain_id = std::env::var("ROS_DOMAIN_ID")
+            .ok()
+            .and_then(|value| value.parse::<u32>().ok())
+            .unwrap_or(0);
+        let zenoh_id = session.zid().to_string();
 
         // Declare session liveliness token for discovery
-        let liveliness_key = GraphKey::session(&self.namespace, &session_id);
+        let liveliness_key = GraphKey::session(domain_id, &zenoh_id, &self.namespace, &session_id);
         let liveliness_token = session.liveliness().declare_token(&liveliness_key).await?;
         info!(
             namespace = %self.namespace,
@@ -95,6 +100,8 @@ impl SessionBuilder {
             zenoh: session,
             namespace: self.namespace,
             session_id,
+            domain_id,
+            zenoh_id,
             config: self.config,
             _liveliness_token: liveliness_token,
         };
@@ -118,6 +125,8 @@ struct SessionInner {
     zenoh: zenoh::Session,
     namespace: String,
     session_id: String,
+    domain_id: u32,
+    zenoh_id: String,
     config: Config,
     _liveliness_token: LivelinessToken,
 }
@@ -164,6 +173,14 @@ impl Session {
     /// Returns the unique session ID.
     pub fn id(&self) -> &str {
         &self.inner.session_id
+    }
+
+    pub fn domain_id(&self) -> u32 {
+        self.inner.domain_id
+    }
+
+    pub fn zenoh_id(&self) -> &str {
+        &self.inner.zenoh_id
     }
 
     /// Access the graph plane for discovery operations.
@@ -221,10 +238,10 @@ impl Session {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn parameter(&self, path: impl Into<ScopedPath>) -> ParamAccessBuilder<'_> {
+    pub fn parameter(&self, topic: impl Into<TopicExpression>) -> ParamAccessBuilder<'_> {
         ParamAccessBuilder {
             session: self,
-            path: path.into(),
+            topic_expression: topic.into(),
             node: None,
             namespace_override: None,
         }

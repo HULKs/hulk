@@ -2,7 +2,7 @@
 
 use clap::Args;
 use color_eyre::Result;
-use hulkz::{ScopedPath, Session};
+use hulkz::{Session, TopicExpression};
 use serde::Serialize;
 
 /// Arguments for the info command.
@@ -10,13 +10,16 @@ use serde::Serialize;
 pub struct InfoArgs {
     /// Topic to get info about (e.g., "camera/front", "/fleet_status")
     pub topic: String,
+
+    /// Node name for private expressions ("~/...")
+    #[arg(long)]
+    pub node: Option<String>,
 }
 
 #[derive(Serialize)]
 struct TopicInfo {
-    topic: String,
-    scope: String,
-    path: String,
+    topic_expression: String,
+    resolved_topic: String,
     publishers: Vec<PublisherMatch>,
 }
 
@@ -29,20 +32,19 @@ struct PublisherMatch {
 pub async fn run(namespace: &str, args: InfoArgs) -> Result<()> {
     let session = Session::create(namespace).await?;
 
-    // Parse the topic
-    let scoped_path: ScopedPath = args.topic.as_str().into();
+    let topic_expression = TopicExpression::parse(args.topic.as_str())?;
+    let resolved_topic = topic_expression.resolve(namespace, args.node.as_deref())?;
 
     // Find publishers for this topic using new Graph API
     let all_publishers = session.graph().publishers().list().await?;
     let matching_publishers: Vec<_> = all_publishers
         .iter()
-        .filter(|p| p.path == scoped_path.path() && p.scope == scoped_path.scope())
+        .filter(|p| p.topic == resolved_topic)
         .collect();
 
     let info = TopicInfo {
-        topic: args.topic.clone(),
-        scope: format!("{}", scoped_path.scope()),
-        path: scoped_path.path().to_string(),
+        topic_expression: args.topic.clone(),
+        resolved_topic,
         publishers: matching_publishers
             .iter()
             .map(|p| PublisherMatch {
@@ -52,9 +54,8 @@ pub async fn run(namespace: &str, args: InfoArgs) -> Result<()> {
     };
 
     println!("TOPIC INFO");
-    println!("  Topic:     {}", info.topic);
-    println!("  Scope:     {}", info.scope);
-    println!("  Path:      {}", info.path);
+    println!("  Expression: {}", info.topic_expression);
+    println!("  Resolved:   {}", info.resolved_topic);
     println!();
     println!("PUBLISHERS ({})", info.publishers.len());
     if info.publishers.is_empty() {

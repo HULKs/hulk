@@ -13,7 +13,7 @@ use std::{
 use crate::{
     cache::GlobalCache,
     error::{Error, Result},
-    keyspace::{effective_namespace, from_nanos, source_key, to_nanos},
+    keyspace::{effective_namespace, from_nanos, resolved_topic_for_source, source_key, to_nanos},
     storage::{DurableStats, Storage},
     types::{
         BackendStats, OpenMode, PlaneKind, SourceSpec, SourceStats, StreamChunk,
@@ -181,15 +181,12 @@ pub struct StreamBackend {
 impl StreamBackend {
     /// Acquires or reuses a deduplicated source runtime and returns a query handle.
     pub async fn source(&self, spec: SourceSpec) -> Result<SourceHandle> {
-        if spec.path.scope() == hulkz::Scope::Private && spec.node_override.is_none() {
-            return Err(Error::NodeRequiredForPrivate);
-        }
         let request_key = source_key(&spec);
         debug!(
             source_key = %request_key,
             plane = ?spec.plane,
-            scope = %spec.path.scope().as_str(),
-            path = %spec.path.path(),
+            topic_expression = %spec.topic_expression.as_str(),
+            default_node = ?spec.default_node,
             "acquiring source handle",
         );
 
@@ -1078,11 +1075,6 @@ async fn run_ingest_worker(
     target_namespace_rx: &mut watch::Receiver<String>,
     ingest_enabled_rx: &mut watch::Receiver<bool>,
 ) {
-    if shared.spec.path.scope() == hulkz::Scope::Private && shared.spec.node_override.is_none() {
-        warn!("ingest worker rejected private scope source without node override");
-        update_last_error(&shared.stats_tx, Error::NodeRequiredForPrivate.to_string());
-        return;
-    }
     let source = source_key(&shared.spec);
     debug!(source_key = %source, "ingest worker started");
 
@@ -1235,10 +1227,11 @@ async fn build_subscriber(
     effective_namespace: Option<String>,
     capacity: usize,
 ) -> Result<IngestSubscriber> {
+    let resolved_topic = resolved_topic_for_source(spec, effective_namespace.as_deref())?;
     trace!(
         plane = ?spec.plane,
-        scope = %spec.path.scope().as_str(),
-        path = %spec.path.path(),
+        topic_expression = %spec.topic_expression.as_str(),
+        resolved_topic = %resolved_topic,
         effective_namespace = ?effective_namespace,
         capacity,
         "building ingest subscriber",
@@ -1247,7 +1240,7 @@ async fn build_subscriber(
         PlaneKind::Data | PlaneKind::View => {
             let mut builder = inner
                 .node
-                .subscribe_raw(spec.path.clone())
+                .subscribe_raw(spec.topic_expression.clone())
                 .capacity(capacity);
             if spec.plane == PlaneKind::View {
                 builder = builder.view();
@@ -1255,17 +1248,17 @@ async fn build_subscriber(
             if let Some(namespace) = &effective_namespace {
                 builder = builder.in_namespace(namespace.clone());
             }
-            if let Some(node) = &spec.node_override {
+            if let Some(node) = &spec.default_node {
                 builder = builder.on_node(node.clone());
             }
             Ok(IngestSubscriber::Raw(builder.build().await?))
         }
         PlaneKind::ParamReadUpdates => {
-            let mut access = inner.session.parameter(spec.path.clone());
+            let mut access = inner.session.parameter(spec.topic_expression.clone());
             if let Some(namespace) = &effective_namespace {
                 access = access.in_namespace(namespace.clone());
             }
-            if let Some(node) = &spec.node_override {
+            if let Some(node) = &spec.default_node {
                 access = access.on_node(node);
             }
 

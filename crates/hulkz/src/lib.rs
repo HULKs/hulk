@@ -48,28 +48,28 @@
 //!
 //! | Plane | Key Prefix | Encoding | Purpose |
 //! |-------|------------|----------|---------|
-//! | **Data** | `hulkz/data/` | CDR | Production data streams |
-//! | **View** | `hulkz/view/` | JSON | Debug mirror |
-//! | **Param** | `hulkz/param/` | JSON | Configuration (read/write branches) |
-//! | **Graph** | `hulkz/graph/` | Liveliness | Node/publisher discovery |
+//! | **Data** | `hulkz/data/{domain_id}/` | CDR | Production data streams |
+//! | **View** | `hulkz/view/{domain_id}/` | JSON | Debug mirror |
+//! | **Param** | `hulkz/param/{intent}/{domain_id}/` | JSON | Configuration (read/write branches) |
+//! | **Graph** | `hulkz/graph/` | Liveliness | Node/publisher/parameter/session discovery |
 //! | **Cmd** | `hulkz/cmd/` | JSON | RPC services (planned) |
 //!
-//! # Scoped Paths
+//! # Topic Expressions
 //!
-//! Topics use prefix syntax to define their visibility scope:
+//! Topics use expression syntax and are resolved to canonical topics:
 //!
-//! | Prefix | Scope | Example | Expands To |
-//! |--------|-------|---------|------------|
-//! | `/` | Global | `/fleet_status` | `hulkz/data/global/fleet_status` |
-//! | (none) | Local | `camera/front` | `hulkz/data/local/{ns}/camera/front` |
-//! | `~/` | Private | `~/debug` | `hulkz/data/private/{ns}/{node}/debug` |
+//! | Expression | Example | Resolves To |
+//! |------------|---------|-------------|
+//! | Absolute | `/fleet_status` | `hulkz/data/{domain_id}/fleet_status` |
+//! | Relative | `camera/front` | `hulkz/data/{domain_id}/{ns}/camera/front` |
+//! | Private | `~/debug` | `hulkz/data/{domain_id}/{ns}/{node}/debug` |
 //!
 //! ```rust
-//! use hulkz::ScopedPath;
+//! use hulkz::TopicExpression;
 //!
-//! let global: ScopedPath = "/fleet_status".try_into().unwrap();
-//! let local: ScopedPath = "camera/front".try_into().unwrap();
-//! let private: ScopedPath = "~/debug".try_into().unwrap();
+//! let global: TopicExpression = "/fleet_status".into();
+//! let local: TopicExpression = "camera/front".into();
+//! let private: TopicExpression = "~/debug".into();
 //! ```
 //!
 //! # Timestamps
@@ -180,9 +180,9 @@ pub use crate::{
     publisher::Publisher,
     raw_subscriber::{RawSubscriber, RawSubscriberBuilder},
     sample::Sample,
-    scoped_path::{Scope, ScopedPath},
     session::Session,
     subscriber::Subscriber,
+    topic::{Topic, TopicExpression},
 };
 
 pub mod buffer;
@@ -196,9 +196,9 @@ pub mod parameter;
 pub mod publisher;
 pub mod raw_subscriber;
 pub mod sample;
-pub mod scoped_path;
 pub mod session;
 pub mod subscriber;
+pub mod topic;
 
 mod key;
 

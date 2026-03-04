@@ -1,47 +1,41 @@
-//! Integration tests for the hulkz key space structure.
-//!
-//! These tests verify the public API for scoped paths and scope parsing.
-//! Internal key-building logic is tested via unit tests in the respective modules.
+//! Integration tests for topic expression parsing and resolution.
 
-use hulkz::{Scope, ScopedPath};
+use hulkz::TopicExpression;
 
-mod scoped_path_syntax {
+mod topic_expression_syntax {
     use super::*;
 
     #[test]
-    fn slash_prefix_is_global() {
-        let path: ScopedPath = "/fleet".into();
-        assert!(matches!(path.scope(), Scope::Global));
+    fn absolute_expression_resolves_without_namespace_prefix() {
+        let expr: TopicExpression = "/fleet".into();
+        let resolved = expr.resolve("robot", Some("nav")).unwrap();
+        assert_eq!(resolved, "fleet");
     }
 
     #[test]
-    fn tilde_prefix_is_private() {
-        let path: ScopedPath = "~/debug".into();
-        assert!(matches!(path.scope(), Scope::Private));
+    fn private_current_expression_uses_default_node() {
+        let expr: TopicExpression = "~/debug".into();
+        let resolved = expr.resolve("robot", Some("planner")).unwrap();
+        assert_eq!(resolved, "robot/planner/debug");
     }
 
     #[test]
-    fn no_prefix_is_local() {
-        let path: ScopedPath = "sensor".into();
-        assert!(matches!(path.scope(), Scope::Local));
+    fn relative_expression_uses_namespace_prefix() {
+        let expr: TopicExpression = "sensor".into();
+        let resolved = expr.resolve("robot", Some("planner")).unwrap();
+        assert_eq!(resolved, "robot/sensor");
     }
 
     #[test]
-    fn path_accessor() {
-        let path: ScopedPath = "/fleet/status".into();
-        assert_eq!(path.path(), "fleet/status");
-
-        let path: ScopedPath = "~/debug/level".into();
-        assert_eq!(path.path(), "debug/level");
-
-        let path: ScopedPath = "camera/front".into();
-        assert_eq!(path.path(), "camera/front");
+    fn explicit_private_node_expression_uses_embedded_node() {
+        let expr: TopicExpression = "~vision/debug/level".into();
+        let resolved = expr.resolve("robot", Some("planner")).unwrap();
+        assert_eq!(resolved, "robot/vision/debug/level");
     }
 
     #[test]
-    fn new_with_explicit_scope() {
-        let path = ScopedPath::new(Scope::Private, "my/path");
-        assert_eq!(path.scope(), Scope::Private);
-        assert_eq!(path.path(), "my/path");
+    fn private_current_expression_requires_node() {
+        let expr: TopicExpression = "~/debug".into();
+        assert!(expr.resolve("robot", None).is_err());
     }
 }

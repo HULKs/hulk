@@ -1,6 +1,6 @@
 use std::{num::NonZeroU128, time::Duration};
 
-use hulkz::{Scope, ScopedPath, Session};
+use hulkz::{Session, TopicExpression};
 use hulkz_stream::{
     NamespaceBinding, OpenMode, PlaneKind, Result, SourceSpec, StreamBackendBuilder,
 };
@@ -30,8 +30,8 @@ async fn main() -> Result<()> {
     let source = backend
         .source(SourceSpec {
             plane: PlaneKind::Data,
-            path: ScopedPath::new(Scope::Local, "camera/front"),
-            node_override: None,
+            topic_expression: TopicExpression::parse("camera/front")?,
+            default_node: None,
             namespace_binding: NamespaceBinding::FollowTarget,
         })
         .await?;

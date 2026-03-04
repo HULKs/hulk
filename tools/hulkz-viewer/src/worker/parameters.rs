@@ -4,11 +4,11 @@ use color_eyre::{
     eyre::{eyre, WrapErr as _},
     Result,
 };
-use hulkz::{Scope, Session};
+use hulkz::Session;
 
 use crate::protocol::ParameterReference;
 
-use super::streams::{parse_source_path_expression, scoped_path_expression};
+use super::streams::parse_source_path_expression;
 
 const PARAMETER_OPERATION_TIMEOUT: Duration = Duration::from_secs(2);
 
@@ -115,17 +115,9 @@ pub(super) fn parameter_access_parts(
         return Err(eyre!("parameter node must not be empty"));
     }
 
-    let (path, node_override) = parse_source_path_expression(&target.path_expression)?;
-    if path.scope() == Scope::Private && node_override.is_none() {
-        return Err(eyre!(
-            "private parameter requires node override; use ~<node>/<path> syntax"
-        ));
-    }
+    let (topic_expression, node_override) = parse_source_path_expression(&target.path_expression)?;
+    let canonical_path = topic_expression.as_str().to_string();
+    let node = node_override.unwrap_or_else(|| node.to_string());
 
-    let canonical_path = match path.scope() {
-        Scope::Private => scoped_path_expression(path.scope(), path.path(), None),
-        _ => scoped_path_expression(path.scope(), path.path(), Some(node)),
-    };
-
-    Ok((namespace.to_string(), node.to_string(), canonical_path))
+    Ok((namespace.to_string(), node, canonical_path))
 }
