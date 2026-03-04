@@ -75,7 +75,7 @@ impl WalkingInferenceInputs {
                             .clamp(-policy_interval, policy_interval),
                 )
             }
-            MotionCommand::Stand { .. } => (vector![0.0, 0.0], 0.0),
+            MotionCommand::Stand { .. } | MotionCommand::Prepare => (vector![0.0, 0.0], 0.0),
             _ => bail!("unsupported motion command"),
         };
 
