@@ -7,7 +7,7 @@ use hardware::{RecordingInterface, SpeakerInterface};
 use hsl_network_messages::PlayerNumber;
 use serde::{Deserialize, Serialize};
 use types::{
-    filtered_game_controller_state::FilteredGameControllerState,
+    buttons::Buttons, filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState, primary_state::PrimaryState,
 };
 
@@ -21,9 +21,9 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
+    buttons: Input<Option<Buttons>, "buttons?">,
     filtered_game_controller_state:
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
-    should_exit_safe_mode: Input<bool, "should_exit_safe_mode">,
 
     injected_primary_state: Parameter<Option<PrimaryState>, "injected_primary_state?">,
     player_number: Parameter<PlayerNumber, "player_number">,
@@ -66,27 +66,34 @@ impl PrimaryStateFilter {
 
         let next_primary_state = match (
             self.last_primary_state,
-            context.should_exit_safe_mode,
+            context.buttons,
             is_penalized,
             game_state,
         ) {
-            (PrimaryState::Safe, true, _, _) => PrimaryState::Initial,
+            (_, Some(Buttons::IsStandOrF1Pressed), _, _) => PrimaryState::Safe,
+            (PrimaryState::Safe, Some(Buttons::IsStandLongPressedDuringSafePose), _, _) => {
+                PrimaryState::Initial
+            }
+            (PrimaryState::Safe, _, _, _) => PrimaryState::Safe,
+            (PrimaryState::Initial, Some(Buttons::IsStandLongPressedDuringSafePose), _, _) => {
+                PrimaryState::Playing
+            }
             (PrimaryState::Initial, _, false, FilteredGameState::Ready) => PrimaryState::Ready,
             (PrimaryState::Ready, _, false, FilteredGameState::Set) => PrimaryState::Set,
             (PrimaryState::Set, _, false, FilteredGameState::Playing { .. }) => {
                 PrimaryState::Playing
             }
+            (PrimaryState::Playing, _, false, FilteredGameState::Ready) => PrimaryState::Ready,
             (state, _, _, FilteredGameState::Finished) if !matches!(state, PrimaryState::Safe) => {
                 PrimaryState::Finished
             }
-            (PrimaryState::Playing, _, false, FilteredGameState::Ready) => PrimaryState::Ready,
             (state, _, _, FilteredGameState::Stop) if !matches!(state, PrimaryState::Safe) => {
                 PrimaryState::Stop
             }
+            (state, _, true, _) if !matches!(state, PrimaryState::Safe) => PrimaryState::Penalized,
             (PrimaryState::Stop, _, is_penalized, game_state) => {
                 self.game_state_to_primary_state(game_state, is_penalized)
             }
-            (state, _, true, _) if !matches!(state, PrimaryState::Safe) => PrimaryState::Penalized,
             (PrimaryState::Penalized, _, false, game_state) => {
                 self.game_state_to_primary_state(game_state, false)
             }
