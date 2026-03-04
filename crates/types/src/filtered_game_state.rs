@@ -24,5 +24,5 @@ pub enum FilteredGameState {
         kick_off: bool,
     },
     Finished,
-    Standby,
+    Stop,
 }

@@ -23,8 +23,8 @@ use crate::{
         PENALTY_SPL_PLAYER_STANCE, PENALTY_SPL_REQUEST_FOR_PICKUP, PENALTY_SUBSTITUTE,
         SET_PLAY_CORNER_KICK, SET_PLAY_GOAL_KICK, SET_PLAY_KICK_IN, SET_PLAY_NONE,
         SET_PLAY_PENALTY_KICK, SET_PLAY_PUSHING_FREE_KICK, STATE_FINISHED, STATE_INITIAL,
-        STATE_PLAYING, STATE_READY, STATE_SET, STATE_STANDBY, TEAM_BLACK, TEAM_BLUE, TEAM_BROWN,
-        TEAM_GRAY, TEAM_GREEN, TEAM_ORANGE, TEAM_PURPLE, TEAM_RED, TEAM_WHITE, TEAM_YELLOW,
+        STATE_PLAYING, STATE_READY, STATE_SET, TEAM_BLACK, TEAM_BLUE, TEAM_BROWN, TEAM_GRAY,
+        TEAM_GREEN, TEAM_ORANGE, TEAM_PURPLE, TEAM_RED, TEAM_WHITE, TEAM_YELLOW,
     },
     PlayerNumber, HULKS_TEAM_NUMBER, NONE_TEAM_NUMBER,
 };
@@ -294,7 +294,6 @@ pub enum GameState {
     Set,
     Playing,
     Finished,
-    Standby,
 }
 
 impl GameState {
@@ -305,7 +304,6 @@ impl GameState {
             STATE_SET => Ok(GameState::Set),
             STATE_PLAYING => Ok(GameState::Playing),
             STATE_FINISHED => Ok(GameState::Finished),
-            STATE_STANDBY => Ok(GameState::Standby),
             _ => bail!("unexpected game state"),
         }
     }
