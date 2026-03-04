@@ -1,17 +1,20 @@
 use color_eyre::Result;
-use hardware::SafeToExitSafeInterface;
+use coordinate_systems::Robot;
+use hardware::InjectedButtonInterface;
+use linear_algebra::Vector3;
 use serde::{Deserialize, Serialize};
 
 use approx::AbsDiffEq;
-use booster::{ButtonEventMsg, ButtonEventType, ImuState, MotorState};
+use booster::{ButtonEventMsg, ButtonEventType, ImuState, JointsMotorState, MotorState};
 use context_attribute::context;
-use framework::{MainOutput, PerceptionInput};
-use types::joints::Joints;
+use framework::{AdditionalOutput, MainOutput, PerceptionInput};
+use types::{buttons::Buttons, joints::Joints};
 
 #[derive(Deserialize, Serialize)]
-pub struct SafeModeHandler {
+pub struct ButtonEventHandler {
     pub last_imu_state: ImuState,
     pub last_serial_motor_states: Joints<MotorState>,
+    pub last_button_event: Option<ButtonEventMsg>,
 }
 
 #[context]
@@ -32,30 +35,42 @@ pub struct CycleContext {
     linear_acceleration_threshold:
         Parameter<f32, "safe_mode_handler.linear_acceleration_threshold">,
 
+    joint_position_difference_to_safe:
+        AdditionalOutput<Joints, "joint_position_difference_to_safe">,
+    joint_velocities_difference_to_safe:
+        AdditionalOutput<Joints, "joint_velocities_difference_to_safe">,
+    angular_velocities_difference_to_safe:
+        AdditionalOutput<Vector3<Robot>, "angular_velocities_difference_to_safe">,
+    linear_accelerations_difference_to_safe:
+        AdditionalOutput<Vector3<Robot>, "linear_accelerations_difference_to_safe">,
+
     hardware_interface: HardwareInterface,
 }
 
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub should_exit_safe_mode: MainOutput<bool>,
+    pub buttons: MainOutput<Option<Buttons>>,
 }
 
-impl SafeModeHandler {
+impl ButtonEventHandler {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             last_imu_state: Default::default(),
             last_serial_motor_states: Default::default(),
+            last_button_event: None,
         })
     }
 
     pub fn cycle(
         &mut self,
-        context: CycleContext<impl SafeToExitSafeInterface>,
+        mut context: CycleContext<impl InjectedButtonInterface>,
     ) -> Result<MainOutputs> {
-        if context.hardware_interface.read_safe_to_exit_safe()? {
+        let injected_buttons = context.hardware_interface.read_injected_button()?;
+
+        if injected_buttons.is_some() {
             return Ok(MainOutputs {
-                should_exit_safe_mode: true.into(),
+                buttons: injected_buttons.into(),
             });
         }
 
@@ -68,7 +83,7 @@ impl SafeModeHandler {
             .flatten()
         else {
             return Ok(MainOutputs {
-                should_exit_safe_mode: false.into(),
+                buttons: None.into(),
             });
         };
 
@@ -96,13 +111,27 @@ impl SafeModeHandler {
 
         self.last_serial_motor_states = serial_motor_states;
 
-        let is_stand_button_long_press = matches!(
-            button_event,
-            ButtonEventMsg {
-                button: 1,
-                event: ButtonEventType::LongPressStart
-            }
-        );
+        context
+            .joint_position_difference_to_safe
+            .fill_if_subscribed(|| {
+                serial_motor_states.positions() - context.prep_mode_serial_motor_states.positions()
+            });
+        context
+            .joint_velocities_difference_to_safe
+            .fill_if_subscribed(|| {
+                serial_motor_states.velocities()
+                    - context.prep_mode_serial_motor_states.velocities()
+            });
+        context
+            .linear_accelerations_difference_to_safe
+            .fill_if_subscribed(|| {
+                imu_state.linear_acceleration - context.prep_mode_imu_state.linear_acceleration
+            });
+        context
+            .angular_velocities_difference_to_safe
+            .fill_if_subscribed(|| {
+                imu_state.angular_velocity - context.prep_mode_imu_state.angular_velocity
+            });
 
         let motor_states_are_safe = motor_states_are_safe(
             &serial_motor_states,
@@ -118,11 +147,50 @@ impl SafeModeHandler {
             *context.linear_acceleration_threshold,
         );
 
-        let should_exit_safe_mode =
-            is_stand_button_long_press && motor_states_are_safe && imu_state_is_safe;
+        let is_safe_pose = motor_states_are_safe && imu_state_is_safe;
+
+        let buttons = match (self.last_button_event.clone(), button_event, is_safe_pose) {
+            (
+                Some(ButtonEventMsg {
+                    button: 1,
+                    event: ButtonEventType::LongPressHold,
+                }),
+                ButtonEventMsg {
+                    button: 1,
+                    event: ButtonEventType::PressUp,
+                },
+                false,
+            ) => Some(Buttons::IsStandLongPressed),
+            (
+                Some(ButtonEventMsg {
+                    button: 1,
+                    event: ButtonEventType::LongPressHold,
+                }),
+                ButtonEventMsg {
+                    button: 1,
+                    event: ButtonEventType::PressUp,
+                },
+                true,
+            ) => Some(Buttons::IsStandLongPressedDuringSafePose),
+            (
+                _,
+                ButtonEventMsg {
+                    button: 0,
+                    event: ButtonEventType::PressUp,
+                }
+                | ButtonEventMsg {
+                    button: 1,
+                    event: ButtonEventType::PressUp,
+                },
+                _,
+            ) => Some(Buttons::IsStandOrF1Pressed),
+            _ => None,
+        };
+
+        self.last_button_event = Some(button_event.clone());
 
         Ok(MainOutputs {
-            should_exit_safe_mode: should_exit_safe_mode.into(),
+            buttons: buttons.into(),
         })
     }
 }

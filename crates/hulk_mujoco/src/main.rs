@@ -10,7 +10,7 @@ use framework::Parameters as FrameworkParameters;
 use hardware::{
     ButtonEventMsgInterface, CameraInterface, FallDownStateInterface, IdInterface,
     LowCommandInterface, LowStateInterface, MicrophoneInterface, NetworkInterface, PathsInterface,
-    RecordingInterface, SafeToExitSafeInterface, SpeakerInterface, TimeInterface,
+    RecordingInterface, InjectedButtonInterface, SpeakerInterface, TimeInterface,
     TransformMessageInterface,
 };
 use hula_types::hardware::Ids;
@@ -54,7 +54,7 @@ pub trait HardwareInterface:
     + RecordingInterface
     + SpeakerInterface
     + TimeInterface
-    + SafeToExitSafeInterface
+    + InjectedButtonInterface
 {
 }
 

@@ -9,6 +9,7 @@ use hula_types::hardware::{Ids, Paths};
 use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
 use types::{
     audio::SpeakerRequest,
+    buttons::Buttons,
     joints::Joints,
     led::Leds,
     messages::{IncomingMessage, OutgoingMessage},
@@ -89,6 +90,6 @@ pub trait TimeInterface {
     fn get_now(&self) -> SystemTime;
 }
 
-pub trait SafeToExitSafeInterface {
-    fn read_safe_to_exit_safe(&self) -> Result<bool>;
+pub trait InjectedButtonInterface {
+    fn read_injected_button(&self) -> Result<Option<Buttons>>;
 }
