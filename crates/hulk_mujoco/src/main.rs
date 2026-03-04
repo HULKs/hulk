@@ -9,8 +9,8 @@ use ctrlc::set_handler;
 use framework::Parameters as FrameworkParameters;
 use hardware::{
     ButtonEventMsgInterface, CameraInterface, FallDownStateInterface, IdInterface,
-    LowCommandInterface, LowStateInterface, MicrophoneInterface, NetworkInterface, PathsInterface,
-    RecordingInterface, InjectedButtonInterface, SpeakerInterface, TimeInterface,
+    InjectedButtonInterface, LowCommandInterface, LowStateInterface, MicrophoneInterface,
+    NetworkInterface, PathsInterface, RecordingInterface, SpeakerInterface, TimeInterface,
     TransformMessageInterface,
 };
 use hula_types::hardware::Ids;
