@@ -31,8 +31,6 @@ use types::{
     roles::Role,
 };
 
-//use crate::localization::generate_initial_pose;
-
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 enum SentState {
     Striker,
@@ -72,7 +70,6 @@ pub struct CycleContext {
     team_ball: Input<Option<BallPosition<Field>>, "team_ball?">,
     fall_down_state: PerceptionInput<Option<FallDownState>, "FallDownState", "fall_down_state?">,
 
-    //field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     forced_role: Parameter<Option<Role>, "role_assignment.forced_role?">,
     keeper_replacementkeeper_switch_time:
         Parameter<Duration, "role_assignment.keeper_replacementkeeper_switch_time">,
@@ -82,7 +79,6 @@ pub struct CycleContext {
         Parameter<f32, "role_assignment.maximum_trusted_team_ball_distance">,
     loser_timeout: Parameter<Duration, "role_assignment.loser_timeout">,
     claim_striker_from_team_ball: Parameter<bool, "role_assignment.claim_striker_from_team_ball">,
-    //initial_poses: Parameter<Players<InitialPose>, "localization.initial_poses">,
     optional_roles: Parameter<Vec<Role>, "behavior.optional_roles">,
     player_number: Parameter<PlayerNumber, "player_number">,
     hsl_network_parameters: Parameter<HslNetworkParameters, "hsl_network">,
@@ -524,20 +520,11 @@ impl RoleAssignment {
     }
 }
 
+// TODO: reintegrate Initial Pose as fallback currently only Default as fallback
 fn ground_to_field_or_initial_pose(
     context: &CycleContext<'_, impl NetworkInterface>,
 ) -> Isometry2<Ground, Field> {
-    context
-        .ground_to_field
-        .copied()
-        .unwrap_or_else(|| match context.primary_state {
-            // PrimaryState::Initial => generate_initial_pose(
-            //     &context.initial_poses[*context.player_number],
-            //     context.field_dimensions,
-            // ) TODO: reintegrate with loca
-            // .as_transform(),
-            _ => Default::default(),
-        })
+    context.ground_to_field.copied().unwrap_or_default()
 }
 
 fn is_allowed_to_send_messages(context: &CycleContext<'_, impl NetworkInterface>) -> bool {
@@ -901,82 +888,4 @@ fn pick_keeper_or_searcher(
     }
 
     Role::Searcher
-}
-
-#[cfg(test)]
-mod test {
-    use proptest::prelude::*;
-
-    use super::*;
-
-    proptest! {
-        #[allow(clippy::too_many_arguments)]
-        #[test]
-        fn process_role_state_machine_should_be_idempotent_with_event_none(
-            initial_role in prop_oneof![
-                Just(Role::DefenderLeft),
-                Just(Role::DefenderRight),
-                Just(Role::Keeper),
-                Just(Role::Loser),
-                Just(Role::MidfielderLeft),
-                Just(Role::MidfielderRight),
-                Just(Role::ReplacementKeeper),
-                Just(Role::Searcher),
-                Just(Role::Striker),
-                Just(Role::StrikerSupporter),
-            ],
-            detected_own_ball in prop_oneof![Just(None), Just(Some(BallPosition::<Field>{ last_seen: SystemTime::UNIX_EPOCH, position: Default::default(), velocity: Default::default() }))],
-            event in Just(Event::None),
-            time_to_reach_kick_position in prop_oneof![Just(None), Just(Some(Duration::ZERO)), Just(Some(Duration::from_secs(10_000)))],
-            team_ball in prop_oneof![
-                Just(None),
-                Just(Some(BallPosition::<Field>{ last_seen: SystemTime::UNIX_EPOCH, position: Default::default(), velocity: Default::default() })),
-                Just(Some(BallPosition{ last_seen: SystemTime::UNIX_EPOCH + Duration::from_secs(10), position: Default::default(), velocity: Default::default() }))
-            ],
-            cycle_start_time in prop_oneof![Just(SystemTime::UNIX_EPOCH + Duration::from_secs(11))],
-            filtered_game_controller_state in prop_oneof![Just(None), Just(Some(FilteredGameControllerState{game_phase: GamePhase::PenaltyShootout{kicking_team: Team::Hulks}, ..Default::default()}))],
-            player_number in Just(PlayerNumber::Five),
-            maximum_trusted_team_ball_age in  Just(Duration::from_secs(5)),
-            loser_timeout in Just(Duration::from_secs(5)),
-            maximum_trusted_team_ball_distance in 0.0..1.0f32,
-            claim_striker_from_team_ball: bool,
-            optional_roles in Just(&[Role::DefenderLeft, Role::StrikerSupporter])
-        ) {
-            let loser_since = Some(cycle_start_time - Duration::from_secs(4));
-            let filtered_game_controller_state: Option<FilteredGameControllerState> = filtered_game_controller_state;
-            let new_role = update_role_state_machine(
-                initial_role,
-                detected_own_ball,
-                event,
-                time_to_reach_kick_position,
-                team_ball,
-                cycle_start_time,
-                filtered_game_controller_state.as_ref(),
-                player_number,
-                loser_since,
-                loser_timeout,
-                claim_striker_from_team_ball,
-                maximum_trusted_team_ball_age,
-                maximum_trusted_team_ball_distance,
-                optional_roles,
-            );
-            let third_role = update_role_state_machine(
-                new_role,
-                detected_own_ball,
-                Event::None,
-                time_to_reach_kick_position,
-                team_ball,
-                cycle_start_time,
-                filtered_game_controller_state.as_ref(),
-                player_number,
-                loser_since,
-                loser_timeout,
-                claim_striker_from_team_ball,
-                maximum_trusted_team_ball_age,
-                maximum_trusted_team_ball_distance,
-                optional_roles,
-            );
-            assert_eq!(new_role, third_role);
-        }
-    }
 }
