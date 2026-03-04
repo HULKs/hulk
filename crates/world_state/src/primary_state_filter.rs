@@ -68,7 +68,7 @@ impl PrimaryStateFilter {
             (PrimaryState::Set, _, false, FilteredGameState::Playing { .. }) => {
                 PrimaryState::Playing
             }
-            (PrimaryState::Playing, _, false, FilteredGameState::Finished) => {
+            (state, _, _, FilteredGameState::Finished) if !matches!(state, PrimaryState::Safe) => {
                 PrimaryState::Finished
             }
             (PrimaryState::Playing, _, false, FilteredGameState::Ready) => PrimaryState::Ready,
