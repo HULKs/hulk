@@ -14,7 +14,7 @@ use indicatif::ProgressBar;
 use repository::{team::Team, Repository};
 use robot::Robot;
 use tokio::{
-    io::{AsyncBufReadExt, AsyncReadExt, BufReader},
+    io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader},
     process::Command,
     sync::watch,
 };
@@ -43,12 +43,14 @@ pub struct Arguments {
     image_file: Option<PathBuf>,
 }
 
+static PACKAGES: [&str; 2] = ["zenoh-bridge-ros2dds", "podman"];
+
+const WIFI_PASSWORD: &str = "Nao?!Nao?!";
+
 static ADD_APT_ROS2DDS_ZENOH_BRIDGE_SOURCES: &str = "
 curl -L https://download.eclipse.org/zenoh/debian-repo/zenoh-public-key | sudo gpg --dearmor --yes --output /etc/apt/keyrings/zenoh-public-key.gpg
 grep \"https://download.eclipse.org/zenoh/debian-repo/\" /etc/apt/sources.list || echo \"deb [signed-by=/etc/apt/keyrings/zenoh-public-key.gpg] https://download.eclipse.org/zenoh/debian-repo/ /\" | sudo tee -a /etc/apt/sources.list > /dev/null
 ";
-
-static PACKAGES: [&str; 2] = ["zenoh-bridge-ros2dds", "podman"];
 
 pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<()> {
     let setup_path = &repository.root.join("tools/k1-setup");
@@ -117,6 +119,7 @@ async fn gammaray_robot(
     progress_bar.set_prefix(format!("[{robot} {}]", team_robot.hostname));
 
     set_up_static_ips(&robot, team_robot, team.team_number, &progress_bar).await?;
+    set_up_wifi(&robot, team_robot, team.team_number, &progress_bar).await?;
 
     robot
         .ssh_to_robot()?
@@ -228,7 +231,7 @@ async fn set_up_static_ips(
     team_robot: &repository::team::Robot,
     team_number: u8,
     progress_bar: &ProgressBar,
-) -> Result<(), color_eyre::eyre::Error> {
+) -> Result<()> {
     let ethernet_ip = format!("10.1.{}.{}", team_number, team_robot.number);
     const CONNECTION_NAME: &str = "Wired connection 2";
     const INTERFACE: &str = "enP9p1s0";
@@ -245,6 +248,45 @@ async fn set_up_static_ips(
         .arg(format!("sudo nmcli device reapply {INTERFACE}"))
         .ssh_with_log("applying network configuration", progress_bar)
         .await
+}
+
+async fn set_up_wifi(
+    robot: &Robot,
+    team_robot: &repository::team::Robot,
+    team_number: u8,
+    progress_bar: &ProgressBar,
+) -> Result<()> {
+    for prefix in ["A", "B", "C", "HULKs"] {
+        let ssid = format!("HSL_{prefix}");
+        let mut command = robot.ssh_to_robot()?;
+        command.arg(format!(
+            "sudo tee /etc/NetworkManager/system-connections/{ssid}.nmconnection > /dev/null \
+             && sudo chmod 0600 /etc/NetworkManager/system-connections/{ssid}.nmconnection"
+        ));
+        command.stdout(Stdio::piped());
+        command.stderr(Stdio::piped());
+        command.stdin(Stdio::piped());
+        let mut child = command.spawn()?;
+        let content =
+            generate_nmconnection_file(&ssid, WIFI_PASSWORD, team_number, team_robot.number);
+        child
+            .stdin
+            .take()
+            .expect("child had no stdin")
+            .write_all(content.as_bytes())
+            .await?;
+        fail_on_non_zero_exit_code(child)
+            .await
+            .wrap_err_with(|| format!("failed to create NetworkManager config for {ssid}"))?;
+    }
+
+    robot
+        .ssh_to_robot()?
+        .arg("sudo systemctl restart NetworkManager")
+        .ssh_with_log("restarting NetworkManager", progress_bar)
+        .await?;
+
+    Ok(())
 }
 
 trait CommandExt {
@@ -287,25 +329,28 @@ impl CommandExt for Command {
             }
         }
 
-        let maybe_code = process
-            .wait()
+        fail_on_non_zero_exit_code(process)
             .await
-            .wrap_err_with(|| format!("failed at {name}"))?
-            .code();
-        match maybe_code {
-            Some(0) => Ok(()),
-            None => bail!("process was killed"),
-            Some(code) => {
-                let mut stderr = String::new();
-                process
-                    .stderr
-                    .take()
-                    .unwrap()
-                    .read_to_string(&mut stderr)
-                    .await?;
-                Err(eyre!("process exited with error code {code}\n{stderr}"))
-                    .wrap_err_with(|| format!("failed at {name}"))
-            }
+            .wrap_err_with(|| format!("failed at {name}"))
+    }
+}
+
+async fn fail_on_non_zero_exit_code(
+    mut process: tokio::process::Child,
+) -> std::result::Result<(), color_eyre::eyre::Error> {
+    let maybe_code = process.wait().await?.code();
+    match maybe_code {
+        Some(0) => Ok(()),
+        None => bail!("process was killed"),
+        Some(code) => {
+            let mut stderr = String::new();
+            process
+                .stderr
+                .take()
+                .unwrap()
+                .read_to_string(&mut stderr)
+                .await?;
+            Err(eyre!("process exited with error code {code}\n{stderr}"))
         }
     }
 }
@@ -358,12 +403,19 @@ async fn build_bridge(
     Ok(())
 }
 
-fn generate_nmconnection(ssid: &str, password: &str, last_ip_octet: &str) -> String {
+fn generate_nmconnection_file(
+    ssid: &str,
+    password: &str,
+    team_number: u8,
+    robot_number: u8,
+) -> String {
+    let uuid = uuid::Uuid::new_v4();
     format!(
         "[connection]
 id={ssid}
-uuid=bedbefad-1540-43bd-88b6-55bf5f4765a0
+uuid={uuid}
 type=wifi
+autoconnect=false
 interface-name=wlP1p1s0
 
 [wifi]
@@ -376,7 +428,7 @@ key-mgmt=wpa-psk
 psk={password}
 
 [ipv4]
-address1=10.0.24.{last_ip_octet}/24
+address1=10.0.{team_number}.{robot_number}/24
 method=manual
 
 [ipv6]
