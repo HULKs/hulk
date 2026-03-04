@@ -565,14 +565,18 @@ mod test {
 
     #[test]
     fn matches_stable_os_version() {
-        let input = r#"ID=hulks-os
-    NAME="HULKs-OS"
-    VERSION="5.1.3 (langdale)"
-    VERSION_ID=5.1.3
-    PRETTY_NAME="HULKs-OS 5.1.3 (langdale)"
-    DISTRO_CODENAME="langdale"#;
+        let input = r#"------------------
+Version: v1.3.1.3-release
+Branch: release/v1.3.0.3-0918
+Commit ID: 648875f34d6dbc7cf3c25756b726bafe0366612b
+Install time: Wed Dec  3 11:40:46 AM CST 2025
+------------------
+Version: v1.5.0.9-release-0387-2026-01-23
+Branch: branch-2026-01-23T22-01-38.478509+0800-IU0
+Commit ID: 4c563561c0ad5288b8994b4206a2a7dc9d42c1da
+Install time: Thu Feb 12 01:51:44 AM CST 2026"#;
 
         let output = extract_version_number(input);
-        assert_eq!(output, Some("5.1.3".to_string()));
+        assert_eq!(output, Some("v1.5.0.9-release-0387-2026-01-23".to_string()));
     }
 }
