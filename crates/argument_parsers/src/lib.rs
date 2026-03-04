@@ -30,25 +30,25 @@ pub fn parse_systemctl_action(systemctl_action: &str) -> Result<SystemctlAction>
 
 pub const NETWORK_POSSIBLE_VALUES: &[&str] = &[
     "None",
-    "SPL_A",
-    "SPL_B",
-    "SPL_C",
-    "SPL_D",
-    "SPL_E",
-    "SPL_F",
-    "SPL_HULKs",
+    "HSL_A",
+    "HSL_B",
+    "HSL_C",
+    "HSL_D",
+    "HSL_E",
+    "HSL_F",
+    "HSL_HULKs",
 ];
 
 pub fn parse_network(network: &str) -> Result<Network> {
     match network {
         "None" => Ok(Network::None),
-        "SPL_A" => Ok(Network::SplA),
-        "SPL_B" => Ok(Network::SplB),
-        "SPL_C" => Ok(Network::SplC),
-        "SPL_D" => Ok(Network::SplD),
-        "SPL_E" => Ok(Network::SplE),
-        "SPL_F" => Ok(Network::SplF),
-        "SPL_HULKs" => Ok(Network::SplHulks),
+        "HSL_A" => Ok(Network::HslA),
+        "HSL_B" => Ok(Network::HslB),
+        "HSL_C" => Ok(Network::HslC),
+        "HSL_D" => Ok(Network::HslD),
+        "HSL_E" => Ok(Network::HslE),
+        "HSL_F" => Ok(Network::HslF),
+        "HSL_HULKs" => Ok(Network::HslHulks),
         _ => bail!("unexpected network"),
     }
 }

@@ -12,7 +12,7 @@ use color_eyre::{
 use argument_parsers::RobotAddress;
 use indicatif::ProgressBar;
 use repository::{team::Team, Repository};
-use robot::Robot;
+use robot::{Network, Robot};
 use tokio::{
     io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader},
     process::Command,
@@ -264,8 +264,8 @@ async fn set_up_wifi(
     team_number: u8,
     progress_bar: &ProgressBar,
 ) -> Result<()> {
-    for prefix in ["A", "B", "C", "HULKs"] {
-        let ssid = format!("HSL_{prefix}");
+    for ssid in Network::all() {
+        let ssid = ssid.to_string();
         let mut command = robot.ssh_to_robot()?;
         command.arg(format!(
             "sudo tee /etc/NetworkManager/system-connections/{ssid}.nmconnection > /dev/null \
