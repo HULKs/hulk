@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use color_eyre::{Result, eyre::Ok};
+use color_eyre::{eyre::Ok, Result};
 use serde::{Deserialize, Serialize};
 
 use framework::MainOutput;
