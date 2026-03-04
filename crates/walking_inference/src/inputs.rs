@@ -2,7 +2,10 @@ use std::f32::consts::PI;
 
 use approx::AbsDiffEq;
 use booster::{JointsMotorState, MotorState};
-use color_eyre::{eyre::ContextCompat, Result};
+use color_eyre::{
+    eyre::{bail, ContextCompat},
+    Result,
+};
 use coordinate_systems::{Ground, Robot};
 use itertools::Itertools;
 use linear_algebra::{vector, IntoFramed, Vector2, Vector3};
@@ -72,8 +75,8 @@ impl WalkingInferenceInputs {
                             .clamp(-policy_interval, policy_interval),
                 )
             }
-            MotionCommand::Stand { .. } | MotionCommand::Unstiff => (vector![0.0, 0.0], 0.0),
-            _ => todo!(),
+            MotionCommand::Stand { .. } | MotionCommand::Prepare => (vector![0.0, 0.0], 0.0),
+            _ => bail!("unsupported motion command"),
         };
 
         let stabilizing_interval_progress = last_gait_progress
