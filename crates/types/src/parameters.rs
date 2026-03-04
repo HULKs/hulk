@@ -11,7 +11,9 @@ use linear_algebra::{Point2, Vector2, Vector3};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{
+    joints::{Joints, head::HeadJoints},
     motion_command::{KickVariant, MotionCommand},
+    roles::Role,
     step::Step,
 };
 
@@ -40,6 +42,7 @@ pub struct BehaviorParameters {
     pub injected_motion_command: Option<MotionCommand>,
     pub remote_control: RemoteControlParameters,
     pub walk_with_velocity: WalkWithVelocityParameters,
+    pub optional_roles: Vec<Role>,
 }
 
 #[derive(

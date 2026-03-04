@@ -358,9 +358,6 @@
       "secs": 2
     }
   },
-  "motion": {
-    "use_remote_control_for_motion_selection": true
-  },
   "field_dimensions": {
     "ball_radius": 0.095,
     "length": 9.0,
