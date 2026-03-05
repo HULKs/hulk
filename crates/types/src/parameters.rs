@@ -39,7 +39,10 @@ pub struct WhistleDetectionParameters {
 )]
 pub struct BehaviorParameters {
     pub injected_motion_command: Option<MotionCommand>,
+    pub path_planning: PathPlanningParameters,
     pub remote_control: RemoteControlParameters,
+    pub role_positions: RolePositionsParameters,
+    pub walk_and_stand: WalkAndStandParameters,
     pub walk_with_velocity: WalkWithVelocityParameters,
     pub optional_roles: Vec<Role>,
 }
