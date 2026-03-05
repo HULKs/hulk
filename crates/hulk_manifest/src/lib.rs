@@ -6,8 +6,8 @@ use source_analyzer::{
     manifest::{CyclerManifest, FrameworkManifest},
 };
 
-pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
-    let manifest = FrameworkManifest {
+pub fn default_framework_manifest() -> FrameworkManifest {
+    FrameworkManifest {
         cyclers: vec![
             CyclerManifest {
                 name: "ObjectDetection",
@@ -56,7 +56,6 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
                     "world_state::ball_state_composer",
                     "world_state::behavior::node",
                     "world_state::camera_matrix_calculator",
-                    "world_state::fake_localization",
                     "world_state::game_controller_filter",
                     "world_state::game_controller_state_filter",
                     "world_state::ground_provider",
@@ -101,7 +100,12 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
                 execution_time_warning_threshold: None,
             },
         ],
-    };
+    }
+}
 
-    Cyclers::try_from_manifest(manifest, root)
+pub fn cyclers_from_framework_manifest(
+    root: impl AsRef<Path>,
+    framework_manifest: FrameworkManifest,
+) -> Result<Cyclers, Error> {
+    Cyclers::try_from_manifest(framework_manifest, root)
 }

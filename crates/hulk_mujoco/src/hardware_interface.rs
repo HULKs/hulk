@@ -7,18 +7,20 @@ use booster::{
 };
 use color_eyre::eyre::{eyre, Context, Error, OptionExt};
 use color_eyre::Result;
+use coordinate_systems::{Field, Ground};
 use futures_util::SinkExt;
 use futures_util::StreamExt;
 use hardware::{
-    ButtonEventMsgInterface, CameraInterface, IdInterface, MicrophoneInterface, NetworkInterface,
-    PathsInterface, RecordingInterface, SafeToExitSafeInterface, SpeakerInterface, TimeInterface,
-    TransformMessageInterface,
+    ButtonEventMsgInterface, CameraInterface, GroundTruthLocalizationInterface, IdInterface,
+    MicrophoneInterface, NetworkInterface, PathsInterface, RecordingInterface,
+    SafeToExitSafeInterface, SpeakerInterface, TimeInterface, TransformMessageInterface,
 };
 use hardware::{
     FallDownStateInterface, LowCommandInterface, LowStateInterface, RemoteControllerStateInterface,
 };
 use hsl_network::endpoint::{Endpoint, Ports};
 use hula_types::hardware::{Ids, Paths};
+use linear_algebra::{vector, Isometry2};
 use log::{error, info, warn};
 use parking_lot::Mutex;
 use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
@@ -59,6 +61,7 @@ pub struct MujocoHardwareInterface {
     paths: Paths,
     enable_recording: AtomicBool,
     time: Arc<Mutex<SystemTime>>,
+    ground_to_field: Arc<Mutex<Option<Isometry2<Ground, Field>>>>,
 
     low_state_receiver: Mutex<Receiver<LowState>>,
     low_command_sender: Sender<LowCommand>,
@@ -98,8 +101,10 @@ impl MujocoHardwareInterface {
         };
 
         let time = Arc::new(Mutex::new(SystemTime::UNIX_EPOCH));
+        let ground_to_field = Arc::new(Mutex::new(None));
         tokio::spawn(keep_running.clone().run_until_cancelled_owned(worker(
             time.clone(),
+            ground_to_field.clone(),
             parameters.mujoco_websocket_address,
             keep_running.clone(),
             worker_channels,
@@ -111,6 +116,7 @@ impl MujocoHardwareInterface {
             paths: parameters.paths,
             enable_recording: AtomicBool::new(false),
             time,
+            ground_to_field,
 
             low_state_receiver: Mutex::new(low_state_receiver),
             low_command_sender,
@@ -133,6 +139,7 @@ impl MujocoHardwareInterface {
 
 async fn worker(
     time: Arc<Mutex<SystemTime>>,
+    ground_to_field: Arc<Mutex<Option<Isometry2<Ground, Field>>>>,
     address: String,
     keep_running: CancellationToken,
     mut worker_channels: WorkerChannels,
@@ -156,7 +163,7 @@ async fn worker(
         tokio::select! {
             maybe_websocket_event = websocket.next() => {
                 match maybe_websocket_event {
-                    Some(Ok(message)) => handle_message(time.clone(), message, &worker_channels).await?,
+                    Some(Ok(message)) => handle_message(time.clone(), ground_to_field.clone(), message, &worker_channels).await?,
                     Some(Err(error)) => error!("socket error {error}"),
                     None => break,
                 }
@@ -176,6 +183,7 @@ async fn worker(
 
 async fn handle_message(
     hardware_interface_time: Arc<Mutex<SystemTime>>,
+    ground_to_field: Arc<Mutex<Option<Isometry2<Ground, Field>>>>,
     message: Message,
     worker_channels: &WorkerChannels,
 ) -> Result<()> {
@@ -194,6 +202,16 @@ async fn handle_message(
         } => {
             *hardware_interface_time.lock() = time;
             worker_channels.low_state_sender.send(*low_state).await?
+        }
+        SimulatorMessage {
+            payload: ServerMessageKind::GroundTruthLocalization(localization),
+            time,
+        } => {
+            *hardware_interface_time.lock() = time;
+            *ground_to_field.lock() = Some(Isometry2::from_parts(
+                vector![localization.x, localization.y],
+                localization.yaw,
+            ));
         }
         SimulatorMessage {
             payload: ServerMessageKind::FallDownState(fall_down_state),
@@ -275,6 +293,12 @@ impl TransformMessageInterface for MujocoHardwareInterface {
             .lock()
             .blocking_recv()
             .ok_or_eyre("low state channel closed")
+    }
+}
+
+impl GroundTruthLocalizationInterface for MujocoHardwareInterface {
+    fn read_ground_to_field(&self) -> Result<Option<Isometry2<Ground, Field>>> {
+        Ok(self.ground_to_field.lock().clone())
     }
 }
 

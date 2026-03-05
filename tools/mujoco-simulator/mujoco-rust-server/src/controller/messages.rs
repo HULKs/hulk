@@ -8,7 +8,9 @@ use booster::{LowCommand, LowState};
 use pyo3::{exceptions::PyValueError, pyclass, pymethods, Bound, Py, PyAny, PyResult, Python};
 use pyo3_async_runtimes::tokio::future_into_py;
 use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
-use simulation_message::{ConnectionInfo, SceneDescription, SceneUpdate, TaskName};
+use simulation_message::{
+    ConnectionInfo, GroundTruthLocalization, SceneDescription, SceneUpdate, TaskName,
+};
 use tokio::sync::{mpsc, oneshot};
 use uuid::Uuid;
 
@@ -43,6 +45,9 @@ pub enum SimulationTask {
     RequestLowState {
         sender: mpsc::Sender<SimulationData>,
     },
+    RequestGroundTruthLocalization {
+        sender: mpsc::Sender<SimulationData>,
+    },
     RequestImage {
         sender: mpsc::Sender<SimulationData>,
     },
@@ -74,6 +79,10 @@ pub enum SimulationData {
         time: SystemTime,
         data: Box<LowState>,
     },
+    GroundTruthLocalization {
+        time: SystemTime,
+        data: GroundTruthLocalization,
+    },
     Image {
         time: SystemTime,
         data: Box<Image>,
@@ -102,6 +111,9 @@ impl PySimulationTask {
             SimulationTask::Reset => TaskName::Reset,
             SimulationTask::StepSimulation { .. } => TaskName::StepSimulation,
             SimulationTask::RequestLowState { .. } => TaskName::RequestLowState,
+            SimulationTask::RequestGroundTruthLocalization { .. } => {
+                TaskName::RequestGroundTruthLocalization
+            }
             SimulationTask::Invalid => TaskName::Invalid,
             SimulationTask::ApplyLowCommand { .. } => TaskName::ApplyLowCommand,
             SimulationTask::RequestSceneDescription { .. } => TaskName::RequestSceneDescription,
@@ -144,6 +156,16 @@ impl PySimulationTask {
                 future_into_py(py, async move {
                     // Channel may be closed if websocket disconnects
                     let _ = sender.send(SimulationData::LowState { time, data }).await;
+                    Ok(())
+                })
+            }
+            SimulationTask::RequestGroundTruthLocalization { sender } => {
+                let data = response.extract(py)?;
+                future_into_py(py, async move {
+                    // Channel may be closed if websocket disconnects
+                    let _ = sender
+                        .send(SimulationData::GroundTruthLocalization { time, data })
+                        .await;
                     Ok(())
                 })
             }

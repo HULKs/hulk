@@ -1,13 +1,14 @@
 use code_generation::{generate, write_to_file::WriteToFile, ExecutionMode};
 use color_eyre::eyre::{Result, WrapErr};
-use hulk_manifest::collect_hulk_cyclers;
+use hulk_manifest::{cyclers_from_framework_manifest, default_framework_manifest};
 use source_analyzer::{pretty::to_string_pretty, structs::Structs};
 
 fn main() -> Result<()> {
-    let mut cyclers = collect_hulk_cyclers("..")?;
-    cyclers
+    let mut framework_manifest = default_framework_manifest();
+    framework_manifest
         .cyclers
         .retain(|cycler| cycler.name != "ObjectDetection");
+    let cyclers = cyclers_from_framework_manifest("..", framework_manifest)?;
 
     for path in cyclers.watch_paths() {
         println!("cargo:rerun-if-changed={}", path.display());

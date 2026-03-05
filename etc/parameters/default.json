@@ -322,7 +322,7 @@
         "left": 0.0,
         "turn": 0.0
       },
-      "enable": true
+      "enable": false
     }
   },
   "field_dimensions": {

@@ -40,6 +40,18 @@ impl Connection {
             .wrap_err("channel closed")
     }
 
+    pub(super) async fn request_ground_truth_localization(
+        &self,
+        simulation_sender: &mpsc::Sender<SimulationTask>,
+    ) -> Result<()> {
+        simulation_sender
+            .send(SimulationTask::RequestGroundTruthLocalization {
+                sender: self.websocket_sender.clone(),
+            })
+            .await
+            .wrap_err("channel closed")
+    }
+
     pub(super) async fn request_image(
         &self,
         simulation_sender: &mpsc::Sender<SimulationTask>,

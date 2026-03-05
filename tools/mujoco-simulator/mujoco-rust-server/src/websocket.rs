@@ -98,6 +98,10 @@ async fn handle_send_message(
             time,
             payload: ServerMessageKind::LowState(data),
         }),
+        SimulationData::GroundTruthLocalization { time, data } => serialize(&SimulatorMessage {
+            time,
+            payload: ServerMessageKind::GroundTruthLocalization(data),
+        }),
         SimulationData::Image { time, data } => serialize(&SimulatorMessage {
             time,
             payload: ServerMessageKind::Image(data),

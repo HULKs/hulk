@@ -1,11 +1,12 @@
 use color_eyre::eyre::{Result, WrapErr};
 
 use code_generation::{structs::generate_structs, write_to_file::WriteToFile};
-use hulk_manifest::collect_hulk_cyclers;
+use hulk_manifest::{cyclers_from_framework_manifest, default_framework_manifest};
 use source_analyzer::{pretty::to_string_pretty, structs::Structs};
 
 fn main() -> Result<()> {
-    let cyclers = collect_hulk_cyclers("../../crates/")?;
+    let cyclers =
+        cyclers_from_framework_manifest("../../crates/", default_framework_manifest())?;
     for path in cyclers.watch_paths() {
         println!("cargo:rerun-if-changed={}", path.display());
     }

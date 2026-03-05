@@ -7,7 +7,7 @@ use eframe::{
     App, CreationContext,
 };
 
-use hulk_manifest::collect_hulk_cyclers;
+use hulk_manifest::{cyclers_from_framework_manifest, default_framework_manifest};
 use hulk_widgets::SegmentedControl;
 use repository::Repository;
 use source_analyzer::{contexts::Field, cyclers::Cyclers};
@@ -20,7 +20,11 @@ pub struct DependencyInspector {
 
 impl DependencyInspector {
     pub fn new(_creation_context: &CreationContext, repository: Repository) -> Self {
-        let cyclers = collect_hulk_cyclers(repository.root.join("crates")).unwrap();
+        let cyclers = cyclers_from_framework_manifest(
+            repository.root.join("crates"),
+            default_framework_manifest(),
+        )
+        .unwrap();
         Self {
             cyclers,
             selected_cycler: 0,

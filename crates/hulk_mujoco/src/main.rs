@@ -8,10 +8,10 @@ use color_eyre::{
 use ctrlc::set_handler;
 use framework::Parameters as FrameworkParameters;
 use hardware::{
-    ButtonEventMsgInterface, CameraInterface, FallDownStateInterface, IdInterface,
-    LowCommandInterface, LowStateInterface, MicrophoneInterface, NetworkInterface, PathsInterface,
-    RecordingInterface, SafeToExitSafeInterface, SpeakerInterface, TimeInterface,
-    TransformMessageInterface,
+    ButtonEventMsgInterface, CameraInterface, FallDownStateInterface,
+    GroundTruthLocalizationInterface, IdInterface, LowCommandInterface, LowStateInterface,
+    MicrophoneInterface, NetworkInterface, PathsInterface, RecordingInterface,
+    SafeToExitSafeInterface, SpeakerInterface, TimeInterface, TransformMessageInterface,
 };
 use hula_types::hardware::Ids;
 use serde_json::from_reader;
@@ -47,6 +47,7 @@ pub trait HardwareInterface:
     + FallDownStateInterface
     + ButtonEventMsgInterface
     + TransformMessageInterface
+    + GroundTruthLocalizationInterface
     + CameraInterface
     + MicrophoneInterface
     + NetworkInterface

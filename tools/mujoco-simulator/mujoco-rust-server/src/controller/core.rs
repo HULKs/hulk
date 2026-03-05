@@ -169,6 +169,9 @@ impl Controller {
                         PeriodicalTask::RequestLowState => {
                             connection.request_low_state(&sender).await
                         }
+                        PeriodicalTask::RequestGroundTruthLocalization => {
+                            connection.request_ground_truth_localization(&sender).await
+                        }
                         PeriodicalTask::RequestImage => connection.request_image(&sender).await,
                         PeriodicalTask::RequestCameraInfo => {
                             connection.request_camera_info(&sender).await

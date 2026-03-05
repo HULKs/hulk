@@ -13,6 +13,7 @@ class PySimulationTask:
         self,
         time: float,
         response: booster_types.LowState
+        | GroundTruthLocalization
         | ros2_types.Image
         | ros2_types.CameraInfo
         | bytes
@@ -24,6 +25,7 @@ class PySimulationTask:
 class TaskName(Enum):
     ApplyLowCommand = auto()
     RequestLowState = auto()
+    RequestGroundTruthLocalization = auto()
     RequestImage = auto()
     RequestCameraInfo = auto()
     RequestSceneState = auto()
@@ -40,6 +42,13 @@ class Body:
 class BodyUpdate:
     pos: list[float]
     quat: list[float]
+
+class GroundTruthLocalization:
+    x: float
+    y: float
+    yaw: float
+
+    def __new__(cls, x: float, y: float, yaw: float) -> GroundTruthLocalization: ...
 
 class Material:
     @staticmethod
@@ -143,6 +152,7 @@ __all__ = [
     "Body",
     "BodyUpdate",
     "Geom",
+    "GroundTruthLocalization",
     "Light",
     "PySimulationTask",
     "SceneDescription",

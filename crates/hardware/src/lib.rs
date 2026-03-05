@@ -4,8 +4,10 @@ use booster::{
     ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState, TransformMessage,
 };
 use color_eyre::eyre::Result;
+use coordinate_systems::{Field, Ground};
 
 use hula_types::hardware::{Ids, Paths};
+use linear_algebra::Isometry2;
 use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
 use types::{
     audio::SpeakerRequest,
@@ -79,6 +81,10 @@ pub trait RemoteControllerStateInterface {
 
 pub trait TransformMessageInterface {
     fn read_transform_message(&self) -> Result<TransformMessage>;
+}
+
+pub trait GroundTruthLocalizationInterface {
+    fn read_ground_to_field(&self) -> Result<Option<Isometry2<Ground, Field>>>;
 }
 
 pub trait SpeakerInterface {

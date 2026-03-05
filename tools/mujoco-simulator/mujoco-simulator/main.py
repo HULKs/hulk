@@ -14,9 +14,14 @@ from mujoco import (
     mj_step,
     mjtObj,
 )
-from mujoco_rust_server import SimulationServer, TaskName
+from mujoco_rust_server import (
+    GroundTruthLocalization,
+    SimulationServer,
+    TaskName,
+)
 from mujoco_rust_server.ros2_types import CameraInfo, Image
 from rich.logging import RichHandler
+from scipy.spatial.transform import Rotation
 
 from mujoco_simulator.exceptions import UnknownTaskException
 from mujoco_simulator.joint_actuator_info import joint_actuator_info_list
@@ -69,6 +74,25 @@ def request_camera_info(
     )
 
 
+def request_ground_truth_localization(
+    data: MjData,
+    left_foot_body_id: int,
+    right_foot_body_id: int,
+    trunk_body_id: int,
+) -> GroundTruthLocalization:
+    left_foot_position = data.xpos[left_foot_body_id]
+    right_foot_position = data.xpos[right_foot_body_id]
+    midpoint = 0.5 * (left_foot_position + right_foot_position)
+
+    trunk_quaternion_xyzw = np.roll(data.xquat[trunk_body_id], -1)
+    trunk_forward = Rotation.from_quat(trunk_quaternion_xyzw).apply(
+        np.array([1.0, 0.0, 0.0])
+    )
+    yaw = float(np.arctan2(trunk_forward[1], trunk_forward[0]))
+
+    return GroundTruthLocalization(float(midpoint[0]), float(midpoint[1]), yaw)
+
+
 async def run_simulation(
     server: SimulationServer, model: MjModel, data: MjData
 ) -> None:
@@ -85,6 +109,9 @@ async def run_simulation(
     )
     actuator_info_list = joint_actuator_info_list(model)
     position_control = RobotPositionControl(model, actuator_info_list)
+    left_foot_body_id = mj_name2id(model, mjtObj.mjOBJ_BODY, "left_foot_link")
+    right_foot_body_id = mj_name2id(model, mjtObj.mjOBJ_BODY, "right_foot_link")
+    trunk_body_id = mj_name2id(model, mjtObj.mjOBJ_BODY, "Trunk")
 
     last_tick = time.time()
     while True:
@@ -99,6 +126,14 @@ async def run_simulation(
             case TaskName.RequestLowState:
                 low_state = generate_low_state(data, actuator_info_list)
                 await task.respond(data.time, low_state)
+            case TaskName.RequestGroundTruthLocalization:
+                localization = request_ground_truth_localization(
+                    data,
+                    left_foot_body_id,
+                    right_foot_body_id,
+                    trunk_body_id,
+                )
+                await task.respond(data.time, localization)
             case TaskName.ApplyLowCommand:
                 if low_command := await task.receive():
                     position_control.apply_control(data, low_command)

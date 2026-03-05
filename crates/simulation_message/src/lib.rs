@@ -19,9 +19,27 @@ pub struct SimulatorMessage<T> {
     pub payload: T,
 }
 
+#[cfg_attr(feature = "pyo3", pyo3::pyclass(frozen))]
+#[derive(Clone, Debug, Serialize, Deserialize)]
+pub struct GroundTruthLocalization {
+    pub x: f32,
+    pub y: f32,
+    pub yaw: f32,
+}
+
+#[cfg(feature = "pyo3")]
+#[pymethods]
+impl GroundTruthLocalization {
+    #[new]
+    pub fn new(x: f32, y: f32, yaw: f32) -> Self {
+        Self { x, y, yaw }
+    }
+}
+
 #[derive(Clone, Debug, Serialize, Deserialize)]
 pub enum ServerMessageKind {
     LowState(Box<LowState>),
+    GroundTruthLocalization(GroundTruthLocalization),
     FallDownState(FallDownState),
     ButtonEventMsg(ButtonEventMsg),
     RemoteControllerState(RemoteControllerState),
@@ -42,6 +60,7 @@ pub enum ClientMessageKind {
 pub enum TaskName {
     ApplyLowCommand,
     RequestLowState,
+    RequestGroundTruthLocalization,
     RequestImage,
     RequestCameraInfo,
     StepSimulation,
@@ -443,6 +462,7 @@ impl ConnectionInfo {
                     offset: SystemTime::UNIX_EPOCH,
                     task: PeriodicalTask::ApplyLowCommand,
                 },
+                TaskSchedule::OnStep(PeriodicalTask::RequestGroundTruthLocalization),
             ],
         }
     }
@@ -471,6 +491,7 @@ impl ConnectionInfo {
                     offset: SystemTime::UNIX_EPOCH,
                     task: PeriodicalTask::ApplyLowCommand,
                 },
+                TaskSchedule::OnStep(PeriodicalTask::RequestGroundTruthLocalization),
             ],
         }
     }
@@ -522,6 +543,7 @@ pub enum OnceTask {
 pub enum PeriodicalTask {
     ApplyLowCommand,
     RequestLowState,
+    RequestGroundTruthLocalization,
     RequestImage,
     RequestCameraInfo,
     RequestSceneState,
