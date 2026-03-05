@@ -391,7 +391,9 @@ impl Robot {
             bail!("nmcli ssh command exited with {}", output.status);
         }
 
-        String::from_utf8(output.stdout).wrap_err("failed to decode UTF-8")
+        String::from_utf8(output.stdout)
+            .map(|string| string.trim_end().to_string())
+            .wrap_err("failed to decode UTF-8")
     }
 
     pub async fn scan_networks(&self) -> Result<()> {
