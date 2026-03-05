@@ -9,7 +9,7 @@ use ctrlc::set_handler;
 use framework::Parameters as FrameworkParameters;
 use hardware::{
     ButtonEventMsgInterface, CameraInterface, FallDownStateInterface, IdInterface,
-    InjectedButtonInterface, LowCommandInterface, LowStateInterface, MicrophoneInterface,
+    SimulatorInterface, LowCommandInterface, LowStateInterface, MicrophoneInterface,
     NetworkInterface, PathsInterface, RecordingInterface, SpeakerInterface, TimeInterface,
     TransformMessageInterface,
 };
@@ -54,7 +54,7 @@ pub trait HardwareInterface:
     + RecordingInterface
     + SpeakerInterface
     + TimeInterface
-    + InjectedButtonInterface
+    + SimulatorInterface
 {
 }
 

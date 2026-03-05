@@ -12,16 +12,15 @@ mod worker_thread;
 
 use color_eyre::{eyre::Result, install};
 use hardware::{
-    ActuatorInterface, CameraInterface, IdInterface, InjectedButtonInterface, LowCommandInterface,
-    LowStateInterface, MicrophoneInterface, NetworkInterface, PathsInterface, RecordingInterface,
-    SensorInterface, SpeakerInterface, TimeInterface,
+    ActuatorInterface, CameraInterface, IdInterface, LowCommandInterface, LowStateInterface,
+    MicrophoneInterface, NetworkInterface, PathsInterface, RecordingInterface, SensorInterface,
+    SimulatorInterface, SpeakerInterface, TimeInterface,
 };
 use hula_types::hardware::{Ids, Paths};
 use replayer::replayer;
 use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
 use types::{
     audio::SpeakerRequest,
-    buttons::Buttons,
     joints::Joints,
     led::Leds,
     messages::{IncomingMessage, OutgoingMessage},
@@ -42,7 +41,7 @@ pub trait HardwareInterface:
     + SensorInterface
     + SpeakerInterface
     + TimeInterface
-    + InjectedButtonInterface
+    + SimulatorInterface
 {
 }
 
@@ -154,8 +153,8 @@ impl TimeInterface for ReplayerHardwareInterface {
     }
 }
 
-impl InjectedButtonInterface for ReplayerHardwareInterface {
-    fn read_injected_button(&self) -> Result<Option<Buttons>> {
+impl SimulatorInterface for ReplayerHardwareInterface {
+    fn is_simulation(&self) -> Result<bool> {
         unimplemented!()
     }
 }

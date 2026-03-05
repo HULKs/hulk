@@ -10,9 +10,9 @@ use color_eyre::eyre::{Context, Error, OptionExt, eyre};
 use futures_util::SinkExt;
 use futures_util::StreamExt;
 use hardware::{
-    ButtonEventMsgInterface, CameraInterface, IdInterface, InjectedButtonInterface,
-    MicrophoneInterface, NetworkInterface, PathsInterface, RecordingInterface, SpeakerInterface,
-    TimeInterface, TransformMessageInterface,
+    ButtonEventMsgInterface, CameraInterface, IdInterface, MicrophoneInterface, NetworkInterface,
+    PathsInterface, RecordingInterface, SimulatorInterface, SpeakerInterface, TimeInterface,
+    TransformMessageInterface,
 };
 use hardware::{
     FallDownStateInterface, LowCommandInterface, LowStateInterface, RemoteControllerStateInterface,
@@ -30,7 +30,6 @@ use tokio::time::sleep;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_util::sync::CancellationToken;
 use types::audio::SpeakerRequest;
-use types::buttons::Buttons;
 use types::messages::{IncomingMessage, OutgoingMessage};
 use types::samples::Samples;
 
@@ -407,9 +406,9 @@ impl RecordingInterface for MujocoHardwareInterface {
     }
 }
 
-impl InjectedButtonInterface for MujocoHardwareInterface {
-    fn read_injected_button(&self) -> Result<Option<Buttons>> {
-        Ok(Some(Buttons::IsStandLongPressedDuringSafePose))
+impl SimulatorInterface for MujocoHardwareInterface {
+    fn is_simulation(&self) -> Result<bool> {
+        Ok(true)
     }
 }
 

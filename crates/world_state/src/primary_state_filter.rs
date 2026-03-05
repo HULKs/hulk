@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use hardware::{RecordingInterface, SpeakerInterface};
+use hardware::{RecordingInterface, SimulatorInterface, SpeakerInterface};
 use hsl_network_messages::PlayerNumber;
 use serde::{Deserialize, Serialize};
 use types::{
@@ -47,7 +47,7 @@ impl PrimaryStateFilter {
 
     pub fn cycle(
         &mut self,
-        context: CycleContext<impl RecordingInterface + SpeakerInterface>,
+        context: CycleContext<impl RecordingInterface + SimulatorInterface + SpeakerInterface>,
     ) -> Result<MainOutputs> {
         if let Some(injected_primary_state) = context.injected_primary_state {
             self.last_primary_state = *injected_primary_state;
@@ -74,7 +74,13 @@ impl PrimaryStateFilter {
             (PrimaryState::Safe, Some(Buttons::IsStandLongPressedDuringSafePose), _, _) => {
                 PrimaryState::Initial
             }
-            (PrimaryState::Safe, _, _, _) => PrimaryState::Safe,
+            (PrimaryState::Safe, _, _, _) => {
+                if context.hardware_interface.is_simulation()? {
+                    PrimaryState::Initial
+                } else {
+                    PrimaryState::Safe
+                }
+            }
             (PrimaryState::Initial, Some(Buttons::IsStandLongPressedDuringSafePose), _, _) => {
                 PrimaryState::Playing
             }

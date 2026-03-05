@@ -7,9 +7,8 @@ use cdr::{CdrLe, Infinite};
 use color_eyre::Result;
 use color_eyre::eyre::{Context, bail, eyre};
 use hardware::{
-    ButtonEventMsgInterface, CameraInterface, IdInterface, InjectedButtonInterface,
-    MicrophoneInterface, NetworkInterface, PathsInterface, RecordingInterface, SpeakerInterface,
-    TimeInterface,
+    ButtonEventMsgInterface, CameraInterface, IdInterface, MicrophoneInterface, NetworkInterface,
+    PathsInterface, RecordingInterface, SimulatorInterface, SpeakerInterface, TimeInterface,
 };
 use hardware::{
     FallDownStateInterface, LowCommandInterface, LowStateInterface, RemoteControllerStateInterface,
@@ -22,7 +21,6 @@ use serde::{Deserialize, Serialize};
 use tokio::runtime::Handle;
 use tokio_util::sync::CancellationToken;
 use types::audio::SpeakerRequest;
-use types::buttons::Buttons;
 use types::messages::{IncomingMessage, OutgoingMessage};
 use types::samples::Samples;
 use zenoh::Session;
@@ -338,9 +336,9 @@ impl RecordingInterface for BoosterHardwareInterface {
     }
 }
 
-impl InjectedButtonInterface for BoosterHardwareInterface {
-    fn read_injected_button(&self) -> Result<Option<Buttons>> {
-        Ok(None)
+impl SimulatorInterface for BoosterHardwareInterface {
+    fn is_simulation(&self) -> Result<bool> {
+        Ok(false)
     }
 }
 

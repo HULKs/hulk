@@ -1,6 +1,6 @@
 use color_eyre::Result;
 use coordinate_systems::Robot;
-use hardware::InjectedButtonInterface;
+use hardware::SimulatorInterface;
 use linear_algebra::Vector3;
 use serde::{Deserialize, Serialize};
 
@@ -64,13 +64,11 @@ impl ButtonEventHandler {
 
     pub fn cycle(
         &mut self,
-        mut context: CycleContext<impl InjectedButtonInterface>,
+        mut context: CycleContext<impl SimulatorInterface>,
     ) -> Result<MainOutputs> {
-        let injected_buttons = context.hardware_interface.read_injected_button()?;
-
-        if injected_buttons.is_some() {
+        if context.hardware_interface.is_simulation()? {
             return Ok(MainOutputs {
-                buttons: injected_buttons.into(),
+                buttons: None.into(),
             });
         }
 

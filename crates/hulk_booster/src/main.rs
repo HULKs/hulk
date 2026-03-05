@@ -15,7 +15,7 @@ use ctrlc::set_handler;
 use framework::Parameters as FrameworkParameters;
 use hardware::{
     ButtonEventMsgInterface, CameraInterface, FallDownStateInterface, IdInterface,
-    InjectedButtonInterface, LowCommandInterface, LowStateInterface, MicrophoneInterface,
+    SimulatorInterface, LowCommandInterface, LowStateInterface, MicrophoneInterface,
     NetworkInterface, PathsInterface, RecordingInterface, SpeakerInterface, TimeInterface,
 };
 use hula_types::hardware::Ids;
@@ -57,7 +57,7 @@ pub trait HardwareInterface:
     + RecordingInterface
     + SpeakerInterface
     + TimeInterface
-    + InjectedButtonInterface
+    + SimulatorInterface
 {
 }
 

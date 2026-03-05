@@ -1,6 +1,6 @@
 use hardware::{
-    ActuatorInterface, InjectedButtonInterface, LowCommandInterface, LowStateInterface,
-    NetworkInterface, PathsInterface, RecordingInterface, SpeakerInterface, TimeInterface,
+    ActuatorInterface, LowCommandInterface, LowStateInterface, NetworkInterface, PathsInterface,
+    RecordingInterface, SimulatorInterface, SpeakerInterface, TimeInterface,
 };
 
 use color_eyre::eyre::Result;
@@ -8,7 +8,6 @@ use color_eyre::eyre::Result;
 use hula_types::hardware::Paths;
 use types::{
     audio::SpeakerRequest,
-    buttons::Buttons,
     joints::Joints,
     led::Leds,
     messages::{IncomingMessage, OutgoingMessage},
@@ -23,7 +22,7 @@ pub trait HardwareInterface:
     + RecordingInterface
     + SpeakerInterface
     + TimeInterface
-    + InjectedButtonInterface
+    + SimulatorInterface
 {
 }
 
@@ -96,8 +95,8 @@ impl TimeInterface for ExtractorHardwareInterface {
     }
 }
 
-impl InjectedButtonInterface for ExtractorHardwareInterface {
-    fn read_injected_button(&self) -> Result<Option<Buttons>> {
+impl SimulatorInterface for ExtractorHardwareInterface {
+    fn is_simulation(&self) -> Result<bool> {
         unimplemented!()
     }
 }
