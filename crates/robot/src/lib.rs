@@ -433,15 +433,22 @@ impl Robot {
                 _ => format!("connection up {network}"),
             }
         );
-        let status = self
+        let output = self
             .ssh_to_robot()?
             .arg(command_string)
-            .status()
+            .output()
             .await
             .wrap_err("failed to execute nmcli ssh command")?;
 
-        if !status.success() {
-            bail!("nmcli ssh command exited with {status}");
+        if !output.status.success() {
+            let error_message = String::from_utf8(output.stderr).wrap_err_with(|| {
+                format!(
+                    "nmcli ssh command exited with {} but the stderr was not valid UTF-8",
+                    output.status
+                )
+            })?;
+            return Err(eyre!(error_message)
+                .wrap_err(format!("nmcli ssh command exited with {}", output.status)));
         }
 
         Ok(())
