@@ -353,6 +353,7 @@ impl Robot {
             .arg("device")
             .arg("wifi")
             .arg("show")
+            .arg("|| echo None")
             .output()
             .await
             .wrap_err("failed to execute nmcli ssh command")?;
@@ -361,7 +362,16 @@ impl Robot {
             bail!("nmcli ssh command exited with {}", output.status);
         }
 
-        String::from_utf8(output.stdout).wrap_err("failed to decode UTF-8")
+        let output = String::from_utf8(output.stdout).wrap_err("failed to decode UTF-8")?;
+        for line in output.lines() {
+            if line.contains("SSID: ")
+                && let Some((_key, value)) = line.split_once(": ")
+            {
+                return Ok(value.trim().to_string());
+            }
+        }
+
+        Ok(output)
     }
 
     pub async fn get_available_networks(&self) -> Result<String> {
