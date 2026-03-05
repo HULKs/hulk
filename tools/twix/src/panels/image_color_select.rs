@@ -214,17 +214,22 @@ impl Widget for &mut ImageColorSelectPanel {
                         let scroll_delta = ui.input(|input| input.raw_scroll_delta);
                         self.brush_size = (self.brush_size + scroll_delta[1]).clamp(1.0, 200.0);
                         if response.is_pointer_button_down_on() {
-                            self.pixels_in_brush(pixel_pos, &self.selection_mask)
-                                .for_each(|position| {
-                                    ui.input(|i| {
-                                        if i.pointer.button_down(PointerButton::Primary) {
-                                            self.add_to_selection(position, i.modifiers.shift)
-                                        }
-                                        if i.pointer.button_down(PointerButton::Secondary) {
-                                            self.remove_from_selection(position)
-                                        }
-                                    })
-                                });
+                            ImageColorSelectPanel::pixels_in_brush(
+                                self.brush_size,
+                                pixel_pos,
+                                self.selection_mask.width(),
+                                self.selection_mask.height(),
+                            )
+                            .for_each(|position| {
+                                ui.input(|i| {
+                                    if i.pointer.button_down(PointerButton::Primary) {
+                                        self.add_to_selection(position, i.modifiers.shift)
+                                    }
+                                    if i.pointer.button_down(PointerButton::Secondary) {
+                                        self.remove_from_selection(position)
+                                    }
+                                })
+                            });
                         }
 
                         painter.circle(
@@ -259,13 +264,11 @@ impl Widget for &mut ImageColorSelectPanel {
 
 impl ImageColorSelectPanel {
     fn pixels_in_brush(
-        &self,
+        brush_size: f32,
         brush_position: Point2<Pixel>,
-        image: &ColorImage,
+        width: usize,
+        height: usize,
     ) -> impl Iterator<Item = (isize, isize)> {
-        let brush_size = self.brush_size;
-        let width = image.width();
-        let height = image.height();
         iproduct!(
             (brush_position.x() as isize - brush_size as isize)
                 ..(brush_position.x() as isize + brush_size as isize + 1),

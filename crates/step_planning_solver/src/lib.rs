@@ -63,7 +63,7 @@ fn duals<F: DualNumFloat + DualNum<F>>(
 fn cost(variables: &[f32], step_planning: &StepPlanning) -> f32 {
     let step_plan = StepPlan::from(variables);
 
-    let cost = step_planning
+    step_planning
         .step_end_poses(
             step_planning.initial_pose.clone(),
             step_planning.initial_support_foot,
@@ -71,9 +71,7 @@ fn cost(variables: &[f32], step_planning: &StepPlanning) -> f32 {
             &step_plan,
         )
         .map(|planned_step| step_planning.cost(planned_step))
-        .sum();
-
-    cost
+        .sum()
 }
 
 fn open_cost(

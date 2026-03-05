@@ -139,13 +139,12 @@ fn calculate_tangents(mesh: &SceneMesh) -> Vec<[f32; 4]> {
     let tangents_attribute = helper_mesh
         .remove_attribute(Mesh::ATTRIBUTE_TANGENT)
         .expect("we calculated these earlier");
-    let tangents = match tangents_attribute {
+    match tangents_attribute {
         VertexAttributeValues::Float32x4(values) => values,
         _ => panic!(
             "expected tangents to be in Float32x4 format but got {tangents_attribute:?} instead"
         ),
-    };
-    tangents
+    }
 }
 
 fn spawn_mujoco_scene(

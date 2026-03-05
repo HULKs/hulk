@@ -121,8 +121,8 @@ impl<T: PartialEq, E> ChangeBuffer<T, E> {
 }
 
 fn handle_update<T: PartialEq, E>(value: &mut Result<ChangeSeries<T>, E>, datum: Change<T>) {
-    match value {
-        Ok(ref mut buffer) => {
+    match value.as_mut() {
+        Ok(buffer) => {
             let right = buffer
                 .changes
                 .partition_point(|sample| sample.timestamp < datum.timestamp);
