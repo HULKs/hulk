@@ -3,12 +3,12 @@ use std::f32::consts::PI;
 use approx::AbsDiffEq;
 use booster::{JointsMotorState, MotorState};
 use color_eyre::{
-    eyre::{bail, ContextCompat},
     Result,
+    eyre::{ContextCompat, bail},
 };
 use coordinate_systems::{Ground, Robot};
 use itertools::Itertools;
-use linear_algebra::{vector, IntoFramed, Vector2, Vector3};
+use linear_algebra::{IntoFramed, Vector2, Vector3, vector};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use types::{

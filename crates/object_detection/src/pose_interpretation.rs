@@ -9,8 +9,8 @@ use coordinate_systems::{Field, Ground, Pixel};
 use framework::{AdditionalOutput, MainOutput};
 use hardware::{NetworkInterface, PathsInterface};
 use hsl_network_messages::PlayerNumber;
-use linear_algebra::{center, distance, Isometry2, Point2, Rotation2};
-use projection::{camera_matrix::CameraMatrix, Projection};
+use linear_algebra::{Isometry2, Point2, Rotation2, center, distance};
+use projection::{Projection, camera_matrix::CameraMatrix};
 use types::{
     field_dimensions::GlobalFieldSide,
     pose_detection::{HumanPose, Keypoints, RefereePoseCandidate},

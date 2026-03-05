@@ -3,16 +3,16 @@ use std::path::Path;
 use argument_parsers::RobotAddress;
 use clap::Args;
 use color_eyre::{
-    eyre::{bail, WrapErr},
     Result,
+    eyre::{WrapErr, bail},
 };
-use futures_util::{stream::FuturesUnordered, StreamExt};
-use repository::{upload::get_hulk_binary, Repository};
+use futures_util::{StreamExt, stream::FuturesUnordered};
+use repository::{Repository, upload::get_hulk_binary};
 use robot::{Robot, SystemctlAction};
 use tempfile::tempdir;
 
 use crate::{
-    cargo::{self, build, cargo, environment::EnvironmentArguments, CargoCommand},
+    cargo::{self, CargoCommand, build, cargo, environment::EnvironmentArguments},
     progress_indicator::{ProgressIndicator, Task},
 };
 

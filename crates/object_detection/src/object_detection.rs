@@ -1,15 +1,15 @@
 use color_eyre::Result;
 use context_attribute::context;
-use framework::{deserialize_not_implemented, MainOutput};
+use framework::{MainOutput, deserialize_not_implemented};
 use geometry::rectangle::Rectangle;
 use hardware::PathsInterface;
 use image::RgbImage;
 use linear_algebra::{point, vector};
-use ndarray::{s, Array, Axis};
+use ndarray::{Array, Axis, s};
 use ort::{
     execution_providers::{CUDAExecutionProvider, TensorRTExecutionProvider},
     inputs,
-    session::{builder::GraphOptimizationLevel, Session, SessionOutputs},
+    session::{Session, SessionOutputs, builder::GraphOptimizationLevel},
     value::TensorRef,
 };
 use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};

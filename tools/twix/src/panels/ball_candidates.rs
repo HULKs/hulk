@@ -5,10 +5,10 @@ use eframe::{
 };
 use geometry::circle::Circle;
 use linear_algebra::{point, vector};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use types::{
     ball_detection::CandidateEvaluation,
-    ycbcr422_image::{YCbCr422Image, SAMPLE_SIZE},
+    ycbcr422_image::{SAMPLE_SIZE, YCbCr422Image},
 };
 
 use crate::{

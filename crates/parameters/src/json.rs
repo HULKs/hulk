@@ -1,4 +1,4 @@
-use serde_json::{json, Map, Value};
+use serde_json::{Map, Value, json};
 
 pub fn merge_json(own: &mut Value, other: &Value) {
     match (own, other) {
@@ -18,7 +18,7 @@ pub fn prune_equal_branches(own: &mut Value, other: &Value) {
         *own = Value::Object(Default::default());
         return;
     }
-    if let (&mut Value::Object(ref mut own), Value::Object(ref other)) = (own, other) {
+    if let (&mut Value::Object(ref mut own), Value::Object(other)) = (own, other) {
         let mut keys_to_remove = vec![];
         for (key, own_value) in own.iter_mut() {
             if let Some(other_value) = other.get(key) {

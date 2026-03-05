@@ -1,11 +1,11 @@
 use crate::std_msgs::header::Header;
 use color_eyre::Result;
-use image::{error::DecodingError, ImageError, RgbImage};
+use image::{ImageError, RgbImage, error::DecodingError};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use yuv::{
-    bgr_to_rgb, yuv_nv12_to_rgb, YuvBiPlanarImage, YuvConversionMode, YuvRange, YuvStandardMatrix,
+    YuvBiPlanarImage, YuvConversionMode, YuvRange, YuvStandardMatrix, bgr_to_rgb, yuv_nv12_to_rgb,
 };
 
 #[cfg(feature = "pyo3")]

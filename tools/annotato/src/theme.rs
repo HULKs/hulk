@@ -1,5 +1,5 @@
 use eframe::{
-    egui::{self, style, Context},
+    egui::{self, Context, style},
     epaint::{self, Color32},
 };
 

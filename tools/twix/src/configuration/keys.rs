@@ -2,8 +2,8 @@ use std::{collections::HashMap, fmt};
 
 use eframe::egui::{Key, KeyboardShortcut, Modifiers};
 use serde::{
-    de::{self, Deserializer},
     Deserialize,
+    de::{self, Deserializer},
 };
 use thiserror::Error;
 

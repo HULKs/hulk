@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
-use approx::{assert_relative_eq, AbsDiffEq, RelativeEq};
-use num_traits::{real::Real, NumAssignOps};
+use approx::{AbsDiffEq, RelativeEq, assert_relative_eq};
+use num_traits::{NumAssignOps, real::Real};
 
 use crate::test_utils::{
     decompose::Decompose,

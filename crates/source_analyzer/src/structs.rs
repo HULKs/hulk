@@ -6,8 +6,8 @@ use std::{
 use convert_case::{Case, Casing};
 use quote::{format_ident, quote};
 use syn::{
-    punctuated::Punctuated, AngleBracketedGenericArguments, GenericArgument, PathArguments, Type,
-    TypePath,
+    AngleBracketedGenericArguments, GenericArgument, PathArguments, Type, TypePath,
+    punctuated::Punctuated,
 };
 use thiserror::Error;
 
@@ -382,17 +382,33 @@ mod tests {
             let insertion_rules = path_to_insertion_rules(&path, &data_type).collect::<Vec<_>>();
             let expected_insertion_rules = case.1;
 
-            assert_eq!(insertion_rules.len(), expected_insertion_rules.len(), "path: {path:?}, insertion_rules: {insertion_rules:?}, expected_insertion_rules: {expected_insertion_rules:?}");
+            assert_eq!(
+                insertion_rules.len(),
+                expected_insertion_rules.len(),
+                "path: {path:?}, insertion_rules: {insertion_rules:?}, expected_insertion_rules: {expected_insertion_rules:?}"
+            );
             for (insertion_rule, expected_insertion_rule) in insertion_rules
                 .into_iter()
                 .zip(expected_insertion_rules.into_iter())
             {
                 match (&insertion_rule, &expected_insertion_rule) {
-                    (InsertionRule::InsertField { name }, InsertionRule::InsertField { name: expected_name }) if name == expected_name => {},
-                    (InsertionRule::BeginOptional, InsertionRule::BeginOptional) => {},
-                    (InsertionRule::BeginStruct, InsertionRule::BeginStruct) => {},
-                    (InsertionRule::AppendDataType { data_type }, InsertionRule::AppendDataType { data_type: expected_data_type }) if data_type == expected_data_type => {},
-                    _ => panic!("Insertion rule does not match expected: insertion_rule = {insertion_rule:?}, expected_insertion_rule = {expected_insertion_rule:?}"),
+                    (
+                        InsertionRule::InsertField { name },
+                        InsertionRule::InsertField {
+                            name: expected_name,
+                        },
+                    ) if name == expected_name => {}
+                    (InsertionRule::BeginOptional, InsertionRule::BeginOptional) => {}
+                    (InsertionRule::BeginStruct, InsertionRule::BeginStruct) => {}
+                    (
+                        InsertionRule::AppendDataType { data_type },
+                        InsertionRule::AppendDataType {
+                            data_type: expected_data_type,
+                        },
+                    ) if data_type == expected_data_type => {}
+                    _ => panic!(
+                        "Insertion rule does not match expected: insertion_rule = {insertion_rule:?}, expected_insertion_rule = {expected_insertion_rule:?}"
+                    ),
                 }
             }
         }

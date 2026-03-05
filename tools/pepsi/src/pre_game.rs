@@ -2,18 +2,18 @@ use std::{collections::HashMap, path::Path};
 
 use clap::Args;
 use color_eyre::{
-    eyre::{bail, WrapErr},
     Result,
+    eyre::{WrapErr, bail},
 };
 
 use argument_parsers::RobotAddress;
 use indicatif::ProgressBar;
-use repository::{upload::get_hulk_binary, Repository};
+use repository::{Repository, upload::get_hulk_binary};
 use robot::{Network, Robot, SystemctlAction};
 use tempfile::tempdir;
 
 use crate::{
-    cargo::{self, build, cargo, environment::EnvironmentArguments, run, CargoCommand},
+    cargo::{self, CargoCommand, build, cargo, environment::EnvironmentArguments, run},
     deploy_config::DeployConfig,
     progress_indicator::ProgressIndicator,
     recording::parse_key_value,

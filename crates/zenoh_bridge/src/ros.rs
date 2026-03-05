@@ -1,6 +1,6 @@
-use color_eyre::eyre::Context;
 use color_eyre::Result;
-use ros2_client::{ros2::QosPolicies, rustdds::Topic, MessageTypeName, Name, Node};
+use color_eyre::eyre::Context;
+use ros2_client::{MessageTypeName, Name, Node, ros2::QosPolicies, rustdds::Topic};
 
 pub fn create_topic(
     node: &mut Node,

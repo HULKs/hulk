@@ -2,7 +2,7 @@ use std::ops::{Add, Sub};
 
 use approx::{AbsDiffEq, RelativeEq};
 use geometry::direction::Direction;
-use linear_algebra::{vector, Vector2};
+use linear_algebra::{Vector2, vector};
 use nalgebra::RealField;
 use num_traits::Euclid;
 

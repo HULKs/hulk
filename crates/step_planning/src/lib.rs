@@ -4,7 +4,7 @@ use nalgebra::RealField;
 use num_dual::DualNum;
 
 use ::geometry::{arc::Arc, circle::Circle, direction::Direction, line_segment::LineSegment};
-use linear_algebra::{point, Orientation2};
+use linear_algebra::{Orientation2, point};
 use types::{
     motion_command::OrientationMode,
     parameters::StepPlanningOptimizationParameters,

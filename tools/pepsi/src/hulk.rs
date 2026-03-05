@@ -1,10 +1,10 @@
 use clap::{
-    builder::{PossibleValuesParser, TypedValueParser},
     Args,
+    builder::{PossibleValuesParser, TypedValueParser},
 };
-use color_eyre::{eyre::WrapErr, Result};
+use color_eyre::{Result, eyre::WrapErr};
 
-use argument_parsers::{parse_systemctl_action, RobotAddress, SYSTEMCTL_ACTION_POSSIBLE_VALUES};
+use argument_parsers::{RobotAddress, SYSTEMCTL_ACTION_POSSIBLE_VALUES, parse_systemctl_action};
 use robot::{Robot, SystemctlAction};
 
 use crate::progress_indicator::ProgressIndicator;

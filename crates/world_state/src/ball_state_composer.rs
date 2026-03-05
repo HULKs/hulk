@@ -6,7 +6,7 @@ use coordinate_systems::{Field, Ground};
 use filtering::hysteresis::greater_than_with_hysteresis;
 use framework::{AdditionalOutput, MainOutput};
 use hsl_network_messages::{GamePhase, SubState, Team};
-use linear_algebra::{point, Isometry2, Point2, Vector2};
+use linear_algebra::{Isometry2, Point2, Vector2, point};
 use serde::{Deserialize, Serialize};
 use types::{
     ball_position::BallPosition,

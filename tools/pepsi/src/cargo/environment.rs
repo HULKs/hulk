@@ -1,8 +1,8 @@
 use std::str::FromStr;
 
 use clap::Args;
-use color_eyre::eyre::{bail, Context, Error, Result};
-use repository::{cargo::Environment as RepositoryEnvironment, sdk::SDKImage, Repository};
+use color_eyre::eyre::{Context, Error, Result, bail};
+use repository::{Repository, cargo::Environment as RepositoryEnvironment, sdk::SDKImage};
 
 #[derive(Args, Debug, Clone)]
 pub struct EnvironmentArguments {

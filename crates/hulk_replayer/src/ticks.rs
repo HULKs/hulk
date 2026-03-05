@@ -1,8 +1,8 @@
 use chrono::{DateTime, Utc};
 use eframe::{
     egui::{
-        pos2, vec2, Align2, Color32, FontId, Painter, Rect, Response, Sense, Shape, Stroke,
-        TextStyle, Ui, Widget,
+        Align2, Color32, FontId, Painter, Rect, Response, Sense, Shape, Stroke, TextStyle, Ui,
+        Widget, pos2, vec2,
     },
     epaint::PathShape,
 };

@@ -3,7 +3,7 @@ use proc_macro2::TokenStream;
 use quote::{format_ident, quote};
 use source_analyzer::cyclers::{CyclerKind, Cyclers};
 
-use crate::{accessor::ReferenceKind, CyclerMode};
+use crate::{CyclerMode, accessor::ReferenceKind};
 
 pub fn generate_run_function(cyclers: &Cyclers) -> TokenStream {
     let construct_buffered_watch_channels = generate_buffered_watch_channels(cyclers);

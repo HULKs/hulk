@@ -210,7 +210,7 @@ pub fn generate_dependency_graph(
                     return Err(Error::MissingOutput {
                         node: node.name.clone(),
                         output: dependency.to_string(),
-                    })
+                    });
                 }
             };
             dependencies.add_edge(producing_node_index, node_index);

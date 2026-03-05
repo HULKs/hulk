@@ -5,18 +5,18 @@ use geometry::direction::Direction;
 use nalgebra::{Const, SVector, U1};
 use num_dual::{Derivative, DualNum, DualNumFloat, DualVec};
 use optimization_engine::{
+    Optimizer, Problem, SolverError,
     constraints::Constraint,
     panoc::{PANOCCache, PANOCOptimizer},
-    Optimizer, Problem, SolverError,
 };
 
 use coordinate_systems::Ground;
 use linear_algebra::Orientation2;
 use step_planning::{
+    NUM_VARIABLES, StepPlanning, TargetOrientationPathSide, VARIABLES_PER_STEP,
     geometry::{angle::Angle, orientation::Orientation, pose::Pose},
     step_plan::StepPlan,
     traits::{ForwardAtEndPoint, ScaledGradient, WrapDual},
-    StepPlanning, TargetOrientationPathSide, NUM_VARIABLES, VARIABLES_PER_STEP,
 };
 use types::{
     motion_command::OrientationMode, parameters::StepPlanningOptimizationParameters,
@@ -54,11 +54,7 @@ fn duals<F: DualNumFloat + DualNum<F>>(
         DualVec::new(
             real,
             Derivative::some(SVector::from_fn(|i, _| {
-                if i == row {
-                    F::one()
-                } else {
-                    F::zero()
-                }
+                if i == row { F::one() } else { F::zero() }
             })),
         )
     })
@@ -252,7 +248,7 @@ fn normalize_gradient(
 mod tests {
     use std::f32::consts::{FRAC_PI_2, PI};
 
-    use step_planning::{geometry::orientation::Orientation, test_path, TargetOrientationPathSide};
+    use step_planning::{TargetOrientationPathSide, geometry::orientation::Orientation, test_path};
 
     use crate::calculate_target_orientation_path_side;
 

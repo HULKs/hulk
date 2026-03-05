@@ -2,7 +2,7 @@ use std::time::{Duration, SystemTime};
 
 use coordinate_systems::Ground;
 use filtering::kalman_filter::KalmanFilter;
-use linear_algebra::{distance, IntoFramed, Isometry2};
+use linear_algebra::{IntoFramed, Isometry2, distance};
 use nalgebra::{Matrix2, Matrix2x4, Matrix4};
 use ordered_float::NotNan;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};

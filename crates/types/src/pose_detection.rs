@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Pixel;
 use hsl_network_messages::Team;
-use linear_algebra::{point, Point2};
+use linear_algebra::{Point2, point};
 
 use crate::bounding_box::BoundingBox;
 

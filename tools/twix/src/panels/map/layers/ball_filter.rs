@@ -5,7 +5,7 @@ use eframe::epaint::{Color32, Stroke};
 
 use ball_filter::{BallFilter as BallFiltering, BallMode};
 use coordinate_systems::Ground;
-use linear_algebra::{vector, Point};
+use linear_algebra::{Point, vector};
 use types::field_dimensions::FieldDimensions;
 
 use crate::{

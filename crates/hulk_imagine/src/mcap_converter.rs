@@ -3,7 +3,7 @@ use std::io::{Seek, Write};
 use std::time::SystemTime;
 
 use color_eyre::eyre::Result;
-use mcap::records::{system_time_to_nanos, MessageHeader};
+use mcap::records::{MessageHeader, system_time_to_nanos};
 use mcap::write::Metadata;
 use mcap::{Attachment, McapError, Writer};
 use serde::Serialize;

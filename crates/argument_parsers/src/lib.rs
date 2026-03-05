@@ -5,8 +5,8 @@ use std::{
 };
 
 use color_eyre::{
-    eyre::{bail, eyre, WrapErr},
     Report, Result,
+    eyre::{WrapErr, bail, eyre},
 };
 use regex::Regex;
 

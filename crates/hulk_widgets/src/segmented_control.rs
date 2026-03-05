@@ -1,4 +1,4 @@
-use egui::{vec2, Align2, CornerRadius, Id, Key, Rect, Response, Sense, TextStyle, Ui, Widget};
+use egui::{Align2, CornerRadius, Id, Key, Rect, Response, Sense, TextStyle, Ui, Widget, vec2};
 
 const ANIMATION_TIME_SECONDS: f32 = 0.1;
 

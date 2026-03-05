@@ -5,13 +5,13 @@ use std::{
 
 use clap::Args;
 use color_eyre::{
-    eyre::{bail, eyre, WrapErr},
     Result,
+    eyre::{WrapErr, bail, eyre},
 };
 
 use argument_parsers::RobotAddress;
 use indicatif::ProgressBar;
-use repository::{team::Team, Repository};
+use repository::{Repository, team::Team};
 use robot::{Network, Robot};
 use tokio::{
     io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader},
@@ -21,8 +21,8 @@ use tokio::{
 
 use crate::{
     cargo::{
-        build::Arguments as CargoBuildArguments, construct_cargo_command,
-        environment::EnvironmentArguments, Arguments as CargoArguments,
+        Arguments as CargoArguments, build::Arguments as CargoBuildArguments,
+        construct_cargo_command, environment::EnvironmentArguments,
     },
     progress_indicator::{ProgressIndicator, Task},
 };

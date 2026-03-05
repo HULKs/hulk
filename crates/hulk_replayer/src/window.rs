@@ -1,10 +1,10 @@
 use std::{collections::BTreeMap, time::SystemTime};
 
 use blake3::Hash;
-use color_eyre::{eyre::ContextCompat, Result};
+use color_eyre::{Result, eyre::ContextCompat};
 use eframe::{
-    egui::{Align, CentralPanel, Context, Event, Layout, ViewportCommand},
     App, CreationContext, Frame,
+    egui::{Align, CentralPanel, Context, Event, Layout, ViewportCommand},
 };
 use tokio::sync::watch;
 

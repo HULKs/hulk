@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use eframe::{egui::Context, egui_wgpu::RenderState};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::robot::Robot;
 

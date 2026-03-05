@@ -4,8 +4,8 @@ use std::time::SystemTime;
 
 use booster::{ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState};
 use cdr::{CdrLe, Infinite};
-use color_eyre::eyre::{bail, eyre, Context};
 use color_eyre::Result;
+use color_eyre::eyre::{Context, bail, eyre};
 use hardware::{
     ButtonEventMsgInterface, CameraInterface, IdInterface, MicrophoneInterface, NetworkInterface,
     PathsInterface, RecordingInterface, SafeToExitSafeInterface, SpeakerInterface, TimeInterface,
@@ -23,11 +23,11 @@ use tokio_util::sync::CancellationToken;
 use types::audio::SpeakerRequest;
 use types::messages::{IncomingMessage, OutgoingMessage};
 use types::samples::Samples;
+use zenoh::Session;
 use zenoh::bytes::ZBytes;
 use zenoh::handlers::{RingChannel, RingChannelHandler};
 use zenoh::pubsub::{Publisher, Subscriber};
 use zenoh::sample::Sample;
-use zenoh::Session;
 
 use crate::HardwareInterface;
 

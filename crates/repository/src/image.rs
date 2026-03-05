@@ -1,6 +1,6 @@
 use std::path::{Path, PathBuf};
 
-use color_eyre::{eyre::Context, Result};
+use color_eyre::{Result, eyre::Context};
 use tokio::fs::{create_dir_all, rename};
 
 use crate::download::download;

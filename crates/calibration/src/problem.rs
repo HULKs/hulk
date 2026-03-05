@@ -4,11 +4,11 @@ use nalgebra::{Const, Dyn, Owned, SVector};
 use types::field_dimensions::FieldDimensions;
 
 use crate::{
-    corrections::{Corrections, AMOUNT_OF_PARAMETERS},
-    jacobian::{calculate_jacobian_from_parameters, Jacobian, JacobianStorage},
+    corrections::{AMOUNT_OF_PARAMETERS, Corrections},
+    jacobian::{Jacobian, JacobianStorage, calculate_jacobian_from_parameters},
     residuals::{
-        calculate_residuals_from_parameters, CalculateResiduals, ResidualVector,
-        ResidualVectorStorage,
+        CalculateResiduals, ResidualVector, ResidualVectorStorage,
+        calculate_residuals_from_parameters,
     },
 };
 

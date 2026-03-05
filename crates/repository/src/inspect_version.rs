@@ -1,6 +1,6 @@
 use std::{fs::read_to_string, path::Path};
 
-use color_eyre::{eyre::Context, Result};
+use color_eyre::{Result, eyre::Context};
 use semver::Version;
 use serde::Deserialize;
 use tracing::warn;

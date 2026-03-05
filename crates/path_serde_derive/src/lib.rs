@@ -2,7 +2,7 @@ use deserialize::derive_path_deserialize;
 use introspect::derive_path_introspect;
 use proc_macro_error::proc_macro_error;
 use serialize::derive_path_serialize;
-use syn::{parse_macro_input, DeriveInput};
+use syn::{DeriveInput, parse_macro_input};
 
 mod bound;
 mod container;

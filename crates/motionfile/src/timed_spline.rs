@@ -46,7 +46,9 @@ impl<FromArgument: Debug, ToArgument, Joints: Debug>
 
 #[derive(Error, Debug)]
 pub enum InterpolatorError {
-    #[error("cannot perform {interpolation_mode} with {keys_before} keys before and {keys_after} keys after")]
+    #[error(
+        "cannot perform {interpolation_mode} with {keys_before} keys before and {keys_after} keys after"
+    )]
     InterpolationControlKey {
         interpolation_mode: String,
         keys_before: usize,

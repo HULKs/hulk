@@ -5,7 +5,7 @@ use std::{
 };
 
 use booster::{LowCommand, LowState};
-use pyo3::{exceptions::PyValueError, pyclass, pymethods, Bound, Py, PyAny, PyResult, Python};
+use pyo3::{Bound, Py, PyAny, PyResult, Python, exceptions::PyValueError, pyclass, pymethods};
 use pyo3_async_runtimes::tokio::future_into_py;
 use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
 use simulation_message::{ConnectionInfo, SceneDescription, SceneUpdate, TaskName};

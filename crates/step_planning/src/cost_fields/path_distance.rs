@@ -33,7 +33,7 @@ mod tests {
     use approx::assert_abs_diff_eq;
     use proptest::{prop_assume, proptest};
 
-    use linear_algebra::{point, vector, Vector2};
+    use linear_algebra::{Vector2, point, vector};
 
     use crate::{
         cost_fields::path_distance::PathDistanceField,

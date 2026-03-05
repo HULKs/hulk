@@ -1,12 +1,13 @@
 use std::{f32::consts::FRAC_PI_2, hint::black_box, time::Duration};
 
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 
 use geometry::line_segment::LineSegment;
-use linear_algebra::{point, Orientation2, Point2};
+use linear_algebra::{Orientation2, Point2, point};
 use step_planning::{
+    NUM_VARIABLES,
     geometry::{orientation::Orientation, pose::Pose},
-    test_path, NUM_VARIABLES,
+    test_path,
 };
 use types::{
     motion_command::OrientationMode,

@@ -4,18 +4,18 @@ use booster::{ImuState, MotorState};
 use color_eyre::Result;
 use coordinate_systems::Ground;
 use framework::deserialize_not_implemented;
-use linear_algebra::{vector, Vector2};
+use linear_algebra::{Vector2, vector};
 use ndarray::{Array1, Axis};
 use ort::{
     execution_providers::{CUDAExecutionProvider, TensorRTExecutionProvider},
     inputs,
-    session::{builder::GraphOptimizationLevel, Session},
+    session::{Session, builder::GraphOptimizationLevel},
     value::Tensor,
 };
 use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime,
-    joints::{leg::LegJoints, Joints},
+    joints::{Joints, leg::LegJoints},
     motion_command::MotionCommand,
     parameters::{MotorCommandParameters, RLWalkingParameters},
 };

@@ -8,14 +8,14 @@ use approx::{AbsDiffEq, RelativeEq};
 use serde::{Deserialize, Serialize};
 
 use linear_algebra::{
-    center, distance, distance_squared, Orientation2, Point2, Rotation2, Transform, Vector2,
+    Orientation2, Point2, Rotation2, Transform, Vector2, center, distance, distance_squared,
 };
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{
+    Distance,
     arc::Arc,
     direction::{AngleTo, Direction, Rotate90Degrees},
-    Distance,
 };
 
 #[derive(
@@ -259,7 +259,7 @@ mod tests {
     use std::f32::consts::FRAC_PI_4;
 
     use approx::assert_relative_eq;
-    use linear_algebra::{point, Orientation2};
+    use linear_algebra::{Orientation2, point};
 
     use crate::circle::Circle;
 

@@ -1,5 +1,5 @@
 use nalgebra::{
-    allocator::Allocator, point, vector, DefaultAllocator, Dim, Point2, Scalar, Vector2, U1,
+    DefaultAllocator, Dim, Point2, Scalar, U1, Vector2, allocator::Allocator, point, vector,
 };
 use num_dual::{Derivative, DualNum, DualVec};
 use num_traits::Float;

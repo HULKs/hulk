@@ -3,11 +3,12 @@ use std::sync::Arc;
 use bevy::{
     camera::{ManualTextureViewHandle, RenderTarget, Viewport},
     input::{
-        mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
         ButtonState,
+        mouse::{MouseButtonInput, MouseMotion, MouseScrollUnit, MouseWheel},
     },
     prelude::*,
     render::{
+        RenderDebugFlags, RenderPlugin,
         render_resource::Texture,
         renderer::{
             RenderAdapter, RenderAdapterInfo, RenderDevice, RenderInstance, RenderQueue,
@@ -15,14 +16,13 @@ use bevy::{
         },
         settings::RenderCreation,
         texture::ManualTextureView,
-        RenderDebugFlags, RenderPlugin,
     },
 };
 use bevy_panorbit_camera::{ActiveCameraData, PanOrbitCamera, PanOrbitCameraPlugin};
 use eframe::{
     egui::{
-        self, load::SizedTexture, Event, ImageSource, MouseWheelUnit, PointerButton, Pos2,
-        Response, Sense, Ui, Widget,
+        self, Event, ImageSource, MouseWheelUnit, PointerButton, Pos2, Response, Sense, Ui, Widget,
+        load::SizedTexture,
     },
     wgpu,
 };

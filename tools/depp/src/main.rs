@@ -1,4 +1,4 @@
-use color_eyre::{eyre::Context, Result};
+use color_eyre::{Result, eyre::Context};
 use std::fs::read_to_string;
 use toml::Value;
 

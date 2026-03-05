@@ -1,8 +1,8 @@
 use std::fmt::Debug;
 
-use nalgebra::{allocator::Allocator, DefaultAllocator, DimName, Matrix, OPoint, Owned, Scalar};
+use nalgebra::{DefaultAllocator, DimName, Matrix, OPoint, Owned, Scalar, allocator::Allocator};
 
-use linear_algebra::{point, vector, Framed};
+use linear_algebra::{Framed, point, vector};
 use types::step::Step;
 
 use crate::geometry::{
@@ -180,7 +180,7 @@ where
 
 #[cfg(test)]
 mod tests {
-    use nalgebra::{matrix, OMatrix, U2};
+    use nalgebra::{OMatrix, U2, matrix};
 
     use crate::test_utils::decompose::Decompose;
 

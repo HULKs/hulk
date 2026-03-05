@@ -4,7 +4,7 @@ pub mod keys;
 use std::path::{Path, PathBuf};
 
 use serde::Deserialize;
-use toml::{map::Entry, Value};
+use toml::{Value, map::Entry};
 
 const DEFAULT_CONFIG: &str = include_str!("../config_default.toml");
 

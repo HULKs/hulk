@@ -1,7 +1,7 @@
 use clap::Parser;
 use repository::cargo::Cargo;
 
-use super::{check::CheckOptions, common::CommonOptions, heading, CargoCommand};
+use super::{CargoCommand, check::CheckOptions, common::CommonOptions, heading};
 
 // roughly based on https://github.com/messense/cargo-options
 

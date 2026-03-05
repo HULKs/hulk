@@ -1,10 +1,10 @@
 use std::io::ErrorKind;
 
 use color_eyre::{
-    eyre::{bail, eyre, Context},
     Result,
+    eyre::{Context, bail, eyre},
 };
-use futures_util::{stream::FuturesUnordered, StreamExt};
+use futures_util::{StreamExt, stream::FuturesUnordered};
 use itertools::intersperse;
 use tokio::{
     fs::{read_dir, read_link, remove_file, symlink, try_exists},
@@ -72,8 +72,8 @@ impl Repository {
             )
             .collect();
             bail!(
-            "location {location} does not exist.\navailable locations are:\n{available_locations}"
-        );
+                "location {location} does not exist.\navailable locations are:\n{available_locations}"
+            );
         }
         let target_location = parameters_root.join(format!("{target}_location"));
         let _ = remove_file(&target_location).await;

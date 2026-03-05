@@ -3,8 +3,8 @@ use std::fmt::Display;
 use regex::Regex;
 use serde::{Deserialize, Serialize};
 use zbus::{
-    zvariant::{OwnedObjectPath, Value},
     Connection, Error, Proxy,
+    zvariant::{OwnedObjectPath, Value},
 };
 
 #[derive(Debug)]

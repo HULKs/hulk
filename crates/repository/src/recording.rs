@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 
-use color_eyre::{eyre::Context, Result};
-use serde_json::{to_value, Value};
+use color_eyre::{Result, eyre::Context};
+use serde_json::{Value, to_value};
 
-use crate::{modify_json::modify_json_inplace, Repository};
+use crate::{Repository, modify_json::modify_json_inplace};
 
 impl Repository {
     pub async fn configure_recording_intervals(

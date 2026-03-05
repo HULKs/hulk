@@ -5,7 +5,7 @@ use std::{
     time::SystemTime,
 };
 
-use crate::{deserialize, serialize, PathDeserialize, PathIntrospect, PathSerialize};
+use crate::{PathDeserialize, PathIntrospect, PathSerialize, deserialize, serialize};
 use nalgebra::{DMatrix, Rotation3, SMatrix};
 use ndarray::Array2;
 use serde::{Deserializer, Serializer};

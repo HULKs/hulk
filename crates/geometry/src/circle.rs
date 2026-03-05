@@ -2,11 +2,11 @@ use approx::{AbsDiffEq, RelativeEq};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
-use linear_algebra::{distance, vector, Orientation2, Point2};
+use linear_algebra::{Orientation2, Point2, distance, vector};
 
 use crate::{
-    arc::Arc, circle_tangents::CircleTangents, direction::AngleTo, line_segment::LineSegment,
-    rectangle::Rectangle, two_line_segments::TwoLineSegments, Distance,
+    Distance, arc::Arc, circle_tangents::CircleTangents, direction::AngleTo,
+    line_segment::LineSegment, rectangle::Rectangle, two_line_segments::TwoLineSegments,
 };
 
 #[derive(
@@ -149,11 +149,11 @@ where
         );
         let radius_change_ratio = small_circle.radius / reduced_circle.radius;
         if let Some(reduced_tangents) = reduced_circle.tangents_with_point(small_circle.center) {
-            let shift1 = (reduced_tangents.0 .0 - large_circle.center) * radius_change_ratio;
-            let shift2 = (reduced_tangents.1 .0 - large_circle.center) * radius_change_ratio;
+            let shift1 = (reduced_tangents.0.0 - large_circle.center) * radius_change_ratio;
+            let shift2 = (reduced_tangents.1.0 - large_circle.center) * radius_change_ratio;
             let tangents = TwoLineSegments(
-                LineSegment(reduced_tangents.0 .0 - shift1, small_circle.center - shift1),
-                LineSegment(reduced_tangents.1 .0 - shift2, small_circle.center - shift2),
+                LineSegment(reduced_tangents.0.0 - shift1, small_circle.center - shift1),
+                LineSegment(reduced_tangents.1.0 - shift2, small_circle.center - shift2),
             );
             if flip {
                 return Some(TwoLineSegments(tangents.0.flip(), tangents.1.flip()));
@@ -178,11 +178,11 @@ where
         );
         let radius_change_ratio = small_circle.radius / reduced_circle.radius;
         if let Some(reduced_tangents) = reduced_circle.tangents_with_point(small_circle.center) {
-            let shift1 = (reduced_tangents.0 .0 - large_circle.center) * radius_change_ratio;
-            let shift2 = (reduced_tangents.1 .0 - large_circle.center) * radius_change_ratio;
+            let shift1 = (reduced_tangents.0.0 - large_circle.center) * radius_change_ratio;
+            let shift2 = (reduced_tangents.1.0 - large_circle.center) * radius_change_ratio;
             let tangents = TwoLineSegments(
-                LineSegment(reduced_tangents.0 .0 + shift1, small_circle.center + shift1),
-                LineSegment(reduced_tangents.1 .0 + shift2, small_circle.center + shift2),
+                LineSegment(reduced_tangents.0.0 + shift1, small_circle.center + shift1),
+                LineSegment(reduced_tangents.1.0 + shift2, small_circle.center + shift2),
             );
             if flip {
                 return Some(TwoLineSegments(tangents.0.flip(), tangents.1.flip()));

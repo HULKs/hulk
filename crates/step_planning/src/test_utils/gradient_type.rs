@@ -1,4 +1,4 @@
-use nalgebra::{allocator::Allocator, DefaultAllocator, DimName, OPoint, OVector, Scalar};
+use nalgebra::{DefaultAllocator, DimName, OPoint, OVector, Scalar, allocator::Allocator};
 
 use linear_algebra::Framed;
 use types::step::Step;

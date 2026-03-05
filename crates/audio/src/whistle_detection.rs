@@ -3,11 +3,11 @@ use std::{f32::consts::PI, sync::Arc};
 use color_eyre::Result;
 use context_attribute::context;
 use filtering::statistics::{mean, standard_deviation};
-use framework::{deserialize_not_implemented, AdditionalOutput, MainOutput};
+use framework::{AdditionalOutput, MainOutput, deserialize_not_implemented};
 use rustfft::{
+    Fft, FftPlanner,
     num_complex::{Complex32, ComplexFloat},
     num_traits::Zero,
-    Fft, FftPlanner,
 };
 use serde::{Deserialize, Serialize};
 use types::{

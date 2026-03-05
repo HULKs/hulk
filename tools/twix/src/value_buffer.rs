@@ -5,15 +5,15 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use color_eyre::eyre::{self, eyre};
 use color_eyre::Result;
+use color_eyre::eyre::{self, eyre};
 use communication::client::{
-    protocol::{self, SubscriptionEvent},
     SubscriptionHandle,
+    protocol::{self, SubscriptionEvent},
 };
 use tokio::{
     select,
-    sync::{watch, Mutex},
+    sync::{Mutex, watch},
 };
 
 #[derive(Clone, Debug)]

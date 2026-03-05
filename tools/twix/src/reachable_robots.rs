@@ -4,7 +4,7 @@ use aliveness::query_aliveness;
 use eframe::egui::Context;
 use tokio::{
     runtime::{Builder, Runtime},
-    sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
+    sync::mpsc::{UnboundedReceiver, UnboundedSender, unbounded_channel},
 };
 
 pub struct ReachableRobots {

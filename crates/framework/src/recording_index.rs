@@ -5,7 +5,7 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use bincode::{deserialize_from, Error};
+use bincode::{Error, deserialize_from};
 use color_eyre::eyre::WrapErr;
 
 #[derive(Debug)]

@@ -3,7 +3,7 @@ use std::{f32::consts::TAU, ops::Neg};
 use num_traits::{One, Zero};
 use serde::{Deserialize, Serialize};
 
-use linear_algebra::{vector, Orientation2, Vector2};
+use linear_algebra::{Orientation2, Vector2, vector};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 #[derive(

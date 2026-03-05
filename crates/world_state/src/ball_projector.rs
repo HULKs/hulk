@@ -5,7 +5,7 @@ use context_attribute::context;
 use framework::{HistoricInput, MainOutput, PerceptionInput};
 use geometry::circle::Circle;
 use linear_algebra::IntoFramed;
-use projection::{camera_matrix::CameraMatrix, Projection};
+use projection::{Projection, camera_matrix::CameraMatrix};
 use types::{
     ball_detection::BallPercept,
     field_dimensions::FieldDimensions,

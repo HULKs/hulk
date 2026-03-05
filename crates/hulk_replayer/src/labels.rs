@@ -1,7 +1,7 @@
 use std::collections::BTreeMap;
 
 use eframe::egui::{
-    pos2, vec2, Align, Layout, Rect, Response, RichText, Sense, TextStyle, Ui, UiBuilder, Widget,
+    Align, Layout, Rect, Response, RichText, Sense, TextStyle, Ui, UiBuilder, Widget, pos2, vec2,
 };
 
 use framework::Timing;

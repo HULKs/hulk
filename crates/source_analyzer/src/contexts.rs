@@ -6,7 +6,7 @@ use crate::{
     error::ParseError,
     path::Path,
     to_absolute::ToAbsolute,
-    uses::{uses_from_items, Uses},
+    uses::{Uses, uses_from_items},
 };
 
 #[derive(Clone, Debug, Eq, Hash, PartialEq)]
@@ -59,7 +59,13 @@ impl Contexts {
                     main_outputs.append(&mut fields);
                 }
                 _ => {
-                    return Err(ParseError::new_spanned(&item.ident, format!("expected `CreationContext`, `CycleContext`, or `MainOutputs`, found `{}`", item.ident)));
+                    return Err(ParseError::new_spanned(
+                        &item.ident,
+                        format!(
+                            "expected `CreationContext`, `CycleContext`, or `MainOutputs`, found `{}`",
+                            item.ident
+                        ),
+                    ));
                 }
             }
         }
@@ -211,7 +217,9 @@ impl Field {
                 if path.contains_optional() {
                     return Err(ParseError::new_spanned(
                         &first_segment.arguments,
-                        format!("unexpected optional segments in path of additional output `{field_name}`"),
+                        format!(
+                            "unexpected optional segments in path of additional output `{field_name}`"
+                        ),
                     ));
                 }
 
@@ -264,7 +272,7 @@ impl Field {
                         return Err(ParseError::new_spanned(
                             &first_segment.arguments,
                             "invalid generics",
-                        ))
+                        ));
                     }
                 };
                 Ok(Field::Input {
@@ -315,7 +323,7 @@ impl Field {
                         return Err(ParseError::new_spanned(
                             &first_segment.arguments,
                             "expected exactly two or three generic parameters",
-                        ))
+                        ));
                     }
                 };
                 if !path.contains_optional() {
@@ -373,15 +381,24 @@ fn extract_two_arguments(
                 ));
             }
             match (&arguments.args[0], &arguments.args[1]) {
-                (GenericArgument::Type(type_argument), GenericArgument::Const(Expr::Lit(
-                    ExprLit {
-                        lit: Lit::Str(literal_argument), ..
-                    },
-                ))) => Ok((
+                (
+                    GenericArgument::Type(type_argument),
+                    GenericArgument::Const(Expr::Lit(ExprLit {
+                        lit: Lit::Str(literal_argument),
+                        ..
+                    })),
+                ) => Ok((
                     type_argument.clone(),
-                    Path::try_new(literal_argument.token().to_string().trim_matches('"'), allow_optionals).map_err(|message| ParseError::new_spanned(arguments, message))?,
+                    Path::try_new(
+                        literal_argument.token().to_string().trim_matches('"'),
+                        allow_optionals,
+                    )
+                    .map_err(|message| ParseError::new_spanned(arguments, message))?,
                 )),
-                _ => Err(ParseError::new_spanned(&arguments.args,"expected type in first generic parameter and string literal in second generic parameter")),
+                _ => Err(ParseError::new_spanned(
+                    &arguments.args,
+                    "expected type in first generic parameter and string literal in second generic parameter",
+                )),
             }
         }
         _ => Err(ParseError::new_spanned(
@@ -404,22 +421,36 @@ fn extract_three_arguments(
                 ));
             }
             match (&arguments.args[0], &arguments.args[1], &arguments.args[2]) {
-                (GenericArgument::Type(type_argument), GenericArgument::Const(Expr::Lit(
-                    ExprLit {
-                        lit: Lit::Str(first_literal_argument), ..
-                    },
-                )), GenericArgument::Const(Expr::Lit(
-                    ExprLit {
-                        lit: Lit::Str(second_literal_argument), ..
-                    },
-                ))) => Ok((
+                (
+                    GenericArgument::Type(type_argument),
+                    GenericArgument::Const(Expr::Lit(ExprLit {
+                        lit: Lit::Str(first_literal_argument),
+                        ..
+                    })),
+                    GenericArgument::Const(Expr::Lit(ExprLit {
+                        lit: Lit::Str(second_literal_argument),
+                        ..
+                    })),
+                ) => Ok((
                     type_argument.clone(),
-                    first_literal_argument.token().to_string().trim_matches('"').to_string(),
-                    Path::try_new(second_literal_argument.token().to_string().trim_matches('"'), allow_optionals).map_err(|message| ParseError::new_spanned(arguments, message))?,
+                    first_literal_argument
+                        .token()
+                        .to_string()
+                        .trim_matches('"')
+                        .to_string(),
+                    Path::try_new(
+                        second_literal_argument
+                            .token()
+                            .to_string()
+                            .trim_matches('"'),
+                        allow_optionals,
+                    )
+                    .map_err(|message| ParseError::new_spanned(arguments, message))?,
                 )),
-                _ => Err(
-                    ParseError::new_spanned(&arguments.args,"expected type in first generic parameter and string literals in second and third generic parameters")
-                ),
+                _ => Err(ParseError::new_spanned(
+                    &arguments.args,
+                    "expected type in first generic parameter and string literals in second and third generic parameters",
+                )),
             }
         }
         _ => Err(ParseError::new_spanned(
@@ -453,7 +484,7 @@ fn member_type_allowed(context_name: &str, field_type: &str) -> bool {
 #[cfg(test)]
 mod tests {
 
-    use syn::{parse_str, FieldsNamed};
+    use syn::{FieldsNamed, parse_str};
 
     use super::*;
 
@@ -497,12 +528,14 @@ mod tests {
         let field = "AdditionalOutput<usize, \"a.b?.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
-        assert!(Field::try_from_field(
-            named_fields.named.first().unwrap(),
-            &empty_uses,
-            "CycleContext"
-        )
-        .is_err());
+        assert!(
+            Field::try_from_field(
+                named_fields.named.first().unwrap(),
+                &empty_uses,
+                "CycleContext"
+            )
+            .is_err()
+        );
 
         // without optionals
         let field = "HistoricInput<Option<usize>, \"a.b.c\">";
@@ -662,12 +695,14 @@ mod tests {
         let field = "Input<Option<usize>, \"a.b.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
-        assert!(Field::try_from_field(
-            named_fields.named.first().unwrap(),
-            &empty_uses,
-            "CycleContext"
-        )
-        .is_ok());
+        assert!(
+            Field::try_from_field(
+                named_fields.named.first().unwrap(),
+                &empty_uses,
+                "CycleContext"
+            )
+            .is_ok()
+        );
 
         // without optionals
         let field = "Parameter<usize, \"a.b.c\">";
@@ -838,12 +873,14 @@ mod tests {
         let field = "RequiredInput<usize, \"a.b.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
-        assert!(Field::try_from_field(
-            named_fields.named.first().unwrap(),
-            &empty_uses,
-            "CycleContext"
-        )
-        .is_err());
+        assert!(
+            Field::try_from_field(
+                named_fields.named.first().unwrap(),
+                &empty_uses,
+                "CycleContext"
+            )
+            .is_err()
+        );
 
         // from own cycler, with optionals but without Option<T> data type
         let field = "RequiredInput<usize, \"a.b?.c\">";
@@ -880,12 +917,14 @@ mod tests {
         let field = "RequiredInput<usize, \"Control\", \"a.b.c\">";
         let fields = format!("{{ name: {field} }}");
         let named_fields: FieldsNamed = parse_str(&fields).unwrap();
-        assert!(Field::try_from_field(
-            named_fields.named.first().unwrap(),
-            &empty_uses,
-            "CycleContext"
-        )
-        .is_err());
+        assert!(
+            Field::try_from_field(
+                named_fields.named.first().unwrap(),
+                &empty_uses,
+                "CycleContext"
+            )
+            .is_err()
+        );
 
         // from foreign cycler, with optionals but without Option<T> data type
         let field = "RequiredInput<usize, \"Control\", \"a.b?.c\">";

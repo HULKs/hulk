@@ -1,6 +1,6 @@
 use std::fmt::Debug;
 
-use crate::{condition::Response, Condition};
+use crate::{Condition, condition::Response};
 
 use serde::{Deserialize, Serialize};
 use types::condition_input::ConditionInput;

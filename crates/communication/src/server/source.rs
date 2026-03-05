@@ -11,7 +11,7 @@ use thiserror::Error;
 use tokio::{
     select,
     sync::{mpsc, oneshot},
-    task::{yield_now, JoinSet},
+    task::{JoinSet, yield_now},
 };
 
 use crate::messages::{Format, Path, RequestId, TextOrBinary};

@@ -1,8 +1,8 @@
 use std::{
     borrow::BorrowMut,
     collections::{
-        hash_map::Entry::{Occupied, Vacant},
         HashMap,
+        hash_map::Entry::{Occupied, Vacant},
     },
     sync::Arc,
     time::{Duration, SystemTime},
@@ -19,12 +19,11 @@ use tokio::{
     time::sleep,
 };
 use tokio_tungstenite::{
-    connect_async,
+    MaybeTlsStream, WebSocketStream, connect_async,
     tungstenite::{
-        protocol::{frame::coding::CloseCode, CloseFrame},
         Message,
+        protocol::{CloseFrame, frame::coding::CloseCode},
     },
-    MaybeTlsStream, WebSocketStream,
 };
 
 use crate::{

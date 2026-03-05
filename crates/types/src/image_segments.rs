@@ -1,5 +1,5 @@
 use coordinate_systems::Pixel;
-use linear_algebra::{point, Point2};
+use linear_algebra::{Point2, point};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 

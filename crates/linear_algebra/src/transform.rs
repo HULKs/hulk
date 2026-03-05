@@ -1,7 +1,7 @@
 use std::{collections::HashSet, marker::PhantomData, ops::Mul};
 
 use approx::{AbsDiffEq, RelativeEq};
-use path_serde::{deserialize, serialize, PathDeserialize, PathIntrospect, PathSerialize};
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize, deserialize, serialize};
 use serde::{Deserialize, Serialize};
 
 use crate::framed::Framed;

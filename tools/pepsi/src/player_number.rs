@@ -2,8 +2,8 @@ use std::collections::HashSet;
 
 use clap::Args;
 use color_eyre::{
-    eyre::{bail, eyre, WrapErr},
     Result,
+    eyre::{WrapErr, bail, eyre},
 };
 
 use argument_parsers::RobotNumberPlayerAssignment;

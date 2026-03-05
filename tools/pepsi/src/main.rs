@@ -2,11 +2,11 @@ use std::{env::current_dir, path::PathBuf};
 
 use clap::{CommandFactory, Parser, Subcommand};
 use color_eyre::{
+    Result,
     config::HookBuilder,
     eyre::{ContextCompat, WrapErr},
-    Result,
 };
-use repository::{inspect_version::check_for_update, Repository};
+use repository::{Repository, inspect_version::check_for_update};
 
 use aliveness::aliveness;
 use analyze::analyze;

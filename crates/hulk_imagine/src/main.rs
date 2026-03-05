@@ -2,7 +2,7 @@
 
 use std::borrow::Cow;
 use std::collections::BTreeMap;
-use std::fs::{create_dir_all, read_to_string, File};
+use std::fs::{File, create_dir_all, read_to_string};
 use std::io::BufWriter;
 use std::{
     path::{Path, PathBuf},
@@ -16,7 +16,7 @@ use color_eyre::{
     install,
 };
 use mcap::records::system_time_to_nanos;
-use mcap::{records::Metadata, Attachment};
+use mcap::{Attachment, records::Metadata};
 use rmp_serde::to_vec_named;
 use serde_json::from_str;
 

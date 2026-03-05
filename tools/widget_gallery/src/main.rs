@@ -1,6 +1,7 @@
 use eframe::{
+    App, Frame,
     egui::{CentralPanel, Context, Key, KeyboardShortcut, Modifiers},
-    run_native, App, Frame,
+    run_native,
 };
 use hulk_widgets::{CompletionEdit, KeybindPreview, SegmentedControl};
 

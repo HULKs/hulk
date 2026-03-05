@@ -1,8 +1,8 @@
 use coordinate_systems::{Field, Ground};
 use eframe::egui::{ComboBox, Ui, Widget};
-use linear_algebra::{point, vector, Isometry2};
+use linear_algebra::{Isometry2, point, vector};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use types::field_dimensions::FieldDimensions;
 
 use crate::{

@@ -1,10 +1,10 @@
 use clap::{
-    builder::{PossibleValuesParser, TypedValueParser},
     Subcommand,
+    builder::{PossibleValuesParser, TypedValueParser},
 };
-use color_eyre::{eyre::WrapErr, Result};
+use color_eyre::{Result, eyre::WrapErr};
 
-use argument_parsers::{parse_network, RobotAddress, NETWORK_POSSIBLE_VALUES};
+use argument_parsers::{NETWORK_POSSIBLE_VALUES, RobotAddress, parse_network};
 use robot::{Network, Robot};
 
 use crate::progress_indicator::ProgressIndicator;

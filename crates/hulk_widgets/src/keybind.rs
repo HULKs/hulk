@@ -1,7 +1,7 @@
 use egui::{
-    vec2, KeyboardShortcut, ModifierNames, Rect, Response, RichText, Sense, Stroke,
+    KeyboardShortcut, ModifierNames, Rect, Response, RichText, Sense, Stroke,
     StrokeKind::{self},
-    TextStyle, TextWrapMode, Ui, Vec2, Widget, WidgetText,
+    TextStyle, TextWrapMode, Ui, Vec2, Widget, WidgetText, vec2,
 };
 
 pub struct KeybindPreview(pub KeyboardShortcut);

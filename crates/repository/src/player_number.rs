@@ -1,8 +1,8 @@
-use color_eyre::{eyre::Context, Result};
+use color_eyre::{Result, eyre::Context};
 use hsl_network_messages::PlayerNumber;
 use hula_types::hardware::Ids;
 use parameters::{
-    directory::{serialize, Id, Location, Scope},
+    directory::{Id, Location, Scope, serialize},
     json::nest_value_at_path,
 };
 

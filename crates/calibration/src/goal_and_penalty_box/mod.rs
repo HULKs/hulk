@@ -8,7 +8,7 @@ mod tests {
     use coordinate_systems::Pixel;
     use geometry::line_segment::LineSegment;
     use levenberg_marquardt::LevenbergMarquardt;
-    use linear_algebra::{point, vector, Isometry2, Isometry3, Vector2};
+    use linear_algebra::{Isometry2, Isometry3, Vector2, point, vector};
     use projection::camera_matrix::CameraMatrix;
     use types::field_dimensions::FieldDimensions;
 

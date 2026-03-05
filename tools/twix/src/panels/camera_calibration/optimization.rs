@@ -1,8 +1,8 @@
 use std::sync::Arc;
 
 use color_eyre::{
-    eyre::{bail, Context, ContextCompat},
     Result,
+    eyre::{Context, ContextCompat, bail},
 };
 
 use calibration::{

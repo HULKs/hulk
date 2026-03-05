@@ -1,12 +1,12 @@
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::time::{Duration, SystemTime};
 
 use booster::{
     ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState, TransformMessage,
 };
-use color_eyre::eyre::{eyre, Context, Error, OptionExt};
 use color_eyre::Result;
+use color_eyre::eyre::{Context, Error, OptionExt, eyre};
 use futures_util::SinkExt;
 use futures_util::StreamExt;
 use hardware::{
@@ -25,7 +25,7 @@ use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
 use serde::Deserialize;
 use simulation_message::{ClientMessageKind, ConnectionInfo, ServerMessageKind, SimulatorMessage};
 use tokio::select;
-use tokio::sync::mpsc::{channel, Receiver, Sender};
+use tokio::sync::mpsc::{Receiver, Sender, channel};
 use tokio::time::sleep;
 use tokio_tungstenite::tungstenite::Message;
 use tokio_util::sync::CancellationToken;

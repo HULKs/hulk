@@ -6,8 +6,8 @@ use std::{
 
 use byteorder::{BigEndian, ByteOrder};
 use color_eyre::{
-    eyre::{bail, Context},
     Result,
+    eyre::{Context, bail},
 };
 use sha2::{Digest, Sha256};
 

@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use color_eyre::{eyre::Context, Result};
+use color_eyre::{Result, eyre::Context};
 use tokio::fs::{remove_file, symlink};
 
 /// Create or replace a symlink from the source path to the destination path.

@@ -1,7 +1,7 @@
-use proc_macro2::TokenStream;
 use proc_macro_error::{abort, proc_macro_error};
+use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{parse_macro_input, Attribute, Data, DeriveInput, Result, Type};
+use syn::{Attribute, Data, DeriveInput, Result, Type, parse_macro_input};
 
 #[proc_macro_derive(AbsDiffEq, attributes(abs_diff_eq))]
 #[proc_macro_error]

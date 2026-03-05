@@ -2,15 +2,14 @@ use std::{collections::BTreeMap, net::IpAddr, num::ParseIntError, time::Duration
 
 use clap::Args;
 use color_eyre::{
+    Result,
     eyre::Context,
     owo_colors::{OwoColorize, Style},
-    Result,
 };
 
 use aliveness::{
-    query_aliveness,
+    AlivenessError, AlivenessState, Battery, JointsArray, query_aliveness,
     service_manager::{ServiceState, SystemServices},
-    AlivenessError, AlivenessState, Battery, JointsArray,
 };
 use argument_parsers::RobotAddress;
 use repository::Repository;

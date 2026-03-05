@@ -10,7 +10,7 @@ use bevy::{
     render::render_resource::{Extent3d, TextureDimension},
 };
 use futures_util::{SinkExt, StreamExt};
-use image::{imageops::FilterType, DynamicImage, ImageBuffer};
+use image::{DynamicImage, ImageBuffer, imageops::FilterType};
 use log::{error, info};
 use simulation_message::{
     ConnectionInfo, Geom, GeomVariant, Material, SceneDescription, SceneMesh, SceneUpdate,
@@ -19,7 +19,7 @@ use simulation_message::{
 use tokio::{select, sync::mpsc};
 use tokio_tungstenite::{
     connect_async_with_config,
-    tungstenite::{protocol::WebSocketConfig, Message},
+    tungstenite::{Message, protocol::WebSocketConfig},
 };
 
 pub struct MujocoVisualizerPlugin {

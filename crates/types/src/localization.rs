@@ -1,4 +1,4 @@
-use nalgebra::{vector, Matrix3};
+use nalgebra::{Matrix3, vector};
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::{Field, Ground};

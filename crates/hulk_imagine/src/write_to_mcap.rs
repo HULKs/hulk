@@ -1,8 +1,8 @@
 use std::time::SystemTime;
 
 use color_eyre::{
-    eyre::{Context, ContextCompat},
     Result,
+    eyre::{Context, ContextCompat},
 };
 use indicatif::{ProgressIterator, ProgressStyle};
 use serde::Serialize;

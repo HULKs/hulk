@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use linear_algebra::{point, Point2};
+use linear_algebra::{Point2, point};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use coordinate_systems::Field;

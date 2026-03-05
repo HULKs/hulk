@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use color_eyre::{eyre::Context, Result};
+use color_eyre::{Result, eyre::Context};
 use tokio::fs::{create_dir_all, symlink};
 
 use crate::Repository;

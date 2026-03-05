@@ -3,7 +3,7 @@ use std::{cell::UnsafeCell, ops::Deref, sync::Arc};
 use parking_lot::{RwLock, RwLockReadGuard};
 use tokio::sync::watch;
 
-use crate::{find_newest_readable_buffer, find_oldest_free_buffer, NoSender, Shared, State};
+use crate::{NoSender, Shared, State, find_newest_readable_buffer, find_oldest_free_buffer};
 
 /// Receives values from the associated Sender
 pub struct Receiver<T> {

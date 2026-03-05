@@ -4,15 +4,15 @@ mod websocket;
 use std::sync::Arc;
 
 use pyo3::pymodule;
-use pyo3::{exceptions::PyValueError, pyclass, pymethods, Bound, PyAny, PyResult, Python};
+use pyo3::{Bound, PyAny, PyResult, Python, exceptions::PyValueError, pyclass, pymethods};
 use pyo3_async_runtimes::tokio::future_into_py;
 use tokio::task::JoinSet;
 use tokio::{
     net::TcpListener,
     runtime::Runtime,
     sync::{
-        mpsc::{self, Receiver},
         Mutex,
+        mpsc::{self, Receiver},
     },
 };
 use tokio_util::sync::CancellationToken;
@@ -107,7 +107,7 @@ impl SimulationServer {
 #[pymodule(name = "mujoco_rust_server")]
 mod python_module {
     #[pymodule_export]
-    use crate::{controller::PySimulationTask, SimulationServer};
+    use crate::{SimulationServer, controller::PySimulationTask};
 
     #[pymodule_export]
     use simulation_message::{

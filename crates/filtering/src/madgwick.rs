@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use nalgebra::{matrix, vector, Quaternion, UnitQuaternion, Vector3};
+use nalgebra::{Quaternion, UnitQuaternion, Vector3, matrix, vector};
 
 #[derive(Debug)]
 pub struct AccelerometerNormZero;

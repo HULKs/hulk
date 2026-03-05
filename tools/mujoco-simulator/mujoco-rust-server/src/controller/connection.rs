@@ -2,15 +2,15 @@ use std::ops::Range;
 use std::sync::Arc;
 use std::time::SystemTime;
 
-use color_eyre::eyre::{eyre, Context, ContextCompat};
 use color_eyre::Result;
+use color_eyre::eyre::{Context, ContextCompat, eyre};
 use tokio::sync::oneshot;
-use tokio::sync::{mpsc, Mutex};
+use tokio::sync::{Mutex, mpsc};
 
 use booster::LowCommand;
 use simulation_message::{ConnectionInfo, OnceTask, PeriodicalTask};
 
-use super::{messages::SimulationData, SimulationTask};
+use super::{SimulationTask, messages::SimulationData};
 
 #[derive(Clone, Debug)]
 pub struct Connection {

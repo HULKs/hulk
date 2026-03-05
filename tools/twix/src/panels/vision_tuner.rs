@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use color_eyre::{eyre::OptionExt, Result};
+use color_eyre::{Result, eyre::OptionExt};
 use communication::messages::TextOrBinary;
 use eframe::egui::{Response, Slider, Ui, Widget};
 use log::error;

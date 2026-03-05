@@ -1,7 +1,7 @@
 use std::{
     env::temp_dir,
     fmt::{self, Display, Formatter},
-    fs::{set_permissions, Permissions},
+    fs::{Permissions, set_permissions},
     net::Ipv4Addr,
     os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
@@ -10,8 +10,8 @@ use std::{
 };
 
 use color_eyre::{
-    eyre::{self, bail, eyre, WrapErr},
     Result,
+    eyre::{self, WrapErr, bail, eyre},
 };
 use serde::Deserialize;
 use tokio::{

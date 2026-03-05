@@ -4,7 +4,7 @@ use color_eyre::Result;
 use convert_case::{Case, Casing};
 use eframe::egui::Ui;
 use log::error;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use types::field_dimensions::FieldDimensions;
 
@@ -14,7 +14,7 @@ pub trait Layer<Frame> {
     const NAME: &'static str;
     fn new(robot: Arc<Robot>) -> Self;
     fn paint(&self, painter: &TwixPainter<Frame>, field_dimensions: &FieldDimensions)
-        -> Result<()>;
+    -> Result<()>;
 }
 
 pub struct EnabledLayer<T, Frame>

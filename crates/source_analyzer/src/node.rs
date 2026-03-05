@@ -5,7 +5,7 @@ use std::{
 };
 
 use quote::ToTokens;
-use syn::{parse_file, ImplItem, Item, ItemImpl, Type};
+use syn::{ImplItem, Item, ItemImpl, Type, parse_file};
 
 use crate::{
     contexts::Contexts,

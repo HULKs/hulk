@@ -6,16 +6,16 @@ use std::fmt::Debug;
 
 use booster::{ButtonEventMsg, FallDownState, LowCommand, LowState};
 use color_eyre::eyre::{Result, WrapErr};
-use futures_util::{future::Fuse, select, FutureExt};
+use futures_util::{FutureExt, future::Fuse, select};
 use ros2_client::{
+    Context, DEFAULT_SUBSCRIPTION_QOS, MessageTypeName, Node, NodeName, NodeOptions, Publisher,
+    Subscription,
     ros2::{
-        policy::{Deadline, Durability, History, Lifespan, Liveliness, Ownership, Reliability},
         Duration, QosPolicyBuilder,
+        policy::{Deadline, Durability, History, Lifespan, Liveliness, Ownership, Reliability},
     },
-    Context, MessageTypeName, Node, NodeName, NodeOptions, Publisher, Subscription,
-    DEFAULT_SUBSCRIPTION_QOS,
 };
-use serde::{de::DeserializeOwned, Serialize};
+use serde::{Serialize, de::DeserializeOwned};
 use tokio::task::JoinHandle;
 use zenoh::Session;
 
