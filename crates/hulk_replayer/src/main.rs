@@ -10,7 +10,7 @@ mod user_data;
 mod window;
 mod worker_thread;
 
-use booster_sdk::types::{GetModeResponse, RobotMode};
+use booster_sdk::types::RobotMode;
 use color_eyre::{eyre::Result, install};
 use hardware::{
     ActuatorInterface, CameraInterface, HighLevelInterface, IdInterface, LowCommandInterface,
@@ -170,7 +170,7 @@ impl HighLevelInterface for ReplayerHardwareInterface {
         unimplemented!()
     }
 
-    fn get_mode(&self) -> Result<GetModeResponse> {
+    fn get_mode(&self) -> Result<RobotMode> {
         unimplemented!()
     }
 

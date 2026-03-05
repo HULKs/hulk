@@ -1,4 +1,4 @@
-use booster_sdk::types::{GetModeResponse, RobotMode};
+use booster_sdk::types::RobotMode;
 use hardware::{
     ActuatorInterface, HighLevelInterface, LowCommandInterface, LowStateInterface,
     MotionRuntimeInteface, NetworkInterface, PathsInterface, RecordingInterface,
@@ -112,7 +112,7 @@ impl HighLevelInterface for ExtractorHardwareInterface {
         unimplemented!()
     }
 
-    fn get_mode(&self) -> Result<GetModeResponse> {
+    fn get_mode(&self) -> Result<RobotMode> {
         unimplemented!()
     }
 

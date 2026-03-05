@@ -3,7 +3,7 @@ use std::time::SystemTime;
 use booster::{
     ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState, TransformMessage,
 };
-use booster_sdk::types::{GetModeResponse, RobotMode};
+use booster_sdk::types::RobotMode;
 use color_eyre::eyre::Result;
 
 use hula_types::hardware::{Ids, Paths};
@@ -98,7 +98,7 @@ pub trait SimulatorInterface {
 
 pub trait HighLevelInterface {
     fn change_mode(&self, mode: RobotMode) -> Result<()>;
-    fn get_mode(&self) -> Result<GetModeResponse>;
+    fn get_mode(&self) -> Result<RobotMode>;
     fn move_robot(&self, step: Step) -> Result<()>;
     fn rotate_head(&self, head_joints: HeadJoints<f32>) -> Result<()>;
     fn rotate_head_with_direction(&self, head_joints: HeadJoints<i32>) -> Result<()>;

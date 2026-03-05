@@ -1,20 +1,22 @@
 use std::{
     env,
     future::{Future, IntoFuture},
-    sync::atomic::{AtomicBool, Ordering},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
     time::SystemTime,
 };
 
-use booster_sdk::{
-    client::BoosterClient,
-    types::{GetModeResponse, RobotMode},
-};
+use booster_sdk::{client::BoosterClient, types::RobotMode};
 use cdr::{CdrLe, Infinite};
 use color_eyre::{
     Result,
     eyre::{Context, ContextCompat, bail, eyre},
 };
 use kinematics::joints::head::HeadJoints;
+use log::{error, warn};
+use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use tokio::runtime::Handle;
 use tokio_util::sync::CancellationToken;
@@ -111,7 +113,8 @@ pub struct BoosterHardwareInterface {
     image_left_raw_subscriber: Subscriber<RingChannelHandler<Sample>>,
     image_left_raw_camera_info_subscriber: Subscriber<RingChannelHandler<Sample>>,
 
-    high_level_interface_client: BoosterClient,
+    high_level_interface_client: Arc<BoosterClient>,
+    robot_mode: Arc<Mutex<RobotMode>>,
 
     _session: Session,
     runtime_handle: Handle,
@@ -141,7 +144,19 @@ impl BoosterHardwareInterface {
                 .wrap_err("id was not valid UTF-8")?,
         };
 
-        let high_level_interface_client = BoosterClient::new()?;
+        let high_level_interface_client = Arc::new(BoosterClient::new()?);
+
+        let robot_mode = Arc::new(Mutex::new(RobotMode::Unknown));
+
+        tokio::spawn(
+            keep_running
+                .clone()
+                .run_until_cancelled_owned(robot_mode_worker(
+                    keep_running.clone(),
+                    high_level_interface_client.clone(),
+                    robot_mode.clone(),
+                )),
+        );
 
         Ok(Self {
             ids,
@@ -176,7 +191,9 @@ impl BoosterHardwareInterface {
             )
             .await?,
 
+            robot_mode,
             high_level_interface_client,
+
             _session: session,
             hsl_network_endpoint: keep_running
                 .clone()
@@ -221,6 +238,35 @@ async fn declare_publisher(
         .declare_publisher(key_expression)
         .await
         .map_err(|err| eyre!(err))
+}
+
+async fn robot_mode_worker(
+    keep_running: CancellationToken,
+    high_level_interface_client: Arc<BoosterClient>,
+    robot_mode: Arc<Mutex<RobotMode>>,
+) -> Result<()> {
+    keep_running
+        .run_until_cancelled(async {
+            loop {
+                match high_level_interface_client.get_mode().await {
+                    Ok(get_mode_response) => {
+                        let Some(received_robot_mode) = get_mode_response.mode_enum() else {
+                            warn!("unrecognized robot mode id: {}", get_mode_response.mode);
+                            continue;
+                        };
+
+                        *robot_mode.lock() = received_robot_mode;
+                    }
+                    Err(err) => {
+                        error!("failed to get robot mode: {err}")
+                    }
+                }
+            }
+        })
+        .await
+        .ok_or(eyre!("termination_requested"))?;
+
+    Ok(())
 }
 
 fn deserialize_sample<T>(sample: Sample) -> Result<T>
@@ -376,9 +422,8 @@ impl HighLevelInterface for BoosterHardwareInterface {
             .wrap_err("failed to send change mode command")
     }
 
-    fn get_mode(&self) -> Result<GetModeResponse> {
-        self.run_until_cancelled(self.high_level_interface_client.get_mode())?
-            .wrap_err("failed to send get mode request")
+    fn get_mode(&self) -> Result<RobotMode> {
+        Ok(*self.robot_mode.lock())
     }
 
     fn move_robot(&self, step: Step) -> Result<()> {

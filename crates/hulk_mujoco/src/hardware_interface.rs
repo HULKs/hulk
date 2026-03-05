@@ -7,7 +7,7 @@ use std::time::{Duration, SystemTime};
 use booster::{
     ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState, TransformMessage,
 };
-use booster_sdk::types::{GetModeResponse, RobotMode};
+use booster_sdk::types::RobotMode;
 use color_eyre::{
     Result,
     eyre::{Context, Error, OptionExt, eyre},
@@ -427,7 +427,7 @@ impl HighLevelInterface for MujocoHardwareInterface {
         unimplemented!()
     }
 
-    fn get_mode(&self) -> Result<GetModeResponse> {
+    fn get_mode(&self) -> Result<RobotMode> {
         unimplemented!()
     }
 

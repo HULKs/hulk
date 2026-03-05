@@ -8,9 +8,7 @@ use hardware::{HighLevelInterface, MotionRuntimeInteface, TimeInterface};
 use types::{motion_runtime::MotionRuntime, primary_state::PrimaryState};
 
 #[derive(Deserialize, Serialize)]
-pub struct BoosterModeHandler {
-    last_robot_mode: Option<RobotMode>,
-}
+pub struct BoosterModeHandler {}
 
 #[context]
 pub struct CreationContext {}
@@ -30,9 +28,7 @@ pub struct MainOutputs {
 
 impl BoosterModeHandler {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {
-            last_robot_mode: None,
-        })
+        Ok(Self {})
     }
 
     pub fn cycle(
@@ -48,7 +44,13 @@ impl BoosterModeHandler {
             });
         }
 
-        match (context.primary_state, self.last_robot_mode) {
+        let Ok(robot_mode) = context.hardware_interface.get_mode() else {
+            return Ok(MainOutputs {
+                robot_mode: None.into(),
+            });
+        };
+
+        match (context.primary_state, robot_mode) {
             (
                 PrimaryState::Safe
                 | PrimaryState::Stop
@@ -56,25 +58,17 @@ impl BoosterModeHandler {
                 | PrimaryState::Initial
                 | PrimaryState::Set
                 | PrimaryState::Finished,
-                Some(RobotMode::Walking),
+                RobotMode::Walking,
             ) => change_mode(&context, RobotMode::Prepare),
 
-            (PrimaryState::Ready | PrimaryState::Playing, Some(RobotMode::Prepare)) => {
+            (PrimaryState::Ready | PrimaryState::Playing, RobotMode::Prepare) => {
                 change_mode(&context, RobotMode::Walking)
             }
             (_, _) => (),
         };
 
-        let Ok(robot_mode_response) = context.hardware_interface.get_mode() else {
-            return Ok(MainOutputs {
-                robot_mode: None.into(),
-            });
-        };
-
-        self.last_robot_mode = robot_mode_response.mode_enum();
-
         Ok(MainOutputs {
-            robot_mode: self.last_robot_mode.into(),
+            robot_mode: Some(robot_mode).into(),
         })
     }
 }
