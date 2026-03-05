@@ -309,6 +309,7 @@
       "secs": 30
     }
   },
+  "injected_primary_state": null,
   "behavior": {
     "injected_motion_command": null,
     "walk_with_velocity": {

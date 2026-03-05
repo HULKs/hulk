@@ -25,6 +25,7 @@ pub struct CycleContext {
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
     should_exit_safe_mode: Input<bool, "should_exit_safe_mode">,
 
+    injected_primary_state: Parameter<Option<PrimaryState>, "injected_primary_state?">,
     player_number: Parameter<PlayerNumber, "player_number">,
     recorded_primary_states: Parameter<HashSet<PrimaryState>, "recorded_primary_states">,
 
@@ -48,6 +49,13 @@ impl PrimaryStateFilter {
         &mut self,
         context: CycleContext<impl RecordingInterface + SpeakerInterface>,
     ) -> Result<MainOutputs> {
+        if let Some(injected_primary_state) = context.injected_primary_state {
+            self.last_primary_state = *injected_primary_state;
+            return Ok(MainOutputs {
+                primary_state: (*injected_primary_state).into(),
+            });
+        }
+
         let (is_penalized, game_state) = match context.filtered_game_controller_state {
             Some(game_controller_state) => (
                 game_controller_state.penalties[*context.player_number].is_some(),
