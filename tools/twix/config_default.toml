@@ -22,6 +22,6 @@ C-d = "duplicate_tab"
 
 C-S-Backspace = "close_all"
 
-[naos]
-lowest = 21
-highest = 41
+[robots]
+lowest = 42
+highest = 53
