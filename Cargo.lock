@@ -6192,6 +6192,7 @@ version = "0.1.0"
 dependencies = [
  "approx 0.5.1",
  "booster",
+ "booster_sdk",
  "color-eyre",
  "context_attribute",
  "coordinate_systems",
@@ -7334,6 +7335,7 @@ version = "0.1.0"
 dependencies = [
  "ball_filter",
  "booster",
+ "booster_sdk",
  "calibration",
  "code_generation",
  "color-eyre",
@@ -7445,6 +7447,7 @@ dependencies = [
 name = "path_serde"
 version = "0.1.0"
 dependencies = [
+ "booster_sdk",
  "nalgebra",
  "ndarray 0.16.1",
  "num-traits",

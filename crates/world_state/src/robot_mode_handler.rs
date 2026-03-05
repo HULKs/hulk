@@ -1,12 +1,16 @@
 use booster_sdk::types::RobotMode;
 use color_eyre::Result;
-use context_attribute::context;
-use hardware::{HighLevelInterface, MotionRuntimeInteface, TimeInterface};
 use serde::{Deserialize, Serialize};
+
+use context_attribute::context;
+use framework::MainOutput;
+use hardware::{HighLevelInterface, MotionRuntimeInteface, TimeInterface};
 use types::{motion_runtime::MotionRuntime, primary_state::PrimaryState};
 
 #[derive(Deserialize, Serialize)]
-pub struct BoosterModeHandler {}
+pub struct BoosterModeHandler {
+    last_robot_mode: Option<RobotMode>,
+}
 
 #[context]
 pub struct CreationContext {}
@@ -20,11 +24,15 @@ pub struct CycleContext {
 
 #[context]
 #[derive(Default)]
-pub struct MainOutputs {}
+pub struct MainOutputs {
+    pub robot_mode: MainOutput<Option<RobotMode>>,
+}
 
 impl BoosterModeHandler {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {})
+        Ok(Self {
+            last_robot_mode: None,
+        })
     }
 
     pub fn cycle(
@@ -35,24 +43,48 @@ impl BoosterModeHandler {
             context.hardware_interface.get_motion_runtime_type()?,
             MotionRuntime::Booster
         ) {
-            return Ok(MainOutputs {});
+            return Ok(MainOutputs {
+                robot_mode: None.into(),
+            });
         }
 
-        match context.primary_state {
-            PrimaryState::Safe
-            | PrimaryState::Stop
-            | PrimaryState::Penalized
-            | PrimaryState::Initial
-            | PrimaryState::Set
-            | PrimaryState::Finished => {
-                context.hardware_interface.change_mode(RobotMode::Prepare)?
+        match (context.primary_state, self.last_robot_mode) {
+            (
+                PrimaryState::Safe
+                | PrimaryState::Stop
+                | PrimaryState::Penalized
+                | PrimaryState::Initial
+                | PrimaryState::Set
+                | PrimaryState::Finished,
+                Some(RobotMode::Walking),
+            ) => change_mode(&context, RobotMode::Prepare),
+
+            (PrimaryState::Ready | PrimaryState::Playing, Some(RobotMode::Prepare)) => {
+                change_mode(&context, RobotMode::Walking)
             }
-            PrimaryState::Ready | PrimaryState::Playing => {
-                context.hardware_interface.change_mode(RobotMode::Walking)?;
-                context.hardware_interface.enter_wbc_gait()?
-            }
+            (_, _) => (),
         };
 
-        Ok(MainOutputs {})
+        let Ok(robot_mode_response) = context.hardware_interface.get_mode() else {
+            return Ok(MainOutputs {
+                robot_mode: None.into(),
+            });
+        };
+
+        self.last_robot_mode = robot_mode_response.mode_enum();
+
+        Ok(MainOutputs {
+            robot_mode: self.last_robot_mode.into(),
+        })
     }
+}
+
+fn change_mode(
+    context: &CycleContext<impl HighLevelInterface + MotionRuntimeInteface + TimeInterface>,
+    robot_mode: RobotMode,
+) {
+    let _ = context
+        .hardware_interface
+        .change_mode(robot_mode)
+        .inspect_err(|err| log::error!("{err:?}"));
 }

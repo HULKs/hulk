@@ -1,3 +1,4 @@
+use booster_sdk::types::RobotMode;
 use color_eyre::Result;
 use context_attribute::context;
 use hardware::{HighLevelInterface, MotionRuntimeInteface, TimeInterface};
@@ -13,6 +14,8 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
+    robot_mode: RequiredInput<Option<RobotMode>, "WorldState", "robot_mode?">,
+
     head_joints: Input<HeadJoints<f32>, "head_joints_command">,
 
     hardware_interface: HardwareInterface,
@@ -31,15 +34,25 @@ impl RotateHead {
         &mut self,
         context: CycleContext<impl HighLevelInterface + MotionRuntimeInteface + TimeInterface>,
     ) -> Result<MainOutputs> {
-        if matches!(
+        if !matches!(
             context.hardware_interface.get_motion_runtime_type()?,
             MotionRuntime::Booster
-        ) {
-            context
-                .hardware_interface
-                .rotate_head(*context.head_joints)?;
+        ) | !matches!(context.robot_mode, RobotMode::Walking)
+        {
+            return Ok(MainOutputs {});
         }
+
+        rotate_head(&context);
 
         Ok(MainOutputs {})
     }
+}
+
+fn rotate_head(
+    context: &CycleContext<impl HighLevelInterface + MotionRuntimeInteface + TimeInterface>,
+) {
+    let _ = context
+        .hardware_interface
+        .rotate_head(*context.head_joints)
+        .inspect_err(|err| log::error!("{err:?}"));
 }
