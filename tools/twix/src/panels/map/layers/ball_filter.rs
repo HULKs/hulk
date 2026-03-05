@@ -9,7 +9,7 @@ use linear_algebra::{vector, Point};
 use types::field_dimensions::FieldDimensions;
 
 use crate::{
-    nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::BufferHandle,
+    panels::map::layer::Layer, robot::Robot, twix_painter::TwixPainter, value_buffer::BufferHandle,
 };
 
 pub struct BallFilter {
@@ -19,8 +19,8 @@ pub struct BallFilter {
 impl Layer<Ground> for BallFilter {
     const NAME: &'static str = "Ball Filter";
 
-    fn new(nao: Arc<Nao>) -> Self {
-        let filter = nao.subscribe_value("Control.additional_outputs.ball_filter_state");
+    fn new(robot: Arc<Robot>) -> Self {
+        let filter = robot.subscribe_value("Control.additional_outputs.ball_filter_state");
         Self { filter }
     }
 

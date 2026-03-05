@@ -6,13 +6,13 @@ use hulk_widgets::SegmentedControl;
 use serde_json::{json, Value};
 
 use crate::{
-    nao::Nao,
     panel::{Panel, PanelCreationContext},
+    robot::Robot,
     value_buffer::BufferHandle,
 };
 
 pub struct BehaviorSimulatorPanel {
-    nao: Arc<Nao>,
+    robot: Arc<Robot>,
 
     selected_frame: f64,
     selected_robot: usize,
@@ -27,10 +27,10 @@ impl<'a> Panel<'a> for BehaviorSimulatorPanel {
     const NAME: &'static str = "Behavior Simulator";
 
     fn new(context: PanelCreationContext) -> Self {
-        let selected_frame_updater = context.nao.subscribe_value("simulator.selected_frame");
+        let selected_frame_updater = context.robot.subscribe_value("simulator.selected_frame");
 
         let frame_count = context
-            .nao
+            .robot
             .subscribe_value("BehaviorSimulator.main_outputs.frame_count");
         let selected_frame = context
             .value
@@ -49,7 +49,7 @@ impl<'a> Panel<'a> for BehaviorSimulatorPanel {
             .unwrap_or_default();
 
         Self {
-            nao: context.nao,
+            robot: context.robot,
 
             selected_frame,
             selected_robot,
@@ -125,7 +125,7 @@ impl Widget for &mut BehaviorSimulatorPanel {
                         )
                         .ui(ui);
                         if response.changed() {
-                            self.nao.write(
+                            self.robot.write(
                                 "simulator.selected_robot",
                                 TextOrBinary::Text(robots[self.selected_robot].into()),
                             );
@@ -146,7 +146,7 @@ impl Widget for &mut BehaviorSimulatorPanel {
         }
         if let Some(new_frame) = new_frame {
             self.selected_frame = (new_frame + frame_count as f64) % frame_count as f64;
-            self.nao.write(
+            self.robot.write(
                 "simulator.selected_frame",
                 TextOrBinary::Text((self.selected_frame as usize).into()),
             );

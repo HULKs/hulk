@@ -16,8 +16,8 @@ use types::{
 };
 
 use crate::{
-    nao::Nao,
     panel::{Panel, PanelCreationContext},
+    robot::Robot,
     twix_painter::{Orientation, TwixPainter},
     value_buffer::BufferHandle,
     zoom_and_pan::ZoomAndPanTransform,
@@ -39,7 +39,7 @@ enum ColorMode {
 }
 
 pub struct ImageSegmentsPanel {
-    nao: Arc<Nao>,
+    robot: Arc<Robot>,
     buffer: BufferHandle<ImageSegments>,
     direction: Direction,
     color_mode: ColorMode,
@@ -52,7 +52,7 @@ impl<'a> Panel<'a> for ImageSegmentsPanel {
 
     fn new(context: PanelCreationContext) -> Self {
         let value_buffer = context
-            .nao
+            .robot
             .subscribe_value("Vision.main_outputs.image_segments");
         let color_mode = match context.value.and_then(|value| value.get("color_mode")) {
             Some(Value::String(string)) => serde_json::from_str(&format!("\"{string}\"")).unwrap(),
@@ -64,7 +64,7 @@ impl<'a> Panel<'a> for ImageSegmentsPanel {
             .and_then(|value| value.as_bool())
             .unwrap_or_default();
         Self {
-            nao: context.nao,
+            robot: context.robot,
             buffer: value_buffer,
             direction: Direction::Vertical,
             color_mode,
@@ -97,7 +97,7 @@ impl Widget for &mut ImageSegmentsPanel {
                     false => "Vision.main_outputs.image_segments".to_string(),
                     true => "Vision.main_outputs.filtered_segments".to_string(),
                 };
-                self.buffer = self.nao.subscribe_value(output);
+                self.buffer = self.robot.subscribe_value(output);
             }
             ComboBox::from_label("ColorMode")
                 .selected_text(format!("{:?}", self.color_mode))

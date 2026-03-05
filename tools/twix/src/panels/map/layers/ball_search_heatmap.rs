@@ -7,7 +7,7 @@ use std::sync::Arc;
 use types::field_dimensions::FieldDimensions;
 
 use crate::{
-    nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::BufferHandle,
+    panels::map::layer::Layer, robot::Robot, twix_painter::TwixPainter, value_buffer::BufferHandle,
 };
 
 pub struct BallSearchHeatmap {
@@ -17,9 +17,9 @@ pub struct BallSearchHeatmap {
 impl Layer<Field> for BallSearchHeatmap {
     const NAME: &'static str = "Ball Search Heatmap";
 
-    fn new(nao: Arc<Nao>) -> Self {
+    fn new(robot: Arc<Robot>) -> Self {
         let ball_search_heatmap =
-            nao.subscribe_value("Control.additional_outputs.ball_search_heatmap");
+            robot.subscribe_value("Control.additional_outputs.ball_search_heatmap");
         Self {
             ball_search_heatmap,
         }

@@ -7,7 +7,7 @@ use tokio::{
     sync::mpsc::{unbounded_channel, UnboundedReceiver, UnboundedSender},
 };
 
-pub struct ReachableNaos {
+pub struct ReachableRobots {
     ips: Vec<IpAddr>,
     tx: UnboundedSender<Vec<IpAddr>>,
     rx: UnboundedReceiver<Vec<IpAddr>>,
@@ -15,7 +15,7 @@ pub struct ReachableNaos {
     runtime: Runtime,
 }
 
-impl ReachableNaos {
+impl ReachableRobots {
     pub fn new(context: Context) -> Self {
         let ips = Vec::new();
         let (tx, rx) = unbounded_channel();

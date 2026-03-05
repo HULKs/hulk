@@ -6,7 +6,7 @@ use eframe::epaint::{Color32, Stroke};
 use types::{field_dimensions::FieldDimensions, kick_decision::KickDecision};
 
 use crate::{
-    nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::BufferHandle,
+    panels::map::layer::Layer, robot::Robot, twix_painter::TwixPainter, value_buffer::BufferHandle,
 };
 
 pub struct KickDecisions {
@@ -17,10 +17,10 @@ pub struct KickDecisions {
 impl Layer<Ground> for KickDecisions {
     const NAME: &'static str = "Kick Decisions";
 
-    fn new(nao: Arc<Nao>) -> Self {
-        let kick_decisions = nao.subscribe_value("Control.main_outputs.kick_decisions");
+    fn new(robot: Arc<Robot>) -> Self {
+        let kick_decisions = robot.subscribe_value("Control.main_outputs.kick_decisions");
         let instant_kick_decisions =
-            nao.subscribe_value("Control.main_outputs.instant_kick_decisions");
+            robot.subscribe_value("Control.main_outputs.instant_kick_decisions");
         Self {
             kick_decisions,
             instant_kick_decisions,

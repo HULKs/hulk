@@ -5,7 +5,7 @@ use coordinate_systems::Pixel;
 use eframe::egui::{Align2, Color32, FontId, Stroke};
 use types::object_detection::Detection;
 
-use crate::{nao::Nao, panels::image::overlay::Overlay, value_buffer::BufferHandle};
+use crate::{panels::image::overlay::Overlay, robot::Robot, value_buffer::BufferHandle};
 
 pub struct ObjectDetection {
     object_detections: BufferHandle<Vec<Detection>>,
@@ -14,9 +14,9 @@ pub struct ObjectDetection {
 impl Overlay for ObjectDetection {
     const NAME: &'static str = "Object Detection";
 
-    fn new(nao: Arc<Nao>) -> Self {
+    fn new(robot: Arc<Robot>) -> Self {
         let object_detections =
-            nao.subscribe_value("ObjectDetection.main_outputs.detected_objects");
+            robot.subscribe_value("ObjectDetection.main_outputs.detected_objects");
         Self { object_detections }
     }
 

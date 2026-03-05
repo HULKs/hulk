@@ -89,29 +89,29 @@ impl<'a> Panel<'a> for MapPanel {
     const NAME: &'static str = "Map";
 
     fn new(context: PanelCreationContext) -> Self {
-        let field = EnabledLayer::new(context.nao.clone(), context.value, true);
-        let image_segments = EnabledLayer::new(context.nao.clone(), context.value, false);
-        let line_correspondences = EnabledLayer::new(context.nao.clone(), context.value, false);
-        let lines = EnabledLayer::new(context.nao.clone(), context.value, true);
-        let ball_search_heatmap = EnabledLayer::new(context.nao.clone(), context.value, false);
-        let path_obstacles = EnabledLayer::new(context.nao.clone(), context.value, false);
-        let obstacles = EnabledLayer::new(context.nao.clone(), context.value, false);
-        let path = EnabledLayer::new(context.nao.clone(), context.value, false);
-        let behavior_simulator = EnabledLayer::new(context.nao.clone(), context.value, false);
-        let referee_position = EnabledLayer::new(context.nao.clone(), context.value, false);
-        let robot_pose = EnabledLayer::new(context.nao.clone(), context.value, true);
-        let ball_measurement = EnabledLayer::new(context.nao.clone(), context.value, false);
-        let pose_detection = EnabledLayer::new(context.nao.clone(), context.value, false);
-        let ball_position = EnabledLayer::new(context.nao.clone(), context.value, true);
-        let kick_decisions = EnabledLayer::new(context.nao.clone(), context.value, false);
-        let feet_detection = EnabledLayer::new(context.nao.clone(), context.value, false);
-        let ball_filter = EnabledLayer::new(context.nao.clone(), context.value, false);
-        let obstacle_filter = EnabledLayer::new(context.nao.clone(), context.value, false);
-        let localization = EnabledLayer::new(context.nao.clone(), context.value, false);
+        let field = EnabledLayer::new(context.robot.clone(), context.value, true);
+        let image_segments = EnabledLayer::new(context.robot.clone(), context.value, false);
+        let line_correspondences = EnabledLayer::new(context.robot.clone(), context.value, false);
+        let lines = EnabledLayer::new(context.robot.clone(), context.value, true);
+        let ball_search_heatmap = EnabledLayer::new(context.robot.clone(), context.value, false);
+        let path_obstacles = EnabledLayer::new(context.robot.clone(), context.value, false);
+        let obstacles = EnabledLayer::new(context.robot.clone(), context.value, false);
+        let path = EnabledLayer::new(context.robot.clone(), context.value, false);
+        let behavior_simulator = EnabledLayer::new(context.robot.clone(), context.value, false);
+        let referee_position = EnabledLayer::new(context.robot.clone(), context.value, false);
+        let robot_pose = EnabledLayer::new(context.robot.clone(), context.value, true);
+        let ball_measurement = EnabledLayer::new(context.robot.clone(), context.value, false);
+        let pose_detection = EnabledLayer::new(context.robot.clone(), context.value, false);
+        let ball_position = EnabledLayer::new(context.robot.clone(), context.value, true);
+        let kick_decisions = EnabledLayer::new(context.robot.clone(), context.value, false);
+        let feet_detection = EnabledLayer::new(context.robot.clone(), context.value, false);
+        let ball_filter = EnabledLayer::new(context.robot.clone(), context.value, false);
+        let obstacle_filter = EnabledLayer::new(context.robot.clone(), context.value, false);
+        let localization = EnabledLayer::new(context.robot.clone(), context.value, false);
 
-        let field_dimensions = context.nao.subscribe_value("parameters.field_dimensions");
+        let field_dimensions = context.robot.subscribe_value("parameters.field_dimensions");
         let ground_to_field = context
-            .nao
+            .robot
             .subscribe_value("Control.main_outputs.ground_to_field");
 
         let current_plot_type = context

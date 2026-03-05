@@ -22,11 +22,11 @@ pub struct LineDetection {
 impl Overlay for LineDetection {
     const NAME: &'static str = "Line Detection";
 
-    fn new(nao: std::sync::Arc<crate::nao::Nao>) -> Self {
+    fn new(robot: std::sync::Arc<crate::robot::Robot>) -> Self {
         Self {
-            lines_in_image: nao.subscribe_value("Vision.additional_outputs.lines_in_image"),
-            discarded_lines: nao.subscribe_value("Vision.additional_outputs.discarded_lines"),
-            filtered_segments: nao
+            lines_in_image: robot.subscribe_value("Vision.additional_outputs.lines_in_image"),
+            discarded_lines: robot.subscribe_value("Vision.additional_outputs.discarded_lines"),
+            filtered_segments: robot
                 .subscribe_value("Vision.additional_outputs.line_detection.filtered_segments"),
         }
     }

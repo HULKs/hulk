@@ -8,7 +8,7 @@ use linear_algebra::Isometry2;
 use types::field_dimensions::FieldDimensions;
 
 use crate::{
-    nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::BufferHandle,
+    panels::map::layer::Layer, robot::Robot, twix_painter::TwixPainter, value_buffer::BufferHandle,
 };
 
 pub struct BallPosition {
@@ -20,16 +20,16 @@ pub struct BallPosition {
 impl Layer<Field> for BallPosition {
     const NAME: &'static str = "Ball Position";
 
-    fn new(nao: Arc<Nao>) -> Self {
-        let ground_to_field = nao.subscribe_buffered_value(
+    fn new(robot: Arc<Robot>) -> Self {
+        let ground_to_field = robot.subscribe_buffered_value(
             "WorldState.main_outputs.ground_to_field",
             Duration::from_secs(2),
         );
-        let ball_position = nao.subscribe_buffered_value(
+        let ball_position = robot.subscribe_buffered_value(
             "WorldState.main_outputs.ball_position",
             Duration::from_secs(2),
         );
-        let team_ball = nao.subscribe_value("Control.main_outputs.team_ball");
+        let team_ball = robot.subscribe_value("Control.main_outputs.team_ball");
         Self {
             ground_to_field,
             ball_position,

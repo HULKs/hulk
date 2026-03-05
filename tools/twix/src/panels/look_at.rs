@@ -15,8 +15,8 @@ use types::{
 };
 
 use crate::{
-    nao::Nao,
     panel::{Panel, PanelCreationContext},
+    robot::Robot,
     value_buffer::BufferHandle,
 };
 
@@ -27,7 +27,7 @@ enum LookAtType {
 }
 
 pub struct LookAtPanel {
-    nao: Arc<Nao>,
+    robot: Arc<Robot>,
     look_at_target: Point2<Ground, f32>,
     look_at_mode: LookAtType,
     is_enabled: bool,
@@ -43,12 +43,12 @@ impl<'a> Panel<'a> for LookAtPanel {
     const NAME: &'static str = "Look At";
 
     fn new(context: PanelCreationContext) -> Self {
-        let field_dimensions_buffer = context.nao.subscribe_value("parameters.field_dimensions");
+        let field_dimensions_buffer = context.robot.subscribe_value("parameters.field_dimensions");
         let motion_command_buffer = context
-            .nao
+            .robot
             .subscribe_value("Control.main_outputs.motion_command");
         Self {
-            nao: context.nao,
+            robot: context.robot,
             look_at_target: DEFAULT_TARGET,
             look_at_mode: LookAtType::PenaltyBoxFromCenter,
             is_enabled: false,
@@ -118,9 +118,9 @@ impl Widget for &mut LookAtPanel {
                     .changed()
                 {
                     if self.is_enabled {
-                        send_standing_look_at(self.nao.as_ref(), self.look_at_target);
+                        send_standing_look_at(self.robot.as_ref(), self.look_at_target);
                     } else {
-                        self.nao
+                        self.robot
                             .write(INJECTED_MOTION_COMMAND, TextOrBinary::Text(Value::Null));
                     }
                 }
@@ -203,7 +203,7 @@ impl Widget for &mut LookAtPanel {
 
             ui.add_enabled_ui(self.is_enabled, |ui| {
                 if ui.button("Send Command").clicked() {
-                    send_standing_look_at(self.nao.as_ref(), self.look_at_target);
+                    send_standing_look_at(self.robot.as_ref(), self.look_at_target);
                 }
             });
 
@@ -213,14 +213,14 @@ impl Widget for &mut LookAtPanel {
     }
 }
 
-fn send_standing_look_at(nao: &Nao, look_at_target: Point2<Ground, f32>) {
+fn send_standing_look_at(robot: &Robot, look_at_target: Point2<Ground, f32>) {
     let motion_command = Some(MotionCommand::Stand {
         head: HeadMotion::LookAt {
             target: look_at_target,
             image_region_target: ImageRegion::Center,
         },
     });
-    nao.write(
+    robot.write(
         INJECTED_MOTION_COMMAND,
         TextOrBinary::Text(serde_json::to_value(motion_command).unwrap()),
     );

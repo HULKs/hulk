@@ -7,7 +7,7 @@ use coordinate_systems::Ground;
 use types::{field_dimensions::FieldDimensions, obstacles::Obstacle};
 
 use crate::{
-    nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::BufferHandle,
+    panels::map::layer::Layer, robot::Robot, twix_painter::TwixPainter, value_buffer::BufferHandle,
 };
 
 pub struct Obstacles {
@@ -17,8 +17,8 @@ pub struct Obstacles {
 impl Layer<Ground> for Obstacles {
     const NAME: &'static str = "Obstacles";
 
-    fn new(nao: Arc<Nao>) -> Self {
-        let obstacles = nao.subscribe_value("Control.main_outputs.obstacles");
+    fn new(robot: Arc<Robot>) -> Self {
+        let obstacles = robot.subscribe_value("Control.main_outputs.obstacles");
         Self { obstacles }
     }
 

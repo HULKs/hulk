@@ -9,7 +9,7 @@ use step_planning::traits::EndPoints;
 use types::{field_dimensions::FieldDimensions, motion_command::MotionCommand};
 
 use crate::{
-    nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::BufferHandle,
+    panels::map::layer::Layer, robot::Robot, twix_painter::TwixPainter, value_buffer::BufferHandle,
 };
 
 pub struct Path {
@@ -19,8 +19,8 @@ pub struct Path {
 impl Layer<Ground> for Path {
     const NAME: &'static str = "Path";
 
-    fn new(nao: Arc<Nao>) -> Self {
-        let motion_command = nao.subscribe_value("Control.main_outputs.motion_command");
+    fn new(robot: Arc<Robot>) -> Self {
+        let motion_command = robot.subscribe_value("Control.main_outputs.motion_command");
         Self { motion_command }
     }
 

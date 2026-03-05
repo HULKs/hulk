@@ -10,7 +10,7 @@ use types::{
 };
 
 use crate::{
-    nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::BufferHandle,
+    panels::map::layer::Layer, robot::Robot, twix_painter::TwixPainter, value_buffer::BufferHandle,
 };
 
 pub struct FeetDetection {
@@ -21,11 +21,11 @@ pub struct FeetDetection {
 impl Layer<Ground> for FeetDetection {
     const NAME: &'static str = "FeetDetection";
 
-    fn new(nao: Arc<Nao>) -> Self {
+    fn new(robot: Arc<Robot>) -> Self {
         let cluster =
-            nao.subscribe_value("Vision.additional_outputs.feet_detection.clusters_in_ground");
+            robot.subscribe_value("Vision.additional_outputs.feet_detection.clusters_in_ground");
         let cluster_points =
-            nao.subscribe_value("Vision.additional_outputs.feet_detection.cluster_points");
+            robot.subscribe_value("Vision.additional_outputs.feet_detection.cluster_points");
         Self {
             cluster,
             cluster_points,

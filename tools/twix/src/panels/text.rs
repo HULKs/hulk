@@ -6,13 +6,13 @@ use hulk_widgets::{PathFilter, RobotPathCompletionEdit};
 use serde_json::{json, Value};
 
 use crate::{
-    nao::Nao,
     panel::{Panel, PanelCreationContext},
+    robot::Robot,
     value_buffer::BufferHandle,
 };
 
 pub struct TextPanel {
-    nao: Arc<Nao>,
+    robot: Arc<Robot>,
     path: String,
     buffer: Option<BufferHandle<Value>>,
 }
@@ -26,12 +26,12 @@ impl<'a> Panel<'a> for TextPanel {
             _ => String::new(),
         };
         let buffer = if !path.is_empty() {
-            Some(context.nao.subscribe_json(path.clone()))
+            Some(context.robot.subscribe_json(path.clone()))
         } else {
             None
         };
         Self {
-            nao: context.nao,
+            robot: context.robot,
             path,
             buffer,
         }
@@ -50,12 +50,12 @@ impl Widget for &mut TextPanel {
             .horizontal(|ui| {
                 let edit_response = ui.add(RobotPathCompletionEdit::new(
                     ui.id().with("text-panel"),
-                    self.nao.latest_paths(),
+                    self.robot.latest_paths(),
                     &mut self.path,
                     PathFilter::Readable,
                 ));
                 if edit_response.changed() {
-                    self.buffer = Some(self.nao.subscribe_json(self.path.clone()));
+                    self.buffer = Some(self.robot.subscribe_json(self.path.clone()));
                 }
                 if let Some(buffer) = &self.buffer {
                     if let Ok(Some(timestamp)) = buffer.get_last_timestamp() {

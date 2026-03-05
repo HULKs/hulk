@@ -25,13 +25,13 @@ use crate::{
     value_buffer::{Buffer, BufferHandle, Datum},
 };
 
-pub struct Nao {
+pub struct Robot {
     runtime: Runtime,
     client: ClientHandle,
     repository: Option<Repository>,
 }
 
-impl Nao {
+impl Robot {
     pub fn new(address: String, repository: Option<Repository>) -> Self {
         let runtime = Builder::new_multi_thread().enable_all().build().unwrap();
 

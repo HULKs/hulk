@@ -3,10 +3,10 @@ use std::sync::Arc;
 use eframe::{egui::Context, egui_wgpu::RenderState};
 use serde_json::{json, Value};
 
-use crate::nao::Nao;
+use crate::robot::Robot;
 
 pub struct PanelCreationContext<'a> {
-    pub nao: Arc<Nao>,
+    pub robot: Arc<Robot>,
     pub value: Option<&'a Value>,
     pub wgpu_state: RenderState,
     pub egui_context: Context,

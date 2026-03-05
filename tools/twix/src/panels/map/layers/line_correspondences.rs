@@ -8,7 +8,7 @@ use geometry::line_segment::LineSegment;
 use types::field_dimensions::FieldDimensions;
 
 use crate::{
-    nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::BufferHandle,
+    panels::map::layer::Layer, robot::Robot, twix_painter::TwixPainter, value_buffer::BufferHandle,
 };
 
 pub struct LineCorrespondences {
@@ -19,11 +19,11 @@ pub struct LineCorrespondences {
 impl Layer<Field> for LineCorrespondences {
     const NAME: &'static str = "Line Correspondences";
 
-    fn new(nao: Arc<Nao>) -> Self {
+    fn new(robot: Arc<Robot>) -> Self {
         let correspondence_lines =
-            nao.subscribe_value("Control.additional_outputs.localization.correspondence_lines");
-        let lines_in_field =
-            nao.subscribe_value("Control.additional_outputs.localization.measured_lines_in_field");
+            robot.subscribe_value("Control.additional_outputs.localization.correspondence_lines");
+        let lines_in_field = robot
+            .subscribe_value("Control.additional_outputs.localization.measured_lines_in_field");
         Self {
             correspondence_lines,
             lines_in_field,

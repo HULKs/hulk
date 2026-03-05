@@ -3,14 +3,14 @@ use std::sync::Arc;
 use color_eyre::Result;
 use types::field_dimensions::FieldDimensions;
 
-use crate::{nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter};
+use crate::{panels::map::layer::Layer, robot::Robot, twix_painter::TwixPainter};
 
 pub struct Field {}
 
 impl Layer<coordinate_systems::Field> for Field {
     const NAME: &'static str = "Field";
 
-    fn new(_nao: Arc<Nao>) -> Self {
+    fn new(_robot: Arc<Robot>) -> Self {
         Self {}
     }
 

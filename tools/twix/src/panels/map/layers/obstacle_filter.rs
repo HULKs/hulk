@@ -8,7 +8,7 @@ use linear_algebra::Point2;
 use types::{field_dimensions::FieldDimensions, obstacle_filter::Hypothesis};
 
 use crate::{
-    nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::BufferHandle,
+    panels::map::layer::Layer, robot::Robot, twix_painter::TwixPainter, value_buffer::BufferHandle,
 };
 
 pub struct ObstacleFilter {
@@ -18,9 +18,9 @@ pub struct ObstacleFilter {
 impl Layer<Ground> for ObstacleFilter {
     const NAME: &'static str = "Obstacle Filter";
 
-    fn new(nao: Arc<Nao>) -> Self {
+    fn new(robot: Arc<Robot>) -> Self {
         let hypotheses =
-            nao.subscribe_value("Control.additional_outputs.obstacle_filter_hypotheses");
+            robot.subscribe_value("Control.additional_outputs.obstacle_filter_hypotheses");
         Self { hypotheses }
     }
 
