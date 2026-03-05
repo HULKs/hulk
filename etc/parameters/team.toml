@@ -2,10 +2,10 @@ team_number = 24
 
 [[robots]]
 number = 42
-hostname = "Ernst-Günther"
+hostname = "Ernst-Guenther"
 id = "1421625075354"
 
 [[robots]]
 number = 43
-hostname = "TODO, hatte der überhaupt schon nen Namen?"
+hostname = "Anton"
 id = "1422125017018"
