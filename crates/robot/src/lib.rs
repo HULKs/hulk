@@ -367,6 +367,7 @@ impl Robot {
     pub async fn get_available_networks(&self) -> Result<String> {
         let output = self
             .ssh_to_robot()?
+            .arg("echo &&")
             .arg("nmcli")
             .arg("--colors yes")
             .arg("device")
