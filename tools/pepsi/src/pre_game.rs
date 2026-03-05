@@ -38,7 +38,7 @@ pub struct PreGameArguments {
     /// Do not build before uploading
     #[arg(long)]
     pub no_build: bool,
-    /// Do not restart HULK nor HULA service after uploading
+    /// Do not restart HULK service after uploading
     #[arg(long)]
     pub no_restart: bool,
     /// Do not remove existing remote files during uploading
