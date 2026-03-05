@@ -1,16 +1,16 @@
 use std::{cmp::Reverse, fmt::Debug};
 
 use egui::{
+    Color32, Context, EventFilter, Id, Key, Modifiers, Popup, PopupCloseBehavior, Response,
+    ScrollArea, TextEdit, TextStyle, Ui, Widget,
     response::Flags,
     text::{CCursor, CCursorRange},
     text_edit::{TextEditOutput, TextEditState},
     util::cache::{ComputerMut, FrameCache},
-    Color32, Context, EventFilter, Id, Key, Modifiers, Popup, PopupCloseBehavior, Response,
-    ScrollArea, TextEdit, TextStyle, Ui, Widget,
 };
 use nucleo_matcher::{
-    pattern::{CaseMatching, Normalization, Pattern},
     Matcher, Utf32Str,
+    pattern::{CaseMatching, Normalization, Pattern},
 };
 
 pub struct CompletionEdit<'a, T> {

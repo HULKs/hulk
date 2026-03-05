@@ -1,7 +1,7 @@
 use std::{collections::HashMap, error::Error};
 
 use clap::Args;
-use color_eyre::{eyre::WrapErr, Result};
+use color_eyre::{Result, eyre::WrapErr};
 use repository::Repository;
 
 #[derive(Args)]

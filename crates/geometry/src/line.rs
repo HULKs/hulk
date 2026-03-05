@@ -3,13 +3,13 @@ use std::ops::Mul;
 use approx::{AbsDiffEq, RelativeEq};
 use serde::{Deserialize, Serialize};
 
-use linear_algebra::{distance_squared, Point, Point2, Transform, Vector};
+use linear_algebra::{Point, Point2, Transform, Vector, distance_squared};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{
+    Distance,
     direction::{Direction, Rotate90Degrees},
     line_segment::LineSegment,
-    Distance,
 };
 
 #[derive(

@@ -6,10 +6,11 @@ use std::{
 use argument_parsers::RobotAddress;
 use clap::Parser;
 use color_eyre::{
-    eyre::{bail, eyre, Context as _, ContextCompat},
     Report, Result,
+    eyre::{Context as _, ContextCompat, bail, eyre},
 };
 use eframe::{
+    App, CreationContext, Frame, NativeOptions, Renderer, Storage,
     egui::{
         CentralPanel, Context, CornerRadius, Id, Label, Layout, Sense, StrokeKind, TopBottomPanel,
         Ui, Widget, WidgetText,
@@ -17,20 +18,20 @@ use eframe::{
     egui_wgpu::{WgpuConfiguration, WgpuSetup},
     emath::Align,
     epaint::Color32,
-    run_native, App, CreationContext, Frame, NativeOptions, Renderer, Storage,
+    run_native,
 };
 use egui_dock::{
     DockArea, DockState, LeafNode, Node, NodeIndex, Split, SurfaceIndex, TabAddAlign, TabIndex,
 };
 use itertools::chain;
-use serde_json::{from_str, to_string, Value};
-use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+use serde_json::{Value, from_str, to_string};
+use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
 use communication::client::Status;
 use configuration::{
+    Configuration,
     keybind_plugin::{self, KeybindSystem},
     keys::KeybindAction,
-    Configuration,
 };
 use hulk_widgets::CompletionEdit;
 use log::{error, warn};
@@ -41,7 +42,7 @@ use panels::{
     RemotePanel, SemiAutomaticCameraCalibrationPanel, TextPanel, VisionTunerPanel,
 };
 use reachable_robots::ReachableRobots;
-use repository::{inspect_version::check_for_update, Repository};
+use repository::{Repository, inspect_version::check_for_update};
 use visuals::Visuals;
 
 use crate::robot::Robot;
@@ -252,8 +253,8 @@ impl TwixApp {
                     egui_context: creation_context.egui_ctx.clone(),
                 })
             }),
-            None => DockState::new(vec![SelectablePanel::TextPanel(TextPanel::new(
-                PanelCreationContext {
+            None => DockState::new(vec![
+                SelectablePanel::TextPanel(TextPanel::new(PanelCreationContext {
                     robot: robot.clone(),
                     value: None,
                     wgpu_state: creation_context
@@ -261,9 +262,9 @@ impl TwixApp {
                         .clone()
                         .expect("no wgpu render state found"),
                     egui_context: creation_context.egui_ctx.clone(),
-                },
-            ))
-            .into()]),
+                }))
+                .into(),
+            ]),
         };
 
         let context = creation_context.egui_ctx.clone();
@@ -628,8 +629,8 @@ impl App for TwixApp {
             }
 
             if context.keybind_pressed(KeybindAction::CloseAll) {
-                self.dock_state = DockState::new(vec![SelectablePanel::TextPanel(TextPanel::new(
-                    PanelCreationContext {
+                self.dock_state = DockState::new(vec![
+                    SelectablePanel::TextPanel(TextPanel::new(PanelCreationContext {
                         robot: self.robot.clone(),
                         value: None,
                         wgpu_state: frame
@@ -637,9 +638,9 @@ impl App for TwixApp {
                             .cloned()
                             .expect("no wgpu render state found"),
                         egui_context: ui.ctx().clone(),
-                    },
-                ))
-                .into()]);
+                    }))
+                    .into(),
+                ]);
                 self.last_focused_tab = (0.into(), 0.into());
                 self.dock_state
                     .set_focused_node_and_surface((0.into(), 0.into()));

@@ -10,7 +10,7 @@ use bevy::{
     render::render_resource::{Extent3d, TextureDimension},
 };
 use futures_util::{SinkExt, StreamExt};
-use image::{imageops::FilterType, DynamicImage, ImageBuffer};
+use image::{DynamicImage, ImageBuffer, imageops::FilterType};
 use log::{error, info};
 use simulation_message::{
     ConnectionInfo, Geom, GeomVariant, Material, SceneDescription, SceneMesh, SceneUpdate,
@@ -19,7 +19,7 @@ use simulation_message::{
 use tokio::{select, sync::mpsc};
 use tokio_tungstenite::{
     connect_async_with_config,
-    tungstenite::{protocol::WebSocketConfig, Message},
+    tungstenite::{Message, protocol::WebSocketConfig},
 };
 
 pub struct MujocoVisualizerPlugin {
@@ -139,13 +139,12 @@ fn calculate_tangents(mesh: &SceneMesh) -> Vec<[f32; 4]> {
     let tangents_attribute = helper_mesh
         .remove_attribute(Mesh::ATTRIBUTE_TANGENT)
         .expect("we calculated these earlier");
-    let tangents = match tangents_attribute {
+    match tangents_attribute {
         VertexAttributeValues::Float32x4(values) => values,
         _ => panic!(
             "expected tangents to be in Float32x4 format but got {tangents_attribute:?} instead"
         ),
-    };
-    tangents
+    }
 }
 
 fn spawn_mujoco_scene(

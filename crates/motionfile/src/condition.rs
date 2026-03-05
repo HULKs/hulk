@@ -14,11 +14,7 @@ pub enum Response {
 
 impl Response {
     pub fn with_timeout(self, timeout: bool) -> Response {
-        if timeout {
-            Response::Abort
-        } else {
-            self
-        }
+        if timeout { Response::Abort } else { self }
     }
 }
 

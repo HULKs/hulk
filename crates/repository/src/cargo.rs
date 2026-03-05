@@ -5,12 +5,12 @@ use std::{
     path::Path,
 };
 
-use color_eyre::{eyre::Context, Result};
+use color_eyre::{Result, eyre::Context};
 use tokio::process::Command;
 
 use crate::{
-    sdk::{build_sdk_container, image_exists_locally, SDKImage},
     Repository,
+    sdk::{SDKImage, build_sdk_container, image_exists_locally},
 };
 
 #[derive(Debug, Clone)]

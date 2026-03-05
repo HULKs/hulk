@@ -1,4 +1,4 @@
-use color_eyre::{eyre::OptionExt, Result};
+use color_eyre::{Result, eyre::OptionExt};
 use linear_algebra::Vector2;
 use serde::{Deserialize, Serialize};
 

@@ -1,7 +1,7 @@
 use coordinate_systems::Screen;
-use eframe::egui::{pos2, PointerButton, Response, Ui};
-use linear_algebra::{point, IntoTransform, Transform};
-use nalgebra::{vector, Similarity2, Translation2};
+use eframe::egui::{PointerButton, Response, Ui, pos2};
+use linear_algebra::{IntoTransform, Transform, point};
+use nalgebra::{Similarity2, Translation2, vector};
 use serde::{Deserialize, Serialize};
 
 use crate::twix_painter::TwixPainter;

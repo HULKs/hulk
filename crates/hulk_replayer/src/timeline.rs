@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 
-use eframe::egui::{vec2, Align, Layout, Rect, Response, Ui, UiBuilder, Vec2, Widget};
+use eframe::egui::{Align, Layout, Rect, Response, Ui, UiBuilder, Vec2, Widget, vec2};
 
 use framework::Timing;
 
@@ -8,7 +8,7 @@ use crate::{
     controls::Controls,
     coordinate_systems::{FrameRange, RelativeTime, ViewportRange},
     frames::Frames,
-    ticks::{ticks_height, Ticks},
+    ticks::{Ticks, ticks_height},
     user_data::BookmarkCollection,
 };
 

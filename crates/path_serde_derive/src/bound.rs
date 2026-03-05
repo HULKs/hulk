@@ -1,6 +1,6 @@
 use syn::{
-    punctuated::Punctuated, token::Plus, BoundLifetimes, DeriveInput, Generics, PredicateType,
-    Type, TypeParamBound, TypePath, WherePredicate,
+    BoundLifetimes, DeriveInput, Generics, PredicateType, Type, TypeParamBound, TypePath,
+    WherePredicate, punctuated::Punctuated, token::Plus,
 };
 use syn::{GenericParam, Token};
 

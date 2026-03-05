@@ -1,6 +1,6 @@
 use std::{collections::HashMap, fs, path::Path};
 
-use color_eyre::{eyre::Context, Result};
+use color_eyre::{Result, eyre::Context};
 use serde::{Deserialize, Serialize};
 
 use crate::{annotation::AnnotationFormat, boundingbox::BoundingBox};

@@ -3,12 +3,12 @@ pub mod camera_projection;
 pub mod horizon;
 pub mod intrinsic;
 
-use nalgebra::{matrix, Matrix2};
+use nalgebra::{Matrix2, matrix};
 use thiserror::Error;
 
 use crate::camera_matrix::CameraMatrix;
 use coordinate_systems::{Camera, Ground, Pixel, Robot};
-use linear_algebra::{point, vector, Isometry3, Point2, Point3, Vector2, Vector3};
+use linear_algebra::{Isometry3, Point2, Point3, Vector2, Vector3, point, vector};
 
 #[derive(Debug, Error)]
 pub enum Error {

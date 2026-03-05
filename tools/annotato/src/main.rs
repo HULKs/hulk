@@ -17,10 +17,10 @@ use std::{fs, path::PathBuf};
 
 use annotator_app::AnnotatorApp;
 use clap::{Parser, Subcommand};
-use color_eyre::eyre::{bail, Report, Result};
-use eframe::{egui::ViewportBuilder, run_native, NativeOptions};
+use color_eyre::eyre::{Report, Result, bail};
+use eframe::{NativeOptions, egui::ViewportBuilder, run_native};
 use remotedata::DataCommand;
-use theme::{apply_theme, MOCHA};
+use theme::{MOCHA, apply_theme};
 
 use crate::user_toml::CONFIG;
 

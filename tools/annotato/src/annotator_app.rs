@@ -7,10 +7,10 @@ use crate::{
     ai_assistant::ModelAnnotations, label_widget::LabelWidget, paths::Paths, user_toml::CONFIG,
     widgets::image_list::ImageList,
 };
-use color_eyre::{eyre::Context as C, Result};
+use color_eyre::{Result, eyre::Context as C};
 use eframe::{
-    egui::{CentralPanel, Context, RichText, SidePanel, TextStyle},
     App, CreationContext,
+    egui::{CentralPanel, Context, RichText, SidePanel, TextStyle},
 };
 use glob::glob;
 

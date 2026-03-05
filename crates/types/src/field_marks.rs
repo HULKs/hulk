@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use coordinate_systems::Field;
 
 use crate::field_dimensions::FieldDimensions;
-use linear_algebra::{distance, point, Point2, Vector2};
+use linear_algebra::{Point2, Vector2, distance, point};
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub enum FieldMark {

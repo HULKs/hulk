@@ -1,5 +1,5 @@
 use clap::{Args, Command};
-use clap_complete::{generate, Shell};
+use clap_complete::{Shell, generate};
 use color_eyre::Result;
 use regex::Regex;
 

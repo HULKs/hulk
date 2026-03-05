@@ -1,15 +1,15 @@
 use clap::Args;
-use color_eyre::{eyre::WrapErr, Result};
+use color_eyre::{Result, eyre::WrapErr};
 use repository::Repository;
 use tokio::{
-    io::{stdin, AsyncBufReadExt, BufReader},
+    io::{AsyncBufReadExt, BufReader, stdin},
     process::Command,
 };
 
 use crate::{
     deploy_config::{Branch, DeployConfig},
     git::{create_and_switch_to_branch, create_commit, reset_to_head},
-    player_number::{player_number, Arguments as PlayerNumberArguments},
+    player_number::{Arguments as PlayerNumberArguments, player_number},
 };
 
 #[derive(Args)]

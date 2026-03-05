@@ -10,8 +10,8 @@ use linear_algebra::{Point2, Vector2, Vector3};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{
-    joints::head::HeadJoints,
     joints::Joints,
+    joints::head::HeadJoints,
     motion_command::{KickVariant, MotionCommand},
     step::Step,
 };

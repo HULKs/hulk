@@ -4,9 +4,9 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
 use super::{
+    Joints,
     arm::{ArmJoint, ArmJoints},
     leg::{LegJoint, LegJoints},
-    Joints,
 };
 
 pub enum BodyJointsName {

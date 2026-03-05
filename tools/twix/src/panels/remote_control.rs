@@ -6,16 +6,16 @@ use crate::{
 use communication::messages::TextOrBinary;
 use eframe::egui::Widget;
 use gilrs::{Axis, Button, Gamepad, Gilrs};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 use std::{
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     },
     thread::{self, JoinHandle},
     time::{Duration, SystemTime},
 };
-use tokio::sync::watch::{channel, Receiver};
+use tokio::sync::watch::{Receiver, channel};
 use types::step::Step;
 
 pub struct RemotePanel {

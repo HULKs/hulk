@@ -2,8 +2,8 @@ use std::time::{Duration, SystemTime};
 
 use bincode::deserialize;
 use color_eyre::{
-    eyre::{eyre, Context, OptionExt},
     Report, Result,
+    eyre::{Context, OptionExt, eyre},
 };
 use log::error;
 use serde_json::Value;

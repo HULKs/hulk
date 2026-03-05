@@ -4,7 +4,7 @@ use std::{
     time::Duration,
 };
 
-use futures_util::{stream::FuturesUnordered, StreamExt};
+use futures_util::{StreamExt, stream::FuturesUnordered};
 use serde::{Deserialize, Serialize};
 use service_manager::SystemServices;
 use tokio::{net::UdpSocket, time};

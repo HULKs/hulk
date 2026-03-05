@@ -1,7 +1,7 @@
 use std::{
     env::temp_dir,
     fmt::{self, Display, Formatter},
-    fs::{set_permissions, Permissions},
+    fs::{Permissions, set_permissions},
     net::Ipv4Addr,
     os::unix::fs::PermissionsExt,
     path::{Path, PathBuf},
@@ -10,8 +10,8 @@ use std::{
 };
 
 use color_eyre::{
-    eyre::{self, bail, eyre, WrapErr},
     Result,
+    eyre::{self, WrapErr, bail, eyre},
 };
 use serde::Deserialize;
 use tokio::{
@@ -349,116 +349,108 @@ impl Robot {
     pub async fn get_network_status(&self) -> Result<String> {
         let output = self
             .ssh_to_robot()?
-            .arg("iwctl")
-            .arg("station")
-            .arg("wlan0")
+            .arg("nmcli")
+            .arg("device")
+            .arg("wifi")
             .arg("show")
+            .arg("|| echo None")
             .output()
             .await
-            .wrap_err("failed to execute iwctl ssh command")?;
+            .wrap_err("failed to execute nmcli ssh command")?;
 
         if !output.status.success() {
-            bail!("iwctl ssh command exited with {}", output.status);
+            bail!("nmcli ssh command exited with {}", output.status);
         }
 
-        String::from_utf8(output.stdout).wrap_err("failed to decode UTF-8")
+        let output = String::from_utf8(output.stdout).wrap_err("failed to decode UTF-8")?;
+        for line in output.lines() {
+            if line.contains("SSID: ")
+                && let Some((_key, value)) = line.split_once(": ")
+            {
+                return Ok(value.trim().to_string());
+            }
+        }
+
+        Ok(output)
     }
 
     pub async fn get_available_networks(&self) -> Result<String> {
         let output = self
             .ssh_to_robot()?
-            .arg("iwctl")
-            .arg("station")
-            .arg("wlan0")
-            .arg("get-networks")
+            .arg("echo &&")
+            .arg("nmcli")
+            .arg("--colors yes")
+            .arg("device")
+            .arg("wifi")
+            .arg("list")
             .output()
             .await
-            .wrap_err("failed to execute iwctl ssh command")?;
+            .wrap_err("failed to execute nmcli ssh command")?;
 
         if !output.status.success() {
-            bail!("iwctl ssh command exited with {}", output.status);
+            bail!("nmcli ssh command exited with {}", output.status);
         }
 
-        String::from_utf8(output.stdout).wrap_err("failed to decode UTF-8")
+        String::from_utf8(output.stdout)
+            .map(|string| string.trim_end().to_string())
+            .wrap_err("failed to decode UTF-8")
     }
 
     pub async fn scan_networks(&self) -> Result<()> {
         let output = self
             .ssh_to_robot()?
-            .arg("iwctl")
-            .arg("station")
-            .arg("wlan0")
-            .arg("scan")
+            .arg("sudo")
+            .arg("nmcli")
+            .arg("device")
+            .arg("wifi")
+            .arg("rescan")
             .output()
             .await
-            .wrap_err("failed to execute iwctl ssh command")?;
+            .wrap_err("failed to execute nmcli ssh command")?;
 
         if !output.status.success() {
-            bail!("iwctl ssh command exited with {}", output.status);
+            bail!("nmcli ssh command exited with {}", output.status);
         }
 
         Ok(())
     }
 
     pub async fn set_wifi(&self, network: Network) -> Result<()> {
-        let command_string = [
-            Network::SplA,
-            Network::SplB,
-            Network::SplC,
-            Network::SplD,
-            Network::SplE,
-            Network::SplF,
-            Network::SplHulks,
-        ]
-        .into_iter()
-        .map(|possible_network| {
-            format!(
-                "iwctl known-networks {possible_network} set-property AutoConnect {}",
-                if network == possible_network {
-                    "yes"
-                } else {
-                    "no"
-                }
-            )
-        })
-        .collect::<Vec<_>>()
-        .join(" && ");
+        let command_string = Network::all()
+            .into_iter()
+            .map(|ssid| {
+                format!(
+                    "sudo nmcli connection modify {ssid} autoconnect {}",
+                    if network == ssid { "yes" } else { "no" }
+                )
+            })
+            .collect::<Vec<_>>()
+            .join(" && ");
         let command_string = format!(
-            "{command_string} && iwctl station wlan0 {}",
+            "{command_string} && sudo nmcli {}",
             match network {
-                Network::None => "disconnect".to_string(),
-                _ => format!("connect {network}"),
+                Network::None => "device disconnect wlP1p1s0".to_string(),
+                _ => format!("connection up {network}"),
             }
         );
-        let status = self
+        let output = self
             .ssh_to_robot()?
             .arg(command_string)
-            .status()
+            .output()
             .await
-            .wrap_err("failed to execute iwctl ssh command")?;
+            .wrap_err("failed to execute nmcli ssh command")?;
 
-        if !status.success() {
-            bail!("iwctl ssh command exited with {status}");
+        if !output.status.success() {
+            let error_message = String::from_utf8(output.stderr).wrap_err_with(|| {
+                format!(
+                    "nmcli ssh command exited with {} but the stderr was not valid UTF-8",
+                    output.status
+                )
+            })?;
+            return Err(eyre!(error_message)
+                .wrap_err(format!("nmcli ssh command exited with {}", output.status)));
         }
 
-        Ok(())
-    }
-
-    pub async fn flash_image(
-        &self,
-        image_path: impl AsRef<Path>,
-        progress_callback: impl Fn(&str),
-    ) -> Result<()> {
-        let rsync = self
-            .rsync_with_robot()?
-            .arg("--copy-links")
-            .arg("--info=progress2")
-            .arg(image_path.as_ref().to_str().unwrap())
-            .arg(format!("{}:/data/.image/", self.address))
-            .spawn()
-            .wrap_err("failed to execute rsync command")?;
-
-        monitor_rsync_progress_with(rsync, progress_callback).await?;
         Ok(())
     }
 }
@@ -520,27 +512,41 @@ pub enum SystemctlAction {
 #[derive(Clone, Copy, Debug, Eq, PartialEq)]
 pub enum Network {
     None,
-    SplA,
-    SplB,
-    SplC,
-    SplD,
-    SplE,
-    SplF,
-    SplHulks,
+    HslA,
+    HslB,
+    HslC,
+    HslD,
+    HslE,
+    HslF,
+    HslHulks,
 }
 
 impl Display for Network {
     fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
         match self {
             Network::None => formatter.write_str("None"),
-            Network::SplA => formatter.write_str("SPL_A"),
-            Network::SplB => formatter.write_str("SPL_B"),
-            Network::SplC => formatter.write_str("SPL_C"),
-            Network::SplD => formatter.write_str("SPL_D"),
-            Network::SplE => formatter.write_str("SPL_E"),
-            Network::SplF => formatter.write_str("SPL_F"),
-            Network::SplHulks => formatter.write_str("SPL_HULKs"),
+            Network::HslA => formatter.write_str("HSL_A"),
+            Network::HslB => formatter.write_str("HSL_B"),
+            Network::HslC => formatter.write_str("HSL_C"),
+            Network::HslD => formatter.write_str("HSL_D"),
+            Network::HslE => formatter.write_str("HSL_E"),
+            Network::HslF => formatter.write_str("HSL_F"),
+            Network::HslHulks => formatter.write_str("HSL_HULKs"),
         }
+    }
+}
+
+impl Network {
+    pub fn all() -> [Network; 7] {
+        [
+            Network::HslA,
+            Network::HslB,
+            Network::HslC,
+            Network::HslD,
+            Network::HslE,
+            Network::HslF,
+            Network::HslHulks,
+        ]
     }
 }
 

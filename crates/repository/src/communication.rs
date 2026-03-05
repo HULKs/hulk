@@ -1,7 +1,7 @@
-use color_eyre::{eyre::Context, Result};
+use color_eyre::{Result, eyre::Context};
 use serde_json::Value;
 
-use crate::{modify_json::modify_json_inplace, Repository};
+use crate::{Repository, modify_json::modify_json_inplace};
 
 impl Repository {
     pub async fn configure_communication(&self, enable: bool) -> Result<()> {

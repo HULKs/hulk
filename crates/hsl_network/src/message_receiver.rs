@@ -1,4 +1,4 @@
-use color_eyre::{eyre::WrapErr, Result};
+use color_eyre::{Result, eyre::WrapErr};
 use context_attribute::context;
 use framework::MainOutput;
 use hardware::NetworkInterface;

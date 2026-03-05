@@ -1,6 +1,6 @@
 use nalgebra::{
-    vector, Complex, ComplexField, Isometry2, Matrix2, Matrix3, Matrix3x2, UnitComplex, Vector2,
-    Vector3,
+    Complex, ComplexField, Isometry2, Matrix2, Matrix3, Matrix3x2, UnitComplex, Vector2, Vector3,
+    vector,
 };
 use thiserror::Error;
 use types::multivariate_normal_distribution::MultivariateNormalDistribution;

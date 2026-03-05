@@ -7,8 +7,8 @@ use std::{
 
 use blake3::Hash;
 use color_eyre::{
-    eyre::{Report, WrapErr},
     Result,
+    eyre::{Report, WrapErr},
 };
 use ctrlc::set_handler;
 use eframe::run_native;
@@ -20,10 +20,10 @@ use tokio::sync::watch;
 use tokio_util::sync::CancellationToken;
 
 use crate::{
+    ReplayerHardwareInterface,
     execution::Replayer,
     window::Window,
-    worker_thread::{spawn_workers, PlayerState},
-    ReplayerHardwareInterface,
+    worker_thread::{PlayerState, spawn_workers},
 };
 
 pub fn replay_identifier(replay_path: impl AsRef<Path>) -> Result<Hash> {

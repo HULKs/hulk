@@ -1,7 +1,7 @@
 use std::{borrow::Cow, time::Duration};
 
-use color_eyre::{owo_colors::OwoColorize, Report, Result};
-use futures_util::{stream::FuturesUnordered, Future, StreamExt};
+use color_eyre::{Report, Result, owo_colors::OwoColorize};
+use futures_util::{Future, StreamExt, stream::FuturesUnordered};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
 
 pub struct ProgressIndicator {

@@ -4,9 +4,9 @@ use std::{
 };
 
 use crate::joints::{
+    Joints,
     body::{BodyJoints, LowerBodyJoints, UpperBodyJoints},
     mirror::{Mirror, SwapSides},
-    Joints,
 };
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};

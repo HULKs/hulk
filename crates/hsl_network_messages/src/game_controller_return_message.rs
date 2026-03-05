@@ -1,16 +1,16 @@
 use std::{ffi::c_char, mem::size_of, ptr::read, slice::from_raw_parts, time::Duration};
 
-use color_eyre::{eyre::bail, Report, Result};
+use color_eyre::{Report, Result, eyre::bail};
 use coordinate_systems::{Field, Ground};
-use linear_algebra::{point, Pose2};
+use linear_algebra::{Pose2, point};
 use serde::{Deserialize, Serialize};
 
 use crate::{
+    BallPosition, HULKS_TEAM_NUMBER, PlayerNumber,
     bindings::{
-        RoboCupGameControlReturnData, GAMECONTROLLER_RETURN_STRUCT_HEADER,
-        GAMECONTROLLER_RETURN_STRUCT_VERSION,
+        GAMECONTROLLER_RETURN_STRUCT_HEADER, GAMECONTROLLER_RETURN_STRUCT_VERSION,
+        RoboCupGameControlReturnData,
     },
-    BallPosition, PlayerNumber, HULKS_TEAM_NUMBER,
 };
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]

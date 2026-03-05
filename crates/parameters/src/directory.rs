@@ -5,8 +5,8 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
-use serde_json::{error, from_str, to_string_pretty, to_value, Value};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde_json::{Value, error, from_str, to_string_pretty, to_value};
 
 use hula_types::hardware::Ids;
 

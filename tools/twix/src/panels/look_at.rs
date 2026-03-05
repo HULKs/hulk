@@ -3,12 +3,12 @@ use std::{ops::RangeInclusive, sync::Arc};
 use communication::messages::TextOrBinary;
 use eframe::{
     egui::{Response, Slider, TextFormat, Ui, Widget},
-    epaint::{text::LayoutJob, Color32, FontId},
+    epaint::{Color32, FontId, text::LayoutJob},
 };
 use serde_json::Value;
 
 use coordinate_systems::Ground;
-use linear_algebra::{point, Point2};
+use linear_algebra::{Point2, point};
 use types::{
     field_dimensions::FieldDimensions,
     motion_command::{HeadMotion, ImageRegion, MotionCommand},

@@ -1,6 +1,6 @@
 use nalgebra::RealField;
 
-use crate::{geometry::normalized_step::NormalizedStep, VARIABLES_PER_STEP};
+use crate::{VARIABLES_PER_STEP, geometry::normalized_step::NormalizedStep};
 
 pub struct StepPlan<'a, T>(&'a [T]);
 

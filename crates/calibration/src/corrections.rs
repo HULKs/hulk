@@ -1,4 +1,4 @@
-use nalgebra::{vector, Rotation3, SVector, UnitQuaternion};
+use nalgebra::{Rotation3, SVector, UnitQuaternion, vector};
 use serde::{Deserialize, Serialize};
 
 use approx_derive::{AbsDiffEq, RelativeEq};

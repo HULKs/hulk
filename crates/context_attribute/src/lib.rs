@@ -1,15 +1,14 @@
 use proc_macro::TokenStream;
-use proc_macro2::Span;
 use proc_macro_error::{abort, proc_macro_error};
-use quote::{format_ident, quote, ToTokens};
+use proc_macro2::Span;
+use quote::{ToTokens, format_ident, quote};
 use syn::{
-    parse_macro_input,
+    AngleBracketedGenericArguments, Expr, ExprLit, GenericArgument, GenericParam, ItemStruct,
+    Lifetime, LifetimeParam, Lit, Path, PathArguments, PathSegment, Type, TypeParam, TypePath,
+    TypeReference, Visibility, parse_macro_input,
     punctuated::{Pair, Punctuated},
     spanned::Spanned,
     token::Mut,
-    AngleBracketedGenericArguments, Expr, ExprLit, GenericArgument, GenericParam, ItemStruct,
-    Lifetime, LifetimeParam, Lit, Path, PathArguments, PathSegment, Type, TypeParam, TypePath,
-    TypeReference, Visibility,
 };
 
 #[proc_macro_attribute]

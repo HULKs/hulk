@@ -1,16 +1,16 @@
 use calibration::goal_and_penalty_box::LineType;
 use color_eyre::{
-    eyre::{eyre, ContextCompat},
     Result,
+    eyre::{ContextCompat, eyre},
 };
 use coordinate_systems::Pixel;
 use eframe::egui::{
-    vec2, Align2, Button, Color32, ColorImage, Key, Popup, PopupCloseBehavior, Rect, Response,
-    Sense, Shape, Stroke, TextureHandle, TextureOptions, Ui, UiBuilder, Widget,
+    Align2, Button, Color32, ColorImage, Key, Popup, PopupCloseBehavior, Rect, Response, Sense,
+    Shape, Stroke, TextureHandle, TextureOptions, Ui, UiBuilder, Widget, vec2,
 };
 use geometry::{line_segment::LineSegment, rectangle::Rectangle};
 use image::RgbImage;
-use linear_algebra::{distance, point, vector, Point2};
+use linear_algebra::{Point2, distance, point, vector};
 use projection::camera_matrix::CameraMatrix;
 use types::ycbcr422_image::YCbCr422Image;
 

@@ -3,8 +3,8 @@ use std::path::{Path, PathBuf};
 use bat::{PagingMode, PrettyPrinter};
 use clap::Subcommand;
 use color_eyre::{
-    eyre::{eyre, WrapErr},
     Result,
+    eyre::{WrapErr, eyre},
 };
 
 use repository::Repository;

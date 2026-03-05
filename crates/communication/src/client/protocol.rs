@@ -12,11 +12,11 @@ use tokio::{
     task::JoinSet,
 };
 use tokio_tungstenite::{
-    tungstenite::{
-        protocol::{frame::coding::CloseCode, CloseFrame},
-        Message,
-    },
     MaybeTlsStream, WebSocketStream,
+    tungstenite::{
+        Message,
+        protocol::{CloseFrame, frame::coding::CloseCode},
+    },
 };
 
 use crate::{

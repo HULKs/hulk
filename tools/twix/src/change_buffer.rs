@@ -3,11 +3,11 @@ use std::{
     time::SystemTime,
 };
 
-use color_eyre::eyre::{self, eyre};
 use color_eyre::Result;
+use color_eyre::eyre::{self, eyre};
 use communication::client::{
-    protocol::{self, SubscriptionEvent},
     SubscriptionHandle,
+    protocol::{self, SubscriptionEvent},
 };
 use tokio::{select, sync::watch};
 
@@ -77,9 +77,9 @@ impl<T: PartialEq, E> ChangeBuffer<T, E> {
         self,
         mut subscription: SubscriptionHandle<U>,
         op: impl Fn(Result<Change<&U>, &protocol::Error>) -> Result<Change<T>, E>
-            + Send
-            + Sync
-            + 'static,
+        + Send
+        + Sync
+        + 'static,
     ) {
         loop {
             select! {
@@ -121,8 +121,8 @@ impl<T: PartialEq, E> ChangeBuffer<T, E> {
 }
 
 fn handle_update<T: PartialEq, E>(value: &mut Result<ChangeSeries<T>, E>, datum: Change<T>) {
-    match value {
-        Ok(ref mut buffer) => {
+    match value.as_mut() {
+        Ok(buffer) => {
             let right = buffer
                 .changes
                 .partition_point(|sample| sample.timestamp < datum.timestamp);

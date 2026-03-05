@@ -3,7 +3,7 @@ use std::sync::Arc;
 use color_eyre::Result;
 use coordinate_systems::Pixel;
 use eframe::{egui::Stroke, epaint::Color32};
-use projection::{camera_matrix::CameraMatrix, Projection};
+use projection::{Projection, camera_matrix::CameraMatrix};
 use types::detected_feet::{ClusterPoint, DetectedFeet};
 
 use crate::{

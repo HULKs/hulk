@@ -13,7 +13,7 @@ use hulk_widgets::{PathFilter, RobotPathCompletionEdit};
 use itertools::Itertools;
 use mlua::{Function, Lua, LuaSerdeExt};
 use serde::{Deserialize, Serialize};
-use serde_json::{json, to_string_pretty, Value};
+use serde_json::{Value, json, to_string_pretty};
 
 use crate::{
     panel::{Panel, PanelCreationContext},

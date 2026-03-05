@@ -7,7 +7,7 @@ use eframe::{
 };
 
 use coordinate_systems::Field;
-use linear_algebra::{point, Pose2};
+use linear_algebra::{Pose2, point};
 use types::{field_dimensions::FieldDimensions, localization::ScoredPose};
 
 use crate::{

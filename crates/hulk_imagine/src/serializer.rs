@@ -2,8 +2,8 @@ use std::collections::HashMap;
 
 use rmp_serde::encode::Error;
 use serde::{
-    ser::{self, Impossible, SerializeStruct},
     Serialize,
+    ser::{self, Impossible, SerializeStruct},
 };
 
 #[derive(Default)]

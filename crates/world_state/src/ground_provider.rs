@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 use context_attribute::context;
 use coordinate_systems::{Ground, Robot};
 use framework::{MainOutput, PerceptionInput};
-use linear_algebra::{vector, Isometry3, Orientation3};
+use linear_algebra::{Isometry3, Orientation3, vector};
 use types::{robot_kinematics::RobotKinematics, support_foot::Side};
 
 #[derive(Deserialize, Serialize)]

@@ -135,7 +135,7 @@ impl<T: RealField> Mul<T> for PoseGradient<T> {
 
 #[cfg(test)]
 mod tests {
-    use linear_algebra::{point, Point2};
+    use linear_algebra::{Point2, point};
     use types::step::Step;
 
     use crate::geometry::{orientation::Orientation, pose::Pose};

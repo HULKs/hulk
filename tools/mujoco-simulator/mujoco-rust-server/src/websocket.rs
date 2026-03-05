@@ -1,11 +1,11 @@
 use color_eyre::{
-    eyre::{bail, Context, ContextCompat},
     Result,
+    eyre::{Context, ContextCompat, bail},
 };
 use futures_util::{SinkExt, StreamExt};
 use simulation_message::{ClientMessageKind, ConnectionInfo, ServerMessageKind, SimulatorMessage};
 use tokio::net::TcpStream;
-use tokio_tungstenite::{accept_async, tungstenite::Message, WebSocketStream};
+use tokio_tungstenite::{WebSocketStream, accept_async, tungstenite::Message};
 
 use crate::controller::{ConnectionHandle, ControllerHandle, SimulationData};
 

@@ -1,4 +1,4 @@
-use color_eyre::{eyre::Ok, Result};
+use color_eyre::{Result, eyre::Ok};
 use context_attribute::context;
 use framework::MainOutput;
 use hsl_network_messages::{HulkMessage, PlayerNumber, StrikerMessage, VisualRefereeMessage};

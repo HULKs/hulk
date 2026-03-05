@@ -5,15 +5,15 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-use color_eyre::eyre::{self, eyre};
 use color_eyre::Result;
+use color_eyre::eyre::{self, eyre};
 use communication::client::{
-    protocol::{self, SubscriptionEvent},
     SubscriptionHandle,
+    protocol::{self, SubscriptionEvent},
 };
 use tokio::{
     select,
-    sync::{watch, Mutex},
+    sync::{Mutex, watch},
 };
 
 #[derive(Clone, Debug)]
@@ -133,8 +133,8 @@ impl<T, E> Buffer<T, E> {
 }
 
 fn handle_update<T, E>(value: &mut Result<Vec<Datum<T>>, E>, datum: Datum<T>, history: Duration) {
-    match value {
-        Ok(ref mut buffer) => {
+    match value.as_mut() {
+        Ok(buffer) => {
             let right = buffer.partition_point(|sample| sample.timestamp < datum.timestamp);
             let left =
                 buffer.partition_point(|sample| sample.timestamp < datum.timestamp - history);

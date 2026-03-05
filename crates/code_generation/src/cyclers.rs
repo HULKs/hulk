@@ -13,8 +13,8 @@ use source_analyzer::{
 use syn::{Path as SynPath, Type, TypePath};
 
 use crate::{
-    accessor::{path_to_accessor_token_stream, ReferenceKind},
     CyclerMode,
+    accessor::{ReferenceKind, path_to_accessor_token_stream},
 };
 
 pub fn generate_cyclers(cyclers: &Cyclers, mode: CyclerMode) -> TokenStream {

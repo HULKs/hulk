@@ -1,4 +1,4 @@
-use linear_algebra::{vector, Vector3};
+use linear_algebra::{Vector3, vector};
 
 use coordinate_systems::{
     Head, LeftFoot, LeftHip, LeftInnerShoulder, LeftOuterShoulder, LeftPelvis, LeftThigh,

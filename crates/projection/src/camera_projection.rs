@@ -1,5 +1,5 @@
 use coordinate_systems::{Camera, NormalizedDeviceCoordinates, Pixel};
-use linear_algebra::{point, Isometry3, Point2, Point3, Transform, Vector3};
+use linear_algebra::{Isometry3, Point2, Point3, Transform, Vector3, point};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 

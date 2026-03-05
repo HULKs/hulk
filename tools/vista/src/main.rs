@@ -1,6 +1,6 @@
 use std::env::current_dir;
 
-use eframe::{run_native, NativeOptions};
+use eframe::{NativeOptions, run_native};
 use repository::Repository;
 
 use app::DependencyInspector;

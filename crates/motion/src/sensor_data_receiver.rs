@@ -1,7 +1,7 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use booster::{ImuState, MotorState};
-use color_eyre::{eyre::WrapErr, Result};
+use color_eyre::{Result, eyre::WrapErr};
 use context_attribute::context;
 use framework::MainOutput;
 use hardware::{LowStateInterface, TimeInterface};

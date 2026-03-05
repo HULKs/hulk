@@ -1,6 +1,6 @@
 use nalgebra::{Complex, RealField, SimdRealField};
 
-use crate::{vector, Framed, Rotation2, Rotation3, Vector2, Vector3};
+use crate::{Framed, Rotation2, Rotation3, Vector2, Vector3, vector};
 
 pub type Orientation2<Frame, T = f32> = Framed<Frame, nalgebra::UnitComplex<T>>;
 pub type Orientation3<Frame, T = f32> = Framed<Frame, nalgebra::UnitQuaternion<T>>;

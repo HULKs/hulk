@@ -4,7 +4,7 @@ use coordinate_systems::{
     RightHip, RightInnerShoulder, RightOuterShoulder, RightPelvis, RightThigh, RightTibia,
     RightUpperArm, Torso,
 };
-use linear_algebra::{point, Point3};
+use linear_algebra::{Point3, point};
 
 #[derive(Debug)]
 pub struct RobotMass<Frame> {

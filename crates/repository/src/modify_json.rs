@@ -1,6 +1,6 @@
 use std::path::Path;
 
-use color_eyre::{eyre::Context, Result};
+use color_eyre::{Result, eyre::Context};
 use serde::{Deserialize, Serialize};
 use serde_json::to_string_pretty;
 use tokio::fs::{read_to_string, write};

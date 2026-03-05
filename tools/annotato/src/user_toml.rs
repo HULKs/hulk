@@ -67,7 +67,7 @@ where
             invalid => {
                 return Err(serde::de::Error::custom(format!(
                     "invalid modifier: {invalid}"
-                )))
+                )));
             }
         }
     }

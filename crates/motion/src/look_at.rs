@@ -9,10 +9,10 @@ use serde::{Deserialize, Serialize};
 use context_attribute::context;
 use coordinate_systems::{Camera, Ground, Robot};
 use framework::MainOutput;
-use linear_algebra::{distance, point, vector, Isometry3, Point2};
+use linear_algebra::{Isometry3, Point2, distance, point, vector};
 use types::{
     cycle_time::CycleTime,
-    joints::{head::HeadJoints, Joints},
+    joints::{Joints, head::HeadJoints},
     motion_command::{GlanceDirection, HeadMotion, ImageRegion, MotionCommand},
     parameters::ImageRegionParameters,
 };

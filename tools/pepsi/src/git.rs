@@ -1,8 +1,8 @@
 use std::{ffi::OsStr, process::ExitStatus};
 
 use color_eyre::{
-    eyre::{bail, Context},
     Result,
+    eyre::{Context, bail},
 };
 use tokio::process::Command;
 

@@ -10,8 +10,8 @@ mod perception_input;
 mod recording_index;
 mod recording_trigger;
 
-pub use additional_output::{should_be_filled, AdditionalOutput};
-pub use future_queue::{future_queue, Consumer, Item, Producer, Update, Updates};
+pub use additional_output::{AdditionalOutput, should_be_filled};
+pub use future_queue::{Consumer, Item, Producer, Update, Updates, future_queue};
 pub use historic_databases::HistoricDatabases;
 pub use historic_input::HistoricInput;
 pub use main_output::MainOutput;

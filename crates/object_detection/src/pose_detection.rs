@@ -1,13 +1,13 @@
 use std::time::{Duration, SystemTime};
 
 use color_eyre::{
-    eyre::{bail, eyre, Context, ContextCompat},
     Result,
+    eyre::{Context, ContextCompat, bail, eyre},
 };
 use coordinate_systems::Pixel;
 use image::{Pixel as _, RgbImage};
 use itertools::Itertools;
-use ndarray::{s, ArrayView};
+use ndarray::{ArrayView, s};
 use openvino::{
     CompiledModel, Core, DeviceType, ElementType, InferenceError::GeneralError, Tensor,
 };
@@ -15,7 +15,7 @@ use ros2::sensor_msgs::image::Image;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use framework::{deserialize_not_implemented, AdditionalOutput, MainOutput};
+use framework::{AdditionalOutput, MainOutput, deserialize_not_implemented};
 use geometry::rectangle::Rectangle;
 use hardware::PathsInterface;
 use linear_algebra::{point, vector};

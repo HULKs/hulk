@@ -2,8 +2,8 @@ use color_eyre::Result;
 use eframe::epaint::{Color32, Stroke};
 
 use coordinate_systems::Ground;
-use linear_algebra::{center, point, Point2};
-use projection::{camera_matrix::CameraMatrix, Projection};
+use linear_algebra::{Point2, center, point};
+use projection::{Projection, camera_matrix::CameraMatrix};
 use types::{color::Rgb, field_dimensions::FieldDimensions};
 
 use crate::{panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::BufferHandle};

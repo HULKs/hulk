@@ -1,7 +1,7 @@
 use clap::{ArgAction, Parser};
 use repository::cargo::Cargo;
 
-use super::{heading, CargoCommand};
+use super::{CargoCommand, heading};
 
 #[derive(Clone, Debug, Default, Parser)]
 #[command(display_order = 1)]

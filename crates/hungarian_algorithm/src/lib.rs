@@ -2,7 +2,7 @@ use std::cmp::Ordering;
 
 use ndarray::{Array2, Axis};
 use ordered_float::NotNan;
-use pathfinding::kuhn_munkres::{kuhn_munkres, Weights};
+use pathfinding::kuhn_munkres::{Weights, kuhn_munkres};
 
 pub struct AssignmentProblem {
     costs: Array2<NotNan<f32>>,

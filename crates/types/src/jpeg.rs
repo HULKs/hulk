@@ -1,7 +1,7 @@
 use color_eyre::eyre;
 use image::{
-    codecs::jpeg::JpegEncoder, ImageBuffer, ImageError, ImageFormat, ImageReader, ImageResult,
-    Luma, RgbImage,
+    ImageBuffer, ImageError, ImageFormat, ImageReader, ImageResult, Luma, RgbImage,
+    codecs::jpeg::JpegEncoder,
 };
 use ros2::sensor_msgs::image::Image;
 use serde::{Deserialize, Serialize};

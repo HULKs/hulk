@@ -2,8 +2,8 @@ use std::{env::temp_dir, fs::create_dir_all, path::PathBuf, sync::Arc};
 
 use chrono::{DateTime, Utc};
 use color_eyre::{
-    eyre::{bail, eyre, Context as _},
     Result,
+    eyre::{Context as _, bail, eyre},
 };
 use eframe::egui::{
     ColorImage, ComboBox, Context, Response, SizeHint, TextureId, TextureOptions, Ui, Widget,
@@ -13,7 +13,7 @@ use image::{EncodableLayout, RgbImage};
 use linear_algebra::{point, vector};
 use log::{info, warn};
 use ros2::sensor_msgs::image::Image;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use types::jpeg::JpegImage;
 

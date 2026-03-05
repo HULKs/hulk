@@ -1,11 +1,11 @@
 use coordinate_systems::{Field, Ground, Pixel};
 use geometry::line_segment::LineSegment;
-use linear_algebra::{distance, Isometry2};
-use projection::{camera_matrix::CameraMatrix, Error as ProjectionError, Projection};
+use linear_algebra::{Isometry2, distance};
+use projection::{Error as ProjectionError, Projection, camera_matrix::CameraMatrix};
 use types::field_dimensions::{FieldDimensions, Half, Side};
 
 use crate::{
-    corrections::{get_corrected_camera_matrix, Corrections},
+    corrections::{Corrections, get_corrected_camera_matrix},
     residuals::CalculateResiduals,
 };
 

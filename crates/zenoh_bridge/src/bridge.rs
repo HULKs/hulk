@@ -1,8 +1,8 @@
 use cdr::{CdrLe, Infinite};
-use color_eyre::eyre::{bail, Result, WrapErr};
-use futures_util::{pin_mut, StreamExt};
+use color_eyre::eyre::{Result, WrapErr, bail};
+use futures_util::{StreamExt, pin_mut};
 use ros2_client::{Publisher, Subscription};
-use serde::{de::DeserializeOwned, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::fmt::Debug;
 use zenoh::Session;
 

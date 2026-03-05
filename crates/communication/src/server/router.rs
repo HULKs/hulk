@@ -12,10 +12,10 @@ use crate::{
 };
 
 use super::{
+    Tree,
     connection::ConnectionHandle,
     sink::{self, SinkHandle},
     source::{SourceHandle, SubscriptionHandle},
-    Tree,
 };
 
 #[derive(Debug, Error)]

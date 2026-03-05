@@ -6,7 +6,7 @@ use std::{
 use tokio::{join, runtime::Builder, select, sync::watch, time::sleep};
 use tokio_util::sync::CancellationToken;
 
-use crate::{execution::Replayer, ReplayerHardwareInterface};
+use crate::{ReplayerHardwareInterface, execution::Replayer};
 
 #[derive(Clone, Copy)]
 pub struct PlayerState {

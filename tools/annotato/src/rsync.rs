@@ -1,6 +1,6 @@
 use color_eyre::{
-    eyre::{bail, ContextCompat},
     Result,
+    eyre::{ContextCompat, bail},
 };
 use std::{
     path::Path,

@@ -1,17 +1,16 @@
 use std::{collections::HashMap, time::SystemTime};
 
-use color_eyre::eyre::{eyre, Report};
+use color_eyre::eyre::{Report, eyre};
 use futures_util::{SinkExt, StreamExt};
 use log::{error, info};
 use thiserror::Error;
 use tokio::{net::TcpStream, select, sync::mpsc};
 use tokio_tungstenite::{
-    tungstenite::{
-        self,
-        protocol::{frame::coding::CloseCode, CloseFrame},
-        Message, Utf8Bytes,
-    },
     WebSocketStream,
+    tungstenite::{
+        self, Message, Utf8Bytes,
+        protocol::{CloseFrame, frame::coding::CloseCode},
+    },
 };
 use tokio_util::sync::CancellationToken;
 

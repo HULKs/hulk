@@ -12,11 +12,11 @@ use eframe::{
         Align2, Button, ComboBox, FontId, Label, PopupAnchor, Response, RichText, Sense,
         StrokeKind, TextStyle, TextWrapMode, Tooltip, Ui, Widget, WidgetText,
     },
-    emath::{remap, Rangef, RectTransform},
+    emath::{Rangef, RectTransform, remap},
     epaint::{Color32, CornerRadius, Rect, Shape, Stroke, TextShape, Vec2},
 };
 use itertools::Itertools;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use hulk_widgets::{PathFilter, RobotPathCompletionEdit};
 

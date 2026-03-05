@@ -10,7 +10,7 @@ use approx::{AbsDiffEq, RelativeEq};
 use num_traits::Num;
 use serde::{Deserialize, Serialize};
 
-use path_serde::{deserialize, serialize, PathDeserialize, PathIntrospect, PathSerialize};
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize, deserialize, serialize};
 
 #[derive(Debug)]
 // `repr(transparent)` ensures this struct has the same memory layout as `inner`.

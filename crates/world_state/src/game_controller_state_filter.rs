@@ -8,7 +8,7 @@ use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput};
 use hsl_network_messages::{GamePhase, GameState, Penalty, PlayerNumber, SubState, Team};
-use linear_algebra::{distance, point, vector, Isometry2, Point2, Vector2};
+use linear_algebra::{Isometry2, Point2, Vector2, distance, point, vector};
 use serde::{Deserialize, Serialize};
 use types::{
     ball_position::BallPosition,

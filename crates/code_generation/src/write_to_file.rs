@@ -1,5 +1,5 @@
 use std::{
-    env::{var, VarError},
+    env::{VarError, var},
     fs::File,
     io::{self, Write},
     path::{Path, PathBuf},

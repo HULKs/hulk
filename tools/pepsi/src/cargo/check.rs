@@ -1,7 +1,7 @@
 use clap::{ArgAction, Parser};
 use repository::cargo::Cargo;
 
-use super::{common::CommonOptions, heading, CargoCommand};
+use super::{CargoCommand, common::CommonOptions, heading};
 
 // roughly based on https://github.com/messense/cargo-options
 

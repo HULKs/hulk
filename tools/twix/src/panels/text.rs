@@ -3,7 +3,7 @@ use std::sync::Arc;
 use chrono::{DateTime, Utc};
 use eframe::egui::{Label, Response, ScrollArea, Sense, Ui, Widget};
 use hulk_widgets::{PathFilter, RobotPathCompletionEdit};
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use crate::{
     panel::{Panel, PanelCreationContext},

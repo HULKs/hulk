@@ -2,18 +2,18 @@ use std::{
     collections::HashMap,
     env::current_dir,
     ffi::{OsStr, OsString},
-    path::{absolute, Path, PathBuf},
+    path::{Path, PathBuf, absolute},
 };
 
 use clap::Args;
 use color_eyre::{
-    eyre::{bail, Context, ContextCompat},
     Result,
+    eyre::{Context, ContextCompat, bail},
 };
 use environment::{Environment, EnvironmentArguments};
 use lazy_static::lazy_static;
 use pathdiff::diff_paths;
-use repository::{cargo::Cargo, Repository};
+use repository::{Repository, cargo::Cargo};
 use tokio::fs::read_to_string;
 use toml::Table;
 use tracing::debug;

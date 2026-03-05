@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 use context_attribute::context;
 use coordinate_systems::{Camera, Ground, Head, Robot};
 use framework::{MainOutput, PerceptionInput};
-use linear_algebra::{vector, IntoTransform, Isometry3, Rotation3, Vector3};
+use linear_algebra::{IntoTransform, Isometry3, Rotation3, Vector3, vector};
 use types::{
     parameters::CameraMatrixParameters, robot_dimensions::RobotDimensions,
     robot_kinematics::RobotKinematics,

@@ -3,8 +3,8 @@ use nalgebra::{Const, Dyn, Matrix, Owned, SVector};
 use types::field_dimensions::FieldDimensions;
 
 use crate::{
-    corrections::{Corrections, AMOUNT_OF_PARAMETERS},
-    residuals::{calculate_residuals_from_parameters, CalculateResiduals},
+    corrections::{AMOUNT_OF_PARAMETERS, Corrections},
+    residuals::{CalculateResiduals, calculate_residuals_from_parameters},
 };
 
 pub type Jacobian = Matrix<f32, Dyn, Const<AMOUNT_OF_PARAMETERS>, JacobianStorage>;

@@ -7,7 +7,7 @@ use parking_lot::{RwLock, RwLockReadGuard};
 use tokio::sync::watch;
 
 use crate::{
-    find_oldest_free_buffer, receiver::lock_a_readable_buffer, ReceiverGuard, Shared, State,
+    ReceiverGuard, Shared, State, find_oldest_free_buffer, receiver::lock_a_readable_buffer,
 };
 
 /// Sends values to the associated Receivers
@@ -104,7 +104,9 @@ impl<T> Drop for SenderGuard<'_, T> {
                         } => {
                             *age += 1;
                         }
-                        _ => panic!("we are the writer, and we are dropping our buffer guard, there cannot be any other buffer that is locked for writing")
+                        _ => panic!(
+                            "we are the writer, and we are dropping our buffer guard, there cannot be any other buffer that is locked for writing"
+                        ),
                     }
                 }
             }

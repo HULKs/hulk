@@ -1,8 +1,8 @@
 use clap::Args;
-use color_eyre::{eyre::WrapErr, Result};
+use color_eyre::{Result, eyre::WrapErr};
 
-use argument_parsers::{number_to_ip, Connection, RobotAddress};
-use futures_util::{stream::FuturesUnordered, StreamExt};
+use argument_parsers::{Connection, RobotAddress, number_to_ip};
+use futures_util::{StreamExt, stream::FuturesUnordered};
 use repository::Repository;
 use robot::Robot;
 

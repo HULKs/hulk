@@ -5,8 +5,8 @@ use std::{
 };
 
 use color_eyre::{
-    eyre::{ContextCompat, Ok, WrapErr},
     Result,
+    eyre::{ContextCompat, Ok, WrapErr},
 };
 use serde_json::from_reader;
 

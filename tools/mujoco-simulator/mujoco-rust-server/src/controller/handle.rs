@@ -1,7 +1,7 @@
 use booster::LowCommand;
 use color_eyre::{
-    eyre::{Context, ContextCompat},
     Result,
+    eyre::{Context, ContextCompat},
 };
 use simulation_message::ConnectionInfo;
 use tokio::sync::{mpsc, oneshot};

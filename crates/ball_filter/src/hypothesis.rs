@@ -11,7 +11,7 @@ use resting::{RestingPredict, RestingUpdate};
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Ground;
-use linear_algebra::{vector, IntoFramed, Isometry2, Vector2};
+use linear_algebra::{IntoFramed, Isometry2, Vector2, vector};
 
 use types::{
     ball_position::BallPosition, multivariate_normal_distribution::MultivariateNormalDistribution,

@@ -4,19 +4,19 @@ use std::{
 };
 
 use chrono::Utc;
-use color_eyre::{eyre::WrapErr, Result};
+use color_eyre::{Result, eyre::WrapErr};
 use hsl_network_messages::PlayerNumber;
-use serde::{de::Error as DeserializeError, Deserialize, Deserializer};
+use serde::{Deserialize, Deserializer, de::Error as DeserializeError};
 use tokio::fs::read_to_string;
 use toml::from_str;
 
 use argument_parsers::{
-    parse_network, RobotAddress, RobotAddressPlayerAssignment, RobotNumberPlayerAssignment,
+    RobotAddress, RobotAddressPlayerAssignment, RobotNumberPlayerAssignment, parse_network,
 };
 use repository::Repository;
 use robot::Network;
 
-use crate::player_number::{check_for_duplication, player_number, Arguments};
+use crate::player_number::{Arguments, check_for_duplication, player_number};
 
 #[derive(Deserialize)]
 pub struct DeployConfig {

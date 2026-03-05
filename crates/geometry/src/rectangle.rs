@@ -1,7 +1,7 @@
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
-use linear_algebra::{point, Point2, Vector2};
+use linear_algebra::{Point2, Vector2, point};
 
 #[derive(
     Clone,

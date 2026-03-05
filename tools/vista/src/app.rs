@@ -1,10 +1,10 @@
 use eframe::{
+    App, CreationContext,
     egui::{
-        pos2, vec2, Align2, CentralPanel, Color32, FontId, Key, Modifiers, ScrollArea, Shape,
-        Stroke, TopBottomPanel, Widget,
+        Align2, CentralPanel, Color32, FontId, Key, Modifiers, ScrollArea, Shape, Stroke,
+        TopBottomPanel, Widget, pos2, vec2,
     },
     epaint::{PathStroke, QuadraticBezierShape},
-    App, CreationContext,
 };
 
 use hulk_manifest::collect_hulk_cyclers;

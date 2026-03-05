@@ -1,6 +1,6 @@
 use std::{
     fmt::Debug,
-    mem::{size_of, ManuallyDrop},
+    mem::{ManuallyDrop, size_of},
     path::Path,
     sync::Arc,
 };
@@ -11,7 +11,7 @@ use image::{ImageReader, RgbImage};
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Pixel;
-use linear_algebra::{vector, Point2};
+use linear_algebra::{Point2, vector};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{

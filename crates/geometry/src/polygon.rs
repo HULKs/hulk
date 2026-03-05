@@ -1,4 +1,4 @@
-use linear_algebra::{distance, Point2};
+use linear_algebra::{Point2, distance};
 use nalgebra::Matrix2;
 
 use crate::{circle::Circle, convex_hull::reduce_to_convex_hull, line_segment::LineSegment};

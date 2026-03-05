@@ -4,7 +4,7 @@ use std::{
 };
 
 use eframe::{
-    egui::{pos2, Context, Painter, Response, Sense, TextureId, Ui},
+    egui::{Context, Painter, Response, Sense, TextureId, Ui, pos2},
     emath::{Pos2, Rect},
     epaint::{Color32, PathShape, Shape, Stroke},
 };
@@ -13,7 +13,7 @@ use nalgebra::{SMatrix, Similarity2};
 use coordinate_systems::{Field, Ground, Screen};
 use geometry::{arc::Arc, circle::Circle, direction::AngleTo, rectangle::Rectangle};
 use linear_algebra::{
-    point, vector, IntoTransform, Isometry2, Orientation2, Point2, Pose2, Transform, Vector2,
+    IntoTransform, Isometry2, Orientation2, Point2, Pose2, Transform, Vector2, point, vector,
 };
 use types::{
     field_dimensions::FieldDimensions,

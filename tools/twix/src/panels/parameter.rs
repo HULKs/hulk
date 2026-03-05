@@ -7,15 +7,15 @@ use crate::{
     value_buffer::BufferHandle,
 };
 use color_eyre::{
-    eyre::{eyre, Error},
     Result,
+    eyre::{Error, eyre},
 };
 use communication::messages::TextOrBinary;
 use eframe::egui::{Response, ScrollArea, TextEdit, Ui, Widget};
 use hulk_widgets::{PathFilter, RobotPathCompletionEdit};
 use log::error;
 use parameters::directory::Scope;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 pub struct ParameterPanel {
     robot: Arc<Robot>,

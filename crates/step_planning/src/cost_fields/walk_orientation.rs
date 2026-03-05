@@ -5,13 +5,13 @@ use linear_algebra::Vector2;
 use types::motion_command::OrientationMode;
 
 use crate::{
+    TargetOrientationPathSide,
     geometry::{
         angle::Angle,
         orientation::Orientation,
         pose::{Pose, PoseGradient},
     },
     utils::{angle_penalty_with_tolerance, angle_penalty_with_tolerance_derivative},
-    TargetOrientationPathSide,
 };
 
 pub struct WalkOrientationField {
@@ -142,14 +142,14 @@ mod tests {
 
     use coordinate_systems::Ground;
     use geometry::look_at::LookAt;
-    use linear_algebra::{point, Orientation2, Point2, Vector2};
+    use linear_algebra::{Orientation2, Point2, Vector2, point};
     use proptest::{prop_assume, proptest};
     use types::motion_command::OrientationMode;
 
     use crate::{
+        TargetOrientationPathSide,
         geometry::{orientation::Orientation, pose::Pose},
         test_utils::{is_roughly_opposite, proptest_config},
-        TargetOrientationPathSide,
     };
 
     use super::WalkOrientationField;

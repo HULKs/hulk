@@ -3,7 +3,7 @@ use std::time::Duration;
 use coordinate_systems::Ground;
 use filtering::kalman_filter::KalmanFilter;
 use linear_algebra::Isometry2;
-use nalgebra::{matrix, Matrix2x4, Matrix4, Matrix4x2};
+use nalgebra::{Matrix2x4, Matrix4, Matrix4x2, matrix};
 use types::multivariate_normal_distribution::MultivariateNormalDistribution;
 
 pub(super) trait MovingPredict {

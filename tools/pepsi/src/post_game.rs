@@ -6,8 +6,8 @@ use std::{
 use argument_parsers::RobotAddress;
 use clap::{Args, ValueEnum};
 use color_eyre::{
-    eyre::{bail, WrapErr},
     Result,
+    eyre::{WrapErr, bail},
 };
 
 use repository::Repository;

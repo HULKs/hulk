@@ -4,7 +4,7 @@ use color_eyre::Result;
 use convert_case::Casing;
 use eframe::egui::Ui;
 use log::error;
-use serde_json::{json, Value};
+use serde_json::{Value, json};
 
 use coordinate_systems::Pixel;
 

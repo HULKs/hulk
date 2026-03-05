@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use color_eyre::{eyre::Context, Result};
+use color_eyre::{Result, eyre::Context};
 use eframe::{
     egui::{Align2, FontId},
     epaint::{Color32, Stroke},

@@ -1,8 +1,8 @@
 use proc_macro2::TokenStream;
 use quote::ToTokens;
 use syn::{
-    parenthesized, parse::Parse as _, parse_quote, Data, DataStruct, DeriveInput, Ident, Index,
-    Result, Token, Type, WherePredicate,
+    Data, DataStruct, DeriveInput, Ident, Index, Result, Token, Type, WherePredicate,
+    parenthesized, parse::Parse as _, parse_quote,
 };
 
 use crate::bound::infer_predicates;

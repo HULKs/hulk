@@ -1,8 +1,8 @@
 use std::collections::BTreeMap;
 
 use eframe::egui::{
-    pos2, vec2, Color32, CornerRadius, Painter, PointerButton, Pos2, Rect, Response, Sense, Stroke,
-    Ui, Vec2, Widget,
+    Color32, CornerRadius, Painter, PointerButton, Pos2, Rect, Response, Sense, Stroke, Ui, Vec2,
+    Widget, pos2, vec2,
 };
 
 use framework::Timing;

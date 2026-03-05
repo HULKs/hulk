@@ -3,8 +3,8 @@ use std::f32::consts::{FRAC_PI_2, FRAC_PI_4};
 use approx::assert_relative_eq;
 
 use coordinate_systems::{Camera, Head, Pixel};
-use linear_algebra::{point, vector, IntoTransform, Isometry3, Vector2, Vector3};
-use projection::{camera_matrix::CameraMatrix, Projection};
+use linear_algebra::{IntoTransform, Isometry3, Vector2, Vector3, point, vector};
+use projection::{Projection, camera_matrix::CameraMatrix};
 
 fn from_normalized_focal_and_center_short(
     focal_length: nalgebra::Vector2<f32>,

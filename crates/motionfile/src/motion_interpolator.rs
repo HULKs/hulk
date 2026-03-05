@@ -2,9 +2,9 @@ use std::fmt::Debug;
 use std::time::Duration;
 
 use crate::{
+    Condition, MotionFile,
     condition::{ContinuousConditionType, DiscreteConditionType, Response, TimeOut},
     timed_spline::{InterpolatorError, TimedSpline},
-    Condition, MotionFile,
 };
 use color_eyre::{Report, Result};
 use itertools::Itertools;

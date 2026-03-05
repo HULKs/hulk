@@ -1,5 +1,5 @@
 use geometry::{circle::Circle, direction::Direction};
-use linear_algebra::{vector, Orientation2, Vector2};
+use linear_algebra::{Orientation2, Vector2, vector};
 
 pub trait Tangent<Frame> {
     fn tangent(&self, angle: Orientation2<Frame>, direction: Direction) -> Vector2<Frame>;
