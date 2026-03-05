@@ -15,8 +15,8 @@ use ctrlc::set_handler;
 use framework::Parameters as FrameworkParameters;
 use hardware::{
     ButtonEventMsgInterface, CameraInterface, FallDownStateInterface, IdInterface,
-    SimulatorInterface, LowCommandInterface, LowStateInterface, MicrophoneInterface,
-    NetworkInterface, PathsInterface, RecordingInterface, SpeakerInterface, TimeInterface,
+    LowCommandInterface, LowStateInterface, MicrophoneInterface, NetworkInterface, PathsInterface,
+    RecordingInterface, SimulatorInterface, SpeakerInterface, TimeInterface,
 };
 use hula_types::hardware::Ids;
 use serde_json::from_reader;
