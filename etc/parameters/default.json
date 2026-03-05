@@ -401,7 +401,7 @@
     "joint_position_threshold": 0.1,
     "joint_velocity_threshold": 0.1,
     "angular_velocity_threshold": 0.1,
-    "linear_acceleration_threshold": 1.0,
+    "linear_acceleration_threshold": 1.5,
     "prep_mode_serial_motor_states": {
       "head": {
         "pitch": {
