@@ -7,6 +7,7 @@ homepage.workspace = true
 
 [dependencies]
 filtering = { workspace = true }
+kinematics = { workspace = true }
 path_serde = { workspace = true }
 serde = { workspace = true }
 types = { workspace = true }

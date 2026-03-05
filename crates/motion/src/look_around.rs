@@ -3,6 +3,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use color_eyre::Result;
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
+use kinematics::joints::head::HeadJoints;
 use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime,
@@ -11,7 +12,6 @@ use types::{
     initial_look_around::{
         BallSearchLookAround, InitialLookAround, LookAroundMode, QuickLookAround,
     },
-    joints::head::HeadJoints,
     motion_command::{HeadMotion, MotionCommand},
     parameters::LookAroundParameters,
     support_foot::Side,

@@ -2,24 +2,27 @@ use booster::{JointsMotorState, MotorState};
 use color_eyre::Result;
 use context_attribute::context;
 use framework::{MainOutput, PerceptionInput};
-use kinematics::forward::{
-    head_to_neck, left_ankle_to_left_tibia, left_foot_to_left_ankle,
-    left_forearm_to_left_upper_arm, left_hip_to_left_pelvis, left_inner_shoulder_to_robot,
-    left_outer_shoulder_to_left_inner_shoulder, left_pelvis_to_robot, left_thigh_to_left_hip,
-    left_tibia_to_left_thigh, left_upper_arm_to_left_outer_shoulder, neck_to_robot,
-    right_ankle_to_right_tibia, right_foot_to_right_ankle, right_forearm_to_right_upper_arm,
-    right_hip_to_right_pelvis, right_inner_shoulder_to_robot,
-    right_outer_shoulder_to_right_inner_shoulder, right_pelvis_to_robot, right_thigh_to_right_hip,
-    right_tibia_to_right_thigh, right_upper_arm_to_right_outer_shoulder,
+use kinematics::{
+    forward::{
+        head_to_neck, left_ankle_to_left_tibia, left_foot_to_left_ankle,
+        left_forearm_to_left_upper_arm, left_hip_to_left_pelvis, left_inner_shoulder_to_robot,
+        left_outer_shoulder_to_left_inner_shoulder, left_pelvis_to_robot, left_thigh_to_left_hip,
+        left_tibia_to_left_thigh, left_upper_arm_to_left_outer_shoulder, neck_to_robot,
+        right_ankle_to_right_tibia, right_foot_to_right_ankle, right_forearm_to_right_upper_arm,
+        right_hip_to_right_pelvis, right_inner_shoulder_to_robot,
+        right_outer_shoulder_to_right_inner_shoulder, right_pelvis_to_robot,
+        right_thigh_to_right_hip, right_tibia_to_right_thigh,
+        right_upper_arm_to_right_outer_shoulder,
+    },
+    joints::Joints,
+    robot_dimensions::RobotDimensions,
+    robot_kinematics::{
+        RobotHeadKinematics, RobotKinematics, RobotLeftArmKinematics, RobotLeftLegKinematics,
+        RobotRightArmKinematics, RobotRightLegKinematics, RobotTorsoKinematics,
+    },
 };
 use linear_algebra::Isometry3;
 use serde::{Deserialize, Serialize};
-use types::joints::Joints;
-use types::robot_kinematics::{
-    RobotHeadKinematics, RobotLeftArmKinematics, RobotLeftLegKinematics, RobotRightArmKinematics,
-    RobotRightLegKinematics, RobotTorsoKinematics,
-};
-use types::{robot_dimensions::RobotDimensions, robot_kinematics::RobotKinematics};
 
 #[derive(Deserialize, Serialize)]
 pub struct KinematicsProvider {

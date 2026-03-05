@@ -2,7 +2,10 @@ use std::{time::Duration, time::SystemTime};
 
 use booster::{JointsMotorState, MotorState};
 use color_eyre::Result;
-use kinematics::forward::{head_to_neck, neck_to_robot};
+use kinematics::{
+    forward::{head_to_neck, neck_to_robot},
+    joints::{Joints, head::HeadJoints},
+};
 use projection::camera_matrix::CameraMatrix;
 use serde::{Deserialize, Serialize};
 
@@ -12,7 +15,6 @@ use framework::MainOutput;
 use linear_algebra::{Isometry3, Point2, distance, point, vector};
 use types::{
     cycle_time::CycleTime,
-    joints::{Joints, head::HeadJoints},
     motion_command::{GlanceDirection, HeadMotion, ImageRegion, MotionCommand},
     parameters::ImageRegionParameters,
 };

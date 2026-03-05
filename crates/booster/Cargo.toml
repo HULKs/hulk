@@ -8,6 +8,7 @@ homepage.workspace = true
 [dependencies]
 color-eyre = { workspace = true }
 coordinate_systems = { workspace = true }
+kinematics = { workspace = true }
 linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
 path_serde = { workspace = true }
@@ -16,7 +17,6 @@ ros2 = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }
-types = { workspace = true }
 
 [features]
 pyo3 = ["dep:pyo3"]

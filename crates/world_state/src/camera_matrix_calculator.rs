@@ -1,6 +1,7 @@
 use std::f32::consts::FRAC_PI_2;
 
 use color_eyre::Result;
+use kinematics::{robot_dimensions::RobotDimensions, robot_kinematics::RobotKinematics};
 use projection::camera_matrix::CameraMatrix;
 use ros2::sensor_msgs::camera_info::CameraInfo;
 use serde::{Deserialize, Serialize};
@@ -9,10 +10,7 @@ use context_attribute::context;
 use coordinate_systems::{Camera, Ground, Head, Robot};
 use framework::{MainOutput, PerceptionInput};
 use linear_algebra::{IntoTransform, Isometry3, Rotation3, Vector3, vector};
-use types::{
-    parameters::CameraMatrixParameters, robot_dimensions::RobotDimensions,
-    robot_kinematics::RobotKinematics,
-};
+use types::parameters::CameraMatrixParameters;
 
 #[derive(Deserialize, Serialize)]
 pub struct CameraMatrixCalculator {

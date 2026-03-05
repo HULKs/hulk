@@ -6,10 +6,10 @@ use booster::{
 use color_eyre::eyre::Result;
 
 use hula_types::hardware::{Ids, Paths};
+use kinematics::joints::Joints;
 use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
 use types::{
     audio::SpeakerRequest,
-    joints::Joints,
     led::Leds,
     messages::{IncomingMessage, OutgoingMessage},
     samples::Samples,

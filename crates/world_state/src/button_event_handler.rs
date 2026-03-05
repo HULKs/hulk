@@ -1,6 +1,7 @@
 use color_eyre::Result;
 use coordinate_systems::Robot;
 use hardware::SimulatorInterface;
+use kinematics::joints::Joints;
 use linear_algebra::Vector3;
 use serde::{Deserialize, Serialize};
 
@@ -8,7 +9,7 @@ use approx::AbsDiffEq;
 use booster::{ButtonEventMsg, ButtonEventType, ImuState, JointsMotorState, MotorState};
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
-use types::{buttons::Buttons, joints::Joints};
+use types::buttons::Buttons;
 
 #[derive(Deserialize, Serialize)]
 pub struct ButtonEventHandler {

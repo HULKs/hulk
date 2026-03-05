@@ -5,8 +5,9 @@ use color_eyre::{Result, eyre::WrapErr};
 use context_attribute::context;
 use framework::MainOutput;
 use hardware::{LowStateInterface, TimeInterface};
+use kinematics::joints::Joints;
 use serde::{Deserialize, Serialize};
-use types::{cycle_time::CycleTime, joints::Joints};
+use types::cycle_time::CycleTime;
 
 #[derive(Deserialize, Serialize)]
 pub struct SensorDataReceiver {

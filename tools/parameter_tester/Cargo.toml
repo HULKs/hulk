@@ -16,6 +16,7 @@ framework = { workspace = true }
 geometry = { workspace = true }
 hsl_network_messages = { workspace = true }
 hula_types = { workspace = true }
+kinematics = { workspace = true }
 linear_algebra = { workspace = true }
 motionfile = { workspace = true }
 nalgebra = { workspace = true }

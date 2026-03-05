@@ -1,7 +1,8 @@
 use filtering::hysteresis::less_than_with_absolute_hysteresis;
+use kinematics::joints::Joints;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
-use types::{cycle_time::CycleTime, joints::Joints};
+use types::cycle_time::CycleTime;
 
 use crate::parameters::CurrentMinimizerParameters;
 

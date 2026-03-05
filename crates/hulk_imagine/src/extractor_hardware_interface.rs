@@ -6,9 +6,9 @@ use hardware::{
 use color_eyre::eyre::Result;
 
 use hula_types::hardware::Paths;
+use kinematics::joints::Joints;
 use types::{
     audio::SpeakerRequest,
-    joints::Joints,
     led::Leds,
     messages::{IncomingMessage, OutgoingMessage},
 };
