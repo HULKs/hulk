@@ -1,0 +1,13 @@
+[package]
+name = "high_level_interface"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[package.metadata.pepsi]
+cross-compile = true
+
+[dependencies]
+serde = { workspace = true }
+uuid = { workspace = true }
