@@ -10,7 +10,7 @@ use types::{
 };
 
 use crate::{
-    nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::BufferHandle,
+    panels::map::layer::Layer, robot::Robot, twix_painter::TwixPainter, value_buffer::BufferHandle,
 };
 
 pub struct PathObstacles {
@@ -20,8 +20,8 @@ pub struct PathObstacles {
 impl Layer<Ground> for PathObstacles {
     const NAME: &'static str = "Path Obstacles";
 
-    fn new(nao: Arc<Nao>) -> Self {
-        let path_obstacles = nao.subscribe_value("Control.additional_outputs.path_obstacles");
+    fn new(robot: Arc<Robot>) -> Self {
+        let path_obstacles = robot.subscribe_value("Control.additional_outputs.path_obstacles");
         Self { path_obstacles }
     }
 

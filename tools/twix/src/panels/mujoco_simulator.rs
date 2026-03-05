@@ -30,7 +30,7 @@ impl<'a> Panel<'a> for MujocoSimulatorPanel {
         widget.bevy_app.cleanup();
 
         let kinematics = context
-            .nao
+            .robot
             .subscribe_value("Control.main_outputs.robot_kinematics");
         Self { widget, kinematics }
     }

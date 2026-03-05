@@ -20,7 +20,7 @@ use projection::camera_matrix::CameraMatrix;
 use serde_json::Value;
 use types::field_dimensions::FieldDimensions;
 
-use crate::{nao::Nao, value_buffer::BufferHandle};
+use crate::{robot::Robot, value_buffer::BufferHandle};
 
 const ROBOT_CORRECTION_PATH: &str =
     "parameters.camera_matrix_parameters.calibration.correction_in_robot";
@@ -28,7 +28,7 @@ const CAMERA_CORRECTION_PATH: &str =
     "parameters.camera_matrix_parameters.calibration.correction_in_camera";
 
 pub struct SemiAutomaticCalibrationContext {
-    nao: Arc<Nao>,
+    robot: Arc<Robot>,
     state: OptimizationState,
 
     camera_correction: BufferHandle<nalgebra::Vector3<f32>>,
@@ -57,13 +57,13 @@ enum OptimizationState {
 }
 
 impl SemiAutomaticCalibrationContext {
-    pub fn new(nao: Arc<Nao>) -> Self {
-        let camera_correction = nao.subscribe_value(ROBOT_CORRECTION_PATH);
-        let robot_correction = nao.subscribe_value(CAMERA_CORRECTION_PATH);
-        let field_dimensions = nao.subscribe_value("parameters.field_dimensions");
+    pub fn new(robot: Arc<Robot>) -> Self {
+        let camera_correction = robot.subscribe_value(ROBOT_CORRECTION_PATH);
+        let robot_correction = robot.subscribe_value(CAMERA_CORRECTION_PATH);
+        let field_dimensions = robot.subscribe_value("parameters.field_dimensions");
 
         Self {
-            nao,
+            robot,
             state: OptimizationState::NotOptimized,
             camera_correction,
             robot_correction,
@@ -130,7 +130,7 @@ impl SemiAutomaticCalibrationContext {
             .wrap_err("failed to optimize")?;
 
         self.apply_corrections(corrections, |path, value| {
-            self.nao.write(path, TextOrBinary::Text(value));
+            self.robot.write(path, TextOrBinary::Text(value));
             Ok(())
         })?;
         self.state = OptimizationState::Optimized {
@@ -144,7 +144,7 @@ impl SemiAutomaticCalibrationContext {
         self.state = OptimizationState::NotOptimized;
 
         self.apply_corrections(Corrections::default(), |path, value| {
-            self.nao.write(path, TextOrBinary::Text(value));
+            self.robot.write(path, TextOrBinary::Text(value));
             Ok(())
         })
     }
@@ -160,7 +160,7 @@ impl SemiAutomaticCalibrationContext {
         if let OptimizationState::Optimized { corrections, .. } = &self.state {
             return self.apply_corrections(*corrections, |path, value| {
                 let parameter_path = path.strip_prefix("parameters.").wrap_err("invalid path")?;
-                self.nao
+                self.robot
                     .store_parameters(parameter_path, value, Scope::default_head())
             });
         }

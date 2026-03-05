@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use crate::{
     log_error::LogError,
-    nao::Nao,
     panel::{Panel, PanelCreationContext},
+    robot::Robot,
     value_buffer::BufferHandle,
 };
 use color_eyre::{
@@ -18,7 +18,7 @@ use parameters::directory::Scope;
 use serde_json::{json, Value};
 
 pub struct ParameterPanel {
-    nao: Arc<Nao>,
+    robot: Arc<Robot>,
     path: String,
     buffer: Option<BufferHandle<Value>>,
     parameter_value: Result<String>,
@@ -33,10 +33,10 @@ impl<'a> Panel<'a> for ParameterPanel {
             .and_then(|value| value.get("path"))
             .and_then(|path| path.as_str());
 
-        let value_buffer = path.map(|path| context.nao.subscribe_json(path));
+        let value_buffer = path.map(|path| context.robot.subscribe_json(path));
 
         Self {
-            nao: context.nao,
+            robot: context.robot,
             path: path.unwrap_or("").to_string(),
             buffer: value_buffer,
             parameter_value: Err(eyre!("no subscription")),
@@ -55,12 +55,12 @@ impl Widget for &mut ParameterPanel {
             ui.horizontal(|ui| {
                 let path_edit = ui.add(RobotPathCompletionEdit::new(
                     ui.id().with("parameter"),
-                    self.nao.latest_paths(),
+                    self.robot.latest_paths(),
                     &mut self.path,
                     PathFilter::Writable,
                 ));
                 if path_edit.changed() {
-                    self.buffer = Some(self.nao.subscribe_json(&self.path));
+                    self.buffer = Some(self.robot.subscribe_json(&self.path));
                 }
                 let settable = self.buffer.is_some()
                     && self
@@ -75,7 +75,8 @@ impl Widget for &mut ParameterPanel {
                             serde_json::from_str::<Value>(self.parameter_value.as_ref().unwrap());
                         match serialized {
                             Ok(value) => {
-                                self.nao.write(self.path.clone(), TextOrBinary::Text(value));
+                                self.robot
+                                    .write(self.path.clone(), TextOrBinary::Text(value));
                             }
                             Err(error) => error!(
                                 "parameter panel: failed to serialize parameter value: {error:#?}"
@@ -87,7 +88,7 @@ impl Widget for &mut ParameterPanel {
                             serde_json::from_str::<Value>(self.parameter_value.as_ref().unwrap());
                         match serialized {
                             Ok(value) => {
-                                self.nao
+                                self.robot
                                     .store_parameters(
                                         local_parameter_path.expect(
                                             "parameter path should start with 'parameters.'",
@@ -107,7 +108,7 @@ impl Widget for &mut ParameterPanel {
                             serde_json::from_str::<Value>(self.parameter_value.as_ref().unwrap());
                         match serialized {
                             Ok(value) => {
-                                self.nao
+                                self.robot
                                     .store_parameters(
                                         local_parameter_path.expect(
                                             "parameter path should start with 'parameters.'",

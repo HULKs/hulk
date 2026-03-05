@@ -14,7 +14,7 @@ use types::{
 };
 
 use crate::{
-    nao::Nao, panels::map::layer::Layer, players_buffer_handle::PlayersBufferHandle,
+    panels::map::layer::Layer, players_buffer_handle::PlayersBufferHandle, robot::Robot,
     twix_painter::TwixPainter, value_buffer::BufferHandle,
 };
 
@@ -32,32 +32,32 @@ pub struct BehaviorSimulator {
 impl Layer<Field> for BehaviorSimulator {
     const NAME: &'static str = "Behavior Simulator";
 
-    fn new(nao: Arc<Nao>) -> Self {
+    fn new(robot: Arc<Robot>) -> Self {
         let ground_to_field = PlayersBufferHandle::try_new(
-            nao.clone(),
+            robot.clone(),
             "BehaviorSimulator.main_outputs.databases",
             "main_outputs.ground_to_field",
         )
         .unwrap();
         let role = PlayersBufferHandle::try_new(
-            nao.clone(),
+            robot.clone(),
             "BehaviorSimulator.main_outputs.databases",
             "main_outputs.role",
         )
         .unwrap();
         let motion_command = PlayersBufferHandle::try_new(
-            nao.clone(),
+            robot.clone(),
             "BehaviorSimulator.main_outputs.databases",
             "main_outputs.motion_command",
         )
         .unwrap();
         let sensor_data = PlayersBufferHandle::try_new(
-            nao.clone(),
+            robot.clone(),
             "BehaviorSimulator.main_outputs.databases",
             "main_outputs.sensor_data.positions.head.yaw",
         )
         .unwrap();
-        let ball = nao.subscribe_value("BehaviorSimulator.main_outputs.ball");
+        let ball = robot.subscribe_value("BehaviorSimulator.main_outputs.ball");
         Self {
             ground_to_field,
             role,

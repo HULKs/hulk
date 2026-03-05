@@ -11,7 +11,7 @@ use linear_algebra::{point, Pose2};
 use types::{field_dimensions::FieldDimensions, localization::ScoredPose};
 
 use crate::{
-    nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::BufferHandle,
+    panels::map::layer::Layer, robot::Robot, twix_painter::TwixPainter, value_buffer::BufferHandle,
 };
 
 pub struct Localization {
@@ -21,8 +21,9 @@ pub struct Localization {
 impl Layer<Field> for Localization {
     const NAME: &'static str = "Localization";
 
-    fn new(nao: Arc<Nao>) -> Self {
-        let poses = nao.subscribe_value("Control.additional_outputs.localization.pose_hypotheses");
+    fn new(robot: Arc<Robot>) -> Self {
+        let poses =
+            robot.subscribe_value("Control.additional_outputs.localization.pose_hypotheses");
         Self { poses }
     }
 

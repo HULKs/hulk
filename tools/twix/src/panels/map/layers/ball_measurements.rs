@@ -8,7 +8,7 @@ use linear_algebra::Point2;
 use types::{ball_detection::BallPercept, field_dimensions::FieldDimensions};
 
 use crate::{
-    nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::BufferHandle,
+    panels::map::layer::Layer, robot::Robot, twix_painter::TwixPainter, value_buffer::BufferHandle,
 };
 
 pub struct BallMeasurement {
@@ -18,8 +18,8 @@ pub struct BallMeasurement {
 impl Layer<Ground> for BallMeasurement {
     const NAME: &'static str = "Ball Measurements";
 
-    fn new(nao: Arc<Nao>) -> Self {
-        let balls = nao.subscribe_value("WorldState.main_outputs.balls");
+    fn new(robot: Arc<Robot>) -> Self {
+        let balls = robot.subscribe_value("WorldState.main_outputs.balls");
         Self { balls }
     }
 

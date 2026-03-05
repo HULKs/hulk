@@ -9,7 +9,7 @@ use projection::{camera_matrix::CameraMatrix, Projection};
 use types::field_dimensions::FieldDimensions;
 
 use crate::{
-    nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::BufferHandle,
+    panels::map::layer::Layer, robot::Robot, twix_painter::TwixPainter, value_buffer::BufferHandle,
 };
 
 pub struct Lines {
@@ -20,9 +20,9 @@ pub struct Lines {
 impl Layer<Ground> for Lines {
     const NAME: &'static str = "Lines";
 
-    fn new(nao: Arc<Nao>) -> Self {
-        let lines_in_image = nao.subscribe_value("Vision.additional_outputs.lines_in_image");
-        let camera_matrix = nao.subscribe_value("Vision.main_outputs.camera_matrix");
+    fn new(robot: Arc<Robot>) -> Self {
+        let lines_in_image = robot.subscribe_value("Vision.additional_outputs.lines_in_image");
+        let camera_matrix = robot.subscribe_value("Vision.main_outputs.camera_matrix");
         Self {
             lines_in_image,
             camera_matrix,

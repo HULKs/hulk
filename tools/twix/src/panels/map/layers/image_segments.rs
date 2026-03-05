@@ -16,9 +16,9 @@ pub struct ImageSegments {
 impl Layer<Ground> for ImageSegments {
     const NAME: &'static str = "Image Segments";
 
-    fn new(nao: std::sync::Arc<crate::nao::Nao>) -> Self {
-        let camera_matrix = nao.subscribe_value("Vision.main_outputs.camera_matrix");
-        let image_segments = nao.subscribe_value("Vision.main_outputs.image_segments");
+    fn new(robot: std::sync::Arc<crate::robot::Robot>) -> Self {
+        let camera_matrix = robot.subscribe_value("Vision.main_outputs.camera_matrix");
+        let image_segments = robot.subscribe_value("Vision.main_outputs.image_segments");
         Self {
             camera_matrix,
             image_segments,

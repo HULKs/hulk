@@ -16,8 +16,8 @@ use serde::{Deserialize, Serialize};
 use serde_json::{json, to_string_pretty, Value};
 
 use crate::{
-    nao::Nao,
     panel::{Panel, PanelCreationContext},
+    robot::Robot,
     value_buffer::BufferHandle,
 };
 
@@ -120,17 +120,17 @@ impl LineData {
             .unwrap_or_default()
     }
 
-    fn show_settings(&mut self, ui: &mut Ui, id: usize, nao: &Nao, buffer_history: Duration) {
+    fn show_settings(&mut self, ui: &mut Ui, id: usize, robot: &Robot, buffer_history: Duration) {
         ui.horizontal_top(|ui| {
             let subscription_field = ui.add(RobotPathCompletionEdit::new(
                 ui.id().with(id).with("plot-panel"),
-                nao.latest_paths(),
+                robot.latest_paths(),
                 &mut self.path,
                 PathFilter::Readable,
             ));
             self.set_highlighted(subscription_field.hovered());
             if subscription_field.changed() {
-                let handle = nao.subscribe_buffered_json(&self.path, buffer_history);
+                let handle = robot.subscribe_buffered_json(&self.path, buffer_history);
                 self.buffer = Some(handle);
             }
 
@@ -196,7 +196,7 @@ impl LineData {
 pub struct PlotPanel {
     lines: Vec<LineData>,
     buffer_history: Duration,
-    nao: Arc<Nao>,
+    robot: Arc<Robot>,
 }
 
 impl<'a> Panel<'a> for PlotPanel {
@@ -217,7 +217,7 @@ impl<'a> Panel<'a> for PlotPanel {
                         line_data.set_lua();
                         if !line_data.path.is_empty() {
                             let handle = context
-                                .nao
+                                .robot
                                 .subscribe_buffered_json(&line_data.path, DEFAULT_BUFFER_HISTORY);
                             line_data.buffer = Some(handle);
                         }
@@ -230,7 +230,7 @@ impl<'a> Panel<'a> for PlotPanel {
         PlotPanel {
             lines,
             buffer_history: DEFAULT_BUFFER_HISTORY,
-            nao: context.nao,
+            robot: context.robot,
         }
     }
 
@@ -329,7 +329,7 @@ impl Widget for &mut PlotPanel {
 
                 ui.checkbox(&mut line_data.show_scatter, "Scatter");
 
-                line_data.show_settings(ui, id, &self.nao, self.buffer_history);
+                line_data.show_settings(ui, id, &self.robot, self.buffer_history);
                 id += 1;
                 !delete_button.clicked()
             })

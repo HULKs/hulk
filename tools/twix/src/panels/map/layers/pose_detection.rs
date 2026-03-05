@@ -9,7 +9,7 @@ use eframe::{
 use types::{field_dimensions::FieldDimensions, pose_kinds::PoseKindPosition};
 
 use crate::{
-    nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::BufferHandle,
+    panels::map::layer::Layer, robot::Robot, twix_painter::TwixPainter, value_buffer::BufferHandle,
 };
 
 pub struct PoseDetection {
@@ -21,13 +21,13 @@ pub struct PoseDetection {
 impl Layer<Field> for PoseDetection {
     const NAME: &'static str = "Pose Positions";
 
-    fn new(nao: Arc<Nao>) -> Self {
-        let accepted_pose_kind_positions =
-            nao.subscribe_value("ObjectDetection.additional_outputs.accepted_pose_kind_positions");
-        let rejected_pose_kind_positions =
-            nao.subscribe_value("ObjectDetection.additional_outputs.rejected_pose_kind_positions");
+    fn new(robot: Arc<Robot>) -> Self {
+        let accepted_pose_kind_positions = robot
+            .subscribe_value("ObjectDetection.additional_outputs.accepted_pose_kind_positions");
+        let rejected_pose_kind_positions = robot
+            .subscribe_value("ObjectDetection.additional_outputs.rejected_pose_kind_positions");
         let referee_pose_kind_position =
-            nao.subscribe_value("ObjectDetection.additional_outputs.referee_pose_kind_position");
+            robot.subscribe_value("ObjectDetection.additional_outputs.referee_pose_kind_position");
         Self {
             accepted_pose_kind_positions,
             rejected_pose_kind_positions,

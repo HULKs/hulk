@@ -28,12 +28,12 @@ impl<'a> Panel<'a> for BallCandidatePanel {
 
     fn new(context: PanelCreationContext) -> Self {
         let ball_radius_enlargement_factor = context
-            .nao
+            .robot
             .subscribe_value("parameters.ball_detection.vision.ball_radius_enlargement_factor");
         let ball_candidates = context
-            .nao
+            .robot
             .subscribe_value("Vision.additional_outputs.ball_candidates");
-        let image = context.nao.subscribe_value("Vision.main_outputs.image");
+        let image = context.robot.subscribe_value("Vision.main_outputs.image");
         Self {
             ball_radius_enlargement_factor,
             ball_candidates,

@@ -16,9 +16,10 @@ pub struct FieldLines {
 impl Overlay for FieldLines {
     const NAME: &'static str = "Field Lines";
 
-    fn new(nao: Arc<crate::nao::Nao>) -> Self {
+    fn new(robot: Arc<crate::robot::Robot>) -> Self {
         Self {
-            penalty_boxes: nao.subscribe_value("Control.additional_outputs.projected_field_lines"),
+            penalty_boxes: robot
+                .subscribe_value("Control.additional_outputs.projected_field_lines"),
         }
     }
 

@@ -61,12 +61,12 @@ impl<'a> Panel<'a> for SemiAutomaticCameraCalibrationPanel {
 
     fn new(context: PanelCreationContext) -> Self {
         let camera = context
-            .nao
+            .robot
             .subscribe_value("Control.main_outputs.uncalibrated_camera_matrix");
 
         let image_buffer = {
             let path = "Vision.main_outputs.image";
-            context.nao.subscribe_value(path)
+            context.robot.subscribe_value(path)
         };
 
         Self {
@@ -77,7 +77,7 @@ impl<'a> Panel<'a> for SemiAutomaticCameraCalibrationPanel {
             user_state: UserState::Idle,
             drawn_lines: Vec::new(),
             saved_measurements: Vec::new(),
-            optimization: SemiAutomaticCalibrationContext::new(context.nao.clone()),
+            optimization: SemiAutomaticCalibrationContext::new(context.robot.clone()),
         }
     }
 }

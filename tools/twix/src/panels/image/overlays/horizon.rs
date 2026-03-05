@@ -14,9 +14,9 @@ pub struct Horizon {
 impl Overlay for Horizon {
     const NAME: &'static str = "Horizon";
 
-    fn new(nao: std::sync::Arc<crate::nao::Nao>) -> Self {
+    fn new(robot: std::sync::Arc<crate::robot::Robot>) -> Self {
         Self {
-            horizon: nao.subscribe_value("Control.main_outputs.camera_matrix.horizon"),
+            horizon: robot.subscribe_value("Control.main_outputs.camera_matrix.horizon"),
         }
     }
 

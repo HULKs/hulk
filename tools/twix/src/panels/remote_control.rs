@@ -1,6 +1,6 @@
 use crate::{
-    nao::Nao,
     panel::{Panel, PanelCreationContext},
+    robot::Robot,
     value_buffer::BufferHandle,
 };
 use communication::messages::TextOrBinary;
@@ -19,7 +19,7 @@ use tokio::sync::watch::{channel, Receiver};
 use types::step::Step;
 
 pub struct RemotePanel {
-    nao: Arc<Nao>,
+    robot: Arc<Robot>,
     enabled: Arc<AtomicBool>,
     latest_step: BufferHandle<Step>,
     bg_running: Arc<AtomicBool>,
@@ -31,15 +31,15 @@ impl<'a> Panel<'a> for RemotePanel {
     const NAME: &'static str = "Remote";
 
     fn new(context: PanelCreationContext) -> Self {
-        let nao = context.nao.clone();
+        let robot = context.robot.clone();
         let (sender, receiver) = channel((Step::<f32>::default(), f64::default()));
 
         let enabled = Arc::new(AtomicBool::new(false));
-        let latest_step = nao.subscribe_value("parameters.behavior.remote_control.walk");
-        let gait_parameter_value = nao.subscribe_json("parameters.rl_walking.gait_frequency");
+        let latest_step = robot.subscribe_value("parameters.behavior.remote_control.walk");
+        let gait_parameter_value = robot.subscribe_json("parameters.rl_walking.gait_frequency");
         let bg_running = Arc::new(AtomicBool::new(true));
 
-        let nao_clone = nao.clone();
+        let robot_clone = robot.clone();
         let enabled_clone = enabled.clone();
         let bg_running_clone = bg_running.clone();
         let egui_context_clone = context.egui_context.clone();
@@ -71,7 +71,7 @@ impl<'a> Panel<'a> for RemotePanel {
                 if gilrs.gamepads().next().is_none() {
                     let _ = sender.send((Step::default(), 1.0));
                     if enabled_clone.load(Ordering::Relaxed) {
-                        reset(&nao_clone);
+                        reset(&robot_clone);
                     }
                     continue;
                 }
@@ -121,7 +121,7 @@ impl<'a> Panel<'a> for RemotePanel {
                         enabled_clone.store(new_state, Ordering::Relaxed);
 
                         if !new_state {
-                            reset(&nao_clone);
+                            reset(&robot_clone);
                         }
                     }
                     start_was_pressed = start_pressed;
@@ -152,7 +152,7 @@ impl<'a> Panel<'a> for RemotePanel {
                             > UPDATE_DELAY
                         {
                             last_update = now;
-                            update_step(&nao_clone, step, new_gait_parameter_value);
+                            update_step(&robot_clone, step, new_gait_parameter_value);
                             let _ = sender.send((step, new_gait_parameter_value));
                         }
                     }
@@ -161,7 +161,7 @@ impl<'a> Panel<'a> for RemotePanel {
         });
 
         Self {
-            nao,
+            robot,
             enabled,
             latest_step,
             bg_running,
@@ -187,16 +187,16 @@ fn get_axis_value(gamepad: Gamepad, axis: Axis) -> Option<f32> {
     Some(gamepad.axis_data(axis)?.value())
 }
 
-fn reset(nao: &Arc<Nao>) {
-    update_step(nao, Step::<f32>::default(), 1.0);
+fn reset(robot: &Arc<Robot>) {
+    update_step(robot, Step::<f32>::default(), 1.0);
 }
 
-fn update_step(nao: &Arc<Nao>, step: Step, gait_frequency: f64) {
-    nao.write(
+fn update_step(robot: &Arc<Robot>, step: Step, gait_frequency: f64) {
+    robot.write(
         "parameters.behavior.remote_control.walk",
         TextOrBinary::Text(serde_json::to_value(step).unwrap()),
     );
-    nao.write(
+    robot.write(
         "parameters.rl_walking.gait_frequency",
         TextOrBinary::Text(serde_json::to_value(gait_frequency).unwrap()),
     );
@@ -217,7 +217,7 @@ impl Widget for &mut RemotePanel {
         if ui.checkbox(&mut enabled, "Enabled (Start)").changed() {
             self.enabled.store(enabled, Ordering::Relaxed);
             if !enabled {
-                reset(&self.nao);
+                reset(&self.robot);
             }
         };
         ui.separator();

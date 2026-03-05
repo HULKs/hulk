@@ -18,10 +18,10 @@ pub struct FieldBorder {
 impl Overlay for FieldBorder {
     const NAME: &'static str = "Field Border";
 
-    fn new(nao: Arc<crate::nao::Nao>) -> Self {
+    fn new(robot: Arc<crate::robot::Robot>) -> Self {
         Self {
-            border_lines: nao.subscribe_value("Vision.main_outputs.field_border"),
-            candidates: nao.subscribe_value("Vision.additional_outputs.field_border_points"),
+            border_lines: robot.subscribe_value("Vision.main_outputs.field_border"),
+            candidates: robot.subscribe_value("Vision.additional_outputs.field_border_points"),
         }
     }
 

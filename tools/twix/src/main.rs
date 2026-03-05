@@ -34,25 +34,26 @@ use configuration::{
 };
 use hulk_widgets::CompletionEdit;
 use log::{error, warn};
-use nao::Nao;
 use panel::{Panel, PanelCreationContext};
 use panels::{
     BallCandidatePanel, BehaviorSimulatorPanel, EnumPlotPanel, ImageColorSelectPanel, ImagePanel,
     ImageSegmentsPanel, LookAtPanel, MapPanel, MujocoSimulatorPanel, ParameterPanel, PlotPanel,
     RemotePanel, SemiAutomaticCameraCalibrationPanel, TextPanel, VisionTunerPanel,
 };
-use reachable_naos::ReachableNaos;
+use reachable_robots::ReachableRobots;
 use repository::{inspect_version::check_for_update, Repository};
 use visuals::Visuals;
+
+use crate::robot::Robot;
 
 mod change_buffer;
 mod configuration;
 mod log_error;
-mod nao;
 mod panel;
 mod panels;
 mod players_buffer_handle;
-mod reachable_naos;
+mod reachable_robots;
+mod robot;
 mod selectable_panel_macro;
 mod twix_painter;
 mod value_buffer;
@@ -61,7 +62,7 @@ mod zoom_and_pan;
 
 #[derive(Debug, Parser)]
 struct Arguments {
-    /// Nao address to connect to (overrides the address saved in the configuration file)
+    /// robot address to connect to (overrides the address saved in the configuration file)
     pub address: Option<String>,
     /// Alternative repository root
     #[arg(long)]
@@ -173,10 +174,10 @@ impl_selectable_panel!(
 );
 
 struct TwixApp {
-    nao: Arc<Nao>,
+    robot: Arc<Robot>,
     possible_addresses: Vec<Ipv4Addr>,
     address: String,
-    reachable_naos: ReachableNaos,
+    reachable_robots: ReachableRobots,
     connection_intent: bool,
     panel_selection: String,
     last_focused_tab: (NodeIndex, TabIndex),
@@ -191,24 +192,24 @@ impl TwixApp {
         configuration: Configuration,
         repository: Option<Repository>,
     ) -> Self {
-        let nao_range = configuration.naos.lowest..=configuration.naos.highest;
+        let robot_range = configuration.robots.lowest..=configuration.robots.highest;
         let possible_addresses: Vec<_> = chain!(
             once(Ipv4Addr::LOCALHOST),
-            nao_range.clone().map(|id| Ipv4Addr::new(10, 0, 24, id)),
-            nao_range.map(|id| Ipv4Addr::new(10, 1, 24, id)),
+            robot_range.clone().map(|id| Ipv4Addr::new(10, 0, 24, id)),
+            robot_range.map(|id| Ipv4Addr::new(10, 1, 24, id)),
         )
         .collect();
         let address = arguments
             .address
             .and_then(|address| {
                 RobotAddress::from_str(&address)
-                    .map(|nao| nao.ip.to_string())
+                    .map(|robot| robot.ip.to_string())
                     .ok()
             })
             .or_else(|| creation_context.storage?.get_string("address"))
             .unwrap_or(Ipv4Addr::LOCALHOST.to_string());
 
-        let nao = Arc::new(Nao::new(
+        let robot = Arc::new(Robot::new(
             match address.split_once(":") {
                 None | Some((_, "")) => {
                     format!("ws://{address}:1337")
@@ -227,7 +228,7 @@ impl TwixApp {
             .unwrap_or(false);
 
         if connection_intent {
-            nao.connect();
+            robot.connect();
         }
 
         let dock_state: Option<DockState<Value>> = if arguments.clear {
@@ -242,7 +243,7 @@ impl TwixApp {
         let dock_state = match dock_state {
             Some(dock_state) => dock_state.map_tabs(|value| {
                 Tab::new(PanelCreationContext {
-                    nao: nao.clone(),
+                    robot: robot.clone(),
                     value: Some(value),
                     wgpu_state: creation_context
                         .wgpu_render_state
@@ -253,7 +254,7 @@ impl TwixApp {
             }),
             None => DockState::new(vec![SelectablePanel::TextPanel(TextPanel::new(
                 PanelCreationContext {
-                    nao: nao.clone(),
+                    robot: robot.clone(),
                     value: None,
                     wgpu_state: creation_context
                         .wgpu_render_state
@@ -270,8 +271,8 @@ impl TwixApp {
         keybind_plugin::register(&context);
         context.set_keybinds(Arc::new(configuration.keys));
 
-        let reachable_naos = ReachableNaos::new(context.clone());
-        nao.on_change(move || context.request_repaint());
+        let reachable_robots = ReachableRobots::new(context.clone());
+        robot.on_change(move || context.request_repaint());
 
         let visual = creation_context
             .storage
@@ -283,8 +284,8 @@ impl TwixApp {
         let panel_selection = "".to_string();
 
         Self {
-            nao,
-            reachable_naos,
+            robot,
+            reachable_robots,
             connection_intent,
             panel_selection,
             dock_state,
@@ -406,18 +407,18 @@ impl TwixApp {
 
 impl App for TwixApp {
     fn update(&mut self, context: &Context, frame: &mut Frame) {
-        self.reachable_naos.update();
+        self.reachable_robots.update();
 
         TopBottomPanel::top("top_bar").show(context, |ui| {
             ui.horizontal(|ui| {
                 ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
                     let address_input = CompletionEdit::new(
-                        ui.id().with("nao-selector"),
+                        ui.id().with("robot-selector"),
                         &self.possible_addresses,
                         &mut self.address,
                     )
                     .ui(ui, |ui, selected, ip| {
-                        let show_green = self.reachable_naos.is_reachable(*ip);
+                        let show_green = self.reachable_robots.is_reachable(*ip);
                         let color = if show_green {
                             Color32::GREEN
                         } else {
@@ -427,7 +428,7 @@ impl App for TwixApp {
                     });
 
                     if address_input.gained_focus() {
-                        self.reachable_naos.query_reachability();
+                        self.reachable_robots.query_reachability();
                     }
                     if context.keybind_pressed(KeybindAction::FocusAddress) {
                         address_input.request_focus();
@@ -436,16 +437,16 @@ impl App for TwixApp {
                         match &self.address.split_once(":") {
                             None | Some((_, "")) => {
                                 let address = &self.address;
-                                self.nao.set_address(format!("ws://{address}:1337"));
+                                self.robot.set_address(format!("ws://{address}:1337"));
                             }
                             Some((ip, port)) => {
-                                self.nao.set_address(format!("ws://{ip}:{port}"));
+                                self.robot.set_address(format!("ws://{ip}:{port}"));
                             }
                         }
                         self.connection_intent = true;
-                        self.nao.connect();
+                        self.robot.connect();
                     }
-                    let (connect_text, color) = match self.nao.connection_status() {
+                    let (connect_text, color) = match self.robot.connection_status() {
                         Status::Disconnected => ("Disconnected", Color32::RED),
                         Status::Connecting => ("Connecting", Color32::YELLOW),
                         Status::Connected => ("Connected", Color32::GREEN),
@@ -456,15 +457,15 @@ impl App for TwixApp {
                         .changed()
                     {
                         if self.connection_intent {
-                            self.nao.connect();
+                            self.robot.connect();
                         } else {
-                            self.nao.disconnect();
+                            self.robot.disconnect();
                         }
                     }
                     if context.keybind_pressed(KeybindAction::Reconnect) {
-                        self.nao.disconnect();
+                        self.robot.disconnect();
                         self.connection_intent = true;
-                        self.nao.connect();
+                        self.robot.connect();
                     }
 
                     if self.active_tab_index() != Some(self.last_focused_tab) {
@@ -492,7 +493,7 @@ impl App for TwixApp {
                         match SelectablePanel::try_from_name(
                             &self.panel_selection,
                             PanelCreationContext {
-                                nao: self.nao.clone(),
+                                robot: self.robot.clone(),
                                 value: None,
                                 wgpu_state: frame
                                     .wgpu_render_state()
@@ -529,7 +530,7 @@ impl App for TwixApp {
         CentralPanel::default().show(context, |ui| {
             if context.keybind_pressed(KeybindAction::OpenSplit) {
                 let tab = SelectablePanel::TextPanel(TextPanel::new(PanelCreationContext {
-                    nao: self.nao.clone(),
+                    robot: self.robot.clone(),
                     value: None,
                     wgpu_state: frame
                         .wgpu_render_state()
@@ -559,7 +560,7 @@ impl App for TwixApp {
             }
             if context.keybind_pressed(KeybindAction::OpenTab) {
                 let tab = SelectablePanel::TextPanel(TextPanel::new(PanelCreationContext {
-                    nao: self.nao.clone(),
+                    robot: self.robot.clone(),
                     value: None,
                     wgpu_state: frame
                         .wgpu_render_state()
@@ -596,7 +597,7 @@ impl App for TwixApp {
                     let new_tab = tab.save();
                     self.dock_state.push_to_focused_leaf(Tab::from(
                         SelectablePanel::new(PanelCreationContext {
-                            nao: self.nao.clone(),
+                            robot: self.robot.clone(),
                             value: Some(&new_tab),
                             wgpu_state: frame
                                 .wgpu_render_state()
@@ -629,7 +630,7 @@ impl App for TwixApp {
             if context.keybind_pressed(KeybindAction::CloseAll) {
                 self.dock_state = DockState::new(vec![SelectablePanel::TextPanel(TextPanel::new(
                     PanelCreationContext {
-                        nao: self.nao.clone(),
+                        robot: self.robot.clone(),
                         value: None,
                         wgpu_state: frame
                             .wgpu_render_state()
@@ -654,7 +655,7 @@ impl App for TwixApp {
 
             for (surface_index, node_id) in tab_viewer.nodes_to_add_tabs_to {
                 let tab = SelectablePanel::TextPanel(TextPanel::new(PanelCreationContext {
-                    nao: self.nao.clone(),
+                    robot: self.robot.clone(),
                     value: None,
                     wgpu_state: frame
                         .wgpu_render_state()

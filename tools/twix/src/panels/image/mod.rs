@@ -18,8 +18,8 @@ use serde_json::{json, Value};
 use types::jpeg::JpegImage;
 
 use crate::{
-    nao::Nao,
     panel::{Panel, PanelCreationContext},
+    robot::Robot,
     twix_painter::{Orientation, TwixPainter},
     value_buffer::BufferHandle,
     zoom_and_pan::ZoomAndPanTransform,
@@ -36,7 +36,7 @@ enum RawOrJpeg {
 }
 
 pub struct ImagePanel {
-    nao: Arc<Nao>,
+    robot: Arc<Robot>,
     image_buffer: RawOrJpeg,
     overlays: Overlays,
     zoom_and_pan: ZoomAndPanTransform,
@@ -45,12 +45,12 @@ pub struct ImagePanel {
     current_image_label: String,
 }
 
-fn subscribe_image(nao: &Arc<Nao>, is_jpeg: bool, image_path: &str) -> RawOrJpeg {
+fn subscribe_image(robot: &Arc<Robot>, is_jpeg: bool, image_path: &str) -> RawOrJpeg {
     if is_jpeg {
         let path = format!("{image_path}.jpeg");
-        return RawOrJpeg::Jpeg(nao.subscribe_value(path));
+        return RawOrJpeg::Jpeg(robot.subscribe_value(path));
     }
-    RawOrJpeg::Raw(nao.subscribe_value(image_path.to_string()))
+    RawOrJpeg::Raw(robot.subscribe_value(image_path.to_string()))
 }
 
 impl<'a> Panel<'a> for ImagePanel {
@@ -66,14 +66,14 @@ impl<'a> Panel<'a> for ImagePanel {
         let default_image_path = "ObjectDetection.main_outputs.image_left_raw".to_string();
         let default_image_label = "Image Left Raw".to_string();
 
-        let image_buffer = subscribe_image(&context.nao, is_jpeg, &default_image_path);
+        let image_buffer = subscribe_image(&context.robot, is_jpeg, &default_image_path);
 
         let overlays = Overlays::new(
-            context.nao.clone(),
+            context.robot.clone(),
             context.value.and_then(|value| value.get("overlays")),
         );
         Self {
-            nao: context.nao,
+            robot: context.robot,
             image_buffer,
             overlays,
             zoom_and_pan: ZoomAndPanTransform::default(),
@@ -216,7 +216,7 @@ impl Widget for &mut ImagePanel {
 
 impl ImagePanel {
     fn resubscribe(&mut self, jpeg: bool) {
-        self.image_buffer = subscribe_image(&self.nao, jpeg, &self.current_image_path);
+        self.image_buffer = subscribe_image(&self.robot, jpeg, &self.current_image_path);
     }
 
     fn load_latest_texture(&self, context: &Context) -> Result<(TextureId, (u32, u32))> {

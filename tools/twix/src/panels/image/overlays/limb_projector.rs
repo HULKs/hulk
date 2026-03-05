@@ -14,9 +14,9 @@ pub struct LimbProjector {
 impl Overlay for LimbProjector {
     const NAME: &'static str = "Projected Limbs";
 
-    fn new(nao: std::sync::Arc<crate::nao::Nao>) -> Self {
+    fn new(robot: std::sync::Arc<crate::robot::Robot>) -> Self {
         Self {
-            projected_limbs: nao.subscribe_value("Vision.main_outputs.projected_limbs"),
+            projected_limbs: robot.subscribe_value("Vision.main_outputs.projected_limbs"),
         }
     }
 

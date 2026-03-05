@@ -19,13 +19,13 @@ pub struct BallDetection {
 impl Overlay for BallDetection {
     const NAME: &'static str = "Ball Detection";
 
-    fn new(nao: std::sync::Arc<crate::nao::Nao>) -> Self {
+    fn new(robot: std::sync::Arc<crate::robot::Robot>) -> Self {
         Self {
-            balls: nao.subscribe_value("Vision.main_outputs.balls"),
-            filtered_balls: nao
+            balls: robot.subscribe_value("Vision.main_outputs.balls"),
+            filtered_balls: robot
                 .subscribe_value("Control.additional_outputs.filtered_balls_in_image"),
-            ball_candidates: nao.subscribe_value("Vision.additional_outputs.ball_candidates"),
-            ball_radius_enlargement_factor: nao
+            ball_candidates: robot.subscribe_value("Vision.additional_outputs.ball_candidates"),
+            ball_radius_enlargement_factor: robot
                 .subscribe_value("parameters.ball_detection.vision.ball_radius_enlargement_factor"),
         }
     }

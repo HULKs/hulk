@@ -7,7 +7,7 @@ use linear_algebra::point;
 use types::perspective_grid_candidates::Row;
 
 use crate::{
-    nao::Nao, panels::image::overlay::Overlay, twix_painter::TwixPainter,
+    panels::image::overlay::Overlay, robot::Robot, twix_painter::TwixPainter,
     value_buffer::BufferHandle,
 };
 
@@ -18,9 +18,9 @@ pub struct PerspectiveGrid {
 impl Overlay for PerspectiveGrid {
     const NAME: &'static str = "Perspective Grid";
 
-    fn new(nao: Arc<Nao>) -> Self {
+    fn new(robot: Arc<Robot>) -> Self {
         Self {
-            perspective_grid: nao
+            perspective_grid: robot
                 .subscribe_value("Vision.additional_outputs.perspective_grid_ball_sizes"),
         }
     }

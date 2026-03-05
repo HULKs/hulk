@@ -27,12 +27,12 @@ fn config_path() -> PathBuf {
 #[derive(Debug, Deserialize)]
 pub struct Configuration {
     pub keys: keys::Keybinds,
-    pub naos: NaoConfig,
+    pub robots: RobotConfig,
 }
 
 #[cfg_attr(test, derive(PartialEq))]
 #[derive(Debug, Deserialize)]
-pub struct NaoConfig {
+pub struct RobotConfig {
     pub lowest: u8,
     pub highest: u8,
 }
@@ -113,7 +113,7 @@ mod tests {
                 C-a = "focus_left"
                 C-S-a = "reconnect"
 
-                [naos]
+                [robots]
                 lowest = 1
                 highest = 2
             "#,
@@ -126,7 +126,7 @@ mod tests {
                 C-b = "focus_left"
                 C-A = "focus_right"
 
-                [naos]
+                [robots]
                 lowest = 3
                 highest = 4
             "#,
@@ -145,7 +145,7 @@ mod tests {
                     C-A = "focus_right"
                     C-b = "focus_left"
 
-                    [naos]
+                    [robots]
                     lowest = 3
                     highest = 4
                 "#
@@ -162,7 +162,7 @@ mod tests {
                 C-a = "focus_left"
                 C-S-a = "reconnect"
 
-                [naos]
+                [robots]
                 lowest = 1
                 highest = 2
             "#,
@@ -187,7 +187,7 @@ mod tests {
                     C-a = "focus_right"
                     C-S-a = "reconnect"
 
-                    [naos]
+                    [robots]
                     lowest = 1
                     highest = 2
                 "#,

@@ -8,11 +8,11 @@ use serde_json::{json, Value};
 
 use types::field_dimensions::FieldDimensions;
 
-use crate::{nao::Nao, twix_painter::TwixPainter};
+use crate::{robot::Robot, twix_painter::TwixPainter};
 
 pub trait Layer<Frame> {
     const NAME: &'static str;
-    fn new(nao: Arc<Nao>) -> Self;
+    fn new(robot: Arc<Robot>) -> Self;
     fn paint(&self, painter: &TwixPainter<Frame>, field_dimensions: &FieldDimensions)
         -> Result<()>;
 }
@@ -21,7 +21,7 @@ pub struct EnabledLayer<T, Frame>
 where
     T: Layer<Frame>,
 {
-    nao: Arc<Nao>,
+    robot: Arc<Robot>,
     layer: Option<T>,
     frame: PhantomData<Frame>,
 }
@@ -30,15 +30,15 @@ impl<T, Frame> EnabledLayer<T, Frame>
 where
     T: Layer<Frame>,
 {
-    pub fn new(nao: Arc<Nao>, value: Option<&Value>, active: bool) -> Self {
+    pub fn new(robot: Arc<Robot>, value: Option<&Value>, active: bool) -> Self {
         let active = value
             .and_then(|value| value.get(T::NAME.to_case(Case::Snake)))
             .and_then(|value| value.get("active"))
             .and_then(|value| value.as_bool())
             .unwrap_or(active);
-        let layer = active.then(|| T::new(nao.clone()));
+        let layer = active.then(|| T::new(robot.clone()));
         Self {
-            nao,
+            robot,
             layer,
             frame: PhantomData,
         }
@@ -48,7 +48,7 @@ where
         let mut active = self.layer.is_some();
         if ui.checkbox(&mut active, T::NAME).changed() {
             match self.layer.is_some() {
-                false => self.layer = Some(T::new(self.nao.clone())),
+                false => self.layer = Some(T::new(self.robot.clone())),
                 true => self.layer = None,
             }
         }

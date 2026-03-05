@@ -8,7 +8,7 @@ use serde_json::{json, Value};
 
 use coordinate_systems::Pixel;
 
-use crate::{nao::Nao, panels::image::overlays::ObjectDetection, twix_painter::TwixPainter};
+use crate::{panels::image::overlays::ObjectDetection, robot::Robot, twix_painter::TwixPainter};
 
 use super::overlays::{
     BallDetection, FeetDetection, FieldBorder, FieldLines, Horizon, LimbProjector, LineDetection,
@@ -17,7 +17,7 @@ use super::overlays::{
 
 pub trait Overlay {
     const NAME: &'static str;
-    fn new(nao: Arc<Nao>) -> Self;
+    fn new(robot: Arc<Robot>) -> Self;
     fn paint(&self, painter: &TwixPainter<Pixel>) -> Result<()>;
     fn config_ui(&mut self, _ui: &mut Ui) {}
 }
@@ -26,7 +26,7 @@ pub struct EnabledOverlay<T>
 where
     T: Overlay,
 {
-    nao: Arc<Nao>,
+    robot: Arc<Robot>,
     overlay: Option<T>,
 }
 
@@ -34,21 +34,21 @@ impl<T> EnabledOverlay<T>
 where
     T: Overlay,
 {
-    pub fn new(nao: Arc<Nao>, value: Option<&Value>, active: bool) -> Self {
+    pub fn new(robot: Arc<Robot>, value: Option<&Value>, active: bool) -> Self {
         let active = value
             .and_then(|value| value.get(T::NAME.to_case(convert_case::Case::Snake)))
             .and_then(|value| value.get("active"))
             .and_then(|value| value.as_bool())
             .unwrap_or(active);
-        let overlay = active.then(|| T::new(nao.clone()));
-        Self { nao, overlay }
+        let overlay = active.then(|| T::new(robot.clone()));
+        Self { robot, overlay }
     }
 
     pub fn checkbox(&mut self, ui: &mut Ui) {
         let mut active = self.overlay.is_some();
         if ui.checkbox(&mut active, T::NAME).changed() {
             match self.overlay.is_some() {
-                false => self.overlay = Some(T::new(self.nao.clone())),
+                false => self.overlay = Some(T::new(self.robot.clone())),
                 true => self.overlay = None,
             }
         }
@@ -84,16 +84,16 @@ pub struct Overlays {
 }
 
 impl Overlays {
-    pub fn new(nao: Arc<Nao>, storage: Option<&Value>) -> Self {
-        let line_detection = EnabledOverlay::new(nao.clone(), storage, false);
-        let ball_detection = EnabledOverlay::new(nao.clone(), storage, false);
-        let perspective_grid = EnabledOverlay::new(nao.clone(), storage, false);
-        let horizon = EnabledOverlay::new(nao.clone(), storage, false);
-        let penalty_boxes = EnabledOverlay::new(nao.clone(), storage, false);
-        let feet_detection = EnabledOverlay::new(nao.clone(), storage, false);
-        let field_border = EnabledOverlay::new(nao.clone(), storage, false);
-        let limb_projector = EnabledOverlay::new(nao.clone(), storage, false);
-        let object_detection = EnabledOverlay::new(nao.clone(), storage, false);
+    pub fn new(robot: Arc<Robot>, storage: Option<&Value>) -> Self {
+        let line_detection = EnabledOverlay::new(robot.clone(), storage, false);
+        let ball_detection = EnabledOverlay::new(robot.clone(), storage, false);
+        let perspective_grid = EnabledOverlay::new(robot.clone(), storage, false);
+        let horizon = EnabledOverlay::new(robot.clone(), storage, false);
+        let penalty_boxes = EnabledOverlay::new(robot.clone(), storage, false);
+        let feet_detection = EnabledOverlay::new(robot.clone(), storage, false);
+        let field_border = EnabledOverlay::new(robot.clone(), storage, false);
+        let limb_projector = EnabledOverlay::new(robot.clone(), storage, false);
+        let object_detection = EnabledOverlay::new(robot.clone(), storage, false);
 
         Self {
             line_detection,

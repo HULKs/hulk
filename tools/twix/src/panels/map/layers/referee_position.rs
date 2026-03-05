@@ -6,7 +6,7 @@ use eframe::egui::{Color32, Stroke};
 use linear_algebra::Point2;
 
 use crate::{
-    nao::Nao, panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::BufferHandle,
+    panels::map::layer::Layer, robot::Robot, twix_painter::TwixPainter, value_buffer::BufferHandle,
 };
 
 pub struct RefereePosition {
@@ -17,11 +17,11 @@ pub struct RefereePosition {
 impl Layer<Field> for RefereePosition {
     const NAME: &'static str = "Referee Position";
 
-    fn new(nao: Arc<Nao>) -> Self {
+    fn new(robot: Arc<Robot>) -> Self {
         let expected_referee_position =
-            nao.subscribe_value("Control.main_outputs.expected_referee_position");
+            robot.subscribe_value("Control.main_outputs.expected_referee_position");
         let maximum_distance_to_referee_position =
-            nao.subscribe_value("parameters.pose_detection.maximum_distance_to_referee_position");
+            robot.subscribe_value("parameters.pose_detection.maximum_distance_to_referee_position");
         Self {
             expected_referee_position,
             maximum_distance_to_referee_position,

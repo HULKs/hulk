@@ -22,8 +22,8 @@ use hulk_widgets::{PathFilter, RobotPathCompletionEdit};
 
 use crate::{
     change_buffer::{Change, ChangeBufferHandle},
-    nao::Nao,
     panel::{Panel, PanelCreationContext},
+    robot::Robot,
 };
 
 fn color_hash(value: impl Hash) -> Color32 {
@@ -158,20 +158,20 @@ struct SegmentRow {
 }
 
 impl SegmentRow {
-    fn subscribe(&mut self, nao: Arc<Nao>) {
-        self.buffer = Some(nao.subscribe_changes_json(&self.path));
+    fn subscribe(&mut self, robot: Arc<Robot>) {
+        self.buffer = Some(robot.subscribe_changes_json(&self.path));
     }
 
-    fn show_settings(&mut self, ui: &mut Ui, nao: Arc<Nao>) {
+    fn show_settings(&mut self, ui: &mut Ui, robot: Arc<Robot>) {
         let subscription_field = ui.add(RobotPathCompletionEdit::new(
             ui.auto_id_with("enum-plot"),
-            nao.latest_paths(),
+            robot.latest_paths(),
             &mut self.path,
             PathFilter::Readable,
         ));
 
         if subscription_field.changed() {
-            self.subscribe(nao);
+            self.subscribe(robot);
         }
     }
 
@@ -206,7 +206,7 @@ impl SegmentRow {
 }
 
 pub struct EnumPlotPanel {
-    nao: Arc<Nao>,
+    robot: Arc<Robot>,
     segment_rows: Vec<SegmentRow>,
     x_range: Rangef,
     viewport_mode: ViewportMode,
@@ -230,14 +230,14 @@ impl<'a> Panel<'a> for EnumPlotPanel {
                     path: String::from(output_key),
                     ..Default::default()
                 };
-                result.subscribe(context.nao.clone());
+                result.subscribe(context.robot.clone());
 
                 result
             })
             .collect();
 
         Self {
-            nao: context.nao,
+            robot: context.robot,
             segment_rows,
             x_range: Rangef::new(-3.0, 0.0),
             viewport_mode: ViewportMode::Follow,
@@ -437,7 +437,7 @@ impl Widget for &mut EnumPlotPanel {
                         Button::new(RichText::new("❌").color(Color32::WHITE).strong())
                             .fill(Color32::RED),
                     );
-                    segment_data.show_settings(ui, self.nao.clone());
+                    segment_data.show_settings(ui, self.robot.clone());
                     !delete_button.clicked()
                 })
                 .inner
