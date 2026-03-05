@@ -7,15 +7,14 @@ use crate::Repository;
 #[derive(Serialize, Deserialize)]
 pub struct Team {
     pub team_number: u8,
-    pub robots: Vec<Nao>,
+    pub robots: Vec<Robot>,
 }
 
 #[derive(Serialize, Deserialize)]
-pub struct Nao {
+pub struct Robot {
     pub number: u8,
     pub hostname: String,
-    pub body_id: String,
-    pub head_id: String,
+    pub id: String,
 }
 
 impl Repository {

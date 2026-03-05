@@ -11,10 +11,10 @@ use color_eyre::{
 
 use argument_parsers::RobotAddress;
 use indicatif::ProgressBar;
-use repository::Repository;
+use repository::{team::Team, Repository};
 use robot::Robot;
 use tokio::{
-    io::{AsyncBufReadExt, AsyncReadExt, BufReader},
+    io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader},
     process::Command,
     sync::watch,
 };
@@ -43,12 +43,14 @@ pub struct Arguments {
     image_file: Option<PathBuf>,
 }
 
+static PACKAGES: [&str; 2] = ["zenoh-bridge-ros2dds", "podman"];
+
+const WIFI_PASSWORD: &str = "Nao?!Nao?!";
+
 static ADD_APT_ROS2DDS_ZENOH_BRIDGE_SOURCES: &str = "
 curl -L https://download.eclipse.org/zenoh/debian-repo/zenoh-public-key | sudo gpg --dearmor --yes --output /etc/apt/keyrings/zenoh-public-key.gpg
 grep \"https://download.eclipse.org/zenoh/debian-repo/\" /etc/apt/sources.list || echo \"deb [signed-by=/etc/apt/keyrings/zenoh-public-key.gpg] https://download.eclipse.org/zenoh/debian-repo/ /\" | sudo tee -a /etc/apt/sources.list > /dev/null
 ";
-
-static PACKAGES: [&str; 2] = ["zenoh-bridge-ros2dds", "podman"];
 
 pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<()> {
     let setup_path = &repository.root.join("tools/k1-setup");
@@ -61,6 +63,8 @@ pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<(
         progress.task("Building zenoh bridge".to_owned()),
     ));
 
+    let team = repository.read_team_configuration().await?;
+
     progress
         .map_tasks(
             arguments.robots,
@@ -72,6 +76,7 @@ pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<(
                     &arguments.password,
                     arguments.image_file.as_deref(),
                     repository,
+                    &team,
                     setup_path,
                     zenoh_bridge_status.clone(),
                 )
@@ -84,16 +89,45 @@ pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<(
     Ok(())
 }
 
+#[allow(clippy::too_many_arguments)]
 async fn gammaray_robot(
     robot: RobotAddress,
     progress_bar: ProgressBar,
     password: &str,
     image_file: Option<&Path>,
     repository: &Repository,
+    team: &Team,
     setup: &Path,
     mut zenoh_bridge_status: watch::Receiver<Option<bool>>,
 ) -> Result<()> {
     let robot = Robot::try_new_with_ping(robot.ip).await?;
+
+    progress_bar.set_message("getting robot ID");
+    let output = robot
+        .ssh_to_robot()?
+        // jetson_release always outputs control chars to color the left side.
+        // The first grep gets rid of unwanted lines, the second matches only
+        // the digits of the serial number, ignoring the control characters.
+        .arg("jetson_release -s | grep 'Serial Number:' | grep '[0-9]*$' -o")
+        .output()
+        .await?;
+    let id = String::from_utf8(output.stdout).unwrap();
+    let id = id.trim();
+    let Some(team_robot) = team.robots.iter().find(|robot| robot.id == id) else {
+        bail!(r#"ID "{id}" not found in team.toml"#);
+    };
+    progress_bar.set_prefix(format!("[{robot} {}]", team_robot.hostname));
+    robot
+        .ssh_to_robot()?
+        .arg(format!(
+            "echo {} | sudo tee /etc/hostname > /dev/null",
+            team_robot.hostname
+        ))
+        .ssh_with_log("setting hostname", &progress_bar)
+        .await?;
+
+    set_up_static_ips(&robot, team_robot, team.team_number, &progress_bar).await?;
+    set_up_wifi(&robot, team_robot, team.team_number, &progress_bar).await?;
 
     robot
         .ssh_to_robot()?
@@ -200,6 +234,69 @@ async fn gammaray_robot(
     Ok(())
 }
 
+async fn set_up_static_ips(
+    robot: &Robot,
+    team_robot: &repository::team::Robot,
+    team_number: u8,
+    progress_bar: &ProgressBar,
+) -> Result<()> {
+    let ethernet_ip = format!("10.1.{}.{}", team_number, team_robot.number);
+    const CONNECTION_NAME: &str = "Wired connection 2";
+    const INTERFACE: &str = "enP9p1s0";
+
+    robot.ssh_to_robot()?.arg(format!(
+        // Set the new IP but preserve the 192.168.10.102 which is necessary for services on the
+        // robot to work
+        r#"sudo nmcli connection modify "{CONNECTION_NAME}" ipv4.addresses "{ethernet_ip}/24, 192.168.10.102/24""#,
+    )).ssh_with_log("setting static IP", progress_bar).await?;
+
+    robot
+        .ssh_to_robot()?
+        // Unlike up/down-ing the connection, reapply doesn't break existing connections
+        .arg(format!("sudo nmcli device reapply {INTERFACE}"))
+        .ssh_with_log("applying network configuration", progress_bar)
+        .await
+}
+
+async fn set_up_wifi(
+    robot: &Robot,
+    team_robot: &repository::team::Robot,
+    team_number: u8,
+    progress_bar: &ProgressBar,
+) -> Result<()> {
+    for prefix in ["A", "B", "C", "HULKs"] {
+        let ssid = format!("HSL_{prefix}");
+        let mut command = robot.ssh_to_robot()?;
+        command.arg(format!(
+            "sudo tee /etc/NetworkManager/system-connections/{ssid}.nmconnection > /dev/null \
+             && sudo chmod 0600 /etc/NetworkManager/system-connections/{ssid}.nmconnection"
+        ));
+        command.stdout(Stdio::piped());
+        command.stderr(Stdio::piped());
+        command.stdin(Stdio::piped());
+        let mut child = command.spawn()?;
+        let content =
+            generate_nmconnection_file(&ssid, WIFI_PASSWORD, team_number, team_robot.number);
+        child
+            .stdin
+            .take()
+            .expect("child had no stdin")
+            .write_all(content.as_bytes())
+            .await?;
+        fail_on_non_zero_exit_code(child)
+            .await
+            .wrap_err_with(|| format!("failed to create NetworkManager config for {ssid}"))?;
+    }
+
+    robot
+        .ssh_to_robot()?
+        .arg("sudo systemctl restart NetworkManager")
+        .ssh_with_log("restarting NetworkManager", progress_bar)
+        .await?;
+
+    Ok(())
+}
+
 trait CommandExt {
     async fn ssh_with_log(&mut self, prefix: &str, progress_bar: &ProgressBar) -> Result<()>;
 
@@ -240,25 +337,28 @@ impl CommandExt for Command {
             }
         }
 
-        let maybe_code = process
-            .wait()
+        fail_on_non_zero_exit_code(process)
             .await
-            .wrap_err_with(|| format!("failed at {name}"))?
-            .code();
-        match maybe_code {
-            Some(0) => Ok(()),
-            None => bail!("process was killed"),
-            Some(code) => {
-                let mut stderr = String::new();
-                process
-                    .stderr
-                    .take()
-                    .unwrap()
-                    .read_to_string(&mut stderr)
-                    .await?;
-                Err(eyre!("process exited with error code {code}\n{stderr}"))
-                    .wrap_err_with(|| format!("failed at {name}"))
-            }
+            .wrap_err_with(|| format!("failed at {name}"))
+    }
+}
+
+async fn fail_on_non_zero_exit_code(
+    mut process: tokio::process::Child,
+) -> std::result::Result<(), color_eyre::eyre::Error> {
+    let maybe_code = process.wait().await?.code();
+    match maybe_code {
+        Some(0) => Ok(()),
+        None => bail!("process was killed"),
+        Some(code) => {
+            let mut stderr = String::new();
+            process
+                .stderr
+                .take()
+                .unwrap()
+                .read_to_string(&mut stderr)
+                .await?;
+            Err(eyre!("process exited with error code {code}\n{stderr}"))
         }
     }
 }
@@ -309,4 +409,40 @@ async fn build_bridge(
     zenoh_bridge_status_sender.send(Some(true)).unwrap();
 
     Ok(())
+}
+
+fn generate_nmconnection_file(
+    ssid: &str,
+    password: &str,
+    team_number: u8,
+    robot_number: u8,
+) -> String {
+    let uuid = uuid::Uuid::new_v4();
+    format!(
+        "[connection]
+id={ssid}
+uuid={uuid}
+type=wifi
+autoconnect=false
+interface-name=wlP1p1s0
+
+[wifi]
+mode=infrastructure
+ssid={ssid}
+
+[wifi-security]
+auth-alg=open
+key-mgmt=wpa-psk
+psk={password}
+
+[ipv4]
+address1=10.0.{team_number}.{robot_number}/24
+method=manual
+
+[ipv6]
+method=disabled
+
+[proxy]
+"
+    )
 }
