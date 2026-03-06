@@ -161,7 +161,7 @@ impl SemiAutomaticCalibrationContext {
             return self.apply_corrections(*corrections, |path, value| {
                 let parameter_path = path.strip_prefix("parameters.").wrap_err("invalid path")?;
                 self.robot
-                    .store_parameters(parameter_path, value, Scope::default_head())
+                    .store_parameters(parameter_path, value, Scope::default_robot())
             });
         }
         bail!("optimization is not done yet")

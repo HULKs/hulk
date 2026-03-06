@@ -66,8 +66,7 @@ pub fn replayer() -> Result<()> {
 
     let hardware_interface = ReplayerHardwareInterface {
         ids: Ids {
-            body_id: "replayer".to_string(),
-            head_id: "replayer".to_string(),
+            robot_id: "replayer".to_string(),
         },
     };
 

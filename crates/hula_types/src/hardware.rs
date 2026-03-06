@@ -6,8 +6,7 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 #[derive(Clone, Debug, Serialize, PathSerialize, Deserialize, PathDeserialize, PathIntrospect)]
 pub struct Ids {
-    pub body_id: String,
-    pub head_id: String,
+    pub robot_id: String,
 }
 
 #[derive(Clone, Debug, Deserialize)]

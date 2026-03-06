@@ -104,8 +104,7 @@ async fn main() -> Result<()> {
         framework_parameters.parameters_directory,
         "logs",
         Ids {
-            body_id: "K1_BODY".to_string(),
-            head_id: "K1_HEAD".to_string(),
+            robot_id: "mujoco".to_string(),
         },
         keep_running,
         framework_parameters.recording_intervals,

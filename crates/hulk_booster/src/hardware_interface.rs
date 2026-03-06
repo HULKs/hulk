@@ -17,7 +17,7 @@ use hsl_network::endpoint::{Endpoint, Ports};
 use hula_types::hardware::{Ids, Paths};
 use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
 use serde::{Deserialize, Serialize};
-use tokio::runtime::Handle;
+use tokio::{process::Command, runtime::Handle};
 use tokio_util::sync::CancellationToken;
 use types::{
     audio::SpeakerRequest,
@@ -84,6 +84,7 @@ pub struct Parameters {
 }
 
 pub struct BoosterHardwareInterface {
+    ids: Ids,
     paths: Paths,
     enable_recording: AtomicBool,
 
@@ -116,7 +117,20 @@ impl BoosterHardwareInterface {
 
         let topic_infos = TopicInfos::default();
 
+        let output = Command::new("sh")
+            .args([
+                "-c",
+                "jetson_release -s | grep 'Serial Number:' | grep '[0-9]*$' -o",
+            ])
+            .output()
+            .await
+            .wrap_err("failed to get hardware id")?;
+        let ids = Ids {
+            robot_id: String::from_utf8(output.stdout).wrap_err("id was not valid UTF-8")?,
+        };
+
         Ok(Self {
+            ids,
             paths: parameters.paths,
             enable_recording: AtomicBool::new(false),
 
@@ -315,11 +329,7 @@ impl SpeakerInterface for BoosterHardwareInterface {
 
 impl IdInterface for BoosterHardwareInterface {
     fn get_ids(&self) -> Ids {
-        let name = "Booster K1";
-        Ids {
-            body_id: name.to_string(),
-            head_id: name.to_string(),
-        }
+        self.ids.clone()
     }
 }
 

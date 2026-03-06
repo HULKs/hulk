@@ -389,10 +389,9 @@ impl SpeakerInterface for MujocoHardwareInterface {
 
 impl IdInterface for MujocoHardwareInterface {
     fn get_ids(&self) -> Ids {
-        let name = "Booster K1";
+        let name = "mujoco";
         Ids {
-            body_id: name.to_string(),
-            head_id: name.to_string(),
+            robot_id: name.to_string(),
         }
     }
 }

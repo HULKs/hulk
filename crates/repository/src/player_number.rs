@@ -11,7 +11,7 @@ use crate::Repository;
 impl Repository {
     pub async fn configure_player_number(
         &self,
-        head_id: &str,
+        robot_id: &str,
         player_number: PlayerNumber,
     ) -> Result<()> {
         let parameters_root = self.root.join("etc/parameters/");
@@ -24,13 +24,12 @@ impl Repository {
             &parameters,
             Scope {
                 location: Location::All,
-                id: Id::Head,
+                id: Id::Robot,
             },
             path,
             parameters_root,
             &Ids {
-                body_id: "unknown_body_id".to_string(),
-                head_id: head_id.to_string(),
+                robot_id: robot_id.to_string(),
             },
         )
         .wrap_err("failed to serialize parameters directory")?;

@@ -83,26 +83,6 @@ impl Widget for &mut ParameterPanel {
                             ),
                         }
                     }
-                    if ui.button("Save to Head").clicked() {
-                        let serialized =
-                            serde_json::from_str::<Value>(self.parameter_value.as_ref().unwrap());
-                        match serialized {
-                            Ok(value) => {
-                                self.robot
-                                    .store_parameters(
-                                        local_parameter_path.expect(
-                                            "parameter path should start with 'parameters.'",
-                                        ),
-                                        value,
-                                        Scope::current_head(),
-                                    )
-                                    .log_err();
-                            }
-                            Err(error) => error!(
-                                "parameter panel: failed to serialize parameter value: {error:#?}"
-                            ),
-                        }
-                    }
                     if ui.button("Save to Body").clicked() {
                         let serialized =
                             serde_json::from_str::<Value>(self.parameter_value.as_ref().unwrap());
@@ -114,7 +94,7 @@ impl Widget for &mut ParameterPanel {
                                             "parameter path should start with 'parameters.'",
                                         ),
                                         value,
-                                        Scope::current_body(),
+                                        Scope::current_robot(),
                                     )
                                     .log_err();
                             }

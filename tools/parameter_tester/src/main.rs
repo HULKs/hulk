@@ -30,8 +30,7 @@ fn main() -> Result<()> {
         from_reader(file).wrap_err("failed to parse framework parameters")?;
 
     let ids = Ids {
-        body_id: String::new(),
-        head_id: String::new(),
+        robot_id: String::new(),
     };
     let _robotics_parameters: structs::Parameters =
         deserialize(framework_parameters.parameters_directory, &ids, false)?;

@@ -28,8 +28,10 @@ where
         self.inner.is_some() == other.inner.is_some()
             && LineSegment::abs_diff_eq(&other.outer.0, &self.outer.0, epsilon)
             && LineSegment::abs_diff_eq(&other.outer.1, &self.outer.1, epsilon)
-            && if self.inner.is_some() && other.inner.is_some() {
-                LineSegment::abs_diff_eq(&other.inner.unwrap().0, &self.inner.unwrap().0, epsilon)
+            && if let Some(self_inner) = self.inner
+                && let Some(other_inner) = other.inner
+            {
+                LineSegment::abs_diff_eq(&other_inner.0, &self_inner.0, epsilon)
                     && LineSegment::abs_diff_eq(
                         &other.inner.unwrap().1,
                         &self.inner.unwrap().1,
@@ -58,18 +60,16 @@ where
         self.inner.is_some() == other.inner.is_some()
             && LineSegment::relative_eq(&other.outer.0, &self.outer.0, epsilon, max_relative)
             && LineSegment::relative_eq(&other.outer.1, &self.outer.1, epsilon, max_relative)
-            && if self.inner.is_some() && other.inner.is_some() {
-                LineSegment::relative_eq(
-                    &other.inner.unwrap().0,
-                    &self.inner.unwrap().0,
-                    epsilon,
-                    max_relative,
-                ) && LineSegment::relative_eq(
-                    &other.inner.unwrap().1,
-                    &self.inner.unwrap().1,
-                    epsilon,
-                    max_relative,
-                )
+            && if let Some(self_inner) = self.inner
+                && let Some(other_inner) = other.inner
+            {
+                LineSegment::relative_eq(&other_inner.0, &self_inner.0, epsilon, max_relative)
+                    && LineSegment::relative_eq(
+                        &other_inner.1,
+                        &self_inner.1,
+                        epsilon,
+                        max_relative,
+                    )
             } else {
                 true
             }
