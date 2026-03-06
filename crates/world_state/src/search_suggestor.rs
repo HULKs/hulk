@@ -3,15 +3,15 @@ use std::{
     time::SystemTime,
 };
 
-use color_eyre::{eyre::Context, Result};
+use color_eyre::{Result, eyre::Context};
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
 use hsl_network_messages::{HulkMessage, SubState, Team};
 use itertools::Itertools;
-use linear_algebra::{point, Isometry2, Point2, Vector2};
+use linear_algebra::{Isometry2, Point2, Vector2, point};
 use nalgebra::clamp;
-use ndarray::{array, Array2};
+use ndarray::{Array2, array};
 use ndarray_conv::{ConvExt, ConvMode, PaddingMode};
 use serde::{Deserialize, Serialize};
 use types::{
