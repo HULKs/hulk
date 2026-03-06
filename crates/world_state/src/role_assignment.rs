@@ -6,8 +6,8 @@ use std::{
 
 use booster::FallDownState;
 use color_eyre::{
-    eyre::{OptionExt, WrapErr},
     Result,
+    eyre::{OptionExt, WrapErr},
 };
 use serde::{Deserialize, Serialize};
 
@@ -19,7 +19,7 @@ use hsl_network_messages::{
     GameControllerReturnMessage, GamePhase, HulkMessage, LoserMessage, Penalty, PlayerNumber,
     StrikerMessage, SubState, Team,
 };
-use linear_algebra::{distance, Isometry2};
+use linear_algebra::{Isometry2, distance};
 use types::{
     ball_position::BallPosition,
     cycle_time::CycleTime,
@@ -888,4 +888,80 @@ fn pick_keeper_or_searcher(
     }
 
     Role::Searcher
+}
+
+#[cfg(test)]
+mod test {
+    use proptest::prelude::*;
+
+    use super::*;
+
+    proptest! {
+        #[allow(clippy::too_many_arguments)]
+        #[test]
+        fn process_role_state_machine_should_be_idempotent_with_event_none(
+            initial_role in prop_oneof![
+                Just(Role::Defender),
+                Just(Role::Keeper),
+                Just(Role::Loser),
+                Just(Role::Midfielder),
+                Just(Role::ReplacementKeeper),
+                Just(Role::Searcher),
+                Just(Role::Striker),
+                Just(Role::StrikerSupporter),
+            ],
+            detected_own_ball in prop_oneof![Just(None), Just(Some(BallPosition::<Field>{ last_seen: SystemTime::UNIX_EPOCH, position: Default::default(), velocity: Default::default() }))],
+            event in Just(Event::None),
+            time_to_reach_kick_position in prop_oneof![Just(None), Just(Some(Duration::ZERO)), Just(Some(Duration::from_secs(10_000)))],
+            team_ball in prop_oneof![
+                Just(None),
+                Just(Some(BallPosition::<Field>{ last_seen: SystemTime::UNIX_EPOCH, position: Default::default(), velocity: Default::default() })),
+                Just(Some(BallPosition{ last_seen: SystemTime::UNIX_EPOCH + Duration::from_secs(10), position: Default::default(), velocity: Default::default() }))
+            ],
+            cycle_start_time in prop_oneof![Just(SystemTime::UNIX_EPOCH + Duration::from_secs(11))],
+            filtered_game_controller_state in prop_oneof![Just(None), Just(Some(FilteredGameControllerState{game_phase: GamePhase::PenaltyShootout{kicking_team: Team::Hulks}, ..Default::default()}))],
+            player_number in Just(PlayerNumber::Five),
+            maximum_trusted_team_ball_age in  Just(Duration::from_secs(5)),
+            loser_timeout in Just(Duration::from_secs(5)),
+            maximum_trusted_team_ball_distance in 0.0..1.0f32,
+            claim_striker_from_team_ball: bool,
+            optional_roles in Just(&[Role::Defender, Role::StrikerSupporter])
+        ) {
+            let loser_since = Some(cycle_start_time - Duration::from_secs(4));
+            let filtered_game_controller_state: Option<FilteredGameControllerState> = filtered_game_controller_state;
+            let new_role = update_role_state_machine(
+                initial_role,
+                detected_own_ball,
+                event,
+                time_to_reach_kick_position,
+                team_ball,
+                cycle_start_time,
+                filtered_game_controller_state.as_ref(),
+                player_number,
+                loser_since,
+                loser_timeout,
+                claim_striker_from_team_ball,
+                maximum_trusted_team_ball_age,
+                maximum_trusted_team_ball_distance,
+                optional_roles,
+            );
+            let third_role = update_role_state_machine(
+                new_role,
+                detected_own_ball,
+                Event::None,
+                time_to_reach_kick_position,
+                team_ball,
+                cycle_start_time,
+                filtered_game_controller_state.as_ref(),
+                player_number,
+                loser_since,
+                loser_timeout,
+                claim_striker_from_team_ball,
+                maximum_trusted_team_ball_age,
+                maximum_trusted_team_ball_distance,
+                optional_roles,
+            );
+            assert_eq!(new_role, third_role);
+        }
+    }
 }
