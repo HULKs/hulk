@@ -4,7 +4,7 @@ use framework::{MainOutput, deserialize_not_implemented};
 use geometry::rectangle::Rectangle;
 use hardware::PathsInterface;
 use image::RgbImage;
-use linear_algebra::{point, vector};
+use linear_algebra::point;
 use ndarray::{Array, Axis, s};
 use ort::{
     execution_providers::{CUDAExecutionProvider, TensorRTExecutionProvider},
@@ -16,7 +16,7 @@ use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
 use serde::{Deserialize, Serialize};
 use types::{
     bounding_box::BoundingBox,
-    object_detection::{Detection, YOLOv8ObjectDetectionLabel},
+    object_detection::{Detection, NaoLabelPartyObjectDetectionLabel},
     parameters::ObjectDetectionParameters,
 };
 
@@ -42,7 +42,7 @@ pub struct CycleContext {
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub detected_objects: MainOutput<Vec<Detection>>,
+    pub detected_objects: MainOutput<Vec<Detection<NaoLabelPartyObjectDetectionLabel>>>,
 }
 
 impl ObjectDetection {
@@ -62,7 +62,7 @@ impl ObjectDetection {
             .with_execution_providers([tensor_rt, cuda])?
             .with_optimization_level(GraphOptimizationLevel::Level3)?
             .with_intra_threads(1)?
-            .commit_from_file(neural_network_folder.join("yolo11n-544x448.onnx"))?;
+            .commit_from_file(neural_network_folder.join("yolo26m-finetune-544x448.onnx"))?;
 
         Ok(Self { session })
     }
@@ -98,27 +98,22 @@ impl ObjectDetection {
             .into_owned();
 
         let output = output.slice(s![.., .., 0]);
-        let mut candidate_detections: Vec<Detection> = output
-            .axis_iter(Axis(0))
+        let mut candidate_detections: Vec<Detection<NaoLabelPartyObjectDetectionLabel>> = output
+            .axis_iter(Axis(1))
             .filter_map(|row| {
-                let (class_id, confidence) = row
-                    .iter()
-                    .skip(4)
-                    // skip bounding box coordinates
-                    .enumerate()
-                    .max_by(|(_, value_x), (_, value_y)| value_x.total_cmp(value_y))
-                    .unwrap();
-                if *confidence < context.parameters.confidence_threshold {
+                let confidence = row[4usize];
+                let class_id = row[5usize] as usize;
+                if confidence < context.parameters.confidence_threshold {
                     return None;
                 }
-                let label = YOLOv8ObjectDetectionLabel::from_index(class_id);
+                let label = NaoLabelPartyObjectDetectionLabel::from_index(class_id);
                 Some(Detection {
                     bounding_box: BoundingBox {
-                        area: Rectangle::new_with_center_and_size(
-                            point!(row[0usize], row[1usize]),
-                            vector!(row[2usize], row[3usize]),
-                        ),
-                        confidence: *confidence,
+                        area: Rectangle {
+                            min: point!(row[0usize], row[1usize]),
+                            max: point!(row[2usize], row[3usize]),
+                        },
+                        confidence: confidence,
                     },
                     label,
                 })
@@ -132,21 +127,21 @@ impl ObjectDetection {
                 .total_cmp(&detection2.bounding_box.confidence)
         });
 
-        let detected_objects = non_maximum_suppression(
-            candidate_detections,
-            context.parameters.maximum_intersection_over_union,
-        );
+        // let detected_objects = non_maximum_suppression(
+        //     candidate_detections,
+        //     context.parameters.maximum_intersection_over_union,
+        // );
 
         Ok(MainOutputs {
-            detected_objects: detected_objects.into(),
+            detected_objects: candidate_detections.into(),
         })
     }
 }
 
-fn non_maximum_suppression(
-    mut sorted_candidate_detections: Vec<Detection>,
+fn non_maximum_suppression<T>(
+    mut sorted_candidate_detections: Vec<Detection<T>>,
     maximum_intersection_over_union: f32,
-) -> Vec<Detection> {
+) -> Vec<Detection<T>> {
     let mut poses = Vec::new();
 
     while let Some(detection) = sorted_candidate_detections.pop() {
