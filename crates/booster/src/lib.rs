@@ -377,7 +377,15 @@ impl FallDownState {
 #[repr(i8)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
 #[derive(
-    Debug, Clone, PartialEq, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
 )]
 pub enum ButtonEventType {
     PressDown,
@@ -393,7 +401,15 @@ pub enum ButtonEventType {
 #[repr(C)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
 #[derive(
-    Debug, Clone, PartialEq, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
 )]
 pub struct ButtonEventMsg {
     pub button: i32,
