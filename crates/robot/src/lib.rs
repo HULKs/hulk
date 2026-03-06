@@ -224,7 +224,7 @@ impl Robot {
     ) -> Result<()> {
         let status = self
             .ssh_to_robot()?
-            .arg("sudo dmesg > /home/robot/hulk/logs/kernel.log")
+            .arg("sudo dmesg > hulk/logs/kernel.log")
             .status()
             .await
             .wrap_err("failed to write dmesg to kernel.log")?;
