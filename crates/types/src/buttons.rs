@@ -18,7 +18,7 @@ impl ButtonPressType {
         current_button_event_type: &ButtonEventType,
     ) -> Option<Self> {
         match (last_button_event_type, current_button_event_type) {
-            (Some(ButtonEventType::LongPressHold), ButtonEventType::PressUp) => Some(Self::Long),
+            (Some(ButtonEventType::LongPressEnd), ButtonEventType::PressUp) => Some(Self::Long),
             (_, ButtonEventType::PressUp) => Some(Self::Short),
             (_, _) => None,
         }

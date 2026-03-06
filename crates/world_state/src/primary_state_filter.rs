@@ -72,6 +72,9 @@ impl PrimaryStateFilter {
                 _,
                 Buttons {
                     f1: Some(ButtonPressType::Short),
+                    ..
+                }
+                | Buttons {
                     stand: Some(ButtonPressType::Short),
                     ..
                 },

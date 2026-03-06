@@ -7,10 +7,7 @@ use serde::{Deserialize, Serialize};
 use booster::{ButtonEventMsg, ButtonEventType};
 use context_attribute::context;
 use framework::{MainOutput, PerceptionInput};
-use types::{
-    buttons::{ButtonPressType, Buttons},
-    cycle_time::CycleTime,
-};
+use types::buttons::{ButtonPressType, Buttons};
 
 #[derive(Deserialize, Serialize)]
 pub struct ButtonEventHandler {
@@ -24,7 +21,6 @@ pub struct CreationContext {}
 pub struct CycleContext {
     maybe_button_event: PerceptionInput<Option<ButtonEventMsg>, "ButtonEvent", "button_event?">,
 
-    cycle_time: Input<CycleTime, "cycle_time">,
     hardware_interface: HardwareInterface,
 }
 
@@ -49,6 +45,16 @@ impl ButtonEventHandler {
             });
         }
 
+        let last_time = context
+            .maybe_button_event
+            .persistent
+            .iter()
+            .chain(context.maybe_button_event.temporary.iter())
+            .filter(|(time, _)| **time > self.most_recently_processed_button_event_message_time)
+            .map(|(time, _)| time)
+            .next_back()
+            .copied();
+
         let button_event_messages: Vec<ButtonEventMsg> = context
             .maybe_button_event
             .persistent
@@ -60,7 +66,9 @@ impl ButtonEventHandler {
             .cloned()
             .collect();
 
-        self.most_recently_processed_button_event_message_time = context.cycle_time.start_time;
+        if let Some(last_time) = last_time {
+            self.most_recently_processed_button_event_message_time = last_time;
+        }
 
         let mut buttons = Buttons::default();
 
