@@ -4874,6 +4874,7 @@ dependencies = [
  "linear_algebra",
  "log",
  "motion",
+ "ndarray 0.16.1",
  "object_detection",
  "parameters",
  "parking_lot",
