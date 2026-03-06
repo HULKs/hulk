@@ -62,7 +62,7 @@ impl ObjectDetection {
             .with_execution_providers([tensor_rt, cuda])?
             .with_optimization_level(GraphOptimizationLevel::Level3)?
             .with_intra_threads(1)?
-            .commit_from_file(neural_network_folder.join("yolo26m-finetune-544x448.onnx"))?;
+            .commit_from_file(neural_network_folder.join("yolo26m-finetune-1280x1088.onnx"))?;
 
         Ok(Self { session })
     }
@@ -72,8 +72,10 @@ impl ObjectDetection {
             return Ok(MainOutputs::default());
         }
 
-        let height = context.image_left_raw_camera_info.height;
-        let width = context.image_left_raw_camera_info.width;
+        let height = context.image_left_raw.height;
+        let width = context.image_left_raw.width;
+
+        assert_eq!((height, width), (1088, 1280));
 
         let Ok(rgb_image): Result<RgbImage, _> = context.image_left_raw.clone().try_into() else {
             return Ok(MainOutputs::default());

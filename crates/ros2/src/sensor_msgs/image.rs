@@ -102,7 +102,7 @@ impl TryFrom<Image> for RgbImage {
                 // UV plane is half height, but same stride as Y in NV12 (usually)
                 let uv_plane_size = (image.step * image.height / 2) as usize;
 
-                if image.data.len() < y_plane_size + uv_plane_size {
+                if image.data.len() != y_plane_size + uv_plane_size {
                     return Err(ImageError::Decoding(DecodingError::from_format_hint(
                         image::error::ImageFormatHint::Name(
                             "NV12: Source buffer is too small for the given dimensions".to_string(),
