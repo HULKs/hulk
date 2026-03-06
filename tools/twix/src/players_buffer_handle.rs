@@ -14,11 +14,11 @@ where
 {
     pub fn try_new(robot: Arc<Robot>, prefix: &str, path: &str) -> Result<Self> {
         let buffers = Players {
-            one: nao.subscribe_value(format!("{prefix}.one.{path}")),
-            two: nao.subscribe_value(format!("{prefix}.two.{path}")),
-            three: nao.subscribe_value(format!("{prefix}.three.{path}")),
-            four: nao.subscribe_value(format!("{prefix}.four.{path}")),
-            five: nao.subscribe_value(format!("{prefix}.five.{path}")),
+            one: robot.subscribe_value(format!("{prefix}.one.{path}")),
+            two: robot.subscribe_value(format!("{prefix}.two.{path}")),
+            three: robot.subscribe_value(format!("{prefix}.three.{path}")),
+            four: robot.subscribe_value(format!("{prefix}.four.{path}")),
+            five: robot.subscribe_value(format!("{prefix}.five.{path}")),
         };
 
         Ok(Self(buffers))
