@@ -24,6 +24,7 @@ hsl_network_messages = { workspace = true }
 hula_types = { workspace = true }
 indicatif = { workspace = true }
 ittapi = { workspace = true }
+kinematics = { workspace = true }
 linear_algebra = { workspace = true }
 mcap = { workspace = true }
 motion = { workspace = true }

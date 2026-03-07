@@ -1,17 +1,20 @@
-use std::sync::Arc;
-use std::sync::atomic::{AtomicBool, Ordering};
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
 use std::time::{Duration, SystemTime};
 
 use booster::{
     ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState, TransformMessage,
 };
-use color_eyre::Result;
-use color_eyre::eyre::{Context, Error, OptionExt, eyre};
-use futures_util::SinkExt;
-use futures_util::StreamExt;
+use color_eyre::{
+    Result,
+    eyre::{Context, Error, OptionExt, eyre},
+};
+use futures_util::{SinkExt, StreamExt};
 use hardware::{
     ButtonEventMsgInterface, CameraInterface, IdInterface, MicrophoneInterface, NetworkInterface,
-    PathsInterface, RecordingInterface, SafeToExitSafeInterface, SpeakerInterface, TimeInterface,
+    PathsInterface, RecordingInterface, SimulatorInterface, SpeakerInterface, TimeInterface,
     TransformMessageInterface,
 };
 use hardware::{
@@ -24,14 +27,18 @@ use parking_lot::Mutex;
 use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
 use serde::Deserialize;
 use simulation_message::{ClientMessageKind, ConnectionInfo, ServerMessageKind, SimulatorMessage};
-use tokio::select;
-use tokio::sync::mpsc::{Receiver, Sender, channel};
-use tokio::time::sleep;
+use tokio::{
+    select,
+    sync::mpsc::{Receiver, Sender, channel},
+    time::sleep,
+};
 use tokio_tungstenite::tungstenite::Message;
 use tokio_util::sync::CancellationToken;
-use types::audio::SpeakerRequest;
-use types::messages::{IncomingMessage, OutgoingMessage};
-use types::samples::Samples;
+use types::{
+    audio::SpeakerRequest,
+    messages::{IncomingMessage, OutgoingMessage},
+    samples::Samples,
+};
 
 use crate::HardwareInterface;
 
@@ -406,8 +413,8 @@ impl RecordingInterface for MujocoHardwareInterface {
     }
 }
 
-impl SafeToExitSafeInterface for MujocoHardwareInterface {
-    fn read_safe_to_exit_safe(&self) -> Result<bool> {
+impl SimulatorInterface for MujocoHardwareInterface {
+    fn is_simulation(&self) -> Result<bool> {
         Ok(true)
     }
 }

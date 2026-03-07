@@ -3,6 +3,7 @@ use std::{
     time::Duration,
 };
 
+use kinematics::joints::{Joints, head::HeadJoints};
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::{Camera, Field, Ground, NormalizedPixel, Pixel, Robot};
@@ -10,8 +11,6 @@ use linear_algebra::{Point2, Vector2, Vector3};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{
-    joints::Joints,
-    joints::head::HeadJoints,
     motion_command::{KickVariant, MotionCommand},
     step::Step,
 };
@@ -510,16 +509,6 @@ pub struct ControlParameters {
     pub dt: f32,
     pub action_scale: f32,
     pub decimation: f32,
-}
-
-#[derive(
-    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
-)]
-pub struct MotorCommandParameters {
-    pub weight: f32,
-    pub default_positions: Joints,
-    pub proportional_coefficients: Joints,
-    pub derivative_coefficients: Joints,
 }
 
 #[derive(

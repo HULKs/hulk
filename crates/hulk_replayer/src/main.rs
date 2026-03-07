@@ -13,15 +13,15 @@ mod worker_thread;
 use color_eyre::{eyre::Result, install};
 use hardware::{
     ActuatorInterface, CameraInterface, IdInterface, LowCommandInterface, LowStateInterface,
-    MicrophoneInterface, NetworkInterface, PathsInterface, RecordingInterface,
-    SafeToExitSafeInterface, SensorInterface, SpeakerInterface, TimeInterface,
+    MicrophoneInterface, NetworkInterface, PathsInterface, RecordingInterface, SensorInterface,
+    SimulatorInterface, SpeakerInterface, TimeInterface,
 };
 use hula_types::hardware::{Ids, Paths};
+use kinematics::joints::Joints;
 use replayer::replayer;
 use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
 use types::{
     audio::SpeakerRequest,
-    joints::Joints,
     led::Leds,
     messages::{IncomingMessage, OutgoingMessage},
     samples::Samples,
@@ -41,7 +41,7 @@ pub trait HardwareInterface:
     + SensorInterface
     + SpeakerInterface
     + TimeInterface
-    + SafeToExitSafeInterface
+    + SimulatorInterface
 {
 }
 
@@ -153,8 +153,8 @@ impl TimeInterface for ReplayerHardwareInterface {
     }
 }
 
-impl SafeToExitSafeInterface for ReplayerHardwareInterface {
-    fn read_safe_to_exit_safe(&self) -> Result<bool> {
+impl SimulatorInterface for ReplayerHardwareInterface {
+    fn is_simulation(&self) -> Result<bool> {
         unimplemented!()
     }
 }

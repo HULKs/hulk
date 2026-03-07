@@ -30,6 +30,7 @@ hsl_network_messages = { workspace = true }
 hula_types = { workspace = true }
 hulk_widgets = { workspace = true }
 ittapi = { workspace = true }
+kinematics = { workspace = true }
 linear_algebra = { workspace = true }
 log = { workspace = true }
 motion = { workspace = true }

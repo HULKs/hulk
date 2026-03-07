@@ -1,10 +1,10 @@
 use color_eyre::eyre::{Result, bail};
 use coordinate_systems::Robot;
+use kinematics::joints::Joints;
 use linear_algebra::Vector3;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use ros2::geometry_msgs::transform_stamped::TransformStamped;
 use serde::{Deserialize, Serialize};
-use types::{joints::Joints, parameters::MotorCommandParameters};
 
 #[cfg(feature = "pyo3")]
 use linear_algebra::vector;
@@ -180,6 +180,16 @@ impl MotorState {
             reserve,
         }
     }
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct MotorCommandParameters {
+    pub weight: f32,
+    pub default_positions: Joints,
+    pub proportional_coefficients: Joints,
+    pub derivative_coefficients: Joints,
 }
 
 pub trait JointsMotorState {
@@ -366,7 +376,17 @@ impl FallDownState {
 
 #[repr(i8)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
-#[derive(Debug, Clone, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 pub enum ButtonEventType {
     PressDown,
     PressUp,
@@ -380,7 +400,17 @@ pub enum ButtonEventType {
 
 #[repr(C)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
-#[derive(Debug, Clone, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect)]
+#[derive(
+    Debug,
+    Clone,
+    Copy,
+    PartialEq,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
 pub struct ButtonEventMsg {
     pub button: i32,
     pub event: ButtonEventType,

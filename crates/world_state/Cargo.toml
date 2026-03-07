@@ -20,6 +20,7 @@ hsl_network_messages = { workspace = true }
 itertools = { workspace = true }
 kinematics = { workspace = true }
 linear_algebra = { workspace = true }
+log = { workspace = true }
 nalgebra = { workspace = true }
 ndarray = { workspace = true }
 ndarray-conv = { workspace = true }

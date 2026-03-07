@@ -1,21 +1,19 @@
 use std::f32::consts::PI;
 
 use approx::AbsDiffEq;
-use booster::{JointsMotorState, MotorState};
+use booster::{JointsMotorState, MotorCommandParameters, MotorState};
 use color_eyre::{
     Result,
     eyre::{ContextCompat, bail},
 };
 use coordinate_systems::{Ground, Robot};
 use itertools::Itertools;
+use kinematics::joints::Joints;
 use linear_algebra::{IntoFramed, Vector2, Vector3, vector};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use types::{
-    cycle_time::CycleTime,
-    joints::Joints,
-    motion_command::MotionCommand,
-    parameters::{MotorCommandParameters, RLWalkingParameters},
+    cycle_time::CycleTime, motion_command::MotionCommand, parameters::RLWalkingParameters,
 };
 
 #[derive(

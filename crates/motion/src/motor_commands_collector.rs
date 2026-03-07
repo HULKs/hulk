@@ -1,8 +1,8 @@
 use color_eyre::{Result, eyre::Ok};
 use context_attribute::context;
 use framework::MainOutput;
+use kinematics::joints::{Joints, head::HeadJoints};
 use serde::{Deserialize, Serialize};
-use types::joints::{Joints, head::HeadJoints};
 
 #[derive(Deserialize, Serialize)]
 pub struct MotorCommandCollector {}

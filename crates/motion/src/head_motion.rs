@@ -3,10 +3,10 @@ use color_eyre::Result;
 use context_attribute::context;
 use filtering::low_pass_filter::LowPassFilter;
 use framework::MainOutput;
+use kinematics::joints::{Joints, head::HeadJoints};
 use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime,
-    joints::{Joints, head::HeadJoints},
     motion_command::{HeadMotion as HeadMotionCommand, ImageRegion, MotionCommand},
     parameters::HeadMotionParameters,
 };

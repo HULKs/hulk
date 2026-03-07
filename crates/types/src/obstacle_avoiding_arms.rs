@@ -4,7 +4,7 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use splines::Interpolate;
 
-use crate::joints::{arm::ArmJoints, mirror::Mirror};
+use kinematics::joints::{arm::ArmJoints, mirror::Mirror};
 
 #[derive(
     Copy,

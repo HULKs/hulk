@@ -5,7 +5,8 @@ use coordinate_systems::{
     RightThigh, RightTibia, RightUpperArm, Robot,
 };
 use linear_algebra::{Isometry3, Orientation3, Vector3};
-use types::{
+
+use crate::{
     joints::{arm::ArmJoints, head::HeadJoints, leg::LegJoints},
     robot_dimensions::RobotDimensions,
 };

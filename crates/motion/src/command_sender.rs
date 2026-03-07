@@ -1,10 +1,10 @@
-use booster::{CommandType, LowCommand};
+use booster::{CommandType, LowCommand, MotorCommandParameters};
 use color_eyre::{Result, eyre::WrapErr};
 use context_attribute::context;
 use framework::AdditionalOutput;
 use hardware::{LowCommandInterface, TimeInterface};
+use kinematics::joints::Joints;
 use serde::{Deserialize, Serialize};
-use types::{joints::Joints, parameters::MotorCommandParameters};
 
 #[derive(Deserialize, Serialize)]
 pub struct CommandSender {

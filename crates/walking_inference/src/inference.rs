@@ -1,9 +1,10 @@
 use std::path::Path;
 
-use booster::{ImuState, MotorState};
+use booster::{ImuState, MotorCommandParameters, MotorState};
 use color_eyre::Result;
 use coordinate_systems::Ground;
 use framework::deserialize_not_implemented;
+use kinematics::joints::{Joints, leg::LegJoints};
 use linear_algebra::{Vector2, vector};
 use ndarray::{Array1, Axis};
 use ort::{
@@ -14,10 +15,7 @@ use ort::{
 };
 use serde::{Deserialize, Serialize};
 use types::{
-    cycle_time::CycleTime,
-    joints::{Joints, leg::LegJoints},
-    motion_command::MotionCommand,
-    parameters::{MotorCommandParameters, RLWalkingParameters},
+    cycle_time::CycleTime, motion_command::MotionCommand, parameters::RLWalkingParameters,
 };
 
 use crate::inputs::WalkingInferenceInputs;

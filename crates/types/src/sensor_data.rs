@@ -3,7 +3,7 @@ use linear_algebra::{Vector2, Vector3};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
-use crate::joints::Joints;
+use kinematics::joints::Joints;
 
 #[derive(
     Clone,

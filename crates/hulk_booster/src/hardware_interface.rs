@@ -8,26 +8,29 @@ use color_eyre::Result;
 use color_eyre::eyre::{Context, bail, eyre};
 use hardware::{
     ButtonEventMsgInterface, CameraInterface, IdInterface, MicrophoneInterface, NetworkInterface,
-    PathsInterface, RecordingInterface, SafeToExitSafeInterface, SpeakerInterface, TimeInterface,
+    PathsInterface, RecordingInterface, SimulatorInterface, SpeakerInterface, TimeInterface,
 };
 use hardware::{
     FallDownStateInterface, LowCommandInterface, LowStateInterface, RemoteControllerStateInterface,
 };
 use hsl_network::endpoint::{Endpoint, Ports};
 use hula_types::hardware::{Ids, Paths};
-use ros2::sensor_msgs::camera_info::CameraInfo;
-use ros2::sensor_msgs::image::Image;
+use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
 use serde::{Deserialize, Serialize};
 use tokio::runtime::Handle;
 use tokio_util::sync::CancellationToken;
-use types::audio::SpeakerRequest;
-use types::messages::{IncomingMessage, OutgoingMessage};
-use types::samples::Samples;
-use zenoh::Session;
-use zenoh::bytes::ZBytes;
-use zenoh::handlers::{RingChannel, RingChannelHandler};
-use zenoh::pubsub::{Publisher, Subscriber};
-use zenoh::sample::Sample;
+use types::{
+    audio::SpeakerRequest,
+    messages::{IncomingMessage, OutgoingMessage},
+    samples::Samples,
+};
+use zenoh::{
+    Session,
+    bytes::ZBytes,
+    handlers::{RingChannel, RingChannelHandler},
+    pubsub::{Publisher, Subscriber},
+    sample::Sample,
+};
 
 use crate::HardwareInterface;
 
@@ -336,8 +339,8 @@ impl RecordingInterface for BoosterHardwareInterface {
     }
 }
 
-impl SafeToExitSafeInterface for BoosterHardwareInterface {
-    fn read_safe_to_exit_safe(&self) -> Result<bool> {
+impl SimulatorInterface for BoosterHardwareInterface {
+    fn is_simulation(&self) -> Result<bool> {
         Ok(false)
     }
 }

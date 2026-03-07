@@ -2042,6 +2042,7 @@ version = "0.1.0"
 dependencies = [
  "color-eyre",
  "coordinate_systems",
+ "kinematics",
  "linear_algebra",
  "nalgebra",
  "path_serde",
@@ -2050,7 +2051,6 @@ dependencies = [
  "serde",
  "serde_json",
  "tokio",
- "types",
 ]
 
 [[package]]
@@ -3501,6 +3501,7 @@ name = "energy_optimization"
 version = "0.1.0"
 dependencies = [
  "filtering",
+ "kinematics",
  "path_serde",
  "serde",
  "types",
@@ -4628,6 +4629,7 @@ dependencies = [
  "booster",
  "color-eyre",
  "hula_types",
+ "kinematics",
  "ros2",
  "types",
 ]
@@ -4870,6 +4872,7 @@ dependencies = [
  "hulk_manifest",
  "hulk_widgets",
  "ittapi",
+ "kinematics",
  "libc",
  "linear_algebra",
  "log",
@@ -4920,6 +4923,7 @@ dependencies = [
  "hulk_manifest",
  "indicatif",
  "ittapi",
+ "kinematics",
  "linear_algebra",
  "mcap",
  "motion",
@@ -4979,6 +4983,7 @@ dependencies = [
  "hulk_manifest",
  "hulk_widgets",
  "ittapi",
+ "kinematics",
  "libc",
  "linear_algebra",
  "log",
@@ -5036,6 +5041,7 @@ dependencies = [
  "hulk_manifest",
  "hulk_widgets",
  "ittapi",
+ "kinematics",
  "linear_algebra",
  "log",
  "motion",
@@ -5689,7 +5695,9 @@ dependencies = [
  "coordinate_systems",
  "linear_algebra",
  "nalgebra",
- "types",
+ "path_serde",
+ "serde",
+ "splines",
 ]
 
 [[package]]
@@ -6186,6 +6194,7 @@ dependencies = [
  "color-eyre",
  "enum_dispatch",
  "itertools 0.14.0",
+ "kinematics",
  "path_serde",
  "serde",
  "serde_json",
@@ -7313,6 +7322,7 @@ dependencies = [
  "hsl_network_messages",
  "hula_types",
  "hulk_manifest",
+ "kinematics",
  "linear_algebra",
  "motionfile",
  "nalgebra",
@@ -10646,6 +10656,7 @@ version = "0.1.0"
 dependencies = [
  "approx 0.5.1",
  "approx_derive",
+ "booster",
  "color-eyre",
  "coordinate_systems",
  "enum-iterator",
@@ -10653,6 +10664,7 @@ dependencies = [
  "hsl_network_messages",
  "image",
  "itertools 0.14.0",
+ "kinematics",
  "linear_algebra",
  "nalgebra",
  "num-traits",
@@ -10976,6 +10988,7 @@ dependencies = [
  "framework",
  "hardware",
  "itertools 0.14.0",
+ "kinematics",
  "linear_algebra",
  "nalgebra",
  "ndarray 0.16.1",
@@ -12335,6 +12348,7 @@ dependencies = [
  "itertools 0.14.0",
  "kinematics",
  "linear_algebra",
+ "log",
  "nalgebra",
  "ndarray 0.16.1",
  "ndarray-conv",

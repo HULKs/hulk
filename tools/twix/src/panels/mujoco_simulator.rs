@@ -2,8 +2,8 @@ use bevy::prelude::*;
 use bevy_mujoco::{MujocoVisualizerPlugin, TrunkComponent};
 use eframe::egui::{Response, Ui, Widget};
 use egui_bevy::BevyWidget;
+use kinematics::robot_kinematics::RobotKinematics;
 use nalgebra::Isometry3;
-use types::robot_kinematics::RobotKinematics;
 
 use crate::{
     panel::{Panel, PanelCreationContext},

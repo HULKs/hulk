@@ -3,7 +3,7 @@ use std::{
     ops::{Add, Div, Mul, Sub},
 };
 
-use crate::joints::{
+use kinematics::joints::{
     Joints,
     body::{BodyJoints, LowerBodyJoints, UpperBodyJoints},
     mirror::{Mirror, SwapSides},

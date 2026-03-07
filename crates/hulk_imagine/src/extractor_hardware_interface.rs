@@ -1,14 +1,14 @@
 use hardware::{
     ActuatorInterface, LowCommandInterface, LowStateInterface, NetworkInterface, PathsInterface,
-    RecordingInterface, SafeToExitSafeInterface, SpeakerInterface, TimeInterface,
+    RecordingInterface, SimulatorInterface, SpeakerInterface, TimeInterface,
 };
 
 use color_eyre::eyre::Result;
 
 use hula_types::hardware::Paths;
+use kinematics::joints::Joints;
 use types::{
     audio::SpeakerRequest,
-    joints::Joints,
     led::Leds,
     messages::{IncomingMessage, OutgoingMessage},
 };
@@ -22,7 +22,7 @@ pub trait HardwareInterface:
     + RecordingInterface
     + SpeakerInterface
     + TimeInterface
-    + SafeToExitSafeInterface
+    + SimulatorInterface
 {
 }
 
@@ -95,8 +95,8 @@ impl TimeInterface for ExtractorHardwareInterface {
     }
 }
 
-impl SafeToExitSafeInterface for ExtractorHardwareInterface {
-    fn read_safe_to_exit_safe(&self) -> Result<bool> {
+impl SimulatorInterface for ExtractorHardwareInterface {
+    fn is_simulation(&self) -> Result<bool> {
         unimplemented!()
     }
 }

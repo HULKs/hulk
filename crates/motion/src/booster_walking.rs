@@ -1,14 +1,12 @@
-use booster::{ImuState, MotorState};
+use booster::{ImuState, MotorCommandParameters, MotorState};
 use color_eyre::Result;
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use hardware::PathsInterface;
+use kinematics::joints::Joints;
 use serde::{Deserialize, Serialize};
 use types::{
-    cycle_time::CycleTime,
-    joints::Joints,
-    motion_command::MotionCommand,
-    parameters::{MotorCommandParameters, RLWalkingParameters},
+    cycle_time::CycleTime, motion_command::MotionCommand, parameters::RLWalkingParameters,
 };
 use walking_inference::{inference::WalkingInference, inputs::WalkingInferenceInputs};
 
