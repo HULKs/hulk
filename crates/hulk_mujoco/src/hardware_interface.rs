@@ -17,6 +17,7 @@ use hardware::{
     ButtonEventMsgInterface, CameraInterface, HighLevelInterface, IdInterface, MicrophoneInterface,
     MotionRuntimeInteface, NetworkInterface, PathsInterface, RecordingInterface,
     SimulatorInterface, SpeakerInterface, TimeInterface, TransformMessageInterface,
+    VisualKickInterface,
 };
 use hardware::{
     FallDownStateInterface, LowCommandInterface, LowStateInterface, RemoteControllerStateInterface,
@@ -294,6 +295,12 @@ impl LowCommandInterface for MujocoHardwareInterface {
         self.low_command_sender
             .blocking_send(low_command)
             .wrap_err("low command send error")
+    }
+}
+
+impl VisualKickInterface for MujocoHardwareInterface {
+    fn write_visual_kick(&self, _kick: booster::Kick) -> Result<()> {
+        unimplemented!()
     }
 }
 
