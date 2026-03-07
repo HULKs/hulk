@@ -2,7 +2,7 @@ use booster_sdk::types::RobotMode;
 use hardware::{
     ActuatorInterface, HighLevelInterface, LowCommandInterface, LowStateInterface,
     MotionRuntimeInteface, NetworkInterface, PathsInterface, RecordingInterface,
-    SimulatorInterface, SpeakerInterface, TimeInterface,
+    SimulatorInterface, SpeakerInterface, TimeInterface, VisualKickInterface,
 };
 
 use color_eyre::eyre::Result;
@@ -20,6 +20,7 @@ use types::{
 pub trait HardwareInterface:
     ActuatorInterface
     + LowCommandInterface
+    + VisualKickInterface
     + LowStateInterface
     + NetworkInterface
     + PathsInterface
@@ -48,6 +49,12 @@ impl ActuatorInterface for ExtractorHardwareInterface {
 
 impl LowCommandInterface for ExtractorHardwareInterface {
     fn write_low_command(&self, _low_command: booster::LowCommand) -> Result<()> {
+        unimplemented!()
+    }
+}
+
+impl VisualKickInterface for ExtractorHardwareInterface {
+    fn write_visual_kick(&self, _kick: booster::Kick) -> Result<()> {
         unimplemented!()
     }
 }

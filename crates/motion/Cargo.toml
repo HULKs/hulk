@@ -21,6 +21,7 @@ log = { workspace = true }
 path_serde = { workspace = true }
 projection = { workspace = true }
 proptest = { workspace = true }
+ros2 = { workspace = true }
 serde = { workspace = true }
 types = { workspace = true }
 walking_inference = { workspace = true }

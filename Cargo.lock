@@ -6091,6 +6091,7 @@ dependencies = [
  "path_serde",
  "projection",
  "proptest",
+ "ros2",
  "serde",
  "types",
  "walking_inference",

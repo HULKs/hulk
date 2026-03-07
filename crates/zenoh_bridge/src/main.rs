@@ -4,7 +4,7 @@ mod ros;
 
 use std::fmt::Debug;
 
-use booster::{ButtonEventMsg, FallDownState, LowCommand, LowState};
+use booster::{ButtonEventMsg, FallDownState, Kick, LowState};
 use color_eyre::eyre::{Result, WrapErr};
 use futures_util::{FutureExt, future::Fuse, select};
 use ros2_client::{
@@ -66,13 +66,13 @@ async fn main() -> Result<()> {
         "low_state",
     )?;
 
-    let mut low_command_forwarder = spawn_zenoh_to_ros_forwarder::<LowCommand>(
+    let mut kick_ball_forwarder = spawn_zenoh_to_ros_forwarder::<Kick>(
         &mut ros_node,
         zenoh_session.clone(),
         "/",
-        "joint_ctrl",
-        MessageTypeName::new("booster_interface", "LowCmd"),
-        "joint_ctrl",
+        "kick_ball",
+        MessageTypeName::new("brain", "Kick"),
+        "kick_ball",
     )?;
 
     // If no errors occur, none of these futures will complete
@@ -80,7 +80,7 @@ async fn main() -> Result<()> {
         result = button_event_forwarder => result,
         result = fall_down_state_forwarder => result,
         result = low_state_forwarder => result,
-        result = low_command_forwarder => result,
+        result = kick_ball_forwarder => result,
     }
     .wrap_err("failed to run forwarder to completion")?;
 
