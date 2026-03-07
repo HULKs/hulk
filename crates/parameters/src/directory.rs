@@ -1,12 +1,13 @@
+use core::fmt;
 use std::{
     collections::BTreeSet,
-    fmt::Display,
+    fmt::{Display, Formatter},
     fs::{read_to_string, write},
     io,
     path::{Path, PathBuf},
-    str::FromStr,
 };
 
+use clap::ValueEnum;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{Value, error, from_str, to_string_pretty, to_value};
 
@@ -180,7 +181,7 @@ pub enum Location {
     Current,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ValueEnum)]
 pub enum LocationTarget {
     Booster,
     Mujoco,
@@ -188,24 +189,11 @@ pub enum LocationTarget {
 }
 
 impl Display for LocationTarget {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
         f.write_str(match self {
             LocationTarget::Booster => "booster",
             LocationTarget::Mujoco => "mujoco",
             LocationTarget::BehaviorSimulator => "behavior_simulator",
-        })
-    }
-}
-
-impl FromStr for LocationTarget {
-    type Err = String;
-
-    fn from_str(s: &str) -> Result<Self, Self::Err> {
-        Ok(match s {
-            "booster" => Self::Booster,
-            "mujoco" => Self::Mujoco,
-            "behavior_simulator" => Self::BehaviorSimulator,
-            other => return Err(format!("unknown location: {other}")),
         })
     }
 }

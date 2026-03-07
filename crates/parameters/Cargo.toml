@@ -6,6 +6,7 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
+clap = { workspace = true }
 hula_types = { workspace = true }
 serde = { workspace = true }
 serde_ignored = { workspace = true }

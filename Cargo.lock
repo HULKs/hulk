@@ -7344,6 +7344,7 @@ dependencies = [
 name = "parameters"
 version = "0.1.0"
 dependencies = [
+ "clap",
  "hula_types",
  "serde",
  "serde_ignored",

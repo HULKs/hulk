@@ -10,7 +10,7 @@ pub enum Arguments {
     List,
     /// Set location for repository
     Set {
-        /// The target to set a location for (booster, mujoco, behavior_simulator)
+        /// The target to set a location for
         #[arg(required = true)]
         target: LocationTarget,
         /// The location to set for the repository
