@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
 
-use coordinate_systems::Ground;
+use coordinate_systems::{Field, Ground};
 use linear_algebra::{Orientation2, Point2, Vector2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
@@ -111,6 +111,14 @@ pub enum MotionCommand {
         velocity: Vector2<Ground>,
         angular_velocity: f32,
     },
+    VisualKick {
+        head: HeadMotion,
+        ball_position: Point2<Ground>,
+        kick_direction: Orientation2<Ground>,
+        target_position: Point2<Ground>,
+        robot_theta_to_field: Orientation2<Field>,
+        kick_power: f64,
+    },
 }
 
 impl MotionCommand {
@@ -121,7 +129,8 @@ impl MotionCommand {
             | MotionCommand::Stand { head, .. }
             | MotionCommand::Walk { head, .. }
             | MotionCommand::InWalkKick { head, .. }
-            | MotionCommand::WalkWithVelocity { head, .. } => Some(*head),
+            | MotionCommand::WalkWithVelocity { head, .. }
+            | MotionCommand::VisualKick { head, .. } => Some(*head),
             MotionCommand::Prepare => Some(HeadMotion::Center {
                 image_region_target: ImageRegion::Top,
             }),
