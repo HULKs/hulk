@@ -58,15 +58,14 @@ impl ButtonEventHandler {
         for (time, button_event_messages) in all_button_event_messages {
             self.most_recently_processed_button_event_message_time = time;
 
-            button_event_messages.into_iter().flatten().for_each(
-                |ButtonEventMsg { button, event }| {
-                    buttons[*button] = ButtonPressType::from_button_event_types(
-                        &self.last_button_event_types[*button],
-                        event,
-                    );
-                    self.last_button_event_types[*button] = Some(*event);
-                },
-            );
+            for button_event_message in button_event_messages.into_iter().flatten() {
+                buttons[button_event_message.button] = ButtonPressType::from_button_event_types(
+                    &self.last_button_event_types[button_event_message.button],
+                    &button_event_message.event,
+                );
+                self.last_button_event_types[button_event_message.button] =
+                    Some(button_event_message.event);
+            }
         }
 
         Ok(MainOutputs {
