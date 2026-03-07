@@ -1,9 +1,56 @@
 use serde::{Deserialize, Serialize};
+use std::ops::Deref;
 
 use linear_algebra::{Point2, point};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use coordinate_systems::Field;
+
+#[derive(
+    Copy,
+    Clone,
+    Default,
+    Debug,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
+pub enum CurrentField {
+    #[default]
+    SField,
+    MField,
+    LField,
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
+pub struct SingleFieldDimensions {
+    pub length: f32,
+    pub width: f32,
+    pub goal_depth: f32,
+    pub goal_inner_width: f32,
+    pub goal_box_area_length: f32,
+    pub goal_box_area_width: f32,
+    pub penalty_area_length: f32,
+    pub penalty_area_width: f32,
+    pub penalty_marker_distance: f32,
+    pub center_circle_diameter: f32,
+    pub border_strip_width: f32,
+    pub corner_arc_radius: f32,
+    pub line_width: f32,
+    pub penalty_marker_size: f32,
+}
 
 #[derive(
     Copy,
@@ -17,21 +64,30 @@ use coordinate_systems::Field;
     PathIntrospect,
 )]
 pub struct FieldDimensions {
+    pub current_field: CurrentField,
     pub ball_radius: f32,
-    pub length: f32,
-    pub width: f32,
-    pub line_width: f32,
-    pub penalty_marker_size: f32,
-    pub goal_box_area_length: f32,
-    pub goal_box_area_width: f32,
-    pub penalty_area_length: f32,
-    pub penalty_area_width: f32,
-    pub penalty_marker_distance: f32,
-    pub center_circle_diameter: f32,
-    pub border_strip_width: f32,
-    pub goal_inner_width: f32,
     pub goal_post_diameter: f32,
-    pub goal_depth: f32,
+    pub s_field: SingleFieldDimensions,
+    pub m_field: SingleFieldDimensions,
+    pub l_field: SingleFieldDimensions,
+}
+
+impl FieldDimensions {
+    pub fn current(&self) -> &SingleFieldDimensions {
+        match self.current_field {
+            CurrentField::SField => &self.s_field,
+            CurrentField::MField => &self.m_field,
+            CurrentField::LField => &self.l_field,
+        }
+    }
+}
+
+impl Deref for FieldDimensions {
+    type Target = SingleFieldDimensions;
+
+    fn deref(&self) -> &Self::Target {
+        self.current()
+    }
 }
 
 #[derive(
@@ -65,26 +121,6 @@ impl GlobalFieldSide {
             GlobalFieldSide::Away => GlobalFieldSide::Home,
         }
     }
-}
-
-impl FieldDimensions {
-    pub const SPL_2025: Self = Self {
-        ball_radius: 0.05,
-        length: 9.0,
-        width: 6.0,
-        line_width: 0.05,
-        penalty_marker_size: 0.1,
-        goal_box_area_length: 0.6,
-        goal_box_area_width: 2.2,
-        penalty_area_length: 1.65,
-        penalty_area_width: 4.0,
-        penalty_marker_distance: 1.3,
-        center_circle_diameter: 1.5,
-        border_strip_width: 2.0,
-        goal_inner_width: 1.5,
-        goal_post_diameter: 0.1,
-        goal_depth: 0.5,
-    };
 }
 
 #[derive(Clone, Copy, PartialEq, Eq)]
