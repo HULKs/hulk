@@ -1,9 +1,11 @@
 use coordinate_systems::Ground;
 use geometry::{arc::Arc, direction::AngleTo, line_segment::LineSegment};
 use linear_algebra::{Orientation2, Point2, Vector2};
-use types::planned_path::{Path, PathSegment};
 
-use crate::traits::{ArcProjectionKind, ClassifyProjection, Project, Tangent};
+use crate::path::{
+    Path, PathSegment,
+    traits::{ArcProjectionKind, ClassifyProjection, Project, Tangent},
+};
 
 pub trait PathProgress {
     fn progress(&self, point: Point2<Ground>) -> f32;

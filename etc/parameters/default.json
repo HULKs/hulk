@@ -53,7 +53,9 @@
       "decimation": 10.0
     },
     "walk_command": [0.0, 0.0, 0.0],
-    "joint_position_smoothing_factor": 0.8
+    "joint_position_smoothing_factor": 0.8,
+    "hybrid_align_distance": 1.0,
+    "max_alignment_rate": 1.0
   },
   "prepare_motor_command": {
     "weight": 1.0,

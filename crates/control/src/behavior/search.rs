@@ -3,11 +3,11 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 use coordinate_systems::{Field, Ground};
 use framework::AdditionalOutput;
 use linear_algebra::{point, Isometry2, Orientation2, Point2, Pose2};
-use step_planning::traits::Length;
 use types::{
     field_dimensions::FieldDimensions,
     motion_command::{HeadMotion, MotionCommand, OrientationMode, WalkSpeed},
     parameters::SearchParameters,
+    path::traits::Length,
     path_obstacles::PathObstacle,
     roles::Role,
     support_foot::Side,

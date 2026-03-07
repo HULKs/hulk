@@ -14,11 +14,9 @@ use ort::{
     value::Tensor,
 };
 use serde::{Deserialize, Serialize};
-use types::{
-    cycle_time::CycleTime, motion_command::MotionCommand, parameters::RLWalkingParameters,
-};
+use types::{cycle_time::CycleTime, parameters::RLWalkingParameters};
 
-use crate::inputs::WalkingInferenceInputs;
+use crate::inputs::{WalkCommand, WalkingInferenceInputs};
 
 #[derive(Deserialize, Serialize)]
 pub struct WalkingInference {
@@ -57,7 +55,7 @@ impl WalkingInference {
     fn calculate_inputs(
         &mut self,
         cycle_time: CycleTime,
-        motion_command: &MotionCommand,
+        walk_command: &WalkCommand,
         imu_state: &ImuState,
         current_serial_joints: Joints<MotorState>,
         walking_parameters: &RLWalkingParameters,
@@ -65,7 +63,7 @@ impl WalkingInference {
     ) -> Result<WalkingInferenceInputs> {
         let walking_inference_inputs = WalkingInferenceInputs::try_new(
             cycle_time,
-            motion_command,
+            walk_command,
             imu_state.roll_pitch_yaw,
             imu_state.angular_velocity,
             current_serial_joints,
@@ -87,7 +85,7 @@ impl WalkingInference {
     pub fn do_inference(
         &mut self,
         cycle_time: CycleTime,
-        motion_command: &MotionCommand,
+        walk_command: &WalkCommand,
         imu_state: &ImuState,
         current_serial_joints: Joints<MotorState>,
         walking_parameters: &RLWalkingParameters,
@@ -95,7 +93,7 @@ impl WalkingInference {
     ) -> Result<(WalkingInferenceInputs, Joints)> {
         let Ok(walking_inference_inputs) = self.calculate_inputs(
             cycle_time,
-            motion_command,
+            walk_command,
             imu_state,
             current_serial_joints,
             walking_parameters,

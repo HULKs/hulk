@@ -40,7 +40,6 @@ ros2 = { workspace = true }
 sensor_receiver = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-step_planning = { workspace = true }
 tokio = { workspace = true }
 types = { workspace = true }
 walking_inference = { workspace = true }

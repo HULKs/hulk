@@ -14,11 +14,11 @@ use bevy::{
 use coordinate_systems::{Field, Ground};
 use hsl_network_messages::{GameState, Penalty, SubState, Team};
 use linear_algebra::{point, vector, Isometry2};
-use step_planning::traits::Length;
 use types::{
     ball_position::SimulatorBallState,
     field_dimensions::{FieldDimensions, Half, Side},
     motion_command::MotionCommand,
+    path::traits::Length,
 };
 
 use crate::{
