@@ -107,6 +107,7 @@ pub trait HighLevelInterface {
     fn get_up_with_mode(&self, mode: RobotMode) -> Result<()>;
     fn enter_wbc_gait(&self) -> Result<()>;
     fn exit_wbc_gait(&self) -> Result<()>;
+    fn visual_kick(&self, start: bool) -> Result<()>;
 }
 
 pub trait MotionRuntimeInteface {

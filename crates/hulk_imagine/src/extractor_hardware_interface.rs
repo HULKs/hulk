@@ -147,6 +147,10 @@ impl HighLevelInterface for ExtractorHardwareInterface {
     fn exit_wbc_gait(&self) -> Result<()> {
         unimplemented!()
     }
+
+    fn visual_kick(&self, _start: bool) -> Result<()> {
+        unimplemented!()
+    }
 }
 
 impl MotionRuntimeInteface for ExtractorHardwareInterface {

@@ -252,6 +252,7 @@ native-tls = { git = "https://github.com/sfackler/rust-native-tls", tag = "v0.2.
 
 egui = { git = "https://github.com/HULKs/egui/", rev = "c310aad9c54618e8845b6707899e2678fec8b842" }
 egui-wgpu = { git = "https://github.com/HULKs/egui/", rev = "c310aad9c54618e8845b6707899e2678fec8b842" }
+booster_sdk = { git = "https://github.com/IntelligentRoboticsLab/booster_sdk", rev = "9d219851b72a0e35163c368647c9c5f9b8691ae1" }
 
 [profile.dev]
 opt-level = 3
