@@ -22,5 +22,6 @@ pub enum Action {
     Stop,
     StandUp,
     WalkToBall,
+    VisualKick,
     RemoteControl,
 }
