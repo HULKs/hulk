@@ -116,6 +116,27 @@ jobs:
           - imagine
           - replayer
           - mujoco
+        profile:
+          - dev
+          - release
+    runs-on:
+      - self-hosted
+      - v3
+    container:
+      image: ghcr.io/hulks/hulk-ci:1.92.0
+      options: --user=1000:1000 --privileged --device /dev/fuse:rw
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          lfs: true
+      - name: Build
+        run: ./pepsi build --locked --profile ${{ matrix.profile }} ${{ matrix.target }}
+  buil-booster:
+    name: Build
+    strategy:
+      fail-fast: true
+      matrix:
+        target:
           - booster
         profile:
           - dev
@@ -123,6 +144,7 @@ jobs:
     runs-on:
       - self-hosted
       - v3
+      - not-borked
     container:
       image: ghcr.io/hulks/hulk-ci:1.92.0
       options: --user=1000:1000 --privileged --device /dev/fuse:rw
