@@ -35,7 +35,7 @@ pub struct CreationContext {}
 pub struct CycleContext {
     ground_to_field: RequiredInput<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
     ball_state: RequiredInput<Option<BallState>, "ball_state?">,
-    obstacles: Input<Vec<Obstacle>, "obstacles">,
+    // obstacles: Input<Vec<Obstacle>, "obstacles">,
     filtered_game_controller_state:
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
     ground_to_upcoming_support:
@@ -115,7 +115,8 @@ impl KickSelector {
                 right,
                 ball_position,
                 *context.ground_to_upcoming_support,
-                context.obstacles,
+                // context.obstacles,
+                &[],
                 context.decision_parameters,
             )
         });
@@ -136,7 +137,8 @@ impl KickSelector {
                 right,
                 ball_position,
                 *context.ground_to_upcoming_support,
-                context.obstacles,
+                // context.obstacles,
+                &[],
                 context.decision_parameters,
             )
         });
