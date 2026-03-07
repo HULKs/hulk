@@ -5,16 +5,21 @@ use context_attribute::context;
 use coordinate_systems::Ground;
 use framework::{AdditionalOutput, MainOutput};
 use types::{
-    action::Action, ball_position::BallPosition, motion_command::MotionCommand,
-    parameters::BehaviorParameters, primary_state::PrimaryState, world_state::WorldState,
+    action::Action, ball_position::BallPosition, cycle_time::CycleTime,
+    field_dimensions::FieldDimensions, motion_command::MotionCommand,
+    parameters::BehaviorParameters, path_obstacles::PathObstacle, primary_state::PrimaryState,
+    world_state::WorldState,
 };
 
 use crate::behavior::{
-    finish, initial, look_around, penalize, remote_control, safe, stand_up, walk_to_ball,
+    finish, initial, look_around, penalize, remote_control, safe, stand_up, walk_to_ball_two,
+    walk_to_pose::{WalkPathPlanner, WalkToPoseState},
 };
 
 #[derive(Deserialize, Serialize)]
-pub struct Behavior {}
+pub struct Behavior {
+    walk_to_pose_state: WalkToPoseState,
+}
 
 #[context]
 pub struct CreationContext {}
@@ -22,11 +27,14 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
+    cycle_time: Input<CycleTime, "cycle_time">,
     world_state: Input<WorldState, "world_state">,
 
     parameters: Parameter<BehaviorParameters, "behavior">,
+    field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
 
     active_action: AdditionalOutput<Action, "active_action">,
+    path_obstacles_output: AdditionalOutput<Vec<PathObstacle>, "path_obstacles">,
 
     last_motion_command: CyclerState<MotionCommand, "last_motion_command">,
 }
@@ -39,7 +47,9 @@ pub struct MainOutputs {
 
 impl Behavior {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {})
+        Ok(Self {
+            walk_to_pose_state: WalkToPoseState::default(),
+        })
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
@@ -66,6 +76,13 @@ impl Behavior {
             actions.push(Action::WalkToBall);
         }
 
+        let cycle_time = context.cycle_time.last_cycle_duration.as_secs_f32();
+        let walk_path_planner = WalkPathPlanner::new(
+            context.field_dimensions,
+            &context.parameters.path_planning,
+            context.last_motion_command,
+        );
+
         let (action, motion_command) = actions
             .iter()
             .find_map(|action| {
@@ -79,9 +96,14 @@ impl Behavior {
                     Action::RemoteControl => {
                         remote_control::execute(&context.parameters.remote_control)
                     }
-                    Action::WalkToBall => walk_to_ball::execute(
+                    Action::WalkToBall => walk_to_ball_two::execute(
                         context.ball_position.copied(),
-                        context.parameters.walk_with_velocity.clone(),
+                        &mut self.walk_to_pose_state,
+                        cycle_time,
+                        &context.parameters.walk_to_pose,
+                        &walk_path_planner,
+                        &mut context.path_obstacles_output,
+                        world_state,
                     ),
                 }?;
                 Some((action, motion_command))
