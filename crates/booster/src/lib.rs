@@ -345,7 +345,9 @@ impl MotorCommand {
 
 #[repr(u32)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
-#[derive(Debug, Clone, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect)]
+#[derive(
+    Debug, Clone, Copy, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub enum FallDownStateType {
     IsReady = 0,
     IsFalling = 1,
@@ -355,7 +357,9 @@ pub enum FallDownStateType {
 
 #[repr(C)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
-#[derive(Debug, Clone, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect)]
+#[derive(
+    Debug, Clone, Copy, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct FallDownState {
     pub fall_down_state: FallDownStateType,
     /// Whether recovery (getting up) action is available
