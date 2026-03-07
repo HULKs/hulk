@@ -33,9 +33,7 @@ pub struct WhistleDetectionParameters {
     pub number_of_chunks: usize,
 }
 
-#[derive(
-    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
-)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PathIntrospect, PathSerialize, PathDeserialize)]
 pub struct BehaviorParameters {
     pub injected_motion_command: Option<MotionCommand>,
     pub remote_control: RemoteControlParameters,
@@ -540,7 +538,7 @@ pub enum ImageReceiverInstance {
     StereonetDepth,
 }
 
-#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Debug, Default, Deserialize, Serialize, PathIntrospect, PathSerialize, PathDeserialize)]
 pub struct WalkToPoseParameters {
     pub translation_p: f32,
     pub translation_d: f32,

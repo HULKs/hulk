@@ -1,3 +1,4 @@
+pub mod a_star;
 pub mod ball_filter;
 pub mod ball_projector;
 pub mod ball_state_composer;
@@ -10,6 +11,7 @@ pub mod game_controller_state_filter;
 pub mod ground_provider;
 pub mod kinematics_provider;
 pub mod obstacle_receiver;
+pub mod path_planner;
 pub mod primary_state_filter;
 pub mod robot_mode_handler;
 pub mod safe_pose_checker;
