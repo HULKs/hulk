@@ -58,7 +58,7 @@ fn main() -> Result<()> {
         .unwrap_or(arguments.replay_path_string.clone());
 
     let ids = Ids {
-        robot_id: "replayer".into(),
+        robot_id: "imagine".into(),
     };
 
     let replay_path = arguments.replay_path_string.clone();
