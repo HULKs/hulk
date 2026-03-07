@@ -49,7 +49,7 @@ mod tests {
             field_to_ground,
         };
 
-        let field_dimensions = FieldDimensions::SPL_2025;
+        let field_dimensions = FieldDimensions::default();
         let problem =
             CalibrationProblem::<Residuals>::new(corrections, vec![measurement], field_dimensions);
         let (result, _report) = LevenbergMarquardt::new().minimize(problem);
