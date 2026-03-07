@@ -4,9 +4,10 @@ use std::{
     time::{Duration, SystemTime},
 };
 
+use booster::FallDownState;
 use color_eyre::{
-    eyre::{OptionExt, WrapErr},
     Result,
+    eyre::{OptionExt, WrapErr},
 };
 use serde::{Deserialize, Serialize};
 
@@ -18,22 +19,17 @@ use hsl_network_messages::{
     GameControllerReturnMessage, GamePhase, HulkMessage, LoserMessage, Penalty, PlayerNumber,
     StrikerMessage, SubState, Team,
 };
-use linear_algebra::{distance, Isometry2};
+use linear_algebra::{Isometry2, distance};
 use types::{
     ball_position::BallPosition,
     cycle_time::CycleTime,
-    fall_state::FallState,
-    field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
-    initial_pose::InitialPose,
     messages::{IncomingMessage, OutgoingMessage},
     parameters::HslNetworkParameters,
     players::Players,
     primary_state::PrimaryState,
     roles::Role,
 };
-
-use crate::localization::generate_initial_pose;
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize, PartialEq, Eq)]
 enum SentState {
@@ -61,7 +57,6 @@ pub struct CreationContext {
 #[context]
 pub struct CycleContext {
     ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
-    fall_state: Input<FallState, "fall_state">,
     remaining_amount_of_messages:
         Input<Option<u16>, "game_controller_state?.hulks_team.remaining_amount_of_messages">,
     filtered_game_controller_state:
@@ -73,8 +68,8 @@ pub struct CycleContext {
     game_controller_address: Input<Option<SocketAddr>, "game_controller_address?">,
     time_to_reach_kick_position: Input<Option<Duration>, "time_to_reach_kick_position?">,
     team_ball: Input<Option<BallPosition<Field>>, "team_ball?">,
+    fall_down_state: PerceptionInput<Option<FallDownState>, "FallDownState", "fall_down_state?">,
 
-    field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     forced_role: Parameter<Option<Role>, "role_assignment.forced_role?">,
     keeper_replacementkeeper_switch_time:
         Parameter<Duration, "role_assignment.keeper_replacementkeeper_switch_time">,
@@ -84,7 +79,6 @@ pub struct CycleContext {
         Parameter<f32, "role_assignment.maximum_trusted_team_ball_distance">,
     loser_timeout: Parameter<Duration, "role_assignment.loser_timeout">,
     claim_striker_from_team_ball: Parameter<bool, "role_assignment.claim_striker_from_team_ball">,
-    initial_poses: Parameter<Players<InitialPose>, "localization.initial_poses">,
     optional_roles: Parameter<Vec<Role>, "behavior.optional_roles">,
     player_number: Parameter<PlayerNumber, "player_number">,
     hsl_network_parameters: Parameter<HslNetworkParameters, "hsl_network">,
@@ -109,11 +103,9 @@ impl RoleAssignment {
         let role = match context.player_number {
             PlayerNumber::One => Some(Role::Keeper),
             PlayerNumber::Two => context.optional_roles.get(0).copied(),
-            PlayerNumber::Three => context.optional_roles.get(1).copied(),
-            PlayerNumber::Four => context.optional_roles.get(2).copied(),
-            PlayerNumber::Five => context.optional_roles.get(3).copied(),
-            PlayerNumber::Six => context.optional_roles.get(4).copied(),
-            PlayerNumber::Seven => Some(Role::Striker),
+            PlayerNumber::Three => Some(Role::Striker),
+            PlayerNumber::Four => context.optional_roles.get(1).copied(),
+            PlayerNumber::Five => context.optional_roles.get(2).copied(),
         }
         .unwrap_or(Role::Striker);
         Ok(Self {
@@ -236,20 +228,18 @@ impl RoleAssignment {
             let mut player_roles = Players {
                 one: Some(Role::Keeper),
                 two: context.optional_roles.get(0).copied(),
-                three: context.optional_roles.get(1).copied(),
-                four: context.optional_roles.get(2).copied(),
-                five: context.optional_roles.get(3).copied(),
-                six: context.optional_roles.get(4).copied(),
-                seven: Some(Role::Striker),
+                three: Some(Role::Striker),
+                four: context.optional_roles.get(1).copied(),
+                five: context.optional_roles.get(2).copied(),
             }
             .map(|role| role.unwrap_or(Role::Striker));
 
             if let Some(game_controller_state) = context.filtered_game_controller_state {
                 if let Some(striker) = [
-                    PlayerNumber::Seven,
-                    PlayerNumber::Six,
                     PlayerNumber::Five,
                     PlayerNumber::Four,
+                    PlayerNumber::Three,
+                    PlayerNumber::Two,
                 ]
                 .into_iter()
                 .find(|player| game_controller_state.penalties[*player].is_none())
@@ -413,7 +403,22 @@ impl RoleAssignment {
                 *address,
                 GameControllerReturnMessage {
                     player_number: *context.player_number,
-                    fallen: matches!(context.fall_state, FallState::Fallen { .. }),
+                    fallen: context
+                        .fall_down_state
+                        .persistent
+                        .iter()
+                        .flat_map(|(_, messages)| messages.iter())
+                        .any(|message| {
+                            matches!(
+                                message,
+                                Some(FallDownState {
+                                    fall_down_state: booster::FallDownStateType::IsFalling
+                                        | booster::FallDownStateType::HasFallen
+                                        | booster::FallDownStateType::IsGettingUp,
+                                    ..
+                                })
+                            )
+                        }),
                     pose: ground_to_field.as_pose(),
                     ball: seen_ball_to_game_controller_ball_position(
                         context.ball_position,
@@ -515,20 +520,11 @@ impl RoleAssignment {
     }
 }
 
+// TODO: reintegrate Initial Pose as fallback currently only Default as fallback
 fn ground_to_field_or_initial_pose(
     context: &CycleContext<'_, impl NetworkInterface>,
 ) -> Isometry2<Ground, Field> {
-    context
-        .ground_to_field
-        .copied()
-        .unwrap_or_else(|| match context.primary_state {
-            PrimaryState::Initial => generate_initial_pose(
-                &context.initial_poses[*context.player_number],
-                context.field_dimensions,
-            )
-            .as_transform(),
-            _ => Default::default(),
-        })
+    context.ground_to_field.copied().unwrap_or_default()
 }
 
 fn is_allowed_to_send_messages(context: &CycleContext<'_, impl NetworkInterface>) -> bool {
@@ -771,14 +767,7 @@ fn keep_current_role_during_free_kicks(
         ..
     }) = filtered_game_controller_state
     {
-        if [
-            Role::DefenderLeft,
-            Role::DefenderRight,
-            Role::MidfielderLeft,
-            Role::DefenderRight,
-        ]
-        .contains(&current_role)
-        {
+        if [Role::Defender, Role::Midfielder].contains(&current_role) {
             return Some(current_role);
         }
     }
@@ -912,12 +901,10 @@ mod test {
         #[test]
         fn process_role_state_machine_should_be_idempotent_with_event_none(
             initial_role in prop_oneof![
-                Just(Role::DefenderLeft),
-                Just(Role::DefenderRight),
+                Just(Role::Defender),
                 Just(Role::Keeper),
                 Just(Role::Loser),
-                Just(Role::MidfielderLeft),
-                Just(Role::MidfielderRight),
+                Just(Role::Midfielder),
                 Just(Role::ReplacementKeeper),
                 Just(Role::Searcher),
                 Just(Role::Striker),
@@ -938,7 +925,7 @@ mod test {
             loser_timeout in Just(Duration::from_secs(5)),
             maximum_trusted_team_ball_distance in 0.0..1.0f32,
             claim_striker_from_team_ball: bool,
-            optional_roles in Just(&[Role::DefenderLeft, Role::StrikerSupporter])
+            optional_roles in Just(&[Role::Defender, Role::StrikerSupporter])
         ) {
             let loser_since = Some(cycle_start_time - Duration::from_secs(4));
             let filtered_game_controller_state: Option<FilteredGameControllerState> = filtered_game_controller_state;

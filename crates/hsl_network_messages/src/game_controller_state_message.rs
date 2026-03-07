@@ -153,8 +153,6 @@ impl TryFrom<RoboCupGameControlData> for GameControllerStateMessage {
                     3 => PlayerNumber::Three,
                     4 => PlayerNumber::Four,
                     5 => PlayerNumber::Five,
-                    6 => PlayerNumber::Six,
-                    7 => PlayerNumber::Seven,
                     _ => bail!(
                         "unexpected goal keeper player number {}",
                         message.teams[hulks_team_index].goalkeeper
@@ -180,8 +178,6 @@ impl TryFrom<RoboCupGameControlData> for GameControllerStateMessage {
                     3 => PlayerNumber::Three,
                     4 => PlayerNumber::Four,
                     5 => PlayerNumber::Five,
-                    6 => PlayerNumber::Six,
-                    7 => PlayerNumber::Seven,
                     _ => {
                         eprintln!(
                             "unexpected goal keeper player number {}, defaulting to PlayerNumber::One",
