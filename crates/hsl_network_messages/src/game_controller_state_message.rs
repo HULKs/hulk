@@ -151,10 +151,13 @@ impl TryFrom<RoboCupGameControlData> for GameControllerStateMessage {
                     3 => Some(PlayerNumber::Three),
                     4 => Some(PlayerNumber::Four),
                     5 => Some(PlayerNumber::Five),
-                    _ => bail!(
-                        "unexpected goal keeper player number {}",
-                        message.teams[hulks_team_index].goalkeeper
-                    ),
+                    _ => {
+                        eprintln!(
+                            "unexpected hulks goal keeper player number {}, defaulting to None",
+                            message.teams[hulks_team_index].goalkeeper
+                        );
+                        None
+                    }
                 },
                 score: message.teams[hulks_team_index].score,
                 penalty_shoot_index: message.teams[hulks_team_index].penaltyShot,
@@ -179,10 +182,10 @@ impl TryFrom<RoboCupGameControlData> for GameControllerStateMessage {
                     5 => Some(PlayerNumber::Five),
                     _ => {
                         eprintln!(
-                            "unexpected goal keeper player number {}, defaulting to PlayerNumber::One",
+                            "unexpected opponent goal keeper player number {}, defaulting to None",
                             message.teams[opponent_team_index].goalkeeper
                         );
-                        Some(PlayerNumber::One)
+                        None
                     }
                 },
                 score: message.teams[opponent_team_index].score,
