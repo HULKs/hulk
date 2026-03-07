@@ -1,38 +1,40 @@
-use std::sync::atomic::{AtomicBool, Ordering};
-use std::time::SystemTime;
 use std::{
     env,
     future::{Future, IntoFuture},
+    sync::atomic::{AtomicBool, Ordering},
+    time::SystemTime,
 };
 
-use booster::{ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState};
 use cdr::{CdrLe, Infinite};
-use color_eyre::eyre::{Context, bail, eyre};
-use color_eyre::{Result, eyre::ContextCompat};
-use hardware::{
-    ButtonEventMsgInterface, CameraInterface, IdInterface, MicrophoneInterface, NetworkInterface,
-    PathsInterface, RecordingInterface, SimulatorInterface, SpeakerInterface, TimeInterface,
+use color_eyre::{
+    Result,
+    eyre::{Context, ContextCompat, bail, eyre},
 };
-use hardware::{
-    FallDownStateInterface, LowCommandInterface, LowStateInterface, RemoteControllerStateInterface,
-};
-use hsl_network::endpoint::{Endpoint, Ports};
-use hula_types::hardware::{Ids, Paths};
-use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
 use serde::{Deserialize, Serialize};
-use tokio::{process::Command, runtime::Handle};
+use tokio::runtime::Handle;
 use tokio_util::sync::CancellationToken;
-use types::{
-    audio::SpeakerRequest,
-    messages::{IncomingMessage, OutgoingMessage},
-    samples::Samples,
-};
 use zenoh::{
     Session,
     bytes::ZBytes,
     handlers::{RingChannel, RingChannelHandler},
     pubsub::{Publisher, Subscriber},
     sample::Sample,
+};
+
+use booster::{ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState};
+use hardware::{
+    ButtonEventMsgInterface, CameraInterface, FallDownStateInterface, IdInterface,
+    LowCommandInterface, LowStateInterface, MicrophoneInterface, NetworkInterface, PathsInterface,
+    RecordingInterface, RemoteControllerStateInterface, SimulatorInterface, SpeakerInterface,
+    TimeInterface,
+};
+use hsl_network::endpoint::{Endpoint, Ports};
+use hula_types::hardware::{Ids, Paths};
+use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
+use types::{
+    audio::SpeakerRequest,
+    messages::{IncomingMessage, OutgoingMessage},
+    samples::Samples,
 };
 
 use crate::HardwareInterface;
@@ -120,13 +122,6 @@ impl BoosterHardwareInterface {
 
         let topic_infos = TopicInfos::default();
 
-        let output = dbg!(Command::new("sh").args([
-            "-c",
-            "jetson_release -s | grep 'Serial Number:' | grep '[0-9]*$' -o",
-        ]))
-        .output()
-        .await
-        .wrap_err("failed to get hardware id")?;
         let Some(hardware_id) = env::var_os("HARDWARE_ID") else {
             bail!("environment variable HARDWARE_ID not set")
         };
