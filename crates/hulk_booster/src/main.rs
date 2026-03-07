@@ -14,9 +14,10 @@ use color_eyre::{
 use ctrlc::set_handler;
 use framework::Parameters as FrameworkParameters;
 use hardware::{
-    ButtonEventMsgInterface, CameraInterface, FallDownStateInterface, IdInterface,
-    LowCommandInterface, LowStateInterface, MicrophoneInterface, NetworkInterface, PathsInterface,
-    RecordingInterface, SimulatorInterface, SpeakerInterface, TimeInterface,
+    ButtonEventMsgInterface, CameraInterface, FallDownStateInterface, HighLevelInterface,
+    IdInterface, LowCommandInterface, LowStateInterface, MicrophoneInterface,
+    MotionRuntimeInteface, NetworkInterface, PathsInterface, RecordingInterface,
+    SimulatorInterface, SpeakerInterface, TimeInterface,
 };
 use serde_json::from_reader;
 use tokio_util::sync::CancellationToken;
@@ -40,6 +41,10 @@ pub fn setup_logger() -> Result<(), fern::InitError> {
             ))
         })
         .level(log::LevelFilter::Debug)
+        .level_for("rustdds", log::LevelFilter::Error)
+        .level_for("booster_sdk", log::LevelFilter::Error)
+        .level_for("zenoh", log::LevelFilter::Warn)
+        .level_for("ort", log::LevelFilter::Warn)
         .chain(stdout())
         .apply()?;
     Ok(())
@@ -59,6 +64,8 @@ pub trait HardwareInterface:
     + SpeakerInterface
     + TimeInterface
     + SimulatorInterface
+    + HighLevelInterface
+    + MotionRuntimeInteface
 {
 }
 

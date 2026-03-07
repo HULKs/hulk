@@ -10,22 +10,26 @@ mod user_data;
 mod window;
 mod worker_thread;
 
+use booster_sdk::types::RobotMode;
 use color_eyre::{eyre::Result, install};
 use hardware::{
-    ActuatorInterface, CameraInterface, IdInterface, LowCommandInterface, LowStateInterface,
-    MicrophoneInterface, NetworkInterface, PathsInterface, RecordingInterface, SensorInterface,
-    SimulatorInterface, SpeakerInterface, TimeInterface,
+    ActuatorInterface, CameraInterface, HighLevelInterface, IdInterface, LowCommandInterface,
+    LowStateInterface, MicrophoneInterface, MotionRuntimeInteface, NetworkInterface,
+    PathsInterface, RecordingInterface, SensorInterface, SimulatorInterface, SpeakerInterface,
+    TimeInterface,
 };
 use hula_types::hardware::{Ids, Paths};
-use kinematics::joints::Joints;
+use kinematics::joints::{Joints, head::HeadJoints};
 use replayer::replayer;
 use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
 use types::{
     audio::SpeakerRequest,
     led::Leds,
     messages::{IncomingMessage, OutgoingMessage},
+    motion_runtime::MotionRuntime,
     samples::Samples,
     sensor_data::SensorData,
+    step::Step,
 };
 
 pub trait HardwareInterface:
@@ -42,6 +46,8 @@ pub trait HardwareInterface:
     + SpeakerInterface
     + TimeInterface
     + SimulatorInterface
+    + HighLevelInterface
+    + MotionRuntimeInteface
 {
 }
 
@@ -155,6 +161,54 @@ impl TimeInterface for ReplayerHardwareInterface {
 
 impl SimulatorInterface for ReplayerHardwareInterface {
     fn is_simulation(&self) -> Result<bool> {
+        unimplemented!()
+    }
+}
+
+impl HighLevelInterface for ReplayerHardwareInterface {
+    fn change_mode(&self, _mode: RobotMode) -> Result<()> {
+        unimplemented!()
+    }
+
+    fn get_mode(&self) -> Result<RobotMode> {
+        unimplemented!()
+    }
+
+    fn move_robot(&self, _step: Step) -> Result<()> {
+        unimplemented!()
+    }
+
+    fn rotate_head(&self, _head_joints: HeadJoints<f32>) -> Result<()> {
+        unimplemented!()
+    }
+
+    fn rotate_head_with_direction(&self, _head_joints: HeadJoints<i32>) -> Result<()> {
+        unimplemented!()
+    }
+
+    fn lie_down(&self) -> Result<()> {
+        unimplemented!()
+    }
+
+    fn get_up(&self) -> Result<()> {
+        unimplemented!()
+    }
+
+    fn get_up_with_mode(&self, _mode: RobotMode) -> Result<()> {
+        unimplemented!()
+    }
+
+    fn enter_wbc_gait(&self) -> Result<()> {
+        unimplemented!()
+    }
+
+    fn exit_wbc_gait(&self) -> Result<()> {
+        unimplemented!()
+    }
+}
+
+impl MotionRuntimeInteface for ReplayerHardwareInterface {
+    fn get_motion_runtime_type(&self) -> Result<MotionRuntime> {
         unimplemented!()
     }
 }

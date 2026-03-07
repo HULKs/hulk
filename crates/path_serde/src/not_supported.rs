@@ -6,6 +6,7 @@ use std::{
 };
 
 use crate::{PathDeserialize, PathIntrospect, PathSerialize, deserialize, serialize};
+use booster_sdk::types::RobotMode;
 use nalgebra::{DMatrix, Rotation3, SMatrix};
 use ndarray::Array2;
 use serde::{Deserializer, Serializer};
@@ -149,3 +150,5 @@ implement_as_not_supported!(SystemTime);
 implement_as_not_supported!(Vec<T>; T);
 implement_as_not_supported!(VecDeque<T>; T);
 implement_as_not_supported!([T; N]; T; const N: usize);
+// booster_sdk
+implement_as_not_supported!(RobotMode);

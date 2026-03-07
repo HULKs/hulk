@@ -2,9 +2,10 @@ use booster::{CommandType, LowCommand, MotorCommandParameters};
 use color_eyre::{Result, eyre::WrapErr};
 use context_attribute::context;
 use framework::AdditionalOutput;
-use hardware::{LowCommandInterface, TimeInterface};
+use hardware::{LowCommandInterface, MotionRuntimeInteface, TimeInterface};
 use kinematics::joints::Joints;
 use serde::{Deserialize, Serialize};
+use types::motion_runtime::MotionRuntime;
 
 #[derive(Deserialize, Serialize)]
 pub struct CommandSender {
@@ -46,8 +47,12 @@ impl CommandSender {
 
     pub fn cycle(
         &mut self,
-        mut context: CycleContext<impl LowCommandInterface + TimeInterface>,
+        mut context: CycleContext<impl LowCommandInterface + MotionRuntimeInteface + TimeInterface>,
     ) -> Result<MainOutputs> {
+        if context.hardware_interface.get_motion_runtime_type()? != MotionRuntime::Hulk {
+            return Ok(MainOutputs {});
+        }
+
         let walk_low_command = LowCommand::new(
             context.collected_target_joint_positions,
             context.walk_motor_command_parameters,

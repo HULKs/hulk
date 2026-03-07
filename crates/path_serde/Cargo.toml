@@ -6,6 +6,7 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
+booster_sdk = { workspace = true }
 nalgebra = { workspace = true }
 ndarray = { workspace = true }
 num-traits = { workspace = true }

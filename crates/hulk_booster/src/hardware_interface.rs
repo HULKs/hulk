@@ -1,15 +1,22 @@
 use std::{
     env,
     future::{Future, IntoFuture},
-    sync::atomic::{AtomicBool, Ordering},
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
     time::SystemTime,
 };
 
+use booster_sdk::{client::BoosterClient, types::RobotMode};
 use cdr::{CdrLe, Infinite};
 use color_eyre::{
     Result,
     eyre::{Context, ContextCompat, bail, eyre},
 };
+use kinematics::joints::head::HeadJoints;
+use log::{error, warn};
+use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use tokio::runtime::Handle;
 use tokio_util::sync::CancellationToken;
@@ -23,10 +30,10 @@ use zenoh::{
 
 use booster::{ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState};
 use hardware::{
-    ButtonEventMsgInterface, CameraInterface, FallDownStateInterface, IdInterface,
-    LowCommandInterface, LowStateInterface, MicrophoneInterface, NetworkInterface, PathsInterface,
-    RecordingInterface, RemoteControllerStateInterface, SimulatorInterface, SpeakerInterface,
-    TimeInterface,
+    ButtonEventMsgInterface, CameraInterface, FallDownStateInterface, HighLevelInterface,
+    IdInterface, LowCommandInterface, LowStateInterface, MicrophoneInterface,
+    MotionRuntimeInteface, NetworkInterface, PathsInterface, RecordingInterface,
+    RemoteControllerStateInterface, SimulatorInterface, SpeakerInterface, TimeInterface,
 };
 use hsl_network::endpoint::{Endpoint, Ports};
 use hula_types::hardware::{Ids, Paths};
@@ -34,7 +41,9 @@ use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
 use types::{
     audio::SpeakerRequest,
     messages::{IncomingMessage, OutgoingMessage},
+    motion_runtime::MotionRuntime,
     samples::Samples,
+    step::Step,
 };
 
 use crate::HardwareInterface;
@@ -104,6 +113,9 @@ pub struct BoosterHardwareInterface {
     image_left_raw_subscriber: Subscriber<RingChannelHandler<Sample>>,
     image_left_raw_camera_info_subscriber: Subscriber<RingChannelHandler<Sample>>,
 
+    high_level_interface_client: Arc<BoosterClient>,
+    robot_mode: Arc<Mutex<RobotMode>>,
+
     _session: Session,
     runtime_handle: Handle,
     hsl_network_endpoint: Endpoint,
@@ -131,6 +143,20 @@ impl BoosterHardwareInterface {
                 .ok()
                 .wrap_err("id was not valid UTF-8")?,
         };
+
+        let high_level_interface_client = Arc::new(BoosterClient::new()?);
+
+        let robot_mode = Arc::new(Mutex::new(RobotMode::Unknown));
+
+        tokio::spawn(
+            keep_running
+                .clone()
+                .run_until_cancelled_owned(robot_mode_worker(
+                    keep_running.clone(),
+                    high_level_interface_client.clone(),
+                    robot_mode.clone(),
+                )),
+        );
 
         Ok(Self {
             ids,
@@ -164,6 +190,9 @@ impl BoosterHardwareInterface {
                 &topic_infos.image_left_raw_camera_info,
             )
             .await?,
+
+            robot_mode,
+            high_level_interface_client,
 
             _session: session,
             hsl_network_endpoint: keep_running
@@ -209,6 +238,35 @@ async fn declare_publisher(
         .declare_publisher(key_expression)
         .await
         .map_err(|err| eyre!(err))
+}
+
+async fn robot_mode_worker(
+    keep_running: CancellationToken,
+    high_level_interface_client: Arc<BoosterClient>,
+    robot_mode: Arc<Mutex<RobotMode>>,
+) -> Result<()> {
+    keep_running
+        .run_until_cancelled(async {
+            loop {
+                match high_level_interface_client.get_mode().await {
+                    Ok(get_mode_response) => {
+                        let Some(received_robot_mode) = get_mode_response.mode_enum() else {
+                            warn!("unrecognized robot mode id: {}", get_mode_response.mode);
+                            continue;
+                        };
+
+                        *robot_mode.lock() = received_robot_mode;
+                    }
+                    Err(err) => {
+                        error!("failed to get robot mode: {err}")
+                    }
+                }
+            }
+        })
+        .await
+        .ok_or(eyre!("termination_requested"))?;
+
+    Ok(())
 }
 
 fn deserialize_sample<T>(sample: Sample) -> Result<T>
@@ -355,6 +413,73 @@ impl RecordingInterface for BoosterHardwareInterface {
 impl SimulatorInterface for BoosterHardwareInterface {
     fn is_simulation(&self) -> Result<bool> {
         Ok(false)
+    }
+}
+
+impl HighLevelInterface for BoosterHardwareInterface {
+    fn change_mode(&self, mode: RobotMode) -> Result<()> {
+        self.run_until_cancelled(self.high_level_interface_client.change_mode(mode))?
+            .wrap_err("failed to send change mode command")
+    }
+
+    fn get_mode(&self) -> Result<RobotMode> {
+        Ok(*self.robot_mode.lock())
+    }
+
+    fn move_robot(&self, step: Step) -> Result<()> {
+        self.run_until_cancelled(self.high_level_interface_client.move_robot(
+            step.forward,
+            step.left,
+            step.turn,
+        ))?
+        .wrap_err("failed to send move robot command")
+    }
+
+    fn rotate_head(&self, head_joints: HeadJoints<f32>) -> Result<()> {
+        self.run_until_cancelled(
+            self.high_level_interface_client
+                .rotate_head(head_joints.pitch, head_joints.yaw),
+        )?
+        .wrap_err("failed to send rotate head command")
+    }
+
+    fn rotate_head_with_direction(&self, head_joints: HeadJoints<i32>) -> Result<()> {
+        self.run_until_cancelled(
+            self.high_level_interface_client
+                .rotate_head_with_direction(head_joints.pitch, head_joints.yaw),
+        )?
+        .wrap_err("failed to send rotate head with direction command")
+    }
+
+    fn lie_down(&self) -> Result<()> {
+        self.run_until_cancelled(self.high_level_interface_client.lie_down())?
+            .wrap_err("failed to send lie down command")
+    }
+
+    fn get_up(&self) -> Result<()> {
+        self.run_until_cancelled(self.high_level_interface_client.get_up())?
+            .wrap_err("failed to send get up command")
+    }
+
+    fn get_up_with_mode(&self, mode: RobotMode) -> Result<()> {
+        self.run_until_cancelled(self.high_level_interface_client.get_up_with_mode(mode))?
+            .wrap_err("failed to send get up with mode command")
+    }
+
+    fn enter_wbc_gait(&self) -> Result<()> {
+        self.run_until_cancelled(self.high_level_interface_client.enter_wbc_gait())?
+            .wrap_err("failed to send enter wbc gait command")
+    }
+
+    fn exit_wbc_gait(&self) -> Result<()> {
+        self.run_until_cancelled(self.high_level_interface_client.exit_wbc_gait())?
+            .wrap_err("failed to send exit wbc gait command")
+    }
+}
+
+impl MotionRuntimeInteface for BoosterHardwareInterface {
+    fn get_motion_runtime_type(&self) -> Result<MotionRuntime> {
+        Ok(MotionRuntime::Booster)
     }
 }
 

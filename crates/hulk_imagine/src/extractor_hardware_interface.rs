@@ -1,16 +1,20 @@
+use booster_sdk::types::RobotMode;
 use hardware::{
-    ActuatorInterface, LowCommandInterface, LowStateInterface, NetworkInterface, PathsInterface,
-    RecordingInterface, SimulatorInterface, SpeakerInterface, TimeInterface,
+    ActuatorInterface, HighLevelInterface, LowCommandInterface, LowStateInterface,
+    MotionRuntimeInteface, NetworkInterface, PathsInterface, RecordingInterface,
+    SimulatorInterface, SpeakerInterface, TimeInterface,
 };
 
 use color_eyre::eyre::Result;
 
 use hula_types::hardware::Paths;
-use kinematics::joints::Joints;
+use kinematics::joints::{Joints, head::HeadJoints};
 use types::{
     audio::SpeakerRequest,
     led::Leds,
     messages::{IncomingMessage, OutgoingMessage},
+    motion_runtime::MotionRuntime,
+    step::Step,
 };
 
 pub trait HardwareInterface:
@@ -23,6 +27,8 @@ pub trait HardwareInterface:
     + SpeakerInterface
     + TimeInterface
     + SimulatorInterface
+    + HighLevelInterface
+    + MotionRuntimeInteface
 {
 }
 
@@ -97,6 +103,54 @@ impl TimeInterface for ExtractorHardwareInterface {
 
 impl SimulatorInterface for ExtractorHardwareInterface {
     fn is_simulation(&self) -> Result<bool> {
+        unimplemented!()
+    }
+}
+
+impl HighLevelInterface for ExtractorHardwareInterface {
+    fn change_mode(&self, _mode: RobotMode) -> Result<()> {
+        unimplemented!()
+    }
+
+    fn get_mode(&self) -> Result<RobotMode> {
+        unimplemented!()
+    }
+
+    fn move_robot(&self, _step: Step) -> Result<()> {
+        unimplemented!()
+    }
+
+    fn rotate_head(&self, _head_joints: HeadJoints<f32>) -> Result<()> {
+        unimplemented!()
+    }
+
+    fn rotate_head_with_direction(&self, _head_joints: HeadJoints<i32>) -> Result<()> {
+        unimplemented!()
+    }
+
+    fn lie_down(&self) -> Result<()> {
+        unimplemented!()
+    }
+
+    fn get_up(&self) -> Result<()> {
+        unimplemented!()
+    }
+
+    fn get_up_with_mode(&self, _mode: RobotMode) -> Result<()> {
+        unimplemented!()
+    }
+
+    fn enter_wbc_gait(&self) -> Result<()> {
+        unimplemented!()
+    }
+
+    fn exit_wbc_gait(&self) -> Result<()> {
+        unimplemented!()
+    }
+}
+
+impl MotionRuntimeInteface for ExtractorHardwareInterface {
+    fn get_motion_runtime_type(&self) -> Result<MotionRuntime> {
         unimplemented!()
     }
 }
