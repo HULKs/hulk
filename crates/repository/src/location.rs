@@ -11,30 +11,28 @@ use tokio::{
     io,
 };
 
+use parameters::directory::LocationTarget;
+
 use crate::Repository;
 
 impl Repository {
     pub async fn list_configured_locations(&self) -> Result<Vec<(String, Option<String>)>> {
         let parameters_root = &self.root.join("etc/parameters");
-        let results: Vec<_> = [
-            "robot_location",
-            "webots_location",
-            "behavior_simulator_location",
-        ]
-        .into_iter()
-        .map(|target_name| async move {
-            (
-                target_name,
-                read_link(parameters_root.join(target_name))
-                    .await
-                    .wrap_err_with(|| format!("failed reading location symlink for {target_name}")),
-            )
-        })
-        .collect::<FuturesUnordered<_>>()
-        .collect()
-        .await;
+        let targets: Vec<_> = LocationTarget::all()
+            .into_iter()
+            .map(|target| async move {
+                (
+                    target,
+                    read_link(parameters_root.join(target.file_name()))
+                        .await
+                        .wrap_err_with(|| format!("failed reading location symlink for {target}")),
+                )
+            })
+            .collect::<FuturesUnordered<_>>()
+            .collect()
+            .await;
 
-        results
+        targets
             .into_iter()
             .map(|(target_name, path)| match path {
                 Ok(path) => Ok((
@@ -57,7 +55,7 @@ impl Repository {
             .collect()
     }
 
-    pub async fn set_location(&self, target: &str, location: &str) -> Result<()> {
+    pub async fn set_location(&self, target: LocationTarget, location: &str) -> Result<()> {
         let parameters_root = self.root.join("etc/parameters");
         if !try_exists(parameters_root.join(location))
             .await
@@ -75,7 +73,7 @@ impl Repository {
                 "location {location} does not exist.\navailable locations are:\n{available_locations}"
             );
         }
-        let target_location = parameters_root.join(format!("{target}_location"));
+        let target_location = parameters_root.join(target.file_name());
         let _ = remove_file(&target_location).await;
         symlink(location, &target_location).await.wrap_err_with(|| {
             format!(

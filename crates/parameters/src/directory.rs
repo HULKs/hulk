@@ -1,8 +1,10 @@
 use std::{
     collections::BTreeSet,
+    fmt::Display,
     fs::{read_to_string, write},
     io,
     path::{Path, PathBuf},
+    str::FromStr,
 };
 
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
@@ -59,7 +61,7 @@ where
 
     let location_directory = parameters_root_path
         .as_ref()
-        .join(location_directory_from_id(&hardware_ids.robot_id));
+        .join(location_directory_from_id(&hardware_ids.robot_id).file_name());
 
     let location_default_file_path = location_directory.join("default.json");
     if location_default_file_path.exists() {
@@ -178,6 +180,46 @@ pub enum Location {
     Current,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+pub enum LocationTarget {
+    Booster,
+    Mujoco,
+    BehaviorSimulator,
+}
+
+impl Display for LocationTarget {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(match self {
+            LocationTarget::Booster => "booster",
+            LocationTarget::Mujoco => "mujoco",
+            LocationTarget::BehaviorSimulator => "behavior_simulator",
+        })
+    }
+}
+
+impl FromStr for LocationTarget {
+    type Err = String;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        Ok(match s {
+            "booster" => Self::Booster,
+            "mujoco" => Self::Mujoco,
+            "behavior_simulator" => Self::BehaviorSimulator,
+            other => return Err(format!("unknown location: {other}")),
+        })
+    }
+}
+
+impl LocationTarget {
+    pub fn all() -> [Self; 3] {
+        [Self::Booster, Self::Mujoco, Self::BehaviorSimulator]
+    }
+
+    pub fn file_name(&self) -> String {
+        format!("{self}_location")
+    }
+}
+
 #[derive(Copy, Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum Id {
     All,
@@ -193,7 +235,7 @@ fn file_path_from_scope(
         Location::All => parameters_root_path.as_ref().to_path_buf(),
         Location::Current => parameters_root_path
             .as_ref()
-            .join(location_directory_from_id(&hardware_ids.robot_id)),
+            .join(location_directory_from_id(&hardware_ids.robot_id).file_name()),
     };
     match scope.id {
         Id::All => directory.join("default.json"),
@@ -201,15 +243,15 @@ fn file_path_from_scope(
     }
 }
 
-fn location_directory_from_id(id: &str) -> &'static str {
+fn location_directory_from_id(id: &str) -> LocationTarget {
     let mujoco_id_found = id.starts_with("mujoco");
     let behavior_simulator_id_found = id.starts_with("behavior_simulator");
     if mujoco_id_found {
-        "mujoco_location"
+        LocationTarget::Mujoco
     } else if behavior_simulator_id_found {
-        "behavior_simulator_location"
+        LocationTarget::BehaviorSimulator
     } else {
-        "booster_location"
+        LocationTarget::Booster
     }
 }
 
