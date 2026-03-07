@@ -4,7 +4,7 @@ use coordinate_systems::Ground;
 use linear_algebra::{Orientation2, Point2, Vector2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
-use crate::{fall_state::FallingDirection, planned_path::Path, support_foot::Side};
+use crate::{fall_state::FallingDirection, path::Path, support_foot::Side};
 
 #[derive(
     Clone,

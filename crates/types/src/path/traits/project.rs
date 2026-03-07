@@ -1,9 +1,11 @@
 use coordinate_systems::Ground;
 use geometry::{arc::Arc, line_segment::LineSegment};
 use linear_algebra::Point2;
-use types::planned_path::{Path, PathSegment};
 
-use crate::traits::{ArcProjectionKind, ClassifyProjection};
+use crate::path::{
+    Path, PathSegment,
+    traits::{ArcProjectionKind, ClassifyProjection},
+};
 
 pub trait Project<Frame> {
     /// Project `point` onto `self`.

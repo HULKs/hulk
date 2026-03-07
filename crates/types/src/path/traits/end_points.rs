@@ -1,7 +1,8 @@
 use coordinate_systems::Ground;
 use geometry::{arc::Arc, line_segment::LineSegment};
 use linear_algebra::Point2;
-use types::planned_path::{Path, PathSegment};
+
+use crate::path::{Path, PathSegment};
 
 pub trait EndPoints<Frame> {
     fn start_point(&self) -> Point2<Frame>;

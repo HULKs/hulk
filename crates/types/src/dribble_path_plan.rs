@@ -4,7 +4,7 @@ use coordinate_systems::Ground;
 use linear_algebra::Orientation2;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
-use crate::{motion_command::OrientationMode, planned_path::Path};
+use crate::{motion_command::OrientationMode, path::Path};
 
 #[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect)]
 pub struct DribblePathPlan {

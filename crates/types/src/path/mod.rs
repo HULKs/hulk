@@ -1,3 +1,5 @@
+pub mod traits;
+
 use approx::{AbsDiffEq, RelativeEq};
 use serde::{Deserialize, Serialize};
 
@@ -89,11 +91,4 @@ impl PathSegment {
             PathSegment::Arc(arc) => arc.length(),
         }
     }
-}
-
-#[derive(
-    Clone, Debug, Default, Serialize, PathSerialize, PathDeserialize, PathIntrospect, Deserialize,
-)]
-pub struct PlannedPath {
-    pub path: Option<Vec<PathSegment>>,
 }

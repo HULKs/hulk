@@ -2,18 +2,18 @@ use std::f32::consts::PI;
 
 use approx::AbsDiffEq;
 use booster::{JointsMotorState, MotorCommandParameters, MotorState};
-use color_eyre::{
-    Result,
-    eyre::{ContextCompat, bail},
-};
+use color_eyre::{Result, eyre::ContextCompat};
 use coordinate_systems::{Ground, Robot};
 use itertools::Itertools;
 use kinematics::joints::Joints;
-use linear_algebra::{IntoFramed, Vector2, Vector3, vector};
+use linear_algebra::{IntoFramed, Orientation2, Point2, Vector2, Vector3, vector};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use types::{
-    cycle_time::CycleTime, motion_command::MotionCommand, parameters::RLWalkingParameters,
+    cycle_time::CycleTime,
+    motion_command::{MotionCommand, OrientationMode, WalkSpeed},
+    parameters::RLWalkingParameters,
+    path::traits::{Length, PathProgress},
 };
 
 #[derive(
@@ -31,11 +31,103 @@ pub struct WalkingInferenceInputs {
     pub last_target_joint_positions: [f32; 12],
 }
 
+pub enum WalkCommand {
+    WalkWithVelocity {
+        velocity: Vector2<Ground>,
+        angular_velocity: f32,
+    },
+    Stand,
+}
+
+impl WalkCommand {
+    pub fn from_motion_command(
+        motion_command: &MotionCommand,
+        parameters: &RLWalkingParameters,
+    ) -> Self {
+        match motion_command {
+            MotionCommand::Walk {
+                path,
+                orientation_mode,
+                target_orientation,
+                distance_to_be_aligned,
+                speed,
+                ..
+            } => {
+                let forward = path.forward(Point2::origin());
+                let walk_speed = match speed {
+                    WalkSpeed::Slow => 0.5,
+                    WalkSpeed::Normal => 1.0,
+                    WalkSpeed::Fast => 1.5,
+                };
+                let velocity = forward * walk_speed;
+
+                let (walk_orientation, _tolerance): (Orientation2<Ground>, f32) =
+                    match orientation_mode {
+                        OrientationMode::Unspecified => todo!(),
+                        OrientationMode::AlignWithPath => (Orientation2::from_vector(forward), 0.0),
+                        OrientationMode::LookTowards {
+                            direction,
+                            tolerance,
+                        } => (*direction, *tolerance),
+                        OrientationMode::LookAt { target, tolerance } => (
+                            Orientation2::from_vector(target - Point2::origin()),
+                            *tolerance,
+                        ),
+                    };
+
+                let distance_to_target = path.length();
+                let target_alignment_importance = target_alignment_importance(
+                    *distance_to_be_aligned,
+                    parameters.hybrid_align_distance,
+                    distance_to_target,
+                );
+
+                let orientation =
+                    walk_orientation.slerp(*target_orientation, target_alignment_importance);
+
+                const ROTATION_SPEED: f32 = 1.0;
+
+                let angular_velocity = orientation.as_unit_vector().y() * ROTATION_SPEED;
+
+                Self::WalkWithVelocity {
+                    velocity,
+                    angular_velocity,
+                }
+            }
+            MotionCommand::WalkWithVelocity {
+                velocity,
+                angular_velocity,
+                ..
+            } => Self::WalkWithVelocity {
+                velocity: *velocity,
+                angular_velocity: *angular_velocity,
+            },
+            _ => Self::Stand,
+        }
+    }
+}
+
+// https://www.desmos.com/calculator/ng03egi9mp
+fn target_alignment_importance(
+    distance_to_be_aligned: f32,
+    hybrid_align_distance: f32,
+    distance_to_target: f32,
+) -> f32 {
+    if distance_to_target < distance_to_be_aligned {
+        1.0
+    } else if distance_to_target < distance_to_be_aligned + hybrid_align_distance {
+        (1.0 + f32::cos(PI * (distance_to_target - distance_to_be_aligned) / hybrid_align_distance))
+            * 0.5
+    } else {
+        0.0
+    }
+}
+
 impl WalkingInferenceInputs {
     #[allow(clippy::too_many_arguments)]
     pub fn try_new(
         cycle_time: CycleTime,
-        motion_command: &MotionCommand,
+        walk_command: &WalkCommand,
         roll_pitch_yaw: Vector3<Robot>,
         angular_velocity: Vector3<Robot>,
         current_serial_joints: Joints<MotorState>,
@@ -49,11 +141,10 @@ impl WalkingInferenceInputs {
         let policy_interval =
             cycle_time.last_cycle_duration.as_secs_f32() * walking_parameters.control.decimation;
 
-        let (linear_velocity_command, angular_velocity_command) = match motion_command {
-            MotionCommand::WalkWithVelocity {
+        let (linear_velocity_command, angular_velocity_command) = match walk_command {
+            WalkCommand::WalkWithVelocity {
                 velocity,
                 angular_velocity,
-                ..
             } => {
                 let linear_velocity_command_difference = velocity - last_linear_velocity_command;
                 let angular_velocity_command_difference =
@@ -73,8 +164,7 @@ impl WalkingInferenceInputs {
                             .clamp(-policy_interval, policy_interval),
                 )
             }
-            MotionCommand::Stand { .. } | MotionCommand::Prepare => (vector![0.0, 0.0], 0.0),
-            _ => bail!("unsupported motion command"),
+            WalkCommand::Stand => (vector![0.0, 0.0], 0.0),
         };
 
         let stabilizing_interval_progress = last_gait_progress
