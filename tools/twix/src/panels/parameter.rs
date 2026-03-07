@@ -83,7 +83,7 @@ impl Widget for &mut ParameterPanel {
                             ),
                         }
                     }
-                    if ui.button("Save to Body").clicked() {
+                    if ui.button("Save to Robot").clicked() {
                         let serialized =
                             serde_json::from_str::<Value>(self.parameter_value.as_ref().unwrap());
                         match serialized {
