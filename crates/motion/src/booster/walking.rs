@@ -33,15 +33,12 @@ impl BoosterWalking {
         &mut self,
         context: CycleContext<impl HighLevelInterface + MotionRuntimeInteface + TimeInterface>,
     ) -> Result<MainOutputs> {
-        if !matches!(
-            context.hardware_interface.get_motion_runtime_type()?,
-            MotionRuntime::Booster
-        ) | !matches!(context.robot_mode, RobotMode::Walking)
+        if context.hardware_interface.get_motion_runtime_type()? == MotionRuntime::Booster
+            || matches!(context.robot_mode, RobotMode::Walking)
         {
             return Ok(MainOutputs {});
         }
 
-        #[allow(clippy::single_match)]
         match context.motion_command {
             MotionCommand::WalkWithVelocity {
                 velocity,
@@ -55,22 +52,8 @@ impl BoosterWalking {
                     turn: *angular_velocity,
                 },
             ),
-            MotionCommand::Stand { .. } => move_robot(
-                &context,
-                Step {
-                    forward: 0.0,
-                    left: 0.0,
-                    turn: 0.0,
-                },
-            ),
-            _ => move_robot(
-                &context,
-                Step {
-                    forward: 0.0,
-                    left: 0.0,
-                    turn: 0.0,
-                },
-            ),
+            MotionCommand::Stand { .. } => move_robot(&context, Step::ZERO),
+            _ => move_robot(&context, Step::ZERO),
         };
 
         Ok(MainOutputs {})

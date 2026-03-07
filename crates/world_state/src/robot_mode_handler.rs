@@ -35,10 +35,7 @@ impl BoosterModeHandler {
         &mut self,
         context: CycleContext<impl HighLevelInterface + MotionRuntimeInteface + TimeInterface>,
     ) -> Result<MainOutputs> {
-        if !matches!(
-            context.hardware_interface.get_motion_runtime_type()?,
-            MotionRuntime::Booster
-        ) {
+        if context.hardware_interface.get_motion_runtime_type()? == MotionRuntime::Booster {
             return Ok(MainOutputs {
                 robot_mode: None.into(),
             });

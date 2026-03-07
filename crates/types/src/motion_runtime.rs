@@ -6,6 +6,8 @@ use serde::{Deserialize, Serialize};
     Clone,
     Debug,
     Default,
+    Eq,
+    PartialEq,
     Serialize,
     Deserialize,
     PathSerialize,
