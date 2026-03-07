@@ -1,11 +1,6 @@
-use color_eyre::{eyre::eyre, Result};
-use geometry::{
-    arc::Arc,
-    circle::Circle,
-    direction::{Direction, Rotate90Degrees},
-    line_segment::LineSegment,
-};
-use linear_algebra::{distance, point, vector, Isometry2, Orientation2, Point2};
+use color_eyre::{Result, eyre::eyre};
+use geometry::{arc::Arc, circle::Circle, direction::Direction, line_segment::LineSegment};
+use linear_algebra::{Isometry2, Orientation2, Point2, distance, point, vector};
 use log::warn;
 use ordered_float::NotNan;
 use smallvec::SmallVec;
@@ -20,7 +15,7 @@ use types::{
     rule_obstacles::RuleObstacle,
 };
 
-use crate::a_star::{a_star_search, DynamicMap};
+use crate::a_star::{DynamicMap, a_star_search};
 
 #[derive(Debug, Clone)]
 pub struct PathNode {
@@ -43,7 +38,6 @@ impl From<Point2<Ground>> for PathNode {
 
 #[derive(Debug, Default)]
 pub struct PathPlanner {
-    /// The first node is always the start, the second the destination
     pub nodes: Vec<PathNode>,
     pub obstacles: Vec<PathObstacle>,
     pub last_path_direction: Option<Orientation2<Ground>>,
@@ -57,19 +51,13 @@ impl PathPlanner {
         rotation_penalty_factor: f32,
     ) {
         self.last_path_direction = match last_motion_command {
-            MotionCommand::Walk { path, .. } => path.segments.first().map(|segment| {
-                let direction = match segment {
-                    PathSegment::LineSegment(line_segment) => line_segment.1.coords(),
-                    PathSegment::Arc(arc) => {
-                        arc.start.as_unit_vector().rotate_90_degrees(arc.direction)
-                    }
-                };
-                if direction.norm_squared() < f32::EPSILON {
-                    Orientation2::identity()
+            MotionCommand::WalkWithVelocity { velocity, .. } => {
+                if velocity.norm_squared() < f32::EPSILON {
+                    None
                 } else {
-                    Orientation2::from_vector(direction)
+                    Some(Orientation2::from_vector(*velocity))
                 }
-            }),
+            }
             _ => None,
         };
 
@@ -321,7 +309,8 @@ impl PathPlanner {
         }
 
         let mut previous_node_index = 0;
-        let path = navigation_path
+
+        navigation_path
             .steps
             .windows(2)
             .map(|indices| -> Result<PathSegment> {
@@ -354,9 +343,7 @@ impl PathPlanner {
             })
             .collect::<Result<Vec<_>>>()
             .map(|segments| Path { segments })
-            .map(Some);
-
-        path
+            .map(Some)
     }
 
     fn add_tangent_between_point_and_obstacle(
@@ -549,7 +536,6 @@ mod tests {
     use approx::assert_relative_eq;
 
     use linear_algebra::point;
-    use step_planning::traits::Length;
 
     use super::*;
 
@@ -565,11 +551,12 @@ mod tests {
             .expect("Path error")
             .expect("Path was none");
 
+        let total_length: f32 = path.segments.iter().map(|segment| segment.length()).sum();
         println!("Map {map:#?}");
-        println!("Total cost: {:?}", path.length());
+        println!("Total cost: {:?}", total_length);
 
         assert_relative_eq!(path.segments.as_slice(), expected_segments, epsilon = 0.01);
-        assert_relative_eq!(path.length(), expected_cost, epsilon = 0.01);
+        assert_relative_eq!(total_length, expected_cost, epsilon = 0.01);
     }
 
     #[test]
@@ -812,10 +799,11 @@ mod tests {
             ],
             0.0,
         );
-        assert!(map
-            .plan(Point2::origin(), point![2.0, 0.0])
-            .expect("Path error")
-            .is_none());
+        assert!(
+            map.plan(Point2::origin(), point![2.0, 0.0])
+                .expect("Path error")
+                .is_none()
+        );
     }
 
     #[test]
@@ -830,9 +818,10 @@ mod tests {
             ],
             0.0,
         );
-        assert!(map
-            .plan(point![2.0, 0.0], Point2::origin())
-            .expect("Path error")
-            .is_none());
+        assert!(
+            map.plan(point![2.0, 0.0], Point2::origin())
+                .expect("Path error")
+                .is_none()
+        );
     }
 }

@@ -7,3 +7,5 @@ pub mod remote_control;
 pub mod safe;
 pub mod stand_up;
 pub mod walk_to_ball;
+pub mod walk_to_ball_two;
+pub mod walk_to_pose;

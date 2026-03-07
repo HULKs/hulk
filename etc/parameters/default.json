@@ -324,6 +324,28 @@
         "turn": 0.0
       },
       "enable": false
+    },
+    "walk_to_pose": {
+      "translation_p": 1.5,
+      "translation_d": 0.3,
+      "rotation_p": 2.0,
+      "rotation_d": 0.2,
+      "max_speed": 2.0,
+      "max_turn": 1.0
+    },
+    "path_planning": {
+      "robot_radius_at_hip_height": 0.15,
+      "robot_radius_at_foot_height": 0.2,
+      "minimum_robot_radius_at_foot_height": 0.11,
+      "ball_obstacle_radius": 0.05,
+      "field_border_weight": 0.15,
+      "line_walking_speed": 0.25,
+      "arc_walking_speed": 0.2,
+      "rotation_penalty_factor": 0.4,
+      "half_rotation": {
+        "nanos": 0,
+        "secs": 3
+      }
     }
   },
   "field_dimensions": {

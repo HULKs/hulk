@@ -23,8 +23,12 @@ pub struct CycleContext {
     filtered_game_controller_state:
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
     ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
+    // instant_kick_decisions: Input<Option<Vec<KickDecision>>, "instant_kick_decisions?">,
+    // kick_decisions: Input<Option<Vec<KickDecision>>, "kick_decisions?">,
+    // obstacles: Input<Vec<Obstacle>, "obstacles">,
     primary_state: Input<PrimaryState, "primary_state">,
     rule_ball: Input<Option<BallState>, "rule_ball_state?">,
+    // rule_obstacles: Input<Vec<RuleObstacle>, "rule_obstacles">,
 }
 
 #[context]
@@ -47,8 +51,16 @@ impl WorldStateComposer {
         let world_state = WorldState {
             ball: context.ball.copied(),
             filtered_game_controller_state: context.filtered_game_controller_state.cloned(),
+            //instant_kick_decisions: context.instant_kick_decisions.cloned(),
+            instant_kick_decisions: Default::default(),
+            //kick_decisions: context.kick_decisions.cloned(),
+            kick_decisions: Default::default(),
+            //obstacles: context.obstacles.clone(),
+            obstacles: Default::default(),
             robot,
             rule_ball: context.rule_ball.copied(),
+            // rule_obstacles: context.rule_obstacles.clone(),
+            rule_obstacles: Default::default(),
         };
 
         Ok(MainOutputs {

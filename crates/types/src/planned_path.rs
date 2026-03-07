@@ -2,8 +2,8 @@ use approx::{AbsDiffEq, RelativeEq};
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Ground;
-use geometry::{arc::Arc, line_segment::LineSegment};
-use linear_algebra::Point2;
+use geometry::{arc::Arc, direction::Rotate90Degrees, line_segment::LineSegment};
+use linear_algebra::{Point2, Vector2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 #[derive(
@@ -28,6 +28,20 @@ impl Path {
 
     pub fn last_segment(&self) -> &PathSegment {
         self.segments.last().expect("path was empty")
+    }
+
+    pub fn direction(&self) -> Vector2<Ground> {
+        let raw = match self.first_segment() {
+            PathSegment::LineSegment(line) => line.1 - line.0,
+            PathSegment::Arc(arc) => arc.start.as_unit_vector().rotate_90_degrees(arc.direction),
+        };
+
+        let norm = raw.norm();
+        if norm > f32::EPSILON {
+            raw / norm
+        } else {
+            Vector2::zeros()
+        }
     }
 }
 
