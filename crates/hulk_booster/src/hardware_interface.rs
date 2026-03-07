@@ -475,6 +475,11 @@ impl HighLevelInterface for BoosterHardwareInterface {
         self.run_until_cancelled(self.high_level_interface_client.exit_wbc_gait())?
             .wrap_err("failed to send exit wbc gait command")
     }
+
+    fn visual_kick(&self, start: bool) -> Result<()> {
+        self.run_until_cancelled(self.high_level_interface_client.visual_kick(start))?
+            .wrap_err("failed to send visual kick command")
+    }
 }
 
 impl MotionRuntimeInteface for BoosterHardwareInterface {

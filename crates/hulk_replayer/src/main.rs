@@ -205,6 +205,10 @@ impl HighLevelInterface for ReplayerHardwareInterface {
     fn exit_wbc_gait(&self) -> Result<()> {
         unimplemented!()
     }
+
+    fn visual_kick(&self, _start: bool) -> Result<()> {
+        unimplemented!()
+    }
 }
 
 impl MotionRuntimeInteface for ReplayerHardwareInterface {
