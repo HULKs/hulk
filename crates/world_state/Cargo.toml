@@ -17,9 +17,12 @@ framework = { workspace = true }
 geometry = { workspace = true }
 hardware = { workspace = true }
 hsl_network_messages = { workspace = true }
+itertools = { workspace = true }
 kinematics = { workspace = true }
 linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
+ndarray = { workspace = true }
+ndarray-conv = { workspace = true }
 path_serde = { workspace = true }
 projection = { workspace = true }
 ros2 = { workspace = true }
