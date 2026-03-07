@@ -27,7 +27,7 @@ sudo podman run -it --rm \
   --name hulk \
   hulk-runtime:latest \
   bash -c "cd /home/booster/hulk &&
-    ./bin/hulk --log-path ${INTERNAL_LOG_PATH}
-     > >(tee ${INTERNAL_LOG_PATH}/hulk.out)
+    ./bin/hulk --log-path ${INTERNAL_LOG_PATH} \
+     > >(tee ${INTERNAL_LOG_PATH}/hulk.out) \
     2> >(tee ${INTERNAL_LOG_PATH}/hulk.err)
   "
