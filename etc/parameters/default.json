@@ -324,6 +324,14 @@
         "turn": 0.0
       },
       "enable": false
+    },
+    "walk_to_pose": {
+      "translation_p": 1.5,
+      "translation_d": 0.3,
+      "rotation_p": 2.0,
+      "rotation_d": 0.2,
+      "max_speed": 2.0,
+      "max_turn": 1.0
     }
   },
   "field_dimensions": {

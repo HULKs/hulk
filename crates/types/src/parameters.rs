@@ -39,6 +39,7 @@ pub struct WhistleDetectionParameters {
 pub struct BehaviorParameters {
     pub injected_motion_command: Option<MotionCommand>,
     pub remote_control: RemoteControlParameters,
+    pub walk_to_pose: WalkToPoseParameters,
     pub walk_with_velocity: WalkWithVelocityParameters,
 }
 
@@ -537,4 +538,14 @@ pub enum ImageReceiverInstance {
     #[default]
     Rectified,
     StereonetDepth,
+}
+
+#[derive(Clone, Debug, Default, Deserialize, Serialize)]
+pub struct WalkToPoseParameters {
+    pub translation_p: f32,
+    pub translation_d: f32,
+    pub rotation_p: f32,
+    pub rotation_d: f32,
+    pub max_speed: f32,
+    pub max_turn: f32,
 }
