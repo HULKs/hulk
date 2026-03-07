@@ -1,14 +1,15 @@
 use coordinate_systems::{Field, Ground};
 use filtering::hysteresis::less_than_with_relative_hysteresis;
 use framework::AdditionalOutput;
-use linear_algebra::{point, Isometry2, Point, Point2, Pose2, Vector2};
+use linear_algebra::{Isometry2, Point, Point2, Pose2, Vector2, point};
+use serde::{Deserialize, Serialize};
 use types::{
     field_dimensions::FieldDimensions,
     motion_command::{HeadMotion, MotionCommand},
     obstacles::Obstacle,
     parameters::{PathPlanningParameters, WalkAndStandParameters, WalkToPoseParameters},
     path_obstacles::PathObstacle,
-    planned_path::{direct_path, Path},
+    planned_path::{Path, direct_path},
     rule_obstacles::RuleObstacle,
     world_state::WorldState,
 };
@@ -128,8 +129,6 @@ impl<'cycle> WalkAndStand<'cycle> {
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
         hysteresis: nalgebra::Vector2<f32>,
     ) -> Option<MotionCommand> {
-        let ground_to_field = self.world_state.robot.ground_to_field?;
-
         let distance_to_walk = target_pose.position().coords().norm();
         let angle_to_walk = target_pose.orientation().angle();
         let was_standing_last_cycle =
@@ -151,22 +150,22 @@ impl<'cycle> WalkAndStand<'cycle> {
             walk_to_pose_state.reset();
             Some(MotionCommand::Stand { head })
         } else {
-            Some(walk_to_pose_state.walk_to(
+            walk_to_pose_state.walk_to(
                 target_pose,
                 cycle_time,
                 head,
                 self.walk_to_pose_parameters,
                 self.walk_path_planner,
-                ground_to_field,
-                self.world_state.ball.map(|ball| ball.ball_in_ground),
                 &self.world_state.obstacles,
                 &self.world_state.rule_obstacles,
                 path_obstacles_output,
-            ))
+                self.world_state,
+            )
         }
     }
 }
 
+#[derive(Deserialize, Serialize)]
 pub struct WalkToPoseState {
     previous_position_error: Vector2<Ground>,
     previous_angle_error: f32,
@@ -190,16 +189,17 @@ impl WalkToPoseState {
         head: HeadMotion,
         parameters: &WalkToPoseParameters,
         walk_path_planner: &WalkPathPlanner,
-        ground_to_field: Isometry2<Ground, Field>,
-        ball_obstacle: Option<Point2<Ground>>,
         obstacles: &[Obstacle],
         rule_obstacles: &[RuleObstacle],
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
-    ) -> MotionCommand {
+        world_state: &WorldState,
+    ) -> Option<MotionCommand> {
+        let ground_to_field = world_state.robot.ground_to_field?;
+
         let path = walk_path_planner.plan(
             target_pose.position(),
             ground_to_field,
-            ball_obstacle,
+            world_state.ball.map(|ball| ball.ball_in_ground),
             1.0,
             obstacles,
             rule_obstacles,
@@ -240,11 +240,11 @@ impl WalkToPoseState {
             + d_angle * parameters.rotation_d)
             .clamp(-parameters.max_turn, parameters.max_turn);
 
-        MotionCommand::WalkWithVelocity {
+        Some(MotionCommand::WalkWithVelocity {
             head,
             velocity,
             angular_velocity,
-        }
+        })
     }
 
     pub fn reset(&mut self) {

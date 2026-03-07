@@ -33,10 +33,7 @@ impl Path {
     pub fn direction(&self) -> Vector2<Ground> {
         let raw = match self.first_segment() {
             PathSegment::LineSegment(line) => line.1 - line.0,
-            PathSegment::Arc(arc) => {
-
-                arc.start.as_unit_vector().rotate_90_degrees(arc.direction)
-            }
+            PathSegment::Arc(arc) => arc.start.as_unit_vector().rotate_90_degrees(arc.direction),
         };
 
         let norm = raw.norm();

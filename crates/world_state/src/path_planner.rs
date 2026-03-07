@@ -1,11 +1,6 @@
-use color_eyre::{eyre::eyre, Result};
-use geometry::{
-    arc::Arc,
-    circle::Circle,
-    direction::Direction,
-    line_segment::LineSegment,
-};
-use linear_algebra::{distance, point, vector, Isometry2, Orientation2, Point2};
+use color_eyre::{Result, eyre::eyre};
+use geometry::{arc::Arc, circle::Circle, direction::Direction, line_segment::LineSegment};
+use linear_algebra::{Isometry2, Orientation2, Point2, distance, point, vector};
 use log::warn;
 use ordered_float::NotNan;
 use smallvec::SmallVec;
@@ -20,7 +15,7 @@ use types::{
     rule_obstacles::RuleObstacle,
 };
 
-use crate::a_star::{a_star_search, DynamicMap};
+use crate::a_star::{DynamicMap, a_star_search};
 
 #[derive(Debug, Clone)]
 pub struct PathNode {
@@ -314,7 +309,8 @@ impl PathPlanner {
         }
 
         let mut previous_node_index = 0;
-        let path = navigation_path
+
+        navigation_path
             .steps
             .windows(2)
             .map(|indices| -> Result<PathSegment> {
@@ -347,9 +343,7 @@ impl PathPlanner {
             })
             .collect::<Result<Vec<_>>>()
             .map(|segments| Path { segments })
-            .map(Some);
-
-        path
+            .map(Some)
     }
 
     fn add_tangent_between_point_and_obstacle(
@@ -805,10 +799,11 @@ mod tests {
             ],
             0.0,
         );
-        assert!(map
-            .plan(Point2::origin(), point![2.0, 0.0])
-            .expect("Path error")
-            .is_none());
+        assert!(
+            map.plan(Point2::origin(), point![2.0, 0.0])
+                .expect("Path error")
+                .is_none()
+        );
     }
 
     #[test]
@@ -823,9 +818,10 @@ mod tests {
             ],
             0.0,
         );
-        assert!(map
-            .plan(point![2.0, 0.0], Point2::origin())
-            .expect("Path error")
-            .is_none());
+        assert!(
+            map.plan(point![2.0, 0.0], Point2::origin())
+                .expect("Path error")
+                .is_none()
+        );
     }
 }
