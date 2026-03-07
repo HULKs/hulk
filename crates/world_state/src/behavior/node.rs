@@ -10,7 +10,8 @@ use types::{
 };
 
 use crate::behavior::{
-    finish, initial, look_around, penalize, remote_control, safe, stand_up, walk_to_ball,
+    finish, initial, look_around, penalize, remote_control, safe, stand_up, visual_kick,
+    walk_to_ball,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -83,6 +84,9 @@ impl Behavior {
                         context.ball_position.copied(),
                         context.parameters.walk_with_velocity.clone(),
                     ),
+                    Action::VisualKick => {
+                        visual_kick::execute(world_state, context.last_motion_command)
+                    }
                 }?;
                 Some((action, motion_command))
             })
