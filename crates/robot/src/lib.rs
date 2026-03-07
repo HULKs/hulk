@@ -224,7 +224,7 @@ impl Robot {
     ) -> Result<()> {
         let status = self
             .ssh_to_robot()?
-            .arg("sudo dmesg > /home/robot/hulk/logs/kernel.log")
+            .arg("sudo dmesg > hulk/logs/kernel.log")
             .status()
             .await
             .wrap_err("failed to write dmesg to kernel.log")?;
@@ -427,10 +427,19 @@ impl Robot {
             .collect::<Vec<_>>()
             .join(" && ");
         let command_string = format!(
-            "{command_string} && sudo nmcli {}",
+            "{command_string} && {}",
             match network {
-                Network::None => "device disconnect wlP1p1s0".to_string(),
-                _ => format!("connection up {network}"),
+                // Sadly `nmcli device disconnect` is not idempotent and fails if there is no
+                // active connection. Thus, we have to check first and only run disconnect if there
+                // was an active connection
+                Network::None => r#"
+                if nmcli -t -f DEVICE,STATE dev | grep -q "^wlP1p1s0:connected"; then
+                    sudo nmcli dev disconnect wlP1p1s0
+                else
+                    true
+                fi"#
+                .to_string(),
+                _ => format!("sudo nmcli connection up {network}"),
             }
         );
         let output = self
