@@ -13,12 +13,13 @@ use hardware::{
     RecordingInterface, SimulatorInterface, SpeakerInterface, TimeInterface,
     TransformMessageInterface,
 };
-use hula_types::hardware::Ids;
 use serde_json::from_reader;
 use tokio_util::sync::CancellationToken;
 
-use crate::execution::run;
-use crate::hardware_interface::{MujocoHardwareInterface, Parameters as HardwareParameters};
+use crate::{
+    execution::run,
+    hardware_interface::{MujocoHardwareInterface, Parameters as HardwareParameters},
+};
 
 mod hardware_interface;
 
@@ -97,16 +98,14 @@ async fn main() -> Result<()> {
 
     let hardware_interface =
         MujocoHardwareInterface::new(keep_running.clone(), hardware_parameters)?;
+    let ids = hardware_interface.get_ids();
 
     run(
         Arc::new(hardware_interface),
         framework_parameters.communication_addresses,
         framework_parameters.parameters_directory,
         "logs",
-        Ids {
-            body_id: "K1_BODY".to_string(),
-            head_id: "K1_HEAD".to_string(),
-        },
+        ids,
         keep_running,
         framework_parameters.recording_intervals,
     )

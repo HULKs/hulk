@@ -1,10 +1,13 @@
+use core::fmt;
 use std::{
     collections::BTreeSet,
+    fmt::{Display, Formatter},
     fs::{read_to_string, write},
     io,
     path::{Path, PathBuf},
 };
 
+use clap::ValueEnum;
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use serde_json::{Value, error, from_str, to_string_pretty, to_value};
 
@@ -18,20 +21,16 @@ pub enum DirectoryError {
     DefaultParametersNotGet(#[source] SerializationError),
     #[error("failed to get default parameters of location")]
     DefaultParametersOfLocationNotGet(#[source] SerializationError),
-    #[error("failed to get body parameters")]
-    BodyParametersNotGet(#[source] SerializationError),
-    #[error("failed to get head parameters")]
-    HeadParametersNotGet(#[source] SerializationError),
-    #[error("failed to get body parameters of location")]
-    BodyParametersOfLocationNotGet(#[source] SerializationError),
-    #[error("failed to get head parameters of location")]
-    HeadParametersOfLocationNotGet(#[source] SerializationError),
+    #[error("failed to get robot parameters")]
+    RobotParametersNotGet(#[source] SerializationError),
+    #[error("failed to get robot parameters of location")]
+    RobotParametersOfLocationNotGet(#[source] SerializationError),
     #[error("failed to convert dynamic JSON object into resulting parameters object")]
     JsonValueNotConvertedToParameters(#[source] error::Error),
     #[error("failed to convert parameters object into dynamic JSON object")]
     ParametersNotConvertedToJsonValue(#[source] error::Error),
-    #[error("failed to set head parameters of location")]
-    HeadParametersOfLocationNotSet(#[source] SerializationError),
+    #[error("failed to set robot parameters of location")]
+    RobotParametersOfLocationNotSet(#[source] SerializationError),
     #[error("superfluous fields in json: {field_names:#?}")]
     SuperfluousFields { field_names: BTreeSet<String> },
 }
@@ -63,7 +62,7 @@ where
 
     let location_directory = parameters_root_path
         .as_ref()
-        .join(location_directory_from_head_id(&hardware_ids.head_id));
+        .join(location_directory_from_id(&hardware_ids.robot_id).file_name());
 
     let location_default_file_path = location_directory.join("default.json");
     if location_default_file_path.exists() {
@@ -72,38 +71,21 @@ where
         merge_json(&mut parameters, &location_default_parameters);
     }
 
-    let body_file_path = parameters_root_path
+    let robot_file_path = parameters_root_path
         .as_ref()
-        .join(format!("body.{}.json", &hardware_ids.body_id));
-    if body_file_path.exists() {
-        let body_parameters =
-            read_from_file(body_file_path).map_err(DirectoryError::BodyParametersNotGet)?;
-        merge_json(&mut parameters, &body_parameters);
+        .join(format!("robot.{}.json", &hardware_ids.robot_id));
+    if robot_file_path.exists() {
+        let robot_parameters =
+            read_from_file(robot_file_path).map_err(DirectoryError::RobotParametersNotGet)?;
+        merge_json(&mut parameters, &robot_parameters);
     }
 
-    let head_file_path = parameters_root_path
-        .as_ref()
-        .join(format!("head.{}.json", &hardware_ids.head_id));
-    if head_file_path.exists() {
-        let head_parameters =
-            read_from_file(head_file_path).map_err(DirectoryError::HeadParametersNotGet)?;
-        merge_json(&mut parameters, &head_parameters);
-    }
-
-    let location_body_file_path =
-        location_directory.join(format!("body.{}.json", &hardware_ids.body_id));
-    if location_body_file_path.exists() {
-        let location_body_parameters = read_from_file(location_body_file_path)
-            .map_err(DirectoryError::BodyParametersOfLocationNotGet)?;
-        merge_json(&mut parameters, &location_body_parameters);
-    }
-
-    let location_head_file_path =
-        location_directory.join(format!("head.{}.json", &hardware_ids.head_id));
-    if location_head_file_path.exists() {
-        let location_head_parameters = read_from_file(location_head_file_path)
-            .map_err(DirectoryError::HeadParametersOfLocationNotGet)?;
-        merge_json(&mut parameters, &location_head_parameters);
+    let location_robot_file_path =
+        location_directory.join(format!("robot.{}.json", &hardware_ids.robot_id));
+    if location_robot_file_path.exists() {
+        let location_robot_parameters = read_from_file(location_robot_file_path)
+            .map_err(DirectoryError::RobotParametersOfLocationNotGet)?;
+        merge_json(&mut parameters, &location_robot_parameters);
     }
 
     let mut superfluous_fields = BTreeSet::<String>::new();
@@ -147,14 +129,14 @@ where
     let serialization_file_path = file_path_from_scope(scope, parameters_root, hardware_ids);
     let mut parameters = if serialization_file_path.exists() {
         read_from_file(&serialization_file_path)
-            .map_err(DirectoryError::HeadParametersOfLocationNotGet)?
+            .map_err(DirectoryError::RobotParametersOfLocationNotGet)?
     } else {
         Value::Object(Default::default())
     };
     merge_json(&mut parameters, &sparse_parameters_from_scope_path);
 
     write_to_file(serialization_file_path, parameters)
-        .map_err(DirectoryError::HeadParametersOfLocationNotSet)
+        .map_err(DirectoryError::RobotParametersOfLocationNotSet)
 }
 
 #[derive(Copy, Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
@@ -171,10 +153,10 @@ impl Scope {
         }
     }
 
-    pub fn default_head() -> Self {
+    pub fn default_robot() -> Self {
         Self {
             location: Location::All,
-            id: Id::Head,
+            id: Id::Robot,
         }
     }
 
@@ -185,17 +167,10 @@ impl Scope {
         }
     }
 
-    pub fn current_head() -> Self {
+    pub fn current_robot() -> Self {
         Self {
             location: Location::Current,
-            id: Id::Head,
-        }
-    }
-
-    pub fn current_body() -> Self {
-        Self {
-            location: Location::Current,
-            id: Id::Body,
+            id: Id::Robot,
         }
     }
 }
@@ -206,11 +181,37 @@ pub enum Location {
     Current,
 }
 
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ValueEnum)]
+pub enum LocationTarget {
+    Booster,
+    Mujoco,
+    BehaviorSimulator,
+}
+
+impl Display for LocationTarget {
+    fn fmt(&self, f: &mut Formatter<'_>) -> Result<(), fmt::Error> {
+        f.write_str(match self {
+            LocationTarget::Booster => "booster",
+            LocationTarget::Mujoco => "mujoco",
+            LocationTarget::BehaviorSimulator => "behavior_simulator",
+        })
+    }
+}
+
+impl LocationTarget {
+    pub fn all() -> [Self; 3] {
+        [Self::Booster, Self::Mujoco, Self::BehaviorSimulator]
+    }
+
+    pub fn file_name(&self) -> String {
+        format!("{self}_location")
+    }
+}
+
 #[derive(Copy, Clone, Debug, Deserialize, Eq, PartialEq, Serialize)]
 pub enum Id {
     All,
-    Body,
-    Head,
+    Robot,
 }
 
 fn file_path_from_scope(
@@ -222,24 +223,23 @@ fn file_path_from_scope(
         Location::All => parameters_root_path.as_ref().to_path_buf(),
         Location::Current => parameters_root_path
             .as_ref()
-            .join(location_directory_from_head_id(&hardware_ids.head_id)),
+            .join(location_directory_from_id(&hardware_ids.robot_id).file_name()),
     };
     match scope.id {
         Id::All => directory.join("default.json"),
-        Id::Body => directory.join(format!("body.{}.json", &hardware_ids.body_id)),
-        Id::Head => directory.join(format!("head.{}.json", &hardware_ids.head_id)),
+        Id::Robot => directory.join(format!("robot.{}.json", &hardware_ids.robot_id)),
     }
 }
 
-fn location_directory_from_head_id(head_id: &str) -> &'static str {
-    let webots_id_found = head_id.starts_with("webots");
-    let behavior_simulator_id_found = head_id.starts_with("behavior_simulator");
-    if webots_id_found {
-        "webots_location"
+fn location_directory_from_id(id: &str) -> LocationTarget {
+    let mujoco_id_found = id.starts_with("mujoco");
+    let behavior_simulator_id_found = id.starts_with("behavior_simulator");
+    if mujoco_id_found {
+        LocationTarget::Mujoco
     } else if behavior_simulator_id_found {
-        "behavior_simulator_location"
+        LocationTarget::BehaviorSimulator
     } else {
-        "robot_location"
+        LocationTarget::Booster
     }
 }
 

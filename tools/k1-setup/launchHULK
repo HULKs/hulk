@@ -10,6 +10,7 @@ ln -sf ${INTERNAL_LOG_PATH}/hulk.err ${INTERNAL_LOG_PATH}/../hulk.err
 
 HOST_TEGRA_LIB_PATH="/usr/lib/aarch64-linux-gnu/tegra"
 DEVICES="--device nvidia.com/gpu=all"
+HARDWARE_ID="$(jetson_release -s | grep 'Serial Number:' | grep '[0-9]*$' -o)"
 
 sudo podman rm hulk
 sudo podman run -it --rm \
@@ -22,6 +23,7 @@ sudo podman run -it --rm \
   -v /home/booster/.cargo:/root/.cargo \
   --env LD_LIBRARY_PATH=${HOST_TEGRA_LIB_PATH}:$LD_LIBRARY_PATH \
   --env ORT_DYLIB_PATH=/usr/local/lib/libonnxruntime.so \
+  --env HARDWARE_ID=${HARDWARE_ID} \
   --name hulk \
   hulk-runtime:latest \
   bash -c "cd /home/booster/hulk &&

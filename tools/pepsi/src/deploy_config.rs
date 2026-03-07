@@ -5,7 +5,6 @@ use std::{
 
 use chrono::Utc;
 use color_eyre::{Result, eyre::WrapErr};
-use hsl_network_messages::PlayerNumber;
 use serde::{Deserialize, Deserializer, de::Error as DeserializeError};
 use tokio::fs::read_to_string;
 use toml::from_str;
@@ -13,6 +12,8 @@ use toml::from_str;
 use argument_parsers::{
     RobotAddress, RobotAddressPlayerAssignment, RobotNumberPlayerAssignment, parse_network,
 };
+use hsl_network_messages::PlayerNumber;
+use parameters::directory::LocationTarget;
 use repository::Repository;
 use robot::Network;
 
@@ -108,7 +109,7 @@ impl DeployConfig {
             .wrap_err("failed to apply recording settings")?;
 
         repository
-            .set_location("robot", &self.location)
+            .set_location(LocationTarget::Booster, &self.location)
             .await
             .wrap_err_with(|| format!("failed to set location for robot to {}", self.location))?;
 

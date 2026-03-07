@@ -1,5 +1,7 @@
 use clap::Subcommand;
 use color_eyre::{Result, eyre::WrapErr};
+
+use parameters::directory::LocationTarget;
 use repository::Repository;
 
 #[derive(Subcommand)]
@@ -8,9 +10,9 @@ pub enum Arguments {
     List,
     /// Set location for repository
     Set {
-        /// The target to set a location for (robot, webots, behavior_simulator)
+        /// The target to set a location for
         #[arg(required = true)]
-        target: String,
+        target: LocationTarget,
         /// The location to set for the repository
         #[arg(required = true)]
         location: String,
@@ -33,7 +35,7 @@ pub async fn location(arguments: Arguments, repository: &Repository) -> Result<(
         }
         Arguments::Set { target, location } => {
             repository
-                .set_location(&target, &location)
+                .set_location(target, &location)
                 .await
                 .wrap_err_with(|| format!("failed setting location for {target}"))?;
         }

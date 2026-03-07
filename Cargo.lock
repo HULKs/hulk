@@ -7344,6 +7344,7 @@ dependencies = [
 name = "parameters"
 version = "0.1.0"
 dependencies = [
+ "clap",
  "hula_types",
  "serde",
  "serde_ignored",
@@ -7472,7 +7473,7 @@ dependencies = [
 
 [[package]]
 name = "pepsi"
-version = "7.6.0"
+version = "7.7.0"
 dependencies = [
  "aliveness",
  "argument_parsers",
@@ -7487,6 +7488,7 @@ dependencies = [
  "indicatif",
  "lazy_static",
  "opn",
+ "parameters",
  "pathdiff",
  "regex",
  "repository",
@@ -10569,7 +10571,7 @@ dependencies = [
 
 [[package]]
 name = "twix"
-version = "0.12.5"
+version = "0.12.6"
 dependencies = [
  "aliveness",
  "argument_parsers",
