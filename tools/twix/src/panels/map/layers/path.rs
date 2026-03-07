@@ -5,8 +5,9 @@ use eframe::{egui::Stroke, epaint::Color32};
 
 use coordinate_systems::Ground;
 
-use step_planning::traits::EndPoints;
-use types::{field_dimensions::FieldDimensions, motion_command::MotionCommand};
+use types::{
+    field_dimensions::FieldDimensions, motion_command::MotionCommand, path::traits::EndPoints,
+};
 
 use crate::{
     panels::map::layer::Layer, robot::Robot, twix_painter::TwixPainter, value_buffer::BufferHandle,
