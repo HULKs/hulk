@@ -34,6 +34,7 @@ use hardware::{
     IdInterface, LowCommandInterface, LowStateInterface, MicrophoneInterface,
     MotionRuntimeInteface, NetworkInterface, PathsInterface, RecordingInterface,
     RemoteControllerStateInterface, SimulatorInterface, SpeakerInterface, TimeInterface,
+    VisualKickInterface,
 };
 use hsl_network::endpoint::{Endpoint, Ports};
 use hula_types::hardware::{Ids, Paths};
@@ -51,6 +52,7 @@ use crate::HardwareInterface;
 struct TopicInfos {
     low_state: TopicInfo,
     joint_ctrl: TopicInfo,
+    kick_ball: TopicInfo,
     fall_down: TopicInfo,
     button_event: TopicInfo,
     remote_controller_state: TopicInfo,
@@ -66,6 +68,7 @@ impl Default for TopicInfos {
         Self {
             low_state: TopicInfo::new("booster/low_state"),
             joint_ctrl: TopicInfo::new("booster/joint_ctrl"),
+            kick_ball: TopicInfo::new("booster/kick_ball"),
             fall_down: TopicInfo::new("booster/fall_down_state"),
             button_event: TopicInfo::new("booster/button_event"),
             remote_controller_state: TopicInfo::new("booster/remote_controller_state"),
@@ -104,6 +107,7 @@ pub struct BoosterHardwareInterface {
 
     low_state_subscriber: Subscriber<RingChannelHandler<Sample>>,
     joint_control_publisher: Publisher<'static>,
+    kick_ball_publisher: Publisher<'static>,
     fall_down_state_subscriber: Subscriber<RingChannelHandler<Sample>>,
     button_event_msg_subscriber: Subscriber<RingChannelHandler<Sample>>,
     remote_controller_state_subscriber: Subscriber<RingChannelHandler<Sample>>,
@@ -165,6 +169,7 @@ impl BoosterHardwareInterface {
 
             low_state_subscriber: declare_subscriber(&session, &topic_infos.low_state).await?,
             joint_control_publisher: declare_publisher(&session, &topic_infos.joint_ctrl).await?,
+            kick_ball_publisher: declare_publisher(&session, &topic_infos.kick_ball).await?,
             fall_down_state_subscriber: declare_subscriber(&session, &topic_infos.fall_down)
                 .await?,
             button_event_msg_subscriber: declare_subscriber(&session, &topic_infos.button_event)
@@ -299,6 +304,15 @@ impl LowCommandInterface for BoosterHardwareInterface {
         let payload = serialize_sample(low_command)?;
 
         self.run_until_cancelled(self.joint_control_publisher.put(payload).into_future())?
+            .map_err(|error| eyre!(error))
+    }
+}
+
+impl VisualKickInterface for BoosterHardwareInterface {
+    fn write_visual_kick(&self, kick: booster::Kick) -> Result<()> {
+        let payload = serialize_sample(kick)?;
+
+        self.run_until_cancelled(self.kick_ball_publisher.put(payload).into_future())?
             .map_err(|error| eyre!(error))
     }
 }
@@ -474,6 +488,11 @@ impl HighLevelInterface for BoosterHardwareInterface {
     fn exit_wbc_gait(&self) -> Result<()> {
         self.run_until_cancelled(self.high_level_interface_client.exit_wbc_gait())?
             .wrap_err("failed to send exit wbc gait command")
+    }
+
+    fn visual_kick(&self, start: bool) -> Result<()> {
+        self.run_until_cancelled(self.high_level_interface_client.visual_kick(start))?
+            .wrap_err("failed to send visual kick command")
     }
 }
 

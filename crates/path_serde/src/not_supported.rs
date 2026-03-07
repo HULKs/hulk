@@ -123,6 +123,7 @@ macro_rules! implement_as_not_supported {
 // primary types
 implement_as_not_supported!(bool);
 implement_as_not_supported!(f32);
+implement_as_not_supported!(f64);
 implement_as_not_supported!(i16);
 implement_as_not_supported!(i32);
 implement_as_not_supported!(i8);

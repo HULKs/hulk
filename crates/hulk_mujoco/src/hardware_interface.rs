@@ -17,6 +17,7 @@ use hardware::{
     ButtonEventMsgInterface, CameraInterface, HighLevelInterface, IdInterface, MicrophoneInterface,
     MotionRuntimeInteface, NetworkInterface, PathsInterface, RecordingInterface,
     SimulatorInterface, SpeakerInterface, TimeInterface, TransformMessageInterface,
+    VisualKickInterface,
 };
 use hardware::{
     FallDownStateInterface, LowCommandInterface, LowStateInterface, RemoteControllerStateInterface,
@@ -297,6 +298,12 @@ impl LowCommandInterface for MujocoHardwareInterface {
     }
 }
 
+impl VisualKickInterface for MujocoHardwareInterface {
+    fn write_visual_kick(&self, _kick: booster::Kick) -> Result<()> {
+        unimplemented!()
+    }
+}
+
 impl FallDownStateInterface for MujocoHardwareInterface {
     fn read_fall_down_state(&self) -> Result<FallDownState> {
         self.fall_down_receiver
@@ -460,6 +467,10 @@ impl HighLevelInterface for MujocoHardwareInterface {
     }
 
     fn exit_wbc_gait(&self) -> Result<()> {
+        unimplemented!()
+    }
+
+    fn visual_kick(&self, _start: bool) -> Result<()> {
         unimplemented!()
     }
 }

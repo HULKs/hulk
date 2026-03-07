@@ -1,7 +1,8 @@
 use std::time::SystemTime;
 
 use booster::{
-    ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState, TransformMessage,
+    ButtonEventMsg, FallDownState, Kick, LowCommand, LowState, RemoteControllerState,
+    TransformMessage,
 };
 use booster_sdk::types::RobotMode;
 use color_eyre::eyre::Result;
@@ -70,12 +71,17 @@ pub trait LowCommandInterface {
     fn write_low_command(&self, low_command: LowCommand) -> Result<()>;
 }
 
+pub trait VisualKickInterface {
+    fn write_visual_kick(&self, kick: Kick) -> Result<()>;
+}
+
 pub trait FallDownStateInterface {
     fn read_fall_down_state(&self) -> Result<FallDownState>;
 }
 pub trait ButtonEventMsgInterface {
     fn read_button_event_msg(&self) -> Result<ButtonEventMsg>;
 }
+
 pub trait RemoteControllerStateInterface {
     fn read_remote_controller_state(&self) -> Result<RemoteControllerState>;
 }
@@ -107,6 +113,7 @@ pub trait HighLevelInterface {
     fn get_up_with_mode(&self, mode: RobotMode) -> Result<()>;
     fn enter_wbc_gait(&self) -> Result<()>;
     fn exit_wbc_gait(&self) -> Result<()>;
+    fn visual_kick(&self, start: bool) -> Result<()>;
 }
 
 pub trait MotionRuntimeInteface {

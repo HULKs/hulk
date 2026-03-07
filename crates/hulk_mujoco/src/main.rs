@@ -12,6 +12,7 @@ use hardware::{
     IdInterface, LowCommandInterface, LowStateInterface, MicrophoneInterface,
     MotionRuntimeInteface, NetworkInterface, PathsInterface, RecordingInterface,
     SimulatorInterface, SpeakerInterface, TimeInterface, TransformMessageInterface,
+    VisualKickInterface,
 };
 use serde_json::from_reader;
 use tokio_util::sync::CancellationToken;
@@ -45,6 +46,7 @@ pub trait HardwareInterface:
     IdInterface
     + LowStateInterface
     + LowCommandInterface
+    + VisualKickInterface
     + FallDownStateInterface
     + ButtonEventMsgInterface
     + TransformMessageInterface
