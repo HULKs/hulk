@@ -92,7 +92,7 @@ impl GameControllerStateFilter {
         let did_receive_motion_in_set_penalty = new_own_penalties_last_cycle
             .iter()
             .chain(new_opponent_penalties_last_cycle.iter())
-            .any(|(_, penalty)| matches!(penalty, Penalty::IllegalMotionInSet { .. }));
+            .any(|(_, penalty)| matches!(penalty, Penalty::MotionInSet { .. }));
 
         // TODO: Remove fakes
         let fake_ball_position = Some(BallPosition {
@@ -208,7 +208,7 @@ impl GameControllerStateFilter {
 
         let motion_in_set = matches!(
             game_controller_state.penalties[player_number],
-            Some(Penalty::IllegalMotionInSet { .. })
+            Some(Penalty::MotionInSet { .. })
         );
         if matches!(self.state, State::Playing) || motion_in_set {
             self.whistle_in_set_ball_position = None;
@@ -347,15 +347,15 @@ impl GameControllerStateFilter {
                 ..
             } if !ball_is_in_opponent_half? => Some(Team::Opponent),
             GameControllerState {
-                sub_state: Some(SubState::PushingFreeKick),
+                sub_state: Some(SubState::DirectFreeKick),
                 ..
             } if self.last_time_hulk_was_penalized.is_some() => Some(Team::Opponent),
             GameControllerState {
-                sub_state: Some(SubState::PushingFreeKick),
+                sub_state: Some(SubState::DirectFreeKick), //TODO: CHeck if direct free kick is right an no other substate
                 ..
             } if self.last_time_opponent_was_penalized.is_some() => Some(Team::Hulks),
             GameControllerState {
-                sub_state: Some(SubState::KickIn),
+                sub_state: Some(SubState::ThrowIn),
                 ..
             } if detected_free_kick_kicking_team.is_some() => detected_free_kick_kicking_team,
             GameControllerState {
