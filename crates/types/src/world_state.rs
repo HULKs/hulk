@@ -1,5 +1,6 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
+use booster::FallDownState;
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::{Field, Ground};
@@ -17,6 +18,7 @@ pub struct WorldState {
     pub filtered_game_controller_state: Option<FilteredGameControllerState>,
     pub robot: RobotState,
     pub rule_ball: Option<BallState>,
+    pub fall_down_state: Option<FallDownState>,
 }
 
 #[allow(clippy::derivable_impls)]
@@ -27,6 +29,7 @@ impl Default for WorldState {
             filtered_game_controller_state: Default::default(),
             robot: Default::default(),
             rule_ball: Default::default(),
+            fall_down_state: Default::default(),
         }
     }
 }

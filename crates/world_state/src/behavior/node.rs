@@ -56,6 +56,7 @@ impl Behavior {
             Action::Finish,
             Action::Penalize,
             Action::Initial,
+            Action::StandUp,
         ];
 
         if context.parameters.remote_control.enable {
