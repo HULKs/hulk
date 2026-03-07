@@ -145,11 +145,12 @@ impl TryFrom<RoboCupGameControlData> for GameControllerStateMessage {
                     .goalkeeperColour
                     .try_into()?,
                 goal_keeper_player_number: match message.teams[hulks_team_index].goalkeeper {
-                    1 => PlayerNumber::One,
-                    2 => PlayerNumber::Two,
-                    3 => PlayerNumber::Three,
-                    4 => PlayerNumber::Four,
-                    5 => PlayerNumber::Five,
+                    0 => None,
+                    1 => Some(PlayerNumber::One),
+                    2 => Some(PlayerNumber::Two),
+                    3 => Some(PlayerNumber::Three),
+                    4 => Some(PlayerNumber::Four),
+                    5 => Some(PlayerNumber::Five),
                     _ => bail!(
                         "unexpected goal keeper player number {}",
                         message.teams[hulks_team_index].goalkeeper
@@ -170,17 +171,18 @@ impl TryFrom<RoboCupGameControlData> for GameControllerStateMessage {
                     .goalkeeperColour
                     .try_into()?,
                 goal_keeper_player_number: match message.teams[opponent_team_index].goalkeeper {
-                    1 => PlayerNumber::One,
-                    2 => PlayerNumber::Two,
-                    3 => PlayerNumber::Three,
-                    4 => PlayerNumber::Four,
-                    5 => PlayerNumber::Five,
+                    0 => None,
+                    1 => Some(PlayerNumber::One),
+                    2 => Some(PlayerNumber::Two),
+                    3 => Some(PlayerNumber::Three),
+                    4 => Some(PlayerNumber::Four),
+                    5 => Some(PlayerNumber::Five),
                     _ => {
                         eprintln!(
                             "unexpected goal keeper player number {}, defaulting to PlayerNumber::One",
                             message.teams[opponent_team_index].goalkeeper
                         );
-                        PlayerNumber::One
+                        Some(PlayerNumber::One)
                     }
                 },
                 score: message.teams[opponent_team_index].score,
@@ -390,7 +392,7 @@ pub struct TeamState {
     pub team_number: u8,
     pub field_player_color: TeamColor,
     pub goal_keeper_color: TeamColor,
-    pub goal_keeper_player_number: PlayerNumber,
+    pub goal_keeper_player_number: Option<PlayerNumber>,
     pub score: u8,
     pub penalty_shoot_index: u8,
     pub penalty_shoots: Vec<PenaltyShoot>,
