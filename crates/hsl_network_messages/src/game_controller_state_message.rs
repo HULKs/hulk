@@ -233,7 +233,7 @@ pub enum GamePhase {
     PenaltyShootout {
         kicking_team: Team,
     },
-    Overtime,
+    Extratime,
     Timeout,
 }
 
@@ -247,7 +247,7 @@ impl GamePhase {
         match game_phase {
             GAME_PHASE_NORMAL => Ok(GamePhase::Normal),
             GAME_PHASE_PENALTYSHOOT => Ok(GamePhase::PenaltyShootout { kicking_team: team }),
-            GAME_PHASE_EXTRATIME => Ok(GamePhase::Overtime),
+            GAME_PHASE_EXTRATIME => Ok(GamePhase::Extratime),
             GAME_PHASE_TIMEOUT => Ok(GamePhase::Timeout),
             _ => bail!("unexpected game phase"),
         }
@@ -470,13 +470,13 @@ impl TryFrom<RobotInfo> for Player {
     PartialEq,
 )]
 pub enum Penalty {
-    IllegalPosition { remaining: Duration }, //
-    MotionInSet { remaining: Duration },     //
-    LocalGameStuck { remaining: Duration },  //
-    IncapableRobot { remaining: Duration },  //
-    PickUp { remaining: Duration },          //
-    BallHolding { remaining: Duration },     //
-    LeavingTheField { remaining: Duration }, //
+    IllegalPosition { remaining: Duration },
+    MotionInSet { remaining: Duration },
+    LocalGameStuck { remaining: Duration },
+    IncapableRobot { remaining: Duration },
+    PickUp { remaining: Duration },
+    BallHolding { remaining: Duration },
+    LeavingTheField { remaining: Duration },
     PlayingWithArmsHands { remaining: Duration },
     Pushing { remaining: Duration },
     SentOff { remaining: Duration },
