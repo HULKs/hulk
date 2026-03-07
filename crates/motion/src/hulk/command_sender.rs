@@ -49,7 +49,7 @@ impl CommandSender {
         &mut self,
         mut context: CycleContext<impl LowCommandInterface + MotionRuntimeInteface + TimeInterface>,
     ) -> Result<MainOutputs> {
-        if context.hardware_interface.get_motion_runtime_type()? == MotionRuntime::Hulk {
+        if context.hardware_interface.get_motion_runtime_type()? != MotionRuntime::Hulk {
             return Ok(MainOutputs {});
         }
 

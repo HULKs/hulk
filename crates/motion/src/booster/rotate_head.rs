@@ -34,7 +34,7 @@ impl RotateHead {
         &mut self,
         context: CycleContext<impl HighLevelInterface + MotionRuntimeInteface + TimeInterface>,
     ) -> Result<MainOutputs> {
-        if context.hardware_interface.get_motion_runtime_type()? == MotionRuntime::Booster
+        if context.hardware_interface.get_motion_runtime_type()? != MotionRuntime::Booster
             || !matches!(context.robot_mode, RobotMode::Walking)
         {
             return Ok(MainOutputs {});
