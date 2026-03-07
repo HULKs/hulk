@@ -45,40 +45,28 @@ impl ButtonEventHandler {
             });
         }
 
-        let last_time = context
-            .maybe_button_event
-            .persistent
-            .iter()
-            .chain(context.maybe_button_event.temporary.iter())
-            .filter(|(time, _)| **time > self.most_recently_processed_button_event_message_time)
-            .map(|(time, _)| time)
-            .next_back()
-            .copied();
-
-        let button_event_messages: Vec<ButtonEventMsg> = context
+        let all_button_event_messages: Vec<(SystemTime, Vec<Option<&ButtonEventMsg>>)> = context
             .maybe_button_event
             .persistent
             .into_iter()
             .chain(context.maybe_button_event.temporary)
             .filter(|(time, _)| *time > self.most_recently_processed_button_event_message_time)
-            .flat_map(|(_, button_event_messages)| button_event_messages)
-            .flatten()
-            .cloned()
             .collect();
-
-        if let Some(last_time) = last_time {
-            self.most_recently_processed_button_event_message_time = last_time;
-        }
 
         let mut buttons = Buttons::default();
 
-        for button_event_message in button_event_messages {
-            buttons[button_event_message.button] = ButtonPressType::from_button_event_types(
-                &self.last_button_event_types[button_event_message.button],
-                &button_event_message.event,
+        for (time, button_event_messages) in all_button_event_messages {
+            self.most_recently_processed_button_event_message_time = time;
+
+            button_event_messages.into_iter().flatten().for_each(
+                |ButtonEventMsg { button, event }| {
+                    buttons[*button] = ButtonPressType::from_button_event_types(
+                        &self.last_button_event_types[*button],
+                        event,
+                    );
+                    self.last_button_event_types[*button] = Some(*event);
+                },
             );
-            self.last_button_event_types[button_event_message.button] =
-                Some(button_event_message.event);
         }
 
         Ok(MainOutputs {
