@@ -8,15 +8,20 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{
     field_dimensions::Side, filtered_game_controller_state::FilteredGameControllerState,
-    primary_state::PrimaryState,
+    kick_decision::KickDecision, obstacles::Obstacle, primary_state::PrimaryState,
+    rule_obstacles::RuleObstacle,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathIntrospect)]
 pub struct WorldState {
     pub ball: Option<BallState>,
     pub filtered_game_controller_state: Option<FilteredGameControllerState>,
+    pub instant_kick_decisions: Option<Vec<KickDecision>>,
+    pub kick_decisions: Option<Vec<KickDecision>>,
+    pub obstacles: Vec<Obstacle>,
     pub robot: RobotState,
     pub rule_ball: Option<BallState>,
+    pub rule_obstacles: Vec<RuleObstacle>,
 }
 
 #[allow(clippy::derivable_impls)]
@@ -25,8 +30,12 @@ impl Default for WorldState {
         Self {
             ball: Default::default(),
             filtered_game_controller_state: Default::default(),
+            instant_kick_decisions: Default::default(),
+            kick_decisions: Default::default(),
+            obstacles: Default::default(),
             robot: Default::default(),
             rule_ball: Default::default(),
+            rule_obstacles: Default::default(),
         }
     }
 }
