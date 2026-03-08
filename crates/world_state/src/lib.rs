@@ -5,6 +5,7 @@ pub mod behavior;
 pub mod button_event_handler;
 pub mod camera_matrix_calculator;
 pub mod fake_localization;
+pub mod fake_odometry;
 pub mod game_controller_filter;
 pub mod game_controller_state_filter;
 pub mod ground_provider;
