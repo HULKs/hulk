@@ -284,37 +284,37 @@ impl Behavior {
             .iter()
             .find_map(|action| {
                 let motion_command = match action {
-                    // Action::Animation => animation::execute(world_state),
-                    // Action::Unstiff => unstiff::execute(world_state),
-                    // Action::SitDown => sit_down::execute(world_state),
-                    // Action::Penalize => penalize::execute(world_state),
-                    // Action::Initial => initial::execute(
-                    //     world_state,
-                    //     context.expected_referee_position,
-                    //     *context.enable_pose_detection,
-                    //     context.initial_poses,
-                    // ),
-                    // Action::LookAtReferee => look_at_referee::execute(
-                    //     *context.enable_pose_detection,
-                    //     &walk_and_stand,
-                    //     context.expected_referee_position,
-                    //     context.world_state,
-                    //     &mut context.path_obstacles_output,
-                    //     *context.support_walk_speed,
-                    //     context
-                    //         .parameters
-                    //         .walk_and_stand
-                    //         .normal_distance_to_be_aligned,
-                    // ),
-                    // Action::FallSafely => {
-                    //     fall_safely::execute(world_state, *context.has_ground_contact)
-                    // }
-                    // Action::StandUp => {
-                    //     stand_up::execute(world_state, context.parameters.maximum_standup_attempts)
-                    // }
-                    //Action::NoGroundContact => no_ground_contact::execute(world_state),
-                    // Action::LookAround => look_around::execute(world_state),
-                    //Action::KeeperMotion => defend.keeper_motion(context.keeper_motion.clone()),
+                    Action::Animation => animation::execute(world_state),
+                    Action::Unstiff => unstiff::execute(world_state),
+                    Action::SitDown => sit_down::execute(world_state),
+                    Action::Penalize => penalize::execute(world_state),
+                    Action::Initial => initial::execute(
+                        world_state,
+                        context.expected_referee_position,
+                        *context.enable_pose_detection,
+                        context.initial_poses,
+                    ),
+                    Action::LookAtReferee => look_at_referee::execute(
+                        *context.enable_pose_detection,
+                        &walk_and_stand,
+                        context.expected_referee_position,
+                        context.world_state,
+                        &mut context.path_obstacles_output,
+                        *context.support_walk_speed,
+                        context
+                            .parameters
+                            .walk_and_stand
+                            .normal_distance_to_be_aligned,
+                    ),
+                    Action::FallSafely => {
+                        fall_safely::execute(world_state, *context.has_ground_contact)
+                    }
+                    Action::StandUp => {
+                        stand_up::execute(world_state, context.parameters.maximum_standup_attempts)
+                    }
+                    Action::NoGroundContact => no_ground_contact::execute(world_state),
+                    Action::LookAround => look_around::execute(world_state),
+                    Action::KeeperMotion => defend.keeper_motion(context.keeper_motion.clone()),
                     Action::InterceptBall => intercept_ball::execute(
                         world_state,
                         *context.intercept_ball_parameters,
@@ -324,9 +324,9 @@ impl Behavior {
                             .walk_and_stand
                             .normal_distance_to_be_aligned,
                     ),
-                    // Action::Calibrate => {
-                        // calibrate::execute(world_state, *context.use_stand_head_unstiff_calibration)
-                    // }
+                    Action::Calibrate => {
+                        calibrate::execute(world_state, *context.use_stand_head_unstiff_calibration)
+                    }
                     Action::DefendGoal => defend.goal(
                         &mut context.path_obstacles_output,
                         *context.defend_walk_speed,

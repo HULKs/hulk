@@ -72,7 +72,6 @@ impl Behavior {
         }
 
         let mut actions = vec![
-            Action::DefendLeft,
             Action::Safe,
             Action::Stop,
             Action::Finish,
