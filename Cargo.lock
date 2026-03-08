@@ -4812,6 +4812,7 @@ dependencies = [
  "linear_algebra",
  "log",
  "motion",
+ "nalgebra",
  "ndarray",
  "object_detection",
  "parameters",

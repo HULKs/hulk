@@ -353,6 +353,21 @@
     "maximum_intersection_over_union": 0.7,
     "confidence_threshold": 0.5
   },
+  "obstacle_filter": {
+    "hypothesis_timeout": {
+      "nanos": 0,
+      "secs": 2
+    },
+    "network_robot_measurement_matching_distance": 0.2,
+    "hypothesis_merge_distance": 0.3,
+    "process_noise": [0.005, 0.005],
+    "network_robot_measurement_noise": [3.0, 5.0],
+    "measurement_count_threshold": 10,
+    "robot_obstacle_radius_at_hip_height": 0.2,
+    "robot_obstacle_radius_at_foot_height": 0.2,
+    "unknown_obstacle_radius": 0.125,
+    "goal_post_obstacle_radius": 0.2
+  },
   "ball_projection": {
     "detection_noise": [8.0, 8.0]
   },
