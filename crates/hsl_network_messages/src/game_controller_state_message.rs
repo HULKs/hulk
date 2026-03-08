@@ -30,7 +30,7 @@ use crate::{
 #[derive(Clone, Debug, Deserialize, Serialize, PathSerialize, PathIntrospect)]
 pub struct GameControllerStateMessage {
     pub competition_type: CompetitionType,
-    pub stopped: bool, //TODO: muss nochmal mit GameController abgeglichen werden ob das so stehen bleibt
+    pub stopped: bool,
     pub game_phase: GamePhase,
     pub game_state: GameState,
     pub sub_state: Option<SubState>,
@@ -129,7 +129,11 @@ impl TryFrom<RoboCupGameControlData> for GameControllerStateMessage {
 
         Ok(GameControllerStateMessage {
             competition_type: CompetitionType::try_from(message.competitionType)?,
-            stopped: message.stopped != 0,
+            stopped: match message.stopped {
+                0 => false,
+                1 => true,
+                _ => bail!("unexpected stopped value: {}", message.stopped),
+            },
             game_phase: GamePhase::try_from(message.gamePhase, message.kickingTeam)?,
             game_state: GameState::try_from(message.state)?,
             sub_state: SubState::try_from(message.setPlay)?,

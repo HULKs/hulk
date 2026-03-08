@@ -88,7 +88,7 @@ struct RoboCupGameControlData
   uint8_t packetNumber;     // number incremented with each packet sent (with wraparound)
   uint8_t playersPerTeam;   // the number of players on a team
   uint8_t competitionType;  // type of the competition (COMPETITION_TYPE_SMALL, etc)
-  uint8_t stopped;          // TODO is this really orthogonal to the state?
+  uint8_t stopped;          // 1 = play is currently stopped, 0 otherwise
   uint8_t gamePhase;        // phase of the game (GAME_PHASE_NORMAL, GAME_PHASE_PENALTYSHOOT, etc)
   uint8_t state;            // state of the game (STATE_READY, STATE_PLAYING, etc)
   uint8_t setPlay;          // active set play (SET_PLAY_NONE, SET_PLAY_GOAL_KICK, etc)
