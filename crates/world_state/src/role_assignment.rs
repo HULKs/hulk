@@ -763,7 +763,7 @@ fn keep_current_role_during_free_kicks(
     current_role: Role,
 ) -> Option<Role> {
     if let Some(FilteredGameControllerState {
-        sub_state: Some(SubState::KickIn | SubState::PushingFreeKick),
+        sub_state: Some(SubState::ThrowIn | SubState::DirectFreeKick),
         ..
     }) = filtered_game_controller_state
     {
