@@ -1,6 +1,8 @@
+use std::time::{Duration, Instant};
+
 use color_eyre::Result;
 use context_attribute::context;
-use framework::{MainOutput, deserialize_not_implemented};
+use framework::{AdditionalOutput, MainOutput, deserialize_not_implemented};
 use geometry::rectangle::Rectangle;
 use hardware::PathsInterface;
 use image::RgbImage;
@@ -12,7 +14,7 @@ use ort::{
     session::{Session, SessionOutputs, builder::GraphOptimizationLevel},
     value::TensorRef,
 };
-use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
+use ros2::sensor_msgs::image::Image;
 use serde::{Deserialize, Serialize};
 use types::{
     bounding_box::BoundingBox,
@@ -34,7 +36,12 @@ pub struct CreationContext {
 #[context]
 pub struct CycleContext {
     image_left_raw: Input<Image, "image_left_raw">,
-    image_left_raw_camera_info: Input<CameraInfo, "image_left_raw_camera_info">,
+
+    pre_processing_duration: AdditionalOutput<Duration, "preprocessing_duration">,
+    inference_duration: AdditionalOutput<Duration, "inference_duration">,
+    post_processing_duration: AdditionalOutput<Duration, "post_processing_duration">,
+    non_maximum_suppression_duration:
+        AdditionalOutput<Duration, "non_maximum_suppression_duration">,
 
     parameters: Parameter<ObjectDetectionParameters, "object_detection">,
 }
@@ -67,10 +74,12 @@ impl ObjectDetection {
         Ok(Self { session })
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         if !context.parameters.enable {
             return Ok(MainOutputs::default());
         }
+
+        let image_conversion_start = Instant::now();
 
         let height = context.image_left_raw.height;
         let width = context.image_left_raw.width;
@@ -91,6 +100,9 @@ impl ObjectDetection {
             input[[0, 2, y, x]] = (b as f32) / 255.;
         }
 
+        let pre_processing_duration = image_conversion_start.elapsed();
+        let inference_start = Instant::now();
+
         let outputs: SessionOutputs = self
             .session
             .run(inputs!["images" => TensorRef::from_array_view(&input)?])?;
@@ -100,6 +112,10 @@ impl ObjectDetection {
             .into_owned();
 
         let output = output.slice(s![.., .., 0]);
+
+        let inference_duration = inference_start.elapsed();
+        let post_processing_start = Instant::now();
+
         let mut candidate_detections: Vec<Detection<NaoLabelPartyObjectDetectionLabel>> = output
             .axis_iter(Axis(1))
             .filter_map(|row| {
@@ -129,10 +145,31 @@ impl ObjectDetection {
                 .total_cmp(&detection2.bounding_box.confidence)
         });
 
+        let post_processing_duration = post_processing_start.elapsed();
+        let non_maxiumum_suppression_start = Instant::now();
+
         let detected_objects = non_maximum_suppression(
             candidate_detections,
             context.parameters.maximum_intersection_over_union,
         );
+
+        let non_maxiumum_suppression_duration = non_maxiumum_suppression_start.elapsed();
+
+        context
+            .pre_processing_duration
+            .fill_if_subscribed(|| pre_processing_duration);
+
+        context
+            .inference_duration
+            .fill_if_subscribed(|| inference_duration);
+
+        context
+            .post_processing_duration
+            .fill_if_subscribed(|| post_processing_duration);
+
+        context
+            .non_maximum_suppression_duration
+            .fill_if_subscribed(|| non_maxiumum_suppression_duration);
 
         Ok(MainOutputs {
             detected_objects: detected_objects.into(),
