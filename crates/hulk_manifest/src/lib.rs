@@ -67,7 +67,6 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
                     "world_state::robot_mode_handler",
                     "world_state::kinematics_provider",
                     "world_state::obstacle_receiver",
-                    "world_state::path_planner",
                     "world_state::primary_state_filter",
                     "world_state::safe_pose_checker",
                     "world_state::search_suggestor",
