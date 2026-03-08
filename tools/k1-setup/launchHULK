@@ -24,6 +24,7 @@ sudo podman run -it --rm \
   --env LD_LIBRARY_PATH=${HOST_TEGRA_LIB_PATH}:$LD_LIBRARY_PATH \
   --env ORT_DYLIB_PATH=/usr/local/lib/libonnxruntime.so \
   --env HARDWARE_ID=${HARDWARE_ID} \
+  --env RUST_BACKTRACE=1 \
   --name hulk \
   hulk-runtime:latest \
   bash -c "cd /home/booster/hulk &&
