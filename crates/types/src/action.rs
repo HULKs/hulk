@@ -19,6 +19,7 @@ pub enum Action {
     LookAround,
     Penalize,
     Safe,
+    Stop,
     StandUp,
     WalkToBall,
     RemoteControl,

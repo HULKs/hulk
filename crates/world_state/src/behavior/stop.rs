@@ -2,7 +2,7 @@ use types::{motion_command::MotionCommand, primary_state::PrimaryState, world_st
 
 pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
     match world_state.robot.primary_state {
-        PrimaryState::Safe | PrimaryState::Penalized | PrimaryState::Stop => None,
-        _ => Some(MotionCommand::StandUp),
+        PrimaryState::Stop => Some(MotionCommand::Prepare),
+        _ => None,
     }
 }

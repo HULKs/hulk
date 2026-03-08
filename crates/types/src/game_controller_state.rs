@@ -9,6 +9,7 @@ use crate::{field_dimensions::GlobalFieldSide, players::Players};
 #[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect)]
 pub struct GameControllerState {
     pub game_state: GameState,
+    pub stopped: bool,
     pub game_phase: GamePhase,
     pub remaining_time_in_half: Duration,
     pub kicking_team: Option<Team>,
