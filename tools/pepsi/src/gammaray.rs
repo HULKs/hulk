@@ -150,10 +150,19 @@ async fn gammaray_robot(
         .ssh_with_log("adding zenoh-bridge-ros2dds sources", &progress_bar)
         .await?;
 
+    let mut check_string = "(".to_string();
+    for package in PACKAGES {
+        check_string.push_str(&format!("dpkg -s {package} && "));
+    }
+    check_string.push_str("true)");
     robot
         .ssh_to_robot()?
+        // check if packages are installed already
+        .arg(check_string)
+        .arg("|| (")
         .arg("sudo apt update && sudo apt install")
         .args(PACKAGES)
+        .arg(")")
         .ssh_with_log("installing packages", &progress_bar)
         .await?;
 
