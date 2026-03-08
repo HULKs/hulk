@@ -70,7 +70,7 @@ impl ObjectDetection {
             .with_execution_providers([tensor_rt, cuda])?
             .with_optimization_level(GraphOptimizationLevel::Level3)?
             .with_intra_threads(2)?
-            .commit_from_file(neural_network_folder.join("yolo26n-finetune-1280x1088.onnx"))?;
+            .commit_from_file(neural_network_folder.join("yolo26s-finetune-640x544.onnx"))?;
 
         Ok(Self {
             session,
@@ -87,7 +87,7 @@ impl ObjectDetection {
 
         let mut image = context.image_left_raw.clone();
 
-        let should_do_subsampling = false;
+        let should_do_subsampling = true;
 
         if should_do_subsampling
             && (image.height, image.width) == (1088, 1280)
@@ -100,7 +100,7 @@ impl ObjectDetection {
 
         let height = image.height;
         let width = image.width;
-        assert_eq!((height, width), (1088, 1280));
+        assert_eq!((height, width), (544, 640));
 
         let Ok(rgb_image): Result<RgbImage, _> = image.try_into() else {
             return Ok(MainOutputs::default());
