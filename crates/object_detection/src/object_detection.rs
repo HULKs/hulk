@@ -26,6 +26,7 @@ use types::{
 pub struct ObjectDetection {
     #[serde(skip, default = "deserialize_not_implemented")]
     session: Session,
+    using_subsampled_image: bool,
 }
 
 #[context]
@@ -69,9 +70,12 @@ impl ObjectDetection {
             .with_execution_providers([tensor_rt, cuda])?
             .with_optimization_level(GraphOptimizationLevel::Level3)?
             .with_intra_threads(1)?
-            .commit_from_file(neural_network_folder.join("yolo26m-finetune-1280x1088.onnx"))?;
+            .commit_from_file(neural_network_folder.join("yolo26m-finetune-640x544.onnx"))?;
 
-        Ok(Self { session })
+        Ok(Self {
+            session,
+            using_subsampled_image: true,
+        })
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
@@ -81,12 +85,19 @@ impl ObjectDetection {
 
         let image_conversion_start = Instant::now();
 
-        let height = context.image_left_raw.height;
-        let width = context.image_left_raw.width;
+        let mut image = context.image_left_raw.clone();
 
-        assert_eq!((height, width), (1088, 1280));
+        if (image.height, image.width) == (1088, 1280) && image.encoding == "nv12" {
+            log::info!("sub sampling image by half");
+            image.subsample_nv12_by_half_in_place()?;
+            self.using_subsampled_image = true;
+        };
 
-        let Ok(rgb_image): Result<RgbImage, _> = context.image_left_raw.clone().try_into() else {
+        let height = image.height;
+        let width = image.width;
+        assert_eq!((height, width), (544, 640));
+
+        let Ok(rgb_image): Result<RgbImage, _> = image.try_into() else {
             return Ok(MainOutputs::default());
         };
 
@@ -126,12 +137,22 @@ impl ObjectDetection {
                 }
                 let label = NaoLabelPartyObjectDetectionLabel::from_index(class_id);
                 Some(Detection {
-                    bounding_box: BoundingBox {
-                        area: Rectangle {
-                            min: point!(row[0usize], row[1usize]),
-                            max: point!(row[2usize], row[3usize]),
-                        },
-                        confidence: confidence,
+                    bounding_box: if self.using_subsampled_image {
+                        BoundingBox {
+                            area: Rectangle {
+                                min: point!(row[0usize] * 2.0, row[1usize] * 2.0),
+                                max: point!(row[2usize] * 2.0, row[3usize] * 2.0),
+                            },
+                            confidence,
+                        }
+                    } else {
+                        BoundingBox {
+                            area: Rectangle {
+                                min: point!(row[0usize], row[1usize]),
+                                max: point!(row[2usize], row[3usize]),
+                            },
+                            confidence,
+                        }
                     },
                     label,
                 })

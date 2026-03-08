@@ -1,5 +1,5 @@
 use crate::std_msgs::header::Header;
-use color_eyre::Result;
+use color_eyre::{Result, eyre::eyre};
 use image::{ImageError, RgbImage, error::DecodingError};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
@@ -84,6 +84,89 @@ impl Image {
     pub fn save_to_file(self, file: impl AsRef<Path>) -> Result<()> {
         let rgb_image: RgbImage = self.try_into()?;
         Ok(rgb_image.save(file)?)
+    }
+
+    /// Subsamples an NV12 encoded image by exactly half in-place.
+    /// Uses Nearest-Neighbor sampling to modify the internal data, width, height, and step.
+    pub fn subsample_nv12_by_half_in_place(&mut self) -> Result<()> {
+        if self.encoding != "nv12" {
+            return Err(eyre!(
+                "Subsampling currently only supported for nv12, got {}",
+                self.encoding
+            ));
+        }
+
+        let src_width = self.width as usize;
+        let src_height = self.height as usize;
+        let src_step = self.step as usize;
+
+        // Validate dimensions
+        if src_width % 2 != 0 || src_height % 2 != 0 {
+            return Err(eyre!(
+                "Dimensions must be even for half-subsampling".to_string()
+            ));
+        }
+
+        let y_plane_size = src_step * src_height;
+        let uv_plane_size = src_step * (src_height / 2);
+        let expected_len = y_plane_size + uv_plane_size;
+
+        if self.data.len() != expected_len {
+            return Err(eyre!(
+                "Invalid NV12 buffer size. Expected {}, got {}",
+                expected_len,
+                self.data.len()
+            ));
+        }
+
+        let dest_width = src_width / 2;
+        let dest_height = src_height / 2;
+
+        // Output step is exactly the new width (contiguous, no padding)
+        let dest_step = dest_width;
+
+        // Allocate the new buffer
+        let dest_y_len = dest_width * dest_height;
+        let dest_uv_len = dest_y_len / 2;
+        let mut dest_data = vec![0u8; dest_y_len + dest_uv_len];
+
+        // 1. Subsample the Y (Luminance) plane
+        for y in 0..dest_height {
+            let dest_row_start = y * dest_step;
+            let src_row_start = (y * 2) * src_step; // Skip every other source row
+
+            for x in 0..dest_width {
+                dest_data[dest_row_start + x] = self.data[src_row_start + (x * 2)];
+            }
+        }
+
+        // 2. Subsample the UV (Chrominance) plane
+        let dest_uv_offset = dest_y_len;
+        let src_uv_offset = y_plane_size;
+
+        let dest_uv_height = dest_height / 2;
+        let dest_uv_width = dest_width / 2;
+
+        for y in 0..dest_uv_height {
+            let dest_row_start = dest_uv_offset + y * dest_step;
+            let src_row_start = src_uv_offset + (y * 2) * src_step;
+
+            for x in 0..dest_uv_width {
+                let dest_idx = dest_row_start + x * 2;
+                let src_idx = src_row_start + x * 4; // Skip every other UV pair
+
+                dest_data[dest_idx] = self.data[src_idx]; // U
+                dest_data[dest_idx + 1] = self.data[src_idx + 1]; // V
+            }
+        }
+
+        // 3. Mutate the struct in-place
+        self.width = dest_width as u32;
+        self.height = dest_height as u32;
+        self.step = dest_step as u32;
+        self.data = dest_data;
+
+        Ok(())
     }
 }
 
