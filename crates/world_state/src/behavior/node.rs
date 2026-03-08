@@ -10,7 +10,7 @@ use types::{
 };
 
 use crate::behavior::{
-    finish, initial, look_around, penalize, remote_control, safe, stand_up, walk_to_ball,
+    finish, initial, look_around, penalize, remote_control, safe, stand_up, stop, walk_to_ball,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -53,6 +53,7 @@ impl Behavior {
 
         let mut actions = vec![
             Action::Safe,
+            Action::Stop,
             Action::Finish,
             Action::Penalize,
             Action::Initial,
@@ -71,6 +72,7 @@ impl Behavior {
             .find_map(|action| {
                 let motion_command = match action {
                     Action::Safe => safe::execute(world_state),
+                    Action::Stop => stop::execute(world_state),
                     Action::Penalize => penalize::execute(world_state),
                     Action::Initial => initial::execute(world_state),
                     Action::Finish => finish::execute(world_state),

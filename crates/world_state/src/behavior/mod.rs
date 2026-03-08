@@ -6,5 +6,6 @@ pub mod penalize;
 pub mod remote_control;
 pub mod safe;
 pub mod stand_up;
+pub mod stop;
 pub mod walk_to_ball;
 pub mod walk_to_pose;

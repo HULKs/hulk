@@ -112,6 +112,7 @@ impl GameControllerFilter {
         }
         self.game_controller_state = Some(GameControllerState {
             game_state: message.game_state,
+            stopped: message.stopped,
             game_phase: message.game_phase,
             remaining_time_in_half: message.remaining_time_in_half,
             kicking_team: message.kicking_team,
