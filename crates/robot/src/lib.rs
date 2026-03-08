@@ -297,6 +297,7 @@ impl Robot {
     pub async fn reboot(&self) -> Result<()> {
         let status = self
             .ssh_to_robot()?
+            .arg("sudo")
             .arg("systemctl")
             .arg("reboot")
             .status()
