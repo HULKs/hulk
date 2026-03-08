@@ -55,9 +55,9 @@ impl WalkCommand {
             } => {
                 let forward = path.forward(Point2::origin());
                 let walk_speed = match speed {
-                    WalkSpeed::Slow => 0.5,
-                    WalkSpeed::Normal => 1.0,
-                    WalkSpeed::Fast => 1.5,
+                    WalkSpeed::Slow => parameters.walk_speed_slow,
+                    WalkSpeed::Normal => parameters.walk_speed_normal,
+                    WalkSpeed::Fast => parameters.walk_speed_fast,
                 };
                 let velocity = forward * walk_speed;
 

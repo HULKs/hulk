@@ -55,7 +55,10 @@
     "walk_command": [0.0, 0.0, 0.0],
     "joint_position_smoothing_factor": 0.8,
     "hybrid_align_distance": 1.0,
-    "max_alignment_rate": 1.0
+    "max_alignment_rate": 1.0,
+    "walk_speed_slow": 0.5,
+    "walk_speed_normal": 1.0,
+    "walk_speed_fast": 1.5
   },
   "prepare_motor_command": {
     "weight": 1.0,
