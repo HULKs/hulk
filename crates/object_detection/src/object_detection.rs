@@ -69,12 +69,12 @@ impl ObjectDetection {
         let session = Session::builder()?
             .with_execution_providers([tensor_rt, cuda])?
             .with_optimization_level(GraphOptimizationLevel::Level3)?
-            .with_intra_threads(1)?
-            .commit_from_file(neural_network_folder.join("yolo26m-finetune-640x544.onnx"))?;
+            .with_intra_threads(2)?
+            .commit_from_file(neural_network_folder.join("yolo26n-finetune-1280x1088.onnx"))?;
 
         Ok(Self {
             session,
-            using_subsampled_image: true,
+            using_subsampled_image: false,
         })
     }
 
@@ -87,7 +87,12 @@ impl ObjectDetection {
 
         let mut image = context.image_left_raw.clone();
 
-        if (image.height, image.width) == (1088, 1280) && image.encoding == "nv12" {
+        let should_do_subsampling = false;
+
+        if should_do_subsampling
+            && (image.height, image.width) == (1088, 1280)
+            && image.encoding == "nv12"
+        {
             log::info!("sub sampling image by half");
             image.subsample_nv12_by_half_in_place()?;
             self.using_subsampled_image = true;
@@ -95,7 +100,7 @@ impl ObjectDetection {
 
         let height = image.height;
         let width = image.width;
-        assert_eq!((height, width), (544, 640));
+        assert_eq!((height, width), (1088, 1280));
 
         let Ok(rgb_image): Result<RgbImage, _> = image.try_into() else {
             return Ok(MainOutputs::default());
