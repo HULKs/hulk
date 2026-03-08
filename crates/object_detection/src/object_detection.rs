@@ -129,13 +129,13 @@ impl ObjectDetection {
                 .total_cmp(&detection2.bounding_box.confidence)
         });
 
-        // let detected_objects = non_maximum_suppression(
-        //     candidate_detections,
-        //     context.parameters.maximum_intersection_over_union,
-        // );
+        let detected_objects = non_maximum_suppression(
+            candidate_detections,
+            context.parameters.maximum_intersection_over_union,
+        );
 
         Ok(MainOutputs {
-            detected_objects: candidate_detections.into(),
+            detected_objects: detected_objects.into(),
         })
     }
 }
