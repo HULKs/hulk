@@ -51,13 +51,7 @@ pub struct CycleContext {
     fall_down_state: PerceptionInput<Option<FallDownState>, "FallDownState", "fall_down_state?">,
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    goal_post_obstacle_radius: Parameter<f32, "obstacle_filter.goal_post_obstacle_radius">,
     obstacle_filter_parameters: Parameter<ObstacleFilterParameters, "obstacle_filter">,
-    robot_obstacle_radius_at_foot_height:
-        Parameter<f32, "obstacle_filter.robot_obstacle_radius_at_foot_height">,
-    robot_obstacle_radius_at_hip_height:
-        Parameter<f32, "obstacle_filter.robot_obstacle_radius_at_hip_height">,
-    unknown_obstacle_radius: Parameter<f32, "obstacle_filter.unknown_obstacle_radius">,
 }
 
 #[context]
@@ -149,12 +143,16 @@ impl ObstacleFilter {
             .map(|hypothesis| {
                 let (radius_at_hip_height, radius_at_foot_height) = match hypothesis.obstacle_kind {
                     ObstacleKind::Robot => (
-                        *context.robot_obstacle_radius_at_hip_height,
-                        *context.robot_obstacle_radius_at_foot_height,
+                        context
+                            .obstacle_filter_parameters
+                            .robot_obstacle_radius_at_hip_height,
+                        context
+                            .obstacle_filter_parameters
+                            .robot_obstacle_radius_at_foot_height,
                     ),
                     ObstacleKind::Unknown => (
-                        *context.unknown_obstacle_radius,
-                        *context.unknown_obstacle_radius,
+                        context.obstacle_filter_parameters.unknown_obstacle_radius,
+                        context.obstacle_filter_parameters.unknown_obstacle_radius,
                     ),
                     _ => panic!("Unexpected obstacle radius"),
                 };
@@ -168,9 +166,12 @@ impl ObstacleFilter {
             .collect::<Vec<_>>();
 
         let goal_posts = calculate_goal_post_positions(context.ground_to_field, field_dimensions);
-        let goal_post_obstacles = goal_posts
-            .into_iter()
-            .map(|goal_post| Obstacle::goal_post(goal_post, *context.goal_post_obstacle_radius));
+        let goal_post_obstacles = goal_posts.into_iter().map(|goal_post| {
+            Obstacle::goal_post(
+                goal_post,
+                context.obstacle_filter_parameters.goal_post_obstacle_radius,
+            )
+        });
         context
             .obstacle_filter_hypotheses
             .fill_if_subscribed(|| self.hypotheses.clone());
