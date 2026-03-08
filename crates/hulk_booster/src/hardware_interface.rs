@@ -32,7 +32,7 @@ use booster::{ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControl
 use hardware::{
     ButtonEventMsgInterface, CameraInterface, FallDownStateInterface, HighLevelInterface,
     IdInterface, LowCommandInterface, LowStateInterface, MicrophoneInterface,
-    MotionRuntimeInteface, NetworkInterface, PathsInterface, RecordingInterface,
+    MotionRuntimeInteface, NetworkInterface, OdometerInterface, PathsInterface, RecordingInterface,
     RemoteControllerStateInterface, SimulatorInterface, SpeakerInterface, TimeInterface,
     VisualKickInterface,
 };
@@ -61,6 +61,7 @@ struct TopicInfos {
     stereonet_depth_camera_info: TopicInfo,
     image_left_raw: TopicInfo,
     image_left_raw_camera_info: TopicInfo,
+    odometer: TopicInfo,
 }
 
 impl Default for TopicInfos {
@@ -79,6 +80,7 @@ impl Default for TopicInfos {
             ),
             image_left_raw: TopicInfo::new("image_left_raw"),
             image_left_raw_camera_info: TopicInfo::new("image_left_raw/camera_info"),
+            odometer: TopicInfo::new("booster/odometer_state"),
         }
     }
 }
@@ -116,6 +118,7 @@ pub struct BoosterHardwareInterface {
     stereonet_depth_camera_info_subscriber: Subscriber<RingChannelHandler<Sample>>,
     image_left_raw_subscriber: Subscriber<RingChannelHandler<Sample>>,
     image_left_raw_camera_info_subscriber: Subscriber<RingChannelHandler<Sample>>,
+    odometer_subscriber: Subscriber<RingChannelHandler<Sample>>,
 
     high_level_interface_client: Arc<BoosterClient>,
     robot_mode: Arc<Mutex<RobotMode>>,
@@ -195,6 +198,7 @@ impl BoosterHardwareInterface {
                 &topic_infos.image_left_raw_camera_info,
             )
             .await?,
+            odometer_subscriber: declare_subscriber(&session, &topic_infos.odometer).await?,
 
             robot_mode,
             high_level_interface_client,
@@ -499,6 +503,14 @@ impl HighLevelInterface for BoosterHardwareInterface {
 impl MotionRuntimeInteface for BoosterHardwareInterface {
     fn get_motion_runtime_type(&self) -> Result<MotionRuntime> {
         Ok(MotionRuntime::Booster)
+    }
+}
+
+impl OdometerInterface for BoosterHardwareInterface {
+    fn get_odometer(&self) -> Result<booster::Odometer> {
+        self.run_until_cancelled(self.odometer_subscriber.recv_async())?
+            .map_err(|error| eyre!(error))
+            .and_then(deserialize_sample)
     }
 }
 

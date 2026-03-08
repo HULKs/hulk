@@ -4,7 +4,7 @@ mod ros;
 
 use std::fmt::Debug;
 
-use booster::{ButtonEventMsg, FallDownState, Kick, LowState};
+use booster::{ButtonEventMsg, FallDownState, Kick, LowState, Odometer};
 use color_eyre::eyre::{Result, WrapErr};
 use futures_util::{FutureExt, future::Fuse, select};
 use ros2_client::{
@@ -65,6 +65,14 @@ async fn main() -> Result<()> {
         MessageTypeName::new("booster_interface", "LowState"),
         "low_state",
     )?;
+    let mut odometer_forwarder = spawn_ros_to_zenoh_forwarder::<Odometer>(
+        &mut ros_node,
+        zenoh_session.clone(),
+        "/",
+        "odometer_state",
+        MessageTypeName::new("booster_interface", "Odometer"),
+        "odometer_state",
+    )?;
 
     let mut kick_ball_forwarder = spawn_zenoh_to_ros_forwarder::<Kick>(
         &mut ros_node,
@@ -80,6 +88,7 @@ async fn main() -> Result<()> {
         result = button_event_forwarder => result,
         result = fall_down_state_forwarder => result,
         result = low_state_forwarder => result,
+        result = odometer_forwarder => result,
         result = kick_ball_forwarder => result,
     }
     .wrap_err("failed to run forwarder to completion")?;

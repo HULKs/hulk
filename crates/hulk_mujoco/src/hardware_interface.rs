@@ -15,7 +15,7 @@ use color_eyre::{
 use futures_util::{SinkExt, StreamExt};
 use hardware::{
     ButtonEventMsgInterface, CameraInterface, HighLevelInterface, IdInterface, MicrophoneInterface,
-    MotionRuntimeInteface, NetworkInterface, PathsInterface, RecordingInterface,
+    MotionRuntimeInteface, NetworkInterface, OdometerInterface, PathsInterface, RecordingInterface,
     SimulatorInterface, SpeakerInterface, TimeInterface, TransformMessageInterface,
     VisualKickInterface,
 };
@@ -478,6 +478,12 @@ impl HighLevelInterface for MujocoHardwareInterface {
 impl MotionRuntimeInteface for MujocoHardwareInterface {
     fn get_motion_runtime_type(&self) -> Result<MotionRuntime> {
         Ok(MotionRuntime::Hulk)
+    }
+}
+
+impl OdometerInterface for MujocoHardwareInterface {
+    fn get_odometer(&self) -> Result<booster::Odometer> {
+        todo!()
     }
 }
 

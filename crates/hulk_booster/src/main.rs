@@ -16,7 +16,7 @@ use framework::Parameters as FrameworkParameters;
 use hardware::{
     ButtonEventMsgInterface, CameraInterface, FallDownStateInterface, HighLevelInterface,
     IdInterface, LowCommandInterface, LowStateInterface, MicrophoneInterface,
-    MotionRuntimeInteface, NetworkInterface, PathsInterface, RecordingInterface,
+    MotionRuntimeInteface, NetworkInterface, OdometerInterface, PathsInterface, RecordingInterface,
     SimulatorInterface, SpeakerInterface, TimeInterface, VisualKickInterface,
 };
 use serde_json::from_reader;
@@ -67,6 +67,7 @@ pub trait HardwareInterface:
     + SimulatorInterface
     + HighLevelInterface
     + MotionRuntimeInteface
+    + OdometerInterface
 {
 }
 

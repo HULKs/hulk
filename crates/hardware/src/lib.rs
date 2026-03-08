@@ -1,7 +1,7 @@
 use std::time::SystemTime;
 
 use booster::{
-    ButtonEventMsg, FallDownState, Kick, LowCommand, LowState, RemoteControllerState,
+    ButtonEventMsg, FallDownState, Kick, LowCommand, LowState, Odometer, RemoteControllerState,
     TransformMessage,
 };
 use booster_sdk::types::RobotMode;
@@ -118,4 +118,8 @@ pub trait HighLevelInterface {
 
 pub trait MotionRuntimeInteface {
     fn get_motion_runtime_type(&self) -> Result<MotionRuntime>;
+}
+
+pub trait OdometerInterface {
+    fn get_odometer(&self) -> Result<Odometer>;
 }
