@@ -1,8 +1,6 @@
 use color_eyre::Result;
 use context_attribute::context;
-use coordinate_systems::Ground;
 use framework::MainOutput;
-use linear_algebra::Isometry2;
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize)]
@@ -17,7 +15,7 @@ pub struct CycleContext {}
 #[context]
 #[derive(Default)]
 pub struct MainOutputs {
-    pub current_odometry_to_last_odometry: MainOutput<Option<Isometry2<Ground, Ground>>>,
+    pub current_odometry_to_last_odometry: MainOutput<Option<nalgebra::Isometry2<f32>>>,
 }
 
 impl Odometry {
