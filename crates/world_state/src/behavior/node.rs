@@ -8,7 +8,7 @@ use types::{
     action::Action,
     ball_position::BallPosition,
     field_dimensions::{FieldDimensions, Side},
-    motion_command::{MotionCommand},
+    motion_command::MotionCommand,
     parameters::{BehaviorParameters, WalkSpeedParameters},
     path_obstacles::PathObstacle,
     primary_state::PrimaryState,

@@ -54,7 +54,7 @@ pub fn execute(
                     _ => {
                         return Some(MotionCommand::Stand {
                             head: HeadMotion::SearchForLostBall,
-                        })
+                        });
                     }
                 },
                 _ => (ground_to_field.inverse().as_pose().position(), false),
@@ -121,7 +121,7 @@ pub fn execute(
                         _ => {
                             return Some(MotionCommand::Stand {
                                 head: HeadMotion::SearchForLostBall,
-                            })
+                            });
                         }
                     };
 

@@ -7,7 +7,9 @@ use linear_algebra::{Isometry2, Point2, Vector2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{
-    field_dimensions::Side, filtered_game_controller_state::FilteredGameControllerState, kick_decision::KickDecision, obstacles::Obstacle, primary_state::PrimaryState, roles::Role, rule_obstacles::RuleObstacle
+    field_dimensions::Side, filtered_game_controller_state::FilteredGameControllerState,
+    kick_decision::KickDecision, obstacles::Obstacle, primary_state::PrimaryState, roles::Role,
+    rule_obstacles::RuleObstacle,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathIntrospect)]

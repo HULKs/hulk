@@ -1,10 +1,7 @@
-
 use coordinate_systems::{Field, Ground};
 use filtering::hysteresis::greater_than_with_hysteresis;
 use framework::AdditionalOutput;
-use geometry::
-    look_at::LookAt
-;
+use geometry::look_at::LookAt;
 use hsl_network_messages::{SubState, Team};
 use linear_algebra::{Point2, Pose2, Vector2, point};
 use types::{
@@ -41,8 +38,6 @@ impl<'cycle> Defend<'cycle> {
             self.walk_and_stand.parameters.defender_hysteresis,
         )
     }
-
-   
 }
 
 pub fn defend_pose(

@@ -1,9 +1,11 @@
-
 use std::ops::Range;
 
 use coordinate_systems::{Field, Ground};
 use framework::AdditionalOutput;
-use geometry::{line::{Line, Line2}, look_at::LookAt};
+use geometry::{
+    line::{Line, Line2},
+    look_at::LookAt,
+};
 use hsl_network_messages::{GamePhase, SubState, Team};
 use linear_algebra::{Point2, Pose2, Vector2, point};
 use types::{
@@ -82,7 +84,6 @@ fn defend_goal_pose(
     );
     Some(ground_to_field.inverse() * defend_pose)
 }
-
 
 fn block_on_line(
     ball_position: Point2<Field>,

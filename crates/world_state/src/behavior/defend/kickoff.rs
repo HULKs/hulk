@@ -1,6 +1,6 @@
 use coordinate_systems::Ground;
 use framework::AdditionalOutput;
-use linear_algebra::{distance, point, Point2, Pose2};
+use linear_algebra::{Point2, Pose2, distance, point};
 use types::{
     field_dimensions::FieldDimensions,
     motion_command::{MotionCommand, WalkSpeed},

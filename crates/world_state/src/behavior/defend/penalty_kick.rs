@@ -1,8 +1,7 @@
-
 use coordinate_systems::Ground;
 use framework::AdditionalOutput;
 use hsl_network_messages::{SubState, Team};
-use linear_algebra::{point, Pose2};
+use linear_algebra::{Pose2, point};
 use types::{
     field_dimensions::{FieldDimensions, Side},
     filtered_game_controller_state::FilteredGameControllerState,
@@ -13,7 +12,6 @@ use types::{
 };
 
 use super::{core::Defend, left::block_on_circle};
-
 
 impl<'cycle> Defend<'cycle> {
     pub fn penalty_kick(
@@ -32,7 +30,6 @@ impl<'cycle> Defend<'cycle> {
             self.walk_and_stand.parameters.defender_hysteresis,
         )
     }
-
 }
 
 fn defend_penalty_kick(

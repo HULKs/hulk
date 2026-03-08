@@ -1,5 +1,9 @@
 use framework::AdditionalOutput;
-use types::{field_dimensions::Side, motion_command::{MotionCommand, WalkSpeed}, path_obstacles::PathObstacle};
+use types::{
+    field_dimensions::Side,
+    motion_command::{MotionCommand, WalkSpeed},
+    path_obstacles::PathObstacle,
+};
 
 use super::{core::Defend, left::defend_pose};
 
