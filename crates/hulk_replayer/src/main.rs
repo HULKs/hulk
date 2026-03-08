@@ -16,7 +16,7 @@ use hardware::{
     ActuatorInterface, CameraInterface, HighLevelInterface, IdInterface, LowCommandInterface,
     LowStateInterface, MicrophoneInterface, MotionRuntimeInteface, NetworkInterface,
     PathsInterface, RecordingInterface, SensorInterface, SimulatorInterface, SpeakerInterface,
-    TimeInterface,
+    TimeInterface, VisualKickInterface,
 };
 use hula_types::hardware::{Ids, Paths};
 use kinematics::joints::{Joints, head::HeadJoints};
@@ -37,6 +37,7 @@ pub trait HardwareInterface:
     + CameraInterface
     + IdInterface
     + LowCommandInterface
+    + VisualKickInterface
     + LowStateInterface
     + MicrophoneInterface
     + NetworkInterface
@@ -98,6 +99,12 @@ impl IdInterface for ReplayerHardwareInterface {
 
 impl LowCommandInterface for ReplayerHardwareInterface {
     fn write_low_command(&self, _low_command: booster::LowCommand) -> Result<()> {
+        unimplemented!()
+    }
+}
+
+impl VisualKickInterface for ReplayerHardwareInterface {
+    fn write_visual_kick(&self, _kick: booster::Kick) -> Result<()> {
         unimplemented!()
     }
 }
@@ -203,6 +210,10 @@ impl HighLevelInterface for ReplayerHardwareInterface {
     }
 
     fn exit_wbc_gait(&self) -> Result<()> {
+        unimplemented!()
+    }
+
+    fn visual_kick(&self, _start: bool) -> Result<()> {
         unimplemented!()
     }
 }

@@ -3,7 +3,7 @@ use coordinate_systems::Robot;
 use kinematics::joints::Joints;
 use linear_algebra::Vector3;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
-use ros2::geometry_msgs::transform_stamped::TransformStamped;
+use ros2::{geometry_msgs::transform_stamped::TransformStamped, std_msgs::header::Header};
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "pyo3")]
@@ -505,6 +505,36 @@ pub struct RemoteControllerState {
 #[serde(rename = "TFMessage")]
 pub struct TransformMessage {
     pub transforms: Vec<TransformStamped>,
+}
+
+#[repr(C)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+#[serde(rename = "Kick")]
+pub struct Kick {
+    pub header: Header,
+    /// ball pos to robot x
+    #[serde(rename = "x")]
+    pub ball_position_x: f64,
+    /// ball pos to robot y
+    #[serde(rename = "y")]
+    pub ball_position_y: f64,
+    /// disired kick dir relative to robot, rad
+    #[serde(rename = "dir")]
+    pub kick_direction_angle: f64,
+    /// goal pos to robot x
+    #[serde(rename = "goal_x")]
+    pub target_position_x: f64,
+    /// goal pos to robot y
+    #[serde(rename = "goal_y")]
+    pub target_position_y: f64,
+    /// robot theta to field, rad
+    #[serde(rename = "robot_theta_to_field")]
+    pub robot_angle_to_field: f64,
+    /// disired kick range
+    #[serde(rename = "power")]
+    pub kick_power: f64,
 }
 
 #[cfg(feature = "pyo3")]
