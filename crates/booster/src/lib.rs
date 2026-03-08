@@ -345,7 +345,9 @@ impl MotorCommand {
 
 #[repr(u32)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
-#[derive(Debug, Clone, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect)]
+#[derive(
+    Debug, Clone, PartialEq, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub enum FallDownStateType {
     IsReady = 0,
     IsFalling = 1,

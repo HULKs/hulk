@@ -1,17 +1,18 @@
 use std::time::{Duration, SystemTime};
 
 use color_eyre::Result;
+use itertools::{chain, iproduct};
+use nalgebra::Matrix2;
+use serde::{Deserialize, Serialize};
+
+use booster::{FallDownState, FallDownStateType};
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use filtering::kalman_filter::KalmanFilter;
-use framework::{AdditionalOutput, MainOutput};
-use itertools::{chain, iproduct};
-use linear_algebra::{point, IntoFramed, Isometry2, Point2};
-use nalgebra::Matrix2;
-use serde::{Deserialize, Serialize};
+use framework::{AdditionalOutput, MainOutput, PerceptionInput};
+use linear_algebra::{IntoFramed, Isometry2, Point2, point};
 use types::{
     cycle_time::CycleTime,
-    fall_state::FallState,
     field_dimensions::FieldDimensions,
     multivariate_normal_distribution::MultivariateNormalDistribution,
     obstacle_filter::Hypothesis,
@@ -46,7 +47,8 @@ pub struct CycleContext {
         Input<Option<nalgebra::Isometry2<f32>>, "current_odometry_to_last_odometry?">,
     cycle_time: Input<CycleTime, "cycle_time">,
     primary_state: Input<PrimaryState, "primary_state">,
-    fall_state: Input<FallState, "fall_state">,
+
+    fall_down_state: PerceptionInput<Option<FallDownState>, "FallDownState", "fall_down_state?">,
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     goal_post_obstacle_radius: Parameter<f32, "obstacle_filter.goal_post_obstacle_radius">,
@@ -111,7 +113,20 @@ impl ObstacleFilter {
 
         let became_unpenalized = self.last_primary_state == PrimaryState::Penalized
             && *context.primary_state != PrimaryState::Penalized;
-        let is_upright = *context.fall_state == FallState::Upright;
+
+        let fall_down_state = context
+            .fall_down_state
+            .persistent
+            .into_iter()
+            .chain(context.fall_down_state.temporary)
+            .flat_map(|(_time, info)| info)
+            .last()
+            .flatten();
+
+        let is_upright = fall_down_state.is_none_or(|fall_down_state| {
+            fall_down_state.fall_down_state != FallDownStateType::IsReady
+        });
+
         self.last_primary_state = *context.primary_state;
 
         if became_unpenalized {
