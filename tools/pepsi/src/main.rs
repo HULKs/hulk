@@ -127,6 +127,12 @@ enum Command {
     #[command(subcommand)]
     Sdk(sdk::Arguments),
     /// Open a command line shell to a Robot
+    ///
+    /// Example:
+    ///   pepsi shell 20w
+    ///   pepsi shell 42 btop
+    ///   pepsi shell 38 39 whoami
+    #[command(verbatim_doc_comment)]
     Shell(shell::Arguments),
     /// Execute all unit and integration tests
     Test(cargo::Arguments<test::Arguments>),
