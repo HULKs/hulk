@@ -1,14 +1,14 @@
 use coordinate_systems::{Field, Ground};
 use filtering::hysteresis::less_than_with_relative_hysteresis;
 use framework::AdditionalOutput;
-use linear_algebra::{point, Isometry2, Orientation2, Point, Point2, Pose2};
+use linear_algebra::{Isometry2, Orientation2, Point, Point2, Pose2, point};
 use types::{
     field_dimensions::FieldDimensions,
     motion_command::{ArmMotion, HeadMotion, MotionCommand, OrientationMode, WalkSpeed},
     obstacles::Obstacle,
     parameters::{PathPlanningParameters, WalkAndStandParameters},
+    path::{Path, direct_path},
     path_obstacles::PathObstacle,
-    path::{direct_path, Path},
     rule_obstacles::RuleObstacle,
     support_foot::Side,
     world_state::WorldState,
