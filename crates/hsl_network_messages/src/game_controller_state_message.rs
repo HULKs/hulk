@@ -13,27 +13,24 @@ use serde::{Deserialize, Serialize};
 use crate::{
     HULKS_TEAM_NUMBER, NONE_TEAM_NUMBER, PlayerNumber,
     bindings::{
-        COMPETITION_PHASE_PLAYOFF, COMPETITION_PHASE_ROUNDROBIN, COMPETITION_TYPE_NORMAL,
-        COMPETITION_TYPE_SHARED_AUTONOMY, GAME_PHASE_NORMAL, GAME_PHASE_OVERTIME,
-        GAME_PHASE_PENALTYSHOOT, GAME_PHASE_TIMEOUT, GAMECONTROLLER_STRUCT_HEADER,
-        GAMECONTROLLER_STRUCT_VERSION, MAX_NUM_PLAYERS, PENALTY_MANUAL, PENALTY_NONE,
-        PENALTY_SPL_ILLEGAL_BALL_CONTACT, PENALTY_SPL_ILLEGAL_MOTION_IN_SET,
-        PENALTY_SPL_ILLEGAL_MOTION_IN_STANDBY, PENALTY_SPL_ILLEGAL_POSITION,
-        PENALTY_SPL_ILLEGAL_POSITION_IN_SET, PENALTY_SPL_INACTIVE_PLAYER,
-        PENALTY_SPL_LEAVING_THE_FIELD, PENALTY_SPL_LOCAL_GAME_STUCK, PENALTY_SPL_PLAYER_PUSHING,
-        PENALTY_SPL_PLAYER_STANCE, PENALTY_SPL_REQUEST_FOR_PICKUP, PENALTY_SUBSTITUTE,
-        RoboCupGameControlData, RobotInfo, SET_PLAY_CORNER_KICK, SET_PLAY_GOAL_KICK,
-        SET_PLAY_KICK_IN, SET_PLAY_NONE, SET_PLAY_PENALTY_KICK, SET_PLAY_PUSHING_FREE_KICK,
-        STATE_FINISHED, STATE_INITIAL, STATE_PLAYING, STATE_READY, STATE_SET, TEAM_BLACK,
-        TEAM_BLUE, TEAM_BROWN, TEAM_GRAY, TEAM_GREEN, TEAM_ORANGE, TEAM_PURPLE, TEAM_RED,
-        TEAM_WHITE, TEAM_YELLOW,
+        COMPETITION_TYPE_LARGE, COMPETITION_TYPE_MIDDLE, COMPETITION_TYPE_SMALL,
+        GAME_PHASE_EXTRATIME, GAME_PHASE_NORMAL, GAME_PHASE_PENALTYSHOOT, GAME_PHASE_TIMEOUT,
+        GAMECONTROLLER_STRUCT_HEADER, GAMECONTROLLER_STRUCT_VERSION, MAX_NUM_PLAYERS,
+        PENALTY_BALL_HOLDING, PENALTY_ILLEGAL_POSITIONING, PENALTY_INCAPABLE_ROBOT,
+        PENALTY_LEAVING_THE_FIELD, PENALTY_LOCAL_GAME_STUCK, PENALTY_MOTION_IN_SET, PENALTY_NONE,
+        PENALTY_PICK_UP, PENALTY_PLAYING_WITH_ARMS_HANDS, PENALTY_PUSHING, PENALTY_SENT_OFF,
+        PENALTY_SUBSTITUTE, RoboCupGameControlData, RobotInfo, SET_PLAY_CORNER_KICK,
+        SET_PLAY_DIRECT_FREE_KICK, SET_PLAY_GOAL_KICK, SET_PLAY_INDIRECT_FREE_KICK, SET_PLAY_NONE,
+        SET_PLAY_PENALTY_KICK, SET_PLAY_THROW_IN, STATE_FINISHED, STATE_INITIAL, STATE_PLAYING,
+        STATE_READY, STATE_SET, TEAM_BLACK, TEAM_BLUE, TEAM_BROWN, TEAM_GRAY, TEAM_GREEN,
+        TEAM_ORANGE, TEAM_PURPLE, TEAM_RED, TEAM_WHITE, TEAM_YELLOW,
     },
 };
 
 #[derive(Clone, Debug, Deserialize, Serialize, PathSerialize, PathIntrospect)]
 pub struct GameControllerStateMessage {
-    pub competition_phase: CompetitionPhase,
     pub competition_type: CompetitionType,
+    pub stopped: bool,
     pub game_phase: GamePhase,
     pub game_state: GameState,
     pub sub_state: Option<SubState>,
@@ -131,8 +128,12 @@ impl TryFrom<RoboCupGameControlData> for GameControllerStateMessage {
             .collect::<Result<Vec<_>>>()?;
 
         Ok(GameControllerStateMessage {
-            competition_phase: CompetitionPhase::try_from(message.competitionPhase)?,
             competition_type: CompetitionType::try_from(message.competitionType)?,
+            stopped: match message.stopped {
+                0 => false,
+                1 => true,
+                _ => bail!("unexpected stopped value: {}", message.stopped),
+            },
             game_phase: GamePhase::try_from(message.gamePhase, message.kickingTeam)?,
             game_state: GameState::try_from(message.state)?,
             sub_state: SubState::try_from(message.setPlay)?,
@@ -148,17 +149,19 @@ impl TryFrom<RoboCupGameControlData> for GameControllerStateMessage {
                     .goalkeeperColour
                     .try_into()?,
                 goal_keeper_player_number: match message.teams[hulks_team_index].goalkeeper {
-                    1 => PlayerNumber::One,
-                    2 => PlayerNumber::Two,
-                    3 => PlayerNumber::Three,
-                    4 => PlayerNumber::Four,
-                    5 => PlayerNumber::Five,
-                    6 => PlayerNumber::Six,
-                    7 => PlayerNumber::Seven,
-                    _ => bail!(
-                        "unexpected goal keeper player number {}",
-                        message.teams[hulks_team_index].goalkeeper
-                    ),
+                    0 => None,
+                    1 => Some(PlayerNumber::One),
+                    2 => Some(PlayerNumber::Two),
+                    3 => Some(PlayerNumber::Three),
+                    4 => Some(PlayerNumber::Four),
+                    5 => Some(PlayerNumber::Five),
+                    _ => {
+                        eprintln!(
+                            "unexpected hulks goal keeper player number {}, defaulting to None",
+                            message.teams[hulks_team_index].goalkeeper
+                        );
+                        None
+                    }
                 },
                 score: message.teams[hulks_team_index].score,
                 penalty_shoot_index: message.teams[hulks_team_index].penaltyShot,
@@ -175,19 +178,18 @@ impl TryFrom<RoboCupGameControlData> for GameControllerStateMessage {
                     .goalkeeperColour
                     .try_into()?,
                 goal_keeper_player_number: match message.teams[opponent_team_index].goalkeeper {
-                    1 => PlayerNumber::One,
-                    2 => PlayerNumber::Two,
-                    3 => PlayerNumber::Three,
-                    4 => PlayerNumber::Four,
-                    5 => PlayerNumber::Five,
-                    6 => PlayerNumber::Six,
-                    7 => PlayerNumber::Seven,
+                    0 => None,
+                    1 => Some(PlayerNumber::One),
+                    2 => Some(PlayerNumber::Two),
+                    3 => Some(PlayerNumber::Three),
+                    4 => Some(PlayerNumber::Four),
+                    5 => Some(PlayerNumber::Five),
                     _ => {
                         eprintln!(
-                            "unexpected goal keeper player number {}, defaulting to PlayerNumber::One",
+                            "unexpected opponent goal keeper player number {}, defaulting to None",
                             message.teams[opponent_team_index].goalkeeper
                         );
-                        PlayerNumber::One
+                        None
                     }
                 },
                 score: message.teams[opponent_team_index].score,
@@ -205,34 +207,18 @@ impl TryFrom<RoboCupGameControlData> for GameControllerStateMessage {
 #[derive(
     Clone, Copy, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
-pub enum CompetitionPhase {
-    RoundRobin,
-    PlayOff,
-}
-
-impl CompetitionPhase {
-    fn try_from(competition_phase: u8) -> Result<Self> {
-        match competition_phase {
-            COMPETITION_PHASE_ROUNDROBIN => Ok(CompetitionPhase::RoundRobin),
-            COMPETITION_PHASE_PLAYOFF => Ok(CompetitionPhase::PlayOff),
-            _ => bail!("unexpected competition phase"),
-        }
-    }
-}
-
-#[derive(
-    Clone, Copy, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
-)]
 pub enum CompetitionType {
-    Normal,
-    SharedAutonomy,
+    Small,
+    Middle,
+    Large,
 }
 
 impl CompetitionType {
     fn try_from(competition_type: u8) -> Result<Self> {
         match competition_type {
-            COMPETITION_TYPE_NORMAL => Ok(CompetitionType::Normal),
-            COMPETITION_TYPE_SHARED_AUTONOMY => Ok(CompetitionType::SharedAutonomy),
+            COMPETITION_TYPE_SMALL => Ok(CompetitionType::Small),
+            COMPETITION_TYPE_MIDDLE => Ok(CompetitionType::Middle),
+            COMPETITION_TYPE_LARGE => Ok(CompetitionType::Large),
             _ => bail!("unexpected competition type"),
         }
     }
@@ -256,7 +242,7 @@ pub enum GamePhase {
     PenaltyShootout {
         kicking_team: Team,
     },
-    Overtime,
+    Extratime,
     Timeout,
 }
 
@@ -270,7 +256,7 @@ impl GamePhase {
         match game_phase {
             GAME_PHASE_NORMAL => Ok(GamePhase::Normal),
             GAME_PHASE_PENALTYSHOOT => Ok(GamePhase::PenaltyShootout { kicking_team: team }),
-            GAME_PHASE_OVERTIME => Ok(GamePhase::Overtime),
+            GAME_PHASE_EXTRATIME => Ok(GamePhase::Extratime),
             GAME_PHASE_TIMEOUT => Ok(GamePhase::Timeout),
             _ => bail!("unexpected game phase"),
         }
@@ -342,20 +328,6 @@ impl TryFrom<u8> for Team {
     }
 }
 
-impl SubState {
-    fn try_from(sub_state: u8) -> Result<Option<Self>> {
-        match sub_state {
-            SET_PLAY_NONE => Ok(None),
-            SET_PLAY_GOAL_KICK => Ok(Some(SubState::GoalKick)),
-            SET_PLAY_PUSHING_FREE_KICK => Ok(Some(SubState::PushingFreeKick)),
-            SET_PLAY_CORNER_KICK => Ok(Some(SubState::CornerKick)),
-            SET_PLAY_KICK_IN => Ok(Some(SubState::KickIn)),
-            SET_PLAY_PENALTY_KICK => Ok(Some(SubState::PenaltyKick)),
-            _ => bail!("unexpected sub state"),
-        }
-    }
-}
-
 #[derive(
     Default,
     Clone,
@@ -370,11 +342,27 @@ impl SubState {
 )]
 pub enum SubState {
     #[default]
-    GoalKick,
-    PushingFreeKick,
-    CornerKick,
-    KickIn,
+    DirectFreeKick,
+    IndirectFreeKick,
     PenaltyKick,
+    ThrowIn,
+    GoalKick,
+    CornerKick,
+}
+
+impl SubState {
+    fn try_from(sub_state: u8) -> Result<Option<Self>> {
+        match sub_state {
+            SET_PLAY_NONE => Ok(None),
+            SET_PLAY_DIRECT_FREE_KICK => Ok(Some(SubState::DirectFreeKick)),
+            SET_PLAY_INDIRECT_FREE_KICK => Ok(Some(SubState::IndirectFreeKick)),
+            SET_PLAY_PENALTY_KICK => Ok(Some(SubState::PenaltyKick)),
+            SET_PLAY_THROW_IN => Ok(Some(SubState::ThrowIn)),
+            SET_PLAY_GOAL_KICK => Ok(Some(SubState::GoalKick)),
+            SET_PLAY_CORNER_KICK => Ok(Some(SubState::CornerKick)),
+            _ => bail!("unexpected sub state"),
+        }
+    }
 }
 
 #[derive(
@@ -411,7 +399,7 @@ pub struct TeamState {
     pub team_number: u8,
     pub field_player_color: TeamColor,
     pub goal_keeper_color: TeamColor,
-    pub goal_keeper_player_number: PlayerNumber,
+    pub goal_keeper_player_number: Option<PlayerNumber>,
     pub score: u8,
     pub penalty_shoot_index: u8,
     pub penalty_shoots: Vec<PenaltyShoot>,
@@ -462,6 +450,8 @@ pub enum PenaltyShoot {
 #[derive(Clone, Debug, Deserialize, Serialize)]
 pub struct Player {
     pub penalty: Option<Penalty>,
+    pub warning: u8,
+    pub caution: u8,
 }
 
 impl TryFrom<RobotInfo> for Player {
@@ -471,6 +461,8 @@ impl TryFrom<RobotInfo> for Player {
         let remaining = Duration::from_secs(player.secsTillUnpenalised.into());
         Ok(Self {
             penalty: Penalty::try_from(remaining, player.penalty)?,
+            warning: player.warnings,
+            caution: player.cautions,
         })
     }
 }
@@ -487,44 +479,36 @@ impl TryFrom<RobotInfo> for Player {
     PartialEq,
 )]
 pub enum Penalty {
-    IllegalBallContact { remaining: Duration },
-    PlayerPushing { remaining: Duration },
-    IllegalMotionInStandby { remaining: Duration },
-    IllegalMotionInSet { remaining: Duration },
-    InactivePlayer { remaining: Duration },
     IllegalPosition { remaining: Duration },
-    LeavingTheField { remaining: Duration },
-    RequestForPickup { remaining: Duration },
+    MotionInSet { remaining: Duration },
     LocalGameStuck { remaining: Duration },
-    IllegalPositionInSet { remaining: Duration },
-    PlayerStance { remaining: Duration },
+    IncapableRobot { remaining: Duration },
+    PickUp { remaining: Duration },
+    BallHolding { remaining: Duration },
+    LeavingTheField { remaining: Duration },
+    PlayingWithArmsHands { remaining: Duration },
+    Pushing { remaining: Duration },
+    SentOff { remaining: Duration },
     Substitute { remaining: Duration },
-    Manual { remaining: Duration },
 }
 
 impl Penalty {
     fn try_from(remaining: Duration, penalty: u8) -> Result<Option<Self>> {
         match penalty {
             PENALTY_NONE => Ok(None),
-            PENALTY_SPL_ILLEGAL_BALL_CONTACT => Ok(Some(Penalty::IllegalBallContact { remaining })),
-            PENALTY_SPL_PLAYER_PUSHING => Ok(Some(Penalty::PlayerPushing { remaining })),
-            PENALTY_SPL_ILLEGAL_MOTION_IN_STANDBY => {
-                Ok(Some(Penalty::IllegalMotionInStandby { remaining }))
+            PENALTY_ILLEGAL_POSITIONING => Ok(Some(Penalty::IllegalPosition { remaining })),
+            PENALTY_MOTION_IN_SET => Ok(Some(Penalty::MotionInSet { remaining })),
+            PENALTY_LOCAL_GAME_STUCK => Ok(Some(Penalty::LocalGameStuck { remaining })),
+            PENALTY_INCAPABLE_ROBOT => Ok(Some(Penalty::IncapableRobot { remaining })),
+            PENALTY_PICK_UP => Ok(Some(Penalty::PickUp { remaining })),
+            PENALTY_BALL_HOLDING => Ok(Some(Penalty::BallHolding { remaining })),
+            PENALTY_LEAVING_THE_FIELD => Ok(Some(Penalty::LeavingTheField { remaining })),
+            PENALTY_PLAYING_WITH_ARMS_HANDS => {
+                Ok(Some(Penalty::PlayingWithArmsHands { remaining }))
             }
-            PENALTY_SPL_ILLEGAL_MOTION_IN_SET => {
-                Ok(Some(Penalty::IllegalMotionInSet { remaining }))
-            }
-            PENALTY_SPL_INACTIVE_PLAYER => Ok(Some(Penalty::InactivePlayer { remaining })),
-            PENALTY_SPL_ILLEGAL_POSITION => Ok(Some(Penalty::IllegalPosition { remaining })),
-            PENALTY_SPL_LEAVING_THE_FIELD => Ok(Some(Penalty::LeavingTheField { remaining })),
-            PENALTY_SPL_REQUEST_FOR_PICKUP => Ok(Some(Penalty::RequestForPickup { remaining })),
-            PENALTY_SPL_LOCAL_GAME_STUCK => Ok(Some(Penalty::LocalGameStuck { remaining })),
-            PENALTY_SPL_ILLEGAL_POSITION_IN_SET => {
-                Ok(Some(Penalty::IllegalPositionInSet { remaining }))
-            }
-            PENALTY_SPL_PLAYER_STANCE => Ok(Some(Penalty::PlayerStance { remaining })),
+            PENALTY_PUSHING => Ok(Some(Penalty::Pushing { remaining })),
+            PENALTY_SENT_OFF => Ok(Some(Penalty::SentOff { remaining })),
             PENALTY_SUBSTITUTE => Ok(Some(Penalty::Substitute { remaining })),
-            PENALTY_MANUAL => Ok(Some(Penalty::Manual { remaining })),
             _ => bail!("unexpected penalty type"),
         }
     }
@@ -532,7 +516,7 @@ impl Penalty {
 
 impl Default for Penalty {
     fn default() -> Self {
-        Self::RequestForPickup {
+        Self::PickUp {
             remaining: Duration::ZERO,
         }
     }
