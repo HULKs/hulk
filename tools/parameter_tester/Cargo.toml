@@ -29,7 +29,6 @@ repository = { workspace = true }
 ros2 = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
-step_planning = { workspace = true }
 types = { workspace = true }
 walking_inference = { workspace = true }
 

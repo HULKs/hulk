@@ -549,7 +549,7 @@ mod tests {
     use approx::assert_relative_eq;
 
     use linear_algebra::point;
-    use step_planning::traits::Length;
+    use types::path::traits::Length;
 
     use super::*;
 

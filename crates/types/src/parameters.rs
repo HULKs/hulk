@@ -435,39 +435,6 @@ pub struct PenaltyShotDirectionParameters {
 #[derive(
     Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
-pub struct StepPlanningCostFactors {
-    pub path_progress: f32,
-    pub path_distance: f32,
-    pub target_orientation: f32,
-    pub walk_orientation: f32,
-}
-
-#[derive(
-    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
-)]
-pub struct StepPlanningOptimizationParameters {
-    pub optimizer_steps: usize,
-    pub cost_factors: StepPlanningCostFactors,
-    pub path_alignment_tolerance: f32,
-    pub path_progress_smoothness: f32,
-    pub target_orientation_ahead_tolerance: f32,
-    pub target_orientation_side_alignment_tolerance: f32,
-    pub hybrid_align_distance: f32,
-    pub warm_start: bool,
-}
-
-#[derive(
-    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
-)]
-pub enum StepPlannerMode {
-    #[default]
-    Mpc,
-    Greedy,
-}
-
-#[derive(
-    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
-)]
 pub struct RLWalkingParameters {
     pub gait_frequency: f32,
     pub stabilizing_interval_compression_factor: f32,
@@ -479,6 +446,12 @@ pub struct RLWalkingParameters {
     pub control: ControlParameters,
     pub walk_command: [f32; 3],
     pub joint_position_smoothing_factor: f32,
+
+    pub hybrid_align_distance: f32,
+    pub max_alignment_rate: f32,
+    pub walk_speed_slow: f32,
+    pub walk_speed_normal: f32,
+    pub walk_speed_fast: f32,
 }
 
 #[derive(

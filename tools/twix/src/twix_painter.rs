@@ -17,7 +17,7 @@ use linear_algebra::{
 };
 use types::{
     field_dimensions::FieldDimensions,
-    planned_path::{Path, PathSegment},
+    path::{Path, PathSegment},
 };
 
 type ScreenTransform<Frame> = Transform<Frame, Screen, Similarity2<f32>>;

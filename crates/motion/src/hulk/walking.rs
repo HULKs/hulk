@@ -8,7 +8,10 @@ use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime, motion_command::MotionCommand, parameters::RLWalkingParameters,
 };
-use walking_inference::{inference::WalkingInference, inputs::WalkingInferenceInputs};
+use walking_inference::{
+    inference::WalkingInference,
+    inputs::{WalkCommand, WalkingInferenceInputs},
+};
 
 #[derive(Deserialize, Serialize)]
 pub struct RLWalking {
@@ -61,10 +64,13 @@ impl RLWalking {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
+        let walk_command =
+            WalkCommand::from_motion_command(context.motion_command, context.walking_parameters);
+
         let (walking_inference_inputs, inference_output_positions) =
             self.walking_inference.do_inference(
                 *context.cycle_time,
-                context.motion_command,
+                &walk_command,
                 context.imu_state,
                 *context.serial_motor_states,
                 context.walking_parameters,
