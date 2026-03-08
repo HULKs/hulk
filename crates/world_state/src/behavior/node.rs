@@ -10,7 +10,8 @@ use types::{
 };
 
 use crate::behavior::{
-    finish, initial, look_around, penalize, remote_control, safe, stand_up, stop, visual_kick, walk_to_ball,
+    finish, initial, look_around, penalize, remote_control, safe, stand_up, stop, visual_kick,
+    walk_to_ball,
 };
 
 #[derive(Deserialize, Serialize)]
