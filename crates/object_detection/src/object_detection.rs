@@ -26,6 +26,7 @@ use types::{
 pub struct ObjectDetection {
     #[serde(skip, default = "deserialize_not_implemented")]
     session: Session,
+    using_subsampled_image: bool,
 }
 
 #[context]
@@ -68,10 +69,13 @@ impl ObjectDetection {
         let session = Session::builder()?
             .with_execution_providers([tensor_rt, cuda])?
             .with_optimization_level(GraphOptimizationLevel::Level3)?
-            .with_intra_threads(2)?
-            .commit_from_file(neural_network_folder.join("yolo26s-finetune-640x544.onnx"))?;
+            .with_intra_threads(1)?
+            .commit_from_file(neural_network_folder.join("yolo26m-finetune-640x544.onnx"))?;
 
-        Ok(Self { session })
+        Ok(Self {
+            session,
+            using_subsampled_image: true,
+        })
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
