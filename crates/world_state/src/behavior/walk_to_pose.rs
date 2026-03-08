@@ -14,7 +14,7 @@ use types::{
     world_state::WorldState,
 };
 
-use crate::path_planner::PathPlanner; // TODO
+use crate::path_planner::PathPlanner;
 
 pub struct WalkPathPlanner<'cycle> {
     field_dimensions: &'cycle FieldDimensions,

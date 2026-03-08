@@ -15,7 +15,7 @@ use types::{
     world_state::{BallState, WorldState},
 };
 
-use super::defend::Defend;
+use super::core::Defend;
 
 impl<'cycle> Defend<'cycle> {
     pub fn goal(

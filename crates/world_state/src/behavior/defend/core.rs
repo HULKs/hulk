@@ -1,4 +1,3 @@
-
 use coordinate_systems::Ground;
 use framework::AdditionalOutput;
 use linear_algebra::Pose2;
@@ -11,7 +10,7 @@ use types::{
     world_state::WorldState,
 };
 
-use super::super::{walk_to_pose::WalkAndStand, head::LookAction};
+use super::super::{head::LookAction, walk_to_pose::WalkAndStand};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize)]
 pub enum DefendMode {
@@ -66,5 +65,4 @@ impl<'cycle> Defend<'cycle> {
             hysteresis,
         )
     }
-
 }

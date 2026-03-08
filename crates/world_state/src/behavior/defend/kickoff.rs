@@ -9,7 +9,7 @@ use types::{
     world_state::WorldState,
 };
 
-use super::{defend::Defend, left::block_on_circle};
+use super::{core::Defend, left::block_on_circle};
 
 impl<'cycle> Defend<'cycle> {
     pub fn kick_off(

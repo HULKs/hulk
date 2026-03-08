@@ -1,4 +1,4 @@
-pub mod defend;
+pub mod core;
 pub mod goal;
 pub mod kickoff;
 pub mod left;

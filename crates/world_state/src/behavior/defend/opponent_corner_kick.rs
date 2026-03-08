@@ -1,7 +1,7 @@
 use framework::AdditionalOutput;
 use types::{field_dimensions::Side, motion_command::{MotionCommand, WalkSpeed}, path_obstacles::PathObstacle};
 
-use super::{defend::Defend, left::defend_pose};
+use super::{core::Defend, left::defend_pose};
 
 impl<'cycle> Defend<'cycle> {
     pub fn opponent_corner_kick(

@@ -8,15 +8,17 @@ use types::{
     action::Action,
     ball_position::BallPosition,
     field_dimensions::{FieldDimensions, Side},
-    motion_command::{MotionCommand, WalkSpeed},
-    parameters::BehaviorParameters,
+    motion_command::{MotionCommand},
+    parameters::{BehaviorParameters, WalkSpeedParameters},
     path_obstacles::PathObstacle,
     primary_state::PrimaryState,
     world_state::WorldState,
 };
 
+use crate::behavior::visual_kick;
+
 use super::{
-    defend::defend::{Defend, DefendMode},
+    defend::core::{Defend, DefendMode},
     finish,
     head::LookAction,
     initial, look_around, penalize, remote_control, safe, stand_during_penalty_kick, stand_up,
@@ -37,11 +39,11 @@ pub struct CycleContext {
     ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
     world_state: Input<WorldState, "world_state">,
 
-    defend_walk_speed: Parameter<WalkSpeed, "walk_speed.defend">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     parameters: Parameter<BehaviorParameters, "behavior">,
+    walk_speed: Parameter<WalkSpeedParameters, "walk_speed">,
 
-    path_obstacles_output: AdditionalOutput<Vec<PathObstacle>, "path_obstacles">, // TODO
+    path_obstacles_output: AdditionalOutput<Vec<PathObstacle>, "path_obstacles">,
     active_action: AdditionalOutput<Action, "active_action">,
 
     last_motion_command: CyclerState<MotionCommand, "last_motion_command">,
@@ -70,6 +72,7 @@ impl Behavior {
         }
 
         let mut actions = vec![
+            Action::DefendLeft,
             Action::Safe,
             Action::Stop,
             Action::Finish,
@@ -125,7 +128,7 @@ impl Behavior {
 
                     Action::DefendGoal => defend.goal(
                         &mut context.path_obstacles_output,
-                        *context.defend_walk_speed,
+                        context.walk_speed.defend,
                         context
                             .parameters
                             .walk_and_stand
@@ -133,7 +136,7 @@ impl Behavior {
                     ),
                     Action::DefendKickOff => defend.kick_off(
                         &mut context.path_obstacles_output,
-                        *context.defend_walk_speed,
+                        context.walk_speed.defend,
                         context
                             .parameters
                             .walk_and_stand
@@ -141,7 +144,7 @@ impl Behavior {
                     ),
                     Action::DefendLeft => defend.left(
                         &mut context.path_obstacles_output,
-                        *context.defend_walk_speed,
+                        context.walk_speed.defend,
                         context
                             .parameters
                             .walk_and_stand
@@ -149,7 +152,7 @@ impl Behavior {
                     ),
                     Action::DefendPenaltyKick => defend.penalty_kick(
                         &mut context.path_obstacles_output,
-                        *context.defend_walk_speed,
+                        context.walk_speed.defend,
                         context
                             .parameters
                             .walk_and_stand
@@ -158,7 +161,7 @@ impl Behavior {
                     Action::DefendOpponentCornerKick { side: Side::Left } => defend
                         .opponent_corner_kick(
                             &mut context.path_obstacles_output,
-                            *context.defend_walk_speed,
+                            context.walk_speed.defend,
                             Side::Left,
                             context
                                 .parameters
@@ -168,7 +171,7 @@ impl Behavior {
                     Action::DefendOpponentCornerKick { side: Side::Right } => defend
                         .opponent_corner_kick(
                             &mut context.path_obstacles_output,
-                            *context.defend_walk_speed,
+                            context.walk_speed.defend,
                             Side::Right,
                             context
                                 .parameters
