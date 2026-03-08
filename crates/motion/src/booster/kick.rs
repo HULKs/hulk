@@ -65,8 +65,8 @@ impl BoosterKick {
                     ball_position_x: ball_position.x() as f64,
                     ball_position_y: ball_position.y() as f64,
                     kick_direction_angle: kick_direction.angle() as f64,
-                    target_position_x: target_position.x() as f64,
-                    target_position_y: target_position.y() as f64,
+                    target_position_x: target_position.y() as f64,
+                    target_position_y: target_position.x() as f64,
                     robot_angle_to_field: robot_theta_to_field.angle() as f64,
                     kick_power: *kick_power,
                 };
