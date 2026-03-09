@@ -70,6 +70,12 @@ jobs:
       image: ghcr.io/hulks/hulk-ci:1.92.0
       options: --user=1000:1000
     steps:
+      - name: Install uv
+        uses: astral-sh/setup-uv@v5
+        with:
+          version: "0.10.9"
+          enable-cache: true
+          cache-local-path: "/__w/hulk/.uv-cache"
       - uses: actions/checkout@v4
         with:
           lfs: true
