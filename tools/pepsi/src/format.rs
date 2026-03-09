@@ -2,8 +2,8 @@ use std::{path::Path, process::Stdio};
 
 use clap::Args;
 use color_eyre::{
-    eyre::{bail, Context},
     Result,
+    eyre::{Context, bail},
 };
 
 use repository::Repository;
