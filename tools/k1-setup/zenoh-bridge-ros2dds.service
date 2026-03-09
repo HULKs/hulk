@@ -9,6 +9,7 @@ WorkingDirectory=/home/booster
 Environment=RUST_LOG=DEBUG
 StandardOutput=journal
 StandardError=journal
+Restart=always
 
 [Install]
 WantedBy=default.target
