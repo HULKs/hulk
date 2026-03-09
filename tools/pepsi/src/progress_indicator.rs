@@ -1,5 +1,10 @@
-use std::{borrow::Cow, time::Duration};
+use std::{
+    borrow::Cow,
+    fmt::{Debug, Display},
+    time::Duration,
+};
 
+use atty::Stream;
 use color_eyre::{Report, Result, owo_colors::OwoColorize};
 use futures_util::{Future, StreamExt, stream::FuturesUnordered};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
@@ -9,6 +14,40 @@ pub struct ProgressIndicator {
     default_style: ProgressStyle,
     success_style: ProgressStyle,
     error_style: ProgressStyle,
+}
+
+pub trait TaskMessage {
+    fn message(&self) -> Option<String>;
+}
+
+impl<T> TaskMessage for &T
+where
+    T: TaskMessage,
+{
+    fn message(&self) -> Option<String> {
+        (*self).message()
+    }
+}
+
+impl TaskMessage for str {
+    fn message(&self) -> Option<String> {
+        if self.is_empty() {
+            return None;
+        }
+        Some(String::from(self))
+    }
+}
+
+impl TaskMessage for String {
+    fn message(&self) -> Option<String> {
+        self.as_str().message()
+    }
+}
+
+impl TaskMessage for () {
+    fn message(&self) -> Option<String> {
+        None
+    }
 }
 
 impl ProgressIndicator {
@@ -24,7 +63,7 @@ impl ProgressIndicator {
         }
     }
 
-    pub fn task(&self, prefix: String) -> Task {
+    pub fn task(&self, prefix: impl Display) -> Task {
         let spinner = ProgressBar::new_spinner()
             .with_style(self.default_style.clone())
             .with_prefix(format!("[{prefix}]"));
@@ -44,7 +83,7 @@ impl ProgressIndicator {
     ) where
         T: ToString,
         F: Future<Output = Result<M>>,
-        M: Into<TaskMessage>,
+        M: TaskMessage,
     {
         items
             .into_iter()
@@ -53,7 +92,7 @@ impl ProgressIndicator {
                 progress.enable_steady_tick();
                 progress.set_message(message.clone());
                 let future = task(item, progress.progress.clone());
-                async move { progress.finish_with(future.await) }
+                async move { progress.finish_with(future.await.as_ref()) }
             })
             .collect::<FuturesUnordered<_>>()
             .collect::<Vec<_>>()
@@ -67,63 +106,45 @@ pub struct Task {
     error_style: ProgressStyle,
 }
 
-pub enum TaskMessage {
-    EmptyMessage,
-    Message(String),
-}
-
-impl From<()> for TaskMessage {
-    fn from(_: ()) -> Self {
-        Self::EmptyMessage
-    }
-}
-
-impl From<String> for TaskMessage {
-    fn from(value: String) -> Self {
-        if value.is_empty() {
-            Self::EmptyMessage
-        } else {
-            Self::Message(value)
-        }
-    }
-}
-
-impl From<&str> for TaskMessage {
-    fn from(value: &str) -> Self {
-        if value.is_empty() {
-            Self::EmptyMessage
-        } else {
-            Self::Message(String::from(value))
-        }
-    }
-}
-
 impl Task {
     pub fn enable_steady_tick(&self) {
         self.progress.enable_steady_tick(Duration::from_millis(100));
     }
 
     pub fn set_message(&self, message: impl Into<Cow<'static, str>>) {
-        self.progress.set_message(message)
+        if atty::is(Stream::Stdout) {
+            self.progress.set_message(message)
+        } else {
+            eprintln!("{} {}", self.progress.prefix(), message.into());
+        }
     }
 
-    pub fn finish_with_success(&self, message: impl Into<TaskMessage>) {
+    pub fn finish_with_success(&self, message: impl TaskMessage) {
         self.progress.set_style(self.success_style.clone());
         let icon = "✔".green();
-        let message = match message.into() {
-            TaskMessage::EmptyMessage => icon.to_string(),
-            TaskMessage::Message(message) => format!("{icon} {message}"),
-        };
-        self.progress.finish_with_message(message);
+        let message = message
+            .message()
+            .map_or_else(|| icon.to_string(), |message| format!("{icon}\n{message}"));
+
+        if atty::is(Stream::Stdout) {
+            self.progress.finish_with_message(message);
+        } else {
+            eprintln!("{} {}", self.progress.prefix(), message);
+        }
     }
 
-    pub fn finish_with_error(&self, report: Report) {
+    pub fn finish_with_error(&self, report: &impl Debug) {
         self.progress.set_style(self.error_style.clone());
-        self.progress
-            .finish_with_message(format!("{}{report:?}", "✗".red()));
+        let message = format!("{}{report:?}", "✗".red());
+
+        if atty::is(Stream::Stdout) {
+            self.progress.finish_with_message(message);
+        } else {
+            eprintln!("{} {}", self.progress.prefix(), message);
+        }
     }
 
-    pub fn finish_with(&self, result: Result<impl Into<TaskMessage>>) {
+    pub fn finish_with(&self, result: Result<&impl TaskMessage, &Report>) {
         match result {
             Ok(message) => self.finish_with_success(message),
             Err(report) => self.finish_with_error(report),

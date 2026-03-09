@@ -111,7 +111,6 @@ if __name__ == "__main__":
     pixels_BGR = np.empty((0, 3), dtype=np.uint8)
     y = np.empty(0)
 
-
     labeled_images_folder = os.path.join(IMAGE_DIRECTORY, "labeled")
     os.makedirs(labeled_images_folder, exist_ok=True)
 
@@ -184,15 +183,13 @@ if __name__ == "__main__":
                         ),
                         overlay,
                     )
-                    pixels_YCrCb, pixels_BGR, y = (
-                        extract_pixels(
-                            overlay,
-                            pixels_YCrCb,
-                            pixels_BGR,
-                            image_YCrCb,
-                            image_BGR,
-                            y,
-                        )
+                    pixels_YCrCb, pixels_BGR, y = extract_pixels(
+                        overlay,
+                        pixels_YCrCb,
+                        pixels_BGR,
+                        image_YCrCb,
+                        image_BGR,
+                        y,
                     )
                     break
                 drawing_board.color = color
@@ -203,13 +200,9 @@ if __name__ == "__main__":
 
     if len(pixels_YCrCb) > 0:
         start = time.time()
-        model = optimize_thresholds(
-            pixels_BGR, pixels_YCrCb, y, ""
-        )
+        model = optimize_thresholds(pixels_BGR, pixels_YCrCb, y, "")
         end = time.time()
         duration = end - start
-
-
 
     print("\nTraing times:")
     print(f"  - Camera:    {(duration / 60):.2f}min")
