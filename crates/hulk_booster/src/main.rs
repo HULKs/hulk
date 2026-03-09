@@ -28,6 +28,7 @@ use crate::{
 };
 
 mod hardware_interface;
+mod latest_receiver;
 
 pub fn setup_logger() -> Result<(), fern::InitError> {
     fern::Dispatch::new()
@@ -43,7 +44,6 @@ pub fn setup_logger() -> Result<(), fern::InitError> {
         .level(log::LevelFilter::Debug)
         .level_for("rustdds", log::LevelFilter::Error)
         .level_for("booster_sdk", log::LevelFilter::Error)
-        .level_for("zenoh", log::LevelFilter::Warn)
         .level_for("ort", log::LevelFilter::Warn)
         .chain(stdout())
         .apply()?;
