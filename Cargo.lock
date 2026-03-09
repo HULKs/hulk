@@ -10395,7 +10395,7 @@ dependencies = [
 
 [[package]]
 name = "twix"
-version = "0.12.6"
+version = "0.12.7"
 dependencies = [
  "aliveness",
  "argument_parsers",
