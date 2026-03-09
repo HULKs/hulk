@@ -8,6 +8,7 @@ homepage.workspace = true
 [dependencies]
 aliveness = { workspace = true }
 argument_parsers = { workspace = true }
+atty = { workspace = true }
 bat = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }

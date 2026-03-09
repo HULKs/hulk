@@ -4,6 +4,7 @@ use std::{
     time::Duration,
 };
 
+use atty::Stream;
 use color_eyre::{Report, Result, owo_colors::OwoColorize};
 use futures_util::{Future, StreamExt, stream::FuturesUnordered};
 use indicatif::{MultiProgress, ProgressBar, ProgressStyle};
@@ -111,7 +112,11 @@ impl Task {
     }
 
     pub fn set_message(&self, message: impl Into<Cow<'static, str>>) {
-        self.progress.set_message(message)
+        if atty::is(Stream::Stdout) {
+            self.progress.set_message(message)
+        } else {
+            eprintln!("{} {}", self.progress.prefix(), message.into());
+        }
     }
 
     pub fn finish_with_success(&self, message: impl TaskMessage) {
@@ -120,13 +125,23 @@ impl Task {
         let message = message
             .message()
             .map_or_else(|| icon.to_string(), |message| format!("{icon}\n{message}"));
-        self.progress.finish_with_message(message);
+
+        if atty::is(Stream::Stdout) {
+            self.progress.finish_with_message(message);
+        } else {
+            eprintln!("{} {}", self.progress.prefix(), message);
+        }
     }
 
     pub fn finish_with_error(&self, report: &impl Debug) {
         self.progress.set_style(self.error_style.clone());
-        self.progress
-            .finish_with_message(format!("{}{report:?}", "✗".red()));
+        let message = format!("{}{report:?}", "✗".red());
+
+        if atty::is(Stream::Stdout) {
+            self.progress.finish_with_message(message);
+        } else {
+            eprintln!("{} {}", self.progress.prefix(), message);
+        }
     }
 
     pub fn finish_with(&self, result: Result<&impl TaskMessage, &Report>) {

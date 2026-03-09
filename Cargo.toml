@@ -79,6 +79,7 @@ aliveness = { path = "crates/aliveness" }
 approx = "0.5.1"
 approx_derive = { path = "crates/approx_derive" }
 argument_parsers = { path = "crates/argument_parsers" }
+atty = "0.2.14"
 audio = { path = "crates/audio" }
 ball_filter = { path = "crates/ball_filter" }
 bat = { version = "0.25.0", default-features = false, features = [
