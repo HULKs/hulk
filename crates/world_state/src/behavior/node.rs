@@ -1,8 +1,9 @@
 use color_eyre::Result;
+use linear_algebra::{Point2, point};
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::Ground;
+use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput};
 use types::{
     action::Action,
@@ -16,7 +17,7 @@ use types::{
     world_state::WorldState,
 };
 
-use crate::behavior::{support, visual_kick, walk_to_kick_off, walk_to_penalty_kick};
+use crate::behavior::{lost_ball, support, visual_kick, walk_to_kick_off, walk_to_penalty_kick};
 
 use super::{
     defend::core::{Defend, DefendMode},
@@ -30,6 +31,7 @@ use super::{
 #[derive(Deserialize, Serialize)]
 pub struct Behavior {
     last_defender_mode: DefendMode,
+    last_known_ball_position: Point2<Field>,
 }
 
 #[context]
@@ -61,6 +63,7 @@ impl Behavior {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             last_defender_mode: DefendMode::Passive,
+            last_known_ball_position: point![0.0, 0.0],
         })
     }
 
@@ -71,6 +74,10 @@ impl Behavior {
             return Ok(MainOutputs {
                 motion_command: command.clone().into(),
             });
+        }
+
+        if let Some(ball_state) = &world_state.ball {
+            self.last_known_ball_position = ball_state.ball_in_field;
         }
 
         let mut actions = vec![
@@ -184,6 +191,19 @@ impl Behavior {
                         world_state,
                         context.field_dimensions,
                         &context.world_state.robot.role,
+                    ),
+
+                    Action::SearchForLostBall => lost_ball::execute(
+                        world_state,
+                        self.last_known_ball_position,
+                        &walk_path_planner,
+                        &context.parameters.lost_ball,
+                        &mut context.path_obstacles_output,
+                        context.walk_speed.lost_ball,
+                        context
+                            .parameters
+                            .walk_and_stand
+                            .normal_distance_to_be_aligned,
                     ),
                     Action::SupportLeft => support::execute(
                         world_state,

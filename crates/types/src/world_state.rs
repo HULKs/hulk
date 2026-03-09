@@ -7,15 +7,16 @@ use linear_algebra::{Isometry2, Point2, Vector2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{
-    field_dimensions::Side, filtered_game_controller_state::FilteredGameControllerState,
-    kick_decision::KickDecision, obstacles::Obstacle, primary_state::PrimaryState, roles::Role,
-    rule_obstacles::RuleObstacle,
+    ball_position::HypotheticalBallPosition, field_dimensions::Side,
+    filtered_game_controller_state::FilteredGameControllerState, kick_decision::KickDecision,
+    obstacles::Obstacle, primary_state::PrimaryState, roles::Role, rule_obstacles::RuleObstacle,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathIntrospect)]
 pub struct WorldState {
     pub ball: Option<BallState>,
     pub filtered_game_controller_state: Option<FilteredGameControllerState>,
+    pub hypothetical_ball_positions: Vec<HypotheticalBallPosition<Ground>>,
     pub instant_kick_decisions: Option<Vec<KickDecision>>,
     pub kick_decisions: Option<Vec<KickDecision>>,
     pub obstacles: Vec<Obstacle>,
@@ -31,6 +32,7 @@ impl Default for WorldState {
         Self {
             ball: Default::default(),
             filtered_game_controller_state: Default::default(),
+            hypothetical_ball_positions: Default::default(),
             instant_kick_decisions: Default::default(),
             kick_decisions: Default::default(),
             obstacles: Default::default(),
