@@ -26,7 +26,6 @@ use types::{
 pub struct ObjectDetection {
     #[serde(skip, default = "deserialize_not_implemented")]
     session: Session,
-    using_subsampled_image: bool,
 }
 
 #[context]
@@ -72,10 +71,7 @@ impl ObjectDetection {
             .with_intra_threads(2)?
             .commit_from_file(neural_network_folder.join("yolo26s-finetune-640x544.onnx"))?;
 
-        Ok(Self {
-            session,
-            using_subsampled_image: false,
-        })
+        Ok(Self { session })
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
@@ -87,16 +83,13 @@ impl ObjectDetection {
 
         let mut image = context.image_left_raw.clone();
 
-        let should_do_subsampling = true;
-
-        if should_do_subsampling
-            && (image.height, image.width) == (1088, 1280)
-            && image.encoding == "nv12"
-        {
-            log::info!("sub sampling image by half");
-            image.subsample_nv12_by_half_in_place()?;
-            self.using_subsampled_image = true;
-        };
+        let using_subsampled_image =
+            if (image.height, image.width) == (1088, 1280) && image.encoding == "nv12" {
+                image.subsample_nv12_by_half_in_place()?;
+                true
+            } else {
+                false
+            };
 
         let height = image.height;
         let width = image.width;
@@ -142,7 +135,7 @@ impl ObjectDetection {
                 }
                 let label = NaoLabelPartyObjectDetectionLabel::from_index(class_id);
                 Some(Detection {
-                    bounding_box: if self.using_subsampled_image {
+                    bounding_box: if using_subsampled_image {
                         BoundingBox {
                             area: Rectangle {
                                 min: point!(row[0usize] * 2.0, row[1usize] * 2.0),
