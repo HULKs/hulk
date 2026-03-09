@@ -5,10 +5,18 @@ use context_attribute::context;
 use coordinate_systems::Ground;
 use framework::{AdditionalOutput, MainOutput};
 use types::{
-    action::Action, ball_position::BallPosition, field_dimensions::{FieldDimensions, Side}, kick_decision::DecisionParameters, motion_command::MotionCommand, parameters::{BehaviorParameters, WalkSpeedParameters}, path_obstacles::PathObstacle, primary_state::PrimaryState, world_state::WorldState
+    action::Action,
+    ball_position::BallPosition,
+    field_dimensions::{FieldDimensions, Side},
+    kick_decision::DecisionParameters,
+    motion_command::MotionCommand,
+    parameters::{BehaviorParameters, WalkSpeedParameters},
+    path_obstacles::PathObstacle,
+    primary_state::PrimaryState,
+    world_state::WorldState,
 };
 
-use crate::behavior::{visual_kick, walk_to_kick_off, walk_to_penalty_kick};
+use crate::behavior::{support, visual_kick, walk_to_kick_off, walk_to_penalty_kick};
 
 use super::{
     defend::core::{Defend, DefendMode},
@@ -177,7 +185,75 @@ impl Behavior {
                         context.field_dimensions,
                         &context.world_state.robot.role,
                     ),
-
+                    Action::SupportLeft => support::execute(
+                        world_state,
+                        context.field_dimensions,
+                        Some(Side::Left),
+                        context
+                            .parameters
+                            .role_positions
+                            .left_midfielder_distance_to_ball,
+                        context
+                            .parameters
+                            .role_positions
+                            .left_midfielder_maximum_x_in_ready_and_when_ball_is_not_free,
+                        context.parameters.role_positions.left_midfielder_minimum_x,
+                        &walk_and_stand,
+                        &look_action,
+                        &mut context.path_obstacles_output,
+                        context.walk_speed.support,
+                        context
+                            .parameters
+                            .walk_and_stand
+                            .normal_distance_to_be_aligned,
+                    ),
+                    Action::SupportRight => support::execute(
+                        world_state,
+                        context.field_dimensions,
+                        Some(Side::Right),
+                        context
+                            .parameters
+                            .role_positions
+                            .right_midfielder_distance_to_ball,
+                        context
+                            .parameters
+                            .role_positions
+                            .right_midfielder_maximum_x_in_ready_and_when_ball_is_not_free,
+                        context.parameters.role_positions.right_midfielder_minimum_x,
+                        &walk_and_stand,
+                        &look_action,
+                        &mut context.path_obstacles_output,
+                        context.walk_speed.support,
+                        context
+                            .parameters
+                            .walk_and_stand
+                            .normal_distance_to_be_aligned,
+                    ),
+                    Action::SupportStriker => support::execute(
+                        world_state,
+                        context.field_dimensions,
+                        None,
+                        context
+                            .parameters
+                            .role_positions
+                            .striker_supporter_distance_to_ball,
+                        context
+                            .parameters
+                            .role_positions
+                            .striker_supporter_maximum_x_in_ready_and_when_ball_is_not_free,
+                        context
+                            .parameters
+                            .role_positions
+                            .striker_supporter_minimum_x,
+                        &walk_and_stand,
+                        &look_action,
+                        &mut context.path_obstacles_output,
+                        context.walk_speed.support,
+                        context
+                            .parameters
+                            .walk_and_stand
+                            .normal_distance_to_be_aligned,
+                    ),
                     Action::WalkToKickOff => walk_to_kick_off::execute(
                         world_state,
                         &walk_and_stand,
