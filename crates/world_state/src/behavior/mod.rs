@@ -3,6 +3,7 @@ pub mod finish;
 pub mod head;
 pub mod initial;
 pub mod look_around;
+pub mod lost_ball;
 pub mod node;
 pub mod penalize;
 pub mod remote_control;
