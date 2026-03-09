@@ -2,16 +2,17 @@ use std::time::SystemTime;
 
 use color_eyre::Result;
 use hsl_network_messages::{SubState, Team};
+use linear_algebra::{Point2, point};
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use coordinate_systems::Ground;
+use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput};
 use types::{
     action::Action, ball_position::BallPosition, cycle_time::CycleTime, field_dimensions::{FieldDimensions, Side}, filtered_game_controller_state::FilteredGameControllerState, filtered_game_state::FilteredGameState, kick_decision::DecisionParameters, motion_command::MotionCommand, parameters::{BehaviorParameters, WalkSpeedParameters}, path_obstacles::PathObstacle, primary_state::PrimaryState, roles::Role, world_state::WorldState
 };
 
-use crate::behavior::{support, visual_kick, walk_to_kick_off, walk_to_penalty_kick};
+use crate::behavior::{lost_ball, support, visual_kick, walk_to_kick_off, walk_to_penalty_kick};
 
 use super::{
     defend::core::{Defend, DefendMode},
@@ -26,6 +27,7 @@ use super::{
 pub struct Behavior {
     last_defender_mode: DefendMode,
     active_since: Option<SystemTime>,
+    last_known_ball_position: Point2<Field>,
 }
 
 #[context]
@@ -59,6 +61,7 @@ impl Behavior {
         Ok(Self {
             last_defender_mode: DefendMode::Passive,
             active_since: None,
+            last_known_ball_position: point![0.0, 0.0],
         })
     }
 
@@ -79,6 +82,9 @@ impl Behavior {
             (None, _) => {}
             (Some(_), PrimaryState::Ready | PrimaryState::Set | PrimaryState::Playing) => {}
             (Some(_), _) => self.active_since = None,
+        }
+        if let Some(ball_state) = &world_state.ball {
+            self.last_known_ball_position = ball_state.ball_in_field;
         }
 
         let mut actions = vec![
@@ -239,6 +245,19 @@ impl Behavior {
                         world_state,
                         context.field_dimensions,
                         &context.world_state.robot.role,
+                    ),
+
+                    Action::SearchForLostBall => lost_ball::execute(
+                        world_state,
+                        self.last_known_ball_position,
+                        &walk_path_planner,
+                        &context.parameters.lost_ball,
+                        &mut context.path_obstacles_output,
+                        context.walk_speed.lost_ball,
+                        context
+                            .parameters
+                            .walk_and_stand
+                            .normal_distance_to_be_aligned,
                     ),
                     Action::SupportLeft => support::execute(
                         world_state,

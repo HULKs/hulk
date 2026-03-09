@@ -7,6 +7,7 @@ use serde::{Deserialize, Serialize};
 use context_attribute::context;
 use framework::{MainOutput, PerceptionInput};
 use types::{
+    ball_position::HypotheticalBallPosition,
     filtered_game_controller_state::FilteredGameControllerState,
     obstacles::Obstacle,
     primary_state::PrimaryState,
@@ -31,6 +32,9 @@ pub struct CycleContext {
     filtered_game_controller_state:
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
     ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
+    hypothetical_ball_position:
+        Input<Vec<HypotheticalBallPosition<Ground>>, "hypothetical_ball_positions">,
+
     // instant_kick_decisions: Input<Option<Vec<KickDecision>>, "instant_kick_decisions?">,
     // kick_decisions: Input<Option<Vec<KickDecision>>, "kick_decisions?">,
     obstacles: Input<Vec<Obstacle>, "obstacles">,
@@ -81,6 +85,8 @@ impl WorldStateComposer {
         let world_state = WorldState {
             ball: context.ball.copied(),
             filtered_game_controller_state: context.filtered_game_controller_state.cloned(),
+            hypothetical_ball_positions: context.hypothetical_ball_position.clone(),
+
             //instant_kick_decisions: context.instant_kick_decisions.cloned(),
             instant_kick_decisions: Default::default(),
             //kick_decisions: context.kick_decisions.cloned(),

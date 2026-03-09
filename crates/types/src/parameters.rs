@@ -39,6 +39,7 @@ pub struct WhistleDetectionParameters {
 )]
 pub struct BehaviorParameters {
     pub injected_motion_command: Option<MotionCommand>,
+    pub lost_ball: LostBallParameters,
     pub path_planning: PathPlanningParameters,
     pub remote_control: RemoteControlParameters,
     pub role_positions: RolePositionsParameters,
