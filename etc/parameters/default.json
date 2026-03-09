@@ -799,5 +799,23 @@
     "own_ball_weight": 1.0,
     "team_ball_weight": 1.0,
     "rule_ball_weight": 1.0
+  },
+  "kick_selector": {
+    "distance_to_corner": 1.5,
+    "corner_kick_target_distance_to_goal": 1.3,
+    "min_obstacle_distance": 1.0,
+    "kick_pose_robot_radius": 0.1,
+    "kick_off_angle": 0.9,
+    "default_kick_variants": ["Forward", "Side", "Turn"],
+    "corner_kick_variants": ["Forward", "Side", "Turn"],
+    "kick_off_kick_variants": ["Forward"],
+    "penalty_shot_kick_variants": ["Forward"],
+    "default_kick_strength": 1.0,
+    "corner_kick_strength": 0.25,
+    "kick_off_kick_strength": 1.0,
+    "penalty_shot_kick_strength": 1.0,
+    "angle_distance_weight": 0.02,
+    "closer_to_goal_threshold": 1.0,
+    "goal_accuracy_margin": 0.25
   }
 }
