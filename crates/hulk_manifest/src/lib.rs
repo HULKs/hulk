@@ -109,6 +109,14 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
                 nodes: vec![],
                 execution_time_warning_threshold: None,
             },
+            CyclerManifest {
+                name: "Odometry",
+                kind: CyclerKind::Perception,
+                instances: vec![""],
+                setup_nodes: vec!["sensor_receiver::odometer_receiver"],
+                nodes: vec![],
+                execution_time_warning_threshold: None,
+            },
         ],
     };
 

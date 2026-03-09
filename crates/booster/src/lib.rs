@@ -537,6 +537,16 @@ pub struct Kick {
     pub kick_power: f64,
 }
 
+#[repr(C)]
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct Odometer {
+    pub x: f32,
+    pub y: f32,
+    pub theta: f32,
+}
+
 #[cfg(feature = "pyo3")]
 #[pymodule(name = "booster_types")]
 pub mod python_module {
