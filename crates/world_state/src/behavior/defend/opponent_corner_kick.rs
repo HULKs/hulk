@@ -1,9 +1,5 @@
 use framework::AdditionalOutput;
-use types::{
-    field_dimensions::Side,
-    motion_command::{MotionCommand, WalkSpeed},
-    path_obstacles::PathObstacle,
-};
+use types::{field_dimensions::Side, motion_command::MotionCommand, path_obstacles::PathObstacle};
 
 use super::{core::Defend, left::defend_pose};
 
@@ -11,7 +7,7 @@ impl<'cycle> Defend<'cycle> {
     pub fn opponent_corner_kick(
         &mut self,
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
-        walk_speed: WalkSpeed,
+        walk_speed: f32,
         field_side: Side,
         distance_to_be_aligned: f32,
     ) -> Option<MotionCommand> {

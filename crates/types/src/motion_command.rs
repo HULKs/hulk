@@ -10,25 +10,6 @@ use crate::{fall_state::FallingDirection, path::Path, support_foot::Side};
     Clone,
     Copy,
     Debug,
-    Default,
-    Serialize,
-    Deserialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    PartialEq,
-)]
-pub enum WalkSpeed {
-    Slow,
-    #[default]
-    Normal,
-    Fast,
-}
-
-#[derive(
-    Clone,
-    Copy,
-    Debug,
     Serialize,
     Deserialize,
     PathSerialize,
@@ -96,7 +77,7 @@ pub enum MotionCommand {
         orientation_mode: OrientationMode,
         target_orientation: Orientation2<Ground>,
         distance_to_be_aligned: f32,
-        speed: WalkSpeed,
+        speed: f32,
     },
     InWalkKick {
         head: HeadMotion,

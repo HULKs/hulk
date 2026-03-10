@@ -56,9 +56,7 @@
     "joint_position_smoothing_factor": 0.8,
     "hybrid_align_distance": 1.0,
     "max_alignment_rate": 1.0,
-    "walk_speed_slow": 0.5,
-    "walk_speed_normal": 1.0,
-    "walk_speed_fast": 1.5
+    "deceleration_distance": 0.5
   },
   "prepare_motor_command": {
     "weight": 1.0,
@@ -316,14 +314,14 @@
   },
   "injected_primary_state": null,
   "walk_speed": {
-    "defend": "Normal",
-    "dribble": "Fast",
-    "intercept_ball": "Fast",
-    "lost_ball": "Normal",
-    "search": "Normal",
-    "support": "Normal",
-    "walk_to_kickoff": "Normal",
-    "walk_to_penalty_kick": "Normal"
+    "defend": 1.0,
+    "dribble": 1.5,
+    "intercept_ball": 1.5,
+    "lost_ball": 1.0,
+    "search": 1.0,
+    "support": 1.0,
+    "walk_to_kickoff": 1.0,
+    "walk_to_penalty_kick": 1.0
   },
   "behavior": {
     "injected_motion_command": null,

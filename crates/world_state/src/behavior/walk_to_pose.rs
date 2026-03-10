@@ -4,7 +4,7 @@ use framework::AdditionalOutput;
 use linear_algebra::{Isometry2, Orientation2, Point, Point2, Pose2, point};
 use types::{
     field_dimensions::FieldDimensions,
-    motion_command::{ArmMotion, HeadMotion, MotionCommand, OrientationMode, WalkSpeed},
+    motion_command::{ArmMotion, HeadMotion, MotionCommand, OrientationMode},
     obstacles::Obstacle,
     parameters::{PathPlanningParameters, WalkAndStandParameters},
     path::{Path, direct_path},
@@ -103,7 +103,7 @@ impl<'cycle> WalkPathPlanner<'cycle> {
         target_orientation: Orientation2<Ground>,
         distance_to_be_aligned: f32,
         path: Path,
-        speed: WalkSpeed,
+        speed: f32,
     ) -> MotionCommand {
         MotionCommand::Walk {
             head,
@@ -162,7 +162,7 @@ impl<'cycle> WalkAndStand<'cycle> {
         target_pose: Pose2<Ground>,
         head: HeadMotion,
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
-        walk_speed: WalkSpeed,
+        walk_speed: f32,
         orientation_mode: OrientationMode,
         distance_to_be_aligned: f32,
         hysteresis: nalgebra::Vector2<f32>,

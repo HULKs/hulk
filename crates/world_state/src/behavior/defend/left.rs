@@ -7,7 +7,7 @@ use linear_algebra::{Point2, Pose2, Vector2, point};
 use types::{
     field_dimensions::{FieldDimensions, Side},
     filtered_game_controller_state::FilteredGameControllerState,
-    motion_command::{MotionCommand, WalkSpeed},
+    motion_command::MotionCommand,
     parameters::RolePositionsParameters,
     path_obstacles::PathObstacle,
     world_state::{BallState, WorldState},
@@ -19,7 +19,7 @@ impl<'cycle> Defend<'cycle> {
     pub fn left(
         &mut self,
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
-        walk_speed: WalkSpeed,
+        walk_speed: f32,
         distance_to_be_aligned: f32,
     ) -> Option<MotionCommand> {
         let pose = defend_pose(

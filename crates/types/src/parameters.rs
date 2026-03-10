@@ -11,7 +11,7 @@ use linear_algebra::{Point2, Vector2, Vector3};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{
-    motion_command::{KickVariant, MotionCommand, WalkSpeed},
+    motion_command::{KickVariant, MotionCommand},
     roles::Role,
     step::Step,
 };
@@ -444,9 +444,7 @@ pub struct RLWalkingParameters {
 
     pub hybrid_align_distance: f32,
     pub max_alignment_rate: f32,
-    pub walk_speed_slow: f32,
-    pub walk_speed_normal: f32,
-    pub walk_speed_fast: f32,
+    pub deceleration_distance: f32,
 }
 
 #[derive(
@@ -507,16 +505,29 @@ pub enum ImageReceiverInstance {
     StereonetDepth,
 }
 
-#[derive(
-    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
-)]
+#[derive(Clone, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect)]
 pub struct WalkSpeedParameters {
-    pub defend: WalkSpeed,
-    pub dribble: WalkSpeed,
-    pub intercept_ball: WalkSpeed,
-    pub lost_ball: WalkSpeed,
-    pub search: WalkSpeed,
-    pub support: WalkSpeed,
-    pub walk_to_kickoff: WalkSpeed,
-    pub walk_to_penalty_kick: WalkSpeed,
+    pub defend: f32,
+    pub dribble: f32,
+    pub intercept_ball: f32,
+    pub lost_ball: f32,
+    pub search: f32,
+    pub support: f32,
+    pub walk_to_kickoff: f32,
+    pub walk_to_penalty_kick: f32,
+}
+
+impl Default for WalkSpeedParameters {
+    fn default() -> Self {
+        Self {
+            defend: 1.0,
+            dribble: 1.0,
+            intercept_ball: 1.0,
+            lost_ball: 1.0,
+            search: 1.0,
+            support: 1.0,
+            walk_to_kickoff: 1.0,
+            walk_to_penalty_kick: 1.0,
+        }
+    }
 }
