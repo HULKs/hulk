@@ -9,7 +9,7 @@ use booster::{FallDownState, FallDownStateType};
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use filtering::kalman_filter::KalmanFilter;
-use framework::{AdditionalOutput, MainOutput, PerceptionInput};
+use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{IntoFramed, Isometry2, Point2, point};
 use types::{
     cycle_time::CycleTime,
@@ -47,8 +47,7 @@ pub struct CycleContext {
         Input<Option<nalgebra::Isometry2<f32>>, "current_odometry_to_last_odometry?">,
     cycle_time: Input<CycleTime, "cycle_time">,
     primary_state: Input<PrimaryState, "primary_state">,
-
-    fall_down_state: PerceptionInput<Option<FallDownState>, "FallDownState", "fall_down_state?">,
+    fall_down_state: Input<Option<FallDownState>, "fall_down_state?">,
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     obstacle_filter_parameters: Parameter<ObstacleFilterParameters, "obstacle_filter">,
@@ -108,16 +107,7 @@ impl ObstacleFilter {
         let became_unpenalized = self.last_primary_state == PrimaryState::Penalized
             && *context.primary_state != PrimaryState::Penalized;
 
-        let fall_down_state = context
-            .fall_down_state
-            .persistent
-            .into_iter()
-            .chain(context.fall_down_state.temporary)
-            .flat_map(|(_time, info)| info)
-            .last()
-            .flatten();
-
-        let is_upright = fall_down_state.is_none_or(|fall_down_state| {
+        let is_upright = context.fall_down_state.is_none_or(|fall_down_state| {
             fall_down_state.fall_down_state != FallDownStateType::IsReady
         });
 

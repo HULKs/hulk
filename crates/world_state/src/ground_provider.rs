@@ -5,14 +5,12 @@ use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
 use coordinate_systems::{Ground, Robot};
-use framework::{MainOutput, PerceptionInput};
+use framework::MainOutput;
 use linear_algebra::{Isometry3, Orientation3, vector};
 use types::support_foot::Side;
 
 #[derive(Deserialize, Serialize)]
-pub struct GroundProvider {
-    last_imu_state: ImuState,
-}
+pub struct GroundProvider {}
 
 #[context]
 pub struct CreationContext {}
@@ -21,7 +19,7 @@ pub struct CreationContext {}
 pub struct CycleContext {
     robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
     // support_side: RequiredInput<Option<Side>, "support_foot.support_side?">,
-    imu_state: PerceptionInput<ImuState, "Motion", "imu_state">,
+    imu_state: Input<ImuState, "imu_state">,
 }
 
 #[context]
@@ -33,29 +31,15 @@ pub struct MainOutputs {
 
 impl GroundProvider {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {
-            last_imu_state: Default::default(),
-        })
+        Ok(Self {})
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         struct LeftSoleHorizontal;
         struct RightSoleHorizontal;
-        let last_imu_state = self.last_imu_state;
 
-        let imu_state = context
-            .imu_state
-            .persistent
-            .into_iter()
-            .chain(context.imu_state.temporary)
-            .flat_map(|(_time, info)| info)
-            .last()
-            .unwrap_or(&last_imu_state);
-
-        self.last_imu_state = *imu_state;
-
-        let roll = imu_state.roll_pitch_yaw.x();
-        let pitch = imu_state.roll_pitch_yaw.y();
+        let roll = context.imu_state.roll_pitch_yaw.x();
+        let pitch = context.imu_state.roll_pitch_yaw.y();
 
         let imu_orientation = Orientation3::from_euler_angles(roll, pitch, 0.0).mirror();
 
