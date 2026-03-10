@@ -1,4 +1,3 @@
-use crate::field_dimensions::Side;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
@@ -28,9 +27,16 @@ pub enum Action {
     Penalize,
     RemoteControl,
     Safe,
+    Search,
+    SearchForLostBall,
     StandDuringPenaltyKick,
     Stop,
     StandUp,
+    SupportStriker,
+    SupportLeft,
+    SupportRight,
     VisualKick,
     WalkToBall,
+    WalkToKickOff,
+    WalkToPenaltyKick,
 }
