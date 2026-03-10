@@ -135,9 +135,7 @@ impl Image {
         let (dest_y, dest_uv) = dest_data.split_at_mut(dest_y_len);
 
         for y in 0..dest_height {
-            let src_row = &src[(y * 2) * src_step..];
-            let src_row = &src_row[..src_width];
-
+            let src_row = &src[(y * 2) * src_step..][..src_width];
             let dest_row = &mut dest_y[y * dest_width..][..dest_width];
 
             for (dx, sx) in dest_row.iter_mut().zip(src_row.iter().step_by(2)) {
@@ -149,9 +147,7 @@ impl Image {
         let dest_uv_height = dest_height / 2;
 
         for y in 0..dest_uv_height {
-            let src_row = &src_uv[(y * 2) * src_step..];
-            let src_row = &src_row[..src_width];
-
+            let src_row = &src_uv[(y * 2) * src_step..][..src_width];
             let dest_row = &mut dest_uv[y * dest_width..][..dest_width];
 
             for (dest_pair, src_pair) in dest_row.chunks_exact_mut(2).zip(src_row.chunks_exact(4)) {
