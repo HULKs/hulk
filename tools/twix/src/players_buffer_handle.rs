@@ -19,8 +19,6 @@ where
             three: robot.subscribe_value(format!("{prefix}.three.{path}")),
             four: robot.subscribe_value(format!("{prefix}.four.{path}")),
             five: robot.subscribe_value(format!("{prefix}.five.{path}")),
-            six: robot.subscribe_value(format!("{prefix}.six.{path}")),
-            seven: robot.subscribe_value(format!("{prefix}.seven.{path}")),
         };
 
         Ok(Self(buffers))

@@ -12222,6 +12222,7 @@ dependencies = [
  "ordered-float 4.6.0",
  "path_serde",
  "projection",
+ "proptest",
  "ros2",
  "serde",
  "smallvec 1.15.1",

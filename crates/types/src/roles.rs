@@ -15,12 +15,10 @@ use serde::{Deserialize, Serialize};
     PathIntrospect,
 )]
 pub enum Role {
-    DefenderLeft,
-    DefenderRight,
+    Defender,
     Keeper,
     Loser,
-    MidfielderLeft,
-    MidfielderRight,
+    Midfielder,
     ReplacementKeeper,
     Searcher,
     #[default]
