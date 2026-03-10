@@ -1370,7 +1370,7 @@ fn generate_context_initializers(node: &Node, cycler: &Cycler, mode: CyclerMode)
                                 CyclerMode::Replay => {
                                     let name = path_to_extraction_variable_name(cycler_instance, path, "required_input");
                                     quote! {
-                                        &#name .unwrap()
+                                        #name .as_ref().unwrap()
                                     }
                                 },
                             }

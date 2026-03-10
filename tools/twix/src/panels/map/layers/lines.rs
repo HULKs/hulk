@@ -22,7 +22,7 @@ impl Layer<Ground> for Lines {
 
     fn new(robot: Arc<Robot>) -> Self {
         let lines_in_image = robot.subscribe_value("Vision.additional_outputs.lines_in_image");
-        let camera_matrix = robot.subscribe_value("Vision.main_outputs.camera_matrix");
+        let camera_matrix = robot.subscribe_value("WorldState.main_outputs.camera_matrix");
         Self {
             lines_in_image,
             camera_matrix,

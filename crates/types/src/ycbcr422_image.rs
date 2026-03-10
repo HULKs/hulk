@@ -7,7 +7,8 @@ use std::{
 
 use color_eyre::eyre::{self, WrapErr};
 use geometry::circle::Circle;
-use image::{ImageReader, RgbImage};
+use image::{ImageError, ImageReader, RgbImage, error::DecodingError};
+use num_traits::Euclid;
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Pixel;
@@ -33,12 +34,12 @@ pub struct YCbCr422Image {
     buffer: Arc<Vec<YCbCr422>>,
 }
 
-impl From<RgbImage> for YCbCr422Image {
-    fn from(rgb_image: RgbImage) -> Self {
+impl From<&RgbImage> for YCbCr422Image {
+    fn from(rgb_image: &RgbImage) -> Self {
         let width_422 = rgb_image.width() / 2;
         let height = rgb_image.height();
         let data = rgb_image
-            .into_vec()
+            .to_vec()
             .chunks(6)
             .map(|pixel| {
                 let left_color: YCbCr444 = Rgb {
@@ -110,15 +111,17 @@ impl From<YCbCr422Image> for RgbImage {
     }
 }
 
-impl From<&Ros2Image> for YCbCr422Image {
-    fn from(ros2_image: &Ros2Image) -> Self {
+impl TryFrom<&Ros2Image> for YCbCr422Image {
+    type Error = ImageError;
+
+    fn try_from(ros2_image: &Ros2Image) -> Result<Self, ImageError> {
         let width_422 = ros2_image.width / 2;
         let height = ros2_image.height;
 
-        let data = match ros2_image.encoding.as_str() {
+        let data: Vec<YCbCr422> = match ros2_image.encoding.as_str() {
             "rgb8" => ros2_image
                 .data
-                .chunks(6)
+                .chunks_exact(6)
                 .map(|pixel| {
                     let left_color: YCbCr444 = Rgb {
                         red: pixel[0],
@@ -135,14 +138,61 @@ impl From<&Ros2Image> for YCbCr422Image {
                     [left_color, right_color].into()
                 })
                 .collect(),
-            _ => unimplemented!("image encoding not supported"),
+            "nv12" => {
+                let y_plane_size = (ros2_image.width * ros2_image.height) as usize;
+                let uv_plane_size = (ros2_image.width * ros2_image.height / 2) as usize;
+
+                if ros2_image.data.len() < y_plane_size + uv_plane_size {
+                    return Err(ImageError::Decoding(DecodingError::from_format_hint(
+                        image::error::ImageFormatHint::Name(
+                            "NV12: Source buffer is too small for the given dimensions".to_string(),
+                        ),
+                    )));
+                }
+
+                let y_stride = ros2_image.width;
+                let chunked_y_stride = y_stride / 2;
+
+                let (y_plane, uv_plane) = ros2_image.data.split_at(y_plane_size);
+
+                assert_eq!(uv_plane.len(), uv_plane_size);
+
+                y_plane
+                    .chunks_exact(2)
+                    .enumerate()
+                    .map(|(i, y_chunk)| {
+                        let (y_row, column) = (i as u32).div_rem_euclid(&chunked_y_stride);
+                        let uv_row = y_row / 2;
+
+                        assert!(uv_row <= ros2_image.height / 2);
+                        assert!(column <= ros2_image.width / 2);
+
+                        // don't forget sunscreen
+                        let uv_index = uv_row * chunked_y_stride + column;
+                        let uv_byte_index = uv_index as usize * 2;
+
+                        assert!(uv_byte_index < uv_plane_size);
+
+                        let cb = uv_plane[uv_byte_index];
+                        let cr = uv_plane[uv_byte_index + 1];
+
+                        YCbCr422 {
+                            y1: y_chunk[0],
+                            cb,
+                            y2: y_chunk[1],
+                            cr,
+                        }
+                    })
+                    .collect()
+            }
+            encoding => unimplemented!(r#"image encoding "{encoding}" not supported"#),
         };
 
-        Self {
+        Ok(Self {
             width_422,
             height,
             buffer: Arc::new(data),
-        }
+        })
     }
 }
 
@@ -225,7 +275,7 @@ impl YCbCr422Image {
 
     pub fn load_from_rgb_file(path: impl AsRef<Path>) -> eyre::Result<Self> {
         let rgb_image = ImageReader::open(path)?.decode()?.into_rgb8();
-        Ok(Self::from(rgb_image))
+        Ok(Self::from(&rgb_image))
     }
 
     pub fn save_to_rgb_file(&self, file: impl AsRef<Path> + Debug) -> eyre::Result<()> {
