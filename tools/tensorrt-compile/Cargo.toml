@@ -7,6 +7,6 @@ homepage.workspace = true
 
 [dependencies]
 clap = { workspace = true }
-ort = { workspace = true, features = ["cuda", "tensorrt"] }
-ndarray = { workspace = true }
 color-eyre = { workspace = true }
+ndarray = { workspace = true }
+ort = { workspace = true, features = ["cuda", "tensorrt"] }
