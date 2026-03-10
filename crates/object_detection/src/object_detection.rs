@@ -85,19 +85,10 @@ impl ObjectDetection {
 
         let image_conversion_start = Instant::now();
 
-        let mut image = context.image_left_raw.clone();
-
-        let using_subsampled_image =
-            if (image.height, image.width) == (1088, 1280) && image.encoding == "nv12" {
-                image.subsample_nv12_by_half_in_place()?;
-                true
-            } else {
-                false
-            };
+        let image = context.image_left_raw.clone();
 
         let height = image.height;
         let width = image.width;
-        assert_eq!((height, width), (544, 640));
 
         let Ok(rgb_image): Result<RgbImage, _> = image.try_into() else {
             return Ok(MainOutputs::default());
@@ -139,22 +130,12 @@ impl ObjectDetection {
                 }
                 let label = NaoLabelPartyObjectDetectionLabel::from_index(class_id);
                 Some(Detection {
-                    bounding_box: if using_subsampled_image {
-                        BoundingBox {
-                            area: Rectangle {
-                                min: point!(row[0usize] * 2.0, row[1usize] * 2.0),
-                                max: point!(row[2usize] * 2.0, row[3usize] * 2.0),
-                            },
-                            confidence,
-                        }
-                    } else {
-                        BoundingBox {
-                            area: Rectangle {
-                                min: point!(row[0usize], row[1usize]),
-                                max: point!(row[2usize], row[3usize]),
-                            },
-                            confidence,
-                        }
+                    bounding_box: BoundingBox {
+                        area: Rectangle {
+                            min: point!(row[0usize], row[1usize]),
+                            max: point!(row[2usize], row[3usize]),
+                        },
+                        confidence,
                     },
                     label,
                 })
