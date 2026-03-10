@@ -27,6 +27,7 @@ pub enum Action {
     Penalize,
     RemoteControl,
     Safe,
+    Search,
     SearchForLostBall,
     StandDuringPenaltyKick,
     Stop,
