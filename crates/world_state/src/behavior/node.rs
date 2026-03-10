@@ -22,7 +22,7 @@ use types::{
 };
 
 use crate::behavior::{
-    dribble, lost_ball, search, support, visual_kick, walk_to_kick_off, walk_to_penalty_kick,
+    kicking, lost_ball, search, support, visual_kick, walk_to_kick_off, walk_to_penalty_kick,
 };
 
 use super::{
@@ -203,7 +203,7 @@ impl Behavior {
                         context.field_dimensions,
                         &context.world_state.robot.role,
                     ),
-                    Action::Dribble => dribble::execute(
+                    Action::Kicking => kicking::execute(
                         world_state,
                         &walk_path_planner,
                         &context.parameters.kicking,

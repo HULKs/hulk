@@ -21,7 +21,7 @@ pub enum Action {
     DefendLeft,
     DefendOpponentCornerKick { side: Side },
     DefendPenaltyKick,
-    Dribble,
+    Kicking,
     Finish,
     Initial,
     LookAround,
