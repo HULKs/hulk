@@ -12,6 +12,8 @@ HOST_TEGRA_LIB_PATH="/usr/lib/aarch64-linux-gnu/tegra"
 DEVICES="--device nvidia.com/gpu=all"
 HARDWARE_ID="$(jetson_release -s | grep 'Serial Number:' | grep '[0-9]*$' -o)"
 
+sudo jetson_clocks
+
 sudo podman rm hulk
 sudo podman run -it --rm \
   --privileged \
