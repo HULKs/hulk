@@ -247,7 +247,7 @@ async fn gammaray_robot(
 
     robot
         .ssh_to_robot()?
-        .arg("systemctl disable --now")
+        .arg("sudo systemctl disable --now")
         .args([
             "booster-daemon-perception",
             "booster-agent-manager",
