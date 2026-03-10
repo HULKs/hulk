@@ -100,10 +100,13 @@ impl Image {
         let src_height = self.height as usize;
         let src_step = self.step as usize;
 
-        // Validate dimensions
-        if src_width % 2 != 0 || src_height % 2 != 0 {
+        if src_step < src_width {
+            return Err(eyre!("Invalid NV12: step < width"));
+        }
+
+        if src_width % 4 != 0 || src_height % 4 != 0 {
             return Err(eyre!(
-                "Dimensions must be even for half-subsampling".to_string()
+                "Width and height must be divisible by 4 for half NV12 subsampling"
             ));
         }
 
@@ -121,46 +124,42 @@ impl Image {
 
         let dest_width = src_width / 2;
         let dest_height = src_height / 2;
-
-        // Output step is exactly the new width (contiguous, no padding)
         let dest_step = dest_width;
 
-        // Allocate the new buffer
         let dest_y_len = dest_width * dest_height;
         let dest_uv_len = dest_y_len / 2;
+
         let mut dest_data = vec![0u8; dest_y_len + dest_uv_len];
 
-        // 1. Subsample the Y (Luminance) plane
-        for y in 0..dest_height {
-            let dest_row_start = y * dest_step;
-            let src_row_start = (y * 2) * src_step; // Skip every other source row
+        let src = &self.data;
+        let (dest_y, dest_uv) = dest_data.split_at_mut(dest_y_len);
 
-            for x in 0..dest_width {
-                dest_data[dest_row_start + x] = self.data[src_row_start + (x * 2)];
+        for y in 0..dest_height {
+            let src_row = &src[(y * 2) * src_step..];
+            let src_row = &src_row[..src_width];
+
+            let dest_row = &mut dest_y[y * dest_width..][..dest_width];
+
+            for (dx, sx) in dest_row.iter_mut().zip(src_row.iter().step_by(2)) {
+                *dx = *sx;
             }
         }
 
-        // 2. Subsample the UV (Chrominance) plane
-        let dest_uv_offset = dest_y_len;
-        let src_uv_offset = y_plane_size;
-
+        let src_uv = &src[y_plane_size..];
         let dest_uv_height = dest_height / 2;
-        let dest_uv_width = dest_width / 2;
 
         for y in 0..dest_uv_height {
-            let dest_row_start = dest_uv_offset + y * dest_step;
-            let src_row_start = src_uv_offset + (y * 2) * src_step;
+            let src_row = &src_uv[(y * 2) * src_step..];
+            let src_row = &src_row[..src_width];
 
-            for x in 0..dest_uv_width {
-                let dest_idx = dest_row_start + x * 2;
-                let src_idx = src_row_start + x * 4; // Skip every other UV pair
+            let dest_row = &mut dest_uv[y * dest_width..][..dest_width];
 
-                dest_data[dest_idx] = self.data[src_idx]; // U
-                dest_data[dest_idx + 1] = self.data[src_idx + 1]; // V
+            for (dest_pair, src_pair) in dest_row.chunks_exact_mut(2).zip(src_row.chunks_exact(4)) {
+                dest_pair[0] = src_pair[0];
+                dest_pair[1] = src_pair[1];
             }
         }
 
-        // 3. Mutate the struct in-place
         self.width = dest_width as u32;
         self.height = dest_height as u32;
         self.step = dest_step as u32;
