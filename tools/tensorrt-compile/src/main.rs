@@ -21,7 +21,7 @@ struct CliArguments {
 }
 
 fn main() -> Result<()> {
-    const IMAGE_WIDTH: usize = 554;
+    const IMAGE_WIDTH: usize = 544;
     const IMAGE_HEIGHT: usize = 448;
 
     let args = CliArguments::parse();
