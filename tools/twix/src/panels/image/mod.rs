@@ -15,7 +15,7 @@ use log::{info, warn};
 use ros2::sensor_msgs::image::Image;
 use serde_json::{Value, json};
 
-use types::jpeg::JpegImage;
+use types::{jpeg::JpegImage, ycbcr422_image::YCbCr422Image};
 
 use crate::{
     panel::{Panel, PanelCreationContext},
@@ -32,6 +32,7 @@ mod overlays;
 
 enum RawOrJpeg {
     Raw(BufferHandle<Image>),
+    YCbCr(BufferHandle<YCbCr422Image>),
     Jpeg(BufferHandle<JpegImage>),
 }
 
@@ -48,9 +49,12 @@ pub struct ImagePanel {
 fn subscribe_image(robot: &Arc<Robot>, is_jpeg: bool, image_path: &str) -> RawOrJpeg {
     if is_jpeg {
         let path = format!("{image_path}.jpeg");
-        return RawOrJpeg::Jpeg(robot.subscribe_value(path));
+        RawOrJpeg::Jpeg(robot.subscribe_value(path))
+    } else if image_path.ends_with("ycbcr422_image") {
+        RawOrJpeg::YCbCr(robot.subscribe_value(image_path.to_string()))
+    } else {
+        RawOrJpeg::Raw(robot.subscribe_value(image_path.to_string()))
     }
-    RawOrJpeg::Raw(robot.subscribe_value(image_path.to_string()))
 }
 
 impl<'a> Panel<'a> for ImagePanel {
@@ -112,6 +116,15 @@ fn save_raw_image(buffer: &BufferHandle<Image>, path: PathBuf) -> Result<()> {
     Ok(())
 }
 
+fn save_ycbcr422_image(buffer: &BufferHandle<YCbCr422Image>, path: PathBuf) -> Result<()> {
+    let buffer = buffer
+        .get_last_value()?
+        .ok_or_else(|| eyre!("no image available"))?;
+    buffer.save_to_ycbcr_444_file(&path)?;
+    info!("image saved to '{}'", path.display());
+    Ok(())
+}
+
 impl Widget for &mut ImagePanel {
     fn ui(self, ui: &mut Ui) -> Response {
         ui.horizontal(|ui| {
@@ -142,6 +155,7 @@ impl Widget for &mut ImagePanel {
                         "ImageStereonetDepth.main_outputs.image",
                         "StereoNet Depth Image",
                     );
+                    selectable_item("Vision.main_outputs.ycbcr422_image", "ycbcr422_image");
                 });
             if self.last_image_path != self.current_image_path {
                 self.resubscribe(jpeg);
@@ -151,6 +165,7 @@ impl Widget for &mut ImagePanel {
             let maybe_timestamp = match &self.image_buffer {
                 RawOrJpeg::Raw(buffer) => buffer.get_last_timestamp(),
                 RawOrJpeg::Jpeg(buffer) => buffer.get_last_timestamp(),
+                RawOrJpeg::YCbCr(buffer) => buffer.get_last_timestamp(),
             };
             if let Ok(Some(timestamp)) = maybe_timestamp {
                 let date: DateTime<Utc> = timestamp.into();
@@ -168,6 +183,7 @@ impl Widget for &mut ImagePanel {
                         RawOrJpeg::Jpeg(buffer) => {
                             save_jpeg_image(buffer, path.with_extension("jpeg"))
                         }
+                        RawOrJpeg::YCbCr(buffer) => save_ycbcr422_image(buffer, path),
                     };
                     if let Err(error) = result {
                         warn!("failed to save image: {error}");
@@ -270,6 +286,30 @@ impl ImagePanel {
                     .texture_id()
                     .unwrap();
                 Ok((id, (width, height)))
+            }
+            RawOrJpeg::YCbCr(buffer) => {
+                let image = buffer
+                    .get_last_value()?
+                    .ok_or_else(|| eyre!("no image available"))?;
+                if image.height() == 0 || image.width() == 0 {
+                    bail!(
+                        "Image has no pixels. Dimensions: {}x{}",
+                        image.width(),
+                        image.height()
+                    );
+                }
+
+                let rgb_image: RgbImage = image.into();
+
+                let image = ColorImage::from_rgb(
+                    [rgb_image.width() as usize, rgb_image.height() as usize],
+                    rgb_image.as_bytes(),
+                );
+                let id = context
+                    .load_texture(&image_identifier, image, TextureOptions::NEAREST)
+                    .id();
+
+                Ok((id, (rgb_image.width(), rgb_image.height())))
             }
         }
     }

@@ -655,6 +655,49 @@
       "secs": 4
     }
   },
+  "field_border_detection": {
+    "enable": true,
+    "min_points_per_line": 10,
+    "angle_threshold": 0.35,
+    "first_line_association_distance": 2.0,
+    "second_line_association_distance": 2.0
+  },
+  "image_segmenter": {
+    "horizontal_edge_threshold": 15,
+    "horizontal_median_mode": "FivePixels",
+    "horizontal_stride": 8,
+    "vertical_edge_threshold": 15,
+    "vertical_median_mode": "FivePixels",
+    "vertical_stride": 2,
+    "vertical_stride_in_ground": 0.02
+  },
+  "line_detection": {
+    "use_horizontal_segments": true,
+    "use_vertical_segments": true,
+    "allowed_line_length_in_field": {
+      "start": 0.3,
+      "end": 4.0
+    },
+    "check_edge_types": true,
+    "check_edge_gradient": false,
+    "check_line_distance": true,
+    "check_line_length": true,
+    "check_line_segments_projection": true,
+    "gradient_alignment": -0.9,
+    "gradient_sobel_stride": 3,
+    "margin_for_point_inclusion": 0.025,
+    "maximum_distance_to_robot": 6.0,
+    "maximum_fit_distance_in_ground": 0.05,
+    "maximum_gap_on_line": 0.25,
+    "maximum_merge_gap_in_pixels": 5,
+    "maximum_number_of_lines": 10,
+    "allowed_projected_segment_length": {
+      "start": 0.02,
+      "end": 0.095
+    },
+    "minimum_number_of_points_on_line": 15,
+    "ransac_iterations": 20
+  },
   "look_around": {
     "look_around_timeout": {
       "nanos": 0,
