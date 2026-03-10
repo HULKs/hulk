@@ -6,7 +6,6 @@ mod horizon;
 mod limb_projector;
 mod line_detection;
 mod object_detection;
-mod perspective_grid;
 
 pub use ball_detection::BallDetection;
 pub use feet_detection::FeetDetection;
@@ -16,4 +15,3 @@ pub use horizon::Horizon;
 pub use limb_projector::LimbProjector;
 pub use line_detection::LineDetection;
 pub use object_detection::ObjectDetection;
-pub use perspective_grid::PerspectiveGrid;
