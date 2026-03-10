@@ -11,7 +11,7 @@ The yocto distribution installs those `*.psk` files for the network SSIDs *SPL_A
 
 ```sh
 [Security]
-Passphrase=Nao?!Nao?!
+Passphrase=HSL?!HSL?!
 
 [Settings]
 AutoConnect=false

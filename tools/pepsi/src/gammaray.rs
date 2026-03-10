@@ -45,7 +45,7 @@ pub struct Arguments {
 
 static PACKAGES: [&str; 2] = ["zenoh-bridge-ros2dds", "podman"];
 
-const WIFI_PASSWORD: &str = "Nao?!Nao?!";
+const WIFI_PASSWORD: &str = "HSL?!HSL?!";
 
 static ADD_APT_ROS2DDS_ZENOH_BRIDGE_SOURCES: &str = "
 curl -L https://download.eclipse.org/zenoh/debian-repo/zenoh-public-key | sudo gpg --dearmor --yes --output /etc/apt/keyrings/zenoh-public-key.gpg
