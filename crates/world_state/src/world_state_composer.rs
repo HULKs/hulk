@@ -8,8 +8,10 @@ use context_attribute::context;
 use framework::{MainOutput, PerceptionInput};
 use types::{
     filtered_game_controller_state::FilteredGameControllerState,
+    obstacles::Obstacle,
     primary_state::PrimaryState,
     roles::Role,
+    rule_obstacles::RuleObstacle,
     world_state::{BallState, RobotState, WorldState},
 };
 
@@ -31,12 +33,12 @@ pub struct CycleContext {
     ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
     // instant_kick_decisions: Input<Option<Vec<KickDecision>>, "instant_kick_decisions?">,
     // kick_decisions: Input<Option<Vec<KickDecision>>, "kick_decisions?">,
-    // obstacles: Input<Vec<Obstacle>, "obstacles">,
+    obstacles: Input<Vec<Obstacle>, "obstacles">,
     // position_of_interest: Input<Point2<Ground>, "position_of_interest">,
     primary_state: Input<PrimaryState, "primary_state">,
-    // role: Input<Role, "role">,
+    role: Input<Role, "role">,
     rule_ball: Input<Option<BallState>, "rule_ball_state?">,
-    // rule_obstacles: Input<Vec<RuleObstacle>, "rule_obstacles">,
+    rule_obstacles: Input<Vec<RuleObstacle>, "rule_obstacles">,
 }
 
 #[context]
@@ -73,8 +75,7 @@ impl WorldStateComposer {
         let robot: RobotState = RobotState {
             ground_to_field: context.ground_to_field.copied(),
             primary_state: *context.primary_state,
-            // role: *context.role,
-            role: Role::Striker,
+            role: *context.role,
         };
 
         let world_state = WorldState {
@@ -84,14 +85,12 @@ impl WorldStateComposer {
             instant_kick_decisions: Default::default(),
             //kick_decisions: context.kick_decisions.cloned(),
             kick_decisions: Default::default(),
-            //obstacles: context.obstacles.clone(),
-            obstacles: Default::default(),
+            obstacles: context.obstacles.clone(),
             // position_of_interest: *context.position_of_interest,
             position_of_interest: Point2::origin(),
             robot,
             rule_ball: context.rule_ball.copied(),
-            // rule_obstacles: context.rule_obstacles.clone(),
-            rule_obstacles: Default::default(),
+            rule_obstacles: context.rule_obstacles.clone(),
             fall_down_state,
         };
 
