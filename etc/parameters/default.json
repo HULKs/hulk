@@ -382,16 +382,6 @@
       "striker_distance_to_non_free_center_circle": 0.4,
       "striker_kickoff_position": [-0.21, 0.03]
     },
-    "lost_ball": {
-      "offset_to_last_ball_location": [1.0, 0.0]
-    },
-    "search": {
-      "position_reached_distance": 0.4,
-      "rotation_per_step": 0.4,
-      "turn_secs": 3.0,
-      "stand_secs": 1.0,
-      "estimated_ball_speed": 0.75
-    },
     "kicking": {
       "kick_power": 1.0,
       "distance_for_kick": 0.5,
