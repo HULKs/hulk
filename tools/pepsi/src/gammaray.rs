@@ -170,6 +170,7 @@ async fn gammaray_robot(
     robot
         .rsync_with_robot()?
         .arg("--rsync-path=sudo rsync")
+        .arg("--info=progress2")
         .arg(setup.join("conf.json5"))
         .arg(format!("{}:/etc/zenoh-bridge-ros2dds/", robot.address))
         .rsync_with_log("uploading zenoh-bridge-ros2dds config", &progress_bar)
@@ -177,6 +178,7 @@ async fn gammaray_robot(
 
     robot
         .rsync_with_robot()?
+        .arg("--info=progress2")
         .arg(setup.join("hulk.service"))
         .arg(setup.join("zenoh-bridge.service"))
         .arg(setup.join("zenoh-bridge-ros2dds.service"))
@@ -194,6 +196,7 @@ async fn gammaray_robot(
         const REMOTE_IMAGE_PATH: &str = "/home/booster/.cache/hulk/runtime-container-image.tar";
         robot
             .rsync_with_robot()?
+            .arg("--info=progress2")
             .arg(image_file)
             .arg(format!("{}:{REMOTE_IMAGE_PATH}", robot.address))
             .rsync_with_log("uploading podman image", &progress_bar)
@@ -217,6 +220,7 @@ async fn gammaray_robot(
     robot
         .rsync_with_robot()?
         .arg("--rsync-path=sudo rsync")
+        .arg("--info=progress2")
         .arg(setup.join("hulk"))
         .arg(setup.join("launchHULK"))
         .arg(
