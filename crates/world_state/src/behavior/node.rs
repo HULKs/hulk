@@ -12,7 +12,9 @@ use types::{
     action::Action, ball_position::BallPosition, cycle_time::CycleTime, field_dimensions::{FieldDimensions, Side}, filtered_game_controller_state::FilteredGameControllerState, filtered_game_state::FilteredGameState, kick_decision::DecisionParameters, motion_command::MotionCommand, parameters::{BehaviorParameters, WalkSpeedParameters}, path_obstacles::PathObstacle, primary_state::PrimaryState, roles::Role, world_state::WorldState
 };
 
-use crate::behavior::{lost_ball, search, support, visual_kick, walk_to_kick_off, walk_to_penalty_kick};
+use crate::behavior::{
+    lost_ball, search, support, visual_kick, walk_to_kick_off, walk_to_penalty_kick,
+};
 
 use super::{
     defend::core::{Defend, DefendMode},
