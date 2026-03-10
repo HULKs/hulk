@@ -1,4 +1,3 @@
-
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
@@ -17,9 +16,7 @@ use types::{
     world_state::WorldState,
 };
 
-use crate::behavior::{
-    kicking, visual_kick, walk_to_kick_off, walk_to_penalty_kick,
-};
+use crate::behavior::{kicking, visual_kick, walk_to_kick_off, walk_to_penalty_kick};
 
 use super::{
     defend::core::{Defend, DefendMode},
@@ -63,7 +60,8 @@ pub struct MainOutputs {
 impl Behavior {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
-            last_defender_mode: DefendMode::Passive,        })
+            last_defender_mode: DefendMode::Passive,
+        })
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
@@ -94,7 +92,6 @@ impl Behavior {
         if world_state.robot.primary_state == PrimaryState::Playing {
             actions.push(Action::Kicking);
         }
-
 
         let walk_path_planner = WalkPathPlanner::new(
             context.field_dimensions,
