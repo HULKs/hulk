@@ -1,7 +1,7 @@
 use eframe::epaint::{Pos2, Rect};
 use egui_plot::{PlotPoint, PlotPoints, Polygon};
 
-use crate::classes::Class;
+use crate::{annotation::AnnotationFormat, classes::Class};
 
 #[derive(Debug, Clone)]
 pub struct BoundingBox {
@@ -58,14 +58,20 @@ impl BoundingBox {
             && (y1.min(y2)..=y1.max(y2)).contains(&mouse_position.y)
     }
 
-    pub fn clip_to_image(&mut self) {
+    pub fn clip_to_image(&mut self, image_size: [f32; 2]) {
         let x1 = self.corner.x;
         let y1 = self.corner.y;
         let x2 = self.opposing_corner.x;
         let y2 = self.opposing_corner.y;
 
-        self.corner = PlotPoint::new(x1.clamp(0., 640.), y1.clamp(0., 480.));
-        self.opposing_corner = PlotPoint::new(x2.clamp(0., 640.), y2.clamp(0., 480.));
+        self.corner = PlotPoint::new(
+            x1.clamp(0.0, image_size[0] as f64),
+            y1.clamp(0.0, image_size[1] as f64),
+        );
+        self.opposing_corner = PlotPoint::new(
+            x2.clamp(0.0, image_size[0] as f64),
+            y2.clamp(0.0, image_size[1] as f64),
+        );
     }
 
     pub fn is_valid(&self) -> bool {
@@ -139,26 +145,44 @@ impl BoundingBox {
         self.opposing_corner = closest;
     }
 
-    pub fn to_annotation(&self) -> (Class, [f32; 4]) {
+    pub fn to_annotation(&self, image_size: [f32; 2]) -> AnnotationFormat {
         let rect = self.rect();
-        let Pos2 { x: min_x, y: min_y } = rect.left_top();
-        let Pos2 { x: max_x, y: max_y } = rect.right_bottom();
+        let Pos2 {
+            x: minimum_x,
+            y: minimum_y,
+        } = rect.left_top();
+        let Pos2 {
+            x: maximum_x,
+            y: maximum_y,
+        } = rect.right_bottom();
 
-        (
-            self.class,
-            [
-                min_x / 640.,
-                (480. - max_y) / 480.,
-                max_x / 640.,
-                (480. - min_y) / 480.,
+        let width = image_size[0];
+        let height = image_size[1];
+
+        AnnotationFormat {
+            points: [
+                [minimum_x / width, (height - maximum_y) / height],
+                [maximum_x / width, (height - minimum_y) / height],
             ],
-        )
+            class: self.class,
+        }
     }
 
-    pub fn from_annotation((class, [min_x, min_y, max_x, max_y]): (Class, [f32; 4])) -> Self {
-        let corner = PlotPoint::new(min_x * 640., (1.0 - max_y) * 480.);
-        let opposing_corner = PlotPoint::new(max_x * 640., (1. - min_y) * 480.);
+    pub fn from_annotation(annotation: AnnotationFormat, image_size: [f32; 2]) -> Self {
+        let [[minimum_x, minimum_y], [maximum_x, maximum_y]] = annotation.points;
+        let width = image_size[0] as f64;
+        let height = image_size[1] as f64;
 
-        Self::new(corner, opposing_corner, class)
+        // egui_plot origin is bottom-left, image coordinate origin is top-left
+        let corner = PlotPoint::new(
+            minimum_x as f64 * width,
+            height - (maximum_y as f64 * height),
+        );
+        let opposing_corner = PlotPoint::new(
+            maximum_x as f64 * width,
+            height - (minimum_y as f64 * height),
+        );
+
+        Self::new(corner, opposing_corner, annotation.class)
     }
 }

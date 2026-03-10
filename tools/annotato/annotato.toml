@@ -1,0 +1,23 @@
+[remote]
+rsync_path = "rsync://10.1.24.185/labelparty/output"
+
+[leaderboard]
+enable = true
+host = "10.1.24.185:3000"
+githubname = ""
+
+[keybindings]
+next = { primary = "Space" }
+previous = { primary = "Space", modifiers = ["shift"] }
+edit = { primary = "Q" }
+zoom = { primary = "E" }
+draw = { primary = "B" }
+abort = { primary = "Escape" }
+
+select_ball = "Num1"
+select_robot = "Num2"
+select_goalpost = "Num3"
+select_penaltyspot = "Num4"
+select_xspot = "Num5"
+select_lspot = "Num6"
+select_tspot = "Num7"
