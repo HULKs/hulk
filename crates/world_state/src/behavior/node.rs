@@ -1,17 +1,24 @@
 use std::time::SystemTime;
 
 use color_eyre::Result;
-use hsl_network_messages::{PlayerNumber, SubState, Team};
+use hsl_network_messages::{SubState, Team};
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
 use coordinate_systems::Ground;
 use framework::{AdditionalOutput, MainOutput};
 use types::{
-    action::Action, ball_position::BallPosition, cycle_time::CycleTime, field_dimensions::Side,
+    action::Action,
+    ball_position::BallPosition,
+    cycle_time::CycleTime,
+    field_dimensions::{FieldDimensions, Side},
     filtered_game_controller_state::FilteredGameControllerState,
-    filtered_game_state::FilteredGameState, motion_command::MotionCommand,
-    parameters::BehaviorParameters, primary_state::PrimaryState, roles::Role,
+    filtered_game_state::FilteredGameState,
+    motion_command::MotionCommand,
+    parameters::{BehaviorParameters, WalkSpeedParameters},
+    path_obstacles::PathObstacle,
+    primary_state::PrimaryState,
+    roles::Role,
     world_state::WorldState,
 };
 
@@ -40,7 +47,6 @@ pub struct CycleContext {
     ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
     world_state: Input<WorldState, "world_state">,
     cycle_time: Input<CycleTime, "cycle_time">,
-    is_localization_converged: Input<bool, "is_localization_converged">,
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     parameters: Parameter<BehaviorParameters, "behavior">,
@@ -99,7 +105,6 @@ impl Behavior {
         }
 
         match world_state.robot.role {
-            Role::Defender => actions.push(Action::DefendLeft),
             Role::Defender => match world_state.filtered_game_controller_state {
                 Some(FilteredGameControllerState {
                     sub_state: Some(SubState::CornerKick),
@@ -185,11 +190,9 @@ impl Behavior {
                     Action::Finish => finish::execute(world_state),
                     Action::StandUp => stand_up::execute(world_state),
                     Action::LookAround => look_around::execute(world_state),
-
                     Action::RemoteControl => {
                         remote_control::execute(&context.parameters.remote_control)
                     }
-
                     Action::DefendGoal => defend.goal(
                         &mut context.path_obstacles_output,
                         context.walk_speed.defend,
@@ -242,13 +245,11 @@ impl Behavior {
                                 .walk_and_stand
                                 .defender_distance_to_be_aligned,
                         ),
-
                     Action::StandDuringPenaltyKick => stand_during_penalty_kick::execute(
                         world_state,
                         context.field_dimensions,
                         &context.world_state.robot.role,
                     ),
-
                     Action::WalkToBall => walk_to_ball::execute(
                         context.ball_position.copied(),
                         context.parameters.walk_with_velocity.clone(),
@@ -256,14 +257,8 @@ impl Behavior {
                     Action::VisualKick => {
                         visual_kick::execute(world_state, context.last_motion_command)
                     }
-                    Action::DefendGoal => todo!(),
-                    Action::DefendKickOff => todo!(),
-                    Action::DefendLeft => todo!(),
-                    Action::DefendOpponentCornerKick { side } => todo!(),
-                    Action::DefendPenaltyKick => todo!(),
                     Action::Search => todo!(),
                     Action::SearchForLostBall => todo!(),
-                    Action::StandDuringPenaltyKick => todo!(),
                     Action::SupportStriker => todo!(),
                     Action::SupportLeft => todo!(),
                     Action::SupportRight => todo!(),
