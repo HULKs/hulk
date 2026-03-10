@@ -98,15 +98,6 @@ impl Behavior {
             actions.insert(0, Action::RemoteControl);
         }
 
-        if let Some(active_since) = self.active_since {
-            let duration_active = now.duration_since(active_since)?;
-            if !context.is_localization_converged
-                && (duration_active < context.parameters.maximum_lookaround_duration)
-            {
-                actions.push(Action::LookAround);
-            }
-        }
-
         match world_state.robot.role {
             Role::Defender => actions.push(Action::DefendLeft),
             Role::Defender => match world_state.filtered_game_controller_state {
