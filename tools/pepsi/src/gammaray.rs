@@ -257,7 +257,7 @@ async fn set_up_static_ips(
     robot.ssh_to_robot()?.arg(format!(
         // Set the new IP but preserve the 192.168.10.102 which is necessary for services on the
         // robot to work
-        r#"sudo nmcli connection modify "{CONNECTION_NAME}" ipv4.addresses "{ethernet_ip}/24, 192.168.10.102/24""#,
+        r#"sudo nmcli connection modify "{CONNECTION_NAME}" ipv4.addresses "{ethernet_ip}/24, 192.168.10.102/24" ipv4.gateway 10.1.24.1"#,
     )).ssh_with_log("setting static IP", progress_bar).await?;
 
     robot
