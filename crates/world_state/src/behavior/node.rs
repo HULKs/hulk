@@ -1,3 +1,5 @@
+use std::alloc::System;
+
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
@@ -5,10 +7,21 @@ use context_attribute::context;
 use coordinate_systems::Ground;
 use framework::{AdditionalOutput, MainOutput};
 use types::{
-    action::Action, ball_position::BallPosition, field_dimensions::{FieldDimensions, Side}, kick_decision::DecisionParameters, motion_command::MotionCommand, parameters::{BehaviorParameters, WalkSpeedParameters}, path_obstacles::PathObstacle, primary_state::PrimaryState, world_state::WorldState
+    action::Action,
+    ball_position::BallPosition,
+    field_dimensions::{FieldDimensions, Side},
+    kick_decision::DecisionParameters,
+    motion_command::MotionCommand,
+    parameters::{BehaviorParameters, WalkSpeedParameters},
+    path_obstacles::PathObstacle,
+    primary_state::PrimaryState,
+    roles::Role,
+    world_state::WorldState,
 };
 
-use crate::behavior::{visual_kick, walk_to_kick_off, walk_to_penalty_kick};
+use crate::behavior::{
+    dribble, lost_ball, search, support, visual_kick, walk_to_kick_off, walk_to_penalty_kick,
+};
 
 use super::{
     defend::core::{Defend, DefendMode},
@@ -52,8 +65,7 @@ pub struct MainOutputs {
 impl Behavior {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
-            last_defender_mode: DefendMode::Passive,
-        })
+            last_defender_mode: DefendMode::Passive,        })
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
@@ -177,7 +189,18 @@ impl Behavior {
                         context.field_dimensions,
                         &context.world_state.robot.role,
                     ),
-
+                    Action::Dribble => dribble::execute(
+                        world_state,
+                        &walk_path_planner,
+                        &context.parameters.kicking,
+                        context.walk_speed.kicking,
+                        context
+                            .parameters
+                            .walk_and_stand
+                            .normal_distance_to_be_aligned,
+                        *context.field_dimensions,
+                        &mut context.path_obstacles_output,
+                    ),
                     Action::WalkToKickOff => walk_to_kick_off::execute(
                         world_state,
                         &walk_and_stand,
