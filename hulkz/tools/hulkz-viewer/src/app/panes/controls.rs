@@ -1,7 +1,6 @@
-use hulk_widgets::CompletionEdit;
-
 use crate::app::panel_prelude::{egui, Panel, PanelContext, ShellPaneKind, UiIntent};
 use crate::app::workspace_panel_kind::OPENABLE_WORKSPACE_PANEL_KINDS;
+use crate::completion_edit::CompletionEdit;
 
 pub struct ControlsPane;
 

@@ -30,8 +30,6 @@ members = [
   "crates/hulk_mujoco",
   "crates/hulk_replayer",
   "crates/hulk_widgets",
-  "crates/hulkz",
-  "crates/hulkz_stream",
   "crates/hungarian_algorithm",
   "crates/kinematics",
   "crates/linear_algebra",
@@ -58,8 +56,6 @@ members = [
   "tools/annotato",
   "tools/depp",
   "tools/fanta",
-  "tools/hulkz-cli",
-  "tools/hulkz-viewer",
   "tools/mujoco-simulator/mujoco-rust-server",
   "tools/parameter_tester",
   "tools/pepsi",
@@ -70,6 +66,7 @@ members = [
 resolver = "2"
 # services are built independently by yocto
 exclude = [
+  "hulkz",
   "services/aliveness",
   "services/power-panic",
 ]
@@ -158,7 +155,6 @@ hula_types = { path = "crates/hula_types" }
 hulk_manifest = { path = "crates/hulk_manifest" }
 hulk_mujoco = { path = "crates/hulk_mujoco" }
 hulk_widgets = { path = "crates/hulk_widgets" }
-hulkz = { path = "crates/hulkz" }
 hungarian_algorithm = { path = "crates/hungarian_algorithm" }
 i2cdev = "0.6.1"
 image = { version = "0.25.5", default-features = false, features = ["jpeg"] }

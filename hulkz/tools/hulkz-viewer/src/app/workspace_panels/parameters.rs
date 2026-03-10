@@ -1,7 +1,7 @@
-use hulk_widgets::CompletionEdit;
 use serde::{Deserialize, Serialize};
 
 use crate::app::panel_prelude::{egui, Panel, PanelContext, UiIntent};
+use crate::completion_edit::CompletionEdit;
 use crate::protocol::ParameterReference;
 
 use super::shared::NamespaceSelection;

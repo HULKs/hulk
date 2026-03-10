@@ -1,0 +1,66 @@
+[workspace]
+members = [
+  "crates/hulkz",
+  "crates/hulkz_stream",
+  "tools/hulkz-cli",
+  "tools/hulkz-viewer",
+]
+resolver = "2"
+
+[workspace.package]
+version = "0.1.0"
+edition = "2021"
+license = "GPL-3.0-only"
+homepage = "https://github.com/hulks/hulk"
+
+[workspace.dependencies]
+cdr = "0.2.4"
+chrono = "0.4.39"
+clap = { version = "4.5.29", features = ["derive", "env"] }
+color-eyre = "0.6.3"
+eframe = { version = "0.33.3", features = ["persistence", "wgpu"] }
+egui = { version = "0.33.3", features = ["persistence"] }
+egui_dock = { version = "0.18.0", features = ["serde"] }
+futures = "0.3.31"
+gethostname = "1.1.0"
+hulkz = { path = "crates/hulkz" }
+json5 = "1.3.0"
+mcap = "0.15.0"
+nucleo-matcher = "0.3.1"
+parking_lot = "0.12.3"
+serde = { version = "1.0.228", features = ["derive", "rc"] }
+serde_json = "1.0.138"
+tempfile = "3.17.0"
+thiserror = "2.0.11"
+tokio = { version = "1.43.0", features = ["full"] }
+tokio-util = "0.7.13"
+tracing = "0.1.41"
+tracing-subscriber = { version = "0.3.19", features = ["env-filter"] }
+uuid = { version = "1.12.1", features = ["v4"] }
+zenoh = "1.7.2"
+
+[patch.crates-io]
+# Pinned to forked serde version since https://github.com/serde-rs/serde/pull/2513 is not merged
+serde = { git = "https://github.com/HULKs/serde.git", rev = "ef30eb8fdd0ee12e4e6f3f5615c6bb022e02d1b2" }
+# Pinned to forked serde version since https://github.com/serde-rs/serde/pull/2513 is not merged
+serde_derive = { git = "https://github.com/HULKs/serde.git", rev = "ef30eb8fdd0ee12e4e6f3f5615c6bb022e02d1b2" }
+# Pinned to forked serde version since https://github.com/serde-rs/serde/pull/2513 is not merged
+serde_core = { git = "https://github.com/HULKs/serde.git", rev = "ef30eb8fdd0ee12e4e6f3f5615c6bb022e02d1b2" }
+
+egui = { git = "https://github.com/HULKs/egui/", rev = "c310aad9c54618e8845b6707899e2678fec8b842" }
+egui-wgpu = { git = "https://github.com/HULKs/egui/", rev = "c310aad9c54618e8845b6707899e2678fec8b842" }
+
+[profile.dev]
+opt-level = 3
+debug = false
+debug-assertions = false
+overflow-checks = false
+codegen-units = 16
+
+[profile.with-debug]
+inherits = "dev"
+debug = true
+
+[profile.debugger]
+inherits = "with-debug"
+opt-level = 0

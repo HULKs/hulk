@@ -318,7 +318,7 @@ Acceptance criteria:
 - Completed: global default namespace control for discovery/new panels plus discovery context-menu open actions for `Text`.
 - Completed: per-text-panel namespace mode (`FollowDefault` or explicit override), removing sibling bool/string override state.
 - Completed: Phase 6 persistence/overrides (dock layout + core UI settings persistence, plus CLI overrides for namespace/source/storage path).
-- Completed: Text panel source-path completion dropdown powered by shared `hulk_widgets::CompletionEdit`.
+- Completed: Text panel source-path completion dropdown powered by a local `CompletionEdit`.
 - Completed: bounded global timeline buffer in UI state (`max_timeline_points`) to avoid unbounded growth during long runs.
 - Completed: async integration tests for worker ready/bind/live updates, rebind history replay, ingest pause/resume, and discovery session snapshots.
 - Completed: manual soak harness test for continuous stream ingest (ignored by default).

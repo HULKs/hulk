@@ -1,4 +1,3 @@
-use hulk_widgets::CompletionEdit;
 use serde::{Deserialize, Serialize};
 
 use hulkz_stream::PlaneKind;
@@ -8,6 +7,7 @@ use crate::{
         format_timestamp,
         panel_prelude::{egui, Panel, PanelContext},
     },
+    completion_edit::CompletionEdit,
     protocol::{SourceBindingRequest, StreamId},
 };
 

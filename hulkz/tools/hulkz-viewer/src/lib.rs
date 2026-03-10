@@ -1,3 +1,5 @@
+mod completion_edit;
+
 pub mod app;
 pub mod config;
 pub mod discovery_types;
