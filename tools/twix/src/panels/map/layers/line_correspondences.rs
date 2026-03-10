@@ -13,7 +13,7 @@ use crate::{
 
 pub struct LineCorrespondences {
     correspondence_lines: BufferHandle<Option<Vec<LineSegment<Field>>>>,
-    lines_in_field: BufferHandle<Option<Vec<LineSegment<Field>>>>,
+    measured_lines_in_field: BufferHandle<Option<Vec<LineSegment<Field>>>>,
 }
 
 impl Layer<Field> for LineCorrespondences {
@@ -22,11 +22,11 @@ impl Layer<Field> for LineCorrespondences {
     fn new(robot: Arc<Robot>) -> Self {
         let correspondence_lines = robot
             .subscribe_value("WorldState.additional_outputs.localization.correspondence_lines");
-        let lines_in_field = robot
+        let measured_lines_in_field = robot
             .subscribe_value("WorldState.additional_outputs.localization.measured_lines_in_field");
         Self {
             correspondence_lines,
-            lines_in_field,
+            measured_lines_in_field,
         }
     }
 
@@ -41,7 +41,7 @@ impl Layer<Field> for LineCorrespondences {
             }
         }
 
-        if let Some(lines) = self.lines_in_field.get_last_value()?.flatten() {
+        if let Some(lines) = self.measured_lines_in_field.get_last_value()?.flatten() {
             for line in lines {
                 painter.line_segment(line.0, line.1, Stroke::new(0.04, Color32::RED));
             }
