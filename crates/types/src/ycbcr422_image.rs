@@ -140,7 +140,6 @@ impl TryFrom<&Ros2Image> for YCbCr422Image {
                 .collect(),
             "nv12" => {
                 let y_plane_size = (ros2_image.width * ros2_image.height) as usize;
-                // UV plane is half height, but same stride as Y in NV12 (usually)
                 let uv_plane_size = (ros2_image.width * ros2_image.height / 2) as usize;
 
                 if ros2_image.data.len() < y_plane_size + uv_plane_size {
@@ -154,20 +153,28 @@ impl TryFrom<&Ros2Image> for YCbCr422Image {
                 let y_stride = ros2_image.width;
                 let chunked_y_stride = y_stride / 2;
 
-                let (y_plane, remaining) = ros2_image.data.split_at(y_plane_size);
-                let uv_plane = &remaining[..uv_plane_size];
+                let (y_plane, uv_plane) = ros2_image.data.split_at(y_plane_size);
+
+                assert_eq!(uv_plane.len(), uv_plane_size);
 
                 y_plane
                     .chunks_exact(2)
                     .enumerate()
                     .map(|(i, y_chunk)| {
                         let (y_row, column) = (i as u32).div_rem_euclid(&chunked_y_stride);
+                        let uv_row = y_row / 2;
+
+                        assert!(uv_row <= ros2_image.height / 2);
+                        assert!(column <= ros2_image.width / 2);
 
                         // don't forget sunscreen
-                        let uv_index = (y_row * y_stride + column * 2) as usize;
+                        let uv_index = uv_row * chunked_y_stride + column;
+                        let uv_byte_index = uv_index as usize * 2;
 
-                        let cb = uv_plane[uv_index];
-                        let cr = uv_plane[uv_index + 1];
+                        assert!(uv_byte_index < uv_plane_size);
+
+                        let cb = uv_plane[uv_byte_index];
+                        let cr = uv_plane[uv_byte_index + 1];
 
                         YCbCr422 {
                             y1: y_chunk[0],
