@@ -245,6 +245,18 @@ async fn gammaray_robot(
         .ssh_with_log("restarting services", &progress_bar)
         .await?;
 
+    robot
+        .ssh_to_robot()?
+        .arg("sudo systemctl disable --now")
+        .args([
+            "booster-daemon-perception",
+            "booster-agent-manager",
+            "booster-lui",
+            "booster-rtc-speech",
+        ])
+        .ssh_with_log("disabling booster services", &progress_bar)
+        .await?;
+
     Ok(())
 }
 
