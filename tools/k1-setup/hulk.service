@@ -2,14 +2,12 @@
 Description=HULK Service
 
 [Service]
-ExecStart=/usr/bin/launchHULK
-ExecStop=sudo /usr/bin/podman kill hulk
-Environment="RUST_BACKTRACE=1"
-TimeoutStopSec=10
 WorkingDirectory=/home/booster/hulk
-Environment=RUST_LOG=DEBUG
-StandardOutput=journal
-StandardError=journal
+Environment="RUST_BACKTRACE=1"
+Environment="RUST_LOG=DEBUG"
+ExecStart=/usr/bin/launchHULK --enable-file-logging
+ExecStop=/usr/bin/sudo /usr/bin/podman kill hulk
+TimeoutStopSec=10
 
 [Install]
 WantedBy=default.target
