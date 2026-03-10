@@ -139,9 +139,9 @@ impl TryFrom<&Ros2Image> for YCbCr422Image {
                 })
                 .collect(),
             "nv12" => {
-                let y_plane_size = (ros2_image.step * ros2_image.height) as usize;
+                let y_plane_size = (ros2_image.width * ros2_image.height) as usize;
                 // UV plane is half height, but same stride as Y in NV12 (usually)
-                let uv_plane_size = (ros2_image.step * ros2_image.height / 2) as usize;
+                let uv_plane_size = (ros2_image.width * ros2_image.height / 2) as usize;
 
                 if ros2_image.data.len() < y_plane_size + uv_plane_size {
                     return Err(ImageError::Decoding(DecodingError::from_format_hint(
@@ -151,8 +151,7 @@ impl TryFrom<&Ros2Image> for YCbCr422Image {
                     )));
                 }
 
-                // ROS 'step' is the stride for the Y plane.
-                let y_stride = ros2_image.step;
+                let y_stride = ros2_image.width;
                 let chunked_y_stride = y_stride / 2;
 
                 let (y_plane, remaining) = ros2_image.data.split_at(y_plane_size);
