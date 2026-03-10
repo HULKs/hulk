@@ -257,6 +257,12 @@ async fn gammaray_robot(
         .ssh_with_log("disabling booster services", &progress_bar)
         .await?;
 
+    robot
+        .ssh_to_robot()?
+        .arg("sudo jetson_clocks")
+        .ssh_with_log("running jetson_clocks", &progress_bar)
+        .await?;
+
     Ok(())
 }
 
