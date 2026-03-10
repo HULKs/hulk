@@ -1,10 +1,13 @@
+pub mod defend;
 pub mod finish;
+pub mod head;
 pub mod initial;
 pub mod look_around;
 pub mod node;
 pub mod penalize;
 pub mod remote_control;
 pub mod safe;
+pub mod stand_during_penalty_kick;
 pub mod stand_up;
 pub mod stop;
 pub mod visual_kick;

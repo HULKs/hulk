@@ -11,7 +11,7 @@ use linear_algebra::{Point2, Vector2, Vector3};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{
-    motion_command::{KickVariant, MotionCommand},
+    motion_command::{KickVariant, MotionCommand, WalkSpeed},
     roles::Role,
     step::Step,
 };
@@ -39,7 +39,10 @@ pub struct WhistleDetectionParameters {
 )]
 pub struct BehaviorParameters {
     pub injected_motion_command: Option<MotionCommand>,
+    pub path_planning: PathPlanningParameters,
     pub remote_control: RemoteControlParameters,
+    pub role_positions: RolePositionsParameters,
+    pub walk_and_stand: WalkAndStandParameters,
     pub walk_with_velocity: WalkWithVelocityParameters,
     pub optional_roles: Vec<Role>,
 }
@@ -502,4 +505,18 @@ pub enum ImageReceiverInstance {
     #[default]
     Rectified,
     StereonetDepth,
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct WalkSpeedParameters {
+    pub defend: WalkSpeed,
+    pub dribble: WalkSpeed,
+    pub intercept_ball: WalkSpeed,
+    pub lost_ball: WalkSpeed,
+    pub search: WalkSpeed,
+    pub support: WalkSpeed,
+    pub walk_to_kickoff: WalkSpeed,
+    pub walk_to_penalty_kick: WalkSpeed,
 }

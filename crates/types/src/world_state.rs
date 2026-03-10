@@ -8,7 +8,7 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{
     field_dimensions::Side, filtered_game_controller_state::FilteredGameControllerState,
-    kick_decision::KickDecision, obstacles::Obstacle, primary_state::PrimaryState,
+    kick_decision::KickDecision, obstacles::Obstacle, primary_state::PrimaryState, roles::Role,
     rule_obstacles::RuleObstacle,
 };
 
@@ -19,6 +19,7 @@ pub struct WorldState {
     pub instant_kick_decisions: Option<Vec<KickDecision>>,
     pub kick_decisions: Option<Vec<KickDecision>>,
     pub obstacles: Vec<Obstacle>,
+    pub position_of_interest: Point2<Ground>,
     pub robot: RobotState,
     pub rule_ball: Option<BallState>,
     pub rule_obstacles: Vec<RuleObstacle>,
@@ -33,6 +34,7 @@ impl Default for WorldState {
             instant_kick_decisions: Default::default(),
             kick_decisions: Default::default(),
             obstacles: Default::default(),
+            position_of_interest: Point2::origin(),
             robot: Default::default(),
             rule_ball: Default::default(),
             rule_obstacles: Default::default(),
@@ -105,4 +107,5 @@ impl BallState {
 pub struct RobotState {
     pub ground_to_field: Option<Isometry2<Ground, Field>>,
     pub primary_state: PrimaryState,
+    pub role: Role,
 }
