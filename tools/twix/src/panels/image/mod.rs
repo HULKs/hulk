@@ -30,7 +30,7 @@ use self::overlay::Overlays;
 pub mod overlay;
 mod overlays;
 
-enum RawOrJpeg {
+enum ImageBuffer {
     Raw(BufferHandle<Image>),
     YCbCr(BufferHandle<YCbCr422Image>),
     Jpeg(BufferHandle<JpegImage>),
@@ -38,7 +38,7 @@ enum RawOrJpeg {
 
 pub struct ImagePanel {
     robot: Arc<Robot>,
-    image_buffer: RawOrJpeg,
+    image_buffer: ImageBuffer,
     overlays: Overlays,
     zoom_and_pan: ZoomAndPanTransform,
     last_image_path: String,
@@ -46,14 +46,14 @@ pub struct ImagePanel {
     current_image_label: String,
 }
 
-fn subscribe_image(robot: &Arc<Robot>, is_jpeg: bool, image_path: &str) -> RawOrJpeg {
+fn subscribe_image(robot: &Arc<Robot>, is_jpeg: bool, image_path: &str) -> ImageBuffer {
     if is_jpeg {
         let path = format!("{image_path}.jpeg");
-        RawOrJpeg::Jpeg(robot.subscribe_value(path))
+        ImageBuffer::Jpeg(robot.subscribe_value(path))
     } else if image_path.ends_with("ycbcr422_image") {
-        RawOrJpeg::YCbCr(robot.subscribe_value(image_path.to_string()))
+        ImageBuffer::YCbCr(robot.subscribe_value(image_path.to_string()))
     } else {
-        RawOrJpeg::Raw(robot.subscribe_value(image_path.to_string()))
+        ImageBuffer::Raw(robot.subscribe_value(image_path.to_string()))
     }
 }
 
@@ -91,7 +91,7 @@ impl<'a> Panel<'a> for ImagePanel {
         let overlays = self.overlays.save();
 
         json!({
-            "is_jpeg": matches!(self.image_buffer, RawOrJpeg::Jpeg(_)),
+            "is_jpeg": matches!(self.image_buffer, ImageBuffer::Jpeg(_)),
             "cycler": "ObjectDetection",
             "overlays": overlays,
         })
@@ -128,7 +128,7 @@ fn save_ycbcr422_image(buffer: &BufferHandle<YCbCr422Image>, path: PathBuf) -> R
 impl Widget for &mut ImagePanel {
     fn ui(self, ui: &mut Ui) -> Response {
         ui.horizontal(|ui| {
-            let mut jpeg = matches!(self.image_buffer, RawOrJpeg::Jpeg(_));
+            let mut jpeg = matches!(self.image_buffer, ImageBuffer::Jpeg(_));
             self.overlays.combo_box(ui);
             if ui.checkbox(&mut jpeg, "JPEG").changed() {
                 self.resubscribe(jpeg);
@@ -163,9 +163,9 @@ impl Widget for &mut ImagePanel {
             }
 
             let maybe_timestamp = match &self.image_buffer {
-                RawOrJpeg::Raw(buffer) => buffer.get_last_timestamp(),
-                RawOrJpeg::Jpeg(buffer) => buffer.get_last_timestamp(),
-                RawOrJpeg::YCbCr(buffer) => buffer.get_last_timestamp(),
+                ImageBuffer::Raw(buffer) => buffer.get_last_timestamp(),
+                ImageBuffer::Jpeg(buffer) => buffer.get_last_timestamp(),
+                ImageBuffer::YCbCr(buffer) => buffer.get_last_timestamp(),
             };
             if let Ok(Some(timestamp)) = maybe_timestamp {
                 let date: DateTime<Utc> = timestamp.into();
@@ -179,11 +179,11 @@ impl Widget for &mut ImagePanel {
                 } else {
                     let path = directory.join(format!("image_vision_{time_stamp}.png"));
                     let result = match &self.image_buffer {
-                        RawOrJpeg::Raw(buffer) => save_raw_image(buffer, path),
-                        RawOrJpeg::Jpeg(buffer) => {
+                        ImageBuffer::Raw(buffer) => save_raw_image(buffer, path),
+                        ImageBuffer::Jpeg(buffer) => {
                             save_jpeg_image(buffer, path.with_extension("jpeg"))
                         }
-                        RawOrJpeg::YCbCr(buffer) => save_ycbcr422_image(buffer, path),
+                        ImageBuffer::YCbCr(buffer) => save_ycbcr422_image(buffer, path),
                     };
                     if let Err(error) = result {
                         warn!("failed to save image: {error}");
@@ -238,7 +238,7 @@ impl ImagePanel {
     fn load_latest_texture(&self, context: &Context) -> Result<(TextureId, (u32, u32))> {
         let image_identifier = "bytes://image-vision".to_string();
         match &self.image_buffer {
-            RawOrJpeg::Raw(buffer) => {
+            ImageBuffer::Raw(buffer) => {
                 let ros_image = buffer
                     .get_last_value()?
                     .ok_or_else(|| eyre!("no image available"))?;
@@ -264,7 +264,7 @@ impl ImagePanel {
 
                 Ok((id, (rgb_image.width(), rgb_image.height())))
             }
-            RawOrJpeg::Jpeg(buffer) => {
+            ImageBuffer::Jpeg(buffer) => {
                 let jpeg = buffer
                     .get_last_value()?
                     .ok_or_else(|| eyre!("no image available"))?;
@@ -287,7 +287,7 @@ impl ImagePanel {
                     .unwrap();
                 Ok((id, (width, height)))
             }
-            RawOrJpeg::YCbCr(buffer) => {
+            ImageBuffer::YCbCr(buffer) => {
                 let image = buffer
                     .get_last_value()?
                     .ok_or_else(|| eyre!("no image available"))?;
