@@ -13,7 +13,7 @@ use types::{
 };
 
 use crate::behavior::{
-    lost_ball, search, support, visual_kick, walk_to_kick_off, walk_to_penalty_kick,
+    dribble, lost_ball, search, support, visual_kick, walk_to_kick_off, walk_to_penalty_kick,
 };
 
 use super::{
@@ -251,6 +251,18 @@ impl Behavior {
                         world_state,
                         context.field_dimensions,
                         &context.world_state.robot.role,
+                    ),
+                    Action::Dribble => dribble::execute(
+                        world_state,
+                        &walk_path_planner,
+                        &context.parameters.kicking,
+                        context.walk_speed.kicking,
+                        context
+                            .parameters
+                            .walk_and_stand
+                            .normal_distance_to_be_aligned,
+                        *context.field_dimensions,
+                        &mut context.path_obstacles_output,
                     ),
                     Action::Search => search::execute(
                         world_state,

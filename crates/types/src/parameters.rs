@@ -48,6 +48,7 @@ pub struct BehaviorParameters {
     pub walk_with_velocity: WalkWithVelocityParameters,
     pub optional_roles: Vec<Role>,
     pub maximum_lookaround_duration: Duration,
+    pub kicking: KickingParameters,
 }
 
 #[derive(
@@ -533,4 +534,14 @@ impl Default for WalkSpeedParameters {
             walk_to_penalty_kick: 1.0,
         }
     }
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+
+pub struct KickingParameters {
+    pub kick_power: f64,
+    pub distance_for_kick: f32,
+    pub distance_to_look_directly_at_the_ball: f32,
 }
