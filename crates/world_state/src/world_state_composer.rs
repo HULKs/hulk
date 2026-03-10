@@ -50,7 +50,7 @@ impl WorldStateComposer {
             ground_to_field: context.ground_to_field.copied(),
             primary_state: *context.primary_state,
             // role: *context.role,
-            role: Role::DefenderRight,
+            role: Role::Striker,
         };
 
         let world_state = WorldState {
