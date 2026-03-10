@@ -161,7 +161,7 @@ async fn gammaray_robot(
         // check if packages are installed already
         .arg(check_string)
         .arg("|| (")
-        .arg("sudo apt update && sudo apt install")
+        .arg("sudo apt update && sudo apt install -y")
         .args(PACKAGES)
         .arg(")")
         .ssh_with_log("installing packages", &progress_bar)
