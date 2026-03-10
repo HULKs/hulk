@@ -1,7 +1,7 @@
 use std::slice::Iter;
 
 use coordinate_systems::Pixel;
-use linear_algebra::{point, Point2};
+use linear_algebra::{Point2, point};
 use types::image_segments::{GenericSegment, ScanLine};
 
 use super::segment_merger::SegmentMerger;

@@ -1,8 +1,8 @@
 use std::ops::Range;
 
 use coordinate_systems::Pixel;
-use linear_algebra::{distance, vector, Point2, Vector2};
-use projection::{camera_matrix::CameraMatrix, Projection};
+use linear_algebra::{Point2, Vector2, distance, vector};
+use projection::{Projection, camera_matrix::CameraMatrix};
 use types::{
     image_segments::{EdgeType, GenericSegment},
     ycbcr422_image::YCbCr422Image,
@@ -110,7 +110,7 @@ fn get_gradient(
 
 #[cfg(test)]
 mod tests {
-    use linear_algebra::{point, IntoTransform};
+    use linear_algebra::{IntoTransform, point};
     use nalgebra::{Isometry3, Translation, UnitQuaternion};
 
     use super::*;
