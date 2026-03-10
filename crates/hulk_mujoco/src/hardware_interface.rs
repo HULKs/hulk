@@ -5,7 +5,8 @@ use std::sync::{
 use std::time::{Duration, SystemTime};
 
 use booster::{
-    ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState, TransformMessage,
+    ButtonEventMsg, FallDownState, LowCommand, LowState, Odometer, RemoteControllerState,
+    TransformMessage,
 };
 use booster_sdk::types::RobotMode;
 use color_eyre::{
@@ -483,7 +484,7 @@ impl MotionRuntimeInteface for MujocoHardwareInterface {
 
 impl OdometerInterface for MujocoHardwareInterface {
     fn get_odometer(&self) -> Result<booster::Odometer> {
-        todo!()
+        Ok(Odometer::default())
     }
 }
 
