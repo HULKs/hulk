@@ -1,13 +1,15 @@
 use std::time::{Duration, Instant};
 
-use color_eyre::Result;
+use color_eyre::{
+    Result,
+    eyre::{Context, bail},
+};
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput, deserialize_not_implemented};
 use geometry::rectangle::Rectangle;
 use hardware::PathsInterface;
-use image::RgbImage;
 use linear_algebra::point;
-use ndarray::{Array, Axis, s};
+use ndarray::{ArrayView3, Axis, s};
 use ort::{
     execution_providers::{CUDAExecutionProvider, TensorRTExecutionProvider},
     inputs,
@@ -26,7 +28,6 @@ use types::{
 pub struct ObjectDetection {
     #[serde(skip, default = "deserialize_not_implemented")]
     session: Session,
-    using_subsampled_image: bool,
 }
 
 #[context]
@@ -38,7 +39,6 @@ pub struct CreationContext {
 pub struct CycleContext {
     image_left_raw: Input<Image, "image_left_raw">,
 
-    pre_processing_duration: AdditionalOutput<Duration, "preprocessing_duration">,
     inference_duration: AdditionalOutput<Duration, "inference_duration">,
     post_processing_duration: AdditionalOutput<Duration, "post_processing_duration">,
     non_maximum_suppression_duration:
@@ -69,48 +69,40 @@ impl ObjectDetection {
         let session = Session::builder()?
             .with_execution_providers([tensor_rt, cuda])?
             .with_optimization_level(GraphOptimizationLevel::Level3)?
-            .with_intra_threads(1)?
-            .commit_from_file(neural_network_folder.join("yolo26m-finetune-640x544.onnx"))?;
+            .with_intra_threads(2)?
+            .commit_from_file(neural_network_folder.join("yolo26m-finetune-nv12.onnx"))?;
 
-        Ok(Self {
-            session,
-            using_subsampled_image: true,
-        })
+        Ok(Self { session })
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         if !context.parameters.enable {
             return Ok(MainOutputs::default());
         }
-
-        let image_conversion_start = Instant::now();
-
-        let image = context.image_left_raw.clone();
-
-        let height = image.height;
-        let width = image.width;
-
-        let Ok(rgb_image): Result<RgbImage, _> = image.try_into() else {
-            return Ok(MainOutputs::default());
-        };
-
-        let mut input = Array::zeros((1, 3, height as usize, width as usize));
-        for (x, y, pixel) in rgb_image.enumerate_pixels() {
-            let x = x as _;
-            let y = y as _;
-            let [r, g, b] = pixel.0;
-            input[[0, 0, y, x]] = (r as f32) / 255.;
-            input[[0, 1, y, x]] = (g as f32) / 255.;
-            input[[0, 2, y, x]] = (b as f32) / 255.;
+        let image = context.image_left_raw;
+        if image.encoding != "nv12" {
+            bail!("unsupported image encoding: {}", image.encoding);
         }
 
-        let pre_processing_duration = image_conversion_start.elapsed();
-        let inference_start = Instant::now();
+        if image.width % 64 != 0 || image.height % 64 != 0 {
+            bail!(
+                "image dimensions must be multiples of 64 (got {}x{})",
+                image.width,
+                image.height
+            );
+        }
 
+        let nv12_data = ArrayView3::from_shape(
+            [image.height as usize / 2, image.width as usize / 2, 6],
+            image.data.as_slice(),
+        )
+        .wrap_err("failed to view nv12 data")?;
+
+        let inference_start = Instant::now();
         let outputs: SessionOutputs = self
             .session
-            .run(inputs!["images" => TensorRef::from_array_view(&input)?])?;
-        let output = outputs["output0"]
+            .run(inputs!["raw_bytes_input" => TensorRef::from_array_view(nv12_data)?])?;
+        let output = outputs["network_detections"]
             .try_extract_array::<f32>()?
             .t()
             .into_owned();
@@ -132,8 +124,8 @@ impl ObjectDetection {
                 Some(Detection {
                     bounding_box: BoundingBox {
                         area: Rectangle {
-                            min: point!(row[0usize], row[1usize]),
-                            max: point!(row[2usize], row[3usize]),
+                            min: point!(row[0usize] * 2., row[1usize] * 2.),
+                            max: point!(row[2usize] * 2., row[3usize] * 2.),
                         },
                         confidence,
                     },
@@ -158,10 +150,6 @@ impl ObjectDetection {
         );
 
         let non_maxiumum_suppression_duration = non_maxiumum_suppression_start.elapsed();
-
-        context
-            .pre_processing_duration
-            .fill_if_subscribed(|| pre_processing_duration);
 
         context
             .inference_duration

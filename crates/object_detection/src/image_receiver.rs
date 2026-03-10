@@ -39,7 +39,7 @@ impl ImageReceiver {
         &mut self,
         context: CycleContext<impl CameraInterface + TimeInterface>,
     ) -> Result<MainOutputs> {
-        let mut image_left_raw = context.hardware_interface.read_image_left_raw()?;
+        let image_left_raw = context.hardware_interface.read_image_left_raw()?;
         let image_left_raw_camera_info = context
             .hardware_interface
             .read_image_left_raw_camera_info()?;
@@ -52,16 +52,6 @@ impl ImageReceiver {
                 .expect("time ran backwards"),
         };
         self.last_cycle_start = now;
-
-        if (image_left_raw.height, image_left_raw.width) == (1088, 1280)
-            && image_left_raw.encoding == "nv12"
-        {
-            image_left_raw.subsample_nv12_by_half_in_place()?;
-        }
-
-        let height = image_left_raw.height;
-        let width = image_left_raw.width;
-        assert_eq!((height, width), (544, 640));
 
         Ok(MainOutputs {
             image_left_raw: image_left_raw.into(),

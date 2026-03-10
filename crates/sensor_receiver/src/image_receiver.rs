@@ -53,6 +53,7 @@ impl ImageReceiver {
                 ),
             ),
         };
+        eprintln!("received image");
         let now = context.hardware_interface.get_now();
         let cycle_time = CycleTime {
             start_time: now,
