@@ -129,16 +129,6 @@ impl Behavior {
 
             Role::Searcher => actions.push(Action::Search),
             Role::Striker => match world_state.filtered_game_controller_state {
-                None
-                | Some(FilteredGameControllerState {
-                    game_state:
-                        FilteredGameState::Playing {
-                            ball_is_free: true, ..
-                        },
-                    ..
-                }) => {
-                    actions.push(Action::Dribble);
-                }
                 Some(FilteredGameControllerState {
                     game_state: FilteredGameState::Ready,
                     kicking_team: Some(Team::Hulks),
