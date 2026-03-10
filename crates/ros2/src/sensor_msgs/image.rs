@@ -1,5 +1,5 @@
 use crate::std_msgs::header::Header;
-use color_eyre::Result;
+use color_eyre::{Result, eyre::eyre};
 use image::{ImageError, RgbImage, error::DecodingError};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
@@ -85,6 +85,84 @@ impl Image {
         let rgb_image: RgbImage = self.try_into()?;
         Ok(rgb_image.save(file)?)
     }
+
+    /// Subsamples an NV12 encoded image by exactly half in-place.
+    /// Uses Nearest-Neighbor sampling to modify the internal data, width, height, and step.
+    pub fn subsample_nv12_by_half_in_place(&mut self) -> Result<()> {
+        if self.encoding != "nv12" {
+            return Err(eyre!(
+                "Subsampling currently only supported for nv12, got {}",
+                self.encoding
+            ));
+        }
+
+        let src_width = self.width as usize;
+        let src_height = self.height as usize;
+        let src_step = self.step as usize;
+
+        if src_step < src_width {
+            return Err(eyre!("Invalid NV12: step < width"));
+        }
+
+        if src_width % 4 != 0 || src_height % 4 != 0 {
+            return Err(eyre!(
+                "Width and height must be divisible by 4 for half NV12 subsampling"
+            ));
+        }
+
+        let y_plane_size = src_step * src_height;
+        let uv_plane_size = src_step * (src_height / 2);
+        let expected_len = y_plane_size + uv_plane_size;
+
+        if self.data.len() != expected_len {
+            return Err(eyre!(
+                "Invalid NV12 buffer size. Expected {}, got {}",
+                expected_len,
+                self.data.len()
+            ));
+        }
+
+        let dest_width = src_width / 2;
+        let dest_height = src_height / 2;
+        let dest_step = dest_width;
+
+        let dest_y_len = dest_width * dest_height;
+        let dest_uv_len = dest_y_len / 2;
+
+        let mut dest_data = vec![0u8; dest_y_len + dest_uv_len];
+
+        let src = &self.data;
+        let (dest_y, dest_uv) = dest_data.split_at_mut(dest_y_len);
+
+        for y in 0..dest_height {
+            let src_row = &src[(y * 2) * src_step..][..src_width];
+            let dest_row = &mut dest_y[y * dest_width..][..dest_width];
+
+            for (dx, sx) in dest_row.iter_mut().zip(src_row.iter().step_by(2)) {
+                *dx = *sx;
+            }
+        }
+
+        let src_uv = &src[y_plane_size..];
+        let dest_uv_height = dest_height / 2;
+
+        for y in 0..dest_uv_height {
+            let src_row = &src_uv[(y * 2) * src_step..][..src_width];
+            let dest_row = &mut dest_uv[y * dest_width..][..dest_width];
+
+            for (dest_pair, src_pair) in dest_row.chunks_exact_mut(2).zip(src_row.chunks_exact(4)) {
+                dest_pair[0] = src_pair[0];
+                dest_pair[1] = src_pair[1];
+            }
+        }
+
+        self.width = dest_width as u32;
+        self.height = dest_height as u32;
+        self.step = dest_step as u32;
+        self.data = dest_data;
+
+        Ok(())
+    }
 }
 
 impl TryFrom<Image> for RgbImage {
@@ -102,7 +180,7 @@ impl TryFrom<Image> for RgbImage {
                 // UV plane is half height, but same stride as Y in NV12 (usually)
                 let uv_plane_size = (image.step * image.height / 2) as usize;
 
-                if image.data.len() < y_plane_size + uv_plane_size {
+                if image.data.len() != y_plane_size + uv_plane_size {
                     return Err(ImageError::Decoding(DecodingError::from_format_hint(
                         image::error::ImageFormatHint::Name(
                             "NV12: Source buffer is too small for the given dimensions".to_string(),

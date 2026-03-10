@@ -10,7 +10,7 @@ use types::{
     ball_detection::BallPercept,
     field_dimensions::FieldDimensions,
     multivariate_normal_distribution::MultivariateNormalDistribution,
-    object_detection::{Detection, YOLOv8ObjectDetectionLabel},
+    object_detection::{Detection, NaoLabelPartyObjectDetectionLabel},
     parameters::BallProjectionParameters,
 };
 
@@ -23,7 +23,11 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     past_camera_matrices: HistoricInput<Option<CameraMatrix>, "camera_matrix?">,
-    detected_objects: PerceptionInput<Vec<Detection>, "ObjectDetection", "detected_objects">,
+    detected_objects: PerceptionInput<
+        Vec<Detection<NaoLabelPartyObjectDetectionLabel>>,
+        "ObjectDetection",
+        "detected_objects",
+    >,
 
     parameters: Parameter<BallProjectionParameters, "ball_projection">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
@@ -51,7 +55,7 @@ impl BallProjector {
                     .copied()
                     .flatten()
                     .flat_map(|detection| {
-                        if detection.label != YOLOv8ObjectDetectionLabel::Sportsball {
+                        if detection.label != NaoLabelPartyObjectDetectionLabel::Ball {
                             return None;
                         }
 

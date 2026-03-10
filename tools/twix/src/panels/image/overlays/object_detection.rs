@@ -3,12 +3,12 @@ use std::sync::Arc;
 use color_eyre::Result;
 use coordinate_systems::Pixel;
 use eframe::egui::{Align2, Color32, FontId, Stroke};
-use types::object_detection::Detection;
+use types::object_detection::{Detection, NaoLabelPartyObjectDetectionLabel};
 
 use crate::{panels::image::overlay::Overlay, robot::Robot, value_buffer::BufferHandle};
 
 pub struct ObjectDetection {
-    object_detections: BufferHandle<Vec<Detection>>,
+    object_detections: BufferHandle<Vec<Detection<NaoLabelPartyObjectDetectionLabel>>>,
 }
 
 impl Overlay for ObjectDetection {
@@ -39,7 +39,7 @@ impl Overlay for ObjectDetection {
 
 fn paint_bounding_boxes(
     painter: &crate::twix_painter::TwixPainter<Pixel>,
-    detections: Vec<Detection>,
+    detections: Vec<Detection<NaoLabelPartyObjectDetectionLabel>>,
     line_color: Color32,
 ) {
     for detection in detections {
