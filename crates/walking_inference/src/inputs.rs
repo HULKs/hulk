@@ -11,7 +11,7 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime,
-    motion_command::{MotionCommand, OrientationMode, WalkSpeed},
+    motion_command::{MotionCommand, OrientationMode},
     parameters::RLWalkingParameters,
     path::traits::{Length, PathProgress},
 };
@@ -54,12 +54,7 @@ impl WalkCommand {
                 ..
             } => {
                 let forward = path.forward(Point2::origin());
-                let walk_speed = match speed {
-                    WalkSpeed::Slow => parameters.walk_speed_slow,
-                    WalkSpeed::Normal => parameters.walk_speed_normal,
-                    WalkSpeed::Fast => parameters.walk_speed_fast,
-                };
-                let velocity = forward * walk_speed;
+                let velocity = forward * *speed;
 
                 let (walk_orientation, _tolerance): (Orientation2<Ground>, f32) =
                     match orientation_mode {
