@@ -117,17 +117,6 @@ async fn gammaray_robot(
         bail!(r#"ID "{id}" not found in team.toml"#);
     };
     progress_bar.set_prefix(format!("[{robot} {}]", team_robot.hostname));
-    robot
-        .ssh_to_robot()?
-        .arg(format!(
-            "echo {} | sudo tee /etc/hostname > /dev/null",
-            team_robot.hostname
-        ))
-        .ssh_with_log("setting hostname", &progress_bar)
-        .await?;
-
-    set_up_static_ips(&robot, team_robot, team.team_number, &progress_bar).await?;
-    set_up_wifi(&robot, team_robot, team.team_number, &progress_bar).await?;
 
     robot
         .ssh_to_robot()?
@@ -143,6 +132,18 @@ async fn gammaray_robot(
         ))
         .ssh_with_log("enabling passwordless sudo", &progress_bar)
         .await?;
+
+    robot
+        .ssh_to_robot()?
+        .arg(format!(
+            "echo {} | sudo tee /etc/hostname > /dev/null",
+            team_robot.hostname
+        ))
+        .ssh_with_log("setting hostname", &progress_bar)
+        .await?;
+
+    set_up_static_ips(&robot, team_robot, team.team_number, &progress_bar).await?;
+    set_up_wifi(&robot, team_robot, team.team_number, &progress_bar).await?;
 
     robot
         .ssh_to_robot()?
