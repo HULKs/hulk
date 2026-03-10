@@ -21,7 +21,9 @@ use types::{
     world_state::WorldState,
 };
 
-use crate::behavior::{lost_ball, search, support, visual_kick, walk_to_kick_off, walk_to_penalty_kick};
+use crate::behavior::{
+    lost_ball, search, support, visual_kick, walk_to_kick_off, walk_to_penalty_kick,
+};
 
 use super::{
     defend::core::{Defend, DefendMode},
