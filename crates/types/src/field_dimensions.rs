@@ -32,6 +32,7 @@ pub struct FieldDimensions {
     pub goal_inner_width: f32,
     pub goal_post_diameter: f32,
     pub goal_depth: f32,
+    pub corner_arc_radius: f32,
 }
 
 #[derive(
@@ -84,6 +85,7 @@ impl FieldDimensions {
         goal_inner_width: 1.5,
         goal_post_diameter: 0.1,
         goal_depth: 0.5,
+        corner_arc_radius: 0.0,
     };
 }
 
