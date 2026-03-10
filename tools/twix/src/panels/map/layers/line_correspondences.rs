@@ -20,10 +20,10 @@ impl Layer<Field> for LineCorrespondences {
     const NAME: &'static str = "Line Correspondences";
 
     fn new(robot: Arc<Robot>) -> Self {
-        let correspondence_lines =
-            robot.subscribe_value("Control.additional_outputs.localization.correspondence_lines");
+        let correspondence_lines = robot
+            .subscribe_value("WorldState.additional_outputs.localization.correspondence_lines");
         let lines_in_field = robot
-            .subscribe_value("Control.additional_outputs.localization.measured_lines_in_field");
+            .subscribe_value("WorldState.additional_outputs.localization.measured_lines_in_field");
         Self {
             correspondence_lines,
             lines_in_field,

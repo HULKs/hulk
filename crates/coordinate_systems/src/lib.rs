@@ -62,6 +62,11 @@ generate_coordinate_system!(
     /// - "Upcoming support foot" refers to the foot that will become the new support foot after
     ///   the current swing foot lands.
     UpcomingSupport,
+    /// 2D coordinate system centered on the field, independent of game-controller side.
+    ///
+    /// Origin: center of the field
+    /// X axis pointing towards the home-side opponent goal before any side-dependent flip
+    World,
     /// 2D coordinate system centered on the field,
     ///
     /// Origin: center of the field
