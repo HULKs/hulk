@@ -3,8 +3,9 @@ from torch import ByteTensor, Tensor, nn
 
 
 class NV12ToRgb(nn.Module):
-    def __init__(self) -> None:
+    def __init__(self, subsample: bool = True) -> None:
         super().__init__()
+        self.subsample = subsample
         self.yuv_to_rgb = nn.Parameter(
             torch.tensor(
                 [
@@ -29,7 +30,14 @@ class NV12ToRgb(nn.Module):
         chroma_subsampled = image_data.view(-1)[width * height :].view(
             half_height, half_width, 2
         )
-        yuv = torch.concat([luminance[::2, ::2], chroma_subsampled], -1)
+        if self.subsample:
+            yuv = torch.concat([luminance[::2, ::2], chroma_subsampled], -1)
+        else:
+            chroma = chroma_subsampled.repeat_interleave(
+                2, dim=0
+            ).repeat_interleave(2, dim=1)
+            yuv = torch.concat([luminance, chroma], -1)
+
         rgb = torch.matmul(yuv - self.yuv_to_rgb_offset, self.yuv_to_rgb)
         return rgb
 

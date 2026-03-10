@@ -84,9 +84,9 @@ impl ObjectDetection {
             bail!("unsupported image encoding: {}", image.encoding);
         }
 
-        if image.width % 64 != 0 || image.height % 64 != 0 {
+        if image.width % 32 != 0 || image.height % 32 != 0 {
             bail!(
-                "image dimensions must be multiples of 64 (got {}x{})",
+                "image dimensions must be multiples of 32 (got {}x{})",
                 image.width,
                 image.height
             );
@@ -124,8 +124,8 @@ impl ObjectDetection {
                 Some(Detection {
                     bounding_box: BoundingBox {
                         area: Rectangle {
-                            min: point!(row[0usize] * 2., row[1usize] * 2.),
-                            max: point!(row[2usize] * 2., row[3usize] * 2.),
+                            min: point!(row[0usize], row[1usize]),
+                            max: point!(row[2usize], row[3usize]),
                         },
                         confidence,
                     },
