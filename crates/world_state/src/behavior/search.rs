@@ -2,7 +2,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use coordinate_systems::{Field, Ground};
 use framework::AdditionalOutput;
-use linear_algebra::{point, Isometry2, Orientation2, Point2, Pose2};
+use linear_algebra::{Isometry2, Orientation2, Point2, Pose2, point};
 use types::{
     field_dimensions::FieldDimensions,
     motion_command::{HeadMotion, MotionCommand, OrientationMode, WalkSpeed},
