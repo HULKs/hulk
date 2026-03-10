@@ -1,8 +1,8 @@
 pub mod defend;
-pub mod dribble;
 pub mod finish;
 pub mod head;
 pub mod initial;
+pub mod kicking;
 pub mod look_around;
 pub mod node;
 pub mod penalize;
