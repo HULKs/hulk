@@ -9873,6 +9873,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "tensorrt-compile"
+version = "0.1.0"
+dependencies = [
+ "clap",
+ "color-eyre",
+ "ndarray",
+ "ort",
+]
+
+[[package]]
 name = "termcolor"
 version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
