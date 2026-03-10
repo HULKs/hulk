@@ -1,3 +1,4 @@
+use crate::field_dimensions::Side;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 

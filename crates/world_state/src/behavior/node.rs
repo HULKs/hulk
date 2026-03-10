@@ -1,17 +1,17 @@
+use std::time::SystemTime;
+
 use color_eyre::Result;
+use hsl_network_messages::{PlayerNumber, SubState, Team};
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
 use coordinate_systems::Ground;
 use framework::{AdditionalOutput, MainOutput};
 use types::{
-    action::Action,
-    ball_position::BallPosition,
-    field_dimensions::{FieldDimensions, Side},
-    motion_command::MotionCommand,
-    parameters::{BehaviorParameters, WalkSpeedParameters},
-    path_obstacles::PathObstacle,
-    primary_state::PrimaryState,
+    action::Action, ball_position::BallPosition, cycle_time::CycleTime, field_dimensions::Side,
+    filtered_game_controller_state::FilteredGameControllerState,
+    filtered_game_state::FilteredGameState, motion_command::MotionCommand,
+    parameters::BehaviorParameters, primary_state::PrimaryState, roles::Role,
     world_state::WorldState,
 };
 
@@ -29,6 +29,7 @@ use super::{
 #[derive(Deserialize, Serialize)]
 pub struct Behavior {
     last_defender_mode: DefendMode,
+    active_since: Option<SystemTime>,
 }
 
 #[context]
@@ -38,6 +39,8 @@ pub struct CreationContext {}
 pub struct CycleContext {
     ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
     world_state: Input<WorldState, "world_state">,
+    cycle_time: Input<CycleTime, "cycle_time">,
+    is_localization_converged: Input<bool, "is_localization_converged">,
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     parameters: Parameter<BehaviorParameters, "behavior">,
@@ -59,6 +62,7 @@ impl Behavior {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             last_defender_mode: DefendMode::Passive,
+            active_since: None,
         })
     }
 
@@ -69,6 +73,16 @@ impl Behavior {
             return Ok(MainOutputs {
                 motion_command: command.clone().into(),
             });
+        }
+
+        let now = context.cycle_time.start_time;
+        match (self.active_since, world_state.robot.primary_state) {
+            (None, PrimaryState::Ready | PrimaryState::Set | PrimaryState::Playing) => {
+                self.active_since = Some(now)
+            }
+            (None, _) => {}
+            (Some(_), PrimaryState::Ready | PrimaryState::Set | PrimaryState::Playing) => {}
+            (Some(_), _) => self.active_since = None,
         }
 
         let mut actions = vec![
@@ -84,10 +98,80 @@ impl Behavior {
             actions.insert(0, Action::RemoteControl);
         }
 
-        if world_state.robot.primary_state == PrimaryState::Playing {
-            actions.push(Action::WalkToBall);
+        if let Some(active_since) = self.active_since {
+            let duration_active = now.duration_since(active_since)?;
+            if !context.is_localization_converged
+                && (duration_active < context.parameters.maximum_lookaround_duration)
+            {
+                actions.push(Action::LookAround);
+            }
         }
 
+        match world_state.robot.role {
+            Role::Defender => actions.push(Action::DefendLeft),
+            Role::Defender => match world_state.filtered_game_controller_state {
+                Some(FilteredGameControllerState {
+                    sub_state: Some(SubState::CornerKick),
+                    kicking_team: Some(Team::Opponent),
+                    ..
+                }) => {
+                    let side = match world_state.rule_ball {
+                        Some(ball) => ball.field_side,
+                        None => Side::Left,
+                    };
+                    actions.push(Action::DefendOpponentCornerKick { side })
+                }
+                _ => actions.push(Action::DefendLeft),
+            },
+            Role::Keeper => actions.push(Action::DefendGoal),
+            Role::Loser => actions.push(Action::SearchForLostBall),
+            Role::Midfielder => {
+                let side = match world_state.rule_ball {
+                    Some(ball) => ball.field_side,
+                    None => Side::Left,
+                };
+                match side {
+                    Side::Left => actions.push(Action::SupportLeft),
+                    Side::Right => actions.push(Action::SupportRight),
+                }
+            }
+            Role::ReplacementKeeper => actions.push(Action::DefendGoal),
+
+            Role::Searcher => actions.push(Action::Search),
+            Role::Striker => match world_state.filtered_game_controller_state {
+                None
+                | Some(FilteredGameControllerState {
+                    game_state:
+                        FilteredGameState::Playing {
+                            ball_is_free: true, ..
+                        },
+                    ..
+                }) => {
+                    actions.push(Action::Dribble);
+                }
+                Some(FilteredGameControllerState {
+                    game_state: FilteredGameState::Ready,
+                    kicking_team: Some(Team::Hulks),
+                    sub_state,
+                    ..
+                }) => match sub_state {
+                    Some(SubState::PenaltyKick) => actions.push(Action::WalkToPenaltyKick),
+                    _ => actions.push(Action::WalkToKickOff),
+                },
+                Some(FilteredGameControllerState {
+                    game_state: FilteredGameState::Ready | FilteredGameState::Playing { .. },
+                    sub_state: Some(SubState::PenaltyKick),
+                    kicking_team: Some(Team::Opponent),
+                    ..
+                }) => actions.push(Action::DefendPenaltyKick),
+                _ => actions.push(Action::DefendKickOff),
+            },
+            Role::StrikerSupporter => actions.push(Action::SupportStriker),
+        };
+
+        if world_state.robot.primary_state == PrimaryState::Playing {
+            actions.push(Action::WalkToBall)
+        };
         let walk_path_planner = WalkPathPlanner::new(
             context.field_dimensions,
             &world_state.obstacles,
@@ -109,7 +193,6 @@ impl Behavior {
             &look_action,
             &mut self.last_defender_mode,
         );
-
         let (action, motion_command) = actions
             .iter()
             .find_map(|action| {
@@ -192,10 +275,24 @@ impl Behavior {
                     Action::VisualKick => {
                         visual_kick::execute(world_state, context.last_motion_command)
                     }
+                    Action::DefendGoal => todo!(),
+                    Action::DefendKickOff => todo!(),
+                    Action::DefendLeft => todo!(),
+                    Action::DefendOpponentCornerKick { side } => todo!(),
+                    Action::DefendPenaltyKick => todo!(),
+                    Action::Search => todo!(),
+                    Action::SearchForLostBall => todo!(),
+                    Action::StandDuringPenaltyKick => todo!(),
+                    Action::SupportStriker => todo!(),
+                    Action::SupportLeft => todo!(),
+                    Action::SupportRight => todo!(),
+                    Action::WalkToKickOff => todo!(),
+                    Action::WalkToPenaltyKick => todo!(),
                 }?;
                 Some((action, motion_command))
             })
             .unwrap_or_else(|| panic!("there has to be at least one action available",));
+
         context.active_action.fill_if_subscribed(|| *action);
 
         *context.last_motion_command = motion_command.clone();
