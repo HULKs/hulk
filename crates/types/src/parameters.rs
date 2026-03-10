@@ -45,6 +45,7 @@ pub struct BehaviorParameters {
     pub walk_and_stand: WalkAndStandParameters,
     pub walk_with_velocity: WalkWithVelocityParameters,
     pub optional_roles: Vec<Role>,
+    pub maximum_lookaround_duration: Duration,
 }
 
 #[derive(
