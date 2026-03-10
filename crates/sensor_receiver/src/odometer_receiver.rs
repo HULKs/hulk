@@ -39,7 +39,6 @@ impl FallDownStateReceiver {
         context: CycleContext<impl OdometerInterface + TimeInterface>,
     ) -> Result<MainOutputs> {
         let odometer = Some(context.hardware_interface.get_odometer()?);
-        println!("got odometer");
 
         let now = context.hardware_interface.get_now();
         let cycle_time = CycleTime {
