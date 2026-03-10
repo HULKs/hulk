@@ -325,11 +325,7 @@
   },
   "behavior": {
     "injected_motion_command": null,
-    "optional_roles": [
-      "Defender",
-      "Midfielder",
-      "StrikerSupporter"
-    ],
+    "optional_roles": ["Defender", "Midfielder", "StrikerSupporter"],
     "walk_with_velocity": {
       "max_velocity": 1.0,
       "max_angular_velocity": 1.0,
@@ -395,6 +391,11 @@
       "turn_secs": 3.0,
       "stand_secs": 1.0,
       "estimated_ball_speed": 0.75
+    },
+    "kicking": {
+      "kick_power": 1.0,
+      "distance_for_kick": 0.5,
+      "distance_to_look_directly_at_the_ball": 4.0
     }
   },
   "role_assignment": {
