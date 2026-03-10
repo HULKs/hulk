@@ -1,4 +1,3 @@
-use std::alloc::System;
 
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
@@ -15,12 +14,11 @@ use types::{
     parameters::{BehaviorParameters, WalkSpeedParameters},
     path_obstacles::PathObstacle,
     primary_state::PrimaryState,
-    roles::Role,
     world_state::WorldState,
 };
 
 use crate::behavior::{
-    kicking, lost_ball, search, support, visual_kick, walk_to_kick_off, walk_to_penalty_kick,
+    kicking, visual_kick, walk_to_kick_off, walk_to_penalty_kick,
 };
 
 use super::{
@@ -89,9 +87,14 @@ impl Behavior {
             actions.insert(0, Action::RemoteControl);
         }
 
-        if world_state.robot.primary_state == PrimaryState::Playing {
-            actions.push(Action::WalkToBall);
+        if world_state.robot.primary_state == PrimaryState::Ready {
+            actions.push(Action::WalkToKickOff);
         }
+
+        if world_state.robot.primary_state == PrimaryState::Playing {
+            actions.push(Action::Kicking);
+        }
+
 
         let walk_path_planner = WalkPathPlanner::new(
             context.field_dimensions,
