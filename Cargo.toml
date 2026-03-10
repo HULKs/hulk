@@ -57,6 +57,7 @@ members = [
   "tools/mujoco-simulator/mujoco-rust-server",
   "tools/parameter_tester",
   "tools/pepsi",
+  "tools/tensorrt-compile",
   "tools/twix",
   "tools/vista",
   "tools/widget_gallery",

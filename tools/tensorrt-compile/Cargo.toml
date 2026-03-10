@@ -1,0 +1,12 @@
+[package]
+name = "tensorrt-compile"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[dependencies]
+clap = { workspace = true }
+ort = { workspace = true, features = ["cuda", "tensorrt"] }
+ndarray = { workspace = true }
+color-eyre = { workspace = true }
