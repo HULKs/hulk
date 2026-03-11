@@ -1,7 +1,7 @@
 use booster_sdk::types::RobotMode;
 use hardware::{
-    ActuatorInterface, HighLevelInterface, LowCommandInterface, LowStateInterface,
-    MotionRuntimeInteface, NetworkInterface, PathsInterface, RecordingInterface,
+    ActuatorInterface, HighLevelInterface, LightControlInterface, LowCommandInterface,
+    LowStateInterface, MotionRuntimeInteface, NetworkInterface, PathsInterface, RecordingInterface,
     SimulatorInterface, SpeakerInterface, TimeInterface, VisualKickInterface,
 };
 
@@ -30,6 +30,7 @@ pub trait HardwareInterface:
     + SimulatorInterface
     + HighLevelInterface
     + MotionRuntimeInteface
+    + LightControlInterface
 {
 }
 
@@ -163,6 +164,19 @@ impl HighLevelInterface for ExtractorHardwareInterface {
 impl MotionRuntimeInteface for ExtractorHardwareInterface {
     fn get_motion_runtime_type(&self) -> Result<MotionRuntime> {
         unimplemented!()
+    }
+}
+
+impl LightControlInterface for ExtractorHardwareInterface {
+    fn set_led_color(
+        &self,
+        _light_control_parameter: booster_sdk::client::light_control::SetLedLightColorParameter,
+    ) -> Result<()> {
+        Ok(())
+    }
+
+    fn stop_led_control(&self) -> Result<()> {
+        Ok(())
     }
 }
 

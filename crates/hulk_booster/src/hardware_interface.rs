@@ -8,6 +8,9 @@ use std::{
     time::SystemTime,
 };
 
+use booster::{
+    ButtonEventMsg, FallDownState, Kick, LowCommand, LowState, Odometer, RemoteControllerState,
+};
 use booster_sdk::{
     client::{
         BoosterClient,
@@ -754,6 +757,31 @@ impl MotionRuntimeInteface for BoosterHardwareInterface {
     }
 }
 
+impl LightControlInterface for BoosterHardwareInterface {
+    fn set_led_color(&self, light_control_parameter: SetLedLightColorParameter) -> Result<()> {
+        let light_control_client = self.light_control_client.clone();
+        self.runtime_handle.spawn(async move {
+            if let Err(err) = light_control_client
+                .set_led_light_color_param(&light_control_parameter)
+                .await
+            {
+                log::error!("failed to set leds: {err}");
+            }
+        });
+        Ok(())
+    }
+
+    fn stop_led_control(&self) -> Result<()> {
+        let light_control_client = self.light_control_client.clone();
+        self.runtime_handle.spawn(async move {
+            if let Err(err) = light_control_client.stop_led_light_control().await {
+                log::error!("failed to stop led control: {err}");
+            }
+        });
+        Ok(())
+    }
+}
+
 impl HardwareInterface for BoosterHardwareInterface {}
 
 #[cfg(test)]
@@ -825,30 +853,3 @@ mod tests {
         assert_eq!(reencoded, encoded);
     }
 }
-
-impl LightControlInterface for BoosterHardwareInterface {
-    fn set_led_color(&self, light_control_parameter: SetLedLightColorParameter) -> Result<()> {
-        let light_control_client = self.light_control_client.clone();
-        self.runtime_handle.spawn(async move {
-            if let Err(err) = light_control_client
-                .set_led_light_color_param(&light_control_parameter)
-                .await
-            {
-                log::error!("failed to set leds: {err}");
-            }
-        });
-        Ok(())
-    }
-
-    fn stop_led_control(&self) -> Result<()> {
-        let light_control_client = self.light_control_client.clone();
-        self.runtime_handle.spawn(async move {
-            if let Err(err) = light_control_client.stop_led_light_control().await {
-                log::error!("failed to stop led control: {err}");
-            }
-        });
-        Ok(())
-    }
-}
-
-impl HardwareInterface for BoosterHardwareInterface {}
