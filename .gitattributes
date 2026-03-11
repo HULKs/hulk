@@ -9,3 +9,5 @@
 **/*.pt filter=lfs diff=lfs merge=lfs -text
 **/*.onnx filter=lfs diff=lfs merge=lfs -text
 **/*.obj filter=lfs diff=lfs merge=lfs -text
+etc/neural_networks/*.engine filter=lfs diff=lfs merge=lfs -text
+etc/neural_networks/*.profile filter=lfs diff=lfs merge=lfs -text
