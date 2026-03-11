@@ -4,13 +4,14 @@ use booster_sdk::types::RobotMode;
 use color_eyre::Result;
 use context_attribute::context;
 use coordinate_systems::Ground;
+use framework::AdditionalOutput;
 use hardware::{HighLevelInterface, MotionRuntimeInteface, TimeInterface};
 use linear_algebra::{Orientation2, Point2};
 use serde::{Deserialize, Serialize};
 use types::{
     motion_command::{MotionCommand, OrientationMode},
     motion_runtime::MotionRuntime,
-    parameters::    RLWalkingParameters,
+    parameters::RLWalkingParameters,
     path::traits::{Length, PathProgress},
     step::Step,
 };
@@ -30,6 +31,8 @@ pub struct CycleContext {
     hardware_interface: HardwareInterface,
 
     parameters: Parameter<RLWalkingParameters, "rl_walking">,
+
+    step: AdditionalOutput<Step, "additional_outputs.walking_step">,
 }
 
 #[context]
@@ -43,7 +46,7 @@ impl BoosterWalking {
 
     pub fn cycle(
         &mut self,
-        context: CycleContext<impl HighLevelInterface + MotionRuntimeInteface + TimeInterface>,
+        mut context: CycleContext<impl HighLevelInterface + MotionRuntimeInteface + TimeInterface>,
     ) -> Result<MainOutputs> {
         if context.hardware_interface.get_motion_runtime_type()? != MotionRuntime::Booster
             || !matches!(context.robot_mode, RobotMode::Walking)
@@ -51,7 +54,7 @@ impl BoosterWalking {
             return Ok(MainOutputs {});
         }
         let parameters = context.parameters;
-        match context.motion_command {
+        let step = match context.motion_command {
             MotionCommand::Walk {
                 path,
                 orientation_mode,
@@ -93,31 +96,28 @@ impl BoosterWalking {
 
                 let angular_velocity =
                     orientation.as_unit_vector().y() * parameters.max_alignment_rate;
-
-                move_robot(
-                    &context,
-                    Step {
-                        forward: velocity.x(),
-                        left: velocity.y(),
-                        turn: angular_velocity,
-                    },
-                )
+                Step {
+                    forward: velocity.x(),
+                    left: velocity.y(),
+                    turn: angular_velocity,
+                }
             }
             MotionCommand::WalkWithVelocity {
                 velocity,
                 angular_velocity,
                 ..
-            } => move_robot(
-                &context,
-                Step {
-                    forward: velocity.x(),
-                    left: velocity.y(),
-                    turn: *angular_velocity,
-                },
-            ),
-            MotionCommand::Stand { .. } => move_robot(&context, Step::ZERO),
-            _ => move_robot(&context, Step::ZERO),
+            } => Step {
+                forward: velocity.x(),
+                left: velocity.y(),
+                turn: *angular_velocity,
+            },
+            MotionCommand::Stand { .. } => Step::ZERO,
+            _ => Step::ZERO,
         };
+
+        context.step.fill_if_subscribed(|| step);
+
+        move_robot(&context, step);
 
         Ok(MainOutputs {})
     }
