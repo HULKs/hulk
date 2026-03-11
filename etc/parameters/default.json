@@ -315,7 +315,7 @@
   "injected_primary_state": null,
   "walk_speed": {
     "defend": 1.0,
-    "dribble": 1.5,
+    "kicking": 1.5,
     "intercept_ball": 1.5,
     "lost_ball": 1.0,
     "search": 1.0,

@@ -511,7 +511,7 @@ pub enum ImageReceiverInstance {
 #[derive(Clone, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect)]
 pub struct WalkSpeedParameters {
     pub defend: f32,
-    pub dribble: f32,
+    pub kicking: f32,
     pub intercept_ball: f32,
     pub lost_ball: f32,
     pub search: f32,
@@ -524,7 +524,7 @@ impl Default for WalkSpeedParameters {
     fn default() -> Self {
         Self {
             defend: 1.0,
-            dribble: 1.0,
+            kicking: 1.0,
             intercept_ball: 1.0,
             lost_ball: 1.0,
             search: 1.0,
