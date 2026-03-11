@@ -46,7 +46,7 @@ pub struct Localization {
     hypotheses_when_entered_playing: Vec<ScoredPose>,
     is_penalized_with_motion_in_set_or_initial: bool,
     time_when_penalized_clicked: Option<SystemTime>,
-    last_odometer: Option<Odometer>,
+    last_odometer: Option<(SystemTime, Odometer)>,
 }
 
 #[context]
@@ -74,6 +74,7 @@ pub struct CycleContext {
     fall_down_state: PerceptionInput<Option<FallDownState>, "FallDownState", "fall_down_state?">,
     imu_state: PerceptionInput<ImuState, "Motion", "imu_state">,
 
+    odometry_timeout: Parameter<Duration, "localization.odometry_timeout">,
     circle_measurement_noise: Parameter<Vector2<f32>, "localization.circle_measurement_noise">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     good_matching_threshold: Parameter<f32, "localization.good_matching_threshold">,
@@ -229,12 +230,33 @@ impl Localization {
             )
         );
 
-        let newest_odometer = Self::latest_odometer(context);
-        let current_odometry_to_last_odometry = newest_odometer.as_ref().and_then(|odometer| {
-            self.last_odometer
+        let mut newest_odometer = Self::latest_odometer(context);
+        // if the odometer is reading the exact same value as in the last cycle, ignore it, as it is likely not a new measurement, but rather a holdover from the last cycle due to the odometer not updating
+        if newest_odometer
+            .as_ref()
+            .map(|(_timestamp, odometer)| odometer)
+            == self
+                .last_odometer
                 .as_ref()
-                .map(|last_odometer| odometry_delta(last_odometer, odometer))
-        });
+                .map(|(_timestamp, odometer)| odometer)
+        {
+            newest_odometer = None;
+        }
+        let current_odometry_to_last_odometry =
+            newest_odometer.as_ref().and_then(|(timestamp, odometer)| {
+                self.last_odometer
+                    .as_ref()
+                    .and_then(|(last_timestamp, last_odometer)| {
+                        if timestamp
+                            .duration_since(*last_timestamp)
+                            .unwrap_or_default()
+                            > *context.odometry_timeout
+                        {
+                            return None;
+                        }
+                        Some(odometry_delta(last_odometer, odometer))
+                    })
+            });
         self.last_odometer = newest_odometer;
 
         let measurement_source = MockLineMeasurementSource::default();
@@ -253,13 +275,17 @@ impl Localization {
         }
     }
 
-    fn latest_odometer(context: &CycleContext) -> Option<Odometer> {
+    fn latest_odometer(context: &CycleContext) -> Option<(SystemTime, Odometer)> {
         context
             .odometer
             .persistent
             .iter()
             .chain(context.odometer.temporary.iter())
-            .flat_map(|(_timestamp, odometers)| odometers.iter().cloned().cloned())
+            .flat_map(|(timestamp, odometers)| {
+                odometers
+                    .iter()
+                    .map(|&odometer| (*timestamp, odometer.clone()))
+            })
             .next_back()
     }
 

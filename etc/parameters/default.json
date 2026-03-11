@@ -271,6 +271,10 @@
 
   "player_number": "Three",
   "localization": {
+    "odometry_timeout": {
+      "nanos": 0,
+      "secs": 1
+    },
     "circle_measurement_noise": [0.05, 0.05],
     "good_matching_threshold": 0.2,
     "gradient_convergence_threshold": 0.0001,
