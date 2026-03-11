@@ -170,6 +170,31 @@ async fn gammaray_robot(
         .await?;
 
     robot
+        .ssh_to_robot()?
+        .arg("sudo mkdir -p /etc/systemd/system/zenoh-bridge-dds.service.d/")
+        .ssh_with_log(
+            "creating zenoh-bridge-dds systemd override directory",
+            &progress_bar,
+        )
+        .await?;
+    robot
+        .rsync_with_robot()?
+        .arg("--rsync-path=sudo rsync")
+        .arg("--info=progress2")
+        .arg(setup.join("zenoh-bridge-dds.service.override.conf"))
+        .arg(format!(
+            "{}:/etc/systemd/system/zenoh-bridge-dds.service.d/override.conf",
+            robot.address
+        ))
+        .rsync_with_log("uploading zenoh-bridge-dds service override", &progress_bar)
+        .await?;
+    robot
+        .ssh_to_robot()?
+        .arg("sudo systemctl daemon-reload")
+        .ssh_with_log("reloading service daemon", &progress_bar)
+        .await?;
+
+    robot
         .rsync_with_robot()?
         .arg("--info=progress2")
         .arg(setup.join("hulk.service"))
