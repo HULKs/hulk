@@ -52,7 +52,7 @@ impl WalkCommand {
                 distance_to_be_aligned,
                 speed,
                 ..
-            } => {  
+            } => {
                 let forward = path.forward(Point2::origin());
                 let distance_to_target = path.length();
                 // let deceleration_factor =
@@ -86,8 +86,6 @@ impl WalkCommand {
 
                 let angular_velocity =
                     orientation.as_unit_vector().y() * parameters.max_alignment_rate;
-                dbg!(velocity);
-                dbg!(angular_velocity);
 
                 Self::WalkWithVelocity {
                     velocity,
