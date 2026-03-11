@@ -94,6 +94,8 @@ struct ZenohBackendHandles {
     stereonet_depth_camera_info_receiver: LatestReceiver<CameraInfo>,
     image_left_raw_receiver: LatestReceiver<Image>,
     image_left_raw_camera_info_receiver: LatestReceiver<CameraInfo>,
+    object_detection_image_left_raw_receiver: LatestReceiver<Image>,
+    object_detection_image_left_raw_camera_info_receiver: LatestReceiver<CameraInfo>,
 }
 
 pub struct BoosterHardwareInterface {
@@ -113,6 +115,8 @@ pub struct BoosterHardwareInterface {
     stereonet_depth_camera_info_receiver: Mutex<LatestReceiver<CameraInfo>>,
     image_left_raw_receiver: Mutex<LatestReceiver<Image>>,
     image_left_raw_camera_info_receiver: Mutex<LatestReceiver<CameraInfo>>,
+    object_detection_image_left_raw_receiver: Mutex<LatestReceiver<Image>>,
+    object_detection_image_left_raw_camera_info_receiver: Mutex<LatestReceiver<CameraInfo>>,
 
     high_level_interface_client: Arc<BoosterClient>,
     light_control_client: Arc<LightControlClient>,
@@ -180,6 +184,12 @@ impl BoosterHardwareInterface {
             image_left_raw_receiver: Mutex::new(zenoh_backend.image_left_raw_receiver),
             image_left_raw_camera_info_receiver: Mutex::new(
                 zenoh_backend.image_left_raw_camera_info_receiver,
+            ),
+            object_detection_image_left_raw_receiver: Mutex::new(
+                zenoh_backend.object_detection_image_left_raw_receiver,
+            ),
+            object_detection_image_left_raw_camera_info_receiver: Mutex::new(
+                zenoh_backend.object_detection_image_left_raw_camera_info_receiver,
             ),
 
             robot_mode,
@@ -284,6 +294,19 @@ async fn initialize_zenoh_backend(keep_running: CancellationToken) -> Result<Zen
         IMAGE_LEFT_RAW_CAMERA_INFO_TOPIC,
     )
     .await?;
+    let object_detection_image_left_raw_receiver = spawn_subscription_worker::<Image>(
+        zenoh_session.clone(),
+        keep_running.clone(),
+        IMAGE_LEFT_RAW_TOPIC,
+    )
+    .await?;
+    let object_detection_image_left_raw_camera_info_receiver =
+        spawn_subscription_worker::<CameraInfo>(
+            zenoh_session.clone(),
+            keep_running.clone(),
+            IMAGE_LEFT_RAW_CAMERA_INFO_TOPIC,
+        )
+        .await?;
 
     tokio::spawn(async move {
         let _zenoh_session = zenoh_session;
@@ -303,6 +326,8 @@ async fn initialize_zenoh_backend(keep_running: CancellationToken) -> Result<Zen
         stereonet_depth_camera_info_receiver,
         image_left_raw_receiver,
         image_left_raw_camera_info_receiver,
+        object_detection_image_left_raw_receiver,
+        object_detection_image_left_raw_camera_info_receiver,
     })
 }
 
@@ -621,6 +646,42 @@ impl CameraInterface for BoosterHardwareInterface {
         if message.dropped_messages > 0 {
             debug!(
                 "dropped {} stale left raw camera info messages from `rt/image_left_raw/camera_info`",
+                message.dropped_messages
+            );
+        }
+        Ok(message.value)
+    }
+
+    fn read_object_detection_image_left_raw(&self) -> Result<Image> {
+        let message = self
+            .run_until_cancelled(
+                self.object_detection_image_left_raw_receiver
+                    .lock()
+                    .recv_latest(),
+            )?
+            .wrap_err("failed to read object detection left raw image from `rt/image_left_raw`")?;
+        if message.dropped_messages > 0 {
+            debug!(
+                "dropped {} stale object detection left raw image messages from `rt/image_left_raw`",
+                message.dropped_messages
+            );
+        }
+        Ok(message.value)
+    }
+
+    fn read_object_detection_image_left_raw_camera_info(&self) -> Result<CameraInfo> {
+        let message = self
+            .run_until_cancelled(
+                self.object_detection_image_left_raw_camera_info_receiver
+                    .lock()
+                    .recv_latest(),
+            )?
+            .wrap_err(
+                "failed to read object detection left raw camera info from `rt/image_left_raw/camera_info`",
+            )?;
+        if message.dropped_messages > 0 {
+            debug!(
+                "dropped {} stale object detection left raw camera info messages from `rt/image_left_raw/camera_info`",
                 message.dropped_messages
             );
         }
