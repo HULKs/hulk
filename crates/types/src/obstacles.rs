@@ -22,6 +22,7 @@ pub enum ObstacleKind {
     Ball,
     GoalPost,
     Robot,
+    Person,
     #[default]
     Unknown,
 }

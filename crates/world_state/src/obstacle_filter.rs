@@ -1,20 +1,23 @@
 use std::time::{Duration, SystemTime};
 
 use color_eyre::Result;
+use geometry::rectangle::Rectangle;
 use itertools::{chain, iproduct};
 use nalgebra::Matrix2;
+use projection::{Projection, camera_matrix::CameraMatrix};
 use serde::{Deserialize, Serialize};
 
 use booster::{FallDownState, FallDownStateType};
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use filtering::kalman_filter::KalmanFilter;
-use framework::{AdditionalOutput, MainOutput, PerceptionInput};
+use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use linear_algebra::{IntoFramed, Isometry2, Point2, point};
 use types::{
     cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
     multivariate_normal_distribution::MultivariateNormalDistribution,
+    object_detection::{Detection, NaoLabelPartyObjectDetectionLabel},
     obstacle_filter::Hypothesis,
     obstacles::{Obstacle, ObstacleKind},
     parameters::ObstacleFilterParameters,
@@ -23,7 +26,6 @@ use types::{
 
 #[derive(PartialEq)]
 enum MeasurementKind {
-    #[expect(unused)] // to be removed once we have working obstacle detection
     Own,
     NetworkRobot,
 }
@@ -41,14 +43,20 @@ pub struct CreationContext {}
 pub struct CycleContext {
     obstacle_filter_hypotheses: AdditionalOutput<Vec<Hypothesis>, "obstacle_filter_hypotheses">,
 
-    network_robot_obstacles: Input<Vec<Point2<Ground>>, "network_robot_obstacles">,
-    ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
+    camera_matrix: HistoricInput<Option<CameraMatrix>, "camera_matrix?">,
+    network_robot_obstacles: HistoricInput<Vec<Point2<Ground>>, "network_robot_obstacles">,
     current_odometry_to_last_odometry:
-        Input<Option<nalgebra::Isometry2<f32>>, "current_odometry_to_last_odometry?">,
+        HistoricInput<Option<nalgebra::Isometry2<f32>>, "current_odometry_to_last_odometry?">,
     cycle_time: Input<CycleTime, "cycle_time">,
     primary_state: Input<PrimaryState, "primary_state">,
+    current_ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
 
     fall_down_state: PerceptionInput<Option<FallDownState>, "FallDownState", "fall_down_state?">,
+    detected_objects: PerceptionInput<
+        Vec<Detection<NaoLabelPartyObjectDetectionLabel>>,
+        "ObjectDetection",
+        "detected_objects",
+    >,
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     obstacle_filter_parameters: Parameter<ObstacleFilterParameters, "obstacle_filter">,
@@ -71,32 +79,95 @@ impl ObstacleFilter {
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let field_dimensions = context.field_dimensions;
         let cycle_start_time = context.cycle_time.start_time;
+        let measurements = context.detected_objects.persistent.iter();
 
-        let current_odometry_to_last_odometry = context
-            .current_odometry_to_last_odometry
-            .copied()
-            .unwrap_or_default();
+        for (detection_time, detected_objects) in measurements {
+            let current_odometry_to_last_odometry = context
+                .current_odometry_to_last_odometry
+                .get(detection_time)
+                .copied()
+                .unwrap_or_default();
 
-        self.predict_hypotheses_with_odometry(
-            current_odometry_to_last_odometry.inverse(),
-            Matrix2::from_diagonal(&context.obstacle_filter_parameters.process_noise),
-        );
-
-        for network_robot_obstacle in context.network_robot_obstacles {
-            self.update_hypotheses_with_measurement(
-                *network_robot_obstacle,
-                ObstacleKind::Robot,
-                cycle_start_time,
-                context
-                    .obstacle_filter_parameters
-                    .network_robot_measurement_matching_distance,
-                Matrix2::from_diagonal(
-                    &context
-                        .obstacle_filter_parameters
-                        .network_robot_measurement_noise,
-                ),
-                MeasurementKind::NetworkRobot,
+            self.predict_hypotheses_with_odometry(
+                current_odometry_to_last_odometry.inverse(),
+                Matrix2::from_diagonal(&context.obstacle_filter_parameters.process_noise),
             );
+
+            let camera_matrix = context.camera_matrix.get(detection_time);
+            let network_robot_obstacles = context.network_robot_obstacles.get(detection_time);
+
+            for network_robot_obstacle in network_robot_obstacles {
+                self.update_hypotheses_with_measurement(
+                    *network_robot_obstacle,
+                    ObstacleKind::Robot,
+                    *detection_time,
+                    context
+                        .obstacle_filter_parameters
+                        .network_robot_measurement_matching_distance,
+                    Matrix2::from_diagonal(
+                        &context
+                            .obstacle_filter_parameters
+                            .network_robot_measurement_noise,
+                    ),
+                    MeasurementKind::NetworkRobot,
+                );
+            }
+
+            if let Some(camera_matrix) = camera_matrix
+                && context.obstacle_filter_parameters.use_detected_objects
+            {
+                let measured_positions_in_control_cycle = detected_objects
+                    .iter()
+                    .flat_map(|detections| detections.iter())
+                    .filter_map(|detected_object| {
+                        let Detection {
+                            label,
+                            bounding_box,
+                        } = detected_object;
+
+                        let (kind, measurement_noise) = match label {
+                            NaoLabelPartyObjectDetectionLabel::GoalPost => (
+                                ObstacleKind::GoalPost,
+                                context
+                                    .obstacle_filter_parameters
+                                    .goal_post_measurement_noise,
+                            ),
+                            NaoLabelPartyObjectDetectionLabel::Robot => (
+                                ObstacleKind::Robot,
+                                context.obstacle_filter_parameters.robot_measurement_noise,
+                            ),
+                            NaoLabelPartyObjectDetectionLabel::Person => (
+                                ObstacleKind::Person,
+                                context.obstacle_filter_parameters.person_measurement_noise,
+                            ),
+                            _ => return None,
+                        };
+
+                        let bottom_center_position = {
+                            let Rectangle { min, max } = bounding_box.area;
+
+                            point![min.x() + (max.x() - min.x()) / 2.0, max.y()]
+                        };
+
+                        let obstacle_center: Point2<Ground> =
+                            camera_matrix.pixel_to_ground(bottom_center_position).ok()?;
+
+                        Some((kind, obstacle_center, measurement_noise))
+                    });
+
+                for (kind, position, measurement_noise) in measured_positions_in_control_cycle {
+                    self.update_hypotheses_with_measurement(
+                        position,
+                        kind,
+                        *detection_time,
+                        context
+                            .obstacle_filter_parameters
+                            .object_detection_measurement_matching_distance,
+                        Matrix2::from_diagonal(&measurement_noise),
+                        MeasurementKind::Own,
+                    );
+                }
+            }
         }
 
         self.remove_hypotheses(
@@ -131,7 +202,7 @@ impl ObstacleFilter {
                 .retain(|obstacle| obstacle.obstacle_kind != ObstacleKind::Unknown);
         }
 
-        let robot_obstacles = self
+        let obstacles = self
             .hypotheses
             .iter()
             .filter(|hypothesis| {
@@ -150,6 +221,10 @@ impl ObstacleFilter {
                             .obstacle_filter_parameters
                             .robot_obstacle_radius_at_foot_height,
                     ),
+                    ObstacleKind::Person => (
+                        context.obstacle_filter_parameters.person_obstacle_radius,
+                        context.obstacle_filter_parameters.person_obstacle_radius,
+                    ),
                     ObstacleKind::Unknown => (
                         context.obstacle_filter_parameters.unknown_obstacle_radius,
                         context.obstacle_filter_parameters.unknown_obstacle_radius,
@@ -164,8 +239,8 @@ impl ObstacleFilter {
                 }
             })
             .collect::<Vec<_>>();
-
-        let goal_posts = calculate_goal_post_positions(context.ground_to_field, field_dimensions);
+        let goal_posts =
+            calculate_goal_post_positions(context.current_ground_to_field, field_dimensions);
         let goal_post_obstacles = goal_posts.into_iter().map(|goal_post| {
             Obstacle::goal_post(
                 goal_post,
@@ -176,7 +251,7 @@ impl ObstacleFilter {
             .obstacle_filter_hypotheses
             .fill_if_subscribed(|| self.hypotheses.clone());
         Ok(MainOutputs {
-            obstacles: chain!(robot_obstacles, goal_post_obstacles)
+            obstacles: chain!(obstacles, goal_post_obstacles)
                 .collect::<Vec<_>>()
                 .into(),
         })
