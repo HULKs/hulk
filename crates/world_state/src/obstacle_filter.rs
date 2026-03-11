@@ -356,7 +356,7 @@ impl ObstacleFilter {
     ) {
         self.hypotheses.retain(|hypothesis| {
             now.duration_since(hypothesis.last_update)
-                .expect("Time has run backwards")
+                .unwrap_or_default()
                 < hypothesis_timeout
         });
         let mut deduplicated_hypotheses = Vec::<Hypothesis>::new();
