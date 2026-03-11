@@ -325,11 +325,7 @@
   },
   "behavior": {
     "injected_motion_command": null,
-    "optional_roles": [
-      "Defender",
-      "Midfielder",
-      "StrikerSupporter"
-    ],
+    "optional_roles": ["Defender", "Midfielder", "StrikerSupporter"],
     "walk_with_velocity": {
       "max_velocity": 1.0,
       "max_angular_velocity": 1.0,
@@ -468,10 +464,6 @@
   },
   "cycler_frequencies": {
     "world_state": 100
-  },
-  "image_receiver": {
-    "image_rectified": "Rectified",
-    "image_stereonet_depth": "StereonetDepth"
   },
   "look_at": {
     "glance_angle": 0.25,
