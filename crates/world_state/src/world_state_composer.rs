@@ -9,12 +9,12 @@ use context_attribute::context;
 use framework::{MainOutput, PerceptionInput};
 use types::{
     ball_position::HypotheticalBallPosition,
+    cycle_time::CycleTime,
     filtered_game_controller_state::FilteredGameControllerState,
     obstacles::Obstacle,
     primary_state::PrimaryState,
     roles::Role,
     rule_obstacles::RuleObstacle,
-    cycle_time::CycleTime,
     world_state::{BallState, RobotState, WorldState},
 };
 
