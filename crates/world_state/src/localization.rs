@@ -70,7 +70,7 @@ pub struct CycleContext {
     primary_state: Input<PrimaryState, "primary_state">,
     cycle_time: Input<CycleTime, "cycle_time">,
 
-    odometer: PerceptionInput<Option<Odometer>, "Odometry", "odometer?">,
+    odometer: PerceptionInput<Odometer, "Odometry", "odometer">,
     fall_down_state: PerceptionInput<Option<FallDownState>, "FallDownState", "fall_down_state?">,
     imu_state: PerceptionInput<ImuState, "Motion", "imu_state">,
 
@@ -259,8 +259,7 @@ impl Localization {
             .persistent
             .iter()
             .chain(context.odometer.temporary.iter())
-            .flat_map(|(_timestamp, odometers)| odometers.iter())
-            .filter_map(|odometer| odometer.as_ref().map(|odometer| (*odometer).clone()))
+            .flat_map(|(_timestamp, odometers)| odometers.iter().cloned().cloned())
             .next_back()
     }
 
@@ -892,12 +891,9 @@ fn predict(
 
     state.predict(
         |state| {
-            let last_ground_to_field = nalgebra::Isometry2::new(
-                nalgebra::vector![state.x, state.y],
-                state.z,
-            );
-            let current_ground_to_field =
-                last_ground_to_field * current_odometry_to_last_odometry;
+            let last_ground_to_field =
+                nalgebra::Isometry2::new(nalgebra::vector![state.x, state.y], state.z);
+            let current_ground_to_field = last_ground_to_field * current_odometry_to_last_odometry;
 
             nalgebra::vector![
                 current_ground_to_field.translation.vector.x,
