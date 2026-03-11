@@ -2,7 +2,7 @@ use coordinate_systems::Field;
 use framework::AdditionalOutput;
 use linear_algebra::{Point2, Pose2, Rotation2};
 use types::{
-    motion_command::{MotionCommand, OrientationMode, WalkSpeed},
+    motion_command::{MotionCommand, OrientationMode},
     path_obstacles::PathObstacle,
     world_state::WorldState,
 };
@@ -17,7 +17,7 @@ pub fn execute(
     path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
     kickoff_position: Point2<Field>,
     kick_off_angle: f32,
-    walk_speed: WalkSpeed,
+    walk_speed: f32,
     distance_to_be_aligned: f32,
 ) -> Option<MotionCommand> {
     let kick_off_pose =

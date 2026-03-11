@@ -5,7 +5,7 @@ use framework::AdditionalOutput;
 use linear_algebra::{Isometry2, Orientation2, Point2, Pose2, point};
 use types::{
     field_dimensions::FieldDimensions,
-    motion_command::{HeadMotion, MotionCommand, OrientationMode, WalkSpeed},
+    motion_command::{HeadMotion, MotionCommand, OrientationMode},
     parameters::SearchParameters,
     path::traits::Length,
     path_obstacles::PathObstacle,
@@ -78,7 +78,7 @@ pub fn execute(
     previous_role: Role,
     last_time_role_changed: SystemTime,
     last_known_ball_position: Point2<Field>,
-    walk_speed: WalkSpeed,
+    walk_speed: f32,
     distance_to_be_aligned: f32,
     cycle_start_time: SystemTime,
 ) -> Option<MotionCommand> {
