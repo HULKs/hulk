@@ -961,5 +961,9 @@
     "angle_distance_weight": 0.02,
     "closer_to_goal_threshold": 1.0,
     "goal_accuracy_margin": 0.25
+  },
+  "wait_before_prepare": {
+      "nanos": 0,
+      "secs": 5
   }
 }

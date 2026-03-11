@@ -1,3 +1,5 @@
+use std::time::{Duration, SystemTime};
+
 use booster_sdk::types::RobotMode;
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
@@ -5,10 +7,13 @@ use serde::{Deserialize, Serialize};
 use context_attribute::context;
 use framework::MainOutput;
 use hardware::{HighLevelInterface, MotionRuntimeInteface, TimeInterface};
-use types::{motion_runtime::MotionRuntime, primary_state::PrimaryState};
+use types::{cycle_time::CycleTime, motion_runtime::MotionRuntime, primary_state::PrimaryState};
 
 #[derive(Deserialize, Serialize)]
-pub struct BoosterModeHandler {}
+pub struct BoosterModeHandler {
+    last_primary_state_change_time: SystemTime,
+    last_primary_state: PrimaryState,
+}
 
 #[context]
 pub struct CreationContext {}
@@ -16,6 +21,9 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     primary_state: Input<PrimaryState, "primary_state">,
+    cycle_time: Input<CycleTime, "cycle_time">,
+
+    wait_before_prepare: Parameter<Duration, "wait_before_prepare">,
 
     hardware_interface: HardwareInterface,
 }
@@ -28,7 +36,10 @@ pub struct MainOutputs {
 
 impl BoosterModeHandler {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {})
+        Ok(Self {
+            last_primary_state_change_time: SystemTime::UNIX_EPOCH,
+            last_primary_state: PrimaryState::Safe,
+        })
     }
 
     pub fn cycle(
@@ -47,21 +58,32 @@ impl BoosterModeHandler {
             });
         };
 
-        match (context.primary_state, robot_mode) {
-            (
-                PrimaryState::Safe
-                | PrimaryState::Stop
-                | PrimaryState::Penalized
-                | PrimaryState::Initial
-                | PrimaryState::Set
-                | PrimaryState::Finished,
-                RobotMode::Walking,
-            ) => change_mode(&context, RobotMode::Prepare),
+        if context.primary_state != &self.last_primary_state {
+            self.last_primary_state_change_time = context.cycle_time.start_time;
+            self.last_primary_state = *context.primary_state;
+        }
+        let time_since_primary_state_change = context
+            .cycle_time
+            .start_time
+            .duration_since(self.last_primary_state_change_time)
+            .expect("time ran backwards");
+        let switch_to_prepare = &time_since_primary_state_change >= context.wait_before_prepare;
 
-            (PrimaryState::Ready | PrimaryState::Playing, RobotMode::Prepare) => {
+        match (context.primary_state, robot_mode, switch_to_prepare) {
+            (
+                PrimaryState::Safe | PrimaryState::Initial | PrimaryState::Set,
+                RobotMode::Walking,
+                _,
+            ) => change_mode(&context, RobotMode::Prepare),
+            (
+                PrimaryState::Stop | PrimaryState::Finished | PrimaryState::Penalized,
+                RobotMode::Walking,
+                true,
+            ) => change_mode(&context, RobotMode::Prepare),
+            (PrimaryState::Ready | PrimaryState::Playing, RobotMode::Prepare, _) => {
                 change_mode(&context, RobotMode::Walking)
             }
-            (_, _) => (),
+            (_, _, _) => (),
         };
 
         Ok(MainOutputs {
