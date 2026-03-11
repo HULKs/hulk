@@ -13,6 +13,7 @@ pub mod detected_feet;
 pub mod dribble_path_plan;
 pub mod fall_state;
 pub mod field_border;
+pub mod field_color;
 pub mod field_dimensions;
 pub mod field_lines;
 pub mod field_marks;

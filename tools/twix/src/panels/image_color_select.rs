@@ -1,3 +1,5 @@
+use std::ops::RangeInclusive;
+
 use color_eyre::{Result, eyre::ContextCompat};
 use coordinate_systems::Pixel;
 use eframe::{
@@ -9,7 +11,7 @@ use eframe::{
     epaint::Vec2,
 };
 
-use egui_plot::Points;
+use egui_plot::{HLine, Points, VLine};
 use geometry::rectangle::Rectangle;
 use itertools::iproduct;
 use linear_algebra::{Point2, point, vector};
@@ -18,6 +20,7 @@ use serde::{Deserialize, Serialize};
 use serde_json::{Value, json};
 use types::{
     color::{Hsv, RgChromaticity, Rgb, YCbCr444},
+    field_color::FieldColorParameters,
     ycbcr422_image::YCbCr422Image,
 };
 
@@ -32,21 +35,29 @@ const OTHER_SELECTION_COLOR: Color32 = Color32::from_rgba_premultiplied(0, 0, 25
 
 pub struct ImageColorSelectPanel {
     image: BufferHandle<YCbCr422Image>,
+    field_color: BufferHandle<FieldColorParameters>,
     brush_size: f32,
     selection_mask: ColorImage,
     x_axis: Axis,
     y_axis: Axis,
+    filter_by_other_axes: bool,
 }
 
 impl<'a> Panel<'a> for ImageColorSelectPanel {
     const NAME: &'static str = "Image Color Select";
 
     fn new(context: PanelCreationContext) -> Self {
-        let image = context.robot.subscribe_value("Vision.main_outputs.image");
+        let image = context
+            .robot
+            .subscribe_value("Vision.main_outputs.ycbcr422_image");
 
         let brush_size = 50.0;
 
         let selection_mask = ColorImage::filled([640, 480], Color32::TRANSPARENT);
+
+        let field_color = context
+            .robot
+            .subscribe_value("parameters.field_color_detection");
 
         let x_axis = context
             .value
@@ -57,12 +68,19 @@ impl<'a> Panel<'a> for ImageColorSelectPanel {
             .and_then(|value| serde_json::from_value::<Axis>(value.get("y_axis")?.clone()).ok())
             .unwrap_or(Axis::Luminance);
 
+        let filter_by_other_axes = context
+            .value
+            .and_then(|value| value.get("filter_by_other_axes")?.as_bool())
+            .unwrap_or(true);
+
         Self {
             image,
+            field_color,
             brush_size,
             selection_mask,
             x_axis,
             y_axis,
+            filter_by_other_axes,
         }
     }
 
@@ -71,6 +89,7 @@ impl<'a> Panel<'a> for ImageColorSelectPanel {
             "cycler": "Vision",
             "x_axis": self.x_axis,
             "y_axis": self.y_axis,
+            "filter_by_other_axes": self.filter_by_other_axes,
         })
     }
 }
@@ -142,8 +161,20 @@ impl Widget for &mut ImageColorSelectPanel {
                             ui.selectable_value(&mut self.y_axis, Axis::Hue, "Hue");
                             ui.selectable_value(&mut self.y_axis, Axis::Saturation, "Saturation");
                         });
+                    ui.checkbox(&mut self.filter_by_other_axes, "Filter")
                 });
 
+                let field_color = match self.field_color.get_last_value() {
+                    Ok(Some(value)) => value,
+                    Ok(None) => {
+                        ui.label("No field color available");
+                        return;
+                    }
+                    Err(error) => {
+                        ui.label(format!("{error:#?}"));
+                        return;
+                    }
+                };
                 egui_plot::Plot::new("karsten").show(ui, |plot_ui| {
                     if let Ok(image) = &image {
                         plot_ui.points(
@@ -153,6 +184,8 @@ impl Widget for &mut ImageColorSelectPanel {
                                 FIELD_SELECTION_COLOR,
                                 self.x_axis,
                                 self.y_axis,
+                                self.filter_by_other_axes,
+                                &field_color,
                             )
                             .color(Color32::RED),
                         );
@@ -163,10 +196,32 @@ impl Widget for &mut ImageColorSelectPanel {
                                 OTHER_SELECTION_COLOR,
                                 self.x_axis,
                                 self.y_axis,
+                                self.filter_by_other_axes,
+                                &field_color,
                             )
                             .color(Color32::BLUE),
                         );
                     }
+                    plot_ui.vline(
+                        VLine::new("???", *self.x_axis.get_range(&field_color).start())
+                            .width(5.0)
+                            .color(Color32::WHITE),
+                    );
+                    plot_ui.vline(
+                        VLine::new("???", *self.x_axis.get_range(&field_color).end())
+                            .width(5.0)
+                            .color(Color32::WHITE),
+                    );
+                    plot_ui.hline(
+                        HLine::new("???", *self.y_axis.get_range(&field_color).start())
+                            .width(5.0)
+                            .color(Color32::WHITE),
+                    );
+                    plot_ui.hline(
+                        HLine::new("???", *self.y_axis.get_range(&field_color).end())
+                            .width(5.0)
+                            .color(Color32::WHITE),
+                    );
                 });
             });
         CentralPanel::default()
@@ -351,6 +406,33 @@ impl Axis {
             Axis::Saturation => hsv.saturation as f32,
         }
     }
+
+    fn get_range(self, field_color: &FieldColorParameters) -> RangeInclusive<f32> {
+        match self {
+            Axis::Cb => 0.0..=255.0,
+            Axis::Cr => 0.0..=255.0,
+            Axis::RedChromaticity => field_color.red_chromaticity.clone(),
+            Axis::GreenChromaticity => field_color.green_chromaticity.clone(),
+            Axis::BlueChromaticity => field_color.blue_chromaticity.clone(),
+            Axis::GreenLuminance => {
+                *field_color.green_luminance.start() as f32
+                    ..=*field_color.green_luminance.end() as f32
+            }
+            Axis::Luminance => {
+                *field_color.luminance.start() as f32..=*field_color.luminance.end() as f32
+            }
+            Axis::Hue => *field_color.hue.start() as f32..=*field_color.hue.end() as f32,
+            Axis::Saturation => {
+                *field_color.saturation.start() as f32..=*field_color.saturation.end() as f32
+            }
+        }
+    }
+
+    fn passes_range_check(self, color: Rgb, field_color: &FieldColorParameters) -> bool {
+        let value = self.get_value(color);
+        let range = self.get_range(field_color);
+        range.contains(&value)
+    }
 }
 
 fn generate_points(
@@ -359,6 +441,8 @@ fn generate_points(
     mask_color: Color32,
     x_axis: Axis,
     y_axis: Axis,
+    filter_by_other_axes: bool,
+    field_color: &FieldColorParameters,
 ) -> Points<'static> {
     Points::new(
         "brush",
@@ -371,6 +455,24 @@ fn generate_points(
                     return None;
                 }
                 let rgb = Rgb::new(color.r(), color.g(), color.b());
+
+                let skip = [x_axis, y_axis];
+                let passes_relevant_range_checks = [
+                    Axis::RedChromaticity,
+                    Axis::GreenChromaticity,
+                    Axis::BlueChromaticity,
+                    Axis::GreenLuminance,
+                    Axis::Luminance,
+                    Axis::Hue,
+                    Axis::Saturation,
+                ]
+                .into_iter()
+                .filter(|axis| !skip.contains(axis))
+                .all(|axis| axis.passes_range_check(rgb, field_color));
+
+                if filter_by_other_axes && !passes_relevant_range_checks {
+                    return None;
+                }
 
                 Some([x_axis.get_value(rgb) as f64, y_axis.get_value(rgb) as f64])
             })

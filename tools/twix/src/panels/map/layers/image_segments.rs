@@ -17,7 +17,7 @@ impl Layer<Ground> for ImageSegments {
     const NAME: &'static str = "Image Segments";
 
     fn new(robot: std::sync::Arc<crate::robot::Robot>) -> Self {
-        let camera_matrix = robot.subscribe_value("Vision.main_outputs.camera_matrix");
+        let camera_matrix = robot.subscribe_value("WorldState.main_outputs.camera_matrix");
         let image_segments = robot.subscribe_value("Vision.main_outputs.image_segments");
         Self {
             camera_matrix,

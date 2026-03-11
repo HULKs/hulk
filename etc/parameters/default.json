@@ -753,6 +753,36 @@
     "first_line_association_distance": 2.0,
     "second_line_association_distance": 2.0
   },
+  "field_color_detection": {
+    "luminance": {
+      "start": 35,
+      "end": 210
+    },
+    "green_luminance": {
+      "start": 20,
+      "end": 255
+    },
+    "red_chromaticity": {
+      "start": 0.0,
+      "end": 1.0
+    },
+    "green_chromaticity": {
+      "start": 0.0,
+      "end": 1.0
+    },
+    "blue_chromaticity": {
+      "start": 0.0,
+      "end": 1.0
+    },
+    "hue": {
+      "start": 67,
+      "end": 130
+    },
+    "saturation": {
+      "start": 175,
+      "end": 255
+    }
+  },
   "image_segmenter": {
     "horizontal_edge_threshold": 15,
     "horizontal_median_mode": "FivePixels",
@@ -784,7 +814,7 @@
     "maximum_number_of_lines": 10,
     "allowed_projected_segment_length": {
       "start": 0.02,
-      "end": 0.095
+      "end": 0.5
     },
     "minimum_number_of_points_on_line": 15,
     "ransac_iterations": 20
