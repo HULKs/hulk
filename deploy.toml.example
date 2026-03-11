@@ -1,7 +1,7 @@
 # opponent = "B-Human"
 # phase = "second-half"
 location = "smd"
-wifi = "SPL_A"
+wifi = "HSL_A"
 base = "main"
 branches = [
   "julianschuler/example-branch",

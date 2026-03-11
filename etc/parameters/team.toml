@@ -7,5 +7,15 @@ id = "1421625075354"
 
 [[robots]]
 number = 43
-hostname = "Anton"
+hostname = "Ute"
 id = "1422125017018"
+
+[[robots]]
+number = 44
+hostname = "Anton"
+id = "1421625074001"
+
+[[robots]]
+number = 45
+hostname = "Berta"
+id = "1421625074102"

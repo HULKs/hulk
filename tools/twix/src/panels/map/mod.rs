@@ -112,7 +112,7 @@ impl<'a> Panel<'a> for MapPanel {
         let field_dimensions = context.robot.subscribe_value("parameters.field_dimensions");
         let ground_to_field = context
             .robot
-            .subscribe_value("Control.main_outputs.ground_to_field");
+            .subscribe_value("WorldState.main_outputs.ground_to_field");
 
         let current_plot_type = context
             .value

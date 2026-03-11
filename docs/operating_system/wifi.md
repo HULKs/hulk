@@ -7,11 +7,11 @@ For more information on iwd visit their documentation.
 
 The iwd service can be manually configured using the command line interface tool `iwctl`.
 For persistent configuration iwd stores `*.psk` files for every known SSID at `/var/lib/iwd/`.
-The yocto distribution installs those `*.psk` files for the network SSIDs *SPL_A* to *SPL_F*.
+The yocto distribution installs those `*.psk` files for the network SSIDs *HSL_A* to *HSL_F*.
 
 ```sh
 [Security]
-Passphrase=Nao?!Nao?!
+Passphrase=HSL?!HSL?!
 
 [Settings]
 AutoConnect=false

@@ -4,7 +4,7 @@ use linear_algebra::Pose2;
 use serde::{Deserialize, Serialize};
 use types::{
     field_dimensions::FieldDimensions,
-    motion_command::{MotionCommand, OrientationMode, WalkSpeed},
+    motion_command::{MotionCommand, OrientationMode},
     parameters::RolePositionsParameters,
     path_obstacles::PathObstacle,
     world_state::WorldState,
@@ -50,7 +50,7 @@ impl<'cycle> Defend<'cycle> {
         &self,
         pose: Pose2<Ground>,
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
-        walk_speed: WalkSpeed,
+        walk_speed: f32,
         distance_to_be_aligned: f32,
         hysteresis: nalgebra::Vector2<f32>,
     ) -> Option<MotionCommand> {

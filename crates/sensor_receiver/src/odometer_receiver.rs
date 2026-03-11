@@ -23,7 +23,7 @@ pub struct CycleContext {
 
 #[context]
 pub struct MainOutputs {
-    pub odometer: MainOutput<Option<Odometer>>,
+    pub odometer: MainOutput<Odometer>,
     pub cycle_time: MainOutput<CycleTime>,
 }
 
@@ -38,7 +38,7 @@ impl FallDownStateReceiver {
         &mut self,
         context: CycleContext<impl OdometerInterface + TimeInterface>,
     ) -> Result<MainOutputs> {
-        let odometer = Some(context.hardware_interface.get_odometer()?);
+        let odometer = context.hardware_interface.get_odometer()?;
 
         let now = context.hardware_interface.get_now();
         let cycle_time = CycleTime {

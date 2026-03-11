@@ -4,9 +4,9 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use hardware::{CameraInterface, TimeInterface};
-use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
+use ros2::sensor_msgs::image::Image;
 use serde::{Deserialize, Serialize};
-use types::cycle_time::CycleTime;
+use types::{cycle_time::CycleTime, ycbcr422_image::YCbCr422Image};
 
 #[derive(Deserialize, Serialize)]
 pub struct ImageReceiver {
@@ -23,8 +23,8 @@ pub struct CycleContext {
 
 #[context]
 pub struct MainOutputs {
-    pub image_left_raw: MainOutput<Image>,
-    pub image_left_raw_camera_info: MainOutput<CameraInfo>,
+    pub image: MainOutput<Image>,
+    pub ycbcr422_image: MainOutput<YCbCr422Image>,
     pub cycle_time: MainOutput<CycleTime>,
 }
 
@@ -39,10 +39,7 @@ impl ImageReceiver {
         &mut self,
         context: CycleContext<impl CameraInterface + TimeInterface>,
     ) -> Result<MainOutputs> {
-        let image_left_raw = context.hardware_interface.read_image_left_raw()?;
-        let image_left_raw_camera_info = context
-            .hardware_interface
-            .read_image_left_raw_camera_info()?;
+        let image = context.hardware_interface.read_image_left_raw()?;
 
         let now = context.hardware_interface.get_now();
         let cycle_time = CycleTime {
@@ -53,9 +50,11 @@ impl ImageReceiver {
         };
         self.last_cycle_start = now;
 
+        let ycbcr422_image = YCbCr422Image::try_from(&image)?;
+
         Ok(MainOutputs {
-            image_left_raw: image_left_raw.into(),
-            image_left_raw_camera_info: image_left_raw_camera_info.into(),
+            ycbcr422_image: ycbcr422_image.into(),
+            image: image.into(),
             cycle_time: cycle_time.into(),
         })
     }

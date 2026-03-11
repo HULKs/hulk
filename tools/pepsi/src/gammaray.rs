@@ -45,7 +45,7 @@ pub struct Arguments {
 
 static PACKAGES: [&str; 2] = ["zenoh-bridge-ros2dds", "podman"];
 
-const WIFI_PASSWORD: &str = "Nao?!Nao?!";
+const WIFI_PASSWORD: &str = "HSL?!HSL?!";
 
 static ADD_APT_ROS2DDS_ZENOH_BRIDGE_SOURCES: &str = "
 curl -L https://download.eclipse.org/zenoh/debian-repo/zenoh-public-key | sudo gpg --dearmor --yes --output /etc/apt/keyrings/zenoh-public-key.gpg
@@ -117,17 +117,6 @@ async fn gammaray_robot(
         bail!(r#"ID "{id}" not found in team.toml"#);
     };
     progress_bar.set_prefix(format!("[{robot} {}]", team_robot.hostname));
-    robot
-        .ssh_to_robot()?
-        .arg(format!(
-            "echo {} | sudo tee /etc/hostname > /dev/null",
-            team_robot.hostname
-        ))
-        .ssh_with_log("setting hostname", &progress_bar)
-        .await?;
-
-    set_up_static_ips(&robot, team_robot, team.team_number, &progress_bar).await?;
-    set_up_wifi(&robot, team_robot, team.team_number, &progress_bar).await?;
 
     robot
         .ssh_to_robot()?
@@ -146,6 +135,18 @@ async fn gammaray_robot(
 
     robot
         .ssh_to_robot()?
+        .arg(format!(
+            "echo {} | sudo tee /etc/hostname > /dev/null",
+            team_robot.hostname
+        ))
+        .ssh_with_log("setting hostname", &progress_bar)
+        .await?;
+
+    set_up_static_ips(&robot, team_robot, team.team_number, &progress_bar).await?;
+    set_up_wifi(&robot, team_robot, team.team_number, &progress_bar).await?;
+
+    robot
+        .ssh_to_robot()?
         .arg(ADD_APT_ROS2DDS_ZENOH_BRIDGE_SOURCES)
         .ssh_with_log("adding zenoh-bridge-ros2dds sources", &progress_bar)
         .await?;
@@ -160,7 +161,7 @@ async fn gammaray_robot(
         // check if packages are installed already
         .arg(check_string)
         .arg("|| (")
-        .arg("sudo apt update && sudo apt install")
+        .arg("sudo apt update && sudo apt install -y")
         .args(PACKAGES)
         .arg(")")
         .ssh_with_log("installing packages", &progress_bar)
@@ -169,6 +170,7 @@ async fn gammaray_robot(
     robot
         .rsync_with_robot()?
         .arg("--rsync-path=sudo rsync")
+        .arg("--info=progress2")
         .arg(setup.join("conf.json5"))
         .arg(format!("{}:/etc/zenoh-bridge-ros2dds/", robot.address))
         .rsync_with_log("uploading zenoh-bridge-ros2dds config", &progress_bar)
@@ -176,6 +178,7 @@ async fn gammaray_robot(
 
     robot
         .rsync_with_robot()?
+        .arg("--info=progress2")
         .arg(setup.join("hulk.service"))
         .arg(setup.join("zenoh-bridge.service"))
         .arg(setup.join("zenoh-bridge-ros2dds.service"))
@@ -193,6 +196,7 @@ async fn gammaray_robot(
         const REMOTE_IMAGE_PATH: &str = "/home/booster/.cache/hulk/runtime-container-image.tar";
         robot
             .rsync_with_robot()?
+            .arg("--info=progress2")
             .arg(image_file)
             .arg(format!("{}:{REMOTE_IMAGE_PATH}", robot.address))
             .rsync_with_log("uploading podman image", &progress_bar)
@@ -216,6 +220,7 @@ async fn gammaray_robot(
     robot
         .rsync_with_robot()?
         .arg("--rsync-path=sudo rsync")
+        .arg("--info=progress2")
         .arg(setup.join("hulk"))
         .arg(setup.join("launchHULK"))
         .arg(
@@ -240,6 +245,18 @@ async fn gammaray_robot(
         .ssh_with_log("restarting services", &progress_bar)
         .await?;
 
+    robot
+        .ssh_to_robot()?
+        .arg("sudo systemctl disable --now")
+        .args([
+            "booster-daemon-perception",
+            "booster-agent-manager",
+            "booster-lui",
+            "booster-rtc-speech",
+        ])
+        .ssh_with_log("disabling booster services", &progress_bar)
+        .await?;
+
     Ok(())
 }
 
@@ -256,7 +273,7 @@ async fn set_up_static_ips(
     robot.ssh_to_robot()?.arg(format!(
         // Set the new IP but preserve the 192.168.10.102 which is necessary for services on the
         // robot to work
-        r#"sudo nmcli connection modify "{CONNECTION_NAME}" ipv4.addresses "{ethernet_ip}/24, 192.168.10.102/24""#,
+        r#"sudo nmcli connection modify "{CONNECTION_NAME}" ipv4.addresses "{ethernet_ip}/24, 192.168.10.102/24" ipv4.gateway 10.1.24.1"#,
     )).ssh_with_log("setting static IP", progress_bar).await?;
 
     robot

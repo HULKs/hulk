@@ -12,7 +12,6 @@ use crate::{panels::image::overlays::ObjectDetection, robot::Robot, twix_painter
 
 use super::overlays::{
     BallDetection, FeetDetection, FieldBorder, FieldLines, Horizon, LimbProjector, LineDetection,
-    PerspectiveGrid,
 };
 
 pub trait Overlay {
@@ -74,7 +73,6 @@ where
 pub struct Overlays {
     pub line_detection: EnabledOverlay<LineDetection>,
     pub ball_detection: EnabledOverlay<BallDetection>,
-    pub perspective_grid: EnabledOverlay<PerspectiveGrid>,
     pub horizon: EnabledOverlay<Horizon>,
     pub penalty_boxes: EnabledOverlay<FieldLines>,
     pub feet_detection: EnabledOverlay<FeetDetection>,
@@ -87,7 +85,6 @@ impl Overlays {
     pub fn new(robot: Arc<Robot>, storage: Option<&Value>) -> Self {
         let line_detection = EnabledOverlay::new(robot.clone(), storage, false);
         let ball_detection = EnabledOverlay::new(robot.clone(), storage, false);
-        let perspective_grid = EnabledOverlay::new(robot.clone(), storage, false);
         let horizon = EnabledOverlay::new(robot.clone(), storage, false);
         let penalty_boxes = EnabledOverlay::new(robot.clone(), storage, false);
         let feet_detection = EnabledOverlay::new(robot.clone(), storage, false);
@@ -98,7 +95,6 @@ impl Overlays {
         Self {
             line_detection,
             ball_detection,
-            perspective_grid,
             horizon,
             penalty_boxes,
             feet_detection,
@@ -112,7 +108,6 @@ impl Overlays {
         ui.menu_button("Overlays", |ui| {
             self.line_detection.checkbox(ui);
             self.ball_detection.checkbox(ui);
-            self.perspective_grid.checkbox(ui);
             self.horizon.checkbox(ui);
             self.penalty_boxes.checkbox(ui);
             self.feet_detection.checkbox(ui);
@@ -125,7 +120,6 @@ impl Overlays {
     pub fn paint(&mut self, painter: &TwixPainter<Pixel>) {
         self.line_detection.paint(painter);
         self.ball_detection.paint(painter);
-        self.perspective_grid.paint(painter);
         self.horizon.paint(painter);
         self.penalty_boxes.paint(painter);
         self.feet_detection.paint(painter);
@@ -138,7 +132,6 @@ impl Overlays {
         json!({
             "line_detection": self.line_detection.save(),
             "ball_detection": self.ball_detection.save(),
-            "perspective_grid": self.perspective_grid.save(),
             "horizon": self.horizon.save(),
             "penalty_boxes": self.penalty_boxes.save(),
             "feet_detection": self.feet_detection.save(),

@@ -5,7 +5,10 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
+  "click>=8.3.1",
   "onnxruntime>=1.24.3",
+  "onnxscript>=0.6.2",
   "onnxslim>=0.1.87",
+  "torch>=2.10.0",
   "ultralytics>=8.4.21",
 ]
