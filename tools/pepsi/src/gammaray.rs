@@ -462,7 +462,7 @@ key-mgmt=wpa-psk
 psk={password}
 
 [ipv4]
-address1=10.{second_octet}.{team_number}.{robot_number}/24
+address1=10.{second_octet}.{team_number}.{robot_number}/16
 method=manual
 
 [ipv6]
