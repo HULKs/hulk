@@ -1,10 +1,11 @@
+use booster::FallDownState;
 use color_eyre::Result;
 use coordinate_systems::{Field, Ground};
 use linear_algebra::{Isometry2, Point2};
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use framework::MainOutput;
+use framework::{MainOutput, PerceptionInput};
 use types::{
     filtered_game_controller_state::FilteredGameControllerState,
     primary_state::PrimaryState,
@@ -13,13 +14,17 @@ use types::{
 };
 
 #[derive(Deserialize, Serialize)]
-pub struct WorldStateComposer {}
+pub struct WorldStateComposer {
+    last_fall_down_state: Option<FallDownState>,
+}
 
 #[context]
 pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
+    fall_down_state: PerceptionInput<Option<FallDownState>, "FallDownState", "fall_down_state?">,
+
     ball: Input<Option<BallState>, "ball_state?">,
     filtered_game_controller_state:
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
@@ -42,10 +47,29 @@ pub struct MainOutputs {
 
 impl WorldStateComposer {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {})
+        Ok(Self {
+            last_fall_down_state: None,
+        })
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+        let fall_down_state = context
+            .fall_down_state
+            .persistent
+            .into_iter()
+            .chain(context.fall_down_state.temporary)
+            .flat_map(|(_time, fall_down_states)| fall_down_states)
+            .last()
+            .flatten()
+            .copied()
+            .map_or(self.last_fall_down_state, |fall_down_state| {
+                Some(fall_down_state)
+            });
+
+        if fall_down_state.is_some() {
+            self.last_fall_down_state = fall_down_state;
+        }
+
         let robot: RobotState = RobotState {
             ground_to_field: context.ground_to_field.copied(),
             primary_state: *context.primary_state,
@@ -68,6 +92,7 @@ impl WorldStateComposer {
             rule_ball: context.rule_ball.copied(),
             // rule_obstacles: context.rule_obstacles.clone(),
             rule_obstacles: Default::default(),
+            fall_down_state,
         };
 
         Ok(MainOutputs {
