@@ -23,7 +23,7 @@ impl Layer<Field> for Localization {
 
     fn new(robot: Arc<Robot>) -> Self {
         let poses =
-            robot.subscribe_value("Control.additional_outputs.localization.pose_hypotheses");
+            robot.subscribe_value("WorldState.additional_outputs.localization.pose_hypotheses");
         Self { poses }
     }
 

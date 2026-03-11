@@ -270,6 +270,59 @@
   },
 
   "player_number": "Three",
+  "localization": {
+    "circle_measurement_noise": [0.05, 0.05],
+    "good_matching_threshold": 0.2,
+    "gradient_convergence_threshold": 0.0001,
+    "gradient_descent_step_size": 0.1,
+    "hypothesis_prediction_score_reduction_factor": 0.995,
+    "hypothesis_retain_factor": 0.8,
+    "hypothesis_score_base_increase": 0.001,
+    "initial_hypothesis_covariance": [
+      0.1, 0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.05
+    ],
+    "initial_hypothesis_score": 1.0,
+    "initial_poses": {
+      "one": {
+        "center_line_offset_x": -1.0,
+        "side": "Left"
+      },
+      "two": {
+        "center_line_offset_x": -1.0,
+        "side": "Left"
+      },
+      "three": {
+        "center_line_offset_x": -1.0,
+        "side": "Left"
+      },
+      "four": {
+        "center_line_offset_x": -1.0,
+        "side": "Left"
+      },
+      "five": {
+        "center_line_offset_x": -1.0,
+        "side": "Left"
+      }
+    },
+    "line_length_acceptance_factor": 1.5,
+    "line_measurement_noise": [0.05, 0.05],
+    "additional_moving_noise_line": [0.02, 0.02],
+    "additional_moving_noise_circle": [0.02, 0.02],
+    "maximum_amount_of_gradient_descent_iterations": 8,
+    "maximum_amount_of_outer_iterations": 4,
+    "minimum_fit_error": 0.001,
+    "odometry_noise": [0.02, 0.02, 0.01],
+    "penalized_distance": 0.7,
+    "penalized_hypothesis_covariance": [
+      0.2, 0.0, 0.0, 0.0, 0.2, 0.0, 0.0, 0.0, 0.1
+    ],
+    "score_per_good_match": 0.1,
+    "tentative_penalized_duration": {
+      "nanos": 0,
+      "secs": 2
+    },
+    "use_line_measurements": true
+  },
   "game_controller_filter": {
     "time_since_last_message_to_consider_ip_active": {
       "nanos": 0,

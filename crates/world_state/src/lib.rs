@@ -23,3 +23,4 @@ pub mod team_ball_receiver;
 pub mod time_to_reach_kick_position;
 pub mod trigger;
 pub mod world_state_composer;
+pub mod world_to_field_provider;
