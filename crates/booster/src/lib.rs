@@ -7,8 +7,6 @@ use ros2::{geometry_msgs::transform_stamped::TransformStamped, std_msgs::header:
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "pyo3")]
-use linear_algebra::vector;
-#[cfg(feature = "pyo3")]
 use pyo3::prelude::*;
 
 #[repr(C)]

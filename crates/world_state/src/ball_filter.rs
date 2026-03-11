@@ -1,7 +1,4 @@
-use std::{
-    collections::BTreeMap,
-    time::{Duration, SystemTime},
-};
+use std::{collections::BTreeMap, time::SystemTime};
 
 use booster::Odometer;
 use color_eyre::Result;
@@ -197,10 +194,10 @@ impl BallFilter {
             .truncate(filter_parameters.maximum_number_of_hypotheses);
     }
 
-    fn align_odometry_and_percepts<'a>(
+    fn align_odometry_and_percepts(
         &mut self,
         ball_percepts: BTreeMap<SystemTime, Vec<BallPercept>>,
-        odometries: BTreeMap<SystemTime, Vec<&'a Odometer>>,
+        odometries: BTreeMap<SystemTime, Vec<&Odometer>>,
     ) -> BTreeMap<SystemTime, (Isometry2<Ground, Ground>, Vec<BallPercept>)> {
         let mut output = BTreeMap::new();
         for (time, percepts) in ball_percepts {
@@ -276,7 +273,7 @@ impl BallFilter {
         let ball_radius = context.field_dimensions.ball_radius;
         context.filtered_balls_in_image.fill_if_subscribed(|| {
             context.camera_matrix.map_or(vec![], |camera_matrix| {
-                project_to_image(&output_balls, &camera_matrix, ball_radius)
+                project_to_image(&output_balls, camera_matrix, ball_radius)
             })
         });
 
@@ -396,7 +393,7 @@ fn decide_validity_decay_for_hypothesis(
 ) -> f32 {
     let is_ball_in_view = camera_matrix.is_some_and(|camera_matrix| {
         let ball = hypothesis.position();
-        is_visible_to_camera(&ball, &camera_matrix, ball_radius)
+        is_visible_to_camera(&ball, camera_matrix, ball_radius)
     });
 
     match is_ball_in_view {
@@ -488,7 +485,7 @@ mod tests {
         };
 
         let hypotheses = vec![hypothesis1, hypothesis2];
-        let percepts = vec![&percept1, &percept2];
+        let percepts = vec![percept1, percept2];
 
         let costs = mahalanobis_matrix_of_hypotheses_and_percepts(&hypotheses, &percepts);
         let assignment = AssignmentProblem::from_costs(costs).solve();

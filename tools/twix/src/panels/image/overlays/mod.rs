@@ -3,7 +3,6 @@ mod feet_detection;
 mod field_border;
 mod field_lines;
 mod horizon;
-mod limb_projector;
 mod line_detection;
 mod object_detection;
 
@@ -12,6 +11,5 @@ pub use feet_detection::FeetDetection;
 pub use field_border::FieldBorder;
 pub use field_lines::FieldLines;
 pub use horizon::Horizon;
-pub use limb_projector::LimbProjector;
 pub use line_detection::LineDetection;
 pub use object_detection::ObjectDetection;
