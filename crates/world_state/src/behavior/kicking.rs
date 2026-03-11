@@ -44,7 +44,7 @@ pub fn execute(
     let robot_theta_to_field: Orientation2<Field> = ground_to_field.orientation();
     let target_position = (field_to_ground * goal_position).as_point();
 
-    if false {
+    if distance_to_ball < parameters.distance_for_kick {
         Some(MotionCommand::VisualKick {
             head,
             ball_position,
