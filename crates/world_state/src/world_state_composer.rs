@@ -15,9 +15,6 @@ use types::{
     roles::Role,
     rule_obstacles::RuleObstacle,
     cycle_time::CycleTime,
-    filtered_game_controller_state::FilteredGameControllerState,
-    primary_state::PrimaryState,
-    roles::Role,
     world_state::{BallState, RobotState, WorldState},
 };
 
