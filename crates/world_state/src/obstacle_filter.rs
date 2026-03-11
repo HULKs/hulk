@@ -225,6 +225,10 @@ impl ObstacleFilter {
                         context.obstacle_filter_parameters.person_obstacle_radius,
                         context.obstacle_filter_parameters.person_obstacle_radius,
                     ),
+                    ObstacleKind::GoalPost => (
+                        context.obstacle_filter_parameters.goal_post_obstacle_radius,
+                        context.obstacle_filter_parameters.goal_post_obstacle_radius,
+                    ),
                     ObstacleKind::Unknown => (
                         context.obstacle_filter_parameters.unknown_obstacle_radius,
                         context.obstacle_filter_parameters.unknown_obstacle_radius,
@@ -313,7 +317,9 @@ impl ObstacleFilter {
                 },
             );
             hypothesis.obstacle_kind = match hypothesis.obstacle_kind {
-                ObstacleKind::Robot => hypothesis.obstacle_kind,
+                ObstacleKind::Robot | ObstacleKind::GoalPost | ObstacleKind::Person => {
+                    hypothesis.obstacle_kind
+                }
                 ObstacleKind::Unknown => detected_obstacle_kind,
                 _ => panic!("Unexpected obstacle kind"),
             };
@@ -370,7 +376,9 @@ impl ObstacleFilter {
                         hypothesis.state.covariance,
                     );
                     existing_hypothesis.obstacle_kind = match existing_hypothesis.obstacle_kind {
-                        ObstacleKind::Robot => existing_hypothesis.obstacle_kind,
+                        ObstacleKind::Robot | ObstacleKind::GoalPost | ObstacleKind::Person => {
+                            existing_hypothesis.obstacle_kind
+                        }
                         ObstacleKind::Unknown => hypothesis.obstacle_kind,
                         _ => panic!("Unexpected obstacle kind"),
                     };
