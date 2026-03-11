@@ -10,7 +10,7 @@ use color_eyre::{
 };
 use geometry::line_segment::LineSegment;
 use linear_algebra::{IntoTransform, Isometry2, Point2, Pose2, distance, point};
-use nalgebra::{Matrix2, Matrix3, Rotation2, Translation2, Vector2, Vector3, matrix};
+use nalgebra::{Matrix2, Matrix3, Rotation2, Vector2, Vector3, matrix};
 use ordered_float::NotNan;
 use serde::{Deserialize, Serialize};
 
@@ -892,12 +892,17 @@ fn predict(
 
     state.predict(
         |state| {
-            let robot_odometry =
-                Rotation2::new(state.z) * current_odometry_to_last_odometry.translation.vector;
+            let last_ground_to_field = nalgebra::Isometry2::new(
+                nalgebra::vector![state.x, state.y],
+                state.z,
+            );
+            let current_ground_to_field =
+                last_ground_to_field * current_odometry_to_last_odometry;
+
             nalgebra::vector![
-                state.x + robot_odometry.x,
-                state.y + robot_odometry.y,
-                state.z + current_odometry_to_last_odometry.rotation.angle()
+                current_ground_to_field.translation.vector.x,
+                current_ground_to_field.translation.vector.y,
+                current_ground_to_field.rotation.angle()
             ]
         },
         process_noise,
@@ -906,10 +911,14 @@ fn predict(
 }
 
 fn odometry_delta(last_odometer: &Odometer, odometer: &Odometer) -> nalgebra::Isometry2<f32> {
-    nalgebra::Isometry2::from_parts(
-        Translation2::new(odometer.x - last_odometer.x, odometer.y - last_odometer.y),
-        Rotation2::new(odometer.theta - last_odometer.theta).into(),
-    )
+    let last_odometry_to_world = nalgebra::Isometry2::new(
+        nalgebra::vector![last_odometer.x, last_odometer.y],
+        last_odometer.theta,
+    );
+    let current_odometry_to_world =
+        nalgebra::Isometry2::new(nalgebra::vector![odometer.x, odometer.y], odometer.theta);
+
+    last_odometry_to_world.inverse() * current_odometry_to_world
 }
 
 #[allow(clippy::too_many_arguments)]
@@ -1387,17 +1396,34 @@ mod tests {
         let last_odometer = Odometer {
             x: 1.0,
             y: 2.0,
+            theta: FRAC_PI_2,
+        };
+        let odometer = Odometer {
+            x: 1.0,
+            y: 3.0,
+            theta: FRAC_PI_2 + 0.2,
+        };
+        let delta = odometry_delta(&last_odometer, &odometer);
+
+        assert_relative_eq!(delta.translation.vector.x, 1.0, epsilon = 0.0001);
+        assert_relative_eq!(delta.translation.vector.y, 0.0, epsilon = 0.0001);
+        assert_relative_eq!(delta.rotation.angle(), 0.2, epsilon = 0.0001);
+    }
+
+    #[test]
+    fn odometry_delta_normalizes_rotation_difference() {
+        let last_odometer = Odometer {
+            x: 0.0,
+            y: 0.0,
             theta: 0.1,
         };
         let odometer = Odometer {
-            x: 2.5,
-            y: -1.0,
+            x: 0.0,
+            y: 0.0,
             theta: 0.1 + PI + 0.2,
         };
         let delta = odometry_delta(&last_odometer, &odometer);
 
-        assert_relative_eq!(delta.translation.vector.x, 1.5);
-        assert_relative_eq!(delta.translation.vector.y, -3.0);
         assert_relative_eq!(delta.rotation.angle(), -PI + 0.2, epsilon = 0.0001);
     }
 
