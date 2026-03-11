@@ -1,0 +1,7 @@
+{
+  "behavior": {
+    "kicking": {
+      "distance_for_kick": 1.5
+    }
+  }
+}
