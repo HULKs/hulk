@@ -9,17 +9,7 @@ use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput};
 use types::{
-    action::Action,
-    ball_position::BallPosition,
-    cycle_time::CycleTime,
-    field_dimensions::{FieldDimensions, Side},
-    kick_decision::DecisionParameters,
-    motion_command::MotionCommand,
-    parameters::{BehaviorParameters, WalkSpeedParameters},
-    path_obstacles::PathObstacle,
-    primary_state::PrimaryState,
-    roles::Role,
-    world_state::WorldState,
+    action::Action, ball_position::BallPosition, cycle_time::CycleTime, field_dimensions::{FieldDimensions, Side}, filtered_game_controller_state::FilteredGameControllerState, filtered_game_state::FilteredGameState, kick_decision::DecisionParameters, motion_command::MotionCommand, parameters::{BehaviorParameters, WalkSpeedParameters}, path_obstacles::PathObstacle, primary_state::PrimaryState, roles::Role, world_state::WorldState
 };
 
 use crate::behavior::{
@@ -147,6 +137,16 @@ impl Behavior {
 
             Role::Searcher => actions.push(Action::Search),
             Role::Striker => match world_state.filtered_game_controller_state {
+                None
+                | Some(FilteredGameControllerState {
+                    game_state:
+                        FilteredGameState::Playing {
+                            ball_is_free: true, ..
+                        },
+                    ..
+                }) => {
+                    actions.push(Action::Kicking);
+                }
                 Some(FilteredGameControllerState {
                     game_state: FilteredGameState::Ready,
                     kicking_team: Some(Team::Hulks),
@@ -405,13 +405,6 @@ impl Behavior {
                     Action::VisualKick => {
                         visual_kick::execute(world_state, context.last_motion_command)
                     }
-                    Action::Search => todo!(),
-                    Action::SearchForLostBall => todo!(),
-                    Action::SupportStriker => todo!(),
-                    Action::SupportLeft => todo!(),
-                    Action::SupportRight => todo!(),
-                    Action::WalkToKickOff => todo!(),
-                    Action::WalkToPenaltyKick => todo!(),
                 }?;
                 Some((action, motion_command))
             })
