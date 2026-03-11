@@ -270,7 +270,7 @@ impl Localization {
             .iter()
             .chain(context.fall_down_state.temporary.iter())
             .flat_map(|(_timestamp, states)| states.iter())
-            .filter_map(|state| state.as_ref().map(|state| state.fall_down_state.clone()))
+            .filter_map(|state| state.as_ref().map(|state| state.fall_down_state))
             .next_back()
     }
 
