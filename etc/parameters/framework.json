@@ -1,8 +1,12 @@
 {
-  "communication_addresses": "[::]:1337",
+  "communication_addresses": null,
   "hardware_parameters": "etc/parameters/hardware.json",
   "parameters_directory": "etc/parameters",
   "recording_intervals": {
-    "Control": 1
+    "Motion": 10,
+    "ObjectDetection": 1,
+    "SplNetwork": 1,
+    "Vision": 1,
+    "WorldState": 1
   }
 }
