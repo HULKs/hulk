@@ -3,7 +3,7 @@ use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use hardware::{LightControlInterface, SimulatorInterface, TimeInterface};
+use hardware::{LightControlInterface, SimulatorInterface};
 use types::primary_state::PrimaryState;
 
 #[derive(Deserialize, Serialize)]
@@ -34,7 +34,7 @@ impl LEDHandler {
 
     pub fn cycle(
         &mut self,
-        context: CycleContext<impl SimulatorInterface + LightControlInterface + TimeInterface>,
+        context: CycleContext<impl SimulatorInterface + LightControlInterface>,
     ) -> Result<MainOutputs> {
         if context.hardware_interface.is_simulation()? {
             return Ok(MainOutputs {});
