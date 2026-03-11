@@ -489,11 +489,11 @@
   "obstacle_filter": {
     "use_detected_objects": true,
     "hypothesis_timeout": {
-      "nanos": 0,
-      "secs": 2
+      "nanos": 500000000,
+      "secs": 0
     },
     "network_robot_measurement_matching_distance": 0.2,
-    "object_detection_measurement_matching_distance": 0.2,
+    "object_detection_measurement_matching_distance": 1.0,
     "hypothesis_merge_distance": 0.3,
     "process_noise": [0.005, 0.005],
     "network_robot_measurement_noise": [3.0, 5.0],
