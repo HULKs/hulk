@@ -5,7 +5,7 @@ use context_attribute::context;
 use framework::MainOutput;
 use geometry::{circle::Circle, rectangle::Rectangle};
 use hsl_network_messages::{SubState, Team};
-use linear_algebra::{point, vector, Point};
+use linear_algebra::{Point, point, vector};
 use types::{
     field_dimensions::FieldDimensions, filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState, rule_obstacles::RuleObstacle, world_state::BallState,
@@ -50,10 +50,12 @@ impl RuleObstacleComposer {
                 FilteredGameControllerState {
                     sub_state:
                         Some(
-                            SubState::KickIn
+                            SubState::ThrowIn
                             | SubState::CornerKick
                             | SubState::GoalKick
-                            | SubState::PushingFreeKick,
+                            | SubState::PenaltyKick
+                            | SubState::DirectFreeKick
+                            | SubState::IndirectFreeKick,
                         ),
                     kicking_team: Some(Team::Opponent),
                     game_state: FilteredGameState::Playing { .. },
