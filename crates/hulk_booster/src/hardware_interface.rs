@@ -11,7 +11,13 @@ use std::{
 use booster::{
     ButtonEventMsg, FallDownState, Kick, LowCommand, LowState, Odometer, RemoteControllerState,
 };
-use booster_sdk::{client::BoosterClient, types::RobotMode};
+use booster_sdk::{
+    client::{
+        BoosterClient,
+        light_control::{LightControlClient, SetLedLightColorParameter},
+    },
+    types::RobotMode,
+};
 use cdr::{CdrLe, Infinite};
 use color_eyre::{
     Result,
@@ -19,10 +25,10 @@ use color_eyre::{
 };
 use hardware::{
     ButtonEventMsgInterface, CameraInterface, FallDownStateInterface, HighLevelInterface,
-    IdInterface, LowCommandInterface, LowStateInterface, MicrophoneInterface,
-    MotionRuntimeInteface, NetworkInterface, OdometerInterface, PathsInterface, RecordingInterface,
-    RemoteControllerStateInterface, SimulatorInterface, SpeakerInterface, TimeInterface,
-    VisualKickInterface,
+    IdInterface, LightControlInterface, LowCommandInterface, LowStateInterface,
+    MicrophoneInterface, MotionRuntimeInteface, NetworkInterface, OdometerInterface,
+    PathsInterface, RecordingInterface, RemoteControllerStateInterface, SimulatorInterface,
+    SpeakerInterface, TimeInterface, VisualKickInterface,
 };
 use hsl_network::endpoint::{Endpoint, Ports};
 use hula_types::hardware::{Ids, Paths};
@@ -109,6 +115,7 @@ pub struct BoosterHardwareInterface {
     image_left_raw_camera_info_receiver: Mutex<LatestReceiver<CameraInfo>>,
 
     high_level_interface_client: Arc<BoosterClient>,
+    light_control_client: Arc<LightControlClient>,
     robot_mode: Arc<Mutex<RobotMode>>,
 
     runtime_handle: Handle,
@@ -137,6 +144,8 @@ impl BoosterHardwareInterface {
         };
 
         let high_level_interface_client = Arc::new(BoosterClient::new()?);
+        let light_control_client = Arc::new(LightControlClient::new()?);
+
         let robot_mode = Arc::new(Mutex::new(RobotMode::Unknown));
 
         tokio::spawn(
@@ -175,6 +184,7 @@ impl BoosterHardwareInterface {
 
             robot_mode,
             high_level_interface_client,
+            light_control_client,
 
             hsl_network_endpoint: keep_running
                 .clone()
@@ -744,6 +754,31 @@ impl HighLevelInterface for BoosterHardwareInterface {
 impl MotionRuntimeInteface for BoosterHardwareInterface {
     fn get_motion_runtime_type(&self) -> Result<MotionRuntime> {
         Ok(MotionRuntime::Booster)
+    }
+}
+
+impl LightControlInterface for BoosterHardwareInterface {
+    fn set_led_color(&self, light_control_parameter: SetLedLightColorParameter) -> Result<()> {
+        let light_control_client = self.light_control_client.clone();
+        self.runtime_handle.spawn(async move {
+            if let Err(err) = light_control_client
+                .set_led_light_color_param(&light_control_parameter)
+                .await
+            {
+                log::error!("failed to set leds: {err}");
+            }
+        });
+        Ok(())
+    }
+
+    fn stop_led_control(&self) -> Result<()> {
+        let light_control_client = self.light_control_client.clone();
+        self.runtime_handle.spawn(async move {
+            if let Err(err) = light_control_client.stop_led_light_control().await {
+                log::error!("failed to stop led control: {err}");
+            }
+        });
+        Ok(())
     }
 }
 

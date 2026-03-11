@@ -10,6 +10,7 @@ pub mod game_controller_filter;
 pub mod game_controller_state_filter;
 pub mod ground_provider;
 pub mod kinematics_provider;
+pub mod led_handler;
 pub mod localization;
 pub mod obstacle_filter;
 pub mod obstacle_receiver;

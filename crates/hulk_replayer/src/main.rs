@@ -13,10 +13,10 @@ mod worker_thread;
 use booster_sdk::types::RobotMode;
 use color_eyre::{eyre::Result, install};
 use hardware::{
-    ActuatorInterface, CameraInterface, HighLevelInterface, IdInterface, LowCommandInterface,
-    LowStateInterface, MicrophoneInterface, MotionRuntimeInteface, NetworkInterface,
-    PathsInterface, RecordingInterface, SensorInterface, SimulatorInterface, SpeakerInterface,
-    TimeInterface, VisualKickInterface,
+    ActuatorInterface, CameraInterface, HighLevelInterface, IdInterface, LightControlInterface,
+    LowCommandInterface, LowStateInterface, MicrophoneInterface, MotionRuntimeInteface,
+    NetworkInterface, PathsInterface, RecordingInterface, SensorInterface, SimulatorInterface,
+    SpeakerInterface, TimeInterface, VisualKickInterface,
 };
 use hula_types::hardware::{Ids, Paths};
 use kinematics::joints::{Joints, head::HeadJoints};
@@ -49,6 +49,7 @@ pub trait HardwareInterface:
     + SimulatorInterface
     + HighLevelInterface
     + MotionRuntimeInteface
+    + LightControlInterface
 {
 }
 
@@ -221,6 +222,19 @@ impl HighLevelInterface for ReplayerHardwareInterface {
 impl MotionRuntimeInteface for ReplayerHardwareInterface {
     fn get_motion_runtime_type(&self) -> Result<MotionRuntime> {
         unimplemented!()
+    }
+}
+
+impl LightControlInterface for ReplayerHardwareInterface {
+    fn set_led_color(
+        &self,
+        _light_control_parameter: booster_sdk::client::light_control::SetLedLightColorParameter,
+    ) -> Result<()> {
+        Ok(())
+    }
+
+    fn stop_led_control(&self) -> Result<()> {
+        Ok(())
     }
 }
 

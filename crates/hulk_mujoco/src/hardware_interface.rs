@@ -15,10 +15,10 @@ use color_eyre::{
 };
 use futures_util::{SinkExt, StreamExt};
 use hardware::{
-    ButtonEventMsgInterface, CameraInterface, HighLevelInterface, IdInterface, MicrophoneInterface,
-    MotionRuntimeInteface, NetworkInterface, OdometerInterface, PathsInterface, RecordingInterface,
-    SimulatorInterface, SpeakerInterface, TimeInterface, TransformMessageInterface,
-    VisualKickInterface,
+    ButtonEventMsgInterface, CameraInterface, HighLevelInterface, IdInterface,
+    LightControlInterface, MicrophoneInterface, MotionRuntimeInteface, NetworkInterface,
+    OdometerInterface, PathsInterface, RecordingInterface, SimulatorInterface, SpeakerInterface,
+    TimeInterface, TransformMessageInterface, VisualKickInterface,
 };
 use hardware::{
     FallDownStateInterface, LowCommandInterface, LowStateInterface, RemoteControllerStateInterface,
@@ -485,6 +485,19 @@ impl MotionRuntimeInteface for MujocoHardwareInterface {
 impl OdometerInterface for MujocoHardwareInterface {
     fn get_odometer(&self) -> Result<booster::Odometer> {
         Ok(Odometer::default())
+    }
+}
+
+impl LightControlInterface for MujocoHardwareInterface {
+    fn set_led_color(
+        &self,
+        _light_control_parameter: booster_sdk::client::light_control::SetLedLightColorParameter,
+    ) -> Result<()> {
+        Ok(())
+    }
+
+    fn stop_led_control(&self) -> Result<()> {
+        Ok(())
     }
 }
 

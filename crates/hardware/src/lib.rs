@@ -4,7 +4,7 @@ use booster::{
     ButtonEventMsg, FallDownState, Kick, LowCommand, LowState, Odometer, RemoteControllerState,
     TransformMessage,
 };
-use booster_sdk::types::RobotMode;
+use booster_sdk::{client::light_control::SetLedLightColorParameter, types::RobotMode};
 use color_eyre::eyre::Result;
 
 use hula_types::hardware::{Ids, Paths};
@@ -122,4 +122,10 @@ pub trait MotionRuntimeInteface {
 
 pub trait OdometerInterface {
     fn get_odometer(&self) -> Result<Odometer>;
+}
+
+pub trait LightControlInterface {
+    fn set_led_color(&self, light_control_parameter: SetLedLightColorParameter) -> Result<()>;
+
+    fn stop_led_control(&self) -> Result<()>;
 }
