@@ -33,7 +33,7 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
                     // "object_detection::pose_filter",
                     // "object_detection::pose_interpretation",
                 ],
-                execution_time_warning_threshold: Some(Duration::from_secs_f32(33.0)),
+                execution_time_warning_threshold: Some(Duration::from_secs_f32(1.0 / 30.0)),
             },
             CyclerManifest {
                 name: "Motion",
@@ -51,7 +51,7 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
                     "motion::hulk::walking",
                     "motion::hulk::motor_commands_collector",
                 ],
-                execution_time_warning_threshold: Some(Duration::from_secs_f32(1.0 / 500.0)),
+                execution_time_warning_threshold: Some(Duration::from_secs_f32(1.0 / 100.0)),
             },
             CyclerManifest {
                 name: "HslNetwork",

@@ -41,7 +41,7 @@ pub fn setup_logger() -> Result<(), fern::InitError> {
                 message
             ))
         })
-        .level(log::LevelFilter::Debug)
+        .level(log::LevelFilter::Info)
         .level_for("rustdds", log::LevelFilter::Error)
         .level_for("booster_sdk", log::LevelFilter::Error)
         .level_for("ort", log::LevelFilter::Warn)

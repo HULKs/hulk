@@ -27,7 +27,7 @@ use hardware::{
 use hsl_network::endpoint::{Endpoint, Ports};
 use hula_types::hardware::{Ids, Paths};
 use kinematics::joints::head::HeadJoints;
-use log::{error, warn};
+use log::{debug, error, warn};
 use parking_lot::Mutex;
 use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
 use serde::{Deserialize, de::DeserializeOwned};
@@ -57,15 +57,15 @@ use zenoh::{
 const COMMAND_CHANNEL_CAPACITY: usize = 10;
 const ZENOH_LOCALHOST_ENDPOINT: &str = "tcp/127.0.0.1:7447";
 const LOW_STATE_TOPIC: &str = "rt/low_state";
-const JOINT_CTRL_TOPIC: &str = "rt/joint_ctrl";
+const JOINT_CTRL_TOPIC: &str = "rt/joint_ctrl"; // not needed
 const KICK_BALL_TOPIC: &str = "rt/kick_ball";
 const ODOMETER_STATE_TOPIC: &str = "rt/odometer_state";
 const FALL_DOWN_TOPIC: &str = "rt/fall_down";
 const BUTTON_EVENT_TOPIC: &str = "rt/button_event";
 const REMOTE_CONTROLLER_STATE_TOPIC: &str = "rt/remote_controller_state";
-const RECTIFIED_IMAGE_TOPIC: &str = "rt/StereoNetNode/rectified_image";
-const STEREONET_DEPTH_TOPIC: &str = "rt/StereoNetNode/stereonet_depth";
-const STEREONET_DEPTH_CAMERA_INFO_TOPIC: &str = "rt/StereoNetNode/stereonet_depth/camera_info";
+const RECTIFIED_IMAGE_TOPIC: &str = "rt/StereoNetNode/rectified_image"; // not needed
+const STEREONET_DEPTH_TOPIC: &str = "rt/StereoNetNode/stereonet_depth"; // not needed
+const STEREONET_DEPTH_CAMERA_INFO_TOPIC: &str = "rt/StereoNetNode/stereonet_depth/camera_info"; // no needed
 const IMAGE_LEFT_RAW_TOPIC: &str = "rt/image_left_raw";
 const IMAGE_LEFT_RAW_CAMERA_INFO_TOPIC: &str = "rt/image_left_raw/camera_info";
 
@@ -469,7 +469,7 @@ impl LowStateInterface for BoosterHardwareInterface {
             .run_until_cancelled(self.low_state_receiver.lock().recv_latest())?
             .wrap_err("failed to read low state from `rt/low_state`")?;
         if message.dropped_messages > 0 {
-            warn!(
+            debug!(
                 "dropped {} stale low state messages from `rt/low_state`",
                 message.dropped_messages
             );
@@ -500,7 +500,7 @@ impl OdometerInterface for BoosterHardwareInterface {
             .run_until_cancelled(self.odometer_receiver.lock().recv_latest())?
             .wrap_err("failed to read odometer from `rt/odometer_state`")?;
         if message.dropped_messages > 0 {
-            warn!(
+            debug!(
                 "dropped {} stale odometer messages from `rt/odometer_state`",
                 message.dropped_messages
             );
@@ -515,7 +515,7 @@ impl FallDownStateInterface for BoosterHardwareInterface {
             .run_until_cancelled(self.fall_down_state_receiver.lock().recv_latest())?
             .wrap_err("failed to read fall down state from `rt/fall_down`")?;
         if message.dropped_messages > 0 {
-            warn!(
+            debug!(
                 "dropped {} stale fall down state messages from `rt/fall_down`",
                 message.dropped_messages
             );
@@ -530,7 +530,7 @@ impl ButtonEventMsgInterface for BoosterHardwareInterface {
             .run_until_cancelled(self.button_event_msg_receiver.lock().recv_latest())?
             .wrap_err("failed to read button event from `rt/button_event`")?;
         if message.dropped_messages > 0 {
-            warn!(
+            debug!(
                 "dropped {} stale button event messages from `rt/button_event`",
                 message.dropped_messages
             );
@@ -545,7 +545,7 @@ impl RemoteControllerStateInterface for BoosterHardwareInterface {
             .run_until_cancelled(self.remote_controller_state_receiver.lock().recv_latest())?
             .wrap_err("failed to read remote controller state from `rt/remote_controller_state`")?;
         if message.dropped_messages > 0 {
-            warn!(
+            debug!(
                 "dropped {} stale remote controller state messages from `rt/remote_controller_state`",
                 message.dropped_messages
             );
@@ -560,7 +560,7 @@ impl CameraInterface for BoosterHardwareInterface {
             .run_until_cancelled(self.rectified_image_receiver.lock().recv_latest())?
             .wrap_err("failed to read rectified image from `rt/StereoNetNode/rectified_image`")?;
         if message.dropped_messages > 0 {
-            warn!(
+            debug!(
                 "dropped {} stale rectified image messages from `rt/StereoNetNode/rectified_image`",
                 message.dropped_messages
             );
@@ -575,7 +575,7 @@ impl CameraInterface for BoosterHardwareInterface {
                 "failed to read stereonet depth image from `rt/StereoNetNode/stereonet_depth`",
             )?;
         if message.dropped_messages > 0 {
-            warn!(
+            debug!(
                 "dropped {} stale stereonet depth image messages from `rt/StereoNetNode/stereonet_depth`",
                 message.dropped_messages
             );
@@ -588,7 +588,7 @@ impl CameraInterface for BoosterHardwareInterface {
             .run_until_cancelled(self.stereonet_depth_camera_info_receiver.lock().recv_latest())?
             .wrap_err("failed to read stereonet depth camera info from `rt/StereoNetNode/stereonet_depth/camera_info`")?;
         if message.dropped_messages > 0 {
-            warn!(
+            debug!(
                 "dropped {} stale stereonet depth camera info messages from `rt/StereoNetNode/stereonet_depth/camera_info`",
                 message.dropped_messages
             );
@@ -601,7 +601,7 @@ impl CameraInterface for BoosterHardwareInterface {
             .run_until_cancelled(self.image_left_raw_receiver.lock().recv_latest())?
             .wrap_err("failed to read left raw image from `rt/image_left_raw`")?;
         if message.dropped_messages > 0 {
-            warn!(
+            debug!(
                 "dropped {} stale left raw image messages from `rt/image_left_raw`",
                 message.dropped_messages
             );
@@ -618,7 +618,7 @@ impl CameraInterface for BoosterHardwareInterface {
             )?
             .wrap_err("failed to read left raw camera info from `rt/image_left_raw/camera_info`")?;
         if message.dropped_messages > 0 {
-            warn!(
+            debug!(
                 "dropped {} stale left raw camera info messages from `rt/image_left_raw/camera_info`",
                 message.dropped_messages
             );
@@ -652,7 +652,7 @@ impl NetworkInterface for BoosterHardwareInterface {
 
 impl SpeakerInterface for BoosterHardwareInterface {
     fn write_to_speakers(&self, _request: SpeakerRequest) {
-        log::warn!("tried to play audio request, not implemented!")
+        log::debug!("tried to play audio request, not implemented!")
     }
 }
 

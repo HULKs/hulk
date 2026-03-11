@@ -45,7 +45,16 @@
       ////           allow: ["cmd_vel", "rosout"]
       ////           allow: "cmd_vel|rosout"
       ////
-      // allow: ["cmd_vel", "rosout"],
+      allow: [
+        "low_state",
+        "image_left_raw",
+        "rectified_image",
+        "kick_ball",
+        "odometer_state",
+        "fall_down",
+        "button_event",
+        "remote_controller_state"
+      ],
 
       ////
       //// deny:  1 or more regular regular expression matching the set of 'partition/topic-name' that must NOT be routed via zenoh.
