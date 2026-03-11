@@ -569,9 +569,9 @@ impl Odometer {
     }
 
     pub fn to(self, new: Odometer) -> Isometry2<Ground, Ground> {
-        let old = self.as_isometry(); // B <- A
-        let new = new.as_isometry(); // C <- A
-        new * old.inverse()
+        let old = self.as_isometry(); // A <- B
+        let new = new.as_isometry(); // A <- C
+        new.inverse() * old
     }
 }
 
