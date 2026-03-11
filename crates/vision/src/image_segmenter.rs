@@ -1,6 +1,7 @@
-use std::ops::Add;
+use std::ops::{Add, Range};
 
 use color_eyre::Result;
+use itertools::iproduct;
 use projection::{Projection, camera_matrix::CameraMatrix, horizon::Horizon};
 use serde::{Deserialize, Serialize};
 
@@ -9,13 +10,12 @@ use coordinate_systems::{Ground, Pixel};
 use framework::MainOutput;
 use linear_algebra::{Framed, Point2, Vector2, point, vector};
 use types::{
-    color::{Intensity, Rgb, YCbCr444},
+    color::{Hsv, Intensity, RgChromaticity, Rgb, YCbCr444},
+    field_color::FieldColorParameters,
     image_segments::{Direction, EdgeType, ImageSegments, ScanGrid, ScanLine, Segment},
     parameters::MedianModeParameters,
     ycbcr422_image::YCbCr422Image,
 };
-
-use crate::field_color_tree::{self, Features};
 
 #[derive(Deserialize, Serialize)]
 pub struct ImageSegmenter {}
@@ -39,6 +39,8 @@ pub struct CycleContext {
     vertical_stride: Parameter<usize, "image_segmenter.vertical_stride">,
     vertical_edge_threshold: Parameter<u8, "image_segmenter.vertical_edge_threshold">,
     vertical_median_mode: Parameter<MedianModeParameters, "image_segmenter.vertical_median_mode">,
+
+    field_color: Parameter<FieldColorParameters, "field_color_detection">,
 }
 
 #[context]
@@ -62,6 +64,7 @@ impl ImageSegmenter {
             context.image,
             context.camera_matrix,
             &horizon,
+            context.field_color,
             *context.horizontal_stride,
             *context.horizontal_edge_threshold as i16,
             *context.horizontal_median_mode,
@@ -89,6 +92,7 @@ fn new_grid(
     image: &YCbCr422Image,
     camera_matrix: &CameraMatrix,
     horizon: &Horizon,
+    field_color: &FieldColorParameters,
     horizontal_stride: usize,
     horizontal_edge_threshold: i16,
     horizontal_median_mode: MedianModeParameters,
@@ -106,6 +110,7 @@ fn new_grid(
         MedianModeParameters::Disabled => collect_horizontal_scan_lines::<MedianMode<0>>(
             image,
             camera_matrix,
+            field_color,
             horizontal_stride,
             horizontal_edge_threshold,
             vertical_stride_in_ground,
@@ -115,6 +120,7 @@ fn new_grid(
         MedianModeParameters::ThreePixels => collect_horizontal_scan_lines::<MedianMode<3>>(
             image,
             camera_matrix,
+            field_color,
             horizontal_stride,
             horizontal_edge_threshold,
             vertical_stride_in_ground,
@@ -124,6 +130,7 @@ fn new_grid(
         MedianModeParameters::FivePixels => collect_horizontal_scan_lines::<MedianMode<5>>(
             image,
             camera_matrix,
+            field_color,
             horizontal_stride,
             horizontal_edge_threshold,
             vertical_stride_in_ground,
@@ -135,6 +142,7 @@ fn new_grid(
         MedianModeParameters::Disabled => collect_vertical_scan_lines::<MedianMode<0>>(
             image,
             horizon,
+            field_color,
             horizontal_stride,
             vertical_stride,
             vertical_edge_threshold,
@@ -143,6 +151,7 @@ fn new_grid(
         MedianModeParameters::ThreePixels => collect_vertical_scan_lines::<MedianMode<3>>(
             image,
             horizon,
+            field_color,
             horizontal_stride,
             vertical_stride,
             vertical_edge_threshold,
@@ -151,6 +160,7 @@ fn new_grid(
         MedianModeParameters::FivePixels => collect_vertical_scan_lines::<MedianMode<5>>(
             image,
             horizon,
+            field_color,
             horizontal_stride,
             vertical_stride,
             vertical_edge_threshold,
@@ -166,6 +176,7 @@ fn new_grid(
 fn collect_vertical_scan_lines<MedianMode: MedianSampling>(
     image: &YCbCr422Image,
     horizon: &Horizon,
+    field_color: &FieldColorParameters,
     horizontal_stride: usize,
     vertical_stride: usize,
     vertical_edge_threshold: i16,
@@ -177,6 +188,7 @@ fn collect_vertical_scan_lines<MedianMode: MedianSampling>(
             let horizon_y = horizon.y_at_x(x as f32).clamp(0.0, image.height() as f32);
             new_vertical_scan_line::<MedianMode>(
                 image,
+                field_color,
                 x,
                 vertical_stride,
                 vertical_edge_threshold,
@@ -190,6 +202,7 @@ fn collect_vertical_scan_lines<MedianMode: MedianSampling>(
 fn collect_horizontal_scan_lines<MedianMode: MedianSampling>(
     image: &YCbCr422Image,
     camera_matrix: &CameraMatrix,
+    field_color: &FieldColorParameters,
     horizontal_stride: usize,
     horizontal_edge_threshold: i16,
     vertical_stride: Framed<Ground, f32>,
@@ -203,6 +216,7 @@ fn collect_horizontal_scan_lines<MedianMode: MedianSampling>(
     while y + horizontal_padding_size < image.height() {
         horizontal_scan_lines.push(new_horizontal_scan_line::<MedianMode>(
             image,
+            field_color,
             y,
             horizontal_stride,
             horizontal_edge_threshold,
@@ -210,7 +224,7 @@ fn collect_horizontal_scan_lines<MedianMode: MedianSampling>(
 
         y = next_horizontal_segment_y(image, camera_matrix, vertical_stride, y)
             .unwrap_or(0)
-            .max(y + 4);
+            .max(y + 2);
     }
     horizontal_scan_lines
 }
@@ -280,6 +294,7 @@ where
 
 fn new_horizontal_scan_line<MedianMode: MedianSampling>(
     image: &YCbCr422Image,
+    field_color: &FieldColorParameters,
     position: u32,
     stride: usize,
     edge_threshold: i16,
@@ -301,21 +316,20 @@ fn new_horizontal_scan_line<MedianMode: MedianSampling>(
         let edge_detection_value =
             MedianMode::sample(point![x, position], Direction::Horizontal, image);
 
-        if let Some(mut segment) = detect_edge(
+        if let Some(segment) = detect_edge(
             &mut state,
             x as u16,
             edge_detection_value as i16,
             edge_threshold,
         ) {
-            segment.color =
-                average_color_in_segment(&segment, position, Direction::Horizontal, image);
-            segment.field_color =
-                detect_field_color_in_segment(&segment, position, Direction::Horizontal, image);
-            segments.push(segment);
+            segments.push(set_field_color_in_segment(
+                set_color_in_segment(segment, position, Direction::Horizontal, image),
+                field_color,
+            ));
         }
     }
 
-    let mut last_segment = Segment {
+    let last_segment = Segment {
         start: state.start_position,
         end: image.width() as u16,
         start_edge_type: state.start_edge_type,
@@ -323,11 +337,10 @@ fn new_horizontal_scan_line<MedianMode: MedianSampling>(
         color: Default::default(),
         field_color: Intensity::Low,
     };
-    last_segment.color =
-        average_color_in_segment(&last_segment, position, Direction::Horizontal, image);
-    last_segment.field_color =
-        detect_field_color_in_segment(&last_segment, position, Direction::Horizontal, image);
-    segments.push(last_segment);
+    segments.push(set_field_color_in_segment(
+        set_color_in_segment(last_segment, position, Direction::Horizontal, image),
+        field_color,
+    ));
 
     ScanLine {
         position: position as u16,
@@ -338,6 +351,7 @@ fn new_horizontal_scan_line<MedianMode: MedianSampling>(
 #[allow(clippy::too_many_arguments)]
 fn new_vertical_scan_line<MedianMode: MedianSampling>(
     image: &YCbCr422Image,
+    field_color: &FieldColorParameters,
     position: u32,
     stride: usize,
     edge_threshold: i16,
@@ -366,21 +380,20 @@ fn new_vertical_scan_line<MedianMode: MedianSampling>(
         let edge_detection_value =
             MedianMode::sample(point![position, y], Direction::Vertical, image);
 
-        if let Some(mut segment) = detect_edge(
+        if let Some(segment) = detect_edge(
             &mut state,
             y as u16,
             edge_detection_value as i16,
             edge_threshold,
         ) {
-            segment.color =
-                average_color_in_segment(&segment, position, Direction::Vertical, image);
-            segment.field_color =
-                detect_field_color_in_segment(&segment, position, Direction::Vertical, image);
-            segments.push(segment);
+            segments.push(set_field_color_in_segment(
+                set_color_in_segment(segment, position, Direction::Vertical, image),
+                field_color,
+            ));
         }
     }
 
-    let mut last_segment = Segment {
+    let last_segment = Segment {
         start: state.start_position,
         end: image.height() as u16,
         start_edge_type: state.start_edge_type,
@@ -388,11 +401,10 @@ fn new_vertical_scan_line<MedianMode: MedianSampling>(
         color: Default::default(),
         field_color: Intensity::Low,
     };
-    last_segment.color =
-        average_color_in_segment(&last_segment, position, Direction::Vertical, image);
-    last_segment.field_color =
-        detect_field_color_in_segment(&last_segment, position, Direction::Vertical, image);
-    segments.push(last_segment);
+    segments.push(set_field_color_in_segment(
+        set_color_in_segment(last_segment, position, Direction::Vertical, image),
+        field_color,
+    ));
 
     ScanLine {
         position: position as u16,
@@ -446,41 +458,9 @@ impl MedianSampling for MedianMode<5> {
     }
 }
 
-fn detect_field_color_in_segment(
-    segment: &Segment,
-    position: u32,
-    direction: Direction,
-    image: &YCbCr422Image,
-) -> Intensity {
-    const RADIUS: u32 = 28;
-
-    let color = segment.color;
-    let rgb = Rgb::from(color);
-    let g_chromaticity = rgb.green_chromaticity();
-    let center: Point2<Pixel, u32> = match direction {
-        Direction::Horizontal => point![segment.center() as u32, position],
-        Direction::Vertical => point![position, segment.center() as u32],
-    };
-
-    let right = image.at((center.x() + RADIUS).min(image.width() - 1), center.y());
-    let top = image.at(center.x(), center.y().saturating_sub(RADIUS));
-    let left = image.at(center.x().saturating_sub(RADIUS), center.y());
-    let bottom = image.at(center.x(), (center.y() + RADIUS).min(image.height() - 1));
-
-    let features = Features {
-        center: g_chromaticity,
-        right: Rgb::from(right).green_chromaticity(),
-        top: Rgb::from(top).green_chromaticity(),
-        left: Rgb::from(left).green_chromaticity(),
-        bottom: Rgb::from(bottom).green_chromaticity(),
-    };
-
-    let probability = field_color_tree::predict(&features);
-    if probability >= 0.5 {
-        Intensity::High
-    } else {
-        Intensity::Low
-    }
+fn set_field_color_in_segment(mut segment: Segment, field_color: &FieldColorParameters) -> Segment {
+    segment.field_color = field_color.get_intensity(segment.color);
+    segment
 }
 
 #[derive(Default)]
@@ -515,29 +495,43 @@ impl YCbCr444Sum {
     }
 }
 
-fn average_color_in_segment(
-    segment: &Segment,
+fn average_image_pixels(
+    image: &YCbCr422Image,
+    x: Range<u32>,
+    y: Range<u32>,
+    stride: usize,
+) -> YCbCr444 {
+    let sum = iproduct!(x.step_by(stride), y.step_by(stride))
+        .fold(YCbCr444Sum::default(), |sum, (x, y)| sum + image.at(x, y));
+    sum.average()
+}
+
+fn set_color_in_segment(
+    mut segment: Segment,
     position: u32,
     direction: Direction,
     image: &YCbCr422Image,
-) -> YCbCr444 {
-    let center = match direction {
-        Direction::Horizontal => point![segment.center() as u32, position],
-        Direction::Vertical => point![position, segment.center() as u32],
+) -> Segment {
+    let length = segment.length();
+    let x = match direction {
+        Direction::Horizontal => (segment.start as u32)..(segment.end as u32),
+        Direction::Vertical => position..(position + 1),
     };
-    let start = match direction {
-        Direction::Horizontal => point![(segment.start + segment.length() / 3) as u32, position],
-        Direction::Vertical => point![position, (segment.start + segment.length() / 3) as u32],
+    let y = match direction {
+        Direction::Horizontal => position..(position + 1),
+        Direction::Vertical => (segment.start as u32)..(segment.end as u32),
     };
-    let end = match direction {
-        Direction::Horizontal => point![(segment.end - segment.length() / 3 - 1) as u32, position],
-        Direction::Vertical => point![position, (segment.end - segment.length() / 3 - 1) as u32],
+    let stride = match length {
+        20.. => 4,   // results in 5.. or more sample pixels
+        7..=19 => 2, // results in 4..=10 or more sample pixels
+        1..=6 => 1,  // results in 1..=6 or more sample pixels
+        0 => {
+            segment.color = image.at(x.start, y.start);
+            return segment;
+        }
     };
-    let sum = YCbCr444Sum::default()
-        + image.at_point(start)
-        + image.at_point(center)
-        + image.at_point(end);
-    sum.average()
+    segment.color = average_image_pixels(image, x, y, stride);
+    segment
 }
 
 fn detect_edge(
@@ -584,7 +578,6 @@ fn detect_edge(
         };
         state.maximum_difference = 0;
         state.start_position = state.maximum_difference_position;
-        state.maximum_difference_position = position;
         state.start_edge_type = end_edge_type;
 
         Some(segment)
@@ -598,12 +591,47 @@ fn detect_edge(
     segment
 }
 
+trait FieldColorDetection {
+    fn get_intensity(&self, color: YCbCr444) -> Intensity;
+}
+
+impl FieldColorDetection for FieldColorParameters {
+    fn get_intensity(&self, color: YCbCr444) -> Intensity {
+        let rgb = Rgb::from(color);
+        let rg_chromaticity = RgChromaticity::from(rgb);
+        let blue_chromaticity = 1.0 - rg_chromaticity.red - rg_chromaticity.green;
+        let hsv = Hsv::from(rgb);
+
+        if self.luminance.contains(&color.y)
+            && self.green_luminance.contains(&color.y)
+            && self.red_chromaticity.contains(&rg_chromaticity.red)
+            && self.green_chromaticity.contains(&rg_chromaticity.green)
+            && self.blue_chromaticity.contains(&blue_chromaticity)
+            && self.hue.contains(&hsv.hue)
+            && self.saturation.contains(&hsv.saturation)
+        {
+            Intensity::High
+        } else {
+            Intensity::Low
+        }
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use itertools::iproduct;
     use types::color::YCbCr422;
 
     use super::*;
+    const FIELD_COLOR: FieldColorParameters = FieldColorParameters {
+        luminance: 25..=255,
+        green_luminance: 255..=255,
+        red_chromaticity: 0.37..=1.0,
+        green_chromaticity: 0.43..=1.0,
+        blue_chromaticity: 0.37..=1.0,
+        hue: 0..=0,
+        saturation: 0..=0,
+    };
 
     #[test]
     fn maximum_with_sign_switch() {
@@ -616,6 +644,7 @@ mod tests {
         let horizon_y_minimum = 0.0;
         let scan_line = new_vertical_scan_line::<MedianMode<0>>(
             &image,
+            &FIELD_COLOR,
             12,
             vertical_stride,
             vertical_edge_threshold,
@@ -633,7 +662,7 @@ mod tests {
     #[test]
     fn image_with_one_vertical_segment_without_median() {
         let image = YCbCr422Image::zero(6, 3);
-        let scan_line = new_vertical_scan_line::<MedianMode<0>>(&image, 0, 2, 1, 0.0);
+        let scan_line = new_vertical_scan_line::<MedianMode<0>>(&image, &FIELD_COLOR, 0, 2, 1, 0.0);
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 1);
         assert_eq!(scan_line.segments[0].start, 0);
@@ -643,7 +672,7 @@ mod tests {
     #[test]
     fn image_with_one_vertical_segment_with_median() {
         let image = YCbCr422Image::zero(6, 3);
-        let scan_line = new_vertical_scan_line::<MedianMode<3>>(&image, 1, 2, 1, 0.0);
+        let scan_line = new_vertical_scan_line::<MedianMode<3>>(&image, &FIELD_COLOR, 1, 2, 1, 0.0);
         assert_eq!(scan_line.position, 1);
         assert_eq!(scan_line.segments.len(), 1);
         assert_eq!(scan_line.segments[0].start, 0);
@@ -663,12 +692,12 @@ mod tests {
             ],
         );
 
-        let scan_line = new_vertical_scan_line::<MedianMode<0>>(&image, 0, 2, 1, 0.0);
+        let scan_line = new_vertical_scan_line::<MedianMode<0>>(&image, &FIELD_COLOR, 0, 2, 1, 0.0);
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 1);
         assert_eq!(scan_line.segments[0].color.y, 0);
-        assert_eq!(scan_line.segments[0].color.cb, 15);
-        assert_eq!(scan_line.segments[0].color.cr, 13);
+        assert_eq!(scan_line.segments[0].color.cb, 11);
+        assert_eq!(scan_line.segments[0].color.cr, 11);
     }
 
     #[test]
@@ -692,12 +721,12 @@ mod tests {
             ],
         );
 
-        let scan_line = new_vertical_scan_line::<MedianMode<0>>(&image, 0, 2, 1, 0.0);
+        let scan_line = new_vertical_scan_line::<MedianMode<0>>(&image, &FIELD_COLOR, 0, 2, 1, 0.0);
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 1);
         assert_eq!(scan_line.segments[0].color.y, 0);
-        assert_eq!(scan_line.segments[0].color.cb, 7);
-        assert_eq!(scan_line.segments[0].color.cr, 7);
+        assert_eq!(scan_line.segments[0].color.cb, 8);
+        assert_eq!(scan_line.segments[0].color.cr, 8);
     }
 
     #[test]
@@ -735,7 +764,7 @@ mod tests {
         // 3  1     0          0                   0             0
         // -> end segment at position 12
 
-        let scan_line = new_vertical_scan_line::<MedianMode<0>>(&image, 0, 2, 1, 0.0);
+        let scan_line = new_vertical_scan_line::<MedianMode<0>>(&image, &FIELD_COLOR, 0, 2, 1, 0.0);
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 3);
         assert_eq!(scan_line.segments[0].start, 0);
@@ -796,7 +825,7 @@ mod tests {
         // 3
         // -> end segment at position 12
 
-        let scan_line = new_vertical_scan_line::<MedianMode<3>>(&image, 1, 2, 1, 0.0);
+        let scan_line = new_vertical_scan_line::<MedianMode<3>>(&image, &FIELD_COLOR, 1, 2, 1, 0.0);
         assert_eq!(scan_line.position, 1);
         assert_eq!(scan_line.segments.len(), 3);
         assert_eq!(scan_line.segments[0].start, 0);
@@ -848,7 +877,7 @@ mod tests {
         // 0  -1     0         0                    0              0
         // -> end segment at position 12
 
-        let scan_line = new_vertical_scan_line::<MedianMode<0>>(&image, 0, 2, 1, 0.0);
+        let scan_line = new_vertical_scan_line::<MedianMode<0>>(&image, &FIELD_COLOR, 0, 2, 1, 0.0);
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 3);
         assert_eq!(scan_line.segments[0].start, 0);
@@ -916,7 +945,7 @@ mod tests {
         // 0
         // -> end segment at position 12
 
-        let scan_line = new_vertical_scan_line::<MedianMode<3>>(&image, 1, 2, 1, 0.0);
+        let scan_line = new_vertical_scan_line::<MedianMode<3>>(&image, &FIELD_COLOR, 1, 2, 1, 0.0);
         assert_eq!(scan_line.position, 1);
         assert_eq!(scan_line.segments.len(), 3);
         assert_eq!(scan_line.segments[0].start, 0);
@@ -1041,7 +1070,7 @@ mod tests {
         // 0   0     0         0                    1              0
         // -> end segment at position 44
 
-        let scan_line = new_vertical_scan_line::<MedianMode<0>>(&image, 0, 2, 1, 0.0);
+        let scan_line = new_vertical_scan_line::<MedianMode<0>>(&image, &FIELD_COLOR, 0, 2, 1, 0.0);
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 3);
         assert_eq!(scan_line.segments[0].start, 0);
@@ -1220,7 +1249,7 @@ mod tests {
         // 0
         // -> end segment at position 44
 
-        let scan_line = new_vertical_scan_line::<MedianMode<3>>(&image, 1, 2, 1, 0.0);
+        let scan_line = new_vertical_scan_line::<MedianMode<3>>(&image, &FIELD_COLOR, 1, 2, 1, 0.0);
         assert_eq!(scan_line.position, 1);
         assert_eq!(scan_line.segments.len(), 3);
         assert_eq!(scan_line.segments[0].start, 0);
@@ -1276,7 +1305,7 @@ mod tests {
         // 21  6     5          1                   0             0
         // -> end segment at position 16
 
-        let scan_line = new_vertical_scan_line::<MedianMode<0>>(&image, 0, 2, 1, 0.0);
+        let scan_line = new_vertical_scan_line::<MedianMode<0>>(&image, &FIELD_COLOR, 0, 2, 1, 0.0);
         assert_eq!(scan_line.position, 0);
         assert_eq!(scan_line.segments.len(), 1);
         assert_eq!(scan_line.segments[0].start, 0);
@@ -1341,7 +1370,7 @@ mod tests {
         // 21
         // -> end segment at position 16
 
-        let scan_line = new_vertical_scan_line::<MedianMode<3>>(&image, 1, 2, 1, 0.0);
+        let scan_line = new_vertical_scan_line::<MedianMode<3>>(&image, &FIELD_COLOR, 1, 2, 1, 0.0);
         assert_eq!(scan_line.position, 1);
         assert_eq!(scan_line.segments.len(), 1);
         assert_eq!(scan_line.segments[0].start, 0);
