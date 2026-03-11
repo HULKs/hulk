@@ -16,16 +16,9 @@ use robot::{Network, Robot};
 use tokio::{
     io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader},
     process::Command,
-    sync::watch,
 };
 
-use crate::{
-    cargo::{
-        Arguments as CargoArguments, build::Arguments as CargoBuildArguments,
-        construct_cargo_command, environment::EnvironmentArguments,
-    },
-    progress_indicator::{ProgressIndicator, Task},
-};
+use crate::progress_indicator::ProgressIndicator;
 
 #[derive(Args)]
 pub struct Arguments {
@@ -43,11 +36,11 @@ pub struct Arguments {
     image_file: Option<PathBuf>,
 }
 
-static PACKAGES: [&str; 2] = ["zenoh-bridge-ros2dds", "podman"];
+static PACKAGES: [&str; 3] = ["zenohd", "zenoh-bridge-dds", "podman"];
 
 const WIFI_PASSWORD: &str = "HSL?!HSL?!";
 
-static ADD_APT_ROS2DDS_ZENOH_BRIDGE_SOURCES: &str = "
+static ADD_ZENOH_APT_SOURCES: &str = "
 curl -L https://download.eclipse.org/zenoh/debian-repo/zenoh-public-key | sudo gpg --dearmor --yes --output /etc/apt/keyrings/zenoh-public-key.gpg
 grep \"https://download.eclipse.org/zenoh/debian-repo/\" /etc/apt/sources.list || echo \"deb [signed-by=/etc/apt/keyrings/zenoh-public-key.gpg] https://download.eclipse.org/zenoh/debian-repo/ /\" | sudo tee -a /etc/apt/sources.list > /dev/null
 ";
@@ -56,12 +49,6 @@ pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<(
     let setup_path = &repository.root.join("tools/k1-setup");
 
     let progress = ProgressIndicator::new();
-    let (zenoh_bridge_status_sender, zenoh_bridge_status) = watch::channel(None);
-    let zenoh_bridge_build_task = tokio::spawn(build_bridge(
-        repository.clone(),
-        zenoh_bridge_status_sender,
-        progress.task("Building zenoh bridge".to_owned()),
-    ));
 
     let team = repository.read_team_configuration().await?;
 
@@ -75,16 +62,12 @@ pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<(
                     progress_bar,
                     &arguments.password,
                     arguments.image_file.as_deref(),
-                    repository,
                     &team,
                     setup_path,
-                    zenoh_bridge_status.clone(),
                 )
             },
         )
         .await;
-
-    zenoh_bridge_build_task.await??;
 
     Ok(())
 }
@@ -95,10 +78,8 @@ async fn gammaray_robot(
     progress_bar: ProgressBar,
     password: &str,
     image_file: Option<&Path>,
-    repository: &Repository,
     team: &Team,
     setup: &Path,
-    mut zenoh_bridge_status: watch::Receiver<Option<bool>>,
 ) -> Result<()> {
     let robot = Robot::try_new_with_ping(robot.ip).await?;
 
@@ -147,8 +128,8 @@ async fn gammaray_robot(
 
     robot
         .ssh_to_robot()?
-        .arg(ADD_APT_ROS2DDS_ZENOH_BRIDGE_SOURCES)
-        .ssh_with_log("adding zenoh-bridge-ros2dds sources", &progress_bar)
+        .arg(ADD_ZENOH_APT_SOURCES)
+        .ssh_with_log("adding zenoh APT sources", &progress_bar)
         .await?;
 
     let mut check_string = "(".to_string();
@@ -171,17 +152,27 @@ async fn gammaray_robot(
         .rsync_with_robot()?
         .arg("--rsync-path=sudo rsync")
         .arg("--info=progress2")
-        .arg(setup.join("conf.json5"))
-        .arg(format!("{}:/etc/zenoh-bridge-ros2dds/", robot.address))
-        .rsync_with_log("uploading zenoh-bridge-ros2dds config", &progress_bar)
+        .arg(setup.join("zenohd.json5"))
+        .arg(format!("{}:/etc/zenohd/zenohd.json5", robot.address))
+        .rsync_with_log("uploading zenohd config", &progress_bar)
+        .await?;
+
+    robot
+        .rsync_with_robot()?
+        .arg("--rsync-path=sudo rsync")
+        .arg("--info=progress2")
+        .arg(setup.join("zenoh-bridge-dds.json5"))
+        .arg(format!(
+            "{}:/etc/zenoh-bridge-dds/conf.json5",
+            robot.address
+        ))
+        .rsync_with_log("uploading zenoh-bridge-dds config", &progress_bar)
         .await?;
 
     robot
         .rsync_with_robot()?
         .arg("--info=progress2")
         .arg(setup.join("hulk.service"))
-        .arg(setup.join("zenoh-bridge.service"))
-        .arg(setup.join("zenoh-bridge-ros2dds.service"))
         .arg(format!("{}:.config/systemd/user/", robot.address))
         .rsync_with_log("uploading service files", &progress_bar)
         .await?;
@@ -208,26 +199,12 @@ async fn gammaray_robot(
             .await?;
     }
 
-    progress_bar.set_message("Waiting for zenoh bridge to finish building");
-    if !zenoh_bridge_status
-        .wait_for(|value| value.is_some())
-        .await?
-        .unwrap()
-    {
-        bail!("building bridge failed, aborting");
-    }
-
     robot
         .rsync_with_robot()?
         .arg("--rsync-path=sudo rsync")
         .arg("--info=progress2")
         .arg(setup.join("hulk"))
         .arg(setup.join("launchHULK"))
-        .arg(
-            repository
-                .root
-                .join("target/aarch64-unknown-linux-gnu/release/zenoh_bridge"),
-        )
         .arg(format!("{}:/usr/bin/", robot.address))
         .rsync_with_log("uploading binaries", &progress_bar)
         .await?;
@@ -240,9 +217,23 @@ async fn gammaray_robot(
 
     robot
         .ssh_to_robot()?
+        .arg("sudo systemctl enable --now")
+        .arg("zenohd")
+        .ssh_with_log("enabling zenohd services", &progress_bar)
+        .await?;
+
+    robot
+        .ssh_to_robot()?
+        .arg("sudo systemctl enable --now")
+        .arg("zenoh-bridge-dds")
+        .ssh_with_log("enabling zenoh-bridge-dds services", &progress_bar)
+        .await?;
+
+    robot
+        .ssh_to_robot()?
         .arg("systemctl --user enable --now")
-        .args(["hulk", "zenoh-bridge", "zenoh-bridge-ros2dds"])
-        .ssh_with_log("restarting services", &progress_bar)
+        .arg("hulk")
+        .ssh_with_log("enabling hulk", &progress_bar)
         .await?;
 
     robot
@@ -398,54 +389,6 @@ async fn fail_on_non_zero_exit_code(
             Err(eyre!("process exited with error code {code}\n{stderr}"))
         }
     }
-}
-
-async fn build_bridge(
-    repository: Repository,
-    zenoh_bridge_status_sender: watch::Sender<Option<bool>>,
-    progress_bar: Task,
-) -> Result<()> {
-    let mut command = construct_cargo_command(
-        CargoArguments {
-            manifest: Some("crates/zenoh_bridge".into()),
-            environment: EnvironmentArguments {
-                env: None,
-                remote: false,
-            },
-            cargo: CargoBuildArguments {
-                release: true,
-                ..Default::default()
-            },
-        },
-        &repository,
-        &["target/aarch64-unknown-linux-gnu/release/zenoh_bridge"],
-    )
-    .await
-    .expect("failed to construct cargo command");
-
-    command.stdout(Stdio::piped());
-    command.stderr(Stdio::null());
-    command.stdin(Stdio::null());
-    command.kill_on_drop(true);
-
-    let mut process = command.spawn().unwrap();
-
-    process.stdin.take();
-    process.stderr.take();
-    let mut lines = BufReader::new(process.stdout.take().unwrap()).lines();
-    while let Ok(Some(text)) = lines.next_line().await {
-        progress_bar.progress.println(text);
-    }
-    let status = process.wait().await.unwrap();
-    if !status.success() {
-        zenoh_bridge_status_sender.send(Some(false)).unwrap();
-        progress_bar.finish_with_error(&eyre!("failed with code {}", status.code().unwrap()));
-        bail!("process failed");
-    }
-    progress_bar.finish_with_success(());
-    zenoh_bridge_status_sender.send(Some(true)).unwrap();
-
-    Ok(())
 }
 
 fn generate_nmconnection_file(
