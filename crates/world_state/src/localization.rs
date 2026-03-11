@@ -280,7 +280,6 @@ impl Localization {
             .odometer
             .persistent
             .iter()
-            .chain(context.odometer.temporary.iter())
             .flat_map(|(timestamp, odometers)| {
                 odometers
                     .iter()
@@ -294,7 +293,6 @@ impl Localization {
             .fall_down_state
             .persistent
             .iter()
-            .chain(context.fall_down_state.temporary.iter())
             .flat_map(|(_timestamp, states)| states.iter())
             .filter_map(|state| state.as_ref().map(|state| state.fall_down_state))
             .next_back()
@@ -305,7 +303,6 @@ impl Localization {
             .imu_state
             .persistent
             .iter()
-            .chain(context.imu_state.temporary.iter())
             .flat_map(|(_timestamp, imu_states)| imu_states.iter().copied().copied())
             .next_back()
             .unwrap_or_default()
