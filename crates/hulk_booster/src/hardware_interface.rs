@@ -307,15 +307,6 @@ fn localhost_zenoh_config() -> Result<zenoh::Config> {
             &format!(r#"["{ZENOH_LOCALHOST_ENDPOINT}"]"#),
         )
         .map_err(|error| eyre!("failed to set Zenoh connect endpoint: {error}"))?;
-    // config
-    //     .insert_json5("listen/endpoints", "[]")
-    //     .map_err(|error| eyre!("failed to disable Zenoh listeners: {error}"))?;
-    // config
-    //     .insert_json5("scouting/multicast/enabled", "false")
-    //     .map_err(|error| eyre!("failed to disable Zenoh multicast scouting: {error}"))?;
-    // config
-    //     .insert_json5("scouting/gossip/enabled", "false")
-    //     .map_err(|error| eyre!("failed to disable Zenoh gossip scouting: {error}"))?;
     Ok(config)
 }
 
