@@ -325,11 +325,7 @@
   },
   "behavior": {
     "injected_motion_command": null,
-    "optional_roles": [
-      "Defender",
-      "Midfielder",
-      "StrikerSupporter"
-    ],
+    "optional_roles": ["Defender", "Midfielder", "StrikerSupporter"],
     "walk_with_velocity": {
       "max_velocity": 1.0,
       "max_angular_velocity": 1.0,
@@ -787,7 +783,7 @@
       "end": 130
     },
     "saturation": {
-      "start": 75,
+      "start": 175,
       "end": 255
     }
   },
@@ -822,7 +818,7 @@
     "maximum_number_of_lines": 10,
     "allowed_projected_segment_length": {
       "start": 0.02,
-      "end": 0.095
+      "end": 0.5
     },
     "minimum_number_of_points_on_line": 15,
     "ransac_iterations": 20
