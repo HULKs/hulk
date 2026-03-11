@@ -1,4 +1,7 @@
+use std::time::SystemTime;
+
 use color_eyre::Result;
+use linear_algebra::vector;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
@@ -7,8 +10,10 @@ use framework::{AdditionalOutput, MainOutput};
 use types::{
     action::Action,
     ball_position::BallPosition,
+    cycle_time::CycleTime,
     field_dimensions::{FieldDimensions, Side},
-    motion_command::MotionCommand,
+    filtered_game_state::FilteredGameState,
+    motion_command::{HeadMotion, MotionCommand},
     parameters::{BehaviorParameters, WalkSpeedParameters},
     path_obstacles::PathObstacle,
     primary_state::PrimaryState,
@@ -29,6 +34,9 @@ use super::{
 #[derive(Deserialize, Serialize)]
 pub struct Behavior {
     last_defender_mode: DefendMode,
+    last_game_state: FilteredGameState,
+    last_primary: PrimaryState,
+    last_ready: SystemTime,
 }
 
 #[context]
@@ -38,6 +46,7 @@ pub struct CreationContext {}
 pub struct CycleContext {
     ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
     world_state: Input<WorldState, "world_state">,
+    cycle_time: Input<CycleTime, "cycle_time">,
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     parameters: Parameter<BehaviorParameters, "behavior">,
@@ -59,6 +68,9 @@ impl Behavior {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             last_defender_mode: DefendMode::Passive,
+            last_game_state: FilteredGameState::Initial,
+            last_ready: SystemTime::UNIX_EPOCH,
+            last_primary: PrimaryState::Stop,
         })
     }
 
@@ -69,6 +81,21 @@ impl Behavior {
             return Ok(MainOutputs {
                 motion_command: command.clone().into(),
             });
+        }
+
+        if let Some(gs) = &context.world_state.filtered_game_controller_state {
+            if gs.game_state == FilteredGameState::Ready
+                && self.last_game_state != FilteredGameState::Ready
+            {
+                self.last_ready = context.cycle_time.start_time;
+            }
+            self.last_game_state = gs.game_state;
+        }
+        if let ps = context.world_state.robot.primary_state {
+            if ps != PrimaryState::Penalized && self.last_primary == PrimaryState::Penalized {
+                self.last_ready = context.cycle_time.start_time;
+            }
+            self.last_primary = ps;
         }
 
         let mut actions = vec![
@@ -85,6 +112,45 @@ impl Behavior {
 
         if world_state.robot.primary_state == PrimaryState::Playing {
             actions.push(Action::WalkToBall);
+        } else if world_state.robot.primary_state == PrimaryState::Ready
+            || world_state.robot.primary_state == PrimaryState::Playing
+        {
+            if context
+                .cycle_time
+                .start_time
+                .duration_since(self.last_ready)
+                .unwrap()
+                .as_secs_f32()
+                < 4.0
+            {
+                return Ok(MainOutputs {
+                    motion_command: MotionCommand::WalkWithVelocity {
+                        head: HeadMotion::ZeroAngles,
+                        velocity: vector![1.0, 0.0],
+                        angular_velocity: 0.0,
+                    }
+                    .into(),
+                });
+            }
+            if context
+                .cycle_time
+                .start_time
+                .duration_since(self.last_ready)
+                .unwrap()
+                .as_secs_f32()
+                < 6.0
+            {
+                return Ok(MainOutputs {
+                    motion_command: MotionCommand::WalkWithVelocity {
+                        head: HeadMotion::ZeroAngles,
+                        velocity: vector![0.0, 0.0],
+                        angular_velocity: -0.75,
+                    }
+                    .into(),
+                });
+            }
+            actions.push(Action::WalkToBall);
+            actions.push(Action::Stop);
         }
 
         let walk_path_planner = WalkPathPlanner::new(
