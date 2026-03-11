@@ -62,7 +62,7 @@ impl ObjectDetection {
             .with_device_id(0)
             .with_fp16(true)
             .with_engine_cache(true)
-            .with_engine_cache_path(paths.cache.join("tensor-rt").display())
+            .with_engine_cache_path(neural_network_folder.display())
             .build();
         let cuda = CUDAExecutionProvider::default().build();
 
@@ -70,7 +70,7 @@ impl ObjectDetection {
             .with_execution_providers([tensor_rt, cuda])?
             .with_optimization_level(GraphOptimizationLevel::Level3)?
             .with_intra_threads(2)?
-            .commit_from_file(neural_network_folder.join("yolo26m-finetune-nv12.onnx"))?;
+            .commit_from_file(neural_network_folder.join("yolo26m-tuned-nv12.onnx"))?;
 
         Ok(Self { session })
     }

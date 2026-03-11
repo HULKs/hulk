@@ -282,6 +282,7 @@ pub enum NaoLabelPartyObjectDetectionLabel {
     Robot = 4,
     TSpot = 5,
     XSpot = 6,
+    Person = 7,
 }
 
 impl NaoLabelPartyObjectDetectionLabel {
@@ -294,6 +295,7 @@ impl NaoLabelPartyObjectDetectionLabel {
             4 => Self::Robot,
             5 => Self::TSpot,
             6 => Self::XSpot,
+            7 => Self::Person,
             _ => unimplemented!(),
         }
     }
@@ -309,6 +311,7 @@ impl From<NaoLabelPartyObjectDetectionLabel> for String {
             NaoLabelPartyObjectDetectionLabel::Robot => "Robot",
             NaoLabelPartyObjectDetectionLabel::TSpot => "TSpot",
             NaoLabelPartyObjectDetectionLabel::XSpot => "XSpot",
+            NaoLabelPartyObjectDetectionLabel::Person => "Person",
         }
         .to_string()
     }
