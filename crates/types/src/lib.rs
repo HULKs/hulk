@@ -32,7 +32,6 @@ pub mod jpeg;
 pub mod kick_decision;
 pub mod last_filtered_game_controller_state_change;
 pub mod led;
-pub mod limb;
 pub mod line_data;
 pub mod localization;
 pub mod message_event;

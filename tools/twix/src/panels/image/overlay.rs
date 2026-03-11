@@ -11,7 +11,7 @@ use coordinate_systems::Pixel;
 use crate::{panels::image::overlays::ObjectDetection, robot::Robot, twix_painter::TwixPainter};
 
 use super::overlays::{
-    BallDetection, FeetDetection, FieldBorder, FieldLines, Horizon, LimbProjector, LineDetection,
+    BallDetection, FeetDetection, FieldBorder, FieldLines, Horizon, LineDetection,
 };
 
 pub trait Overlay {
@@ -77,7 +77,6 @@ pub struct Overlays {
     pub penalty_boxes: EnabledOverlay<FieldLines>,
     pub feet_detection: EnabledOverlay<FeetDetection>,
     pub field_border: EnabledOverlay<FieldBorder>,
-    pub limb_projector: EnabledOverlay<LimbProjector>,
     pub object_detection: EnabledOverlay<ObjectDetection>,
 }
 
@@ -89,7 +88,6 @@ impl Overlays {
         let penalty_boxes = EnabledOverlay::new(robot.clone(), storage, false);
         let feet_detection = EnabledOverlay::new(robot.clone(), storage, false);
         let field_border = EnabledOverlay::new(robot.clone(), storage, false);
-        let limb_projector = EnabledOverlay::new(robot.clone(), storage, false);
         let object_detection = EnabledOverlay::new(robot.clone(), storage, false);
 
         Self {
@@ -99,7 +97,6 @@ impl Overlays {
             penalty_boxes,
             feet_detection,
             field_border,
-            limb_projector,
             object_detection,
         }
     }
@@ -112,7 +109,6 @@ impl Overlays {
             self.penalty_boxes.checkbox(ui);
             self.feet_detection.checkbox(ui);
             self.field_border.checkbox(ui);
-            self.limb_projector.checkbox(ui);
             self.object_detection.checkbox(ui);
         });
     }
@@ -124,7 +120,6 @@ impl Overlays {
         self.penalty_boxes.paint(painter);
         self.feet_detection.paint(painter);
         self.field_border.paint(painter);
-        self.limb_projector.paint(painter);
         self.object_detection.paint(painter);
     }
 
@@ -136,7 +131,6 @@ impl Overlays {
             "penalty_boxes": self.penalty_boxes.save(),
             "feet_detection": self.feet_detection.save(),
             "field_border": self.field_border.save(),
-            "limb_projector": self.limb_projector.save(),
             "object_detection": self.object_detection.save(),
         })
     }

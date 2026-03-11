@@ -15,7 +15,9 @@ pub struct CandidateEvaluation {
     pub merge_weight: Option<f32>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect)]
+#[derive(
+    Clone, Copy, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct BallPercept {
     pub percept_in_ground: MultivariateNormalDistribution<2>,
     pub image_location: Circle<Pixel>,

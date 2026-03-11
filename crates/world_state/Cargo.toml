@@ -33,6 +33,7 @@ serde = { workspace = true }
 smallvec = { workspace = true }
 tokio = { workspace = true }
 types = { workspace = true }
+hungarian_algorithm = { workspace = true }
 
 [dev-dependencies]
 proptest = { workspace = true }
