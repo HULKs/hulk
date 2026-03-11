@@ -549,7 +549,15 @@ pub struct Kick {
 
 #[repr(C)]
 #[derive(
-    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    PartialEq,
 )]
 pub struct Odometer {
     pub x: f32,
