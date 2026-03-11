@@ -2,7 +2,7 @@ use framework::AdditionalOutput;
 use linear_algebra::{Pose2, point};
 use types::{
     field_dimensions::FieldDimensions,
-    motion_command::{MotionCommand, OrientationMode, WalkSpeed},
+    motion_command::{MotionCommand, OrientationMode},
     path_obstacles::PathObstacle,
     world_state::WorldState,
 };
@@ -15,7 +15,7 @@ pub fn execute(
     look_action: &LookAction,
     path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
     field_dimensions: &FieldDimensions,
-    walk_speed: WalkSpeed,
+    walk_speed: f32,
     distance_to_be_aligned: f32,
 ) -> Option<MotionCommand> {
     let ground_to_field = world_state.robot.ground_to_field?;

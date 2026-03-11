@@ -9,7 +9,7 @@ use types::{
     field_dimensions::{FieldDimensions, Side},
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState,
-    motion_command::{MotionCommand, OrientationMode, WalkSpeed},
+    motion_command::{MotionCommand, OrientationMode},
     path_obstacles::PathObstacle,
     world_state::{BallState, WorldState},
 };
@@ -27,7 +27,7 @@ pub fn execute(
     walk_and_stand: &WalkAndStand,
     look_action: &LookAction,
     path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
-    walk_speed: WalkSpeed,
+    walk_speed: f32,
     distance_to_be_aligned: f32,
 ) -> Option<MotionCommand> {
     let pose = support_pose(

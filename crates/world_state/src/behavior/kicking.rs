@@ -5,7 +5,7 @@ use linear_algebra::{Orientation2, Vector2, vector};
 use types::{
     field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
-    motion_command::{HeadMotion, ImageRegion, MotionCommand, OrientationMode, WalkSpeed},
+    motion_command::{HeadMotion, ImageRegion, MotionCommand, OrientationMode},
     parameters::KickingParameters,
     path_obstacles::PathObstacle,
     world_state::WorldState,
@@ -17,7 +17,7 @@ pub fn execute(
     world_state: &WorldState,
     walk_path_planner: &WalkPathPlanner,
     parameters: &KickingParameters,
-    walk_speed: WalkSpeed,
+    walk_speed: f32,
     distance_to_be_aligned: f32,
     field_dimensions: FieldDimensions,
     path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
@@ -60,7 +60,7 @@ pub fn execute(
             ..
         }) = world_state.filtered_game_controller_state
         {
-            speed = WalkSpeed::Slow;
+            speed = 0.5;
         }
 
         let path = walk_path_planner.plan(

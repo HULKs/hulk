@@ -2,7 +2,7 @@ use coordinate_systems::Field;
 use framework::AdditionalOutput;
 use linear_algebra::{Orientation2, Point2};
 use types::{
-    motion_command::{HeadMotion, MotionCommand, OrientationMode, WalkSpeed},
+    motion_command::{HeadMotion, MotionCommand, OrientationMode},
     parameters::LostBallParameters,
     path_obstacles::PathObstacle,
     world_state::WorldState,
@@ -16,7 +16,7 @@ pub fn execute(
     walk_path_planner: &WalkPathPlanner,
     lost_ball_parameters: &LostBallParameters,
     path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
-    walk_speed: WalkSpeed,
+    walk_speed: f32,
     distance_to_be_aligned: f32,
 ) -> Option<MotionCommand> {
     let ground_to_field = world_state.robot.ground_to_field?;
