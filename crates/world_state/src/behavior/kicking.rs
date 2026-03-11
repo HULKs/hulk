@@ -53,7 +53,7 @@ pub fn execute(
             robot_theta_to_field,
             kick_power: parameters.kick_power,
         })
-    } else {
+    } else {    
         let mut speed = walk_speed;
         if let Some(FilteredGameControllerState {
             game_phase: GamePhase::PenaltyShootout { .. },
@@ -75,7 +75,7 @@ pub fn execute(
         Some(walk_path_planner.walk_with_obstacle_avoiding_arms(
             head,
             OrientationMode::AlignWithPath,
-            Orientation2::identity(),
+            Orientation2::identity(),   
             distance_to_be_aligned,
             path,
             speed,
