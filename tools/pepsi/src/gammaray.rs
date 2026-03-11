@@ -290,8 +290,8 @@ async fn set_up_wifi(
     team_number: u8,
     progress_bar: &ProgressBar,
 ) -> Result<()> {
-    for ssid in Network::all() {
-        let ssid = ssid.to_string();
+    for network in Network::all() {
+        let ssid = network.to_string();
         let mut command = robot.ssh_to_robot()?;
         command.arg(format!(
             "sudo tee /etc/NetworkManager/system-connections/{ssid}.nmconnection > /dev/null \
@@ -301,8 +301,19 @@ async fn set_up_wifi(
         command.stderr(Stdio::piped());
         command.stdin(Stdio::piped());
         let mut child = command.spawn()?;
-        let content =
-            generate_nmconnection_file(&ssid, WIFI_PASSWORD, team_number, team_robot.number);
+        let second_octet = match network {
+            Network::HslA => 107,
+            Network::HslB => 108,
+            Network::HslC => 109,
+            _ => 0,
+        };
+        let content = generate_nmconnection_file(
+            &ssid,
+            WIFI_PASSWORD,
+            second_octet,
+            team_number,
+            team_robot.number,
+        );
         child
             .stdin
             .take()
@@ -440,6 +451,7 @@ async fn build_bridge(
 fn generate_nmconnection_file(
     ssid: &str,
     password: &str,
+    second_octet: u8,
     team_number: u8,
     robot_number: u8,
 ) -> String {
@@ -462,7 +474,7 @@ key-mgmt=wpa-psk
 psk={password}
 
 [ipv4]
-address1=10.0.{team_number}.{robot_number}/24
+address1=10.{second_octet}.{team_number}.{robot_number}/16
 method=manual
 
 [ipv6]
