@@ -47,7 +47,9 @@ impl<'a> Panel<'a> for ImageColorSelectPanel {
     const NAME: &'static str = "Image Color Select";
 
     fn new(context: PanelCreationContext) -> Self {
-        let image = context.robot.subscribe_value("Vision.main_outputs.image");
+        let image = context
+            .robot
+            .subscribe_value("Vision.main_outputs.ycbcr422_image");
 
         let brush_size = 50.0;
 
