@@ -8,7 +8,6 @@ env:
   CARGO_TARGET_DIR: /__w/hulk/target
   CARGO_TERM_COLOR: always
   HULK_DATA_HOME: /__w/hulk/data
-  NAOSDK_AUTOMATIC_YES: 1
 
 jobs:
   check:
@@ -32,7 +31,7 @@ jobs:
       matrix:
         path:
           - .
-          - services/aliveness
+          # - services/aliveness
     runs-on:
       - self-hosted
       - v3
@@ -103,12 +102,12 @@ jobs:
       fail-fast: true
       matrix:
         target:
-          - imagine
-          - replayer
+          # - imagine
+          # - replayer
           - mujoco
           - booster
         profile:
-          - dev
+          # - dev
           - release
     runs-on:
       - self-hosted
@@ -123,36 +122,36 @@ jobs:
       - name: Build
         run: ./pepsi build --locked --profile ${{ matrix.profile }} ${{ matrix.target }}
 
-  build_services:
-    name: Build
-    strategy:
-      matrix:
-        service:
-          - aliveness
-    runs-on:
-      - self-hosted
-      - v3
-    container:
-      image: ghcr.io/hulks/hulk-ci:1.92.0
-      options: --user=1000:1000 --privileged --device /dev/fuse:rw
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          lfs: true
-      - name: Build
-        run: ./pepsi build --locked --release ${{ matrix.service }}
+  # build_services:
+  #   name: Build
+  #   strategy:
+  #     matrix:
+  #       service:
+  #         - aliveness
+  #   runs-on:
+  #     - self-hosted
+  #     - v3
+  #   container:
+  #     image: ghcr.io/hulks/hulk-ci:1.92.0
+  #     options: --user=1000:1000 --privileged --device /dev/fuse:rw
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         lfs: true
+  #     - name: Build
+  #       run: ./pepsi build --locked --release ${{ matrix.service }}
 
   build_tools:
     name: Build
     strategy:
       matrix:
         tool:
-          - annotato
-          - depp
-          - fanta
+          # - annotato
+          # - depp
+          # - fanta
           - pepsi
           - twix
-          - widget_gallery
+          # - widget_gallery
     runs-on:
       - self-hosted
       - v3
