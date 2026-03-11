@@ -284,24 +284,24 @@
     "initial_hypothesis_score": 1.0,
     "initial_poses": {
       "one": {
-        "center_line_offset_x": -3.0,
+        "center_line_offset_x": -1.0,
         "side": "Left"
       },
       "two": {
-        "center_line_offset_x": -1.5,
+        "center_line_offset_x": -1.0,
         "side": "Left"
       },
       "three": {
-        "center_line_offset_x": 0.0,
+        "center_line_offset_x": -1.0,
         "side": "Left"
       },
       "four": {
-        "center_line_offset_x": -1.5,
-        "side": "Right"
+        "center_line_offset_x": -1.0,
+        "side": "Left"
       },
       "five": {
-        "center_line_offset_x": 0.0,
-        "side": "Right"
+        "center_line_offset_x": -1.0,
+        "side": "Left"
       }
     },
     "line_length_acceptance_factor": 1.5,
