@@ -39,12 +39,10 @@ impl ImageReceiver {
         &mut self,
         context: CycleContext<impl CameraInterface + TimeInterface>,
     ) -> Result<MainOutputs> {
-        let image_left_raw = context
-            .hardware_interface
-            .read_object_detection_image_left_raw()?;
+        let image_left_raw = context.hardware_interface.read_image_left_raw()?;
         let image_left_raw_camera_info = context
             .hardware_interface
-            .read_object_detection_image_left_raw_camera_info()?;
+            .read_image_left_raw_camera_info()?;
 
         let now = context.hardware_interface.get_now();
         let cycle_time = CycleTime {

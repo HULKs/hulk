@@ -347,16 +347,12 @@ impl CameraInterface for MujocoHardwareInterface {
             .ok_or_eyre("channel closed")
     }
 
-    fn read_rectified_image(&self) -> Result<Image> {
-        Ok(Default::default())
+    fn read_image_right_raw(&self) -> Result<Image> {
+        unimplemented!("simulator currently does not provide a second image")
     }
 
-    fn read_stereonet_depth_image(&self) -> Result<Image> {
-        Ok(Default::default())
-    }
-
-    fn read_stereonet_depth_camera_info(&self) -> Result<CameraInfo> {
-        Ok(Default::default())
+    fn read_image_right_raw_camera_info(&self) -> Result<CameraInfo> {
+        unimplemented!("simulator currently does not provide a second image")
     }
 }
 

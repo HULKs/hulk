@@ -67,7 +67,7 @@ impl<'a> Panel<'a> for ImagePanel {
             .and_then(|value| value.as_bool())
             .unwrap_or(true);
 
-        let default_image_path = "ObjectDetection.main_outputs.image_left_raw".to_string();
+        let default_image_path = "Vision.main_outputs.image".to_string();
         let default_image_label = "Image Left Raw".to_string();
 
         let image_buffer = subscribe_image(&context.robot, is_jpeg, &default_image_path);
@@ -92,7 +92,7 @@ impl<'a> Panel<'a> for ImagePanel {
 
         json!({
             "is_jpeg": matches!(self.image_buffer, ImageBuffer::Jpeg(_)),
-            "cycler": "ObjectDetection",
+            "cycler": "Vision",
             "overlays": overlays,
         })
     }
@@ -146,15 +146,7 @@ impl Widget for &mut ImagePanel {
                         }
                     };
 
-                    selectable_item(
-                        "ObjectDetection.main_outputs.image_left_raw",
-                        "Image Left Raw",
-                    );
-                    selectable_item("ImageRectified.main_outputs.image", "Rectified Image");
-                    selectable_item(
-                        "ImageStereonetDepth.main_outputs.image",
-                        "StereoNet Depth Image",
-                    );
+                    selectable_item("Vision.main_outputs.image", "Image Left Raw");
                     selectable_item("Vision.main_outputs.ycbcr422_image", "ycbcr422_image");
                 });
             if self.last_image_path != self.current_image_path {

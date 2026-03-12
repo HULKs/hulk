@@ -1,6 +1,7 @@
 use std::{
     env,
     future::Future,
+    net::{IpAddr, Ipv4Addr, SocketAddr},
     sync::{
         Arc,
         atomic::{AtomicBool, Ordering},
@@ -53,6 +54,7 @@ use types::{
 use crate::{
     HardwareInterface,
     latest_receiver::{LatestReceiver, LatestSender, latest_channel},
+    x5_receiver::X5Receiver,
 };
 use zenoh::{
     Session,
@@ -60,6 +62,7 @@ use zenoh::{
     sample::Sample,
 };
 
+const X5_ADDRESS: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 168, 127, 10)), 7654);
 const COMMAND_CHANNEL_CAPACITY: usize = 10;
 const ZENOH_LOCALHOST_ENDPOINT: &str = "tcp/127.0.0.1:7447";
 const LOW_STATE_TOPIC: &str = "rt/low_state";
@@ -69,11 +72,6 @@ const ODOMETER_STATE_TOPIC: &str = "rt/odometer_state";
 const FALL_DOWN_TOPIC: &str = "rt/fall_down";
 const BUTTON_EVENT_TOPIC: &str = "rt/button_event";
 const REMOTE_CONTROLLER_STATE_TOPIC: &str = "rt/remote_controller_state";
-const RECTIFIED_IMAGE_TOPIC: &str = "rt/StereoNetNode/rectified_image"; // not needed
-const STEREONET_DEPTH_TOPIC: &str = "rt/StereoNetNode/stereonet_depth"; // not needed
-const STEREONET_DEPTH_CAMERA_INFO_TOPIC: &str = "rt/StereoNetNode/stereonet_depth/camera_info"; // no needed
-const IMAGE_LEFT_RAW_TOPIC: &str = "rt/image_left_raw";
-const IMAGE_LEFT_RAW_CAMERA_INFO_TOPIC: &str = "rt/image_left_raw/camera_info";
 
 #[derive(Clone, Debug, Deserialize)]
 pub struct Parameters {
@@ -89,13 +87,6 @@ struct ZenohBackendHandles {
     fall_down_state_receiver: LatestReceiver<FallDownState>,
     button_event_msg_receiver: LatestReceiver<ButtonEventMsg>,
     remote_controller_state_receiver: LatestReceiver<RemoteControllerState>,
-    rectified_image_receiver: LatestReceiver<Image>,
-    stereonet_depth_receiver: LatestReceiver<Image>,
-    stereonet_depth_camera_info_receiver: LatestReceiver<CameraInfo>,
-    image_left_raw_receiver: LatestReceiver<Image>,
-    image_left_raw_camera_info_receiver: LatestReceiver<CameraInfo>,
-    object_detection_image_left_raw_receiver: LatestReceiver<Image>,
-    object_detection_image_left_raw_camera_info_receiver: LatestReceiver<CameraInfo>,
 }
 
 pub struct BoosterHardwareInterface {
@@ -110,13 +101,7 @@ pub struct BoosterHardwareInterface {
     fall_down_state_receiver: Mutex<LatestReceiver<FallDownState>>,
     button_event_msg_receiver: Mutex<LatestReceiver<ButtonEventMsg>>,
     remote_controller_state_receiver: Mutex<LatestReceiver<RemoteControllerState>>,
-    rectified_image_receiver: Mutex<LatestReceiver<Image>>,
-    stereonet_depth_receiver: Mutex<LatestReceiver<Image>>,
-    stereonet_depth_camera_info_receiver: Mutex<LatestReceiver<CameraInfo>>,
-    image_left_raw_receiver: Mutex<LatestReceiver<Image>>,
-    image_left_raw_camera_info_receiver: Mutex<LatestReceiver<CameraInfo>>,
-    object_detection_image_left_raw_receiver: Mutex<LatestReceiver<Image>>,
-    object_detection_image_left_raw_camera_info_receiver: Mutex<LatestReceiver<CameraInfo>>,
+    x5_receiver: X5Receiver,
 
     high_level_interface_client: Arc<BoosterClient>,
     light_control_client: Arc<LightControlClient>,
@@ -176,22 +161,7 @@ impl BoosterHardwareInterface {
             remote_controller_state_receiver: Mutex::new(
                 zenoh_backend.remote_controller_state_receiver,
             ),
-            rectified_image_receiver: Mutex::new(zenoh_backend.rectified_image_receiver),
-            stereonet_depth_receiver: Mutex::new(zenoh_backend.stereonet_depth_receiver),
-            stereonet_depth_camera_info_receiver: Mutex::new(
-                zenoh_backend.stereonet_depth_camera_info_receiver,
-            ),
-            image_left_raw_receiver: Mutex::new(zenoh_backend.image_left_raw_receiver),
-            image_left_raw_camera_info_receiver: Mutex::new(
-                zenoh_backend.image_left_raw_camera_info_receiver,
-            ),
-            object_detection_image_left_raw_receiver: Mutex::new(
-                zenoh_backend.object_detection_image_left_raw_receiver,
-            ),
-            object_detection_image_left_raw_camera_info_receiver: Mutex::new(
-                zenoh_backend.object_detection_image_left_raw_camera_info_receiver,
-            ),
-
+            x5_receiver: X5Receiver::new(X5_ADDRESS),
             robot_mode,
             high_level_interface_client,
             light_control_client,
@@ -264,49 +234,6 @@ async fn initialize_zenoh_backend(keep_running: CancellationToken) -> Result<Zen
         REMOTE_CONTROLLER_STATE_TOPIC,
     )
     .await?;
-    let rectified_image_receiver = spawn_subscription_worker::<Image>(
-        zenoh_session.clone(),
-        keep_running.clone(),
-        RECTIFIED_IMAGE_TOPIC,
-    )
-    .await?;
-    let stereonet_depth_receiver = spawn_subscription_worker::<Image>(
-        zenoh_session.clone(),
-        keep_running.clone(),
-        STEREONET_DEPTH_TOPIC,
-    )
-    .await?;
-    let stereonet_depth_camera_info_receiver = spawn_subscription_worker::<CameraInfo>(
-        zenoh_session.clone(),
-        keep_running.clone(),
-        STEREONET_DEPTH_CAMERA_INFO_TOPIC,
-    )
-    .await?;
-    let image_left_raw_receiver = spawn_subscription_worker::<Image>(
-        zenoh_session.clone(),
-        keep_running.clone(),
-        IMAGE_LEFT_RAW_TOPIC,
-    )
-    .await?;
-    let image_left_raw_camera_info_receiver = spawn_subscription_worker::<CameraInfo>(
-        zenoh_session.clone(),
-        keep_running.clone(),
-        IMAGE_LEFT_RAW_CAMERA_INFO_TOPIC,
-    )
-    .await?;
-    let object_detection_image_left_raw_receiver = spawn_subscription_worker::<Image>(
-        zenoh_session.clone(),
-        keep_running.clone(),
-        IMAGE_LEFT_RAW_TOPIC,
-    )
-    .await?;
-    let object_detection_image_left_raw_camera_info_receiver =
-        spawn_subscription_worker::<CameraInfo>(
-            zenoh_session.clone(),
-            keep_running.clone(),
-            IMAGE_LEFT_RAW_CAMERA_INFO_TOPIC,
-        )
-        .await?;
 
     tokio::spawn(async move {
         let _zenoh_session = zenoh_session;
@@ -321,13 +248,6 @@ async fn initialize_zenoh_backend(keep_running: CancellationToken) -> Result<Zen
         fall_down_state_receiver,
         button_event_msg_receiver,
         remote_controller_state_receiver,
-        rectified_image_receiver,
-        stereonet_depth_receiver,
-        stereonet_depth_camera_info_receiver,
-        image_left_raw_receiver,
-        image_left_raw_camera_info_receiver,
-        object_detection_image_left_raw_receiver,
-        object_detection_image_left_raw_camera_info_receiver,
     })
 }
 
@@ -581,111 +501,32 @@ impl RemoteControllerStateInterface for BoosterHardwareInterface {
 }
 
 impl CameraInterface for BoosterHardwareInterface {
-    fn read_rectified_image(&self) -> Result<Image> {
-        let message = self
-            .run_until_cancelled(self.rectified_image_receiver.lock().recv_latest())?
-            .wrap_err("failed to read rectified image from `rt/StereoNetNode/rectified_image`")?;
-        if message.dropped_messages > 0 {
-            debug!(
-                "dropped {} stale rectified image messages from `rt/StereoNetNode/rectified_image`",
-                message.dropped_messages
-            );
-        }
-        Ok(message.value)
-    }
-
-    fn read_stereonet_depth_image(&self) -> Result<Image> {
-        let message = self
-            .run_until_cancelled(self.stereonet_depth_receiver.lock().recv_latest())?
-            .wrap_err(
-                "failed to read stereonet depth image from `rt/StereoNetNode/stereonet_depth`",
-            )?;
-        if message.dropped_messages > 0 {
-            debug!(
-                "dropped {} stale stereonet depth image messages from `rt/StereoNetNode/stereonet_depth`",
-                message.dropped_messages
-            );
-        }
-        Ok(message.value)
-    }
-
-    fn read_stereonet_depth_camera_info(&self) -> Result<CameraInfo> {
-        let message = self
-            .run_until_cancelled(self.stereonet_depth_camera_info_receiver.lock().recv_latest())?
-            .wrap_err("failed to read stereonet depth camera info from `rt/StereoNetNode/stereonet_depth/camera_info`")?;
-        if message.dropped_messages > 0 {
-            debug!(
-                "dropped {} stale stereonet depth camera info messages from `rt/StereoNetNode/stereonet_depth/camera_info`",
-                message.dropped_messages
-            );
-        }
-        Ok(message.value)
-    }
-
     fn read_image_left_raw(&self) -> Result<Image> {
-        let message = self
-            .run_until_cancelled(self.image_left_raw_receiver.lock().recv_latest())?
-            .wrap_err("failed to read left raw image from `rt/image_left_raw`")?;
-        if message.dropped_messages > 0 {
-            debug!(
-                "dropped {} stale left raw image messages from `rt/image_left_raw`",
-                message.dropped_messages
-            );
-        }
-        Ok(message.value)
+        let image = self
+            .run_until_cancelled(self.x5_receiver.next_left_frame())
+            .wrap_err("failed to receive left image")?;
+        Ok(image.into())
+    }
+
+    fn read_image_right_raw(&self) -> Result<Image> {
+        let image = self
+            .run_until_cancelled(self.x5_receiver.next_right_frame())
+            .wrap_err("failed to receive right image")?;
+        Ok(image.into())
     }
 
     fn read_image_left_raw_camera_info(&self) -> Result<CameraInfo> {
         let message = self
-            .run_until_cancelled(
-                self.image_left_raw_camera_info_receiver
-                    .lock()
-                    .recv_latest(),
-            )?
-            .wrap_err("failed to read left raw camera info from `rt/image_left_raw/camera_info`")?;
-        if message.dropped_messages > 0 {
-            debug!(
-                "dropped {} stale left raw camera info messages from `rt/image_left_raw/camera_info`",
-                message.dropped_messages
-            );
-        }
-        Ok(message.value)
+            .run_until_cancelled(self.x5_receiver.last_camera_info())
+            .wrap_err("failed to read left camera info")?;
+        Ok(message.left_camera_info())
     }
 
-    fn read_object_detection_image_left_raw(&self) -> Result<Image> {
+    fn read_image_right_raw_camera_info(&self) -> Result<CameraInfo> {
         let message = self
-            .run_until_cancelled(
-                self.object_detection_image_left_raw_receiver
-                    .lock()
-                    .recv_latest(),
-            )?
-            .wrap_err("failed to read object detection left raw image from `rt/image_left_raw`")?;
-        if message.dropped_messages > 0 {
-            debug!(
-                "dropped {} stale object detection left raw image messages from `rt/image_left_raw`",
-                message.dropped_messages
-            );
-        }
-        Ok(message.value)
-    }
-
-    fn read_object_detection_image_left_raw_camera_info(&self) -> Result<CameraInfo> {
-        let message = self
-            .run_until_cancelled(
-                self.object_detection_image_left_raw_camera_info_receiver
-                    .lock()
-                    .recv_latest(),
-            )?
-            .wrap_err(
-                "failed to read object detection left raw camera info from `rt/image_left_raw/camera_info`",
-            )?;
-        if message.dropped_messages > 0 {
-            debug!(
-                "dropped {} stale object detection left raw camera info messages from `rt/image_left_raw/camera_info`",
-                message.dropped_messages
-            );
-        }
-        Ok(message.value)
+            .run_until_cancelled(self.x5_receiver.last_camera_info())
+            .wrap_err("failed to read right camera info")?;
+        Ok(message.right_camera_info())
     }
 }
 
