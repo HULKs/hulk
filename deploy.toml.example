@@ -2,7 +2,7 @@
 # phase = "second-half"
 location = "smd"
 wifi = "HSL_A"
-base = "main"
+base = "hulk/main"
 branches = [
   "julianschuler/example-branch",
 ]
@@ -15,8 +15,11 @@ substitutions = [
 with_communication = false
 
 [recording_intervals]
-Control = 1
-Vision
+WorldState = 1
 HslNetwork = 1
-# ObjectDetection = 1
-# Audio = 1
+FallDownState = 1
+ButtonEvent = 1
+Odometry = 1
+Motion = 10
+ObjectDetection = 2
+Vision = 2
