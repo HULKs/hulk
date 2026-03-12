@@ -1,7 +1,7 @@
 use color_eyre::{Result, eyre::Ok};
 use context_attribute::context;
 use framework::MainOutput;
-use kinematics::joints::{Joints, head::HeadJoints};
+use kinematics::joints::{Joints, body::BodyJoints, head::HeadJoints};
 use serde::{Deserialize, Serialize};
 
 #[derive(Deserialize, Serialize)]
@@ -13,7 +13,7 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     head_target_joints_positions: Input<HeadJoints<f32>, "head_joints_command">,
-    walking_target_joint_positions: Input<Joints, "walking_target_joint_positions">,
+    // walking_target_joint_positions: Input<Joints, "walking_target_joint_positions">,
 }
 
 #[context]
@@ -29,7 +29,8 @@ impl MotorCommandCollector {
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let collected_target_joint_positions = Joints::from_head_and_body(
             *context.head_target_joints_positions,
-            context.walking_target_joint_positions.body(),
+            // context.walking_target_joint_positions.body(),
+            BodyJoints::default(),
         );
 
         Ok(MainOutputs {
