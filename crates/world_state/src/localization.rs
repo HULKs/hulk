@@ -1270,13 +1270,13 @@ fn generate_penalized_poses(
     penalized_distance: f32,
 ) -> Vec<Pose2<Field>> {
     vec![
-        Pose2::new(
-            point![
-                -field_dimensions.length * 0.5 + field_dimensions.penalty_marker_distance,
-                -field_dimensions.width * 0.5 - penalized_distance
-            ],
-            FRAC_PI_2,
-        ),
+        // Pose2::new(
+        //     point![
+        //         -field_dimensions.length * 0.5 + field_dimensions.penalty_marker_distance,
+        //         -field_dimensions.width * 0.5 - penalized_distance
+        //     ],
+        //     FRAC_PI_2,
+        // ),
         Pose2::new(
             point![
                 -field_dimensions.length * 0.5 + field_dimensions.penalty_marker_distance,
