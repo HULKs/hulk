@@ -36,6 +36,8 @@ impl Layer<Field> for Localization {
             let circle_radius = 0.1;
             let line_length = 0.16;
             let fill_color = Color32::LIGHT_RED;
+            let covariance_fill_color =
+                Color32::from_rgba_unmultiplied(fill_color.r(), fill_color.g(), fill_color.b(), 40);
             let stroke = Stroke {
                 width: 0.02,
                 color: Color32::BLACK,
@@ -45,6 +47,12 @@ impl Layer<Field> for Localization {
                     point![scored_pose.state.mean.x, scored_pose.state.mean.y],
                     scored_pose.state.mean.z,
                 );
+                let covariance = scored_pose
+                    .state
+                    .covariance
+                    .fixed_view::<2, 2>(0, 0)
+                    .into_owned();
+                painter.covariance(pose.position(), covariance, stroke, covariance_fill_color);
                 painter.pose(pose, circle_radius, line_length, fill_color, stroke);
                 painter.floating_text(
                     pose.position(),
