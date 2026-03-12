@@ -28,8 +28,10 @@ use crate::{
     hardware_interface::{BoosterHardwareInterface, Parameters as HardwareParameters},
 };
 
+mod audio_parameter_deserializers;
 mod hardware_interface;
 mod latest_receiver;
+mod microphones;
 mod x5_receiver;
 
 pub fn setup_logger() -> Result<(), fern::InitError> {

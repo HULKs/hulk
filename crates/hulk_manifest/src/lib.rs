@@ -91,14 +91,14 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
                 ],
                 execution_time_warning_threshold: Some(Duration::from_secs_f32(1.0 / 100.0)),
             },
-            // CyclerManifest {
-            //     name: "Audio",
-            //     kind: CyclerKind::Perception,
-            //     instances: vec![""],
-            //     setup_nodes: vec!["audio::microphone_recorder"],
-            //     nodes: vec!["audio::whistle_detection"],
-            //     execution_time_warning_threshold: None,
-            // },
+            CyclerManifest {
+                name: "Audio",
+                kind: CyclerKind::Perception,
+                instances: vec![""],
+                setup_nodes: vec!["audio::microphone_recorder"],
+                nodes: vec!["audio::whistle_detection"],
+                execution_time_warning_threshold: None,
+            },
             // CyclerManifest {
             //     name: "Image",
             //     kind: CyclerKind::Perception,

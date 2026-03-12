@@ -10,7 +10,9 @@ cross-compile = true
 
 [dependencies]
 
+alsa = { workspace = true }
 approx = { workspace = true }
+audio = { workspace = true }
 ball_filter = { workspace = true }
 bincode = { workspace = true }
 booster = { workspace = true }
