@@ -213,6 +213,10 @@ impl HighLevelInterface for ReplayerHardwareInterface {
     fn visual_kick(&self, _start: bool) -> Result<()> {
         Ok(())
     }
+
+    fn reset_odometer(&self) -> Result<()> {
+        Ok(())
+    }
 }
 
 impl MotionRuntimeInteface for ReplayerHardwareInterface {
