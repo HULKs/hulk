@@ -5,6 +5,8 @@ use nalgebra::{
 use thiserror::Error;
 use types::multivariate_normal_distribution::MultivariateNormalDistribution;
 
+const CUBATURE_POINT_WEIGHT: f32 = 1.0 / 6.0;
+
 #[derive(Debug, Error)]
 pub enum Error {
     #[error("failed to compute the inverse of the covariance matrix")]
@@ -52,14 +54,15 @@ impl PoseFilter for MultivariateNormalDistribution<3> {
     where
         StatePredictionFunction: Fn(Vector3<f32>) -> Vector3<f32>,
     {
-        let sigma_points = sample_sigma_points(self.mean, self.covariance)?;
-        let predicted_sigma_points: Vec<_> = sigma_points
+        let cubature_points = sample_cubature_points(self.mean, self.covariance)?;
+        let predicted_cubature_points: Vec<_> = cubature_points
             .iter()
             .copied()
             .map(state_prediction_function)
             .collect();
-        let state_mean = mean_from_3d_sigma_points(&predicted_sigma_points);
-        let state_covariance = covariance_from_3d_sigma_points(state_mean, &predicted_sigma_points);
+        let state_mean = mean_from_3d_cubature_points(&predicted_cubature_points);
+        let state_covariance =
+            covariance_from_3d_cubature_points(state_mean, &predicted_cubature_points);
         self.mean = state_mean;
         self.covariance = into_symmetric(state_covariance + process_noise);
 
@@ -75,24 +78,24 @@ impl PoseFilter for MultivariateNormalDistribution<3> {
     where
         MeasurementPredictionFunction: Fn(Vector3<f32>) -> Vector2<f32>,
     {
-        let sigma_points = sample_sigma_points(self.mean, self.covariance)?;
-        let predicted_measurements: Vec<_> = sigma_points
+        let cubature_points = sample_cubature_points(self.mean, self.covariance)?;
+        let predicted_measurements: Vec<_> = cubature_points
             .iter()
             .copied()
             .map(measurement_prediction_function)
             .collect();
         let predicted_measurement_mean =
-            mean_from_1d_translation_and_rotation_sigma_points(&predicted_measurements);
+            mean_from_1d_translation_and_rotation_cubature_points(&predicted_measurements);
         let predicted_measurement_covariance =
-            covariance_from_1d_translation_and_rotation_sigma_points(
+            covariance_from_1d_translation_and_rotation_cubature_points(
                 predicted_measurement_mean,
                 &predicted_measurements,
             );
 
         let predicted_measurements_cross_covariance =
-            cross_covariance_from_1d_translation_and_rotation_sigma_points(
+            cross_covariance_from_1d_translation_and_rotation_cubature_points(
                 self.mean,
-                &sigma_points,
+                &cubature_points,
                 &predicted_measurement_mean,
                 &predicted_measurements,
             );
@@ -120,23 +123,23 @@ impl PoseFilter for MultivariateNormalDistribution<3> {
     where
         MeasurementPredictionFunction: Fn(Vector3<f32>) -> Vector2<f32>,
     {
-        let sigma_points = sample_sigma_points(self.mean, self.covariance)?;
-        let predicted_measurements: Vec<_> = sigma_points
+        let cubature_points = sample_cubature_points(self.mean, self.covariance)?;
+        let predicted_measurements: Vec<_> = cubature_points
             .iter()
             .copied()
             .map(measurement_prediction_function)
             .collect();
         let predicted_measurement_mean =
-            mean_from_2d_translation_sigma_points(&predicted_measurements);
-        let predicted_measurement_covariance = covariance_from_2d_translation_sigma_points(
+            mean_from_2d_translation_cubature_points(&predicted_measurements);
+        let predicted_measurement_covariance = covariance_from_2d_translation_cubature_points(
             predicted_measurement_mean,
             &predicted_measurements,
         );
 
         let predicted_measurements_cross_covariance =
-            cross_covariance_from_2d_translation_sigma_points(
+            cross_covariance_from_2d_translation_cubature_points(
                 self.mean,
-                &sigma_points,
+                &cubature_points,
                 &predicted_measurement_mean,
                 &predicted_measurements,
             );
@@ -163,15 +166,16 @@ fn into_symmetric(matrix: Matrix3<f32>) -> Matrix3<f32> {
     0.5 * (matrix + matrix.transpose())
 }
 
-fn sample_sigma_points(
+fn sample_cubature_points(
     mean: Vector3<f32>,
     covariance: Matrix3<f32>,
-) -> Result<[Vector3<f32>; 7], Error> {
+) -> Result<[Vector3<f32>; 6], Error> {
     let covariance_cholesky = covariance.cholesky().ok_or(Error::Cholesky)?;
-    let covariance_square_root = covariance_cholesky.l();
+    // Third-degree cubature rule for a 3D state: +/- sqrt(3) along each
+    // Cholesky axis, each point weighted by 1 / (2 * 3).
+    let covariance_square_root = 3.0_f32.sqrt() * covariance_cholesky.l();
 
-    let sigma_points = [
-        mean,
+    let cubature_points = [
         mean + covariance_square_root.column(0),
         mean - covariance_square_root.column(0),
         mean + covariance_square_root.column(1),
@@ -179,45 +183,45 @@ fn sample_sigma_points(
         mean + covariance_square_root.column(2),
         mean - covariance_square_root.column(2),
     ];
-    Ok(sigma_points)
+    Ok(cubature_points)
 }
 
-fn mean_from_3d_sigma_points(points: &[Vector3<f32>]) -> Vector3<f32> {
+fn mean_from_3d_cubature_points(points: &[Vector3<f32>]) -> Vector3<f32> {
     let mut mean = Vector2::zeros();
     let mut mean_angle = Complex::new(0.0, 0.0);
     for point in points {
         mean += point.xy();
         mean_angle += Complex::new(point.z.cos(), point.z.sin());
     }
-    mean *= 1.0 / 7.0;
+    mean *= CUBATURE_POINT_WEIGHT;
     vector![mean.x, mean.y, mean_angle.argument()]
 }
 
-fn mean_from_1d_translation_and_rotation_sigma_points(points: &[Vector2<f32>]) -> Vector2<f32> {
+fn mean_from_1d_translation_and_rotation_cubature_points(points: &[Vector2<f32>]) -> Vector2<f32> {
     let mut mean_x = 0.0;
     let mut mean_angle = Complex::new(0.0, 0.0);
     for point in points {
         mean_x += point.x;
         mean_angle += Complex::new(point.y.cos(), point.y.sin());
     }
-    mean_x *= 1.0 / 7.0;
+    mean_x *= CUBATURE_POINT_WEIGHT;
     vector![mean_x, mean_angle.argument()]
 }
 
-fn mean_from_2d_translation_sigma_points(points: &[Vector2<f32>]) -> Vector2<f32> {
+fn mean_from_2d_translation_cubature_points(points: &[Vector2<f32>]) -> Vector2<f32> {
     let mut mean = Vector2::zeros();
     for point in points {
         mean += point;
     }
-    mean *= 1.0 / 7.0;
+    mean *= CUBATURE_POINT_WEIGHT;
     mean
 }
 
-fn covariance_from_3d_sigma_points(
+fn covariance_from_3d_cubature_points(
     mean: Vector3<f32>,
-    sigma_points: &[Vector3<f32>],
+    cubature_points: &[Vector3<f32>],
 ) -> Matrix3<f32> {
-    sigma_points
+    cubature_points
         .iter()
         .map(|point| {
             vector![
@@ -228,14 +232,14 @@ fn covariance_from_3d_sigma_points(
         })
         .map(|normalized_point| normalized_point * normalized_point.transpose())
         .sum::<Matrix3<f32>>()
-        * (1.0 / 6.0)
+        * CUBATURE_POINT_WEIGHT
 }
 
-fn covariance_from_1d_translation_and_rotation_sigma_points(
+fn covariance_from_1d_translation_and_rotation_cubature_points(
     mean: Vector2<f32>,
-    sigma_points: &[Vector2<f32>],
+    cubature_points: &[Vector2<f32>],
 ) -> Matrix2<f32> {
-    sigma_points
+    cubature_points
         .iter()
         .map(|point| {
             vector![
@@ -245,31 +249,31 @@ fn covariance_from_1d_translation_and_rotation_sigma_points(
         })
         .map(|normalized_point| normalized_point * normalized_point.transpose())
         .sum::<Matrix2<f32>>()
-        * (1.0 / 6.0)
+        * CUBATURE_POINT_WEIGHT
 }
 
-fn covariance_from_2d_translation_sigma_points(
+fn covariance_from_2d_translation_cubature_points(
     mean: Vector2<f32>,
-    sigma_points: &[Vector2<f32>],
+    cubature_points: &[Vector2<f32>],
 ) -> Matrix2<f32> {
-    sigma_points
+    cubature_points
         .iter()
         .map(|point| point - mean)
         .map(|normalized_point| normalized_point * normalized_point.transpose())
         .sum::<Matrix2<f32>>()
-        * (1.0 / 6.0)
+        * CUBATURE_POINT_WEIGHT
 }
 
-fn cross_covariance_from_1d_translation_and_rotation_sigma_points(
+fn cross_covariance_from_1d_translation_and_rotation_cubature_points(
     state_mean: Vector3<f32>,
-    state_sigma_points: &[Vector3<f32>],
+    state_cubature_points: &[Vector3<f32>],
     &measurement_mean: &Vector2<f32>,
-    measurement_sigma_points: &[Vector2<f32>],
+    measurement_cubature_points: &[Vector2<f32>],
 ) -> Matrix3x2<f32> {
-    assert!(state_sigma_points.len() == measurement_sigma_points.len());
-    state_sigma_points
+    assert!(state_cubature_points.len() == measurement_cubature_points.len());
+    state_cubature_points
         .iter()
-        .zip(measurement_sigma_points.iter())
+        .zip(measurement_cubature_points.iter())
         .map(|(state, measurement)| {
             vector![
                 state.x - state_mean.x,
@@ -282,19 +286,19 @@ fn cross_covariance_from_1d_translation_and_rotation_sigma_points(
             .transpose()
         })
         .sum::<Matrix3x2<f32>>()
-        * (1.0 / 6.0)
+        * CUBATURE_POINT_WEIGHT
 }
 
-fn cross_covariance_from_2d_translation_sigma_points(
+fn cross_covariance_from_2d_translation_cubature_points(
     state_mean: Vector3<f32>,
-    state_sigma_points: &[Vector3<f32>],
+    state_cubature_points: &[Vector3<f32>],
     &measurement_mean: &Vector2<f32>,
-    measurement_sigma_points: &[Vector2<f32>],
+    measurement_cubature_points: &[Vector2<f32>],
 ) -> Matrix3x2<f32> {
-    assert!(state_sigma_points.len() == measurement_sigma_points.len());
-    state_sigma_points
+    assert!(state_cubature_points.len() == measurement_cubature_points.len());
+    state_cubature_points
         .iter()
-        .zip(measurement_sigma_points.iter())
+        .zip(measurement_cubature_points.iter())
         .map(|(state, measurement)| {
             vector![
                 state.x - state_mean.x,
@@ -303,5 +307,64 @@ fn cross_covariance_from_2d_translation_sigma_points(
             ] * (measurement - measurement_mean).transpose()
         })
         .sum::<Matrix3x2<f32>>()
-        * (1.0 / 6.0)
+        * CUBATURE_POINT_WEIGHT
+}
+
+#[cfg(test)]
+mod tests {
+    use approx::assert_relative_eq;
+    use nalgebra::{matrix, vector};
+
+    use super::PoseFilter;
+    use types::multivariate_normal_distribution::MultivariateNormalDistribution;
+
+    #[test]
+    fn identity_prediction_preserves_covariance_without_process_noise() {
+        let initial_covariance = matrix![
+            0.4, 0.1, 0.0;
+            0.1, 0.3, 0.0;
+            0.0, 0.0, 0.2
+        ];
+        let mut state = MultivariateNormalDistribution {
+            mean: vector![1.0, -0.5, 0.3],
+            covariance: initial_covariance,
+        };
+
+        state
+            .predict(
+                |state| state,
+                matrix![0.0, 0.0, 0.0; 0.0, 0.0, 0.0; 0.0, 0.0, 0.0],
+            )
+            .unwrap();
+
+        assert_relative_eq!(state.covariance, initial_covariance, epsilon = 1.0e-5);
+    }
+
+    #[test]
+    fn repeated_identity_predictions_accumulate_process_noise() {
+        let process_noise = matrix![
+            0.02, 0.0, 0.0;
+            0.0, 0.03, 0.0;
+            0.0, 0.0, 0.01
+        ];
+        let initial_covariance = matrix![
+            0.4, 0.0, 0.0;
+            0.0, 0.3, 0.0;
+            0.0, 0.0, 0.2
+        ];
+        let mut state = MultivariateNormalDistribution {
+            mean: vector![0.0, 0.0, 0.0],
+            covariance: initial_covariance,
+        };
+
+        for _ in 0..3 {
+            state.predict(|state| state, process_noise).unwrap();
+        }
+
+        assert_relative_eq!(
+            state.covariance,
+            initial_covariance + 3.0 * process_noise,
+            epsilon = 1.0e-5
+        );
+    }
 }
