@@ -221,16 +221,12 @@ impl Localization {
             )
         );
 
-        let newest_odometer = Self::latest_odometer(context);
-        let current_odometry_to_last_odometry = newest_odometer
-            .as_ref()
-            .and_then(|odometer| {
-                self.last_odometer
-                    .as_ref()
-                    .map(|last_odometer| odometry_delta(last_odometer, odometer))
-            })
-            .unwrap_or_default();
-        self.last_odometer = newest_odometer;
+        let latest_odometer = Self::latest_odometer(context);
+        let current_odometry_to_last_odometry = match (latest_odometer, self.last_odometer) {
+            (Some(last), Some(latest)) => latest.to(last).inner,
+            _ => Default::default(),
+        };
+        self.last_odometer = latest_odometer;
 
         let line_data = context
             .line_data
@@ -1397,11 +1393,7 @@ mod tests {
             y: 3.0,
             theta: FRAC_PI_2 + 0.2,
         };
-        let delta = {
-            let last_odometer: &Odometer = &last_odometer;
-            let odometer: &Odometer = &odometer;
-            odometer.to(*last_odometer)
-        };
+        let delta = odometer.to(last_odometer);
 
         assert_relative_eq!(delta.translation().x(), 1.0, epsilon = 0.0001);
         assert_relative_eq!(delta.translation().y(), 0.0, epsilon = 0.0001);
@@ -1420,11 +1412,7 @@ mod tests {
             y: 0.0,
             theta: 0.1 + PI + 0.2,
         };
-        let delta = {
-            let last_odometer: &Odometer = &last_odometer;
-            let odometer: &Odometer = &odometer;
-            odometer.to(*last_odometer)
-        };
+        let delta = odometer.to(last_odometer);
 
         assert_relative_eq!(delta.orientation().angle(), -PI + 0.2, epsilon = 0.0001);
     }
