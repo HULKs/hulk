@@ -4,9 +4,9 @@
   "parameters_directory": "etc/parameters",
   "recording_intervals": {
     "Motion": 10,
-    "ObjectDetection": 1,
+    "ObjectDetection": 10,
     "SplNetwork": 1,
-    "Vision": 1,
+    "Vision": 10,
     "WorldState": 1
   }
 }
