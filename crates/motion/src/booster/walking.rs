@@ -5,7 +5,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use coordinate_systems::Ground;
 use framework::AdditionalOutput;
-use hardware::{HighLevelInterface, MotionRuntimeInteface, TimeInterface};
+use hardware::{HighLevelInterface, MotionRuntimeInteface};
 use linear_algebra::{Orientation2, Point2};
 use serde::{Deserialize, Serialize};
 use types::{
@@ -46,7 +46,7 @@ impl BoosterWalking {
 
     pub fn cycle(
         &mut self,
-        mut context: CycleContext<impl HighLevelInterface + MotionRuntimeInteface + TimeInterface>,
+        mut context: CycleContext<impl HighLevelInterface + MotionRuntimeInteface>,
     ) -> Result<MainOutputs> {
         if context.hardware_interface.get_motion_runtime_type()? != MotionRuntime::Booster
             || !matches!(context.robot_mode, RobotMode::Walking)
@@ -121,10 +121,7 @@ impl BoosterWalking {
     }
 }
 
-fn move_robot(
-    context: &CycleContext<impl HighLevelInterface + MotionRuntimeInteface + TimeInterface>,
-    step: Step,
-) {
+fn move_robot(context: &CycleContext<impl HighLevelInterface + MotionRuntimeInteface>, step: Step) {
     let _ = context
         .hardware_interface
         .move_robot(step)

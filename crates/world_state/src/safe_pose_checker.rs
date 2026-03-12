@@ -1,6 +1,5 @@
 use approx::AbsDiffEq;
 use color_eyre::Result;
-use hardware::TimeInterface;
 use kinematics::joints::Joints;
 use serde::{Deserialize, Serialize};
 
@@ -41,8 +40,6 @@ pub struct CycleContext {
         AdditionalOutput<Vector3<Robot>, "angular_velocities_difference_to_safe">,
     linear_accelerations_difference_to_safe:
         AdditionalOutput<Vector3<Robot>, "linear_accelerations_difference_to_safe">,
-
-    hardware_interface: HardwareInterface,
 }
 
 #[context]
@@ -59,7 +56,7 @@ impl SafePoseChecker {
         })
     }
 
-    pub fn cycle(&mut self, mut context: CycleContext<impl TimeInterface>) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let imu_state = context
             .imu_state
             .persistent
