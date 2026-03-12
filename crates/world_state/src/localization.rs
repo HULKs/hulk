@@ -223,7 +223,7 @@ impl Localization {
 
         let latest_odometer = Self::latest_odometer(context);
         let current_odometry_to_last_odometry = match (latest_odometer, self.last_odometer) {
-            (Some(last), Some(latest)) => odometry_delta(last, latest),
+            (Some(last), Some(latest)) => odometry_delta(last, latest).inverse(),
             _ => Default::default(),
         };
         self.last_odometer = latest_odometer;
