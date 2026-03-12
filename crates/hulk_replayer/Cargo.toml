@@ -61,4 +61,3 @@ hulk_manifest = { workspace = true }
 source_analyzer = { workspace = true }
 
 [features]
-with_object_detection = []

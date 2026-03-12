@@ -84,7 +84,7 @@ impl ObstacleFilter {
         for (detection_time, detected_objects) in measurements {
             let current_odometry_to_last_odometry = context
                 .current_odometry_to_last_odometry
-                .get(detection_time)
+                .get_nearest(detection_time)
                 .copied()
                 .unwrap_or_default();
 
@@ -93,8 +93,9 @@ impl ObstacleFilter {
                 Matrix2::from_diagonal(&context.obstacle_filter_parameters.process_noise),
             );
 
-            let camera_matrix = context.camera_matrix.get(detection_time);
-            let network_robot_obstacles = context.network_robot_obstacles.get(detection_time);
+            let camera_matrix = context.camera_matrix.get_nearest(detection_time);
+            let network_robot_obstacles =
+                context.network_robot_obstacles.get_nearest(detection_time);
 
             for network_robot_obstacle in network_robot_obstacles {
                 self.update_hypotheses_with_measurement(

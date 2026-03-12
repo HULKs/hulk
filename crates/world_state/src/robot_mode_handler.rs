@@ -4,7 +4,7 @@ use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
 use framework::MainOutput;
-use hardware::{HighLevelInterface, MotionRuntimeInteface, TimeInterface};
+use hardware::{HighLevelInterface, MotionRuntimeInteface};
 use types::{motion_runtime::MotionRuntime, primary_state::PrimaryState};
 
 #[derive(Deserialize, Serialize)]
@@ -33,7 +33,7 @@ impl BoosterModeHandler {
 
     pub fn cycle(
         &mut self,
-        context: CycleContext<impl HighLevelInterface + MotionRuntimeInteface + TimeInterface>,
+        context: CycleContext<impl HighLevelInterface + MotionRuntimeInteface>,
     ) -> Result<MainOutputs> {
         if context.hardware_interface.get_motion_runtime_type()? != MotionRuntime::Booster {
             return Ok(MainOutputs {
@@ -71,7 +71,7 @@ impl BoosterModeHandler {
 }
 
 fn change_mode(
-    context: &CycleContext<impl HighLevelInterface + MotionRuntimeInteface + TimeInterface>,
+    context: &CycleContext<impl HighLevelInterface + MotionRuntimeInteface>,
     robot_mode: RobotMode,
 ) {
     let _ = context
