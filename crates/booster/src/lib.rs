@@ -1,13 +1,11 @@
 use color_eyre::eyre::{Result, bail};
-use coordinate_systems::Robot;
+use coordinate_systems::{Ground, Robot};
 use kinematics::joints::Joints;
-use linear_algebra::Vector3;
+use linear_algebra::{Isometry2, Vector3, vector};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use ros2::{geometry_msgs::transform_stamped::TransformStamped, std_msgs::header::Header};
 use serde::{Deserialize, Serialize};
 
-#[cfg(feature = "pyo3")]
-use linear_algebra::vector;
 #[cfg(feature = "pyo3")]
 use pyo3::prelude::*;
 
@@ -549,12 +547,34 @@ pub struct Kick {
 
 #[repr(C)]
 #[derive(
-    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
 )]
 pub struct Odometer {
     pub x: f32,
     pub y: f32,
     pub theta: f32,
+}
+
+impl Odometer {
+    /// Returns an [linear_algebra::Isometry2] representing the transformation from the current odometer to the odometer at initialization.
+    pub fn as_isometry(&self) -> Isometry2<Ground, Ground> {
+        Isometry2::from_parts(vector![self.x, self.y], self.theta)
+    }
+
+    /// Returns an [linear_algebra::Isometry2] representing the transformation from the current odometer to the given odometer.
+    pub fn to(self, new: Odometer) -> Isometry2<Ground, Ground> {
+        let old = self.as_isometry(); // A <- B
+        let new = new.as_isometry(); // A <- C
+        new.inverse() * old
+    }
 }
 
 #[cfg(feature = "pyo3")]

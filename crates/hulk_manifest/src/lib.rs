@@ -69,7 +69,6 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
                 setup_nodes: vec!["world_state::trigger"],
                 nodes: vec![
                     "world_state::ball_filter",
-                    "world_state::ball_projector",
                     "world_state::ball_state_composer",
                     "world_state::behavior::node",
                     "world_state::button_event_handler",

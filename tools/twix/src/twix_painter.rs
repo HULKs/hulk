@@ -234,6 +234,7 @@ impl<World> TwixPainter<World> {
             .add(Shape::Path(PathShape::closed_line(points, stroke)));
     }
 
+    #[allow(dead_code)]
     pub fn polyline(&self, points: impl IntoIterator<Item = Point2<World>>, stroke: Stroke) {
         let points: Vec<_> = points
             .into_iter()
