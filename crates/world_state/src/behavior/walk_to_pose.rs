@@ -44,7 +44,6 @@ impl<'cycle> WalkPathPlanner<'cycle> {
         ground_to_field: Isometry2<Ground, Field>,
         ball_obstacle: Option<Point2<Ground>>,
         ball_obstacle_radius_factor: f32,
-        obstacles: &[Obstacle],
         rule_obstacles: &[RuleObstacle],
         path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
     ) -> Path {
@@ -53,7 +52,7 @@ impl<'cycle> WalkPathPlanner<'cycle> {
             self.last_motion_command,
             self.parameters.rotation_penalty_factor,
         );
-        planner.with_obstacles(obstacles, self.parameters.robot_radius_at_hip_height);
+        planner.with_obstacles(self.obstacles, self.parameters.robot_radius_at_hip_height);
         planner.with_rule_obstacles(
             ground_to_field.inverse(),
             rule_obstacles,
@@ -191,7 +190,6 @@ impl<'cycle> WalkAndStand<'cycle> {
                 ground_to_field,
                 self.world_state.ball.map(|ball| ball.ball_in_ground),
                 1.0,
-                &self.world_state.obstacles,
                 &self.world_state.rule_obstacles,
                 path_obstacles_output,
             );
