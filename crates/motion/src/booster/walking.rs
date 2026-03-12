@@ -5,7 +5,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use coordinate_systems::Ground;
 use framework::AdditionalOutput;
-use hardware::{HighLevelInterface, MotionRuntimeInteface, TimeInterface};
+use hardware::{HighLevelInterface, MotionRuntimeInteface};
 use linear_algebra::{Orientation2, Point2};
 use serde::{Deserialize, Serialize};
 use types::{
