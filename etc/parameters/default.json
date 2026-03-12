@@ -393,8 +393,8 @@
       "enable": false
     },
     "path_planning": {
-      "robot_radius_at_hip_height": 0.15,
-      "robot_radius_at_foot_height": 0.2,
+      "robot_radius_at_hip_height": 0.3,
+      "robot_radius_at_foot_height": 0.4,
       "minimum_robot_radius_at_foot_height": 0.11,
       "ball_obstacle_radius": 0.05,
       "field_border_weight": 0.15,
@@ -501,9 +501,9 @@
     "robot_measurement_noise": [500.0, 500.0],
     "person_measurement_noise": [500.0, 500.0],
     "measurement_count_threshold": 10,
-    "robot_obstacle_radius_at_hip_height": 0.2,
-    "robot_obstacle_radius_at_foot_height": 0.2,
-    "person_obstacle_radius": 0.5,
+    "robot_obstacle_radius_at_hip_height": 0.5,
+    "robot_obstacle_radius_at_foot_height": 0.5,
+    "person_obstacle_radius": 0.75,
     "unknown_obstacle_radius": 0.125,
     "goal_post_obstacle_radius": 0.2
   },
