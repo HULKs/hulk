@@ -433,7 +433,7 @@
       "keeper_x_offset": 0.1,
       "keeper_passive_distance": 4.5,
       "striker_distance_to_non_free_center_circle": 0.4,
-      "striker_kickoff_position": [-0.21, 0.03]
+      "striker_kickoff_position": [-0.4, 0.0]
     },
     "lost_ball": {
       "offset_to_last_ball_location": [1.0, 0.0]
