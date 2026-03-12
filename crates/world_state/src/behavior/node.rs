@@ -44,6 +44,7 @@ pub struct Behavior {
     last_known_ball_position: Point2<Field>,
     previous_role: Role,
     last_time_role_changed: SystemTime,
+    last_close_enough_to_kick: bool,
 }
 
 #[context]
@@ -80,6 +81,7 @@ impl Behavior {
             last_known_ball_position: point![0.0, 0.0],
             previous_role: Role::Searcher,
             last_time_role_changed: UNIX_EPOCH,
+            last_close_enough_to_kick: false,
         })
     }
 
@@ -282,6 +284,7 @@ impl Behavior {
                             .normal_distance_to_be_aligned,
                         *context.field_dimensions,
                         &mut context.path_obstacles_output,
+                        &mut self.last_close_enough_to_kick,
                     ),
                     Action::Search => search::execute(
                         world_state,
