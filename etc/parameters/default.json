@@ -367,14 +367,14 @@
   },
   "injected_primary_state": null,
   "walk_speed": {
-    "defend": 1.0,
-    "kicking": 1.5,
-    "intercept_ball": 1.5,
-    "lost_ball": 1.0,
-    "search": 1.0,
-    "support": 1.0,
-    "walk_to_kickoff": 1.0,
-    "walk_to_penalty_kick": 1.0
+    "defend": 0.8,
+    "kicking": 0.75,
+    "intercept_ball": 1.0,
+    "lost_ball": 0.8,
+    "search": 0.5,
+    "support": 0.7,
+    "walk_to_kickoff": 0.6,
+    "walk_to_penalty_kick": 0.5
   },
   "behavior": {
     "injected_motion_command": null,
