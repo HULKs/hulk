@@ -222,8 +222,8 @@ impl Localization {
         );
 
         let latest_odometer = Self::latest_odometer(context);
-        let current_odometry_to_last_odometry = match (latest_odometer, self.last_odometer) {
-            (Some(last), Some(latest)) => latest.to(last).inner,
+        let current_odometry_to_last_odometry = match (self.last_odometer, latest_odometer) {
+            (Some(last), Some(latest)) => odometry_delta(last, latest),
             _ => Default::default(),
         };
         self.last_odometer = latest_odometer;
@@ -909,6 +909,17 @@ fn predict(
         process_noise,
     )?;
     Ok(())
+}
+
+fn odometry_delta(last_odometer: Odometer, odometer: Odometer) -> nalgebra::Isometry2<f32> {
+    let last_odometry_to_world = nalgebra::Isometry2::new(
+        nalgebra::vector![last_odometer.x, last_odometer.y],
+        last_odometer.theta,
+    );
+    let current_odometry_to_world =
+        nalgebra::Isometry2::new(nalgebra::vector![odometer.x, odometer.y], odometer.theta);
+
+    last_odometry_to_world.inverse() * current_odometry_to_world
 }
 
 #[allow(clippy::too_many_arguments)]
