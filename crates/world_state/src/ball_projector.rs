@@ -60,7 +60,7 @@ impl BallProjector {
                         }
 
                         let area = detection.bounding_box.area;
-                        let camera_matrix = context.past_camera_matrices.get(time)?;
+                        let camera_matrix = context.past_camera_matrices.get_nearest(time)?;
                         let position = camera_matrix
                             .pixel_to_ground_with_z(
                                 area.center(),
