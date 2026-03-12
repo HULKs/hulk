@@ -47,6 +47,7 @@ pub struct Localization {
     is_penalized_with_motion_in_set_or_initial: bool,
     time_when_penalized_clicked: Option<SystemTime>,
     last_odometer: Option<Odometer>,
+    last_line_data_time: SystemTime,
 }
 
 #[context]
@@ -73,6 +74,7 @@ pub struct CycleContext {
     odometer: PerceptionInput<Odometer, "Odometry", "odometer">,
     fall_down_state: PerceptionInput<Option<FallDownState>, "FallDownState", "fall_down_state?">,
     imu_state: PerceptionInput<ImuState, "Motion", "imu_state">,
+    line_data: PerceptionInput<Option<LineData>, "Vision", "line_data?">,
 
     circle_measurement_noise: Parameter<Vector2<f32>, "localization.circle_measurement_noise">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
@@ -115,17 +117,6 @@ pub struct MainOutputs {
     pub is_localization_converged: MainOutput<bool>,
 }
 
-#[derive(Default)]
-struct MockLineMeasurementSource {
-    batch: LineData,
-}
-
-impl MockLineMeasurementSource {
-    fn batch(&self) -> &LineData {
-        &self.batch
-    }
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum PenaltyExitStrategy {
     KeepCurrent,
@@ -160,7 +151,7 @@ struct CycleInputs {
     gyro_movement: f32,
     line_measurements_allowed: bool,
     current_odometry_to_last_odometry: Option<nalgebra::Isometry2<f32>>,
-    measurement_source: MockLineMeasurementSource,
+    line_data: Option<LineData>,
 }
 
 impl Localization {
@@ -178,6 +169,7 @@ impl Localization {
             is_penalized_with_motion_in_set_or_initial: false,
             time_when_penalized_clicked: None,
             last_odometer: None,
+            last_line_data_time: SystemTime::UNIX_EPOCH,
         })
     }
 
@@ -237,7 +229,24 @@ impl Localization {
         });
         self.last_odometer = newest_odometer;
 
-        let measurement_source = MockLineMeasurementSource::default();
+        let line_data = context
+            .line_data
+            .persistent
+            .iter()
+            .chain(&context.line_data.temporary)
+            .filter(|(time, _)| **time > self.last_line_data_time)
+            .flat_map(|(time, detections)| {
+                Some((*time, (*detections.iter().flatten().last()?).clone()))
+            })
+            .last();
+
+        let line_data = match line_data {
+            Some((time, data)) => {
+                self.last_line_data_time = time;
+                Some(data)
+            }
+            _ => None,
+        };
 
         CycleInputs {
             cycle_start_time,
@@ -248,9 +257,8 @@ impl Localization {
             penalty,
             gyro_movement,
             line_measurements_allowed,
-            current_odometry_to_last_odometry: current_odometry_to_last_odometry
-                .map(|odometry| odometry.inner),
-            measurement_source,
+            current_odometry_to_last_odometry,
+            line_data,
         }
     }
 
@@ -506,12 +514,11 @@ impl Localization {
         if !*context.use_line_measurements || !inputs.line_measurements_allowed {
             return Ok(Vec::new());
         }
+        let Some(line_data) = inputs.line_data.as_ref() else {
+            return Ok(Vec::new());
+        };
 
-        let fit_errors = self.apply_measurement_batch(
-            context,
-            inputs.measurement_source.batch(),
-            measurement_noise,
-        )?;
+        let fit_errors = self.apply_measurement_batch(context, line_data, measurement_noise)?;
         Ok((!fit_errors.is_empty())
             .then_some(fit_errors)
             .into_iter()
