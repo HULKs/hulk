@@ -1,4 +1,5 @@
 use coordinate_systems::Field;
+use filtering::hysteresis::less_than_with_hysteresis;
 use framework::AdditionalOutput;
 use hsl_network_messages::GamePhase;
 use linear_algebra::{Orientation2, Vector2, vector};
@@ -13,6 +14,7 @@ use types::{
 
 use super::walk_to_pose::WalkPathPlanner;
 
+#[allow(clippy::too_many_arguments)]
 pub fn execute(
     world_state: &WorldState,
     walk_path_planner: &WalkPathPlanner,
@@ -21,6 +23,7 @@ pub fn execute(
     distance_to_be_aligned: f32,
     field_dimensions: FieldDimensions,
     path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
+    last_close_enough_to_kick: &mut bool,
 ) -> Option<MotionCommand> {
     let ball_position = world_state.ball?.ball_in_ground;
     let ground_to_field = world_state.robot.ground_to_field?;
@@ -44,7 +47,14 @@ pub fn execute(
     let robot_theta_to_field: Orientation2<Field> = ground_to_field.orientation();
     let target_position = (field_to_ground * goal_position).as_point();
 
-    if distance_to_ball < parameters.distance_for_kick {
+    let close_enough_to_kick = less_than_with_hysteresis(
+        *last_close_enough_to_kick,
+        distance_to_ball,
+        parameters.distance_for_kick,
+        parameters.distance_for_kick_hysteresis,
+    );
+    *last_close_enough_to_kick = close_enough_to_kick;
+    if close_enough_to_kick {
         Some(MotionCommand::VisualKick {
             head,
             ball_position,
