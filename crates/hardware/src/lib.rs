@@ -122,6 +122,7 @@ pub trait HighLevelInterface {
     fn enter_wbc_gait(&self) -> Result<()>;
     fn exit_wbc_gait(&self) -> Result<()>;
     fn visual_kick(&self, start: bool) -> Result<()>;
+    fn reset_odometer(&self) -> Result<()>;
 }
 
 pub trait MotionRuntimeInteface {
