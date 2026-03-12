@@ -13,7 +13,7 @@
         "center_circle_diameter": 1.5,
         "border_strip_width":1.0,
         "corner_arc_radius": 0.0,
-        "line_width": 0.05,
+        "line_width": 0.07,
         "penalty_marker_size": 0.1,
         "goal_post_diameter": 0.1
     }
