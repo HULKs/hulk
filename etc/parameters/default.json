@@ -284,19 +284,19 @@
     "initial_hypothesis_score": 1.0,
     "initial_poses": {
       "one": {
-        "center_line_offset_x": -1.0,
-        "side": "Left"
+        "center_line_offset_x": -3.0,
+        "side": "Right"
       },
       "two": {
-        "center_line_offset_x": -1.0,
+        "center_line_offset_x": -3.0,
         "side": "Left"
       },
       "three": {
         "center_line_offset_x": -1.0,
-        "side": "Left"
+        "side": "Right"
       },
       "four": {
-        "center_line_offset_x": -1.0,
+        "center_line_offset_x": -2.0,
         "side": "Left"
       },
       "five": {
