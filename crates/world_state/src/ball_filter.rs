@@ -90,7 +90,7 @@ impl BallFilter {
             self.ball_filter.hypotheses.retain(|hypothesis| {
                 hypothesis.validity > filter_parameters.validity_discard_threshold
             });
-            let cycle_time = historic_cycle_times.get(&detection_time);
+            let cycle_time = historic_cycle_times.get_nearest(&detection_time);
 
             self.ball_filter.predict(
                 cycle_time.last_cycle_duration,
@@ -101,7 +101,7 @@ impl BallFilter {
                 filter_parameters.log_likelihood_of_zero_velocity_threshold,
             );
 
-            let camera_matrix = camera_matrix.get(&detection_time);
+            let camera_matrix = camera_matrix.get_nearest(&detection_time);
             self.ball_filter.decay_hypotheses(|hypothesis| {
                 decide_validity_decay_for_hypothesis(
                     hypothesis,
@@ -338,7 +338,7 @@ fn projected_balls(
     detections
         .into_iter()
         .filter_map(|(time, detections)| {
-            let camera_matrix = historic_camera_matrix.get(&time)?;
+            let camera_matrix = historic_camera_matrix.get_nearest(&time)?;
             let detections = detections
                 .into_iter()
                 .flatten()

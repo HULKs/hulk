@@ -584,7 +584,7 @@
     "minimum_yaw": -0.785,
     "injected_head_joints": null
   },
-  "recorded_primary_states": ["Ready", "Set", "Playing"],
+  "recorded_primary_states": ["Initial", "Ready", "Set", "Playing"],
   "safe_mode_handler": {
     "joint_position_threshold": 0.1,
     "joint_velocity_threshold": 0.1,
