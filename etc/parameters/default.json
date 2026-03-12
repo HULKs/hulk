@@ -446,7 +446,7 @@
       "estimated_ball_speed": 0.75
     },
     "kicking": {
-      "kick_power": 1.0,
+      "kick_power": 2.0,
       "distance_for_kick": 1.5,
       "distance_for_kick_hysteresis": 0.5,
       "distance_to_look_directly_at_the_ball": 4.0
@@ -969,7 +969,7 @@
     "goal_accuracy_margin": 0.25
   },
   "wait_before_prepare": {
-      "nanos": 0,
-      "secs": 5
+    "nanos": 0,
+    "secs": 5
   }
 }
