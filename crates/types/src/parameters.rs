@@ -561,5 +561,6 @@ impl Default for WalkSpeedParameters {
 pub struct KickingParameters {
     pub kick_power: f64,
     pub distance_for_kick: f32,
+    pub distance_for_kick_hysteresis: f32,
     pub distance_to_look_directly_at_the_ball: f32,
 }
