@@ -150,7 +150,7 @@ struct CycleInputs {
     penalty: Option<Penalty>,
     gyro_movement: f32,
     line_measurements_allowed: bool,
-    current_odometry_to_last_odometry: Option<nalgebra::Isometry2<f32>>,
+    current_odometry_to_last_odometry: nalgebra::Isometry2<f32>,
     line_data: Option<LineData>,
 }
 
@@ -222,11 +222,14 @@ impl Localization {
         );
 
         let newest_odometer = Self::latest_odometer(context);
-        let current_odometry_to_last_odometry = newest_odometer.as_ref().and_then(|odometer| {
-            self.last_odometer
-                .as_ref()
-                .map(|last_odometer| odometer.to(*last_odometer))
-        });
+        let current_odometry_to_last_odometry = newest_odometer
+            .as_ref()
+            .and_then(|odometer| {
+                self.last_odometer
+                    .as_ref()
+                    .map(|last_odometer| odometry_delta(last_odometer, odometer))
+            })
+            .unwrap_or_default();
         self.last_odometer = newest_odometer;
 
         let line_data = context
@@ -456,7 +459,7 @@ impl Localization {
     ) -> Result<Isometry2<Ground, Field>> {
         self.prepare_debug_outputs(context, inputs);
         let measurement_noise = self.measurement_noise(context, inputs);
-        self.predict_hypotheses(context, inputs.current_odometry_to_last_odometry.as_ref())?;
+        self.predict_hypotheses(context, inputs.current_odometry_to_last_odometry)?;
         let fit_errors_per_measurement =
             self.apply_measurements(inputs, context, &measurement_noise)?;
         self.finalize_hypotheses(context, fit_errors_per_measurement)
@@ -489,18 +492,16 @@ impl Localization {
     fn predict_hypotheses(
         &mut self,
         context: &CycleContext,
-        current_odometry_to_last_odometry: Option<&nalgebra::Isometry2<f32>>,
+        current_odometry_to_last_odometry: nalgebra::Isometry2<f32>,
     ) -> Result<()> {
-        if let Some(current_odometry_to_last_odometry) = current_odometry_to_last_odometry {
-            for scored_state in &mut self.hypotheses {
-                predict(
-                    &mut scored_state.state,
-                    current_odometry_to_last_odometry,
-                    context.odometry_noise,
-                )
-                .wrap_err("failed to predict pose filter")?;
-                scored_state.score *= *context.hypothesis_prediction_score_reduction_factor;
-            }
+        for scored_state in &mut self.hypotheses {
+            predict(
+                &mut scored_state.state,
+                current_odometry_to_last_odometry,
+                context.odometry_noise,
+            )
+            .wrap_err("failed to predict pose filter")?;
+            scored_state.score *= *context.hypothesis_prediction_score_reduction_factor;
         }
         Ok(())
     }
@@ -886,7 +887,7 @@ impl FieldMarkCorrespondence {
 
 fn predict(
     state: &mut MultivariateNormalDistribution<3>,
-    current_odometry_to_last_odometry: &nalgebra::Isometry2<f32>,
+    current_odometry_to_last_odometry: nalgebra::Isometry2<f32>,
     odometry_noise: &Vector3<f32>,
 ) -> Result<()> {
     let current_orientation_angle = state.mean.z;
