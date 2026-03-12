@@ -474,6 +474,10 @@ impl HighLevelInterface for MujocoHardwareInterface {
     fn visual_kick(&self, _start: bool) -> Result<()> {
         unimplemented!()
     }
+
+    fn reset_odometer(&self) -> Result<()> {
+        Ok(())
+    }
 }
 
 impl MotionRuntimeInteface for MujocoHardwareInterface {
