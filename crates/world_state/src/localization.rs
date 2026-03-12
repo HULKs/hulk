@@ -47,6 +47,7 @@ pub struct Localization {
     is_penalized_with_motion_in_set_or_initial: bool,
     time_when_penalized_clicked: Option<SystemTime>,
     last_odometer: Option<Odometer>,
+    last_line_data_time: SystemTime,
 }
 
 #[context]
@@ -73,6 +74,7 @@ pub struct CycleContext {
     odometer: PerceptionInput<Odometer, "Odometry", "odometer">,
     fall_down_state: PerceptionInput<Option<FallDownState>, "FallDownState", "fall_down_state?">,
     imu_state: PerceptionInput<ImuState, "Motion", "imu_state">,
+    line_data: PerceptionInput<Option<LineData>, "Vision", "line_data?">,
 
     circle_measurement_noise: Parameter<Vector2<f32>, "localization.circle_measurement_noise">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
@@ -115,17 +117,6 @@ pub struct MainOutputs {
     pub is_localization_converged: MainOutput<bool>,
 }
 
-#[derive(Default)]
-struct MockLineMeasurementSource {
-    batch: LineData,
-}
-
-impl MockLineMeasurementSource {
-    fn batch(&self) -> &LineData {
-        &self.batch
-    }
-}
-
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum PenaltyExitStrategy {
     KeepCurrent,
@@ -159,8 +150,8 @@ struct CycleInputs {
     penalty: Option<Penalty>,
     gyro_movement: f32,
     line_measurements_allowed: bool,
-    current_odometry_to_last_odometry: Option<nalgebra::Isometry2<f32>>,
-    measurement_source: MockLineMeasurementSource,
+    current_odometry_to_last_odometry: nalgebra::Isometry2<f32>,
+    line_data: Option<LineData>,
 }
 
 impl Localization {
@@ -178,6 +169,7 @@ impl Localization {
             is_penalized_with_motion_in_set_or_initial: false,
             time_when_penalized_clicked: None,
             last_odometer: None,
+            last_line_data_time: SystemTime::UNIX_EPOCH,
         })
     }
 
@@ -229,15 +221,31 @@ impl Localization {
             )
         );
 
-        let newest_odometer = Self::latest_odometer(context);
-        let current_odometry_to_last_odometry = newest_odometer.as_ref().and_then(|odometer| {
-            self.last_odometer
-                .as_ref()
-                .map(|last_odometer| odometer.to(*last_odometer))
-        });
-        self.last_odometer = newest_odometer;
+        let latest_odometer = Self::latest_odometer(context);
+        let current_odometry_to_last_odometry = match (latest_odometer, self.last_odometer) {
+            (Some(last), Some(latest)) => odometry_delta(last, latest),
+            _ => Default::default(),
+        };
+        self.last_odometer = latest_odometer;
 
-        let measurement_source = MockLineMeasurementSource::default();
+        let line_data = context
+            .line_data
+            .persistent
+            .iter()
+            .chain(&context.line_data.temporary)
+            .filter(|(time, _)| **time > self.last_line_data_time)
+            .flat_map(|(time, detections)| {
+                Some((*time, (*detections.iter().flatten().last()?).clone()))
+            })
+            .last();
+
+        let line_data = match line_data {
+            Some((time, data)) => {
+                self.last_line_data_time = time;
+                Some(data)
+            }
+            _ => None,
+        };
 
         CycleInputs {
             cycle_start_time,
@@ -248,9 +256,8 @@ impl Localization {
             penalty,
             gyro_movement,
             line_measurements_allowed,
-            current_odometry_to_last_odometry: current_odometry_to_last_odometry
-                .map(|odometry| odometry.inner),
-            measurement_source,
+            current_odometry_to_last_odometry,
+            line_data,
         }
     }
 
@@ -448,7 +455,7 @@ impl Localization {
     ) -> Result<Isometry2<Ground, Field>> {
         self.prepare_debug_outputs(context, inputs);
         let measurement_noise = self.measurement_noise(context, inputs);
-        self.predict_hypotheses(context, inputs.current_odometry_to_last_odometry.as_ref())?;
+        self.predict_hypotheses(context, inputs.current_odometry_to_last_odometry)?;
         let fit_errors_per_measurement =
             self.apply_measurements(inputs, context, &measurement_noise)?;
         self.finalize_hypotheses(context, fit_errors_per_measurement)
@@ -481,18 +488,16 @@ impl Localization {
     fn predict_hypotheses(
         &mut self,
         context: &CycleContext,
-        current_odometry_to_last_odometry: Option<&nalgebra::Isometry2<f32>>,
+        current_odometry_to_last_odometry: nalgebra::Isometry2<f32>,
     ) -> Result<()> {
-        if let Some(current_odometry_to_last_odometry) = current_odometry_to_last_odometry {
-            for scored_state in &mut self.hypotheses {
-                predict(
-                    &mut scored_state.state,
-                    current_odometry_to_last_odometry,
-                    context.odometry_noise,
-                )
-                .wrap_err("failed to predict pose filter")?;
-                scored_state.score *= *context.hypothesis_prediction_score_reduction_factor;
-            }
+        for scored_state in &mut self.hypotheses {
+            predict(
+                &mut scored_state.state,
+                current_odometry_to_last_odometry,
+                context.odometry_noise,
+            )
+            .wrap_err("failed to predict pose filter")?;
+            scored_state.score *= *context.hypothesis_prediction_score_reduction_factor;
         }
         Ok(())
     }
@@ -506,12 +511,11 @@ impl Localization {
         if !*context.use_line_measurements || !inputs.line_measurements_allowed {
             return Ok(Vec::new());
         }
+        let Some(line_data) = inputs.line_data.as_ref() else {
+            return Ok(Vec::new());
+        };
 
-        let fit_errors = self.apply_measurement_batch(
-            context,
-            inputs.measurement_source.batch(),
-            measurement_noise,
-        )?;
+        let fit_errors = self.apply_measurement_batch(context, line_data, measurement_noise)?;
         Ok((!fit_errors.is_empty())
             .then_some(fit_errors)
             .into_iter()
@@ -793,6 +797,17 @@ fn penalty_exit_strategy(
     }
 }
 
+fn odometry_delta(last_odometer: Odometer, odometer: Odometer) -> nalgebra::Isometry2<f32> {
+    let last_odometry_to_world = nalgebra::Isometry2::new(
+        nalgebra::vector![last_odometer.x, last_odometer.y],
+        last_odometer.theta,
+    );
+    let current_odometry_to_world =
+        nalgebra::Isometry2::new(nalgebra::vector![odometer.x, odometer.y], odometer.theta);
+
+    last_odometry_to_world.inverse() * current_odometry_to_world
+}
+
 pub fn goal_support_structure_line_marks_from_field_dimensions(
     field_dimensions: &FieldDimensions,
 ) -> Vec<FieldMark> {
@@ -879,7 +894,7 @@ impl FieldMarkCorrespondence {
 
 fn predict(
     state: &mut MultivariateNormalDistribution<3>,
-    current_odometry_to_last_odometry: &nalgebra::Isometry2<f32>,
+    current_odometry_to_last_odometry: nalgebra::Isometry2<f32>,
     odometry_noise: &Vector3<f32>,
 ) -> Result<()> {
     let current_orientation_angle = state.mean.z;
@@ -1389,11 +1404,7 @@ mod tests {
             y: 3.0,
             theta: FRAC_PI_2 + 0.2,
         };
-        let delta = {
-            let last_odometer: &Odometer = &last_odometer;
-            let odometer: &Odometer = &odometer;
-            odometer.to(*last_odometer)
-        };
+        let delta = odometer.to(last_odometer);
 
         assert_relative_eq!(delta.translation().x(), 1.0, epsilon = 0.0001);
         assert_relative_eq!(delta.translation().y(), 0.0, epsilon = 0.0001);
@@ -1412,11 +1423,7 @@ mod tests {
             y: 0.0,
             theta: 0.1 + PI + 0.2,
         };
-        let delta = {
-            let last_odometer: &Odometer = &last_odometer;
-            let odometer: &Odometer = &odometer;
-            odometer.to(*last_odometer)
-        };
+        let delta = odometer.to(last_odometer);
 
         assert_relative_eq!(delta.orientation().angle(), -PI + 0.2, epsilon = 0.0001);
     }

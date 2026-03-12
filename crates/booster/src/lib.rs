@@ -547,8 +547,8 @@ pub struct Kick {
 
 #[repr(C)]
 #[derive(
-    Clone,
     Copy,
+    Clone,
     Debug,
     Default,
     Deserialize,

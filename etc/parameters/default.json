@@ -271,7 +271,7 @@
 
   "player_number": "Three",
   "localization": {
-    "circle_measurement_noise": [0.05, 0.05],
+    "circle_measurement_noise": [600.0, 600.0],
     "good_matching_threshold": 0.2,
     "gradient_convergence_threshold": 0.0001,
     "gradient_descent_step_size": 0.1,
@@ -279,7 +279,7 @@
     "hypothesis_retain_factor": 0.8,
     "hypothesis_score_base_increase": 0.001,
     "initial_hypothesis_covariance": [
-      0.1, 0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.05
+      0.001, 0.0, 0.0, 0.0, 0.001, 0.0, 0.0, 0.0, 0.001
     ],
     "initial_hypothesis_score": 1.0,
     "initial_poses": {
@@ -305,7 +305,7 @@
       }
     },
     "line_length_acceptance_factor": 1.5,
-    "line_measurement_noise": [0.05, 0.05],
+    "line_measurement_noise": [600.0, 100.0],
     "additional_moving_noise_line": [0.02, 0.02],
     "additional_moving_noise_circle": [0.02, 0.02],
     "maximum_amount_of_gradient_descent_iterations": 8,
@@ -314,7 +314,7 @@
     "odometry_noise": [0.02, 0.02, 0.01],
     "penalized_distance": 0.7,
     "penalized_hypothesis_covariance": [
-      0.2, 0.0, 0.0, 0.0, 0.2, 0.0, 0.0, 0.0, 0.1
+      0.01, 0.0, 0.0, 0.0, 0.002, 0.0, 0.0, 0.0, 0.001
     ],
     "score_per_good_match": 0.1,
     "tentative_penalized_duration": {
