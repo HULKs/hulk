@@ -564,10 +564,12 @@ pub struct Odometer {
 }
 
 impl Odometer {
+    /// Returns an [linear_algebra::Isometry2] representing the transformation from the current odometer to the odometer at initialization.
     pub fn as_isometry(&self) -> Isometry2<Ground, Ground> {
         Isometry2::from_parts(vector![self.x, self.y], self.theta)
     }
 
+    /// Returns an [linear_algebra::Isometry2] representing the transformation from the current odometer to the given odometer.
     pub fn to(self, new: Odometer) -> Isometry2<Ground, Ground> {
         let old = self.as_isometry(); // A <- B
         let new = new.as_isometry(); // A <- C
