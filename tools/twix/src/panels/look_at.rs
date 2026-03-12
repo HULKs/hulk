@@ -46,7 +46,7 @@ impl<'a> Panel<'a> for LookAtPanel {
         let field_dimensions_buffer = context.robot.subscribe_value("parameters.field_dimensions");
         let motion_command_buffer = context
             .robot
-            .subscribe_value("Control.main_outputs.motion_command");
+            .subscribe_value("WorldState.main_outputs.motion_command");
         Self {
             robot: context.robot,
             look_at_target: DEFAULT_TARGET,

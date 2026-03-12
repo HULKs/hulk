@@ -21,7 +21,7 @@ impl Layer<Ground> for Path {
     const NAME: &'static str = "Path";
 
     fn new(robot: Arc<Robot>) -> Self {
-        let motion_command = robot.subscribe_value("Control.main_outputs.motion_command");
+        let motion_command = robot.subscribe_value("WorldState.main_outputs.motion_command");
         Self { motion_command }
     }
 

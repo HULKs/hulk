@@ -21,7 +21,7 @@ impl Layer<Ground> for PathObstacles {
     const NAME: &'static str = "Path Obstacles";
 
     fn new(robot: Arc<Robot>) -> Self {
-        let path_obstacles = robot.subscribe_value("Control.additional_outputs.path_obstacles");
+        let path_obstacles = robot.subscribe_value("WorldState.additional_outputs.path_obstacles");
         Self { path_obstacles }
     }
 

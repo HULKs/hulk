@@ -29,7 +29,7 @@ impl Layer<Field> for BallPosition {
             "WorldState.main_outputs.ball_position",
             Duration::from_secs(2),
         );
-        let team_ball = robot.subscribe_value("Control.main_outputs.team_ball");
+        let team_ball = robot.subscribe_value("WorldState.main_outputs.team_ball");
         Self {
             ground_to_field,
             ball_position,
