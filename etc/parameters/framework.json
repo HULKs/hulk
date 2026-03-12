@@ -5,6 +5,8 @@
   "recording_intervals": {
     "WorldState": 1,
     "Motion": 10,
-    "SplNetwork": 1
+    "SplNetwork": 1,
+    "ObjectDetection": 10,
+    "Vision": 10
   }
 }
