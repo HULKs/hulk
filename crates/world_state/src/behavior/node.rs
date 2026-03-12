@@ -179,9 +179,6 @@ impl Behavior {
             Role::StrikerSupporter => actions.push(Action::SupportStriker),
         };
 
-        // if world_state.robot.primary_state == PrimaryState::Playing {
-        //     actions.push(Action::WalkToBall)
-        //};
         let walk_path_planner = WalkPathPlanner::new(
             context.field_dimensions,
             &world_state.obstacles,
