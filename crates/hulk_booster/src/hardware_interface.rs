@@ -748,8 +748,8 @@ impl SimulatorInterface for BoosterHardwareInterface {
 
 impl HighLevelInterface for BoosterHardwareInterface {
     fn change_mode(&self, mode: RobotMode) -> Result<()> {
-        self.run_until_cancelled(self.high_level_interface_client.change_mode(mode))?
-            .wrap_err("failed to send change mode command")
+        let _ = self.run_until_cancelled(self.high_level_interface_client.change_mode(mode))?;
+        Ok(())
     }
 
     fn get_mode(&self) -> Result<RobotMode> {
@@ -757,58 +757,66 @@ impl HighLevelInterface for BoosterHardwareInterface {
     }
 
     fn move_robot(&self, step: Step) -> Result<()> {
-        self.run_until_cancelled(self.high_level_interface_client.move_robot(
+        let _ = self.run_until_cancelled(self.high_level_interface_client.move_robot(
             step.forward,
             step.left,
             step.turn,
-        ))?
-        .wrap_err("failed to send move robot command")
+        ))?;
+        Ok(())
     }
 
     fn rotate_head(&self, head_joints: HeadJoints<f32>) -> Result<()> {
-        self.run_until_cancelled(
+        let _ = self.run_until_cancelled(
             self.high_level_interface_client
                 .rotate_head(head_joints.pitch, head_joints.yaw),
-        )?
-        .wrap_err("failed to send rotate head command")
+        )?;
+        Ok(())
     }
 
     fn rotate_head_with_direction(&self, head_joints: HeadJoints<i32>) -> Result<()> {
-        self.run_until_cancelled(
+        let _ = self.run_until_cancelled(
             self.high_level_interface_client
                 .rotate_head_with_direction(head_joints.pitch, head_joints.yaw),
-        )?
-        .wrap_err("failed to send rotate head with direction command")
+        )?;
+        Ok(())
     }
 
     fn lie_down(&self) -> Result<()> {
-        self.run_until_cancelled(self.high_level_interface_client.lie_down())?
-            .wrap_err("failed to send lie down command")
+        let _ = self.run_until_cancelled(self.high_level_interface_client.lie_down())?;
+        Ok(())
     }
 
     fn get_up(&self) -> Result<()> {
-        self.run_until_cancelled(self.high_level_interface_client.get_up())?
-            .wrap_err("failed to send get up command")
+        let _ = self.run_until_cancelled(self.high_level_interface_client.get_up())?;
+        Ok(())
     }
 
     fn get_up_with_mode(&self, mode: RobotMode) -> Result<()> {
-        self.run_until_cancelled(self.high_level_interface_client.get_up_with_mode(mode))?
-            .wrap_err("failed to send get up with mode command")
+        let _ =
+            self.run_until_cancelled(self.high_level_interface_client.get_up_with_mode(mode))?;
+        Ok(())
     }
 
     fn enter_wbc_gait(&self) -> Result<()> {
-        self.run_until_cancelled(self.high_level_interface_client.enter_wbc_gait())?
-            .wrap_err("failed to send enter wbc gait command")
+        let _ = self.run_until_cancelled(self.high_level_interface_client.enter_wbc_gait())?;
+        Ok(())
     }
 
     fn exit_wbc_gait(&self) -> Result<()> {
-        self.run_until_cancelled(self.high_level_interface_client.exit_wbc_gait())?
-            .wrap_err("failed to send exit wbc gait command")
+        let _ = self.run_until_cancelled(self.high_level_interface_client.exit_wbc_gait())?;
+        Ok(())
     }
 
     fn visual_kick(&self, start: bool) -> Result<()> {
-        self.run_until_cancelled(self.high_level_interface_client.visual_kick(start))?
-            .wrap_err("failed to send visual kick command")
+        let _ = self.run_until_cancelled(self.high_level_interface_client.visual_kick(start))?;
+
+        Ok(())
+    }
+    fn reset_odometer(&self) -> Result<()> {
+        // The high level function currently always return errors, even though the call did what it was supposed to.
+        let _ = self.run_until_cancelled(self.high_level_interface_client.reset_odometry())?;
+
+        Ok(())
     }
 }
 
