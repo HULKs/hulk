@@ -17,7 +17,7 @@ use game_branch::game_branch;
 use gammaray::gammaray;
 use hulk::hulk;
 use location::location;
-use logs::logs;
+use log::logs;
 use ping::ping;
 use player_number::player_number;
 use post_game::post_game;
@@ -43,7 +43,7 @@ mod gammaray;
 mod git;
 mod hulk;
 mod location;
-mod logs;
+mod log;
 mod ping;
 mod player_number;
 mod post_game;
@@ -73,58 +73,80 @@ struct Arguments {
 enum Command {
     /// Analyze source code
     #[clap(subcommand)]
+    #[command(alias = "analysier")]
     Analyze(analyze::Arguments),
     /// Get aliveness information from Robots
+    #[command(alias = "lebt")]
     Aliveness(aliveness::Arguments),
     /// Compile a local package and all of its dependencies
+    #[command(alias = "bau")]
     Build(cargo::Arguments<build::Arguments>),
     /// Check a local package and all of its dependencies for errors
+    #[command(alias = "prüf")]
     Check(cargo::Arguments<check::Arguments>),
     /// Check a package to catch common mistakes
+    #[command(alias = "klammer")]
     Clippy(cargo::Arguments<clippy::Arguments>),
     /// Enable/disable communication
-    #[command(subcommand)]
+    #[command(subcommand, alias = "kommunikation")]
     Communication(communication::Arguments),
     /// Generate shell completion files
+    #[command(alias = "vervollständigung")]
     Completions(completions::Arguments),
     /// Format all rust and toml files
     #[command(alias = "fmt")]
     Format(format::Arguments),
     /// Create a game branch from the deploy.toml in the repository root
+    #[command(alias = "spielzweig")]
     Gamebranch(game_branch::Arguments),
     /// Flash a HULKs-OS image to Robots
+    #[command(alias = "gammastrahl")]
     Gammaray(gammaray::Arguments),
     /// Control the HULK service
     Hulk(hulk::Arguments),
     /// Install a Rust binary
     Install(cargo::Arguments<install::Arguments>),
     /// Set the parameter location
-    #[command(subcommand)]
+    #[command(subcommand, alias = "ort")]
     Location(location::Arguments),
     /// Interact with logs on Robots
-    #[command(subcommand)]
-    Logs(logs::Arguments),
+    #[command(
+        subcommand,
+        alias = "logs",
+        alias = "klotz",
+        alias = "tagebuch",
+        alias = "baumstamm"
+    )]
+    Log(log::Arguments),
     /// Run cargo nextest
+    #[command(alias = "nächstprüf")]
     Nextest(cargo::Arguments<nextest::Arguments>),
     /// Change player numbers of Robots in local parameters
+    #[command(alias = "spielerzahl")]
     Playernumber(player_number::Arguments),
     /// Ping Robots
+    #[command(alias = "stups")]
     Ping(ping::Arguments),
     /// Disable Robots after a game (download logs, unset WiFi network, ...)
+    #[command(alias = "nachspiel")]
     Postgame(post_game::Arguments),
     /// Power Robots off
-    #[command(alias = "shutdown")]
+    #[command(alias = "shutdown", alias = "fahr-runter")]
     Poweroff(power_off::Arguments),
     /// Get Robots ready for a game (set player numbers, upload, set WiFi network, ...)
+    #[command(alias = "vorspiel")]
     Pregame(pre_game::Arguments),
     /// Reboot Robots
+    #[command(alias = "neu-stiefeln")]
     Reboot(reboot::Arguments),
     /// Set cycler instances to be recorded
+    #[command(alias = "aufnahme")]
     Recording(recording::Arguments),
     /// Run a binary or example of the local package
+    #[command(alias = "lauf")]
     Run(cargo::Arguments<run::Arguments>),
     /// Manage the Robot SDK
-    #[command(subcommand)]
+    #[command(subcommand, alias = "sek")]
     Sdk(sdk::Arguments),
     /// Open a command line shell to a Robot
     ///
@@ -132,15 +154,22 @@ enum Command {
     ///   pepsi shell 20w
     ///   pepsi shell 42 btop
     ///   pepsi shell 38 39 whoami
-    #[command(verbatim_doc_comment)]
+    #[command(verbatim_doc_comment, alias = "muschel")]
     Shell(shell::Arguments),
     /// Execute all unit and integration tests
+    #[command(alias = "prüf")]
     Test(cargo::Arguments<test::Arguments>),
     /// Upload the code to Robots
     #[command(alias = "hochlad")]
     Upload(upload::Arguments),
     /// Control WiFi on Robots
-    #[command(subcommand, name = "wifi", alias = "wlan", alias = "wireless")]
+    #[command(
+        subcommand,
+        name = "wifi",
+        alias = "wlan",
+        alias = "wireless",
+        alias = "drahtlos"
+    )]
     WiFi(wifi::Arguments),
 }
 
@@ -216,7 +245,7 @@ async fn main() -> Result<()> {
         Command::Location(arguments) => location(arguments, &repository?)
             .await
             .wrap_err("failed to execute location command")?,
-        Command::Logs(arguments) => logs(arguments)
+        Command::Log(arguments) => logs(arguments)
             .await
             .wrap_err("failed to execute logs command")?,
         Command::Nextest(arguments) => cargo(arguments, &repository?, &[] as &[&str])
