@@ -20,7 +20,7 @@ impl Layer<Ground> for BallFilter {
     const NAME: &'static str = "Ball Filter";
 
     fn new(robot: Arc<Robot>) -> Self {
-        let filter = robot.subscribe_value("Control.additional_outputs.ball_filter_state");
+        let filter = robot.subscribe_value("WorldState.additional_outputs.ball_filter_state");
         Self { filter }
     }
 
