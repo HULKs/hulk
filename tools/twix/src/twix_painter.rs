@@ -4,7 +4,7 @@ use std::{
 };
 
 use eframe::{
-    egui::{Context, Painter, Response, Sense, TextureId, Ui, pos2},
+    egui::{Painter, Response, Sense, TextureId, Ui, pos2},
     emath::{Pos2, Rect},
     epaint::{Color32, PathShape, Shape, Stroke},
 };
@@ -47,10 +47,6 @@ impl Orientation {
 }
 
 impl<World> TwixPainter<World> {
-    pub fn add(&mut self, shape: Shape) {
-        self.painter.add(shape);
-    }
-
     pub fn allocate(
         ui: &mut Ui,
         dimension: Vector2<World>,
@@ -148,10 +144,6 @@ impl<World> TwixPainter<World> {
         transformation: Transform<Screen, Screen, Similarity2<f32>>,
     ) {
         self.world_to_pixel = transformation * self.world_to_pixel;
-    }
-
-    pub fn context(&self) -> &Context {
-        self.painter.ctx()
     }
 
     pub fn scaling(&self) -> f32 {

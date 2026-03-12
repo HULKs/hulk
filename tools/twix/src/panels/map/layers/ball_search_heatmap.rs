@@ -19,7 +19,7 @@ impl Layer<Field> for BallSearchHeatmap {
 
     fn new(robot: Arc<Robot>) -> Self {
         let ball_search_heatmap =
-            robot.subscribe_value("Control.additional_outputs.ball_search_heatmap");
+            robot.subscribe_value("WorldState.additional_outputs.ball_search_heatmap");
         Self {
             ball_search_heatmap,
         }
