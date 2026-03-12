@@ -47,6 +47,8 @@
       ////
       allow: [
         "low_state",
+        "image_left_raw",
+        "rectified_image",
         "kick_ball",
         "odometer_state",
         "fall_down",

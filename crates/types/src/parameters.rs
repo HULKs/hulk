@@ -508,24 +508,6 @@ pub struct ObjectDetectionParameters {
     pub confidence_threshold: f32,
 }
 
-#[derive(
-    Default,
-    Debug,
-    Clone,
-    Copy,
-    Eq,
-    PartialEq,
-    Serialize,
-    Deserialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-)]
-pub enum ImageReceiverInstance {
-    #[default]
-    Rectified,
-}
-
 #[derive(Clone, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect)]
 pub struct WalkSpeedParameters {
     pub defend: f32,

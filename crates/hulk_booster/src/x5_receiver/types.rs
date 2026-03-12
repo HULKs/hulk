@@ -1,3 +1,5 @@
+use std::time::Duration;
+
 use ros2::{
     builtin_interfaces::time::Time,
     sensor_msgs::{camera_info::CameraInfo, image::Image, region_of_interest::RegionOfInterest},
@@ -5,7 +7,7 @@ use ros2::{
 };
 
 pub const MAGIC_IDENTIFIER_FRAME: u32 = 0xC0FFEE42;
-pub const MAGIC_IDENTIFIER_CALIBRATION: u32 = 0xCA11B42E;
+pub const MAGIC_IDENTIFIER_CAMERA_INFO: u32 = 0xCA11B42E;
 
 #[repr(C, packed)]
 #[derive(Debug, Clone)]
@@ -26,13 +28,12 @@ pub struct X5CameraFrame {
 
 impl From<X5CameraFrame> for Image {
     fn from(value: X5CameraFrame) -> Self {
-        let seconds = value.header.timestamp_nanoseconds / 1_000_000_000;
-        let nanoseconds = value.header.timestamp_nanoseconds % 1_000_000_000;
+        let timestamp = Duration::from_nanos(value.header.timestamp_nanoseconds);
         Image {
             header: Header {
                 stamp: Time {
-                    sec: seconds.min(i32::MAX as u64) as i32,
-                    nanosec: nanoseconds.min(u32::MAX as u64) as u32,
+                    sec: timestamp.as_secs().min(i32::MAX as u64) as i32,
+                    nanosec: timestamp.subsec_nanos(),
                 },
                 frame_id: "x5".to_owned(),
             },

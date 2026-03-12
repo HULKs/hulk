@@ -504,28 +504,28 @@ impl CameraInterface for BoosterHardwareInterface {
     fn read_image_left_raw(&self) -> Result<Image> {
         let image = self
             .run_until_cancelled(self.x5_receiver.next_left_frame())
-            .wrap_err("failed to receive image")?;
+            .wrap_err("failed to receive left image")?;
         Ok(image.into())
     }
 
     fn read_image_right_raw(&self) -> Result<Image> {
         let image = self
             .run_until_cancelled(self.x5_receiver.next_right_frame())
-            .wrap_err("failed to receive image")?;
+            .wrap_err("failed to receive right image")?;
         Ok(image.into())
     }
 
     fn read_image_left_raw_camera_info(&self) -> Result<CameraInfo> {
         let message = self
             .run_until_cancelled(self.x5_receiver.last_camera_info())
-            .wrap_err("failed to read left raw camera info from `rt/image_left_raw/camera_info`")?;
+            .wrap_err("failed to read left camera info")?;
         Ok(message.left_camera_info())
     }
 
     fn read_image_right_raw_camera_info(&self) -> Result<CameraInfo> {
         let message = self
             .run_until_cancelled(self.x5_receiver.last_camera_info())
-            .wrap_err("failed to read left raw camera info from `rt/image_left_raw/camera_info`")?;
+            .wrap_err("failed to read right camera info")?;
         Ok(message.right_camera_info())
     }
 }

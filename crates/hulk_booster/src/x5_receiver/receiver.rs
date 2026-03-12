@@ -7,7 +7,7 @@ use tokio_util::task::AbortOnDropHandle;
 use crate::x5_receiver::{
     X5CameraInfo,
     types::{
-        MAGIC_IDENTIFIER_CALIBRATION, MAGIC_IDENTIFIER_FRAME, X5CameraFrame, X5CameraFrameHeader,
+        MAGIC_IDENTIFIER_CAMERA_INFO, MAGIC_IDENTIFIER_FRAME, X5CameraFrame, X5CameraFrameHeader,
     },
 };
 
@@ -72,7 +72,7 @@ async fn restarting_x5_receiver(
     address: SocketAddr,
     left_frame_sender: watch::Sender<Option<X5CameraFrame>>,
     right_frame_sender: watch::Sender<Option<X5CameraFrame>>,
-    calibration_sender: watch::Sender<Option<X5CameraInfo>>,
+    camera_info_sender: watch::Sender<Option<X5CameraInfo>>,
 ) {
     const RETRY_INTERVAL: Duration = Duration::from_secs(5);
     loop {
@@ -80,7 +80,7 @@ async fn restarting_x5_receiver(
             address,
             left_frame_sender.clone(),
             right_frame_sender.clone(),
-            calibration_sender.clone(),
+            camera_info_sender.clone(),
         )
         .and_then(async |connection| connection.run().await)
         .await;
@@ -108,7 +108,7 @@ impl X5ReceiverTask {
         camera_info_sender: watch::Sender<Option<X5CameraInfo>>,
     ) -> io::Result<Self> {
         let connection = TcpStream::connect(address).await?;
-        connection.set_nodelay(true)?;
+
         Ok(Self {
             connection,
             left_frame_sender,
@@ -138,8 +138,8 @@ impl X5ReceiverTask {
                         }
                     }
                 }
-                MAGIC_IDENTIFIER_CALIBRATION => {
-                    let camera_info = self.receive_calibration().await?;
+                MAGIC_IDENTIFIER_CAMERA_INFO => {
+                    let camera_info = self.receive_camera_info().await?;
                     self.camera_info_sender.send_replace(Some(camera_info));
                 }
                 _ => {}
@@ -183,7 +183,7 @@ impl X5ReceiverTask {
     compile_error!(
         "A little-endian target architecture is required because the network byte stream represents memory dumps from a little-endian X5 board."
     );
-    async fn receive_calibration(&mut self) -> io::Result<X5CameraInfo> {
+    async fn receive_camera_info(&mut self) -> io::Result<X5CameraInfo> {
         let length = self.connection.read_u32_le().await?;
         let mut payload_data = [0u8; size_of::<X5CameraInfo>()];
         if length != payload_data.len() as u32 {
