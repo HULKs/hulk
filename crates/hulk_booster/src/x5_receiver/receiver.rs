@@ -152,20 +152,11 @@ impl X5ReceiverTask {
         "A little-endian target architecture is required because the network byte stream represents memory dumps from a little-endian X5 board."
     );
     async fn receive_frame(&mut self) -> io::Result<X5CameraFrame> {
-        let mut header_bytes = [0u8; 21];
+        const { assert!(size_of::<X5CameraFrameHeader>() == 21) }
+        let mut header_bytes = [0u8; size_of::<X5CameraFrameHeader>()];
         self.connection.read_exact(&mut header_bytes).await?;
 
-        if size_of::<X5CameraFrameHeader>() != 21 {
-            return Err(io::Error::new(
-                io::ErrorKind::InvalidData,
-                "CameraFrameHeader size mismatch",
-            ));
-        }
-
-        let header: X5CameraFrameHeader = unsafe {
-            std::ptr::read_unaligned(header_bytes.as_ptr() as *const X5CameraFrameHeader)
-        };
-
+        let header: X5CameraFrameHeader = unsafe { std::mem::transmute(header_bytes) };
         if header.payload_size as usize > MAX_ALLOCATION_SIZE {
             return Err(io::Error::new(
                 io::ErrorKind::InvalidData,
@@ -184,6 +175,7 @@ impl X5ReceiverTask {
         "A little-endian target architecture is required because the network byte stream represents memory dumps from a little-endian X5 board."
     );
     async fn receive_camera_info(&mut self) -> io::Result<X5CameraInfo> {
+        const { assert!(size_of::<X5CameraInfo>() == 490) }
         let length = self.connection.read_u32_le().await?;
         let mut payload_data = [0u8; size_of::<X5CameraInfo>()];
         if length != payload_data.len() as u32 {
@@ -194,7 +186,7 @@ impl X5ReceiverTask {
         }
         self.connection.read_exact(&mut payload_data).await?;
         let camera_information =
-            unsafe { std::ptr::read_unaligned(payload_data.as_ptr() as *const X5CameraInfo) };
+            unsafe { std::mem::transmute::<[u8; 490], X5CameraInfo>(payload_data) };
 
         Ok(camera_information)
     }
