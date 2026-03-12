@@ -524,7 +524,6 @@ pub struct ObjectDetectionParameters {
 pub enum ImageReceiverInstance {
     #[default]
     Rectified,
-    StereonetDepth,
 }
 
 #[derive(Clone, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect)]

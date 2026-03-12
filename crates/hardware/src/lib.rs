@@ -30,19 +30,10 @@ pub trait ActuatorInterface {
 }
 
 pub trait CameraInterface {
-    fn read_rectified_image(&self) -> Result<Image>;
-    fn read_stereonet_depth_image(&self) -> Result<Image>;
-    fn read_stereonet_depth_camera_info(&self) -> Result<CameraInfo>;
     fn read_image_left_raw(&self) -> Result<Image>;
+    fn read_image_right_raw(&self) -> Result<Image>;
     fn read_image_left_raw_camera_info(&self) -> Result<CameraInfo>;
-
-    fn read_object_detection_image_left_raw(&self) -> Result<Image> {
-        self.read_image_left_raw()
-    }
-
-    fn read_object_detection_image_left_raw_camera_info(&self) -> Result<CameraInfo> {
-        self.read_image_left_raw_camera_info()
-    }
+    fn read_image_right_raw_camera_info(&self) -> Result<CameraInfo>;
 }
 
 pub trait IdInterface {

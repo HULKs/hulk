@@ -6,7 +6,7 @@ use framework::MainOutput;
 use hardware::{CameraInterface, TimeInterface};
 use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
 use serde::{Deserialize, Serialize};
-use types::{cycle_time::CycleTime, parameters::ImageReceiverInstance};
+use types::cycle_time::CycleTime;
 
 #[derive(Deserialize, Serialize)]
 pub struct ImageReceiver {
@@ -19,13 +19,12 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     hardware_interface: HardwareInterface,
-    instance: Parameter<ImageReceiverInstance, "image_receiver.$cycler_instance">,
 }
 
 #[context]
 pub struct MainOutputs {
     pub image: MainOutput<Image>,
-    pub camera_info: MainOutput<Option<CameraInfo>>,
+    pub camera_info: MainOutput<CameraInfo>,
     pub cycle_time: MainOutput<CycleTime>,
 }
 
@@ -40,19 +39,11 @@ impl ImageReceiver {
         &mut self,
         context: CycleContext<impl CameraInterface + TimeInterface>,
     ) -> Result<MainOutputs> {
-        let (image, camera_info) = match context.instance {
-            ImageReceiverInstance::Rectified => {
-                (context.hardware_interface.read_rectified_image()?, None)
-            }
-            ImageReceiverInstance::StereonetDepth => (
-                context.hardware_interface.read_stereonet_depth_image()?,
-                Some(
-                    context
-                        .hardware_interface
-                        .read_stereonet_depth_camera_info()?,
-                ),
-            ),
-        };
+        let image = context.hardware_interface.read_image_left_raw()?;
+        let camera_info = context
+            .hardware_interface
+            .read_image_left_raw_camera_info()?;
+
         let now = context.hardware_interface.get_now();
         let cycle_time = CycleTime {
             start_time: now,
