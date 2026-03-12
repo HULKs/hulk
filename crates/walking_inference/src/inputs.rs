@@ -55,9 +55,11 @@ impl WalkCommand {
             } => {
                 let forward = path.forward(Point2::origin());
                 let distance_to_target = path.length();
-                let deceleration_factor =
-                    (distance_to_target / parameters.deceleration_distance).clamp(0.0, 1.0);
-                let velocity = forward * *speed * deceleration_factor;
+                // let deceleration_factor =
+                // (distance_to_target / parameters.deceleration_distance).clamp(0.0, 1.0);
+                // let velocity = forward * *speed * deceleration_factor;
+
+                let velocity = forward * *speed;
 
                 let (walk_orientation, _tolerance): (Orientation2<Ground>, f32) =
                     match orientation_mode {

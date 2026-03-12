@@ -39,12 +39,16 @@ pub struct WhistleDetectionParameters {
 )]
 pub struct BehaviorParameters {
     pub injected_motion_command: Option<MotionCommand>,
+    pub lost_ball: LostBallParameters,
     pub path_planning: PathPlanningParameters,
     pub remote_control: RemoteControlParameters,
     pub role_positions: RolePositionsParameters,
+    pub search: SearchParameters,
     pub walk_and_stand: WalkAndStandParameters,
     pub walk_with_velocity: WalkWithVelocityParameters,
     pub optional_roles: Vec<Role>,
+    pub maximum_lookaround_duration: Duration,
+    pub kicking: KickingParameters,
 }
 
 #[derive(
@@ -508,7 +512,7 @@ pub enum ImageReceiverInstance {
 #[derive(Clone, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect)]
 pub struct WalkSpeedParameters {
     pub defend: f32,
-    pub dribble: f32,
+    pub kicking: f32,
     pub intercept_ball: f32,
     pub lost_ball: f32,
     pub search: f32,
@@ -521,7 +525,7 @@ impl Default for WalkSpeedParameters {
     fn default() -> Self {
         Self {
             defend: 1.0,
-            dribble: 1.0,
+            kicking: 1.0,
             intercept_ball: 1.0,
             lost_ball: 1.0,
             search: 1.0,
@@ -530,4 +534,14 @@ impl Default for WalkSpeedParameters {
             walk_to_penalty_kick: 1.0,
         }
     }
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+
+pub struct KickingParameters {
+    pub kick_power: f64,
+    pub distance_for_kick: f32,
+    pub distance_to_look_directly_at_the_ball: f32,
 }
