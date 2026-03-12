@@ -3,7 +3,7 @@ use std::collections::HashSet;
 use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
-use hardware::{RecordingInterface, SimulatorInterface, SpeakerInterface};
+use hardware::{HighLevelInterface, RecordingInterface, SimulatorInterface, SpeakerInterface};
 use hsl_network_messages::PlayerNumber;
 use serde::{Deserialize, Serialize};
 use types::{
@@ -50,7 +50,9 @@ impl PrimaryStateFilter {
 
     pub fn cycle(
         &mut self,
-        context: CycleContext<impl RecordingInterface + SimulatorInterface + SpeakerInterface>,
+        context: CycleContext<
+            impl RecordingInterface + HighLevelInterface + SimulatorInterface + SpeakerInterface,
+        >,
     ) -> Result<MainOutputs> {
         if let Some(injected_primary_state) = context.injected_primary_state {
             self.last_primary_state = *injected_primary_state;
@@ -130,6 +132,13 @@ impl PrimaryStateFilter {
             }
             _ => self.last_primary_state,
         };
+
+        if matches!(
+            next_primary_state,
+            PrimaryState::Safe | PrimaryState::Penalized
+        ) {
+            context.hardware_interface.reset_odometer()?;
+        }
 
         context.hardware_interface.set_whether_to_record(
             context
