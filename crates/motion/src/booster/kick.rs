@@ -8,7 +8,9 @@ use serde::{Deserialize, Serialize};
 use types::{cycle_time::CycleTime, motion_command::MotionCommand, motion_runtime::MotionRuntime};
 
 #[derive(Deserialize, Serialize)]
-pub struct BoosterKick {}
+pub struct BoosterKick {
+    pub last_motion_command: Option<MotionCommand>,
+}
 
 #[context]
 pub struct CreationContext {}
@@ -29,7 +31,9 @@ pub struct MainOutputs {}
 
 impl BoosterKick {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {})
+        Ok(Self {
+            last_motion_command: None,
+        })
     }
 
     pub fn cycle(
@@ -55,7 +59,12 @@ impl BoosterKick {
                 kick_power,
                 ..
             } => {
-                set_visual_kick_activation_state(&context, true);
+                if !matches!(
+                    self.last_motion_command,
+                    Some(MotionCommand::VisualKick { .. })
+                ) {
+                    set_visual_kick_activation_state(&context, true);
+                }
 
                 let kick = Kick {
                     header: Header {
@@ -74,6 +83,8 @@ impl BoosterKick {
             }
             _ => set_visual_kick_activation_state(&context, false),
         };
+
+        self.last_motion_command = Some(context.motion_command.clone());
 
         Ok(MainOutputs {})
     }
