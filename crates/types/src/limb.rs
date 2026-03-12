@@ -42,11 +42,6 @@ pub fn project_onto_limbs(position: Point2<Pixel>, projected_limbs: &[Limb]) -> 
         .min_by(f32::total_cmp)
 }
 
-pub fn is_above_limbs(position: Point2<Pixel>, projected_limbs: &[Limb]) -> bool {
-    project_onto_limbs(position, projected_limbs)
-        .is_none_or(|projected_position_y| position.y() < projected_position_y)
-}
-
 #[derive(
     Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
