@@ -377,14 +377,20 @@ pub struct BallFilterParameters {
     Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
 pub struct ObstacleFilterParameters {
+    pub use_detected_objects: bool,
     pub hypothesis_timeout: Duration,
     pub network_robot_measurement_matching_distance: f32,
+    pub object_detection_measurement_matching_distance: f32,
     pub hypothesis_merge_distance: f32,
     pub process_noise: nalgebra::Vector2<f32>,
     pub network_robot_measurement_noise: nalgebra::Vector2<f32>,
+    pub goal_post_measurement_noise: nalgebra::Vector2<f32>,
+    pub robot_measurement_noise: nalgebra::Vector2<f32>,
+    pub person_measurement_noise: nalgebra::Vector2<f32>,
     pub measurement_count_threshold: usize,
     pub robot_obstacle_radius_at_hip_height: f32,
     pub robot_obstacle_radius_at_foot_height: f32,
+    pub person_obstacle_radius: f32,
     pub unknown_obstacle_radius: f32,
     pub goal_post_obstacle_radius: f32,
 }
