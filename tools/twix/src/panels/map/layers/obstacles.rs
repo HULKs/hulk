@@ -18,7 +18,7 @@ impl Layer<Ground> for Obstacles {
     const NAME: &'static str = "Obstacles";
 
     fn new(robot: Arc<Robot>) -> Self {
-        let obstacles = robot.subscribe_value("Control.main_outputs.obstacles");
+        let obstacles = robot.subscribe_value("WorldState.main_outputs.obstacles");
         Self { obstacles }
     }
 
