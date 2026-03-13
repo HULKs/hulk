@@ -8,7 +8,7 @@ use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use framework::MainOutput;
 use hsl_network_messages::GamePhase;
-use linear_algebra::{point, Isometry2, Point2, Vector2};
+use linear_algebra::{Isometry2, Point2, Vector2, point};
 use types::{
     cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
