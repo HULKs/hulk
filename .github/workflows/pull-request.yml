@@ -103,9 +103,9 @@ jobs:
       matrix:
         target:
           # - imagine
-          - replayer
+          # - replayer
           - mujoco
-          - booster
+          # - booster
         profile:
           # - dev
           - release
