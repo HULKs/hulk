@@ -60,6 +60,7 @@ pub struct CycleContext {
     kick_decision_parameters: Parameter<DecisionParameters, "kick_selector">,
     parameters: Parameter<BehaviorParameters, "behavior">,
     walk_speed: Parameter<WalkSpeedParameters, "walk_speed">,
+    enable_visual_kick: Parameter<bool, "enable_visual_kick">,
 
     path_obstacles_output: AdditionalOutput<Vec<PathObstacle>, "path_obstacles">,
     active_action: AdditionalOutput<Action, "active_action">,
@@ -287,6 +288,7 @@ impl Behavior {
                         *context.field_dimensions,
                         &mut context.path_obstacles_output,
                         &mut self.last_close_enough_to_kick,
+                        *context.enable_visual_kick,
                     ),
                     Action::Search => search::execute(
                         world_state,

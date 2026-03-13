@@ -1,4 +1,5 @@
 {
+  "enable_visual_kick": true,
   "rl_walking": {
     "gait_frequency": 1,
     "stabilizing_interval_completion_threshold": 0.01,

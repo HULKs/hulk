@@ -24,6 +24,7 @@ pub fn execute(
     field_dimensions: FieldDimensions,
     path_obstacles_output: &mut AdditionalOutput<Vec<PathObstacle>>,
     last_close_enough_to_kick: &mut bool,
+    enable_visual_kick: bool,
 ) -> Option<MotionCommand> {
     let ball_position = world_state.ball?.ball_in_ground;
     let ground_to_field = world_state.robot.ground_to_field?;
@@ -54,7 +55,7 @@ pub fn execute(
         parameters.distance_for_kick_hysteresis,
     );
     *last_close_enough_to_kick = close_enough_to_kick;
-    if close_enough_to_kick {
+    if enable_visual_kick && close_enough_to_kick {
         Some(MotionCommand::VisualKick {
             head,
             ball_position,
@@ -64,7 +65,7 @@ pub fn execute(
             kick_power: parameters.kick_power,
         })
     } else {
-        let mut speed = walk_speed; 
+        let mut speed = walk_speed;
         if let Some(FilteredGameControllerState {
             game_phase: GamePhase::PenaltyShootout { .. },
             ..
