@@ -73,80 +73,80 @@ struct Arguments {
 enum Command {
     /// Analyze source code
     #[clap(subcommand)]
-    #[command(alias = "analysier")]
+    #[command(visible_alias = "analysier")]
     Analyze(analyze::Arguments),
     /// Get aliveness information from Robots
-    #[command(alias = "lebt")]
+    #[command(visible_alias = "lebt")]
     Aliveness(aliveness::Arguments),
     /// Compile a local package and all of its dependencies
-    #[command(alias = "bau")]
+    #[command(visible_alias = "bau")]
     Build(cargo::Arguments<build::Arguments>),
     /// Check a local package and all of its dependencies for errors
-    #[command(alias = "prüf")]
+    #[command(visible_alias = "prüf")]
     Check(cargo::Arguments<check::Arguments>),
     /// Check a package to catch common mistakes
-    #[command(alias = "klammer")]
+    #[command(visible_alias = "klammer")]
     Clippy(cargo::Arguments<clippy::Arguments>),
     /// Enable/disable communication
-    #[command(subcommand, alias = "kommunikation")]
+    #[command(subcommand, visible_alias = "kommunikation")]
     Communication(communication::Arguments),
     /// Generate shell completion files
-    #[command(alias = "vervollständigung")]
+    #[command(visible_alias = "vervollständigung")]
     Completions(completions::Arguments),
     /// Format all rust and toml files
-    #[command(alias = "fmt")]
+    #[command(visible_alias = "fmt")]
     Format(format::Arguments),
     /// Create a game branch from the deploy.toml in the repository root
-    #[command(alias = "spielzweig")]
+    #[command(visible_alias = "spielzweig")]
     Gamebranch(game_branch::Arguments),
     /// Flash a HULKs-OS image to Robots
-    #[command(alias = "gammastrahl")]
+    #[command(visible_alias = "gammastrahl")]
     Gammaray(gammaray::Arguments),
     /// Control the HULK service
     Hulk(hulk::Arguments),
     /// Install a Rust binary
     Install(cargo::Arguments<install::Arguments>),
     /// Set the parameter location
-    #[command(subcommand, alias = "ort")]
+    #[command(subcommand, visible_alias = "ort")]
     Location(location::Arguments),
     /// Interact with logs on Robots
     #[command(
         subcommand,
-        alias = "logs",
-        alias = "klotz",
-        alias = "tagebuch",
-        alias = "baumstamm"
+        visible_alias = "logs",
+        visible_alias = "klotz",
+        visible_alias = "tagebuch",
+        visible_alias = "baumstamm"
     )]
     Log(log::Arguments),
     /// Run cargo nextest
-    #[command(alias = "nächstprüf")]
+    #[command(visible_alias = "nächstprüf")]
     Nextest(cargo::Arguments<nextest::Arguments>),
     /// Change player numbers of Robots in local parameters
-    #[command(alias = "spielerzahl")]
+    #[command(visible_alias = "spielerzahl")]
     Playernumber(player_number::Arguments),
     /// Ping Robots
-    #[command(alias = "stups")]
+    #[command(visible_alias = "stups")]
     Ping(ping::Arguments),
     /// Disable Robots after a game (download logs, unset WiFi network, ...)
-    #[command(alias = "nachspiel")]
+    #[command(visible_alias = "nachspiel")]
     Postgame(post_game::Arguments),
     /// Power Robots off
-    #[command(alias = "shutdown", alias = "fahr-runter")]
+    #[command(visible_alias = "shutdown", visible_alias = "fahr-runter")]
     Poweroff(power_off::Arguments),
     /// Get Robots ready for a game (set player numbers, upload, set WiFi network, ...)
-    #[command(alias = "vorspiel")]
+    #[command(visible_alias = "vorspiel")]
     Pregame(pre_game::Arguments),
     /// Reboot Robots
-    #[command(alias = "neu-stiefeln")]
+    #[command(visible_alias = "neu-stiefeln")]
     Reboot(reboot::Arguments),
     /// Set cycler instances to be recorded
-    #[command(alias = "aufnahme")]
+    #[command(visible_alias = "aufnahme")]
     Recording(recording::Arguments),
     /// Run a binary or example of the local package
-    #[command(alias = "lauf")]
+    #[command(visible_alias = "lauf")]
     Run(cargo::Arguments<run::Arguments>),
     /// Manage the Robot SDK
-    #[command(subcommand, alias = "sek")]
+    #[command(subcommand, visible_alias = "sek")]
     Sdk(sdk::Arguments),
     /// Open a command line shell to a Robot
     ///
@@ -154,21 +154,21 @@ enum Command {
     ///   pepsi shell 20w
     ///   pepsi shell 42 btop
     ///   pepsi shell 38 39 whoami
-    #[command(verbatim_doc_comment, alias = "muschel")]
+    #[command(verbatim_doc_comment, visible_alias = "muschel")]
     Shell(shell::Arguments),
     /// Execute all unit and integration tests
-    #[command(alias = "prüf")]
+    #[command(visible_alias = "prüf")]
     Test(cargo::Arguments<test::Arguments>),
     /// Upload the code to Robots
-    #[command(alias = "hochlad")]
+    #[command(visible_alias = "hochlad")]
     Upload(upload::Arguments),
     /// Control WiFi on Robots
     #[command(
         subcommand,
         name = "wifi",
-        alias = "wlan",
-        alias = "wireless",
-        alias = "drahtlos"
+        visible_alias = "wlan",
+        visible_alias = "wireless",
+        visible_alias = "drahtlos"
     )]
     WiFi(wifi::Arguments),
 }
