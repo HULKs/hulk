@@ -12,9 +12,12 @@ use framework::{MainOutput, PerceptionInput};
 use linear_algebra::{IntoTransform, Isometry3, Rotation3, Vector3, vector};
 use types::parameters::CameraMatrixParameters;
 
+pub const ACTUAL_IMAGE_HEIGHT: f32 = 448.0;
+pub const ACTUAL_IMAGE_WIDTH: f32 = 544.0;
+
 #[derive(Deserialize, Serialize)]
 pub struct CameraMatrixCalculator {
-    last_camera_info: CameraInfo,
+    last_camera_info: Option<CameraInfo>,
 }
 
 #[context]
@@ -45,28 +48,31 @@ pub struct MainOutputs {
 impl CameraMatrixCalculator {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
-            last_camera_info: CameraInfo {
-                p: [1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0, 0.0, 0.0, 0.0, 1.0, 0.0],
-                ..Default::default()
-            },
+            last_camera_info: None,
         })
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let last_camera_info = self.last_camera_info.clone();
-
-        let camera_info = context
+        if let Some(camera_info) = context
             .image_left_raw_camera_info
             .persistent
             .into_iter()
             .chain(context.image_left_raw_camera_info.temporary)
             .flat_map(|(_time, info)| info)
             .last()
-            .unwrap_or(&last_camera_info);
+        {
+            self.last_camera_info = Some(camera_info.clone());
+        };
 
-        self.last_camera_info = camera_info.clone();
+        let Some(camera_info) = self.last_camera_info.as_ref() else {
+            return Ok(MainOutputs {
+                uncalibrated_camera_matrix: None.into(),
+                camera_matrix: None.into(),
+            });
+        };
 
-        let image_size = vector![camera_info.width as f32, camera_info.height as f32];
+        // This is a hack, since the camera info currently received by the X5Receiver is wrong.
+        let image_size = vector!(ACTUAL_IMAGE_WIDTH, ACTUAL_IMAGE_HEIGHT);
         let head_to_camera = head_to_camera(
             context
                 .camera_matrix_parameters
