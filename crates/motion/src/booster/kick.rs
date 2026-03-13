@@ -1,3 +1,5 @@
+use std::time::{Duration, SystemTime};
+
 use booster::Kick;
 use booster_sdk::types::RobotMode;
 use color_eyre::Result;
@@ -10,6 +12,8 @@ use types::{cycle_time::CycleTime, motion_command::MotionCommand, motion_runtime
 #[derive(Deserialize, Serialize)]
 pub struct BoosterKick {
     pub last_motion_command: Option<MotionCommand>,
+
+    pub last_kick_time: SystemTime,
 }
 
 #[context]
@@ -20,8 +24,10 @@ pub struct CycleContext {
     robot_mode: RequiredInput<Option<RobotMode>, "WorldState", "robot_mode?">,
 
     motion_command: Input<MotionCommand, "WorldState", "motion_command">,
-
     cycle_time: Input<CycleTime, "cycle_time">,
+
+    kick_message_interval: Parameter<Duration, "kicking.kick_message_interval">,
+
     hardware_interface: HardwareInterface,
 }
 
@@ -33,6 +39,7 @@ impl BoosterKick {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             last_motion_command: None,
+            last_kick_time: SystemTime::UNIX_EPOCH,
         })
     }
 
@@ -79,7 +86,17 @@ impl BoosterKick {
                     robot_angle_to_field: robot_theta_to_field.angle() as f64,
                     kick_power: *kick_power,
                 };
-                context.hardware_interface.write_visual_kick(kick)?;
+
+                if context
+                    .cycle_time
+                    .start_time
+                    .duration_since(self.last_kick_time)
+                    .expect("Time ran backwards")
+                    > *context.kick_message_interval
+                {
+                    self.last_kick_time = context.cycle_time.start_time;
+                    context.hardware_interface.write_visual_kick(kick)?;
+                }
             }
             _ => set_visual_kick_activation_state(&context, false),
         };

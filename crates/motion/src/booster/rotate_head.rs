@@ -1,13 +1,17 @@
+use std::time::{Duration, SystemTime};
+
 use booster_sdk::types::RobotMode;
 use color_eyre::Result;
 use context_attribute::context;
 use hardware::{HighLevelInterface, MotionRuntimeInteface};
 use kinematics::joints::head::HeadJoints;
 use serde::{Deserialize, Serialize};
-use types::motion_runtime::MotionRuntime;
+use types::{cycle_time::CycleTime, motion_runtime::MotionRuntime};
 
 #[derive(Deserialize, Serialize)]
-pub struct RotateHead {}
+pub struct RotateHead {
+    pub last_rotate_head_time: SystemTime,
+}
 
 #[context]
 pub struct CreationContext {}
@@ -16,7 +20,11 @@ pub struct CreationContext {}
 pub struct CycleContext {
     robot_mode: RequiredInput<Option<RobotMode>, "WorldState", "robot_mode?">,
 
+    cycle_time: Input<CycleTime, "cycle_time">,
     head_joints: Input<HeadJoints<f32>, "head_joints_command">,
+
+    rotate_head_message_interval:
+        Parameter<Duration, "motion.booster.rotate_head_message_interval">,
 
     hardware_interface: HardwareInterface,
 }
@@ -27,7 +35,9 @@ pub struct MainOutputs {}
 
 impl RotateHead {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {})
+        Ok(Self {
+            last_rotate_head_time: SystemTime::UNIX_EPOCH,
+        })
     }
 
     pub fn cycle(
@@ -40,7 +50,15 @@ impl RotateHead {
             return Ok(MainOutputs {});
         }
 
-        rotate_head(&context);
+        if context
+            .cycle_time
+            .start_time
+            .duration_since(self.last_rotate_head_time)
+            .expect("Time ran backwards")
+            > *context.rotate_head_message_interval
+        {
+            rotate_head(&context);
+        }
 
         Ok(MainOutputs {})
     }
