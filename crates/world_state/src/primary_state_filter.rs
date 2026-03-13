@@ -133,13 +133,6 @@ impl PrimaryStateFilter {
             _ => self.last_primary_state,
         };
 
-        if matches!(
-            next_primary_state,
-            PrimaryState::Safe | PrimaryState::Penalized
-        ) {
-            context.hardware_interface.reset_odometer()?;
-        }
-
         context.hardware_interface.set_whether_to_record(
             context
                 .recorded_primary_states
