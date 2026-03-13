@@ -18,9 +18,9 @@ impl Layer<Ground> for KickDecisions {
     const NAME: &'static str = "Kick Decisions";
 
     fn new(robot: Arc<Robot>) -> Self {
-        let kick_decisions = robot.subscribe_value("Control.main_outputs.kick_decisions");
+        let kick_decisions = robot.subscribe_value("WorldState.main_outputs.kick_decisions");
         let instant_kick_decisions =
-            robot.subscribe_value("Control.main_outputs.instant_kick_decisions");
+            robot.subscribe_value("WorldState.main_outputs.instant_kick_decisions");
         Self {
             kick_decisions,
             instant_kick_decisions,

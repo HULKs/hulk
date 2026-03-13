@@ -20,7 +20,7 @@ impl Layer<Ground> for ObstacleFilter {
 
     fn new(robot: Arc<Robot>) -> Self {
         let hypotheses =
-            robot.subscribe_value("Control.additional_outputs.obstacle_filter_hypotheses");
+            robot.subscribe_value("WorldState.additional_outputs.obstacle_filter_hypotheses");
         Self { hypotheses }
     }
 

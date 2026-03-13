@@ -16,7 +16,7 @@ impl Overlay for Horizon {
 
     fn new(robot: std::sync::Arc<crate::robot::Robot>) -> Self {
         Self {
-            horizon: robot.subscribe_value("Control.main_outputs.camera_matrix.horizon"),
+            horizon: robot.subscribe_value("WorldState.main_outputs.camera_matrix.horizon"),
         }
     }
 

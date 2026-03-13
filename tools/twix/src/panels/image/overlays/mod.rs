@@ -1,15 +1,11 @@
 mod ball_detection;
-mod feet_detection;
 mod field_border;
-mod field_lines;
 mod horizon;
 mod line_detection;
 mod object_detection;
 
 pub use ball_detection::BallDetection;
-pub use feet_detection::FeetDetection;
 pub use field_border::FieldBorder;
-pub use field_lines::FieldLines;
 pub use horizon::Horizon;
 pub use line_detection::LineDetection;
 pub use object_detection::ObjectDetection;
