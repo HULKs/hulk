@@ -453,7 +453,7 @@
     },
     "maximum_lookaround_duration": {
       "nanos": 0,
-      "secs": 50
+      "secs": 5
     },
     "look_action": {
       "angle_threshold": 0.95,
@@ -933,7 +933,7 @@
       "secs": 2
     },
     "quick_search_timeout": {
-      "nanos": 300000000,
+      "nanos": 600000000,
       "secs": 0
     },
     "middle_positions": {
