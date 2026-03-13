@@ -73,13 +73,14 @@ impl BoosterModeHandler {
             (PrimaryState::Safe | PrimaryState::Initial, RobotMode::Walking, _) => {
                 change_mode(&context, RobotMode::Prepare)
             }
+            (PrimaryState::Finished | PrimaryState::Penalized, RobotMode::Walking, true) => {
+                change_mode(&context, RobotMode::Prepare)
+            }
             (
-                PrimaryState::Stop | PrimaryState::Finished | PrimaryState::Penalized,
-                RobotMode::Walking,
-                true,
-            ) => change_mode(&context, RobotMode::Prepare),
-            (
-                PrimaryState::Ready | PrimaryState::Playing | PrimaryState::Set,
+                PrimaryState::Ready
+                | PrimaryState::Playing
+                | PrimaryState::Set
+                | PrimaryState::Stop,
                 RobotMode::Prepare,
                 _,
             ) => change_mode(&context, RobotMode::Walking),
