@@ -593,7 +593,14 @@
     "minimum_yaw": -0.785,
     "injected_head_joints": null
   },
-  "recorded_primary_states": ["Initial", "Ready", "Set", "Playing", "Stop", "Penalized"],
+  "recorded_primary_states": [
+    "Initial",
+    "Ready",
+    "Set",
+    "Playing",
+    "Stop",
+    "Penalized"
+  ],
   "safe_mode_handler": {
     "joint_position_threshold": 0.1,
     "joint_velocity_threshold": 0.1,
@@ -993,5 +1000,21 @@
   "wait_before_prepare": {
     "nanos": 0,
     "secs": 2
+  },
+  "motion": {
+    "booster": {
+      "rotate_head_message_interval": {
+        "nanos": 33000000,
+        "secs": 0
+      },
+      "kick_message_interval": {
+        "nanos": 33000000,
+        "secs": 0
+      },
+      "move_robot_message_interval": {
+        "nanos": 33000000,
+        "secs": 0
+      }
+    }
   }
 }

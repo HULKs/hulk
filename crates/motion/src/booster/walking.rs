@@ -1,4 +1,7 @@
-use std::f32::consts::PI;
+use std::{
+    f32::consts::PI,
+    time::{Duration, SystemTime},
+};
 
 use booster_sdk::types::RobotMode;
 use color_eyre::Result;
@@ -9,6 +12,7 @@ use hardware::{HighLevelInterface, MotionRuntimeInteface};
 use linear_algebra::{Orientation2, Point2};
 use serde::{Deserialize, Serialize};
 use types::{
+    cycle_time::CycleTime,
     motion_command::{MotionCommand, OrientationMode},
     motion_runtime::MotionRuntime,
     parameters::RLWalkingParameters,
@@ -17,7 +21,9 @@ use types::{
 };
 
 #[derive(Deserialize, Serialize)]
-pub struct BoosterWalking {}
+pub struct BoosterWalking {
+    last_move_robot_time: SystemTime,
+}
 
 #[context]
 pub struct CreationContext {}
@@ -26,13 +32,15 @@ pub struct CreationContext {}
 pub struct CycleContext {
     robot_mode: RequiredInput<Option<RobotMode>, "WorldState", "robot_mode?">,
 
+    cycle_time: Input<CycleTime, "cycle_time">,
     motion_command: Input<MotionCommand, "WorldState", "motion_command">,
 
-    hardware_interface: HardwareInterface,
-
     parameters: Parameter<RLWalkingParameters, "rl_walking">,
+    move_robot_message_interval: Parameter<Duration, "motion.booster.move_robot_message_interval">,
 
     step: AdditionalOutput<Step, "additional_outputs.walking_step">,
+
+    hardware_interface: HardwareInterface,
 }
 
 #[context]
@@ -41,7 +49,9 @@ pub struct MainOutputs {}
 
 impl BoosterWalking {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {})
+        Ok(Self {
+            last_move_robot_time: SystemTime::UNIX_EPOCH,
+        })
     }
 
     pub fn cycle(
@@ -115,7 +125,15 @@ impl BoosterWalking {
 
         context.step.fill_if_subscribed(|| step);
 
-        move_robot(&context, step);
+        if context
+            .cycle_time
+            .start_time
+            .duration_since(self.last_move_robot_time)
+            .expect("Time ran backwards")
+            > *context.move_robot_message_interval
+        {
+            move_robot(&context, step);
+        };
 
         Ok(MainOutputs {})
     }
