@@ -2,7 +2,7 @@ use coordinate_systems::Field;
 use filtering::hysteresis::less_than_with_hysteresis;
 use framework::AdditionalOutput;
 use hsl_network_messages::GamePhase;
-use linear_algebra::{Orientation2, Rotation2, Vector2, vector};
+use linear_algebra::{Orientation2, Rotation2, Vector2, point, vector};
 use types::{
     field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
@@ -58,7 +58,7 @@ pub fn execute(
     if enable_visual_kick && close_enough_to_kick {
         Some(MotionCommand::VisualKick {
             head,
-            ball_position,
+            ball_position: point!(ball_position.x(), ball_position.y() - 0.1),
             kick_direction,
             target_position: Rotation2::new(parameters.kick_taget_offset_angle) * target_position,
             robot_theta_to_field,
