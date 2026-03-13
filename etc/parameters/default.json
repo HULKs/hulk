@@ -311,7 +311,7 @@
     "maximum_amount_of_gradient_descent_iterations": 8,
     "maximum_amount_of_outer_iterations": 4,
     "minimum_fit_error": 0.001,
-    "odometry_noise": [0.02, 0.02, 0.01],
+    "odometry_noise": [0.005, 0.01, 0.001],
     "penalized_distance": 0.7,
     "penalized_hypothesis_covariance": [
       0.01, 0.0, 0.0, 0.0, 0.002, 0.0, 0.0, 0.0, 0.001
