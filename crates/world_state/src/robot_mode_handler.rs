@@ -38,7 +38,7 @@ impl BoosterModeHandler {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             last_primary_state_change_time: SystemTime::UNIX_EPOCH,
-            last_primary_state: PrimaryState::Safe,
+            last_primary_state: PrimaryState::default(),
         })
     }
 

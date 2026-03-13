@@ -10,6 +10,7 @@ pub mod penalize;
 pub mod remote_control;
 pub mod safe;
 pub mod search;
+pub mod set;
 pub mod stand_during_penalty_kick;
 pub mod stand_up;
 pub mod stop;

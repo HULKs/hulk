@@ -30,6 +30,7 @@ pub enum Action {
     Safe,
     Search,
     SearchForLostBall,
+    Set,
     StandDuringPenaltyKick,
     Stop,
     StandUp,

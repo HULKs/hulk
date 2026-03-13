@@ -983,6 +983,6 @@
   },
   "wait_before_prepare": {
     "nanos": 0,
-    "secs": 1
+    "secs": 2
   }
 }
