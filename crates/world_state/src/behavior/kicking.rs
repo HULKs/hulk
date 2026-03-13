@@ -2,7 +2,7 @@ use coordinate_systems::Field;
 use filtering::hysteresis::less_than_with_hysteresis;
 use framework::AdditionalOutput;
 use hsl_network_messages::GamePhase;
-use linear_algebra::{Orientation2, Vector2, vector};
+use linear_algebra::{Orientation2, Rotation2, Vector2, vector};
 use types::{
     field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
@@ -59,12 +59,12 @@ pub fn execute(
             head,
             ball_position,
             kick_direction,
-            target_position,
+            target_position: Rotation2::new(parameters.kick_taget_offset_angle) * target_position,
             robot_theta_to_field,
             kick_power: parameters.kick_power,
         })
     } else {
-        let mut speed = walk_speed;
+        let mut speed = walk_speed; 
         if let Some(FilteredGameControllerState {
             game_phase: GamePhase::PenaltyShootout { .. },
             ..
