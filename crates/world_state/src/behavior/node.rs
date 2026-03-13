@@ -25,7 +25,7 @@ use types::{
 };
 
 use crate::behavior::{
-    kicking, lost_ball, search, support, visual_kick, walk_to_kick_off, walk_to_penalty_kick,
+    kicking, lost_ball, search, set, support, visual_kick, walk_to_kick_off, walk_to_penalty_kick,
 };
 
 use super::{
@@ -112,6 +112,7 @@ impl Behavior {
             Action::Stop,
             Action::Finish,
             Action::Penalize,
+            Action::Set,
             Action::Initial,
             Action::StandUp,
         ];
@@ -209,6 +210,7 @@ impl Behavior {
                     Action::Safe => safe::execute(world_state),
                     Action::Stop => stop::execute(world_state),
                     Action::Penalize => penalize::execute(world_state),
+                    Action::Set => set::execute(world_state),
                     Action::Initial => initial::execute(world_state),
                     Action::Finish => finish::execute(world_state),
                     Action::StandUp => stand_up::execute(world_state),

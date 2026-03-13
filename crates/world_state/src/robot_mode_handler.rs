@@ -38,7 +38,7 @@ impl BoosterModeHandler {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             last_primary_state_change_time: SystemTime::UNIX_EPOCH,
-            last_primary_state: PrimaryState::Safe,
+            last_primary_state: PrimaryState::default(),
         })
     }
 
@@ -70,19 +70,19 @@ impl BoosterModeHandler {
         let switch_to_prepare = &time_since_primary_state_change >= context.wait_before_prepare;
 
         match (context.primary_state, robot_mode, switch_to_prepare) {
-            (
-                PrimaryState::Safe | PrimaryState::Initial | PrimaryState::Set,
-                RobotMode::Walking,
-                _,
-            ) => change_mode(&context, RobotMode::Prepare),
+            (PrimaryState::Safe | PrimaryState::Initial, RobotMode::Walking, _) => {
+                change_mode(&context, RobotMode::Prepare)
+            }
             (
                 PrimaryState::Stop | PrimaryState::Finished | PrimaryState::Penalized,
                 RobotMode::Walking,
                 true,
             ) => change_mode(&context, RobotMode::Prepare),
-            (PrimaryState::Ready | PrimaryState::Playing, RobotMode::Prepare, _) => {
-                change_mode(&context, RobotMode::Walking)
-            }
+            (
+                PrimaryState::Ready | PrimaryState::Playing | PrimaryState::Set,
+                RobotMode::Prepare,
+                _,
+            ) => change_mode(&context, RobotMode::Walking),
             (_, _, _) => (),
         };
 
