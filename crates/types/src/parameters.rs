@@ -545,4 +545,5 @@ pub struct KickingParameters {
     pub distance_for_kick: f32,
     pub distance_for_kick_hysteresis: f32,
     pub distance_to_look_directly_at_the_ball: f32,
+    pub kick_taget_offset_angle: f32,
 }
