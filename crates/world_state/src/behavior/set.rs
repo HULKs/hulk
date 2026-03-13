@@ -7,7 +7,9 @@ use types::{
 pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
     match world_state.robot.primary_state {
         PrimaryState::Set => Some(MotionCommand::Stand {
-            head: (HeadMotion::ZeroAngles),
+            head: (HeadMotion::Center {
+                image_region_target: types::motion_command::ImageRegion::Top,
+            }),
         }),
         _ => None,
     }
