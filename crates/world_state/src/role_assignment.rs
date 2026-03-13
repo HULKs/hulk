@@ -305,7 +305,7 @@ impl RoleAssignment {
             .collect();
 
         let events = striker_message_timeout_event
-            .chain(messages)
+            // .chain(messages)
             // Update the state machine at least once
             .chain([Event::None]);
 
