@@ -312,15 +312,24 @@
     "maximum_amount_of_outer_iterations": 4,
     "minimum_fit_error": 0.001,
     "odometry_noise": [0.005, 0.01, 0.001],
+    "penalty_spot_matching_distance": 1.5,
+    "penalty_spot_measurement_noise": [0.2, 0.2],
     "penalized_distance": 0.7,
     "penalized_hypothesis_covariance": [
       0.01, 0.0, 0.0, 0.0, 0.002, 0.0, 0.0, 0.0, 0.001
     ],
+    "goal_post_pair_matching_distance": 1.5,
+    "goal_post_pair_measurement_noise": [
+      0.1, 0.0, 0.0, 0.0, 0.1, 0.0, 0.0, 0.0, 0.05
+    ],
     "score_per_good_match": 0.1,
+    "single_goal_post_matching_distance": 1.5,
+    "single_goal_post_measurement_noise": [0.25, 0.25],
     "tentative_penalized_duration": {
       "nanos": 0,
       "secs": 2
     },
+    "use_detected_field_mark_measurements": true,
     "use_line_measurements": true
   },
   "game_controller_filter": {

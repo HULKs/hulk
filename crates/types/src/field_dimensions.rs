@@ -158,6 +158,13 @@ impl FieldDimensions {
         point![unsigned_x * half.sign(), 0.0]
     }
 
+    pub fn goal_post(&self, half: Half, side: Side) -> Point2<Field> {
+        let radius = self.goal_post_diameter / 2.0;
+        let unsigned_x = self.length / 2.0 + radius - self.line_width / 2.0;
+        let unsigned_y = self.goal_inner_width / 2.0 + radius;
+        point![unsigned_x * half.sign(), unsigned_y * side.sign()]
+    }
+
     pub fn corner(&self, half: Half, side: Side) -> Point2<Field> {
         let unsigned_x = self.length / 2.0;
         let unsigned_y = self.width / 2.0;
