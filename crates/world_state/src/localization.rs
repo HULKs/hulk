@@ -209,7 +209,8 @@ impl Localization {
                 game_controller_state.penalties[*context.player_number]
             });
 
-        let gyro_movement = Self::latest_imu_state(context).angular_velocity.norm();
+        let imu_state = Self::latest_imu_state(context);
+        let gyro_movement = imu_state.angular_velocity.norm();
 
         let fall_down_state = Self::latest_fall_down_state(context);
         let line_measurements_allowed = !matches!(
@@ -222,11 +223,16 @@ impl Localization {
         );
 
         let current_odometer = Self::latest_odometer(context);
-        let current_odometry_to_last_odometry = match (self.last_odometer, current_odometer) {
+        let odometer_with_imu_yaw = current_odometer.map(|Odometer { x, y, theta: _ }| Odometer {
+            x,
+            y,
+            theta: imu_state.roll_pitch_yaw.z(),
+        });
+        let current_odometry_to_last_odometry = match (self.last_odometer, odometer_with_imu_yaw) {
             (Some(last), Some(latest)) => odometry_delta(last, latest),
             _ => Default::default(),
         };
-        self.last_odometer = current_odometer;
+        self.last_odometer = odometer_with_imu_yaw;
 
         let line_data = context
             .line_data

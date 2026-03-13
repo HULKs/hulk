@@ -446,7 +446,7 @@
       "estimated_ball_speed": 0.75
     },
     "kicking": {
-      "kick_power": 2.0,
+      "kick_power": 4.0,
       "distance_for_kick": 1.5,
       "distance_for_kick_hysteresis": 0.5,
       "distance_to_look_directly_at_the_ball": 4.0
@@ -593,7 +593,14 @@
     "minimum_yaw": -0.785,
     "injected_head_joints": null
   },
-  "recorded_primary_states": ["Initial", "Ready", "Set", "Playing", "Stop", "Penalized"],
+  "recorded_primary_states": [
+    "Initial",
+    "Ready",
+    "Set",
+    "Playing",
+    "Stop",
+    "Penalized"
+  ],
   "safe_mode_handler": {
     "joint_position_threshold": 0.1,
     "joint_velocity_threshold": 0.1,
