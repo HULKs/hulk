@@ -26,7 +26,7 @@ pub struct CycleContext {
     motion_command: Input<MotionCommand, "WorldState", "motion_command">,
     cycle_time: Input<CycleTime, "cycle_time">,
 
-    kick_message_interval: Parameter<Duration, "kicking.kick_message_interval">,
+    kick_message_interval: Parameter<Duration, "motion.booster.kick_message_interval">,
 
     hardware_interface: HardwareInterface,
 }
