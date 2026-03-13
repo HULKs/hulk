@@ -57,6 +57,15 @@ pub trait PoseFilter {
     where
         MeasurementPredictionFunction: Fn(Vector3<f32>) -> Vector2<f32>;
 
+    fn update_with_3d_pose<MeasurementPredictionFunction>(
+        &mut self,
+        measurement: Vector3<f32>,
+        measurement_noise: Matrix3<f32>,
+        measurement_prediction_function: MeasurementPredictionFunction,
+    ) -> Result<(), Error>
+    where
+        MeasurementPredictionFunction: Fn(Vector3<f32>) -> Vector3<f32>;
+
     fn as_isometry(&self) -> Isometry2<f32>;
 }
 
@@ -131,6 +140,49 @@ impl PoseFilter for MultivariateNormalDistribution<STATE_DIMENSION> {
                 residual_function: translation_residual,
             },
         )
+    }
+
+    fn update_with_3d_pose<MeasurementPredictionFunction>(
+        &mut self,
+        measurement: Vector3<f32>,
+        measurement_noise: Matrix3<f32>,
+        measurement_prediction_function: MeasurementPredictionFunction,
+    ) -> Result<(), Error>
+    where
+        MeasurementPredictionFunction: Fn(Vector3<f32>) -> Vector3<f32>,
+    {
+        let cubature_points = sample_cubature_points(self.mean, self.covariance)?;
+        let predicted_measurements: Vec<_> = cubature_points
+            .iter()
+            .copied()
+            .map(measurement_prediction_function)
+            .collect();
+        let predicted_measurement_mean = mean_from_3d_cubature_points(&predicted_measurements);
+        let predicted_measurement_covariance =
+            covariance_from_3d_cubature_points(predicted_measurement_mean, &predicted_measurements);
+        let predicted_measurements_cross_covariance = cross_covariance_from_3d_cubature_points(
+            self.mean,
+            &cubature_points,
+            predicted_measurement_mean,
+            &predicted_measurements,
+        );
+        let kalman_gain = predicted_measurements_cross_covariance
+            * (predicted_measurement_covariance + measurement_noise)
+                .try_inverse()
+                .ok_or(Error::Inverse)?;
+
+        let residuum = vector![
+            measurement.x - predicted_measurement_mean.x,
+            measurement.y - predicted_measurement_mean.y,
+            (UnitComplex::new(measurement.z) / UnitComplex::new(predicted_measurement_mean.z))
+                .angle(),
+        ];
+        self.mean += kalman_gain * residuum;
+        let updated_state_covariance = self.covariance
+            - kalman_gain * predicted_measurement_covariance * kalman_gain.transpose();
+        self.covariance = into_symmetric(updated_state_covariance);
+
+        Ok(())
     }
 
     fn as_isometry(&self) -> Isometry2<f32> {
@@ -368,12 +420,38 @@ fn cross_covariance_from_2d_translation_cubature_points(
         * CUBATURE_POINT_WEIGHT
 }
 
+fn cross_covariance_from_3d_cubature_points(
+    state_mean: Vector3<f32>,
+    state_cubature_points: &[Vector3<f32>],
+    measurement_mean: Vector3<f32>,
+    measurement_cubature_points: &[Vector3<f32>],
+) -> Matrix3<f32> {
+    assert!(state_cubature_points.len() == measurement_cubature_points.len());
+    state_cubature_points
+        .iter()
+        .zip(measurement_cubature_points.iter())
+        .map(|(state, measurement)| {
+            vector![
+                state.x - state_mean.x,
+                state.y - state_mean.y,
+                (UnitComplex::new(state.z) / UnitComplex::new(state_mean.z)).angle()
+            ] * vector![
+                measurement.x - measurement_mean.x,
+                measurement.y - measurement_mean.y,
+                (UnitComplex::new(measurement.z) / UnitComplex::new(measurement_mean.z)).angle()
+            ]
+            .transpose()
+        })
+        .sum::<Matrix3<f32>>()
+        * (1.0 / 6.0)
+}
+
 #[cfg(test)]
 mod tests {
     use std::f32::consts::PI;
 
     use approx::assert_relative_eq;
-    use nalgebra::{matrix, vector};
+    use nalgebra::{Matrix3, matrix, vector};
 
     use super::{CUBATURE_POINT_COUNT, PoseFilter, sample_cubature_points, wrap_angle};
     use types::multivariate_normal_distribution::MultivariateNormalDistribution;
@@ -556,5 +634,31 @@ mod tests {
             assert!(sample_cubature_points(state.mean, state.covariance).is_ok());
             assert!((-PI..=PI).contains(&state.mean.z));
         }
+    }
+
+    #[test]
+    fn update_with_3d_pose_moves_state_towards_measurement() {
+        let mut distribution = MultivariateNormalDistribution {
+            mean: vector![0.0, 0.0, 0.0],
+            covariance: Matrix3::identity(),
+        };
+
+        distribution
+            .update_with_3d_pose(
+                vector![1.0, -0.5, 0.25],
+                Matrix3::identity() * 0.1,
+                |state| state,
+            )
+            .unwrap();
+
+        assert!(distribution.mean.x > 0.0);
+        assert!(distribution.mean.y < 0.0);
+        assert!(distribution.mean.z > 0.0);
+        assert_relative_eq!(distribution.mean.x, 0.7692308, epsilon = 0.0001);
+        assert_relative_eq!(distribution.mean.y, -0.3846154, epsilon = 0.0001);
+        assert_relative_eq!(distribution.mean.z, 0.1923077, epsilon = 0.0001);
+        assert!(distribution.covariance[(0, 0)] < 1.0);
+        assert!(distribution.covariance[(1, 1)] < 1.0);
+        assert!(distribution.covariance[(2, 2)] < 1.0);
     }
 }
