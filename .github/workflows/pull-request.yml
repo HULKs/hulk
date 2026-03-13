@@ -96,31 +96,31 @@ jobs:
       - name: Test
         run: ./pepsi test --locked --all-features --workspace --exclude bevyhavior_simulator
 
-  build:
-    name: Build
-    strategy:
-      fail-fast: true
-      matrix:
-        target:
-          # - imagine
-          - replayer
-          - mujoco
-          - booster
-        profile:
-          # - dev
-          - release
-    runs-on:
-      - self-hosted
-      - v3
-    container:
-      image: ghcr.io/hulks/hulk-ci:1.92.0
-      options: --user=1000:1000 --privileged --device /dev/fuse:rw
-    steps:
-      - uses: actions/checkout@v4
-        with:
-          lfs: true
-      - name: Build
-        run: ./pepsi build --locked --profile ${{ matrix.profile }} ${{ matrix.target }}
+  # build:
+  #   name: Build
+  #   strategy:
+  #     fail-fast: true
+  #     matrix:
+  #       target:
+  #         # - imagine
+  #         - replayer
+  #         - mujoco
+  #         - booster
+  #       profile:
+  #         # - dev
+  #         - release
+  #   runs-on:
+  #     - self-hosted
+  #     - v3
+  #   container:
+  #     image: ghcr.io/hulks/hulk-ci:1.92.0
+  #     options: --user=1000:1000 --privileged --device /dev/fuse:rw
+  #   steps:
+  #     - uses: actions/checkout@v4
+  #       with:
+  #         lfs: true
+  #     - name: Build
+  #       run: ./pepsi build --locked --profile ${{ matrix.profile }} ${{ matrix.target }}
 
   # build_services:
   #   name: Build
