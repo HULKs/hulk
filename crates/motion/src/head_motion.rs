@@ -4,6 +4,7 @@ use context_attribute::context;
 use filtering::low_pass_filter::LowPassFilter;
 use framework::MainOutput;
 use kinematics::joints::{Joints, head::HeadJoints};
+use projection::camera_matrix::CameraMatrix;
 use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime,
@@ -28,6 +29,7 @@ pub struct CycleContext {
     motor_states: Input<Joints<MotorState>, "serial_motor_states">,
     cycle_time: Input<CycleTime, "cycle_time">,
     motion_command: Input<MotionCommand, "WorldState", "motion_command">,
+    camera_matrix: Input<Option<CameraMatrix>, "WorldState", "camera_matrix?">,
 }
 
 #[context]
@@ -56,13 +58,27 @@ impl HeadMotion {
         let maximum_movement = context.parameters.maximum_velocity
             * context.cycle_time.last_cycle_duration.as_secs_f32();
 
+        let max_pitch = if let Some(camera_matrix) = context.camera_matrix
+            && let Some(horizon) = camera_matrix.horizon
+        {
+            let cy = camera_matrix.intrinsics.optical_center.y();
+            let horizon_y = horizon.vanishing_point.y();
+            let max_pitch = f32::atan2(horizon_y - cy, camera_matrix.intrinsics.focals.y);
+            maximum_movement
+                .pitch
+                .min(max_pitch)
+                .max(-maximum_movement.pitch + 10f32.to_radians())
+        } else {
+            maximum_movement.pitch
+        };
+
         let controlled_positions = HeadJoints {
             yaw: self.last_positions.yaw
                 + (raw_positions.yaw - self.last_positions.yaw)
                     .clamp(-maximum_movement.yaw, maximum_movement.yaw),
             pitch: self.last_positions.pitch
                 + (raw_positions.pitch - self.last_positions.pitch)
-                    .clamp(-maximum_movement.pitch, maximum_movement.pitch),
+                    .clamp(-maximum_movement.pitch, max_pitch),
         };
 
         let clamped_positions = HeadJoints {
