@@ -1,5 +1,5 @@
 use types::{
-    motion_command::{HeadMotion, MotionCommand},
+    motion_command::{HeadMotion, ImageRegion, MotionCommand},
     primary_state::PrimaryState,
     world_state::WorldState,
 };
@@ -7,7 +7,9 @@ use types::{
 pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
     match world_state.robot.primary_state {
         PrimaryState::Set => Some(MotionCommand::Stand {
-            head: (HeadMotion::ZeroAngles),
+            head: (HeadMotion::Center {
+                image_region_target: ImageRegion::Top,
+            }),
         }),
         _ => None,
     }
