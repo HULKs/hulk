@@ -40,6 +40,10 @@ impl LEDHandler {
             return Ok(MainOutputs {});
         }
 
+        if self.last_primary_state == Some(*context.primary_state) {
+            return Ok(MainOutputs {});
+        }
+
         let light_control_parameter = match context.primary_state {
             PrimaryState::Safe => SetLedLightColorParameter::BLUE,
             PrimaryState::Stop => SetLedLightColorParameter::LIGHT_BLUE,
@@ -54,6 +58,8 @@ impl LEDHandler {
         context
             .hardware_interface
             .set_led_color(light_control_parameter)?;
+
+        self.last_primary_state = Some(*context.primary_state);
 
         Ok(MainOutputs {})
     }
