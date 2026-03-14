@@ -4,7 +4,9 @@ use repository::Repository;
 
 #[derive(Subcommand, PartialEq, Eq, Debug)]
 pub enum Arguments {
+    #[command(visible_alias = "an")]
     Enable,
+    #[command(visible_alias = "aus")]
     Disable,
 }
 

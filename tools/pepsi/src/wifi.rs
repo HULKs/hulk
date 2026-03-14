@@ -18,12 +18,14 @@ pub enum Arguments {
         robots: Vec<RobotAddress>,
     },
     /// Scan for networks
+    #[command(visible_alias = "such", visible_alias = "späh")]
     Scan {
         /// The Robots to execute that command on e.g. 20w or 10.1.24.22
         #[arg(required = true)]
         robots: Vec<RobotAddress>,
     },
     /// Set active network
+    #[command(visible_alias = "setz")]
     Set {
         /// The network to connect the wireless device to (None disconnects from anything)
         #[arg(
@@ -36,6 +38,7 @@ pub enum Arguments {
         robots: Vec<RobotAddress>,
     },
     /// Show current network status
+    #[command(visible_alias = "zustand")]
     Status {
         /// The Robots to execute that command on e.g. 20w or 10.1.24.22
         #[arg(required = true)]

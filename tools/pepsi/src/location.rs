@@ -7,8 +7,10 @@ use repository::Repository;
 #[derive(Subcommand)]
 pub enum Arguments {
     /// List all available locations
+    #[command(visible_alias = "aufzähl")]
     List,
     /// Set location for repository
+    #[command(visible_alias = "setz")]
     Set {
         /// The target to set a location for
         #[arg(required = true)]
@@ -18,6 +20,7 @@ pub enum Arguments {
         location: String,
     },
     /// Get currently configured locations
+    #[command(visible_alias = "zustand")]
     Status,
 }
 
