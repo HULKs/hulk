@@ -15,6 +15,7 @@
 //! - Wraps commonly used parts of the [`nalgebra`] API to provide frame-safe abstractions.
 //! - Supports 2D and 3D geometry with extensible coordinate system tagging.
 //! - Provides clear and explicit geometric transformations.
+//! - Re-exports [`nalgebra`] so `point!` and `vector!` work without a direct dependency.
 //!
 //! ## Example
 //!
@@ -41,7 +42,7 @@
 //!
 //! This crate is a thin, zero-cost wrapper around [`nalgebra`], adding type-level tags for
 //! coordinate systems using [`Framed`] and [`Transform`]. It does not reimplement linear algebra,
-//! but provides a safer API for geometric programming.
+//! but provides a safer API for geometric programming while staying close to nalgebra's model.
 //!
 //! [`nalgebra`]: https://docs.rs/nalgebra
 
@@ -59,10 +60,12 @@ pub use framed::Framed;
 pub use into::{IntoFramed, IntoTransform};
 pub use isometry::{Isometry, Isometry2, Isometry3};
 pub use orientation::{Orientation2, Orientation3};
-pub use point::{Point, Point2, Point3, center, distance, distance_squared};
+pub use point::{center, distance, distance_squared, Point, Point2, Point3};
 pub use pose::{Pose2, Pose3};
 pub use rotation::{Rotation2, Rotation3};
 pub use transform::Transform;
 pub use vector::{Vector, Vector2, Vector3};
 
+/// Re-exported so crate macros and examples can use `nalgebra` without requiring a direct
+/// dependency in downstream crates.
 pub use nalgebra;

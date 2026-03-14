@@ -97,6 +97,7 @@ where
     T: SimdRealField + Copy,
     T::Element: SimdRealField,
 {
+    /// Create a new pose from a position and orientation.
     pub fn from_parts(position: Point3<Frame, T>, orientation: Orientation3<Frame, T>) -> Self {
         Self::wrap(nalgebra::Isometry3::from_parts(
             position.inner.into(),
@@ -120,10 +121,12 @@ where
         Isometry3::wrap(self.inner)
     }
 
+    /// Returns the position component of the pose.
     pub fn position(&self) -> Point3<Frame, T> {
         Point3::wrap(self.inner.translation.vector.into())
     }
 
+    /// Returns the orientation component of the pose.
     pub fn orientation(&self) -> Orientation3<Frame, T>
     where
         T: Copy,

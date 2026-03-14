@@ -18,14 +18,17 @@ where
     T: SimdRealField,
     Rotation: AbstractRotation<T, DIMENSION>,
 {
+    /// Returns the identity transform.
     pub fn identity() -> Self {
         Self::wrap(nalgebra::Isometry::identity())
     }
 
+    /// Returns the inverse transform, swapping source and destination frames.
     pub fn inverse(&self) -> Transform<To, From, nalgebra::Isometry<T, Rotation, DIMENSION>> {
         Transform::<To, From, _>::wrap(self.inner.inverse())
     }
 
+    /// Returns the translation component expressed in the destination frame.
     pub fn translation(&self) -> Point<To, DIMENSION, T> {
         Point::wrap(self.inner.translation.vector.clone().into())
     }
@@ -38,10 +41,12 @@ where
     T::Element: SimdRealField,
     T: SimdRealField + Copy,
 {
+    /// Creates an isometry from a translation and angle in radians.
     pub fn new(translation: Vector2<To, T>, angle: T) -> Self {
         Self::wrap(nalgebra::Isometry2::new(translation.inner, angle))
     }
 
+    /// Creates an isometry from a translation and orientation in the destination frame.
     pub fn from_parts(translation: Vector2<To, T>, orientation: Orientation2<To, T>) -> Self {
         Self::wrap(nalgebra::Isometry2::from_parts(
             translation.inner.into(),
@@ -49,6 +54,7 @@ where
         ))
     }
 
+    /// Creates a pure rotation isometry with zero translation.
     pub fn rotation(angle: T) -> Self {
         Self::wrap(nalgebra::Isometry2::rotation(angle))
     }
@@ -68,6 +74,7 @@ where
         Pose2::wrap(self.inner)
     }
 
+    /// Returns the orientation component in the destination frame.
     pub fn orientation(&self) -> Orientation2<To, T> {
         Orientation2::wrap(self.inner.rotation)
     }
@@ -100,6 +107,7 @@ where
     T::Element: SimdRealField,
     T: SimdRealField + Copy,
 {
+    /// Creates an isometry from a translation and orientation in the destination frame.
     pub fn from_parts(translation: Vector3<To, T>, orientation: Orientation3<To, T>) -> Self {
         Self::wrap(nalgebra::Isometry3::from_parts(
             translation.inner.into(),
@@ -107,10 +115,12 @@ where
         ))
     }
 
+    /// Creates a pure rotation isometry with zero translation.
     pub fn from_rotation(axisangle: Vector3<To, T>) -> Self {
         Self::wrap(nalgebra::Isometry3::rotation(axisangle.inner))
     }
 
+    /// Creates a pure translation isometry.
     pub fn from_translation(x: T, y: T, z: T) -> Self {
         Self::wrap(nalgebra::Isometry3::translation(x, y, z))
     }
@@ -131,6 +141,7 @@ where
         Pose3::wrap(self.inner)
     }
 
+    /// Returns the rotation component as a frame-safe transform.
     pub fn rotation(&self) -> Rotation3<From, To, T> {
         Rotation3::wrap(self.inner.rotation)
     }
