@@ -13,17 +13,20 @@ use tokio::process::Command;
 #[derive(Subcommand)]
 pub enum Arguments {
     /// Pulls the SDK image from ghcr.io/hulks
+    #[command(visible_alias = "installier")]
     Install {
         /// SDK version e.g. `1.0.0`. If not provided, version specified by `hulk.toml` is used.
         #[arg(long)]
         image: Option<String>,
     },
     /// Builds the SDK image
+    #[command(visible_alias = "bau")]
     Build {
         /// SDK version e.g. `3.3.1`. If not provided, version specified by `hulk.toml` is used.
         #[arg(long)]
         image: Option<String>,
     },
+    #[command(visible_alias = "aufzähl")]
     List,
 }
 

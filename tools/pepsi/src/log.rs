@@ -11,12 +11,14 @@ use crate::progress_indicator::ProgressIndicator;
 #[derive(Subcommand)]
 pub enum Arguments {
     /// Delete logs on the Robots
+    #[command(visible_alias = "lösch")]
     Delete {
         /// The Robots to delete logs from e.g. 20w or 10.1.24.22
         #[arg(required = true)]
         robots: Vec<RobotAddress>,
     },
     /// Download logs from the Robots
+    #[command(visible_alias = "runterlad")]
     Download {
         /// Directory where to store the downloaded logs (will be created if not existing)
         log_directory: PathBuf,
@@ -25,12 +27,14 @@ pub enum Arguments {
         robots: Vec<RobotAddress>,
     },
     /// List logs from Robots
+    #[command(visible_alias = "aufzähl")]
     List {
         /// The Robot to show logs from e.g. 20w or 10.1.24.22
         #[arg(required = true)]
         robots: Vec<RobotAddress>,
     },
     /// Show logs from Robots
+    #[command(visible_alias = "zeig")]
     Show {
         /// The Robot to show logs from e.g. 20w or 10.1.24.22
         #[arg(required = true)]
