@@ -98,7 +98,14 @@ impl BoosterKick {
                     context.hardware_interface.write_visual_kick(kick)?;
                 }
             }
-            _ => set_visual_kick_activation_state(&context, false),
+            _ => {
+                if matches!(
+                    self.last_motion_command,
+                    Some(MotionCommand::VisualKick { .. })
+                ) {
+                    set_visual_kick_activation_state(&context, false)
+                }
+            }
         };
 
         self.last_motion_command = Some(context.motion_command.clone());
