@@ -25,7 +25,7 @@ use types::{
 };
 
 use crate::behavior::{
-    kicking, lost_ball, search, set, support, visual_kick, walk_to_kick_off, walk_to_penalty_kick,
+    kicking, lost_ball, search, set, support, walk_to_kick_off, walk_to_penalty_kick,
 };
 
 use super::{
@@ -416,9 +416,6 @@ impl Behavior {
                         context.ball_position.copied(),
                         context.parameters.walk_with_velocity.clone(),
                     ),
-                    Action::VisualKick => {
-                        visual_kick::execute(world_state, context.last_motion_command)
-                    }
                 }?;
                 Some((action, motion_command))
             })
