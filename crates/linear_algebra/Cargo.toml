@@ -4,6 +4,7 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 homepage.workspace = true
+description = "Frame-safe linear algebra wrappers around nalgebra"
 
 [dependencies]
 approx = { workspace = true, optional = true }
