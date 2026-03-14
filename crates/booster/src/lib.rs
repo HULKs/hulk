@@ -82,7 +82,7 @@ impl LowState {
 )]
 pub struct ImuState {
     #[serde(rename = "rpy")]
-    /// Euler angle information（x -> roll, y -> pitch, z -> yaw）
+    /// Euler angle information (x -> roll, y -> pitch, z -> yaw)
     pub roll_pitch_yaw: Vector3<Robot>,
     /// Angular velocity information
     #[serde(rename = "gyro")]
