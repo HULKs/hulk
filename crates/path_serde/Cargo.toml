@@ -7,6 +7,7 @@ homepage.workspace = true
 
 [dependencies]
 booster_sdk = { workspace = true }
+linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
 ndarray = { workspace = true }
 num-traits = { workspace = true }

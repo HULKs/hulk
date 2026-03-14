@@ -205,58 +205,6 @@ mod _serde {
     }
 }
 
-#[cfg(feature = "path_serde")]
-mod _path_serde {
-    use super::Transform;
-    use path_serde::{
-        deserialize::{self, PathDeserialize},
-        serialize::{self, PathSerialize},
-        PathIntrospect,
-    };
-    use std::collections::HashSet;
-
-    impl<From, To, T> PathSerialize for Transform<From, To, T>
-    where
-        T: PathSerialize,
-    {
-        fn serialize_path<S>(
-            &self,
-            path: &str,
-            serializer: S,
-        ) -> Result<S::Ok, serialize::Error<S::Error>>
-        where
-            S: serde::Serializer,
-        {
-            self.inner.serialize_path(path, serializer)
-        }
-    }
-
-    impl<From, To, T> PathDeserialize for Transform<From, To, T>
-    where
-        T: PathDeserialize,
-    {
-        fn deserialize_path<'de, D>(
-            &mut self,
-            path: &str,
-            deserializer: D,
-        ) -> Result<(), deserialize::Error<D::Error>>
-        where
-            D: serde::Deserializer<'de>,
-        {
-            self.inner.deserialize_path(path, deserializer)
-        }
-    }
-
-    impl<From, To, T> PathIntrospect for Transform<From, To, T>
-    where
-        T: PathIntrospect,
-    {
-        fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
-            T::extend_with_fields(fields, prefix)
-        }
-    }
-}
-
 #[cfg(feature = "approx")]
 mod _approx {
     use super::Transform;

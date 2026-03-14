@@ -5,14 +5,97 @@ use std::{
     time::Duration,
 };
 
+use linear_algebra::{Framed, Transform};
 use nalgebra::{
-    ArrayStorage, Const, Isometry2, Isometry3, Matrix, Point, RealField, Scalar, SimdRealField, U1,
-    UnitComplex, UnitQuaternion, Vector2, Vector3,
+    ArrayStorage, Const, Isometry2, Isometry3, Matrix, Point, RealField, Scalar, SimdRealField,
+    UnitComplex, UnitQuaternion, Vector2, Vector3, U1,
 };
 use num_traits::real::Real;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::{PathDeserialize, PathIntrospect, PathSerialize, deserialize, serialize};
+use crate::{deserialize, serialize, PathDeserialize, PathIntrospect, PathSerialize};
+
+impl<Frame, T> PathSerialize for Framed<Frame, T>
+where
+    T: PathSerialize,
+{
+    fn serialize_path<S>(
+        &self,
+        path: &str,
+        serializer: S,
+    ) -> Result<S::Ok, serialize::Error<S::Error>>
+    where
+        S: Serializer,
+    {
+        self.inner.serialize_path(path, serializer)
+    }
+}
+
+impl<Frame, T> PathDeserialize for Framed<Frame, T>
+where
+    T: PathDeserialize,
+{
+    fn deserialize_path<'de, D>(
+        &mut self,
+        path: &str,
+        deserializer: D,
+    ) -> Result<(), deserialize::Error<D::Error>>
+    where
+        D: Deserializer<'de>,
+    {
+        self.inner.deserialize_path(path, deserializer)
+    }
+}
+
+impl<Frame, T> PathIntrospect for Framed<Frame, T>
+where
+    T: PathIntrospect,
+{
+    fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
+        T::extend_with_fields(fields, prefix)
+    }
+}
+
+impl<From, To, T> PathSerialize for Transform<From, To, T>
+where
+    T: PathSerialize,
+{
+    fn serialize_path<S>(
+        &self,
+        path: &str,
+        serializer: S,
+    ) -> Result<S::Ok, serialize::Error<S::Error>>
+    where
+        S: Serializer,
+    {
+        self.inner.serialize_path(path, serializer)
+    }
+}
+
+impl<From, To, T> PathDeserialize for Transform<From, To, T>
+where
+    T: PathDeserialize,
+{
+    fn deserialize_path<'de, D>(
+        &mut self,
+        path: &str,
+        deserializer: D,
+    ) -> Result<(), deserialize::Error<D::Error>>
+    where
+        D: Deserializer<'de>,
+    {
+        self.inner.deserialize_path(path, deserializer)
+    }
+}
+
+impl<From, To, T> PathIntrospect for Transform<From, To, T>
+where
+    T: PathIntrospect,
+{
+    fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
+        T::extend_with_fields(fields, prefix)
+    }
+}
 
 impl<T> PathSerialize for Box<T>
 where

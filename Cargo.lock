@@ -5807,7 +5807,6 @@ dependencies = [
  "approx",
  "nalgebra",
  "num-traits",
- "path_serde",
  "serde",
  "simba",
 ]
@@ -7351,6 +7350,7 @@ name = "path_serde"
 version = "0.1.0"
 dependencies = [
  "booster_sdk",
+ "linear_algebra",
  "nalgebra",
  "ndarray",
  "num-traits",
