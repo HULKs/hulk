@@ -6,7 +6,9 @@ use serde::{Deserialize, Serialize};
 use types::{motion_command::MotionCommand, motion_runtime::MotionRuntime};
 
 #[derive(Deserialize, Serialize)]
-pub struct BoosterStandUp {}
+pub struct BoosterStandUp {
+    pub last_motion_command: Option<MotionCommand>,
+}
 
 #[context]
 pub struct CreationContext {}
@@ -26,7 +28,9 @@ pub struct MainOutputs {}
 
 impl BoosterStandUp {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {})
+        Ok(Self {
+            last_motion_command: None,
+        })
     }
 
     pub fn cycle(
@@ -41,12 +45,16 @@ impl BoosterStandUp {
             return Ok(MainOutputs {});
         }
 
-        if matches!(context.motion_command, MotionCommand::StandUp) {
+        if matches!(context.motion_command, MotionCommand::StandUp)
+            && !matches!(self.last_motion_command, Some(MotionCommand::StandUp))
+        {
             let _ = context
                 .hardware_interface
                 .get_up()
                 .inspect_err(|err| log::error!("{err:?}"));
         };
+
+        self.last_motion_command = Some(context.motion_command.clone());
 
         Ok(MainOutputs {})
     }
