@@ -77,7 +77,6 @@ impl<Frame, T> Framed<Frame, T> {
     }
 }
 
-// Add
 impl<Frame, Lhs, Rhs> Add<Framed<Frame, Rhs>> for Framed<Frame, Lhs>
 where
     Lhs: Add<Rhs>,
@@ -144,7 +143,6 @@ where
     }
 }
 
-// Sub
 impl<Frame, Lhs, Rhs> Sub<Framed<Frame, Rhs>> for Framed<Frame, Lhs>
 where
     Lhs: Sub<Rhs>,
@@ -211,7 +209,6 @@ where
     }
 }
 
-// Neg
 impl<Frame, T> Neg for Framed<Frame, T>
 where
     T: Neg,
@@ -223,7 +220,6 @@ where
     }
 }
 
-// Mul
 impl<Frame, Lhs, Rhs> Mul<Rhs> for Framed<Frame, Lhs>
 where
     Lhs: Mul<Rhs, Output = Lhs>,
@@ -244,7 +240,6 @@ where
     }
 }
 
-// Div
 impl<Frame, Lhs, Rhs> Div<Rhs> for Framed<Frame, Lhs>
 where
     Lhs: Div<Rhs, Output = Lhs>,
@@ -265,7 +260,6 @@ where
     }
 }
 
-// Sum
 impl<Frame, T> Sum for Framed<Frame, T>
 where
     T: Sum,

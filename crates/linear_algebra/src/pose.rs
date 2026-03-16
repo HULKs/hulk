@@ -5,8 +5,6 @@ use crate::{Framed, Isometry2, Isometry3, Orientation2, Orientation3, Point2, Po
 pub type Pose2<Frame, T = f32> = Framed<Frame, nalgebra::Isometry2<T>>;
 pub type Pose3<Frame, T = f32> = Framed<Frame, nalgebra::Isometry3<T>>;
 
-// 2 Dimension
-
 impl<Frame, T> Pose2<Frame, T>
 where
     T: SimdRealField + Copy,
@@ -89,8 +87,6 @@ where
         Self::wrap(nalgebra::Isometry2::from(value.inner))
     }
 }
-
-// 3 Dimension
 
 impl<Frame, T> Pose3<Frame, T>
 where

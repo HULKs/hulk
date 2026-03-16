@@ -69,7 +69,6 @@ where
     Point::wrap(nalgebra::center(&p1.inner, &p2.inner))
 }
 
-// Any Dimension
 impl<Frame, const DIMENSION: usize, T: Scalar> Point<Frame, DIMENSION, T> {
     pub fn origin() -> Self
     where
@@ -109,7 +108,6 @@ impl<Frame, const DIMENSION: usize, T: Scalar> Point<Frame, DIMENSION, T> {
     }
 }
 
-// 2 Dimension
 impl<Frame, T> Point2<Frame, T>
 where
     T: Scalar + Copy,
@@ -127,7 +125,6 @@ where
     }
 }
 
-// 3 Dimension
 impl<Frame, T> Point3<Frame, T>
 where
     T: Scalar + Copy,

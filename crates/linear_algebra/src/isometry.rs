@@ -10,8 +10,6 @@ pub type Isometry<From, To, const DIMENSION: usize, T, Rotation> =
 pub type Isometry2<From, To, T = f32> = Isometry<From, To, 2, T, nalgebra::UnitComplex<T>>;
 pub type Isometry3<From, To, T = f32> = Isometry<From, To, 3, T, nalgebra::UnitQuaternion<T>>;
 
-// Any Dimension
-
 impl<From, To, T, const DIMENSION: usize, Rotation> Isometry<From, To, DIMENSION, T, Rotation>
 where
     T::Element: SimdRealField,
@@ -33,8 +31,6 @@ where
         Point::wrap(self.inner.translation.vector.clone().into())
     }
 }
-
-// 2 Dimension
 
 impl<From, To, T> Isometry2<From, To, T>
 where
@@ -99,8 +95,6 @@ where
         Self::wrap(nalgebra::Isometry::from(value.inner))
     }
 }
-
-// 3 Dimension
 
 impl<From, To, T> Isometry3<From, To, T>
 where

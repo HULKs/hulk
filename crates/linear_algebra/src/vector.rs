@@ -35,7 +35,6 @@ macro_rules! vector {
     };
 }
 
-// Any dimension
 impl<Frame, const DIMENSION: usize, T> Framed<Frame, SVector<T, DIMENSION>> {
     pub fn zeros() -> Self
     where
@@ -122,7 +121,6 @@ impl<Frame, const DIMENSION: usize, T> Framed<Frame, SVector<T, DIMENSION>> {
     }
 }
 
-// 2 Dimension
 impl<Frame, T> Framed<Frame, SVector<T, 2>>
 where
     T: Scalar + Zero + One + Copy,
@@ -144,7 +142,6 @@ where
     }
 }
 
-// 3 Dimension
 impl<Frame, T> Framed<Frame, SVector<T, 3>>
 where
     T: Scalar + Zero + One + Copy,
