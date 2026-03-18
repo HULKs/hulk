@@ -198,6 +198,9 @@ impl CargoCommand for Arguments {
     }
 
     fn profile(&self) -> &str {
+        if self.release {
+            return "release";
+        }
         self.common.profile.as_deref().unwrap_or("dev")
     }
 }
