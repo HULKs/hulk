@@ -98,7 +98,7 @@ pub enum MotionCommand {
         kick_direction: Orientation2<Ground>,
         target_position: Point2<Ground>,
         robot_theta_to_field: Orientation2<Field>,
-        kick_power: f64,
+        kick_power: KickPower,
     },
 }
 
@@ -290,4 +290,23 @@ pub enum GlanceDirection {
     #[default]
     LeftOfTarget,
     RightOfTarget,
+}
+
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Deserialize,
+    Eq,
+    PartialEq,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
+pub enum KickPower {
+    #[default]
+    Rumpelstilzchen,
+    Schlong,
 }

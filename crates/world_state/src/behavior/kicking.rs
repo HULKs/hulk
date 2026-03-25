@@ -2,11 +2,11 @@ use coordinate_systems::Field;
 use filtering::hysteresis::less_than_with_hysteresis;
 use framework::AdditionalOutput;
 use hsl_network_messages::GamePhase;
-use linear_algebra::{Orientation2, Vector2, vector};
+use linear_algebra::{Orientation2, Rotation2, Vector2, vector};
 use types::{
     field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
-    motion_command::{HeadMotion, ImageRegion, MotionCommand, OrientationMode},
+    motion_command::{HeadMotion, ImageRegion, KickPower, MotionCommand, OrientationMode},
     parameters::KickingParameters,
     path_obstacles::PathObstacle,
     world_state::WorldState,
@@ -47,21 +47,30 @@ pub fn execute(
     let robot_theta_to_field: Orientation2<Field> = ground_to_field.orientation();
     let target_position = (field_to_ground * goal_position).as_point();
 
-    let close_enough_to_kick = less_than_with_hysteresis(
+    let is_close_to_ball = less_than_with_hysteresis(
         *last_close_enough_to_kick,
         distance_to_ball,
         parameters.distance_for_kick,
         parameters.distance_for_kick_hysteresis,
     );
-    *last_close_enough_to_kick = close_enough_to_kick;
-    if close_enough_to_kick {
+    let is_close_to_goal =
+        target_position.coords().norm() < parameters.goal_distance_kick_power_threshold;
+
+    *last_close_enough_to_kick = is_close_to_ball;
+    if is_close_to_ball {
+        let kick_power = if is_close_to_goal {
+            KickPower::Rumpelstilzchen
+        } else {
+            KickPower::Schlong
+        };
+
         Some(MotionCommand::VisualKick {
             head,
             ball_position,
             kick_direction,
-            target_position,
+            target_position: Rotation2::new(parameters.kick_target_offset_angle) * target_position,
             robot_theta_to_field,
-            kick_power: parameters.kick_power,
+            kick_power,
         })
     } else {
         let mut speed = walk_speed;

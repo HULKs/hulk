@@ -15,7 +15,6 @@ pub mod stand_during_penalty_kick;
 pub mod stand_up;
 pub mod stop;
 pub mod support;
-pub mod visual_kick;
 pub mod walk_to_ball;
 pub mod walk_to_kick_off;
 pub mod walk_to_penalty_kick;

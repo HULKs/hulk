@@ -1,4 +1,4 @@
-use std::time::{Duration, SystemTime};
+use std::time::SystemTime;
 
 use booster::Kick;
 use booster_sdk::types::RobotMode;
@@ -7,7 +7,12 @@ use context_attribute::context;
 use hardware::{HighLevelInterface, MotionRuntimeInteface, VisualKickInterface};
 use ros2::std_msgs::header::Header;
 use serde::{Deserialize, Serialize};
-use types::{cycle_time::CycleTime, motion_command::MotionCommand, motion_runtime::MotionRuntime};
+use types::{
+    cycle_time::CycleTime,
+    motion_command::{KickPower, MotionCommand},
+    motion_runtime::MotionRuntime,
+    parameters::BoosterKickingParameters,
+};
 
 #[derive(Deserialize, Serialize)]
 pub struct BoosterKick {
@@ -26,7 +31,7 @@ pub struct CycleContext {
     motion_command: Input<MotionCommand, "WorldState", "motion_command">,
     cycle_time: Input<CycleTime, "cycle_time">,
 
-    kick_message_interval: Parameter<Duration, "motion.booster.kick_message_interval">,
+    booster_kicking_paramters: Parameter<BoosterKickingParameters, "motion.booster.kicking">,
 
     hardware_interface: HardwareInterface,
 }
@@ -73,6 +78,13 @@ impl BoosterKick {
                     set_visual_kick_activation_state(&context, true);
                 }
 
+                let kick_power = match kick_power {
+                    KickPower::Rumpelstilzchen => {
+                        context.booster_kicking_paramters.kick_power.rumpelstilzchen
+                    }
+                    KickPower::Schlong => context.booster_kicking_paramters.kick_power.schlong,
+                };
+
                 let kick = Kick {
                     header: Header {
                         stamp: context.cycle_time.start_time.into(),
@@ -84,7 +96,7 @@ impl BoosterKick {
                     target_position_x: target_position.x() as f64,
                     target_position_y: target_position.y() as f64,
                     robot_angle_to_field: robot_theta_to_field.angle() as f64,
-                    kick_power: *kick_power,
+                    kick_power,
                 };
 
                 if context
@@ -92,7 +104,7 @@ impl BoosterKick {
                     .start_time
                     .duration_since(self.last_kick_time)
                     .expect("Time ran backwards")
-                    > *context.kick_message_interval
+                    > context.booster_kicking_paramters.kick_message_interval
                 {
                     self.last_kick_time = context.cycle_time.start_time;
                     context.hardware_interface.write_visual_kick(kick)?;
