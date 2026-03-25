@@ -450,7 +450,7 @@
       "distance_for_kick_hysteresis": 0.5,
       "distance_to_look_directly_at_the_ball": 4.0,
       "kick_target_offset_angle": 0.21,
-      "goal_distance_kick_power_threshold": 2.0
+      "goal_distance_kick_power_threshold": 3.0
     },
     "maximum_lookaround_duration": {
       "nanos": 0,
