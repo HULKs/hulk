@@ -11,16 +11,16 @@ use crate::{
     panels::map::layer::Layer, robot::Robot, twix_painter::TwixPainter, value_buffer::BufferHandle,
 };
 
-pub struct BallMeasurement {
-    balls: BufferHandle<Option<Vec<BallPercept>>>,
+pub struct BallPercepts {
+    ball_percepts: BufferHandle<Option<Vec<BallPercept>>>,
 }
 
-impl Layer<Ground> for BallMeasurement {
-    const NAME: &'static str = "Ball Measurements";
+impl Layer<Ground> for BallPercepts {
+    const NAME: &'static str = "Ball Percepts";
 
     fn new(robot: Arc<Robot>) -> Self {
-        let balls = robot.subscribe_value("WorldState.main_outputs.balls");
-        Self { balls }
+        let ball_percepts = robot.subscribe_value("WorldState.additional_outputs.ball_percepts");
+        Self { ball_percepts }
     }
 
     fn paint(
@@ -28,11 +28,13 @@ impl Layer<Ground> for BallMeasurement {
         painter: &TwixPainter<Ground>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        let balls = self.balls.get_last_value()?.flatten();
+        let Some(ball_percepts) = self.ball_percepts.get_last_value()?.flatten() else {
+            return Ok(());
+        };
 
-        for ball in balls.iter().flatten() {
-            let position = Point2::from(ball.percept_in_ground.mean);
-            let covariance = ball.percept_in_ground.covariance;
+        for percept in ball_percepts {
+            let position = Point2::from(percept.percept_in_ground.mean);
+            let covariance = percept.percept_in_ground.covariance;
 
             let stroke = Stroke::new(0.01, Color32::BLACK);
             painter.covariance(
