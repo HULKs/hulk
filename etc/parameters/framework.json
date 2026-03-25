@@ -7,9 +7,9 @@
     "FallDownState": 1,
     "HslNetwork": 1,
     "Motion": 10,
-    "ObjectDetection": 1,
+    "ObjectDetection": 2,
     "Odometry": 1,
-    "Vision": 1,
+    "Vision": 2,
     "WorldState": 1
   }
 }
