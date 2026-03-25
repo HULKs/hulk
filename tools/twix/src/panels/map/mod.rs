@@ -76,7 +76,7 @@ pub struct MapPanel {
     robot_pose: EnabledLayer<layers::RobotPose, Ground>,
     referee_position: EnabledLayer<layers::RefereePosition, Field>,
     pose_detection: EnabledLayer<layers::PoseDetection, Field>,
-    ball_measurement: EnabledLayer<layers::BallPercepts, Ground>,
+    ball_percept: EnabledLayer<layers::BallPercepts, Ground>,
     ball_position: EnabledLayer<layers::BallPosition, Field>,
     kick_decisions: EnabledLayer<layers::KickDecisions, Ground>,
     ball_filter: EnabledLayer<layers::BallFilter, Ground>,
@@ -99,7 +99,7 @@ impl<'a> Panel<'a> for MapPanel {
         let behavior_simulator = EnabledLayer::new(context.robot.clone(), context.value, false);
         let referee_position = EnabledLayer::new(context.robot.clone(), context.value, false);
         let robot_pose = EnabledLayer::new(context.robot.clone(), context.value, true);
-        let ball_measurement = EnabledLayer::new(context.robot.clone(), context.value, false);
+        let ball_percept = EnabledLayer::new(context.robot.clone(), context.value, false);
         let pose_detection = EnabledLayer::new(context.robot.clone(), context.value, false);
         let ball_position = EnabledLayer::new(context.robot.clone(), context.value, true);
         let kick_decisions = EnabledLayer::new(context.robot.clone(), context.value, false);
@@ -140,7 +140,7 @@ impl<'a> Panel<'a> for MapPanel {
             robot_pose,
             pose_detection,
             referee_position,
-            ball_measurement,
+            ball_percept,
             ball_position,
             kick_decisions,
             ball_filter,
@@ -166,7 +166,7 @@ impl<'a> Panel<'a> for MapPanel {
             "pose_detection": self.referee_position.save(),
             "robot_pose": self.robot_pose.save(),
             "referee_position": self.referee_position.save(),
-            "ball_measurements": self.ball_measurement.save(),
+            "ball_percept": self.ball_percept.save(),
             "ball_position": self.ball_position.save(),
             "kick_decisions": self.kick_decisions.save(),
             "ball_filter": self.ball_filter.save(),
@@ -192,7 +192,7 @@ impl Widget for &mut MapPanel {
                 self.pose_detection.checkbox(ui);
                 self.robot_pose.checkbox(ui);
                 self.referee_position.checkbox(ui);
-                self.ball_measurement.checkbox(ui);
+                self.ball_percept.checkbox(ui);
                 self.ball_position.checkbox(ui);
                 self.kick_decisions.checkbox(ui);
                 self.ball_filter.checkbox(ui);
@@ -273,7 +273,7 @@ impl Widget for &mut MapPanel {
             .generic_paint(&painter, ground_to_field, &field_dimensions);
         self.referee_position
             .generic_paint(&painter, ground_to_field, &field_dimensions);
-        self.ball_measurement
+        self.ball_percept
             .generic_paint(&painter, ground_to_field, &field_dimensions);
         self.ball_position
             .generic_paint(&painter, ground_to_field, &field_dimensions);
