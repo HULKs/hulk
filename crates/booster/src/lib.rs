@@ -1,7 +1,7 @@
-use color_eyre::eyre::{bail, Result};
+use color_eyre::eyre::{Result, bail};
 use coordinate_systems::{Ground, Robot};
 use kinematics::joints::Joints;
-use linear_algebra::{vector, Isometry2, Vector3};
+use linear_algebra::{Isometry2, Vector3, vector};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use ros2::{geometry_msgs::transform_stamped::TransformStamped, std_msgs::header::Header};
 use serde::{Deserialize, Serialize};

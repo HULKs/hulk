@@ -7,13 +7,13 @@ use std::{
 
 use linear_algebra::{Framed, Transform};
 use nalgebra::{
-    ArrayStorage, Const, Isometry2, Isometry3, Matrix, Point, RealField, Scalar, SimdRealField,
-    UnitComplex, UnitQuaternion, Vector2, Vector3, U1,
+    ArrayStorage, Const, Isometry2, Isometry3, Matrix, Point, RealField, Scalar, SimdRealField, U1,
+    UnitComplex, UnitQuaternion, Vector2, Vector3,
 };
 use num_traits::real::Real;
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
-use crate::{deserialize, serialize, PathDeserialize, PathIntrospect, PathSerialize};
+use crate::{PathDeserialize, PathIntrospect, PathSerialize, deserialize, serialize};
 
 impl<Frame, T> PathSerialize for Framed<Frame, T>
 where
