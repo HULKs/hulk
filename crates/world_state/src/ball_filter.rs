@@ -40,6 +40,7 @@ pub struct CycleContext {
     filter_state: AdditionalOutput<BallFiltering, "ball_filter_state">,
     best_ball_hypothesis: AdditionalOutput<Option<BallHypothesis>, "best_ball_hypothesis">,
     filtered_balls_in_image: AdditionalOutput<Vec<Circle<Pixel>>, "filtered_balls_in_image">,
+    ball_percepts: AdditionalOutput<Vec<BallPercept>, "ball_percepts">,
 
     historic_camera_matrix: HistoricInput<Option<CameraMatrix>, "camera_matrix?">,
     historic_cycle_times: HistoricInput<CycleTime, "cycle_time">,
@@ -234,6 +235,10 @@ impl BallFilter {
             context.ball_filter_configuration,
             context.field_dimensions.ball_radius,
         );
+        context
+            .ball_percepts
+            .fill_if_subscribed(|| projected_balls.values().flatten().copied().collect());
+
         self.advance_all_hypotheses(
             projected_balls,
             context.integrated_odometry.persistent,

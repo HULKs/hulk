@@ -76,7 +76,7 @@ pub struct MapPanel {
     robot_pose: EnabledLayer<layers::RobotPose, Ground>,
     referee_position: EnabledLayer<layers::RefereePosition, Field>,
     pose_detection: EnabledLayer<layers::PoseDetection, Field>,
-    ball_measurement: EnabledLayer<layers::BallMeasurement, Ground>,
+    ball_measurement: EnabledLayer<layers::BallPercepts, Ground>,
     ball_position: EnabledLayer<layers::BallPosition, Field>,
     kick_decisions: EnabledLayer<layers::KickDecisions, Ground>,
     ball_filter: EnabledLayer<layers::BallFilter, Ground>,
