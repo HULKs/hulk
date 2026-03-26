@@ -66,7 +66,7 @@ fn update(
             .unwrap()
             .database
             .main_outputs
-            .ground_to_field = Some(Isometry2::from_parts(vector![-3.2, -3.3], FRAC_PI_2));
+            .ground_to_field = Some(Isometry2::new(vector![-3.2, -3.3], FRAC_PI_2));
     }
 
     if robots
