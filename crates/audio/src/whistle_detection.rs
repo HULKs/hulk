@@ -16,9 +16,9 @@ use types::{
     whistle::{DetectionInfo, Whistle},
 };
 
-pub const AUDIO_SAMPLE_RATE: u32 = 44100;
-pub const NUMBER_OF_AUDIO_CHANNELS: usize = 4;
-pub const NUMBER_OF_AUDIO_SAMPLES: usize = 2048;
+pub const AUDIO_SAMPLE_RATE: u32 = 16000;
+pub const NUMBER_OF_AUDIO_CHANNELS: usize = 6;
+pub const NUMBER_OF_AUDIO_SAMPLES: usize = 1024;
 const NUMBER_OF_FREQUENCY_SAMPLES: usize = NUMBER_OF_AUDIO_SAMPLES / 2;
 
 #[derive(Deserialize, Serialize)]
