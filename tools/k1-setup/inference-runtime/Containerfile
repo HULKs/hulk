@@ -1,0 +1,6 @@
+FROM docker.io/dustynv/onnxruntime:1.22-r36.4.0-cu128-24.04
+
+
+RUN apt-get update && \
+    apt-get install -y curl clang libssl-dev pkg-config libasound2-dev && \
+    rm -rf /var/lib/apt/lists/*
