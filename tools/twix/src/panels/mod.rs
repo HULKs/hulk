@@ -1,3 +1,4 @@
+mod audio_spectrum;
 mod behavior_simulator;
 mod behavior_tree;
 mod enum_plot;
@@ -13,6 +14,7 @@ mod remote_control;
 mod text;
 mod vision_tuner;
 
+pub use audio_spectrum::AudioSpectrumPanel;
 pub use behavior_simulator::BehaviorSimulatorPanel;
 pub use behavior_tree::BehaviorTreePanel;
 pub use enum_plot::EnumPlotPanel;
