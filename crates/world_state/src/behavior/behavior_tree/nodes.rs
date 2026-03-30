@@ -1,51 +1,65 @@
-#[derive(PartialEq, Eq)]
-pub enum Status {
-    Success,
+#[derive(PartialEq, Debug, Clone)]
+pub enum Status<Output> {
+    Success(Output),
+    SuccessWithoutOutput,
     Failure,
-    Running,
+    Running(Output),
 }
-pub enum Node<Context> {
-    Selection(Vec<Node<Context>>),
-    Sequence(Vec<Node<Context>>),
-    Condition(Box<dyn Fn(&Context) -> Status + Send + Sync>),
-    Action(Box<dyn Fn(&Context) -> Status + Send + Sync>),
+pub enum Node<Context, Output> {
+    Selection(Vec<Node<Context, Output>>),
+    Sequence(Vec<Node<Context, Output>>),
+    Condition(Box<dyn Fn(&Context) -> bool + Send + Sync>),
+    Action(Box<dyn Fn(&Context) -> Status<Output> + Send + Sync>),
 }
 
-impl<Context> Node<Context> {
-    pub fn tick(&self, context: &Context) -> Status {
+impl<Context, Output> Node<Context, Output> {
+    pub fn tick(&self, context: &Context) -> Status<Output> {
         match self {
             Node::Selection(children) => {
                 for child in children {
-                    if child.tick(context) == Status::Success {
-                        return Status::Success;
+                    let status = child.tick(context);
+                    if matches!(
+                        status,
+                        Status::Success(_) | Status::SuccessWithoutOutput | Status::Running(_)
+                    ) {
+                        return status;
                     }
                 }
                 Status::Failure
             }
             Node::Sequence(children) => {
+                let mut status = Status::Failure;
                 for child in children {
-                    if child.tick(context) == Status::Failure {
+                    status = child.tick(context);
+                    if matches!(status, Status::Failure) {
                         return Status::Failure;
                     }
                 }
-                Status::Success
+                status
             }
-            Node::Condition(condition) => condition(context),
+            Node::Condition(condition) => {
+                if condition(context) {
+                    Status::SuccessWithoutOutput
+                } else {
+                    Status::Failure
+                }
+            }
             Node::Action(action) => action(context),
         }
     }
 }
 
-pub fn condition<Context, F>(f: F) -> Node<Context>
+pub fn condition<Context, Output, F>(f: F) -> Node<Context, Output>
 where
-    F: Fn(&Context) -> Status + Send + Sync + 'static,
+    F: Fn(&Context) -> bool + Send + Sync + 'static,
 {
     Node::Condition(Box::new(f))
 }
 
-pub fn action<Context, F>(f: F) -> Node<Context>
+pub fn action<Context, Output, F>(f: F) -> Node<Context, Output>
 where
-    F: Fn(&Context) -> Status + Send + Sync + 'static,
+    // No Option! Just exactly what successful actions yield.
+    F: Fn(&Context) -> Status<Output> + Send + Sync + 'static,
 {
     Node::Action(Box::new(f))
 }
