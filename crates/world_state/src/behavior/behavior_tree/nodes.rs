@@ -5,7 +5,6 @@ pub enum Status {
     Running,
 }
 pub enum Node<Context> {
-    Root(Option<Box<Node<Context>>>),
     Selection(Vec<Node<Context>>),
     Sequence(Vec<Node<Context>>),
     Condition(Box<dyn Fn(&Context) -> Status + Send + Sync>),
@@ -15,13 +14,6 @@ pub enum Node<Context> {
 impl<Context> Node<Context> {
     pub fn tick(&self, context: &Context) -> Status {
         match self {
-            Node::Root(child) => {
-                if let Some(child) = child {
-                    child.tick(context)
-                } else {
-                    Status::Failure
-                }
-            }
             Node::Selection(children) => {
                 for child in children {
                     if child.tick(context) == Status::Success {
@@ -56,4 +48,18 @@ where
     F: Fn(&Context) -> Status + Send + Sync + 'static,
 {
     Node::Action(Box::new(f))
+}
+
+#[macro_export]
+macro_rules! selection {
+    ($($child:expr),* $(,)?) => {
+        $crate::behavior::behavior_tree::nodes::Node::Selection(vec![$($child),*])
+    };
+}
+
+#[macro_export]
+macro_rules! sequence {
+    ($($child:expr),* $(,)?) => {
+        $crate::behavior::behavior_tree::nodes::Node::Sequence(vec![$($child),*])
+    };
 }
