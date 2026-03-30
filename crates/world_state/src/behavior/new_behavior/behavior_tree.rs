@@ -48,18 +48,32 @@ impl<Context> Node<Context> {
     }
 }
 
-pub fn condition<Context, F>(f: F) -> Node<Context>
-where
-    F: Fn(&mut Context) -> bool + Send + Sync + 'static,
-{
-    Node::Condition(Box::new(f))
+#[macro_export]
+macro_rules! condition {
+    // Matches 0-parameter function: condition(has_ball)
+    ($func:expr) => {
+        $crate::behavior::new_behavior::behavior_tree::Node::Condition(Box::new($func))
+    };
+    // Matches N-parameter function: condition(is_state, PrimaryState::Playing)
+    ($func:expr, $($arg:expr),+ $(,)?) => {
+        $crate::behavior::new_behavior::behavior_tree::Node::Condition(Box::new(move |ctx| {
+            $func(ctx, $($arg.clone()),+)
+        }))
+    };
 }
 
-pub fn action<Context, F>(f: F) -> Node<Context>
-where
-    F: Fn(&mut Context) -> Status + Send + Sync + 'static,
-{
-    Node::Action(Box::new(f))
+#[macro_export]
+macro_rules! action {
+    // Matches 0-parameter function: action(stand)
+    ($func:expr) => {
+        $crate::behavior::new_behavior::behavior_tree::Node::Action(Box::new($func))
+    };
+    // Matches N-parameter function: action(walk_to, 5.0, 0.0)
+    ($func:expr, $($arg:expr),+ $(,)?) => {
+        $crate::behavior::new_behavior::behavior_tree::Node::Action(Box::new(move |ctx| {
+            $func(ctx, $($arg.clone()),+)
+        }))
+    };
 }
 
 #[macro_export]

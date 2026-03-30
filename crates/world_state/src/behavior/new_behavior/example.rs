@@ -1,6 +1,6 @@
 use crate::{
-    behavior::new_behavior::behavior_tree::{Node, Status, action, condition},
-    selection, sequence,
+    behavior::new_behavior::behavior_tree::{Status},
+    selection, sequence, condition, action,
 };
 use linear_algebra::vector;
 use types::{
@@ -23,8 +23,8 @@ pub fn execute(world_state: &WorldState) -> Option<MotionCommand> {
         motion_command: None,
     };
     let tree = selection![
-        sequence![condition(primary_state_is_safe), action(stand_still),],
-        action(walk_to_ball),
+        sequence![condition!(primary_state_is_safe), action!(stand_still),],
+        action!(walk_to_ball),
     ];
     tree.tick(&mut context);
 
