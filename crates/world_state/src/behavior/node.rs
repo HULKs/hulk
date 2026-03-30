@@ -8,7 +8,7 @@ use types::{
 };
 
 use crate::behavior::{
-    new_behavior::behavior_tree::{Node, Status},
+    behavior_tree::{Node, Status},
     tree,
 };
 
