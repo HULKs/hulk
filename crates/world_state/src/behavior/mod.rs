@@ -1,4 +1,4 @@
-pub mod behavior_tree;
+pub mod new_behavior;
 pub mod defend;
 pub mod finish;
 pub mod head;

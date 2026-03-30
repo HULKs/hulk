@@ -5,7 +5,7 @@ use types::{
     world_state::WorldState,
 };
 use crate::{
-    behavior::behavior_tree::nodes::{Node, Status, action, condition},
+    behavior::new_behavior::behavior_tree::{Node, Status, action, condition},
     selection, sequence,
 };
 
