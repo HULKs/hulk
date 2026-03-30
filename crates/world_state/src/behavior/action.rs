@@ -1,6 +1,6 @@
 use types::motion_command::{HeadMotion, ImageRegion, MotionCommand};
 
-use crate::behavior::{new_behavior::behavior_tree::Status, node::CaptainBlackboard};
+use crate::behavior::{behavior_tree::Status, node::CaptainBlackboard};
 
 pub fn stand(context: &mut CaptainBlackboard) -> Status {
     context.output = Some(MotionCommand::Stand {

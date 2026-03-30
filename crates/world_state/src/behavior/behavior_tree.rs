@@ -52,11 +52,11 @@ impl<Context> Node<Context> {
 macro_rules! condition {
     // Matches 0-parameter function: condition(has_ball)
     ($func:expr) => {
-        $crate::behavior::new_behavior::behavior_tree::Node::Condition(Box::new($func))
+        $crate::behavior::behavior_tree::Node::Condition(Box::new($func))
     };
     // Matches N-parameter function: condition(is_state, PrimaryState::Playing)
     ($func:expr, $($arg:expr),+ $(,)?) => {
-        $crate::behavior::new_behavior::behavior_tree::Node::Condition(Box::new(move |ctx| {
+        $crate::behavior::behavior_tree::Node::Condition(Box::new(move |ctx| {
             $func(ctx, $($arg.clone()),+)
         }))
     };
@@ -66,11 +66,11 @@ macro_rules! condition {
 macro_rules! action {
     // Matches 0-parameter function: action(stand)
     ($func:expr) => {
-        $crate::behavior::new_behavior::behavior_tree::Node::Action(Box::new($func))
+        $crate::behavior::behavior_tree::Node::Action(Box::new($func))
     };
     // Matches N-parameter function: action(walk_to, 5.0, 0.0)
     ($func:expr, $($arg:expr),+ $(,)?) => {
-        $crate::behavior::new_behavior::behavior_tree::Node::Action(Box::new(move |ctx| {
+        $crate::behavior::behavior_tree::Node::Action(Box::new(move |ctx| {
             $func(ctx, $($arg.clone()),+)
         }))
     };
@@ -79,13 +79,13 @@ macro_rules! action {
 #[macro_export]
 macro_rules! selection {
     ($($child:expr),* $(,)?) => {
-        $crate::behavior::new_behavior::behavior_tree::Node::Selection(vec![$($child),*])
+        $crate::behavior::behavior_tree::Node::Selection(vec![$($child),*])
     };
 }
 
 #[macro_export]
 macro_rules! sequence {
     ($($child:expr),* $(,)?) => {
-        $crate::behavior::new_behavior::behavior_tree::Node::Sequence(vec![$($child),*])
+        $crate::behavior::behavior_tree::Node::Sequence(vec![$($child),*])
     };
 }
