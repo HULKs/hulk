@@ -1,3 +1,4 @@
+pub mod behavior_tree;
 pub mod defend;
 pub mod finish;
 pub mod head;
