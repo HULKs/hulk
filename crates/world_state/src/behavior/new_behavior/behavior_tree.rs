@@ -5,11 +5,15 @@ pub enum Status<Output> {
     Failure,
     Running(Output),
 }
+
+type ConditionFunction<Context> = Box<dyn Fn(&Context) -> bool + Send + Sync>;
+type ActionFunction<Context, Output> = Box<dyn Fn(&Context) -> Status<Output> + Send + Sync>;
+
 pub enum Node<Context, Output> {
     Selection(Vec<Node<Context, Output>>),
     Sequence(Vec<Node<Context, Output>>),
-    Condition(Box<dyn Fn(&Context) -> bool + Send + Sync>),
-    Action(Box<dyn Fn(&Context) -> Status<Output> + Send + Sync>),
+    Condition(ConditionFunction<Context>),
+    Action(ActionFunction<Context, Output>),
 }
 
 impl<Context, Output> Node<Context, Output> {
