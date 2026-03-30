@@ -6,8 +6,8 @@ pub enum Status<Output> {
     Running(Output),
 }
 
-type ConditionFunction<Context> = Box<dyn Fn(&Context) -> bool + Send + Sync>;
-type ActionFunction<Context, Output> = Box<dyn Fn(&Context) -> Status<Output> + Send + Sync>;
+type ConditionFunction<Context> = Box<dyn Fn(&mut Context) -> bool + Send + Sync>;
+type ActionFunction<Context, Output> = Box<dyn Fn(&mut Context) -> Status<Output> + Send + Sync>;
 
 pub enum Node<Context, Output> {
     Selection(Vec<Node<Context, Output>>),
@@ -17,7 +17,7 @@ pub enum Node<Context, Output> {
 }
 
 impl<Context, Output> Node<Context, Output> {
-    pub fn tick(&self, context: &Context) -> Status<Output> {
+    pub fn tick(&self, context: &mut Context) -> Status<Output> {
         match self {
             Node::Selection(children) => {
                 for child in children {
@@ -55,7 +55,7 @@ impl<Context, Output> Node<Context, Output> {
 
 pub fn condition<Context, Output, F>(f: F) -> Node<Context, Output>
 where
-    F: Fn(&Context) -> bool + Send + Sync + 'static,
+    F: Fn(&mut Context) -> bool + Send + Sync + 'static,
 {
     Node::Condition(Box::new(f))
 }
@@ -63,7 +63,7 @@ where
 pub fn action<Context, Output, F>(f: F) -> Node<Context, Output>
 where
     // No Option! Just exactly what successful actions yield.
-    F: Fn(&Context) -> Status<Output> + Send + Sync + 'static,
+    F: Fn(&mut Context) -> Status<Output> + Send + Sync + 'static,
 {
     Node::Action(Box::new(f))
 }
