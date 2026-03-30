@@ -67,13 +67,13 @@ where
 #[macro_export]
 macro_rules! selection {
     ($($child:expr),* $(,)?) => {
-        $crate::behavior::behavior_tree::nodes::Node::Selection(vec![$($child),*])
+        $crate::behavior::new_behavior::behavior_tree::Node::Selection(vec![$($child),*])
     };
 }
 
 #[macro_export]
 macro_rules! sequence {
     ($($child:expr),* $(,)?) => {
-        $crate::behavior::behavior_tree::nodes::Node::Sequence(vec![$($child),*])
+        $crate::behavior::new_behavior::behavior_tree::Node::Sequence(vec![$($child),*])
     };
 }
