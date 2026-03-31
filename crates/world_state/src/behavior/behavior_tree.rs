@@ -1,4 +1,4 @@
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, ser::SerializeStruct};
 
 #[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub enum Status {
@@ -183,4 +183,33 @@ macro_rules! sequence {
             children: vec![$($child),*]
         }
     };
+}
+
+impl<Context> Serialize for Node<Context> {
+    fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
+    where
+        S: serde::Serializer,
+    {
+        // 1. Extract the relevant data into a unified format
+        let (node_type, name, children) = match self {
+            Node::Selection { name, children } => ("Selection", *name, Some(children)),
+            Node::Sequence { name, children } => ("Sequence", *name, Some(children)),
+            Node::Condition { name, .. } => ("Condition", *name, None),
+            Node::Action { name, .. } => ("Action", *name, None),
+            Node::Failure => ("Failure", "Failure", None),
+        };
+
+        // 2. Serialize dynamically based on whether it has children
+        let num_fields = if children.is_some() { 3 } else { 2 };
+        let mut state = serializer.serialize_struct("Node", num_fields)?;
+
+        state.serialize_field("type", node_type)?;
+        state.serialize_field("name", name)?;
+
+        if let Some(c) = children {
+            state.serialize_field("children", c)?;
+        }
+
+        state.end()
+    }
 }
