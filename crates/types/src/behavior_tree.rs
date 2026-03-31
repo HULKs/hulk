@@ -6,6 +6,7 @@ pub enum Status {
     Success,
     Failure,
     Running,
+    Idle,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PathSerialize, PathIntrospect)]

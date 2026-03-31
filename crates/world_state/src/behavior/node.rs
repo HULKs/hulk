@@ -1,19 +1,22 @@
-use color_eyre::Result;
+use color_eyre::{Result, eyre::Error};
 
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput};
 use serde::{Deserialize, Serialize};
 use types::{
-    behavior_tree::{NodeTrace, Status}, motion_command::{HeadMotion, ImageRegion, MotionCommand}, parameters::BehaviorParameters, world_state::WorldState
+    behavior_tree::{NodeTrace, Status},
+    motion_command::{HeadMotion, ImageRegion, MotionCommand},
+    parameters::BehaviorParameters,
+    world_state::WorldState,
 };
 
 use crate::behavior::{behavior_tree::Node, tree};
 
-
-
 #[derive(Serialize)]
 pub struct Behavior {
     pub tree: Node<CaptainBlackboard>,
+    pub static_layout: NodeTrace, 
+    has_sent_layout: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -22,6 +25,7 @@ pub struct CaptainBlackboard {
     pub parameters: BehaviorParameters,
     pub output: Option<MotionCommand>,
 }
+
 #[context]
 pub struct CreationContext {}
 
@@ -29,7 +33,8 @@ pub struct CreationContext {}
 pub struct CycleContext {
     world_state: Input<WorldState, "world_state">,
     parameters: Parameter<BehaviorParameters, "behavior">,
-    behavior_trace: AdditionalOutput<NodeTrace, "behavior_trace">,
+    behavior_trace: AdditionalOutput<NodeTrace, "behavior.trace">,
+    behavior_tree_layout: AdditionalOutput<NodeTrace, "behavior.tree_layout">, // Moved here!
 }
 
 #[context]
@@ -40,12 +45,22 @@ pub struct MainOutputs {
 
 impl Behavior {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {
-            tree: tree::create_tree(),
+        let tree = tree::create_tree();
+        let static_layout = tree.static_layout_trace();
+        
+        Ok(Self { 
+            tree,
+            static_layout,
+            has_sent_layout: false, 
         })
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
+        if !self.has_sent_layout {
+            context.behavior_tree_layout.fill_if_subscribed(|| self.static_layout.clone());
+            self.has_sent_layout = false; // TODO: man will das öfter als einmal senden, weil twix sich ja auch erst später verbinden kann
+        }
+
         let mut blackboard = CaptainBlackboard {
             world_state: context.world_state.clone(),
             parameters: context.parameters.clone(),
@@ -54,7 +69,7 @@ impl Behavior {
 
         let (status, trace) = self.tree.tick_with_trace(&mut blackboard);
         context.behavior_trace.fill_if_subscribed(|| trace);
-
+        
         let motion_command: MotionCommand = match status {
             Status::Success | Status::Running => {
                 blackboard.output.take().unwrap_or(MotionCommand::Stand {
@@ -68,6 +83,11 @@ impl Behavior {
                     image_region_target: ImageRegion::Center,
                 },
             },
+            Status::Idle => {
+                return Err(Error::msg(
+                    "Behavior tree returned Idle status, which should not happen during a cycle",
+                ));
+            }
         };
 
         Ok(MainOutputs {
