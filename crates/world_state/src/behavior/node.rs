@@ -1,16 +1,15 @@
 use color_eyre::Result;
 
 use context_attribute::context;
-use framework::{MainOutput};
+use framework::{AdditionalOutput, MainOutput};
 use serde::{Deserialize, Serialize};
 use types::{
-    motion_command::{HeadMotion, ImageRegion, MotionCommand}, parameters::BehaviorParameters, world_state::WorldState
+    behavior_tree::{NodeTrace, Status}, motion_command::{HeadMotion, ImageRegion, MotionCommand}, parameters::BehaviorParameters, world_state::WorldState
 };
 
-use crate::behavior::{
-    behavior_tree::{Node, Status},
-    tree,
-};
+use crate::behavior::{behavior_tree::Node, tree};
+
+
 
 #[derive(Serialize)]
 pub struct Behavior {
@@ -30,6 +29,7 @@ pub struct CreationContext {}
 pub struct CycleContext {
     world_state: Input<WorldState, "world_state">,
     parameters: Parameter<BehaviorParameters, "behavior">,
+    behavior_trace: AdditionalOutput<NodeTrace, "behavior_trace">,
 }
 
 #[context]
@@ -45,14 +45,15 @@ impl Behavior {
         })
     }
 
-    pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let mut blackboard = CaptainBlackboard {
             world_state: context.world_state.clone(),
             parameters: context.parameters.clone(),
             output: None,
         };
 
-        let (status, _trace) = self.tree.tick_with_trace(&mut blackboard);
+        let (status, trace) = self.tree.tick_with_trace(&mut blackboard);
+        context.behavior_trace.fill_if_subscribed(|| trace);
 
         let motion_command: MotionCommand = match status {
             Status::Success | Status::Running => {

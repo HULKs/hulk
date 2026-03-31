@@ -1,11 +1,5 @@
-use serde::{Deserialize, Serialize, ser::SerializeStruct};
-
-#[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
-pub enum Status {
-    Success,
-    Failure,
-    Running,
-}
+use serde::{Serialize, ser::SerializeStruct};
+use types::behavior_tree::{NodeTrace, Status};
 
 type ConditionFunction<Context> = Box<dyn Fn(&mut Context) -> bool + Send + Sync>;
 type ActionFunction<Context> = Box<dyn Fn(&mut Context) -> Status + Send + Sync>;
@@ -28,13 +22,6 @@ pub enum Node<Context> {
         action: ActionFunction<Context>,
     },
     Failure,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct NodeTrace {
-    pub name: &'static str,
-    pub status: Status,
-    pub children: Vec<NodeTrace>,
 }
 
 impl<Context> Node<Context> {
@@ -78,7 +65,7 @@ impl<Context> Node<Context> {
             Node::Failure => &"Failure",
         };
         let mut trace = NodeTrace {
-            name,
+            name: name.to_string(),
             status: Status::Failure,
             children: Vec::new(),
         };
