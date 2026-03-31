@@ -3,7 +3,7 @@ use types::primary_state::PrimaryState;
 use crate::{
     action,
     behavior::{
-        action::{injected_motion, prepare, stand, stand_up, walk_to_ball},
+        action::{injected_motion_command, prepare, stand, stand_up, walk_to_ball},
         behavior_tree::Node,
         condition::{has_ball_position, is_fallen, is_primary_state},
         node::CaptainBlackboard,
@@ -21,7 +21,7 @@ pub fn create_tree() -> Node<CaptainBlackboard> {
             condition!(is_primary_state, PrimaryState::Stop),
             action!(stand)
         ),
-        action!(injected_motion),
+        action!(injected_motion_command),
         sequence!(
             selection!(
                 condition!(is_primary_state, PrimaryState::Initial),
