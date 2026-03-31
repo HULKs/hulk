@@ -1,4 +1,6 @@
-#[derive(PartialEq, Debug, Clone)]
+use serde::{Deserialize, Serialize};
+
+#[derive(PartialEq, Debug, Clone, Serialize, Deserialize)]
 pub enum Status {
     Success,
     Failure,
@@ -9,17 +11,36 @@ type ConditionFunction<Context> = Box<dyn Fn(&mut Context) -> bool + Send + Sync
 type ActionFunction<Context> = Box<dyn Fn(&mut Context) -> Status + Send + Sync>;
 
 pub enum Node<Context> {
-    Selection(Vec<Node<Context>>),
-    Sequence(Vec<Node<Context>>),
-    Condition(ConditionFunction<Context>),
-    Action(ActionFunction<Context>),
+    Selection {
+        name: &'static str,
+        children: Vec<Node<Context>>,
+    },
+    Sequence {
+        name: &'static str,
+        children: Vec<Node<Context>>,
+    },
+    Condition {
+        name: &'static str,
+        condition: ConditionFunction<Context>,
+    },
+    Action {
+        name: &'static str,
+        action: ActionFunction<Context>,
+    },
     Failure,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct NodeTrace {
+    pub name: &'static str,
+    pub status: Status,
+    pub children: Vec<NodeTrace>,
 }
 
 impl<Context> Node<Context> {
     pub fn tick(&self, context: &mut Context) -> Status {
         match self {
-            Node::Selection(children) => {
+            Node::Selection { children, .. } => {
                 for child in children {
                     let status = child.tick(context);
                     if matches!(status, Status::Success | Status::Running) {
@@ -28,7 +49,7 @@ impl<Context> Node<Context> {
                 }
                 Status::Failure
             }
-            Node::Sequence(children) => {
+            Node::Sequence { children, .. } => {
                 for child in children {
                     let status = child.tick(context);
                     if matches!(status, Status::Failure | Status::Running) {
@@ -37,30 +58,90 @@ impl<Context> Node<Context> {
                 }
                 Status::Success
             }
-            Node::Condition(condition) => {
+            Node::Condition { condition, .. } => {
                 if condition(context) {
                     Status::Success
                 } else {
                     Status::Failure
                 }
             }
-            Node::Action(action) => action(context),
+            Node::Action { action, .. } => action(context),
             Node::Failure => Status::Failure,
         }
+    }
+    pub fn tick_with_trace(&self, context: &mut Context) -> (Status, NodeTrace) {
+        let name = match self {
+            Node::Selection { name, .. } => name,
+            Node::Sequence { name, .. } => name,
+            Node::Condition { name, .. } => name,
+            Node::Action { name, .. } => name,
+            Node::Failure => &"Failure",
+        };
+        let mut trace = NodeTrace {
+            name,
+            status: Status::Failure,
+            children: Vec::new(),
+        };
+
+        let status = match self {
+            Node::Selection { children, .. } => {
+                let mut selection_status = Status::Failure;
+                for child in children {
+                    let (child_status, child_trace) = child.tick_with_trace(context);
+                    trace.children.push(child_trace);
+
+                    if matches!(child_status, Status::Success | Status::Running) {
+                        selection_status = child_status;
+                        break;
+                    }
+                }
+                selection_status
+            }
+            Node::Sequence { children, .. } => {
+                let mut sequence_status = Status::Success;
+                for child in children {
+                    let (child_status, child_trace) = child.tick_with_trace(context);
+                    trace.children.push(child_trace);
+
+                    if matches!(child_status, Status::Failure | Status::Running) {
+                        sequence_status = child_status;
+                        break;
+                    }
+                }
+                sequence_status
+            }
+            Node::Condition { condition, .. } => {
+                if condition(context) {
+                    Status::Success
+                } else {
+                    Status::Failure
+                }
+            }
+            Node::Action { action, .. } => action(context),
+            Node::Failure => Status::Failure,
+        };
+
+        trace.status = status.clone();
+        (status, trace)
     }
 }
 
 #[macro_export]
 macro_rules! condition {
-    // Matches 0-parameter function: condition(has_ball)
-    ($func:expr) => {
-        $crate::behavior::behavior_tree::Node::Condition(Box::new($func))
+    ($func:ident) => {
+        $crate::behavior::behavior_tree::Node::Condition {
+            // Because it's a string literal, it's immediately a &'static str! Zero allocations!
+            name: stringify!($func),
+            condition: Box::new($func),
+        }
     };
-    // Matches N-parameter function: condition(is_state, PrimaryState::Playing)
-    ($func:expr, $($arg:expr),+ $(,)?) => {
-        $crate::behavior::behavior_tree::Node::Condition(Box::new(move |ctx| {
-            $func(ctx, $($arg.clone()),+)
-        }))
+    ($func:ident, $($arg:expr),+ $(,)?) => {
+        $crate::behavior::behavior_tree::Node::Condition {
+            name: stringify!($func),
+            condition: Box::new(move |ctx| {
+                $func(ctx, $($arg.clone()),+)
+            }),
+        }
     };
 }
 
@@ -68,26 +149,38 @@ macro_rules! condition {
 macro_rules! action {
     // Matches 0-parameter function: action(stand)
     ($func:expr) => {
-        $crate::behavior::behavior_tree::Node::Action(Box::new($func))
+        $crate::behavior::behavior_tree::Node::Action{
+            name: stringify!($func),
+            action: Box::new($func)
+        }
     };
     // Matches N-parameter function: action(walk_to, 5.0, 0.0)
     ($func:expr, $($arg:expr),+ $(,)?) => {
-        $crate::behavior::behavior_tree::Node::Action(Box::new(move |ctx| {
-            $func(ctx, $($arg.clone()),+)
-        }))
+        $crate::behavior::behavior_tree::Node::Action{
+            name: stringify!($func),
+            action: Box::new(move |ctx| {
+                $func(ctx, $($arg.clone()),+)
+            })
+        }
     };
 }
 
 #[macro_export]
 macro_rules! selection {
     ($($child:expr),* $(,)?) => {
-        $crate::behavior::behavior_tree::Node::Selection(vec![$($child),*])
+        $crate::behavior::behavior_tree::Node::Selection{
+            name: "Selection",
+            children: vec![$($child),*]
+        }
     };
 }
 
 #[macro_export]
 macro_rules! sequence {
     ($($child:expr),* $(,)?) => {
-        $crate::behavior::behavior_tree::Node::Sequence(vec![$($child),*])
+        $crate::behavior::behavior_tree::Node::Sequence{
+            name: "Sequence",
+            children: vec![$($child),*]
+        }
     };
 }

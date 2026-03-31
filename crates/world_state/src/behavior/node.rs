@@ -47,7 +47,7 @@ impl Behavior {
             output: None,
         };
 
-        let status = self.tree.tick(&mut blackboard);
+        let (status, _trace) = self.tree.tick_with_trace(&mut blackboard);
 
         let motion_command: MotionCommand = match status {
             Status::Success | Status::Running => {
