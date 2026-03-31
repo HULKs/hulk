@@ -56,6 +56,7 @@ impl<Context> Node<Context> {
             Node::Failure => Status::Failure,
         }
     }
+
     pub fn tick_with_trace(&self, context: &mut Context) -> (Status, NodeTrace) {
         let name = match self {
             Node::Selection { name, .. } => name,
@@ -110,6 +111,29 @@ impl<Context> Node<Context> {
 
         trace.status = status.clone();
         (status, trace)
+    }
+
+    pub fn static_layout_trace(&self) -> NodeTrace {
+        let name = match self {
+            Node::Selection { name, .. } => *name,
+            Node::Sequence { name, .. } => *name,
+            Node::Condition { name, .. } => *name,
+            Node::Action { name, .. } => *name,
+            Node::Failure => "Failure",
+        };
+
+        let children = match self {
+            Node::Selection { children, .. } | Node::Sequence { children, .. } => {
+                children.iter().map(|c| c.static_layout_trace()).collect()
+            }
+            _ => vec![],
+        };
+
+        NodeTrace {
+            name: name.to_string(),
+            status: Status::Idle,
+            children,
+        }
     }
 }
 
