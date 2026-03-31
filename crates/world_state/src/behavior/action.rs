@@ -1,6 +1,6 @@
-use types::motion_command::{HeadMotion, ImageRegion, MotionCommand};
+use types::{behavior_tree::Status, motion_command::{HeadMotion, ImageRegion, MotionCommand}};
 
-use crate::behavior::{behavior_tree::Status, node::CaptainBlackboard};
+use crate::behavior::{node::CaptainBlackboard};
 
 pub fn injected_motion_command(context: &mut CaptainBlackboard) -> Status {
     if let Some(injected_motion_command) = &context.parameters.injected_motion_command {
