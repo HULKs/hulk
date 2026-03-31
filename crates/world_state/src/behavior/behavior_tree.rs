@@ -13,6 +13,7 @@ pub enum Node<Context> {
     Sequence(Vec<Node<Context>>),
     Condition(ConditionFunction<Context>),
     Action(ActionFunction<Context>),
+    Failure,
 }
 
 impl<Context> Node<Context> {
@@ -44,6 +45,7 @@ impl<Context> Node<Context> {
                 }
             }
             Node::Action(action) => action(context),
+            Node::Failure => Status::Failure,
         }
     }
 }
