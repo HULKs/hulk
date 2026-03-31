@@ -1,10 +1,10 @@
 use color_eyre::Result;
 
 use context_attribute::context;
-use framework::MainOutput;
+use framework::{MainOutput};
+use serde::{Deserialize, Serialize};
 use types::{
-    motion_command::{HeadMotion, ImageRegion, MotionCommand},
-    world_state::WorldState,
+    motion_command::{HeadMotion, ImageRegion, MotionCommand}, parameters::BehaviorParameters, world_state::WorldState
 };
 
 use crate::behavior::{
@@ -12,12 +12,15 @@ use crate::behavior::{
     tree,
 };
 
+#[derive(Serialize)]
 pub struct Behavior {
     pub tree: Node<CaptainBlackboard>,
 }
 
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct CaptainBlackboard {
     pub world_state: WorldState,
+    pub parameters: BehaviorParameters,
     pub output: Option<MotionCommand>,
 }
 #[context]
@@ -26,6 +29,7 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     world_state: Input<WorldState, "world_state">,
+    parameters: Parameter<BehaviorParameters, "behavior">,
 }
 
 #[context]
@@ -44,6 +48,7 @@ impl Behavior {
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
         let mut blackboard = CaptainBlackboard {
             world_state: context.world_state.clone(),
+            parameters: context.parameters.clone(),
             output: None,
         };
 
