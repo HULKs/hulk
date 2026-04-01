@@ -1,8 +1,11 @@
-use std::sync::{
-    Arc,
-    atomic::{AtomicBool, Ordering},
-};
 use std::time::{Duration, SystemTime};
+use std::{
+    sync::{
+        Arc,
+        atomic::{AtomicBool, Ordering},
+    },
+    thread,
+};
 
 use booster::{
     ButtonEventMsg, FallDownState, LowCommand, LowState, Odometer, RemoteControllerState,
@@ -391,7 +394,8 @@ impl NetworkInterface for MujocoHardwareInterface {
 
 impl SpeakerInterface for MujocoHardwareInterface {
     fn write_to_speakers(&self, _request: SpeakerRequest) {
-        log::warn!("Tried to play audio request, not implemented!")
+        log::warn!("Tried to play audio request, not implemented!");
+        thread::sleep(Duration::MAX);
     }
 }
 
