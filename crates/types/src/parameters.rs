@@ -56,6 +56,14 @@ pub struct WhistleDetectionParameters {
     PathIntrospect,
     Message,
 )]
+pub struct VoronoiParameters {
+    pub fake_robot_position: Vec<Point2<Field>>,
+    pub orientation_bias: f32,
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct BehaviorParameters {
     pub allow_switch: AllowSwitchParameters,
     pub injected_motion_command: Option<MotionCommand>,
@@ -74,6 +82,7 @@ pub struct BehaviorParameters {
     pub walk_speed: WalkSpeedParameters,
     pub intercept_ball: InterceptBallParameters,
     pub substates: SubstatesParameters,
+    pub voronoi: VoronoiParameters,
 }
 
 #[derive(
