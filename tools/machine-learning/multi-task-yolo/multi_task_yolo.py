@@ -133,7 +133,7 @@ def main():
     predictor = MultiTaskPredictor(multi_model)
 
     predictions, original_image = predictor.predict(
-        "./2173162b-cd77-4dec-923b-e28eafd3297c.png"
+        "validation/2173162b-cd77-4dec-923b-e28eafd3297c.png"
     )
 
     pose_shape = predictor.task_meta["pose"]["kpt_shape"]
@@ -142,7 +142,7 @@ def main():
         original_image,
         predictions,
         kpt_shape=pose_shape,
-        save_path="test.png",
+        save_path="validation/output/test.png",
         detection_class_names=detection_class_names,
     )
     multi_model.eval()
