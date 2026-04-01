@@ -12,19 +12,27 @@ pub struct ZoomAndPanTransform {
 }
 
 impl ZoomAndPanTransform {
-    pub fn apply<Frame>(&mut self, ui: &Ui, painter: &mut TwixPainter<Frame>, response: &Response) {
+    pub fn apply_transform<Frame>(&self, painter: &mut TwixPainter<Frame>) {
+        painter.append_transform(self.transformation);
+    }
+
+    pub fn process_input<Frame>(
+        &mut self,
+        ui: &Ui,
+        painter: &mut TwixPainter<Frame>,
+        response: &Response,
+        reset_transform: Option<Transform<Screen, Screen, Similarity2<f32>>>,
+    ) {
         if response.double_clicked_by(PointerButton::Primary)
             || response.double_clicked_by(PointerButton::Secondary)
         {
-            self.transformation = Similarity2::identity().framed_transform();
+            self.transformation =
+                reset_transform.unwrap_or_else(|| Similarity2::identity().framed_transform());
         }
 
         let pointer_position = match ui.input(|input| input.pointer.interact_pos()) {
             Some(position) if response.rect.contains(position) => position,
-            _ => {
-                painter.append_transform(self.transformation);
-                return;
-            }
+            _ => return,
         };
 
         let zoom_factor = 1.01_f32.powf(ui.input(|input| input.smooth_scroll_delta.y));
@@ -52,6 +60,10 @@ impl ZoomAndPanTransform {
         self.transformation
             .inner
             .append_translation_mut(&Translation2::from(pixel_drag + zoom_shift));
-        painter.append_transform(self.transformation);
+    }
+
+    pub fn apply<Frame>(&mut self, ui: &Ui, painter: &mut TwixPainter<Frame>, response: &Response) {
+        self.process_input(ui, painter, response, None);
+        self.apply_transform(painter);
     }
 }

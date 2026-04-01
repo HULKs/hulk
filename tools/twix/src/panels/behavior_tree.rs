@@ -1,12 +1,14 @@
-use coordinate_systems::World;
+use coordinate_systems::{Screen, World};
 use eframe::egui::{Align2, Color32, FontId, Response, Stroke, Ui, Widget};
-use linear_algebra::{Point2, distance, point, vector};
+use linear_algebra::{IntoTransform, Point2, Transform, distance, point, vector};
+use nalgebra::Similarity2;
 use types::behavior_tree::NodeTrace;
 
 use crate::{
     panel::{Panel, PanelCreationContext},
     twix_painter::{Orientation, TwixPainter},
     value_buffer::BufferHandle,
+    zoom_and_pan::ZoomAndPanTransform,
 };
 
 const COLLIISION_LIMIT: usize = 50;
@@ -67,6 +69,7 @@ impl CircleNode {
         if response.dragged() && self.is_dragging {
             if let Some(pointer_position) = response.interact_pointer_pos() {
                 self.position = painter.transform_pixel_to_world(pointer_position);
+                *drag_claimed = true;
             }
         }
 
@@ -155,6 +158,7 @@ pub struct BehaviorTreePanel {
     tree_layout_buffer: BufferHandle<Option<NodeTrace>>,
     circle_nodes: Vec<CircleNode>,
     connections: Vec<Connection>,
+    zoom_and_pan: ZoomAndPanTransform,
 }
 
 impl<'a> Panel<'a> for BehaviorTreePanel {
@@ -194,6 +198,7 @@ impl<'a> Panel<'a> for BehaviorTreePanel {
                 .subscribe_value("WorldState.additional_outputs.behavior.tree_layout"),
             circle_nodes,
             connections,
+            zoom_and_pan: ZoomAndPanTransform::default(),
         }
     }
 }
@@ -222,13 +227,34 @@ impl Widget for &mut BehaviorTreePanel {
             Orientation::LeftHanded,
         );
 
+        let reset_transform = if let Some(first_node) = self.circle_nodes.first() {
+            let node_pixel = painter.transform_world_to_pixel(first_node.position);
+            let center_pixel = response.rect.center();
+
+            let offset_x = center_pixel.x - node_pixel.x;
+            let offset_y = painter.orientation.sign() * (center_pixel.y - node_pixel.y);
+
+            Some(
+                Similarity2::new(nalgebra::vector![offset_x, offset_y], 0.0, 1.0)
+                    .framed_transform(),
+            )
+        } else {
+            None
+        };
+
         let mut drag_claimed = false;
+
+        self.zoom_and_pan.apply_transform(&mut painter);
 
         for circle_node in &mut self.circle_nodes {
             circle_node.update(&response, &painter, &mut drag_claimed);
         }
-
         resolve_circle_collisions(&mut self.circle_nodes);
+
+        if !drag_claimed {
+            self.zoom_and_pan
+                .process_input(ui, &mut painter, &response, reset_transform);
+        }
 
         for connection in &self.connections {
             connection.draw(&mut painter, &self.circle_nodes);
