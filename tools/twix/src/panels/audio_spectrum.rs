@@ -1,4 +1,4 @@
-use std::{collections::VecDeque, sync::Arc};
+use std::{collections::VecDeque, sync::Arc, time::Duration};
 
 use chrono::{DateTime, Utc};
 use eframe::egui::{Color32, DragValue, Response, Ui, Vec2, Widget};
@@ -15,6 +15,16 @@ use crate::{
 const DEFAULT_HISTORY_SECONDS: f32 = 5.0;
 const DEFAULT_TIME_PER_FRAME_SECONDS: f32 = 0.064;
 
+type Frequency = f32;
+type Magnitude = f32;
+type Spectrum = Vec<(Frequency, Magnitude)>;
+type Spectra = Vec<Spectrum>;
+
+struct SpectrumPayload {
+    spectra: Spectra,
+    cycle_duration: Option<Duration>,
+}
+
 pub struct AudioSpectrumPanel {
     robot: Arc<Robot>,
     path: String,
@@ -23,7 +33,7 @@ pub struct AudioSpectrumPanel {
     waterfall_texture: Option<eframe::egui::TextureHandle>,
     max_frequency: f32,
     history_seconds: f32,
-    time_per_frame_seconds: f32,
+    time_per_frame: Duration,
     selected_waterfall_channel: usize,
     y_max_smoothed: f32,
     y_hysteresis_factor: f32,
@@ -63,7 +73,7 @@ impl<'a> Panel<'a> for AudioSpectrumPanel {
             waterfall_texture: None,
             max_frequency: 8000.0,
             history_seconds,
-            time_per_frame_seconds: DEFAULT_TIME_PER_FRAME_SECONDS,
+            time_per_frame: Duration::from_secs_f32(DEFAULT_TIME_PER_FRAME_SECONDS),
             selected_waterfall_channel,
             y_max_smoothed: 0.5,
             y_hysteresis_factor: 0.98,
@@ -136,7 +146,6 @@ fn draw_color_legend(ui: &mut Ui, max_magnitude: f32) {
             );
         }
 
-        // Labels below the color bar, pinned to bar edges.
         let label_height = ui.text_style_height(&eframe::egui::TextStyle::Body);
         let (label_rect, _response) = ui.allocate_exact_size(
             Vec2::new(legend_width, label_height),
@@ -164,65 +173,76 @@ fn draw_color_legend(ui: &mut Ui, max_magnitude: f32) {
     });
 }
 
-fn duration_seconds_from_value(value: &Value) -> Option<f32> {
+// todo: return duration
+fn duration_to_seconds(duration: Duration) -> f32 {
+    duration.as_secs_f32()
+}
+
+fn parse_duration_from_json(value: &Value) -> Option<Duration> {
     if let Some(seconds) = value.as_f64() {
-        return Some(seconds as f32);
+        return Some(Duration::from_secs_f64(seconds));
     }
 
     let secs = value.get("secs").and_then(Value::as_f64);
     let nanos = value.get("nanos").and_then(Value::as_f64);
     if let (Some(secs), Some(nanos)) = (secs, nanos) {
-        return Some((secs + nanos * 1e-9) as f32);
+        return Some(Duration::from_secs_f64(secs + nanos * 1e-9));
     }
 
     let secs = value.get("secs").and_then(Value::as_u64);
     let nanos = value.get("nanos").and_then(Value::as_u64);
     if let (Some(secs), Some(nanos)) = (secs, nanos) {
-        return Some(secs as f32 + nanos as f32 * 1e-9);
+        return Some(Duration::from_secs(secs) + Duration::from_nanos(nanos));
     }
 
     None
 }
 
-fn parse_spectrum_payload(value: &Value) -> Option<(Vec<Vec<(f32, f32)>>, Option<f32>)> {
-    if let Ok(spectrums) = serde_json::from_value::<Vec<Vec<(f32, f32)>>>(value.clone()) {
-        return Some((spectrums, None));
+fn parse_spectrum_payload(value: &Value) -> Option<SpectrumPayload> {
+    if let Ok(spectra) = serde_json::from_value::<Spectra>(value.clone()) {
+        return Some(SpectrumPayload {
+            spectra,
+            cycle_duration: None,
+        });
     }
 
     let object = value.as_object()?;
-    let spectrums_value = object
+    let spectra_value = object
         .get("spectrums")
         .or_else(|| object.get("audio_spectrums"))?;
-    let spectrums = serde_json::from_value::<Vec<Vec<(f32, f32)>>>(spectrums_value.clone()).ok()?;
+    let spectra = serde_json::from_value::<Spectra>(spectra_value.clone()).ok()?;
 
-    let cycle_seconds = object
+    let cycle_duration = object
         .get("cycle_time")
         .and_then(|cycle_time| cycle_time.get("last_cycle_duration"))
-        .and_then(duration_seconds_from_value)
+        .and_then(parse_duration_from_json)
         .or_else(|| {
             object
                 .get("last_cycle_duration")
-                .and_then(duration_seconds_from_value)
+                .and_then(parse_duration_from_json)
         })
         .or_else(|| {
             object
                 .get("cycle_duration")
-                .and_then(duration_seconds_from_value)
+                .and_then(parse_duration_from_json)
         })
         .or_else(|| {
             object
                 .get("time_per_frame")
                 .and_then(Value::as_f64)
-                .map(|seconds| seconds as f32)
+                .map(Duration::from_secs_f64)
         })
         .or_else(|| {
             object
                 .get("cycle_time_seconds")
                 .and_then(Value::as_f64)
-                .map(|seconds| seconds as f32)
+                .map(Duration::from_secs_f64)
         });
 
-    Some((spectrums, cycle_seconds))
+    Some(SpectrumPayload {
+        spectra,
+        cycle_duration,
+    })
 }
 
 impl Widget for &mut AudioSpectrumPanel {
@@ -248,40 +268,60 @@ impl Widget for &mut AudioSpectrumPanel {
             })
             .inner;
 
-        let mut current_spectrum: Option<Vec<Vec<(f32, f32)>>> = None;
+        let mut current_spectra: Option<Spectra> = None;
         if let Some(buffer) = &self.buffer {
             if let Ok(Some(datum)) = buffer.get_last() {
-                if let Some((spectrums, cycle_seconds)) = parse_spectrum_payload(&datum.value) {
-                    current_spectrum = Some(spectrums);
-                    if let Some(cycle_seconds) = cycle_seconds.filter(|seconds| *seconds > 0.0) {
-                        self.time_per_frame_seconds = cycle_seconds;
+                if let Some(payload) = parse_spectrum_payload(&datum.value) {
+                    current_spectra = Some(payload.spectra);
+                    if let Some(cycle_duration) = payload.cycle_duration {
+                        if !cycle_duration.is_zero() {
+                            self.time_per_frame = cycle_duration;
+                        }
                     }
                 }
             }
         }
 
-        if let Some(ref spectrums) = current_spectrum {
-            if spectrums.is_empty() {
+        if let Some(ref spectra) = current_spectra {
+            if spectra.is_empty() {
                 self.waterfall_history.clear();
             } else {
-                if self.selected_waterfall_channel >= spectrums.len() {
+                if self.selected_waterfall_channel >= spectra.len() {
                     self.selected_waterfall_channel = 0;
                     self.waterfall_history.clear();
                 }
-                let spectrum = &spectrums[self.selected_waterfall_channel];
-                let magnitudes: Vec<f32> = spectrum.iter().map(|(_, magnitude)| *magnitude).collect();
+                let spectrum = &spectra[self.selected_waterfall_channel];
+                let magnitudes: Vec<f32> =
+                    spectrum.iter().map(|(_, magnitude)| *magnitude).collect();
                 if !magnitudes.is_empty() {
                     if let Some((frequency, _)) = spectrum.last() {
                         self.max_frequency = *frequency;
                     }
 
-                    // Update current max magnitude for color scaling
+                    // Update color scale only for large changes to avoid jitter.
                     let frame_max = magnitudes.iter().cloned().fold(0.0f32, f32::max);
-                    self.current_max_magnitude = self.current_max_magnitude.max(frame_max * 0.5);
+                    let target_max = (frame_max * 0.5).max(0.001);
+                    let current = self.current_max_magnitude.max(0.001);
+                    let large_change_ratio = 1.5;
+
+                    if target_max > current * large_change_ratio {
+                        self.current_max_magnitude = target_max;
+                    } else if target_max * large_change_ratio < current {
+                        let ratio = current / target_max;
+                        let decay_factor = if ratio > 4.0 {
+                            0.5
+                        } else if ratio > 2.0 {
+                            0.8
+                        } else {
+                            0.95
+                        };
+                        self.current_max_magnitude = (current * decay_factor).max(target_max);
+                    }
 
                     self.waterfall_history.push_front(magnitudes);
-                    let max_frames =
-                        (self.history_seconds / self.time_per_frame_seconds.max(1e-4)) as usize;
+                    let max_frames = (self.history_seconds
+                        / duration_to_seconds(self.time_per_frame).max(1e-4))
+                        as usize;
                     while self.waterfall_history.len() > max_frames {
                         self.waterfall_history.pop_back();
                     }
@@ -289,7 +329,7 @@ impl Widget for &mut AudioSpectrumPanel {
             }
         }
 
-        let current_y_max = current_spectrum
+        let current_y_max = current_spectra
             .as_ref()
             .and_then(|spectrum| spectrum.first())
             .map(|spectrum| spectrum.iter().map(|(_, m)| *m).fold(0.0f32, f32::max))
@@ -330,8 +370,8 @@ impl Widget for &mut AudioSpectrumPanel {
             .show_grid([true, true])
             .x_grid_spacer(egui_plot::log_grid_spacer(10))
             .show(ui, |plot_ui| {
-                if let Some(ref spectrums) = current_spectrum {
-                    for (channel_idx, spectrum) in spectrums.iter().enumerate() {
+                if let Some(ref spectra) = current_spectra {
+                    for (channel_idx, spectrum) in spectra.iter().enumerate() {
                         if !spectrum.is_empty() {
                             let points: PlotPoints = spectrum
                                 .iter()
@@ -359,8 +399,9 @@ impl Widget for &mut AudioSpectrumPanel {
                 .changed()
             {
                 self.history_seconds = history_secs;
-                let max_frames =
-                    (self.history_seconds / self.time_per_frame_seconds.max(1e-4)) as usize;
+                let max_frames = (self.history_seconds
+                    / duration_to_seconds(self.time_per_frame).max(1e-4))
+                    as usize;
                 while self.waterfall_history.len() > max_frames {
                     self.waterfall_history.pop_back();
                 }
@@ -368,9 +409,7 @@ impl Widget for &mut AudioSpectrumPanel {
 
             ui.separator();
             ui.label("Waterfall channel:");
-            let available_channels = current_spectrum
-                .as_ref()
-                .map_or(0, |spectrums| spectrums.len());
+            let available_channels = current_spectra.as_ref().map_or(0, |spectra| spectra.len());
             if available_channels > 0 {
                 let previous_channel = self.selected_waterfall_channel;
                 eframe::egui::ComboBox::from_id_salt(ui.id().with("waterfall_channel"))
@@ -422,7 +461,7 @@ impl Widget for &mut AudioSpectrumPanel {
                     eframe::egui::TextureOptions::NEAREST,
                 ));
 
-                let time_per_frame = self.time_per_frame_seconds.max(1e-4);
+                let time_per_frame = duration_to_seconds(self.time_per_frame).max(1e-4);
                 let total_time = number_times as f64 * time_per_frame as f64;
                 let major = 1.0;
                 let medium = 1.0;
