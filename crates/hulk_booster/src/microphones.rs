@@ -1,4 +1,4 @@
-use std::{i16::MAX, sync::Arc, thread::sleep, time::Duration};
+use std::{sync::Arc, thread::sleep, time::Duration};
 
 use alsa::{
     Direction, PCM, ValueOr,
@@ -72,7 +72,7 @@ impl Microphones {
                     .iter()
                     .skip(channel_index)
                     .step_by(self.parameters.number_of_channels)
-                    .map(|&sample| sample as f32 / MAX as f32),
+                    .map(|&sample| sample as f32 / i16::MAX as f32),
             );
         }
 
