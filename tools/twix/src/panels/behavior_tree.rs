@@ -10,97 +10,6 @@ use crate::{
 };
 
 const COLLIISION_LIMIT: usize = 50;
-pub struct BehaviorTreePanel {
-    trace_buffer: BufferHandle<Option<NodeTrace>>,
-    tree_layout_buffer: BufferHandle<Option<NodeTrace>>,
-    circle_nodes: Vec<CircleNode>,
-    connections: Vec<Connection>,
-}
-
-impl<'a> Panel<'a> for BehaviorTreePanel {
-    const NAME: &'static str = "Behavior Tree";
-
-    fn new(context: PanelCreationContext) -> Self {
-        let mut circle_nodes = Vec::new();
-        circle_nodes.push(CircleNode::new(
-            "Test".to_string(),
-            point![12.0, 3.0],
-            2.0,
-            Stroke::new(0.1, Color32::RED),
-        ));
-        circle_nodes.push(CircleNode::new(
-            "Test2".to_string(),
-            point![5.0, 10.0],
-            2.0,
-            Stroke::new(0.1, Color32::GREEN),
-        ));
-        circle_nodes.push(CircleNode::new(
-            "Test3".to_string(),
-            point![20.0, 15.0],
-            2.0,
-            Stroke::new(0.1, Color32::BLUE),
-        ));
-
-        let mut connections = Vec::new();
-        connections.push(Connection::new(0, 1, Stroke::new(0.1, Color32::LIGHT_GRAY)));
-        connections.push(Connection::new(0, 2, Stroke::new(0.1, Color32::LIGHT_GRAY)));
-
-        Self {
-            trace_buffer: context
-                .robot
-                .subscribe_value("WorldState.additional_outputs.behavior.trace"),
-            tree_layout_buffer: context
-                .robot
-                .subscribe_value("WorldState.additional_outputs.behavior.tree_layout"),
-            circle_nodes,
-            connections,
-        }
-    }
-}
-
-impl Widget for &mut BehaviorTreePanel {
-    fn ui(self, ui: &mut Ui) -> Response {
-        // match self.tree_layout_buffer.get_last_value() {
-        //     Ok(Some(layout)) => {
-        //         ui.label("Behavior Tree Layout:");
-        //         ui.label(format!("{layout:#?}"));
-        //     }
-        //     _ => {
-        //         ui.label("No layout data");
-        //     }
-        // };
-
-        // match self.trace_buffer.get_last_value() {
-        //     Ok(Some(trace)) => ui.label(format!("{trace:#?}")),
-        //     _ => ui.label("No data"),
-        // };
-
-        let (response, mut painter) = TwixPainter::<World>::allocate(
-            ui,
-            vector![25.0, 25.0],
-            point![0.0, 0.0],
-            Orientation::LeftHanded,
-        );
-
-        let mut drag_claimed = false;
-
-        for circle_node in &mut self.circle_nodes {
-            circle_node.update(&response, &painter, &mut drag_claimed);
-        }
-
-        resolve_circle_collisions(&mut self.circle_nodes);
-
-        for connection in &self.connections {
-            connection.draw(&mut painter, &self.circle_nodes);
-        }
-
-        for circle_node in &self.circle_nodes {
-            circle_node.draw(&mut painter);
-        }
-
-        response
-    }
-}
 
 pub struct CircleNode {
     is_dragging: bool,
@@ -238,5 +147,97 @@ impl Connection {
 
             painter.line_segment(start, end, self.stroke);
         }
+    }
+}
+
+pub struct BehaviorTreePanel {
+    trace_buffer: BufferHandle<Option<NodeTrace>>,
+    tree_layout_buffer: BufferHandle<Option<NodeTrace>>,
+    circle_nodes: Vec<CircleNode>,
+    connections: Vec<Connection>,
+}
+
+impl<'a> Panel<'a> for BehaviorTreePanel {
+    const NAME: &'static str = "Behavior Tree";
+
+    fn new(context: PanelCreationContext) -> Self {
+        let mut circle_nodes = Vec::new();
+        circle_nodes.push(CircleNode::new(
+            "Test".to_string(),
+            point![12.0, 3.0],
+            2.0,
+            Stroke::new(0.1, Color32::RED),
+        ));
+        circle_nodes.push(CircleNode::new(
+            "Test2".to_string(),
+            point![5.0, 10.0],
+            2.0,
+            Stroke::new(0.1, Color32::GREEN),
+        ));
+        circle_nodes.push(CircleNode::new(
+            "Test3".to_string(),
+            point![20.0, 15.0],
+            2.0,
+            Stroke::new(0.1, Color32::BLUE),
+        ));
+
+        let mut connections = Vec::new();
+        connections.push(Connection::new(0, 1, Stroke::new(0.1, Color32::LIGHT_GRAY)));
+        connections.push(Connection::new(0, 2, Stroke::new(0.1, Color32::LIGHT_GRAY)));
+
+        Self {
+            trace_buffer: context
+                .robot
+                .subscribe_value("WorldState.additional_outputs.behavior.trace"),
+            tree_layout_buffer: context
+                .robot
+                .subscribe_value("WorldState.additional_outputs.behavior.tree_layout"),
+            circle_nodes,
+            connections,
+        }
+    }
+}
+
+impl Widget for &mut BehaviorTreePanel {
+    fn ui(self, ui: &mut Ui) -> Response {
+        // match self.tree_layout_buffer.get_last_value() {
+        //     Ok(Some(layout)) => {
+        //         ui.label("Behavior Tree Layout:");
+        //         ui.label(format!("{layout:#?}"));
+        //     }
+        //     _ => {
+        //         ui.label("No layout data");
+        //     }
+        // };
+
+        // match self.trace_buffer.get_last_value() {
+        //     Ok(Some(trace)) => ui.label(format!("{trace:#?}")),
+        //     _ => ui.label("No data"),
+        // };
+
+        let (response, mut painter) = TwixPainter::<World>::allocate(
+            ui,
+            vector![25.0, 25.0],
+            point![0.0, 0.0],
+            Orientation::LeftHanded,
+        );
+
+        let mut drag_claimed = false;
+
+        for circle_node in &mut self.circle_nodes {
+            circle_node.update(&response, &painter, &mut drag_claimed);
+        }
+
+        resolve_circle_collisions(&mut self.circle_nodes);
+
+        for connection in &self.connections {
+            connection.draw(&mut painter, &self.circle_nodes);
+        }
+
+        for circle_node in &self.circle_nodes {
+            circle_node.draw(&mut painter);
+        }
+
+        response
     }
 }
