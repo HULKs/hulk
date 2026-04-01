@@ -505,6 +505,10 @@
         "nanos": 0,
         "secs": 1
       }
+    },
+    "voronoi": {
+      "fake_robot_position": [[-3.0, 0.0], [4.0, 0.2], [-1.0, 0.5], [3.4, 0.0], [0.0, 0.0]],
+      "orientation_bias": 0.5
     }
   },
   "role_assignment": {

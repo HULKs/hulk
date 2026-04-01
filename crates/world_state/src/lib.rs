@@ -21,6 +21,7 @@ pub mod role_assignment;
 pub mod rule_obstacle_composer;
 pub mod safe_pose_checker;
 pub mod search_suggestor;
+pub mod target_position_composer;
 pub mod team_ball_receiver;
 pub mod time_to_reach_kick_position;
 pub mod trigger;

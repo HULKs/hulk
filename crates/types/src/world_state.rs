@@ -27,6 +27,7 @@ pub struct WorldState {
     pub rule_obstacles: Vec<RuleObstacle>,
     pub fall_down_state: Option<FallDownState>,
     pub suggested_search_position: Option<Point2<Field>>,
+    pub centroids: Vec<Option<Point2<Field>>>,
 }
 
 #[allow(clippy::derivable_impls)]
@@ -44,6 +45,7 @@ impl Default for WorldState {
             rule_obstacles: Default::default(),
             fall_down_state: Default::default(),
             suggested_search_position: Default::default(),
+            centroids: Default::default(),
         }
     }
 }
