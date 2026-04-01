@@ -863,6 +863,10 @@
     "whistle_scaling": 3.8,
     "number_of_chunks": 16
   },
+  "whistle_filter": {
+    "buffer_length": 20,
+    "minimum_detections": 2
+  },
   "field_border_detection": {
     "enable": true,
     "min_points_per_line": 10,
