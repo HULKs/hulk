@@ -539,10 +539,26 @@ impl Default for WalkSpeedParameters {
 #[derive(
     Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
-
 pub struct KickingParameters {
-    pub kick_power: f64,
     pub distance_for_kick: f32,
     pub distance_for_kick_hysteresis: f32,
     pub distance_to_look_directly_at_the_ball: f32,
+    pub kick_target_offset_angle: f32,
+    pub goal_distance_kick_power_threshold: f32,
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct BoosterKickingParameters {
+    pub kick_message_interval: Duration,
+    pub kick_power: KickPowerParameters,
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct KickPowerParameters {
+    pub rumpelstilzchen: f64,
+    pub schlong: f64,
 }

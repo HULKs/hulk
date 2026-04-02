@@ -446,10 +446,11 @@
       "estimated_ball_speed": 0.75
     },
     "kicking": {
-      "kick_power": 2.0,
       "distance_for_kick": 1.5,
       "distance_for_kick_hysteresis": 0.5,
-      "distance_to_look_directly_at_the_ball": 4.0
+      "distance_to_look_directly_at_the_ball": 4.0,
+      "kick_target_offset_angle": 0.1,
+      "goal_distance_kick_power_threshold": 3.0
     },
     "maximum_lookaround_duration": {
       "nanos": 0,
@@ -554,7 +555,7 @@
       "process_noise_resting": [0.001, 0.001]
     },
     "validity_discard_threshold": 0.2,
-    "validity_output_threshold": 1.5,
+    "validity_output_threshold": 0.5,
     "velocity_decay_factor": 0.998,
     "visible_validity_exponential_decay_factor": 0.96
   },
@@ -1007,13 +1008,19 @@
         "nanos": 33000000,
         "secs": 0
       },
-      "kick_message_interval": {
-        "nanos": 33000000,
-        "secs": 0
-      },
       "move_robot_message_interval": {
         "nanos": 33000000,
         "secs": 0
+      },
+      "kicking": {
+        "kick_message_interval": {
+          "nanos": 33000000,
+          "secs": 0
+        },
+        "kick_power": {
+          "rumpelstilzchen": 1.5,
+          "schlong": 6.0
+        }
       }
     }
   }

@@ -37,7 +37,6 @@ pub enum Action {
     SupportStriker,
     SupportLeft,
     SupportRight,
-    VisualKick,
     WalkToBall,
     WalkToKickOff,
     WalkToPenaltyKick,
