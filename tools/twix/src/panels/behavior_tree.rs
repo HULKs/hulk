@@ -1,6 +1,6 @@
-use coordinate_systems::{Screen, World};
+use coordinate_systems::World;
 use eframe::egui::{Align2, Color32, FontId, Response, Stroke, Ui, Widget};
-use linear_algebra::{IntoTransform, Point2, Transform, distance, point, vector};
+use linear_algebra::{IntoTransform, Point2, distance, point, vector};
 use nalgebra::Similarity2;
 use types::behavior_tree::NodeTrace;
 
@@ -12,7 +12,11 @@ use crate::{
 };
 
 const COLLIISION_LIMIT: usize = 50;
+const X_SPACING: f32 = 4.0;
+const Y_SPACING: f32 = 5.0;
+const NODE_RADIUS: f32 = 2.0;
 
+#[derive(Debug, Clone)]
 pub struct CircleNode {
     is_dragging: bool,
     name: String,
@@ -154,8 +158,8 @@ impl Connection {
 }
 
 pub struct BehaviorTreePanel {
-    trace_buffer: BufferHandle<Option<NodeTrace>>,
     tree_layout_buffer: BufferHandle<Option<NodeTrace>>,
+    trace_buffer: BufferHandle<Option<NodeTrace>>,
     circle_nodes: Vec<CircleNode>,
     connections: Vec<Connection>,
     zoom_and_pan: ZoomAndPanTransform,
@@ -166,36 +170,15 @@ impl<'a> Panel<'a> for BehaviorTreePanel {
 
     fn new(context: PanelCreationContext) -> Self {
         let mut circle_nodes = Vec::new();
-        circle_nodes.push(CircleNode::new(
-            "Test".to_string(),
-            point![12.0, 3.0],
-            2.0,
-            Stroke::new(0.1, Color32::RED),
-        ));
-        circle_nodes.push(CircleNode::new(
-            "Test2".to_string(),
-            point![5.0, 10.0],
-            2.0,
-            Stroke::new(0.1, Color32::GREEN),
-        ));
-        circle_nodes.push(CircleNode::new(
-            "Test3".to_string(),
-            point![20.0, 15.0],
-            2.0,
-            Stroke::new(0.1, Color32::BLUE),
-        ));
-
-        let mut connections = Vec::new();
-        connections.push(Connection::new(0, 1, Stroke::new(0.1, Color32::LIGHT_GRAY)));
-        connections.push(Connection::new(0, 2, Stroke::new(0.1, Color32::LIGHT_GRAY)));
+        let connections = Vec::new();
 
         Self {
-            trace_buffer: context
-                .robot
-                .subscribe_value("WorldState.additional_outputs.behavior.trace"),
             tree_layout_buffer: context
                 .robot
                 .subscribe_value("WorldState.additional_outputs.behavior.tree_layout"),
+            trace_buffer: context
+                .robot
+                .subscribe_value("WorldState.additional_outputs.behavior.trace"),
             circle_nodes,
             connections,
             zoom_and_pan: ZoomAndPanTransform::default(),
@@ -205,20 +188,24 @@ impl<'a> Panel<'a> for BehaviorTreePanel {
 
 impl Widget for &mut BehaviorTreePanel {
     fn ui(self, ui: &mut Ui) -> Response {
-        // match self.tree_layout_buffer.get_last_value() {
-        //     Ok(Some(layout)) => {
-        //         ui.label("Behavior Tree Layout:");
-        //         ui.label(format!("{layout:#?}"));
-        //     }
-        //     _ => {
-        //         ui.label("No layout data");
-        //     }
-        // };
-
-        // match self.trace_buffer.get_last_value() {
-        //     Ok(Some(trace)) => ui.label(format!("{trace:#?}")),
-        //     _ => ui.label("No data"),
-        // };
+        if self.circle_nodes.is_empty() {
+            let tree_buffer_value = self
+                .tree_layout_buffer
+                .get_last_value()
+                .ok()
+                .flatten()
+                .flatten();
+            if let Some(tree_layout) = tree_buffer_value {
+                let mut next_x = 0.0;
+                build_tree_layout(
+                    &mut self.circle_nodes,
+                    &mut self.connections,
+                    &tree_layout,
+                    0,
+                    &mut next_x,
+                );
+            }
+        }
 
         let (response, mut painter) = TwixPainter::<World>::allocate(
             ui,
@@ -266,4 +253,54 @@ impl Widget for &mut BehaviorTreePanel {
 
         response
     }
+}
+
+fn build_tree_layout(
+    circle_nodes: &mut Vec<CircleNode>,
+    connections: &mut Vec<Connection>,
+    node_trace: &NodeTrace,
+    depth: usize,
+    next_x: &mut f32,
+) -> usize {
+    let node_index = circle_nodes.len();
+
+    let name = match node_trace.name.as_str() {
+        "Selection" => "?".to_string(),
+        "Sequence" => "->".to_string(),
+        _ => node_trace.name.clone(),
+    };
+
+    circle_nodes.push(CircleNode::new(
+        name,
+        point![0.0, depth as f32 * Y_SPACING],
+        NODE_RADIUS,
+        Stroke::new(0.1, Color32::LIGHT_GRAY),
+    ));
+
+    if node_trace.children.is_empty() {
+        let x = *next_x;
+        *next_x += X_SPACING;
+        circle_nodes[node_index].position = point![x, depth as f32 * Y_SPACING];
+        return node_index;
+    }
+
+    let mut child_indices = Vec::with_capacity(node_trace.children.len());
+    for child in &node_trace.children {
+        let child_idx = build_tree_layout(circle_nodes, connections, child, depth + 1, next_x);
+        child_indices.push(child_idx);
+        connections.push(Connection::new(
+            node_index,
+            child_idx,
+            Stroke::new(0.1, Color32::LIGHT_GRAY),
+        ));
+    }
+
+    let sum_x: f32 = child_indices
+        .iter()
+        .map(|&i| circle_nodes[i].position.x())
+        .sum();
+    let avg_x = sum_x / child_indices.len() as f32;
+    circle_nodes[node_index].position = point![avg_x, depth as f32 * Y_SPACING];
+
+    node_index
 }
