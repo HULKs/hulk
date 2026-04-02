@@ -15,8 +15,7 @@ use crate::behavior::{behavior_tree::Node, tree};
 #[derive(Serialize)]
 pub struct Behavior {
     pub tree: Node<CaptainBlackboard>,
-    pub static_layout: NodeTrace, 
-    has_sent_layout: bool,
+    pub static_layout: NodeTrace,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -34,7 +33,7 @@ pub struct CycleContext {
     world_state: Input<WorldState, "world_state">,
     parameters: Parameter<BehaviorParameters, "behavior">,
     behavior_trace: AdditionalOutput<NodeTrace, "behavior.trace">,
-    behavior_tree_layout: AdditionalOutput<NodeTrace, "behavior.tree_layout">, // Moved here!
+    behavior_tree_layout: AdditionalOutput<NodeTrace, "behavior.tree_layout">, 
 }
 
 #[context]
@@ -47,19 +46,17 @@ impl Behavior {
     pub fn new(_context: CreationContext) -> Result<Self> {
         let tree = tree::create_tree();
         let static_layout = tree.static_layout_trace();
-        
-        Ok(Self { 
+
+        Ok(Self {
             tree,
             static_layout,
-            has_sent_layout: false, 
         })
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        if !self.has_sent_layout {
-            context.behavior_tree_layout.fill_if_subscribed(|| self.static_layout.clone());
-            self.has_sent_layout = false; // TODO: man will das öfter als einmal senden, weil twix sich ja auch erst später verbinden kann
-        }
+        context
+            .behavior_tree_layout
+            .fill_if_subscribed(|| self.static_layout.clone());
 
         let mut blackboard = CaptainBlackboard {
             world_state: context.world_state.clone(),
@@ -69,7 +66,7 @@ impl Behavior {
 
         let (status, trace) = self.tree.tick_with_trace(&mut blackboard);
         context.behavior_trace.fill_if_subscribed(|| trace);
-        
+
         let motion_command: MotionCommand = match status {
             Status::Success | Status::Running => {
                 blackboard.output.take().unwrap_or(MotionCommand::Stand {
