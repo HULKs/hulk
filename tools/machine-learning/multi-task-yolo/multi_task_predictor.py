@@ -277,12 +277,15 @@ def visualize_multi_task_predictions(
 def main() -> None:
     tasks = {"detection": "yolo26m.pt", "pose": "yolo26m-pose.pt"}
 
-    multi_model = MultiTaskYOLO(foundation_path="yolo26m.pt", task_dict=tasks)
+    multi_task_model = MultiTaskYOLO(
+        foundation_path="yolo26m.pt", task_dict=tasks
+    )
 
-    predictor = MultiTaskPredictor(multi_model)
+    predictor = MultiTaskPredictor(multi_task_model)
 
     predictions, original_image = predictor.predict(
-        "./validation/2173162b-cd77-4dec-923b-e28eafd3297c.png"
+        "./validation/2173162b-cd77-4dec-923b-e28eafd3297c.png",
+        conf_thres=0.1,
     )
 
     pose_shape = predictor.task_meta["pose"].kpt_shape
@@ -294,7 +297,7 @@ def main() -> None:
         save_path="./validation/output/test.png",
         detection_class_names=detection_class_names,
     )
-    multi_model.eval()
+    multi_task_model.eval()
 
 
 if __name__ == "__main__":

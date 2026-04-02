@@ -2,30 +2,25 @@ from typing import Any, cast
 
 import torch
 import torch.nn as nn
-from ultralytics import YOLO
+from ultralytics.models.yolo.model import YOLO
+from ultralytics.nn.tasks import DetectionModel
 
 
-def get_head_parent_module_index(yaml_config: dict[str, Any]) -> int:
+def get_head_parent_module_index(yaml_config: dict) -> int:
     """Returns the index of the last layer of the backbone."""
     return len(yaml_config.get("backbone", [])) - 1
 
 
-def get_foundation_module_list(model: Any) -> nn.ModuleList:
+def get_foundation_module_list(model: DetectionModel) -> nn.ModuleList:
     """Extracts the backbone as an nn.ModuleList dynamically."""
-    model_root = cast(Any, model.model)
-    split_idx = get_head_parent_module_index(
-        cast(dict[str, Any], model_root.yaml)
-    )
-    return nn.ModuleList(list(model_root.model.children())[: split_idx + 1])
+    split_idx = get_head_parent_module_index(cast(dict[str, Any], model.yaml))
+    return nn.ModuleList(list(model.model.children())[: split_idx + 1])
 
 
-def get_head_modulelist(model: Any) -> nn.ModuleList:
+def get_head_module_list(model: DetectionModel) -> nn.ModuleList:
     """Extracts the neck + task head dynamically."""
-    model_root = cast(Any, model.model)
-    split_idx = get_head_parent_module_index(
-        cast(dict[str, Any], model_root.yaml)
-    )
-    return nn.ModuleList(list(model_root.model.children())[split_idx + 1 :])
+    split_idx = get_head_parent_module_index(cast(dict[str, Any], model.yaml))
+    return nn.ModuleList(list(model.model.children())[split_idx + 1 :])
 
 
 class MultiTaskYOLO(nn.Module):
@@ -38,13 +33,13 @@ class MultiTaskYOLO(nn.Module):
 
         print(f"Loading foundation from: {foundation_path}")
         foundation_yolo = YOLO(foundation_path)
-        foundation_root = cast(Any, foundation_yolo.model)
+        foundation_root = cast(DetectionModel, foundation_yolo.model)
 
         self.split_idx = get_head_parent_module_index(
-            cast(dict[str, Any], foundation_root.yaml)
+            cast(dict, foundation_root.yaml)
         )
 
-        self.shared_backbone = get_foundation_module_list(foundation_yolo)
+        self.shared_backbone = get_foundation_module_list(foundation_root)
         self.save_backbone = cast(list[int], foundation_root.save)
 
         self.task_branches = nn.ModuleDict()
@@ -54,9 +49,9 @@ class MultiTaskYOLO(nn.Module):
         for task_name, model_path in task_dict.items():
             print(f"Extracting {task_name} head from: {model_path}")
             task_yolo = YOLO(model_path)
-            task_root = cast(Any, task_yolo.model)
+            task_root = cast(DetectionModel, task_yolo.model)
 
-            self.task_branches[task_name] = get_head_modulelist(task_yolo)
+            self.task_branches[task_name] = get_head_module_list(task_root)
             self.branch_saves[task_name] = cast(list[int], task_root.save)
             self.task_class_names[task_name] = getattr(task_root, "names", {})
 
