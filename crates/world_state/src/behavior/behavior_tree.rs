@@ -5,6 +5,15 @@ type ConditionFunction<Context> = Box<dyn Fn(&mut Context) -> bool + Send + Sync
 type ActionFunction<Context> = Box<dyn Fn(&mut Context) -> Status + Send + Sync>;
 
 pub enum Node<Context> {
+    Action {
+        name: &'static str,
+        action: ActionFunction<Context>,
+    },
+    Condition {
+        name: &'static str,
+        condition: ConditionFunction<Context>,
+    },
+    Failure,
     Selection {
         name: &'static str,
         children: Vec<Node<Context>>,
@@ -13,20 +22,20 @@ pub enum Node<Context> {
         name: &'static str,
         children: Vec<Node<Context>>,
     },
-    Condition {
-        name: &'static str,
-        condition: ConditionFunction<Context>,
-    },
-    Action {
-        name: &'static str,
-        action: ActionFunction<Context>,
-    },
-    Failure,
 }
 
 impl<Context> Node<Context> {
     pub fn tick(&self, context: &mut Context) -> Status {
         match self {
+            Node::Action { action, .. } => action(context),
+            Node::Condition { condition, .. } => {
+                if condition(context) {
+                    Status::Success
+                } else {
+                    Status::Failure
+                }
+            }
+            Node::Failure => Status::Failure,
             Node::Selection { children, .. } => {
                 for child in children {
                     let status = child.tick(context);
@@ -45,24 +54,15 @@ impl<Context> Node<Context> {
                 }
                 Status::Success
             }
-            Node::Condition { condition, .. } => {
-                if condition(context) {
-                    Status::Success
-                } else {
-                    Status::Failure
-                }
-            }
-            Node::Action { action, .. } => action(context),
-            Node::Failure => Status::Failure,
         }
     }
 
     pub fn tick_with_trace(&self, context: &mut Context) -> (Status, NodeTrace) {
         let name = match self {
-            Node::Selection { name, .. } => name,
-            Node::Sequence { name, .. } => name,
-            Node::Condition { name, .. } => name,
-            Node::Action { name, .. } => name,
+            Node::Action { name, .. }
+            | Node::Condition { name, .. }
+            | Node::Selection { name, .. }
+            | Node::Sequence { name, .. } => name,
             Node::Failure => &"Failure",
         };
         let mut trace = NodeTrace {
@@ -72,6 +72,15 @@ impl<Context> Node<Context> {
         };
 
         let status = match self {
+            Node::Action { action, .. } => action(context),
+            Node::Condition { condition, .. } => {
+                if condition(context) {
+                    Status::Success
+                } else {
+                    Status::Failure
+                }
+            }
+            Node::Failure => Status::Failure,
             Node::Selection { children, .. } => {
                 let mut selection_status = Status::Failure;
                 for child in children {
@@ -98,15 +107,6 @@ impl<Context> Node<Context> {
                 }
                 sequence_status
             }
-            Node::Condition { condition, .. } => {
-                if condition(context) {
-                    Status::Success
-                } else {
-                    Status::Failure
-                }
-            }
-            Node::Action { action, .. } => action(context),
-            Node::Failure => Status::Failure,
         };
 
         trace.status = status.clone();
@@ -115,11 +115,11 @@ impl<Context> Node<Context> {
 
     pub fn static_layout_trace(&self) -> NodeTrace {
         let name = match self {
-            Node::Selection { name, .. } => *name,
-            Node::Sequence { name, .. } => *name,
-            Node::Condition { name, .. } => *name,
-            Node::Action { name, .. } => *name,
-            Node::Failure => "Failure",
+            Node::Action { name, .. }
+            | Node::Condition { name, .. }
+            | Node::Selection { name, .. }
+            | Node::Sequence { name, .. } => name,
+            Node::Failure => &"Failure",
         };
 
         let children = match self {
@@ -135,6 +135,24 @@ impl<Context> Node<Context> {
             children,
         }
     }
+}
+
+#[macro_export]
+macro_rules! action {
+    ($func:expr) => {
+        $crate::behavior::behavior_tree::Node::Action{
+            name: stringify!($func),
+            action: Box::new($func)
+        }
+    };
+    ($func:expr, $($arg:expr),+ $(,)?) => {
+        $crate::behavior::behavior_tree::Node::Action{
+            name: stringify!($func:$($arg),+),
+            action: Box::new(move |ctx| {
+                $func(ctx, $($arg.clone()),+)
+            })
+        }
+    };
 }
 
 #[macro_export]
@@ -155,23 +173,6 @@ macro_rules! condition {
     };
 }
 
-#[macro_export]
-macro_rules! action {
-    ($func:expr) => {
-        $crate::behavior::behavior_tree::Node::Action{
-            name: stringify!($func),
-            action: Box::new($func)
-        }
-    };
-    ($func:expr, $($arg:expr),+ $(,)?) => {
-        $crate::behavior::behavior_tree::Node::Action{
-            name: stringify!($func:$($arg),+),
-            action: Box::new(move |ctx| {
-                $func(ctx, $($arg.clone()),+)
-            })
-        }
-    };
-}
 
 #[macro_export]
 macro_rules! selection {
@@ -199,11 +200,11 @@ impl<Context> Serialize for Node<Context> {
         S: serde::Serializer,
     {
         let (node_type, name, children) = match self {
+            Node::Action { name, .. } => ("Action", *name, None),
+            Node::Condition { name, .. } => ("Condition", *name, None),
+            Node::Failure => ("Failure", "Failure", None),
             Node::Selection { name, children } => ("Selection", *name, Some(children)),
             Node::Sequence { name, children } => ("Sequence", *name, Some(children)),
-            Node::Condition { name, .. } => ("Condition", *name, None),
-            Node::Action { name, .. } => ("Action", *name, None),
-            Node::Failure => ("Failure", "Failure", None),
         };
 
         let num_fields = if children.is_some() { 3 } else { 2 };
