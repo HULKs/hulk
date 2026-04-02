@@ -1,9 +1,12 @@
+import logging
 from typing import Any, cast
 
 import torch
 import torch.nn as nn
 from ultralytics.models.yolo.model import YOLO
 from ultralytics.nn.tasks import DetectionModel
+
+logger = logging.getLogger(__name__)
 
 
 def get_head_parent_module_index(yaml_config: dict) -> int:
@@ -31,7 +34,7 @@ class MultiTaskYOLO(nn.Module):
     ) -> None:
         super().__init__()
 
-        print(f"Loading foundation from: {foundation_path}")
+        logger.info("Loading foundation from: %s", foundation_path)
         foundation_yolo = YOLO(foundation_path)
         foundation_root = cast(DetectionModel, foundation_yolo.model)
 
@@ -47,7 +50,7 @@ class MultiTaskYOLO(nn.Module):
         self.task_class_names = {}
 
         for task_name, model_path in task_dict.items():
-            print(f"Extracting {task_name} head from: {model_path}")
+            logger.info("Extracting %s head from: %s", task_name, model_path)
             task_yolo = YOLO(model_path)
             task_root = cast(DetectionModel, task_yolo.model)
 

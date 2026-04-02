@@ -1,3 +1,4 @@
+import logging
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -17,6 +18,8 @@ from ultralytics.utils.ops import (
 from ultralytics.utils.plotting import Annotator, colors
 
 from multi_task_yolo import MultiTaskYOLO
+
+logger = logging.getLogger(__name__)
 
 ImageArray = npt.NDArray[np.uint8]
 Shape2D = tuple[int, int]
@@ -208,7 +211,7 @@ class MultiTaskPredictor:
             results["pose"] = pose_preds[0]
 
         for head_name, head_predictions in results.items():
-            print(f"{head_name}: {len(head_predictions)} detections")
+            logger.info("%s: %d detections", head_name, len(head_predictions))
 
         return results, img_orig
 
@@ -275,6 +278,11 @@ def visualize_multi_task_predictions(
 
 
 def main() -> None:
+    logging.basicConfig(
+        level=logging.INFO,
+        format="%(asctime)s | %(levelname)s | %(message)s",
+    )
+
     tasks = {"detection": "yolo26m.pt", "pose": "yolo26m-pose.pt"}
 
     multi_task_model = MultiTaskYOLO(
