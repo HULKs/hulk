@@ -10,11 +10,21 @@ use types::{
     world_state::WorldState,
 };
 
-use crate::behavior::{behavior_tree::Node, tree};
+use crate::behavior::{behavior_tree::Node, tree::create_tree};
 
-#[derive(Serialize)]
+fn create_tree_default() -> Node<CaptainBlackboard> {
+    create_tree()
+}
+
+fn create_static_layout_default() -> NodeTrace {
+    create_tree().static_layout_trace()
+}
+
+#[derive(Serialize, Deserialize)]
 pub struct Behavior {
+    #[serde(skip_deserializing, default = "create_tree_default")]
     pub tree: Node<CaptainBlackboard>,
+    #[serde(skip_deserializing, default = "create_static_layout_default")]
     pub static_layout: NodeTrace,
 }
 
@@ -44,7 +54,7 @@ pub struct MainOutputs {
 
 impl Behavior {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        let tree = tree::create_tree();
+        let tree = create_tree();
         let static_layout = tree.static_layout_trace();
 
         Ok(Self {
