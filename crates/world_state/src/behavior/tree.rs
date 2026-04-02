@@ -6,12 +6,12 @@ use crate::{
         action::{injected_motion_command, prepare, stand, stand_up, walk_to_ball},
         behavior_tree::Node,
         condition::{has_ball_position, is_fallen, is_primary_state},
-        node::CaptainBlackboard,
+        node::Blackboard,
     },
     condition, selection, sequence,
 };
 
-pub fn create_tree() -> Node<CaptainBlackboard> {
+pub fn create_tree() -> Node<Blackboard> {
     selection!(
         sequence!(
             condition!(is_primary_state, PrimaryState::Safe),
@@ -46,11 +46,11 @@ pub fn create_tree() -> Node<CaptainBlackboard> {
     )
 }
 
-fn ready_subtree() -> Node<CaptainBlackboard> {
+fn ready_subtree() -> Node<Blackboard> {
     action!(stand)
 }
 
-fn playing_subtree() -> Node<CaptainBlackboard> {
+fn playing_subtree() -> Node<Blackboard> {
     selection!(sequence!(
         condition!(has_ball_position),
         action!(walk_to_ball)

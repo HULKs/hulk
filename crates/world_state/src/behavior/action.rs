@@ -3,9 +3,9 @@ use types::{
     motion_command::{HeadMotion, ImageRegion, MotionCommand},
 };
 
-use crate::behavior::node::CaptainBlackboard;
+use crate::behavior::node::Blackboard;
 
-pub fn injected_motion_command(context: &mut CaptainBlackboard) -> Status {
+pub fn injected_motion_command(context: &mut Blackboard) -> Status {
     if let Some(injected_motion_command) = &context.parameters.injected_motion_command {
         context.output = Some(injected_motion_command.clone());
         Status::Success
@@ -14,12 +14,12 @@ pub fn injected_motion_command(context: &mut CaptainBlackboard) -> Status {
     }
 }
 
-pub fn prepare(context: &mut CaptainBlackboard) -> Status {
+pub fn prepare(context: &mut Blackboard) -> Status {
     context.output = Some(MotionCommand::Prepare);
     Status::Success
 }
 
-pub fn stand(context: &mut CaptainBlackboard) -> Status {
+pub fn stand(context: &mut Blackboard) -> Status {
     context.output = Some(MotionCommand::Stand {
         head: HeadMotion::Center {
             image_region_target: ImageRegion::Top,
@@ -28,12 +28,12 @@ pub fn stand(context: &mut CaptainBlackboard) -> Status {
     Status::Success
 }
 
-pub fn stand_up(context: &mut CaptainBlackboard) -> Status {
+pub fn stand_up(context: &mut Blackboard) -> Status {
     context.output = Some(MotionCommand::StandUp);
     Status::Success
 }
 
-pub fn walk_to_ball(context: &mut CaptainBlackboard) -> Status {
+pub fn walk_to_ball(context: &mut Blackboard) -> Status {
     if let Some(ball) = &context.world_state.ball {
         context.output = Some(MotionCommand::WalkWithVelocity {
             head: HeadMotion::LookAt {

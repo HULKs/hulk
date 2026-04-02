@@ -12,7 +12,7 @@ use types::{
 
 use crate::behavior::{behavior_tree::Node, tree::create_tree};
 
-fn create_tree_default() -> Node<CaptainBlackboard> {
+fn create_tree_default() -> Node<Blackboard> {
     create_tree()
 }
 
@@ -23,13 +23,13 @@ fn create_static_layout_default() -> NodeTrace {
 #[derive(Serialize, Deserialize)]
 pub struct Behavior {
     #[serde(skip_deserializing, default = "create_tree_default")]
-    pub tree: Node<CaptainBlackboard>,
+    pub tree: Node<Blackboard>,
     #[serde(skip_deserializing, default = "create_static_layout_default")]
     pub static_layout: NodeTrace,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
-pub struct CaptainBlackboard {
+pub struct Blackboard {
     pub world_state: WorldState,
     pub parameters: BehaviorParameters,
     pub output: Option<MotionCommand>,
@@ -68,7 +68,7 @@ impl Behavior {
             .behavior_tree_layout
             .fill_if_subscribed(|| self.static_layout.clone());
 
-        let mut blackboard = CaptainBlackboard {
+        let mut blackboard = Blackboard {
             world_state: context.world_state.clone(),
             parameters: context.parameters.clone(),
             output: None,
