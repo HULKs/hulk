@@ -12,9 +12,9 @@ use crate::{
 };
 
 const COLLIISION_LIMIT: usize = 50;
-const X_SPACING: f32 = 4.0;
-const Y_SPACING: f32 = 5.0;
+const X_SPACING: f32 = 5.0;
 const NODE_RADIUS: f32 = 2.0;
+const Y_SPACING: f32 = 5.0;
 
 #[derive(Debug, Clone)]
 pub struct CircleNode {
@@ -41,7 +41,7 @@ impl CircleNode {
             self.position,
             Align2::CENTER_CENTER,
             self.name.clone(),
-            FontId::default(),
+            FontId::proportional(0.35 * painter.scaling()),
             Color32::WHITE,
         );
         painter.circle(
@@ -272,7 +272,7 @@ fn build_tree_layout(
     let name = match node_trace.name.as_str() {
         "Selection" => "?".to_string(),
         "Sequence" => "->".to_string(),
-        _ => node_trace.name.clone(),
+        _ => node_trace.name.clone().replace(": ", ":\n"),
     };
 
     circle_nodes.push(CircleNode::new(

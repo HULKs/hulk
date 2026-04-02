@@ -141,14 +141,13 @@ impl<Context> Node<Context> {
 macro_rules! condition {
     ($func:ident) => {
         $crate::behavior::behavior_tree::Node::Condition {
-            // Because it's a string literal, it's immediately a &'static str! Zero allocations!
             name: stringify!($func),
             condition: Box::new($func),
         }
     };
     ($func:ident, $($arg:expr),+ $(,)?) => {
         $crate::behavior::behavior_tree::Node::Condition {
-            name: stringify!($func),
+            name: stringify!($func:$($arg),+),
             condition: Box::new(move |ctx| {
                 $func(ctx, $($arg.clone()),+)
             }),
@@ -158,17 +157,15 @@ macro_rules! condition {
 
 #[macro_export]
 macro_rules! action {
-    // Matches 0-parameter function: action(stand)
     ($func:expr) => {
         $crate::behavior::behavior_tree::Node::Action{
             name: stringify!($func),
             action: Box::new($func)
         }
     };
-    // Matches N-parameter function: action(walk_to, 5.0, 0.0)
     ($func:expr, $($arg:expr),+ $(,)?) => {
         $crate::behavior::behavior_tree::Node::Action{
-            name: stringify!($func),
+            name: stringify!($func:$($arg),+),
             action: Box::new(move |ctx| {
                 $func(ctx, $($arg.clone()),+)
             })
@@ -201,7 +198,6 @@ impl<Context> Serialize for Node<Context> {
     where
         S: serde::Serializer,
     {
-        // 1. Extract the relevant data into a unified format
         let (node_type, name, children) = match self {
             Node::Selection { name, children } => ("Selection", *name, Some(children)),
             Node::Sequence { name, children } => ("Sequence", *name, Some(children)),
@@ -210,7 +206,6 @@ impl<Context> Serialize for Node<Context> {
             Node::Failure => ("Failure", "Failure", None),
         };
 
-        // 2. Serialize dynamically based on whether it has children
         let num_fields = if children.is_some() { 3 } else { 2 };
         let mut state = serializer.serialize_struct("Node", num_fields)?;
 

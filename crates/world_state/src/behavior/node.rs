@@ -33,7 +33,7 @@ pub struct CycleContext {
     world_state: Input<WorldState, "world_state">,
     parameters: Parameter<BehaviorParameters, "behavior">,
     behavior_trace: AdditionalOutput<NodeTrace, "behavior.trace">,
-    behavior_tree_layout: AdditionalOutput<NodeTrace, "behavior.tree_layout">, 
+    behavior_tree_layout: AdditionalOutput<NodeTrace, "behavior.tree_layout">,
 }
 
 #[context]
