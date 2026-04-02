@@ -2,7 +2,7 @@ use coordinate_systems::World;
 use eframe::egui::{Align2, Color32, FontId, Response, Stroke, Ui, Widget};
 use linear_algebra::{IntoTransform, Point2, distance, point, vector};
 use nalgebra::Similarity2;
-use types::behavior_tree::NodeTrace;
+use types::behavior_tree::{NodeTrace, Status};
 
 use crate::{
     panel::{Panel, PanelCreationContext},
@@ -169,7 +169,7 @@ impl<'a> Panel<'a> for BehaviorTreePanel {
     const NAME: &'static str = "Behavior Tree";
 
     fn new(context: PanelCreationContext) -> Self {
-        let mut circle_nodes = Vec::new();
+        let circle_nodes = Vec::new();
         let connections = Vec::new();
 
         Self {
@@ -205,6 +205,11 @@ impl Widget for &mut BehaviorTreePanel {
                     &mut next_x,
                 );
             }
+        } else if let Some(trace) = self.trace_buffer.get_last_value().ok().flatten().flatten() {
+            for node in &mut self.circle_nodes {
+                node.stroke = Stroke::new(0.1, Color32::LIGHT_GRAY);
+            }
+            update_status_colors(&trace, 0, &mut self.circle_nodes, &mut self.connections);
         }
 
         let (response, mut painter) = TwixPainter::<World>::allocate(
@@ -303,4 +308,30 @@ fn build_tree_layout(
     circle_nodes[node_index].position = point![avg_x, depth as f32 * Y_SPACING];
 
     node_index
+}
+
+fn update_status_colors(
+    node_trace: &NodeTrace,
+    node_index: usize,
+    circle_nodes: &mut Vec<CircleNode>,
+    connections: &mut Vec<Connection>,
+) {
+    let color = match node_trace.status {
+        Status::Success => Color32::GREEN,
+        Status::Failure => Color32::RED,
+        Status::Running => Color32::YELLOW,
+        Status::Idle => Color32::LIGHT_GRAY,
+    };
+
+    circle_nodes[node_index].stroke = Stroke::new(0.1, color);
+
+    let layout_children: Vec<usize> = connections
+        .iter()
+        .filter(|c| c.from == node_index)
+        .map(|c| c.to)
+        .collect();
+
+    for (child_trace, &child_index) in node_trace.children.iter().zip(layout_children.iter()) {
+        update_status_colors(child_trace, child_index, circle_nodes, connections);
+    }
 }
