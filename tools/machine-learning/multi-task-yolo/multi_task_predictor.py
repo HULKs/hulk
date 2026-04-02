@@ -283,10 +283,10 @@ def main() -> None:
         format="%(asctime)s | %(levelname)s | %(message)s",
     )
 
-    tasks = {"detection": "yolo26m.pt", "pose": "yolo26m-pose.pt"}
+    tasks = {"detection": "yolo26m-tuned.pt", "pose": "yolo26m-pose.pt"}
 
     multi_task_model = MultiTaskYOLO(
-        foundation_path="yolo26m.pt", task_dict=tasks
+        foundation_path="yolo26m-tuned.pt", task_dict=tasks
     )
 
     predictor = MultiTaskPredictor(multi_task_model)
