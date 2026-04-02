@@ -25,38 +25,6 @@ pub enum Node<Context> {
 }
 
 impl<Context> Node<Context> {
-    pub fn tick(&self, context: &mut Context) -> Status {
-        match self {
-            Node::Action { action, .. } => action(context),
-            Node::Condition { condition, .. } => {
-                if condition(context) {
-                    Status::Success
-                } else {
-                    Status::Failure
-                }
-            }
-            Node::Failure => Status::Failure,
-            Node::Selection { children, .. } => {
-                for child in children {
-                    let status = child.tick(context);
-                    if matches!(status, Status::Success | Status::Running) {
-                        return status;
-                    }
-                }
-                Status::Failure
-            }
-            Node::Sequence { children, .. } => {
-                for child in children {
-                    let status = child.tick(context);
-                    if matches!(status, Status::Failure | Status::Running) {
-                        return status;
-                    }
-                }
-                Status::Success
-            }
-        }
-    }
-
     pub fn tick_with_trace(&self, context: &mut Context) -> (Status, NodeTrace) {
         let name = match self {
             Node::Action { name, .. }
