@@ -78,6 +78,7 @@ homepage = "https://github.com/hulks/hulk"
 
 [workspace.dependencies]
 aliveness = { path = "crates/aliveness" }
+alsa = "0.11.0"
 approx = "0.5.1"
 approx_derive = { path = "crates/approx_derive" }
 argument_parsers = { path = "crates/argument_parsers" }
