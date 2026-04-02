@@ -20,7 +20,7 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
-    // support_side: RequiredInput<Option<Side>, "support_foot.support_side?">,
+    support_side: RequiredInput<Option<Side>, "support_foot?">,
     imu_state: PerceptionInput<ImuState, "Motion", "imu_state">,
 }
 
@@ -105,10 +105,7 @@ impl GroundProvider {
             ] / 2.0,
         );
 
-        // todo: Rewrite control::ground_contact_detector
-        let support_side = Side::Left;
-
-        let ground_to_robot = match support_side {
+        let ground_to_robot = match context.support_side {
             Side::Left => left_sole_horizontal_to_robot * ground_to_left_sole,
             Side::Right => right_sole_horizontal_to_robot * ground_to_right_sole,
         };
