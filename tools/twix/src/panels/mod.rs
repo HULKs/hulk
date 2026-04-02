@@ -1,4 +1,5 @@
 mod behavior_simulator;
+mod behavior_tree;
 mod enum_plot;
 mod image;
 mod image_color_select;
@@ -13,6 +14,7 @@ mod text;
 mod vision_tuner;
 
 pub use behavior_simulator::BehaviorSimulatorPanel;
+pub use behavior_tree::BehaviorTreePanel;
 pub use enum_plot::EnumPlotPanel;
 pub use image::ImagePanel;
 pub use image_color_select::ImageColorSelectPanel;

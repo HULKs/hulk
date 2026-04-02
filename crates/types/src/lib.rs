@@ -3,6 +3,7 @@ pub mod action;
 pub mod audio;
 pub mod ball_detection;
 pub mod ball_position;
+pub mod behavior_tree;
 pub mod bounding_box;
 pub mod buttons;
 pub mod calibration;
