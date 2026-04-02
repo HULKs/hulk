@@ -17,7 +17,7 @@ from ultralytics.utils.ops import (
 )
 from ultralytics.utils.plotting import Annotator, colors
 
-from multi_task_yolo import MultiTaskYOLO
+from multi_task_yolo import Hydra
 
 logger = logging.getLogger(__name__)
 
@@ -60,17 +60,17 @@ class MultiTaskPredictor:
         self.preprocessor = LetterBox(new_shape=(640, 640))
         self.task_class_names = cast(
             dict[str, ClassNames],
-            getattr(self.model, "task_class_names", {}),
+            getattr(self.model, "head_class_names", {}),
         )
 
         self.task_meta: dict[str, TaskMeta] = {}
-        task_branches = cast(
+        heads = cast(
             dict[str, nn.ModuleList],
-            getattr(self.model, "task_branches", {}),
+            getattr(self.model, "heads", {}),
         )
-        for task_name, branch in task_branches.items():
-            head = branch[-1]
-            self.task_meta[task_name] = TaskMeta(
+        for head_name, head in heads.items():
+            head = head[-1]
+            self.task_meta[head_name] = TaskMeta(
                 nc=int(getattr(head, "nc", 80)),
                 kpt_shape=self._parse_kpt_shape(
                     getattr(head, "kpt_shape", (17, 3))
@@ -285,7 +285,7 @@ def main() -> None:
 
     tasks = {"detection": "yolo26m-tuned.pt", "pose": "yolo26m-pose.pt"}
 
-    multi_task_model = MultiTaskYOLO(
+    multi_task_model = Hydra(
         foundation_path="yolo26m-tuned.pt", task_dict=tasks
     )
 
