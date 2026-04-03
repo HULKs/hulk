@@ -1,5 +1,4 @@
 import logging
-import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -10,13 +9,10 @@ import numpy as np
 import numpy.typing as npt
 import torch
 from torch import nn
-from ultralytics.data.augment import LetterBox
-from ultralytics.utils.nms import non_max_suppression
-from ultralytics.utils.ops import (
-    scale_boxes,
-    scale_coords,
-)
-from ultralytics.utils.plotting import Annotator, colors
+from ultralytics.engine.results import Results
+from ultralytics.models.yolo.detect.predict import DetectionPredictor
+from ultralytics.models.yolo.pose.predict import PosePredictor
+from ultralytics.nn.autobackend import check_class_names
 
 from model.multi_task_yolo import Hydra
 
@@ -24,19 +20,25 @@ logger = logging.getLogger(__name__)
 
 ImageArray = npt.NDArray[np.uint8]
 Shape2D = tuple[int, int]
-TaskOutputs = dict[str, torch.Tensor]
+TaskResults = dict[str, Results]
 ClassNames = Mapping[int, str] | Sequence[str] | None
 
 
 @dataclass(frozen=True)
 class TaskMeta:
-    nc: int
-    kpt_shape: tuple[int, int]
+    names: dict[int, str]
+    kpt_shape: tuple[int, int] | None = None
 
 
-class UnsupportedPredictionOutputError(TypeError):
-    def __init__(self) -> None:
-        super().__init__("Unsupported prediction output format")
+@dataclass
+class PredictorModelProxy:
+    names: dict[int, str]
+    kpt_shape: tuple[int, int] | None = None
+    fp16: bool = False
+    stride: int = 32
+    format: str = "pt"
+    dynamic: bool = False
+    end2end: bool = True
 
 
 class ImageLoadError(FileNotFoundError):
@@ -49,16 +51,25 @@ class InvalidModelOutputError(TypeError):
         super().__init__("Model output must be a mapping")
 
 
+class MissingTaskPredictorError(RuntimeError):
+    def __init__(self) -> None:
+        super().__init__(
+            "No supported task predictors available for preprocessing"
+        )
+
+
 class MultiTaskPredictor:
     def __init__(
         self,
         multi_task_model: nn.Module,
         device: str | None = None,
+        imgsz: Shape2D = (640, 640),
     ) -> None:
-        self.device = device or ("cuda" if torch.cuda.is_available() else "cpu")
+        self.device = torch.device(
+            device or ("cuda" if torch.cuda.is_available() else "cpu")
+        )
         self.model = multi_task_model.to(self.device)
         self.model.eval()
-        self.preprocessor = LetterBox(new_shape=(640, 640))
         self.task_class_names = cast(
             dict[str, ClassNames],
             getattr(self.model, "head_class_names", {}),
@@ -71,12 +82,20 @@ class MultiTaskPredictor:
         )
         for head_name, head in heads.items():
             head = head[-1]
+            raw_kpt_shape = getattr(head, "kpt_shape", None)
             self.task_meta[head_name] = TaskMeta(
-                nc=int(getattr(head, "nc", 80)),
-                kpt_shape=self._parse_kpt_shape(
-                    getattr(head, "kpt_shape", (17, 3))
+                names=self._normalize_class_names(
+                    self.task_class_names.get(head_name)
+                ),
+                kpt_shape=(
+                    self._parse_kpt_shape(raw_kpt_shape)
+                    if raw_kpt_shape is not None
+                    else None
                 ),
             )
+
+        self.task_predictors = self._build_task_predictors(imgsz)
+        self.preprocess_predictor = self._select_preprocess_predictor()
 
     @staticmethod
     def _parse_kpt_shape(raw_shape: Any) -> tuple[int, int]:
@@ -85,81 +104,93 @@ class MultiTaskPredictor:
         return 17, 3
 
     @staticmethod
-    def _extract_prediction_tensor(raw_output: Any) -> torch.Tensor:
-        if isinstance(raw_output, torch.Tensor):
-            return raw_output
-        if isinstance(raw_output, (list, tuple)) and len(raw_output):
-            first = raw_output[0]
-            if isinstance(first, torch.Tensor):
-                return first
-        raise UnsupportedPredictionOutputError
+    def _normalize_class_names(class_names: ClassNames) -> dict[int, str]:
+        if isinstance(class_names, Mapping):
+            return check_class_names(dict(class_names))
+        if isinstance(class_names, Sequence) and not isinstance(
+            class_names, str
+        ):
+            return check_class_names(list(class_names))
+        return {}
 
-    @staticmethod
-    def _is_end2end_decoded(pred_tensor: torch.Tensor) -> bool:
-        return pred_tensor.ndim == 3 and pred_tensor.shape[-1] <= 512
-
-    @staticmethod
-    def _filter_end2end_predictions(
-        pred_tensor: torch.Tensor,
-        conf_thres: float,
-    ) -> list[torch.Tensor]:
-        filtered: list[torch.Tensor] = []
-        for sample in pred_tensor:
-            filtered.append(sample[sample[:, 4] > conf_thres])
-        return filtered
-
-    @staticmethod
-    def _scale_pose_keypoints(
-        pose_predictions: torch.Tensor,
-        resized_shape: Shape2D,
-        img_shape: tuple[int, int, int],
-        kpt_shape: tuple[int, int],
+    def _configure_predictor(
+        self,
+        predictor: DetectionPredictor | PosePredictor,
+        model_proxy: PredictorModelProxy,
+        imgsz: Shape2D,
     ) -> None:
-        if len(pose_predictions) == 0:
-            return
+        runtime_predictor = cast(Any, predictor)
+        runtime_predictor.model = model_proxy
+        runtime_predictor.device = self.device
+        runtime_predictor.imgsz = list(imgsz)
 
-        n_kpt, kpt_dim = kpt_shape[0], kpt_shape[1]
-        if n_kpt <= 0 or kpt_dim < 2:
-            return
+    def _build_task_predictors(
+        self,
+        imgsz: Shape2D,
+    ) -> dict[str, DetectionPredictor | PosePredictor]:
+        task_predictors: dict[str, DetectionPredictor | PosePredictor] = {}
 
-        expected_len = n_kpt * kpt_dim
-        actual_len = pose_predictions.shape[1] - 6
-        if actual_len != expected_len:
-            return
+        detection_meta = self.task_meta.get("detection")
+        if detection_meta is not None:
+            detection_predictor = DetectionPredictor(
+                overrides={"imgsz": list(imgsz), "task": "detect"}
+            )
+            self._configure_predictor(
+                predictor=detection_predictor,
+                model_proxy=PredictorModelProxy(names=detection_meta.names),
+                imgsz=imgsz,
+            )
+            task_predictors["detection"] = detection_predictor
 
-        kpts = pose_predictions[:, 6:].view(-1, n_kpt, kpt_dim)
-        kpts[..., :2] = scale_coords(resized_shape, kpts[..., :2], img_shape)
-        pose_predictions[:, 6:] = kpts.view(len(pose_predictions), -1)
+        pose_meta = self.task_meta.get("pose")
+        if pose_meta is not None:
+            pose_predictor = PosePredictor(
+                overrides={"imgsz": list(imgsz), "task": "pose"}
+            )
+            self._configure_predictor(
+                predictor=pose_predictor,
+                model_proxy=PredictorModelProxy(
+                    names=pose_meta.names,
+                    kpt_shape=pose_meta.kpt_shape or (17, 3),
+                    end2end=True,
+                ),
+                imgsz=imgsz,
+            )
+            task_predictors["pose"] = pose_predictor
+
+        return task_predictors
+
+    def _select_preprocess_predictor(
+        self,
+    ) -> DetectionPredictor | PosePredictor:
+        detection_predictor = self.task_predictors.get("detection")
+        if detection_predictor is not None:
+            return detection_predictor
+
+        pose_predictor = self.task_predictors.get("pose")
+        if pose_predictor is not None:
+            return pose_predictor
+
+        raise MissingTaskPredictorError
 
     def preprocess(
         self,
         img_path: str | Path,
-    ) -> tuple[torch.Tensor, ImageArray, Shape2D]:
+    ) -> tuple[torch.Tensor, ImageArray]:
         image_bgr = cv2.imread(str(img_path))
         if image_bgr is None:
             raise ImageLoadError
 
-        preprocessed = self.preprocessor(image=image_bgr)
-        if isinstance(preprocessed, dict):
-            letterboxed = cast(ImageArray, preprocessed["img"])
-        else:
-            letterboxed = cast(ImageArray, preprocessed)
-
-        chw_rgb = letterboxed.transpose((2, 0, 1))[::-1]
-        chw_rgb = np.ascontiguousarray(chw_rgb)
-        img_tensor = torch.from_numpy(chw_rgb).to(self.device).float() / 255.0
-        if len(img_tensor.shape) == 3:
-            img_tensor = img_tensor[None]
-        resized_shape = (int(letterboxed.shape[0]), int(letterboxed.shape[1]))
-        return img_tensor, cast(ImageArray, image_bgr), resized_shape
+        img_tensor = self.preprocess_predictor.preprocess([image_bgr])
+        return img_tensor, cast(ImageArray, image_bgr)
 
     def predict(
         self,
         img_path: str | Path,
         conf_thres: float = 0.25,
         iou_thres: float = 0.45,
-    ) -> tuple[TaskOutputs, ImageArray]:
-        img_tensor, img_orig, resized_shape = self.preprocess(img_path)
+    ) -> tuple[TaskResults, ImageArray]:
+        img_tensor, img_orig = self.preprocess(img_path)
 
         with torch.no_grad():
             raw_outputs = self.model(img_tensor)
@@ -167,115 +198,52 @@ class MultiTaskPredictor:
         if not isinstance(raw_outputs, Mapping):
             raise InvalidModelOutputError
 
-        results: TaskOutputs = {}
+        results: TaskResults = {}
 
-        if "detection" in raw_outputs:
-            det_raw = self._extract_prediction_tensor(raw_outputs["detection"])
-            if self._is_end2end_decoded(det_raw):
-                det_preds = self._filter_end2end_predictions(
-                    det_raw, conf_thres
-                )
-            else:
-                nc_det = self.task_meta["detection"].nc
-                det_preds = non_max_suppression(
-                    det_raw, conf_thres, iou_thres, nc=nc_det
-                )
-            if len(det_preds[0]):
-                det_preds[0][:, :4] = scale_boxes(
-                    resized_shape, det_preds[0][:, :4], img_orig.shape
-                )
-            results["detection"] = det_preds[0]
+        for task_name, raw_output in raw_outputs.items():
+            task_predictor = self.task_predictors.get(task_name)
+            if task_predictor is None:
+                logger.warning("Skipping unsupported task head: %s", task_name)
+                continue
 
-        if "pose" in raw_outputs:
-            pose_raw = self._extract_prediction_tensor(raw_outputs["pose"])
-            if self._is_end2end_decoded(pose_raw):
-                pose_preds = self._filter_end2end_predictions(
-                    pose_raw, conf_thres
-                )
-            else:
-                nc_pose = self.task_meta["pose"].nc
-                pose_preds = non_max_suppression(
-                    pose_raw, conf_thres, iou_thres, nc=nc_pose
-                )
+            task_predictor.args.conf = conf_thres
+            task_predictor.args.iou = iou_thres
+            task_predictor.batch = ([str(img_path)], None, None)
 
-            if len(pose_preds[0]):
-                pose_preds[0][:, :4] = scale_boxes(
-                    resized_shape, pose_preds[0][:, :4], img_orig.shape
-                )
-                self._scale_pose_keypoints(
-                    pose_preds[0],
-                    resized_shape,
-                    img_orig.shape,
-                    self.task_meta["pose"].kpt_shape,
-                )
+            task_results = task_predictor.postprocess(
+                raw_output,
+                img_tensor,
+                [img_orig],
+            )
+            if not task_results:
+                continue
+            result = task_results[0]
 
-            results["pose"] = pose_preds[0]
-
-        for head_name, head_predictions in results.items():
-            logger.info("%s: %d detections", head_name, len(head_predictions))
+            results[task_name] = result
+            logger.info("%s: %s", task_name, result.verbose().strip())
 
         return results, img_orig
 
 
 def visualize_multi_task_predictions(
     original_image: ImageArray,
-    predictions: Mapping[str, torch.Tensor],
-    kpt_shape: tuple[int, int] | None = None,
+    predictions: Mapping[str, Results],
     save_path: str | Path = "unified_output.jpg",
-    detection_class_names: ClassNames = None,
 ) -> ImageArray:
-    annotator = Annotator(original_image.copy(), line_width=2, font_size=10)
+    annotated_image = original_image.copy()
 
-    if "detection" in predictions and len(predictions["detection"]) > 0:
-        for det in predictions["detection"]:
-            x1, y1, x2, y2, conf, cls_id = det[:6].tolist()
-            cls_id = int(cls_id)
-            cls_name = str(cls_id)
-            if isinstance(detection_class_names, dict):
-                cls_name = detection_class_names.get(cls_id, cls_name)
-            elif (
-                isinstance(detection_class_names, Sequence)
-                and not isinstance(detection_class_names, str)
-                and 0 <= cls_id < len(detection_class_names)
-            ):
-                cls_name = detection_class_names[cls_id]
-            label = f"{cls_name} {conf:.2f}"
-            annotator.box_label(
-                [x1, y1, x2, y2], label, color=colors(cls_id, bgr=True)
-            )
+    if "detection" in predictions:
+        annotated_image = predictions["detection"].plot(img=annotated_image)
 
-    if "pose" in predictions and len(predictions["pose"]) > 0:
-        for pose in predictions["pose"]:
-            box = pose[:4].tolist()
-            conf = pose[4].item()
+    if "pose" in predictions:
+        annotated_image = predictions["pose"].plot(
+            img=annotated_image,
+            color_mode="instance",
+            kpt_line=True,
+        )
 
-            label = f"Person {conf:.2f}"
-            annotator.box_label(box, label, color=(0, 255, 0))
-
-            kpts_flat = pose[6:]
-            actual_len = len(kpts_flat)
-
-            if kpt_shape is not None and (
-                kpt_shape[0] * kpt_shape[1] == actual_len
-            ):
-                kpts = kpts_flat.view(*kpt_shape).cpu().numpy()
-                annotator.kpts(kpts, shape=original_image.shape, kpt_line=True)
-            else:
-                if actual_len % 3 == 0:
-                    kpts = kpts_flat.view(-1, 3).cpu().numpy()
-                    annotator.kpts(
-                        kpts, shape=original_image.shape, kpt_line=True
-                    )
-                elif actual_len % 2 == 0:
-                    kpts = kpts_flat.view(-1, 2).cpu().numpy()
-                    annotator.kpts(
-                        kpts, shape=original_image.shape, kpt_line=True
-                    )
-
-    annotated = annotator.result()
-    annotated_image = cast(ImageArray, np.asarray(annotated))
     cv2.imwrite(str(save_path), annotated_image)
-    return annotated_image
+    return cast(ImageArray, np.asarray(annotated_image))
 
 
 def main() -> None:
@@ -301,16 +269,12 @@ def main() -> None:
         conf_thres=0.1,
     )
 
-    pose_shape = predictor.task_meta["pose"].kpt_shape
-    detection_class_names = predictor.task_class_names.get("detection")
-
-    os.makedirs("src/validation/output", exist_ok=True)
+    output_dir = Path("src/validation/output")
+    output_dir.mkdir(parents=True, exist_ok=True)
     visualize_multi_task_predictions(
         original_image,
         predictions,
-        kpt_shape=pose_shape,
-        save_path="src/validation/output/test.png",
-        detection_class_names=detection_class_names,
+        save_path=output_dir / "test.png",
     )
 
 
