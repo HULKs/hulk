@@ -29,7 +29,10 @@ pub fn execute(
         look_action.execute(),
         path_obstacles_output,
         walk_speed,
-        OrientationMode::AlignWithPath,
+        OrientationMode::LookAt {
+            target: Point2::origin(),
+            tolerance: 0.1,
+        },
         distance_to_be_aligned,
         walk_and_stand.parameters.hysteresis,
     )
