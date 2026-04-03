@@ -46,19 +46,44 @@ class Hydra(nn.Module):
         self.save_backbone = cast(list[int], foundation_root.save)
 
         self.heads = nn.ModuleDict()
-        self.branch_saves = {}
-        self.head_class_names = {}
+        self.branch_saves: dict[str, list[int]] = {}
+        self.head_class_names: dict[str, Any] = {}
+        self.head_strides: dict[str, torch.Tensor] = {}
+        self.head_end2end: dict[str, bool] = {}
+        self.head_kpt_shapes: dict[str, tuple[int, int] | None] = {}
 
         for task_name, model_path in task_dict.items():
             logger.info("Extracting %s head from: %s", task_name, model_path)
             task_yolo = YOLO(model_path)
             task_root = cast(DetectionModel, task_yolo.model)
+            task_head = task_root.model[-1]
 
             self.heads[task_name] = get_head(task_root)
             self.branch_saves[task_name] = cast(list[int], task_root.save)
             self.head_class_names[task_name] = getattr(task_root, "names", {})
+            stride = getattr(task_head, "stride", torch.tensor([8, 16, 32]))
+            self.head_strides[task_name] = torch.as_tensor(stride)
+            self.head_end2end[task_name] = bool(
+                getattr(
+                    task_head,
+                    "end2end",
+                    getattr(task_root, "end2end", False),
+                )
+            )
 
-    def forward(self, x: torch.Tensor) -> dict[str, torch.Tensor]:
+            raw_kpt_shape = getattr(task_head, "kpt_shape", None)
+            if (
+                isinstance(raw_kpt_shape, (list, tuple))
+                and len(raw_kpt_shape) >= 2
+            ):
+                self.head_kpt_shapes[task_name] = (
+                    int(raw_kpt_shape[0]),
+                    int(raw_kpt_shape[1]),
+                )
+            else:
+                self.head_kpt_shapes[task_name] = None
+
+    def forward(self, x: torch.Tensor) -> dict[str, Any]:
         y_backbone: list[torch.Tensor | None] = []
         backbone_activations: Any = x
 
@@ -78,7 +103,7 @@ class Hydra(nn.Module):
                 backbone_activations if i in self.save_backbone else None
             )
 
-        outputs: dict[str, torch.Tensor] = {}
+        outputs: dict[str, Any] = {}
 
         for head_name, head_module in self.heads.items():
             head = cast(nn.ModuleList, head_module)
@@ -111,6 +136,6 @@ class Hydra(nn.Module):
                     else None
                 )
 
-            outputs[head_name] = cast(torch.Tensor, head_activations)
+            outputs[head_name] = head_activations
 
         return outputs
