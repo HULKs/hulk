@@ -4,4 +4,4 @@
 *.pt
 !yolo26m-tuned.pt
 
-validation/output/
+src/validation/output/

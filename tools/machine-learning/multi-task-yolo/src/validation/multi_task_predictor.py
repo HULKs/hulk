@@ -1,4 +1,5 @@
 import logging
+import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -17,7 +18,7 @@ from ultralytics.utils.ops import (
 )
 from ultralytics.utils.plotting import Annotator, colors
 
-from multi_task_yolo import Hydra
+from model.multi_task_yolo import Hydra
 
 logger = logging.getLogger(__name__)
 
@@ -117,7 +118,7 @@ class MultiTaskPredictor:
         if len(pose_predictions) == 0:
             return
 
-        n_kpt, kpt_dim = int(kpt_shape[0]), int(kpt_shape[1])
+        n_kpt, kpt_dim = kpt_shape[0], kpt_shape[1]
         if n_kpt <= 0 or kpt_dim < 2:
             return
 
@@ -283,29 +284,34 @@ def main() -> None:
         format="%(asctime)s | %(levelname)s | %(message)s",
     )
 
-    tasks = {"detection": "yolo26m-tuned.pt", "pose": "yolo26m-pose.pt"}
+    tasks = {
+        "detection": "src/validation/assets/yolo26m-tuned.pt",
+        "pose": "src/validation/assets/yolo26m-pose.pt",
+    }
 
     multi_task_model = Hydra(
-        foundation_path="yolo26m-tuned.pt", task_dict=tasks
+        foundation_path="src/validation/assets/yolo26m-tuned.pt",
+        task_dict=tasks,
     )
 
     predictor = MultiTaskPredictor(multi_task_model)
 
     predictions, original_image = predictor.predict(
-        "./validation/2173162b-cd77-4dec-923b-e28eafd3297c.png",
+        "src/validation/assets/2173162b-cd77-4dec-923b-e28eafd3297c.png",
         conf_thres=0.1,
     )
 
     pose_shape = predictor.task_meta["pose"].kpt_shape
     detection_class_names = predictor.task_class_names.get("detection")
+
+    os.makedirs("src/validation/output", exist_ok=True)
     visualize_multi_task_predictions(
         original_image,
         predictions,
         kpt_shape=pose_shape,
-        save_path="./validation/output/test.png",
+        save_path="src/validation/output/test.png",
         detection_class_names=detection_class_names,
     )
-    multi_task_model.eval()
 
 
 if __name__ == "__main__":

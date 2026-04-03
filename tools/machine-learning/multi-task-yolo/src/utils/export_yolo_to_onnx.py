@@ -4,7 +4,7 @@ import click
 import torch
 from torch import ByteTensor, Tensor, nn
 
-from nv12_to_rgb import NV12ToRgb
+from .nv12_to_rgb import NV12ToRgb
 
 
 def load_raw_yolo_network(model_path: Path) -> nn.Module:
