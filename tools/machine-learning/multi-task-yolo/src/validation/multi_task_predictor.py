@@ -251,25 +251,29 @@ def main() -> None:
         level=logging.INFO,
         format="%(asctime)s | %(levelname)s | %(message)s",
     )
+    assets_dir = Path("assets")
+    output_dir = assets_dir / Path("output")
 
     tasks = {
-        "detection": "src/validation/assets/yolo26m-tuned.pt",
-        "pose": "src/validation/assets/yolo26m-pose.pt",
+        "detection": str(assets_dir / "yolo26m-tuned.pt"),
+        "pose": str(assets_dir / "yolo26m-pose.pt"),
     }
 
     multi_task_model = Hydra(
-        foundation_path="src/validation/assets/yolo26m-tuned.pt",
+        foundation_path=str(assets_dir / "yolo26m-tuned.pt"),
         task_dict=tasks,
     )
 
     predictor = MultiTaskPredictor(multi_task_model)
 
     predictions, original_image = predictor.predict(
-        "src/validation/assets/2173162b-cd77-4dec-923b-e28eafd3297c.png",
+        str(
+            assets_dir
+            / "datasets/htwk_T1/GP1_RoboErectus_Salvador_2025-08-15-09-21-08_out/image_0.jpg"
+        ),
         conf_thres=0.1,
     )
 
-    output_dir = Path("src/validation/output")
     output_dir.mkdir(parents=True, exist_ok=True)
     visualize_multi_task_predictions(
         original_image,
