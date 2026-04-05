@@ -250,27 +250,28 @@ def main() -> None:
     )
     parser.add_argument(
         "--foundation",
-        default="src/validation/assets/yolo26m-tuned.pt",
+        default="assets/yolo26m.pt",
         help="Path to the foundation checkpoint",
     )
     parser.add_argument(
         "--detection-model",
-        default="src/validation/assets/yolo26m-tuned.pt",
+        default="assets/yolo26m.pt",
         help="Path to the detection checkpoint",
     )
     parser.add_argument(
         "--pose-model",
-        default="src/validation/assets/yolo26m-pose.pt",
+        default="assets/yolo26m-pose.pt",
         help="Path to the pose checkpoint",
     )
     parser.add_argument(
         "--detection-data",
-        required=True,
+        default="coco.yaml",
         help="Detection dataset YAML path",
     )
     parser.add_argument(
         "--pose-data",
-        help="Pose dataset YAML path (optional)",
+        default="coco-pose.yaml",
+        help="Pose dataset YAML path",
     )
     parser.add_argument(
         "--imgsz",
