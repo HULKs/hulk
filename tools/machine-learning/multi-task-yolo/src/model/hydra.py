@@ -1,13 +1,17 @@
 import logging
+from collections.abc import Mapping, Sequence
 from typing import Any, cast
 from zipfile import Path
 
 import torch
 import torch.nn as nn
 from ultralytics.models.yolo.model import YOLO
+from ultralytics.nn.autobackend import check_class_names
 from ultralytics.nn.tasks import DetectionModel
 
 logger = logging.getLogger(__name__)
+
+ClassNames = Mapping[int, str] | Sequence[str] | None
 
 
 def get_backbone_length(yaml_config: dict) -> int:
@@ -25,6 +29,31 @@ def get_head(model: DetectionModel) -> nn.ModuleList:
     """Extracts the neck + head head dynamically."""
     split_idx = get_backbone_length(cast(dict[str, Any], model.yaml))
     return nn.ModuleList(list(model.model.children())[split_idx:])
+
+
+def _normalize_class_names(class_names: ClassNames) -> dict[int, str]:
+    if isinstance(class_names, Mapping):
+        return check_class_names(dict(class_names))
+    if isinstance(class_names, Sequence) and not isinstance(class_names, str):
+        return check_class_names(list(class_names))
+    return {}
+
+
+class MissingHydraHeadError(KeyError):
+    def __init__(self, head_name: str) -> None:
+        super().__init__(f"Hydra head '{head_name}' was not found")
+
+
+class UnsupportedHydraHeadError(ValueError):
+    def __init__(self, head_name: str) -> None:
+        super().__init__(f"Hydra head '{head_name}' is not mapped to a task")
+
+
+class InvalidHydraOutputError(TypeError):
+    def __init__(self, head_name: str) -> None:
+        super().__init__(
+            f"Hydra output did not contain expected head '{head_name}'"
+        )
 
 
 class Hydra(nn.Module):
@@ -143,3 +172,64 @@ class Hydra(nn.Module):
             outputs[head_name] = head_activations
 
         return outputs
+
+
+class HydraTaskModelAdapter(nn.Module):
+    def __init__(
+        self,
+        hydra_model: Hydra,
+        head_name: str,
+        head_model_name: str,
+        task: str,
+        names: ClassNames,
+        stride: torch.Tensor | Sequence[int] | int,
+        *,
+        end2end: bool,
+        kpt_shape: tuple[int, int] | None = None,
+    ) -> None:
+        super().__init__()
+        self.hydra = hydra_model
+        self.head_name = head_name
+        self.head_model_name = head_model_name
+        self.task = task
+
+        self.names = _normalize_class_names(names)
+        self.nc = len(self.names)
+
+        self.stride = torch.as_tensor(stride)
+        self.end2end = end2end
+        self.format = "pt"
+        self.fp16 = False
+        self.dynamic = False
+        self.yaml = {"channels": 3}
+
+        if task == "pose" and kpt_shape is not None:
+            self.kpt_shape = kpt_shape
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        *,
+        augment: bool = False,
+        visualize: bool = False,
+        embed: list[int] | None = None,
+        **kwargs: Any,
+    ) -> Any:
+        del augment, visualize, embed, kwargs
+
+        raw_outputs = self.hydra(x)
+        if (
+            not isinstance(raw_outputs, Mapping)
+            or self.head_name not in raw_outputs
+        ):
+            raise InvalidHydraOutputError(self.head_name)
+        return raw_outputs[self.head_name]
+
+    def set_head_attr(self, **kwargs: Any) -> None:
+        if self.head_name not in self.hydra.heads:
+            return
+        head = cast(nn.ModuleList, self.hydra.heads[self.head_name])
+        head_module = head[-1]
+        set_head_attr_fn = getattr(head_module, "set_head_attr", None)
+        if callable(set_head_attr_fn):
+            set_head_attr_fn(**kwargs)

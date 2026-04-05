@@ -2,24 +2,27 @@ import argparse
 import json
 import logging
 import os
-from collections.abc import Mapping, Sequence
+from collections.abc import Mapping
 from dataclasses import asdict, dataclass, replace
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Literal, cast
 
 import torch
-from torch import nn
 from ultralytics.models.yolo.detect.val import DetectionValidator
 from ultralytics.models.yolo.model import YOLO
 from ultralytics.models.yolo.pose.val import PoseValidator
-from ultralytics.nn.autobackend import check_class_names
 
-from model.multi_task_yolo import Hydra
+from model.hydra import (
+    ClassNames,
+    Hydra,
+    HydraTaskModelAdapter,
+    MissingHydraHeadError,
+    UnsupportedHydraHeadError,
+)
 
 logger = logging.getLogger(__name__)
 
-ClassNames = Mapping[int, str] | Sequence[str] | None
 ValidationType = Literal["original", "multi_task"]
 
 
@@ -73,92 +76,6 @@ class ValidationMetadata:
     model_name: str | None = None
     head_name: str | None = None
     foundation_name: str | None = None
-
-
-class MissingHydraHeadError(KeyError):
-    def __init__(self, head_name: str) -> None:
-        super().__init__(f"Hydra head '{head_name}' was not found")
-
-
-class UnsupportedHydraHeadError(ValueError):
-    def __init__(self, head_name: str) -> None:
-        super().__init__(f"Hydra head '{head_name}' is not mapped to a task")
-
-
-class InvalidHydraOutputError(TypeError):
-    def __init__(self, head_name: str) -> None:
-        super().__init__(
-            f"Hydra output did not contain expected head '{head_name}'"
-        )
-
-
-def _normalize_class_names(class_names: ClassNames) -> dict[int, str]:
-    if isinstance(class_names, Mapping):
-        return check_class_names(dict(class_names))
-    if isinstance(class_names, Sequence) and not isinstance(class_names, str):
-        return check_class_names(list(class_names))
-    return {}
-
-
-class HydraTaskModelAdapter(nn.Module):
-    def __init__(
-        self,
-        hydra_model: Hydra,
-        head_name: str,
-        head_model_name: str,
-        task: str,
-        names: ClassNames,
-        stride: torch.Tensor | Sequence[int] | int,
-        *,
-        end2end: bool,
-        kpt_shape: tuple[int, int] | None = None,
-    ) -> None:
-        super().__init__()
-        self.hydra = hydra_model
-        self.head_name = head_name
-        self.head_model_name = head_model_name
-        self.task = task
-
-        self.names = _normalize_class_names(names)
-        self.nc = len(self.names)
-
-        self.stride = torch.as_tensor(stride)
-        self.end2end = end2end
-        self.format = "pt"
-        self.fp16 = False
-        self.dynamic = False
-        self.yaml = {"channels": 3}
-
-        if task == "pose" and kpt_shape is not None:
-            self.kpt_shape = kpt_shape
-
-    def forward(
-        self,
-        x: torch.Tensor,
-        *,
-        augment: bool = False,
-        visualize: bool = False,
-        embed: list[int] | None = None,
-        **kwargs: Any,
-    ) -> Any:
-        del augment, visualize, embed, kwargs
-
-        raw_outputs = self.hydra(x)
-        if (
-            not isinstance(raw_outputs, Mapping)
-            or self.head_name not in raw_outputs
-        ):
-            raise InvalidHydraOutputError(self.head_name)
-        return raw_outputs[self.head_name]
-
-    def set_head_attr(self, **kwargs: Any) -> None:
-        if self.head_name not in self.hydra.heads:
-            return
-        head = cast(nn.ModuleList, self.hydra.heads[self.head_name])
-        head_module = head[-1]
-        set_head_attr_fn = getattr(head_module, "set_head_attr", None)
-        if callable(set_head_attr_fn):
-            set_head_attr_fn(**kwargs)
 
 
 class MultiTaskHydraValidator:

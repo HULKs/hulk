@@ -14,14 +14,13 @@ from ultralytics.models.yolo.detect.predict import DetectionPredictor
 from ultralytics.models.yolo.pose.predict import PosePredictor
 from ultralytics.nn.autobackend import check_class_names
 
-from model.multi_task_yolo import Hydra
+from model.hydra import ClassNames, Hydra
 
 logger = logging.getLogger(__name__)
 
 ImageArray = npt.NDArray[np.uint8]
 Shape2D = tuple[int, int]
 TaskResults = dict[str, Results]
-ClassNames = Mapping[int, str] | Sequence[str] | None
 
 
 @dataclass(frozen=True)
@@ -268,8 +267,9 @@ def main() -> None:
 
     predictions, original_image = predictor.predict(
         str(
-            assets_dir
-            / "datasets/htwk_T1/GP1_RoboErectus_Salvador_2025-08-15-09-21-08_out/image_0.jpg"
+            assets_dir / "datasets/htwk_T1/"
+            "GP1_RoboErectus_Salvador_2025-08-15-09-21-08_out"
+            "/image_0.jpg"
         ),
         conf_thres=0.1,
     )
