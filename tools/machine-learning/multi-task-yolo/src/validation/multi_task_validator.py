@@ -1,10 +1,12 @@
 import argparse
+import json
 import logging
 import os
 from collections.abc import Mapping, Sequence
-from dataclasses import dataclass
+from dataclasses import asdict, dataclass, replace
+from datetime import datetime
 from pathlib import Path
-from typing import Any, cast
+from typing import Any, Literal, cast
 
 import torch
 from torch import nn
@@ -18,6 +20,7 @@ from model.multi_task_yolo import Hydra
 logger = logging.getLogger(__name__)
 
 ClassNames = Mapping[int, str] | Sequence[str] | None
+ValidationType = Literal["original", "multi_task"]
 
 
 @dataclass(frozen=True)
@@ -33,10 +36,43 @@ class ValidationTaskConfig:
     half: bool = False
     plots: bool = True
     save_json: bool = False
-    save_txt: bool = True
+    save_txt: bool = False
     project: str | Path = "runs"
     exist_ok: bool = True
     device: str | None = None
+
+    def to_dict(self, **overrides: Any) -> dict[str, Any]:
+        """
+        Convert config to dictionary for serialization.
+
+        Args:
+            **overrides: Optional field overrides to apply to the result
+
+        Returns:
+            Dictionary with config values and any specified overrides
+        """
+        result = asdict(self)
+        # Convert Path objects to strings
+        result["data"] = str(result["data"])
+        result["project"] = str(result["project"])
+        # Apply any overrides
+        result.update(overrides)
+        return result
+
+
+@dataclass
+class ValidationMetadata:
+    """Metadata about a validation run."""
+
+    timestamp: str
+    validation_type: ValidationType
+    task: str
+    dataset: str
+    split: str
+    model_path: str | None = None
+    model_name: str | None = None
+    head_name: str | None = None
+    foundation_name: str | None = None
 
 
 class MissingHydraHeadError(KeyError):
@@ -186,33 +222,6 @@ class MultiTaskHydraValidator:
 
         return adapters
 
-    def _build_validator_args(
-        self,
-        task: str,
-        head_model_name: str,
-        config: ValidationTaskConfig,
-    ) -> dict[str, Any]:
-        return {
-            "task": task,
-            "data": str(config.data),
-            "split": config.split,
-            "imgsz": config.imgsz,
-            "batch": config.batch,
-            "workers": config.workers,
-            "conf": config.conf,
-            "iou": config.iou,
-            "max_det": config.max_det,
-            "half": config.half,
-            "plots": config.plots,
-            "save_json": config.save_json,
-            "save_txt": config.save_txt,
-            "project": config.project,
-            "name": Path("val")
-            / (self.model.foundation_name + "_" + head_model_name),
-            "exist_ok": config.exist_ok,
-            "device": config.device or str(self.device),
-        }
-
     def validate_task(
         self,
         head_name: str,
@@ -222,8 +231,11 @@ class MultiTaskHydraValidator:
             raise MissingHydraHeadError(head_name)
 
         adapter = self.task_adapters[head_name]
-        validator_args = self._build_validator_args(
-            adapter.task, adapter.head_model_name, config
+        validator_args = config.to_dict(
+            task=adapter.task,
+            name=Path("val")
+            / (self.model.foundation_name + "_" + adapter.head_model_name),
+            device=config.device or str(self.device),
         )
 
         validator: DetectionValidator | PoseValidator
@@ -235,6 +247,23 @@ class MultiTaskHydraValidator:
             raise UnsupportedHydraHeadError(head_name)
 
         stats = validator(model=adapter)
+
+        save_dir = validator.save_dir
+        metadata = ValidationMetadata(
+            timestamp=datetime.now().isoformat(),
+            validation_type="multi_task",
+            task=adapter.task,
+            dataset=str(config.data),
+            split=config.split,
+            model_name=adapter.head_model_name,
+            head_name=head_name,
+            foundation_name=self.model.foundation_name,
+        )
+        effective_config = replace(
+            config, device=config.device or str(self.device)
+        )
+        save_validation_results(save_dir, stats, metadata, effective_config)
+
         return cast(dict[str, float], stats)
 
     def validate(
@@ -259,6 +288,40 @@ class MultiTaskHydraValidator:
             results[head_name] = self.validate_task(head_name, config)
 
         return results
+
+
+def save_validation_results(
+    save_dir: Path,
+    metrics: dict[str, float],
+    metadata: ValidationMetadata,
+    config: ValidationTaskConfig,
+) -> None:
+    """
+    Save validation results to JSON files in the specified directory.
+
+    Args:
+        save_dir: Directory to save the results
+        metrics: Validation metrics dictionary
+        metadata: Metadata about the validation run
+        config: Validation configuration
+    """
+    save_dir = Path(save_dir)
+    save_dir.mkdir(parents=True, exist_ok=True)
+
+    metrics_path = save_dir / "metrics.json"
+    with open(metrics_path, "w") as f:
+        json.dump(metrics, f, indent=2)
+    logger.info("Saved metrics to %s", metrics_path)
+
+    metadata_path = save_dir / "metadata.json"
+    with open(metadata_path, "w") as f:
+        json.dump(asdict(metadata), f, indent=2, default=str)
+    logger.info("Saved metadata to %s", metadata_path)
+
+    config_path = save_dir / "config.json"
+    with open(config_path, "w") as f:
+        json.dump(config.to_dict(), f, indent=2, default=str)
+    logger.info("Saved config to %s", config_path)
 
 
 def validate_original_models(
@@ -296,33 +359,34 @@ def validate_original_models(
 
         model = YOLO(model_path)
         model_name = model_path.stem
+
         config = task_configs[task_name]
+        val_args = config.to_dict(
+            project=str(project_dir),
+            name=str(Path("val") / model_name),
+        )
 
-        val_args = {
-            "data": str(config.data),
-            "split": config.split,
-            "imgsz": config.imgsz,
-            "batch": config.batch,
-            "workers": config.workers,
-            "conf": config.conf,
-            "iou": config.iou,
-            "max_det": config.max_det,
-            "half": config.half,
-            "plots": config.plots,
-            "save_json": config.save_json,
-            "save_txt": config.save_txt,
-            "project": str(project_dir),
-            "name": str(Path("val") / model_name),
-            "exist_ok": config.exist_ok,
-            "device": config.device,
-        }
-
+        # Run validation (will raise exception on failure)
         metrics = model.val(**val_args)
 
+        # Extract metrics dictionary using .results_dict attribute
         results[task_name] = dict(metrics.results_dict)
         logger.info(
             "%s original model metrics: %s", task_name, results[task_name]
         )
+
+        # Save results to JSON files
+        save_dir = Path(project_dir) / "val" / model_name
+        metadata = ValidationMetadata(
+            timestamp=datetime.now().isoformat(),
+            validation_type="original",
+            task=task_name,
+            dataset=str(config.data),
+            split=config.split,
+            model_path=str(model_path),
+            model_name=model_name,
+        )
+        save_validation_results(save_dir, results[task_name], metadata, config)
 
     return results
 
