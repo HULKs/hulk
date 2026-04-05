@@ -1,5 +1,6 @@
 import argparse
 import logging
+import os
 from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
 from pathlib import Path
@@ -29,9 +30,11 @@ class ValidationTaskConfig:
     iou: float = 0.6
     max_det: int = 300
     half: bool = False
-    plots: bool = False
+    plots: bool = True
     save_json: bool = False
-    save_txt: bool = False
+    save_txt: bool = True
+    project: str | Path = "runs"
+    exist_ok: bool = True
     device: str | None = None
 
 
@@ -65,6 +68,7 @@ class HydraTaskModelAdapter(nn.Module):
         self,
         hydra_model: Hydra,
         head_name: str,
+        head_model_name: str,
         task: str,
         names: ClassNames,
         stride: torch.Tensor | Sequence[int] | int,
@@ -75,6 +79,7 @@ class HydraTaskModelAdapter(nn.Module):
         super().__init__()
         self.hydra = hydra_model
         self.head_name = head_name
+        self.head_model_name = head_model_name
         self.task = task
 
         self.names = _normalize_class_names(names)
@@ -163,10 +168,14 @@ class MultiTaskHydraValidator:
 
         for head_name in self.model.heads:
             task = self._head_to_task(head_name)
+            head_model_name = getattr(self.model, "head_model_names", {}).get(
+                head_name, "unknown"
+            )
 
             adapters[head_name] = HydraTaskModelAdapter(
                 hydra_model=self.model,
                 head_name=head_name,
+                head_model_name=head_model_name,
                 task=task,
                 names=head_class_names.get(head_name),
                 stride=head_strides.get(head_name, torch.tensor([8, 16, 32])),
@@ -179,6 +188,7 @@ class MultiTaskHydraValidator:
     def _build_validator_args(
         self,
         task: str,
+        head_model_name: str,
         config: ValidationTaskConfig,
     ) -> dict[str, Any]:
         return {
@@ -195,6 +205,11 @@ class MultiTaskHydraValidator:
             "plots": config.plots,
             "save_json": config.save_json,
             "save_txt": config.save_txt,
+            "project": config.project,
+            "name": Path("val") / self.model.foundation_name
+            + "_"
+            + head_model_name,
+            "exist_ok": config.exist_ok,
             "device": config.device or str(self.device),
         }
 
@@ -207,7 +222,9 @@ class MultiTaskHydraValidator:
             raise MissingHydraHeadError(head_name)
 
         adapter = self.task_adapters[head_name]
-        validator_args = self._build_validator_args(adapter.task, config)
+        validator_args = self._build_validator_args(
+            adapter.task, adapter.head_model_name, config
+        )
 
         validator: DetectionValidator | PoseValidator
         if adapter.task == "detect":
@@ -250,16 +267,19 @@ def main() -> None:
     )
     parser.add_argument(
         "--foundation",
+        type=Path,
         default="assets/yolo26m.pt",
         help="Path to the foundation checkpoint",
     )
     parser.add_argument(
         "--detection-model",
+        type=Path,
         default="assets/yolo26m.pt",
         help="Path to the detection checkpoint",
     )
     parser.add_argument(
         "--pose-model",
+        type=Path,
         default="assets/yolo26m-pose.pt",
         help="Path to the pose checkpoint",
     )
@@ -307,6 +327,9 @@ def main() -> None:
         task_dict=tasks,
     )
 
+    repo_root = os.path.abspath(".")
+    project_dir = os.path.join(repo_root, "runs")
+
     validator = MultiTaskHydraValidator(hydra_model, device=args.device)
     task_configs: dict[str, ValidationTaskConfig] = {
         "detection": ValidationTaskConfig(
@@ -314,16 +337,16 @@ def main() -> None:
             imgsz=args.imgsz,
             batch=args.batch,
             device=args.device,
-        )
-    }
-
-    if args.pose_data:
-        task_configs["pose"] = ValidationTaskConfig(
+            project=project_dir,
+        ),
+        "pose": ValidationTaskConfig(
             data=args.pose_data,
             imgsz=args.imgsz,
             batch=args.batch,
             device=args.device,
-        )
+            project=project_dir,
+        ),
+    }
 
     metrics = validator.validate(task_configs)
     for head_name, stats in metrics.items():

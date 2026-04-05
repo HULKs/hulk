@@ -1,5 +1,6 @@
 import logging
 from typing import Any, cast
+from zipfile import Path
 
 import torch
 import torch.nn as nn
@@ -42,12 +43,14 @@ class Hydra(nn.Module):
             cast(dict, foundation_root.yaml)
         )
 
+        self.foundation_name = Path(foundation_yolo.model_name).stem
         self.shared_backbone = get_backbone(foundation_root)
         self.save_backbone = cast(list[int], foundation_root.save)
 
         self.heads = nn.ModuleDict()
         self.branch_saves: dict[str, list[int]] = {}
         self.head_class_names: dict[str, Any] = {}
+        self.head_model_names: dict[str, Any] = {}
         self.head_strides: dict[str, torch.Tensor] = {}
         self.head_end2end: dict[str, bool] = {}
         self.head_kpt_shapes: dict[str, tuple[int, int] | None] = {}
@@ -61,6 +64,7 @@ class Hydra(nn.Module):
             self.heads[task_name] = get_head(task_root)
             self.branch_saves[task_name] = cast(list[int], task_root.save)
             self.head_class_names[task_name] = getattr(task_root, "names", {})
+            self.head_model_names[task_name] = Path(task_yolo.model_name).stem
             stride = getattr(task_head, "stride", torch.tensor([8, 16, 32]))
             self.head_strides[task_name] = torch.as_tensor(stride)
             self.head_end2end[task_name] = bool(
