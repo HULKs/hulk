@@ -9,6 +9,7 @@ from typing import Any, cast
 import torch
 from torch import nn
 from ultralytics.models.yolo.detect.val import DetectionValidator
+from ultralytics.models.yolo.model import YOLO
 from ultralytics.models.yolo.pose.val import PoseValidator
 from ultralytics.nn.autobackend import check_class_names
 
@@ -206,9 +207,8 @@ class MultiTaskHydraValidator:
             "save_json": config.save_json,
             "save_txt": config.save_txt,
             "project": config.project,
-            "name": Path("val") / self.model.foundation_name
-            + "_"
-            + head_model_name,
+            "name": Path("val")
+            / (self.model.foundation_name + "_" + head_model_name),
             "exist_ok": config.exist_ok,
             "device": config.device or str(self.device),
         }
@@ -261,6 +261,72 @@ class MultiTaskHydraValidator:
         return results
 
 
+def validate_original_models(
+    task_dict: dict[str, Path],
+    task_configs: dict[str, ValidationTaskConfig],
+    project_dir: str | Path,
+) -> dict[str, dict[str, float]]:
+    """
+    Validate original task models using standard YOLO().val() pipeline.
+
+    Args:
+        task_dict: Mapping of task names to model paths
+            (e.g., {"detection": Path("yolo26m.pt")})
+        task_configs: Validation configurations per task
+        project_dir: Base project directory for results
+
+    Returns:
+        Dictionary mapping task names to their validation metrics
+
+    Raises:
+        Exception: If validation fails for any model (propagates from YOLO)
+    """
+    results: dict[str, dict[str, float]] = {}
+
+    for task_name, model_path in task_dict.items():
+        if task_name not in task_configs:
+            logger.warning(
+                "No validation config for task '%s', skipping", task_name
+            )
+            continue
+
+        logger.info(
+            "Validating original model for task '%s': %s", task_name, model_path
+        )
+
+        model = YOLO(model_path)
+        model_name = model_path.stem
+        config = task_configs[task_name]
+
+        val_args = {
+            "data": str(config.data),
+            "split": config.split,
+            "imgsz": config.imgsz,
+            "batch": config.batch,
+            "workers": config.workers,
+            "conf": config.conf,
+            "iou": config.iou,
+            "max_det": config.max_det,
+            "half": config.half,
+            "plots": config.plots,
+            "save_json": config.save_json,
+            "save_txt": config.save_txt,
+            "project": str(project_dir),
+            "name": str(Path("val") / model_name),
+            "exist_ok": config.exist_ok,
+            "device": config.device,
+        }
+
+        metrics = model.val(**val_args)
+
+        results[task_name] = dict(metrics.results_dict)
+        logger.info(
+            "%s original model metrics: %s", task_name, results[task_name]
+        )
+
+    return results
+
+
 def main() -> None:
     parser = argparse.ArgumentParser(
         description="Run Ultralytics validation for Hydra heads"
@@ -310,6 +376,11 @@ def main() -> None:
         default=None,
         help="Device to use, e.g. cpu, cuda, cuda:0",
     )
+    parser.add_argument(
+        "--validate-original",
+        action="store_true",
+        help="Validate original task models before multi-task validation",
+    )
     args = parser.parse_args()
 
     logging.basicConfig(
@@ -330,7 +401,6 @@ def main() -> None:
     repo_root = os.path.abspath(".")
     project_dir = os.path.join(repo_root, "runs")
 
-    validator = MultiTaskHydraValidator(hydra_model, device=args.device)
     task_configs: dict[str, ValidationTaskConfig] = {
         "detection": ValidationTaskConfig(
             data=args.detection_data,
@@ -348,6 +418,15 @@ def main() -> None:
         ),
     }
 
+    # Validate original models if requested
+    if args.validate_original:
+        logger.info("Running validation on original task models")
+        _original_metrics = validate_original_models(
+            tasks, task_configs, project_dir
+        )
+        logger.info("Original model validation complete")
+
+    validator = MultiTaskHydraValidator(hydra_model, device=args.device)
     metrics = validator.validate(task_configs)
     for head_name, stats in metrics.items():
         logger.info("%s metrics: %s", head_name, stats)
