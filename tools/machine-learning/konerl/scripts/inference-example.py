@@ -6,13 +6,10 @@ import mujoco
 import mujoco.viewer
 import numpy as np
 import onnxruntime as ort
-from mjlab.managers.observation_manager import ObservationManager
 from mjlab.scene import Scene
-from scipy.spatial.transform import Rotation as R
 
 from konerl.k1_config import ZERO_POSE
 from konerl.tasks.k1_velocity_tracking.env_cfg import k1_rough_env_cfg
-from konerl.tasks.k1_velocity_tracking.observations import make_observation_cfg
 
 
 def get_default_joint_pos(model, joint_name):
