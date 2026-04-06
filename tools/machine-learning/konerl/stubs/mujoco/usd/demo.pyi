@@ -1,0 +1,3 @@
+from mujoco.usd import exporter as exporter
+
+def generate_usd_trajectory(local_args) -> None: ...
