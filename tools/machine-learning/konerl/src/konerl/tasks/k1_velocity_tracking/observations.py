@@ -1,5 +1,4 @@
 from mjlab.managers.observation_manager import ObservationGroupCfg, ObservationTermCfg
-from mjlab.managers.scene_entity_config import SceneEntityCfg
 from mjlab.tasks.velocity import mdp
 from mjlab.utils.noise import UniformNoiseCfg as Unoise
 
@@ -39,7 +38,7 @@ def make_observation_cfg() -> dict[str, ObservationGroupCfg]:
         ),
         "foot_height": ObservationTermCfg(
             func=mdp.foot_height,
-            params={"asset_cfg": SceneEntityCfg("robot", site_names=("left_foot", "right_foot"))},
+            params={"sensor_name": "foot_height_scan"},
         ),
         "foot_air_time": ObservationTermCfg(
             func=mdp.foot_air_time,

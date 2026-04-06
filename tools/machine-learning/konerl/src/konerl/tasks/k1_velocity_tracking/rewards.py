@@ -50,11 +50,11 @@ def make_reward_cfg() -> dict[str, RewardTermCfg]:
             params={"command_name": "twist", "std": math.sqrt(0.2)},
         ),
         "upright": RewardTermCfg(
-            func=mdp.flat_orientation,
+            func=mdp.upright,
             weight=0.8,
             params={
                 "std": math.sqrt(0.3),
-                "asset_cfg": SceneEntityCfg("robot", body_names=("Trunk")),
+                "asset_cfg": SceneEntityCfg("robot", body_names=("Trunk",)),
             },
         ),
         "pose": RewardTermCfg(
@@ -123,6 +123,7 @@ def make_reward_cfg() -> dict[str, RewardTermCfg]:
             weight=-0.2,
             params={
                 "target_height": 0.15,
+                "height_sensor_name": "foot_height_scan",
                 "command_name": "twist",
                 "command_threshold": 0.05,
                 "asset_cfg": SceneEntityCfg("robot", site_names=site_names),  # Set per-robot.
@@ -133,10 +134,10 @@ def make_reward_cfg() -> dict[str, RewardTermCfg]:
             weight=-0.25,
             params={
                 "sensor_name": "feet_ground_contact",
+                "height_sensor_name": "foot_height_scan",
                 "target_height": 0.15,
                 "command_name": "twist",
                 "command_threshold": 0.05,
-                "asset_cfg": SceneEntityCfg("robot", site_names=site_names),  # Set per-robot.
             },
         ),
         "foot_slip": RewardTermCfg(
@@ -168,7 +169,7 @@ def make_reward_cfg() -> dict[str, RewardTermCfg]:
             weight=-1e-4,
         ),
         "left_foot_flat_orientation": RewardTermCfg(
-            func=mdp.flat_orientation,
+            func=mdp.upright,
             weight=0.2,
             params={
                 "std": 0.05,
@@ -176,7 +177,7 @@ def make_reward_cfg() -> dict[str, RewardTermCfg]:
             },
         ),
         "right_foot_flat_orientation": RewardTermCfg(
-            func=mdp.flat_orientation,
+            func=mdp.upright,
             weight=0.2,
             params={
                 "std": 0.05,

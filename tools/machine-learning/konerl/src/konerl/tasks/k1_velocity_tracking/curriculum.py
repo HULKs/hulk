@@ -28,10 +28,10 @@ def make_curriculum_cfg(terrain_type: Literal["flat", "rough", "bumpy"]) -> dict
             },
         ),
         "upright_weight": CurriculumTermCfg(
-            func=mdp.reward_weight,
+            func=mdp.reward_curriculum,
             params={
                 "reward_name": "upright",
-                "weight_stages": [
+                "stages": [
                     {"step": STAGES[0], "weight": 1},
                     {"step": STAGES[1], "weight": 0.8},
                     {"step": STAGES[2], "weight": 0.6},
@@ -41,10 +41,10 @@ def make_curriculum_cfg(terrain_type: Literal["flat", "rough", "bumpy"]) -> dict
             },
         ),
         "joint_torques_weight": CurriculumTermCfg(
-            func=mdp.reward_weight,
+            func=mdp.reward_curriculum,
             params={
                 "reward_name": "joint_torques",
-                "weight_stages": [
+                "stages": [
                     {"step": STAGES[0], "weight": -1e-6},
                     {"step": STAGES[1], "weight": -5e-6},
                     {"step": STAGES[2], "weight": -1e-5},
@@ -53,10 +53,10 @@ def make_curriculum_cfg(terrain_type: Literal["flat", "rough", "bumpy"]) -> dict
             },
         ),
         "left_foot_flat_orientation_weight": CurriculumTermCfg(
-            func=mdp.reward_weight,
+            func=mdp.reward_curriculum,
             params={
                 "reward_name": "left_foot_flat_orientation",
-                "weight_stages": [
+                "stages": [
                     {"step": STAGES[0], "weight": 1.0},
                     {"step": STAGES[1], "weight": 0.8},
                     {"step": STAGES[2], "weight": 0.6},
@@ -64,10 +64,10 @@ def make_curriculum_cfg(terrain_type: Literal["flat", "rough", "bumpy"]) -> dict
             },
         ),
         "right_foot_flat_orientation_weight": CurriculumTermCfg(
-            func=mdp.reward_weight,
+            func=mdp.reward_curriculum,
             params={
                 "reward_name": "right_foot_flat_orientation",
-                "weight_stages": [
+                "stages": [
                     {"step": STAGES[0], "weight": 1.0},
                     {"step": STAGES[1], "weight": 0.8},
                     {"step": STAGES[2], "weight": 0.6},
@@ -75,10 +75,10 @@ def make_curriculum_cfg(terrain_type: Literal["flat", "rough", "bumpy"]) -> dict
             },
         ),
         "soft_landing_weight": CurriculumTermCfg(
-            func=mdp.reward_weight,
+            func=mdp.reward_curriculum,
             params={
                 "reward_name": "soft_landing",
-                "weight_stages": [
+                "stages": [
                     {"step": STAGES[0], "weight": -5e-5},
                     {"step": STAGES[2], "weight": -1e-4},
                     {"step": STAGES[4], "weight": -5e-4},

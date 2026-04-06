@@ -3,23 +3,14 @@ from pathlib import Path
 import mujoco
 from mjlab.actuator import BuiltinPositionActuatorCfg
 from mjlab.entity import EntityArticulationInfoCfg, EntityCfg
-from mjlab.utils.os import update_assets
 from mjlab.utils.spec_config import CollisionCfg
 
 K1_XML = Path("model/K1.xml").resolve()
 assert K1_XML.exists()
 
 
-def get_assets(meshdir: str) -> dict[str, bytes]:
-    assets: dict[str, bytes] = {}
-    update_assets(assets, K1_XML.parent / meshdir, meshdir)
-    return assets
-
-
 def get_spec() -> mujoco.MjSpec:
-    spec = mujoco.MjSpec.from_file(str(K1_XML))
-    spec.assets = get_assets(spec.meshdir)
-    return spec
+    return mujoco.MjSpec.from_file(str(K1_XML))
 
 
 # Initial States
@@ -179,9 +170,9 @@ def get_k1_robot_cfg() -> EntityCfg:
 if __name__ == "__main__":
     import mujoco.viewer as viewer
     from mjlab.scene import Scene, SceneCfg
-    from mjlab.terrains import TerrainImporterCfg
+    from mjlab.terrains import TerrainEntityCfg
 
-    scene = Scene(SceneCfg(terrain=TerrainImporterCfg(), entities={"robot": get_k1_robot_cfg()}), "cpu")
+    scene = Scene(SceneCfg(terrain=TerrainEntityCfg(), entities={"robot": get_k1_robot_cfg()}), "cpu")
     model = scene.compile()
     # model.opt.gravity[:] = 0.0
     viewer.launch(model)

@@ -39,20 +39,18 @@ def make_events_cfg() -> dict[str, EventTermCfg]:
         ),
         "foot_friction": EventTermCfg(
             mode="startup",
-            func=mdp.randomize_field,
-            domain_randomization=True,
+            func=mdp.dr.geom_friction,
             params={
                 "asset_cfg": SceneEntityCfg(
                     "robot", geom_names=("left_foot_link_collision0", "right_foot_link_collision0")
                 ),
                 "operation": "abs",
-                "field": "geom_friction",
                 "ranges": (0.3, 1.2),
             },
         ),
         "encoder_bias": EventTermCfg(
             mode="startup",
-            func=mdp.randomize_encoder_bias,
+            func=mdp.dr.encoder_bias,
             params={
                 "asset_cfg": SceneEntityCfg("robot"),
                 "bias_range": (-0.015, 0.015),
@@ -60,12 +58,10 @@ def make_events_cfg() -> dict[str, EventTermCfg]:
         ),
         "base_com": EventTermCfg(
             mode="startup",
-            func=mdp.randomize_field,
-            domain_randomization=True,
+            func=mdp.dr.body_ipos,
             params={
                 "asset_cfg": SceneEntityCfg("robot", body_names=("Trunk",)),  # Set per-robot.
                 "operation": "add",
-                "field": "body_ipos",
                 "ranges": {
                     0: (-0.025, 0.025),
                     1: (-0.025, 0.025),
@@ -75,7 +71,7 @@ def make_events_cfg() -> dict[str, EventTermCfg]:
         ),
         "kp_kd": EventTermCfg(
             mode="reset",
-            func=mdp.randomize_pd_gains,
+            func=mdp.dr.pd_gains,
             params={
                 "kp_range": (0.75, 1.25),
                 "kd_range": (0.75, 1.25),
@@ -83,22 +79,14 @@ def make_events_cfg() -> dict[str, EventTermCfg]:
         ),
         "calibration_error": EventTermCfg(
             mode="reset",
-            func=mdp.randomize_encoder_bias,
+            func=mdp.dr.encoder_bias,
             params={
                 "bias_range": (-0.1, 0.1),
             },
         ),
-        "actuator_lag": EventTermCfg(
-            mode="interval",
-            interval_range_s=(0.1, 0.5),
-            func=mdp.sync_actuator_delays,
-            params={
-                "lag_range": (-15, 15),
-            },
-        ),
         "effort_limits": EventTermCfg(
             mode="reset",
-            func=mdp.randomize_effort_limits,
+            func=mdp.dr.effort_limits,
             params={
                 "effort_limit_range": (0.90, 1.10),
             },

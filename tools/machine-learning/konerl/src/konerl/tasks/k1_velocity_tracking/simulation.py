@@ -3,10 +3,16 @@ from typing import Literal
 
 from mjlab.envs import ManagerBasedRlEnvCfg
 from mjlab.scene import SceneCfg
-from mjlab.sensor import ContactMatch, ContactSensorCfg
+from mjlab.sensor import (
+    ContactMatch,
+    ContactSensorCfg,
+    ObjRef,
+    RingPatternCfg,
+    TerrainHeightSensorCfg,
+)
 from mjlab.sim import MujocoCfg, SimulationCfg
 import mjlab.terrains as terrain_gen
-from mjlab.terrains import TerrainImporterCfg
+from mjlab.terrains import TerrainEntityCfg
 from mjlab.terrains.config import ROUGH_TERRAINS_CFG
 from mjlab.terrains.terrain_generator import TerrainGeneratorCfg
 from mjlab.viewer import ViewerConfig
@@ -23,9 +29,9 @@ from .termination import make_termination_cfg
 
 def make_scene_cfg(terrain_type: Literal["flat", "rough", "bumpy"]) -> SceneCfg:
     if terrain_type == "flat":
-        terrain_cfg = TerrainImporterCfg()
+        terrain_cfg = TerrainEntityCfg()
     elif terrain_type == "rough":
-        terrain_cfg = TerrainImporterCfg(
+        terrain_cfg = TerrainEntityCfg(
             terrain_type="generator",
             terrain_generator=replace(ROUGH_TERRAINS_CFG),
             max_init_terrain_level=5,
@@ -33,7 +39,7 @@ def make_scene_cfg(terrain_type: Literal["flat", "rough", "bumpy"]) -> SceneCfg:
         if terrain_cfg.terrain_generator:
             terrain_cfg.terrain_generator.curriculum = True
     elif terrain_type == "bumpy":
-        terrain_cfg = TerrainImporterCfg(
+        terrain_cfg = TerrainEntityCfg(
             terrain_type="generator",
             terrain_generator=replace(
                 TerrainGeneratorCfg(
@@ -80,10 +86,23 @@ def make_scene_cfg(terrain_type: Literal["flat", "rough", "bumpy"]) -> SceneCfg:
         reduce="none",
         num_slots=1,
     )
+    foot_height_scan_cfg = TerrainHeightSensorCfg(
+        name="foot_height_scan",
+        frame=(
+            ObjRef(type="site", name="left_foot", entity="robot"),
+            ObjRef(type="site", name="right_foot", entity="robot"),
+        ),
+        ray_alignment="yaw",
+        pattern=RingPatternCfg.single_ring(radius=0.03, num_samples=6),
+        max_distance=1.0,
+        exclude_parent_body=True,
+        include_geom_groups=(0,),
+        debug_vis=True,
+    )
 
     return SceneCfg(
         terrain=terrain_cfg,
-        sensors=(feet_ground_cfg, self_collision_cfg),
+        sensors=(feet_ground_cfg, self_collision_cfg, foot_height_scan_cfg),
         entities={"robot": get_k1_robot_cfg()},
         num_envs=1,
         extent=2.0,
