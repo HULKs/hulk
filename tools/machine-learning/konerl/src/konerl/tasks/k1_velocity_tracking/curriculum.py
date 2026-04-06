@@ -10,6 +10,7 @@ from mjlab.tasks.velocity import mdp
 
 STAGES = [0, 500 * 24, 1000 * 24, 2000 * 24, 3000 * 24, 4000 * 24]
 
+
 def make_curriculum_cfg(terrain_type: Literal["flat", "rough", "bumpy"]) -> dict[str, CurriculumTermCfg]:
     curriculum = {
         # Todo: add "lin_vel_y": (?, ?)
@@ -81,9 +82,9 @@ def make_curriculum_cfg(terrain_type: Literal["flat", "rough", "bumpy"]) -> dict
                     {"step": STAGES[0], "weight": -5e-5},
                     {"step": STAGES[2], "weight": -1e-4},
                     {"step": STAGES[4], "weight": -5e-4},
-                ]
-            }
-        )
+                ],
+            },
+        ),
     }
     if terrain_type == "rough":
         curriculum["terrain_levels"] = CurriculumTermCfg(
@@ -93,21 +94,23 @@ def make_curriculum_cfg(terrain_type: Literal["flat", "rough", "bumpy"]) -> dict
 
     return curriculum
 
+
 class RandomizerParameterStage(TypedDict):
-  step: int
-  param_name: str
-  param_value: tuple[float, float]
+    step: int
+    param_name: str
+    param_value: tuple[float, float]
+
 
 def randomization_params(
-  env: ManagerBasedRlEnv,
-  env_ids: torch.Tensor,
-  randomizer_name: str,
-  parameter_stages: list[RandomizerParameterStage],
+    env: ManagerBasedRlEnv,
+    env_ids: torch.Tensor,
+    randomizer_name: str,
+    parameter_stages: list[RandomizerParameterStage],
 ) -> tuple[float, float]:
-  """Update a randomizers parameters based on training step stages."""
-  del env_ids
-  random_term_cfg = env.event_manager.get_term_cfg(randomizer_name)
-  for stage in parameter_stages:
-    if env.common_step_counter > stage["step"]:
-      random_term_cfg.params[stage["param_name"]] = stage["param_value"]
-  return random_term_cfg.params[parameter_stages[0]["param_name"]]
+    """Update a randomizers parameters based on training step stages."""
+    del env_ids
+    random_term_cfg = env.event_manager.get_term_cfg(randomizer_name)
+    for stage in parameter_stages:
+        if env.common_step_counter > stage["step"]:
+            random_term_cfg.params[stage["param_name"]] = stage["param_value"]
+    return random_term_cfg.params[parameter_stages[0]["param_name"]]

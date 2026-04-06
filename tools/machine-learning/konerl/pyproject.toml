@@ -5,13 +5,13 @@ description = "Add your description here"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
-    "click>=8.3.1",
-    "mjlab>=0.1.0",
-    "mujoco>=3.4.0",
-    "numpy>=2.4.0",
-    "onnxruntime>=1.24.1",
-    "pyopengl-accelerate>=3.1.10",
-    "scipy>=1.16.3",
+  "click>=8.3.1",
+  "mjlab>=0.1.0",
+  "mujoco>=3.4.0",
+  "numpy>=2.4.0",
+  "onnxruntime>=1.24.1",
+  "pyopengl-accelerate>=3.1.10",
+  "scipy>=1.16.3",
 ]
 
 [tool.uv.sources]
@@ -26,7 +26,7 @@ build-backend = "hatchling.build"
 stubPath = "stubs/"
 
 [tool.ruff]
-exclude = ["typings/", "stubs/"]
+exclude = ["stubs/", "typings/"]
 line-length = 120
 
 [project.entry-points."mjlab.tasks"]

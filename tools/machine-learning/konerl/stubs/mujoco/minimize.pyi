@@ -39,7 +39,40 @@ class Quadratic(Norm):
     def value(self, r: np.ndarray): ...
     def grad_hess(self, r: np.ndarray, proj: np.ndarray): ...
 
-def least_squares(x0: np.ndarray, residual: Callable[[np.ndarray], np.ndarray], bounds: Sequence[np.ndarray] | None = None, jacobian: Callable[[np.ndarray, np.ndarray], np.ndarray] | None = None, norm: Norm = ..., eps: float = 1e-06, mu_min: float = 1e-06, mu_max: float = 100000000.0, mu_factor: float = ..., tol: float = 1e-06, max_iter: int = 100, verbose: Verbosity | int = ..., output: TextIO | None = None, iter_callback: Callable[[list[IterLog]], None] | None = None, check_derivatives: bool = False) -> tuple[np.ndarray, list[IterLog]]: ...
-def jacobian_fd(residual: Callable[[np.ndarray], np.ndarray], x: np.ndarray, r: np.ndarray, eps: np.float64, n_res: int, bounds: list[np.ndarray] | None = None) -> tuple[np.ndarray, int]: ...
-def check_jacobian(residual: Callable[[np.ndarray], np.ndarray], x: np.ndarray, r: np.ndarray, jac: np.ndarray, eps: np.float64, n_res: int, bounds: list[np.ndarray] | None = None, output: TextIO | None = None, name: str | None = 'Jacobian') -> int: ...
+def least_squares(
+    x0: np.ndarray,
+    residual: Callable[[np.ndarray], np.ndarray],
+    bounds: Sequence[np.ndarray] | None = None,
+    jacobian: Callable[[np.ndarray, np.ndarray], np.ndarray] | None = None,
+    norm: Norm = ...,
+    eps: float = 1e-06,
+    mu_min: float = 1e-06,
+    mu_max: float = 100000000.0,
+    mu_factor: float = ...,
+    tol: float = 1e-06,
+    max_iter: int = 100,
+    verbose: Verbosity | int = ...,
+    output: TextIO | None = None,
+    iter_callback: Callable[[list[IterLog]], None] | None = None,
+    check_derivatives: bool = False,
+) -> tuple[np.ndarray, list[IterLog]]: ...
+def jacobian_fd(
+    residual: Callable[[np.ndarray], np.ndarray],
+    x: np.ndarray,
+    r: np.ndarray,
+    eps: np.float64,
+    n_res: int,
+    bounds: list[np.ndarray] | None = None,
+) -> tuple[np.ndarray, int]: ...
+def check_jacobian(
+    residual: Callable[[np.ndarray], np.ndarray],
+    x: np.ndarray,
+    r: np.ndarray,
+    jac: np.ndarray,
+    eps: np.float64,
+    n_res: int,
+    bounds: list[np.ndarray] | None = None,
+    output: TextIO | None = None,
+    name: str | None = "Jacobian",
+) -> int: ...
 def check_norm(r: np.ndarray, norm: Norm, eps: np.float64, output: TextIO | None = None): ...

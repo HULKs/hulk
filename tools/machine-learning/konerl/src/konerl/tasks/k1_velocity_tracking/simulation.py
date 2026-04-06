@@ -35,22 +35,23 @@ def make_scene_cfg(terrain_type: Literal["flat", "rough", "bumpy"]) -> SceneCfg:
     elif terrain_type == "bumpy":
         terrain_cfg = TerrainImporterCfg(
             terrain_type="generator",
-            terrain_generator=replace(TerrainGeneratorCfg(
-                size=(100.0, 100.0),
-                border_width=40.0,
-                num_rows=1,
-                num_cols=1,
-                sub_terrains={
-                    "random_rough": terrain_gen.HfRandomUniformTerrainCfg(
-                    proportion=1.0,
-                    noise_range=(0.01, 0.03),
-                    noise_step=0.01,
-                    border_width=0.0,
-                    ),
-                },
-                add_lights=True,
+            terrain_generator=replace(
+                TerrainGeneratorCfg(
+                    size=(100.0, 100.0),
+                    border_width=40.0,
+                    num_rows=1,
+                    num_cols=1,
+                    sub_terrains={
+                        "random_rough": terrain_gen.HfRandomUniformTerrainCfg(
+                            proportion=1.0,
+                            noise_range=(0.01, 0.03),
+                            noise_step=0.01,
+                            border_width=0.0,
+                        ),
+                    },
+                    add_lights=True,
                 ),
-            )
+            ),
         )
     else:
         raise ValueError(f"unknown terrain: {terrain_type}")

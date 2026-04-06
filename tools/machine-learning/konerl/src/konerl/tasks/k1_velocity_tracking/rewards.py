@@ -36,8 +36,6 @@ def foot_contact_count_consistency(
     return cost
 
 
-
-
 def make_reward_cfg() -> dict[str, RewardTermCfg]:
     site_names = ("left_foot", "right_foot")
     return {
@@ -174,10 +172,7 @@ def make_reward_cfg() -> dict[str, RewardTermCfg]:
             weight=0.2,
             params={
                 "std": 0.05,
-                "asset_cfg": SceneEntityCfg(
-                   "robot", 
-                    body_names=("left_foot_link")
-                ),
+                "asset_cfg": SceneEntityCfg("robot", body_names=("left_foot_link")),
             },
         ),
         "right_foot_flat_orientation": RewardTermCfg(
@@ -185,10 +180,7 @@ def make_reward_cfg() -> dict[str, RewardTermCfg]:
             weight=0.2,
             params={
                 "std": 0.05,
-                "asset_cfg": SceneEntityCfg(
-                   "robot", 
-                    body_names=("right_foot_link")
-                ),
+                "asset_cfg": SceneEntityCfg("robot", body_names=("right_foot_link")),
             },
         ),
         "number_feet_on_ground": RewardTermCfg(
@@ -200,5 +192,5 @@ def make_reward_cfg() -> dict[str, RewardTermCfg]:
                 "walking_threshold": 0.05,
                 "running_threshold": 1.0,
             },
-        )
+        ),
     }
