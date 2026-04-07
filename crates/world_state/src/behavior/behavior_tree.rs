@@ -1,3 +1,5 @@
+use std::slice::from_ref;
+
 use serde::{Serialize, ser::SerializeStruct};
 use types::behavior_tree::{NodeTrace, Status};
 
@@ -14,6 +16,10 @@ pub enum Node<Blackboard> {
         condition: ConditionFunction<Blackboard>,
     },
     Failure,
+    Negation {
+        name: &'static str,
+        child: Box<Node<Context>>,
+    },
     Selection {
         name: &'static str,
         children: Vec<Node<Blackboard>>,
@@ -29,6 +35,7 @@ impl<Blackboard> Node<Blackboard> {
         let name = match self {
             Node::Action { name, .. }
             | Node::Condition { name, .. }
+            | Node::Negation { name, .. }
             | Node::Selection { name, .. }
             | Node::Sequence { name, .. } => name,
             Node::Failure => &"Failure",
@@ -49,6 +56,15 @@ impl<Blackboard> Node<Blackboard> {
                 }
             }
             Node::Failure => Status::Failure,
+            Node::Negation { child, .. } => {
+                let (child_status, child_trace) = child.tick_with_trace(context);
+                trace.children.push(child_trace);
+                match child_status {
+                    Status::Success => Status::Failure,
+                    Status::Failure => Status::Success,
+                    _ => child_status,
+                }
+            }
             Node::Selection { children, .. } => {
                 let mut selection_status = Status::Failure;
                 for child in children {
@@ -85,6 +101,7 @@ impl<Blackboard> Node<Blackboard> {
         let name = match self {
             Node::Action { name, .. }
             | Node::Condition { name, .. }
+            | Node::Negation { name, .. }
             | Node::Selection { name, .. }
             | Node::Sequence { name, .. } => name,
             Node::Failure => &"Failure",
@@ -94,6 +111,7 @@ impl<Blackboard> Node<Blackboard> {
             Node::Selection { children, .. } | Node::Sequence { children, .. } => {
                 children.iter().map(|c| c.static_layout_trace()).collect()
             }
+            Node::Negation { child, .. } => vec![child.static_layout_trace()],
             _ => vec![],
         };
 
@@ -142,6 +160,16 @@ macro_rules! condition {
 }
 
 #[macro_export]
+macro_rules! negation {
+    ($child:expr) => {
+        $crate::behavior::behavior_tree::Node::Negation {
+            name: "Negation",
+            child: Box::new($child),
+        }
+    };
+}
+
+#[macro_export]
 macro_rules! selection {
     ($($child:expr),* $(,)?) => {
         $crate::behavior::behavior_tree::Node::Selection{
@@ -166,12 +194,14 @@ impl<Blackboard> Serialize for Node<Blackboard> {
     where
         S: serde::Serializer,
     {
+        // Now `children` evaluates exactly to type: Option<&[Node<Context>]>
         let (node_type, name, children) = match self {
             Node::Action { name, .. } => ("Action", *name, None),
             Node::Condition { name, .. } => ("Condition", *name, None),
-            Node::Failure => ("Failure", "Failure", None),
-            Node::Selection { name, children } => ("Selection", *name, Some(children)),
-            Node::Sequence { name, children } => ("Sequence", *name, Some(children)),
+            Node::Failure => ("Failure", "Failure", None), // Note: updated string ref
+            Node::Negation { name, child } => ("Negation", *name, Some(from_ref(child.as_ref()))),
+            Node::Selection { name, children } => ("Selection", *name, Some(children.as_slice())),
+            Node::Sequence { name, children } => ("Sequence", *name, Some(children.as_slice())),
         };
 
         let num_fields = if children.is_some() { 3 } else { 2 };
