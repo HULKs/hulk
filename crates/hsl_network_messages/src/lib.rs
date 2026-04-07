@@ -20,9 +20,8 @@ pub use game_controller_state_message::{
 
 #[derive(Clone, Copy, Debug, Deserialize, Serialize)]
 pub enum HulkMessage {
+    Base(BaseMessage),
     Striker(StrikerMessage),
-    Loser(LoserMessage),
-    VisualReferee(VisualRefereeMessage),
 }
 
 impl Default for HulkMessage {
@@ -40,15 +39,10 @@ pub struct StrikerMessage {
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
-pub struct LoserMessage {
+pub struct BaseMessage {
     pub player_number: PlayerNumber,
     pub pose: Pose2<Field>,
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
-pub struct VisualRefereeMessage {
-    pub player_number: PlayerNumber,
-    pub kicking_team: Option<Team>,
+    pub ball_position: BallPosition<Field>,
 }
 
 #[derive(
@@ -125,15 +119,6 @@ mod tests {
                 age: Duration::MAX,
             },
             time_to_reach_kick_position: Duration::MAX,
-        });
-        assert!(bincode::serialize(&test_message).unwrap().len() <= 128)
-    }
-
-    #[test]
-    fn hulk_loser_message_size() {
-        let test_message = HulkMessage::Loser(LoserMessage {
-            player_number: PlayerNumber::Five,
-            pose: Pose2::default(),
         });
         assert!(bincode::serialize(&test_message).unwrap().len() <= 128)
     }

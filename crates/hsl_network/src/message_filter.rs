@@ -1,7 +1,7 @@
 use color_eyre::{Result, eyre::Ok};
 use context_attribute::context;
 use framework::MainOutput;
-use hsl_network_messages::{HulkMessage, PlayerNumber, StrikerMessage, VisualRefereeMessage};
+use hsl_network_messages::{BaseMessage, HulkMessage, PlayerNumber, StrikerMessage};
 use serde::{Deserialize, Serialize};
 use types::messages::IncomingMessage;
 
@@ -34,9 +34,7 @@ impl MessageFilter {
             ),
             IncomingMessage::Hsl(
                 message @ (HulkMessage::Striker(StrikerMessage { player_number, .. })
-                | HulkMessage::VisualReferee(VisualRefereeMessage {
-                    player_number, ..
-                })),
+                | HulkMessage::Base(BaseMessage { player_number, .. })),
             ) if player_number != context.player_number => Some(IncomingMessage::Hsl(*message)),
             _ => None,
         };
