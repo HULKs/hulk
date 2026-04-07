@@ -49,8 +49,7 @@ impl ObstacleReceiver {
         for message in messages.clone() {
             let pose = match message {
                 HulkMessage::Striker(striker_message) => striker_message.pose,
-                HulkMessage::Loser(loser_message) => loser_message.pose,
-                HulkMessage::VisualReferee(_) => continue,
+                HulkMessage::Base(base_message) => base_message.pose,
             };
             let sender_position = context.ground_to_field.inverse() * pose.position();
             network_robot_obstacles.push(sender_position);

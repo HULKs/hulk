@@ -7,7 +7,7 @@ use color_eyre::{Result, eyre::Context};
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
-use hsl_network_messages::{HulkMessage, SubState, Team};
+use hsl_network_messages::{BaseMessage, HulkMessage, StrikerMessage, SubState, Team};
 use itertools::Itertools;
 use linear_algebra::{Isometry2, Point2, Vector2, point};
 use nalgebra::clamp;
@@ -192,15 +192,23 @@ impl Heatmap {
 
     fn add_teamballs(&mut self, time: SystemTime, message: HulkMessage, team_ball_weight: f32) {
         let (_, ball) = match message {
-            HulkMessage::Striker(striker_message) => (
-                striker_message.player_number,
+            HulkMessage::Striker(StrikerMessage {
+                player_number,
+                ball_position,
+                ..
+            })
+            | HulkMessage::Base(BaseMessage {
+                player_number,
+                ball_position,
+                ..
+            }) => (
+                player_number,
                 Some(BallPosition {
-                    position: striker_message.ball_position.position,
+                    position: ball_position.position,
                     velocity: Vector2::zeros(),
-                    last_seen: time - striker_message.ball_position.age,
+                    last_seen: time - ball_position.age,
                 }),
             ),
-            HulkMessage::Loser(_) | HulkMessage::VisualReferee(_) => return,
         };
         if let Some(ball_position) = ball {
             self[ball_position.position] = team_ball_weight;
