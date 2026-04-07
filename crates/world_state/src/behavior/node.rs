@@ -5,6 +5,7 @@ use framework::{AdditionalOutput, MainOutput};
 use serde::{Deserialize, Serialize};
 use types::{
     behavior_tree::{NodeTrace, Status},
+    field_dimensions::FieldDimensions,
     motion_command::{HeadMotion, ImageRegion, MotionCommand},
     parameters::BehaviorParameters,
     world_state::WorldState,
@@ -32,6 +33,7 @@ pub struct Behavior {
 pub struct Blackboard {
     pub world_state: WorldState,
     pub parameters: BehaviorParameters,
+    pub field_dimensions: FieldDimensions,
     pub output: Option<MotionCommand>,
 }
 
@@ -41,7 +43,10 @@ pub struct CreationContext {}
 #[context]
 pub struct CycleContext {
     world_state: Input<WorldState, "world_state">,
+
+    field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     parameters: Parameter<BehaviorParameters, "behavior">,
+
     behavior_trace: AdditionalOutput<NodeTrace, "behavior.trace">,
     behavior_tree_layout: AdditionalOutput<NodeTrace, "behavior.tree_layout">,
 }
@@ -71,6 +76,7 @@ impl Behavior {
         let mut blackboard = Blackboard {
             world_state: context.world_state.clone(),
             parameters: context.parameters.clone(),
+            field_dimensions: *context.field_dimensions,
             output: None,
         };
 

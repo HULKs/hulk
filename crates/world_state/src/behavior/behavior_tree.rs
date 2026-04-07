@@ -18,7 +18,7 @@ pub enum Node<Blackboard> {
     Failure,
     Negation {
         name: &'static str,
-        child: Box<Node<Context>>,
+        child: Box<Node<Blackboard>>,
     },
     Selection {
         name: &'static str,
@@ -57,7 +57,7 @@ impl<Blackboard> Node<Blackboard> {
             }
             Node::Failure => Status::Failure,
             Node::Negation { child, .. } => {
-                let (child_status, child_trace) = child.tick_with_trace(context);
+                let (child_status, child_trace) = child.tick_with_trace(blackboard);
                 trace.children.push(child_trace);
                 match child_status {
                     Status::Success => Status::Failure,
@@ -194,7 +194,6 @@ impl<Blackboard> Serialize for Node<Blackboard> {
     where
         S: serde::Serializer,
     {
-        // Now `children` evaluates exactly to type: Option<&[Node<Context>]>
         let (node_type, name, children) = match self {
             Node::Action { name, .. } => ("Action", *name, None),
             Node::Condition { name, .. } => ("Condition", *name, None),
