@@ -12,7 +12,7 @@ pub mod ground_provider;
 pub mod kinematics_provider;
 pub mod led_handler;
 pub mod localization;
-pub mod message_handler;
+pub mod player_states_receiver;
 pub mod obstacle_filter;
 pub mod obstacle_receiver;
 pub mod path_planner;

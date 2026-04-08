@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use context_attribute::context;
 use coordinate_systems::Field;
 use framework::{AdditionalOutput, MainOutput, PerceptionInput};
-use hsl_network_messages::{BaseMessage, GamePhase, HulkMessage, StrikerMessage, SubState};
+use hsl_network_messages::{BaseMessage, GamePhase, HulkMessage, SubState};
 use linear_algebra::{Point2, Vector2};
 use types::{
     ball_position::BallPosition, cycle_time::CycleTime,
@@ -104,22 +104,17 @@ impl TeamBallReceiver {
 
     fn process_message(&mut self, time: SystemTime, message: HulkMessage) {
         let (player, ball) = match message {
-            HulkMessage::Striker(StrikerMessage {
-                player_number,
-                ball_position,
-                ..
-            })
-            | HulkMessage::Base(BaseMessage {
+            HulkMessage::Base(BaseMessage {
                 player_number,
                 ball_position,
                 ..
             }) => (
                 player_number,
-                Some(BallPosition {
-                    position: ball_position.position,
-                    velocity: Vector2::zeros(),
-                    last_seen: time - ball_position.age,
-                }),
+                ball_position.map(|ball| BallPosition {
+                        position: ball.position,
+                        velocity: Vector2::zeros(),
+                        last_seen: time - ball.age,
+                    }),
             ),
         };
         self.received_balls[player] = ball;
