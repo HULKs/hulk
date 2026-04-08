@@ -368,6 +368,7 @@
   "injected_primary_state": null,
    "behavior": {
     "injected_motion_command": null,
+    "goal_keeper_number": "One",
     "optional_roles": ["Defender", "Midfielder", "StrikerSupporter"],
     "walk_with_velocity": {
       "max_velocity": 1.0,

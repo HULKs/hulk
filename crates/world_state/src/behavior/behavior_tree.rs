@@ -197,7 +197,7 @@ impl<Blackboard> Serialize for Node<Blackboard> {
         let (node_type, name, children) = match self {
             Node::Action { name, .. } => ("Action", *name, None),
             Node::Condition { name, .. } => ("Condition", *name, None),
-            Node::Failure => ("Failure", "Failure", None), // Note: updated string ref
+            Node::Failure => ("Failure", "Failure", None),
             Node::Negation { name, child } => ("Negation", *name, Some(from_ref(child.as_ref()))),
             Node::Selection { name, children } => ("Selection", *name, Some(children.as_slice())),
             Node::Sequence { name, children } => ("Sequence", *name, Some(children.as_slice())),
