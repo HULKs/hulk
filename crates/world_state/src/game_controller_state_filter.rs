@@ -41,7 +41,7 @@ pub struct CreationContext {}
 pub struct CycleContext {
     //ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">, // TODO
     cycle_time: Input<CycleTime, "cycle_time">,
-    // filtered_whistle: Input<FilteredWhistle, "filtered_whistle">, // TODO
+    filtered_whistle: Input<FilteredWhistle, "filtered_whistle">,
     // visual_referee_proceed_to_ready: Input<bool, "visual_referee_proceed_to_ready">, // TODO
     // detected_free_kick_kicking_team: Input<Option<Team>, "detected_free_kick_kicking_team?">, // TODO
     game_controller_state: RequiredInput<Option<GameControllerState>, "game_controller_state?">,
@@ -101,10 +101,6 @@ impl GameControllerStateFilter {
             last_seen: SystemTime::now(),
         });
 
-        let fake_filtered_whistle = FilteredWhistle {
-            is_detected: false,
-            last_detection: None,
-        };
         let fake_detected_free_kick_kicking_team = None;
 
         let kicking_team = self.find_kicking_team(
@@ -122,8 +118,7 @@ impl GameControllerStateFilter {
             context.field_dimensions,
             context.config,
             context.game_controller_state,
-            // context.filtered_whistle,
-            &fake_filtered_whistle,
+            context.filtered_whistle,
             context.cycle_time,
             // *context.visual_referee_proceed_to_ready,
             *context.player_number,
@@ -363,8 +358,7 @@ impl GameControllerStateFilter {
                 sub_state: None,
                 ..
             } => match (
-                //context.filtered_whistle.is_detected, // TODO
-                false,
+                context.filtered_whistle.is_detected,
                 ball_is_in_opponent_half?,
             ) {
                 (true, false) => Some(Team::Opponent),
