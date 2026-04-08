@@ -259,7 +259,7 @@ pub struct HslNetworkParameters {
     pub remaining_amount_of_messages_to_stop_sending: u16,
     pub silence_interval_between_messages: Duration,
     pub hsl_striker_message_receive_timeout: Duration,
-    pub hsl_striker_message_send_interval: Duration,
+    pub hsl_base_message_send_interval: Duration,
 }
 
 #[derive(

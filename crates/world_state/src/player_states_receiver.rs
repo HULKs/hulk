@@ -1,0 +1,91 @@
+use std::net::SocketAddr;
+
+use booster::FallDownState;
+use color_eyre::Result;
+use context_attribute::context;
+use coordinate_systems::{Field, Ground};
+use framework::{MainOutput, PerceptionInput};
+use hardware::NetworkInterface;
+use hsl_network_messages::{HulkMessage, PlayerNumber};
+use linear_algebra::{Isometry2, Point2};
+use types::{
+    ball_position::BallPosition, cycle_time::CycleTime, messages::IncomingMessage,
+    parameters::HslNetworkParameters,
+};
+
+#[derive(Clone)]
+pub struct PlayerState {
+    player_number: PlayerNumber,
+    position: Point2<Field>,
+}
+
+pub struct PlayerStatesReceiver {
+    last_player_states: Vec<PlayerState>,
+}
+
+#[context]
+pub struct CreationContext {}
+
+#[context]
+pub struct CycleContext {
+    game_controller_address: Input<Option<SocketAddr>, "game_controller_address?">,
+    cycle_time: Input<CycleTime, "cycle_time">,
+    ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
+    ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
+
+    fall_down_state: PerceptionInput<Option<FallDownState>, "FallDownState", "fall_down_state?">,
+    network_message: PerceptionInput<Option<IncomingMessage>, "HslNetwork", "filtered_message?">,
+
+    player_number: Parameter<PlayerNumber, "player_number">,
+    hsl_network_parameters: Parameter<HslNetworkParameters, "hsl_network">,
+
+    hardware: HardwareInterface,
+}
+
+#[context]
+pub struct MainOutputs {
+    pub player_states: MainOutput<Vec<PlayerState>>,
+}
+
+impl PlayerStatesReceiver {
+    pub fn new(_context: CreationContext) -> Result<Self> {
+        Ok(Self {
+            last_player_states: Vec::new(),
+        })
+    }
+
+    pub fn cycle(&mut self, context: CycleContext<impl NetworkInterface>) -> Result<MainOutputs> {
+        let messages = context
+            .network_message
+            .persistent
+            .values()
+            .flat_map(|messages| messages.iter().filter_map(|message| *message))
+            .filter_map(|message| match message {
+                IncomingMessage::Hsl(message) => Some(*message),
+                _ => None,
+            });
+
+        let mut player_states = self.last_player_states.clone();
+        for message in messages {
+            match message {
+                HulkMessage::Base(base_message) => {
+                    if let Some(index) = player_states
+                        .iter()
+                        .position(|player| player.player_number == base_message.player_number)
+                    {
+                        player_states[index].position = base_message.pose.position();
+                    } else {
+                        player_states.push(PlayerState {
+                            player_number: base_message.player_number,
+                            position: base_message.pose.position(),
+                        });
+                    }
+                }
+            }
+        }
+
+        Ok(MainOutputs {
+            player_states: player_states.into(),
+        })
+    }
+}
