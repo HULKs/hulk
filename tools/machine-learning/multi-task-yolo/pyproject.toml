@@ -17,3 +17,9 @@ dependencies = [
 [build-system]
 requires = ["setuptools>=68", "wheel"]
 build-backend = "setuptools.build_meta"
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.408",
+    "ruff>=0.15.9",
+]

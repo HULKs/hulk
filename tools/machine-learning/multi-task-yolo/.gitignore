@@ -2,8 +2,9 @@
 .venv
 
 *.pt
+*.onnx
 !yolo26m-tuned.pt
 
 assets/output/
-assets/datasets/
+assets/datasets
 runs/
