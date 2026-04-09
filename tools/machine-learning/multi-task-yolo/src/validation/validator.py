@@ -278,16 +278,23 @@ def validate_original_models(
         model_name = model_path.stem
 
         config = task_configs[task_name]
-        val_args = config.to_dict(
+        validator_args = config.to_dict(
             project=str(project_dir),
             name=str(Path("val") / model_name),
         )
 
-        # Run validation (will raise exception on failure)
-        metrics = model.val(**val_args)
+        validator: DetectionValidator | PoseValidator
+        if model.task == "detect":
+            validator = DetectionValidator(args=validator_args)
+        elif model.task == "pose":
+            validator = PoseValidator(args=validator_args)
+        else:
+            raise UnsupportedHydraHeadError("base")
+
+        stats = validator(model=model.model)
 
         # Extract metrics dictionary using .results_dict attribute
-        results[task_name] = dict(metrics.results_dict)
+        results[task_name] = stats
         logger.info(
             "%s original model metrics: %s", task_name, results[task_name]
         )
