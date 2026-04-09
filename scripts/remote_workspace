@@ -95,5 +95,5 @@ if [ ${#files[@]} -gt 0 ]; then
     # fetch results
     echo Returning files
     printf '  %s\n' "${files[@]}"
-    printf '%s\n' "${files[@]}" | rsync -ahr --info=progress --files-from=- "$remoteWorkspace" .
+    printf '%s\n' "${files[@]}" | rsync -ahr --info=progress2 --files-from=- "$remoteWorkspace" .
 fi
