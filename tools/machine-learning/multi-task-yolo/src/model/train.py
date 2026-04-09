@@ -52,7 +52,7 @@ DEVICE_EMPTY_ERROR = "must contain at least one device index, e.g. 0"
 @click.option(
     "--data",
     "data_path",
-    default="/opt/data/nao_coco_k1_data.yaml",
+    default="assets/datasets/nao_coco_k1_data.yaml",
     show_default=True,
     help="Dataset yaml path.",
 )

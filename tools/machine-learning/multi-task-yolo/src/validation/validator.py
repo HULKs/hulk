@@ -332,12 +332,12 @@ def main() -> None:
     )
     parser.add_argument(
         "--detection-data",
-        default="coco.yaml",
+        default="assets/datasets/coco.yaml",
         help="Detection dataset YAML path",
     )
     parser.add_argument(
         "--pose-data",
-        default="coco-pose.yaml",
+        default="assets/datasets/coco-pose.yaml",
         help="Pose dataset YAML path",
     )
     parser.add_argument(
