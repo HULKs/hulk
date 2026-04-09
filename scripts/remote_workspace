@@ -4,6 +4,7 @@
 set -e
 
 # cd to repository base directory for better referencing
+INVOCATION_DIR=`pwd -P`
 BASEDIR=`cd $(dirname $0); pwd -P`
 BASEDIR=${BASEDIR%/*}
 cd "$BASEDIR"
@@ -39,7 +40,7 @@ __helpText__
 
 remoteWorkspace="${REMOTE_WORKSPACE:-$(cat .REMOTE_WORKSPACE)}"
 files=()
-path="."
+path=`realpath --relative-to="${BASEDIR}" "${INVOCATION_DIR}"`
 while true; do
     case "$1" in
         -[h?] | --help)
