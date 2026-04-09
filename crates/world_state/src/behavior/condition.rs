@@ -1,4 +1,5 @@
 use coordinate_systems::Field;
+use filtering::hysteresis::less_than_with_hysteresis;
 use linear_algebra::{Vector2, vector};
 use types::primary_state::PrimaryState;
 
@@ -6,8 +7,14 @@ use crate::behavior::node::Blackboard;
 
 pub fn is_close_to_ball(blackboard: &mut Blackboard) -> bool {
     if let Some(ball) = &blackboard.world_state.ball {
-        ball.ball_in_ground.coords().norm()
-            < blackboard.parameters.kicking.distance_for_kick_hysteresis
+        let distance_to_ball = ball.ball_in_ground.coords().norm();
+        let parameters = &blackboard.parameters.kicking;
+        less_than_with_hysteresis(
+            blackboard.last_close_enough_to_kick,
+            distance_to_ball,
+            parameters.distance_for_kick,
+            parameters.distance_for_kick_hysteresis,
+        )
     } else {
         false
     }
