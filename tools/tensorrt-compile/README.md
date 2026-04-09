@@ -9,7 +9,7 @@ The example model can be produced with
 ## Workflow overview
 
 1. Cross-compile `tensorrt-compile` on the development host via `pepsi`.
-2. Upload to robot.
+2. `pepsi upload` to sync model file.
 3. Sync the binary to the robot.
 4. Run compilation on the robot.
 5. Sync generated TensorRT cache files back to the development host.
@@ -68,7 +68,9 @@ sudo podman kill hulk
 Start compilation:
 
 ```bash
-launchHULK --executable ~/hulk/bin/tensorrt-compile
+launchHULK --executable ~/hulk/bin/tensorrt-compile \
+  --onnx-model /home/booster/hulk/etc/neural_networks/hydra-nv12.onnx \
+  --cache-path /home/booster/hulk/etc/neural_networks
 ```
 
 The process may fail with an error, if the output name of the network has changed.
