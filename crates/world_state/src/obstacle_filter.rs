@@ -52,8 +52,7 @@ pub struct CycleContext {
     current_ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
 
     fall_down_state: PerceptionInput<Option<FallDownState>, "FallDownState", "fall_down_state?">,
-    detected_objects:
-        PerceptionInput<Vec<Object<RobocupObjectLabel>>, "ObjectDetection", "detected_objects">,
+    detected_objects: PerceptionInput<Vec<Object<RobocupObjectLabel>>, "Hydra", "detected_objects">,
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     obstacle_filter_parameters: Parameter<ObstacleFilterParameters, "obstacle_filter">,

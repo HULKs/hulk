@@ -31,8 +31,7 @@ pub struct CycleContext {
     // ground_to_field: CyclerState<Option<Isometry2<Ground, Field>>, "ground_to_field">,
     // field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     camera_matrix_parameters: Parameter<CameraMatrixParameters, "camera_matrix_parameters">,
-    image_left_raw_camera_info:
-        PerceptionInput<CameraInfo, "ObjectDetection", "image_left_raw_camera_info">,
+    image_left_raw_camera_info: PerceptionInput<CameraInfo, "Hydra", "image_left_raw_camera_info">,
     correction_in_robot: Parameter<Vector3<Robot>, "camera_matrix_parameters.correction_in_robot">,
     correction_in_camera:
         Parameter<Vector3<Camera>, "camera_matrix_parameters.correction_in_camera">,
