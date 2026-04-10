@@ -1,0 +1,153 @@
+use std::sync::Arc;
+
+use color_eyre::Result;
+use coordinate_systems::Pixel;
+use eframe::egui::{Align2, Color32, FontId, Stroke};
+use types::{
+    object_detection::YOLOObjectLabel,
+    pose_detection::{
+        Keypoint, OVERALL_KEYPOINT_INDEX_MASK, Pose, VISUAL_REFEREE_KEYPOINT_INDEX_MASK,
+    },
+};
+
+use crate::{panels::image::overlay::Overlay, robot::Robot, value_buffer::BufferHandle};
+
+const POSE_SKELETON: [(usize, usize); 16] = [
+    (0, 1),
+    (0, 2),
+    (1, 3),
+    (2, 4),
+    (5, 6),
+    (5, 11),
+    (6, 12),
+    (11, 12),
+    (5, 7),
+    (6, 8),
+    (7, 9),
+    (8, 10),
+    (11, 13),
+    (12, 14),
+    (13, 15),
+    (14, 16),
+];
+
+pub struct PoseDetection {
+    accepted_human_poses: BufferHandle<Vec<Pose<YOLOObjectLabel>>>,
+    rejected_human_poses: BufferHandle<Vec<Pose<YOLOObjectLabel>>>,
+}
+
+impl Overlay for PoseDetection {
+    const NAME: &'static str = "Pose Detection";
+
+    fn new(nao: Arc<Robot>) -> Self {
+        let accepted_human_poses =
+            nao.subscribe_value("WorldState.main_outputs.accepted_human_poses".to_string());
+        let rejected_human_poses =
+            nao.subscribe_value("WorldState.main_outputs.rejected_human_poses".to_string());
+        Self {
+            accepted_human_poses,
+            rejected_human_poses,
+        }
+    }
+
+    fn paint(&self, painter: &crate::twix_painter::TwixPainter<Pixel>) -> Result<()> {
+        let Some(accepted_human_poses) = self.accepted_human_poses.get_last_value()? else {
+            return Ok(());
+        };
+        let Some(rejected_human_poses) = self.rejected_human_poses.get_last_value()? else {
+            return Ok(());
+        };
+
+        paint_poses(
+            painter,
+            rejected_human_poses,
+            Color32::LIGHT_RED,
+            Color32::DARK_RED,
+            Color32::from_rgb(255, 100, 100),
+        )?;
+        paint_poses(
+            painter,
+            accepted_human_poses,
+            Color32::BLUE,
+            Color32::DARK_BLUE,
+            Color32::from_rgb(100, 100, 255),
+        )?;
+
+        Ok(())
+    }
+
+    fn config_ui(&mut self, ui: &mut eframe::egui::Ui) {
+        ui.horizontal(|ui| {
+            ui.add_space(10.0);
+        });
+    }
+}
+
+fn paint_poses(
+    painter: &crate::twix_painter::TwixPainter<Pixel>,
+    poses: Vec<Pose<YOLOObjectLabel>>,
+    line_color: Color32,
+    visual_referee_point_color: Color32,
+    overall_point_color: Color32,
+) -> Result<()> {
+    for pose in poses {
+        let keypoints: [Keypoint; 17] = pose.keypoints.into();
+
+        // draw skeleton
+        for (idx1, idx2) in POSE_SKELETON {
+            painter.line_segment(
+                keypoints[idx1].point,
+                keypoints[idx2].point,
+                Stroke::new(2.0, line_color),
+            )
+        }
+
+        // draw keypoints
+        for (index, keypoint) in keypoints.iter().enumerate() {
+            if VISUAL_REFEREE_KEYPOINT_INDEX_MASK.contains(&index) {
+                painter.circle_filled(keypoint.point, 2.0, visual_referee_point_color);
+                painter.floating_text(
+                    keypoint.point,
+                    Align2::RIGHT_BOTTOM,
+                    format!("{:.2}", keypoint.confidence),
+                    FontId::default(),
+                    Color32::WHITE,
+                );
+            } else if OVERALL_KEYPOINT_INDEX_MASK.contains(&index) {
+                painter.circle_filled(keypoint.point, 2.0, overall_point_color);
+                painter.floating_text(
+                    keypoint.point,
+                    Align2::RIGHT_BOTTOM,
+                    format!("{:.2}", keypoint.confidence),
+                    FontId::default(),
+                    Color32::WHITE.gamma_multiply(0.8),
+                );
+            } else {
+                painter.circle_filled(keypoint.point, 2.0, Color32::GRAY);
+                painter.floating_text(
+                    keypoint.point,
+                    Align2::RIGHT_BOTTOM,
+                    format!("{:.2}", keypoint.confidence),
+                    FontId::default(),
+                    Color32::GRAY.gamma_multiply(0.8),
+                );
+            }
+        }
+
+        // draw bounding box
+        let bounding_box = pose.object.bounding_box;
+        painter.rect_stroke(
+            bounding_box.area.min,
+            bounding_box.area.max,
+            Stroke::new(2.0, line_color),
+        );
+        painter.floating_text(
+            bounding_box.area.min,
+            Align2::RIGHT_BOTTOM,
+            format!("{:.2}", bounding_box.confidence),
+            FontId::default(),
+            Color32::WHITE,
+        );
+    }
+    Ok(())
+}

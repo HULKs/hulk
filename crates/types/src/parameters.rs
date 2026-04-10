@@ -525,6 +525,19 @@ pub struct PoseDetectionParameters {
     pub confidence_threshold: f32,
 }
 
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct PoseFilteringParameters {
+    pub minimum_visual_referee_keypoint_confidence: f32,
+    pub minimum_overall_keypoint_confidence: f32,
+    pub maximum_distance_to_referee_position: f32,
+    pub minimum_bounding_box_confidence: f32,
+    pub minimum_shoulder_angle: f32,
+    pub free_kick_signal_angle_range: Range<f32>,
+    pub foot_z_offset: f32,
+}
+
 #[derive(Clone, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect)]
 pub struct WalkSpeedParameters {
     pub defend: f32,
