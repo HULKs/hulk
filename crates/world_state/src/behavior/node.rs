@@ -8,6 +8,7 @@ use types::{
     field_dimensions::FieldDimensions,
     motion_command::{HeadMotion, ImageRegion, MotionCommand},
     parameters::BehaviorParameters,
+    path_obstacles::PathObstacle,
     world_state::WorldState,
 };
 
@@ -27,14 +28,18 @@ pub struct Behavior {
     pub tree: Node<Blackboard>,
     #[serde(skip, default = "create_static_layout_default")]
     pub static_layout: NodeTrace,
+    pub last_close_enough_to_kick: bool,
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Blackboard {
     pub world_state: WorldState,
     pub parameters: BehaviorParameters,
     pub field_dimensions: FieldDimensions,
     pub output: Option<MotionCommand>,
+    pub last_close_enough_to_kick: bool,
+    pub last_motion_command: MotionCommand,
+    pub path_obstacles_output: Vec<PathObstacle>,
 }
 
 #[context]
@@ -49,6 +54,9 @@ pub struct CycleContext {
 
     behavior_trace: AdditionalOutput<NodeTrace, "behavior.trace">,
     behavior_tree_layout: AdditionalOutput<NodeTrace, "behavior.tree_layout">,
+    path_obstacles_output: AdditionalOutput<Vec<PathObstacle>, "path_obstacles">,
+
+    last_motion_command: CyclerState<MotionCommand, "last_motion_command">,
 }
 
 #[context]
@@ -65,6 +73,7 @@ impl Behavior {
         Ok(Self {
             tree,
             static_layout,
+            last_close_enough_to_kick: false,
         })
     }
 
@@ -78,10 +87,15 @@ impl Behavior {
             parameters: context.parameters.clone(),
             field_dimensions: *context.field_dimensions,
             output: None,
+            last_close_enough_to_kick: self.last_close_enough_to_kick,
+            last_motion_command: context.last_motion_command.clone(),
+            path_obstacles_output: Vec::new(),
         };
-
         let (status, trace) = self.tree.tick_with_trace(&mut blackboard);
         context.behavior_trace.fill_if_subscribed(|| trace);
+        context
+            .path_obstacles_output
+            .fill_if_subscribed(|| blackboard.path_obstacles_output);
 
         let motion_command: MotionCommand = match status {
             Status::Success => blackboard.output.take().unwrap_or(MotionCommand::Stand {

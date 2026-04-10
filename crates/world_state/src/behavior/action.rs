@@ -42,19 +42,3 @@ pub fn stand_up(blackboard: &mut Blackboard) -> Status {
     blackboard.output = Some(MotionCommand::StandUp);
     Status::Success
 }
-
-pub fn walk_to_ball(blackboard: &mut Blackboard) -> Status {
-    if let Some(ball) = &blackboard.world_state.ball {
-        blackboard.output = Some(MotionCommand::WalkWithVelocity {
-            head: HeadMotion::LookAt {
-                target: ball.ball_in_ground,
-                image_region_target: ImageRegion::Top,
-            },
-            velocity: ball.ball_in_ground.coords(),
-            angular_velocity: 0.0,
-        });
-        Status::Success
-    } else {
-        Status::Failure
-    }
-}
