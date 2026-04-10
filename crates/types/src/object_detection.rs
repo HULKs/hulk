@@ -4,16 +4,26 @@ use serde::{Deserialize, Serialize};
 
 use crate::bounding_box::BoundingBox;
 
-#[derive(Debug, Clone, Serialize, Deserialize, PathIntrospect, PathSerialize, PathDeserialize)]
-pub struct Detection<T> {
+#[derive(
+    Debug, Clone, Copy, Serialize, Deserialize, PathIntrospect, PathSerialize, PathDeserialize,
+)]
+pub struct Object<T> {
     pub label: T,
     pub bounding_box: BoundingBox,
 }
 
 #[derive(
-    Debug, Clone, Serialize, Deserialize, PathIntrospect, PathSerialize, PathDeserialize, PartialEq,
+    Debug,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    PathIntrospect,
+    PathSerialize,
+    PathDeserialize,
+    PartialEq,
 )]
-pub enum YOLOv8ObjectDetectionLabel {
+pub enum YOLOObjectLabel {
     Person = 0,
     Bicycle = 1,
     Car = 2,
@@ -96,7 +106,7 @@ pub enum YOLOv8ObjectDetectionLabel {
     Toothbrush = 79,
 }
 
-impl YOLOv8ObjectDetectionLabel {
+impl YOLOObjectLabel {
     pub fn from_index(index: usize) -> Self {
         match index {
             0 => Self::Person,
@@ -184,97 +194,105 @@ impl YOLOv8ObjectDetectionLabel {
     }
 }
 
-impl From<YOLOv8ObjectDetectionLabel> for String {
-    fn from(label: YOLOv8ObjectDetectionLabel) -> Self {
+impl From<YOLOObjectLabel> for String {
+    fn from(label: YOLOObjectLabel) -> Self {
         match label {
-            YOLOv8ObjectDetectionLabel::Person => "Person",
-            YOLOv8ObjectDetectionLabel::Bicycle => "Bicycle",
-            YOLOv8ObjectDetectionLabel::Car => "Car",
-            YOLOv8ObjectDetectionLabel::Motorcycle => "Motorcycle",
-            YOLOv8ObjectDetectionLabel::Airplane => "Airplane",
-            YOLOv8ObjectDetectionLabel::Bus => "Bus",
-            YOLOv8ObjectDetectionLabel::Train => "Train",
-            YOLOv8ObjectDetectionLabel::Truck => "Truck",
-            YOLOv8ObjectDetectionLabel::Boat => "Boat",
-            YOLOv8ObjectDetectionLabel::Trafficlight => "Trafficlight",
-            YOLOv8ObjectDetectionLabel::Firehydrant => "Firehydrant",
-            YOLOv8ObjectDetectionLabel::Stopsign => "Stopsign",
-            YOLOv8ObjectDetectionLabel::Parkingmeter => "Parkingmeter",
-            YOLOv8ObjectDetectionLabel::Bench => "Bench",
-            YOLOv8ObjectDetectionLabel::Bird => "Bird",
-            YOLOv8ObjectDetectionLabel::Cat => "Cat",
-            YOLOv8ObjectDetectionLabel::Dog => "Dog",
-            YOLOv8ObjectDetectionLabel::Horse => "Horse",
-            YOLOv8ObjectDetectionLabel::Sheep => "Sheep",
-            YOLOv8ObjectDetectionLabel::Cow => "Cow",
-            YOLOv8ObjectDetectionLabel::Elephant => "Elephant",
-            YOLOv8ObjectDetectionLabel::Bear => "Bear",
-            YOLOv8ObjectDetectionLabel::Zebra => "Zebra",
-            YOLOv8ObjectDetectionLabel::Giraffe => "Giraffe",
-            YOLOv8ObjectDetectionLabel::Backpack => "Backpack",
-            YOLOv8ObjectDetectionLabel::Umbrella => "Umbrella",
-            YOLOv8ObjectDetectionLabel::Handbag => "Handbag",
-            YOLOv8ObjectDetectionLabel::Tie => "Tie",
-            YOLOv8ObjectDetectionLabel::Suitcase => "Suitcase",
-            YOLOv8ObjectDetectionLabel::Frisbee => "Frisbee",
-            YOLOv8ObjectDetectionLabel::Skis => "Skis",
-            YOLOv8ObjectDetectionLabel::Snowboard => "Snowboard",
-            YOLOv8ObjectDetectionLabel::Sportsball => "Sportsball",
-            YOLOv8ObjectDetectionLabel::Kite => "Kite",
-            YOLOv8ObjectDetectionLabel::Baseballbat => "Baseballbat",
-            YOLOv8ObjectDetectionLabel::Baseballglove => "Baseballglove",
-            YOLOv8ObjectDetectionLabel::Skateboard => "Skateboard",
-            YOLOv8ObjectDetectionLabel::Surfboard => "Surfboard",
-            YOLOv8ObjectDetectionLabel::Tennisracket => "Tennisracket",
-            YOLOv8ObjectDetectionLabel::Bottle => "Bottle",
-            YOLOv8ObjectDetectionLabel::Wineglass => "Wineglass",
-            YOLOv8ObjectDetectionLabel::Cup => "Cup",
-            YOLOv8ObjectDetectionLabel::Fork => "Fork",
-            YOLOv8ObjectDetectionLabel::Knife => "Knife",
-            YOLOv8ObjectDetectionLabel::Spoon => "Spoon",
-            YOLOv8ObjectDetectionLabel::Bowl => "Bowl",
-            YOLOv8ObjectDetectionLabel::Banana => "Banana",
-            YOLOv8ObjectDetectionLabel::Apple => "Apple",
-            YOLOv8ObjectDetectionLabel::Sandwich => "Sandwich",
-            YOLOv8ObjectDetectionLabel::Orange => "Orange",
-            YOLOv8ObjectDetectionLabel::Broccoli => "Broccoli",
-            YOLOv8ObjectDetectionLabel::Carrot => "Carrot",
-            YOLOv8ObjectDetectionLabel::Hotdog => "Hotdog",
-            YOLOv8ObjectDetectionLabel::Pizza => "Pizza",
-            YOLOv8ObjectDetectionLabel::Donut => "Donut",
-            YOLOv8ObjectDetectionLabel::Cake => "Cake",
-            YOLOv8ObjectDetectionLabel::Chair => "Chair",
-            YOLOv8ObjectDetectionLabel::Couch => "Couch",
-            YOLOv8ObjectDetectionLabel::Pottedplant => "Pottedplant",
-            YOLOv8ObjectDetectionLabel::Bed => "Bed",
-            YOLOv8ObjectDetectionLabel::Diningtable => "Diningtable",
-            YOLOv8ObjectDetectionLabel::Toilet => "Toilet",
-            YOLOv8ObjectDetectionLabel::Tv => "Tv",
-            YOLOv8ObjectDetectionLabel::Laptop => "Laptop",
-            YOLOv8ObjectDetectionLabel::Mouse => "Mouse",
-            YOLOv8ObjectDetectionLabel::Remote => "Remote",
-            YOLOv8ObjectDetectionLabel::Keyboard => "Keyboard",
-            YOLOv8ObjectDetectionLabel::Cellphone => "Cellphone",
-            YOLOv8ObjectDetectionLabel::Microwave => "Microwave",
-            YOLOv8ObjectDetectionLabel::Oven => "Oven",
-            YOLOv8ObjectDetectionLabel::Toaster => "Toaster",
-            YOLOv8ObjectDetectionLabel::Sink => "Sink",
-            YOLOv8ObjectDetectionLabel::Refrigerator => "Refrigerator",
-            YOLOv8ObjectDetectionLabel::Book => "Book",
-            YOLOv8ObjectDetectionLabel::Clock => "Clock",
-            YOLOv8ObjectDetectionLabel::Vase => "Vase",
-            YOLOv8ObjectDetectionLabel::Scissors => "Scissors",
-            YOLOv8ObjectDetectionLabel::Teddybear => "Teddybear",
-            YOLOv8ObjectDetectionLabel::Hairdrier => "Hairdrier",
-            YOLOv8ObjectDetectionLabel::Toothbrush => "Toothbrush",
+            YOLOObjectLabel::Person => "Person",
+            YOLOObjectLabel::Bicycle => "Bicycle",
+            YOLOObjectLabel::Car => "Car",
+            YOLOObjectLabel::Motorcycle => "Motorcycle",
+            YOLOObjectLabel::Airplane => "Airplane",
+            YOLOObjectLabel::Bus => "Bus",
+            YOLOObjectLabel::Train => "Train",
+            YOLOObjectLabel::Truck => "Truck",
+            YOLOObjectLabel::Boat => "Boat",
+            YOLOObjectLabel::Trafficlight => "Trafficlight",
+            YOLOObjectLabel::Firehydrant => "Firehydrant",
+            YOLOObjectLabel::Stopsign => "Stopsign",
+            YOLOObjectLabel::Parkingmeter => "Parkingmeter",
+            YOLOObjectLabel::Bench => "Bench",
+            YOLOObjectLabel::Bird => "Bird",
+            YOLOObjectLabel::Cat => "Cat",
+            YOLOObjectLabel::Dog => "Dog",
+            YOLOObjectLabel::Horse => "Horse",
+            YOLOObjectLabel::Sheep => "Sheep",
+            YOLOObjectLabel::Cow => "Cow",
+            YOLOObjectLabel::Elephant => "Elephant",
+            YOLOObjectLabel::Bear => "Bear",
+            YOLOObjectLabel::Zebra => "Zebra",
+            YOLOObjectLabel::Giraffe => "Giraffe",
+            YOLOObjectLabel::Backpack => "Backpack",
+            YOLOObjectLabel::Umbrella => "Umbrella",
+            YOLOObjectLabel::Handbag => "Handbag",
+            YOLOObjectLabel::Tie => "Tie",
+            YOLOObjectLabel::Suitcase => "Suitcase",
+            YOLOObjectLabel::Frisbee => "Frisbee",
+            YOLOObjectLabel::Skis => "Skis",
+            YOLOObjectLabel::Snowboard => "Snowboard",
+            YOLOObjectLabel::Sportsball => "Sportsball",
+            YOLOObjectLabel::Kite => "Kite",
+            YOLOObjectLabel::Baseballbat => "Baseballbat",
+            YOLOObjectLabel::Baseballglove => "Baseballglove",
+            YOLOObjectLabel::Skateboard => "Skateboard",
+            YOLOObjectLabel::Surfboard => "Surfboard",
+            YOLOObjectLabel::Tennisracket => "Tennisracket",
+            YOLOObjectLabel::Bottle => "Bottle",
+            YOLOObjectLabel::Wineglass => "Wineglass",
+            YOLOObjectLabel::Cup => "Cup",
+            YOLOObjectLabel::Fork => "Fork",
+            YOLOObjectLabel::Knife => "Knife",
+            YOLOObjectLabel::Spoon => "Spoon",
+            YOLOObjectLabel::Bowl => "Bowl",
+            YOLOObjectLabel::Banana => "Banana",
+            YOLOObjectLabel::Apple => "Apple",
+            YOLOObjectLabel::Sandwich => "Sandwich",
+            YOLOObjectLabel::Orange => "Orange",
+            YOLOObjectLabel::Broccoli => "Broccoli",
+            YOLOObjectLabel::Carrot => "Carrot",
+            YOLOObjectLabel::Hotdog => "Hotdog",
+            YOLOObjectLabel::Pizza => "Pizza",
+            YOLOObjectLabel::Donut => "Donut",
+            YOLOObjectLabel::Cake => "Cake",
+            YOLOObjectLabel::Chair => "Chair",
+            YOLOObjectLabel::Couch => "Couch",
+            YOLOObjectLabel::Pottedplant => "Pottedplant",
+            YOLOObjectLabel::Bed => "Bed",
+            YOLOObjectLabel::Diningtable => "Diningtable",
+            YOLOObjectLabel::Toilet => "Toilet",
+            YOLOObjectLabel::Tv => "Tv",
+            YOLOObjectLabel::Laptop => "Laptop",
+            YOLOObjectLabel::Mouse => "Mouse",
+            YOLOObjectLabel::Remote => "Remote",
+            YOLOObjectLabel::Keyboard => "Keyboard",
+            YOLOObjectLabel::Cellphone => "Cellphone",
+            YOLOObjectLabel::Microwave => "Microwave",
+            YOLOObjectLabel::Oven => "Oven",
+            YOLOObjectLabel::Toaster => "Toaster",
+            YOLOObjectLabel::Sink => "Sink",
+            YOLOObjectLabel::Refrigerator => "Refrigerator",
+            YOLOObjectLabel::Book => "Book",
+            YOLOObjectLabel::Clock => "Clock",
+            YOLOObjectLabel::Vase => "Vase",
+            YOLOObjectLabel::Scissors => "Scissors",
+            YOLOObjectLabel::Teddybear => "Teddybear",
+            YOLOObjectLabel::Hairdrier => "Hairdrier",
+            YOLOObjectLabel::Toothbrush => "Toothbrush",
         }
         .to_string()
     }
 }
 #[derive(
-    Debug, Clone, Serialize, Deserialize, PathIntrospect, PathSerialize, PathDeserialize, PartialEq,
+    Debug,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    PathIntrospect,
+    PathSerialize,
+    PathDeserialize,
+    PartialEq,
 )]
-pub enum NaoLabelPartyObjectDetectionLabel {
+pub enum RobocupObjectLabel {
     Ball = 0,
     GoalPost = 1,
     LSpot = 2,
@@ -285,7 +303,7 @@ pub enum NaoLabelPartyObjectDetectionLabel {
     Person = 7,
 }
 
-impl NaoLabelPartyObjectDetectionLabel {
+impl RobocupObjectLabel {
     pub fn from_index(index: usize) -> Self {
         match index {
             0 => Self::Ball,
@@ -301,17 +319,17 @@ impl NaoLabelPartyObjectDetectionLabel {
     }
 }
 
-impl From<NaoLabelPartyObjectDetectionLabel> for String {
-    fn from(label: NaoLabelPartyObjectDetectionLabel) -> Self {
+impl From<RobocupObjectLabel> for String {
+    fn from(label: RobocupObjectLabel) -> Self {
         match label {
-            NaoLabelPartyObjectDetectionLabel::Ball => "Ball",
-            NaoLabelPartyObjectDetectionLabel::GoalPost => "GoalPost",
-            NaoLabelPartyObjectDetectionLabel::LSpot => "LSpot",
-            NaoLabelPartyObjectDetectionLabel::PenaltySpot => "PenaltySpot",
-            NaoLabelPartyObjectDetectionLabel::Robot => "Robot",
-            NaoLabelPartyObjectDetectionLabel::TSpot => "TSpot",
-            NaoLabelPartyObjectDetectionLabel::XSpot => "XSpot",
-            NaoLabelPartyObjectDetectionLabel::Person => "Person",
+            RobocupObjectLabel::Ball => "Ball",
+            RobocupObjectLabel::GoalPost => "GoalPost",
+            RobocupObjectLabel::LSpot => "LSpot",
+            RobocupObjectLabel::PenaltySpot => "PenaltySpot",
+            RobocupObjectLabel::Robot => "Robot",
+            RobocupObjectLabel::TSpot => "TSpot",
+            RobocupObjectLabel::XSpot => "XSpot",
+            RobocupObjectLabel::Person => "Person",
         }
         .to_string()
     }

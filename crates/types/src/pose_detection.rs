@@ -8,7 +8,7 @@ use coordinate_systems::Pixel;
 use hsl_network_messages::Team;
 use linear_algebra::{Point2, point};
 
-use crate::bounding_box::BoundingBox;
+use crate::object_detection::{Object, YOLOObjectLabel};
 
 #[derive(
     Debug, Clone, Copy, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
@@ -141,17 +141,14 @@ impl From<Keypoints> for [Keypoint; 17] {
 #[derive(
     Debug, Clone, Copy, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
-pub struct HumanPose {
-    pub bounding_box: BoundingBox,
+pub struct Pose<T> {
+    pub object: Object<T>,
     pub keypoints: Keypoints,
 }
 
-impl HumanPose {
-    pub fn new(bounding_box: BoundingBox, keypoints: Keypoints) -> HumanPose {
-        Self {
-            bounding_box,
-            keypoints,
-        }
+impl<T> Pose<T> {
+    pub fn new(object: Object<T>, keypoints: Keypoints) -> Pose<T> {
+        Self { object, keypoints }
     }
 }
 
@@ -159,7 +156,7 @@ impl HumanPose {
     Debug, Clone, Copy, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
 pub struct RefereePoseCandidate {
-    pub pose: HumanPose,
+    pub pose: Pose<YOLOObjectLabel>,
     pub distance_to_referee_position: f32,
 }
 

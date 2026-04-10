@@ -27,12 +27,7 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
                 kind: CyclerKind::Perception,
                 instances: vec![""],
                 setup_nodes: vec!["object_detection::image_receiver"],
-                nodes: vec![
-                    "object_detection::object_detection",
-                    // "object_detection::pose_detection",
-                    // "object_detection::pose_filter",
-                    // "object_detection::pose_interpretation",
-                ],
+                nodes: vec!["object_detection::object_detection"],
                 execution_time_warning_threshold: Some(Duration::from_secs_f32(1.0 / 30.0)),
             },
             CyclerManifest {
