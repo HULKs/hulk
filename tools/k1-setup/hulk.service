@@ -1,13 +1,17 @@
 [Unit]
-Description=HULK Service
+Description=HULK Application Service
+Requires=hulk-runtime.service
+After=hulk-runtime.service
 
 [Service]
-WorkingDirectory=/home/booster/hulk
-Environment="RUST_BACKTRACE=1"
-Environment="RUST_LOG=DEBUG"
-ExecStart=/usr/bin/launchHULK --enable-file-logging
-ExecStop=/usr/bin/sudo /usr/bin/podman kill hulk
+Type=simple
+ExecStartPre=/usr/bin/podman wait --condition running hulk
+ExecStart=/usr/bin/launch-hulk
+ExecStop=/usr/bin/podman exec hulk pkill -SIGTERM hulk
+KillMode=control-group
+KillSignal=SIGTERM
 TimeoutStopSec=10
+Restart=on-failure
 
 [Install]
-WantedBy=default.target
+WantedBy=multi-user.target

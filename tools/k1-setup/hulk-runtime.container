@@ -1,0 +1,27 @@
+[Unit]
+Description=HULK Runtime Environment
+
+[Container]
+ContainerName=hulk
+Image=hulk-runtime:latest
+Network=host
+AddDevice=nvidia.com/gpu=all
+RunInit=true
+
+Volume=/usr/lib/aarch64-linux-gnu/tegra:/usr/lib/aarch64-linux-gnu/tegra
+Volume=/home/booster:/home/booster
+WorkingDir=/home/booster/hulk
+
+Environment=LD_LIBRARY_PATH=/usr/lib/aarch64-linux-gnu/tegra
+Environment=ORT_DYLIB_PATH=/usr/local/lib/libonnxruntime.so
+EnvironmentFile=/run/hulk-runtime.env
+
+Exec=sleep infinity
+
+[Service]
+ExecStartPre=/usr/bin/bash -c "echo HARDWARE_ID=$(/usr/bin/jetson_release -s | /usr/bin/grep 'Serial Number:' | /usr/bin/grep '[0-9]*$' -o) > /run/hulk-runtime.env"
+ExecStartPre=/usr/bin/jetson_clocks
+Restart=always
+
+[Install]
+WantedBy=multi-user.target
