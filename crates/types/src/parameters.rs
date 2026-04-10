@@ -52,6 +52,7 @@ pub struct BehaviorParameters {
     pub optional_roles: Vec<Role>,
     pub maximum_lookaround_duration: Duration,
     pub kicking: KickingParameters,
+    pub walk_speed: WalkSpeedParameters,
 }
 
 #[derive(
@@ -238,6 +239,7 @@ pub struct InterceptBallParameters {
 pub struct PathPlanningParameters {
     pub arc_walking_speed: f32,
     pub ball_obstacle_radius: f32,
+    pub ball_obstacle_radius_factor: f32,
     pub field_border_weight: f32,
     pub line_walking_speed: f32,
     pub rotation_penalty_factor: f32,
