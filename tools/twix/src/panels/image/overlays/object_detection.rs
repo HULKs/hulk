@@ -15,8 +15,7 @@ impl Overlay for ObjectDetection {
     const NAME: &'static str = "Object Detection";
 
     fn new(robot: Arc<Robot>) -> Self {
-        let object_detections =
-            robot.subscribe_value("ObjectDetection.main_outputs.detected_objects");
+        let object_detections = robot.subscribe_value("Hydra.main_outputs.detected_objects");
         Self { object_detections }
     }
 

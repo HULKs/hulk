@@ -503,8 +503,24 @@ pub struct ControlParameters {
 #[derive(
     Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
-pub struct ObjectDetectionParameters {
+pub struct HydraParameters {
     pub enable: bool,
+    pub object_detection_parameters: ObjectDetectionParameters,
+    pub pose_detection_parameters: PoseDetectionParameters,
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct ObjectDetectionParameters {
+    pub maximum_intersection_over_union: f32,
+    pub confidence_threshold: f32,
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct PoseDetectionParameters {
     pub maximum_intersection_over_union: f32,
     pub confidence_threshold: f32,
 }

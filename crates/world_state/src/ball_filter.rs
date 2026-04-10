@@ -52,8 +52,7 @@ pub struct CycleContext {
     ball_filter_configuration: Parameter<BallFilterParameters, "ball_filter">,
 
     integrated_odometry: PerceptionInput<Odometer, "Odometry", "odometer">,
-    detected_objects:
-        PerceptionInput<Vec<Object<RobocupObjectLabel>>, "ObjectDetection", "detected_objects">,
+    detected_objects: PerceptionInput<Vec<Object<RobocupObjectLabel>>, "Hydra", "detected_objects">,
 }
 
 #[context]

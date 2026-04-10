@@ -21,7 +21,7 @@ use serde::{Deserialize, Serialize};
 use types::{
     bounding_box::BoundingBox,
     object_detection::{Object, RobocupObjectLabel, YOLOObjectLabel},
-    parameters::ObjectDetectionParameters,
+    parameters::HydraParameters,
     pose_detection::{Keypoints, Pose},
 };
 
@@ -89,7 +89,7 @@ pub struct CycleContext {
     non_maximum_suppression_duration:
         AdditionalOutput<Duration, "non_maximum_suppression_duration">,
 
-    parameters: Parameter<ObjectDetectionParameters, "object_detection">,
+    parameters: Parameter<HydraParameters, "hydra">,
 }
 
 #[context]
@@ -153,21 +153,37 @@ impl ObjectDetection {
         let post_processing_start = Instant::now();
 
         let model_outputs = extract_model_outputs(&outputs)?;
-        let candidate_detections =
-            extract_candidate_detections(&model_outputs, context.parameters.confidence_threshold)?;
-        let candidate_human_poses =
-            extract_candidate_human_poses(&model_outputs, context.parameters.confidence_threshold)?;
+        let candidate_detections = extract_candidate_detections(
+            &model_outputs,
+            context
+                .parameters
+                .object_detection_parameters
+                .confidence_threshold,
+        )?;
+        let candidate_human_poses = extract_candidate_human_poses(
+            &model_outputs,
+            context
+                .parameters
+                .pose_detection_parameters
+                .confidence_threshold,
+        )?;
 
         let post_processing_duration = post_processing_start.elapsed();
         let non_maximum_suppression_start = Instant::now();
 
         let detected_objects = non_maximum_suppression(
             candidate_detections,
-            context.parameters.maximum_intersection_over_union,
+            context
+                .parameters
+                .object_detection_parameters
+                .maximum_intersection_over_union,
         );
         let detected_poses = non_maximum_suppression(
             candidate_human_poses,
-            context.parameters.maximum_intersection_over_union,
+            context
+                .parameters
+                .pose_detection_parameters
+                .maximum_intersection_over_union,
         );
 
         let non_maximum_suppression_duration = non_maximum_suppression_start.elapsed();
