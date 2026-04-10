@@ -317,7 +317,7 @@ fn update_status_colors(
     connections: &mut Vec<Connection>,
 ) {
     let color = match node_trace.status {
-        Status::Success => Color32::GREEN,
+        Status::Success => Color32::CYAN,
         Status::Failure => Color32::RED,
         Status::Running => Color32::YELLOW,
         Status::Idle => Color32::LIGHT_GRAY,
