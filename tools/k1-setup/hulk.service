@@ -5,9 +5,9 @@ After=hulk-runtime.service
 
 [Service]
 Type=simple
-ExecStartPre=/usr/bin/podman wait --condition running hulk
+ExecStartPre=/usr/local/bin/podman wait --condition running hulk
 ExecStart=/usr/bin/launch-hulk
-ExecStop=/usr/bin/podman exec hulk pkill -SIGTERM hulk
+ExecStop=/usr/local/bin/podman exec hulk pkill -SIGTERM hulk
 KillMode=control-group
 KillSignal=SIGTERM
 TimeoutStopSec=10

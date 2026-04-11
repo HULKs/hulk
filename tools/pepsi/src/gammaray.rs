@@ -36,7 +36,7 @@ pub struct Arguments {
     image_file: Option<PathBuf>,
 }
 
-static PACKAGES: [&str; 3] = ["zenohd", "zenoh-bridge-dds", "podman"];
+static PACKAGES: [&str; 2] = ["zenohd", "zenoh-bridge-dds"];
 
 const WIFI_PASSWORD: &str = "HSL?!HSL?!";
 
@@ -149,6 +149,16 @@ async fn gammaray_robot(
         .await?;
 
     robot
+        .ssh_to_robot()?
+        .arg("sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml")
+        .ssh_with_log("reloading service daemon", &progress_bar)
+        .await?;
+
+    install_latest_podman(&robot, &progress_bar)
+        .await
+        .wrap_err("failed to install latest podman on robot; manual recovery may be required")?;
+
+    robot
         .rsync_with_robot()?
         .arg("--rsync-path=sudo rsync")
         .arg("--info=progress2")
@@ -177,6 +187,7 @@ async fn gammaray_robot(
             &progress_bar,
         )
         .await?;
+
     robot
         .rsync_with_robot()?
         .arg("--rsync-path=sudo rsync")
@@ -188,6 +199,7 @@ async fn gammaray_robot(
         ))
         .rsync_with_log("uploading zenoh-bridge-dds service override", &progress_bar)
         .await?;
+
     robot
         .ssh_to_robot()?
         .arg("sudo systemctl daemon-reload")
@@ -196,9 +208,10 @@ async fn gammaray_robot(
 
     robot
         .rsync_with_robot()?
+        .arg("--rsync-path=sudo rsync")
         .arg("--info=progress2")
         .arg(setup.join("hulk.service"))
-        .arg(format!("{}:.config/systemd/user/", robot.address))
+        .arg(format!("{}:/etc/systemd/system/", robot.address))
         .rsync_with_log("uploading service files", &progress_bar)
         .await?;
 
@@ -229,15 +242,24 @@ async fn gammaray_robot(
         .arg("--rsync-path=sudo rsync")
         .arg("--info=progress2")
         .arg(setup.join("hulk"))
-        .arg(setup.join("launchHULK"))
+        .arg(setup.join("launch-hulk"))
         .arg(format!("{}:/usr/bin/", robot.address))
         .rsync_with_log("uploading binaries", &progress_bar)
         .await?;
 
     robot
         .ssh_to_robot()?
-        .arg("systemctl --user daemon-reload")
+        .arg("sudo systemctl daemon-reload")
         .ssh_with_log("reloading service daemon", &progress_bar)
+        .await?;
+
+    robot
+        .rsync_with_robot()?
+        .arg("--rsync-path=sudo rsync")
+        .arg("--info=progress2")
+        .arg(setup.join("hulk-runtime.container"))
+        .arg(format!("{}:/etc/containers/systemd/", robot.address))
+        .rsync_with_log("uploading binaries", &progress_bar)
         .await?;
 
     robot
@@ -256,7 +278,7 @@ async fn gammaray_robot(
 
     robot
         .ssh_to_robot()?
-        .arg("systemctl --user enable --now")
+        .arg("sudo systemctl enable --now")
         .arg("hulk")
         .ssh_with_log("enabling hulk", &progress_bar)
         .await?;
@@ -274,6 +296,48 @@ async fn gammaray_robot(
         .await?;
 
     Ok(())
+}
+
+async fn install_latest_podman(robot: &Robot, progress_bar: &ProgressBar) -> Result<()> {
+    let install_script = r#"
+set -euo pipefail
+
+tmp_dir="$(mktemp -d)"
+cleanup() {
+  rm -rf "$tmp_dir"
+  rm -f podman-linux-arm64.tar.gz
+  rm -rf podman-linux-arm64
+}
+trap cleanup EXIT
+
+# Prevent conflicts with outdated packages
+sudo apt-get remove --yes crun podman || true
+
+# Transition to the SQLite database format required by newer Podman versions
+podman system migrate --migrate-db || true
+
+curl --fail --silent --show-error --location \
+  --output "$tmp_dir/podman-linux-arm64.tar.gz" \
+  https://github.com/mgoltzsche/podman-static/releases/download/v5.8.1/podman-linux-arm64.tar.gz
+tar --extract --gzip --file "$tmp_dir/podman-linux-arm64.tar.gz" --directory "$tmp_dir"
+
+sudo cp --recursive "$tmp_dir/podman-linux-arm64/usr" "$tmp_dir/podman-linux-arm64/etc" /
+
+# Clear lingering lock files to prevent architecture size mismatch errors
+sudo rm --force /dev/shm/libpod_lock
+rm --force "/dev/shm/libpod_rootless_lock_$(id --user)"
+
+# Verify install
+command -v podman >/dev/null
+podman --version
+"#;
+
+    robot
+        .ssh_to_robot()?
+        .arg(install_script)
+        .ssh_with_log("installing latest podman", progress_bar)
+        .await
+        .wrap_err("podman install/verification failed")
 }
 
 async fn set_up_static_ips(
