@@ -39,6 +39,10 @@
         "ankle_down": 15
       }
     },
+    "switch_policies_threshold": {
+      "nanos": 500000000,
+      "secs": 2
+    },
     "normalization": {
       "gravity": 1.0,
       "linear_velocity": 1.0,
@@ -447,6 +451,13 @@
       "turn_secs": 3.0,
       "stand_secs": 1.0,
       "estimated_ball_speed": 0.75
+    },
+    "intercept_ball": {
+      "maximum_ball_distance": 4.0,
+      "minimum_ball_velocity": 1.0,
+      "minimum_ball_velocity_towards_robot": 0.7,
+      "minimum_ball_velocity_towards_own_half": 0.7,
+      "maximum_intercept_distance": 1.0
     },
     "kicking": {
       "distance_for_kick": 1.5,
