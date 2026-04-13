@@ -5,6 +5,33 @@ use types::primary_state::PrimaryState;
 
 use crate::behavior::node::Blackboard;
 
+pub fn is_ball_interception_candidate(blackboard: &mut Blackboard) -> bool {
+    if let (Some(ball), Some(ground_to_field)) = (
+        &blackboard.world_state.ball,
+        &blackboard.world_state.robot.ground_to_field,
+    ) {
+        let parameters = &blackboard.parameters.intercept_ball;
+
+        let ball_is_in_front_of_robot = ball.ball_in_ground.coords().norm()
+            < parameters.maximum_ball_distance
+            && ball.ball_in_ground.x() > 0.0;
+        let ball_is_moving_towards_robot =
+            ball.ball_in_ground_velocity.x() < -parameters.minimum_ball_velocity_towards_robot;
+
+        let ball_in_field_velocity = ground_to_field * ball.ball_in_ground_velocity;
+        let ball_is_moving = ball_in_field_velocity.norm() > parameters.minimum_ball_velocity;
+        let ball_is_moving_towards_own_half =
+            ball_in_field_velocity.x() < -parameters.minimum_ball_velocity_towards_own_half;
+
+        ball_is_in_front_of_robot
+            && ball_is_moving
+            && ball_is_moving_towards_robot
+            && ball_is_moving_towards_own_half
+    } else {
+        false
+    }
+}
+
 pub fn is_close_to_ball(blackboard: &mut Blackboard) -> bool {
     if let Some(ball) = &blackboard.world_state.ball {
         let distance_to_ball = ball.ball_in_ground.coords().norm();

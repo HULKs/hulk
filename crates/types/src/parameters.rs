@@ -1,6 +1,6 @@
 use std::{
     ops::{Index, Range},
-    time::Duration,
+    time::{Duration, SystemTime},
 };
 
 use hsl_network_messages::PlayerNumber;
@@ -53,6 +53,7 @@ pub struct BehaviorParameters {
     pub maximum_lookaround_duration: Duration,
     pub kicking: KickingParameters,
     pub walk_speed: WalkSpeedParameters,
+    pub intercept_ball: InterceptBallParameters,
 }
 
 #[derive(
@@ -468,6 +469,7 @@ pub struct RLWalkingParameters {
     pub control: ControlParameters,
     pub walk_command: [f32; 3],
     pub joint_position_smoothing_factor: f32,
+    pub switch_policies_threshold: Duration,
 
     pub hybrid_align_distance: f32,
     pub max_alignment_rate: f32,

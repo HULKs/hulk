@@ -3,9 +3,15 @@ use types::{motion_command::KickPower, primary_state::PrimaryState};
 use crate::{
     action,
     behavior::{
-        action::{injected_motion_command, leuchtturm, prepare, stand, stand_up}, behavior_tree::Node, condition::{
-            has_ball_position, is_close_to_ball, is_close_to_goal, is_closest_to_ball, is_fallen, is_goalkeeper, is_primary_state
-        }, kick_actions::kicking, node::Blackboard, walk_actions::walk_to_ball
+        action::{injected_motion_command, leuchtturm, prepare, stand, stand_up},
+        behavior_tree::Node,
+        condition::{
+            has_ball_position, is_ball_interception_candidate, is_close_to_ball, is_close_to_goal,
+            is_closest_to_ball, is_fallen, is_goalkeeper, is_primary_state,
+        },
+        kick_actions::{intercept, kick},
+        node::Blackboard,
+        walk_actions::walk_to_ball,
     },
     condition, negation, selection, sequence,
 };
@@ -69,14 +75,14 @@ fn search_subtree() -> Node<Blackboard> {
 fn striker_subtree() -> Node<Blackboard> {
     selection!(
         sequence!(
-            negation!(condition!(is_close_to_ball)),
-            action!(walk_to_ball)
+            condition!(is_ball_interception_candidate),
+            action!(intercept),
         ),
         sequence!(
             condition!(is_close_to_goal),
-            action!(kicking, KickPower::Rumpelstilzchen)
+            action!(kick, KickPower::Rumpelstilzchen)
         ),
-        action!(kicking, KickPower::Schlong)
+        action!(kick, KickPower::Schlong)
     )
 }
 
