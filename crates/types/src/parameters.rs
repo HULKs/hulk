@@ -6,7 +6,7 @@ use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::{Camera, Field, Ground, NormalizedPixel, Pixel, Robot};
-use linear_algebra::{Point2, Vector2, Vector3};
+use linear_algebra::{Point2, Pose2, Vector2, Vector3};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{motion_command::MotionCommand, step::Step};
@@ -57,8 +57,9 @@ pub struct WhistleDetectionParameters {
     Message,
 )]
 pub struct VoronoiParameters {
-    pub fake_robot_position: Vec<Point2<Field>>,
+    pub fake_robot_position: Vec<Pose2<Field>>,
     pub orientation_bias: f32,
+    pub grid_resolution: f32,
 }
 
 #[derive(

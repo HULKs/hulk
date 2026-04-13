@@ -226,27 +226,6 @@ impl<World> TwixPainter<World> {
             .add(Shape::Path(PathShape::closed_line(points, stroke)));
     }
 
-    pub fn convex_polygon(
-        &self,
-        points: impl IntoIterator<Item = Point2<World>>,
-        fill_color: Color32,
-        stroke: Stroke,
-    ) {
-        let points: Vec<_> = points
-            .into_iter()
-            .map(|point| self.transform_world_to_pixel(point))
-            .collect();
-        if points.len() < 3 {
-            return;
-        }
-
-        self.painter.add(Shape::Path(PathShape::convex_polygon(
-            points,
-            fill_color,
-            self.transform_stroke(stroke),
-        )));
-    }
-
     #[allow(dead_code)]
     pub fn polyline(&self, points: impl IntoIterator<Item = Point2<World>>, stroke: Stroke) {
         let points: Vec<_> = points

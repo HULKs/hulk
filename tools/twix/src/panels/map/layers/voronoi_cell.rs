@@ -11,7 +11,7 @@ use crate::{
 
 pub struct VoronoiCell {
     centroids: BufferHandle<Vec<Option<Point2<Field>>>>,
-    voronoi_cells: BufferHandle<Vec<Vec<Point2<Field>>>>,
+    voronoi_grid: BufferHandle<Vec<Vec<Point2<Field>>>>,
     input_points: BufferHandle<Option<Vec<Point2<Field>>>>,
 }
 
@@ -20,13 +20,13 @@ impl Layer<Field> for VoronoiCell {
 
     fn new(robot: Arc<Robot>) -> Self {
         let centroids = robot.subscribe_value("WorldState.main_outputs.centroids");
-        let voronoi_cells = robot.subscribe_value("WorldState.main_outputs.voronoi_cells");
+        let voronoi_grid = robot.subscribe_value("WorldState.main_outputs.voronoi_grid");
         let input_points =
             robot.subscribe_value("WorldState.additional_outputs.voronoi.input_points");
 
         Self {
             centroids,
-            voronoi_cells,
+            voronoi_grid,
             input_points,
         }
     }
@@ -36,18 +36,28 @@ impl Layer<Field> for VoronoiCell {
         painter: &TwixPainter<Field>,
         _field_dimensions: &types::field_dimensions::FieldDimensions,
     ) -> Result<()> {
-        if let Some(voronoi_cells) = self.voronoi_cells.get_last_value()? {
+        if let Some(voronoi_grid) = self.voronoi_grid.get_last_value()? {
             let colors = [
-                Color32::from_rgba_unmultiplied(255, 0, 0, 255),
-                Color32::from_rgba_unmultiplied(0, 255, 0, 255),
-                Color32::from_rgba_unmultiplied(0, 0, 255, 255),
-                Color32::from_rgba_unmultiplied(255, 255, 0, 255),
+                Color32::from_rgb(0, 114, 178),   // Dark Blue
+                Color32::from_rgb(230, 159, 0),   // Orange
+                Color32::from_rgb(204, 121, 167), // Reddish Purple
+                Color32::from_rgb(86, 180, 233),  // Sky Blue
+                Color32::from_rgb(213, 94, 0),    // Vermillion
+                Color32::from_rgb(240, 228, 66),  // Yellow
+                Color32::from_rgb(0, 0, 0),       // Black
+                Color32::from_rgb(255, 255, 255), // White
+                Color32::from_rgb(148, 103, 189), // Lavender
+                Color32::from_rgb(227, 119, 194), // Pink
+                Color32::from_rgb(127, 127, 127), // Grey
+                Color32::from_rgb(188, 189, 34),  // Olive
             ];
 
-            for (index, cell) in voronoi_cells.into_iter().enumerate() {
+            for (index, cell) in voronoi_grid.into_iter().enumerate() {
                 let color = colors[index % colors.len()];
+
                 for point in cell {
                     painter.circle_filled(point, 0.02, color);
+                    painter.circle_stroke(point, 0.02, Stroke::new(0.005, Color32::BLACK));
                 }
             }
         }
@@ -58,7 +68,7 @@ impl Layer<Field> for VoronoiCell {
                     centroid,
                     0.06,
                     Stroke::new(0.01, Color32::GREEN),
-                    Color32::from_rgb(255, 80, 80),
+                    Color32::RED,
                 );
             }
         }
@@ -69,7 +79,7 @@ impl Layer<Field> for VoronoiCell {
                     input_point,
                     0.04,
                     Stroke::new(0.01, Color32::BLACK),
-                    Color32::from_rgb(255, 200, 0),
+                    Color32::WHITE,
                 );
             }
         }
