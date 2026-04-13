@@ -507,8 +507,22 @@
       }
     },
     "voronoi": {
-      "fake_robot_position": [[-3.0, 0.0], [4.0, 0.2], [-1.0, 0.5], [3.4, 0.0], [0.0, 0.0]],
-      "orientation_bias": 0.5
+      "fake_robot_position": [
+        {
+          "rotation": [1.0, 0.0],
+          "translation": [1.2, 0.8]
+        },
+        {
+          "rotation": [0.0, 1.0],
+          "translation": [0.2, -1.0]
+        },
+        {
+          "rotation": [-1.0, 0.0],
+          "translation": [-1.8, 1.1]
+        }
+      ],
+      "orientation_bias": 0.5,
+      "grid_resolution": 0.1
     }
   },
   "role_assignment": {
