@@ -59,23 +59,23 @@ class InvalidHydraOutputError(TypeError):
 class Hydra(nn.Module):
     def __init__(
         self,
-        foundation_path: str,
+        backbone_path: str,
         task_dict: dict[str, str],
     ) -> None:
         super().__init__()
 
-        logger.info("Loading foundation from: %s", foundation_path)
-        foundation_yolo = YOLO(foundation_path)
-        foundation_root = cast(DetectionModel, foundation_yolo.model)
+        logger.info("Loading backbone from: %s", backbone_path)
+        backbone_yolo = YOLO(backbone_path)
+        backbone_root = cast(DetectionModel, backbone_yolo.model)
 
         self.backbone_length = get_backbone_length(
-            cast(dict, foundation_root.yaml)
+            cast(dict, backbone_root.yaml)
         )
 
-        foundation_model_name = foundation_yolo.model_name or "unknown"
-        self.foundation_name = Path(foundation_model_name).stem
-        self.shared_backbone = get_backbone(foundation_root)
-        self.save_backbone = cast(list[int], foundation_root.save)
+        backbone_model_name = backbone_yolo.model_name or "unknown"
+        self.backbone_name = Path(backbone_model_name).stem
+        self.shared_backbone = get_backbone(backbone_root)
+        self.save_backbone = cast(list[int], backbone_root.save)
 
         self.heads = nn.ModuleDict()
         self.branch_saves: dict[str, list[int]] = {}

@@ -75,7 +75,7 @@ class ValidationMetadata:
     model_path: str | None = None
     model_name: str | None = None
     head_name: str | None = None
-    foundation_name: str | None = None
+    backbone_name: str | None = None
 
 
 class MultiTaskHydraValidator:
@@ -151,7 +151,7 @@ class MultiTaskHydraValidator:
         validator_args = config.to_dict(
             task=adapter.task,
             name=Path("val")
-            / (self.model.foundation_name + "_" + adapter.head_model_name),
+            / (self.model.backbone_name + "_" + adapter.head_model_name),
             device=config.device or str(self.device),
         )
 
@@ -174,7 +174,7 @@ class MultiTaskHydraValidator:
             split=config.split,
             model_name=adapter.head_model_name,
             head_name=head_name,
-            foundation_name=self.model.foundation_name,
+            backbone_name=self.model.backbone_name,
         )
         effective_config = replace(
             config, device=config.device or str(self.device)
@@ -320,10 +320,10 @@ def main() -> None:
         description="Run Ultralytics validation for Hydra heads"
     )
     parser.add_argument(
-        "--foundation",
+        "--backbone",
         type=Path,
         default="assets/yolo26m.pt",
-        help="Path to the foundation checkpoint",
+        help="Path to the backbone checkpoint",
     )
     parser.add_argument(
         "--detection-model",
@@ -382,7 +382,7 @@ def main() -> None:
     }
 
     hydra_model = Hydra(
-        foundation_path=args.foundation,
+        backbone_path=args.backbone,
         task_dict=tasks,
     )
 

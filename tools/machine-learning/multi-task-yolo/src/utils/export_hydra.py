@@ -135,7 +135,7 @@ def _export_torchscript(
 
 @click.command()
 @click.argument(
-    "foundation",
+    "backbone",
     type=click.Path(exists=True, path_type=Path),
 )
 @click.option(
@@ -187,7 +187,7 @@ def _export_torchscript(
     help="Add NV12 preprocessing layer before Hydra model.",
 )
 def main(
-    foundation: Path,
+    backbone: Path,
     head_pairs: tuple[str, ...],
     export_path: Path,
     *,
@@ -204,7 +204,7 @@ def main(
     head_names = list(head_paths.keys())
 
     hydra_model = Hydra(
-        foundation_path=str(foundation),
+        backbone_path=str(backbone),
         task_dict=head_paths,
     ).to(device)
     hydra_model.eval()

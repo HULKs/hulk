@@ -90,7 +90,7 @@ Runs Ultralytics validation for Hydra heads and can optionally validate the
 original source checkpoints first.
 
 - Default checkpoints:
-  - `--foundation assets/yolo26m.pt`
+  - `--backbone assets/yolo26m.pt`
   - `--detection-model assets/yolo26m.pt`
   - `--pose-model assets/yolo26m-pose.pt`
 - Default datasets:
@@ -103,7 +103,7 @@ Example:
 
 ```bash
 uv run -m validation.validator \
-  --foundation assets/yolo26m.pt \
+  --backbone assets/yolo26m.pt \
   --detection-model assets/yolo26m.pt \
   --pose-model assets/yolo26m-pose.pt \
   --detection-data assets/datasets/coco.yaml \
@@ -152,7 +152,7 @@ Use `--subsample` to enable chroma subsampling behavior in the wrapper.
 
 ### Export Hydra model (`src/utils/export_hydra.py`)
 
-Builds a Hydra model from a foundation checkpoint plus one or more heads,
+Builds a Hydra model from a backbone checkpoint plus one or more heads,
 then exports ONNX (`--format onnx`) or TorchScript (`--format pt`).
 
 - Repeat `--head NAME=MODEL_PATH` for each task head.

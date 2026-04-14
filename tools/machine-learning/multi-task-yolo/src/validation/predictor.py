@@ -259,7 +259,7 @@ def main() -> None:
     }
 
     multi_task_model = Hydra(
-        foundation_path=str(assets_dir / "yolo26m-tuned.pt"),
+        backbone_path=str(assets_dir / "yolo26m-tuned.pt"),
         task_dict=tasks,
     )
 

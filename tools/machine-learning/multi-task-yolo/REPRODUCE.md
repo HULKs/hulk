@@ -88,7 +88,7 @@ Run validation for original models and Hydra heads:
 
 ```bash
 uv run -m validation.validator \
-  --foundation assets/yolo26m-tuned.pt \
+  --backbone assets/yolo26m-tuned.pt \
   --detection-model assets/yolo26m-tuned.pt \
   --pose-model assets/yolo26m-pose.pt \
   --detection-data assets/datasets/nao_coco_k1_data.yaml \
