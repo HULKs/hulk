@@ -22,9 +22,9 @@ fn create_static_layout_default() -> NodeTrace {
 
 #[derive(Serialize, Deserialize)]
 pub struct Behavior {
-    #[serde(skip_deserializing, default = "create_tree_default")]
+    #[serde(skip, default = "create_tree_default")]
     pub tree: Node<Blackboard>,
-    #[serde(skip_deserializing, default = "create_static_layout_default")]
+    #[serde(skip, default = "create_static_layout_default")]
     pub static_layout: NodeTrace,
 }
 
