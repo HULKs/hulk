@@ -1,6 +1,6 @@
 use std::{
     ops::{Index, Range},
-    time::{Duration, SystemTime},
+    time::Duration,
 };
 
 use hsl_network_messages::PlayerNumber;
@@ -41,6 +41,7 @@ pub struct WhistleDetectionParameters {
 pub struct BehaviorParameters {
     pub injected_motion_command: Option<MotionCommand>,
     pub goal_keeper_number: PlayerNumber,
+    pub last_ball_timeout: Duration,
     pub lost_ball: LostBallParameters,
     pub path_planning: PathPlanningParameters,
     pub remote_control: RemoteControlParameters,

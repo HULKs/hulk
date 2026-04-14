@@ -1,7 +1,11 @@
+use std::time::{Duration, SystemTime};
+
 use color_eyre::{Result, eyre::Error};
 
 use context_attribute::context;
+use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput};
+use linear_algebra::{Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use types::{
     behavior_tree::{NodeTrace, Status},
@@ -29,6 +33,14 @@ pub struct Behavior {
     #[serde(skip, default = "create_static_layout_default")]
     pub static_layout: NodeTrace,
     pub last_close_enough_to_kick: bool,
+    pub last_ball: Option<LastBall>,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+pub struct LastBall {
+    pub position: Point2<Field>,
+    pub velocity: Vector2<Ground>,
+    pub age: SystemTime,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -37,6 +49,7 @@ pub struct Blackboard {
     pub parameters: BehaviorParameters,
     pub field_dimensions: FieldDimensions,
     pub output: Option<MotionCommand>,
+    pub last_ball: Option<LastBall>,
     pub last_close_enough_to_kick: bool,
     pub last_motion_command: MotionCommand,
     pub path_obstacles_output: Vec<PathObstacle>,
@@ -54,6 +67,7 @@ pub struct CycleContext {
 
     behavior_trace: AdditionalOutput<NodeTrace, "behavior.trace">,
     behavior_tree_layout: AdditionalOutput<NodeTrace, "behavior.tree_layout">,
+
     path_obstacles_output: AdditionalOutput<Vec<PathObstacle>, "path_obstacles">,
 
     last_motion_command: CyclerState<MotionCommand, "last_motion_command">,
@@ -74,6 +88,7 @@ impl Behavior {
             tree,
             static_layout,
             last_close_enough_to_kick: false,
+            last_ball: None,
         })
     }
 
@@ -82,11 +97,27 @@ impl Behavior {
             .behavior_tree_layout
             .fill_if_subscribed(|| self.static_layout.clone());
 
+        if let Some(ball) = context.world_state.ball {
+            self.last_ball = Some(LastBall {
+                position: ball.ball_in_field,
+                velocity: ball.ball_in_ground_velocity,
+                age: SystemTime::now(),
+            });
+        } else if let Some(last_ball) = &self.last_ball
+            && SystemTime::now()
+                .duration_since(last_ball.age)
+                .unwrap_or(Duration::from_secs(0))
+                >= context.parameters.last_ball_timeout
+        {
+            self.last_ball = None;
+        }
+
         let mut blackboard = Blackboard {
             world_state: context.world_state.clone(),
             parameters: context.parameters.clone(),
             field_dimensions: *context.field_dimensions,
             output: None,
+            last_ball: self.last_ball.clone(),
             last_close_enough_to_kick: self.last_close_enough_to_kick,
             last_motion_command: context.last_motion_command.clone(),
             path_obstacles_output: Vec::new(),
@@ -114,6 +145,8 @@ impl Behavior {
                 ));
             }
         };
+
+        self.last_close_enough_to_kick = blackboard.last_close_enough_to_kick;
 
         Ok(MainOutputs {
             motion_command: motion_command.into(),
