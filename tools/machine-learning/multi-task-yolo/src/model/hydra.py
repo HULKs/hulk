@@ -31,6 +31,15 @@ def get_head(model: DetectionModel) -> nn.ModuleList:
     return nn.ModuleList(list(model.model.children())[split_idx:])
 
 
+def set_backbone(model: DetectionModel, backbone: nn.ModuleList) -> None:
+    """Replaces the backbone modules of a model."""
+    split_idx = get_backbone_length(cast(dict[str, Any], model.yaml))
+    head = list(model.model.children())
+
+    nodes = list(backbone) + head[split_idx:]
+    model.model = nn.Sequential(*nodes)
+
+
 def _normalize_class_names(class_names: ClassNames) -> dict[int, str]:
     if isinstance(class_names, Mapping):
         return check_class_names(dict(class_names))
