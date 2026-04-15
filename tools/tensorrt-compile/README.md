@@ -69,8 +69,8 @@ Start compilation:
 
 ```bash
 launchHULK --executable ~/hulk/bin/tensorrt-compile \
-  --onnx-model /home/booster/hulk/etc/neural_networks/hydra-nv12.onnx \
-  --cache-path /home/booster/hulk/etc/neural_networks
+  --cache-path /home/booster/hulk/etc/neural_networks \
+  /home/booster/hulk/etc/neural_networks/hydra-nv12.onnx
 ```
 
 The process may fail with an error, if the output name of the network has changed.
@@ -81,7 +81,7 @@ The compilation will still have succeded, if the error occurs.
 Copy generated engine/profile files from robot back into the repository:
 
 ```bash
-rsync -av booster@<robot-ip>:~/hulk/etc/neural_networks/*Tensorrt* \
+rsync -av "booster@<robot-ip>:~/hulk/etc/neural_networks/*Tensorrt*" \
   etc/neural_networks
 ```
 
