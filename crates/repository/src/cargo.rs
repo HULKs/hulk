@@ -5,7 +5,10 @@ use std::{
     path::Path,
 };
 
-use color_eyre::{Result, eyre::Context};
+use color_eyre::{
+    Result,
+    eyre::{Context, bail},
+};
 use tokio::process::Command;
 
 use crate::{
@@ -34,11 +37,13 @@ impl Display for Environment {
     }
 }
 
+#[derive(Debug)]
 pub enum Host {
     Local,
     Remote,
 }
 
+#[derive(Debug)]
 pub struct Cargo {
     host: Host,
     environment: Environment,
@@ -73,22 +78,20 @@ impl Cargo {
                     }
                 }
                 Host::Remote => {
-                    // let mut command =
-                    //     Command::new(repository.root.join("scripts/remote_workspace"));
+                    let mut command =
+                        Command::new(repository.root.join("scripts/remote_workspace"));
 
-                    // let status = command
-                    //     .arg("pepsi")
-                    //     .arg("sdk")
-                    //     .arg("install")
-                    //     .arg("--version")
-                    //     .arg(version)
-                    //     .status()
-                    //     .await
-                    //     .wrap_err("failed to run pepsi")?;
+                    let status = command
+                        .arg(format!("podman image exists {}", sdk_image.name_tagged()))
+                        .arg("|| ./pepsi sdk install --image")
+                        .arg(sdk_image.name_tagged())
+                        .status()
+                        .await
+                        .wrap_err("failed to run pepsi")?;
 
-                    // if !status.success() {
-                    //     bail!("pepsi failed with {status}");
-                    // }
+                    if !status.success() {
+                        bail!("pepsi failed with {status}");
+                    }
                 }
             }
         }
@@ -135,7 +138,7 @@ impl Cargo {
                     pwd.display().to_string(),
                 ));
                 command.push(arguments);
-                command.push(OsStr::new("'"));
+                command.push(OsStr::new("\""));
                 command
             }
             Environment::Docker { sdk_image } => {
@@ -201,7 +204,7 @@ fn build_command_string(
                 --pull=never \
                 --tty \
                 {tagged_image_name} \
-                /bin/sh -c '\
+                /bin/sh -c \"\
                     cd {pwd} && \
                     cargo \
         "
