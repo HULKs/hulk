@@ -4,6 +4,7 @@
 set -e
 
 # cd to repository base directory for better referencing
+INVOCATION_DIR=`pwd -P`
 BASEDIR=`cd $(dirname $0); pwd -P`
 BASEDIR=${BASEDIR%/*}
 cd "$BASEDIR"
@@ -26,7 +27,7 @@ Options:
                         Can be repeated to return multiple files.
   --cd <path>      Change directory on remote before executing command
 
-If no --remote is given, the path loaded from `.REMOTE_WORKSPACE`
+If no --remote is given, the path loaded from \`.REMOTE_WORKSPACE\`
 The remote workspace path should follow this format:
 
     \`user@host:path/to/remote/repo\`
@@ -39,7 +40,7 @@ __helpText__
 
 remoteWorkspace="${REMOTE_WORKSPACE:-$(cat .REMOTE_WORKSPACE)}"
 files=()
-path="."
+path=`realpath --relative-to="${BASEDIR}" "${INVOCATION_DIR}"`
 while true; do
     case "$1" in
         -[h?] | --help)
@@ -94,5 +95,5 @@ if [ ${#files[@]} -gt 0 ]; then
     # fetch results
     echo Returning files
     printf '  %s\n' "${files[@]}"
-    printf '%s\n' "${files[@]}" | rsync -ah --info=progress --files-from=- "$remoteWorkspace" .
+    printf '%s\n' "${files[@]}" | rsync -ahr --info=progress2 --files-from=- "$remoteWorkspace" .
 fi
