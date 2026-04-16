@@ -8,9 +8,10 @@ use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use types::{
-    behavior_tree::{MotionType, NodeTrace, Status},
+    behavior_tree::{NodeTrace, Status},
     field_dimensions::FieldDimensions,
     motion_command::{HeadMotion, ImageRegion, MotionCommand},
+    motion_type::MotionType,
     parameters::BehaviorParameters,
     path_obstacles::PathObstacle,
     world_state::WorldState,
@@ -144,7 +145,7 @@ impl Behavior {
             last_ball: self.last_ball.clone(),
             last_close_enough_to_kick: self.last_close_enough_to_kick,
             last_motion_switch_time: self.last_motion_switch_time,
-            last_motion_type: self.last_motion_type.clone(),
+            last_motion_type: self.last_motion_type,
             time_since_last_switch: Duration::ZERO,
             motion: None,
             head_motion: None,
@@ -196,7 +197,7 @@ impl Behavior {
         }
         context
             .motion_type
-            .fill_if_subscribed(|| self.last_motion_type.clone());
+            .fill_if_subscribed(|| self.last_motion_type);
 
         Ok(MainOutputs {
             motion_command: motion_command.into(),
