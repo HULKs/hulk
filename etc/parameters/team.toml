@@ -24,3 +24,8 @@ id = "1421625075359"
 number = 46
 hostname = "Charlie"
 id = "1421625074270"
+
+[[robots]]
+number = 99
+hostname = "PeterFox"
+id = "1421625071398"
