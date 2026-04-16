@@ -29,12 +29,12 @@ where
     }
 }
 
-impl TaskMessage for str {
+impl TaskMessage for &str {
     fn message(&self) -> Option<String> {
         if self.is_empty() {
             return None;
         }
-        Some(String::from(self))
+        Some(String::from(*self))
     }
 }
 
@@ -63,13 +63,20 @@ impl ProgressIndicator {
         }
     }
 
-    pub fn task(&self, prefix: impl Display) -> Task {
+    pub fn task(&self, prefix: impl Display, tick: bool) -> Task {
         let spinner = ProgressBar::new_spinner()
             .with_style(self.default_style.clone())
             .with_prefix(format!("[{prefix}]"));
-        spinner.enable_steady_tick(Duration::from_millis(100));
+        let progress = self.multi_progress.add(spinner);
+        if tick {
+            progress.enable_steady_tick(Duration::from_millis(100));
+        } else {
+            progress.set_style(self.success_style.clone());
+            progress.set_message("");
+            progress.set_style(self.default_style.clone());
+        }
         Task {
-            progress: self.multi_progress.add(spinner),
+            progress,
             success_style: self.success_style.clone(),
             error_style: self.error_style.clone(),
         }
@@ -87,7 +94,7 @@ impl ProgressIndicator {
     {
         items
             .into_iter()
-            .map(|item| (self.task(item.to_string()), item))
+            .map(|item| (self.task(item.to_string(), true), item))
             .map(|(progress, item)| {
                 progress.enable_steady_tick();
                 progress.set_message(message.clone());

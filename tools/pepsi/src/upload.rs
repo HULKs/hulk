@@ -125,7 +125,7 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()>
     }
 
     repository
-        .populate_upload_directory(&upload_directory, hulk_binary)
+        .populate_upload_directory(&upload_directory, &[hulk_binary])
         .await
         .wrap_err("failed to populate upload directory")?;
 
@@ -138,7 +138,7 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()>
         .robots
         .iter()
         .map(|robot_address| {
-            let progress = multi_progress.task(robot_address);
+            let progress = multi_progress.task(robot_address, true);
             progress.enable_steady_tick();
             async move {
                 progress.finish_with(

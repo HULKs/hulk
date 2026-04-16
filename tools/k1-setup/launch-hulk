@@ -11,7 +11,7 @@ INTERNAL_LOG_PATH="/home/booster/hulk/logs/${CURRENT_DATE}"
   bash -c "
     mkdir -p \"${INTERNAL_LOG_PATH}\"
     ln -sfn \"${INTERNAL_LOG_PATH}\" \"/home/booster/hulk/logs/latest\"
-    exec /home/booster/hulk/bin/hulk --log-path \"${INTERNAL_LOG_PATH}\"
+    exec /home/booster/hulk/bin/hulk_booster --log-path \"${INTERNAL_LOG_PATH}\"
   " \
   > >(tee "${INTERNAL_LOG_PATH}/hulk.out") \
   2> >(tee "${INTERNAL_LOG_PATH}/hulk.err")

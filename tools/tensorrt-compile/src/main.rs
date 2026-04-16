@@ -16,7 +16,7 @@ struct CliArguments {
     onnx_path: PathBuf,
 
     /// Path to cache folder
-    #[arg(long, default_value = "/home/booster/.cache/hulk/tensor-rt")]
+    #[arg(long, default_value = "/home/booster/hulk/etc/neural_networks/")]
     cache_path: PathBuf,
 }
 

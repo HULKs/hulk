@@ -498,7 +498,7 @@ async fn monitor_rsync_progress_with(
             result = process.wait() => {
                 if let Ok(status) = result {
                     if !status.success() {
-                        bail!("failed to upload image")
+                        bail!("rsync failed")
                     }
                 }
             }
