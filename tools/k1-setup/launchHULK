@@ -1,34 +1,66 @@
 #!/usr/bin/env bash
 
-CURRENT_DATE=$(date +%Y-%m-%dT%H:%M:%S.%3N%:z)
-INTERNAL_LOG_PATH=/home/booster/hulk/logs/${CURRENT_DATE}
+target_executable="./bin/hulk"
+declare -a additional_podman_arguments=()
+enable_file_logging=false
 
-mkdir -p ${INTERNAL_LOG_PATH}
-
-ln -sf ${INTERNAL_LOG_PATH}/hulk.out ${INTERNAL_LOG_PATH}/../hulk.out
-ln -sf ${INTERNAL_LOG_PATH}/hulk.err ${INTERNAL_LOG_PATH}/../hulk.err
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --podman-argument)
+      additional_podman_arguments+=("$2")
+      shift 2
+      ;;
+    --executable)
+      target_executable="$2"
+      shift 2
+      ;;
+    --interactive)
+      additional_podman_arguments+=("-it")
+      shift 1
+      ;;
+    --enable-file-logging)
+      enable_file_logging=true
+      shift 1
+      ;;
+    *)
+      echo "Unknown argument: $1"
+      exit 1
+      ;;
+  esac
+done
 
 HOST_TEGRA_LIB_PATH="/usr/lib/aarch64-linux-gnu/tegra"
-DEVICES="--device nvidia.com/gpu=all"
-HARDWARE_ID="$(jetson_release -s | grep 'Serial Number:' | grep '[0-9]*$' -o)"
+DEVICE_ARGUMENTS="--device nvidia.com/gpu=all"
+HARDWARE_IDENTIFIER="$(jetson_release -s | grep 'Serial Number:' | grep '[0-9]*$' -o)"
+
+if [ "$enable_file_logging" = true ]; then
+  CURRENT_DATE=$(date +%Y-%m-%dT%H:%M:%S.%3N%:z)
+  INTERNAL_LOG_PATH="/home/booster/hulk/logs/${CURRENT_DATE}"
+
+  mkdir -p "${INTERNAL_LOG_PATH}"
+  ln -sf "${INTERNAL_LOG_PATH}/hulk.out" "${INTERNAL_LOG_PATH}/../hulk.out"
+  ln -sf "${INTERNAL_LOG_PATH}/hulk.err" "${INTERNAL_LOG_PATH}/../hulk.err"
+
+  execution_command="cd /home/booster/hulk && ${target_executable} --log-path ${INTERNAL_LOG_PATH} > >(tee ${INTERNAL_LOG_PATH}/hulk.out) 2> >(tee ${INTERNAL_LOG_PATH}/hulk.err)"
+else
+  execution_command="cd /home/booster/hulk && ${target_executable}"
+fi
+
+sudo podman rm hulk || true
 
 sudo jetson_clocks
 
-sudo podman rm hulk
-sudo podman run --rm \
+sudo -E podman run --rm \
   --privileged \
   --network=host \
-  $DEVICES \
-  -v ${HOST_TEGRA_LIB_PATH}:${HOST_TEGRA_LIB_PATH} \
+  --env-host=true \
+  ${DEVICE_ARGUMENTS} \
+  "${additional_podman_arguments[@]}" \
+  -v "${HOST_TEGRA_LIB_PATH}:${HOST_TEGRA_LIB_PATH}" \
   -v /home/booster/hulk:/home/booster/hulk \
   --env LD_LIBRARY_PATH=${HOST_TEGRA_LIB_PATH}:$LD_LIBRARY_PATH \
   --env ORT_DYLIB_PATH=/usr/local/lib/libonnxruntime.so \
-  --env HARDWARE_ID=${HARDWARE_ID} \
-  --env RUST_BACKTRACE=1 \
+  --env HARDWARE_ID="${HARDWARE_IDENTIFIER}" \
   --name hulk \
   hulk-runtime:latest \
-  bash -c "cd /home/booster/hulk &&
-    ./bin/hulk --log-path ${INTERNAL_LOG_PATH} \
-     > >(tee ${INTERNAL_LOG_PATH}/hulk.out) \
-    2> >(tee ${INTERNAL_LOG_PATH}/hulk.err)
-  "
+  bash -c "${execution_command}"
