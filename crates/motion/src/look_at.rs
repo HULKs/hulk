@@ -79,12 +79,9 @@ impl LookAt {
         //     None => return default_output,
         // };
 
-        let head_motion = match context.motion_command {
-            MotionCommand::SitDown { head } => head,
-            MotionCommand::Stand { head, .. } => head,
-            MotionCommand::Walk { head, .. } => head,
-            MotionCommand::WalkWithVelocity { head, .. } => head,
-            _ => return default_output,
+        let head_motion = match context.motion_command.head_motion() {
+            Some(head_motion) => head_motion,
+            None => return default_output,
         };
 
         if self.last_glance_direction_toggle.is_none()
@@ -103,7 +100,7 @@ impl LookAt {
         //         .expected_referee_position
         //         .unwrap_or(&point!(0.0, 0.0));
 
-        let (target, image_region_target, with_camera) = match *head_motion {
+        let (target, image_region_target, with_camera) = match head_motion {
             HeadMotion::LookAt {
                 target,
                 image_region_target,
