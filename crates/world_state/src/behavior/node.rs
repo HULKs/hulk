@@ -8,7 +8,7 @@ use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use types::{
-    behavior_tree::{NodeTrace, Status},
+    behavior_tree::{MotionType, NodeTrace, Status},
     field_dimensions::FieldDimensions,
     motion_command::{HeadMotion, ImageRegion, MotionCommand},
     parameters::BehaviorParameters,
@@ -28,12 +28,15 @@ fn create_static_layout_default() -> NodeTrace {
 
 #[derive(Serialize, Deserialize)]
 pub struct Behavior {
+    pub ball: Option<LastBall>,
+    pub last_ball: Option<LastBall>,
+    pub last_close_enough_to_kick: bool,
+    pub last_motion_switch_time: SystemTime,
+    pub last_motion_type: Option<MotionType>,
     #[serde(skip, default = "create_tree_default")]
     pub tree: Node<Blackboard>,
     #[serde(skip, default = "create_static_layout_default")]
     pub static_layout: NodeTrace,
-    pub last_close_enough_to_kick: bool,
-    pub last_ball: Option<LastBall>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -48,11 +51,20 @@ pub struct Blackboard {
     pub world_state: WorldState,
     pub parameters: BehaviorParameters,
     pub field_dimensions: FieldDimensions,
-    pub output: Option<MotionCommand>,
+    pub last_motion_command: MotionCommand,
+
+    pub is_alternative_kick: bool,
+    pub path_obstacles_output: Vec<PathObstacle>,
+
+    pub ball: Option<LastBall>,
     pub last_ball: Option<LastBall>,
     pub last_close_enough_to_kick: bool,
-    pub last_motion_command: MotionCommand,
-    pub path_obstacles_output: Vec<PathObstacle>,
+    pub last_motion_switch_time: SystemTime,
+    pub last_motion_type: Option<MotionType>,
+    pub time_since_last_switch: Duration,
+
+    pub motion: Option<MotionCommand>,
+    pub head_motion: Option<HeadMotion>,
 }
 
 #[context]
@@ -67,6 +79,9 @@ pub struct CycleContext {
 
     behavior_trace: AdditionalOutput<NodeTrace, "behavior.trace">,
     behavior_tree_layout: AdditionalOutput<NodeTrace, "behavior.tree_layout">,
+    is_alternative_kick: AdditionalOutput<bool, "behavior.is_alternative_kick">,
+    motion_type: AdditionalOutput<Option<MotionType>, "behavior.last_motion_type">,
+    time_since_last_switch: AdditionalOutput<Duration, "behavior.time_since_last_switch">,
 
     path_obstacles_output: AdditionalOutput<Vec<PathObstacle>, "path_obstacles">,
 
@@ -85,10 +100,13 @@ impl Behavior {
         let static_layout = tree.static_layout_trace();
 
         Ok(Self {
+            ball: None,
+            last_ball: None,
+            last_close_enough_to_kick: false,
+            last_motion_switch_time: SystemTime::UNIX_EPOCH,
+            last_motion_type: None,
             tree,
             static_layout,
-            last_close_enough_to_kick: false,
-            last_ball: None,
         })
     }
 
@@ -98,38 +116,53 @@ impl Behavior {
             .fill_if_subscribed(|| self.static_layout.clone());
 
         if let Some(ball) = context.world_state.ball {
-            self.last_ball = Some(LastBall {
+            self.ball = Some(LastBall {
                 position: ball.ball_in_field,
                 velocity: ball.ball_in_ground_velocity,
-                age: SystemTime::now(),
+                age: context.world_state.now,
             });
-        } else if let Some(last_ball) = &self.last_ball
-            && SystemTime::now()
+            self.last_ball = self.ball.clone();
+        } else if let Some(last_ball) = &self.ball
+            && context
+                .world_state
+                .now
                 .duration_since(last_ball.age)
                 .unwrap_or(Duration::from_secs(0))
                 >= context.parameters.last_ball_timeout
         {
-            self.last_ball = None;
+            self.ball = None;
         }
 
         let mut blackboard = Blackboard {
             world_state: context.world_state.clone(),
             parameters: context.parameters.clone(),
             field_dimensions: *context.field_dimensions,
-            output: None,
+            last_motion_command: context.last_motion_command.clone(),
+            is_alternative_kick: false,
+            path_obstacles_output: Vec::new(),
+            ball: self.ball.clone(),
             last_ball: self.last_ball.clone(),
             last_close_enough_to_kick: self.last_close_enough_to_kick,
-            last_motion_command: context.last_motion_command.clone(),
-            path_obstacles_output: Vec::new(),
+            last_motion_switch_time: self.last_motion_switch_time,
+            last_motion_type: self.last_motion_type.clone(),
+            time_since_last_switch: Duration::ZERO,
+            motion: None,
+            head_motion: None,
         };
         let (status, trace) = self.tree.tick_with_trace(&mut blackboard);
         context.behavior_trace.fill_if_subscribed(|| trace);
         context
             .path_obstacles_output
             .fill_if_subscribed(|| blackboard.path_obstacles_output);
+        context
+            .time_since_last_switch
+            .fill_if_subscribed(|| blackboard.time_since_last_switch);
+        context
+            .is_alternative_kick
+            .fill_if_subscribed(|| blackboard.is_alternative_kick);
 
         let motion_command: MotionCommand = match status {
-            Status::Success => blackboard.output.take().unwrap_or(MotionCommand::Stand {
+            Status::Success => blackboard.motion.take().unwrap_or(MotionCommand::Stand {
                 head: HeadMotion::Center {
                     image_region_target: ImageRegion::Center,
                 },
@@ -147,6 +180,23 @@ impl Behavior {
         };
 
         self.last_close_enough_to_kick = blackboard.last_close_enough_to_kick;
+
+        let motion_type = match motion_command.clone() {
+            MotionCommand::VisualKick { .. } => Some(MotionType::Kick),
+            MotionCommand::Walk { .. } => Some(MotionType::Walk),
+            MotionCommand::Stand { .. } => Some(MotionType::Stand),
+            MotionCommand::StandUp => Some(MotionType::StandUp),
+            MotionCommand::Prepare => Some(MotionType::Prepare),
+            _ => None,
+        };
+
+        if motion_type != self.last_motion_type {
+            self.last_motion_switch_time = context.world_state.now;
+            self.last_motion_type = motion_type;
+        }
+        context
+            .motion_type
+            .fill_if_subscribed(|| self.last_motion_type.clone());
 
         Ok(MainOutputs {
             motion_command: motion_command.into(),
