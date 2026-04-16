@@ -46,7 +46,8 @@ where
         Default::default()
     }
 
-    /// Returns the pose as an isometry transform, labeling the Pose frame as `From`.
+    /// Returns the pose as an isometry, transforming from the pose-relative `From`
+    /// coordinate system to the `Frame` coordinate system the pose exists in.
     ///
     /// # Example
     /// ```
@@ -101,7 +102,8 @@ where
         ))
     }
 
-    /// Returns the pose as an isometry transform, labeling the Pose frame as `From`.
+    /// Returns the pose as an isometry, transforming from the pose-relative `From`
+    /// coordinate system to the `Frame` coordinate system the pose exists in.
     ///
     /// # Example
     /// ```

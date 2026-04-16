@@ -1,6 +1,6 @@
 //! # linear_algebra
 //!
-//! A crate for frame-safe linear algebra, wrapping [`nalgebra`] types with coordinate system tags.
+//! A crate for frame-safe linear algebra built on top of [`nalgebra`].
 //!
 //! ## Motivation
 //!
@@ -8,13 +8,19 @@
 //! lead to subtle and hard-to-find bugs. By encoding coordinate systems in types, this crate
 //! ensures that only compatible operations are allowed, catching errors at compile time.
 //!
+//! [`nalgebra`] still provides the underlying point, vector, rotation, and isometry math. This
+//! crate adds frame-safe wrappers and transforms that encode coordinate systems in Rust types so
+//! incompatible spaces cannot be mixed by accident.
+//!
+//! A coordinate system can be any marker type chosen by the user. A [`Pose2`] or [`Pose3`]
+//! represents an object's position and orientation inside a single coordinate system, while an
+//! [`Isometry2`] or [`Isometry3`] transforms values from one coordinate system into another.
+//!
 //! ## Features
 //!
-//! - Enforces coordinate system correctness at compile time using Rust's type system.
-//! - Separates Vectors from Points, Isometries from Poses, etc.
-//! - Wraps commonly used parts of the [`nalgebra`] API to provide frame-safe abstractions.
-//! - Supports 2D and 3D geometry with extensible coordinate system tagging.
-//! - Provides clear and explicit geometric transformations.
+//! - Reuses nalgebra's point, vector, rotation, and isometry math.
+//! - Adds frame-safe wrappers and transforms that encode coordinate systems in types.
+//! - Separates vectors from points, and poses from transforms, so conversions are explicit.
 //! - Re-exports [`nalgebra`] so `point!` and `vector!` work without a direct dependency.
 //!
 //! ## Example
@@ -25,7 +31,7 @@
 //! struct Camera;
 //! struct Ground;
 //!
-//! fn ball_to_ground(
+//! fn ball_in_ground(
 //!     position: Point3<Camera>,
 //!     camera_to_ground: Isometry3<Camera, Ground>,
 //! ) -> Point3<Ground> {
@@ -35,14 +41,14 @@
 //! let position_in_camera: Point3<Camera> = point![1.0, 2.0, 3.0];
 //! let camera_to_ground =
 //!     Isometry3::<Camera, Ground>::from_parts(vector![0.0, 0.0, 1.0], Orientation3::identity());
-//! let position_in_ground: Point3<Ground> = ball_to_ground(position_in_camera, camera_to_ground);
+//! let position_in_ground: Point3<Ground> = ball_in_ground(position_in_camera, camera_to_ground);
 //! ```
 //!
 //! ## Philosophy
 //!
-//! This crate is a thin, zero-cost wrapper around [`nalgebra`], adding type-level tags for
-//! coordinate systems using [`Framed`] and [`Transform`]. It does not reimplement linear algebra,
-//! but provides a safer API for geometric programming while staying close to nalgebra's model.
+//! This crate is a thin, zero-cost wrapper around [`nalgebra`]. nalgebra defines the core math and
+//! data structures, while this crate adds type-level coordinate system tags through [`Framed`] and
+//! [`Transform`] and a small set of frame-aware convenience APIs.
 //!
 //! [`nalgebra`]: https://docs.rs/nalgebra
 

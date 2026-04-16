@@ -18,6 +18,7 @@ pub type Vector3<Frame, Scalar = f32> = Vector<Frame, 3, Scalar>;
 ///
 /// struct World;
 /// let v: Vector2<World> = vector![1.0, 2.0];
+/// let w: Vector2<World> = vector![<World>, 1.0, 2.0];
 /// ```
 #[macro_export]
 macro_rules! vector {

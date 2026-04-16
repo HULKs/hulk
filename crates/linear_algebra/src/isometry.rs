@@ -1,8 +1,8 @@
 use nalgebra::{AbstractRotation, SimdRealField};
 
 use crate::{
-    Orientation2, Orientation3, Point, Point2, Point3, Pose2, Pose3, Rotation3, Transform, Vector2,
-    Vector3,
+    Orientation2, Orientation3, Point, Point2, Point3, Pose2, Pose3, Rotation2, Rotation3,
+    Transform, Vector2, Vector3,
 };
 
 pub type Isometry<From, To, const DIMENSION: usize, T, Rotation> =
@@ -51,7 +51,7 @@ where
     }
 
     /// Creates a pure rotation isometry with zero translation.
-    pub fn rotation(angle: T) -> Self {
+    pub fn from_angle(angle: T) -> Self {
         Self::wrap(nalgebra::Isometry2::rotation(angle))
     }
 
@@ -68,6 +68,16 @@ where
     /// ```
     pub fn as_pose(&self) -> Pose2<To, T> {
         Pose2::wrap(self.inner)
+    }
+
+    /// Returns the rotation component as a frame-safe transform.
+    pub fn rotation(&self) -> Rotation2<From, To, T> {
+        Rotation2::wrap(self.inner.rotation)
+    }
+
+    /// Returns the scalar rotation angle in radians.
+    pub fn angle(&self) -> T {
+        self.inner.rotation.angle()
     }
 
     /// Returns the orientation component in the destination frame.
@@ -110,13 +120,13 @@ where
     }
 
     /// Creates a pure rotation isometry with zero translation.
-    pub fn from_rotation(axisangle: Vector3<To, T>) -> Self {
-        Self::wrap(nalgebra::Isometry3::rotation(axisangle.inner))
+    pub fn from_axis_angle(axis_angle: Vector3<To, T>) -> Self {
+        Self::wrap(nalgebra::Isometry3::rotation(axis_angle.inner))
     }
 
     /// Creates a pure translation isometry.
-    pub fn from_translation(x: T, y: T, z: T) -> Self {
-        Self::wrap(nalgebra::Isometry3::translation(x, y, z))
+    pub fn from_translation(translation: Vector3<To, T>) -> Self {
+        translation.into()
     }
 
     /// Converts this isometry (transform) into a pose in the destination frame.
@@ -184,5 +194,31 @@ where
             nalgebra::Translation::identity(),
             value.inner,
         ))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{point, vector};
+
+    #[derive(Debug)]
+    struct Robot;
+    #[derive(Debug)]
+    struct Field;
+
+    #[test]
+    fn pure_rotation_isometry2_exposes_rotation_and_angle_on_self() {
+        let isometry = Isometry2::<Robot, Field>::from_angle(0.5);
+
+        assert!((isometry.angle() - 0.5).abs() < 1.0e-6);
+        assert!((isometry.rotation().angle() - 0.5).abs() < 1.0e-6);
+    }
+
+    #[test]
+    fn pure_translation_isometry3_can_be_created_from_framed_vector() {
+        let isometry = Isometry3::<Robot, Field>::from_translation(vector![1.0, 2.0, 3.0]);
+
+        assert_eq!(isometry.translation(), point![1.0, 2.0, 3.0]);
     }
 }

@@ -19,6 +19,7 @@ pub type Point3<Frame, T = f32> = Point<Frame, 3, T>;
 ///
 /// struct World;
 /// let p: Point2<World> = point![1.0, 2.0];
+/// let q: Point2<World> = point![<World>, 1.0, 2.0];
 /// ```
 #[macro_export]
 macro_rules! point {
