@@ -7,7 +7,7 @@ use crate::behavior::node::Blackboard;
 
 pub fn is_ball_interception_candidate(blackboard: &mut Blackboard) -> bool {
     if let (Some(ball), Some(ground_to_field)) = (
-        &blackboard.last_ball,
+        &blackboard.ball,
         &blackboard.world_state.robot.ground_to_field,
     ) {
         let parameters = &blackboard.parameters.intercept_ball;
@@ -36,7 +36,7 @@ pub fn is_ball_interception_candidate(blackboard: &mut Blackboard) -> bool {
 pub fn is_close_to_ball(blackboard: &mut Blackboard) -> bool {
     let mut is_close = false;
     if let (Some(ball), Some(ground_to_field)) = (
-        &blackboard.last_ball,
+        &blackboard.ball,
         &blackboard.world_state.robot.ground_to_field,
     ) {
         let distance_to_ball = (ground_to_field.inverse() * ball.position).coords().norm();
@@ -92,5 +92,5 @@ pub fn is_primary_state(blackboard: &mut Blackboard, primary_state: PrimaryState
 }
 
 pub fn has_ball_position(blackboard: &mut Blackboard) -> bool {
-    blackboard.last_ball.is_some()
+    blackboard.ball.is_some()
 }

@@ -9,10 +9,9 @@ use types::{
 use crate::behavior::node::Blackboard;
 
 pub fn kick(blackboard: &mut Blackboard, kick_power: KickPower) -> Status {
-    if let (Some(ball), Some(ground_to_field)) = (
-        &blackboard.last_ball,
-        &blackboard.world_state.robot.ground_to_field,
-    ) {
+    if let (Some(ball), Some(ground_to_field)) =
+        (&blackboard.ball, &blackboard.world_state.robot.ground_to_field)
+    {
         let ball_in_ground = ground_to_field.inverse() * ball.position;
         let parameters = &blackboard.parameters.kicking;
 
@@ -36,7 +35,7 @@ pub fn kick(blackboard: &mut Blackboard, kick_power: KickPower) -> Status {
         let robot_theta_to_field: Orientation2<Field> = ground_to_field.orientation();
         let target_position = (field_to_ground * goal_position).as_point();
 
-        blackboard.output = Some(MotionCommand::VisualKick {
+        blackboard.motion = Some(MotionCommand::VisualKick {
             head,
             ball_position: ball_in_ground,
             kick_direction,
@@ -52,10 +51,9 @@ pub fn kick(blackboard: &mut Blackboard, kick_power: KickPower) -> Status {
 }
 
 pub fn intercept(blackboard: &mut Blackboard) -> Status {
-    if let (Some(ball), Some(ground_to_field)) = (
-        &blackboard.last_ball,
-        &blackboard.world_state.robot.ground_to_field,
-    ) {
+    if let (Some(ball), Some(ground_to_field)) =
+        (&blackboard.ball, &blackboard.world_state.robot.ground_to_field)
+    {
         let ball_in_ground = ground_to_field.inverse() * ball.position;
         let velocity = ball.velocity;
         if velocity.norm() < f32::EPSILON {
@@ -96,11 +94,46 @@ pub fn intercept(blackboard: &mut Blackboard) -> Status {
         let kick_direction =
             Orientation2::from_vector(ball_position.coords() - interception_point.coords());
 
-        blackboard.output = Some(MotionCommand::VisualKick {
+        blackboard.motion = Some(MotionCommand::VisualKick {
             head,
             ball_position: interception_point,
             kick_direction,
             target_position: ball_position,
+            robot_theta_to_field,
+            kick_power: KickPower::Rumpelstilzchen,
+        });
+        Status::Success
+    } else {
+        Status::Failure
+    }
+}
+
+pub fn kick_instead_of_walking(blackboard: &mut Blackboard) -> Status {
+    if let (Some(ball), Some(ground_to_field)) = (
+        &blackboard.last_ball,
+        blackboard.world_state.robot.ground_to_field,
+    ) {
+        blackboard.is_alternative_kick = true;
+
+        let field_to_ground = ground_to_field.inverse();
+        let ball_in_ground = field_to_ground * ball.position;
+
+        let goal_position: Vector2<Field> = vector!(blackboard.field_dimensions.length / 2.0, 0.0);
+        let field_to_ground = ground_to_field.inverse();
+        let kick_direction =
+            Orientation2::from_vector(field_to_ground * goal_position - ball_in_ground.coords());
+
+        let robot_theta_to_field: Orientation2<Field> = ground_to_field.orientation();
+        let target_position = (field_to_ground * goal_position).as_point();
+
+        blackboard.motion = Some(MotionCommand::VisualKick {
+            head: HeadMotion::LookAt {
+                target: ball_in_ground,
+                image_region_target: ImageRegion::Center,
+            },
+            ball_position: ball_in_ground,
+            kick_direction,
+            target_position,
             robot_theta_to_field,
             kick_power: KickPower::Rumpelstilzchen,
         });

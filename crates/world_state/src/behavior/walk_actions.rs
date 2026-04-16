@@ -1,6 +1,6 @@
 use coordinate_systems::{Field, Ground};
 use filtering::hysteresis::less_than_with_relative_hysteresis;
-use linear_algebra::{Isometry2, Orientation2, Point, Point2, Pose2, point};
+use linear_algebra::{Isometry2, Orientation2, Point, Point2, Pose2, Vector2, point, vector};
 use types::{
     behavior_tree::Status,
     motion_command::{ArmMotion, HeadMotion, ImageRegion, MotionCommand, OrientationMode},
@@ -123,11 +123,11 @@ pub fn walk_to(
         };
 
         if is_reached {
-            blackboard.output = Some(MotionCommand::Stand { head });
+            blackboard.motion = Some(MotionCommand::Stand { head });
             Status::Success
         } else {
             let path = plan(blackboard, target_pose.position(), ground_to_field);
-            blackboard.output = Some(walk_with_obstacle_avoiding_arms(
+            blackboard.motion = Some(walk_with_obstacle_avoiding_arms(
                 head,
                 orientation_mode,
                 target_pose.orientation(),
@@ -149,6 +149,43 @@ pub fn walk_to_ball(blackboard: &mut Blackboard) -> Status {
             Pose2::from(ball.ball_in_ground),
             blackboard.parameters.walk_speed.kicking,
             OrientationMode::AlignWithPath,
+            blackboard
+                .parameters
+                .walk_and_stand
+                .normal_distance_to_be_aligned,
+            blackboard.parameters.walk_and_stand.hysteresis,
+        )
+    } else {
+        Status::Failure
+    }
+}
+
+pub fn walk_instead_of_kicking(blackboard: &mut Blackboard) -> Status {
+    if let (Some(ball), Some(ground_to_field)) = (
+        &blackboard.last_ball,
+        blackboard.world_state.robot.ground_to_field,
+    ) {
+        blackboard.is_alternative_kick = true;
+
+        let field_to_ground = ground_to_field.inverse();
+        let ball_in_ground = field_to_ground * ball.position;
+
+        let goal_position: Vector2<Field> = vector!(blackboard.field_dimensions.length / 2.0, 0.0);
+
+        let kick_direction =
+            Orientation2::from_vector(field_to_ground * goal_position - ball_in_ground.coords());
+
+        walk_to(
+            blackboard,
+            Pose2::from(ball_in_ground),
+            blackboard.parameters.walk_speed.kicking,
+            OrientationMode::LookTowards {
+                direction: kick_direction,
+                tolerance: blackboard
+                    .parameters
+                    .walk_and_stand
+                    .normal_distance_to_be_aligned,
+            },
             blackboard
                 .parameters
                 .walk_and_stand

@@ -39,6 +39,7 @@ pub struct WhistleDetectionParameters {
     Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
 pub struct BehaviorParameters {
+    pub allow_switch: AllowSwitchParameters,
     pub injected_motion_command: Option<MotionCommand>,
     pub goal_keeper_number: PlayerNumber,
     pub last_ball_timeout: Duration,
@@ -584,4 +585,15 @@ pub struct BoosterKickingParameters {
 pub struct KickPowerParameters {
     pub rumpelstilzchen: f64,
     pub schlong: f64,
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct AllowSwitchParameters {
+    pub kick: Duration,
+    pub prepare: Duration,
+    pub stand: Duration,
+    pub stand_up: Duration,
+    pub walk: Duration,
 }

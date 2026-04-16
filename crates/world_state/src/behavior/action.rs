@@ -8,7 +8,7 @@ use crate::behavior::node::Blackboard;
 
 pub fn injected_motion_command(blackboard: &mut Blackboard) -> Status {
     if let Some(injected_motion_command) = &blackboard.parameters.injected_motion_command {
-        blackboard.output = Some(injected_motion_command.clone());
+        blackboard.motion = Some(injected_motion_command.clone());
         Status::Success
     } else {
         Status::Failure
@@ -16,7 +16,7 @@ pub fn injected_motion_command(blackboard: &mut Blackboard) -> Status {
 }
 
 pub fn leuchtturm(blackboard: &mut Blackboard) -> Status {
-    blackboard.output = Some(MotionCommand::WalkWithVelocity {
+    blackboard.motion = Some(MotionCommand::WalkWithVelocity {
         head: HeadMotion::SearchForLostBall,
         velocity: vector!(0.0, 0.0),
         angular_velocity: 1.0,
@@ -25,12 +25,12 @@ pub fn leuchtturm(blackboard: &mut Blackboard) -> Status {
 }
 
 pub fn prepare(blackboard: &mut Blackboard) -> Status {
-    blackboard.output = Some(MotionCommand::Prepare);
+    blackboard.motion = Some(MotionCommand::Prepare);
     Status::Success
 }
 
 pub fn stand(blackboard: &mut Blackboard) -> Status {
-    blackboard.output = Some(MotionCommand::Stand {
+    blackboard.motion = Some(MotionCommand::Stand {
         head: HeadMotion::Center {
             image_region_target: ImageRegion::Top,
         },
@@ -39,6 +39,6 @@ pub fn stand(blackboard: &mut Blackboard) -> Status {
 }
 
 pub fn stand_up(blackboard: &mut Blackboard) -> Status {
-    blackboard.output = Some(MotionCommand::StandUp);
+    blackboard.motion = Some(MotionCommand::StandUp);
     Status::Success
 }
