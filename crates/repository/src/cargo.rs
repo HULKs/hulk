@@ -83,7 +83,7 @@ impl Cargo {
 
                     let status = command
                         .arg(format!("podman image exists {}", sdk_image.name_tagged()))
-                        .arg("|| ./pepsi sdk install --image")
+                        .arg("|| ./pepsi sdk build --image")
                         .arg(sdk_image.name_tagged())
                         .status()
                         .await
