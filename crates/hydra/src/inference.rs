@@ -25,7 +25,7 @@ use types::{
     pose_detection::{Keypoints, Pose},
 };
 
-const MODEL_FILE_NAME: &str = "hydra-nv12.onnx";
+const MODEL_FILE_NAME: &str = "yolo26m-tuned_pose-tuned-hydra-nv12.onnx";
 const DETECTION_OUTPUT_COLUMNS: usize = 6;
 const POSE_OUTPUT_COLUMNS: usize = 57;
 const POSE_KEYPOINT_OFFSET: usize = 6;
