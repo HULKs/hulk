@@ -1,4 +1,4 @@
-use types::{behavior_tree::MotionType, motion_command::KickPower, primary_state::PrimaryState};
+use types::{motion_command::KickPower, motion_type::MotionType, primary_state::PrimaryState};
 
 use crate::{
     action,
@@ -10,7 +10,7 @@ use crate::{
             is_closest_to_ball, is_fallen, is_goalkeeper, is_primary_state,
         },
         kick_actions::{intercept, kick, kick_instead_of_walking},
-        node::{Blackboard},
+        node::Blackboard,
         switch::{is_allowed_to_switch, is_last_motion_type},
         walk_actions::{walk_instead_of_kicking, walk_to_ball},
     },
@@ -117,7 +117,6 @@ fn switch_motion_type(
     action: Node<Blackboard>,
     alternatives: Node<Blackboard>,
 ) -> Node<Blackboard> {
-
     let is_last_motion_type = match motion_type {
         MotionType::Kick => condition!(is_last_motion_type, MotionType::Kick),
         MotionType::Prepare => condition!(is_last_motion_type, MotionType::Prepare),
