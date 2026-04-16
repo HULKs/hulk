@@ -27,7 +27,7 @@ Options:
                         Can be repeated to return multiple files.
   --cd <path>      Change directory on remote before executing command
 
-If no --remote is given, the path loaded from `.REMOTE_WORKSPACE`
+If no --remote is given, the path loaded from \`.REMOTE_WORKSPACE\`
 The remote workspace path should follow this format:
 
     \`user@host:path/to/remote/repo\`
