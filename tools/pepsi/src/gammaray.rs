@@ -1,4 +1,5 @@
 use std::{
+    fmt::Write,
     path::{Path, PathBuf},
     process::Stdio,
 };
@@ -16,6 +17,7 @@ use robot::{Network, Robot};
 use tokio::{
     io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader},
     process::Command,
+    select,
 };
 
 use crate::progress_indicator::ProgressIndicator;
@@ -39,6 +41,8 @@ pub struct Arguments {
 static PACKAGES: [&str; 2] = ["zenohd", "zenoh-bridge-dds"];
 
 const WIFI_PASSWORD: &str = "HSL?!HSL?!";
+
+const PODMAN_INSTALLATION_SCRIPT: &str = include_str!("install-podman.sh");
 
 static ADD_ZENOH_APT_SOURCES: &str = "
 curl -L https://download.eclipse.org/zenoh/debian-repo/zenoh-public-key | sudo gpg --dearmor --yes --output /etc/apt/keyrings/zenoh-public-key.gpg
@@ -151,12 +155,12 @@ async fn gammaray_robot(
     robot
         .ssh_to_robot()?
         .arg("sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml")
-        .ssh_with_log("reloading service daemon", &progress_bar)
+        .ssh_with_log("generating nvidia CDI", &progress_bar)
         .await?;
 
-    install_latest_podman(&robot, &progress_bar)
+    install_podman(&robot, &progress_bar)
         .await
-        .wrap_err("failed to install latest podman on robot; manual recovery may be required")?;
+        .wrap_err("failed to install podman on robot")?;
 
     robot
         .rsync_with_robot()?
@@ -298,43 +302,13 @@ async fn gammaray_robot(
     Ok(())
 }
 
-async fn install_latest_podman(robot: &Robot, progress_bar: &ProgressBar) -> Result<()> {
-    let install_script = r#"
-set -euo pipefail
-
-tmp_dir="$(mktemp -d)"
-cleanup() {
-  rm -rf "$tmp_dir"
-  rm -f podman-linux-arm64.tar.gz
-  rm -rf podman-linux-arm64
-}
-trap cleanup EXIT
-
-# Prevent conflicts with outdated packages
-sudo apt-get remove --yes crun podman || true
-
-# Transition to the SQLite database format required by newer Podman versions
-podman system migrate --migrate-db || true
-
-curl --fail --silent --show-error --location \
-  --output "$tmp_dir/podman-linux-arm64.tar.gz" \
-  https://github.com/mgoltzsche/podman-static/releases/download/v5.8.1/podman-linux-arm64.tar.gz
-tar --extract --gzip --file "$tmp_dir/podman-linux-arm64.tar.gz" --directory "$tmp_dir"
-
-sudo cp --recursive "$tmp_dir/podman-linux-arm64/usr" "$tmp_dir/podman-linux-arm64/etc" /
-
-# Clear lingering lock files to prevent architecture size mismatch errors
-sudo rm --force /dev/shm/libpod_lock
-rm --force "/dev/shm/libpod_rootless_lock_$(id --user)"
-
-# Verify install
-command -v podman >/dev/null
-podman --version
-"#;
-
+async fn install_podman(robot: &Robot, progress_bar: &ProgressBar) -> Result<()> {
     robot
         .ssh_to_robot()?
-        .arg(install_script)
+        .arg(format!(
+            "sudo bash -s <<'EOF'\n{}\nEOF",
+            PODMAN_INSTALLATION_SCRIPT
+        ))
         .ssh_with_log("installing latest podman", progress_bar)
         .await
         .wrap_err("podman install/verification failed")
@@ -446,17 +420,31 @@ impl CommandExt for Command {
         self.stdout(Stdio::piped());
         self.stderr(Stdio::piped());
         let mut process = self.spawn().unwrap();
-        let mut lines = BufReader::new(process.stdout.take().unwrap()).split(line_delimiter);
+        let mut stdout_lines = BufReader::new(process.stdout.take().unwrap()).split(line_delimiter);
+        let mut stderr_lines = BufReader::new(process.stderr.take().unwrap()).split(line_delimiter);
+        let mut stderr = String::new();
 
-        while let Ok(Some(buffer)) = lines.next_segment().await {
-            if let Ok(text) = std::str::from_utf8(&buffer) {
-                progress_bar.set_message(format!("{name}: {text}"));
+        loop {
+            select! {
+                Ok(Some(buffer)) = stdout_lines.next_segment() => {
+                    if let Ok(text) = std::str::from_utf8(&buffer) {
+                        progress_bar.set_message(format!("{name}: {text}"));
+                    }
+                }
+                Ok(Some(buffer)) = stderr_lines.next_segment() => {
+                    if let Ok(text) = std::str::from_utf8(&buffer) {
+                        writeln!(&mut stderr, "{name}: {text}")?;
+                    }
+                }
+                else => break,
             }
         }
 
-        fail_on_non_zero_exit_code(process)
-            .await
-            .wrap_err_with(|| format!("failed at {name}"))
+        match process.wait().await?.code() {
+            Some(0) => Ok(()),
+            Some(code) => bail!("process exited with error code {code}\n{stderr}"),
+            None => bail!("process was killed"),
+        }
     }
 }
 

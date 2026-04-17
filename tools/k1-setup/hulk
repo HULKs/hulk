@@ -1,2 +1,2 @@
 #!/usr/bin/env bash
-systemctl $1 hulk.service
+sudo systemctl $1 hulk.service
