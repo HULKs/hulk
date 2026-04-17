@@ -486,11 +486,12 @@
       "maximum_intercept_distance": 1.5
     },
     "kicking": {
+      "allow_schlong": true,
       "distance_for_kick": 1.5,
       "distance_for_kick_hysteresis": 1.0,
       "distance_to_look_directly_at_the_ball": 4.0,
       "kick_target_offset_angle": 0.1,
-      "goal_distance_kick_power_threshold": 3.0
+      "target_distance_kick_power_threshold": 4.0
     },
     "maximum_lookaround_duration": {
       "nanos": 0,

@@ -10,14 +10,14 @@ use serde::{Deserialize, Serialize};
 use types::{
     behavior_tree::{NodeTrace, Status},
     field_dimensions::FieldDimensions,
-    motion_command::{HeadMotion, ImageRegion, MotionCommand},
+    motion_command::{HeadMotion, ImageRegion, KickPower, MotionCommand},
     motion_type::MotionType,
     parameters::BehaviorParameters,
     path_obstacles::PathObstacle,
     world_state::WorldState,
 };
 
-use crate::behavior::{behavior_tree::Node, tree::create_tree};
+use crate::behavior::{behavior_tree::Node, kick_selector::KickTarget, tree::create_tree};
 
 fn create_tree_default() -> Node<Blackboard> {
     create_tree()
@@ -32,6 +32,7 @@ pub struct Behavior {
     pub ball: Option<LastBall>,
     pub last_ball: Option<LastBall>,
     pub last_close_enough_to_kick: bool,
+    pub last_kick_power: Option<KickPower>,
     pub last_motion_switch_time: SystemTime,
     pub last_motion_type: Option<MotionType>,
     #[serde(skip, default = "create_tree_default")]
@@ -60,10 +61,12 @@ pub struct Blackboard {
     pub ball: Option<LastBall>,
     pub last_ball: Option<LastBall>,
     pub last_close_enough_to_kick: bool,
+    pub last_kick_power: Option<KickPower>,
     pub last_motion_switch_time: SystemTime,
     pub last_motion_type: Option<MotionType>,
     pub time_since_last_switch: Duration,
 
+    pub kick_target: Option<KickTarget>,
     pub motion: Option<MotionCommand>,
     pub head_motion: Option<HeadMotion>,
 }
@@ -83,6 +86,8 @@ pub struct CycleContext {
     is_alternative_kick: AdditionalOutput<bool, "behavior.is_alternative_kick">,
     motion_type: AdditionalOutput<Option<MotionType>, "behavior.last_motion_type">,
     time_since_last_switch: AdditionalOutput<Duration, "behavior.time_since_last_switch">,
+    last_kick_power: AdditionalOutput<Option<KickPower>, "behavior.last_kick_power">,
+    kick_target_distance: AdditionalOutput<Option<f32>, "behavior.kick_target_distance">,
 
     path_obstacles_output: AdditionalOutput<Vec<PathObstacle>, "path_obstacles">,
 
@@ -104,6 +109,7 @@ impl Behavior {
             ball: None,
             last_ball: None,
             last_close_enough_to_kick: false,
+            last_kick_power: None,
             last_motion_switch_time: SystemTime::UNIX_EPOCH,
             last_motion_type: None,
             tree,
@@ -144,11 +150,13 @@ impl Behavior {
             ball: self.ball.clone(),
             last_ball: self.last_ball.clone(),
             last_close_enough_to_kick: self.last_close_enough_to_kick,
+            last_kick_power: self.last_kick_power,
             last_motion_switch_time: self.last_motion_switch_time,
             last_motion_type: self.last_motion_type,
             time_since_last_switch: Duration::ZERO,
             motion: None,
             head_motion: None,
+            kick_target: None,
         };
         let (status, trace) = self.tree.tick_with_trace(&mut blackboard);
         context.behavior_trace.fill_if_subscribed(|| trace);
@@ -161,6 +169,15 @@ impl Behavior {
         context
             .is_alternative_kick
             .fill_if_subscribed(|| blackboard.is_alternative_kick);
+        context
+            .last_kick_power
+            .fill_if_subscribed(|| blackboard.last_kick_power);
+        context.kick_target_distance.fill_if_subscribed(|| {
+            blackboard
+                .kick_target
+                .as_ref()
+                .map(|kick_target| kick_target.position.coords().norm())
+        });
 
         let motion_command: MotionCommand = match status {
             Status::Success => blackboard.motion.take().unwrap_or(MotionCommand::Stand {
@@ -181,6 +198,8 @@ impl Behavior {
         };
 
         self.last_close_enough_to_kick = blackboard.last_close_enough_to_kick;
+        self.last_kick_power = blackboard.last_kick_power;
+        *context.last_motion_command = motion_command.clone();
 
         let motion_type = match motion_command.clone() {
             MotionCommand::VisualKick { .. } => Some(MotionType::Kick),
@@ -190,6 +209,10 @@ impl Behavior {
             MotionCommand::Prepare => Some(MotionType::Prepare),
             _ => None,
         };
+
+        if motion_type != Some(MotionType::Kick) {
+            self.last_kick_power = None;
+        }
 
         if motion_type != self.last_motion_type {
             self.last_motion_switch_time = context.world_state.now;
