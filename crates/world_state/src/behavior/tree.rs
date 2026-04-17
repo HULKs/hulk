@@ -10,8 +10,12 @@ use crate::{
             is_closest_to_ball, is_fallen, is_goalkeeper, is_primary_state,
         },
         kick_actions::{intercept, kick, kick_instead_of_walking},
+        kick_selector::{
+            allow_schlong, is_close_to_target, select_kick_target, use_kick_power,
+            use_last_kick_power,
+        },
         node::Blackboard,
-        switch::{is_allowed_to_switch, is_last_motion_type},
+        switch_motion_type::{is_allowed_to_switch, is_last_motion_type},
         walk_actions::{walk_instead_of_kicking, walk_to_ball},
     },
     condition, negation, selection, sequence,
@@ -91,18 +95,21 @@ fn striker_subtree() -> Node<Blackboard> {
             condition!(is_ball_interception_candidate),
             switch_motion_type(
                 MotionType::Kick,
-                action!(intercept),
+                sequence!(
+                    action!(select_kick_target),
+                    kick_power_subtree(),
+                    action!(intercept),
+                ),
                 kick_alternatives_subtree(),
             )
         ),
-        // sequence!(
-        //     condition!(is_close_to_goal),
-        //     action!(kick, KickPower::Rumpelstilzchen)
-        // ),
-        // action!(kick, KickPower::Schlong)
         switch_motion_type(
-            MotionType::Kick,
-            action!(kick, KickPower::Rumpelstilzchen),
+            MotionType::Kick,   
+            sequence!(
+                action!(select_kick_target),
+                kick_power_subtree(), // TODO depends on selected kick power
+                action!(kick),
+            ),
             kick_alternatives_subtree()
         )
     )
@@ -138,7 +145,11 @@ fn walk_alternatives_subtree() -> Node<Blackboard> {
     selection!(
         sequence!(
             condition!(is_last_motion_type, MotionType::Kick),
-            action!(kick_instead_of_walking)
+            sequence!(
+                kick_power_subtree(),
+                action!(select_kick_target),
+                action!(kick_instead_of_walking),
+            )
         ),
         action!(stand)
     )
@@ -151,5 +162,20 @@ fn kick_alternatives_subtree() -> Node<Blackboard> {
             action!(walk_instead_of_kicking)
         ),
         action!(stand)
+    )
+}
+
+fn kick_power_subtree() -> Node<Blackboard> {
+    selection!(
+        sequence!(
+            condition!(is_last_motion_type, MotionType::Kick),
+            action!(use_last_kick_power)
+        ),
+        sequence!(
+            negation!(condition!(is_close_to_target)),
+            condition!(allow_schlong),
+            action!(use_kick_power, KickPower::Schlong)
+        ),
+        action!(use_kick_power, KickPower::Rumpelstilzchen)
     )
 }

@@ -1,6 +1,6 @@
 use coordinate_systems::Field;
 use geometry::line::Line;
-use linear_algebra::{Orientation2, Point, Rotation2, Vector2, vector};
+use linear_algebra::{Orientation2, Point, Rotation2};
 use types::{
     behavior_tree::Status,
     motion_command::{HeadMotion, ImageRegion, KickPower, MotionCommand},
@@ -8,10 +8,12 @@ use types::{
 
 use crate::behavior::node::Blackboard;
 
-pub fn kick(blackboard: &mut Blackboard, kick_power: KickPower) -> Status {
-    if let (Some(ball), Some(ground_to_field)) =
-        (&blackboard.ball, &blackboard.world_state.robot.ground_to_field)
-    {
+pub fn kick(blackboard: &mut Blackboard) -> Status {
+    if let (Some(ball), Some(ground_to_field), Some(kick_target)) = (
+        &blackboard.ball,
+        &blackboard.world_state.robot.ground_to_field,
+        &blackboard.kick_target,
+    ) {
         let ball_in_ground = ground_to_field.inverse() * ball.position;
         let parameters = &blackboard.parameters.kicking;
 
@@ -27,21 +29,18 @@ pub fn kick(blackboard: &mut Blackboard, kick_power: KickPower) -> Status {
             }
         };
 
-        let goal_position: Vector2<Field> = vector!(blackboard.field_dimensions.length / 2.0, 0.0);
-        let field_to_ground = ground_to_field.inverse();
-        let kick_direction =
-            Orientation2::from_vector(field_to_ground * goal_position - ball_in_ground.coords());
-
         let robot_theta_to_field: Orientation2<Field> = ground_to_field.orientation();
-        let target_position = (field_to_ground * goal_position).as_point();
 
         blackboard.motion = Some(MotionCommand::VisualKick {
             head,
             ball_position: ball_in_ground,
-            kick_direction,
-            target_position: Rotation2::new(parameters.kick_target_offset_angle) * target_position,
+            kick_direction: kick_target.direction,
+            target_position: Rotation2::new(parameters.kick_target_offset_angle)
+                * kick_target.position,
             robot_theta_to_field,
-            kick_power,
+            kick_power: blackboard
+                .last_kick_power
+                .unwrap_or(KickPower::Rumpelstilzchen),
         });
 
         Status::Success
@@ -100,7 +99,9 @@ pub fn intercept(blackboard: &mut Blackboard) -> Status {
             kick_direction,
             target_position: ball_position,
             robot_theta_to_field,
-            kick_power: KickPower::Rumpelstilzchen,
+            kick_power: blackboard
+                .last_kick_power
+                .unwrap_or(KickPower::Rumpelstilzchen),
         });
         Status::Success
     } else {
@@ -109,22 +110,17 @@ pub fn intercept(blackboard: &mut Blackboard) -> Status {
 }
 
 pub fn kick_instead_of_walking(blackboard: &mut Blackboard) -> Status {
-    if let (Some(ball), Some(ground_to_field)) = (
+    if let (Some(ball), Some(ground_to_field), Some(kick_target)) = (
         &blackboard.last_ball,
-        blackboard.world_state.robot.ground_to_field,
+        &blackboard.world_state.robot.ground_to_field,
+        &blackboard.kick_target,
     ) {
         blackboard.is_alternative_kick = true;
 
         let field_to_ground = ground_to_field.inverse();
         let ball_in_ground = field_to_ground * ball.position;
 
-        let goal_position: Vector2<Field> = vector!(blackboard.field_dimensions.length / 2.0, 0.0);
-        let field_to_ground = ground_to_field.inverse();
-        let kick_direction =
-            Orientation2::from_vector(field_to_ground * goal_position - ball_in_ground.coords());
-
         let robot_theta_to_field: Orientation2<Field> = ground_to_field.orientation();
-        let target_position = (field_to_ground * goal_position).as_point();
 
         blackboard.motion = Some(MotionCommand::VisualKick {
             head: HeadMotion::LookAt {
@@ -132,10 +128,13 @@ pub fn kick_instead_of_walking(blackboard: &mut Blackboard) -> Status {
                 image_region_target: ImageRegion::Center,
             },
             ball_position: ball_in_ground,
-            kick_direction,
-            target_position,
+            kick_direction: kick_target.direction,
+            target_position: Rotation2::new(blackboard.parameters.kicking.kick_target_offset_angle)
+                * kick_target.position,
             robot_theta_to_field,
-            kick_power: KickPower::Rumpelstilzchen,
+            kick_power: blackboard
+                .last_kick_power
+                .unwrap_or(KickPower::Rumpelstilzchen),
         });
         Status::Success
     } else {
