@@ -18,6 +18,7 @@ const X_SPACING: f32 = 5.0;
 const NODE_RADIUS: f32 = 2.0;
 const Y_SPACING: f32 = 5.0;
 const SUBTREE_PREFIX: &str = "subtree_";
+const INITIALLY_COLLAPSED_SUBTREES: &[&str] = &["kick_power_subtree", "kick_alternatives_subtree", "walk_alternatives_subtree"];
 const LAYOUT_ANIMATION_FACTOR: f32 = 0.2;
 const LAYOUT_ANIMATION_EPSILON: f32 = 0.02;
 const EXIT_FADE_STEP: f32 = 0.12;
@@ -200,6 +201,7 @@ pub struct BehaviorTreePanel {
     trace_buffer: BufferHandle<Option<NodeTrace>>,
     tree_layout: Option<NodeTrace>,
     collapsed_subtrees: HashSet<String>,
+    initial_collapse_applied: bool,
     opening_subtree_origin: Option<String>,
     circle_nodes: Vec<CircleNode>,
     exiting_nodes: Vec<CircleNode>,
@@ -343,6 +345,7 @@ impl<'a> Panel<'a> for BehaviorTreePanel {
                 .subscribe_value("WorldState.additional_outputs.behavior.trace"),
             tree_layout: None,
             collapsed_subtrees: HashSet::new(),
+            initial_collapse_applied: false,
             opening_subtree_origin: None,
             circle_nodes,
             exiting_nodes: Vec::new(),
@@ -361,6 +364,11 @@ impl Widget for &mut BehaviorTreePanel {
             .flatten()
             .flatten()
         {
+            if !self.initial_collapse_applied {
+                self.collapsed_subtrees = initially_collapsed_subtree_ids(&tree_layout);
+                self.initial_collapse_applied = true;
+            }
+
             if self.tree_layout.as_ref().map(|layout| &layout.name) != Some(&tree_layout.name)
                 || self.circle_nodes.is_empty()
             {
@@ -368,6 +376,33 @@ impl Widget for &mut BehaviorTreePanel {
                 self.rebuild_layout();
             }
         }
+
+        ui.horizontal(|ui| {
+            if ui.button("Collapse All").clicked() {
+                if let Some(tree_layout) = &self.tree_layout {
+                    self.collapsed_subtrees = all_subtree_ids(tree_layout);
+                    self.opening_subtree_origin = None;
+                    self.rebuild_layout();
+                }
+            }
+
+            if ui.button("Expand All").clicked() {
+                self.collapsed_subtrees.clear();
+                self.opening_subtree_origin = None;
+                self.rebuild_layout();
+            }
+
+            if ui.button("Reset").clicked() {
+                self.exiting_nodes.clear();
+                self.opening_subtree_origin = None;
+
+                if let Some(tree_layout) = &self.tree_layout {
+                    self.collapsed_subtrees = initially_collapsed_subtree_ids(tree_layout);
+                    self.initial_collapse_applied = true;
+                    self.rebuild_layout();
+                }
+            }
+        });
 
         if let Some(trace) = self.trace_buffer.get_last_value().ok().flatten().flatten() {
             for node in &mut self.circle_nodes {
@@ -612,6 +647,62 @@ fn collect_statuses_by_id(
     for (child_index, child_trace) in node_trace.children.iter().enumerate() {
         path.push(child_index);
         collect_statuses_by_id(child_trace, path, statuses);
+        path.pop();
+    }
+}
+
+fn initially_collapsed_subtree_ids(root: &NodeTrace) -> HashSet<String> {
+    let desired_names: HashSet<&str> = INITIALLY_COLLAPSED_SUBTREES.iter().copied().collect();
+    let mut collapsed_ids = HashSet::new();
+    let mut path = Vec::new();
+    collect_initially_collapsed_subtree_ids(root, &desired_names, &mut path, &mut collapsed_ids);
+    collapsed_ids
+}
+
+fn collect_initially_collapsed_subtree_ids(
+    node_trace: &NodeTrace,
+    desired_names: &HashSet<&str>,
+    path: &mut Vec<usize>,
+    collapsed_ids: &mut HashSet<String>,
+) {
+    if node_trace.name.starts_with(SUBTREE_PREFIX) {
+        let raw_name = node_trace
+            .name
+            .strip_prefix(SUBTREE_PREFIX)
+            .unwrap_or(node_trace.name.as_str());
+        let subtree_name = raw_name.split(':').next().unwrap_or(raw_name);
+
+        if desired_names.contains(subtree_name) {
+            collapsed_ids.insert(node_id_from_path(path));
+        }
+    }
+
+    for (child_index, child_trace) in node_trace.children.iter().enumerate() {
+        path.push(child_index);
+        collect_initially_collapsed_subtree_ids(child_trace, desired_names, path, collapsed_ids);
+        path.pop();
+    }
+}
+
+fn all_subtree_ids(root: &NodeTrace) -> HashSet<String> {
+    let mut subtree_ids = HashSet::new();
+    let mut path = Vec::new();
+    collect_all_subtree_ids(root, &mut path, &mut subtree_ids);
+    subtree_ids
+}
+
+fn collect_all_subtree_ids(
+    node_trace: &NodeTrace,
+    path: &mut Vec<usize>,
+    subtree_ids: &mut HashSet<String>,
+) {
+    if node_trace.name.starts_with(SUBTREE_PREFIX) {
+        subtree_ids.insert(node_id_from_path(path));
+    }
+
+    for (child_index, child_trace) in node_trace.children.iter().enumerate() {
+        path.push(child_index);
+        collect_all_subtree_ids(child_trace, path, subtree_ids);
         path.pop();
     }
 }
