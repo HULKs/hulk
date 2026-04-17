@@ -5,22 +5,22 @@ use types::{
 
 use crate::behavior::node::Blackboard;
 
-pub fn injected_motion_command(context: &mut Blackboard) -> Status {
-    if let Some(injected_motion_command) = &context.parameters.injected_motion_command {
-        context.output = Some(injected_motion_command.clone());
+pub fn injected_motion_command(blackboard: &mut Blackboard) -> Status {
+    if let Some(injected_motion_command) = &blackboard.parameters.injected_motion_command {
+        blackboard.output = Some(injected_motion_command.clone());
         Status::Success
     } else {
         Status::Failure
     }
 }
 
-pub fn prepare(context: &mut Blackboard) -> Status {
-    context.output = Some(MotionCommand::Prepare);
+pub fn prepare(blackboard: &mut Blackboard) -> Status {
+    blackboard.output = Some(MotionCommand::Prepare);
     Status::Success
 }
 
-pub fn stand(context: &mut Blackboard) -> Status {
-    context.output = Some(MotionCommand::Stand {
+pub fn stand(blackboard: &mut Blackboard) -> Status {
+    blackboard.output = Some(MotionCommand::Stand {
         head: HeadMotion::Center {
             image_region_target: ImageRegion::Top,
         },
@@ -28,14 +28,14 @@ pub fn stand(context: &mut Blackboard) -> Status {
     Status::Success
 }
 
-pub fn stand_up(context: &mut Blackboard) -> Status {
-    context.output = Some(MotionCommand::StandUp);
+pub fn stand_up(blackboard: &mut Blackboard) -> Status {
+    blackboard.output = Some(MotionCommand::StandUp);
     Status::Success
 }
 
-pub fn walk_to_ball(context: &mut Blackboard) -> Status {
-    if let Some(ball) = &context.world_state.ball {
-        context.output = Some(MotionCommand::WalkWithVelocity {
+pub fn walk_to_ball(blackboard: &mut Blackboard) -> Status {
+    if let Some(ball) = &blackboard.world_state.ball {
+        blackboard.output = Some(MotionCommand::WalkWithVelocity {
             head: HeadMotion::LookAt {
                 target: ball.ball_in_ground,
                 image_region_target: ImageRegion::Top,

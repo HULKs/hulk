@@ -1,31 +1,31 @@
 use serde::{Serialize, ser::SerializeStruct};
 use types::behavior_tree::{NodeTrace, Status};
 
-type ConditionFunction<Context> = Box<dyn Fn(&mut Context) -> bool + Send + Sync>;
-type ActionFunction<Context> = Box<dyn Fn(&mut Context) -> Status + Send + Sync>;
+type ConditionFunction<Blackboard> = Box<dyn Fn(&mut Blackboard) -> bool + Send + Sync>;
+type ActionFunction<Blackboard> = Box<dyn Fn(&mut Blackboard) -> Status + Send + Sync>;
 
-pub enum Node<Context> {
+pub enum Node<Blackboard> {
     Action {
         name: &'static str,
-        action: ActionFunction<Context>,
+        action: ActionFunction<Blackboard>,
     },
     Condition {
         name: &'static str,
-        condition: ConditionFunction<Context>,
+        condition: ConditionFunction<Blackboard>,
     },
     Failure,
     Selection {
         name: &'static str,
-        children: Vec<Node<Context>>,
+        children: Vec<Node<Blackboard>>,
     },
     Sequence {
         name: &'static str,
-        children: Vec<Node<Context>>,
+        children: Vec<Node<Blackboard>>,
     },
 }
 
-impl<Context> Node<Context> {
-    pub fn tick_with_trace(&self, context: &mut Context) -> (Status, NodeTrace) {
+impl<Blackboard> Node<Blackboard> {
+    pub fn tick_with_trace(&self, blackboard: &mut Blackboard) -> (Status, NodeTrace) {
         let name = match self {
             Node::Action { name, .. }
             | Node::Condition { name, .. }
@@ -40,9 +40,9 @@ impl<Context> Node<Context> {
         };
 
         let status = match self {
-            Node::Action { action, .. } => action(context),
+            Node::Action { action, .. } => action(blackboard),
             Node::Condition { condition, .. } => {
-                if condition(context) {
+                if condition(blackboard) {
                     Status::Success
                 } else {
                     Status::Failure
@@ -52,7 +52,7 @@ impl<Context> Node<Context> {
             Node::Selection { children, .. } => {
                 let mut selection_status = Status::Failure;
                 for child in children {
-                    let (child_status, child_trace) = child.tick_with_trace(context);
+                    let (child_status, child_trace) = child.tick_with_trace(blackboard);
                     trace.children.push(child_trace);
 
                     if matches!(child_status, Status::Success | Status::Running) {
@@ -65,7 +65,7 @@ impl<Context> Node<Context> {
             Node::Sequence { children, .. } => {
                 let mut sequence_status = Status::Success;
                 for child in children {
-                    let (child_status, child_trace) = child.tick_with_trace(context);
+                    let (child_status, child_trace) = child.tick_with_trace(blackboard);
                     trace.children.push(child_trace);
 
                     if matches!(child_status, Status::Failure | Status::Running) {
@@ -161,7 +161,7 @@ macro_rules! sequence {
     };
 }
 
-impl<Context> Serialize for Node<Context> {
+impl<Blackboard> Serialize for Node<Blackboard> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
         S: serde::Serializer,
