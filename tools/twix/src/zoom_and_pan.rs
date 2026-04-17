@@ -8,7 +8,7 @@ use crate::twix_painter::TwixPainter;
 
 #[derive(Default, Serialize, Deserialize)]
 pub struct ZoomAndPanTransform {
-    transformation: Transform<Screen, Screen, Similarity2<f32>>,
+    pub transformation: Transform<Screen, Screen, Similarity2<f32>>,
 }
 
 impl ZoomAndPanTransform {
