@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 
 use coordinate_systems::World;
-use eframe::egui::{Align2, Color32, FontId, Response, Stroke, Ui, Widget};
+use eframe::egui::{Align2, Color32, ComboBox, FontId, Response, Stroke, Ui, Widget};
 use linear_algebra::{IntoTransform, Point2, distance, point, vector};
 use nalgebra::Similarity2;
 use types::behavior_tree::{NodeTrace, Status};
@@ -23,10 +23,32 @@ const LAYOUT_ANIMATION_FACTOR: f32 = 0.2;
 const LAYOUT_ANIMATION_EPSILON: f32 = 0.02;
 const EXIT_FADE_STEP: f32 = 0.12;
 const ENTER_FADE_STEP: f32 = 0.12;
+const CONTROL_FLOW_X_SPACING: f32 = 4.4;
+const CONTROL_FLOW_Y_SPACING: f32 = 7.0;
+const CONTROL_FLOW_BRANCH_GAP: f32 = 0.6;
+const HIDE_CONTROL_NODES_IN_SEQUENCE_VIEW: bool = true;
+const VIEW_SWITCH_FOCUS_SCALE: f32 = 0.52;
+const VIEW_SWITCH_ROOT_Y_FRACTION: f32 = 0.26;
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum LayoutViewMode {
+    Tree,
+    SequenceChains,
+}
+
+impl LayoutViewMode {
+    fn label(self) -> &'static str {
+        match self {
+            Self::Tree => "Tree",
+            Self::SequenceChains => "Sequence Chains",
+        }
+    }
+}
 
 #[derive(Debug, Clone)]
 pub struct CircleNode {
     id: String,
+    is_visible: bool,
     opacity: f32,
     is_dragging: bool,
     is_subtree: bool,
@@ -45,9 +67,11 @@ impl CircleNode {
         radius: f32,
         stroke: Stroke,
         is_subtree: bool,
+        is_visible: bool,
     ) -> Self {
         Self {
             id,
+            is_visible,
             opacity: 1.0,
             is_dragging: false,
             is_subtree,
@@ -60,6 +84,10 @@ impl CircleNode {
     }
 
     pub fn draw(&self, painter: &mut TwixPainter<World>) {
+        if !self.is_visible {
+            return;
+        }
+
         painter.floating_text(
             self.position,
             Align2::CENTER_CENTER,
@@ -90,12 +118,14 @@ impl CircleNode {
         painter: &TwixPainter<World>,
         drag_claimed: &mut bool,
     ) {
-        if response.drag_started()
-            && !*drag_claimed
-            && let Some(pointer_position) = response.interact_pointer_pos()
-        {
-            let world_position = painter.transform_pixel_to_world(pointer_position);
-            let distance = distance(world_position, self.position);
+        if !self.is_visible {
+            return;
+        }
+
+        if response.drag_started() && !*drag_claimed 
+            && let Some(pointer_position) = response.interact_pointer_pos() {
+                let world_position = painter.transform_pixel_to_world(pointer_position);
+                let distance = distance(world_position, self.position);
 
             if distance <= self.radius {
                 self.is_dragging = true;
@@ -118,6 +148,10 @@ impl CircleNode {
     }
 
     pub fn contains(&self, point: Point2<World>) -> bool {
+        if !self.is_visible {
+            return false;
+        }
+
         distance(point, self.position) <= self.radius
     }
 }
@@ -131,6 +165,9 @@ pub fn resolve_circle_collisions(nodes: &mut [CircleNode]) {
         for i in 0..nodes.len() {
             for j in 0..nodes.len() {
                 if i == j {
+                    continue;
+                }
+                if !nodes[i].is_visible || !nodes[j].is_visible {
                     continue;
                 }
                 let distance = distance(nodes[i].position, nodes[j].position)
@@ -202,6 +239,8 @@ pub struct BehaviorTreePanel {
     tree_layout: Option<NodeTrace>,
     collapsed_subtrees: HashSet<String>,
     initial_collapse_applied: bool,
+    view_mode: LayoutViewMode,
+    pending_view_switch_focus: bool,
     opening_subtree_origin: Option<String>,
     circle_nodes: Vec<CircleNode>,
     exiting_nodes: Vec<CircleNode>,
@@ -226,17 +265,26 @@ impl BehaviorTreePanel {
         self.connections.clear();
 
         if let Some(tree_layout) = &self.tree_layout {
-            let mut next_x = 0.0;
-            let mut path = Vec::new();
-            build_tree_layout(
-                &mut self.circle_nodes,
-                &mut self.connections,
-                tree_layout,
-                0,
-                &mut next_x,
-                &mut path,
-                &self.collapsed_subtrees,
-            );
+            if self.view_mode == LayoutViewMode::Tree {
+                let mut next_x = 0.0;
+                let mut path = Vec::new();
+                build_tree_layout(
+                    &mut self.circle_nodes,
+                    &mut self.connections,
+                    tree_layout,
+                    0,
+                    &mut next_x,
+                    &mut path,
+                    &self.collapsed_subtrees,
+                );
+            } else {
+                build_control_flow_layout(
+                    &mut self.circle_nodes,
+                    &mut self.connections,
+                    tree_layout,
+                    &self.collapsed_subtrees,
+                );
+            }
 
             let visible_node_ids: HashSet<String> =
                 self.circle_nodes.iter().map(|node| node.id.clone()).collect();
@@ -270,6 +318,12 @@ impl BehaviorTreePanel {
                     node.position = old_node.position;
                     node.opacity = old_node.opacity;
                 } else {
+                    if node.id == "cfg_root" {
+                        node.position = layout_position;
+                        node.opacity = 1.0;
+                        continue;
+                    }
+
                     let opening_origin_position = self
                         .opening_subtree_origin
                         .as_deref()
@@ -346,6 +400,8 @@ impl<'a> Panel<'a> for BehaviorTreePanel {
             tree_layout: None,
             collapsed_subtrees: HashSet::new(),
             initial_collapse_applied: false,
+            view_mode: LayoutViewMode::Tree,
+            pending_view_switch_focus: false,
             opening_subtree_origin: None,
             circle_nodes,
             exiting_nodes: Vec::new(),
@@ -364,6 +420,7 @@ impl Widget for &mut BehaviorTreePanel {
             .flatten()
             .flatten()
         {
+            let first_layout_load = self.tree_layout.is_none();
             if !self.initial_collapse_applied {
                 self.collapsed_subtrees = initially_collapsed_subtree_ids(&tree_layout);
                 self.initial_collapse_applied = true;
@@ -374,10 +431,31 @@ impl Widget for &mut BehaviorTreePanel {
             {
                 self.tree_layout = Some(tree_layout);
                 self.rebuild_layout();
+                if first_layout_load {
+                    self.pending_view_switch_focus = true;
+                }
             }
         }
 
         ui.horizontal(|ui| {
+            let previous_view_mode = self.view_mode;
+            ComboBox::from_label("View")
+                .selected_text(self.view_mode.label())
+                .show_ui(ui, |ui| {
+                    ui.selectable_value(&mut self.view_mode, LayoutViewMode::Tree, "Tree");
+                    ui.selectable_value(
+                        &mut self.view_mode,
+                        LayoutViewMode::SequenceChains,
+                        "Sequence Chains",
+                    );
+                });
+
+            if self.view_mode != previous_view_mode {
+                self.opening_subtree_origin = None;
+                self.pending_view_switch_focus = true;
+                self.rebuild_layout();
+            }
+
             if ui.button("Collapse All").clicked() {
                 if let Some(tree_layout) = &self.tree_layout {
                     self.collapsed_subtrees = all_subtree_ids(tree_layout);
@@ -413,6 +491,10 @@ impl Widget for &mut BehaviorTreePanel {
             let mut path = Vec::new();
             collect_statuses_by_id(&trace, &mut path, &mut statuses);
 
+            if let Some(root_status) = statuses.get("root").cloned() {
+                statuses.insert("cfg_root".to_string(), root_status);
+            }
+
             for node in &mut self.circle_nodes {
                 if let Some(status) = statuses.get(&node.id) {
                     node.stroke = Stroke::new(0.1, status_color(status));
@@ -427,16 +509,50 @@ impl Widget for &mut BehaviorTreePanel {
             Orientation::LeftHanded,
         );
 
-        let reset_transform = if let Some(first_node) = self.circle_nodes.first() {
-            let node_pixel = painter.transform_world_to_pixel(first_node.position);
-            let center_pixel = response.rect.center();
+        if self.pending_view_switch_focus {
+            if let Some(root_node) = self
+                .circle_nodes
+                .iter()
+                .find(|node| node.id == "cfg_root" || node.id == "root")
+            {
+                let root_pixel = painter.transform_world_to_pixel(root_node.target_position);
+                let desired_x = response.rect.center().x;
+                let desired_y = response.rect.top() + response.rect.height() * VIEW_SWITCH_ROOT_Y_FRACTION;
 
-            let offset_x = center_pixel.x - node_pixel.x;
-            let offset_y = painter.orientation.sign() * (center_pixel.y - node_pixel.y);
+                let translation_x = desired_x - VIEW_SWITCH_FOCUS_SCALE * root_pixel.x;
+                let translation_y = desired_y - VIEW_SWITCH_FOCUS_SCALE * root_pixel.y;
+
+                self.zoom_and_pan.transformation = 
+                    Similarity2::new(
+                        nalgebra::vector![translation_x, translation_y],
+                        0.0,
+                        VIEW_SWITCH_FOCUS_SCALE,
+                    )
+                    .framed_transform()
+                ;
+            }
+            self.pending_view_switch_focus = false;
+        }
+
+        let reset_transform = if let Some(root_node) = self
+            .circle_nodes
+            .iter()
+            .find(|node| node.id == "cfg_root" || node.id == "root")
+        {
+            let root_pixel = painter.transform_world_to_pixel(root_node.target_position);
+            let desired_x = response.rect.center().x;
+            let desired_y = response.rect.top() + response.rect.height() * VIEW_SWITCH_ROOT_Y_FRACTION;
+
+            let translation_x = desired_x - VIEW_SWITCH_FOCUS_SCALE * root_pixel.x;
+            let translation_y = desired_y - VIEW_SWITCH_FOCUS_SCALE * root_pixel.y;
 
             Some(
-                Similarity2::new(nalgebra::vector![offset_x, offset_y], 0.0, 1.0)
-                    .framed_transform(),
+                Similarity2::new(
+                    nalgebra::vector![translation_x, translation_y],
+                    0.0,
+                    VIEW_SWITCH_FOCUS_SCALE,
+                )
+                .framed_transform(),
             )
         } else {
             None
@@ -531,6 +647,7 @@ fn build_tree_layout(
         NODE_RADIUS,
         Stroke::new(0.1, Color32::LIGHT_GRAY),
         subtree_name,
+        true,
     ));
 
     if node_trace.children.is_empty()
@@ -704,5 +821,315 @@ fn collect_all_subtree_ids(
         path.push(child_index);
         collect_all_subtree_ids(child_trace, path, subtree_ids);
         path.pop();
+    }
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+enum ControlFlowNodeKind {
+    Sequence,
+    Selection,
+    Other,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct ControlFlowMetrics {
+    width: f32,
+    depth: usize,
+}
+
+struct ControlFlowLayoutContext<'a> {
+    collapsed_subtrees: &'a HashSet<String>,
+    metrics_cache: &'a HashMap<String, ControlFlowMetrics>,
+}
+
+#[derive(Debug, Clone, Copy)]
+struct ControlFlowCursor {
+    center_x: f32,
+    row_y: f32,
+}
+
+fn build_control_flow_layout(
+    circle_nodes: &mut Vec<CircleNode>,
+    connections: &mut Vec<Connection>,
+    root: &NodeTrace,
+    collapsed_subtrees: &HashSet<String>,
+) {
+    let mut metrics_cache = HashMap::new();
+    let mut path = Vec::new();
+    measure_control_flow_layout(root, &mut path, collapsed_subtrees, &mut metrics_cache);
+    let context = ControlFlowLayoutContext {
+        collapsed_subtrees,
+        metrics_cache: &metrics_cache,
+    };
+
+    let start_node_index = circle_nodes.len();
+    circle_nodes.push(CircleNode::new(
+        "cfg_root".to_string(),
+        String::new(),
+        point![0.0, 0.0],
+        NODE_RADIUS,
+        Stroke::new(0.1, Color32::LIGHT_GRAY),
+        false,
+        true,
+    ));
+
+    path.clear();
+    let _ = layout_control_flow_node(
+        circle_nodes,
+        connections,
+        root,
+        &mut path,
+        &context,
+        ControlFlowCursor {
+            center_x: 0.0,
+            row_y: 1.0,
+        },
+        &[start_node_index],
+    );
+}
+
+fn measure_control_flow_layout(
+    node_trace: &NodeTrace,
+    path: &mut Vec<usize>,
+    collapsed_subtrees: &HashSet<String>,
+    metrics_cache: &mut HashMap<String, ControlFlowMetrics>,
+) -> ControlFlowMetrics {
+    let node_id = node_id_from_path(path);
+    if let Some(metrics) = metrics_cache.get(&node_id) {
+        return *metrics;
+    }
+
+    let (raw_name, is_subtree) = normalized_name_and_subtree_flag(node_trace);
+    let node_kind = control_flow_node_kind(raw_name);
+    let is_hidden_control_node = HIDE_CONTROL_NODES_IN_SEQUENCE_VIEW
+        && matches!(node_kind, ControlFlowNodeKind::Selection | ControlFlowNodeKind::Sequence);
+    let is_collapsed_subtree = is_subtree && collapsed_subtrees.contains(&node_id);
+
+    let metrics = if node_trace.children.is_empty() || is_collapsed_subtree {
+        ControlFlowMetrics {
+            width: 1.0,
+            depth: if is_hidden_control_node { 0 } else { 1 },
+        }
+    } else {
+        let node_depth = if is_hidden_control_node { 0 } else { 1 };
+        match node_kind {
+            ControlFlowNodeKind::Selection => {
+                let mut total_width = 0.0;
+                let mut max_depth = 0;
+
+                for (child_index, child) in node_trace.children.iter().enumerate() {
+                    path.push(child_index);
+                    let child_metrics =
+                        measure_control_flow_layout(child, path, collapsed_subtrees, metrics_cache);
+                    path.pop();
+
+                    total_width += child_metrics.width;
+                    max_depth = max_depth.max(child_metrics.depth);
+                }
+
+                if node_trace.children.len() > 1 {
+                    total_width += (node_trace.children.len() - 1) as f32 * CONTROL_FLOW_BRANCH_GAP;
+                }
+
+                if total_width < 1.0 {
+                    total_width = 1.0;
+                }
+
+                ControlFlowMetrics {
+                    width: total_width,
+                    depth: node_depth + max_depth,
+                }
+            }
+            ControlFlowNodeKind::Sequence | ControlFlowNodeKind::Other => {
+                let mut max_width: f32 = 1.0;
+                let mut total_depth = node_depth;
+
+                for (child_index, child) in node_trace.children.iter().enumerate() {
+                    path.push(child_index);
+                    let child_metrics =
+                        measure_control_flow_layout(child, path, collapsed_subtrees, metrics_cache);
+                    path.pop();
+
+                    if child_metrics.width > max_width {
+                        max_width = child_metrics.width;
+                    }
+                    total_depth += child_metrics.depth;
+                }
+
+                ControlFlowMetrics {
+                    width: max_width,
+                    depth: total_depth,
+                }
+            }
+        }
+    };
+
+    metrics_cache.insert(node_id, metrics);
+    metrics
+}
+
+fn layout_control_flow_node(
+    circle_nodes: &mut Vec<CircleNode>,
+    connections: &mut Vec<Connection>,
+    node_trace: &NodeTrace,
+    path: &mut Vec<usize>,
+    context: &ControlFlowLayoutContext,
+    cursor: ControlFlowCursor,
+    incoming_exits: &[usize],
+) -> Vec<usize> {
+    let node_id = node_id_from_path(path);
+    let (raw_name, is_subtree) = normalized_name_and_subtree_flag(node_trace);
+    let node_kind = control_flow_node_kind(raw_name);
+    let display_name = display_name_for_node(raw_name);
+    let is_control_node = matches!(node_kind, ControlFlowNodeKind::Selection | ControlFlowNodeKind::Sequence);
+    let is_hidden_control_node = HIDE_CONTROL_NODES_IN_SEQUENCE_VIEW && is_control_node;
+    let mut current_exits: Vec<usize> = incoming_exits.to_vec();
+
+    if !is_hidden_control_node {
+        let node_index = circle_nodes.len();
+        circle_nodes.push(CircleNode::new(
+            node_id.clone(),
+            display_name,
+                    point![
+                        cursor.center_x * CONTROL_FLOW_X_SPACING,
+                        cursor.row_y * CONTROL_FLOW_Y_SPACING
+                    ],
+            NODE_RADIUS,
+            Stroke::new(0.1, Color32::LIGHT_GRAY),
+            is_subtree,
+            true,
+        ));
+
+        for exit in incoming_exits {
+            connections.push(Connection::new(
+                *exit,
+                node_index,
+                Stroke::new(0.1, Color32::LIGHT_GRAY),
+            ));
+        }
+
+        current_exits = vec![node_index];
+    }
+
+    let is_collapsed_subtree = is_subtree && context.collapsed_subtrees.contains(&node_id);
+    if node_trace.children.is_empty() || is_collapsed_subtree {
+        return current_exits;
+    }
+
+        let child_row_offset = if is_hidden_control_node { 0.0 } else { 1.0 };
+
+    match node_kind {
+        ControlFlowNodeKind::Selection => {
+            let mut exits = Vec::new();
+            let children = &node_trace.children;
+
+            let mut total_children_width = 0.0;
+            for child_index in 0..children.len() {
+                path.push(child_index);
+                let child_id = node_id_from_path(path);
+                path.pop();
+                total_children_width += context
+                    .metrics_cache
+                    .get(&child_id)
+                    .map(|metrics| metrics.width)
+                    .unwrap_or(1.0);
+            }
+
+            if children.len() > 1 {
+                total_children_width += (children.len() - 1) as f32 * CONTROL_FLOW_BRANCH_GAP;
+            }
+
+            let mut current_left = cursor.center_x - total_children_width * 0.5;
+            for (child_index, child) in children.iter().enumerate() {
+                path.push(child_index);
+                let child_id = node_id_from_path(path);
+                let child_width = context
+                    .metrics_cache
+                    .get(&child_id)
+                    .map(|metrics| metrics.width)
+                    .unwrap_or(1.0);
+                let child_center_x = current_left + child_width * 0.5;
+
+                let child_flow = layout_control_flow_node(
+                    circle_nodes,
+                    connections,
+                    child,
+                    path,
+                    context,
+                    ControlFlowCursor {
+                        center_x: child_center_x,
+                            row_y: cursor.row_y + child_row_offset,
+                    },
+                    &current_exits,
+                );
+                path.pop();
+
+                exits.extend(child_flow);
+
+                current_left += child_width + CONTROL_FLOW_BRANCH_GAP;
+            }
+
+            if exits.is_empty() {
+                current_exits
+            } else {
+                exits
+            }
+        }
+        ControlFlowNodeKind::Sequence | ControlFlowNodeKind::Other => {
+            let mut previous_exits = current_exits;
+                let mut child_row_y = cursor.row_y + child_row_offset;
+
+            for (child_index, child) in node_trace.children.iter().enumerate() {
+                path.push(child_index);
+                let child_id = node_id_from_path(path);
+                let child_flow = layout_control_flow_node(
+                    circle_nodes,
+                    connections,
+                    child,
+                    path,
+                    context,
+                    ControlFlowCursor {
+                        center_x: cursor.center_x,
+                        row_y: child_row_y,
+                    },
+                    &previous_exits,
+                );
+                path.pop();
+
+                previous_exits = child_flow;
+                child_row_y += context
+                    .metrics_cache
+                    .get(&child_id)
+                    .map(|metrics| metrics.depth as f32)
+                    .unwrap_or(1.0);
+            }
+
+            previous_exits
+        }
+    }
+}
+
+fn normalized_name_and_subtree_flag(node_trace: &NodeTrace) -> (&str, bool) {
+    let is_subtree = node_trace.name.starts_with(SUBTREE_PREFIX);
+    let raw_name = node_trace
+        .name
+        .strip_prefix(SUBTREE_PREFIX)
+        .unwrap_or(node_trace.name.as_str());
+    (raw_name, is_subtree)
+}
+
+fn display_name_for_node(raw_name: &str) -> String {
+    match raw_name {
+        "Selection" => "?".to_string(),
+        "Sequence" => "->".to_string(),
+        _ => raw_name.replace(": ", ":\n"),
+    }
+}
+
+fn control_flow_node_kind(raw_name: &str) -> ControlFlowNodeKind {
+    match raw_name {
+        "Selection" => ControlFlowNodeKind::Selection,
+        "Sequence" => ControlFlowNodeKind::Sequence,
+        _ => ControlFlowNodeKind::Other,
     }
 }
