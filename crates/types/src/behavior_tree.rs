@@ -5,7 +5,6 @@ use serde::{Deserialize, Serialize};
 pub enum Status {
     Success,
     Failure,
-    Running,
     Idle,
 }
 

@@ -319,7 +319,6 @@ fn update_status_colors(
     let color = match node_trace.status {
         Status::Success => Color32::CYAN,
         Status::Failure => Color32::RED,
-        Status::Running => Color32::YELLOW,
         Status::Idle => Color32::LIGHT_GRAY,
     };
 

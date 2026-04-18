@@ -78,13 +78,11 @@ impl Behavior {
         context.behavior_trace.fill_if_subscribed(|| trace);
 
         let motion_command: MotionCommand = match status {
-            Status::Success | Status::Running => {
-                blackboard.output.take().unwrap_or(MotionCommand::Stand {
-                    head: HeadMotion::Center {
-                        image_region_target: ImageRegion::Center,
-                    },
-                })
-            }
+            Status::Success => blackboard.output.take().unwrap_or(MotionCommand::Stand {
+                head: HeadMotion::Center {
+                    image_region_target: ImageRegion::Center,
+                },
+            }),
             Status::Failure => MotionCommand::Stand {
                 head: HeadMotion::Center {
                     image_region_target: ImageRegion::Center,

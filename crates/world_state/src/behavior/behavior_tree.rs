@@ -55,7 +55,7 @@ impl<Blackboard> Node<Blackboard> {
                     let (child_status, child_trace) = child.tick_with_trace(blackboard);
                     trace.children.push(child_trace);
 
-                    if matches!(child_status, Status::Success | Status::Running) {
+                    if matches!(child_status, Status::Success) {
                         selection_status = child_status;
                         break;
                     }
@@ -68,7 +68,7 @@ impl<Blackboard> Node<Blackboard> {
                     let (child_status, child_trace) = child.tick_with_trace(blackboard);
                     trace.children.push(child_trace);
 
-                    if matches!(child_status, Status::Failure | Status::Running) {
+                    if matches!(child_status, Status::Failure) {
                         sequence_status = child_status;
                         break;
                     }
