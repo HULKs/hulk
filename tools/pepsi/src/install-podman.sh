@@ -44,15 +44,6 @@ if [ -d "${extracted_directory}/etc" ]; then
   cp --recursive --no-clobber "${extracted_directory}/etc/"* /etc/
 fi
 
-# Prevent execution blocks due to custom installation path
-apparmor_file="/etc/apparmor.d/podman"
-if [ -f "${apparmor_file}" ]; then
-  if grep --quiet "^profile podman /usr/bin/podman" "${apparmor_file}"; then
-    sed --regexp-extended --in-place 's!^profile podman /usr/bin/podman !profile podman /usr/{bin,local/bin}/podman !' "${apparmor_file}"
-    systemctl reload apparmor || true
-  fi
-fi
-
 # Create uid and gid mappings for rootless mode
 primary_user="${SUDO_USER:-$(logname)}"
 if [ -n "${primary_user}" ] && [ "${primary_user}" != "root" ]; then
