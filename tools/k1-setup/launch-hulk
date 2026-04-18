@@ -9,6 +9,7 @@ ln -sfn "${INTERNAL_LOG_PATH}" "/home/booster/hulk/logs/latest"
 
 /usr/local/bin/podman exec \
   --env RUST_BACKTRACE=1 \
+  --user 1000 \
   hulk \
   /home/booster/hulk/bin/hulk \
     --log-path "${INTERNAL_LOG_PATH}" \
