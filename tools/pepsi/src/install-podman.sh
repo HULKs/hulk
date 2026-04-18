@@ -16,6 +16,10 @@ if [[ "$current_version" == "$target_version" ]]; then
     exit 0
 fi
 
+if which podman; then
+    podman stop --all
+fi
+
 if [ "$(id --user)" -ne 0 ]; then
   echo "This script must be run as root."
   exit 1
@@ -24,7 +28,6 @@ fi
 apt update --yes
 apt remove --yes podman crun || true
 apt install --yes iptables uidmap util-linux
-
 
 temporary_directory="$(mktemp --directory)"
 trap 'rm --recursive --force "${temporary_directory}"' EXIT
@@ -41,10 +44,6 @@ if [ -d "${extracted_directory}/etc" ]; then
   cp --recursive --no-clobber "${extracted_directory}/etc/"* /etc/
 fi
 
-# Clear memory locks that cause permission errors after upgrades
-rm --force /dev/shm/libpod_lock || true
-rm --force /dev/shm/libpod_rootless_lock_* || true
-
 # Prevent execution blocks due to custom installation path
 apparmor_file="/etc/apparmor.d/podman"
 if [ -f "${apparmor_file}" ]; then
@@ -54,12 +53,14 @@ if [ -f "${apparmor_file}" ]; then
   fi
 fi
 
-# Prevent duplicate namespace entries for rootless mode
+# Create uid and gid mappings for rootless mode
 primary_user="${SUDO_USER:-$(logname)}"
 if [ -n "${primary_user}" ] && [ "${primary_user}" != "root" ]; then
+  # Prevent duplicate namespace entries for rootless mode
   if ! grep --quiet "^${primary_user}:" /etc/subuid; then
     echo "${primary_user}:100000:200000" >> /etc/subuid
   fi
+  # Prevent duplicate namespace entries for rootless mode
   if ! grep --quiet "^${primary_user}:" /etc/subgid; then
     echo "${primary_user}:100000:200000" >> /etc/subgid
   fi
