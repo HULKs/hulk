@@ -2,6 +2,7 @@ use std::{
     fmt::Write,
     path::{Path, PathBuf},
     process::Stdio,
+    str,
 };
 
 use clap::Args;
@@ -427,12 +428,12 @@ impl CommandExt for Command {
         loop {
             select! {
                 Ok(Some(buffer)) = stdout_lines.next_segment() => {
-                    if let Ok(text) = std::str::from_utf8(&buffer) {
+                    if let Ok(text) = str::from_utf8(&buffer) {
                         progress_bar.set_message(format!("{name}: {text}"));
                     }
                 }
                 Ok(Some(buffer)) = stderr_lines.next_segment() => {
-                    if let Ok(text) = std::str::from_utf8(&buffer) {
+                    if let Ok(text) = str::from_utf8(&buffer) {
                         writeln!(&mut stderr, "{name}: {text}")?;
                     }
                 }
