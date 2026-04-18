@@ -373,7 +373,7 @@ mod tests {
     use std::f32::consts::PI;
 
     use approx::assert_relative_eq;
-    use nalgebra::{matrix, vector};
+    use nalgebra::{Matrix3, matrix, vector};
 
     use super::{CUBATURE_POINT_COUNT, PoseFilter, sample_cubature_points, wrap_angle};
     use types::multivariate_normal_distribution::MultivariateNormalDistribution;
@@ -390,12 +390,7 @@ mod tests {
             covariance: initial_covariance,
         };
 
-        state
-            .predict(
-                |state| state,
-                matrix![0.0, 0.0, 0.0; 0.0, 0.0, 0.0; 0.0, 0.0, 0.0],
-            )
-            .unwrap();
+        state.predict(|state| state, Matrix3::zeros()).unwrap();
 
         assert_relative_eq!(state.covariance, initial_covariance, epsilon = 1.0e-5);
     }
