@@ -21,7 +21,6 @@ Exec=sleep infinity
 [Service]
 ExecStartPre=/usr/bin/bash -c "echo HARDWARE_ID=$(/usr/local/bin/jetson_release -s | /usr/bin/grep 'Serial Number:' | /usr/bin/grep '[0-9]*$' -o) > /run/hulk-runtime.env"
 ExecStartPre=/usr/bin/jetson_clocks
-Restart=always
 
 [Install]
 WantedBy=multi-user.target
