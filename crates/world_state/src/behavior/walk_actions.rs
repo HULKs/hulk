@@ -15,7 +15,8 @@ pub fn plan(
     target_in_ground: Point2<Ground>,
     ground_to_field: Isometry2<Ground, Field>,
 ) -> Path {
-    let parameters: &types::parameters::PathPlanningParameters = &blackboard.parameters.path_planning;
+    let parameters: &types::parameters::PathPlanningParameters =
+        &blackboard.parameters.path_planning;
     let field_dimensions = blackboard.field_dimensions;
 
     let mut planner = PathPlanner::default();
