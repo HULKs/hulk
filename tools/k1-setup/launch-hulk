@@ -4,14 +4,14 @@ set -euo pipefail
 CURRENT_DATE="$(date +%Y-%m-%dT%H:%M:%S.%3N%:z)"
 INTERNAL_LOG_PATH="/home/booster/hulk/logs/${CURRENT_DATE}"
 
-mkdir -p "${INTERNAL_LOG_PATH}"
-ln -sfn "${INTERNAL_LOG_PATH}" "/home/booster/hulk/logs/latest"
-
 /usr/local/bin/podman exec \
   --env RUST_BACKTRACE=1 \
   --user 1000 \
   hulk \
-  /home/booster/hulk/bin/hulk \
-    --log-path "${INTERNAL_LOG_PATH}" \
+  bash -c "
+    mkdir -p \"${INTERNAL_LOG_PATH}\"
+    ln -sfn \"${INTERNAL_LOG_PATH}\" \"/home/booster/hulk/logs/latest\"
+    exec /home/booster/hulk/bin/hulk --log-path \"${INTERNAL_LOG_PATH}\"
+  " \
   > >(tee "${INTERNAL_LOG_PATH}/hulk.out") \
   2> >(tee "${INTERNAL_LOG_PATH}/hulk.err")
