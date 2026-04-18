@@ -16,13 +16,13 @@ if [[ "$current_version" == "$target_version" ]]; then
     exit 0
 fi
 
-if which podman; then
-    podman stop --all
-fi
-
 if [ "$(id --user)" -ne 0 ]; then
   echo "This script must be run as root."
   exit 1
+fi
+
+if which podman; then
+    podman stop --all
 fi
 
 apt update --yes
