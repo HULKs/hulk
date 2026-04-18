@@ -434,7 +434,7 @@ impl CommandExt for Command {
                 }
                 Ok(Some(buffer)) = stderr_lines.next_segment() => {
                     if let Ok(text) = str::from_utf8(&buffer) {
-                        writeln!(&mut stderr, "{name}: {text}")?;
+                        writeln!(&mut stderr, "{text}")?;
                     }
                 }
                 else => break,
@@ -443,7 +443,7 @@ impl CommandExt for Command {
 
         match process.wait().await?.code() {
             Some(0) => Ok(()),
-            Some(code) => bail!("process exited with error code {code}\n{stderr}"),
+            Some(code) => bail!("{name}: process exited with error code {code}\n{stderr}"),
             None => bail!("process was killed"),
         }
     }
