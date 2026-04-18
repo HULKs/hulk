@@ -110,7 +110,7 @@ fn striker_subtree() -> Node<Blackboard> {
             MotionType::Kick,
             sequence!(
                 action!(select_kick_target),
-                subtree!(kick_power_subtree), // TODO depends on selected kick power
+                subtree!(kick_power_subtree),
                 action!(kick),
             ),
             subtree!(kick_alternatives_subtree)
@@ -149,8 +149,8 @@ fn walk_alternatives_subtree() -> Node<Blackboard> {
         sequence!(
             condition!(is_last_motion_type, MotionType::Kick),
             sequence!(
-                subtree!(kick_power_subtree),
                 action!(select_kick_target),
+                action!(use_last_kick_power),
                 action!(kick_instead_of_walking),
             )
         ),
