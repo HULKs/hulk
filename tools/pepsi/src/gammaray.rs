@@ -1,6 +1,8 @@
 use std::{
+    fmt::Write,
     path::{Path, PathBuf},
     process::Stdio,
+    str,
 };
 
 use clap::Args;
@@ -16,6 +18,7 @@ use robot::{Network, Robot};
 use tokio::{
     io::{AsyncBufReadExt, AsyncReadExt, AsyncWriteExt, BufReader},
     process::Command,
+    select,
 };
 
 use crate::progress_indicator::ProgressIndicator;
@@ -36,9 +39,11 @@ pub struct Arguments {
     image_file: Option<PathBuf>,
 }
 
-static PACKAGES: [&str; 3] = ["zenohd", "zenoh-bridge-dds", "podman"];
+static PACKAGES: [&str; 2] = ["zenohd", "zenoh-bridge-dds"];
 
 const WIFI_PASSWORD: &str = "HSL?!HSL?!";
+
+const PODMAN_INSTALLATION_SCRIPT: &str = include_str!("install-podman.sh");
 
 static ADD_ZENOH_APT_SOURCES: &str = "
 curl -L https://download.eclipse.org/zenoh/debian-repo/zenoh-public-key | sudo gpg --dearmor --yes --output /etc/apt/keyrings/zenoh-public-key.gpg
@@ -149,6 +154,16 @@ async fn gammaray_robot(
         .await?;
 
     robot
+        .ssh_to_robot()?
+        .arg("sudo nvidia-ctk cdi generate --output=/etc/cdi/nvidia.yaml")
+        .ssh_with_log("generating nvidia CDI", &progress_bar)
+        .await?;
+
+    install_podman(&robot, &progress_bar)
+        .await
+        .wrap_err("failed to install podman on robot")?;
+
+    robot
         .rsync_with_robot()?
         .arg("--rsync-path=sudo rsync")
         .arg("--info=progress2")
@@ -177,6 +192,7 @@ async fn gammaray_robot(
             &progress_bar,
         )
         .await?;
+
     robot
         .rsync_with_robot()?
         .arg("--rsync-path=sudo rsync")
@@ -188,6 +204,7 @@ async fn gammaray_robot(
         ))
         .rsync_with_log("uploading zenoh-bridge-dds service override", &progress_bar)
         .await?;
+
     robot
         .ssh_to_robot()?
         .arg("sudo systemctl daemon-reload")
@@ -196,9 +213,10 @@ async fn gammaray_robot(
 
     robot
         .rsync_with_robot()?
+        .arg("--rsync-path=sudo rsync")
         .arg("--info=progress2")
         .arg(setup.join("hulk.service"))
-        .arg(format!("{}:.config/systemd/user/", robot.address))
+        .arg(format!("{}:/etc/systemd/system/", robot.address))
         .rsync_with_log("uploading service files", &progress_bar)
         .await?;
 
@@ -229,15 +247,24 @@ async fn gammaray_robot(
         .arg("--rsync-path=sudo rsync")
         .arg("--info=progress2")
         .arg(setup.join("hulk"))
-        .arg(setup.join("launchHULK"))
+        .arg(setup.join("launch-hulk"))
         .arg(format!("{}:/usr/bin/", robot.address))
         .rsync_with_log("uploading binaries", &progress_bar)
         .await?;
 
     robot
         .ssh_to_robot()?
-        .arg("systemctl --user daemon-reload")
+        .arg("sudo systemctl daemon-reload")
         .ssh_with_log("reloading service daemon", &progress_bar)
+        .await?;
+
+    robot
+        .rsync_with_robot()?
+        .arg("--rsync-path=sudo rsync")
+        .arg("--info=progress2")
+        .arg(setup.join("hulk-runtime.container"))
+        .arg(format!("{}:/etc/containers/systemd/", robot.address))
+        .rsync_with_log("uploading service file", &progress_bar)
         .await?;
 
     robot
@@ -256,7 +283,7 @@ async fn gammaray_robot(
 
     robot
         .ssh_to_robot()?
-        .arg("systemctl --user enable --now")
+        .arg("sudo systemctl enable --now")
         .arg("hulk")
         .ssh_with_log("enabling hulk", &progress_bar)
         .await?;
@@ -274,6 +301,18 @@ async fn gammaray_robot(
         .await?;
 
     Ok(())
+}
+
+async fn install_podman(robot: &Robot, progress_bar: &ProgressBar) -> Result<()> {
+    robot
+        .ssh_to_robot()?
+        .arg(format!(
+            "sudo bash -s <<'EOF'\n{}\nEOF",
+            PODMAN_INSTALLATION_SCRIPT
+        ))
+        .ssh_with_log("installing podman", progress_bar)
+        .await
+        .wrap_err("podman install/verification failed")
 }
 
 async fn set_up_static_ips(
@@ -382,17 +421,31 @@ impl CommandExt for Command {
         self.stdout(Stdio::piped());
         self.stderr(Stdio::piped());
         let mut process = self.spawn().unwrap();
-        let mut lines = BufReader::new(process.stdout.take().unwrap()).split(line_delimiter);
+        let mut stdout_lines = BufReader::new(process.stdout.take().unwrap()).split(line_delimiter);
+        let mut stderr_lines = BufReader::new(process.stderr.take().unwrap()).split(line_delimiter);
+        let mut stderr = String::new();
 
-        while let Ok(Some(buffer)) = lines.next_segment().await {
-            if let Ok(text) = std::str::from_utf8(&buffer) {
-                progress_bar.set_message(format!("{name}: {text}"));
+        loop {
+            select! {
+                Ok(Some(buffer)) = stdout_lines.next_segment() => {
+                    if let Ok(text) = str::from_utf8(&buffer) {
+                        progress_bar.set_message(format!("{name}: {text}"));
+                    }
+                }
+                Ok(Some(buffer)) = stderr_lines.next_segment() => {
+                    if let Ok(text) = str::from_utf8(&buffer) {
+                        writeln!(&mut stderr, "{text}")?;
+                    }
+                }
+                else => break,
             }
         }
 
-        fail_on_non_zero_exit_code(process)
-            .await
-            .wrap_err_with(|| format!("failed at {name}"))
+        match process.wait().await?.code() {
+            Some(0) => Ok(()),
+            Some(code) => bail!("{name}: process exited with error code {code}\n{stderr}"),
+            None => bail!("process was killed"),
+        }
     }
 }
 
