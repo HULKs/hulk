@@ -4,14 +4,34 @@ use serde::Serialize;
 use types::{
     behavior_tree::Status,
     motion_command::{KickPower, MotionCommand},
+    motion_type::MotionType,
 };
 
-use crate::behavior::node::Blackboard;
+use crate::{
+    action,
+    behavior::{behavior_tree::Node, node::Blackboard, switch_motion_type::is_last_motion_type},
+    condition, negation, selection, sequence,
+};
 
 #[derive(Debug, Clone, Serialize)]
 pub struct KickTarget {
     pub position: Point2<Ground>,
     pub direction: Orientation2<Ground>,
+}
+
+pub fn kick_power_subtree() -> Node<Blackboard> {
+    selection!(
+        sequence!(
+            condition!(is_last_motion_type, MotionType::Kick),
+            action!(use_last_kick_power)
+        ),
+        sequence!(
+            negation!(condition!(is_close_to_target)),
+            condition!(allow_schlong),
+            action!(use_kick_power, KickPower::Schlong)
+        ),
+        action!(use_kick_power, KickPower::Rumpelstilzchen)
+    )
 }
 
 pub fn select_kick_target(context: &mut Blackboard) -> Status {
