@@ -50,9 +50,10 @@ pub fn kick(blackboard: &mut Blackboard) -> Status {
 }
 
 pub fn intercept(blackboard: &mut Blackboard) -> Status {
-    if let (Some(ball), Some(ground_to_field)) =
-        (&blackboard.ball, &blackboard.world_state.robot.ground_to_field)
-    {
+    if let (Some(ball), Some(ground_to_field)) = (
+        &blackboard.ball,
+        &blackboard.world_state.robot.ground_to_field,
+    ) {
         let ball_in_ground = ground_to_field.inverse() * ball.position;
         let velocity = ball.velocity;
         if velocity.norm() < f32::EPSILON {
@@ -65,7 +66,10 @@ pub fn intercept(blackboard: &mut Blackboard) -> Status {
         let interception_point = ball_line.closest_point(Point::origin());
 
         if interception_point.coords().norm()
-            > blackboard.parameters.intercept_ball.maximum_intercept_distance
+            > blackboard
+                .parameters
+                .intercept_ball
+                .maximum_intercept_distance
         {
             return Status::Failure;
         }

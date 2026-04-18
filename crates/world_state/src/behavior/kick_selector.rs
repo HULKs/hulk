@@ -1,7 +1,10 @@
 use coordinate_systems::{Field, Ground};
 use linear_algebra::{Orientation2, Point2, point};
 use serde::Serialize;
-use types::{behavior_tree::Status, motion_command::{KickPower, MotionCommand}};
+use types::{
+    behavior_tree::Status,
+    motion_command::{KickPower, MotionCommand},
+};
 
 use crate::behavior::node::Blackboard;
 
@@ -47,7 +50,7 @@ pub fn is_close_to_target(context: &mut Blackboard) -> bool {
 }
 
 pub fn allow_schlong(context: &mut Blackboard) -> bool {
-   context.parameters.kicking.allow_schlong
+    context.parameters.kicking.allow_schlong
 }
 
 pub fn use_last_kick_power(context: &mut Blackboard) -> Status {
