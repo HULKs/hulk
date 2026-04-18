@@ -309,7 +309,7 @@ async fn install_podman(robot: &Robot, progress_bar: &ProgressBar) -> Result<()>
             "sudo bash -s <<'EOF'\n{}\nEOF",
             PODMAN_INSTALLATION_SCRIPT
         ))
-        .ssh_with_log("installing latest podman", progress_bar)
+        .ssh_with_log("installing podman", progress_bar)
         .await
         .wrap_err("podman install/verification failed")
 }
