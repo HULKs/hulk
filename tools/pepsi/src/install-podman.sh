@@ -10,7 +10,7 @@ base_url="https://github.com/mgoltzsche/podman-static/releases/download/v${targe
 archive_name="podman-linux-${architecture}.tar.gz"
 install_prefix="/usr/local"
 
-current_version=$(podman --version | awk '{print $3}')
+current_version=$(podman --version | awk '{print $3}' || true)
 
 if [[ "$current_version" == "$target_version" ]]; then
     exit 0
@@ -21,7 +21,7 @@ if [ "$(id --user)" -ne 0 ]; then
   exit 1
 fi
 
-apt update
+apt update --yes
 apt remove --yes podman crun || true
 apt install --yes iptables uidmap util-linux
 
