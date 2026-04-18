@@ -264,7 +264,7 @@ async fn gammaray_robot(
         .arg("--info=progress2")
         .arg(setup.join("hulk-runtime.container"))
         .arg(format!("{}:/etc/containers/systemd/", robot.address))
-        .rsync_with_log("uploading binaries", &progress_bar)
+        .rsync_with_log("uploading service file", &progress_bar)
         .await?;
 
     robot
