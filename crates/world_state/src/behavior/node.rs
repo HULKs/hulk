@@ -84,9 +84,7 @@ pub struct CycleContext {
     behavior_trace: AdditionalOutput<NodeTrace, "behavior.trace">,
     behavior_tree_layout: AdditionalOutput<NodeTrace, "behavior.tree_layout">,
     is_alternative_kick: AdditionalOutput<bool, "behavior.is_alternative_kick">,
-    motion_type: AdditionalOutput<Option<MotionType>, "behavior.last_motion_type">,
     time_since_last_switch: AdditionalOutput<Duration, "behavior.time_since_last_switch">,
-    last_kick_power: AdditionalOutput<Option<KickPower>, "behavior.last_kick_power">,
     kick_target_distance: AdditionalOutput<Option<f32>, "behavior.kick_target_distance">,
 
     path_obstacles_output: AdditionalOutput<Vec<PathObstacle>, "path_obstacles">,
@@ -169,9 +167,6 @@ impl Behavior {
         context
             .is_alternative_kick
             .fill_if_subscribed(|| blackboard.is_alternative_kick);
-        context
-            .last_kick_power
-            .fill_if_subscribed(|| blackboard.last_kick_power);
         context.kick_target_distance.fill_if_subscribed(|| {
             blackboard
                 .kick_target
@@ -218,9 +213,6 @@ impl Behavior {
             self.last_motion_switch_time = context.world_state.now;
             self.last_motion_type = motion_type;
         }
-        context
-            .motion_type
-            .fill_if_subscribed(|| self.last_motion_type);
 
         Ok(MainOutputs {
             motion_command: motion_command.into(),
