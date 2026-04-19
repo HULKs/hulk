@@ -275,7 +275,11 @@ impl Widget for &mut BehaviorTreePanel {
             ComboBox::from_label("View")
                 .selected_text(self.view_mode.label())
                 .show_ui(ui, |ui| {
-                    ui.selectable_value(&mut self.view_mode, LayoutViewMode::Tree, "Phillips' View");
+                    ui.selectable_value(
+                        &mut self.view_mode,
+                        LayoutViewMode::Tree,
+                        "Phillips' View",
+                    );
                     ui.selectable_value(
                         &mut self.view_mode,
                         LayoutViewMode::SequenceChains,
@@ -283,10 +287,7 @@ impl Widget for &mut BehaviorTreePanel {
                     );
                 });
 
-            if ui
-                .checkbox(&mut self.invert_tree_vertical, "; )")
-                .changed()
-            {
+            if ui.checkbox(&mut self.invert_tree_vertical, "; )").changed() {
                 self.opening_subtree_origin = None;
                 self.rebuild_layout();
             }

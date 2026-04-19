@@ -15,7 +15,7 @@ impl ZoomAndPanTransform {
     pub fn apply_transform<Frame>(&self, painter: &mut TwixPainter<Frame>) {
         painter.append_transform(self.transformation);
     }
-    
+
     pub fn process_input<Frame>(
         &mut self,
         ui: &Ui,

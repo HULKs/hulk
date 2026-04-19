@@ -60,7 +60,10 @@ impl CircleNode {
             self.position,
             self.radius,
             Color32::TRANSPARENT,
-            Stroke::new(self.stroke.width, self.stroke.color.gamma_multiply(self.opacity)),
+            Stroke::new(
+                self.stroke.width,
+                self.stroke.color.gamma_multiply(self.opacity),
+            ),
         );
 
         if self.is_subtree {
@@ -68,7 +71,10 @@ impl CircleNode {
                 self.position,
                 self.radius + 0.2,
                 Color32::TRANSPARENT,
-                Stroke::new(0.1, Color32::from_rgb(255, 165, 0).gamma_multiply(self.opacity)),
+                Stroke::new(
+                    0.1,
+                    Color32::from_rgb(255, 165, 0).gamma_multiply(self.opacity),
+                ),
             );
         }
     }
