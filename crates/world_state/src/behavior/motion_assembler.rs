@@ -35,10 +35,8 @@ pub fn assemble_motion_command(blackboard: &Blackboard, status: Status) -> Resul
                 image_region_target: ImageRegion::Center,
             },
         }),
-        Status::Idle => {
-            Err(eyre!(
-                "Behavior tree returned Idle status, which should not happen during a cycle",
-            ))
-        }
+        Status::Idle => Err(eyre!(
+            "Behavior tree returned Idle status, which should not happen during a cycle",
+        )),
     }
 }
