@@ -54,15 +54,11 @@ fn main() -> Result<()> {
                 execution_time_warning_threshold: None,
             },
             CyclerManifest {
-                name: "ObjectDetection",
+                name: "Hydra",
                 kind: CyclerKind::Perception,
                 instances: vec![""],
-                setup_nodes: vec!["object_detection::image_receiver"],
-                nodes: vec![
-                    "object_detection::pose_detection",
-                    "object_detection::pose_filter",
-                    "object_detection::pose_interpretation",
-                ],
+                setup_nodes: vec!["hydra::image_receiver"],
+                nodes: vec!["hydra::inference"],
                 execution_time_warning_threshold: None,
             },
         ],

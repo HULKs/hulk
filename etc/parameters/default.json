@@ -501,10 +501,25 @@
     "goal_depth": 0.5,
     "corner_arc_radius": 0.0
   },
-  "object_detection": {
+  "hydra": {
     "enable": true,
-    "maximum_intersection_over_union": 0.7,
-    "confidence_threshold": 0.5
+    "object_detection_parameters": {
+      "maximum_intersection_over_union": 0.7,
+      "confidence_threshold": 0.5
+    },
+    "pose_detection_parameters": {
+      "maximum_intersection_over_union": 0.7,
+      "confidence_threshold": 0.5
+    }
+  },
+  "pose_filtering": {
+    "minimum_visual_referee_keypoint_confidence": 0.5,
+    "minimum_overall_keypoint_confidence": 0.3,
+    "maximum_distance_to_referee_position": 2.0,
+    "minimum_bounding_box_confidence": 0.8,
+    "minimum_shoulder_angle": 0.2,
+    "free_kick_signal_angle_range": [1.2, 2.3],
+    "foot_z_offset": 0.025
   },
   "obstacle_filter": {
     "use_detected_objects": true,
