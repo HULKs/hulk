@@ -366,6 +366,7 @@
     }
   },
   "injected_primary_state": null,
+  "injected_safe_pose": 0,
    "behavior": {
     "injected_motion_command": null,
     "goal_keeper_number": "One",
