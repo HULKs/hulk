@@ -1,7 +1,7 @@
 import logging
 from collections.abc import Mapping, Sequence
+from pathlib import Path
 from typing import Any, cast
-from zipfile import Path
 
 import torch
 import torch.nn as nn
