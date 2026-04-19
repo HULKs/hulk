@@ -10,7 +10,7 @@ use serde::{Deserialize, Serialize};
 use types::{
     behavior_tree::NodeTrace,
     field_dimensions::FieldDimensions,
-    motion_command::{BodyMotion, HeadMotion, KickPower, MotionCommand},
+    motion_command::{BodyMotion, HeadMotion, MotionCommand},
     motion_type::MotionType,
     parameters::BehaviorParameters,
     path_obstacles::PathObstacle,
@@ -18,7 +18,7 @@ use types::{
 };
 
 use crate::behavior::{
-    behavior_tree::Node, kick_selector::KickTarget, motion_assembler::assemble_motion_command,
+    behavior_tree::Node, motion_assembler::assemble_motion_command,
     tree::create_tree,
 };
 
@@ -35,7 +35,6 @@ pub struct Behavior {
     pub ball: Option<LastBall>,
     pub last_ball: Option<LastBall>,
     pub last_close_enough_to_kick: bool,
-    pub last_kick_power: Option<KickPower>,
     pub last_motion_switch_time: SystemTime,
     pub last_motion_type: Option<MotionType>,
     #[serde(skip, default = "create_tree_default")]
@@ -58,18 +57,16 @@ pub struct Blackboard {
     pub field_dimensions: FieldDimensions,
     pub last_motion_command: MotionCommand,
 
-    pub is_alternative_kick: bool,
+    pub is_alternative: bool,
     pub path_obstacles_output: Vec<PathObstacle>,
 
     pub ball: Option<LastBall>,
     pub last_ball: Option<LastBall>,
     pub last_close_enough_to_kick: bool,
-    pub last_kick_power: Option<KickPower>,
     pub last_motion_switch_time: SystemTime,
     pub last_motion_type: Option<MotionType>,
     pub time_since_last_switch: Duration,
 
-    pub kick_target: Option<KickTarget>,
     pub body_motion: Option<BodyMotion>,
     pub head_motion: Option<HeadMotion>,
     pub is_injected_motion_command: bool,
@@ -89,7 +86,6 @@ pub struct CycleContext {
     behavior_tree_layout: AdditionalOutput<NodeTrace, "behavior.tree_layout">,
     is_alternative_kick: AdditionalOutput<bool, "behavior.is_alternative_kick">,
     time_since_last_switch: AdditionalOutput<Duration, "behavior.time_since_last_switch">,
-    kick_target_distance: AdditionalOutput<Option<f32>, "behavior.kick_target_distance">,
 
     path_obstacles_output: AdditionalOutput<Vec<PathObstacle>, "path_obstacles">,
 
@@ -111,7 +107,6 @@ impl Behavior {
             ball: None,
             last_ball: None,
             last_close_enough_to_kick: false,
-            last_kick_power: None,
             last_motion_switch_time: SystemTime::UNIX_EPOCH,
             last_motion_type: None,
             tree,
@@ -147,16 +142,14 @@ impl Behavior {
             parameters: context.parameters.clone(),
             field_dimensions: *context.field_dimensions,
             last_motion_command: context.last_motion_command.clone(),
-            is_alternative_kick: false,
+            is_alternative: false,
             path_obstacles_output: Vec::new(),
             ball: self.ball.clone(),
             last_ball: self.last_ball.clone(),
             last_close_enough_to_kick: self.last_close_enough_to_kick,
-            last_kick_power: self.last_kick_power,
             last_motion_switch_time: self.last_motion_switch_time,
             last_motion_type: self.last_motion_type,
             time_since_last_switch: Duration::ZERO,
-            kick_target: None,
             body_motion: None,
             head_motion: None,
             is_injected_motion_command: false,
@@ -166,7 +159,6 @@ impl Behavior {
         let motion_command: MotionCommand = assemble_motion_command(&blackboard, status)?;
 
         self.last_close_enough_to_kick = blackboard.last_close_enough_to_kick;
-        self.last_kick_power = blackboard.last_kick_power;
         *context.last_motion_command = motion_command.clone();
 
         let motion_type = match motion_command.clone() {
@@ -177,10 +169,6 @@ impl Behavior {
             MotionCommand::Prepare => Some(MotionType::Prepare),
             _ => None,
         };
-
-        if motion_type != Some(MotionType::Kick) {
-            self.last_kick_power = None;
-        }
 
         if motion_type != self.last_motion_type {
             self.last_motion_switch_time = context.world_state.now;
@@ -197,13 +185,7 @@ impl Behavior {
             .fill_if_subscribed(|| blackboard.time_since_last_switch);
         context
             .is_alternative_kick
-            .fill_if_subscribed(|| blackboard.is_alternative_kick);
-        context.kick_target_distance.fill_if_subscribed(|| {
-            blackboard
-                .kick_target
-                .as_ref()
-                .map(|kick_target| kick_target.position.coords().norm())
-        });
+            .fill_if_subscribed(|| blackboard.is_alternative);
 
         Ok(MainOutputs {
             motion_command: motion_command.into(),
