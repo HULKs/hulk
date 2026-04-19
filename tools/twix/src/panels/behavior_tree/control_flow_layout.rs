@@ -16,7 +16,7 @@ const NODE_RADIUS: f32 = 2.0;
 const CONTROL_FLOW_X_SPACING: f32 = 4.4;
 const CONTROL_FLOW_Y_SPACING: f32 = 7.0;
 const CONTROL_FLOW_BRANCH_GAP: f32 = 0.6;
-const HIDE_CONTROL_NODES_IN_SEQUENCE_VIEW: bool = true;
+const HIDE_SEQUENCE_NODES_IN_CONTROL_FLOW_VIEW: bool = true;
 
 #[derive(Debug, Clone, Copy)]
 struct ControlFlowMetrics {
@@ -50,17 +50,6 @@ pub fn build_control_flow_layout(
         metrics_cache: &metrics_cache,
     };
 
-    let start_node_index = circle_nodes.len();
-    circle_nodes.push(CircleNode::new(
-        "cfg_root".to_string(),
-        String::new(),
-        point![0.0, 0.0],
-        NODE_RADIUS,
-        Stroke::new(0.1, Color32::LIGHT_GRAY),
-        false,
-        true,
-    ));
-
     path.clear();
     let _ = layout_control_flow_node(
         circle_nodes,
@@ -70,9 +59,9 @@ pub fn build_control_flow_layout(
         &context,
         ControlFlowCursor {
             center_x: 0.0,
-            row_y: 1.0,
+            row_y: 0.0,
         },
-        &[start_node_index],
+        &[],
     );
 }
 
@@ -89,11 +78,8 @@ fn measure_control_flow_layout(
 
     let (raw_name, is_subtree) = normalized_name_and_subtree_flag(node_trace);
     let node_kind = control_flow_node_kind(raw_name);
-    let is_hidden_control_node = HIDE_CONTROL_NODES_IN_SEQUENCE_VIEW
-        && matches!(
-            node_kind,
-            ControlFlowNodeKind::Selection | ControlFlowNodeKind::Sequence
-        );
+    let is_hidden_control_node = HIDE_SEQUENCE_NODES_IN_CONTROL_FLOW_VIEW
+        && matches!(node_kind, ControlFlowNodeKind::Sequence);
     let is_collapsed_subtree = is_subtree && collapsed_subtrees.contains(&node_id);
 
     let metrics = if node_trace.children.is_empty() || is_collapsed_subtree {
@@ -119,8 +105,7 @@ fn measure_control_flow_layout(
                 }
 
                 if node_trace.children.len() > 1 {
-                    total_width +=
-                        (node_trace.children.len() - 1) as f32 * CONTROL_FLOW_BRANCH_GAP;
+                    total_width += (node_trace.children.len() - 1) as f32 * CONTROL_FLOW_BRANCH_GAP;
                 }
 
                 if total_width < 1.0 {
@@ -173,11 +158,8 @@ fn layout_control_flow_node(
     let (raw_name, is_subtree) = normalized_name_and_subtree_flag(node_trace);
     let node_kind = control_flow_node_kind(raw_name);
     let display_name = display_name_for_node(raw_name);
-    let is_control_node = matches!(
-        node_kind,
-        ControlFlowNodeKind::Selection | ControlFlowNodeKind::Sequence
-    );
-    let is_hidden_control_node = HIDE_CONTROL_NODES_IN_SEQUENCE_VIEW && is_control_node;
+    let is_hidden_control_node = HIDE_SEQUENCE_NODES_IN_CONTROL_FLOW_VIEW
+        && matches!(node_kind, ControlFlowNodeKind::Sequence);
     let mut current_exits: Vec<usize> = incoming_exits.to_vec();
 
     if !is_hidden_control_node {
