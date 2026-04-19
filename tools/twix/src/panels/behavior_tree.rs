@@ -19,6 +19,7 @@ const Y_SPACING: f32 = 5.0;
 #[derive(Debug, Clone)]
 pub struct CircleNode {
     is_dragging: bool,
+    is_subtree: bool,
     name: String,
     position: Point2<World>,
     radius: f32,
@@ -26,9 +27,16 @@ pub struct CircleNode {
 }
 
 impl CircleNode {
-    pub fn new(name: String, position: Point2<World>, radius: f32, stroke: Stroke) -> Self {
+    pub fn new(
+        name: String,
+        position: Point2<World>,
+        radius: f32,
+        stroke: Stroke,
+        is_subtree: bool,
+    ) -> Self {
         Self {
             is_dragging: false,
+            is_subtree,
             name,
             position,
             radius,
@@ -50,6 +58,15 @@ impl CircleNode {
             Color32::TRANSPARENT,
             self.stroke,
         );
+
+        if self.is_subtree {
+            painter.circle(
+                self.position,
+                self.radius + 0.2,
+                Color32::TRANSPARENT,
+                Stroke::new(0.1, Color32::from_rgb(255, 165, 0)),
+            );
+        }
     }
 
     pub fn update(
@@ -268,11 +285,16 @@ fn build_tree_layout(
     next_x: &mut f32,
 ) -> usize {
     let node_index = circle_nodes.len();
+    let subtree_name = node_trace.name.starts_with("subtree_");
+    let raw_name = node_trace
+        .name
+        .strip_prefix("subtree_")
+        .unwrap_or(node_trace.name.as_str());
 
-    let name = match node_trace.name.as_str() {
+    let name = match raw_name {
         "Selection" => "?".to_string(),
         "Sequence" => "->".to_string(),
-        _ => node_trace.name.clone().replace(": ", ":\n"),
+        _ => raw_name.replace(": ", ":\n"),
     };
 
     circle_nodes.push(CircleNode::new(
@@ -280,6 +302,7 @@ fn build_tree_layout(
         point![0.0, depth as f32 * Y_SPACING],
         NODE_RADIUS,
         Stroke::new(0.1, Color32::LIGHT_GRAY),
+        subtree_name,
     ));
 
     if node_trace.children.is_empty() {
