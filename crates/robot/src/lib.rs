@@ -168,7 +168,7 @@ impl Robot {
     pub async fn execute_systemctl(&self, action: SystemctlAction, unit: &str) -> Result<String> {
         let output = self
             .ssh_to_robot()?
-            .arg("systemctl")
+            .args(["sudo", "systemctl"])
             .arg(match action {
                 SystemctlAction::Disable => "disable",
                 SystemctlAction::Enable => "enable",
