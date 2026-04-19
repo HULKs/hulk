@@ -83,19 +83,19 @@ pub async fn format(arguments: Arguments, repository: &Repository) -> Result<()>
 
     let (rustfmt_result, taplo_result, ruff_result) = tokio::join!(
         async {
-            let task = progress_indicator.task("rustfmt");
+            let task = progress_indicator.task("rustfmt", true);
             let result = rustfmt(&repository.root, arguments.check).await;
             task.finish_with(result.as_ref());
             result
         },
         async {
-            let task = progress_indicator.task("taplo");
+            let task = progress_indicator.task("taplo", true);
             let result = taplo_fmt(&repository.root, arguments.check).await;
             task.finish_with(result.as_ref());
             result
         },
         async {
-            let task = progress_indicator.task("ruff");
+            let task = progress_indicator.task("ruff", true);
             let result = ruff_fmt(&repository.root, arguments.check).await;
             task.finish_with(result.as_ref());
             result

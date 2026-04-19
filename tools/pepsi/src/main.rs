@@ -27,6 +27,7 @@ use reboot::reboot;
 use recording::recording;
 use sdk::sdk;
 use shell::shell;
+use tensorrt_compile::tensorrt_compile;
 use tracing::warn;
 use upload::upload;
 use wifi::wifi;
@@ -54,6 +55,7 @@ mod reboot;
 mod recording;
 mod sdk;
 mod shell;
+mod tensorrt_compile;
 mod upload;
 mod wifi;
 
@@ -157,6 +159,8 @@ enum Command {
     #[command(verbatim_doc_comment, visible_alias = "muschel")]
     Shell(shell::Arguments),
     /// Execute all unit and integration tests
+    #[command()]
+    TensorRTCompile(tensorrt_compile::Arguments),
     #[command(visible_alias = "prüf")]
     Test(cargo::Arguments<test::Arguments>),
     /// Upload the code to Robots
@@ -279,6 +283,9 @@ async fn main() -> Result<()> {
         Command::Shell(arguments) => shell(arguments)
             .await
             .wrap_err("failed to execute shell command")?,
+        Command::TensorRTCompile(arguments) => tensorrt_compile(arguments, &repository?)
+            .await
+            .wrap_err("failed to execute TensorRT compile command")?,
         Command::Test(arguments) => cargo(arguments, &repository?, &[] as &[&str])
             .await
             .wrap_err("failed to execute test command")?,

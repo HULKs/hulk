@@ -389,7 +389,7 @@ async fn set_up_wifi(
     Ok(())
 }
 
-trait CommandExt {
+pub trait CommandExt {
     async fn ssh_with_log(&mut self, prefix: &str, progress_bar: &ProgressBar) -> Result<()>;
 
     async fn rsync_with_log(&mut self, name: &str, progress_bar: &ProgressBar) -> Result<()>;
@@ -429,7 +429,12 @@ impl CommandExt for Command {
             select! {
                 Ok(Some(buffer)) = stdout_lines.next_segment() => {
                     if let Ok(text) = str::from_utf8(&buffer) {
-                        progress_bar.set_message(format!("{name}: {text}"));
+                        let message = if name.is_empty() {
+                            text.to_string()
+                        } else {
+                            format!("{name}: {text}")
+                        };
+                        progress_bar.set_message(message);
                     }
                 }
                 Ok(Some(buffer)) = stderr_lines.next_segment() => {

@@ -1,6 +1,9 @@
 use std::path::Path;
 
-use color_eyre::{Result, eyre::Context};
+use color_eyre::{
+    Result,
+    eyre::{Context, ContextCompat},
+};
 use tokio::fs::{create_dir_all, symlink};
 
 use crate::Repository;
@@ -9,7 +12,7 @@ impl Repository {
     pub async fn populate_upload_directory(
         &self,
         upload_directory: impl AsRef<Path>,
-        hulk_binary: impl AsRef<Path>,
+        binaries: &[impl AsRef<Path>],
     ) -> Result<()> {
         let upload_directory = upload_directory.as_ref();
 
@@ -20,12 +23,19 @@ impl Repository {
         create_dir_all(upload_directory.join("bin"))
             .await
             .wrap_err("failed to create directory for binaries")?;
-        symlink(
-            self.root.join(hulk_binary),
-            upload_directory.join("bin/hulk"),
-        )
-        .await
-        .wrap_err("failed to link executable")?;
+        for binary in binaries {
+            let binary = binary.as_ref();
+            symlink(
+                self.root.join(binary),
+                upload_directory
+                    .join("bin")
+                    .join(binary.file_name().wrap_err_with(|| {
+                        format!("could not determine filename of {}", binary.display())
+                    })?),
+            )
+            .await
+            .wrap_err_with(|| format!("failed to symlink executable {}", binary.display()))?;
+        }
 
         create_dir_all(upload_directory.join("logs"))
             .await

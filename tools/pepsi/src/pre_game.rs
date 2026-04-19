@@ -122,7 +122,7 @@ pub async fn pre_game(arguments: Arguments, repository: &Repository) -> Result<(
     }
 
     repository
-        .populate_upload_directory(&upload_directory, hulk_binary)
+        .populate_upload_directory(&upload_directory, &[hulk_binary])
         .await
         .wrap_err("failed to populate upload directory")?;
 
