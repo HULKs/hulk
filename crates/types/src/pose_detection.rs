@@ -8,7 +8,7 @@ use coordinate_systems::Pixel;
 use hsl_network_messages::Team;
 use linear_algebra::{Point2, point};
 
-use crate::object_detection::{Object, YOLOObjectLabel};
+use crate::object_detection::{LabelIndex, NUMBER_OF_VALUES_PER_OBJECT, Object, YOLOObjectLabel};
 
 #[derive(
     Debug, Clone, Copy, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
@@ -21,6 +21,8 @@ pub enum DetectionRegion {
 pub const OVERALL_KEYPOINT_INDEX_MASK: [usize; 15] =
     [0, 1, 2, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15, 16];
 pub const VISUAL_REFEREE_KEYPOINT_INDEX_MASK: [usize; 8] = [5, 6, 7, 8, 9, 10, 15, 16];
+pub const NUMBER_OF_VALUES_PER_POSE: usize = 57;
+pub const POSE_KEYPOINT_OFFSET: usize = NUMBER_OF_VALUES_PER_OBJECT;
 
 #[derive(
     Debug, Clone, Copy, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
@@ -54,37 +56,39 @@ pub struct Keypoints {
 }
 
 impl Keypoints {
-    pub fn try_new(keypoints_slice: &[f32], x_offset: f32, y_offset: f32) -> Option<Self> {
+    pub fn as_array(self) -> [Keypoint; 17] {
+        Into::<[Keypoint; 17]>::into(self)
+    }
+}
+
+impl From<&[f32; 51]> for Keypoints {
+    fn from(keypoints_slice: &[f32; 51]) -> Self {
         let mut keypoints_iter = keypoints_slice
             .chunks_exact(3)
             .map(|keypoint_chunk| Keypoint {
-                point: point![keypoint_chunk[0] + x_offset, keypoint_chunk[1] + y_offset],
+                point: point![keypoint_chunk[0], keypoint_chunk[1]],
                 confidence: keypoint_chunk[2],
             });
 
-        Some(Self {
-            left_eye: keypoints_iter.next()?,
-            right_eye: keypoints_iter.next()?,
-            nose: keypoints_iter.next()?,
-            left_ear: keypoints_iter.next()?,
-            right_ear: keypoints_iter.next()?,
-            left_shoulder: keypoints_iter.next()?,
-            right_shoulder: keypoints_iter.next()?,
-            left_elbow: keypoints_iter.next()?,
-            right_elbow: keypoints_iter.next()?,
-            left_hand: keypoints_iter.next()?,
-            right_hand: keypoints_iter.next()?,
-            left_hip: keypoints_iter.next()?,
-            right_hip: keypoints_iter.next()?,
-            left_knee: keypoints_iter.next()?,
-            right_knee: keypoints_iter.next()?,
-            left_foot: keypoints_iter.next()?,
-            right_foot: keypoints_iter.next()?,
-        })
-    }
-
-    pub fn as_array(self) -> [Keypoint; 17] {
-        Into::<[Keypoint; 17]>::into(self)
+        Self {
+            left_eye: keypoints_iter.next().unwrap(),
+            right_eye: keypoints_iter.next().unwrap(),
+            nose: keypoints_iter.next().unwrap(),
+            left_ear: keypoints_iter.next().unwrap(),
+            right_ear: keypoints_iter.next().unwrap(),
+            left_shoulder: keypoints_iter.next().unwrap(),
+            right_shoulder: keypoints_iter.next().unwrap(),
+            left_elbow: keypoints_iter.next().unwrap(),
+            right_elbow: keypoints_iter.next().unwrap(),
+            left_hand: keypoints_iter.next().unwrap(),
+            right_hand: keypoints_iter.next().unwrap(),
+            left_hip: keypoints_iter.next().unwrap(),
+            right_hip: keypoints_iter.next().unwrap(),
+            left_knee: keypoints_iter.next().unwrap(),
+            right_knee: keypoints_iter.next().unwrap(),
+            left_foot: keypoints_iter.next().unwrap(),
+            right_foot: keypoints_iter.next().unwrap(),
+        }
     }
 }
 
@@ -149,6 +153,36 @@ pub struct Pose<T> {
 impl<T> Pose<T> {
     pub fn new(object: Object<T>, keypoints: Keypoints) -> Pose<T> {
         Self { object, keypoints }
+    }
+}
+
+impl<T> From<&[f32; 57]> for Pose<T>
+where
+    T: LabelIndex,
+{
+    fn from(values: &[f32; 57]) -> Self {
+        let object_detection_values: [f32; 6] = values[..POSE_KEYPOINT_OFFSET]
+            .try_into()
+            .unwrap_or_else(|_| {
+                panic!(
+                    "slice does not contain atleast {} values",
+                    POSE_KEYPOINT_OFFSET
+                )
+            });
+
+        let keypoint_values = &values[POSE_KEYPOINT_OFFSET..]
+            .try_into()
+            .unwrap_or_else(|_| {
+                panic!(
+                    "slice does not contain atleast {} values",
+                    NUMBER_OF_VALUES_PER_POSE - POSE_KEYPOINT_OFFSET
+                )
+            });
+
+        Pose {
+            object: Object::from(object_detection_values),
+            keypoints: Keypoints::from(keypoint_values),
+        }
     }
 }
 
