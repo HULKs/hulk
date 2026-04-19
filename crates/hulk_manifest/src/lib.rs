@@ -28,7 +28,7 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
                 instances: vec![""],
                 setup_nodes: vec!["hydra::image_receiver"],
                 nodes: vec!["hydra::inference"],
-                execution_time_warning_threshold: Some(Duration::from_secs_f32(1.0 / 60.0)),
+                execution_time_warning_threshold: None,
             },
             CyclerManifest {
                 name: "Motion",
