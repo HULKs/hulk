@@ -106,7 +106,7 @@ pub async fn tensorrt_compile(arguments: Arguments, repository: &Repository) -> 
     robot
         .ssh_to_robot()?
         .arg(format!(
-            r#"launch-hulk --executable "./bin/tensorrt-compile {}" 2>&1"#,
+            r#"sudo podman exec hulk ./bin/tensorrt-compile {} 2>&1"#,
             onnx_path.display(),
         ))
         .run_with_log("", &progress_compile.progress, b'\n')
