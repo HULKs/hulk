@@ -3,9 +3,8 @@ from pathlib import Path
 import click
 import torch
 from torch import ByteTensor, Tensor, nn
-from ultralytics import YOLO
 
-from nv12_to_rgb import NV12ToRgb
+from utils.nv12_to_rgb import NV12ToRgb
 
 
 def load_raw_yolo_network(model_path: Path) -> nn.Module:
@@ -24,7 +23,7 @@ class YoloNv12Wrapper(nn.Module):
         super().__init__()
         self.subsample = subsample
         self.yolo = load_raw_yolo_network(yolo_model_path)
-        self.preprocessor = NV12ToRgb(subsample)
+        self.preprocessor = NV12ToRgb(subsample=subsample)
 
     def forward(self, x: ByteTensor) -> Tensor:
         rgb = self.preprocessor(x).unsqueeze(0).permute(0, 3, 1, 2)
@@ -48,7 +47,12 @@ class YoloNv12Wrapper(nn.Module):
     is_flag=True,
     help="Whether to subsample the chroma channels.",
 )
-def main(model_path: Path, export_path: Path, subsample: bool) -> None:
+def main(
+    model_path: Path,
+    export_path: Path,
+    *,
+    subsample: bool,
+) -> None:
     wrapper = YoloNv12Wrapper(model_path, subsample=subsample)
     wrapper.eval()
     dummy_height = 320

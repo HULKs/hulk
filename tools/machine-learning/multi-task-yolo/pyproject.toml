@@ -9,6 +9,17 @@ dependencies = [
   "onnxruntime>=1.24.3",
   "onnxscript>=0.6.2",
   "onnxslim>=0.1.87",
+  "pyyaml>=6.0.3",
   "torch>=2.10.0",
-  "ultralytics>=8.4.21",
+  "ultralytics>=8.4.31",
+]
+
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[dependency-groups]
+dev = [
+    "pyright>=1.1.408",
+    "ruff>=0.15.9",
 ]

@@ -2,8 +2,13 @@ import torch
 from torch import ByteTensor, Tensor, nn
 
 
+class InvalidNv12InputError(ValueError):
+    def __init__(self) -> None:
+        super().__init__("Expected input with 6 channels")
+
+
 class NV12ToRgb(nn.Module):
-    def __init__(self, subsample: bool = True) -> None:
+    def __init__(self, *, subsample: bool = True) -> None:
         super().__init__()
         self.subsample = subsample
         self.yuv_to_rgb = nn.Parameter(
@@ -25,7 +30,8 @@ class NV12ToRgb(nn.Module):
         image_data = byte_data.to(torch.float32)
         half_height, half_width, _ = image_data.shape
         height, width = half_height * 2, half_width * 2
-        assert image_data.size(-1) == 6
+        if image_data.size(-1) != 6:
+            raise InvalidNv12InputError
         luminance = image_data.view(-1)[: width * height].view(height, width, 1)
         chroma_subsampled = image_data.view(-1)[width * height :].view(
             half_height, half_width, 2
@@ -38,8 +44,7 @@ class NV12ToRgb(nn.Module):
             ).repeat_interleave(2, dim=1)
             yuv = torch.concat([luminance, chroma], -1)
 
-        rgb = torch.matmul(yuv - self.yuv_to_rgb_offset, self.yuv_to_rgb)
-        return rgb
+        return torch.matmul(yuv - self.yuv_to_rgb_offset, self.yuv_to_rgb)
 
 
 if __name__ == "__main__":

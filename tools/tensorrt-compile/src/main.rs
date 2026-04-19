@@ -6,7 +6,7 @@ use ndarray::Array3;
 use ort::{
     execution_providers::{CUDAExecutionProvider, TensorRTExecutionProvider},
     inputs,
-    session::{Session, SessionOutputs, builder::GraphOptimizationLevel},
+    session::{Session, builder::GraphOptimizationLevel},
     value::TensorRef,
 };
 
@@ -44,12 +44,9 @@ fn main() -> Result<()> {
         .commit_from_file(args.onnx_path)?;
 
     let sample_image = Array3::<u8>::default([IMAGE_HEIGHT / 2, IMAGE_WIDTH / 2, 6]);
-    let outputs: SessionOutputs = session
+    let _ = session
         .run(inputs!["raw_bytes_input" => TensorRef::from_array_view(sample_image.view())?])?;
-    let _ = outputs["network_detections"]
-        .try_extract_array::<f32>()?
-        .t()
-        .into_owned();
+
     eprintln!("object detection setup complete");
 
     Ok(())
