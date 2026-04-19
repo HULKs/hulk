@@ -169,7 +169,6 @@ impl Robot {
         let output = self
             .ssh_to_robot()?
             .arg("systemctl")
-            .arg("--user")
             .arg(match action {
                 SystemctlAction::Disable => "disable",
                 SystemctlAction::Enable => "enable",
