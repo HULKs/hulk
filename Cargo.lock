@@ -10766,6 +10766,7 @@ dependencies = [
  "kinematics",
  "linear_algebra",
  "nalgebra",
+ "ndarray",
  "num-traits",
  "ordered-float 4.6.0",
  "path_serde",

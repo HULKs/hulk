@@ -1,8 +1,12 @@
 use color_eyre::Result;
+use geometry::rectangle::Rectangle;
+use linear_algebra::point;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
 use crate::bounding_box::BoundingBox;
+
+pub const NUMBER_OF_VALUES_PER_OBJECT: usize = 6;
 
 #[derive(
     Debug, Clone, Copy, Serialize, Deserialize, PathIntrospect, PathSerialize, PathDeserialize,
@@ -10,6 +14,28 @@ use crate::bounding_box::BoundingBox;
 pub struct Object<T> {
     pub label: T,
     pub bounding_box: BoundingBox,
+}
+
+impl<T> From<[f32; 6]> for Object<T>
+where
+    T: LabelIndex,
+{
+    fn from(value: [f32; 6]) -> Self {
+        Object {
+            bounding_box: BoundingBox {
+                area: Rectangle {
+                    min: point!(value[0usize], value[1usize]),
+                    max: point!(value[2usize], value[3usize]),
+                },
+                confidence: value[4],
+            },
+            label: T::from_index(value[5] as usize),
+        }
+    }
+}
+
+pub trait LabelIndex {
+    fn from_index(index: usize) -> Self;
 }
 
 #[derive(
@@ -106,8 +132,8 @@ pub enum YOLOObjectLabel {
     Toothbrush = 79,
 }
 
-impl YOLOObjectLabel {
-    pub fn from_index(index: usize) -> Self {
+impl LabelIndex for YOLOObjectLabel {
+    fn from_index(index: usize) -> Self {
         match index {
             0 => Self::Person,
             1 => Self::Bicycle,
@@ -303,8 +329,8 @@ pub enum RobocupObjectLabel {
     Person = 7,
 }
 
-impl RobocupObjectLabel {
-    pub fn from_index(index: usize) -> Self {
+impl LabelIndex for RobocupObjectLabel {
+    fn from_index(index: usize) -> Self {
         match index {
             0 => Self::Ball,
             1 => Self::GoalPost,

@@ -2,14 +2,12 @@ use std::time::{Duration, Instant};
 
 use color_eyre::{
     Result,
-    eyre::{Context, bail},
+    eyre::{Context, Ok, bail},
 };
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput, deserialize_not_implemented};
-use geometry::rectangle::Rectangle;
 use hardware::PathsInterface;
-use linear_algebra::point;
-use ndarray::{Array2, ArrayView2, ArrayView3, ArrayViewD, Axis, Ix2, s};
+use ndarray::{ArrayView2, ArrayView3, Axis};
 use ort::{
     execution_providers::{CUDAExecutionProvider, TensorRTExecutionProvider},
     inputs,
@@ -20,15 +18,13 @@ use ros2::sensor_msgs::image::Image;
 use serde::{Deserialize, Serialize};
 use types::{
     bounding_box::BoundingBox,
-    object_detection::{Object, RobocupObjectLabel, YOLOObjectLabel},
+    object_detection::{NUMBER_OF_VALUES_PER_OBJECT, Object, RobocupObjectLabel, YOLOObjectLabel},
     parameters::HydraParameters,
-    pose_detection::{Keypoints, Pose},
+    pose_detection::{NUMBER_OF_VALUES_PER_POSE, Pose},
 };
 
 const MODEL_FILE_NAME: &str = "yolo26m-tuned_pose-tuned-hydra-nv12.onnx";
-const DETECTION_OUTPUT_COLUMNS: usize = 6;
-const POSE_OUTPUT_COLUMNS: usize = 57;
-const POSE_KEYPOINT_OFFSET: usize = 6;
+pub const NUMBER_OF_DETECTIONS: usize = 300;
 
 #[derive(Clone, Copy, Debug)]
 enum TaskHead {
@@ -37,36 +33,25 @@ enum TaskHead {
 }
 
 impl TaskHead {
-    fn aliases(self) -> &'static [&'static str] {
-        match self {
-            Self::ObjectDetection => &[
-                "network_detections_0",
-                "detection_output",
-                "network_detections",
-            ],
-            Self::PoseDetection => &["network_detections_1", "pose_output"],
-        }
-    }
-
-    fn expected_columns(self) -> usize {
-        match self {
-            Self::ObjectDetection => DETECTION_OUTPUT_COLUMNS,
-            Self::PoseDetection => POSE_OUTPUT_COLUMNS,
-        }
-    }
-
     fn output_name(self) -> &'static str {
         match self {
-            Self::ObjectDetection => "object detection",
-            Self::PoseDetection => "pose detection",
+            TaskHead::ObjectDetection => "detection_output",
+            TaskHead::PoseDetection => "pose_output",
+        }
+    }
+
+    fn expected_shape(self) -> [usize; 3] {
+        match self {
+            Self::ObjectDetection => [1, NUMBER_OF_DETECTIONS, NUMBER_OF_VALUES_PER_OBJECT],
+            Self::PoseDetection => [1, NUMBER_OF_DETECTIONS, NUMBER_OF_VALUES_PER_POSE],
         }
     }
 }
 
 #[derive(Debug)]
-struct ModelOutput {
-    name: String,
-    values: Array2<f32>,
+struct ModelOutputs<'a> {
+    objects: ArrayView2<'a, f32>,
+    poses: ArrayView2<'a, f32>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -152,16 +137,16 @@ impl ObjectDetection {
         let inference_duration = inference_start.elapsed();
         let post_processing_start = Instant::now();
 
-        let model_outputs = extract_model_outputs(&outputs)?;
-        let candidate_detections = extract_candidate_detections(
-            &model_outputs,
+        let outputs = extract_outputs(&outputs)?;
+        let candidate_detections = extract_candidate_object_detections(
+            &outputs,
             context
                 .parameters
                 .object_detection_parameters
                 .confidence_threshold,
         )?;
-        let candidate_human_poses = extract_candidate_human_poses(
-            &model_outputs,
+        let candidate_human_poses = extract_candidate_pose_detections(
+            &outputs,
             context
                 .parameters
                 .pose_detection_parameters
@@ -207,132 +192,40 @@ impl ObjectDetection {
     }
 }
 
-fn extract_model_outputs(outputs: &SessionOutputs) -> Result<Vec<ModelOutput>> {
-    outputs
-        .iter()
-        .map(|(name, value)| {
-            let tensor = value
-                .try_extract_array::<f32>()
-                .wrap_err_with(|| format!("failed to extract output `{name}` as tensor"))?;
-            let values = squeeze_output_tensor(name, tensor)?;
-            Ok(ModelOutput {
-                name: name.to_string(),
-                values,
-            })
-        })
-        .collect()
-}
-
-fn squeeze_output_tensor(output_name: &str, tensor: ArrayViewD<'_, f32>) -> Result<Array2<f32>> {
-    match tensor.ndim() {
-        2 => tensor
-            .into_dimensionality::<Ix2>()
-            .map(|array| array.to_owned())
-            .wrap_err_with(|| {
-                format!("failed to interpret output `{output_name}` as rank-2 tensor")
-            }),
-        3 => {
-            let shape = tensor.shape();
-            if shape[0] == 1 {
-                tensor
-                    .index_axis(Axis(0), 0)
-                    .into_dimensionality::<Ix2>()
-                    .map(|array| array.to_owned())
-                    .wrap_err_with(|| {
-                        format!(
-                            "failed to interpret output `{output_name}` batch axis as rank-2 tensor"
-                        )
-                    })
-            } else if shape[2] == 1 {
-                tensor
-                    .index_axis(Axis(2), 0)
-                    .into_dimensionality::<Ix2>()
-                    .map(|array| array.reversed_axes().to_owned())
-                    .wrap_err_with(|| {
-                        format!(
-                            "failed to interpret output `{output_name}` trailing axis as rank-2 tensor"
-                        )
-                    })
-            } else {
-                bail!(
-                    "unsupported shape for output `{output_name}`: expected [1, rows, cols] or [cols, rows, 1], got {shape:?}"
-                );
-            }
-        }
-        rank => {
-            bail!("unsupported rank for output `{output_name}`: expected rank 2 or 3, got {rank}")
-        }
-    }
-}
-
-fn select_task_output<'a>(
-    task: TaskHead,
-    outputs: &'a [ModelOutput],
-) -> Result<ArrayView2<'a, f32>> {
-    for alias in task.aliases() {
-        if let Some(output) = outputs.iter().find(|output| output.name == *alias) {
-            ensure_output_columns(task, output)?;
-            return Ok(output.values.view());
-        }
-    }
-
-    let matching_outputs = outputs
-        .iter()
-        .filter(|output| output.values.ncols() == task.expected_columns())
-        .collect::<Vec<_>>();
-
-    match matching_outputs.len() {
-        1 => Ok(matching_outputs[0].values.view()),
-        0 => bail!(
-            "failed to locate {} output (aliases: {:?}); available outputs: {}",
-            task.output_name(),
-            task.aliases(),
-            describe_outputs(&outputs.iter().collect::<Vec<_>>()),
-        ),
-        _ => bail!(
-            "found multiple candidates for {} output with {} columns: {}",
-            task.output_name(),
-            task.expected_columns(),
-            describe_outputs(&matching_outputs)
-        ),
-    }
-}
-
-fn ensure_output_columns(task: TaskHead, output: &ModelOutput) -> Result<()> {
-    if output.values.ncols() < task.expected_columns() {
+fn extract_outputs<'a>(outputs: &'a SessionOutputs<'a>) -> Result<ModelOutputs<'a>> {
+    let objects_output =
+        outputs[TaskHead::ObjectDetection.output_name()].try_extract_array::<f32>()?;
+    if objects_output.shape() != TaskHead::ObjectDetection.expected_shape() {
         bail!(
-            "output `{}` has {} columns but {} expects at least {}",
-            output.name,
-            output.values.ncols(),
-            task.output_name(),
-            task.expected_columns(),
-        );
+            "object detection output not of expected shape. Expected: {:?}, got: {:?}",
+            TaskHead::ObjectDetection.expected_shape(),
+            objects_output.shape()
+        )
     }
-    Ok(())
+    let reshaped_objects_output = objects_output.squeeze().into_dimensionality()?;
+
+    let poses_output = outputs[TaskHead::PoseDetection.output_name()].try_extract_array::<f32>()?;
+    if poses_output.shape() != TaskHead::PoseDetection.expected_shape() {
+        bail!(
+            "pose detection output not of expected shape. Expected: {:?}, got: {:?}",
+            TaskHead::PoseDetection.expected_shape(),
+            poses_output.shape()
+        )
+    }
+    let reshaped_pose_output = poses_output.squeeze().into_dimensionality()?;
+
+    Ok(ModelOutputs {
+        objects: reshaped_objects_output,
+        poses: reshaped_pose_output,
+    })
 }
 
-fn describe_outputs(outputs: &[&ModelOutput]) -> String {
-    outputs
-        .iter()
-        .map(|output| {
-            format!(
-                "{}({}x{})",
-                output.name,
-                output.values.nrows(),
-                output.values.ncols()
-            )
-        })
-        .collect::<Vec<_>>()
-        .join(", ")
-}
-
-fn extract_candidate_detections(
-    outputs: &[ModelOutput],
+fn extract_candidate_object_detections(
+    outputs: &ModelOutputs,
     confidence_threshold: f32,
 ) -> Result<Vec<Object<RobocupObjectLabel>>> {
-    let output = select_task_output(TaskHead::ObjectDetection, outputs)?;
-
-    Ok(output
+    Ok(outputs
+        .objects
         .axis_iter(Axis(0))
         .filter_map(|row| {
             let confidence = row[4usize];
@@ -340,55 +233,39 @@ fn extract_candidate_detections(
                 return None;
             }
 
-            let class_id = row[5usize] as usize;
-            let label = RobocupObjectLabel::from_index(class_id);
+            let object_values: [f32; NUMBER_OF_VALUES_PER_OBJECT] = row
+                .as_slice()
+                .expect("slice is not contiguous")
+                .try_into()
+                .unwrap_or_else(|_| {
+                    panic!("slice is not of length {}", NUMBER_OF_VALUES_PER_OBJECT)
+                });
 
-            Some(Object {
-                bounding_box: BoundingBox {
-                    area: Rectangle {
-                        min: point!(row[0usize], row[1usize]),
-                        max: point!(row[2usize], row[3usize]),
-                    },
-                    confidence,
-                },
-                label,
-            })
+            Some(Object::from(object_values))
         })
         .collect())
 }
 
-fn extract_candidate_human_poses(
-    outputs: &[ModelOutput],
+fn extract_candidate_pose_detections(
+    outputs: &ModelOutputs,
     confidence_threshold: f32,
 ) -> Result<Vec<Pose<YOLOObjectLabel>>> {
-    let output = select_task_output(TaskHead::PoseDetection, outputs)?;
-
-    Ok(output
+    Ok(outputs
+        .poses
         .axis_iter(Axis(0))
         .filter_map(|row| {
             let confidence = row[4usize];
             if confidence < confidence_threshold {
                 return None;
             }
-            let label_index = row[5usize];
-            let label = YOLOObjectLabel::from_index(label_index as usize);
 
-            let keypoint_values = row.slice(s![POSE_KEYPOINT_OFFSET..]).to_vec();
-            let keypoints = Keypoints::try_new(&keypoint_values, 0.0, 0.0)?;
+            let pose_values: [f32; NUMBER_OF_VALUES_PER_POSE] = row
+                .as_slice()
+                .expect("slice is not contiguous")
+                .try_into()
+                .unwrap_or_else(|_| panic!("slice is not of length {}", NUMBER_OF_VALUES_PER_POSE));
 
-            Some(Pose::new(
-                Object {
-                    label,
-                    bounding_box: BoundingBox {
-                        area: Rectangle {
-                            min: point!(row[0usize], row[1usize]),
-                            max: point!(row[2usize], row[3usize]),
-                        },
-                        confidence,
-                    },
-                },
-                keypoints,
-            ))
+            Some(Pose::from(&pose_values))
         })
         .collect())
 }
