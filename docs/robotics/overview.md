@@ -27,6 +27,6 @@ It includes currently only one node, the whistle detection.
 
 This cycler handles all spl network messages, i.e. it is responsible for the communication with the GameController and other robots.
 
-## ObjectDetection
+## Hydra
 
 This cycler runs the pose detection of the referee.

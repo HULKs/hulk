@@ -23,17 +23,12 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
                 execution_time_warning_threshold: Some(Duration::from_secs_f32(1.0 / 30.0)),
             },
             CyclerManifest {
-                name: "ObjectDetection",
+                name: "Hydra",
                 kind: CyclerKind::Perception,
                 instances: vec![""],
-                setup_nodes: vec!["object_detection::image_receiver"],
-                nodes: vec![
-                    "object_detection::object_detection",
-                    // "object_detection::pose_detection",
-                    // "object_detection::pose_filter",
-                    // "object_detection::pose_interpretation",
-                ],
-                execution_time_warning_threshold: Some(Duration::from_secs_f32(1.0 / 30.0)),
+                setup_nodes: vec!["hydra::image_receiver"],
+                nodes: vec!["hydra::inference"],
+                execution_time_warning_threshold: None,
             },
             CyclerManifest {
                 name: "Motion",

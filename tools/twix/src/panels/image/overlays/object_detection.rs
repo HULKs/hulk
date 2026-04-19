@@ -3,20 +3,19 @@ use std::sync::Arc;
 use color_eyre::Result;
 use coordinate_systems::Pixel;
 use eframe::egui::{Align2, Color32, FontId, Stroke};
-use types::object_detection::{Detection, NaoLabelPartyObjectDetectionLabel};
+use types::object_detection::{Object, RobocupObjectLabel};
 
 use crate::{panels::image::overlay::Overlay, robot::Robot, value_buffer::BufferHandle};
 
 pub struct ObjectDetection {
-    object_detections: BufferHandle<Vec<Detection<NaoLabelPartyObjectDetectionLabel>>>,
+    object_detections: BufferHandle<Vec<Object<RobocupObjectLabel>>>,
 }
 
 impl Overlay for ObjectDetection {
     const NAME: &'static str = "Object Detection";
 
     fn new(robot: Arc<Robot>) -> Self {
-        let object_detections =
-            robot.subscribe_value("ObjectDetection.main_outputs.detected_objects");
+        let object_detections = robot.subscribe_value("Hydra.main_outputs.detected_objects");
         Self { object_detections }
     }
 
@@ -39,7 +38,7 @@ impl Overlay for ObjectDetection {
 
 fn paint_bounding_boxes(
     painter: &crate::twix_painter::TwixPainter<Pixel>,
-    detections: Vec<Detection<NaoLabelPartyObjectDetectionLabel>>,
+    detections: Vec<Object<RobocupObjectLabel>>,
     line_color: Color32,
 ) {
     for detection in detections {

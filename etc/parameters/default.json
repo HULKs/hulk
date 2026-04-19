@@ -501,10 +501,16 @@
     "goal_depth": 0.5,
     "corner_arc_radius": 0.0
   },
-  "object_detection": {
+  "hydra": {
     "enable": true,
-    "maximum_intersection_over_union": 0.7,
-    "confidence_threshold": 0.5
+    "object_detection_parameters": {
+      "maximum_intersection_over_union": 0.7,
+      "confidence_threshold": 0.5
+    },
+    "pose_detection_parameters": {
+      "maximum_intersection_over_union": 0.7,
+      "confidence_threshold": 0.5
+    }
   },
   "obstacle_filter": {
     "use_detected_objects": true,
