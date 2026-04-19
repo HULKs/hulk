@@ -229,7 +229,7 @@ fn ground_to_upcoming_support(
         .inverse()
         .euler_angles()
         .2;
-    Isometry2::from_parts(translation, yaw).inverse()
+    Isometry2::new(translation, yaw).inverse()
 }
 
 fn compensate_arm_motion_with_torso_tilt(

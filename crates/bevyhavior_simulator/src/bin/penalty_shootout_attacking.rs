@@ -24,7 +24,7 @@ fn startup(
     mut ball: ResMut<BallResource>,
 ) {
     let mut robot = Robot::new(PlayerNumber::One);
-    *robot.ground_to_field_mut() = Isometry2::from_parts(vector![2.8, 0.0], 0.0);
+    *robot.ground_to_field_mut() = Isometry2::new(vector![2.8, 0.0], 0.0);
     commands.spawn(robot);
     ball.state = Some(SimulatorBallState {
         position: point!(3.2, 0.0),

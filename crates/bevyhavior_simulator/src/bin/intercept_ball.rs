@@ -32,7 +32,7 @@ fn startup(
     mut ball: ResMut<BallResource>,
 ) {
     let mut robot = Robot::new(PlayerNumber::One);
-    *robot.ground_to_field_mut() = Isometry2::from_parts(vector![-2.0, 0.0], 0.0);
+    *robot.ground_to_field_mut() = Isometry2::new(vector![-2.0, 0.0], 0.0);
     commands.spawn(robot);
     game_controller.state.game_state = GameState::Playing;
     game_controller_commands.write(GameControllerCommand::SetGameState(GameState::Playing));
@@ -59,7 +59,7 @@ fn update(
 
         if ball.velocity.x() > 0.0 {
             robot.database.main_outputs.ground_to_field =
-                Some(Isometry2::from_parts(vector![-4.0, 0.0], 0.0));
+                Some(Isometry2::new(vector![-4.0, 0.0], 0.0));
             ball.position = point![2.0, 0.0];
             let target = point![
                 -field_dimensions.length / 2.0,
