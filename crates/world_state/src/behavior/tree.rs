@@ -3,15 +3,16 @@ use types::{motion_type::MotionType, primary_state::PrimaryState};
 use crate::{
     action,
     behavior::{
-        action::{injected_motion_command, leuchtturm, prepare, stand, stand_up},
+        action::{
+            injected_motion_command, leuchtturm, prepare, set_is_alternative, stand, stand_up,
+        },
         behavior_tree::Node,
         condition::{
             has_ball_position, is_ball_interception_candidate, is_close_to_ball,
             is_closest_to_ball, is_fallen, is_goalkeeper, is_primary_state,
         },
         head::{look_at_ball_subtree, look_straight_ahead, search_for_lost_ball},
-        kick_actions::{intercept, kick, kick_instead_of_walking},
-        kick_selector::{kick_power_subtree, select_kick_target, use_last_kick_power},
+        kick::{intercept, kick, kick_power_subtree, select_kick_target, use_last_kick_power},
         node::Blackboard,
         switch_motion_type::{is_last_motion_type, switch_motion_type},
         walk_actions::{walk_instead_of_kicking, walk_to_ball},
@@ -106,6 +107,7 @@ fn striker_subtree() -> Node<Blackboard> {
                 switch_motion_type(
                     MotionType::Kick,
                     sequence!(
+                        action!(kick),
                         action!(select_kick_target),
                         subtree!(kick_power_subtree),
                         action!(intercept),
@@ -116,9 +118,9 @@ fn striker_subtree() -> Node<Blackboard> {
             switch_motion_type(
                 MotionType::Kick,
                 sequence!(
+                    action!(kick),
                     action!(select_kick_target),
                     subtree!(kick_power_subtree),
-                    action!(kick),
                 ),
                 subtree!(kick_alternatives_subtree)
             )
@@ -135,9 +137,10 @@ fn walk_alternatives_subtree() -> Node<Blackboard> {
         sequence!(
             condition!(is_last_motion_type, MotionType::Kick),
             sequence!(
+                action!(set_is_alternative),
+                action!(kick),
                 action!(select_kick_target),
                 action!(use_last_kick_power),
-                action!(kick_instead_of_walking),
             )
         ),
         action!(stand)
@@ -148,6 +151,7 @@ fn kick_alternatives_subtree() -> Node<Blackboard> {
     selection!(
         sequence!(
             condition!(is_last_motion_type, MotionType::Walk),
+            action!(set_is_alternative),
             action!(walk_instead_of_kicking)
         ),
         action!(stand)

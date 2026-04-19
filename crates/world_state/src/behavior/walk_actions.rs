@@ -140,8 +140,6 @@ pub fn walk_instead_of_kicking(blackboard: &mut Blackboard) -> Status {
         &blackboard.last_ball,
         blackboard.world_state.robot.ground_to_field,
     ) {
-        blackboard.is_alternative_kick = true;
-
         let field_to_ground = ground_to_field.inverse();
         let ball_in_ground = field_to_ground * ball.position;
 
