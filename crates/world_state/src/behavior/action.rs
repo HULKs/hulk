@@ -1,8 +1,5 @@
 use linear_algebra::vector;
-use types::{
-    behavior_tree::Status,
-    motion_command::BodyMotion,
-};
+use types::{behavior_tree::Status, motion_command::BodyMotion};
 
 use crate::behavior::node::Blackboard;
 
@@ -27,7 +24,6 @@ pub fn prepare(blackboard: &mut Blackboard) -> Status {
     blackboard.body_motion = Some(BodyMotion::Prepare);
     Status::Success
 }
-
 
 pub fn set_is_alternative(blackboard: &mut Blackboard) -> Status {
     blackboard.is_alternative = true;

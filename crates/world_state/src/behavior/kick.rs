@@ -35,11 +35,12 @@ pub fn kick(blackboard: &mut Blackboard) -> Status {
     }
 }
 
-pub fn select_kick_target(context: &mut Blackboard) -> Status {
-    if let (Some(ground_to_field), Some(ball)) =
-        (context.world_state.robot.ground_to_field, &context.ball)
-    {
-        let goal_position: Point2<Field> = point!(context.field_dimensions.length / 2.0, 0.0);
+pub fn select_kick_target(blackboard: &mut Blackboard) -> Status {
+    if let (Some(ground_to_field), Some(ball)) = (
+        blackboard.world_state.robot.ground_to_field,
+        &blackboard.ball,
+    ) {
+        let goal_position: Point2<Field> = point!(blackboard.field_dimensions.length / 2.0, 0.0);
         let field_to_ground = ground_to_field.inverse();
 
         let target_position = field_to_ground * goal_position;
@@ -51,10 +52,10 @@ pub fn select_kick_target(context: &mut Blackboard) -> Status {
             target_position: motion_target_position,
             kick_direction: motion_kick_direction,
             ..
-        }) = context.body_motion.as_mut()
+        }) = blackboard.body_motion.as_mut()
         {
             *motion_target_position =
-                Rotation2::new(context.parameters.kicking.kick_target_offset_angle)
+                Rotation2::new(blackboard.parameters.kicking.kick_target_offset_angle)
                     * target_position;
             *motion_kick_direction = kick_direction;
 
@@ -79,13 +80,13 @@ pub fn kick_power_subtree() -> Node<Blackboard> {
     )
 }
 
-pub fn is_close_to_target(context: &mut Blackboard) -> bool {
+pub fn is_close_to_target(blackboard: &mut Blackboard) -> bool {
     if let Some(BodyMotion::VisualKick {
         target_position, ..
-    }) = &context.body_motion
+    }) = &blackboard.body_motion
     {
         target_position.coords().norm()
-            < context
+            < blackboard
                 .parameters
                 .kicking
                 .target_distance_kick_power_threshold
@@ -94,20 +95,20 @@ pub fn is_close_to_target(context: &mut Blackboard) -> bool {
     }
 }
 
-pub fn allow_schlong(context: &mut Blackboard) -> bool {
-    context.parameters.kicking.allow_schlong
+pub fn allow_schlong(blackboard: &mut Blackboard) -> bool {
+    blackboard.parameters.kicking.allow_schlong
 }
 
-pub fn use_last_kick_power(context: &mut Blackboard) -> Status {
+pub fn use_last_kick_power(blackboard: &mut Blackboard) -> Status {
     if let MotionCommand::VisualKick {
         kick_power: last_kick_power,
         ..
-    } = context.last_motion_command
+    } = blackboard.last_motion_command
     {
         if let Some(BodyMotion::VisualKick {
             kick_power: motion_kick_power,
             ..
-        }) = context.body_motion.as_mut()
+        }) = blackboard.body_motion.as_mut()
         {
             *motion_kick_power = last_kick_power;
 
@@ -117,11 +118,11 @@ pub fn use_last_kick_power(context: &mut Blackboard) -> Status {
     Status::Failure
 }
 
-pub fn use_kick_power(context: &mut Blackboard, kick_power: KickPower) -> Status {
+pub fn use_kick_power(blackboard: &mut Blackboard, kick_power: KickPower) -> Status {
     if let Some(BodyMotion::VisualKick {
         kick_power: motion_kick_power,
         ..
-    }) = context.body_motion.as_mut()
+    }) = blackboard.body_motion.as_mut()
     {
         *motion_kick_power = kick_power;
 
@@ -155,8 +156,7 @@ pub fn intercept(blackboard: &mut Blackboard) -> Status {
             return Status::Failure;
         }
 
-        let kick_direction =
-            Orientation2::from_vector(ball_in_ground - interception_point);
+        let kick_direction = Orientation2::from_vector(ball_in_ground - interception_point);
 
         if let Some(BodyMotion::VisualKick {
             ball_position: motion_ball_position,
