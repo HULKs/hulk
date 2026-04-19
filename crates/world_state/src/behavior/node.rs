@@ -1,6 +1,6 @@
 use std::time::{Duration, SystemTime};
 
-use color_eyre::{Result, eyre::Error};
+use color_eyre::Result;
 
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
@@ -8,16 +8,19 @@ use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use types::{
-    behavior_tree::{NodeTrace, Status},
+    behavior_tree::NodeTrace,
     field_dimensions::FieldDimensions,
-    motion_command::{HeadMotion, ImageRegion, KickPower, MotionCommand},
+    motion_command::{BodyMotion, HeadMotion, KickPower, MotionCommand},
     motion_type::MotionType,
     parameters::BehaviorParameters,
     path_obstacles::PathObstacle,
     world_state::WorldState,
 };
 
-use crate::behavior::{behavior_tree::Node, kick_selector::KickTarget, tree::create_tree};
+use crate::behavior::{
+    behavior_tree::Node, kick_selector::KickTarget, motion_assembler::assemble_motion_command,
+    tree::create_tree,
+};
 
 fn create_tree_default() -> Node<Blackboard> {
     create_tree()
@@ -67,8 +70,9 @@ pub struct Blackboard {
     pub time_since_last_switch: Duration,
 
     pub kick_target: Option<KickTarget>,
-    pub motion: Option<MotionCommand>,
+    pub body_motion: Option<BodyMotion>,
     pub head_motion: Option<HeadMotion>,
+    pub is_injected_motion_command: bool,
 }
 
 #[context]
@@ -152,45 +156,14 @@ impl Behavior {
             last_motion_switch_time: self.last_motion_switch_time,
             last_motion_type: self.last_motion_type,
             time_since_last_switch: Duration::ZERO,
-            motion: None,
-            head_motion: None,
             kick_target: None,
+            body_motion: None,
+            head_motion: None,
+            is_injected_motion_command: false,
         };
         let (status, trace) = self.tree.tick_with_trace(&mut blackboard);
-        context.behavior_trace.fill_if_subscribed(|| trace);
-        context
-            .path_obstacles_output
-            .fill_if_subscribed(|| blackboard.path_obstacles_output);
-        context
-            .time_since_last_switch
-            .fill_if_subscribed(|| blackboard.time_since_last_switch);
-        context
-            .is_alternative_kick
-            .fill_if_subscribed(|| blackboard.is_alternative_kick);
-        context.kick_target_distance.fill_if_subscribed(|| {
-            blackboard
-                .kick_target
-                .as_ref()
-                .map(|kick_target| kick_target.position.coords().norm())
-        });
 
-        let motion_command: MotionCommand = match status {
-            Status::Success => blackboard.motion.take().unwrap_or(MotionCommand::Stand {
-                head: HeadMotion::Center {
-                    image_region_target: ImageRegion::Center,
-                },
-            }),
-            Status::Failure => MotionCommand::Stand {
-                head: HeadMotion::Center {
-                    image_region_target: ImageRegion::Center,
-                },
-            },
-            Status::Idle => {
-                return Err(Error::msg(
-                    "Behavior tree returned Idle status, which should not happen during a cycle",
-                ));
-            }
-        };
+        let motion_command: MotionCommand = assemble_motion_command(&blackboard, status)?;
 
         self.last_close_enough_to_kick = blackboard.last_close_enough_to_kick;
         self.last_kick_power = blackboard.last_kick_power;
@@ -213,6 +186,24 @@ impl Behavior {
             self.last_motion_switch_time = context.world_state.now;
             self.last_motion_type = motion_type;
         }
+
+        context.behavior_trace.fill_if_subscribed(|| trace);
+        let path_obstacles_output = blackboard.path_obstacles_output;
+        context
+            .path_obstacles_output
+            .fill_if_subscribed(|| path_obstacles_output);
+        context
+            .time_since_last_switch
+            .fill_if_subscribed(|| blackboard.time_since_last_switch);
+        context
+            .is_alternative_kick
+            .fill_if_subscribed(|| blackboard.is_alternative_kick);
+        context.kick_target_distance.fill_if_subscribed(|| {
+            blackboard
+                .kick_target
+                .as_ref()
+                .map(|kick_target| kick_target.position.coords().norm())
+        });
 
         Ok(MainOutputs {
             motion_command: motion_command.into(),

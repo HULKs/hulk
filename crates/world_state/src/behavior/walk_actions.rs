@@ -3,7 +3,7 @@ use filtering::hysteresis::less_than_with_relative_hysteresis;
 use linear_algebra::{Isometry2, Orientation2, Point, Point2, Pose2, Vector2, point, vector};
 use types::{
     behavior_tree::Status,
-    motion_command::{ArmMotion, HeadMotion, ImageRegion, MotionCommand, OrientationMode},
+    motion_command::{BodyMotion, MotionCommand, OrientationMode},
     path::{Path, direct_path},
 };
 
@@ -71,25 +71,6 @@ pub fn plan(
     blackboard.path_obstacles_output = planner.obstacles;
     path.unwrap_or_else(|| direct_path(Point::origin(), target_in_ground))
 }
-pub fn walk_with_obstacle_avoiding_arms(
-    head: HeadMotion,
-    orientation_mode: OrientationMode,
-    target_orientation: Orientation2<Ground>,
-    distance_to_be_aligned: f32,
-    path: Path,
-    speed: f32,
-) -> MotionCommand {
-    MotionCommand::Walk {
-        head,
-        path,
-        left_arm: ArmMotion::Swing,
-        right_arm: ArmMotion::Swing,
-        orientation_mode,
-        speed,
-        target_orientation,
-        distance_to_be_aligned,
-    }
-}
 
 pub fn walk_to(
     blackboard: &mut Blackboard,
@@ -117,25 +98,18 @@ pub fn walk_to(
             0.0..=hysteresis.y,
         );
 
-        //TODO head
-        let head = HeadMotion::LookAt {
-            target: target_pose.position(),
-            image_region_target: ImageRegion::Top,
-        };
-
         if is_reached {
-            blackboard.motion = Some(MotionCommand::Stand { head });
+            blackboard.body_motion = Some(BodyMotion::Stand);
             Status::Success
         } else {
             let path = plan(blackboard, target_pose.position(), ground_to_field);
-            blackboard.motion = Some(walk_with_obstacle_avoiding_arms(
-                head,
-                orientation_mode,
-                target_pose.orientation(),
-                distance_to_be_aligned,
+            blackboard.body_motion = Some(BodyMotion::Walk {
                 path,
-                walk_speed,
-            ));
+                orientation_mode,
+                target_orientation: target_pose.orientation(),
+                distance_to_be_aligned,
+                speed: walk_speed,
+            });
             Status::Success
         }
     } else {

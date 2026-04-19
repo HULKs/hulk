@@ -4,7 +4,7 @@ use coordinate_systems::{Field, Ground};
 use linear_algebra::{Orientation2, Point2, Vector2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
-use crate::{fall_state::FallingDirection, path::Path, support_foot::Side};
+use crate::path::Path;
 
 #[derive(
     Clone,
@@ -42,56 +42,12 @@ pub enum OrientationMode {
     PartialEq,
 )]
 pub enum MotionCommand {
-    ArmsUpSquat,
-    ArmsUpStand {
-        head: HeadMotion,
-    },
-    FallProtection {
-        direction: FallingDirection,
-    },
-    Jump {
-        direction: JumpDirection,
-    },
-    SitDown {
-        head: HeadMotion,
-    },
+    #[default]
+    Prepare,
     Stand {
         head: HeadMotion,
     },
-    Prepare,
     StandUp,
-    KeeperMotion {
-        direction: JumpDirection,
-    },
-
-    #[default]
-    Unstiff,
-    Animation {
-        stiff: bool,
-    },
-    Walk {
-        head: HeadMotion,
-        path: Path,
-        left_arm: ArmMotion,
-        right_arm: ArmMotion,
-        orientation_mode: OrientationMode,
-        target_orientation: Orientation2<Ground>,
-        distance_to_be_aligned: f32,
-        speed: f32,
-    },
-    InWalkKick {
-        head: HeadMotion,
-        left_arm: ArmMotion,
-        right_arm: ArmMotion,
-        kick: KickVariant,
-        kicking_side: Side,
-        strength: f32,
-    },
-    WalkWithVelocity {
-        head: HeadMotion,
-        velocity: Vector2<Ground>,
-        angular_velocity: f32,
-    },
     VisualKick {
         head: HeadMotion,
         ball_position: Point2<Ground>,
@@ -100,52 +56,114 @@ pub enum MotionCommand {
         robot_theta_to_field: Orientation2<Field>,
         kick_power: KickPower,
     },
+    Walk {
+        head: HeadMotion,
+        path: Path,
+        orientation_mode: OrientationMode,
+        target_orientation: Orientation2<Ground>,
+        distance_to_be_aligned: f32,
+        speed: f32,
+    },
+    WalkWithVelocity {
+        head: HeadMotion,
+        velocity: Vector2<Ground>,
+        angular_velocity: f32,
+    },
 }
 
 impl MotionCommand {
     pub fn head_motion(&self) -> Option<HeadMotion> {
         match self {
-            MotionCommand::ArmsUpStand { head }
-            | MotionCommand::SitDown { head }
-            | MotionCommand::Stand { head, .. }
+            MotionCommand::Stand { head, .. }
             | MotionCommand::Walk { head, .. }
-            | MotionCommand::InWalkKick { head, .. }
             | MotionCommand::WalkWithVelocity { head, .. }
             | MotionCommand::VisualKick { head, .. } => Some(*head),
             MotionCommand::Prepare => Some(HeadMotion::Center {
                 image_region_target: ImageRegion::Top,
             }),
-            MotionCommand::Unstiff => Some(HeadMotion::Unstiff),
-            MotionCommand::Animation { stiff } => Some(HeadMotion::Animation { stiff: *stiff }),
-            MotionCommand::ArmsUpSquat
-            | MotionCommand::FallProtection { .. }
-            | MotionCommand::Jump { .. }
-            | MotionCommand::StandUp => None,
-            MotionCommand::KeeperMotion { .. } => None,
+            MotionCommand::StandUp => None,
         }
     }
 
-    pub fn arm_motion(&self, side: Side) -> Option<ArmMotion> {
-        match self {
-            MotionCommand::Walk {
-                left_arm,
-                right_arm,
-                ..
-            } => match side {
-                Side::Left => Some(*left_arm),
-                Side::Right => Some(*right_arm),
+    pub fn from_partial_motions(body: BodyMotion, head: HeadMotion) -> Self {
+        match body {
+            BodyMotion::Prepare => MotionCommand::Prepare,
+            BodyMotion::Stand => MotionCommand::Stand { head },
+            BodyMotion::StandUp => MotionCommand::StandUp,
+            BodyMotion::VisualKick {
+                ball_position,
+                kick_direction,
+                target_position,
+                robot_theta_to_field,
+                kick_power,
+            } => MotionCommand::VisualKick {
+                head,
+                ball_position,
+                kick_direction,
+                target_position,
+                robot_theta_to_field,
+                kick_power,
             },
-            MotionCommand::InWalkKick {
-                left_arm,
-                right_arm,
-                ..
-            } => match side {
-                Side::Left => Some(*left_arm),
-                Side::Right => Some(*right_arm),
+            BodyMotion::Walk {
+                path,
+                orientation_mode,
+                target_orientation,
+                distance_to_be_aligned,
+                speed,
+            } => MotionCommand::Walk {
+                head,
+                path,
+                orientation_mode,
+                target_orientation,
+                distance_to_be_aligned,
+                speed,
             },
-            _ => None,
+            BodyMotion::WalkWithVelocity {
+                velocity,
+                angular_velocity,
+            } => MotionCommand::WalkWithVelocity {
+                head,
+                velocity,
+                angular_velocity,
+            },
         }
     }
+}
+
+#[derive(
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    PartialEq,
+)]
+pub enum BodyMotion {
+    #[default]
+    Prepare,
+    Stand,
+    StandUp,
+    VisualKick {
+        ball_position: Point2<Ground>,
+        kick_direction: Orientation2<Ground>,
+        target_position: Point2<Ground>,
+        robot_theta_to_field: Orientation2<Field>,
+        kick_power: KickPower,
+    },
+    Walk {
+        path: Path,
+        orientation_mode: OrientationMode,
+        target_orientation: Orientation2<Ground>,
+        distance_to_be_aligned: f32,
+        speed: f32,
+    },
+    WalkWithVelocity {
+        velocity: Vector2<Ground>,
+        angular_velocity: f32,
+    },
 }
 
 #[derive(
@@ -201,77 +219,6 @@ pub enum ImageRegion {
     Top,
 }
 
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Deserialize,
-    Eq,
-    PartialEq,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-)]
-pub enum ArmMotion {
-    Swing,
-    PullTight,
-}
-
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Deserialize,
-    Eq,
-    PartialEq,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-)]
-pub enum KickDirection {
-    Back,
-    Front,
-    Left,
-    Right,
-}
-
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Deserialize,
-    Eq,
-    PartialEq,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-)]
-pub enum KickVariant {
-    Forward,
-    Turn,
-    Side,
-}
-
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Deserialize,
-    Eq,
-    PartialEq,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-)]
-pub enum JumpDirection {
-    Left,
-    Right,
-    Center,
-}
 
 #[derive(
     Clone,
