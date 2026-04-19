@@ -3,7 +3,7 @@ use geometry::line::Line;
 use linear_algebra::{Orientation2, Point, Rotation2};
 use types::{
     behavior_tree::Status,
-    motion_command::{HeadMotion, ImageRegion, KickPower, MotionCommand},
+    motion_command::{BodyMotion, KickPower},
 };
 
 use crate::behavior::node::Blackboard;
@@ -17,22 +17,9 @@ pub fn kick(blackboard: &mut Blackboard) -> Status {
         let ball_in_ground = ground_to_field.inverse() * ball.position;
         let parameters = &blackboard.parameters.kicking;
 
-        let distance_to_ball = ball_in_ground.coords().norm();
-        let head = if distance_to_ball < parameters.distance_to_look_directly_at_the_ball {
-            HeadMotion::LookAt {
-                target: ball_in_ground,
-                image_region_target: ImageRegion::Center,
-            }
-        } else {
-            HeadMotion::LookLeftAndRightOf {
-                target: ball_in_ground,
-            }
-        };
-
         let robot_theta_to_field: Orientation2<Field> = ground_to_field.orientation();
 
-        blackboard.motion = Some(MotionCommand::VisualKick {
-            head,
+        blackboard.body_motion = Some(BodyMotion::VisualKick {
             ball_position: ball_in_ground,
             kick_direction: kick_target.direction,
             target_position: Rotation2::new(parameters.kick_target_offset_angle)
@@ -77,28 +64,11 @@ pub fn intercept(blackboard: &mut Blackboard) -> Status {
         let robot_theta_to_field: Orientation2<Field> = ground_to_field.orientation();
 
         let ball_position = ball_in_ground;
-        let distance_to_ball = ball_position.coords().norm();
-        let head = if distance_to_ball
-            < blackboard
-                .parameters
-                .kicking
-                .distance_to_look_directly_at_the_ball
-        {
-            HeadMotion::LookAt {
-                target: ball_position,
-                image_region_target: ImageRegion::Center,
-            }
-        } else {
-            HeadMotion::LookLeftAndRightOf {
-                target: ball_position,
-            }
-        };
 
         let kick_direction =
             Orientation2::from_vector(ball_position.coords() - interception_point.coords());
 
-        blackboard.motion = Some(MotionCommand::VisualKick {
-            head,
+        blackboard.body_motion = Some(BodyMotion::VisualKick {
             ball_position: interception_point,
             kick_direction,
             target_position: ball_position,
@@ -126,11 +96,7 @@ pub fn kick_instead_of_walking(blackboard: &mut Blackboard) -> Status {
 
         let robot_theta_to_field: Orientation2<Field> = ground_to_field.orientation();
 
-        blackboard.motion = Some(MotionCommand::VisualKick {
-            head: HeadMotion::LookAt {
-                target: ball_in_ground,
-                image_region_target: ImageRegion::Center,
-            },
+        blackboard.body_motion = Some(BodyMotion::VisualKick {
             ball_position: ball_in_ground,
             kick_direction: kick_target.direction,
             target_position: Rotation2::new(blackboard.parameters.kicking.kick_target_offset_angle)

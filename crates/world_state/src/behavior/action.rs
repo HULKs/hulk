@@ -1,14 +1,14 @@
 use linear_algebra::vector;
 use types::{
     behavior_tree::Status,
-    motion_command::{HeadMotion, ImageRegion, MotionCommand},
+    motion_command::BodyMotion,
 };
 
 use crate::behavior::node::Blackboard;
 
 pub fn injected_motion_command(blackboard: &mut Blackboard) -> Status {
-    if let Some(injected_motion_command) = &blackboard.parameters.injected_motion_command {
-        blackboard.motion = Some(injected_motion_command.clone());
+    if blackboard.parameters.injected_motion_command.is_some() {
+        blackboard.is_injected_motion_command = true;
         Status::Success
     } else {
         Status::Failure
@@ -16,8 +16,7 @@ pub fn injected_motion_command(blackboard: &mut Blackboard) -> Status {
 }
 
 pub fn leuchtturm(blackboard: &mut Blackboard) -> Status {
-    blackboard.motion = Some(MotionCommand::WalkWithVelocity {
-        head: HeadMotion::SearchForLostBall,
+    blackboard.body_motion = Some(BodyMotion::WalkWithVelocity {
         velocity: vector!(0.0, 0.0),
         angular_velocity: 1.0,
     });
@@ -25,20 +24,16 @@ pub fn leuchtturm(blackboard: &mut Blackboard) -> Status {
 }
 
 pub fn prepare(blackboard: &mut Blackboard) -> Status {
-    blackboard.motion = Some(MotionCommand::Prepare);
+    blackboard.body_motion = Some(BodyMotion::Prepare);
     Status::Success
 }
 
 pub fn stand(blackboard: &mut Blackboard) -> Status {
-    blackboard.motion = Some(MotionCommand::Stand {
-        head: HeadMotion::Center {
-            image_region_target: ImageRegion::Top,
-        },
-    });
+    blackboard.body_motion = Some(BodyMotion::Stand);
     Status::Success
 }
 
 pub fn stand_up(blackboard: &mut Blackboard) -> Status {
-    blackboard.motion = Some(MotionCommand::StandUp);
+    blackboard.body_motion = Some(BodyMotion::StandUp);
     Status::Success
 }
