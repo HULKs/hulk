@@ -1,5 +1,9 @@
 pub mod action;
 pub mod behavior_tree;
 pub mod condition;
+pub mod kick_actions;
+pub mod kick_selector;
 pub mod node;
+pub mod switch_motion_type;
 pub mod tree;
+pub mod walk_actions;

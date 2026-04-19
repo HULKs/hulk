@@ -1,23 +1,28 @@
-use types::primary_state::PrimaryState;
+use types::{motion_type::MotionType, primary_state::PrimaryState};
 
 use crate::{
     action,
     behavior::{
-        action::{injected_motion_command, kick, leuchtturm, prepare, stand, stand_up},
+        action::{injected_motion_command, leuchtturm, prepare, stand, stand_up},
         behavior_tree::Node,
         condition::{
-            has_ball_position, is_closest_to_ball, is_fallen, is_goalkeeper, is_primary_state,
+            has_ball_position, is_ball_interception_candidate, is_close_to_ball,
+            is_closest_to_ball, is_fallen, is_goalkeeper, is_primary_state,
         },
+        kick_actions::{intercept, kick, kick_instead_of_walking},
+        kick_selector::{kick_power_subtree, select_kick_target, use_last_kick_power},
         node::Blackboard,
+        switch_motion_type::{is_last_motion_type, switch_motion_type},
+        walk_actions::{walk_instead_of_kicking, walk_to_ball},
     },
-    condition, negation, selection, sequence,
+    condition, negation, selection, sequence, subtree,
 };
 
 pub fn create_tree() -> Node<Blackboard> {
     selection!(
         sequence!(
             condition!(is_primary_state, PrimaryState::Safe),
-            action!(prepare)
+            switch_motion_type(MotionType::Prepare, action!(prepare), action!(stand))
         ),
         sequence!(
             condition!(is_primary_state, PrimaryState::Stop),
@@ -38,11 +43,11 @@ pub fn create_tree() -> Node<Blackboard> {
         ),
         sequence!(
             condition!(is_primary_state, PrimaryState::Ready),
-            ready_subtree()
+            subtree!(ready_subtree)
         ),
         sequence!(
             condition!(is_primary_state, PrimaryState::Playing),
-            playing_subtree()
+            subtree!(playing_subtree)
         ),
         Node::Failure
     )
@@ -54,10 +59,13 @@ fn ready_subtree() -> Node<Blackboard> {
 
 fn playing_subtree() -> Node<Blackboard> {
     selection!(
-        sequence!(condition!(is_goalkeeper), goalkeeper_subtree()),
-        sequence!(negation!(condition!(has_ball_position)), search_subtree()),
-        sequence!(condition!(is_closest_to_ball), striker_subtree()),
-        supporter_subtree(),
+        sequence!(condition!(is_goalkeeper), subtree!(goalkeeper_subtree)),
+        sequence!(
+            negation!(condition!(has_ball_position)),
+            subtree!(search_subtree)
+        ),
+        sequence!(condition!(is_closest_to_ball), subtree!(striker_subtree)),
+        subtree!(supporter_subtree),
     )
 }
 
@@ -66,13 +74,71 @@ fn goalkeeper_subtree() -> Node<Blackboard> {
 }
 
 fn search_subtree() -> Node<Blackboard> {
-    action!(leuchtturm)
+    switch_motion_type(
+        MotionType::Walk,
+        action!(leuchtturm),
+        subtree!(walk_alternatives_subtree),
+    )
 }
 
 fn striker_subtree() -> Node<Blackboard> {
-    action!(kick)
+    selection!(
+        sequence!(
+            negation!(condition!(is_close_to_ball)),
+            switch_motion_type(
+                MotionType::Walk,
+                action!(walk_to_ball),
+                subtree!(walk_alternatives_subtree),
+            )
+        ),
+        sequence!(
+            condition!(is_ball_interception_candidate),
+            switch_motion_type(
+                MotionType::Kick,
+                sequence!(
+                    action!(select_kick_target),
+                    subtree!(kick_power_subtree),
+                    action!(intercept),
+                ),
+                subtree!(kick_alternatives_subtree),
+            )
+        ),
+        switch_motion_type(
+            MotionType::Kick,
+            sequence!(
+                action!(select_kick_target),
+                subtree!(kick_power_subtree),
+                action!(kick),
+            ),
+            subtree!(kick_alternatives_subtree)
+        )
+    )
 }
 
 fn supporter_subtree() -> Node<Blackboard> {
     action!(stand)
+}
+
+fn walk_alternatives_subtree() -> Node<Blackboard> {
+    selection!(
+        sequence!(
+            condition!(is_last_motion_type, MotionType::Kick),
+            sequence!(
+                action!(select_kick_target),
+                action!(use_last_kick_power),
+                action!(kick_instead_of_walking),
+            )
+        ),
+        action!(stand)
+    )
+}
+
+fn kick_alternatives_subtree() -> Node<Blackboard> {
+    selection!(
+        sequence!(
+            condition!(is_last_motion_type, MotionType::Walk),
+            action!(walk_instead_of_kicking)
+        ),
+        action!(stand)
+    )
 }

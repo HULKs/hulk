@@ -8,14 +8,14 @@ use crate::twix_painter::TwixPainter;
 
 #[derive(Default, Serialize, Deserialize)]
 pub struct ZoomAndPanTransform {
-    transformation: Transform<Screen, Screen, Similarity2<f32>>,
+    pub transformation: Transform<Screen, Screen, Similarity2<f32>>,
 }
 
 impl ZoomAndPanTransform {
     pub fn apply_transform<Frame>(&self, painter: &mut TwixPainter<Frame>) {
         painter.append_transform(self.transformation);
     }
-
+    
     pub fn process_input<Frame>(
         &mut self,
         ui: &Ui,
