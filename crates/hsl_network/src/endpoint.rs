@@ -33,9 +33,12 @@ impl Endpoint {
         ))
         .await
         .map_err(Error::CannotBind)?;
-        let hsl_socket = UdpSocket::bind(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, parameters.hsl))
-            .await
-            .map_err(Error::CannotBind)?;
+        let hsl_socket = UdpSocket::bind(SocketAddrV4::new(
+            Ipv4Addr::new(10, 0, 0, 0),
+            parameters.hsl,
+        ))
+        .await
+        .map_err(Error::CannotBind)?;
         hsl_socket
             .set_broadcast(true)
             .map_err(Error::EnableBroadcast)?;
