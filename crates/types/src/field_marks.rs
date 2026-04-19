@@ -3,6 +3,7 @@ use geometry::{
     line_segment::LineSegment,
 };
 use ordered_float::NotNan;
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Field;
@@ -10,7 +11,9 @@ use coordinate_systems::Field;
 use crate::field_dimensions::FieldDimensions;
 use linear_algebra::{Point2, Vector2, distance, point};
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(
+    Clone, Copy, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub enum FieldMark {
     Line {
         line: LineSegment<Field>,
@@ -22,7 +25,9 @@ pub enum FieldMark {
     },
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(
+    Clone, Copy, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub enum Direction {
     PositiveX,
     PositiveY,
@@ -142,14 +147,18 @@ impl FieldMark {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(
+    Clone, Copy, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct Correspondences {
     pub correspondence_points: (CorrespondencePoints, CorrespondencePoints),
     pub measured_direction: Vector2<Field>,
     pub reference_direction: Vector2<Field>,
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(
+    Clone, Copy, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct CorrespondencePoints {
     pub measured: Point2<Field>,
     pub reference: Point2<Field>,

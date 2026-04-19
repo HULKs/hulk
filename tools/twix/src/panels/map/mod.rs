@@ -59,6 +59,7 @@ impl<T: Layer<Ground>> GenericLayer for EnabledLayer<T, Ground> {
 
 pub struct MapPanel {
     current_plot_type: PlotType,
+    selected_localization_hypothesis: Option<usize>,
 
     field_dimensions: BufferHandle<FieldDimensions>,
     ground_to_field: BufferHandle<Option<Isometry2<Ground, Field>>>,
@@ -68,7 +69,6 @@ pub struct MapPanel {
     image_segments: EnabledLayer<layers::ImageSegments, Ground>,
     lines: EnabledLayer<layers::Lines, Ground>,
     ball_search_heatmap: EnabledLayer<layers::BallSearchHeatmap, Field>,
-    line_correspondences: EnabledLayer<layers::LineCorrespondences, Field>,
     path_obstacles: EnabledLayer<layers::PathObstacles, Ground>,
     obstacles: EnabledLayer<layers::Obstacles, Ground>,
     path: EnabledLayer<layers::Path, Ground>,
@@ -90,7 +90,6 @@ impl<'a> Panel<'a> for MapPanel {
     fn new(context: PanelCreationContext) -> Self {
         let field = EnabledLayer::new(context.robot.clone(), context.value, true);
         let image_segments = EnabledLayer::new(context.robot.clone(), context.value, false);
-        let line_correspondences = EnabledLayer::new(context.robot.clone(), context.value, false);
         let lines = EnabledLayer::new(context.robot.clone(), context.value, true);
         let ball_search_heatmap = EnabledLayer::new(context.robot.clone(), context.value, false);
         let path_obstacles = EnabledLayer::new(context.robot.clone(), context.value, false);
@@ -122,15 +121,20 @@ impl<'a> Panel<'a> for MapPanel {
             .and_then(|value| value.get("zoom_and_pan"))
             .and_then(|value| serde_json::from_value::<ZoomAndPanTransform>(value.clone()).ok())
             .unwrap_or_default();
+        let selected_localization_hypothesis = context
+            .value
+            .and_then(|value| value.get("selected_localization_hypothesis"))
+            .and_then(|value| serde_json::from_value::<Option<usize>>(value.clone()).ok())
+            .flatten();
 
         Self {
             current_plot_type,
+            selected_localization_hypothesis,
             field_dimensions,
             ground_to_field,
             zoom_and_pan,
             field,
             image_segments,
-            line_correspondences,
             lines,
             ball_search_heatmap,
             path_obstacles,
@@ -153,10 +157,10 @@ impl<'a> Panel<'a> for MapPanel {
         json!({
             "current_plot_type": self.current_plot_type,
             "zoom_and_pan": serde_json::to_value(&self.zoom_and_pan).expect("failed to serialize zoom_and_pan"),
+            "selected_localization_hypothesis": self.selected_localization_hypothesis,
 
             "field": self.field.save(),
             "image_segments": self.image_segments.save(),
-            "line_correspondences": self.line_correspondences.save(),
             "lines": self.lines.save(),
             "ball_search_heatmap": self.obstacle_filter.save(),
             "path_obstacles": self.path_obstacles.save(),
@@ -182,7 +186,6 @@ impl Widget for &mut MapPanel {
             ui.menu_button("Overlays", |ui| {
                 self.field.checkbox(ui);
                 self.image_segments.checkbox(ui);
-                self.line_correspondences.checkbox(ui);
                 self.lines.checkbox(ui);
                 self.ball_search_heatmap.checkbox(ui);
                 self.path_obstacles.checkbox(ui);
@@ -248,14 +251,31 @@ impl Widget for &mut MapPanel {
         };
         self.zoom_and_pan.apply(ui, &mut painter, &response);
 
+        if response.clicked() {
+            if let Some(pointer_position) = response.interact_pointer_pos() {
+                if let Some(localization_layer) = self.localization.layer() {
+                    match localization_layer.pick_hypothesis_at(
+                        painter.transform_pixel_to_world(pointer_position),
+                        0.35,
+                    ) {
+                        Ok(selection) => {
+                            self.selected_localization_hypothesis = selection;
+                        }
+                        Err(error) => return ui.label(format!("{error:#}")),
+                    }
+                }
+            }
+        }
+        if let Some(localization_layer) = self.localization.layer_mut() {
+            localization_layer.set_selected_hypothesis_index(self.selected_localization_hypothesis);
+        }
+
         // draw largest layers first so they don't obscure smaller ones
         self.field
             .generic_paint(&painter, ground_to_field, &field_dimensions);
         self.image_segments
             .generic_paint(&painter, ground_to_field, &field_dimensions);
 
-        self.line_correspondences
-            .generic_paint(&painter, ground_to_field, &field_dimensions);
         self.lines
             .generic_paint(&painter, ground_to_field, &field_dimensions);
 
