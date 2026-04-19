@@ -3,12 +3,14 @@ use types::primary_state::PrimaryState;
 use crate::{
     action,
     behavior::{
-        action::{injected_motion_command, prepare, stand, stand_up, walk_to_ball},
+        action::{injected_motion_command, kick, leuchtturm, prepare, stand, stand_up},
         behavior_tree::Node,
-        condition::{has_ball_position, is_fallen, is_primary_state},
+        condition::{
+            has_ball_position, is_closest_to_ball, is_fallen, is_goalkeeper, is_primary_state,
+        },
         node::Blackboard,
     },
-    condition, selection, sequence,
+    condition, negation, selection, sequence,
 };
 
 pub fn create_tree() -> Node<Blackboard> {
@@ -51,8 +53,26 @@ fn ready_subtree() -> Node<Blackboard> {
 }
 
 fn playing_subtree() -> Node<Blackboard> {
-    selection!(sequence!(
-        condition!(has_ball_position),
-        action!(walk_to_ball)
-    ),)
+    selection!(
+        sequence!(condition!(is_goalkeeper), goalkeeper_subtree()),
+        sequence!(negation!(condition!(has_ball_position)), search_subtree()),
+        sequence!(condition!(is_closest_to_ball), striker_subtree()),
+        supporter_subtree(),
+    )
+}
+
+fn goalkeeper_subtree() -> Node<Blackboard> {
+    action!(stand)
+}
+
+fn search_subtree() -> Node<Blackboard> {
+    action!(leuchtturm)
+}
+
+fn striker_subtree() -> Node<Blackboard> {
+    action!(kick)
+}
+
+fn supporter_subtree() -> Node<Blackboard> {
+    action!(stand)
 }

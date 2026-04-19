@@ -3,6 +3,7 @@ use std::{
     time::Duration,
 };
 
+use hsl_network_messages::PlayerNumber;
 use kinematics::joints::{Joints, head::HeadJoints};
 use serde::{Deserialize, Serialize};
 
@@ -39,6 +40,7 @@ pub struct WhistleDetectionParameters {
 )]
 pub struct BehaviorParameters {
     pub injected_motion_command: Option<MotionCommand>,
+    pub goal_keeper_number: PlayerNumber,
     pub lost_ball: LostBallParameters,
     pub path_planning: PathPlanningParameters,
     pub remote_control: RemoteControlParameters,
