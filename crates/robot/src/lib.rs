@@ -265,7 +265,7 @@ impl Robot {
             .ssh_to_robot()?
             .arg("tail")
             .arg("-n+1")
-            .arg("hulk/logs/hulk.{out,err}")
+            .arg("hulk/logs/latest/hulk.{out,err}")
             .output()
             .await
             .wrap_err("failed to execute cat command")?;
