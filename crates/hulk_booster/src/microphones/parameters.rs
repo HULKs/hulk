@@ -1,5 +1,23 @@
+use std::time::Duration;
+
 use alsa::pcm::{Access, Format};
 use serde::{Deserialize, Deserializer, de::Error};
+
+#[derive(Clone, Debug, Deserialize)]
+pub struct Parameters {
+    pub sample_rate: u32,
+    pub number_of_channels: usize,
+    pub number_of_samples: usize,
+    pub number_of_retries: usize,
+    pub retry_sleep_duration: Duration,
+    pub hardware_device_name: String,
+    pub target_channels: usize,
+
+    #[serde(deserialize_with = "deserialize_access")]
+    pub access: Access,
+    #[serde(deserialize_with = "deserialize_format")]
+    pub format: Format,
+}
 
 pub fn deserialize_access<'de, D>(deserializer: D) -> Result<Access, D::Error>
 where
