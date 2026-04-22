@@ -181,8 +181,8 @@ impl Widget for &mut ImageSegmentsPanel {
             Direction::Vertical => image_segments.scan_grid.vertical_scan_lines,
         };
         let max = match self.direction {
-            Direction::Horizontal => 480,
-            Direction::Vertical => 640,
+            Direction::Horizontal => 448,
+            Direction::Vertical => 544,
         };
 
         for (left, center, right) in once(ScanLine {
