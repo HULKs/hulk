@@ -11,7 +11,7 @@ chown -R booster:booster /home/booster/hulk/logs
 
 /usr/local/bin/podman exec \
   --env RUST_BACKTRACE=1 \
-  --user 1000 \
+  --user $(id -u booster) \
   hulk \
   /home/booster/hulk/bin/hulk_booster \
     --log-path "${INTERNAL_LOG_PATH}" \
