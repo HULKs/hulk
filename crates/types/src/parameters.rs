@@ -57,9 +57,14 @@ pub struct WhistleDetectionParameters {
     Message,
 )]
 pub struct VoronoiParameters {
-    pub fake_robot_position: Vec<Pose2<Field>>,
+    pub fake_robot_position: Vec<(Pose2<Field>, PlayerNumber)>,
     pub orientation_bias: f32,
     pub grid_resolution: f32,
+    pub corridor: f32,
+    pub clearance_margin: f32,
+    pub crossing_base: f32,
+    pub crossing_weight: f32,
+    pub endpoint_weight: f32,
 }
 
 #[derive(
