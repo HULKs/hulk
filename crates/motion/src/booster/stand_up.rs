@@ -1,7 +1,7 @@
 use booster_sdk::types::RobotMode;
 use color_eyre::Result;
 use context_attribute::context;
-use hardware::{HighLevelInterface, MotionRuntimeInteface};
+use hardware::{HighLevelInterface, MotionRuntimeInterface};
 use serde::{Deserialize, Serialize};
 use types::{motion_command::MotionCommand, motion_runtime::MotionRuntime};
 
@@ -35,7 +35,7 @@ impl BoosterStandUp {
 
     pub fn cycle(
         &mut self,
-        context: CycleContext<impl HighLevelInterface + MotionRuntimeInteface>,
+        context: CycleContext<impl HighLevelInterface + MotionRuntimeInterface>,
     ) -> Result<MainOutputs> {
         if !matches!(
             context.hardware_interface.get_motion_runtime_type()?,

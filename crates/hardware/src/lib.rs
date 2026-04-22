@@ -116,7 +116,7 @@ pub trait HighLevelInterface {
     fn reset_odometer(&self) -> Result<()>;
 }
 
-pub trait MotionRuntimeInteface {
+pub trait MotionRuntimeInterface {
     fn get_motion_runtime_type(&self) -> Result<MotionRuntime>;
 }
 

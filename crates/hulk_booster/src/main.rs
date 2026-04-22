@@ -16,7 +16,7 @@ use framework::Parameters as FrameworkParameters;
 use hardware::{
     ButtonEventMsgInterface, CameraInterface, FallDownStateInterface, HighLevelInterface,
     IdInterface, LightControlInterface, LowCommandInterface, LowStateInterface,
-    MicrophoneInterface, MotionRuntimeInteface, NetworkInterface, OdometerInterface,
+    MicrophoneInterface, MotionRuntimeInterface, NetworkInterface, OdometerInterface,
     PathsInterface, RecordingInterface, SimulatorInterface, SpeakerInterface, TimeInterface,
     VisualKickInterface,
 };
@@ -68,7 +68,7 @@ pub trait HardwareInterface:
     + TimeInterface
     + SimulatorInterface
     + HighLevelInterface
-    + MotionRuntimeInteface
+    + MotionRuntimeInterface
     + OdometerInterface
     + LightControlInterface
 {

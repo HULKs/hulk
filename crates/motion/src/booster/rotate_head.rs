@@ -3,7 +3,7 @@ use std::time::{Duration, SystemTime};
 use booster_sdk::types::RobotMode;
 use color_eyre::Result;
 use context_attribute::context;
-use hardware::{HighLevelInterface, MotionRuntimeInteface};
+use hardware::{HighLevelInterface, MotionRuntimeInterface};
 use kinematics::joints::head::HeadJoints;
 use serde::{Deserialize, Serialize};
 use types::{cycle_time::CycleTime, motion_runtime::MotionRuntime};
@@ -42,7 +42,7 @@ impl RotateHead {
 
     pub fn cycle(
         &mut self,
-        context: CycleContext<impl HighLevelInterface + MotionRuntimeInteface>,
+        context: CycleContext<impl HighLevelInterface + MotionRuntimeInterface>,
     ) -> Result<MainOutputs> {
         if context.hardware_interface.get_motion_runtime_type()? != MotionRuntime::Booster
             || !matches!(context.robot_mode, RobotMode::Walking)
@@ -64,7 +64,7 @@ impl RotateHead {
     }
 }
 
-fn rotate_head(context: &CycleContext<impl HighLevelInterface + MotionRuntimeInteface>) {
+fn rotate_head(context: &CycleContext<impl HighLevelInterface + MotionRuntimeInterface>) {
     let _ = context
         .hardware_interface
         .rotate_head(*context.head_joints)
