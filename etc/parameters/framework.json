@@ -9,7 +9,7 @@
     "FallDownState": 1,
     "Odometry": 1,
     "Motion": 10,
-    "ObjectDetection": 10,
+    "Hydra": 10,
     "Vision": 10
   }
 }

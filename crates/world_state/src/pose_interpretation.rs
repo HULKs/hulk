@@ -1,4 +1,4 @@
-use std::{ops::Range, time::Duration};
+use std::ops::Range;
 
 use color_eyre::Result;
 use ordered_float::NotNan;
@@ -13,7 +13,9 @@ use linear_algebra::{Isometry2, Point2, Rotation2, center, distance};
 use projection::{Projection, camera_matrix::CameraMatrix};
 use types::{
     field_dimensions::GlobalFieldSide,
-    pose_detection::{HumanPose, Keypoints, RefereePoseCandidate},
+    object_detection::YOLOObjectLabel,
+    parameters::PoseFilteringParameters,
+    pose_detection::{Keypoints, Pose, RefereePoseCandidate},
     pose_kinds::{PoseKind, PoseKindPosition},
 };
 
@@ -28,22 +30,15 @@ pub struct CreationContext {
 #[context]
 pub struct CycleContext {
     hardware_interface: HardwareInterface,
-    time_to_reach_kick_position: CyclerState<Duration, "time_to_reach_kick_position">,
 
-    camera_matrix: RequiredInput<Option<CameraMatrix>, "Control", "camera_matrix?">,
-    rejected_human_poses: Input<Vec<HumanPose>, "rejected_human_poses">,
-    accepted_human_poses: Input<Vec<HumanPose>, "accepted_human_poses">,
-    ground_to_field: Input<Option<Isometry2<Ground, Field>>, "Control", "ground_to_field?">,
-    expected_referee_position:
-        Input<Option<Point2<Field>>, "Control", "expected_referee_position?">,
+    camera_matrix: RequiredInput<Option<CameraMatrix>, "camera_matrix?">,
+    rejected_human_poses: Input<Vec<Pose<YOLOObjectLabel>>, "rejected_human_poses">,
+    accepted_human_poses: Input<Vec<Pose<YOLOObjectLabel>>, "accepted_human_poses">,
+    ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
+    expected_referee_position: Input<Option<Point2<Field>>, "expected_referee_position?">,
 
     player_number: Parameter<PlayerNumber, "player_number">,
-    maximum_distance_to_referee_position:
-        Parameter<f32, "pose_detection.maximum_distance_to_referee_position">,
-    foot_z_offset: Parameter<f32, "pose_detection.foot_z_offset">,
-    minimum_shoulder_angle: Parameter<f32, "pose_detection.minimum_shoulder_angle">,
-    free_kick_signal_angle_range:
-        Parameter<Range<f32>, "pose_detection.free_kick_signal_angle_range">,
+    parameters: Parameter<PoseFilteringParameters, "pose_filtering">,
 
     rejected_pose_kind_positions:
         AdditionalOutput<Vec<PoseKindPosition<Field>>, "rejected_pose_kind_positions">,
@@ -88,16 +83,16 @@ impl PoseInterpretation {
         let referee_pose = get_position_filtered_pose(
             context.accepted_human_poses.clone(),
             context.camera_matrix.clone(),
-            *context.maximum_distance_to_referee_position,
+            context.parameters.maximum_distance_to_referee_position,
             ground_to_field.inverse() * expected_referee_position,
-            *context.foot_z_offset,
+            context.parameters.foot_z_offset,
         );
 
         let referee_pose_kind = referee_pose.map(|pose| {
             interpret_pose(
                 pose,
-                *context.minimum_shoulder_angle,
-                context.free_kick_signal_angle_range,
+                context.parameters.minimum_shoulder_angle,
+                &context.parameters.free_kick_signal_angle_range,
             )
         });
 
@@ -106,9 +101,9 @@ impl PoseInterpretation {
                 context.rejected_human_poses,
                 context.camera_matrix.clone(),
                 context.ground_to_field,
-                *context.foot_z_offset,
-                *context.minimum_shoulder_angle,
-                context.free_kick_signal_angle_range,
+                context.parameters.foot_z_offset,
+                context.parameters.minimum_shoulder_angle,
+                &context.parameters.free_kick_signal_angle_range,
             )
         });
 
@@ -117,9 +112,9 @@ impl PoseInterpretation {
                 context.accepted_human_poses,
                 context.camera_matrix.clone(),
                 context.ground_to_field,
-                *context.foot_z_offset,
-                *context.minimum_shoulder_angle,
-                context.free_kick_signal_angle_range,
+                context.parameters.foot_z_offset,
+                context.parameters.minimum_shoulder_angle,
+                &context.parameters.free_kick_signal_angle_range,
             )
         });
 
@@ -128,9 +123,9 @@ impl PoseInterpretation {
                 referee_pose,
                 context.camera_matrix,
                 context.ground_to_field,
-                *context.foot_z_offset,
-                *context.minimum_shoulder_angle,
-                context.free_kick_signal_angle_range,
+                context.parameters.foot_z_offset,
+                context.parameters.minimum_shoulder_angle,
+                &context.parameters.free_kick_signal_angle_range,
             )
         });
 
@@ -141,12 +136,12 @@ impl PoseInterpretation {
 }
 
 fn get_position_filtered_pose(
-    filtered_poses: Vec<HumanPose>,
+    filtered_poses: Vec<Pose<YOLOObjectLabel>>,
     camera_matrix: CameraMatrix,
     maximum_distance_to_referee_position: f32,
     expected_referee_position: Point2<Ground>,
     foot_z_offset: f32,
-) -> Option<HumanPose> {
+) -> Option<Pose<YOLOObjectLabel>> {
     let located_pose_candidate: RefereePoseCandidate = get_closest_referee_pose(
         filtered_poses,
         camera_matrix,
@@ -162,7 +157,7 @@ fn get_position_filtered_pose(
 }
 
 fn get_closest_referee_pose(
-    poses: Vec<HumanPose>,
+    poses: Vec<Pose<YOLOObjectLabel>>,
     camera_matrix: CameraMatrix,
     expected_referee_position: Point2<Ground>,
     foot_z_offset: f32,
@@ -191,7 +186,7 @@ fn get_closest_referee_pose(
 }
 
 fn interpret_pose(
-    human_pose: HumanPose,
+    human_pose: Pose<YOLOObjectLabel>,
     minimum_shoulder_angle: f32,
     free_kick_signal_angle_range: &Range<f32>,
 ) -> PoseKind {
@@ -289,7 +284,7 @@ fn is_left_shoulder_angled_up(
 }
 
 fn get_all_pose_kind_positions(
-    poses: &[HumanPose],
+    poses: &[Pose<YOLOObjectLabel>],
     camera_matrix: CameraMatrix,
     ground_to_field: Option<&Isometry2<Ground, Field>>,
     foot_z_offset: f32,
@@ -298,7 +293,7 @@ fn get_all_pose_kind_positions(
 ) -> Vec<PoseKindPosition<Field>> {
     poses
         .iter()
-        .filter_map(|pose: &HumanPose| {
+        .filter_map(|pose: &Pose<YOLOObjectLabel>| {
             get_pose_kind_position(
                 Some(*pose),
                 &camera_matrix,
@@ -312,7 +307,7 @@ fn get_all_pose_kind_positions(
 }
 
 fn get_pose_kind_position(
-    pose: Option<HumanPose>,
+    pose: Option<Pose<YOLOObjectLabel>>,
     camera_matrix: &CameraMatrix,
     ground_to_field: Option<&Isometry2<Ground, Field>>,
     foot_z_offset: f32,

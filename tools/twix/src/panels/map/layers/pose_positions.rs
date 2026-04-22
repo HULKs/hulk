@@ -12,22 +12,22 @@ use crate::{
     panels::map::layer::Layer, robot::Robot, twix_painter::TwixPainter, value_buffer::BufferHandle,
 };
 
-pub struct PoseDetection {
+pub struct PosePositions {
     accepted_pose_kind_positions: BufferHandle<Option<Vec<PoseKindPosition<Field>>>>,
     rejected_pose_kind_positions: BufferHandle<Option<Vec<PoseKindPosition<Field>>>>,
     referee_pose_kind_position: BufferHandle<Option<Option<PoseKindPosition<Field>>>>,
 }
 
-impl Layer<Field> for PoseDetection {
+impl Layer<Field> for PosePositions {
     const NAME: &'static str = "Pose Positions";
 
     fn new(robot: Arc<Robot>) -> Self {
-        let accepted_pose_kind_positions = robot
-            .subscribe_value("ObjectDetection.additional_outputs.accepted_pose_kind_positions");
-        let rejected_pose_kind_positions = robot
-            .subscribe_value("ObjectDetection.additional_outputs.rejected_pose_kind_positions");
+        let accepted_pose_kind_positions =
+            robot.subscribe_value("WorldState.additional_outputs.accepted_pose_kind_positions");
+        let rejected_pose_kind_positions =
+            robot.subscribe_value("WorldState.additional_outputs.rejected_pose_kind_positions");
         let referee_pose_kind_position =
-            robot.subscribe_value("ObjectDetection.additional_outputs.referee_pose_kind_position");
+            robot.subscribe_value("WorldState.additional_outputs.referee_pose_kind_position");
         Self {
             accepted_pose_kind_positions,
             rejected_pose_kind_positions,

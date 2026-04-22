@@ -75,7 +75,7 @@ pub struct MapPanel {
     behavior_simulator: EnabledLayer<layers::BehaviorSimulator, Field>,
     robot_pose: EnabledLayer<layers::RobotPose, Ground>,
     referee_position: EnabledLayer<layers::RefereePosition, Field>,
-    pose_detection: EnabledLayer<layers::PoseDetection, Field>,
+    pose_positions: EnabledLayer<layers::PosePositions, Field>,
     ball_percept: EnabledLayer<layers::BallPercepts, Ground>,
     ball_position: EnabledLayer<layers::BallPosition, Field>,
     kick_decisions: EnabledLayer<layers::KickDecisions, Ground>,
@@ -100,7 +100,7 @@ impl<'a> Panel<'a> for MapPanel {
         let referee_position = EnabledLayer::new(context.robot.clone(), context.value, false);
         let robot_pose = EnabledLayer::new(context.robot.clone(), context.value, true);
         let ball_percept = EnabledLayer::new(context.robot.clone(), context.value, false);
-        let pose_detection = EnabledLayer::new(context.robot.clone(), context.value, false);
+        let pose_positions = EnabledLayer::new(context.robot.clone(), context.value, false);
         let ball_position = EnabledLayer::new(context.robot.clone(), context.value, true);
         let kick_decisions = EnabledLayer::new(context.robot.clone(), context.value, false);
         let ball_filter = EnabledLayer::new(context.robot.clone(), context.value, false);
@@ -138,7 +138,7 @@ impl<'a> Panel<'a> for MapPanel {
             path,
             behavior_simulator,
             robot_pose,
-            pose_detection,
+            pose_positions,
             referee_position,
             ball_percept,
             ball_position,
@@ -163,7 +163,7 @@ impl<'a> Panel<'a> for MapPanel {
             "obstacles": self.obstacles.save(),
             "path": self.path.save(),
             "behavior_simulator": self.behavior_simulator.save(),
-            "pose_detection": self.referee_position.save(),
+            "pose_positions": self.pose_positions.save(),
             "robot_pose": self.robot_pose.save(),
             "referee_position": self.referee_position.save(),
             "ball_percept": self.ball_percept.save(),
@@ -189,7 +189,7 @@ impl Widget for &mut MapPanel {
                 self.obstacles.checkbox(ui);
                 self.path.checkbox(ui);
                 self.behavior_simulator.checkbox(ui);
-                self.pose_detection.checkbox(ui);
+                self.pose_positions.checkbox(ui);
                 self.robot_pose.checkbox(ui);
                 self.referee_position.checkbox(ui);
                 self.ball_percept.checkbox(ui);
@@ -277,7 +277,7 @@ impl Widget for &mut MapPanel {
             .generic_paint(&painter, ground_to_field, &field_dimensions);
         self.ball_position
             .generic_paint(&painter, ground_to_field, &field_dimensions);
-        self.pose_detection
+        self.pose_positions
             .generic_paint(&painter, ground_to_field, &field_dimensions);
         self.ball_position
             .generic_paint(&painter, ground_to_field, &field_dimensions);

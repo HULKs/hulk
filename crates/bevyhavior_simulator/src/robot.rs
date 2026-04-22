@@ -63,7 +63,7 @@ pub struct Robot {
     control_receiver: Receiver<(SystemTime, Database)>,
     parameters_sender: Sender<(SystemTime, Parameters)>,
     hsl_network_sender: Producer<crate::structs::hsl_network::MainOutputs>,
-    object_detection_sender: Producer<crate::structs::object_detection::MainOutputs>,
+    hydra_sender: Producer<crate::structs::hydra::MainOutputs>,
 }
 
 impl Robot {
@@ -93,7 +93,7 @@ impl Robot {
             buffered_watch::channel((UNIX_EPOCH, Default::default()));
         let (hsl_network_sender, hsl_network_consumer) = future_queue();
         let (recording_sender, _recording_receiver) = mpsc::sync_channel(0);
-        let (object_detection_sender, object_detection_consumer) = future_queue();
+        let (hydra_sender, hydra_consumer) = future_queue();
 
         *parameters_sender.borrow_mut() = (SystemTime::now(), parameters.clone());
 
@@ -104,7 +104,7 @@ impl Robot {
             subscriptions_receiver,
             parameters_receiver,
             hsl_network_consumer,
-            object_detection_consumer,
+            hydra_consumer,
             recording_sender,
             RecordingTrigger::new(0),
         )?;
@@ -143,7 +143,7 @@ impl Robot {
             control_receiver,
             parameters_sender,
             hsl_network_sender,
-            object_detection_sender,
+            hydra_sender,
         })
     }
 
@@ -163,9 +163,9 @@ impl Robot {
                 });
         }
 
-        self.object_detection_sender.announce();
-        self.object_detection_sender
-            .finalize(crate::structs::object_detection::MainOutputs {
+        self.hydra_sender.announce();
+        self.hydra_sender
+            .finalize(crate::structs::hydra::MainOutputs {
                 referee_pose_kind: referee_pose_kind.clone(),
                 ..Default::default()
             });

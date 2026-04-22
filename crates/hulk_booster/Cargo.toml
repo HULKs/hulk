@@ -36,6 +36,7 @@ hsl_network = { workspace = true }
 hsl_network_messages = { workspace = true }
 hula_types = { workspace = true }
 hulk_widgets = { workspace = true }
+hydra = { workspace = true, features = ["ort-dynamic"] }
 ittapi = { workspace = true }
 kinematics = { workspace = true }
 libc = { workspace = true, optional = true }
@@ -44,7 +45,6 @@ log = { workspace = true }
 motion = { workspace = true }
 nalgebra = { workspace = true }
 ndarray = { workspace = true }
-object_detection = { workspace = true, features = ["ort-dynamic"] }
 parameters = { workspace = true }
 parking_lot = { workspace = true }
 path_serde = { workspace = true }

@@ -22,7 +22,7 @@ use types::{
     cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
     multivariate_normal_distribution::MultivariateNormalDistribution,
-    object_detection::{Detection, NaoLabelPartyObjectDetectionLabel},
+    object_detection::{Object, RobocupObjectLabel},
     parameters::BallFilterParameters,
 };
 
@@ -52,11 +52,7 @@ pub struct CycleContext {
     ball_filter_configuration: Parameter<BallFilterParameters, "ball_filter">,
 
     integrated_odometry: PerceptionInput<Odometer, "Odometry", "odometer">,
-    detected_objects: PerceptionInput<
-        Vec<Detection<NaoLabelPartyObjectDetectionLabel>>,
-        "ObjectDetection",
-        "detected_objects",
-    >,
+    detected_objects: PerceptionInput<Vec<Object<RobocupObjectLabel>>, "Hydra", "detected_objects">,
 }
 
 #[context]
@@ -335,7 +331,7 @@ fn mahalanobis_matrix_of_hypotheses_and_percepts(
 }
 
 fn projected_balls(
-    detections: BTreeMap<SystemTime, Vec<&Vec<Detection<NaoLabelPartyObjectDetectionLabel>>>>,
+    detections: BTreeMap<SystemTime, Vec<&Vec<Object<RobocupObjectLabel>>>>,
     historic_camera_matrix: &HistoricInput<Option<&CameraMatrix>>,
     parameters: &BallFilterParameters,
     ball_radius: f32,
@@ -348,7 +344,7 @@ fn projected_balls(
                 .into_iter()
                 .flatten()
                 .filter_map(|detection| {
-                    if detection.label != NaoLabelPartyObjectDetectionLabel::Ball {
+                    if detection.label != RobocupObjectLabel::Ball {
                         return None;
                     }
                     let area = detection.bounding_box.area;
