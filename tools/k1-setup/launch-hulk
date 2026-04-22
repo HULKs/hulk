@@ -13,8 +13,7 @@ chown -R booster:booster /home/booster/hulk/logs
   --env RUST_BACKTRACE=1 \
   --user 1000 \
   hulk \
-  bash -c "
-    exec /home/booster/hulk/bin/hulk_booster --log-path \"${INTERNAL_LOG_PATH}\"
-  " \
+  /home/booster/hulk/bin/hulk_booster \
+    --log-path "${INTERNAL_LOG_PATH}" \
   > >(tee "${INTERNAL_LOG_PATH}/hulk.out") \
   2> >(tee "${INTERNAL_LOG_PATH}/hulk.err")
