@@ -68,4 +68,9 @@ impl Obstacle {
             radius_at_hip_height: radius,
         }
     }
+
+    pub fn contains_point(&self, point: Point2<Ground>) -> bool {
+        let radius = self.radius_at_hip_height.max(self.radius_at_foot_height);
+        (point - self.position).norm() <= radius
+    }
 }
