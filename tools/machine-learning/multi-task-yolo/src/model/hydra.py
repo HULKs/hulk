@@ -1,7 +1,7 @@
 import logging
 from collections.abc import Mapping, Sequence
-from pathlib import Path
 from typing import Any, cast
+from zipfile import Path
 
 import torch
 import torch.nn as nn
@@ -19,21 +19,38 @@ def get_backbone_length(yaml_config: dict) -> int:
     return len(yaml_config.get("backbone", []))
 
 
-def get_backbone(model: DetectionModel) -> nn.ModuleList:
+def get_backbone(
+    model: DetectionModel, number_of_frozen_modules: int | None = None
+) -> nn.ModuleList:
     """Extracts the backbone as an nn.ModuleList dynamically."""
-    split_idx = get_backbone_length(cast(dict[str, Any], model.yaml))
+    if number_of_frozen_modules is not None:
+        split_idx = number_of_frozen_modules
+    else:
+        split_idx = get_backbone_length(cast(dict[str, Any], model.yaml))
     return nn.ModuleList(list(model.model.children())[:split_idx])
 
 
-def get_head(model: DetectionModel) -> nn.ModuleList:
+def get_head(
+    model: DetectionModel, number_of_frozen_modules: int | None = None
+) -> nn.ModuleList:
     """Extracts the neck + head head dynamically."""
-    split_idx = get_backbone_length(cast(dict[str, Any], model.yaml))
+    if number_of_frozen_modules is not None:
+        split_idx = number_of_frozen_modules
+    else:
+        split_idx = get_backbone_length(cast(dict[str, Any], model.yaml))
     return nn.ModuleList(list(model.model.children())[split_idx:])
 
 
-def set_backbone(model: DetectionModel, backbone: nn.ModuleList) -> None:
+def set_backbone(
+    model: DetectionModel,
+    backbone: nn.ModuleList,
+    number_of_frozen_modules: int | None = None,
+) -> None:
     """Replaces the backbone modules of a model."""
-    split_idx = get_backbone_length(cast(dict[str, Any], model.yaml))
+    if number_of_frozen_modules is not None:
+        split_idx = number_of_frozen_modules
+    else:
+        split_idx = get_backbone_length(cast(dict[str, Any], model.yaml))
     head = list(model.model.children())
 
     nodes = list(backbone) + head[split_idx:]
