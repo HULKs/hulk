@@ -8,26 +8,16 @@ use booster_sdk::{client::light_control::SetLedLightColorParameter, types::Robot
 use color_eyre::eyre::Result;
 
 use hula_types::hardware::{Ids, Paths};
-use kinematics::joints::{Joints, head::HeadJoints};
+use kinematics::joints::head::HeadJoints;
 use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
 use types::{
     audio::SpeakerRequest,
-    led::Leds,
     messages::{IncomingMessage, OutgoingMessage},
     motion_runtime::MotionRuntime,
     samples::Samples,
     sensor_data::SensorData,
     step::Step,
 };
-
-pub trait ActuatorInterface {
-    fn write_to_actuators(
-        &self,
-        positions: Joints<f32>,
-        stiffnesses: Joints<f32>,
-        leds: Leds,
-    ) -> Result<()>;
-}
 
 pub trait CameraInterface {
     fn read_image_left_raw(&self) -> Result<Image>;
