@@ -18,8 +18,7 @@ use color_eyre::{
 use hardware::{
     CameraInterface, HighLevelInterface, IdInterface, LightControlInterface, LowCommandInterface,
     LowStateInterface, MicrophoneInterface, MotionRuntimeInterface, NetworkInterface,
-    PathsInterface, RecordingInterface, SimulatorInterface, SpeakerInterface,
-    VisualKickInterface,
+    PathsInterface, RecordingInterface, SimulatorInterface, SpeakerInterface, VisualKickInterface,
 };
 use hula_types::hardware::{Ids, Paths};
 use kinematics::joints::head::HeadJoints;

@@ -1,7 +1,4 @@
-use std::{
-    ops::Range,
-    time::Duration,
-};
+use std::{ops::Range, time::Duration};
 
 use hsl_network_messages::PlayerNumber;
 use kinematics::joints::{Joints, head::HeadJoints};

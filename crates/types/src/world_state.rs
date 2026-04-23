@@ -10,8 +10,8 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{
     ball_position::HypotheticalBallPosition, field_dimensions::Side,
-    filtered_game_controller_state::FilteredGameControllerState,
-    obstacles::Obstacle, primary_state::PrimaryState, roles::Role, rule_obstacles::RuleObstacle,
+    filtered_game_controller_state::FilteredGameControllerState, obstacles::Obstacle,
+    primary_state::PrimaryState, roles::Role, rule_obstacles::RuleObstacle,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathIntrospect)]
