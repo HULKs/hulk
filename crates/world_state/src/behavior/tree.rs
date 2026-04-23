@@ -9,7 +9,7 @@ use crate::{
             has_ball_position, is_ball_interception_candidate, is_close_to_ball,
             is_closest_to_ball, is_fallen, is_goalkeeper, is_primary_state,
         },
-        head::{look_at_ball_subtree, look_straight_ahead, search_for_lost_ball},
+        head::{look_at_ball_subtree, look_straight_ahead, search_for_lost_ball_subtree},
         kick::{intercept, kick_subtree},
         node::Blackboard,
         search::{has_suggested_search_position, leuchtturm, walk_to_search_position},
@@ -80,7 +80,7 @@ fn goalkeeper_subtree() -> Node<Blackboard> {
 
 fn search_subtree() -> Node<Blackboard> {
     sequence!(
-        action!(search_for_lost_ball),
+        subtree!(search_for_lost_ball_subtree),
         switch_motion_type(
             MotionType::Walk,
             selection!(

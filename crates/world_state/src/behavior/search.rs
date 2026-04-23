@@ -4,7 +4,7 @@ use types::{
     motion_command::{BodyMotion, OrientationMode},
 };
 
-use crate::behavior::{node::Blackboard, walk_actions::walk_to};
+use crate::behavior::{node::Blackboard, walk::walk_to};
 
 pub fn has_suggested_search_position(blackboard: &mut Blackboard) -> bool {
     blackboard.world_state.suggested_search_position.is_some()
