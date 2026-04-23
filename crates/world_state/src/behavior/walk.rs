@@ -2,10 +2,25 @@ use coordinate_systems::{Field, Ground};
 use filtering::hysteresis::less_than_with_relative_hysteresis;
 use linear_algebra::{Isometry2, Orientation2, Point, Point2, Pose2, Vector2, point, vector};
 use types::{
-    behavior_tree::Status, motion_command::{BodyMotion, MotionCommand, OrientationMode}, motion_type::MotionType, path::{Path, direct_path}
+    behavior_tree::Status,
+    motion_command::{BodyMotion, MotionCommand, OrientationMode},
+    motion_type::MotionType,
+    path::{Path, direct_path},
 };
 
-use crate::{action, behavior::{action::stand, behavior_tree::Node, kick::{kick, select_kick_target, use_last_kick_power}, node::Blackboard, switch_motion_type::is_last_motion_type}, condition, path_planner::PathPlanner, selection, sequence};
+use crate::{
+    action,
+    behavior::{
+        action::stand,
+        behavior_tree::Node,
+        kick::{kick, select_kick_target, use_last_kick_power},
+        node::Blackboard,
+        switch_motion_type::is_last_motion_type,
+    },
+    condition,
+    path_planner::PathPlanner,
+    selection, sequence,
+};
 
 pub fn plan(
     blackboard: &mut Blackboard,
@@ -115,10 +130,13 @@ pub fn walk_to(
 }
 
 pub fn walk_to_ball(blackboard: &mut Blackboard) -> Status {
-    if let Some(ball) = &blackboard.world_state.ball {
+    if let (Some(ball), Some(ground_to_field)) = (
+        &blackboard.ball,
+        &blackboard.world_state.robot.ground_to_field,
+    ) {
         walk_to(
             blackboard,
-            Pose2::from(ball.ball_in_ground),
+            Pose2::from(ground_to_field.inverse() * ball.position),
             blackboard.parameters.walk_speed.kicking,
             OrientationMode::AlignWithPath,
             blackboard
