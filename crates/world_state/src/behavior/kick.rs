@@ -9,7 +9,13 @@ use types::{
 
 use crate::{
     action,
-    behavior::{action::stand, behavior_tree::Node, node::Blackboard, switch_motion_type::{is_last_motion_type, switch_motion_type}, walk::walk_instead_of_kicking},
+    behavior::{
+        action::stand,
+        behavior_tree::Node,
+        node::Blackboard,
+        switch_motion_type::{is_last_motion_type, switch_motion_type},
+        walk::walk_instead_of_kicking,
+    },
     condition, negation, selection, sequence, subtree,
 };
 
