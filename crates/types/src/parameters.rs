@@ -134,25 +134,6 @@ pub struct SearchParameters {
     PathDeserialize,
     PathIntrospect,
 )]
-pub struct DribblingParameters {
-    pub hybrid_align_distance: f32,
-    pub distance_to_be_aligned: f32,
-    pub angle_to_approach_ball_from_threshold: f32,
-    pub ignore_robot_when_near_ball_radius: f32,
-    pub distance_to_look_directly_at_the_ball: f32,
-}
-
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-)]
 pub struct WalkAndStandParameters {
     pub hysteresis: nalgebra::Vector2<f32>,
     pub target_reached_thresholds: nalgebra::Vector2<f32>,
@@ -395,18 +376,6 @@ pub struct SearchSuggestorParameters {
     pub own_ball_weight: f32,
     pub team_ball_weight: f32,
     pub rule_ball_weight: f32,
-}
-
-#[derive(
-    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
-)]
-
-pub struct KeeperMotionParameters {
-    pub action_radius_center: f32,
-    pub minimum_velocity: f32,
-    pub action_radius_left: f32,
-    pub maximum_ball_distance: f32,
-    pub minimum_ball_velocity: f32,
 }
 
 #[derive(
