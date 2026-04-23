@@ -55,7 +55,6 @@ pub mod sensor_data;
 pub mod sole_pressure;
 pub mod sonar_obstacle;
 pub mod sonar_values;
-pub mod stand_up;
 pub mod step;
 pub mod support_foot;
 pub mod walk_volume_extents;
