@@ -7,4 +7,4 @@ pub mod motion_assembler;
 pub mod node;
 pub mod switch_motion_type;
 pub mod tree;
-pub mod walk_actions;
+pub mod walk;

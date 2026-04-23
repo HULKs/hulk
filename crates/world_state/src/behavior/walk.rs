@@ -2,14 +2,11 @@ use coordinate_systems::{Field, Ground};
 use filtering::hysteresis::less_than_with_relative_hysteresis;
 use linear_algebra::{Isometry2, Orientation2, Point, Point2, Pose2, Vector2, point, vector};
 use types::{
-    behavior_tree::Status,
-    motion_command::{BodyMotion, MotionCommand, OrientationMode},
-    path::{Path, direct_path},
+    behavior_tree::Status, motion_command::{BodyMotion, MotionCommand, OrientationMode}, motion_type::MotionType, path::{Path, direct_path}
 };
 
-use crate::{behavior::node::Blackboard, path_planner::PathPlanner};
+use crate::{action, behavior::{action::stand, behavior_tree::Node, kick::{kick, select_kick_target, use_last_kick_power}, node::Blackboard, switch_motion_type::is_last_motion_type}, condition, path_planner::PathPlanner, selection, sequence};
 
-#[allow(clippy::too_many_arguments)]
 pub fn plan(
     blackboard: &mut Blackboard,
     target_in_ground: Point2<Ground>,
@@ -133,6 +130,20 @@ pub fn walk_to_ball(blackboard: &mut Blackboard) -> Status {
     } else {
         Status::Failure
     }
+}
+
+pub fn walk_alternatives_subtree() -> Node<Blackboard> {
+    selection!(
+        sequence!(
+            condition!(is_last_motion_type, MotionType::Kick),
+            sequence!(
+                action!(kick),
+                action!(select_kick_target),
+                action!(use_last_kick_power),
+            )
+        ),
+        action!(stand)
+    )
 }
 
 pub fn walk_instead_of_kicking(blackboard: &mut Blackboard) -> Status {

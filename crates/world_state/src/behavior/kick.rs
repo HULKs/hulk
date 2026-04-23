@@ -9,9 +9,31 @@ use types::{
 
 use crate::{
     action,
-    behavior::{behavior_tree::Node, node::Blackboard, switch_motion_type::is_last_motion_type},
-    condition, negation, selection, sequence,
+    behavior::{action::stand, behavior_tree::Node, node::Blackboard, switch_motion_type::{is_last_motion_type, switch_motion_type}, walk::walk_instead_of_kicking},
+    condition, negation, selection, sequence, subtree,
 };
+
+pub fn kick_subtree() -> Node<Blackboard> {
+    switch_motion_type(
+        MotionType::Kick,
+        sequence!(
+            action!(kick),
+            action!(select_kick_target),
+            subtree!(kick_power_subtree),
+        ),
+        subtree!(kick_alternatives_subtree),
+    )
+}
+
+pub fn kick_alternatives_subtree() -> Node<Blackboard> {
+    selection!(
+        sequence!(
+            condition!(is_last_motion_type, MotionType::Walk),
+            action!(walk_instead_of_kicking)
+        ),
+        action!(stand)
+    )
+}
 
 pub fn kick(blackboard: &mut Blackboard) -> Status {
     if let (Some(ball), Some(ground_to_field)) = (
