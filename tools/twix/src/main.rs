@@ -182,7 +182,7 @@ struct TwixApp {
     address: String,
     reachable_robots: ReachableRobots,
     connection_intent: bool,
-    injected_safe_pose: BufferHandle<u32>,
+    force_stop_robot: BufferHandle<bool>,
     panel_selection: String,
     last_focused_tab: (NodeIndex, TabIndex),
     dock_state: DockState<Tab>,
@@ -235,7 +235,7 @@ impl TwixApp {
             robot.connect();
         }
 
-        let injected_safe_pose = robot.subscribe_value("parameters.injected_safe_pose");
+        let force_stop_robot = robot.subscribe_value("parameters.force_stop_robot");
 
         let dock_state: Option<DockState<Value>> = if arguments.clear {
             None
@@ -293,7 +293,7 @@ impl TwixApp {
             robot,
             reachable_robots,
             connection_intent,
-            injected_safe_pose,
+            force_stop_robot,
             panel_selection,
             dock_state,
             last_focused_tab: (0.into(), 0.into()),
@@ -539,17 +539,17 @@ impl App for TwixApp {
                         )
                         .clicked()
                     {
-                        match self.injected_safe_pose.get_last_value() {
+                        match self.force_stop_robot.get_last_value() {
                             Ok(Some(value)) => {
-                                let new_injected_safe_pose = value + 1;
+                                let new_force_stop_robot = !value;
                                 self.robot.write(
-                                    "parameters.injected_safe_pose",
-                                    TextOrBinary::Text(new_injected_safe_pose.into()),
+                                    "parameters.force_stop_robot",
+                                    TextOrBinary::Text(new_force_stop_robot.into()),
                                 );
                             }
                             Ok(None) => {}
                             Err(error) => {
-                                error!("failed to read injected_safe_pose: {error:#?}")
+                                error!("failed to read force_stop_robot: {error:#?}")
                             }
                         }
                     }

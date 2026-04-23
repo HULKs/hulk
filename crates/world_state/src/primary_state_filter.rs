@@ -30,7 +30,6 @@ pub struct CycleContext {
     is_safe_pose: Input<bool, "is_safe_pose">,
 
     injected_primary_state: Parameter<Option<PrimaryState>, "injected_primary_state?">,
-    injected_safe_pose: Parameter<u32, "injected_safe_pose">,
     player_number: Parameter<PlayerNumber, "player_number">,
     recorded_primary_states: Parameter<HashSet<PrimaryState>, "recorded_primary_states">,
 
@@ -57,25 +56,6 @@ impl PrimaryStateFilter {
             impl RecordingInterface + HighLevelInterface + SimulatorInterface + SpeakerInterface,
         >,
     ) -> Result<MainOutputs> {
-        if matches!(
-            context.buttons,
-            Buttons {
-                f1: Some(ButtonPressType::Short),
-                ..
-            } | Buttons {
-                stand: Some(ButtonPressType::Short),
-                ..
-            }
-        ) {
-            self.last_safe_pose = *context.injected_safe_pose;
-        }
-
-        if self.last_safe_pose != *context.injected_safe_pose {
-            return Ok(MainOutputs {
-                primary_state: PrimaryState::Safe.into(),
-            });
-        }
-
         if let Some(injected_primary_state) = context.injected_primary_state {
             self.last_primary_state = *injected_primary_state;
             return Ok(MainOutputs {
