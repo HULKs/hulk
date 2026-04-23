@@ -1,4 +1,3 @@
-use linear_algebra::vector;
 use types::{behavior_tree::Status, motion_command::BodyMotion};
 
 use crate::behavior::node::Blackboard;
@@ -10,14 +9,6 @@ pub fn injected_motion_command(blackboard: &mut Blackboard) -> Status {
     } else {
         Status::Failure
     }
-}
-
-pub fn leuchtturm(blackboard: &mut Blackboard) -> Status {
-    blackboard.body_motion = Some(BodyMotion::WalkWithVelocity {
-        velocity: vector!(0.0, 0.0),
-        angular_velocity: 1.0,
-    });
-    Status::Success
 }
 
 pub fn prepare(blackboard: &mut Blackboard) -> Status {
