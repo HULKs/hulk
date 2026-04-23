@@ -34,7 +34,6 @@ pub mod messages;
 pub mod motion_command;
 pub mod motion_runtime;
 pub mod motion_type;
-pub mod motor_commands;
 pub mod multivariate_normal_distribution;
 pub mod object_detection;
 pub mod obstacle_avoiding_arms;

@@ -1,5 +1,5 @@
 use std::{
-    ops::{Index, Range},
+    ops::Range,
     time::Duration,
 };
 
@@ -11,11 +11,7 @@ use coordinate_systems::{Camera, Field, Ground, NormalizedPixel, Pixel, Robot};
 use linear_algebra::{Point2, Vector2, Vector3};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
-use crate::{
-    motion_command::{KickVariant, MotionCommand},
-    roles::Role,
-    step::Step,
-};
+use crate::{motion_command::MotionCommand, roles::Role, step::Step};
 
 #[derive(
     Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
@@ -125,41 +121,6 @@ pub struct SearchParameters {
     pub stand_secs: f32,
     pub turn_secs: f32,
     pub estimated_ball_speed: f32,
-}
-
-#[derive(
-    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
-)]
-pub struct InWalkKicksParameters {
-    pub forward: InWalkKickInfoParameters,
-    pub turn: InWalkKickInfoParameters,
-    pub side: InWalkKickInfoParameters,
-}
-
-impl Index<KickVariant> for InWalkKicksParameters {
-    type Output = InWalkKickInfoParameters;
-
-    fn index(&self, variant: KickVariant) -> &Self::Output {
-        match variant {
-            KickVariant::Forward => &self.forward,
-            KickVariant::Turn => &self.turn,
-            KickVariant::Side => &self.side,
-        }
-    }
-}
-
-#[derive(
-    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
-)]
-pub struct InWalkKickInfoParameters {
-    pub position: nalgebra::Point2<f32>,
-    pub position_offset: nalgebra::Vector2<f32>,
-    pub orientation: f32,
-    pub reached_x: Range<f32>,
-    pub reached_y: Range<f32>,
-    pub reached_turn: Range<f32>,
-    pub shot_distance: f32,
-    pub enabled: bool,
 }
 
 #[derive(

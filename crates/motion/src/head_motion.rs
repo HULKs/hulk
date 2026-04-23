@@ -98,12 +98,6 @@ impl HeadMotion {
             | Some(HeadMotionCommand::LookAtReferee { .. })
             | Some(HeadMotionCommand::LookLeftAndRightOf { .. }) => *context.look_at,
             Some(HeadMotionCommand::Unstiff) => context.motor_states.positions().head,
-            Some(HeadMotionCommand::Animation { stiff: false }) => {
-                context.motor_states.positions().head
-            }
-            Some(HeadMotionCommand::Animation { stiff: true }) => {
-                context.motor_states.positions().head
-            }
             Some(HeadMotionCommand::LookAround) | Some(HeadMotionCommand::SearchForLostBall) => {
                 *context.look_around_target_joints
             }

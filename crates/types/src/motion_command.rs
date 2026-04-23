@@ -195,9 +195,6 @@ pub enum HeadMotion {
         target: Point2<Ground>,
     },
     Unstiff,
-    Animation {
-        stiff: bool,
-    },
 }
 
 #[derive(
@@ -217,61 +214,6 @@ pub enum ImageRegion {
     #[default]
     Center,
     Top,
-}
-
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Deserialize,
-    Eq,
-    PartialEq,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-)]
-pub enum KickDirection {
-    Back,
-    Front,
-    Left,
-    Right,
-}
-
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Deserialize,
-    Eq,
-    PartialEq,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-)]
-pub enum KickVariant {
-    Forward,
-    Turn,
-    Side,
-}
-
-#[derive(
-    Clone,
-    Copy,
-    Debug,
-    Deserialize,
-    Eq,
-    PartialEq,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-)]
-pub enum JumpDirection {
-    Left,
-    Right,
-    Center,
 }
 
 #[derive(
