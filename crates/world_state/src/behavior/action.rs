@@ -25,11 +25,6 @@ pub fn prepare(blackboard: &mut Blackboard) -> Status {
     Status::Success
 }
 
-pub fn set_is_alternative(blackboard: &mut Blackboard) -> Status {
-    blackboard.is_alternative = true;
-    Status::Success
-}
-
 pub fn stand(blackboard: &mut Blackboard) -> Status {
     blackboard.body_motion = Some(BodyMotion::Stand);
     Status::Success

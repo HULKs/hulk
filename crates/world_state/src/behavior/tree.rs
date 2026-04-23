@@ -3,9 +3,7 @@ use types::{motion_type::MotionType, primary_state::PrimaryState};
 use crate::{
     action,
     behavior::{
-        action::{
-            injected_motion_command, leuchtturm, prepare, set_is_alternative, stand, stand_up,
-        },
+        action::{injected_motion_command, leuchtturm, prepare, stand, stand_up},
         behavior_tree::Node,
         condition::{
             has_ball_position, is_ball_interception_candidate, is_close_to_ball,
@@ -137,7 +135,6 @@ fn walk_alternatives_subtree() -> Node<Blackboard> {
         sequence!(
             condition!(is_last_motion_type, MotionType::Kick),
             sequence!(
-                action!(set_is_alternative),
                 action!(kick),
                 action!(select_kick_target),
                 action!(use_last_kick_power),
@@ -151,7 +148,6 @@ fn kick_alternatives_subtree() -> Node<Blackboard> {
     selection!(
         sequence!(
             condition!(is_last_motion_type, MotionType::Walk),
-            action!(set_is_alternative),
             action!(walk_instead_of_kicking)
         ),
         action!(stand)

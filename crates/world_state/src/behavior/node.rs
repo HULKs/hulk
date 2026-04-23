@@ -56,7 +56,6 @@ pub struct Blackboard {
     pub field_dimensions: FieldDimensions,
     pub last_motion_command: MotionCommand,
 
-    pub is_alternative: bool,
     pub path_obstacles_output: Vec<PathObstacle>,
     pub time_since_last_switch: Duration,
 
@@ -83,7 +82,6 @@ pub struct CycleContext {
 
     behavior_trace: AdditionalOutput<NodeTrace, "behavior.trace">,
     behavior_tree_layout: AdditionalOutput<NodeTrace, "behavior.tree_layout">,
-    is_alternative_kick: AdditionalOutput<bool, "behavior.is_alternative_kick">,
     time_since_last_switch: AdditionalOutput<Duration, "behavior.time_since_last_switch">,
 
     path_obstacles_output: AdditionalOutput<Vec<PathObstacle>, "path_obstacles">,
@@ -142,7 +140,6 @@ impl Behavior {
             field_dimensions: *context.field_dimensions,
             last_motion_command: context.last_motion_command.clone(),
 
-            is_alternative: false,
             path_obstacles_output: Vec::new(),
             time_since_last_switch: Duration::ZERO,
 
@@ -185,9 +182,6 @@ impl Behavior {
         context
             .time_since_last_switch
             .fill_if_subscribed(|| blackboard.time_since_last_switch);
-        context
-            .is_alternative_kick
-            .fill_if_subscribed(|| blackboard.is_alternative);
 
         Ok(MainOutputs {
             motion_command: motion_command.into(),

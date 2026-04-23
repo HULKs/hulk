@@ -22,9 +22,3 @@ pub enum MotionType {
     Kick,
     Walk,
 }
-
-impl MotionType {
-    pub fn is_stable(&self) -> bool {
-        matches!(self, MotionType::Stand | MotionType::Prepare)
-    }
-}
