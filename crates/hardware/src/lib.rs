@@ -15,7 +15,6 @@ use types::{
     messages::{IncomingMessage, OutgoingMessage},
     motion_runtime::MotionRuntime,
     samples::Samples,
-    sensor_data::SensorData,
     step::Step,
 };
 
@@ -46,10 +45,6 @@ pub trait PathsInterface {
 pub trait RecordingInterface {
     fn should_record(&self) -> bool;
     fn set_whether_to_record(&self, enable: bool);
-}
-
-pub trait SensorInterface {
-    fn read_from_sensors(&self) -> Result<SensorData>;
 }
 
 pub trait LowStateInterface {

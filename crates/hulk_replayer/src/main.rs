@@ -18,7 +18,7 @@ use color_eyre::{
 use hardware::{
     CameraInterface, HighLevelInterface, IdInterface, LightControlInterface, LowCommandInterface,
     LowStateInterface, MicrophoneInterface, MotionRuntimeInterface, NetworkInterface,
-    PathsInterface, RecordingInterface, SensorInterface, SimulatorInterface, SpeakerInterface,
+    PathsInterface, RecordingInterface, SimulatorInterface, SpeakerInterface,
     VisualKickInterface,
 };
 use hula_types::hardware::{Ids, Paths};
@@ -30,7 +30,6 @@ use types::{
     messages::{IncomingMessage, OutgoingMessage},
     motion_runtime::MotionRuntime,
     samples::Samples,
-    sensor_data::SensorData,
     step::Step,
 };
 
@@ -44,7 +43,6 @@ pub trait HardwareInterface:
     + NetworkInterface
     + PathsInterface
     + RecordingInterface
-    + SensorInterface
     + SpeakerInterface
     + SimulatorInterface
     + HighLevelInterface
@@ -134,12 +132,6 @@ impl RecordingInterface for ReplayerHardwareInterface {
     }
 
     fn set_whether_to_record(&self, _enable: bool) {}
-}
-
-impl SensorInterface for ReplayerHardwareInterface {
-    fn read_from_sensors(&self) -> Result<SensorData> {
-        panic!("Replayer cannot produce data from hardware")
-    }
 }
 
 impl SpeakerInterface for ReplayerHardwareInterface {
