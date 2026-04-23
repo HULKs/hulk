@@ -1,5 +1,4 @@
 #![recursion_limit = "256"]
-pub mod action;
 pub mod audio;
 pub mod ball_detection;
 pub mod ball_position;
@@ -30,7 +29,6 @@ pub mod image_segments;
 pub mod initial_look_around;
 pub mod initial_pose;
 pub mod jpeg;
-pub mod kick_decision;
 pub mod last_filtered_game_controller_state_change;
 pub mod led;
 pub mod line_data;
