@@ -92,7 +92,10 @@ impl Endpoint {
                         .hsl_socket
                         .send_to(
                             message.as_slice(),
-                            SocketAddr::new(Ipv4Addr::BROADCAST.into(), self.ports.hsl),
+                            SocketAddr::new(
+                                self.ports.hsl_broadcast_address.into(),
+                                self.ports.hsl,
+                            ),
                         )
                         .await
                     {
@@ -129,4 +132,5 @@ pub struct Ports {
     game_controller_state: u16,
     game_controller_return: u16,
     hsl: u16,
+    hsl_broadcast_address: Ipv4Addr,
 }
