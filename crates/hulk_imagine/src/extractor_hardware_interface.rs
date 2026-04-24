@@ -1,8 +1,8 @@
 use booster_sdk::types::RobotMode;
 use hardware::{
     ActuatorInterface, HighLevelInterface, LightControlInterface, LowCommandInterface,
-    LowStateInterface, MotionRuntimeInteface, NetworkInterface, PathsInterface, RecordingInterface,
-    SimulatorInterface, SpeakerInterface, TimeInterface, VisualKickInterface,
+    LowStateInterface, MotionRuntimeInterface, NetworkInterface, PathsInterface,
+    RecordingInterface, SimulatorInterface, SpeakerInterface, TimeInterface, VisualKickInterface,
 };
 
 use color_eyre::eyre::Result;
@@ -29,7 +29,7 @@ pub trait HardwareInterface:
     + TimeInterface
     + SimulatorInterface
     + HighLevelInterface
-    + MotionRuntimeInteface
+    + MotionRuntimeInterface
     + LightControlInterface
 {
 }
@@ -165,7 +165,7 @@ impl HighLevelInterface for ExtractorHardwareInterface {
     }
 }
 
-impl MotionRuntimeInteface for ExtractorHardwareInterface {
+impl MotionRuntimeInterface for ExtractorHardwareInterface {
     fn get_motion_runtime_type(&self) -> Result<MotionRuntime> {
         unimplemented!()
     }

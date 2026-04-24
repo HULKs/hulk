@@ -27,7 +27,7 @@ use color_eyre::{
 use hardware::{
     ButtonEventMsgInterface, CameraInterface, FallDownStateInterface, HighLevelInterface,
     IdInterface, LightControlInterface, LowCommandInterface, LowStateInterface,
-    MicrophoneInterface, MotionRuntimeInteface, NetworkInterface, OdometerInterface,
+    MicrophoneInterface, MotionRuntimeInterface, NetworkInterface, OdometerInterface,
     PathsInterface, RecordingInterface, RemoteControllerStateInterface, SimulatorInterface,
     SpeakerInterface, TimeInterface, VisualKickInterface,
 };
@@ -661,7 +661,7 @@ impl HighLevelInterface for BoosterHardwareInterface {
     }
 }
 
-impl MotionRuntimeInteface for BoosterHardwareInterface {
+impl MotionRuntimeInterface for BoosterHardwareInterface {
     fn get_motion_runtime_type(&self) -> Result<MotionRuntime> {
         Ok(MotionRuntime::Booster)
     }

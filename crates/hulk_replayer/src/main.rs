@@ -17,7 +17,7 @@ use color_eyre::{
 };
 use hardware::{
     ActuatorInterface, CameraInterface, HighLevelInterface, IdInterface, LightControlInterface,
-    LowCommandInterface, LowStateInterface, MicrophoneInterface, MotionRuntimeInteface,
+    LowCommandInterface, LowStateInterface, MicrophoneInterface, MotionRuntimeInterface,
     NetworkInterface, PathsInterface, RecordingInterface, SensorInterface, SimulatorInterface,
     SpeakerInterface, VisualKickInterface,
 };
@@ -50,7 +50,7 @@ pub trait HardwareInterface:
     + SpeakerInterface
     + SimulatorInterface
     + HighLevelInterface
-    + MotionRuntimeInteface
+    + MotionRuntimeInterface
     + LightControlInterface
 {
 }
@@ -215,7 +215,7 @@ impl HighLevelInterface for ReplayerHardwareInterface {
     }
 }
 
-impl MotionRuntimeInteface for ReplayerHardwareInterface {
+impl MotionRuntimeInterface for ReplayerHardwareInterface {
     fn get_motion_runtime_type(&self) -> Result<MotionRuntime> {
         Ok(MotionRuntime::Booster)
     }
