@@ -61,7 +61,7 @@ impl BoosterModeHandler {
             });
         }
 
-        if self.button_pressed ^ *context.force_stop_robot {
+        if self.button_pressed != *context.force_stop_robot {
             if matches!(
                 context.buttons,
                 Buttons {
