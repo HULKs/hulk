@@ -199,14 +199,14 @@ async fn main() -> Result<()> {
             let current_directory = current_dir().wrap_err("failed to get current directory")?;
             Repository::find_root(current_directory).wrap_err("failed to find repository root")
         });
-    if let Ok(repository) = &repository {
-        if let Err(error) = check_for_update(
+    if let Ok(repository) = &repository
+        && let Err(error) = check_for_update(
             env!("CARGO_PKG_VERSION"),
             repository.root.join("tools/pepsi/Cargo.toml"),
             "pepsi",
-        ) {
-            warn!("{error:#?}");
-        }
+        )
+    {
+        warn!("{error:#?}");
     }
 
     match arguments.command {

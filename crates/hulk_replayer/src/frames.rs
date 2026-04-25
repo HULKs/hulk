@@ -104,21 +104,19 @@ impl<'state> Frames<'state> {
         if keys.step_forward {
             *self.position += RelativeTime::new(0.01);
         }
-        if keys.jump_to_next_bookmark {
-            if let Some((next_bookmark_time, _)) = self
+        if keys.jump_to_next_bookmark
+            && let Some((next_bookmark_time, _)) = self
                 .bookmarks
                 .next_after(&self.position.map_to_absolute_time(self.frame_range))
-            {
-                *self.position = next_bookmark_time.map_to_relative_time(self.frame_range);
-            }
+        {
+            *self.position = next_bookmark_time.map_to_relative_time(self.frame_range);
         };
-        if keys.jump_to_previous_bookmark {
-            if let Some((previous_bookmark_time, _)) = self
+        if keys.jump_to_previous_bookmark
+            && let Some((previous_bookmark_time, _)) = self
                 .bookmarks
                 .previous_before(&self.position.map_to_absolute_time(self.frame_range))
-            {
-                *self.position = previous_bookmark_time.map_to_relative_time(self.frame_range);
-            }
+        {
+            *self.position = previous_bookmark_time.map_to_relative_time(self.frame_range);
         };
 
         original_position != *self.position

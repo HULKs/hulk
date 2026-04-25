@@ -156,10 +156,10 @@ pub struct Timing {
 
 fn end_of_file_error_as_option<T>(result: Result<T, Error>) -> Result<Option<T>, Error> {
     result.map(Some).or_else(|error| {
-        if let bincode::ErrorKind::Io(ref error) = *error {
-            if error.kind() == io::ErrorKind::UnexpectedEof {
-                return Ok(None);
-            }
+        if let bincode::ErrorKind::Io(ref error) = *error
+            && error.kind() == io::ErrorKind::UnexpectedEof
+        {
+            return Ok(None);
         }
         Err(error)
     })

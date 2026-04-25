@@ -94,10 +94,10 @@ impl SearchSuggestor {
     }
 
     fn update_heatmap(&mut self, context: &CycleContext) -> Result<()> {
-        if let Some(ball_position) = context.ball_position {
-            if let Some(ground_to_field) = context.ground_to_field {
-                self.heatmap[ground_to_field * ball_position.position] = 1.0;
-            }
+        if let Some(ball_position) = context.ball_position
+            && let Some(ground_to_field) = context.ground_to_field
+        {
+            self.heatmap[ground_to_field * ball_position.position] = 1.0;
         }
         for ball_hypothesis in context.hypothetical_ball_positions {
             if let Some(ground_to_field) = context.ground_to_field {

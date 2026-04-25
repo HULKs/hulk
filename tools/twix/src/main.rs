@@ -571,58 +571,58 @@ impl App for TwixApp {
                 self.dock_state.push_to_focused_leaf(tab.into());
             }
 
-            if context.keybind_pressed(KeybindAction::FocusLeft) {
-                if let Some((surface_index, node_id)) = self.dock_state.focused_leaf() {
-                    self.focus_left(node_id, surface_index);
-                }
+            if context.keybind_pressed(KeybindAction::FocusLeft)
+                && let Some((surface_index, node_id)) = self.dock_state.focused_leaf()
+            {
+                self.focus_left(node_id, surface_index);
             }
-            if context.keybind_pressed(KeybindAction::FocusBelow) {
-                if let Some((surface_index, node_id)) = self.dock_state.focused_leaf() {
-                    self.focus_below(node_id, surface_index);
-                }
+            if context.keybind_pressed(KeybindAction::FocusBelow)
+                && let Some((surface_index, node_id)) = self.dock_state.focused_leaf()
+            {
+                self.focus_below(node_id, surface_index);
             }
-            if context.keybind_pressed(KeybindAction::FocusAbove) {
-                if let Some((surface_index, node_id)) = self.dock_state.focused_leaf() {
-                    self.focus_above(node_id, surface_index);
-                }
+            if context.keybind_pressed(KeybindAction::FocusAbove)
+                && let Some((surface_index, node_id)) = self.dock_state.focused_leaf()
+            {
+                self.focus_above(node_id, surface_index);
             }
-            if context.keybind_pressed(KeybindAction::FocusRight) {
-                if let Some((surface_index, node_id)) = self.dock_state.focused_leaf() {
-                    self.focus_right(node_id, surface_index);
-                }
-            }
-
-            if context.keybind_pressed(KeybindAction::DuplicateTab) {
-                if let Some((_, tab)) = self.dock_state.find_active_focused() {
-                    let new_tab = tab.save();
-                    self.dock_state.push_to_focused_leaf(Tab::from(
-                        SelectablePanel::new(PanelCreationContext {
-                            robot: self.robot.clone(),
-                            value: Some(&new_tab),
-                            wgpu_state: frame
-                                .wgpu_render_state()
-                                .cloned()
-                                .expect("no wgpu render state found"),
-                            egui_context: ui.ctx().clone(),
-                        })
-                        .unwrap(),
-                    ));
-                }
+            if context.keybind_pressed(KeybindAction::FocusRight)
+                && let Some((surface_index, node_id)) = self.dock_state.focused_leaf()
+            {
+                self.focus_right(node_id, surface_index);
             }
 
-            if context.keybind_pressed(KeybindAction::CloseTab) {
-                if let Some((surface_index, node_id)) = self.dock_state.focused_leaf() {
-                    let active_node = &mut self.dock_state[surface_index][node_id];
-                    if let Node::Leaf(LeafNode { active, tabs, .. }) = active_node {
-                        if !tabs.is_empty() {
-                            tabs.remove(active.0);
+            if context.keybind_pressed(KeybindAction::DuplicateTab)
+                && let Some((_, tab)) = self.dock_state.find_active_focused()
+            {
+                let new_tab = tab.save();
+                self.dock_state.push_to_focused_leaf(Tab::from(
+                    SelectablePanel::new(PanelCreationContext {
+                        robot: self.robot.clone(),
+                        value: Some(&new_tab),
+                        wgpu_state: frame
+                            .wgpu_render_state()
+                            .cloned()
+                            .expect("no wgpu render state found"),
+                        egui_context: ui.ctx().clone(),
+                    })
+                    .unwrap(),
+                ));
+            }
 
-                            active.0 = active.0.saturating_sub(1);
+            if context.keybind_pressed(KeybindAction::CloseTab)
+                && let Some((surface_index, node_id)) = self.dock_state.focused_leaf()
+            {
+                let active_node = &mut self.dock_state[surface_index][node_id];
+                if let Node::Leaf(LeafNode { active, tabs, .. }) = active_node
+                    && !tabs.is_empty()
+                {
+                    tabs.remove(active.0);
 
-                            if tabs.is_empty() && node_id != NodeIndex(0) {
-                                self.dock_state[surface_index].remove_leaf(node_id);
-                            }
-                        }
+                    active.0 = active.0.saturating_sub(1);
+
+                    if tabs.is_empty() && node_id != NodeIndex(0) {
+                        self.dock_state[surface_index].remove_leaf(node_id);
                     }
                 }
             }

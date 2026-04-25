@@ -104,7 +104,7 @@ impl Image {
             return Err(eyre!("Invalid NV12: step < width"));
         }
 
-        if src_width % 4 != 0 || src_height % 4 != 0 {
+        if !src_width.is_multiple_of(4) || !src_height.is_multiple_of(4) {
             return Err(eyre!(
                 "Width and height must be divisible by 4 for half NV12 subsampling"
             ));

@@ -57,11 +57,11 @@ impl Widget for &mut TextPanel {
                 if edit_response.changed() {
                     self.buffer = Some(self.robot.subscribe_json(self.path.clone()));
                 }
-                if let Some(buffer) = &self.buffer {
-                    if let Ok(Some(timestamp)) = buffer.get_last_timestamp() {
-                        let date: DateTime<Utc> = timestamp.into();
-                        ui.label(date.format("%T%.3f").to_string());
-                    }
+                if let Some(buffer) = &self.buffer
+                    && let Ok(Some(timestamp)) = buffer.get_last_timestamp()
+                {
+                    let date: DateTime<Utc> = timestamp.into();
+                    ui.label(date.format("%T%.3f").to_string());
                 }
                 edit_response
             })

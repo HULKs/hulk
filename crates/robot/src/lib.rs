@@ -496,11 +496,10 @@ async fn monitor_rsync_progress_with(
                 }
             }
             result = process.wait() => {
-                if let Ok(status) = result {
-                    if !status.success() {
+                if let Ok(status) = result
+                    && !status.success() {
                         bail!("rsync failed")
                     }
-                }
             }
         }
     }

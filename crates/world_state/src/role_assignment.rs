@@ -190,10 +190,10 @@ impl RoleAssignment {
             .fill_if_subscribed(|| self.last_time_player_was_penalized);
         if is_allowed_to_send_messages(&context) {
             match (self.role, new_role) {
-                (Role::Striker, Role::Striker) => {
-                    if self.is_striker_beacon_cooldown_elapsed(&context) {
-                        self.try_sending_striker_message(&mut context)?;
-                    }
+                (Role::Striker, Role::Striker)
+                    if self.is_striker_beacon_cooldown_elapsed(&context) =>
+                {
+                    self.try_sending_striker_message(&mut context)?;
                 }
                 (_other_role, Role::Striker) => {
                     self.try_sending_striker_message(&mut context)?;
@@ -234,8 +234,8 @@ impl RoleAssignment {
             }
             .map(|role| role.unwrap_or(Role::Striker));
 
-            if let Some(game_controller_state) = context.filtered_game_controller_state {
-                if let Some(striker) = [
+            if let Some(game_controller_state) = context.filtered_game_controller_state
+                && let Some(striker) = [
                     PlayerNumber::Five,
                     PlayerNumber::Four,
                     PlayerNumber::Three,
@@ -243,9 +243,8 @@ impl RoleAssignment {
                 ]
                 .into_iter()
                 .find(|player| game_controller_state.penalties[*player].is_none())
-                {
-                    player_roles[striker] = Role::Striker;
-                }
+            {
+                player_roles[striker] = Role::Striker;
             }
 
             self.last_received_striker_message = None;
@@ -264,20 +263,18 @@ impl RoleAssignment {
     ) -> Role {
         let hsl_striker_message_timeout = match self.last_received_striker_message {
             None => false,
-            Some(last_received_hsl_striker_message) => {
+            Some(last_received_hsl_striker_message)
                 if cycle_start_time
                     .duration_since(last_received_hsl_striker_message)
                     .expect("time ran backwards")
                     > context
                         .hsl_network_parameters
-                        .hsl_striker_message_receive_timeout
-                {
-                    self.last_received_striker_message = None;
-                    true
-                } else {
-                    false
-                }
+                        .hsl_striker_message_receive_timeout =>
+            {
+                self.last_received_striker_message = None;
+                true
             }
+            Some(_) => false,
         };
         let striker_message_timeout_event = hsl_striker_message_timeout
             .then_some(Event::Loser)
@@ -406,8 +403,8 @@ impl RoleAssignment {
                     fallen: context
                         .fall_down_state
                         .persistent
-                        .iter()
-                        .flat_map(|(_, messages)| messages.iter())
+                        .values()
+                        .flat_map(|messages| messages.iter())
                         .any(|message| {
                             matches!(
                                 message,
@@ -690,13 +687,13 @@ fn keep_current_role_if_not_in_playing(
 fn role_for_penalty_shootout(
     filtered_game_controller_state: Option<&FilteredGameControllerState>,
 ) -> Option<Role> {
-    if let Some(game_controller_state) = filtered_game_controller_state {
-        if let GamePhase::PenaltyShootout { kicking_team } = game_controller_state.game_phase {
-            return Some(match kicking_team {
-                Team::Hulks => Role::Striker,
-                Team::Opponent => Role::Keeper,
-            });
-        };
+    if let Some(game_controller_state) = filtered_game_controller_state
+        && let GamePhase::PenaltyShootout { kicking_team } = game_controller_state.game_phase
+    {
+        return Some(match kicking_team {
+            Team::Hulks => Role::Striker,
+            Team::Opponent => Role::Keeper,
+        });
     }
     None
 }
@@ -736,24 +733,23 @@ fn role_for_penalty_kick(
         match current_role {
             Role::Keeper | Role::ReplacementKeeper | Role::Striker => {}
             _ => {
-                if game_controller_state.penalties[striker_number].is_some() {
-                    if let Some(FilteredGameControllerState {
+                if game_controller_state.penalties[striker_number].is_some()
+                    && let Some(FilteredGameControllerState {
                         kicking_team: Some(Team::Hulks),
                         sub_state: Some(SubState::PenaltyKick),
                         ..
                     }) = filtered_game_controller_state
-                    {
-                        return Some(Role::Striker);
-                    }
+                {
+                    return Some(Role::Striker);
                 }
             }
         }
     }
 
-    if let Some(game_controller_state) = filtered_game_controller_state {
-        if let Some(SubState::PenaltyKick) = game_controller_state.sub_state {
-            return Some(current_role);
-        }
+    if let Some(game_controller_state) = filtered_game_controller_state
+        && let Some(SubState::PenaltyKick) = game_controller_state.sub_state
+    {
+        return Some(current_role);
     }
     None
 }
@@ -766,10 +762,9 @@ fn keep_current_role_during_free_kicks(
         sub_state: Some(SubState::ThrowIn | SubState::DirectFreeKick),
         ..
     }) = filtered_game_controller_state
+        && [Role::Defender, Role::Midfielder].contains(&current_role)
     {
-        if [Role::Defender, Role::Midfielder].contains(&current_role) {
-            return Some(current_role);
-        }
+        return Some(current_role);
     }
     None
 }
