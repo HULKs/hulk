@@ -12,6 +12,7 @@ dependencies = [
   "pyyaml>=6.0.3",
   "torch>=2.10.0",
   "ultralytics>=8.4.31",
+  "wonderwords>=3.0.1",
 ]
 
 [build-system]

@@ -6,6 +6,7 @@ from typing import Any
 import click
 import yaml
 from ultralytics.models.yolo.model import YOLO
+from wonderwords import RandomWord
 
 from utils.model_naming import (
     HYDRA_MODEL_NAME_TYPE,
@@ -215,7 +216,16 @@ def main(
             config = TrainingConfig(
                 data=data,
                 project=runs_dir,
-                name=Path("tune") / str(hydra_model),
+                name=Path("tune")
+                / (
+                    str(hydra_model)
+                    + "~"
+                    + RandomWord().word(
+                        word_min_length=4,
+                        word_max_length=8,
+                        include_categories=["nouns"],
+                    )
+                ),
                 epochs=40,
                 optimizer="AdamW",
                 freeze=hydra_model.number_of_frozen_modules,
@@ -236,7 +246,16 @@ def main(
         config = TrainingConfig(
             data=data,
             project=runs_dir,
-            name=Path("train") / str(hydra_model),
+            name=Path("train")
+            / (
+                str(hydra_model)
+                + "~"
+                + RandomWord().word(
+                    word_min_length=4,
+                    word_max_length=8,
+                    include_categories=["nouns"],
+                )
+            ),
             epochs=70,
             freeze=hydra_model.number_of_frozen_modules,
             device=device,
