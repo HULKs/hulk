@@ -10,24 +10,29 @@ use color_eyre::{
 };
 use geometry::line_segment::LineSegment;
 use linear_algebra::{IntoTransform, Isometry2, Point2, Pose2, distance, point};
-use nalgebra::{Matrix2, Matrix3, Rotation2, Vector2, Vector3, matrix};
+use nalgebra::{Matrix2, Matrix3, Rotation2, Vector2, Vector3, matrix, vector};
 use ordered_float::NotNan;
+use projection::{Projection, camera_matrix::CameraMatrix};
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use filtering::pose_filter::PoseFilter;
-use framework::{AdditionalOutput, MainOutput, PerceptionInput};
+use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use hsl_network_messages::{GamePhase, Penalty, PlayerNumber, SubState, Team};
 use types::{
     cycle_time::CycleTime,
-    field_dimensions::FieldDimensions,
+    field_dimensions::{FieldDimensions, Half, Side as FieldSide},
     field_marks::{CorrespondencePoints, Direction, FieldMark, field_marks_from_field_dimensions},
     filtered_game_controller_state::FilteredGameControllerState,
     initial_pose::InitialPose,
     line_data::LineData,
-    localization::{ScoredPose, Update},
+    localization::{
+        GoalPostPairAssociationDebug, LineAssociationDebug, LocalizationDebugFrame,
+        LocalizationDebugHypothesis, PointAssociationDebug, ScoredPose,
+    },
     multivariate_normal_distribution::MultivariateNormalDistribution,
+    object_detection::{Detection, NaoLabelPartyObjectDetectionLabel},
     players::Players,
     primary_state::PrimaryState,
     support_foot::Side,
@@ -35,8 +40,6 @@ use types::{
 
 type FitErrorsPerGradientStep = Vec<f32>;
 type FitErrorsPerOuterIteration = Vec<FitErrorsPerGradientStep>;
-type FitErrorsPerHypothesis = Vec<FitErrorsPerOuterIteration>;
-type FitErrorsPerMeasurement = Vec<FitErrorsPerHypothesis>;
 
 #[derive(Deserialize, Serialize)]
 pub struct Localization {
@@ -48,6 +51,7 @@ pub struct Localization {
     time_when_penalized_clicked: Option<SystemTime>,
     last_odometer: Option<Odometer>,
     last_line_data_time: SystemTime,
+    last_detected_objects_time: SystemTime,
 }
 
 #[context]
@@ -57,24 +61,23 @@ pub struct CreationContext {
 
 #[context]
 pub struct CycleContext {
-    correspondence_lines:
-        AdditionalOutput<Vec<LineSegment<Field>>, "localization.correspondence_lines">,
-    fit_errors: AdditionalOutput<Vec<Vec<Vec<Vec<f32>>>>, "localization.fit_errors">,
-    measured_lines_in_field:
-        AdditionalOutput<Vec<LineSegment<Field>>, "localization.measured_lines_in_field">,
-    pose_hypotheses: AdditionalOutput<Vec<ScoredPose>, "localization.pose_hypotheses">,
-    updates: AdditionalOutput<Vec<Vec<Update>>, "localization.updates">,
-    gyro_movement: AdditionalOutput<f32, "localization.gyro_movement">,
+    debug_frame: AdditionalOutput<LocalizationDebugFrame, "localization.debug_frame">,
 
     filtered_game_controller_state:
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
     primary_state: Input<PrimaryState, "primary_state">,
     cycle_time: Input<CycleTime, "cycle_time">,
+    camera_matrix: HistoricInput<Option<CameraMatrix>, "camera_matrix?">,
 
     odometer: PerceptionInput<Odometer, "Odometry", "odometer">,
     fall_down_state: PerceptionInput<Option<FallDownState>, "FallDownState", "fall_down_state?">,
     imu_state: PerceptionInput<ImuState, "Motion", "imu_state">,
     line_data: PerceptionInput<Option<LineData>, "Vision", "line_data?">,
+    detected_objects: PerceptionInput<
+        Vec<Detection<NaoLabelPartyObjectDetectionLabel>>,
+        "ObjectDetection",
+        "detected_objects",
+    >,
 
     circle_measurement_noise: Parameter<Vector2<f32>, "localization.circle_measurement_noise">,
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
@@ -101,12 +104,25 @@ pub struct CycleContext {
         Parameter<usize, "localization.maximum_amount_of_outer_iterations">,
     minimum_fit_error: Parameter<f32, "localization.minimum_fit_error">,
     odometry_noise: Parameter<Vector3<f32>, "localization.odometry_noise">,
+    penalty_spot_matching_distance: Parameter<f32, "localization.penalty_spot_matching_distance">,
+    penalty_spot_measurement_noise:
+        Parameter<Vector2<f32>, "localization.penalty_spot_measurement_noise">,
     player_number: Parameter<PlayerNumber, "player_number">,
     penalized_distance: Parameter<f32, "localization.penalized_distance">,
     penalized_hypothesis_covariance:
         Parameter<Matrix3<f32>, "localization.penalized_hypothesis_covariance">,
+    goal_post_pair_matching_distance:
+        Parameter<f32, "localization.goal_post_pair_matching_distance">,
+    goal_post_pair_measurement_noise:
+        Parameter<Matrix3<f32>, "localization.goal_post_pair_measurement_noise">,
     score_per_good_match: Parameter<f32, "localization.score_per_good_match">,
+    single_goal_post_matching_distance:
+        Parameter<f32, "localization.single_goal_post_matching_distance">,
+    single_goal_post_measurement_noise:
+        Parameter<Vector2<f32>, "localization.single_goal_post_measurement_noise">,
     tentative_penalized_duration: Parameter<Duration, "localization.tentative_penalized_duration">,
+    use_detected_field_mark_measurements:
+        Parameter<bool, "localization.use_detected_field_mark_measurements">,
     use_line_measurements: Parameter<bool, "localization.use_line_measurements">,
 }
 
@@ -127,18 +143,26 @@ enum PenaltyExitStrategy {
 struct MeasurementNoise {
     line: Matrix2<f32>,
     circle: Matrix2<f32>,
+    penalty_spot: Matrix2<f32>,
+    single_goal_post: Matrix2<f32>,
+    goal_post_pair: Matrix3<f32>,
 }
 
-struct DebugUpdateContext {
-    hypothesis_index: usize,
-    field_mark_correspondence: FieldMarkCorrespondence,
-    ground_to_field: Isometry2<Ground, Field>,
-    update: Vector2<f32>,
-    clamped_fit_error: f32,
-    number_of_measurements_weight: f32,
-    line_length_weight: f32,
-    line_center_point: Point2<Field>,
-    line_distance_to_robot: f32,
+#[derive(Default)]
+struct HypothesisDebugState {
+    line_associations: Vec<LineAssociationDebug>,
+    unmatched_lines_in_field: Vec<LineSegment<Field>>,
+    penalty_spot_associations: Vec<PointAssociationDebug>,
+    unmatched_penalty_spots_in_field: Vec<Point2<Field>>,
+    single_goal_post_associations: Vec<PointAssociationDebug>,
+    unmatched_goal_posts_in_field: Vec<Point2<Field>>,
+    goal_post_pair_association: Option<GoalPostPairAssociationDebug>,
+}
+
+#[derive(Default)]
+struct DetectedFieldMarks {
+    penalty_spots_in_ground: Vec<Point2<Ground>>,
+    goal_posts_in_ground: Vec<Point2<Ground>>,
 }
 
 struct CycleInputs {
@@ -152,6 +176,7 @@ struct CycleInputs {
     line_measurements_allowed: bool,
     current_odometry_to_last_odometry: nalgebra::Isometry2<f32>,
     line_data: Option<LineData>,
+    detected_field_marks: Option<DetectedFieldMarks>,
 }
 
 impl Localization {
@@ -170,6 +195,7 @@ impl Localization {
             time_when_penalized_clicked: None,
             last_odometer: None,
             last_line_data_time: SystemTime::UNIX_EPOCH,
+            last_detected_objects_time: SystemTime::UNIX_EPOCH,
         })
     }
 
@@ -253,6 +279,20 @@ impl Localization {
             _ => None,
         };
 
+        let detected_field_marks = context
+            .detected_objects
+            .persistent
+            .iter()
+            .chain(&context.detected_objects.temporary)
+            .filter(|(time, _)| **time > self.last_detected_objects_time)
+            .flat_map(|(time, detections)| Some((*time, (*detections.iter().last()?).clone())))
+            .last()
+            .map(|(time, detections)| {
+                self.last_detected_objects_time = time;
+                extract_detected_field_marks(context, time, &detections)
+            })
+            .flatten();
+
         CycleInputs {
             cycle_start_time,
             primary_state,
@@ -264,6 +304,7 @@ impl Localization {
             line_measurements_allowed,
             current_odometry_to_last_odometry,
             line_data,
+            detected_field_marks,
         }
     }
 
@@ -458,23 +499,10 @@ impl Localization {
         inputs: &CycleInputs,
         context: &mut CycleContext,
     ) -> Result<Isometry2<Ground, Field>> {
-        self.prepare_debug_outputs(context, inputs);
         let measurement_noise = self.measurement_noise(context, inputs);
         self.predict_hypotheses(context, inputs.current_odometry_to_last_odometry)?;
-        let fit_errors_per_measurement =
-            self.apply_measurements(inputs, context, &measurement_noise)?;
-        self.finalize_hypotheses(context, fit_errors_per_measurement)
-    }
-
-    fn prepare_debug_outputs(&self, context: &mut CycleContext, inputs: &CycleInputs) {
-        context.measured_lines_in_field.fill_if_subscribed(Vec::new);
-        context.correspondence_lines.fill_if_subscribed(Vec::new);
-        context
-            .updates
-            .fill_if_subscribed(|| vec![vec![]; self.hypotheses.len()]);
-        context
-            .gyro_movement
-            .fill_if_subscribed(|| inputs.gyro_movement);
+        let debug_hypotheses = self.apply_measurements(inputs, context, &measurement_noise)?;
+        self.finalize_hypotheses(context, inputs, debug_hypotheses)
     }
 
     fn measurement_noise(&self, context: &CycleContext, inputs: &CycleInputs) -> MeasurementNoise {
@@ -487,6 +515,9 @@ impl Localization {
                 &(context.circle_measurement_noise
                     + context.additional_moving_noise_circle * inputs.gyro_movement),
             ),
+            penalty_spot: Matrix2::from_diagonal(&context.penalty_spot_measurement_noise),
+            single_goal_post: Matrix2::from_diagonal(&context.single_goal_post_measurement_noise),
+            goal_post_pair: *context.goal_post_pair_measurement_noise,
         }
     }
 
@@ -512,239 +543,404 @@ impl Localization {
         inputs: &CycleInputs,
         context: &mut CycleContext,
         measurement_noise: &MeasurementNoise,
-    ) -> Result<FitErrorsPerMeasurement> {
-        if !*context.use_line_measurements || !inputs.line_measurements_allowed {
-            return Ok(Vec::new());
-        }
-        let Some(line_data) = inputs.line_data.as_ref() else {
-            return Ok(Vec::new());
-        };
+    ) -> Result<Vec<LocalizationDebugHypothesis>> {
+        let mut debug_hypotheses = Vec::with_capacity(self.hypotheses.len());
+        let field_marks = self.field_marks.as_slice();
 
-        let fit_errors = self.apply_measurement_batch(context, line_data, measurement_noise)?;
-        Ok((!fit_errors.is_empty())
-            .then_some(fit_errors)
-            .into_iter()
-            .collect())
-    }
+        for scored_state in &mut self.hypotheses {
+            let mut debug_state = HypothesisDebugState::default();
 
-    fn apply_measurement_batch(
-        &mut self,
-        context: &mut CycleContext,
-        line_data: &LineData,
-        measurement_noise: &MeasurementNoise,
-    ) -> Result<FitErrorsPerHypothesis> {
-        let mut fit_errors_per_hypothesis = Vec::with_capacity(self.hypotheses.len());
-
-        for (hypothesis_index, scored_state) in self.hypotheses.iter_mut().enumerate() {
-            let ground_to_field: Isometry2<Ground, Field> =
-                scored_state.state.as_isometry().framed_transform();
-            let measured_lines_in_field: Vec<_> = line_data
-                .lines
-                .iter()
-                .map(|&measured_line_in_ground| ground_to_field * measured_line_in_ground)
-                .collect();
-            Self::append_measured_lines_for_debug(context, &measured_lines_in_field);
-
-            if measured_lines_in_field.is_empty() {
-                continue;
-            }
-
-            let (field_mark_correspondences, fit_error, fit_errors) =
-                get_fitted_field_mark_correspondence(
-                    &measured_lines_in_field,
-                    &self.field_marks,
-                    *context.gradient_convergence_threshold,
-                    *context.gradient_descent_step_size,
-                    *context.line_length_acceptance_factor,
-                    *context.maximum_amount_of_gradient_descent_iterations,
-                    *context.maximum_amount_of_outer_iterations,
-                    context.fit_errors.is_subscribed(),
-                );
-
-            Self::append_correspondence_lines_for_debug(context, &field_mark_correspondences);
-
-            if field_mark_correspondences.is_empty() {
-                continue;
-            }
-
-            if context.fit_errors.is_subscribed() {
-                fit_errors_per_hypothesis.push(fit_errors);
-            }
-
-            let clamped_fit_error = fit_error.max(*context.minimum_fit_error);
-            let number_of_measurements_weight = 1.0 / field_mark_correspondences.len() as f32;
-
-            for field_mark_correspondence in field_mark_correspondences {
-                let update = match field_mark_correspondence.field_mark {
-                    FieldMark::Line { .. } => get_translation_and_rotation_measurement(
-                        ground_to_field,
-                        field_mark_correspondence,
-                    ),
-                    FieldMark::Circle { .. } => {
-                        get_2d_translation_measurement(ground_to_field, field_mark_correspondence)
-                    }
-                };
-                let line_length = field_mark_correspondence.measured_line_in_field.length();
-                let line_length_weight = if line_length == 0.0 {
-                    1.0
-                } else {
-                    1.0 / line_length
-                };
-                let line_center_point = field_mark_correspondence.measured_line_in_field.center();
-                let line_distance_to_robot =
-                    distance(line_center_point, ground_to_field.as_pose().position());
-
-                Self::append_update_for_debug(
-                    context,
-                    DebugUpdateContext {
-                        hypothesis_index,
-                        field_mark_correspondence,
-                        ground_to_field,
-                        update,
-                        clamped_fit_error,
-                        number_of_measurements_weight,
-                        line_length_weight,
-                        line_center_point,
-                        line_distance_to_robot,
-                    },
-                );
-
-                let uncertainty_weight = clamped_fit_error
-                    * number_of_measurements_weight
-                    * line_length_weight
-                    * line_distance_to_robot;
-
-                match field_mark_correspondence.field_mark {
-                    FieldMark::Line { direction, .. } => scored_state
-                        .state
-                        .update_with_1d_translation_and_rotation(
-                            update,
-                            measurement_noise.line * uncertainty_weight,
-                            |state| match direction {
-                                Direction::PositiveX => nalgebra::vector![state.y, state.z],
-                                Direction::PositiveY => nalgebra::vector![state.x, state.z],
-                            },
-                        )
-                        .context("failed to update pose filter with line correspondence")?,
-                    FieldMark::Circle { .. } => scored_state
-                        .state
-                        .update_with_2d_translation(
-                            update,
-                            measurement_noise.circle * uncertainty_weight,
-                            |state| nalgebra::vector![state.x, state.y],
-                        )
-                        .context("failed to update pose filter with circle correspondence")?,
+            if *context.use_line_measurements && inputs.line_measurements_allowed {
+                if let Some(line_data) = inputs.line_data.as_ref() {
+                    Self::apply_line_measurements_for_hypothesis(
+                        field_marks,
+                        scored_state,
+                        line_data,
+                        context,
+                        measurement_noise,
+                        &mut debug_state,
+                    )?;
                 }
+            }
 
-                if field_mark_correspondence.fit_error_sum() < *context.good_matching_threshold {
-                    scored_state.score += *context.score_per_good_match;
+            if *context.use_detected_field_mark_measurements && inputs.line_measurements_allowed {
+                if let Some(detected_field_marks) = inputs.detected_field_marks.as_ref() {
+                    Self::apply_detected_field_mark_measurements_for_hypothesis(
+                        scored_state,
+                        detected_field_marks,
+                        context,
+                        measurement_noise,
+                        &mut debug_state,
+                    )?;
                 }
             }
 
             scored_state.score += *context.hypothesis_score_base_increase;
+            debug_hypotheses.push(LocalizationDebugHypothesis {
+                ground_to_field: scored_state.state.as_isometry().framed_transform(),
+                score: scored_state.score,
+                covariance: scored_state.state.covariance,
+                line_associations: debug_state.line_associations,
+                unmatched_lines_in_field: debug_state.unmatched_lines_in_field,
+                penalty_spot_associations: debug_state.penalty_spot_associations,
+                unmatched_penalty_spots_in_field: debug_state.unmatched_penalty_spots_in_field,
+                single_goal_post_associations: debug_state.single_goal_post_associations,
+                unmatched_goal_posts_in_field: debug_state.unmatched_goal_posts_in_field,
+                goal_post_pair_association: debug_state.goal_post_pair_association,
+            });
         }
 
-        Ok(fit_errors_per_hypothesis)
+        Ok(debug_hypotheses)
     }
 
-    fn append_measured_lines_for_debug(
-        context: &mut CycleContext,
-        measured_lines_in_field: &[LineSegment<Field>],
-    ) {
-        context
-            .measured_lines_in_field
-            .mutate_if_subscribed(|existing_lines| {
-                if let Some(existing_lines) = existing_lines {
-                    existing_lines.extend(measured_lines_in_field.iter());
-                }
+    fn apply_line_measurements_for_hypothesis(
+        field_marks: &[FieldMark],
+        scored_state: &mut ScoredPose,
+        line_data: &LineData,
+        context: &CycleContext,
+        measurement_noise: &MeasurementNoise,
+        debug_state: &mut HypothesisDebugState,
+    ) -> Result<()> {
+        let ground_to_field: Isometry2<Ground, Field> =
+            scored_state.state.as_isometry().framed_transform();
+        let measured_lines_in_field: Vec<_> = line_data
+            .lines
+            .iter()
+            .map(|&measured_line_in_ground| ground_to_field * measured_line_in_ground)
+            .collect();
+
+        if measured_lines_in_field.is_empty() {
+            return Ok(());
+        }
+
+        let (field_mark_correspondences, fit_error, _fit_errors) =
+            get_fitted_field_mark_correspondence(
+                &measured_lines_in_field,
+                field_marks,
+                *context.gradient_convergence_threshold,
+                *context.gradient_descent_step_size,
+                *context.line_length_acceptance_factor,
+                *context.maximum_amount_of_gradient_descent_iterations,
+                *context.maximum_amount_of_outer_iterations,
+                false,
+            );
+
+        let matched_line_indices = field_mark_correspondences
+            .iter()
+            .map(|correspondence| correspondence.measured_line_index)
+            .collect::<std::collections::HashSet<_>>();
+        debug_state.unmatched_lines_in_field.extend(
+            measured_lines_in_field
+                .iter()
+                .enumerate()
+                .filter(|(index, _)| !matched_line_indices.contains(index))
+                .map(|(_, &line)| line),
+        );
+
+        if field_mark_correspondences.is_empty() {
+            return Ok(());
+        }
+
+        let clamped_fit_error = fit_error.max(*context.minimum_fit_error);
+        let number_of_measurements_weight = 1.0 / field_mark_correspondences.len() as f32;
+
+        for field_mark_correspondence in field_mark_correspondences {
+            debug_state.line_associations.push(LineAssociationDebug {
+                measured_line: field_mark_correspondence.measured_line_in_field,
+                matched_field_mark: field_mark_correspondence.field_mark,
+                correspondence_points: field_mark_correspondence.correspondence_points,
+                fit_error: field_mark_correspondence.fit_error_sum(),
             });
-    }
 
-    fn append_correspondence_lines_for_debug(
-        context: &mut CycleContext,
-        field_mark_correspondences: &[FieldMarkCorrespondence],
-    ) {
-        context
-            .correspondence_lines
-            .mutate_if_subscribed(|correspondence_lines| {
-                if let Some(correspondence_lines) = correspondence_lines {
-                    correspondence_lines.extend(field_mark_correspondences.iter().flat_map(
-                        |field_mark_correspondence| {
-                            let correspondence_points_0 =
-                                field_mark_correspondence.correspondence_points.0;
-                            let correspondence_points_1 =
-                                field_mark_correspondence.correspondence_points.1;
-                            [
-                                LineSegment(
-                                    correspondence_points_0.measured,
-                                    correspondence_points_0.reference,
-                                ),
-                                LineSegment(
-                                    correspondence_points_1.measured,
-                                    correspondence_points_1.reference,
-                                ),
-                            ]
+            let update = match field_mark_correspondence.field_mark {
+                FieldMark::Line { .. } => get_translation_and_rotation_measurement(
+                    ground_to_field,
+                    field_mark_correspondence,
+                ),
+                FieldMark::Circle { .. } => {
+                    get_2d_translation_measurement(ground_to_field, field_mark_correspondence)
+                }
+            };
+            let line_length = field_mark_correspondence.measured_line_in_field.length();
+            let line_length_weight = if line_length == 0.0 {
+                1.0
+            } else {
+                1.0 / line_length
+            };
+            let line_center_point = field_mark_correspondence.measured_line_in_field.center();
+            let line_distance_to_robot =
+                distance(line_center_point, ground_to_field.as_pose().position());
+            let uncertainty_weight = clamped_fit_error
+                * number_of_measurements_weight
+                * line_length_weight
+                * line_distance_to_robot;
+
+            match field_mark_correspondence.field_mark {
+                FieldMark::Line { direction, .. } => scored_state
+                    .state
+                    .update_with_1d_translation_and_rotation(
+                        update,
+                        measurement_noise.line * uncertainty_weight,
+                        |state| match direction {
+                            Direction::PositiveX => vector![state.y, state.z],
+                            Direction::PositiveY => vector![state.x, state.z],
                         },
-                    ));
-                }
-            });
+                    )
+                    .context("failed to update pose filter with line correspondence")?,
+                FieldMark::Circle { .. } => scored_state
+                    .state
+                    .update_with_2d_translation(
+                        update,
+                        measurement_noise.circle * uncertainty_weight,
+                        |state| vector![state.x, state.y],
+                    )
+                    .context("failed to update pose filter with circle correspondence")?,
+            }
+
+            if field_mark_correspondence.fit_error_sum() < *context.good_matching_threshold {
+                scored_state.score += *context.score_per_good_match;
+            }
+        }
+
+        Ok(())
     }
 
-    fn append_update_for_debug(context: &mut CycleContext, debug: DebugUpdateContext) {
-        context.updates.mutate_if_subscribed(|updates| {
-            if let Some(updates) = updates {
-                let debug_ground_to_field = match debug.field_mark_correspondence.field_mark {
-                    FieldMark::Line { direction, .. } => match direction {
-                        Direction::PositiveX => nalgebra::Isometry2::new(
-                            nalgebra::vector![
-                                debug.ground_to_field.translation().x(),
-                                debug.update.x
-                            ],
-                            debug.update.y,
-                        ),
-                        Direction::PositiveY => nalgebra::Isometry2::new(
-                            nalgebra::vector![
-                                debug.update.x,
-                                debug.ground_to_field.translation().y()
-                            ],
-                            debug.update.y,
-                        ),
-                    },
-                    FieldMark::Circle { .. } => nalgebra::Isometry2::new(
-                        debug.update,
-                        debug.ground_to_field.orientation().angle(),
-                    ),
-                }
-                .framed_transform();
-                updates[debug.hypothesis_index].push(Update {
-                    ground_to_field: debug_ground_to_field,
-                    line_center_point: debug.line_center_point,
-                    fit_error: debug.clamped_fit_error,
-                    number_of_measurements_weight: debug.number_of_measurements_weight,
-                    line_distance_to_robot: debug.line_distance_to_robot,
-                    line_length_weight: debug.line_length_weight,
+    fn apply_detected_field_mark_measurements_for_hypothesis(
+        scored_state: &mut ScoredPose,
+        detected_field_marks: &DetectedFieldMarks,
+        context: &CycleContext,
+        measurement_noise: &MeasurementNoise,
+        debug_state: &mut HypothesisDebugState,
+    ) -> Result<()> {
+        Self::apply_penalty_spot_measurements_for_hypothesis(
+            scored_state,
+            &detected_field_marks.penalty_spots_in_ground,
+            context,
+            measurement_noise,
+            debug_state,
+        )?;
+        Self::apply_goal_post_measurements_for_hypothesis(
+            scored_state,
+            &detected_field_marks.goal_posts_in_ground,
+            context,
+            measurement_noise,
+            debug_state,
+        )?;
+        Ok(())
+    }
+
+    fn apply_penalty_spot_measurements_for_hypothesis(
+        scored_state: &mut ScoredPose,
+        measured_penalty_spots_in_ground: &[Point2<Ground>],
+        context: &CycleContext,
+        measurement_noise: &MeasurementNoise,
+        debug_state: &mut HypothesisDebugState,
+    ) -> Result<()> {
+        let reference_points = [
+            context.field_dimensions.penalty_spot(Half::Own),
+            context.field_dimensions.penalty_spot(Half::Opponent),
+        ];
+
+        for &measured_penalty_spot_in_ground in measured_penalty_spots_in_ground {
+            let ground_to_field: Isometry2<Ground, Field> =
+                scored_state.state.as_isometry().framed_transform();
+            let measured_penalty_spot_in_field = ground_to_field * measured_penalty_spot_in_ground;
+            let (matched_reference_point, association_distance) =
+                nearest_reference_point(measured_penalty_spot_in_field, &reference_points);
+            let accepted = association_distance <= *context.penalty_spot_matching_distance;
+
+            debug_state
+                .penalty_spot_associations
+                .push(PointAssociationDebug {
+                    measured_point_in_field: measured_penalty_spot_in_field,
+                    matched_reference_point: Some(matched_reference_point),
+                    association_distance: Some(association_distance),
+                    matching_distance: *context.penalty_spot_matching_distance,
+                    accepted,
                 });
+
+            if !accepted {
+                debug_state
+                    .unmatched_penalty_spots_in_field
+                    .push(measured_penalty_spot_in_field);
+                continue;
             }
+
+            scored_state
+                .state
+                .update_with_2d_translation(
+                    measured_point_to_vector(matched_reference_point),
+                    measurement_noise.penalty_spot,
+                    |state| {
+                        let ground_to_field =
+                            nalgebra::Isometry2::new(vector![state.x, state.y], state.z)
+                                .framed_transform();
+                        measured_point_to_vector(ground_to_field * measured_penalty_spot_in_ground)
+                    },
+                )
+                .context("failed to update pose filter with penalty spot measurement")?;
+            scored_state.score += *context.score_per_good_match;
+        }
+
+        Ok(())
+    }
+
+    fn apply_goal_post_measurements_for_hypothesis(
+        scored_state: &mut ScoredPose,
+        measured_goal_posts_in_ground: &[Point2<Ground>],
+        context: &CycleContext,
+        measurement_noise: &MeasurementNoise,
+        debug_state: &mut HypothesisDebugState,
+    ) -> Result<()> {
+        if measured_goal_posts_in_ground.len() >= 2 {
+            return Self::apply_goal_post_pair_measurement_for_hypothesis(
+                scored_state,
+                measured_goal_posts_in_ground,
+                context,
+                measurement_noise,
+                debug_state,
+            );
+        }
+
+        let reference_points = goal_post_reference_points(context.field_dimensions);
+        for &measured_goal_post_in_ground in measured_goal_posts_in_ground {
+            let ground_to_field: Isometry2<Ground, Field> =
+                scored_state.state.as_isometry().framed_transform();
+            let measured_goal_post_in_field = ground_to_field * measured_goal_post_in_ground;
+            let (matched_reference_point, association_distance) =
+                nearest_reference_point(measured_goal_post_in_field, &reference_points);
+            let accepted = association_distance <= *context.single_goal_post_matching_distance;
+
+            debug_state
+                .single_goal_post_associations
+                .push(PointAssociationDebug {
+                    measured_point_in_field: measured_goal_post_in_field,
+                    matched_reference_point: Some(matched_reference_point),
+                    association_distance: Some(association_distance),
+                    matching_distance: *context.single_goal_post_matching_distance,
+                    accepted,
+                });
+
+            if !accepted {
+                debug_state
+                    .unmatched_goal_posts_in_field
+                    .push(measured_goal_post_in_field);
+                continue;
+            }
+
+            scored_state
+                .state
+                .update_with_2d_translation(
+                    measured_point_to_vector(matched_reference_point),
+                    measurement_noise.single_goal_post,
+                    |state| {
+                        let ground_to_field =
+                            nalgebra::Isometry2::new(vector![state.x, state.y], state.z)
+                                .framed_transform();
+                        measured_point_to_vector(ground_to_field * measured_goal_post_in_ground)
+                    },
+                )
+                .context("failed to update pose filter with single goal post measurement")?;
+            scored_state.score += *context.score_per_good_match;
+        }
+
+        Ok(())
+    }
+
+    fn apply_goal_post_pair_measurement_for_hypothesis(
+        scored_state: &mut ScoredPose,
+        measured_goal_posts_in_ground: &[Point2<Ground>],
+        context: &CycleContext,
+        measurement_noise: &MeasurementNoise,
+        debug_state: &mut HypothesisDebugState,
+    ) -> Result<()> {
+        let ground_to_field: Isometry2<Ground, Field> =
+            scored_state.state.as_isometry().framed_transform();
+        let Some(best_pair_match) = best_goal_post_pair_match(
+            ground_to_field,
+            measured_goal_posts_in_ground,
+            context.field_dimensions,
+        ) else {
+            return Ok(());
+        };
+        let accepted =
+            best_pair_match.average_distance <= *context.goal_post_pair_matching_distance;
+
+        debug_state.goal_post_pair_association = Some(GoalPostPairAssociationDebug {
+            measured_posts_in_field: best_pair_match.measured_posts_in_field,
+            matched_reference_posts: best_pair_match.reference_posts,
+            pair_fit_error: best_pair_match.average_distance,
+            matching_distance: *context.goal_post_pair_matching_distance,
+            accepted,
+            resulting_ground_to_field: accepted
+                .then_some(best_pair_match.estimated_ground_to_field),
         });
+
+        if !accepted {
+            debug_state.unmatched_goal_posts_in_field.extend(
+                measured_goal_posts_in_ground
+                    .iter()
+                    .map(|&goal_post| ground_to_field * goal_post),
+            );
+            return Ok(());
+        }
+
+        let measurement = vector![
+            best_pair_match.estimated_ground_to_field.translation().x(),
+            best_pair_match.estimated_ground_to_field.translation().y(),
+            best_pair_match
+                .estimated_ground_to_field
+                .orientation()
+                .angle(),
+        ];
+        scored_state
+            .state
+            .update_with_3d_pose(measurement, measurement_noise.goal_post_pair, |state| state)
+            .context("failed to update pose filter with goal post pair measurement")?;
+        scored_state.score += *context.score_per_good_match;
+
+        Ok(())
     }
 
     fn finalize_hypotheses(
         &mut self,
         context: &mut CycleContext,
-        fit_errors_per_measurement: FitErrorsPerMeasurement,
+        inputs: &CycleInputs,
+        debug_hypotheses: Vec<LocalizationDebugHypothesis>,
     ) -> Result<Isometry2<Ground, Field>> {
         let best_hypothesis = self
             .get_best_hypothesis()
             .ok_or_eyre("localization has no pose hypotheses after update")?;
         let best_score = best_hypothesis.score;
         let ground_to_field = best_hypothesis.state.as_isometry();
-        self.hypotheses.retain(|scored_state| {
-            scored_state.score >= *context.hypothesis_retain_factor * best_score
-        });
+        let retain_threshold = *context.hypothesis_retain_factor * best_score;
+        let retained = self
+            .hypotheses
+            .drain(..)
+            .zip(debug_hypotheses)
+            .filter(|(scored_state, _)| scored_state.score >= retain_threshold)
+            .collect::<Vec<_>>();
+        self.hypotheses = retained
+            .iter()
+            .map(|(scored_state, _)| *scored_state)
+            .collect();
+        let debug_hypotheses = retained
+            .into_iter()
+            .map(|(_, debug_hypothesis)| debug_hypothesis)
+            .collect::<Vec<_>>();
 
         context
-            .fit_errors
-            .fill_if_subscribed(|| fit_errors_per_measurement);
+            .debug_frame
+            .fill_if_subscribed(|| LocalizationDebugFrame {
+                cycle_start_time: unix_duration(inputs.cycle_start_time),
+                gyro_movement: inputs.gyro_movement,
+                best_hypothesis_index: debug_hypotheses
+                    .iter()
+                    .enumerate()
+                    .max_by_key(|(_, hypothesis)| NotNan::new(hypothesis.score).unwrap())
+                    .map(|(index, _)| index),
+                hypotheses: debug_hypotheses,
+            });
 
         Ok(ground_to_field.framed_transform())
     }
@@ -752,14 +948,10 @@ impl Localization {
     fn compose_main_outputs(
         &self,
         _inputs: &CycleInputs,
-        context: &mut CycleContext,
+        _context: &mut CycleContext,
         ground_to_field: Option<Isometry2<Ground, Field>>,
     ) -> MainOutputs {
         let is_localization_converged = self.hypotheses.len() == 1;
-
-        context
-            .pose_hypotheses
-            .fill_if_subscribed(|| self.hypotheses.clone());
 
         MainOutputs {
             ground_to_field: ground_to_field.into(),
@@ -772,6 +964,200 @@ impl Localization {
             .iter()
             .max_by_key(|scored_filter| NotNan::new(scored_filter.score).unwrap())
     }
+}
+
+struct GoalPostPairMatch {
+    measured_posts_in_field: (Point2<Field>, Point2<Field>),
+    reference_posts: (Point2<Field>, Point2<Field>),
+    average_distance: f32,
+    estimated_ground_to_field: Isometry2<Ground, Field>,
+}
+
+fn extract_detected_field_marks(
+    context: &CycleContext,
+    detection_time: SystemTime,
+    detections: &[Detection<NaoLabelPartyObjectDetectionLabel>],
+) -> Option<DetectedFieldMarks> {
+    let camera_matrix = context.camera_matrix.get_nearest(&detection_time)?;
+    let mut detected_field_marks = DetectedFieldMarks::default();
+
+    for detection in detections {
+        let measured_point_in_ground = match detection.label {
+            NaoLabelPartyObjectDetectionLabel::PenaltySpot => camera_matrix
+                .pixel_to_ground(bounding_box_center(detection))
+                .ok(),
+            NaoLabelPartyObjectDetectionLabel::GoalPost => camera_matrix
+                .pixel_to_ground(bounding_box_bottom_center(detection))
+                .ok(),
+            _ => None,
+        };
+
+        let Some(measured_point_in_ground) = measured_point_in_ground else {
+            continue;
+        };
+        match detection.label {
+            NaoLabelPartyObjectDetectionLabel::PenaltySpot => {
+                detected_field_marks
+                    .penalty_spots_in_ground
+                    .push(measured_point_in_ground);
+            }
+            NaoLabelPartyObjectDetectionLabel::GoalPost => {
+                detected_field_marks
+                    .goal_posts_in_ground
+                    .push(measured_point_in_ground);
+            }
+            _ => {}
+        }
+    }
+
+    (!detected_field_marks.penalty_spots_in_ground.is_empty()
+        || !detected_field_marks.goal_posts_in_ground.is_empty())
+    .then_some(detected_field_marks)
+}
+
+fn bounding_box_center(
+    detection: &Detection<NaoLabelPartyObjectDetectionLabel>,
+) -> linear_algebra::Point2<coordinate_systems::Pixel> {
+    let area = detection.bounding_box.area;
+    point![
+        area.min.x() + (area.max.x() - area.min.x()) / 2.0,
+        area.min.y() + (area.max.y() - area.min.y()) / 2.0
+    ]
+}
+
+fn bounding_box_bottom_center(
+    detection: &Detection<NaoLabelPartyObjectDetectionLabel>,
+) -> linear_algebra::Point2<coordinate_systems::Pixel> {
+    let area = detection.bounding_box.area;
+    point![
+        area.min.x() + (area.max.x() - area.min.x()) / 2.0,
+        area.max.y()
+    ]
+}
+
+fn goal_post_reference_points(field_dimensions: &FieldDimensions) -> [Point2<Field>; 4] {
+    [
+        field_dimensions.goal_post(Half::Own, FieldSide::Left),
+        field_dimensions.goal_post(Half::Own, FieldSide::Right),
+        field_dimensions.goal_post(Half::Opponent, FieldSide::Left),
+        field_dimensions.goal_post(Half::Opponent, FieldSide::Right),
+    ]
+}
+
+fn nearest_reference_point(
+    measured_point_in_field: Point2<Field>,
+    reference_points: &[Point2<Field>],
+) -> (Point2<Field>, f32) {
+    reference_points
+        .iter()
+        .copied()
+        .map(|reference_point| {
+            (
+                reference_point,
+                distance(measured_point_in_field, reference_point),
+            )
+        })
+        .min_by_key(|(_, distance)| NotNan::new(*distance).unwrap())
+        .unwrap()
+}
+
+fn measured_point_to_vector(point: Point2<Field>) -> Vector2<f32> {
+    vector![point.x(), point.y()]
+}
+
+fn best_goal_post_pair_match(
+    ground_to_field: Isometry2<Ground, Field>,
+    measured_goal_posts_in_ground: &[Point2<Ground>],
+    field_dimensions: &FieldDimensions,
+) -> Option<GoalPostPairMatch> {
+    let goal_pairs = [
+        (
+            field_dimensions.goal_post(Half::Own, FieldSide::Left),
+            field_dimensions.goal_post(Half::Own, FieldSide::Right),
+        ),
+        (
+            field_dimensions.goal_post(Half::Opponent, FieldSide::Left),
+            field_dimensions.goal_post(Half::Opponent, FieldSide::Right),
+        ),
+    ];
+
+    measured_goal_posts_in_ground
+        .iter()
+        .enumerate()
+        .flat_map(|(first_index, &first_post)| {
+            measured_goal_posts_in_ground
+                .iter()
+                .enumerate()
+                .skip(first_index + 1)
+                .map(move |(_, &second_post)| (first_post, second_post))
+        })
+        .flat_map(|(first_post, second_post)| {
+            goal_pairs.into_iter().flat_map(move |reference_posts| {
+                [
+                    ((first_post, second_post), reference_posts),
+                    (
+                        (second_post, first_post),
+                        (reference_posts.0, reference_posts.1),
+                    ),
+                ]
+            })
+        })
+        .filter_map(|(measured_posts_in_ground, reference_posts)| {
+            let measured_posts_in_field = (
+                ground_to_field * measured_posts_in_ground.0,
+                ground_to_field * measured_posts_in_ground.1,
+            );
+            let average_distance = 0.5
+                * (distance(measured_posts_in_field.0, reference_posts.0)
+                    + distance(measured_posts_in_field.1, reference_posts.1));
+            let estimated_ground_to_field = estimate_ground_to_field_from_point_pairs(
+                measured_posts_in_ground,
+                reference_posts,
+            )?;
+            Some(GoalPostPairMatch {
+                measured_posts_in_field,
+                reference_posts,
+                average_distance,
+                estimated_ground_to_field,
+            })
+        })
+        .min_by_key(|pair_match| NotNan::new(pair_match.average_distance).unwrap())
+}
+
+fn estimate_ground_to_field_from_point_pairs(
+    measured_points_in_ground: (Point2<Ground>, Point2<Ground>),
+    reference_points_in_field: (Point2<Field>, Point2<Field>),
+) -> Option<Isometry2<Ground, Field>> {
+    let measured_point_0 = measured_points_in_ground.0.coords().inner;
+    let measured_point_1 = measured_points_in_ground.1.coords().inner;
+    let reference_point_0 = reference_points_in_field.0.coords().inner;
+    let reference_point_1 = reference_points_in_field.1.coords().inner;
+    let measured_centroid = (measured_point_0 + measured_point_1) / 2.0;
+    let reference_centroid = (reference_point_0 + reference_point_1) / 2.0;
+    let covariance = (measured_point_0 - measured_centroid)
+        * (reference_point_0 - reference_centroid).transpose()
+        + (measured_point_1 - measured_centroid)
+            * (reference_point_1 - reference_centroid).transpose();
+    let svd = covariance.svd(true, true);
+    let u = svd.u?;
+    let v_t = svd.v_t?;
+    let mut rotation_matrix = v_t.transpose() * u.transpose();
+    if rotation_matrix.determinant() < 0.0 {
+        let mut adjusted_v_t = v_t;
+        adjusted_v_t[(1, 0)] *= -1.0;
+        adjusted_v_t[(1, 1)] *= -1.0;
+        rotation_matrix = adjusted_v_t.transpose() * u.transpose();
+    }
+    let rotation_angle = rotation_matrix[(1, 0)].atan2(rotation_matrix[(0, 0)]);
+    let translation = reference_centroid - Rotation2::new(rotation_angle) * measured_centroid;
+
+    Some(nalgebra::Isometry2::new(translation, rotation_angle).framed_transform::<Ground, Field>())
+}
+
+fn unix_duration(system_time: SystemTime) -> Duration {
+    system_time
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .unwrap_or_default()
 }
 
 fn primary_state_uses_localization(primary_state: PrimaryState) -> bool {
@@ -873,6 +1259,7 @@ pub fn goal_support_structure_line_marks_from_field_dimensions(
 
 #[derive(Clone, Copy, Debug)]
 pub struct FieldMarkCorrespondence {
+    measured_line_index: usize,
     measured_line_in_field: LineSegment<Field>,
     field_mark: FieldMark,
     pub correspondence_points: (CorrespondencePoints, CorrespondencePoints),
@@ -891,13 +1278,11 @@ fn predict(
     current_odometry_to_last_odometry: nalgebra::Isometry2<f32>,
     odometry_noise: &Vector3<f32>,
 ) -> Result<()> {
-    let current_orientation_angle = state.mean.z;
-    let rotated_noise = Rotation2::new(current_orientation_angle) * odometry_noise.xy();
-    let process_noise = Matrix3::from_diagonal(&nalgebra::vector![
-        rotated_noise.x.abs(),
-        rotated_noise.y.abs(),
-        odometry_noise.z
-    ]);
+    let process_noise = odometry_process_noise(
+        current_odometry_to_last_odometry,
+        state.mean.z,
+        odometry_noise,
+    );
 
     state.predict(
         |state| {
@@ -914,6 +1299,29 @@ fn predict(
         process_noise,
     )?;
     Ok(())
+}
+
+fn odometry_process_noise(
+    current_odometry_to_last_odometry: nalgebra::Isometry2<f32>,
+    current_orientation_angle: f32,
+    odometry_noise: &Vector3<f32>,
+) -> Matrix3<f32> {
+    let odometry_translation = current_odometry_to_last_odometry.translation.vector;
+    let translation_noise_in_odometry_frame = odometry_translation
+        .abs()
+        .component_mul(&odometry_noise.xy());
+    let rotation_to_field = Rotation2::new(current_orientation_angle);
+    let translation_process_noise = rotation_to_field.matrix()
+        * Matrix2::from_diagonal(&translation_noise_in_odometry_frame)
+        * rotation_to_field.matrix().transpose();
+
+    let mut process_noise = Matrix3::zeros();
+    process_noise
+        .fixed_view_mut::<2, 2>(0, 0)
+        .copy_from(&translation_process_noise);
+    process_noise[(2, 2)] =
+        current_odometry_to_last_odometry.rotation.angle().abs() * odometry_noise.z;
+    process_noise
 }
 
 fn odometry_delta(last_odometer: Odometer, current_odometer: Odometer) -> nalgebra::Isometry2<f32> {
@@ -1094,7 +1502,8 @@ fn get_field_mark_correspondence(
 ) -> Vec<FieldMarkCorrespondence> {
     measured_lines_in_field
         .iter()
-        .filter_map(|&measured_line_in_field| {
+        .enumerate()
+        .filter_map(|(measured_line_index, &measured_line_in_field)| {
             let (correspondences, _weight, field_mark, transformed_line) = field_marks
                 .iter()
                 .filter_map(|field_mark| {
@@ -1145,6 +1554,7 @@ fn get_field_mark_correspondence(
                 )?;
             let inverse_transformation = correction.inverse().framed_transform();
             Some(FieldMarkCorrespondence {
+                measured_line_index,
                 measured_line_in_field: inverse_transformation * transformed_line,
                 field_mark: *field_mark,
                 correspondence_points: (
@@ -1308,6 +1718,7 @@ mod tests {
 
     use approx::assert_relative_eq;
     use linear_algebra::Point2;
+    use nalgebra::{matrix, vector};
 
     use super::*;
 
@@ -1436,6 +1847,36 @@ mod tests {
     }
 
     #[test]
+    fn standing_still_adds_no_odometry_process_noise() {
+        let process_noise = odometry_process_noise(
+            nalgebra::Isometry2::identity(),
+            0.3,
+            &vector![0.02, 0.02, 0.001],
+        );
+
+        assert_relative_eq!(process_noise, Matrix3::zeros(), epsilon = 0.0001);
+    }
+
+    #[test]
+    fn rotational_process_noise_scales_with_actual_turn() {
+        let process_noise = odometry_process_noise(
+            nalgebra::Isometry2::new(vector![0.0, 0.0], 0.2),
+            0.0,
+            &vector![0.02, 0.02, 0.001],
+        );
+
+        assert_relative_eq!(
+            process_noise,
+            matrix![
+                0.0, 0.0, 0.0;
+                0.0, 0.0, 0.0;
+                0.0, 0.0, 0.0002
+            ],
+            epsilon = 0.0001
+        );
+    }
+
+    #[test]
     fn signed_angle() {
         let vector0 = nalgebra::vector![1.0_f32, 0.0_f32];
         let vector1 = nalgebra::vector![0.0_f32, 1.0_f32];
@@ -1449,6 +1890,7 @@ mod tests {
     fn fitting_line_results_in_zero_measurement() {
         let ground_to_field = Isometry2::identity();
         let field_mark_correspondence = FieldMarkCorrespondence {
+            measured_line_index: 0,
             measured_line_in_field: LineSegment(point![0.0, 0.0], point![0.0, 1.0]),
             field_mark: FieldMark::Line {
                 line: LineSegment(point![0.0, -3.0], point![0.0, 3.0]),
@@ -1470,6 +1912,7 @@ mod tests {
         assert_relative_eq!(update, Vector2::zeros());
 
         let field_mark_correspondence = FieldMarkCorrespondence {
+            measured_line_index: 0,
             measured_line_in_field: LineSegment(point![0.0, 1.0], point![0.0, 0.0]),
             field_mark: FieldMark::Line {
                 line: LineSegment(point![0.0, -3.0], point![0.0, 3.0]),
@@ -1491,6 +1934,7 @@ mod tests {
         assert_relative_eq!(update, Vector2::zeros());
 
         let field_mark_correspondence = FieldMarkCorrespondence {
+            measured_line_index: 0,
             measured_line_in_field: LineSegment(point![0.0, 0.0], point![1.0, 0.0]),
             field_mark: FieldMark::Line {
                 line: LineSegment(point![-3.0, 0.0], point![3.0, 0.0]),
@@ -1516,6 +1960,7 @@ mod tests {
     fn translated_line_results_in_translation_measurement() {
         let ground_to_field = Isometry2::identity();
         let field_mark_correspondence = FieldMarkCorrespondence {
+            measured_line_index: 0,
             measured_line_in_field: LineSegment(point![1.0, 0.0], point![1.0, 1.0]),
             field_mark: FieldMark::Line {
                 line: LineSegment(point![0.0, -3.0], point![0.0, 3.0]),
@@ -1541,6 +1986,7 @@ mod tests {
     fn rotated_line_results_in_rotation_measurement() {
         let ground_to_field = Isometry2::identity();
         let field_mark_correspondence = FieldMarkCorrespondence {
+            measured_line_index: 0,
             measured_line_in_field: LineSegment(point![-1.0, -1.0], point![1.0, 1.0]),
             field_mark: FieldMark::Line {
                 line: LineSegment(point![0.0, -3.0], point![0.0, 3.0]),
@@ -1592,6 +2038,7 @@ mod tests {
     fn circle_mark_correspondence_translates() {
         let ground_to_field = Isometry2::identity();
         let field_mark_correspondence = FieldMarkCorrespondence {
+            measured_line_index: 0,
             measured_line_in_field: LineSegment(Point2::origin(), Point2::origin()),
             field_mark: FieldMark::Circle {
                 center: Point2::origin(),
@@ -1610,5 +2057,51 @@ mod tests {
         };
         let update = get_2d_translation_measurement(ground_to_field, field_mark_correspondence);
         assert_relative_eq!(update, nalgebra::vector![0.0, -1.0], epsilon = 0.0001);
+    }
+
+    #[test]
+    fn nearest_penalty_spot_is_selected() {
+        let field_dimensions = FieldDimensions::SPL_2025;
+        let reference_points = [
+            field_dimensions.penalty_spot(Half::Own),
+            field_dimensions.penalty_spot(Half::Opponent),
+        ];
+
+        let (reference_point, distance) =
+            nearest_reference_point(point![3.1, 0.1], &reference_points);
+
+        assert_relative_eq!(
+            reference_point,
+            field_dimensions.penalty_spot(Half::Opponent)
+        );
+        assert!(distance < 0.3);
+    }
+
+    #[test]
+    fn estimated_ground_to_field_from_goal_post_pair_recovers_pose() {
+        let measured_points_in_ground = (point![0.0, -0.75], point![0.0, 0.75]);
+        let reference_points_in_field = (point![4.0, -1.0], point![4.0, 1.0]);
+
+        let estimated_ground_to_field = estimate_ground_to_field_from_point_pairs(
+            measured_points_in_ground,
+            reference_points_in_field,
+        )
+        .unwrap();
+
+        assert_relative_eq!(
+            estimated_ground_to_field.translation().x(),
+            4.0,
+            epsilon = 1.0e-4
+        );
+        assert_relative_eq!(
+            estimated_ground_to_field.translation().y(),
+            0.0,
+            epsilon = 1.0e-4
+        );
+        assert_relative_eq!(
+            estimated_ground_to_field.orientation().angle(),
+            0.0,
+            epsilon = 1.0e-4
+        );
     }
 }

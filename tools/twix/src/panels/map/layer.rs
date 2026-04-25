@@ -71,6 +71,14 @@ where
         }
     }
 
+    pub fn layer(&self) -> Option<&T> {
+        self.layer.as_ref()
+    }
+
+    pub fn layer_mut(&mut self) -> Option<&mut T> {
+        self.layer.as_mut()
+    }
+
     pub fn save(&self) -> Value {
         json!({
             "active": self.layer.is_some(),
