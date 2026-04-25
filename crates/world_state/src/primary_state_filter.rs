@@ -16,7 +16,6 @@ use types::{
 #[derive(Deserialize, Serialize)]
 pub struct PrimaryStateFilter {
     last_primary_state: PrimaryState,
-    last_safe_pose: u32,
 }
 
 #[context]
@@ -46,7 +45,6 @@ impl PrimaryStateFilter {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             last_primary_state: PrimaryState::Safe,
-            last_safe_pose: 0,
         })
     }
 

@@ -365,7 +365,7 @@
       "secs": 30
     }
   },
-  "force_stop_robot": false,
+  "remote_stop_toggle": false,
   "injected_primary_state": null,
   "behavior": {
     "injected_motion_command": null,

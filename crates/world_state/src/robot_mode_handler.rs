@@ -18,7 +18,7 @@ use types::{
 pub struct BoosterModeHandler {
     last_primary_state_change_time: SystemTime,
     last_primary_state: PrimaryState,
-    button_pressed: bool,
+    local_stop_toggle: bool,
 }
 
 #[context]
@@ -31,7 +31,7 @@ pub struct CycleContext {
     buttons: Input<Buttons<Option<ButtonPressType>>, "buttons">,
 
     wait_before_prepare: Parameter<Duration, "wait_before_prepare">,
-    force_stop_robot: Parameter<bool, "force_stop_robot">,
+    remote_stop_toggle: Parameter<bool, "remote_stop_toggle">,
 
     hardware_interface: HardwareInterface,
 }
@@ -47,7 +47,7 @@ impl BoosterModeHandler {
         Ok(Self {
             last_primary_state_change_time: SystemTime::UNIX_EPOCH,
             last_primary_state: PrimaryState::default(),
-            button_pressed: false,
+            local_stop_toggle: false,
         })
     }
 
@@ -61,20 +61,17 @@ impl BoosterModeHandler {
             });
         }
 
-        if self.button_pressed != *context.force_stop_robot {
-            if matches!(
-                context.buttons,
-                Buttons {
-                    f1: Some(ButtonPressType::Short),
-                    ..
-                } | Buttons {
-                    stand: Some(ButtonPressType::Short),
-                    ..
-                }
-            ) {
-                self.button_pressed = !self.button_pressed;
-            }
+        let is_local_stop_toggle_short_press =
+            matches!(context.buttons.f1, Some(ButtonPressType::Short))
+                || matches!(context.buttons.stand, Some(ButtonPressType::Short));
 
+        let should_enter_damping_mode = self.local_stop_toggle != *context.remote_stop_toggle;
+
+        if should_enter_damping_mode && is_local_stop_toggle_short_press {
+            self.local_stop_toggle = !self.local_stop_toggle;
+        }
+
+        if should_enter_damping_mode {
             change_mode(&context, RobotMode::Damping);
             return Ok(MainOutputs {
                 robot_mode: Some(RobotMode::Damping).into(),

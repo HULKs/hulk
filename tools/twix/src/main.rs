@@ -182,7 +182,7 @@ struct TwixApp {
     address: String,
     reachable_robots: ReachableRobots,
     connection_intent: bool,
-    force_stop_robot: BufferHandle<bool>,
+    remote_stop_toggle: BufferHandle<bool>,
     panel_selection: String,
     last_focused_tab: (NodeIndex, TabIndex),
     dock_state: DockState<Tab>,
@@ -235,7 +235,7 @@ impl TwixApp {
             robot.connect();
         }
 
-        let force_stop_robot = robot.subscribe_value("parameters.force_stop_robot");
+        let remote_stop_toggle = robot.subscribe_value("parameters.remote_stop_toggle");
 
         let dock_state: Option<DockState<Value>> = if arguments.clear {
             None
@@ -293,7 +293,7 @@ impl TwixApp {
             robot,
             reachable_robots,
             connection_intent,
-            force_stop_robot,
+            remote_stop_toggle,
             panel_selection,
             dock_state,
             last_focused_tab: (0.into(), 0.into()),
@@ -539,17 +539,17 @@ impl App for TwixApp {
                         )
                         .clicked()
                     {
-                        match self.force_stop_robot.get_last_value() {
+                        match self.remote_stop_toggle.get_last_value() {
                             Ok(Some(value)) => {
-                                let new_force_stop_robot = !value;
+                                let new_remote_stop_toggle = !value;
                                 self.robot.write(
-                                    "parameters.force_stop_robot",
-                                    TextOrBinary::Text(new_force_stop_robot.into()),
+                                    "parameters.remote_stop_toggle",
+                                    TextOrBinary::Text(new_remote_stop_toggle.into()),
                                 );
                             }
                             Ok(None) => {}
                             Err(error) => {
-                                error!("failed to read force_stop_robot: {error:#?}")
+                                error!("failed to read remote_stop_toggle: {error:#?}")
                             }
                         }
                     }
