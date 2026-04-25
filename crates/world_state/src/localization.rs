@@ -891,13 +891,11 @@ fn predict(
     current_odometry_to_last_odometry: nalgebra::Isometry2<f32>,
     odometry_noise: &Vector3<f32>,
 ) -> Result<()> {
-    let current_orientation_angle = state.mean.z;
-    let rotated_noise = Rotation2::new(current_orientation_angle) * odometry_noise.xy();
-    let process_noise = Matrix3::from_diagonal(&nalgebra::vector![
-        rotated_noise.x.abs(),
-        rotated_noise.y.abs(),
-        odometry_noise.z
-    ]);
+    let process_noise = odometry_process_noise(
+        current_odometry_to_last_odometry,
+        state.mean.z,
+        odometry_noise,
+    );
 
     state.predict(
         |state| {
@@ -914,6 +912,29 @@ fn predict(
         process_noise,
     )?;
     Ok(())
+}
+
+fn odometry_process_noise(
+    current_odometry_to_last_odometry: nalgebra::Isometry2<f32>,
+    current_orientation_angle: f32,
+    odometry_noise: &Vector3<f32>,
+) -> Matrix3<f32> {
+    let odometry_translation = current_odometry_to_last_odometry.translation.vector;
+    let translation_noise_in_odometry_frame = odometry_translation
+        .abs()
+        .component_mul(&odometry_noise.xy());
+    let rotation_to_field = Rotation2::new(current_orientation_angle);
+    let translation_process_noise = rotation_to_field.matrix()
+        * Matrix2::from_diagonal(&translation_noise_in_odometry_frame)
+        * rotation_to_field.matrix().transpose();
+
+    let mut process_noise = Matrix3::zeros();
+    process_noise
+        .fixed_view_mut::<2, 2>(0, 0)
+        .copy_from(&translation_process_noise);
+    process_noise[(2, 2)] =
+        current_odometry_to_last_odometry.rotation.angle().abs() * odometry_noise.z;
+    process_noise
 }
 
 fn odometry_delta(last_odometer: Odometer, current_odometer: Odometer) -> nalgebra::Isometry2<f32> {
@@ -1308,6 +1329,7 @@ mod tests {
 
     use approx::assert_relative_eq;
     use linear_algebra::Point2;
+    use nalgebra::{matrix, vector};
 
     use super::*;
 
@@ -1433,6 +1455,36 @@ mod tests {
         let delta = odometer.to(last_odometer);
 
         assert_relative_eq!(delta.orientation().angle(), -PI + 0.2, epsilon = 0.0001);
+    }
+
+    #[test]
+    fn standing_still_adds_no_odometry_process_noise() {
+        let process_noise = odometry_process_noise(
+            nalgebra::Isometry2::identity(),
+            0.3,
+            &vector![0.02, 0.02, 0.001],
+        );
+
+        assert_relative_eq!(process_noise, Matrix3::zeros(), epsilon = 0.0001);
+    }
+
+    #[test]
+    fn rotational_process_noise_scales_with_actual_turn() {
+        let process_noise = odometry_process_noise(
+            nalgebra::Isometry2::new(vector![0.0, 0.0], 0.2),
+            0.0,
+            &vector![0.02, 0.02, 0.001],
+        );
+
+        assert_relative_eq!(
+            process_noise,
+            matrix![
+                0.0, 0.0, 0.0;
+                0.0, 0.0, 0.0;
+                0.0, 0.0, 0.0002
+            ],
+            epsilon = 0.0001
+        );
     }
 
     #[test]
