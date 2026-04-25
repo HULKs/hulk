@@ -105,7 +105,7 @@ def do_hyperparameter_tuning(config: TrainingConfig, model_path: Path) -> Path:
     type=HYDRA_MODEL_NAME_TYPE,
     help=(
         "Hydra model name using the given naming convention. "
-        "Example: --model_name yolo26m#f11+yolo26m-pose"
+        "Example: yolo26m=f11+yolo26m-pose"
     ),
 )
 @click.option(
@@ -180,6 +180,7 @@ def main(
     do_tuning: bool,
     use_tuned_hyperparameters: bool,
 ) -> None:
+
     flattened_hydra_model_names = [
         HydraModelName(
             backbone=hydra_model_name.backbone,

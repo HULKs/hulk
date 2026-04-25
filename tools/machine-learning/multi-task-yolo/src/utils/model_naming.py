@@ -63,14 +63,14 @@ class HydraModelName(click.ParamType):
         backbone_and_frozen_layers, *heads = model_string.split("+")
         heads = [ModelName(head) for head in heads]
         backbone, number_of_frozen_modules = backbone_and_frozen_layers.split(
-            "#"
+            "="
         )
 
         return cls(backbone, heads, int(number_of_frozen_modules.strip("f")))
 
     def __str__(self) -> str:
         heads = "+".join(str(head) for head in self.heads)
-        return f"{self.backbone}#f{self.number_of_frozen_modules}+{heads}"
+        return f"{self.backbone}=f{self.number_of_frozen_modules}+{heads}"
 
 
 class HydraModelNameParam(click.ParamType):
