@@ -74,12 +74,11 @@ impl Widget for &mut BehaviorSimulatorPanel {
     fn ui(self, ui: &mut Ui) -> Response {
         if self.selected_frame_updater.has_changed() {
             self.selected_frame_updater.mark_as_seen();
-            if !self.playing {
-                if let Some(selected_frame) =
+            if !self.playing
+                && let Some(selected_frame) =
                     self.selected_frame_updater.get_last_value().ok().flatten()
-                {
-                    self.selected_frame = selected_frame as f64
-                }
+            {
+                self.selected_frame = selected_frame as f64
             }
         }
         let frame_count = match self.frame_count.get_last_value() {

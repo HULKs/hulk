@@ -199,7 +199,7 @@ impl TryFrom<&Ros2Image> for YCbCr422Image {
 impl YCbCr422Image {
     pub fn zero(width: u32, height: u32) -> Self {
         assert!(
-            width % 2 == 0,
+            width.is_multiple_of(2),
             "YCbCr422Image does not support odd widths because pixels are stored in pairs. Dimensions were {width}x{height}",
         );
         Self::from_ycbcr_buffer(
@@ -299,7 +299,7 @@ impl YCbCr422Image {
 
     pub fn at(&self, x: u32, y: u32) -> YCbCr444 {
         let pixel = self.buffer[self.coordinates_to_buffer_index(x, y)];
-        let is_left_pixel = x % 2 == 0;
+        let is_left_pixel = x.is_multiple_of(2);
         YCbCr444 {
             y: if is_left_pixel { pixel.y1 } else { pixel.y2 },
             cb: pixel.cb,
@@ -316,7 +316,7 @@ impl YCbCr422Image {
             return None;
         }
         let pixel = self.buffer[self.coordinates_to_buffer_index(x, y)];
-        let is_left_pixel = x % 2 == 0;
+        let is_left_pixel = x.is_multiple_of(2);
         let pixel = YCbCr444 {
             y: if is_left_pixel { pixel.y1 } else { pixel.y2 },
             cb: pixel.cb,

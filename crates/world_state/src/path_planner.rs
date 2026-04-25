@@ -476,12 +476,13 @@ impl DynamicMap for PathPlanner {
         let direction = self.nodes[index2].position - self.nodes[index1].position;
         let mut distance = direction.norm();
 
-        if index1 == 0 && distance > 0.0 {
-            if let Some(current_rotation) = self.last_path_direction {
-                let rotation = current_rotation.rotation_to(Orientation2::from_vector(direction));
+        if index1 == 0
+            && distance > 0.0
+            && let Some(current_rotation) = self.last_path_direction
+        {
+            let rotation = current_rotation.rotation_to(Orientation2::from_vector(direction));
 
-                distance += rotation.angle().abs() * self.rotation_penalty_factor;
-            }
+            distance += rotation.angle().abs() * self.rotation_penalty_factor;
         }
 
         distance

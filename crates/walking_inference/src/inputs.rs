@@ -208,21 +208,21 @@ impl WalkingInferenceInputs {
             current_joint_position.right_leg - motor_command_parameters.default_positions.right_leg;
         let joint_position_differences = left_leg_position_difference
             .into_iter()
-            .chain(right_leg_position_difference.into_iter())
+            .chain(right_leg_position_difference)
             .collect_array()
             .wrap_err("expected 12 joint position differences")?;
 
         let joint_velocities = current_joint_velocities
             .left_leg
             .into_iter()
-            .chain(current_joint_velocities.right_leg.into_iter())
+            .chain(current_joint_velocities.right_leg)
             .collect_array()
             .wrap_err("expected 12 joint velocities")?;
 
         let last_target_joint_positions = last_target_joint_positions
             .left_leg
             .into_iter()
-            .chain(last_target_joint_positions.right_leg.into_iter())
+            .chain(last_target_joint_positions.right_leg)
             .collect_array()
             .wrap_err("expected 12 last target joint positions")?;
 

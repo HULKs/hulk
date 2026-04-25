@@ -58,23 +58,25 @@ impl CircleNode {
         painter: &TwixPainter<World>,
         drag_claimed: &mut bool,
     ) {
-        if response.drag_started() && !*drag_claimed {
-            if let Some(pointer_position) = response.interact_pointer_pos() {
-                let world_position = painter.transform_pixel_to_world(pointer_position);
-                let distance = distance(world_position, self.position);
+        if response.drag_started()
+            && !*drag_claimed
+            && let Some(pointer_position) = response.interact_pointer_pos()
+        {
+            let world_position = painter.transform_pixel_to_world(pointer_position);
+            let distance = distance(world_position, self.position);
 
-                if distance <= self.radius {
-                    self.is_dragging = true;
-                    *drag_claimed = true;
-                }
+            if distance <= self.radius {
+                self.is_dragging = true;
+                *drag_claimed = true;
             }
         }
 
-        if response.dragged() && self.is_dragging {
-            if let Some(pointer_position) = response.interact_pointer_pos() {
-                self.position = painter.transform_pixel_to_world(pointer_position);
-                *drag_claimed = true;
-            }
+        if response.dragged()
+            && self.is_dragging
+            && let Some(pointer_position) = response.interact_pointer_pos()
+        {
+            self.position = painter.transform_pixel_to_world(pointer_position);
+            *drag_claimed = true;
         }
 
         if response.drag_stopped() {

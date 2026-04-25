@@ -232,10 +232,10 @@ where
     ) -> Result<(SubscriptionHandle, SystemTime, TextOrBinary), Error> {
         let client_id = client.id();
 
-        if let Some(subscriptions) = self.client_subscriptions.get(&client_id) {
-            if subscriptions.subscriptions.contains_key(&id) {
-                return Err(Error::DuplicateSubscription(id));
-            }
+        if let Some(subscriptions) = self.client_subscriptions.get(&client_id)
+            && subscriptions.subscriptions.contains_key(&id)
+        {
+            return Err(Error::DuplicateSubscription(id));
         }
 
         let (timestamp, value) = {

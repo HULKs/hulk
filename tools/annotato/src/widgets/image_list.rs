@@ -42,10 +42,10 @@ impl Widget for ImageList<'_> {
                             _ => false,
                         }));
 
-                        if let AnnotationPhase::Labelling { current_index } = self.phase {
-                            if *current_index == index {
-                                row.scroll_to_me(None);
-                            }
+                        if let AnnotationPhase::Labelling { current_index } = self.phase
+                            && *current_index == index
+                        {
+                            row.scroll_to_me(None);
                         }
 
                         if row.clicked() {

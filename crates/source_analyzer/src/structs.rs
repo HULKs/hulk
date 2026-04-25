@@ -387,9 +387,8 @@ mod tests {
                 expected_insertion_rules.len(),
                 "path: {path:?}, insertion_rules: {insertion_rules:?}, expected_insertion_rules: {expected_insertion_rules:?}"
             );
-            for (insertion_rule, expected_insertion_rule) in insertion_rules
-                .into_iter()
-                .zip(expected_insertion_rules.into_iter())
+            for (insertion_rule, expected_insertion_rule) in
+                insertion_rules.into_iter().zip(expected_insertion_rules)
             {
                 match (&insertion_rule, &expected_insertion_rule) {
                     (

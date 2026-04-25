@@ -377,11 +377,10 @@ impl Localization {
     ) {
         if let (PlayerNumber::One, Some(SubState::PenaltyKick)) =
             (*context.player_number, sub_state)
+            && matches!(kicking_team, Some(Team::Opponent))
         {
-            if matches!(kicking_team, Some(Team::Opponent)) {
-                for hypothesis in &mut self.hypotheses {
-                    hypothesis.state.mean.x = -context.field_dimensions.length / 2.0;
-                }
+            for hypothesis in &mut self.hypotheses {
+                hypothesis.state.mean.x = -context.field_dimensions.length / 2.0;
             }
         }
     }

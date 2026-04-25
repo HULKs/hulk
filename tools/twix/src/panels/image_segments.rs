@@ -150,29 +150,28 @@ impl Widget for &mut ImageSegmentsPanel {
                 .vertical_scan_lines
                 .iter()
                 .find(|scanline| scanline.position >= x)
+                && let Some(segment) = scanline.segments.iter().find(|segment| segment.end >= y)
             {
-                if let Some(segment) = scanline.segments.iter().find(|segment| segment.end >= y) {
-                    let start = segment.start;
-                    let end = segment.end;
-                    let ycbcr_color = segment.color;
-                    let y = ycbcr_color.y;
-                    let cb = ycbcr_color.cb;
-                    let cr = ycbcr_color.cr;
-                    let rgb = Rgb::from(ycbcr_color);
-                    let r = rgb.red;
-                    let g = rgb.green;
-                    let b = rgb.blue;
-                    let chromaticity = RgChromaticity::from(rgb);
-                    let red_chromaticity = chromaticity.red;
-                    let green_chromaticity = chromaticity.green;
-                    let blue_chromaticity = 1.0 - chromaticity.red - chromaticity.green;
-                    let hsv = Hsv::from(rgb);
-                    let h = hsv.hue;
-                    let s = hsv.saturation;
-                    let v = hsv.value;
-                    response = response
+                let start = segment.start;
+                let end = segment.end;
+                let ycbcr_color = segment.color;
+                let y = ycbcr_color.y;
+                let cb = ycbcr_color.cb;
+                let cr = ycbcr_color.cr;
+                let rgb = Rgb::from(ycbcr_color);
+                let r = rgb.red;
+                let g = rgb.green;
+                let b = rgb.blue;
+                let chromaticity = RgChromaticity::from(rgb);
+                let red_chromaticity = chromaticity.red;
+                let green_chromaticity = chromaticity.green;
+                let blue_chromaticity = 1.0 - chromaticity.red - chromaticity.green;
+                let hsv = Hsv::from(rgb);
+                let h = hsv.hue;
+                let s = hsv.saturation;
+                let v = hsv.value;
+                response = response
                 .on_hover_text_at_pointer(format!("x: {x}, start: {start}, end: {end}\nY: {y:3}, Cb: {cb:3}, Cr: {cr:3}\nR: {r:3}, G: {g:3}, B: {b:3}\nr: {red_chromaticity:.2}, g: {green_chromaticity:.2}, b: {blue_chromaticity:.2}\nH: {h}, S: {s}, V: {v}"));
-                }
             }
         }
 

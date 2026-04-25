@@ -84,7 +84,7 @@ impl ObjectDetection {
             bail!("unsupported image encoding: {}", image.encoding);
         }
 
-        if image.width % 32 != 0 || image.height % 32 != 0 {
+        if !image.width.is_multiple_of(32) || !image.height.is_multiple_of(32) {
             bail!(
                 "image dimensions must be multiples of 32 (got {}x{})",
                 image.width,

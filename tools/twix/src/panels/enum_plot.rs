@@ -99,19 +99,19 @@ impl Segment {
 
         let screenspace_rect = viewport_transform.transform_rect(rect).shrink(stroke_width);
 
-        if ui.rect_contains_pointer(screenspace_rect) {
-            if let Some(tooltip) = self.tooltip() {
-                Tooltip::always_open(
-                    ui.ctx().clone(),
-                    ui.layer_id(),
-                    "Fridolin".into(),
-                    PopupAnchor::Pointer,
-                )
-                .gap(12.0)
-                .show(|ui| {
-                    ui.add(Label::new(tooltip).wrap_mode(TextWrapMode::Extend));
-                });
-            }
+        if ui.rect_contains_pointer(screenspace_rect)
+            && let Some(tooltip) = self.tooltip()
+        {
+            Tooltip::always_open(
+                ui.ctx().clone(),
+                ui.layer_id(),
+                "Fridolin".into(),
+                PopupAnchor::Pointer,
+            )
+            .gap(12.0)
+            .show(|ui| {
+                ui.add(Label::new(tooltip).wrap_mode(TextWrapMode::Extend));
+            });
         }
 
         ui.painter().rect(
