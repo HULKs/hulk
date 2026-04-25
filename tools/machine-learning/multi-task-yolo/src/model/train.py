@@ -4,6 +4,7 @@ from pathlib import Path
 from typing import Any
 
 import click
+import wandb
 import yaml
 from ultralytics.models.yolo.model import YOLO
 from wonderwords import RandomWord
@@ -213,20 +214,22 @@ def main(
         best_params = {}
         tuned_hyperparameters_path = None
 
+        run_name = (
+            str(hydra_model)
+            + "~"
+            + RandomWord().word(
+                word_min_length=4,
+                word_max_length=8,
+                include_categories=["nouns"],
+            )
+        )
+        wandb.init(project="multi-task-yolo", name=run_name)
+
         if do_tuning:
             config = TrainingConfig(
                 data=data,
                 project=runs_dir,
-                name=Path("tune")
-                / (
-                    str(hydra_model)
-                    + "~"
-                    + RandomWord().word(
-                        word_min_length=4,
-                        word_max_length=8,
-                        include_categories=["nouns"],
-                    )
-                ),
+                name=Path("tune") / run_name,
                 epochs=40,
                 optimizer="AdamW",
                 freeze=hydra_model.number_of_frozen_modules,
@@ -244,19 +247,21 @@ def main(
                 best_params = yaml.safe_load(f)
             print("Loaded params:", best_params)
 
+        run_name = (
+            str(hydra_model)
+            + "~"
+            + RandomWord().word(
+                word_min_length=4,
+                word_max_length=8,
+                include_categories=["nouns"],
+            )
+        )
+        wandb.init(project="multi-task-yolo", name=run_name)
+
         config = TrainingConfig(
             data=data,
             project=runs_dir,
-            name=Path("train")
-            / (
-                str(hydra_model)
-                + "~"
-                + RandomWord().word(
-                    word_min_length=4,
-                    word_max_length=8,
-                    include_categories=["nouns"],
-                )
-            ),
+            name=Path("train") / run_name,
             epochs=70,
             freeze=hydra_model.number_of_frozen_modules,
             device=device,
