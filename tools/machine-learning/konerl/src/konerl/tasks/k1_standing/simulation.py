@@ -22,21 +22,22 @@ from .termination import make_termination_cfg
 from .metrics import make_metric_cfg
 
 BUMPY_TERRAINS_CFG = TerrainGeneratorCfg(
-  size=(8.0, 8.0),
-  border_width=20.0,
-  num_rows=10,
-  num_cols=10,
-  sub_terrains={
-    "flat": terrain_gen.BoxFlatTerrainCfg(proportion=0.5),
-    "random_rough": terrain_gen.HfRandomUniformTerrainCfg(
-      proportion=0.5,
-      noise_range=(0.02, 0.04),
-      noise_step=0.03,
-      border_width=0.25,
-    ),
-  },
-  add_lights=True,
+    size=(8.0, 8.0),
+    border_width=20.0,
+    num_rows=10,
+    num_cols=10,
+    sub_terrains={
+        "flat": terrain_gen.BoxFlatTerrainCfg(proportion=0.5),
+        "random_rough": terrain_gen.HfRandomUniformTerrainCfg(
+            proportion=0.5,
+            noise_range=(0.02, 0.04),
+            noise_step=0.03,
+            border_width=0.25,
+        ),
+    },
+    add_lights=True,
 )
+
 
 def make_scene_cfg(terrain_type: Literal["flat", "rough", "bumpy"]) -> SceneCfg:
     if terrain_type == "flat":
@@ -96,7 +97,7 @@ def make_velocity_env_cfg(play: bool) -> ManagerBasedRlEnvCfg:
     if play:
         terrain_type = "flat"
     else:
-        terrain_type = "flat" # for this training flat terrain
+        terrain_type = "flat"  # for this training flat terrain
     return ManagerBasedRlEnvCfg(
         scene=make_scene_cfg(terrain_type),
         observations=make_observation_cfg(),

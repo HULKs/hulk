@@ -2,6 +2,7 @@ from mjlab.managers.event_manager import EventTermCfg
 from mjlab.managers.scene_entity_config import SceneEntityCfg
 from mjlab.envs.mdp import events as event_fns, dr
 
+
 def make_events_cfg() -> dict[str, EventTermCfg]:
     events = {
         "reset_scene": EventTermCfg(
@@ -53,7 +54,7 @@ def make_events_cfg() -> dict[str, EventTermCfg]:
             func=dr.geom_friction,
             mode="reset",
             params={
-                "asset_cfg": SceneEntityCfg("robot", geom_names=(r"(left|right)_foot", )),
+                "asset_cfg": SceneEntityCfg("robot", geom_names=(r"(left|right)_foot",)),
                 "ranges": (1.6, 2.4),
                 "operation": "abs",
                 "shared_random": True,
@@ -63,7 +64,7 @@ def make_events_cfg() -> dict[str, EventTermCfg]:
             func=dr.geom_friction,
             mode="reset",
             params={
-                "asset_cfg": SceneEntityCfg("terrain"), 
+                "asset_cfg": SceneEntityCfg("terrain"),
                 "ranges": (1.6, 2.4),
                 "operation": "abs",
                 "shared_random": True,
@@ -103,11 +104,14 @@ def make_events_cfg() -> dict[str, EventTermCfg]:
             mode="reset",
             func=dr.pd_gains,
             params={
-                "asset_cfg": SceneEntityCfg("robot", joint_names=(
-                    ".*Hip_Pitch.*",
-                    ".*Hip_Yaw.*",
-                    ".*Knee_Pitch.*",
-                    )),
+                "asset_cfg": SceneEntityCfg(
+                    "robot",
+                    joint_names=(
+                        ".*Hip_Pitch.*",
+                        ".*Hip_Yaw.*",
+                        ".*Knee_Pitch.*",
+                    ),
+                ),
                 "kp_range": (0.95, 1.05),
                 "kd_range": (0.95, 1.05),
             },
@@ -116,11 +120,7 @@ def make_events_cfg() -> dict[str, EventTermCfg]:
             mode="reset",
             func=dr.pd_gains,
             params={
-                "asset_cfg": SceneEntityCfg("robot", joint_names=(
-                    ".*Hip_Roll.*",
-                    ".*Ankle_Pitch.*",
-                    ".*Ankle_Roll.*"
-                    )),
+                "asset_cfg": SceneEntityCfg("robot", joint_names=(".*Hip_Roll.*", ".*Ankle_Pitch.*", ".*Ankle_Roll.*")),
                 "kp_range": (0.8, 1.2),
                 "kd_range": (0.8, 1.2),
             },
@@ -132,7 +132,7 @@ def make_events_cfg() -> dict[str, EventTermCfg]:
                 "asset_cfg": SceneEntityCfg("robot", joint_names=(".*",)),
                 "ranges": (0.8, 1.2),
                 "operation": "scale",
-            },   
+            },
         ),
     }
 

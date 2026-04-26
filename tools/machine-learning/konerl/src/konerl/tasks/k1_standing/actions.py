@@ -10,7 +10,8 @@ DEFAULT_MOTION_RANGES = SmoothedVelocityCommandCfg.SmoothRanges(
     ang_vel_z=(-1.0, 1.0),
 )
 
-REL_STANDING_ENVS = 1.0 # Just standing...
+REL_STANDING_ENVS = 1.0  # Just standing...
+
 
 def make_actions_cfg() -> dict[str, ActionTermCfg]:
     return {
@@ -24,7 +25,7 @@ def make_actions_cfg() -> dict[str, ActionTermCfg]:
 
 
 def make_commands_cfg() -> dict[str, CommandTermCfg]:
-    ranges =  DEFAULT_MOTION_RANGES
+    ranges = DEFAULT_MOTION_RANGES
 
     command = SmoothedVelocityCommandCfg(
         entity_name="robot",

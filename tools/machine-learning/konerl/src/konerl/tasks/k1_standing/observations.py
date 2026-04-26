@@ -12,6 +12,7 @@ from mjlab.envs import ManagerBasedRlEnv
 
 _JOINT_VEL_EMA_ALPHA = 0.78
 
+
 def _get_env_step_index(env: Any) -> int | None:
     for attr in ("common_step_counter", "global_step_counter", "step_counter"):
         if not hasattr(env, attr):
@@ -24,6 +25,7 @@ def _get_env_step_index(env: Any) -> int | None:
         if isinstance(value, int):
             return value
     return None
+
 
 class JointVelRelSmoothed:
     def __init__(self, ema_alpha: float = _JOINT_VEL_EMA_ALPHA):
@@ -98,42 +100,47 @@ class JointVelRelSmoothed:
 
 JOINT_VEL_REL_SMOOTHED = JointVelRelSmoothed()
 
+
 @dataclass
 class ClippedGaussianNoiseCfg(NoiseCfg):
-  mean: torch.Tensor | float = 0.0
-  std: torch.Tensor | float = 1.0
-  min: float = -2.0
-  max: float = 2.0
+    mean: torch.Tensor | float = 0.0
+    std: torch.Tensor | float = 1.0
+    min: float = -2.0
+    max: float = 2.0
 
-  def __post_init__(self):
-    if isinstance(self.std, (int, float)) and self.std <= 0:
-      raise ValueError(f"std ({self.std}) must be positive")
+    def __post_init__(self):
+        if isinstance(self.std, (int, float)) and self.std <= 0:
+            raise ValueError(f"std ({self.std}) must be positive")
 
-  @override
-  def apply(self, data: torch.Tensor) -> torch.Tensor:
-    self.mean = torch.as_tensor(self.mean, device=data.device)
-    self.std = torch.as_tensor(self.std, device=data.device)
+    @override
+    def apply(self, data: torch.Tensor) -> torch.Tensor:
+        self.mean = torch.as_tensor(self.mean, device=data.device)
+        self.std = torch.as_tensor(self.std, device=data.device)
 
-    noise = torch.clamp(self.mean + self.std * torch.randn_like(data), min=self.min, max=self.max)
+        noise = torch.clamp(self.mean + self.std * torch.randn_like(data), min=self.min, max=self.max)
 
-    if self.operation == "add":
-      return data + noise
-    elif self.operation == "scale":
-      return data * noise
-    elif self.operation == "abs":
-      return noise
-    else:
-      raise ValueError(f"Unsupported noise operation: {self.operation}")
+        if self.operation == "add":
+            return data + noise
+        elif self.operation == "scale":
+            return data * noise
+        elif self.operation == "abs":
+            return noise
+        else:
+            raise ValueError(f"Unsupported noise operation: {self.operation}")
+
 
 ##
 # Randomization observations
 ##
 
+
 def obs_trunk_mass(env, asset_cfg: SceneEntityCfg) -> torch.Tensor:
     return env.sim.model.body_mass[:, asset_cfg.body_ids]
 
+
 def obs_foot_friction(env, asset_cfg: SceneEntityCfg) -> torch.Tensor:
     return env.sim.model.geom_friction[:, asset_cfg.geom_ids, 0]
+
 
 def obs_base_com(env, asset_cfg: SceneEntityCfg) -> torch.Tensor:
     return env.sim.model.body_ipos[:, asset_cfg.body_ids].view(env.num_envs, -1)
@@ -143,9 +150,10 @@ def obs_foot_height_world(env, asset_cfg: SceneEntityCfg) -> torch.Tensor:
     asset = env.scene[asset_cfg.name]
     return asset.data.site_pos_w[:, asset_cfg.site_ids, 2]
 
+
 def obs_pd_gains(env, asset_cfg: SceneEntityCfg) -> torch.Tensor:
     asset = env.scene[asset_cfg.name]
-    
+
     if isinstance(asset_cfg.actuator_ids, list):
         actuators = [asset.actuators[i] for i in asset_cfg.actuator_ids]
     elif isinstance(asset_cfg.actuator_ids, slice):
@@ -156,7 +164,7 @@ def obs_pd_gains(env, asset_cfg: SceneEntityCfg) -> torch.Tensor:
     kp_list, kd_list = [], []
     for a in actuators:
         base_a = getattr(a, "base_actuator", a)
-        
+
         if hasattr(base_a, "stiffness"):  # IdealPdActuator
             kp_list.append(base_a.stiffness)
             kd_list.append(base_a.damping)
@@ -169,9 +177,10 @@ def obs_pd_gains(env, asset_cfg: SceneEntityCfg) -> torch.Tensor:
     kd = torch.cat(kd_list, dim=-1)
     return torch.cat((kp, kd), dim=-1)
 
+
 def obs_actuator_lag(env, asset_cfg: SceneEntityCfg) -> torch.Tensor:
     asset = env.scene[asset_cfg.name]
-    
+
     if isinstance(asset_cfg.actuator_ids, list):
         actuators = [asset.actuators[i] for i in asset_cfg.actuator_ids]
     elif isinstance(asset_cfg.actuator_ids, slice):
@@ -200,9 +209,11 @@ def obs_actuator_lag(env, asset_cfg: SceneEntityCfg) -> torch.Tensor:
     mean_lag = float(sum(lag_values) / len(lag_values))
     return torch.full((env.num_envs, 1), mean_lag, device=env.device)
 
+
 def obs_encoder_bias(env, asset_cfg: SceneEntityCfg) -> torch.Tensor:
     asset = env.scene[asset_cfg.name]
     return asset.data.encoder_bias[:, asset_cfg.joint_ids]
+
 
 def obs_push_force(env, asset_cfg: SceneEntityCfg) -> torch.Tensor:
     asset = env.scene[asset_cfg.name]
@@ -234,8 +245,9 @@ def obs_push_force(env, asset_cfg: SceneEntityCfg) -> torch.Tensor:
     device = getattr(forces, "device", getattr(env, "device", "cpu"))
     return torch.zeros((num_envs, 3), device=device)
 
+
 def last_last_action(env: ManagerBasedRlEnv) -> torch.Tensor:
-  return env.action_manager.prev_action
+    return env.action_manager.prev_action
 
 
 def make_observation_cfg() -> dict[str, ObservationGroupCfg]:
@@ -301,11 +313,9 @@ def make_observation_cfg() -> dict[str, ObservationGroupCfg]:
             func=mdp.generated_commands,
             params={"command_name": "twist"},
         ),
-
         ##
         # Exclusive critic terms
         ##
-
         "base_lin_vel": ObservationTermCfg(
             func=mdp.builtin_sensor,
             params={"sensor_name": "robot/imu_lin_vel"},
@@ -330,41 +340,29 @@ def make_observation_cfg() -> dict[str, ObservationGroupCfg]:
         # Randomization observations
         ##
         "trunk_mass": ObservationTermCfg(
-            func=obs_trunk_mass,
-            params={"asset_cfg": SceneEntityCfg("robot", body_names=("Trunk",))}
+            func=obs_trunk_mass, params={"asset_cfg": SceneEntityCfg("robot", body_names=("Trunk",))}
         ),
         "foot_friction": ObservationTermCfg(
             func=obs_foot_friction,
-            params={"asset_cfg": SceneEntityCfg("robot", geom_names=("left_foot", "right_foot"))}
+            params={"asset_cfg": SceneEntityCfg("robot", geom_names=("left_foot", "right_foot"))},
         ),
         "base_com": ObservationTermCfg(
-            func=obs_base_com,
-            params={"asset_cfg": SceneEntityCfg("robot", body_names=("Trunk",))}
+            func=obs_base_com, params={"asset_cfg": SceneEntityCfg("robot", body_names=("Trunk",))}
         ),
         "default_KpKd_gains": ObservationTermCfg(
             func=obs_pd_gains,
             params={
-                "asset_cfg": SceneEntityCfg("robot", joint_names=(
-                    ".*Hip_Pitch.*", ".*Hip_Yaw.*", ".*Knee_Pitch.*"
-                ))
-            }
+                "asset_cfg": SceneEntityCfg("robot", joint_names=(".*Hip_Pitch.*", ".*Hip_Yaw.*", ".*Knee_Pitch.*"))
+            },
         ),
         "special_KpKd_gains": ObservationTermCfg(
             func=obs_pd_gains,
             params={
-                "asset_cfg": SceneEntityCfg("robot", joint_names=(
-                    ".*Hip_Roll.*", ".*Ankle_Pitch.*", ".*Ankle_Roll.*"
-                ))
-            }
+                "asset_cfg": SceneEntityCfg("robot", joint_names=(".*Hip_Roll.*", ".*Ankle_Pitch.*", ".*Ankle_Roll.*"))
+            },
         ),
-        "actuator_lag": ObservationTermCfg(
-            func=obs_actuator_lag,
-            params={"asset_cfg": SceneEntityCfg("robot")}
-        ),
-        "encoder_bias": ObservationTermCfg(
-            func=obs_encoder_bias,
-            params={"asset_cfg": SceneEntityCfg("robot")}
-        ),
+        "actuator_lag": ObservationTermCfg(func=obs_actuator_lag, params={"asset_cfg": SceneEntityCfg("robot")}),
+        "encoder_bias": ObservationTermCfg(func=obs_encoder_bias, params={"asset_cfg": SceneEntityCfg("robot")}),
         "push_force": ObservationTermCfg(
             func=obs_push_force,
             params={"asset_cfg": SceneEntityCfg("robot", body_names=("Trunk",))},

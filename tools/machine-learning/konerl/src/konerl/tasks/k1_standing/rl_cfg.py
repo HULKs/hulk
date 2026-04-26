@@ -4,6 +4,7 @@ from mjlab.rl import (
     RslRlPpoAlgorithmCfg,
 )
 
+
 def k1_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
     return RslRlOnPolicyRunnerCfg(
         actor=RslRlModelCfg(
@@ -44,5 +45,5 @@ def k1_ppo_runner_cfg() -> RslRlOnPolicyRunnerCfg:
         save_interval=200,
         num_steps_per_env=48,
         max_iterations=10_000,
-        clip_actions=5.0
+        clip_actions=5.0,
     )

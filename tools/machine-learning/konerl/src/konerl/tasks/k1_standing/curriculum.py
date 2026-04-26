@@ -5,9 +5,7 @@ from mjlab.tasks.velocity import mdp
 
 
 def make_curriculum_cfg(terrain_type: Literal["flat", "rough", "bumpy"]) -> dict[str, CurriculumTermCfg]:
-    curriculum = {
-        
-    }
+    curriculum = {}
     if terrain_type == "rough":
         curriculum["terrain_levels"] = CurriculumTermCfg(
             func=mdp.terrain_levels_vel,
