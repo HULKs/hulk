@@ -10,10 +10,6 @@ from hashlib import sha256
 
 import click
 
-# Image size
-IMG_WIDTH = 544
-IMG_HEIGHT = 448
-
 # Class mapping
 CLASS_MAP = {
     "Ball": 0,
@@ -55,10 +51,10 @@ def convert_annotations(json_path: str, filename: str) -> list[str]:
         y_max = max(y1, y2)
 
         # Convert to YOLO format (normalized)
-        x_center = ((x_min + x_max) / 2) / IMG_WIDTH
-        y_center = ((y_min + y_max) / 2) / IMG_HEIGHT
-        width = (x_max - x_min) / IMG_WIDTH
-        height = (y_max - y_min) / IMG_HEIGHT
+        x_center = (x_min + x_max) / 2
+        y_center = (y_min + y_max) / 2
+        width = x_max - x_min
+        height = y_max - y_min
 
         class_id = CLASS_MAP[class_name]
 
