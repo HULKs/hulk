@@ -17,7 +17,7 @@ use types::{
     cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
     multivariate_normal_distribution::MultivariateNormalDistribution,
-    object_detection::{Detection, NaoLabelPartyObjectDetectionLabel},
+    object_detection::{Object, RobocupObjectLabel},
     obstacle_filter::Hypothesis,
     obstacles::{Obstacle, ObstacleKind},
     parameters::ObstacleFilterParameters,
@@ -52,11 +52,7 @@ pub struct CycleContext {
     current_ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
 
     fall_down_state: PerceptionInput<Option<FallDownState>, "FallDownState", "fall_down_state?">,
-    detected_objects: PerceptionInput<
-        Vec<Detection<NaoLabelPartyObjectDetectionLabel>>,
-        "ObjectDetection",
-        "detected_objects",
-    >,
+    detected_objects: PerceptionInput<Vec<Object<RobocupObjectLabel>>, "Hydra", "detected_objects">,
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     obstacle_filter_parameters: Parameter<ObstacleFilterParameters, "obstacle_filter">,
@@ -121,23 +117,23 @@ impl ObstacleFilter {
                     .iter()
                     .flat_map(|detections| detections.iter())
                     .filter_map(|detected_object| {
-                        let Detection {
+                        let Object {
                             label,
                             bounding_box,
                         } = detected_object;
 
                         let (kind, measurement_noise) = match label {
-                            NaoLabelPartyObjectDetectionLabel::GoalPost => (
+                            RobocupObjectLabel::GoalPost => (
                                 ObstacleKind::GoalPost,
                                 context
                                     .obstacle_filter_parameters
                                     .goal_post_measurement_noise,
                             ),
-                            NaoLabelPartyObjectDetectionLabel::Robot => (
+                            RobocupObjectLabel::Robot => (
                                 ObstacleKind::Robot,
                                 context.obstacle_filter_parameters.robot_measurement_noise,
                             ),
-                            NaoLabelPartyObjectDetectionLabel::Person => (
+                            RobocupObjectLabel::Person => (
                                 ObstacleKind::Person,
                                 context.obstacle_filter_parameters.person_measurement_noise,
                             ),
