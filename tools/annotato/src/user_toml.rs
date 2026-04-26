@@ -30,6 +30,7 @@ pub struct KeyBindings {
     pub select_xspot: Key,
     pub select_lspot: Key,
     pub select_tspot: Key,
+    pub select_person: Key,
 }
 
 #[derive(Debug, Deserialize)]
