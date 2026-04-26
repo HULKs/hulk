@@ -12,12 +12,22 @@ pub enum Class {
     LSpot,
     TSpot,
     XSpot,
+    Person,
 }
 
 impl EnumIter for Class {
     fn list() -> Vec<Self> {
         use Class::*;
-        vec![Ball, Robot, GoalPost, PenaltySpot, LSpot, TSpot, XSpot]
+        vec![
+            Ball,
+            Robot,
+            GoalPost,
+            PenaltySpot,
+            LSpot,
+            TSpot,
+            XSpot,
+            Person,
+        ]
     }
 }
 
@@ -35,6 +45,7 @@ impl Class {
             x if x == keybindings.select_lspot => Some(Class::LSpot),
             x if x == keybindings.select_tspot => Some(Class::TSpot),
             x if x == keybindings.select_xspot => Some(Class::XSpot),
+            x if x == keybindings.select_person => Some(Class::Person),
             _ => None,
         }
     }
@@ -48,6 +59,7 @@ impl Class {
             Class::LSpot => Color32::BLACK,
             Class::TSpot => Color32::LIGHT_GREEN,
             Class::XSpot => Color32::LIGHT_BLUE,
+            Class::Person => Color32::PURPLE,
         }
     }
 }

@@ -20,24 +20,28 @@ use eframe::{
 
 pub struct LabelWidget {
     current_paths: Option<Paths>,
-    texture_id: Option<TextureHandle>,
+    texture_handle: Option<TextureHandle>,
+    image_size: Option<[f32; 2]>,
     selected_class: Class,
     bounding_boxes: Vec<BoundingBox>,
     editing_bounding_box: Option<BoundingBox>,
     disable_saving: bool,
     use_model_annotations: bool,
+    unresolved_annotations: Vec<AnnotationFormat>,
 }
 
 impl Default for LabelWidget {
     fn default() -> Self {
         Self {
             current_paths: None,
-            texture_id: None,
+            texture_handle: None,
+            image_size: None,
             selected_class: Class::Robot,
             bounding_boxes: Vec::new(),
             editing_bounding_box: None,
             disable_saving: false,
             use_model_annotations: true,
+            unresolved_annotations: Vec::new(),
         }
     }
 }
@@ -51,14 +55,22 @@ impl LabelWidget {
     }
 
     pub fn ui(&mut self, ui: &mut eframe::egui::Ui) {
-        if self.texture_id.is_none() {
-            self.texture_id.get_or_insert_with(|| {
-                if let Some(paths) = self.current_paths.as_ref() {
-                    utils::load_image(ui, &paths.image_path).expect("failed to load image")
-                } else {
-                    panic!("No image loaded");
-                }
-            });
+        if self.texture_handle.is_none() {
+            if let Some(paths) = self.current_paths.as_ref() {
+                let handle =
+                    utils::load_image(ui, &paths.image_path).expect("failed to load image");
+                let size = [handle.size()[0] as f32, handle.size()[1] as f32];
+                self.image_size = Some(size);
+                self.texture_handle = Some(handle);
+
+                self.bounding_boxes = self
+                    .unresolved_annotations
+                    .drain(..)
+                    .map(|annotation| BoundingBox::from_annotation(annotation, size))
+                    .collect();
+            } else {
+                panic!("No image loaded");
+            }
         }
 
         ui.vertical(|ui| {
@@ -78,10 +90,13 @@ impl LabelWidget {
                 ui.checkbox(&mut self.disable_saving, "Disable Annotation Saving");
                 ui.checkbox(&mut self.use_model_annotations, "AI-ssist");
             });
-            if let Some(texture_id) = self.texture_id.clone() {
+            if let (Some(texture_handle), Some(image_size)) =
+                (self.texture_handle.clone(), self.image_size)
+            {
                 ui.add(BoundingBoxAnnotator::new(
-                    Id::new(&texture_id).with("image-plot"), // using the texture_id as hash to reset plot on new image
-                    texture_id.clone(),
+                    Id::new(&texture_handle).with("image-plot"),
+                    texture_handle,
+                    image_size,
                     &mut self.bounding_boxes,
                     &mut self.editing_bounding_box,
                     &mut self.selected_class,
@@ -93,23 +108,20 @@ impl LabelWidget {
     pub fn load_new_image_with_labels(
         &mut self,
         paths: Paths,
-        model_annotations: Vec<BoundingBox>,
+        model_annotations: Vec<AnnotationFormat>,
     ) -> Result<()> {
         self.bounding_boxes.clear();
+        self.unresolved_annotations.clear();
+        self.image_size = None;
 
         if paths.label_path.exists() {
             let existing_annotations = fs::read_to_string(&paths.label_path)?;
-            let mut existing_annotations: Vec<AnnotationFormat> =
-                serde_json::from_str(&existing_annotations)?;
-            self.bounding_boxes = existing_annotations
-                .drain(..)
-                .map(|annotation| annotation.into())
-                .collect();
+            self.unresolved_annotations = serde_json::from_str(&existing_annotations)?;
         } else if self.use_model_annotations {
-            self.bounding_boxes.extend(model_annotations);
+            self.unresolved_annotations = model_annotations;
         }
 
-        self.texture_id = None;
+        self.texture_handle = None;
         self.current_paths = Some(paths);
 
         Ok(())
@@ -129,11 +141,13 @@ impl LabelWidget {
             leaderboard::send_score_up()?;
         }
 
+        let image_size = self.image_size.wrap_err("no image size available")?;
         let annotations: Vec<AnnotationFormat> = self
             .bounding_boxes
             .drain(..)
-            .map(|bbox| bbox.into())
+            .map(|bounding_box| bounding_box.to_annotation(image_size))
             .collect();
+
         let annotations = serde_json::to_string_pretty(&annotations)?;
 
         let mut file = File::create(&paths.label_path)?;
