@@ -46,11 +46,10 @@ impl BoosterModeHandler {
         &mut self,
         context: CycleContext<impl HighLevelInterface + MotionRuntimeInterface>,
     ) -> Result<MainOutputs> {
-        if context.hardware_interface.get_motion_runtime_type()? != MotionRuntime::Booster {
-            return Ok(MainOutputs {
-                robot_mode: None.into(),
-            });
-        }
+        let motion_robot_mode = match context.hardware_interface.get_motion_runtime_type()? {
+            MotionRuntime::Booster => RobotMode::Walking,
+            MotionRuntime::Hulk => RobotMode::Custom,
+        };
 
         let Ok(robot_mode) = context.hardware_interface.get_mode() else {
             return Ok(MainOutputs {
@@ -69,12 +68,18 @@ impl BoosterModeHandler {
             .expect("time ran backwards");
         let switch_to_prepare = &time_since_primary_state_change >= context.wait_before_prepare;
 
-        match (context.primary_state, robot_mode, switch_to_prepare) {
-            (PrimaryState::Safe | PrimaryState::Initial, RobotMode::Walking, _) => {
-                change_mode(&context, RobotMode::Prepare)
-            }
-            (PrimaryState::Finished | PrimaryState::Penalized, RobotMode::Walking, true) => {
-                change_mode(&context, RobotMode::Prepare)
+        match (context.primary_state, robot_mode) {
+            (
+                PrimaryState::Safe | PrimaryState::Initial,
+                RobotMode::Walking | RobotMode::Custom,
+            ) => change_mode(&context, RobotMode::Prepare),
+            (
+                PrimaryState::Finished | PrimaryState::Penalized,
+                RobotMode::Walking | RobotMode::Custom,
+            ) => {
+                if switch_to_prepare {
+                    change_mode(&context, RobotMode::Prepare)
+                }
             }
             (
                 PrimaryState::Ready
@@ -82,9 +87,8 @@ impl BoosterModeHandler {
                 | PrimaryState::Set
                 | PrimaryState::Stop,
                 RobotMode::Prepare,
-                _,
-            ) => change_mode(&context, RobotMode::Walking),
-            (_, _, _) => (),
+            ) => change_mode(&context, motion_robot_mode),
+            (_, _) => (),
         };
 
         Ok(MainOutputs {

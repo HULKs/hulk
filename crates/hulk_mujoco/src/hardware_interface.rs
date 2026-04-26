@@ -153,7 +153,7 @@ async fn worker(
     let mut websocket = loop {
         let websocket = tokio_tungstenite::connect_async(&address).await;
         if let Ok((mut websocket, _)) = websocket {
-            let connection_info = ConnectionInfo::control_and_vision();
+            let connection_info = ConnectionInfo::control_only();
             log::info!("connected to mujoco websocket at {address}");
             log::info!("sending ConnectionInfo");
             websocket

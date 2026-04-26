@@ -663,7 +663,7 @@ impl HighLevelInterface for BoosterHardwareInterface {
 
 impl MotionRuntimeInterface for BoosterHardwareInterface {
     fn get_motion_runtime_type(&self) -> Result<MotionRuntime> {
-        Ok(MotionRuntime::Booster)
+        Ok(MotionRuntime::Hulk)
     }
 }
 
