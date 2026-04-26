@@ -10,8 +10,7 @@ def k1_rough_env_cfg(*, play: bool = False) -> ManagerBasedRlEnvCfg:
     if play:
         cfg.episode_length_s = int(1e9)
 
-        cfg.observations["policy"].enable_corruption = False
-        _ = cfg.events.pop("push_robot", None)
+        cfg.observations["actor"].enable_corruption = False
         cfg.events["randomize_terrain"] = EventTermCfg(
             func=envs_mdp.randomize_terrain,
             mode="reset",
