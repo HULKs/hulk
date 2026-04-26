@@ -1,17 +1,17 @@
-use std::{collections::VecDeque, io::Write, path::Path, time::Duration};
+use std::{collections::VecDeque, path::Path, time::Duration};
 
 use booster::{ImuState, MotorCommandParameters, MotorState};
 use color_eyre::Result;
 use coordinate_systems::Ground;
 use framework::deserialize_not_implemented;
-use kinematics::joints::{Joints, arm::ArmJoints, leg::LegJoints};
+use kinematics::joints::{Joints, leg::LegJoints};
 use linear_algebra::{Vector2, vector};
 use ndarray::{Array1, Axis};
 use ort::{
     execution_providers::{CUDAExecutionProvider, TensorRTExecutionProvider},
     inputs,
     session::{Session, builder::GraphOptimizationLevel},
-    value::{Tensor, Value},
+    value::Tensor,
 };
 use serde::{Deserialize, Serialize};
 use types::parameters::RLWalkingParameters;
@@ -152,15 +152,6 @@ impl WalkingInference {
         )
         .into();
 
-        println!("Inputs: {}\n", inputs.clone());
-
-        // let mut observation_file = std::fs::OpenOptions::new()
-        //     .create(true)
-        //     .append(true)
-        //     .open("rust_observations.txt")?;
-
-        // writeln!(observation_file, "tensor([{:?}],)", inputs)?;
-
         assert!(
             inputs.len()
                 == walking_parameters.number_of_observations
@@ -168,31 +159,11 @@ impl WalkingInference {
         );
         let inputs_tensor = Tensor::from_array(inputs.insert_axis(Axis(0)))?;
 
-        // For testing with zero inputs:
-        // let input_vec: Vec<f32> = vec![
-        //     0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-        //     0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-        //     0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0,
-        // ];
-        // let input_array = Array1::from(input_vec);
-        // let inputs_tensor = Value::from_array(input_array.insert_axis(Axis(0)))?;
-
         let inference_input = inputs![inputs_tensor];
 
         let outputs = self.session.run(inference_input)?;
+
         let predictions = outputs["actions"].try_extract_array::<f32>()?.squeeze();
-
-        // let mut actions_file = std::fs::OpenOptions::new()
-        //     .create(true)
-        //     .append(true)
-        //     .open("rust_actions.txt")?;
-
-        // writeln!(actions_file, "tensor([{:?}],)", predictions)?;
-
-        // predictions.clamp(
-        //     -walking_parameters.normalization.clip_actions,
-        //     walking_parameters.normalization.clip_actions,
-        // );
 
         assert!(predictions.len() == walking_parameters.number_of_actions);
 

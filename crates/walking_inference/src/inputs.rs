@@ -239,57 +239,6 @@ impl WalkingInferenceInputs {
         })
     }
 
-    pub fn booster_gym_observation_vector(&self) -> Vec<f32> {
-        [
-            self.gravity.x(),
-            self.gravity.y(),
-            self.gravity.z(),
-            self.angular_velocity.x(),
-            self.angular_velocity.y(),
-            self.angular_velocity.z(),
-            self.linear_velocity_command.x(),
-            self.linear_velocity_command.y(),
-            self.angular_velocity_command,
-            self.gait_process.x,
-            self.gait_process.y,
-        ]
-        .into_iter()
-        .chain(self.joint_position_differences.body().left_leg)
-        .chain(self.joint_position_differences.body().right_leg)
-        .chain(self.joint_velocities.body().left_leg)
-        .chain(self.joint_velocities.body().right_leg)
-        .chain(self.last_target_joint_positions.body().left_leg)
-        .chain(self.last_target_joint_positions.body().right_leg)
-        .collect::<Vec<f32>>()
-    }
-
-    pub fn booster_deploy_observation_vector(&self) -> Vec<f32> {
-        [
-            self.angular_velocity.x(),
-            self.angular_velocity.y(),
-            self.angular_velocity.z(),
-            self.gravity.x(),
-            self.gravity.y(),
-            self.gravity.z(),
-            self.linear_velocity_command.x(),
-            self.linear_velocity_command.y(),
-            self.angular_velocity_command,
-        ]
-        .into_iter()
-        .chain(
-            self.joint_position_differences
-                .body()
-                .to_booster_deploy_joint_array(),
-        )
-        .chain(self.joint_velocities.body().to_booster_deploy_joint_array())
-        .chain(
-            self.last_target_joint_positions
-                .body()
-                .to_booster_deploy_joint_array(),
-        )
-        .collect::<Vec<f32>>()
-    }
-
     pub fn mjlab_walking_policy_observation_vector(&self) -> Vec<f32> {
         [
             self.angular_velocity.x(),

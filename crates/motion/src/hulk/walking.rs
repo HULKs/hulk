@@ -76,12 +76,12 @@ impl RLWalking {
                     * context.walking_parameters.control.decimation,
             );
 
-        let walk_command =
+        let _walk_command =
             WalkCommand::from_motion_command(context.motion_command, context.walking_parameters);
 
         let inference_output_positions = self.walking_inference.do_inference(
             context.cycle_time.last_cycle_duration,
-            &WalkCommand::Stand, // Keine Anschläge mehr :)
+            &WalkCommand::Stand, // Nur standing policy!!! Nicht ändern, @BenSampaolo
             context.imu_state,
             *context.serial_motor_states,
             context.walking_parameters,

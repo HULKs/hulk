@@ -79,7 +79,7 @@ async def run_simulation(
     dt = model.opt.timestep
     logging.info(f"Timestep: {1000 * dt}ms")
 
-    target_time_factor = 2
+    target_time_factor = 1
     renderer = CameraRenderer(
         model=model, camera_name="camera", height=544, width=640
     )

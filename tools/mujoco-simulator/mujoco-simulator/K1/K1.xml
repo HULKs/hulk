@@ -58,7 +58,7 @@
     <light directional="true" diffuse=".6 .6 .6" specular="0.2 0.2 0.2" pos="0 0 4" dir="0 0 -1" />
     <geom name="ground" type="plane" pos="0 0 -0.01" size="0 0 1" material="matplane" condim="1" friction="0.4 0.005 0.0001"/>
 
-    <body name="Trunk" pos="0 0 1.6">
+    <body name="Trunk" pos="0 0 0.6">
       <site name='imu' size='0.01' pos='0.0 0.0 0.0' />
       <inertial pos="-0.0043392 -0.00065534 0.065686" quat="0.999896 -0.00411546 0.0137413 -0.00168959" mass="6.5" diaginertia="0.0962166 0.0895166 0.0201248"/>
       <joint name="world_joint" type="free" limited="false" actuatorfrclimited="false"/>

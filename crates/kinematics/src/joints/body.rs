@@ -1,8 +1,4 @@
-use std::{
-    array::IntoIter,
-    iter::Chain,
-    ops::{Add, Div, Mul, Sub},
-};
+use std::ops::{Add, Div, Mul, Sub};
 
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
@@ -76,110 +72,6 @@ where
             left_leg: LegJoints::fill(leg.clone()),
             right_leg: LegJoints::fill(leg),
         }
-    }
-}
-
-impl<T> BodyJoints<T>
-where
-    T: Default,
-{
-    pub fn to_booster_deploy_joint_array(self) -> [T; 21] {
-        [
-            self.left_arm.shoulder_pitch,
-            self.right_arm.shoulder_pitch,
-            T::default(),
-            self.left_arm.shoulder_roll,
-            self.right_arm.shoulder_roll,
-            self.left_leg.hip_pitch,
-            self.right_leg.hip_pitch,
-            self.left_arm.elbow,
-            self.right_arm.elbow,
-            self.left_leg.hip_roll,
-            self.right_leg.hip_roll,
-            self.left_arm.shoulder_yaw,
-            self.right_arm.shoulder_yaw,
-            self.left_leg.hip_yaw,
-            self.right_leg.hip_yaw,
-            self.left_leg.knee,
-            self.right_leg.knee,
-            self.left_leg.ankle_up,
-            self.right_leg.ankle_up,
-            self.left_leg.ankle_down,
-            self.right_leg.ankle_down,
-        ]
-    }
-
-    pub fn from_booster_deploy_joint_array(joint_vector: [T; 21]) -> Self {
-        #[rustfmt::skip]
-        let [
-                left_shoulder_pitch, 
-                right_shoulder_pitch, 
-                _, 
-                left_shoulder_roll, 
-                right_shoulder_roll, 
-                left_hip_pitch, 
-                right_hip_pitch, 
-                left_elbow, 
-                right_elbow, 
-                left_hip_roll, 
-                right_hip_roll, 
-                left_shoulder_yaw, 
-                right_shoulder_yaw, 
-                left_hip_yaw, 
-                right_hip_yaw, 
-                left_knee, 
-                right_knee, 
-                left_ankle_up, 
-                right_ankle_up, 
-                left_ankle_down, 
-                right_ankle_down
-            ] = joint_vector;
-
-        BodyJoints {
-            left_arm: ArmJoints {
-                shoulder_pitch: left_shoulder_pitch,
-                shoulder_roll: left_shoulder_roll,
-                shoulder_yaw: left_shoulder_yaw,
-                elbow: left_elbow,
-            },
-            right_arm: ArmJoints {
-                shoulder_pitch: right_shoulder_pitch,
-                shoulder_roll: right_shoulder_roll,
-                shoulder_yaw: right_shoulder_yaw,
-                elbow: right_elbow,
-            },
-            left_leg: LegJoints {
-                hip_pitch: left_hip_pitch,
-                hip_roll: left_hip_roll,
-                hip_yaw: left_hip_yaw,
-                knee: left_knee,
-                ankle_up: left_ankle_up,
-                ankle_down: left_ankle_down,
-            },
-            right_leg: LegJoints {
-                hip_pitch: right_hip_pitch,
-                hip_roll: right_hip_roll,
-                hip_yaw: right_hip_yaw,
-                knee: right_knee,
-                ankle_up: right_ankle_up,
-                ankle_down: right_ankle_down,
-            },
-        }
-    }
-}
-
-impl<T> IntoIterator for BodyJoints<T> {
-    type Item = T;
-
-    type IntoIter =
-        Chain<Chain<Chain<IntoIter<T, 4>, IntoIter<T, 4>>, IntoIter<T, 6>>, IntoIter<T, 6>>;
-
-    fn into_iter(self) -> Self::IntoIter {
-        self.left_arm
-            .into_iter()
-            .chain(self.right_arm)
-            .chain(self.left_leg)
-            .chain(self.right_leg)
     }
 }
 
@@ -293,15 +185,15 @@ impl<T> From<BodyJoints<T>> for LowerBodyJoints<T> {
     }
 }
 
-impl<T> IntoIterator for LowerBodyJoints<T> {
-    type Item = T;
+// impl<T> IntoIterator for LowerBodyJoints<T> {
+//     type Item = T;
 
-    type IntoIter = Chain<IntoIter<T, 6>, IntoIter<T, 6>>;
+//     type IntoIter = Chain<IntoIter<T, 6>, IntoIter<T, 6>>;
 
-    fn into_iter(self) -> Self::IntoIter {
-        self.left_leg.into_iter().chain(self.right_leg)
-    }
-}
+//     fn into_iter(self) -> Self::IntoIter {
+//         self.left_leg.into_iter().chain(self.right_leg)
+//     }
+// }
 
 #[derive(
     Clone,

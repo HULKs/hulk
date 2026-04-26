@@ -382,7 +382,7 @@
         "left": 0.0,
         "turn": 0.0
       },
-      "enable": true
+      "enable": false
     },
     "path_planning": {
       "robot_radius_at_hip_height": 0.3,
@@ -504,7 +504,7 @@
     "corner_arc_radius": 0.0
   },
   "object_detection": {
-    "enable": false,
+    "enable": true,
     "maximum_intersection_over_union": 0.7,
     "confidence_threshold": 0.5
   },
@@ -573,7 +573,7 @@
   },
   "head_motion": {
     "maximum_velocity": {
-      "yaw": 1.0,
+      "yaw": 0.4,
       "pitch": 0.4
     },
     "maximum_defender_velocity": {
@@ -926,7 +926,7 @@
       "secs": 2
     },
     "quick_search_timeout": {
-      "nanos": 800000000,
+      "nanos": 300000000,
       "secs": 0
     },
     "middle_positions": {
