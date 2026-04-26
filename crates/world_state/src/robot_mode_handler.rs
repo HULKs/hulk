@@ -7,12 +7,18 @@ use serde::{Deserialize, Serialize};
 use context_attribute::context;
 use framework::MainOutput;
 use hardware::{HighLevelInterface, MotionRuntimeInterface};
-use types::{cycle_time::CycleTime, motion_runtime::MotionRuntime, primary_state::PrimaryState};
+use types::{
+    buttons::{ButtonPressType, Buttons},
+    cycle_time::CycleTime,
+    motion_runtime::MotionRuntime,
+    primary_state::PrimaryState,
+};
 
 #[derive(Deserialize, Serialize)]
 pub struct BoosterModeHandler {
     last_primary_state_change_time: SystemTime,
     last_primary_state: PrimaryState,
+    local_stop_toggle: bool,
 }
 
 #[context]
@@ -22,8 +28,10 @@ pub struct CreationContext {}
 pub struct CycleContext {
     primary_state: Input<PrimaryState, "primary_state">,
     cycle_time: Input<CycleTime, "cycle_time">,
+    buttons: Input<Buttons<Option<ButtonPressType>>, "buttons">,
 
     wait_before_prepare: Parameter<Duration, "wait_before_prepare">,
+    remote_stop_toggle: Parameter<bool, "remote_stop_toggle">,
 
     hardware_interface: HardwareInterface,
 }
@@ -39,6 +47,7 @@ impl BoosterModeHandler {
         Ok(Self {
             last_primary_state_change_time: SystemTime::UNIX_EPOCH,
             last_primary_state: PrimaryState::default(),
+            local_stop_toggle: false,
         })
     }
 
@@ -49,6 +58,23 @@ impl BoosterModeHandler {
         if context.hardware_interface.get_motion_runtime_type()? != MotionRuntime::Booster {
             return Ok(MainOutputs {
                 robot_mode: None.into(),
+            });
+        }
+
+        let is_local_stop_toggle_short_press =
+            matches!(context.buttons.f1, Some(ButtonPressType::Short))
+                || matches!(context.buttons.stand, Some(ButtonPressType::Short));
+
+        let should_enter_damping_mode = self.local_stop_toggle != *context.remote_stop_toggle;
+
+        if should_enter_damping_mode && is_local_stop_toggle_short_press {
+            self.local_stop_toggle = !self.local_stop_toggle;
+        }
+
+        if should_enter_damping_mode {
+            change_mode(&context, RobotMode::Damping);
+            return Ok(MainOutputs {
+                robot_mode: Some(RobotMode::Damping).into(),
             });
         }
 

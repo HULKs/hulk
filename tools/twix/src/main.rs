@@ -12,8 +12,8 @@ use color_eyre::{
 use eframe::{
     App, CreationContext, Frame, NativeOptions, Renderer, Storage,
     egui::{
-        CentralPanel, Context, CornerRadius, Id, Label, Layout, Sense, StrokeKind, TopBottomPanel,
-        Ui, Widget, WidgetText,
+        Button, CentralPanel, Context, CornerRadius, Id, Label, Layout, RichText, Sense,
+        StrokeKind, TopBottomPanel, Ui, Widget, WidgetText,
     },
     egui_wgpu::{WgpuConfiguration, WgpuSetup},
     emath::Align,
@@ -28,6 +28,7 @@ use serde_json::{Value, from_str, to_string};
 use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
 use communication::client::Status;
+use communication::messages::TextOrBinary;
 use configuration::{
     Configuration,
     keybind_plugin::{self, KeybindSystem},
@@ -60,6 +61,8 @@ mod twix_painter;
 mod value_buffer;
 mod visuals;
 mod zoom_and_pan;
+
+use crate::value_buffer::BufferHandle;
 
 #[derive(Debug, Parser)]
 struct Arguments {
@@ -179,6 +182,7 @@ struct TwixApp {
     address: String,
     reachable_robots: ReachableRobots,
     connection_intent: bool,
+    remote_stop_toggle: BufferHandle<bool>,
     panel_selection: String,
     last_focused_tab: (NodeIndex, TabIndex),
     dock_state: DockState<Tab>,
@@ -230,6 +234,8 @@ impl TwixApp {
         if connection_intent {
             robot.connect();
         }
+
+        let remote_stop_toggle = robot.subscribe_value("parameters.remote_stop_toggle");
 
         let dock_state: Option<DockState<Value>> = if arguments.clear {
             None
@@ -287,6 +293,7 @@ impl TwixApp {
             robot,
             reachable_robots,
             connection_intent,
+            remote_stop_toggle,
             panel_selection,
             dock_state,
             last_focused_tab: (0.into(), 0.into()),
@@ -523,7 +530,29 @@ impl App for TwixApp {
                                 }
                             })
                         });
-                    })
+                    });
+
+                    if ui
+                        .add(
+                            Button::new(RichText::new("STOP").color(Color32::WHITE))
+                                .fill(Color32::RED),
+                        )
+                        .clicked()
+                    {
+                        match self.remote_stop_toggle.get_last_value() {
+                            Ok(Some(value)) => {
+                                let new_remote_stop_toggle = !value;
+                                self.robot.write(
+                                    "parameters.remote_stop_toggle",
+                                    TextOrBinary::Text(new_remote_stop_toggle.into()),
+                                );
+                            }
+                            Ok(None) => {}
+                            Err(error) => {
+                                error!("failed to read remote_stop_toggle: {error:#?}")
+                            }
+                        }
+                    }
                 });
             })
         });

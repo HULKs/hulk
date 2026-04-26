@@ -365,8 +365,9 @@
       "secs": 30
     }
   },
+  "remote_stop_toggle": false,
   "injected_primary_state": null,
-   "behavior": {
+  "behavior": {
     "injected_motion_command": null,
     "goal_keeper_number": "One",
     "optional_roles": ["Defender", "Midfielder", "StrikerSupporter"],
