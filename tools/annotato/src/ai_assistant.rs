@@ -3,7 +3,7 @@ use std::{collections::HashMap, fs, path::Path};
 use color_eyre::{Result, eyre::Context};
 use serde::{Deserialize, Serialize};
 
-use crate::{annotation::AnnotationFormat, boundingbox::BoundingBox};
+use crate::annotation::AnnotationFormat;
 
 #[derive(Serialize, Deserialize)]
 pub struct ModelAnnotations {
@@ -22,13 +22,7 @@ impl ModelAnnotations {
         })
     }
 
-    pub fn for_image(&self, image_name: &String) -> Option<Vec<BoundingBox>> {
-        Some(
-            self.images
-                .get(image_name)?
-                .iter()
-                .map(|annotation| annotation.clone().into())
-                .collect(),
-        )
+    pub fn for_image(&self, image_name: &String) -> Option<Vec<AnnotationFormat>> {
+        self.images.get(image_name).cloned()
     }
 }

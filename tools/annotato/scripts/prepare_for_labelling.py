@@ -1,20 +1,29 @@
+# /// script
+# requires-python = ">=3.13"
+# dependencies = ["tqdm","opencv-python","pillow","numpy","ultralytics","wonderwords","onnxruntime"]
+# ///
+
 import argparse
 import json
 from pathlib import Path
+from uuid import uuid4
 
 import cv2
+import numpy as np
 from PIL import Image
 from tqdm import tqdm
-import numpy as np
 from ultralytics import YOLO
-from uuid import uuid4
 from wonderwords import RandomWord
 
 CLASS_CONVERSION = [
     "Ball",
-    "Robot",
     "GoalPost",
+    "LSpot",
     "PenaltySpot",
+    "Robot",
+    "TSpot",
+    "XSpot",
+    "Person",
 ]
 
 
@@ -30,7 +39,7 @@ def generate_random_chunk_name():
 
 
 def main(args):
-    image_paths = Path(args.image_folder).glob("*.png")
+    image_paths = list(Path(args.image_folder).glob("*.png"))
     if len(image_paths) == 0:
         raise RuntimeError("No images found in the image folder")
 
@@ -38,9 +47,9 @@ def main(args):
     if args.yolo:
         yolo_model = YOLO(args.yolo)
 
-    number_of_chunks = len(image_paths) // int(args.chunksize)
+    number_of_chunks = np.ceil(len(image_paths) / int(args.chunksize))
 
-    output_path = Path("output")
+    output_path = Path("current")
 
     for chunk in tqdm(np.array_split(image_paths, number_of_chunks)):
         # create labelling folder
@@ -56,18 +65,20 @@ def main(args):
                 image = cv2.cvtColor(image, cv2.COLOR_BGR2RGB)
                 image = cv2.cvtColor(image, cv2.COLOR_YCrCb2RGB)
 
+            image_name = str(uuid4()) + ".png"
             if yolo_model:
-                detection = yolo_model(image, verbose=False)
+                detection = yolo_model(
+                    image, verbose=False, conf=0.1, end2end=False, iou=0.3
+                )
 
                 chunk_annotations[image_name] = [
                     {
                         "class": CLASS_CONVERSION[int(box.cls)],
-                        "points": box.xyxy.reshape(2, 2).tolist(),
+                        "points": box.xyxyn.reshape(2, 2).tolist(),
                     }
                     for box in detection[0].boxes
                 ]
 
-            image_name = str(uuid4()) + ".png"
             cv2.imwrite(str(images_path.joinpath(image_name)), image)
 
         with open(images_path.parent.joinpath("data.json"), "w") as f:
@@ -84,7 +95,9 @@ if __name__ == "__main__":
         "--chunksize", help="the chunksize of one labelling task", default=200
     )
     parser.add_argument(
-        "--convert-colors", help="whether to convert ycbcr to rgb", default=True
+        "--convert-colors",
+        help="whether to convert ycbcr to rgb",
+        default=False,
     )
 
     main(parser.parse_args())

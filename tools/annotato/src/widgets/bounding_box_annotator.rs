@@ -11,6 +11,7 @@ use crate::{boundingbox::BoundingBox, classes::Class, user_toml::CONFIG};
 pub struct BoundingBoxAnnotator<'a> {
     id: Id,
     texture_handle: TextureHandle,
+    image_size: [f32; 2],
     selected_class: &'a mut Class,
     bounding_boxes: &'a mut Vec<BoundingBox>,
     box_in_editing: &'a mut Option<BoundingBox>,
@@ -20,6 +21,7 @@ impl<'a> BoundingBoxAnnotator<'a> {
     pub fn new(
         id_source: impl Hash,
         image: TextureHandle,
+        image_size: [f32; 2],
         bounding_boxes: &'a mut Vec<BoundingBox>,
         box_in_editing: &'a mut Option<BoundingBox>,
         selected_class: &'a mut Class,
@@ -27,21 +29,30 @@ impl<'a> BoundingBoxAnnotator<'a> {
         Self {
             id: Id::new(id_source),
             texture_handle: image,
+            image_size,
             bounding_boxes,
             box_in_editing,
             selected_class,
         }
     }
 
-    fn delete_box_from(mouse_position: PlotPoint, bbox_list: &mut Vec<BoundingBox>) -> bool {
-        if let Some(clicked_bbox_index) = bbox_list
+    fn delete_box_from(
+        mouse_position: PlotPoint,
+        bounding_box_list: &mut Vec<BoundingBox>,
+    ) -> bool {
+        if let Some(clicked_bounding_box_index) = bounding_box_list
             .iter()
             .enumerate()
-            .filter(|(_, bbox)| bbox.contains(mouse_position))
-            .min_by(|(_, bbox1), (_, bbox2)| bbox1.rect().area().total_cmp(&bbox2.rect().area()))
-            .map(|(idx, _)| idx)
+            .filter(|(_, bounding_box)| bounding_box.contains(mouse_position))
+            .min_by(|(_, bounding_box1), (_, bounding_box2)| {
+                bounding_box1
+                    .rect()
+                    .area()
+                    .total_cmp(&bounding_box2.rect().area())
+            })
+            .map(|(index, _)| index)
         {
-            bbox_list.remove(clicked_bbox_index);
+            bounding_box_list.remove(clicked_bounding_box_index);
             return true;
         }
         false
@@ -73,8 +84,7 @@ impl<'a> BoundingBoxAnnotator<'a> {
                 None
             }
             (Some(mut bounding_box), b_pressed, q_pressed, false) if b_pressed || q_pressed => {
-                // finish the box
-                bounding_box.clip_to_image();
+                bounding_box.clip_to_image(self.image_size);
                 if bounding_box.is_valid() {
                     self.bounding_boxes.push(bounding_box);
                 }
@@ -114,17 +124,20 @@ impl<'a> BoundingBoxAnnotator<'a> {
 
             (_, _, _, _) => None,
         };
-        if let Some(bbox) = editing_bounding_box {
-            let _ = self.box_in_editing.insert(bbox);
+        if let Some(bounding_box) = editing_bounding_box {
+            let _ = self.box_in_editing.insert(bounding_box);
         }
     }
 }
 
 impl Widget for BoundingBoxAnnotator<'_> {
     fn ui(mut self, ui: &mut Ui) -> Response {
+        let width = self.image_size[0];
+        let height = self.image_size[1];
+
         let response = Plot::new(self.id)
-            .data_aspect(1.)
-            .view_aspect(640. / 480.)
+            .data_aspect(1.0)
+            .view_aspect(width / height)
             .show_axes([false, false])
             .show_grid([false, false])
             .set_margin_fraction(Vec2::splat(0.1))
@@ -140,13 +153,13 @@ impl Widget for BoundingBoxAnnotator<'_> {
                 plot_ui.image(PlotImage::new(
                     "image",
                     &self.texture_handle,
-                    PlotPoint::new(320., 240.),
-                    Vec2::new(640., 480.),
+                    PlotPoint::new(width as f64 / 2.0, height as f64 / 2.0),
+                    Vec2::new(width, height),
                 ));
                 self.bounding_boxes
                     .iter()
                     .chain(self.box_in_editing.iter())
-                    .filter(|bbox| bbox.is_valid())
+                    .filter(|bounding_box| bounding_box.is_valid())
                     .for_each(|bbox| {
                         let polygon: Polygon = bbox.into();
                         plot_ui.polygon(
@@ -172,12 +185,12 @@ impl Widget for BoundingBoxAnnotator<'_> {
 
         if let (Some(position), None) = (response.response.hover_pos(), self.box_in_editing) {
             let position = response.transform.value_from_position(position);
-            if let Some(bbox) = self
+            if let Some(bounding_box) = self
                 .bounding_boxes
                 .iter()
-                .find(|bbox| bbox.has_corner_at(position))
+                .find(|bounding_box| bounding_box.has_corner_at(position))
             {
-                let corner = bbox.get_closest_corner(position);
+                let corner = bounding_box.get_closest_corner(position);
                 let corner_screen = response.transform.position_from_point(&corner);
                 let radius = 5.0 * response.transform.dpos_dvalue_x();
                 let painter = ui.painter();
