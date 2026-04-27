@@ -10,10 +10,12 @@ where
     T: SimdRealField + Copy,
     T::Element: SimdRealField,
 {
+    /// Creates an orientation from an angle in radians.
     pub fn new(angle: T) -> Self {
         Self::wrap(nalgebra::UnitComplex::new(angle))
     }
 
+    /// Returns the identity orientation.
     pub fn identity() -> Self {
         Self::wrap(nalgebra::UnitComplex::identity())
     }
@@ -26,6 +28,7 @@ where
         Self::wrap(nalgebra::UnitComplex::from_cos_sin_unchecked(cos, sin))
     }
 
+    /// Creates the orientation that points the x-axis along `direction`.
     pub fn from_vector(direction: Vector2<Frame, T>) -> Self
     where
         T: RealField,
@@ -36,6 +39,10 @@ where
         ))
     }
 
+    /// Converts this orientation into a rotation (transform) from a source frame to this frame.
+    ///
+    /// This adds a source frame, yielding a transform from `From` to `Frame`. Use this when you
+    /// want to treat the orientation as a transform from another frame into this frame.
     pub fn as_transform<From>(&self) -> Rotation2<From, Frame, T> {
         Rotation2::wrap(self.inner)
     }
@@ -44,6 +51,7 @@ where
         self.inner.angle()
     }
 
+    /// Returns the rotation from `self` to `other`, staying in the same frame.
     pub fn rotation_to(&self, other: Self) -> Rotation2<Frame, Frame, T> {
         Rotation2::wrap(self.inner.rotation_to(&other.inner))
     }
@@ -52,6 +60,7 @@ where
         Self::wrap(self.inner.slerp(&other.inner, t))
     }
 
+    /// Converts this orientation into the corresponding unit direction vector.
     pub fn as_unit_vector(&self) -> Vector2<Frame, T> {
         let Complex { re, im } = self.inner.as_ref();
 
@@ -64,10 +73,17 @@ where
     T: SimdRealField + RealField,
     T::Element: SimdRealField,
 {
+    /// Creates an orientation from an axis-angle vector.
     pub fn new(axis_angle: Vector3<Frame, T>) -> Self {
         Self::wrap(nalgebra::UnitQuaternion::new(axis_angle.inner))
     }
 
+    /// Returns the identity orientation.
+    pub fn identity() -> Self {
+        Self::wrap(nalgebra::UnitQuaternion::identity())
+    }
+
+    /// Creates an orientation from Euler angles in radians.
     pub fn from_euler_angles(roll: T, pitch: T, yaw: T) -> Self {
         Self::wrap(nalgebra::UnitQuaternion::from_euler_angles(
             roll, pitch, yaw,
@@ -82,18 +98,24 @@ where
         self.inner.angle_to(&other.inner)
     }
 
+    /// Returns the rotation from `self` to `other`, staying in the same frame.
     pub fn rotation_to(&self, other: Self) -> Rotation3<Frame, Frame, T> {
         Rotation3::wrap(self.inner.rotation_to(&other.inner))
     }
 
-    pub fn rotation<From>(self) -> Rotation3<From, Frame, T> {
-        Rotation3::wrap(self.inner)
+    /// Converts this orientation into a rotation (transform) from a source frame to this frame.
+    ///
+    /// This adds a source frame, yielding a transform from `From` to `Frame`. Use this when you
+    /// want to treat the orientation as a transform from another frame into this frame.
+    pub fn as_transform<From>(&self) -> Rotation3<From, Frame, T> {
+        Rotation3::wrap(self.inner.clone())
     }
 
     pub fn slerp(&self, other: Self, t: T) -> Self {
         Self::wrap(self.inner.slerp(&other.inner, t))
     }
 
+    /// Returns the stored Euler angles in radians.
     pub fn euler_angles(&self) -> (T, T, T) {
         self.inner.euler_angles()
     }

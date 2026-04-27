@@ -37,7 +37,7 @@ impl WorldToFieldProvider {
             let global_field_side = game_controller_state.global_field_side;
             match global_field_side {
                 GlobalFieldSide::Home => Isometry2::identity(),
-                GlobalFieldSide::Away => Isometry2::rotation(PI),
+                GlobalFieldSide::Away => Isometry2::from_angle(PI),
             }
         });
         Ok(MainOutputs {

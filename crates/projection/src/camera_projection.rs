@@ -94,11 +94,12 @@ impl<To> InverseCameraProjection<To> {
 mod tests {
     use super::*;
     use coordinate_systems::Ground;
+    use linear_algebra::vector;
 
     #[test]
     fn invertable() {
         let camera_projection = CameraProjection::<Ground>::new(
-            Isometry3::from_translation(0.0, 0.0, 1.0),
+            Isometry3::from_translation(vector![0.0, 0.0, 1.0]),
             Intrinsic::new(nalgebra::vector![1.0, 1.0], point![1.0, 1.0]),
         );
         camera_projection.inverse(0.0);

@@ -3,7 +3,7 @@ use context_attribute::context;
 use coordinate_systems::{Field, Robot};
 use framework::{AdditionalOutput, MainOutput};
 use linear_algebra::{Orientation2, Orientation3, Vector2};
-use nalgebra::{Isometry2, Translation2};
+use nalgebra::Isometry2;
 use serde::{Deserialize, Serialize};
 use types::{
     robot_kinematics::RobotKinematics,
@@ -73,8 +73,8 @@ impl Odometry {
         self.last_orientation = orientation;
 
         let current_odometry_to_last_odometry = Isometry2::from_parts(
-            Translation2::from(corrected_offset_to_last_position.inner),
-            orientation_offset.inner,
+            corrected_offset_to_last_position,
+            orientation_offset.as_orientation(),
         );
         self.accumulated_odometry = current_odometry_to_last_odometry * self.accumulated_odometry;
         context

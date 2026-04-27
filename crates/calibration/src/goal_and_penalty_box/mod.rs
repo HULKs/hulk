@@ -27,7 +27,7 @@ mod tests {
             image_size,
             Isometry3::identity(),
             Isometry3::identity(),
-            Isometry3::from_translation(0.0, 0.0, 1.0),
+            Isometry3::from_translation(vector![0.0, 0.0, 1.0]),
         )
     }
 
