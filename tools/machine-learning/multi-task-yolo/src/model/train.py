@@ -25,7 +25,7 @@ class TrainingConfig:
     name: str | Path
     data: str | Path
     project: str | Path = "runs"
-    epochs: int = 70
+    epochs: int = 100
     imgsz: int = 640
     batch: int = 32
     optimizer: str = "auto"
@@ -225,7 +225,7 @@ def main(
                 )
             )
             wandb.init(project="multi-task-yolo", name=run_name)
-            
+
             config = TrainingConfig(
                 data=data,
                 project=runs_dir,
