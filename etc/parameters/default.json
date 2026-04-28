@@ -324,7 +324,6 @@
     "use_line_measurements": true
   },
   "support_foot_provider": {
-    "height_epsilon": 0.003,
     "switch_hysteresis": 0.008
   },
   "game_controller_filter": {

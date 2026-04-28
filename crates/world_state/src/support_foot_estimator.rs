@@ -5,6 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
 use coordinate_systems::Robot;
+use filtering::hysteresis::less_than_with_hysteresis;
 use framework::{MainOutput, PerceptionInput};
 use linear_algebra::{Isometry3, Orientation3};
 use types::support_foot::Side;
@@ -24,7 +25,6 @@ pub struct CycleContext {
     fall_down_state: Input<Option<FallDownState>, "fall_down_state?">,
     robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
 
-    height_epsilon: Parameter<f32, "support_foot_provider.height_epsilon">,
     switch_hysteresis: Parameter<f32, "support_foot_provider.switch_hysteresis">,
 }
 
@@ -84,7 +84,6 @@ impl SupportFootEstimator {
         let support_foot = Some(Self::select_support_side(
             height_difference,
             self.last_support_side,
-            *context.height_epsilon,
             *context.switch_hysteresis,
         ));
 
@@ -100,19 +99,21 @@ impl SupportFootEstimator {
     fn select_support_side(
         height_difference: f32,
         last_support_side: Side,
-        height_epsilon: f32,
         switch_hysteresis: f32,
     ) -> Side {
-        let candidate_side = if height_difference > height_epsilon {
-            Side::Right
-        } else {
-            Side::Left
-        };
+        let left_was_lower_last_time = last_support_side == Side::Left;
 
-        match (last_support_side, candidate_side) {
-            (Side::Left, Side::Right) if height_difference <= switch_hysteresis => Side::Left,
-            (Side::Right, Side::Left) if -height_difference <= switch_hysteresis => Side::Right,
-            _ => candidate_side,
+        let left_sole_is_lower_than_right_sole = less_than_with_hysteresis(
+            left_was_lower_last_time,
+            height_difference,
+            0.0,
+            switch_hysteresis,
+        );
+
+        if left_sole_is_lower_than_right_sole {
+            Side::Left
+        } else {
+            Side::Right
         }
     }
 
