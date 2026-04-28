@@ -23,6 +23,7 @@ pub struct CycleContext {
 
     fall_down_state: Input<Option<FallDownState>, "fall_down_state?">,
     robot_kinematics: Input<RobotKinematics, "robot_kinematics">,
+
     height_epsilon: Parameter<f32, "support_foot_provider.height_epsilon">,
     switch_hysteresis: Parameter<f32, "support_foot_provider.switch_hysteresis">,
 }
@@ -56,10 +57,13 @@ impl SupportFootEstimator {
         struct Horizontal;
 
         let imu_state = Self::latest_imu_state(&context);
-        let roll = imu_state.roll_pitch_yaw.x();
-        let pitch = imu_state.roll_pitch_yaw.y();
 
-        let imu_orientation = Orientation3::from_euler_angles(roll, pitch, 0.0).mirror();
+        let imu_orientation = Orientation3::from_euler_angles(
+            imu_state.roll_pitch_yaw.x(),
+            imu_state.roll_pitch_yaw.y(),
+            imu_state.roll_pitch_yaw.z(),
+        )
+        .mirror();
         let horizontal_to_robot = Isometry3::<Horizontal, Robot>::from(imu_orientation);
         let robot_to_horizontal = horizontal_to_robot.inverse();
 
