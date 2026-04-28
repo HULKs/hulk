@@ -32,7 +32,7 @@ class TrainingConfig:
     freeze: int = 11
     plots: bool = True
     exist_ok: bool = True
-    val: bool = False
+    val: bool = True
     save: bool = True
     device: int | str | list = -1
 
@@ -214,18 +214,18 @@ def main(
         best_params = {}
         tuned_hyperparameters_path = None
 
-        run_name = (
-            str(hydra_model)
-            + "~"
-            + RandomWord().word(
-                word_min_length=4,
-                word_max_length=8,
-                include_categories=["nouns"],
-            )
-        )
-        wandb.init(project="multi-task-yolo", name=run_name)
-
         if do_tuning:
+            run_name = (
+                str(hydra_model)
+                + "~"
+                + RandomWord().word(
+                    word_min_length=4,
+                    word_max_length=8,
+                    include_categories=["nouns"],
+                )
+            )
+            wandb.init(project="multi-task-yolo", name=run_name)
+            
             config = TrainingConfig(
                 data=data,
                 project=runs_dir,
