@@ -8,7 +8,7 @@ use coordinate_systems::{Camera, Field, Ground, NormalizedPixel, Pixel, Robot};
 use linear_algebra::{Point2, Vector2, Vector3};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
-use crate::{motion_command::MotionCommand, roles::Role, step::Step};
+use crate::{motion_command::MotionCommand, step::Step};
 
 #[derive(
     Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
@@ -44,7 +44,6 @@ pub struct BehaviorParameters {
     pub look_action: LookActionParameters,
     pub walk_and_stand: WalkAndStandParameters,
     pub walk_with_velocity: WalkWithVelocityParameters,
-    pub optional_roles: Vec<Role>,
     pub maximum_lookaround_duration: Duration,
     pub kicking: KickingParameters,
     pub walk_speed: WalkSpeedParameters,
