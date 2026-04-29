@@ -532,11 +532,7 @@
       ],
       "orientation_bias": 0.5,
       "grid_resolution": 0.1,
-      "corridor": 0.1,
-      "clearance_margin": 0.2,
-      "crossing_base": 0.8,
-      "crossing_weight": 2.5,
-      "endpoint_weight": 1.25
+      "padding": 4.0
     }
   },
   "role_assignment": {

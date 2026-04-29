@@ -5,22 +5,26 @@ use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput};
 use hsl_network_messages::PlayerNumber;
-use linear_algebra::{Isometry2, Point2, Pose2};
+use linear_algebra::{Isometry2, Pose2};
 use serde::{Deserialize, Serialize};
 use types::{
     field_dimensions::FieldDimensions,
     obstacles::Obstacle,
     parameters::VoronoiParameters,
     rule_obstacles::RuleObstacle,
-    voronoi::{Map, Ownership},
+    voronoi::{Ownership, VoronoiGrid},
 };
 
 const STRAIGHT_COST: u32 = 10;
 const DIAGONAL_COST: u32 = 14;
-const PADDING_FACTOR: f32 = 4.0;
 
 #[derive(Deserialize, Serialize)]
-pub struct TargetPositionComposer {}
+pub struct TargetPositionComposer {
+    #[serde(skip)]
+    dist_buffer: Vec<u32>,
+    #[serde(skip)]
+    queue_buffer: BinaryHeap<Reverse<(u32, usize, PlayerNumber)>>,
+}
 
 #[context]
 pub struct CreationContext {}
@@ -40,81 +44,171 @@ pub struct CycleContext {
 
 #[context]
 pub struct MainOutputs {
-    pub centroids: MainOutput<Vec<Option<Point2<Field>>>>,
-    pub voronoi_grid: MainOutput<Vec<(Point2<Field>, Ownership)>>,
+    pub voronoi_grid: MainOutput<VoronoiGrid>,
 }
 
 impl TargetPositionComposer {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {})
+        Ok(Self {
+            dist_buffer: Vec::new(),
+            queue_buffer: BinaryHeap::new(),
+        })
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        let mut ownership_grid = Vec::new();
+        let mut map = VoronoiGrid::new(
+            context.field_dimensions.length,
+            context.field_dimensions.width,
+            context.voronoi_parameters.padding * context.voronoi_parameters.grid_resolution,
+            context.voronoi_parameters.grid_resolution,
+        );
 
         if let Some(ground_to_field) = context.ground_to_field {
             // TODO: Import the other Robot positions
             let mut sites = vec![(ground_to_field.as_pose(), *context.player_number)];
-            for fake_robot in context
-                .voronoi_parameters
-                .fake_robot_position
-                .clone()
-                .into_iter()
-            {
-                sites.push(fake_robot);
+            for fake_robot in context.voronoi_parameters.fake_robot_position.iter() {
+                sites.push(fake_robot.clone());
             }
             context
                 .input_points
                 .fill_if_subscribed(|| sites.iter().map(|(pose, _)| pose.clone()).collect());
 
-            let mut map = Map::new(
-                context.field_dimensions.length,
-                context.field_dimensions.width,
-                PADDING_FACTOR * context.voronoi_parameters.grid_resolution,
-                context.voronoi_parameters.grid_resolution,
-            );
+            for obstacle in context.obstacles.iter() {
+                let radius = obstacle
+                    .radius_at_hip_height
+                    .max(obstacle.radius_at_foot_height);
+                let center = ground_to_field * obstacle.position;
 
-            for index in 0..map.tiles.len() {
-                let grid_point = map.index_to_point(index);
-                if point_is_inside_obstacle(grid_point, ground_to_field, &context.obstacles)
-                    || point_is_inside_rule_obstacle(grid_point, &context.rule_obstacles)
-                {
-                    map.tiles[index] = Ownership::Blocked
+                if let Some((min_x, max_x, min_y, max_y)) = tile_range_for_bounds(
+                    &map,
+                    center.x() - radius,
+                    center.x() + radius,
+                    center.y() - radius,
+                    center.y() + radius,
+                ) {
+                    for y in min_y..=max_y {
+                        for x in min_x..=max_x {
+                            let index = y * map.width_tiles + x;
+                            let grid_point = map.index_to_point(index);
+                            if (grid_point - center).norm_squared() <= radius * radius {
+                                map.tiles[index] = Ownership::Blocked;
+                            }
+                        }
+                    }
                 }
             }
 
-            multi_source_dijkstra(&mut map, &sites);
-
-            ownership_grid.reserve(map.tiles.len());
-            for index in 0..map.tiles.len() {
-                ownership_grid.push((map.index_to_point(index), map.tiles[index]));
+            for rule_obstacle in context.rule_obstacles.iter() {
+                match rule_obstacle {
+                    RuleObstacle::Circle(circle) => {
+                        let radius_squared = circle.radius * circle.radius;
+                        if let Some((min_x, max_x, min_y, max_y)) = tile_range_for_bounds(
+                            &map,
+                            circle.center.x() - circle.radius,
+                            circle.center.x() + circle.radius,
+                            circle.center.y() - circle.radius,
+                            circle.center.y() + circle.radius,
+                        ) {
+                            for y in min_y..=max_y {
+                                for x in min_x..=max_x {
+                                    let index = y * map.width_tiles + x;
+                                    let grid_point = map.index_to_point(index);
+                                    if (grid_point - circle.center).norm_squared() <= radius_squared
+                                    {
+                                        map.tiles[index] = Ownership::Blocked;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    RuleObstacle::Rectangle(rectangle) => {
+                        if let Some((min_x, max_x, min_y, max_y)) = tile_range_for_bounds(
+                            &map,
+                            rectangle.min.x(),
+                            rectangle.max.x(),
+                            rectangle.min.y(),
+                            rectangle.max.y(),
+                        ) {
+                            for y in min_y..=max_y {
+                                for x in min_x..=max_x {
+                                    let index = y * map.width_tiles + x;
+                                    let grid_point = map.index_to_point(index);
+                                    if rectangle.contains(grid_point) {
+                                        map.tiles[index] = Ownership::Blocked;
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
             }
+
+            self.dist_buffer.clear();
+            if self.dist_buffer.len() != map.tiles.len() {
+                self.dist_buffer.resize(map.tiles.len(), u32::MAX);
+            } else {
+                self.dist_buffer.fill(u32::MAX);
+            }
+            self.queue_buffer.clear();
+
+            multi_source_dijkstra(
+                &mut map,
+                &sites,
+                &mut self.dist_buffer,
+                &mut self.queue_buffer,
+            );
         }
 
         Ok(MainOutputs {
-            centroids: vec![None].into(),
-            voronoi_grid: ownership_grid.into(),
+            voronoi_grid: map.into(),
         })
     }
 }
 
-fn point_is_inside_obstacle(
-    point: Point2<Field>,
-    ground_to_field: &Isometry2<Ground, Field>,
-    obstacles: &[Obstacle],
-) -> bool {
-    obstacles
-        .iter()
-        .any(|obstacle| obstacle.contains_point(ground_to_field.inverse() * point))
+fn tile_range_for_bounds(
+    map: &VoronoiGrid,
+    min_x: f32,
+    max_x: f32,
+    min_y: f32,
+    max_y: f32,
+) -> Option<(usize, usize, usize, usize)> {
+    if map.width_tiles == 0 || map.height_tiles == 0 {
+        return None;
+    }
+
+    let tile_min_x = map.min_bound.x();
+    let tile_max_x = map.min_bound.x() + map.width_tiles as f32 * map.resolution;
+    let tile_min_y = map.min_bound.y();
+    let tile_max_y = map.min_bound.y() + map.height_tiles as f32 * map.resolution;
+
+    if max_x < tile_min_x || min_x > tile_max_x || max_y < tile_min_y || min_y > tile_max_y {
+        return None;
+    }
+
+    let mut min_x_index = ((min_x - tile_min_x) / map.resolution).floor() as isize - 1;
+    let mut max_x_index = ((max_x - tile_min_x) / map.resolution).floor() as isize + 1;
+    let mut min_y_index = ((min_y - tile_min_y) / map.resolution).floor() as isize - 1;
+    let mut max_y_index = ((max_y - tile_min_y) / map.resolution).floor() as isize + 1;
+
+    min_x_index = min_x_index.clamp(0, map.width_tiles as isize - 1);
+    max_x_index = max_x_index.clamp(0, map.width_tiles as isize - 1);
+    min_y_index = min_y_index.clamp(0, map.height_tiles as isize - 1);
+    max_y_index = max_y_index.clamp(0, map.height_tiles as isize - 1);
+
+    Some((
+        min_x_index as usize,
+        max_x_index as usize,
+        min_y_index as usize,
+        max_y_index as usize,
+    ))
 }
 
-fn point_is_inside_rule_obstacle(point: Point2<Field>, rule_obstacles: &[RuleObstacle]) -> bool {
-    rule_obstacles
-        .iter()
-        .any(|rule_obstacle| rule_obstacle.contains(point))
-}
-
-fn multi_source_dijkstra(map: &mut Map, robots: &[(Pose2<Field>, PlayerNumber)]) {
+fn multi_source_dijkstra(
+    map: &mut VoronoiGrid,
+    robots: &[(Pose2<Field>, PlayerNumber)],
+    dist_buffer: &mut Vec<u32>,
+    queue_buffer: &mut BinaryHeap<Reverse<(u32, usize, PlayerNumber)>>,
+) {
     if map.width_tiles == 0
         || map.height_tiles == 0
         || map.width_tiles * map.height_tiles != map.tiles.len()
@@ -122,21 +216,18 @@ fn multi_source_dijkstra(map: &mut Map, robots: &[(Pose2<Field>, PlayerNumber)])
         return;
     }
 
-    let mut dist = vec![u32::MAX; map.tiles.len()];
-    let mut queue = BinaryHeap::new();
-
     for (robot_pose, player_number) in robots.iter() {
         if let Some(start_index) = map.nearest_non_blocked_cell_index(robot_pose.position()) {
-            if dist[start_index] > 0 {
-                dist[start_index] = 0;
+            if dist_buffer[start_index] > 0 {
+                dist_buffer[start_index] = 0;
                 map.tiles[start_index] = Ownership::Robot(*player_number);
-                queue.push(Reverse((0, start_index, *player_number)));
+                queue_buffer.push(Reverse((0, start_index, *player_number)));
             }
         }
     }
 
-    while let Some(Reverse((current_cost, current_index, player_number))) = queue.pop() {
-        if current_cost > dist[current_index] {
+    while let Some(Reverse((current_cost, current_index, player_number))) = queue_buffer.pop() {
+        if current_cost != dist_buffer[current_index] {
             continue;
         }
 
@@ -144,43 +235,38 @@ fn multi_source_dijkstra(map: &mut Map, robots: &[(Pose2<Field>, PlayerNumber)])
             continue;
         }
 
-        for (neighbor_index, step_cost) in get_neighbor_with_cost(map, current_index) {
-            let new_cost = current_cost + step_cost;
+        let x = current_index % map.width_tiles;
+        let y = current_index / map.width_tiles;
 
-            if new_cost < dist[neighbor_index] {
-                dist[neighbor_index] = new_cost;
-                map.tiles[neighbor_index] = Ownership::Robot(player_number);
-                queue.push(Reverse((new_cost, neighbor_index, player_number)));
-            }
-        }
-    }
-}
+        for dx in -1..=1 {
+            for dy in -1..=1 {
+                if dx == 0 && dy == 0 {
+                    continue;
+                }
+                let nx = x as isize + dx;
+                let ny = y as isize + dy;
+                if nx >= 0
+                    && nx < map.width_tiles as isize
+                    && ny >= 0
+                    && ny < map.height_tiles as isize
+                {
+                    let neighbor_index = (ny as usize) * map.width_tiles + (nx as usize);
+                    if map.tiles[neighbor_index] != Ownership::Blocked {
+                        let step_cost = if dx.abs() + dy.abs() == 2 {
+                            DIAGONAL_COST
+                        } else {
+                            STRAIGHT_COST
+                        };
+                        let new_cost = current_cost + step_cost;
 
-fn get_neighbor_with_cost(map: &Map, index: usize) -> Vec<(usize, u32)> {
-    let mut neighbors_with_cost = Vec::new();
-    let x = index % map.width_tiles;
-    let y = index / map.width_tiles;
-
-    for dx in -1..=1 {
-        for dy in -1..=1 {
-            if dx == 0 && dy == 0 {
-                continue;
-            }
-            let nx = x as isize + dx;
-            let ny = y as isize + dy;
-            if nx >= 0 && nx < map.width_tiles as isize && ny >= 0 && ny < map.height_tiles as isize
-            {
-                let neighbor_index = (ny as usize) * map.width_tiles + (nx as usize);
-                if map.tiles[neighbor_index] != Ownership::Blocked {
-                    if dx.abs() + dy.abs() == 2 {
-                        neighbors_with_cost.push((neighbor_index, DIAGONAL_COST)); // Diagonal move for symplicity
-                    } else {
-                        neighbors_with_cost.push((neighbor_index, STRAIGHT_COST)); // Straight move
+                        if new_cost < dist_buffer[neighbor_index] {
+                            dist_buffer[neighbor_index] = new_cost;
+                            map.tiles[neighbor_index] = Ownership::Robot(player_number);
+                            queue_buffer.push(Reverse((new_cost, neighbor_index, player_number)));
+                        }
                     }
                 }
             }
         }
     }
-
-    neighbors_with_cost
 }

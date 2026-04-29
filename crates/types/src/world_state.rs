@@ -11,7 +11,7 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use crate::{
     ball_position::HypotheticalBallPosition, field_dimensions::Side,
     filtered_game_controller_state::FilteredGameControllerState, obstacles::Obstacle,
-    primary_state::PrimaryState, roles::Role, rule_obstacles::RuleObstacle,
+    primary_state::PrimaryState, roles::Role, rule_obstacles::RuleObstacle, voronoi::VoronoiGrid,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathIntrospect)]
@@ -27,7 +27,7 @@ pub struct WorldState {
     pub rule_obstacles: Vec<RuleObstacle>,
     pub fall_down_state: Option<FallDownState>,
     pub suggested_search_position: Option<Point2<Field>>,
-    pub centroids: Vec<Option<Point2<Field>>>,
+    pub voronoi_grid: VoronoiGrid,
 }
 
 #[allow(clippy::derivable_impls)]
@@ -45,7 +45,7 @@ impl Default for WorldState {
             rule_obstacles: Default::default(),
             fall_down_state: Default::default(),
             suggested_search_position: Default::default(),
-            centroids: Default::default(),
+            voronoi_grid: Default::default(),
         }
     }
 }
