@@ -145,7 +145,7 @@ def _export_torchscript(
     ),
 )
 @click.argument(
-    "hydra-model-name",
+    "hydra-model-names",
     nargs=-1,
     type=HYDRA_MODEL_NAME_TYPE,
 )
@@ -207,7 +207,7 @@ def _export_torchscript(
     help="Add NV12 preprocessing layer before Hydra model.",
 )
 def main(
-    hydra_model_name: list[HydraModelName],
+    hydra_model_names: list[HydraModelName],
     export_folder: Path,
     *,
     runs_dir: Path,
@@ -225,11 +225,11 @@ def main(
     train_folder_path = runs_dir / train_dir
     val_folder_path = runs_dir / val_dir
 
-    for hydra_model_naming in hydra_model_name:
-        backbone = hydra_model_naming.backbone
+    for hydra_model_name in hydra_model_names:
+        backbone = hydra_model_name.backbone
 
         task_dict = _build_task_dict(
-            hydra_model_name=hydra_model_naming,
+            hydra_model_name=hydra_model_name,
             train_folder_path=train_folder_path,
             val_folder_path=val_folder_path,
         )
@@ -268,7 +268,7 @@ def main(
             _export_onnx(
                 wrapper=wrapper,
                 dummy_input=dummy_input,
-                export_path=export_folder / (str(hydra_model_naming) + ".onnx"),
+                export_path=export_folder / (str(hydra_model_name) + ".onnx"),
                 task_dict=task_dict.keys(),
                 opset=opset,
                 with_nv12=with_nv12_layer,
@@ -282,7 +282,7 @@ def main(
         _export_torchscript(
             wrapper=wrapper,
             dummy_input=dummy_input,
-            export_path=export_folder / (str(hydra_model_naming) + ".onnx"),
+            export_path=export_folder / (str(hydra_model_name) + ".onnx"),
         )
         click.echo(
             "Exported Hydra TorchScript model to: "
