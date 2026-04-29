@@ -509,6 +509,7 @@ pub struct HydraParameters {
     pub enable: bool,
     pub object_detection_parameters: ObjectDetectionParameters,
     pub pose_detection_parameters: PoseDetectionParameters,
+    pub segmentation_detection_parameters: SegmentationDetectionParameters,
 }
 
 #[derive(
@@ -523,6 +524,14 @@ pub struct ObjectDetectionParameters {
     Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
 pub struct PoseDetectionParameters {
+    pub maximum_intersection_over_union: f32,
+    pub confidence_threshold: f32,
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct SegmentationDetectionParameters {
     pub maximum_intersection_over_union: f32,
     pub confidence_threshold: f32,
 }
