@@ -31,19 +31,19 @@ class ModelName:
     def __str__(self) -> str:
         return f"{self.name}"
 
-    def detection_type(self) -> DetectionType:
+    def task_type(self) -> TaskType:
         match self.name:
             case str if str.startswith("yolo26m-pose"):
-                return DetectionType.POSE
+                return TaskType.POSE
             case str if str.startswith("yolo26m-seg"):
-                return DetectionType.SEGMENTATION
+                return TaskType.SEGMENTATION
             case str if str.startswith("yolo26m"):
-                return DetectionType.OBJECT
+                return TaskType.OBJECT
             case _:
                 raise ModelNameError(self.name)
 
 
-class HydraModelName(click.ParamType):
+class HydraModelName:
     backbone: ModelName
     heads: list[ModelName]
     number_of_frozen_modules: int

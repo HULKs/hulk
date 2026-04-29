@@ -16,15 +16,15 @@ from model.hydra import (
 )
 from utils.model_naming import (
     HYDRA_MODEL_NAME_TYPE,
-    DetectionType,
     HydraModelName,
+    TaskType,
 )
 
 logger = logging.getLogger(__name__)
 
 
 class DatasetNotFoundError(Exception):
-    def __init__(self, detection_type: DetectionType) -> None:
+    def __init__(self, detection_type: TaskType) -> None:
         self.detection_type = detection_type
         super().__init__(f"No dataset specified for {detection_type}")
 
@@ -214,16 +214,16 @@ def main(
     project_dir = os.path.join(repo_root, runs_dir)
 
     for hydra_model in flattened_hydra_model_names:
-        dataset_name = ""
-        match hydra_model.heads[0].detection_type():
-            case DetectionType.OBJECT:
+        dataset_name = None
+        match hydra_model.heads[0].task_type():
+            case TaskType.OBJECT:
                 dataset_name = object_dataset_name
-            case DetectionType.POSE:
+            case TaskType.POSE:
                 dataset_name = pose_dataset_name
-            case DetectionType.SEGMENTATION:
+            case TaskType.SEGMENTATION:
                 dataset_name = segmentation_dataset_name
         if dataset_name is None:
-            raise DatasetNotFoundError(hydra_model.heads[0].detection_type())
+            raise DatasetNotFoundError(hydra_model.heads[0].task_type())
         data = assets_dir / "datasets" / dataset_name
         config = ValidationConfig(
             data=data,

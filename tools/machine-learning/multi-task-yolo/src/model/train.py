@@ -11,8 +11,8 @@ from wonderwords import RandomWord
 
 from utils.model_naming import (
     HYDRA_MODEL_NAME_TYPE,
-    DetectionType,
     HydraModelName,
+    TaskType,
 )
 from validation.validator import DatasetNotFoundError
 
@@ -199,16 +199,16 @@ def main(
     for hydra_model in flattened_hydra_model_names:
         model_path = val_path / str(hydra_model) / (str(hydra_model) + ".pt")
 
-        dataset_name = ""
-        match hydra_model.heads[0].detection_type():
-            case DetectionType.OBJECT:
+        dataset_name = None
+        match hydra_model.heads[0].task_type():
+            case TaskType.OBJECT:
                 dataset_name = object_dataset_name
-            case DetectionType.POSE:
+            case TaskType.POSE:
                 dataset_name = pose_dataset_name
-            case DetectionType.SEGMENTATION:
+            case TaskType.SEGMENTATION:
                 dataset_name = segmentation_dataset_name
         if dataset_name is None:
-            raise DatasetNotFoundError(hydra_model.heads[0].detection_type())
+            raise DatasetNotFoundError(hydra_model.heads[0].task_type())
         data = assets_dir / "datasets" / dataset_name
 
         best_params = {}
