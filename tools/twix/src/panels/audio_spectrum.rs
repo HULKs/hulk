@@ -1,14 +1,13 @@
-use std::{collections::VecDeque, sync::Arc, time::Duration};
+use std::{collections::VecDeque, time::Duration};
 
 use chrono::{DateTime, Utc};
 use eframe::egui::{Color32, DragValue, Response, Ui, Vec2, Widget};
 use egui_plot::{Line, Plot as EguiPlot, PlotImage, PlotPoint, PlotPoints};
-use hulk_widgets::{PathFilter, RobotPathCompletionEdit};
-use serde_json::{Value, json};
+use serde_json::Value;
+use serde_json::json;
 
 use crate::{
     panel::{Panel, PanelCreationContext},
-    robot::Robot,
     value_buffer::BufferHandle,
 };
 
@@ -20,15 +19,8 @@ type Magnitude = f32;
 type Spectrum = Vec<(Frequency, Magnitude)>;
 type Spectra = Vec<Spectrum>;
 
-struct SpectrumPayload {
-    spectra: Spectra,
-    cycle_duration: Option<Duration>,
-}
-
 pub struct AudioSpectrumPanel {
-    robot: Arc<Robot>,
-    path: String,
-    buffer: Option<BufferHandle<Value>>,
+    buffer: BufferHandle<Option<Spectra>>,
     waterfall_history: VecDeque<Vec<f32>>,
     waterfall_texture: Option<eframe::egui::TextureHandle>,
     max_frequency: f32,
@@ -44,10 +36,16 @@ impl<'a> Panel<'a> for AudioSpectrumPanel {
     const NAME: &'static str = "Audio Spectrum";
 
     fn new(context: PanelCreationContext) -> Self {
-        let path = match context.value.and_then(|value| value.get("path")) {
-            Some(Value::String(string)) => string.to_string(),
-            _ => "audio.additional_outputs.audio_spectrums".to_string(),
-        };
+        let default_path = "Audio.additional_outputs.audio_spectrums".to_string();
+        let path = context
+            .value
+            .and_then(|value| value.get("path"))
+            .and_then(Value::as_str)
+            .map(|s| s.to_string())
+            .unwrap_or(default_path.clone());
+
+        let value_buffer = context.robot.subscribe_value(path.clone());
+
         let history_seconds = context
             .value
             .and_then(|value| value.get("history_seconds"))
@@ -58,17 +56,11 @@ impl<'a> Panel<'a> for AudioSpectrumPanel {
             .and_then(|value| value.get("waterfall_channel"))
             .and_then(Value::as_u64)
             .unwrap_or(0) as usize;
-        let buffer = if !path.is_empty() {
-            Some(context.robot.subscribe_json(path.clone()))
-        } else {
-            None
-        };
+
         let history_frames =
             (history_seconds / DEFAULT_TIME_PER_FRAME_SECONDS.max(1e-4)).max(1.0) as usize;
         Self {
-            robot: context.robot,
-            path,
-            buffer,
+            buffer: value_buffer,
             waterfall_history: VecDeque::with_capacity(history_frames),
             waterfall_texture: None,
             max_frequency: 8000.0,
@@ -83,7 +75,6 @@ impl<'a> Panel<'a> for AudioSpectrumPanel {
 
     fn save(&self) -> Value {
         json!({
-            "path": self.path.clone(),
             "history_seconds": self.history_seconds,
             "waterfall_channel": self.selected_waterfall_channel
         })
@@ -173,114 +164,24 @@ fn draw_color_legend(ui: &mut Ui, max_magnitude: f32) {
     });
 }
 
-// todo: return duration
 fn duration_to_seconds(duration: Duration) -> f32 {
     duration.as_secs_f32()
 }
 
-fn parse_duration_from_json(value: &Value) -> Option<Duration> {
-    if let Some(seconds) = value.as_f64() {
-        return Some(Duration::from_secs_f64(seconds));
-    }
-
-    let secs = value.get("secs").and_then(Value::as_f64);
-    let nanos = value.get("nanos").and_then(Value::as_f64);
-    if let (Some(secs), Some(nanos)) = (secs, nanos) {
-        return Some(Duration::from_secs_f64(secs + nanos * 1e-9));
-    }
-
-    let secs = value.get("secs").and_then(Value::as_u64);
-    let nanos = value.get("nanos").and_then(Value::as_u64);
-    if let (Some(secs), Some(nanos)) = (secs, nanos) {
-        return Some(Duration::from_secs(secs) + Duration::from_nanos(nanos));
-    }
-
-    None
-}
-
-fn parse_spectrum_payload(value: &Value) -> Option<SpectrumPayload> {
-    if let Ok(spectra) = serde_json::from_value::<Spectra>(value.clone()) {
-        return Some(SpectrumPayload {
-            spectra,
-            cycle_duration: None,
-        });
-    }
-
-    let object = value.as_object()?;
-    let spectra_value = object
-        .get("spectrums")
-        .or_else(|| object.get("audio_spectrums"))?;
-    let spectra = serde_json::from_value::<Spectra>(spectra_value.clone()).ok()?;
-
-    let cycle_duration = object
-        .get("cycle_time")
-        .and_then(|cycle_time| cycle_time.get("last_cycle_duration"))
-        .and_then(parse_duration_from_json)
-        .or_else(|| {
-            object
-                .get("last_cycle_duration")
-                .and_then(parse_duration_from_json)
-        })
-        .or_else(|| {
-            object
-                .get("cycle_duration")
-                .and_then(parse_duration_from_json)
-        })
-        .or_else(|| {
-            object
-                .get("time_per_frame")
-                .and_then(Value::as_f64)
-                .map(Duration::from_secs_f64)
-        })
-        .or_else(|| {
-            object
-                .get("cycle_time_seconds")
-                .and_then(Value::as_f64)
-                .map(Duration::from_secs_f64)
-        });
-
-    Some(SpectrumPayload {
-        spectra,
-        cycle_duration,
-    })
-}
-
 impl Widget for &mut AudioSpectrumPanel {
     fn ui(self, ui: &mut Ui) -> Response {
-        let edit_response = ui
-            .horizontal(|ui| {
-                let edit_response = ui.add(RobotPathCompletionEdit::new(
-                    ui.id().with("audio-spectrum-panel"),
-                    self.robot.latest_paths(),
-                    &mut self.path,
-                    PathFilter::Readable,
-                ));
-                if edit_response.changed() {
-                    self.buffer = Some(self.robot.subscribe_json(self.path.clone()));
-                }
-                if let Some(buffer) = &self.buffer {
-                    if let Ok(Some(timestamp)) = buffer.get_last_timestamp() {
-                        let date: DateTime<Utc> = timestamp.into();
-                        ui.label(date.format("%T%.3f").to_string());
-                    }
-                }
-                edit_response
-            })
-            .inner;
-
-        let mut current_spectra: Option<Spectra> = None;
-        if let Some(buffer) = &self.buffer {
-            if let Ok(Some(datum)) = buffer.get_last() {
-                if let Some(payload) = parse_spectrum_payload(&datum.value) {
-                    current_spectra = Some(payload.spectra);
-                    if let Some(cycle_duration) = payload.cycle_duration {
-                        if !cycle_duration.is_zero() {
-                            self.time_per_frame = cycle_duration;
-                        }
-                    }
-                }
+        ui.horizontal(|ui| {
+            if let Ok(Some(timestamp)) = self.buffer.get_last_timestamp() {
+                let date: DateTime<Utc> = timestamp.into();
+                ui.label(date.format("%T%.3f").to_string());
             }
-        }
+        });
+
+        let current_spectra: Option<Spectra> = match self.buffer.get_last_value() {
+            Ok(Some(value)) => value,
+            Ok(None) => return ui.label("no data available"),
+            Err(error) => return ui.label(format!("{error:#}")),
+        };
 
         if let Some(ref spectra) = current_spectra {
             if spectra.is_empty() {
@@ -298,7 +199,6 @@ impl Widget for &mut AudioSpectrumPanel {
                         self.max_frequency = *frequency;
                     }
 
-                    // Update color scale only for large changes to avoid jitter.
                     let frame_max = magnitudes.iter().cloned().fold(0.0f32, f32::max);
                     let target_max = (frame_max * 0.5).max(0.001);
                     let current = self.current_max_magnitude.max(0.001);
@@ -501,6 +401,6 @@ impl Widget for &mut AudioSpectrumPanel {
             ui.label("Waiting for data...")
         };
 
-        edit_response | plot_response.response | waterfall_response
+        plot_response.response | waterfall_response
     }
 }
