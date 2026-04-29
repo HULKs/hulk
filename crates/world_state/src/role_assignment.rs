@@ -262,7 +262,6 @@ impl RoleAssignment {
         current_role: Role,
     ) -> Role {
         let hsl_striker_message_timeout = match self.last_received_striker_message {
-            None => false,
             Some(last_received_hsl_striker_message)
                 if cycle_start_time
                     .duration_since(last_received_hsl_striker_message)
@@ -274,7 +273,7 @@ impl RoleAssignment {
                 self.last_received_striker_message = None;
                 true
             }
-            Some(_) => false,
+            _ => false,
         };
         let striker_message_timeout_event = hsl_striker_message_timeout
             .then_some(Event::Loser)

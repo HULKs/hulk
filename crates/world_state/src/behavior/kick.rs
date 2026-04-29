@@ -132,16 +132,14 @@ pub fn use_last_kick_power(blackboard: &mut Blackboard) -> Status {
         kick_power: last_kick_power,
         ..
     } = blackboard.last_motion_command
-    {
-        if let Some(BodyMotion::VisualKick {
+        && let Some(BodyMotion::VisualKick {
             kick_power: motion_kick_power,
             ..
         }) = blackboard.body_motion.as_mut()
-        {
-            *motion_kick_power = last_kick_power;
+    {
+        *motion_kick_power = last_kick_power;
 
-            return Status::Success;
-        }
+        return Status::Success;
     }
     Status::Failure
 }
