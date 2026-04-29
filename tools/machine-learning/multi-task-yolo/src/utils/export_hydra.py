@@ -12,27 +12,6 @@ from utils.model_naming import HYDRA_MODEL_NAME_TYPE, HydraModelName, TaskType
 from utils.nv12_to_rgb import NV12ToRgb
 
 
-def _set_export_mode(module: nn.Module) -> None:
-    for child in module.modules():
-        if hasattr(child, "export"):
-            cast(Any, child).export = True
-
-
-def _build_task_dict(
-    hydra_model_name: HydraModelName,
-    train_folder_path: Path,
-    val_folder_path: Path,
-) -> dict[TaskType, Path]:
-    return {
-        head.task_type(): (
-            train_folder_path if head.is_finetuned_model() else val_folder_path
-        )
-        / hydra_model_name.integrated_model_name(head)
-        / (hydra_model_name.integrated_model_name(head) + ".pt")
-        for head in hydra_model_name.heads
-    }
-
-
 class InvalidHydraOutputError(TypeError):
     def __init__(self, output_name: str, actual_type: type) -> None:
         super().__init__(
@@ -79,7 +58,28 @@ class HydraNv12Wrapper(nn.Module):
         return self.hydra_wrapper(rgb)
 
 
-def _export_onnx(
+def set_export_mode(module: nn.Module) -> None:
+    for child in module.modules():
+        if hasattr(child, "export"):
+            cast(Any, child).export = True
+
+
+def build_task_dict(
+    hydra_model_name: HydraModelName,
+    train_folder_path: Path,
+    val_folder_path: Path,
+) -> dict[TaskType, Path]:
+    return {
+        head.task_type(): (
+            train_folder_path if head.is_finetuned_model() else val_folder_path
+        )
+        / hydra_model_name.integrated_model_name(head)
+        / (hydra_model_name.integrated_model_name(head) + ".pt")
+        for head in hydra_model_name.heads
+    }
+
+
+def export_onnx(
     wrapper: nn.Module,
     dummy_input: Tensor,
     export_path: Path,
@@ -119,7 +119,7 @@ def _export_onnx(
     )
 
 
-def _export_torchscript(
+def export_torchscript(
     wrapper: nn.Module,
     dummy_input: Tensor,
     export_path: Path,
@@ -228,7 +228,7 @@ def main(
     for hydra_model_name in hydra_model_names:
         backbone = hydra_model_name.backbone
 
-        task_dict = _build_task_dict(
+        task_dict = build_task_dict(
             hydra_model_name=hydra_model_name,
             train_folder_path=train_folder_path,
             val_folder_path=val_folder_path,
@@ -239,7 +239,7 @@ def main(
             task_dict=task_dict,
         ).to(device)
         hydra_model.eval()
-        _set_export_mode(hydra_model)
+        set_export_mode(hydra_model)
 
         base_wrapper = HydraWrapper(hydra_model, task_dict=task_dict).to(device)
         wrapper: nn.Module = base_wrapper
@@ -265,7 +265,7 @@ def main(
             )
 
         if export_format == "onnx":
-            _export_onnx(
+            export_onnx(
                 wrapper=wrapper,
                 dummy_input=dummy_input,
                 export_path=export_folder / (str(hydra_model_name) + ".onnx"),
@@ -279,7 +279,7 @@ def main(
             )
             return
 
-        _export_torchscript(
+        export_torchscript(
             wrapper=wrapper,
             dummy_input=dummy_input,
             export_path=export_folder / (str(hydra_model_name) + ".onnx"),
