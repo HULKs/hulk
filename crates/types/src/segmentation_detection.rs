@@ -15,16 +15,10 @@ pub struct SegmentedObject<T> {
     pub mask: Array2<f32>,
 }
 
-impl LabelIndex for usize {
-    fn from_index(index: usize) -> Self {
-        index
-    }
-}
-
 impl<T> From<(&[f32; NUMBER_OF_VALUES_PER_SEGMENTED_OBJECT], ArrayView3<'_, f32>)>
     for SegmentedObject<T>
 where
-    T: From<usize> + LabelIndex,
+    T: LabelIndex,
 {
     fn from(
         (values, proto): (&[f32; NUMBER_OF_VALUES_PER_SEGMENTED_OBJECT], ArrayView3<'_, f32>),
@@ -75,7 +69,7 @@ mod tests {
             PROTOTYPE_MASK_WIDTH,
         ));
 
-        let segmented: SegmentedObject<usize> =
+        let segmented: SegmentedObject<YOLOObjectLabel> =
             SegmentedObject::from((&values, proto.view()));
 
         assert_eq!(
@@ -102,7 +96,7 @@ mod tests {
         ));
         proto.slice_mut(ndarray::s![0, .., ..]).fill(10.0);
 
-        let segmented: SegmentedObject<usize> =
+        let segmented: SegmentedObject<YOLOObjectLabel> =
             SegmentedObject::from((&values, proto.view()));
 
         for &v in segmented.mask.iter() {
