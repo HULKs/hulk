@@ -11,7 +11,10 @@ dependencies = [
   "onnxslim>=0.1.87",
   "pyyaml>=6.0.3",
   "torch>=2.10.0",
+  "tqdm>=4.67.3",
   "ultralytics>=8.4.31",
+  "wandb>=0.26.1",
+  "wonderwords>=3.0.1",
 ]
 
 [build-system]
