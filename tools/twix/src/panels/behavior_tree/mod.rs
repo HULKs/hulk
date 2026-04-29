@@ -77,16 +77,13 @@ impl BehaviorTreePanel {
     fn rebuild_layout(&mut self) {
         let old_nodes: HashMap<String, CircleNode> = self
             .circle_nodes
-            .iter()
-            .cloned()
+            .drain(..)
             .map(|node| (node.id.clone(), node))
             .collect();
         let old_positions: HashMap<String, Point2<World>> = old_nodes
             .iter()
             .map(|(id, node)| (id.clone(), node.position))
             .collect();
-
-        self.circle_nodes.clear();
         self.connections.clear();
 
         if let Some(tree_layout) = &self.tree_layout {
@@ -115,11 +112,6 @@ impl BehaviorTreePanel {
                 self.apply_vertical_flip_around_root();
             }
 
-            let visible_node_ids: HashSet<String> = self
-                .circle_nodes
-                .iter()
-                .map(|node| node.id.clone())
-                .collect();
             let visible_target_positions: HashMap<String, Point2<World>> = self
                 .circle_nodes
                 .iter()
@@ -127,19 +119,16 @@ impl BehaviorTreePanel {
                 .collect();
 
             for (node_id, old_node) in &old_nodes {
-                if visible_node_ids.contains(node_id) {
+                if visible_target_positions.contains_key(node_id) {
                     continue;
                 }
 
                 let mut exiting_node = old_node.clone();
                 exiting_node.is_dragging = false;
                 exiting_node.opacity = 1.0;
-                exiting_node.target_position = anchor_position_for_removed_node(
-                    node_id,
-                    &visible_node_ids,
-                    &visible_target_positions,
-                )
-                .unwrap_or(exiting_node.position);
+                exiting_node.target_position =
+                    anchor_position_for_removed_node(node_id, &visible_target_positions)
+                        .unwrap_or(exiting_node.position);
                 self.exiting_nodes.push(exiting_node);
             }
 
@@ -184,7 +173,7 @@ impl BehaviorTreePanel {
             }
 
             let delta = node.target_position - node.position;
-            if delta.norm() > LAYOUT_ANIMATION_EPSILON {
+            if delta.inner.norm_squared() > LAYOUT_ANIMATION_EPSILON * LAYOUT_ANIMATION_EPSILON {
                 node.position += delta * LAYOUT_ANIMATION_FACTOR;
                 any_animating = true;
             } else {
@@ -194,25 +183,92 @@ impl BehaviorTreePanel {
             node.opacity = (node.opacity + ENTER_FADE_STEP).min(1.0);
         }
 
-        let mut remaining_exiting_nodes = Vec::with_capacity(self.exiting_nodes.len());
-        for mut node in self.exiting_nodes.drain(..) {
-            let delta = node.target_position - node.position;
-            if delta.norm() > LAYOUT_ANIMATION_EPSILON {
-                node.position += delta * LAYOUT_ANIMATION_FACTOR;
-                any_animating = true;
-            } else {
-                node.position = node.target_position;
+        if !self.exiting_nodes.is_empty() {
+            let mut remaining_exiting_nodes = Vec::with_capacity(self.exiting_nodes.len());
+            for mut node in self.exiting_nodes.drain(..) {
+                let delta = node.target_position - node.position;
+                if delta.inner.norm_squared() > LAYOUT_ANIMATION_EPSILON * LAYOUT_ANIMATION_EPSILON
+                {
+                    node.position += delta * LAYOUT_ANIMATION_FACTOR;
+                    any_animating = true;
+                } else {
+                    node.position = node.target_position;
+                }
+
+                node.opacity = (node.opacity - EXIT_FADE_STEP).max(0.0);
+                if node.opacity > 0.0 {
+                    remaining_exiting_nodes.push(node);
+                    any_animating = true;
+                }
             }
 
-            node.opacity = (node.opacity - EXIT_FADE_STEP).max(0.0);
-            if node.opacity > 0.0 {
-                remaining_exiting_nodes.push(node);
-                any_animating = true;
-            }
+            self.exiting_nodes = remaining_exiting_nodes;
+        }
+        any_animating
+    }
+
+    fn update_layout_if_needed(&mut self) -> bool {
+        let tree_layout = self
+            .tree_layout_buffer
+            .get_last_value()
+            .ok()
+            .flatten()
+            .flatten();
+
+        let Some(tree_layout) = tree_layout else {
+            return false;
+        };
+
+        let first_layout_load = self.tree_layout.is_none();
+
+        if !self.initial_collapse_applied {
+            self.collapsed_subtrees = initially_collapsed_subtree_ids(&tree_layout);
+            self.initial_collapse_applied = true;
         }
 
-        self.exiting_nodes = remaining_exiting_nodes;
-        any_animating
+        if self.tree_layout.as_ref().map(|layout| &layout.name) != Some(&tree_layout.name)
+            || self.circle_nodes.is_empty()
+        {
+            self.tree_layout = Some(tree_layout);
+            self.rebuild_layout();
+
+            if first_layout_load {
+                self.pending_view_switch_focus = true;
+            }
+            return true;
+        }
+
+        false
+    }
+
+    fn update_trace_strokes(&mut self) {
+        if !self.trace_buffer.has_changed() {
+            return;
+        }
+        self.trace_buffer.mark_as_seen();
+
+        let trace = match self.trace_buffer.get_last_value().ok().flatten().flatten() {
+            Some(trace) => trace,
+            None => return,
+        };
+
+        for node in &mut self.circle_nodes {
+            node.stroke = eframe::egui::Stroke::new(0.1, eframe::egui::Color32::LIGHT_GRAY);
+        }
+
+        let mut statuses = HashMap::new();
+        let mut path = Vec::new();
+        collect_statuses_by_id(&trace, &mut path, &mut statuses);
+
+        if let Some(root_status) = statuses.get("root").cloned() {
+            statuses.insert("cfg_root".to_string(), root_status);
+        }
+
+        for node in &mut self.circle_nodes {
+            if let Some(status) = statuses.get(&node.id) {
+                node.stroke = eframe::egui::Stroke::new(0.1, status_color(status));
+            }
+        }
     }
 }
 
@@ -244,31 +300,7 @@ impl<'a> Panel<'a> for BehaviorTreePanel {
 
 impl Widget for &mut BehaviorTreePanel {
     fn ui(self, ui: &mut Ui) -> Response {
-        if let Some(tree_layout) = self
-            .tree_layout_buffer
-            .get_last_value()
-            .ok()
-            .flatten()
-            .flatten()
-        {
-            let first_layout_load = self.tree_layout.is_none();
-
-            if !self.initial_collapse_applied {
-                self.collapsed_subtrees = initially_collapsed_subtree_ids(&tree_layout);
-                self.initial_collapse_applied = true;
-            }
-
-            if self.tree_layout.as_ref().map(|layout| &layout.name) != Some(&tree_layout.name)
-                || self.circle_nodes.is_empty()
-            {
-                self.tree_layout = Some(tree_layout);
-                self.rebuild_layout();
-
-                if first_layout_load {
-                    self.pending_view_switch_focus = true;
-                }
-            }
-        }
+        self.update_layout_if_needed();
 
         ui.horizontal(|ui| {
             let previous_view_mode = self.view_mode;
@@ -309,12 +341,12 @@ impl Widget for &mut BehaviorTreePanel {
                 }
             }
 
-            if ui.button("Collapse All").clicked() {
-                if let Some(tree_layout) = &self.tree_layout {
-                    self.collapsed_subtrees = all_subtree_ids(tree_layout);
-                    self.opening_subtree_origin = None;
-                    self.rebuild_layout();
-                }
+            if ui.button("Collapse All").clicked()
+                && let Some(tree_layout) = &self.tree_layout
+            {
+                self.collapsed_subtrees = all_subtree_ids(tree_layout);
+                self.opening_subtree_origin = None;
+                self.rebuild_layout();
             }
 
             if ui.button("Expand All").clicked() {
@@ -324,25 +356,7 @@ impl Widget for &mut BehaviorTreePanel {
             }
         });
 
-        if let Some(trace) = self.trace_buffer.get_last_value().ok().flatten().flatten() {
-            for node in &mut self.circle_nodes {
-                node.stroke = eframe::egui::Stroke::new(0.1, eframe::egui::Color32::LIGHT_GRAY);
-            }
-
-            let mut statuses = HashMap::new();
-            let mut path = Vec::new();
-            collect_statuses_by_id(&trace, &mut path, &mut statuses);
-
-            if let Some(root_status) = statuses.get("root").cloned() {
-                statuses.insert("cfg_root".to_string(), root_status);
-            }
-
-            for node in &mut self.circle_nodes {
-                if let Some(status) = statuses.get(&node.id) {
-                    node.stroke = eframe::egui::Stroke::new(0.1, status_color(status));
-                }
-            }
-        }
+        self.update_trace_strokes();
 
         let (response, mut painter) = TwixPainter::<World>::allocate(
             ui,
@@ -351,33 +365,8 @@ impl Widget for &mut BehaviorTreePanel {
             Orientation::LeftHanded,
         );
 
-        if self.pending_view_switch_focus {
-            if let Some(root_node) = self
-                .circle_nodes
-                .iter()
-                .find(|node| node.id == "root")
-                .or_else(|| self.circle_nodes.iter().find(|node| node.id == "cfg_root"))
-            {
-                let root_pixel = painter.transform_world_to_pixel(root_node.target_position);
-                let desired_x = response.rect.center().x;
-                let desired_y =
-                    response.rect.center().y - response.rect.height() * VIEW_SWITCH_ROOT_Y_OFFSET;
-
-                let translation_x = desired_x - VIEW_SWITCH_FOCUS_SCALE * root_pixel.x;
-                let translation_y = desired_y - VIEW_SWITCH_FOCUS_SCALE * root_pixel.y;
-
-                self.zoom_and_pan.transformation = Similarity2::new(
-                    nalgebra::vector![translation_x, translation_y],
-                    0.0,
-                    VIEW_SWITCH_FOCUS_SCALE,
-                )
-                .framed_transform();
-            }
-
-            self.pending_view_switch_focus = false;
-        }
-
-        let reset_transform = if let Some(root_node) = self
+        let mut focus_transform = None;
+        if let Some(root_node) = self
             .circle_nodes
             .iter()
             .find(|node| node.id == "root")
@@ -391,17 +380,24 @@ impl Widget for &mut BehaviorTreePanel {
             let translation_x = desired_x - VIEW_SWITCH_FOCUS_SCALE * root_pixel.x;
             let translation_y = desired_y - VIEW_SWITCH_FOCUS_SCALE * root_pixel.y;
 
-            Some(
+            focus_transform = Some(
                 Similarity2::new(
                     nalgebra::vector![translation_x, translation_y],
                     0.0,
                     VIEW_SWITCH_FOCUS_SCALE,
                 )
                 .framed_transform(),
-            )
-        } else {
-            None
-        };
+            );
+        }
+
+        if self.pending_view_switch_focus {
+            if let Some(transform) = focus_transform {
+                self.zoom_and_pan.transformation = transform;
+            }
+            self.pending_view_switch_focus = false;
+        }
+
+        let reset_transform = focus_transform;
 
         let mut drag_claimed = false;
         self.zoom_and_pan.apply_transform(&mut painter);
@@ -410,27 +406,27 @@ impl Widget for &mut BehaviorTreePanel {
             circle_node.update(&response, &painter, &mut drag_claimed);
         }
 
-        if response.clicked() {
-            if let Some(pointer_position) = response.interact_pointer_pos() {
-                let pointer_in_world = painter.transform_pixel_to_world(pointer_position);
-                if let Some(clicked_subtree_id) = self
-                    .circle_nodes
-                    .iter()
-                    .rev()
-                    .find(|node| node.is_subtree && node.contains(pointer_in_world))
-                    .map(|node| node.id.clone())
-                {
-                    if self.collapsed_subtrees.contains(&clicked_subtree_id) {
-                        self.collapsed_subtrees.remove(&clicked_subtree_id);
-                        self.opening_subtree_origin = Some(clicked_subtree_id.clone());
-                    } else {
-                        self.collapsed_subtrees.insert(clicked_subtree_id);
-                        self.opening_subtree_origin = None;
-                    }
-                    self.rebuild_layout();
-                    drag_claimed = true;
-                }
+        if response.clicked()
+            && let Some(pointer_position) = response.interact_pointer_pos()
+            && let Some(clicked_subtree_id) = self
+                .circle_nodes
+                .iter()
+                .rev()
+                .find(|node| {
+                    node.is_subtree
+                        && node.contains(painter.transform_pixel_to_world(pointer_position))
+                })
+                .map(|node| node.id.clone())
+        {
+            if self.collapsed_subtrees.contains(&clicked_subtree_id) {
+                self.collapsed_subtrees.remove(&clicked_subtree_id);
+                self.opening_subtree_origin = Some(clicked_subtree_id.clone());
+            } else {
+                self.collapsed_subtrees.insert(clicked_subtree_id);
+                self.opening_subtree_origin = None;
             }
+            self.rebuild_layout();
+            drag_claimed = true;
         }
 
         let is_animating = self.animate_layout();

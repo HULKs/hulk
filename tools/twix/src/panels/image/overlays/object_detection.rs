@@ -58,7 +58,7 @@ fn paint_bounding_boxes(
         painter.floating_text(
             bounding_box.area.max,
             Align2::RIGHT_TOP,
-            detection.label.into(),
+            format!("{:?}", detection.label),
             FontId::default(),
             Color32::WHITE,
         );

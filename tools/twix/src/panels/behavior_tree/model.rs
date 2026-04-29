@@ -95,7 +95,6 @@ pub fn parent_position_for_node(
 
 pub fn anchor_position_for_removed_node(
     node_id: &str,
-    visible_node_ids: &HashSet<String>,
     visible_target_positions: &HashMap<String, Point2<World>>,
 ) -> Option<Point2<World>> {
     let mut current = node_id.to_string();
@@ -109,7 +108,7 @@ pub fn anchor_position_for_removed_node(
             return visible_target_positions.get("root").copied();
         }
 
-        if visible_node_ids.contains(&current) {
+        if visible_target_positions.contains_key(&current) {
             return visible_target_positions.get(&current).copied();
         }
     }

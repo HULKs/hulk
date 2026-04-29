@@ -4,7 +4,7 @@ use std::{
 };
 
 use eframe::{
-    egui::{Painter, Response, Sense, TextureId, Ui, pos2},
+    egui::{Align2, Painter, Response, Sense, TextureId, Ui, pos2},
     emath::{Pos2, Rect},
     epaint::{Color32, PathShape, Shape, Stroke},
 };
@@ -424,13 +424,14 @@ impl<World> TwixPainter<World> {
     pub fn floating_text(
         &self,
         position: Point2<World>,
-        align: eframe::emath::Align2,
-        text: String,
+        align: Align2,
+        text: impl ToString,
         font_id: eframe::epaint::FontId,
         color: Color32,
     ) {
         let position = self.transform_world_to_pixel(position);
-        self.painter.text(position, align, text, font_id, color);
+        self.painter
+            .text(position, align, text.to_string(), font_id, color);
     }
 
     pub fn image(&self, texture_id: TextureId, rect: Rectangle<World>) {
