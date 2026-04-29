@@ -7,7 +7,7 @@ use color_eyre::{
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput, deserialize_not_implemented};
 use hardware::PathsInterface;
-use ndarray::{ArrayView2, ArrayView3, Axis};
+use ndarray::{ArrayView2, ArrayView3, Axis, Ix3};
 use ort::{
     execution_providers::{CUDAExecutionProvider, TensorRTExecutionProvider},
     inputs,
@@ -66,6 +66,8 @@ impl TaskOutput {
 struct ModelOutputs<'a> {
     objects: ArrayView2<'a, f32>,
     poses: ArrayView2<'a, f32>,
+    segmentation_objects: ArrayView2<'a, f32>,
+    segmentation_prototypes: ArrayView3<'a, f32>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -228,9 +230,35 @@ fn extract_outputs<'a>(outputs: &'a SessionOutputs<'a>) -> Result<ModelOutputs<'
     }
     let reshaped_pose_output = poses_output.squeeze().into_dimensionality()?;
 
+    let segmentation_objects_output =
+        outputs[TaskOutput::SegmentationObjects.output_name()].try_extract_array::<f32>()?;
+    if segmentation_objects_output.shape() != TaskOutput::SegmentationObjects.expected_shape() {
+        bail!(
+            "segmentation objects output not of expected shape. Expected: {:?}, got: {:?}",
+            TaskOutput::SegmentationObjects.expected_shape(),
+            segmentation_objects_output.shape()
+        )
+    }
+    let reshaped_segmentation_objects =
+        segmentation_objects_output.squeeze().into_dimensionality()?;
+
+    let segmentation_proto_output =
+        outputs[TaskOutput::SegmentationPrototypes.output_name()].try_extract_array::<f32>()?;
+    if segmentation_proto_output.shape() != TaskOutput::SegmentationPrototypes.expected_shape() {
+        bail!(
+            "segmentation prototypes output not of expected shape. Expected: {:?}, got: {:?}",
+            TaskOutput::SegmentationPrototypes.expected_shape(),
+            segmentation_proto_output.shape()
+        )
+    }
+    let reshaped_segmentation_prototypes =
+        segmentation_proto_output.squeeze().into_dimensionality::<Ix3>()?;
+
     Ok(ModelOutputs {
         objects: reshaped_objects_output,
         poses: reshaped_pose_output,
+        segmentation_objects: reshaped_segmentation_objects,
+        segmentation_prototypes: reshaped_segmentation_prototypes,
     })
 }
 
