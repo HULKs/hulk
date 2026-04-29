@@ -38,12 +38,6 @@ impl Overlay for Segmentation {
 
         Ok(())
     }
-
-    fn config_ui(&mut self, ui: &mut eframe::egui::Ui) {
-        ui.horizontal(|ui| {
-            ui.add_space(10.0);
-        });
-    }
 }
 
 fn label_color(label: &YOLOObjectLabel) -> Color32 {
@@ -94,14 +88,18 @@ fn paint_segmented_object(
         Color32::WHITE,
     );
 
-    let mask_color =
-        Color32::from_rgba_unmultiplied(color.r(), color.g(), color.b(), 100);
+    let mask_color = Color32::from_rgba_unmultiplied(color.r(), color.g(), color.b(), 100);
     let rgba_bytes: Vec<u8> = segmented_object
         .mask
         .iter()
         .flat_map(|&v| {
-            if v > 0.5 {
-                [mask_color.r(), mask_color.g(), mask_color.b(), mask_color.a()]
+            if v > 0.8 {
+                [
+                    mask_color.r(),
+                    mask_color.g(),
+                    mask_color.b(),
+                    mask_color.a(),
+                ]
             } else {
                 [0, 0, 0, 0]
             }
