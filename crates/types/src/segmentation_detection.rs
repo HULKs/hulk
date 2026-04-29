@@ -54,6 +54,8 @@ where
 mod tests {
     use ndarray::Array3;
 
+    use crate::object_detection::YOLOObjectLabel;
+
     use super::*;
 
     #[test]
