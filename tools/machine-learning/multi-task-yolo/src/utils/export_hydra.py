@@ -71,10 +71,14 @@ def build_task_dict(
 ) -> dict[TaskType, Path]:
     return {
         head.task_type(): (
-            train_folder_path if head.is_finetuned_model() else val_folder_path
+            train_folder_path
+            / hydra_model_name.integrated_model_name(head)
+            / "weights/best.pt"
+            if head.is_finetuned_model()
+            else val_folder_path
+            / hydra_model_name.integrated_model_name(head)
+            / (hydra_model_name.integrated_model_name(head) + ".pt")
         )
-        / hydra_model_name.integrated_model_name(head)
-        / (hydra_model_name.integrated_model_name(head) + ".pt")
         for head in hydra_model_name.heads
     }
 
