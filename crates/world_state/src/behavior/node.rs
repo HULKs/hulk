@@ -1,17 +1,18 @@
+use std::net::SocketAddr;
 use std::time::{Duration, SystemTime};
-use std::{net::SocketAddr};
 
-use color_eyre::{Result};
+use color_eyre::Result;
 
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput};
 use hardware::NetworkInterface;
+use hsl_network_messages::HulkMessage;
 use linear_algebra::{Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use types::{
     behavior_tree::NodeTrace,
-     cycle_time::CycleTime,
+    cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
     motion_command::{BodyMotion, HeadMotion, MotionCommand},
     motion_type::MotionType,
@@ -83,7 +84,7 @@ pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
     game_controller_address: Input<Option<SocketAddr>, "game_controller_address?">,
     remaining_amount_of_messages:
-    Input<Option<u16>, "game_controller_state?.hulks_team.remaining_amount_of_messages">,
+        Input<Option<u16>, "game_controller_state?.hulks_team.remaining_amount_of_messages">,
     world_state: Input<WorldState, "world_state">,
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
@@ -95,9 +96,9 @@ pub struct CycleContext {
     last_sent_message: AdditionalOutput<String, "last_sent_message">,
     path_obstacles_output: AdditionalOutput<Vec<PathObstacle>, "path_obstacles">,
     time_since_last_switch: AdditionalOutput<Duration, "behavior.time_since_last_switch">,
-    
+
     last_motion_command: CyclerState<MotionCommand, "last_motion_command">,
-    
+
     hardware: HardwareInterface,
 }
 

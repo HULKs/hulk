@@ -7,20 +7,16 @@ use coordinate_systems::{Field, Ground};
 use framework::{MainOutput, PerceptionInput};
 use hardware::NetworkInterface;
 use hsl_network_messages::{HulkMessage, PlayerNumber};
-use linear_algebra::{Isometry2, Point2};
+use linear_algebra::Isometry2;
+use serde::{Deserialize, Serialize};
 use types::{
     ball_position::BallPosition, cycle_time::CycleTime, messages::IncomingMessage,
-    parameters::HslNetworkParameters,
+    parameters::HslNetworkParameters, world_state::PlayerState,
 };
 
-#[derive(Clone)]
-pub struct PlayerState {
-    player_number: PlayerNumber,
-    position: Point2<Field>,
-}
-
+#[derive(Serialize, Deserialize)]
 pub struct PlayerStatesReceiver {
-    last_player_states: Vec<PlayerState>,
+    pub last_player_states: Vec<PlayerState>,
 }
 
 #[context]
@@ -73,16 +69,17 @@ impl PlayerStatesReceiver {
                         .iter()
                         .position(|player| player.player_number == base_message.player_number)
                     {
-                        player_states[index].position = base_message.pose.position();
+                        player_states[index].pose = base_message.pose;
                     } else {
                         player_states.push(PlayerState {
                             player_number: base_message.player_number,
-                            position: base_message.pose.position(),
+                            pose: base_message.pose,
                         });
                     }
                 }
             }
         }
+        self.last_player_states = player_states.clone();
 
         Ok(MainOutputs {
             player_states: player_states.into(),
