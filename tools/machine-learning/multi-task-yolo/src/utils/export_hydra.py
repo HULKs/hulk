@@ -34,6 +34,13 @@ def _build_task_dict(
     }
 
 
+class InvalidHydraOutputError(TypeError):
+    def __init__(self, output_name: str, actual_type: type) -> None:
+        super().__init__(
+            f"Hydra output '{output_name}' must be a tensor, got {actual_type}"
+        )
+
+
 class HydraWrapper(nn.Module):
     def __init__(
         self, hydra_model: Hydra, task_dict: dict[TaskType, Path]
@@ -49,14 +56,13 @@ class HydraWrapper(nn.Module):
 
         selected_outputs: list[Tensor] = []
         for task_type in self.task_dict:
-            print(str(task_type))
-            head_output = outputs.get(str(task_type))
-            print(type(head_output))
-            if not isinstance(head_output, torch.Tensor):
-                raise TypeError(
-                    f"Hydra head output must be tensor, is {type(head_output)}"
-                )  # noqa: TRY003
-            selected_outputs.append(head_output)
+            for output_name in task_type.output_names():
+                head_output = outputs.get(output_name)
+                if not isinstance(head_output, torch.Tensor):
+                    raise InvalidHydraOutputError(
+                        output_name, type(head_output)
+                    )
+                selected_outputs.append(head_output)
 
         if len(selected_outputs) == 1:
             return selected_outputs[0]
@@ -83,8 +89,6 @@ def _export_onnx(
     *,
     with_nv12: bool,
 ) -> None:
-    output_names = [task_type.output_name() for task_type in task_dict]
-
     input_name = "images"
     dynamic_axes: dict[str, dict[int, str]]
     if with_nv12:
@@ -97,11 +101,11 @@ def _export_onnx(
             input_name: {0: "batch_size", 2: "height", 3: "width"},
         }
 
-    for output_name in output_names:
-        dynamic_axes[output_name] = {
-            0: "batch_size",
-            2: "num_predictions",
-        }
+    output_names: list[str] = []
+    for task_type in task_dict:
+        for name, axes in task_type.output_specs():
+            output_names.append(name)
+            dynamic_axes[name] = axes
 
     torch.onnx.export(
         wrapper,

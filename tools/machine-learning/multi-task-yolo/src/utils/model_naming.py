@@ -18,8 +18,14 @@ class TaskType(Enum):
     def __str__(self) -> str:
         return self.value
 
-    def output_name(self) -> str:
-        return f"{self.value}_output"
+    def output_specs(self) -> list[tuple[str, dict[int, str]]]:
+        base = (f"{self.value}_output", {0: "batch_size", 2: "num_predictions"})
+        if self == TaskType.SEGMENTATION:
+            return [base, (f"{self.value}_proto", {0: "batch_size"})]
+        return [base]
+
+    def output_names(self) -> list[str]:
+        return [name for name, _ in self.output_specs()]
 
 
 class ModelName:

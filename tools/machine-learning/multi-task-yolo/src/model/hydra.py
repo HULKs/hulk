@@ -193,6 +193,20 @@ class Hydra(nn.Module):
                     else None
                 )
 
-            outputs[head_name] = head_activations
+            task_output_names = TaskType(head_name).output_names()
+            if isinstance(head_activations, torch.Tensor):
+                outputs[task_output_names[0]] = head_activations
+            elif isinstance(head_activations, tuple) and all(
+                isinstance(t, torch.Tensor) for t in head_activations
+            ):
+                for key, tensor in zip(
+                    task_output_names, head_activations, strict=False
+                ):
+                    outputs[key] = tensor
+            else:
+                raise TypeError(  # noqa: TRY003
+                    f"Head '{head_name}' output must be a tensor or tuple of"
+                    f" tensors, got {type(head_activations)}"
+                )
 
         return outputs
