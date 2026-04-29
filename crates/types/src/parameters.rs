@@ -39,8 +39,10 @@ pub struct WhistleDetectionParameters {
     Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
 pub struct BehaviorParameters {
+    pub allow_switch: AllowSwitchParameters,
     pub injected_motion_command: Option<MotionCommand>,
     pub goal_keeper_number: PlayerNumber,
+    pub last_ball_timeout: Duration,
     pub lost_ball: LostBallParameters,
     pub path_planning: PathPlanningParameters,
     pub remote_control: RemoteControlParameters,
@@ -52,6 +54,8 @@ pub struct BehaviorParameters {
     pub optional_roles: Vec<Role>,
     pub maximum_lookaround_duration: Duration,
     pub kicking: KickingParameters,
+    pub walk_speed: WalkSpeedParameters,
+    pub intercept_ball: InterceptBallParameters,
 }
 
 #[derive(
@@ -238,6 +242,7 @@ pub struct InterceptBallParameters {
 pub struct PathPlanningParameters {
     pub arc_walking_speed: f32,
     pub ball_obstacle_radius: f32,
+    pub ball_obstacle_radius_factor: f32,
     pub field_border_weight: f32,
     pub line_walking_speed: f32,
     pub rotation_penalty_factor: f32,
@@ -466,6 +471,7 @@ pub struct RLWalkingParameters {
     pub control: ControlParameters,
     pub walk_command: [f32; 3],
     pub joint_position_smoothing_factor: f32,
+    pub switch_policies_threshold: Duration,
 
     pub hybrid_align_distance: f32,
     pub max_alignment_rate: f32,
@@ -558,11 +564,12 @@ impl Default for WalkSpeedParameters {
     Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
 pub struct KickingParameters {
+    pub allow_schlong: bool,
     pub distance_for_kick: f32,
     pub distance_for_kick_hysteresis: f32,
     pub distance_to_look_directly_at_the_ball: f32,
     pub kick_target_offset_angle: f32,
-    pub goal_distance_kick_power_threshold: f32,
+    pub target_distance_kick_power_threshold: f32,
 }
 
 #[derive(
@@ -579,4 +586,15 @@ pub struct BoosterKickingParameters {
 pub struct KickPowerParameters {
     pub rumpelstilzchen: f64,
     pub schlong: f64,
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct AllowSwitchParameters {
+    pub kick: Duration,
+    pub prepare: Duration,
+    pub stand: Duration,
+    pub stand_up: Duration,
+    pub walk: Duration,
 }

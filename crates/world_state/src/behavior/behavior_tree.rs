@@ -28,6 +28,10 @@ pub enum Node<Blackboard> {
         name: &'static str,
         children: Vec<Node<Blackboard>>,
     },
+    Subtree {
+        name: &'static str,
+        tree: Box<Node<Blackboard>>,
+    },
 }
 
 impl<Blackboard> Node<Blackboard> {
@@ -37,7 +41,8 @@ impl<Blackboard> Node<Blackboard> {
             | Node::Condition { name, .. }
             | Node::Negation { name, .. }
             | Node::Selection { name, .. }
-            | Node::Sequence { name, .. } => name,
+            | Node::Sequence { name, .. }
+            | Node::Subtree { name, .. } => name,
             Node::Failure => &"Failure",
         };
         let mut trace = NodeTrace {
@@ -91,6 +96,11 @@ impl<Blackboard> Node<Blackboard> {
                 }
                 sequence_status
             }
+            Node::Subtree { tree, .. } => {
+                let (child_status, child_trace) = tree.tick_with_trace(blackboard);
+                trace.children.push(child_trace);
+                child_status
+            }
         };
 
         trace.status = status.clone();
@@ -103,7 +113,8 @@ impl<Blackboard> Node<Blackboard> {
             | Node::Condition { name, .. }
             | Node::Negation { name, .. }
             | Node::Selection { name, .. }
-            | Node::Sequence { name, .. } => name,
+            | Node::Sequence { name, .. }
+            | Node::Subtree { name, .. } => name,
             Node::Failure => &"Failure",
         };
 
@@ -112,6 +123,7 @@ impl<Blackboard> Node<Blackboard> {
                 children.iter().map(|c| c.static_layout_trace()).collect()
             }
             Node::Negation { child, .. } => vec![child.static_layout_trace()],
+            Node::Subtree { tree, .. } => vec![tree.static_layout_trace()],
             _ => vec![],
         };
 
@@ -189,6 +201,22 @@ macro_rules! sequence {
     };
 }
 
+#[macro_export]
+macro_rules! subtree {
+    ($func:expr) => {
+        $crate::behavior::behavior_tree::Node::Subtree {
+            name: concat!("subtree_", stringify!($func)),
+            tree: Box::new($func()),
+        }
+    };
+    ($func:expr, $($arg:expr),+ $(,)?) => {
+        $crate::behavior::behavior_tree::Node::Subtree {
+            name: concat!("subtree_", stringify!($func:$($arg),+)),
+            tree: Box::new($func($($arg.clone()),+)),
+        }
+    };
+}
+
 impl<Blackboard> Serialize for Node<Blackboard> {
     fn serialize<S>(&self, serializer: S) -> Result<S::Ok, S::Error>
     where
@@ -201,6 +229,7 @@ impl<Blackboard> Serialize for Node<Blackboard> {
             Node::Negation { name, child } => ("Negation", *name, Some(from_ref(child.as_ref()))),
             Node::Selection { name, children } => ("Selection", *name, Some(children.as_slice())),
             Node::Sequence { name, children } => ("Sequence", *name, Some(children.as_slice())),
+            Node::Subtree { name, tree } => ("Subtree", *name, Some(from_ref(tree.as_ref()))),
         };
 
         let num_fields = if children.is_some() { 3 } else { 2 };

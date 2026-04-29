@@ -97,8 +97,8 @@ impl Widget for &mut LookAtPanel {
                 current_motion_command,
                 Some(
                     MotionCommand::Stand { .. }
+                        | MotionCommand::VisualKick { .. }
                         | MotionCommand::Walk { .. }
-                        | MotionCommand::InWalkKick { .. }
                         | MotionCommand::WalkWithVelocity { .. }
                 )
             );
