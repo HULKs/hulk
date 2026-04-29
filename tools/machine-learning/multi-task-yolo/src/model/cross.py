@@ -9,7 +9,7 @@ from ultralytics.nn.tasks import DetectionModel
 from model.hydra import get_backbone, set_backbone
 
 
-def main():
+def main() -> None:
     parser = argparse.ArgumentParser(
         description="Run Ultralytics validation for Hydra heads"
     )

@@ -6,8 +6,9 @@ from zipfile import Path
 import torch
 import torch.nn as nn
 from ultralytics.models.yolo.model import YOLO
-from ultralytics.nn.autobackend import check_class_names
 from ultralytics.nn.tasks import DetectionModel
+
+from utils.model_naming import TaskType
 
 logger = logging.getLogger(__name__)
 
@@ -57,14 +58,6 @@ def set_backbone(
     model.model = nn.Sequential(*nodes)
 
 
-def _normalize_class_names(class_names: ClassNames) -> dict[int, str]:
-    if isinstance(class_names, Mapping):
-        return check_class_names(dict(class_names))
-    if isinstance(class_names, Sequence) and not isinstance(class_names, str):
-        return check_class_names(list(class_names))
-    return {}
-
-
 class MissingHydraHeadError(KeyError):
     def __init__(self, head_name: str) -> None:
         super().__init__(f"Hydra head '{head_name}' was not found")
@@ -86,7 +79,7 @@ class Hydra(nn.Module):
     def __init__(
         self,
         backbone_path: str,
-        task_dict: dict[str, str],
+        task_dict: dict[TaskType, Path],
     ) -> None:
         super().__init__()
 
@@ -111,20 +104,23 @@ class Hydra(nn.Module):
         self.head_end2end: dict[str, bool] = {}
         self.head_kpt_shapes: dict[str, tuple[int, int] | None] = {}
 
-        for task_name, model_path in task_dict.items():
-            logger.info("Extracting %s head from: %s", task_name, model_path)
-            task_yolo = YOLO(model_path)
+        for task_type, head_model_path in task_dict.items():
+            task_type = str(task_type)
+            logger.info(
+                "Extracting %s head from: %s", task_type, head_model_path
+            )
+            task_yolo = YOLO(head_model_path)
             task_root = cast(DetectionModel, task_yolo.model)
             task_head = task_root.model[-1]
 
-            self.heads[task_name] = get_head(task_root)
-            self.branch_saves[task_name] = cast(list[int], task_root.save)
-            self.head_class_names[task_name] = getattr(task_root, "names", {})
+            self.heads[task_type] = get_head(task_root)
+            self.branch_saves[task_type] = cast(list[int], task_root.save)
+            self.head_class_names[task_type] = getattr(task_root, "names", {})
             task_model_name = task_yolo.model_name or "unknown"
-            self.head_model_names[task_name] = Path(task_model_name).stem
+            self.head_model_names[task_type] = Path(task_model_name).stem
             stride = getattr(task_head, "stride", torch.tensor([8, 16, 32]))
-            self.head_strides[task_name] = torch.as_tensor(stride)
-            self.head_end2end[task_name] = bool(
+            self.head_strides[task_type] = torch.as_tensor(stride)
+            self.head_end2end[task_type] = bool(
                 getattr(
                     task_head,
                     "end2end",
@@ -137,12 +133,12 @@ class Hydra(nn.Module):
                 isinstance(raw_kpt_shape, (list, tuple))
                 and len(raw_kpt_shape) >= 2
             ):
-                self.head_kpt_shapes[task_name] = (
+                self.head_kpt_shapes[task_type] = (
                     int(raw_kpt_shape[0]),
                     int(raw_kpt_shape[1]),
                 )
             else:
-                self.head_kpt_shapes[task_name] = None
+                self.head_kpt_shapes[task_type] = None
 
     def forward(self, x: torch.Tensor) -> dict[str, Any]:
         y_backbone: list[torch.Tensor | None] = []
@@ -197,67 +193,20 @@ class Hydra(nn.Module):
                     else None
                 )
 
-            outputs[head_name] = head_activations
+            task_output_names = TaskType(head_name).output_names()
+            if isinstance(head_activations, torch.Tensor):
+                outputs[task_output_names[0]] = head_activations
+            elif isinstance(head_activations, tuple) and all(
+                isinstance(t, torch.Tensor) for t in head_activations
+            ):
+                for key, tensor in zip(
+                    task_output_names, head_activations, strict=False
+                ):
+                    outputs[key] = tensor
+            else:
+                raise TypeError(  # noqa: TRY003
+                    f"Head '{head_name}' output must be a tensor or tuple of"
+                    f" tensors, got {type(head_activations)}"
+                )
 
         return outputs
-
-
-class HydraTaskModelAdapter(nn.Module):
-    def __init__(
-        self,
-        hydra_model: Hydra,
-        head_name: str,
-        head_model_name: str,
-        task: str,
-        names: ClassNames,
-        stride: torch.Tensor | Sequence[int] | int,
-        *,
-        end2end: bool,
-        kpt_shape: tuple[int, int] | None = None,
-    ) -> None:
-        super().__init__()
-        self.hydra = hydra_model
-        self.head_name = head_name
-        self.head_model_name = head_model_name
-        self.task = task
-
-        self.names = _normalize_class_names(names)
-        self.nc = len(self.names)
-
-        self.stride = torch.as_tensor(stride)
-        self.end2end = end2end
-        self.format = "pt"
-        self.fp16 = False
-        self.dynamic = False
-        self.yaml = {"channels": 3}
-
-        if task == "pose" and kpt_shape is not None:
-            self.kpt_shape = kpt_shape
-
-    def forward(
-        self,
-        x: torch.Tensor,
-        *,
-        augment: bool = False,
-        visualize: bool = False,
-        embed: list[int] | None = None,
-        **kwargs: Any,
-    ) -> Any:
-        del augment, visualize, embed, kwargs
-
-        raw_outputs = self.hydra(x)
-        if (
-            not isinstance(raw_outputs, Mapping)
-            or self.head_name not in raw_outputs
-        ):
-            raise InvalidHydraOutputError(self.head_name)
-        return raw_outputs[self.head_name]
-
-    def set_head_attr(self, **kwargs: Any) -> None:
-        if self.head_name not in self.hydra.heads:
-            return
-        head = cast(nn.ModuleList, self.hydra.heads[self.head_name])
-        head_module = head[-1]
-        set_head_attr_fn = getattr(head_module, "set_head_attr", None)
-        if callable(set_head_attr_fn):
-            set_head_attr_fn(**kwargs)

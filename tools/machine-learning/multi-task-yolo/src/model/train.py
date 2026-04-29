@@ -181,7 +181,6 @@ def main(
     do_tuning: bool,
     use_tuned_hyperparameters: bool,
 ) -> None:
-
     flattened_hydra_model_names = [
         HydraModelName(
             backbone=hydra_model_name.backbone,
@@ -262,7 +261,6 @@ def main(
             data=data,
             project=runs_dir,
             name=Path("train") / run_name,
-            epochs=70,
             freeze=hydra_model.number_of_frozen_modules,
             device=device,
         )
