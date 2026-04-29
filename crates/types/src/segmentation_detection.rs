@@ -1,4 +1,6 @@
-use ndarray::{aview1, Array2, ArrayView3};
+use ndarray::{Array2, ArrayView3, aview1};
+use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
+use serde::{Deserialize, Serialize};
 
 use crate::object_detection::{LabelIndex, NUMBER_OF_VALUES_PER_OBJECT, Object};
 
@@ -6,43 +8,48 @@ pub const NUMBER_OF_MASK_COEFFICIENTS: usize = 32;
 pub const NUMBER_OF_VALUES_PER_SEGMENTED_OBJECT: usize =
     NUMBER_OF_VALUES_PER_OBJECT + NUMBER_OF_MASK_COEFFICIENTS;
 pub const PROTOTYPE_MASK_CHANNELS: usize = 32;
-pub const PROTOTYPE_MASK_HEIGHT: usize = 160;
-pub const PROTOTYPE_MASK_WIDTH: usize = 160;
+pub const PROTOTYPE_MASK_HEIGHT: usize = 112;
+pub const PROTOTYPE_MASK_WIDTH: usize = 136;
 
-#[derive(Clone, Debug)]
+#[derive(Debug, Clone, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect)]
 pub struct SegmentedObject<T> {
     pub object: Object<T>,
     pub mask: Array2<f32>,
 }
 
-impl<T> From<(&[f32; NUMBER_OF_VALUES_PER_SEGMENTED_OBJECT], ArrayView3<'_, f32>)>
-    for SegmentedObject<T>
+impl<T>
+    From<(
+        &[f32; NUMBER_OF_VALUES_PER_SEGMENTED_OBJECT],
+        ArrayView3<'_, f32>,
+    )> for SegmentedObject<T>
 where
     T: LabelIndex,
 {
     fn from(
-        (values, proto): (&[f32; NUMBER_OF_VALUES_PER_SEGMENTED_OBJECT], ArrayView3<'_, f32>),
+        (values, proto): (
+            &[f32; NUMBER_OF_VALUES_PER_SEGMENTED_OBJECT],
+            ArrayView3<'_, f32>,
+        ),
     ) -> Self {
-        let object_values: [f32; NUMBER_OF_VALUES_PER_OBJECT] =
-            values[..NUMBER_OF_VALUES_PER_OBJECT]
-                .try_into()
-                .expect("slice length guaranteed by type");
+        let object_values: [f32; NUMBER_OF_VALUES_PER_OBJECT] = values
+            [..NUMBER_OF_VALUES_PER_OBJECT]
+            .try_into()
+            .expect("slice length guaranteed by type");
         let object = Object::from(object_values);
 
         let mask_coefficients = aview1(&values[NUMBER_OF_VALUES_PER_OBJECT..]);
 
         let proto_2d = proto
-            .to_owned()
-            .into_shape((
+            .to_shape((
                 PROTOTYPE_MASK_CHANNELS,
                 PROTOTYPE_MASK_HEIGHT * PROTOTYPE_MASK_WIDTH,
             ))
-            .expect("proto shape is always [32, 160, 160]");
+            .expect("proto shape is always [32, 112, 136]");
 
         let mask_flat = mask_coefficients.dot(&proto_2d);
         let mask_2d = mask_flat
-            .into_shape((PROTOTYPE_MASK_HEIGHT, PROTOTYPE_MASK_WIDTH))
-            .expect("product shape is always 25600");
+            .to_shape((PROTOTYPE_MASK_HEIGHT, PROTOTYPE_MASK_WIDTH))
+            .expect("product shape is always 15232");
 
         let mask = mask_2d.mapv(|x| 1.0_f32 / (1.0 + (-x).exp()));
 
