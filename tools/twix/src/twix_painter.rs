@@ -444,6 +444,10 @@ impl<World> TwixPainter<World> {
             Color32::WHITE,
         );
     }
+
+    pub fn ctx(&self) -> &eframe::egui::Context {
+        self.painter.ctx()
+    }
 }
 impl TwixPainter<Ground> {
     pub fn path(&self, path: Path, line_color: Color32, arc_color: Color32, width: f32) {

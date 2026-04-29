@@ -512,6 +512,10 @@
     "pose_detection_parameters": {
       "maximum_intersection_over_union": 0.7,
       "confidence_threshold": 0.5
+    },
+    "segmentation_detection_parameters": {
+      "maximum_intersection_over_union": 0.45,
+      "confidence_threshold": 0.5
     }
   },
   "obstacle_filter": {
