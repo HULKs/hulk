@@ -199,10 +199,10 @@ impl Heatmap {
             }) => (
                 player_number,
                 ball_position.map(|ball| BallPosition {
-                        position: ball.position,
-                        velocity: Vector2::zeros(),
-                        last_seen: time - ball.age,
-                    }),
+                    position: ball.position,
+                    velocity: Vector2::zeros(),
+                    last_seen: time - ball.age,
+                }),
             ),
         };
         if let Some(ball_position) = ball {
