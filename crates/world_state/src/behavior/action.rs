@@ -25,6 +25,16 @@ pub fn prepare(blackboard: &mut Blackboard) -> Status {
     Status::Success
 }
 
+pub fn remote_control(blackboard: &mut Blackboard) -> Status {
+    let parameters = &blackboard.parameters.remote_control;
+    let remote_control_motion_command = BodyMotion::WalkWithVelocity {
+        velocity: vector![parameters.walk.forward, parameters.walk.left,],
+        angular_velocity: parameters.walk.turn,
+    };
+    blackboard.body_motion = Some(remote_control_motion_command);
+    Status::Success
+}
+
 pub fn stand(blackboard: &mut Blackboard) -> Status {
     blackboard.body_motion = Some(BodyMotion::Stand);
     Status::Success
