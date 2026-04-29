@@ -12,10 +12,7 @@ use hardware::NetworkInterface;
 use hsl_network_messages::{BaseMessage, GameControllerReturnMessage, HulkMessage};
 use linear_algebra::Isometry2;
 use types::{
-    cycle_time::CycleTime,
-    messages::OutgoingMessage,
-    parameters::HslNetworkParameters,
-    world_state::WorldState,
+    cycle_time::CycleTime, messages::OutgoingMessage, parameters::HslNetworkParameters, world_state::WorldState
 };
 
 use crate::behavior::node::Behavior;
@@ -138,7 +135,6 @@ impl Behavior {
     }
 }
 
-// TODO: reintegrate Initial Pose as fallback currently only Default as fallback
 fn ground_to_field_or_initial_pose(world_state: &WorldState) -> Isometry2<Ground, Field> {
     world_state.robot.ground_to_field.unwrap_or_default()
 }
