@@ -3,11 +3,11 @@ use types::{motion_type::MotionType, primary_state::PrimaryState};
 use crate::{
     action,
     behavior::{
-        action::{injected_motion_command, leuchtturm, prepare, stand, stand_up},
+        action::{injected_motion_command, leuchtturm, prepare, remote_control, stand, stand_up},
         behavior_tree::Node,
         condition::{
             has_ball_position, is_ball_interception_candidate, is_close_to_ball,
-            is_closest_to_ball, is_fallen, is_goalkeeper, is_primary_state,
+            is_closest_to_ball, is_fallen, is_goalkeeper, is_primary_state, is_remote_controlled,
         },
         head::{look_at_ball_subtree, look_straight_ahead, search_for_lost_ball},
         kick::{intercept, kick_subtree},
@@ -31,6 +31,11 @@ pub fn create_tree() -> Node<Blackboard> {
         sequence!(
             condition!(is_primary_state, PrimaryState::Stop),
             action!(stand)
+        ),
+        sequence!(
+            condition!(is_remote_controlled),
+            action!(look_straight_ahead),
+            action!(remote_control)
         ),
         action!(injected_motion_command),
         sequence!(
