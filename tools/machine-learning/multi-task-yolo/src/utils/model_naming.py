@@ -10,13 +10,16 @@ class ModelNameError(Exception):
         super().__init__(f"Unknown model name: {name}")
 
 
-class DetectionType(Enum):
+class TaskType(Enum):
     OBJECT = "object"
     POSE = "pose"
     SEGMENTATION = "segmentation"
 
     def __str__(self) -> str:
         return self.value
+
+    def output_name(self) -> str:
+        return f"{self.value}_output"
 
 
 class ModelName:
@@ -41,6 +44,9 @@ class ModelName:
                 return TaskType.OBJECT
             case _:
                 raise ModelNameError(self.name)
+
+    def is_finetuned_model(self) -> bool:
+        return len(self.name.split("~")) == 2
 
 
 class HydraModelName:
@@ -71,6 +77,11 @@ class HydraModelName:
     def __str__(self) -> str:
         heads = "+".join(str(head) for head in self.heads)
         return f"{self.backbone}=f{self.number_of_frozen_modules}+{heads}"
+
+    def integrated_model_name(self, model_name: ModelName) -> str | None:
+        return (
+            f"{self.backbone}=f{self.number_of_frozen_modules}+{model_name!s}"
+        )
 
 
 class HydraModelNameParam(click.ParamType):

@@ -7,6 +7,7 @@ import torch
 from torch import ByteTensor, Tensor, nn
 
 from model.hydra import Hydra
+from utils.model_naming import HYDRA_MODEL_NAME_TYPE, HydraModelName, TaskType
 from utils.nv12_to_rgb import NV12ToRgb
 
 
@@ -16,36 +17,30 @@ def _set_export_mode(module: nn.Module) -> None:
             cast(Any, child).export = True
 
 
-def _parse_head_pairs(head_pairs: tuple[str, ...]) -> dict[str, str]:
-    head_paths: dict[str, str] = {}
-
-    for pair in head_pairs:
-        if "=" not in pair:
-            raise click.BadParameter("Invalid head format")  # noqa: TRY003
-
-        head_name, model_path = pair.split("=", maxsplit=1)
-        head_name = head_name.strip()
-        model_path = model_path.strip()
-
-        if not head_name or not model_path:
-            raise click.BadParameter("Invalid head format")  # noqa: TRY003
-
-        if head_name in head_paths:
-            raise click.BadParameter("Duplicate head name")  # noqa: TRY003
-
-        if not Path(model_path).exists():
-            raise click.BadParameter("Missing model path")  # noqa: TRY003
-
-        head_paths[head_name] = model_path
-
-    return head_paths
+def _build_task_dict(
+    hydra_model_name: HydraModelName,
+    train_folder_path: Path,
+    val_folder_path: Path,
+) -> dict[TaskType, Path]:
+    return {
+        head.task_type(): train_folder_path
+        / hydra_model_name.integrated_model_name(head)
+        / (hydra_model_name.integrated_model_name(head) + ".pt")
+        if head.is_finetuned_model()
+        else val_folder_path
+        / hydra_model_name.integrated_model_name(head)
+        / (hydra_model_name.integrated_model_name(head) + ".pt")
+        for head in hydra_model_name.heads
+    }
 
 
 class HydraWrapper(nn.Module):
-    def __init__(self, hydra_model: Hydra, head_names: list[str]) -> None:
+    def __init__(
+        self, hydra_model: Hydra, task_dict: dict[TaskType, Path]
+    ) -> None:
         super().__init__()
         self.hydra = hydra_model
-        self.head_names = head_names
+        self.task_dict = task_dict
 
     def forward(self, x: Tensor) -> Tensor | tuple[Tensor, ...]:
         outputs = self.hydra(x)
@@ -53,10 +48,14 @@ class HydraWrapper(nn.Module):
             raise TypeError("Hydra model output must be a mapping")  # noqa: TRY003
 
         selected_outputs: list[Tensor] = []
-        for head_name in self.head_names:
-            head_output = outputs.get(head_name)
+        for task_type in self.task_dict:
+            print(str(task_type))
+            head_output = outputs.get(str(task_type))
+            print(type(head_output))
             if not isinstance(head_output, torch.Tensor):
-                raise TypeError("Hydra head output must be tensor")  # noqa: TRY003
+                raise TypeError(
+                    f"Hydra head output must be tensor, is {type(head_output)}"
+                )  # noqa: TRY003
             selected_outputs.append(head_output)
 
         if len(selected_outputs) == 1:
@@ -79,12 +78,12 @@ def _export_onnx(
     wrapper: nn.Module,
     dummy_input: Tensor,
     export_path: Path,
-    head_names: list[str],
+    task_dict: dict[TaskType, Path],
     opset: int,
     *,
     with_nv12: bool,
 ) -> None:
-    output_names = [f"{head_name}_output" for head_name in head_names]
+    output_names = [task_type.output_name() for task_type in task_dict]
 
     input_name = "images"
     dynamic_axes: dict[str, dict[int, str]]
@@ -133,24 +132,42 @@ def _export_torchscript(
     cast(torch.jit.ScriptModule, traced).save(str(export_path))
 
 
-@click.command()
-@click.argument(
-    "backbone",
-    type=click.Path(exists=True, path_type=Path),
-)
-@click.option(
-    "--head",
-    "head_pairs",
-    multiple=True,
-    required=True,
+@click.command(
+    context_settings={"help_option_names": ["-h", "--help"]},
     help=(
-        "Task head mapping in the form NAME=MODEL_PATH. "
-        "Example: --head detection=assets/yolo26m.pt"
+        "Export one or more Hydra models to ONNX or TorchScript format.\n\n"
+        "Arguments:\n\n"
+        "  HYDRA_MODEL_NAME  One or more Hydra model names to export\n\n"
+        "  EXPORT_FOLDER     Destination folder for the exported model(s)"
     ),
 )
 @click.argument(
-    "export-path",
+    "hydra-model-name",
+    nargs=-1,
+    type=HYDRA_MODEL_NAME_TYPE,
+)
+@click.argument(
+    "export-folder",
+    nargs=1,
     type=click.Path(path_type=Path),
+)
+@click.option(
+    "--runs_dir",
+    type=Path,
+    default=Path("runs"),
+    help="Directory to save training runs.",
+)
+@click.option(
+    "--val_dir",
+    type=Path,
+    default=Path("val"),
+    help="Directory to save validation runs. Relative to `--runs_dir`.",
+)
+@click.option(
+    "--train_dir",
+    type=Path,
+    default=Path("train"),
+    help="Directory to save validation runs. Relative to `--runs_dir`.",
 )
 @click.option(
     "--imgsz",
@@ -187,10 +204,12 @@ def _export_torchscript(
     help="Add NV12 preprocessing layer before Hydra model.",
 )
 def main(
-    backbone: Path,
-    head_pairs: tuple[str, ...],
-    export_path: Path,
+    hydra_model_name: list[HydraModelName],
+    export_folder: Path,
     *,
+    runs_dir: Path,
+    val_dir: Path,
+    train_dir: Path,
     imgsz: int,
     opset: int,
     export_format: str,
@@ -200,57 +219,66 @@ def main(
     if imgsz <= 0:
         raise click.BadParameter("--imgsz must be > 0")  # noqa: TRY003
 
-    head_paths = _parse_head_pairs(head_pairs)
-    head_names = list(head_paths.keys())
+    train_folder_path = runs_dir / train_dir
+    val_folder_path = runs_dir / val_dir
 
-    hydra_model = Hydra(
-        backbone_path=str(backbone),
-        task_dict=head_paths,
-    ).to(device)
-    hydra_model.eval()
-    _set_export_mode(hydra_model)
+    for hydra_model_naming in hydra_model_name:
+        backbone = hydra_model_naming.backbone
 
-    base_wrapper = HydraWrapper(hydra_model, head_names).to(device)
-    wrapper: nn.Module = base_wrapper
-    if with_nv12_layer:
-        wrapper = HydraNv12Wrapper(base_wrapper).to(device)
-    wrapper.eval()
-
-    export_path.parent.mkdir(parents=True, exist_ok=True)
-
-    if with_nv12_layer:
-        if imgsz % 2 != 0:
-            raise click.BadParameter("--imgsz must be even for NV12")  # noqa: TRY003
-        dummy_input = torch.zeros(
-            (imgsz // 2, imgsz // 2, 6),
-            dtype=torch.uint8,
-            device=device,
-        )
-    else:
-        dummy_input = torch.zeros(
-            (1, 3, imgsz, imgsz),
-            dtype=torch.float32,
-            device=device,
+        task_dict = _build_task_dict(
+            hydra_model_name=hydra_model_naming,
+            train_folder_path=train_folder_path,
+            val_folder_path=val_folder_path,
         )
 
-    if export_format == "onnx":
-        _export_onnx(
+        hydra_model = Hydra(
+            backbone_path=str(backbone),
+            task_dict=task_dict,
+        ).to(device)
+        hydra_model.eval()
+        _set_export_mode(hydra_model)
+
+        base_wrapper = HydraWrapper(hydra_model, task_dict=task_dict).to(device)
+        wrapper: nn.Module = base_wrapper
+        if with_nv12_layer:
+            wrapper = HydraNv12Wrapper(base_wrapper).to(device)
+        wrapper.eval()
+
+        export_folder.mkdir(parents=True, exist_ok=True)
+
+        if with_nv12_layer:
+            if imgsz % 2 != 0:
+                raise click.BadParameter("--imgsz must be even for NV12")  # noqa: TRY003
+            dummy_input = torch.zeros(
+                (imgsz // 2, imgsz // 2, 6),
+                dtype=torch.uint8,
+                device=device,
+            )
+        else:
+            dummy_input = torch.zeros(
+                (1, 3, imgsz, imgsz),
+                dtype=torch.float32,
+                device=device,
+            )
+
+        if export_format == "onnx":
+            _export_onnx(
+                wrapper=wrapper,
+                dummy_input=dummy_input,
+                export_path=export_folder / (str(hydra_model_naming) + ".onnx"),
+                task_dict=task_dict.keys(),
+                opset=opset,
+                with_nv12=with_nv12_layer,
+            )
+            click.echo(f"Exported Hydra ONNX model to: {export_folder}")
+            return
+
+        _export_torchscript(
             wrapper=wrapper,
             dummy_input=dummy_input,
-            export_path=export_path,
-            head_names=head_names,
-            opset=opset,
-            with_nv12=with_nv12_layer,
+            export_path=export_folder / (str(hydra_model_naming) + ".onnx"),
         )
-        click.echo(f"Exported Hydra ONNX model to: {export_path}")
-        return
-
-    _export_torchscript(
-        wrapper=wrapper,
-        dummy_input=dummy_input,
-        export_path=export_path,
-    )
-    click.echo(f"Exported Hydra TorchScript model to: {export_path}")
+        click.echo(f"Exported Hydra TorchScript model to: {export_folder}")
 
 
 if __name__ == "__main__":

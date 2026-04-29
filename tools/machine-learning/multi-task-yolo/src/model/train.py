@@ -181,7 +181,6 @@ def main(
     do_tuning: bool,
     use_tuned_hyperparameters: bool,
 ) -> None:
-
     flattened_hydra_model_names = [
         HydraModelName(
             backbone=hydra_model_name.backbone,
