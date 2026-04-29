@@ -59,7 +59,6 @@ pub mod roles;
 pub mod rule_obstacles;
 pub mod samples;
 pub mod sensor_data;
-pub mod segmentation_detection;
 pub mod sole_pressure;
 pub mod sonar_obstacle;
 pub mod sonar_values;
