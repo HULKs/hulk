@@ -38,9 +38,9 @@ use hulk_widgets::CompletionEdit;
 use log::{error, warn};
 use panel::{Panel, PanelCreationContext};
 use panels::{
-    BehaviorSimulatorPanel, BehaviorTreePanel, EnumPlotPanel, ImageColorSelectPanel, ImagePanel,
-    ImageSegmentsPanel, LookAtPanel, MapPanel, MujocoSimulatorPanel, ParameterPanel, PlotPanel,
-    RemotePanel, TextPanel, VisionTunerPanel,
+    AudioSpectrumPanel, BehaviorSimulatorPanel, BehaviorTreePanel, EnumPlotPanel,
+    ImageColorSelectPanel, ImagePanel, ImageSegmentsPanel, LookAtPanel, MapPanel,
+    MujocoSimulatorPanel, ParameterPanel, PlotPanel, RemotePanel, TextPanel, VisionTunerPanel,
 };
 use reachable_robots::ReachableRobots;
 use repository::{Repository, inspect_version::check_for_update};
@@ -160,6 +160,7 @@ fn main() -> Result<(), eframe::Error> {
 }
 
 impl_selectable_panel!(
+    AudioSpectrumPanel,
     BehaviorSimulatorPanel,
     BehaviorTreePanel,
     EnumPlotPanel,

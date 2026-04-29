@@ -54,6 +54,7 @@ use types::{
 use crate::{
     HardwareInterface,
     latest_receiver::{LatestReceiver, LatestSender, latest_channel},
+    microphones::{self, Microphones},
     x5_receiver::X5Receiver,
 };
 use zenoh::{
@@ -77,6 +78,7 @@ const REMOTE_CONTROLLER_STATE_TOPIC: &str = "rt/remote_controller_state";
 pub struct Parameters {
     pub hsl_network_ports: Ports,
     pub paths: Paths,
+    pub microphones: microphones::Parameters,
 }
 
 struct ZenohBackendHandles {
@@ -106,6 +108,7 @@ pub struct BoosterHardwareInterface {
     high_level_interface_client: Arc<BoosterClient>,
     light_control_client: Arc<LightControlClient>,
     robot_mode: Arc<Mutex<RobotMode>>,
+    microphones: Mutex<Microphones>,
 
     runtime_handle: Handle,
     hsl_network_endpoint: Endpoint,
@@ -165,6 +168,10 @@ impl BoosterHardwareInterface {
             robot_mode,
             high_level_interface_client,
             light_control_client,
+            microphones: Mutex::new(
+                Microphones::new(parameters.microphones)
+                    .wrap_err("failed to initialize microphones")?,
+            ),
 
             hsl_network_endpoint: keep_running
                 .clone()
@@ -567,7 +574,7 @@ impl IdInterface for BoosterHardwareInterface {
 
 impl MicrophoneInterface for BoosterHardwareInterface {
     fn read_from_microphones(&self) -> Result<Samples> {
-        bail!("microphone interface is not implemented")
+        self.microphones.lock().retrying_read()
     }
 }
 

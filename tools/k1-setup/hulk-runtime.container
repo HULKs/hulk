@@ -6,6 +6,7 @@ ContainerName=hulk
 Image=hulk-runtime:latest
 Network=host
 AddDevice=nvidia.com/gpu=all
+AddDevice=/dev/snd
 RunInit=true
 
 Volume=/usr/lib/aarch64-linux-gnu/tegra:/usr/lib/aarch64-linux-gnu/tegra

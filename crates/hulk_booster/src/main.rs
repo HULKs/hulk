@@ -30,6 +30,7 @@ use crate::{
 
 mod hardware_interface;
 mod latest_receiver;
+mod microphones;
 mod x5_receiver;
 
 pub fn setup_logger() -> Result<(), fern::InitError> {
