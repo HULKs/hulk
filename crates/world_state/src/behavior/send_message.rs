@@ -83,7 +83,7 @@ impl Behavior {
         cycle_time: &CycleTime,
         hsl_network_parameters: &HslNetworkParameters,
         remaining_amount_of_messages: Option<&u16>,
-        last_sent_message: &mut AdditionalOutput<String>,
+        last_sent_message: &mut AdditionalOutput<HulkMessage>,
         hardware: &Arc<impl NetworkInterface>,
     ) -> Result<()> {
         if !self.is_base_message_cooldown_elapsed(cycle_time, hsl_network_parameters) {
@@ -113,13 +113,15 @@ impl Behavior {
                 position: ball.ball_in_field,
             });
 
-        last_sent_message.fill_if_subscribed(|| "Base".to_string());
+        let message = HulkMessage::Base(BaseMessage {
+            player_number: world_state.robot.player_number,
+            pose,
+            ball_position,
+        });
+
+        last_sent_message.fill_if_subscribed(|| message);
         hardware
-            .write_to_network(OutgoingMessage::Hsl(HulkMessage::Base(BaseMessage {
-                player_number: world_state.robot.player_number,
-                pose,
-                ball_position,
-            })))
+            .write_to_network(OutgoingMessage::Hsl(message))
             .wrap_err("failed to write BaseMessage to hardware")
     }
 

@@ -13,9 +13,8 @@ use types::{
     filtered_game_controller_state::FilteredGameControllerState,
     obstacles::Obstacle,
     primary_state::PrimaryState,
-    roles::Role,
     rule_obstacles::RuleObstacle,
-    world_state::{BallState, RobotState, WorldState},
+    world_state::{BallState, PlayerState, RobotState, WorldState},
 };
 
 #[derive(Deserialize, Serialize)]
@@ -40,10 +39,10 @@ pub struct CycleContext {
     obstacles: Input<Vec<Obstacle>, "obstacles">,
     position_of_interest: Input<Point2<Ground>, "position_of_interest">,
     primary_state: Input<PrimaryState, "primary_state">,
-    role: Input<Role, "role">,
     rule_ball: Input<Option<BallState>, "rule_ball_state?">,
     rule_obstacles: Input<Vec<RuleObstacle>, "rule_obstacles">,
     suggested_search_position: Input<Option<Point2<Field>>, "suggested_search_position?">,
+    player_states: Input<Vec<PlayerState>, "player_states">,
 
     player_number: Parameter<PlayerNumber, "player_number">,
 }
@@ -83,20 +82,20 @@ impl WorldStateComposer {
             ground_to_field: context.ground_to_field.copied(),
             player_number: *context.player_number,
             primary_state: *context.primary_state,
-            role: *context.role,
         };
 
         let world_state = WorldState {
             ball: context.ball.copied(),
+            fall_down_state,
             filtered_game_controller_state: context.filtered_game_controller_state.cloned(),
             hypothetical_ball_positions: context.hypothetical_ball_position.clone(),
-            obstacles: context.obstacles.clone(),
             now: context.cycle_time.start_time,
+            obstacles: context.obstacles.clone(),
+            player_states: context.player_states.clone(),
             position_of_interest: *context.position_of_interest,
             robot,
             rule_ball: context.rule_ball.copied(),
             rule_obstacles: context.rule_obstacles.clone(),
-            fall_down_state,
             suggested_search_position: context.suggested_search_position.copied(),
         };
 

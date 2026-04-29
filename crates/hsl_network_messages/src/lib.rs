@@ -18,7 +18,7 @@ pub use game_controller_state_message::{
     SubState, Team, TeamColor, TeamState,
 };
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Serialize, PathDeserialize, PathIntrospect, PathSerialize)]
 pub enum HulkMessage {
     Base(BaseMessage),
 }
@@ -37,7 +37,7 @@ pub struct StrikerMessage {
     pub time_to_reach_kick_position: Duration,
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, PathDeserialize, PathIntrospect, PathSerialize)]
 pub struct BaseMessage {
     pub player_number: PlayerNumber,
     pub pose: Pose2<Field>,

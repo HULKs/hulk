@@ -5,13 +5,13 @@ use hsl_network_messages::PlayerNumber;
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::{Field, Ground};
-use linear_algebra::{Isometry2, Point2, Vector2};
+use linear_algebra::{Isometry2, Point2, Pose2, Vector2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{
     ball_position::HypotheticalBallPosition, field_dimensions::Side,
     filtered_game_controller_state::FilteredGameControllerState, obstacles::Obstacle,
-    primary_state::PrimaryState, roles::Role, rule_obstacles::RuleObstacle,
+    primary_state::PrimaryState, rule_obstacles::RuleObstacle,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathIntrospect)]
@@ -21,6 +21,7 @@ pub struct WorldState {
     pub hypothetical_ball_positions: Vec<HypotheticalBallPosition<Ground>>,
     pub now: SystemTime,
     pub obstacles: Vec<Obstacle>,
+    pub player_states: Vec<PlayerState>,
     pub position_of_interest: Point2<Ground>,
     pub robot: RobotState,
     pub rule_ball: Option<BallState>,
@@ -38,6 +39,7 @@ impl Default for WorldState {
             hypothetical_ball_positions: Default::default(),
             now: UNIX_EPOCH,
             obstacles: Default::default(),
+            player_states: Default::default(),
             position_of_interest: Point2::origin(),
             robot: Default::default(),
             rule_ball: Default::default(),
@@ -114,5 +116,12 @@ pub struct RobotState {
     pub ground_to_field: Option<Isometry2<Ground, Field>>,
     pub player_number: PlayerNumber,
     pub primary_state: PrimaryState,
-    pub role: Role,
+}
+
+#[derive(
+    Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
+pub struct PlayerState {
+    pub player_number: PlayerNumber,
+    pub pose: Pose2<Field>,
 }
