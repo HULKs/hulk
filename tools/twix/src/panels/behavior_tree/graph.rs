@@ -1,6 +1,6 @@
 use coordinate_systems::World;
 use eframe::egui::{Align2, Color32, FontId, Response, Stroke};
-use linear_algebra::{Point2, distance};
+use linear_algebra::{Point2, distance_squared};
 
 use crate::twix_painter::TwixPainter;
 
@@ -52,7 +52,7 @@ impl CircleNode {
         painter.floating_text(
             self.position,
             Align2::CENTER_CENTER,
-            self.name.clone(),
+            self.name.as_str(),
             FontId::proportional(0.35 * painter.scaling()),
             Color32::WHITE.gamma_multiply(self.opacity),
         );
@@ -89,24 +89,27 @@ impl CircleNode {
             return;
         }
 
-        if response.drag_started() && !*drag_claimed {
-            if let Some(pointer_position) = response.interact_pointer_pos() {
-                let world_position = painter.transform_pixel_to_world(pointer_position);
-                let distance = distance(world_position, self.position);
+        if response.drag_started()
+            && !*drag_claimed
+            && let Some(pointer_position) = response.interact_pointer_pos()
+        {
+            let world_position = painter.transform_pixel_to_world(pointer_position);
+            let distance_squared = distance_squared(world_position, self.position);
+            let radius_squared = self.radius * self.radius;
 
-                if distance <= self.radius {
-                    self.is_dragging = true;
-                    *drag_claimed = true;
-                }
+            if distance_squared <= radius_squared {
+                self.is_dragging = true;
+                *drag_claimed = true;
             }
         }
 
-        if response.dragged() && self.is_dragging {
-            if let Some(pointer_position) = response.interact_pointer_pos() {
-                self.position = painter.transform_pixel_to_world(pointer_position);
-                self.target_position = self.position;
-                *drag_claimed = true;
-            }
+        if response.dragged()
+            && self.is_dragging
+            && let Some(pointer_position) = response.interact_pointer_pos()
+        {
+            self.position = painter.transform_pixel_to_world(pointer_position);
+            self.target_position = self.position;
+            *drag_claimed = true;
         }
 
         if response.drag_stopped() {
@@ -119,7 +122,7 @@ impl CircleNode {
             return false;
         }
 
-        distance(point, self.position) <= self.radius
+        distance_squared(point, self.position) <= self.radius * self.radius
     }
 }
 
@@ -130,22 +133,21 @@ pub fn resolve_circle_collisions(nodes: &mut [CircleNode]) {
         let mut did_resolve_any = false;
 
         for i in 0..nodes.len() {
-            for j in 0..nodes.len() {
-                if i == j {
-                    continue;
-                }
+            for j in (i + 1)..nodes.len() {
                 if !nodes[i].is_visible || !nodes[j].is_visible {
                     continue;
                 }
 
-                let distance = distance(nodes[i].position, nodes[j].position)
-                    - nodes[i].stroke.width
-                    - nodes[j].stroke.width;
-                let minimal_distance = nodes[i].radius + nodes[j].radius;
+                let to_b = nodes[j].position - nodes[i].position;
+                let distance_squared = to_b.inner.norm_squared();
+                let radius = nodes[i].radius + nodes[j].radius;
+                let minimal_distance = radius + nodes[i].stroke.width + nodes[j].stroke.width;
+                let minimal_distance_squared = minimal_distance * minimal_distance;
 
-                if distance < minimal_distance && distance > f32::EPSILON {
+                if distance_squared < minimal_distance_squared && distance_squared > f32::EPSILON {
+                    let distance = distance_squared.sqrt();
                     let overlap = minimal_distance - distance;
-                    let direction = (nodes[j].position - nodes[i].position).normalize();
+                    let direction = to_b / distance;
 
                     let a_dragging = nodes[i].is_dragging;
                     let b_dragging = nodes[j].is_dragging;
@@ -155,8 +157,9 @@ pub fn resolve_circle_collisions(nodes: &mut [CircleNode]) {
                     } else if !a_dragging && b_dragging {
                         nodes[i].position -= direction * overlap;
                     } else if !a_dragging && !b_dragging {
-                        nodes[i].position -= direction * (overlap * 0.5);
-                        nodes[j].position += direction * (overlap * 0.5);
+                        let half_overlap = overlap * 0.5;
+                        nodes[i].position -= direction * half_overlap;
+                        nodes[j].position += direction * half_overlap;
                     }
 
                     did_resolve_any = true;
