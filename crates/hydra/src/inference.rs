@@ -103,6 +103,7 @@ pub struct CycleContext {
 pub struct MainOutputs {
     pub detected_objects: MainOutput<Vec<Object<RobocupObjectLabel>>>,
     pub detected_poses: MainOutput<Vec<Pose<YOLOObjectLabel>>>,
+    pub detected_segments: MainOutput<Vec<SegmentedObject<YOLOObjectLabel>>>,
 }
 
 impl ObjectDetection {
@@ -173,6 +174,13 @@ impl ObjectDetection {
                 .pose_detection_parameters
                 .confidence_threshold,
         )?;
+        let candidate_segments = extract_candidate_segmentation_objects(
+            &outputs,
+            context
+                .parameters
+                .segmentation_detection_parameters
+                .confidence_threshold,
+        )?;
 
         let post_processing_duration = post_processing_start.elapsed();
         let non_maximum_suppression_start = Instant::now();
@@ -189,6 +197,13 @@ impl ObjectDetection {
             context
                 .parameters
                 .pose_detection_parameters
+                .maximum_intersection_over_union,
+        );
+        let detected_segments = non_maximum_suppression(
+            candidate_segments,
+            context
+                .parameters
+                .segmentation_detection_parameters
                 .maximum_intersection_over_union,
         );
 
@@ -209,6 +224,7 @@ impl ObjectDetection {
         Ok(MainOutputs {
             detected_objects: detected_objects.into(),
             detected_poses: detected_poses.into(),
+            detected_segments: detected_segments.into(),
         })
     }
 }
