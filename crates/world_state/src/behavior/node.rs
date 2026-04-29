@@ -12,7 +12,6 @@ use linear_algebra::{Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use types::{
     behavior_tree::NodeTrace,
-    cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
     motion_command::{BodyMotion, HeadMotion, MotionCommand},
     motion_type::MotionType,
@@ -81,7 +80,6 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    cycle_time: Input<CycleTime, "cycle_time">,
     game_controller_address: Input<Option<SocketAddr>, "game_controller_address?">,
     remaining_amount_of_messages:
         Input<Option<u16>, "game_controller_state?.hulks_team.remaining_amount_of_messages">,
@@ -93,7 +91,7 @@ pub struct CycleContext {
 
     behavior_trace: AdditionalOutput<NodeTrace, "behavior.trace">,
     behavior_tree_layout: AdditionalOutput<NodeTrace, "behavior.tree_layout">,
-    last_sent_message: AdditionalOutput<String, "last_sent_message">,
+    last_sent_message: AdditionalOutput<HulkMessage, "last_sent_message">,
     path_obstacles_output: AdditionalOutput<Vec<PathObstacle>, "path_obstacles">,
     time_since_last_switch: AdditionalOutput<Duration, "behavior.time_since_last_switch">,
 
@@ -186,17 +184,16 @@ impl Behavior {
             MotionCommand::Prepare => Some(MotionType::Prepare),
             _ => None,
         };
+
         self.try_sending_game_controller_return_message(
             context.world_state,
             context.game_controller_address,
-            context.cycle_time,
             context.hsl_network_parameters,
             context.hardware,
         )?;
 
         self.try_sending_base_message(
             context.world_state,
-            context.cycle_time,
             context.hsl_network_parameters,
             context.remaining_amount_of_messages,
             &mut context.last_sent_message,
