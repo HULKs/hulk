@@ -21,29 +21,43 @@ use types::{
     object_detection::{NUMBER_OF_VALUES_PER_OBJECT, Object, RobocupObjectLabel, YOLOObjectLabel},
     parameters::HydraParameters,
     pose_detection::{NUMBER_OF_VALUES_PER_POSE, Pose},
+    segmentation_detection::{
+        NUMBER_OF_VALUES_PER_SEGMENTED_OBJECT, PROTOTYPE_MASK_CHANNELS, PROTOTYPE_MASK_HEIGHT,
+        PROTOTYPE_MASK_WIDTH, SegmentedObject,
+    },
 };
 
 const MODEL_FILE_NAME: &str = "yolo26m-tuned_pose-tuned-hydra-nv12.onnx";
 pub const NUMBER_OF_DETECTIONS: usize = 300;
 
 #[derive(Clone, Copy, Debug)]
-enum TaskHead {
+enum TaskOutput {
     ObjectDetection,
     PoseDetection,
+    SegmentationObjects,
+    SegmentationPrototypes,
 }
 
-impl TaskHead {
+impl TaskOutput {
     fn output_name(self) -> &'static str {
         match self {
-            TaskHead::ObjectDetection => "detection_output",
-            TaskHead::PoseDetection => "pose_output",
+            TaskOutput::ObjectDetection => "detection_output",
+            TaskOutput::PoseDetection => "pose_output",
+            TaskOutput::SegmentationObjects => "segmentation_output",
+            TaskOutput::SegmentationPrototypes => "segmentation_proto",
         }
     }
 
-    fn expected_shape(self) -> [usize; 3] {
+    fn expected_shape(self) -> &'static [usize] {
         match self {
-            Self::ObjectDetection => [1, NUMBER_OF_DETECTIONS, NUMBER_OF_VALUES_PER_OBJECT],
-            Self::PoseDetection => [1, NUMBER_OF_DETECTIONS, NUMBER_OF_VALUES_PER_POSE],
+            Self::ObjectDetection => &[1, NUMBER_OF_DETECTIONS, NUMBER_OF_VALUES_PER_OBJECT],
+            Self::PoseDetection => &[1, NUMBER_OF_DETECTIONS, NUMBER_OF_VALUES_PER_POSE],
+            Self::SegmentationObjects => {
+                &[1, NUMBER_OF_DETECTIONS, NUMBER_OF_VALUES_PER_SEGMENTED_OBJECT]
+            }
+            Self::SegmentationPrototypes => {
+                &[1, PROTOTYPE_MASK_CHANNELS, PROTOTYPE_MASK_HEIGHT, PROTOTYPE_MASK_WIDTH]
+            }
         }
     }
 }
@@ -194,21 +208,21 @@ impl ObjectDetection {
 
 fn extract_outputs<'a>(outputs: &'a SessionOutputs<'a>) -> Result<ModelOutputs<'a>> {
     let objects_output =
-        outputs[TaskHead::ObjectDetection.output_name()].try_extract_array::<f32>()?;
-    if objects_output.shape() != TaskHead::ObjectDetection.expected_shape() {
+        outputs[TaskOutput::ObjectDetection.output_name()].try_extract_array::<f32>()?;
+    if objects_output.shape() != TaskOutput::ObjectDetection.expected_shape() {
         bail!(
             "object detection output not of expected shape. Expected: {:?}, got: {:?}",
-            TaskHead::ObjectDetection.expected_shape(),
+            TaskOutput::ObjectDetection.expected_shape(),
             objects_output.shape()
         )
     }
     let reshaped_objects_output = objects_output.squeeze().into_dimensionality()?;
 
-    let poses_output = outputs[TaskHead::PoseDetection.output_name()].try_extract_array::<f32>()?;
-    if poses_output.shape() != TaskHead::PoseDetection.expected_shape() {
+    let poses_output = outputs[TaskOutput::PoseDetection.output_name()].try_extract_array::<f32>()?;
+    if poses_output.shape() != TaskOutput::PoseDetection.expected_shape() {
         bail!(
             "pose detection output not of expected shape. Expected: {:?}, got: {:?}",
-            TaskHead::PoseDetection.expected_shape(),
+            TaskOutput::PoseDetection.expected_shape(),
             poses_output.shape()
         )
     }
