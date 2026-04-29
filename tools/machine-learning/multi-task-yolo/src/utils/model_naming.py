@@ -52,7 +52,7 @@ class ModelName:
                 raise ModelNameError(self.name)
 
     def is_finetuned_model(self) -> bool:
-        return len(self.name.split("~")) == 2
+        return "~" in self.name
 
 
 class HydraModelName:
