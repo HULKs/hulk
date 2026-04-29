@@ -71,6 +71,10 @@ pub fn is_primary_state(blackboard: &mut Blackboard, primary_state: PrimaryState
     blackboard.world_state.robot.primary_state == primary_state
 }
 
+pub fn is_remote_controlled(blackboard: &mut Blackboard) -> bool {
+    blackboard.parameters.remote_control.enable
+}
+
 pub fn has_ball_position(blackboard: &mut Blackboard) -> bool {
     blackboard.ball.is_some()
 }
