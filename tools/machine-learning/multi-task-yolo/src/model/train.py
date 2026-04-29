@@ -261,7 +261,6 @@ def main(
             data=data,
             project=runs_dir,
             name=Path("train") / run_name,
-            epochs=70,
             freeze=hydra_model.number_of_frozen_modules,
             device=device,
         )
