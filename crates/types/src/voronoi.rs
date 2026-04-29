@@ -1,18 +1,23 @@
-use std::collections::VecDeque;
-
 use coordinate_systems::Field;
 use hsl_network_messages::PlayerNumber;
 use linear_algebra::{Point2, point};
+use path_serde::{PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
-#[derive(PartialEq, Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(
+    PartialEq, Clone, Copy, Default, Debug, Deserialize, Serialize, PathIntrospect, PathSerialize,
+)]
 pub enum Ownership {
     Blocked,
     Robot(PlayerNumber),
+    #[default]
     Free,
 }
 
-pub struct Map {
+#[derive(
+    PartialEq, Clone, Debug, Deserialize, Serialize, Default, PathIntrospect, PathSerialize,
+)]
+pub struct VoronoiGrid {
     pub tiles: Vec<Ownership>,
     pub width_tiles: usize,
     pub height_tiles: usize,
@@ -20,7 +25,7 @@ pub struct Map {
     pub min_bound: Point2<Field>,
 }
 
-impl Map {
+impl VoronoiGrid {
     pub fn new(width: f32, height: f32, padding: f32, resolution: f32) -> Self {
         let width_tiles = ((width + 2.0 * padding) / resolution).round() as usize;
         let height_tiles = ((height + 2.0 * padding) / resolution).round() as usize;
@@ -55,49 +60,65 @@ impl Map {
         )
     }
 
-    pub fn nearest_non_blocked_cell_index(&self, point: Point2<Field>) -> Option<usize> {
-        if let Some(start_index) = self.point_to_index(point) {
-            if self.tiles[start_index] == Ownership::Free {
-                return Some(start_index);
+    pub fn centroid_for_player(&self, player: PlayerNumber) -> Option<Point2<Field>> {
+        let mut sum_x = 0.0f32;
+        let mut sum_y = 0.0f32;
+        let mut count = 0u32;
+
+        for (index, ownership) in self.tiles.iter().copied().enumerate() {
+            if ownership == Ownership::Robot(player) {
+                let point = self.index_to_point(index);
+                sum_x += point.x();
+                sum_y += point.y();
+                count += 1;
             }
-            let mut visited = vec![false; self.tiles.len()];
-            let mut queue = VecDeque::new();
-            queue.push_back(start_index);
+        }
 
-            while let Some(current_index) = queue.pop_front() {
-                if visited[current_index] {
-                    continue;
+        if count == 0 {
+            None
+        } else {
+            let inv_count = 1.0 / count as f32;
+            Some(point![sum_x * inv_count, sum_y * inv_count])
+        }
+    }
+
+    pub fn nearest_non_blocked_cell_index(&self, point: Point2<Field>) -> Option<usize> {
+        let start_index = self.point_to_index(point)?;
+        if self.tiles[start_index] == Ownership::Free {
+            return Some(start_index);
+        }
+
+        let start_x = start_index % self.width_tiles;
+        let start_y = start_index / self.width_tiles;
+        let max_radius = self.width_tiles.max(self.height_tiles);
+
+        for radius in 1..=max_radius {
+            let min_x = start_x.saturating_sub(radius);
+            let max_x = (start_x + radius).min(self.width_tiles - 1);
+            let min_y = start_y.saturating_sub(radius);
+            let max_y = (start_y + radius).min(self.height_tiles - 1);
+
+            for x in min_x..=max_x {
+                for y in [min_y, max_y] {
+                    let index = y * self.width_tiles + x;
+                    if self.tiles[index] == Ownership::Free {
+                        return Some(index);
+                    }
                 }
-                visited[current_index] = true;
+            }
 
-                if self.tiles[current_index] == Ownership::Free {
-                    return Some(current_index);
-                }
-
-                let x = current_index % self.width_tiles;
-                let y = current_index / self.width_tiles;
-
-                for dx in -1..=1 {
-                    for dy in -1..=1 {
-                        if dx == 0 && dy == 0 {
-                            continue;
-                        }
-                        let nx = x as isize + dx;
-                        let ny = y as isize + dy;
-                        if nx >= 0
-                            && nx < self.width_tiles as isize
-                            && ny >= 0
-                            && ny < self.height_tiles as isize
-                        {
-                            let neighbor_index = (ny as usize) * self.width_tiles + (nx as usize);
-                            if !visited[neighbor_index] {
-                                queue.push_back(neighbor_index);
-                            }
+            if max_y > min_y {
+                for y in (min_y + 1)..max_y {
+                    for x in [min_x, max_x] {
+                        let index = y * self.width_tiles + x;
+                        if self.tiles[index] == Ownership::Free {
+                            return Some(index);
                         }
                     }
                 }
             }
         }
+
         None
     }
 }

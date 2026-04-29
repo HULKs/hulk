@@ -4,16 +4,15 @@ use color_eyre::Result;
 use coordinate_systems::Field;
 use eframe::egui::{Color32, Stroke};
 use hsl_network_messages::PlayerNumber;
-use linear_algebra::{Point2, Pose2};
-use types::voronoi::Ownership;
+use linear_algebra::Pose2;
+use types::voronoi::{Ownership, VoronoiGrid};
 
 use crate::{
     panels::map::layer::Layer, robot::Robot, twix_painter::TwixPainter, value_buffer::BufferHandle,
 };
 
 pub struct VoronoiCell {
-    centroids: BufferHandle<Vec<Option<Point2<Field>>>>,
-    voronoi_grid: BufferHandle<Vec<(Point2<Field>, Ownership)>>,
+    voronoi_grid: BufferHandle<VoronoiGrid>,
     input_points: BufferHandle<Option<Vec<Pose2<Field>>>>,
 }
 
@@ -21,13 +20,11 @@ impl Layer<Field> for VoronoiCell {
     const NAME: &'static str = "Voronoi Cells";
 
     fn new(robot: Arc<Robot>) -> Self {
-        let centroids = robot.subscribe_value("WorldState.main_outputs.centroids");
         let voronoi_grid = robot.subscribe_value("WorldState.main_outputs.voronoi_grid");
         let input_points =
             robot.subscribe_value("WorldState.additional_outputs.voronoi.input_points");
 
         Self {
-            centroids,
             voronoi_grid,
             input_points,
         }
@@ -54,7 +51,8 @@ impl Layer<Field> for VoronoiCell {
                 Color32::from_rgb(188, 189, 34),  // Olive
             ];
 
-            for (point, ownership) in voronoi_grid {
+            for (index, ownership) in voronoi_grid.tiles.iter().copied().enumerate() {
+                let point = voronoi_grid.index_to_point(index);
                 let color = match ownership {
                     Ownership::Blocked => Color32::from_gray(40),
                     Ownership::Robot(player_number) => {
@@ -73,16 +71,22 @@ impl Layer<Field> for VoronoiCell {
                 painter.circle_filled(point, 0.02, color);
                 painter.circle_stroke(point, 0.02, Stroke::new(0.005, Color32::BLACK));
             }
-        }
 
-        if let Some(centroids) = self.centroids.get_last_value()? {
-            for centroid in centroids.into_iter().flatten() {
-                painter.target(
-                    centroid,
-                    0.06,
-                    Stroke::new(0.01, Color32::GREEN),
-                    Color32::RED,
-                );
+            for player_number in [
+                PlayerNumber::One,
+                PlayerNumber::Two,
+                PlayerNumber::Three,
+                PlayerNumber::Four,
+                PlayerNumber::Five,
+            ] {
+                if let Some(centroid) = voronoi_grid.centroid_for_player(player_number) {
+                    painter.target(
+                        centroid,
+                        0.06,
+                        Stroke::new(0.01, Color32::GREEN),
+                        Color32::RED,
+                    );
+                }
             }
         }
         let pose_color = Color32::from_white_alpha(127);
