@@ -27,7 +27,8 @@ use types::{
     },
 };
 
-const MODEL_FILE_NAME: &str = "yolo26m=f11+yolo26m+yolo26m-pose+yolo26m-seg.onnx";
+const MODEL_FILE_NAME: &str =
+    "yolo26m=f11+yolo26m~ruckus+yolo26m-pose~saloon+yolo26m-seg~promise.onnx";
 pub const NUMBER_OF_DETECTIONS: usize = 300;
 
 #[derive(Clone, Copy, Debug)]
@@ -41,7 +42,7 @@ enum TaskOutput {
 impl TaskOutput {
     fn output_name(self) -> &'static str {
         match self {
-            TaskOutput::ObjectDetection => "detection_output",
+            TaskOutput::ObjectDetection => "object_output",
             TaskOutput::PoseDetection => "pose_output",
             TaskOutput::SegmentationObjects => "segmentation_output",
             TaskOutput::SegmentationPrototypes => "segmentation_proto",
