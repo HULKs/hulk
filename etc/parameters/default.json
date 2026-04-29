@@ -400,7 +400,6 @@
       "nanos": 250000000,
       "secs": 0
     },
-    "optional_roles": ["Defender", "Midfielder", "StrikerSupporter"],
     "walk_with_velocity": {
       "max_velocity": 1.0,
       "max_angular_velocity": 1.0,
