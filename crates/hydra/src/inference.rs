@@ -27,7 +27,7 @@ use types::{
     },
 };
 
-const MODEL_FILE_NAME: &str = "yolo26m-tuned_pose-tuned-hydra-nv12.onnx";
+const MODEL_FILE_NAME: &str = "yolo26m=f11+yolo26m+yolo26m-pose+yolo26m-seg.onnx";
 pub const NUMBER_OF_DETECTIONS: usize = 300;
 
 #[derive(Clone, Copy, Debug)]
@@ -52,12 +52,17 @@ impl TaskOutput {
         match self {
             Self::ObjectDetection => &[1, NUMBER_OF_DETECTIONS, NUMBER_OF_VALUES_PER_OBJECT],
             Self::PoseDetection => &[1, NUMBER_OF_DETECTIONS, NUMBER_OF_VALUES_PER_POSE],
-            Self::SegmentationObjects => {
-                &[1, NUMBER_OF_DETECTIONS, NUMBER_OF_VALUES_PER_SEGMENTED_OBJECT]
-            }
-            Self::SegmentationPrototypes => {
-                &[1, PROTOTYPE_MASK_CHANNELS, PROTOTYPE_MASK_HEIGHT, PROTOTYPE_MASK_WIDTH]
-            }
+            Self::SegmentationObjects => &[
+                1,
+                NUMBER_OF_DETECTIONS,
+                NUMBER_OF_VALUES_PER_SEGMENTED_OBJECT,
+            ],
+            Self::SegmentationPrototypes => &[
+                1,
+                PROTOTYPE_MASK_CHANNELS,
+                PROTOTYPE_MASK_HEIGHT,
+                PROTOTYPE_MASK_WIDTH,
+            ],
         }
     }
 }
@@ -220,7 +225,8 @@ fn extract_outputs<'a>(outputs: &'a SessionOutputs<'a>) -> Result<ModelOutputs<'
     }
     let reshaped_objects_output = objects_output.squeeze().into_dimensionality()?;
 
-    let poses_output = outputs[TaskOutput::PoseDetection.output_name()].try_extract_array::<f32>()?;
+    let poses_output =
+        outputs[TaskOutput::PoseDetection.output_name()].try_extract_array::<f32>()?;
     if poses_output.shape() != TaskOutput::PoseDetection.expected_shape() {
         bail!(
             "pose detection output not of expected shape. Expected: {:?}, got: {:?}",
@@ -239,8 +245,9 @@ fn extract_outputs<'a>(outputs: &'a SessionOutputs<'a>) -> Result<ModelOutputs<'
             segmentation_objects_output.shape()
         )
     }
-    let reshaped_segmentation_objects =
-        segmentation_objects_output.squeeze().into_dimensionality()?;
+    let reshaped_segmentation_objects = segmentation_objects_output
+        .squeeze()
+        .into_dimensionality()?;
 
     let segmentation_proto_output =
         outputs[TaskOutput::SegmentationPrototypes.output_name()].try_extract_array::<f32>()?;
@@ -251,8 +258,9 @@ fn extract_outputs<'a>(outputs: &'a SessionOutputs<'a>) -> Result<ModelOutputs<'
             segmentation_proto_output.shape()
         )
     }
-    let reshaped_segmentation_prototypes =
-        segmentation_proto_output.squeeze().into_dimensionality::<Ix3>()?;
+    let reshaped_segmentation_prototypes = segmentation_proto_output
+        .squeeze()
+        .into_dimensionality::<Ix3>()?;
 
     Ok(ModelOutputs {
         objects: reshaped_objects_output,
@@ -312,6 +320,38 @@ fn extract_candidate_pose_detections(
         .collect())
 }
 
+fn extract_candidate_segmentation_objects(
+    outputs: &ModelOutputs,
+    confidence_threshold: f32,
+) -> Result<Vec<SegmentedObject<YOLOObjectLabel>>> {
+    Ok(outputs
+        .segmentation_objects
+        .axis_iter(Axis(0))
+        .filter_map(|row| {
+            let confidence = row[4usize];
+            if confidence < confidence_threshold {
+                return None;
+            }
+
+            let seg_values: [f32; NUMBER_OF_VALUES_PER_SEGMENTED_OBJECT] = row
+                .as_slice()
+                .expect("slice is not contiguous")
+                .try_into()
+                .unwrap_or_else(|_| {
+                    panic!(
+                        "slice is not of length {}",
+                        NUMBER_OF_VALUES_PER_SEGMENTED_OBJECT
+                    )
+                });
+
+            Some(SegmentedObject::from((
+                &seg_values,
+                outputs.segmentation_prototypes,
+            )))
+        })
+        .collect())
+}
+
 trait HasBoundingBox {
     fn bounding_box(&self) -> &BoundingBox;
 }
@@ -323,6 +363,12 @@ impl<T> HasBoundingBox for Object<T> {
 }
 
 impl<T> HasBoundingBox for Pose<T> {
+    fn bounding_box(&self) -> &BoundingBox {
+        &self.object.bounding_box
+    }
+}
+
+impl<T> HasBoundingBox for SegmentedObject<T> {
     fn bounding_box(&self) -> &BoundingBox {
         &self.object.bounding_box
     }
