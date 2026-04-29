@@ -1,3 +1,4 @@
+import os
 from collections.abc import Mapping
 from pathlib import Path
 from typing import Any, cast
@@ -274,7 +275,10 @@ def main(
                 opset=opset,
                 with_nv12=with_nv12_layer,
             )
-            click.echo(f"Exported Hydra ONNX model to: {export_folder}")
+            click.echo(
+                "Exported Hydra ONNX model to: "
+                f"{os.path.abspath(export_folder)}"
+            )
             return
 
         _export_torchscript(
@@ -282,7 +286,10 @@ def main(
             dummy_input=dummy_input,
             export_path=export_folder / (str(hydra_model_naming) + ".onnx"),
         )
-        click.echo(f"Exported Hydra TorchScript model to: {export_folder}")
+        click.echo(
+            "Exported Hydra TorchScript model to: "
+            f"{os.path.abspath(export_folder)}"
+        )
 
 
 if __name__ == "__main__":
