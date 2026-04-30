@@ -3,13 +3,7 @@ from typing import Literal
 
 from mjlab.envs import ManagerBasedRlEnvCfg
 from mjlab.scene import SceneCfg
-from mjlab.sensor import (
-    ContactMatch,
-    ContactSensorCfg,
-    ObjRef,
-    RingPatternCfg,
-    TerrainHeightSensorCfg,
-)
+from mjlab.sensor import ContactMatch, ContactSensorCfg
 from mjlab.sim import MujocoCfg, SimulationCfg
 import mjlab.terrains as terrain_gen
 from mjlab.terrains import TerrainEntityCfg
@@ -25,6 +19,24 @@ from .observations import make_observation_cfg
 from .randomization import make_events_cfg
 from .rewards import make_reward_cfg
 from .termination import make_termination_cfg
+from .metrics import make_metric_cfg
+
+BUMPY_TERRAINS_CFG = TerrainGeneratorCfg(
+    size=(8.0, 8.0),
+    border_width=20.0,
+    num_rows=10,
+    num_cols=10,
+    sub_terrains={
+        "flat": terrain_gen.BoxFlatTerrainCfg(proportion=0.5),
+        "random_rough": terrain_gen.HfRandomUniformTerrainCfg(
+            proportion=0.5,
+            noise_range=(0.02, 0.04),
+            noise_step=0.03,
+            border_width=0.25,
+        ),
+    },
+    add_lights=True,
+)
 
 
 def make_scene_cfg(terrain_type: Literal["flat", "rough", "bumpy"]) -> SceneCfg:
@@ -41,23 +53,8 @@ def make_scene_cfg(terrain_type: Literal["flat", "rough", "bumpy"]) -> SceneCfg:
     elif terrain_type == "bumpy":
         terrain_cfg = TerrainEntityCfg(
             terrain_type="generator",
-            terrain_generator=replace(
-                TerrainGeneratorCfg(
-                    size=(100.0, 100.0),
-                    border_width=40.0,
-                    num_rows=1,
-                    num_cols=1,
-                    sub_terrains={
-                        "random_rough": terrain_gen.HfRandomUniformTerrainCfg(
-                            proportion=1.0,
-                            noise_range=(0.01, 0.03),
-                            noise_step=0.01,
-                            border_width=0.0,
-                        ),
-                    },
-                    add_lights=True,
-                ),
-            ),
+            terrain_generator=replace(BUMPY_TERRAINS_CFG),
+            max_init_terrain_level=5,
         )
     else:
         raise ValueError(f"unknown terrain: {terrain_type}")
@@ -86,23 +83,10 @@ def make_scene_cfg(terrain_type: Literal["flat", "rough", "bumpy"]) -> SceneCfg:
         reduce="none",
         num_slots=1,
     )
-    foot_height_scan_cfg = TerrainHeightSensorCfg(
-        name="foot_height_scan",
-        frame=(
-            ObjRef(type="site", name="left_foot", entity="robot"),
-            ObjRef(type="site", name="right_foot", entity="robot"),
-        ),
-        ray_alignment="yaw",
-        pattern=RingPatternCfg.single_ring(radius=0.03, num_samples=6),
-        max_distance=1.0,
-        exclude_parent_body=True,
-        include_geom_groups=(0,),
-        debug_vis=True,
-    )
 
     return SceneCfg(
         terrain=terrain_cfg,
-        sensors=(feet_ground_cfg, self_collision_cfg, foot_height_scan_cfg),
+        sensors=(feet_ground_cfg, self_collision_cfg),
         entities={"robot": get_k1_robot_cfg()},
         num_envs=1,
         extent=2.0,
@@ -113,7 +97,7 @@ def make_velocity_env_cfg(play: bool) -> ManagerBasedRlEnvCfg:
     if play:
         terrain_type = "flat"
     else:
-        terrain_type = "bumpy"
+        terrain_type = "flat"  # for this training flat terrain
     return ManagerBasedRlEnvCfg(
         scene=make_scene_cfg(terrain_type),
         observations=make_observation_cfg(),
@@ -123,6 +107,7 @@ def make_velocity_env_cfg(play: bool) -> ManagerBasedRlEnvCfg:
         rewards=make_reward_cfg(),
         terminations=make_termination_cfg(),
         curriculum=make_curriculum_cfg(terrain_type),
+        metrics=make_metric_cfg(),
         viewer=ViewerConfig(
             origin_type=ViewerConfig.OriginType.ASSET_BODY,
             entity_name="robot",
@@ -132,8 +117,8 @@ def make_velocity_env_cfg(play: bool) -> ManagerBasedRlEnvCfg:
             azimuth=90.0,
         ),
         sim=SimulationCfg(
-            nconmax=64,
-            njmax=64,
+            nconmax=128,
+            njmax=256,
             mujoco=MujocoCfg(
                 timestep=0.002,
                 iterations=50,
@@ -141,5 +126,5 @@ def make_velocity_env_cfg(play: bool) -> ManagerBasedRlEnvCfg:
             ),
         ),
         decimation=5,
-        episode_length_s=20.0,
+        episode_length_s=30.0,
     )

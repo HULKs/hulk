@@ -6,9 +6,10 @@ readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [
   "click>=8.3.1",
-  "mjlab>=0.1.0",
-  "mujoco>=3.4.0",
-  "numpy>=2.4.0",
+  "mjlab==1.3.0",
+  "mujoco-warp>=3.7.0.1",
+  "mujoco==3.7.0",
+  "numpy>=2.4.1",                # Changed from 2.4.0
   "onnxruntime>=1.24.1",
   "pyopengl-accelerate>=3.1.10",
   "scipy>=1.16.3",
@@ -16,7 +17,6 @@ dependencies = [
 
 [tool.uv.sources]
 konerl = { workspace = true }
-mjlab = { git = "https://github.com/mujocolab/mjlab.git" }
 
 [build-system]
 requires = ["hatchling"]
@@ -24,10 +24,12 @@ build-backend = "hatchling.build"
 
 [tool.pyright]
 stubPath = "stubs/"
+venvPath = "."
+venv = ".venv"
 
 [tool.ruff]
 exclude = ["stubs/", "typings/"]
 line-length = 120
 
 [project.entry-points."mjlab.tasks"]
-k1_velocity = "konerl.tasks.k1_velocity_tracking"
+k1_standing = "konerl.tasks.k1_standing"
