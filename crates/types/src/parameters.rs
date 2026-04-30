@@ -466,6 +466,7 @@ pub struct RLWalkingParameters {
     pub stabilizing_interval_completion_threshold: f32,
     pub number_of_actions: usize,
     pub number_of_observations: usize,
+    pub observation_history_length: usize,
     pub torque_limits: Joints,
     pub normalization: NormalizationParameters,
     pub control: ControlParameters,
