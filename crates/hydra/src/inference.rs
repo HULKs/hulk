@@ -7,7 +7,7 @@ use color_eyre::{
 use context_attribute::context;
 use framework::{AdditionalOutput, MainOutput, deserialize_not_implemented};
 use hardware::PathsInterface;
-use ndarray::{ArrayView2, ArrayView3, Axis};
+use ndarray::{ArrayView2, ArrayView3, Axis, Ix3};
 use ort::{
     execution_providers::{CUDAExecutionProvider, TensorRTExecutionProvider},
     inputs,
@@ -21,29 +21,49 @@ use types::{
     object_detection::{NUMBER_OF_VALUES_PER_OBJECT, Object, RobocupObjectLabel, YOLOObjectLabel},
     parameters::HydraParameters,
     pose_detection::{NUMBER_OF_VALUES_PER_POSE, Pose},
+    segmentation_detection::{
+        NUMBER_OF_VALUES_PER_SEGMENTED_OBJECT, PROTOTYPE_MASK_CHANNELS, PROTOTYPE_MASK_HEIGHT,
+        PROTOTYPE_MASK_WIDTH, SegmentedObject,
+    },
 };
 
-const MODEL_FILE_NAME: &str = "yolo26m-tuned_pose-tuned-hydra-nv12.onnx";
+const MODEL_FILE_NAME: &str =
+    "yolo26m=f11+yolo26m~ruckus+yolo26m-pose~saloon+yolo26m-seg~promise.onnx";
 pub const NUMBER_OF_DETECTIONS: usize = 300;
 
 #[derive(Clone, Copy, Debug)]
-enum TaskHead {
+enum TaskOutput {
     ObjectDetection,
     PoseDetection,
+    SegmentationObjects,
+    SegmentationPrototypes,
 }
 
-impl TaskHead {
+impl TaskOutput {
     fn output_name(self) -> &'static str {
         match self {
-            TaskHead::ObjectDetection => "detection_output",
-            TaskHead::PoseDetection => "pose_output",
+            TaskOutput::ObjectDetection => "object_output",
+            TaskOutput::PoseDetection => "pose_output",
+            TaskOutput::SegmentationObjects => "segmentation_output",
+            TaskOutput::SegmentationPrototypes => "segmentation_proto",
         }
     }
 
-    fn expected_shape(self) -> [usize; 3] {
+    fn expected_shape(self) -> &'static [usize] {
         match self {
-            Self::ObjectDetection => [1, NUMBER_OF_DETECTIONS, NUMBER_OF_VALUES_PER_OBJECT],
-            Self::PoseDetection => [1, NUMBER_OF_DETECTIONS, NUMBER_OF_VALUES_PER_POSE],
+            Self::ObjectDetection => &[1, NUMBER_OF_DETECTIONS, NUMBER_OF_VALUES_PER_OBJECT],
+            Self::PoseDetection => &[1, NUMBER_OF_DETECTIONS, NUMBER_OF_VALUES_PER_POSE],
+            Self::SegmentationObjects => &[
+                1,
+                NUMBER_OF_DETECTIONS,
+                NUMBER_OF_VALUES_PER_SEGMENTED_OBJECT,
+            ],
+            Self::SegmentationPrototypes => &[
+                1,
+                PROTOTYPE_MASK_CHANNELS,
+                PROTOTYPE_MASK_HEIGHT,
+                PROTOTYPE_MASK_WIDTH,
+            ],
         }
     }
 }
@@ -52,6 +72,8 @@ impl TaskHead {
 struct ModelOutputs<'a> {
     objects: ArrayView2<'a, f32>,
     poses: ArrayView2<'a, f32>,
+    segmentation_objects: ArrayView2<'a, f32>,
+    segmentation_prototypes: ArrayView3<'a, f32>,
 }
 
 #[derive(Deserialize, Serialize)]
@@ -82,6 +104,7 @@ pub struct CycleContext {
 pub struct MainOutputs {
     pub detected_objects: MainOutput<Vec<Object<RobocupObjectLabel>>>,
     pub detected_poses: MainOutput<Vec<Pose<YOLOObjectLabel>>>,
+    pub detected_segments: MainOutput<Vec<SegmentedObject<YOLOObjectLabel>>>,
 }
 
 impl ObjectDetection {
@@ -152,6 +175,13 @@ impl ObjectDetection {
                 .pose_detection_parameters
                 .confidence_threshold,
         )?;
+        let candidate_segments = extract_candidate_segmentation_objects(
+            &outputs,
+            context
+                .parameters
+                .segmentation_detection_parameters
+                .confidence_threshold,
+        )?;
 
         let post_processing_duration = post_processing_start.elapsed();
         let non_maximum_suppression_start = Instant::now();
@@ -168,6 +198,13 @@ impl ObjectDetection {
             context
                 .parameters
                 .pose_detection_parameters
+                .maximum_intersection_over_union,
+        );
+        let detected_segments = non_maximum_suppression(
+            candidate_segments,
+            context
+                .parameters
+                .segmentation_detection_parameters
                 .maximum_intersection_over_union,
         );
 
@@ -188,35 +225,65 @@ impl ObjectDetection {
         Ok(MainOutputs {
             detected_objects: detected_objects.into(),
             detected_poses: detected_poses.into(),
+            detected_segments: detected_segments.into(),
         })
     }
 }
 
 fn extract_outputs<'a>(outputs: &'a SessionOutputs<'a>) -> Result<ModelOutputs<'a>> {
     let objects_output =
-        outputs[TaskHead::ObjectDetection.output_name()].try_extract_array::<f32>()?;
-    if objects_output.shape() != TaskHead::ObjectDetection.expected_shape() {
+        outputs[TaskOutput::ObjectDetection.output_name()].try_extract_array::<f32>()?;
+    if objects_output.shape() != TaskOutput::ObjectDetection.expected_shape() {
         bail!(
             "object detection output not of expected shape. Expected: {:?}, got: {:?}",
-            TaskHead::ObjectDetection.expected_shape(),
+            TaskOutput::ObjectDetection.expected_shape(),
             objects_output.shape()
         )
     }
     let reshaped_objects_output = objects_output.squeeze().into_dimensionality()?;
 
-    let poses_output = outputs[TaskHead::PoseDetection.output_name()].try_extract_array::<f32>()?;
-    if poses_output.shape() != TaskHead::PoseDetection.expected_shape() {
+    let poses_output =
+        outputs[TaskOutput::PoseDetection.output_name()].try_extract_array::<f32>()?;
+    if poses_output.shape() != TaskOutput::PoseDetection.expected_shape() {
         bail!(
             "pose detection output not of expected shape. Expected: {:?}, got: {:?}",
-            TaskHead::PoseDetection.expected_shape(),
+            TaskOutput::PoseDetection.expected_shape(),
             poses_output.shape()
         )
     }
     let reshaped_pose_output = poses_output.squeeze().into_dimensionality()?;
 
+    let segmentation_objects_output =
+        outputs[TaskOutput::SegmentationObjects.output_name()].try_extract_array::<f32>()?;
+    if segmentation_objects_output.shape() != TaskOutput::SegmentationObjects.expected_shape() {
+        bail!(
+            "segmentation objects output not of expected shape. Expected: {:?}, got: {:?}",
+            TaskOutput::SegmentationObjects.expected_shape(),
+            segmentation_objects_output.shape()
+        )
+    }
+    let reshaped_segmentation_objects = segmentation_objects_output
+        .squeeze()
+        .into_dimensionality()?;
+
+    let segmentation_proto_output =
+        outputs[TaskOutput::SegmentationPrototypes.output_name()].try_extract_array::<f32>()?;
+    if segmentation_proto_output.shape() != TaskOutput::SegmentationPrototypes.expected_shape() {
+        bail!(
+            "segmentation prototypes output not of expected shape. Expected: {:?}, got: {:?}",
+            TaskOutput::SegmentationPrototypes.expected_shape(),
+            segmentation_proto_output.shape()
+        )
+    }
+    let reshaped_segmentation_prototypes = segmentation_proto_output
+        .squeeze()
+        .into_dimensionality::<Ix3>()?;
+
     Ok(ModelOutputs {
         objects: reshaped_objects_output,
         poses: reshaped_pose_output,
+        segmentation_objects: reshaped_segmentation_objects,
+        segmentation_prototypes: reshaped_segmentation_prototypes,
     })
 }
 
@@ -270,6 +337,38 @@ fn extract_candidate_pose_detections(
         .collect())
 }
 
+fn extract_candidate_segmentation_objects(
+    outputs: &ModelOutputs,
+    confidence_threshold: f32,
+) -> Result<Vec<SegmentedObject<YOLOObjectLabel>>> {
+    Ok(outputs
+        .segmentation_objects
+        .axis_iter(Axis(0))
+        .filter_map(|row| {
+            let confidence = row[4usize];
+            if confidence < confidence_threshold {
+                return None;
+            }
+
+            let seg_values: [f32; NUMBER_OF_VALUES_PER_SEGMENTED_OBJECT] = row
+                .as_slice()
+                .expect("slice is not contiguous")
+                .try_into()
+                .unwrap_or_else(|_| {
+                    panic!(
+                        "slice is not of length {}",
+                        NUMBER_OF_VALUES_PER_SEGMENTED_OBJECT
+                    )
+                });
+
+            Some(SegmentedObject::from((
+                &seg_values,
+                outputs.segmentation_prototypes,
+            )))
+        })
+        .collect())
+}
+
 trait HasBoundingBox {
     fn bounding_box(&self) -> &BoundingBox;
 }
@@ -281,6 +380,12 @@ impl<T> HasBoundingBox for Object<T> {
 }
 
 impl<T> HasBoundingBox for Pose<T> {
+    fn bounding_box(&self) -> &BoundingBox {
+        &self.object.bounding_box
+    }
+}
+
+impl<T> HasBoundingBox for SegmentedObject<T> {
     fn bounding_box(&self) -> &BoundingBox {
         &self.object.bounding_box
     }
