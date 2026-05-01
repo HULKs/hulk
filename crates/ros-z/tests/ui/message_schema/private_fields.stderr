@@ -1,0 +1,16 @@
+error[E0616]: field `type_name` of struct `MessageSchema` is private
+  --> tests/ui/message_schema/private_fields.rs:10:12
+   |
+10 |     schema.type_name = "still not native".to_string();
+   |            ^^^^^^^^^ private field
+
+error[E0616]: field `fields` of struct `MessageSchema` is private
+  --> tests/ui/message_schema/private_fields.rs:11:12
+   |
+11 |     schema.fields.push(ros_z::dynamic::FieldSchema::new("data", FieldType::String));
+   |            ^^^^^^ private field
+   |
+help: a method `fields` also exists, call it with parentheses
+   |
+11 |     schema.fields().push(ros_z::dynamic::FieldSchema::new("data", FieldType::String));
+   |                  ++

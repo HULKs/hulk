@@ -10,6 +10,13 @@ use nalgebra::{
     UnitComplex, UnitQuaternion, Vector2, Vector3,
 };
 use num_traits::real::Real;
+use ros_z_msgs::{
+    builtin_interfaces::Time as RosTime,
+    sensor_msgs::{
+        CameraInfo as RosCameraInfo, Image as RosImage, RegionOfInterest as RosRegionOfInterest,
+    },
+    std_msgs::Header as RosHeader,
+};
 use serde::{Deserialize, Deserializer, Serialize, Serializer};
 
 use crate::{PathDeserialize, PathIntrospect, PathSerialize, deserialize, serialize};
@@ -840,5 +847,482 @@ where
     fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
         fields.insert(format!("{prefix}0"));
         fields.insert(format!("{prefix}1"));
+    }
+}
+
+impl PathSerialize for RosTime {
+    fn serialize_path<S>(
+        &self,
+        path: &str,
+        serializer: S,
+    ) -> Result<S::Ok, serialize::Error<S::Error>>
+    where
+        S: Serializer,
+    {
+        match path {
+            "sec" => self
+                .sec
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            "nanosec" => self
+                .nanosec
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            _ => Err(serialize::Error::PathDoesNotExist {
+                path: path.to_owned(),
+            }),
+        }
+    }
+}
+
+impl PathDeserialize for RosTime {
+    fn deserialize_path<'de, D>(
+        &mut self,
+        path: &str,
+        deserializer: D,
+    ) -> Result<(), deserialize::Error<D::Error>>
+    where
+        D: Deserializer<'de>,
+    {
+        match path {
+            "sec" => {
+                self.sec = Deserialize::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                Ok(())
+            }
+            "nanosec" => {
+                self.nanosec = Deserialize::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                Ok(())
+            }
+            _ => Err(deserialize::Error::PathDoesNotExist {
+                path: path.to_owned(),
+            }),
+        }
+    }
+}
+
+impl PathIntrospect for RosTime {
+    fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
+        fields.insert(format!("{prefix}sec"));
+        fields.insert(format!("{prefix}nanosec"));
+    }
+}
+
+impl PathSerialize for RosHeader {
+    fn serialize_path<S>(
+        &self,
+        path: &str,
+        serializer: S,
+    ) -> Result<S::Ok, serialize::Error<S::Error>>
+    where
+        S: Serializer,
+    {
+        match (path, path.split_once('.')) {
+            (_, Some(("stamp", suffix))) => self.stamp.serialize_path(suffix, serializer),
+            ("stamp", None) => self
+                .stamp
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            ("frame_id", None) => self
+                .frame_id
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            _ => Err(serialize::Error::PathDoesNotExist {
+                path: path.to_owned(),
+            }),
+        }
+    }
+}
+
+impl PathDeserialize for RosHeader {
+    fn deserialize_path<'de, D>(
+        &mut self,
+        path: &str,
+        deserializer: D,
+    ) -> Result<(), deserialize::Error<D::Error>>
+    where
+        D: Deserializer<'de>,
+    {
+        match (path, path.split_once('.')) {
+            (_, Some(("stamp", suffix))) => self.stamp.deserialize_path(suffix, deserializer),
+            ("stamp", None) => {
+                self.stamp = Deserialize::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                Ok(())
+            }
+            ("frame_id", None) => {
+                self.frame_id = Deserialize::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                Ok(())
+            }
+            _ => Err(deserialize::Error::PathDoesNotExist {
+                path: path.to_owned(),
+            }),
+        }
+    }
+}
+
+impl PathIntrospect for RosHeader {
+    fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
+        fields.insert(format!("{prefix}stamp"));
+        RosTime::extend_with_fields(fields, &format!("{prefix}stamp."));
+        fields.insert(format!("{prefix}frame_id"));
+    }
+}
+
+impl PathSerialize for RosRegionOfInterest {
+    fn serialize_path<S>(
+        &self,
+        path: &str,
+        serializer: S,
+    ) -> Result<S::Ok, serialize::Error<S::Error>>
+    where
+        S: Serializer,
+    {
+        match path {
+            "x_offset" => self
+                .x_offset
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            "y_offset" => self
+                .y_offset
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            "height" => self
+                .height
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            "width" => self
+                .width
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            "do_rectify" => self
+                .do_rectify
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            _ => Err(serialize::Error::PathDoesNotExist {
+                path: path.to_owned(),
+            }),
+        }
+    }
+}
+
+impl PathDeserialize for RosRegionOfInterest {
+    fn deserialize_path<'de, D>(
+        &mut self,
+        path: &str,
+        deserializer: D,
+    ) -> Result<(), deserialize::Error<D::Error>>
+    where
+        D: Deserializer<'de>,
+    {
+        match path {
+            "x_offset" => {
+                self.x_offset = Deserialize::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                Ok(())
+            }
+            "y_offset" => {
+                self.y_offset = Deserialize::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                Ok(())
+            }
+            "height" => {
+                self.height = Deserialize::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                Ok(())
+            }
+            "width" => {
+                self.width = Deserialize::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                Ok(())
+            }
+            "do_rectify" => {
+                self.do_rectify = Deserialize::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                Ok(())
+            }
+            _ => Err(deserialize::Error::PathDoesNotExist {
+                path: path.to_owned(),
+            }),
+        }
+    }
+}
+
+impl PathIntrospect for RosRegionOfInterest {
+    fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
+        fields.insert(format!("{prefix}x_offset"));
+        fields.insert(format!("{prefix}y_offset"));
+        fields.insert(format!("{prefix}height"));
+        fields.insert(format!("{prefix}width"));
+        fields.insert(format!("{prefix}do_rectify"));
+    }
+}
+
+impl PathSerialize for RosImage {
+    fn serialize_path<S>(
+        &self,
+        path: &str,
+        serializer: S,
+    ) -> Result<S::Ok, serialize::Error<S::Error>>
+    where
+        S: Serializer,
+    {
+        match (path, path.split_once('.')) {
+            (_, Some(("header", suffix))) => self.header.serialize_path(suffix, serializer),
+            ("header", None) => self
+                .header
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            ("height", None) => self
+                .height
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            ("width", None) => self
+                .width
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            ("encoding", None) => self
+                .encoding
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            ("is_bigendian", None) => self
+                .is_bigendian
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            ("step", None) => self
+                .step
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            ("data", None) => self
+                .data
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            _ => Err(serialize::Error::PathDoesNotExist {
+                path: path.to_owned(),
+            }),
+        }
+    }
+}
+
+impl PathDeserialize for RosImage {
+    fn deserialize_path<'de, D>(
+        &mut self,
+        path: &str,
+        deserializer: D,
+    ) -> Result<(), deserialize::Error<D::Error>>
+    where
+        D: Deserializer<'de>,
+    {
+        match (path, path.split_once('.')) {
+            (_, Some(("header", suffix))) => self.header.deserialize_path(suffix, deserializer),
+            ("header", None) => {
+                self.header = Deserialize::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                Ok(())
+            }
+            ("height", None) => {
+                self.height = Deserialize::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                Ok(())
+            }
+            ("width", None) => {
+                self.width = Deserialize::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                Ok(())
+            }
+            ("encoding", None) => {
+                self.encoding = Deserialize::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                Ok(())
+            }
+            ("is_bigendian", None) => {
+                self.is_bigendian = Deserialize::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                Ok(())
+            }
+            ("step", None) => {
+                self.step = Deserialize::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                Ok(())
+            }
+            ("data", None) => {
+                self.data = Deserialize::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                Ok(())
+            }
+            _ => Err(deserialize::Error::PathDoesNotExist {
+                path: path.to_owned(),
+            }),
+        }
+    }
+}
+
+impl PathIntrospect for RosImage {
+    fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
+        fields.insert(format!("{prefix}header"));
+        RosHeader::extend_with_fields(fields, &format!("{prefix}header."));
+        fields.insert(format!("{prefix}height"));
+        fields.insert(format!("{prefix}width"));
+        fields.insert(format!("{prefix}encoding"));
+        fields.insert(format!("{prefix}is_bigendian"));
+        fields.insert(format!("{prefix}step"));
+        fields.insert(format!("{prefix}data"));
+    }
+}
+
+impl PathSerialize for RosCameraInfo {
+    fn serialize_path<S>(
+        &self,
+        path: &str,
+        serializer: S,
+    ) -> Result<S::Ok, serialize::Error<S::Error>>
+    where
+        S: Serializer,
+    {
+        match (path, path.split_once('.')) {
+            (_, Some(("header", suffix))) => self.header.serialize_path(suffix, serializer),
+            (_, Some(("roi", suffix))) => self.roi.serialize_path(suffix, serializer),
+            ("header", None) => self
+                .header
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            ("height", None) => self
+                .height
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            ("width", None) => self
+                .width
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            ("distortion_model", None) => self
+                .distortion_model
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            ("d", None) => self
+                .d
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            ("k", None) => self
+                .k
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            ("r", None) => self
+                .r
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            ("p", None) => self
+                .p
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            ("binning_x", None) => self
+                .binning_x
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            ("binning_y", None) => self
+                .binning_y
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            ("roi", None) => self
+                .roi
+                .serialize(serializer)
+                .map_err(serialize::Error::SerializationFailed),
+            _ => Err(serialize::Error::PathDoesNotExist {
+                path: path.to_owned(),
+            }),
+        }
+    }
+}
+
+impl PathDeserialize for RosCameraInfo {
+    fn deserialize_path<'de, D>(
+        &mut self,
+        path: &str,
+        deserializer: D,
+    ) -> Result<(), deserialize::Error<D::Error>>
+    where
+        D: Deserializer<'de>,
+    {
+        match (path, path.split_once('.')) {
+            (_, Some(("header", suffix))) => self.header.deserialize_path(suffix, deserializer),
+            (_, Some(("roi", suffix))) => self.roi.deserialize_path(suffix, deserializer),
+            ("header", None) => {
+                self.header = Deserialize::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                Ok(())
+            }
+            ("height", None) => {
+                self.height = Deserialize::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                Ok(())
+            }
+            ("width", None) => {
+                self.width = Deserialize::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                Ok(())
+            }
+            ("distortion_model", None) => {
+                self.distortion_model = Deserialize::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                Ok(())
+            }
+            ("d", None) => {
+                self.d = Deserialize::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                Ok(())
+            }
+            ("k", None) => {
+                self.k = Deserialize::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                Ok(())
+            }
+            ("r", None) => {
+                self.r = Deserialize::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                Ok(())
+            }
+            ("p", None) => {
+                self.p = Deserialize::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                Ok(())
+            }
+            ("binning_x", None) => {
+                self.binning_x = Deserialize::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                Ok(())
+            }
+            ("binning_y", None) => {
+                self.binning_y = Deserialize::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                Ok(())
+            }
+            ("roi", None) => {
+                self.roi = Deserialize::deserialize(deserializer)
+                    .map_err(deserialize::Error::DeserializationFailed)?;
+                Ok(())
+            }
+            _ => Err(deserialize::Error::PathDoesNotExist {
+                path: path.to_owned(),
+            }),
+        }
+    }
+}
+
+impl PathIntrospect for RosCameraInfo {
+    fn extend_with_fields(fields: &mut HashSet<String>, prefix: &str) {
+        fields.insert(format!("{prefix}header"));
+        RosHeader::extend_with_fields(fields, &format!("{prefix}header."));
+        fields.insert(format!("{prefix}height"));
+        fields.insert(format!("{prefix}width"));
+        fields.insert(format!("{prefix}distortion_model"));
+        fields.insert(format!("{prefix}d"));
+        fields.insert(format!("{prefix}k"));
+        fields.insert(format!("{prefix}r"));
+        fields.insert(format!("{prefix}p"));
+        fields.insert(format!("{prefix}binning_x"));
+        fields.insert(format!("{prefix}binning_y"));
+        fields.insert(format!("{prefix}roi"));
+        RosRegionOfInterest::extend_with_fields(fields, &format!("{prefix}roi."));
     }
 }

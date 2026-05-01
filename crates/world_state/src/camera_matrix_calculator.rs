@@ -3,7 +3,7 @@ use std::f32::consts::FRAC_PI_2;
 use color_eyre::Result;
 use kinematics::{robot_dimensions::RobotDimensions, robot_kinematics::RobotKinematics};
 use projection::camera_matrix::CameraMatrix;
-use ros2::sensor_msgs::camera_info::CameraInfo;
+use ros_z_msgs::sensor_msgs::CameraInfo;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;

@@ -1,9 +1,9 @@
 use std::time::Duration;
 
-use ros2::{
-    builtin_interfaces::time::Time,
-    sensor_msgs::{camera_info::CameraInfo, image::Image, region_of_interest::RegionOfInterest},
-    std_msgs::header::Header,
+use ros_z_msgs::{
+    builtin_interfaces::Time,
+    sensor_msgs::{CameraInfo, Image, RegionOfInterest},
+    std_msgs::Header,
 };
 
 pub const MAGIC_IDENTIFIER_FRAME: u32 = 0xC0FFEE42;
@@ -42,7 +42,7 @@ impl From<X5CameraFrame> for Image {
             encoding: "nv12".to_owned(),
             is_bigendian: 0,
             step: value.header.width.into(),
-            data: value.nv12_data,
+            data: value.nv12_data.into(),
         }
     }
 }

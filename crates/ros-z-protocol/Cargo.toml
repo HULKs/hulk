@@ -1,0 +1,23 @@
+[package]
+name = "ros-z-protocol"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[features]
+default = ["std"]
+std = ["zenoh/default"]
+
+[dependencies]
+ros-z-schema = { workspace = true }
+zenoh = { workspace = true, default-features = false }
+
+[dev-dependencies]
+zenoh = { workspace = true, default-features = false }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(kani)"] }
+
+[package.metadata.docs.rs]
+all-features = true

@@ -42,6 +42,16 @@ members = [
   "crates/projection",
   "crates/ransac",
   "crates/repository",
+  "crates/ros-z",
+  "crates/ros-z-cdr",
+  "crates/ros-z-cli",
+  "crates/ros-z-codegen",
+  "crates/ros-z-derive",
+  "crates/ros-z-msgs",
+  "crates/ros-z-protocol",
+  "crates/ros-z-record",
+  "crates/ros-z-schema",
+  "crates/ros-z-streams",
   "crates/ros2",
   "crates/sensor_receiver",
   "crates/simulation_message",
@@ -81,6 +91,7 @@ aliveness = { path = "crates/aliveness" }
 alsa = "0.11.0"
 approx = "0.5.1"
 approx_derive = { path = "crates/approx_derive" }
+arc-swap = "1.7"
 argument_parsers = { path = "crates/argument_parsers" }
 atty = "0.2.14"
 audio = { path = "crates/audio" }
@@ -98,6 +109,7 @@ blake3 = { version = "1.8.2", features = ["mmap", "serde"] }
 booster = { path = "crates/booster" }
 booster_sdk = "0.1.1-alpha.1"
 buffered_watch = { path = "crates/buffered_watch" }
+bytemuck = "1"
 byteorder = "1.5.0"
 bytes = { version = "1.11.0", features = ["serde"] }
 calibration = { path = "crates/calibration" }
@@ -111,6 +123,7 @@ communication = { path = "crates/communication" }
 context_attribute = { path = "crates/context_attribute" }
 convert_case = "0.7.1"
 coordinate_systems = { path = "crates/coordinate_systems" }
+csv = "1.3.1"
 ctrlc = { version = "3.4.5", features = ["termination"] }
 derive_more = { version = "2.0.1", features = [
   "add",
@@ -129,14 +142,17 @@ energy_optimization = { path = "crates/energy_optimization" }
 enum-iterator = "2.1.0"
 enum_dispatch = "0.3.13"
 env_logger = "0.11.8"
+event-listener = "5"
 fern = { version = "0.7.1", features = ["colored"] }
 filtering = { path = "crates/filtering" }
+flume = "0.11.1"
 framework = { path = "crates/framework" }
 futures-util = "0.3.31"
 geometry = { path = "crates/geometry" }
 gilrs = "0.11.0"
 glob = "0.3.2"
 hardware = { path = "crates/hardware" }
+hex = "0.4"
 home = "=0.5.9"
 hsl_network = { path = "crates/hsl_network" }
 hsl_network_messages = { path = "crates/hsl_network_messages" }
@@ -147,8 +163,10 @@ hungarian_algorithm = { path = "crates/hungarian_algorithm" }
 hydra = { path = "crates/hydra" }
 image = { version = "0.25.5", default-features = false, features = ["jpeg"] }
 indicatif = "0.18.4"
+insta = "1"
 itertools = "0.14.0"
 ittapi = "0.4.0"
+json5 = "0.4.1"
 kinematics = { path = "crates/kinematics" }
 lazy_static = "1.5.0"
 levenberg-marquardt = "0.15.0"
@@ -159,7 +177,7 @@ mcap = "0.15.0"
 mlua = { version = "0.10.3", features = ["luajit", "serialize", "vendored"] }
 motion = { path = "crates/motion" }
 motionfile = { path = "crates/motionfile" }
-nalgebra = { version = "0.34.1", features = [
+nalgebra = { version = "0.34.2", features = [
   "convert-glam030",
   "serde",
   "serde-serialize",
@@ -182,6 +200,7 @@ parry2d = { version = "0.26.0", default-features = false, features = [
   "alloc",
   "required-features",
 ] }
+paste = "1.0"
 path_serde = { path = "crates/path_serde" }
 path_serde_derive = { path = "crates/path_serde_derive" }
 pathdiff = "0.2.3"
@@ -191,7 +210,7 @@ proc-macro-error = "1.0.4"
 proc-macro2 = { version = "1.0.93", features = ["span-locations"] }
 projection = { path = "crates/projection" }
 proptest = "1.6.0"
-pyo3 = { version = "0.27.1", features = ["abi3-py313", "extension-module"] }
+pyo3 = { version = "0.27.1", features = ["abi3-py313"] }
 pyo3-async-runtimes = { version = "0.27.0", features = ["tokio-runtime"] }
 pyo3-log = "0.13.2"
 quote = "1.0.38"
@@ -204,33 +223,49 @@ repository = { path = "crates/repository" }
 reqwest = { version = "0.12.28", features = ["blocking"] }
 rmp-serde = "1.3.0"
 robot = { path = "crates/robot" }
+ros-z = { path = "crates/ros-z", features = ["nalgebra"] }
+ros-z-cdr = { path = "crates/ros-z-cdr" }
+ros-z-codegen = { path = "crates/ros-z-codegen" }
+ros-z-derive = { path = "crates/ros-z-derive" }
+ros-z-msgs = { path = "crates/ros-z-msgs" }
+ros-z-protocol = { path = "crates/ros-z-protocol" }
+ros-z-record = { path = "crates/ros-z-record" }
+ros-z-schema = { path = "crates/ros-z-schema" }
+ros-z-streams = { path = "crates/ros-z-streams" }
 ros2 = { path = "crates/ros2" }
 ros2-client = { version = "0.8.2", features = ["pre-iron-gid"] }
 rustfft = "6.2.0"
 semver = "1.0.25"
 sensor_receiver = { path = "crates/sensor_receiver" }
 serde = { version = "1.0.228", features = ["derive", "rc"] }
+serde-big-array = "0.5"
 serde_bytes = "0.11.15"
 serde_ignored = "0.1.10"
 serde_json = "1.0.138"
+serde_yaml = "0.9"
+serial_test = "3.0"
 sha2 = "0.10.8"
 simba = "0.9.0"
 simulation_message = { path = "crates/simulation_message" }
+slab = "0.4.11"
 smallvec = "1.14.0"
+smart-default = "0.7"
 source_analyzer = { path = "crates/source_analyzer" }
 splines = { version = "=4.2.0", features = ["serde"] }
+strum = "0.27.2"
 syn = { version = "2.0.98", features = ["extra-traits", "full"] }
 systemd = "0.10.0"
 tempfile = "3.17.0"
 thiserror = "2.0.11"
 threadbound = "0.1.7"
-tokio = { version = "1.43.0", features = ["full"] }
+tokio = { version = "1.47.1", features = ["full"] }
 tokio-tungstenite = "0.26.1"
 tokio-util = "0.7.13"
 toml = "0.8.20"
 toposort-scc = "0.5.4"
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
+trybuild = "1.0"
 types = { path = "crates/types" }
 uuid = { version = "1.12.1", features = ["v4"] }
 vision = { path = "crates/vision" }
@@ -241,7 +276,9 @@ xdg = "2.5.2"
 yuv = "0.8.9"
 zbus = "5.5.0"
 zed = { path = "crates/zed" }
-zenoh = "1.6.2"
+zenoh = { version = "1.7.2", default-features = false }
+zenoh-buffers = "1.7.2"
+zenoh-ext = { version = "1.7.2", features = ["unstable"] }
 
 [patch.crates-io]
 # Pinned to forked serde version since https://github.com/serde-rs/serde/pull/2513 is not merged

@@ -23,6 +23,9 @@ ndarray = { workspace = true }
 num-traits = { workspace = true }
 ordered-float = { workspace = true }
 path_serde = { workspace = true }
-ros2 = { workspace = true }
+ros-z = { workspace = true }
+ros-z-msgs = { workspace = true, features = ["sensor_msgs"] }
 serde = { workspace = true }
 splines = { workspace = true }
+yuv = { workspace = true }
+zenoh-buffers = { workspace = true }

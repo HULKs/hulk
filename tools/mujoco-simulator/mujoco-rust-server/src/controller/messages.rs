@@ -7,7 +7,14 @@ use std::{
 use booster::{LowCommand, LowState};
 use pyo3::{Bound, Py, PyAny, PyResult, Python, exceptions::PyValueError, pyclass, pymethods};
 use pyo3_async_runtimes::tokio::future_into_py;
-use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
+use ros_z_msgs::{
+    builtin_interfaces::Time,
+    sensor_msgs::{CameraInfo, Image, RegionOfInterest},
+    std_msgs::Header,
+};
+use ros2::pyo3_compat::sensor_msgs::{
+    camera_info::CameraInfo as Ros2CameraInfo, image::Image as Ros2Image,
+};
 use simulation_message::{ConnectionInfo, SceneDescription, SceneUpdate, TaskName};
 use tokio::sync::{mpsc, oneshot};
 use uuid::Uuid;
@@ -148,7 +155,7 @@ impl PySimulationTask {
                 })
             }
             SimulationTask::RequestImage { sender } => {
-                let data = response.extract(py)?;
+                let data = image_from_ros2(response.extract::<Ros2Image>(py)?);
                 future_into_py(py, async move {
                     // Channel may be closed if websocket disconnects
                     let _ = sender
@@ -161,7 +168,7 @@ impl PySimulationTask {
                 })
             }
             SimulationTask::RequestCameraInfo { sender } => {
-                let data = response.extract(py)?;
+                let data = camera_info_from_ros2(response.extract::<Ros2CameraInfo>(py)?);
                 future_into_py(py, async move {
                     // Channel may be closed if websocket disconnects
                     let _ = sender
@@ -196,5 +203,49 @@ impl PySimulationTask {
             )),
             SimulationTask::Invalid => Err(PyValueError::new_err("encountered Invalid task")),
         }
+    }
+}
+
+fn image_from_ros2(image: Ros2Image) -> Image {
+    Image {
+        header: header_from_ros2(image.header),
+        height: image.height,
+        width: image.width,
+        encoding: image.encoding,
+        is_bigendian: image.is_bigendian,
+        step: image.step,
+        data: image.data.into(),
+    }
+}
+
+fn camera_info_from_ros2(camera_info: Ros2CameraInfo) -> CameraInfo {
+    CameraInfo {
+        header: header_from_ros2(camera_info.header),
+        height: camera_info.height,
+        width: camera_info.width,
+        distortion_model: camera_info.distortion_model,
+        d: camera_info.d,
+        k: camera_info.k,
+        r: camera_info.r,
+        p: camera_info.p,
+        binning_x: camera_info.binning_x,
+        binning_y: camera_info.binning_y,
+        roi: RegionOfInterest {
+            x_offset: camera_info.roi.x_offset,
+            y_offset: camera_info.roi.y_offset,
+            height: camera_info.roi.height,
+            width: camera_info.roi.width,
+            do_rectify: camera_info.roi.do_rectify,
+        },
+    }
+}
+
+fn header_from_ros2(header: ros2::pyo3_compat::std_msgs::header::Header) -> Header {
+    Header {
+        stamp: Time {
+            sec: header.stamp.sec,
+            nanosec: header.stamp.nanosec,
+        },
+        frame_id: header.frame_id,
     }
 }

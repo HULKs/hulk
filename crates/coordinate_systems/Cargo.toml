@@ -9,4 +9,5 @@ homepage.workspace = true
 approx = { workspace = true }
 approx_derive = { workspace = true }
 path_serde = { workspace = true }
+ros-z = { workspace = true }
 serde = { workspace = true }

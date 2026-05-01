@@ -13,7 +13,8 @@ linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
 path_serde = { workspace = true }
 pyo3 = { workspace = true, optional = true }
-ros2 = { workspace = true }
+ros-z = { workspace = true }
+ros-z-msgs = { workspace = true, features = ["geometry_msgs", "std_msgs"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 tokio = { workspace = true }

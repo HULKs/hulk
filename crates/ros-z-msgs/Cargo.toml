@@ -1,0 +1,44 @@
+[package]
+name = "ros-z-msgs"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[dependencies]
+ros-z = { path = "../ros-z", default-features = false }
+serde = { workspace = true }
+serde_bytes = { workspace = true }
+# Required by pure-Rust codegen
+serde-big-array = { workspace = true }
+smart-default = { workspace = true }
+zenoh-buffers = { workspace = true }
+
+bytemuck = { workspace = true, features = ["derive"] }
+byteorder = { workspace = true }
+ros-z-cdr = { workspace = true }
+
+[dev-dependencies]
+byteorder = { workspace = true }
+color-eyre = { workspace = true }
+ros-z-codegen = { workspace = true }
+tempfile = { workspace = true }
+
+[build-dependencies]
+color-eyre = { workspace = true }
+glob = { workspace = true }
+ros-z-codegen = { workspace = true }
+
+[features]
+default = ["core_msgs"]
+
+core_msgs = ["std_msgs", "geometry_msgs", "sensor_msgs"]
+
+std_msgs = []
+geometry_msgs = ["std_msgs"]
+sensor_msgs = ["std_msgs", "geometry_msgs"]
+
+common_interfaces = ["std_msgs", "geometry_msgs", "sensor_msgs"]
+robotics = ["core_msgs"]
+all_msgs = ["std_msgs", "geometry_msgs", "sensor_msgs"]
+bundled_msgs = ["std_msgs", "geometry_msgs", "sensor_msgs"]

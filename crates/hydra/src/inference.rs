@@ -14,7 +14,7 @@ use ort::{
     session::{Session, SessionOutputs, builder::GraphOptimizationLevel},
     value::TensorRef,
 };
-use ros2::sensor_msgs::image::Image;
+use ros_z_msgs::sensor_msgs::Image;
 use serde::{Deserialize, Serialize};
 use types::{
     bounding_box::BoundingBox,
@@ -22,6 +22,7 @@ use types::{
     parameters::HydraParameters,
     pose_detection::{NUMBER_OF_VALUES_PER_POSE, Pose},
 };
+use zenoh_buffers::buffer::SplitBuffer;
 
 const MODEL_FILE_NAME: &str = "yolo26m-tuned_pose-tuned-hydra-nv12.onnx";
 pub const NUMBER_OF_DETECTIONS: usize = 300;
@@ -123,9 +124,10 @@ impl ObjectDetection {
             );
         }
 
+        let image_data = image.data.contiguous();
         let nv12_data = ArrayView3::from_shape(
             [image.height as usize / 2, image.width as usize / 2, 6],
-            image.data.as_slice(),
+            image_data.as_ref(),
         )
         .wrap_err("failed to view nv12 data")?;
 

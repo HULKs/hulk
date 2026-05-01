@@ -7,7 +7,7 @@ homepage.workspace = true
 
 [dependencies]
 pyo3 = { workspace = true, optional = true }
-ros2 = { workspace = true }
+ros-z-msgs = { workspace = true, features = ["sensor_msgs"] }
 serde = { workspace = true }
 
 [features]

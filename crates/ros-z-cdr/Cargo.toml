@@ -1,0 +1,21 @@
+[package]
+name = "ros-z-cdr"
+version.workspace = true
+edition.workspace = true
+description = "CDR serialization for ros-z"
+license.workspace = true
+homepage.workspace = true
+
+[dependencies]
+bytemuck = { workspace = true, features = ["derive", "extern_crate_alloc"] }
+byteorder = { workspace = true }
+serde = { workspace = true }
+thiserror = { workspace = true }
+zenoh-buffers = { workspace = true }
+
+[dev-dependencies]
+proptest = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+
+[lints.rust]
+unexpected_cfgs = { level = "warn", check-cfg = ["cfg(kani)"] }

@@ -36,7 +36,7 @@ use hula_types::hardware::{Ids, Paths};
 use kinematics::joints::head::HeadJoints;
 use log::{debug, error, warn};
 use parking_lot::Mutex;
-use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
+use ros_z_msgs::sensor_msgs::{CameraInfo, Image};
 use serde::{Deserialize, de::DeserializeOwned};
 use tokio::{
     runtime::Handle,

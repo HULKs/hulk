@@ -1,0 +1,45 @@
+[package]
+name = "ros-z-codegen"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+# Include vendored assets in published crate
+include = [
+  "src/**/*",
+  "assets/**/*.msg",
+  "assets/**/*.srv",
+  "assets/**/*.action",
+  "assets/**/dependencies.json",
+  "Cargo.toml",
+]
+
+[[bin]]
+name = "export_json"
+path = "src/bin/export_json.rs"
+
+[dependencies]
+# For code manipulation
+prettyplease = { workspace = true }
+proc-macro2 = { workspace = true }
+quote = { workspace = true }
+syn = { workspace = true, features = ["full", "parsing"] }
+# For error handling
+color-eyre = { workspace = true }
+# For schema hashing (RZHS01)
+hex = { workspace = true }
+ros-z-schema = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+
+[dev-dependencies]
+insta = { workspace = true }
+ros-z-cdr = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serial_test = { workspace = true }
+tempfile = { workspace = true }
+
+[features]
+default = []

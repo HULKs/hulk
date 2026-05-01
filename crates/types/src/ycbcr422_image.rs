@@ -10,6 +10,10 @@ use geometry::circle::Circle;
 use image::{ImageError, ImageReader, RgbImage, error::DecodingError};
 use num_traits::Euclid;
 use serde::{Deserialize, Serialize};
+use yuv::{
+    YuvBiPlanarImage, YuvConversionMode, YuvRange, YuvStandardMatrix, bgr_to_rgb, yuv_nv12_to_rgb,
+};
+use zenoh_buffers::buffer::SplitBuffer;
 
 use coordinate_systems::Pixel;
 use linear_algebra::{Point2, vector};
@@ -19,7 +23,7 @@ use crate::{
     color::{Rgb, YCbCr422, YCbCr444},
     jpeg::JpegImage,
 };
-use ros2::sensor_msgs::image::Image as Ros2Image;
+use ros_z_msgs::sensor_msgs::Image as Ros2Image;
 
 pub const SAMPLE_SIZE: usize = 32;
 
@@ -115,34 +119,48 @@ impl TryFrom<&Ros2Image> for YCbCr422Image {
     type Error = ImageError;
 
     fn try_from(ros2_image: &Ros2Image) -> Result<Self, ImageError> {
+        let image_data = ros2_image.data.contiguous();
         let width_422 = ros2_image.width / 2;
         let height = ros2_image.height;
 
         let data: Vec<YCbCr422> = match ros2_image.encoding.as_str() {
-            "rgb8" => ros2_image
-                .data
-                .chunks_exact(6)
-                .map(|pixel| {
-                    let left_color: YCbCr444 = Rgb {
-                        red: pixel[0],
-                        green: pixel[1],
-                        blue: pixel[2],
-                    }
-                    .into();
-                    let right_color: YCbCr444 = Rgb {
-                        red: pixel[3],
-                        green: pixel[4],
-                        blue: pixel[5],
-                    }
-                    .into();
-                    [left_color, right_color].into()
-                })
-                .collect(),
+            "rgb8" => {
+                let expected_len = (ros2_image.step * ros2_image.height) as usize;
+                let row_pixel_bytes = (ros2_image.width * 3) as usize;
+
+                if image_data.len() != expected_len || row_pixel_bytes > ros2_image.step as usize {
+                    return Err(ImageError::Decoding(DecodingError::from_format_hint(
+                        image::error::ImageFormatHint::Name(
+                            "rgb8: Source buffer size does not match dimensions".to_string(),
+                        ),
+                    )));
+                }
+
+                image_data
+                    .chunks_exact(ros2_image.step as usize)
+                    .flat_map(|row_bytes| row_bytes[..row_pixel_bytes].chunks_exact(6))
+                    .map(|pixel| {
+                        let left_color: YCbCr444 = Rgb {
+                            red: pixel[0],
+                            green: pixel[1],
+                            blue: pixel[2],
+                        }
+                        .into();
+                        let right_color: YCbCr444 = Rgb {
+                            red: pixel[3],
+                            green: pixel[4],
+                            blue: pixel[5],
+                        }
+                        .into();
+                        [left_color, right_color].into()
+                    })
+                    .collect()
+            }
             "nv12" => {
                 let y_plane_size = (ros2_image.width * ros2_image.height) as usize;
                 let uv_plane_size = (ros2_image.width * ros2_image.height / 2) as usize;
 
-                if ros2_image.data.len() < y_plane_size + uv_plane_size {
+                if image_data.len() < y_plane_size + uv_plane_size {
                     return Err(ImageError::Decoding(DecodingError::from_format_hint(
                         image::error::ImageFormatHint::Name(
                             "NV12: Source buffer is too small for the given dimensions".to_string(),
@@ -153,7 +171,7 @@ impl TryFrom<&Ros2Image> for YCbCr422Image {
                 let y_stride = ros2_image.width;
                 let chunked_y_stride = y_stride / 2;
 
-                let (y_plane, uv_plane) = ros2_image.data.split_at(y_plane_size);
+                let (y_plane, uv_plane) = image_data.split_at(y_plane_size);
 
                 assert_eq!(uv_plane.len(), uv_plane_size);
 
@@ -193,6 +211,149 @@ impl TryFrom<&Ros2Image> for YCbCr422Image {
             height,
             buffer: Arc::new(data),
         })
+    }
+}
+
+pub fn rgb_image_from_ros_image(image: &Ros2Image) -> Result<RgbImage, ImageError> {
+    let image_data = image.data.contiguous();
+
+    match image.encoding.as_str() {
+        "rgb8" => {
+            let expected_len = (image.step * image.height) as usize;
+            let row_pixel_bytes = (image.width * 3) as usize;
+
+            if image_data.len() != expected_len || row_pixel_bytes > image.step as usize {
+                return Err(ImageError::Decoding(DecodingError::from_format_hint(
+                    image::error::ImageFormatHint::Name(
+                        "rgb8: Source buffer size does not match dimensions".to_string(),
+                    ),
+                )));
+            }
+
+            let mut rgb_data = Vec::with_capacity(row_pixel_bytes * image.height as usize);
+            for row_bytes in image_data.chunks_exact(image.step as usize) {
+                rgb_data.extend_from_slice(&row_bytes[..row_pixel_bytes]);
+            }
+
+            RgbImage::from_raw(image.width, image.height, rgb_data).ok_or(ImageError::Decoding(
+                DecodingError::from_format_hint(image::error::ImageFormatHint::Unknown),
+            ))
+        }
+        "nv12" => {
+            let y_plane_size = (image.step * image.height) as usize;
+            let uv_plane_size = (image.step * image.height / 2) as usize;
+
+            if image_data.len() != y_plane_size + uv_plane_size {
+                return Err(ImageError::Decoding(DecodingError::from_format_hint(
+                    image::error::ImageFormatHint::Name(
+                        "NV12: Source buffer is too small for the given dimensions".to_string(),
+                    ),
+                )));
+            }
+
+            let mut rgb_image = RgbImage::new(image.width, image.height);
+            let y_stride = image.step;
+            let uv_stride = image.step;
+            let rgb_stride = image.width * 3;
+
+            let (y_plane, remaining) = image_data.split_at(y_plane_size);
+            let uv_plane = &remaining[..uv_plane_size];
+
+            let yuv_bi_planar_image = YuvBiPlanarImage {
+                y_plane,
+                y_stride,
+                uv_plane,
+                uv_stride,
+                width: image.width,
+                height: image.height,
+            };
+
+            yuv_nv12_to_rgb(
+                &yuv_bi_planar_image,
+                rgb_image.as_flat_samples_mut().as_mut_slice(),
+                rgb_stride,
+                YuvRange::Limited,
+                YuvStandardMatrix::Bt709,
+                YuvConversionMode::Balanced,
+            )
+            .map_err(|error| {
+                ImageError::Decoding(DecodingError::from_format_hint(
+                    image::error::ImageFormatHint::Name(format!("NV12: {error}")),
+                ))
+            })?;
+
+            Ok(rgb_image)
+        }
+        "bgr8" => {
+            let expected_len = (image.step * image.height) as usize;
+            let row_pixel_bytes = (image.width * 3) as usize;
+
+            if image_data.len() != expected_len || row_pixel_bytes > image.step as usize {
+                return Err(ImageError::Decoding(DecodingError::from_format_hint(
+                    image::error::ImageFormatHint::Name(
+                        "bgr8: Source buffer size does not match dimensions".to_string(),
+                    ),
+                )));
+            }
+
+            let mut rgb_image = RgbImage::new(image.width, image.height);
+
+            bgr_to_rgb(
+                image_data.as_ref(),
+                image.step,
+                rgb_image.as_flat_samples_mut().as_mut_slice(),
+                image.width * 3,
+                image.width,
+                image.height,
+            )
+            .map_err(|error| {
+                ImageError::Decoding(DecodingError::from_format_hint(
+                    image::error::ImageFormatHint::Name(format!("bgr8: {error}")),
+                ))
+            })?;
+
+            Ok(rgb_image)
+        }
+        "mono16" => {
+            let expected_len = (image.step * image.height) as usize;
+            let row_pixel_bytes = (image.width * 2) as usize;
+
+            if image_data.len() != expected_len
+                || !image_data.len().is_multiple_of(2)
+                || row_pixel_bytes > image.step as usize
+            {
+                return Err(ImageError::Decoding(DecodingError::from_format_hint(
+                    image::error::ImageFormatHint::Name(
+                        "mono16: Source buffer size does not match dimensions".to_string(),
+                    ),
+                )));
+            }
+
+            let mut rgb_image = RgbImage::new(image.width, image.height);
+            let output_buffer = rgb_image.as_mut();
+
+            for (row_index, row_bytes) in image_data.chunks_exact(image.step as usize).enumerate() {
+                for (column_index, bytes) in
+                    row_bytes[..row_pixel_bytes].chunks_exact(2).enumerate()
+                {
+                    let pixel_val = if image.is_bigendian != 0 {
+                        u16::from_be_bytes([bytes[0], bytes[1]])
+                    } else {
+                        u16::from_le_bytes([bytes[0], bytes[1]])
+                    };
+                    let gray_8 = (pixel_val >> 8) as u8;
+                    let rgb_idx = (row_index * image.width as usize + column_index) * 3;
+                    output_buffer[rgb_idx] = gray_8;
+                    output_buffer[rgb_idx + 1] = gray_8;
+                    output_buffer[rgb_idx + 2] = gray_8;
+                }
+            }
+
+            Ok(rgb_image)
+        }
+        encoding => Err(ImageError::Decoding(DecodingError::from_format_hint(
+            image::error::ImageFormatHint::Name(format!("unknown encoding: {encoding}")),
+        ))),
     }
 }
 
@@ -351,3 +512,146 @@ impl YCbCr422Image {
 }
 
 pub type Sample = [[f32; SAMPLE_SIZE]; SAMPLE_SIZE];
+
+#[cfg(test)]
+mod tests {
+    use image::{Rgb, RgbImage};
+    use ros_z_msgs::sensor_msgs::Image;
+
+    use super::{YCbCr422Image, rgb_image_from_ros_image};
+
+    #[test]
+    fn rgb8_ros_image_conversion_is_exact() {
+        let ros_image = Image {
+            width: 2,
+            height: 1,
+            encoding: "rgb8".to_string(),
+            is_bigendian: 0,
+            step: 6,
+            data: vec![10, 20, 30, 40, 50, 60].into(),
+            ..Default::default()
+        };
+
+        let rgb_image = rgb_image_from_ros_image(&ros_image).expect("failed to convert rgb8");
+
+        assert_eq!(rgb_image.width(), 2);
+        assert_eq!(rgb_image.height(), 1);
+        assert_eq!(rgb_image.get_pixel(0, 0), &Rgb([10, 20, 30]));
+        assert_eq!(rgb_image.get_pixel(1, 0), &Rgb([40, 50, 60]));
+        assert_eq!(rgb_image.into_raw(), vec![10, 20, 30, 40, 50, 60]);
+    }
+
+    #[test]
+    fn mono16_big_endian_ros_image_conversion_is_safe_and_correct() {
+        let ros_image = Image {
+            width: 2,
+            height: 1,
+            encoding: "mono16".to_string(),
+            is_bigendian: 1,
+            step: 4,
+            data: vec![0x12, 0x34, 0xAB, 0xCD].into(),
+            ..Default::default()
+        };
+
+        let rgb_image = rgb_image_from_ros_image(&ros_image).expect("failed to convert mono16");
+
+        assert_eq!(
+            rgb_image.into_raw(),
+            vec![0x12, 0x12, 0x12, 0xAB, 0xAB, 0xAB]
+        );
+    }
+
+    #[test]
+    fn mono16_ros_image_conversion_ignores_padded_row_bytes() {
+        let ros_image = Image {
+            width: 1,
+            height: 2,
+            encoding: "mono16".to_string(),
+            is_bigendian: 1,
+            step: 4,
+            data: vec![0x12, 0x34, 0xFF, 0xEE, 0xAB, 0xCD, 0xDD, 0xCC].into(),
+            ..Default::default()
+        };
+
+        let rgb_image =
+            rgb_image_from_ros_image(&ros_image).expect("failed to convert padded mono16");
+
+        assert_eq!(rgb_image.width(), 1);
+        assert_eq!(rgb_image.height(), 2);
+        assert_eq!(
+            rgb_image.into_raw(),
+            vec![0x12, 0x12, 0x12, 0xAB, 0xAB, 0xAB]
+        );
+    }
+
+    #[test]
+    fn rgb8_ros_image_conversion_ignores_padded_row_bytes() {
+        let ros_image = Image {
+            width: 1,
+            height: 2,
+            encoding: "rgb8".to_string(),
+            is_bigendian: 0,
+            step: 4,
+            data: vec![1, 2, 3, 255, 4, 5, 6, 254].into(),
+            ..Default::default()
+        };
+
+        let rgb_image =
+            rgb_image_from_ros_image(&ros_image).expect("failed to convert padded rgb8");
+
+        assert_eq!(rgb_image.into_raw(), vec![1, 2, 3, 4, 5, 6]);
+    }
+
+    #[test]
+    fn bgr8_ros_image_conversion_ignores_padded_row_bytes() {
+        let ros_image = Image {
+            width: 1,
+            height: 2,
+            encoding: "bgr8".to_string(),
+            is_bigendian: 0,
+            step: 4,
+            data: vec![3, 2, 1, 255, 6, 5, 4, 254].into(),
+            ..Default::default()
+        };
+
+        let rgb_image =
+            rgb_image_from_ros_image(&ros_image).expect("failed to convert padded bgr8");
+
+        assert_eq!(rgb_image.into_raw(), vec![1, 2, 3, 4, 5, 6]);
+    }
+
+    #[test]
+    fn ycbcr422_ros_image_conversion_ignores_padded_rgb8_row_bytes() {
+        let padded_ros_image = Image {
+            width: 2,
+            height: 2,
+            encoding: "rgb8".to_string(),
+            is_bigendian: 0,
+            step: 8,
+            data: vec![1, 2, 3, 4, 5, 6, 255, 254, 7, 8, 9, 10, 11, 12, 253, 252].into(),
+            ..Default::default()
+        };
+
+        let tightly_packed_ros_image = Image {
+            width: 2,
+            height: 2,
+            encoding: "rgb8".to_string(),
+            is_bigendian: 0,
+            step: 6,
+            data: vec![1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12].into(),
+            ..Default::default()
+        };
+
+        let padded_ycbcr = YCbCr422Image::try_from(&padded_ros_image)
+            .expect("failed to convert padded rgb8 to ycbcr422");
+        let tightly_packed_ycbcr = YCbCr422Image::try_from(&tightly_packed_ros_image)
+            .expect("failed to convert tightly packed rgb8 to ycbcr422");
+
+        assert_eq!(padded_ycbcr.width(), tightly_packed_ycbcr.width());
+        assert_eq!(padded_ycbcr.height(), tightly_packed_ycbcr.height());
+        assert_eq!(
+            RgbImage::from(&padded_ycbcr),
+            RgbImage::from(&tightly_packed_ycbcr)
+        );
+    }
+}

@@ -11,5 +11,5 @@ booster_sdk = { workspace = true }
 color-eyre = { workspace = true }
 hula_types = { workspace = true }
 kinematics = { workspace = true }
-ros2 = { workspace = true }
+ros-z-msgs = { workspace = true, features = ["sensor_msgs"] }
 types = { workspace = true }

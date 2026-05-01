@@ -4,7 +4,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use hardware::{CameraInterface, TimeInterface};
-use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
+use ros_z_msgs::sensor_msgs::{CameraInfo, Image};
 use serde::{Deserialize, Serialize};
 use types::cycle_time::CycleTime;
 

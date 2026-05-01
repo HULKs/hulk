@@ -45,7 +45,7 @@ parameters = { workspace = true }
 projection = { workspace = true }
 repository = { workspace = true }
 rmp-serde = { workspace = true }
-ros2 = { workspace = true }
+ros-z-msgs = { workspace = true, features = ["sensor_msgs"] }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }

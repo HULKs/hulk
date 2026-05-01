@@ -1,0 +1,38 @@
+[package]
+name = "ros-z-record"
+version.workspace = true
+edition.workspace = true
+description = "MCAP recording for ros-z"
+license.workspace = true
+homepage.workspace = true
+
+[dependencies]
+color-eyre = { workspace = true }
+flume = { workspace = true }
+hex = { workspace = true }
+mcap = { workspace = true }
+ros-z = { workspace = true }
+ros-z-schema = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+tokio = { workspace = true, features = [
+  "macros",
+  "rt",
+  "rt-multi-thread",
+  "sync",
+  "time",
+] }
+tokio-util = { workspace = true }
+tracing = { workspace = true }
+zenoh = { workspace = true }
+
+[dev-dependencies]
+ros-z-msgs = { workspace = true }
+serial_test = { workspace = true }
+tempfile = { workspace = true }
+tokio = { workspace = true, features = [
+  "macros",
+  "rt-multi-thread",
+  "sync",
+  "time",
+] }

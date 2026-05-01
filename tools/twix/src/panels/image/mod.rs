@@ -12,10 +12,13 @@ use geometry::rectangle::Rectangle;
 use image::{EncodableLayout, RgbImage};
 use linear_algebra::{point, vector};
 use log::{info, warn};
-use ros2::sensor_msgs::image::Image;
+use ros_z_msgs::sensor_msgs::Image;
 use serde_json::{Value, json};
 
-use types::{jpeg::JpegImage, ycbcr422_image::YCbCr422Image};
+use types::{
+    jpeg::JpegImage,
+    ycbcr422_image::{YCbCr422Image, rgb_image_from_ros_image},
+};
 
 use crate::{
     panel::{Panel, PanelCreationContext},
@@ -111,9 +114,13 @@ fn save_raw_image(buffer: &BufferHandle<Image>, path: PathBuf) -> Result<()> {
     let buffer = buffer
         .get_last_value()?
         .ok_or_else(|| eyre!("no image available"))?;
-    buffer.save_to_file(&path)?;
+    raw_image_to_rgb_image(buffer)?.save(&path)?;
     info!("image saved to '{}'", path.display());
     Ok(())
+}
+
+fn raw_image_to_rgb_image(image: Image) -> Result<RgbImage> {
+    Ok(rgb_image_from_ros_image(&image)?)
 }
 
 fn save_ycbcr422_image(buffer: &BufferHandle<YCbCr422Image>, path: PathBuf) -> Result<()> {
@@ -242,9 +249,7 @@ impl ImagePanel {
                     );
                 }
 
-                let rgb_image: RgbImage = ros_image
-                    .try_into()
-                    .map_err(|e: image::ImageError| eyre!(e))?;
+                let rgb_image = raw_image_to_rgb_image(ros_image)?;
 
                 let image = ColorImage::from_rgb(
                     [rgb_image.width() as usize, rgb_image.height() as usize],
