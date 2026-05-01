@@ -7,16 +7,14 @@ use std::{
 };
 
 use booster::FallDownStateType;
-use coordinate_systems::{Field, Ground};
 use hardware::NetworkInterface;
 use hsl_network_messages::{GameControllerReturnMessage, HulkMessage, StateMessage};
-use linear_algebra::Isometry2;
 use types::{messages::OutgoingMessage, parameters::HslNetworkParameters, world_state::WorldState};
 
 use crate::behavior::node::Behavior;
 
 impl Behavior {
-    pub fn try_sending_game_controller_return_message(
+    pub fn send_game_controller_return_message(
         &mut self,
         world_state: &WorldState,
         game_controller_address: Option<&SocketAddr>,
@@ -32,7 +30,7 @@ impl Behavior {
             return Ok(());
         };
 
-        let ground_to_field = ground_to_field_or_initial_pose(world_state);
+        let ground_to_field = world_state.robot.ground_to_field.unwrap_or_default();
 
         let ball_position = world_state
             .ball
@@ -41,7 +39,7 @@ impl Behavior {
                 position: ball.ball_in_ground,
             });
 
-        self.last_system_time_transmitted_game_controller_return_message = Some(now);
+        self.last_sent_game_controller_return_message_time = Some(now);
 
         hardware
             .write_to_network(OutgoingMessage::GameController(
@@ -65,12 +63,12 @@ impl Behavior {
     ) -> bool {
         is_cooldown_elapsed(
             now,
-            self.last_system_time_transmitted_game_controller_return_message,
+            self.last_sent_game_controller_return_message_time,
             hsl_network_parameters.game_controller_return_message_interval,
         )
     }
 
-    pub fn try_sending_base_message(
+    pub fn send_base_message(
         &mut self,
         world_state: &WorldState,
         hsl_network_parameters: &HslNetworkParameters,
@@ -83,23 +81,23 @@ impl Behavior {
         if !self.is_base_message_cooldown_elapsed(now, hsl_network_parameters) {
             return Ok(());
         }
-        if remaining_amount_of_messages.is_some_and(|remaining_amount_of_messages| {
+        if remaining_amount_of_messages.is_none_or(|remaining_amount_of_messages| {
             *remaining_amount_of_messages
                 < hsl_network_parameters.remaining_amount_of_messages_to_stop_sending
         }) {
             return Ok(());
         }
 
-        let ground_to_field = ground_to_field_or_initial_pose(world_state);
+        let ground_to_field = world_state.robot.ground_to_field.unwrap_or_default();
+
         let pose = ground_to_field.as_pose();
 
-        let ball_position = match world_state.ball {
-            Some(ball) => Some(hsl_network_messages::BallPosition {
+        let ball_position = world_state
+            .ball
+            .map(|ball| hsl_network_messages::BallPosition {
                 age: now.duration_since(ball.last_seen_ball).unwrap(),
                 position: ball.ball_in_field,
-            }),
-            None => None,
-        };
+            });
 
         let message = HulkMessage::State(StateMessage {
             player_number: world_state.robot.player_number,
@@ -107,7 +105,7 @@ impl Behavior {
             ball_position,
         });
 
-        self.last_transmitted_hsl_message = Some(now);
+        self.last_sent_hsl_message_time = Some(now);
         last_sent_message.fill_if_subscribed(|| message);
 
         hardware
@@ -122,14 +120,10 @@ impl Behavior {
     ) -> bool {
         is_cooldown_elapsed(
             now,
-            self.last_transmitted_hsl_message,
+            self.last_sent_hsl_message_time,
             hsl_network_parameters.hsl_base_message_send_interval,
         )
     }
-}
-
-fn ground_to_field_or_initial_pose(world_state: &WorldState) -> Isometry2<Ground, Field> {
-    world_state.robot.ground_to_field.unwrap_or_default()
 }
 
 fn is_cooldown_elapsed(now: SystemTime, last: Option<SystemTime>, cooldown: Duration) -> bool {
