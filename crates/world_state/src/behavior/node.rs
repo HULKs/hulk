@@ -43,8 +43,8 @@ pub struct Behavior {
     pub tree: Node<Blackboard>,
     #[serde(skip, default = "create_static_layout_default")]
     pub static_layout: NodeTrace,
-    pub last_system_time_transmitted_game_controller_return_message: Option<SystemTime>,
-    pub last_transmitted_hsl_message: Option<SystemTime>,
+    pub last_sent_game_controller_return_message_time: Option<SystemTime>,
+    pub last_sent_hsl_message_time: Option<SystemTime>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -119,8 +119,8 @@ impl Behavior {
             last_motion_type: None,
             tree,
             static_layout,
-            last_system_time_transmitted_game_controller_return_message: None,
-            last_transmitted_hsl_message: None,
+            last_sent_game_controller_return_message_time: None,
+            last_sent_hsl_message_time: None,
         })
     }
 
@@ -185,14 +185,14 @@ impl Behavior {
             _ => None,
         };
 
-        self.try_sending_game_controller_return_message(
+        self.send_game_controller_return_message(
             context.world_state,
             context.game_controller_address,
             context.hsl_network_parameters,
             context.hardware,
         )?;
 
-        self.try_sending_base_message(
+        self.send_base_message(
             context.world_state,
             context.hsl_network_parameters,
             context.remaining_amount_of_messages,

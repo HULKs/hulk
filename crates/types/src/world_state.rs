@@ -9,9 +9,13 @@ use linear_algebra::{Isometry2, Point2, Pose2, Vector2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{
-    ball_position::{BallPosition, HypotheticalBallPosition}, field_dimensions::Side,
-    filtered_game_controller_state::FilteredGameControllerState, obstacles::Obstacle,  players::Players,
-    primary_state::PrimaryState, rule_obstacles::RuleObstacle,
+    ball_position::{BallPosition, HypotheticalBallPosition},
+    field_dimensions::Side,
+    filtered_game_controller_state::FilteredGameControllerState,
+    obstacles::Obstacle,
+    players::Players,
+    primary_state::PrimaryState,
+    rule_obstacles::RuleObstacle,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathIntrospect)]

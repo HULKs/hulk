@@ -68,7 +68,7 @@ impl PlayerStatesReceiver {
                 _ => None,
             });
 
-        let mut player_states = self.last_player_states.clone();
+        let mut player_states = self.last_player_states;
         for message in messages {
             match message {
                 HulkMessage::State(base_message) => {
@@ -85,7 +85,7 @@ impl PlayerStatesReceiver {
                 }
             }
         }
-        self.last_player_states = player_states.clone();
+        self.last_player_states = player_states;
 
         Ok(MainOutputs {
             player_states: player_states.map(Option::unwrap_or_default).into(),
