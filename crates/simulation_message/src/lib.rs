@@ -7,7 +7,7 @@ use std::{
 use booster::{
     ButtonEventMsg, FallDownState, LowCommand, LowState, RemoteControllerState, TransformMessage,
 };
-use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
+use ros_z_msgs::sensor_msgs::{CameraInfo, Image};
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "pyo3")]

@@ -1,7 +1,7 @@
 use coordinate_systems::{Camera, NormalizedDeviceCoordinates, Pixel};
 use linear_algebra::{Point2, Vector2, Vector3, point, vector};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
-use ros2::sensor_msgs::camera_info::CameraInfo;
+use ros_z_msgs::sensor_msgs::CameraInfo;
 use serde::{Deserialize, Serialize};
 
 #[derive(

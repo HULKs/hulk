@@ -14,7 +14,8 @@ coordinate_systems = { workspace = true }
 linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
 path_serde = { workspace = true }
-ros2 = { workspace = true }
+ros-z = { workspace = true }
+ros-z-msgs = { workspace = true, features = ["sensor_msgs"] }
 serde = { workspace = true }
 thiserror = { workspace = true }
 types = { workspace = true }

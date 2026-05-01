@@ -6,13 +6,12 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
-color-eyre = { workspace = true }
-image = { workspace = true }
-nalgebra = { workspace = true }
-path_serde = { workspace = true }
 pyo3 = { workspace = true, optional = true }
-serde = { workspace = true }
-yuv = { workspace = true }
+ros-z-msgs = { workspace = true, features = [
+  "sensor_msgs",
+  "geometry_msgs",
+  "std_msgs",
+] }
 
 [features]
 pyo3 = ["dep:pyo3"]

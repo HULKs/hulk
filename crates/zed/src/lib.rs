@@ -2,10 +2,10 @@
 use std::time::Duration;
 
 #[cfg(feature = "pyo3")]
-use ros2::{builtin_interfaces::time::Time, sensor_msgs::region_of_interest::RegionOfInterest};
-use ros2::{
-    sensor_msgs::{camera_info::CameraInfo, image::Image, imu::Imu, magnetic_field::MagneticField},
-    std_msgs::header::Header,
+use ros_z_msgs::{builtin_interfaces::Time, sensor_msgs::RegionOfInterest};
+use ros_z_msgs::{
+    sensor_msgs::{CameraInfo, Image, Imu, MagneticField},
+    std_msgs::Header,
 };
 use serde::{Deserialize, Serialize};
 
@@ -74,8 +74,8 @@ impl RGBDSensors {
             width,
             encoding: "rgb8".to_string(),
             is_bigendian: 0,
-            step: width,
-            data: rgb,
+            step: width * 3,
+            data: rgb.into(),
         };
 
         let depth_image = Image {
@@ -85,7 +85,11 @@ impl RGBDSensors {
             encoding: "mono16".to_string(),
             is_bigendian: 1,
             step: width * 2,
-            data: depth.iter().flat_map(|x| x.to_be_bytes()).collect(),
+            data: depth
+                .iter()
+                .flat_map(|x| x.to_be_bytes())
+                .collect::<Vec<_>>()
+                .into(),
         };
 
         Self {
@@ -94,8 +98,14 @@ impl RGBDSensors {
             depth_camera_info,
             rgb: Box::new(rgb_image),
             depth: Box::new(depth_image),
-            imu: Imu::default_with_header(header.clone()),
-            mag: MagneticField::default_with_header(header.clone()),
+            imu: Imu {
+                header: header.clone(),
+                ..Default::default()
+            },
+            mag: MagneticField {
+                header: header.clone(),
+                ..Default::default()
+            },
         }
     }
 }

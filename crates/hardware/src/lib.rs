@@ -9,7 +9,7 @@ use color_eyre::eyre::Result;
 
 use hula_types::hardware::{Ids, Paths};
 use kinematics::joints::head::HeadJoints;
-use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
+use ros_z_msgs::sensor_msgs::{CameraInfo, Image};
 use types::{
     audio::SpeakerRequest,
     messages::{IncomingMessage, OutgoingMessage},

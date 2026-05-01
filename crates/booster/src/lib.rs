@@ -3,7 +3,7 @@ use coordinate_systems::{Ground, Robot};
 use kinematics::joints::Joints;
 use linear_algebra::{Isometry2, Vector3, vector};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
-use ros2::{geometry_msgs::transform_stamped::TransformStamped, std_msgs::header::Header};
+use ros_z_msgs::{geometry_msgs::TransformStamped, std_msgs::Header};
 use serde::{Deserialize, Serialize};
 
 #[cfg(feature = "pyo3")]
@@ -512,6 +512,7 @@ pub struct RemoteControllerState {
 )]
 #[serde(rename = "TFMessage")]
 pub struct TransformMessage {
+    #[path_serde(skip)]
     pub transforms: Vec<TransformStamped>,
 }
 

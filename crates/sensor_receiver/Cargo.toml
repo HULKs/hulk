@@ -22,6 +22,5 @@ parameters = { workspace = true }
 path_serde = { workspace = true }
 projection = { workspace = true }
 rand = { workspace = true }
-ros2 = { workspace = true }
 serde = { workspace = true }
 types = { workspace = true }

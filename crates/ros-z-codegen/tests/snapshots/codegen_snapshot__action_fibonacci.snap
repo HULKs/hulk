@@ -1,0 +1,70 @@
+---
+source: crates/ros-z-codegen/tests/codegen_snapshot.rs
+assertion_line: 226
+expression: format_tokens(tokens)
+---
+pub struct Fibonacci;
+impl ::ros_z::action::Action for Fibonacci {
+    type Goal = super::FibonacciGoal;
+    type Result = super::FibonacciResult;
+    type Feedback = super::FibonacciFeedback;
+    fn name() -> &'static str {
+        "test_interface_files::Fibonacci"
+    }
+    fn send_goal_type_info() -> ::ros_z::entity::TypeInfo {
+        ::ros_z::entity::TypeInfo::with_hash(
+            "test_interface_files::FibonacciSendGoal",
+            ::ros_z::entity::SchemaHash::from_hash_string(
+                    "RZHS01_555c1db3364bf28aedfb5e55f413c2a67d844fa6d581671484d4f59fa11908e4",
+                )
+                .expect("invalid hash"),
+        )
+    }
+    fn get_result_type_info() -> ::ros_z::entity::TypeInfo {
+        ::ros_z::entity::TypeInfo::with_hash(
+            "test_interface_files::FibonacciGetResult",
+            ::ros_z::entity::SchemaHash::from_hash_string(
+                    "RZHS01_e683118da7c9938f1b7de464a1abc312a581c04953b5e17d328d4ebdd804d7b7",
+                )
+                .expect("invalid hash"),
+        )
+    }
+    fn cancel_goal_type_info() -> ::ros_z::entity::TypeInfo {
+        ::ros_z::entity::TypeInfo::with_hash(
+            "ros_z::action::CancelGoal",
+            ::ros_z::entity::SchemaHash::from_hash_string(
+                    "RZHS01_333cd259c80ea578fc6df3aa78f864e46fd06e866afbf45372325355fef3517f",
+                )
+                .expect("invalid hash"),
+        )
+    }
+    fn feedback_type_info() -> ::ros_z::entity::TypeInfo {
+        ::ros_z::entity::TypeInfo::with_hash(
+            "test_interface_files::FibonacciFeedbackMessage",
+            ::ros_z::entity::SchemaHash::from_hash_string(
+                    "RZHS01_c2bceb2b33075a9cef24fd40c06118b130b5902dfc3a3b92f7daf328fe081844",
+                )
+                .expect("invalid hash"),
+        )
+    }
+    fn status_type_info() -> ::ros_z::entity::TypeInfo {
+        ::ros_z::entity::TypeInfo::with_hash(
+            "ros_z::action::GoalStatusArray",
+            ::ros_z::entity::SchemaHash::from_hash_string(
+                    "RZHS01_f12233afc87fab78d6af13304086f72407adc215907750f77f922d1bc60c8207",
+                )
+                .expect("invalid hash"),
+        )
+    }
+}
+impl ::ros_z::ActionTypeInfo for Fibonacci {
+    fn action_type_info() -> ::ros_z::entity::TypeInfo {
+        ::ros_z::entity::TypeInfo::with_hash(
+            "test_interface_files::Fibonacci",
+            ::ros_z::entity::SchemaHash::from_hash_string(
+                    "RZHS01_4ba43704e04ea5a8d75bce786076cda760ee3bcb1680e6e088237270e5634122",
+                )
+                .expect("invalid hash"),
+        )
+    }
+}

@@ -1,0 +1,21 @@
+---
+source: crates/ros-z-codegen/tests/codegen_snapshot.rs
+assertion_line: 207
+expression: format_tokens(tokens)
+---
+pub struct BasicTypes;
+impl ::ros_z::msg::Service for BasicTypes {
+    type Request = super::BasicTypesRequest;
+    type Response = super::BasicTypesResponse;
+}
+impl ::ros_z::ServiceTypeInfo for BasicTypes {
+    fn service_type_info() -> ::ros_z::entity::TypeInfo {
+        ::ros_z::entity::TypeInfo::with_hash(
+            "test_interface_files::BasicTypes",
+            ::ros_z::entity::SchemaHash::from_hash_string(
+                    "RZHS01_3756dd59b696c6677d7d32f91c4b94ca1eb9943bd73d0c859c9f88bb0e95a3d0",
+                )
+                .expect("invalid hash"),
+        )
+    }
+}

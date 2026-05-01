@@ -5,7 +5,7 @@ use booster_sdk::types::RobotMode;
 use color_eyre::Result;
 use context_attribute::context;
 use hardware::{HighLevelInterface, MotionRuntimeInterface, VisualKickInterface};
-use ros2::std_msgs::header::Header;
+use ros_z_msgs::{builtin_interfaces::Time, std_msgs::Header};
 use serde::{Deserialize, Serialize};
 use types::{
     cycle_time::CycleTime,
@@ -87,7 +87,7 @@ impl BoosterKick {
 
                 let kick = Kick {
                     header: Header {
-                        stamp: context.cycle_time.start_time.into(),
+                        stamp: system_time_to_ros_time(context.cycle_time.start_time),
                         frame_id: "".to_string(),
                     },
                     ball_position_x: ball_position.x() as f64,
@@ -131,4 +131,14 @@ fn set_visual_kick_activation_state(context: &CycleContext<impl HighLevelInterfa
         .hardware_interface
         .visual_kick(start)
         .inspect_err(|err| log::error!("{err:?}"));
+}
+
+fn system_time_to_ros_time(system_time: SystemTime) -> Time {
+    let duration = system_time
+        .duration_since(SystemTime::UNIX_EPOCH)
+        .expect("no time earlier than UNIX_EPOCH");
+    Time {
+        sec: duration.as_secs() as i32,
+        nanosec: duration.subsec_nanos(),
+    }
 }

@@ -29,9 +29,10 @@ parameters = { workspace = true }
 path_serde = { workspace = true }
 projection = { workspace = true }
 rand = { workspace = true }
-ros2 = { workspace = true }
+ros-z-msgs = { workspace = true, features = ["sensor_msgs"] }
 serde = { workspace = true }
 types = { workspace = true }
+zenoh-buffers = { workspace = true }
 
 [features]
 ort-dynamic = ["ort/load-dynamic"]

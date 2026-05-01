@@ -1,0 +1,401 @@
+//! CDR serialization for dynamic messages.
+//!
+//! This module uses the low-level primitives from `ros-z-cdr` for CDR
+//! serialization and deserialization of dynamic messages.
+
+use std::sync::Arc;
+
+use ros_z_cdr::{CdrReader, CdrWriter, LittleEndian};
+use zenoh_buffers::ZBuf;
+
+use crate::dynamic::error::DynamicError;
+use crate::dynamic::message::DynamicMessage;
+use crate::dynamic::schema::{EnumPayloadSchema, EnumSchema, FieldType, MessageSchema};
+use crate::dynamic::value::{DynamicNamedValue, DynamicValue, EnumPayloadValue, EnumValue};
+
+use super::CDR_HEADER_LE;
+
+/// Serialize a dynamic message to CDR bytes.
+pub fn serialize_cdr(message: &DynamicMessage) -> Result<Vec<u8>, DynamicError> {
+    let mut buffer = Vec::with_capacity(256);
+    buffer.extend_from_slice(&CDR_HEADER_LE);
+
+    let mut writer = CdrWriter::<LittleEndian>::new(&mut buffer);
+    serialize_message(message, &mut writer)?;
+
+    Ok(buffer)
+}
+
+/// Serialize a dynamic message to a ZBuf.
+pub fn serialize_cdr_to_zbuf(message: &DynamicMessage) -> Result<ZBuf, DynamicError> {
+    let bytes = serialize_cdr(message)?;
+    Ok(ZBuf::from(bytes))
+}
+
+/// Deserialize a dynamic message from CDR bytes.
+pub fn deserialize_cdr(
+    data: &[u8],
+    schema: &Arc<MessageSchema>,
+) -> Result<DynamicMessage, DynamicError> {
+    if data.len() < 4 {
+        return Err(DynamicError::DeserializationError(
+            "CDR data too short for header".into(),
+        ));
+    }
+    let header = &data[0..4];
+    let representation_identifier = &header[0..2];
+    if representation_identifier != [0x00, 0x01] {
+        return Err(DynamicError::DeserializationError(format!(
+            "Expected CDR_LE encapsulation ({:?}), found {:?}",
+            [0x00, 0x01],
+            representation_identifier
+        )));
+    }
+
+    let payload = &data[4..];
+    let mut reader = CdrReader::<LittleEndian>::new(payload);
+    deserialize_message(schema, &mut reader)
+}
+
+fn serialize_message(
+    message: &DynamicMessage,
+    writer: &mut CdrWriter<LittleEndian>,
+) -> Result<(), DynamicError> {
+    for (field, value) in message
+        .schema()
+        .fields()
+        .iter()
+        .zip(message.values().iter())
+    {
+        serialize_value(value, &field.field_type, writer)?;
+    }
+    Ok(())
+}
+
+fn serialize_value(
+    value: &DynamicValue,
+    field_type: &FieldType,
+    writer: &mut CdrWriter<LittleEndian>,
+) -> Result<(), DynamicError> {
+    match (value, field_type) {
+        (DynamicValue::Bool(v), FieldType::Bool) => writer.write_bool(*v),
+        (DynamicValue::Int8(v), FieldType::Int8) => writer.write_i8(*v),
+        (DynamicValue::Int16(v), FieldType::Int16) => writer.write_i16(*v),
+        (DynamicValue::Int32(v), FieldType::Int32) => writer.write_i32(*v),
+        (DynamicValue::Int64(v), FieldType::Int64) => writer.write_i64(*v),
+        (DynamicValue::Uint8(v), FieldType::Uint8) => writer.write_u8(*v),
+        (DynamicValue::Uint16(v), FieldType::Uint16) => writer.write_u16(*v),
+        (DynamicValue::Uint32(v), FieldType::Uint32) => writer.write_u32(*v),
+        (DynamicValue::Uint64(v), FieldType::Uint64) => writer.write_u64(*v),
+        (DynamicValue::Float32(v), FieldType::Float32) => writer.write_f32(*v),
+        (DynamicValue::Float64(v), FieldType::Float64) => writer.write_f64(*v),
+        (DynamicValue::String(v), FieldType::String) => writer.write_string(v),
+        (DynamicValue::String(v), FieldType::BoundedString(_)) => writer.write_string(v),
+        (DynamicValue::Optional(None), FieldType::Optional(_)) => writer.write_u32(0),
+        (DynamicValue::Optional(Some(inner)), FieldType::Optional(inner_type)) => {
+            writer.write_u32(1);
+            serialize_value(inner, inner_type, writer)?;
+        }
+        (DynamicValue::Enum(enum_value), FieldType::Enum(schema)) => {
+            serialize_enum_value(enum_value, schema, writer)?;
+        }
+
+        // Fixed-size array (no length prefix)
+        (DynamicValue::Array(values), FieldType::Array(inner, _len)) => {
+            for v in values {
+                serialize_value(v, inner, writer)?;
+            }
+        }
+
+        // Sequence (with length prefix)
+        (DynamicValue::Array(values), FieldType::Sequence(inner)) => {
+            writer.write_sequence_length(values.len());
+            for v in values {
+                serialize_value(v, inner, writer)?;
+            }
+        }
+
+        // Bounded sequence (with length prefix)
+        (DynamicValue::Array(values), FieldType::BoundedSequence(inner, _max)) => {
+            writer.write_sequence_length(values.len());
+            for v in values {
+                serialize_value(v, inner, writer)?;
+            }
+        }
+
+        (DynamicValue::Map(entries), FieldType::Map(key_type, value_type)) => {
+            writer.write_sequence_length(entries.len());
+            for (key, value) in entries {
+                serialize_value(key, key_type, writer)?;
+                serialize_value(value, value_type, writer)?;
+            }
+        }
+
+        // Optimized byte array
+        (DynamicValue::Bytes(bytes), FieldType::Sequence(inner))
+            if matches!(**inner, FieldType::Uint8) =>
+        {
+            writer.write_bytes(bytes);
+        }
+
+        // Nested message
+        (DynamicValue::Message(nested), FieldType::Message(_)) => {
+            serialize_message(nested, writer)?;
+        }
+
+        _ => {
+            return Err(DynamicError::SerializationError(format!(
+                "Type mismatch: cannot serialize {:?} as {:?}",
+                value, field_type
+            )));
+        }
+    }
+    Ok(())
+}
+
+fn deserialize_message(
+    schema: &Arc<MessageSchema>,
+    reader: &mut CdrReader<LittleEndian>,
+) -> Result<DynamicMessage, DynamicError> {
+    let mut values = Vec::with_capacity(schema.fields().len());
+
+    for field in schema.fields() {
+        let value = deserialize_value(&field.field_type, reader)?;
+        values.push(value);
+    }
+
+    Ok(DynamicMessage::from_values(schema, values))
+}
+
+fn deserialize_value(
+    field_type: &FieldType,
+    reader: &mut CdrReader<LittleEndian>,
+) -> Result<DynamicValue, DynamicError> {
+    match field_type {
+        FieldType::Bool => Ok(DynamicValue::Bool(reader.read_bool().map_err(map_cdr_err)?)),
+        FieldType::Int8 => Ok(DynamicValue::Int8(reader.read_i8().map_err(map_cdr_err)?)),
+        FieldType::Int16 => Ok(DynamicValue::Int16(reader.read_i16().map_err(map_cdr_err)?)),
+        FieldType::Int32 => Ok(DynamicValue::Int32(reader.read_i32().map_err(map_cdr_err)?)),
+        FieldType::Int64 => Ok(DynamicValue::Int64(reader.read_i64().map_err(map_cdr_err)?)),
+        FieldType::Uint8 => Ok(DynamicValue::Uint8(reader.read_u8().map_err(map_cdr_err)?)),
+        FieldType::Uint16 => Ok(DynamicValue::Uint16(
+            reader.read_u16().map_err(map_cdr_err)?,
+        )),
+        FieldType::Uint32 => Ok(DynamicValue::Uint32(
+            reader.read_u32().map_err(map_cdr_err)?,
+        )),
+        FieldType::Uint64 => Ok(DynamicValue::Uint64(
+            reader.read_u64().map_err(map_cdr_err)?,
+        )),
+        FieldType::Float32 => Ok(DynamicValue::Float32(
+            reader.read_f32().map_err(map_cdr_err)?,
+        )),
+        FieldType::Float64 => Ok(DynamicValue::Float64(
+            reader.read_f64().map_err(map_cdr_err)?,
+        )),
+        FieldType::String | FieldType::BoundedString(_) => Ok(DynamicValue::String(
+            reader.read_string().map_err(map_cdr_err)?,
+        )),
+        FieldType::Optional(inner) => {
+            let tag = reader.read_u32().map_err(map_cdr_err)?;
+            match tag {
+                0 => Ok(DynamicValue::Optional(None)),
+                1 => Ok(DynamicValue::Optional(Some(Box::new(deserialize_value(
+                    inner, reader,
+                )?)))),
+                other => Err(DynamicError::DeserializationError(format!(
+                    "invalid option discriminant: {other}"
+                ))),
+            }
+        }
+        FieldType::Enum(schema) => Ok(DynamicValue::Enum(deserialize_enum_value(schema, reader)?)),
+
+        // Fixed-size array
+        FieldType::Array(inner, len) => {
+            let mut values = Vec::with_capacity(*len);
+            for _ in 0..*len {
+                values.push(deserialize_value(inner, reader)?);
+            }
+            Ok(DynamicValue::Array(values))
+        }
+
+        // Sequence
+        FieldType::Sequence(inner) => {
+            // Optimize for byte arrays
+            if matches!(**inner, FieldType::Uint8) {
+                let bytes = reader.read_byte_sequence().map_err(map_cdr_err)?.to_vec();
+                return Ok(DynamicValue::Bytes(bytes));
+            }
+
+            let len = reader.read_sequence_length().map_err(map_cdr_err)?;
+            let mut values = Vec::with_capacity(len);
+            for _ in 0..len {
+                values.push(deserialize_value(inner, reader)?);
+            }
+            Ok(DynamicValue::Array(values))
+        }
+
+        // Bounded sequence
+        FieldType::BoundedSequence(inner, _max) => {
+            // Same handling as unbounded sequence for deserialization
+            if matches!(**inner, FieldType::Uint8) {
+                let bytes = reader.read_byte_sequence().map_err(map_cdr_err)?.to_vec();
+                return Ok(DynamicValue::Bytes(bytes));
+            }
+
+            let len = reader.read_sequence_length().map_err(map_cdr_err)?;
+            let mut values = Vec::with_capacity(len);
+            for _ in 0..len {
+                values.push(deserialize_value(inner, reader)?);
+            }
+            Ok(DynamicValue::Array(values))
+        }
+
+        FieldType::Map(key_type, value_type) => {
+            let len = reader.read_sequence_length().map_err(map_cdr_err)?;
+            let mut entries = Vec::with_capacity(len);
+            for _ in 0..len {
+                let key = deserialize_value(key_type, reader)?;
+                let value = deserialize_value(value_type, reader)?;
+                entries.push((key, value));
+            }
+            Ok(DynamicValue::Map(entries))
+        }
+
+        // Nested message
+        FieldType::Message(schema) => {
+            let message = deserialize_message(schema, reader)?;
+            Ok(DynamicValue::Message(Box::new(message)))
+        }
+    }
+}
+
+fn serialize_enum_value(
+    value: &EnumValue,
+    schema: &Arc<EnumSchema>,
+    writer: &mut CdrWriter<LittleEndian>,
+) -> Result<(), DynamicError> {
+    let variant = schema
+        .variants
+        .get(value.variant_index as usize)
+        .ok_or_else(|| {
+            DynamicError::SerializationError(format!(
+                "enum variant index {} is out of bounds for {}",
+                value.variant_index, schema.type_name
+            ))
+        })?;
+
+    if variant.name != value.variant_name {
+        return Err(DynamicError::SerializationError(format!(
+            "enum variant name mismatch for {}: schema={}, value={}",
+            schema.type_name, variant.name, value.variant_name
+        )));
+    }
+
+    writer.write_u32(value.variant_index);
+    serialize_enum_payload(&value.payload, &variant.payload, writer)
+}
+
+fn serialize_enum_payload(
+    payload: &EnumPayloadValue,
+    schema: &EnumPayloadSchema,
+    writer: &mut CdrWriter<LittleEndian>,
+) -> Result<(), DynamicError> {
+    match (payload, schema) {
+        (EnumPayloadValue::Unit, EnumPayloadSchema::Unit) => Ok(()),
+        (EnumPayloadValue::Newtype(value), EnumPayloadSchema::Newtype(field_type)) => {
+            serialize_value(value, field_type, writer)
+        }
+        (EnumPayloadValue::Tuple(values), EnumPayloadSchema::Tuple(field_types)) => {
+            if values.len() != field_types.len() {
+                return Err(DynamicError::SerializationError(format!(
+                    "enum tuple payload length mismatch: expected {}, got {}",
+                    field_types.len(),
+                    values.len()
+                )));
+            }
+
+            for (value, field_type) in values.iter().zip(field_types.iter()) {
+                serialize_value(value, field_type, writer)?;
+            }
+            Ok(())
+        }
+        (EnumPayloadValue::Struct(values), EnumPayloadSchema::Struct(fields)) => {
+            if values.len() != fields.len() {
+                return Err(DynamicError::SerializationError(format!(
+                    "enum struct payload length mismatch: expected {}, got {}",
+                    fields.len(),
+                    values.len()
+                )));
+            }
+
+            for (value, field) in values.iter().zip(fields.iter()) {
+                if value.name != field.name {
+                    return Err(DynamicError::SerializationError(format!(
+                        "enum struct payload field mismatch: expected {}, got {}",
+                        field.name, value.name
+                    )));
+                }
+                serialize_value(&value.value, &field.field_type, writer)?;
+            }
+            Ok(())
+        }
+        _ => Err(DynamicError::SerializationError(format!(
+            "enum payload mismatch: payload={payload:?}, schema={schema:?}"
+        ))),
+    }
+}
+
+fn deserialize_enum_value(
+    schema: &Arc<EnumSchema>,
+    reader: &mut CdrReader<LittleEndian>,
+) -> Result<EnumValue, DynamicError> {
+    let variant_index = reader.read_u32().map_err(map_cdr_err)?;
+    let variant = schema.variants.get(variant_index as usize).ok_or_else(|| {
+        DynamicError::DeserializationError(format!(
+            "enum variant index {} is out of bounds for {}",
+            variant_index, schema.type_name
+        ))
+    })?;
+
+    let payload = deserialize_enum_payload(&variant.payload, reader)?;
+    Ok(EnumValue {
+        variant_index,
+        variant_name: variant.name.clone(),
+        payload,
+    })
+}
+
+fn deserialize_enum_payload(
+    schema: &EnumPayloadSchema,
+    reader: &mut CdrReader<LittleEndian>,
+) -> Result<EnumPayloadValue, DynamicError> {
+    match schema {
+        EnumPayloadSchema::Unit => Ok(EnumPayloadValue::Unit),
+        EnumPayloadSchema::Newtype(field_type) => Ok(EnumPayloadValue::Newtype(Box::new(
+            deserialize_value(field_type, reader)?,
+        ))),
+        EnumPayloadSchema::Tuple(field_types) => Ok(EnumPayloadValue::Tuple(
+            field_types
+                .iter()
+                .map(|field_type| deserialize_value(field_type, reader))
+                .collect::<Result<Vec<_>, _>>()?,
+        )),
+        EnumPayloadSchema::Struct(fields) => Ok(EnumPayloadValue::Struct(
+            fields
+                .iter()
+                .map(|field| {
+                    Ok(DynamicNamedValue {
+                        name: field.name.clone(),
+                        value: deserialize_value(&field.field_type, reader)?,
+                    })
+                })
+                .collect::<Result<Vec<_>, DynamicError>>()?,
+        )),
+    }
+}
+
+/// Map ros-z-cdr errors to DynamicError.
+fn map_cdr_err(e: ros_z_cdr::Error) -> DynamicError {
+    DynamicError::DeserializationError(e.to_string())
+}

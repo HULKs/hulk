@@ -3,11 +3,14 @@ use image::{
     ImageBuffer, ImageError, ImageFormat, ImageReader, ImageResult, Luma, RgbImage,
     codecs::jpeg::JpegEncoder,
 };
-use ros2::sensor_msgs::image::Image;
+use ros_z_msgs::sensor_msgs::Image;
 use serde::{Deserialize, Serialize};
 use std::{io, path::Path};
 
-use crate::{grayscale_image::GrayscaleImage, ycbcr422_image::YCbCr422Image};
+use crate::{
+    grayscale_image::GrayscaleImage,
+    ycbcr422_image::{YCbCr422Image, rgb_image_from_ros_image},
+};
 
 #[derive(Debug, Serialize, Deserialize, Clone)]
 pub struct JpegImage {
@@ -47,7 +50,7 @@ impl TryFrom<Image> for JpegImage {
     type Error = ImageError;
 
     fn try_from(image: Image) -> Result<Self, Self::Error> {
-        let rgb_image = RgbImage::try_from(image)?;
+        let rgb_image = rgb_image_from_ros_image(&image)?;
         let mut jpeg_buffer = vec![];
         let quality = 15;
         let mut encoder = JpegEncoder::new_with_quality(&mut jpeg_buffer, quality);

@@ -1,0 +1,5 @@
+error: Message derive does not support const generics in v1
+ --> tests/ui/message_derive/const_generic.rs:5:21
+  |
+5 | struct ConstGeneric<const N: usize> {
+  |                     ^^^^^^^^^^^^^^

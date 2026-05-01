@@ -1,0 +1,5 @@
+error: Message derive name must be a native Rust type path like "my_pkg::MyType"; ROS slash-style names are not supported
+ --> tests/ui/message_derive/ros_style_type_name.rs:5:18
+  |
+5 | #[message(name = "custom_msgs/Foo")]
+  |                  ^^^^^^^^^^^^^^^^^

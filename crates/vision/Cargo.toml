@@ -24,6 +24,6 @@ projection = { workspace = true }
 rand = { workspace = true }
 rand_chacha = { workspace = true }
 ransac = { workspace = true }
-ros2 = { workspace = true }
+ros-z-msgs = { workspace = true, features = ["sensor_msgs"] }
 serde = { workspace = true }
 types = { workspace = true }

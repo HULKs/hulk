@@ -42,7 +42,7 @@ ndarray = { workspace = true }
 parameters = { workspace = true }
 path_serde = { workspace = true }
 projection = { workspace = true }
-ros2 = { workspace = true }
+ros-z-msgs = { workspace = true, features = ["sensor_msgs"] }
 sensor_receiver = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
