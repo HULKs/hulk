@@ -1,7 +1,4 @@
-use std::{
-    ops::{Index, Range},
-    time::Duration,
-};
+use std::{ops::Range, time::Duration};
 
 use hsl_network_messages::PlayerNumber;
 use kinematics::joints::{Joints, head::HeadJoints};
@@ -11,11 +8,7 @@ use coordinate_systems::{Camera, Field, Ground, NormalizedPixel, Pixel, Robot};
 use linear_algebra::{Point2, Vector2, Vector3};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
-use crate::{
-    motion_command::{KickVariant, MotionCommand},
-    roles::Role,
-    step::Step,
-};
+use crate::{motion_command::MotionCommand, roles::Role, step::Step};
 
 #[derive(
     Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
@@ -125,60 +118,6 @@ pub struct SearchParameters {
     pub stand_secs: f32,
     pub turn_secs: f32,
     pub estimated_ball_speed: f32,
-}
-
-#[derive(
-    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
-)]
-pub struct InWalkKicksParameters {
-    pub forward: InWalkKickInfoParameters,
-    pub turn: InWalkKickInfoParameters,
-    pub side: InWalkKickInfoParameters,
-}
-
-impl Index<KickVariant> for InWalkKicksParameters {
-    type Output = InWalkKickInfoParameters;
-
-    fn index(&self, variant: KickVariant) -> &Self::Output {
-        match variant {
-            KickVariant::Forward => &self.forward,
-            KickVariant::Turn => &self.turn,
-            KickVariant::Side => &self.side,
-        }
-    }
-}
-
-#[derive(
-    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
-)]
-pub struct InWalkKickInfoParameters {
-    pub position: nalgebra::Point2<f32>,
-    pub position_offset: nalgebra::Vector2<f32>,
-    pub orientation: f32,
-    pub reached_x: Range<f32>,
-    pub reached_y: Range<f32>,
-    pub reached_turn: Range<f32>,
-    pub shot_distance: f32,
-    pub enabled: bool,
-}
-
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    Default,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-)]
-pub struct DribblingParameters {
-    pub hybrid_align_distance: f32,
-    pub distance_to_be_aligned: f32,
-    pub angle_to_approach_ball_from_threshold: f32,
-    pub ignore_robot_when_near_ball_radius: f32,
-    pub distance_to_look_directly_at_the_ball: f32,
 }
 
 #[derive(
@@ -434,18 +373,6 @@ pub struct SearchSuggestorParameters {
     pub own_ball_weight: f32,
     pub team_ball_weight: f32,
     pub rule_ball_weight: f32,
-}
-
-#[derive(
-    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
-)]
-
-pub struct KeeperMotionParameters {
-    pub action_radius_center: f32,
-    pub minimum_velocity: f32,
-    pub action_radius_left: f32,
-    pub maximum_ball_distance: f32,
-    pub minimum_ball_velocity: f32,
 }
 
 #[derive(

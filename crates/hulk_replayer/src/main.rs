@@ -16,28 +16,24 @@ use color_eyre::{
     install,
 };
 use hardware::{
-    ActuatorInterface, CameraInterface, HighLevelInterface, IdInterface, LightControlInterface,
-    LowCommandInterface, LowStateInterface, MicrophoneInterface, MotionRuntimeInterface,
-    NetworkInterface, PathsInterface, RecordingInterface, SensorInterface, SimulatorInterface,
-    SpeakerInterface, VisualKickInterface,
+    CameraInterface, HighLevelInterface, IdInterface, LightControlInterface, LowCommandInterface,
+    LowStateInterface, MicrophoneInterface, MotionRuntimeInterface, NetworkInterface,
+    PathsInterface, RecordingInterface, SimulatorInterface, SpeakerInterface, VisualKickInterface,
 };
 use hula_types::hardware::{Ids, Paths};
-use kinematics::joints::{Joints, head::HeadJoints};
+use kinematics::joints::head::HeadJoints;
 use replayer::replayer;
 use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
 use types::{
     audio::SpeakerRequest,
-    led::Leds,
     messages::{IncomingMessage, OutgoingMessage},
     motion_runtime::MotionRuntime,
     samples::Samples,
-    sensor_data::SensorData,
     step::Step,
 };
 
 pub trait HardwareInterface:
-    ActuatorInterface
-    + CameraInterface
+    CameraInterface
     + IdInterface
     + LowCommandInterface
     + VisualKickInterface
@@ -46,7 +42,6 @@ pub trait HardwareInterface:
     + NetworkInterface
     + PathsInterface
     + RecordingInterface
-    + SensorInterface
     + SpeakerInterface
     + SimulatorInterface
     + HighLevelInterface
@@ -59,17 +54,6 @@ include!(concat!(env!("OUT_DIR"), "/generated_code.rs"));
 
 struct ReplayerHardwareInterface {
     ids: Ids,
-}
-
-impl ActuatorInterface for ReplayerHardwareInterface {
-    fn write_to_actuators(
-        &self,
-        _positions: Joints<f32>,
-        _stiffnesses: Joints<f32>,
-        _leds: Leds,
-    ) -> Result<()> {
-        Ok(())
-    }
 }
 
 impl CameraInterface for ReplayerHardwareInterface {
@@ -147,12 +131,6 @@ impl RecordingInterface for ReplayerHardwareInterface {
     }
 
     fn set_whether_to_record(&self, _enable: bool) {}
-}
-
-impl SensorInterface for ReplayerHardwareInterface {
-    fn read_from_sensors(&self) -> Result<SensorData> {
-        panic!("Replayer cannot produce data from hardware")
-    }
 }
 
 impl SpeakerInterface for ReplayerHardwareInterface {

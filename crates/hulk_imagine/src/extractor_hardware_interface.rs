@@ -1,25 +1,23 @@
 use booster_sdk::types::RobotMode;
 use hardware::{
-    ActuatorInterface, HighLevelInterface, LightControlInterface, LowCommandInterface,
-    LowStateInterface, MotionRuntimeInterface, NetworkInterface, PathsInterface,
-    RecordingInterface, SimulatorInterface, SpeakerInterface, TimeInterface, VisualKickInterface,
+    HighLevelInterface, LightControlInterface, LowCommandInterface, LowStateInterface,
+    MotionRuntimeInterface, NetworkInterface, PathsInterface, RecordingInterface,
+    SimulatorInterface, SpeakerInterface, TimeInterface, VisualKickInterface,
 };
 
 use color_eyre::eyre::Result;
 
 use hula_types::hardware::Paths;
-use kinematics::joints::{Joints, head::HeadJoints};
+use kinematics::joints::head::HeadJoints;
 use types::{
     audio::SpeakerRequest,
-    led::Leds,
     messages::{IncomingMessage, OutgoingMessage},
     motion_runtime::MotionRuntime,
     step::Step,
 };
 
 pub trait HardwareInterface:
-    ActuatorInterface
-    + LowCommandInterface
+    LowCommandInterface
     + VisualKickInterface
     + LowStateInterface
     + NetworkInterface
@@ -35,18 +33,6 @@ pub trait HardwareInterface:
 }
 
 pub struct ExtractorHardwareInterface;
-
-/// `write_to_actuators` is a noop during replay
-impl ActuatorInterface for ExtractorHardwareInterface {
-    fn write_to_actuators(
-        &self,
-        _positions: Joints<f32>,
-        _stiffnesses: Joints<f32>,
-        _leds: Leds,
-    ) -> Result<()> {
-        Ok(())
-    }
-}
 
 impl LowCommandInterface for ExtractorHardwareInterface {
     fn write_low_command(&self, _low_command: booster::LowCommand) -> Result<()> {
