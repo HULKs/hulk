@@ -1,14 +1,21 @@
 use booster::FallDownState;
 use color_eyre::Result;
 use coordinate_systems::{Field, Ground};
-use hsl_network_messages::{PlayerNumber, PlayerState};
+use hsl_network_messages::PlayerNumber;
 use linear_algebra::{Isometry2, Point2};
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
 use framework::{MainOutput, PerceptionInput};
 use types::{
-    ball_position::HypotheticalBallPosition, cycle_time::CycleTime, filtered_game_controller_state::FilteredGameControllerState, obstacles::Obstacle, players::Players, primary_state::PrimaryState, rule_obstacles::RuleObstacle, world_state::{BallState, RobotState, WorldState}
+    ball_position::HypotheticalBallPosition,
+    cycle_time::CycleTime,
+    filtered_game_controller_state::FilteredGameControllerState,
+    obstacles::Obstacle,
+    players::Players,
+    primary_state::PrimaryState,
+    rule_obstacles::RuleObstacle,
+    world_state::{BallState, PlayerState, RobotState, WorldState},
 };
 
 #[derive(Deserialize, Serialize)]

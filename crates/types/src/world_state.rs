@@ -1,15 +1,15 @@
 use std::time::{SystemTime, UNIX_EPOCH};
 
 use booster::FallDownState;
-use hsl_network_messages::{PlayerNumber, PlayerState};
+use hsl_network_messages::PlayerNumber;
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::{Field, Ground};
-use linear_algebra::{Isometry2, Point2, Vector2};
+use linear_algebra::{Isometry2, Point2, Pose2, Vector2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{
-    ball_position::HypotheticalBallPosition, field_dimensions::Side,
+    ball_position::{BallPosition, HypotheticalBallPosition}, field_dimensions::Side,
     filtered_game_controller_state::FilteredGameControllerState, obstacles::Obstacle,  players::Players,
     primary_state::PrimaryState, rule_obstacles::RuleObstacle,
 };
@@ -116,4 +116,20 @@ pub struct RobotState {
     pub ground_to_field: Option<Isometry2<Ground, Field>>,
     pub player_number: PlayerNumber,
     pub primary_state: PrimaryState,
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
+pub struct PlayerState {
+    pub pose: Pose2<Field>,
+    pub ball_position: Option<BallPosition<Field>>,
 }

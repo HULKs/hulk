@@ -6,12 +6,13 @@ use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use framework::{MainOutput, PerceptionInput};
 use hardware::NetworkInterface;
-use hsl_network_messages::{HulkMessage, PlayerNumber, PlayerState};
+use hsl_network_messages::{HulkMessage, PlayerNumber};
 use linear_algebra::Isometry2;
+use linear_algebra::Vector2;
 use serde::{Deserialize, Serialize};
 use types::{
     ball_position::BallPosition, cycle_time::CycleTime, messages::IncomingMessage,
-    parameters::HslNetworkParameters, players::Players,
+    parameters::HslNetworkParameters, players::Players, world_state::PlayerState,
 };
 
 #[derive(Serialize, Deserialize)]
@@ -71,7 +72,16 @@ impl PlayerStatesReceiver {
         for message in messages {
             match message {
                 HulkMessage::State(base_message) => {
-                    player_states[base_message.player_number] = Some(base_message.player_state);
+                    player_states[base_message.player_number] = Some(PlayerState {
+                        pose: base_message.pose,
+                        ball_position: base_message.ball_position.map(
+                            |ball| BallPosition::<Field> {
+                                position: ball.position,
+                                velocity: Vector2::zeros(),
+                                last_seen: context.cycle_time.start_time - ball.age,
+                            },
+                        ),
+                    });
                 }
             }
         }
