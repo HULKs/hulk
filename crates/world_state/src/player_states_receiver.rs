@@ -6,17 +6,17 @@ use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use framework::{MainOutput, PerceptionInput};
 use hardware::NetworkInterface;
-use hsl_network_messages::{HulkMessage, PlayerNumber};
+use hsl_network_messages::{HulkMessage, PlayerNumber, PlayerState};
 use linear_algebra::Isometry2;
 use serde::{Deserialize, Serialize};
 use types::{
     ball_position::BallPosition, cycle_time::CycleTime, messages::IncomingMessage,
-    parameters::HslNetworkParameters, world_state::PlayerState,
+    parameters::HslNetworkParameters, players::Players,
 };
 
 #[derive(Serialize, Deserialize)]
 pub struct PlayerStatesReceiver {
-    pub last_player_states: Vec<PlayerState>,
+    pub last_player_states: Players<Option<PlayerState>>,
 }
 
 #[context]
@@ -40,13 +40,19 @@ pub struct CycleContext {
 
 #[context]
 pub struct MainOutputs {
-    pub player_states: MainOutput<Vec<PlayerState>>,
+    pub player_states: MainOutput<Players<PlayerState>>,
 }
 
 impl PlayerStatesReceiver {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
-            last_player_states: Vec::new(),
+            last_player_states: Players {
+                one: None,
+                two: None,
+                three: None,
+                four: None,
+                five: None,
+            },
         })
     }
 
@@ -64,25 +70,15 @@ impl PlayerStatesReceiver {
         let mut player_states = self.last_player_states.clone();
         for message in messages {
             match message {
-                HulkMessage::Base(base_message) => {
-                    if let Some(index) = player_states
-                        .iter()
-                        .position(|player| player.player_number == base_message.player_number)
-                    {
-                        player_states[index].pose = base_message.pose;
-                    } else {
-                        player_states.push(PlayerState {
-                            player_number: base_message.player_number,
-                            pose: base_message.pose,
-                        });
-                    }
+                HulkMessage::State(base_message) => {
+                    player_states[base_message.player_number] = Some(base_message.player_state);
                 }
             }
         }
         self.last_player_states = player_states.clone();
 
         Ok(MainOutputs {
-            player_states: player_states.into(),
+            player_states: player_states.map(Option::unwrap_or_default).into(),
         })
     }
 }

@@ -1,7 +1,7 @@
 use color_eyre::{Result, eyre::Ok};
 use context_attribute::context;
 use framework::MainOutput;
-use hsl_network_messages::{BaseMessage, HulkMessage, PlayerNumber};
+use hsl_network_messages::{StateMessage, HulkMessage, PlayerNumber};
 use serde::{Deserialize, Serialize};
 use types::messages::IncomingMessage;
 
@@ -33,7 +33,7 @@ impl MessageFilter {
                 IncomingMessage::GameController(*source_address, message.clone()),
             ),
             IncomingMessage::Hsl(
-                message @ HulkMessage::Base(BaseMessage { player_number, .. }),
+                message @ HulkMessage::State(StateMessage { player_number, .. }),
             ) if player_number != context.player_number => Some(IncomingMessage::Hsl(*message)),
             _ => None,
         };

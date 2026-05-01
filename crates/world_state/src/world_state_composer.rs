@@ -1,20 +1,14 @@
 use booster::FallDownState;
 use color_eyre::Result;
 use coordinate_systems::{Field, Ground};
-use hsl_network_messages::PlayerNumber;
+use hsl_network_messages::{PlayerNumber, PlayerState};
 use linear_algebra::{Isometry2, Point2};
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
 use framework::{MainOutput, PerceptionInput};
 use types::{
-    ball_position::HypotheticalBallPosition,
-    cycle_time::CycleTime,
-    filtered_game_controller_state::FilteredGameControllerState,
-    obstacles::Obstacle,
-    primary_state::PrimaryState,
-    rule_obstacles::RuleObstacle,
-    world_state::{BallState, PlayerState, RobotState, WorldState},
+    ball_position::HypotheticalBallPosition, cycle_time::CycleTime, filtered_game_controller_state::FilteredGameControllerState, obstacles::Obstacle, players::Players, primary_state::PrimaryState, rule_obstacles::RuleObstacle, world_state::{BallState, RobotState, WorldState}
 };
 
 #[derive(Deserialize, Serialize)]
@@ -42,7 +36,7 @@ pub struct CycleContext {
     rule_ball: Input<Option<BallState>, "rule_ball_state?">,
     rule_obstacles: Input<Vec<RuleObstacle>, "rule_obstacles">,
     suggested_search_position: Input<Option<Point2<Field>>, "suggested_search_position?">,
-    player_states: Input<Vec<PlayerState>, "player_states">,
+    player_states: Input<Players<PlayerState>, "player_states">,
 
     player_number: Parameter<PlayerNumber, "player_number">,
 }
@@ -91,7 +85,7 @@ impl WorldStateComposer {
             hypothetical_ball_positions: context.hypothetical_ball_position.clone(),
             now: context.cycle_time.start_time,
             obstacles: context.obstacles.clone(),
-            player_states: context.player_states.clone(),
+            player_states: *context.player_states,
             position_of_interest: *context.position_of_interest,
             robot,
             rule_ball: context.rule_ball.copied(),
