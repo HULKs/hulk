@@ -22,12 +22,12 @@ pub use game_controller_state_message::{
     Clone, Copy, Debug, Deserialize, Serialize, PathDeserialize, PathIntrospect, PathSerialize,
 )]
 pub enum HulkMessage {
-    Base(BaseMessage),
+    State(StateMessage),
 }
 
 impl Default for HulkMessage {
     fn default() -> Self {
-        HulkMessage::Base(BaseMessage::default())
+        HulkMessage::State(StateMessage::default())
     }
 }
 
@@ -50,10 +50,9 @@ pub struct StrikerMessage {
     PathIntrospect,
     PathSerialize,
 )]
-pub struct BaseMessage {
+pub struct StateMessage {
     pub player_number: PlayerNumber,
-    pub pose: Pose2<Field>,
-    pub ball_position: Option<BallPosition<Field>>,
+    pub player_state: PlayerState,
 }
 
 #[derive(
@@ -114,21 +113,30 @@ impl Display for PlayerNumber {
     }
 }
 
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+)]
+pub struct PlayerState {
+    pub pose: Pose2<Field>,
+    pub ball_position: Option<BallPosition<Field>>,
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    use linear_algebra::Point;
-
     #[test]
     fn hulk_striker_message_size() {
-        let test_message = HulkMessage::Base(BaseMessage {
+        let test_message = HulkMessage::State(StateMessage {
             player_number: PlayerNumber::Five,
-            pose: Pose2::default(),
-            ball_position: Some(BallPosition {
-                position: Point::origin(),
-                age: Duration::MAX,
-            }),
+            player_state: PlayerState::default(),
         });
         assert!(bincode::serialize(&test_message).unwrap().len() <= 128)
     }
