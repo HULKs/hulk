@@ -9,7 +9,7 @@ use std::{
 use booster::FallDownStateType;
 use coordinate_systems::{Field, Ground};
 use hardware::NetworkInterface;
-use hsl_network_messages::{GameControllerReturnMessage, HulkMessage, PlayerState, StateMessage};
+use hsl_network_messages::{GameControllerReturnMessage, HulkMessage, StateMessage};
 use linear_algebra::Isometry2;
 use types::{messages::OutgoingMessage, parameters::HslNetworkParameters, world_state::WorldState};
 
@@ -103,10 +103,8 @@ impl Behavior {
 
         let message = HulkMessage::State(StateMessage {
             player_number: world_state.robot.player_number,
-            player_state: PlayerState {
-                pose,
-                ball_position,
-            },
+            pose,
+            ball_position,
         });
 
         self.last_transmitted_hsl_message = Some(now);

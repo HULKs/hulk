@@ -52,7 +52,8 @@ pub struct StrikerMessage {
 )]
 pub struct StateMessage {
     pub player_number: PlayerNumber,
-    pub player_state: PlayerState,
+    pub pose: Pose2<Field>,
+    pub ball_position: Option<BallPosition<Field>>,
 }
 
 #[derive(
@@ -113,22 +114,6 @@ impl Display for PlayerNumber {
     }
 }
 
-#[derive(
-    Copy,
-    Clone,
-    Debug,
-    Default,
-    Serialize,
-    Deserialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-)]
-pub struct PlayerState {
-    pub pose: Pose2<Field>,
-    pub ball_position: Option<BallPosition<Field>>,
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -136,7 +121,11 @@ mod tests {
     fn hulk_striker_message_size() {
         let test_message = HulkMessage::State(StateMessage {
             player_number: PlayerNumber::Five,
-            player_state: PlayerState::default(),
+            pose: Pose2::default(),
+            ball_position: Some(BallPosition {
+                position: Point2::origin(),
+                age: Duration::MAX,
+            }),
         });
         assert!(bincode::serialize(&test_message).unwrap().len() <= 128)
     }

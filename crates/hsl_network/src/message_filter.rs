@@ -1,7 +1,7 @@
 use color_eyre::{Result, eyre::Ok};
 use context_attribute::context;
 use framework::MainOutput;
-use hsl_network_messages::{StateMessage, HulkMessage, PlayerNumber};
+use hsl_network_messages::{HulkMessage, PlayerNumber, StateMessage};
 use serde::{Deserialize, Serialize};
 use types::messages::IncomingMessage;
 

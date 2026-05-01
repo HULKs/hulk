@@ -21,7 +21,7 @@ pub mod robot_mode_handler;
 pub mod rule_obstacle_composer;
 pub mod safe_pose_checker;
 pub mod search_suggestor;
-pub mod team_ball_receiver;
+pub mod team_ball_filter;
 pub mod time_to_reach_kick_position;
 pub mod trigger;
 pub mod whistle_filter;
