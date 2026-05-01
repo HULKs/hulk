@@ -18,16 +18,16 @@ pub use game_controller_state_message::{
     SubState, Team, TeamColor, TeamState,
 };
 
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
+#[derive(
+    Clone, Copy, Debug, Deserialize, Serialize, PathDeserialize, PathIntrospect, PathSerialize,
+)]
 pub enum HulkMessage {
-    Striker(StrikerMessage),
-    Loser(LoserMessage),
-    VisualReferee(VisualRefereeMessage),
+    State(StateMessage),
 }
 
 impl Default for HulkMessage {
     fn default() -> Self {
-        HulkMessage::Striker(StrikerMessage::default())
+        HulkMessage::State(StateMessage::default())
     }
 }
 
@@ -39,16 +39,21 @@ pub struct StrikerMessage {
     pub time_to_reach_kick_position: Duration,
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
-pub struct LoserMessage {
+#[derive(
+    Clone,
+    Copy,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathDeserialize,
+    PathIntrospect,
+    PathSerialize,
+)]
+pub struct StateMessage {
     pub player_number: PlayerNumber,
     pub pose: Pose2<Field>,
-}
-
-#[derive(Clone, Copy, Debug, Deserialize, Serialize)]
-pub struct VisualRefereeMessage {
-    pub player_number: PlayerNumber,
-    pub kicking_team: Option<Team>,
+    pub ball_position: Option<BallPosition<Field>>,
 }
 
 #[derive(
@@ -112,28 +117,15 @@ impl Display for PlayerNumber {
 #[cfg(test)]
 mod tests {
     use super::*;
-
-    use linear_algebra::Point;
-
     #[test]
     fn hulk_striker_message_size() {
-        let test_message = HulkMessage::Striker(StrikerMessage {
+        let test_message = HulkMessage::State(StateMessage {
             player_number: PlayerNumber::Five,
             pose: Pose2::default(),
-            ball_position: BallPosition {
-                position: Point::origin(),
+            ball_position: Some(BallPosition {
+                position: Point2::origin(),
                 age: Duration::MAX,
-            },
-            time_to_reach_kick_position: Duration::MAX,
-        });
-        assert!(bincode::serialize(&test_message).unwrap().len() <= 128)
-    }
-
-    #[test]
-    fn hulk_loser_message_size() {
-        let test_message = HulkMessage::Loser(LoserMessage {
-            player_number: PlayerNumber::Five,
-            pose: Pose2::default(),
+            }),
         });
         assert!(bincode::serialize(&test_message).unwrap().len() <= 128)
     }

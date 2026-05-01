@@ -8,13 +8,14 @@ use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
 use coordinate_systems::Field;
-use framework::{AdditionalOutput, MainOutput, PerceptionInput};
+use framework::{AdditionalOutput, MainOutput};
 use hsl_network_messages::{GamePhase, HulkMessage, SubState};
 use linear_algebra::{Point2, Vector2};
 use types::{
     ball_position::BallPosition, cycle_time::CycleTime,
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState, messages::IncomingMessage, players::Players,
+    world_state::PlayerState,
 };
 
 #[derive(Deserialize, Serialize)]
@@ -31,7 +32,7 @@ pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
     filtered_game_controller_state:
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
-    network_message: PerceptionInput<Option<IncomingMessage>, "HslNetwork", "filtered_message?">,
+    player_states: Input<Players<PlayerState>, "player_states">,
 
     maximum_age: Parameter<Duration, "team_ball.maximum_age">,
 
@@ -52,10 +53,7 @@ impl TeamBallReceiver {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        let messages = get_hsl_messages(&context.network_message.persistent);
-        for (time, message) in messages {
-            self.process_message(time, message);
-        }
+        self.received_balls = context.player_states.map(|state| state.ball_position);
 
         if let Some(game_controller_state) = context.filtered_game_controller_state {
             // Ignore everything during penalty_*
@@ -100,22 +98,6 @@ impl TeamBallReceiver {
         Ok(MainOutputs {
             team_ball: team_ball.into(),
         })
-    }
-
-    fn process_message(&mut self, time: SystemTime, message: HulkMessage) {
-        let (player, ball) = match message {
-            HulkMessage::Striker(striker_message) => (
-                striker_message.player_number,
-                Some(BallPosition {
-                    position: striker_message.ball_position.position,
-                    velocity: Vector2::zeros(),
-                    last_seen: time - striker_message.ball_position.age,
-                }),
-            ),
-            HulkMessage::Loser(loser_message) => (loser_message.player_number, None),
-            HulkMessage::VisualReferee(_) => return,
-        };
-        self.received_balls[player] = ball;
     }
 
     fn get_best_received_ball(

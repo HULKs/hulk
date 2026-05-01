@@ -1,3 +1,4 @@
+use std::net::SocketAddr;
 use std::time::{Duration, SystemTime};
 
 use color_eyre::Result;
@@ -5,6 +6,8 @@ use color_eyre::Result;
 use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput};
+use hardware::NetworkInterface;
+use hsl_network_messages::HulkMessage;
 use linear_algebra::{Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use types::{
@@ -12,7 +15,7 @@ use types::{
     field_dimensions::FieldDimensions,
     motion_command::{BodyMotion, HeadMotion, MotionCommand},
     motion_type::MotionType,
-    parameters::BehaviorParameters,
+    parameters::{BehaviorParameters, HslNetworkParameters},
     path_obstacles::PathObstacle,
     world_state::WorldState,
 };
@@ -40,6 +43,8 @@ pub struct Behavior {
     pub tree: Node<Blackboard>,
     #[serde(skip, default = "create_static_layout_default")]
     pub static_layout: NodeTrace,
+    pub last_sent_game_controller_return_message_time: Option<SystemTime>,
+    pub last_sent_hsl_message_time: Option<SystemTime>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -75,18 +80,24 @@ pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
+    game_controller_address: Input<Option<SocketAddr>, "game_controller_address?">,
+    remaining_amount_of_messages:
+        Input<Option<u16>, "game_controller_state?.hulks_team.remaining_amount_of_messages">,
     world_state: Input<WorldState, "world_state">,
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
+    hsl_network_parameters: Parameter<HslNetworkParameters, "hsl_network">,
     parameters: Parameter<BehaviorParameters, "behavior">,
 
     behavior_trace: AdditionalOutput<NodeTrace, "behavior.trace">,
     behavior_tree_layout: AdditionalOutput<NodeTrace, "behavior.tree_layout">,
+    last_sent_message: AdditionalOutput<HulkMessage, "last_sent_message">,
+    path_obstacles_output: AdditionalOutput<Vec<PathObstacle>, "path_obstacles">,
     time_since_last_switch: AdditionalOutput<Duration, "behavior.time_since_last_switch">,
 
-    path_obstacles_output: AdditionalOutput<Vec<PathObstacle>, "path_obstacles">,
-
     last_motion_command: CyclerState<MotionCommand, "last_motion_command">,
+
+    hardware: HardwareInterface,
 }
 
 #[context]
@@ -108,10 +119,15 @@ impl Behavior {
             last_motion_type: None,
             tree,
             static_layout,
+            last_sent_game_controller_return_message_time: None,
+            last_sent_hsl_message_time: None,
         })
     }
 
-    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
+    pub fn cycle(
+        &mut self,
+        mut context: CycleContext<impl NetworkInterface>,
+    ) -> Result<MainOutputs> {
         context
             .behavior_tree_layout
             .fill_if_subscribed(|| self.static_layout.clone());
@@ -168,6 +184,21 @@ impl Behavior {
             MotionCommand::Prepare => Some(MotionType::Prepare),
             _ => None,
         };
+
+        self.send_game_controller_return_message(
+            context.world_state,
+            context.game_controller_address,
+            context.hsl_network_parameters,
+            context.hardware,
+        )?;
+
+        self.send_base_message(
+            context.world_state,
+            context.hsl_network_parameters,
+            context.remaining_amount_of_messages,
+            &mut context.last_sent_message,
+            context.hardware,
+        )?;
 
         if motion_type != self.last_motion_type {
             self.last_motion_switch_time = context.world_state.now;
