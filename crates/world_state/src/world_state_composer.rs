@@ -6,7 +6,7 @@ use linear_algebra::{Isometry2, Point2};
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
-use framework::{MainOutput, PerceptionInput};
+use framework::MainOutput;
 use types::{
     ball_position::HypotheticalBallPosition,
     cycle_time::CycleTime,
@@ -19,19 +19,16 @@ use types::{
 };
 
 #[derive(Deserialize, Serialize)]
-pub struct WorldStateComposer {
-    last_fall_down_state: Option<FallDownState>,
-}
+pub struct WorldStateComposer {}
 
 #[context]
 pub struct CreationContext {}
 
 #[context]
 pub struct CycleContext {
-    fall_down_state: PerceptionInput<Option<FallDownState>, "FallDownState", "fall_down_state?">,
-
     ball: Input<Option<BallState>, "ball_state?">,
     cycle_time: Input<CycleTime, "cycle_time">,
+    fall_down_state: Input<Option<FallDownState>, "fall_down_state?">,
     filtered_game_controller_state:
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
     ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
@@ -56,29 +53,10 @@ pub struct MainOutputs {
 
 impl WorldStateComposer {
     pub fn new(_context: CreationContext) -> Result<Self> {
-        Ok(Self {
-            last_fall_down_state: None,
-        })
+        Ok(Self {})
     }
 
     pub fn cycle(&mut self, context: CycleContext) -> Result<MainOutputs> {
-        let fall_down_state = context
-            .fall_down_state
-            .persistent
-            .into_iter()
-            .chain(context.fall_down_state.temporary)
-            .flat_map(|(_time, fall_down_states)| fall_down_states)
-            .last()
-            .flatten()
-            .copied()
-            .map_or(self.last_fall_down_state, |fall_down_state| {
-                Some(fall_down_state)
-            });
-
-        if fall_down_state.is_some() {
-            self.last_fall_down_state = fall_down_state;
-        }
-
         let robot: RobotState = RobotState {
             ground_to_field: context.ground_to_field.copied(),
             player_number: *context.player_number,
@@ -96,7 +74,7 @@ impl WorldStateComposer {
             robot,
             rule_ball: context.rule_ball.copied(),
             rule_obstacles: context.rule_obstacles.clone(),
-            fall_down_state,
+            fall_down_state: context.fall_down_state.cloned(),
             suggested_search_position: context.suggested_search_position.copied(),
         };
 
