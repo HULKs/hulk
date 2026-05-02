@@ -39,3 +39,4 @@ deploy.toml
 logs
 
 notes*
+.worktrees/
