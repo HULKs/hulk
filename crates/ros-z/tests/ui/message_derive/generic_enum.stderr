@@ -1,0 +1,5 @@
+error: Message derive does not support generic enums in v1
+ --> tests/ui/message_derive/generic_enum.rs:5:17
+  |
+5 | enum GenericEnum<T> {
+  |                 ^^^

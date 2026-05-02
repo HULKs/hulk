@@ -1,0 +1,15 @@
+[package]
+name = "ros-z-derive"
+version.workspace = true
+edition.workspace = true
+description = "Derive macros for ros-z"
+license.workspace = true
+homepage.workspace = true
+
+[lib]
+proc-macro = true
+
+[dependencies]
+proc-macro2.workspace = true
+quote.workspace = true
+syn = { workspace = true, features = ["full", "parsing", "extra-traits"] }

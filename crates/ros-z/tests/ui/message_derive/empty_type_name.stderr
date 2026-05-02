@@ -1,0 +1,5 @@
+error: Message derive name must not be empty
+ --> tests/ui/message_derive/empty_type_name.rs:5:18
+  |
+5 | #[message(name = "")]
+  |                  ^^

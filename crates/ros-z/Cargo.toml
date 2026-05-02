@@ -1,0 +1,99 @@
+[package]
+name = "ros-z"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[lib]
+crate-type = ["lib"]
+
+[dependencies]
+arc-swap = { workspace = true }
+byteorder = { workspace = true }
+event-listener = { workspace = true }
+flume = { workspace = true }
+json5 = { workspace = true }
+nalgebra = { workspace = true, features = ["serde-serialize"], optional = true }
+parking_lot = { workspace = true }
+paste = { workspace = true }
+ros-z-cdr = { workspace = true }
+ros-z-derive = { workspace = true }
+ros-z-protocol = { workspace = true, features = ["std"] }
+ros-z-schema = { workspace = true }
+serde = { workspace = true, features = ["serde_derive"] }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+slab = { workspace = true }
+strum = { workspace = true, features = ["derive"] }
+tempfile = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "signal"] }
+tokio-util = { workspace = true }
+tracing = { workspace = true }
+uuid = { workspace = true }
+zenoh = { workspace = true, default-features = false, features = [
+  "transport_tcp",
+  "unstable",
+  "internal",
+  "shared-memory",
+] }
+zenoh-buffers = { workspace = true }
+zenoh-ext = { workspace = true }
+
+[dev-dependencies]
+serial_test = { workspace = true }
+trybuild = { workspace = true }
+
+[features]
+nalgebra = ["dep:nalgebra"]
+
+[[example]]
+name = "service_server"
+path = "examples/service/server.rs"
+required-features = []
+
+[[example]]
+name = "service_client"
+path = "examples/service/client.rs"
+required-features = []
+
+[[example]]
+name = "custom_message_status_publisher"
+path = "examples/custom_message/status_publisher.rs"
+required-features = []
+
+[[example]]
+name = "custom_message_status_subscriber"
+path = "examples/custom_message/status_subscriber.rs"
+required-features = []
+
+[[example]]
+name = "custom_message_navigation_server"
+path = "examples/custom_message/navigation_server.rs"
+required-features = []
+
+[[example]]
+name = "custom_message_navigation_client"
+path = "examples/custom_message/navigation_client.rs"
+required-features = []
+
+[[example]]
+name = "zenoh_router"
+path = "examples/zenoh_router.rs"
+required-features = []
+
+# Dynamic message examples
+[[example]]
+name = "dynamic_message_basic"
+path = "examples/dynamic_message/basic.rs"
+required-features = []
+
+[[example]]
+name = "dynamic_message_serialization"
+path = "examples/dynamic_message/serialization.rs"
+required-features = []
+
+[[example]]
+name = "dynamic_message_interop"
+path = "examples/dynamic_message/interop.rs"
+required-features = []
