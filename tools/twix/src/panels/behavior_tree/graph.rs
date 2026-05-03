@@ -4,7 +4,7 @@ use linear_algebra::{Point2, distance_squared};
 
 use crate::twix_painter::TwixPainter;
 
-const COLLIISION_LIMIT: usize = 50;
+const COLLISION_LIMIT: usize = 50;
 
 #[derive(Debug, Clone)]
 pub struct CircleNode {
@@ -52,7 +52,7 @@ impl CircleNode {
         painter.floating_text(
             self.position,
             Align2::CENTER_CENTER,
-            self.name.as_str(),
+            self.name.to_string(),
             FontId::proportional(0.35 * painter.scaling()),
             Color32::WHITE.gamma_multiply(self.opacity),
         );
@@ -117,6 +117,22 @@ impl CircleNode {
         }
     }
 
+    fn collision_radius(&self) -> f32 {
+        if self.is_subtree {
+            self.radius + 0.2
+        } else {
+            self.radius
+        }
+    }
+
+    fn collision_stroke_width(&self) -> f32 {
+        if self.is_subtree {
+            0.1
+        } else {
+            self.stroke.width
+        }
+    }
+
     pub fn contains(&self, point: Point2<World>) -> bool {
         if !self.is_visible {
             return false;
@@ -128,7 +144,6 @@ impl CircleNode {
 
 pub fn resolve_circle_collisions(nodes: &mut [CircleNode]) {
     let mut iterations = 0;
-
     loop {
         let mut did_resolve_any = false;
 
@@ -139,9 +154,10 @@ pub fn resolve_circle_collisions(nodes: &mut [CircleNode]) {
                 }
 
                 let to_b = nodes[j].position - nodes[i].position;
-                let distance_squared = to_b.inner.norm_squared();
-                let radius = nodes[i].radius + nodes[j].radius;
-                let minimal_distance = radius + nodes[i].stroke.width + nodes[j].stroke.width;
+                let distance_squared = to_b.norm_squared();
+                let radius = nodes[i].collision_radius() + nodes[j].collision_radius();
+                let minimal_distance =
+                    radius + nodes[i].collision_stroke_width() + nodes[j].collision_stroke_width();
                 let minimal_distance_squared = minimal_distance * minimal_distance;
 
                 if distance_squared < minimal_distance_squared && distance_squared > f32::EPSILON {
@@ -154,12 +170,16 @@ pub fn resolve_circle_collisions(nodes: &mut [CircleNode]) {
 
                     if a_dragging && !b_dragging {
                         nodes[j].position += direction * overlap;
+                        nodes[j].target_position = nodes[j].position;
                     } else if !a_dragging && b_dragging {
                         nodes[i].position -= direction * overlap;
+                        nodes[i].target_position = nodes[i].position;
                     } else if !a_dragging && !b_dragging {
                         let half_overlap = overlap * 0.5;
                         nodes[i].position -= direction * half_overlap;
+                        nodes[i].target_position = nodes[i].position;
                         nodes[j].position += direction * half_overlap;
+                        nodes[j].target_position = nodes[j].position;
                     }
 
                     did_resolve_any = true;
@@ -169,7 +189,7 @@ pub fn resolve_circle_collisions(nodes: &mut [CircleNode]) {
 
         iterations += 1;
 
-        if !did_resolve_any || iterations > COLLIISION_LIMIT {
+        if !did_resolve_any || iterations > COLLISION_LIMIT {
             break;
         }
     }
