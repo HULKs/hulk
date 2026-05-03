@@ -30,6 +30,7 @@ framework = { workspace = true }
 futures-util = { workspace = true }
 geometry = { workspace = true }
 gilrs = { workspace = true }
+hsl_network_messages = { workspace = true }
 hula_types = { workspace = true }
 hulk_widgets = { workspace = true }
 image = { workspace = true }

@@ -15,6 +15,7 @@ use types::{
     primary_state::PrimaryState,
     roles::Role,
     rule_obstacles::RuleObstacle,
+    voronoi::VoronoiGrid,
     world_state::{BallState, RobotState, WorldState},
 };
 
@@ -44,6 +45,7 @@ pub struct CycleContext {
     rule_ball: Input<Option<BallState>, "rule_ball_state?">,
     rule_obstacles: Input<Vec<RuleObstacle>, "rule_obstacles">,
     suggested_search_position: Input<Option<Point2<Field>>, "suggested_search_position?">,
+    voronoi_grid: Input<VoronoiGrid, "voronoi_grid">,
 
     player_number: Parameter<PlayerNumber, "player_number">,
 }
@@ -98,6 +100,7 @@ impl WorldStateComposer {
             rule_obstacles: context.rule_obstacles.clone(),
             fall_down_state,
             suggested_search_position: context.suggested_search_position.copied(),
+            voronoi_grid: context.voronoi_grid.clone(),
         };
 
         Ok(MainOutputs {

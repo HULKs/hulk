@@ -505,6 +505,34 @@
         "nanos": 0,
         "secs": 1
       }
+    },
+    "voronoi": {
+      "fake_robot_position": [
+        [
+          {
+            "rotation": [1.0, 0.0],
+            "translation": [1.2, 0.8]
+          },
+          "One"
+        ],
+        [
+          {
+            "rotation": [0.0, 1.0],
+            "translation": [0.2, -1.0]
+          },
+          "Two"
+        ],
+        [
+          { 
+          "rotation": [-1.0, 0.0],
+          "translation": [-1.8, 1.1]
+          },
+           "Four"
+        ]
+      ],
+      "orientation_bias": 10.0,
+      "grid_resolution": 0.2,
+      "padding": 4.0
     }
   },
   "role_assignment": {

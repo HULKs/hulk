@@ -5,7 +5,7 @@ use kinematics::joints::{Joints, head::HeadJoints};
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::{Camera, Field, Ground, NormalizedPixel, Pixel, Robot};
-use linear_algebra::{Point2, Vector2, Vector3};
+use linear_algebra::{Point2, Pose2, Vector2, Vector3};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::{motion_command::MotionCommand, roles::Role, step::Step};
@@ -31,6 +31,16 @@ pub struct WhistleDetectionParameters {
 #[derive(
     Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
+pub struct VoronoiParameters {
+    pub fake_robot_position: Vec<(Pose2<Field>, PlayerNumber)>,
+    pub orientation_bias: f32,
+    pub grid_resolution: f32,
+    pub padding: f32,
+}
+
+#[derive(
+    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+)]
 pub struct BehaviorParameters {
     pub allow_switch: AllowSwitchParameters,
     pub injected_motion_command: Option<MotionCommand>,
@@ -49,6 +59,7 @@ pub struct BehaviorParameters {
     pub kicking: KickingParameters,
     pub walk_speed: WalkSpeedParameters,
     pub intercept_ball: InterceptBallParameters,
+    pub voronoi: VoronoiParameters,
 }
 
 #[derive(

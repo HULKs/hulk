@@ -53,6 +53,7 @@ pub mod rule_obstacles;
 pub mod samples;
 pub mod step;
 pub mod support_foot;
+pub mod voronoi;
 pub mod walk_volume_extents;
 pub mod whistle;
 pub mod world_state;

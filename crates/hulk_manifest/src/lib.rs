@@ -89,6 +89,7 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
                     "world_state::whistle_filter",
                     "world_state::world_state_composer",
                     "world_state::world_to_field_provider",
+                    "world_state::voronoi_map_composer",
                 ],
                 execution_time_warning_threshold: Some(Duration::from_secs_f32(1.0 / 100.0)),
             },
