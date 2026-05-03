@@ -11,6 +11,7 @@ const INITIALLY_COLLAPSED_SUBTREES: &[&str] = &[
     "kick_alternatives_subtree",
     "walk_alternatives_subtree",
     "look_at_ball_subtree",
+    "search_for_lost_ball_subtree",
 ];
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -82,7 +83,7 @@ pub fn parent_position_for_node(
     node_id: &str,
     old_positions: &HashMap<String, Point2<World>>,
 ) -> Option<Point2<World>> {
-    let parent_id = if let Some((parent, _)) = node_id.rsplit_once('.') {
+    let parent_id = if let Some((parent, _)) = node_id.split_once('.') {
         parent
     } else if node_id != "root" {
         "root"
@@ -100,7 +101,7 @@ pub fn anchor_position_for_removed_node(
     let mut current = node_id.to_string();
 
     loop {
-        if let Some((parent, _)) = current.rsplit_once('.') {
+        if let Some((parent, _)) = current.split_once('.') {
             current = parent.to_string();
         } else if current != "root" {
             current = "root".to_string();
@@ -155,7 +156,7 @@ fn collect_initially_collapsed_subtree_ids(
             .name
             .strip_prefix(SUBTREE_PREFIX)
             .unwrap_or(node_trace.name.as_str());
-        let subtree_name = raw_name.split(':').next().unwrap_or(raw_name);
+        let (subtree_name, _) = raw_name.split_once(':').unwrap_or((raw_name, ""));
 
         if desired_names.contains(subtree_name) {
             collapsed_ids.insert(node_id_from_path(path));

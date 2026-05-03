@@ -16,7 +16,6 @@ const NODE_RADIUS: f32 = 2.0;
 const CONTROL_FLOW_X_SPACING: f32 = 4.4;
 const CONTROL_FLOW_Y_SPACING: f32 = 7.0;
 const CONTROL_FLOW_BRANCH_GAP: f32 = 0.6;
-const HIDE_SEQUENCE_NODES_IN_CONTROL_FLOW_VIEW: bool = true;
 
 #[derive(Debug, Clone, Copy)]
 struct ControlFlowMetrics {
@@ -78,17 +77,16 @@ fn measure_control_flow_layout(
 
     let (raw_name, is_subtree) = normalized_name_and_subtree_flag(node_trace);
     let node_kind = control_flow_node_kind(raw_name);
-    let is_hidden_control_node = HIDE_SEQUENCE_NODES_IN_CONTROL_FLOW_VIEW
-        && matches!(node_kind, ControlFlowNodeKind::Sequence);
+    let is_sequence_node = matches!(node_kind, ControlFlowNodeKind::Sequence);
     let is_collapsed_subtree = is_subtree && collapsed_subtrees.contains(&node_id);
 
     let metrics = if node_trace.children.is_empty() || is_collapsed_subtree {
         ControlFlowMetrics {
             width: 1.0,
-            depth: if is_hidden_control_node { 0 } else { 1 },
+            depth: if is_sequence_node { 0 } else { 1 },
         }
     } else {
-        let node_depth = if is_hidden_control_node { 0 } else { 1 };
+        let node_depth = if is_sequence_node { 0 } else { 1 };
         match node_kind {
             ControlFlowNodeKind::Selection => {
                 let mut total_width = 0.0;
@@ -158,11 +156,10 @@ fn layout_control_flow_node(
     let (raw_name, is_subtree) = normalized_name_and_subtree_flag(node_trace);
     let node_kind = control_flow_node_kind(raw_name);
     let display_name = display_name_for_node(raw_name);
-    let is_hidden_control_node = HIDE_SEQUENCE_NODES_IN_CONTROL_FLOW_VIEW
-        && matches!(node_kind, ControlFlowNodeKind::Sequence);
+    let is_sequence_node = matches!(node_kind, ControlFlowNodeKind::Sequence);
     let mut current_exits: Vec<usize> = incoming_exits.to_vec();
 
-    if !is_hidden_control_node {
+    if !is_sequence_node {
         let node_index = circle_nodes.len();
         circle_nodes.push(CircleNode::new(
             node_id.clone(),
@@ -193,7 +190,7 @@ fn layout_control_flow_node(
         return current_exits;
     }
 
-    let child_row_offset = if is_hidden_control_node { 0.0 } else { 1.0 };
+    let child_row_offset = if is_sequence_node { 0.0 } else { 1.0 };
 
     match node_kind {
         ControlFlowNodeKind::Selection => {
