@@ -71,16 +71,16 @@ impl PlayerStatesReceiver {
         let mut player_states = self.last_player_states;
         for message in messages {
             match message {
-                HulkMessage::State(base_message) => {
-                    player_states[base_message.player_number] = Some(PlayerState {
-                        pose: base_message.pose,
-                        ball_position: base_message.ball_position.map(
-                            |ball| BallPosition::<Field> {
-                                position: ball.position,
-                                velocity: Vector2::zeros(),
-                                last_seen: context.cycle_time.start_time - ball.age,
-                            },
-                        ),
+                HulkMessage::State(state_message) => {
+                    player_states[state_message.player_number] = Some(PlayerState {
+                        pose: state_message.pose,
+                        ball_position: state_message.ball_position.map(|ball| BallPosition::<
+                            Field,
+                        > {
+                            position: ball.position,
+                            velocity: Vector2::zeros(),
+                            last_seen: context.cycle_time.start_time - ball.age,
+                        }),
                     });
                 }
             }

@@ -192,7 +192,7 @@ impl Behavior {
             context.hardware,
         )?;
 
-        self.send_base_message(
+        self.send_state_message(
             context.world_state,
             context.hsl_network_parameters,
             context.remaining_amount_of_messages,

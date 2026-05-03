@@ -520,7 +520,7 @@
       "nanos": 0,
       "secs": 3
     },
-    "hsl_base_message_send_interval": {
+    "hsl_state_message_send_interval": {
       "nanos": 0,
       "secs": 2
     }

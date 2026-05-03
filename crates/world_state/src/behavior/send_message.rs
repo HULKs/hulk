@@ -68,7 +68,7 @@ impl Behavior {
         )
     }
 
-    pub fn send_base_message(
+    pub fn send_state_message(
         &mut self,
         world_state: &WorldState,
         hsl_network_parameters: &HslNetworkParameters,
@@ -78,7 +78,7 @@ impl Behavior {
     ) -> Result<()> {
         let now = world_state.now;
 
-        if !self.is_base_message_cooldown_elapsed(now, hsl_network_parameters) {
+        if !self.is_state_message_cooldown_elapsed(now, hsl_network_parameters) {
             return Ok(());
         }
         if remaining_amount_of_messages.is_none_or(|remaining_amount_of_messages| {
@@ -110,10 +110,10 @@ impl Behavior {
 
         hardware
             .write_to_network(OutgoingMessage::Hsl(message))
-            .wrap_err("failed to write BaseMessage to hardware")
+            .wrap_err("failed to write StateMessage to hardware")
     }
 
-    fn is_base_message_cooldown_elapsed(
+    fn is_state_message_cooldown_elapsed(
         &self,
         now: SystemTime,
         hsl_network_parameters: &HslNetworkParameters,
@@ -121,7 +121,7 @@ impl Behavior {
         is_cooldown_elapsed(
             now,
             self.last_sent_hsl_message_time,
-            hsl_network_parameters.hsl_base_message_send_interval,
+            hsl_network_parameters.hsl_state_message_send_interval,
         )
     }
 }
