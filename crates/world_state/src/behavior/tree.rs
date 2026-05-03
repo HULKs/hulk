@@ -3,15 +3,16 @@ use types::{motion_type::MotionType, primary_state::PrimaryState};
 use crate::{
     action,
     behavior::{
-        action::{injected_motion_command, leuchtturm, prepare, stand, stand_up},
+        action::{injected_motion_command, prepare, stand, stand_up},
         behavior_tree::Node,
         condition::{
             has_ball_position, is_ball_interception_candidate, is_close_to_ball,
             is_closest_to_ball, is_fallen, is_goalkeeper, is_primary_state,
         },
-        head::{look_at_ball_subtree, look_straight_ahead, search_for_lost_ball},
+        head::{look_at_ball_subtree, look_straight_ahead, search_for_lost_ball_subtree},
         kick::{intercept, kick_subtree},
         node::Blackboard,
+        search::{has_suggested_search_position, leuchtturm, walk_to_search_position},
         switch_motion_type::switch_motion_type,
         walk::{walk_alternatives_subtree, walk_to_ball},
     },
@@ -79,10 +80,16 @@ fn goalkeeper_subtree() -> Node<Blackboard> {
 
 fn search_subtree() -> Node<Blackboard> {
     sequence!(
-        action!(search_for_lost_ball),
+        subtree!(search_for_lost_ball_subtree),
         switch_motion_type(
             MotionType::Walk,
-            action!(leuchtturm),
+            selection!(
+                sequence!(
+                    condition!(has_suggested_search_position),
+                    action!(walk_to_search_position)
+                ),
+                action!(leuchtturm)
+            ),
             subtree!(walk_alternatives_subtree),
         )
     )
