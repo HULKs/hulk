@@ -530,7 +530,7 @@
            "Four"
         ]
       ],
-      "orientation_bias": 0.5,
+      "orientation_bias": 10.0,
       "grid_resolution": 0.1,
       "padding": 4.0
     }

@@ -12,18 +12,15 @@ use types::{
     obstacles::Obstacle,
     parameters::VoronoiParameters,
     rule_obstacles::RuleObstacle,
-    voronoi::{Ownership, VoronoiGrid},
+    voronoi::{NEIGHBORS, Ownership, VoronoiGrid},
 };
-
-const STRAIGHT_COST: u32 = 10;
-const DIAGONAL_COST: u32 = 14;
 
 #[derive(Deserialize, Serialize)]
 pub struct TargetPositionComposer {
     #[serde(skip)]
     dist_buffer: Vec<u32>,
     #[serde(skip)]
-    queue_buffer: BinaryHeap<Reverse<(u32, usize, PlayerNumber)>>,
+    queue_buffer: BinaryHeap<Reverse<(u32, usize, usize)>>,
 }
 
 #[context]
@@ -156,6 +153,7 @@ impl TargetPositionComposer {
                 &sites,
                 &mut self.dist_buffer,
                 &mut self.queue_buffer,
+                context.voronoi_parameters.orientation_bias,
             );
         }
 
@@ -207,7 +205,8 @@ fn multi_source_dijkstra(
     map: &mut VoronoiGrid,
     robots: &[(Pose2<Field>, PlayerNumber)],
     dist_buffer: &mut Vec<u32>,
-    queue_buffer: &mut BinaryHeap<Reverse<(u32, usize, PlayerNumber)>>,
+    queue_buffer: &mut BinaryHeap<Reverse<(u32, usize, usize)>>,
+    orientation_bias: f32,
 ) {
     if map.width_tiles == 0
         || map.height_tiles == 0
@@ -216,17 +215,23 @@ fn multi_source_dijkstra(
         return;
     }
 
-    for (robot_pose, player_number) in robots.iter() {
+    let robot_headings: Vec<(f32, f32)> = robots
+        .iter()
+        .map(|(pose, _)| pose.orientation().angle().sin_cos())
+        .collect();
+
+    for (robot_index, (robot_pose, player_number)) in robots.iter().enumerate() {
         if let Some(start_index) = map.nearest_non_blocked_cell_index(robot_pose.position()) {
             if dist_buffer[start_index] > 0 {
                 dist_buffer[start_index] = 0;
                 map.tiles[start_index] = Ownership::Robot(*player_number);
-                queue_buffer.push(Reverse((0, start_index, *player_number)));
+                queue_buffer.push(Reverse((0, start_index, robot_index)));
             }
         }
     }
 
-    while let Some(Reverse((current_cost, current_index, player_number))) = queue_buffer.pop() {
+    while let Some(Reverse((current_cost, current_index, robot_index))) = queue_buffer.pop() {
+        let player_number = robots[robot_index].1;
         if current_cost != dist_buffer[current_index] {
             continue;
         }
@@ -235,37 +240,38 @@ fn multi_source_dijkstra(
             continue;
         }
 
+        let (sin_h, cos_h) = robot_headings[robot_index];
+
         let x = current_index % map.width_tiles;
         let y = current_index / map.width_tiles;
 
-        for dx in -1..=1 {
-            for dy in -1..=1 {
-                if dx == 0 && dy == 0 {
-                    continue;
-                }
-                let nx = x as isize + dx;
-                let ny = y as isize + dy;
-                if nx >= 0
-                    && nx < map.width_tiles as isize
-                    && ny >= 0
-                    && ny < map.height_tiles as isize
-                {
-                    let neighbor_index = (ny as usize) * map.width_tiles + (nx as usize);
-                    if map.tiles[neighbor_index] != Ownership::Blocked {
-                        let step_cost = if dx.abs() + dy.abs() == 2 {
-                            DIAGONAL_COST
-                        } else {
-                            STRAIGHT_COST
-                        };
-                        let new_cost = current_cost + step_cost;
+        for (dx, dy, step_cost, inv_norm) in NEIGHBORS {
+            let nx = x as isize + dx;
+            let ny = y as isize + dy;
+            if nx < 0 || nx >= map.width_tiles as isize || ny < 0 || ny >= map.height_tiles as isize
+            {
+                continue;
+            }
 
-                        if new_cost < dist_buffer[neighbor_index] {
-                            dist_buffer[neighbor_index] = new_cost;
-                            map.tiles[neighbor_index] = Ownership::Robot(player_number);
-                            queue_buffer.push(Reverse((new_cost, neighbor_index, player_number)));
-                        }
-                    }
-                }
+            let neighbor_index = (ny as usize) * map.width_tiles + (nx as usize);
+            if map.tiles[neighbor_index] == Ownership::Blocked {
+                continue;
+            }
+
+            let rotation_cost = if orientation_bias <= 0.0 {
+                0
+            } else {
+                let dot = (cos_h * dx as f32 + sin_h * dy as f32) * inv_norm;
+                let turn_factor = (1.0 - dot.clamp(-1.0, 1.0)) * 0.5;
+                (turn_factor * orientation_bias).round() as u32
+            };
+
+            let new_cost = current_cost + step_cost + rotation_cost;
+
+            if new_cost < dist_buffer[neighbor_index] {
+                dist_buffer[neighbor_index] = new_cost;
+                map.tiles[neighbor_index] = Ownership::Robot(player_number);
+                queue_buffer.push(Reverse((new_cost, neighbor_index, robot_index)));
             }
         }
     }
