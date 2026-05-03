@@ -4,6 +4,20 @@ use linear_algebra::{Point2, point};
 use path_serde::{PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
+const STRAIGHT_COST: u32 = 10;
+const DIAGONAL_COST: u32 = 14;
+const INV_SQRT_2: f32 = 0.70710677;
+pub const NEIGHBORS: [(isize, isize, u32, f32); 8] = [
+    (1, 0, STRAIGHT_COST, 1.0),
+    (1, 1, DIAGONAL_COST, INV_SQRT_2),
+    (0, 1, STRAIGHT_COST, 1.0),
+    (-1, 1, DIAGONAL_COST, INV_SQRT_2),
+    (-1, 0, STRAIGHT_COST, 1.0),
+    (-1, -1, DIAGONAL_COST, INV_SQRT_2),
+    (0, -1, STRAIGHT_COST, 1.0),
+    (1, -1, DIAGONAL_COST, INV_SQRT_2),
+];
+
 #[derive(
     PartialEq, Clone, Copy, Default, Debug, Deserialize, Serialize, PathIntrospect, PathSerialize,
 )]
