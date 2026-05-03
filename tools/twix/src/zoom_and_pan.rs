@@ -1,5 +1,5 @@
 use coordinate_systems::Screen;
-use eframe::egui::{PointerButton, Response, Ui, pos2};
+use eframe::egui::{PointerButton, Pos2, Response, Ui, pos2};
 use linear_algebra::{IntoTransform, Transform, point};
 use nalgebra::{Similarity2, Translation2, vector};
 use serde::{Deserialize, Serialize};
@@ -8,10 +8,25 @@ use crate::twix_painter::TwixPainter;
 
 #[derive(Default, Serialize, Deserialize)]
 pub struct ZoomAndPanTransform {
-    transformation: Transform<Screen, Screen, Similarity2<f32>>,
+    pub transformation: Transform<Screen, Screen, Similarity2<f32>>,
 }
 
 impl ZoomAndPanTransform {
+    pub fn centering_transform(
+        &self,
+        position: Pos2,
+        desired: Pos2,
+        scale: f32,
+    ) -> Transform<Screen, Screen, Similarity2<f32>> {
+        let tx = desired.x - scale * position.x;
+        let ty = desired.y - scale * position.y;
+        Similarity2::new(vector![tx, ty], 0.0, scale).framed_transform()
+    }
+
+    pub fn center_on(&mut self, position: Pos2, desired: Pos2, scale: f32) {
+        self.transformation = self.centering_transform(position, desired, scale);
+    }
+
     pub fn apply_transform<Frame>(&self, painter: &mut TwixPainter<Frame>) {
         painter.append_transform(self.transformation);
     }
