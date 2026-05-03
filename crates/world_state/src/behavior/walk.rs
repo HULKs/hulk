@@ -198,3 +198,27 @@ pub fn walk_instead_of_kicking(blackboard: &mut Blackboard) -> Status {
         Status::Failure
     }
 }
+
+pub fn walk_to_centroid(blackboard: &mut Blackboard) -> Status {
+    if let (Some(ground_to_field), Some(own_centroid)) = (
+        blackboard.world_state.robot.ground_to_field,
+        blackboard
+            .world_state
+            .voronoi_grid
+            .centroid_for_player(blackboard.world_state.robot.player_number),
+    ) {
+        walk_to(
+            blackboard,
+            Pose2::from(ground_to_field.inverse() * own_centroid),
+            blackboard.parameters.walk_speed.kicking,
+            OrientationMode::AlignWithPath,
+            blackboard
+                .parameters
+                .walk_and_stand
+                .normal_distance_to_be_aligned,
+            blackboard.parameters.walk_and_stand.hysteresis,
+        )
+    } else {
+        Status::Failure
+    }
+}

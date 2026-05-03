@@ -531,7 +531,7 @@
         ]
       ],
       "orientation_bias": 10.0,
-      "grid_resolution": 0.1,
+      "grid_resolution": 0.2,
       "padding": 4.0
     }
   },
