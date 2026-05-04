@@ -12,7 +12,7 @@ use linear_algebra::{Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use types::{
     behavior_tree::NodeTrace,
-    field_dimensions::FieldDimensions,
+    field_dimensions::{FieldDimensions, Side},
     motion_command::{BodyMotion, HeadMotion, MotionCommand},
     motion_type::MotionType,
     parameters::{BehaviorParameters, HslNetworkParameters},
@@ -52,6 +52,7 @@ pub struct LastBall {
     pub position: Point2<Field>,
     pub velocity: Vector2<Ground>,
     pub age: SystemTime,
+    pub field_side: Side,
 }
 
 #[derive(Debug, Clone, Serialize)]
@@ -63,6 +64,7 @@ pub struct Blackboard {
 
     pub path_obstacles_output: Vec<PathObstacle>,
     pub time_since_last_switch: Duration,
+    pub direction_difference: f32,
 
     pub ball: Option<LastBall>,
     pub last_ball: Option<LastBall>,
@@ -71,6 +73,7 @@ pub struct Blackboard {
     pub last_motion_type: Option<MotionType>,
 
     pub is_injected_motion_command: bool,
+    pub walk_position: Option<Point2<Ground>>,
     pub body_motion: Option<BodyMotion>,
     pub head_motion: Option<HeadMotion>,
 }
@@ -94,6 +97,7 @@ pub struct CycleContext {
     last_sent_message: AdditionalOutput<HulkMessage, "last_sent_message">,
     path_obstacles_output: AdditionalOutput<Vec<PathObstacle>, "path_obstacles">,
     time_since_last_switch: AdditionalOutput<Duration, "behavior.time_since_last_switch">,
+    direction_difference: AdditionalOutput<f32, "behavior.direction_difference">,
 
     last_motion_command: CyclerState<MotionCommand, "last_motion_command">,
 
@@ -137,6 +141,7 @@ impl Behavior {
                 position: ball.ball_in_field,
                 velocity: ball.ball_in_ground_velocity,
                 age: context.world_state.now,
+                field_side: ball.field_side,
             });
             self.last_ball = self.ball.clone();
         } else if let Some(last_ball) = &self.ball
@@ -158,6 +163,7 @@ impl Behavior {
 
             path_obstacles_output: Vec::new(),
             time_since_last_switch: Duration::ZERO,
+            direction_difference: 0.0,
 
             ball: self.ball.clone(),
             last_ball: self.last_ball.clone(),
@@ -166,6 +172,7 @@ impl Behavior {
             last_motion_type: self.last_motion_type,
 
             is_injected_motion_command: false,
+            walk_position: None,
             body_motion: None,
             head_motion: None,
         };
@@ -213,6 +220,9 @@ impl Behavior {
         context
             .time_since_last_switch
             .fill_if_subscribed(|| blackboard.time_since_last_switch);
+        context.direction_difference
+            .fill_if_subscribed(|| blackboard.direction_difference);
+
 
         Ok(MainOutputs {
             motion_command: motion_command.into(),

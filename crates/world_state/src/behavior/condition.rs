@@ -1,5 +1,9 @@
 use filtering::hysteresis::less_than_with_hysteresis;
-use types::primary_state::PrimaryState;
+use hsl_network_messages::SubState;
+use linear_algebra::{point, vector};
+use types::{
+    filtered_game_controller_state::FilteredGameControllerState, primary_state::PrimaryState,
+};
 
 use crate::behavior::node::Blackboard;
 
@@ -51,6 +55,41 @@ pub fn is_close_to_ball(blackboard: &mut Blackboard) -> bool {
     is_close
 }
 
+pub fn is_close_to_ball_aligned(blackboard: &mut Blackboard) -> bool {
+    let mut is_close_and_aligned = false;
+    if let (Some(ball), Some(ground_to_field)) = (
+        &blackboard.ball,
+        &blackboard.world_state.robot.ground_to_field,
+    ) {
+        let ball_in_ground = ground_to_field.inverse() * ball.position;
+        let goal_position =
+            ground_to_field.inverse() * point!(blackboard.field_dimensions.length / 2.0, 0.0);
+        let target_kick_position = ball_in_ground
+            - (goal_position - ball_in_ground).normalize() * blackboard.parameters.kicking.kick_position_ball_distance;
+
+        let parameters = &blackboard.parameters.substates;
+        let distance_to_ball = target_kick_position.coords().norm();
+        let is_close = less_than_with_hysteresis(
+            blackboard.last_close_enough_to_kick,
+            distance_to_ball,
+            parameters.distance_for_kick,
+            parameters.distance_for_kick_hysteresis,
+        );
+
+        let direction = (goal_position - target_kick_position).normalize();
+        let robot_facing_direction = vector!(1.0, 0.0);
+        let is_aligned =
+            direction.angle(&robot_facing_direction) < parameters.alignment_angle_threshold;
+
+        blackboard.direction_difference = direction.angle(&robot_facing_direction);
+
+        is_close_and_aligned = is_close && (is_aligned || blackboard.last_close_enough_to_kick);
+        blackboard.last_close_enough_to_kick = is_close_and_aligned;
+    }
+
+    is_close_and_aligned
+}
+
 pub fn is_closest_to_ball(_blackboard: &mut Blackboard) -> bool {
     // TODO
     true
@@ -67,12 +106,33 @@ pub fn is_goalkeeper(blackboard: &mut Blackboard) -> bool {
     blackboard.world_state.robot.player_number == blackboard.parameters.goal_keeper_number
 }
 
+pub fn is_in_sub_state(blackboard: &mut Blackboard) -> bool {
+    matches!(
+        blackboard.world_state.filtered_game_controller_state,
+        Some(FilteredGameControllerState {
+            sub_state: Some(_),
+            kicking_team: Some(_),
+            ..
+        })
+    )
+}
+
 pub fn is_primary_state(blackboard: &mut Blackboard, primary_state: PrimaryState) -> bool {
     blackboard.world_state.robot.primary_state == primary_state
 }
 
 pub fn is_remote_controlled(blackboard: &mut Blackboard) -> bool {
     blackboard.parameters.remote_control.enable
+}
+
+pub fn is_sub_state(blackboard: &mut Blackboard, sub_state: SubState) -> bool {
+    matches!(
+        blackboard.world_state.filtered_game_controller_state,
+        Some(FilteredGameControllerState {
+            sub_state: Some(current_sub_state),
+            ..
+        }) if current_sub_state == sub_state
+    )
 }
 
 pub fn has_ball_position(blackboard: &mut Blackboard) -> bool {

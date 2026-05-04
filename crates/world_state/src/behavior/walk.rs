@@ -1,6 +1,6 @@
 use coordinate_systems::{Field, Ground};
 use filtering::hysteresis::less_than_with_relative_hysteresis;
-use linear_algebra::{Isometry2, Orientation2, Point, Point2, Pose2, Vector2, point, vector};
+use linear_algebra::{Isometry2, Orientation2, Point, Point2, Pose2, point};
 use types::{
     behavior_tree::Status,
     motion_command::{BodyMotion, MotionCommand, OrientationMode},
@@ -15,11 +15,11 @@ use crate::{
         behavior_tree::Node,
         kick::{kick, select_kick_target, use_last_kick_power},
         node::Blackboard,
-        switch_motion_type::is_last_motion_type,
+        switch_motion_type::{is_last_motion_type, switch_motion_type},
     },
     condition,
     path_planner::PathPlanner,
-    selection, sequence,
+    selection, sequence, subtree,
 };
 
 pub fn plan(
@@ -131,12 +131,20 @@ pub fn walk_to(
 
 pub fn walk_to_ball(blackboard: &mut Blackboard) -> Status {
     if let (Some(ball), Some(ground_to_field)) = (
-        &blackboard.ball,
+        &blackboard.last_ball,
         &blackboard.world_state.robot.ground_to_field,
     ) {
+        let field_to_ground = ground_to_field.inverse();
+        let ball_in_ground = field_to_ground * ball.position;
+        let goal_position = field_to_ground * point!(blackboard.field_dimensions.length / 2.0, 0.0);
+        let orientation = Orientation2::from_vector(goal_position - ball_in_ground);
+
+        let target_position = ball_in_ground
+            - (goal_position - ball_in_ground).normalize()
+                * blackboard.parameters.kicking.kick_position_ball_distance;
         walk_to(
             blackboard,
-            Pose2::from(ground_to_field.inverse() * ball.position),
+            Pose2::from_parts(target_position, orientation),
             blackboard.parameters.walk_speed.kicking,
             OrientationMode::AlignWithPath,
             blackboard
@@ -148,6 +156,14 @@ pub fn walk_to_ball(blackboard: &mut Blackboard) -> Status {
     } else {
         Status::Failure
     }
+}
+
+pub fn walk_to_ball_subtree() -> Node<Blackboard> {
+    switch_motion_type(
+        MotionType::Walk,
+        action!(walk_to_ball),
+        subtree!(walk_alternatives_subtree),
+    )
 }
 
 pub fn walk_alternatives_subtree() -> Node<Blackboard> {
@@ -162,39 +178,4 @@ pub fn walk_alternatives_subtree() -> Node<Blackboard> {
         ),
         action!(stand)
     )
-}
-
-pub fn walk_instead_of_kicking(blackboard: &mut Blackboard) -> Status {
-    if let (Some(ball), Some(ground_to_field)) = (
-        &blackboard.last_ball,
-        blackboard.world_state.robot.ground_to_field,
-    ) {
-        let field_to_ground = ground_to_field.inverse();
-        let ball_in_ground = field_to_ground * ball.position;
-
-        let goal_position: Vector2<Field> = vector!(blackboard.field_dimensions.length / 2.0, 0.0);
-
-        let kick_direction =
-            Orientation2::from_vector(field_to_ground * goal_position - ball_in_ground.coords());
-
-        walk_to(
-            blackboard,
-            Pose2::from(ball_in_ground),
-            blackboard.parameters.walk_speed.kicking,
-            OrientationMode::LookTowards {
-                direction: kick_direction,
-                tolerance: blackboard
-                    .parameters
-                    .walk_and_stand
-                    .normal_distance_to_be_aligned,
-            },
-            blackboard
-                .parameters
-                .walk_and_stand
-                .normal_distance_to_be_aligned,
-            blackboard.parameters.walk_and_stand.hysteresis,
-        )
-    } else {
-        Status::Failure
-    }
 }
