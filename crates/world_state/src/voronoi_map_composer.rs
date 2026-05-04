@@ -64,11 +64,11 @@ impl TargetPositionComposer {
             // TODO: Import the other Robot positions
             let mut sites = vec![(ground_to_field.as_pose(), *context.player_number)];
             for fake_robot in context.voronoi_parameters.fake_robot_position.iter() {
-                sites.push(fake_robot.clone());
+                sites.push(*fake_robot);
             }
             context
                 .input_points
-                .fill_if_subscribed(|| sites.iter().map(|(pose, _)| pose.clone()).collect());
+                .fill_if_subscribed(|| sites.iter().map(|(pose, _)| *pose).collect());
 
             for obstacle in context.obstacles.iter() {
                 let radius = obstacle
@@ -204,7 +204,7 @@ fn tile_range_for_bounds(
 fn multi_source_dijkstra(
     map: &mut VoronoiGrid,
     robots: &[(Pose2<Field>, PlayerNumber)],
-    dist_buffer: &mut Vec<u32>,
+    dist_buffer: &mut [u32],
     queue_buffer: &mut BinaryHeap<Reverse<(u32, usize, usize)>>,
     orientation_bias: f32,
 ) {
@@ -221,12 +221,12 @@ fn multi_source_dijkstra(
         .collect();
 
     for (robot_index, (robot_pose, player_number)) in robots.iter().enumerate() {
-        if let Some(start_index) = map.nearest_non_blocked_cell_index(robot_pose.position()) {
-            if dist_buffer[start_index] > 0 {
-                dist_buffer[start_index] = 0;
-                map.tiles[start_index] = Ownership::Robot(*player_number);
-                queue_buffer.push(Reverse((0, start_index, robot_index)));
-            }
+        if let Some(start_index) = map.nearest_non_blocked_cell_index(robot_pose.position())
+            && dist_buffer[start_index] > 0
+        {
+            dist_buffer[start_index] = 0;
+            map.tiles[start_index] = Ownership::Robot(*player_number);
+            queue_buffer.push(Reverse((0, start_index, robot_index)));
         }
     }
 
