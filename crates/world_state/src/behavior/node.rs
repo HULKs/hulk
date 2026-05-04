@@ -98,6 +98,7 @@ pub struct CycleContext {
     path_obstacles_output: AdditionalOutput<Vec<PathObstacle>, "path_obstacles">,
     time_since_last_switch: AdditionalOutput<Duration, "behavior.time_since_last_switch">,
     direction_difference: AdditionalOutput<f32, "behavior.direction_difference">,
+    walk_position: AdditionalOutput<Option<Point2<Ground>>, "behavior.walk_position">,
 
     last_motion_command: CyclerState<MotionCommand, "last_motion_command">,
 
@@ -222,6 +223,8 @@ impl Behavior {
             .fill_if_subscribed(|| blackboard.time_since_last_switch);
         context.direction_difference
             .fill_if_subscribed(|| blackboard.direction_difference);
+        context.walk_position
+            .fill_if_subscribed(|| blackboard.walk_position);
 
 
         Ok(MainOutputs {

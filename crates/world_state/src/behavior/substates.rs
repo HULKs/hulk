@@ -1,5 +1,5 @@
 use hsl_network_messages::{SubState, Team};
-use linear_algebra::{Pose2, Rotation2, point};
+use linear_algebra::{Orientation2, Pose2, Rotation2, point};
 use types::{
     behavior_tree::Status, field_dimensions::Side,
     filtered_game_controller_state::FilteredGameControllerState, motion_command::OrientationMode,
@@ -76,14 +76,13 @@ pub fn walk_to_block_position(blackboard: &mut Blackboard) -> Status {
         blackboard.world_state.robot.ground_to_field,
     ) {
         let ball_position = ground_to_field.inverse() * ball.position;
+        let orientation = Orientation2::from_vector(ball_position - *block_position);
+
         walk_to(
             blackboard,
-            Pose2::from(*block_position),
+            Pose2::from_parts(*block_position, orientation),
             blackboard.parameters.walk_speed.blocking,
-            OrientationMode::LookAt {
-                target: ball_position,
-                tolerance: blackboard.parameters.walk_and_stand.orientation_tolerance,
-            },
+            OrientationMode::AlignWithPath,
             blackboard
                 .parameters
                 .walk_and_stand
