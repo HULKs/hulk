@@ -25,16 +25,17 @@ class TrainingConfig:
     name: str | Path
     data: str | Path
     project: str | Path = "runs"
-    epochs: int = 100
+    freeze: int
+    epochs: int
+    device: int | str | list
+    patience: int = 100
     imgsz: int = 640
     batch: int = 32
     optimizer: str = "auto"
-    freeze: int = 11
     plots: bool = True
     exist_ok: bool = True
     val: bool = True
     save: bool = True
-    device: int | str | list = -1
 
     def to_dict(self, **overrides: Any) -> dict[str, Any]:
         """
@@ -156,6 +157,13 @@ def do_hyperparameter_tuning(config: TrainingConfig, model_path: Path) -> Path:
     help="Device to be used by ultralytics. Example: -1, cuda, cpu, or [1,2].",
 )
 @click.option(
+    "--epochs",
+    default="100",
+    type=int,
+    show_default=True,
+    help="Number of epochs to train.",
+)
+@click.option(
     "--do-tuning",
     is_flag=True,
     default=False,
@@ -178,6 +186,7 @@ def main(
     runs_dir: Path,
     val_dir: Path,
     device: str,
+    epochs: int,
     do_tuning: bool,
     use_tuned_hyperparameters: bool,
 ) -> None:
@@ -263,6 +272,7 @@ def main(
             name=Path("train") / run_name,
             freeze=hydra_model.number_of_frozen_modules,
             device=device,
+            epochs=epochs,
         )
         config_dict = config.to_dict()
 
