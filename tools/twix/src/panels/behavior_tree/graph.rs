@@ -15,7 +15,7 @@ pub struct CircleNode {
     pub is_subtree: bool,
     pub name: String,
     pub position: Point2<World>,
-    pub target_position: Point2<World>,
+    pub animated_position: Point2<World>,
     pub radius: f32,
     pub stroke: Stroke,
 }
@@ -37,8 +37,8 @@ impl CircleNode {
             is_dragging: false,
             is_subtree,
             name,
+            animated_position: position,
             position,
-            target_position: position,
             radius,
             stroke,
         }
@@ -50,14 +50,14 @@ impl CircleNode {
         }
 
         painter.floating_text(
-            self.position,
+            self.animated_position,
             Align2::CENTER_CENTER,
             self.name.to_string(),
             FontId::proportional(0.35 * painter.scaling()),
             Color32::WHITE.gamma_multiply(self.opacity),
         );
         painter.circle(
-            self.position,
+            self.animated_position,
             self.radius,
             Color32::TRANSPARENT,
             Stroke::new(
@@ -68,7 +68,7 @@ impl CircleNode {
 
         if self.is_subtree {
             painter.circle(
-                self.position,
+                self.animated_position,
                 self.radius + 0.2,
                 Color32::TRANSPARENT,
                 Stroke::new(
@@ -94,7 +94,7 @@ impl CircleNode {
             && let Some(pointer_position) = response.interact_pointer_pos()
         {
             let world_position = painter.transform_pixel_to_world(pointer_position);
-            let distance_squared = distance_squared(world_position, self.position);
+            let distance_squared = distance_squared(world_position, self.animated_position);
             let radius_squared = self.radius * self.radius;
 
             if distance_squared <= radius_squared {
@@ -107,8 +107,8 @@ impl CircleNode {
             && self.is_dragging
             && let Some(pointer_position) = response.interact_pointer_pos()
         {
-            self.position = painter.transform_pixel_to_world(pointer_position);
-            self.target_position = self.position;
+            self.animated_position = painter.transform_pixel_to_world(pointer_position);
+            self.position = self.animated_position;
             *drag_claimed = true;
         }
 
@@ -138,7 +138,7 @@ impl CircleNode {
             return false;
         }
 
-        distance_squared(point, self.position) <= self.radius * self.radius
+        distance_squared(point, self.animated_position) <= self.radius * self.radius
     }
 }
 
@@ -153,7 +153,7 @@ pub fn resolve_circle_collisions(nodes: &mut [CircleNode]) {
                     continue;
                 }
 
-                let to_b = nodes[j].position - nodes[i].position;
+                let to_b = nodes[j].animated_position - nodes[i].animated_position;
                 let distance_squared = to_b.norm_squared();
                 let radius = nodes[i].collision_radius() + nodes[j].collision_radius();
                 let minimal_distance =
@@ -169,17 +169,17 @@ pub fn resolve_circle_collisions(nodes: &mut [CircleNode]) {
                     let b_dragging = nodes[j].is_dragging;
 
                     if a_dragging && !b_dragging {
-                        nodes[j].position += direction * overlap;
-                        nodes[j].target_position = nodes[j].position;
+                        nodes[j].animated_position += direction * overlap;
+                        nodes[j].position = nodes[j].animated_position;
                     } else if !a_dragging && b_dragging {
-                        nodes[i].position -= direction * overlap;
-                        nodes[i].target_position = nodes[i].position;
+                        nodes[i].animated_position -= direction * overlap;
+                        nodes[i].position = nodes[i].animated_position;
                     } else if !a_dragging && !b_dragging {
                         let half_overlap = overlap * 0.5;
-                        nodes[i].position -= direction * half_overlap;
-                        nodes[i].target_position = nodes[i].position;
-                        nodes[j].position += direction * half_overlap;
-                        nodes[j].target_position = nodes[j].position;
+                        nodes[i].animated_position -= direction * half_overlap;
+                        nodes[i].position = nodes[i].animated_position;
+                        nodes[j].animated_position += direction * half_overlap;
+                        nodes[j].position = nodes[j].animated_position;
                     }
 
                     did_resolve_any = true;
@@ -210,8 +210,8 @@ impl Connection {
         if let (Some(from_node), Some(to_node)) =
             (circle_nodes.get(self.from), circle_nodes.get(self.to))
         {
-            let position_a = from_node.position;
-            let position_b = to_node.position;
+            let position_a = from_node.animated_position;
+            let position_b = to_node.animated_position;
 
             let direction = position_b - position_a;
 

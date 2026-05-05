@@ -79,7 +79,7 @@ impl BehaviorTreePanel {
             .collect();
         let old_positions: HashMap<String, Point2<World>> = old_nodes
             .iter()
-            .map(|(id, node)| (id.clone(), node.position))
+            .map(|(id, node)| (id.clone(), node.animated_position))
             .collect();
         self.connections.clear();
 
@@ -109,41 +109,39 @@ impl BehaviorTreePanel {
                 self.apply_vertical_flip_around_root();
             }
 
-            let visible_target_positions: HashMap<String, Point2<World>> = self
+            let new_layout_positions: HashMap<String, Point2<World>> = self
                 .circle_nodes
                 .iter()
                 .map(|node| (node.id.clone(), node.position))
                 .collect();
 
             for (node_id, old_node) in &old_nodes {
-                if visible_target_positions.contains_key(node_id) {
+                if new_layout_positions.contains_key(node_id) {
                     continue;
                 }
 
                 let mut exiting_node = old_node.clone();
                 exiting_node.is_dragging = false;
                 exiting_node.opacity = 1.0;
-                exiting_node.target_position =
-                    anchor_position_for_removed_node(node_id, &visible_target_positions)
-                        .unwrap_or(exiting_node.position);
+                exiting_node.position =
+                    anchor_position_for_removed_node(node_id, &new_layout_positions)
+                        .unwrap_or(exiting_node.animated_position);
                 self.exiting_nodes.push(exiting_node);
             }
 
             for node in &mut self.circle_nodes {
-                node.target_position = node.position;
-
                 if let Some(old_node) = old_nodes.get(&node.id) {
-                    node.position = old_node.position;
+                    node.animated_position = old_node.animated_position;
                     node.opacity = old_node.opacity;
                 } else {
                     let opening_origin_position = opening_subtree_origin
                         .filter(|origin_id| is_descendant_of(&node.id, origin_id))
                         .and_then(|origin_id| old_positions.get(origin_id).copied());
 
-                    node.position = opening_origin_position
+                    node.animated_position = opening_origin_position
                         .or_else(|| parent_position_for_node(&node.id, &old_positions))
-                        .or_else(|| visible_target_positions.get("root").copied())
-                        .unwrap_or(node.position);
+                        .or_else(|| new_layout_positions.get("root").copied())
+                        .unwrap_or(node.animated_position);
                     node.opacity = 0.0;
                 }
             }
@@ -158,24 +156,24 @@ impl BehaviorTreePanel {
                 continue;
             }
 
-            let delta = node.target_position - node.position;
+            let delta = node.position - node.animated_position;
             if delta.inner.norm_squared() > LAYOUT_ANIMATION_EPSILON * LAYOUT_ANIMATION_EPSILON {
-                node.position += delta * LAYOUT_ANIMATION_FACTOR;
+                node.animated_position += delta * LAYOUT_ANIMATION_FACTOR;
                 any_animating = true;
             } else {
-                node.position = node.target_position;
+                node.animated_position = node.position;
             }
 
             node.opacity = (node.opacity + ENTER_FADE_STEP).min(1.0);
         }
 
         self.exiting_nodes.retain_mut(|node| {
-            let delta = node.target_position - node.position;
+            let delta = node.position - node.animated_position;
             if delta.inner.norm_squared() > LAYOUT_ANIMATION_EPSILON * LAYOUT_ANIMATION_EPSILON {
-                node.position += delta * LAYOUT_ANIMATION_FACTOR;
+                node.animated_position += delta * LAYOUT_ANIMATION_FACTOR;
                 any_animating = true;
             } else {
-                node.position = node.target_position;
+                node.animated_position = node.position;
             }
 
             node.opacity = (node.opacity - EXIT_FADE_STEP).max(0.0);
@@ -339,7 +337,7 @@ impl Widget for &mut BehaviorTreePanel {
             .circle_nodes
             .iter()
             .find(|node| node.id == "root")
-            .map(|root_node| painter.transform_world_to_pixel(root_node.target_position));
+            .map(|root_node| painter.transform_world_to_pixel(root_node.position));
 
         if self.pending_view_switch_focus {
             if let Some(pixel) = root_pixel {
