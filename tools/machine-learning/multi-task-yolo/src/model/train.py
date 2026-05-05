@@ -24,7 +24,7 @@ DEVICE_EMPTY_ERROR = "must contain at least one device index, e.g. 0"
 class TrainingConfig:
     name: str | Path
     data: str | Path
-    project: str | Path = "runs"
+    project: str | Path
     freeze: int
     epochs: int
     device: int | str | list
