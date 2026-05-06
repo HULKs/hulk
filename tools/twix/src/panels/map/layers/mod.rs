@@ -12,7 +12,7 @@ mod obstacle_filter;
 mod obstacles;
 mod path;
 mod path_obstacles;
-mod pose_detection;
+mod pose_positions;
 mod referee_position;
 mod robot_pose;
 
@@ -30,6 +30,6 @@ pub use obstacle_filter::ObstacleFilter;
 pub use obstacles::Obstacles;
 pub use path::Path;
 pub use path_obstacles::PathObstacles;
-pub use pose_detection::PoseDetection;
+pub use pose_positions::PosePositions;
 pub use referee_position::RefereePosition;
 pub use robot_pose::RobotPose;

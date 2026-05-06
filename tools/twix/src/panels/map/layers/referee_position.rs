@@ -21,7 +21,7 @@ impl Layer<Field> for RefereePosition {
         let expected_referee_position =
             robot.subscribe_value("WorldState.main_outputs.expected_referee_position");
         let maximum_distance_to_referee_position =
-            robot.subscribe_value("parameters.pose_detection.maximum_distance_to_referee_position");
+            robot.subscribe_value("parameters.pose_filtering.maximum_distance_to_referee_position");
         Self {
             expected_referee_position,
             maximum_distance_to_referee_position,

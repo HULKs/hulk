@@ -28,12 +28,6 @@ impl Overlay for ObjectDetection {
 
         Ok(())
     }
-
-    fn config_ui(&mut self, ui: &mut eframe::egui::Ui) {
-        ui.horizontal(|ui| {
-            ui.add_space(10.0);
-        });
-    }
 }
 
 fn paint_bounding_boxes(
