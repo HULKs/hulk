@@ -1,0 +1,61 @@
+error[E0277]: the trait bound `MissingSerde: serde::Serialize` is not satisfied
+ --> tests/ui/message_derive/missing_serde.rs:3:24
+  |
+3 | #[derive(Debug, Clone, Message)]
+  |                        ^^^^^^^ unsatisfied trait bound
+  |
+help: the trait `serde_core::ser::Serialize` is not implemented for `MissingSerde`
+ --> tests/ui/message_derive/missing_serde.rs:4:1
+  |
+4 | struct MissingSerde {
+  | ^^^^^^^^^^^^^^^^^^^
+  = note: for local types consider adding `#[derive(serde::Serialize)]` to your `MissingSerde` type
+  = note: for types from other crates check whether the crate offers a `serde` feature flag
+  = help: the following other types implement trait `serde_core::ser::Serialize`:
+            &'a T
+            &'a mut T
+            ()
+            (T,)
+            (T0, T1)
+            (T0, T1, T2)
+            (T0, T1, T2, T3)
+            (T0, T1, T2, T3, T4)
+          and $N others
+  = note: required for `SerdeCdrCodec<MissingSerde>` to implement `MessageCodec<MissingSerde>`
+note: required by a bound in `ros_z::Message::Codec`
+ --> src/msg.rs
+  |
+  |     type Codec: MessageCodec<Self>;
+  |                 ^^^^^^^^^^^^^^^^^^ required by this bound in `Message::Codec`
+  = note: this error originates in the derive macro `Message` (in Nightly builds, run with -Z macro-backtrace for more info)
+
+error[E0277]: the trait bound `MissingSerde: serde::Deserialize<'de>` is not satisfied
+ --> tests/ui/message_derive/missing_serde.rs:3:24
+  |
+3 | #[derive(Debug, Clone, Message)]
+  |                        ^^^^^^^ unsatisfied trait bound
+  |
+help: the trait `for<'de> serde_core::de::Deserialize<'de>` is not implemented for `MissingSerde`
+ --> tests/ui/message_derive/missing_serde.rs:4:1
+  |
+4 | struct MissingSerde {
+  | ^^^^^^^^^^^^^^^^^^^
+  = note: for local types consider adding `#[derive(serde::Deserialize)]` to your `MissingSerde` type
+  = note: for types from other crates check whether the crate offers a `serde` feature flag
+  = help: the following other types implement trait `serde_core::de::Deserialize<'de>`:
+            `&'a Path` implements `serde_core::de::Deserialize<'de>`
+            `&'a [u8]` implements `serde_core::de::Deserialize<'de>`
+            `&'a ron::value::raw::RawValue` implements `serde_core::de::Deserialize<'de>`
+            `&'a str` implements `serde_core::de::Deserialize<'de>`
+            `()` implements `serde_core::de::Deserialize<'de>`
+            `(T,)` implements `serde_core::de::Deserialize<'de>`
+            `(T0, T1)` implements `serde_core::de::Deserialize<'de>`
+            `(T0, T1, T2)` implements `serde_core::de::Deserialize<'de>`
+          and $N others
+  = note: required for `SerdeCdrCodec<MissingSerde>` to implement `MessageCodec<MissingSerde>`
+note: required by a bound in `ros_z::Message::Codec`
+ --> src/msg.rs
+  |
+  |     type Codec: MessageCodec<Self>;
+  |                 ^^^^^^^^^^^^^^^^^^ required by this bound in `Message::Codec`
+  = note: this error originates in the derive macro `Message` (in Nightly builds, run with -Z macro-backtrace for more info)

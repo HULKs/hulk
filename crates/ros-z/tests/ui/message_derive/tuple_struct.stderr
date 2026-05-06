@@ -1,0 +1,5 @@
+error: Message derive does not support tuple structs in v1
+ --> tests/ui/message_derive/tuple_struct.rs:5:8
+  |
+5 | struct TupleStatus(f32, f32);
+  |        ^^^^^^^^^^^
