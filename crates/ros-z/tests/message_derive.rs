@@ -50,6 +50,12 @@ struct GenericTelemetry<T> {
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ros_z::Message)]
+struct TupleStatus(f32, u32);
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ros_z::Message)]
+struct GenericTuple<T>(T);
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ros_z::Message)]
 struct NestedGenericTelemetry<T> {
     inner: GenericTelemetry<T>,
 }
@@ -357,6 +363,61 @@ fn derive_generates_distinct_generic_type_info_per_instantiation() {
             assert!(matches!(element.as_ref(), TypeShape::String));
         }
         other => panic!("expected string sequence field, got {:?}", other),
+    }
+}
+
+#[test]
+fn derive_supports_tuple_struct_schema_with_numeric_field_names() {
+    assert_eq!(TupleStatus::type_name(), "message_derive::TupleStatus");
+
+    let schema = TupleStatus::schema();
+    assert_eq!(schema_type_name(&schema), TupleStatus::type_name());
+
+    let fields = struct_fields(&schema);
+    assert_eq!(fields.len(), 2);
+    assert_eq!(fields[0].name, "0");
+    assert_eq!(fields[1].name, "1");
+    assert!(matches!(
+        fields[0].schema.as_ref(),
+        TypeShape::Primitive(PrimitiveType::F32)
+    ));
+    assert!(matches!(
+        fields[1].schema.as_ref(),
+        TypeShape::Primitive(PrimitiveType::U32)
+    ));
+}
+
+#[test]
+fn derive_supports_generic_tuple_struct_schema() {
+    assert_eq!(GenericTuple::<u32>::type_name(), "message_derive::GenericTuple<u32>");
+    assert_eq!(
+        GenericTuple::<Position2D>::type_name(),
+        "message_derive::GenericTuple<message_derive::Position2D>"
+    );
+
+    let u32_schema = GenericTuple::<u32>::schema();
+    assert_eq!(schema_type_name(&u32_schema), GenericTuple::<u32>::type_name());
+    let u32_fields = struct_fields(&u32_schema);
+    assert_eq!(u32_fields.len(), 1);
+    assert_eq!(u32_fields[0].name, "0");
+    assert!(matches!(
+        u32_fields[0].schema.as_ref(),
+        TypeShape::Primitive(PrimitiveType::U32)
+    ));
+
+    let position_schema = GenericTuple::<Position2D>::schema();
+    assert_eq!(
+        schema_type_name(&position_schema),
+        GenericTuple::<Position2D>::type_name()
+    );
+    let position_fields = struct_fields(&position_schema);
+    assert_eq!(position_fields.len(), 1);
+    assert_eq!(position_fields[0].name, "0");
+    match position_fields[0].schema.as_ref() {
+        TypeShape::Struct { name, .. } => {
+            assert_eq!(name.as_str(), "message_derive::Position2D");
+        }
+        other => panic!("expected nested message field, got {other:?}"),
     }
 }
 

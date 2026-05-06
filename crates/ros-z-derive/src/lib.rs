@@ -69,13 +69,15 @@ fn impl_message_for_struct(
             .iter()
             .map(|field| generate_message_field_schema_tokens(field, "Message"))
             .collect::<syn::Result<Vec<_>>>()?,
+        Fields::Unnamed(fields) => fields
+            .unnamed
+            .iter()
+            .enumerate()
+            .map(|(index, field)| {
+                generate_unnamed_message_field_schema_tokens(index, field, "Message")
+            })
+            .collect::<syn::Result<Vec<_>>>()?,
         Fields::Unit => Vec::new(),
-        Fields::Unnamed(_) => {
-            return Err(syn::Error::new_spanned(
-                name,
-                "Message derive does not support tuple structs in v1",
-            ));
-        }
     };
 
     let bounded_generics = add_message_bounds(&input.generics);
@@ -337,6 +339,19 @@ fn generate_message_field_schema_tokens(
 
     Ok(quote! {
         ::ros_z::dynamic::RuntimeFieldSchema::new(#field_name_str, #field_schema)
+    })
+}
+
+fn generate_unnamed_message_field_schema_tokens(
+    index: usize,
+    field: &syn::Field,
+    derive_name: &str,
+) -> syn::Result<TokenStream2> {
+    let field_name = index.to_string();
+    let field_schema = generate_message_schema_tokens(&field.ty, derive_name)?;
+
+    Ok(quote! {
+        ::ros_z::dynamic::RuntimeFieldSchema::new(#field_name, #field_schema)
     })
 }
 
