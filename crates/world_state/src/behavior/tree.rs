@@ -14,7 +14,7 @@ use crate::{
         node::Blackboard,
         search::{has_suggested_search_position, leuchtturm, walk_to_search_position},
         switch_motion_type::switch_motion_type,
-        walk::{walk_alternatives_subtree, walk_to_ball},
+        walk::{walk_alternatives_subtree, walk_to_ball, walk_to_kickoff_pose},
     },
     condition, negation, selection, sequence, subtree,
 };
@@ -64,7 +64,7 @@ pub fn create_tree() -> Node<Blackboard> {
 }
 
 fn ready_subtree() -> Node<Blackboard> {
-    sequence!(subtree!(look_at_ball_subtree), action!(stand))
+    sequence!(action!(walk_to_kickoff_pose))
 }
 
 fn playing_subtree() -> Node<Blackboard> {
