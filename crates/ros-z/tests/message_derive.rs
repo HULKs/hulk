@@ -56,6 +56,24 @@ struct TupleStatus(f32, u32);
 struct GenericTuple<T>(T);
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ros_z::Message)]
+#[serde(bound(
+    serialize = "[u8; N]: Serialize",
+    deserialize = "[u8; N]: Deserialize<'de>"
+))]
+struct Fixed<const N: usize> {
+    values: [u8; N],
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ros_z::Message)]
+#[serde(bound(
+    serialize = "[T; N]: Serialize",
+    deserialize = "[T; N]: Deserialize<'de>"
+))]
+struct GenericFixed<T, const N: usize> {
+    values: [T; N],
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ros_z::Message)]
 struct NestedGenericTelemetry<T> {
     inner: GenericTelemetry<T>,
 }
@@ -418,6 +436,91 @@ fn derive_supports_generic_tuple_struct_schema() {
             assert_eq!(name.as_str(), "message_derive::Position2D");
         }
         other => panic!("expected nested message field, got {other:?}"),
+    }
+}
+
+#[test]
+fn derive_supports_const_generic_struct_schema() {
+    assert_eq!(Fixed::<4>::type_name(), "message_derive::Fixed<4>");
+    assert_eq!(Fixed::<8>::type_name(), "message_derive::Fixed<8>");
+
+    let four_schema = Fixed::<4>::schema();
+    let eight_schema = Fixed::<8>::schema();
+
+    assert_eq!(schema_type_name(&four_schema), Fixed::<4>::type_name());
+    assert_eq!(schema_type_name(&eight_schema), Fixed::<8>::type_name());
+    assert_ne!(Fixed::<4>::schema_hash(), Fixed::<8>::schema_hash());
+
+    let values = field(&four_schema, "values");
+    match values.schema.as_ref() {
+        TypeShape::Sequence { element, length } => {
+            assert_eq!(*length, ros_z::dynamic::SequenceLength::Fixed(4));
+            assert!(matches!(
+                element.as_ref(),
+                TypeShape::Primitive(PrimitiveType::U8)
+            ));
+        }
+        other => panic!("expected fixed sequence field, got {other:?}"),
+    }
+
+    let values = field(&eight_schema, "values");
+    match values.schema.as_ref() {
+        TypeShape::Sequence { element, length } => {
+            assert_eq!(*length, ros_z::dynamic::SequenceLength::Fixed(8));
+            assert!(matches!(
+                element.as_ref(),
+                TypeShape::Primitive(PrimitiveType::U8)
+            ));
+        }
+        other => panic!("expected fixed sequence field, got {other:?}"),
+    }
+}
+
+#[test]
+fn derive_supports_mixed_type_and_const_generic_struct_schema() {
+    assert_eq!(
+        GenericFixed::<u32, 4>::type_name(),
+        "message_derive::GenericFixed<u32,4>"
+    );
+    assert_eq!(
+        GenericFixed::<Position2D, 2>::type_name(),
+        "message_derive::GenericFixed<message_derive::Position2D,2>"
+    );
+
+    let u32_schema = GenericFixed::<u32, 4>::schema();
+    assert_eq!(
+        schema_type_name(&u32_schema),
+        GenericFixed::<u32, 4>::type_name()
+    );
+    let values = field(&u32_schema, "values");
+    match values.schema.as_ref() {
+        TypeShape::Sequence { element, length } => {
+            assert_eq!(*length, ros_z::dynamic::SequenceLength::Fixed(4));
+            assert!(matches!(
+                element.as_ref(),
+                TypeShape::Primitive(PrimitiveType::U32)
+            ));
+        }
+        other => panic!("expected fixed sequence field, got {other:?}"),
+    }
+
+    let position_schema = GenericFixed::<Position2D, 2>::schema();
+    assert_eq!(
+        schema_type_name(&position_schema),
+        GenericFixed::<Position2D, 2>::type_name()
+    );
+    let values = field(&position_schema, "values");
+    match values.schema.as_ref() {
+        TypeShape::Sequence { element, length } => {
+            assert_eq!(*length, ros_z::dynamic::SequenceLength::Fixed(2));
+            match element.as_ref() {
+                TypeShape::Struct { name, .. } => {
+                    assert_eq!(name.as_str(), "message_derive::Position2D");
+                }
+                other => panic!("expected nested message element, got {other:?}"),
+            }
+        }
+        other => panic!("expected fixed sequence field, got {other:?}"),
     }
 }
 

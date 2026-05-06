@@ -79,23 +79,51 @@ fn impl_message_for_struct(
             .collect::<syn::Result<Vec<_>>>()?,
         Fields::Unit => Vec::new(),
     };
+    let field_types = match &data.fields {
+        Fields::Named(fields) => fields.named.iter().map(|field| &field.ty).collect::<Vec<_>>(),
+        Fields::Unnamed(fields) => fields.unnamed.iter().map(|field| &field.ty).collect::<Vec<_>>(),
+        Fields::Unit => Vec::new(),
+    };
 
-    let bounded_generics = add_message_bounds(&input.generics);
+    let mut bounded_generics = add_message_bounds(&input.generics);
+    if input
+        .generics
+        .params
+        .iter()
+        .any(|param| matches!(param, GenericParam::Const(_)))
+    {
+        let (_, self_ty_generics, _) = input.generics.split_for_impl();
+        let where_clause = bounded_generics.make_where_clause();
+        where_clause
+            .predicates
+            .push(parse_quote!(#name #self_ty_generics: ::serde::Serialize));
+        where_clause
+            .predicates
+            .push(parse_quote!(#name #self_ty_generics: for<'de> ::serde::Deserialize<'de>));
+        for field_ty in field_types {
+            where_clause
+                .predicates
+                .push(parse_quote!(#field_ty: ::ros_z::Message));
+        }
+    }
     let (impl_generics, ty_generics, where_clause) = bounded_generics.split_for_impl();
-    let type_params = input
+    let generic_arg_names = input
         .generics
         .params
         .iter()
         .filter_map(|param| match param {
-            GenericParam::Type(type_param) => Some(&type_param.ident),
-            _ => None,
+            GenericParam::Type(type_param) => {
+                let ident = &type_param.ident;
+                Some(quote! { ::std::format!("{}", <#ident as ::ros_z::Message>::type_name()) })
+            }
+            GenericParam::Const(const_param) => {
+                let ident = &const_param.ident;
+                Some(quote! { ::std::format!("{}", #ident) })
+            }
+            GenericParam::Lifetime(_) => None,
         })
         .collect::<Vec<_>>();
-    let generic_arg_names = type_params
-        .iter()
-        .map(|ident| quote! { <#ident as ::ros_z::Message>::type_name() })
-        .collect::<Vec<_>>();
-    let type_name_body = if type_params.is_empty() {
+    let type_name_body = if generic_arg_names.is_empty() {
         quote! { #type_name }
     } else {
         quote! {{
@@ -279,17 +307,11 @@ fn impl_message_for_enum(
 fn ensure_supported_struct_generics(input: &DeriveInput, derive_name: &str) -> syn::Result<()> {
     for param in &input.generics.params {
         match param {
-            GenericParam::Type(_) => {}
+            GenericParam::Type(_) | GenericParam::Const(_) => {}
             GenericParam::Lifetime(lifetime) => {
                 return Err(syn::Error::new_spanned(
                     lifetime,
                     format!("{derive_name} derive does not support lifetime parameters in v1"),
-                ));
-            }
-            GenericParam::Const(const_param) => {
-                return Err(syn::Error::new_spanned(
-                    const_param,
-                    format!("{derive_name} derive does not support const generics in v1"),
                 ));
             }
         }
