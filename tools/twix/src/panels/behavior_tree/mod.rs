@@ -361,7 +361,7 @@ impl Widget for &mut BehaviorTreePanel {
 
         if response.clicked()
             && let Some(pointer_position) = response.interact_pointer_pos()
-            && let Some(clicked_subtree_id) = self
+            && let Some((clicked_subtree_id, pivot_pos)) = self
                 .circle_nodes
                 .iter()
                 .rev()
@@ -369,14 +369,29 @@ impl Widget for &mut BehaviorTreePanel {
                     node.is_subtree
                         && node.contains(painter.transform_pixel_to_world(pointer_position))
                 })
-                .map(|node| node.id.clone())
+                .map(|node| (node.id.clone(), node.animated_position))
         {
             if self.collapsed_subtrees.contains(&clicked_subtree_id) {
                 self.collapsed_subtrees.remove(&clicked_subtree_id);
                 self.rebuild_layout(Some(&clicked_subtree_id));
             } else {
-                self.collapsed_subtrees.insert(clicked_subtree_id);
+                self.collapsed_subtrees.insert(clicked_subtree_id.clone());
                 self.rebuild_layout(None);
+            }
+
+            if let Some(new_pos) = self
+                .circle_nodes
+                .iter()
+                .find(|n| n.id == clicked_subtree_id)
+                .map(|n| n.position)
+            {
+                let offset = pivot_pos - new_pos;
+                for node in &mut self.circle_nodes {
+                    node.position += offset;
+                }
+                for node in &mut self.exiting_nodes {
+                    node.position += offset;
+                }
             }
             drag_claimed = true;
         }
