@@ -157,7 +157,7 @@ impl BehaviorTreePanel {
             }
 
             let delta = node.position - node.animated_position;
-            if delta.inner.norm_squared() > LAYOUT_ANIMATION_EPSILON * LAYOUT_ANIMATION_EPSILON {
+            if delta.norm_squared() > LAYOUT_ANIMATION_EPSILON * LAYOUT_ANIMATION_EPSILON {
                 node.animated_position += delta * LAYOUT_ANIMATION_FACTOR;
                 any_animating = true;
             } else {
@@ -169,7 +169,7 @@ impl BehaviorTreePanel {
 
         self.exiting_nodes.retain_mut(|node| {
             let delta = node.position - node.animated_position;
-            if delta.inner.norm_squared() > LAYOUT_ANIMATION_EPSILON * LAYOUT_ANIMATION_EPSILON {
+            if delta.norm_squared() > LAYOUT_ANIMATION_EPSILON * LAYOUT_ANIMATION_EPSILON {
                 node.animated_position += delta * LAYOUT_ANIMATION_FACTOR;
                 any_animating = true;
             } else {
