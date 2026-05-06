@@ -5,7 +5,7 @@ use ros_z_cdr::{
 use ros_z_schema::TypeName;
 use serde::{Deserialize, Serialize};
 use std::any::TypeId;
-use std::collections::{BTreeMap, HashMap};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::hash::Hash;
 use std::marker::PhantomData;
 use std::net::SocketAddr;
@@ -461,6 +461,24 @@ where
         Arc::new(TypeShape::Sequence {
             element: T::schema(),
             length: SequenceLength::Fixed(N),
+        })
+    }
+}
+
+impl<T> Message for HashSet<T>
+where
+    T: Message + Eq + Hash + Serialize + for<'de> Deserialize<'de>,
+{
+    type Codec = SerdeCdrCodec<Self>;
+
+    fn type_name() -> &'static str {
+        cached_type_name::<Self>(|| format!("HashSet<{}>", T::type_name()))
+    }
+
+    fn schema() -> Schema {
+        Arc::new(TypeShape::Sequence {
+            element: T::schema(),
+            length: SequenceLength::Dynamic,
         })
     }
 }
