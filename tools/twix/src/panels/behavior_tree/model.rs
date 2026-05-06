@@ -101,7 +101,7 @@ pub fn anchor_position_for_removed_node(
     let mut current = node_id.to_string();
 
     loop {
-        if let Some((parent, _)) = current.split_once('.') {
+        if let Some((parent, _)) = current.rsplit_once('.') {
             current = parent.to_string();
         } else if current != "root" {
             current = "root".to_string();
