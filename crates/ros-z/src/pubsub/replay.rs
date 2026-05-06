@@ -9,7 +9,7 @@ use zenoh::{Result, Session, sample::Sample};
 
 use super::metadata::{self, PublicationId};
 use crate::attachment::{Attachment, EndpointGlobalId};
-use crate::entity::EntityKind;
+use crate::entity::{Entity, EntityKind, endpoint_global_id, entity_get_endpoint};
 use crate::graph::Graph;
 use ros_z_protocol::qos::{QosDurability, QosHistory};
 
@@ -579,8 +579,8 @@ pub(crate) async fn query_initial_transient_local_replay_async(
     }
 }
 
-fn replay_capable_publisher(entity: &crate::entity::Entity) -> Option<(EndpointGlobalId, usize)> {
-    let endpoint = crate::entity::entity_get_endpoint(entity)?;
+fn replay_capable_publisher(entity: &Entity) -> Option<(EndpointGlobalId, usize)> {
+    let endpoint = entity_get_endpoint(entity)?;
     if !matches!(endpoint.qos.durability, QosDurability::TransientLocal) {
         return None;
     }
@@ -588,7 +588,7 @@ fn replay_capable_publisher(entity: &crate::entity::Entity) -> Option<(EndpointG
         return None;
     };
     endpoint.node.as_ref()?;
-    Some((crate::entity::endpoint_global_id(endpoint), depth))
+    Some((endpoint_global_id(endpoint), depth))
 }
 
 pub(super) fn replay_capable_publishers(

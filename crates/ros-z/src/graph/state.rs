@@ -7,7 +7,10 @@ use std::{
 use tracing::debug;
 use zenoh::Result;
 
-use crate::entity::{EndpointKind, Entity, LivelinessKE, NodeKey, Topic};
+use crate::entity::{
+    EndpointKind, Entity, LivelinessKE, NodeKey, Topic, entity_get_endpoint,
+    entity_to_liveliness_key_expr, node_key,
+};
 
 const DEFAULT_SLAB_CAPACITY: usize = 128;
 
@@ -66,10 +69,7 @@ impl GraphData {
     fn retain_entities_not_matching_key(slab: &mut Slab<Weak<Entity>>, key_expr: &LivelinessKE) {
         slab.retain(|_, weak| {
             weak.upgrade().is_some_and(|arc| {
-                crate::entity::entity_to_liveliness_key_expr(&arc)
-                    .ok()
-                    .as_ref()
-                    != Some(key_expr)
+                entity_to_liveliness_key_expr(&arc).ok().as_ref() != Some(key_expr)
             })
         });
     }
@@ -77,7 +77,7 @@ impl GraphData {
     fn remove_entity_from_indexes(&mut self, entity: &Entity, key_expr: &LivelinessKE) {
         match entity {
             Entity::Node(node_entity) => {
-                if let Some(slab) = self.by_node.get_mut(&crate::entity::node_key(node_entity)) {
+                if let Some(slab) = self.by_node.get_mut(&node_key(node_entity)) {
                     Self::retain_entities_not_matching_key(slab, key_expr);
                 }
             }
@@ -97,7 +97,7 @@ impl GraphData {
                     Self::retain_entities_not_matching_key(slab, key_expr);
                 }
                 if let Some(node) = endpoint_entity.node.as_ref()
-                    && let Some(slab) = self.by_node.get_mut(&crate::entity::node_key(node))
+                    && let Some(slab) = self.by_node.get_mut(&node_key(node))
                 {
                     Self::retain_entities_not_matching_key(slab, key_expr);
                 }
@@ -111,8 +111,7 @@ impl GraphData {
         match &**entity {
             Entity::Node(node) => {
                 // Index maps own their keys so parsed entities can remain immutable and shared by Arc.
-                let slab =
-                    Self::get_or_create_slab(&mut self.by_node, crate::entity::node_key(node));
+                let slab = Self::get_or_create_slab(&mut self.by_node, node_key(node));
                 Self::insert_weak_entity(slab, weak);
             }
             Entity::Endpoint(endpoint) => {
@@ -135,8 +134,7 @@ impl GraphData {
 
                 if let Some(node) = endpoint.node.as_ref() {
                     // Index maps own their keys so parsed entities can remain immutable and shared by Arc.
-                    let node_slab =
-                        Self::get_or_create_slab(&mut self.by_node, crate::entity::node_key(node));
+                    let node_slab = Self::get_or_create_slab(&mut self.by_node, node_key(node));
                     Self::insert_weak_entity(node_slab, weak);
                 }
             }
@@ -206,7 +204,7 @@ impl GraphData {
                 Entity::Node(x) => {
                     debug!("[GRF] Parsed node: {}/{}", x.namespace, x.name);
 
-                    let node_key = crate::entity::node_key(x);
+                    let node_key = node_key(x);
                     tracing::debug!(
                         "parse: Storing Node entity with key=({:?}, {:?})",
                         node_key.0,
@@ -229,7 +227,7 @@ impl GraphData {
                         .map(|t| t.name.as_str())
                         .unwrap_or("unknown");
                     if let Some(node) = x.node.as_ref() {
-                        let node_key = crate::entity::node_key(node);
+                        let node_key = node_key(node);
                         tracing::debug!(
                             "parse: Storing Endpoint ({:?}) for node_key=({:?}, {:?}), topic={}, type={}, id={}",
                             x.kind,
@@ -368,7 +366,7 @@ impl GraphData {
             let mut found_type = None;
             slab.retain(|_, weak| {
                 if let Some(ent) = weak.upgrade() {
-                    if let Some(enp) = crate::entity::entity_get_endpoint(&ent)
+                    if let Some(enp) = entity_get_endpoint(&ent)
                         && found_type.is_none()
                         && enp.kind == EndpointKind::Service
                     {
@@ -394,7 +392,7 @@ impl GraphData {
             slab.retain(|_, weak| {
                 if let Some(ent) = weak.upgrade() {
                     if found_type.is_none()
-                        && let Some(enp) = crate::entity::entity_get_endpoint(&ent)
+                        && let Some(enp) = entity_get_endpoint(&ent)
                         && matches!(
                             enp.kind,
                             EndpointKind::Publisher | EndpointKind::Subscription

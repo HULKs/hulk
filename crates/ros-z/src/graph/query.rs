@@ -1,6 +1,9 @@
 use std::{collections::BTreeSet, sync::Arc};
 
-use crate::entity::{EndpointEntity, Entity, EntityKind, NodeKey};
+use crate::entity::{
+    EndpointEntity, Entity, EntityKind, NodeKey, entity_get_endpoint, entity_kind,
+};
+use crate::qos::{QosCompatibility, QosProfile};
 
 use super::Graph;
 
@@ -9,7 +12,7 @@ pub struct QosIncompatibility {
     pub topic: String,
     pub publisher: EndpointEntity,
     pub subscription: EndpointEntity,
-    pub compatibility: crate::qos::QosCompatibility,
+    pub compatibility: QosCompatibility,
 }
 
 impl Graph {
@@ -22,14 +25,14 @@ impl Graph {
         match kind {
             EntityKind::Publisher | EntityKind::Subscription => {
                 self.data.lock().visit_by_topic(name, |ent| {
-                    if crate::entity::entity_kind(&ent) == kind {
+                    if entity_kind(&ent) == kind {
                         total += 1;
                     }
                 });
             }
             EntityKind::Service | EntityKind::Client => {
                 self.data.lock().visit_by_service(name, |ent| {
-                    if crate::entity::entity_kind(&ent) == kind {
+                    if entity_kind(&ent) == kind {
                         total += 1;
                     }
                 });
@@ -50,7 +53,7 @@ impl Graph {
 
         let mut res = Vec::new();
         self.data.lock().visit_by_topic(topic, |ent| {
-            if crate::entity::entity_kind(&ent) == kind {
+            if entity_kind(&ent) == kind {
                 res.push(ent);
             }
         });
@@ -67,22 +70,22 @@ impl Graph {
         let mut diagnostics = Vec::new();
 
         for publisher in publishers {
-            let Some(publisher) = crate::entity::entity_get_endpoint(&publisher) else {
+            let Some(publisher) = entity_get_endpoint(&publisher) else {
                 continue;
             };
-            let Ok(offered) = crate::qos::QosProfile::try_from(publisher.qos) else {
+            let Ok(offered) = QosProfile::try_from(publisher.qos) else {
                 continue;
             };
 
             for subscription in &subscriptions {
-                let Some(subscription) = crate::entity::entity_get_endpoint(subscription) else {
+                let Some(subscription) = entity_get_endpoint(subscription) else {
                     continue;
                 };
-                let Ok(requested) = crate::qos::QosProfile::try_from(subscription.qos) else {
+                let Ok(requested) = QosProfile::try_from(subscription.qos) else {
                     continue;
                 };
                 let compatibility = requested.compatibility_with_offered(&offered);
-                if compatibility != crate::qos::QosCompatibility::Compatible {
+                if compatibility != QosCompatibility::Compatible {
                     tracing::warn!(
                         topic = %topic,
                         publisher_qos = ?publisher.qos,
@@ -110,7 +113,7 @@ impl Graph {
 
         let mut res = Vec::new();
         self.data.lock().visit_by_node(node, |ent| {
-            if crate::entity::entity_kind(&ent) == kind
+            if entity_kind(&ent) == kind
                 && let Entity::Endpoint(endpoint) = &*ent
             {
                 res.push(endpoint.clone());
@@ -126,7 +129,7 @@ impl Graph {
         assert!(matches!(kind, EntityKind::Service | EntityKind::Client));
         let mut total = 0;
         self.data.lock().visit_by_service(service_name, |ent| {
-            if crate::entity::entity_kind(&ent) == kind {
+            if entity_kind(&ent) == kind {
                 total += 1;
             }
         });
@@ -144,7 +147,7 @@ impl Graph {
         assert!(matches!(kind, EntityKind::Service | EntityKind::Client));
         let mut res = Vec::new();
         self.data.lock().visit_by_service(service_name, |ent| {
-            if crate::entity::entity_kind(&ent) == kind {
+            if entity_kind(&ent) == kind {
                 res.push(ent);
             }
         });
@@ -182,7 +185,7 @@ impl Graph {
         data.parse_pending();
 
         data.visit_by_node(node_key, |ent| {
-            if let Some(enp) = crate::entity::entity_get_endpoint(&ent)
+            if let Some(enp) = entity_get_endpoint(&ent)
                 && enp.entity_kind() == kind
                 && let Some(type_info) = &enp.type_info
             {

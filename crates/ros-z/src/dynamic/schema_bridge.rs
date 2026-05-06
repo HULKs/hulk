@@ -11,6 +11,7 @@ use super::schema::{
     FieldSchema, PrimitiveType, RuntimeDynamicEnumPayload, RuntimeDynamicEnumVariant, Schema,
     SequenceLength, TypeShape,
 };
+use crate::entity::SchemaHash;
 
 pub fn schema_to_bundle(root_name: &str, schema: &Schema) -> Result<SchemaBundle, DynamicError> {
     let mut definitions = BTreeMap::new();
@@ -32,7 +33,7 @@ pub fn schema_to_bundle(root_name: &str, schema: &Schema) -> Result<SchemaBundle
 pub fn schema_hash_with_root_name(
     root_name: &str,
     schema: &Schema,
-) -> Result<crate::entity::SchemaHash, DynamicError> {
+) -> Result<SchemaHash, DynamicError> {
     Ok(ros_z_schema::compute_hash(&schema_to_bundle(
         root_name, schema,
     )?))

@@ -9,7 +9,7 @@ use zenoh_buffers::ZBuf;
 use crate::dynamic::error::DynamicError;
 use crate::dynamic::message::DynamicStruct;
 use crate::dynamic::schema::{
-    PrimitiveType, RuntimeDynamicEnumPayload, Schema, SequenceLength, TypeShape,
+    FieldSchema, PrimitiveType, RuntimeDynamicEnumPayload, Schema, SequenceLength, TypeShape,
 };
 use crate::dynamic::value::{DynamicNamedValue, DynamicValue, EnumPayloadValue, EnumValue};
 
@@ -103,7 +103,7 @@ fn serialize_root_value(
 
 fn serialize_struct_fields(
     value: &DynamicStruct,
-    fields: &[crate::dynamic::schema::FieldSchema],
+    fields: &[FieldSchema],
     writer: &mut CdrWriter<LittleEndian>,
 ) -> Result<(), DynamicError> {
     value.validate_fields(fields)?;

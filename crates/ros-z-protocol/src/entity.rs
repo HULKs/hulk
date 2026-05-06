@@ -9,7 +9,7 @@ use core::{fmt::Display, ops::Deref};
 pub use ros_z_schema::SchemaHash;
 use zenoh::{key_expr::KeyExpr, session::ZenohId};
 
-use crate::qos::QosProfile;
+use crate::qos::{QosDecodeError, QosProfile};
 
 /// Placeholder for empty namespace/enclave.
 pub const EMPTY_PLACEHOLDER: &str = "%";
@@ -232,7 +232,7 @@ pub enum EntityConversionError {
     MissingTopicHash,
     MissingTopicQoS,
     ParsingError,
-    QosDecodeError(crate::qos::QosDecodeError),
+    QosDecodeError(QosDecodeError),
 }
 
 impl Display for EntityConversionError {

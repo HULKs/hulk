@@ -12,6 +12,7 @@ use std::marker::PhantomData;
 
 use crate::buffer::CdrBuffer;
 use crate::error::{Error, Result};
+use crate::plain::CdrPlain;
 
 /// Low-level CDR writer with alignment handling.
 ///
@@ -172,7 +173,7 @@ impl<'a, BO: ByteOrder, B: CdrBuffer> CdrWriter<'a, BO, B> {
     /// Only available on little-endian hosts where CDR wire layout == memory layout.
     #[cfg(target_endian = "little")]
     #[inline]
-    pub fn write_pod_slice<T: crate::plain::CdrPlain + bytemuck::Pod>(&mut self, slice: &[T]) {
+    pub fn write_pod_slice<T: CdrPlain + bytemuck::Pod>(&mut self, slice: &[T]) {
         debug_assert!(!slice.is_empty());
         self.align(std::mem::align_of::<T>());
         self.buffer.extend_from_slice(bytemuck::cast_slice(slice));
@@ -371,10 +372,7 @@ impl<'a, BO: ByteOrder> CdrReader<'a, BO> {
     /// Only available on little-endian hosts where CDR wire layout == memory layout.
     #[cfg(target_endian = "little")]
     #[inline]
-    pub fn read_pod_slice<T: crate::plain::CdrPlain + bytemuck::Pod>(
-        &mut self,
-        count: usize,
-    ) -> Result<Vec<T>> {
+    pub fn read_pod_slice<T: CdrPlain + bytemuck::Pod>(&mut self, count: usize) -> Result<Vec<T>> {
         if count == 0 {
             return Ok(vec![]);
         }

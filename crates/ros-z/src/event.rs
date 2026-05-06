@@ -4,6 +4,7 @@ use std::sync::{Arc, Mutex};
 use zenoh::Result;
 
 use crate::EndpointGlobalId;
+use crate::entity::{EndpointKind, Entity};
 
 // Event kinds reported for ros-z endpoints.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -259,12 +260,10 @@ impl GraphEventManager {
 
     pub fn trigger_graph_change(
         &self,
-        entity: &crate::entity::Entity,
+        entity: &Entity,
         appeared: bool,
         _local_zid: zenoh::session::ZenohId,
     ) {
-        use crate::entity::EndpointKind;
-
         let change = if appeared { 1 } else { -1 };
 
         // Trigger graph guard conditions for ALL graph changes (local and remote)
@@ -280,18 +279,18 @@ impl GraphEventManager {
         // When a publisher appears/disappears, subscriptions get SubscriptionMatched events
         // When a subscription appears/disappears, publishers get PublicationMatched events
         let event_type = match entity {
-            crate::entity::Entity::Endpoint(endpoint) => match endpoint.kind {
+            Entity::Endpoint(endpoint) => match endpoint.kind {
                 EndpointKind::Publisher => EndpointEventKind::SubscriptionMatched,
                 EndpointKind::Subscription => EndpointEventKind::PublicationMatched,
                 EndpointKind::Service => return, // TODO: Add service matched events
                 EndpointKind::Client => return,  // TODO: Add service matched events
             },
-            crate::entity::Entity::Node(_) => return, // Node changes don't trigger matched events
+            Entity::Node(_) => return, // Node changes don't trigger matched events
         };
 
         // Find all entities on the same topic that should be notified
         let changed_topic = match entity {
-            crate::entity::Entity::Endpoint(endpoint) => &endpoint.topic,
+            Entity::Endpoint(endpoint) => &endpoint.topic,
             _ => return,
         };
 

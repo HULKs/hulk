@@ -4,9 +4,9 @@ use serde::{Serialize, de::DeserializeOwned};
 use zenoh::Wait;
 
 use crate::{
-    Message,
+    Message, ServiceTypeInfo,
     attachment::Attachment,
-    msg::WireMessage,
+    msg::{Service, WireDecoder, WireMessage},
     node::Node,
     parameter::{NodeParameters, ParameterError, Result},
     pubsub::Publisher,
@@ -124,7 +124,7 @@ async fn register_server<S>(
     handler: impl Fn(&zenoh::query::Query) + Send + Sync + 'static,
 ) -> Result<ServiceServer<S, ()>>
 where
-    S: crate::msg::Service + crate::ServiceTypeInfo,
+    S: Service + ServiceTypeInfo,
 {
     node.create_service_server::<S>(name)
         .build_with_callback(move |query| handler(&query))
@@ -409,7 +409,7 @@ impl From<(bool, String, u64, Vec<String>)> for ResetNodeParameterResponse {
 fn decode_request<T>(query: &zenoh::query::Query) -> std::result::Result<T, String>
 where
     T: WireMessage,
-    for<'a> <T as WireMessage>::Codec: crate::msg::WireDecoder<Output = T, Input<'a> = &'a [u8]>,
+    for<'a> <T as WireMessage>::Codec: WireDecoder<Output = T, Input<'a> = &'a [u8]>,
 {
     let payload = query
         .payload()

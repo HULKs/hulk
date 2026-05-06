@@ -44,6 +44,7 @@ use zenoh::Result;
 
 use crate::msg::{SerdeCdrCodec, WireDecoder, WireMessage};
 use crate::pubsub::SubscriberBuilder;
+use crate::qos::QosProfile;
 use crate::time::Time;
 
 // ---------------------------------------------------------------------------
@@ -389,7 +390,7 @@ impl<T: WireMessage, S> CacheBuilder<T, S, ZenohStamp> {
     }
 
     /// Apply a QoS profile to the underlying subscriber.
-    pub fn with_qos(mut self, qos: crate::qos::QosProfile) -> Self {
+    pub fn with_qos(mut self, qos: QosProfile) -> Self {
         self.sub_builder = self.sub_builder.qos(qos);
         self
     }
@@ -471,7 +472,7 @@ where
     }
 
     /// Apply a QoS profile to the underlying subscriber.
-    pub fn with_qos(mut self, qos: crate::qos::QosProfile) -> Self {
+    pub fn with_qos(mut self, qos: QosProfile) -> Self {
         self.sub_builder = self.sub_builder.qos(qos);
         self
     }

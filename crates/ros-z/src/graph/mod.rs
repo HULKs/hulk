@@ -12,7 +12,7 @@ pub use query::QosIncompatibility;
 pub use snapshot::{GraphSnapshot, NodeSnapshot, ServiceSnapshot, TopicSnapshot};
 use state::GraphData;
 
-use crate::entity::Entity;
+use crate::entity::{ADMIN_SPACE, Entity, entity_to_liveliness_key_expr};
 use crate::event::GraphEventManager;
 use zenoh::{Result, Session, pubsub::Subscriber, session::ZenohId};
 
@@ -57,7 +57,7 @@ impl Graph {
     }
 
     pub async fn new_with_options(session: &Session, options: GraphOptions) -> Result<Self> {
-        let liveliness_pattern = format!("{}/**", crate::entity::ADMIN_SPACE);
+        let liveliness_pattern = format!("{}/**", ADMIN_SPACE);
 
         Self::new_with_pattern_and_options(
             session,
@@ -144,7 +144,7 @@ impl Graph {
     /// immediately visible in graph queries without waiting for Zenoh liveliness propagation
     pub fn add_local_entity(&self, entity: Entity) -> Result<()> {
         let mut data = self.data.lock();
-        let key_expr = crate::entity::entity_to_liveliness_key_expr(&entity)?;
+        let key_expr = entity_to_liveliness_key_expr(&entity)?;
         let is_new = data.insert_local_entity(entity.clone(), key_expr);
         drop(data);
 
@@ -159,7 +159,7 @@ impl Graph {
     /// Remove a local entity from the graph
     pub fn remove_local_entity(&self, entity: &Entity) -> Result<()> {
         let mut data = self.data.lock();
-        let key_expr = crate::entity::entity_to_liveliness_key_expr(entity)?;
+        let key_expr = entity_to_liveliness_key_expr(entity)?;
         data.remove_local_entity(entity, &key_expr);
         drop(data);
         Ok(())

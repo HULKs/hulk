@@ -9,12 +9,14 @@ use zenoh::{Result as ZResult, Session, Wait};
 
 use super::error::DynamicError;
 use super::schema::Schema;
-use super::schema_bridge::schema_to_bundle;
+use super::schema_bridge::{schema_hash_with_root_name, schema_to_bundle};
 use crate::ServiceTypeInfo;
 use crate::attachment::Attachment;
-use crate::entity::{SchemaHash, TypeInfo};
+use crate::context::GlobalCounter;
+use crate::entity::{EndpointEntity, EndpointKind, NodeEntity, SchemaHash, TypeInfo};
 use crate::msg::{SerdeCdrCodec, Service, WireDecoder, WireEncoder, WireMessage};
 use crate::service::{ServiceServer, ServiceServerBuilder};
+use crate::time::Clock;
 
 type SchemaVersions = HashMap<SchemaHash, RegisteredSchema>;
 type SchemaRegistry = HashMap<String, SchemaVersions>;
@@ -110,7 +112,7 @@ impl RegisteredSchema {
         schema: Schema,
     ) -> std::result::Result<Self, DynamicError> {
         let root_name = root_name.into();
-        let schema_hash = crate::dynamic::schema_hash_with_root_name(&root_name, &schema)?;
+        let schema_hash = schema_hash_with_root_name(&root_name, &schema)?;
 
         Ok(Self {
             root_name,
@@ -136,12 +138,12 @@ pub(crate) struct SchemaServiceNodeIdentity<'a> {
 fn schema_service_server_builder(
     session: Arc<Session>,
     node: SchemaServiceNodeIdentity<'_>,
-    counter: &crate::context::GlobalCounter,
-    clock: &crate::time::Clock,
+    counter: &GlobalCounter,
+    clock: &Clock,
 ) -> ServiceServerBuilder<GetSchema> {
     let service_name = "~get_schema";
 
-    let node_entity = crate::entity::NodeEntity::new(
+    let node_entity = NodeEntity::new(
         session.zid(),
         node.id,
         node.name.to_string(),
@@ -149,10 +151,10 @@ fn schema_service_server_builder(
         String::new(),
     );
 
-    let entity = crate::entity::EndpointEntity {
+    let entity = EndpointEntity {
         id: counter.increment(),
         node: Some(node_entity),
-        kind: crate::entity::EndpointKind::Service,
+        kind: EndpointKind::Service,
         topic: service_name.to_string(),
         type_info: Some(GetSchema::service_type_info()),
         qos: Default::default(),
@@ -170,8 +172,8 @@ impl SchemaService {
     pub(crate) async fn new(
         session: Arc<Session>,
         node: SchemaServiceNodeIdentity<'_>,
-        counter: &crate::context::GlobalCounter,
-        clock: &crate::time::Clock,
+        counter: &GlobalCounter,
+        clock: &Clock,
     ) -> ZResult<Self> {
         let schemas: Arc<RwLock<SchemaRegistry>> = Arc::new(RwLock::new(HashMap::new()));
         let server_builder = schema_service_server_builder(session, node, counter, clock);

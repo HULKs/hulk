@@ -7,7 +7,8 @@ use tracing::{debug, warn};
 use zenoh::liveliness::LivelinessToken;
 use zenoh::{Result, Session, sample::Sample};
 
-use crate::entity::{EndpointEntity, EntityKind};
+use crate::dynamic::{DynamicCdrCodec, DynamicPayload, TypeShape, schema_tree_hash};
+use crate::entity::{EndpointEntity, EntityKind, TypeInfo, endpoint_global_id};
 use crate::event::EventsManager;
 use crate::graph::Graph;
 use crate::impl_with_type_info;
@@ -17,6 +18,7 @@ use crate::pubsub::raw::{self, RawSubscriberBuilder};
 use crate::pubsub::replay::{self, TransientLocalReplayCoordinator};
 use crate::qos::QosProfile;
 use crate::queue::BoundedQueue;
+use crate::topic_name::qualify_topic_name;
 use ros_z_protocol::qos::{QosDurability, QosHistory};
 
 pub(super) fn subscriber_queue_capacity(qos: &ros_z_protocol::qos::QosProfile) -> usize {
@@ -30,7 +32,7 @@ pub struct SubscriberBuilder<T, C = <T as crate::Message>::Codec> {
     pub(crate) entity: EndpointEntity,
     pub(crate) session: Arc<Session>,
     pub(crate) graph: Arc<Graph>,
-    pub(crate) dyn_schema: Option<Arc<crate::dynamic::schema::TypeShape>>,
+    pub(crate) dyn_schema: Option<Arc<TypeShape>>,
     pub(crate) locality: Option<zenoh::sample::Locality>,
     pub(crate) transient_local_replay_timeout: Duration,
     pub(crate) _phantom_data: PhantomData<(T, C)>,
@@ -100,15 +102,11 @@ where
     }
 
     /// Set the dynamic root schema for runtime-typed messages.
-    pub fn dyn_root_schema(
-        mut self,
-        root_name: &str,
-        schema: Arc<crate::dynamic::schema::TypeShape>,
-    ) -> Self {
+    pub fn dyn_root_schema(mut self, root_name: &str, schema: Arc<TypeShape>) -> Self {
         if self.entity.type_info.is_none()
-            && let Some(hash) = crate::dynamic::schema_tree_hash(root_name, &schema)
+            && let Some(hash) = schema_tree_hash(root_name, &schema)
         {
-            self.entity.type_info = Some(crate::entity::TypeInfo::with_hash(root_name, hash));
+            self.entity.type_info = Some(TypeInfo::with_hash(root_name, hash));
         }
 
         self.dyn_schema = Some(schema);
@@ -154,7 +152,7 @@ where
             ));
         };
         let qualified_topic =
-            crate::topic_name::qualify_topic_name(&self.entity.topic, &node.namespace, &node.name)
+            qualify_topic_name(&self.entity.topic, &node.namespace, &node.name)
                 .map_err(|e| zenoh::Error::from(format!("Failed to qualify topic: {}", e)))?;
 
         self.entity.topic = qualified_topic.clone();
@@ -285,7 +283,7 @@ where
             )
             .await?;
 
-        let endpoint_global_id = crate::entity::endpoint_global_id(&builder.entity);
+        let endpoint_global_id = endpoint_global_id(&builder.entity);
 
         debug!("[SUB] Subscriber ready: topic={}", builder.entity.topic);
 
@@ -309,7 +307,7 @@ pub struct Subscriber<T, C: WireDecoder = <T as crate::Message>::Codec> {
     graph: Arc<Graph>,
     /// Schema for dynamic message deserialization.
     /// Required when using `DynamicStruct` with `DynamicCdrCodec`.
-    dyn_schema: Option<Arc<crate::dynamic::schema::TypeShape>>,
+    dyn_schema: Option<Arc<TypeShape>>,
     _phantom_data: PhantomData<(T, C)>,
 }
 
@@ -418,7 +416,7 @@ where
 }
 
 // Specialized implementation for DynamicPayload
-impl Subscriber<crate::dynamic::DynamicPayload, crate::dynamic::DynamicCdrCodec> {
+impl Subscriber<DynamicPayload, DynamicCdrCodec> {
     /// Receive and deserialize the next dynamic message.
     ///
     /// This method requires that the subscriber was built with `.dyn_schema()`.
@@ -433,11 +431,11 @@ impl Subscriber<crate::dynamic::DynamicPayload, crate::dynamic::DynamicCdrCodec>
         topic = %self.entity.topic,
         payload_len = tracing::field::Empty
     ))]
-    pub async fn recv(&self) -> Result<crate::dynamic::DynamicPayload> {
+    pub async fn recv(&self) -> Result<DynamicPayload> {
         self.recv_with_metadata().await.map(Received::into_message)
     }
 
-    pub async fn recv_with_metadata(&self) -> Result<Received<crate::dynamic::DynamicPayload>> {
+    pub async fn recv_with_metadata(&self) -> Result<Received<DynamicPayload>> {
         let schema = self
             .dyn_schema
             .as_ref()
@@ -446,13 +444,13 @@ impl Subscriber<crate::dynamic::DynamicPayload, crate::dynamic::DynamicCdrCodec>
         let sample = self.queue.recv_async().await;
         let payload = sample.payload().to_bytes();
 
-        let message = crate::dynamic::DynamicCdrCodec::deserialize((&payload, schema))
+        let message = DynamicCdrCodec::deserialize((&payload, schema))
             .map_err(|e| zenoh::Error::from(e.to_string()))?;
         Ok(Received::from_sample(&sample, message))
     }
 
     /// Get the dynamic schema.
-    pub fn schema(&self) -> Option<&crate::dynamic::schema::TypeShape> {
+    pub fn schema(&self) -> Option<&TypeShape> {
         self.dyn_schema.as_ref().map(|s| s.as_ref())
     }
 }

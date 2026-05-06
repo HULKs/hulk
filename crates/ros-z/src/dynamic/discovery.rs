@@ -4,7 +4,7 @@ use std::{collections::BTreeSet, sync::Arc};
 
 use crate::{
     dynamic::{DynamicError, Schema},
-    entity::{Entity, EntityKind, SchemaHash},
+    entity::{Entity, EntityKind, SchemaHash, TypeInfo},
     graph::Graph,
     node::Node,
     topic_name::qualify_topic_name,
@@ -169,10 +169,8 @@ impl<'a> SchemaDiscovery<'a> {
     }
 }
 
-pub(crate) fn discovered_schema_type_info(
-    discovered: &DiscoveredTopicSchema,
-) -> crate::entity::TypeInfo {
-    crate::entity::TypeInfo::with_hash(&discovered.root_name, discovered.schema_hash)
+pub(crate) fn discovered_schema_type_info(discovered: &DiscoveredTopicSchema) -> TypeInfo {
+    TypeInfo::with_hash(&discovered.root_name, discovered.schema_hash)
 }
 
 #[cfg(test)]

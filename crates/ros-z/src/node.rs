@@ -7,13 +7,16 @@ use crate::{
     dynamic::{
         DiscoveredTopicSchema, DynamicCdrCodec, DynamicError, DynamicPayload,
         DynamicPublisherBuilder, DynamicSubscriberBuilder, Schema, SchemaDiscovery, SchemaService,
-        discovered_schema_type_info, schema_service::SchemaServiceNodeIdentity,
+        discovered_schema_type_info, schema_hash_with_root_name,
+        schema_service::SchemaServiceNodeIdentity, schema_tree_hash,
     },
     entity::*,
     graph::Graph,
-    msg::{Message, Service, WireMessage},
+    msg::{Message, Service, WireDecoder, WireEncoder, WireMessage},
     pubsub::{DEFAULT_TRANSIENT_LOCAL_REPLAY_TIMEOUT, PublisherBuilder, SubscriberBuilder},
     service::{ServiceClientBuilder, ServiceServerBuilder},
+    shm::ShmConfig,
+    time::{Clock, Timer},
 };
 use tracing::{debug, info, warn};
 use zenoh::{Result, Session, liveliness::LivelinessToken};
@@ -35,8 +38,8 @@ pub struct Node {
     counter: Arc<GlobalCounter>,
     pub(crate) graph: Arc<Graph>,
     _lv_token: LivelinessToken,
-    pub(crate) clock: crate::time::Clock,
-    pub(crate) shm_config: Option<Arc<crate::shm::ShmConfig>>,
+    pub(crate) clock: Clock,
+    pub(crate) shm_config: Option<Arc<ShmConfig>>,
     runtime_parameter_inputs: RuntimeParameterInputs,
     parameter_binding_state: Arc<parking_lot::Mutex<bool>>,
     /// Optional schema service for this node.
@@ -60,8 +63,8 @@ pub struct NodeBuilder {
     pub(crate) session: Arc<Session>,
     pub(crate) counter: Arc<GlobalCounter>,
     pub(crate) graph: Arc<Graph>,
-    pub(crate) clock: crate::time::Clock,
-    pub(crate) shm_config: Option<Arc<crate::shm::ShmConfig>>,
+    pub(crate) clock: Clock,
+    pub(crate) shm_config: Option<Arc<ShmConfig>>,
     pub(crate) runtime_parameter_inputs: RuntimeParameterInputs,
     /// Whether this node should expose its default schema service.
     pub(crate) enable_schema_service: bool,
@@ -114,7 +117,7 @@ impl NodeBuilder {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn with_shm_config(mut self, config: crate::shm::ShmConfig) -> Self {
+    pub fn with_shm_config(mut self, config: ShmConfig) -> Self {
         self.shm_config = Some(Arc::new(config));
         self
     }
@@ -162,7 +165,7 @@ impl NodeBuilder {
             self.namespace.clone(),
             self.enclave,
         );
-        let liveliness_token_key_expr = crate::entity::node_lv_token_key_expr(&node)?;
+        let liveliness_token_key_expr = node_lv_token_key_expr(&node)?;
         debug!("[NOD] Liveliness token KE: {}", liveliness_token_key_expr);
 
         let lv_token = self
@@ -211,10 +214,7 @@ impl NodeBuilder {
 }
 
 fn typed_message_type_info<T: Message>(schema: &Schema) -> TypeInfo {
-    TypeInfo::new(
-        T::type_name(),
-        crate::dynamic::schema_tree_hash(T::type_name(), schema),
-    )
+    TypeInfo::new(T::type_name(), schema_tree_hash(T::type_name(), schema))
 }
 
 impl Node {
@@ -232,7 +232,7 @@ impl Node {
     pub fn publisher<T>(&self, topic: &str) -> PublisherBuilder<T>
     where
         T: Message,
-        T::Codec: crate::msg::WireEncoder,
+        T::Codec: WireEncoder,
     {
         debug!("[NOD] Creating publisher: topic={}", topic);
         let schema = T::schema();
@@ -259,7 +259,7 @@ impl Node {
     pub fn publisher_with_type_info<T>(
         &self,
         topic: &str,
-        type_info: Option<crate::entity::TypeInfo>,
+        type_info: Option<TypeInfo>,
     ) -> PublisherBuilder<T, T::Codec>
     where
         T: WireMessage,
@@ -270,10 +270,10 @@ impl Node {
     fn publisher_impl<T, S>(
         &self,
         topic: &str,
-        type_info: Option<crate::entity::TypeInfo>,
+        type_info: Option<TypeInfo>,
     ) -> PublisherBuilder<T, S>
     where
-        S: crate::msg::WireEncoder,
+        S: WireEncoder,
     {
         // Note: Topic qualification happens in PublisherBuilder::build()
         // to allow error handling in the Result type
@@ -307,7 +307,7 @@ impl Node {
     pub fn subscriber<T>(&self, topic: &str) -> SubscriberBuilder<T>
     where
         T: Message,
-        T::Codec: crate::msg::WireDecoder,
+        T::Codec: WireDecoder,
     {
         debug!("[NOD] Creating subscriber: topic={}", topic);
         let schema = T::schema();
@@ -321,7 +321,7 @@ impl Node {
     pub fn subscriber_with_type_info<T>(
         &self,
         topic: &str,
-        type_info: Option<crate::entity::TypeInfo>,
+        type_info: Option<TypeInfo>,
     ) -> SubscriberBuilder<T, T::Codec>
     where
         T: WireMessage,
@@ -332,10 +332,10 @@ impl Node {
     fn subscriber_impl<T, S>(
         &self,
         topic: &str,
-        type_info: Option<crate::entity::TypeInfo>,
+        type_info: Option<TypeInfo>,
     ) -> SubscriberBuilder<T, S>
     where
-        S: crate::msg::WireDecoder,
+        S: WireDecoder,
     {
         // Note: Topic qualification happens in SubscriberBuilder::build()
         // to allow error handling in the Result type
@@ -396,7 +396,7 @@ impl Node {
     ) -> CacheBuilder<T, <T as Message>::Codec>
     where
         T: WireMessage + Message,
-        for<'a> <T as Message>::Codec: crate::msg::WireDecoder<Input<'a> = &'a [u8], Output = T>,
+        for<'a> <T as Message>::Codec: WireDecoder<Input<'a> = &'a [u8], Output = T>,
     {
         debug!(
             "[NOD] Creating cache: topic={}, capacity={}",
@@ -411,7 +411,7 @@ impl Node {
     ///
     /// This is a thin convenience wrapper around [`crate::time::Clock::timer`]
     /// so node code can express periodic work directly from the node handle.
-    pub fn create_timer(&self, period: impl Into<Duration>) -> crate::time::Timer {
+    pub fn create_timer(&self, period: impl Into<Duration>) -> Timer {
         self.clock.timer(period)
     }
 
@@ -436,7 +436,7 @@ impl Node {
     pub fn create_service_impl<T>(
         &self,
         name: &str,
-        type_info: Option<crate::entity::TypeInfo>,
+        type_info: Option<TypeInfo>,
     ) -> ServiceServerBuilder<T> {
         // Note: Service name qualification happens in ServiceServerBuilder::build()
         // to allow error handling in the Result type
@@ -477,7 +477,7 @@ impl Node {
     pub fn create_client_impl<T>(
         &self,
         name: &str,
-        type_info: Option<crate::entity::TypeInfo>,
+        type_info: Option<TypeInfo>,
     ) -> ServiceClientBuilder<T> {
         // Note: Service name qualification happens in ServiceClientBuilder::build()
         // to allow error handling in the Result type
@@ -558,7 +558,7 @@ impl Node {
     }
 
     /// Access this node's clock.
-    pub fn clock(&self) -> &crate::time::Clock {
+    pub fn clock(&self) -> &Clock {
         &self.clock
     }
 
@@ -597,7 +597,7 @@ impl Node {
         root_name: &str,
         schema: Schema,
     ) -> DynamicPublisherBuilder {
-        let schema_hash = match crate::dynamic::schema_hash_with_root_name(root_name, &schema) {
+        let schema_hash = match schema_hash_with_root_name(root_name, &schema) {
             Ok(hash) => Some(hash),
             Err(error) => {
                 warn!(
@@ -632,7 +632,7 @@ impl Node {
         &self,
         topic: &str,
         discovery_timeout: Duration,
-    ) -> std::result::Result<DiscoveredTopicSchema, crate::dynamic::DynamicError> {
+    ) -> std::result::Result<DiscoveredTopicSchema, DynamicError> {
         SchemaDiscovery::new(self, discovery_timeout)
             .discover(topic)
             .await
@@ -738,7 +738,7 @@ impl Node {
         root_name: &str,
         schema: Schema,
     ) -> DynamicSubscriberBuilder {
-        let type_info = crate::dynamic::schema_hash_with_root_name(root_name, &schema)
+        let type_info = schema_hash_with_root_name(root_name, &schema)
             .ok()
             .map(|hash| TypeInfo::with_hash(root_name, hash));
         self.dynamic_subscriber_impl(topic, type_info, root_name, schema)
@@ -747,7 +747,7 @@ impl Node {
     fn dynamic_publisher_impl(
         &self,
         topic: &str,
-        type_info: Option<crate::entity::TypeInfo>,
+        type_info: Option<TypeInfo>,
         root_name: &str,
         schema: Schema,
     ) -> DynamicPublisherBuilder {
@@ -758,7 +758,7 @@ impl Node {
     fn dynamic_subscriber_impl(
         &self,
         topic: &str,
-        type_info: Option<crate::entity::TypeInfo>,
+        type_info: Option<TypeInfo>,
         root_name: &str,
         schema: Schema,
     ) -> DynamicSubscriberBuilder {

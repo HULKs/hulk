@@ -7,9 +7,11 @@ use tracing::{debug, warn};
 use zenoh::{Result, Session, Wait};
 
 use crate::{
+    config::{SessionConfigBuilder, session_config},
     entity::normalize_node_namespace,
     graph::{Graph, GraphOptions},
     node::NodeBuilder,
+    shm::{DEFAULT_SHM_POOL_SIZE, ShmConfig, ShmProviderBuilder},
     time::Clock,
 };
 
@@ -44,7 +46,7 @@ pub struct ContextBuilder {
     config_file: Option<PathBuf>,
     config_overrides: Vec<(String, serde_json::Value)>,
     enable_logging: bool,
-    shm_config: Option<Arc<crate::shm::ShmConfig>>,
+    shm_config: Option<Arc<ShmConfig>>,
     clock: Option<Clock>,
     runtime_parameter_inputs: RuntimeParameterInputs,
     graph_options: GraphOptions,
@@ -205,7 +207,7 @@ impl ContextBuilder {
     /// # }
     /// ```
     pub fn with_router_endpoint<S: Into<String>>(mut self, endpoint: S) -> Result<Self> {
-        let session_config = crate::config::SessionConfigBuilder::new()
+        let session_config = SessionConfigBuilder::new()
             .with_router_endpoint(&endpoint.into())
             .build_config()?;
         self.zenoh_config = Some(session_config);
@@ -268,12 +270,10 @@ impl ContextBuilder {
     /// # }
     /// ```
     pub fn with_shm_enabled(self) -> Result<Self> {
-        let provider = Arc::new(
-            crate::shm::ShmProviderBuilder::new(crate::shm::DEFAULT_SHM_POOL_SIZE).build()?,
-        );
+        let provider = Arc::new(ShmProviderBuilder::new(DEFAULT_SHM_POOL_SIZE).build()?);
         Ok(ContextBuilder::with_shm_config(
             self,
-            crate::shm::ShmConfig::new(provider),
+            ShmConfig::new(provider),
         ))
     }
 
@@ -295,10 +295,10 @@ impl ContextBuilder {
     /// # }
     /// ```
     pub fn with_shm_pool_size(self, size_bytes: usize) -> Result<Self> {
-        let provider = Arc::new(crate::shm::ShmProviderBuilder::new(size_bytes).build()?);
+        let provider = Arc::new(ShmProviderBuilder::new(size_bytes).build()?);
         Ok(ContextBuilder::with_shm_config(
             self,
-            crate::shm::ShmConfig::new(provider),
+            ShmConfig::new(provider),
         ))
     }
 
@@ -321,7 +321,7 @@ impl ContextBuilder {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn with_shm_config(mut self, config: crate::shm::ShmConfig) -> Self {
+    pub fn with_shm_config(mut self, config: ShmConfig) -> Self {
         self.shm_config = Some(Arc::new(config));
         self
     }
@@ -454,7 +454,7 @@ impl ContextBuilder {
             zenoh::Config::from_file(uri)?
         } else {
             // Default ros-z session config (requires router at localhost:7447).
-            crate::config::session_config()?
+            session_config()?
         };
 
         // Apply all JSON overrides
@@ -520,7 +520,7 @@ pub struct Context {
     namespace: String,
     enclave: String,
     graph: Arc<Graph>,
-    pub(crate) shm_config: Option<Arc<crate::shm::ShmConfig>>,
+    pub(crate) shm_config: Option<Arc<ShmConfig>>,
     pub(crate) clock: Clock,
     runtime_parameter_inputs: RuntimeParameterInputs,
 }
@@ -561,7 +561,7 @@ impl Context {
     }
 
     /// Get a reference to the graph for setting up event callbacks
-    pub fn graph(&self) -> &Arc<crate::graph::Graph> {
+    pub fn graph(&self) -> &Arc<Graph> {
         &self.graph
     }
 

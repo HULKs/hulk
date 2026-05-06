@@ -10,7 +10,9 @@ use zenoh::liveliness::LivelinessToken;
 use zenoh::{Result, Session};
 
 use crate::attachment::{Attachment, EndpointGlobalId};
-use crate::entity::{EndpointEntity, EntityKind};
+use crate::dynamic::{DynamicCdrCodec, DynamicPayload, TypeShape, schema_tree_hash};
+use crate::encoding::Encoding;
+use crate::entity::{EndpointEntity, EntityKind, TypeInfo, endpoint_global_id};
 use crate::event::EventsManager;
 use crate::graph::Graph;
 use crate::impl_with_type_info;
@@ -18,12 +20,14 @@ use crate::msg::WireEncoder;
 use crate::pubsub::metadata::PublicationId;
 use crate::pubsub::replay::{self, RetainedSample, TransientLocalCache};
 use crate::qos::QosProfile;
+use crate::shm::ShmConfig;
+use crate::time::Clock;
 use crate::topic_name;
 use ros_z_protocol::qos::{QosDurability, QosHistory, QosReliability};
 
 pub(super) fn validate_dynamic_publish_schema(
-    advertised_schema: Option<&Arc<crate::dynamic::TypeShape>>,
-    message: &crate::dynamic::DynamicPayload,
+    advertised_schema: Option<&Arc<TypeShape>>,
+    message: &DynamicPayload,
 ) -> Result<()> {
     let Some(advertised_schema) = advertised_schema else {
         return Ok(());
@@ -47,11 +51,11 @@ pub struct Publisher<T, C: WireEncoder = <T as crate::Message>::Codec> {
     inner: zenoh::pubsub::Publisher<'static>,
     _lv_token: LivelinessToken,
     attachment: bool,
-    clock: crate::time::Clock,
+    clock: Clock,
     events_mgr: Arc<Mutex<EventsManager>>,
-    shm_config: Option<Arc<crate::shm::ShmConfig>>,
+    shm_config: Option<Arc<ShmConfig>>,
     /// Schema for dynamic message publishing.
-    dyn_schema: Option<Arc<crate::dynamic::schema::TypeShape>>,
+    dyn_schema: Option<Arc<TypeShape>>,
     /// Cached Zenoh CDR encoding for all published messages.
     encoding: Arc<zenoh::bytes::Encoding>,
     graph: Arc<Graph>,
@@ -158,12 +162,12 @@ pub struct PublisherBuilder<T, C = <T as crate::Message>::Codec> {
     pub(crate) entity: EndpointEntity,
     pub(crate) session: Arc<Session>,
     pub(crate) graph: Arc<Graph>,
-    pub(crate) clock: crate::time::Clock,
+    pub(crate) clock: Clock,
     pub(crate) attachment: bool,
-    pub(crate) shm_config: Option<Arc<crate::shm::ShmConfig>>,
+    pub(crate) shm_config: Option<Arc<ShmConfig>>,
     /// Schema for dynamic message publishing.
     /// When set, the schema will be registered with the schema service.
-    pub(crate) dyn_schema: Option<Arc<crate::dynamic::schema::TypeShape>>,
+    pub(crate) dyn_schema: Option<Arc<TypeShape>>,
     pub(crate) _phantom_data: PhantomData<(T, C)>,
 }
 
@@ -203,7 +207,7 @@ impl<T, C> PublisherBuilder<T, C> {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn shm_config(mut self, config: crate::shm::ShmConfig) -> Self {
+    pub fn shm_config(mut self, config: ShmConfig) -> Self {
         self.shm_config = Some(Arc::new(config));
         self
     }
@@ -246,15 +250,11 @@ impl<T, C> PublisherBuilder<T, C> {
     }
 
     /// Set the dynamic root schema for runtime-typed publishers.
-    pub fn dyn_root_schema(
-        mut self,
-        root_name: &str,
-        schema: Arc<crate::dynamic::schema::TypeShape>,
-    ) -> Self {
+    pub fn dyn_root_schema(mut self, root_name: &str, schema: Arc<TypeShape>) -> Self {
         if self.entity.type_info.is_none()
-            && let Some(hash) = crate::dynamic::schema_tree_hash(root_name, &schema)
+            && let Some(hash) = schema_tree_hash(root_name, &schema)
         {
-            self.entity.type_info = Some(crate::entity::TypeInfo::with_hash(root_name, hash));
+            self.entity.type_info = Some(TypeInfo::with_hash(root_name, hash));
         }
 
         self.dyn_schema = Some(schema);
@@ -314,7 +314,7 @@ where
 
         let transient_local_cache = replay::transient_local_cache_capacity(&self.entity.qos)
             .map(|capacity| Arc::new(TransientLocalCache::new(capacity)));
-        let endpoint_global_id = crate::entity::endpoint_global_id(&self.entity);
+        let endpoint_global_id = endpoint_global_id(&self.entity);
 
         Ok((
             data_key_expr,
@@ -366,7 +366,7 @@ where
             .liveliness()
             .declare_token((*liveliness_key_expr).clone())
             .await?;
-        let encoding = Arc::new(crate::encoding::Encoding::cdr().to_zenoh_encoding());
+        let encoding = Arc::new(Encoding::cdr().to_zenoh_encoding());
         debug!("[PUB] Using encoding: {}", encoding);
 
         Ok(Publisher {
@@ -539,8 +539,7 @@ where
         use zenoh_buffers::buffer::Buffer;
 
         if let Some(schema) = self.dyn_schema.as_ref()
-            && let Some(message) =
-                (message as &dyn std::any::Any).downcast_ref::<crate::dynamic::DynamicPayload>()
+            && let Some(message) = (message as &dyn std::any::Any).downcast_ref::<DynamicPayload>()
         {
             validate_dynamic_publish_schema(Some(schema), message)?;
         }
@@ -626,11 +625,11 @@ impl<T, C: WireEncoder> Publisher<T, C> {
 }
 
 // Specialized implementation for DynamicStruct publisher
-impl Publisher<crate::dynamic::DynamicPayload, crate::dynamic::DynamicCdrCodec> {
+impl Publisher<DynamicPayload, DynamicCdrCodec> {
     /// Get the dynamic schema used by this publisher.
     ///
     /// Returns `None` if the publisher was not created with `.dyn_schema()`.
-    pub fn schema(&self) -> Option<&crate::dynamic::schema::TypeShape> {
+    pub fn schema(&self) -> Option<&TypeShape> {
         self.dyn_schema.as_ref().map(|s| s.as_ref())
     }
 }

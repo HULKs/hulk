@@ -10,7 +10,7 @@ use serde::{Serialize, de::DeserializeOwned};
 use serde_json::Value;
 use tokio::sync::watch;
 
-use crate::{Message, entity::SchemaHash, node::Node};
+use crate::{Message, entity::SchemaHash, node::Node, time::Clock};
 
 use super::{
     FieldPath, LayerPath, NodeParametersSnapshot, ParameterError, ParameterKey,
@@ -47,7 +47,7 @@ pub struct NodeParametersInner<T> {
     pub(crate) type_name: String,
     pub(crate) schema_hash: SchemaHash,
     pub(crate) layers: Vec<PathBuf>,
-    clock: crate::time::Clock,
+    clock: Clock,
     commit_lock: Mutex<()>,
     hooks: Mutex<Vec<ValidateHook<T>>>,
     current: ArcSwap<NodeParametersSnapshot<T>>,
@@ -214,7 +214,7 @@ fn load_snapshot<T>(
     node_fqn: &str,
     parameter_key: &str,
     layers: &[PathBuf],
-    clock: &crate::time::Clock,
+    clock: &Clock,
     revision: u64,
 ) -> Result<NodeParametersSnapshot<T>>
 where
@@ -239,7 +239,7 @@ fn snapshot_from_parts<T>(
     node_fqn: &str,
     parameter_key: &str,
     layers: &[PathBuf],
-    clock: &crate::time::Clock,
+    clock: &Clock,
     revision: u64,
     layer_overlays: Vec<Value>,
 ) -> Result<NodeParametersSnapshot<T>>

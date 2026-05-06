@@ -16,17 +16,19 @@ use crate::topic_name;
 
 use crate::{
     attachment::{Attachment, EndpointGlobalId},
-    entity::EndpointEntity,
+    entity::{EndpointEntity, endpoint_global_id},
     impl_with_type_info,
     msg::{Service, WireDecoder, WireMessage},
+    qos::QosProfile,
     queue::BoundedQueue,
+    time::Clock,
 };
 
 #[derive(Debug)]
 pub struct ServiceClientBuilder<T> {
     pub(crate) entity: EndpointEntity,
     pub(crate) session: Arc<Session>,
-    pub(crate) clock: crate::time::Clock,
+    pub(crate) clock: Clock,
     pub(crate) _phantom_data: PhantomData<T>,
 }
 
@@ -59,7 +61,7 @@ pub struct ServiceClient<T: Service> {
     inner: zenoh::query::Querier<'static>,
     _lv_token: LivelinessToken,
     topic: String,
-    clock: crate::time::Clock,
+    clock: Clock,
     _phantom_data: PhantomData<T>,
 }
 
@@ -113,7 +115,7 @@ where
             sequence_number: AtomicUsize::new(1), // Start at 1; zero is reserved for missing sequence values.
             inner,
             _lv_token: lv_token,
-            endpoint_global_id: crate::entity::endpoint_global_id(&self.entity),
+            endpoint_global_id: endpoint_global_id(&self.entity),
             topic: self.entity.topic.clone(),
             clock: self.clock,
             _phantom_data: Default::default(),
@@ -304,13 +306,13 @@ where
 pub struct ServiceServerBuilder<T> {
     pub(crate) entity: EndpointEntity,
     pub(crate) session: Arc<Session>,
-    pub(crate) clock: crate::time::Clock,
+    pub(crate) clock: Clock,
     pub(crate) _phantom_data: PhantomData<T>,
 }
 
 impl<T> ServiceClientBuilder<T> {
     /// Set the QoS profile for this client.
-    pub fn with_qos(mut self, qos: crate::qos::QosProfile) -> Self {
+    pub fn with_qos(mut self, qos: QosProfile) -> Self {
         self.entity.qos = qos.to_protocol_qos();
         self
     }
@@ -323,7 +325,7 @@ impl<T> ServiceClientBuilder<T> {
 
 impl<T> ServiceServerBuilder<T> {
     /// Set the QoS profile for this server.
-    pub fn with_qos(mut self, qos: crate::qos::QosProfile) -> Self {
+    pub fn with_qos(mut self, qos: QosProfile) -> Self {
         self.entity.qos = qos.to_protocol_qos();
         self
     }
@@ -338,7 +340,7 @@ pub struct ServiceServer<T: Service, Q = Query> {
     key_expr: KeyExpr<'static>,
     _inner: zenoh::query::Queryable<()>,
     _lv_token: LivelinessToken,
-    clock: crate::time::Clock,
+    clock: Clock,
     pub(crate) queue: Option<Arc<BoundedQueue<Q>>>,
     _phantom_data: PhantomData<T>,
 }
@@ -500,7 +502,7 @@ pub struct ServiceReply<T: Service> {
     request_id: Option<RequestId>,
     key_expr: KeyExpr<'static>,
     query: Query,
-    clock: crate::time::Clock,
+    clock: Clock,
     _phantom_data: PhantomData<T>,
 }
 
@@ -662,10 +664,11 @@ mod tests {
     use std::time::Duration;
 
     use crate::{
-        Message, ServiceTypeInfo,
+        Message, SerdeCdrCodec, ServiceTypeInfo,
         context::ContextBuilder,
+        dynamic::{RuntimeFieldSchema, Schema, TypeShape},
         entity::{SchemaHash, TypeInfo},
-        msg::WireMessage,
+        msg::{Service, WireMessage},
     };
     use ros_z_schema::TypeName;
     use serde::{Deserialize, Serialize};
@@ -678,7 +681,7 @@ mod tests {
     }
 
     impl Message for AddTwoIntsRequest {
-        type Codec = crate::SerdeCdrCodec<Self>;
+        type Codec = SerdeCdrCodec<Self>;
 
         fn type_name() -> &'static str {
             "test_msgs::AddTwoIntsRequest"
@@ -688,19 +691,19 @@ mod tests {
             SchemaHash::zero()
         }
 
-        fn schema() -> crate::dynamic::Schema {
-            std::sync::Arc::new(crate::dynamic::TypeShape::Struct {
+        fn schema() -> Schema {
+            std::sync::Arc::new(TypeShape::Struct {
                 name: TypeName::new("test_msgs::AddTwoIntsRequest").expect("valid type name"),
                 fields: vec![
-                    crate::dynamic::RuntimeFieldSchema::new("a", i64::schema()),
-                    crate::dynamic::RuntimeFieldSchema::new("b", i64::schema()),
+                    RuntimeFieldSchema::new("a", i64::schema()),
+                    RuntimeFieldSchema::new("b", i64::schema()),
                 ],
             })
         }
     }
 
     impl WireMessage for AddTwoIntsRequest {
-        type Codec = crate::msg::SerdeCdrCodec<AddTwoIntsRequest>;
+        type Codec = SerdeCdrCodec<AddTwoIntsRequest>;
     }
 
     #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
@@ -709,7 +712,7 @@ mod tests {
     }
 
     impl Message for AddTwoIntsResponse {
-        type Codec = crate::SerdeCdrCodec<Self>;
+        type Codec = SerdeCdrCodec<Self>;
 
         fn type_name() -> &'static str {
             "test_msgs::AddTwoIntsResponse"
@@ -719,24 +722,21 @@ mod tests {
             SchemaHash::zero()
         }
 
-        fn schema() -> crate::dynamic::Schema {
-            std::sync::Arc::new(crate::dynamic::TypeShape::Struct {
+        fn schema() -> Schema {
+            std::sync::Arc::new(TypeShape::Struct {
                 name: TypeName::new("test_msgs::AddTwoIntsResponse").expect("valid type name"),
-                fields: vec![crate::dynamic::RuntimeFieldSchema::new(
-                    "sum",
-                    i64::schema(),
-                )],
+                fields: vec![RuntimeFieldSchema::new("sum", i64::schema())],
             })
         }
     }
 
     impl WireMessage for AddTwoIntsResponse {
-        type Codec = crate::msg::SerdeCdrCodec<AddTwoIntsResponse>;
+        type Codec = SerdeCdrCodec<AddTwoIntsResponse>;
     }
 
     struct AddTwoInts;
 
-    impl crate::msg::Service for AddTwoInts {
+    impl Service for AddTwoInts {
         type Request = AddTwoIntsRequest;
         type Response = AddTwoIntsResponse;
     }

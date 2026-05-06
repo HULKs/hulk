@@ -8,7 +8,8 @@ use std::sync::Arc;
 
 use zenoh_buffers::ZBuf;
 
-use crate::msg::{WireDecoder, WireEncoder};
+use crate::encoding::Encoding;
+use crate::msg::{EncodedMessage, WireDecoder, WireEncoder};
 
 use super::error::DynamicError;
 use super::message::DynamicStruct;
@@ -79,11 +80,11 @@ impl DynamicCdrCodec {
     pub fn encode_message(
         input: &DynamicStruct,
         schema: &Schema,
-    ) -> Result<crate::msg::EncodedMessage, DynamicError> {
+    ) -> Result<EncodedMessage, DynamicError> {
         Self::ensure_message_schema_matches(input, schema)?;
-        Ok(crate::msg::EncodedMessage {
+        Ok(EncodedMessage {
             payload: input.to_cdr_zbuf()?,
-            encoding: crate::encoding::Encoding::cdr(),
+            encoding: Encoding::cdr(),
         })
     }
 
@@ -91,10 +92,10 @@ impl DynamicCdrCodec {
         DynamicStruct::from_cdr(bytes, schema)
     }
 
-    pub fn encode(input: &DynamicPayload) -> Result<crate::msg::EncodedMessage, DynamicError> {
-        Ok(crate::msg::EncodedMessage {
+    pub fn encode(input: &DynamicPayload) -> Result<EncodedMessage, DynamicError> {
+        Ok(EncodedMessage {
             payload: Self::try_serialize_payload_to_zbuf(input)?,
-            encoding: crate::encoding::Encoding::cdr(),
+            encoding: Encoding::cdr(),
         })
     }
 

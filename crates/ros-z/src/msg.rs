@@ -20,7 +20,8 @@ use crate::dynamic::{
     Schema, SequenceLength, TypeShape, schema_tree_hash,
 };
 use crate::encoding::Encoding;
-use crate::entity::SchemaHash;
+use crate::entity::{SchemaHash, TypeInfo};
+use crate::shm::ShmWriter;
 
 /// Error returned when CDR bytes cannot be decoded into the requested type.
 #[derive(Debug)]
@@ -197,8 +198,8 @@ pub trait Message: Send + Sync + Sized + 'static {
     }
 
     /// Type name plus schema hash advertised for this message.
-    fn type_info() -> crate::entity::TypeInfo {
-        crate::entity::TypeInfo::with_hash(Self::type_name(), Self::schema_hash())
+    fn type_info() -> TypeInfo {
+        TypeInfo::with_hash(Self::type_name(), Self::schema_hash())
     }
 }
 
@@ -231,10 +232,8 @@ macro_rules! impl_primitive_message {
                 $name
             }
 
-            fn schema() -> crate::dynamic::Schema {
-                Arc::new(crate::dynamic::TypeShape::Primitive(
-                    crate::dynamic::PrimitiveType::$primitive,
-                ))
+            fn schema() -> Schema {
+                Arc::new(TypeShape::Primitive(PrimitiveType::$primitive))
             }
         }
     };
@@ -373,7 +372,7 @@ impl Message for SocketAddr {
                                 "ip",
                                 Arc::new(TypeShape::Sequence {
                                     element: u8::schema(),
-                                    length: crate::dynamic::SequenceLength::Fixed(4),
+                                    length: SequenceLength::Fixed(4),
                                 }),
                             ),
                             RuntimeFieldSchema::new("port", u16::schema()),
@@ -656,10 +655,9 @@ where
         estimated_size: usize,
         provider: &ShmProvider<PosixShmProviderBackend>,
     ) -> zenoh::Result<(ZBuf, usize)> {
-        let mut writer = crate::shm::ShmWriter::new(provider, estimated_size)?;
+        let mut writer = ShmWriter::new(provider, estimated_size)?;
         writer.extend_from_slice(&CDR_HEADER_LE);
-        let mut serializer =
-            SerdeCdrSerializer::<LittleEndian, crate::shm::ShmWriter>::new(&mut writer);
+        let mut serializer = SerdeCdrSerializer::<LittleEndian, ShmWriter>::new(&mut writer);
         input
             .serialize(&mut serializer)
             .map_err(|e| zenoh::Error::from(format!("CDR serialization failed: {}", e)))?;
@@ -860,9 +858,9 @@ where
         estimated_size: usize,
         provider: &ShmProvider<PosixShmProviderBackend>,
     ) -> zenoh::Result<(ZBuf, usize)> {
-        let mut writer = crate::shm::ShmWriter::new(provider, estimated_size)?;
+        let mut writer = ShmWriter::new(provider, estimated_size)?;
         writer.extend_from_slice(&CDR_HEADER_LE);
-        let mut cdr_writer = CdrWriter::<LittleEndian, crate::shm::ShmWriter>::new(&mut writer);
+        let mut cdr_writer = CdrWriter::<LittleEndian, ShmWriter>::new(&mut writer);
         input.cdr_encode(&mut cdr_writer);
         let actual_size = writer.position();
         let zbuf = writer.into_zbuf()?;

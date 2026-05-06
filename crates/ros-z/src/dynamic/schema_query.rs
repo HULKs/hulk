@@ -2,6 +2,7 @@ use std::time::Duration;
 
 use tracing::{debug, warn};
 
+use super::schema_bridge::bundle_to_schema;
 use super::schema_service::{GetSchema, GetSchemaRequest, GetSchemaResponse};
 use super::{discovery::TopicSchemaCandidate, error::DynamicError, schema::Schema};
 use crate::entity::SchemaHash;
@@ -123,7 +124,7 @@ pub fn schema_from_response(response: &GetSchemaResponse) -> Result<Schema, Dyna
     }
 
     validate_response_hash(response, None)?;
-    crate::dynamic::schema_bridge::bundle_to_schema(&response.schema)
+    bundle_to_schema(&response.schema)
 }
 
 pub fn root_schema_from_response(
@@ -137,7 +138,7 @@ pub fn root_schema_from_response(
     }
 
     let schema_hash = validate_response_hash(response, None)?;
-    let schema = crate::dynamic::schema_bridge::bundle_to_schema(&response.schema)?;
+    let schema = bundle_to_schema(&response.schema)?;
     Ok((
         response.schema.root_name.as_str().to_string(),
         schema,
@@ -157,7 +158,7 @@ pub fn schema_from_response_with_hash(
     }
 
     validate_response_hash(response, Some(expected_hash))?;
-    crate::dynamic::schema_bridge::bundle_to_schema(&response.schema)
+    bundle_to_schema(&response.schema)
 }
 
 pub(crate) fn schema_from_response_for_candidate(
@@ -173,7 +174,7 @@ pub(crate) fn schema_from_response_for_candidate(
 
     let schema_hash = validate_response_hash(response, Some(candidate.schema_hash))?;
     validate_response_root_name(response, &candidate.type_name)?;
-    let schema = crate::dynamic::schema_bridge::bundle_to_schema(&response.schema)?;
+    let schema = bundle_to_schema(&response.schema)?;
     Ok((
         response.schema.root_name.as_str().to_string(),
         schema,

@@ -2,7 +2,7 @@ use std::{num::NonZeroUsize, sync::Arc};
 
 use crate::{
     ServiceTypeInfo,
-    msg::{Service, WireMessage},
+    msg::{Service, WireDecoder, WireMessage},
     node::Node,
     pubsub::Subscriber,
     qos::{QosDurability, QosHistory, QosProfile, QosReliability},
@@ -168,7 +168,7 @@ impl RemoteParameterClient {
         S::Request: WireMessage,
         S::Response: WireMessage,
         for<'a> <S::Response as WireMessage>::Codec:
-            crate::msg::WireDecoder<Output = S::Response, Input<'a> = &'a [u8]>,
+            WireDecoder<Output = S::Response, Input<'a> = &'a [u8]>,
     {
         let client = self.build_client::<S>(service_name).await?;
         client.call_async(request).await.map_err(map_remote_err)

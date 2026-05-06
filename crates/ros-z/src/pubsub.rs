@@ -18,7 +18,12 @@ mod tests {
     use super::*;
     use std::sync::Arc;
 
-    use crate::qos::QosProfile;
+    use crate::dynamic::{DynamicPayload, DynamicStruct, FieldSchema, PrimitiveType, TypeShape};
+    use crate::qos::{
+        QosDurability as RosQosDurability, QosHistory as RosQosHistory, QosProfile,
+        QosReliability as RosQosReliability,
+    };
+    use crate::topic_name::qualify_topic_name;
     use ros_z_protocol::qos::{QosDurability, QosHistory};
 
     #[test]
@@ -38,25 +43,25 @@ mod tests {
 
     #[test]
     fn test_qualify_absolute_topic_unchanged() {
-        let result = crate::topic_name::qualify_topic_name("/chatter", "/", "node").unwrap();
+        let result = qualify_topic_name("/chatter", "/", "node").unwrap();
         assert_eq!(result, "/chatter");
     }
 
     #[test]
     fn test_qualify_relative_topic_adds_leading_slash() {
-        let result = crate::topic_name::qualify_topic_name("chatter", "/", "node").unwrap();
+        let result = qualify_topic_name("chatter", "/", "node").unwrap();
         assert_eq!(result, "/chatter");
     }
 
     #[test]
     fn test_qualify_topic_with_namespace() {
-        let result = crate::topic_name::qualify_topic_name("chatter", "/ns", "node").unwrap();
+        let result = qualify_topic_name("chatter", "/ns", "node").unwrap();
         assert_eq!(result, "/ns/chatter");
     }
 
     #[test]
     fn test_qualify_topic_nested_ns() {
-        let result = crate::topic_name::qualify_topic_name("/ns/sub/topic", "/", "node").unwrap();
+        let result = qualify_topic_name("/ns/sub/topic", "/", "node").unwrap();
         assert_eq!(result, "/ns/sub/topic");
     }
 
@@ -69,7 +74,7 @@ mod tests {
     fn test_qos_reliability_encoding() {
         // Reliable is the default, BestEffort maps to protocol value
         let best_effort = QosProfile {
-            reliability: crate::qos::QosReliability::BestEffort,
+            reliability: RosQosReliability::BestEffort,
             ..Default::default()
         };
         let proto = best_effort.to_protocol_qos();
@@ -82,7 +87,7 @@ mod tests {
     #[test]
     fn test_qos_durability_encoding() {
         let transient = QosProfile {
-            durability: crate::qos::QosDurability::TransientLocal,
+            durability: RosQosDurability::TransientLocal,
             ..Default::default()
         };
         let proto = transient.to_protocol_qos();
@@ -96,7 +101,7 @@ mod tests {
     fn test_qos_keep_last_depth_preserved_in_protocol() {
         use std::num::NonZeroUsize;
         let qos = QosProfile {
-            history: crate::qos::QosHistory::KeepLast(NonZeroUsize::new(5).unwrap()),
+            history: RosQosHistory::KeepLast(NonZeroUsize::new(5).unwrap()),
             ..Default::default()
         };
         let proto = qos.to_protocol_qos();
@@ -120,36 +125,16 @@ mod tests {
 
     #[test]
     fn dynamic_publish_schema_validation_rejects_mismatched_message_schema() {
-        let advertised_schema = Arc::new(crate::dynamic::TypeShape::Primitive(
-            crate::dynamic::PrimitiveType::U8,
-        ));
-        let schema = Arc::new(crate::dynamic::TypeShape::Struct {
+        let advertised_schema = Arc::new(TypeShape::Primitive(PrimitiveType::U8));
+        let schema = Arc::new(TypeShape::Struct {
             name: ros_z_schema::TypeName::new("geometry_msgs::Vector3").unwrap(),
             fields: vec![
-                crate::dynamic::FieldSchema::new(
-                    "x",
-                    Arc::new(crate::dynamic::TypeShape::Primitive(
-                        crate::dynamic::PrimitiveType::F64,
-                    )),
-                ),
-                crate::dynamic::FieldSchema::new(
-                    "y",
-                    Arc::new(crate::dynamic::TypeShape::Primitive(
-                        crate::dynamic::PrimitiveType::F64,
-                    )),
-                ),
-                crate::dynamic::FieldSchema::new(
-                    "z",
-                    Arc::new(crate::dynamic::TypeShape::Primitive(
-                        crate::dynamic::PrimitiveType::F64,
-                    )),
-                ),
+                FieldSchema::new("x", Arc::new(TypeShape::Primitive(PrimitiveType::F64))),
+                FieldSchema::new("y", Arc::new(TypeShape::Primitive(PrimitiveType::F64))),
+                FieldSchema::new("z", Arc::new(TypeShape::Primitive(PrimitiveType::F64))),
             ],
         });
-        let message = crate::dynamic::DynamicPayload::from_struct(
-            crate::dynamic::DynamicStruct::new(&schema),
-        )
-        .unwrap();
+        let message = DynamicPayload::from_struct(DynamicStruct::new(&schema)).unwrap();
 
         let error = publisher::validate_dynamic_publish_schema(Some(&advertised_schema), &message)
             .expect_err("mismatched schemas should fail before publishing");

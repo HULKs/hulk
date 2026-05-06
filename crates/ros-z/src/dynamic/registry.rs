@@ -8,6 +8,7 @@ use crate::entity::SchemaHash;
 #[cfg(test)]
 use super::error::DynamicError;
 use super::schema::Schema;
+use super::schema_bridge::schema_hash_with_root_name;
 
 /// Global registry of dynamic root schemas.
 pub struct SchemaRegistry {
@@ -101,7 +102,7 @@ impl Default for SchemaRegistry {
 }
 
 fn registry_root_schema_hash(root_name: &str, schema: &Schema) -> Option<SchemaHash> {
-    crate::dynamic::schema_bridge::schema_hash_with_root_name(root_name, schema).ok()
+    schema_hash_with_root_name(root_name, schema).ok()
 }
 
 /// Get a root schema from the global registry by type name and schema hash.

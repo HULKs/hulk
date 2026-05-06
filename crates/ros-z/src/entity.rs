@@ -6,6 +6,8 @@
 // Re-export all entity types from ros-z-protocol
 pub use ros_z_protocol::entity::*;
 
+use crate::attachment::EndpointGlobalId;
+
 use zenoh::{Result, key_expr::KeyExpr};
 
 // Constants for ros-z-specific functionality
@@ -48,7 +50,7 @@ pub fn node_lv_token_key_expr(entity: &NodeEntity) -> Result<KeyExpr<'static>> {
 // Extension functions for EndpointEntity
 
 /// Get the global identifier for this endpoint.
-pub fn endpoint_global_id(entity: &EndpointEntity) -> crate::attachment::EndpointGlobalId {
+pub fn endpoint_global_id(entity: &EndpointEntity) -> EndpointGlobalId {
     use sha2::Digest;
     let node = entity
         .node

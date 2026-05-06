@@ -10,11 +10,15 @@ mod support;
 
 use color_eyre::eyre::Result;
 
-use crate::{app::AppContext, cli::Command, render::OutputMode};
+use crate::{
+    app::AppContext,
+    cli::{Cli, Command},
+    render::OutputMode,
+};
 
 /// Run the CLI with parsed command-line arguments.
-pub async fn run(cli: crate::cli::Cli) -> Result<()> {
-    let crate::cli::Cli {
+pub async fn run(cli: Cli) -> Result<()> {
+    let Cli {
         router,
         json,
         command,

@@ -11,7 +11,10 @@ use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Notify;
 
-use crate::{Message, SerdeCdrCodec};
+use crate::{
+    Message, SerdeCdrCodec,
+    dynamic::{RuntimeFieldSchema, Schema, TypeShape},
+};
 use ros_z_schema::TypeName;
 
 /// A clock-relative instant used throughout ros-z.
@@ -32,23 +35,20 @@ impl Message for Time {
         "ros_z::Time"
     }
 
-    fn schema() -> crate::dynamic::Schema {
-        std::sync::Arc::new(crate::dynamic::TypeShape::Struct {
+    fn schema() -> Schema {
+        Arc::new(TypeShape::Struct {
             name: TypeName::new("ros_z::Time").expect("valid type name"),
-            fields: vec![crate::dynamic::RuntimeFieldSchema::new(
-                "duration",
-                duration_schema(),
-            )],
+            fields: vec![RuntimeFieldSchema::new("duration", duration_schema())],
         })
     }
 }
 
-fn duration_schema() -> crate::dynamic::Schema {
-    std::sync::Arc::new(crate::dynamic::TypeShape::Struct {
+fn duration_schema() -> Schema {
+    Arc::new(TypeShape::Struct {
         name: TypeName::new("builtin_interfaces::Duration").expect("valid type name"),
         fields: vec![
-            crate::dynamic::RuntimeFieldSchema::new("sec", i32::schema()),
-            crate::dynamic::RuntimeFieldSchema::new("nanosec", u32::schema()),
+            RuntimeFieldSchema::new("sec", i32::schema()),
+            RuntimeFieldSchema::new("nanosec", u32::schema()),
         ],
     })
 }
@@ -402,6 +402,7 @@ impl Timer {
 mod tests {
     use super::*;
     use crate::Message;
+    use crate::dynamic::schema_tree_hash;
 
     #[test]
     fn wallclock_is_default() {
@@ -414,7 +415,7 @@ mod tests {
 
     #[test]
     fn ztime_type_info_uses_trait_default_schema_hash() {
-        let expected = crate::dynamic::schema_tree_hash(Time::type_name(), &Time::schema())
+        let expected = schema_tree_hash(Time::type_name(), &Time::schema())
             .expect("Time schema should produce a hash");
 
         assert_eq!(Time::schema_hash(), expected);
@@ -574,7 +575,7 @@ mod tests {
     fn ztime_type_info_uses_native_schema_type_name() {
         assert_eq!(Time::type_name(), "ros_z::Time");
         let schema = Time::schema();
-        let crate::dynamic::TypeShape::Struct { name, .. } = schema.as_ref() else {
+        let TypeShape::Struct { name, .. } = schema.as_ref() else {
             panic!("expected time struct schema");
         };
         assert_eq!(name.as_str(), "ros_z::Time");
@@ -584,10 +585,10 @@ mod tests {
     #[test]
     fn ztime_duration_field_uses_native_nested_type_name() {
         let schema = Time::schema();
-        let crate::dynamic::TypeShape::Struct { fields, .. } = schema.as_ref() else {
+        let TypeShape::Struct { fields, .. } = schema.as_ref() else {
             panic!("expected time struct schema");
         };
-        let crate::dynamic::TypeShape::Struct { name, .. } = fields[0].schema.as_ref() else {
+        let TypeShape::Struct { name, .. } = fields[0].schema.as_ref() else {
             panic!("expected nested duration schema");
         };
 

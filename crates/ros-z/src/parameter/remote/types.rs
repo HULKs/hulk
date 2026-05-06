@@ -3,6 +3,9 @@ use serde::{Deserialize, Serialize};
 
 use crate::{
     Message, ServiceTypeInfo,
+    dynamic::{
+        RuntimeDynamicEnumPayload, RuntimeDynamicEnumVariant, RuntimeFieldSchema, Schema, TypeShape,
+    },
     entity::TypeInfo,
     msg::{SerdeCdrCodec, Service, WireMessage},
 };
@@ -27,23 +30,14 @@ impl Message for NodeParameterChangeSource {
         "ros_z_parameter::NodeParameterChangeSource"
     }
 
-    fn schema() -> crate::dynamic::Schema {
-        std::sync::Arc::new(crate::dynamic::TypeShape::Enum {
+    fn schema() -> Schema {
+        std::sync::Arc::new(TypeShape::Enum {
             name: TypeName::new("ros_z_parameter::NodeParameterChangeSource")
                 .expect("valid type name"),
             variants: vec![
-                crate::dynamic::RuntimeDynamicEnumVariant::new(
-                    "LocalWrite",
-                    crate::dynamic::RuntimeDynamicEnumPayload::Unit,
-                ),
-                crate::dynamic::RuntimeDynamicEnumVariant::new(
-                    "RemoteWrite",
-                    crate::dynamic::RuntimeDynamicEnumPayload::Unit,
-                ),
-                crate::dynamic::RuntimeDynamicEnumVariant::new(
-                    "Reload",
-                    crate::dynamic::RuntimeDynamicEnumPayload::Unit,
-                ),
+                RuntimeDynamicEnumVariant::new("LocalWrite", RuntimeDynamicEnumPayload::Unit),
+                RuntimeDynamicEnumVariant::new("RemoteWrite", RuntimeDynamicEnumPayload::Unit),
+                RuntimeDynamicEnumVariant::new("Reload", RuntimeDynamicEnumPayload::Unit),
             ],
         })
     }
@@ -169,14 +163,14 @@ impl Message for NodeParameterChange {
         "ros_z_parameter::NodeParameterChange"
     }
 
-    fn schema() -> crate::dynamic::Schema {
-        std::sync::Arc::new(crate::dynamic::TypeShape::Struct {
+    fn schema() -> Schema {
+        std::sync::Arc::new(TypeShape::Struct {
             name: TypeName::new("ros_z_parameter::NodeParameterChange").expect("valid type name"),
             fields: vec![
-                crate::dynamic::RuntimeFieldSchema::new("path", String::schema()),
-                crate::dynamic::RuntimeFieldSchema::new("effective_source_layer", String::schema()),
-                crate::dynamic::RuntimeFieldSchema::new("old_value_json", String::schema()),
-                crate::dynamic::RuntimeFieldSchema::new("new_value_json", String::schema()),
+                RuntimeFieldSchema::new("path", String::schema()),
+                RuntimeFieldSchema::new("effective_source_layer", String::schema()),
+                RuntimeFieldSchema::new("old_value_json", String::schema()),
+                RuntimeFieldSchema::new("new_value_json", String::schema()),
             ],
         })
     }
@@ -200,23 +194,17 @@ impl Message for NodeParameterEvent {
         "ros_z_parameter::NodeParameterEvent"
     }
 
-    fn schema() -> crate::dynamic::Schema {
-        std::sync::Arc::new(crate::dynamic::TypeShape::Struct {
+    fn schema() -> Schema {
+        std::sync::Arc::new(TypeShape::Struct {
             name: TypeName::new("ros_z_parameter::NodeParameterEvent").expect("valid type name"),
             fields: vec![
-                crate::dynamic::RuntimeFieldSchema::new("node_fqn", String::schema()),
-                crate::dynamic::RuntimeFieldSchema::new("parameter_key", String::schema()),
-                crate::dynamic::RuntimeFieldSchema::new("previous_revision", u64::schema()),
-                crate::dynamic::RuntimeFieldSchema::new("revision", u64::schema()),
-                crate::dynamic::RuntimeFieldSchema::new(
-                    "source",
-                    NodeParameterChangeSource::schema(),
-                ),
-                crate::dynamic::RuntimeFieldSchema::new("changed_paths", Vec::<String>::schema()),
-                crate::dynamic::RuntimeFieldSchema::new(
-                    "changes",
-                    Vec::<NodeParameterChange>::schema(),
-                ),
+                RuntimeFieldSchema::new("node_fqn", String::schema()),
+                RuntimeFieldSchema::new("parameter_key", String::schema()),
+                RuntimeFieldSchema::new("previous_revision", u64::schema()),
+                RuntimeFieldSchema::new("revision", u64::schema()),
+                RuntimeFieldSchema::new("source", NodeParameterChangeSource::schema()),
+                RuntimeFieldSchema::new("changed_paths", Vec::<String>::schema()),
+                RuntimeFieldSchema::new("changes", Vec::<NodeParameterChange>::schema()),
             ],
         })
     }
