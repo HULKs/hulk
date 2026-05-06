@@ -27,10 +27,10 @@ use self::{
     tree_layout::build_tree_layout,
 };
 
-const LAYOUT_ANIMATION_FACTOR: f32 = 0.2;
+const LAYOUT_ANIMATION_RATE: f32 = 13.4;
 const LAYOUT_ANIMATION_EPSILON: f32 = 0.02;
-const EXIT_FADE_STEP: f32 = 0.12;
-const ENTER_FADE_STEP: f32 = 0.12;
+const EXIT_FADE_RATE: f32 = 7.2;
+const ENTER_FADE_RATE: f32 = 7.2;
 const VIEW_SWITCH_FOCUS_SCALE: f32 = 0.42;
 const VIEW_SWITCH_ROOT_Y_OFFSET: f32 = 0.1;
 
@@ -148,8 +148,9 @@ impl BehaviorTreePanel {
         }
     }
 
-    fn animate_layout(&mut self) -> bool {
+    fn animate_layout(&mut self, dt: f32) -> bool {
         let mut any_animating = false;
+        let move_factor = 1.0 - (-LAYOUT_ANIMATION_RATE * dt).exp();
 
         for node in &mut self.circle_nodes {
             if node.is_dragging {
@@ -158,25 +159,28 @@ impl BehaviorTreePanel {
 
             let delta = node.position - node.animated_position;
             if delta.norm_squared() > LAYOUT_ANIMATION_EPSILON * LAYOUT_ANIMATION_EPSILON {
-                node.animated_position += delta * LAYOUT_ANIMATION_FACTOR;
+                node.animated_position += delta * move_factor;
                 any_animating = true;
             } else {
                 node.animated_position = node.position;
             }
 
-            node.opacity = (node.opacity + ENTER_FADE_STEP).min(1.0);
+            node.opacity = (node.opacity + ENTER_FADE_RATE * dt).min(1.0);
+            if node.opacity < 1.0 {
+                any_animating = true;
+            }
         }
 
         self.exiting_nodes.retain_mut(|node| {
             let delta = node.position - node.animated_position;
             if delta.norm_squared() > LAYOUT_ANIMATION_EPSILON * LAYOUT_ANIMATION_EPSILON {
-                node.animated_position += delta * LAYOUT_ANIMATION_FACTOR;
+                node.animated_position += delta * move_factor;
                 any_animating = true;
             } else {
                 node.animated_position = node.position;
             }
 
-            node.opacity = (node.opacity - EXIT_FADE_STEP).max(0.0);
+            node.opacity = (node.opacity - EXIT_FADE_RATE * dt).max(0.0);
             if node.opacity > 0.0 {
                 any_animating = true;
                 true
@@ -396,7 +400,8 @@ impl Widget for &mut BehaviorTreePanel {
             drag_claimed = true;
         }
 
-        let is_animating = self.animate_layout();
+        let dt = ui.input(|i| i.stable_dt);
+        let is_animating = self.animate_layout(dt);
         if is_animating {
             ui.ctx().request_repaint();
         } else {
