@@ -49,7 +49,7 @@ impl Repository {
     }
 }
 
-pub fn get_hulk_binary(profile: &str, binary_name: &str) -> String {
+pub fn get_binary(profile: &str, binary_name: &str) -> String {
     // the target directory is "debug" with --profile dev...
     let profile_directory = match profile {
         "dev" => "debug",
