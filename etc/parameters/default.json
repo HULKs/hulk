@@ -465,6 +465,13 @@
       "striker_distance_to_non_free_center_circle": 0.4,
       "striker_kickoff_position": [-0.21, 0.03]
     },
+    "kickoff_positions": {
+      "one": [-3.5, 1],
+      "two": [-3, 0.5],
+      "three": [-2, 0],
+      "four": [-2.5, -1.5],
+      "five": [-2.5, 1.5]
+    },
     "lost_ball": {
       "offset_to_last_ball_location": [1.0, 0.0]
     },
