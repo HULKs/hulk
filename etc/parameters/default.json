@@ -535,9 +535,9 @@
            "Four"
         ]
       ],
-      "orientation_bias": 10.0,
+      "orientation_bias": 0.5,
       "grid_resolution": 0.2,
-      "padding": 4.0
+      "padding": 0.5
     }
   },
   "hsl_network": {

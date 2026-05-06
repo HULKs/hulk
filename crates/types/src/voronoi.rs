@@ -1,21 +1,72 @@
+use std::f32::consts::SQRT_2;
+
 use coordinate_systems::Field;
 use hsl_network_messages::PlayerNumber;
 use linear_algebra::{Point2, point};
 use path_serde::{PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
-const STRAIGHT_COST: u32 = 10;
-const DIAGONAL_COST: u32 = 14;
-const INV_SQRT_2: f32 = 0.70710677;
-pub const NEIGHBORS: [(isize, isize, u32, f32); 8] = [
-    (1, 0, STRAIGHT_COST, 1.0),
-    (1, 1, DIAGONAL_COST, INV_SQRT_2),
-    (0, 1, STRAIGHT_COST, 1.0),
-    (-1, 1, DIAGONAL_COST, INV_SQRT_2),
-    (-1, 0, STRAIGHT_COST, 1.0),
-    (-1, -1, DIAGONAL_COST, INV_SQRT_2),
-    (0, -1, STRAIGHT_COST, 1.0),
-    (1, -1, DIAGONAL_COST, INV_SQRT_2),
+const STRAIGHT_COST: f32 = 1.0;
+const DIAGONAL_COST: f32 = SQRT_2;
+const INV_SQRT_2: f32 = 1.0 / DIAGONAL_COST;
+
+#[derive(Copy, Clone, Debug)]
+pub struct Neighbor {
+    pub dx: isize,
+    pub dy: isize,
+    pub step_cost: f32,
+    pub inv_norm: f32,
+}
+
+pub const NEIGHBORS: [Neighbor; 8] = [
+    Neighbor {
+        dx: 1,
+        dy: 0,
+        step_cost: STRAIGHT_COST,
+        inv_norm: 1.0,
+    },
+    Neighbor {
+        dx: 1,
+        dy: 1,
+        step_cost: DIAGONAL_COST,
+        inv_norm: INV_SQRT_2,
+    },
+    Neighbor {
+        dx: 0,
+        dy: 1,
+        step_cost: STRAIGHT_COST,
+        inv_norm: 1.0,
+    },
+    Neighbor {
+        dx: -1,
+        dy: 1,
+        step_cost: DIAGONAL_COST,
+        inv_norm: INV_SQRT_2,
+    },
+    Neighbor {
+        dx: -1,
+        dy: 0,
+        step_cost: STRAIGHT_COST,
+        inv_norm: 1.0,
+    },
+    Neighbor {
+        dx: -1,
+        dy: -1,
+        step_cost: DIAGONAL_COST,
+        inv_norm: INV_SQRT_2,
+    },
+    Neighbor {
+        dx: 0,
+        dy: -1,
+        step_cost: STRAIGHT_COST,
+        inv_norm: 1.0,
+    },
+    Neighbor {
+        dx: 1,
+        dy: -1,
+        step_cost: DIAGONAL_COST,
+        inv_norm: INV_SQRT_2,
+    },
 ];
 
 #[derive(
@@ -74,10 +125,48 @@ impl VoronoiGrid {
         )
     }
 
+    pub fn tile_range_for_bounds(
+        &self,
+        min_x: f32,
+        max_x: f32,
+        min_y: f32,
+        max_y: f32,
+    ) -> Option<(usize, usize, usize, usize)> {
+        if self.width_tiles == 0 || self.height_tiles == 0 {
+            return None;
+        }
+
+        let tile_min_x = self.min_bound.x();
+        let tile_max_x = self.min_bound.x() + self.width_tiles as f32 * self.resolution;
+        let tile_min_y = self.min_bound.y();
+        let tile_max_y = self.min_bound.y() + self.height_tiles as f32 * self.resolution;
+
+        if max_x < tile_min_x || min_x > tile_max_x || max_y < tile_min_y || min_y > tile_max_y {
+            return None;
+        }
+
+        let mut min_x_index = ((min_x - tile_min_x) / self.resolution).floor() as isize - 1;
+        let mut max_x_index = ((max_x - tile_min_x) / self.resolution).floor() as isize + 1;
+        let mut min_y_index = ((min_y - tile_min_y) / self.resolution).floor() as isize - 1;
+        let mut max_y_index = ((max_y - tile_min_y) / self.resolution).floor() as isize + 1;
+
+        min_x_index = min_x_index.clamp(0, self.width_tiles as isize - 1);
+        max_x_index = max_x_index.clamp(0, self.width_tiles as isize - 1);
+        min_y_index = min_y_index.clamp(0, self.height_tiles as isize - 1);
+        max_y_index = max_y_index.clamp(0, self.height_tiles as isize - 1);
+
+        Some((
+            min_x_index as usize,
+            max_x_index as usize,
+            min_y_index as usize,
+            max_y_index as usize,
+        ))
+    }
+
     pub fn centroid_for_player(&self, player: PlayerNumber) -> Option<Point2<Field>> {
-        let mut sum_x = 0.0f32;
-        let mut sum_y = 0.0f32;
-        let mut count = 0u32;
+        let mut sum_x = 0.0;
+        let mut sum_y = 0.0;
+        let mut count = 0;
 
         for (index, ownership) in self.tiles.iter().copied().enumerate() {
             if ownership == Ownership::Robot(player) {
