@@ -5189,6 +5189,7 @@ dependencies = [
  "tokio-util",
  "types",
  "vision",
+ "voronoi",
  "walking_inference",
  "world_state",
  "x5_receiver",
@@ -11567,6 +11568,7 @@ dependencies = [
  "toml 0.8.23",
  "tracing-subscriber",
  "types",
+ "voronoi",
 ]
 
 [[package]]
@@ -11649,6 +11651,7 @@ dependencies = [
  "ros2",
  "serde",
  "splines",
+ "voronoi",
 ]
 
 [[package]]
@@ -11960,6 +11963,17 @@ dependencies = [
  "hulk_widgets",
  "repository",
  "source_analyzer",
+]
+
+[[package]]
+name = "voronoi"
+version = "0.1.0"
+dependencies = [
+ "coordinate_systems",
+ "hsl_network_messages",
+ "linear_algebra",
+ "path_serde",
+ "serde",
 ]
 
 [[package]]
@@ -13452,6 +13466,7 @@ dependencies = [
  "serde",
  "smallvec 1.15.1",
  "types",
+ "voronoi",
 ]
 
 [[package]]

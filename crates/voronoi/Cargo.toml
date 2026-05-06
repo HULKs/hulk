@@ -1,0 +1,13 @@
+[package]
+name = "voronoi"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[dependencies]
+coordinate_systems = { workspace = true }
+hsl_network_messages = { workspace = true }
+linear_algebra = { workspace = true }
+serde = { workspace = true }
+path_serde = { workspace = true }

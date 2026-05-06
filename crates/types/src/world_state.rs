@@ -8,6 +8,7 @@ use serde::{Deserialize, Serialize};
 use coordinate_systems::{Field, Ground};
 use linear_algebra::{Isometry2, Point2, Pose2, Vector2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
+use voronoi::VoronoiGrid;
 
 use crate::{
     ball_position::{BallPosition, HypotheticalBallPosition},
@@ -17,7 +18,6 @@ use crate::{
     players::Players,
     primary_state::PrimaryState,
     rule_obstacles::RuleObstacle,
-    voronoi::VoronoiGrid,
 };
 
 #[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathIntrospect, Message)]

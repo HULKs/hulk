@@ -5,7 +5,7 @@ use coordinate_systems::Field;
 use eframe::egui::{Color32, Stroke};
 use hsl_network_messages::PlayerNumber;
 use linear_algebra::Pose2;
-use types::voronoi::{Ownership, VoronoiGrid};
+use voronoi::{Ownership, VoronoiGrid};
 
 use crate::{
     panels::map::layer::Layer, robot::Robot, twix_painter::TwixPainter, value_buffer::BufferHandle,

@@ -15,9 +15,9 @@ use types::{
     players::Players,
     primary_state::PrimaryState,
     rule_obstacles::RuleObstacle,
-    voronoi::VoronoiGrid,
     world_state::{BallState, PlayerState, RobotState, WorldState},
 };
+use voronoi::VoronoiGrid;
 
 #[derive(Deserialize, Serialize)]
 pub struct WorldStateComposer {}

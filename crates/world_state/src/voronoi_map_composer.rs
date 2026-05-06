@@ -9,12 +9,10 @@ use linear_algebra::{Isometry2, Point2, Pose2};
 use ordered_float::NotNan;
 use serde::{Deserialize, Serialize};
 use types::{
-    field_dimensions::FieldDimensions,
-    obstacles::Obstacle,
-    parameters::VoronoiParameters,
+    field_dimensions::FieldDimensions, obstacles::Obstacle, parameters::VoronoiParameters,
     rule_obstacles::RuleObstacle,
-    voronoi::{NEIGHBORS, Ownership, VoronoiGrid},
 };
+use voronoi::{NEIGHBORS, Ownership, VoronoiGrid};
 
 #[derive(Deserialize, Serialize)]
 pub struct TargetPositionComposer {
