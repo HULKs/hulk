@@ -5,7 +5,8 @@ use color_eyre::eyre::{Result, WrapErr, bail, eyre};
 use ros_z::{
     context::{Context, ContextBuilder},
     dynamic::{
-        DynamicPayload, DynamicStruct, DynamicValue, EnumPayloadValue, EnumValue, TypeShape,
+        DynamicPayload, DynamicStruct, DynamicValue, EnumPayloadValue, EnumValue, SchemaBundle,
+        TypeDef,
     },
 };
 use serde_json::{Map, Value};
@@ -127,14 +128,14 @@ fn dynamic_payload_to_json(message: &DynamicPayload) -> Value {
     dynamic_value_to_json(&message.value)
 }
 
-fn schema_type_name(schema: &TypeShape) -> &str {
-    match schema {
-        TypeShape::Struct { name, .. } | TypeShape::Enum { name, .. } => name.as_str(),
-        TypeShape::Primitive(_) => "<primitive>",
-        TypeShape::String => "<string>",
-        TypeShape::Optional(_) => "<optional>",
-        TypeShape::Sequence { .. } => "<sequence>",
-        TypeShape::Map { .. } => "<map>",
+fn schema_type_name(schema: &SchemaBundle) -> &str {
+    match &schema.root {
+        TypeDef::Named(name) => name.as_str(),
+        TypeDef::Primitive(_) => "<primitive>",
+        TypeDef::String => "<string>",
+        TypeDef::Optional(_) => "<optional>",
+        TypeDef::Sequence { .. } => "<sequence>",
+        TypeDef::Map { .. } => "<map>",
     }
 }
 

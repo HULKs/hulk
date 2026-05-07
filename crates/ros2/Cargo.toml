@@ -11,6 +11,7 @@ image = { workspace = true }
 nalgebra = { workspace = true }
 path_serde = { workspace = true }
 pyo3 = { workspace = true, optional = true }
+ros-z = { workspace = true }
 serde = { workspace = true }
 yuv = { workspace = true }
 

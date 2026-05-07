@@ -8,8 +8,17 @@ use serde::{Deserialize, Serialize};
 /// https://design.ros2.org/articles/clock_and_time.html
 #[repr(C)]
 #[derive(
-    Clone, Debug, Default, Serialize, Deserialize, PathIntrospect, PathSerialize, PathDeserialize,
+    Clone,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PathIntrospect,
+    PathSerialize,
+    PathDeserialize,
+    ros_z::Message,
 )]
+#[message(name = "builtin_interfaces/msg/Time")]
 pub struct Time {
     /// The seconds component, valid over all int32 values.
     pub sec: i32,
@@ -19,6 +28,10 @@ pub struct Time {
     /// The time -1.7 seconds is represented as {sec: -2, nanosec: 3e8}
     /// The time 1.7 seconds is represented as {sec: 1, nanosec: 7e8}
     pub nanosec: u32,
+}
+
+impl ros_z::msg::WireMessage for Time {
+    type Codec = ros_z::msg::SerdeCdrCodec<Time>;
 }
 
 impl From<Time> for SystemTime {

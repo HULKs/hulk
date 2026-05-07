@@ -8928,6 +8928,7 @@ dependencies = [
  "nalgebra",
  "path_serde",
  "pyo3",
+ "ros-z",
  "serde",
  "yuv",
 ]

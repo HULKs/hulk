@@ -184,6 +184,7 @@ impl Robot {
             capability,
             BackendCapability::TopicDiscovery
                 | BackendCapability::DynamicInspection
+                | BackendCapability::TypedSubscription
                 | BackendCapability::NodeConfigRead
                 | BackendCapability::NodeConfigMetadata
                 | BackendCapability::NodeConfigWrite
@@ -247,13 +248,20 @@ impl Robot {
         history: Duration,
     ) -> BufferHandle<T>
     where
-        T: Clone + Send + Sync + 'static,
+        T: ros_z::Message + Clone + Send + Sync + 'static,
+        for<'a> <T as ros_z::Message>::Codec:
+            ros_z::msg::WireDecoder<Input<'a> = &'a [u8], Output = T>,
+        <T as ros_z::Message>::Codec: Send + Sync,
     {
-        let _topic = topic.into();
+        let topic = topic.into();
         let (buffer, handle) = Buffer::new(history);
-        buffer.push_error(eyre!(BackendError::UnsupportedCapability {
-            operation: "typed.subscribe"
-        }));
+        let mut backend_rx = self.backend_tx.subscribe();
+        let callbacks = self.callbacks.clone();
+
+        self.runtime.spawn(async move {
+            subscribe_typed_loop::<T>(topic, buffer, &mut backend_rx, callbacks).await;
+        });
+
         handle
     }
 
@@ -393,6 +401,93 @@ async fn connect_backend(endpoint: &str, generation: u64) -> color_eyre::Result<
         context,
         node,
     })
+}
+
+async fn subscribe_typed_loop<T>(
+    topic: String,
+    buffer: Buffer<T, color_eyre::Report>,
+    backend_rx: &mut watch::Receiver<Option<Arc<ConnectedBackend>>>,
+    callbacks: Arc<Mutex<Vec<ChangeCallback>>>,
+) where
+    T: ros_z::Message + Clone + Send + Sync + 'static,
+    for<'a> <T as ros_z::Message>::Codec: ros_z::msg::WireDecoder<Input<'a> = &'a [u8], Output = T>,
+    <T as ros_z::Message>::Codec: Send + Sync,
+{
+    loop {
+        if buffer.is_closed() {
+            return;
+        }
+        let backend = tokio::select! {
+            backend = wait_for_backend(backend_rx) => backend,
+            () = buffer.closed() => return,
+        };
+        let Some(backend) = backend else {
+            return;
+        };
+        let generation = backend.generation;
+        let subscriber_result = tokio::select! {
+            subscriber = backend.node.subscriber::<T>(&topic).build() => {
+                subscriber.map_err(|error| BackendError::Operation {
+                    operation: "typed.subscribe",
+                    message: error.to_string(),
+                })
+            }
+            () = buffer.closed() => return,
+        };
+        if !is_current_backend(backend_rx, generation) {
+            continue;
+        }
+        let subscriber = match subscriber_result {
+            Ok(subscriber) => subscriber,
+            Err(error) => {
+                buffer.push_error(eyre!(error));
+                tokio::select! {
+                    () = tokio::time::sleep(Duration::from_secs(1)) => {}
+                    () = buffer.closed() => return,
+                    changed = backend_rx.changed() => {
+                        if changed.is_err() {
+                            return;
+                        }
+                    }
+                }
+                continue;
+            }
+        };
+
+        loop {
+            tokio::select! {
+                () = buffer.closed() => return,
+                changed = backend_rx.changed() => {
+                    if changed.is_err() {
+                        return;
+                    }
+                    if backend_rx.borrow().as_ref().map(|backend| backend.generation) != Some(generation) {
+                        break;
+                    }
+                }
+                result = subscriber.recv_with_metadata() => {
+                    if !is_current_backend(backend_rx, generation) {
+                        break;
+                    }
+                    match result {
+                        Ok(received) => {
+                            if let Some(datum) = typed_received_to_datum(received) {
+                                buffer.push(datum).await;
+                                trigger_callbacks(&callbacks);
+                            }
+                        }
+                        Err(error) => {
+                            buffer.push_error(eyre!(BackendError::Operation {
+                                operation: "typed.recv",
+                                message: error.to_string(),
+                            }));
+                            break;
+                        }
+                    }
+                }
+            }
+        }
+    }
 }
 
 async fn subscribe_dynamic_json_loop(
@@ -709,6 +804,14 @@ fn dynamic_received_to_datum(received: Received<DynamicPayload>) -> Option<Datum
     })
 }
 
+fn typed_received_to_datum<T>(received: Received<T>) -> Option<Datum<T>> {
+    Some(Datum {
+        timestamp: received_timestamp(received.transport_time, received.source_time),
+        source_timestamp: received.source_time.map(twix_time),
+        value: received.message,
+    })
+}
+
 fn dynamic_received_to_change(received: Received<DynamicPayload>) -> Option<Change<Value>> {
     Some(Change {
         timestamp: received_timestamp(received.transport_time, received.source_time),
@@ -833,7 +936,29 @@ fn has_config_metadata(services: &BTreeSet<String>, node_fqn: &str) -> bool {
 mod tests {
     use std::collections::BTreeSet;
 
-    use super::config_nodes_from_services;
+    use ros_z::{pubsub::Received, time::Time};
+
+    use super::{config_nodes_from_services, twix_time, typed_received_to_datum};
+
+    #[test]
+    fn typed_received_to_datum_preserves_message_and_metadata() {
+        let message = String::from("frame");
+        let transport_time = Time::from_nanos(12_000_000_034);
+        let source_time = Time::from_nanos(10_000_000_020);
+        let received = Received {
+            message: message.clone(),
+            transport_time: Some(transport_time),
+            source_time: Some(source_time),
+            sequence_number: Some(7),
+            source_global_id: None,
+        };
+
+        let datum = typed_received_to_datum(received).expect("typed datum");
+
+        assert_eq!(datum.value, message);
+        assert_eq!(datum.timestamp, twix_time(transport_time));
+        assert_eq!(datum.source_timestamp, Some(twix_time(source_time)));
+    }
 
     #[test]
     fn config_nodes_from_services_uses_remote_parameter_snapshot_services() {
