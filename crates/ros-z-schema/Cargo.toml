@@ -1,0 +1,16 @@
+[package]
+name = "ros-z-schema"
+version.workspace = true
+edition.workspace = true
+description = "Canonical ros-z schema model and hashing"
+license.workspace = true
+homepage.workspace = true
+
+[dependencies]
+hex = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_json = { workspace = true }
+sha2 = { workspace = true }
+
+[dev-dependencies]
+color-eyre = { workspace = true }

@@ -1,0 +1,5 @@
+error: tuple fields are not supported by Message derive in v1
+ --> tests/ui/message_derive/tuple_field.rs:6:12
+  |
+6 |     value: (u32, u32),
+  |            ^^^^^^^^^^
