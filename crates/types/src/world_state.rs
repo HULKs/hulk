@@ -25,7 +25,7 @@ pub struct WorldState {
     pub hypothetical_ball_positions: Vec<HypotheticalBallPosition<Ground>>,
     pub now: SystemTime,
     pub obstacles: Vec<Obstacle>,
-    pub player_states: Players<PlayerState>,
+    pub player_states: Players<Option<PlayerState>>,
     pub position_of_interest: Point2<Ground>,
     pub robot: RobotState,
     pub rule_ball: Option<BallState>,

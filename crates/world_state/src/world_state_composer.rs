@@ -43,7 +43,7 @@ pub struct CycleContext {
     rule_ball: Input<Option<BallState>, "rule_ball_state?">,
     rule_obstacles: Input<Vec<RuleObstacle>, "rule_obstacles">,
     suggested_search_position: Input<Option<Point2<Field>>, "suggested_search_position?">,
-    player_states: Input<Players<PlayerState>, "player_states">,
+    player_states: Input<Players<Option<PlayerState>>, "player_states">,
 
     player_number: Parameter<PlayerNumber, "player_number">,
 }

@@ -32,7 +32,7 @@ pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
     filtered_game_controller_state:
         Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
-    player_states: Input<Players<PlayerState>, "player_states">,
+    player_states: Input<Players<Option<PlayerState>>, "player_states">,
 
     maximum_age: Parameter<Duration, "team_ball.maximum_age">,
 
@@ -53,7 +53,9 @@ impl TeamBallReceiver {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        self.received_balls = context.player_states.map(|state| state.ball_position);
+        self.received_balls = context
+            .player_states
+            .map(|player_state| player_state.and_then(|state| state.ball_position));
 
         if let Some(game_controller_state) = context.filtered_game_controller_state {
             // Ignore everything during penalty_*

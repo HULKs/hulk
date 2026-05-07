@@ -41,7 +41,7 @@ pub struct CycleContext {
 
 #[context]
 pub struct MainOutputs {
-    pub player_states: MainOutput<Players<PlayerState>>,
+    pub player_states: MainOutput<Players<Option<PlayerState>>>,
 }
 
 impl PlayerStatesReceiver {
@@ -88,7 +88,7 @@ impl PlayerStatesReceiver {
         self.last_player_states = player_states;
 
         Ok(MainOutputs {
-            player_states: player_states.map(Option::unwrap_or_default).into(),
+            player_states: player_states.into(),
         })
     }
 }
