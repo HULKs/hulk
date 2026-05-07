@@ -3,7 +3,7 @@ use std::sync::Arc;
 use color_eyre::Result;
 use coordinate_systems::Pixel;
 use eframe::egui::{Align2, Color32, FontId, Stroke};
-use linear_algebra::{point, vector};
+use linear_algebra::vector;
 use types::{
     object_detection::YOLOObjectLabel,
     pose_detection::{Keypoint, Pose},
@@ -50,12 +50,6 @@ impl Overlay for PoseDetection {
         paint_poses(painter, poses)?;
 
         Ok(())
-    }
-
-    fn config_ui(&mut self, ui: &mut eframe::egui::Ui) {
-        ui.horizontal(|ui| {
-            ui.add_space(10.0);
-        });
     }
 }
 
