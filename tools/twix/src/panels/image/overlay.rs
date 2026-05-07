@@ -9,7 +9,7 @@ use serde_json::{Value, json};
 use coordinate_systems::Pixel;
 
 use crate::{
-    panels::image::overlays::{BallDetection, ObjectDetection, Segmentation},
+    panels::image::overlays::{BallDetection, ObjectDetection, PoseDetection, Segmentation},
     robot::Robot,
     twix_painter::TwixPainter,
 };
@@ -79,6 +79,7 @@ pub struct Overlays {
     pub field_border: EnabledOverlay<FieldBorder>,
     pub object_detection: EnabledOverlay<ObjectDetection>,
     pub segmentation: EnabledOverlay<Segmentation>,
+    pub pose_detection: EnabledOverlay<PoseDetection>,
 }
 
 impl Overlays {
@@ -89,6 +90,7 @@ impl Overlays {
         let field_border = EnabledOverlay::new(robot.clone(), storage, false);
         let object_detection = EnabledOverlay::new(robot.clone(), storage, false);
         let segmentation = EnabledOverlay::new(robot.clone(), storage, false);
+        let pose_detection = EnabledOverlay::new(robot.clone(), storage, false);
 
         Self {
             line_detection,
@@ -97,6 +99,7 @@ impl Overlays {
             field_border,
             object_detection,
             segmentation,
+            pose_detection,
         }
     }
 
@@ -108,6 +111,7 @@ impl Overlays {
             self.field_border.checkbox(ui);
             self.object_detection.checkbox(ui);
             self.segmentation.checkbox(ui);
+            self.pose_detection.checkbox(ui);
         });
     }
 
@@ -118,6 +122,7 @@ impl Overlays {
         self.field_border.paint(painter);
         self.object_detection.paint(painter);
         self.segmentation.paint(painter);
+        self.pose_detection.paint(painter);
     }
 
     pub fn save(&self) -> Value {
@@ -128,6 +133,7 @@ impl Overlays {
             "field_border": self.field_border.save(),
             "object_detection": self.object_detection.save(),
             "segmentation": self.object_detection.save(),
+            "pose_detection": self.pose_detection.save(),
         })
     }
 }
