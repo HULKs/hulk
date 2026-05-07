@@ -1,0 +1,7 @@
+{
+  wait_before_prepare: {
+    nanos: 0,
+    secs: 2,
+  },
+  remote_stop_toggle: false,
+}

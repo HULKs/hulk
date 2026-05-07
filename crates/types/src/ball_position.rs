@@ -7,7 +7,15 @@ use linear_algebra::{Isometry2, Point2, Vector2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 #[derive(
-    Debug, Clone, Copy, PathDeserialize, PathSerialize, PathIntrospect, Serialize, Deserialize,
+    Debug,
+    Clone,
+    Copy,
+    PathDeserialize,
+    PathSerialize,
+    PathIntrospect,
+    Serialize,
+    Deserialize,
+    ros_z::Message,
 )]
 pub struct BallPosition<Frame> {
     pub position: Point2<Frame>,
@@ -57,7 +65,15 @@ pub struct SimulatorBallState {
 }
 
 #[derive(
-    Clone, Copy, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Clone,
+    Copy,
+    Debug,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    ros_z::Message,
 )]
 pub struct HypotheticalBallPosition<Frame> {
     pub position: Point2<Frame>,

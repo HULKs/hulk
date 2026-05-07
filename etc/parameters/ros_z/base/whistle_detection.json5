@@ -1,0 +1,11 @@
+{
+  parameters: {
+    detection_band: {
+      start: 2000,
+      end: 4000,
+    },
+    background_noise_scaling: 1.6,
+    whistle_scaling: 3.8,
+    number_of_chunks: 16,
+  },
+}

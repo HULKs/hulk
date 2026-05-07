@@ -5,7 +5,15 @@ use coordinate_systems::Pixel;
 use geometry::rectangle::Rectangle;
 
 #[derive(
-    Debug, Clone, Copy, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Debug,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    ros_z::Message,
 )]
 pub struct BoundingBox {
     pub area: Rectangle<Pixel>,

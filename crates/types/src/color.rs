@@ -1,4 +1,5 @@
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
+use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
 #[derive(
@@ -13,6 +14,7 @@ use serde::{Deserialize, Serialize};
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    Message,
 )]
 #[repr(C)]
 pub struct YCbCr422 {
@@ -46,7 +48,7 @@ impl From<[YCbCr444; 2]> for YCbCr422 {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize, ros_z::Message)]
 pub struct YCbCr444 {
     pub y: u8,
     pub cb: u8,
@@ -105,7 +107,7 @@ impl From<Rgb> for YCbCr444 {
     }
 }
 
-#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize)]
+#[derive(Clone, Copy, Debug, Deserialize, Eq, PartialEq, Serialize, ros_z::Message)]
 pub enum Intensity {
     Low,
     High,
@@ -123,6 +125,7 @@ pub enum Intensity {
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    ros_z::Message,
 )]
 pub struct Rgb {
     pub red: u8,
@@ -211,6 +214,7 @@ impl From<Rgb> for RgChromaticity {
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    ros_z::Message,
 )]
 pub struct Hsv {
     pub hue: u16,

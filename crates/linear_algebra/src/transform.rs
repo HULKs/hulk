@@ -2,7 +2,8 @@ use std::{collections::HashSet, marker::PhantomData, ops::Mul};
 
 use approx::{AbsDiffEq, RelativeEq};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize, deserialize, serialize};
-use serde::{Deserialize, Serialize};
+use ros_z::{Message, MessageSchema, SchemaBuilder, SerdeCdrCodec};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use crate::framed::Framed;
 
@@ -40,6 +41,32 @@ where
 {
     fn default() -> Self {
         Self::wrap(Inner::default())
+    }
+}
+
+impl<From, To, Inner> Message for Transform<From, To, Inner>
+where
+    From: Send + Sync + 'static,
+    To: Send + Sync + 'static,
+    Inner: Message + Serialize + DeserializeOwned,
+{
+    type Codec = SerdeCdrCodec<Self>;
+
+    fn type_name() -> String {
+        Inner::type_name()
+    }
+}
+
+impl<From, To, Inner> MessageSchema for Transform<From, To, Inner>
+where
+    From: Send + Sync + 'static,
+    To: Send + Sync + 'static,
+    Inner: Message + Serialize + DeserializeOwned,
+{
+    fn build_schema(
+        builder: &mut SchemaBuilder,
+    ) -> Result<ros_z_schema::TypeDef, ros_z_schema::SchemaError> {
+        Inner::build_schema(builder)
     }
 }
 

@@ -1,4 +1,5 @@
 use nalgebra::{Matrix3, vector};
+use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::{Field, Ground};
@@ -8,7 +9,15 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use crate::multivariate_normal_distribution::MultivariateNormalDistribution;
 
 #[derive(
-    Clone, Copy, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Clone,
+    Copy,
+    Debug,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    ros_z::Message,
 )]
 pub struct Update {
     pub ground_to_field: Isometry2<Ground, Field>,
@@ -20,7 +29,15 @@ pub struct Update {
 }
 
 #[derive(
-    Clone, Copy, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Clone,
+    Copy,
+    Debug,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    Message,
 )]
 pub struct ScoredPose {
     pub state: MultivariateNormalDistribution<3>,

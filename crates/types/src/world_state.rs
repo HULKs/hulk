@@ -2,6 +2,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use booster::FallDownState;
 use hsl_network_messages::PlayerNumber;
+use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::{Field, Ground};
@@ -18,7 +19,7 @@ use crate::{
     rule_obstacles::RuleObstacle,
 };
 
-#[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathIntrospect)]
+#[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathIntrospect, Message)]
 pub struct WorldState {
     pub ball: Option<BallState>,
     pub filtered_game_controller_state: Option<FilteredGameControllerState>,
@@ -64,6 +65,7 @@ impl Default for WorldState {
     PathDeserialize,
     PathIntrospect,
     PartialEq,
+    ros_z::Message,
 )]
 pub struct BallState {
     pub ball_in_ground: Point2<Ground>,
@@ -83,6 +85,7 @@ pub struct BallState {
     PathDeserialize,
     PathIntrospect,
     PartialEq,
+    ros_z::Message,
 )]
 pub struct LastBallState {
     pub time: SystemTime,
@@ -114,7 +117,15 @@ impl BallState {
 }
 
 #[derive(
-    Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Clone,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    Message,
 )]
 pub struct RobotState {
     pub ground_to_field: Option<Isometry2<Ground, Field>>,
@@ -132,6 +143,7 @@ pub struct RobotState {
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    Message,
 )]
 pub struct PlayerState {
     pub pose: Pose2<Field>,

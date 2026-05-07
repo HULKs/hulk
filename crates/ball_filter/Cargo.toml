@@ -12,5 +12,6 @@ linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
 ordered-float = { workspace = true }
 path_serde = { workspace = true }
+ros-z = { workspace = true }
 serde = { workspace = true }
 types = { workspace = true }

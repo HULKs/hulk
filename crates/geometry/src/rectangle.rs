@@ -14,6 +14,7 @@ use linear_algebra::{Point2, Vector2, point};
     PathIntrospect,
     PathSerialize,
     Serialize,
+    ros_z::Message,
 )]
 pub struct Rectangle<Frame> {
     pub min: Point2<Frame>,

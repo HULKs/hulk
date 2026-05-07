@@ -13,6 +13,7 @@ linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
 path_serde = { workspace = true }
 pyo3 = { workspace = true, optional = true }
+ros-z = { workspace = true }
 ros2 = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }

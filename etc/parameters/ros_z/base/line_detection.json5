@@ -1,0 +1,27 @@
+{
+  use_horizontal_segments: true,
+  use_vertical_segments: true,
+  allowed_line_length_in_field: {
+    start: 0.3,
+    end: 4.0,
+  },
+  check_edge_types: true,
+  check_edge_gradient: false,
+  check_line_distance: true,
+  check_line_length: true,
+  check_line_segments_projection: true,
+  gradient_alignment: -0.9,
+  gradient_sobel_stride: 3,
+  margin_for_point_inclusion: 0.025,
+  maximum_distance_to_robot: 6.0,
+  maximum_fit_distance_in_ground: 0.05,
+  maximum_gap_on_line: 0.25,
+  maximum_merge_gap_in_pixels: 5,
+  maximum_number_of_lines: 10,
+  allowed_projected_segment_length: {
+    start: 0.02,
+    end: 0.5,
+  },
+  minimum_number_of_points_on_line: 15,
+  ransac_iterations: 20,
+}

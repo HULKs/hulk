@@ -11,7 +11,15 @@ use coordinate_systems::{
 };
 
 #[derive(
-    Debug, Clone, Default, PathSerialize, PathDeserialize, PathIntrospect, Serialize, Deserialize,
+    Debug,
+    Clone,
+    Default,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    Serialize,
+    Deserialize,
+    ros_z::Message,
 )]
 pub struct RobotHeadKinematics {
     pub neck_to_robot: Isometry3<Neck, Robot>,
@@ -19,14 +27,30 @@ pub struct RobotHeadKinematics {
 }
 
 #[derive(
-    Debug, Clone, Default, PathSerialize, PathDeserialize, PathIntrospect, Serialize, Deserialize,
+    Debug,
+    Clone,
+    Default,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    Serialize,
+    Deserialize,
+    ros_z::Message,
 )]
 pub struct RobotTorsoKinematics {
     pub torso_to_robot: Isometry3<Torso, Robot>,
 }
 
 #[derive(
-    Debug, Clone, Default, PathSerialize, PathDeserialize, PathIntrospect, Serialize, Deserialize,
+    Debug,
+    Clone,
+    Default,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    Serialize,
+    Deserialize,
+    ros_z::Message,
 )]
 pub struct RobotLeftArmKinematics {
     pub inner_shoulder_to_robot: Isometry3<LeftInnerShoulder, Robot>,
@@ -36,7 +60,15 @@ pub struct RobotLeftArmKinematics {
 }
 
 #[derive(
-    Debug, Clone, Default, PathSerialize, PathDeserialize, PathIntrospect, Serialize, Deserialize,
+    Debug,
+    Clone,
+    Default,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    Serialize,
+    Deserialize,
+    ros_z::Message,
 )]
 pub struct RobotRightArmKinematics {
     pub inner_shoulder_to_robot: Isometry3<RightInnerShoulder, Robot>,
@@ -46,7 +78,15 @@ pub struct RobotRightArmKinematics {
 }
 
 #[derive(
-    Debug, Clone, Default, PathSerialize, PathDeserialize, PathIntrospect, Serialize, Deserialize,
+    Debug,
+    Clone,
+    Default,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    Serialize,
+    Deserialize,
+    ros_z::Message,
 )]
 pub struct RobotLeftLegKinematics {
     pub pelvis_to_robot: Isometry3<LeftPelvis, Robot>,
@@ -59,7 +99,15 @@ pub struct RobotLeftLegKinematics {
 }
 
 #[derive(
-    Debug, Clone, Default, PathSerialize, PathDeserialize, PathIntrospect, Serialize, Deserialize,
+    Debug,
+    Clone,
+    Default,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    Serialize,
+    Deserialize,
+    ros_z::Message,
 )]
 pub struct RobotRightLegKinematics {
     pub pelvis_to_robot: Isometry3<RightPelvis, Robot>,
@@ -72,7 +120,15 @@ pub struct RobotRightLegKinematics {
 }
 
 #[derive(
-    Debug, Clone, Default, PathSerialize, PathDeserialize, PathIntrospect, Serialize, Deserialize,
+    Debug,
+    Clone,
+    Default,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    Serialize,
+    Deserialize,
+    ros_z::Message,
 )]
 pub struct RobotKinematics {
     pub head: RobotHeadKinematics,

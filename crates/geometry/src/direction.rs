@@ -1,6 +1,7 @@
 use std::{f32::consts::TAU, ops::Neg};
 
 use num_traits::{One, Zero};
+use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
 use linear_algebra::{Orientation2, Vector2, vector};
@@ -17,6 +18,7 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    Message,
 )]
 pub enum Direction {
     Clockwise,

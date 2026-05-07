@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    ros_z::Message,
 )]
 pub struct Intrinsic {
     pub focals: nalgebra::Vector2<f32>,

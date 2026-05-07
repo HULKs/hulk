@@ -1,0 +1,12 @@
+{
+  booster_kicking_paramters: {
+    kick_message_interval: {
+      nanos: 33000000,
+      secs: 0,
+    },
+    kick_power: {
+      rumpelstilzchen: 1.5,
+      schlong: 6.0,
+    },
+  },
+}

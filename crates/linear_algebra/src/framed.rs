@@ -8,9 +8,10 @@ use std::{
 
 use approx::{AbsDiffEq, RelativeEq};
 use num_traits::Num;
-use serde::{Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
 
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize, deserialize, serialize};
+use ros_z::{Message, MessageSchema, SchemaBuilder, SerdeCdrCodec};
 
 #[derive(Debug)]
 // `repr(transparent)` ensures this struct has the same memory layout as `inner`.
@@ -47,6 +48,30 @@ where
 {
     fn default() -> Self {
         Self::wrap(Inner::default())
+    }
+}
+
+impl<Frame, Inner> Message for Framed<Frame, Inner>
+where
+    Frame: Send + Sync + 'static,
+    Inner: Message + Serialize + DeserializeOwned,
+{
+    type Codec = SerdeCdrCodec<Self>;
+
+    fn type_name() -> String {
+        Inner::type_name()
+    }
+}
+
+impl<Frame, Inner> MessageSchema for Framed<Frame, Inner>
+where
+    Frame: Send + Sync + 'static,
+    Inner: Message + Serialize + DeserializeOwned,
+{
+    fn build_schema(
+        builder: &mut SchemaBuilder,
+    ) -> Result<ros_z_schema::TypeDef, ros_z_schema::SchemaError> {
+        Inner::build_schema(builder)
     }
 }
 

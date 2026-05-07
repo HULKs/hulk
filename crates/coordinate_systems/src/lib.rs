@@ -20,6 +20,7 @@ macro_rules! generate_coordinate_system {
                 PathSerialize,
                 PathDeserialize,
                 PathIntrospect,
+                ros_z::Message,
             )]
             #[abs_diff_eq(epsilon_type = f32)]
             $(#[$doc])*

@@ -13,6 +13,7 @@ use serde::{Deserialize, Serialize};
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    ros_z::Message,
 )]
 pub enum Side {
     #[default]
@@ -39,6 +40,7 @@ impl Side {
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    ros_z::Message,
 )]
 pub struct SupportFoot {
     pub support_side: Option<Side>,

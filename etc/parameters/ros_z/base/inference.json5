@@ -1,0 +1,13 @@
+{
+  parameters: {
+    enable: true,
+    object_detection_parameters: {
+      maximum_intersection_over_union: 0.7,
+      confidence_threshold: 0.5,
+    },
+    pose_detection_parameters: {
+      maximum_intersection_over_union: 0.7,
+      confidence_threshold: 0.5,
+    },
+  },
+}

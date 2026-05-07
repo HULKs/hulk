@@ -2,13 +2,16 @@ use std::{collections::HashMap, time::Duration};
 
 use hsl_network_messages::{GamePhase, Penalty, PlayerNumber, SubState, Team};
 use path_serde::{PathIntrospect, PathSerialize};
+use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
 use crate::{
     field_dimensions::GlobalFieldSide, filtered_game_state::FilteredGameState, players::Players,
 };
 
-#[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathIntrospect, PartialEq)]
+#[derive(
+    Clone, Debug, Serialize, Deserialize, PathSerialize, PathIntrospect, PartialEq, Message,
+)]
 pub struct FilteredGameControllerState {
     pub game_state: FilteredGameState,
     pub opponent_game_state: FilteredGameState,

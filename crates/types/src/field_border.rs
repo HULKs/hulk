@@ -1,4 +1,5 @@
 use geometry::{line::Line, line_segment::LineSegment};
+use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Pixel;
@@ -6,7 +7,15 @@ use linear_algebra::Point2;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 #[derive(
-    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    Message,
 )]
 pub struct FieldBorder {
     pub border_lines: Vec<LineSegment<Pixel>>,

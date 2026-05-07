@@ -1,0 +1,30 @@
+[package]
+name = "hulk_ros_z"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[package.metadata.pepsi]
+cross-compile = true
+
+[dependencies]
+ball_filter.workspace = true
+booster.workspace = true
+booster_sdk.workspace = true
+clap = { workspace = true, features = ["derive"] }
+color-eyre = { workspace = true }
+coordinate_systems = { workspace = true }
+geometry = { workspace = true }
+hsl_network_messages = { workspace = true }
+kinematics = { workspace = true }
+linear_algebra = { workspace = true }
+nalgebra = { workspace = true }
+ndarray = { workspace = true }
+projection = { workspace = true }
+ros-z = { workspace = true }
+ros2 = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal"] }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+types = { workspace = true }

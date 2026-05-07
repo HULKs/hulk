@@ -14,6 +14,7 @@ use serde::{Deserialize, Serialize};
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    ros_z::Message,
 )]
 pub enum PrimaryState {
     #[default]

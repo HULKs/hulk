@@ -1,0 +1,11 @@
+{
+  parameters: {
+    maximum_velocity: { yaw: 0.4, pitch: 0.4 },
+    maximum_defender_velocity: { yaw: 2.0, pitch: 0.8 },
+    maximum_pitch: 1.0,
+    minimum_pitch: -0.3,
+    maximum_yaw: 0.785,
+    minimum_yaw: -0.785,
+    injected_head_joints: null,
+  },
+}

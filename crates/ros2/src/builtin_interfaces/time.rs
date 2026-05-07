@@ -1,4 +1,5 @@
 use color_eyre::Result;
+use ros_z::Message;
 use std::time::{Duration, SystemTime};
 
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
@@ -8,7 +9,15 @@ use serde::{Deserialize, Serialize};
 /// https://design.ros2.org/articles/clock_and_time.html
 #[repr(C)]
 #[derive(
-    Clone, Debug, Default, Serialize, Deserialize, PathIntrospect, PathSerialize, PathDeserialize,
+    Clone,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PathIntrospect,
+    PathSerialize,
+    PathDeserialize,
+    Message,
 )]
 pub struct Time {
     /// The seconds component, valid over all int32 values.

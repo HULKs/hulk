@@ -18,6 +18,7 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
     PathDeserialize,
     PathIntrospect,
     Default,
+    ros_z::Message,
 )]
 pub struct Step<T = f32> {
     pub forward: T,

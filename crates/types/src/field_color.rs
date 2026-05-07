@@ -15,6 +15,7 @@ use serde::{Deserialize, Serialize};
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    ros_z::Message,
 )]
 pub enum FieldColorFunction {
     #[default]
@@ -22,7 +23,16 @@ pub enum FieldColorFunction {
     Hsv,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect)]
+#[derive(
+    Clone,
+    Debug,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    ros_z::Message,
+)]
 pub struct FieldColorParameters {
     pub luminance: RangeInclusive<u8>,
     pub green_luminance: RangeInclusive<u8>,

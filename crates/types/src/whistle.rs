@@ -2,14 +2,30 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
 #[derive(
-    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    ros_z::Message,
 )]
 pub struct Whistle {
     pub is_detected: Vec<bool>,
 }
 
 #[derive(
-    Debug, Default, Clone, PathSerialize, PathDeserialize, PathIntrospect, Serialize, Deserialize,
+    Debug,
+    Default,
+    Clone,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    Serialize,
+    Deserialize,
+    ros_z::Message,
 )]
 pub struct DetectionInfo {
     pub overall_mean: f32,

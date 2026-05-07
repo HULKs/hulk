@@ -4,7 +4,15 @@ use serde::{Deserialize, Serialize};
 use super::image_segments::ScanGrid;
 
 #[derive(
-    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    ros_z::Message,
 )]
 pub struct FilteredSegments {
     pub scan_grid: ScanGrid,

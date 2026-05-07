@@ -11,7 +11,15 @@ use linear_algebra::{Point2, point};
 use crate::object_detection::{LabelIndex, NUMBER_OF_VALUES_PER_OBJECT, Object, YOLOObjectLabel};
 
 #[derive(
-    Debug, Clone, Copy, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Debug,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    ros_z::Message,
 )]
 pub enum DetectionRegion {
     Narrow,
@@ -25,7 +33,15 @@ pub const NUMBER_OF_VALUES_PER_POSE: usize = 57;
 pub const POSE_KEYPOINT_OFFSET: usize = NUMBER_OF_VALUES_PER_OBJECT;
 
 #[derive(
-    Debug, Clone, Copy, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Debug,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    ros_z::Message,
 )]
 pub struct Keypoint {
     pub point: Point2<Pixel>,
@@ -33,7 +49,15 @@ pub struct Keypoint {
 }
 
 #[derive(
-    Debug, Clone, Copy, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Debug,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    ros_z::Message,
 )]
 pub struct Keypoints {
     pub left_eye: Keypoint,
@@ -143,7 +167,15 @@ impl From<Keypoints> for [Keypoint; 17] {
 }
 
 #[derive(
-    Debug, Clone, Copy, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Debug,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    ros_z::Message,
 )]
 pub struct Pose<T> {
     pub object: Object<T>,
@@ -187,7 +219,15 @@ where
 }
 
 #[derive(
-    Debug, Clone, Copy, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Debug,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    ros_z::Message,
 )]
 pub struct RefereePoseCandidate {
     pub pose: Pose<YOLOObjectLabel>,

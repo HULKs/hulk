@@ -20,6 +20,7 @@ use crate::{
     PathIntrospect,
     PathSerialize,
     Serialize,
+    ros_z::Message,
 )]
 pub struct Circle<Frame> {
     pub center: Point2<Frame>,

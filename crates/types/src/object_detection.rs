@@ -9,7 +9,15 @@ use crate::bounding_box::BoundingBox;
 pub const NUMBER_OF_VALUES_PER_OBJECT: usize = 6;
 
 #[derive(
-    Debug, Clone, Copy, Serialize, Deserialize, PathIntrospect, PathSerialize, PathDeserialize,
+    Debug,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    PathIntrospect,
+    PathSerialize,
+    PathDeserialize,
+    ros_z::Message,
 )]
 pub struct Object<T> {
     pub label: T,
@@ -48,6 +56,7 @@ pub trait LabelIndex {
     PathSerialize,
     PathDeserialize,
     PartialEq,
+    ros_z::Message,
 )]
 pub enum YOLOObjectLabel {
     Person = 0,
@@ -317,6 +326,7 @@ impl From<YOLOObjectLabel> for String {
     PathSerialize,
     PathDeserialize,
     PartialEq,
+    ros_z::Message,
 )]
 pub enum RobocupObjectLabel {
     Ball = 0,

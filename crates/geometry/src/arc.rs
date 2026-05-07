@@ -1,4 +1,5 @@
 use approx::{AbsDiffEq, RelativeEq};
+use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
 use linear_algebra::Orientation2;
@@ -19,6 +20,7 @@ use crate::{
     PathIntrospect,
     PathSerialize,
     Serialize,
+    Message,
 )]
 pub struct Arc<Frame> {
     pub circle: Circle<Frame>,

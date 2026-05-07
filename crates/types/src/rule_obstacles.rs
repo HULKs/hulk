@@ -6,7 +6,15 @@ use serde::{Deserialize, Serialize};
 use coordinate_systems::Field;
 
 #[derive(
-    Clone, Copy, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Clone,
+    Copy,
+    Debug,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    ros_z::Message,
 )]
 pub enum RuleObstacle {
     Circle(Circle<Field>),

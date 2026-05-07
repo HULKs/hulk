@@ -28,6 +28,7 @@ pub enum BodyJointsName {
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    ros_z::Message,
 )]
 pub struct BodyJoints<T = f32> {
     pub left_arm: ArmJoints<T>,

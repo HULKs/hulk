@@ -1,4 +1,5 @@
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
+use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
 #[derive(
@@ -13,6 +14,7 @@ use serde::{Deserialize, Serialize};
     PathIntrospect,
     PartialEq,
     Eq,
+    Message,
 )]
 pub enum FilteredGameState {
     #[default]

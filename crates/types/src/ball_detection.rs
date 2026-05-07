@@ -1,3 +1,4 @@
+use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Pixel;
@@ -6,7 +7,9 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
 use crate::multivariate_normal_distribution::MultivariateNormalDistribution;
 
-#[derive(Clone, Copy, Debug, Deserialize, PartialEq, Serialize, PathSerialize, PathIntrospect)]
+#[derive(
+    Clone, Copy, Debug, Deserialize, PartialEq, Serialize, PathSerialize, PathIntrospect, Message,
+)]
 pub struct CandidateEvaluation {
     pub candidate_circle: Circle<Pixel>,
     pub preclassifier_confidence: f32,
@@ -16,7 +19,15 @@ pub struct CandidateEvaluation {
 }
 
 #[derive(
-    Clone, Copy, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Clone,
+    Copy,
+    Debug,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    Message,
 )]
 pub struct BallPercept {
     pub percept_in_ground: MultivariateNormalDistribution<2>,

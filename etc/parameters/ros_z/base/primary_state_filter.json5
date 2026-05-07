@@ -1,0 +1,12 @@
+{
+  injected_primary_state: null,
+  player_number: "Three",
+  recorded_primary_states: [
+    "Initial",
+    "Ready",
+    "Set",
+    "Playing",
+    "Stop",
+    "Penalized",
+  ],
+}

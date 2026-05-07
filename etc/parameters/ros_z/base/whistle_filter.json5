@@ -1,0 +1,4 @@
+{
+  buffer_length: 20,
+  minimum_detections: 2,
+}

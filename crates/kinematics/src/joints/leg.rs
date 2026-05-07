@@ -19,6 +19,7 @@ use super::mirror::Mirror;
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    ros_z::Message,
 )]
 pub enum LegJoint {
     HipPitch,
@@ -41,6 +42,7 @@ pub enum LegJoint {
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    ros_z::Message,
 )]
 pub struct LegJoints<T = f32> {
     pub hip_pitch: T,

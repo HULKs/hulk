@@ -1,0 +1,69 @@
+{
+  parameters: {
+    gait_frequency: 1,
+    stabilizing_interval_completion_threshold: 0.01,
+    stabilizing_interval_compression_factor: 1.0,
+    number_of_actions: 12,
+    number_of_observations: 47,
+    torque_limits: {
+      head: {
+        yaw: 7,
+        pitch: 7,
+      },
+      left_arm: {
+        shoulder_pitch: 10,
+        shoulder_roll: 10,
+        shoulder_yaw: 10,
+        elbow: 10,
+      },
+      right_arm: {
+        shoulder_pitch: 10,
+        shoulder_roll: 10,
+        shoulder_yaw: 10,
+        elbow: 10,
+      },
+      left_leg: {
+        hip_pitch: 60,
+        hip_roll: 25,
+        hip_yaw: 30,
+        knee: 60,
+        ankle_up: 24,
+        ankle_down: 15,
+      },
+      right_leg: {
+        hip_pitch: 60,
+        hip_roll: 25,
+        hip_yaw: 30,
+        knee: 60,
+        ankle_up: 24,
+        ankle_down: 15,
+      },
+    },
+    switch_policies_threshold: {
+      nanos: 500000000,
+      secs: 2,
+    },
+    normalization: {
+      gravity: 1.0,
+      linear_velocity: 1.0,
+      angular_velocity: 1.0,
+      joint_position: 1.0,
+      joint_velocity: 0.1,
+      clip_actions: 1,
+    },
+    control: {
+      dt: 0.01,
+      action_scale: 1.0,
+      decimation: 10.0,
+    },
+    walk_command: [0.0, 0.0, 0.0],
+    joint_position_smoothing_factor: 0.8,
+    hybrid_align_distance: 1.0,
+    max_alignment_rate: 1.0,
+    deceleration_distance: 0.5,
+  },
+  move_robot_message_interval: {
+    nanos: 33000000,
+    secs: 0,
+  },
+}

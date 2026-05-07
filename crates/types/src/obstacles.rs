@@ -17,6 +17,7 @@ use coordinate_systems::Ground;
     PathIntrospect,
     PathSerialize,
     Serialize,
+    ros_z::Message,
 )]
 pub enum ObstacleKind {
     Ball,
@@ -28,7 +29,15 @@ pub enum ObstacleKind {
 }
 
 #[derive(
-    Clone, Copy, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Clone,
+    Copy,
+    Debug,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    ros_z::Message,
 )]
 pub struct Obstacle {
     pub kind: ObstacleKind,

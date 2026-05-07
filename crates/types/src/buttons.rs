@@ -5,7 +5,15 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use serde::{Deserialize, Serialize};
 
 #[derive(
-    Clone, Copy, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect, Debug,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    Debug,
+    ros_z::Message,
 )]
 pub enum ButtonPressType {
     Short,
@@ -38,6 +46,7 @@ impl ButtonPressType {
     PathDeserialize,
     PathIntrospect,
     Debug,
+    ros_z::Message,
 )]
 pub struct Buttons<T> {
     pub f1: T,

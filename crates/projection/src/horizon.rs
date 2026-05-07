@@ -16,6 +16,7 @@ use crate::intrinsic::Intrinsic;
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    ros_z::Message,
 )]
 pub struct Horizon {
     pub vanishing_point: Point2<Pixel>,

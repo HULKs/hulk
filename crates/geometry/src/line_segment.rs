@@ -5,6 +5,7 @@ use std::{
 };
 
 use approx::{AbsDiffEq, RelativeEq};
+use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
 use linear_algebra::{
@@ -29,6 +30,7 @@ use crate::{
     PathSerialize,
     PathIntrospect,
     PathDeserialize,
+    Message,
 )]
 pub struct LineSegment<Frame>(pub Point2<Frame>, pub Point2<Frame>);
 

@@ -1,0 +1,10 @@
+{
+  time_since_last_message_to_consider_ip_active: {
+    nanos: 0,
+    secs: 5,
+  },
+  collision_alert_cooldown: {
+    nanos: 0,
+    secs: 10,
+  },
+}

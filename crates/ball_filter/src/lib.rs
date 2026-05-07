@@ -6,6 +6,7 @@ use linear_algebra::{IntoFramed, Isometry2, distance};
 use nalgebra::{Matrix2, Matrix2x4, Matrix4};
 use ordered_float::NotNan;
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
+use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
 mod hypothesis;
@@ -14,7 +15,15 @@ pub use hypothesis::{BallHypothesis, BallMode};
 use types::multivariate_normal_distribution::MultivariateNormalDistribution;
 
 #[derive(
-    Debug, Default, Clone, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Debug,
+    Default,
+    Clone,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    Message,
 )]
 pub struct BallFilter {
     pub hypotheses: Vec<BallHypothesis>,

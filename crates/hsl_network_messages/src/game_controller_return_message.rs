@@ -3,6 +3,7 @@ use std::{ffi::c_char, mem::size_of, ptr::read, slice::from_raw_parts, time::Dur
 use color_eyre::{Report, Result, eyre::bail};
 use coordinate_systems::{Field, Ground};
 use linear_algebra::{Pose2, point};
+use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -13,7 +14,7 @@ use crate::{
     },
 };
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, Message)]
 pub struct GameControllerReturnMessage {
     pub player_number: PlayerNumber,
     pub fallen: bool,

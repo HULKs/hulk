@@ -8,6 +8,7 @@ use std::{
 
 use color_eyre::{Report, Result, eyre::bail};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
+use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -27,7 +28,7 @@ use crate::{
     },
 };
 
-#[derive(Clone, Debug, Deserialize, Serialize, PathSerialize, PathIntrospect)]
+#[derive(Clone, Debug, Deserialize, Serialize, PathSerialize, PathIntrospect, Message)]
 pub struct GameControllerStateMessage {
     pub competition_type: CompetitionType,
     pub stopped: bool,
@@ -205,7 +206,15 @@ impl TryFrom<RoboCupGameControlData> for GameControllerStateMessage {
 }
 
 #[derive(
-    Clone, Copy, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Clone,
+    Copy,
+    Debug,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    Message,
 )]
 pub enum CompetitionType {
     Small,
@@ -235,6 +244,7 @@ impl CompetitionType {
     PathDeserialize,
     PathIntrospect,
     PartialEq,
+    Message,
 )]
 pub enum GamePhase {
     #[default]
@@ -274,6 +284,7 @@ impl GamePhase {
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    Message,
 )]
 pub enum GameState {
     Initial,
@@ -307,6 +318,7 @@ impl GameState {
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    Message,
 )]
 pub enum Team {
     Hulks,
@@ -339,6 +351,7 @@ impl TryFrom<u8> for Team {
     PathDeserialize,
     PathIntrospect,
     PartialEq,
+    Message,
 )]
 pub enum SubState {
     #[default]
@@ -376,6 +389,7 @@ impl SubState {
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    Message,
 )]
 pub enum Half {
     First,
@@ -394,7 +408,9 @@ impl TryFrom<u8> for Half {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect)]
+#[derive(
+    Clone, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect, Message,
+)]
 pub struct TeamState {
     pub team_number: u8,
     pub field_player_color: TeamColor,
@@ -407,7 +423,9 @@ pub struct TeamState {
     pub players: Vec<Player>,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect)]
+#[derive(
+    Clone, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect, Message,
+)]
 pub enum TeamColor {
     Blue,
     Red,
@@ -441,13 +459,13 @@ impl TryFrom<u8> for TeamColor {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Message)]
 pub enum PenaltyShoot {
     Successful,
     Unsuccessful,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize)]
+#[derive(Clone, Debug, Deserialize, Serialize, Message)]
 pub struct Player {
     pub penalty: Option<Penalty>,
     pub warning: u8,
@@ -477,6 +495,7 @@ impl TryFrom<RobotInfo> for Player {
     PathDeserialize,
     PathIntrospect,
     PartialEq,
+    Message,
 )]
 pub enum Penalty {
     IllegalPosition { remaining: Duration },

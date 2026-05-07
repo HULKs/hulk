@@ -20,6 +20,7 @@ use crate::{
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    ros_z::Message,
 )]
 pub struct CameraMatrix {
     pub ground_to_robot: Isometry3<Ground, Robot>,

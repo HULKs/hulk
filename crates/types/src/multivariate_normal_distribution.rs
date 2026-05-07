@@ -1,5 +1,6 @@
 use nalgebra::{SMatrix, SVector};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
+use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
 #[derive(
@@ -12,6 +13,7 @@ use serde::{Deserialize, Serialize};
     PathDeserialize,
     PathIntrospect,
     PartialEq,
+    Message,
 )]
 pub struct MultivariateNormalDistribution<const DIMENSION: usize> {
     pub mean: SVector<f32, DIMENSION>,

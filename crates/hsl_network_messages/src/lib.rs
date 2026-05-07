@@ -10,6 +10,7 @@ use std::{
 use coordinate_systems::Field;
 use linear_algebra::{Point2, Pose2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
+use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
 pub use game_controller_return_message::GameControllerReturnMessage;
@@ -19,7 +20,15 @@ pub use game_controller_state_message::{
 };
 
 #[derive(
-    Clone, Copy, Debug, Deserialize, Serialize, PathDeserialize, PathIntrospect, PathSerialize,
+    Clone,
+    Copy,
+    Debug,
+    Deserialize,
+    Serialize,
+    PathDeserialize,
+    PathIntrospect,
+    PathSerialize,
+    Message,
 )]
 pub enum HulkMessage {
     State(StateMessage),
@@ -31,7 +40,7 @@ impl Default for HulkMessage {
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, Message)]
 pub struct StrikerMessage {
     pub player_number: PlayerNumber,
     pub pose: Pose2<Field>,
@@ -49,6 +58,7 @@ pub struct StrikerMessage {
     PathDeserialize,
     PathIntrospect,
     PathSerialize,
+    Message,
 )]
 pub struct StateMessage {
     pub player_number: PlayerNumber,
@@ -66,6 +76,7 @@ pub struct StateMessage {
     PathIntrospect,
     PathSerialize,
     Serialize,
+    Message,
 )]
 pub struct BallPosition<Frame> {
     pub position: Point2<Frame>,
@@ -90,6 +101,7 @@ pub const NONE_TEAM_NUMBER: u8 = 255;
     PathIntrospect,
     PathSerialize,
     Serialize,
+    ros_z::Message,
 )]
 pub enum PlayerNumber {
     One,

@@ -79,6 +79,7 @@ impl LowState {
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    ros_z::Message,
 )]
 pub struct ImuState {
     #[serde(rename = "rpy")]
@@ -130,6 +131,7 @@ impl ImuState {
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    ros_z::Message,
 )]
 pub struct MotorState {
     #[serde(rename = "mode")]
@@ -181,7 +183,15 @@ impl MotorState {
 }
 
 #[derive(
-    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    ros_z::Message,
 )]
 pub struct MotorCommandParameters {
     pub weight: f32,
@@ -237,6 +247,7 @@ impl JointsMotorState for Joints<MotorState> {
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    ros_z::Message,
 )]
 pub enum CommandType {
     Parallel = 0,
@@ -247,7 +258,15 @@ pub enum CommandType {
 #[repr(C)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
 #[derive(
-    Debug, Default, Clone, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Debug,
+    Default,
+    Clone,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    ros_z::Message,
 )]
 pub struct LowCommand {
     #[serde(rename = "cmd_type")]
@@ -294,6 +313,7 @@ impl LowCommand {
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    ros_z::Message,
 )]
 pub struct MotorCommand {
     #[serde(rename = "mode")]
@@ -353,6 +373,7 @@ impl MotorCommand {
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    ros_z::Message,
 )]
 pub enum FallDownStateType {
     IsReady = 0,
@@ -364,7 +385,15 @@ pub enum FallDownStateType {
 #[repr(C)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
 #[derive(
-    Debug, Clone, Copy, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Debug,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    ros_z::Message,
 )]
 pub struct FallDownState {
     pub fall_down_state: FallDownStateType,
@@ -396,6 +425,7 @@ impl FallDownState {
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    ros_z::Message,
 )]
 pub enum ButtonEventType {
     PressDown,
@@ -420,6 +450,7 @@ pub enum ButtonEventType {
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    ros_z::Message,
 )]
 pub struct ButtonEventMsg {
     pub button: i32,
@@ -556,6 +587,7 @@ pub struct Kick {
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    ros_z::Message,
 )]
 pub struct Odometer {
     pub x: f32,

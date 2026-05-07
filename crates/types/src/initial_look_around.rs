@@ -4,7 +4,15 @@ use serde::{Deserialize, Serialize};
 use crate::support_foot::Side;
 
 #[derive(
-    Debug, Clone, Copy, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Debug,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    ros_z::Message,
 )]
 pub enum BallSearchLookAround {
     Center { moving_towards: Side },
@@ -32,6 +40,7 @@ impl Default for BallSearchLookAround {
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    ros_z::Message,
 )]
 pub struct QuickLookAround {
     pub mode: BallSearchLookAround,
@@ -47,6 +56,7 @@ pub struct QuickLookAround {
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    ros_z::Message,
 )]
 pub enum InitialLookAround {
     #[default]
@@ -55,7 +65,15 @@ pub enum InitialLookAround {
 }
 
 #[derive(
-    Debug, Clone, Copy, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Debug,
+    Clone,
+    Copy,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    ros_z::Message,
 )]
 pub enum LookAroundMode {
     Center,

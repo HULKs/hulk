@@ -28,6 +28,7 @@ members = [
   "crates/hulk_manifest",
   "crates/hulk_mujoco",
   "crates/hulk_replayer",
+  "crates/hulk_ros_z",
   "crates/hulk_widgets",
   "crates/hungarian_algorithm",
   "crates/hydra",

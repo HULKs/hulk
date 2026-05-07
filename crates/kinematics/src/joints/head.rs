@@ -19,6 +19,7 @@ use super::mirror::Mirror;
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    ros_z::Message,
 )]
 pub enum HeadJoint {
     Yaw,
@@ -37,6 +38,7 @@ pub enum HeadJoint {
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    ros_z::Message,
 )]
 pub struct HeadJoints<T> {
     pub yaw: T,

@@ -35,6 +35,7 @@ use self::{
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    ros_z::Message,
 )]
 pub enum JointsName {
     Head(HeadJoint),
@@ -56,6 +57,7 @@ pub enum JointsName {
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    ros_z::Message,
 )]
 pub struct Joints<T = f32> {
     pub head: HeadJoints<T>,

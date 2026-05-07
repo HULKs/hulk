@@ -4,7 +4,15 @@ use serde::{Deserialize, Serialize};
 use crate::support_foot::Side;
 
 #[derive(
-    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    ros_z::Message,
 )]
 pub struct InitialPose {
     pub center_line_offset_x: f32,

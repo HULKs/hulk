@@ -2,6 +2,7 @@ use crate::std_msgs::header::Header;
 use color_eyre::{Result, eyre::eyre};
 use image::{ImageError, RgbImage, error::DecodingError};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
+use ros_z::Message;
 use serde::{Deserialize, Serialize};
 use std::path::Path;
 use yuv::{
@@ -16,7 +17,15 @@ use pyo3::{pyclass, pymethods};
 #[cfg_attr(feature = "pyo3", pyclass(frozen))]
 #[repr(C)]
 #[derive(
-    Clone, Debug, Default, Serialize, Deserialize, PathIntrospect, PathSerialize, PathDeserialize,
+    Clone,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PathIntrospect,
+    PathSerialize,
+    PathDeserialize,
+    Message,
 )]
 pub struct Image {
     /// Header timestamp should be acquisition time of image

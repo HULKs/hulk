@@ -15,6 +15,7 @@ use crate::intrinsic::Intrinsic;
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    ros_z::Message,
 )]
 pub struct CameraProjection<From> {
     extrinsic: Isometry3<From, Camera>,
@@ -54,6 +55,7 @@ impl<From> CameraProjection<From> {
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    ros_z::Message,
 )]
 pub struct InverseCameraProjection<To> {
     back_project: Transform<Pixel, To, nalgebra::Matrix3<f32>>,

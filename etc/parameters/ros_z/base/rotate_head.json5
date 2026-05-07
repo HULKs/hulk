@@ -1,0 +1,6 @@
+{
+  rotate_head_message_interval: {
+    nanos: 33000000,
+    secs: 0,
+  },
+}

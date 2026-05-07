@@ -9,6 +9,7 @@ use color_eyre::eyre::{self, WrapErr};
 use geometry::circle::Circle;
 use image::{ImageError, ImageReader, RgbImage, error::DecodingError};
 use num_traits::Euclid;
+use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Pixel;
@@ -24,7 +25,15 @@ use ros2::sensor_msgs::image::Image as Ros2Image;
 pub const SAMPLE_SIZE: usize = 32;
 
 #[derive(
-    Clone, Debug, Default, Deserialize, Serialize, PathSerialize, PathIntrospect, PathDeserialize,
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathIntrospect,
+    PathDeserialize,
+    Message,
 )]
 #[path_serde(add_leaf(jpeg: JpegImage))]
 pub struct YCbCr422Image {

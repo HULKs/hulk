@@ -5,11 +5,20 @@
 /// width fields for the associated image; or height = width = 0
 /// indicates that the full resolution image was captured.
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
+use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
 #[repr(C)]
 #[derive(
-    Clone, Debug, Default, Serialize, Deserialize, PathIntrospect, PathSerialize, PathDeserialize,
+    Clone,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PathIntrospect,
+    PathSerialize,
+    PathDeserialize,
+    Message,
 )]
 pub struct RegionOfInterest {
     /// Leftmost pixel of the ROI

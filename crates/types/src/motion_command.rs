@@ -1,3 +1,4 @@
+use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::{Field, Ground};
@@ -16,6 +17,7 @@ use crate::path::Path;
     PathDeserialize,
     PathIntrospect,
     PartialEq,
+    Message,
 )]
 pub enum OrientationMode {
     Unspecified,
@@ -40,6 +42,7 @@ pub enum OrientationMode {
     PathDeserialize,
     PathIntrospect,
     PartialEq,
+    Message,
 )]
 pub enum MotionCommand {
     #[default]
@@ -176,6 +179,7 @@ pub enum BodyMotion {
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    Message,
 )]
 pub enum HeadMotion {
     ZeroAngles,
@@ -208,6 +212,7 @@ pub enum HeadMotion {
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    Message,
 )]
 pub enum ImageRegion {
     Bottom,
@@ -247,6 +252,7 @@ pub enum GlanceDirection {
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    Message,
 )]
 pub enum KickPower {
     #[default]

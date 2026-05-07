@@ -1,0 +1,53 @@
+{
+  config: {
+    game_controller_controller_delay: {
+      nanos: 0,
+      secs: 3,
+    },
+    playing_message_delay: {
+      nanos: 0,
+      secs: 15,
+    },
+    ready_message_delay: {
+      nanos: 0,
+      secs: 15,
+    },
+    kick_off_grace_period: {
+      nanos: 0,
+      secs: 10,
+    },
+    tentative_finish_duration: {
+      nanos: 0,
+      secs: 4,
+    },
+    distance_to_consider_ball_moved_in_kick_off: 0.3,
+    whistle_acceptance_goal_distance: [0.5, 0.5],
+    duration_to_keep_observed_ball: {
+      nanos: 0,
+      secs: 14,
+    },
+    duration_to_keep_new_penalties: {
+      nanos: 0,
+      secs: 30,
+    },
+  },
+  field_dimensions: {
+    ball_radius: 0.095,
+    length: 9.0,
+    width: 6.0,
+    line_width: 0.05,
+    penalty_marker_size: 0.1,
+    goal_box_area_length: 0.6,
+    goal_box_area_width: 2.2,
+    penalty_area_length: 1.65,
+    penalty_area_width: 4.0,
+    penalty_marker_distance: 1.3,
+    center_circle_diameter: 1.5,
+    border_strip_width: 2.0,
+    goal_inner_width: 1.5,
+    goal_post_diameter: 0.1,
+    goal_depth: 0.5,
+    corner_arc_radius: 0.0,
+  },
+  player_number: "Three",
+}

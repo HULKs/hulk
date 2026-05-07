@@ -2,11 +2,14 @@ use std::time::{Duration, SystemTime};
 
 use hsl_network_messages::{GamePhase, GameState, Penalty, SubState, Team, TeamState};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
+use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
 use crate::{field_dimensions::GlobalFieldSide, players::Players};
 
-#[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect)]
+#[derive(
+    Clone, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect, Message,
+)]
 pub struct GameControllerState {
     pub game_state: GameState,
     pub stopped: bool,

@@ -8,6 +8,7 @@ use moving::{MovingPredict, MovingUpdate};
 use nalgebra::{Matrix2, Matrix4};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use resting::{RestingPredict, RestingUpdate};
+use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Ground;
@@ -20,13 +21,17 @@ use types::{
 pub mod moving;
 pub mod resting;
 
-#[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect)]
+#[derive(
+    Clone, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect, Message,
+)]
 pub enum BallMode {
     Resting(MultivariateNormalDistribution<2>),
     Moving(MultivariateNormalDistribution<4>),
 }
 
-#[derive(Clone, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect)]
+#[derive(
+    Clone, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect, Message,
+)]
 pub struct BallHypothesis {
     pub mode: BallMode,
     pub last_seen: SystemTime,

@@ -747,6 +747,7 @@ dependencies = [
  "nalgebra",
  "ordered-float 4.6.0",
  "path_serde",
+ "ros-z",
  "serde",
  "types",
 ]
@@ -2074,6 +2075,7 @@ dependencies = [
  "nalgebra",
  "path_serde",
  "pyo3",
+ "ros-z",
  "ros2",
  "serde",
  "serde_json",
@@ -2720,6 +2722,7 @@ dependencies = [
  "approx",
  "approx_derive",
  "path_serde",
+ "ros-z",
  "serde",
 ]
 
@@ -4197,6 +4200,7 @@ dependencies = [
  "ordered-float 4.6.0",
  "parry2d",
  "path_serde",
+ "ros-z",
  "serde",
 ]
 
@@ -4884,6 +4888,7 @@ dependencies = [
  "num-derive",
  "num-traits",
  "path_serde",
+ "ros-z",
  "serde",
 ]
 
@@ -5168,6 +5173,31 @@ dependencies = [
  "vision",
  "walking_inference",
  "world_state",
+]
+
+[[package]]
+name = "hulk_ros_z"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network_messages",
+ "kinematics",
+ "linear_algebra",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
 ]
 
 [[package]]
@@ -5858,6 +5888,7 @@ dependencies = [
  "linear_algebra",
  "nalgebra",
  "path_serde",
+ "ros-z",
  "serde",
  "splines",
 ]
@@ -5974,6 +6005,8 @@ dependencies = [
  "nalgebra",
  "num-traits",
  "path_serde",
+ "ros-z",
+ "ros-z-schema",
  "serde",
  "simba",
 ]
@@ -8115,6 +8148,7 @@ dependencies = [
  "linear_algebra",
  "nalgebra",
  "path_serde",
+ "ros-z",
  "ros2",
  "serde",
  "thiserror 2.0.18",
@@ -8936,6 +8970,7 @@ dependencies = [
  "nalgebra",
  "path_serde",
  "pyo3",
+ "ros-z",
  "serde",
  "yuv",
 ]
@@ -11109,6 +11144,8 @@ dependencies = [
  "num-traits",
  "ordered-float 4.6.0",
  "path_serde",
+ "ros-z",
+ "ros-z-schema",
  "ros2",
  "serde",
  "splines",

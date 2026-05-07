@@ -15,6 +15,7 @@ use coordinate_systems::Field;
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    ros_z::Message,
 )]
 pub struct FieldDimensions {
     pub ball_radius: f32,
@@ -46,6 +47,7 @@ pub struct FieldDimensions {
     PathIntrospect,
     PartialEq,
     Eq,
+    ros_z::Message,
 )]
 pub enum GlobalFieldSide {
     Home,
@@ -122,6 +124,7 @@ impl Half {
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    ros_z::Message,
 )]
 pub enum Side {
     Left,

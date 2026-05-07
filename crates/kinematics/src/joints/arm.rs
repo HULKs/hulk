@@ -21,6 +21,7 @@ use super::mirror::Mirror;
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    ros_z::Message,
 )]
 pub enum ArmJoint {
     ShoulderPitch,
@@ -41,6 +42,7 @@ pub enum ArmJoint {
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    ros_z::Message,
 )]
 pub struct ArmJoints<T = f32> {
     pub shoulder_pitch: T,

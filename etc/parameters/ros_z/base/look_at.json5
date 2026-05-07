@@ -1,0 +1,12 @@
+{
+  glance_angle: 0.25,
+  image_region_parameters: {
+    bottom: [0.5, 0.85],
+    center: [0.5, 0.5],
+    top: [0.5, 0.15],
+  },
+  glance_direction_toggle_interval: {
+    nanos: 0,
+    secs: 1,
+  },
+}
