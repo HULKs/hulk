@@ -3,8 +3,7 @@ use ros_z_cdr::{
     CdrBuffer, CdrDecode, CdrEncode, CdrEncodedSize, CdrWriter, SerdeCdrSerializer, ZBufWriter,
 };
 use ros_z_schema::{
-    EnumPayloadDef, EnumVariantDef, FieldDef, PrimitiveTypeDef, SchemaBundle, SchemaError,
-    SchemaHash, SequenceLengthDef, TypeDef, TypeName,
+    PrimitiveTypeDef, SchemaBundle, SchemaError, SchemaHash, SequenceLengthDef, TypeDef, TypeName,
 };
 use serde::{Serialize, de::DeserializeOwned};
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -283,12 +282,10 @@ impl Message for Duration {
 
 impl MessageSchema for Duration {
     fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
-        let name = TypeName::new(Self::type_name())?;
-        builder.define_struct(name, |builder| {
-            Ok(vec![
-                FieldDef::new("secs", u64::build_schema(builder)?),
-                FieldDef::new("nanos", u32::build_schema(builder)?),
-            ])
+        builder.define_message_struct::<Self>(|fields| {
+            fields.field::<u64>("secs")?;
+            fields.field::<u32>("nanos")?;
+            Ok(())
         })
     }
 }
@@ -303,12 +300,10 @@ impl Message for SystemTime {
 
 impl MessageSchema for SystemTime {
     fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
-        let name = TypeName::new(Self::type_name())?;
-        builder.define_struct(name, |builder| {
-            Ok(vec![
-                FieldDef::new("secs_since_epoch", u64::build_schema(builder)?),
-                FieldDef::new("nanos_since_epoch", u32::build_schema(builder)?),
-            ])
+        builder.define_message_struct::<Self>(|fields| {
+            fields.field::<u64>("secs_since_epoch")?;
+            fields.field::<u32>("nanos_since_epoch")?;
+            Ok(())
         })
     }
 }
@@ -330,11 +325,10 @@ where
 {
     fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
         let name = TypeName::new(format!("Range<{}>", T::type_name()))?;
-        builder.define_struct(name, |builder| {
-            Ok(vec![
-                FieldDef::new("start", T::build_schema(builder)?),
-                FieldDef::new("end", T::build_schema(builder)?),
-            ])
+        builder.define_struct(name, |fields| {
+            fields.field::<T>("start")?;
+            fields.field::<T>("end")?;
+            Ok(())
         })
     }
 }
@@ -356,11 +350,10 @@ where
 {
     fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
         let name = TypeName::new(format!("RangeInclusive<{}>", T::type_name()))?;
-        builder.define_struct(name, |builder| {
-            Ok(vec![
-                FieldDef::new("start", T::build_schema(builder)?),
-                FieldDef::new("end", T::build_schema(builder)?),
-            ])
+        builder.define_struct(name, |fields| {
+            fields.field::<T>("start")?;
+            fields.field::<T>("end")?;
+            Ok(())
         })
     }
 }
@@ -376,39 +369,37 @@ impl Message for SocketAddr {
 impl MessageSchema for SocketAddr {
     fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
         let v4_name = TypeName::new("std::net::SocketAddrV4")?;
-        let v4 = builder.define_struct(v4_name, |builder| {
-            Ok(vec![
-                FieldDef::new(
-                    "ip",
-                    TypeDef::Sequence {
-                        element: Box::new(u8::build_schema(builder)?),
-                        length: SequenceLengthDef::Fixed(4),
-                    },
-                ),
-                FieldDef::new("port", u16::build_schema(builder)?),
-            ])
+        let v4 = builder.define_struct(v4_name, |fields| {
+            let element = fields.shape::<u8>()?;
+            fields.field_with_shape(
+                "ip",
+                TypeDef::Sequence {
+                    element: Box::new(element),
+                    length: SequenceLengthDef::Fixed(4),
+                },
+            );
+            fields.field::<u16>("port")?;
+            Ok(())
         })?;
 
         let v6_name = TypeName::new("std::net::SocketAddrV6")?;
-        let v6 = builder.define_struct(v6_name, |builder| {
-            Ok(vec![
-                FieldDef::new(
-                    "ip",
-                    TypeDef::Sequence {
-                        element: Box::new(u8::build_schema(builder)?),
-                        length: SequenceLengthDef::Fixed(16),
-                    },
-                ),
-                FieldDef::new("port", u16::build_schema(builder)?),
-            ])
+        let v6 = builder.define_struct(v6_name, |fields| {
+            let element = fields.shape::<u8>()?;
+            fields.field_with_shape(
+                "ip",
+                TypeDef::Sequence {
+                    element: Box::new(element),
+                    length: SequenceLengthDef::Fixed(16),
+                },
+            );
+            fields.field::<u16>("port")?;
+            Ok(())
         })?;
 
-        let name = TypeName::new(Self::type_name())?;
-        builder.define_enum(name, |_| {
-            Ok(vec![
-                EnumVariantDef::new("V4", EnumPayloadDef::Newtype(v4)),
-                EnumVariantDef::new("V6", EnumPayloadDef::Newtype(v6)),
-            ])
+        builder.define_message_enum::<Self>(|variants| {
+            variants.newtype_with_shape("V4", v4);
+            variants.newtype_with_shape("V6", v6);
+            Ok(())
         })
     }
 }

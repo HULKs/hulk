@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
-use ros_z_schema::{FieldDef, SchemaBundle, SchemaError, ServiceDef, TypeDef, TypeName};
+use ros_z_schema::{SchemaBundle, SchemaError, ServiceDef, TypeDef};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, warn};
 use zenoh::query::Query;
@@ -93,12 +93,10 @@ impl Message for GetSchemaRequest {
 
 impl MessageSchema for GetSchemaRequest {
     fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
-        let name = TypeName::new(Self::type_name())?;
-        builder.define_struct(name, |builder| {
-            Ok(vec![
-                FieldDef::new("root_type_name", String::build_schema(builder)?),
-                FieldDef::new("schema_hash", String::build_schema(builder)?),
-            ])
+        builder.define_message_struct::<Self>(|fields| {
+            fields.field::<String>("root_type_name")?;
+            fields.field::<String>("schema_hash")?;
+            Ok(())
         })
     }
 }
@@ -136,14 +134,12 @@ impl Message for GetSchemaResponse {
 
 impl MessageSchema for GetSchemaResponse {
     fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
-        let name = TypeName::new(Self::type_name())?;
-        builder.define_struct(name, |builder| {
-            Ok(vec![
-                FieldDef::new("successful", bool::build_schema(builder)?),
-                FieldDef::new("failure_reason", String::build_schema(builder)?),
-                FieldDef::new("schema_hash", String::build_schema(builder)?),
-                FieldDef::new("schema", SchemaBundle::build_schema(builder)?),
-            ])
+        builder.define_message_struct::<Self>(|fields| {
+            fields.field::<bool>("successful")?;
+            fields.field::<String>("failure_reason")?;
+            fields.field::<String>("schema_hash")?;
+            fields.field::<SchemaBundle>("schema")?;
+            Ok(())
         })
     }
 }

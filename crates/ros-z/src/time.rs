@@ -11,8 +11,8 @@ use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Notify;
 
-use crate::{Message, SerdeCdrCodec, schema::MessageSchema};
-use ros_z_schema::{FieldDef, SchemaError, TypeDef, TypeName};
+use crate::{Message, SerdeCdrCodec};
+use ros_z_schema::{SchemaError, TypeDef, TypeName};
 
 /// A clock-relative instant used throughout ros-z.
 ///
@@ -37,17 +37,19 @@ impl crate::schema::MessageSchema for Time {
     fn build_schema(builder: &mut crate::schema::SchemaBuilder) -> Result<TypeDef, SchemaError> {
         let duration = duration_schema(builder)?;
         let name = TypeName::new(Self::type_name())?;
-        builder.define_struct(name, |_| Ok(vec![FieldDef::new("duration", duration)]))
+        builder.define_struct(name, |fields| {
+            fields.field_with_shape("duration", duration);
+            Ok(())
+        })
     }
 }
 
 fn duration_schema(builder: &mut crate::schema::SchemaBuilder) -> Result<TypeDef, SchemaError> {
     let name = TypeName::new("builtin_interfaces::Duration")?;
-    builder.define_struct(name, |builder| {
-        Ok(vec![
-            FieldDef::new("sec", i32::build_schema(builder)?),
-            FieldDef::new("nanosec", u32::build_schema(builder)?),
-        ])
+    builder.define_struct(name, |fields| {
+        fields.field::<i32>("sec")?;
+        fields.field::<u32>("nanosec")?;
+        Ok(())
     })
 }
 

@@ -155,9 +155,9 @@ fn impl_message_for_struct(
                 ::ros_z::__private::ros_z_schema::TypeDef,
                 ::ros_z::__private::ros_z_schema::SchemaError,
             > {
-                let name = ::ros_z::__private::ros_z_schema::TypeName::new(Self::__ros_z_type_name())?;
-                builder.define_struct(name, |builder| {
-                    Ok(::std::vec![#(#schema_fields),*])
+                builder.define_message_struct::<Self>(|fields| {
+                    #(#schema_fields)*
+                    Ok(())
                 })
             }
         }
@@ -205,9 +205,9 @@ fn impl_message_for_enum(
                 ::ros_z::__private::ros_z_schema::TypeDef,
                 ::ros_z::__private::ros_z_schema::SchemaError,
             > {
-                let name = ::ros_z::__private::ros_z_schema::TypeName::new(Self::__ros_z_type_name())?;
-                builder.define_enum(name, |builder| {
-                    Ok(::std::vec![#(#variant_tokens),*])
+                builder.define_message_enum::<Self>(|variants| {
+                    #(#variant_tokens)*
+                    Ok(())
                 })
             }
         }
@@ -275,10 +275,11 @@ fn generate_message_field_schema_tokens(
         .as_ref()
         .ok_or_else(|| syn::Error::new_spanned(field, "named fields are required"))?;
     let field_name_str = field_ident_to_config_path(field_name);
-    let field_schema = generate_message_schema_tokens(&field.ty, derive_name)?;
+    let ty = &field.ty;
+    validate_message_schema_type(ty, derive_name)?;
 
     Ok(quote! {
-        ::ros_z::__private::ros_z_schema::FieldDef::new(#field_name_str, #field_schema)
+        fields.field::<#ty>(#field_name_str)?;
     })
 }
 
@@ -288,20 +289,21 @@ fn generate_unnamed_message_field_schema_tokens(
     derive_name: &str,
 ) -> syn::Result<TokenStream2> {
     let field_name = index.to_string();
-    let field_schema = generate_message_schema_tokens(&field.ty, derive_name)?;
+    let ty = &field.ty;
+    validate_message_schema_type(ty, derive_name)?;
 
     Ok(quote! {
-        ::ros_z::__private::ros_z_schema::FieldDef::new(#field_name, #field_schema)
+        fields.field::<#ty>(#field_name)?;
     })
 }
 
-fn generate_message_schema_tokens(ty: &Type, derive_name: &str) -> syn::Result<TokenStream2> {
+fn validate_message_schema_type(ty: &Type, derive_name: &str) -> syn::Result<()> {
     match ty {
-        Type::Tuple(_) => unsupported_message_type(
+        Type::Tuple(_) => Err(syn::Error::new_spanned(
             ty,
-            &format!("tuple fields are not supported by {derive_name} derive in v1"),
-        ),
-        _ => Ok(quote! { <#ty as ::ros_z::schema::MessageSchema>::build_schema(builder)? }),
+            format!("tuple fields are not supported by {derive_name} derive in v1"),
+        )),
+        _ => Ok(()),
     }
 }
 
@@ -310,23 +312,35 @@ fn generate_enum_variant_schema_tokens(
     derive_name: &str,
 ) -> syn::Result<TokenStream2> {
     let variant_name = variant.ident.to_string();
-    let payload = match &variant.fields {
-        Fields::Unit => quote! { ::ros_z::__private::ros_z_schema::EnumPayloadDef::Unit },
+    match &variant.fields {
+        Fields::Unit => Ok(quote! {
+            variants.unit(#variant_name);
+        }),
         Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
-            let schema = generate_message_schema_tokens(&fields.unnamed[0].ty, derive_name)?;
-            quote! {
-                ::ros_z::__private::ros_z_schema::EnumPayloadDef::Newtype(#schema)
-            }
+            let ty = &fields.unnamed[0].ty;
+            validate_message_schema_type(ty, derive_name)?;
+            Ok(quote! {
+                variants.newtype::<#ty>(#variant_name)?;
+            })
         }
         Fields::Unnamed(fields) => {
             let schemas = fields
                 .unnamed
                 .iter()
-                .map(|field| generate_message_schema_tokens(&field.ty, derive_name))
+                .map(|field| {
+                    let ty = &field.ty;
+                    validate_message_schema_type(ty, derive_name)?;
+                    Ok(quote! {
+                        fields.element::<#ty>()?;
+                    })
+                })
                 .collect::<syn::Result<Vec<_>>>()?;
-            quote! {
-                ::ros_z::__private::ros_z_schema::EnumPayloadDef::Tuple(::std::vec![#(#schemas),*])
-            }
+            Ok(quote! {
+                variants.tuple(#variant_name, |fields| {
+                    #(#schemas)*
+                    Ok(())
+                })?;
+            })
         }
         Fields::Named(fields) => {
             let field_schemas = fields
@@ -334,22 +348,14 @@ fn generate_enum_variant_schema_tokens(
                 .iter()
                 .map(|field| generate_message_field_schema_tokens(field, derive_name))
                 .collect::<syn::Result<Vec<_>>>()?;
-            quote! {
-                ::ros_z::__private::ros_z_schema::EnumPayloadDef::Struct(::std::vec![#(#field_schemas),*])
-            }
+            Ok(quote! {
+                variants.struct_variant(#variant_name, |fields| {
+                    #(#field_schemas)*
+                    Ok(())
+                })?;
+            })
         }
-    };
-
-    Ok(quote! {
-        ::ros_z::__private::ros_z_schema::EnumVariantDef::new(#variant_name, #payload)
-    })
-}
-
-fn unsupported_message_type<T>(node: &T, message: &str) -> syn::Result<TokenStream2>
-where
-    T: quote::ToTokens,
-{
-    Err(syn::Error::new_spanned(node, message))
+    }
 }
 
 #[derive(Default)]

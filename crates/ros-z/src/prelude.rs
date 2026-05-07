@@ -29,7 +29,9 @@ pub use crate::parameter::NodeParametersExt;
 pub use crate::pubsub::{Publisher, PublisherBuilder, Subscriber, SubscriberBuilder};
 
 /// Static schema construction traits and helpers.
-pub use crate::schema::{MessageSchema, SchemaBuilder};
+pub use crate::schema::{
+    EnumSchemaBuilder, MessageSchema, SchemaBuilder, StructSchemaBuilder, TupleVariantSchemaBuilder,
+};
 
 /// Core service handles.
 pub use crate::service::{RequestId, ServiceClient, ServiceReply, ServiceRequest, ServiceServer};

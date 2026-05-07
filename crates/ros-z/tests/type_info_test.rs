@@ -2,7 +2,7 @@ use ros_z::{
     Message, SchemaHash,
     schema::{MessageSchema, SchemaBuilder},
 };
-use ros_z_schema::{FieldDef, SchemaError, TypeDef, TypeName};
+use ros_z_schema::{SchemaError, TypeDef, TypeName};
 use serde::{Deserialize, Serialize};
 
 #[test]
@@ -59,12 +59,10 @@ impl Message for MockMessage {
 
 impl MessageSchema for MockMessage {
     fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
-        let name = TypeName::new("mock::StaticMessage")?;
-        builder.define_struct(name, |builder| {
-            Ok(vec![
-                FieldDef::new("name", String::build_schema(builder)?),
-                FieldDef::new("hash", String::build_schema(builder)?),
-            ])
+        builder.define_message_struct::<Self>(|fields| {
+            fields.field::<String>("name")?;
+            fields.field::<String>("hash")?;
+            Ok(())
         })
     }
 }
@@ -84,8 +82,7 @@ fn schema_hash_defaults_to_the_message_schema_hash() {
 
     impl MessageSchema for SimpleMessage {
         fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
-            let name = TypeName::new("simple::Message")?;
-            builder.define_struct(name, |_| Ok(Vec::new()))
+            builder.define_message_struct::<Self>(|_| Ok(()))
         }
     }
 
@@ -99,7 +96,10 @@ fn schema_type_info_uses_rzhs_hash_strings() {
     let mut builder = SchemaBuilder::new();
     let name = TypeName::new("std_msgs::String").unwrap();
     let root = builder
-        .define_struct(name, |_| Ok(vec![FieldDef::new("data", TypeDef::String)]))
+        .define_struct(name, |fields| {
+            fields.field::<String>("data")?;
+            Ok(())
+        })
         .unwrap();
     let schema = builder.finish(root).unwrap();
 

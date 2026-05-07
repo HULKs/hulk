@@ -10,7 +10,7 @@ use ros_z::{
     schema::{MessageSchema, SchemaBuilder},
     time::{Clock, Time},
 };
-use ros_z_schema::{FieldDef, PrimitiveTypeDef, SchemaError, SequenceLengthDef, TypeDef, TypeName};
+use ros_z_schema::{PrimitiveTypeDef, SchemaError, SequenceLengthDef, TypeDef, TypeName};
 use ros_z_schema::{SchemaBundle, StructDef, TypeDefinition, TypeDefinitions};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -34,18 +34,16 @@ impl Message for TestMessage {
 
 impl MessageSchema for TestMessage {
     fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
-        let name = TypeName::new("test_msgs::TestMessage")?;
-        builder.define_struct(name, |_| {
-            Ok(vec![
-                FieldDef::new(
-                    "data",
-                    TypeDef::Sequence {
-                        element: Box::new(TypeDef::Primitive(PrimitiveTypeDef::U8)),
-                        length: SequenceLengthDef::Dynamic,
-                    },
-                ),
-                FieldDef::new("counter", TypeDef::Primitive(PrimitiveTypeDef::U64)),
-            ])
+        builder.define_message_struct::<Self>(|fields| {
+            fields.field_with_shape(
+                "data",
+                TypeDef::Sequence {
+                    element: Box::new(TypeDef::Primitive(PrimitiveTypeDef::U8)),
+                    length: SequenceLengthDef::Dynamic,
+                },
+            );
+            fields.field_with_shape("counter", TypeDef::Primitive(PrimitiveTypeDef::U64));
+            Ok(())
         })
     }
 }
@@ -80,8 +78,10 @@ impl Message for CacheSchemaHashMessage {
 
 impl MessageSchema for CacheSchemaHashMessage {
     fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
-        let name = TypeName::new("test_msgs::CacheSchemaHashMessage")?;
-        builder.define_struct(name, |_| Ok(vec![FieldDef::new("data", TypeDef::String)]))
+        builder.define_message_struct::<Self>(|fields| {
+            fields.field::<String>("data")?;
+            Ok(())
+        })
     }
 }
 
@@ -115,8 +115,10 @@ impl Message for AdvertisedTypeInfoSchemaMessage {
 
 impl MessageSchema for AdvertisedTypeInfoSchemaMessage {
     fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
-        let name = TypeName::new("test_msgs::AdvertisedTypeInfoSchemaMessage")?;
-        builder.define_struct(name, |_| Ok(vec![FieldDef::new("data", TypeDef::String)]))
+        builder.define_message_struct::<Self>(|fields| {
+            fields.field::<String>("data")?;
+            Ok(())
+        })
     }
 }
 
@@ -178,7 +180,10 @@ struct MismatchedRootSchemaMessage {
 impl MessageSchema for MismatchedRootSchemaMessage {
     fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
         let name = TypeName::new("test_msgs::ActualRoot")?;
-        builder.define_struct(name, |_| Ok(vec![FieldDef::new("data", TypeDef::String)]))
+        builder.define_struct(name, |fields| {
+            fields.field::<String>("data")?;
+            Ok(())
+        })
     }
 }
 
@@ -678,8 +683,9 @@ async fn dynamic_publisher_advertises_explicit_schema_hash() {
     let root_type_name = TypeName::new(&root_name).unwrap();
     let mut builder = SchemaBuilder::new();
     let root = builder
-        .define_struct(root_type_name, |_| {
-            Ok(vec![FieldDef::new("data", TypeDef::String)])
+        .define_struct(root_type_name, |fields| {
+            fields.field::<String>("data")?;
+            Ok(())
         })
         .unwrap();
     let root_schema = std::sync::Arc::new(builder.finish(root).unwrap());

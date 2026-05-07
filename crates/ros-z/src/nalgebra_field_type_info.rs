@@ -2,7 +2,7 @@ use nalgebra::{
     Isometry2, Isometry3, Matrix2, Matrix3, Matrix4, Point2, Point3, Rotation2, Rotation3,
     Translation2, Translation3, UnitComplex, UnitQuaternion, Vector2, Vector3, Vector4,
 };
-use ros_z_schema::{FieldDef, PrimitiveTypeDef, SchemaError, SequenceLengthDef, TypeDef, TypeName};
+use ros_z_schema::{PrimitiveTypeDef, SchemaError, SequenceLengthDef, TypeDef, TypeName};
 
 use crate::{Message, SerdeCdrCodec};
 
@@ -74,17 +74,10 @@ macro_rules! impl_isometry_message {
                 builder: &mut crate::schema::SchemaBuilder,
             ) -> Result<TypeDef, SchemaError> {
                 let name = TypeName::new($type_name)?;
-                builder.define_struct(name, |builder| {
-                    Ok(vec![
-                        FieldDef::new(
-                            "rotation",
-                            <$rotation as crate::schema::MessageSchema>::build_schema(builder)?,
-                        ),
-                        FieldDef::new(
-                            "translation",
-                            <$translation as crate::schema::MessageSchema>::build_schema(builder)?,
-                        ),
-                    ])
+                builder.define_struct(name, |fields| {
+                    fields.field::<$rotation>("rotation")?;
+                    fields.field::<$translation>("translation")?;
+                    Ok(())
                 })
             }
         }
