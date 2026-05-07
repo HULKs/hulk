@@ -7,16 +7,16 @@ use crate::json::{JsonEncode, to_json};
 pub struct SchemaHash(pub [u8; 32]);
 
 impl SchemaHash {
-    /// Converts the hash to `RZHS01_<hex>` form.
+    /// Converts the hash to `RZHS02_<hex>` form.
     pub fn to_hash_string(&self) -> String {
-        format!("RZHS01_{}", hex::encode(self.0))
+        format!("RZHS02_{}", hex::encode(self.0))
     }
 
-    /// Parses `RZHS01_<hex>` form.
+    /// Parses `RZHS02_<hex>` form.
     pub fn from_hash_string(value: &str) -> Result<Self, String> {
         let hex_part = value
-            .strip_prefix("RZHS01_")
-            .ok_or_else(|| "hash must start with 'RZHS01_'".to_string())?;
+            .strip_prefix("RZHS02_")
+            .ok_or_else(|| "hash must start with 'RZHS02_'".to_string())?;
         let bytes = hex::decode(hex_part).map_err(|err| err.to_string())?;
 
         if bytes.len() != 32 {

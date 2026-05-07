@@ -228,7 +228,7 @@ mod tests {
             "--node",
             "/vision/object_detection",
             "--schema-hash",
-            "RZHS01_deadbeef",
+            "RZHS02_deadbeef",
         ]);
 
         match cli.command {
@@ -239,7 +239,7 @@ mod tests {
             } => {
                 assert_eq!(type_name, "hulk_parameters::ObjectDetectionParameters");
                 assert_eq!(node, "/vision/object_detection");
-                assert_eq!(schema_hash, "RZHS01_deadbeef");
+                assert_eq!(schema_hash, "RZHS02_deadbeef");
             }
             other => panic!("unexpected command: {other:?}"),
         }

@@ -348,7 +348,7 @@ mod tests {
         let view = SchemaView {
             node: "/tools/rosz".to_string(),
             type_name: "custom_msgs::Mode".to_string(),
-            schema_hash: "RZHS01_deadbeef".to_string(),
+            schema_hash: "RZHS02_deadbeef".to_string(),
             root: SchemaRootView {
                 type_name: "enum custom_msgs::Mode".to_string(),
                 kind: SchemaFieldKindView::Enum,

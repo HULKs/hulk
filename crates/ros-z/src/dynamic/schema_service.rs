@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 
-use ros_z_schema::{SchemaBundle, ServiceDef};
+use ros_z_schema::{FieldDef, SchemaBundle, SchemaError, ServiceDef, TypeDef, TypeName};
 use serde::{Deserialize, Serialize};
 use tracing::{debug, info, warn};
 use zenoh::query::Query;
@@ -9,12 +9,13 @@ use zenoh::{Result as ZResult, Session, Wait};
 
 use super::error::DynamicError;
 use super::schema::Schema;
-use super::schema_bridge::{schema_hash_with_root_name, schema_to_bundle};
+use crate::Message;
 use crate::ServiceTypeInfo;
 use crate::attachment::Attachment;
 use crate::context::GlobalCounter;
 use crate::entity::{EndpointEntity, EndpointKind, NodeEntity, SchemaHash, TypeInfo};
 use crate::msg::{SerdeCdrCodec, Service, WireDecoder, WireEncoder, WireMessage};
+use crate::schema::{MessageSchema, SchemaBuilder};
 use crate::service::{ServiceServer, ServiceServerBuilder};
 use crate::time::Clock;
 
@@ -24,23 +25,52 @@ type SchemaRegistry = HashMap<String, SchemaVersions>;
 fn empty_schema_bundle() -> SchemaBundle {
     let type_name = ros_z_schema::TypeName::new("ros_z::Empty").unwrap();
     SchemaBundle {
-        root_name: ros_z_schema::RootTypeName::new("ros_z::Empty").unwrap(),
-        root: ros_z_schema::TypeDef::StructRef(type_name.clone()),
+        root: ros_z_schema::TypeDef::Named(type_name.clone()),
         definitions: [(
             type_name,
-            ros_z_schema::NamedTypeDef::Struct(ros_z_schema::StructDef { fields: Vec::new() }),
+            ros_z_schema::TypeDefinition::Struct(ros_z_schema::StructDef { fields: Vec::new() }),
         )]
         .into(),
     }
 }
 
 pub(crate) fn bundle_and_hash_for_schema(
-    root_name: &str,
+    _root_name: &str,
     schema: &Schema,
 ) -> Result<(SchemaBundle, SchemaHash), DynamicError> {
-    let bundle = schema_to_bundle(root_name, schema)?;
+    schema
+        .validate()
+        .map_err(|error| DynamicError::SerializationError(error.to_string()))?;
+    let bundle = schema.as_ref().clone();
     let hash = ros_z_schema::compute_hash(&bundle);
     Ok((bundle, hash))
+}
+
+fn validate_schema_root_name(
+    root_name: &str,
+    schema: &SchemaBundle,
+) -> std::result::Result<(), DynamicError> {
+    if let TypeDef::Named(actual_root_name) = &schema.root
+        && actual_root_name.as_str() != root_name
+    {
+        return Err(DynamicError::SerializationError(format!(
+            "schema root '{}' does not match registered root name '{root_name}'",
+            actual_root_name.as_str()
+        )));
+    }
+
+    Ok(())
+}
+
+fn validated_schema_hash(
+    root_name: &str,
+    schema: &Schema,
+) -> std::result::Result<SchemaHash, DynamicError> {
+    schema
+        .validate()
+        .map_err(|error| DynamicError::SerializationError(error.to_string()))?;
+    validate_schema_root_name(root_name, schema.as_ref())?;
+    Ok(ros_z_schema::compute_hash(schema.as_ref()))
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -51,6 +81,26 @@ pub struct GetSchemaRequest {
 
 impl WireMessage for GetSchemaRequest {
     type Codec = SerdeCdrCodec<GetSchemaRequest>;
+}
+
+impl Message for GetSchemaRequest {
+    type Codec = SerdeCdrCodec<Self>;
+
+    fn type_name() -> String {
+        "ros_z::GetSchemaRequest".to_string()
+    }
+}
+
+impl MessageSchema for GetSchemaRequest {
+    fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
+        let name = TypeName::new(Self::type_name())?;
+        builder.define_struct(name, |builder| {
+            Ok(vec![
+                FieldDef::new("root_type_name", String::build_schema(builder)?),
+                FieldDef::new("schema_hash", String::build_schema(builder)?),
+            ])
+        })
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -76,6 +126,28 @@ impl WireMessage for GetSchemaResponse {
     type Codec = SerdeCdrCodec<GetSchemaResponse>;
 }
 
+impl Message for GetSchemaResponse {
+    type Codec = SerdeCdrCodec<Self>;
+
+    fn type_name() -> String {
+        "ros_z::GetSchemaResponse".to_string()
+    }
+}
+
+impl MessageSchema for GetSchemaResponse {
+    fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
+        let name = TypeName::new(Self::type_name())?;
+        builder.define_struct(name, |builder| {
+            Ok(vec![
+                FieldDef::new("successful", bool::build_schema(builder)?),
+                FieldDef::new("failure_reason", String::build_schema(builder)?),
+                FieldDef::new("schema_hash", String::build_schema(builder)?),
+                FieldDef::new("schema", SchemaBundle::build_schema(builder)?),
+            ])
+        })
+    }
+}
+
 pub struct GetSchema;
 
 impl Service for GetSchema {
@@ -84,18 +156,17 @@ impl Service for GetSchema {
 }
 
 impl ServiceTypeInfo for GetSchema {
-    fn service_type_info() -> TypeInfo {
+    fn service_type_info() -> Result<TypeInfo, SchemaError> {
         let descriptor = ServiceDef::new(
             "ros_z::GetSchema",
             "ros_z::GetSchemaRequest",
             "ros_z::GetSchemaResponse",
-        )
-        .expect("static schema service descriptor must be valid");
+        )?;
 
-        TypeInfo::with_hash(
+        Ok(TypeInfo::with_hash(
             descriptor.type_name.as_str(),
             ros_z_schema::compute_hash(&descriptor),
-        )
+        ))
     }
 }
 
@@ -112,13 +183,84 @@ impl RegisteredSchema {
         schema: Schema,
     ) -> std::result::Result<Self, DynamicError> {
         let root_name = root_name.into();
-        let schema_hash = schema_hash_with_root_name(&root_name, &schema)?;
+        let schema_hash = validated_schema_hash(&root_name, &schema)?;
 
         Ok(Self {
             root_name,
             schema,
             schema_hash,
         })
+    }
+}
+
+#[cfg(test)]
+mod registered_schema_tests {
+    use std::sync::Arc;
+
+    use ros_z_schema::{SchemaBundle, StructDef, TypeDef, TypeDefinition, TypeName};
+
+    use super::*;
+
+    fn empty_struct_bundle(type_name: &str) -> Schema {
+        let type_name = TypeName::new(type_name).unwrap();
+        Arc::new(SchemaBundle {
+            root: TypeDef::Named(type_name.clone()),
+            definitions: [(
+                type_name,
+                TypeDefinition::Struct(StructDef { fields: Vec::new() }),
+            )]
+            .into(),
+        })
+    }
+
+    #[test]
+    fn registered_schema_rejects_root_name_that_does_not_match_bundle_root() {
+        let schema = empty_struct_bundle("test_msgs::Actual");
+
+        let error = match RegisteredSchema::new("test_msgs::Requested", schema) {
+            Ok(_) => panic!("mismatched root name should be rejected"),
+            Err(error) => error,
+        };
+
+        assert!(error.to_string().contains("root"));
+        assert!(error.to_string().contains("test_msgs::Requested"));
+        assert!(error.to_string().contains("test_msgs::Actual"));
+    }
+
+    #[test]
+    fn get_schema_response_advertises_schema_bundle_field_shape() {
+        let schema = GetSchemaResponse::schema().expect("schema response schema");
+        let response = TypeName::new(GetSchemaResponse::type_name()).unwrap();
+        let bundle = TypeName::new("ros_z_schema::SchemaBundle").unwrap();
+
+        let Some(TypeDefinition::Struct(response_definition)) = schema.definitions.get(&response)
+        else {
+            panic!("missing GetSchemaResponse struct definition");
+        };
+        let schema_field = response_definition
+            .fields
+            .iter()
+            .find(|field| field.name == "schema")
+            .expect("schema field");
+
+        assert_eq!(schema_field.shape, TypeDef::Named(bundle.clone()));
+        let Some(TypeDefinition::Struct(bundle_definition)) = schema.definitions.get(&bundle)
+        else {
+            panic!("missing SchemaBundle struct definition");
+        };
+
+        assert!(
+            bundle_definition
+                .fields
+                .iter()
+                .any(|field| field.name == "root")
+        );
+        assert!(
+            bundle_definition
+                .fields
+                .iter()
+                .any(|field| field.name == "definitions")
+        );
     }
 }
 
@@ -156,7 +298,9 @@ fn schema_service_server_builder(
         node: Some(node_entity),
         kind: EndpointKind::Service,
         topic: service_name.to_string(),
-        type_info: Some(GetSchema::service_type_info()),
+        type_info: Some(
+            GetSchema::service_type_info().expect("schema service type info is static"),
+        ),
         qos: Default::default(),
     };
 
@@ -164,6 +308,7 @@ fn schema_service_server_builder(
         entity,
         session,
         clock: clock.clone(),
+        schema_error: None,
         _phantom_data: Default::default(),
     }
 }

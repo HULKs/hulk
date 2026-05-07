@@ -2,25 +2,24 @@ use byteorder::LittleEndian;
 use ros_z_cdr::{
     CdrBuffer, CdrDecode, CdrEncode, CdrEncodedSize, CdrWriter, SerdeCdrSerializer, ZBufWriter,
 };
-use ros_z_schema::TypeName;
-use serde::{Deserialize, Serialize};
-use std::any::TypeId;
+use ros_z_schema::{
+    EnumPayloadDef, EnumVariantDef, FieldDef, PrimitiveTypeDef, SchemaBundle, SchemaError,
+    SchemaHash, SequenceLengthDef, TypeDef, TypeName,
+};
+use serde::{Serialize, de::DeserializeOwned};
 use std::collections::{BTreeMap, HashMap, HashSet};
 use std::hash::Hash;
 use std::marker::PhantomData;
 use std::net::SocketAddr;
 use std::ops::{Range, RangeInclusive};
-use std::sync::{Arc, Mutex, OnceLock};
+use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 use zenoh::shm::{PosixShmProviderBackend, ShmProvider};
 use zenoh_buffers::ZBuf;
 
-use crate::dynamic::{
-    PrimitiveType, RuntimeDynamicEnumPayload, RuntimeDynamicEnumVariant, RuntimeFieldSchema,
-    Schema, SequenceLength, TypeShape, schema_tree_hash,
-};
 use crate::encoding::Encoding;
-use crate::entity::{SchemaHash, TypeInfo};
+use crate::entity::TypeInfo;
+use crate::schema::{MessageSchema, SchemaBuilder};
 use crate::shm::ShmWriter;
 
 /// Error returned when CDR bytes cannot be decoded into the requested type.
@@ -178,62 +177,44 @@ pub trait MessageCodec<T> {
 }
 
 /// Typed message contract for ros-z publishers, subscribers, services, and schemas.
-pub trait Message: Send + Sync + Sized + 'static {
+pub trait Message: MessageSchema + Send + Sync + Sized + 'static {
     /// Codec used to encode and decode this message type.
     type Codec: MessageCodec<Self>;
 
     /// Stable fully qualified type name advertised in graph metadata.
-    fn type_name() -> &'static str;
+    fn type_name() -> String;
     /// Runtime schema used for discovery and dynamic tooling.
-    fn schema() -> Schema;
+    fn schema() -> Result<SchemaBundle, SchemaError> {
+        crate::schema::schema_for::<Self>()
+    }
 
     /// Stable hash derived from [`Message::schema`].
-    fn schema_hash() -> SchemaHash {
-        schema_tree_hash(Self::type_name(), &Self::schema()).unwrap_or_else(|| {
-            panic!(
-                "message schema `{}` must convert to a schema hash",
-                Self::type_name()
-            )
-        })
+    fn schema_hash() -> Result<SchemaHash, SchemaError> {
+        Ok(ros_z_schema::compute_hash(&Self::schema()?))
     }
 
     /// Type name plus schema hash advertised for this message.
-    fn type_info() -> TypeInfo {
-        TypeInfo::with_hash(Self::type_name(), Self::schema_hash())
+    fn type_info() -> Result<TypeInfo, SchemaError> {
+        Ok(TypeInfo::with_hash(
+            &Self::type_name(),
+            Self::schema_hash()?,
+        ))
     }
-}
-
-fn cached_type_name<T: 'static>(build: impl FnOnce() -> String) -> &'static str {
-    static TYPE_NAMES: OnceLock<Mutex<HashMap<TypeId, &'static str>>> = OnceLock::new();
-
-    let type_names = TYPE_NAMES.get_or_init(|| Mutex::new(HashMap::new()));
-    let type_id = TypeId::of::<T>();
-
-    if let Some(type_name) = type_names
-        .lock()
-        .expect("type name cache poisoned")
-        .get(&type_id)
-        .copied()
-    {
-        return type_name;
-    }
-
-    let type_name = Box::leak(build().into_boxed_str());
-    let mut cache = type_names.lock().expect("type name cache poisoned");
-    cache.entry(type_id).or_insert(type_name)
 }
 
 macro_rules! impl_primitive_message {
     ($ty:ty, $name:literal, $primitive:ident) => {
+        impl MessageSchema for $ty {
+            fn build_schema(_builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
+                Ok(TypeDef::Primitive(PrimitiveTypeDef::$primitive))
+            }
+        }
+
         impl Message for $ty {
             type Codec = SerdeCdrCodec<Self>;
 
-            fn type_name() -> &'static str {
-                $name
-            }
-
-            fn schema() -> Schema {
-                Arc::new(TypeShape::Primitive(PrimitiveType::$primitive))
+            fn type_name() -> String {
+                $name.to_string()
             }
         }
     };
@@ -248,25 +229,66 @@ impl_primitive_message!(i32, "i32", I32);
 impl_primitive_message!(u32, "u32", U32);
 impl_primitive_message!(i64, "i64", I64);
 impl_primitive_message!(u64, "u64", U64);
+impl_primitive_message!(usize, "usize", U64);
 impl_primitive_message!(f32, "f32", F32);
 impl_primitive_message!(f64, "f64", F64);
+
+impl<T> Message for Box<T>
+where
+    T: Message + Serialize + DeserializeOwned,
+{
+    type Codec = SerdeCdrCodec<Self>;
+
+    fn type_name() -> String {
+        format!("Box<{}>", T::type_name())
+    }
+}
+
+impl<T> MessageSchema for Box<T>
+where
+    T: MessageSchema,
+{
+    fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
+        T::build_schema(builder)
+    }
+}
+
+impl<T> Message for Arc<T>
+where
+    T: Message + Serialize + DeserializeOwned,
+{
+    type Codec = SerdeCdrCodec<Self>;
+
+    fn type_name() -> String {
+        format!("Arc<{}>", T::type_name())
+    }
+}
+
+impl<T> MessageSchema for Arc<T>
+where
+    T: MessageSchema,
+{
+    fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
+        T::build_schema(builder)
+    }
+}
 
 impl Message for Duration {
     type Codec = SerdeCdrCodec<Self>;
 
-    fn type_name() -> &'static str {
-        "std::time::Duration"
+    fn type_name() -> String {
+        "std::time::Duration".to_string()
     }
+}
 
-    fn schema() -> Schema {
-        let name = Self::type_name();
-        let fields = vec![
-            RuntimeFieldSchema::new("secs", u64::schema()),
-            RuntimeFieldSchema::new("nanos", u32::schema()),
-        ];
-        Arc::new(TypeShape::Struct {
-            name: TypeName::new(name).expect("valid type name"),
-            fields,
+impl MessageSchema for Duration {
+    fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
+        let name = TypeName::new(Self::type_name())?;
+        builder.define_struct(name, |builder| {
+            Ok(vec![
+                FieldDef::new("secs", u64::build_schema(builder)?),
+                FieldDef::new("nanos", u32::build_schema(builder)?),
+            ])
         })
     }
 }
@@ -274,80 +296,71 @@ impl Message for Duration {
 impl Message for SystemTime {
     type Codec = SerdeCdrCodec<Self>;
 
-    fn type_name() -> &'static str {
-        "std::time::SystemTime"
-    }
-
-    fn schema() -> Schema {
-        // std serde only supports SystemTime values at or after UNIX_EPOCH.
-        // The schema mirrors that serde representation because SerdeCdrCodec
-        // is the wire codec for this impl.
-        let name = Self::type_name();
-        let fields = vec![
-            RuntimeFieldSchema::new("secs_since_epoch", u64::schema()),
-            RuntimeFieldSchema::new("nanos_since_epoch", u32::schema()),
-        ];
-        Arc::new(TypeShape::Struct {
-            name: TypeName::new(name).expect("valid type name"),
-            fields,
-        })
+    fn type_name() -> String {
+        "std::time::SystemTime".to_string()
     }
 }
 
-impl Message for usize {
-    type Codec = SerdeCdrCodec<Self>;
-
-    fn type_name() -> &'static str {
-        "usize"
-    }
-
-    fn schema() -> Schema {
-        Arc::new(TypeShape::Primitive(PrimitiveType::U64))
+impl MessageSchema for SystemTime {
+    fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
+        let name = TypeName::new(Self::type_name())?;
+        builder.define_struct(name, |builder| {
+            Ok(vec![
+                FieldDef::new("secs_since_epoch", u64::build_schema(builder)?),
+                FieldDef::new("nanos_since_epoch", u32::build_schema(builder)?),
+            ])
+        })
     }
 }
 
 impl<T> Message for Range<T>
 where
-    T: Message + Serialize + for<'de> Deserialize<'de>,
+    T: Message + Serialize + DeserializeOwned,
 {
     type Codec = SerdeCdrCodec<Self>;
 
-    fn type_name() -> &'static str {
-        cached_type_name::<Self>(|| format!("Range<{}>", T::type_name()))
+    fn type_name() -> String {
+        format!("Range<{}>", T::type_name())
     }
+}
 
-    fn schema() -> Schema {
-        let name = Self::type_name();
-        let fields = vec![
-            RuntimeFieldSchema::new("start", T::schema()),
-            RuntimeFieldSchema::new("end", T::schema()),
-        ];
-        Arc::new(TypeShape::Struct {
-            name: TypeName::new(name).expect("valid type name"),
-            fields,
+impl<T> MessageSchema for Range<T>
+where
+    T: Message,
+{
+    fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
+        let name = TypeName::new(format!("Range<{}>", T::type_name()))?;
+        builder.define_struct(name, |builder| {
+            Ok(vec![
+                FieldDef::new("start", T::build_schema(builder)?),
+                FieldDef::new("end", T::build_schema(builder)?),
+            ])
         })
     }
 }
 
 impl<T> Message for RangeInclusive<T>
 where
-    T: Message + Serialize + for<'de> Deserialize<'de>,
+    T: Message + Serialize + DeserializeOwned,
 {
     type Codec = SerdeCdrCodec<Self>;
 
-    fn type_name() -> &'static str {
-        cached_type_name::<Self>(|| format!("RangeInclusive<{}>", T::type_name()))
+    fn type_name() -> String {
+        format!("RangeInclusive<{}>", T::type_name())
     }
+}
 
-    fn schema() -> Schema {
-        let name = Self::type_name();
-        let fields = vec![
-            RuntimeFieldSchema::new("start", T::schema()),
-            RuntimeFieldSchema::new("end", T::schema()),
-        ];
-        Arc::new(TypeShape::Struct {
-            name: TypeName::new(name).expect("valid type name"),
-            fields,
+impl<T> MessageSchema for RangeInclusive<T>
+where
+    T: Message,
+{
+    fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
+        let name = TypeName::new(format!("RangeInclusive<{}>", T::type_name()))?;
+        builder.define_struct(name, |builder| {
+            Ok(vec![
+                FieldDef::new("start", T::build_schema(builder)?),
+                FieldDef::new("end", T::build_schema(builder)?),
+            ])
         })
     }
 }
@@ -355,47 +368,47 @@ where
 impl Message for SocketAddr {
     type Codec = SerdeCdrCodec<Self>;
 
-    fn type_name() -> &'static str {
-        "std::net::SocketAddr"
+    fn type_name() -> String {
+        "std::net::SocketAddr".to_string()
     }
+}
 
-    fn schema() -> Schema {
-        Arc::new(TypeShape::Enum {
-            name: TypeName::new(Self::type_name()).expect("valid type name"),
-            variants: vec![
-                RuntimeDynamicEnumVariant::new(
-                    "V4",
-                    RuntimeDynamicEnumPayload::Newtype(Arc::new(TypeShape::Struct {
-                        name: TypeName::new("std::net::SocketAddrV4").expect("valid type name"),
-                        fields: vec![
-                            RuntimeFieldSchema::new(
-                                "ip",
-                                Arc::new(TypeShape::Sequence {
-                                    element: u8::schema(),
-                                    length: SequenceLength::Fixed(4),
-                                }),
-                            ),
-                            RuntimeFieldSchema::new("port", u16::schema()),
-                        ],
-                    })),
+impl MessageSchema for SocketAddr {
+    fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
+        let v4_name = TypeName::new("std::net::SocketAddrV4")?;
+        let v4 = builder.define_struct(v4_name, |builder| {
+            Ok(vec![
+                FieldDef::new(
+                    "ip",
+                    TypeDef::Sequence {
+                        element: Box::new(u8::build_schema(builder)?),
+                        length: SequenceLengthDef::Fixed(4),
+                    },
                 ),
-                RuntimeDynamicEnumVariant::new(
-                    "V6",
-                    RuntimeDynamicEnumPayload::Newtype(Arc::new(TypeShape::Struct {
-                        name: TypeName::new("std::net::SocketAddrV6").expect("valid type name"),
-                        fields: vec![
-                            RuntimeFieldSchema::new(
-                                "ip",
-                                Arc::new(TypeShape::Sequence {
-                                    element: u8::schema(),
-                                    length: SequenceLength::Fixed(16),
-                                }),
-                            ),
-                            RuntimeFieldSchema::new("port", u16::schema()),
-                        ],
-                    })),
+                FieldDef::new("port", u16::build_schema(builder)?),
+            ])
+        })?;
+
+        let v6_name = TypeName::new("std::net::SocketAddrV6")?;
+        let v6 = builder.define_struct(v6_name, |builder| {
+            Ok(vec![
+                FieldDef::new(
+                    "ip",
+                    TypeDef::Sequence {
+                        element: Box::new(u8::build_schema(builder)?),
+                        length: SequenceLengthDef::Fixed(16),
+                    },
                 ),
-            ],
+                FieldDef::new("port", u16::build_schema(builder)?),
+            ])
+        })?;
+
+        let name = TypeName::new(Self::type_name())?;
+        builder.define_enum(name, |_| {
+            Ok(vec![
+                EnumVariantDef::new("V4", EnumPayloadDef::Newtype(v4)),
+                EnumVariantDef::new("V6", EnumPayloadDef::Newtype(v6)),
+            ])
         })
     }
 }
@@ -403,119 +416,153 @@ impl Message for SocketAddr {
 impl Message for String {
     type Codec = SerdeCdrCodec<Self>;
 
-    fn type_name() -> &'static str {
-        "String"
+    fn type_name() -> String {
+        "String".to_string()
     }
+}
 
-    fn schema() -> Schema {
-        Arc::new(TypeShape::String)
+impl MessageSchema for String {
+    fn build_schema(_builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
+        Ok(TypeDef::String)
     }
 }
 
 impl<T> Message for Option<T>
 where
-    T: Message + Serialize + for<'de> Deserialize<'de>,
+    T: Message + Serialize + DeserializeOwned,
 {
     type Codec = SerdeCdrCodec<Self>;
 
-    fn type_name() -> &'static str {
-        cached_type_name::<Self>(|| format!("Option<{}>", T::type_name()))
+    fn type_name() -> String {
+        format!("Option<{}>", T::type_name())
     }
+}
 
-    fn schema() -> Schema {
-        Arc::new(TypeShape::Optional(T::schema()))
+impl<T> MessageSchema for Option<T>
+where
+    T: MessageSchema,
+{
+    fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
+        Ok(TypeDef::Optional(Box::new(T::build_schema(builder)?)))
     }
 }
 
 impl<T> Message for Vec<T>
 where
-    T: Message + Serialize + for<'de> Deserialize<'de>,
+    T: Message + Serialize + DeserializeOwned,
 {
     type Codec = SerdeCdrCodec<Self>;
 
-    fn type_name() -> &'static str {
-        cached_type_name::<Self>(|| format!("Vec<{}>", T::type_name()))
+    fn type_name() -> String {
+        format!("Vec<{}>", T::type_name())
     }
+}
 
-    fn schema() -> Schema {
-        Arc::new(TypeShape::Sequence {
-            element: T::schema(),
-            length: SequenceLength::Dynamic,
+impl<T> MessageSchema for Vec<T>
+where
+    T: MessageSchema,
+{
+    fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
+        Ok(TypeDef::Sequence {
+            element: Box::new(T::build_schema(builder)?),
+            length: SequenceLengthDef::Dynamic,
         })
     }
 }
 
 impl<T, const N: usize> Message for [T; N]
 where
-    T: Message + Serialize + for<'de> Deserialize<'de>,
-    [T; N]: Serialize + for<'de> Deserialize<'de>,
+    T: Message + Serialize + DeserializeOwned,
+    [T; N]: Serialize + DeserializeOwned,
 {
     type Codec = SerdeCdrCodec<Self>;
 
-    fn type_name() -> &'static str {
-        cached_type_name::<Self>(|| format!("[{};{}]", T::type_name(), N))
+    fn type_name() -> String {
+        format!("[{};{}]", T::type_name(), N)
     }
+}
 
-    fn schema() -> Schema {
-        Arc::new(TypeShape::Sequence {
-            element: T::schema(),
-            length: SequenceLength::Fixed(N),
+impl<T, const N: usize> MessageSchema for [T; N]
+where
+    T: MessageSchema,
+{
+    fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
+        Ok(TypeDef::Sequence {
+            element: Box::new(T::build_schema(builder)?),
+            length: SequenceLengthDef::Fixed(N),
         })
     }
 }
 
 impl<T> Message for HashSet<T>
 where
-    T: Message + Eq + Hash + Serialize + for<'de> Deserialize<'de>,
+    T: Message + Eq + Hash + Serialize + DeserializeOwned,
 {
     type Codec = SerdeCdrCodec<Self>;
 
-    fn type_name() -> &'static str {
-        cached_type_name::<Self>(|| format!("HashSet<{}>", T::type_name()))
+    fn type_name() -> String {
+        format!("HashSet<{}>", T::type_name())
     }
+}
 
-    fn schema() -> Schema {
-        Arc::new(TypeShape::Sequence {
-            element: T::schema(),
-            length: SequenceLength::Dynamic,
+impl<T> MessageSchema for HashSet<T>
+where
+    T: MessageSchema,
+{
+    fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
+        Ok(TypeDef::Sequence {
+            element: Box::new(T::build_schema(builder)?),
+            length: SequenceLengthDef::Dynamic,
         })
     }
 }
 
 impl<K, V> Message for HashMap<K, V>
 where
-    K: Message + Eq + Hash + Serialize + for<'de> Deserialize<'de>,
-    V: Message + Serialize + for<'de> Deserialize<'de>,
+    K: Message + Eq + Hash + Serialize + DeserializeOwned,
+    V: Message + Serialize + DeserializeOwned,
 {
     type Codec = SerdeCdrCodec<Self>;
 
-    fn type_name() -> &'static str {
-        cached_type_name::<Self>(|| format!("HashMap<{},{}>", K::type_name(), V::type_name()))
+    fn type_name() -> String {
+        format!("HashMap<{},{}>", K::type_name(), V::type_name())
     }
+}
 
-    fn schema() -> Schema {
-        Arc::new(TypeShape::Map {
-            key: K::schema(),
-            value: V::schema(),
+impl<K, V> MessageSchema for HashMap<K, V>
+where
+    K: MessageSchema,
+    V: MessageSchema,
+{
+    fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
+        Ok(TypeDef::Map {
+            key: Box::new(K::build_schema(builder)?),
+            value: Box::new(V::build_schema(builder)?),
         })
     }
 }
 
 impl<K, V> Message for BTreeMap<K, V>
 where
-    K: Message + Ord + Serialize + for<'de> Deserialize<'de>,
-    V: Message + Serialize + for<'de> Deserialize<'de>,
+    K: Message + Ord + Serialize + DeserializeOwned,
+    V: Message + Serialize + DeserializeOwned,
 {
     type Codec = SerdeCdrCodec<Self>;
 
-    fn type_name() -> &'static str {
-        cached_type_name::<Self>(|| format!("BTreeMap<{},{}>", K::type_name(), V::type_name()))
+    fn type_name() -> String {
+        format!("BTreeMap<{},{}>", K::type_name(), V::type_name())
     }
+}
 
-    fn schema() -> Schema {
-        Arc::new(TypeShape::Map {
-            key: K::schema(),
-            value: V::schema(),
+impl<K, V> MessageSchema for BTreeMap<K, V>
+where
+    K: MessageSchema,
+    V: MessageSchema,
+{
+    fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
+        Ok(TypeDef::Map {
+            key: Box::new(K::build_schema(builder)?),
+            value: Box::new(V::build_schema(builder)?),
         })
     }
 }
@@ -682,7 +729,7 @@ where
 
 impl<T> MessageCodec<T> for SerdeCdrCodec<T>
 where
-    T: Serialize + for<'de> Deserialize<'de>,
+    T: Serialize + DeserializeOwned,
 {
     fn encode(value: &T) -> Result<EncodedMessage, CdrError> {
         Ok(EncodedMessage {
@@ -749,7 +796,7 @@ where
 
 impl<T> WireDecoder for SerdeCdrCodec<T>
 where
-    for<'de> T: Deserialize<'de>,
+    T: DeserializeOwned,
 {
     type Input<'a> = &'a [u8];
     type Output = T;
@@ -762,7 +809,7 @@ where
 
 impl<T> WireDecoder for SerdeCdrWireCodec<T>
 where
-    for<'a> T: Deserialize<'a>,
+    T: DeserializeOwned,
 {
     type Input<'b> = &'b [u8];
     type Output = T;
@@ -789,7 +836,7 @@ where
 
 impl<T> MessageCodec<T> for SerdeCdrWireCodec<T>
 where
-    T: Serialize + for<'de> Deserialize<'de>,
+    T: Serialize + DeserializeOwned,
 {
     fn encode(value: &T) -> Result<EncodedMessage, CdrError> {
         Ok(EncodedMessage {
@@ -1022,14 +1069,15 @@ where
 /// Service contract pairing request and response wire message types.
 pub trait Service {
     /// Request message accepted by the service server.
-    type Request: WireMessage;
+    type Request: WireMessage + Message;
     /// Response message returned by the service server.
-    type Response: WireMessage;
+    type Response: WireMessage + Message;
 }
 
 #[cfg(test)]
 mod tests {
     use super::*;
+    use serde::Deserialize;
     use zenoh_buffers::buffer::SplitBuffer;
 
     #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -1271,6 +1319,7 @@ mod tests {
 mod fast_cdr_tests {
     use super::*;
     use ros_z_cdr::{CdrBuffer, CdrDecode, CdrEncode, CdrEncodedSize, CdrReader, CdrWriter};
+    use serde::Deserialize;
 
     // ── Test types ────────────────────────────────────────────────────────────
 

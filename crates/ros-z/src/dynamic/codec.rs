@@ -13,8 +13,8 @@ use crate::msg::{EncodedMessage, WireDecoder, WireEncoder};
 
 use super::error::DynamicError;
 use super::message::DynamicStruct;
-use super::schema::{Schema, TypeShape};
-use super::value::DynamicValue;
+use super::schema::{Schema, SchemaBundle};
+use super::value::{DynamicValue, default_for_schema};
 
 #[derive(Clone, Debug, PartialEq)]
 pub struct DynamicPayload {
@@ -24,8 +24,16 @@ pub struct DynamicPayload {
 
 impl DynamicPayload {
     pub fn new(schema: Schema, value: DynamicValue) -> Result<Self, DynamicError> {
+        schema
+            .validate()
+            .map_err(|error| DynamicError::SerializationError(error.to_string()))?;
         value.validate_against(&schema)?;
         Ok(Self { schema, value })
+    }
+
+    pub fn default_for_schema(schema: Schema) -> Result<Self, DynamicError> {
+        let value = default_for_schema(&schema)?;
+        Self::new(schema, value)
     }
 
     pub fn from_struct(message: DynamicStruct) -> Result<Self, DynamicError> {
@@ -138,20 +146,23 @@ impl DynamicCdrCodec {
     }
 }
 
-fn schema_name(schema: &TypeShape) -> &str {
-    match schema {
-        TypeShape::Struct { name, .. } | TypeShape::Enum { name, .. } => name.as_str(),
-        TypeShape::Primitive(_) => "<primitive>",
-        TypeShape::String => "<string>",
-        TypeShape::Optional(_) => "<optional>",
-        TypeShape::Sequence { .. } => "<sequence>",
-        TypeShape::Map { .. } => "<map>",
+fn schema_name(schema: &SchemaBundle) -> &str {
+    match &schema.root {
+        ros_z_schema::TypeDef::Named(name) => name.as_str(),
+        ros_z_schema::TypeDef::Primitive(_) => "<primitive>",
+        ros_z_schema::TypeDef::String => "<string>",
+        ros_z_schema::TypeDef::Optional(_) => "<optional>",
+        ros_z_schema::TypeDef::Sequence { .. } => "<sequence>",
+        ros_z_schema::TypeDef::Map { .. } => "<map>",
     }
 }
 
-fn field_count(schema: &TypeShape) -> usize {
-    match schema {
-        TypeShape::Struct { fields, .. } => fields.len(),
+fn field_count(schema: &SchemaBundle) -> usize {
+    let ros_z_schema::TypeDef::Named(name) = &schema.root else {
+        return 0;
+    };
+    match schema.definitions.get(name) {
+        Some(ros_z_schema::TypeDefinition::Struct(definition)) => definition.fields.len(),
         _ => 0,
     }
 }

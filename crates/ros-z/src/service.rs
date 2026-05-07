@@ -23,12 +23,14 @@ use crate::{
     queue::BoundedQueue,
     time::Clock,
 };
+use ros_z_schema::SchemaError;
 
 #[derive(Debug)]
 pub struct ServiceClientBuilder<T> {
     pub(crate) entity: EndpointEntity,
     pub(crate) session: Arc<Session>,
     pub(crate) clock: Clock,
+    pub(crate) schema_error: Option<SchemaError>,
     pub(crate) _phantom_data: PhantomData<T>,
 }
 
@@ -81,6 +83,13 @@ where
         service = %self.entity.topic
     ))]
     pub async fn build(mut self) -> Result<ServiceClient<T>> {
+        if let Some(error) = self.schema_error.take() {
+            return Err(zenoh::Error::from(format!(
+                "failed to build service type info for client '{}': {}",
+                self.entity.topic, error
+            )));
+        }
+
         let Some(node) = self.entity.node.as_ref() else {
             return Err(zenoh::Error::from("client build requires node identity"));
         };
@@ -307,7 +316,22 @@ pub struct ServiceServerBuilder<T> {
     pub(crate) entity: EndpointEntity,
     pub(crate) session: Arc<Session>,
     pub(crate) clock: Clock,
+    pub(crate) schema_error: Option<SchemaError>,
     pub(crate) _phantom_data: PhantomData<T>,
+}
+
+impl<T> ServiceClientBuilder<T> {
+    pub(crate) fn schema_error(mut self, error: SchemaError) -> Self {
+        self.schema_error = Some(error);
+        self
+    }
+}
+
+impl<T> ServiceServerBuilder<T> {
+    pub(crate) fn schema_error(mut self, error: SchemaError) -> Self {
+        self.schema_error = Some(error);
+        self
+    }
 }
 
 impl<T> ServiceClientBuilder<T> {
@@ -403,6 +427,13 @@ where
         handler: ServiceQueryHandler,
         queue: Option<Arc<BoundedQueue<Q>>>,
     ) -> Result<ServiceServer<T, Q>> {
+        if let Some(error) = self.schema_error.take() {
+            return Err(zenoh::Error::from(format!(
+                "failed to build service type info for server '{}': {}",
+                self.entity.topic, error
+            )));
+        }
+
         let Some(node) = self.entity.node.as_ref() else {
             return Err(zenoh::Error::from("service build requires node identity"));
         };
@@ -666,68 +697,28 @@ mod tests {
     use crate::{
         Message, SerdeCdrCodec, ServiceTypeInfo,
         context::ContextBuilder,
-        dynamic::{RuntimeFieldSchema, Schema, TypeShape},
-        entity::{SchemaHash, TypeInfo},
+        entity::TypeInfo,
         msg::{Service, WireMessage},
     };
-    use ros_z_schema::TypeName;
+    use ros_z_schema::{SchemaError, ServiceDef};
     use serde::{Deserialize, Serialize};
     use serde_json::json;
 
-    #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+    #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, crate::Message)]
+    #[message(name = "test_msgs::AddTwoIntsRequest")]
     struct AddTwoIntsRequest {
         a: i64,
         b: i64,
-    }
-
-    impl Message for AddTwoIntsRequest {
-        type Codec = SerdeCdrCodec<Self>;
-
-        fn type_name() -> &'static str {
-            "test_msgs::AddTwoIntsRequest"
-        }
-
-        fn schema_hash() -> SchemaHash {
-            SchemaHash::zero()
-        }
-
-        fn schema() -> Schema {
-            std::sync::Arc::new(TypeShape::Struct {
-                name: TypeName::new("test_msgs::AddTwoIntsRequest").expect("valid type name"),
-                fields: vec![
-                    RuntimeFieldSchema::new("a", i64::schema()),
-                    RuntimeFieldSchema::new("b", i64::schema()),
-                ],
-            })
-        }
     }
 
     impl WireMessage for AddTwoIntsRequest {
         type Codec = SerdeCdrCodec<AddTwoIntsRequest>;
     }
 
-    #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+    #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, crate::Message)]
+    #[message(name = "test_msgs::AddTwoIntsResponse")]
     struct AddTwoIntsResponse {
         sum: i64,
-    }
-
-    impl Message for AddTwoIntsResponse {
-        type Codec = SerdeCdrCodec<Self>;
-
-        fn type_name() -> &'static str {
-            "test_msgs::AddTwoIntsResponse"
-        }
-
-        fn schema_hash() -> SchemaHash {
-            SchemaHash::zero()
-        }
-
-        fn schema() -> Schema {
-            std::sync::Arc::new(TypeShape::Struct {
-                name: TypeName::new("test_msgs::AddTwoIntsResponse").expect("valid type name"),
-                fields: vec![RuntimeFieldSchema::new("sum", i64::schema())],
-            })
-        }
     }
 
     impl WireMessage for AddTwoIntsResponse {
@@ -742,8 +733,16 @@ mod tests {
     }
 
     impl ServiceTypeInfo for AddTwoInts {
-        fn service_type_info() -> TypeInfo {
-            TypeInfo::new("test_msgs::AddTwoInts", None)
+        fn service_type_info() -> Result<TypeInfo, SchemaError> {
+            let descriptor = ServiceDef::new(
+                "test_msgs::AddTwoInts",
+                AddTwoIntsRequest::type_name(),
+                AddTwoIntsResponse::type_name(),
+            )?;
+            Ok(TypeInfo::with_hash(
+                descriptor.type_name.as_str(),
+                ros_z_schema::compute_hash(&descriptor),
+            ))
         }
     }
 

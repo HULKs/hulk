@@ -1,42 +1,12 @@
 use std::time::Duration;
 
-use ros_z::__private::ros_z_schema::TypeName;
-use ros_z::{
-    Message, SchemaHash,
-    context::ContextBuilder,
-    dynamic::{RuntimeFieldSchema, Schema, TypeShape},
-};
+use ros_z::context::ContextBuilder;
 use serde::{Deserialize, Serialize};
 
-fn struct_schema(name: &str, fields: Vec<RuntimeFieldSchema>) -> Schema {
-    std::sync::Arc::new(TypeShape::Struct {
-        name: TypeName::new(name.to_string()).expect("valid test type name"),
-        fields,
-    })
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ros_z::Message)]
+#[message(name = "test_msgs::AlignmentMessage")]
 struct AlignmentMessage {
     value: u64,
-}
-
-impl Message for AlignmentMessage {
-    type Codec = ros_z::SerdeCdrCodec<Self>;
-
-    fn type_name() -> &'static str {
-        "test_msgs::AlignmentMessage"
-    }
-
-    fn schema_hash() -> SchemaHash {
-        SchemaHash::zero()
-    }
-
-    fn schema() -> Schema {
-        struct_schema(
-            "test_msgs::AlignmentMessage",
-            vec![RuntimeFieldSchema::new("value", u64::schema())],
-        )
-    }
 }
 
 impl ros_z::msg::WireMessage for AlignmentMessage {

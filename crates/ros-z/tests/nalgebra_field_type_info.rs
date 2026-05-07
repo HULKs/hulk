@@ -9,11 +9,11 @@ use nalgebra::{
 use ros_z::{
     Message,
     context::ContextBuilder,
-    dynamic::{
-        DynamicStruct, DynamicValue, EnumPayloadValue, EnumValue, PrimitiveType,
-        RuntimeFieldSchema, SequenceLength, TypeShape,
-    },
+    dynamic::{DynamicStruct, DynamicValue, EnumPayloadValue, EnumValue},
     entity::EntityKind,
+};
+use ros_z_schema::{
+    FieldDef, PrimitiveTypeDef, SchemaBundle, SequenceLengthDef, TypeDef, TypeDefinition,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
@@ -238,36 +238,58 @@ fn enum_payload_to_json(payload: &EnumPayloadValue) -> Value {
     }
 }
 
-fn schema_uses_extended_types(schema: &TypeShape) -> bool {
-    match schema {
-        TypeShape::Struct { fields, .. } => fields
+fn schema_uses_extended_types(schema: &SchemaBundle) -> bool {
+    shape_uses_extended_types(&schema.root, schema)
+}
+
+fn definition_uses_extended_types(definition: &TypeDefinition, schema: &SchemaBundle) -> bool {
+    match definition {
+        TypeDefinition::Struct(definition) => definition
+            .fields
             .iter()
-            .any(|field| schema_uses_extended_types(field.schema.as_ref())),
-        TypeShape::Enum { .. } | TypeShape::Optional(_) | TypeShape::Map { .. } => true,
-        TypeShape::Sequence { element, .. } => schema_uses_extended_types(element.as_ref()),
-        TypeShape::Primitive(_) | TypeShape::String => false,
+            .any(|field| shape_uses_extended_types(&field.shape, schema)),
+        TypeDefinition::Enum(_) => true,
     }
 }
 
-fn field<'a>(schema: &'a TypeShape, name: &str) -> &'a RuntimeFieldSchema {
-    let TypeShape::Struct { fields, .. } = schema else {
+fn shape_uses_extended_types(shape: &TypeDef, schema: &SchemaBundle) -> bool {
+    match shape {
+        TypeDef::Named(name) => definition_uses_extended_types(
+            schema
+                .definitions
+                .get(name)
+                .unwrap_or_else(|| panic!("missing definition {name}")),
+            schema,
+        ),
+        TypeDef::Optional(_) | TypeDef::Map { .. } => true,
+        TypeDef::Sequence { element, .. } => shape_uses_extended_types(element, schema),
+        TypeDef::Primitive(_) | TypeDef::String => false,
+    }
+}
+
+fn field<'a>(schema: &'a SchemaBundle, name: &str) -> &'a FieldDef {
+    let TypeDef::Named(type_name) = &schema.root else {
+        panic!("expected named schema");
+    };
+    let Some(TypeDefinition::Struct(definition)) = schema.definitions.get(type_name) else {
         panic!("expected struct schema");
     };
-    fields
+    definition
+        .fields
         .iter()
         .find(|field| field.name == name)
         .expect("field")
 }
 
-fn fixed_sequence(schema: &TypeShape) -> Option<(PrimitiveType, usize)> {
-    let TypeShape::Sequence {
+fn fixed_sequence(shape: &TypeDef) -> Option<(PrimitiveTypeDef, usize)> {
+    let TypeDef::Sequence {
         element,
-        length: SequenceLength::Fixed(length),
-    } = schema
+        length: SequenceLengthDef::Fixed(length),
+    } = shape
     else {
         return None;
     };
-    let TypeShape::Primitive(primitive) = element.as_ref() else {
+    let TypeDef::Primitive(primitive) = element.as_ref() else {
         return None;
     };
     Some((*primitive, *length))
@@ -289,30 +311,33 @@ fn dynamic_payload_field(
 
 #[test]
 fn vector3_f64_schema_is_fixed_float_sequence() {
-    let schema = Vector3::<f64>::schema();
+    let schema = Vector3::<f64>::schema().unwrap();
 
     assert_eq!(Vector3::<f64>::type_name(), "nalgebra::Vector3<f64>");
     assert!(matches!(
-        schema.as_ref(),
-        TypeShape::Sequence {
+        &schema.root,
+        TypeDef::Sequence {
             element,
-            length: SequenceLength::Fixed(3),
-        } if matches!(element.as_ref(), TypeShape::Primitive(PrimitiveType::F64))
+            length: SequenceLengthDef::Fixed(3),
+        } if matches!(element.as_ref(), TypeDef::Primitive(PrimitiveTypeDef::F64))
     ));
 }
 
 #[test]
 fn isometry3_f32_schema_has_rotation_and_translation_fields() {
-    let schema = Isometry3::<f32>::schema();
+    let schema = Isometry3::<f32>::schema().unwrap();
 
     assert_eq!(Isometry3::<f32>::type_name(), "nalgebra::Isometry3<f32>");
-    let TypeShape::Struct { name, fields } = schema.as_ref() else {
-        panic!("isometry schema should be a struct");
+    let TypeDef::Named(name) = &schema.root else {
+        panic!("isometry schema should have a named root");
+    };
+    let Some(TypeDefinition::Struct(definition)) = schema.definitions.get(name) else {
+        panic!("isometry schema should have a struct definition");
     };
 
     assert_eq!(name.as_str(), "nalgebra::Isometry3<f32>");
-    assert_eq!(fields[0].name, "rotation");
-    assert_eq!(fields[1].name, "translation");
+    assert_eq!(definition.fields[0].name, "rotation");
+    assert_eq!(definition.fields[1].name, "translation");
 }
 
 async fn wait_for_publishers(
@@ -336,21 +361,20 @@ async fn wait_for_publishers(
 
 #[test]
 fn standard_nalgebra_schema_is_basic_only() {
-    let schema = MathSnapshot::schema();
-    assert!(!schema_uses_extended_types(schema.as_ref()));
+    let schema = MathSnapshot::schema().unwrap();
+    assert!(!schema_uses_extended_types(&schema));
 
     assert_eq!(
-        fixed_sequence(field(schema.as_ref(), "image_position").schema.as_ref()),
-        Some((PrimitiveType::F32, 2))
+        fixed_sequence(&field(&schema, "image_position").shape),
+        Some((PrimitiveTypeDef::F32, 2))
     );
 
     assert_eq!(
-        fixed_sequence(field(schema.as_ref(), "planar_orientation").schema.as_ref()),
-        Some((PrimitiveType::F64, 2))
+        fixed_sequence(&field(&schema, "planar_orientation").shape),
+        Some((PrimitiveTypeDef::F64, 2))
     );
 
-    let TypeShape::Struct { name, .. } = field(schema.as_ref(), "camera_to_ground").schema.as_ref()
-    else {
+    let TypeDef::Named(name) = &field(&schema, "camera_to_ground").shape else {
         panic!("expected Isometry3 to map to a nested message schema");
     };
     assert_eq!(name.as_str(), "nalgebra::Isometry3<f32>");
@@ -414,16 +438,15 @@ async fn nalgebra_fields_roundtrip_via_standard_discovery() {
 
 #[test]
 fn single_schema_message_can_embed_basic_nalgebra_fields() {
-    let schema = MathCommand::schema();
-    assert!(schema_uses_extended_types(schema.as_ref()));
+    let schema = MathCommand::schema().unwrap();
+    assert!(schema_uses_extended_types(&schema));
 
     assert_eq!(
-        fixed_sequence(field(schema.as_ref(), "target_position").schema.as_ref()),
-        Some((PrimitiveType::F64, 3))
+        fixed_sequence(&field(&schema, "target_position").shape),
+        Some((PrimitiveTypeDef::F64, 3))
     );
 
-    let TypeShape::Struct { name, .. } = field(schema.as_ref(), "camera_to_target").schema.as_ref()
-    else {
+    let TypeDef::Named(name) = &field(&schema, "camera_to_target").shape else {
         panic!("expected Isometry3 field to stay standard-compatible inside extended schemas");
     };
     assert_eq!(name.as_str(), "nalgebra::Isometry3<f32>");

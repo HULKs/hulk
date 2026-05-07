@@ -6,33 +6,37 @@ use std::{
 };
 
 use ros_z::{
-    Message, SchemaHash,
+    Message, SchemaHash, SerdeCdrCodec,
     context::ContextBuilder,
-    dynamic::{RuntimeFieldSchema, Schema, TypeShape},
     entity::EntityKind,
     parameter::{
         GetNodeParameterTypeInfoSrv, GetNodeParameterValueRequest, GetNodeParameterValueSrv,
         GetNodeParametersSnapshotSrv, NodeParameterEvent, NodeParametersExt, ParameterError,
         ParameterJsonWrite, RemoteParameterClient, SetNodeParameterRequest, SetNodeParameterSrv,
     },
+    schema::{MessageSchema, SchemaBuilder},
 };
+use ros_z_schema::{FieldDef, SchemaBundle, SchemaError, TypeDef, TypeDefinition, TypeName};
 use serde::{Deserialize, Serialize};
 
 static NEXT_ID: AtomicUsize = AtomicUsize::new(1);
 type TestResult<T = ()> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
-fn schema_type_name(schema: &Schema) -> &str {
-    match schema.as_ref() {
-        TypeShape::Struct { name, .. } | TypeShape::Enum { name, .. } => name.as_str(),
-        other => panic!("expected named schema, got {other:?}"),
-    }
+fn schema_type_name(schema: &SchemaBundle) -> &str {
+    let TypeDef::Named(name) = &schema.root else {
+        panic!("expected named schema root, got {:?}", schema.root);
+    };
+    name.as_str()
 }
 
-fn schema_field<'a>(schema: &'a Schema, name: &str) -> Option<&'a RuntimeFieldSchema> {
-    let TypeShape::Struct { fields, .. } = schema.as_ref() else {
+fn schema_field<'a>(schema: &'a SchemaBundle, name: &str) -> Option<&'a FieldDef> {
+    let TypeDef::Named(type_name) = &schema.root else {
         return None;
     };
-    fields.iter().find(|field| field.name == name)
+    let Some(TypeDefinition::Struct(definition)) = schema.definitions.get(type_name) else {
+        return None;
+    };
+    definition.fields.iter().find(|field| field.name == name)
 }
 
 fn next_unique_id() -> usize {
@@ -54,6 +58,23 @@ struct VisionParameters {
 #[serde(deny_unknown_fields)]
 struct NestedParameters {
     count: u32,
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize)]
+struct InvalidParameterSchema;
+
+impl MessageSchema for InvalidParameterSchema {
+    fn build_schema(_builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
+        TypeName::new("").map(TypeDef::Named)
+    }
+}
+
+impl Message for InvalidParameterSchema {
+    type Codec = SerdeCdrCodec<Self>;
+
+    fn type_name() -> String {
+        "test_parameters::InvalidParameterSchema".to_string()
+    }
 }
 
 struct TestLayers {
@@ -323,6 +344,28 @@ async fn bind_rejects_invalid_parameter_key() -> TestResult {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn bind_parameter_as_returns_schema_errors() -> TestResult {
+    let root = temp_parameter_root();
+    let layers = test_layers(&root, "invalid-schema");
+    write_layer_file(&layers.base, "ball_detector", r#"{}"#);
+
+    let context = build_ctx(&layers).await?;
+    let node = context
+        .create_node("ball_detector")
+        .with_namespace("vision")
+        .build()
+        .await?;
+
+    let err = node
+        .bind_parameter_as::<InvalidParameterSchema>("ball_detector")
+        .expect_err("invalid parameter schema should fail binding");
+
+    assert!(matches!(err, ParameterError::RemoteError { .. }));
+    assert!(err.to_string().contains("invalid"));
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn late_validation_hook_validates_current_snapshot() -> TestResult {
     let root = temp_parameter_root();
     let layers = test_layers(&root, "c");
@@ -456,8 +499,8 @@ async fn bound_parameters_expose_type_info_and_schema_lookup() -> TestResult {
         .await?;
     let type_info = type_info_client.call_async(&Default::default()).await?;
     assert!(type_info.success);
-    assert_eq!(type_info.type_name, VisionParameters::type_info().name);
-    let expected_hash = VisionParameters::schema_hash();
+    assert_eq!(type_info.type_name, VisionParameters::type_info()?.name);
+    let expected_hash = VisionParameters::schema_hash()?;
     assert_eq!(type_info.schema_hash, expected_hash.to_hash_string());
 
     let schema = server_node

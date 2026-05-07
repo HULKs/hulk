@@ -4,8 +4,13 @@
 //! value at runtime, along with conversion traits.
 
 use super::message::DynamicStruct;
-use super::schema::{PrimitiveType, RuntimeDynamicEnumPayload, Schema, SequenceLength, TypeShape};
+use super::schema::Schema;
 use crate::dynamic::DynamicError;
+use ros_z_schema::{
+    EnumPayloadDef, EnumVariantDef, PrimitiveTypeDef, SequenceLengthDef, TypeDef, TypeDefinition,
+    TypeName,
+};
+use std::collections::BTreeSet;
 
 /// Runtime representation of any supported dynamic value.
 #[derive(Clone, Debug, PartialEq)]
@@ -211,80 +216,104 @@ impl DynamicValue {
         )
     }
 
-    pub fn validate_against(&self, schema: &Schema) -> Result<(), super::error::DynamicError> {
-        match (self, schema.as_ref()) {
-            (Self::Bool(_), TypeShape::Primitive(PrimitiveType::Bool))
-            | (Self::Int8(_), TypeShape::Primitive(PrimitiveType::I8))
-            | (Self::Uint8(_), TypeShape::Primitive(PrimitiveType::U8))
-            | (Self::Int16(_), TypeShape::Primitive(PrimitiveType::I16))
-            | (Self::Uint16(_), TypeShape::Primitive(PrimitiveType::U16))
-            | (Self::Int32(_), TypeShape::Primitive(PrimitiveType::I32))
-            | (Self::Uint32(_), TypeShape::Primitive(PrimitiveType::U32))
-            | (Self::Int64(_), TypeShape::Primitive(PrimitiveType::I64))
-            | (Self::Uint64(_), TypeShape::Primitive(PrimitiveType::U64))
-            | (Self::Float32(_), TypeShape::Primitive(PrimitiveType::F32))
-            | (Self::Float64(_), TypeShape::Primitive(PrimitiveType::F64))
-            | (Self::String(_), TypeShape::String) => Ok(()),
-            (Self::Bytes(bytes), TypeShape::Sequence { element, length })
-                if matches!(element.as_ref(), TypeShape::Primitive(PrimitiveType::U8)) =>
+    pub fn validate_against(&self, schema: &Schema) -> Result<(), DynamicError> {
+        self.validate_against_shape(&schema.root, schema)
+    }
+
+    pub(crate) fn validate_against_shape(
+        &self,
+        shape: &TypeDef,
+        schema: &Schema,
+    ) -> Result<(), DynamicError> {
+        match (self, shape) {
+            (Self::Bool(_), TypeDef::Primitive(PrimitiveTypeDef::Bool))
+            | (Self::Int8(_), TypeDef::Primitive(PrimitiveTypeDef::I8))
+            | (Self::Uint8(_), TypeDef::Primitive(PrimitiveTypeDef::U8))
+            | (Self::Int16(_), TypeDef::Primitive(PrimitiveTypeDef::I16))
+            | (Self::Uint16(_), TypeDef::Primitive(PrimitiveTypeDef::U16))
+            | (Self::Int32(_), TypeDef::Primitive(PrimitiveTypeDef::I32))
+            | (Self::Uint32(_), TypeDef::Primitive(PrimitiveTypeDef::U32))
+            | (Self::Int64(_), TypeDef::Primitive(PrimitiveTypeDef::I64))
+            | (Self::Uint64(_), TypeDef::Primitive(PrimitiveTypeDef::U64))
+            | (Self::Float32(_), TypeDef::Primitive(PrimitiveTypeDef::F32))
+            | (Self::Float64(_), TypeDef::Primitive(PrimitiveTypeDef::F64))
+            | (Self::String(_), TypeDef::String) => Ok(()),
+            (Self::Bytes(bytes), TypeDef::Sequence { element, length })
+                if matches!(element.as_ref(), TypeDef::Primitive(PrimitiveTypeDef::U8)) =>
             {
                 validate_sequence_len(bytes.len(), length)?;
                 Ok(())
             }
-            (Self::Optional(value), TypeShape::Optional(element)) => {
+            (Self::Optional(value), TypeDef::Optional(element)) => {
                 if let Some(value) = value {
-                    value.validate_against(element)
+                    value.validate_against_shape(element, schema)
                 } else {
                     Ok(())
                 }
             }
-            (Self::Sequence(values), TypeShape::Sequence { element, length }) => {
+            (Self::Sequence(values), TypeDef::Sequence { element, length }) => {
                 validate_sequence_len(values.len(), length)?;
                 for value in values {
-                    value.validate_against(element)?;
+                    value.validate_against_shape(element, schema)?;
                 }
                 Ok(())
             }
-            (Self::Struct(value), TypeShape::Struct { fields, .. }) => {
-                value.validate_fields(fields)
-            }
-            (Self::Map(entries), TypeShape::Map { key, value }) => {
+            (Self::Struct(value), TypeDef::Named(name)) => match schema.definitions.get(name) {
+                Some(TypeDefinition::Struct(definition)) => {
+                    if value.type_name() != name {
+                        return Err(DynamicError::SerializationError(format!(
+                            "struct type mismatch: expected {name}, got {}",
+                            value.type_name()
+                        )));
+                    }
+                    value.validate_fields(&definition.fields, schema)
+                }
+                _ => Err(DynamicError::SerializationError(format!(
+                    "named struct definition {name} not found"
+                ))),
+            },
+            (Self::Map(entries), TypeDef::Map { key, value }) => {
                 for (entry_key, entry_value) in entries {
-                    entry_key.validate_against(key)?;
-                    entry_value.validate_against(value)?;
+                    entry_key.validate_against_shape(key, schema)?;
+                    entry_value.validate_against_shape(value, schema)?;
                 }
                 Ok(())
             }
-            (Self::Enum(value), TypeShape::Enum { variants, .. }) => {
-                let variant = variants.get(value.variant_index as usize).ok_or_else(|| {
-                    super::error::DynamicError::SerializationError(format!(
-                        "enum variant index {} is out of bounds",
-                        value.variant_index
-                    ))
-                })?;
-                if value.variant_name != variant.name {
-                    return Err(super::error::DynamicError::SerializationError(format!(
-                        "enum variant name mismatch: expected {}, got {}",
-                        variant.name, value.variant_name
-                    )));
+            (Self::Enum(value), TypeDef::Named(name)) => match schema.definitions.get(name) {
+                Some(TypeDefinition::Enum(definition)) => {
+                    let variant = definition
+                        .variants
+                        .get(value.variant_index as usize)
+                        .ok_or_else(|| {
+                            DynamicError::SerializationError(format!(
+                                "enum variant index {} is out of bounds",
+                                value.variant_index
+                            ))
+                        })?;
+                    if value.variant_name != variant.name {
+                        return Err(DynamicError::SerializationError(format!(
+                            "enum variant name mismatch: expected {}, got {}",
+                            variant.name, value.variant_name
+                        )));
+                    }
+                    validate_enum_payload(&value.payload, &variant.payload, schema)
                 }
-                validate_enum_payload(&value.payload, &variant.payload)
-            }
-            _ => Err(super::error::DynamicError::SerializationError(
+                _ => Err(DynamicError::SerializationError(format!(
+                    "named enum definition {name} not found"
+                ))),
+            },
+            _ => Err(DynamicError::SerializationError(
                 "dynamic value does not match schema".into(),
             )),
         }
     }
 }
 
-fn validate_sequence_len(
-    actual: usize,
-    length: &SequenceLength,
-) -> Result<(), super::error::DynamicError> {
-    if let SequenceLength::Fixed(expected) = length
+fn validate_sequence_len(actual: usize, length: &SequenceLengthDef) -> Result<(), DynamicError> {
+    if let SequenceLengthDef::Fixed(expected) = length
         && actual != *expected
     {
-        return Err(super::error::DynamicError::SerializationError(format!(
+        return Err(DynamicError::SerializationError(format!(
             "fixed sequence expected {expected} values, got {actual}"
         )));
     }
@@ -293,29 +322,30 @@ fn validate_sequence_len(
 
 fn validate_enum_payload(
     value: &EnumPayloadValue,
-    schema: &RuntimeDynamicEnumPayload,
-) -> Result<(), super::error::DynamicError> {
+    schema: &EnumPayloadDef,
+    bundle: &Schema,
+) -> Result<(), DynamicError> {
     match (value, schema) {
-        (EnumPayloadValue::Unit, RuntimeDynamicEnumPayload::Unit) => Ok(()),
-        (EnumPayloadValue::Newtype(value), RuntimeDynamicEnumPayload::Newtype(schema)) => {
-            value.validate_against(schema)
+        (EnumPayloadValue::Unit, EnumPayloadDef::Unit) => Ok(()),
+        (EnumPayloadValue::Newtype(value), EnumPayloadDef::Newtype(schema)) => {
+            value.validate_against_shape(schema, bundle)
         }
-        (EnumPayloadValue::Tuple(values), RuntimeDynamicEnumPayload::Tuple(schemas)) => {
+        (EnumPayloadValue::Tuple(values), EnumPayloadDef::Tuple(schemas)) => {
             if values.len() != schemas.len() {
-                return Err(super::error::DynamicError::SerializationError(format!(
+                return Err(DynamicError::SerializationError(format!(
                     "enum tuple payload length mismatch: expected {}, got {}",
                     schemas.len(),
                     values.len()
                 )));
             }
             for (value, schema) in values.iter().zip(schemas.iter()) {
-                value.validate_against(schema)?;
+                value.validate_against_shape(schema, bundle)?;
             }
             Ok(())
         }
-        (EnumPayloadValue::Struct(values), RuntimeDynamicEnumPayload::Struct(fields)) => {
+        (EnumPayloadValue::Struct(values), EnumPayloadDef::Struct(fields)) => {
             if values.len() != fields.len() {
-                return Err(super::error::DynamicError::SerializationError(format!(
+                return Err(DynamicError::SerializationError(format!(
                     "enum struct payload length mismatch: expected {}, got {}",
                     fields.len(),
                     values.len()
@@ -323,16 +353,16 @@ fn validate_enum_payload(
             }
             for (value, field) in values.iter().zip(fields.iter()) {
                 if value.name != field.name {
-                    return Err(super::error::DynamicError::SerializationError(format!(
+                    return Err(DynamicError::SerializationError(format!(
                         "enum struct payload field mismatch: expected {}, got {}",
                         field.name, value.name
                     )));
                 }
-                value.value.validate_against(&field.schema)?;
+                value.value.validate_against_shape(&field.shape, bundle)?;
             }
             Ok(())
         }
-        _ => Err(super::error::DynamicError::SerializationError(
+        _ => Err(DynamicError::SerializationError(
             "enum payload mismatch".into(),
         )),
     }
@@ -439,35 +469,81 @@ impl IntoDynamic for EnumValue {
 
 /// Create the default value for a given schema shape.
 pub fn default_for_schema(schema: &Schema) -> Result<DynamicValue, DynamicError> {
-    match schema.as_ref() {
-        TypeShape::Primitive(PrimitiveType::Bool) => Ok(DynamicValue::Bool(false)),
-        TypeShape::Primitive(PrimitiveType::I8) => Ok(DynamicValue::Int8(0)),
-        TypeShape::Primitive(PrimitiveType::U8) => Ok(DynamicValue::Uint8(0)),
-        TypeShape::Primitive(PrimitiveType::I16) => Ok(DynamicValue::Int16(0)),
-        TypeShape::Primitive(PrimitiveType::U16) => Ok(DynamicValue::Uint16(0)),
-        TypeShape::Primitive(PrimitiveType::I32) => Ok(DynamicValue::Int32(0)),
-        TypeShape::Primitive(PrimitiveType::U32) => Ok(DynamicValue::Uint32(0)),
-        TypeShape::Primitive(PrimitiveType::I64) => Ok(DynamicValue::Int64(0)),
-        TypeShape::Primitive(PrimitiveType::U64) => Ok(DynamicValue::Uint64(0)),
-        TypeShape::Primitive(PrimitiveType::F32) => Ok(DynamicValue::Float32(0.0)),
-        TypeShape::Primitive(PrimitiveType::F64) => Ok(DynamicValue::Float64(0.0)),
-        TypeShape::String => Ok(DynamicValue::String(String::new())),
-        TypeShape::Struct { .. } => Ok(DynamicValue::Struct(Box::new(DynamicStruct::try_new(
-            schema,
-        )?))),
-        TypeShape::Optional(_) => Ok(DynamicValue::Optional(None)),
-        TypeShape::Enum { name, variants } => {
-            Ok(DynamicValue::Enum(default_enum_value(name, variants)?))
-        }
-        TypeShape::Sequence { element, length } => match length {
-            SequenceLength::Dynamic => Ok(DynamicValue::Sequence(Vec::new())),
-            SequenceLength::Fixed(len) => Ok(DynamicValue::Sequence(
+    let mut active = BTreeSet::new();
+    default_for_shape_with_active(&schema.root, schema, &mut active)
+}
+
+pub(crate) fn default_for_shape(
+    shape: &TypeDef,
+    schema: &Schema,
+) -> Result<DynamicValue, DynamicError> {
+    let mut active = BTreeSet::new();
+    default_for_shape_with_active(shape, schema, &mut active)
+}
+
+pub(crate) fn default_for_shape_with_active(
+    shape: &TypeDef,
+    schema: &Schema,
+    active: &mut BTreeSet<TypeName>,
+) -> Result<DynamicValue, DynamicError> {
+    match shape {
+        TypeDef::Primitive(PrimitiveTypeDef::Bool) => Ok(DynamicValue::Bool(false)),
+        TypeDef::Primitive(PrimitiveTypeDef::I8) => Ok(DynamicValue::Int8(0)),
+        TypeDef::Primitive(PrimitiveTypeDef::U8) => Ok(DynamicValue::Uint8(0)),
+        TypeDef::Primitive(PrimitiveTypeDef::I16) => Ok(DynamicValue::Int16(0)),
+        TypeDef::Primitive(PrimitiveTypeDef::U16) => Ok(DynamicValue::Uint16(0)),
+        TypeDef::Primitive(PrimitiveTypeDef::I32) => Ok(DynamicValue::Int32(0)),
+        TypeDef::Primitive(PrimitiveTypeDef::U32) => Ok(DynamicValue::Uint32(0)),
+        TypeDef::Primitive(PrimitiveTypeDef::I64) => Ok(DynamicValue::Int64(0)),
+        TypeDef::Primitive(PrimitiveTypeDef::U64) => Ok(DynamicValue::Uint64(0)),
+        TypeDef::Primitive(PrimitiveTypeDef::F32) => Ok(DynamicValue::Float32(0.0)),
+        TypeDef::Primitive(PrimitiveTypeDef::F64) => Ok(DynamicValue::Float64(0.0)),
+        TypeDef::String => Ok(DynamicValue::String(String::new())),
+        TypeDef::Named(name) => match schema.definitions.get(name) {
+            Some(TypeDefinition::Struct(_)) => {
+                if !active.insert(name.clone()) {
+                    return Err(DynamicError::InvalidDefaultValue {
+                        field: name.as_str().to_string(),
+                        reason: "required recursive field has no finite default".to_string(),
+                    });
+                }
+                let result = DynamicStruct::try_new_with_active(schema, name, active)
+                    .map(|value| DynamicValue::Struct(Box::new(value)));
+                active.remove(name);
+                result
+            }
+            Some(TypeDefinition::Enum(definition)) => {
+                if !active.insert(name.clone()) {
+                    return Err(DynamicError::InvalidDefaultValue {
+                        field: name.as_str().to_string(),
+                        reason: "required recursive enum variant has no finite default".to_string(),
+                    });
+                }
+                let result = default_enum_value_with_bundle(
+                    name.as_str(),
+                    &definition.variants,
+                    schema,
+                    active,
+                )
+                .map(DynamicValue::Enum);
+                active.remove(name);
+                result
+            }
+            None => Err(DynamicError::SerializationError(format!(
+                "named definition {name} not found"
+            ))),
+        },
+        TypeDef::Optional(_) => Ok(DynamicValue::Optional(None)),
+        TypeDef::Sequence { element, length } => match length {
+            SequenceLengthDef::Dynamic => Ok(DynamicValue::Sequence(Vec::new())),
+            SequenceLengthDef::Fixed(0) => Ok(DynamicValue::Sequence(Vec::new())),
+            SequenceLengthDef::Fixed(len) => Ok(DynamicValue::Sequence(
                 (0..*len)
-                    .map(|_| default_for_schema(element))
+                    .map(|_| default_for_shape_with_active(element, schema, active))
                     .collect::<Result<Vec<_>, _>>()?,
             )),
         },
-        TypeShape::Map { .. } => Ok(DynamicValue::Map(Vec::new())),
+        TypeDef::Map { .. } => Ok(DynamicValue::Map(Vec::new())),
     }
 }
 
@@ -475,45 +551,29 @@ pub fn try_default_for_schema(schema: &Schema) -> Result<DynamicValue, DynamicEr
     default_for_schema(schema)
 }
 
-fn default_enum_value(
-    name: &ros_z_schema::TypeName,
-    variants: &[super::schema::RuntimeDynamicEnumVariant],
-) -> Result<EnumValue, DynamicError> {
-    let Some(variant) = variants.first() else {
-        return Err(DynamicError::InvalidDefaultValue {
-            field: name.as_str().to_string(),
-            reason: "empty enum schema has no default variant".to_string(),
-        });
-    };
-
-    Ok(EnumValue {
-        variant_index: 0,
-        variant_name: variant.name.clone(),
-        payload: default_enum_payload(&variant.payload)?,
-    })
-}
-
-fn default_enum_payload(
-    payload: &RuntimeDynamicEnumPayload,
+fn default_enum_payload_with_bundle(
+    payload: &EnumPayloadDef,
+    schema: &Schema,
+    active: &mut BTreeSet<TypeName>,
 ) -> Result<EnumPayloadValue, DynamicError> {
     match payload {
-        RuntimeDynamicEnumPayload::Unit => Ok(EnumPayloadValue::Unit),
-        RuntimeDynamicEnumPayload::Newtype(schema) => Ok(EnumPayloadValue::Newtype(Box::new(
-            default_for_schema(schema)?,
+        EnumPayloadDef::Unit => Ok(EnumPayloadValue::Unit),
+        EnumPayloadDef::Newtype(shape) => Ok(EnumPayloadValue::Newtype(Box::new(
+            default_for_shape_with_active(shape, schema, active)?,
         ))),
-        RuntimeDynamicEnumPayload::Tuple(schemas) => Ok(EnumPayloadValue::Tuple(
-            schemas
+        EnumPayloadDef::Tuple(shapes) => Ok(EnumPayloadValue::Tuple(
+            shapes
                 .iter()
-                .map(default_for_schema)
+                .map(|shape| default_for_shape_with_active(shape, schema, active))
                 .collect::<Result<Vec<_>, _>>()?,
         )),
-        RuntimeDynamicEnumPayload::Struct(fields) => Ok(EnumPayloadValue::Struct(
+        EnumPayloadDef::Struct(fields) => Ok(EnumPayloadValue::Struct(
             fields
                 .iter()
                 .map(|field| {
                     Ok(DynamicNamedValue {
                         name: field.name.clone(),
-                        value: default_for_schema(&field.schema)?,
+                        value: default_for_shape_with_active(&field.shape, schema, active)?,
                     })
                 })
                 .collect::<Result<Vec<_>, DynamicError>>()?,
@@ -521,25 +581,134 @@ fn default_enum_payload(
     }
 }
 
+fn default_enum_value_with_bundle(
+    enum_name: &str,
+    variants: &[EnumVariantDef],
+    schema: &Schema,
+    active: &mut BTreeSet<TypeName>,
+) -> Result<EnumValue, DynamicError> {
+    let Some(variant) = variants.first() else {
+        return Err(DynamicError::InvalidDefaultValue {
+            field: enum_name.to_string(),
+            reason: "empty enum schema has no default variant".to_string(),
+        });
+    };
+
+    Ok(EnumValue {
+        variant_index: 0,
+        variant_name: variant.name.clone(),
+        payload: default_enum_payload_with_bundle(&variant.payload, schema, active)?,
+    })
+}
+
 #[cfg(test)]
 mod tests {
     use std::sync::Arc;
 
-    use ros_z_schema::TypeName;
+    use ros_z_schema::{
+        EnumDef, FieldDef, SchemaBundle, SequenceLengthDef, StructDef, TypeDefinition, TypeName,
+    };
 
     use super::*;
-    use crate::dynamic::TypeShape;
 
     #[test]
     fn try_default_for_schema_rejects_empty_runtime_enum_without_panicking() {
-        let schema = Arc::new(TypeShape::Enum {
-            name: TypeName::new("test_msgs::Empty").unwrap(),
-            variants: vec![],
+        let type_name = TypeName::new("test_msgs::Empty").unwrap();
+        let schema = Arc::new(SchemaBundle {
+            root: TypeDef::Named(type_name.clone()),
+            definitions: [(
+                type_name,
+                TypeDefinition::Enum(EnumDef { variants: vec![] }),
+            )]
+            .into(),
         });
 
         let error = try_default_for_schema(&schema).unwrap_err();
 
         assert!(error.to_string().contains("empty enum"));
         assert!(error.to_string().contains("test_msgs::Empty"));
+    }
+
+    #[test]
+    fn required_recursive_struct_default_returns_error() {
+        let type_name = TypeName::new("test_msgs::Node").unwrap();
+        let schema = Arc::new(SchemaBundle {
+            root: TypeDef::Named(type_name.clone()),
+            definitions: [(
+                type_name.clone(),
+                TypeDefinition::Struct(StructDef {
+                    fields: vec![FieldDef::new("child", TypeDef::Named(type_name))],
+                }),
+            )]
+            .into(),
+        });
+
+        let error = try_default_for_schema(&schema).unwrap_err();
+
+        assert!(matches!(error, DynamicError::InvalidDefaultValue { .. }));
+        assert!(error.to_string().contains("required recursive field"));
+    }
+
+    #[test]
+    fn finite_recursive_boundaries_default_successfully() {
+        let type_name = TypeName::new("test_msgs::Node").unwrap();
+        let schema = Arc::new(SchemaBundle {
+            root: TypeDef::Named(type_name.clone()),
+            definitions: [(
+                type_name.clone(),
+                TypeDefinition::Struct(StructDef {
+                    fields: vec![
+                        FieldDef::new(
+                            "optional_child",
+                            TypeDef::Optional(Box::new(TypeDef::Named(type_name.clone()))),
+                        ),
+                        FieldDef::new(
+                            "children",
+                            TypeDef::Sequence {
+                                element: Box::new(TypeDef::Named(type_name.clone())),
+                                length: SequenceLengthDef::Dynamic,
+                            },
+                        ),
+                        FieldDef::new(
+                            "empty_children",
+                            TypeDef::Sequence {
+                                element: Box::new(TypeDef::Named(type_name.clone())),
+                                length: SequenceLengthDef::Fixed(0),
+                            },
+                        ),
+                        FieldDef::new(
+                            "child_by_name",
+                            TypeDef::Map {
+                                key: Box::new(TypeDef::String),
+                                value: Box::new(TypeDef::Named(type_name)),
+                            },
+                        ),
+                    ],
+                }),
+            )]
+            .into(),
+        });
+
+        let value = try_default_for_schema(&schema).unwrap();
+
+        let DynamicValue::Struct(message) = value else {
+            panic!("expected struct default");
+        };
+        assert_eq!(
+            message.get_dynamic("optional_child").unwrap(),
+            DynamicValue::Optional(None)
+        );
+        assert_eq!(
+            message.get_dynamic("children").unwrap(),
+            DynamicValue::Sequence(Vec::new())
+        );
+        assert_eq!(
+            message.get_dynamic("empty_children").unwrap(),
+            DynamicValue::Sequence(Vec::new())
+        );
+        assert_eq!(
+            message.get_dynamic("child_by_name").unwrap(),
+            DynamicValue::Map(Vec::new())
+        );
     }
 }

@@ -2,11 +2,47 @@ use std::time::Duration;
 
 use tracing::{debug, warn};
 
-use super::schema_bridge::bundle_to_schema;
 use super::schema_service::{GetSchema, GetSchemaRequest, GetSchemaResponse};
 use super::{discovery::TopicSchemaCandidate, error::DynamicError, schema::Schema};
 use crate::entity::SchemaHash;
 use crate::{node::Node, topic_name::qualify_remote_private_service_name};
+use std::sync::Arc;
+
+fn response_schema(response: &GetSchemaResponse) -> Result<Schema, DynamicError> {
+    response
+        .schema
+        .validate()
+        .map_err(|error| DynamicError::SerializationError(error.to_string()))?;
+    Ok(Arc::new(response.schema.clone()))
+}
+
+fn bundle_root_name(bundle: &ros_z_schema::SchemaBundle) -> Result<&str, DynamicError> {
+    let ros_z_schema::TypeDef::Named(name) = &bundle.root else {
+        return Err(DynamicError::SerializationError(
+            "schema response root is not a named type".into(),
+        ));
+    };
+    Ok(name.as_str())
+}
+
+fn response_root_name_or_expected<'a>(
+    response: &'a GetSchemaResponse,
+    expected_type_name: &'a str,
+) -> Result<&'a str, DynamicError> {
+    match &response.schema.root {
+        ros_z_schema::TypeDef::Named(name) => {
+            let name = name.as_str();
+            if name != expected_type_name {
+                return Err(DynamicError::SerializationError(format!(
+                    "schema response root '{}' does not match requested type name '{}'",
+                    name, expected_type_name
+                )));
+            }
+            Ok(name)
+        }
+        _ => Ok(expected_type_name),
+    }
+}
 
 fn request_schema_hash(discovered_hash: &SchemaHash) -> String {
     discovered_hash.to_hash_string()
@@ -50,26 +86,11 @@ fn validate_response_hash(
             "requested hash '{}' does not match response schema hash '{}' for '{}'",
             expected_hash.to_hash_string(),
             declared_hash.to_hash_string(),
-            response.schema.root_name.as_str()
+            bundle_root_name(&response.schema)?
         )));
     }
 
     Ok(declared_hash)
-}
-
-fn validate_response_root_name(
-    response: &GetSchemaResponse,
-    expected_type_name: &str,
-) -> Result<(), DynamicError> {
-    let response_root_name = response.schema.root_name.as_str();
-    if response_root_name != expected_type_name {
-        return Err(DynamicError::SerializationError(format!(
-            "schema response root_name '{}' does not match requested type name '{}'",
-            response_root_name, expected_type_name
-        )));
-    }
-
-    Ok(())
 }
 
 pub(crate) async fn query_schema(
@@ -124,7 +145,7 @@ pub fn schema_from_response(response: &GetSchemaResponse) -> Result<Schema, Dyna
     }
 
     validate_response_hash(response, None)?;
-    bundle_to_schema(&response.schema)
+    response_schema(response)
 }
 
 pub fn root_schema_from_response(
@@ -138,9 +159,9 @@ pub fn root_schema_from_response(
     }
 
     let schema_hash = validate_response_hash(response, None)?;
-    let schema = bundle_to_schema(&response.schema)?;
+    let schema = response_schema(response)?;
     Ok((
-        response.schema.root_name.as_str().to_string(),
+        bundle_root_name(&response.schema)?.to_string(),
         schema,
         schema_hash,
     ))
@@ -158,7 +179,7 @@ pub fn schema_from_response_with_hash(
     }
 
     validate_response_hash(response, Some(expected_hash))?;
-    bundle_to_schema(&response.schema)
+    response_schema(response)
 }
 
 pub(crate) fn schema_from_response_for_candidate(
@@ -173,37 +194,32 @@ pub(crate) fn schema_from_response_for_candidate(
     }
 
     let schema_hash = validate_response_hash(response, Some(candidate.schema_hash))?;
-    validate_response_root_name(response, &candidate.type_name)?;
-    let schema = bundle_to_schema(&response.schema)?;
-    Ok((
-        response.schema.root_name.as_str().to_string(),
-        schema,
-        schema_hash,
-    ))
+    let root_name = response_root_name_or_expected(response, &candidate.type_name)?;
+    let schema = response_schema(response)?;
+    Ok((root_name.to_string(), schema, schema_hash))
 }
 
 #[cfg(test)]
 mod tests {
-    use ros_z_schema::{NamedTypeDef, RootTypeName, SchemaBundle, StructDef, TypeDef, TypeName};
+    use ros_z_schema::{SchemaBundle, StructDef, TypeDef, TypeDefinition, TypeName};
 
     use super::*;
 
-    fn empty_struct_bundle(root_name: &str, root_type: &str) -> SchemaBundle {
+    fn empty_struct_bundle(root_type: &str) -> SchemaBundle {
         let root_type = TypeName::new(root_type).unwrap();
         SchemaBundle {
-            root_name: RootTypeName::new(root_name).unwrap(),
-            root: TypeDef::StructRef(root_type.clone()),
+            root: TypeDef::Named(root_type.clone()),
             definitions: [(
                 root_type,
-                NamedTypeDef::Struct(StructDef { fields: vec![] }),
+                TypeDefinition::Struct(StructDef { fields: vec![] }),
             )]
             .into(),
         }
     }
 
     #[test]
-    fn candidate_schema_response_rejects_mismatched_root_name_even_when_hash_matches() {
-        let schema = empty_struct_bundle("test_msgs::Wrong", "test_msgs::Expected");
+    fn candidate_schema_response_rejects_mismatched_root_even_when_hash_matches() {
+        let schema = empty_struct_bundle("test_msgs::Wrong");
         let schema_hash = ros_z_schema::compute_hash(&schema);
         let response = GetSchemaResponse {
             successful: true,
@@ -220,7 +236,7 @@ mod tests {
 
         let error = schema_from_response_for_candidate(&response, &candidate).unwrap_err();
 
-        assert!(error.to_string().contains("root_name"));
+        assert!(error.to_string().contains("root"));
         assert!(error.to_string().contains("test_msgs::Expected"));
         assert!(error.to_string().contains("test_msgs::Wrong"));
     }

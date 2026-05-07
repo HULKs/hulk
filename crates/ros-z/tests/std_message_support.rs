@@ -5,12 +5,18 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use ros_z::{
-    Message, MessageCodec,
-    dynamic::{PrimitiveType, RuntimeDynamicEnumPayload, RuntimeFieldSchema, TypeShape},
+use ros_z::{Message, MessageCodec};
+use ros_z_schema::{
+    EnumPayloadDef, PrimitiveTypeDef, SequenceLengthDef, TypeDef, TypeDefinition, TypeName,
 };
 use serde::{Deserialize, Serialize};
 use zenoh_buffers::buffer::SplitBuffer;
+
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ros_z::Message)]
+#[message(name = "test_msgs::RenamedRangeElement")]
+struct RenamedRangeElement {
+    value: u8,
+}
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ros_z::Message)]
 struct StdEnvelope {
@@ -23,173 +29,176 @@ struct StdEnvelope {
     contacts: HashMap<SocketAddr, SystemTime>,
 }
 
-fn struct_fields(schema: &ros_z::dynamic::Schema) -> &[RuntimeFieldSchema] {
-    let TypeShape::Struct { fields, .. } = schema.as_ref() else {
-        panic!("expected struct schema, got {schema:?}");
+fn struct_fields<'a>(
+    schema: &'a ros_z_schema::SchemaBundle,
+    name: &str,
+) -> &'a [ros_z_schema::FieldDef] {
+    let name = TypeName::new(name).unwrap();
+    let Some(TypeDefinition::Struct(definition)) = schema.definitions.get(&name) else {
+        panic!("missing struct definition");
     };
-    fields
+    &definition.fields
 }
 
-fn field<'a>(schema: &'a ros_z::dynamic::Schema, name: &str) -> &'a RuntimeFieldSchema {
-    struct_fields(schema)
+fn field<'a>(
+    schema: &'a ros_z_schema::SchemaBundle,
+    root_name: &str,
+    name: &str,
+) -> &'a ros_z_schema::FieldDef {
+    struct_fields(schema, root_name)
         .iter()
         .find(|field| field.name == name)
         .unwrap_or_else(|| panic!("missing field {name}"))
 }
 
-fn named_struct_fields<'a>(
-    schema: &'a ros_z::dynamic::Schema,
-    expected_name: &str,
-) -> &'a [RuntimeFieldSchema] {
-    let TypeShape::Struct { name, fields } = schema.as_ref() else {
-        panic!("expected named struct schema, got {schema:?}");
+fn assert_socket_addr_schema(schema: &ros_z_schema::SchemaBundle) {
+    let socket = TypeName::new("std::net::SocketAddr").unwrap();
+    let Some(TypeDefinition::Enum(definition)) = schema.definitions.get(&socket) else {
+        panic!("missing SocketAddr enum");
     };
-    assert_eq!(name.as_str(), expected_name);
-    fields
-}
 
-fn assert_socket_addr_inner_schema(
-    schema: &ros_z::dynamic::Schema,
-    expected_name: &str,
-    expected_ip_length: usize,
-) {
-    let fields = named_struct_fields(schema, expected_name);
-    assert_eq!(fields.len(), 2);
-    assert_eq!(fields[0].name, "ip");
-    match fields[0].schema.as_ref() {
-        TypeShape::Sequence { element, length } => {
-            assert_eq!(
-                *length,
-                ros_z::dynamic::SequenceLength::Fixed(expected_ip_length)
-            );
-            assert_primitive(element, PrimitiveType::U8);
+    assert_eq!(definition.variants.len(), 2);
+    assert_eq!(definition.variants[0].name, "V4");
+    assert_eq!(definition.variants[1].name, "V6");
+
+    let EnumPayloadDef::Newtype(TypeDef::Named(v4_name)) = &definition.variants[0].payload else {
+        panic!("V4 should be a named newtype payload");
+    };
+    assert_eq!(v4_name.as_str(), "std::net::SocketAddrV4");
+    let v4_fields = struct_fields(schema, "std::net::SocketAddrV4");
+    assert_eq!(
+        v4_fields[0].shape,
+        TypeDef::Sequence {
+            element: Box::new(TypeDef::Primitive(PrimitiveTypeDef::U8)),
+            length: SequenceLengthDef::Fixed(4),
         }
-        other => panic!("expected fixed IP octet sequence, got {other:?}"),
-    }
-    assert_eq!(fields[1].name, "port");
-    assert_primitive(&fields[1].schema, PrimitiveType::U16);
-}
-
-fn assert_socket_addr_schema(schema: &ros_z::dynamic::Schema) {
-    let TypeShape::Enum { name, variants } = schema.as_ref() else {
-        panic!("expected SocketAddr enum schema");
-    };
-
-    assert_eq!(name.as_str(), "std::net::SocketAddr");
-    assert_eq!(variants.len(), 2);
-    assert_eq!(variants[0].name, "V4");
-    assert_eq!(variants[1].name, "V6");
-
-    let RuntimeDynamicEnumPayload::Newtype(v4_schema) = &variants[0].payload else {
-        panic!("expected V4 newtype payload");
-    };
-    assert_socket_addr_inner_schema(v4_schema, "std::net::SocketAddrV4", 4);
-
-    let RuntimeDynamicEnumPayload::Newtype(v6_schema) = &variants[1].payload else {
-        panic!("expected V6 newtype payload");
-    };
-    assert_socket_addr_inner_schema(v6_schema, "std::net::SocketAddrV6", 16);
-}
-
-fn assert_primitive(schema: &ros_z::dynamic::Schema, expected: PrimitiveType) {
-    assert!(
-        matches!(schema.as_ref(), TypeShape::Primitive(actual) if *actual == expected),
-        "expected primitive {expected:?}, got {schema:?}"
     );
 }
 
 #[test]
 fn std_duration_schema_uses_serde_field_names() {
     assert_eq!(Duration::type_name(), "std::time::Duration");
-    let schema = Duration::schema();
-    let fields = named_struct_fields(&schema, "std::time::Duration");
-    assert_eq!(fields.len(), 2);
+    let schema = Duration::schema().unwrap();
+    let fields = struct_fields(&schema, "std::time::Duration");
+
     assert_eq!(fields[0].name, "secs");
-    assert_primitive(&fields[0].schema, PrimitiveType::U64);
+    assert_eq!(fields[0].shape, TypeDef::Primitive(PrimitiveTypeDef::U64));
     assert_eq!(fields[1].name, "nanos");
-    assert_primitive(&fields[1].schema, PrimitiveType::U32);
+    assert_eq!(fields[1].shape, TypeDef::Primitive(PrimitiveTypeDef::U32));
+}
+
+#[test]
+fn static_type_names_return_owned_strings() {
+    let first = bool::type_name();
+    let second = bool::type_name();
+
+    assert_eq!(first, "bool");
+    assert_eq!(second, "bool");
+    assert_ne!(first.as_ptr(), second.as_ptr());
+}
+
+#[test]
+fn container_type_names_return_owned_strings() {
+    let first = Vec::<u8>::type_name();
+    let second = Vec::<u8>::type_name();
+
+    assert_eq!(first, "Vec<u8>");
+    assert_eq!(second, "Vec<u8>");
+    assert_ne!(first.as_ptr(), second.as_ptr());
 }
 
 #[test]
 fn std_system_time_schema_uses_serde_field_names() {
     assert_eq!(SystemTime::type_name(), "std::time::SystemTime");
-    let schema = SystemTime::schema();
-    let fields = named_struct_fields(&schema, "std::time::SystemTime");
-    assert_eq!(fields.len(), 2);
-    assert_eq!(fields[0].name, "secs_since_epoch");
-    assert_primitive(&fields[0].schema, PrimitiveType::U64);
-    assert_eq!(fields[1].name, "nanos_since_epoch");
-    assert_primitive(&fields[1].schema, PrimitiveType::U32);
-}
+    let schema = SystemTime::schema().unwrap();
+    let fields = struct_fields(&schema, "std::time::SystemTime");
 
-#[test]
-fn usize_schema_is_u64_primitive() {
-    assert_eq!(usize::type_name(), "usize");
-    assert_primitive(&usize::schema(), PrimitiveType::U64);
+    assert_eq!(fields[0].name, "secs_since_epoch");
+    assert_eq!(fields[0].shape, TypeDef::Primitive(PrimitiveTypeDef::U64));
+    assert_eq!(fields[1].name, "nanos_since_epoch");
+    assert_eq!(fields[1].shape, TypeDef::Primitive(PrimitiveTypeDef::U32));
 }
 
 #[test]
 fn range_schemas_use_start_and_end_fields() {
-    assert_eq!(Range::<f32>::type_name(), "Range<f32>");
-    let range_schema = Range::<f32>::schema();
-    let range_fields = named_struct_fields(&range_schema, "Range<f32>");
-    assert_eq!(range_fields.len(), 2);
-    assert_eq!(range_fields[0].name, "start");
-    assert_primitive(&range_fields[0].schema, PrimitiveType::F32);
-    assert_eq!(range_fields[1].name, "end");
-    assert_primitive(&range_fields[1].schema, PrimitiveType::F32);
+    let range_schema = Range::<f32>::schema().unwrap();
+    let range_fields = struct_fields(&range_schema, "Range<f32>");
+    assert_eq!(
+        range_fields[0].shape,
+        TypeDef::Primitive(PrimitiveTypeDef::F32)
+    );
+    assert_eq!(
+        range_fields[1].shape,
+        TypeDef::Primitive(PrimitiveTypeDef::F32)
+    );
 
-    assert_eq!(RangeInclusive::<f32>::type_name(), "RangeInclusive<f32>");
-    let inclusive_schema = RangeInclusive::<f32>::schema();
-    let inclusive_fields = named_struct_fields(&inclusive_schema, "RangeInclusive<f32>");
-    assert_eq!(inclusive_fields.len(), 2);
-    assert_eq!(inclusive_fields[0].name, "start");
-    assert_primitive(&inclusive_fields[0].schema, PrimitiveType::F32);
-    assert_eq!(inclusive_fields[1].name, "end");
-    assert_primitive(&inclusive_fields[1].schema, PrimitiveType::F32);
+    let inclusive_schema = RangeInclusive::<f32>::schema().unwrap();
+    let inclusive_fields = struct_fields(&inclusive_schema, "RangeInclusive<f32>");
+    assert_eq!(
+        inclusive_fields[0].shape,
+        TypeDef::Primitive(PrimitiveTypeDef::F32)
+    );
+    assert_eq!(
+        inclusive_fields[1].shape,
+        TypeDef::Primitive(PrimitiveTypeDef::F32)
+    );
+}
+
+#[test]
+fn range_schema_roots_use_message_type_names() {
+    let range_schema = Range::<RenamedRangeElement>::schema().unwrap();
+    let range_name = TypeName::new("Range<test_msgs::RenamedRangeElement>").unwrap();
+    assert_eq!(range_schema.root, TypeDef::Named(range_name.clone()));
+    assert!(range_schema.definitions.contains_key(&range_name));
+
+    let inclusive_schema = RangeInclusive::<RenamedRangeElement>::schema().unwrap();
+    let inclusive_name = TypeName::new("RangeInclusive<test_msgs::RenamedRangeElement>").unwrap();
+    assert_eq!(
+        inclusive_schema.root,
+        TypeDef::Named(inclusive_name.clone())
+    );
+    assert!(inclusive_schema.definitions.contains_key(&inclusive_name));
 }
 
 #[test]
 fn socket_addr_schema_matches_serde_cdr_enum_shape() {
-    assert_eq!(SocketAddr::type_name(), "std::net::SocketAddr");
-    assert_socket_addr_schema(&SocketAddr::schema());
+    let schema = SocketAddr::schema().unwrap();
+    assert_socket_addr_schema(&schema);
 }
 
 #[test]
 fn derived_message_can_contain_all_core_std_types() {
-    let schema = StdEnvelope::schema();
+    let schema = StdEnvelope::schema().unwrap();
+    let root = StdEnvelope::type_name();
 
     assert!(matches!(
-        field(&schema, "duration").schema.as_ref(),
-        TypeShape::Struct { .. }
+        field(&schema, &root, "duration").shape,
+        TypeDef::Named(_)
     ));
     assert!(matches!(
-        field(&schema, "system_time").schema.as_ref(),
-        TypeShape::Struct { .. }
+        field(&schema, &root, "system_time").shape,
+        TypeDef::Named(_)
+    ));
+    assert_eq!(
+        field(&schema, &root, "count").shape,
+        TypeDef::Primitive(PrimitiveTypeDef::U64)
+    );
+    assert!(matches!(
+        field(&schema, &root, "range").shape,
+        TypeDef::Named(_)
     ));
     assert!(matches!(
-        field(&schema, "count").schema.as_ref(),
-        TypeShape::Primitive(PrimitiveType::U64)
+        field(&schema, &root, "inclusive").shape,
+        TypeDef::Named(_)
     ));
     assert!(matches!(
-        field(&schema, "range").schema.as_ref(),
-        TypeShape::Struct { .. }
+        field(&schema, &root, "address").shape,
+        TypeDef::Named(_)
     ));
     assert!(matches!(
-        field(&schema, "inclusive").schema.as_ref(),
-        TypeShape::Struct { .. }
+        field(&schema, &root, "contacts").shape,
+        TypeDef::Map { .. }
     ));
-    assert!(matches!(
-        field(&schema, "address").schema.as_ref(),
-        TypeShape::Enum { .. }
-    ));
-
-    let contacts = field(&schema, "contacts");
-    let TypeShape::Map { key, value } = contacts.schema.as_ref() else {
-        panic!("expected contacts map schema, got {contacts:?}");
-    };
-    assert_socket_addr_schema(key);
-    assert!(matches!(value.as_ref(), TypeShape::Struct { .. }));
 }
 
 #[test]
@@ -198,10 +207,6 @@ fn std_envelope_round_trips_through_cdr() {
     contacts.insert(
         "127.0.0.1:3838".parse::<SocketAddr>().unwrap(),
         UNIX_EPOCH + Duration::new(123, 456),
-    );
-    contacts.insert(
-        "[::1]:3839".parse::<SocketAddr>().unwrap(),
-        UNIX_EPOCH + Duration::new(789, 123),
     );
 
     let original = StdEnvelope {

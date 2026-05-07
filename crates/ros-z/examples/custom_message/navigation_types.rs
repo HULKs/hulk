@@ -1,4 +1,8 @@
-use ros_z::{Message, ServiceTypeInfo, msg::Service};
+use ros_z::{
+    Message, ServiceTypeInfo,
+    entity::{SchemaHash, TypeInfo},
+    msg::Service,
+};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, Message)]
@@ -28,8 +32,16 @@ impl ros_z::msg::WireMessage for NavigateToResponse {
 pub struct NavigateTo;
 
 impl ServiceTypeInfo for NavigateTo {
-    fn service_type_info() -> ros_z::entity::TypeInfo {
-        ros_z::entity::TypeInfo::new("custom_msgs::NavigateTo", None)
+    fn service_type_info() -> Result<TypeInfo, ros_z_schema::SchemaError> {
+        let descriptor = ros_z_schema::ServiceDef::new(
+            "custom_msgs::NavigateTo",
+            "custom_msgs::NavigateToRequest",
+            "custom_msgs::NavigateToResponse",
+        )?;
+        Ok(TypeInfo::new(
+            "custom_msgs::NavigateTo",
+            Some(SchemaHash(ros_z_schema::compute_hash(&descriptor).0)),
+        ))
     }
 }
 

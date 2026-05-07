@@ -1,7 +1,7 @@
-use std::sync::Arc;
+use std::{marker::PhantomData, sync::Arc};
 
 use serde::{Serialize, de::DeserializeOwned};
-use zenoh::Wait;
+use zenoh::{Wait, query::Query};
 
 use crate::{
     Message, ServiceTypeInfo,
@@ -27,7 +27,7 @@ pub struct RemoteParameterServices<T> {
     _set_atomic: Arc<ServiceServer<SetNodeParametersAtomicallySrv, ()>>,
     _reset: Arc<ServiceServer<ResetNodeParameterSrv, ()>>,
     _reload: Arc<ServiceServer<ReloadNodeParametersSrv, ()>>,
-    _phantom: std::marker::PhantomData<T>,
+    _phantom: PhantomData<T>,
 }
 
 impl<T> RemoteParameterServices<T>
@@ -104,7 +104,7 @@ where
             _set_atomic: Arc::new(set_atomic),
             _reset: Arc::new(reset),
             _reload: Arc::new(reload),
-            _phantom: std::marker::PhantomData,
+            _phantom: PhantomData,
         })
     }
 
@@ -121,7 +121,7 @@ where
 async fn register_server<S>(
     node: &Node,
     name: &str,
-    handler: impl Fn(&zenoh::query::Query) + Send + Sync + 'static,
+    handler: impl Fn(&Query) + Send + Sync + 'static,
 ) -> Result<ServiceServer<S, ()>>
 where
     S: Service + ServiceTypeInfo,
@@ -134,7 +134,7 @@ where
         })
 }
 
-fn handle_get_snapshot<T>(inner: &Arc<NodeParametersInner<T>>, query: &zenoh::query::Query)
+fn handle_get_snapshot<T>(inner: &Arc<NodeParametersInner<T>>, query: &Query)
 where
     T: Serialize + DeserializeOwned + Message + Send + Sync + 'static,
 {
@@ -156,7 +156,7 @@ where
     reply(query, &response);
 }
 
-fn handle_get_value<T>(inner: &Arc<NodeParametersInner<T>>, query: &zenoh::query::Query)
+fn handle_get_value<T>(inner: &Arc<NodeParametersInner<T>>, query: &Query)
 where
     T: Serialize + DeserializeOwned + Message + Send + Sync + 'static,
 {
@@ -200,7 +200,7 @@ where
     reply(query, &response);
 }
 
-fn handle_get_type_info<T>(inner: &Arc<NodeParametersInner<T>>, query: &zenoh::query::Query)
+fn handle_get_type_info<T>(inner: &Arc<NodeParametersInner<T>>, query: &Query)
 where
     T: Serialize + DeserializeOwned + Message + Send + Sync + 'static,
 {
@@ -215,7 +215,7 @@ where
     );
 }
 
-fn handle_set<T>(inner: &Arc<NodeParametersInner<T>>, query: &zenoh::query::Query)
+fn handle_set<T>(inner: &Arc<NodeParametersInner<T>>, query: &Query)
 where
     T: Serialize + DeserializeOwned + Message + Send + Sync + 'static,
 {
@@ -252,7 +252,7 @@ where
     reply(query, &response);
 }
 
-fn handle_set_atomic<T>(inner: &Arc<NodeParametersInner<T>>, query: &zenoh::query::Query)
+fn handle_set_atomic<T>(inner: &Arc<NodeParametersInner<T>>, query: &Query)
 where
     T: Serialize + DeserializeOwned + Message + Send + Sync + 'static,
 {
@@ -302,7 +302,7 @@ where
     reply(query, &response);
 }
 
-fn handle_reset<T>(inner: &Arc<NodeParametersInner<T>>, query: &zenoh::query::Query)
+fn handle_reset<T>(inner: &Arc<NodeParametersInner<T>>, query: &Query)
 where
     T: Serialize + DeserializeOwned + Message + Send + Sync + 'static,
 {
@@ -330,7 +330,7 @@ where
     reply(query, &response);
 }
 
-fn handle_reload<T>(inner: &Arc<NodeParametersInner<T>>, query: &zenoh::query::Query)
+fn handle_reload<T>(inner: &Arc<NodeParametersInner<T>>, query: &Query)
 where
     T: Serialize + DeserializeOwned + Message + Send + Sync + 'static,
 {
@@ -406,7 +406,7 @@ impl From<(bool, String, u64, Vec<String>)> for ResetNodeParameterResponse {
     }
 }
 
-fn decode_request<T>(query: &zenoh::query::Query) -> std::result::Result<T, String>
+fn decode_request<T>(query: &Query) -> std::result::Result<T, String>
 where
     T: WireMessage,
     for<'a> <T as WireMessage>::Codec: WireDecoder<Output = T, Input<'a> = &'a [u8]>,
@@ -417,7 +417,7 @@ where
     T::deserialize(payload.to_bytes().as_ref()).map_err(|err| err.to_string())
 }
 
-fn reply<T>(query: &zenoh::query::Query, response: &T)
+fn reply<T>(query: &Query, response: &T)
 where
     T: WireMessage,
 {

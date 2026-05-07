@@ -9,11 +9,15 @@ use std::{
     time::{Duration, Instant},
 };
 
+use ros_z::__private::ros_z_schema::SchemaError;
 use ros_z::{
     Message, ServiceTypeInfo,
-    context::ContextBuilder,
-    msg::Service,
+    context::{Context, ContextBuilder},
+    entity::TypeInfo,
+    msg::{SerdeCdrCodec, Service, WireMessage},
+    node::Node,
     parameter::{NodeParameters, NodeParametersExt},
+    pubsub::Publisher,
     service::ServiceServer,
 };
 use serde::{Deserialize as SerdeDec, Serialize as SerdeEnc};
@@ -60,8 +64,8 @@ struct AddRequest {
     b: i64,
 }
 
-impl ros_z::msg::WireMessage for AddRequest {
-    type Codec = ros_z::msg::SerdeCdrCodec<AddRequest>;
+impl WireMessage for AddRequest {
+    type Codec = SerdeCdrCodec<AddRequest>;
 }
 
 #[derive(Debug, Clone, SerdeEnc, SerdeDec, Default, PartialEq, ros_z::Message)]
@@ -70,15 +74,15 @@ struct AddResponse {
     sum: i64,
 }
 
-impl ros_z::msg::WireMessage for AddResponse {
-    type Codec = ros_z::msg::SerdeCdrCodec<AddResponse>;
+impl WireMessage for AddResponse {
+    type Codec = SerdeCdrCodec<AddResponse>;
 }
 
 struct AddTwoInts;
 
 impl ServiceTypeInfo for AddTwoInts {
-    fn service_type_info() -> ros_z::entity::TypeInfo {
-        ros_z::entity::TypeInfo::new("test_cli::AddTwoInts", None)
+    fn service_type_info() -> Result<TypeInfo, SchemaError> {
+        Ok(TypeInfo::new("test_cli::AddTwoInts", None))
     }
 }
 
@@ -155,7 +159,7 @@ impl TestEnv {
         self.temp.path().join(name)
     }
 
-    async fn create_context(&self) -> ros_z::Result<ros_z::context::Context> {
+    async fn create_context(&self) -> ros_z::Result<Context> {
         ContextBuilder::default()
             .with_mode("client")
             .with_connect_endpoints([self.router.endpoint()])
@@ -167,7 +171,7 @@ impl TestEnv {
     async fn create_context_with_parameter_layers(
         &self,
         layers: &[PathBuf],
-    ) -> ros_z::Result<ros_z::context::Context> {
+    ) -> ros_z::Result<Context> {
         ContextBuilder::default()
             .with_mode("client")
             .with_connect_endpoints([self.router.endpoint()])
@@ -352,9 +356,9 @@ struct GraphFixture {
     service: String,
     node_fqn: String,
     _service: ServiceServer<AddTwoInts>,
-    _publisher: ros_z::pubsub::Publisher<Telemetry>,
-    _node: ros_z::node::Node,
-    _context: ros_z::context::Context,
+    _publisher: Publisher<Telemetry>,
+    _node: Node,
+    _context: Context,
 }
 
 impl GraphFixture {
@@ -388,10 +392,10 @@ impl GraphFixture {
 struct PublishingFixture {
     topic: String,
     node_fqn: String,
-    publisher: Arc<ros_z::pubsub::Publisher<Telemetry>>,
+    publisher: Arc<Publisher<Telemetry>>,
     publish_task: Mutex<Option<tokio::task::JoinHandle<()>>>,
-    _node: ros_z::node::Node,
-    _context: ros_z::context::Context,
+    _node: Node,
+    _context: Context,
 }
 
 impl PublishingFixture {
@@ -459,8 +463,8 @@ struct ParameterFixture {
     node_fqn: String,
     robot_layer: PathBuf,
     _parameters: NodeParameters<VisionParameters>,
-    _node: ros_z::node::Node,
-    _context: ros_z::context::Context,
+    _node: Node,
+    _context: Context,
 }
 
 impl ParameterFixture {
@@ -617,7 +621,7 @@ async fn echo_receives_dynamic_message_from_fixture_publisher() -> TestResult {
     assert_eq!(message["type"], Telemetry::type_name());
     assert_eq!(
         message["schema_hash"],
-        Telemetry::schema_hash().to_hash_string()
+        Telemetry::schema_hash().unwrap().to_hash_string()
     );
     assert_eq!(message["data"]["label"], "robot-7");
     assert_eq!(message["data"]["sequence"].as_u64(), Some(7));
@@ -641,12 +645,12 @@ async fn schema_resolves_fixture_message_schema() -> TestResult {
         json_array_contains_field(services, "name", "/cli_e2e/schema_fixture/get_schema")
     });
 
-    let schema_hash = Telemetry::schema_hash().to_hash_string();
+    let schema_hash = Telemetry::schema_hash().unwrap().to_hash_string();
     let schema = env
         .rosz()
         .json_command([
             "schema",
-            Telemetry::type_name(),
+            &Telemetry::type_name(),
             "--node",
             fixture.node_fqn.as_str(),
             "--schema-hash",
@@ -658,13 +662,62 @@ async fn schema_resolves_fixture_message_schema() -> TestResult {
     assert_eq!(schema["type_name"], Telemetry::type_name());
     assert_eq!(
         schema["schema_hash"],
-        Telemetry::schema_hash().to_hash_string()
+        Telemetry::schema_hash().unwrap().to_hash_string()
     );
     assert!(schema["fields"].as_array().is_some_and(|fields| {
         fields.iter().any(|field| field["path"] == "label")
             && fields.iter().any(|field| field["path"] == "sequence")
             && fields.iter().any(|field| field["path"] == "temperatures")
     }));
+
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn schema_resolves_string_publisher_schema() -> TestResult {
+    let env = TestEnv::new();
+    let context = env.create_context().await?;
+    let node = context
+        .create_node("string_schema_fixture")
+        .with_namespace("/cli_e2e")
+        .build()
+        .await?;
+    let _publisher = node
+        .publisher::<String>("/cli_e2e/schema_string")
+        .build()
+        .await?;
+    let node_fqn = "/cli_e2e/string_schema_fixture";
+
+    eventually_json(&env, &["list", "services"], |services| {
+        json_array_contains_field(
+            services,
+            "name",
+            "/cli_e2e/string_schema_fixture/get_schema",
+        )
+    });
+
+    let schema_hash = String::schema_hash().unwrap().to_hash_string();
+    let schema = env
+        .rosz()
+        .json_command([
+            "schema",
+            &String::type_name(),
+            "--node",
+            node_fqn,
+            "--schema-hash",
+            schema_hash.as_str(),
+        ])
+        .run_json();
+
+    assert_eq!(schema["node"], node_fqn);
+    assert_eq!(schema["type_name"], String::type_name());
+    assert_eq!(schema["schema_hash"], schema_hash);
+    assert_eq!(schema["root"]["kind"], "string");
+    assert!(
+        schema["fields"]
+            .as_array()
+            .is_some_and(|fields| fields.is_empty())
+    );
 
     Ok(())
 }

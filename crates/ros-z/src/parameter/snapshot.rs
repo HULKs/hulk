@@ -1,7 +1,5 @@
 use std::sync::Arc;
 
-use ros_z::{Message, SerdeCdrCodec};
-use ros_z_schema::TypeName;
 use serde::{Deserialize, Serialize};
 use serde_json::Value;
 use tokio::sync::watch;
@@ -9,28 +7,11 @@ use tokio::sync::watch;
 use super::{LayerPath, ParameterKey, ProvenanceMap};
 use crate::time::Clock;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default, ros_z::Message)]
+#[message(name = "ros_z_parameter::ParameterTimestamp")]
 pub struct ParameterTimestamp {
     pub sec: i64,
     pub nanosec: u32,
-}
-
-impl Message for ParameterTimestamp {
-    type Codec = SerdeCdrCodec<Self>;
-
-    fn type_name() -> &'static str {
-        "ros_z_parameter::ParameterTimestamp"
-    }
-
-    fn schema() -> ros_z::dynamic::Schema {
-        Arc::new(ros_z::dynamic::TypeShape::Struct {
-            name: TypeName::new("ros_z_parameter::ParameterTimestamp").expect("valid type name"),
-            fields: vec![
-                ros_z::dynamic::RuntimeFieldSchema::new("sec", i64::schema()),
-                ros_z::dynamic::RuntimeFieldSchema::new("nanosec", u32::schema()),
-            ],
-        })
-    }
 }
 
 impl ParameterTimestamp {

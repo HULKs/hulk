@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::collections::{BTreeMap, BTreeSet};
 use std::fmt;
 
 use serde::de::{self, Visitor};
@@ -49,43 +49,6 @@ impl fmt::Display for TypeName {
     }
 }
 
-/// Opaque non-empty endpoint root type metadata.
-#[derive(Debug, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize)]
-#[serde(transparent)]
-pub struct RootTypeName(String);
-
-impl RootTypeName {
-    /// Creates endpoint root type metadata.
-    pub fn new(value: impl Into<String>) -> Result<Self, SchemaError> {
-        let value = value.into();
-        if !is_non_empty_type_name(&value) {
-            return Err(SchemaError::InvalidRootTypeName(value));
-        }
-        Ok(Self(value))
-    }
-
-    /// Returns the underlying root type metadata.
-    pub fn as_str(&self) -> &str {
-        &self.0
-    }
-}
-
-impl<'de> Deserialize<'de> for RootTypeName {
-    fn deserialize<D>(deserializer: D) -> Result<Self, D::Error>
-    where
-        D: Deserializer<'de>,
-    {
-        let value = String::deserialize(deserializer)?;
-        Self::new(value).map_err(de::Error::custom)
-    }
-}
-
-impl fmt::Display for RootTypeName {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.write_str(self.as_str())
-    }
-}
-
 fn is_non_empty_type_name(value: &str) -> bool {
     !value.is_empty()
 }
@@ -95,25 +58,54 @@ fn is_non_empty_type_name(value: &str) -> bool {
 pub enum SchemaError {
     /// A named type name is empty.
     InvalidTypeName(String),
-    /// A root type name is empty.
-    InvalidRootTypeName(String),
-    /// A named reference is not present in the bundle.
-    MissingDefinition(TypeName),
-    /// A named reference points at the wrong definition kind.
-    ReferenceKindMismatch {
-        /// The referenced definition name.
-        name: TypeName,
-        /// The expected definition kind.
-        expected: &'static str,
-    },
-    /// A duplicate definition has a conflicting shape.
-    ConflictingDefinition(TypeName),
-    /// An enum definition has no variants.
-    EmptyEnum(TypeName),
-    /// A named definition compatibility value is not a struct or enum.
-    InvalidNamedDefinition(String),
     /// A primitive field shape uses an unknown spelling.
     InvalidPrimitiveName(String),
+    /// A named reference is not present in the bundle.
+    MissingDefinition(TypeName),
+    /// A duplicate definition has a conflicting shape.
+    ConflictingDefinition(TypeName),
+    /// A duplicate definition changes the definition kind.
+    DefinitionKindConflict {
+        /// The conflicting definition name.
+        name: TypeName,
+        /// The already registered definition kind.
+        existing: DefinitionKind,
+        /// The attempted definition kind.
+        attempted: DefinitionKind,
+    },
+    /// A schema builder failed to construct a valid bundle.
+    BuilderFailed,
+    /// A definition is not reachable from the bundle root.
+    UnreachableDefinition(TypeName),
+    /// A struct or struct-style enum payload contains a duplicate field name.
+    DuplicateField {
+        /// The containing type name.
+        type_name: TypeName,
+        /// The duplicated field name.
+        field_name: String,
+    },
+    /// An enum contains a duplicate variant name.
+    DuplicateVariant {
+        /// The containing enum type name.
+        type_name: TypeName,
+        /// The duplicated variant name.
+        variant_name: String,
+    },
+    /// A struct or struct-style enum payload contains an empty field name.
+    EmptyFieldName {
+        /// The containing type name.
+        type_name: TypeName,
+    },
+    /// An enum contains an empty variant name.
+    EmptyVariantName {
+        /// The containing enum type name.
+        type_name: TypeName,
+    },
+    /// An enum definition has no variants.
+    EmptyEnum {
+        /// The empty enum type name.
+        type_name: TypeName,
+    },
 }
 
 impl fmt::Display for SchemaError {
@@ -125,92 +117,103 @@ impl fmt::Display for SchemaError {
                     "invalid type name `{value}`; expected a non-empty string"
                 )
             }
-            Self::InvalidRootTypeName(value) => write!(
-                f,
-                "invalid root type name `{value}`; expected a non-empty string"
-            ),
+            Self::InvalidPrimitiveName(name) => write!(f, "invalid primitive name `{name}`"),
             Self::MissingDefinition(type_name) => {
                 write!(f, "missing definition for named reference `{type_name}`")
             }
-            Self::ReferenceKindMismatch { name, expected } => write!(
-                f,
-                "named reference `{name}` points at the wrong definition kind; expected {expected}"
-            ),
             Self::ConflictingDefinition(type_name) => {
                 write!(f, "conflicting definition for `{type_name}`")
             }
-            Self::EmptyEnum(type_name) => {
+            Self::DefinitionKindConflict {
+                name,
+                existing,
+                attempted,
+            } => write!(
+                f,
+                "definition `{name}` kind conflict; existing {existing}, attempted {attempted}"
+            ),
+            Self::BuilderFailed => write!(f, "schema builder failed"),
+            Self::UnreachableDefinition(type_name) => {
+                write!(f, "definition `{type_name}` is unreachable from the root")
+            }
+            Self::DuplicateField {
+                type_name,
+                field_name,
+            } => write!(f, "duplicate field `{field_name}` in `{type_name}`"),
+            Self::DuplicateVariant {
+                type_name,
+                variant_name,
+            } => write!(f, "duplicate variant `{variant_name}` in `{type_name}`"),
+            Self::EmptyFieldName { type_name } => {
+                write!(f, "field names in `{type_name}` must be non-empty")
+            }
+            Self::EmptyVariantName { type_name } => {
+                write!(f, "variant names in `{type_name}` must be non-empty")
+            }
+            Self::EmptyEnum { type_name } => {
                 write!(f, "enum `{type_name}` must define at least one variant")
             }
-            Self::InvalidNamedDefinition(kind) => {
-                write!(
-                    f,
-                    "invalid named definition kind `{kind}`; expected struct or enum"
-                )
-            }
-            Self::InvalidPrimitiveName(name) => write!(f, "invalid primitive name `{name}`"),
         }
     }
 }
 
 impl std::error::Error for SchemaError {}
 
+/// The kind of a named schema definition.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum DefinitionKind {
+    /// A record-like type with named fields.
+    Struct,
+    /// A tagged enum with explicit variant payload semantics.
+    Enum,
+}
+
+impl fmt::Display for DefinitionKind {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::Struct => f.write_str("struct"),
+            Self::Enum => f.write_str("enum"),
+        }
+    }
+}
+
 /// A normalized schema bundle with inline root shape and named definitions.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 pub struct SchemaBundle {
-    /// Graph-visible root metadata.
-    pub root_name: RootTypeName,
     /// The root schema shape.
     pub root: TypeDef,
     /// All reachable named definitions keyed by type name.
-    pub definitions: SchemaDefinitions,
+    pub definitions: TypeDefinitions,
 }
 
 impl SchemaBundle {
     /// Creates and validates a bundle without named definitions.
-    pub fn new(root_name: RootTypeName, root: TypeDef) -> Result<Self, SchemaError> {
+    pub fn new(root: TypeDef) -> Result<Self, SchemaError> {
         let bundle = Self {
-            root_name,
             root,
-            definitions: SchemaDefinitions::new(),
+            definitions: TypeDefinitions::new(),
         };
         bundle.validate()?;
         Ok(bundle)
     }
 
-    /// Adds a named definition and revalidates the bundle.
-    pub fn with_definition(
-        mut self,
-        type_name: TypeName,
-        definition: NamedTypeDef,
-    ) -> Result<Self, SchemaError> {
-        if let Some(existing) = self.definitions.get(&type_name) {
-            if existing != &definition {
-                return Err(SchemaError::ConflictingDefinition(type_name));
-            }
-            return Ok(self);
-        }
-        self.definitions.insert(type_name, definition);
-        self.validate()?;
-        Ok(self)
-    }
-
-    /// Validates reference closure.
+    /// Validates reference closure and reachable definitions.
     pub fn validate(&self) -> Result<(), SchemaError> {
-        self.root.validate_references(&self.definitions)?;
-        for (type_name, definition) in self.definitions.iter() {
-            definition.validate_references(type_name, &self.definitions)?;
+        let mut reachable = BTreeSet::new();
+        self.root
+            .validate_reachable(&self.definitions, &mut reachable)?;
+
+        for type_name in self.definitions.keys() {
+            if !reachable.contains(type_name) {
+                return Err(SchemaError::UnreachableDefinition(type_name.clone()));
+            }
         }
+
         Ok(())
     }
 
-    /// Returns the root type metadata.
-    pub fn root_name(&self) -> &RootTypeName {
-        &self.root_name
-    }
-
     /// Returns the named definition map.
-    pub fn definitions(&self) -> &SchemaDefinitions {
+    pub fn definitions(&self) -> &TypeDefinitions {
         &self.definitions
     }
 }
@@ -218,19 +221,25 @@ impl SchemaBundle {
 /// Named definitions keyed by opaque schema type name.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(transparent)]
-pub struct SchemaDefinitions(BTreeMap<TypeName, NamedTypeDef>);
+pub struct TypeDefinitions(BTreeMap<TypeName, TypeDefinition>);
 
-impl SchemaDefinitions {
-    fn new() -> Self {
+impl TypeDefinitions {
+    /// Creates an empty definition map.
+    pub fn new() -> Self {
         Self(BTreeMap::new())
     }
 
-    fn insert(&mut self, type_name: TypeName, definition: NamedTypeDef) -> Option<NamedTypeDef> {
+    /// Inserts a named definition.
+    pub fn insert(
+        &mut self,
+        type_name: TypeName,
+        definition: TypeDefinition,
+    ) -> Option<TypeDefinition> {
         self.0.insert(type_name, definition)
     }
 
     /// Returns a named definition by type name.
-    pub fn get(&self, key: &TypeName) -> Option<&NamedTypeDef> {
+    pub fn get(&self, key: &TypeName) -> Option<&TypeDefinition> {
         self.0.get(key)
     }
 
@@ -239,8 +248,13 @@ impl SchemaDefinitions {
         self.0.contains_key(key)
     }
 
+    /// Returns definition names in canonical order.
+    pub fn keys(&self) -> impl Iterator<Item = &TypeName> {
+        self.0.keys()
+    }
+
     /// Returns an iterator over named definitions.
-    pub fn iter(&self) -> impl Iterator<Item = (&TypeName, &NamedTypeDef)> {
+    pub fn iter(&self) -> impl Iterator<Item = (&TypeName, &TypeDefinition)> {
         self.0.iter()
     }
 
@@ -255,32 +269,32 @@ impl SchemaDefinitions {
     }
 
     /// Returns an iterator over definition values.
-    pub fn values(&self) -> impl Iterator<Item = &NamedTypeDef> {
+    pub fn values(&self) -> impl Iterator<Item = &TypeDefinition> {
         self.0.values()
     }
 }
 
-impl Default for SchemaDefinitions {
+impl Default for TypeDefinitions {
     fn default() -> Self {
         Self::new()
     }
 }
 
-impl<const N: usize> From<[(TypeName, NamedTypeDef); N]> for SchemaDefinitions {
-    fn from(value: [(TypeName, NamedTypeDef); N]) -> Self {
+impl<const N: usize> From<[(TypeName, TypeDefinition); N]> for TypeDefinitions {
+    fn from(value: [(TypeName, TypeDefinition); N]) -> Self {
         Self(BTreeMap::from(value))
     }
 }
 
-impl From<BTreeMap<TypeName, NamedTypeDef>> for SchemaDefinitions {
-    fn from(value: BTreeMap<TypeName, NamedTypeDef>) -> Self {
+impl From<BTreeMap<TypeName, TypeDefinition>> for TypeDefinitions {
+    fn from(value: BTreeMap<TypeName, TypeDefinition>) -> Self {
         Self(value)
     }
 }
 
-impl<'a> IntoIterator for &'a SchemaDefinitions {
-    type Item = (&'a TypeName, &'a NamedTypeDef);
-    type IntoIter = std::collections::btree_map::Iter<'a, TypeName, NamedTypeDef>;
+impl<'a> IntoIterator for &'a TypeDefinitions {
+    type Item = (&'a TypeName, &'a TypeDefinition);
+    type IntoIter = std::collections::btree_map::Iter<'a, TypeName, TypeDefinition>;
 
     fn into_iter(self) -> Self::IntoIter {
         self.0.iter()
@@ -294,10 +308,8 @@ pub enum TypeDef {
     Primitive(PrimitiveTypeDef),
     /// A UTF-8 string.
     String,
-    /// A reference to a named struct definition.
-    StructRef(TypeName),
-    /// A reference to a named enum definition.
-    EnumRef(TypeName),
+    /// A reference to a named definition.
+    Named(TypeName),
     /// An optional value.
     Optional(Box<TypeDef>),
     /// A dynamic or fixed sequence.
@@ -317,30 +329,29 @@ pub enum TypeDef {
 }
 
 impl TypeDef {
-    fn validate_references(&self, definitions: &SchemaDefinitions) -> Result<(), SchemaError> {
+    fn validate_reachable(
+        &self,
+        definitions: &TypeDefinitions,
+        reachable: &mut BTreeSet<TypeName>,
+    ) -> Result<(), SchemaError> {
         match self {
             Self::Primitive(_) | Self::String => Ok(()),
-            Self::StructRef(name) => match definitions.get(name) {
-                Some(NamedTypeDef::Struct(_)) => Ok(()),
-                Some(NamedTypeDef::Enum(_)) => Err(SchemaError::ReferenceKindMismatch {
-                    name: name.clone(),
-                    expected: "struct",
-                }),
-                None => Err(SchemaError::MissingDefinition(name.clone())),
-            },
-            Self::EnumRef(name) => match definitions.get(name) {
-                Some(NamedTypeDef::Enum(_)) => Ok(()),
-                Some(NamedTypeDef::Struct(_)) => Err(SchemaError::ReferenceKindMismatch {
-                    name: name.clone(),
-                    expected: "enum",
-                }),
-                None => Err(SchemaError::MissingDefinition(name.clone())),
-            },
-            Self::Optional(element) => element.validate_references(definitions),
-            Self::Sequence { element, .. } => element.validate_references(definitions),
+            Self::Named(name) => {
+                let Some(definition) = definitions.get(name) else {
+                    return Err(SchemaError::MissingDefinition(name.clone()));
+                };
+
+                if !reachable.insert(name.clone()) {
+                    return Ok(());
+                }
+
+                definition.validate_reachable(name, definitions, reachable)
+            }
+            Self::Optional(element) => element.validate_reachable(definitions, reachable),
+            Self::Sequence { element, .. } => element.validate_reachable(definitions, reachable),
             Self::Map { key, value } => {
-                key.validate_references(definitions)?;
-                value.validate_references(definitions)
+                key.validate_reachable(definitions, reachable)?;
+                value.validate_reachable(definitions, reachable)
             }
         }
     }
@@ -470,22 +481,35 @@ pub enum SequenceLengthDef {
 
 /// A named struct or enum definition.
 #[derive(Debug, Clone, PartialEq, Eq, Serialize, Deserialize)]
-pub enum NamedTypeDef {
+pub enum TypeDefinition {
     /// A record-like type with named fields.
     Struct(StructDef),
     /// A tagged enum with explicit variant payload semantics.
     Enum(EnumDef),
 }
 
-impl NamedTypeDef {
-    fn validate_references(
+impl TypeDefinition {
+    /// Returns the definition kind.
+    pub fn kind(&self) -> DefinitionKind {
+        match self {
+            Self::Struct(_) => DefinitionKind::Struct,
+            Self::Enum(_) => DefinitionKind::Enum,
+        }
+    }
+
+    fn validate_reachable(
         &self,
         type_name: &TypeName,
-        definitions: &SchemaDefinitions,
+        definitions: &TypeDefinitions,
+        reachable: &mut BTreeSet<TypeName>,
     ) -> Result<(), SchemaError> {
         match self {
-            Self::Struct(definition) => definition.validate_references(definitions),
-            Self::Enum(definition) => definition.validate_references(type_name, definitions),
+            Self::Struct(definition) => {
+                definition.validate_reachable(type_name, definitions, reachable)
+            }
+            Self::Enum(definition) => {
+                definition.validate_reachable(type_name, definitions, reachable)
+            }
         }
     }
 }
@@ -498,9 +522,15 @@ pub struct StructDef {
 }
 
 impl StructDef {
-    fn validate_references(&self, definitions: &SchemaDefinitions) -> Result<(), SchemaError> {
+    fn validate_reachable(
+        &self,
+        type_name: &TypeName,
+        definitions: &TypeDefinitions,
+        reachable: &mut BTreeSet<TypeName>,
+    ) -> Result<(), SchemaError> {
+        validate_fields(type_name, &self.fields)?;
         for field in &self.fields {
-            field.validate_references(definitions)?;
+            field.validate_reachable(definitions, reachable)?;
         }
         Ok(())
     }
@@ -514,17 +544,32 @@ pub struct EnumDef {
 }
 
 impl EnumDef {
-    fn validate_references(
+    fn validate_reachable(
         &self,
         type_name: &TypeName,
-        definitions: &SchemaDefinitions,
+        definitions: &TypeDefinitions,
+        reachable: &mut BTreeSet<TypeName>,
     ) -> Result<(), SchemaError> {
         if self.variants.is_empty() {
-            return Err(SchemaError::EmptyEnum(type_name.clone()));
+            return Err(SchemaError::EmptyEnum {
+                type_name: type_name.clone(),
+            });
         }
 
+        let mut names = BTreeSet::new();
         for variant in &self.variants {
-            variant.validate_references(definitions)?;
+            if variant.name.is_empty() {
+                return Err(SchemaError::EmptyVariantName {
+                    type_name: type_name.clone(),
+                });
+            }
+            if !names.insert(variant.name.clone()) {
+                return Err(SchemaError::DuplicateVariant {
+                    type_name: type_name.clone(),
+                    variant_name: variant.name.clone(),
+                });
+            }
+            variant.validate_reachable(type_name, definitions, reachable)?;
         }
         Ok(())
     }
@@ -548,8 +593,14 @@ impl EnumVariantDef {
         }
     }
 
-    fn validate_references(&self, definitions: &SchemaDefinitions) -> Result<(), SchemaError> {
-        self.payload.validate_references(definitions)
+    fn validate_reachable(
+        &self,
+        type_name: &TypeName,
+        definitions: &TypeDefinitions,
+        reachable: &mut BTreeSet<TypeName>,
+    ) -> Result<(), SchemaError> {
+        self.payload
+            .validate_reachable(type_name, definitions, reachable)
     }
 }
 
@@ -567,19 +618,25 @@ pub enum EnumPayloadDef {
 }
 
 impl EnumPayloadDef {
-    fn validate_references(&self, definitions: &SchemaDefinitions) -> Result<(), SchemaError> {
+    fn validate_reachable(
+        &self,
+        type_name: &TypeName,
+        definitions: &TypeDefinitions,
+        reachable: &mut BTreeSet<TypeName>,
+    ) -> Result<(), SchemaError> {
         match self {
             Self::Unit => Ok(()),
-            Self::Newtype(shape) => shape.validate_references(definitions),
+            Self::Newtype(shape) => shape.validate_reachable(definitions, reachable),
             Self::Tuple(shapes) => {
                 for shape in shapes {
-                    shape.validate_references(definitions)?;
+                    shape.validate_reachable(definitions, reachable)?;
                 }
                 Ok(())
             }
             Self::Struct(fields) => {
+                validate_fields(type_name, fields)?;
                 for field in fields {
-                    field.validate_references(definitions)?;
+                    field.validate_reachable(definitions, reachable)?;
                 }
                 Ok(())
             }
@@ -605,7 +662,29 @@ impl FieldDef {
         }
     }
 
-    fn validate_references(&self, definitions: &SchemaDefinitions) -> Result<(), SchemaError> {
-        self.shape.validate_references(definitions)
+    fn validate_reachable(
+        &self,
+        definitions: &TypeDefinitions,
+        reachable: &mut BTreeSet<TypeName>,
+    ) -> Result<(), SchemaError> {
+        self.shape.validate_reachable(definitions, reachable)
     }
+}
+
+fn validate_fields(type_name: &TypeName, fields: &[FieldDef]) -> Result<(), SchemaError> {
+    let mut names = BTreeSet::new();
+    for field in fields {
+        if field.name.is_empty() {
+            return Err(SchemaError::EmptyFieldName {
+                type_name: type_name.clone(),
+            });
+        }
+        if !names.insert(field.name.clone()) {
+            return Err(SchemaError::DuplicateField {
+                type_name: type_name.clone(),
+                field_name: field.name.clone(),
+            });
+        }
+    }
+    Ok(())
 }

@@ -18,13 +18,16 @@ mod tests {
     use super::*;
     use std::sync::Arc;
 
-    use crate::dynamic::{DynamicPayload, DynamicStruct, FieldSchema, PrimitiveType, TypeShape};
+    use crate::dynamic::{DynamicPayload, DynamicStruct};
     use crate::qos::{
         QosDurability as RosQosDurability, QosHistory as RosQosHistory, QosProfile,
         QosReliability as RosQosReliability,
     };
     use crate::topic_name::qualify_topic_name;
     use ros_z_protocol::qos::{QosDurability, QosHistory};
+    use ros_z_schema::{
+        FieldDef, PrimitiveTypeDef, SchemaBundle, StructDef, TypeDef, TypeDefinition, TypeName,
+    };
 
     #[test]
     fn transient_local_subscriber_queue_capacity_matches_qos_depth() {
@@ -125,16 +128,26 @@ mod tests {
 
     #[test]
     fn dynamic_publish_schema_validation_rejects_mismatched_message_schema() {
-        let advertised_schema = Arc::new(TypeShape::Primitive(PrimitiveType::U8));
-        let schema = Arc::new(TypeShape::Struct {
-            name: ros_z_schema::TypeName::new("geometry_msgs::Vector3").unwrap(),
-            fields: vec![
-                FieldSchema::new("x", Arc::new(TypeShape::Primitive(PrimitiveType::F64))),
-                FieldSchema::new("y", Arc::new(TypeShape::Primitive(PrimitiveType::F64))),
-                FieldSchema::new("z", Arc::new(TypeShape::Primitive(PrimitiveType::F64))),
-            ],
+        let advertised_schema =
+            Arc::new(SchemaBundle::new(TypeDef::Primitive(PrimitiveTypeDef::U8)).unwrap());
+        let type_name = TypeName::new("geometry_msgs::Vector3").unwrap();
+        let schema = Arc::new(SchemaBundle {
+            root: TypeDef::Named(type_name.clone()),
+            definitions: [(
+                type_name,
+                TypeDefinition::Struct(StructDef {
+                    fields: vec![
+                        FieldDef::new("x", TypeDef::Primitive(PrimitiveTypeDef::F64)),
+                        FieldDef::new("y", TypeDef::Primitive(PrimitiveTypeDef::F64)),
+                        FieldDef::new("z", TypeDef::Primitive(PrimitiveTypeDef::F64)),
+                    ],
+                }),
+            )]
+            .into(),
         });
-        let message = DynamicPayload::from_struct(DynamicStruct::new(&schema)).unwrap();
+        let message =
+            DynamicPayload::from_struct(DynamicStruct::default_for_schema(&schema).unwrap())
+                .unwrap();
 
         let error = publisher::validate_dynamic_publish_schema(Some(&advertised_schema), &message)
             .expect_err("mismatched schemas should fail before publishing");

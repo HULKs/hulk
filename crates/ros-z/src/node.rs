@@ -7,8 +7,7 @@ use crate::{
     dynamic::{
         DiscoveredTopicSchema, DynamicCdrCodec, DynamicError, DynamicPayload,
         DynamicPublisherBuilder, DynamicSubscriberBuilder, Schema, SchemaDiscovery, SchemaService,
-        discovered_schema_type_info, schema_hash_with_root_name,
-        schema_service::SchemaServiceNodeIdentity, schema_tree_hash,
+        discovered_schema_type_info, schema_service::SchemaServiceNodeIdentity,
     },
     entity::*,
     graph::Graph,
@@ -214,10 +213,37 @@ impl NodeBuilder {
 }
 
 fn typed_message_type_info<T: Message>(schema: &Schema) -> TypeInfo {
-    TypeInfo::new(T::type_name(), schema_tree_hash(T::type_name(), schema))
+    TypeInfo::with_hash(&T::type_name(), ros_z_schema::compute_hash(schema.as_ref()))
+}
+
+fn registerable_schema_root(
+    root_name: &str,
+    schema: &ros_z_schema::SchemaBundle,
+) -> std::result::Result<bool, DynamicError> {
+    let ros_z_schema::TypeDef::Named(actual_root_name) = &schema.root else {
+        return Ok(true);
+    };
+
+    if actual_root_name.as_str() != root_name {
+        return Err(DynamicError::SerializationError(format!(
+            "schema root '{}' does not match registered root name '{root_name}'",
+            actual_root_name.as_str()
+        )));
+    }
+
+    Ok(true)
 }
 
 impl Node {
+    fn validate_service_message_schemas<T>() -> std::result::Result<(), ros_z_schema::SchemaError>
+    where
+        T: Service,
+    {
+        T::Request::schema()?;
+        T::Response::schema()?;
+        Ok(())
+    }
+
     /// Create a publisher for the given topic.
     ///
     /// If `T` implements [`Message`], type information is automatically populated.
@@ -235,17 +261,27 @@ impl Node {
         T::Codec: WireEncoder,
     {
         debug!("[NOD] Creating publisher: topic={}", topic);
-        let schema = T::schema();
-        let type_info = typed_message_type_info::<T>(&schema);
-        let builder = self.publisher_impl::<T, T::Codec>(topic, Some(type_info));
-        if let Err(error) = self.register_schema_with_service(T::type_name(), Arc::clone(&schema)) {
-            warn!(
-                "[NOD] Failed to register schema {} with schema service: {}",
-                T::type_name(),
-                error
-            );
+        match T::schema().map(Arc::new) {
+            Ok(schema) => {
+                let type_name = T::type_name();
+                let type_info = typed_message_type_info::<T>(&schema);
+                let builder = self.publisher_impl::<T, T::Codec>(topic, Some(type_info));
+                match registerable_schema_root(&type_name, schema.as_ref()).and_then(
+                    |should_register| {
+                        if should_register {
+                            self.register_schema_with_service(&type_name, Arc::clone(&schema))?;
+                        }
+                        Ok(())
+                    },
+                ) {
+                    Ok(()) => builder,
+                    Err(error) => builder.schema_error(error),
+                }
+            }
+            Err(error) => self
+                .publisher_impl::<T, T::Codec>(topic, None)
+                .schema_error(error),
         }
-        builder
     }
 
     /// Create a publisher for a message type that does not implement [`Message`].
@@ -293,6 +329,7 @@ impl Node {
             attachment: true,
             shm_config: self.shm_config.clone(),
             dyn_schema: None,
+            schema_error: None,
             _phantom_data: Default::default(),
         }
     }
@@ -310,8 +347,13 @@ impl Node {
         T::Codec: WireDecoder,
     {
         debug!("[NOD] Creating subscriber: topic={}", topic);
-        let schema = T::schema();
-        self.subscriber_impl::<T, T::Codec>(topic, Some(typed_message_type_info::<T>(&schema)))
+        match T::schema().map(Arc::new) {
+            Ok(schema) => self
+                .subscriber_impl::<T, T::Codec>(topic, Some(typed_message_type_info::<T>(&schema))),
+            Err(error) => self
+                .subscriber_impl::<T, T::Codec>(topic, None)
+                .schema_error(error),
+        }
     }
 
     /// Create a subscriber for a message type that does not implement [`Message`].
@@ -352,6 +394,7 @@ impl Node {
             session: self.session.clone(),
             graph: self.graph.clone(),
             dyn_schema: None,
+            schema_error: None,
             locality: None,
             transient_local_replay_timeout: DEFAULT_TRANSIENT_LOCAL_REPLAY_TIMEOUT,
             _phantom_data: Default::default(),
@@ -402,8 +445,14 @@ impl Node {
             "[NOD] Creating cache: topic={}, capacity={}",
             topic, capacity
         );
-        let sub_builder =
-            self.subscriber_impl::<T, <T as Message>::Codec>(topic, Some(T::type_info()));
+        let sub_builder = match T::schema().and_then(|_| T::type_info()) {
+            Ok(type_info) => {
+                self.subscriber_impl::<T, <T as Message>::Codec>(topic, Some(type_info))
+            }
+            Err(error) => self
+                .subscriber_impl::<T, <T as Message>::Codec>(topic, None)
+                .schema_error(error),
+        };
         CacheBuilder::new(sub_builder, capacity)
     }
 
@@ -429,7 +478,13 @@ impl Node {
         T: Service + ServiceTypeInfo,
     {
         debug!("[NOD] Creating service server: name={}", name);
-        self.create_service_impl(name, Some(T::service_type_info()))
+        match T::service_type_info().and_then(|type_info| {
+            Self::validate_service_message_schemas::<T>()?;
+            Ok(type_info)
+        }) {
+            Ok(type_info) => self.create_service_impl(name, Some(type_info)),
+            Err(error) => self.create_service_impl(name, None).schema_error(error),
+        }
     }
 
     #[doc(hidden)]
@@ -452,6 +507,7 @@ impl Node {
             entity,
             session: self.session.clone(),
             clock: self.clock.clone(),
+            schema_error: None,
             _phantom_data: Default::default(),
         }
     }
@@ -470,7 +526,13 @@ impl Node {
         T: Service + ServiceTypeInfo,
     {
         debug!("[NOD] Creating service client: name={}", name);
-        self.create_client_impl(name, Some(T::service_type_info()))
+        match T::service_type_info().and_then(|type_info| {
+            Self::validate_service_message_schemas::<T>()?;
+            Ok(type_info)
+        }) {
+            Ok(type_info) => self.create_client_impl(name, Some(type_info)),
+            Err(error) => self.create_client_impl(name, None).schema_error(error),
+        }
     }
 
     #[doc(hidden)]
@@ -493,6 +555,7 @@ impl Node {
             entity,
             session: self.session.clone(),
             clock: self.clock.clone(),
+            schema_error: None,
             _phantom_data: Default::default(),
         }
     }
@@ -580,48 +643,60 @@ impl Node {
     /// # Example
     ///
     /// ```ignore
-    /// let schema = Arc::new(TypeShape::Struct {
-    ///     name: TypeName::new("std_msgs::String")?,
-    ///     fields: vec![FieldSchema::new("data", Arc::new(TypeShape::String))],
+    /// let name = TypeName::new("std_msgs::String")?;
+    /// let schema = Arc::new(SchemaBundle {
+    ///     root: TypeDef::Named(name.clone()),
+    ///     definitions: TypeDefinitions::from([(
+    ///         name,
+    ///         TypeDefinition::Struct(StructDef {
+    ///             fields: vec![FieldDef::new("data", TypeDef::String)],
+    ///         }),
+    ///     )]),
     /// });
     ///
-    /// let publisher = node.dynamic_publisher("chatter", schema).build().await?;
+    /// let type_info = TypeInfo::with_hash("std_msgs::String", ros_z_schema::compute_hash(schema.as_ref()));
+    /// let publisher = node.dynamic_publisher("chatter", type_info, schema).build().await?;
     ///
-    /// let mut message = DynamicStruct::new(publisher.schema());
+    /// let mut message = DynamicStruct::default_for_schema(publisher.schema())?;
     /// message.set("data", "Hello, world!")?;
     /// publisher.publish(&message).await?;
     /// ```
     pub fn dynamic_publisher(
         &self,
         topic: &str,
-        root_name: &str,
+        mut type_info: TypeInfo,
         schema: Schema,
     ) -> DynamicPublisherBuilder {
-        let schema_hash = match schema_hash_with_root_name(root_name, &schema) {
-            Ok(hash) => Some(hash),
-            Err(error) => {
-                warn!(
-                    "[NOD] Failed to compute schema hash for {}: {}",
-                    root_name, error
-                );
-                None
-            }
-        };
-        if let Err(error) = self.register_schema_with_service(root_name, Arc::clone(&schema)) {
+        let mut build_error = schema.validate().err().map(|error| {
             warn!(
-                "[NOD] Failed to register schema {} with schema service: {}",
-                root_name, error
+                "[NOD] Failed to validate schema {}: {}",
+                type_info.name, error
             );
+            error.to_string()
+        });
+
+        if build_error.is_none() {
+            if type_info.hash.is_none() {
+                type_info.hash = Some(ros_z_schema::compute_hash(schema.as_ref()));
+            }
+
+            if let Err(error) = registerable_schema_root(&type_info.name, schema.as_ref()).and_then(
+                |should_register| {
+                    if should_register {
+                        self.register_schema_with_service(&type_info.name, Arc::clone(&schema))?;
+                    }
+                    Ok(())
+                },
+            ) {
+                build_error = Some(error.to_string());
+            }
         }
-        self.dynamic_publisher_impl(
-            topic,
-            Some(TypeInfo {
-                name: root_name.to_string(),
-                hash: schema_hash,
-            }),
-            root_name,
-            schema,
-        )
+
+        let builder = self.dynamic_publisher_impl(topic, Some(type_info), schema);
+        match build_error {
+            Some(error) => builder.schema_error(error),
+            None => builder,
+        }
     }
 
     /// Discover the schema that publishers currently expose on a topic.
@@ -701,7 +776,6 @@ impl Node {
         Ok(self.dynamic_subscriber_impl(
             topic,
             Some(discovered_schema_type_info(&discovered)),
-            &discovered.root_name,
             discovered.schema,
         ))
     }
@@ -724,46 +798,53 @@ impl Node {
     /// # Example
     ///
     /// ```ignore
-    /// let schema = Arc::new(TypeShape::Struct {
-    ///     name: TypeName::new("std_msgs::String")?,
-    ///     fields: vec![FieldSchema::new("data", Arc::new(TypeShape::String))],
+    /// let name = TypeName::new("std_msgs::String")?;
+    /// let schema = Arc::new(SchemaBundle {
+    ///     root: TypeDef::Named(name.clone()),
+    ///     definitions: TypeDefinitions::from([(
+    ///         name,
+    ///         TypeDefinition::Struct(StructDef {
+    ///             fields: vec![FieldDef::new("data", TypeDef::String)],
+    ///         }),
+    ///     )]),
     /// });
     ///
-    /// let subscriber = node.dynamic_subscriber("chatter", schema).build().await?;
+    /// let type_info = TypeInfo::with_hash("std_msgs::String", ros_z_schema::compute_hash(schema.as_ref()));
+    /// let subscriber = node.dynamic_subscriber("chatter", Some(type_info), schema).build().await?;
     /// let message = subscriber.recv().await?;
     /// ```
     pub fn dynamic_subscriber(
         &self,
         topic: &str,
-        root_name: &str,
+        type_info: Option<TypeInfo>,
         schema: Schema,
     ) -> DynamicSubscriberBuilder {
-        let type_info = schema_hash_with_root_name(root_name, &schema)
-            .ok()
-            .map(|hash| TypeInfo::with_hash(root_name, hash));
-        self.dynamic_subscriber_impl(topic, type_info, root_name, schema)
+        let schema_error = schema.validate().err();
+        let builder = self.dynamic_subscriber_impl(topic, type_info, schema);
+        match schema_error {
+            Some(error) => builder.schema_error(error),
+            None => builder,
+        }
     }
 
     fn dynamic_publisher_impl(
         &self,
         topic: &str,
         type_info: Option<TypeInfo>,
-        root_name: &str,
         schema: Schema,
     ) -> DynamicPublisherBuilder {
         self.publisher_impl::<DynamicPayload, DynamicCdrCodec>(topic, type_info)
-            .dyn_root_schema(root_name, schema)
+            .dynamic_schema(schema)
     }
 
     fn dynamic_subscriber_impl(
         &self,
         topic: &str,
         type_info: Option<TypeInfo>,
-        root_name: &str,
         schema: Schema,
     ) -> DynamicSubscriberBuilder {
         self.subscriber_impl::<DynamicPayload, DynamicCdrCodec>(topic, type_info)
-            .dyn_root_schema(root_name, schema)
+            .dynamic_schema(schema)
     }
 
     pub fn register_schema_with_service(

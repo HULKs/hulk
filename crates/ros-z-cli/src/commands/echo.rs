@@ -326,14 +326,14 @@ mod tests {
     #[test]
     fn display_schema_hash_prefers_advertised_canonical_hash() {
         let hash = SchemaHash::from_hash_string(
-            "RZHS01_1111111111111111111111111111111111111111111111111111111111111111",
+            "RZHS02_1111111111111111111111111111111111111111111111111111111111111111",
         )
         .expect("hash");
         let type_info = TypeInfo::with_hash("std_msgs::String", hash);
 
         assert_eq!(
             display_schema_hash_from_type_info(Some(&type_info)),
-            "RZHS01_1111111111111111111111111111111111111111111111111111111111111111"
+            "RZHS02_1111111111111111111111111111111111111111111111111111111111111111"
         );
     }
 

@@ -71,6 +71,7 @@ pub mod pubsub;
 pub mod qos;
 /// Internal message queues.
 pub mod queue;
+pub mod schema;
 /// Service client and server.
 pub mod service;
 /// Shared-memory transport helpers.
@@ -91,6 +92,7 @@ pub use attachment::EndpointGlobalId;
 pub use entity::{SchemaHash, TypeInfo};
 pub use msg::{EncodedMessage, GeneratedCdrCodec, Message, MessageCodec, SerdeCdrCodec, Service};
 pub use ros_z_derive::Message;
+pub use schema::{MessageSchema, SchemaBuilder};
 pub use type_info::ServiceTypeInfo;
 pub use zbuf::ZBuf;
 pub use zenoh::Result;

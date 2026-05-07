@@ -80,8 +80,16 @@ fn impl_message_for_struct(
         Fields::Unit => Vec::new(),
     };
     let field_types = match &data.fields {
-        Fields::Named(fields) => fields.named.iter().map(|field| &field.ty).collect::<Vec<_>>(),
-        Fields::Unnamed(fields) => fields.unnamed.iter().map(|field| &field.ty).collect::<Vec<_>>(),
+        Fields::Named(fields) => fields
+            .named
+            .iter()
+            .map(|field| &field.ty)
+            .collect::<Vec<_>>(),
+        Fields::Unnamed(fields) => fields
+            .unnamed
+            .iter()
+            .map(|field| &field.ty)
+            .collect::<Vec<_>>(),
         Fields::Unit => Vec::new(),
     };
 
@@ -99,7 +107,7 @@ fn impl_message_for_struct(
             .push(parse_quote!(#name #self_ty_generics: ::serde::Serialize));
         where_clause
             .predicates
-            .push(parse_quote!(#name #self_ty_generics: for<'de> ::serde::Deserialize<'de>));
+            .push(parse_quote!(#name #self_ty_generics: ::serde::de::DeserializeOwned));
         for field_ty in field_types {
             where_clause
                 .predicates
@@ -114,7 +122,7 @@ fn impl_message_for_struct(
         .filter_map(|param| match param {
             GenericParam::Type(type_param) => {
                 let ident = &type_param.ident;
-                Some(quote! { ::std::format!("{}", <#ident as ::ros_z::Message>::type_name()) })
+                Some(quote! { <#ident as ::ros_z::Message>::type_name() })
             }
             GenericParam::Const(const_param) => {
                 let ident = &const_param.ident;
@@ -124,111 +132,41 @@ fn impl_message_for_struct(
         })
         .collect::<Vec<_>>();
     let type_name_body = if generic_arg_names.is_empty() {
-        quote! { #type_name }
+        quote! { #type_name.to_string() }
     } else {
         quote! {{
             let generic_arg_names = ::std::vec![#(#generic_arg_names),*];
-            let type_name = ::std::format!("{}<{}>", #type_name, generic_arg_names.join(","));
-            ::std::boxed::Box::leak(type_name.into_boxed_str())
+            ::std::format!("{}<{}>", #type_name, generic_arg_names.join(","))
         }}
     };
 
     Ok(quote! {
         impl #impl_generics #name #ty_generics #where_clause {
-            fn __ros_z_type_name() -> &'static str {
-                static TYPE_NAME: ::std::sync::OnceLock<
-                    ::std::sync::Mutex<
-                        ::std::collections::HashMap<::std::any::TypeId, &'static str>
-                    >
-                > = ::std::sync::OnceLock::new();
-
-                let key = ::std::any::TypeId::of::<Self>();
-                let cache = TYPE_NAME.get_or_init(|| {
-                    ::std::sync::Mutex::new(::std::collections::HashMap::new())
-                });
-                if let Some(type_name) = cache.lock().expect("type name cache poisoned").get(&key).copied() {
-                    return type_name;
-                }
-
-                let type_name = #type_name_body;
-                let mut cache = cache.lock().expect("type name cache poisoned");
-                if let Some(existing) = cache.get(&key).copied() {
-                    return existing;
-                }
-                cache.insert(key, type_name);
-                type_name
+            fn __ros_z_type_name() -> String {
+                #type_name_body
             }
 
-            fn __ros_z_schema() -> ::ros_z::dynamic::Schema {
-                static SCHEMA: ::std::sync::OnceLock<
-                    ::std::sync::Mutex<
-                        ::std::collections::HashMap<
-                            ::std::any::TypeId,
-                            ::ros_z::dynamic::Schema
-                        >
-                    >
-                > = ::std::sync::OnceLock::new();
+        }
 
-                let key = ::std::any::TypeId::of::<Self>();
-                let cache = SCHEMA.get_or_init(|| {
-                    ::std::sync::Mutex::new(::std::collections::HashMap::new())
-                });
-                if let Some(schema) = cache.lock().expect("schema cache poisoned").get(&key).cloned() {
-                    return schema;
-                }
-
-                let schema = ::std::sync::Arc::new(::ros_z::dynamic::TypeShape::Struct {
-                    name: ::ros_z::__private::ros_z_schema::TypeName::new(Self::__ros_z_type_name())
-                        .expect("derived message schema type name must be valid"),
-                    fields: ::std::vec![#(#schema_fields),*],
-                });
-                let mut cache = cache.lock().expect("schema cache poisoned");
-                if let Some(existing) = cache.get(&key).cloned() {
-                    return existing;
-                }
-                cache.insert(key, schema.clone());
-                schema
-            }
-
-            fn __ros_z_schema_hash() -> ::ros_z::entity::SchemaHash {
-                static SCHEMA_HASH: ::std::sync::OnceLock<
-                    ::std::sync::Mutex<
-                        ::std::collections::HashMap<::std::any::TypeId, ::ros_z::entity::SchemaHash>
-                    >
-                > = ::std::sync::OnceLock::new();
-
-                let key = ::std::any::TypeId::of::<Self>();
-                let cache = SCHEMA_HASH.get_or_init(|| {
-                    ::std::sync::Mutex::new(::std::collections::HashMap::new())
-                });
-                if let Some(hash) = cache.lock().expect("schema hash cache poisoned").get(&key).cloned() {
-                    return hash;
-                }
-
-                let hash = ::ros_z::dynamic::schema_tree_hash(Self::__ros_z_type_name(), &Self::__ros_z_schema())
-                    .expect("derived message schema must convert to a hash");
-                let mut cache = cache.lock().expect("schema hash cache poisoned");
-                if let Some(existing) = cache.get(&key).cloned() {
-                    return existing;
-                }
-                cache.insert(key, hash.clone());
-                hash
+        impl #impl_generics ::ros_z::schema::MessageSchema for #name #ty_generics #where_clause {
+            fn build_schema(
+                builder: &mut ::ros_z::schema::SchemaBuilder,
+            ) -> ::std::result::Result<
+                ::ros_z::__private::ros_z_schema::TypeDef,
+                ::ros_z::__private::ros_z_schema::SchemaError,
+            > {
+                let name = ::ros_z::__private::ros_z_schema::TypeName::new(Self::__ros_z_type_name())?;
+                builder.define_struct(name, |builder| {
+                    Ok(::std::vec![#(#schema_fields),*])
+                })
             }
         }
 
         impl #impl_generics ::ros_z::Message for #name #ty_generics #where_clause {
             type Codec = ::ros_z::msg::SerdeCdrCodec<Self>;
 
-            fn type_name() -> &'static str {
+            fn type_name() -> String {
                 Self::__ros_z_type_name()
-            }
-
-            fn schema() -> ::ros_z::dynamic::Schema {
-                Self::__ros_z_schema()
-            }
-
-            fn schema_hash() -> ::ros_z::entity::SchemaHash {
-                Self::__ros_z_schema_hash()
             }
         }
     })
@@ -254,51 +192,31 @@ fn impl_message_for_enum(
 
     Ok(quote! {
         impl #name {
-            fn __ros_z_type_name() -> &'static str {
-                #type_name
+            fn __ros_z_type_name() -> String {
+                #type_name.to_string()
             }
 
-            fn __ros_z_schema() -> ::ros_z::dynamic::Schema {
-                static SCHEMA: ::std::sync::OnceLock<::ros_z::dynamic::Schema> =
-                    ::std::sync::OnceLock::new();
+        }
 
-                SCHEMA
-                    .get_or_init(|| {
-                        ::std::sync::Arc::new(::ros_z::dynamic::TypeShape::Enum {
-                            name: ::ros_z::__private::ros_z_schema::TypeName::new(Self::__ros_z_type_name())
-                                .expect("derived enum schema type name must be valid"),
-                            variants: ::std::vec![#(#variant_tokens),*],
-                        })
-                    })
-                    .clone()
-            }
-
-            fn __ros_z_schema_hash() -> ::ros_z::entity::SchemaHash {
-                static SCHEMA_HASH: ::std::sync::OnceLock<::ros_z::entity::SchemaHash> =
-                    ::std::sync::OnceLock::new();
-
-                SCHEMA_HASH
-                    .get_or_init(|| {
-                        ::ros_z::dynamic::schema_tree_hash(Self::__ros_z_type_name(), &Self::__ros_z_schema())
-                            .expect("derived message schema must convert to a hash")
-                    })
-                    .clone()
+        impl ::ros_z::schema::MessageSchema for #name {
+            fn build_schema(
+                builder: &mut ::ros_z::schema::SchemaBuilder,
+            ) -> ::std::result::Result<
+                ::ros_z::__private::ros_z_schema::TypeDef,
+                ::ros_z::__private::ros_z_schema::SchemaError,
+            > {
+                let name = ::ros_z::__private::ros_z_schema::TypeName::new(Self::__ros_z_type_name())?;
+                builder.define_enum(name, |builder| {
+                    Ok(::std::vec![#(#variant_tokens),*])
+                })
             }
         }
 
         impl ::ros_z::Message for #name {
             type Codec = ::ros_z::msg::SerdeCdrCodec<Self>;
 
-            fn type_name() -> &'static str {
+            fn type_name() -> String {
                 Self::__ros_z_type_name()
-            }
-
-            fn schema() -> ::ros_z::dynamic::Schema {
-                Self::__ros_z_schema()
-            }
-
-            fn schema_hash() -> ::ros_z::entity::SchemaHash {
-                Self::__ros_z_schema_hash()
             }
         }
     })
@@ -339,7 +257,7 @@ fn add_message_bounds(generics: &Generics) -> Generics {
             type_param.bounds.push(parse_quote!(::serde::Serialize));
             type_param
                 .bounds
-                .push(parse_quote!(for<'de> ::serde::Deserialize<'de>));
+                .push(parse_quote!(::serde::de::DeserializeOwned));
             type_param.bounds.push(parse_quote!(::std::marker::Send));
             type_param.bounds.push(parse_quote!(::std::marker::Sync));
             type_param.bounds.push(parse_quote!('static));
@@ -360,7 +278,7 @@ fn generate_message_field_schema_tokens(
     let field_schema = generate_message_schema_tokens(&field.ty, derive_name)?;
 
     Ok(quote! {
-        ::ros_z::dynamic::RuntimeFieldSchema::new(#field_name_str, #field_schema)
+        ::ros_z::__private::ros_z_schema::FieldDef::new(#field_name_str, #field_schema)
     })
 }
 
@@ -373,7 +291,7 @@ fn generate_unnamed_message_field_schema_tokens(
     let field_schema = generate_message_schema_tokens(&field.ty, derive_name)?;
 
     Ok(quote! {
-        ::ros_z::dynamic::RuntimeFieldSchema::new(#field_name, #field_schema)
+        ::ros_z::__private::ros_z_schema::FieldDef::new(#field_name, #field_schema)
     })
 }
 
@@ -383,7 +301,7 @@ fn generate_message_schema_tokens(ty: &Type, derive_name: &str) -> syn::Result<T
             ty,
             &format!("tuple fields are not supported by {derive_name} derive in v1"),
         ),
-        _ => Ok(quote! { <#ty as ::ros_z::Message>::schema() }),
+        _ => Ok(quote! { <#ty as ::ros_z::schema::MessageSchema>::build_schema(builder)? }),
     }
 }
 
@@ -393,11 +311,11 @@ fn generate_enum_variant_schema_tokens(
 ) -> syn::Result<TokenStream2> {
     let variant_name = variant.ident.to_string();
     let payload = match &variant.fields {
-        Fields::Unit => quote! { ::ros_z::dynamic::RuntimeDynamicEnumPayload::Unit },
+        Fields::Unit => quote! { ::ros_z::__private::ros_z_schema::EnumPayloadDef::Unit },
         Fields::Unnamed(fields) if fields.unnamed.len() == 1 => {
             let schema = generate_message_schema_tokens(&fields.unnamed[0].ty, derive_name)?;
             quote! {
-                ::ros_z::dynamic::RuntimeDynamicEnumPayload::Newtype(#schema)
+                ::ros_z::__private::ros_z_schema::EnumPayloadDef::Newtype(#schema)
             }
         }
         Fields::Unnamed(fields) => {
@@ -407,7 +325,7 @@ fn generate_enum_variant_schema_tokens(
                 .map(|field| generate_message_schema_tokens(&field.ty, derive_name))
                 .collect::<syn::Result<Vec<_>>>()?;
             quote! {
-                ::ros_z::dynamic::RuntimeDynamicEnumPayload::Tuple(::std::vec![#(#schemas),*])
+                ::ros_z::__private::ros_z_schema::EnumPayloadDef::Tuple(::std::vec![#(#schemas),*])
             }
         }
         Fields::Named(fields) => {
@@ -417,13 +335,13 @@ fn generate_enum_variant_schema_tokens(
                 .map(|field| generate_message_field_schema_tokens(field, derive_name))
                 .collect::<syn::Result<Vec<_>>>()?;
             quote! {
-                ::ros_z::dynamic::RuntimeDynamicEnumPayload::Struct(::std::vec![#(#field_schemas),*])
+                ::ros_z::__private::ros_z_schema::EnumPayloadDef::Struct(::std::vec![#(#field_schemas),*])
             }
         }
     };
 
     Ok(quote! {
-        ::ros_z::dynamic::RuntimeDynamicEnumVariant::new(#variant_name, #payload)
+        ::ros_z::__private::ros_z_schema::EnumVariantDef::new(#variant_name, #payload)
     })
 }
 

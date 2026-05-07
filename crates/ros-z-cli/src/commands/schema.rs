@@ -1,5 +1,5 @@
 use color_eyre::eyre::{Result, bail};
-use ros_z::dynamic::{DynamicError, GetSchema, GetSchemaRequest, root_schema_from_response};
+use ros_z::dynamic::{DynamicError, GetSchema, GetSchemaRequest, schema_from_response_with_hash};
 use ros_z::entity::SchemaHash;
 use std::time::Duration;
 
@@ -50,17 +50,9 @@ pub async fn run(
     }
 
     let requested_hash = SchemaHash::from_hash_string(schema_hash).map_err(display_error)?;
-    let (root_name, schema, schema_hash) =
-        root_schema_from_response(&response).map_err(display_error)?;
-    if schema_hash != requested_hash {
-        bail!(
-            "requested hash '{}' does not match response schema hash '{}' for '{}'",
-            requested_hash.to_hash_string(),
-            schema_hash.to_hash_string(),
-            root_name
-        );
-    }
-    let view = SchemaView::from_schema(node, root_name, &schema, response.schema_hash);
+    let schema =
+        schema_from_response_with_hash(&response, requested_hash).map_err(display_error)?;
+    let view = SchemaView::from_schema(node, type_name.to_string(), &schema, response.schema_hash);
 
     match output_mode {
         OutputMode::Json => json::print_pretty(&view),

@@ -1,50 +1,22 @@
 use std::{thread, time::Duration};
 
-use ros_z::__private::ros_z_schema::TypeName;
 use ros_z::{
-    Message, ServiceTypeInfo,
+    ServiceTypeInfo,
     context::ContextBuilder,
-    dynamic::{RuntimeFieldSchema, Schema, TypeShape},
-    entity::SchemaHash,
+    entity::{SchemaHash, TypeInfo},
     msg::Service,
+    schema::{MessageSchema, SchemaBuilder},
 };
+use ros_z_schema::{SchemaError, TypeDef, TypeName};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-fn struct_schema(name: &str, fields: Vec<RuntimeFieldSchema>) -> Schema {
-    std::sync::Arc::new(TypeShape::Struct {
-        name: TypeName::new(name.to_string()).expect("valid test type name"),
-        fields,
-    })
-}
-
 // Simple test service request
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, ros_z::Message)]
+#[message(name = "test_msgs::AddTwoIntsRequest")]
 struct AddTwoIntsRequest {
     a: i64,
     b: i64,
-}
-
-impl Message for AddTwoIntsRequest {
-    type Codec = ros_z::SerdeCdrCodec<Self>;
-
-    fn type_name() -> &'static str {
-        "test_msgs::AddTwoIntsRequest"
-    }
-
-    fn schema_hash() -> SchemaHash {
-        SchemaHash::zero()
-    }
-
-    fn schema() -> Schema {
-        struct_schema(
-            "test_msgs::AddTwoIntsRequest",
-            vec![
-                RuntimeFieldSchema::new("a", i64::schema()),
-                RuntimeFieldSchema::new("b", i64::schema()),
-            ],
-        )
-    }
 }
 
 impl ros_z::msg::WireMessage for AddTwoIntsRequest {
@@ -52,28 +24,10 @@ impl ros_z::msg::WireMessage for AddTwoIntsRequest {
 }
 
 // Simple test service response
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, ros_z::Message)]
+#[message(name = "test_msgs::AddTwoIntsResponse")]
 struct AddTwoIntsResponse {
     sum: i64,
-}
-
-impl Message for AddTwoIntsResponse {
-    type Codec = ros_z::SerdeCdrCodec<Self>;
-
-    fn type_name() -> &'static str {
-        "test_msgs::AddTwoIntsResponse"
-    }
-
-    fn schema_hash() -> SchemaHash {
-        SchemaHash::zero()
-    }
-
-    fn schema() -> Schema {
-        struct_schema(
-            "test_msgs::AddTwoIntsResponse",
-            vec![RuntimeFieldSchema::new("sum", i64::schema())],
-        )
-    }
 }
 
 impl ros_z::msg::WireMessage for AddTwoIntsResponse {
@@ -84,14 +38,152 @@ impl ros_z::msg::WireMessage for AddTwoIntsResponse {
 struct AddTwoInts;
 
 impl ServiceTypeInfo for AddTwoInts {
-    fn service_type_info() -> ros_z::entity::TypeInfo {
-        ros_z::entity::TypeInfo::new("test_msgs::AddTwoInts", None)
+    fn service_type_info() -> Result<TypeInfo, ros_z_schema::SchemaError> {
+        let descriptor = ros_z_schema::ServiceDef::new(
+            "test_msgs::AddTwoInts",
+            "test_msgs::AddTwoIntsRequest",
+            "test_msgs::AddTwoIntsResponse",
+        )?;
+        Ok(TypeInfo::new(
+            "test_msgs::AddTwoInts",
+            Some(SchemaHash(ros_z_schema::compute_hash(&descriptor).0)),
+        ))
     }
 }
 
 impl Service for AddTwoInts {
     type Request = AddTwoIntsRequest;
     type Response = AddTwoIntsResponse;
+}
+
+struct InvalidServiceTypeInfo;
+
+impl ServiceTypeInfo for InvalidServiceTypeInfo {
+    fn service_type_info() -> Result<TypeInfo, ros_z_schema::SchemaError> {
+        Err(ros_z_schema::SchemaError::InvalidTypeName(String::new()))
+    }
+}
+
+impl Service for InvalidServiceTypeInfo {
+    type Request = AddTwoIntsRequest;
+    type Response = AddTwoIntsResponse;
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+struct InvalidRequestSchema;
+
+impl MessageSchema for InvalidRequestSchema {
+    fn build_schema(_builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
+        TypeName::new("").map(TypeDef::Named)
+    }
+}
+
+impl ros_z::Message for InvalidRequestSchema {
+    type Codec = ros_z::msg::SerdeCdrCodec<Self>;
+
+    fn type_name() -> String {
+        "test_msgs::InvalidRequestSchema".to_string()
+    }
+}
+
+impl ros_z::msg::WireMessage for InvalidRequestSchema {
+    type Codec = ros_z::msg::SerdeCdrCodec<InvalidRequestSchema>;
+}
+
+struct InvalidRequestSchemaService;
+
+impl ServiceTypeInfo for InvalidRequestSchemaService {
+    fn service_type_info() -> Result<TypeInfo, ros_z_schema::SchemaError> {
+        AddTwoInts::service_type_info()
+    }
+}
+
+impl Service for InvalidRequestSchemaService {
+    type Request = InvalidRequestSchema;
+    type Response = AddTwoIntsResponse;
+}
+
+struct InvalidResponseSchemaService;
+
+impl ServiceTypeInfo for InvalidResponseSchemaService {
+    fn service_type_info() -> Result<TypeInfo, ros_z_schema::SchemaError> {
+        AddTwoInts::service_type_info()
+    }
+}
+
+impl Service for InvalidResponseSchemaService {
+    type Request = AddTwoIntsRequest;
+    type Response = InvalidRequestSchema;
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn typed_service_builders_return_schema_errors() {
+    let context = ContextBuilder::default()
+        .disable_multicast_scouting()
+        .with_json("connect/endpoints", json!([]))
+        .build()
+        .await
+        .expect("Failed to create context");
+    let node = context
+        .create_node("invalid_service_schema")
+        .build()
+        .await
+        .expect("Failed to create node");
+
+    let server = node
+        .create_service_server::<InvalidServiceTypeInfo>("invalid_service")
+        .build()
+        .await;
+    assert!(server.is_err());
+
+    let client = node
+        .create_service_client::<InvalidServiceTypeInfo>("invalid_service")
+        .build()
+        .await;
+    assert!(client.is_err());
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn typed_service_builders_validate_request_and_response_schemas() {
+    let context = ContextBuilder::default()
+        .disable_multicast_scouting()
+        .with_json("connect/endpoints", json!([]))
+        .build()
+        .await
+        .expect("Failed to create context");
+    let node = context
+        .create_node("invalid_service_message_schema")
+        .build()
+        .await
+        .expect("Failed to create node");
+
+    let server = node
+        .create_service_server::<InvalidRequestSchemaService>("invalid_service_message_schema")
+        .build()
+        .await;
+    assert!(server.is_err());
+
+    let client = node
+        .create_service_client::<InvalidRequestSchemaService>("invalid_service_message_schema")
+        .build()
+        .await;
+    assert!(client.is_err());
+
+    let response_server = node
+        .create_service_server::<InvalidResponseSchemaService>(
+            "invalid_service_response_message_schema",
+        )
+        .build()
+        .await;
+    assert!(response_server.is_err());
+
+    let response_client = node
+        .create_service_client::<InvalidResponseSchemaService>(
+            "invalid_service_response_message_schema",
+        )
+        .build()
+        .await;
+    assert!(response_client.is_err());
 }
 
 #[tokio::test(flavor = "multi_thread")]

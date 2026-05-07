@@ -4,11 +4,14 @@ use ros_z::{
     Message, SchemaHash,
     attachment::Attachment,
     context::ContextBuilder,
-    dynamic::{FieldSchema, PrimitiveType, RuntimeFieldSchema, Schema, SequenceLength, TypeShape},
     entity::{Entity, EntityKind, TypeInfo},
+    msg::{SerdeCdrCodec, WireMessage},
     qos::{QosDurability, QosHistory, QosProfile, QosReliability},
+    schema::{MessageSchema, SchemaBuilder},
     time::{Clock, Time},
 };
+use ros_z_schema::{FieldDef, PrimitiveTypeDef, SchemaError, SequenceLengthDef, TypeDef, TypeName};
+use ros_z_schema::{SchemaBundle, StructDef, TypeDefinition, TypeDefinitions};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -20,36 +23,35 @@ struct TestMessage {
 impl Message for TestMessage {
     type Codec = ros_z::SerdeCdrCodec<Self>;
 
-    fn type_name() -> &'static str {
-        "test_msgs::TestMessage"
+    fn type_name() -> String {
+        "test_msgs::TestMessage".to_string()
     }
 
-    fn schema_hash() -> SchemaHash {
-        SchemaHash::zero()
+    fn schema_hash() -> Result<SchemaHash, SchemaError> {
+        Ok(SchemaHash::zero())
     }
+}
 
-    fn schema() -> Schema {
-        std::sync::Arc::new(TypeShape::Struct {
-            name: ros_z_schema::TypeName::new("test_msgs::TestMessage").unwrap(),
-            fields: vec![
-                RuntimeFieldSchema::new(
+impl MessageSchema for TestMessage {
+    fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
+        let name = TypeName::new("test_msgs::TestMessage")?;
+        builder.define_struct(name, |_| {
+            Ok(vec![
+                FieldDef::new(
                     "data",
-                    std::sync::Arc::new(TypeShape::Sequence {
-                        element: std::sync::Arc::new(TypeShape::Primitive(PrimitiveType::U8)),
-                        length: SequenceLength::Dynamic,
-                    }),
+                    TypeDef::Sequence {
+                        element: Box::new(TypeDef::Primitive(PrimitiveTypeDef::U8)),
+                        length: SequenceLengthDef::Dynamic,
+                    },
                 ),
-                RuntimeFieldSchema::new(
-                    "counter",
-                    std::sync::Arc::new(TypeShape::Primitive(PrimitiveType::U64)),
-                ),
-            ],
+                FieldDef::new("counter", TypeDef::Primitive(PrimitiveTypeDef::U64)),
+            ])
         })
     }
 }
 
-impl ros_z::msg::WireMessage for TestMessage {
-    type Codec = ros_z::msg::SerdeCdrCodec<TestMessage>;
+impl WireMessage for TestMessage {
+    type Codec = SerdeCdrCodec<TestMessage>;
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -60,31 +62,31 @@ struct CacheSchemaHashMessage {
 impl Message for CacheSchemaHashMessage {
     type Codec = ros_z::SerdeCdrCodec<Self>;
 
-    fn type_name() -> &'static str {
-        "test_msgs::CacheSchemaHashMessage"
+    fn type_name() -> String {
+        "test_msgs::CacheSchemaHashMessage".to_string()
     }
 
-    fn schema_hash() -> SchemaHash {
-        SchemaHash([0x55; 32])
+    fn schema_hash() -> Result<SchemaHash, SchemaError> {
+        Ok(SchemaHash([0x55; 32]))
     }
 
-    fn type_info() -> TypeInfo {
-        TypeInfo::with_hash(Self::type_name(), Self::schema_hash())
-    }
-
-    fn schema() -> Schema {
-        std::sync::Arc::new(TypeShape::Struct {
-            name: ros_z_schema::TypeName::new("test_msgs::CacheSchemaHashMessage").unwrap(),
-            fields: vec![RuntimeFieldSchema::new(
-                "data",
-                std::sync::Arc::new(TypeShape::String),
-            )],
-        })
+    fn type_info() -> Result<TypeInfo, SchemaError> {
+        Ok(TypeInfo::with_hash(
+            &Self::type_name(),
+            Self::schema_hash()?,
+        ))
     }
 }
 
-impl ros_z::msg::WireMessage for CacheSchemaHashMessage {
-    type Codec = ros_z::msg::SerdeCdrCodec<CacheSchemaHashMessage>;
+impl MessageSchema for CacheSchemaHashMessage {
+    fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
+        let name = TypeName::new("test_msgs::CacheSchemaHashMessage")?;
+        builder.define_struct(name, |_| Ok(vec![FieldDef::new("data", TypeDef::String)]))
+    }
+}
+
+impl WireMessage for CacheSchemaHashMessage {
+    type Codec = SerdeCdrCodec<CacheSchemaHashMessage>;
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -95,35 +97,112 @@ struct AdvertisedTypeInfoSchemaMessage {
 impl Message for AdvertisedTypeInfoSchemaMessage {
     type Codec = ros_z::SerdeCdrCodec<Self>;
 
-    fn type_name() -> &'static str {
-        "test_msgs::AdvertisedTypeInfoSchemaMessage"
+    fn type_name() -> String {
+        "test_msgs::AdvertisedTypeInfoSchemaMessage".to_string()
     }
 
-    fn schema_hash() -> SchemaHash {
-        SchemaHash([0x77; 32])
+    fn schema_hash() -> Result<SchemaHash, SchemaError> {
+        Ok(SchemaHash([0x77; 32]))
     }
 
-    fn type_info() -> TypeInfo {
-        TypeInfo::with_hash(
+    fn type_info() -> Result<TypeInfo, SchemaError> {
+        Ok(TypeInfo::with_hash(
             "test_msgs::AdvertisedTypeInfoSchemaMessageAlias",
-            Self::schema_hash(),
-        )
-    }
-
-    fn schema() -> Schema {
-        std::sync::Arc::new(TypeShape::Struct {
-            name: ros_z_schema::TypeName::new("test_msgs::AdvertisedTypeInfoSchemaMessage")
-                .unwrap(),
-            fields: vec![RuntimeFieldSchema::new(
-                "data",
-                std::sync::Arc::new(TypeShape::String),
-            )],
-        })
+            Self::schema_hash()?,
+        ))
     }
 }
 
-impl ros_z::msg::WireMessage for AdvertisedTypeInfoSchemaMessage {
-    type Codec = ros_z::msg::SerdeCdrCodec<AdvertisedTypeInfoSchemaMessage>;
+impl MessageSchema for AdvertisedTypeInfoSchemaMessage {
+    fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
+        let name = TypeName::new("test_msgs::AdvertisedTypeInfoSchemaMessage")?;
+        builder.define_struct(name, |_| Ok(vec![FieldDef::new("data", TypeDef::String)]))
+    }
+}
+
+impl WireMessage for AdvertisedTypeInfoSchemaMessage {
+    type Codec = SerdeCdrCodec<AdvertisedTypeInfoSchemaMessage>;
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+struct InvalidSchemaMessage;
+
+impl MessageSchema for InvalidSchemaMessage {
+    fn build_schema(_builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
+        TypeName::new("").map(TypeDef::Named)
+    }
+}
+
+impl Message for InvalidSchemaMessage {
+    type Codec = ros_z::SerdeCdrCodec<Self>;
+
+    fn type_name() -> String {
+        "test_msgs::InvalidSchemaMessage".to_string()
+    }
+}
+
+impl WireMessage for InvalidSchemaMessage {
+    type Codec = SerdeCdrCodec<InvalidSchemaMessage>;
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+struct InvalidSchemaManualTypeInfoMessage;
+
+impl MessageSchema for InvalidSchemaManualTypeInfoMessage {
+    fn build_schema(_builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
+        TypeName::new("").map(TypeDef::Named)
+    }
+}
+
+impl Message for InvalidSchemaManualTypeInfoMessage {
+    type Codec = ros_z::SerdeCdrCodec<Self>;
+
+    fn type_name() -> String {
+        "test_msgs::InvalidSchemaManualTypeInfoMessage".to_string()
+    }
+
+    fn type_info() -> Result<TypeInfo, SchemaError> {
+        Ok(TypeInfo::new(&Self::type_name(), None))
+    }
+}
+
+impl WireMessage for InvalidSchemaManualTypeInfoMessage {
+    type Codec = SerdeCdrCodec<InvalidSchemaManualTypeInfoMessage>;
+}
+
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+struct MismatchedRootSchemaMessage {
+    data: String,
+}
+
+impl MessageSchema for MismatchedRootSchemaMessage {
+    fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
+        let name = TypeName::new("test_msgs::ActualRoot")?;
+        builder.define_struct(name, |_| Ok(vec![FieldDef::new("data", TypeDef::String)]))
+    }
+}
+
+impl Message for MismatchedRootSchemaMessage {
+    type Codec = ros_z::SerdeCdrCodec<Self>;
+
+    fn type_name() -> String {
+        "test_msgs::AdvertisedRoot".to_string()
+    }
+}
+
+impl WireMessage for MismatchedRootSchemaMessage {
+    type Codec = SerdeCdrCodec<MismatchedRootSchemaMessage>;
+}
+
+fn mismatched_dynamic_schema() -> ros_z::dynamic::Schema {
+    let actual = TypeName::new("test_msgs::ActualDynamicRoot").unwrap();
+    std::sync::Arc::new(SchemaBundle {
+        root: TypeDef::Named(actual.clone()),
+        definitions: TypeDefinitions::from([(
+            actual,
+            TypeDefinition::Struct(StructDef { fields: vec![] }),
+        )]),
+    })
 }
 
 async fn test_context() -> zenoh::Result<ros_z::context::Context> {
@@ -177,6 +256,108 @@ async fn raw_subscriber_receives_sample_payload() -> zenoh::Result<()> {
     let sample = tokio::time::timeout(Duration::from_secs(1), subscriber.recv()).await??;
     assert!(!sample.payload().to_bytes().is_empty());
     Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn typed_pubsub_builders_return_schema_errors() {
+    let context = ContextBuilder::default()
+        .build()
+        .await
+        .expect("Failed to create context");
+    let node = context
+        .create_node("invalid_schema_builders")
+        .build()
+        .await
+        .expect("Failed to create node");
+
+    let publisher = node
+        .publisher::<InvalidSchemaMessage>("/invalid_schema_publisher")
+        .build()
+        .await;
+    assert!(publisher.is_err());
+
+    let subscriber = node
+        .subscriber::<InvalidSchemaMessage>("/invalid_schema_subscriber")
+        .build()
+        .await;
+    assert!(subscriber.is_err());
+
+    let cache = node
+        .create_cache::<InvalidSchemaMessage>("/invalid_schema_cache", 1)
+        .build()
+        .await;
+    assert!(cache.is_err());
+
+    let manual_publisher = node
+        .publisher::<InvalidSchemaManualTypeInfoMessage>("/invalid_manual_schema_publisher")
+        .build()
+        .await;
+    assert!(manual_publisher.is_err());
+
+    let manual_subscriber = node
+        .subscriber::<InvalidSchemaManualTypeInfoMessage>("/invalid_manual_schema_subscriber")
+        .build()
+        .await;
+    assert!(manual_subscriber.is_err());
+
+    let manual_cache = node
+        .create_cache::<InvalidSchemaManualTypeInfoMessage>("/invalid_manual_schema_cache", 1)
+        .build()
+        .await;
+    assert!(manual_cache.is_err());
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn typed_publisher_rejects_schema_root_that_differs_from_type_name() {
+    let context = ContextBuilder::default()
+        .build()
+        .await
+        .expect("Failed to create context");
+    let node = context
+        .create_node("mismatched_schema_root")
+        .build()
+        .await
+        .expect("Failed to create node");
+
+    let error = node
+        .publisher::<MismatchedRootSchemaMessage>("/mismatched_schema_root")
+        .build()
+        .await
+        .expect_err("mismatched schema root should fail publisher build");
+    let message = error.to_string();
+
+    assert!(message.contains("schema root"));
+    assert!(message.contains("test_msgs::AdvertisedRoot"));
+    assert!(message.contains("test_msgs::ActualRoot"));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn dynamic_publisher_rejects_schema_root_that_differs_from_type_info() {
+    let context = ContextBuilder::default()
+        .build()
+        .await
+        .expect("Failed to create context");
+    let node = context
+        .create_node("mismatched_dynamic_schema_root")
+        .build()
+        .await
+        .expect("Failed to create node");
+    let type_info = TypeInfo::new("test_msgs::AdvertisedDynamicRoot", None);
+
+    let error = node
+        .dynamic_publisher(
+            "/mismatched_dynamic_schema_root",
+            type_info,
+            mismatched_dynamic_schema(),
+        )
+        .build()
+        .await
+        .expect_err("mismatched schema root should fail dynamic publisher build");
+    let message = error.to_string();
+
+    assert!(message.contains("schema root"));
+    assert!(message.contains("test_msgs::AdvertisedDynamicRoot"));
+    assert!(message.contains("test_msgs::ActualDynamicRoot"));
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -316,8 +497,8 @@ async fn test_create_pub_with_type_info_accepts_explicit_type_info_without_messa
         counter: u64,
     }
 
-    impl ros_z::msg::WireMessage for WireOnlyMessage {
-        type Codec = ros_z::msg::SerdeCdrCodec<WireOnlyMessage>;
+    impl WireMessage for WireOnlyMessage {
+        type Codec = SerdeCdrCodec<WireOnlyMessage>;
     }
 
     let context = ContextBuilder::default()
@@ -364,7 +545,7 @@ async fn create_cache_uses_schema_hash_method_when_type_info_is_available() {
 
     tokio::time::sleep(Duration::from_millis(100)).await;
 
-    let expected_hash = CacheSchemaHashMessage::schema_hash();
+    let expected_hash = CacheSchemaHashMessage::schema_hash().unwrap();
     assert_ne!(expected_hash, SchemaHash::zero());
     let endpoint = node
         .graph()
@@ -399,13 +580,10 @@ async fn publisher_schema_service_uses_schema_derived_key_when_type_info_diverge
         .await
         .expect("publisher should build");
 
-    let advertised = AdvertisedTypeInfoSchemaMessage::type_info();
+    let advertised = AdvertisedTypeInfoSchemaMessage::type_info().unwrap();
     let advertised_hash = advertised.hash.expect("type info should include a hash");
-    let canonical_hash = ros_z::dynamic::schema_tree_hash(
-        AdvertisedTypeInfoSchemaMessage::type_name(),
-        &AdvertisedTypeInfoSchemaMessage::schema(),
-    )
-    .expect("schema hash should exist");
+    let canonical_schema = AdvertisedTypeInfoSchemaMessage::schema().unwrap();
+    let canonical_hash = ros_z_schema::compute_hash(&canonical_schema);
 
     let advertised_lookup = node
         .schema_service()
@@ -416,7 +594,7 @@ async fn publisher_schema_service_uses_schema_derived_key_when_type_info_diverge
         .schema_service()
         .expect("schema service")
         .get_schema(
-            AdvertisedTypeInfoSchemaMessage::type_name(),
+            &AdvertisedTypeInfoSchemaMessage::type_name(),
             &canonical_hash,
         )
         .expect("schema lookup should succeed")
@@ -457,14 +635,11 @@ async fn typed_pubsub_advertises_canonical_schema_hash_when_schema_hash_override
 
     tokio::time::sleep(Duration::from_millis(100)).await;
 
-    let canonical_hash = ros_z::dynamic::schema_tree_hash(
-        AdvertisedTypeInfoSchemaMessage::type_name(),
-        &AdvertisedTypeInfoSchemaMessage::schema(),
-    )
-    .expect("schema hash should exist");
+    let canonical_schema = AdvertisedTypeInfoSchemaMessage::schema().unwrap();
+    let canonical_hash = ros_z_schema::compute_hash(&canonical_schema);
     assert_ne!(
         canonical_hash,
-        AdvertisedTypeInfoSchemaMessage::schema_hash()
+        AdvertisedTypeInfoSchemaMessage::schema_hash().unwrap()
     );
 
     for kind in [EntityKind::Publisher, EntityKind::Subscription] {
@@ -500,17 +675,22 @@ async fn dynamic_publisher_advertises_explicit_schema_hash() {
         .expect("Failed to create node");
     let topic = "/dynamic_explicit_schema_hash";
     let root_name = "test_msgs::DynamicExplicitHash".to_string();
-    let root_schema = std::sync::Arc::new(TypeShape::Struct {
-        name: ros_z_schema::TypeName::new(&root_name).unwrap(),
-        fields: vec![FieldSchema::new(
-            "data",
-            std::sync::Arc::new(TypeShape::String),
-        )],
-    });
-    let schema_hash = ros_z::dynamic::schema_hash_with_root_name(&root_name, &root_schema).unwrap();
+    let root_type_name = TypeName::new(&root_name).unwrap();
+    let mut builder = SchemaBuilder::new();
+    let root = builder
+        .define_struct(root_type_name, |_| {
+            Ok(vec![FieldDef::new("data", TypeDef::String)])
+        })
+        .unwrap();
+    let root_schema = std::sync::Arc::new(builder.finish(root).unwrap());
+    let schema_hash = ros_z_schema::compute_hash(root_schema.as_ref());
 
     let _publisher = node
-        .dynamic_publisher(topic, &root_name, root_schema)
+        .dynamic_publisher(
+            topic,
+            TypeInfo::with_hash(&root_name, schema_hash),
+            root_schema,
+        )
         .build()
         .await
         .expect("publisher should build");

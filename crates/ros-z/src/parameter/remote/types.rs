@@ -1,20 +1,18 @@
-use ros_z_schema::TypeName;
 use serde::{Deserialize, Serialize};
 
 use crate::{
-    Message, ServiceTypeInfo,
-    dynamic::{
-        RuntimeDynamicEnumPayload, RuntimeDynamicEnumVariant, RuntimeFieldSchema, Schema, TypeShape,
-    },
+    ServiceTypeInfo,
     entity::TypeInfo,
     msg::{SerdeCdrCodec, Service, WireMessage},
 };
+use ros_z_schema::{SchemaError, ServiceDef};
 
 use crate::parameter::{LayerPath, ParameterKey, snapshot::ParameterTimestamp};
 
 pub type JsonPayload = String;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize, Deserialize, Default, ros_z::Message)]
+#[message(name = "ros_z_parameter::NodeParameterChangeSource")]
 #[repr(u8)]
 pub enum NodeParameterChangeSource {
     #[default]
@@ -23,30 +21,12 @@ pub enum NodeParameterChangeSource {
     Reload = 2,
 }
 
-impl Message for NodeParameterChangeSource {
-    type Codec = SerdeCdrCodec<Self>;
-
-    fn type_name() -> &'static str {
-        "ros_z_parameter::NodeParameterChangeSource"
-    }
-
-    fn schema() -> Schema {
-        std::sync::Arc::new(TypeShape::Enum {
-            name: TypeName::new("ros_z_parameter::NodeParameterChangeSource")
-                .expect("valid type name"),
-            variants: vec![
-                RuntimeDynamicEnumVariant::new("LocalWrite", RuntimeDynamicEnumPayload::Unit),
-                RuntimeDynamicEnumVariant::new("RemoteWrite", RuntimeDynamicEnumPayload::Unit),
-                RuntimeDynamicEnumVariant::new("Reload", RuntimeDynamicEnumPayload::Unit),
-            ],
-        })
-    }
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, ros_z::Message)]
+#[message(name = "ros_z_parameter::GetNodeParametersSnapshotRequest")]
 pub struct GetNodeParametersSnapshotRequest {}
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, ros_z::Message)]
+#[message(name = "ros_z_parameter::GetNodeParametersSnapshotResponse")]
 pub struct GetNodeParametersSnapshotResponse {
     pub success: bool,
     pub message: String,
@@ -59,12 +39,14 @@ pub struct GetNodeParametersSnapshotResponse {
     pub layer_overlays_json: Vec<JsonPayload>,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, ros_z::Message)]
+#[message(name = "ros_z_parameter::GetNodeParameterValueRequest")]
 pub struct GetNodeParameterValueRequest {
     pub path: String,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, ros_z::Message)]
+#[message(name = "ros_z_parameter::GetNodeParameterValueResponse")]
 pub struct GetNodeParameterValueResponse {
     pub success: bool,
     pub message: String,
@@ -74,10 +56,12 @@ pub struct GetNodeParameterValueResponse {
     pub value_json: JsonPayload,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, ros_z::Message)]
+#[message(name = "ros_z_parameter::GetNodeParameterTypeInfoRequest")]
 pub struct GetNodeParameterTypeInfoRequest {}
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, ros_z::Message)]
+#[message(name = "ros_z_parameter::GetNodeParameterTypeInfoResponse")]
 pub struct GetNodeParameterTypeInfoResponse {
     pub success: bool,
     pub message: String,
@@ -85,7 +69,8 @@ pub struct GetNodeParameterTypeInfoResponse {
     pub schema_hash: String,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, ros_z::Message)]
+#[message(name = "ros_z_parameter::SetNodeParameterRequest")]
 pub struct SetNodeParameterRequest {
     pub path: String,
     pub value_json: JsonPayload,
@@ -93,7 +78,8 @@ pub struct SetNodeParameterRequest {
     pub expected_revision: Option<u64>,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, ros_z::Message)]
+#[message(name = "ros_z_parameter::SetNodeParameterResponse")]
 pub struct SetNodeParameterResponse {
     pub success: bool,
     pub message: String,
@@ -101,20 +87,23 @@ pub struct SetNodeParameterResponse {
     pub changed_paths: Vec<String>,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, ros_z::Message)]
+#[message(name = "ros_z_parameter::NodeParameterWriteJson")]
 pub struct NodeParameterWriteJson {
     pub path: String,
     pub value_json: JsonPayload,
     pub target_layer: LayerPath,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, ros_z::Message)]
+#[message(name = "ros_z_parameter::SetNodeParametersAtomicallyRequest")]
 pub struct SetNodeParametersAtomicallyRequest {
     pub writes: Vec<NodeParameterWriteJson>,
     pub expected_revision: Option<u64>,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, ros_z::Message)]
+#[message(name = "ros_z_parameter::SetNodeParametersAtomicallyResponse")]
 pub struct SetNodeParametersAtomicallyResponse {
     pub success: bool,
     pub message: String,
@@ -122,14 +111,16 @@ pub struct SetNodeParametersAtomicallyResponse {
     pub changed_paths: Vec<String>,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, ros_z::Message)]
+#[message(name = "ros_z_parameter::ResetNodeParameterRequest")]
 pub struct ResetNodeParameterRequest {
     pub path: String,
     pub target_layer: LayerPath,
     pub expected_revision: Option<u64>,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, ros_z::Message)]
+#[message(name = "ros_z_parameter::ResetNodeParameterResponse")]
 pub struct ResetNodeParameterResponse {
     pub success: bool,
     pub message: String,
@@ -137,10 +128,12 @@ pub struct ResetNodeParameterResponse {
     pub changed_paths: Vec<String>,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, ros_z::Message)]
+#[message(name = "ros_z_parameter::ReloadNodeParametersRequest")]
 pub struct ReloadNodeParametersRequest {}
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, ros_z::Message)]
+#[message(name = "ros_z_parameter::ReloadNodeParametersResponse")]
 pub struct ReloadNodeParametersResponse {
     pub success: bool,
     pub message: String,
@@ -148,7 +141,8 @@ pub struct ReloadNodeParametersResponse {
     pub changed_paths: Vec<String>,
 }
 
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, ros_z::Message)]
+#[message(name = "ros_z_parameter::NodeParameterChange")]
 pub struct NodeParameterChange {
     pub path: String,
     pub effective_source_layer: LayerPath,
@@ -156,27 +150,8 @@ pub struct NodeParameterChange {
     pub new_value_json: JsonPayload,
 }
 
-impl Message for NodeParameterChange {
-    type Codec = SerdeCdrCodec<Self>;
-
-    fn type_name() -> &'static str {
-        "ros_z_parameter::NodeParameterChange"
-    }
-
-    fn schema() -> Schema {
-        std::sync::Arc::new(TypeShape::Struct {
-            name: TypeName::new("ros_z_parameter::NodeParameterChange").expect("valid type name"),
-            fields: vec![
-                RuntimeFieldSchema::new("path", String::schema()),
-                RuntimeFieldSchema::new("effective_source_layer", String::schema()),
-                RuntimeFieldSchema::new("old_value_json", String::schema()),
-                RuntimeFieldSchema::new("new_value_json", String::schema()),
-            ],
-        })
-    }
-}
-
-#[derive(Debug, Clone, Default, Serialize, Deserialize)]
+#[derive(Debug, Clone, Default, Serialize, Deserialize, ros_z::Message)]
+#[message(name = "ros_z_parameter::NodeParameterEvent")]
 pub struct NodeParameterEvent {
     pub node_fqn: String,
     pub parameter_key: ParameterKey,
@@ -185,29 +160,6 @@ pub struct NodeParameterEvent {
     pub source: NodeParameterChangeSource,
     pub changed_paths: Vec<String>,
     pub changes: Vec<NodeParameterChange>,
-}
-
-impl Message for NodeParameterEvent {
-    type Codec = SerdeCdrCodec<Self>;
-
-    fn type_name() -> &'static str {
-        "ros_z_parameter::NodeParameterEvent"
-    }
-
-    fn schema() -> Schema {
-        std::sync::Arc::new(TypeShape::Struct {
-            name: TypeName::new("ros_z_parameter::NodeParameterEvent").expect("valid type name"),
-            fields: vec![
-                RuntimeFieldSchema::new("node_fqn", String::schema()),
-                RuntimeFieldSchema::new("parameter_key", String::schema()),
-                RuntimeFieldSchema::new("previous_revision", u64::schema()),
-                RuntimeFieldSchema::new("revision", u64::schema()),
-                RuntimeFieldSchema::new("source", NodeParameterChangeSource::schema()),
-                RuntimeFieldSchema::new("changed_paths", Vec::<String>::schema()),
-                RuntimeFieldSchema::new("changes", Vec::<NodeParameterChange>::schema()),
-            ],
-        })
-    }
 }
 
 macro_rules! impl_zmessage {
@@ -248,8 +200,16 @@ macro_rules! impl_service {
         }
 
         impl ServiceTypeInfo for $srv {
-            fn service_type_info() -> TypeInfo {
-                TypeInfo::new($name, None)
+            fn service_type_info() -> Result<TypeInfo, SchemaError> {
+                let descriptor = ServiceDef::new(
+                    $name,
+                    <$req as crate::Message>::type_name(),
+                    <$res as crate::Message>::type_name(),
+                )?;
+                Ok(TypeInfo::with_hash(
+                    descriptor.type_name.as_str(),
+                    ros_z_schema::compute_hash(&descriptor),
+                ))
             }
         }
     };
@@ -310,31 +270,37 @@ mod tests {
     #[test]
     fn parameter_service_type_info_uses_native_names() {
         assert_eq!(
-            GetNodeParametersSnapshotSrv::service_type_info().name,
+            GetNodeParametersSnapshotSrv::service_type_info()
+                .unwrap()
+                .name,
             "ros_z_parameter::GetNodeParametersSnapshot"
         );
         assert_eq!(
-            GetNodeParameterValueSrv::service_type_info().name,
+            GetNodeParameterValueSrv::service_type_info().unwrap().name,
             "ros_z_parameter::GetNodeParameterValue"
         );
         assert_eq!(
-            GetNodeParameterTypeInfoSrv::service_type_info().name,
+            GetNodeParameterTypeInfoSrv::service_type_info()
+                .unwrap()
+                .name,
             "ros_z_parameter::GetNodeParameterTypeInfo"
         );
         assert_eq!(
-            SetNodeParameterSrv::service_type_info().name,
+            SetNodeParameterSrv::service_type_info().unwrap().name,
             "ros_z_parameter::SetNodeParameter"
         );
         assert_eq!(
-            SetNodeParametersAtomicallySrv::service_type_info().name,
+            SetNodeParametersAtomicallySrv::service_type_info()
+                .unwrap()
+                .name,
             "ros_z_parameter::SetNodeParametersAtomically"
         );
         assert_eq!(
-            ResetNodeParameterSrv::service_type_info().name,
+            ResetNodeParameterSrv::service_type_info().unwrap().name,
             "ros_z_parameter::ResetNodeParameter"
         );
         assert_eq!(
-            ReloadNodeParametersSrv::service_type_info().name,
+            ReloadNodeParametersSrv::service_type_info().unwrap().name,
             "ros_z_parameter::ReloadNodeParameters"
         );
     }

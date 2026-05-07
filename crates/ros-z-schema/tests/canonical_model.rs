@@ -1,7 +1,6 @@
 use ros_z_schema::{
-    ActionDef, EnumDef, EnumPayloadDef, EnumVariantDef, FieldDef, NamedTypeDef, PrimitiveTypeDef,
-    RootTypeName, SchemaBundle, SchemaError, SequenceLengthDef, ServiceDef, StructDef, TypeDef,
-    TypeName,
+    ActionDef, EnumDef, EnumPayloadDef, EnumVariantDef, FieldDef, PrimitiveTypeDef, SchemaBundle,
+    SchemaError, SequenceLengthDef, ServiceDef, StructDef, TypeDef, TypeDefinition, TypeName,
 };
 
 #[test]
@@ -24,39 +23,28 @@ fn type_names_are_opaque_non_empty_strings() {
 
     for value in accepted {
         assert_eq!(TypeName::new(value).unwrap().as_str(), value);
-        assert_eq!(RootTypeName::new(value).unwrap().as_str(), value);
     }
 
     assert_eq!(
         TypeName::new(""),
         Err(SchemaError::InvalidTypeName("".into()))
     );
-    assert_eq!(
-        RootTypeName::new(""),
-        Err(SchemaError::InvalidRootTypeName("".into()))
-    );
 }
 
 #[test]
 fn schema_bundle_accepts_primitive_root_without_named_definition() {
-    let bundle = SchemaBundle::new(
-        RootTypeName::new("u8").unwrap(),
-        TypeDef::Primitive(PrimitiveTypeDef::U8),
-    )
-    .unwrap();
+    let bundle = SchemaBundle::new(TypeDef::Primitive(PrimitiveTypeDef::U8)).unwrap();
 
     assert!(bundle.definitions().is_empty());
-    assert_eq!(bundle.root_name().as_str(), "u8");
 }
 
 #[test]
 fn schema_bundle_validates_named_refs() {
     let bundle = SchemaBundle {
-        root_name: RootTypeName::new("hulk::Pose").unwrap(),
-        root: TypeDef::StructRef(TypeName::new("hulk::Pose").unwrap()),
+        root: TypeDef::Named(TypeName::new("hulk::Pose").unwrap()),
         definitions: [(
             TypeName::new("hulk::Pose").unwrap(),
-            NamedTypeDef::Struct(StructDef {
+            TypeDefinition::Struct(StructDef {
                 fields: vec![FieldDef::new(
                     "x",
                     TypeDef::Primitive(PrimitiveTypeDef::F64),
@@ -71,10 +59,7 @@ fn schema_bundle_validates_named_refs() {
 
 #[test]
 fn schema_bundle_new_validates_references() {
-    let bundle = SchemaBundle::new(
-        RootTypeName::new("hulk::Pose").unwrap(),
-        TypeDef::StructRef(TypeName::new("hulk::Pose").unwrap()),
-    );
+    let bundle = SchemaBundle::new(TypeDef::Named(TypeName::new("hulk::Pose").unwrap()));
 
     assert_eq!(
         bundle,
@@ -85,86 +70,82 @@ fn schema_bundle_new_validates_references() {
 }
 
 #[test]
-fn schema_bundle_with_definition_collapses_duplicate_same_definition() {
+fn type_definitions_insert_returns_existing_definition() {
     let type_name = TypeName::new("hulk::Pose").unwrap();
-    let definition = NamedTypeDef::Struct(StructDef {
+    let definition = TypeDefinition::Struct(StructDef {
         fields: vec![FieldDef::new(
             "x",
             TypeDef::Primitive(PrimitiveTypeDef::F64),
         )],
     });
-    let bundle = SchemaBundle {
-        root_name: RootTypeName::new("hulk::Pose").unwrap(),
-        root: TypeDef::StructRef(type_name.clone()),
-        definitions: [(type_name.clone(), definition.clone())].into(),
-    }
-    .with_definition(type_name.clone(), definition.clone())
-    .unwrap();
+    let mut definitions = ros_z_schema::TypeDefinitions::new();
 
-    assert_eq!(bundle.definitions().len(), 1);
-    assert_eq!(bundle.definitions().get(&type_name), Some(&definition));
+    assert_eq!(
+        definitions.insert(type_name.clone(), definition.clone()),
+        None
+    );
+    assert_eq!(
+        definitions.insert(type_name.clone(), definition.clone()),
+        Some(definition.clone())
+    );
+    assert_eq!(definitions.len(), 1);
+    assert_eq!(definitions.get(&type_name), Some(&definition));
 }
 
 #[test]
-fn schema_bundle_with_definition_accepts_new_reachable_definition() {
+fn schema_bundle_accepts_reachable_definitions() {
     let pose = TypeName::new("hulk::Pose").unwrap();
     let point = TypeName::new("hulk::Point").unwrap();
     let bundle = SchemaBundle {
-        root_name: RootTypeName::new("hulk::Pose").unwrap(),
-        root: TypeDef::StructRef(pose.clone()),
-        definitions: [(
-            pose.clone(),
-            NamedTypeDef::Struct(StructDef {
-                fields: vec![FieldDef::new("position", TypeDef::StructRef(point.clone()))],
-            }),
-        )]
+        root: TypeDef::Named(pose.clone()),
+        definitions: [
+            (
+                pose.clone(),
+                TypeDefinition::Struct(StructDef {
+                    fields: vec![FieldDef::new("position", TypeDef::Named(point.clone()))],
+                }),
+            ),
+            (
+                point.clone(),
+                TypeDefinition::Struct(StructDef {
+                    fields: vec![FieldDef::new(
+                        "x",
+                        TypeDef::Primitive(PrimitiveTypeDef::F64),
+                    )],
+                }),
+            ),
+        ]
         .into(),
-    }
-    .with_definition(
-        point.clone(),
-        NamedTypeDef::Struct(StructDef {
-            fields: vec![FieldDef::new(
-                "x",
-                TypeDef::Primitive(PrimitiveTypeDef::F64),
-            )],
-        }),
-    )
-    .unwrap();
+    };
 
-    assert!(bundle.definitions().contains_key(&pose));
-    assert!(bundle.definitions().contains_key(&point));
+    assert!(bundle.validate().is_ok());
 }
 
 #[test]
-fn schema_bundle_with_definition_rejects_conflicting_definitions() {
+fn type_definitions_insert_replaces_conflicting_definition() {
     let type_name = TypeName::new("hulk::Pose").unwrap();
-    let bundle = SchemaBundle {
-        root_name: RootTypeName::new("hulk::Pose").unwrap(),
-        root: TypeDef::StructRef(type_name.clone()),
-        definitions: [(
-            type_name.clone(),
-            NamedTypeDef::Struct(StructDef {
-                fields: vec![FieldDef::new(
-                    "x",
-                    TypeDef::Primitive(PrimitiveTypeDef::F64),
-                )],
-            }),
-        )]
-        .into(),
-    }
-    .with_definition(
-        type_name.clone(),
-        NamedTypeDef::Struct(StructDef {
-            fields: vec![FieldDef::new(
-                "y",
-                TypeDef::Primitive(PrimitiveTypeDef::F64),
-            )],
-        }),
+    let original = TypeDefinition::Struct(StructDef {
+        fields: vec![FieldDef::new(
+            "x",
+            TypeDef::Primitive(PrimitiveTypeDef::F64),
+        )],
+    });
+    let replacement = TypeDefinition::Struct(StructDef {
+        fields: vec![FieldDef::new(
+            "y",
+            TypeDef::Primitive(PrimitiveTypeDef::F64),
+        )],
+    });
+    let mut definitions = ros_z_schema::TypeDefinitions::new();
+
+    definitions.insert(type_name.clone(), original.clone());
+
+    assert_eq!(
+        definitions.insert(type_name.clone(), replacement.clone()),
+        Some(original)
     );
-
-    assert_eq!(bundle, Err(SchemaError::ConflictingDefinition(type_name)));
+    assert_eq!(definitions.get(&type_name), Some(&replacement));
 }
-
 #[test]
 fn opaque_type_names_deserialize_non_empty_strings() {
     let type_name: TypeName =
@@ -246,14 +227,13 @@ fn primitive_type_def_serde_uses_rust_native_names_without_ros_aliases() {
 #[test]
 fn schema_bundle_validate_rejects_missing_named_reference() {
     let bundle = SchemaBundle {
-        root_name: RootTypeName::new("geometry_msgs::Twist").unwrap(),
-        root: TypeDef::StructRef(TypeName::new("geometry_msgs::Twist").unwrap()),
+        root: TypeDef::Named(TypeName::new("geometry_msgs::Twist").unwrap()),
         definitions: [(
             TypeName::new("geometry_msgs::Twist").unwrap(),
-            NamedTypeDef::Struct(StructDef {
+            TypeDefinition::Struct(StructDef {
                 fields: vec![FieldDef::new(
                     "linear",
-                    TypeDef::StructRef(TypeName::new("geometry_msgs::Vector3").unwrap()),
+                    TypeDef::Named(TypeName::new("geometry_msgs::Vector3").unwrap()),
                 )],
             }),
         )]
@@ -269,75 +249,141 @@ fn schema_bundle_validate_rejects_missing_named_reference() {
 }
 
 #[test]
-fn schema_bundle_validate_rejects_reference_kind_mismatch() {
+fn schema_bundle_validate_rejects_duplicate_fields() {
+    let state = TypeName::new("custom_msgs::State").unwrap();
     let bundle = SchemaBundle {
-        root_name: RootTypeName::new("custom_msgs::State").unwrap(),
-        root: TypeDef::StructRef(TypeName::new("custom_msgs::State").unwrap()),
+        root: TypeDef::Named(state.clone()),
         definitions: [(
-            TypeName::new("custom_msgs::State").unwrap(),
-            NamedTypeDef::Enum(EnumDef { variants: vec![] }),
+            state.clone(),
+            TypeDefinition::Struct(StructDef {
+                fields: vec![
+                    FieldDef::new("value", TypeDef::Primitive(PrimitiveTypeDef::U8)),
+                    FieldDef::new("value", TypeDef::Primitive(PrimitiveTypeDef::U16)),
+                ],
+            }),
         )]
         .into(),
     };
 
-    assert!(matches!(
+    assert_eq!(
         bundle.validate(),
-        Err(SchemaError::ReferenceKindMismatch {
-            expected: "struct",
-            ..
+        Err(SchemaError::DuplicateField {
+            type_name: state,
+            field_name: "value".into(),
         })
-    ));
+    );
 }
 
 #[test]
 fn schema_bundle_validate_rejects_empty_enum_definition() {
     let state = TypeName::new("custom_msgs::State").unwrap();
     let bundle = SchemaBundle {
-        root_name: RootTypeName::new("custom_msgs::State").unwrap(),
-        root: TypeDef::EnumRef(state.clone()),
+        root: TypeDef::Named(state.clone()),
         definitions: [(
             state.clone(),
-            NamedTypeDef::Enum(EnumDef { variants: vec![] }),
+            TypeDefinition::Enum(EnumDef { variants: vec![] }),
         )]
         .into(),
     };
 
-    assert_eq!(bundle.validate(), Err(SchemaError::EmptyEnum(state)));
+    assert_eq!(
+        bundle.validate(),
+        Err(SchemaError::EmptyEnum { type_name: state })
+    );
 }
 
 #[test]
-fn field_references_validate_struct_and_enum_kinds_distinctly() {
+fn schema_bundle_validate_rejects_duplicate_enum_variants() {
+    let state = TypeName::new("custom_msgs::State").unwrap();
+    let bundle = SchemaBundle {
+        root: TypeDef::Named(state.clone()),
+        definitions: [(
+            state.clone(),
+            TypeDefinition::Enum(EnumDef {
+                variants: vec![
+                    EnumVariantDef::new("Active", EnumPayloadDef::Unit),
+                    EnumVariantDef::new("Active", EnumPayloadDef::Unit),
+                ],
+            }),
+        )]
+        .into(),
+    };
+
+    assert_eq!(
+        bundle.validate(),
+        Err(SchemaError::DuplicateVariant {
+            type_name: state,
+            variant_name: "Active".into(),
+        })
+    );
+}
+
+#[test]
+fn schema_bundle_validate_rejects_empty_struct_field_name() {
+    let state = TypeName::new("custom_msgs::State").unwrap();
+    let bundle = SchemaBundle {
+        root: TypeDef::Named(state.clone()),
+        definitions: [(
+            state.clone(),
+            TypeDefinition::Struct(StructDef {
+                fields: vec![FieldDef::new("", TypeDef::String)],
+            }),
+        )]
+        .into(),
+    };
+
+    assert_eq!(
+        bundle.validate(),
+        Err(SchemaError::EmptyFieldName { type_name: state })
+    );
+}
+
+#[test]
+fn schema_bundle_validate_rejects_empty_enum_variant_name() {
+    let state = TypeName::new("custom_msgs::State").unwrap();
+    let bundle = SchemaBundle {
+        root: TypeDef::Named(state.clone()),
+        definitions: [(
+            state.clone(),
+            TypeDefinition::Enum(EnumDef {
+                variants: vec![EnumVariantDef::new("", EnumPayloadDef::Unit)],
+            }),
+        )]
+        .into(),
+    };
+
+    assert_eq!(
+        bundle.validate(),
+        Err(SchemaError::EmptyVariantName { type_name: state })
+    );
+}
+
+#[test]
+fn field_references_validate_named_definitions() {
     let wrapper = TypeName::new("custom_msgs::Wrapper").unwrap();
     let state = TypeName::new("custom_msgs::State").unwrap();
     let bundle = SchemaBundle {
-        root_name: RootTypeName::new("custom_msgs::Wrapper").unwrap(),
-        root: TypeDef::StructRef(wrapper.clone()),
+        root: TypeDef::Named(wrapper.clone()),
         definitions: [
             (
                 wrapper,
-                NamedTypeDef::Struct(StructDef {
-                    fields: vec![FieldDef::new("state", TypeDef::EnumRef(state.clone()))],
+                TypeDefinition::Struct(StructDef {
+                    fields: vec![FieldDef::new("state", TypeDef::Named(state.clone()))],
                 }),
             ),
-            (state, NamedTypeDef::Struct(StructDef { fields: vec![] })),
+            (state, TypeDefinition::Struct(StructDef { fields: vec![] })),
         ]
         .into(),
     };
 
-    assert!(matches!(
-        bundle.validate(),
-        Err(SchemaError::ReferenceKindMismatch {
-            expected: "enum",
-            ..
-        })
-    ));
+    assert!(bundle.validate().is_ok());
 }
 
 #[test]
 fn schema_bundle_validate_accepts_first_class_extended_shapes_and_enums() {
     let envelope_type = TypeName::new("custom_msgs::RobotEnvelope").unwrap();
     let state_type = TypeName::new("custom_msgs::EnvelopeState").unwrap();
-    let envelope = NamedTypeDef::Struct(StructDef {
+    let envelope = TypeDefinition::Struct(StructDef {
         fields: vec![
             FieldDef::new(
                 "mission_id",
@@ -350,10 +396,10 @@ fn schema_bundle_validate_accepts_first_class_extended_shapes_and_enums() {
                     length: SequenceLengthDef::Dynamic,
                 },
             ),
-            FieldDef::new("state", TypeDef::EnumRef(state_type.clone())),
+            FieldDef::new("state", TypeDef::Named(state_type.clone())),
         ],
     });
-    let state = NamedTypeDef::Enum(EnumDef {
+    let state = TypeDefinition::Enum(EnumDef {
         variants: vec![EnumVariantDef::new(
             "Ready",
             EnumPayloadDef::Struct(vec![FieldDef::new(
@@ -363,8 +409,7 @@ fn schema_bundle_validate_accepts_first_class_extended_shapes_and_enums() {
         )],
     });
     let bundle = SchemaBundle {
-        root_name: RootTypeName::new("custom_msgs::RobotEnvelope").unwrap(),
-        root: TypeDef::StructRef(envelope_type.clone()),
+        root: TypeDef::Named(envelope_type.clone()),
         definitions: [(envelope_type, envelope), (state_type, state)].into(),
     };
 
@@ -375,11 +420,10 @@ fn schema_bundle_validate_accepts_first_class_extended_shapes_and_enums() {
 fn schema_accepts_string_key_map_field_shape() {
     let type_name = TypeName::new("test_pkg::Lookup").unwrap();
     let bundle = SchemaBundle {
-        root_name: RootTypeName::new("test_pkg::Lookup").unwrap(),
-        root: TypeDef::StructRef(type_name.clone()),
+        root: TypeDef::Named(type_name.clone()),
         definitions: [(
             type_name,
-            NamedTypeDef::Struct(StructDef {
+            TypeDefinition::Struct(StructDef {
                 fields: vec![FieldDef::new(
                     "names",
                     TypeDef::Map {
@@ -410,11 +454,10 @@ fn schema_accepts_bool_and_integer_map_key_primitives() {
     ] {
         let type_name = TypeName::new("test_pkg::Lookup").unwrap();
         let bundle = SchemaBundle {
-            root_name: RootTypeName::new("test_pkg::Lookup").unwrap(),
-            root: TypeDef::StructRef(type_name.clone()),
+            root: TypeDef::Named(type_name.clone()),
             definitions: [(
                 type_name,
-                NamedTypeDef::Struct(StructDef {
+                TypeDefinition::Struct(StructDef {
                     fields: vec![FieldDef::new(
                         "names",
                         TypeDef::Map {

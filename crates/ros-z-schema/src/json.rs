@@ -1,9 +1,9 @@
 use std::fmt::Write;
 
 use crate::{
-    ActionDef, EnumDef, EnumPayloadDef, EnumVariantDef, FieldDef, NamedTypeDef, PrimitiveTypeDef,
-    SchemaBundle, SchemaDefinitions, SchemaError, SequenceLengthDef, ServiceDef, StructDef,
-    TypeDef, TypeName,
+    ActionDef, EnumDef, EnumPayloadDef, EnumVariantDef, FieldDef, PrimitiveTypeDef, SchemaBundle,
+    SchemaError, SequenceLengthDef, ServiceDef, StructDef, TypeDef, TypeDefinition,
+    TypeDefinitions, TypeName,
 };
 
 /// Writes a deterministic compact JSON projection for schema values.
@@ -34,7 +34,7 @@ impl JsonEncode for SchemaBundle {
     }
 }
 
-impl JsonEncode for SchemaDefinitions {
+impl JsonEncode for TypeDefinitions {
     fn write_json(&self, out: &mut String) -> Result<(), SchemaError> {
         out.push('{');
         let mut first = true;
@@ -59,7 +59,7 @@ impl JsonEncode for TypeName {
     }
 }
 
-impl JsonEncode for NamedTypeDef {
+impl JsonEncode for TypeDefinition {
     fn write_json(&self, out: &mut String) -> Result<(), SchemaError> {
         out.push('{');
         match self {
@@ -105,19 +105,10 @@ impl JsonEncode for TypeDef {
                 out.push(':');
                 write_json_string("string", out);
             }
-            Self::StructRef(type_name) => {
+            Self::Named(type_name) => {
                 write_json_string("kind", out);
                 out.push(':');
-                write_json_string("struct_ref", out);
-                out.push(',');
-                write_json_string("type", out);
-                out.push(':');
-                type_name.write_json(out)?;
-            }
-            Self::EnumRef(type_name) => {
-                write_json_string("kind", out);
-                out.push(':');
-                write_json_string("enum_ref", out);
+                write_json_string("named", out);
                 out.push(',');
                 write_json_string("type", out);
                 out.push(':');

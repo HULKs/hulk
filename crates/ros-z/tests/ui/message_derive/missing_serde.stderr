@@ -52,6 +52,7 @@ help: the trait `for<'de> serde_core::de::Deserialize<'de>` is not implemented f
             `(T0, T1)` implements `serde_core::de::Deserialize<'de>`
             `(T0, T1, T2)` implements `serde_core::de::Deserialize<'de>`
           and $N others
+  = note: required for `MissingSerde` to implement `serde_core::de::DeserializeOwned`
   = note: required for `SerdeCdrCodec<MissingSerde>` to implement `MessageCodec<MissingSerde>`
 note: required by a bound in `ros_z::Message::Codec`
  --> src/msg.rs

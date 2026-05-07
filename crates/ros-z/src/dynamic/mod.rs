@@ -11,7 +11,7 @@
 //!
 //! ```text
 //! ┌─────────────────┐     ┌─────────────────┐
-//! │    TypeShape    │────▶│   FieldSchema   │
+//! │   SchemaBundle  │────▶│    FieldDef     │
 //! │  (type info)    │     │   (field info)  │
 //! └────────┬────────┘     └────────┬────────┘
 //!          │                       │
@@ -32,21 +32,26 @@
 //!
 //! ```rust,ignore
 //! use std::sync::Arc;
-//! use ros_z::dynamic::{DynamicStruct, FieldSchema, PrimitiveType, TypeShape};
-//! use ros_z_schema::TypeName;
+//! use ros_z::dynamic::DynamicStruct;
+//! use ros_z_schema::{FieldDef, PrimitiveTypeDef, SchemaBundle, StructDef, TypeDef, TypeDefinition, TypeDefinitions, TypeName};
 //!
-//! let f64_schema = Arc::new(TypeShape::Primitive(PrimitiveType::F64));
-//! let schema = Arc::new(TypeShape::Struct {
-//!     name: TypeName::new("geometry_msgs::Point")?,
-//!     fields: vec![
-//!         FieldSchema::new("x", Arc::clone(&f64_schema)),
-//!         FieldSchema::new("y", Arc::clone(&f64_schema)),
-//!         FieldSchema::new("z", f64_schema),
-//!     ],
+//! let name = TypeName::new("geometry_msgs::Point")?;
+//! let schema = Arc::new(SchemaBundle {
+//!     root: TypeDef::Named(name.clone()),
+//!     definitions: TypeDefinitions::from([(
+//!         name,
+//!         TypeDefinition::Struct(StructDef {
+//!             fields: vec![
+//!                 FieldDef::new("x", TypeDef::Primitive(PrimitiveTypeDef::F64)),
+//!                 FieldDef::new("y", TypeDef::Primitive(PrimitiveTypeDef::F64)),
+//!                 FieldDef::new("z", TypeDef::Primitive(PrimitiveTypeDef::F64)),
+//!             ],
+//!         }),
+//!     )]),
 //! });
 //!
 //! // Create and populate a message
-//! let mut message = DynamicStruct::new(&schema);
+//! let mut message = DynamicStruct::default_for_schema(&schema)?;
 //! message.set("x", 1.0f64)?;
 //! message.set("y", 2.0f64)?;
 //! message.set("z", 3.0f64)?;
@@ -65,11 +70,9 @@ pub mod error;
 pub mod message;
 pub mod registry;
 pub mod schema;
-pub mod schema_bridge;
 pub mod schema_query;
 pub mod schema_service;
 pub mod serialization;
-pub(crate) mod type_info;
 pub mod value;
 
 #[cfg(test)]
@@ -82,10 +85,9 @@ pub use error::DynamicError;
 pub use message::{DynamicStruct, DynamicStructBuilder};
 pub use registry::{SchemaRegistry, get_root_schema_with_hash, has_schema, register_root_schema};
 pub use schema::{
-    FieldSchema, FieldSchema as RuntimeFieldSchema, PrimitiveType, RuntimeDynamicEnumPayload,
-    RuntimeDynamicEnumVariant, Schema, SequenceLength, TypeShape,
+    EnumDef, EnumPayloadDef, EnumVariantDef, FieldDef, PrimitiveTypeDef, Schema, SchemaBundle,
+    SchemaError, SequenceLengthDef, StructDef, TypeDef, TypeDefinition, TypeDefinitions, TypeName,
 };
-pub use schema_bridge::{bundle_to_schema, schema_hash_with_root_name, schema_to_bundle};
 pub use schema_query::{
     root_schema_from_response, schema_from_response, schema_from_response_with_hash,
 };
@@ -93,7 +95,6 @@ pub use schema_service::{
     GetSchema, GetSchemaRequest, GetSchemaResponse, RegisteredSchema, SchemaService,
 };
 pub use serialization::SerializationFormat;
-pub use type_info::schema_tree_hash;
 pub use value::{
     DynamicNamedValue, DynamicValue, EnumPayloadValue, EnumValue, FromDynamic, IntoDynamic,
 };

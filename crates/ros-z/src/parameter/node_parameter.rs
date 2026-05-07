@@ -140,10 +140,14 @@ where
         return Err(ParameterError::EmptyLayerList);
     }
 
-    let schema = T::schema();
-    let type_name = T::type_name().to_string();
-    let schema_hash = T::schema_hash();
-    node.register_schema_with_service(T::type_name(), schema)
+    let schema = Arc::new(T::schema().map_err(|err| ParameterError::RemoteError {
+        message: err.to_string(),
+    })?);
+    let type_name = T::type_name();
+    let schema_hash = T::schema_hash().map_err(|err| ParameterError::RemoteError {
+        message: err.to_string(),
+    })?;
+    node.register_schema_with_service(&type_name, schema)
         .map_err(|err| ParameterError::RemoteError {
             message: err.to_string(),
         })?;

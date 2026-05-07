@@ -1,7 +1,9 @@
 use ros_z::dynamic::{
-    PrimitiveType, RuntimeDynamicEnumPayload, RuntimeFieldSchema, Schema, SequenceLength, TypeShape,
+    EnumPayloadDef, FieldDef, PrimitiveTypeDef, Schema, SequenceLengthDef, TypeDef, TypeDefinition,
+    TypeDefinitions, TypeName,
 };
 use serde::Serialize;
+use std::collections::BTreeSet;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct SchemaView {
@@ -57,18 +59,22 @@ impl SchemaView {
         schema_hash: String,
     ) -> Self {
         let mut fields = Vec::new();
-        for root_fields in nested_struct_schemas(schema.as_ref()) {
-            flatten_fields(None, root_fields, &mut fields);
-        }
-        let (enum_variants, enum_variant_fields) = enum_details(schema.as_ref());
+        flatten_nested_fields(
+            None,
+            &schema.root,
+            &schema.definitions,
+            &mut fields,
+            &mut BTreeSet::new(),
+        );
+        let (enum_variants, enum_variant_fields) = enum_details(&schema.root, &schema.definitions);
 
         Self {
             node,
             type_name: type_name.clone(),
             schema_hash,
             root: SchemaRootView {
-                type_name: describe_shape(schema.as_ref()),
-                kind: shape_kind(schema.as_ref()),
+                type_name: describe_shape(&schema.root, &schema.definitions),
+                kind: shape_kind(&schema.root, &schema.definitions),
                 enum_variants,
                 enum_variant_fields,
             },
@@ -79,23 +85,23 @@ impl SchemaView {
 
 fn flatten_fields(
     prefix: Option<&str>,
-    fields: &[RuntimeFieldSchema],
+    fields: &[FieldDef],
+    definitions: &TypeDefinitions,
     views: &mut Vec<SchemaFieldView>,
+    visiting: &mut BTreeSet<TypeName>,
 ) {
     for field in fields {
         let path = field_path(prefix, &field.name);
-        let (enum_variants, enum_variant_fields) = enum_details(field.schema.as_ref());
+        let (enum_variants, enum_variant_fields) = enum_details(&field.shape, definitions);
         views.push(SchemaFieldView {
             path: path.clone(),
-            type_name: describe_shape(field.schema.as_ref()),
-            kind: shape_kind(field.schema.as_ref()),
+            type_name: describe_shape(&field.shape, definitions),
+            kind: shape_kind(&field.shape, definitions),
             enum_variants,
             enum_variant_fields,
         });
 
-        for nested in nested_struct_schemas(field.schema.as_ref()) {
-            flatten_fields(Some(&path), nested, views);
-        }
+        flatten_nested_fields(Some(&path), &field.shape, definitions, views, visiting);
     }
 }
 
@@ -106,22 +112,42 @@ fn field_path(prefix: Option<&str>, name: &str) -> String {
     }
 }
 
-fn nested_struct_schemas(shape: &TypeShape) -> Vec<&[RuntimeFieldSchema]> {
+fn flatten_nested_fields(
+    prefix: Option<&str>,
+    shape: &TypeDef,
+    definitions: &TypeDefinitions,
+    views: &mut Vec<SchemaFieldView>,
+    visiting: &mut BTreeSet<TypeName>,
+) {
     match shape {
-        TypeShape::Struct { fields, .. } => vec![fields.as_slice()],
-        TypeShape::Optional(inner) => nested_struct_schemas(inner.as_ref()),
-        TypeShape::Sequence { element, .. } => nested_struct_schemas(element.as_ref()),
-        TypeShape::Map { key, value } => {
-            let mut schemas = nested_struct_schemas(key.as_ref());
-            schemas.extend(nested_struct_schemas(value.as_ref()));
-            schemas
+        TypeDef::Named(name) => {
+            if !visiting.insert(name.clone()) {
+                return;
+            }
+            if let Some(TypeDefinition::Struct(definition)) = definitions.get(name) {
+                flatten_fields(prefix, &definition.fields, definitions, views, visiting);
+            }
+            visiting.remove(name);
         }
-        TypeShape::Enum { .. } | TypeShape::Primitive(_) | TypeShape::String => Vec::new(),
+        TypeDef::Optional(inner) => {
+            flatten_nested_fields(prefix, inner.as_ref(), definitions, views, visiting);
+        }
+        TypeDef::Sequence { element, .. } => {
+            flatten_nested_fields(prefix, element.as_ref(), definitions, views, visiting);
+        }
+        TypeDef::Map { key, value } => {
+            flatten_nested_fields(prefix, key.as_ref(), definitions, views, visiting);
+            flatten_nested_fields(prefix, value.as_ref(), definitions, views, visiting);
+        }
+        TypeDef::Primitive(_) | TypeDef::String => {}
     }
 }
 
-fn enum_details(shape: &TypeShape) -> (Vec<String>, Vec<SchemaEnumVariantFieldView>) {
-    let Some((variants, payloads)) = enum_schema(shape) else {
+fn enum_details(
+    shape: &TypeDef,
+    definitions: &TypeDefinitions,
+) -> (Vec<String>, Vec<SchemaEnumVariantFieldView>) {
+    let Some((variants, payloads)) = enum_schema(shape, definitions) else {
         return (Vec::new(), Vec::new());
     };
 
@@ -129,27 +155,29 @@ fn enum_details(shape: &TypeShape) -> (Vec<String>, Vec<SchemaEnumVariantFieldVi
     let mut fields = Vec::new();
     for (variant, payload) in payloads {
         match payload {
-            RuntimeDynamicEnumPayload::Unit => {}
-            RuntimeDynamicEnumPayload::Newtype(schema) => {
-                collect_enum_variant_field_views(&mut fields, variant, "value", schema.as_ref());
+            EnumPayloadDef::Unit => {}
+            EnumPayloadDef::Newtype(shape) => {
+                collect_enum_variant_field_views(&mut fields, variant, "value", shape, definitions);
             }
-            RuntimeDynamicEnumPayload::Tuple(schemas) => {
-                for (index, schema) in schemas.iter().enumerate() {
+            EnumPayloadDef::Tuple(shapes) => {
+                for (index, shape) in shapes.iter().enumerate() {
                     collect_enum_variant_field_views(
                         &mut fields,
                         variant,
                         &index.to_string(),
-                        schema.as_ref(),
+                        shape,
+                        definitions,
                     );
                 }
             }
-            RuntimeDynamicEnumPayload::Struct(payload_fields) => {
+            EnumPayloadDef::Struct(payload_fields) => {
                 for field in payload_fields {
                     collect_enum_variant_field_views(
                         &mut fields,
                         variant,
                         &field.name,
-                        field.schema.as_ref(),
+                        &field.shape,
+                        definitions,
                     );
                 }
             }
@@ -162,127 +190,183 @@ fn collect_enum_variant_field_views(
     fields: &mut Vec<SchemaEnumVariantFieldView>,
     variant: &str,
     path: &str,
-    shape: &TypeShape,
+    shape: &TypeDef,
+    definitions: &TypeDefinitions,
 ) {
     fields.push(SchemaEnumVariantFieldView {
         variant: variant.to_string(),
         path: path.to_string(),
-        type_name: describe_shape(shape),
+        type_name: describe_shape(shape, definitions),
     });
 
-    collect_nested_enum_variant_field_views(fields, variant, path, shape);
+    collect_nested_enum_variant_field_views(
+        fields,
+        variant,
+        path,
+        shape,
+        definitions,
+        &mut BTreeSet::new(),
+    );
 }
 
 fn collect_nested_enum_variant_field_views(
     fields: &mut Vec<SchemaEnumVariantFieldView>,
     variant: &str,
     prefix: &str,
-    shape: &TypeShape,
+    shape: &TypeDef,
+    definitions: &TypeDefinitions,
+    visiting: &mut BTreeSet<TypeName>,
 ) {
     match shape {
-        TypeShape::Struct {
-            fields: nested_fields,
-            ..
-        } => {
-            for field in nested_fields {
-                let path = field_path(Some(prefix), &field.name);
-                fields.push(SchemaEnumVariantFieldView {
-                    variant: variant.to_string(),
-                    path: path.clone(),
-                    type_name: describe_shape(field.schema.as_ref()),
-                });
-                collect_nested_enum_variant_field_views(
-                    fields,
-                    variant,
-                    &path,
-                    field.schema.as_ref(),
-                );
+        TypeDef::Named(name) => {
+            if !visiting.insert(name.clone()) {
+                return;
             }
+            if let Some(TypeDefinition::Struct(definition)) = definitions.get(name) {
+                for field in &definition.fields {
+                    let path = field_path(Some(prefix), &field.name);
+                    fields.push(SchemaEnumVariantFieldView {
+                        variant: variant.to_string(),
+                        path: path.clone(),
+                        type_name: describe_shape(&field.shape, definitions),
+                    });
+                    collect_nested_enum_variant_field_views(
+                        fields,
+                        variant,
+                        &path,
+                        &field.shape,
+                        definitions,
+                        visiting,
+                    );
+                }
+            }
+            visiting.remove(name);
         }
-        TypeShape::Optional(inner) | TypeShape::Sequence { element: inner, .. } => {
-            collect_nested_enum_variant_field_views(fields, variant, prefix, inner.as_ref())
+        TypeDef::Optional(inner) | TypeDef::Sequence { element: inner, .. } => {
+            collect_nested_enum_variant_field_views(
+                fields,
+                variant,
+                prefix,
+                inner.as_ref(),
+                definitions,
+                visiting,
+            )
         }
-        TypeShape::Map { key, value } => {
-            collect_nested_enum_variant_field_views(fields, variant, prefix, key.as_ref());
-            collect_nested_enum_variant_field_views(fields, variant, prefix, value.as_ref());
+        TypeDef::Map { key, value } => {
+            collect_nested_enum_variant_field_views(
+                fields,
+                variant,
+                prefix,
+                key.as_ref(),
+                definitions,
+                visiting,
+            );
+            collect_nested_enum_variant_field_views(
+                fields,
+                variant,
+                prefix,
+                value.as_ref(),
+                definitions,
+                visiting,
+            );
         }
-        TypeShape::Enum { .. } | TypeShape::Primitive(_) | TypeShape::String => {}
+        TypeDef::Primitive(_) | TypeDef::String => {}
     }
 }
 
-type EnumPayloads<'a> = (Vec<String>, Vec<(&'a str, &'a RuntimeDynamicEnumPayload)>);
+type EnumPayloads<'a> = (Vec<String>, Vec<(&'a str, &'a EnumPayloadDef)>);
 
-fn enum_schema(shape: &TypeShape) -> Option<EnumPayloads<'_>> {
+fn enum_schema<'a>(
+    shape: &'a TypeDef,
+    definitions: &'a TypeDefinitions,
+) -> Option<EnumPayloads<'a>> {
     match shape {
-        TypeShape::Enum { variants, .. } => Some((
-            variants
-                .iter()
-                .map(|variant| variant.name.clone())
-                .collect(),
-            variants
-                .iter()
-                .map(|variant| (variant.name.as_str(), &variant.payload))
-                .collect(),
-        )),
-        TypeShape::Optional(inner) | TypeShape::Sequence { element: inner, .. } => {
-            enum_schema(inner.as_ref())
-        }
-        TypeShape::Map { key, value } => {
-            enum_schema(key.as_ref()).or_else(|| enum_schema(value.as_ref()))
-        }
-        TypeShape::Struct { .. } | TypeShape::Primitive(_) | TypeShape::String => None,
-    }
-}
-
-fn describe_shape(shape: &TypeShape) -> String {
-    match shape {
-        TypeShape::Primitive(primitive) => describe_primitive(*primitive).to_string(),
-        TypeShape::String => "string".to_string(),
-        TypeShape::Struct { name, .. } => name.as_str().to_string(),
-        TypeShape::Optional(inner) => format!("optional<{}>", describe_shape(inner.as_ref())),
-        TypeShape::Enum { name, .. } => format!("enum {}", name.as_str()),
-        TypeShape::Sequence { element, length } => match length {
-            SequenceLength::Fixed(len) => format!("{}[{len}]", describe_shape(element.as_ref())),
-            SequenceLength::Dynamic => format!("sequence<{}>", describe_shape(element.as_ref())),
+        TypeDef::Named(name) => match definitions.get(name) {
+            Some(TypeDefinition::Enum(definition)) => Some((
+                definition
+                    .variants
+                    .iter()
+                    .map(|variant| variant.name.clone())
+                    .collect(),
+                definition
+                    .variants
+                    .iter()
+                    .map(|variant| (variant.name.as_str(), &variant.payload))
+                    .collect(),
+            )),
+            Some(TypeDefinition::Struct(_)) | None => None,
         },
-        TypeShape::Map { key, value } => {
+        TypeDef::Optional(inner) | TypeDef::Sequence { element: inner, .. } => {
+            enum_schema(inner.as_ref(), definitions)
+        }
+        TypeDef::Map { key, value } => enum_schema(key.as_ref(), definitions)
+            .or_else(|| enum_schema(value.as_ref(), definitions)),
+        TypeDef::Primitive(_) | TypeDef::String => None,
+    }
+}
+
+fn describe_shape(shape: &TypeDef, definitions: &TypeDefinitions) -> String {
+    match shape {
+        TypeDef::Primitive(primitive) => describe_primitive(*primitive).to_string(),
+        TypeDef::String => "string".to_string(),
+        TypeDef::Named(name) => match definitions.get(name) {
+            Some(TypeDefinition::Enum(_)) => format!("enum {}", name.as_str()),
+            Some(TypeDefinition::Struct(_)) | None => name.as_str().to_string(),
+        },
+        TypeDef::Optional(inner) => {
+            format!("optional<{}>", describe_shape(inner.as_ref(), definitions))
+        }
+        TypeDef::Sequence { element, length } => match length {
+            SequenceLengthDef::Fixed(len) => {
+                format!("{}[{len}]", describe_shape(element.as_ref(), definitions))
+            }
+            SequenceLengthDef::Dynamic => {
+                format!(
+                    "sequence<{}>",
+                    describe_shape(element.as_ref(), definitions)
+                )
+            }
+        },
+        TypeDef::Map { key, value } => {
             format!(
                 "map<{}, {}>",
-                describe_shape(key.as_ref()),
-                describe_shape(value.as_ref())
+                describe_shape(key.as_ref(), definitions),
+                describe_shape(value.as_ref(), definitions)
             )
         }
     }
 }
 
-fn describe_primitive(primitive: PrimitiveType) -> &'static str {
+fn describe_primitive(primitive: PrimitiveTypeDef) -> &'static str {
     match primitive {
-        PrimitiveType::Bool => "bool",
-        PrimitiveType::I8 => "int8",
-        PrimitiveType::U8 => "uint8",
-        PrimitiveType::I16 => "int16",
-        PrimitiveType::U16 => "uint16",
-        PrimitiveType::I32 => "int32",
-        PrimitiveType::U32 => "uint32",
-        PrimitiveType::I64 => "int64",
-        PrimitiveType::U64 => "uint64",
-        PrimitiveType::F32 => "float32",
-        PrimitiveType::F64 => "float64",
+        PrimitiveTypeDef::Bool => "bool",
+        PrimitiveTypeDef::I8 => "int8",
+        PrimitiveTypeDef::U8 => "uint8",
+        PrimitiveTypeDef::I16 => "int16",
+        PrimitiveTypeDef::U16 => "uint16",
+        PrimitiveTypeDef::I32 => "int32",
+        PrimitiveTypeDef::U32 => "uint32",
+        PrimitiveTypeDef::I64 => "int64",
+        PrimitiveTypeDef::U64 => "uint64",
+        PrimitiveTypeDef::F32 => "float32",
+        PrimitiveTypeDef::F64 => "float64",
     }
 }
 
-fn shape_kind(shape: &TypeShape) -> SchemaFieldKindView {
+fn shape_kind(shape: &TypeDef, definitions: &TypeDefinitions) -> SchemaFieldKindView {
     match shape {
-        TypeShape::Primitive(_) => SchemaFieldKindView::Primitive,
-        TypeShape::String => SchemaFieldKindView::String,
-        TypeShape::Struct { .. } => SchemaFieldKindView::Struct,
-        TypeShape::Optional(_) => SchemaFieldKindView::Optional,
-        TypeShape::Enum { .. } => SchemaFieldKindView::Enum,
-        TypeShape::Sequence { length, .. } => match length {
-            SequenceLength::Fixed(_) => SchemaFieldKindView::Array,
-            SequenceLength::Dynamic => SchemaFieldKindView::Sequence,
+        TypeDef::Primitive(_) => SchemaFieldKindView::Primitive,
+        TypeDef::String => SchemaFieldKindView::String,
+        TypeDef::Named(name) => match definitions.get(name) {
+            Some(TypeDefinition::Enum(_)) => SchemaFieldKindView::Enum,
+            Some(TypeDefinition::Struct(_)) | None => SchemaFieldKindView::Struct,
         },
-        TypeShape::Map { .. } => SchemaFieldKindView::Map,
+        TypeDef::Optional(_) => SchemaFieldKindView::Optional,
+        TypeDef::Sequence { length, .. } => match length {
+            SequenceLengthDef::Fixed(_) => SchemaFieldKindView::Array,
+            SequenceLengthDef::Dynamic => SchemaFieldKindView::Sequence,
+        },
+        TypeDef::Map { .. } => SchemaFieldKindView::Map,
     }
 }
 
@@ -290,12 +374,11 @@ fn shape_kind(shape: &TypeShape) -> SchemaFieldKindView {
 mod tests {
     use std::sync::Arc;
 
-    use ros_z::__private::ros_z_schema::TypeName;
-    use ros_z::Message;
-    use ros_z::dynamic::{
-        RuntimeDynamicEnumPayload, RuntimeDynamicEnumVariant, RuntimeFieldSchema, SequenceLength,
-        TypeShape,
+    use ros_z::__private::ros_z_schema::{
+        EnumDef, EnumPayloadDef, EnumVariantDef, FieldDef, PrimitiveTypeDef, SchemaBundle,
+        SequenceLengthDef, StructDef, TypeDef, TypeDefinition, TypeDefinitions, TypeName,
     };
+    use ros_z::Message;
 
     use super::{SchemaEnumVariantFieldView, SchemaFieldKindView, SchemaView};
 
@@ -303,13 +386,24 @@ mod tests {
         TypeName::new(name.to_string()).unwrap()
     }
 
+    fn bundle(root: TypeDef, definitions: impl Into<TypeDefinitions>) -> Arc<SchemaBundle> {
+        Arc::new(SchemaBundle {
+            root,
+            definitions: definitions.into(),
+        })
+    }
+
+    fn field(name: &str, shape: TypeDef) -> FieldDef {
+        FieldDef::new(name, shape)
+    }
+
     #[test]
     fn schema_model_displays_primitive_root() {
         let view = SchemaView::from_schema(
             "/tools/rosz".to_string(),
             "u8".to_string(),
-            &u8::schema(),
-            u8::schema_hash().to_hash_string(),
+            &Arc::new(u8::schema().unwrap()),
+            u8::schema_hash().unwrap().to_hash_string(),
         );
 
         assert_eq!(view.type_name, "u8");
@@ -322,8 +416,8 @@ mod tests {
         let view = SchemaView::from_schema(
             "/tools/rosz".to_string(),
             "String".to_string(),
-            &String::schema(),
-            String::schema_hash().to_hash_string(),
+            &Arc::new(String::schema().unwrap()),
+            String::schema_hash().unwrap().to_hash_string(),
         );
 
         assert_eq!(view.type_name, "String");
@@ -333,25 +427,31 @@ mod tests {
 
     #[test]
     fn schema_model_displays_root_enum_details() {
-        let schema = Arc::new(TypeShape::Enum {
-            name: type_name("custom_msgs::Mode"),
-            variants: vec![
-                RuntimeDynamicEnumVariant::new("Idle", RuntimeDynamicEnumPayload::Unit),
-                RuntimeDynamicEnumVariant::new(
-                    "Manual",
-                    RuntimeDynamicEnumPayload::Struct(vec![RuntimeFieldSchema::new(
-                        "speed_limit",
-                        u32::schema(),
-                    )]),
-                ),
-            ],
-        });
+        let mode = type_name("custom_msgs::Mode");
+        let schema = bundle(
+            TypeDef::Named(mode.clone()),
+            [(
+                mode,
+                TypeDefinition::Enum(EnumDef {
+                    variants: vec![
+                        EnumVariantDef::new("Idle", EnumPayloadDef::Unit),
+                        EnumVariantDef::new(
+                            "Manual",
+                            EnumPayloadDef::Struct(vec![field(
+                                "speed_limit",
+                                TypeDef::Primitive(PrimitiveTypeDef::U32),
+                            )]),
+                        ),
+                    ],
+                }),
+            )],
+        );
 
         let view = SchemaView::from_schema(
             "/tools/rosz".to_string(),
             "custom_msgs::Mode".to_string(),
             &schema,
-            "RZHS01_deadbeef".to_string(),
+            "RZHS02_deadbeef".to_string(),
         );
 
         assert_eq!(view.root.kind, SchemaFieldKindView::Enum);
@@ -369,20 +469,25 @@ mod tests {
 
     #[test]
     fn schema_model_flattens_wrapped_struct_root_fields() {
-        let point = Arc::new(TypeShape::Struct {
-            name: type_name("geometry_msgs::Point"),
-            fields: vec![
-                RuntimeFieldSchema::new("x", f64::schema()),
-                RuntimeFieldSchema::new("y", f64::schema()),
-            ],
-        });
-        let schema = Arc::new(TypeShape::Optional(point));
+        let point = type_name("geometry_msgs::Point");
+        let schema = bundle(
+            TypeDef::Optional(Box::new(TypeDef::Named(point.clone()))),
+            [(
+                point,
+                TypeDefinition::Struct(StructDef {
+                    fields: vec![
+                        field("x", TypeDef::Primitive(PrimitiveTypeDef::F64)),
+                        field("y", TypeDef::Primitive(PrimitiveTypeDef::F64)),
+                    ],
+                }),
+            )],
+        );
 
         let view = SchemaView::from_schema(
             "/tools/rosz".to_string(),
             "Option<geometry_msgs::Point>".to_string(),
             &schema,
-            "RZHS01_deadbeef".to_string(),
+            "RZHS02_deadbeef".to_string(),
         );
 
         let paths = view
@@ -398,16 +503,19 @@ mod tests {
 
     #[test]
     fn schema_model_displays_fixed_sequence_root_length() {
-        let schema = Arc::new(TypeShape::Sequence {
-            element: f64::schema(),
-            length: SequenceLength::Fixed(3),
+        let schema = Arc::new(SchemaBundle {
+            root: TypeDef::Sequence {
+                element: Box::new(TypeDef::Primitive(PrimitiveTypeDef::F64)),
+                length: SequenceLengthDef::Fixed(3),
+            },
+            definitions: TypeDefinitions::new(),
         });
 
         let view = SchemaView::from_schema(
             "/tools/rosz".to_string(),
             "[f64;3]".to_string(),
             &schema,
-            "RZHS01_deadbeef".to_string(),
+            "RZHS02_deadbeef".to_string(),
         );
 
         assert_eq!(view.root.kind, SchemaFieldKindView::Array);
@@ -417,38 +525,50 @@ mod tests {
 
     #[test]
     fn flattens_nested_fields_and_preserves_enum_variants() {
-        let telemetry = Arc::new(TypeShape::Struct {
-            name: type_name("custom_msgs::Telemetry"),
-            fields: vec![RuntimeFieldSchema::new("speed", f32::schema())],
-        });
-        let schema = Arc::new(TypeShape::Struct {
-            name: type_name("custom_msgs::OptionalTelemetry"),
-            fields: vec![
-                RuntimeFieldSchema::new("telemetry", telemetry),
-                RuntimeFieldSchema::new(
-                    "mode",
-                    Arc::new(TypeShape::Enum {
-                        name: type_name("custom_msgs::DriveMode"),
+        let root = type_name("custom_msgs::OptionalTelemetry");
+        let telemetry = type_name("custom_msgs::Telemetry");
+        let mode = type_name("custom_msgs::DriveMode");
+        let schema = bundle(
+            TypeDef::Named(root.clone()),
+            [
+                (
+                    root,
+                    TypeDefinition::Struct(StructDef {
+                        fields: vec![
+                            field("telemetry", TypeDef::Named(telemetry.clone())),
+                            field("mode", TypeDef::Named(mode.clone())),
+                        ],
+                    }),
+                ),
+                (
+                    telemetry,
+                    TypeDefinition::Struct(StructDef {
+                        fields: vec![field("speed", TypeDef::Primitive(PrimitiveTypeDef::F32))],
+                    }),
+                ),
+                (
+                    mode,
+                    TypeDefinition::Enum(EnumDef {
                         variants: vec![
-                            RuntimeDynamicEnumVariant::new("Idle", RuntimeDynamicEnumPayload::Unit),
-                            RuntimeDynamicEnumVariant::new(
+                            EnumVariantDef::new("Idle", EnumPayloadDef::Unit),
+                            EnumVariantDef::new(
                                 "Manual",
-                                RuntimeDynamicEnumPayload::Struct(vec![RuntimeFieldSchema::new(
+                                EnumPayloadDef::Struct(vec![field(
                                     "speed_limit",
-                                    u32::schema(),
+                                    TypeDef::Primitive(PrimitiveTypeDef::U32),
                                 )]),
                             ),
                         ],
                     }),
                 ),
             ],
-        });
+        );
 
         let view = SchemaView::from_schema(
             "/tools/rosz".to_string(),
             "custom_msgs::OptionalTelemetry".to_string(),
             &schema,
-            "RZHS01_deadbeef".to_string(),
+            "RZHS02_deadbeef".to_string(),
         );
 
         assert_eq!(view.fields[0].path, "telemetry");
@@ -469,60 +589,73 @@ mod tests {
 
     #[test]
     fn flattens_nested_message_fields_inside_collections_and_enum_payloads() {
-        let point = Arc::new(TypeShape::Struct {
-            name: type_name("geometry_msgs::Point"),
-            fields: vec![
-                RuntimeFieldSchema::new("x", f64::schema()),
-                RuntimeFieldSchema::new("y", f64::schema()),
-            ],
-        });
-        let schema = Arc::new(TypeShape::Struct {
-            name: type_name("custom_msgs::Trajectory"),
-            fields: vec![
-                RuntimeFieldSchema::new(
-                    "samples",
-                    Arc::new(TypeShape::Sequence {
-                        element: point.clone(),
-                        length: SequenceLength::Dynamic,
+        let root = type_name("custom_msgs::Trajectory");
+        let point = type_name("geometry_msgs::Point");
+        let choice = type_name("custom_msgs::Choice");
+        let schema = bundle(
+            TypeDef::Named(root.clone()),
+            [
+                (
+                    root,
+                    TypeDefinition::Struct(StructDef {
+                        fields: vec![
+                            field(
+                                "samples",
+                                TypeDef::Sequence {
+                                    element: Box::new(TypeDef::Named(point.clone())),
+                                    length: SequenceLengthDef::Dynamic,
+                                },
+                            ),
+                            field(
+                                "fixed",
+                                TypeDef::Sequence {
+                                    element: Box::new(TypeDef::Named(point.clone())),
+                                    length: SequenceLengthDef::Fixed(2),
+                                },
+                            ),
+                            field("choice", TypeDef::Named(choice.clone())),
+                        ],
                     }),
                 ),
-                RuntimeFieldSchema::new(
-                    "fixed",
-                    Arc::new(TypeShape::Sequence {
-                        element: point.clone(),
-                        length: SequenceLength::Fixed(2),
+                (
+                    point.clone(),
+                    TypeDefinition::Struct(StructDef {
+                        fields: vec![
+                            field("x", TypeDef::Primitive(PrimitiveTypeDef::F64)),
+                            field("y", TypeDef::Primitive(PrimitiveTypeDef::F64)),
+                        ],
                     }),
                 ),
-                RuntimeFieldSchema::new(
-                    "choice",
-                    Arc::new(TypeShape::Enum {
-                        name: type_name("custom_msgs::Choice"),
+                (
+                    choice,
+                    TypeDefinition::Enum(EnumDef {
                         variants: vec![
-                            RuntimeDynamicEnumVariant::new(
+                            EnumVariantDef::new(
                                 "Single",
-                                RuntimeDynamicEnumPayload::Newtype(point.clone()),
+                                EnumPayloadDef::Newtype(TypeDef::Named(point.clone())),
                             ),
-                            RuntimeDynamicEnumVariant::new(
+                            EnumVariantDef::new(
                                 "Pair",
-                                RuntimeDynamicEnumPayload::Tuple(vec![point.clone()]),
+                                EnumPayloadDef::Tuple(vec![TypeDef::Named(point.clone())]),
                             ),
-                            RuntimeDynamicEnumVariant::new(
+                            EnumVariantDef::new(
                                 "Named",
-                                RuntimeDynamicEnumPayload::Struct(vec![RuntimeFieldSchema::new(
-                                    "target", point,
+                                EnumPayloadDef::Struct(vec![field(
+                                    "target",
+                                    TypeDef::Named(point),
                                 )]),
                             ),
                         ],
                     }),
                 ),
             ],
-        });
+        );
 
         let view = SchemaView::from_schema(
             "/tools/rosz".to_string(),
             "custom_msgs::Trajectory".to_string(),
             &schema,
-            "RZHS01_deadbeef".to_string(),
+            "RZHS02_deadbeef".to_string(),
         );
 
         let paths = view
@@ -563,34 +696,46 @@ mod tests {
 
     #[test]
     fn preserves_enum_metadata_for_container_wrapped_enums() {
-        let schema = Arc::new(TypeShape::Struct {
-            name: type_name("custom_msgs::Envelope"),
-            fields: vec![RuntimeFieldSchema::new(
-                "modes",
-                Arc::new(TypeShape::Sequence {
-                    element: Arc::new(TypeShape::Enum {
-                        name: type_name("custom_msgs::Mode"),
+        let envelope = type_name("custom_msgs::Envelope");
+        let mode = type_name("custom_msgs::Mode");
+        let schema = bundle(
+            TypeDef::Named(envelope.clone()),
+            [
+                (
+                    envelope,
+                    TypeDefinition::Struct(StructDef {
+                        fields: vec![field(
+                            "modes",
+                            TypeDef::Sequence {
+                                element: Box::new(TypeDef::Named(mode.clone())),
+                                length: SequenceLengthDef::Dynamic,
+                            },
+                        )],
+                    }),
+                ),
+                (
+                    mode,
+                    TypeDefinition::Enum(EnumDef {
                         variants: vec![
-                            RuntimeDynamicEnumVariant::new("Idle", RuntimeDynamicEnumPayload::Unit),
-                            RuntimeDynamicEnumVariant::new(
+                            EnumVariantDef::new("Idle", EnumPayloadDef::Unit),
+                            EnumVariantDef::new(
                                 "Manual",
-                                RuntimeDynamicEnumPayload::Struct(vec![RuntimeFieldSchema::new(
+                                EnumPayloadDef::Struct(vec![field(
                                     "speed_limit",
-                                    u32::schema(),
+                                    TypeDef::Primitive(PrimitiveTypeDef::U32),
                                 )]),
                             ),
                         ],
                     }),
-                    length: SequenceLength::Dynamic,
-                }),
-            )],
-        });
+                ),
+            ],
+        );
 
         let view = SchemaView::from_schema(
             "/tools/rosz".to_string(),
             "custom_msgs::Envelope".to_string(),
             &schema,
-            "RZHS01_deadbeef".to_string(),
+            "RZHS02_deadbeef".to_string(),
         );
 
         let modes = view

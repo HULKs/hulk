@@ -11,11 +11,8 @@ use parking_lot::Mutex;
 use serde::{Deserialize, Serialize};
 use tokio::sync::Notify;
 
-use crate::{
-    Message, SerdeCdrCodec,
-    dynamic::{RuntimeFieldSchema, Schema, TypeShape},
-};
-use ros_z_schema::TypeName;
+use crate::{Message, SerdeCdrCodec, schema::MessageSchema};
+use ros_z_schema::{FieldDef, SchemaError, TypeDef, TypeName};
 
 /// A clock-relative instant used throughout ros-z.
 ///
@@ -31,25 +28,26 @@ pub struct Time {
 impl Message for Time {
     type Codec = SerdeCdrCodec<Self>;
 
-    fn type_name() -> &'static str {
-        "ros_z::Time"
-    }
-
-    fn schema() -> Schema {
-        Arc::new(TypeShape::Struct {
-            name: TypeName::new("ros_z::Time").expect("valid type name"),
-            fields: vec![RuntimeFieldSchema::new("duration", duration_schema())],
-        })
+    fn type_name() -> String {
+        "ros_z::Time".to_string()
     }
 }
 
-fn duration_schema() -> Schema {
-    Arc::new(TypeShape::Struct {
-        name: TypeName::new("builtin_interfaces::Duration").expect("valid type name"),
-        fields: vec![
-            RuntimeFieldSchema::new("sec", i32::schema()),
-            RuntimeFieldSchema::new("nanosec", u32::schema()),
-        ],
+impl crate::schema::MessageSchema for Time {
+    fn build_schema(builder: &mut crate::schema::SchemaBuilder) -> Result<TypeDef, SchemaError> {
+        let duration = duration_schema(builder)?;
+        let name = TypeName::new(Self::type_name())?;
+        builder.define_struct(name, |_| Ok(vec![FieldDef::new("duration", duration)]))
+    }
+}
+
+fn duration_schema(builder: &mut crate::schema::SchemaBuilder) -> Result<TypeDef, SchemaError> {
+    let name = TypeName::new("builtin_interfaces::Duration")?;
+    builder.define_struct(name, |builder| {
+        Ok(vec![
+            FieldDef::new("sec", i32::build_schema(builder)?),
+            FieldDef::new("nanosec", u32::build_schema(builder)?),
+        ])
     })
 }
 
@@ -402,7 +400,6 @@ impl Timer {
 mod tests {
     use super::*;
     use crate::Message;
-    use crate::dynamic::schema_tree_hash;
 
     #[test]
     fn wallclock_is_default() {
@@ -415,10 +412,10 @@ mod tests {
 
     #[test]
     fn ztime_type_info_uses_trait_default_schema_hash() {
-        let expected = schema_tree_hash(Time::type_name(), &Time::schema())
-            .expect("Time schema should produce a hash");
+        let schema = Time::schema().expect("Time schema should build");
+        let expected = ros_z_schema::compute_hash(&schema);
 
-        assert_eq!(Time::schema_hash(), expected);
+        assert_eq!(Time::schema_hash().unwrap(), expected);
     }
 
     #[tokio::test]
@@ -574,25 +571,30 @@ mod tests {
     #[test]
     fn ztime_type_info_uses_native_schema_type_name() {
         assert_eq!(Time::type_name(), "ros_z::Time");
-        let schema = Time::schema();
-        let TypeShape::Struct { name, .. } = schema.as_ref() else {
-            panic!("expected time struct schema");
-        };
-        assert_eq!(name.as_str(), "ros_z::Time");
-        assert_eq!(Time::type_info().name, "ros_z::Time");
+        let schema = Time::schema().unwrap();
+        assert_eq!(
+            schema.root,
+            ros_z_schema::TypeDef::Named(ros_z_schema::TypeName::new("ros_z::Time").unwrap())
+        );
+        assert_eq!(Time::type_info().unwrap().name, "ros_z::Time");
     }
 
     #[test]
     fn ztime_duration_field_uses_native_nested_type_name() {
-        let schema = Time::schema();
-        let TypeShape::Struct { fields, .. } = schema.as_ref() else {
+        let schema = Time::schema().unwrap();
+        let time_name = ros_z_schema::TypeName::new("ros_z::Time").unwrap();
+        let Some(ros_z_schema::TypeDefinition::Struct(definition)) =
+            schema.definitions.get(&time_name)
+        else {
             panic!("expected time struct schema");
         };
-        let TypeShape::Struct { name, .. } = fields[0].schema.as_ref() else {
-            panic!("expected nested duration schema");
-        };
 
-        assert_eq!(name.as_str(), "builtin_interfaces::Duration");
+        assert_eq!(
+            definition.fields[0].shape,
+            ros_z_schema::TypeDef::Named(
+                ros_z_schema::TypeName::new("builtin_interfaces::Duration").unwrap()
+            )
+        );
     }
 
     // --- set_time ---

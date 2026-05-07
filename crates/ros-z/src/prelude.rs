@@ -28,6 +28,9 @@ pub use crate::parameter::NodeParametersExt;
 /// Core pub/sub handles and builders.
 pub use crate::pubsub::{Publisher, PublisherBuilder, Subscriber, SubscriberBuilder};
 
+/// Static schema construction traits and helpers.
+pub use crate::schema::{MessageSchema, SchemaBuilder};
+
 /// Core service handles.
 pub use crate::service::{RequestId, ServiceClient, ServiceReply, ServiceRequest, ServiceServer};
 

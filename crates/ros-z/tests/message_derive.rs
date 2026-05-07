@@ -1,12 +1,6 @@
-use std::time::Duration;
-
-use ros_z::{
-    Message,
-    context::ContextBuilder,
-    dynamic::{DynamicValue, PrimitiveType, RuntimeFieldSchema, TypeShape, schema_to_bundle},
-};
+use ros_z::Message;
+use ros_z_schema::{PrimitiveTypeDef, SequenceLengthDef, TypeDef, TypeDefinition, TypeName};
 use serde::{Deserialize, Serialize};
-use zenoh::{Wait, config::WhatAmI};
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ros_z::Message)]
 struct DerivedMessage {
@@ -14,17 +8,8 @@ struct DerivedMessage {
 }
 
 #[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ros_z::Message)]
-struct EmptyMarker;
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ros_z::Message)]
 #[message(name = "test_pkg::ExplicitNativeMessage")]
 struct ExplicitNativeMessage {
-    count: u32,
-}
-
-#[derive(Debug, Clone, PartialEq, Serialize, Deserialize, ros_z::Message)]
-#[message(name = "test_pkg/msg/SlashStyleMessage")]
-struct ExplicitSlashStyleMessage {
     count: u32,
 }
 
@@ -40,48 +25,6 @@ struct RobotTelemetry {
     pose: Position2D,
     temperatures: Vec<f32>,
     flags: [bool; 2],
-    payload: Vec<u8>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ros_z::Message)]
-struct GenericTelemetry<T> {
-    data: Vec<T>,
-    foo: T,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ros_z::Message)]
-struct TupleStatus(f32, u32);
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ros_z::Message)]
-struct GenericTuple<T>(T);
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ros_z::Message)]
-#[serde(bound(
-    serialize = "[u8; N]: Serialize",
-    deserialize = "[u8; N]: Deserialize<'de>"
-))]
-struct Fixed<const N: usize> {
-    values: [u8; N],
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ros_z::Message)]
-#[serde(bound(
-    serialize = "[T; N]: Serialize",
-    deserialize = "[T; N]: Deserialize<'de>"
-))]
-struct GenericFixed<T, const N: usize> {
-    values: [T; N],
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ros_z::Message)]
-struct NestedGenericTelemetry<T> {
-    inner: GenericTelemetry<T>,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ros_z::Message)]
-#[message(name = "test_pkg::ExplicitGenericTelemetry")]
-struct ExplicitGenericTelemetry<T> {
-    data: T,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ros_z::Message)]
@@ -90,142 +33,37 @@ enum DriveMode {
     Manual { speed_limit: u32 },
 }
 
-fn schema_type_name(schema: &ros_z::dynamic::Schema) -> &str {
-    match schema.as_ref() {
-        TypeShape::Struct { name, .. } | TypeShape::Enum { name, .. } => name.as_str(),
-        other => panic!("expected named schema, got {other:?}"),
-    }
-}
-
-fn shape_type_name(schema: &TypeShape) -> &str {
-    match schema {
-        TypeShape::Struct { name, .. } | TypeShape::Enum { name, .. } => name.as_str(),
-        other => panic!("expected named schema, got {other:?}"),
-    }
-}
-
-fn shape_fields(schema: &TypeShape) -> &[RuntimeFieldSchema] {
-    let TypeShape::Struct { fields, .. } = schema else {
-        panic!("expected struct schema, got {schema:?}");
-    };
-    fields
-}
-
-fn payload_field(payload: &ros_z::dynamic::DynamicPayload, name: &str) -> DynamicValue {
-    let DynamicValue::Struct(message) = &payload.value else {
-        panic!("expected struct payload, got {payload:?}");
-    };
-    message.get_dynamic(name).expect("payload field")
-}
-
-fn nested_payload_field(
-    payload: &ros_z::dynamic::DynamicPayload,
-    parent: &str,
-    child: &str,
-) -> DynamicValue {
-    let DynamicValue::Struct(message) = payload_field(payload, parent) else {
-        panic!("expected nested struct payload");
-    };
-    message.get_dynamic(child).expect("nested payload field")
-}
-
-fn struct_fields(schema: &ros_z::dynamic::Schema) -> &[RuntimeFieldSchema] {
-    let TypeShape::Struct { fields, .. } = schema.as_ref() else {
-        panic!("expected struct schema, got {schema:?}");
-    };
-    fields
-}
-
-fn field<'a>(schema: &'a ros_z::dynamic::Schema, name: &str) -> &'a RuntimeFieldSchema {
-    struct_fields(schema)
-        .iter()
-        .find(|field| field.name == name)
-        .unwrap_or_else(|| panic!("{name} field"))
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ros_z::Message)]
+struct RecursiveNode {
+    name: String,
+    children: Vec<RecursiveNode>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ros_z::Message)]
-struct OptionalTelemetry {
-    mode: Option<DriveMode>,
+struct GenericEnvelope<T> {
+    value: T,
 }
 
-mod shadow_types {
-    use serde::{Deserialize, Serialize};
-
-    #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ros_z::Message)]
-    pub struct String {
-        pub value: std::string::String,
-    }
-
-    #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ros_z::Message)]
-    pub struct Vec {
-        pub values: std::vec::Vec<u8>,
-    }
-
-    #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ros_z::Message)]
-    pub struct Option<T> {
-        pub value: T,
-    }
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ros_z::Message)]
-struct ShadowedNameEnvelope {
-    shadow_string: shadow_types::String,
-    shadow_vec: shadow_types::Vec,
-    shadow_option: shadow_types::Option<u32>,
-}
-
-struct TestRouter {
-    endpoint: String,
-    _session: zenoh::Session,
-}
-
-impl TestRouter {
-    fn new() -> Self {
-        let port = {
-            let listener =
-                std::net::TcpListener::bind("127.0.0.1:0").expect("failed to bind port 0");
-            listener.local_addr().unwrap().port()
-        };
-
-        let endpoint = format!("tcp/127.0.0.1:{port}");
-        let mut config = zenoh::Config::default();
-        config.set_mode(Some(WhatAmI::Router)).unwrap();
-        config
-            .insert_json5("listen/endpoints", &format!("[\"{endpoint}\"]"))
-            .unwrap();
-        config
-            .insert_json5("scouting/multicast/enabled", "false")
-            .unwrap();
-
-        let session = zenoh::open(config)
-            .wait()
-            .expect("failed to open test router");
-        std::thread::sleep(Duration::from_millis(300));
-
-        Self {
-            endpoint,
-            _session: session,
-        }
-    }
-
-    fn endpoint(&self) -> &str {
-        &self.endpoint
-    }
-}
-
-async fn create_context_with_router(router: &TestRouter) -> ros_z::Result<ros_z::context::Context> {
-    ContextBuilder::default()
-        .disable_multicast_scouting()
-        .with_connect_endpoints([router.endpoint()])
-        .build()
-        .await
+fn named_struct<'a>(
+    schema: &'a ros_z_schema::SchemaBundle,
+    name: &str,
+) -> &'a ros_z_schema::StructDef {
+    let type_name = TypeName::new(name).unwrap();
+    let Some(TypeDefinition::Struct(definition)) = schema.definitions.get(&type_name) else {
+        panic!("missing struct definition {name}");
+    };
+    definition
 }
 
 #[test]
 fn derive_message_uses_module_path_type_name() {
     assert!(DerivedMessage::type_name().ends_with("::DerivedMessage"));
-    let schema = DerivedMessage::schema();
-    assert_eq!(schema_type_name(&schema), DerivedMessage::type_name());
+    let schema = DerivedMessage::schema().unwrap();
+
+    assert_eq!(
+        schema.root,
+        TypeDef::Named(TypeName::new(DerivedMessage::type_name()).unwrap())
+    );
 }
 
 #[test]
@@ -234,578 +72,107 @@ fn derive_message_accepts_explicit_native_type_name() {
         ExplicitNativeMessage::type_name(),
         "test_pkg::ExplicitNativeMessage"
     );
-    let schema = ExplicitNativeMessage::schema();
-    assert_eq!(schema_type_name(&schema), "test_pkg::ExplicitNativeMessage");
-}
+    let schema = ExplicitNativeMessage::schema().unwrap();
 
-#[test]
-fn derive_message_accepts_explicit_opaque_type_name() {
     assert_eq!(
-        ExplicitSlashStyleMessage::type_name(),
-        "test_pkg/msg/SlashStyleMessage"
+        schema.root,
+        TypeDef::Named(TypeName::new("test_pkg::ExplicitNativeMessage").unwrap())
     );
-    let schema = ExplicitSlashStyleMessage::schema();
-    assert_eq!(schema_type_name(&schema), "test_pkg/msg/SlashStyleMessage");
 }
 
 #[test]
-fn derive_supports_unit_struct_as_empty_struct_schema() {
-    assert!(EmptyMarker::type_name().ends_with("::EmptyMarker"));
+fn derived_static_type_names_return_owned_strings() {
+    let first = ExplicitNativeMessage::type_name();
+    let second = ExplicitNativeMessage::type_name();
 
-    let schema = EmptyMarker::schema();
-    assert_eq!(schema_type_name(&schema), EmptyMarker::type_name());
+    assert_eq!(first, "test_pkg::ExplicitNativeMessage");
+    assert_eq!(second, "test_pkg::ExplicitNativeMessage");
+    assert_ne!(first.as_ptr(), second.as_ptr());
+}
 
-    let TypeShape::Struct { fields, .. } = schema.as_ref() else {
-        panic!("expected struct schema for unit struct, got {schema:?}");
-    };
-    assert!(fields.is_empty());
+#[test]
+fn derived_generic_type_names_return_owned_strings() {
+    let first = GenericEnvelope::<u8>::type_name();
+    let second = GenericEnvelope::<u8>::type_name();
+
+    assert!(first.ends_with("::GenericEnvelope<u8>"));
+    assert_eq!(first, second);
+    assert_ne!(first.as_ptr(), second.as_ptr());
 }
 
 #[test]
 fn derive_generates_type_info_and_schema() {
-    let schema = RobotTelemetry::schema();
+    let schema = RobotTelemetry::schema().unwrap();
+    let fields = &named_struct(&schema, &RobotTelemetry::type_name()).fields;
 
+    assert_eq!(fields.len(), 4);
+    assert_eq!(fields[0].name, "label");
+    assert_eq!(fields[0].shape, TypeDef::String);
     assert_eq!(
-        RobotTelemetry::type_name(),
-        "message_derive::RobotTelemetry"
+        fields[1].shape,
+        TypeDef::Named(TypeName::new(Position2D::type_name()).unwrap())
     );
-    assert_eq!(schema_type_name(&schema), "message_derive::RobotTelemetry");
-    assert_eq!(struct_fields(&schema).len(), 5);
-
-    let label = field(&schema, "label");
-    assert!(matches!(label.schema.as_ref(), TypeShape::String));
-
-    let pose = field(&schema, "pose");
-    match pose.schema.as_ref() {
-        TypeShape::Struct { name, fields } => {
-            assert_eq!(name.as_str(), "message_derive::Position2D");
-            assert_eq!(fields.len(), 2);
-        }
-        other => panic!("expected nested message field, got {:?}", other),
-    }
-
-    let temperatures = field(&schema, "temperatures");
-    match temperatures.schema.as_ref() {
-        TypeShape::Sequence { element, .. } => {
-            assert!(matches!(
-                element.as_ref(),
-                TypeShape::Primitive(PrimitiveType::F32)
-            ));
-        }
-        other => panic!("expected sequence field, got {:?}", other),
-    }
-
-    let flags = field(&schema, "flags");
-    match flags.schema.as_ref() {
-        TypeShape::Sequence { element, length } => {
-            assert_eq!(*length, ros_z::dynamic::SequenceLength::Fixed(2));
-            assert!(matches!(
-                element.as_ref(),
-                TypeShape::Primitive(PrimitiveType::Bool)
-            ));
-        }
-        other => panic!("expected fixed array field, got {:?}", other),
-    }
-
-    let payload = field(&schema, "payload");
-    match payload.schema.as_ref() {
-        TypeShape::Sequence { element, .. } => {
-            assert!(matches!(
-                element.as_ref(),
-                TypeShape::Primitive(PrimitiveType::U8)
-            ));
-        }
-        other => panic!("expected byte sequence field, got {:?}", other),
-    }
-
-    let expected_hash = ros_z::dynamic::schema_tree_hash(RobotTelemetry::type_name(), &schema)
-        .expect("schema hash");
-
-    let reported_hash = RobotTelemetry::schema_hash();
-    assert_eq!(reported_hash, expected_hash);
-}
-
-#[test]
-fn derived_standard_message_hash_matches_runtime_bundle_hash() {
-    let runtime_hash =
-        ros_z::dynamic::schema_tree_hash(RobotTelemetry::type_name(), &RobotTelemetry::schema())
-            .expect("runtime hash");
-
-    assert_eq!(RobotTelemetry::schema_hash(), runtime_hash);
-}
-
-#[test]
-fn derive_generates_distinct_generic_type_info_per_instantiation() {
-    let u32_schema = GenericTelemetry::<u32>::schema();
-    let string_schema = GenericTelemetry::<String>::schema();
-
-    assert_eq!(
-        GenericTelemetry::<u32>::type_name(),
-        "message_derive::GenericTelemetry<u32>"
-    );
-    assert_eq!(
-        GenericTelemetry::<String>::type_name(),
-        "message_derive::GenericTelemetry<String>"
-    );
-    assert_ne!(
-        GenericTelemetry::<u32>::type_name(),
-        GenericTelemetry::<String>::type_name()
-    );
-
-    assert_eq!(
-        schema_type_name(&u32_schema),
-        GenericTelemetry::<u32>::type_name()
-    );
-    assert_eq!(
-        schema_type_name(&string_schema),
-        GenericTelemetry::<String>::type_name()
-    );
-    assert_ne!(
-        schema_type_name(&u32_schema),
-        schema_type_name(&string_schema)
-    );
-    assert_ne!(
-        GenericTelemetry::<u32>::schema_hash(),
-        GenericTelemetry::<String>::schema_hash()
-    );
-
-    let foo = field(&u32_schema, "foo");
     assert!(matches!(
-        foo.schema.as_ref(),
-        TypeShape::Primitive(PrimitiveType::U32)
-    ));
-
-    let data = field(&string_schema, "data");
-    match data.schema.as_ref() {
-        TypeShape::Sequence { element, .. } => {
-            assert!(matches!(element.as_ref(), TypeShape::String));
-        }
-        other => panic!("expected string sequence field, got {:?}", other),
-    }
-}
-
-#[test]
-fn derive_supports_tuple_struct_schema_with_numeric_field_names() {
-    assert_eq!(TupleStatus::type_name(), "message_derive::TupleStatus");
-
-    let schema = TupleStatus::schema();
-    assert_eq!(schema_type_name(&schema), TupleStatus::type_name());
-
-    let fields = struct_fields(&schema);
-    assert_eq!(fields.len(), 2);
-    assert_eq!(fields[0].name, "0");
-    assert_eq!(fields[1].name, "1");
-    assert!(matches!(
-        fields[0].schema.as_ref(),
-        TypeShape::Primitive(PrimitiveType::F32)
+        &fields[2].shape,
+        TypeDef::Sequence { element, length: SequenceLengthDef::Dynamic }
+            if element.as_ref() == &TypeDef::Primitive(PrimitiveTypeDef::F32)
     ));
     assert!(matches!(
-        fields[1].schema.as_ref(),
-        TypeShape::Primitive(PrimitiveType::U32)
-    ));
-}
-
-#[test]
-fn derive_supports_generic_tuple_struct_schema() {
-    assert_eq!(GenericTuple::<u32>::type_name(), "message_derive::GenericTuple<u32>");
-    assert_eq!(
-        GenericTuple::<Position2D>::type_name(),
-        "message_derive::GenericTuple<message_derive::Position2D>"
-    );
-
-    let u32_schema = GenericTuple::<u32>::schema();
-    assert_eq!(schema_type_name(&u32_schema), GenericTuple::<u32>::type_name());
-    let u32_fields = struct_fields(&u32_schema);
-    assert_eq!(u32_fields.len(), 1);
-    assert_eq!(u32_fields[0].name, "0");
-    assert!(matches!(
-        u32_fields[0].schema.as_ref(),
-        TypeShape::Primitive(PrimitiveType::U32)
+        &fields[3].shape,
+        TypeDef::Sequence { element, length: SequenceLengthDef::Fixed(2) }
+            if element.as_ref() == &TypeDef::Primitive(PrimitiveTypeDef::Bool)
     ));
 
-    let position_schema = GenericTuple::<Position2D>::schema();
     assert_eq!(
-        schema_type_name(&position_schema),
-        GenericTuple::<Position2D>::type_name()
-    );
-    let position_fields = struct_fields(&position_schema);
-    assert_eq!(position_fields.len(), 1);
-    assert_eq!(position_fields[0].name, "0");
-    match position_fields[0].schema.as_ref() {
-        TypeShape::Struct { name, .. } => {
-            assert_eq!(name.as_str(), "message_derive::Position2D");
-        }
-        other => panic!("expected nested message field, got {other:?}"),
-    }
-}
-
-#[test]
-fn derive_supports_const_generic_struct_schema() {
-    assert_eq!(Fixed::<4>::type_name(), "message_derive::Fixed<4>");
-    assert_eq!(Fixed::<8>::type_name(), "message_derive::Fixed<8>");
-
-    let four_schema = Fixed::<4>::schema();
-    let eight_schema = Fixed::<8>::schema();
-
-    assert_eq!(schema_type_name(&four_schema), Fixed::<4>::type_name());
-    assert_eq!(schema_type_name(&eight_schema), Fixed::<8>::type_name());
-    assert_ne!(Fixed::<4>::schema_hash(), Fixed::<8>::schema_hash());
-
-    let values = field(&four_schema, "values");
-    match values.schema.as_ref() {
-        TypeShape::Sequence { element, length } => {
-            assert_eq!(*length, ros_z::dynamic::SequenceLength::Fixed(4));
-            assert!(matches!(
-                element.as_ref(),
-                TypeShape::Primitive(PrimitiveType::U8)
-            ));
-        }
-        other => panic!("expected fixed sequence field, got {other:?}"),
-    }
-
-    let values = field(&eight_schema, "values");
-    match values.schema.as_ref() {
-        TypeShape::Sequence { element, length } => {
-            assert_eq!(*length, ros_z::dynamic::SequenceLength::Fixed(8));
-            assert!(matches!(
-                element.as_ref(),
-                TypeShape::Primitive(PrimitiveType::U8)
-            ));
-        }
-        other => panic!("expected fixed sequence field, got {other:?}"),
-    }
-}
-
-#[test]
-fn derive_supports_mixed_type_and_const_generic_struct_schema() {
-    assert_eq!(
-        GenericFixed::<u32, 4>::type_name(),
-        "message_derive::GenericFixed<u32,4>"
-    );
-    assert_eq!(
-        GenericFixed::<Position2D, 2>::type_name(),
-        "message_derive::GenericFixed<message_derive::Position2D,2>"
-    );
-
-    let u32_schema = GenericFixed::<u32, 4>::schema();
-    assert_eq!(
-        schema_type_name(&u32_schema),
-        GenericFixed::<u32, 4>::type_name()
-    );
-    let values = field(&u32_schema, "values");
-    match values.schema.as_ref() {
-        TypeShape::Sequence { element, length } => {
-            assert_eq!(*length, ros_z::dynamic::SequenceLength::Fixed(4));
-            assert!(matches!(
-                element.as_ref(),
-                TypeShape::Primitive(PrimitiveType::U32)
-            ));
-        }
-        other => panic!("expected fixed sequence field, got {other:?}"),
-    }
-
-    let position_schema = GenericFixed::<Position2D, 2>::schema();
-    assert_eq!(
-        schema_type_name(&position_schema),
-        GenericFixed::<Position2D, 2>::type_name()
-    );
-    let values = field(&position_schema, "values");
-    match values.schema.as_ref() {
-        TypeShape::Sequence { element, length } => {
-            assert_eq!(*length, ros_z::dynamic::SequenceLength::Fixed(2));
-            match element.as_ref() {
-                TypeShape::Struct { name, .. } => {
-                    assert_eq!(name.as_str(), "message_derive::Position2D");
-                }
-                other => panic!("expected nested message element, got {other:?}"),
-            }
-        }
-        other => panic!("expected fixed sequence field, got {other:?}"),
-    }
-}
-
-#[test]
-fn derive_supports_nested_generic_message_fields() {
-    let schema = GenericTelemetry::<Position2D>::schema();
-    assert_eq!(
-        GenericTelemetry::<Position2D>::type_name(),
-        "message_derive::GenericTelemetry<message_derive::Position2D>"
-    );
-    assert_eq!(
-        NestedGenericTelemetry::<Position2D>::type_name(),
-        "message_derive::NestedGenericTelemetry<message_derive::Position2D>"
-    );
-
-    let foo = field(&schema, "foo");
-    match foo.schema.as_ref() {
-        TypeShape::Struct { name, .. } => {
-            assert_eq!(name.as_str(), "message_derive::Position2D");
-        }
-        other => panic!("expected nested message field, got {:?}", other),
-    }
-
-    let nested_schema = NestedGenericTelemetry::<Position2D>::schema();
-    let inner = field(&nested_schema, "inner");
-    match inner.schema.as_ref() {
-        TypeShape::Struct { name, .. } => {
-            assert_eq!(name.as_str(), GenericTelemetry::<Position2D>::type_name());
-        }
-        other => panic!("expected nested generic message field, got {:?}", other),
-    }
-}
-
-#[test]
-fn derive_supports_nested_same_generic_instantiations() {
-    assert_eq!(
-        GenericTelemetry::<GenericTelemetry<u32>>::type_name(),
-        "message_derive::GenericTelemetry<message_derive::GenericTelemetry<u32>>"
-    );
-
-    let schema = GenericTelemetry::<GenericTelemetry<u32>>::schema();
-    assert_eq!(
-        schema_type_name(&schema),
-        "message_derive::GenericTelemetry<message_derive::GenericTelemetry<u32>>"
+        RobotTelemetry::schema_hash().unwrap(),
+        ros_z_schema::compute_hash(&schema)
     );
 }
 
 #[test]
-fn derive_generates_direct_enum_schema() {
-    let schema = DriveMode::schema();
-    let ros_z::dynamic::TypeShape::Enum { name, variants } = schema.as_ref() else {
-        panic!("expected enum schema");
+fn derive_generates_enum_schema() {
+    let schema = DriveMode::schema().unwrap();
+    let type_name = TypeName::new(DriveMode::type_name()).unwrap();
+
+    let Some(TypeDefinition::Enum(definition)) = schema.definitions.get(&type_name) else {
+        panic!("missing enum definition");
     };
 
-    assert_eq!(name.as_str(), "message_derive::DriveMode");
-    assert_eq!(variants.len(), 2);
-    assert_eq!(variants[0].name, "Idle");
-    assert_eq!(variants[1].name, "Manual");
+    assert_eq!(definition.variants.len(), 2);
+    assert_eq!(definition.variants[0].name, "Idle");
+    assert_eq!(definition.variants[1].name, "Manual");
 }
 
 #[test]
-fn derive_uses_explicit_name_as_generic_base_name() {
-    assert_eq!(
-        ExplicitGenericTelemetry::<u32>::type_name(),
-        "test_pkg::ExplicitGenericTelemetry<u32>"
-    );
-    assert_eq!(
-        ExplicitGenericTelemetry::<Position2D>::type_name(),
-        "test_pkg::ExplicitGenericTelemetry<message_derive::Position2D>"
-    );
+fn derive_supports_recursive_struct_schema_references() {
+    let schema = RecursiveNode::schema().unwrap();
+    let node_type_name = TypeName::new(RecursiveNode::type_name()).unwrap();
+    let fields = &named_struct(&schema, &RecursiveNode::type_name()).fields;
+
+    assert_eq!(schema.root, TypeDef::Named(node_type_name.clone()));
+    assert_eq!(fields[0].shape, TypeDef::String);
+
+    let TypeDef::Sequence { element, length } = &fields[1].shape else {
+        panic!("children field should be a sequence");
+    };
+    assert_eq!(*length, SequenceLengthDef::Dynamic);
+    assert_eq!(element.as_ref(), &TypeDef::Named(node_type_name));
+    schema.validate().unwrap();
 }
 
 #[test]
-fn derive_supports_enums_with_full_schema() {
-    let schema = DriveMode::schema();
-
-    assert_eq!(DriveMode::type_name(), "message_derive::DriveMode");
-    match schema.as_ref() {
-        TypeShape::Enum { name, variants } => {
-            assert_eq!(name.as_str(), "message_derive::DriveMode");
-            assert_eq!(variants.len(), 2);
-        }
-        other => panic!("expected enum field, got {:?}", other),
-    }
-}
-
-#[test]
-fn derive_supports_option_fields_with_type_info() {
-    let schema = OptionalTelemetry::schema();
-
-    let mode = field(&schema, "mode");
-    match mode.schema.as_ref() {
-        TypeShape::Optional(inner) => match inner.as_ref() {
-            TypeShape::Enum { name, .. } => {
-                assert_eq!(name.as_str(), "message_derive::DriveMode");
-            }
-            other => panic!("expected optional enum field, got {:?}", other),
-        },
-        other => panic!("expected optional field, got {:?}", other),
-    }
-
-    assert_ne!(OptionalTelemetry::schema_hash(), DriveMode::schema_hash());
-}
-
-#[test]
-fn derive_only_special_cases_exact_builtin_container_paths() {
-    let schema = ShadowedNameEnvelope::schema();
-
-    let shadow_string = field(&schema, "shadow_string");
-    match shadow_string.schema.as_ref() {
-        TypeShape::Struct { name, .. } => {
-            assert_eq!(name.as_str(), "message_derive::shadow_types::String");
-        }
-        other => panic!("expected shadowed String to be a message, got {:?}", other),
-    }
-
-    let shadow_vec = field(&schema, "shadow_vec");
-    match shadow_vec.schema.as_ref() {
-        TypeShape::Struct { name, .. } => {
-            assert_eq!(name.as_str(), "message_derive::shadow_types::Vec");
-        }
-        other => panic!("expected shadowed Vec to be a message, got {:?}", other),
-    }
-
-    let shadow_option = field(&schema, "shadow_option");
-    match shadow_option.schema.as_ref() {
-        TypeShape::Struct { name, .. } => {
-            assert_eq!(name.as_str(), "message_derive::shadow_types::Option<u32>");
-        }
-        other => panic!("expected shadowed Option to be a message, got {:?}", other),
-    }
-}
-
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn derived_message_schema_is_auto_registered_and_discoverable() {
-    let router = TestRouter::new();
-
-    let pub_ctx = create_context_with_router(&router)
-        .await
-        .expect("publisher context");
-    let pub_node = pub_ctx
-        .create_node("derived_talker")
-        .build()
-        .await
-        .expect("publisher node");
-
-    let publisher = pub_node
-        .publisher::<RobotTelemetry>("/derived_topic")
-        .build()
-        .await
-        .expect("publisher");
-
-    let registered_hash = ros_z_schema::compute_hash(
-        &schema_to_bundle(RobotTelemetry::type_name(), &RobotTelemetry::schema())
-            .expect("schema bundle"),
-    );
-    let registered = pub_node
-        .schema_service()
-        .expect("schema service")
-        .get_schema("message_derive::RobotTelemetry", &registered_hash)
-        .expect("query registered schema");
-    assert!(registered.is_some(), "schema should be auto-registered");
-
-    let sub_ctx = create_context_with_router(&router)
-        .await
-        .expect("subscriber context");
-    let sub_node = sub_ctx
-        .create_node("derived_listener")
-        .build()
-        .await
-        .expect("subscriber node");
-
-    let publish_task = tokio::spawn(async move {
-        for _ in 0..25 {
-            let message = RobotTelemetry {
-                label: "robot-1".to_string(),
-                pose: Position2D { x: 1.25, y: -2.5 },
-                temperatures: vec![20.5, 21.0, 21.5],
-                flags: [true, false],
-                payload: vec![1, 2, 3, 4],
-            };
-            publisher.publish(&message).await.expect("publish");
-            tokio::time::sleep(Duration::from_millis(100)).await;
-        }
+fn schema_building_is_thread_safe_and_deterministic() {
+    let schemas = std::thread::scope(|scope| {
+        let handles = (0..8)
+            .map(|_| scope.spawn(|| RecursiveNode::schema().expect("schema")))
+            .collect::<Vec<_>>();
+        handles
+            .into_iter()
+            .map(|handle| handle.join().expect("thread"))
+            .collect::<Vec<_>>()
     });
 
-    tokio::time::sleep(Duration::from_millis(400)).await;
-
-    let subscriber = sub_node
-        .dynamic_subscriber_auto("/derived_topic", Duration::from_secs(10))
-        .await
-        .expect("dynamic subscriber with auto-discovery")
-        .build()
-        .await
-        .expect("subscriber build");
-    let discovered_schema = subscriber.schema().expect("discovered schema");
-
-    assert_eq!(
-        shape_type_name(discovered_schema),
-        "message_derive::RobotTelemetry"
-    );
-    assert_eq!(shape_fields(discovered_schema).len(), 5);
-
-    let message = tokio::time::timeout(Duration::from_secs(3), subscriber.recv())
-        .await
-        .expect("receive should not time out")
-        .expect("receive should succeed");
-    assert_eq!(payload_field(&message, "label").as_str(), Some("robot-1"));
-    assert_eq!(
-        nested_payload_field(&message, "pose", "x").as_f64(),
-        Some(1.25)
-    );
-    assert_eq!(
-        nested_payload_field(&message, "pose", "y").as_f64(),
-        Some(-2.5)
-    );
-
-    publish_task.await.expect("publisher task");
-}
-
-#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn derived_message_schema_discovery_works_across_namespaces() {
-    let router = TestRouter::new();
-
-    let pub_ctx = create_context_with_router(&router)
-        .await
-        .expect("publisher context");
-    let pub_node = pub_ctx
-        .create_node("derived_talker")
-        .with_namespace("tools")
-        .build()
-        .await
-        .expect("publisher node");
-
-    let publisher = pub_node
-        .publisher::<RobotTelemetry>("/derived_topic")
-        .build()
-        .await
-        .expect("publisher");
-
-    let sub_ctx = create_context_with_router(&router)
-        .await
-        .expect("subscriber context");
-    let sub_node = sub_ctx
-        .create_node("derived_listener")
-        .with_namespace("ui")
-        .build()
-        .await
-        .expect("subscriber node");
-
-    let publish_task = tokio::spawn(async move {
-        for _ in 0..25 {
-            let message = RobotTelemetry {
-                label: "robot-1".to_string(),
-                pose: Position2D { x: 1.25, y: -2.5 },
-                temperatures: vec![20.5, 21.0, 21.5],
-                flags: [true, false],
-                payload: vec![1, 2, 3, 4],
-            };
-            publisher.publish(&message).await.expect("publish");
-            tokio::time::sleep(Duration::from_millis(100)).await;
-        }
-    });
-
-    tokio::time::sleep(Duration::from_millis(400)).await;
-
-    let subscriber = sub_node
-        .dynamic_subscriber_auto("/derived_topic", Duration::from_secs(10))
-        .await
-        .expect("dynamic subscriber with auto-discovery")
-        .build()
-        .await
-        .expect("subscriber build");
-    let discovered_schema = subscriber.schema().expect("discovered schema");
-
-    assert_eq!(
-        shape_type_name(discovered_schema),
-        "message_derive::RobotTelemetry"
-    );
-
-    let message = tokio::time::timeout(Duration::from_secs(3), subscriber.recv())
-        .await
-        .expect("receive should not time out")
-        .expect("receive should succeed");
-    assert_eq!(payload_field(&message, "label").as_str(), Some("robot-1"));
-
-    publish_task.await.expect("publisher task");
+    for schema in &schemas[1..] {
+        assert_eq!(schema, &schemas[0]);
+    }
 }

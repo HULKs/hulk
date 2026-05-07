@@ -1,20 +1,23 @@
-use ros_z::{Message, SchemaHash};
-use ros_z_schema::TypeName;
+use ros_z::{
+    Message, SchemaHash,
+    schema::{MessageSchema, SchemaBuilder},
+};
+use ros_z_schema::{FieldDef, SchemaError, TypeDef, TypeName};
 use serde::{Deserialize, Serialize};
 
 #[test]
 fn type_info_exposes_schema_hash_as_the_public_hash_accessor() {
-    let hash = MockMessage::schema_hash();
+    let hash = MockMessage::schema_hash().unwrap();
     assert_eq!(
         hash.to_hash_string(),
-        "RZHS01_1111111111111111111111111111111111111111111111111111111111111111"
+        "RZHS02_1111111111111111111111111111111111111111111111111111111111111111"
     );
 }
 
 #[test]
 fn type_info_uses_schema_hash() {
-    let info = MockMessage::type_info();
-    assert_eq!(info.hash, Some(MockMessage::schema_hash()));
+    let info = MockMessage::type_info().unwrap();
+    assert_eq!(info.hash, Some(MockMessage::schema_hash().unwrap()));
 }
 
 #[test]
@@ -25,11 +28,11 @@ fn schema_hash_zero_round_trips() {
     assert_eq!(zero_hash.0, [0u8; 32]);
     assert_eq!(
         zero_hash.to_hash_string(),
-        "RZHS01_0000000000000000000000000000000000000000000000000000000000000000"
+        "RZHS02_0000000000000000000000000000000000000000000000000000000000000000"
     );
 
     let parsed_zero = SchemaHash::from_hash_string(
-        "RZHS01_0000000000000000000000000000000000000000000000000000000000000000",
+        "RZHS02_0000000000000000000000000000000000000000000000000000000000000000",
     )
     .unwrap();
     assert_eq!(zero_hash, parsed_zero);
@@ -42,24 +45,26 @@ struct MockMessage;
 impl Message for MockMessage {
     type Codec = ros_z::SerdeCdrCodec<Self>;
 
-    fn type_name() -> &'static str {
-        "mock::StaticMessage"
+    fn type_name() -> String {
+        "mock::StaticMessage".to_string()
     }
 
-    fn schema_hash() -> SchemaHash {
-        SchemaHash::from_hash_string(
-            "RZHS01_1111111111111111111111111111111111111111111111111111111111111111",
+    fn schema_hash() -> Result<SchemaHash, SchemaError> {
+        Ok(SchemaHash::from_hash_string(
+            "RZHS02_1111111111111111111111111111111111111111111111111111111111111111",
         )
-        .unwrap()
+        .unwrap())
     }
+}
 
-    fn schema() -> ros_z::dynamic::Schema {
-        std::sync::Arc::new(ros_z::dynamic::TypeShape::Struct {
-            name: TypeName::new("mock::StaticMessage").expect("valid type name"),
-            fields: vec![
-                ros_z::dynamic::RuntimeFieldSchema::new("name", String::schema()),
-                ros_z::dynamic::RuntimeFieldSchema::new("hash", String::schema()),
-            ],
+impl MessageSchema for MockMessage {
+    fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
+        let name = TypeName::new("mock::StaticMessage")?;
+        builder.define_struct(name, |builder| {
+            Ok(vec![
+                FieldDef::new("name", String::build_schema(builder)?),
+                FieldDef::new("hash", String::build_schema(builder)?),
+            ])
         })
     }
 }
@@ -72,37 +77,34 @@ fn schema_hash_defaults_to_the_message_schema_hash() {
     impl Message for SimpleMessage {
         type Codec = ros_z::SerdeCdrCodec<Self>;
 
-        fn type_name() -> &'static str {
-            "simple::Message"
-        }
-
-        fn schema() -> ros_z::dynamic::Schema {
-            std::sync::Arc::new(ros_z::dynamic::TypeShape::Struct {
-                name: TypeName::new("simple::Message").expect("valid type name"),
-                fields: Vec::new(),
-            })
+        fn type_name() -> String {
+            "simple::Message".to_string()
         }
     }
 
-    let expected_hash =
-        ros_z::dynamic::schema_tree_hash(SimpleMessage::type_name(), &SimpleMessage::schema())
-            .unwrap();
+    impl MessageSchema for SimpleMessage {
+        fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
+            let name = TypeName::new("simple::Message")?;
+            builder.define_struct(name, |_| Ok(Vec::new()))
+        }
+    }
 
-    assert_eq!(SimpleMessage::schema_hash(), expected_hash);
+    let expected_hash = SchemaHash(ros_z_schema::compute_hash(&SimpleMessage::schema().unwrap()).0);
+
+    assert_eq!(SimpleMessage::schema_hash().unwrap(), expected_hash);
 }
 
 #[test]
 fn schema_type_info_uses_rzhs_hash_strings() {
-    let schema = std::sync::Arc::new(ros_z::dynamic::TypeShape::Struct {
-        name: TypeName::new("std_msgs::String").unwrap(),
-        fields: vec![ros_z::dynamic::FieldSchema::new(
-            "data",
-            std::sync::Arc::new(ros_z::dynamic::TypeShape::String),
-        )],
-    });
+    let mut builder = SchemaBuilder::new();
+    let name = TypeName::new("std_msgs::String").unwrap();
+    let root = builder
+        .define_struct(name, |_| Ok(vec![FieldDef::new("data", TypeDef::String)]))
+        .unwrap();
+    let schema = builder.finish(root).unwrap();
 
-    let hash = ros_z::dynamic::schema_tree_hash("std_msgs::String", &schema).unwrap();
-    assert!(hash.to_hash_string().starts_with("RZHS01_"));
+    let hash = SchemaHash(ros_z_schema::compute_hash(&schema).0);
+    assert!(hash.to_hash_string().starts_with("RZHS02_"));
 }
 
 use ros_z::type_info::ServiceTypeInfo;
@@ -113,8 +115,8 @@ fn type_info_module_exports_runtime_traits() {
 
     struct ServiceMarker;
     impl ServiceTypeInfo for ServiceMarker {
-        fn service_type_info() -> ros_z::TypeInfo {
-            ros_z::TypeInfo::new("test_msgs::ServiceMarker", None)
+        fn service_type_info() -> Result<ros_z::TypeInfo, ros_z_schema::SchemaError> {
+            Ok(ros_z::TypeInfo::new("test_msgs::ServiceMarker", None))
         }
     }
 

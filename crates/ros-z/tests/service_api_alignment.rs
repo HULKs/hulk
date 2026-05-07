@@ -1,77 +1,29 @@
 use std::{sync::Arc, time::Duration};
 
-use ros_z::__private::ros_z_schema::TypeName;
 use ros_z::{
-    Message, ServiceTypeInfo,
+    ServiceTypeInfo,
     context::ContextBuilder,
-    dynamic::{RuntimeFieldSchema, Schema, TypeShape},
-    entity::SchemaHash,
+    entity::{SchemaHash, TypeInfo},
     msg::Service,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
-fn struct_schema(name: &str, fields: Vec<RuntimeFieldSchema>) -> Schema {
-    std::sync::Arc::new(TypeShape::Struct {
-        name: TypeName::new(name.to_string()).expect("valid test type name"),
-        fields,
-    })
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, ros_z::Message)]
+#[message(name = "test_msgs::AddTwoIntsRequest")]
 struct AddTwoIntsRequest {
     a: i64,
     b: i64,
-}
-
-impl Message for AddTwoIntsRequest {
-    type Codec = ros_z::SerdeCdrCodec<Self>;
-
-    fn type_name() -> &'static str {
-        "test_msgs::AddTwoIntsRequest"
-    }
-
-    fn schema_hash() -> SchemaHash {
-        SchemaHash::zero()
-    }
-
-    fn schema() -> Schema {
-        struct_schema(
-            "test_msgs::AddTwoIntsRequest",
-            vec![
-                RuntimeFieldSchema::new("a", i64::schema()),
-                RuntimeFieldSchema::new("b", i64::schema()),
-            ],
-        )
-    }
 }
 
 impl ros_z::msg::WireMessage for AddTwoIntsRequest {
     type Codec = ros_z::msg::SerdeCdrCodec<AddTwoIntsRequest>;
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, ros_z::Message)]
+#[message(name = "test_msgs::AddTwoIntsResponse")]
 struct AddTwoIntsResponse {
     sum: i64,
-}
-
-impl Message for AddTwoIntsResponse {
-    type Codec = ros_z::SerdeCdrCodec<Self>;
-
-    fn type_name() -> &'static str {
-        "test_msgs::AddTwoIntsResponse"
-    }
-
-    fn schema_hash() -> SchemaHash {
-        SchemaHash::zero()
-    }
-
-    fn schema() -> Schema {
-        struct_schema(
-            "test_msgs::AddTwoIntsResponse",
-            vec![RuntimeFieldSchema::new("sum", i64::schema())],
-        )
-    }
 }
 
 impl ros_z::msg::WireMessage for AddTwoIntsResponse {
@@ -81,17 +33,16 @@ impl ros_z::msg::WireMessage for AddTwoIntsResponse {
 struct AddTwoInts;
 
 impl ServiceTypeInfo for AddTwoInts {
-    fn service_type_info() -> ros_z::entity::TypeInfo {
+    fn service_type_info() -> Result<TypeInfo, ros_z_schema::SchemaError> {
         let descriptor = ros_z_schema::ServiceDef::new(
             "test_msgs::AddTwoInts",
             "test_msgs::AddTwoIntsRequest",
             "test_msgs::AddTwoIntsResponse",
-        )
-        .expect("service descriptor");
-        ros_z::entity::TypeInfo::new(
+        )?;
+        Ok(TypeInfo::new(
             "test_msgs::AddTwoInts",
             Some(SchemaHash(ros_z_schema::compute_hash(&descriptor).0)),
-        )
+        ))
     }
 }
 
@@ -111,6 +62,7 @@ fn generated_service_and_manual_descriptor_share_the_same_hash() {
 
     assert_eq!(
         AddTwoInts::service_type_info()
+            .expect("generated type info")
             .hash
             .expect("generated hash"),
         ros_z::entity::SchemaHash(ros_z_schema::compute_hash(&manual).0)
