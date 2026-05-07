@@ -47,6 +47,16 @@ trybuild = { workspace = true }
 nalgebra = ["dep:nalgebra"]
 
 [[example]]
+name = "pubsub_talker"
+path = "examples/pubsub/talker.rs"
+required-features = []
+
+[[example]]
+name = "pubsub_listener"
+path = "examples/pubsub/listener.rs"
+required-features = []
+
+[[example]]
 name = "service_server"
 path = "examples/service/server.rs"
 required-features = []
