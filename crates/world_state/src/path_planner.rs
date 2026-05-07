@@ -47,6 +47,7 @@ pub struct PathPlanner {
     pub nodes: Vec<PathNode>,
     pub obstacles: Vec<PathObstacle>,
     pub last_path_direction: Option<Orientation2<Ground>>,
+    pub obstacle_escape_minimum_distance: f32,
     pub rotation_penalty_factor: f32,
 }
 
@@ -264,6 +265,8 @@ impl PathPlanner {
         mut start: Point2<Ground>,
         mut destination: Point2<Ground>,
     ) -> Result<Option<Path>> {
+        let original_start = start;
+
         let closest_circle = self
             .obstacles
             .iter()
@@ -354,7 +357,15 @@ impl PathPlanner {
                 }
             })
             .collect::<Result<Vec<_>>>()
-            .map(|segments| Path { segments })
+            .map(|mut segments| {
+                if (start - original_start).norm() > self.obstacle_escape_minimum_distance {
+                    segments.insert(
+                        0,
+                        PathSegment::LineSegment(LineSegment(original_start, start)),
+                    );
+                }
+                Path { segments }
+            })
             .map(Some)
     }
 

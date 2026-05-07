@@ -57,10 +57,10 @@ pub struct LastBall {
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Blackboard {
-    pub world_state: WorldState,
-    pub parameters: BehaviorParameters,
     pub field_dimensions: FieldDimensions,
-    pub last_motion_command: MotionCommand,
+    pub free_kick_obstacle_radius: f32,
+    pub parameters: BehaviorParameters,
+    pub world_state: WorldState,
 
     pub path_obstacles_output: Vec<PathObstacle>,
     pub time_since_last_switch: Duration,
@@ -69,6 +69,7 @@ pub struct Blackboard {
     pub ball: Option<LastBall>,
     pub last_ball: Option<LastBall>,
     pub last_close_enough_to_kick: bool,
+    pub last_motion_command: MotionCommand,
     pub last_motion_switch_time: SystemTime,
     pub last_motion_type: Option<MotionType>,
 
@@ -91,6 +92,7 @@ pub struct CycleContext {
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     hsl_network_parameters: Parameter<HslNetworkParameters, "hsl_network">,
     parameters: Parameter<BehaviorParameters, "behavior">,
+    free_kick_obstacle_radius: Parameter<f32, "rule_obstacles.free_kick_obstacle_radius">,
 
     behavior_trace: AdditionalOutput<NodeTrace, "behavior.trace">,
     behavior_tree_layout: AdditionalOutput<NodeTrace, "behavior.tree_layout">,
@@ -157,10 +159,10 @@ impl Behavior {
         }
 
         let mut blackboard = Blackboard {
-            world_state: context.world_state.clone(),
-            parameters: context.parameters.clone(),
             field_dimensions: *context.field_dimensions,
-            last_motion_command: context.last_motion_command.clone(),
+            free_kick_obstacle_radius: *context.free_kick_obstacle_radius,
+            parameters: context.parameters.clone(),
+            world_state: context.world_state.clone(),
 
             path_obstacles_output: Vec::new(),
             time_since_last_switch: Duration::ZERO,
@@ -169,6 +171,7 @@ impl Behavior {
             ball: self.ball.clone(),
             last_ball: self.last_ball.clone(),
             last_close_enough_to_kick: self.last_close_enough_to_kick,
+            last_motion_command: context.last_motion_command.clone(),
             last_motion_switch_time: self.last_motion_switch_time,
             last_motion_type: self.last_motion_type,
 
@@ -221,11 +224,12 @@ impl Behavior {
         context
             .time_since_last_switch
             .fill_if_subscribed(|| blackboard.time_since_last_switch);
-        context.direction_difference
+        context
+            .direction_difference
             .fill_if_subscribed(|| blackboard.direction_difference);
-        context.walk_position
+        context
+            .walk_position
             .fill_if_subscribed(|| blackboard.walk_position);
-
 
         Ok(MainOutputs {
             motion_command: motion_command.into(),

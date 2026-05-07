@@ -32,18 +32,19 @@ pub fn plan(
     let field_dimensions = blackboard.field_dimensions;
 
     let mut planner = PathPlanner::default();
+    planner.obstacle_escape_minimum_distance = parameters.obstacle_escape_minimum_distance;
     planner.with_last_motion(
         &blackboard.last_motion_command,
         parameters.rotation_penalty_factor,
     );
     planner.with_obstacles(
         &blackboard.world_state.obstacles,
-        parameters.robot_radius_at_hip_height,
+        parameters.robot_radius,
     );
     planner.with_rule_obstacles(
         ground_to_field.inverse(),
         &blackboard.world_state.rule_obstacles,
-        parameters.robot_radius_at_hip_height,
+        parameters.robot_radius,
     );
     planner.with_field_borders(
         ground_to_field,
@@ -56,15 +57,10 @@ pub fn plan(
     let ball_obstacle = blackboard.world_state.ball.map(|ball| ball.ball_in_ground);
 
     if let Some(ball_position) = ball_obstacle {
-        let foot_proportion =
-            parameters.minimum_robot_radius_at_foot_height / parameters.robot_radius_at_foot_height;
-        let calculated_robot_radius_at_foot_height = parameters.robot_radius_at_foot_height
-            * ((parameters.ball_obstacle_radius_factor * (1.0 - foot_proportion))
-                + foot_proportion);
         planner.with_ball(
             ball_position,
             parameters.ball_obstacle_radius,
-            calculated_robot_radius_at_foot_height,
+            parameters.robot_radius,
         );
     }
 
