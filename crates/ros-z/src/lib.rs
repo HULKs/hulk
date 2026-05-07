@@ -90,7 +90,7 @@ pub mod utils;
 
 pub use attachment::EndpointGlobalId;
 pub use entity::{SchemaHash, TypeInfo};
-pub use message::{EncodedMessage, Message, MessageCodec, SerdeCdrCodec, Service};
+pub use message::{Message, SerdeCdrCodec, Service};
 pub use ros_z_derive::Message;
 pub use schema::{
     EnumSchemaBuilder, MessageSchema, SchemaBuilder, StructSchemaBuilder, TupleVariantSchemaBuilder,

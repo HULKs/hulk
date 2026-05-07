@@ -17,7 +17,6 @@ use crate::topic_name;
 use crate::{
     attachment::{Attachment, EndpointGlobalId},
     entity::{EndpointEntity, endpoint_global_id},
-    impl_with_type_info,
     message::{Message, Service, WireDecoder, WireEncoder},
     qos::QosProfile,
     queue::BoundedQueue,
@@ -33,9 +32,6 @@ pub struct ServiceClientBuilder<T> {
     pub(crate) schema_error: Option<SchemaError>,
     pub(crate) _phantom_data: PhantomData<T>,
 }
-
-impl_with_type_info!(ServiceClientBuilder<T>);
-impl_with_type_info!(ServiceServerBuilder<T>);
 
 /// A native ros-z reusable service handle for typed request/response calls.
 ///

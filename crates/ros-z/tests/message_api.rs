@@ -1,6 +1,6 @@
+use ros_z::Message;
 use ros_z::message::{SerdeCdrCodec, WireDecoder, WireEncoder};
 use ros_z::schema::{MessageSchema, SchemaBuilder};
-use ros_z::{Message, MessageCodec};
 use ros_z_schema::{SchemaError, TypeDef, TypeDefinition, TypeName};
 use serde::{Deserialize, Serialize};
 use zenoh_buffers::buffer::SplitBuffer;
@@ -131,9 +131,9 @@ impl MessageSchema for ApiSmokeMessage {
 #[test]
 fn serde_cdr_codec_roundtrips_message() {
     let original = ApiSmokeMessage { value: 42 };
-    let encoded = <ApiSmokeMessage as Message>::Codec::encode(&original).unwrap();
-    let decoded =
-        <ApiSmokeMessage as Message>::Codec::decode(&encoded.payload.contiguous()).unwrap();
+    let encoded = <ApiSmokeMessage as Message>::Codec::serialize_to_zbuf(&original);
+    let decoded = <ApiSmokeMessage as Message>::Codec::deserialize(&encoded.contiguous())
+        .expect("wire codec should decode encoded message");
     assert_eq!(decoded, original);
 }
 

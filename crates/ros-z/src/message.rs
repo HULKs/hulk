@@ -14,7 +14,6 @@ use std::time::{Duration, SystemTime};
 use zenoh::shm::{PosixShmProviderBackend, ShmProvider};
 use zenoh_buffers::ZBuf;
 
-use crate::encoding::Encoding;
 use crate::entity::TypeInfo;
 use crate::schema::{MessageSchema, SchemaBuilder};
 use crate::shm::ShmWriter;
@@ -60,7 +59,7 @@ pub trait WireEncoder {
     /// # Example
     ///
     /// ```rust,no_run
-    /// use ros_z::msg::{WireEncoder, SerdeCdrCodec};
+    /// use ros_z::message::{WireEncoder, SerdeCdrCodec};
     /// use serde::Serialize;
     ///
     /// #[derive(Serialize)]
@@ -101,7 +100,7 @@ pub trait WireEncoder {
     /// # Example
     ///
     /// ```rust,no_run
-    /// use ros_z::msg::{WireEncoder, SerdeCdrCodec};
+    /// use ros_z::message::{WireEncoder, SerdeCdrCodec};
     /// use ros_z::shm::ShmProviderBuilder;
     /// use serde::Serialize;
     ///
@@ -149,34 +148,11 @@ pub trait WireEncoder {
     fn serialize_to_buf(input: Self::Input<'_>, buffer: &mut Vec<u8>);
 }
 
-/// Encoded payload plus advertised wire encoding metadata.
-pub struct EncodedMessage {
-    /// Serialized message payload.
-    pub payload: ZBuf,
-    /// Encoding advertised alongside the payload.
-    pub encoding: Encoding,
-}
-
-/// Type-level codec used by [`Message`] implementations.
-pub trait MessageCodec<T> {
-    /// Encode a typed value into a payload and encoding descriptor.
-    fn encode(value: &T) -> Result<EncodedMessage, CdrError>;
-    /// Encode a typed value into shared memory when the publisher is configured for SHM.
-    fn encode_to_shm(
-        value: &T,
-        estimated_size: usize,
-        provider: &ShmProvider<PosixShmProviderBackend>,
-    ) -> zenoh::Result<EncodedMessage>;
-    /// Decode contiguous payload bytes into a typed value.
-    fn decode(bytes: &[u8]) -> Result<T, CdrError>;
-    /// Return a conservative serialized-size estimate for `value`.
-    fn encoded_size_hint(value: &T) -> usize;
-}
-
 /// Typed message contract for ros-z publishers, subscribers, services, and schemas.
 pub trait Message: MessageSchema + Send + Sync + Sized + 'static {
     /// Codec used to encode and decode this message type.
-    type Codec: MessageCodec<Self>;
+    type Codec: for<'a> WireEncoder<Input<'a> = &'a Self>
+        + for<'a> WireDecoder<Input<'a> = &'a [u8], Output = Self>;
 
     /// Stable fully qualified type name advertised in graph metadata.
     fn type_name() -> String;
@@ -628,38 +604,6 @@ where
         buffer.extend_from_slice(&CDR_HEADER_LE);
         let mut fast_ser = SerdeCdrSerializer::<LittleEndian>::new(buffer);
         input.serialize(&mut fast_ser).unwrap();
-    }
-}
-
-impl<T> MessageCodec<T> for SerdeCdrCodec<T>
-where
-    T: Serialize + DeserializeOwned,
-{
-    fn encode(value: &T) -> Result<EncodedMessage, CdrError> {
-        Ok(EncodedMessage {
-            payload: Self::serialize_to_zbuf(value),
-            encoding: Encoding::cdr(),
-        })
-    }
-
-    fn encode_to_shm(
-        value: &T,
-        estimated_size: usize,
-        provider: &ShmProvider<PosixShmProviderBackend>,
-    ) -> zenoh::Result<EncodedMessage> {
-        let (payload, _) = Self::serialize_to_shm(value, estimated_size, provider)?;
-        Ok(EncodedMessage {
-            payload,
-            encoding: Encoding::cdr(),
-        })
-    }
-
-    fn decode(bytes: &[u8]) -> Result<T, CdrError> {
-        Self::deserialize(bytes)
-    }
-
-    fn encoded_size_hint(value: &T) -> usize {
-        Self::serialized_size_hint(value)
     }
 }
 

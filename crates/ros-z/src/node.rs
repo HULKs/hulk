@@ -623,9 +623,10 @@ impl Node {
     /// let type_info = TypeInfo::with_hash("std_msgs::String", ros_z_schema::compute_hash(schema.as_ref()));
     /// let publisher = node.dynamic_publisher("chatter", type_info, schema).build().await?;
     ///
-    /// let mut message = DynamicStruct::default_for_schema(publisher.schema())?;
+    /// let mut message = DynamicStruct::default_for_schema(publisher.schema().unwrap())?;
     /// message.set("data", "Hello, world!")?;
-    /// publisher.publish(&message).await?;
+    /// let payload = DynamicPayload::from_struct(message)?;
+    /// publisher.publish(&payload).await?;
     /// ```
     pub fn dynamic_publisher(
         &self,

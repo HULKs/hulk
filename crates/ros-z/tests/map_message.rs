@@ -1,6 +1,7 @@
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use ros_z::{Message, MessageCodec};
+use ros_z::Message;
+use ros_z::message::{WireDecoder, WireEncoder};
 use ros_z_schema::{PrimitiveTypeDef, SequenceLengthDef, TypeDef};
 use serde::{Deserialize, Serialize};
 use zenoh_buffers::buffer::SplitBuffer;
@@ -28,8 +29,9 @@ fn hashmap_btreemap_and_hashset_roundtrip_through_serde_cdr_codec() {
         ids,
     };
 
-    let encoded = <MapMessage as Message>::Codec::encode(&original).unwrap();
-    let decoded = <MapMessage as Message>::Codec::decode(&encoded.payload.contiguous()).unwrap();
+    let encoded = <MapMessage as Message>::Codec::serialize_to_zbuf(&original);
+    let decoded = <MapMessage as Message>::Codec::deserialize(&encoded.contiguous())
+        .expect("wire codec should decode map message");
 
     assert_eq!(decoded, original);
 }

@@ -5,7 +5,8 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use ros_z::{Message, MessageCodec};
+use ros_z::Message;
+use ros_z::message::{WireDecoder, WireEncoder};
 use ros_z_schema::{
     EnumPayloadDef, PrimitiveTypeDef, SequenceLengthDef, TypeDef, TypeDefinition, TypeName,
 };
@@ -219,8 +220,9 @@ fn std_envelope_round_trips_through_cdr() {
         contacts,
     };
 
-    let encoded = <StdEnvelope as Message>::Codec::encode(&original).unwrap();
-    let decoded = <StdEnvelope as Message>::Codec::decode(&encoded.payload.contiguous()).unwrap();
+    let encoded = <StdEnvelope as Message>::Codec::serialize_to_zbuf(&original);
+    let decoded = <StdEnvelope as Message>::Codec::deserialize(&encoded.contiguous())
+        .expect("wire codec should decode std envelope");
 
     assert_eq!(decoded, original);
 }

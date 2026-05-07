@@ -11,7 +11,6 @@ use crate::dynamic::{DynamicCdrCodec, DynamicPayload, Schema};
 use crate::entity::{EndpointEntity, EntityKind, endpoint_global_id};
 use crate::event::EventsManager;
 use crate::graph::Graph;
-use crate::impl_with_type_info;
 use crate::message::WireDecoder;
 use crate::pubsub::metadata::Received;
 use crate::pubsub::raw::{self, RawSubscriberBuilder};
@@ -54,8 +53,6 @@ async fn declare_liveliness(session: &Session, entity: &EndpointEntity) -> Resul
         .await
 }
 
-impl_with_type_info!(SubscriberBuilder<T, C>);
-
 impl<T, C> SubscriberBuilder<T, C>
 where
     T: Send + Sync + 'static,
@@ -63,19 +60,6 @@ where
     pub fn qos(mut self, qos: QosProfile) -> Self {
         self.entity.qos = qos.to_protocol_qos();
         self
-    }
-
-    pub fn codec<C2>(self) -> SubscriberBuilder<T, C2> {
-        SubscriberBuilder {
-            entity: self.entity,
-            session: self.session,
-            graph: self.graph,
-            dyn_schema: self.dyn_schema,
-            schema_error: self.schema_error,
-            locality: self.locality,
-            transient_local_replay_timeout: self.transient_local_replay_timeout,
-            _phantom_data: PhantomData,
-        }
     }
 
     /// Set the locality restriction for this subscription.
@@ -315,7 +299,7 @@ pub struct Subscriber<T, C: WireDecoder = <T as crate::Message>::Codec> {
     events_mgr: Arc<Mutex<EventsManager>>,
     graph: Arc<Graph>,
     /// Schema for dynamic message deserialization.
-    /// Required when using `DynamicStruct` with `DynamicCdrCodec`.
+    /// Required for runtime-typed dynamic subscribers using `DynamicPayload`.
     dyn_schema: Option<Schema>,
     _phantom_data: PhantomData<(T, C)>,
 }
@@ -428,13 +412,14 @@ where
 impl Subscriber<DynamicPayload, DynamicCdrCodec> {
     /// Receive and deserialize the next dynamic message.
     ///
-    /// This method requires that the subscriber was built with `.dyn_schema()`.
+    /// This method requires that the subscriber was built through
+    /// `Node::dynamic_subscriber` or with `.dynamic_schema()`.
     ///
     /// # Errors
     ///
     /// Returns an error if:
     /// - The subscriber was built with a callback (no queue available)
-    /// - The `dyn_schema` was not set via `.dyn_schema()`
+    /// - The dynamic schema was not set via `Node::dynamic_subscriber` or `.dynamic_schema()`
     /// - Deserialization fails
     #[tracing::instrument(name = "recv_dynamic", skip(self), fields(
         topic = %self.entity.topic,

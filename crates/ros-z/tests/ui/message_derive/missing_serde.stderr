@@ -21,12 +21,12 @@ help: the trait `serde_core::ser::Serialize` is not implemented for `MissingSerd
             (T0, T1, T2, T3)
             (T0, T1, T2, T3, T4)
           and $N others
-  = note: required for `SerdeCdrCodec<MissingSerde>` to implement `MessageCodec<MissingSerde>`
+  = note: required for `SerdeCdrCodec<MissingSerde>` to implement `WireEncoder`
 note: required by a bound in `ros_z::Message::Codec`
- --> src/msg.rs
+ --> src/message.rs
   |
-  |     type Codec: MessageCodec<Self>;
-  |                 ^^^^^^^^^^^^^^^^^^ required by this bound in `Message::Codec`
+  |     type Codec: for<'a> WireEncoder<Input<'a> = &'a Self>
+  |                                     ^^^^^^^^^^^^^^^^^^^^ required by this bound in `Message::Codec`
   = note: this error originates in the derive macro `Message` (in Nightly builds, run with -Z macro-backtrace for more info)
 
 error[E0277]: the trait bound `MissingSerde: serde::Deserialize<'de>` is not satisfied
@@ -53,10 +53,12 @@ help: the trait `for<'de> serde_core::de::Deserialize<'de>` is not implemented f
             `(T0, T1, T2)` implements `serde_core::de::Deserialize<'de>`
           and $N others
   = note: required for `MissingSerde` to implement `serde_core::de::DeserializeOwned`
-  = note: required for `SerdeCdrCodec<MissingSerde>` to implement `MessageCodec<MissingSerde>`
+  = note: required for `SerdeCdrCodec<MissingSerde>` to implement `WireDecoder`
 note: required by a bound in `ros_z::Message::Codec`
- --> src/msg.rs
+ --> src/message.rs
   |
-  |     type Codec: MessageCodec<Self>;
-  |                 ^^^^^^^^^^^^^^^^^^ required by this bound in `Message::Codec`
+  |     type Codec: for<'a> WireEncoder<Input<'a> = &'a Self>
+  |          ----- required by a bound in this associated type
+  |         + for<'a> WireDecoder<Input<'a> = &'a [u8], Output = Self>;
+  |                                                     ^^^^^^^^^^^^^ required by this bound in `Message::Codec`
   = note: this error originates in the derive macro `Message` (in Nightly builds, run with -Z macro-backtrace for more info)

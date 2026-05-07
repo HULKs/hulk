@@ -40,8 +40,8 @@ impl RawSubscriber {
 ///
 /// This is produced by [`crate::pubsub::SubscriberBuilder::raw`]. The `T`
 /// and `C` parameters are retained only to preserve the source builder's
-/// message type, type-info, and manual-codec path. Built subscribers deliver
-/// [`Sample`] values directly and do not deserialize with `C`.
+/// message type and associated codec type. Built subscribers deliver [`Sample`]
+/// values directly and do not deserialize with `C`.
 pub struct RawSubscriberBuilder<T, C = <T as crate::Message>::Codec> {
     pub(crate) inner: SubscriberBuilder<T, C>,
 }

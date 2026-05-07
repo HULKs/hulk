@@ -15,7 +15,6 @@ use crate::encoding::Encoding;
 use crate::entity::{EndpointEntity, EntityKind, endpoint_global_id};
 use crate::event::EventsManager;
 use crate::graph::Graph;
-use crate::impl_with_type_info;
 use crate::message::WireEncoder;
 use crate::pubsub::metadata::PublicationId;
 use crate::pubsub::replay::{self, RetainedSample, TransientLocalCache};
@@ -173,8 +172,6 @@ pub struct PublisherBuilder<T, C = <T as crate::Message>::Codec> {
     pub(crate) _phantom_data: PhantomData<(T, C)>,
 }
 
-impl_with_type_info!(PublisherBuilder<T, C>);
-
 impl<T, C> PublisherBuilder<T, C> {
     pub fn qos(mut self, qos: QosProfile) -> Self {
         self.entity.qos = qos.to_protocol_qos();
@@ -236,20 +233,6 @@ impl<T, C> PublisherBuilder<T, C> {
     pub fn without_shm(mut self) -> Self {
         self.shm_config = None;
         self
-    }
-
-    pub fn codec<C2>(self) -> PublisherBuilder<T, C2> {
-        PublisherBuilder {
-            entity: self.entity,
-            session: self.session,
-            graph: self.graph,
-            clock: self.clock,
-            attachment: self.attachment,
-            shm_config: self.shm_config,
-            dyn_schema: self.dyn_schema,
-            schema_error: self.schema_error,
-            _phantom_data: PhantomData,
-        }
     }
 
     /// Set the dynamic schema for runtime-typed publishers.
@@ -633,11 +616,12 @@ impl<T, C: WireEncoder> Publisher<T, C> {
     }
 }
 
-// Specialized implementation for DynamicStruct publisher
+// Specialized implementation for DynamicPayload publisher
 impl Publisher<DynamicPayload, DynamicCdrCodec> {
     /// Get the dynamic schema used by this publisher.
     ///
-    /// Returns `None` if the publisher was not created with `.dyn_schema()`.
+    /// Returns `None` if the publisher was not created through
+    /// `Node::dynamic_publisher` or with `.dynamic_schema()`.
     pub fn schema(&self) -> Option<&SchemaBundle> {
         self.dyn_schema.as_ref().map(|s| s.as_ref())
     }
