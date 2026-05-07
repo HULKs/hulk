@@ -1,11 +1,12 @@
 use std::sync::Arc;
 
-use communication::messages::TextOrBinary;
 use eframe::egui::{Align, Color32, Layout, Response, Slider, Ui, Widget};
 use hulk_widgets::SegmentedControl;
 use serde_json::{Value, json};
 
 use crate::{
+    backend::BackendCapability,
+    log_error::LogError,
     panel::{Panel, PanelCreationContext},
     robot::Robot,
     value_buffer::BufferHandle,
@@ -13,25 +14,44 @@ use crate::{
 
 pub struct BehaviorSimulatorPanel {
     robot: Arc<Robot>,
+    unavailable_reason: Option<&'static str>,
 
     selected_frame: f64,
     selected_robot: usize,
     playing: bool,
     playback_speed: f64,
 
-    selected_frame_updater: BufferHandle<usize>,
-    frame_count: BufferHandle<usize>,
+    selected_frame_updater: Option<BufferHandle<usize>>,
+    frame_count: Option<BufferHandle<usize>>,
 }
 
 impl<'a> Panel<'a> for BehaviorSimulatorPanel {
     const NAME: &'static str = "Behavior Simulator";
 
     fn new(context: PanelCreationContext) -> Self {
-        let selected_frame_updater = context.robot.subscribe_value("simulator.selected_frame");
-
-        let frame_count = context
-            .robot
-            .subscribe_value("BehaviorSimulator.main_outputs.frame_count");
+        let supports_panel = context.robot.has_capability(BackendCapability::ValueWrite)
+            && context
+                .robot
+                .has_capability(BackendCapability::TypedSubscription);
+        let (selected_frame_updater, frame_count, unavailable_reason) = if supports_panel {
+            (
+                Some(context.robot.subscribe_value("simulator.selected_frame")),
+                Some(
+                    context
+                        .robot
+                        .subscribe_value("BehaviorSimulator.main_outputs.frame_count"),
+                ),
+                None,
+            )
+        } else {
+            (
+                None,
+                None,
+                Some(
+                    "Behavior Simulator is unavailable on this backend because simulator writes are not supported.",
+                ),
+            )
+        };
         let selected_frame = context
             .value
             .and_then(|value| value.get("selected_frame"))
@@ -50,6 +70,7 @@ impl<'a> Panel<'a> for BehaviorSimulatorPanel {
 
         Self {
             robot: context.robot,
+            unavailable_reason,
 
             selected_frame,
             selected_robot,
@@ -72,16 +93,25 @@ impl<'a> Panel<'a> for BehaviorSimulatorPanel {
 
 impl Widget for &mut BehaviorSimulatorPanel {
     fn ui(self, ui: &mut Ui) -> Response {
-        if self.selected_frame_updater.has_changed() {
-            self.selected_frame_updater.mark_as_seen();
+        if let Some(reason) = self.unavailable_reason {
+            return ui.label(reason);
+        }
+
+        if self.selected_frame_updater.as_ref().unwrap().has_changed() {
+            self.selected_frame_updater.as_mut().unwrap().mark_as_seen();
             if !self.playing
-                && let Some(selected_frame) =
-                    self.selected_frame_updater.get_last_value().ok().flatten()
+                && let Some(selected_frame) = self
+                    .selected_frame_updater
+                    .as_ref()
+                    .unwrap()
+                    .get_last_value()
+                    .ok()
+                    .flatten()
             {
                 self.selected_frame = selected_frame as f64
             }
         }
-        let frame_count = match self.frame_count.get_last_value() {
+        let frame_count = match self.frame_count.as_ref().unwrap().get_last_value() {
             Ok(Some(frame_count)) => frame_count,
             Ok(None) => return ui.label("no frame data"),
             Err(error) => return ui.colored_label(Color32::RED, format!("Error: {error}")),
@@ -124,10 +154,12 @@ impl Widget for &mut BehaviorSimulatorPanel {
                         )
                         .ui(ui);
                         if response.changed() {
-                            self.robot.write(
-                                "simulator.selected_robot",
-                                TextOrBinary::Text(robots[self.selected_robot].into()),
-                            );
+                            self.robot
+                                .write(
+                                    "simulator.selected_robot",
+                                    robots[self.selected_robot].into(),
+                                )
+                                .log_err();
                         };
                     });
                 });
@@ -145,10 +177,12 @@ impl Widget for &mut BehaviorSimulatorPanel {
         }
         if let Some(new_frame) = new_frame {
             self.selected_frame = (new_frame + frame_count as f64) % frame_count as f64;
-            self.robot.write(
-                "simulator.selected_frame",
-                TextOrBinary::Text((self.selected_frame as usize).into()),
-            );
+            self.robot
+                .write(
+                    "simulator.selected_frame",
+                    (self.selected_frame as usize).into(),
+                )
+                .log_err();
         }
         response
     }

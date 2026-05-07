@@ -1,9 +1,10 @@
 use crate::{
+    backend::BackendCapability,
+    log_error::LogError,
     panel::{Panel, PanelCreationContext},
     robot::Robot,
     value_buffer::BufferHandle,
 };
-use communication::messages::TextOrBinary;
 use eframe::egui::Widget;
 use gilrs::{Axis, Button, Gamepad, Gilrs};
 use serde_json::{Value, json};
@@ -20,8 +21,9 @@ use types::step::Step;
 
 pub struct RemotePanel {
     robot: Arc<Robot>,
+    unavailable_reason: Option<&'static str>,
     enabled: Arc<AtomicBool>,
-    latest_step: BufferHandle<Step>,
+    latest_step: Option<BufferHandle<Step>>,
     bg_running: Arc<AtomicBool>,
     bg_handle: Option<JoinHandle<()>>,
     receiver: Receiver<(Step, f64)>,
@@ -33,9 +35,25 @@ impl<'a> Panel<'a> for RemotePanel {
     fn new(context: PanelCreationContext) -> Self {
         let robot = context.robot.clone();
         let (sender, receiver) = channel((Step::<f32>::default(), f64::default()));
+        let supports_remote = robot.has_capability(BackendCapability::ValueWrite)
+            && robot.has_capability(BackendCapability::TypedSubscription);
+
+        if !supports_remote {
+            return Self {
+                robot,
+                unavailable_reason: Some(
+                    "Remote control is unavailable on this backend because command writes are not supported.",
+                ),
+                enabled: Arc::new(AtomicBool::new(false)),
+                latest_step: None,
+                bg_running: Arc::new(AtomicBool::new(false)),
+                bg_handle: None,
+                receiver,
+            };
+        }
 
         let enabled = Arc::new(AtomicBool::new(false));
-        let latest_step = robot.subscribe_value("parameters.behavior.remote_control.walk");
+        let latest_step = Some(robot.subscribe_value("parameters.behavior.remote_control.walk"));
         let gait_parameter_value = robot.subscribe_json("parameters.rl_walking.gait_frequency");
         let bg_running = Arc::new(AtomicBool::new(true));
 
@@ -162,6 +180,7 @@ impl<'a> Panel<'a> for RemotePanel {
 
         Self {
             robot,
+            unavailable_reason: None,
             enabled,
             latest_step,
             bg_running,
@@ -192,14 +211,18 @@ fn reset(robot: &Arc<Robot>) {
 }
 
 fn update_step(robot: &Arc<Robot>, step: Step, gait_frequency: f64) {
-    robot.write(
-        "parameters.behavior.remote_control.walk",
-        TextOrBinary::Text(serde_json::to_value(step).unwrap()),
-    );
-    robot.write(
-        "parameters.rl_walking.gait_frequency",
-        TextOrBinary::Text(serde_json::to_value(gait_frequency).unwrap()),
-    );
+    robot
+        .write(
+            "parameters.behavior.remote_control.walk",
+            serde_json::to_value(step).unwrap(),
+        )
+        .log_err();
+    robot
+        .write(
+            "parameters.rl_walking.gait_frequency",
+            serde_json::to_value(gait_frequency).unwrap(),
+        )
+        .log_err();
 }
 
 impl Drop for RemotePanel {
@@ -213,6 +236,10 @@ impl Drop for RemotePanel {
 
 impl Widget for &mut RemotePanel {
     fn ui(self, ui: &mut eframe::egui::Ui) -> eframe::egui::Response {
+        if let Some(reason) = self.unavailable_reason {
+            return ui.label(reason);
+        }
+
         let mut enabled = self.enabled.load(Ordering::Relaxed);
         if ui.checkbox(&mut enabled, "Enabled (Start)").changed() {
             self.enabled.store(enabled, Ordering::Relaxed);
@@ -227,7 +254,7 @@ impl Widget for &mut RemotePanel {
         ui.add_space(ui.spacing().item_spacing.y);
         ui.strong("Robot:");
 
-        match self.latest_step.get_last_value() {
+        match self.latest_step.as_ref().unwrap().get_last_value() {
             Ok(Some(step)) => ui.label(format!("{step:#?}\nGait frequency: {gait_frequency:#?}")),
             _ => ui.label("No data"),
         }

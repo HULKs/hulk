@@ -27,7 +27,8 @@ pub enum KeybindAction {
     CloseTab,
     DuplicateTab,
     FocusAbove,
-    FocusAddress,
+    #[serde(alias = "focus_address")]
+    FocusEndpoint,
     FocusBelow,
     FocusLeft,
     FocusPanel,

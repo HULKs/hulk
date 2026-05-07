@@ -2,18 +2,18 @@ use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use eframe::egui::{Label, Response, ScrollArea, Sense, Ui, Widget};
-use hulk_widgets::{PathFilter, RobotPathCompletionEdit};
 use serde_json::{Value, json};
 
 use crate::{
     panel::{Panel, PanelCreationContext},
     robot::Robot,
+    topic_completion_edit::TopicCompletionEdit,
     value_buffer::BufferHandle,
 };
 
 pub struct TextPanel {
     robot: Arc<Robot>,
-    path: String,
+    topic: String,
     buffer: Option<BufferHandle<Value>>,
 }
 
@@ -21,47 +21,50 @@ impl<'a> Panel<'a> for TextPanel {
     const NAME: &'static str = "Text";
 
     fn new(context: PanelCreationContext) -> Self {
-        let path = match context.value.and_then(|value| value.get("path")) {
+        let topic = match context.value.and_then(|value| value.get("topic")) {
             Some(Value::String(string)) => string.to_string(),
             _ => String::new(),
         };
-        let buffer = if !path.is_empty() {
-            Some(context.robot.subscribe_json(path.clone()))
+        let buffer = if !topic.is_empty() {
+            Some(context.robot.subscribe_json(topic.clone()))
         } else {
             None
         };
         Self {
             robot: context.robot,
-            path,
+            topic,
             buffer,
         }
     }
 
     fn save(&self) -> Value {
         json!({
-            "path": self.path.clone()
+            "topic": self.topic.clone()
         })
     }
 }
 
 impl Widget for &mut TextPanel {
     fn ui(self, ui: &mut Ui) -> Response {
+        let topic_state = self.robot.topic_list_state();
         let edit_response = ui
             .horizontal(|ui| {
-                let edit_response = ui.add(RobotPathCompletionEdit::new(
+                let edit_response = ui.add(TopicCompletionEdit::new(
                     ui.id().with("text-panel"),
-                    self.robot.latest_paths(),
-                    &mut self.path,
-                    PathFilter::Readable,
+                    &topic_state,
+                    &mut self.topic,
                 ));
                 if edit_response.changed() {
-                    self.buffer = Some(self.robot.subscribe_json(self.path.clone()));
+                    self.buffer = Some(self.robot.subscribe_json(self.topic.clone()));
                 }
                 if let Some(buffer) = &self.buffer
-                    && let Ok(Some(timestamp)) = buffer.get_last_timestamp()
+                    && let Ok(Some(datum)) = buffer.get_last()
                 {
-                    let date: DateTime<Utc> = timestamp.into();
+                    let date: DateTime<Utc> = datum.timestamp.as_system_time().into();
                     ui.label(date.format("%T%.3f").to_string());
+                    if let Some(source_timestamp) = datum.source_timestamp {
+                        ui.label(format!("src {}", source_timestamp));
+                    }
                 }
                 edit_response
             })

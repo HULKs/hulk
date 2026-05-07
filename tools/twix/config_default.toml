@@ -4,7 +4,7 @@ C-T = "open_tab"
 
 C-r = "reconnect"
 
-C-o = "focus_address"
+C-o = "focus_endpoint"
 C-p = "focus_panel"
 
 C-h = "focus_left"

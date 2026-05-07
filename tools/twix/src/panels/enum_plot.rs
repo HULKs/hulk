@@ -4,7 +4,7 @@ use std::{
     iter::once,
     ops::Range,
     sync::Arc,
-    time::{Duration, SystemTime},
+    time::Duration,
 };
 
 use eframe::{
@@ -18,12 +18,12 @@ use eframe::{
 use itertools::Itertools;
 use serde_json::{Value, json};
 
-use hulk_widgets::{PathFilter, RobotPathCompletionEdit};
-
 use crate::{
+    backend::TwixTime,
     change_buffer::{Change, ChangeBufferHandle},
     panel::{Panel, PanelCreationContext},
     robot::Robot,
+    topic_completion_edit::TopicCompletionEdit,
 };
 
 fn color_hash(value: impl Hash) -> Color32 {
@@ -153,21 +153,21 @@ enum ViewportMode {
 
 #[derive(Default)]
 struct SegmentRow {
-    path: String,
+    topic: String,
     buffer: Option<ChangeBufferHandle<Value>>,
 }
 
 impl SegmentRow {
     fn subscribe(&mut self, robot: Arc<Robot>) {
-        self.buffer = Some(robot.subscribe_changes_json(&self.path));
+        self.buffer = Some(robot.subscribe_changes_json(&self.topic));
     }
 
     fn show_settings(&mut self, ui: &mut Ui, robot: Arc<Robot>) {
-        let subscription_field = ui.add(RobotPathCompletionEdit::new(
+        let topic_state = robot.topic_list_state();
+        let subscription_field = ui.add(TopicCompletionEdit::new(
             ui.auto_id_with("enum-plot"),
-            robot.latest_paths(),
-            &mut self.path,
-            PathFilter::Readable,
+            &topic_state,
+            &mut self.topic,
         ));
 
         if subscription_field.changed() {
@@ -175,7 +175,7 @@ impl SegmentRow {
         }
     }
 
-    fn segments(&self, timestamp_range: &Range<SystemTime>) -> Option<Vec<Segment>> {
+    fn segments(&self, timestamp_range: &Range<TwixTime>) -> Option<Vec<Segment>> {
         let buffer = self.buffer.as_ref()?;
         let series = buffer.get().ok()?;
 
@@ -183,6 +183,7 @@ impl SegmentRow {
             .changes()
             .chain(once(&Change {
                 timestamp: series.last_update()?,
+                source_timestamp: None,
                 value: Value::Null,
             }))
             .tuple_windows()
@@ -218,7 +219,7 @@ impl<'a> Panel<'a> for EnumPlotPanel {
     fn new(context: PanelCreationContext) -> Self {
         let output_keys: Vec<_> = context
             .value
-            .and_then(|value| value.get("paths"))
+            .and_then(|value| value.get("topics"))
             .and_then(|value| value.as_array())
             .map(|values| values.iter().flat_map(|value| value.as_str()).collect())
             .unwrap_or_default();
@@ -227,7 +228,7 @@ impl<'a> Panel<'a> for EnumPlotPanel {
             .iter()
             .map(|&output_key| {
                 let mut result = SegmentRow {
-                    path: String::from(output_key),
+                    topic: String::from(output_key),
                     ..Default::default()
                 };
                 result.subscribe(context.robot.clone());
@@ -248,16 +249,16 @@ impl<'a> Panel<'a> for EnumPlotPanel {
         let paths = self
             .segment_rows
             .iter()
-            .map(|segment_data| &segment_data.path)
+            .map(|segment_data| &segment_data.topic)
             .collect::<Vec<_>>();
         json!({
-            "paths": paths
+            "topics": paths
         })
     }
 }
 
 impl EnumPlotPanel {
-    fn interact(&mut self, response: &Response, ui: &mut Ui, timestamp_range: &Range<SystemTime>) {
+    fn interact(&mut self, response: &Response, ui: &mut Ui, timestamp_range: &Range<TwixTime>) {
         const SCROLL_THRESHOLD: f32 = 1.0;
         const MINIMUM_VISIBLE_DURATION: Duration = Duration::from_millis(10);
 

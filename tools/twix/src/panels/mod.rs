@@ -1,6 +1,4 @@
-mod audio_spectrum;
 mod behavior_simulator;
-mod behavior_tree;
 mod enum_plot;
 mod image;
 mod image_color_select;
@@ -12,11 +10,8 @@ mod parameter;
 mod plot;
 mod remote_control;
 mod text;
-mod vision_tuner;
 
-pub use audio_spectrum::AudioSpectrumPanel;
 pub use behavior_simulator::BehaviorSimulatorPanel;
-pub use behavior_tree::BehaviorTreePanel;
 pub use enum_plot::EnumPlotPanel;
 pub use image::ImagePanel;
 pub use image_color_select::ImageColorSelectPanel;
@@ -28,4 +23,3 @@ pub use parameter::ParameterPanel;
 pub use plot::PlotPanel;
 pub use remote_control::RemotePanel;
 pub use text::TextPanel;
-pub use vision_tuner::VisionTunerPanel;

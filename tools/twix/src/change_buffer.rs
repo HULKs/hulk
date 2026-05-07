@@ -1,27 +1,23 @@
-use std::{
-    fmt::{Debug, Display},
-    time::SystemTime,
-};
+use std::fmt::{Debug, Display};
 
 use color_eyre::Result;
 use color_eyre::eyre::{self, eyre};
-use communication::client::{
-    SubscriptionHandle,
-    protocol::{self, SubscriptionEvent},
-};
-use tokio::{select, sync::watch};
+use tokio::sync::watch;
+
+use crate::backend::TwixTime;
 
 #[derive(Clone, Debug)]
 pub struct Change<T> {
-    pub timestamp: SystemTime,
+    pub timestamp: TwixTime,
+    pub source_timestamp: Option<TwixTime>,
     pub value: T,
 }
 
 #[derive(Clone)]
 pub struct ChangeSeries<T> {
     changes: Vec<Change<T>>,
-    first_update: Option<SystemTime>,
-    last_update: Option<SystemTime>,
+    first_update: Option<TwixTime>,
+    last_update: Option<TwixTime>,
 }
 
 impl<T> ChangeSeries<T> {
@@ -37,11 +33,11 @@ impl<T> ChangeSeries<T> {
         self.changes.iter()
     }
 
-    pub fn first_update(&self) -> Option<SystemTime> {
+    pub fn first_update(&self) -> Option<TwixTime> {
         self.first_update
     }
 
-    pub fn last_update(&self) -> Option<SystemTime> {
+    pub fn last_update(&self) -> Option<TwixTime> {
         self.last_update
     }
 }
@@ -73,50 +69,20 @@ impl<T: PartialEq, E> ChangeBuffer<T, E> {
         (buffer, handle)
     }
 
-    pub async fn map<U: Debug>(
-        self,
-        mut subscription: SubscriptionHandle<U>,
-        op: impl Fn(Result<Change<&U>, &protocol::Error>) -> Result<Change<T>, E>
-        + Send
-        + Sync
-        + 'static,
-    ) {
-        loop {
-            select! {
-                maybe_event = subscription.receiver.recv() => {
-                    match maybe_event {
-                        Ok(event) => {
-                            let maybe_datum = match event.as_ref() {
-                                SubscriptionEvent::Successful { timestamp, value } => Ok(Change {
-                                    timestamp: *timestamp,
-                                    value,
-                                }),
-                                SubscriptionEvent::Update { timestamp, value } => Ok(Change {
-                                    timestamp: *timestamp,
-                                    value,
-                                }),
-                                SubscriptionEvent::Failure { error } => Err(error),
-                            };
-                            let maybe_datum = op(maybe_datum);
-                            match maybe_datum {
-                                Ok(datum) => {
-                                    if datum.timestamp != SystemTime::UNIX_EPOCH {
-                                        self.sender.send_modify(|value| handle_update(value, datum))
-                                    }
-                                }
-                                Err(error) => {
-                                    let _ = self.sender.send(Err(error));
-                                }
-                            }
-                        },
-                        Err(_) => break,
-                    }
-                },
-                _ = self.sender.closed() => {
-                    break
-                }
-            };
-        }
+    pub fn push(&self, datum: Change<T>) {
+        self.sender.send_modify(|value| handle_update(value, datum));
+    }
+
+    pub fn push_error(&self, error: E) {
+        let _ = self.sender.send(Err(error));
+    }
+
+    pub fn is_closed(&self) -> bool {
+        self.sender.receiver_count() == 0
+    }
+
+    pub fn closed(&self) -> impl std::future::Future<Output = ()> + '_ {
+        self.sender.closed()
     }
 }
 

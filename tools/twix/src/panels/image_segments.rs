@@ -1,4 +1,4 @@
-use std::{iter::once, sync::Arc};
+use std::sync::Arc;
 
 use eframe::{
     egui::{ComboBox, Response, Ui, Widget},
@@ -12,7 +12,7 @@ use coordinate_systems::Pixel;
 use serde_json::{Value, json};
 use types::{
     color::{Hsv, RgChromaticity, Rgb},
-    image_segments::{Direction, EdgeType, ImageSegments, ScanLine, Segment},
+    image_segments::{Direction, EdgeType, ImageSegments, Segment},
 };
 
 use crate::{
@@ -171,7 +171,7 @@ impl Widget for &mut ImageSegmentsPanel {
                 let s = hsv.saturation;
                 let v = hsv.value;
                 response = response
-                .on_hover_text_at_pointer(format!("x: {x}, start: {start}, end: {end}\nY: {y:3}, Cb: {cb:3}, Cr: {cr:3}\nR: {r:3}, G: {g:3}, B: {b:3}\nr: {red_chromaticity:.2}, g: {green_chromaticity:.2}, b: {blue_chromaticity:.2}\nH: {h}, S: {s}, V: {v}"));
+                    .on_hover_text_at_pointer(format!("x: {x}, start: {start}, end: {end}\nY: {y:3}, Cb: {cb:3}, Cr: {cr:3}\nR: {r:3}, G: {g:3}, B: {b:3}\nr: {red_chromaticity:.2}, g: {green_chromaticity:.2}, b: {blue_chromaticity:.2}\nH: {h}, S: {s}, V: {v}"));
             }
         }
 
@@ -179,28 +179,30 @@ impl Widget for &mut ImageSegmentsPanel {
             Direction::Horizontal => image_segments.scan_grid.horizontal_scan_lines,
             Direction::Vertical => image_segments.scan_grid.vertical_scan_lines,
         };
-        let max = match self.direction {
-            Direction::Horizontal => 448,
-            Direction::Vertical => 544,
-        };
 
-        for (left, center, right) in once(ScanLine {
-            position: 0,
-            segments: Vec::new(),
-        })
-        .chain(scan_lines)
-        .chain(once(ScanLine {
-            position: max,
-            segments: Vec::new(),
-        }))
-        .tuple_windows()
-        {
+        if let Some([left, right]) = scan_lines.get(0..2) {
+            let width = (right.position - left.position) as f32 / 2.0;
+            let position = left.position as f32 + width / 2.0;
+            for segment in &left.segments {
+                self.draw_segment(position, width, self.direction, segment, &painter);
+            }
+        }
+
+        for (left, center, right) in scan_lines.iter().tuple_windows() {
             let start = left.position as f32 + (center.position - left.position) as f32 / 2.0;
             let end = center.position as f32 + (right.position - center.position) as f32 / 2.0;
             let width = end - start;
             let position = start + width / 2.0;
 
             for segment in &center.segments {
+                self.draw_segment(position, width, self.direction, segment, &painter);
+            }
+        }
+
+        if let Some([left, right]) = scan_lines.windows(2).last() {
+            let width = (right.position - left.position) as f32 / 2.0;
+            let position = right.position as f32 - width / 2.0;
+            for segment in &right.segments {
                 self.draw_segment(position, width, self.direction, segment, &painter);
             }
         }

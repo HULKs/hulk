@@ -1,7 +1,4 @@
-use std::{
-    sync::Arc,
-    time::{Duration, SystemTime},
-};
+use std::{sync::Arc, time::Duration};
 
 use color_eyre::eyre::{Context, OptionExt};
 use eframe::{
@@ -9,15 +6,16 @@ use eframe::{
     epaint::Color32,
 };
 use egui_plot::{Line, MarkerShape, Plot as EguiPlot, PlotPoints, Points};
-use hulk_widgets::{PathFilter, RobotPathCompletionEdit};
 use itertools::Itertools;
 use mlua::{Function, Lua, LuaSerdeExt};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json, to_string_pretty};
 
 use crate::{
+    backend::TwixTime,
     panel::{Panel, PanelCreationContext},
     robot::Robot,
+    topic_completion_edit::TopicCompletionEdit,
     value_buffer::BufferHandle,
 };
 
@@ -36,7 +34,7 @@ const DEFAULT_LINE_COLORS: &[Color32] = &[
 
 #[derive(Serialize, Deserialize)]
 struct LineData {
-    path: String,
+    topic: String,
     #[serde(skip)]
     buffer: Option<BufferHandle<Value>>,
     color: Color32,
@@ -74,7 +72,7 @@ impl LineData {
         let lua_text = "function (value)\n  return value\nend".to_string();
 
         let mut line_data = Self {
-            path: String::new(),
+            topic: String::new(),
             buffer: None,
             color,
             lua,
@@ -93,7 +91,7 @@ impl LineData {
         self.is_highlighted = is_highlighted
     }
 
-    fn plot(&self, latest_timestamp: Option<SystemTime>) -> PlotPoints<'_> {
+    fn plot(&self, latest_timestamp: Option<TwixTime>) -> PlotPoints<'_> {
         let lua_function: Function = self.lua.globals().get("conversion_function").unwrap();
         self.buffer
             .as_ref()
@@ -108,8 +106,7 @@ impl LineData {
                             [
                                 -latest_timestamp
                                     .unwrap()
-                                    .duration_since(datum.timestamp)
-                                    .unwrap_or(Duration::ZERO)
+                                    .saturating_duration_since(datum.timestamp)
                                     .as_secs_f64(),
                                 value,
                             ]
@@ -121,16 +118,16 @@ impl LineData {
     }
 
     fn show_settings(&mut self, ui: &mut Ui, id: usize, robot: &Robot, buffer_history: Duration) {
+        let topic_state = robot.topic_list_state();
         ui.horizontal_top(|ui| {
-            let subscription_field = ui.add(RobotPathCompletionEdit::new(
+            let subscription_field = ui.add(TopicCompletionEdit::new(
                 ui.id().with(id).with("plot-panel"),
-                robot.latest_paths(),
-                &mut self.path,
-                PathFilter::Readable,
+                &topic_state,
+                &mut self.topic,
             ));
             self.set_highlighted(subscription_field.hovered());
             if subscription_field.changed() {
-                let handle = robot.subscribe_buffered_json(&self.path, buffer_history);
+                let handle = robot.subscribe_buffered_json(&self.topic, buffer_history);
                 self.buffer = Some(handle);
             }
 
@@ -215,10 +212,10 @@ impl<'a> Panel<'a> for PlotPanel {
                         let mut line_data =
                             serde_json::from_value::<LineData>(line_data.clone()).ok()?;
                         line_data.set_lua();
-                        if !line_data.path.is_empty() {
+                        if !line_data.topic.is_empty() {
                             let handle = context
                                 .robot
-                                .subscribe_buffered_json(&line_data.path, DEFAULT_BUFFER_HISTORY);
+                                .subscribe_buffered_json(&line_data.topic, DEFAULT_BUFFER_HISTORY);
                             line_data.buffer = Some(handle);
                         }
                         Some(line_data)

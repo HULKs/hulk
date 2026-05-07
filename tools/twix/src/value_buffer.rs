@@ -2,23 +2,19 @@ use std::{
     fmt::{Debug, Display},
     iter::once,
     sync::Arc,
-    time::{Duration, SystemTime},
+    time::Duration,
 };
 
 use color_eyre::Result;
 use color_eyre::eyre::{self, eyre};
-use communication::client::{
-    SubscriptionHandle,
-    protocol::{self, SubscriptionEvent},
-};
-use tokio::{
-    select,
-    sync::{Mutex, watch},
-};
+use tokio::sync::{Mutex, watch};
+
+use crate::backend::TwixTime;
 
 #[derive(Clone, Debug)]
 pub struct Datum<T> {
-    pub timestamp: SystemTime,
+    pub timestamp: TwixTime,
+    pub source_timestamp: Option<TwixTime>,
     pub value: T,
 }
 
@@ -55,7 +51,7 @@ where
         self.receiver.mark_unchanged();
     }
 
-    pub fn get_last_timestamp(&self) -> Result<Option<SystemTime>> {
+    pub fn get_last_timestamp(&self) -> Result<Option<TwixTime>> {
         let guard = self.receiver.borrow();
         match guard.as_ref() {
             Ok(series) => Ok(series.last().map(|datum| datum.timestamp)),
@@ -89,46 +85,22 @@ impl<T, E> Buffer<T, E> {
         (buffer, handle)
     }
 
-    pub async fn map<U: Debug>(
-        self,
-        mut subscription: SubscriptionHandle<U>,
-        op: impl Fn(Result<Datum<&U>, &protocol::Error>) -> Result<Datum<T>, E> + Send + Sync + 'static,
-    ) {
-        loop {
-            select! {
-                maybe_event = subscription.receiver.recv() => {
-                    match maybe_event {
-                        Ok(event) => {
-                            let maybe_datum = match event.as_ref() {
-                                SubscriptionEvent::Successful { timestamp, value } => Ok(Datum {
-                                    timestamp: *timestamp,
-                                    value,
-                                }),
-                                SubscriptionEvent::Update { timestamp, value } => Ok(Datum {
-                                    timestamp: *timestamp,
-                                    value,
-                                }),
-                                SubscriptionEvent::Failure { error } => Err(error),
-                            };
-                            let maybe_datum = op(maybe_datum);
-                            match maybe_datum {
-                                Ok(datum) => {
-                                    let history = *self.history.lock().await;
-                                    self.sender.send_modify(|value| handle_update(value, datum, history))
-                                }
-                                Err(error) => {
-                                    let _ = self.sender.send(Err(error));
-                                }
-                            }
-                        },
-                        Err(_) => break,
-                    }
-                },
-                _ = self.sender.closed() => {
-                    break
-                }
-            };
-        }
+    pub async fn push(&self, datum: Datum<T>) {
+        let history = *self.history.lock().await;
+        self.sender
+            .send_modify(|value| handle_update(value, datum, history));
+    }
+
+    pub fn push_error(&self, error: E) {
+        let _ = self.sender.send(Err(error));
+    }
+
+    pub fn is_closed(&self) -> bool {
+        self.sender.receiver_count() == 0
+    }
+
+    pub fn closed(&self) -> impl std::future::Future<Output = ()> + '_ {
+        self.sender.closed()
     }
 }
 

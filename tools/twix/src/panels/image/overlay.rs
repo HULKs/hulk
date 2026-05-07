@@ -8,11 +8,7 @@ use serde_json::{Value, json};
 
 use coordinate_systems::Pixel;
 
-use crate::{
-    panels::image::overlays::{BallDetection, ObjectDetection},
-    robot::Robot,
-    twix_painter::TwixPainter,
-};
+use crate::{panels::image::overlays::BallDetection, robot::Robot, twix_painter::TwixPainter};
 
 use super::overlays::{FieldBorder, Horizon, LineDetection};
 
@@ -77,7 +73,6 @@ pub struct Overlays {
     pub ball_detection: EnabledOverlay<BallDetection>,
     pub horizon: EnabledOverlay<Horizon>,
     pub field_border: EnabledOverlay<FieldBorder>,
-    pub object_detection: EnabledOverlay<ObjectDetection>,
 }
 
 impl Overlays {
@@ -86,14 +81,12 @@ impl Overlays {
         let ball_detection = EnabledOverlay::new(robot.clone(), storage, false);
         let horizon = EnabledOverlay::new(robot.clone(), storage, false);
         let field_border = EnabledOverlay::new(robot.clone(), storage, false);
-        let object_detection = EnabledOverlay::new(robot.clone(), storage, false);
 
         Self {
             line_detection,
             ball_detection,
             horizon,
             field_border,
-            object_detection,
         }
     }
 
@@ -103,7 +96,6 @@ impl Overlays {
             self.ball_detection.checkbox(ui);
             self.horizon.checkbox(ui);
             self.field_border.checkbox(ui);
-            self.object_detection.checkbox(ui);
         });
     }
 
@@ -112,7 +104,6 @@ impl Overlays {
         self.ball_detection.paint(painter);
         self.horizon.paint(painter);
         self.field_border.paint(painter);
-        self.object_detection.paint(painter);
     }
 
     pub fn save(&self) -> Value {
@@ -121,7 +112,6 @@ impl Overlays {
             "ball_detection": self.ball_detection.save(),
             "horizon": self.horizon.save(),
             "field_border": self.field_border.save(),
-            "object_detection": self.object_detection.save(),
         })
     }
 }

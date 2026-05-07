@@ -1,9 +1,12 @@
 use std::{
-    convert::Into, env::current_dir, iter::once, net::Ipv4Addr, path::PathBuf, str::FromStr,
-    sync::Arc, time::SystemTime,
+    convert::Into,
+    env::current_dir,
+    path::PathBuf,
+    str::FromStr,
+    sync::Arc,
+    time::{Duration, SystemTime},
 };
 
-use argument_parsers::RobotAddress;
 use clap::Parser;
 use color_eyre::{
     Report, Result,
@@ -12,8 +15,8 @@ use color_eyre::{
 use eframe::{
     App, CreationContext, Frame, NativeOptions, Renderer, Storage,
     egui::{
-        Button, CentralPanel, Context, CornerRadius, Id, Label, Layout, RichText, Sense,
-        StrokeKind, TopBottomPanel, Ui, Widget, WidgetText,
+        CentralPanel, Context, CornerRadius, Id, Label, Layout, Sense, StrokeKind, TextEdit,
+        TopBottomPanel, Ui, Widget, WidgetText,
     },
     egui_wgpu::{WgpuConfiguration, WgpuSetup},
     emath::Align,
@@ -23,12 +26,9 @@ use eframe::{
 use egui_dock::{
     DockArea, DockState, LeafNode, Node, NodeIndex, Split, SurfaceIndex, TabAddAlign, TabIndex,
 };
-use itertools::chain;
 use serde_json::{Value, from_str, to_string};
 use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
-use communication::client::Status;
-use communication::messages::TextOrBinary;
 use configuration::{
     Configuration,
     keybind_plugin::{self, KeybindSystem},
@@ -38,36 +38,39 @@ use hulk_widgets::CompletionEdit;
 use log::{error, warn};
 use panel::{Panel, PanelCreationContext};
 use panels::{
-    AudioSpectrumPanel, BehaviorSimulatorPanel, BehaviorTreePanel, EnumPlotPanel,
-    ImageColorSelectPanel, ImagePanel, ImageSegmentsPanel, LookAtPanel, MapPanel,
-    MujocoSimulatorPanel, ParameterPanel, PlotPanel, RemotePanel, TextPanel, VisionTunerPanel,
+    BehaviorSimulatorPanel, EnumPlotPanel, ImageColorSelectPanel, ImagePanel, ImageSegmentsPanel,
+    LookAtPanel, MapPanel, MujocoSimulatorPanel, ParameterPanel, PlotPanel, RemotePanel, TextPanel,
 };
-use reachable_robots::ReachableRobots;
 use repository::{Repository, inspect_version::check_for_update};
 use visuals::Visuals;
 
+use crate::backend::BackendConnectionStatus;
 use crate::robot::Robot;
 
+mod backend;
 mod change_buffer;
 mod configuration;
+mod dynamic_json;
 mod log_error;
 mod panel;
 mod panels;
 mod players_buffer_handle;
-mod reachable_robots;
 mod robot;
 mod selectable_panel_macro;
+mod topic_completion_edit;
 mod twix_painter;
 mod value_buffer;
 mod visuals;
 mod zoom_and_pan;
 
-use crate::value_buffer::BufferHandle;
+const STORAGE_SCHEMA_VERSION_KEY: &str = "storage_schema_version";
+const STORAGE_SCHEMA_VERSION: &str = "2";
+const DEFAULT_ROUTER_ENDPOINT: &str = "tcp/127.0.0.1:7447";
 
 #[derive(Debug, Parser)]
 struct Arguments {
-    /// robot address to connect to (overrides the address saved in the configuration file)
-    pub address: Option<String>,
+    /// router endpoint to connect to (overrides the endpoint saved in the configuration file)
+    pub endpoint: Option<String>,
     /// Alternative repository root
     #[arg(long)]
     repository_root: Option<PathBuf>,
@@ -160,9 +163,7 @@ fn main() -> Result<(), eframe::Error> {
 }
 
 impl_selectable_panel!(
-    AudioSpectrumPanel,
     BehaviorSimulatorPanel,
-    BehaviorTreePanel,
     EnumPlotPanel,
     ImageColorSelectPanel,
     ImagePanel,
@@ -174,16 +175,12 @@ impl_selectable_panel!(
     PlotPanel,
     RemotePanel,
     TextPanel,
-    VisionTunerPanel,
 );
 
 struct TwixApp {
     robot: Arc<Robot>,
-    possible_addresses: Vec<Ipv4Addr>,
-    address: String,
-    reachable_robots: ReachableRobots,
+    endpoint: String,
     connection_intent: bool,
-    remote_stop_toggle: BufferHandle<bool>,
     panel_selection: String,
     last_focused_tab: (NodeIndex, TabIndex),
     dock_state: DockState<Tab>,
@@ -197,46 +194,29 @@ impl TwixApp {
         configuration: Configuration,
         repository: Option<Repository>,
     ) -> Self {
-        let robot_range = configuration.robots.lowest..=configuration.robots.highest;
-        let possible_addresses: Vec<_> = chain!(
-            once(Ipv4Addr::LOCALHOST),
-            robot_range.clone().map(|id| Ipv4Addr::new(10, 0, 24, id)),
-            robot_range.map(|id| Ipv4Addr::new(10, 1, 24, id)),
-        )
-        .collect();
-        let address = arguments
-            .address
-            .and_then(|address| {
-                RobotAddress::from_str(&address)
-                    .map(|robot| robot.ip.to_string())
-                    .ok()
-            })
-            .or_else(|| creation_context.storage?.get_string("address"))
-            .unwrap_or(Ipv4Addr::LOCALHOST.to_string());
+        let Configuration { keys, robots: _ } = configuration;
+        let storage_version = creation_context
+            .storage
+            .and_then(|storage| storage.get_string(STORAGE_SCHEMA_VERSION_KEY));
+        let requires_migration = storage_version.as_deref() != Some(STORAGE_SCHEMA_VERSION);
 
-        let robot = Arc::new(Robot::new(
-            match address.split_once(":") {
-                None | Some((_, "")) => {
-                    format!("ws://{address}:1337")
-                }
-                Some((ip, port)) => {
-                    format!("ws://{ip}:{port}")
-                }
-            },
-            repository,
-        ));
+        let endpoint = arguments
+            .endpoint
+            .or_else(|| creation_context.storage?.get_string("endpoint"))
+            .unwrap_or_else(|| DEFAULT_ROUTER_ENDPOINT.to_string());
+
+        let robot = Arc::new(Robot::new(endpoint.clone(), repository));
 
         let connection_intent = creation_context
             .storage
             .and_then(|storage| storage.get_string("connection_intent"))
             .map(|stored| stored == "true")
-            .unwrap_or(false);
+            .unwrap_or(false)
+            && !requires_migration;
 
         if connection_intent {
             robot.connect();
         }
-
-        let remote_stop_toggle = robot.subscribe_value("parameters.remote_stop_toggle");
 
         let dock_state: Option<DockState<Value>> = if arguments.clear {
             None
@@ -244,7 +224,14 @@ impl TwixApp {
             creation_context
                 .storage
                 .and_then(|storage| storage.get_string("dock_state"))
-                .and_then(|string| from_str(&string).ok())
+                .and_then(|string| from_str::<Value>(&string).ok())
+                .map(|mut saved| {
+                    if requires_migration {
+                        migrate_saved_layout(&mut saved);
+                    }
+                    saved
+                })
+                .and_then(|saved| serde_json::from_value(saved).ok())
         };
 
         let dock_state = match dock_state {
@@ -276,9 +263,8 @@ impl TwixApp {
         let context = creation_context.egui_ctx.clone();
 
         keybind_plugin::register(&context);
-        context.set_keybinds(Arc::new(configuration.keys));
+        context.set_keybinds(Arc::new(keys));
 
-        let reachable_robots = ReachableRobots::new(context.clone());
         robot.on_change(move || context.request_repaint());
 
         let visual = creation_context
@@ -292,15 +278,12 @@ impl TwixApp {
 
         Self {
             robot,
-            reachable_robots,
             connection_intent,
-            remote_stop_toggle,
             panel_selection,
             dock_state,
             last_focused_tab: (0.into(), 0.into()),
             visual,
-            possible_addresses,
-            address,
+            endpoint,
         }
     }
 
@@ -415,49 +398,36 @@ impl TwixApp {
 
 impl App for TwixApp {
     fn update(&mut self, context: &Context, frame: &mut Frame) {
-        self.reachable_robots.update();
+        if matches!(
+            self.robot.connection_status(),
+            BackendConnectionStatus::Connected
+        ) && (self.robot.topic_list_state().discovering
+            || self.robot.config_node_list_state().discovering)
+        {
+            context.request_repaint_after(Duration::from_millis(250));
+        }
 
         TopBottomPanel::top("top_bar").show(context, |ui| {
             ui.horizontal(|ui| {
                 ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
-                    let address_input = CompletionEdit::new(
-                        ui.id().with("robot-selector"),
-                        &self.possible_addresses,
-                        &mut self.address,
-                    )
-                    .ui(ui, |ui, selected, ip| {
-                        let show_green = self.reachable_robots.is_reachable(*ip);
-                        let color = if show_green {
-                            Color32::GREEN
-                        } else {
-                            Color32::WHITE
-                        };
-                        ui.selectable_label(selected, WidgetText::from(ip.to_string()).color(color))
-                    });
+                    let endpoint_input = ui.add(
+                        TextEdit::singleline(&mut self.endpoint)
+                            .hint_text(DEFAULT_ROUTER_ENDPOINT)
+                            .desired_width(220.0),
+                    );
 
-                    if address_input.gained_focus() {
-                        self.reachable_robots.query_reachability();
+                    if context.keybind_pressed(KeybindAction::FocusEndpoint) {
+                        endpoint_input.request_focus();
                     }
-                    if context.keybind_pressed(KeybindAction::FocusAddress) {
-                        address_input.request_focus();
-                    }
-                    if address_input.changed() || address_input.lost_focus() {
-                        match &self.address.split_once(":") {
-                            None | Some((_, "")) => {
-                                let address = &self.address;
-                                self.robot.set_address(format!("ws://{address}:1337"));
-                            }
-                            Some((ip, port)) => {
-                                self.robot.set_address(format!("ws://{ip}:{port}"));
-                            }
-                        }
+                    if endpoint_input.changed() || endpoint_input.lost_focus() {
+                        self.robot.set_address(self.endpoint.clone());
                         self.connection_intent = true;
                         self.robot.connect();
                     }
                     let (connect_text, color) = match self.robot.connection_status() {
-                        Status::Disconnected => ("Disconnected", Color32::RED),
-                        Status::Connecting => ("Connecting", Color32::YELLOW),
-                        Status::Connected => ("Connected", Color32::GREEN),
+                        BackendConnectionStatus::Disconnected => ("Disconnected", Color32::RED),
+                        BackendConnectionStatus::Connecting => ("Connecting", Color32::YELLOW),
+                        BackendConnectionStatus::Connected => ("Connected", Color32::GREEN),
                     };
                     let connect_text = WidgetText::from(connect_text).color(color);
                     if ui
@@ -531,29 +501,7 @@ impl App for TwixApp {
                                 }
                             })
                         });
-                    });
-
-                    if ui
-                        .add(
-                            Button::new(RichText::new("STOP").color(Color32::WHITE))
-                                .fill(Color32::RED),
-                        )
-                        .clicked()
-                    {
-                        match self.remote_stop_toggle.get_last_value() {
-                            Ok(Some(value)) => {
-                                let new_remote_stop_toggle = !value;
-                                self.robot.write(
-                                    "parameters.remote_stop_toggle",
-                                    TextOrBinary::Text(new_remote_stop_toggle.into()),
-                                );
-                            }
-                            Ok(None) => {}
-                            Err(error) => {
-                                error!("failed to read remote_stop_toggle: {error:#?}")
-                            }
-                        }
-                    }
+                    })
                 });
             })
         });
@@ -716,7 +664,11 @@ impl App for TwixApp {
         let dock_state = self.dock_state.map_tabs(|tab| tab.save());
 
         storage.set_string("dock_state", to_string(&dock_state).unwrap());
-        storage.set_string("address", self.address.to_string());
+        storage.set_string(
+            STORAGE_SCHEMA_VERSION_KEY,
+            STORAGE_SCHEMA_VERSION.to_string(),
+        );
+        storage.set_string("endpoint", self.endpoint.to_string());
         storage.set_string(
             "connection_intent",
             if self.connection_intent {
@@ -743,6 +695,57 @@ impl TwixApp {
         } else {
             None
         }
+    }
+}
+
+fn migrate_saved_layout(value: &mut Value) {
+    match value {
+        Value::Array(values) => {
+            for value in values {
+                migrate_saved_layout(value);
+            }
+        }
+        Value::Object(map) => {
+            if let Some(panel_type) = map.get("_panel_type").and_then(Value::as_str) {
+                match panel_type {
+                    "Text" => {
+                        map.remove("path");
+                        map.insert("topic".to_string(), Value::String(String::new()));
+                    }
+                    "Plot" => {
+                        if let Some(Value::Array(lines)) = map.get_mut("lines") {
+                            for line in lines {
+                                if let Value::Object(line) = line {
+                                    line.remove("path");
+                                    line.insert("topic".to_string(), Value::String(String::new()));
+                                }
+                            }
+                        }
+                    }
+                    "Enum Plot" => {
+                        map.remove("paths");
+                        map.insert("topics".to_string(), Value::Array(Vec::new()));
+                    }
+                    "Parameter" => {
+                        map.remove("path");
+                        map.insert("node".to_string(), Value::String(String::new()));
+                        map.insert("field_path".to_string(), Value::String(String::new()));
+                        map.insert("scope".to_string(), Value::String("robot".to_string()));
+                    }
+                    "Audio Spectrum" | "Behavior Tree" | "Synthetic Pose" | "Vision Tuner" => {
+                        map.clear();
+                        map.insert("_panel_type".to_string(), Value::String("Text".to_string()));
+                        map.insert("topic".to_string(), Value::String(String::new()));
+                    }
+                    _ => {}
+                }
+            }
+
+            for value in map.values_mut() {
+                migrate_saved_layout(value);
+            }
+        }
+        _ => {}
     }
 }
 

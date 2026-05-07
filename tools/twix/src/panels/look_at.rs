@@ -1,6 +1,5 @@
 use std::{ops::RangeInclusive, sync::Arc};
 
-use communication::messages::TextOrBinary;
 use eframe::{
     egui::{Response, Slider, TextFormat, Ui, Widget},
     epaint::{Color32, FontId, text::LayoutJob},
@@ -15,6 +14,8 @@ use types::{
 };
 
 use crate::{
+    backend::BackendCapability,
+    log_error::LogError,
     panel::{Panel, PanelCreationContext},
     robot::Robot,
     value_buffer::BufferHandle,
@@ -28,11 +29,12 @@ enum LookAtType {
 
 pub struct LookAtPanel {
     robot: Arc<Robot>,
+    unavailable_reason: Option<&'static str>,
     look_at_target: Point2<Ground, f32>,
     look_at_mode: LookAtType,
     is_enabled: bool,
-    field_dimensions_buffer: BufferHandle<FieldDimensions>,
-    motion_command_buffer: BufferHandle<MotionCommand>,
+    field_dimensions_buffer: Option<BufferHandle<FieldDimensions>>,
+    motion_command_buffer: Option<BufferHandle<MotionCommand>>,
 }
 
 const INJECTED_MOTION_COMMAND: &str = "parameters.behavior.injected_motion_command";
@@ -43,12 +45,33 @@ impl<'a> Panel<'a> for LookAtPanel {
     const NAME: &'static str = "Look At";
 
     fn new(context: PanelCreationContext) -> Self {
-        let field_dimensions_buffer = context.robot.subscribe_value("parameters.field_dimensions");
-        let motion_command_buffer = context
-            .robot
-            .subscribe_value("WorldState.main_outputs.motion_command");
+        let supports_panel = context.robot.has_capability(BackendCapability::ValueWrite)
+            && context
+                .robot
+                .has_capability(BackendCapability::TypedSubscription);
+        let (field_dimensions_buffer, motion_command_buffer, unavailable_reason) = if supports_panel
+        {
+            (
+                Some(context.robot.subscribe_value("parameters.field_dimensions")),
+                Some(
+                    context
+                        .robot
+                        .subscribe_value("WorldState.main_outputs.motion_command"),
+                ),
+                None,
+            )
+        } else {
+            (
+                None,
+                None,
+                Some(
+                    "Look At is unavailable on this backend because command writes are not supported.",
+                ),
+            )
+        };
         Self {
             robot: context.robot,
+            unavailable_reason,
             look_at_target: DEFAULT_TARGET,
             look_at_mode: LookAtType::PenaltyBoxFromCenter,
             is_enabled: false,
@@ -60,6 +83,10 @@ impl<'a> Panel<'a> for LookAtPanel {
 
 impl Widget for &mut LookAtPanel {
     fn ui(self, ui: &mut Ui) -> Response {
+        if let Some(reason) = self.unavailable_reason {
+            return ui.label(reason);
+        }
+
         ui.vertical(|ui| {
             let error_format = TextFormat {
                 color: Color32::RED,
@@ -68,7 +95,12 @@ impl Widget for &mut LookAtPanel {
             let mut status_text_job = LayoutJob::default();
             let leading_space = 10.0f32;
 
-            let current_motion_command = match self.motion_command_buffer.get_last_value() {
+            let current_motion_command = match self
+                .motion_command_buffer
+                .as_ref()
+                .unwrap()
+                .get_last_value()
+            {
                 Ok(Some(value)) => {
                     status_text_job.append(
                         format!("Current Motion: {value:?}.").as_str(),
@@ -97,7 +129,6 @@ impl Widget for &mut LookAtPanel {
                 current_motion_command,
                 Some(
                     MotionCommand::Stand { .. }
-                        | MotionCommand::VisualKick { .. }
                         | MotionCommand::Walk { .. }
                         | MotionCommand::WalkWithVelocity { .. }
                 )
@@ -121,12 +152,18 @@ impl Widget for &mut LookAtPanel {
                         send_standing_look_at(self.robot.as_ref(), self.look_at_target);
                     } else {
                         self.robot
-                            .write(INJECTED_MOTION_COMMAND, TextOrBinary::Text(Value::Null));
+                            .write(INJECTED_MOTION_COMMAND, Value::Null)
+                            .log_err();
                     }
                 }
             });
 
-            let current_field_dimensions = match self.field_dimensions_buffer.get_last_value() {
+            let current_field_dimensions = match self
+                .field_dimensions_buffer
+                .as_ref()
+                .unwrap()
+                .get_last_value()
+            {
                 Ok(Some(value)) => Some(value),
                 Ok(None) => {
                     status_text_job.append(
@@ -220,8 +257,10 @@ fn send_standing_look_at(robot: &Robot, look_at_target: Point2<Ground, f32>) {
             image_region_target: ImageRegion::Center,
         },
     });
-    robot.write(
-        INJECTED_MOTION_COMMAND,
-        TextOrBinary::Text(serde_json::to_value(motion_command).unwrap()),
-    );
+    robot
+        .write(
+            INJECTED_MOTION_COMMAND,
+            serde_json::to_value(motion_command).unwrap(),
+        )
+        .log_err();
 }
