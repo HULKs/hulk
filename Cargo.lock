@@ -11977,6 +11977,7 @@ dependencies = [
  "hsl_network_messages",
  "linear_algebra",
  "path_serde",
+ "ros-z",
  "serde",
 ]
 

@@ -11,3 +11,4 @@ hsl_network_messages = { workspace = true }
 linear_algebra = { workspace = true }
 serde = { workspace = true }
 path_serde = { workspace = true }
+ros-z = { workspace = true }

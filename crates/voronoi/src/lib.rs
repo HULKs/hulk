@@ -4,6 +4,7 @@ use coordinate_systems::Field;
 use hsl_network_messages::PlayerNumber;
 use linear_algebra::{Point2, point};
 use path_serde::{PathIntrospect, PathSerialize};
+use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
 const STRAIGHT_COST: f32 = 1.0;
@@ -70,7 +71,16 @@ pub const NEIGHBORS: [Neighbor; 8] = [
 ];
 
 #[derive(
-    PartialEq, Clone, Copy, Default, Debug, Deserialize, Serialize, PathIntrospect, PathSerialize,
+    PartialEq,
+    Clone,
+    Copy,
+    Default,
+    Debug,
+    Deserialize,
+    Serialize,
+    PathIntrospect,
+    PathSerialize,
+    Message,
 )]
 pub enum Ownership {
     Blocked,
@@ -80,7 +90,7 @@ pub enum Ownership {
 }
 
 #[derive(
-    PartialEq, Clone, Debug, Deserialize, Serialize, Default, PathIntrospect, PathSerialize,
+    PartialEq, Clone, Debug, Deserialize, Serialize, Default, PathIntrospect, PathSerialize, Message,
 )]
 pub struct VoronoiGrid {
     pub tiles: Vec<Ownership>,
