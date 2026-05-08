@@ -10,7 +10,7 @@ use ordered_float::NotNan;
 use serde::{Deserialize, Serialize};
 use types::{
     field_dimensions::FieldDimensions, obstacles::Obstacle, parameters::VoronoiParameters,
-    rule_obstacles::RuleObstacle,
+    players::Players, rule_obstacles::RuleObstacle, world_state::PlayerState,
 };
 use voronoi::{NEIGHBORS, Ownership, VoronoiGrid};
 
@@ -30,6 +30,7 @@ pub struct CycleContext {
     ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
     rule_obstacles: Input<Vec<RuleObstacle>, "rule_obstacles">,
     obstacles: Input<Vec<Obstacle>, "obstacles">,
+    player_states: Input<Players<Option<PlayerState>>, "player_states">,
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     voronoi_parameters: Parameter<VoronoiParameters, "behavior.voronoi">,
@@ -60,11 +61,15 @@ impl TargetPositionComposer {
         );
 
         if let Some(ground_to_field) = context.ground_to_field {
-            // TODO: Import the other Robot positions
             let mut sites = vec![(ground_to_field.as_pose(), *context.player_number)];
-            for fake_robot in context.voronoi_parameters.fake_robot_position.iter() {
-                sites.push(*fake_robot);
+            for player in context.player_states.iter() {
+                if let Some(player_state) = player.1
+                    && player.0 != *context.player_number
+                {
+                    sites.push((player_state.pose, player.0));
+                }
             }
+
             context
                 .input_points
                 .fill_if_subscribed(|| sites.iter().map(|(pose, _)| *pose).collect());
