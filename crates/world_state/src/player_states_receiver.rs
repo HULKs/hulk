@@ -10,6 +10,7 @@ use hsl_network_messages::{HulkMessage, PlayerNumber};
 use linear_algebra::Isometry2;
 use linear_algebra::Vector2;
 use serde::{Deserialize, Serialize};
+use types::filtered_game_controller_state::FilteredGameControllerState;
 use types::{
     ball_position::BallPosition, cycle_time::CycleTime, messages::IncomingMessage,
     parameters::HslNetworkParameters, players::Players, world_state::PlayerState,
@@ -29,6 +30,8 @@ pub struct CycleContext {
     cycle_time: Input<CycleTime, "cycle_time">,
     ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
     ball_position: Input<Option<BallPosition<Ground>>, "ball_position?">,
+    game_controller_state:
+        Input<Option<FilteredGameControllerState>, "filtered_game_controller_state?">,
 
     fall_down_state: PerceptionInput<Option<FallDownState>, "FallDownState", "fall_down_state?">,
     network_message: PerceptionInput<Option<IncomingMessage>, "HslNetwork", "filtered_message?">,
@@ -58,6 +61,15 @@ impl PlayerStatesReceiver {
     }
 
     pub fn cycle(&mut self, context: CycleContext<impl NetworkInterface>) -> Result<MainOutputs> {
+        if let Some(game_controller_state) = context.game_controller_state {
+            let penaltys = game_controller_state.penalties;
+            for (player_number, penalty) in penaltys.iter() {
+                if penalty.is_some() {
+                    self.last_player_states[player_number] = None;
+                }
+            }
+        }
+
         let messages = context
             .network_message
             .persistent
