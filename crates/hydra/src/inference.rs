@@ -23,7 +23,7 @@ use types::{
     pose_detection::{NUMBER_OF_VALUES_PER_POSE, Pose},
 };
 
-const MODEL_FILE_NAME: &str = "yolo26m-tuned_pose-tuned-hydra-nv12.onnx";
+const MODEL_FILE_NAME: &str = "yolo26m-seg=f11+yolo26m~cheek+yolo26m-pose~badge.onnx";
 pub const NUMBER_OF_DETECTIONS: usize = 300;
 
 #[derive(Clone, Copy, Debug)]
@@ -35,7 +35,7 @@ enum TaskHead {
 impl TaskHead {
     fn output_name(self) -> &'static str {
         match self {
-            TaskHead::ObjectDetection => "detection_output",
+            TaskHead::ObjectDetection => "object_output",
             TaskHead::PoseDetection => "pose_output",
         }
     }
