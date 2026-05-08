@@ -27,8 +27,7 @@ use types::{
     },
 };
 
-const MODEL_FILE_NAME: &str =
-    "yolo26m=f11+yolo26m~ruckus+yolo26m-pose~saloon+yolo26m-seg~promise.onnx";
+const MODEL_FILE_NAME: &str = "yolo26m-seg=f11+yolo26m~cheek+yolo26m-pose~badge+yolo26m-seg.onnx";
 pub const NUMBER_OF_DETECTIONS: usize = 300;
 
 #[derive(Clone, Copy, Debug)]
