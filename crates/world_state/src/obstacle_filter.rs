@@ -17,10 +17,11 @@ use types::{
     cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
     multivariate_normal_distribution::MultivariateNormalDistribution,
-    object_detection::{Object, RobocupObjectLabel},
+    object_detection::{Object, RobocupObjectLabel, YOLOObjectLabel},
     obstacle_filter::Hypothesis,
     obstacles::{Obstacle, ObstacleKind},
     parameters::ObstacleFilterParameters,
+    pose_detection::Pose,
     primary_state::PrimaryState,
 };
 
@@ -53,6 +54,7 @@ pub struct CycleContext {
 
     fall_down_state: PerceptionInput<Option<FallDownState>, "FallDownState", "fall_down_state?">,
     detected_objects: PerceptionInput<Vec<Object<RobocupObjectLabel>>, "Hydra", "detected_objects">,
+    detected_poses: PerceptionInput<Vec<Pose<YOLOObjectLabel>>, "Hydra", "detected_poses">,
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     obstacle_filter_parameters: Parameter<ObstacleFilterParameters, "obstacle_filter">,
@@ -75,9 +77,20 @@ impl ObstacleFilter {
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let field_dimensions = context.field_dimensions;
         let cycle_start_time = context.cycle_time.start_time;
-        let measurements = context.detected_objects.persistent.iter();
+        let measurements =
+            context
+                .detected_objects
+                .persistent
+                .iter()
+                .map(|(detection_time, detected_objects)| {
+                    (
+                        detection_time,
+                        detected_objects,
+                        context.detected_poses.persistent[detection_time].clone(),
+                    )
+                });
 
-        for (detection_time, detected_objects) in measurements {
+        for (detection_time, detected_objects, detected_poses) in measurements {
             let current_odometry_to_last_odometry = context
                 .current_odometry_to_last_odometry
                 .get_nearest(detection_time)
@@ -113,7 +126,7 @@ impl ObstacleFilter {
             if let Some(camera_matrix) = camera_matrix
                 && context.obstacle_filter_parameters.use_detected_objects
             {
-                let measured_positions_in_control_cycle = detected_objects
+                let measured_object_positions_in_control_cycle = detected_objects
                     .iter()
                     .flat_map(|detections| detections.iter())
                     .filter_map(|detected_object| {
@@ -133,7 +146,32 @@ impl ObstacleFilter {
                                 ObstacleKind::Robot,
                                 context.obstacle_filter_parameters.robot_measurement_noise,
                             ),
-                            RobocupObjectLabel::Person => (
+                            _ => return None,
+                        };
+
+                        let bottom_center_position = {
+                            let Rectangle { min, max } = bounding_box.area;
+
+                            point![min.x() + (max.x() - min.x()) / 2.0, max.y()]
+                        };
+
+                        let obstacle_center: Point2<Ground> =
+                            camera_matrix.pixel_to_ground(bottom_center_position).ok()?;
+
+                        Some((kind, obstacle_center, measurement_noise))
+                    });
+
+                let measured_pose_positions_in_control_cycle = detected_poses
+                    .iter()
+                    .flat_map(|detections| detections.iter())
+                    .filter_map(|detected_pose| {
+                        let Object {
+                            label,
+                            bounding_box,
+                        } = detected_pose.object;
+
+                        let (kind, measurement_noise) = match label {
+                            YOLOObjectLabel::Person => (
                                 ObstacleKind::Person,
                                 context.obstacle_filter_parameters.person_measurement_noise,
                             ),
@@ -152,7 +190,10 @@ impl ObstacleFilter {
                         Some((kind, obstacle_center, measurement_noise))
                     });
 
-                for (kind, position, measurement_noise) in measured_positions_in_control_cycle {
+                for (kind, position, measurement_noise) in
+                    measured_object_positions_in_control_cycle
+                        .chain(measured_pose_positions_in_control_cycle)
+                {
                     self.update_hypotheses_with_measurement(
                         position,
                         kind,

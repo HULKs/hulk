@@ -336,7 +336,6 @@ pub enum RobocupObjectLabel {
     Robot = 4,
     TSpot = 5,
     XSpot = 6,
-    Person = 7,
 }
 
 impl LabelIndex for RobocupObjectLabel {
@@ -349,7 +348,6 @@ impl LabelIndex for RobocupObjectLabel {
             4 => Self::Robot,
             5 => Self::TSpot,
             6 => Self::XSpot,
-            7 => Self::Person,
             _ => unimplemented!(),
         }
     }
@@ -365,7 +363,6 @@ impl From<RobocupObjectLabel> for String {
             RobocupObjectLabel::Robot => "Robot",
             RobocupObjectLabel::TSpot => "TSpot",
             RobocupObjectLabel::XSpot => "XSpot",
-            RobocupObjectLabel::Person => "Person",
         }
         .to_string()
     }
