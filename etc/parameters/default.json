@@ -568,6 +568,8 @@
     "goal_post_measurement_noise": [500.0, 500.0],
     "robot_measurement_noise": [500.0, 500.0],
     "person_measurement_noise": [500.0, 500.0],
+    "person_feet_keypoints_confidence_threshold": 0.8,
+    "person_object_confidence_threshold": 0.8,
     "measurement_count_threshold": 10,
     "robot_obstacle_radius_at_hip_height": 0.5,
     "robot_obstacle_radius_at_foot_height": 0.5,

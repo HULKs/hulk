@@ -12,7 +12,7 @@ use context_attribute::context;
 use coordinate_systems::{Field, Ground};
 use filtering::kalman_filter::KalmanFilter;
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
-use linear_algebra::{IntoFramed, Isometry2, Point2, point};
+use linear_algebra::{IntoFramed, Isometry2, Point2, center, point};
 use types::{
     cycle_time::CycleTime,
     field_dimensions::FieldDimensions,
@@ -57,7 +57,7 @@ pub struct CycleContext {
     detected_poses: PerceptionInput<Vec<Pose<YOLOObjectLabel>>, "Hydra", "detected_poses">,
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    obstacle_filter_parameters: Parameter<ObstacleFilterParameters, "obstacle_filter">,
+    parameters: Parameter<ObstacleFilterParameters, "obstacle_filter">,
 }
 
 #[context]
@@ -77,6 +77,7 @@ impl ObstacleFilter {
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
         let field_dimensions = context.field_dimensions;
         let cycle_start_time = context.cycle_time.start_time;
+        let parameters = context.parameters;
         let measurements =
             context
                 .detected_objects
@@ -99,7 +100,7 @@ impl ObstacleFilter {
 
             self.predict_hypotheses_with_odometry(
                 current_odometry_to_last_odometry.inverse(),
-                Matrix2::from_diagonal(&context.obstacle_filter_parameters.process_noise),
+                Matrix2::from_diagonal(&parameters.process_noise),
             );
 
             let camera_matrix = context.camera_matrix.get_nearest(detection_time);
@@ -111,96 +112,30 @@ impl ObstacleFilter {
                     *network_robot_obstacle,
                     ObstacleKind::Robot,
                     *detection_time,
-                    context
-                        .obstacle_filter_parameters
-                        .network_robot_measurement_matching_distance,
-                    Matrix2::from_diagonal(
-                        &context
-                            .obstacle_filter_parameters
-                            .network_robot_measurement_noise,
-                    ),
+                    parameters.network_robot_measurement_matching_distance,
+                    Matrix2::from_diagonal(&parameters.network_robot_measurement_noise),
                     MeasurementKind::NetworkRobot,
                 );
             }
 
             if let Some(camera_matrix) = camera_matrix
-                && context.obstacle_filter_parameters.use_detected_objects
+                && parameters.use_detected_objects
             {
-                let measured_object_positions_in_control_cycle = detected_objects
-                    .iter()
-                    .flat_map(|detections| detections.iter())
-                    .filter_map(|detected_object| {
-                        let Object {
-                            label,
-                            bounding_box,
-                        } = detected_object;
+                let measured_object_positions =
+                    measured_object_positions(parameters, detected_objects, camera_matrix);
 
-                        let (kind, measurement_noise) = match label {
-                            RobocupObjectLabel::GoalPost => (
-                                ObstacleKind::GoalPost,
-                                context
-                                    .obstacle_filter_parameters
-                                    .goal_post_measurement_noise,
-                            ),
-                            RobocupObjectLabel::Robot => (
-                                ObstacleKind::Robot,
-                                context.obstacle_filter_parameters.robot_measurement_noise,
-                            ),
-                            _ => return None,
-                        };
+                let measured_pose_positions =
+                    measured_pose_positions(parameters, &detected_poses, camera_matrix);
 
-                        let bottom_center_position = {
-                            let Rectangle { min, max } = bounding_box.area;
-
-                            point![min.x() + (max.x() - min.x()) / 2.0, max.y()]
-                        };
-
-                        let obstacle_center: Point2<Ground> =
-                            camera_matrix.pixel_to_ground(bottom_center_position).ok()?;
-
-                        Some((kind, obstacle_center, measurement_noise))
-                    });
-
-                let measured_pose_positions_in_control_cycle = detected_poses
-                    .iter()
-                    .flat_map(|detections| detections.iter())
-                    .filter_map(|detected_pose| {
-                        let Object {
-                            label,
-                            bounding_box,
-                        } = detected_pose.object;
-
-                        let (kind, measurement_noise) = match label {
-                            YOLOObjectLabel::Person => (
-                                ObstacleKind::Person,
-                                context.obstacle_filter_parameters.person_measurement_noise,
-                            ),
-                            _ => return None,
-                        };
-
-                        let bottom_center_position = {
-                            let Rectangle { min, max } = bounding_box.area;
-
-                            point![min.x() + (max.x() - min.x()) / 2.0, max.y()]
-                        };
-
-                        let obstacle_center: Point2<Ground> =
-                            camera_matrix.pixel_to_ground(bottom_center_position).ok()?;
-
-                        Some((kind, obstacle_center, measurement_noise))
-                    });
-
-                for (kind, position, measurement_noise) in
-                    measured_object_positions_in_control_cycle
-                        .chain(measured_pose_positions_in_control_cycle)
+                for (kind, position, measurement_noise) in measured_object_positions
+                    .into_iter()
+                    .chain(measured_pose_positions)
                 {
                     self.update_hypotheses_with_measurement(
                         position,
                         kind,
                         *detection_time,
-                        context
-                            .obstacle_filter_parameters
-                            .object_detection_measurement_matching_distance,
+                        parameters.object_detection_measurement_matching_distance,
                         Matrix2::from_diagonal(&measurement_noise),
                         MeasurementKind::Own,
                     );
@@ -210,8 +145,8 @@ impl ObstacleFilter {
 
         self.remove_hypotheses(
             cycle_start_time,
-            context.obstacle_filter_parameters.hypothesis_timeout,
-            context.obstacle_filter_parameters.hypothesis_merge_distance,
+            parameters.hypothesis_timeout,
+            parameters.hypothesis_merge_distance,
         );
 
         let became_unpenalized = self.last_primary_state == PrimaryState::Penalized
@@ -244,32 +179,25 @@ impl ObstacleFilter {
             .hypotheses
             .iter()
             .filter(|hypothesis| {
-                hypothesis.measurement_count
-                    > context
-                        .obstacle_filter_parameters
-                        .measurement_count_threshold
+                hypothesis.measurement_count > parameters.measurement_count_threshold
             })
             .map(|hypothesis| {
                 let (radius_at_hip_height, radius_at_foot_height) = match hypothesis.obstacle_kind {
                     ObstacleKind::Robot => (
-                        context
-                            .obstacle_filter_parameters
-                            .robot_obstacle_radius_at_hip_height,
-                        context
-                            .obstacle_filter_parameters
-                            .robot_obstacle_radius_at_foot_height,
+                        parameters.robot_obstacle_radius_at_hip_height,
+                        parameters.robot_obstacle_radius_at_foot_height,
                     ),
                     ObstacleKind::Person => (
-                        context.obstacle_filter_parameters.person_obstacle_radius,
-                        context.obstacle_filter_parameters.person_obstacle_radius,
+                        parameters.person_obstacle_radius,
+                        parameters.person_obstacle_radius,
                     ),
                     ObstacleKind::GoalPost => (
-                        context.obstacle_filter_parameters.goal_post_obstacle_radius,
-                        context.obstacle_filter_parameters.goal_post_obstacle_radius,
+                        parameters.goal_post_obstacle_radius,
+                        parameters.goal_post_obstacle_radius,
                     ),
                     ObstacleKind::Unknown => (
-                        context.obstacle_filter_parameters.unknown_obstacle_radius,
-                        context.obstacle_filter_parameters.unknown_obstacle_radius,
+                        parameters.unknown_obstacle_radius,
+                        parameters.unknown_obstacle_radius,
                     ),
                     _ => panic!("Unexpected obstacle radius"),
                 };
@@ -283,12 +211,9 @@ impl ObstacleFilter {
             .collect::<Vec<_>>();
         let goal_posts =
             calculate_goal_post_positions(context.current_ground_to_field, field_dimensions);
-        let goal_post_obstacles = goal_posts.into_iter().map(|goal_post| {
-            Obstacle::goal_post(
-                goal_post,
-                context.obstacle_filter_parameters.goal_post_obstacle_radius,
-            )
-        });
+        let goal_post_obstacles = goal_posts
+            .into_iter()
+            .map(|goal_post| Obstacle::goal_post(goal_post, parameters.goal_post_obstacle_radius));
         context
             .obstacle_filter_hypotheses
             .fill_if_subscribed(|| self.hypotheses.clone());
@@ -426,6 +351,96 @@ impl ObstacleFilter {
         }
         self.hypotheses = deduplicated_hypotheses;
     }
+}
+
+fn measured_object_positions(
+    parameters: &ObstacleFilterParameters,
+    detected_objects: &Vec<&Vec<Object<RobocupObjectLabel>>>,
+    camera_matrix: &CameraMatrix,
+) -> impl IntoIterator<Item = (ObstacleKind, Point2<Ground>, nalgebra::Vector2<f32>)> {
+    detected_objects
+        .iter()
+        .flat_map(|detections| detections.iter())
+        .filter_map(|detected_object| {
+            let Object {
+                label,
+                bounding_box,
+            } = detected_object;
+
+            let (kind, measurement_noise) = match label {
+                RobocupObjectLabel::GoalPost => (
+                    ObstacleKind::GoalPost,
+                    parameters.goal_post_measurement_noise,
+                ),
+                RobocupObjectLabel::Robot => {
+                    (ObstacleKind::Robot, parameters.robot_measurement_noise)
+                }
+                _ => return None,
+            };
+
+            let bottom_center_position = {
+                let Rectangle { min, max } = bounding_box.area;
+
+                point![min.x() + (max.x() - min.x()) / 2.0, max.y()]
+            };
+
+            let obstacle_center: Point2<Ground> =
+                camera_matrix.pixel_to_ground(bottom_center_position).ok()?;
+
+            Some((kind, obstacle_center, measurement_noise))
+        })
+}
+
+fn measured_pose_positions(
+    parameters: &ObstacleFilterParameters,
+    detected_poses: &Vec<&Vec<Pose<YOLOObjectLabel>>>,
+    camera_matrix: &CameraMatrix,
+) -> impl Iterator<Item = (ObstacleKind, Point2<Ground>, nalgebra::Vector2<f32>)> {
+    detected_poses
+        .iter()
+        .flat_map(|detections| detections.iter())
+        .filter_map(|detected_pose| {
+            let Object {
+                label,
+                bounding_box,
+            } = detected_pose.object;
+
+            let (kind, measurement_noise) = match label {
+                YOLOObjectLabel::Person => {
+                    (ObstacleKind::Person, parameters.person_measurement_noise)
+                }
+                _ => return None,
+            };
+
+            let keypoints = detected_pose.keypoints;
+
+            if keypoints.left_foot.confidence
+                > parameters.person_feet_keypoints_confidence_threshold
+                && keypoints.right_foot.confidence
+                    > parameters.person_feet_keypoints_confidence_threshold
+            {
+                let feet_center_point =
+                    center(keypoints.left_foot.point, keypoints.right_foot.point);
+
+                let obstacle_center: Point2<Ground> =
+                    camera_matrix.pixel_to_ground(feet_center_point).ok()?;
+
+                Some((kind, obstacle_center, measurement_noise))
+            } else if bounding_box.confidence > parameters.person_object_confidence_threshold {
+                let bottom_center_position = {
+                    let Rectangle { min, max } = bounding_box.area;
+
+                    point![min.x() + (max.x() - min.x()) / 2.0, max.y()]
+                };
+
+                let obstacle_center: Point2<Ground> =
+                    camera_matrix.pixel_to_ground(bottom_center_position).ok()?;
+
+                Some((kind, obstacle_center, measurement_noise))
+            } else {
+                None
+            }
+        })
 }
 
 fn calculate_goal_post_positions(

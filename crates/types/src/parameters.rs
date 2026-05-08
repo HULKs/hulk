@@ -451,6 +451,8 @@ pub struct ObstacleFilterParameters {
     pub goal_post_measurement_noise: nalgebra::Vector2<f32>,
     pub robot_measurement_noise: nalgebra::Vector2<f32>,
     pub person_measurement_noise: nalgebra::Vector2<f32>,
+    pub person_feet_keypoints_confidence_threshold: f32,
+    pub person_object_confidence_threshold: f32,
     pub measurement_count_threshold: usize,
     pub robot_obstacle_radius_at_hip_height: f32,
     pub robot_obstacle_radius_at_foot_height: f32,
