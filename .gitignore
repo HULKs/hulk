@@ -2,6 +2,7 @@
 .venv/
 .vs/
 .vscode/
+.worktrees/
 
 /.wiki/
 

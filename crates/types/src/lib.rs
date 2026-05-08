@@ -50,6 +50,7 @@ pub mod pose_kinds;
 pub mod primary_state;
 pub mod rule_obstacles;
 pub mod samples;
+pub mod segmentation_detection;
 pub mod step;
 pub mod support_foot;
 pub mod walk_volume_extents;
