@@ -29,6 +29,7 @@ const POSE_SKELETON: [(usize, usize); 16] = [
     (13, 15),
     (14, 16),
 ];
+const KEYPOINT_CONFIDENCE_THRESHOLD: f32 = 0.8;
 
 pub struct PoseDetection {
     poses: BufferHandle<Vec<Pose<YOLOObjectLabel>>>,
@@ -62,6 +63,12 @@ fn paint_poses(
 
         // draw skeleton
         for (idx1, idx2) in POSE_SKELETON {
+            if keypoints[idx1].confidence < KEYPOINT_CONFIDENCE_THRESHOLD
+                || keypoints[idx2].confidence < KEYPOINT_CONFIDENCE_THRESHOLD
+            {
+                continue;
+            }
+
             painter.line_segment(
                 keypoints[idx1].point,
                 keypoints[idx2].point,
@@ -71,6 +78,10 @@ fn paint_poses(
 
         // draw keypoints
         for keypoint in keypoints.iter() {
+            if keypoint.confidence < KEYPOINT_CONFIDENCE_THRESHOLD {
+                continue;
+            }
+
             painter.circle_filled(keypoint.point, 1.0, Color32::BLUE);
             painter.floating_text(
                 keypoint.point,
