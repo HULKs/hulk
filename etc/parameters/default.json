@@ -420,7 +420,7 @@
       "field_border_weight": 0.15,
       "line_walking_speed": 0.25,
       "arc_walking_speed": 0.2,
-      "obstacle_escape_minimum_distance": 0.1,
+      "obstacle_escape_spline_segments": 5,
       "rotation_penalty_factor": 0.4,
       "half_rotation": {
         "nanos": 0,

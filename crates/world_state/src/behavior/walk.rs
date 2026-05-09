@@ -32,15 +32,12 @@ pub fn plan(
     let field_dimensions = blackboard.field_dimensions;
 
     let mut planner = PathPlanner::default();
-    planner.obstacle_escape_minimum_distance = parameters.obstacle_escape_minimum_distance;
+    planner.obstacle_escape_spline_segments = parameters.obstacle_escape_spline_segments;
     planner.with_last_motion(
         &blackboard.last_motion_command,
         parameters.rotation_penalty_factor,
     );
-    planner.with_obstacles(
-        &blackboard.world_state.obstacles,
-        parameters.robot_radius,
-    );
+    planner.with_obstacles(&blackboard.world_state.obstacles, parameters.robot_radius);
     planner.with_rule_obstacles(
         ground_to_field.inverse(),
         &blackboard.world_state.rule_obstacles,
