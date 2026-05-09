@@ -495,6 +495,10 @@ pub struct SearchSuggestorParameters {
     pub own_ball_weight: f32,
     pub team_ball_weight: f32,
     pub rule_ball_weight: f32,
+    pub rule_ball_weight_increment: f32,
+    pub tile_switch_hysteresis: f32,
+    pub decay_distance_factor: f32,
+    pub heatmap_decay_range: Range<f32>,
 }
 
 #[derive(

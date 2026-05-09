@@ -1026,7 +1026,14 @@
     "minimum_validity": 0.1,
     "own_ball_weight": 1.0,
     "team_ball_weight": 1.0,
-    "rule_ball_weight": 1.0
+    "rule_ball_weight": 1.0,
+    "rule_ball_weight_increment": 0.005,
+    "decay_distance_factor": 0.03,
+    "heatmap_decay_range": {
+      "start": 0.0,
+      "end": 3.0
+    },
+    "tile_switch_hysteresis": 0.5
   },
   "rule_obstacles": {
     "center_circle_obstacle_radius_increase": 0.2,
