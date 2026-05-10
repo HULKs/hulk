@@ -7,7 +7,8 @@ use crate::{
         behavior_tree::Node,
         condition::{
             has_ball_position, is_ball_interception_candidate, is_close_to_ball,
-            is_closest_to_ball, is_fallen, is_goalkeeper, is_in_sub_state, is_primary_state, is_remote_controlled,
+            is_closest_to_ball, is_fallen, is_goalkeeper, is_in_sub_state, is_primary_state,
+            is_remote_controlled,
         },
         head::{look_at_ball_subtree, look_straight_ahead, search_for_lost_ball_subtree},
         kick::{intercept, kick_subtree},

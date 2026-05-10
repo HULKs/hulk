@@ -65,7 +65,8 @@ pub fn is_close_to_ball_aligned(blackboard: &mut Blackboard) -> bool {
         let goal_position =
             ground_to_field.inverse() * point!(blackboard.field_dimensions.length / 2.0, 0.0);
         let target_kick_position = ball_in_ground
-            - (goal_position - ball_in_ground).normalize() * blackboard.parameters.kicking.kick_position_ball_distance;
+            - (goal_position - ball_in_ground).normalize()
+                * blackboard.parameters.kicking.kick_position_ball_distance;
 
         let parameters = &blackboard.parameters.substates;
         let distance_to_ball = target_kick_position.coords().norm();
