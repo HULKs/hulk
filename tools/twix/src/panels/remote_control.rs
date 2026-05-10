@@ -6,6 +6,7 @@ use crate::{
 use communication::messages::TextOrBinary;
 use eframe::egui::Widget;
 use gilrs::{Axis, Button, Gamepad, Gilrs};
+use log::error;
 use serde_json::{Value, json};
 use std::{
     sync::{
@@ -37,6 +38,8 @@ impl<'a> Panel<'a> for RemotePanel {
         let enabled = Arc::new(AtomicBool::new(false));
         let latest_step = robot.subscribe_value("parameters.behavior.remote_control.walk");
         let gait_parameter_value = robot.subscribe_json("parameters.rl_walking.gait_frequency");
+        let remote_stop_toggle: BufferHandle<bool> =
+            robot.subscribe_value("parameters.remote_stop_toggle");
         let bg_running = Arc::new(AtomicBool::new(true));
 
         let robot_clone = robot.clone();
@@ -145,6 +148,22 @@ impl<'a> Panel<'a> for RemotePanel {
                         // Stay
                         current_value
                     };
+
+                    if is_pressed(Button::North) {
+                        match remote_stop_toggle.get_last_value() {
+                            Ok(Some(value)) => {
+                                let new_remote_stop_toggle = !value;
+                                robot_clone.write(
+                                    "parameters.remote_stop_toggle",
+                                    TextOrBinary::Text(new_remote_stop_toggle.into()),
+                                );
+                            }
+                            Ok(None) => {}
+                            Err(error) => {
+                                error!("failed to read remote_stop_toggle: {error:#?}")
+                            }
+                        }
+                    }
 
                     if enabled_clone.load(Ordering::Relaxed) {
                         let now = SystemTime::now();
