@@ -166,27 +166,27 @@ impl SearchSuggestor {
             );
         }
 
-        if context.ball_position.is_none() {
-            if let Some(ground_to_field) = context.ground_to_field {
-                let robot_position = ground_to_field.as_pose().position().coords();
-                let body_orientation = ground_to_field.orientation().angle();
-                let fov_angle_offset = 45.0 * consts::PI / 180.0;
-                let left_angle = body_orientation - fov_angle_offset;
-                let right_angle = body_orientation + fov_angle_offset;
-                let left_edge: Vector2<Field> = vector!(left_angle.cos(), left_angle.sin());
-                let right_edge: Vector2<Field> = vector!(right_angle.cos(), right_angle.sin());
+        if context.ball_position.is_none()
+            && let Some(ground_to_field) = context.ground_to_field
+        {
+            let robot_position = ground_to_field.as_pose().position().coords();
+            let body_orientation = ground_to_field.orientation().angle();
+            let fov_angle_offset = 45.0 * consts::PI / 180.0;
+            let left_angle = body_orientation - fov_angle_offset;
+            let right_angle = body_orientation + fov_angle_offset;
+            let left_edge: Vector2<Field> = vector!(left_angle.cos(), left_angle.sin());
+            let right_edge: Vector2<Field> = vector!(right_angle.cos(), right_angle.sin());
 
-                self.heatmap.decay_tiles_in_fov(
-                    robot_position,
-                    left_edge,
-                    right_edge,
-                    context.search_suggestor_configuration.decay_distance_factor,
-                    context
-                        .search_suggestor_configuration
-                        .heatmap_decay_range
-                        .clone(),
-                );
-            }
+            self.heatmap.decay_tiles_in_fov(
+                robot_position,
+                left_edge,
+                right_edge,
+                context.search_suggestor_configuration.decay_distance_factor,
+                context
+                    .search_suggestor_configuration
+                    .heatmap_decay_range
+                    .clone(),
+            );
         }
 
         let kernel = create_kernel(

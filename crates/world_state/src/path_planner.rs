@@ -359,23 +359,25 @@ impl PathPlanner {
             .collect::<Result<Vec<_>>>()
             .map(|mut segments| {
                 let n = self.obstacle_escape_spline_segments as usize;
-                if n > 0 && (start - original_start).norm() > f32::EPSILON {
-                    if let Some(first_segment) = segments.first() {
-                        let segment_end = first_segment.end_point();
-                        let spline: Vec<PathSegment> = (0..n)
-                            .map(|i| {
-                                let t0 = i as f32 / n as f32;
-                                let t1 = (i + 1) as f32 / n as f32;
-                                PathSegment::LineSegment(LineSegment(
-                                    quadratic_bezier(original_start, start, segment_end, t0),
-                                    quadratic_bezier(original_start, start, segment_end, t1),
-                                ))
-                            })
-                            .collect();
+                if n > 0
+                    && (start - original_start).norm() > f32::EPSILON
+                    && let Some(first_segment) = segments.first()
+                {
+                    let segment_end = first_segment.end_point();
+                    let spline: Vec<PathSegment> = (0..n)
+                        .map(|i| {
+                            let t0 = i as f32 / n as f32;
+                            let t1 = (i + 1) as f32 / n as f32;
+                            PathSegment::LineSegment(LineSegment(
+                                quadratic_bezier(original_start, start, segment_end, t0),
+                                quadratic_bezier(original_start, start, segment_end, t1),
+                            ))
+                        })
+                        .collect();
 
-                        segments.splice(0..1, spline);
-                    }
+                    segments.splice(0..1, spline);
                 }
+
                 Path { segments }
             })
             .map(Some)

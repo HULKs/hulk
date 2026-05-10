@@ -31,8 +31,10 @@ pub fn plan(
         &blackboard.parameters.path_planning;
     let field_dimensions = blackboard.field_dimensions;
 
-    let mut planner = PathPlanner::default();
-    planner.obstacle_escape_spline_segments = parameters.obstacle_escape_spline_segments;
+    let mut planner = PathPlanner {
+        obstacle_escape_spline_segments: parameters.obstacle_escape_spline_segments,
+        ..Default::default()
+    };
     planner.with_last_motion(
         &blackboard.last_motion_command,
         parameters.rotation_penalty_factor,
