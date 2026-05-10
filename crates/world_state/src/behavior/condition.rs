@@ -1,9 +1,6 @@
 use filtering::hysteresis::less_than_with_hysteresis;
-use hsl_network_messages::SubState;
 use linear_algebra::{point, vector};
-use types::{
-    filtered_game_controller_state::FilteredGameControllerState, primary_state::PrimaryState,
-};
+use types::primary_state::PrimaryState;
 
 use crate::behavior::node::Blackboard;
 
@@ -107,33 +104,12 @@ pub fn is_goalkeeper(blackboard: &mut Blackboard) -> bool {
     blackboard.world_state.robot.player_number == blackboard.parameters.goal_keeper_number
 }
 
-pub fn is_in_sub_state(blackboard: &mut Blackboard) -> bool {
-    matches!(
-        blackboard.world_state.filtered_game_controller_state,
-        Some(FilteredGameControllerState {
-            sub_state: Some(_),
-            kicking_team: Some(_),
-            ..
-        })
-    )
-}
-
 pub fn is_primary_state(blackboard: &mut Blackboard, primary_state: PrimaryState) -> bool {
     blackboard.world_state.robot.primary_state == primary_state
 }
 
 pub fn is_remote_controlled(blackboard: &mut Blackboard) -> bool {
     blackboard.parameters.remote_control.enable
-}
-
-pub fn is_sub_state(blackboard: &mut Blackboard, sub_state: SubState) -> bool {
-    matches!(
-        blackboard.world_state.filtered_game_controller_state,
-        Some(FilteredGameControllerState {
-            sub_state: Some(current_sub_state),
-            ..
-        }) if current_sub_state == sub_state
-    )
 }
 
 pub fn has_ball_position(blackboard: &mut Blackboard) -> bool {

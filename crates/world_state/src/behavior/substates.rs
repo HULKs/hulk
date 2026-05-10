@@ -9,10 +9,9 @@ use crate::{
     action,
     behavior::{
         behavior_tree::Node,
-        condition::{has_ball_position, is_close_to_ball_aligned, is_sub_state},
+        condition::is_close_to_ball_aligned,
         kick::kick_subtree,
         node::Blackboard,
-        tree::search_subtree,
         walk::{walk_to, walk_to_ball_subtree},
     },
     condition, negation, selection, sequence, subtree,
@@ -20,10 +19,6 @@ use crate::{
 
 pub fn sub_state_subtree() -> Node<Blackboard> {
     selection!(
-        sequence!(
-            negation!(condition!(has_ball_position)),
-            subtree!(search_subtree)
-        ),
         sequence!(
             condition!(hulks_is_kicking_team),
             selection!(
@@ -56,6 +51,27 @@ pub fn sub_state_subtree() -> Node<Blackboard> {
             ),
             action!(walk_to_block_position)
         )
+    )
+}
+
+pub fn is_in_sub_state(blackboard: &mut Blackboard) -> bool {
+    matches!(
+        blackboard.world_state.filtered_game_controller_state,
+        Some(FilteredGameControllerState {
+            sub_state: Some(_),
+            kicking_team: Some(_),
+            ..
+        })
+    )
+}
+
+pub fn is_sub_state(blackboard: &mut Blackboard, sub_state: SubState) -> bool {
+    matches!(
+        blackboard.world_state.filtered_game_controller_state,
+        Some(FilteredGameControllerState {
+            sub_state: Some(current_sub_state),
+            ..
+        }) if current_sub_state == sub_state
     )
 }
 
@@ -171,7 +187,8 @@ pub fn set_block_position_penalty_kick(blackboard: &mut Blackboard) -> Status {
 
         let side_sign = (ground_to_field * point!(0.0, 0.0)).y().signum();
 
-        blackboard.walk_position = Some(point!(penalty_area_x, side_sign * line_position));
+        blackboard.walk_position =
+            Some(ground_to_field.inverse() * point!(penalty_area_x, side_sign * line_position));
 
         Status::Success
     } else {
