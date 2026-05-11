@@ -16,7 +16,7 @@ type PublicationKey = (EndpointGlobalId, i64);
 const MAX_UNMATCHED_PUBLICATIONS: usize = 128;
 
 struct PendingData<T> {
-    source_time: Option<Time>,
+    source_time: Time,
     value: T,
 }
 
@@ -53,8 +53,6 @@ pub enum LagPolicy {
 /// Diagnostic warning emitted while deriving queue state.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum LagWarning {
-    /// Metadata did not contain source timestamp.
-    SourceTimeMissing,
     /// Measured lag exceeded configured watermark cap and was clamped.
     LagExceeded {
         /// Measured lag from source timestamp and announcement timestamp.
@@ -136,22 +134,15 @@ where
 
     fn update_reference_time(
         &mut self,
-        source_time: Option<Time>,
+        source_time: Time,
         announcement_time: Option<Time>,
     ) -> Option<LagWarning> {
         match self.lag_policy {
             LagPolicy::Immediate => {
-                if let Some(source_time) = source_time {
-                    self.reference_time = source_time;
-                }
+                self.reference_time = source_time;
                 None
             }
             LagPolicy::Watermark { max_lag } => {
-                let source_time = match source_time {
-                    Some(source_time) => source_time,
-                    None => return Some(LagWarning::SourceTimeMissing),
-                };
-
                 self.reference_time = source_time;
                 if let Some(announcement_time) = announcement_time {
                     let measured = source_time.duration_since(announcement_time);
@@ -172,7 +163,7 @@ where
     fn register_announcement(
         &mut self,
         announcement: Announcement,
-        source_time: Option<Time>,
+        source_time: Time,
     ) -> Option<LagWarning> {
         let publication_key = (announcement.source_global_id, announcement.sequence_number);
         if announcement.canceled {
@@ -253,10 +244,11 @@ where
                     let mut warning = self.ingest_pending_announcements().await?;
                     warning = warning.or(self.update_reference_time(received.source_time, None));
 
-                    let publication_id = received
-                        .publication_id()
-                        .ok_or_else(|| zenoh::Error::from("received data without attachment publication id"))?;
-                    let publication_key = (publication_id.endpoint_global_id(), publication_id.sequence_number());
+                    let publication_id = received.publication_id();
+                    let publication_key = (
+                        publication_id.endpoint_global_id(),
+                        publication_id.sequence_number(),
+                    );
 
                     if let Some(data_time) = self.inflight.remove(&publication_key) {
                         return Ok(QueueEvent::Data {
@@ -471,7 +463,7 @@ mod tests {
             pending_data.insert(
                 ([index as u8; 16], index),
                 PendingData {
-                    source_time: None,
+                    source_time: Time::from_nanos(index),
                     value: format!("payload {index}"),
                 },
             );
