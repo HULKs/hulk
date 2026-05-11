@@ -12,7 +12,7 @@ use crate::entity::{EndpointEntity, EntityKind, endpoint_global_id};
 use crate::event::EventsManager;
 use crate::graph::Graph;
 use crate::message::WireDecoder;
-use crate::pubsub::metadata::Received;
+use crate::pubsub::metadata::{Received, required_attachment_from_sample};
 use crate::pubsub::raw::{self, RawSubscriberBuilder};
 use crate::pubsub::replay::{self, TransientLocalReplayCoordinator};
 use crate::qos::QosProfile;
@@ -402,9 +402,10 @@ where
     /// Receive and deserialize the next message together with metadata.
     pub async fn recv_with_metadata(&self) -> Result<Received<C::Output>> {
         let sample = self.queue.recv_async().await;
+        let attachment = required_attachment_from_sample(&sample)?;
         let payload = sample.payload().to_bytes();
         let message = C::deserialize(&payload).map_err(|e| zenoh::Error::from(e.to_string()))?;
-        Ok(Received::from_sample(&sample, message))
+        Ok(Received::from_sample(&sample, message, attachment))
     }
 }
 
@@ -436,11 +437,12 @@ impl Subscriber<DynamicPayload, DynamicCdrCodec> {
             .ok_or_else(|| zenoh::Error::from("dyn_schema required for DynamicPayload"))?;
 
         let sample = self.queue.recv_async().await;
+        let attachment = required_attachment_from_sample(&sample)?;
         let payload = sample.payload().to_bytes();
 
         let message = DynamicCdrCodec::deserialize((&payload, schema))
             .map_err(|e| zenoh::Error::from(e.to_string()))?;
-        Ok(Received::from_sample(&sample, message))
+        Ok(Received::from_sample(&sample, message, attachment))
     }
 
     /// Get the dynamic schema.

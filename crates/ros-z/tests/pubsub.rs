@@ -4,8 +4,8 @@ use ros_z::{
     Message, SchemaHash,
     attachment::Attachment,
     context::ContextBuilder,
-    entity::{Entity, EntityKind, TypeInfo},
-    message::SerdeCdrCodec,
+    entity::{EndpointEntity, EndpointKind, Entity, EntityKind, TypeInfo},
+    message::{SerdeCdrCodec, WireEncoder},
     qos::{QosDurability, QosHistory, QosProfile, QosReliability},
     schema::{MessageSchema, SchemaBuilder},
     time::{Clock, Time},
@@ -46,6 +46,31 @@ impl MessageSchema for TestMessage {
             Ok(())
         })
     }
+}
+
+fn topic_key_expr_for<T: Message>(node: &ros_z::node::Node, topic: &str) -> String {
+    let qualified_topic = ros_z::topic_name::qualify_topic_name(
+        topic,
+        &node.node_entity().namespace,
+        &node.node_entity().name,
+    )
+    .expect("topic should qualify");
+
+    let entity = EndpointEntity {
+        id: 0,
+        node: Some(node.node_entity().clone()),
+        kind: EndpointKind::Publisher,
+        topic: qualified_topic,
+        type_info: Some(TypeInfo::with_hash(
+            &T::type_name(),
+            ros_z_schema::compute_hash(&T::schema().expect("schema should build")),
+        )),
+        qos: Default::default(),
+    };
+
+    ros_z_protocol::format::topic_key_expr(&entity)
+        .expect("topic key expression should build")
+        .to_string()
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
@@ -667,7 +692,7 @@ async fn dynamic_publisher_advertises_explicit_schema_hash() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-async fn test_recv_with_metadata_preserves_receive_context() {
+async fn recv_with_metadata_includes_transport_and_source_timestamps() {
     let context = ContextBuilder::default()
         .build()
         .await
@@ -704,9 +729,57 @@ async fn test_recv_with_metadata_preserves_receive_context() {
         .expect("receive should succeed");
     assert_eq!(received.message, message);
     assert!(received.transport_time.is_some());
-    assert!(received.source_time.is_some());
-    assert!(received.sequence_number.is_some());
-    assert!(received.source_global_id.is_some());
+    assert_eq!(received.sequence_number, 0);
+    assert_ne!(received.source_global_id, [0; 16]);
+    assert_eq!(
+        received.publication_id().sequence_number(),
+        received.sequence_number
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn typed_subscriber_errors_when_sample_has_no_attachment() {
+    let context = ContextBuilder::default()
+        .disable_multicast_scouting()
+        .with_json("connect/endpoints", json!([]))
+        .build()
+        .await
+        .expect("Failed to create context");
+    let node = context
+        .create_node("missing_attachment_subscriber")
+        .build()
+        .await
+        .expect("Failed to create node");
+
+    let topic = "/missing_attachment_pubsub";
+    let subscriber = node
+        .subscriber::<TestMessage>(topic)
+        .build()
+        .await
+        .expect("Failed to create subscriber");
+    let key_expr = topic_key_expr_for::<TestMessage>(&node, topic);
+    let message = TestMessage {
+        data: vec![1, 2, 3],
+        counter: 99,
+    };
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+    node.session()
+        .put(key_expr, SerdeCdrCodec::<TestMessage>::serialize(&message))
+        .await
+        .expect("raw put should succeed");
+
+    let error = tokio::time::timeout(Duration::from_secs(1), subscriber.recv_with_metadata())
+        .await
+        .expect("receive should not time out")
+        .expect_err("typed receive should reject samples without attachments");
+
+    assert!(
+        error
+            .to_string()
+            .contains("received ros-z sample without attachment metadata"),
+        "unexpected error: {error}"
+    );
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
