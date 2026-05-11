@@ -17,7 +17,6 @@ use types::{
     rule_obstacles::RuleObstacle,
     world_state::{BallState, PlayerState, RobotState, WorldState},
 };
-use voronoi::VoronoiGrid;
 
 #[derive(Deserialize, Serialize)]
 pub struct WorldStateComposer {}
@@ -42,7 +41,6 @@ pub struct CycleContext {
     rule_obstacles: Input<Vec<RuleObstacle>, "rule_obstacles">,
     suggested_search_position: Input<Option<Point2<Field>>, "suggested_search_position?">,
     player_states: Input<Players<Option<PlayerState>>, "player_states">,
-    voronoi_grid: Input<VoronoiGrid, "voronoi_grid">,
 
     player_number: Parameter<PlayerNumber, "player_number">,
 }
@@ -78,7 +76,6 @@ impl WorldStateComposer {
             rule_ball: context.rule_ball.copied(),
             rule_obstacles: context.rule_obstacles.clone(),
             suggested_search_position: context.suggested_search_position.copied(),
-            voronoi_grid: context.voronoi_grid.clone(),
         };
 
         Ok(MainOutputs {

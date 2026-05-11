@@ -8,7 +8,6 @@ use serde::{Deserialize, Serialize};
 use coordinate_systems::{Field, Ground};
 use linear_algebra::{Isometry2, Point2, Pose2, Vector2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
-use voronoi::VoronoiGrid;
 
 use crate::{
     ball_position::{BallPosition, HypotheticalBallPosition},
@@ -34,7 +33,6 @@ pub struct WorldState {
     pub rule_obstacles: Vec<RuleObstacle>,
     pub fall_down_state: Option<FallDownState>,
     pub suggested_search_position: Option<Point2<Field>>,
-    pub voronoi_grid: VoronoiGrid,
 }
 
 #[allow(clippy::derivable_impls)]
@@ -53,7 +51,6 @@ impl Default for WorldState {
             rule_obstacles: Default::default(),
             fall_down_state: Default::default(),
             suggested_search_position: Default::default(),
-            voronoi_grid: Default::default(),
         }
     }
 }

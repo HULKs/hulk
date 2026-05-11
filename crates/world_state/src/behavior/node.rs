@@ -19,6 +19,7 @@ use types::{
     path_obstacles::PathObstacle,
     world_state::WorldState,
 };
+use voronoi::VoronoiGrid;
 
 use crate::behavior::{
     behavior_tree::Node, motion_assembler::assemble_motion_command, tree::create_tree,
@@ -77,6 +78,7 @@ pub struct Blackboard {
     pub walk_position: Option<Point2<Ground>>,
     pub body_motion: Option<BodyMotion>,
     pub head_motion: Option<HeadMotion>,
+    pub voronoi_map: Option<VoronoiGrid>,
 }
 
 #[context]
@@ -101,6 +103,7 @@ pub struct CycleContext {
     time_since_last_switch: AdditionalOutput<Duration, "behavior.time_since_last_switch">,
     direction_difference: AdditionalOutput<f32, "behavior.direction_difference">,
     walk_position: AdditionalOutput<Option<Point2<Ground>>, "behavior.walk_position">,
+    voronoi_map: AdditionalOutput<Option<VoronoiGrid>, "behavior.voronoi_map">,
 
     last_motion_command: CyclerState<MotionCommand, "last_motion_command">,
 
@@ -179,6 +182,7 @@ impl Behavior {
             walk_position: None,
             body_motion: None,
             head_motion: None,
+            voronoi_map: None,
         };
         let (status, trace) = self.tree.tick_with_trace(&mut blackboard);
 
@@ -230,6 +234,9 @@ impl Behavior {
         context
             .walk_position
             .fill_if_subscribed(|| blackboard.walk_position);
+        context
+            .voronoi_map
+            .fill_if_subscribed(|| blackboard.voronoi_map);
 
         Ok(MainOutputs {
             motion_command: motion_command.into(),

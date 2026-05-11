@@ -204,24 +204,26 @@ pub fn walk_to_block_position(blackboard: &mut Blackboard) -> Status {
 }
 
 pub fn walk_to_centroid(blackboard: &mut Blackboard) -> Status {
-    if let (Some(ground_to_field), Some(own_centroid)) = (
+    if let (Some(ground_to_field), Some(map)) = (
         blackboard.world_state.robot.ground_to_field,
-        blackboard
-            .world_state
-            .voronoi_grid
-            .centroid_for_player(blackboard.world_state.robot.player_number),
+        &blackboard.voronoi_map,
     ) {
-        walk_to(
-            blackboard,
-            Pose2::from(ground_to_field.inverse() * own_centroid),
-            blackboard.parameters.walk_speed.kicking,
-            OrientationMode::AlignWithPath,
-            blackboard
-                .parameters
-                .walk_and_stand
-                .normal_distance_to_be_aligned,
-            blackboard.parameters.walk_and_stand.hysteresis,
-        )
+        if let Some(centroid) = map.centroid_for_player(blackboard.world_state.robot.player_number)
+        {
+            walk_to(
+                blackboard,
+                Pose2::from(ground_to_field.inverse() * centroid),
+                blackboard.parameters.walk_speed.kicking,
+                OrientationMode::AlignWithPath,
+                blackboard
+                    .parameters
+                    .walk_and_stand
+                    .normal_distance_to_be_aligned,
+                blackboard.parameters.walk_and_stand.hysteresis,
+            )
+        } else {
+            Status::Failure
+        }
     } else {
         Status::Failure
     }

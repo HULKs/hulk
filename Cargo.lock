@@ -11655,7 +11655,6 @@ dependencies = [
  "ros2",
  "serde",
  "splines",
- "voronoi",
 ]
 
 [[package]]
@@ -11976,9 +11975,11 @@ dependencies = [
  "coordinate_systems",
  "hsl_network_messages",
  "linear_algebra",
+ "ordered-float 4.6.0",
  "path_serde",
  "ros-z",
  "serde",
+ "types",
 ]
 
 [[package]]

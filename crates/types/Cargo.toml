@@ -24,7 +24,6 @@ ros-z = { workspace = true }
 ros2 = { workspace = true }
 serde = { workspace = true }
 splines = { workspace = true }
-voronoi = { workspace = true }
 
 [dev-dependencies]
 ros-z-schema = { workspace = true }
