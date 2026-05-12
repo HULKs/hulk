@@ -48,6 +48,13 @@ impl MessageSchema for TestMessage {
     }
 }
 
+#[test]
+fn queue_loss_stats_is_publicly_nameable() {
+    let stats = ros_z::pubsub::QueueLossStats::default();
+
+    assert_eq!(stats.dropped_samples, 0);
+}
+
 fn topic_key_expr_for<T: Message>(node: &ros_z::node::Node, topic: &str) -> String {
     let qualified_topic = ros_z::topic_name::qualify_topic_name(
         topic,

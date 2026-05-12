@@ -1,9 +1,10 @@
 use std::sync::Arc;
+use std::sync::atomic::{AtomicU64, Ordering};
 use std::time::Duration;
 
 use zenoh::{Result, sample::Sample};
 
-use crate::pubsub::subscriber::{SubscriberBuilder, SubscriberResources};
+use crate::pubsub::subscriber::{QueueLossStats, SubscriberBuilder, SubscriberResources};
 use crate::qos::QosProfile;
 use crate::queue::BoundedQueue;
 
@@ -14,14 +15,26 @@ use crate::queue::BoundedQueue;
 /// Received samples are delivered as [`Sample`] values without deserialization.
 pub struct RawSubscriber {
     queue: Arc<BoundedQueue<Sample>>,
+    dropped_samples: Arc<AtomicU64>,
     _resources: SubscriberResources,
 }
 
 impl RawSubscriber {
-    pub(super) fn new(queue: Arc<BoundedQueue<Sample>>, resources: SubscriberResources) -> Self {
+    pub(super) fn new(
+        queue: Arc<BoundedQueue<Sample>>,
+        dropped_samples: Arc<AtomicU64>,
+        resources: SubscriberResources,
+    ) -> Self {
         Self {
             queue,
+            dropped_samples,
             _resources: resources,
+        }
+    }
+
+    pub fn queue_loss_stats(&self) -> QueueLossStats {
+        QueueLossStats {
+            dropped_samples: self.dropped_samples.load(Ordering::Relaxed),
         }
     }
 

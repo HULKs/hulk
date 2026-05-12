@@ -1,5 +1,5 @@
 use std::marker::PhantomData;
-use std::sync::atomic::AtomicBool;
+use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
 use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
@@ -43,6 +43,18 @@ pub(super) struct SubscriberResources {
     _replay_guard: Option<replay::TransientLocalReplayGuard>,
     _subscriber: zenoh::pubsub::Subscriber<()>,
     _liveliness_token: LivelinessToken,
+}
+
+#[derive(Debug, Clone, Copy, Default, PartialEq, Eq)]
+pub struct QueueLossStats {
+    pub dropped_samples: u64,
+}
+
+fn record_queue_push<T>(queue: &BoundedQueue<T>, dropped_samples: &AtomicU64, sample: T) {
+    if queue.push(sample) {
+        dropped_samples.fetch_add(1, Ordering::Relaxed);
+        tracing::debug!("Queue full, dropped oldest message");
+    }
 }
 
 async fn declare_liveliness(session: &Session, entity: &EndpointEntity) -> Result<LivelinessToken> {
@@ -110,18 +122,18 @@ where
         let queue_size = subscriber_queue_capacity(&self.entity.qos);
         let queue = Arc::new(BoundedQueue::new(queue_size));
         let raw_queue = queue.clone();
+        let dropped_samples = Arc::new(AtomicU64::new(0));
+        let raw_dropped_samples = dropped_samples.clone();
         let resources = self
             .build_subscriber_resources(
                 move |sample| {
-                    if raw_queue.push(sample) {
-                        tracing::debug!("Queue full, dropped oldest message");
-                    }
+                    record_queue_push(&raw_queue, &raw_dropped_samples, sample);
                 },
                 "RAW_SUB",
             )
             .await?;
 
-        Ok(raw::RawSubscriber::new(queue, resources))
+        Ok(raw::RawSubscriber::new(queue, dropped_samples, resources))
     }
 
     async fn build_subscriber_resources<F>(
@@ -265,12 +277,12 @@ where
         let queue_size = subscriber_queue_capacity(&builder.entity.qos);
         let queue = Arc::new(BoundedQueue::new(queue_size));
         let subscriber_queue = queue.clone();
+        let dropped_samples = Arc::new(AtomicU64::new(0));
+        let subscriber_dropped_samples = dropped_samples.clone();
         let resources = builder
             .build_subscriber_resources(
                 move |sample| {
-                    if subscriber_queue.push(sample) {
-                        tracing::debug!("Queue full, dropped oldest message");
-                    }
+                    record_queue_push(&subscriber_queue, &subscriber_dropped_samples, sample);
                 },
                 "SUB",
             )
@@ -284,6 +296,7 @@ where
             entity: builder.entity,
             _resources: resources,
             queue,
+            dropped_samples,
             events_mgr: Arc::new(Mutex::new(EventsManager::new(endpoint_global_id))),
             graph: builder.graph,
             dyn_schema: builder.dyn_schema,
@@ -295,6 +308,7 @@ where
 pub struct Subscriber<T, C: WireDecoder = <T as crate::Message>::Codec> {
     entity: EndpointEntity,
     queue: Arc<BoundedQueue<Sample>>,
+    dropped_samples: Arc<AtomicU64>,
     _resources: SubscriberResources,
     events_mgr: Arc<Mutex<EventsManager>>,
     graph: Arc<Graph>,
@@ -324,6 +338,12 @@ where
     /// Get a reference to the endpoint entity for this subscriber.
     pub fn entity(&self) -> &EndpointEntity {
         &self.entity
+    }
+
+    pub fn queue_loss_stats(&self) -> QueueLossStats {
+        QueueLossStats {
+            dropped_samples: self.dropped_samples.load(Ordering::Relaxed),
+        }
     }
 
     /// Check if there are messages available in the queue
@@ -448,5 +468,25 @@ impl Subscriber<DynamicPayload, DynamicCdrCodec> {
     /// Get the dynamic schema.
     pub fn schema(&self) -> Option<&ros_z_schema::SchemaBundle> {
         self.dyn_schema.as_ref().map(|s| s.as_ref())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::sync::atomic::{AtomicU64, Ordering};
+
+    use crate::queue::BoundedQueue;
+
+    use super::record_queue_push;
+
+    #[test]
+    fn queue_push_records_drop_when_capacity_is_exceeded() {
+        let queue = BoundedQueue::new(1);
+        let dropped_samples = AtomicU64::new(0);
+
+        record_queue_push(&queue, &dropped_samples, 1u8);
+        record_queue_push(&queue, &dropped_samples, 2u8);
+
+        assert_eq!(dropped_samples.load(Ordering::Relaxed), 1);
     }
 }
