@@ -1,8 +1,8 @@
 use hsl_network_messages::{SubState, Team};
-use linear_algebra::{Orientation2, Pose2, Rotation2, point};
+use linear_algebra::{Rotation2, point};
 use types::{
     behavior_tree::Status, field_dimensions::Side,
-    filtered_game_controller_state::FilteredGameControllerState, motion_command::OrientationMode,
+    filtered_game_controller_state::FilteredGameControllerState,
 };
 
 use crate::{
@@ -12,7 +12,7 @@ use crate::{
         condition::is_close_to_ball_aligned,
         kick::kick_subtree,
         node::Blackboard,
-        walk::{walk_to, walk_to_ball_subtree},
+        walk::{walk_to_ball_subtree, walk_to_block_position},
     },
     condition, negation, selection, sequence, subtree,
 };
@@ -83,34 +83,6 @@ pub fn hulks_is_kicking_team(blackboard: &mut Blackboard) -> bool {
             ..
         })
     )
-}
-
-pub fn walk_to_block_position(blackboard: &mut Blackboard) -> Status {
-    if let (Some(block_position), Some(ball), Some(ground_to_field)) = (
-        &blackboard.walk_position,
-        &blackboard.last_ball,
-        blackboard.world_state.robot.ground_to_field,
-    ) {
-        let ball_position = ground_to_field.inverse() * ball.position;
-        let orientation = Orientation2::from_vector(ball_position - *block_position);
-
-        walk_to(
-            blackboard,
-            Pose2::from_parts(*block_position, orientation),
-            blackboard.parameters.walk_speed.blocking,
-            OrientationMode::LookAt {
-                target: ball_position,
-                tolerance: blackboard.parameters.walk_and_stand.orientation_tolerance,
-            },
-            blackboard
-                .parameters
-                .walk_and_stand
-                .normal_distance_to_be_aligned,
-            blackboard.parameters.walk_and_stand.hysteresis,
-        )
-    } else {
-        Status::Failure
-    }
 }
 
 pub fn set_block_position_field(blackboard: &mut Blackboard) -> Status {
