@@ -11,4 +11,5 @@ parking_lot = { workspace = true }
 ros-z = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
+tokio = { workspace = true, features = ["macros", "rt", "sync"] }
 zenoh = { workspace = true }
