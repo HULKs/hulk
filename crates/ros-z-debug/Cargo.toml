@@ -6,6 +6,8 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
+arc-swap = { workspace = true }
+parking_lot = { workspace = true }
 ros-z = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
