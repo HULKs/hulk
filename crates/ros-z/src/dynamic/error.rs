@@ -44,6 +44,15 @@ pub enum DynamicError {
     /// Automatic topic-based schema discovery requires publisher node identity.
     MissingNodeIdentity { topic: String },
 
+    /// Active publishers advertise incompatible schema identities for one topic.
+    SchemaConflict {
+        topic: String,
+        candidates: Vec<String>,
+    },
+
+    /// Dynamic schema discovery found no usable publisher schema identity.
+    SchemaUnavailable { topic: String, reason: String },
+
     /// Invalid default value for field type
     InvalidDefaultValue { field: String, reason: String },
 
@@ -116,6 +125,16 @@ impl fmt::Display for DynamicError {
                     "automatic schema discovery for topic '{}' requires publisher node identity, which is unavailable from this backend/discovery format",
                     topic
                 )
+            }
+            DynamicError::SchemaConflict { topic, candidates } => {
+                write!(
+                    f,
+                    "topic '{topic}' has incompatible dynamic schema candidates: {}",
+                    candidates.join(", ")
+                )
+            }
+            DynamicError::SchemaUnavailable { topic, reason } => {
+                write!(f, "topic '{topic}' has no usable dynamic schema: {reason}")
             }
             DynamicError::InvalidDefaultValue { field, reason } => {
                 write!(f, "Invalid default value for field '{}': {}", field, reason)
