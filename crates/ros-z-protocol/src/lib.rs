@@ -22,7 +22,7 @@
 //! use ros_z_protocol::{entity::*, format};
 //!
 //! let zid: zenoh::session::ZenohId = "1234567890abcdef1234567890abcdef".parse().unwrap();
-//! let node = NodeEntity::new(zid, 0, "my_node".to_string(), "/".to_string(), String::new());
+//! let node = NodeEntity::new(zid, 0, "my_node".to_string(), "/".to_string());
 //!
 //! let entity = EndpointEntity {
 //!     id: 1,

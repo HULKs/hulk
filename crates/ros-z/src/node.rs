@@ -58,7 +58,6 @@ impl std::fmt::Debug for Node {
 pub struct NodeBuilder {
     pub(crate) name: String,
     pub(crate) namespace: String,
-    pub(crate) enclave: String,
     pub(crate) session: Arc<Session>,
     pub(crate) counter: Arc<GlobalCounter>,
     pub(crate) graph: Arc<Graph>,
@@ -162,7 +161,6 @@ impl NodeBuilder {
             id,
             self.name.clone(),
             self.namespace.clone(),
-            self.enclave,
         );
         let liveliness_token_key_expr = node_lv_token_key_expr(&node)?;
         debug!("[NOD] Liveliness token KE: {}", liveliness_token_key_expr);

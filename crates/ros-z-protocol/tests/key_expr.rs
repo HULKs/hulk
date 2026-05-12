@@ -19,7 +19,6 @@ fn default_node() -> NodeEntity {
         id: 1,
         name: "test_node".to_string(),
         namespace: "/".to_string(),
-        enclave: "/".to_string(),
     }
 }
 
@@ -54,7 +53,6 @@ fn native_endpoint_liveliness(kind: EndpointKind) -> ros_z_protocol::entity::Liv
         id: 1,
         name: "talker".to_string(),
         namespace: String::new(),
-        enclave: String::new(),
     };
     let entity = EndpointEntity {
         id: 2,
@@ -189,6 +187,16 @@ fn test_type_info_without_hash_roundtrip() {
 // ---------------------------------------------------------------------------
 
 #[test]
+fn node_liveliness_key_uses_native_node_identity_fields() {
+    let z_id: ZenohId = "1234567890abcdef1234567890abcdef".parse().unwrap();
+    let node = NodeEntity::new(z_id, 5, "my_node".to_string(), "/my_ns".to_string());
+
+    let key_expr = format::node_liveliness_key_expr(&node).unwrap().to_string();
+
+    assert_eq!(key_expr, format!("@ros_z/{z_id}/5/5/NN/%my_ns/my_node"));
+}
+
+#[test]
 fn test_node_liveliness_roundtrip() {
     let z_id = ZenohId::default();
     let node = NodeEntity {
@@ -196,7 +204,6 @@ fn test_node_liveliness_roundtrip() {
         id: 5,
         name: "my_node".to_string(),
         namespace: "/my_ns".to_string(),
-        enclave: "/".to_string(),
     };
 
     let ke = format::node_liveliness_key_expr(&node).unwrap();

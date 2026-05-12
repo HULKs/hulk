@@ -442,33 +442,4 @@ impl GraphData {
         }
         result
     }
-
-    pub(super) fn node_names_with_enclaves(&mut self) -> Vec<(String, String, String)> {
-        self.parse_pending();
-        let mut result = Vec::new();
-        for ((namespace, name), slab) in self.by_node.iter() {
-            let denormalized_ns = if namespace.is_empty() {
-                "/".to_string()
-            } else if !namespace.starts_with('/') {
-                format!("/{namespace}")
-            } else {
-                namespace.clone()
-            };
-            for (_, weak_entity) in slab.iter() {
-                if let Some(entity_arc) = weak_entity.upgrade()
-                    && let Entity::Node(node) = &*entity_arc
-                {
-                    let enclave = if node.enclave.is_empty() {
-                        "/".to_string()
-                    } else if !node.enclave.starts_with('/') {
-                        format!("/{}", node.enclave)
-                    } else {
-                        node.enclave.clone()
-                    };
-                    result.push((name.clone(), denormalized_ns.clone(), enclave));
-                }
-            }
-        }
-        result
-    }
 }

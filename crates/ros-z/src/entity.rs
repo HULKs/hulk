@@ -118,7 +118,6 @@ mod tests {
             id: 1,
             name: "node".to_string(),
             namespace: "/".to_string(),
-            enclave: String::new(),
         }
     }
 

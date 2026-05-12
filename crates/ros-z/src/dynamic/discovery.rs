@@ -188,7 +188,6 @@ mod tests {
                 id: 2,
                 name: "talker".to_string(),
                 namespace: "/".to_string(),
-                enclave: String::new(),
             }),
             kind: EndpointKind::Publisher,
             topic: "/chatter".to_string(),

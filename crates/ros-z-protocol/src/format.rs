@@ -168,7 +168,6 @@ pub fn parse_liveliness(ke: &KeyExpr) -> Result<Entity> {
         id: node_id,
         name: node_name,
         namespace,
-        enclave: String::new(),
     };
 
     let entity = match entity_kind {

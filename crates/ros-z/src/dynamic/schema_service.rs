@@ -278,7 +278,6 @@ fn schema_service_server_builder(
         node.id,
         node.name.to_string(),
         node.namespace.to_string(),
-        String::new(),
     );
 
     let entity = EndpointEntity {

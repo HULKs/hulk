@@ -199,13 +199,7 @@ mod tests {
     async fn node_exists_returns_false_after_only_node_removed() -> Result<()> {
         let session = zenoh::open(zenoh::Config::default()).await?;
         let graph = ros_z::graph::Graph::new(&session).await?;
-        let node = NodeEntity::new(
-            session.zid(),
-            1,
-            "removed_node".to_string(),
-            String::new(),
-            String::new(),
-        );
+        let node = NodeEntity::new(session.zid(), 1, "removed_node".to_string(), String::new());
         let node_key = ros_z::entity::node_key(&node);
         let entity = Entity::Node(node);
 
@@ -673,22 +667,6 @@ mod tests {
         assert!(
             nodes.iter().any(|(name, _)| name == "test_graph_node"),
             "Expected to find our test node"
-        );
-
-        Ok(())
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn graph_lists_node_names_with_enclaves() -> Result<()> {
-        let (_ctx, node) = setup_test_node("test_graph_node").await?;
-
-        let graph = node.graph().clone();
-        let nodes = graph.get_node_names_with_enclaves();
-
-        assert!(!nodes.is_empty(), "Expected to find at least one node");
-        assert!(
-            nodes.iter().any(|(name, _, _)| name == "test_graph_node"),
-            "Expected to find our test node with enclave"
         );
 
         Ok(())

@@ -221,11 +221,4 @@ impl Graph {
     pub fn get_node_names(&self) -> Vec<(String, String)> {
         self.data.lock().node_names()
     }
-
-    /// Get all node names, namespaces, and enclaves discovered in the graph
-    ///
-    /// Returns a vector of tuples (node_name, node_namespace, enclave)
-    pub fn get_node_names_with_enclaves(&self) -> Vec<(String, String, String)> {
-        self.data.lock().node_names_with_enclaves()
-    }
 }

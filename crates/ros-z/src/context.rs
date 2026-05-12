@@ -41,7 +41,6 @@ pub struct RuntimeParameterInputs {
 #[derive(Default)]
 pub struct ContextBuilder {
     namespace: String,
-    enclave: String,
     zenoh_config: Option<zenoh::Config>,
     config_file: Option<PathBuf>,
     config_overrides: Vec<(String, serde_json::Value)>,
@@ -56,12 +55,6 @@ impl ContextBuilder {
     /// Set the default namespace inherited by nodes created from this context.
     pub fn with_namespace(mut self, namespace: impl AsRef<str>) -> Self {
         self.namespace = normalize_node_namespace(namespace.as_ref());
-        self
-    }
-
-    /// Set the enclave name
-    pub fn with_enclave<S: Into<String>>(mut self, enclave: S) -> Self {
-        self.enclave = enclave.into();
         self
     }
 
@@ -425,9 +418,6 @@ impl ContextBuilder {
             self.config_file.is_some()
         );
 
-        // Capture enclave before moving self
-        let enclave = self.enclave.clone();
-
         // Apply environment variable overrides first
         let builder = self.apply_env_overrides()?;
         debug!(
@@ -490,7 +480,6 @@ impl ContextBuilder {
             session: Arc::new(session),
             counter: Arc::new(GlobalCounter::default()),
             namespace: builder.namespace,
-            enclave,
             graph,
             shm_config: builder.shm_config,
             clock: builder.clock.unwrap_or_default(),
@@ -518,7 +507,6 @@ pub struct Context {
     // Global counter for the participants
     counter: Arc<GlobalCounter>,
     namespace: String,
-    enclave: String,
     graph: Arc<Graph>,
     pub(crate) shm_config: Option<Arc<ShmConfig>>,
     pub(crate) clock: Clock,
@@ -529,7 +517,6 @@ impl std::fmt::Debug for Context {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("Context")
             .field("namespace", &self.namespace)
-            .field("enclave", &self.enclave)
             .finish_non_exhaustive()
     }
 }
@@ -541,7 +528,6 @@ impl Context {
         NodeBuilder {
             name: name.as_ref().to_owned(),
             namespace: self.namespace.clone(),
-            enclave: self.enclave.clone(),
             session: self.session.clone(),
             counter: self.counter.clone(),
             graph: self.graph.clone(),
