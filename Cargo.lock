@@ -8927,6 +8927,7 @@ name = "ros-z-debug"
 version = "0.1.0"
 dependencies = [
  "ros-z",
+ "serde_json",
  "thiserror 2.0.18",
  "zenoh",
 ]
