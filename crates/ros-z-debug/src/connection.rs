@@ -61,10 +61,7 @@ impl ConnectionManager {
         );
 
         self.generation = generation;
-        self.active = Some(ActiveConnection {
-            manager,
-            context,
-        });
+        self.active = Some(ActiveConnection { manager, context });
 
         Ok(())
     }

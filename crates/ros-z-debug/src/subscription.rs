@@ -172,10 +172,18 @@ impl<V> SubscriptionState<V> {
             return;
         }
 
+        let history_updated = self.history.is_some();
         if let Some(history) = &self.history {
             history.lock().insert(Arc::clone(&record));
         }
-        self.latest.store(Some(record));
+
+        let latest_updated = self
+            .latest
+            .load_full()
+            .is_none_or(|latest| record.source_time >= latest.source_time);
+        if latest_updated {
+            self.latest.store(Some(record));
+        }
 
         let status_changed = meta.status.status != SubscriptionStatus::Ready;
         meta.status.status = SubscriptionStatus::Ready;
@@ -183,7 +191,9 @@ impl<V> SubscriptionState<V> {
         if status_changed {
             meta.events.push(DebugEvent::StatusChanged);
         }
-        meta.events.push(DebugEvent::ValueUpdated);
+        if latest_updated || history_updated {
+            meta.events.push(DebugEvent::ValueUpdated);
+        }
     }
 
     pub(crate) fn set_receive_error(&self, status: SubscriptionStatus, message: String) {
@@ -353,6 +363,22 @@ mod tests {
                 .is_empty()
         );
         assert!(Arc::ptr_eq(&record, &state.handle().latest().unwrap()));
+    }
+
+    #[test]
+    fn latest_uses_newest_source_time_not_receive_order() {
+        let state = Arc::new(SubscriptionState::new(
+            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+            RetentionPolicy::LatestOnly,
+        ));
+        let handle = state.handle();
+
+        state.store_latest(sample_record_at(NonClonePayload(1), Time::from_nanos(3)));
+        state.store_latest(sample_record_at(NonClonePayload(2), Time::from_nanos(2)));
+
+        let latest = handle.latest().unwrap();
+        assert_eq!(latest.value.0, 1);
+        assert_eq!(latest.source_time, Time::from_nanos(3));
     }
 
     #[test]

@@ -1,7 +1,7 @@
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 
 use parking_lot::Mutex;
-use ros_z::{Message, dynamic::DynamicPayload, node::Node};
+use ros_z::{Message, dynamic::DynamicPayload, node::Node, pubsub::QueueLossStats};
 use tokio::sync::watch;
 
 use crate::{
@@ -265,6 +265,8 @@ async fn receive_typed_loop<T>(
     T: Message,
     T::Codec: Send + Sync,
 {
+    let mut observed_dropped_samples = 0;
+
     loop {
         let received = tokio::select! {
             result = subscriber.recv_with_metadata() => result,
@@ -274,6 +276,12 @@ async fn receive_typed_loop<T>(
         let Some(state) = state.upgrade() else {
             break;
         };
+
+        report_queue_loss(
+            &state,
+            &mut observed_dropped_samples,
+            subscriber.queue_loss_stats(),
+        );
 
         match received {
             Ok(received) => {
@@ -307,6 +315,8 @@ async fn receive_dynamic_loop(
     resolved_topic: String,
     type_info: Option<ros_z::TypeInfo>,
 ) {
+    let mut observed_dropped_samples = 0;
+
     loop {
         let received = tokio::select! {
             result = subscriber.recv_with_metadata() => result,
@@ -316,6 +326,12 @@ async fn receive_dynamic_loop(
         let Some(state) = state.upgrade() else {
             break;
         };
+
+        report_queue_loss(
+            &state,
+            &mut observed_dropped_samples,
+            subscriber.queue_loss_stats(),
+        );
 
         match received {
             Ok(received) => {
@@ -341,6 +357,23 @@ async fn receive_dynamic_loop(
     }
 }
 
+fn report_queue_loss<V>(
+    state: &SubscriptionState<V>,
+    observed_dropped_samples: &mut u64,
+    stats: QueueLossStats,
+) {
+    if stats.dropped_samples <= *observed_dropped_samples {
+        return;
+    }
+
+    let newly_dropped = stats.dropped_samples - *observed_dropped_samples;
+    *observed_dropped_samples = stats.dropped_samples;
+    state.push_event(crate::DebugEvent::Diagnostic(format!(
+        "subscriber queue dropped {newly_dropped} sample(s); total dropped {}",
+        stats.dropped_samples
+    )));
+}
+
 fn classify_receive_error(message: &str) -> SubscriptionStatus {
     if message.contains("without attachment metadata")
         || message.contains("failed to decode ros-z attachment metadata")
@@ -355,7 +388,9 @@ fn classify_receive_error(message: &str) -> SubscriptionStatus {
 mod tests {
     use std::sync::Arc;
 
-    use super::{SubscriptionRegistry, classify_receive_error};
+    use ros_z::pubsub::QueueLossStats;
+
+    use super::{SubscriptionRegistry, classify_receive_error, report_queue_loss};
     use crate::{
         RetentionPolicy, SubscriptionStatus, SubscriptionStatusSnapshot,
         subscription::SubscriptionState,
@@ -400,6 +435,45 @@ mod tests {
         assert!(matches!(
             handle.drain_events().as_slice(),
             [crate::DebugEvent::StatusChanged]
+        ));
+    }
+
+    #[test]
+    fn queue_loss_diagnostic_reports_new_drops_once() {
+        let state = Arc::new(SubscriptionState::<TestPayload>::new(
+            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+            RetentionPolicy::LatestOnly,
+        ));
+        let handle = state.handle();
+        let mut observed_dropped_samples = 0;
+
+        report_queue_loss(
+            &state,
+            &mut observed_dropped_samples,
+            QueueLossStats { dropped_samples: 2 },
+        );
+        report_queue_loss(
+            &state,
+            &mut observed_dropped_samples,
+            QueueLossStats { dropped_samples: 2 },
+        );
+        report_queue_loss(
+            &state,
+            &mut observed_dropped_samples,
+            QueueLossStats { dropped_samples: 5 },
+        );
+
+        let events = handle.drain_events();
+        assert_eq!(events.len(), 2);
+        assert!(matches!(
+            &events[0],
+            crate::DebugEvent::Diagnostic(message)
+                if message == "subscriber queue dropped 2 sample(s); total dropped 2"
+        ));
+        assert!(matches!(
+            &events[1],
+            crate::DebugEvent::Diagnostic(message)
+                if message == "subscriber queue dropped 3 sample(s); total dropped 5"
         ));
     }
 }
