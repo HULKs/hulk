@@ -5,13 +5,17 @@ use parking_lot::Mutex;
 use ros_z::dynamic::DynamicPayload;
 use ros_z::time::Time;
 use serde_json::Value;
-use tokio::sync::watch;
+use tokio::{sync::watch, task::AbortHandle};
 
 use crate::{
     DebugEvent, JsonRenderPolicy, RetentionPolicy, SampleRecord, SubscriptionStatus,
     SubscriptionStatusSnapshot, event::EventBuffer, history::TimeIndexedHistory,
     json::dynamic_payload_to_json,
 };
+
+pub(crate) trait ManagedSubscription: Send + Sync {
+    fn close(&self);
+}
 
 pub struct SubscriptionHandle<V> {
     state: Arc<SubscriptionState<V>>,
@@ -89,6 +93,7 @@ pub(crate) struct SubscriptionState<V> {
 struct SubscriptionMeta {
     status: SubscriptionStatusSnapshot,
     events: EventBuffer,
+    receive_task: Option<AbortHandle>,
 }
 
 #[cfg_attr(
@@ -111,6 +116,7 @@ impl<V> SubscriptionState<V> {
             meta: Mutex::new(SubscriptionMeta {
                 status,
                 events: EventBuffer::new(256),
+                receive_task: None,
             }),
             cancellation_tx,
         }
@@ -123,16 +129,54 @@ impl<V> SubscriptionState<V> {
     }
 
     pub(crate) fn cancellation_receiver(&self) -> watch::Receiver<()> {
-        self.cancellation_tx.subscribe()
+        let mut receiver = self.cancellation_tx.subscribe();
+        if self.meta.lock().status.status == SubscriptionStatus::Closed {
+            receiver.mark_changed();
+        }
+        receiver
+    }
+
+    pub(crate) fn set_receive_task(&self, abort_handle: AbortHandle) {
+        let mut meta = self.meta.lock();
+        if meta.status.status == SubscriptionStatus::Closed {
+            drop(meta);
+            abort_handle.abort();
+            return;
+        }
+
+        if let Some(previous) = meta.receive_task.replace(abort_handle) {
+            previous.abort();
+        }
+    }
+
+    pub(crate) fn close(&self) {
+        let mut meta = self.meta.lock();
+        if meta.status.status == SubscriptionStatus::Closed {
+            return;
+        }
+        meta.status.status = SubscriptionStatus::Closed;
+        meta.status.message = None;
+        meta.events.push(DebugEvent::StatusChanged);
+        let receive_task = meta.receive_task.take();
+        drop(meta);
+
+        let _ = self.cancellation_tx.send(());
+        if let Some(receive_task) = receive_task {
+            receive_task.abort();
+        }
     }
 
     pub(crate) fn store_latest(&self, record: Arc<SampleRecord<V>>) {
+        let mut meta = self.meta.lock();
+        if meta.status.status == SubscriptionStatus::Closed {
+            return;
+        }
+
         if let Some(history) = &self.history {
             history.lock().insert(Arc::clone(&record));
         }
         self.latest.store(Some(record));
 
-        let mut meta = self.meta.lock();
         let status_changed = meta.status.status != SubscriptionStatus::Ready;
         meta.status.status = SubscriptionStatus::Ready;
         meta.status.message = None;
@@ -144,6 +188,10 @@ impl<V> SubscriptionState<V> {
 
     pub(crate) fn set_receive_error(&self, status: SubscriptionStatus, message: String) {
         let mut meta = self.meta.lock();
+        if meta.status.status == SubscriptionStatus::Closed {
+            return;
+        }
+
         let status_changed = meta.status.status != status;
         meta.status.status = status;
         meta.status.message = Some(message.clone());
@@ -173,6 +221,15 @@ impl<V> SubscriptionState<V> {
 
     fn drain_events(&self) -> Vec<DebugEvent> {
         self.meta.lock().events.drain()
+    }
+}
+
+impl<V> ManagedSubscription for SubscriptionState<V>
+where
+    V: Send + Sync,
+{
+    fn close(&self) {
+        SubscriptionState::close(self);
     }
 }
 
@@ -361,6 +418,125 @@ mod tests {
             .build()
             .unwrap();
         assert!(runtime.block_on(cancellation.changed()).is_err());
+    }
+
+    #[test]
+    fn close_sets_closed_status_emits_event_and_signals_cancellation() {
+        let state = Arc::new(SubscriptionState::<NonClonePayload>::new(
+            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+            RetentionPolicy::LatestOnly,
+        ));
+        let handle = state.handle();
+        let mut cancellation = state.cancellation_receiver();
+
+        state.close();
+
+        assert_eq!(handle.status().status, SubscriptionStatus::Closed);
+        assert!(matches!(
+            handle.drain_events().as_slice(),
+            [DebugEvent::StatusChanged]
+        ));
+        let runtime = tokio::runtime::Builder::new_current_thread()
+            .enable_time()
+            .build()
+            .unwrap();
+        assert!(
+            runtime
+                .block_on(async {
+                    tokio::time::timeout(Duration::from_secs(1), cancellation.changed()).await
+                })
+                .unwrap()
+                .is_ok()
+        );
+    }
+
+    #[tokio::test]
+    async fn cancellation_receiver_created_after_close_observes_cancellation() {
+        let state = Arc::new(SubscriptionState::<NonClonePayload>::new(
+            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+            RetentionPolicy::LatestOnly,
+        ));
+        state.close();
+        let mut cancellation = state.cancellation_receiver();
+
+        tokio::time::timeout(Duration::from_millis(10), cancellation.changed())
+            .await
+            .expect("closed state should wake late cancellation receivers")
+            .expect("sender should remain alive");
+    }
+
+    #[tokio::test]
+    async fn close_aborts_registered_receive_task() {
+        let state = Arc::new(SubscriptionState::<NonClonePayload>::new(
+            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+            RetentionPolicy::LatestOnly,
+        ));
+        let task = tokio::spawn(std::future::pending::<()>());
+        state.set_receive_task(task.abort_handle());
+
+        state.close();
+
+        assert!(task.await.unwrap_err().is_cancelled());
+    }
+
+    #[test]
+    fn store_latest_after_close_keeps_closed_terminal() {
+        let state = Arc::new(SubscriptionState::<NonClonePayload>::new(
+            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+            RetentionPolicy::LatestOnly,
+        ));
+        let handle = state.handle();
+
+        state.close();
+        state.store_latest(sample_record(NonClonePayload(1)));
+
+        assert_eq!(handle.status().status, SubscriptionStatus::Closed);
+        assert!(handle.latest().is_none());
+        assert!(matches!(
+            handle.drain_events().as_slice(),
+            [DebugEvent::StatusChanged]
+        ));
+    }
+
+    #[test]
+    fn receive_error_after_close_keeps_closed_terminal() {
+        let state = Arc::new(SubscriptionState::<NonClonePayload>::new(
+            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+            RetentionPolicy::LatestOnly,
+        ));
+        let handle = state.handle();
+
+        state.close();
+        state.set_receive_error(
+            SubscriptionStatus::DecodeError,
+            "late decode failure".to_string(),
+        );
+
+        let status = handle.status();
+        assert_eq!(status.status, SubscriptionStatus::Closed);
+        assert_eq!(status.message, None);
+        assert!(matches!(
+            handle.drain_events().as_slice(),
+            [DebugEvent::StatusChanged]
+        ));
+    }
+
+    #[test]
+    fn close_is_idempotent() {
+        let state = Arc::new(SubscriptionState::<NonClonePayload>::new(
+            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+            RetentionPolicy::LatestOnly,
+        ));
+        let handle = state.handle();
+
+        state.close();
+        state.close();
+
+        assert_eq!(handle.status().status, SubscriptionStatus::Closed);
+        assert!(matches!(
+            handle.drain_events().as_slice(),
+            [DebugEvent::StatusChanged]
+        ));
     }
 
     #[test]

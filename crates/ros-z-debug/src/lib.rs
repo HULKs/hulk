@@ -1,3 +1,4 @@
+pub mod connection;
 pub mod error;
 pub mod event;
 pub mod history;
@@ -9,6 +10,7 @@ pub mod status;
 pub mod subscription;
 pub mod topic;
 
+pub use connection::{ConnectionConfig, ConnectionManager};
 pub use error::{Error, Result};
 pub use event::DebugEvent;
 pub use json::{ByteRenderPolicy, JsonRenderPolicy};

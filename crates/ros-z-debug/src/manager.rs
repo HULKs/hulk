@@ -1,12 +1,13 @@
 use std::{marker::PhantomData, sync::Arc, time::Duration};
 
+use parking_lot::Mutex;
 use ros_z::{Message, dynamic::DynamicPayload, node::Node};
 use tokio::sync::watch;
 
 use crate::{
     JsonRenderPolicy, JsonSubscriptionHandle, Result, RetentionPolicy, SampleRecord,
     SubscriptionHandle, SubscriptionStatus, SubscriptionStatusSnapshot, TopicSelector,
-    subscription::SubscriptionState,
+    subscription::{ManagedSubscription, SubscriptionState},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -26,11 +27,16 @@ impl Default for ManagerOptions {
 pub struct SubscriptionManager {
     node: Arc<Node>,
     options: ManagerOptions,
+    subscriptions: SubscriptionRegistry,
 }
 
 impl SubscriptionManager {
     pub fn new(node: Arc<Node>, options: ManagerOptions) -> Self {
-        Self { node, options }
+        Self {
+            node,
+            options,
+            subscriptions: SubscriptionRegistry::default(),
+        }
     }
 
     pub fn subscribe_typed<T>(&self, topic: impl Into<String>) -> TypedSubscriptionBuilder<'_, T> {
@@ -51,12 +57,48 @@ impl SubscriptionManager {
         }
     }
 
-    pub fn node(&self) -> &Arc<Node> {
+    pub(crate) fn node(&self) -> &Arc<Node> {
         &self.node
     }
 
     pub fn namespace(&self) -> &str {
         &self.options.namespace
+    }
+
+    pub(crate) fn close(&self) {
+        self.subscriptions.close_all();
+    }
+}
+
+impl Drop for SubscriptionManager {
+    fn drop(&mut self) {
+        self.close();
+    }
+}
+
+#[derive(Default)]
+pub(crate) struct SubscriptionRegistry {
+    subscriptions: Mutex<Vec<std::sync::Weak<dyn ManagedSubscription>>>,
+}
+
+impl SubscriptionRegistry {
+    pub(crate) fn register<V>(&self, state: &Arc<SubscriptionState<V>>)
+    where
+        V: Send + Sync + 'static,
+    {
+        let state: Arc<dyn ManagedSubscription> = state.clone();
+        self.subscriptions.lock().push(Arc::downgrade(&state));
+    }
+
+    pub(crate) fn close_all(&self) {
+        self.subscriptions.lock().retain(|subscription| {
+            if let Some(subscription) = subscription.upgrade() {
+                subscription.close();
+                true
+            } else {
+                false
+            }
+        });
     }
 }
 
@@ -87,7 +129,7 @@ impl<T> TypedSubscriptionBuilder<'_, T> {
 
     pub async fn build(self) -> Result<SubscriptionHandle<T>>
     where
-        T: Message,
+        T: Message + Send + Sync + 'static,
         T::Codec: Send + Sync,
     {
         let retention = self.retention.validate()?;
@@ -110,8 +152,9 @@ impl<T> TypedSubscriptionBuilder<'_, T> {
             retention,
         ));
         let handle = state.handle();
+        self.manager.subscriptions.register(&state);
 
-        tokio::spawn(receive_typed_loop(
+        let receive_task = tokio::spawn(receive_typed_loop(
             subscriber,
             Arc::downgrade(&state),
             state.cancellation_receiver(),
@@ -119,6 +162,7 @@ impl<T> TypedSubscriptionBuilder<'_, T> {
             resolved_topic,
             type_info,
         ));
+        state.set_receive_task(receive_task.abort_handle());
 
         Ok(handle)
     }
@@ -194,8 +238,9 @@ impl DynamicSubscriptionBuilder<'_> {
             retention,
         ));
         let handle = state.handle();
+        self.manager.subscriptions.register(&state);
 
-        tokio::spawn(receive_dynamic_loop(
+        let receive_task = tokio::spawn(receive_dynamic_loop(
             subscriber,
             Arc::downgrade(&state),
             state.cancellation_receiver(),
@@ -203,6 +248,7 @@ impl DynamicSubscriptionBuilder<'_> {
             resolved_topic,
             type_info,
         ));
+        state.set_receive_task(receive_task.abort_handle());
 
         Ok(handle)
     }
@@ -307,8 +353,15 @@ fn classify_receive_error(message: &str) -> SubscriptionStatus {
 
 #[cfg(test)]
 mod tests {
-    use super::classify_receive_error;
-    use crate::SubscriptionStatus;
+    use std::sync::Arc;
+
+    use super::{SubscriptionRegistry, classify_receive_error};
+    use crate::{
+        RetentionPolicy, SubscriptionStatus, SubscriptionStatusSnapshot,
+        subscription::SubscriptionState,
+    };
+
+    struct TestPayload;
 
     #[test]
     fn classify_attachment_metadata_errors_as_protocol_errors() {
@@ -328,5 +381,25 @@ mod tests {
             classify_receive_error("failed to deserialize cdr payload"),
             SubscriptionStatus::DecodeError
         );
+    }
+
+    #[test]
+    fn registry_closes_subscriptions_while_handles_remain_alive() {
+        let registry = SubscriptionRegistry::default();
+        let state = Arc::new(SubscriptionState::<TestPayload>::new(
+            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+            RetentionPolicy::LatestOnly,
+        ));
+        let handle = state.handle();
+        registry.register(&state);
+        drop(state);
+
+        registry.close_all();
+
+        assert_eq!(handle.status().status, SubscriptionStatus::Closed);
+        assert!(matches!(
+            handle.drain_events().as_slice(),
+            [crate::DebugEvent::StatusChanged]
+        ));
     }
 }
