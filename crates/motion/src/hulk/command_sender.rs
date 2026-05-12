@@ -26,8 +26,10 @@ pub struct CycleContext {
     walk_motor_command_parameters: Parameter<MotorCommandParameters, "common_motor_command">,
     _prepare_motor_command_parameters: Parameter<MotorCommandParameters, "prepare_motor_command">,
 
+    collected_target_joint_positions:
+        RequiredInput<Option<Joints<f32>>, "collected_target_joint_positions?">,
+
     hardware_interface: HardwareInterface,
-    collected_target_joint_positions: Input<Joints<f32>, "collected_target_joint_positions">,
 }
 
 #[context]

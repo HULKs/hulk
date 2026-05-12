@@ -44,7 +44,7 @@ pub fn collect_hulk_cyclers(root: impl AsRef<Path>) -> Result<Cyclers, Error> {
                     "motion::booster::walking",
                     "motion::booster::stand_up",
                     "motion::hulk::command_sender",
-                    // "motion::hulk::walking",
+                    "motion::hulk::walking",
                     "motion::hulk::motor_commands_collector",
                 ],
                 execution_time_warning_threshold: Some(Duration::from_secs_f32(1.0 / 100.0)),
