@@ -96,10 +96,6 @@ struct SubscriptionMeta {
     receive_task: Option<AbortHandle>,
 }
 
-#[cfg_attr(
-    not(test),
-    expect(dead_code, reason = "async subscription builders wire this in Task 10")
-)]
 impl<V> SubscriptionState<V> {
     pub(crate) fn new(status: SubscriptionStatusSnapshot, retention: RetentionPolicy) -> Self {
         let (cancellation_tx, _) = watch::channel(());
