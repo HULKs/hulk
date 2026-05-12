@@ -11,7 +11,7 @@ use types::{
 
 use crate::{panels::image::overlay::Overlay, robot::Robot, value_buffer::BufferHandle};
 
-const POSE_SKELETON: [(usize, usize); 16] = [
+const POSE_SKELETON_KEYPOINT_LINE_MAPPING: [(usize, usize); 16] = [
     (0, 1),
     (0, 2),
     (1, 3),
@@ -61,8 +61,7 @@ fn paint_poses(
     for pose in poses {
         let keypoints: [Keypoint; 17] = pose.keypoints.into();
 
-        // draw skeleton
-        for (idx1, idx2) in POSE_SKELETON {
+        for (idx1, idx2) in POSE_SKELETON_KEYPOINT_LINE_MAPPING {
             if keypoints[idx1].confidence < KEYPOINT_CONFIDENCE_THRESHOLD
                 || keypoints[idx2].confidence < KEYPOINT_CONFIDENCE_THRESHOLD
             {
@@ -76,7 +75,6 @@ fn paint_poses(
             )
         }
 
-        // draw keypoints
         for keypoint in keypoints.iter() {
             if keypoint.confidence < KEYPOINT_CONFIDENCE_THRESHOLD {
                 continue;
@@ -92,7 +90,6 @@ fn paint_poses(
             );
         }
 
-        // draw bounding box
         let bounding_box = pose.object.bounding_box;
         painter.rect_stroke(
             bounding_box.area.min,
