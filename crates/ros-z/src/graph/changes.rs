@@ -3,10 +3,11 @@ use std::sync::{Arc, Weak};
 use parking_lot::Mutex;
 
 type GraphChangeCallback = Arc<dyn Fn() + Send + Sync>;
+type WeakGraphChangeCallback = Weak<dyn Fn() + Send + Sync>;
 
 #[derive(Clone, Default)]
 pub(crate) struct GraphChangeCallbacks {
-    inner: Arc<Mutex<Vec<Weak<dyn Fn() + Send + Sync>>>>,
+    inner: Arc<Mutex<Vec<WeakGraphChangeCallback>>>,
 }
 
 #[must_use = "dropping GraphChangeListener unregisters the graph change callback"]
