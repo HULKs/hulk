@@ -4,8 +4,9 @@ use ros_z::{Message, dynamic::DynamicPayload, node::Node};
 use tokio::sync::watch;
 
 use crate::{
-    JsonRenderPolicy, Result, RetentionPolicy, SampleRecord, SubscriptionHandle,
-    SubscriptionStatus, SubscriptionStatusSnapshot, TopicSelector, subscription::SubscriptionState,
+    JsonRenderPolicy, JsonSubscriptionHandle, Result, RetentionPolicy, SampleRecord,
+    SubscriptionHandle, SubscriptionStatus, SubscriptionStatusSnapshot, TopicSelector,
+    subscription::SubscriptionState,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -158,6 +159,20 @@ impl DynamicSubscriptionBuilder<'_> {
     }
 
     pub async fn build(self) -> Result<SubscriptionHandle<DynamicPayload>> {
+        self.build_payload().await
+    }
+
+    pub async fn build_payload(self) -> Result<SubscriptionHandle<DynamicPayload>> {
+        self.build_dynamic_payload().await
+    }
+
+    pub async fn build_json(self) -> Result<JsonSubscriptionHandle> {
+        let policy = self.json.unwrap_or_default();
+        let dynamic = self.build_dynamic_payload().await?;
+        Ok(JsonSubscriptionHandle::new(dynamic, policy))
+    }
+
+    async fn build_dynamic_payload(self) -> Result<SubscriptionHandle<DynamicPayload>> {
         let retention = self.retention.validate()?;
         let requested_topic = TopicSelector::new(self.topic)?;
         let resolved_topic = requested_topic.resolve(self.manager.namespace())?;

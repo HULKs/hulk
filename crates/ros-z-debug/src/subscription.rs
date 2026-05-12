@@ -2,12 +2,15 @@ use std::sync::Arc;
 
 use arc_swap::ArcSwapOption;
 use parking_lot::Mutex;
+use ros_z::dynamic::DynamicPayload;
 use ros_z::time::Time;
+use serde_json::Value;
 use tokio::sync::watch;
 
 use crate::{
-    DebugEvent, RetentionPolicy, SampleRecord, SubscriptionStatus, SubscriptionStatusSnapshot,
-    event::EventBuffer, history::TimeIndexedHistory,
+    DebugEvent, JsonRenderPolicy, RetentionPolicy, SampleRecord, SubscriptionStatus,
+    SubscriptionStatusSnapshot, event::EventBuffer, history::TimeIndexedHistory,
+    json::dynamic_payload_to_json,
 };
 
 pub struct SubscriptionHandle<V> {
@@ -37,6 +40,42 @@ impl<V> SubscriptionHandle<V> {
 
     pub fn drain_events(&self) -> Vec<DebugEvent> {
         self.state.drain_events()
+    }
+}
+
+pub struct JsonSubscriptionHandle {
+    dynamic: SubscriptionHandle<DynamicPayload>,
+    policy: JsonRenderPolicy,
+}
+
+impl JsonSubscriptionHandle {
+    pub(crate) fn new(
+        dynamic: SubscriptionHandle<DynamicPayload>,
+        policy: JsonRenderPolicy,
+    ) -> Self {
+        Self { dynamic, policy }
+    }
+
+    pub fn status(&self) -> SubscriptionStatusSnapshot {
+        self.dynamic.status()
+    }
+
+    pub fn latest_json(&self) -> Option<Value> {
+        self.dynamic
+            .latest()
+            .map(|record| dynamic_payload_to_json(&record.value, self.policy))
+    }
+
+    pub fn window_json(&self, start: Time, end: Time) -> Vec<Value> {
+        self.dynamic
+            .window(start, end)
+            .iter()
+            .map(|record| dynamic_payload_to_json(&record.value, self.policy))
+            .collect()
+    }
+
+    pub fn drain_events(&self) -> Vec<DebugEvent> {
+        self.dynamic.drain_events()
     }
 }
 
@@ -141,12 +180,15 @@ impl<V> SubscriptionState<V> {
 mod tests {
     use std::{sync::Arc, time::Duration};
 
-    use ros_z::time::Time;
+    use ros_z::{
+        dynamic::{DynamicPayload, DynamicValue, PrimitiveTypeDef, SchemaBundle, TypeDef},
+        time::Time,
+    };
 
-    use super::SubscriptionState;
+    use super::{JsonSubscriptionHandle, SubscriptionState};
     use crate::{
-        DebugEvent, RetentionPolicy, SampleRecord, SubscriptionStatus, SubscriptionStatusSnapshot,
-        TopicSelector,
+        DebugEvent, JsonRenderPolicy, RetentionPolicy, SampleRecord, SubscriptionStatus,
+        SubscriptionStatusSnapshot, TopicSelector,
     };
 
     struct NonClonePayload(u32);
@@ -171,6 +213,32 @@ mod tests {
 
     fn sample_record(value: NonClonePayload) -> Arc<SampleRecord<NonClonePayload>> {
         sample_record_at(value, Time::zero())
+    }
+
+    fn dynamic_payload(value: i32) -> DynamicPayload {
+        DynamicPayload::new(
+            Arc::new(SchemaBundle {
+                root: TypeDef::Primitive(PrimitiveTypeDef::I32),
+                definitions: Default::default(),
+            }),
+            DynamicValue::Int32(value),
+        )
+        .unwrap()
+    }
+
+    fn dynamic_record_at(value: i32, source_time: Time) -> Arc<SampleRecord<DynamicPayload>> {
+        Arc::new(SampleRecord {
+            value: dynamic_payload(value),
+            source_time,
+            transport_time: None,
+            publication_id: None,
+            source_global_id: None,
+            requested_topic: TopicSelector::new("camera").unwrap(),
+            resolved_topic: "/camera".to_string(),
+            namespace_version: 0,
+            type_info: None,
+            schema: None,
+        })
     }
 
     #[test]
@@ -293,5 +361,51 @@ mod tests {
             .build()
             .unwrap();
         assert!(runtime.block_on(cancellation.changed()).is_err());
+    }
+
+    #[test]
+    fn json_handle_projects_latest_dynamic_payload() {
+        let state = Arc::new(SubscriptionState::new(
+            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+            RetentionPolicy::LatestOnly,
+        ));
+        state.store_latest(dynamic_record_at(42, Time::zero()));
+        let handle = JsonSubscriptionHandle::new(state.handle(), JsonRenderPolicy::default());
+
+        assert_eq!(handle.latest_json(), Some(serde_json::json!(42)));
+    }
+
+    #[test]
+    fn json_handle_drains_underlying_dynamic_events() {
+        let state = Arc::new(SubscriptionState::<DynamicPayload>::new(
+            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+            RetentionPolicy::LatestOnly,
+        ));
+        state.push_event(DebugEvent::Diagnostic("connected".to_string()));
+        let handle = JsonSubscriptionHandle::new(state.handle(), JsonRenderPolicy::default());
+
+        let events = handle.drain_events();
+
+        assert!(matches!(&events[..], [DebugEvent::Diagnostic(message)] if message == "connected"));
+        assert!(handle.drain_events().is_empty());
+    }
+
+    #[test]
+    fn json_handle_projects_dynamic_payload_window() {
+        let state = Arc::new(SubscriptionState::new(
+            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+            RetentionPolicy::TimeWindow {
+                duration: Duration::from_secs(10),
+                max_samples: None,
+            },
+        ));
+        state.store_latest(dynamic_record_at(1, Time::from_nanos(1)));
+        state.store_latest(dynamic_record_at(2, Time::from_nanos(2)));
+        let handle = JsonSubscriptionHandle::new(state.handle(), JsonRenderPolicy::default());
+
+        assert_eq!(
+            handle.window_json(Time::from_nanos(1), Time::from_nanos(2)),
+            vec![serde_json::json!(1), serde_json::json!(2)]
+        );
     }
 }

@@ -16,5 +16,5 @@ pub use manager::{ManagerOptions, SubscriptionManager};
 pub use retention::RetentionPolicy;
 pub use sample::SampleRecord;
 pub use status::{SubscriptionStatus, SubscriptionStatusSnapshot};
-pub use subscription::SubscriptionHandle;
+pub use subscription::{JsonSubscriptionHandle, SubscriptionHandle};
 pub use topic::{ProjectedTopic, TopicProjection, TopicSelector};
