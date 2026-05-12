@@ -1,0 +1,152 @@
+use std::{sync::Arc, time::Duration};
+
+use ros_z::prelude::*;
+use ros_z_debug::{ManagerOptions, RetentionPolicy, SubscriptionManager};
+
+fn string_message_schema() -> ros_z::dynamic::Schema {
+    use ros_z_schema::{
+        FieldDef, SchemaBundle, StructDef, TypeDef, TypeDefinition, TypeDefinitions, TypeName,
+    };
+
+    let name = TypeName::new("test_msgs::StringMessage").expect("valid type name");
+    Arc::new(SchemaBundle {
+        root: TypeDef::Named(name.clone()),
+        definitions: TypeDefinitions::from([(
+            name,
+            TypeDefinition::Struct(StructDef {
+                fields: vec![FieldDef::new("data", TypeDef::String)],
+            }),
+        )]),
+    })
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn typed_subscription_receives_latest_sample() {
+    let context = ContextBuilder::default()
+        .disable_multicast_scouting()
+        .with_json("connect/endpoints", serde_json::json!([]))
+        .build()
+        .await
+        .expect("context should build");
+    let publisher_node = context
+        .create_node("typed_pub")
+        .build()
+        .await
+        .expect("publisher node");
+    let subscriber_node = Arc::new(
+        context
+            .create_node("typed_sub")
+            .build()
+            .await
+            .expect("subscriber node"),
+    );
+    let publisher = publisher_node
+        .publisher::<String>("debug_text")
+        .build()
+        .await
+        .expect("publisher");
+    let manager = SubscriptionManager::new(subscriber_node, ManagerOptions::default());
+    let handle = manager
+        .subscribe_typed::<String>("debug_text")
+        .retention(RetentionPolicy::LatestOnly)
+        .build()
+        .await
+        .expect("subscription should build");
+
+    publisher
+        .publish(&"hello".to_string())
+        .await
+        .expect("publish should work");
+
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(2);
+    loop {
+        if let Some(record) = handle.latest() {
+            assert_eq!(record.value, "hello");
+            assert_eq!(record.resolved_topic, "/debug_text");
+            return;
+        }
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "timed out waiting for sample"
+        );
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn dynamic_subscription_renders_json_view() {
+    use ros_z::dynamic::{DynamicPayload, DynamicStruct};
+
+    let context = ContextBuilder::default()
+        .disable_multicast_scouting()
+        .with_json("connect/endpoints", serde_json::json!([]))
+        .build()
+        .await
+        .expect("context should build");
+    let publisher_node = context
+        .create_node("dynamic_pub")
+        .build()
+        .await
+        .expect("publisher node");
+    let subscriber_node = Arc::new(
+        context
+            .create_node("dynamic_sub")
+            .build()
+            .await
+            .expect("subscriber node"),
+    );
+    let schema = string_message_schema();
+    let type_info = ros_z::TypeInfo::with_hash(
+        "test_msgs::StringMessage",
+        ros_z_schema::compute_hash(schema.as_ref()),
+    );
+    let publisher = publisher_node
+        .dynamic_publisher("debug_dynamic", type_info, schema.clone())
+        .build()
+        .await
+        .expect("dynamic publisher");
+    let manager = SubscriptionManager::new(subscriber_node, ManagerOptions::default());
+    let json = manager
+        .subscribe_dynamic("debug_dynamic")
+        .retention(RetentionPolicy::LatestOnly)
+        .json(Default::default())
+        .build_json()
+        .await
+        .expect("dynamic json subscription should build");
+    let mut message = DynamicStruct::default_for_schema(&schema).expect("default dynamic struct");
+    message.set("data", "hello").expect("set field");
+    let payload = DynamicPayload::from_struct(message).expect("dynamic payload");
+
+    publisher
+        .publish(&payload)
+        .await
+        .expect("publish should work");
+
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(2);
+    loop {
+        if let Some(value) = json.latest_json() {
+            assert_eq!(value, serde_json::json!({ "data": "hello" }));
+            return;
+        }
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "timed out waiting for dynamic sample"
+        );
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+}
+
+#[test]
+fn namespace_projection_keeps_global_topics_qualified() {
+    let projected = ros_z_debug::TopicProjection::project(
+        "alpha",
+        ["/alpha/foo".to_string(), "/diagnostics".to_string()],
+    );
+
+    assert!(projected.iter().any(|topic| topic.display_name == "foo"));
+    assert!(
+        projected
+            .iter()
+            .any(|topic| topic.display_name == "/diagnostics")
+    );
+}
