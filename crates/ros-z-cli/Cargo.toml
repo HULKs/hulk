@@ -14,7 +14,7 @@ path = "src/main.rs"
 clap = { workspace = true, features = ["derive"] }
 color-eyre = { workspace = true }
 ros-z = { workspace = true }
-ros-z-protocol = { workspace = true, features = ["std"] }
+ros-z-protocol = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 tokio = { workspace = true, features = [

@@ -7,15 +7,6 @@
 //!
 //! ros-z uses a native key expression format for nodes, topics, services, and actions.
 //!
-//! # no_std Support
-//!
-//! This crate is `no_std` compatible with `alloc`:
-//!
-//! ```toml
-//! [dependencies]
-//! ros-z-protocol = { version = "0.1", default-features = false }
-//! ```
-//!
 //! # Example
 //!
 //! ```rust

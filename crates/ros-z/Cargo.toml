@@ -19,7 +19,7 @@ parking_lot = { workspace = true }
 paste = { workspace = true }
 ros-z-cdr = { workspace = true }
 ros-z-derive = { workspace = true }
-ros-z-protocol = { workspace = true, features = ["std"] }
+ros-z-protocol = { workspace = true }
 ros-z-schema = { workspace = true }
 serde = { workspace = true, features = ["serde_derive"] }
 serde_json = { workspace = true }

@@ -1,12 +1,8 @@
 //! ros-z entity types for key expression generation.
 
-#![cfg_attr(not(feature = "std"), no_std)]
-
-extern crate alloc;
-
-use alloc::string::String;
 use core::{fmt::Display, ops::Deref};
 pub use ros_z_schema::SchemaHash;
+use std::string::String;
 use zenoh::{key_expr::KeyExpr, session::ZenohId};
 
 use crate::qos::{QosDecodeError, QosProfile};
@@ -241,5 +237,4 @@ impl Display for EntityConversionError {
     }
 }
 
-#[cfg(feature = "std")]
 impl std::error::Error for EntityConversionError {}

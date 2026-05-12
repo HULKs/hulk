@@ -1,11 +1,7 @@
 //! QoS profile encoding/decoding for liveliness tokens.
 
-#![cfg_attr(not(feature = "std"), no_std)]
-
-extern crate alloc;
-
-use alloc::string::String;
 use core::fmt::Display;
+use std::{string::String, vec::Vec};
 
 /// QoS profile for native ros-z entities.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -23,7 +19,6 @@ impl QosProfile {
     /// Encode QoS to string for liveliness token.
     /// Format: [reliability]:[durability]:[history],[depth]:[deadline]:[lifespan]:[liveliness]
     pub fn encode(&self) -> String {
-        use alloc::format;
         let default_qos = Self::default();
 
         // Reliability - empty if default (encoded values: 1=Reliable, 2=BestEffort)
@@ -76,7 +71,7 @@ impl QosProfile {
 
     /// Decode QoS from liveliness token string.
     pub fn decode(s: &str) -> Result<Self, QosDecodeError> {
-        let fields: alloc::vec::Vec<&str> = s.split(':').collect();
+        let fields: Vec<&str> = s.split(':').collect();
         if fields.len() != 3 && fields.len() != 6 {
             return Err(QosDecodeError::InvalidFormat);
         }
@@ -100,7 +95,7 @@ impl QosProfile {
         };
 
         // Parse history: <kind>,<depth>
-        let history_parts: alloc::vec::Vec<&str> = fields[2].split(',').collect();
+        let history_parts: Vec<&str> = fields[2].split(',').collect();
         if history_parts.len() != 2 {
             return Err(QosDecodeError::InvalidHistory);
         }
@@ -152,8 +147,6 @@ impl QosProfile {
 }
 
 fn encode_duration(duration: QosDuration, default: QosDuration) -> String {
-    use alloc::format;
-
     if duration == default {
         ",".to_string()
     } else {
@@ -167,8 +160,6 @@ fn encode_liveliness(
     default_liveliness: QosLiveliness,
     default_lease: QosDuration,
 ) -> String {
-    use alloc::format;
-
     if liveliness == default_liveliness && lease == default_lease {
         ",,".to_string()
     } else {
@@ -182,7 +173,7 @@ fn encode_liveliness(
 }
 
 fn decode_duration(s: &str) -> Result<QosDuration, QosDecodeError> {
-    let parts: alloc::vec::Vec<&str> = s.split(',').collect();
+    let parts: Vec<&str> = s.split(',').collect();
     if parts.len() != 2 {
         return Err(QosDecodeError::InvalidDuration);
     }
@@ -204,7 +195,7 @@ fn decode_duration(s: &str) -> Result<QosDuration, QosDecodeError> {
 }
 
 fn decode_liveliness(s: &str) -> Result<(QosLiveliness, QosDuration), QosDecodeError> {
-    let parts: alloc::vec::Vec<&str> = s.split(',').collect();
+    let parts: Vec<&str> = s.split(',').collect();
     if parts.len() != 3 {
         return Err(QosDecodeError::InvalidLiveliness);
     }
