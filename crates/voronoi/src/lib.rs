@@ -17,7 +17,7 @@ const DIAGONAL_COST: f32 = SQRT_2;
 const INV_SQRT_2: f32 = 1.0 / DIAGONAL_COST;
 
 #[derive(Copy, Clone, Debug)]
-pub struct Neighbor {
+struct Neighbor {
     pub dx: isize,
     pub dy: isize,
     pub step_cost: f32,
@@ -35,7 +35,7 @@ impl Neighbor {
     }
 }
 
-pub const NEIGHBORS: [Neighbor; 8] = [
+const NEIGHBORS: [Neighbor; 8] = [
     Neighbor::new(1, 0, STRAIGHT_COST, 1.0),
     Neighbor::new(1, 1, DIAGONAL_COST, INV_SQRT_2),
     Neighbor::new(0, 1, STRAIGHT_COST, 1.0),
@@ -89,17 +89,17 @@ impl Ownership {
 )]
 pub struct VoronoiGrid {
     pub tiles: Vec<Ownership>,
-    pub width_tiles: u32,
-    pub height_tiles: u32,
+    pub width_tiles: usize,
+    pub height_tiles: usize,
     pub resolution: f32,
     pub min_bound: Point2<Field>,
 }
 
 impl VoronoiGrid {
     pub fn new(width: f32, height: f32, padding: f32, resolution: f32) -> Self {
-        let width_tiles = ((width + 2.0 * padding) / resolution).round() as u32;
-        let height_tiles = ((height + 2.0 * padding) / resolution).round() as u32;
-        let tile_count = (width_tiles as usize) * (height_tiles as usize);
+        let width_tiles = ((width + 2.0 * padding) / resolution).round() as usize;
+        let height_tiles = ((height + 2.0 * padding) / resolution).round() as usize;
+        let tile_count = (width_tiles) * (height_tiles);
 
         Self {
             tiles: vec![Ownership::Free; tile_count],
@@ -176,15 +176,17 @@ impl VoronoiGrid {
             let player_number = robots[robot_index].1;
             let (sin_h, cos_h) = robot_headings[robot_index];
 
-            let width_tiles = self.width_tiles as usize;
-            let height_tiles = self.height_tiles as usize;
+            let width_tiles = self.width_tiles;
+            let height_tiles = self.height_tiles;
             let x = current_index % width_tiles;
             let y = current_index / width_tiles;
 
             for neighbor in NEIGHBORS {
                 let nx = x as isize + neighbor.dx;
                 let ny = y as isize + neighbor.dy;
-                if nx < 0 || nx >= width_tiles as isize || ny < 0 || ny >= height_tiles as isize {
+                if !(0..width_tiles as isize).contains(&nx)
+                    || !(0..height_tiles as isize).contains(&ny)
+                {
                     continue;
                 }
 
@@ -198,7 +200,6 @@ impl VoronoiGrid {
 
                 if new_cost < distance[neighbor_index] {
                     distance[neighbor_index] = new_cost;
-                    // Assign ownership to the robot with the currently best cost.
                     self.tiles[neighbor_index] = Ownership::Robot(player_number);
                     queue.push(Reverse((
                         NotNan::new(new_cost).unwrap(),
@@ -213,7 +214,7 @@ impl VoronoiGrid {
     fn is_valid_grid(&self) -> bool {
         self.width_tiles > 0
             && self.height_tiles > 0
-            && (self.width_tiles as usize) * (self.height_tiles as usize) == self.tiles.len()
+            && self.width_tiles * self.height_tiles == self.tiles.len()
     }
 
     fn prepare_dijkstra(
@@ -280,7 +281,8 @@ impl VoronoiGrid {
         let ix = ((p.x() - self.min_bound.x()) / self.resolution).floor() as i32;
         let iy = ((p.y() - self.min_bound.y()) / self.resolution).floor() as i32;
 
-        if ix >= 0 && ix < self.width_tiles as i32 && iy >= 0 && iy < self.height_tiles as i32 {
+        if (0..self.width_tiles as i32).contains(&ix) && (0..self.height_tiles as i32).contains(&iy)
+        {
             Some(self.index_from_xy(ix as usize, iy as usize))
         } else {
             None
@@ -288,7 +290,7 @@ impl VoronoiGrid {
     }
 
     pub fn index_to_point(&self, index: usize) -> Point2<Field> {
-        let width_tiles = self.width_tiles as usize;
+        let width_tiles = self.width_tiles;
         let ix = (index % width_tiles) as f32;
         let iy = (index / width_tiles) as f32;
 
@@ -342,11 +344,11 @@ impl VoronoiGrid {
             return Some(start_index);
         }
 
-        let width_tiles = self.width_tiles as usize;
-        let height_tiles = self.height_tiles as usize;
+        let width_tiles = self.width_tiles;
+        let height_tiles = self.height_tiles;
         let start_x = start_index % width_tiles;
         let start_y = start_index / width_tiles;
-        let max_radius = self.width_tiles.max(self.height_tiles) as usize;
+        let max_radius = self.width_tiles.max(self.height_tiles);
 
         for radius in 1..=max_radius {
             let min_x = start_x.saturating_sub(radius);
@@ -379,7 +381,7 @@ impl VoronoiGrid {
     }
 
     fn index_from_xy(&self, x: usize, y: usize) -> usize {
-        y * (self.width_tiles as usize) + x
+        y * (self.width_tiles) + x
     }
 
     fn rasterize_bounds(
@@ -409,11 +411,7 @@ impl VoronoiGrid {
 }
 
 fn rotation_cost(sin_h: f32, cos_h: f32, neighbor: Neighbor, orientation_bias: f32) -> f32 {
-    if orientation_bias <= 0.0 {
-        0.0
-    } else {
-        let dot = (cos_h * neighbor.dx as f32 + sin_h * neighbor.dy as f32) * neighbor.inv_norm;
-        let turn_factor = (1.0 - dot.clamp(-1.0, 1.0)) * 0.5;
-        turn_factor * orientation_bias
-    }
+    let dot = (cos_h * neighbor.dx as f32 + sin_h * neighbor.dy as f32) * neighbor.inv_norm;
+    let turn_factor = (1.0 - dot.clamp(-1.0, 1.0)) * 0.5;
+    (turn_factor * orientation_bias).max(0.0)
 }

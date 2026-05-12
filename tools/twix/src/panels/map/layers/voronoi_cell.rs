@@ -4,8 +4,8 @@ use color_eyre::Result;
 use coordinate_systems::Field;
 use eframe::egui::{Color32, Stroke};
 use hsl_network_messages::PlayerNumber;
-use serde_json::Value;
-use types::{players::Players, world_state::PlayerState};
+use linear_algebra::Pose2;
+use serde_json::{Value, from_value};
 use voronoi::{Ownership, VoronoiGrid};
 
 use crate::{
@@ -14,7 +14,7 @@ use crate::{
 
 pub struct VoronoiCell {
     voronoi_grid: BufferHandle<Value>,
-    player_states: BufferHandle<Players<Option<PlayerState>>>,
+    voronoi_inputs: BufferHandle<Value>,
 }
 
 impl Layer<Field> for VoronoiCell {
@@ -23,10 +23,11 @@ impl Layer<Field> for VoronoiCell {
     fn new(robot: Arc<Robot>) -> Self {
         let voronoi_grid =
             robot.subscribe_json("WorldState.additional_outputs.behavior.voronoi_map");
-        let player_states = robot.subscribe_value("WorldState.main_outputs.player_states");
+        let voronoi_inputs =
+            robot.subscribe_json("WorldState.additional_outputs.behavior.voronoi_inputs");
         Self {
             voronoi_grid,
-            player_states,
+            voronoi_inputs,
         }
     }
 
@@ -38,7 +39,7 @@ impl Layer<Field> for VoronoiCell {
         let Some(grid_value) = self.voronoi_grid.get_last_value()? else {
             return Ok(());
         };
-        let grid: VoronoiGrid = match serde_json::from_value(grid_value) {
+        let grid: VoronoiGrid = match from_value(grid_value) {
             Ok(grid) => grid,
             Err(_) => return Ok(()),
         };
@@ -75,8 +76,8 @@ impl Layer<Field> for VoronoiCell {
                 Ownership::Free => Color32::from_gray(120),
             };
 
-            painter.circle_filled(point, 0.02, color);
-            painter.circle_stroke(point, 0.02, Stroke::new(0.005, Color32::BLACK));
+            painter.circle_filled(point, 0.035, color);
+            painter.circle_stroke(point, 0.035, Stroke::new(0.01, Color32::BLACK));
         }
 
         for player_number in [
@@ -96,24 +97,17 @@ impl Layer<Field> for VoronoiCell {
             }
         }
 
-        if let Some(player_states) = self.player_states.get_last_value()? {
-            for (player_number, player_state) in player_states.iter() {
-                let Some(player_state) = player_state else {
-                    continue;
-                };
-                let color_index = match player_number {
-                    PlayerNumber::One => 0,
-                    PlayerNumber::Two => 1,
-                    PlayerNumber::Three => 2,
-                    PlayerNumber::Four => 3,
-                    PlayerNumber::Five => 4,
-                };
-                let color = colors[color_index % colors.len()];
+        if let Some(voronoi_inputs) = self.voronoi_inputs.get_last_value()? {
+            let voronoi_inputs: Vec<Pose2<Field>> = match serde_json::from_value(voronoi_inputs) {
+                Ok(inputs) => inputs,
+                Err(_) => return Ok(()),
+            };
+            for voronoi_input in &voronoi_inputs {
                 painter.pose(
-                    player_state.pose,
+                    *voronoi_input,
                     0.08,
                     0.12,
-                    color.linear_multiply(0.6),
+                    Color32::from_rgba_premultiplied(255, 0, 0, 128),
                     Stroke::new(0.01, Color32::BLACK),
                 );
             }

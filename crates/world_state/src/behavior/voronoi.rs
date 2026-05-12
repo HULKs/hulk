@@ -7,14 +7,16 @@ use voronoi::VoronoiGrid;
 use crate::behavior::node::Blackboard;
 
 pub fn calculate_voronoi_grid(blackboard: &mut Blackboard) -> Status {
-    let robot = &blackboard.world_state.robot;
-    if let Some(ground_to_field) = robot.ground_to_field {
-        let field_dimensions = blackboard.field_dimensions;
+    if let Some(ground_to_field) = blackboard.world_state.robot.ground_to_field {
+        let field_dimensions = &blackboard.field_dimensions;
         let voronoi_parameters = &blackboard.parameters.voronoi;
         let obstacles = &blackboard.world_state.obstacles;
         let rule_obstacles = &blackboard.world_state.rule_obstacles;
 
         let sites = collect_sites(blackboard, ground_to_field.as_pose());
+        for (pose, _) in &sites {
+            blackboard.voronoi_inputs.push(*pose);
+        }
 
         let mut map = VoronoiGrid::new(
             field_dimensions.length,
