@@ -46,6 +46,7 @@ members = [
   "crates/ros-z",
   "crates/ros-z-cdr",
   "crates/ros-z-cli",
+  "crates/ros-z-debug",
   "crates/ros-z-derive",
   "crates/ros-z-protocol",
   "crates/ros-z-schema",
@@ -222,6 +223,7 @@ rmp-serde = "1.3.0"
 robot = { path = "crates/robot" }
 ros-z = { path = "crates/ros-z", features = ["nalgebra"] }
 ros-z-cdr = { path = "crates/ros-z-cdr" }
+ros-z-debug = { path = "crates/ros-z-debug" }
 ros-z-derive = { path = "crates/ros-z-derive" }
 ros-z-protocol = { path = "crates/ros-z-protocol" }
 ros-z-schema = { path = "crates/ros-z-schema" }

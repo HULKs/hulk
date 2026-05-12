@@ -8923,6 +8923,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "ros-z-debug"
+version = "0.1.0"
+dependencies = [
+ "thiserror 2.0.18",
+ "zenoh",
+]
+
+[[package]]
 name = "ros-z-derive"
 version = "0.1.0"
 dependencies = [
