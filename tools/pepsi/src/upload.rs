@@ -13,6 +13,7 @@ use tempfile::tempdir;
 
 use crate::{
     cargo::{self, CargoCommand, build, cargo, environment::EnvironmentArguments},
+    gammaray::CommandExt,
     progress_indicator::{ProgressIndicator, Task},
 };
 
@@ -25,6 +26,9 @@ pub struct Arguments {
     pub environment: EnvironmentArguments,
     #[command(flatten, next_help_heading = "Cargo Options")]
     pub build: build::Arguments,
+    /// Use old booster binary
+    #[arg(long)]
+    pub old: bool,
 }
 
 #[derive(Args)]
@@ -52,6 +56,7 @@ async fn upload_with_progress(
     arguments: &UploadArguments,
     progress: &Task,
     repository: &Repository,
+    binary_name: &str,
 ) -> Result<()> {
     progress.set_message("Pinging Robot...");
     let robot = Robot::try_new_with_ping(robot_address.ip).await?;
@@ -72,6 +77,17 @@ async fn upload_with_progress(
             );
         }
     }
+
+    robot
+        .ssh_to_robot()?
+        .arg("grep")
+        .arg(binary_name)
+        .arg("/usr/bin/launch-hulk")
+        .ssh_with_log("checking launch-hulk", &progress.progress)
+        .await
+        .wrap_err_with(|| {
+            format!("launch-hulk was not set up to launch {binary_name}, gammaray needed")
+        })?;
 
     progress.set_message("Stopping HULK...");
     robot
