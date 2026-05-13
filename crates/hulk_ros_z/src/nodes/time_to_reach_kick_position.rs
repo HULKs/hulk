@@ -14,11 +14,13 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
     let _ball_state_sub = node
         .subscriber::<BallState>("ball_state")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _time_to_reach_kick_position_pub = node
         .publisher::<Duration>("time_to_reach_kick_position")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;

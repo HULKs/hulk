@@ -59,71 +59,85 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
     let _filtered_game_controller_state_sub = node
         .subscriber::<FilteredGameControllerState>("filtered_game_controller_state")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _primary_state_sub = node
         .subscriber::<PrimaryState>("primary_state")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _odometer_sub = node
         .subscriber::<Odometer>("odometer")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _fall_down_state_sub = node
         .subscriber::<FallDownState>("fall_down_state")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _imu_state_sub = node
         .subscriber::<ImuState>("imu_state")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _line_data_sub = node
         .subscriber::<LineData>("line_data")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _correspondence_lines_pub = node
         .publisher::<Vec<LineSegment<Field>>>("localization/correspondence_lines")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _fit_errors_pub = node
         .publisher::<Vec<Vec<Vec<Vec<f32>>>>>("localization/fit_errors")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _measured_lines_in_field_pub = node
         .publisher::<Vec<LineSegment<Field>>>("localization/measured_lines_in_field")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _pose_hypotheses_pub = node
         .publisher::<Vec<ScoredPose>>("localization/pose_hypotheses")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _updates_pub = node
         .publisher::<Vec<Vec<Update>>>("localization/updates")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _gyro_movement_pub = node
         .publisher::<f32>("localization/gyro_movement")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _ground_to_field_pub = node
         .publisher::<Isometry2<Ground, Field>>("ground_to_field")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _is_localization_converged_pub = node
         .publisher::<bool>("is_localization_converged")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;

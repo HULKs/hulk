@@ -37,6 +37,9 @@ where
     pub async fn register(node: &Node, inner: Arc<NodeParametersInner<T>>) -> Result<Self> {
         let event_publisher = node
             .publisher::<NodeParameterEvent>("~parameter/events")
+            .map_err(|err| ParameterError::RemoteError {
+                message: err.to_string(),
+            })?
             .qos(QosProfile {
                 reliability: QosReliability::Reliable,
                 durability: QosDurability::TransientLocal,
@@ -127,6 +130,9 @@ where
     S: Service + ServiceTypeInfo,
 {
     node.create_service_server::<S>(name)
+        .map_err(|err| ParameterError::RemoteError {
+            message: err.to_string(),
+        })?
         .build_with_callback(move |query| handler(&query))
         .await
         .map_err(|err| ParameterError::RemoteError {

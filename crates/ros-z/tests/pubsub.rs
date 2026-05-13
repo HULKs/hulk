@@ -219,9 +219,9 @@ async fn node_builder_can_disable_schema_service_explicitly() -> zenoh::Result<(
 async fn raw_subscriber_receives_sample_payload() -> zenoh::Result<()> {
     let context = ContextBuilder::default().build().await?;
     let node = context.create_node("raw_subscriber_node").build().await?;
-    let publisher = node.publisher::<TestMessage>("/raw_topic").build().await?;
+    let publisher = node.publisher::<TestMessage>("/raw_topic")?.build().await?;
     let mut subscriber = node
-        .subscriber::<TestMessage>("/raw_topic")
+        .subscriber::<TestMessage>("/raw_topic")?
         .raw()
         .build()
         .await?;
@@ -240,56 +240,130 @@ async fn raw_subscriber_receives_sample_payload() -> zenoh::Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-async fn typed_pubsub_builders_return_schema_errors() {
+async fn typed_pubsub_factories_return_schema_errors() {
     let context = ContextBuilder::default()
         .build()
         .await
         .expect("Failed to create context");
     let node = context
-        .create_node("invalid_schema_builders")
+        .create_node("invalid_schema_factories")
         .build()
         .await
         .expect("Failed to create node");
 
-    let publisher = node
-        .publisher::<InvalidSchemaMessage>("/invalid_schema_publisher")
-        .build()
-        .await;
-    assert!(publisher.is_err());
+    let Err(publisher_error) = node.publisher::<InvalidSchemaMessage>("/invalid_schema_publisher")
+    else {
+        panic!("invalid schema should fail publisher factory");
+    };
+    assert!(
+        publisher_error
+            .to_string()
+            .contains("failed to build message schema for publisher")
+    );
 
-    let subscriber = node
-        .subscriber::<InvalidSchemaMessage>("/invalid_schema_subscriber")
-        .build()
-        .await;
-    assert!(subscriber.is_err());
+    let Err(subscriber_error) =
+        node.subscriber::<InvalidSchemaMessage>("/invalid_schema_subscriber")
+    else {
+        panic!("invalid schema should fail subscriber factory");
+    };
+    assert!(
+        subscriber_error
+            .to_string()
+            .contains("failed to build message schema for subscriber")
+    );
 
-    let cache = node
-        .create_cache::<InvalidSchemaMessage>("/invalid_schema_cache", 1)
-        .build()
-        .await;
-    assert!(cache.is_err());
+    let Err(cache_error) = node.create_cache::<InvalidSchemaMessage>("/invalid_schema_cache", 1)
+    else {
+        panic!("invalid schema should fail cache factory");
+    };
+    assert!(
+        cache_error
+            .to_string()
+            .contains("failed to build message schema for cache")
+    );
 
-    let manual_publisher = node
-        .publisher::<InvalidSchemaManualTypeInfoMessage>("/invalid_manual_schema_publisher")
-        .build()
-        .await;
-    assert!(manual_publisher.is_err());
+    let Err(manual_publisher_error) =
+        node.publisher::<InvalidSchemaManualTypeInfoMessage>("/invalid_manual_schema_publisher")
+    else {
+        panic!("invalid schema should fail publisher factory even with manual type info");
+    };
+    assert!(
+        manual_publisher_error
+            .to_string()
+            .contains("failed to build message schema for publisher")
+    );
 
-    let manual_subscriber = node
-        .subscriber::<InvalidSchemaManualTypeInfoMessage>("/invalid_manual_schema_subscriber")
-        .build()
-        .await;
-    assert!(manual_subscriber.is_err());
+    let Err(manual_subscriber_error) =
+        node.subscriber::<InvalidSchemaManualTypeInfoMessage>("/invalid_manual_schema_subscriber")
+    else {
+        panic!("invalid schema should fail subscriber factory even with manual type info");
+    };
+    assert!(
+        manual_subscriber_error
+            .to_string()
+            .contains("failed to build message schema for subscriber")
+    );
 
-    let manual_cache = node
-        .create_cache::<InvalidSchemaManualTypeInfoMessage>("/invalid_manual_schema_cache", 1)
-        .build()
-        .await;
-    assert!(manual_cache.is_err());
+    let Err(manual_cache_error) =
+        node.create_cache::<InvalidSchemaManualTypeInfoMessage>("/invalid_manual_schema_cache", 1)
+    else {
+        panic!("invalid schema should fail cache factory even with manual type info");
+    };
+    assert!(
+        manual_cache_error
+            .to_string()
+            .contains("failed to build message schema for cache")
+    );
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-async fn typed_publisher_rejects_schema_root_that_differs_from_type_name() {
+async fn publisher_factory_returns_schema_error_when_message_schema_invalid() {
+    let context = ContextBuilder::default()
+        .build()
+        .await
+        .expect("Failed to create context");
+    let node = context
+        .create_node("invalid_publisher_schema")
+        .build()
+        .await
+        .expect("Failed to create node");
+
+    let Err(error) = node.publisher::<InvalidSchemaMessage>("/invalid_schema") else {
+        panic!("invalid schema should fail publisher factory");
+    };
+
+    assert!(
+        error
+            .to_string()
+            .contains("failed to build message schema for publisher")
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn subscriber_factory_returns_schema_error_when_message_schema_invalid() {
+    let context = ContextBuilder::default()
+        .build()
+        .await
+        .expect("Failed to create context");
+    let node = context
+        .create_node("invalid_subscriber_schema")
+        .build()
+        .await
+        .expect("Failed to create node");
+
+    let Err(error) = node.subscriber::<InvalidSchemaMessage>("/invalid_schema") else {
+        panic!("invalid schema should fail subscriber factory");
+    };
+
+    assert!(
+        error
+            .to_string()
+            .contains("failed to build message schema for subscriber")
+    );
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn typed_publisher_factory_rejects_schema_root_that_differs_from_type_name() {
     let context = ContextBuilder::default()
         .build()
         .await
@@ -300,20 +374,20 @@ async fn typed_publisher_rejects_schema_root_that_differs_from_type_name() {
         .await
         .expect("Failed to create node");
 
-    let error = node
-        .publisher::<MismatchedRootSchemaMessage>("/mismatched_schema_root")
-        .build()
-        .await
-        .expect_err("mismatched schema root should fail publisher build");
+    let Err(error) = node.publisher::<MismatchedRootSchemaMessage>("/mismatched_schema_root")
+    else {
+        panic!("mismatched schema root should fail publisher factory");
+    };
     let message = error.to_string();
 
+    assert!(message.contains("failed to build message schema for publisher"));
     assert!(message.contains("schema root"));
     assert!(message.contains("test_msgs::AdvertisedRoot"));
     assert!(message.contains("test_msgs::ActualRoot"));
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-async fn dynamic_publisher_rejects_schema_root_that_differs_from_type_info() {
+async fn dynamic_publisher_factory_rejects_schema_root_that_differs_from_type_info() {
     let context = ContextBuilder::default()
         .build()
         .await
@@ -325,17 +399,16 @@ async fn dynamic_publisher_rejects_schema_root_that_differs_from_type_info() {
         .expect("Failed to create node");
     let type_info = TypeInfo::new("test_msgs::AdvertisedDynamicRoot", None);
 
-    let error = node
-        .dynamic_publisher(
-            "/mismatched_dynamic_schema_root",
-            type_info,
-            mismatched_dynamic_schema(),
-        )
-        .build()
-        .await
-        .expect_err("mismatched schema root should fail dynamic publisher build");
+    let Err(error) = node.dynamic_publisher(
+        "/mismatched_dynamic_schema_root",
+        type_info,
+        mismatched_dynamic_schema(),
+    ) else {
+        panic!("mismatched schema root should fail dynamic publisher factory");
+    };
     let message = error.to_string();
 
+    assert!(message.contains("failed to build message schema for publisher"));
     assert!(message.contains("schema root"));
     assert!(message.contains("test_msgs::AdvertisedDynamicRoot"));
     assert!(message.contains("test_msgs::ActualDynamicRoot"));
@@ -355,12 +428,14 @@ async fn test_basic_pubsub() {
 
     let publisher = node
         .publisher::<TestMessage>("/test_topic")
+        .expect("publisher factory should succeed")
         .build()
         .await
         .unwrap();
 
     let subscriber = node
         .subscriber::<TestMessage>("/test_topic")
+        .expect("subscriber factory should succeed")
         .build()
         .await
         .unwrap();
@@ -400,7 +475,7 @@ async fn transient_local_build_waits_for_initial_replay() -> zenoh::Result<()> {
     };
 
     let publisher = pub_node
-        .publisher::<TestMessage>(topic)
+        .publisher::<TestMessage>(topic)?
         .qos(qos)
         .build()
         .await?;
@@ -411,7 +486,7 @@ async fn transient_local_build_waits_for_initial_replay() -> zenoh::Result<()> {
     publisher.publish(&message).await?;
 
     let subscriber = sub_node
-        .subscriber::<TestMessage>(topic)
+        .subscriber::<TestMessage>(topic)?
         .qos(qos)
         .build()
         .await?;
@@ -441,12 +516,14 @@ async fn test_multiple_messages() {
 
     let publisher = node
         .publisher::<TestMessage>("/multi_topic")
+        .expect("publisher factory should succeed")
         .build()
         .await
         .unwrap();
 
     let subscriber = node
         .subscriber::<TestMessage>("/multi_topic")
+        .expect("subscriber factory should succeed")
         .build()
         .await
         .unwrap();
@@ -485,6 +562,7 @@ async fn create_cache_uses_schema_hash_method_when_type_info_is_available() {
 
     let _cache = node
         .create_cache::<CacheSchemaHashMessage>(topic, 4)
+        .expect("cache factory should succeed")
         .build()
         .await
         .expect("cache should build");
@@ -522,6 +600,7 @@ async fn publisher_schema_service_uses_schema_derived_key_when_type_info_diverge
 
     let _publisher = node
         .publisher::<AdvertisedTypeInfoSchemaMessage>("/advertised_schema_service")
+        .expect("publisher factory should succeed")
         .build()
         .await
         .expect("publisher should build");
@@ -570,11 +649,13 @@ async fn typed_pubsub_advertises_canonical_schema_hash_when_schema_hash_override
 
     let _publisher = node
         .publisher::<AdvertisedTypeInfoSchemaMessage>(topic)
+        .expect("publisher factory should succeed")
         .build()
         .await
         .expect("publisher should build");
     let _subscriber = node
         .subscriber::<AdvertisedTypeInfoSchemaMessage>(topic)
+        .expect("subscriber factory should succeed")
         .build()
         .await
         .expect("subscriber should build");
@@ -638,6 +719,7 @@ async fn dynamic_publisher_advertises_explicit_schema_hash() {
             TypeInfo::with_hash(&root_name, schema_hash),
             root_schema,
         )
+        .expect("dynamic publisher factory should succeed")
         .build()
         .await
         .expect("publisher should build");
@@ -667,6 +749,61 @@ async fn dynamic_publisher_advertises_explicit_schema_hash() {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn dynamic_publisher_fills_missing_schema_hash_from_schema() {
+    let context = ContextBuilder::default()
+        .build()
+        .await
+        .expect("Failed to create context");
+    let node = context
+        .create_node("dynamic_inferred_schema_hash")
+        .build()
+        .await
+        .expect("Failed to create node");
+    let topic = "/dynamic_inferred_schema_hash";
+    let root_name = "test_msgs::DynamicInferredHash".to_string();
+    let root_type_name = TypeName::new(&root_name).unwrap();
+    let mut builder = SchemaBuilder::new();
+    let root = builder
+        .define_struct(root_type_name, |fields| {
+            fields.field::<String>("data")?;
+            Ok(())
+        })
+        .unwrap();
+    let root_schema = std::sync::Arc::new(builder.finish(root).unwrap());
+    let schema_hash = ros_z_schema::compute_hash(root_schema.as_ref());
+
+    let _publisher = node
+        .dynamic_publisher(topic, TypeInfo::new(&root_name, None), root_schema)
+        .expect("dynamic publisher factory should succeed")
+        .build()
+        .await
+        .expect("publisher should build");
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    let endpoint = node
+        .graph()
+        .get_entities_by_topic(EntityKind::Publisher, topic)
+        .into_iter()
+        .find_map(|entity| match &*entity {
+            Entity::Endpoint(endpoint) => Some(endpoint.clone()),
+            _ => None,
+        })
+        .expect("dynamic publisher should be discoverable");
+    let advertised = endpoint.type_info.expect("publisher type info");
+    let registered = node
+        .schema_service()
+        .expect("schema service")
+        .get_schema(&root_name, &schema_hash)
+        .expect("schema lookup should succeed")
+        .expect("schema should be registered under inferred hash");
+
+    assert_eq!(advertised.name, root_name);
+    assert_eq!(advertised.hash, Some(schema_hash));
+    assert_eq!(registered.schema_hash, schema_hash);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn test_recv_with_metadata_preserves_receive_context() {
     let context = ContextBuilder::default()
         .build()
@@ -680,12 +817,14 @@ async fn test_recv_with_metadata_preserves_receive_context() {
 
     let publisher = node
         .publisher::<TestMessage>("/metadata_topic")
+        .expect("publisher factory should succeed")
         .build()
         .await
         .unwrap();
 
     let subscriber = node
         .subscriber::<TestMessage>("/metadata_topic")
+        .expect("subscriber factory should succeed")
         .build()
         .await
         .unwrap();
@@ -723,12 +862,14 @@ async fn test_large_payload() {
 
     let publisher = node
         .publisher::<TestMessage>("/large_topic")
+        .expect("publisher factory should succeed")
         .build()
         .await
         .unwrap();
 
     let subscriber = node
         .subscriber::<TestMessage>("/large_topic")
+        .expect("subscriber factory should succeed")
         .build()
         .await
         .unwrap();
@@ -768,11 +909,13 @@ async fn test_logical_clock_is_used_for_attachment_timestamps() {
 
     let publisher = node
         .publisher::<TestMessage>("/sim_clock")
+        .expect("publisher factory should succeed")
         .build()
         .await
         .unwrap();
     let mut subscriber = node
         .subscriber::<TestMessage>("/sim_clock")
+        .expect("subscriber factory should succeed")
         .raw()
         .build()
         .await
@@ -820,6 +963,7 @@ async fn test_vec_u8_pubsub() {
 
             let publisher = node
                 .publisher::<Vec<u8>>("zbuf_topic")
+                .expect("publisher factory should succeed")
                 .build()
                 .await
                 .expect("Failed to create publisher");
@@ -850,6 +994,7 @@ async fn test_vec_u8_pubsub() {
 
             let subscriber = node
                 .subscriber::<Vec<u8>>("zbuf_topic")
+                .expect("subscriber factory should succeed")
                 .build()
                 .await
                 .expect("Failed to create subscriber");

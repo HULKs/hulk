@@ -32,16 +32,19 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
     let _filtered_game_controller_state_sub = node
         .subscriber::<FilteredGameControllerState>("filtered_game_controller_state")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _ball_state_sub = node
         .subscriber::<BallState>("ball_state")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _rule_obstacles_pub = node
         .publisher::<Vec<RuleObstacle>>("rule_obstacles")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;

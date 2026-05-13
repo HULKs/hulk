@@ -8,7 +8,12 @@ use crate::IntoEyreResultExt;
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("button_event_receiver").build().await.into_eyre()?;
-    let _button_event_pub = node.publisher::<ButtonEventMsg>("button_event").build().await.into_eyre()?;
+    let _button_event_pub = node
+        .publisher::<ButtonEventMsg>("button_event")
+        .into_eyre()?
+        .build()
+        .await
+        .into_eyre()?;
 
     pending::<()>().await;
 

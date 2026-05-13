@@ -27,6 +27,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     //     .into_eyre()?;
     let _head_joints_sub = node
         .subscriber::<HeadJoints<f32>>("head_joints_command")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;

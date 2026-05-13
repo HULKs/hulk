@@ -338,12 +338,12 @@ mod tests {
         };
 
         let _publisher = pub_node
-            .publisher::<String>(&topic)
+            .publisher::<String>(&topic)?
             .qos(pub_qos)
             .build()
             .await?;
         let _subscriber = sub_node
-            .subscriber::<String>(&topic)
+            .subscriber::<String>(&topic)?
             .qos(sub_qos)
             .build()
             .await?;
@@ -385,12 +385,12 @@ mod tests {
         };
 
         let _publisher = pub_node
-            .publisher::<String>(&topic)
+            .publisher::<String>(&topic)?
             .qos(pub_qos)
             .build()
             .await?;
         let _subscriber = sub_node
-            .subscriber::<String>(&topic)
+            .subscriber::<String>(&topic)?
             .qos(sub_qos)
             .build()
             .await?;
@@ -413,7 +413,7 @@ mod tests {
         let (_ctx, node) = setup_test_node("test_graph_node").await?;
         let topic_name = unique_graph_name("test_graph_topic_names_and_types");
 
-        let _pub = node.publisher::<String>(&topic_name).build().await?;
+        let _pub = node.publisher::<String>(&topic_name)?.build().await?;
         assert!(
             wait_for_publishers(&node, &topic_name, 1, 1_000).await?,
             "Expected graph to discover publisher for {topic_name}"
@@ -436,7 +436,7 @@ mod tests {
         let service_name = unique_graph_name("test_graph_service_names_and_types");
 
         let _service = node
-            .create_service_server::<AddTwoInts>(&service_name)
+            .create_service_server::<AddTwoInts>(&service_name)?
             .build()
             .await?;
         assert!(
@@ -465,7 +465,7 @@ mod tests {
 
         assert_eq!(count, 0, "Expected 0 publishers on non-existent topic");
 
-        let _pub = node.publisher::<String>(&topic_name).build().await?;
+        let _pub = node.publisher::<String>(&topic_name)?.build().await?;
 
         assert!(wait_for_publishers(&node, &topic_name, 1, 1_000).await?);
 
@@ -487,7 +487,7 @@ mod tests {
         let count = graph.count(EntityKind::Subscription, &topic_name);
         assert_eq!(count, 0, "Expected 0 subscribers on non-existent topic");
 
-        let _sub = node.subscriber::<String>(&topic_name).build().await?;
+        let _sub = node.subscriber::<String>(&topic_name)?.build().await?;
 
         assert!(wait_for_subscribers(&node, &topic_name, 1, 1_000).await?);
 
@@ -511,7 +511,7 @@ mod tests {
         assert_eq!(count, 0, "Expected 0 clients on non-existent service");
 
         let _client = node
-            .create_service_client::<AddTwoInts>(&service_name)
+            .create_service_client::<AddTwoInts>(&service_name)?
             .build()
             .await?;
 
@@ -534,7 +534,7 @@ mod tests {
         assert_eq!(count, 0, "Expected 0 services on non-existent service");
 
         let _service = node
-            .create_service_server::<AddTwoInts>(&service_name)
+            .create_service_server::<AddTwoInts>(&service_name)?
             .build()
             .await?;
 
@@ -552,7 +552,7 @@ mod tests {
         let service_name = unique_graph_name("graph_service_by_node");
 
         let _service = node
-            .create_service_server::<AddTwoInts>(&service_name)
+            .create_service_server::<AddTwoInts>(&service_name)?
             .build()
             .await?;
 
@@ -578,7 +578,7 @@ mod tests {
         let service_name = unique_graph_name("graph_client_by_node");
 
         let _client = node
-            .create_service_client::<AddTwoInts>(&service_name)
+            .create_service_client::<AddTwoInts>(&service_name)?
             .build()
             .await?;
 
@@ -616,7 +616,7 @@ mod tests {
         assert_eq!(count_pubs, 0, "Expected 0 publishers initially");
         assert_eq!(count_subs, 0, "Expected 0 subscribers initially");
 
-        let pub_handle = node.publisher::<String>(&topic_name).build().await?;
+        let pub_handle = node.publisher::<String>(&topic_name)?.build().await?;
 
         assert!(wait_for_publishers(&node, &topic_name, 1, 1_000).await?);
 
@@ -626,7 +626,7 @@ mod tests {
             "Expected at least 1 publisher after creation"
         );
 
-        let sub_handle = node.subscriber::<String>(&topic_name).build().await?;
+        let sub_handle = node.subscriber::<String>(&topic_name)?.build().await?;
 
         assert!(wait_for_subscribers(&node, &topic_name, 1, 1_000).await?);
 
@@ -686,8 +686,8 @@ mod tests {
 
         let topic_name = unique_graph_name("test_multi_node_pub");
 
-        let _pub1 = node1.publisher::<String>(&topic_name).build().await?;
-        let _pub2 = node2.publisher::<String>(&topic_name).build().await?;
+        let _pub1 = node1.publisher::<String>(&topic_name)?.build().await?;
+        let _pub2 = node2.publisher::<String>(&topic_name)?.build().await?;
 
         assert!(
             wait_for_publishers(&node1, &topic_name, 2, 1_000).await?,
@@ -715,8 +715,8 @@ mod tests {
 
         let topic_name = unique_graph_name("test_multi_node_sub");
 
-        let _sub1 = node1.subscriber::<String>(&topic_name).build().await?;
-        let _sub2 = node2.subscriber::<String>(&topic_name).build().await?;
+        let _sub1 = node1.subscriber::<String>(&topic_name)?.build().await?;
+        let _sub2 = node2.subscriber::<String>(&topic_name)?.build().await?;
 
         assert!(
             wait_for_subscribers(&node1, &topic_name, 2, 1_000).await?,
@@ -746,11 +746,11 @@ mod tests {
         let service_name2 = unique_graph_name("graph_multi_node_service_2");
 
         let _srv1 = node1
-            .create_service_server::<AddTwoInts>(&service_name1)
+            .create_service_server::<AddTwoInts>(&service_name1)?
             .build()
             .await?;
         let _srv2 = node2
-            .create_service_server::<AddTwoInts>(&service_name2)
+            .create_service_server::<AddTwoInts>(&service_name2)?
             .build()
             .await?;
 
@@ -787,15 +787,15 @@ mod tests {
         let service_name = unique_graph_name("graph_multi_node_client");
 
         let _srv = node1
-            .create_service_server::<AddTwoInts>(&service_name)
+            .create_service_server::<AddTwoInts>(&service_name)?
             .build()
             .await?;
         let _client1 = node1
-            .create_service_client::<AddTwoInts>(&service_name)
+            .create_service_client::<AddTwoInts>(&service_name)?
             .build()
             .await?;
         let _client2 = node2
-            .create_service_client::<AddTwoInts>(&service_name)
+            .create_service_client::<AddTwoInts>(&service_name)?
             .build()
             .await?;
 
@@ -814,7 +814,7 @@ mod tests {
         let service_name = unique_graph_name("graph_service_available");
 
         let client = node
-            .create_service_client::<AddTwoInts>(&service_name)
+            .create_service_client::<AddTwoInts>(&service_name)?
             .build()
             .await?;
 
@@ -823,7 +823,7 @@ mod tests {
         assert_eq!(count, 0, "Expected 0 services before creating server");
 
         let service = node
-            .create_service_server::<AddTwoInts>(&service_name)
+            .create_service_server::<AddTwoInts>(&service_name)?
             .build()
             .await?;
 
@@ -847,8 +847,8 @@ mod tests {
         let (_ctx, node) = setup_test_node("test_graph_node").await?;
         let topic_name = unique_graph_name("graph_entities_by_topic");
 
-        let _pub = node.publisher::<String>(&topic_name).build().await?;
-        let _sub = node.subscriber::<String>(&topic_name).build().await?;
+        let _pub = node.publisher::<String>(&topic_name)?.build().await?;
+        let _sub = node.subscriber::<String>(&topic_name)?.build().await?;
 
         assert!(wait_for_publishers(&node, &topic_name, 1, 1_000).await?);
         assert!(wait_for_subscribers(&node, &topic_name, 1, 1_000).await?);

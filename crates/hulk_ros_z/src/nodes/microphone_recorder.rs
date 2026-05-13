@@ -14,6 +14,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
     let _samples_pub = node
         .publisher::<Samples>("samples")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;

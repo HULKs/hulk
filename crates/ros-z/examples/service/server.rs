@@ -8,7 +8,7 @@ async fn main() -> Result<()> {
     let context = ContextBuilder::default().build().await?;
     let node = context.create_node("add_two_ints_server").build().await?;
     let mut service_server = node
-        .create_service_server::<AddTwoInts>("add_two_ints")
+        .create_service_server::<AddTwoInts>("add_two_ints")?
         .build()
         .await?;
 

@@ -33,36 +33,43 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
     let _imu_state_sub = node
         .subscriber::<ImuState>("imu_state")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _serial_motor_states_sub = node
         .subscriber::<Joints<MotorState>>("serial_motor_states")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _joint_position_difference_to_safe_pub = node
         .publisher::<Joints>("joint_position_difference_to_safe")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _joint_velocities_difference_to_safe_pub = node
         .publisher::<Joints>("joint_velocities_difference_to_safe")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _angular_velocities_difference_to_safe_pub = node
         .publisher::<Vector3<Robot>>("angular_velocities_difference_to_safe")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _linear_accelerations_difference_to_safe_pub = node
         .publisher::<Vector3<Robot>>("linear_accelerations_difference_to_safe")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _is_safe_pose_pub = node
         .publisher::<bool>("is_safe_pose")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;

@@ -23,26 +23,31 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
     let _look_around_target_joints_sub = node
         .subscriber::<HeadJoints<f32>>("look_around_target_joints")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _look_at_sub = node
         .subscriber::<HeadJoints<f32>>("look_at")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _motor_states_sub = node
         .subscriber::<Joints<MotorState>>("serial_motor_states")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _motion_command_sub = node
         .subscriber::<MotionCommand>("motion_command")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _head_joints_command_pub = node
         .publisher::<HeadJoints<f32>>("head_joints_command")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;

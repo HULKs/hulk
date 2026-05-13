@@ -45,9 +45,15 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await
         .into_eyre()?;
-    let image_pub = node.publisher::<Image>("image").build().await.into_eyre()?;
+    let image_pub = node
+        .publisher::<Image>("image")
+        .into_eyre()?
+        .build()
+        .await
+        .into_eyre()?;
     let ycbcr422_image_pub = node
         .publisher::<YCbCr422Image>("ycbcr422_image")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;

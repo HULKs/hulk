@@ -31,6 +31,7 @@ pub async fn run(
     let client = app
         .node()
         .create_service_client::<GetSchema>(&service_name)
+        .map_err(display_error)?
         .build()
         .await
         .map_err(display_error)?;

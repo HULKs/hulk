@@ -105,7 +105,7 @@ impl Service for InvalidResponseSchemaService {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-async fn typed_service_builders_return_schema_errors() {
+async fn typed_service_factories_return_schema_errors() {
     let context = ContextBuilder::default()
         .disable_multicast_scouting()
         .with_json("connect/endpoints", json!([]))
@@ -118,21 +118,29 @@ async fn typed_service_builders_return_schema_errors() {
         .await
         .expect("Failed to create node");
 
-    let server = node
-        .create_service_server::<InvalidServiceTypeInfo>("invalid_service")
-        .build()
-        .await;
-    assert!(server.is_err());
+    let Err(server_error) = node.create_service_server::<InvalidServiceTypeInfo>("invalid_service")
+    else {
+        panic!("invalid service type info should fail server factory");
+    };
+    assert!(
+        server_error
+            .to_string()
+            .contains("failed to build service type info for server")
+    );
 
-    let client = node
-        .create_service_client::<InvalidServiceTypeInfo>("invalid_service")
-        .build()
-        .await;
-    assert!(client.is_err());
+    let Err(client_error) = node.create_service_client::<InvalidServiceTypeInfo>("invalid_service")
+    else {
+        panic!("invalid service type info should fail client factory");
+    };
+    assert!(
+        client_error
+            .to_string()
+            .contains("failed to build service type info for client")
+    );
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-async fn typed_service_builders_validate_request_and_response_schemas() {
+async fn typed_service_factories_validate_request_and_response_schemas() {
     let context = ContextBuilder::default()
         .disable_multicast_scouting()
         .with_json("connect/endpoints", json!([]))
@@ -145,33 +153,49 @@ async fn typed_service_builders_validate_request_and_response_schemas() {
         .await
         .expect("Failed to create node");
 
-    let server = node
-        .create_service_server::<InvalidRequestSchemaService>("invalid_service_message_schema")
-        .build()
-        .await;
-    assert!(server.is_err());
+    let Err(server_error) =
+        node.create_service_server::<InvalidRequestSchemaService>("invalid_service_message_schema")
+    else {
+        panic!("invalid request schema should fail server factory");
+    };
+    assert!(
+        server_error
+            .to_string()
+            .contains("failed to build service type info for server")
+    );
 
-    let client = node
-        .create_service_client::<InvalidRequestSchemaService>("invalid_service_message_schema")
-        .build()
-        .await;
-    assert!(client.is_err());
+    let Err(client_error) =
+        node.create_service_client::<InvalidRequestSchemaService>("invalid_service_message_schema")
+    else {
+        panic!("invalid request schema should fail client factory");
+    };
+    assert!(
+        client_error
+            .to_string()
+            .contains("failed to build service type info for client")
+    );
 
-    let response_server = node
-        .create_service_server::<InvalidResponseSchemaService>(
-            "invalid_service_response_message_schema",
-        )
-        .build()
-        .await;
-    assert!(response_server.is_err());
+    let Err(response_server_error) = node.create_service_server::<InvalidResponseSchemaService>(
+        "invalid_service_response_message_schema",
+    ) else {
+        panic!("invalid response schema should fail server factory");
+    };
+    assert!(
+        response_server_error
+            .to_string()
+            .contains("failed to build service type info for server")
+    );
 
-    let response_client = node
-        .create_service_client::<InvalidResponseSchemaService>(
-            "invalid_service_response_message_schema",
-        )
-        .build()
-        .await;
-    assert!(response_client.is_err());
+    let Err(response_client_error) = node.create_service_client::<InvalidResponseSchemaService>(
+        "invalid_service_response_message_schema",
+    ) else {
+        panic!("invalid response schema should fail client factory");
+    };
+    assert!(
+        response_client_error
+            .to_string()
+            .contains("failed to build service type info for client")
+    );
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -195,6 +219,7 @@ async fn test_basic_service_request_response() {
             let mut server = handle
                 .block_on(
                     node.create_service_server::<AddTwoInts>("add_two_ints")
+                        .expect("endpoint factory should succeed")
                         .build(),
                 )
                 .expect("Failed to create server");
@@ -222,6 +247,7 @@ async fn test_basic_service_request_response() {
             let client = handle
                 .block_on(
                     node.create_service_client::<AddTwoInts>("add_two_ints")
+                        .expect("endpoint factory should succeed")
                         .build(),
                 )
                 .expect("Failed to create client");
@@ -262,6 +288,7 @@ async fn test_async_service_request_response() {
 
         let mut server = node
             .create_service_server::<AddTwoInts>("async_add")
+            .expect("endpoint factory should succeed")
             .build()
             .await
             .expect("Failed to create server");
@@ -291,6 +318,7 @@ async fn test_async_service_request_response() {
 
         let client = node
             .create_service_client::<AddTwoInts>("async_add")
+            .expect("endpoint factory should succeed")
             .build()
             .await
             .expect("Failed to create client");
@@ -333,6 +361,7 @@ async fn test_multiple_service_requests() {
             let mut server = handle
                 .block_on(
                     node.create_service_server::<AddTwoInts>("multi_add")
+                        .expect("endpoint factory should succeed")
                         .build(),
                 )
                 .expect("Failed to create server");
@@ -362,6 +391,7 @@ async fn test_multiple_service_requests() {
             let client = handle
                 .block_on(
                     node.create_service_client::<AddTwoInts>("multi_add")
+                        .expect("endpoint factory should succeed")
                         .build(),
                 )
                 .expect("Failed to create client");
@@ -407,6 +437,7 @@ async fn test_blocking_call_waits_for_service_response() {
             let mut server = handle
                 .block_on(
                     node.create_service_server::<AddTwoInts>("blocking_call")
+                        .expect("endpoint factory should succeed")
                         .build(),
                 )
                 .expect("Failed to create server");
@@ -432,6 +463,7 @@ async fn test_blocking_call_waits_for_service_response() {
             let client = handle
                 .block_on(
                     node.create_service_client::<AddTwoInts>("blocking_call")
+                        .expect("endpoint factory should succeed")
                         .build(),
                 )
                 .expect("Failed to create client");
@@ -471,6 +503,7 @@ async fn test_blocking_call_with_timeout_can_exceed_old_builder_timeout() {
             let mut server = handle
                 .block_on(
                     node.create_service_server::<AddTwoInts>("builder_timeout_queue")
+                        .expect("endpoint factory should succeed")
                         .build(),
                 )
                 .expect("Failed to create server");
@@ -494,6 +527,7 @@ async fn test_blocking_call_with_timeout_can_exceed_old_builder_timeout() {
 
     let client = node
         .create_service_client::<AddTwoInts>("builder_timeout_queue")
+        .expect("endpoint factory should succeed")
         .build()
         .await
         .expect("Failed to create client");
@@ -531,6 +565,7 @@ async fn test_async_call_with_timeout_can_exceed_old_builder_timeout() {
 
         let mut server = node
             .create_service_server::<AddTwoInts>("builder_timeout_async")
+            .expect("endpoint factory should succeed")
             .build()
             .await
             .expect("Failed to create server");
@@ -559,6 +594,7 @@ async fn test_async_call_with_timeout_can_exceed_old_builder_timeout() {
 
         let client = node
             .create_service_client::<AddTwoInts>("builder_timeout_async")
+            .expect("endpoint factory should succeed")
             .build()
             .await
             .expect("Failed to create client");
@@ -595,6 +631,7 @@ async fn test_blocking_call_with_timeout_reports_early_completion_when_no_server
 
     let client = node
         .create_service_client::<AddTwoInts>("blocking_timeout")
+        .expect("endpoint factory should succeed")
         .build()
         .await
         .expect("Failed to create client");
@@ -640,6 +677,7 @@ async fn test_blocking_call_with_timeout_returns_response_before_deadline() {
             let mut server = handle
                 .block_on(
                     node.create_service_server::<AddTwoInts>("blocking_timeout_success")
+                        .expect("endpoint factory should succeed")
                         .build(),
                 )
                 .expect("Failed to create server");
@@ -660,6 +698,7 @@ async fn test_blocking_call_with_timeout_returns_response_before_deadline() {
 
     let client = node
         .create_service_client::<AddTwoInts>("blocking_timeout_success")
+        .expect("endpoint factory should succeed")
         .build()
         .await
         .expect("Failed to create client");
@@ -703,6 +742,7 @@ async fn test_blocking_call_with_timeout_reports_real_timeout_while_waiting_for_
             let mut server = handle
                 .block_on(
                     node.create_service_server::<AddTwoInts>("blocking_timeout_waiting")
+                        .expect("endpoint factory should succeed")
                         .build(),
                 )
                 .expect("Failed to create server");
@@ -723,6 +763,7 @@ async fn test_blocking_call_with_timeout_reports_real_timeout_while_waiting_for_
 
     let client = node
         .create_service_client::<AddTwoInts>("blocking_timeout_waiting")
+        .expect("endpoint factory should succeed")
         .build()
         .await
         .expect("Failed to create client");
@@ -762,6 +803,7 @@ async fn test_blocking_call_with_timeout_reports_early_completion_without_reply(
         .await
         .expect("Failed to create node")
         .create_service_server::<AddTwoInts>("blocking_early_completion")
+        .expect("endpoint factory should succeed")
         .build_with_callback(move |_query| {
             // Intentionally end the query without producing a successful reply sample.
         })
@@ -778,6 +820,7 @@ async fn test_blocking_call_with_timeout_reports_early_completion_without_reply(
 
     let client = node
         .create_service_client::<AddTwoInts>("blocking_early_completion")
+        .expect("endpoint factory should succeed")
         .build()
         .await
         .expect("Failed to create client");

@@ -302,6 +302,7 @@ async fn discovery_uses_schema_service_for_standard_compatible_types() {
 
     let publisher = pub_node
         .publisher::<TelemetryLite>("/extended_standard_topic")
+        .expect("endpoint factory should succeed")
         .build()
         .await
         .expect("publisher");
@@ -378,6 +379,7 @@ async fn schema_service_round_trips_recursive_bundle() {
 
     let publisher = pub_node
         .publisher::<RecursiveTrace>("/recursive_trace_topic")
+        .expect("endpoint factory should succeed")
         .build()
         .await
         .expect("publisher");
@@ -463,6 +465,7 @@ async fn extended_discovery_should_fail_when_the_publisher_disabled_the_schema_s
 
     let publisher = pub_node
         .publisher::<RobotEnvelope>("/extended_robot_topic")
+        .expect("endpoint factory should succeed")
         .build()
         .await
         .expect("publisher");
@@ -518,6 +521,7 @@ async fn extended_only_types_use_schema_service_when_enabled() {
 
     let publisher = pub_node
         .publisher::<RobotEnvelope>("/extended_robot_topic")
+        .expect("endpoint factory should succeed")
         .build()
         .await
         .expect("publisher");
@@ -618,6 +622,7 @@ async fn type_description_discovery_works_across_namespaces_for_extended_types()
 
     let publisher = pub_node
         .publisher::<RobotEnvelope>("/extended_robot_topic")
+        .expect("endpoint factory should succeed")
         .build()
         .await
         .expect("publisher");
@@ -687,6 +692,7 @@ async fn top_level_enums_are_discoverable_through_the_schema_service() {
 
     let publisher = pub_node
         .publisher::<RobotState>("/robot_state_topic")
+        .expect("endpoint factory should succeed")
         .build()
         .await
         .expect("publisher");

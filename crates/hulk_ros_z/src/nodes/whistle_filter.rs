@@ -26,11 +26,13 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
     let _detected_whistle_sub = node
         .subscriber::<Whistle>("detected_whistle")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _filtered_whistle_pub = node
         .publisher::<FilteredWhistle>("filtered_whistle")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;

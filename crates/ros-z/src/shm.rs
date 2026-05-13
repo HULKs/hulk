@@ -52,7 +52,7 @@
 //! let provider = Arc::new(ShmProviderBuilder::new(20_000_000).build()?);
 //! let config = ShmConfig::new(provider).with_threshold(10_000);
 //!
-//! let publisher = node.publisher::<String>("topic")
+//! let publisher = node.publisher::<String>("topic")?
 //!     .shm_config(config)
 //!     .build()
 //!     .await?;

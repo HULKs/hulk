@@ -11,7 +11,7 @@ async fn main() -> Result<()> {
         .build()
         .await?;
     let subscriber = node
-        .subscriber::<RobotStatus>("robot_status")
+        .subscriber::<RobotStatus>("robot_status")?
         .build()
         .await?;
 

@@ -80,6 +80,7 @@ async fn blocking_and_async_service_calls_share_the_same_api_names() {
 
         let mut server = node
             .create_service_server::<AddTwoInts>("service_api_alignment")
+            .expect("endpoint factory should succeed")
             .build()
             .await
             .expect("Failed to create service server");
@@ -108,6 +109,7 @@ async fn blocking_and_async_service_calls_share_the_same_api_names() {
     let client = Arc::new(
         client_node
             .create_service_client::<AddTwoInts>("service_api_alignment")
+            .expect("endpoint factory should succeed")
             .build()
             .await
             .expect("Failed to create service client"),

@@ -15,16 +15,19 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
     let _imu_state_pub = node
         .publisher::<ImuState>("imu_state")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _serial_motor_states_pub = node
         .publisher::<Joints<MotorState>>("serial_motor_states")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _parallel_motor_states_pub = node
         .publisher::<Joints<MotorState>>("parallel_motor_states")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;

@@ -32,21 +32,25 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
     let _network_message_sub = node
         .subscriber::<IncomingMessage>("filtered_message")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _last_contact_pub = node
         .publisher::<HashMap<SocketAddr, SystemTime>>("game_controller_address_contacts_times")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _game_controller_state_pub = node
         .publisher::<GameControllerState>("game_controller_state")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _game_controller_address_pub = node
         .publisher::<SocketAddr>("game_controller_address")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;

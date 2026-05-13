@@ -14,6 +14,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
     let _fall_down_state_pub = node
         .publisher::<FallDownState>("fall_down_state")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;

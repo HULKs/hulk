@@ -28,26 +28,31 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
     let _camera_matrix_sub = node
         .subscriber::<CameraMatrix>("camera_matrix")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _ground_to_robot_sub = node
         .subscriber::<Isometry3<Ground, Robot>>("ground_to_robot")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _motion_command_sub = node
         .subscriber::<MotionCommand>("motion_command")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _serial_motor_states_sub = node
         .subscriber::<Joints<MotorState>>("serial_motor_states")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _look_at_pub = node
         .publisher::<HeadJoints<f32>>("look_at")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;

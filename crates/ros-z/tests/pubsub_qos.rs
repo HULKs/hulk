@@ -73,13 +73,17 @@ mod tests {
         );
 
         let subscriber = sub_node
-            .subscriber::<String>(topic)
+            .subscriber::<String>(topic)?
             .qos(qos)
             .build()
             .await?;
         let receive_task = tokio::spawn(collect_messages(subscriber, 5, Duration::from_secs(5)));
 
-        let pub_handle = pub_node.publisher::<String>(topic).qos(qos).build().await?;
+        let pub_handle = pub_node
+            .publisher::<String>(topic)?
+            .qos(qos)
+            .build()
+            .await?;
 
         tokio::time::sleep(Duration::from_millis(2000)).await;
 
@@ -110,10 +114,14 @@ mod tests {
             QosHistory::KeepLast(NonZeroUsize::new(10).unwrap()),
         );
 
-        let pub_handle = pub_node.publisher::<String>(topic).qos(qos).build().await?;
+        let pub_handle = pub_node
+            .publisher::<String>(topic)?
+            .qos(qos)
+            .build()
+            .await?;
 
         let subscriber = sub_node
-            .subscriber::<String>(topic)
+            .subscriber::<String>(topic)?
             .qos(qos)
             .build()
             .await?;
@@ -153,13 +161,17 @@ mod tests {
         );
 
         let subscriber = sub_node
-            .subscriber::<String>(topic)
+            .subscriber::<String>(topic)?
             .qos(qos)
             .build()
             .await?;
         let receive_task = tokio::spawn(collect_messages(subscriber, 5, Duration::from_secs(5)));
 
-        let pub_handle = pub_node.publisher::<String>(topic).qos(qos).build().await?;
+        let pub_handle = pub_node
+            .publisher::<String>(topic)?
+            .qos(qos)
+            .build()
+            .await?;
 
         tokio::time::sleep(Duration::from_millis(2000)).await;
 
@@ -193,11 +205,15 @@ mod tests {
             ..Default::default()
         };
 
-        let publisher = pub_node.publisher::<String>(topic).qos(qos).build().await?;
+        let publisher = pub_node
+            .publisher::<String>(topic)?
+            .qos(qos)
+            .build()
+            .await?;
         publisher.publish(&"cached".into()).await?;
 
         let subscriber = sub_node
-            .subscriber::<String>(topic)
+            .subscriber::<String>(topic)?
             .qos(qos)
             .build()
             .await?;
@@ -220,13 +236,17 @@ mod tests {
             ..Default::default()
         };
 
-        let publisher = pub_node.publisher::<String>(topic).qos(qos).build().await?;
+        let publisher = pub_node
+            .publisher::<String>(topic)?
+            .qos(qos)
+            .build()
+            .await?;
         for data in ["one", "two", "three"] {
             publisher.publish(&data.into()).await?;
         }
 
         let subscriber = sub_node
-            .subscriber::<String>(topic)
+            .subscriber::<String>(topic)?
             .qos(qos)
             .build()
             .await?;
@@ -252,14 +272,18 @@ mod tests {
             ..Default::default()
         };
 
-        let publisher = pub_node.publisher::<String>(topic).qos(qos).build().await?;
+        let publisher = pub_node
+            .publisher::<String>(topic)?
+            .qos(qos)
+            .build()
+            .await?;
 
         for data in ["cached-1", "cached-2", "cached-3"] {
             publisher.publish(&data.into()).await?;
         }
 
         let subscriber = sub_node
-            .subscriber::<String>(topic)
+            .subscriber::<String>(topic)?
             .qos(qos)
             .build()
             .await?;
@@ -292,7 +316,7 @@ mod tests {
         };
 
         let publisher = pub_node
-            .publisher::<String>(topic)
+            .publisher::<String>(topic)?
             .qos(qos)
             .attachment(false)
             .build()
@@ -302,7 +326,7 @@ mod tests {
         }
 
         let subscriber = sub_node
-            .subscriber::<String>(topic)
+            .subscriber::<String>(topic)?
             .qos(qos)
             .build()
             .await?;
@@ -330,11 +354,15 @@ mod tests {
             ..Default::default()
         };
 
-        let publisher = pub_node.publisher::<String>(topic).qos(qos).build().await?;
+        let publisher = pub_node
+            .publisher::<String>(topic)?
+            .qos(qos)
+            .build()
+            .await?;
         publisher.publish(&"cached".into()).await?;
 
         let cache = cache_node
-            .create_cache::<String>(topic, 1)
+            .create_cache::<String>(topic, 1)?
             .with_qos(qos)
             .build()
             .await?;
@@ -376,12 +404,16 @@ mod tests {
         };
 
         let early_subscriber = early_sub_node
-            .subscriber::<String>(topic)
+            .subscriber::<String>(topic)?
             .qos(qos)
             .raw()
             .build()
             .await?;
-        let publisher = pub_node.publisher::<String>(topic).qos(qos).build().await?;
+        let publisher = pub_node
+            .publisher::<String>(topic)?
+            .qos(qos)
+            .build()
+            .await?;
         publisher.publish(&"cached".into()).await?;
 
         let mut early_subscriber = early_subscriber;
@@ -389,7 +421,7 @@ mod tests {
             tokio::time::timeout(Duration::from_secs(2), early_subscriber.recv()).await??;
 
         let late_subscriber = late_sub_node
-            .subscriber::<String>(topic)
+            .subscriber::<String>(topic)?
             .qos(qos)
             .raw()
             .build()
@@ -420,10 +452,14 @@ mod tests {
             QosHistory::KeepLast(NonZeroUsize::new(10).unwrap()),
         );
 
-        let pub_handle = pub_node.publisher::<String>(topic).qos(qos).build().await?;
+        let pub_handle = pub_node
+            .publisher::<String>(topic)?
+            .qos(qos)
+            .build()
+            .await?;
 
         let subscriber = sub_node
-            .subscriber::<String>(topic)
+            .subscriber::<String>(topic)?
             .qos(qos)
             .build()
             .await?;
@@ -456,13 +492,17 @@ mod tests {
         );
 
         let subscriber = sub_node
-            .subscriber::<String>(topic)
+            .subscriber::<String>(topic)?
             .qos(qos)
             .build()
             .await?;
         let receive_task = tokio::spawn(collect_messages(subscriber, 10, Duration::from_secs(5)));
 
-        let pub_handle = pub_node.publisher::<String>(topic).qos(qos).build().await?;
+        let pub_handle = pub_node
+            .publisher::<String>(topic)?
+            .qos(qos)
+            .build()
+            .await?;
 
         tokio::time::sleep(Duration::from_millis(2000)).await;
 
@@ -495,7 +535,7 @@ mod tests {
             QosHistory::KeepLast(NonZeroUsize::new(1).unwrap()),
         );
 
-        let pub_handle = node.publisher::<String>(topic).qos(qos).build().await?;
+        let pub_handle = node.publisher::<String>(topic)?.qos(qos).build().await?;
         let message = "Test message".to_string();
 
         let publish_result =
@@ -526,13 +566,17 @@ mod tests {
         );
 
         let subscriber = sub_node
-            .subscriber::<String>(topic)
+            .subscriber::<String>(topic)?
             .qos(qos)
             .build()
             .await?;
         let receive_task = tokio::spawn(collect_messages(subscriber, 2, Duration::from_secs(4)));
 
-        let pub_handle = pub_node.publisher::<String>(topic).qos(qos).build().await?;
+        let pub_handle = pub_node
+            .publisher::<String>(topic)?
+            .qos(qos)
+            .build()
+            .await?;
 
         tokio::time::sleep(Duration::from_millis(1000)).await;
 
@@ -562,10 +606,14 @@ mod tests {
             QosHistory::KeepLast(NonZeroUsize::new(10).unwrap()),
         );
 
-        let pub_handle = pub_node.publisher::<String>(topic).qos(qos).build().await?;
+        let pub_handle = pub_node
+            .publisher::<String>(topic)?
+            .qos(qos)
+            .build()
+            .await?;
 
         let subscriber = sub_node
-            .subscriber::<String>(topic)
+            .subscriber::<String>(topic)?
             .qos(qos)
             .build()
             .await?;
@@ -618,13 +666,17 @@ mod tests {
         };
 
         let subscriber = sub_node
-            .subscriber::<String>(topic)
+            .subscriber::<String>(topic)?
             .qos(qos)
             .build()
             .await?;
         let receive_task = tokio::spawn(collect_messages(subscriber, 2, Duration::from_secs(4)));
 
-        let pub_handle = pub_node.publisher::<String>(topic).qos(qos).build().await?;
+        let pub_handle = pub_node
+            .publisher::<String>(topic)?
+            .qos(qos)
+            .build()
+            .await?;
 
         tokio::time::sleep(Duration::from_millis(1000)).await;
 

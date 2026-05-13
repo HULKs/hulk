@@ -25,31 +25,37 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
     let _world_state_sub = node
         .subscriber::<WorldState>("world_state")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _behavior_trace_pub = node
         .publisher::<NodeTrace>("behavior/trace")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _behavior_tree_layout_pub = node
         .publisher::<NodeTrace>("behavior/tree_layout")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _time_since_last_switch_pub = node
         .publisher::<Duration>("behavior/time_since_last_switch")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _path_obstacles_output_pub = node
         .publisher::<Vec<PathObstacle>>("path_obstacles")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _motion_command_pub = node
         .publisher::<MotionCommand>("motion_command")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;

@@ -49,21 +49,25 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
     let _camera_matrix_sub = node
         .subscriber::<CameraMatrix>("camera_matrix")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _filtered_segments_sub = node
         .subscriber::<FilteredSegments>("filtered_segments")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _image_sub = node
         .subscriber::<YCbCr422Image>("ycbcr422_image")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _lines_in_image_pub = node
         .publisher::<Vec<LineSegment<Pixel>>>("lines_in_image")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
@@ -75,11 +79,13 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     //     .into_eyre()?;
     let _filtered_segments_output_pub = node
         .publisher::<Vec<GenericSegment>>("line_detection/filtered_segments")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _line_data_pub = node
         .publisher::<LineData>("line_data")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;

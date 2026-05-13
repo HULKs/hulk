@@ -383,6 +383,7 @@ async fn nalgebra_fields_roundtrip_via_standard_discovery() {
 
     let publisher = pub_node
         .publisher::<MathSnapshot>("/math_snapshot")
+        .expect("endpoint factory should succeed")
         .build()
         .await
         .expect("publisher");
@@ -455,6 +456,7 @@ async fn single_schema_discovery_works_with_basic_nalgebra_fields() {
 
     let publisher = pub_node
         .publisher::<MathCommand>("/math_command")
+        .expect("endpoint factory should succeed")
         .build()
         .await
         .expect("publisher");

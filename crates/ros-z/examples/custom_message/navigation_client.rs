@@ -8,7 +8,7 @@ async fn main() -> Result<()> {
     let context = ContextBuilder::default().build().await?;
     let node = context.create_node("navigation_client").build().await?;
     let service_client = node
-        .create_service_client::<NavigateTo>("navigate_to")
+        .create_service_client::<NavigateTo>("navigate_to")?
         .build()
         .await?;
 

@@ -19,7 +19,6 @@ use crate::qos::QosProfile;
 use crate::queue::BoundedQueue;
 use crate::topic_name::qualify_topic_name;
 use ros_z_protocol::qos::{QosDurability, QosHistory};
-use ros_z_schema::SchemaError;
 
 pub(super) fn subscriber_queue_capacity(qos: &ros_z_protocol::qos::QosProfile) -> usize {
     match qos.history {
@@ -33,7 +32,6 @@ pub struct SubscriberBuilder<T, C = <T as crate::Message>::Codec> {
     pub(crate) session: Arc<Session>,
     pub(crate) graph: Arc<Graph>,
     pub(crate) dyn_schema: Option<Schema>,
-    pub(crate) schema_error: Option<SchemaError>,
     pub(crate) locality: Option<zenoh::sample::Locality>,
     pub(crate) transient_local_replay_timeout: Duration,
     pub(crate) _phantom_data: PhantomData<(T, C)>,
@@ -73,7 +71,7 @@ where
     /// use zenoh::sample::Locality;
     ///
     /// let subscriber = node
-    ///     .subscriber::<String>("/topic")
+    ///     .subscriber::<String>("/topic")?
     ///     .locality(Locality::Remote)  // Only receive from remote publishers
     ///     .build()
     ///     .await?;
@@ -91,11 +89,6 @@ where
     /// Set the dynamic schema for runtime-typed messages.
     pub fn dynamic_schema(mut self, schema: Schema) -> Self {
         self.dyn_schema = Some(schema);
-        self
-    }
-
-    pub(crate) fn schema_error(mut self, error: SchemaError) -> Self {
-        self.schema_error = Some(error);
         self
     }
 
@@ -132,13 +125,6 @@ where
     where
         F: Fn(Sample) + Send + Sync + 'static,
     {
-        if let Some(error) = self.schema_error.take() {
-            return Err(zenoh::Error::from(format!(
-                "failed to build message schema for subscriber '{}': {}",
-                self.entity.topic, error
-            )));
-        }
-
         let Some(node) = self.entity.node.as_ref() else {
             return Err(zenoh::Error::from(
                 "subscriber build requires node identity",

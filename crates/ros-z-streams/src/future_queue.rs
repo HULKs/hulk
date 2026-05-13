@@ -302,9 +302,9 @@ impl CreateFutureQueue for Node {
         T: Message + 'a,
         for<'de> T::Codec: WireDecoder<Input<'de> = &'de [u8], Output = T>,
     {
-        let data_subscriber = self.subscriber(topic).build().await?;
+        let data_subscriber = self.subscriber(topic)?.build().await?;
         let announcement_subscriber = self
-            .subscriber(&format!("{}/announce", topic))
+            .subscriber(&format!("{}/announce", topic))?
             .build()
             .await?;
 
@@ -344,11 +344,13 @@ mod tests {
             .expect("create node");
         let data_publisher = node
             .publisher::<String>("queue/payload_first")
+            .expect("endpoint factory should succeed")
             .build()
             .await
             .expect("create data publisher");
         let announcement_publisher = node
             .publisher::<Announcement>("queue/payload_first/announce")
+            .expect("endpoint factory should succeed")
             .build()
             .await
             .expect("create announcement publisher");
@@ -413,6 +415,7 @@ mod tests {
             .expect("create node");
         let announcement_publisher = node
             .publisher::<Announcement>("queue/safe_time_order/announce")
+            .expect("endpoint factory should succeed")
             .build()
             .await
             .expect("create announcement publisher");

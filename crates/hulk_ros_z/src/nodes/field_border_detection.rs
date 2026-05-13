@@ -32,21 +32,25 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
     let _camera_matrix_sub = node
         .subscriber::<CameraMatrix>("camera_matrix")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _image_segments_sub = node
         .subscriber::<ImageSegments>("image_segments")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _field_border_points_pub = node
         .publisher::<Vec<Point2<Pixel>>>("field_border_points")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _field_border_pub = node
         .publisher::<FieldBorder>("field_border")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;

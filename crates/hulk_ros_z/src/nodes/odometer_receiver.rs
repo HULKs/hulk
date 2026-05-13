@@ -14,6 +14,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
     let _odometer_pub = node
         .publisher::<Odometer>("odometer")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;

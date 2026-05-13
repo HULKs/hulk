@@ -15,11 +15,13 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
     let _maybe_button_event_sub = node
         .subscriber::<ButtonEventMsg>("button_event")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _buttons_pub = node
         .publisher::<Buttons<Option<ButtonPressType>>>("buttons")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;

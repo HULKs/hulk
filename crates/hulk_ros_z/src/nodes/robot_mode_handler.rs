@@ -29,11 +29,13 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
     let _primary_state_sub = node
         .subscriber::<PrimaryState>("primary_state")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _buttons_sub = node
         .subscriber::<Buttons<Option<ButtonPressType>>>("buttons")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;

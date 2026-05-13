@@ -26,21 +26,25 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
     let _motion_command_sub = node
         .subscriber::<MotionCommand>("motion_command")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _filtered_game_controller_state_sub = node
         .subscriber::<FilteredGameControllerState>("filtered_game_controller_state")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _current_mode_pub = node
         .publisher::<LookAroundMode>("look_around_mode")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _look_around_target_joints_pub = node
         .publisher::<HeadJoints<f32>>("look_around_target_joints")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;

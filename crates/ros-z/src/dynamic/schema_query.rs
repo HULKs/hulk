@@ -115,6 +115,7 @@ pub(crate) async fn query_schema(
 
     let client = node
         .create_service_client::<GetSchema>(&service_name)
+        .map_err(|e| DynamicError::SerializationError(e.to_string()))?
         .build()
         .await
         .map_err(|e| DynamicError::SerializationError(e.to_string()))?;

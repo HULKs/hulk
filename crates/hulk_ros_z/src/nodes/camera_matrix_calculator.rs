@@ -32,26 +32,31 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
     let _robot_kinematics_sub = node
         .subscriber::<RobotKinematics>("robot_kinematics")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _robot_to_ground_sub = node
         .subscriber::<Isometry3<Robot, Ground>>("robot_to_ground")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _image_left_raw_camera_info_sub = node
         .subscriber::<CameraInfo>("image_left_raw_camera_info")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _uncalibrated_camera_matrix_pub = node
         .publisher::<CameraMatrix>("uncalibrated_camera_matrix")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _camera_matrix_pub = node
         .publisher::<CameraMatrix>("camera_matrix")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;

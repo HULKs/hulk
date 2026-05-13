@@ -29,6 +29,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
     let _samples_sub = node
         .subscriber::<Samples>("samples")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
@@ -40,11 +41,13 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     //     .into_eyre()?;
     let _detection_infos_pub = node
         .publisher::<Vec<DetectionInfo>>("detection_infos")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _detected_whistle_pub = node
         .publisher::<Whistle>("detected_whistle")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;

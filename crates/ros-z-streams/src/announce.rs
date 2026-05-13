@@ -83,9 +83,12 @@ impl CreateAnnouncingPublisher for Node {
         for<'de> T::Codec: WireEncoder<Input<'de> = &'de T>,
     {
         Box::pin(async move {
-            let data_publisher = self.publisher(topic).build().await?;
-            let announcement_publisher =
-                Arc::new(self.publisher(&format!("{topic}/announce")).build().await?);
+            let data_publisher = self.publisher(topic)?.build().await?;
+            let announcement_publisher = Arc::new(
+                self.publisher(&format!("{topic}/announce"))?
+                    .build()
+                    .await?,
+            );
 
             Ok(AnnouncingPublisher {
                 data_publisher,
@@ -183,11 +186,13 @@ mod tests {
             .expect("create announcing publisher");
         let announcement_subscriber = node
             .subscriber::<Announcement>("alignment/topic/announce")
+            .expect("endpoint factory should succeed")
             .build()
             .await
             .expect("create announcement subscriber");
         let data_subscriber = node
             .subscriber::<String>("alignment/topic")
+            .expect("endpoint factory should succeed")
             .build()
             .await
             .expect("create data subscriber");

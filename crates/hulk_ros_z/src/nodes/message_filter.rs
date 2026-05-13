@@ -26,11 +26,13 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
     let _message_sub = node
         .subscriber::<IncomingMessage>("message")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _filtered_message_pub = node
         .publisher::<IncomingMessage>("filtered_message")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;

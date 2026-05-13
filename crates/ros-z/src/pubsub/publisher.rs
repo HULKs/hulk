@@ -168,7 +168,6 @@ pub struct PublisherBuilder<T, C = <T as crate::Message>::Codec> {
     /// Schema for dynamic message publishing.
     /// When set, the schema will be registered with the schema service.
     pub(crate) dyn_schema: Option<Schema>,
-    pub(crate) schema_error: Option<String>,
     pub(crate) _phantom_data: PhantomData<(T, C)>,
 }
 
@@ -199,7 +198,7 @@ impl<T, C> PublisherBuilder<T, C> {
     /// let provider = Arc::new(ShmProviderBuilder::new(20 * 1024 * 1024).build()?);
     /// let config = ShmConfig::new(provider).with_threshold(5_000);
     ///
-    /// let publisher = node.publisher::<String>("topic")
+    /// let publisher = node.publisher::<String>("topic")?
     ///     .shm_config(config)
     ///     .build()
     ///     .await?;
@@ -223,7 +222,7 @@ impl<T, C> PublisherBuilder<T, C> {
     /// # let context = ros_z::context::ContextBuilder::default().with_shm_enabled()?.build().await?;
     /// # let node = context.create_node("test").build().await?;
     /// // Context has SHM enabled, but disable for this publisher
-    /// let publisher = node.publisher::<String>("small_messages")
+    /// let publisher = node.publisher::<String>("small_messages")?
     ///     .without_shm()
     ///     .build()
     ///     .await?;
@@ -238,11 +237,6 @@ impl<T, C> PublisherBuilder<T, C> {
     /// Set the dynamic schema for runtime-typed publishers.
     pub fn dynamic_schema(mut self, schema: Schema) -> Self {
         self.dyn_schema = Some(schema);
-        self
-    }
-
-    pub(crate) fn schema_error(mut self, error: impl std::fmt::Display) -> Self {
-        self.schema_error = Some(error.to_string());
         self
     }
 }
@@ -269,13 +263,6 @@ where
         Option<Arc<TransientLocalCache>>,
         EndpointGlobalId,
     )> {
-        if let Some(error) = self.schema_error.take() {
-            return Err(zenoh::Error::from(format!(
-                "failed to build message schema for publisher '{}': {}",
-                self.entity.topic, error
-            )));
-        }
-
         let Some(node) = self.entity.node.as_ref() else {
             return Err(zenoh::Error::from("publisher build requires node identity"));
         };

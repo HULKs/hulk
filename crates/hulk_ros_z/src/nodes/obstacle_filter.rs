@@ -38,46 +38,55 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
     let _camera_matrix_sub = node
         .subscriber::<CameraMatrix>("camera_matrix")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _network_robot_obstacles_sub = node
         .subscriber::<Vec<Point2<Ground>>>("network_robot_obstacles")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _current_odometry_to_last_odometry_sub = node
         .subscriber::<na::Isometry2<f32>>("current_odometry_to_last_odometry")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _primary_state_sub = node
         .subscriber::<PrimaryState>("primary_state")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _current_ground_to_field_sub = node
         .subscriber::<Isometry2<Ground, Field>>("ground_to_field")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _fall_down_state_sub = node
         .subscriber::<FallDownState>("fall_down_state")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _detected_objects_sub = node
         .subscriber::<Vec<Object<RobocupObjectLabel>>>("detected_objects")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _obstacle_filter_hypotheses_pub = node
         .publisher::<Vec<Hypothesis>>("obstacle_filter_hypotheses")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _obstacles_pub = node
         .publisher::<Vec<Obstacle>>("obstacles")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;

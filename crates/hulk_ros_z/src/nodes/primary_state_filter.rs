@@ -32,21 +32,25 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
     let _buttons_sub = node
         .subscriber::<Buttons<Option<ButtonPressType>>>("buttons")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _filtered_game_controller_state_sub = node
         .subscriber::<FilteredGameControllerState>("filtered_game_controller_state")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _is_safe_pose_sub = node
         .subscriber::<bool>("is_safe_pose")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _primary_state_pub = node
         .publisher::<PrimaryState>("primary_state")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;

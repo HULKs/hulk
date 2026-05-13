@@ -34,21 +34,25 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
     let _filtered_whistle_sub = node
         .subscriber::<FilteredWhistle>("filtered_whistle")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _game_controller_state_sub = node
         .subscriber::<GameControllerState>("game_controller_state")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _whistle_in_set_ball_position_pub = node
         .publisher::<Point2<Field>>("whistle_in_set_ball_position")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _filtered_game_controller_state_pub = node
         .publisher::<FilteredGameControllerState>("filtered_game_controller_state")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;

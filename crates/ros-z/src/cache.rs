@@ -27,7 +27,7 @@
 //! let node = context.create_node("cache_demo").build().await?;
 //!
 //! // Zero-config: indexed by Zenoh transport timestamp
-//! let cache = node.create_cache::<String>("/chatter", 200).build().await?;
+//! let cache = node.create_cache::<String>("/chatter", 200)?.build().await?;
 //!
 //! let now = Time::from_wallclock(std::time::SystemTime::now());
 //! let window = cache.get_interval(now - Duration::from_millis(100), now);

@@ -27,11 +27,13 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
     let _collected_target_joint_positions_sub = node
         .subscriber::<Joints<f32>>("collected_target_joint_positions")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _low_command_pub = node
         .publisher::<LowCommand>("low_command")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;

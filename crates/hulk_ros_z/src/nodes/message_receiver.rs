@@ -14,6 +14,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
     let _message_pub = node
         .publisher::<IncomingMessage>("message")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;

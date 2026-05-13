@@ -26,31 +26,37 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
     let _image_sub = node
         .subscriber::<Image>("image")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _inference_duration_pub = node
         .publisher::<Duration>("inference_duration")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _post_processing_duration_pub = node
         .publisher::<Duration>("post_processing_duration")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _non_maximum_suppression_duration_pub = node
         .publisher::<Duration>("non_maximum_suppression_duration")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _detected_objects_pub = node
         .publisher::<Vec<Object<RobocupObjectLabel>>>("detected_objects")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _detected_poses_pub = node
         .publisher::<Vec<Pose<YOLOObjectLabel>>>("detected_poses")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;

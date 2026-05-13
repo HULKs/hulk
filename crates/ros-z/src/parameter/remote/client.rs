@@ -149,6 +149,7 @@ impl RemoteParameterClient {
     pub async fn subscribe_events(&self) -> Result<Subscriber<NodeParameterEvent>> {
         self.node
             .subscriber::<NodeParameterEvent>(&self.events_topic())
+            .map_err(map_remote_err)?
             .qos(QosProfile {
                 reliability: QosReliability::Reliable,
                 durability: QosDurability::TransientLocal,
@@ -179,6 +180,7 @@ impl RemoteParameterClient {
     {
         self.node
             .create_service_client::<S>(service_name)
+            .map_err(map_remote_err)?
             .build()
             .await
             .map_err(map_remote_err)

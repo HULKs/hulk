@@ -295,7 +295,6 @@ fn schema_service_server_builder(
         entity,
         session,
         clock: clock.clone(),
-        schema_error: None,
         _phantom_data: Default::default(),
     }
 }

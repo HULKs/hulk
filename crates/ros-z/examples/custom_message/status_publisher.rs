@@ -13,7 +13,7 @@ async fn main() -> Result<()> {
         .build()
         .await?;
     let publisher = node
-        .publisher::<RobotStatus>("robot_status")
+        .publisher::<RobotStatus>("robot_status")?
         .build()
         .await?;
 

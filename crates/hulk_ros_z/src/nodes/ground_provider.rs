@@ -17,21 +17,25 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
     let _robot_kinematics_sub = node
         .subscriber::<RobotKinematics>("robot_kinematics")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _imu_state_sub = node
         .subscriber::<ImuState>("imu_state")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _robot_to_ground_pub = node
         .publisher::<Isometry3<Robot, Ground>>("robot_to_ground")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _ground_to_robot_pub = node
         .publisher::<Isometry3<Ground, Robot>>("ground_to_robot")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;

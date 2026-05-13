@@ -8,7 +8,7 @@ async fn main() -> Result<()> {
 
     let context = ContextBuilder::default().build().await?;
     let node = context.create_node("talker").build().await?;
-    let publisher = node.publisher::<String>("chatter").build().await?;
+    let publisher = node.publisher::<String>("chatter")?.build().await?;
 
     let mut count = 1_u64;
     loop {

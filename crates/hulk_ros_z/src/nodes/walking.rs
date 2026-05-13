@@ -28,11 +28,13 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     //     .into_eyre()?;
     let _motion_command_sub = node
         .subscriber::<MotionCommand>("motion_command")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _step_pub = node
         .publisher::<Step>("additional_outputs/walking_step")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;

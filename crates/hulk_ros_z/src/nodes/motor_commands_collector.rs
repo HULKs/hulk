@@ -14,11 +14,13 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
     let _head_target_joints_positions_sub = node
         .subscriber::<HeadJoints<f32>>("head_joints_command")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _collected_target_joint_positions_pub = node
         .publisher::<Joints<f32>>("collected_target_joint_positions")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;

@@ -38,16 +38,19 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
     let _image_sub = node
         .subscriber::<YCbCr422Image>("ycbcr422_image")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _camera_matrix_sub = node
         .subscriber::<CameraMatrix>("camera_matrix")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _image_segments_pub = node
         .publisher::<ImageSegments>("image_segments")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;

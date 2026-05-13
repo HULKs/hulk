@@ -35,31 +35,37 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
     let _ball_position_sub = node
         .subscriber::<BallPosition<Ground>>("ball_position")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _hypothetical_ball_positions_sub = node
         .subscriber::<Vec<HypotheticalBallPosition<Ground>>>("hypothetical_ball_positions")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _ground_to_field_sub = node
         .subscriber::<Isometry2<Ground, Field>>("ground_to_field")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _primary_state_sub = node
         .subscriber::<PrimaryState>("primary_state")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _filtered_game_controller_state_sub = node
         .subscriber::<FilteredGameControllerState>("filtered_game_controller_state")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _network_message_sub = node
         .subscriber::<IncomingMessage>("filtered_message")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
@@ -72,6 +78,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     //     .into_eyre()?;
     let _suggested_search_position_pub = node
         .publisher::<Point2<Field>>("suggested_search_position")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;

@@ -16,11 +16,13 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
     let _game_controller_state_sub = node
         .subscriber::<GameControllerState>("game_controller_state")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _world_to_field_pub = node
         .publisher::<Isometry2<World, Field>>("world_to_field")
+        .into_eyre()?
         .build()
         .await
         .into_eyre()?;
