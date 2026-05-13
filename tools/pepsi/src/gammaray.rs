@@ -258,6 +258,16 @@ async fn gammaray_robot(
         .rsync_with_log("uploading binaries", &progress_bar)
         .await?;
 
+    if !old {
+        robot
+            .ssh_to_robot()?
+            .arg("sudo sed")
+            .arg("--in-place")
+            .arg("'s#hulk_booster .*#hulk_ros_z --robot number --location lab --parameter-root etc/parameters/ros_z --router tcp/127.0.0.1:7447 \\\\#'")
+            .arg("/usr/bin/launch-hulk")
+            .ssh_with_log("hacking launch-hulk", &progress_bar).await?;
+    }
+
     robot
         .ssh_to_robot()?
         .arg("sudo systemctl daemon-reload")
