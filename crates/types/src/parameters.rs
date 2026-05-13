@@ -177,6 +177,7 @@ pub struct KickOffPositionsParameters {
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
+    ros_z::Message,
 )]
 pub struct SearchParameters {
     pub position_reached_distance: f32,
