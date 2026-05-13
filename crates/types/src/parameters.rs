@@ -65,6 +65,7 @@ pub struct BehaviorParameters {
     pub path_planning: PathPlanningParameters,
     pub remote_control: RemoteControlParameters,
     pub role_positions: RolePositionsParameters,
+    pub kickoff_positions: KickOffPositionsParameters,
     pub search: SearchParameters,
     pub look_action: LookActionParameters,
     pub walk_and_stand: WalkAndStandParameters,
@@ -125,6 +126,26 @@ pub struct RolePositionsParameters {
     pub keeper_passive_distance: f32,
     pub striker_distance_to_non_free_center_circle: f32,
     pub striker_kickoff_position: Point2<Field>,
+}
+
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    ros_z::Message,
+)]
+pub struct KickOffPositionsParameters {
+    pub one: Point2<Field>,
+    pub two: Point2<Field>,
+    pub three: Point2<Field>,
+    pub four: Point2<Field>,
+    pub five: Point2<Field>,
 }
 
 #[derive(

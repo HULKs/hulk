@@ -1,5 +1,6 @@
 use coordinate_systems::{Field, Ground};
 use filtering::hysteresis::less_than_with_relative_hysteresis;
+use hsl_network_messages::PlayerNumber;
 use linear_algebra::{Isometry2, Orientation2, Point, Point2, Pose2, Vector2, point, vector};
 use types::{
     behavior_tree::Status,
@@ -13,6 +14,7 @@ use crate::{
     behavior::{
         action::stand,
         behavior_tree::Node,
+        condition::hulks_is_kicking_team,
         kick::{kick, select_kick_target, use_last_kick_power},
         node::Blackboard,
         switch_motion_type::is_last_motion_type,
@@ -197,4 +199,39 @@ pub fn walk_instead_of_kicking(blackboard: &mut Blackboard) -> Status {
     } else {
         Status::Failure
     }
+}
+
+pub fn walk_to_kickoff_pose(blackboard: &mut Blackboard) -> Status {
+    let ground_to_field = match blackboard.world_state.robot.ground_to_field {
+        Some(transform) => transform,
+        None => return Status::Failure,
+    };
+    let field_to_ground = ground_to_field.inverse();
+
+    let target_position = match (
+        blackboard.world_state.robot.player_number,
+        hulks_is_kicking_team(blackboard),
+    ) {
+        (PlayerNumber::One, _) => blackboard.parameters.kickoff_positions.one,
+        (PlayerNumber::Two, _) => blackboard.parameters.kickoff_positions.two,
+        (PlayerNumber::Three, false) => blackboard.parameters.kickoff_positions.three,
+        (PlayerNumber::Three, true) => point!(0.0, -0.5),
+        (PlayerNumber::Four, _) => blackboard.parameters.kickoff_positions.four,
+        (PlayerNumber::Five, _) => blackboard.parameters.kickoff_positions.five,
+    };
+
+    let tragtet_in_ground = field_to_ground * target_position;
+
+    walk_to(
+        blackboard,
+        Pose2::from_parts(tragtet_in_ground, field_to_ground.orientation()),
+        blackboard.parameters.walk_speed.kicking,
+        OrientationMode::AlignWithPath,
+        blackboard
+            .parameters
+            .walk_and_stand
+            .normal_distance_to_be_aligned,
+        blackboard.parameters.walk_and_stand.hysteresis,
+    );
+    Status::Success
 }
