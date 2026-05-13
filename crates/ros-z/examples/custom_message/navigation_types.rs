@@ -1,8 +1,4 @@
-use ros_z::{
-    Message, ServiceTypeInfo,
-    entity::{SchemaHash, TypeInfo},
-    message::Service,
-};
+use ros_z::{Message, ServiceTypeInfo, entity::TypeInfo, message::Service};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, Message)]
@@ -32,7 +28,7 @@ impl ServiceTypeInfo for NavigateTo {
         )?;
         Ok(TypeInfo::new(
             "custom_msgs::NavigateTo",
-            Some(SchemaHash(ros_z_schema::compute_hash(&descriptor).0)),
+            ros_z_schema::compute_hash(&descriptor),
         ))
     }
 }

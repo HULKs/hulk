@@ -99,7 +99,7 @@ pub use value::{
     DynamicNamedValue, DynamicValue, EnumPayloadValue, EnumValue, FromDynamic, IntoDynamic,
 };
 
-pub(crate) use discovery::{SchemaDiscovery, discovered_schema_type_info};
+pub(crate) use discovery::SchemaDiscovery;
 
 use crate::pubsub::{Publisher, PublisherBuilder, Subscriber, SubscriberBuilder};
 

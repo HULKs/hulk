@@ -7,7 +7,7 @@ use crate::{
     dynamic::{
         DiscoveredTopicSchema, DynamicCdrCodec, DynamicError, DynamicPayload,
         DynamicPublisherBuilder, DynamicSubscriberBuilder, Schema, SchemaDiscovery, SchemaService,
-        discovered_schema_type_info, schema_service::SchemaServiceNodeIdentity,
+        schema_service::SchemaServiceNodeIdentity,
     },
     entity::*,
     graph::Graph,
@@ -211,7 +211,7 @@ impl NodeBuilder {
 }
 
 fn typed_message_type_info<T: Message>(schema: &Schema) -> TypeInfo {
-    TypeInfo::with_hash(&T::type_name(), ros_z_schema::compute_hash(schema.as_ref()))
+    TypeInfo::new(T::type_name(), ros_z_schema::compute_hash(schema.as_ref()))
 }
 
 fn message_schema_build_error(
@@ -290,14 +290,10 @@ impl Node {
                 .map_err(|error| message_schema_build_error("publisher", topic, error))?;
         }
 
-        Ok(self.publisher_impl::<T, T::Codec>(topic, Some(typed_message_type_info::<T>(&schema))))
+        Ok(self.publisher_impl::<T, T::Codec>(topic, typed_message_type_info::<T>(&schema)))
     }
 
-    fn publisher_impl<T, S>(
-        &self,
-        topic: &str,
-        type_info: Option<TypeInfo>,
-    ) -> PublisherBuilder<T, S>
+    fn publisher_impl<T, S>(&self, topic: &str, type_info: TypeInfo) -> PublisherBuilder<T, S>
     where
         S: WireEncoder,
     {
@@ -305,7 +301,7 @@ impl Node {
         // to allow error handling in the Result type
         let entity = EndpointEntity {
             id: self.counter.increment(),
-            node: Some(self.entity.clone()),
+            node: self.entity.clone(),
             kind: EndpointKind::Publisher,
             topic: topic.to_string(),
             type_info,
@@ -342,14 +338,10 @@ impl Node {
             T::schema().map_err(|error| message_schema_build_error("subscriber", topic, error))?,
         );
 
-        Ok(self.subscriber_impl::<T, T::Codec>(topic, Some(typed_message_type_info::<T>(&schema))))
+        Ok(self.subscriber_impl::<T, T::Codec>(topic, typed_message_type_info::<T>(&schema)))
     }
 
-    fn subscriber_impl<T, S>(
-        &self,
-        topic: &str,
-        type_info: Option<TypeInfo>,
-    ) -> SubscriberBuilder<T, S>
+    fn subscriber_impl<T, S>(&self, topic: &str, type_info: TypeInfo) -> SubscriberBuilder<T, S>
     where
         S: WireDecoder,
     {
@@ -357,7 +349,7 @@ impl Node {
         // to allow error handling in the Result type
         let entity = EndpointEntity {
             id: self.counter.increment(),
-            node: Some(self.entity.clone()),
+            node: self.entity.clone(),
             kind: EndpointKind::Subscription,
             topic: topic.to_string(),
             type_info,
@@ -422,7 +414,7 @@ impl Node {
         let type_info =
             T::type_info().map_err(|error| message_schema_build_error("cache", topic, error))?;
         Ok(CacheBuilder::new(
-            self.subscriber_impl::<T, <T as Message>::Codec>(topic, Some(type_info)),
+            self.subscriber_impl::<T, <T as Message>::Codec>(topic, type_info),
             capacity,
         ))
     }
@@ -455,20 +447,20 @@ impl Node {
                 Ok(type_info)
             })
             .map_err(|error| service_type_info_build_error("server", name, error))?;
-        Ok(self.create_service_impl(name, Some(type_info)))
+        Ok(self.create_service_impl(name, type_info))
     }
 
     #[doc(hidden)]
     pub fn create_service_impl<T>(
         &self,
         name: &str,
-        type_info: Option<TypeInfo>,
+        type_info: TypeInfo,
     ) -> ServiceServerBuilder<T> {
         // Note: Service name qualification happens in ServiceServerBuilder::build()
         // to allow error handling in the Result type
         let entity = EndpointEntity {
             id: self.counter.increment(),
-            node: Some(self.entity.clone()),
+            node: self.entity.clone(),
             kind: EndpointKind::Service,
             topic: name.to_string(),
             type_info,
@@ -502,20 +494,20 @@ impl Node {
                 Ok(type_info)
             })
             .map_err(|error| service_type_info_build_error("client", name, error))?;
-        Ok(self.create_client_impl(name, Some(type_info)))
+        Ok(self.create_client_impl(name, type_info))
     }
 
     #[doc(hidden)]
     pub fn create_client_impl<T>(
         &self,
         name: &str,
-        type_info: Option<TypeInfo>,
+        type_info: TypeInfo,
     ) -> ServiceClientBuilder<T> {
         // Note: Service name qualification happens in ServiceClientBuilder::build()
         // to allow error handling in the Result type
         let entity = EndpointEntity {
             id: self.counter.increment(),
-            node: Some(self.entity.clone()),
+            node: self.entity.clone(),
             kind: EndpointKind::Client,
             topic: name.to_string(),
             type_info,
@@ -594,7 +586,9 @@ impl Node {
         &self.clock
     }
 
+    // ========================================================================
     // Dynamic Message API
+    // ========================================================================
 
     /// Create a dynamic publisher for the given topic.
     ///
@@ -621,7 +615,7 @@ impl Node {
     ///     )]),
     /// });
     ///
-    /// let type_info = TypeInfo::with_hash("std_msgs::String", ros_z_schema::compute_hash(schema.as_ref()));
+    /// let type_info = TypeInfo::new("std_msgs::String", ros_z_schema::compute_hash(schema.as_ref()));
     /// let publisher = node.dynamic_publisher("chatter", type_info, schema)?.build().await?;
     ///
     /// let mut message = DynamicStruct::default_for_schema(publisher.schema().unwrap())?;
@@ -632,7 +626,7 @@ impl Node {
     pub fn dynamic_publisher(
         &self,
         topic: &str,
-        mut type_info: TypeInfo,
+        type_info: TypeInfo,
         schema: Schema,
     ) -> Result<DynamicPublisherBuilder> {
         if let Err(error) = schema.validate() {
@@ -643,10 +637,6 @@ impl Node {
             return Err(message_schema_build_error("publisher", topic, error));
         }
 
-        if type_info.hash.is_none() {
-            type_info.hash = Some(ros_z_schema::compute_hash(schema.as_ref()));
-        }
-
         let should_register = registerable_schema_root(&type_info.name, schema.as_ref())
             .map_err(|error| message_schema_build_error("publisher", topic, error))?;
         if should_register {
@@ -654,7 +644,7 @@ impl Node {
                 .map_err(|error| message_schema_build_error("publisher", topic, error))?;
         }
 
-        Ok(self.dynamic_publisher_impl(topic, Some(type_info), schema))
+        Ok(self.dynamic_publisher_impl(topic, type_info, schema))
     }
 
     /// Discover the schema that publishers currently expose on a topic.
@@ -731,11 +721,7 @@ impl Node {
             discovered.schema_hash.to_hash_string()
         );
 
-        Ok(self.dynamic_subscriber_impl(
-            topic,
-            Some(discovered_schema_type_info(&discovered)),
-            discovered.schema,
-        ))
+        Ok(self.dynamic_subscriber_impl(topic, discovered.type_info(), discovered.schema))
     }
 
     /// Create a dynamic subscriber with a known schema.
@@ -767,14 +753,14 @@ impl Node {
     ///     )]),
     /// });
     ///
-    /// let type_info = TypeInfo::with_hash("std_msgs::String", ros_z_schema::compute_hash(schema.as_ref()));
-    /// let subscriber = node.dynamic_subscriber("chatter", Some(type_info), schema)?.build().await?;
+    /// let type_info = TypeInfo::new("std_msgs::String", ros_z_schema::compute_hash(schema.as_ref()));
+    /// let subscriber = node.dynamic_subscriber("chatter", type_info, schema)?.build().await?;
     /// let message = subscriber.recv().await?;
     /// ```
     pub fn dynamic_subscriber(
         &self,
         topic: &str,
-        type_info: Option<TypeInfo>,
+        type_info: TypeInfo,
         schema: Schema,
     ) -> Result<DynamicSubscriberBuilder> {
         if let Err(error) = schema.validate() {
@@ -787,7 +773,7 @@ impl Node {
     fn dynamic_publisher_impl(
         &self,
         topic: &str,
-        type_info: Option<TypeInfo>,
+        type_info: TypeInfo,
         schema: Schema,
     ) -> DynamicPublisherBuilder {
         self.publisher_impl::<DynamicPayload, DynamicCdrCodec>(topic, type_info)
@@ -797,7 +783,7 @@ impl Node {
     fn dynamic_subscriber_impl(
         &self,
         topic: &str,
-        type_info: Option<TypeInfo>,
+        type_info: TypeInfo,
         schema: Schema,
     ) -> DynamicSubscriberBuilder {
         self.subscriber_impl::<DynamicPayload, DynamicCdrCodec>(topic, type_info)

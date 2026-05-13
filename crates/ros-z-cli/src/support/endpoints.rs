@@ -1,27 +1,19 @@
 use std::{collections::BTreeSet, sync::Arc};
 
-use ros_z::entity::{Entity, entity_get_endpoint};
+use ros_z::entity::Entity;
 
-use crate::{
-    model::info::{EndpointSummary, NamedType},
-    support::nodes::fully_qualified_node_name,
-};
+use crate::model::info::{EndpointSummary, NamedType};
 
 pub fn summarize_endpoints(entities: Vec<Arc<Entity>>) -> Vec<EndpointSummary> {
     let mut endpoints = BTreeSet::new();
 
     for entity in entities {
-        if let Some(endpoint) = entity_get_endpoint(&entity) {
-            let node = endpoint
-                .node
-                .as_ref()
-                .map(|node| fully_qualified_node_name(&node.namespace, &node.name));
-            let schema_hash = endpoint
-                .type_info
-                .as_ref()
-                .and_then(|type_info| type_info.hash.as_ref().map(|hash| hash.to_string()));
-            endpoints.insert((node, schema_hash));
-        }
+        let Entity::Endpoint(endpoint) = &*entity else {
+            continue;
+        };
+        let node = endpoint.node.fully_qualified_name();
+        let schema_hash = endpoint.type_info.hash.to_string();
+        endpoints.insert((node, schema_hash));
     }
 
     endpoints
@@ -47,38 +39,26 @@ mod tests {
     use super::summarize_endpoints;
 
     #[test]
-    fn summarize_endpoints_keeps_missing_schema_hash() {
-        let entities = vec![Arc::new(Entity::Endpoint(EndpointEntity {
-            id: 7,
-            node: None,
-            kind: EndpointKind::Publisher,
-            topic: "/demo".to_string(),
-            type_info: Some(TypeInfo::new("std_msgs::String", None)),
-            qos: Default::default(),
-        }))];
-
-        let summaries = summarize_endpoints(entities);
-
-        assert_eq!(summaries.len(), 1);
-        assert_eq!(summaries[0].schema_hash, None);
-    }
-
-    #[test]
     fn summarize_endpoints_formats_present_schema_hash() {
         let hash = SchemaHash([0xcd; 32]);
         let expected = hash.to_string();
         let entities = vec![Arc::new(Entity::Endpoint(EndpointEntity {
             id: 7,
-            node: None,
+            node: ros_z::entity::NodeEntity {
+                z_id: Default::default(),
+                id: 1,
+                name: "node".to_string(),
+                namespace: "/".to_string(),
+            },
             kind: EndpointKind::Publisher,
             topic: "/demo".to_string(),
-            type_info: Some(TypeInfo::with_hash("std_msgs::String", hash)),
+            type_info: TypeInfo::new("std_msgs::String", hash),
             qos: Default::default(),
         }))];
 
         let summaries = summarize_endpoints(entities);
 
         assert_eq!(summaries.len(), 1);
-        assert_eq!(summaries[0].schema_hash.as_deref(), Some(expected.as_str()));
+        assert_eq!(summaries[0].schema_hash, expected.as_str());
     }
 }

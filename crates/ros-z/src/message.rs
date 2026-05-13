@@ -168,10 +168,7 @@ pub trait Message: MessageSchema + Send + Sync + Sized + 'static {
 
     /// Type name plus schema hash advertised for this message.
     fn type_info() -> Result<TypeInfo, SchemaError> {
-        Ok(TypeInfo::with_hash(
-            &Self::type_name(),
-            Self::schema_hash()?,
-        ))
+        Ok(TypeInfo::new(Self::type_name(), Self::schema_hash()?))
     }
 }
 

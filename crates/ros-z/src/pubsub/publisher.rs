@@ -247,9 +247,7 @@ where
     C: for<'a> WireEncoder<Input<'a> = &'a T> + 'static,
 {
     #[tracing::instrument(name = "pub_build", skip(self), fields(
-        topic = %self.entity.topic,
-        qos_reliability = ?self.entity.qos.reliability,
-        qos_durability = ?self.entity.qos.durability
+        topic = %self.entity.topic
     ))]
     pub async fn build(self) -> Result<Publisher<T, C>> {
         self.build_inner_async().await
@@ -263,23 +261,24 @@ where
         Option<Arc<TransientLocalCache>>,
         EndpointGlobalId,
     )> {
-        let Some(node) = self.entity.node.as_ref() else {
-            return Err(zenoh::Error::from("publisher build requires node identity"));
-        };
+        let entity = &mut self.entity;
         // Qualify the topic name as a ros-z graph name.
-        let qualified_topic =
-            topic_name::qualify_topic_name(&self.entity.topic, &node.namespace, &node.name)
-                .map_err(|e| zenoh::Error::from(format!("Failed to qualify topic: {}", e)))?;
+        let qualified_topic = topic_name::qualify_topic_name(
+            &entity.topic,
+            &entity.node.namespace,
+            &entity.node.name,
+        )
+        .map_err(|e| zenoh::Error::from(format!("Failed to qualify topic: {}", e)))?;
 
-        self.entity.topic = qualified_topic.clone();
+        entity.topic = qualified_topic.clone();
         debug!("[PUB] Qualified topic: {}", qualified_topic);
 
-        let topic_key_expr = ros_z_protocol::format::topic_key_expr(&self.entity)?;
+        let topic_key_expr = ros_z_protocol::format::topic_key_expr(entity)?;
         let data_key_expr = (*topic_key_expr).clone();
         debug!("[PUB] Key expression: {}", data_key_expr);
 
         if matches!(
-            self.entity.qos,
+            entity.qos,
             ros_z_protocol::qos::QosProfile {
                 durability: QosDurability::TransientLocal,
                 history: QosHistory::KeepAll,
@@ -291,9 +290,9 @@ where
             );
         }
 
-        let transient_local_cache = replay::transient_local_cache_capacity(&self.entity.qos)
+        let transient_local_cache = replay::transient_local_cache_capacity(&entity.qos)
             .map(|capacity| Arc::new(TransientLocalCache::new(capacity)));
-        let endpoint_global_id = endpoint_global_id(&self.entity);
+        let endpoint_global_id = endpoint_global_id(entity);
 
         Ok((
             data_key_expr,

@@ -44,7 +44,7 @@ impl ServiceTypeInfo for AddTwoInts {
         )?;
         Ok(TypeInfo::new(
             "test_msgs::AddTwoInts",
-            Some(SchemaHash(ros_z_schema::compute_hash(&descriptor).0)),
+            ros_z_schema::compute_hash(&descriptor),
         ))
     }
 }
@@ -296,10 +296,10 @@ mod tests {
         let topic = unique_graph_name("graph_readd_local_entity_topic");
         let entity = Entity::Endpoint(EndpointEntity {
             id: 4242,
-            node: Some(node.node_entity().clone()),
+            node: node.node_entity().clone(),
             kind: EndpointKind::Publisher,
             topic: topic.clone(),
-            type_info: None,
+            type_info: TypeInfo::new("std_msgs::String", SchemaHash::zero()),
             qos: Default::default(),
         });
 

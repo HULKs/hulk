@@ -77,18 +77,19 @@ where
         service = %self.entity.topic
     ))]
     pub async fn build(mut self) -> Result<ServiceClient<T>> {
-        let Some(node) = self.entity.node.as_ref() else {
-            return Err(zenoh::Error::from("client build requires node identity"));
-        };
+        let entity = &mut self.entity;
         // Qualify the service name as a ros-z graph name.
-        let qualified_service =
-            topic_name::qualify_service_name(&self.entity.topic, &node.namespace, &node.name)
-                .map_err(|e| zenoh::Error::from(format!("Failed to qualify service: {}", e)))?;
+        let qualified_service = topic_name::qualify_service_name(
+            &entity.topic,
+            &entity.node.namespace,
+            &entity.node.name,
+        )
+        .map_err(|e| zenoh::Error::from(format!("Failed to qualify service: {}", e)))?;
 
-        self.entity.topic = qualified_service.clone();
+        entity.topic = qualified_service.clone();
         debug!("[CLN] Qualified service: {}", qualified_service);
 
-        let topic_key_expr = ros_z_protocol::format::topic_key_expr(&self.entity)?;
+        let topic_key_expr = ros_z_protocol::format::topic_key_expr(entity)?;
         let key_expr = (*topic_key_expr).clone();
         debug!("[CLN] Key expression: {}", key_expr);
 
@@ -99,20 +100,20 @@ where
             .consolidation(zenoh::query::ConsolidationMode::None)
             .await?;
         let liveliness_key_expr =
-            ros_z_protocol::format::liveliness_key_expr(&self.entity, &self.session.zid())?;
+            ros_z_protocol::format::liveliness_key_expr(entity, &self.session.zid())?;
         let lv_token = self
             .session
             .liveliness()
             .declare_token((*liveliness_key_expr).clone())
             .await?;
-        debug!("[CLN] Client ready: service={}", self.entity.topic);
+        debug!("[CLN] Client ready: service={}", entity.topic);
 
         Ok(ServiceClient {
             sequence_number: AtomicUsize::new(1), // Start at 1; zero is reserved for missing sequence values.
             inner,
             _lv_token: lv_token,
             endpoint_global_id: endpoint_global_id(&self.entity),
-            topic: self.entity.topic.clone(),
+            topic: self.entity.topic,
             clock: self.clock,
             _phantom_data: Default::default(),
         })
@@ -404,16 +405,17 @@ where
         handler: ServiceQueryHandler,
         queue: Option<Arc<BoundedQueue<Q>>>,
     ) -> Result<ServiceServer<T, Q>> {
-        let Some(node) = self.entity.node.as_ref() else {
-            return Err(zenoh::Error::from("service build requires node identity"));
-        };
-        let qualified_service =
-            topic_name::qualify_service_name(&self.entity.topic, &node.namespace, &node.name)
-                .map_err(|e| zenoh::Error::from(format!("Failed to qualify service: {}", e)))?;
+        let entity = &mut self.entity;
+        let qualified_service = topic_name::qualify_service_name(
+            &entity.topic,
+            &entity.node.namespace,
+            &entity.node.name,
+        )
+        .map_err(|e| zenoh::Error::from(format!("Failed to qualify service: {}", e)))?;
 
-        self.entity.topic = qualified_service;
+        entity.topic = qualified_service.clone();
 
-        let topic_key_expr = ros_z_protocol::format::topic_key_expr(&self.entity)?;
+        let topic_key_expr = ros_z_protocol::format::topic_key_expr(entity)?;
         let key_expr = (*topic_key_expr).clone();
         tracing::debug!("[SRV] KE: {key_expr}");
 
@@ -448,7 +450,7 @@ where
             .await?;
 
         let liveliness_key_expr =
-            ros_z_protocol::format::liveliness_key_expr(&self.entity, &self.session.zid())?;
+            ros_z_protocol::format::liveliness_key_expr(entity, &self.session.zid())?;
         let lv_token = self
             .session
             .liveliness()
@@ -716,7 +718,7 @@ mod tests {
                 AddTwoIntsRequest::type_name(),
                 AddTwoIntsResponse::type_name(),
             )?;
-            Ok(TypeInfo::with_hash(
+            Ok(TypeInfo::new(
                 descriptor.type_name.as_str(),
                 ros_z_schema::compute_hash(&descriptor),
             ))
