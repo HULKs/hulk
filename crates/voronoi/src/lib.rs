@@ -178,12 +178,12 @@ impl VoronoiGrid {
 
             let width_tiles = self.width_tiles;
             let height_tiles = self.height_tiles;
-            let x = current_index % width_tiles;
-            let y = current_index / width_tiles;
+            let x = (current_index % width_tiles) as isize;
+            let y = (current_index / width_tiles) as isize;
 
             for neighbor in NEIGHBORS {
-                let nx = x as isize + neighbor.dx;
-                let ny = y as isize + neighbor.dy;
+                let nx = x + neighbor.dx;
+                let ny = y + neighbor.dy;
                 if !(0..width_tiles as isize).contains(&nx)
                     || !(0..height_tiles as isize).contains(&ny)
                 {
@@ -278,10 +278,11 @@ impl VoronoiGrid {
     }
 
     fn point_to_index(&self, p: Point2<Field>) -> Option<usize> {
-        let ix = ((p.x() - self.min_bound.x()) / self.resolution).floor() as i32;
-        let iy = ((p.y() - self.min_bound.y()) / self.resolution).floor() as i32;
+        let ix = ((p.x() - self.min_bound.x()) / self.resolution).floor() as isize;
+        let iy = ((p.y() - self.min_bound.y()) / self.resolution).floor() as isize;
 
-        if (0..self.width_tiles as i32).contains(&ix) && (0..self.height_tiles as i32).contains(&iy)
+        if (0..self.width_tiles as isize).contains(&ix)
+            && (0..self.height_tiles as isize).contains(&iy)
         {
             Some(self.index_from_xy(ix as usize, iy as usize))
         } else {
