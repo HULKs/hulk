@@ -11,6 +11,7 @@ use crate::{
 
 use super::{
     GraphOptions,
+    changes::GraphChangeCallbacks,
     state::{EntityParser, GraphData},
 };
 
@@ -26,6 +27,7 @@ pub(super) async fn install_liveliness(
     graph_data: Arc<Mutex<GraphData>>,
     event_manager: Arc<GraphEventManager>,
     change_notify: Arc<Notify>,
+    change_callbacks: GraphChangeCallbacks,
     zid: ZenohId,
 ) -> Result<Subscriber<()>> {
     let callback_parser = parser;
@@ -75,6 +77,7 @@ pub(super) async fn install_liveliness(
                     event_manager.trigger_graph_change(&entity, appeared, zid);
                 }
                 change_notify.notify_waiters();
+                change_callbacks.notify();
             }
         })
         .await?;

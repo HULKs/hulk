@@ -347,10 +347,11 @@ impl GraphData {
         !already_exists
     }
 
-    pub(super) fn remove_local_entity(&mut self, entity: &Entity, key_expr: &LivelinessKE) {
-        self.cached.remove(key_expr);
-        self.parsed.remove(key_expr);
+    pub(super) fn remove_local_entity(&mut self, entity: &Entity, key_expr: &LivelinessKE) -> bool {
+        let was_cached = self.cached.remove(key_expr);
+        let was_parsed = self.parsed.remove(key_expr).is_some();
         self.remove_entity_from_indexes(entity, key_expr);
+        was_cached || was_parsed
     }
 
     pub(super) fn parse_pending(&mut self) {

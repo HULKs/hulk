@@ -306,7 +306,6 @@ impl Node {
             session: self.session.clone(),
             graph: self.graph.clone(),
             clock: self.clock.clone(),
-            attachment: true,
             shm_config: self.shm_config.clone(),
             dyn_schema: None,
             schema_error: None,

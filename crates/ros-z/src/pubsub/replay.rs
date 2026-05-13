@@ -17,7 +17,7 @@ use ros_z_protocol::qos::{QosDurability, QosHistory};
 pub(super) struct RetainedSample {
     pub(super) payload: zenoh::bytes::ZBytes,
     pub(super) encoding: Option<zenoh::bytes::Encoding>,
-    pub(super) attachment: Option<Attachment>,
+    pub(super) attachment: Attachment,
 }
 
 pub(super) struct TransientLocalCache {

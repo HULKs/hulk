@@ -224,6 +224,6 @@ mod tests {
                 .await
                 .expect("timeout waiting for payload")
                 .expect("receive payload");
-        assert_eq!(received_payload.publication_id(), Some(publication_id));
+        assert_eq!(received_payload.publication_id(), publication_id);
     }
 }

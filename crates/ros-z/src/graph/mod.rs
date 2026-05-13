@@ -2,11 +2,14 @@ use parking_lot::Mutex;
 use std::{sync::Arc, time::Duration};
 use tokio::sync::Notify;
 
+mod changes;
 mod discovery;
 mod query;
 mod snapshot;
 mod state;
 
+use changes::GraphChangeCallbacks;
+pub use changes::GraphChangeListener;
 use discovery::install_liveliness;
 pub use query::QosIncompatibility;
 pub use snapshot::{GraphSnapshot, NodeSnapshot, ServiceSnapshot, TopicSnapshot};
@@ -32,6 +35,7 @@ impl Default for GraphOptions {
 pub struct Graph {
     data: Arc<Mutex<GraphData>>,
     event_manager: Arc<GraphEventManager>,
+    change_callbacks: GraphChangeCallbacks,
     pub zid: ZenohId,
     /// Notified whenever an entity appears or disappears in the graph.
     ///
@@ -107,6 +111,7 @@ impl Graph {
         let graph_data = Arc::new(Mutex::new(GraphData::new_with_parser(parser_arc.clone())));
         let event_manager = Arc::new(GraphEventManager::new());
         let change_notify = Arc::new(Notify::new());
+        let change_callbacks = GraphChangeCallbacks::default();
         let sub = install_liveliness(
             session,
             &liveliness_pattern,
@@ -115,6 +120,7 @@ impl Graph {
             graph_data.clone(),
             event_manager.clone(),
             change_notify.clone(),
+            change_callbacks.clone(),
             zid,
         )
         .await?;
@@ -123,6 +129,7 @@ impl Graph {
             _subscriber: sub,
             data: graph_data,
             event_manager,
+            change_callbacks,
             change_notify,
             zid,
         })
@@ -139,6 +146,14 @@ impl Graph {
         }
     }
 
+    #[must_use = "dropping the returned GraphChangeListener unregisters the graph change callback"]
+    pub fn on_change<F>(&self, callback: F) -> GraphChangeListener
+    where
+        F: Fn() + Send + Sync + 'static,
+    {
+        self.change_callbacks.register(Arc::new(callback))
+    }
+
     /// Add a local entity to the graph for immediate discovery
     /// This is used to make local publishers/subscriptions/services/clients
     /// immediately visible in graph queries without waiting for Zenoh liveliness propagation
@@ -151,6 +166,7 @@ impl Graph {
         if is_new {
             self.event_manager
                 .trigger_graph_change(&entity, true, self.zid);
+            self.change_callbacks.notify();
         }
 
         Ok(())
@@ -160,8 +176,11 @@ impl Graph {
     pub fn remove_local_entity(&self, entity: &Entity) -> Result<()> {
         let mut data = self.data.lock();
         let key_expr = entity_to_liveliness_key_expr(entity)?;
-        data.remove_local_entity(entity, &key_expr);
+        let was_removed = data.remove_local_entity(entity, &key_expr);
         drop(data);
+        if was_removed {
+            self.change_callbacks.notify();
+        }
         Ok(())
     }
 }

@@ -7,7 +7,14 @@
 //! - Node discovery and information
 //! - Service availability checking
 
-use std::{num::NonZeroUsize, time::Duration};
+use std::{
+    num::NonZeroUsize,
+    sync::{
+        Arc,
+        atomic::{AtomicUsize, Ordering},
+    },
+    time::Duration,
+};
 
 use ros_z::{
     Result, ServiceTypeInfo,
@@ -215,6 +222,59 @@ mod tests {
         graph.remove_local_entity(&entity)?;
 
         assert!(!graph.node_exists(node_key));
+        session.close().await?;
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn graph_on_change_listener_guard_controls_notifications() -> Result<()> {
+        let session = zenoh::open(zenoh::Config::default()).await?;
+        let graph = ros_z::graph::Graph::new(&session).await?;
+        let count = Arc::new(AtomicUsize::new(0));
+        let count_clone = count.clone();
+        let listener = graph.on_change(move || {
+            count_clone.fetch_add(1, Ordering::Relaxed);
+        });
+        let entity = Entity::Node(NodeEntity::new(
+            session.zid(),
+            1,
+            "listener_node".to_string(),
+            String::new(),
+            String::new(),
+        ));
+
+        graph.add_local_entity(entity.clone())?;
+        graph.remove_local_entity(&entity)?;
+        assert_eq!(count.load(Ordering::Relaxed), 2);
+
+        drop(listener);
+        graph.add_local_entity(entity)?;
+
+        assert_eq!(count.load(Ordering::Relaxed), 2);
+        session.close().await?;
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn removing_missing_local_entity_does_not_notify_change_listener() -> Result<()> {
+        let session = zenoh::open(zenoh::Config::default()).await?;
+        let graph = ros_z::graph::Graph::new(&session).await?;
+        let count = Arc::new(AtomicUsize::new(0));
+        let count_clone = count.clone();
+        let _listener = graph.on_change(move || {
+            count_clone.fetch_add(1, Ordering::Relaxed);
+        });
+        let entity = Entity::Node(NodeEntity::new(
+            session.zid(),
+            1,
+            "missing_node".to_string(),
+            String::new(),
+            String::new(),
+        ));
+
+        graph.remove_local_entity(&entity)?;
+
+        assert_eq!(count.load(Ordering::Relaxed), 0);
         session.close().await?;
         Ok(())
     }
