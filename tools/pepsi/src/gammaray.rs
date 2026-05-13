@@ -37,6 +37,10 @@ pub struct Arguments {
     /// e.g. rust-trt-inference-image.tar
     #[arg(short, long)]
     image_file: Option<PathBuf>,
+
+    /// Use old booster binary
+    #[arg(long)]
+    old: bool,
 }
 
 static PACKAGES: [&str; 2] = ["zenohd", "zenoh-bridge-dds"];
@@ -69,6 +73,7 @@ pub async fn gammaray(arguments: Arguments, repository: &Repository) -> Result<(
                     arguments.image_file.as_deref(),
                     &team,
                     setup_path,
+                    arguments.old,
                 )
             },
         )
@@ -85,6 +90,7 @@ async fn gammaray_robot(
     image_file: Option<&Path>,
     team: &Team,
     setup: &Path,
+    old: bool,
 ) -> Result<()> {
     let robot = Robot::try_new_with_ping(robot.ip).await?;
 

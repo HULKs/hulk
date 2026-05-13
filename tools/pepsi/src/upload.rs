@@ -105,13 +105,17 @@ async fn upload_with_progress(
 
 pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()> {
     let upload_directory = tempdir().wrap_err("failed to get temporary directory")?;
-    let hulk_binary = get_hulk_binary(arguments.build.profile());
+    let binary_name = match arguments.old {
+        true => "hulk_booster",
+        false => "hulk_ros_z",
+    };
+    let hulk_binary = get_hulk_binary(arguments.build.profile(), binary_name);
 
     let cargo_arguments = cargo::Arguments {
         manifest: Some(
             repository
                 .root
-                .join("crates/hulk_booster/Cargo.toml")
+                .join(format!("crates/{binary_name}/Cargo.toml"))
                 .into_os_string(),
         ),
         environment: arguments.environment,
@@ -148,6 +152,7 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()>
                         upload_arguments,
                         &progress,
                         repository,
+                        binary_name,
                     )
                     .await
                     .as_ref(),

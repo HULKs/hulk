@@ -49,12 +49,12 @@ impl Repository {
     }
 }
 
-pub fn get_hulk_binary(profile: &str) -> String {
+pub fn get_hulk_binary(profile: &str, binary_name: &str) -> String {
     // the target directory is "debug" with --profile dev...
     let profile_directory = match profile {
         "dev" => "debug",
         other => other,
     };
 
-    format!("target/aarch64-unknown-linux-gnu/{profile_directory}/hulk_booster")
+    format!("target/aarch64-unknown-linux-gnu/{profile_directory}/{binary_name}")
 }
