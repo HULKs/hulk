@@ -14,6 +14,7 @@ use crate::{
     behavior::{
         action::stand,
         behavior_tree::Node,
+        condition::hulks_is_kicking_team,
         kick::{kick, select_kick_target, use_last_kick_power},
         node::Blackboard,
         switch_motion_type::is_last_motion_type,
@@ -207,13 +208,18 @@ pub fn walk_to_kickoff_pose(blackboard: &mut Blackboard) -> Status {
     };
     let field_to_ground = ground_to_field.inverse();
 
-    let target_position = match blackboard.world_state.robot.player_number {
-        PlayerNumber::One => blackboard.parameters.kickoff_positions.one,
-        PlayerNumber::Two => blackboard.parameters.kickoff_positions.two,
-        PlayerNumber::Three => blackboard.parameters.kickoff_positions.three,
-        PlayerNumber::Four => blackboard.parameters.kickoff_positions.four,
-        PlayerNumber::Five => blackboard.parameters.kickoff_positions.five,
+    let target_position = match (
+        blackboard.world_state.robot.player_number,
+        hulks_is_kicking_team(blackboard),
+    ) {
+        (PlayerNumber::One, _) => blackboard.parameters.kickoff_positions.one,
+        (PlayerNumber::Two, _) => blackboard.parameters.kickoff_positions.two,
+        (PlayerNumber::Three, false) => blackboard.parameters.kickoff_positions.three,
+        (PlayerNumber::Three, true) => point!(0.0, -0.5),
+        (PlayerNumber::Four, _) => blackboard.parameters.kickoff_positions.four,
+        (PlayerNumber::Five, _) => blackboard.parameters.kickoff_positions.five,
     };
+
     let tragtet_in_ground = field_to_ground * target_position;
 
     walk_to(
