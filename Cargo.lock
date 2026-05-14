@@ -113,6 +113,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "active_vision"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
+]
+
+[[package]]
 name = "addr2line"
 version = "0.25.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -741,15 +773,66 @@ dependencies = [
 name = "ball_filter"
 version = "0.1.0"
 dependencies = [
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
  "coordinate_systems",
  "filtering",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
  "linear_algebra",
+ "log",
+ "microphones",
  "nalgebra",
+ "ndarray",
  "ordered-float 4.6.0",
  "path_serde",
+ "projection",
  "ros-z",
+ "ros2",
  "serde",
+ "tokio",
+ "tracing-subscriber",
  "types",
+ "x5_receiver",
+ "zenoh",
+]
+
+[[package]]
+name = "ball_state_composer"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
 ]
 
 [[package]]
@@ -801,6 +884,38 @@ dependencies = [
  "toml 0.8.23",
  "unicode-width 0.1.14",
  "walkdir",
+]
+
+[[package]]
+name = "behavior_node"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
 ]
 
 [[package]]
@@ -2099,6 +2214,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "booster_sdk_interface"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
+]
+
+[[package]]
 name = "bstr"
 version = "1.12.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2137,6 +2284,70 @@ name = "bumpalo"
 version = "3.20.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5d20789868f4b01b2f2caec9f5c4e0213b41e3e5702a50157d699ae31ced2fcb"
+
+[[package]]
+name = "button_event_bridge"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
+]
+
+[[package]]
+name = "button_event_handler"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
+]
 
 [[package]]
 name = "bytemuck"
@@ -2252,6 +2463,38 @@ dependencies = [
  "rustix 1.1.4",
  "wayland-backend",
  "wayland-client",
+]
+
+[[package]]
+name = "camera_matrix_calculator"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
 ]
 
 [[package]]
@@ -3798,6 +4041,70 @@ dependencies = [
 ]
 
 [[package]]
+name = "fake_odometry"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
+]
+
+[[package]]
+name = "fall_down_state_receiver"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
+]
+
+[[package]]
 name = "fancy-regex"
 version = "0.16.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -3876,6 +4183,38 @@ checksum = "4316185f709b23713e41e3195f90edef7fb00c3ed4adc79769cf09cc762a3b29"
 dependencies = [
  "colored",
  "log",
+]
+
+[[package]]
+name = "field_border_detection"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
 ]
 
 [[package]]
@@ -4175,6 +4514,70 @@ dependencies = [
  "memchr",
  "pin-project-lite",
  "slab",
+]
+
+[[package]]
+name = "game_controller_filter"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
+]
+
+[[package]]
+name = "game_controller_state_filter"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
 ]
 
 [[package]]
@@ -4665,6 +5068,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "ground_provider"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
+]
+
+[[package]]
 name = "guillotiere"
 version = "0.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -4783,6 +5218,38 @@ name = "hashbrown"
 version = "0.17.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4f467dd6dccf739c208452f8014c75c18bb8301b050ad1cfb27153803edb0f51"
+
+[[package]]
+name = "head_motion"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
+]
 
 [[package]]
 name = "heapless"
@@ -5182,30 +5649,79 @@ dependencies = [
 name = "hulk_ros_z"
 version = "0.1.0"
 dependencies = [
+ "active_vision",
  "ball_filter",
+ "ball_state_composer",
+ "behavior_node",
  "booster",
  "booster_sdk",
+ "booster_sdk_interface",
+ "button_event_bridge",
+ "button_event_handler",
+ "camera_matrix_calculator",
  "cdr",
  "clap",
  "color-eyre",
  "coordinate_systems",
+ "fake_odometry",
+ "fall_down_state_receiver",
+ "field_border_detection",
+ "game_controller_filter",
+ "game_controller_state_filter",
  "geometry",
+ "ground_provider",
+ "head_motion",
  "hsl_network",
  "hsl_network_messages",
  "image",
+ "image_receiver",
+ "image_segmenter",
+ "inference",
+ "kick",
  "kinematics",
+ "kinematics_provider",
+ "led_handler",
+ "line_detection",
  "linear_algebra",
+ "localization",
  "log",
+ "look_around",
+ "look_at",
+ "low_command_publisher",
+ "low_state_bridge",
+ "message_filter",
+ "message_receiver",
+ "microphone_recorder",
  "microphones",
+ "motor_commands_collector",
  "nalgebra",
  "ndarray",
+ "obstacle_filter",
+ "obstacle_receiver",
+ "odometer_bridge",
+ "primary_state_filter",
  "projection",
+ "robot_mode_handler",
  "ros-z",
  "ros2",
+ "rotate_head",
+ "rule_obstacle_composer",
+ "safe_pose_checker",
+ "search_suggestor",
+ "segment_filter",
  "serde",
+ "stand_up",
+ "team_ball_receiver",
+ "time_to_reach_kick_position",
  "tokio",
  "tracing-subscriber",
+ "trigger",
  "types",
+ "walking",
+ "whistle_detection",
+ "whistle_filter",
+ "world_state_composer",
+ "world_to_field_provider",
  "x5_receiver",
  "zenoh",
 ]
@@ -5511,6 +6027,70 @@ dependencies = [
 ]
 
 [[package]]
+name = "image_receiver"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
+]
+
+[[package]]
+name = "image_segmenter"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
+]
+
+[[package]]
 name = "indenter"
 version = "0.3.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5559,6 +6139,38 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "79cf5c93f93228cf8efb3ba362535fb11199ac548a09ce117c9b1adc3030d706"
 dependencies = [
  "rustversion",
+]
+
+[[package]]
+name = "inference"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
 ]
 
 [[package]]
@@ -5891,6 +6503,39 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
 
 [[package]]
+name = "kick"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "booster_sdk_interface",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
+]
+
+[[package]]
 name = "kinematics"
 version = "0.1.0"
 dependencies = [
@@ -5901,6 +6546,38 @@ dependencies = [
  "ros-z",
  "serde",
  "splines",
+]
+
+[[package]]
+name = "kinematics_provider"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
 ]
 
 [[package]]
@@ -5938,6 +6615,38 @@ name = "leb128fmt"
 version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "09edd9e8b54e49e587e4f6295a7d29c3ea94d469cb40ab8ca70b288248a81db2"
+
+[[package]]
+name = "led_handler"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
+]
 
 [[package]]
 name = "levenberg-marquardt"
@@ -6008,6 +6717,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "line_detection"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
+]
+
+[[package]]
 name = "linear_algebra"
 version = "0.1.0"
 dependencies = [
@@ -6063,6 +6804,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "localization"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
+]
+
+[[package]]
 name = "lock_api"
 version = "0.4.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6076,6 +6849,134 @@ name = "log"
 version = "0.4.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5e5032e24019045c762d3c0f28f5b6b8bbf38563a65908389bf7978758920897"
+
+[[package]]
+name = "look_around"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
+]
+
+[[package]]
+name = "look_at"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
+]
+
+[[package]]
+name = "low_command_publisher"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
+]
+
+[[package]]
+name = "low_state_bridge"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
+]
 
 [[package]]
 name = "lru-slab"
@@ -6209,6 +7110,70 @@ dependencies = [
 ]
 
 [[package]]
+name = "message_filter"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
+]
+
+[[package]]
+name = "message_receiver"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
+]
+
+[[package]]
 name = "metal"
 version = "0.32.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6221,6 +7186,38 @@ dependencies = [
  "log",
  "objc",
  "paste",
+]
+
+[[package]]
+name = "microphone_recorder"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
 ]
 
 [[package]]
@@ -6405,6 +7402,38 @@ dependencies = [
  "splines",
  "thiserror 2.0.18",
  "types",
+]
+
+[[package]]
+name = "motor_commands_collector"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
 ]
 
 [[package]]
@@ -7206,6 +8235,102 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "ff76201f031d8863c38aa7f905eca4f53abbfa15f609db4277d44cd8938f33fe"
 dependencies = [
  "memchr",
+]
+
+[[package]]
+name = "obstacle_filter"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
+]
+
+[[package]]
+name = "obstacle_receiver"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
+]
+
+[[package]]
+name = "odometer_bridge"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
 ]
 
 [[package]]
@@ -8080,6 +9205,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "primary_state_filter"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
+]
+
+[[package]]
 name = "proc-macro-crate"
 version = "3.5.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8858,6 +10015,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "robot_mode_handler"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "booster_sdk_interface",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
+]
+
+[[package]]
 name = "ron"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -8890,6 +10080,7 @@ version = "0.1.0"
 dependencies = [
  "arc-swap",
  "byteorder",
+ "color-eyre",
  "event-listener",
  "flume",
  "json5",
@@ -9027,6 +10218,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "rotate_head"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "booster_sdk_interface",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
+]
+
+[[package]]
 name = "roxmltree"
 version = "0.20.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9050,6 +10274,38 @@ dependencies = [
  "spki",
  "subtle",
  "zeroize",
+]
+
+[[package]]
+name = "rule_obstacle_composer"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
 ]
 
 [[package]]
@@ -9327,6 +10583,38 @@ dependencies = [
 ]
 
 [[package]]
+name = "safe_pose_checker"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
+]
+
+[[package]]
 name = "same-file"
 version = "1.0.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9423,6 +10711,38 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "490dcfcbfef26be6800d11870ff2df8774fa6e86d047e3e8c8a76b25655e41ca"
 
 [[package]]
+name = "search_suggestor"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
+]
+
+[[package]]
 name = "secrecy"
 version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9453,6 +10773,38 @@ checksum = "6ce2691df843ecc5d231c0b14ece2acc3efb62c0a398c7e1d875f3983ce020e3"
 dependencies = [
  "core-foundation-sys",
  "libc",
+]
+
+[[package]]
+name = "segment_filter"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
 ]
 
 [[package]]
@@ -10124,6 +11476,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "stand_up"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "booster_sdk_interface",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
+]
+
+[[package]]
 name = "static_assertions"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10339,6 +11724,38 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "591ef38edfb78ca4771ee32cf494cb8771944bee237a9b91fc9c1424ac4b777b"
 
 [[package]]
+name = "team_ball_receiver"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
+]
+
+[[package]]
 name = "tempfile"
 version = "3.27.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -10508,6 +11925,38 @@ checksum = "2e70e4c5a0e0a8a4823ad65dfe1a6930e4f4d756dcd9dd7939022b5e8c501215"
 dependencies = [
  "num-conv",
  "time-core",
+]
+
+[[package]]
+name = "time_to_reach_kick_position"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
 ]
 
 [[package]]
@@ -10966,6 +12415,38 @@ checksum = "1ad61aed86bc3faea4300c7aee358b4c6d0c8d6ccc36524c96e4c92ccf26e77e"
 dependencies = [
  "num-integer",
  "strength_reduce",
+]
+
+[[package]]
+name = "trigger"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
 ]
 
 [[package]]
@@ -11508,6 +12989,39 @@ dependencies = [
 ]
 
 [[package]]
+name = "walking"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "booster_sdk_interface",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
+]
+
+[[package]]
 name = "walking_inference"
 version = "0.1.0"
 dependencies = [
@@ -12009,6 +13523,70 @@ dependencies = [
  "env_home",
  "rustix 1.1.4",
  "winsafe",
+]
+
+[[package]]
+name = "whistle_detection"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
+]
+
+[[package]]
+name = "whistle_filter"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
 ]
 
 [[package]]
@@ -12951,6 +14529,70 @@ dependencies = [
  "smallvec 1.15.1",
  "tokio",
  "types",
+]
+
+[[package]]
+name = "world_state_composer"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
+]
+
+[[package]]
+name = "world_to_field_provider"
+version = "0.1.0"
+dependencies = [
+ "ball_filter",
+ "booster",
+ "booster_sdk",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "hsl_network",
+ "hsl_network_messages",
+ "image",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "microphones",
+ "nalgebra",
+ "ndarray",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "tracing-subscriber",
+ "types",
+ "x5_receiver",
+ "zenoh",
 ]
 
 [[package]]
