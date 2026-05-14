@@ -33,7 +33,7 @@ use zenoh::{Result, Session, liveliness::LivelinessToken};
 /// ```
 pub struct Node {
     pub(crate) entity: NodeEntity,
-    pub(crate) session: Arc<Session>,
+    pub(crate) session: Session,
     counter: Arc<GlobalCounter>,
     pub(crate) graph: Arc<Graph>,
     _lv_token: LivelinessToken,
@@ -58,7 +58,7 @@ impl std::fmt::Debug for Node {
 pub struct NodeBuilder {
     pub(crate) name: String,
     pub(crate) namespace: String,
-    pub(crate) session: Arc<Session>,
+    pub(crate) session: Session,
     pub(crate) counter: Arc<GlobalCounter>,
     pub(crate) graph: Arc<Graph>,
     pub(crate) clock: Clock,
@@ -569,7 +569,7 @@ impl Node {
     }
 
     /// Get a reference to the underlying Zenoh session.
-    pub fn session(&self) -> &Arc<Session> {
+    pub fn session(&self) -> &Session {
         &self.session
     }
 

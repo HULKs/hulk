@@ -485,7 +485,7 @@ pub(crate) fn transient_local_replay_live_capacity(
 }
 
 async fn query_transient_local_replay(
-    session: &Arc<Session>,
+    session: &Session,
     topic_key_expr: &str,
     publisher_global_id: EndpointGlobalId,
     timeout: Duration,
@@ -538,7 +538,7 @@ async fn query_transient_local_replay(
 }
 
 pub(crate) async fn query_initial_transient_local_replay_async(
-    session: &Arc<Session>,
+    session: &Session,
     topic_key_expr: &str,
     publisher_global_id: EndpointGlobalId,
     timeout: Duration,
@@ -633,7 +633,7 @@ pub(crate) fn spawn_transient_local_replay_task(
     graph: Arc<Graph>,
     topic: String,
     coordinator: Arc<TransientLocalReplayCoordinator>,
-    session: Arc<Session>,
+    session: Session,
     topic_key_expr: String,
     timeout: Duration,
     initial_seen: HashSet<EndpointGlobalId>,

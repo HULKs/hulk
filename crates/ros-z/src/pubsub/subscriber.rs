@@ -30,7 +30,7 @@ pub(super) fn subscriber_queue_capacity(qos: &ros_z_protocol::qos::QosProfile) -
 
 pub struct SubscriberBuilder<T, C = <T as crate::Message>::Codec> {
     pub(crate) entity: EndpointEntity,
-    pub(crate) session: Arc<Session>,
+    pub(crate) session: Session,
     pub(crate) graph: Arc<Graph>,
     pub(crate) dyn_schema: Option<Schema>,
     pub(crate) schema_error: Option<SchemaError>,

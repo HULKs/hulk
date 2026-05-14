@@ -266,7 +266,7 @@ pub(crate) struct SchemaServiceNodeIdentity<'a> {
 }
 
 fn schema_service_server_builder(
-    session: Arc<Session>,
+    session: Session,
     node: SchemaServiceNodeIdentity<'_>,
     counter: &GlobalCounter,
     clock: &Clock,
@@ -302,7 +302,7 @@ fn schema_service_server_builder(
 
 impl SchemaService {
     pub(crate) async fn new(
-        session: Arc<Session>,
+        session: Session,
         node: SchemaServiceNodeIdentity<'_>,
         counter: &GlobalCounter,
         clock: &Clock,

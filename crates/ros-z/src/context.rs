@@ -477,7 +477,7 @@ impl ContextBuilder {
         let graph = Arc::new(Graph::new_with_options(&session, builder.graph_options).await?);
 
         Ok(Context {
-            session: Arc::new(session),
+            session,
             counter: Arc::new(GlobalCounter::default()),
             namespace: builder.namespace,
             graph,
@@ -503,7 +503,7 @@ impl ContextBuilder {
 /// ```
 #[derive(Clone)]
 pub struct Context {
-    pub(crate) session: Arc<Session>,
+    pub(crate) session: Session,
     // Global counter for the participants
     counter: Arc<GlobalCounter>,
     namespace: String,
@@ -544,6 +544,12 @@ impl Context {
     /// service clients/servers created from this context become invalid.
     pub fn shutdown(&self) -> Result<()> {
         self.session.close().wait()
+    }
+
+    /// Get a reference to the Zenoh session for advanced use cases. For most uses, this should not
+    /// be necessary.
+    pub fn session(&self) -> &Session {
+        &self.session
     }
 
     /// Get a reference to the graph for setting up event callbacks

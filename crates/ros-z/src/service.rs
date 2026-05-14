@@ -27,7 +27,7 @@ use ros_z_schema::SchemaError;
 #[derive(Debug)]
 pub struct ServiceClientBuilder<T> {
     pub(crate) entity: EndpointEntity,
-    pub(crate) session: Arc<Session>,
+    pub(crate) session: Session,
     pub(crate) clock: Clock,
     pub(crate) schema_error: Option<SchemaError>,
     pub(crate) _phantom_data: PhantomData<T>,
@@ -315,7 +315,7 @@ where
 #[derive(Debug)]
 pub struct ServiceServerBuilder<T> {
     pub(crate) entity: EndpointEntity,
-    pub(crate) session: Arc<Session>,
+    pub(crate) session: Session,
     pub(crate) clock: Clock,
     pub(crate) schema_error: Option<SchemaError>,
     pub(crate) _phantom_data: PhantomData<T>,

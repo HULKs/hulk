@@ -94,7 +94,7 @@ impl Drop for ReplayTaskGuard {
 }
 
 async fn spawn_transient_local_replay_queryable(
-    session: &Arc<Session>,
+    session: &Session,
     topic_key_expr: &ros_z_protocol::entity::TopicKE,
     endpoint_global_id: EndpointGlobalId,
     cache: Arc<TransientLocalCache>,
@@ -160,7 +160,7 @@ impl<T, C: WireEncoder> std::fmt::Debug for Publisher<T, C> {
 #[derive(Debug)]
 pub struct PublisherBuilder<T, C = <T as crate::Message>::Codec> {
     pub(crate) entity: EndpointEntity,
-    pub(crate) session: Arc<Session>,
+    pub(crate) session: Session,
     pub(crate) graph: Arc<Graph>,
     pub(crate) clock: Clock,
     pub(crate) attachment: bool,
