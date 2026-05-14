@@ -9,7 +9,6 @@ homepage.workspace = true
 approx = { workspace = true }
 geometry = { workspace = true }
 linear_algebra = { workspace = true }
-nalgebra = { workspace = true }
 ordered-float = { workspace = true }
 rand = { workspace = true }
 rand_chacha = { workspace = true }

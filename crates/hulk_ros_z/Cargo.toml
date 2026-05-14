@@ -13,38 +13,27 @@ active_vision = { workspace = true }
 ball_filter = { workspace = true }
 ball_state_composer = { workspace = true }
 behavior_node = { workspace = true }
-booster.workspace = true
-booster_sdk.workspace = true
 booster_sdk_interface = { workspace = true }
 button_event_bridge = { workspace = true }
 button_event_handler = { workspace = true }
 camera_matrix_calculator = { workspace = true }
-cdr = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
 color-eyre = { workspace = true }
-coordinate_systems = { workspace = true }
 fake_odometry = { workspace = true }
 fall_down_state_receiver = { workspace = true }
 field_border_detection = { workspace = true }
 game_controller_filter = { workspace = true }
 game_controller_state_filter = { workspace = true }
-geometry = { workspace = true }
 ground_provider = { workspace = true }
 head_motion = { workspace = true }
-hsl_network = { workspace = true }
-hsl_network_messages = { workspace = true }
-image = { workspace = true }
 image_receiver = { workspace = true }
 image_segmenter = { workspace = true }
 inference = { workspace = true }
 kick = { workspace = true }
-kinematics = { workspace = true }
 kinematics_provider = { workspace = true }
 led_handler = { workspace = true }
 line_detection = { workspace = true }
-linear_algebra = { workspace = true }
 localization = { workspace = true }
-log = { workspace = true }
 look_around = { workspace = true }
 look_at = { workspace = true }
 low_command_publisher = { workspace = true }
@@ -52,35 +41,26 @@ low_state_bridge = { workspace = true }
 message_filter = { workspace = true }
 message_receiver = { workspace = true }
 microphone_recorder = { workspace = true }
-microphones = { workspace = true }
 motor_commands_collector = { workspace = true }
-nalgebra = { workspace = true }
-ndarray = { workspace = true }
 obstacle_filter = { workspace = true }
 obstacle_receiver = { workspace = true }
 odometer_bridge = { workspace = true }
 primary_state_filter = { workspace = true }
-projection = { workspace = true }
 robot_mode_handler = { workspace = true }
 ros-z = { workspace = true }
-ros2 = { workspace = true }
 rotate_head = { workspace = true }
 rule_obstacle_composer = { workspace = true }
 safe_pose_checker = { workspace = true }
 search_suggestor = { workspace = true }
 segment_filter = { workspace = true }
-serde = { workspace = true, features = ["derive"] }
 stand_up = { workspace = true }
 team_ball_receiver = { workspace = true }
 time_to_reach_kick_position = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal"] }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 trigger = { workspace = true }
-types = { workspace = true }
 walking = { workspace = true }
 whistle_detection = { workspace = true }
 whistle_filter = { workspace = true }
 world_state_composer = { workspace = true }
 world_to_field_provider = { workspace = true }
-x5_receiver = { workspace = true }
-zenoh = { workspace = true }

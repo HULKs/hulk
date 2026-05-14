@@ -8,6 +8,5 @@ homepage.workspace = true
 [dependencies]
 ros-z = { workspace = true }
 serde = { workspace = true }
-thiserror = { workspace = true }
 tokio = { workspace = true }
 zenoh = { workspace = true }

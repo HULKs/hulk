@@ -116,32 +116,12 @@ dependencies = [
 name = "active_vision"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
- "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
  "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
- "kinematics",
  "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
  "serde",
- "tokio",
- "tracing-subscriber",
  "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
@@ -774,65 +754,30 @@ name = "ball_filter"
 version = "0.1.0"
 dependencies = [
  "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
  "coordinate_systems",
  "filtering",
  "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
- "kinematics",
  "linear_algebra",
- "log",
- "microphones",
  "nalgebra",
- "ndarray",
  "ordered-float 4.6.0",
  "path_serde",
  "projection",
  "ros-z",
- "ros2",
  "serde",
- "tokio",
- "tracing-subscriber",
  "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
 name = "ball_state_composer"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
- "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
  "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
- "kinematics",
  "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
  "serde",
- "tokio",
- "tracing-subscriber",
  "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
@@ -890,32 +835,10 @@ dependencies = [
 name = "behavior_node"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
- "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
- "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
- "kinematics",
- "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
  "serde",
- "tokio",
- "tracing-subscriber",
  "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
@@ -2187,14 +2110,11 @@ dependencies = [
  "coordinate_systems",
  "kinematics",
  "linear_algebra",
- "nalgebra",
  "path_serde",
  "pyo3",
  "ros-z",
  "ros2",
  "serde",
- "serde_json",
- "tokio",
 ]
 
 [[package]]
@@ -2217,32 +2137,13 @@ dependencies = [
 name = "booster_sdk_interface"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
- "booster",
  "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
- "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
- "kinematics",
- "linear_algebra",
  "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
  "serde",
  "tokio",
- "tracing-subscriber",
  "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
@@ -2289,64 +2190,21 @@ checksum = "5d20789868f4b01b2f2caec9f5c4e0213b41e3e5702a50157d699ae31ced2fcb"
 name = "button_event_bridge"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
  "booster",
- "booster_sdk",
  "cdr",
- "clap",
  "color-eyre",
- "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
- "kinematics",
- "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
- "serde",
  "tokio",
- "tracing-subscriber",
- "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
 name = "button_event_handler"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
  "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
- "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
- "kinematics",
- "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
- "serde",
- "tokio",
- "tracing-subscriber",
  "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
@@ -2469,32 +2327,15 @@ dependencies = [
 name = "camera_matrix_calculator"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
- "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
  "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
  "kinematics",
  "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
  "projection",
  "ros-z",
  "ros2",
  "serde",
- "tokio",
- "tracing-subscriber",
  "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
@@ -2803,7 +2644,6 @@ dependencies = [
  "color-eyre",
  "futures-util",
  "log",
- "parameters",
  "path_serde",
  "serde",
  "serde_json",
@@ -2811,7 +2651,6 @@ dependencies = [
  "tokio",
  "tokio-tungstenite 0.26.2",
  "tokio-util",
- "uuid",
 ]
 
 [[package]]
@@ -4044,64 +3883,20 @@ dependencies = [
 name = "fake_odometry"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
- "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
- "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
- "kinematics",
- "linear_algebra",
- "log",
- "microphones",
  "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
- "serde",
- "tokio",
- "tracing-subscriber",
- "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
 name = "fall_down_state_receiver"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
  "booster",
- "booster_sdk",
  "cdr",
- "clap",
  "color-eyre",
- "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
- "kinematics",
- "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
- "serde",
  "tokio",
- "tracing-subscriber",
- "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
@@ -4125,7 +3920,6 @@ dependencies = [
  "fern",
  "log",
  "tokio",
- "tokio-tungstenite 0.26.2",
 ]
 
 [[package]]
@@ -4189,32 +3983,13 @@ dependencies = [
 name = "field_border_detection"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
- "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
  "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
- "kinematics",
  "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
  "projection",
  "ros-z",
- "ros2",
  "serde",
- "tokio",
- "tracing-subscriber",
  "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
@@ -4236,7 +4011,6 @@ dependencies = [
  "coordinate_systems",
  "linear_algebra",
  "nalgebra",
- "num-traits",
  "rand 0.9.2",
  "rand_distr 0.5.1",
  "serde",
@@ -4394,7 +4168,6 @@ version = "0.1.0"
 dependencies = [
  "bincode",
  "color-eyre",
- "libc",
  "parking_lot",
  "serde",
 ]
@@ -4520,64 +4293,23 @@ dependencies = [
 name = "game_controller_filter"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
- "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
- "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
- "kinematics",
- "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
  "serde",
- "tokio",
- "tracing-subscriber",
  "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
 name = "game_controller_state_filter"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
- "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
  "coordinate_systems",
- "geometry",
- "hsl_network",
  "hsl_network_messages",
- "image",
- "kinematics",
  "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
  "serde",
- "tokio",
- "tracing-subscriber",
  "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
@@ -4595,7 +4327,6 @@ name = "geometry"
 version = "0.1.0"
 dependencies = [
  "approx",
- "approx_derive",
  "coordinate_systems",
  "linear_algebra",
  "nalgebra",
@@ -5071,32 +4802,12 @@ dependencies = [
 name = "ground_provider"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
  "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
  "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
  "kinematics",
  "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
- "serde",
- "tokio",
- "tracing-subscriber",
- "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
@@ -5223,32 +4934,12 @@ checksum = "4f467dd6dccf739c208452f8014c75c18bb8301b050ad1cfb27153803edb0f51"
 name = "head_motion"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
  "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
- "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
  "kinematics",
- "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
  "serde",
- "tokio",
- "tracing-subscriber",
  "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
@@ -5352,9 +5043,6 @@ dependencies = [
  "color-eyre",
  "coordinate_systems",
  "linear_algebra",
- "nalgebra",
- "num-derive",
- "num-traits",
  "path_serde",
  "ros-z",
  "serde",
@@ -5653,38 +5341,27 @@ dependencies = [
  "ball_filter",
  "ball_state_composer",
  "behavior_node",
- "booster",
- "booster_sdk",
  "booster_sdk_interface",
  "button_event_bridge",
  "button_event_handler",
  "camera_matrix_calculator",
- "cdr",
  "clap",
  "color-eyre",
- "coordinate_systems",
  "fake_odometry",
  "fall_down_state_receiver",
  "field_border_detection",
  "game_controller_filter",
  "game_controller_state_filter",
- "geometry",
  "ground_provider",
  "head_motion",
- "hsl_network",
- "hsl_network_messages",
- "image",
  "image_receiver",
  "image_segmenter",
  "inference",
  "kick",
- "kinematics",
  "kinematics_provider",
  "led_handler",
  "line_detection",
- "linear_algebra",
  "localization",
- "log",
  "look_around",
  "look_at",
  "low_command_publisher",
@@ -5692,38 +5369,29 @@ dependencies = [
  "message_filter",
  "message_receiver",
  "microphone_recorder",
- "microphones",
  "motor_commands_collector",
- "nalgebra",
- "ndarray",
  "obstacle_filter",
  "obstacle_receiver",
  "odometer_bridge",
  "primary_state_filter",
- "projection",
  "robot_mode_handler",
  "ros-z",
- "ros2",
  "rotate_head",
  "rule_obstacle_composer",
  "safe_pose_checker",
  "search_suggestor",
  "segment_filter",
- "serde",
  "stand_up",
  "team_ball_receiver",
  "time_to_reach_kick_position",
  "tokio",
  "tracing-subscriber",
  "trigger",
- "types",
  "walking",
  "whistle_detection",
  "whistle_filter",
  "world_state_composer",
  "world_to_field_provider",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
@@ -5732,7 +5400,6 @@ version = "0.1.0"
 dependencies = [
  "communication",
  "egui",
- "egui_extras",
  "nucleo-matcher",
 ]
 
@@ -5755,29 +5422,14 @@ dependencies = [
 name = "hydra"
 version = "0.1.0"
 dependencies = [
- "approx",
- "calibration",
  "color-eyre",
  "context_attribute",
- "coordinate_systems",
  "framework",
- "geometry",
  "hardware",
- "hsl_network_messages",
  "image",
- "itertools 0.14.0",
- "linear_algebra",
- "log",
- "motion",
- "nalgebra",
  "ndarray",
- "openvino",
- "ordered-float 4.6.0",
  "ort",
  "parameters",
- "path_serde",
- "projection",
- "rand 0.9.2",
  "ros2",
  "serde",
  "types",
@@ -6030,64 +5682,26 @@ dependencies = [
 name = "image_receiver"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
- "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
- "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
  "image",
- "kinematics",
- "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
  "ros2",
- "serde",
  "tokio",
- "tracing-subscriber",
  "types",
  "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
 name = "image_segmenter"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
- "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
  "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
- "kinematics",
  "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
  "projection",
  "ros-z",
- "ros2",
  "serde",
- "tokio",
- "tracing-subscriber",
  "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
@@ -6145,32 +5759,11 @@ dependencies = [
 name = "inference"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
- "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
- "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
- "kinematics",
- "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
  "ros2",
  "serde",
- "tokio",
- "tracing-subscriber",
  "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
@@ -6506,33 +6099,11 @@ checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
 name = "kick"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
- "booster",
- "booster_sdk",
  "booster_sdk_interface",
- "cdr",
- "clap",
  "color-eyre",
- "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
- "kinematics",
- "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
  "serde",
- "tokio",
- "tracing-subscriber",
  "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
@@ -6541,7 +6112,6 @@ version = "0.1.0"
 dependencies = [
  "coordinate_systems",
  "linear_algebra",
- "nalgebra",
  "path_serde",
  "ros-z",
  "serde",
@@ -6552,32 +6122,10 @@ dependencies = [
 name = "kinematics_provider"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
  "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
- "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
  "kinematics",
- "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
- "serde",
- "tokio",
- "tracing-subscriber",
- "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
@@ -6620,32 +6168,9 @@ checksum = "09edd9e8b54e49e587e4f6295a7d29c3ea94d469cb40ab8ca70b288248a81db2"
 name = "led_handler"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
- "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
- "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
- "kinematics",
- "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
- "serde",
- "tokio",
- "tracing-subscriber",
  "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
@@ -6720,32 +6245,13 @@ dependencies = [
 name = "line_detection"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
- "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
  "coordinate_systems",
  "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
- "kinematics",
- "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
  "projection",
  "ros-z",
- "ros2",
  "serde",
- "tokio",
- "tracing-subscriber",
  "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
@@ -6807,32 +6313,16 @@ dependencies = [
 name = "localization"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
  "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
  "coordinate_systems",
  "geometry",
- "hsl_network",
  "hsl_network_messages",
- "image",
- "kinematics",
  "linear_algebra",
- "log",
- "microphones",
  "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
  "serde",
- "tokio",
- "tracing-subscriber",
  "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
@@ -6854,128 +6344,50 @@ checksum = "5e5032e24019045c762d3c0f28f5b6b8bbf38563a65908389bf7978758920897"
 name = "look_around"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
- "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
- "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
  "kinematics",
- "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
  "serde",
- "tokio",
- "tracing-subscriber",
  "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
 name = "look_at"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
  "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
  "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
  "kinematics",
  "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
  "projection",
  "ros-z",
- "ros2",
  "serde",
- "tokio",
- "tracing-subscriber",
  "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
 name = "low_command_publisher"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
  "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
- "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
  "kinematics",
- "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
  "serde",
  "tokio",
- "tracing-subscriber",
- "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
 name = "low_state_bridge"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
  "booster",
- "booster_sdk",
  "cdr",
- "clap",
  "color-eyre",
- "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
  "kinematics",
- "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
- "serde",
  "tokio",
- "tracing-subscriber",
- "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
@@ -7113,64 +6525,23 @@ dependencies = [
 name = "message_filter"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
- "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
- "coordinate_systems",
- "geometry",
- "hsl_network",
  "hsl_network_messages",
- "image",
- "kinematics",
- "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
  "serde",
- "tokio",
- "tracing-subscriber",
  "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
 name = "message_receiver"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
- "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
- "coordinate_systems",
- "geometry",
  "hsl_network",
- "hsl_network_messages",
- "image",
- "kinematics",
- "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
  "serde",
  "tokio",
- "tracing-subscriber",
  "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
@@ -7192,32 +6563,11 @@ dependencies = [
 name = "microphone_recorder"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
- "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
- "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
- "kinematics",
- "linear_algebra",
- "log",
  "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
  "serde",
- "tokio",
- "tracing-subscriber",
  "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
@@ -7367,7 +6717,6 @@ dependencies = [
 name = "motion"
 version = "0.1.0"
 dependencies = [
- "approx",
  "booster",
  "booster_sdk",
  "color-eyre",
@@ -7379,9 +6728,7 @@ dependencies = [
  "kinematics",
  "linear_algebra",
  "log",
- "path_serde",
  "projection",
- "proptest",
  "ros2",
  "serde",
  "types",
@@ -7408,32 +6755,9 @@ dependencies = [
 name = "motor_commands_collector"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
- "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
- "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
  "kinematics",
- "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
- "serde",
- "tokio",
- "tracing-subscriber",
- "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
@@ -7459,7 +6783,6 @@ dependencies = [
  "pyo3-async-runtimes",
  "pyo3-log",
  "ros2",
- "serde",
  "serde_json",
  "simulation_message",
  "tokio",
@@ -8241,96 +7564,37 @@ dependencies = [
 name = "obstacle_filter"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
  "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
  "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
- "kinematics",
  "linear_algebra",
- "log",
- "microphones",
  "nalgebra",
- "ndarray",
  "projection",
  "ros-z",
- "ros2",
  "serde",
- "tokio",
- "tracing-subscriber",
  "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
 name = "obstacle_receiver"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
- "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
  "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
- "kinematics",
  "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
- "serde",
- "tokio",
- "tracing-subscriber",
  "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
 name = "odometer_bridge"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
  "booster",
- "booster_sdk",
  "cdr",
- "clap",
  "color-eyre",
- "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
- "kinematics",
- "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
- "serde",
  "tokio",
- "tracing-subscriber",
- "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
@@ -8406,38 +7670,6 @@ dependencies = [
  "libc",
  "pkg-config",
  "vcpkg",
-]
-
-[[package]]
-name = "openvino"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8f03a664ab0b6917131f5c1a787795fa4d19ad6a334caf9c96284453abdf23fd"
-dependencies = [
- "openvino-finder",
- "openvino-sys",
-]
-
-[[package]]
-name = "openvino-finder"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34d6bbb3e00d9ad3cd60bca1341665a9cfb2b6764df37c58d921627368ae32fc"
-dependencies = [
- "cfg-if 1.0.4",
- "log",
-]
-
-[[package]]
-name = "openvino-sys"
-version = "0.8.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "04315994236727c3573f7e8d8bf857e93ff373ee2e063f08aa78aceac58e3bc5"
-dependencies = [
- "env_logger",
- "libloading",
- "once_cell",
- "openvino-finder",
 ]
 
 [[package]]
@@ -8751,7 +7983,6 @@ dependencies = [
  "hsl_network_messages",
  "indicatif",
  "lazy_static",
- "opn",
  "parameters",
  "pathdiff",
  "regex",
@@ -8761,7 +7992,6 @@ dependencies = [
  "serde_json",
  "source_analyzer",
  "tempfile",
- "thiserror 2.0.18",
  "tokio",
  "toml 0.8.23",
  "tracing",
@@ -9208,32 +8438,11 @@ dependencies = [
 name = "primary_state_filter"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
- "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
- "coordinate_systems",
- "geometry",
- "hsl_network",
  "hsl_network_messages",
- "image",
- "kinematics",
- "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
  "serde",
- "tokio",
- "tracing-subscriber",
  "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
@@ -9331,7 +8540,6 @@ dependencies = [
  "ros2",
  "serde",
  "thiserror 2.0.18",
- "types",
 ]
 
 [[package]]
@@ -9707,7 +8915,6 @@ dependencies = [
  "approx",
  "geometry",
  "linear_algebra",
- "nalgebra",
  "ordered-float 4.6.0",
  "rand 0.9.2",
  "rand_chacha 0.9.0",
@@ -9894,21 +9101,17 @@ version = "0.1.0"
 dependencies = [
  "color-eyre",
  "futures-util",
- "home",
  "hsl_network_messages",
  "hula_types",
  "itertools 0.14.0",
  "parameters",
  "pathdiff",
- "robot",
  "semver",
  "serde",
  "serde_json",
- "tempfile",
  "tokio",
  "toml 0.8.23",
  "tracing",
- "xdg",
 ]
 
 [[package]]
@@ -10018,33 +9221,11 @@ dependencies = [
 name = "robot_mode_handler"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
- "booster",
- "booster_sdk",
  "booster_sdk_interface",
- "cdr",
- "clap",
  "color-eyre",
- "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
- "kinematics",
- "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
  "serde",
- "tokio",
- "tracing-subscriber",
  "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
@@ -10082,11 +9263,9 @@ dependencies = [
  "byteorder",
  "color-eyre",
  "event-listener",
- "flume",
  "json5",
  "nalgebra",
  "parking_lot",
- "paste",
  "ros-z-cdr",
  "ros-z-derive",
  "ros-z-protocol",
@@ -10098,10 +9277,8 @@ dependencies = [
  "slab",
  "tempfile",
  "tokio",
- "tokio-util",
  "tracing",
  "trybuild",
- "uuid",
  "zenoh",
  "zenoh-buffers",
  "zenoh-ext",
@@ -10126,12 +9303,10 @@ dependencies = [
  "clap",
  "color-eyre",
  "ros-z",
- "ros-z-protocol",
  "serde",
  "serde_json",
  "tempfile",
  "tokio",
- "tokio-util",
  "zenoh",
 ]
 
@@ -10169,7 +9344,6 @@ version = "0.1.0"
 dependencies = [
  "ros-z",
  "serde",
- "thiserror 2.0.18",
  "tokio",
  "zenoh",
 ]
@@ -10221,33 +9395,11 @@ dependencies = [
 name = "rotate_head"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
- "booster",
- "booster_sdk",
  "booster_sdk_interface",
- "cdr",
- "clap",
  "color-eyre",
- "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
  "kinematics",
- "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
  "serde",
- "tokio",
- "tracing-subscriber",
- "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
@@ -10280,32 +9432,10 @@ dependencies = [
 name = "rule_obstacle_composer"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
- "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
- "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
- "kinematics",
- "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
  "serde",
- "tokio",
- "tracing-subscriber",
  "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
@@ -10586,32 +9716,13 @@ dependencies = [
 name = "safe_pose_checker"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
  "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
  "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
  "kinematics",
  "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
  "serde",
- "tokio",
- "tracing-subscriber",
- "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
@@ -10714,32 +9825,12 @@ checksum = "490dcfcbfef26be6800d11870ff2df8774fa6e86d047e3e8c8a76b25655e41ca"
 name = "search_suggestor"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
- "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
  "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
- "kinematics",
  "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
  "serde",
- "tokio",
- "tracing-subscriber",
  "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
@@ -10779,32 +9870,9 @@ dependencies = [
 name = "segment_filter"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
- "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
- "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
- "kinematics",
- "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
- "serde",
- "tokio",
- "tracing-subscriber",
  "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
@@ -10829,23 +9897,11 @@ checksum = "cd0b0ec5f1c1ca621c432a25813d8d60c88abe6d3e08a3eb9cf37d97a0fe3d73"
 name = "sensor_receiver"
 version = "0.1.0"
 dependencies = [
- "approx",
  "booster",
- "calibration",
  "color-eyre",
  "context_attribute",
- "coordinate_systems",
  "framework",
- "geometry",
  "hardware",
- "itertools 0.14.0",
- "log",
- "ordered-float 4.6.0",
- "parameters",
- "path_serde",
- "projection",
- "rand 0.9.2",
- "ros2",
  "serde",
  "types",
 ]
@@ -11479,33 +10535,10 @@ dependencies = [
 name = "stand_up"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
- "booster",
- "booster_sdk",
  "booster_sdk_interface",
- "cdr",
- "clap",
  "color-eyre",
- "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
- "kinematics",
- "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
- "serde",
- "tokio",
- "tracing-subscriber",
  "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
@@ -11727,32 +10760,11 @@ checksum = "591ef38edfb78ca4771ee32cf494cb8771944bee237a9b91fc9c1424ac4b777b"
 name = "team_ball_receiver"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
- "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
  "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
- "kinematics",
- "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
  "serde",
- "tokio",
- "tracing-subscriber",
  "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
@@ -11931,32 +10943,9 @@ dependencies = [
 name = "time_to_reach_kick_position"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
- "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
- "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
- "kinematics",
- "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
- "serde",
- "tokio",
- "tracing-subscriber",
  "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
@@ -12421,32 +11410,9 @@ dependencies = [
 name = "trigger"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
- "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
- "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
- "kinematics",
- "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
  "serde",
- "tokio",
- "tracing-subscriber",
- "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
@@ -12524,8 +11490,6 @@ dependencies = [
  "bevy",
  "bevy_mujoco",
  "bincode",
- "buffered_watch",
- "calibration",
  "chrono",
  "clap",
  "color-eyre",
@@ -12538,8 +11502,6 @@ dependencies = [
  "egui_dock",
  "egui_extras",
  "egui_plot",
- "framework",
- "futures-util",
  "geometry",
  "gilrs",
  "hula_types",
@@ -12547,7 +11509,6 @@ dependencies = [
  "image",
  "itertools 0.14.0",
  "kinematics",
- "levenberg-marquardt",
  "linear_algebra",
  "log",
  "mlua",
@@ -12556,15 +11517,12 @@ dependencies = [
  "parameters",
  "projection",
  "repository",
- "rmp-serde",
  "ros2",
  "serde",
  "serde_json",
  "thiserror 2.0.18",
  "tokio",
- "tokio-tungstenite 0.26.2",
  "toml 0.8.23",
- "tracing",
  "tracing-subscriber",
  "types",
 ]
@@ -12631,7 +11589,6 @@ name = "types"
 version = "0.1.0"
 dependencies = [
  "approx",
- "approx_derive",
  "booster",
  "color-eyre",
  "coordinate_systems",
@@ -12639,11 +11596,9 @@ dependencies = [
  "geometry",
  "hsl_network_messages",
  "image",
- "itertools 0.14.0",
  "kinematics",
  "linear_algebra",
  "nalgebra",
- "ndarray",
  "num-traits",
  "ordered-float 4.6.0",
  "path_serde",
@@ -12935,15 +11890,12 @@ name = "vision"
 version = "0.1.0"
 dependencies = [
  "approx",
- "calibration",
  "color-eyre",
  "context_attribute",
  "coordinate_systems",
- "filtering",
  "framework",
  "geometry",
  "hardware",
- "image",
  "itertools 0.14.0",
  "linear_algebra",
  "nalgebra",
@@ -12966,7 +11918,6 @@ dependencies = [
  "hulk_widgets",
  "repository",
  "source_analyzer",
- "tokio",
 ]
 
 [[package]]
@@ -12992,33 +11943,11 @@ dependencies = [
 name = "walking"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
- "booster",
- "booster_sdk",
  "booster_sdk_interface",
- "cdr",
- "clap",
  "color-eyre",
- "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
- "kinematics",
- "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
  "serde",
- "tokio",
- "tracing-subscriber",
  "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
@@ -13028,10 +11957,8 @@ dependencies = [
  "approx",
  "booster",
  "color-eyre",
- "context_attribute",
  "coordinate_systems",
  "framework",
- "hardware",
  "itertools 0.14.0",
  "kinematics",
  "linear_algebra",
@@ -13529,64 +12456,20 @@ dependencies = [
 name = "whistle_detection"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
- "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
- "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
- "kinematics",
- "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
  "serde",
- "tokio",
- "tracing-subscriber",
  "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
 name = "whistle_filter"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
- "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
- "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
- "kinematics",
- "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
  "serde",
- "tokio",
- "tracing-subscriber",
  "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
@@ -14521,13 +13404,11 @@ dependencies = [
  "ndarray",
  "ndarray-conv",
  "ordered-float 4.6.0",
- "path_serde",
  "projection",
  "proptest",
  "ros2",
  "serde",
  "smallvec 1.15.1",
- "tokio",
  "types",
 ]
 
@@ -14535,64 +13416,25 @@ dependencies = [
 name = "world_state_composer"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
  "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
  "coordinate_systems",
- "geometry",
- "hsl_network",
  "hsl_network_messages",
- "image",
- "kinematics",
  "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
  "serde",
- "tokio",
- "tracing-subscriber",
  "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
 name = "world_to_field_provider"
 version = "0.1.0"
 dependencies = [
- "ball_filter",
- "booster",
- "booster_sdk",
- "cdr",
- "clap",
  "color-eyre",
  "coordinate_systems",
- "geometry",
- "hsl_network",
- "hsl_network_messages",
- "image",
- "kinematics",
  "linear_algebra",
- "log",
- "microphones",
- "nalgebra",
- "ndarray",
- "projection",
  "ros-z",
- "ros2",
- "serde",
- "tokio",
- "tracing-subscriber",
  "types",
- "x5_receiver",
- "zenoh",
 ]
 
 [[package]]
@@ -14687,12 +13529,6 @@ name = "xcursor"
 version = "0.3.10"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bec9e4a500ca8864c5b47b8b482a73d62e4237670e5b5f1d6b9e3cae50f28f2b"
-
-[[package]]
-name = "xdg"
-version = "2.5.2"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "213b7324336b53d2414b2db8537e56544d981803139155afa84f76eeebb7a546"
 
 [[package]]
 name = "xkbcommon-dl"

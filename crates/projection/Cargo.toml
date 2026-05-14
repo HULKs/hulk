@@ -18,4 +18,3 @@ ros-z = { workspace = true }
 ros2 = { workspace = true }
 serde = { workspace = true }
 thiserror = { workspace = true }
-types = { workspace = true }

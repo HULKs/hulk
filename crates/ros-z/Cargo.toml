@@ -13,11 +13,9 @@ arc-swap = { workspace = true }
 byteorder = { workspace = true }
 color-eyre = { workspace = true }
 event-listener = { workspace = true }
-flume = { workspace = true }
 json5 = { workspace = true }
 nalgebra = { workspace = true, features = ["serde-serialize"], optional = true }
 parking_lot = { workspace = true }
-paste = { workspace = true }
 ros-z-cdr = { workspace = true }
 ros-z-derive = { workspace = true }
 ros-z-protocol = { workspace = true }
@@ -28,9 +26,7 @@ sha2 = { workspace = true }
 slab = { workspace = true }
 tempfile = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "signal"] }
-tokio-util = { workspace = true }
 tracing = { workspace = true }
-uuid = { workspace = true }
 zenoh = { workspace = true, features = ["shared-memory", "unstable"] }
 zenoh-buffers = { workspace = true }
 zenoh-ext = { workspace = true }

@@ -14,7 +14,6 @@ path = "src/main.rs"
 clap = { workspace = true, features = ["derive"] }
 color-eyre = { workspace = true }
 ros-z = { workspace = true }
-ros-z-protocol = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 serde_json = { workspace = true }
 tokio = { workspace = true, features = [
@@ -23,7 +22,6 @@ tokio = { workspace = true, features = [
   "signal",
   "time",
 ] }
-tokio-util = { workspace = true }
 
 [dev-dependencies]
 tempfile = { workspace = true }

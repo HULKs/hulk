@@ -7,7 +7,6 @@ homepage.workspace = true
 
 [dependencies]
 approx = { workspace = true }
-approx_derive = { workspace = true }
 linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
 num-traits = { workspace = true }

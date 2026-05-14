@@ -11,4 +11,3 @@ hulk_manifest.workspace = true
 hulk_widgets.workspace = true
 repository.workspace = true
 source_analyzer.workspace = true
-tokio.workspace = true

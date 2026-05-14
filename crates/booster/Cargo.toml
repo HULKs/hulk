@@ -10,14 +10,11 @@ color-eyre = { workspace = true }
 coordinate_systems = { workspace = true }
 kinematics = { workspace = true }
 linear_algebra = { workspace = true }
-nalgebra = { workspace = true }
 path_serde = { workspace = true }
 pyo3 = { workspace = true, optional = true }
 ros-z = { workspace = true }
 ros2 = { workspace = true }
 serde = { workspace = true }
-serde_json = { workspace = true }
-tokio = { workspace = true }
 
 [features]
 pyo3 = ["dep:pyo3"]
