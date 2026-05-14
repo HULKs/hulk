@@ -33,7 +33,7 @@ impl Layer<Ground> for ObstacleFilter {
             for hypothesis in hypotheses.iter() {
                 let position = Point2::from(hypothesis.state.mean);
                 let covariance = hypothesis.state.covariance;
-                let stroke = Stroke::new(0.01, Color32::BLACK);
+                let stroke = Stroke::new(0.01_f32, Color32::BLACK);
                 let fill_color = Color32::from_rgba_unmultiplied(255, 255, 0, 20);
                 painter.covariance(position, covariance, stroke, fill_color);
             }

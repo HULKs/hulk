@@ -31,7 +31,7 @@ pub fn build_tree_layout(
         display_name_for_node(raw_name),
         point![0.0, depth as f32 * Y_SPACING],
         NODE_RADIUS,
-        Stroke::new(0.1, Color32::LIGHT_GRAY),
+        Stroke::new(0.1_f32, Color32::LIGHT_GRAY),
         subtree_name,
         true,
     ));
@@ -61,7 +61,7 @@ pub fn build_tree_layout(
         connections.push(Connection::new(
             node_index,
             child_idx,
-            Stroke::new(0.1, Color32::LIGHT_GRAY),
+            Stroke::new(0.1_f32, Color32::LIGHT_GRAY),
         ));
     }
 

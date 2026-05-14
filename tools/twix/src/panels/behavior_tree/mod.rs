@@ -237,7 +237,7 @@ impl BehaviorTreePanel {
         };
 
         for node in &mut self.circle_nodes {
-            node.stroke = Stroke::new(0.1, Color32::LIGHT_GRAY);
+            node.stroke = Stroke::new(0.1_f32, Color32::LIGHT_GRAY);
         }
 
         let mut statuses = HashMap::new();
@@ -246,7 +246,7 @@ impl BehaviorTreePanel {
 
         for node in &mut self.circle_nodes {
             if let Some(status) = statuses.get(&node.id) {
-                node.stroke = Stroke::new(0.1, status_color(status));
+                node.stroke = Stroke::new(0.1_f32, status_color(status));
             }
         }
     }

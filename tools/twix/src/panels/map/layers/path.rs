@@ -41,7 +41,7 @@ impl Layer<Ground> for Path {
             painter.line_segment(
                 path_end_point,
                 path_end_point + target_direction * 0.1,
-                Stroke::new(0.01, Color32::PURPLE),
+                Stroke::new(0.01_f32, Color32::PURPLE),
             );
             painter.path(path, Color32::BLUE, Color32::LIGHT_BLUE, 0.025);
         }

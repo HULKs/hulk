@@ -31,7 +31,7 @@ impl Layer<Ground> for BallFilter {
     ) -> Result<()> {
         if let Some(filter) = self.filter.get_last_value()?.flatten() {
             for hypothesis in filter.hypotheses {
-                let stroke = Stroke::new(0.01, Color32::BLACK);
+                let stroke = Stroke::new(0.01_f32, Color32::BLACK);
                 match hypothesis.mode {
                     BallMode::Resting(resting) => {
                         let position = Point::from(resting.mean.xy());

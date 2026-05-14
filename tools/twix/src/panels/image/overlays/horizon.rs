@@ -31,13 +31,13 @@ impl Overlay for Horizon {
         painter.line_segment(
             point![0.0, left_horizon_height],
             point![640.0, right_horizon_height],
-            Stroke::new(3.0, Color32::GREEN),
+            Stroke::new(3.0_f32, Color32::GREEN),
         );
 
         painter.circle_stroke(
             horizon.vanishing_point,
             5.0,
-            Stroke::new(3.0, Color32::GREEN),
+            Stroke::new(3.0_f32, Color32::GREEN),
         );
 
         Ok(())

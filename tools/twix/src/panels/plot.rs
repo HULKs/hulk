@@ -275,7 +275,7 @@ impl PlotPanel {
                         // TODO(oleflb): use actual name?
                         let points = Points::new("time-series", plot_points.points())
                             .color(*color)
-                            .radius(3.0)
+                            .radius(3.0_f32)
                             .shape(MarkerShape::Diamond)
                             .highlight(*is_highlighted);
                         plot_ui.points(points);

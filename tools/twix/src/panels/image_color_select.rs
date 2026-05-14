@@ -204,22 +204,22 @@ impl Widget for &mut ImageColorSelectPanel {
                     }
                     plot_ui.vline(
                         VLine::new("???", *self.x_axis.get_range(&field_color).start())
-                            .width(5.0)
+                            .width(5.0_f32)
                             .color(Color32::WHITE),
                     );
                     plot_ui.vline(
                         VLine::new("???", *self.x_axis.get_range(&field_color).end())
-                            .width(5.0)
+                            .width(5.0_f32)
                             .color(Color32::WHITE),
                     );
                     plot_ui.hline(
                         HLine::new("???", *self.y_axis.get_range(&field_color).start())
-                            .width(5.0)
+                            .width(5.0_f32)
                             .color(Color32::WHITE),
                     );
                     plot_ui.hline(
                         HLine::new("???", *self.y_axis.get_range(&field_color).end())
-                            .width(5.0)
+                            .width(5.0_f32)
                             .color(Color32::WHITE),
                     );
                 });
@@ -291,7 +291,7 @@ impl Widget for &mut ImageColorSelectPanel {
                             pixel_pos,
                             self.brush_size,
                             Color32::TRANSPARENT,
-                            Stroke::new(1.0, Color32::BLACK),
+                            Stroke::new(1.0_f32, Color32::BLACK),
                         );
                     }
                 }

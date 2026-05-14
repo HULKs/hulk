@@ -132,7 +132,7 @@ fn draw_color_legend(ui: &mut Ui, max_magnitude: f32) {
             painter.rect_stroke(
                 rect,
                 0.0,
-                eframe::egui::Stroke::new(1.0, Color32::GRAY),
+                eframe::egui::Stroke::new(1.0_f32, Color32::GRAY),
                 eframe::egui::StrokeKind::Outside,
             );
         }
