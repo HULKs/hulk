@@ -7,3 +7,7 @@ requires-python = ">=3.13"
 dependencies = [
     "marimo>=0.23.6",
 ]
+
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
