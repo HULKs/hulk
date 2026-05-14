@@ -12,9 +12,10 @@ pub use query::QosIncompatibility;
 pub use snapshot::{GraphSnapshot, NodeSnapshot, ServiceSnapshot, TopicSnapshot};
 use state::GraphData;
 
+use crate::Result;
 use crate::entity::{ADMIN_SPACE, Entity, entity_to_liveliness_key_expr};
 use crate::event::GraphEventManager;
-use zenoh::{Result, Session, pubsub::Subscriber, session::ZenohId};
+use zenoh::{Session, pubsub::Subscriber, session::ZenohId};
 
 #[derive(Debug, Clone)]
 pub struct GraphOptions {
@@ -62,7 +63,7 @@ impl Graph {
         Self::new_with_pattern_and_options(
             session,
             liveliness_pattern,
-            ros_z_protocol::format::parse_liveliness,
+            |key_expr| Ok(ros_z_protocol::format::parse_liveliness(key_expr)?),
             options,
         )
         .await
@@ -82,7 +83,7 @@ impl Graph {
         parser: F,
     ) -> Result<Self>
     where
-        F: Fn(&zenoh::key_expr::KeyExpr) -> Result<Entity> + Send + Sync + 'static,
+        F: Fn(&zenoh::key_expr::KeyExpr) -> crate::Result<Entity> + Send + Sync + 'static,
     {
         Self::new_with_pattern_and_options(
             session,
@@ -100,7 +101,7 @@ impl Graph {
         options: GraphOptions,
     ) -> Result<Self>
     where
-        F: Fn(&zenoh::key_expr::KeyExpr) -> Result<Entity> + Send + Sync + 'static,
+        F: Fn(&zenoh::key_expr::KeyExpr) -> crate::Result<Entity> + Send + Sync + 'static,
     {
         let zid = session.zid();
         let parser_arc = Arc::new(parser);

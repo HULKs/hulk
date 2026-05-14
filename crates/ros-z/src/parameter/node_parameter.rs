@@ -10,7 +10,9 @@ use serde::{Serialize, de::DeserializeOwned};
 use serde_json::Value;
 use tokio::sync::watch;
 
-use crate::{Message, entity::SchemaHash, node::Node, time::Clock};
+use crate::{
+    Message, entity::SchemaHash, message::validated_type_info_for_schema, node::Node, time::Clock,
+};
 
 use super::{
     FieldPath, LayerPath, NodeParametersSnapshot, ParameterError, ParameterKey,
@@ -63,6 +65,14 @@ impl<T> Drop for NodeParametersInner<T> {
 }
 
 pub trait NodeParametersExt {
+    /// Bind this node to a typed parameter set.
+    ///
+    /// Returns errors for invalid parameter keys, binding state, runtime loading,
+    /// serialization, and dynamic schema registration failures.
+    ///
+    /// # Panics
+    ///
+    /// Panics if `T` builds an invalid static [`Message`] schema or schema hash.
     fn bind_parameter_as<T>(
         &self,
         parameter_key: impl Into<ParameterKey>,
@@ -91,10 +101,11 @@ where
         tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
-            .map_err(|err| ParameterError::RemoteError {
-                message: format!(
-                    "failed to create Tokio runtime for blocking parameter call: {err}"
-                ),
+            .map_err(|source| {
+                ParameterError::operation(
+                    "creating Tokio runtime for blocking parameter call",
+                    source,
+                )
             })?
             .block_on(future)
     }
@@ -140,17 +151,10 @@ where
         return Err(ParameterError::EmptyLayerList);
     }
 
-    let schema = Arc::new(T::schema().map_err(|err| ParameterError::RemoteError {
-        message: err.to_string(),
-    })?);
-    let type_name = T::type_name();
-    let schema_hash = T::schema_hash().map_err(|err| ParameterError::RemoteError {
-        message: err.to_string(),
-    })?;
-    node.register_schema_with_service(&type_name, schema)
-        .map_err(|err| ParameterError::RemoteError {
-            message: err.to_string(),
-        })?;
+    let schema = Arc::new(T::schema());
+    let type_info = validated_type_info_for_schema::<T>(&schema);
+    node.register_schema_with_service(&type_info.name, schema)
+        .map_err(|source| ParameterError::operation("registering parameter schema", source))?;
 
     let node_fqn = node_fqn(node);
     let snapshot = load_snapshot::<T>(&node_fqn, &parameter_key, &layers, node.clock(), 0)?;
@@ -162,8 +166,8 @@ where
     let inner = Arc::new(NodeParametersInner {
         node_fqn: node_fqn.clone(),
         parameter_key,
-        type_name,
-        schema_hash,
+        type_name: type_info.name,
+        schema_hash: type_info.hash,
         layers,
         clock: node.clock().clone(),
         commit_lock: Mutex::new(()),
@@ -260,11 +264,8 @@ where
         .map(|(layer, overlay)| (layer.as_str(), overlay))
         .collect::<Vec<_>>();
     let merged = merge_layers(&merge_inputs)?;
-    let typed: T = serde_json::from_value(merged.effective.clone()).map_err(|err| {
-        ParameterError::DeserializationError {
-            message: err.to_string(),
-        }
-    })?;
+    let typed: T = serde_json::from_value(merged.effective.clone())
+        .map_err(|err| ParameterError::DeserializationError { source: err })?;
 
     Ok(NodeParametersSnapshot {
         node_fqn: node_fqn.to_string(),

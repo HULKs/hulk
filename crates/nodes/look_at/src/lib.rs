@@ -8,7 +8,7 @@ use coordinate_systems::{Ground, Robot};
 use kinematics::joints::{Joints, head::HeadJoints};
 use linear_algebra::Isometry3;
 use projection::camera_matrix::CameraMatrix;
-use ros_z::{IntoEyreResultExt, prelude::*};
+use ros_z::prelude::*;
 use types::{motion_command::MotionCommand, parameters::ImageRegionParameters};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
@@ -20,41 +20,29 @@ pub struct Parameters {
 }
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
-    let node = ctx.create_node("look_at").build().await.into_eyre()?;
+    let node = ctx.create_node("look_at").build().await?;
 
-    let _parameters = node
-        .bind_parameter_as::<Parameters>("look_at")
-        .into_eyre()?;
+    let _parameters = node.bind_parameter_as::<Parameters>("look_at")?;
     let _camera_matrix_sub = node
-        .subscriber::<CameraMatrix>("camera_matrix")
-        .into_eyre()?
+        .subscriber::<CameraMatrix>("camera_matrix")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _ground_to_robot_sub = node
-        .subscriber::<Isometry3<Ground, Robot>>("ground_to_robot")
-        .into_eyre()?
+        .subscriber::<Isometry3<Ground, Robot>>("ground_to_robot")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _motion_command_sub = node
-        .subscriber::<MotionCommand>("motion_command")
-        .into_eyre()?
+        .subscriber::<MotionCommand>("motion_command")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _serial_motor_states_sub = node
-        .subscriber::<Joints<MotorState>>("inputs/serial_motor_states")
-        .into_eyre()?
+        .subscriber::<Joints<MotorState>>("inputs/serial_motor_states")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _look_at_pub = node
-        .publisher::<HeadJoints<f32>>("look_at")
-        .into_eyre()?
+        .publisher::<HeadJoints<f32>>("look_at")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
 
     pending::<()>().await;
 

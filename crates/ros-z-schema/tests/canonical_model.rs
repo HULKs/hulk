@@ -521,11 +521,17 @@ fn service_hash_changes_when_nominal_or_component_identity_changes() {
     )
     .unwrap();
 
-    let hash = ros_z_schema::compute_hash(&service);
+    let hash = ros_z_schema::compute_hash(&service).unwrap();
 
-    assert_ne!(hash, ros_z_schema::compute_hash(&renamed));
-    assert_ne!(hash, ros_z_schema::compute_hash(&different_request));
-    assert_ne!(hash, ros_z_schema::compute_hash(&different_response));
+    assert_ne!(hash, ros_z_schema::compute_hash(&renamed).unwrap());
+    assert_ne!(
+        hash,
+        ros_z_schema::compute_hash(&different_request).unwrap()
+    );
+    assert_ne!(
+        hash,
+        ros_z_schema::compute_hash(&different_response).unwrap()
+    );
 }
 
 #[test]
@@ -594,10 +600,13 @@ fn action_hash_changes_when_nominal_or_component_identity_changes() {
     )
     .unwrap();
 
-    let hash = ros_z_schema::compute_hash(&action);
+    let hash = ros_z_schema::compute_hash(&action).unwrap();
 
-    assert_ne!(hash, ros_z_schema::compute_hash(&renamed));
-    assert_ne!(hash, ros_z_schema::compute_hash(&different_goal));
-    assert_ne!(hash, ros_z_schema::compute_hash(&different_result));
-    assert_ne!(hash, ros_z_schema::compute_hash(&different_feedback));
+    assert_ne!(hash, ros_z_schema::compute_hash(&renamed).unwrap());
+    assert_ne!(hash, ros_z_schema::compute_hash(&different_goal).unwrap());
+    assert_ne!(hash, ros_z_schema::compute_hash(&different_result).unwrap());
+    assert_ne!(
+        hash,
+        ros_z_schema::compute_hash(&different_feedback).unwrap()
+    );
 }

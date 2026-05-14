@@ -1,141 +1,151 @@
 //! Error types for dynamic message handling.
 
-use std::fmt;
-
 /// Errors that can occur during dynamic message operations.
-#[derive(Debug)]
+#[derive(Debug, thiserror::Error)]
 pub enum DynamicError {
     /// Invalid type name (must be a non-empty string)
+    #[error("invalid type name '{0}': expected a non-empty string")]
     InvalidTypeName(String),
 
     /// Field not found in message schema
+    #[error("field '{0}' not found in message schema")]
     FieldNotFound(String),
 
     /// Empty path provided for field access
+    #[error("empty path provided for field access")]
     EmptyPath,
 
     /// Attempted to access a nested field on a non-message type
+    #[error("field '{0}' is not a message type, cannot access nested fields")]
     NotAMessage(String),
 
     /// Type mismatch during field access or conversion
+    #[error("type mismatch at '{path}': expected type '{expected}'")]
     TypeMismatch { path: String, expected: String },
 
     /// Index out of bounds for field access
+    #[error("field index {0} is out of bounds")]
     IndexOutOfBounds(usize),
 
-    /// CDR serialization error
+    /// Non-CDR serialization error.
+    #[error("serialization error: {0}")]
     SerializationError(String),
 
-    /// CDR deserialization error
+    /// Non-CDR deserialization error.
+    #[error("deserialization error: {0}")]
     DeserializationError(String),
 
+    /// Schema validation error.
+    #[error("schema validation failed while {operation}: {source}")]
+    Schema {
+        operation: &'static str,
+        #[source]
+        source: ros_z_schema::SchemaError,
+    },
+
+    /// Name qualification error.
+    #[error("failed to qualify schema service name while {operation}: {source}")]
+    Name {
+        operation: &'static str,
+        #[source]
+        source: crate::topic_name::TopicNameError,
+    },
+
+    /// Runtime error from ros-z infrastructure used by dynamic operations.
+    #[error("failed to {operation}: {source}")]
+    Runtime {
+        operation: &'static str,
+        #[source]
+        source: crate::error::BoxError,
+    },
+
+    /// CDR serialization error.
+    #[error("CDR serialization error: {source}")]
+    Serialization {
+        #[source]
+        source: ros_z_cdr::Error,
+    },
+
+    /// CDR deserialization error.
+    #[error("CDR deserialization error: {source}")]
+    Deserialization {
+        #[source]
+        source: ros_z_cdr::Error,
+    },
+
     /// Schema loading error
-    SchemaLoadError { package: String, source: String },
+    #[error("schema loading error for package '{package}': {source}")]
+    SchemaLoadError {
+        package: String,
+        #[source]
+        source: crate::error::BoxError,
+    },
 
     /// Registry lock was poisoned
+    #[error("schema registry lock was poisoned")]
     RegistryLockPoisoned,
 
     /// Schema not found in registry
+    #[error("schema '{0}' not found in registry")]
     SchemaNotFound(String),
 
     /// Type description service call timed out — no response from the remote node.
+    #[error("schema service timed out: no response from node '{node}' on service '{service}'")]
     ServiceTimeout { node: String, service: String },
 
+    /// Schema service call failed.
+    #[error("schema service failed for node '{node}' on service '{service}': {source}")]
+    SchemaService {
+        node: String,
+        service: String,
+        #[source]
+        source: crate::error::ServiceCallError,
+    },
+
     /// Automatic topic-based schema discovery requires publisher node identity.
+    #[error(
+        "automatic schema discovery for topic '{topic}' requires publisher node identity, which is unavailable from this backend/discovery format"
+    )]
     MissingNodeIdentity { topic: String },
 
     /// Invalid default value for field type
+    #[error("invalid default value for field '{field}': {reason}")]
     InvalidDefaultValue { field: String, reason: String },
 
     /// Bounded string/sequence exceeded maximum size
+    #[error("bounded type exceeded maximum size: max={max}, actual={actual}")]
     BoundExceeded { max: usize, actual: usize },
 }
 
-impl fmt::Display for DynamicError {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        match self {
-            DynamicError::InvalidTypeName(name) => {
-                write!(
-                    f,
-                    "Invalid type name '{}': expected a non-empty string",
-                    name
-                )
-            }
-            DynamicError::FieldNotFound(name) => {
-                write!(f, "Field '{}' not found in message schema", name)
-            }
-            DynamicError::EmptyPath => {
-                write!(f, "Empty path provided for field access")
-            }
-            DynamicError::NotAMessage(name) => {
-                write!(
-                    f,
-                    "Field '{}' is not a message type, cannot access nested fields",
-                    name
-                )
-            }
-            DynamicError::TypeMismatch { path, expected } => {
-                write!(
-                    f,
-                    "Type mismatch at '{}': expected type '{}'",
-                    path, expected
-                )
-            }
-            DynamicError::IndexOutOfBounds(idx) => {
-                write!(f, "Field index {} is out of bounds", idx)
-            }
-            DynamicError::SerializationError(message) => {
-                write!(f, "CDR serialization error: {}", message)
-            }
-            DynamicError::DeserializationError(message) => {
-                write!(f, "CDR deserialization error: {}", message)
-            }
-            DynamicError::SchemaLoadError { package, source } => {
-                write!(
-                    f,
-                    "Failed to load schema for package '{}': {}",
-                    package, source
-                )
-            }
-            DynamicError::RegistryLockPoisoned => {
-                write!(f, "Schema registry lock was poisoned")
-            }
-            DynamicError::SchemaNotFound(name) => {
-                write!(f, "Schema '{}' not found in registry", name)
-            }
-            DynamicError::ServiceTimeout { node, service } => {
-                write!(
-                    f,
-                    "schema service timed out: no response from node '{}' on service '{}'",
-                    node, service
-                )
-            }
-            DynamicError::MissingNodeIdentity { topic } => {
-                write!(
-                    f,
-                    "automatic schema discovery for topic '{}' requires publisher node identity, which is unavailable from this backend/discovery format",
-                    topic
-                )
-            }
-            DynamicError::InvalidDefaultValue { field, reason } => {
-                write!(f, "Invalid default value for field '{}': {}", field, reason)
-            }
-            DynamicError::BoundExceeded { max, actual } => {
-                write!(
-                    f,
-                    "Bounded type exceeded maximum size: max={}, actual={}",
-                    max, actual
-                )
-            }
+impl DynamicError {
+    pub(crate) fn schema(operation: &'static str, source: ros_z_schema::SchemaError) -> Self {
+        Self::Schema { operation, source }
+    }
+
+    pub(crate) fn name(operation: &'static str, source: crate::topic_name::TopicNameError) -> Self {
+        Self::Name { operation, source }
+    }
+
+    pub(crate) fn runtime(
+        operation: &'static str,
+        source: impl std::error::Error + Send + Sync + 'static,
+    ) -> Self {
+        Self::Runtime {
+            operation,
+            source: Box::new(source),
         }
     }
-}
 
-impl std::error::Error for DynamicError {}
-
-impl From<ros_z_cdr::Error> for DynamicError {
-    fn from(e: ros_z_cdr::Error) -> Self {
-        DynamicError::DeserializationError(e.to_string())
+    pub(crate) fn schema_service(
+        node: impl Into<String>,
+        service: impl Into<String>,
+        source: crate::error::ServiceCallError,
+    ) -> Self {
+        Self::SchemaService {
+            node: node.into(),
+            service: service.into(),
+            source,
+        }
     }
 }
 
@@ -153,5 +163,72 @@ mod tests {
         let message = error.to_string();
         assert!(message.contains("schema service timed out"));
         assert!(!message.contains("type description service timed out"));
+    }
+
+    #[test]
+    fn string_only_errors_use_generic_serialization_wording() {
+        let serialization = DynamicError::SerializationError("topic qualification failed".into());
+        let deserialization = DynamicError::DeserializationError("schema shape mismatch".into());
+
+        assert_eq!(
+            serialization.to_string(),
+            "serialization error: topic qualification failed"
+        );
+        assert_eq!(
+            deserialization.to_string(),
+            "deserialization error: schema shape mismatch"
+        );
+    }
+
+    #[test]
+    fn cdr_errors_include_source_in_display_and_error_source() {
+        let serialization = DynamicError::Serialization {
+            source: ros_z_cdr::Error::UnexpectedEof,
+        };
+        let deserialization = DynamicError::Deserialization {
+            source: ros_z_cdr::Error::UnexpectedEof,
+        };
+
+        assert_eq!(
+            serialization.to_string(),
+            "CDR serialization error: unexpected end of input"
+        );
+        assert!(std::error::Error::source(&serialization).is_some());
+        assert_eq!(
+            deserialization.to_string(),
+            "CDR deserialization error: unexpected end of input"
+        );
+        assert!(std::error::Error::source(&deserialization).is_some());
+    }
+
+    #[test]
+    fn schema_error_preserves_source() {
+        let error = DynamicError::schema(
+            "registering schema",
+            ros_z_schema::SchemaError::BuilderFailed,
+        );
+
+        assert!(
+            error
+                .to_string()
+                .contains("schema validation failed while registering schema")
+        );
+        assert!(std::error::Error::source(&error).is_some());
+    }
+
+    #[test]
+    fn schema_service_error_preserves_source() {
+        let error = DynamicError::schema_service(
+            "/vision/object_detection",
+            "/vision/object_detection/get_schema",
+            crate::error::ServiceCallError::NoResponse {
+                service: "/vision/object_detection/get_schema".to_string(),
+            },
+        );
+
+        let message = error.to_string();
+        assert!(message.contains("schema service failed"));
+        assert!(message.contains("/vision/object_detection"));
+        assert!(std::error::Error::source(&error).is_some());
     }
 }

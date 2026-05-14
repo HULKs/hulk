@@ -147,9 +147,11 @@ impl RemoteParameterClient {
     }
 
     pub async fn subscribe_events(&self) -> Result<Subscriber<NodeParameterEvent>> {
+        let events_topic = self.events_topic();
+        let operation = format!("subscribing to remote parameter events '{events_topic}'");
         self.node
-            .subscriber::<NodeParameterEvent>(&self.events_topic())
-            .map_err(map_remote_err)?
+            .subscriber::<NodeParameterEvent>(&events_topic)
+            .map_err(|source| ParameterError::operation(operation.clone(), source))?
             .qos(QosProfile {
                 reliability: QosReliability::Reliable,
                 durability: QosDurability::TransientLocal,
@@ -160,7 +162,7 @@ impl RemoteParameterClient {
             })
             .build()
             .await
-            .map_err(map_remote_err)
+            .map_err(|source| ParameterError::operation(operation, source))
     }
 
     async fn call_service<S>(&self, service_name: &str, request: &S::Request) -> Result<S::Response>
@@ -171,32 +173,30 @@ impl RemoteParameterClient {
             WireDecoder<Output = S::Response, Input<'a> = &'a [u8]>,
     {
         let client = self.build_client::<S>(service_name).await?;
-        client.call_async(request).await.map_err(map_remote_err)
+        client.call_async(request).await.map_err(|source| {
+            ParameterError::operation(
+                format!("calling remote parameter service '{service_name}'"),
+                source,
+            )
+        })
     }
 
     async fn build_client<S>(&self, service_name: &str) -> Result<ServiceClient<S>>
     where
         S: Service + ServiceTypeInfo,
     {
+        let operation = format!("creating remote parameter service client '{service_name}'");
         self.node
             .create_service_client::<S>(service_name)
-            .map_err(map_remote_err)?
+            .map_err(|source| ParameterError::operation(operation.clone(), source))?
             .build()
             .await
-            .map_err(map_remote_err)
+            .map_err(|source| ParameterError::operation(operation, source))
     }
 }
 
 fn serialize_json(value: &serde_json::Value) -> Result<String> {
-    serde_json::to_string(value).map_err(|err| ParameterError::RemoteError {
-        message: format!("failed to serialize JSON payload: {err}"),
-    })
-}
-
-fn map_remote_err<E: std::fmt::Display>(err: E) -> ParameterError {
-    ParameterError::RemoteError {
-        message: err.to_string(),
-    }
+    serde_json::to_string(value).map_err(|source| ParameterError::SerializationError { source })
 }
 
 #[cfg(test)]

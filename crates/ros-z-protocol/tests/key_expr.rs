@@ -4,7 +4,9 @@
 
 use ros_z_protocol::{
     entity::{EndpointEntity, EndpointKind, Entity, NodeEntity, SchemaHash, TypeInfo},
+    error::ProtocolError,
     format,
+    format::parse_liveliness as parse_liveliness_key,
     qos::{QosDurability, QosHistory, QosProfile, QosReliability},
 };
 use zenoh::session::ZenohId;
@@ -38,9 +40,11 @@ fn endpoint_entity(kind: EndpointKind, topic: &str) -> EndpointEntity {
     }
 }
 
-fn parse_liveliness(ke_str: &str) -> zenoh::Result<ros_z_protocol::entity::Entity> {
+fn parse_liveliness(
+    ke_str: &str,
+) -> Result<ros_z_protocol::entity::Entity, Box<dyn std::error::Error + Send + Sync>> {
     let ke: zenoh::key_expr::KeyExpr<'static> = ke_str.to_string().try_into()?;
-    format::parse_liveliness(&ke)
+    Ok(format::parse_liveliness(&ke)?)
 }
 
 fn native_endpoint_liveliness(kind: EndpointKind) -> ros_z_protocol::entity::LivelinessKE {
@@ -248,6 +252,26 @@ fn test_topic_key_expr_preserves_internal_slashes() {
         ke_str.contains("ns/topic"),
         "expected preserved internal slashes: {}",
         ke_str
+    );
+}
+
+#[test]
+fn parse_liveliness_reports_missing_admin_space() {
+    let key_expr: zenoh::key_expr::KeyExpr<'static> = "not_ros_z/abc".try_into().unwrap();
+
+    let error = parse_liveliness_key(&key_expr).expect_err("malformed liveliness should fail");
+
+    assert!(matches!(
+        error,
+        ProtocolError::ParseLiveliness {
+            source: ros_z_protocol::entity::EntityConversionError::MissingAdminSpace,
+            ..
+        }
+    ));
+    assert!(
+        error
+            .to_string()
+            .contains("failed to parse ros-z liveliness key")
     );
 }
 

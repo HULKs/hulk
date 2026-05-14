@@ -14,7 +14,7 @@ use geometry::circle::Circle;
 use linear_algebra::{IntoFramed, Isometry2, distance};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use projection::camera_matrix::CameraMatrix;
-use ros_z::{IntoEyreResultExt, Message, context::Context, prelude::*};
+use ros_z::{Message, context::Context, prelude::*};
 use types::{
     ball_detection::BallPercept,
     ball_position::{BallPosition, HypotheticalBallPosition},
@@ -154,75 +154,53 @@ impl BallFilter {
 }
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
-    let node = ctx.create_node("ball_filter").build().await.into_eyre()?;
+    let node = ctx.create_node("ball_filter").build().await?;
 
-    let _parameters = node
-        .bind_parameter_as::<BallFilterParameters>("ball_filter")
-        .into_eyre()?;
+    let _parameters = node.bind_parameter_as::<BallFilterParameters>("ball_filter")?;
     let _field_dimensions_sub = node
-        .subscriber::<FieldDimensions>("field_dimensions")
-        .into_eyre()?
+        .subscriber::<FieldDimensions>("field_dimensions")?
         .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
         })
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _historic_camera_matrix_sub = node
-        .subscriber::<CameraMatrix>("camera_matrix")
-        .into_eyre()?
+        .subscriber::<CameraMatrix>("camera_matrix")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _integrated_odometry_sub = node
-        .subscriber::<Odometer>("inputs/odometer")
-        .into_eyre()?
+        .subscriber::<Odometer>("inputs/odometer")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _detected_objects_sub = node
-        .subscriber::<Vec<Object<RobocupObjectLabel>>>("detected_objects")
-        .into_eyre()?
+        .subscriber::<Vec<Object<RobocupObjectLabel>>>("detected_objects")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _filter_state_pub = node
-        .publisher::<BallFilter>("ball_filter_state")
-        .into_eyre()?
+        .publisher::<BallFilter>("ball_filter_state")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _best_ball_hypothesis_pub = node
-        .publisher::<BallHypothesis>("best_ball_hypothesis")
-        .into_eyre()?
+        .publisher::<BallHypothesis>("best_ball_hypothesis")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _filtered_balls_in_image_pub = node
-        .publisher::<Vec<Circle<Pixel>>>("filtered_balls_in_image")
-        .into_eyre()?
+        .publisher::<Vec<Circle<Pixel>>>("filtered_balls_in_image")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _ball_percepts_pub = node
-        .publisher::<Vec<BallPercept>>("ball_percepts")
-        .into_eyre()?
+        .publisher::<Vec<BallPercept>>("ball_percepts")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _ball_position_pub = node
-        .publisher::<BallPosition<Ground>>("ball_position")
-        .into_eyre()?
+        .publisher::<BallPosition<Ground>>("ball_position")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _hypothetical_ball_positions_pub = node
-        .publisher::<Vec<HypotheticalBallPosition<Ground>>>("hypothetical_ball_positions")
-        .into_eyre()?
+        .publisher::<Vec<HypotheticalBallPosition<Ground>>>("hypothetical_ball_positions")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
 
     pending::<()>().await;
 

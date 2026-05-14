@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use filtering::hysteresis::less_than_with_hysteresis;
 use kinematics::robot_kinematics::RobotKinematics;
-use ros_z::{IntoEyreResultExt, prelude::*, qos::QosDurability};
+use ros_z::{prelude::*, qos::QosDurability};
 use types::support_foot::Side;
 
 pub const ACTUAL_IMAGE_HEIGHT: f32 = 448.0;
@@ -21,44 +21,30 @@ pub struct Parameters {
 }
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
-    let node = ctx
-        .create_node("support_foot_estimator")
-        .build()
-        .await
-        .into_eyre()?;
+    let node = ctx.create_node("support_foot_estimator").build().await?;
 
-    let parameters = node
-        .bind_parameter_as::<Parameters>("support_foot_estimator")
-        .into_eyre()?;
+    let parameters = node.bind_parameter_as::<Parameters>("support_foot_estimator")?;
     let imu_state_sub = node
-        .subscriber::<ImuState>("inputs/imu_state")
-        .into_eyre()?
+        .subscriber::<ImuState>("inputs/imu_state")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let robot_kinematics_cache = node
-        .create_cache::<RobotKinematics>("robot_kinematics", 10)
-        .into_eyre()?
+        .create_cache::<RobotKinematics>("robot_kinematics", 10)?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let fall_down_state_cache = node
-        .create_cache::<FallDownState>("inputs/fall_down_state", 10)
-        .into_eyre()?
+        .create_cache::<FallDownState>("inputs/fall_down_state", 10)?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
 
     let support_foot_pub = node
-        .publisher::<Option<Side>>("support_foot")
-        .into_eyre()?
+        .publisher::<Option<Side>>("support_foot")?
         .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
         })
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
 
     let mut last_support_side = Side::default();
     let mut last_maybe_support_side = None;
@@ -66,7 +52,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     loop {
         let parameters = parameters.snapshot().typed().clone();
 
-        let imu_state = imu_state_sub.recv_with_metadata().await.into_eyre()?;
+        let imu_state = imu_state_sub.recv_with_metadata().await?;
 
         let time_stamp = imu_state.source_time;
 
@@ -95,7 +81,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         };
 
         if support_side != last_maybe_support_side {
-            support_foot_pub.publish(&support_side).await.into_eyre()?;
+            support_foot_pub.publish(&support_side).await?;
         }
 
         last_maybe_support_side = support_side;

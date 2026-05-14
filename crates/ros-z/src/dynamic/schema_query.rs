@@ -12,7 +12,7 @@ fn response_schema(response: &GetSchemaResponse) -> Result<Schema, DynamicError>
     response
         .schema
         .validate()
-        .map_err(|error| DynamicError::SerializationError(error.to_string()))?;
+        .map_err(|error| DynamicError::schema("reading schema service response", error))?;
     Ok(Arc::new(response.schema.clone()))
 }
 
@@ -69,7 +69,8 @@ fn validate_response_hash(
     expected_hash: Option<SchemaHash>,
 ) -> Result<SchemaHash, DynamicError> {
     let declared_hash = response_schema_hash(response)?;
-    let schema_hash = ros_z_schema::compute_hash(&response.schema);
+    let schema_hash = ros_z_schema::compute_hash(&response.schema)
+        .map_err(|error| DynamicError::schema("hashing schema service response", error))?;
 
     if declared_hash != schema_hash {
         return Err(DynamicError::SerializationError(format!(
@@ -108,26 +109,28 @@ pub(crate) async fn query_schema(
         &candidate.namespace,
         &candidate.node_name,
     )
-    .map_err(|e| DynamicError::SerializationError(e.to_string()))?;
+    .map_err(|error| DynamicError::name("querying remote schema", error))?;
     let node_fqn =
         qualify_remote_private_service_name("", &candidate.namespace, &candidate.node_name)
-            .map_err(|e| DynamicError::SerializationError(e.to_string()))?;
+            .map_err(|error| DynamicError::name("querying remote schema", error))?;
 
     let client = node
         .create_service_client::<GetSchema>(&service_name)
         .map_err(|e| DynamicError::SerializationError(e.to_string()))?
         .build()
         .await
-        .map_err(|e| DynamicError::SerializationError(e.to_string()))?;
+        .map_err(|error| DynamicError::runtime("create schema service client", error))?;
     let request = build_schema_request(candidate);
 
-    let response = client
-        .call_with_timeout_async(&request, timeout)
-        .await
-        .map_err(|_| DynamicError::ServiceTimeout {
-            node: node_fqn,
-            service: service_name,
-        })?;
+    let response = match client.call_with_timeout_async(&request, timeout).await {
+        Ok(response) => response,
+        Err(crate::Error::ServiceCall(source)) => {
+            return Err(DynamicError::schema_service(node_fqn, service_name, source));
+        }
+        Err(source) => {
+            return Err(DynamicError::runtime("query remote schema service", source));
+        }
+    };
 
     if response.successful {
         schema_from_response_for_candidate(&response, candidate)
@@ -221,7 +224,7 @@ mod tests {
     #[test]
     fn candidate_schema_response_rejects_mismatched_root_even_when_hash_matches() {
         let schema = empty_struct_bundle("test_msgs::Wrong");
-        let schema_hash = ros_z_schema::compute_hash(&schema);
+        let schema_hash = ros_z_schema::compute_hash(&schema).unwrap();
         let response = GetSchemaResponse {
             successful: true,
             schema_hash: schema_hash.to_hash_string(),

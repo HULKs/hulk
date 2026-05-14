@@ -402,8 +402,8 @@ mod tests {
         let view = SchemaView::from_schema(
             "/tools/rosz".to_string(),
             "u8".to_string(),
-            &Arc::new(u8::schema().unwrap()),
-            u8::schema_hash().unwrap().to_hash_string(),
+            &Arc::new(u8::schema()),
+            u8::schema_hash().to_hash_string(),
         );
 
         assert_eq!(view.type_name, "u8");
@@ -416,8 +416,8 @@ mod tests {
         let view = SchemaView::from_schema(
             "/tools/rosz".to_string(),
             "String".to_string(),
-            &Arc::new(String::schema().unwrap()),
-            String::schema_hash().unwrap().to_hash_string(),
+            &Arc::new(String::schema()),
+            String::schema_hash().to_hash_string(),
         );
 
         assert_eq!(view.type_name, "String");

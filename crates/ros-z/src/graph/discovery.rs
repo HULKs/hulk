@@ -2,9 +2,10 @@ use parking_lot::Mutex;
 use std::sync::Arc;
 use tokio::sync::Notify;
 use tracing::debug;
-use zenoh::{Result, Session, pubsub::Subscriber, sample::SampleKind, session::ZenohId};
+use zenoh::{Session, pubsub::Subscriber, sample::SampleKind, session::ZenohId};
 
 use crate::{
+    Result,
     entity::{Entity, LivelinessKE},
     event::GraphEventManager,
 };
@@ -77,10 +78,16 @@ pub(super) async fn install_liveliness(
                 change_notify.notify_waiters();
             }
         })
-        .await?;
+        .await
+        .map_err(|source| crate::Error::zenoh("declare graph liveliness subscriber", source))?;
 
     if let Some(timeout) = options.initial_liveliness_query_timeout {
-        let replies = session.liveliness().get(pattern).timeout(timeout).await?;
+        let replies = session
+            .liveliness()
+            .get(pattern)
+            .timeout(timeout)
+            .await
+            .map_err(|source| crate::Error::zenoh("query initial graph liveliness", source))?;
         let mut reply_count = 0;
         while let Ok(reply) = replies.recv_async().await {
             reply_count += 1;

@@ -9,7 +9,7 @@ use coordinate_systems::{Field, Ground};
 use geometry::line_segment::LineSegment;
 use hsl_network_messages::PlayerNumber;
 use linear_algebra::Isometry2;
-use ros_z::{IntoEyreResultExt, prelude::*, qos::QosDurability};
+use ros_z::{prelude::*, qos::QosDurability};
 use types::{
     field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
@@ -49,115 +49,78 @@ pub struct Parameters {
 }
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
-    let node = ctx.create_node("localization").build().await.into_eyre()?;
+    let node = ctx.create_node("localization").build().await?;
 
-    let _parameters = node
-        .bind_parameter_as::<Parameters>("localization")
-        .into_eyre()?;
+    let _parameters = node.bind_parameter_as::<Parameters>("localization")?;
     let _filtered_game_controller_state_sub = node
-        .subscriber::<FilteredGameControllerState>("filtered_game_controller_state")
-        .into_eyre()?
+        .subscriber::<FilteredGameControllerState>("filtered_game_controller_state")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _primary_state_sub = node
-        .subscriber::<PrimaryState>("primary_state")
-        .into_eyre()?
+        .subscriber::<PrimaryState>("primary_state")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _odometer_sub = node
-        .subscriber::<Odometer>("inputs/odometer")
-        .into_eyre()?
+        .subscriber::<Odometer>("inputs/odometer")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _fall_down_state_sub = node
-        .subscriber::<FallDownState>("inputs/fall_down_state")
-        .into_eyre()?
+        .subscriber::<FallDownState>("inputs/fall_down_state")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _imu_state_sub = node
-        .subscriber::<ImuState>("inputs/imu_state")
-        .into_eyre()?
+        .subscriber::<ImuState>("inputs/imu_state")?
         .build()
-        .await
-        .into_eyre()?;
-    let _line_data_sub = node
-        .subscriber::<LineData>("line_data")
-        .into_eyre()?
-        .build()
-        .await
-        .into_eyre()?;
+        .await?;
+    let _line_data_sub = node.subscriber::<LineData>("line_data")?.build().await?;
     let _field_dimensions_sub = node
-        .subscriber::<FieldDimensions>("field_dimensions")
-        .into_eyre()?
+        .subscriber::<FieldDimensions>("field_dimensions")?
         .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
         })
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _player_number_sub = node
-        .subscriber::<PlayerNumber>("player_number")
-        .into_eyre()?
+        .subscriber::<PlayerNumber>("player_number")?
         .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
         })
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _correspondence_lines_pub = node
-        .publisher::<Vec<LineSegment<Field>>>("localization/correspondence_lines")
-        .into_eyre()?
+        .publisher::<Vec<LineSegment<Field>>>("localization/correspondence_lines")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _fit_errors_pub = node
-        .publisher::<Vec<Vec<Vec<Vec<f32>>>>>("localization/fit_errors")
-        .into_eyre()?
+        .publisher::<Vec<Vec<Vec<Vec<f32>>>>>("localization/fit_errors")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _measured_lines_in_field_pub = node
-        .publisher::<Vec<LineSegment<Field>>>("localization/measured_lines_in_field")
-        .into_eyre()?
+        .publisher::<Vec<LineSegment<Field>>>("localization/measured_lines_in_field")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _pose_hypotheses_pub = node
-        .publisher::<Vec<ScoredPose>>("localization/pose_hypotheses")
-        .into_eyre()?
+        .publisher::<Vec<ScoredPose>>("localization/pose_hypotheses")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _updates_pub = node
-        .publisher::<Vec<Vec<Update>>>("localization/updates")
-        .into_eyre()?
+        .publisher::<Vec<Vec<Update>>>("localization/updates")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _gyro_movement_pub = node
-        .publisher::<f32>("localization/gyro_movement")
-        .into_eyre()?
+        .publisher::<f32>("localization/gyro_movement")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _ground_to_field_pub = node
-        .publisher::<Isometry2<Ground, Field>>("ground_to_field")
-        .into_eyre()?
+        .publisher::<Isometry2<Ground, Field>>("ground_to_field")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _is_localization_converged_pub = node
-        .publisher::<bool>("is_localization_converged")
-        .into_eyre()?
+        .publisher::<bool>("is_localization_converged")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
 
     pending::<()>().await;
 

@@ -4,11 +4,13 @@ use std::{
 };
 
 use tracing::{debug, warn};
-use zenoh::{Result, Session, Wait};
+use zenoh::{Session, Wait};
 
 use crate::{
+    Result,
     config::{SessionConfigBuilder, session_config},
     entity::normalize_node_namespace,
+    error::ConfigError,
     graph::{Graph, GraphOptions},
     node::NodeBuilder,
     shm::{DEFAULT_SHM_POOL_SIZE, ShmConfig, ShmProviderBuilder},
@@ -71,7 +73,7 @@ impl ContextBuilder {
     /// use serde_json::json;
     /// use ros_z::context::ContextBuilder;
     ///
-    /// # async fn example() -> zenoh::Result<()> {
+    /// # async fn example() -> ros_z::Result<()> {
     /// let context = ContextBuilder::default()
     ///     .with_json("scouting/multicast/enabled", json!(false))
     ///     .with_json("connect/endpoints", json!(["tcp/127.0.0.1:7447"]))
@@ -91,10 +93,11 @@ impl ContextBuilder {
         V: serde::Serialize,
     {
         let key = key.into();
-        let value_json = serde_json::to_value(&value).map_err(|error| {
-            zenoh::Error::from(format!(
-                "failed to serialize config override '{key}': {error}"
-            ))
+        let value_json = serde_json::to_value(&value).map_err(|source| {
+            crate::error::ConfigError::SerializeOverride {
+                key: key.clone(),
+                source,
+            }
         })?;
         self.config_overrides.push((key, value_json));
         Ok(self)
@@ -111,7 +114,7 @@ impl ContextBuilder {
     /// ```
     /// use ros_z::context::ContextBuilder;
     ///
-    /// # async fn example() -> zenoh::Result<()> {
+    /// # async fn example() -> ros_z::Result<()> {
     /// let context = ContextBuilder::default()
     ///     .with_connect_endpoints(["tcp/127.0.0.1:7447"])
     ///     .build()
@@ -138,7 +141,7 @@ impl ContextBuilder {
     /// ```
     /// use ros_z::context::ContextBuilder;
     ///
-    /// # async fn example() -> zenoh::Result<()> {
+    /// # async fn example() -> ros_z::Result<()> {
     /// let context = ContextBuilder::default()
     ///     .with_listen_endpoints(["tcp/[::]:0"])
     ///     .build()
@@ -171,7 +174,7 @@ impl ContextBuilder {
     /// ```
     /// use ros_z::context::ContextBuilder;
     ///
-    /// # async fn example() -> zenoh::Result<()> {
+    /// # async fn example() -> ros_z::Result<()> {
     /// let custom_config = zenoh::Config::default();
     /// let context = ContextBuilder::default()
     ///     .with_zenoh_config(custom_config)
@@ -191,7 +194,7 @@ impl ContextBuilder {
     /// ```
     /// use ros_z::context::ContextBuilder;
     ///
-    /// # async fn example() -> zenoh::Result<()> {
+    /// # async fn example() -> ros_z::Result<()> {
     /// let context = ContextBuilder::default()
     ///     .with_router_endpoint("tcp/192.168.1.1:7447")?
     ///     .build()
@@ -202,7 +205,10 @@ impl ContextBuilder {
     pub fn with_router_endpoint<S: Into<String>>(mut self, endpoint: S) -> Result<Self> {
         let session_config = SessionConfigBuilder::new()
             .with_router_endpoint(&endpoint.into())
-            .build_config()?;
+            .build_config()
+            .map_err(|source| {
+                crate::Error::zenoh("build router endpoint session config", source)
+            })?;
         self.zenoh_config = Some(session_config);
         Ok(self)
     }
@@ -254,7 +260,7 @@ impl ContextBuilder {
     /// ```no_run
     /// use ros_z::context::ContextBuilder;
     ///
-    /// # async fn example() -> zenoh::Result<()> {
+    /// # async fn example() -> ros_z::Result<()> {
     /// let context = ContextBuilder::default()
     ///     .with_shm_enabled()?
     ///     .build()
@@ -279,7 +285,7 @@ impl ContextBuilder {
     /// ```no_run
     /// use ros_z::context::ContextBuilder;
     ///
-    /// # async fn example() -> zenoh::Result<()> {
+    /// # async fn example() -> ros_z::Result<()> {
     /// let context = ContextBuilder::default()
     ///     .with_shm_pool_size(100 * 1024 * 1024)?  // 100MB
     ///     .build()
@@ -303,7 +309,7 @@ impl ContextBuilder {
     /// use ros_z::shm::{ShmConfig, ShmProviderBuilder};
     /// use std::sync::Arc;
     ///
-    /// # async fn example() -> zenoh::Result<()> {
+    /// # async fn example() -> ros_z::Result<()> {
     /// let provider = Arc::new(ShmProviderBuilder::new(50 * 1024 * 1024).build()?);
     /// let config = ShmConfig::new(provider).with_threshold(10_000);
     ///
@@ -327,7 +333,7 @@ impl ContextBuilder {
     /// ```no_run
     /// use ros_z::context::ContextBuilder;
     ///
-    /// # async fn example() -> zenoh::Result<()> {
+    /// # async fn example() -> ros_z::Result<()> {
     /// let context = ContextBuilder::default()
     ///     .with_shm_enabled()?
     ///     .with_shm_threshold(50_000)  // 50KB threshold
@@ -382,17 +388,18 @@ impl ContextBuilder {
                             self.config_overrides.push((key.to_string(), json_value));
                         }
                         Err(e) => {
-                            return Err(format!(
-                                "Failed to parse ZENOH_CONFIG_OVERRIDE value for key '{}': {} (value: {})",
-                                key, e, value
-                            ).into());
+                            return Err(ConfigError::ParseEnvOverride {
+                                key: key.to_string(),
+                                value: value.to_string(),
+                                source: e,
+                            }
+                            .into());
                         }
                     }
                 } else {
-                    return Err(format!(
-                        "Invalid ZENOH_CONFIG_OVERRIDE format: '{}'. Expected 'key=value'",
-                        pair
-                    )
+                    return Err(ConfigError::InvalidEnvOverride {
+                        pair: pair.to_string(),
+                    }
                     .into());
                 }
             }
@@ -438,30 +445,38 @@ impl ContextBuilder {
             config
         } else if let Some(ref config_file) = builder.config_file {
             // Use explicit config file
-            zenoh::Config::from_file(config_file)?
+            zenoh::Config::from_file(config_file)
+                .map_err(|source| crate::Error::zenoh("load Zenoh config file", source))?
         } else if let Ok(uri) = std::env::var("ZENOH_SESSION_CONFIG_URI") {
             // Use environment variable config URI.
-            zenoh::Config::from_file(uri)?
+            zenoh::Config::from_file(uri).map_err(|source| {
+                crate::Error::zenoh("load Zenoh config from ZENOH_SESSION_CONFIG_URI", source)
+            })?
         } else {
             // Default ros-z session config (requires router at localhost:7447).
-            session_config()?
+            session_config().map_err(|source| {
+                crate::Error::zenoh("build default ros-z session config", source)
+            })?
         };
 
         // Apply all JSON overrides
         for (key, value) in builder.config_overrides {
-            let value_str = serde_json::to_string(&value)
-                .map_err(|e| format!("Failed to serialize value for key '{}': {}", key, e))?;
-
-            config.insert_json5(&key, &value_str).map_err(|e| {
-                format!(
-                    "Failed to apply config override '{}' = '{}': {}",
-                    key, value_str, e
-                )
+            let value_str = serde_json::to_string(&value).map_err(|source| {
+                crate::error::ConfigError::RenderOverride {
+                    key: key.clone(),
+                    source,
+                }
             })?;
+
+            config
+                .insert_json5(&key, &value_str)
+                .map_err(|source| crate::Error::zenoh("apply Zenoh config override", source))?;
         }
 
         // Open Zenoh session
-        let session = zenoh::open(config).await?;
+        let session = zenoh::open(config)
+            .await
+            .map_err(|source| crate::Error::zenoh("open Zenoh session", source))?;
         debug!("[CTX] Zenoh session opened: zid={}", session.zid());
 
         // Check if router is running when using default peer mode
@@ -543,7 +558,10 @@ impl Context {
     /// After calling `shutdown`, all nodes, publishers, subscribers, and
     /// service clients/servers created from this context become invalid.
     pub fn shutdown(&self) -> Result<()> {
-        self.session.close().wait()
+        self.session
+            .close()
+            .wait()
+            .map_err(|source| crate::Error::zenoh("close Zenoh session", source))
     }
 
     /// Get a reference to the Zenoh session for advanced use cases. For most uses, this should not
@@ -593,7 +611,10 @@ mod tests {
         };
 
         assert!(error.to_string().contains("bad/key"));
-        assert!(error.to_string().contains("boom"));
+        assert!(
+            std::error::Error::source(&error)
+                .is_some_and(|source| source.to_string().contains("boom"))
+        );
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]

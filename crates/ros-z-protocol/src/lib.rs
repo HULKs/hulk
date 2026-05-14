@@ -29,9 +29,11 @@
 //! ```
 
 pub mod entity;
+pub mod error;
 pub mod format;
 pub mod qos;
 
 pub use entity::{
     EndpointEntity, EndpointKind, Entity, EntityKind, NodeEntity, SchemaHash, TypeInfo,
 };
+pub use error::{ProtocolError, Result};

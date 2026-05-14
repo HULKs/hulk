@@ -4,7 +4,7 @@ use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Field;
-use ros_z::{IntoEyreResultExt, prelude::*};
+use ros_z::prelude::*;
 use types::{
     ball_position::BallPosition, filtered_game_controller_state::FilteredGameControllerState,
     messages::IncomingMessage, players::Players,
@@ -17,39 +17,25 @@ pub struct Parameters {
 }
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
-    let node = ctx
-        .create_node("team_ball_receiver")
-        .build()
-        .await
-        .into_eyre()?;
+    let node = ctx.create_node("team_ball_receiver").build().await?;
 
-    let _parameters = node
-        .bind_parameter_as::<Parameters>("team_ball_receiver")
-        .into_eyre()?;
+    let _parameters = node.bind_parameter_as::<Parameters>("team_ball_receiver")?;
     let _filtered_game_controller_state_sub = node
-        .subscriber::<FilteredGameControllerState>("filtered_game_controller_state")
-        .into_eyre()?
+        .subscriber::<FilteredGameControllerState>("filtered_game_controller_state")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _network_message_sub = node
-        .subscriber::<IncomingMessage>("filtered_message")
-        .into_eyre()?
+        .subscriber::<IncomingMessage>("filtered_message")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _team_balls_pub = node
-        .publisher::<Players<Option<BallPosition<Field>>>>("team_balls")
-        .into_eyre()?
+        .publisher::<Players<Option<BallPosition<Field>>>>("team_balls")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _team_ball_pub = node
-        .publisher::<BallPosition<Field>>("team_ball")
-        .into_eyre()?
+        .publisher::<BallPosition<Field>>("team_ball")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
 
     pending::<()>().await;
 

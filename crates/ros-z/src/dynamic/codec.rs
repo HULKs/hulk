@@ -24,7 +24,7 @@ impl DynamicPayload {
     pub fn new(schema: Schema, value: DynamicValue) -> Result<Self, DynamicError> {
         schema
             .validate()
-            .map_err(|error| DynamicError::SerializationError(error.to_string()))?;
+            .map_err(|error| DynamicError::schema("creating dynamic payload", error))?;
         value.validate_against(&schema)?;
         Ok(Self { schema, value })
     }
@@ -66,12 +66,16 @@ impl DynamicCdrCodec {
 
 impl WireEncoder for DynamicCdrCodec {
     type Input<'a> = &'a DynamicPayload;
+    type Error = DynamicError;
 
-    fn serialize_to_zbuf(input: &DynamicPayload) -> ZBuf {
-        Self::try_serialize_payload_to_zbuf(input).expect("DynamicPayload CDR serialization failed")
+    fn serialize_to_zbuf(input: &DynamicPayload) -> Result<ZBuf, Self::Error> {
+        Self::try_serialize_payload_to_zbuf(input)
     }
 
-    fn serialize_to_zbuf_with_hint(input: &DynamicPayload, _capacity_hint: usize) -> ZBuf {
+    fn serialize_to_zbuf_with_hint(
+        input: &DynamicPayload,
+        _capacity_hint: usize,
+    ) -> Result<ZBuf, Self::Error> {
         // DynamicPayload doesn't use capacity hints (it has its own serialization path)
         Self::serialize_to_zbuf(input)
     }
@@ -85,12 +89,11 @@ impl WireEncoder for DynamicCdrCodec {
         input: &DynamicPayload,
         _estimated_size: usize,
         provider: &zenoh::shm::ShmProvider<zenoh::shm::PosixShmProviderBackend>,
-    ) -> zenoh::Result<(ZBuf, usize)> {
+    ) -> crate::Result<(ZBuf, usize)> {
         // DynamicPayload uses primitives-based serialization, not serde
         // So we serialize to Vec first, then copy to SHM
-        let data = Self::try_serialize_payload(input).map_err(|e| {
-            zenoh::Error::from(format!("DynamicPayload serialization failed: {}", e))
-        })?;
+        let data = Self::try_serialize_payload(input)
+            .map_err(|source| crate::Error::encode("ros_z::dynamic::DynamicPayload", source))?;
         let actual_size = data.len();
 
         use zenoh::Wait;
@@ -100,22 +103,24 @@ impl WireEncoder for DynamicCdrCodec {
             .alloc(actual_size)
             .with_policy::<BlockOn<GarbageCollect>>()
             .wait()
-            .map_err(|e| zenoh::Error::from(format!("SHM allocation failed: {}", e)))?;
+            .map_err(|source| crate::error::ShmError::Allocation {
+                capacity: actual_size,
+                source: Box::new(source),
+            })?;
 
         shm_buf[0..actual_size].copy_from_slice(&data);
 
         Ok((ZBuf::from(shm_buf), actual_size))
     }
 
-    fn serialize(input: &DynamicPayload) -> Vec<u8> {
-        Self::try_serialize_payload(input).expect("DynamicPayload CDR serialization failed")
+    fn serialize(input: &DynamicPayload) -> Result<Vec<u8>, Self::Error> {
+        Self::try_serialize_payload(input)
     }
 
-    fn serialize_to_buf(input: &DynamicPayload, buffer: &mut Vec<u8>) {
+    fn serialize_to_buf(input: &DynamicPayload, buffer: &mut Vec<u8>) -> Result<(), Self::Error> {
         buffer.clear();
-        buffer.extend(
-            Self::try_serialize_payload(input).expect("DynamicPayload CDR serialization failed"),
-        );
+        buffer.extend(Self::try_serialize_payload(input)?);
+        Ok(())
     }
 }
 

@@ -5,7 +5,6 @@ use std::{
     sync::{Arc, Weak},
 };
 use tracing::debug;
-use zenoh::Result;
 
 use crate::entity::{
     EndpointKind, Entity, LivelinessKE, NodeKey, Topic, entity_get_endpoint,
@@ -16,7 +15,7 @@ const DEFAULT_SLAB_CAPACITY: usize = 128;
 
 /// Type alias for entity parser function
 pub(super) type EntityParser =
-    Arc<dyn Fn(&zenoh::key_expr::KeyExpr) -> Result<Entity> + Send + Sync>;
+    Arc<dyn Fn(&zenoh::key_expr::KeyExpr) -> crate::Result<Entity> + Send + Sync>;
 
 pub(super) struct GraphData {
     cached: HashSet<LivelinessKE>,
@@ -189,9 +188,13 @@ impl GraphData {
 
             // Parse using the graph's configured liveliness parser.
             let entity = match (self.parser)(&key_expr.0) {
-                Ok(e) => e,
-                Err(e) => {
-                    tracing::warn!("Failed to parse liveliness key {}: {:?}", key_expr.0, e);
+                Ok(entity) => entity,
+                Err(error) => {
+                    tracing::warn!(
+                        liveliness_key = %key_expr.0,
+                        error = ?error,
+                        "failed to parse liveliness key; ignoring remote entity"
+                    );
                     continue;
                 }
             };

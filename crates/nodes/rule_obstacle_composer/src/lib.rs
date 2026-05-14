@@ -8,8 +8,6 @@ use types::{
     rule_obstacles::RuleObstacle, world_state::BallState,
 };
 
-use ros_z::IntoEyreResultExt;
-
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
 #[serde(deny_unknown_fields)]
 pub struct Parameters {
@@ -20,43 +18,26 @@ pub struct Parameters {
 }
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
-    let node = ctx
-        .create_node("rule_obstacle_composer")
-        .build()
-        .await
-        .into_eyre()?;
+    let node = ctx.create_node("rule_obstacle_composer").build().await?;
 
-    let _parameters = node
-        .bind_parameter_as::<Parameters>("rule_obstacle_composer")
-        .into_eyre()?;
+    let _parameters = node.bind_parameter_as::<Parameters>("rule_obstacle_composer")?;
     let _field_dimensions_sub = node
-        .subscriber::<FieldDimensions>("field_dimensions")
-        .into_eyre()?
+        .subscriber::<FieldDimensions>("field_dimensions")?
         .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
         })
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _filtered_game_controller_state_sub = node
-        .subscriber::<FilteredGameControllerState>("filtered_game_controller_state")
-        .into_eyre()?
+        .subscriber::<FilteredGameControllerState>("filtered_game_controller_state")?
         .build()
-        .await
-        .into_eyre()?;
-    let _ball_state_sub = node
-        .subscriber::<BallState>("ball_state")
-        .into_eyre()?
-        .build()
-        .await
-        .into_eyre()?;
+        .await?;
+    let _ball_state_sub = node.subscriber::<BallState>("ball_state")?.build().await?;
     let _rule_obstacles_pub = node
-        .publisher::<Vec<RuleObstacle>>("rule_obstacles")
-        .into_eyre()?
+        .publisher::<Vec<RuleObstacle>>("rule_obstacles")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
 
     pending::<()>().await;
 

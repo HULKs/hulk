@@ -108,7 +108,7 @@ impl Default for SchemaRegistry {
 fn registry_root_schema_hash(root_name: &str, schema: &Schema) -> Result<SchemaHash, DynamicError> {
     schema
         .validate()
-        .map_err(|error| DynamicError::SerializationError(error.to_string()))?;
+        .map_err(|error| DynamicError::schema("registering dynamic schema", error))?;
     let TypeDef::Named(actual_root_name) = &schema.root else {
         return Err(DynamicError::SerializationError(format!(
             "schema root for '{root_name}' is not a named type"
@@ -120,7 +120,8 @@ fn registry_root_schema_hash(root_name: &str, schema: &Schema) -> Result<SchemaH
             actual_root_name.as_str()
         )));
     }
-    Ok(ros_z_schema::compute_hash(schema.as_ref()))
+    ros_z_schema::compute_hash(schema.as_ref())
+        .map_err(|error| DynamicError::schema("registering dynamic schema", error))
 }
 
 /// Get a root schema from the global registry by type name and schema hash.
@@ -301,7 +302,7 @@ mod tests {
     #[test]
     fn register_schema_rejects_root_name_that_does_not_match_bundle_root() {
         let schema = empty_struct_schema("test_msgs::Actual");
-        let schema_hash = ros_z_schema::compute_hash(schema.as_ref());
+        let schema_hash = ros_z_schema::compute_hash(schema.as_ref()).unwrap();
         let mut registry = SchemaRegistry::default();
 
         let error = registry

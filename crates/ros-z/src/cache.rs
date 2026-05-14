@@ -22,7 +22,7 @@
 //! use ros_z::time::Time;
 //! use std::time::Duration;
 //!
-//! # async fn example() -> zenoh::Result<()> {
+//! # async fn example() -> ros_z::Result<()> {
 //! let context = ContextBuilder::default().build().await?;
 //! let node = context.create_node("cache_demo").build().await?;
 //!
@@ -40,8 +40,8 @@ use std::collections::{BTreeMap, VecDeque};
 use std::marker::PhantomData;
 use std::sync::Arc;
 use tracing::{debug, warn};
-use zenoh::Result;
 
+use crate::Result;
 use crate::message::{SerdeCdrCodec, WireDecoder};
 use crate::pubsub::SubscriberBuilder;
 use crate::qos::QosProfile;

@@ -9,13 +9,21 @@ use tempfile::NamedTempFile;
 
 use super::{ParameterError, Result};
 
+fn persistence_error(path: impl Into<PathBuf>, source: std::io::Error) -> ParameterError {
+    ParameterError::PersistenceError {
+        path: path.into(),
+        source,
+    }
+}
+
 #[cfg(test)]
 pub fn write_pretty_json(path: &Path, value: &Value) -> Result<()> {
-    let data =
-        serde_json::to_string_pretty(value).map_err(|err| ParameterError::PersistenceError {
+    let data = serde_json::to_string_pretty(value).map_err(|source| {
+        ParameterError::PersistenceSerializationError {
             path: path.to_path_buf(),
-            message: err.to_string(),
-        })?;
+            source,
+        }
+    })?;
 
     write_bytes_atomic(path, data.as_bytes())
 }
@@ -30,46 +38,35 @@ pub fn write_pretty_json_batch(entries: &[(PathBuf, Value)]) -> Result<()> {
 
     let mut prepared = Vec::with_capacity(entries.len());
     for (path, value) in entries {
-        let data = serde_json::to_string_pretty(value).map_err(|err| {
-            ParameterError::PersistenceError {
+        let data = serde_json::to_string_pretty(value).map_err(|source| {
+            ParameterError::PersistenceSerializationError {
                 path: path.clone(),
-                message: err.to_string(),
+                source,
             }
         })?;
         let Some(parent) = target_parent(path) else {
-            return Err(ParameterError::PersistenceError {
-                path: path.clone(),
-                message: "target path has no parent directory".to_string(),
-            });
+            return Err(persistence_error(
+                path.clone(),
+                std::io::Error::other("target path has no parent directory"),
+            ));
         };
 
-        fs::create_dir_all(parent).map_err(|err| ParameterError::PersistenceError {
-            path: path.clone(),
-            message: err.to_string(),
-        })?;
+        fs::create_dir_all(parent).map_err(|err| persistence_error(path.clone(), err))?;
         if path.is_dir() {
-            return Err(ParameterError::PersistenceError {
-                path: path.clone(),
-                message: "target path is a directory".to_string(),
-            });
+            return Err(persistence_error(
+                path.clone(),
+                std::io::Error::other("target path is a directory"),
+            ));
         }
 
         let previous = if path.exists() {
-            Some(
-                fs::read(path).map_err(|err| ParameterError::PersistenceError {
-                    path: path.clone(),
-                    message: err.to_string(),
-                })?,
-            )
+            Some(fs::read(path).map_err(|err| persistence_error(path.clone(), err))?)
         } else {
             None
         };
 
         let mut temp_file =
-            NamedTempFile::new_in(parent).map_err(|err| ParameterError::PersistenceError {
-                path: parent.to_path_buf(),
-                message: err.to_string(),
-            })?;
+            NamedTempFile::new_in(parent).map_err(|err| persistence_error(parent, err))?;
         write_prepared_bytes(&mut temp_file, data.as_bytes())?;
         prepared.push(PreparedWrite {
             target: path.clone(),
@@ -107,34 +104,23 @@ where
     F: FnOnce(&mut NamedTempFile, &[u8]) -> std::io::Result<()>,
 {
     let Some(parent) = target_parent(path) else {
-        return Err(ParameterError::PersistenceError {
-            path: path.to_path_buf(),
-            message: "target path has no parent directory".to_string(),
-        });
+        return Err(persistence_error(
+            path.to_path_buf(),
+            std::io::Error::other("target path has no parent directory"),
+        ));
     };
 
-    fs::create_dir_all(parent).map_err(|err| ParameterError::PersistenceError {
-        path: path.to_path_buf(),
-        message: err.to_string(),
-    })?;
+    fs::create_dir_all(parent).map_err(|err| persistence_error(path.to_path_buf(), err))?;
 
     let mut temp_file =
-        NamedTempFile::new_in(parent).map_err(|err| ParameterError::PersistenceError {
-            path: parent.to_path_buf(),
-            message: err.to_string(),
-        })?;
-    write_bytes(&mut temp_file, data).map_err(|err| ParameterError::PersistenceError {
-        path: temp_file.path().to_path_buf(),
-        message: err.to_string(),
-    })?;
+        NamedTempFile::new_in(parent).map_err(|err| persistence_error(parent, err))?;
+    write_bytes(&mut temp_file, data)
+        .map_err(|err| persistence_error(temp_file.path().to_path_buf(), err))?;
     sync_temp_file(&mut temp_file)?;
 
     temp_file
         .persist(path)
-        .map_err(|err| ParameterError::PersistenceError {
-            path: path.to_path_buf(),
-            message: err.to_string(),
-        })?;
+        .map_err(|err| persistence_error(path.to_path_buf(), err.error))?;
     sync_parent_directory(parent)?;
 
     Ok(())
@@ -143,27 +129,18 @@ where
 fn write_prepared_bytes(temp_file: &mut NamedTempFile, data: &[u8]) -> Result<()> {
     temp_file
         .write_all(data)
-        .map_err(|err| ParameterError::PersistenceError {
-            path: temp_file.path().to_path_buf(),
-            message: err.to_string(),
-        })?;
+        .map_err(|err| persistence_error(temp_file.path().to_path_buf(), err))?;
     sync_temp_file(temp_file)
 }
 
 fn sync_temp_file(temp_file: &mut NamedTempFile) -> Result<()> {
     temp_file
         .flush()
-        .map_err(|err| ParameterError::PersistenceError {
-            path: temp_file.path().to_path_buf(),
-            message: err.to_string(),
-        })?;
+        .map_err(|err| persistence_error(temp_file.path().to_path_buf(), err))?;
     temp_file
         .as_file()
         .sync_all()
-        .map_err(|err| ParameterError::PersistenceError {
-            path: temp_file.path().to_path_buf(),
-            message: err.to_string(),
-        })
+        .map_err(|err| persistence_error(temp_file.path().to_path_buf(), err))
 }
 
 fn rollback_persisted<E: std::fmt::Display>(
@@ -175,10 +152,7 @@ fn rollback_persisted<E: std::fmt::Display>(
     for (path, previous) in persisted.iter().rev() {
         let rollback_result = match previous {
             Some(bytes) => write_bytes_atomic(path, bytes),
-            None => fs::remove_file(path).map_err(|err| ParameterError::PersistenceError {
-                path: path.clone(),
-                message: err.to_string(),
-            }),
+            None => fs::remove_file(path).map_err(|err| persistence_error(path.clone(), err)),
         };
         if let Err(err) = rollback_result {
             rollback_errors.push(err.to_string());
@@ -192,7 +166,7 @@ fn rollback_persisted<E: std::fmt::Display>(
     }
     ParameterError::PersistenceError {
         path: failed_path,
-        message,
+        source: std::io::Error::other(message),
     }
 }
 
@@ -200,10 +174,7 @@ fn rollback_persisted<E: std::fmt::Display>(
 fn sync_parent_directory(parent: &Path) -> Result<()> {
     fs::File::open(parent)
         .and_then(|directory| directory.sync_all())
-        .map_err(|err| ParameterError::PersistenceError {
-            path: parent.to_path_buf(),
-            message: err.to_string(),
-        })
+        .map_err(|err| persistence_error(parent, err))
 }
 
 #[cfg(not(unix))]

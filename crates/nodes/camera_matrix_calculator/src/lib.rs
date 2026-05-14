@@ -6,7 +6,7 @@ use coordinate_systems::{Camera, Ground, Head, Robot};
 use kinematics::{robot_dimensions::RobotDimensions, robot_kinematics::RobotKinematics};
 use linear_algebra::{IntoTransform, Isometry3, Vector3, vector};
 use projection::camera_matrix::CameraMatrix;
-use ros_z::{IntoEyreResultExt, prelude::*};
+use ros_z::prelude::*;
 use ros2::sensor_msgs::camera_info::CameraInfo;
 use types::parameters::CameraMatrixParameters;
 
@@ -14,48 +14,32 @@ pub const ACTUAL_IMAGE_HEIGHT: f32 = 448.0;
 pub const ACTUAL_IMAGE_WIDTH: f32 = 544.0;
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
-    let node = ctx
-        .create_node("camera_matrix_calculator")
-        .build()
-        .await
-        .into_eyre()?;
+    let node = ctx.create_node("camera_matrix_calculator").build().await?;
 
-    let parameters = node
-        .bind_parameter_as::<CameraMatrixParameters>("camera_matrix_calculator")
-        .into_eyre()?;
+    let parameters =
+        node.bind_parameter_as::<CameraMatrixParameters>("camera_matrix_calculator")?;
     let robot_kinematics_sub = node
-        .subscriber::<RobotKinematics>("robot_kinematics")
-        .into_eyre()?
+        .subscriber::<RobotKinematics>("robot_kinematics")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let robot_to_ground_cache = node
-        .create_cache::<Option<Isometry3<Robot, Ground>>>("robot_to_ground", 10)
-        .into_eyre()?
+        .create_cache::<Option<Isometry3<Robot, Ground>>>("robot_to_ground", 10)?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let camera_info_cache = node
-        .create_cache::<CameraInfo>("inputs/camera_info", 1)
-        .into_eyre()?
+        .create_cache::<CameraInfo>("inputs/camera_info", 1)?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
 
     let camera_matrix_pub = node
-        .publisher::<CameraMatrix>("camera_matrix")
-        .into_eyre()?
+        .publisher::<CameraMatrix>("camera_matrix")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
 
     loop {
         let parameters = parameters.snapshot().typed().clone();
 
-        let robot_kinematics = robot_kinematics_sub
-            .recv_with_metadata()
-            .await
-            .into_eyre()?;
+        let robot_kinematics = robot_kinematics_sub.recv_with_metadata().await?;
 
         let time_stamp = robot_kinematics.source_time;
 
@@ -78,10 +62,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             &camera_info,
         );
 
-        camera_matrix_pub
-            .publish(&camera_matrix)
-            .await
-            .into_eyre()?;
+        camera_matrix_pub.publish(&camera_matrix).await?;
     }
 }
 

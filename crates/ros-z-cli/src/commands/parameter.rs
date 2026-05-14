@@ -1,6 +1,6 @@
 use std::time::Duration;
 
-use color_eyre::eyre::{Result, bail, eyre};
+use color_eyre::eyre::{Result, WrapErr, bail};
 use ros_z::parameter::{
     GetNodeParameterValueResponse, GetNodeParametersSnapshotResponse, ReloadNodeParametersResponse,
     RemoteParameterClient, ResetNodeParameterResponse, SetNodeParameterResponse,
@@ -195,7 +195,7 @@ async fn render_reload(app: &AppContext, output_mode: OutputMode, selector: &str
 }
 
 async fn render_watch(app: &AppContext, output_mode: OutputMode, selector: &str) -> Result<()> {
-    let (_node_fqn, client) = resolve_client(app, selector).await?;
+    let (node_fqn, client) = resolve_client(app, selector).await?;
     let subscriber = client.subscribe_events().await?;
     let _ = subscriber.wait_for_publishers(1, WATCH_MATCH_TIMEOUT).await;
 
@@ -203,7 +203,7 @@ async fn render_watch(app: &AppContext, output_mode: OutputMode, selector: &str)
         let event = subscriber
             .recv()
             .await
-            .map_err(|error| eyre!(error.to_string()))?;
+            .wrap_err_with(|| format!("failed to receive parameter event from {node_fqn}"))?;
         let view = ParameterWatchEventView::from_event(event)?;
         match output_mode {
             OutputMode::Json => json::print_line(&view)?,

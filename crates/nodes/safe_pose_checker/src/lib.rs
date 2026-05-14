@@ -7,7 +7,7 @@ use booster::{ImuState, MotorState};
 use coordinate_systems::Robot;
 use kinematics::joints::Joints;
 use linear_algebra::Vector3;
-use ros_z::{IntoEyreResultExt, prelude::*};
+use ros_z::prelude::*;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
 #[serde(deny_unknown_fields)]
@@ -21,57 +21,34 @@ pub struct Parameters {
 }
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
-    let node = ctx
-        .create_node("safe_pose_checker")
-        .build()
-        .await
-        .into_eyre()?;
+    let node = ctx.create_node("safe_pose_checker").build().await?;
 
-    let _parameters = node
-        .bind_parameter_as::<Parameters>("safe_pose_checker")
-        .into_eyre()?;
+    let _parameters = node.bind_parameter_as::<Parameters>("safe_pose_checker")?;
     let _imu_state_sub = node
-        .subscriber::<ImuState>("inputs/imu_state")
-        .into_eyre()?
+        .subscriber::<ImuState>("inputs/imu_state")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _serial_motor_states_sub = node
-        .subscriber::<Joints<MotorState>>("inputs/serial_motor_states")
-        .into_eyre()?
+        .subscriber::<Joints<MotorState>>("inputs/serial_motor_states")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _joint_position_difference_to_safe_pub = node
-        .publisher::<Joints>("joint_position_difference_to_safe")
-        .into_eyre()?
+        .publisher::<Joints>("joint_position_difference_to_safe")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _joint_velocities_difference_to_safe_pub = node
-        .publisher::<Joints>("joint_velocities_difference_to_safe")
-        .into_eyre()?
+        .publisher::<Joints>("joint_velocities_difference_to_safe")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _angular_velocities_difference_to_safe_pub = node
-        .publisher::<Vector3<Robot>>("angular_velocities_difference_to_safe")
-        .into_eyre()?
+        .publisher::<Vector3<Robot>>("angular_velocities_difference_to_safe")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _linear_accelerations_difference_to_safe_pub = node
-        .publisher::<Vector3<Robot>>("linear_accelerations_difference_to_safe")
-        .into_eyre()?
+        .publisher::<Vector3<Robot>>("linear_accelerations_difference_to_safe")?
         .build()
-        .await
-        .into_eyre()?;
-    let _is_safe_pose_pub = node
-        .publisher::<bool>("is_safe_pose")
-        .into_eyre()?
-        .build()
-        .await
-        .into_eyre()?;
+        .await?;
+    let _is_safe_pose_pub = node.publisher::<bool>("is_safe_pose")?.build().await?;
 
     pending::<()>().await;
 

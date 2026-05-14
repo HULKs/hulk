@@ -9301,7 +9301,9 @@ dependencies = [
  "sha2",
  "slab",
  "tempfile",
+ "thiserror 2.0.18",
  "tokio",
+ "tokio-util",
  "tracing",
  "trybuild",
  "zenoh",
@@ -9349,6 +9351,7 @@ name = "ros-z-protocol"
 version = "0.1.0"
 dependencies = [
  "ros-z-schema",
+ "thiserror 2.0.18",
  "zenoh",
 ]
 

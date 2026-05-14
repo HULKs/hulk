@@ -10,7 +10,7 @@ use ort::{
 };
 use ros2::sensor_msgs::image::Image;
 
-use ros_z::{IntoEyreResultExt, prelude::*};
+use ros_z::prelude::*;
 use tokio::time::Instant;
 use types::{
     bounding_box::BoundingBox,
@@ -50,48 +50,34 @@ struct ModelOutputs<'a> {
 }
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
-    let node = ctx.create_node("detection").build().await.into_eyre()?;
+    let node = ctx.create_node("detection").build().await?;
 
-    let node_parameters = node
-        .bind_parameter_as::<DetectionParameters>("detection")
-        .into_eyre()?;
+    let node_parameters = node.bind_parameter_as::<DetectionParameters>("detection")?;
 
     let image_sub = node
-        .subscriber::<Image>("inputs/left_image")
-        .into_eyre()?
+        .subscriber::<Image>("inputs/left_image")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let inference_duration_pub = node
-        .publisher::<Duration>("inference_duration")
-        .into_eyre()?
+        .publisher::<Duration>("inference_duration")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let post_processing_duration_pub = node
-        .publisher::<Duration>("post_processing_duration")
-        .into_eyre()?
+        .publisher::<Duration>("post_processing_duration")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let non_maximum_suppression_duration_pub = node
-        .publisher::<Duration>("non_maximum_suppression_duration")
-        .into_eyre()?
+        .publisher::<Duration>("non_maximum_suppression_duration")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let detected_objects_pub = node
-        .publisher::<Vec<Object<RobocupObjectLabel>>>("detected_objects")
-        .into_eyre()?
+        .publisher::<Vec<Object<RobocupObjectLabel>>>("detected_objects")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let detected_poses_pub = node
-        .publisher::<Vec<Pose<YOLOObjectLabel>>>("detected_poses")
-        .into_eyre()?
+        .publisher::<Vec<Pose<YOLOObjectLabel>>>("detected_poses")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
 
     let initial_parameters_snapshot = node_parameters.snapshot();
     let parameters = initial_parameters_snapshot.typed();
@@ -121,7 +107,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             continue;
         }
 
-        let image = image_sub.recv().await.into_eyre()?;
+        let image = image_sub.recv().await?;
         check_image(&image)?;
 
         let inference_start = Instant::now();
@@ -129,8 +115,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         let nv12_data = ArrayView3::from_shape(
             [image.height as usize / 2, image.width as usize / 2, 6],
             image.data.as_slice(),
-        )
-        .into_eyre()?;
+        )?;
         let outputs: SessionOutputs =
             session.run(inputs!["raw_bytes_input" => TensorRef::from_array_view(nv12_data)?])?;
 
@@ -163,26 +148,15 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         );
         let non_maximum_suppression_duration = non_maximum_suppression_start.elapsed();
 
-        inference_duration_pub
-            .publish(&inference_duration)
-            .await
-            .into_eyre()?;
+        inference_duration_pub.publish(&inference_duration).await?;
         post_processing_duration_pub
             .publish(&post_processing_duration)
-            .await
-            .into_eyre()?;
+            .await?;
         non_maximum_suppression_duration_pub
             .publish(&non_maximum_suppression_duration)
-            .await
-            .into_eyre()?;
-        detected_objects_pub
-            .publish(&detected_objects)
-            .await
-            .into_eyre()?;
-        detected_poses_pub
-            .publish(&detected_poses)
-            .await
-            .into_eyre()?;
+            .await?;
+        detected_objects_pub.publish(&detected_objects).await?;
+        detected_poses_pub.publish(&detected_poses).await?;
     }
 }
 

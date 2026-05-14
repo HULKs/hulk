@@ -6,9 +6,10 @@ use std::time::Duration;
 
 use tokio::task::JoinHandle;
 use tracing::{debug, trace, warn};
+use zenoh::Session;
 use zenoh::liveliness::LivelinessToken;
-use zenoh::{Result, Session};
 
+use crate::Result;
 use crate::attachment::{Attachment, EndpointGlobalId};
 use crate::dynamic::{DynamicCdrCodec, DynamicPayload, Schema};
 use crate::encoding::Encoding;
@@ -37,9 +38,7 @@ pub(super) fn validate_dynamic_publish_schema(
         return Ok(());
     }
 
-    Err(zenoh::Error::from(
-        "schema mismatch: dynamic payload schema does not match advertised schema",
-    ))
+    Err(crate::error::WireError::DynamicSchemaMismatch.into())
 }
 
 pub struct Publisher<T, C: WireEncoder = <T as crate::Message>::Codec> {
@@ -100,7 +99,13 @@ async fn spawn_transient_local_replay_queryable(
 ) -> Result<JoinHandle<()>> {
     let replay_key = replay::transient_local_replay_key(topic_key_expr, endpoint_global_id);
     let reply_key_expr = (**topic_key_expr).clone();
-    let queryable = session.declare_queryable(replay_key).complete(true).await?;
+    let queryable = session
+        .declare_queryable(replay_key)
+        .complete(true)
+        .await
+        .map_err(|source| {
+            crate::Error::zenoh("declare transient-local replay queryable", source)
+        })?;
     let queries = queryable.handler().clone();
 
     Ok(tokio::spawn(async move {
@@ -122,7 +127,9 @@ async fn spawn_transient_local_replay_queryable(
                     reply = reply.encoding(encoding);
                 }
                 reply = reply.attachment(sample.attachment);
-                if let Err(err) = reply.await {
+                if let Err(err) = reply.await.map_err(|source| {
+                    crate::Error::zenoh("reply transient-local replay sample", source)
+                }) {
                     warn!("[PUB] Failed to replay transient local sample: {}", err);
                 }
             }
@@ -183,7 +190,7 @@ impl<T, C> PublisherBuilder<T, C> {
     /// use std::sync::Arc;
     ///
     /// # #[tokio::main]
-    /// # async fn main() -> zenoh::Result<()> {
+    /// # async fn main() -> ros_z::Result<()> {
     /// # let context = ros_z::context::ContextBuilder::default().build().await?;
     /// # let node = context.create_node("test").build().await?;
     /// let provider = Arc::new(ShmProviderBuilder::new(20 * 1024 * 1024).build()?);
@@ -209,7 +216,7 @@ impl<T, C> PublisherBuilder<T, C> {
     /// # Example
     /// ```no_run
     /// # #[tokio::main]
-    /// # async fn main() -> zenoh::Result<()> {
+    /// # async fn main() -> ros_z::Result<()> {
     /// # let context = ros_z::context::ContextBuilder::default().with_shm_enabled()?.build().await?;
     /// # let node = context.create_node("test").build().await?;
     /// // Context has SHM enabled, but disable for this publisher
@@ -252,24 +259,24 @@ where
         Option<Arc<TransientLocalCache>>,
         EndpointGlobalId,
     )> {
-        let entity = &mut self.entity;
         // Qualify the topic name as a ros-z graph name.
+        let topic = self.entity.topic.clone();
         let qualified_topic = topic_name::qualify_topic_name(
-            &entity.topic,
-            &entity.node.namespace,
-            &entity.node.name,
+            &topic,
+            &self.entity.node.namespace,
+            &self.entity.node.name,
         )
-        .map_err(|e| zenoh::Error::from(format!("Failed to qualify topic: {}", e)))?;
+        .map_err(|source| crate::Error::topic_name(topic, source))?;
 
-        entity.topic = qualified_topic.clone();
+        self.entity.topic = qualified_topic.clone();
         debug!("[PUB] Qualified topic: {}", qualified_topic);
 
-        let topic_key_expr = ros_z_protocol::format::topic_key_expr(entity)?;
+        let topic_key_expr = ros_z_protocol::format::topic_key_expr(&self.entity)?;
         let data_key_expr = (*topic_key_expr).clone();
         debug!("[PUB] Key expression: {}", data_key_expr);
 
         if matches!(
-            entity.qos,
+            self.entity.qos,
             ros_z_protocol::qos::QosProfile {
                 durability: QosDurability::TransientLocal,
                 history: QosHistory::KeepAll,
@@ -281,9 +288,9 @@ where
             );
         }
 
-        let transient_local_cache = replay::transient_local_cache_capacity(&entity.qos)
+        let transient_local_cache = replay::transient_local_cache_capacity(&self.entity.qos)
             .map(|capacity| Arc::new(TransientLocalCache::new(capacity)));
-        let endpoint_global_id = endpoint_global_id(entity);
+        let endpoint_global_id = endpoint_global_id(&self.entity);
 
         Ok((
             data_key_expr,
@@ -325,7 +332,9 @@ where
         };
         let transient_local_replay_task = ReplayTaskGuard::new(transient_local_replay_task);
 
-        let inner = pub_builder.await?;
+        let inner = pub_builder
+            .await
+            .map_err(|source| crate::Error::zenoh("declare publisher", source))?;
         debug!("[PUB] Publisher ready: topic={}", self.entity.topic);
 
         let liveliness_key_expr =
@@ -334,7 +343,8 @@ where
             .session
             .liveliness()
             .declare_token((*liveliness_key_expr).clone())
-            .await?;
+            .await
+            .map_err(|source| crate::Error::zenoh("declare publisher liveliness token", source))?;
         let encoding = Arc::new(Encoding::cdr().to_zenoh_encoding());
         debug!("[PUB] Using encoding: {}", encoding);
 
@@ -488,7 +498,9 @@ where
 
         put_builder = put_builder.attachment(attachment.clone());
 
-        put_builder.await?;
+        put_builder
+            .await
+            .map_err(|source| crate::Error::zenoh("publish sample", source))?;
         self.retain_transient_local_sample(zbytes, attachment);
         Ok(())
     }
@@ -520,22 +532,27 @@ where
                         tracing::Span::current().record("used_shm", true);
                         (zbuf, actual_size)
                     }
-                    Err(_) => {
+                    Err(error) => {
+                        warn!(error = %error, "SHM serialization failed; falling back to heap payload");
                         tracing::Span::current().record("used_shm", false);
-                        let zbuf = C::serialize_to_zbuf(message);
+                        let zbuf = C::serialize_to_zbuf(message).map_err(|source| {
+                            crate::Error::encode(std::any::type_name::<T>(), source)
+                        })?;
                         let size = zbuf.len();
                         (zbuf, size)
                     }
                 }
             } else {
                 tracing::Span::current().record("used_shm", false);
-                let zbuf = C::serialize_to_zbuf(message);
+                let zbuf = C::serialize_to_zbuf(message)
+                    .map_err(|source| crate::Error::encode(std::any::type_name::<T>(), source))?;
                 let size = zbuf.len();
                 (zbuf, size)
             }
         } else {
             tracing::Span::current().record("used_shm", false);
-            let zbuf = C::serialize_to_zbuf(message);
+            let zbuf = C::serialize_to_zbuf(message)
+                .map_err(|source| crate::Error::encode(std::any::type_name::<T>(), source))?;
             let size = zbuf.len();
             (zbuf, size)
         };
