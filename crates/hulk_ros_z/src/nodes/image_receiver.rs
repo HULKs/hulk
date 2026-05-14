@@ -1,43 +1,17 @@
+use std::net::{IpAddr, Ipv4Addr, SocketAddr};
 use std::{sync::Arc, time::Duration};
 
 use color_eyre::Result;
-use ros_z::{prelude::*, time::Time};
-use ros2::{
-    builtin_interfaces::time::Time as Ros2Time, sensor_msgs::image::Image, std_msgs::header::Header,
-};
+use image::RgbImage;
+use ros_z::prelude::*;
+use ros2::sensor_msgs::camera_info::CameraInfo;
+use ros2::sensor_msgs::image::Image;
 use types::ycbcr422_image::YCbCr422Image;
+use x5_receiver::receiver::X5Receiver;
 
 use crate::IntoEyreResultExt;
 
-const FAKE_IMAGE_WIDTH: u32 = 64;
-const FAKE_IMAGE_HEIGHT: u32 = 48;
-const FAKE_IMAGE_PERIOD: Duration = Duration::from_millis(100);
-
-fn fake_image(frame_index: u32, stamp: Time) -> Image {
-    let mut data = Vec::with_capacity((FAKE_IMAGE_WIDTH * FAKE_IMAGE_HEIGHT * 3) as usize);
-
-    for y in 0..FAKE_IMAGE_HEIGHT {
-        for x in 0..FAKE_IMAGE_WIDTH {
-            let phase = frame_index.wrapping_mul(3);
-            data.push((x as u8).wrapping_mul(4).wrapping_add(phase as u8));
-            data.push((y as u8).wrapping_mul(5).wrapping_add((phase / 2) as u8));
-            data.push(((x + y + phase) % 256) as u8);
-        }
-    }
-
-    Image {
-        header: Header {
-            stamp: Ros2Time::from(stamp.to_wallclock()),
-            frame_id: "fake_camera".to_string(),
-        },
-        height: FAKE_IMAGE_HEIGHT,
-        width: FAKE_IMAGE_WIDTH,
-        encoding: "rgb8".to_string(),
-        is_bigendian: 0,
-        step: FAKE_IMAGE_WIDTH * 3,
-        data,
-    }
-}
+const X5_ADDRESS: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 168, 127, 10)), 7654);
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx
@@ -45,34 +19,54 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await
         .into_eyre()?;
-    let image_pub = node
-        .publisher::<Image>("image")
+
+    let left_image_pub = node
+        .publisher::<Image>("inputs/left_image")
+        .into_eyre()?
+        .build()
+        .await
+        .into_eyre()?;
+    let right_image_pub = node
+        .publisher::<Image>("inputs/left_image")
+        .into_eyre()?
+        .build()
+        .await
+        .into_eyre()?;
+    let camera_info_pub = node
+        .publisher::<CameraInfo>("inputs/camera_info")
         .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let ycbcr422_image_pub = node
-        .publisher::<YCbCr422Image>("ycbcr422_image")
+        .publisher::<YCbCr422Image>("inputs/ycbcr422_image")
         .into_eyre()?
         .build()
         .await
         .into_eyre()?;
 
-    let mut timer = node.create_timer(FAKE_IMAGE_PERIOD);
-    let mut frame_index = 0u32;
+    let x5_receiver = X5Receiver::new(X5_ADDRESS);
+    let left_camera_info = x5_receiver.last_camera_info().await.left_camera_info();
+    let mut camera_info_timer = node.clock().timer(Duration::from_secs(1));
 
     loop {
-        let stamp = timer.tick().await;
-
-        let image = fake_image(frame_index, stamp);
-        let ycbcr422_image = YCbCr422Image::try_from(&image)?;
-
-        image_pub.publish(&image).await.into_eyre()?;
-        ycbcr422_image_pub
-            .publish(&ycbcr422_image)
-            .await
-            .into_eyre()?;
-
-        frame_index = frame_index.wrapping_add(1);
+        tokio::select! {
+            left_frame = x5_receiver.next_left_frame() => {
+                let left_image: Image = left_frame.into();
+                left_image_pub.publish(&left_image).await.into_eyre()?;
+                let rgb_image: RgbImage = left_image.try_into()?;
+                ycbcr422_image_pub.publish(&(&rgb_image).into()).await.into_eyre()?;
+            }
+            right_frame = x5_receiver.next_right_frame() => {
+                right_image_pub.publish(&right_frame.into()).await.into_eyre()?;
+            }
+            // TODO Make this either a service or a local transiert publisher
+            _ = camera_info_timer.tick() => {
+                camera_info_pub
+                    .publish(&left_camera_info)
+                    .await
+                    .into_eyre()?;
+            }
+        }
     }
 }

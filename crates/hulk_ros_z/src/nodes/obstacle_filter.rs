@@ -37,7 +37,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .bind_parameter_as::<Parameters>("obstacle_filter")
         .into_eyre()?;
     let _camera_matrix_sub = node
-        .subscriber::<CameraMatrix>("camera_matrix")
+        .subscriber::<CameraMatrix>("inputs/camera_matrix")
         .into_eyre()?
         .build()
         .await
@@ -67,7 +67,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await
         .into_eyre()?;
     let _fall_down_state_sub = node
-        .subscriber::<FallDownState>("fall_down_state")
+        .subscriber::<FallDownState>("inputs/fall_down_state")
         .into_eyre()?
         .build()
         .await

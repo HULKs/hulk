@@ -1,10 +1,11 @@
 use std::{
     io,
-    net::{Ipv4Addr, SocketAddr, SocketAddrV4},
+    net::{Ipv4Addr as Ipv4AddrStd, SocketAddr, SocketAddrV4},
 };
 
 use log::warn;
-use serde::Deserialize;
+use ros_z::Message;
+use serde::{Deserialize, Serialize};
 use thiserror::Error;
 use tokio::{net::UdpSocket, select};
 use types::messages::{IncomingMessage, OutgoingMessage};
@@ -28,14 +29,15 @@ pub enum Error {
 impl Endpoint {
     pub async fn new(parameters: Ports) -> Result<Self, Error> {
         let game_controller_state_socket = UdpSocket::bind(SocketAddrV4::new(
-            Ipv4Addr::UNSPECIFIED,
+            Ipv4AddrStd::UNSPECIFIED,
             parameters.game_controller_state,
         ))
         .await
         .map_err(Error::CannotBind)?;
-        let hsl_socket = UdpSocket::bind(SocketAddrV4::new(Ipv4Addr::UNSPECIFIED, parameters.hsl))
-            .await
-            .map_err(Error::CannotBind)?;
+        let hsl_socket =
+            UdpSocket::bind(SocketAddrV4::new(Ipv4AddrStd::UNSPECIFIED, parameters.hsl))
+                .await
+                .map_err(Error::CannotBind)?;
         hsl_socket
             .set_broadcast(true)
             .map_err(Error::EnableBroadcast)?;
@@ -88,14 +90,13 @@ impl Endpoint {
             }
             OutgoingMessage::Hsl(message) => match bincode::serialize(&message) {
                 Ok(message) => {
+                    let ipv4_addr: Ipv4AddrStd = self.ports.hsl_broadcast_address.into();
+
                     if let Err(error) = self
                         .hsl_socket
                         .send_to(
                             message.as_slice(),
-                            SocketAddr::new(
-                                self.ports.hsl_broadcast_address.into(),
-                                self.ports.hsl,
-                            ),
+                            SocketAddr::new(ipv4_addr.into(), self.ports.hsl),
                         )
                         .await
                     {
@@ -127,10 +128,21 @@ impl Endpoint {
     }
 }
 
-#[derive(Clone, Debug, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, Message)]
 pub struct Ports {
     game_controller_state: u16,
     game_controller_return: u16,
     hsl: u16,
     hsl_broadcast_address: Ipv4Addr,
+}
+
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, Message)]
+pub struct Ipv4Addr {
+    octets: [u8; 4],
+}
+
+impl From<Ipv4Addr> for Ipv4AddrStd {
+    fn from(addr: Ipv4Addr) -> Self {
+        Self::from_octets(addr.octets)
+    }
 }

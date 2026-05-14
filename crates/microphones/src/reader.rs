@@ -8,7 +8,7 @@ use color_eyre::{
 use log::warn;
 use types::samples::Samples;
 
-use crate::microphones::Parameters;
+use crate::parameters::Parameters;
 
 pub struct Microphones {
     device: PCM,
@@ -90,10 +90,10 @@ fn create_device(parameters: &Parameters) -> Result<PCM> {
         let hardware_parameters =
             HwParams::any(&device).wrap_err("failed to create hardware parameters")?;
         hardware_parameters
-            .set_access(parameters.access)
+            .set_access((&parameters.access).into())
             .wrap_err("failed to set access")?;
         hardware_parameters
-            .set_format(parameters.format)
+            .set_format((&parameters.format).into())
             .wrap_err("failed to set format")?;
         hardware_parameters
             .set_rate_near(parameters.sample_rate, ValueOr::Nearest)

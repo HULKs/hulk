@@ -35,7 +35,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .bind_parameter_as::<Parameters>("world_state_composer")
         .into_eyre()?;
     let _fall_down_state_sub = node
-        .subscriber::<FallDownState>("fall_down_state")
+        .subscriber::<FallDownState>("inputs/fall_down_state")
         .into_eyre()?
         .build()
         .await

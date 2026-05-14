@@ -14,7 +14,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await
         .into_eyre()?;
     let _maybe_button_event_sub = node
-        .subscriber::<ButtonEventMsg>("button_event")
+        .subscriber::<ButtonEventMsg>("inputs/button_event_message")
         .into_eyre()?
         .build()
         .await

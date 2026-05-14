@@ -48,7 +48,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .bind_parameter_as::<Parameters>("line_detection")
         .into_eyre()?;
     let _camera_matrix_sub = node
-        .subscriber::<CameraMatrix>("camera_matrix")
+        .subscriber::<CameraMatrix>("inputs/camera_matrix")
         .into_eyre()?
         .build()
         .await
@@ -60,7 +60,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await
         .into_eyre()?;
     let _image_sub = node
-        .subscriber::<YCbCr422Image>("ycbcr422_image")
+        .subscriber::<YCbCr422Image>("inputs/ycbcr422_image")
         .into_eyre()?
         .build()
         .await

@@ -25,7 +25,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .bind_parameter_as::<Parameters>("message_filter")
         .into_eyre()?;
     let _message_sub = node
-        .subscriber::<IncomingMessage>("message")
+        .subscriber::<IncomingMessage>("inputs/message")
         .into_eyre()?
         .build()
         .await

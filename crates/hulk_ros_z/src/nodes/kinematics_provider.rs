@@ -14,7 +14,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await
         .into_eyre()?;
     let _serial_motor_states_sub = node
-        .subscriber::<Joints<MotorState>>("serial_motor_states")
+        .subscriber::<Joints<MotorState>>("inputs/serial_motor_states")
         .into_eyre()?
         .build()
         .await

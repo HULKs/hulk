@@ -6,6 +6,9 @@ use hulk_ros_z::{IntoEyreResultExt, nodes};
 use ros_z::prelude::*;
 use tokio::task::JoinSet;
 use tracing_subscriber::EnvFilter;
+use zenoh::Session;
+
+const ZENOH_LOCALHOST_ENDPOINT: &str = "tcp/127.0.0.1:7447";
 
 #[derive(Debug, Parser)]
 struct Args {
@@ -13,7 +16,7 @@ struct Args {
     robot: String,
     #[arg(long)]
     location: String,
-    #[arg(long, default_value = "parameter/ros_z")]
+    #[arg(long, default_value = "parameters/ros_z")]
     parameter_root: PathBuf,
     #[arg(long)]
     router: Option<String>,
@@ -51,8 +54,14 @@ async fn main() -> Result<()> {
             .with_listen_endpoints(["tcp/127.0.0.1:7447"]),
     };
 
+    let zenoh_session = Arc::new(
+        zenoh::open(localhost_zenoh_config()?)
+            .await
+            .map_err(|error| eyre!("failed to create Zenoh session: {error}"))?,
+    );
+
     let ctx = Arc::new(builder.build().await.into_eyre()?);
-    let mut running = spawn_all(ctx.clone()).await?;
+    let mut running = spawn_all(ctx.clone(), zenoh_session).await?;
 
     let result = tokio::select! {
         result = monitor(&mut running.join_set) => result,
@@ -114,7 +123,7 @@ fn sanitize_namespace_component(component: &str) -> String {
     sanitized
 }
 
-async fn spawn_all(ctx: Arc<Context>) -> Result<RunningStack> {
+async fn spawn_all(ctx: Arc<Context>, zenoh_session: Arc<Session>) -> Result<RunningStack> {
     let mut join_set = JoinSet::new();
 
     join_set.spawn(nodes::active_vision::run(ctx.clone()));
@@ -122,10 +131,20 @@ async fn spawn_all(ctx: Arc<Context>) -> Result<RunningStack> {
     join_set.spawn(nodes::ball_state_composer::run(ctx.clone()));
     join_set.spawn(nodes::behavior_node::run(ctx.clone()));
     join_set.spawn(nodes::button_event_handler::run(ctx.clone()));
+    join_set.spawn(nodes::button_event_bridge::run(
+        ctx.clone(),
+        zenoh_session.clone(),
+    ));
     join_set.spawn(nodes::camera_matrix_calculator::run(ctx.clone()));
-    join_set.spawn(nodes::command_sender::run(ctx.clone()));
+    join_set.spawn(nodes::low_command_publisher::run(
+        ctx.clone(),
+        zenoh_session.clone(),
+    ));
     join_set.spawn(nodes::fake_odometry::run(ctx.clone()));
-    join_set.spawn(nodes::fall_down_state_receiver::run(ctx.clone()));
+    join_set.spawn(nodes::fall_down_state_receiver::run(
+        ctx.clone(),
+        zenoh_session.clone(),
+    ));
     join_set.spawn(nodes::field_border_detection::run(ctx.clone()));
     join_set.spawn(nodes::game_controller_filter::run(ctx.clone()));
     join_set.spawn(nodes::game_controller_state_filter::run(ctx.clone()));
@@ -143,11 +162,14 @@ async fn spawn_all(ctx: Arc<Context>) -> Result<RunningStack> {
     join_set.spawn(nodes::look_at::run(ctx.clone()));
     join_set.spawn(nodes::message_filter::run(ctx.clone()));
     join_set.spawn(nodes::message_receiver::run(ctx.clone()));
-    join_set.spawn(nodes::microphone_recorder::run(ctx.clone()));
+    // join_set.spawn(nodes::microphone_recorder::run(ctx.clone()));
     join_set.spawn(nodes::motor_commands_collector::run(ctx.clone()));
     join_set.spawn(nodes::obstacle_filter::run(ctx.clone()));
     join_set.spawn(nodes::obstacle_receiver::run(ctx.clone()));
-    join_set.spawn(nodes::odometer_receiver::run(ctx.clone()));
+    join_set.spawn(nodes::odometer_bridge::run(
+        ctx.clone(),
+        zenoh_session.clone(),
+    ));
     join_set.spawn(nodes::primary_state_filter::run(ctx.clone()));
     join_set.spawn(nodes::robot_mode_handler::run(ctx.clone()));
     join_set.spawn(nodes::rotate_head::run(ctx.clone()));
@@ -155,7 +177,11 @@ async fn spawn_all(ctx: Arc<Context>) -> Result<RunningStack> {
     join_set.spawn(nodes::safe_pose_checker::run(ctx.clone()));
     join_set.spawn(nodes::search_suggestor::run(ctx.clone()));
     join_set.spawn(nodes::segment_filter::run(ctx.clone()));
-    join_set.spawn(nodes::sensor_data_receiver::run(ctx.clone()));
+    join_set.spawn(nodes::booster_sdk_interface::run(ctx.clone()));
+    join_set.spawn(nodes::low_state_bridge::run(
+        ctx.clone(),
+        zenoh_session.clone(),
+    ));
     join_set.spawn(nodes::stand_up::run(ctx.clone()));
     join_set.spawn(nodes::team_ball_receiver::run(ctx.clone()));
     join_set.spawn(nodes::time_to_reach_kick_position::run(ctx.clone()));
@@ -179,6 +205,20 @@ async fn monitor(join_set: &mut JoinSet<Result<()>>) -> Result<()> {
     }
 
     Ok(())
+}
+
+fn localhost_zenoh_config() -> Result<zenoh::Config> {
+    let mut config = zenoh::Config::default();
+    config
+        .insert_json5("mode", r#""client""#)
+        .map_err(|error| eyre!("failed to set Zenoh mode: {error}"))?;
+    config
+        .insert_json5(
+            "connect/endpoints",
+            &format!(r#"["{ZENOH_LOCALHOST_ENDPOINT}"]"#),
+        )
+        .map_err(|error| eyre!("failed to set Zenoh connect endpoint: {error}"))?;
+    Ok(config)
 }
 
 #[cfg(test)]

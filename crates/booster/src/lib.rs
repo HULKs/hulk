@@ -3,6 +3,7 @@ use coordinate_systems::{Ground, Robot};
 use kinematics::joints::Joints;
 use linear_algebra::{Isometry2, Vector3, vector};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
+use ros_z::Message;
 use ros2::{geometry_msgs::transform_stamped::TransformStamped, std_msgs::header::Header};
 use serde::{Deserialize, Serialize};
 
@@ -12,7 +13,15 @@ use pyo3::prelude::*;
 #[repr(C)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen))]
 #[derive(
-    Clone, Debug, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Clone,
+    Debug,
+    Default,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    Message,
 )]
 pub struct LowState {
     /// IMU feedback
@@ -469,7 +478,15 @@ impl ButtonEventMsg {
 #[repr(C)]
 #[cfg_attr(feature = "pyo3", pyclass(frozen, get_all))]
 #[derive(
-    Debug, Clone, Default, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect,
+    Debug,
+    Clone,
+    Default,
+    Serialize,
+    Deserialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    Message,
 )]
 pub struct RemoteControllerState {
     /** This feature can be used in user programs to implement custom gamepad/controller button functionality.

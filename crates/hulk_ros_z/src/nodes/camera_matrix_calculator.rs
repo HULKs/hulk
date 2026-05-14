@@ -42,8 +42,8 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await
         .into_eyre()?;
-    let _image_left_raw_camera_info_sub = node
-        .subscriber::<CameraInfo>("image_left_raw_camera_info")
+    let _camera_info_sub = node
+        .subscriber::<CameraInfo>("inputs/camera_info")
         .into_eyre()?
         .build()
         .await

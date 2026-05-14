@@ -44,6 +44,7 @@ kinematics = { workspace = true }
 libc = { workspace = true, optional = true }
 linear_algebra = { workspace = true }
 log = { workspace = true }
+microphones = { workspace = true }
 motion = { workspace = true }
 nalgebra = { workspace = true }
 ndarray = { workspace = true }
@@ -64,6 +65,7 @@ types = { workspace = true }
 vision = { workspace = true }
 walking_inference = { workspace = true }
 world_state = { workspace = true }
+x5_receiver = { workspace = true }
 zenoh = { workspace = true }
 
 [build-dependencies]

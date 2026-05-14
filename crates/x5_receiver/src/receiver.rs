@@ -4,11 +4,9 @@ use futures_util::TryFutureExt;
 use tokio::{io::AsyncReadExt, net::TcpStream, sync::watch};
 use tokio_util::task::AbortOnDropHandle;
 
-use crate::x5_receiver::{
+use crate::types::{
+    MAGIC_IDENTIFIER_CAMERA_INFO, MAGIC_IDENTIFIER_FRAME, X5CameraFrame, X5CameraFrameHeader,
     X5CameraInfo,
-    types::{
-        MAGIC_IDENTIFIER_CAMERA_INFO, MAGIC_IDENTIFIER_FRAME, X5CameraFrame, X5CameraFrameHeader,
-    },
 };
 
 pub const MAX_ALLOCATION_SIZE: usize = 4 * 1024 * 1024;

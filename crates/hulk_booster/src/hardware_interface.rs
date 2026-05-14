@@ -35,6 +35,7 @@ use hsl_network::endpoint::{Endpoint, Ports};
 use hula_types::hardware::{Ids, Paths};
 use kinematics::joints::head::HeadJoints;
 use log::{debug, error, warn};
+use microphones::{parameters::Parameters as MicrophonesParameters, reader::Microphones};
 use parking_lot::Mutex;
 use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
 use serde::{Deserialize, de::DeserializeOwned};
@@ -50,12 +51,11 @@ use types::{
     samples::Samples,
     step::Step,
 };
+use x5_receiver::receiver::X5Receiver;
 
 use crate::{
     HardwareInterface,
     latest_receiver::{LatestReceiver, LatestSender, latest_channel},
-    microphones::{self, Microphones},
-    x5_receiver::X5Receiver,
 };
 use zenoh::{
     Session,
@@ -78,7 +78,7 @@ const REMOTE_CONTROLLER_STATE_TOPIC: &str = "rt/remote_controller_state";
 pub struct Parameters {
     pub hsl_network_ports: Ports,
     pub paths: Paths,
-    pub microphones: microphones::Parameters,
+    pub microphones: MicrophonesParameters,
 }
 
 struct ZenohBackendHandles {

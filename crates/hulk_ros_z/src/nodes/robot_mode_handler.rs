@@ -8,7 +8,7 @@ use types::{
     primary_state::PrimaryState,
 };
 
-use crate::IntoEyreResultExt;
+use crate::{IntoEyreResultExt, nodes::booster_sdk_interface::GetRobotMode};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
 #[serde(deny_unknown_fields)]
@@ -39,12 +39,12 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await
         .into_eyre()?;
-    // TODO: booster_sdk is not owned by HULKs, we cannot directly implement Message for that...
-    // let _robot_mode_pub = node
-    //     .publisher::<RobotMode>("robot_mode")
-    //     .build()
-    //     .await
-    //     .into_eyre()?;
+    let _get_robot_mode_client = node
+        .create_service_client::<GetRobotMode>("services/get_robot_mode")
+        .into_eyre()?
+        .build()
+        .await
+        .into_eyre()?;
 
     pending::<()>().await;
 

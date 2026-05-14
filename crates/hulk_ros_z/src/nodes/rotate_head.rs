@@ -5,7 +5,7 @@ use kinematics::joints::head::HeadJoints;
 use ros_z::prelude::*;
 use serde::{Deserialize, Serialize};
 
-use crate::IntoEyreResultExt;
+use crate::{IntoEyreResultExt, nodes::booster_sdk_interface::GetRobotMode};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
 #[serde(deny_unknown_fields)]
@@ -19,12 +19,12 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let _parameters = node
         .bind_parameter_as::<Parameters>("rotate_head")
         .into_eyre()?;
-    // TODO: booster_sdk is not owned by HULKs, we cannot directly implement Message for that...
-    // let _robot_mode_sub = node
-    //     .subscriber::<RobotMode>("robot_mode")
-    //     .build()
-    //     .await
-    //     .into_eyre()?;
+    let _get_robot_mode_client = node
+        .create_service_client::<GetRobotMode>("services/get_robot_mode")
+        .into_eyre()?
+        .build()
+        .await
+        .into_eyre()?;
     let _head_joints_sub = node
         .subscriber::<HeadJoints<f32>>("head_joints_command")
         .into_eyre()?

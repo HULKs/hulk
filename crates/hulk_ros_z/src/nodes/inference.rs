@@ -25,7 +25,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .bind_parameter_as::<Parameters>("inference")
         .into_eyre()?;
     let _image_sub = node
-        .subscriber::<Image>("image")
+        .subscriber::<Image>("inputs/image")
         .into_eyre()?
         .build()
         .await

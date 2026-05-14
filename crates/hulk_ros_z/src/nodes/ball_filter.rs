@@ -38,7 +38,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await
         .into_eyre()?;
     let _integrated_odometry_sub = node
-        .subscriber::<Odometer>("odometer")
+        .subscriber::<Odometer>("inputs/odometer")
         .into_eyre()?
         .build()
         .await

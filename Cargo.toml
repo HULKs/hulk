@@ -34,6 +34,7 @@ members = [
   "crates/hydra",
   "crates/kinematics",
   "crates/linear_algebra",
+  "crates/microphones",
   "crates/motion",
   "crates/motionfile",
   "crates/opn",
@@ -58,6 +59,7 @@ members = [
   "crates/vision",
   "crates/walking_inference",
   "crates/world_state",
+  "crates/x5_receiver",
   "crates/zed",
   "crates/zenoh_bridge",
   "tools/annotato",
@@ -171,6 +173,7 @@ libc = "0.2.169"
 linear_algebra = { path = "crates/linear_algebra" }
 log = "0.4.25"
 mcap = "0.15.0"
+microphones = { path = "crates/microphones" }
 mlua = { version = "0.10.3", features = ["luajit", "serialize", "vendored"] }
 motion = { path = "crates/motion" }
 motionfile = { path = "crates/motionfile" }
@@ -262,6 +265,7 @@ vision = { path = "crates/vision" }
 walking_inference = { path = "crates/walking_inference" }
 wgpu = "27.0.0"
 world_state = { path = "crates/world_state" }
+x5_receiver = { path = "crates/x5_receiver" }
 xdg = "2.5.2"
 yuv = "0.8.9"
 zbus = "5.5.0"

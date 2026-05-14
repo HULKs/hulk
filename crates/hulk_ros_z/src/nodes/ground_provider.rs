@@ -22,7 +22,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await
         .into_eyre()?;
     let _imu_state_sub = node
-        .subscriber::<ImuState>("imu_state")
+        .subscriber::<ImuState>("inputs/imu_state")
         .into_eyre()?
         .build()
         .await

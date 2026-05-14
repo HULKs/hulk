@@ -4868,6 +4868,7 @@ dependencies = [
  "hardware",
  "hsl_network_messages",
  "log",
+ "ros-z",
  "serde",
  "thiserror 2.0.18",
  "tokio",
@@ -4980,6 +4981,7 @@ dependencies = [
  "libc",
  "linear_algebra",
  "log",
+ "microphones",
  "motion",
  "nalgebra",
  "ndarray",
@@ -5001,6 +5003,7 @@ dependencies = [
  "vision",
  "walking_inference",
  "world_state",
+ "x5_receiver",
  "zenoh",
 ]
 
@@ -5182,13 +5185,18 @@ dependencies = [
  "ball_filter",
  "booster",
  "booster_sdk",
+ "cdr",
  "clap",
  "color-eyre",
  "coordinate_systems",
  "geometry",
+ "hsl_network",
  "hsl_network_messages",
+ "image",
  "kinematics",
  "linear_algebra",
+ "log",
+ "microphones",
  "nalgebra",
  "ndarray",
  "projection",
@@ -5198,6 +5206,8 @@ dependencies = [
  "tokio",
  "tracing-subscriber",
  "types",
+ "x5_receiver",
+ "zenoh",
 ]
 
 [[package]]
@@ -6211,6 +6221,18 @@ dependencies = [
  "log",
  "objc",
  "paste",
+]
+
+[[package]]
+name = "microphones"
+version = "0.1.0"
+dependencies = [
+ "alsa",
+ "color-eyre",
+ "log",
+ "ros-z",
+ "serde",
+ "types",
 ]
 
 [[package]]
@@ -12995,6 +13017,17 @@ dependencies = [
  "rusticata-macros",
  "thiserror 2.0.18",
  "time",
+]
+
+[[package]]
+name = "x5_receiver"
+version = "0.1.0"
+dependencies = [
+ "futures-util",
+ "log",
+ "ros2",
+ "tokio",
+ "tokio-util",
 ]
 
 [[package]]

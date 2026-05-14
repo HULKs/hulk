@@ -32,13 +32,13 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .bind_parameter_as::<Parameters>("safe_pose_checker")
         .into_eyre()?;
     let _imu_state_sub = node
-        .subscriber::<ImuState>("imu_state")
+        .subscriber::<ImuState>("inputs/imu_state")
         .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _serial_motor_states_sub = node
-        .subscriber::<Joints<MotorState>>("serial_motor_states")
+        .subscriber::<Joints<MotorState>>("inputs/serial_motor_states")
         .into_eyre()?
         .build()
         .await

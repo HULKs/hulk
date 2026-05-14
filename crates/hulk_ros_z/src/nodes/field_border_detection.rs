@@ -31,7 +31,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .bind_parameter_as::<Parameters>("field_border_detection")
         .into_eyre()?;
     let _camera_matrix_sub = node
-        .subscriber::<CameraMatrix>("camera_matrix")
+        .subscriber::<CameraMatrix>("inputs/camera_matrix")
         .into_eyre()?
         .build()
         .await

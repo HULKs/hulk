@@ -70,19 +70,19 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await
         .into_eyre()?;
     let _odometer_sub = node
-        .subscriber::<Odometer>("odometer")
+        .subscriber::<Odometer>("inputs/odometer")
         .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _fall_down_state_sub = node
-        .subscriber::<FallDownState>("fall_down_state")
+        .subscriber::<FallDownState>("inputs/fall_down_state")
         .into_eyre()?
         .build()
         .await
         .into_eyre()?;
     let _imu_state_sub = node
-        .subscriber::<ImuState>("imu_state")
+        .subscriber::<ImuState>("inputs/imu_state")
         .into_eyre()?
         .build()
         .await

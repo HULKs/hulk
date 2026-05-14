@@ -1,10 +1,18 @@
-use std::{future::pending, sync::Arc};
+use std::sync::Arc;
 
 use color_eyre::Result;
+use hsl_network::endpoint::{Endpoint, Ports};
 use ros_z::prelude::*;
+use serde::{Deserialize, Serialize};
 use types::messages::IncomingMessage;
 
 use crate::IntoEyreResultExt;
+
+#[derive(Debug, Clone, Serialize, Deserialize, Message)]
+#[serde(deny_unknown_fields)]
+struct Parameters {
+    ports: Ports,
+}
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx
@@ -12,14 +20,26 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await
         .into_eyre()?;
-    let _message_pub = node
-        .publisher::<IncomingMessage>("message")
+    let parameters = node
+        .bind_parameter_as::<Parameters>("message_receiver")
+        .into_eyre()?;
+    let message_pub = node
+        .publisher::<IncomingMessage>("inputs/message")
         .into_eyre()?
         .build()
         .await
         .into_eyre()?;
 
-    pending::<()>().await;
+    let parameters = parameters.snapshot().typed().clone();
+    let endpoint = Endpoint::new(parameters.ports).await.into_eyre()?;
 
-    Ok(())
+    loop {
+        tokio::select! {
+            message = endpoint.read() => {
+                let message = message.into_eyre()?;
+
+                message_pub.publish(&message).await.into_eyre()?;
+            }
+        }
+    }
 }
