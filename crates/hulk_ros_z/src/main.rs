@@ -5,9 +5,6 @@ use color_eyre::{Result, eyre::eyre};
 use ros_z::{IntoEyreResultExt, prelude::*};
 use tokio::task::JoinSet;
 use tracing_subscriber::EnvFilter;
-use zenoh::Session;
-
-const ZENOH_LOCALHOST_ENDPOINT: &str = "tcp/127.0.0.1:7447";
 
 #[derive(Debug, Parser)]
 struct Args {
@@ -53,14 +50,8 @@ async fn main() -> Result<()> {
             .with_listen_endpoints(["tcp/127.0.0.1:7447"]),
     };
 
-    let zenoh_session = Arc::new(
-        zenoh::open(localhost_zenoh_config()?)
-            .await
-            .map_err(|error| eyre!("failed to create Zenoh session: {error}"))?,
-    );
-
     let ctx = Arc::new(builder.build().await.into_eyre()?);
-    let mut running = spawn_all(ctx.clone(), zenoh_session).await?;
+    let mut running = spawn_all(ctx.clone()).await?;
 
     let result = tokio::select! {
         result = monitor(&mut running.join_set) => result,
@@ -122,7 +113,7 @@ fn sanitize_namespace_component(component: &str) -> String {
     sanitized
 }
 
-async fn spawn_all(ctx: Arc<Context>, zenoh_session: Arc<Session>) -> Result<RunningStack> {
+async fn spawn_all(ctx: Arc<Context>) -> Result<RunningStack> {
     let mut join_set = JoinSet::new();
 
     join_set.spawn(active_vision::run(ctx.clone()));
@@ -130,17 +121,11 @@ async fn spawn_all(ctx: Arc<Context>, zenoh_session: Arc<Session>) -> Result<Run
     join_set.spawn(ball_state_composer::run(ctx.clone()));
     join_set.spawn(behavior_node::run(ctx.clone()));
     join_set.spawn(button_event_handler::run(ctx.clone()));
-    join_set.spawn(button_event_bridge::run(ctx.clone(), zenoh_session.clone()));
+    join_set.spawn(button_event_bridge::run(ctx.clone()));
     join_set.spawn(camera_matrix_calculator::run(ctx.clone()));
-    join_set.spawn(low_command_publisher::run(
-        ctx.clone(),
-        zenoh_session.clone(),
-    ));
+    join_set.spawn(low_command_publisher::run(ctx.clone()));
     join_set.spawn(fake_odometry::run(ctx.clone()));
-    join_set.spawn(fall_down_state_receiver::run(
-        ctx.clone(),
-        zenoh_session.clone(),
-    ));
+    join_set.spawn(fall_down_state_receiver::run(ctx.clone()));
     join_set.spawn(field_border_detection::run(ctx.clone()));
     join_set.spawn(game_controller_filter::run(ctx.clone()));
     join_set.spawn(game_controller_state_filter::run(ctx.clone()));
@@ -162,7 +147,7 @@ async fn spawn_all(ctx: Arc<Context>, zenoh_session: Arc<Session>) -> Result<Run
     join_set.spawn(motor_commands_collector::run(ctx.clone()));
     join_set.spawn(obstacle_filter::run(ctx.clone()));
     join_set.spawn(obstacle_receiver::run(ctx.clone()));
-    join_set.spawn(odometer_bridge::run(ctx.clone(), zenoh_session.clone()));
+    join_set.spawn(odometer_bridge::run(ctx.clone()));
     join_set.spawn(primary_state_filter::run(ctx.clone()));
     join_set.spawn(robot_mode_handler::run(ctx.clone()));
     join_set.spawn(rotate_head::run(ctx.clone()));
@@ -171,7 +156,7 @@ async fn spawn_all(ctx: Arc<Context>, zenoh_session: Arc<Session>) -> Result<Run
     join_set.spawn(search_suggestor::run(ctx.clone()));
     join_set.spawn(segment_filter::run(ctx.clone()));
     join_set.spawn(booster_sdk_interface::run(ctx.clone()));
-    join_set.spawn(low_state_bridge::run(ctx.clone(), zenoh_session.clone()));
+    join_set.spawn(low_state_bridge::run(ctx.clone()));
     join_set.spawn(stand_up::run(ctx.clone()));
     join_set.spawn(team_ball_receiver::run(ctx.clone()));
     join_set.spawn(time_to_reach_kick_position::run(ctx.clone()));
@@ -195,20 +180,6 @@ async fn monitor(join_set: &mut JoinSet<Result<()>>) -> Result<()> {
     }
 
     Ok(())
-}
-
-fn localhost_zenoh_config() -> Result<zenoh::Config> {
-    let mut config = zenoh::Config::default();
-    config
-        .insert_json5("mode", r#""client""#)
-        .map_err(|error| eyre!("failed to set Zenoh mode: {error}"))?;
-    config
-        .insert_json5(
-            "connect/endpoints",
-            &format!(r#"["{ZENOH_LOCALHOST_ENDPOINT}"]"#),
-        )
-        .map_err(|error| eyre!("failed to set Zenoh connect endpoint: {error}"))?;
-    Ok(config)
 }
 
 #[cfg(test)]

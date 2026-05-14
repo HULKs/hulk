@@ -2,7 +2,6 @@ use std::sync::Arc;
 
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
-use zenoh::Session;
 
 use booster::{CommandType, LowCommand, MotorCommandParameters};
 use kinematics::joints::Joints;
@@ -15,12 +14,14 @@ pub struct Parameters {
     pub walk_motor_command_parameters: MotorCommandParameters,
 }
 
-pub async fn run(ctx: Arc<Context>, zenoh_session: Arc<Session>) -> Result<()> {
+pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx
         .create_node("command_sender")
         .build()
         .await
         .into_eyre()?;
+
+    let zenoh_session = ctx.session();
 
     let parameters = node
         .bind_parameter_as::<Parameters>("command_sender")

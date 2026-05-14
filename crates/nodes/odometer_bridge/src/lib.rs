@@ -1,17 +1,18 @@
 use std::sync::Arc;
 
 use color_eyre::{Result, eyre::Context as _};
-use zenoh::Session;
 
 use booster::Odometer;
 use ros_z::{IntoEyreResultExt, prelude::*};
 
-pub async fn run(ctx: Arc<Context>, zenoh_session: Arc<Session>) -> Result<()> {
+pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx
         .create_node("odometer_bridge")
         .build()
         .await
         .into_eyre()?;
+
+    let zenoh_session = ctx.session();
 
     let odometer_sub = zenoh_session
         .declare_subscriber("rt/odometer")
