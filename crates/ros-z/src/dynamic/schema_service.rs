@@ -40,9 +40,10 @@ pub(crate) fn bundle_and_hash_for_schema(
 ) -> Result<(SchemaBundle, SchemaHash), DynamicError> {
     schema
         .validate()
-        .map_err(|error| DynamicError::SerializationError(error.to_string()))?;
+        .map_err(|error| DynamicError::schema("building schema service response", error))?;
     let bundle = schema.as_ref().clone();
-    let hash = ros_z_schema::compute_hash(&bundle);
+    let hash = ros_z_schema::compute_hash(&bundle)
+        .map_err(|error| DynamicError::schema("hashing schema service response", error))?;
     Ok((bundle, hash))
 }
 
@@ -68,9 +69,10 @@ fn validated_schema_hash(
 ) -> std::result::Result<SchemaHash, DynamicError> {
     schema
         .validate()
-        .map_err(|error| DynamicError::SerializationError(error.to_string()))?;
+        .map_err(|error| DynamicError::schema("registering schema for service", error))?;
     validate_schema_root_name(root_name, schema.as_ref())?;
-    Ok(ros_z_schema::compute_hash(schema.as_ref()))
+    ros_z_schema::compute_hash(schema.as_ref())
+        .map_err(|error| DynamicError::schema("registering schema for service", error))
 }
 
 #[derive(Debug, Clone, Default, Serialize, Deserialize)]
@@ -144,17 +146,17 @@ impl Service for GetSchema {
 }
 
 impl ServiceTypeInfo for GetSchema {
-    fn service_type_info() -> Result<TypeInfo, SchemaError> {
+    fn service_type_info() -> TypeInfo {
         let descriptor = ServiceDef::new(
             "ros_z::GetSchema",
             "ros_z::GetSchemaRequest",
             "ros_z::GetSchemaResponse",
-        )?;
+        )
+        .expect("schema service descriptor should be static and valid");
 
-        Ok(TypeInfo::new(
-            descriptor.type_name.as_str(),
-            ros_z_schema::compute_hash(&descriptor),
-        ))
+        let hash = ros_z_schema::compute_hash(&descriptor)
+            .expect("schema service hash should be static and valid");
+        TypeInfo::new(descriptor.type_name.as_str(), hash)
     }
 }
 
@@ -217,7 +219,7 @@ mod registered_schema_tests {
 
     #[test]
     fn get_schema_response_advertises_schema_bundle_field_shape() {
-        let schema = GetSchemaResponse::schema().expect("schema response schema");
+        let schema = GetSchemaResponse::schema();
         let response = TypeName::new(GetSchemaResponse::type_name()).unwrap();
         let bundle = TypeName::new("ros_z_schema::SchemaBundle").unwrap();
 
@@ -285,7 +287,7 @@ fn schema_service_server_builder(
         node: node_entity,
         kind: EndpointKind::Service,
         topic: service_name.to_string(),
-        type_info: GetSchema::service_type_info().expect("schema service type info is static"),
+        type_info: GetSchema::service_type_info(),
         qos: Default::default(),
     };
 
@@ -448,7 +450,13 @@ impl SchemaService {
         };
 
         let response = Self::build_response(schemas, &request);
-        let bytes = SerdeCdrCodec::serialize(&response);
+        let bytes = match SerdeCdrCodec::serialize(&response) {
+            Ok(bytes) => bytes,
+            Err(error) => {
+                warn!(error = ?error, "[SCH] Failed to serialize response");
+                return;
+            }
+        };
         let mut reply = query.reply(query.key_expr().clone(), bytes);
         if let Some(att_bytes) = query.attachment()
             && let Ok(att) = Attachment::try_from(att_bytes)

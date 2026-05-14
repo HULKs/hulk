@@ -1,7 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use crate::{
-    ServiceTypeInfo,
+    Error, Result, ServiceTypeInfo,
     cache::CacheBuilder,
     context::{GlobalCounter, RuntimeParameterInputs},
     dynamic::{
@@ -10,15 +10,16 @@ use crate::{
         schema_service::SchemaServiceNodeIdentity,
     },
     entity::*,
+    error::WireError,
     graph::Graph,
-    message::{Message, Service, WireDecoder, WireEncoder},
+    message::{Message, Service, WireDecoder, WireEncoder, validated_type_info_for_schema},
     pubsub::{DEFAULT_TRANSIENT_LOCAL_REPLAY_TIMEOUT, PublisherBuilder, SubscriberBuilder},
     service::{ServiceClientBuilder, ServiceServerBuilder},
     shm::ShmConfig,
     time::{Clock, Timer},
 };
-use tracing::{debug, info, warn};
-use zenoh::{Result, Session, liveliness::LivelinessToken};
+use tracing::{debug, info};
+use zenoh::{Session, liveliness::LivelinessToken};
 
 /// A native ros-z node: a named participant that owns publishers, subscribers,
 /// service clients, and service servers.
@@ -103,7 +104,7 @@ impl NodeBuilder {
     /// use ros_z::shm::{ShmConfig, ShmProviderBuilder};
     /// use std::sync::Arc;
     ///
-    /// # async fn example() -> zenoh::Result<()> {
+    /// # async fn example() -> ros_z::Result<()> {
     /// # let context = ros_z::context::ContextBuilder::default().build().await?;
     /// let provider = Arc::new(ShmProviderBuilder::new(20 * 1024 * 1024).build()?);
     /// let config = ShmConfig::new(provider).with_threshold(5_000);
@@ -169,7 +170,8 @@ impl NodeBuilder {
             .session
             .liveliness()
             .declare_token(liveliness_token_key_expr)
-            .await?;
+            .await
+            .map_err(|source| Error::zenoh("declare node liveliness token", source))?;
 
         // Create schema service if enabled
         let schema_service = if self.enable_schema_service {
@@ -184,7 +186,8 @@ impl NodeBuilder {
                 &self.counter,
                 &self.clock,
             )
-            .await?;
+            .await
+            .map_err(|source| Error::zenoh("create schema service", source))?;
 
             info!("[NOD] SchemaService created (callback mode)");
 
@@ -210,56 +213,15 @@ impl NodeBuilder {
     }
 }
 
-fn typed_message_type_info<T: Message>(schema: &Schema) -> TypeInfo {
-    TypeInfo::new(T::type_name(), ros_z_schema::compute_hash(schema.as_ref()))
-}
-
-fn message_schema_build_error(
-    endpoint_kind: &str,
-    name: &str,
-    error: impl std::fmt::Display,
-) -> zenoh::Error {
-    zenoh::Error::from(format!(
-        "failed to build message schema for {endpoint_kind} '{name}': {error}"
-    ))
-}
-
-fn service_type_info_build_error(
-    endpoint_kind: &str,
-    name: &str,
-    error: impl std::fmt::Display,
-) -> zenoh::Error {
-    zenoh::Error::from(format!(
-        "failed to build service type info for {endpoint_kind} '{name}': {error}"
-    ))
-}
-
-fn registerable_schema_root(
-    root_name: &str,
-    schema: &ros_z_schema::SchemaBundle,
-) -> std::result::Result<bool, DynamicError> {
-    let ros_z_schema::TypeDef::Named(actual_root_name) = &schema.root else {
-        return Ok(true);
-    };
-
-    if actual_root_name.as_str() != root_name {
-        return Err(DynamicError::SerializationError(format!(
-            "schema root '{}' does not match registered root name '{root_name}'",
-            actual_root_name.as_str()
-        )));
-    }
-
-    Ok(true)
-}
-
 impl Node {
-    fn validate_service_message_schemas<T>() -> std::result::Result<(), ros_z_schema::SchemaError>
+    fn validate_service_message_schemas<T>()
     where
         T: Service,
     {
-        T::Request::schema()?;
-        T::Response::schema()?;
-        Ok(())
+        let request_schema = T::Request::schema();
+        validated_type_info_for_schema::<T::Request>(&request_schema);
+        let response_schema = T::Response::schema();
+        validated_type_info_for_schema::<T::Response>(&response_schema);
     }
 
     /// Create a publisher for the given topic.
@@ -272,6 +234,11 @@ impl Node {
     /// - Absolute topics (starting with '/') are used as-is
     /// - Private topics (starting with '~') are expanded to `/<namespace>/<node_name>/<topic>`
     /// - Relative topics are expanded to `/<namespace>/<topic>`
+    ///
+    /// # Panics
+    ///
+    /// Panics if `T` builds an invalid static [`Message`] schema or schema hash.
+    /// Runtime and dynamic schema registration failures are returned as errors.
     pub fn publisher<T>(&self, topic: &str) -> Result<PublisherBuilder<T>>
     where
         T: Message,
@@ -279,18 +246,19 @@ impl Node {
     {
         debug!("[NOD] Creating publisher: topic={}", topic);
 
-        let schema = Arc::new(
-            T::schema().map_err(|error| message_schema_build_error("publisher", topic, error))?,
-        );
+        let schema = Arc::new(T::schema());
+        let type_info = validated_type_info_for_schema::<T>(&schema);
         let type_name = T::type_name();
-        let should_register = registerable_schema_root(&type_name, schema.as_ref())
-            .map_err(|error| message_schema_build_error("publisher", topic, error))?;
-        if should_register {
-            self.register_schema_with_service(&type_name, Arc::clone(&schema))
-                .map_err(|error| message_schema_build_error("publisher", topic, error))?;
-        }
+        self.register_schema_with_service(&type_name, Arc::clone(&schema))
+            .map_err(|error| {
+                Error::from(WireError::DynamicSchema {
+                    endpoint_kind: "publisher",
+                    topic: topic.to_string(),
+                    source: error,
+                })
+            })?;
 
-        Ok(self.publisher_impl::<T, T::Codec>(topic, typed_message_type_info::<T>(&schema)))
+        Ok(self.publisher_impl::<T, T::Codec>(topic, type_info))
     }
 
     fn publisher_impl<T, S>(&self, topic: &str, type_info: TypeInfo) -> PublisherBuilder<T, S>
@@ -326,6 +294,11 @@ impl Node {
     /// - Absolute topics (starting with '/') are used as-is
     /// - Private topics (starting with '~') are expanded to `/<namespace>/<node_name>/<topic>`
     /// - Relative topics are expanded to `/<namespace>/<topic>`
+    ///
+    /// # Panics
+    ///
+    /// Panics if `T` builds an invalid static [`Message`] schema or schema hash.
+    /// Runtime and dynamic subscriber failures are returned as errors.
     pub fn subscriber<T>(&self, topic: &str) -> Result<SubscriberBuilder<T>>
     where
         T: Message,
@@ -333,11 +306,10 @@ impl Node {
     {
         debug!("[NOD] Creating subscriber: topic={}", topic);
 
-        let schema = Arc::new(
-            T::schema().map_err(|error| message_schema_build_error("subscriber", topic, error))?,
-        );
+        let schema = T::schema();
+        let type_info = validated_type_info_for_schema::<T>(&schema);
 
-        Ok(self.subscriber_impl::<T, T::Codec>(topic, typed_message_type_info::<T>(&schema)))
+        Ok(self.subscriber_impl::<T, T::Codec>(topic, type_info))
     }
 
     fn subscriber_impl<T, S>(&self, topic: &str, type_info: TypeInfo) -> SubscriberBuilder<T, S>
@@ -383,7 +355,7 @@ impl Node {
     /// use ros_z::time::Time;
     /// use std::time::Duration;
     ///
-    /// # async fn example() -> zenoh::Result<()> {
+    /// # async fn example() -> ros_z::Result<()> {
     /// let context = ContextBuilder::default().build().await?;
     /// let node = context.create_node("cache_demo").build().await?;
     ///
@@ -396,6 +368,11 @@ impl Node {
     /// # Ok(())
     /// # }
     /// ```
+    ///
+    /// # Panics
+    ///
+    /// Panics if `T` builds an invalid static [`Message`] schema or schema hash.
+    /// Runtime cache/subscriber failures are returned as errors.
     pub fn create_cache<T>(
         &self,
         topic: &str,
@@ -409,9 +386,8 @@ impl Node {
             "[NOD] Creating cache: topic={}, capacity={}",
             topic, capacity
         );
-        T::schema().map_err(|error| message_schema_build_error("cache", topic, error))?;
-        let type_info =
-            T::type_info().map_err(|error| message_schema_build_error("cache", topic, error))?;
+        let schema = T::schema();
+        let type_info = validated_type_info_for_schema::<T>(&schema);
         Ok(CacheBuilder::new(
             self.subscriber_impl::<T, <T as Message>::Codec>(topic, type_info),
             capacity,
@@ -435,17 +411,19 @@ impl Node {
     /// - Absolute service names (starting with '/') are used as-is
     /// - Private service names (starting with '~') are expanded to `/<namespace>/<node_name>/<service>`
     /// - Relative service names are expanded to `/<namespace>/<service>`
+    ///
+    /// # Panics
+    ///
+    /// Panics if `T` builds invalid static service type metadata, or if
+    /// `T::Request` or `T::Response` builds an invalid static [`Message`]
+    /// schema or schema hash.
     pub fn create_service_server<T>(&self, name: &str) -> Result<ServiceServerBuilder<T>>
     where
         T: Service + ServiceTypeInfo,
     {
         debug!("[NOD] Creating service server: name={}", name);
-        let type_info = T::service_type_info()
-            .and_then(|type_info| {
-                Self::validate_service_message_schemas::<T>()?;
-                Ok(type_info)
-            })
-            .map_err(|error| service_type_info_build_error("server", name, error))?;
+        let type_info = T::service_type_info();
+        Self::validate_service_message_schemas::<T>();
         Ok(self.create_service_impl(name, type_info))
     }
 
@@ -482,17 +460,19 @@ impl Node {
     /// - Absolute service names (starting with '/') are used as-is
     /// - Private service names (starting with '~') are expanded to `/<namespace>/<node_name>/<service>`
     /// - Relative service names are expanded to `/<namespace>/<service>`
+    ///
+    /// # Panics
+    ///
+    /// Panics if `T` builds invalid static service type metadata, or if
+    /// `T::Request` or `T::Response` builds an invalid static [`Message`]
+    /// schema or schema hash.
     pub fn create_service_client<T>(&self, name: &str) -> Result<ServiceClientBuilder<T>>
     where
         T: Service + ServiceTypeInfo,
     {
         debug!("[NOD] Creating service client: name={}", name);
-        let type_info = T::service_type_info()
-            .and_then(|type_info| {
-                Self::validate_service_message_schemas::<T>()?;
-                Ok(type_info)
-            })
-            .map_err(|error| service_type_info_build_error("client", name, error))?;
+        let type_info = T::service_type_info();
+        Self::validate_service_message_schemas::<T>();
         Ok(self.create_client_impl(name, type_info))
     }
 
@@ -614,7 +594,7 @@ impl Node {
     ///     )]),
     /// });
     ///
-    /// let type_info = TypeInfo::new("std_msgs::String", ros_z_schema::compute_hash(schema.as_ref()));
+    /// let type_info = TypeInfo::new("std_msgs::String", ros_z_schema::compute_hash(schema.as_ref())?);
     /// let publisher = node.dynamic_publisher("chatter", type_info, schema)?.build().await?;
     ///
     /// let mut message = DynamicStruct::default_for_schema(publisher.schema().unwrap())?;
@@ -628,22 +608,22 @@ impl Node {
         type_info: TypeInfo,
         schema: Schema,
     ) -> Result<DynamicPublisherBuilder> {
-        if let Err(error) = schema.validate() {
-            warn!(
-                "[NOD] Failed to validate schema {}: {}",
-                type_info.name, error
-            );
-            return Err(message_schema_build_error("publisher", topic, error));
-        }
+        schema
+            .validate()
+            .map_err(|error| Error::schema("publisher", topic, error))?;
 
-        let should_register = registerable_schema_root(&type_info.name, schema.as_ref())
-            .map_err(|error| message_schema_build_error("publisher", topic, error))?;
-        if should_register {
-            self.register_schema_with_service(&type_info.name, Arc::clone(&schema))
-                .map_err(|error| message_schema_build_error("publisher", topic, error))?;
-        }
+        self.register_schema_with_service(&type_info.name, Arc::clone(&schema))
+            .map_err(|source| {
+                Error::from(WireError::DynamicSchema {
+                    endpoint_kind: "publisher",
+                    topic: topic.to_string(),
+                    source,
+                })
+            })?;
 
-        Ok(self.dynamic_publisher_impl(topic, type_info, schema))
+        Ok(self
+            .publisher_impl::<DynamicPayload, DynamicCdrCodec>(topic, type_info)
+            .dynamic_schema(schema))
     }
 
     /// Discover the schema that publishers currently expose on a topic.
@@ -708,10 +688,7 @@ impl Node {
             topic
         );
 
-        let discovered = self
-            .discover_topic_schema(topic, discovery_timeout)
-            .await
-            .map_err(|error| zenoh::Error::from(error.to_string()))?;
+        let discovered = self.discover_topic_schema(topic, discovery_timeout).await?;
 
         info!(
             "[NOD] Discovered schema for topic {}: {} (hash: {})",
@@ -720,7 +697,9 @@ impl Node {
             discovered.schema_hash.to_hash_string()
         );
 
-        Ok(self.dynamic_subscriber_impl(topic, discovered.type_info(), discovered.schema))
+        Ok(self
+            .subscriber_impl::<DynamicPayload, DynamicCdrCodec>(topic, discovered.type_info())
+            .dynamic_schema(discovered.schema))
     }
 
     /// Create a dynamic subscriber with a known schema.
@@ -752,7 +731,7 @@ impl Node {
     ///     )]),
     /// });
     ///
-    /// let type_info = TypeInfo::new("std_msgs::String", ros_z_schema::compute_hash(schema.as_ref()));
+    /// let type_info = TypeInfo::new("std_msgs::String", ros_z_schema::compute_hash(schema.as_ref())?);
     /// let subscriber = node.dynamic_subscriber("chatter", type_info, schema)?.build().await?;
     /// let message = subscriber.recv().await?;
     /// ```
@@ -763,30 +742,12 @@ impl Node {
         schema: Schema,
     ) -> Result<DynamicSubscriberBuilder> {
         if let Err(error) = schema.validate() {
-            return Err(message_schema_build_error("subscriber", topic, error));
+            return Err(Error::schema("subscriber", topic, error));
         }
 
-        Ok(self.dynamic_subscriber_impl(topic, type_info, schema))
-    }
-
-    fn dynamic_publisher_impl(
-        &self,
-        topic: &str,
-        type_info: TypeInfo,
-        schema: Schema,
-    ) -> DynamicPublisherBuilder {
-        self.publisher_impl::<DynamicPayload, DynamicCdrCodec>(topic, type_info)
-            .dynamic_schema(schema)
-    }
-
-    fn dynamic_subscriber_impl(
-        &self,
-        topic: &str,
-        type_info: TypeInfo,
-        schema: Schema,
-    ) -> DynamicSubscriberBuilder {
-        self.subscriber_impl::<DynamicPayload, DynamicCdrCodec>(topic, type_info)
-            .dynamic_schema(schema)
+        Ok(self
+            .subscriber_impl::<DynamicPayload, DynamicCdrCodec>(topic, type_info)
+            .dynamic_schema(schema))
     }
 
     pub fn register_schema_with_service(
@@ -794,9 +755,18 @@ impl Node {
         root_name: &str,
         schema: Schema,
     ) -> std::result::Result<(), DynamicError> {
+        if let ros_z_schema::TypeDef::Named(schema_root_name) = &schema.root
+            && schema_root_name.as_str() != root_name
+        {
+            return Err(DynamicError::SerializationError(format!(
+                "schema root '{}' does not match registered root name '{}'",
+                schema_root_name.as_str(),
+                root_name
+            )));
+        }
         if let Some(service) = &self.schema_service {
-            service.register_schema(root_name, Arc::clone(&schema))?;
-            debug!("[NOD] Registered schema {} with schema service", root_name);
+            service.register_schema(root_name, schema)?;
+            debug!("[NOD] Registered schema {root_name} with schema service");
         }
 
         Ok(())

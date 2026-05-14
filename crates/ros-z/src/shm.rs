@@ -204,7 +204,7 @@ impl ShmConfig {
     /// # Ok(())
     /// # }
     /// ```
-    pub fn from_env() -> zenoh::Result<Option<Self>> {
+    pub fn from_env() -> crate::Result<Option<Self>> {
         // Check if either environment variable is set
         let has_pool_size = std::env::var("ZENOH_SHM_ALLOC_SIZE").is_ok();
         let has_threshold = std::env::var("ZENOH_SHM_MESSAGE_SIZE_THRESHOLD").is_ok();
@@ -291,12 +291,18 @@ impl ShmProviderBuilder {
     ///
     /// Returns an error if the SHM provider cannot be created (e.g., insufficient
     /// system resources, permissions issues).
-    pub fn build(self) -> zenoh::Result<ShmProvider<PosixShmProviderBackend>> {
+    pub fn build(self) -> crate::Result<ShmProvider<PosixShmProviderBackend>> {
         use zenoh::shm::ShmProviderBuilder as ZenohShmProviderBuilder;
 
         ZenohShmProviderBuilder::default_backend(self.size)
             .wait()
-            .map_err(|e| zenoh::Error::from(format!("Failed to create ShmProvider: {}", e)))
+            .map_err(|source| {
+                crate::error::ShmError::Provider {
+                    size: self.size,
+                    source,
+                }
+                .into()
+            })
     }
 }
 
@@ -312,7 +318,7 @@ impl ShmProviderBuilder {
 /// use ros_z::shm::{ShmProviderBuilder, ShmWriter};
 /// use serde::Serialize;
 ///
-/// # fn main() -> zenoh::Result<()> {
+/// # fn main() -> ros_z::Result<()> {
 /// let provider = ShmProviderBuilder::new(10 * 1024 * 1024).build()?;
 ///
 /// // Estimate serialized size (conservative)
@@ -350,12 +356,15 @@ impl ShmWriter {
     pub fn new(
         provider: &ShmProvider<PosixShmProviderBackend>,
         capacity: usize,
-    ) -> zenoh::Result<Self> {
+    ) -> crate::Result<Self> {
         let buffer = provider
             .alloc(capacity)
             .with_policy::<BlockOn<GarbageCollect>>()
             .wait()
-            .map_err(|e| zenoh::Error::from(format!("SHM allocation failed: {}", e)))?;
+            .map_err(|source| crate::error::ShmError::Allocation {
+                capacity,
+                source: Box::new(source),
+            })?;
 
         Ok(Self {
             buffer,
@@ -377,7 +386,7 @@ impl ShmWriter {
     /// # Errors
     ///
     /// Returns an error if the buffer cannot be converted to ZBuf.
-    pub fn into_zbuf(self) -> zenoh::Result<ZBuf> {
+    pub fn into_zbuf(self) -> crate::Result<ZBuf> {
         // Create a ZBuf from the SHM buffer
         // Note: The entire allocated buffer is used, not just the written portion
         // This is acceptable as Zenoh will handle the actual data length separately

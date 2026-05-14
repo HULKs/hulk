@@ -11,7 +11,6 @@ crate-type = ["lib"]
 [dependencies]
 arc-swap = { workspace = true }
 byteorder = { workspace = true }
-color-eyre = { workspace = true }
 event-listener = { workspace = true }
 json5 = { workspace = true }
 nalgebra = { workspace = true, features = ["serde-serialize"], optional = true }
@@ -25,13 +24,16 @@ serde_json = { workspace = true }
 sha2 = { workspace = true }
 slab = { workspace = true }
 tempfile = { workspace = true }
+thiserror = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "signal"] }
+tokio-util = { workspace = true }
 tracing = { workspace = true }
 zenoh = { workspace = true, features = ["shared-memory", "unstable"] }
 zenoh-buffers = { workspace = true }
 zenoh-ext = { workspace = true }
 
 [dev-dependencies]
+color-eyre = { workspace = true }
 serial_test = { workspace = true }
 trybuild = { workspace = true }
 

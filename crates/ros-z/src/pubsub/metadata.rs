@@ -3,6 +3,8 @@ use std::ops::Deref;
 use zenoh::sample::Sample;
 
 use crate::attachment::{Attachment, EndpointGlobalId};
+use crate::error::WireError;
+use crate::error::{Error, Result};
 use crate::time::Time;
 
 /// A deserialized message together with the transport and source timestamps seen
@@ -50,22 +52,19 @@ pub(super) fn publication_id_from_sample(sample: &Sample) -> Option<PublicationI
 }
 
 impl<T> Received<T> {
-    pub(super) fn try_from_sample(sample: &Sample, message: T) -> zenoh::Result<Self> {
+    pub(super) fn try_from_sample(sample: &Sample, message: T) -> Result<Self> {
         let transport_time = sample
             .timestamp()
             .map(|ts| Time::from_wallclock(ts.get_time().to_system_time()));
 
         let attachment = {
-            let raw = sample.attachment().ok_or_else(|| {
-                zenoh::Error::from("received ros-z sample without attachment metadata")
-            })?;
+            let raw = sample
+                .attachment()
+                .ok_or(WireError::MissingSampleAttachment)?;
 
-            Attachment::try_from(raw).map_err(|error| {
-                zenoh::Error::from(format!(
-                    "failed to decode ros-z attachment metadata: {error}"
-                ))
-            })
-        }?;
+            Attachment::try_from(raw)
+                .map_err(|source| Error::from(WireError::SampleAttachmentDecode { source }))?
+        };
 
         Ok(Self {
             message,

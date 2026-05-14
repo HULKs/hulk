@@ -414,10 +414,10 @@ mod tests {
 
     #[test]
     fn ztime_type_info_uses_trait_default_schema_hash() {
-        let schema = Time::schema().expect("Time schema should build");
-        let expected = ros_z_schema::compute_hash(&schema);
+        let schema = Time::schema();
+        let expected = ros_z_schema::compute_hash(&schema).unwrap();
 
-        assert_eq!(Time::schema_hash().unwrap(), expected);
+        assert_eq!(Time::schema_hash(), expected);
     }
 
     #[tokio::test]
@@ -573,17 +573,17 @@ mod tests {
     #[test]
     fn ztime_type_info_uses_native_schema_type_name() {
         assert_eq!(Time::type_name(), "ros_z::Time");
-        let schema = Time::schema().unwrap();
+        let schema = Time::schema();
         assert_eq!(
             schema.root,
             ros_z_schema::TypeDef::Named(ros_z_schema::TypeName::new("ros_z::Time").unwrap())
         );
-        assert_eq!(Time::type_info().unwrap().name, "ros_z::Time");
+        assert_eq!(Time::type_info().name, "ros_z::Time");
     }
 
     #[test]
     fn ztime_duration_field_uses_native_nested_type_name() {
-        let schema = Time::schema().unwrap();
+        let schema = Time::schema();
         let time_name = ros_z_schema::TypeName::new("ros_z::Time").unwrap();
         let Some(ros_z_schema::TypeDefinition::Struct(definition)) =
             schema.definitions.get(&time_name)

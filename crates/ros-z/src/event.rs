@@ -1,9 +1,9 @@
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex};
-use zenoh::Result;
 
 use crate::EndpointGlobalId;
+use crate::Result;
 use crate::entity::{EndpointKind, Entity};
 
 // Event kinds reported for ros-z endpoints.

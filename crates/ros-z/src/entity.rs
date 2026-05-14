@@ -6,9 +6,10 @@
 // Re-export all entity types from ros-z-protocol
 pub use ros_z_protocol::entity::*;
 
+use crate::Result;
 use crate::attachment::EndpointGlobalId;
 
-use zenoh::{Result, key_expr::KeyExpr};
+use zenoh::key_expr::KeyExpr;
 
 // Constants for ros-z-specific functionality
 pub const ADMIN_SPACE: &str = ros_z_protocol::format::ADMIN_SPACE;
@@ -66,12 +67,15 @@ pub fn endpoint_global_id(entity: &EndpointEntity) -> EndpointGlobalId {
 
 /// Convert a NodeEntity to a LivelinessKE using the default format
 pub fn node_to_liveliness_key_expr(entity: &NodeEntity) -> Result<LivelinessKE> {
-    ros_z_protocol::format::node_liveliness_key_expr(entity)
+    Ok(ros_z_protocol::format::node_liveliness_key_expr(entity)?)
 }
 
 /// Convert an EndpointEntity to a LivelinessKE using the default format
 pub fn endpoint_to_liveliness_key_expr(entity: &EndpointEntity) -> Result<LivelinessKE> {
-    ros_z_protocol::format::liveliness_key_expr(entity, &entity.node.z_id)
+    Ok(ros_z_protocol::format::liveliness_key_expr(
+        entity,
+        &entity.node.z_id,
+    )?)
 }
 
 /// Convert an Entity to a LivelinessKE using the default format

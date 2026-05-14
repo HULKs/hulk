@@ -7,7 +7,7 @@ use coordinate_systems::{Camera, Ground, Robot};
 use kinematics::robot_kinematics::RobotKinematics;
 use linear_algebra::{Isometry3, Vector3};
 use projection::camera_matrix::CameraMatrix;
-use ros_z::{IntoEyreResultExt, prelude::*};
+use ros_z::prelude::*;
 use ros2::sensor_msgs::camera_info::CameraInfo;
 use types::parameters::CameraMatrixParameters;
 
@@ -20,45 +20,29 @@ pub struct Parameters {
 }
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
-    let node = ctx
-        .create_node("camera_matrix_calculator")
-        .build()
-        .await
-        .into_eyre()?;
+    let node = ctx.create_node("camera_matrix_calculator").build().await?;
 
-    let _parameters = node
-        .bind_parameter_as::<Parameters>("camera_matrix_calculator")
-        .into_eyre()?;
+    let _parameters = node.bind_parameter_as::<Parameters>("camera_matrix_calculator")?;
     let _robot_kinematics_sub = node
-        .subscriber::<RobotKinematics>("robot_kinematics")
-        .into_eyre()?
+        .subscriber::<RobotKinematics>("robot_kinematics")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _robot_to_ground_sub = node
-        .subscriber::<Isometry3<Robot, Ground>>("robot_to_ground")
-        .into_eyre()?
+        .subscriber::<Isometry3<Robot, Ground>>("robot_to_ground")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _camera_info_sub = node
-        .subscriber::<CameraInfo>("inputs/camera_info")
-        .into_eyre()?
+        .subscriber::<CameraInfo>("inputs/camera_info")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _uncalibrated_camera_matrix_pub = node
-        .publisher::<CameraMatrix>("uncalibrated_camera_matrix")
-        .into_eyre()?
+        .publisher::<CameraMatrix>("uncalibrated_camera_matrix")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _camera_matrix_pub = node
-        .publisher::<CameraMatrix>("camera_matrix")
-        .into_eyre()?
+        .publisher::<CameraMatrix>("camera_matrix")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
 
     pending::<()>().await;
 

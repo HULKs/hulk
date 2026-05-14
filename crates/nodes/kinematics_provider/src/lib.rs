@@ -4,26 +4,18 @@ use color_eyre::Result;
 
 use booster::MotorState;
 use kinematics::{joints::Joints, robot_kinematics::RobotKinematics};
-use ros_z::{IntoEyreResultExt, prelude::*};
+use ros_z::prelude::*;
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
-    let node = ctx
-        .create_node("kinematics_provider")
-        .build()
-        .await
-        .into_eyre()?;
+    let node = ctx.create_node("kinematics_provider").build().await?;
     let _serial_motor_states_sub = node
-        .subscriber::<Joints<MotorState>>("inputs/serial_motor_states")
-        .into_eyre()?
+        .subscriber::<Joints<MotorState>>("inputs/serial_motor_states")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _robot_kinematics_pub = node
-        .publisher::<RobotKinematics>("robot_kinematics")
-        .into_eyre()?
+        .publisher::<RobotKinematics>("robot_kinematics")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
 
     pending::<()>().await;
 

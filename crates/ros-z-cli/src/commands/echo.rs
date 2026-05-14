@@ -29,7 +29,6 @@ pub async fn run(
     let subscriber = subscriber_builder
         .build()
         .await
-        .map_err(|error| eyre!(error))
         .wrap_err_with(|| format!("failed to subscribe to {topic}"))?;
     let _schema = subscriber
         .schema()
@@ -82,14 +81,12 @@ async fn receive_message(
 
     match deadline {
         Some(deadline) => match tokio::time::timeout_at(deadline, receive).await {
-            Ok(result) => {
-                result.map_err(|error| eyre!("subscriber receive failed for {topic}: {error}"))
-            }
+            Ok(result) => result.wrap_err_with(|| format!("subscriber receive failed for {topic}")),
             Err(_) => bail!("timed out waiting for messages on {topic}"),
         },
         None => receive
             .await
-            .map_err(|error| eyre!("subscriber receive failed for {topic}: {error}")),
+            .wrap_err_with(|| format!("subscriber receive failed for {topic}")),
     }
 }
 

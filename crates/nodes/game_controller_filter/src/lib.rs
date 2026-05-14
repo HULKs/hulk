@@ -9,7 +9,7 @@ use std::{
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
-use ros_z::{IntoEyreResultExt, prelude::*};
+use ros_z::prelude::*;
 use types::{game_controller_state::GameControllerState, messages::IncomingMessage};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
@@ -20,39 +20,25 @@ pub struct Parameters {
 }
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
-    let node = ctx
-        .create_node("game_controller_filter")
-        .build()
-        .await
-        .into_eyre()?;
+    let node = ctx.create_node("game_controller_filter").build().await?;
 
-    let _parameters = node
-        .bind_parameter_as::<Parameters>("game_controller_filter")
-        .into_eyre()?;
+    let _parameters = node.bind_parameter_as::<Parameters>("game_controller_filter")?;
     let _network_message_sub = node
-        .subscriber::<IncomingMessage>("filtered_message")
-        .into_eyre()?
+        .subscriber::<IncomingMessage>("filtered_message")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _last_contact_pub = node
-        .publisher::<HashMap<SocketAddr, SystemTime>>("game_controller_address_contacts_times")
-        .into_eyre()?
+        .publisher::<HashMap<SocketAddr, SystemTime>>("game_controller_address_contacts_times")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _game_controller_state_pub = node
-        .publisher::<GameControllerState>("game_controller_state")
-        .into_eyre()?
+        .publisher::<GameControllerState>("game_controller_state")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _game_controller_address_pub = node
-        .publisher::<SocketAddr>("game_controller_address")
-        .into_eyre()?
+        .publisher::<SocketAddr>("game_controller_address")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
 
     pending::<()>().await;
 

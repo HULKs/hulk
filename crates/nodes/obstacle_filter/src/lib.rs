@@ -8,7 +8,7 @@ use booster::FallDownState;
 use coordinate_systems::{Field, Ground};
 use linear_algebra::{Isometry2, Point2};
 use projection::camera_matrix::CameraMatrix;
-use ros_z::{IntoEyreResultExt, prelude::*};
+use ros_z::prelude::*;
 use types::{
     field_dimensions::FieldDimensions,
     object_detection::{Object, RobocupObjectLabel},
@@ -26,69 +26,45 @@ pub struct Parameters {
 }
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
-    let node = ctx
-        .create_node("obstacle_filter")
-        .build()
-        .await
-        .into_eyre()?;
+    let node = ctx.create_node("obstacle_filter").build().await?;
 
-    let _parameters = node
-        .bind_parameter_as::<Parameters>("obstacle_filter")
-        .into_eyre()?;
+    let _parameters = node.bind_parameter_as::<Parameters>("obstacle_filter")?;
     let _camera_matrix_sub = node
-        .subscriber::<CameraMatrix>("camera_matrix")
-        .into_eyre()?
+        .subscriber::<CameraMatrix>("camera_matrix")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _network_robot_obstacles_sub = node
-        .subscriber::<Vec<Point2<Ground>>>("network_robot_obstacles")
-        .into_eyre()?
+        .subscriber::<Vec<Point2<Ground>>>("network_robot_obstacles")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _current_odometry_to_last_odometry_sub = node
-        .subscriber::<na::Isometry2<f32>>("current_odometry_to_last_odometry")
-        .into_eyre()?
+        .subscriber::<na::Isometry2<f32>>("current_odometry_to_last_odometry")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _primary_state_sub = node
-        .subscriber::<PrimaryState>("primary_state")
-        .into_eyre()?
+        .subscriber::<PrimaryState>("primary_state")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _current_ground_to_field_sub = node
-        .subscriber::<Isometry2<Ground, Field>>("ground_to_field")
-        .into_eyre()?
+        .subscriber::<Isometry2<Ground, Field>>("ground_to_field")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _fall_down_state_sub = node
-        .subscriber::<FallDownState>("inputs/fall_down_state")
-        .into_eyre()?
+        .subscriber::<FallDownState>("inputs/fall_down_state")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _detected_objects_sub = node
-        .subscriber::<Vec<Object<RobocupObjectLabel>>>("detected_objects")
-        .into_eyre()?
+        .subscriber::<Vec<Object<RobocupObjectLabel>>>("detected_objects")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _obstacle_filter_hypotheses_pub = node
-        .publisher::<Vec<Hypothesis>>("obstacle_filter_hypotheses")
-        .into_eyre()?
+        .publisher::<Vec<Hypothesis>>("obstacle_filter_hypotheses")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _obstacles_pub = node
-        .publisher::<Vec<Obstacle>>("obstacles")
-        .into_eyre()?
+        .publisher::<Vec<Obstacle>>("obstacles")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
 
     pending::<()>().await;
 

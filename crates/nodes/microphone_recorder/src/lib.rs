@@ -4,7 +4,7 @@ use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
 use microphones::{parameters::Parameters as MicrophonesParameters, reader::Microphones};
-use ros_z::{IntoEyreResultExt, Message, context::Context, parameter::NodeParametersExt};
+use ros_z::{Message, context::Context, parameter::NodeParametersExt};
 use types::samples::Samples;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
@@ -17,29 +17,23 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx
         .create_node("microphone_recorder")
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
 
-    let parameters = node
-        .bind_parameter_as::<Parameters>("microphone_recorder")
-        .into_eyre()?;
+    let parameters = node.bind_parameter_as::<Parameters>("microphone_recorder")?;
 
     let microphones_samples_pub = node
-        .publisher::<Samples>("inputs/microphones_samples")
-        .into_eyre()?
+        .publisher::<Samples>("inputs/microphones_samples")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
 
     let parameters_snapshot = parameters.snapshot();
     let parameters = parameters_snapshot.typed();
     let mut microphones = Microphones::new(parameters.microphones.clone())?;
 
     loop {
-        let samples = microphones.retrying_read().into_eyre()?;
+        let samples = microphones.retrying_read()?;
         microphones_samples_pub
             .publish(&samples)
-            .await
-            .into_eyre()?;
+            .await?;
     }
 }

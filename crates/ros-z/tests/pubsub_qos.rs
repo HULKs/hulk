@@ -3,10 +3,12 @@
 use std::{num::NonZeroUsize, time::Duration};
 
 use ros_z::{
-    Result,
     context::ContextBuilder,
     qos::{QosDurability, QosHistory, QosProfile, QosReliability},
 };
+
+type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
+
 async fn setup_test_node(node_name: &str) -> Result<(ros_z::context::Context, ros_z::node::Node)> {
     let context = ContextBuilder::default().build().await?;
     let node = context.create_node(node_name).build().await?;

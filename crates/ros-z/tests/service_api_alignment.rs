@@ -1,10 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use ros_z::{
-    ServiceTypeInfo,
-    context::ContextBuilder,
-    entity::{SchemaHash, TypeInfo},
-    message::Service,
+    Message, ServiceTypeInfo, context::ContextBuilder, entity::TypeInfo, message::Service,
 };
 use serde::{Deserialize, Serialize};
 use serde_json::json;
@@ -25,16 +22,16 @@ struct AddTwoIntsResponse {
 struct AddTwoInts;
 
 impl ServiceTypeInfo for AddTwoInts {
-    fn service_type_info() -> Result<TypeInfo, ros_z_schema::SchemaError> {
+    fn service_type_info() -> TypeInfo {
         let descriptor = ros_z_schema::ServiceDef::new(
             "test_msgs::AddTwoInts",
-            "test_msgs::AddTwoIntsRequest",
-            "test_msgs::AddTwoIntsResponse",
-        )?;
-        Ok(TypeInfo::new(
-            "test_msgs::AddTwoInts",
-            SchemaHash(ros_z_schema::compute_hash(&descriptor).0),
-        ))
+            AddTwoIntsRequest::type_name(),
+            AddTwoIntsResponse::type_name(),
+        )
+        .expect("test service descriptor should be static and valid");
+        let hash = ros_z_schema::compute_hash(&descriptor)
+            .expect("test service hash should be static and valid");
+        TypeInfo::new(descriptor.type_name.as_str(), hash)
     }
 }
 
@@ -53,10 +50,8 @@ fn generated_service_and_manual_descriptor_share_the_same_hash() {
     .expect("service descriptor");
 
     assert_eq!(
-        AddTwoInts::service_type_info()
-            .expect("generated type info")
-            .hash,
-        ros_z::entity::SchemaHash(ros_z_schema::compute_hash(&manual).0)
+        AddTwoInts::service_type_info().hash,
+        ros_z_schema::compute_hash(&manual).unwrap()
     );
 }
 

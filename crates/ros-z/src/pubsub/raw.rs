@@ -1,8 +1,9 @@
 use std::sync::Arc;
 use std::time::Duration;
 
-use zenoh::{Result, sample::Sample};
+use zenoh::sample::Sample;
 
+use crate::Result;
 use crate::pubsub::subscriber::{SubscriberBuilder, SubscriberResources};
 use crate::qos::QosProfile;
 use crate::queue::BoundedQueue;

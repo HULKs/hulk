@@ -5,8 +5,9 @@ use std::time::Duration;
 
 use tracing::{debug, warn};
 use zenoh::liveliness::LivelinessToken;
-use zenoh::{Result, Session, sample::Sample};
+use zenoh::{Session, sample::Sample};
 
+use crate::Result;
 use crate::dynamic::{DynamicCdrCodec, DynamicPayload, Schema};
 use crate::entity::{EndpointEntity, EntityKind, endpoint_global_id};
 use crate::event::EventsManager;
@@ -49,6 +50,7 @@ async fn declare_liveliness(session: &Session, entity: &EndpointEntity) -> Resul
         .liveliness()
         .declare_token((*liveliness_key_expr).clone())
         .await
+        .map_err(|source| crate::Error::zenoh("declare subscriber liveliness token", source))
 }
 
 impl<T, C> SubscriberBuilder<T, C>
@@ -125,24 +127,24 @@ where
     where
         F: Fn(Sample) + Send + Sync + 'static,
     {
-        let entity = &mut self.entity;
+        let topic = self.entity.topic.clone();
         let qualified_topic =
-            qualify_topic_name(&entity.topic, &entity.node.namespace, &entity.node.name)
-                .map_err(|e| zenoh::Error::from(format!("Failed to qualify topic: {}", e)))?;
+            qualify_topic_name(&topic, &self.entity.node.namespace, &self.entity.node.name)
+                .map_err(|source| crate::Error::topic_name(topic, source))?;
 
-        entity.topic = qualified_topic.clone();
+        self.entity.topic = qualified_topic.clone();
         debug!("[{}] Qualified topic: {}", log_prefix, qualified_topic);
 
-        let topic_key_expr = ros_z_protocol::format::topic_key_expr(entity)?;
+        let topic_key_expr = ros_z_protocol::format::topic_key_expr(&self.entity)?;
         let key_expr = (*topic_key_expr).clone();
         debug!(
             "[{}] Key expression: {}, qos={:?}",
-            log_prefix, key_expr, entity.qos
+            log_prefix, key_expr, self.entity.qos
         );
 
         let callback: Arc<dyn Fn(Sample) + Send + Sync> = Arc::new(callback);
 
-        if !matches!(entity.qos.durability, QosDurability::TransientLocal) {
+        if !matches!(self.entity.qos.durability, QosDurability::TransientLocal) {
             let subscriber_callback = callback.clone();
             let mut subscriber = self
                 .session
@@ -153,15 +155,18 @@ where
                 subscriber = subscriber.allowed_origin(locality);
             }
 
-            let subscriber = subscriber.await?;
-            let liveliness_token = declare_liveliness(&self.session, entity).await?;
+            let subscriber = subscriber
+                .await
+                .map_err(|source| crate::Error::zenoh("declare subscriber", source))?;
+            let liveliness_token = declare_liveliness(&self.session, &self.entity).await?;
             Ok(SubscriberResources {
                 _subscriber: subscriber,
                 _liveliness_token: liveliness_token,
                 _replay_guard: None,
             })
         } else {
-            let Some(live_capacity) = replay::transient_local_replay_live_capacity(&entity.qos)
+            let Some(live_capacity) =
+                replay::transient_local_replay_live_capacity(&self.entity.qos)
             else {
                 warn!(
                     "[{}] TransientLocal + KeepAll requested; replay coordination is disabled because history is unbounded",
@@ -177,8 +182,10 @@ where
                     subscriber = subscriber.allowed_origin(locality);
                 }
 
-                let subscriber = subscriber.await?;
-                let liveliness_token = declare_liveliness(&self.session, entity).await?;
+                let subscriber = subscriber
+                    .await
+                    .map_err(|source| crate::Error::zenoh("declare subscriber", source))?;
+                let liveliness_token = declare_liveliness(&self.session, &self.entity).await?;
                 return Ok(SubscriberResources {
                     _subscriber: subscriber,
                     _liveliness_token: liveliness_token,
@@ -201,10 +208,12 @@ where
                 subscriber = subscriber.allowed_origin(locality);
             }
 
-            let subscriber = subscriber.await?;
+            let subscriber = subscriber
+                .await
+                .map_err(|source| crate::Error::zenoh("declare subscriber", source))?;
 
             let (initial_replay_publishers, initial_replay_seen) = replay::initial_replay_plan(
-                replay::replay_capable_publishers(&self.graph, &entity.topic),
+                replay::replay_capable_publishers(&self.graph, &self.entity.topic),
             );
             for (publisher_global_id, _) in initial_replay_publishers {
                 replay::query_initial_transient_local_replay_async(
@@ -219,14 +228,14 @@ where
             coordinator.finish_initial_replay();
             let replay_task = replay::spawn_transient_local_replay_task(
                 self.graph.clone(),
-                entity.topic.clone(),
+                self.entity.topic.clone(),
                 coordinator,
                 self.session.clone(),
                 topic_key_expr.to_string(),
                 self.transient_local_replay_timeout,
                 initial_replay_seen,
             );
-            let liveliness_token = declare_liveliness(&self.session, entity).await?;
+            let liveliness_token = declare_liveliness(&self.session, &self.entity).await?;
             Ok(SubscriberResources {
                 _subscriber: subscriber,
                 _liveliness_token: liveliness_token,
@@ -385,7 +394,8 @@ where
     pub async fn recv_with_metadata(&self) -> Result<Received<C::Output>> {
         let sample = self.queue.recv_async().await;
         let payload = sample.payload().to_bytes();
-        let message = C::deserialize(&payload).map_err(|e| zenoh::Error::from(e.to_string()))?;
+        let message = C::deserialize(&payload)
+            .map_err(|source| crate::Error::decode(std::any::type_name::<C::Output>(), source))?;
         Received::try_from_sample(&sample, message)
     }
 }
@@ -412,16 +422,17 @@ impl Subscriber<DynamicPayload, DynamicCdrCodec> {
     }
 
     pub async fn recv_with_metadata(&self) -> Result<Received<DynamicPayload>> {
-        let schema = self
-            .dyn_schema
-            .as_ref()
-            .ok_or_else(|| zenoh::Error::from("dyn_schema required for DynamicPayload"))?;
+        let schema = self.dyn_schema.as_ref().ok_or_else(|| {
+            crate::error::WireError::MissingDynamicSchema {
+                topic: self.entity.topic.clone(),
+            }
+        })?;
 
         let sample = self.queue.recv_async().await;
         let payload = sample.payload().to_bytes();
 
         let message = DynamicCdrCodec::deserialize((&payload, schema))
-            .map_err(|e| zenoh::Error::from(e.to_string()))?;
+            .map_err(|source| crate::Error::decode("ros_z::dynamic::DynamicPayload", source))?;
         Received::try_from_sample(&sample, message)
     }
 

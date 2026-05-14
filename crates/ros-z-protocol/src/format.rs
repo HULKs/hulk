@@ -4,13 +4,14 @@
 //! - Topic: `rt/<topic>/<type>/<hash>`
 //! - Liveliness: `@ros_z/<zid>/<nid>/<eid>/<kind>/<ns>/<name>[/<topic>/<type>/<hash>/<qos>]`
 
-use zenoh::{Result, key_expr::KeyExpr, session::ZenohId};
+use zenoh::{key_expr::KeyExpr, session::ZenohId};
 
 use crate::{
     entity::{
         EndpointEntity, EndpointKind, Entity, EntityConversionError, EntityKind, LivelinessKE,
         NodeEntity, SchemaHash, TopicKE, TypeInfo,
     },
+    error::{ProtocolError, Result},
     qos::QosProfile,
 };
 
@@ -18,6 +19,13 @@ pub const ADMIN_SPACE: &str = "@ros_z";
 pub const EMPTY_PLACEHOLDER: &str = "%";
 
 const ESCAPE_CHAR: char = '%';
+
+fn key_expr(expression: String) -> Result<zenoh::key_expr::KeyExpr<'static>> {
+    expression
+        .clone()
+        .try_into()
+        .map_err(|source| ProtocolError::InvalidKeyExpression { expression, source })
+}
 
 fn stripped_topic(topic: &str) -> &str {
     let topic = topic.strip_prefix('/').unwrap_or(topic);
@@ -33,9 +41,9 @@ pub fn topic_key_expr(entity: &EndpointEntity) -> Result<TopicKE> {
     let type_name = demangle_name(&type_info.name);
     let type_hash = demangle_name(&type_info.hash.to_hash_string());
 
-    Ok(TopicKE::new(
-        format!("rt/{topic}/{type_name}/{type_hash}").try_into()?,
-    ))
+    Ok(TopicKE::new(key_expr(format!(
+        "rt/{topic}/{type_name}/{type_hash}"
+    ))?))
 }
 
 pub fn liveliness_key_expr(entity: &EndpointEntity, _zid: &ZenohId) -> Result<LivelinessKE> {
@@ -70,7 +78,7 @@ pub fn liveliness_key_expr(entity: &EndpointEntity, _zid: &ZenohId) -> Result<Li
         "{ADMIN_SPACE}/{z_id}/{node_id}/{id}/{kind}/{node_namespace}/{node_name}/{topic_name}/{type_name}/{type_hash}/{qos_str}"
     );
 
-    Ok(LivelinessKE::new(ke.try_into()?))
+    Ok(LivelinessKE::new(key_expr(ke)?))
 }
 
 pub fn node_liveliness_key_expr(entity: &NodeEntity) -> Result<LivelinessKE> {
@@ -89,19 +97,18 @@ pub fn node_liveliness_key_expr(entity: &NodeEntity) -> Result<LivelinessKE> {
     };
     let name = mangle_name(name);
 
-    Ok(LivelinessKE::new(
-        format!("{ADMIN_SPACE}/{z_id}/{id}/{id}/NN/{namespace}/{name}").try_into()?,
-    ))
+    let ke = format!("{ADMIN_SPACE}/{z_id}/{id}/{id}/NN/{namespace}/{name}");
+    Ok(LivelinessKE::new(key_expr(ke)?))
 }
 
-pub fn parse_liveliness(ke: &KeyExpr) -> Result<Entity> {
+fn parse_liveliness_inner(ke: &KeyExpr) -> std::result::Result<Entity, EntityConversionError> {
     use EntityConversionError::*;
 
     let mut iter = ke.split('/');
 
     let admin = iter.next().ok_or(MissingAdminSpace)?;
     if admin != ADMIN_SPACE {
-        return Err(zenoh::Error::from(MissingAdminSpace));
+        return Err(MissingAdminSpace);
     }
 
     let z_id = iter
@@ -165,10 +172,17 @@ pub fn parse_liveliness(ke: &KeyExpr) -> Result<Entity> {
     };
 
     if iter.next().is_some() {
-        return Err(zenoh::Error::from(ParsingError));
+        return Err(ParsingError);
     }
 
     Ok(entity)
+}
+
+pub fn parse_liveliness(ke: &KeyExpr) -> Result<Entity> {
+    parse_liveliness_inner(ke).map_err(|source| ProtocolError::ParseLiveliness {
+        key_expr: ke.to_string(),
+        source,
+    })
 }
 
 fn mangle_name(name: &str) -> String {

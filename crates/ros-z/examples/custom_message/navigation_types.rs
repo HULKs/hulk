@@ -20,16 +20,16 @@ pub struct NavigateToResponse {
 pub struct NavigateTo;
 
 impl ServiceTypeInfo for NavigateTo {
-    fn service_type_info() -> Result<TypeInfo, ros_z_schema::SchemaError> {
+    fn service_type_info() -> TypeInfo {
         let descriptor = ros_z_schema::ServiceDef::new(
             "custom_msgs::NavigateTo",
-            "custom_msgs::NavigateToRequest",
-            "custom_msgs::NavigateToResponse",
-        )?;
-        Ok(TypeInfo::new(
-            "custom_msgs::NavigateTo",
-            ros_z_schema::compute_hash(&descriptor),
-        ))
+            NavigateToRequest::type_name(),
+            NavigateToResponse::type_name(),
+        )
+        .expect("navigation service descriptor should be static and valid");
+        let hash = ros_z_schema::compute_hash(&descriptor)
+            .expect("navigation service hash should be static and valid");
+        TypeInfo::new(descriptor.type_name.as_str(), hash)
     }
 }
 

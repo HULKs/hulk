@@ -94,7 +94,7 @@ fn schema_hash_includes_named_root_identity() {
     let left = string_bundle("ros_z_msgs::std_msgs::String");
     let right = string_bundle("display_alias::String");
 
-    assert_ne!(compute_hash(&left), compute_hash(&right));
+    assert_ne!(compute_hash(&left).unwrap(), compute_hash(&right).unwrap());
 }
 
 #[test]
@@ -210,7 +210,7 @@ fn canonical_json_uses_named_references() {
 
 #[test]
 fn schema_hash_strings_use_rzhs02_prefix() {
-    let hash = compute_hash(&node_trace_bundle());
+    let hash = compute_hash(&node_trace_bundle()).unwrap();
 
     assert!(hash.to_hash_string().starts_with("RZHS02_"));
     assert!(SchemaHash::from_hash_string(&hash.to_hash_string()).is_ok());
@@ -224,7 +224,7 @@ fn schema_hash_strings_use_rzhs02_prefix() {
 
 #[test]
 fn known_recursive_bundle_hash_is_stable() {
-    let hash = compute_hash(&node_trace_bundle()).to_hash_string();
+    let hash = compute_hash(&node_trace_bundle()).unwrap().to_hash_string();
 
     assert_eq!(
         hash,

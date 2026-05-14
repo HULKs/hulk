@@ -44,7 +44,7 @@ pub fn serialize_cdr_to_zbuf(message: &DynamicStruct) -> Result<ZBuf, DynamicErr
 pub fn deserialize_cdr(data: &[u8], schema: &Schema) -> Result<DynamicStruct, DynamicError> {
     schema
         .validate()
-        .map_err(|error| DynamicError::DeserializationError(error.to_string()))?;
+        .map_err(|error| DynamicError::schema("deserializing dynamic CDR struct", error))?;
     if data.len() < 4 {
         return Err(DynamicError::DeserializationError(
             "CDR data too short for header".into(),
@@ -74,7 +74,7 @@ pub fn deserialize_cdr(data: &[u8], schema: &Schema) -> Result<DynamicStruct, Dy
 pub fn deserialize_cdr_value(data: &[u8], schema: &Schema) -> Result<DynamicValue, DynamicError> {
     schema
         .validate()
-        .map_err(|error| DynamicError::DeserializationError(error.to_string()))?;
+        .map_err(|error| DynamicError::schema("deserializing dynamic CDR value", error))?;
     if data.len() < 4 {
         return Err(DynamicError::DeserializationError(
             "CDR data too short for header".into(),
@@ -416,5 +416,5 @@ fn deserialize_runtime_enum_payload(
 
 /// Map ros-z-cdr errors to DynamicError.
 fn map_cdr_err(e: ros_z_cdr::Error) -> DynamicError {
-    DynamicError::DeserializationError(e.to_string())
+    DynamicError::Deserialization { source: e }
 }
