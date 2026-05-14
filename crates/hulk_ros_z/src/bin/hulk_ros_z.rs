@@ -162,7 +162,7 @@ async fn spawn_all(ctx: Arc<Context>, zenoh_session: Arc<Session>) -> Result<Run
     join_set.spawn(nodes::look_at::run(ctx.clone()));
     join_set.spawn(nodes::message_filter::run(ctx.clone()));
     join_set.spawn(nodes::message_receiver::run(ctx.clone()));
-    // join_set.spawn(nodes::microphone_recorder::run(ctx.clone()));
+    join_set.spawn(nodes::microphone_recorder::run(ctx.clone()));
     join_set.spawn(nodes::motor_commands_collector::run(ctx.clone()));
     join_set.spawn(nodes::obstacle_filter::run(ctx.clone()));
     join_set.spawn(nodes::obstacle_receiver::run(ctx.clone()));

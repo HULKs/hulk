@@ -33,9 +33,9 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await
         .into_eyre()?;
 
-    let _parameters = node
-        .bind_parameter_as::<Parameters>("obstacle_filter")
-        .into_eyre()?;
+    // let _parameters = node
+    //     .bind_parameter_as::<Parameters>("obstacle_filter")
+    //     .into_eyre()?;
     let _camera_matrix_sub = node
         .subscriber::<CameraMatrix>("inputs/camera_matrix")
         .into_eyre()?

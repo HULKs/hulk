@@ -20,6 +20,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await
         .into_eyre()?;
+
     let parameters = node
         .bind_parameter_as::<Parameters>("message_receiver")
         .into_eyre()?;
