@@ -49,31 +49,31 @@ pub(super) fn publication_id_from_sample(sample: &Sample) -> Option<PublicationI
         })
 }
 
-pub(super) fn required_attachment_from_sample(sample: &Sample) -> zenoh::Result<Attachment> {
-    let raw = sample
-        .attachment()
-        .ok_or_else(|| zenoh::Error::from("received ros-z sample without attachment metadata"))?;
-
-    Attachment::try_from(raw).map_err(|error| {
-        zenoh::Error::from(format!(
-            "failed to decode ros-z attachment metadata: {error}"
-        ))
-    })
-}
-
 impl<T> Received<T> {
-    pub(super) fn from_sample(sample: &Sample, message: T, attachment: Attachment) -> Self {
+    pub(super) fn try_from_sample(sample: &Sample, message: T) -> zenoh::Result<Self> {
         let transport_time = sample
             .timestamp()
             .map(|ts| Time::from_wallclock(ts.get_time().to_system_time()));
 
-        Self {
+        let attachment = {
+            let raw = sample.attachment().ok_or_else(|| {
+                zenoh::Error::from("received ros-z sample without attachment metadata")
+            })?;
+
+            Attachment::try_from(raw).map_err(|error| {
+                zenoh::Error::from(format!(
+                    "failed to decode ros-z attachment metadata: {error}"
+                ))
+            })
+        }?;
+
+        Ok(Self {
             message,
             transport_time,
             source_time: attachment.source_time(),
             sequence_number: attachment.sequence_number,
             source_global_id: attachment.source_global_id,
-        }
+        })
     }
 
     pub fn message(&self) -> &T {
