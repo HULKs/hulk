@@ -105,6 +105,13 @@ pub enum DynamicError {
     )]
     MissingNodeIdentity { topic: String },
 
+    /// Active publishers advertise incompatible schema identities for one topic.
+    #[error("topic '{topic}' has incompatible dynamic schema candidates: {candidates:?}")]
+    SchemaConflict {
+        topic: String,
+        candidates: Vec<String>,
+    },
+
     /// Default value was invalid for the field type.
     #[error("invalid default value for field '{field}': {reason}")]
     InvalidDefaultValue { field: String, reason: String },

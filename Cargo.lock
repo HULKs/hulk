@@ -9303,6 +9303,7 @@ dependencies = [
  "byteorder",
  "color-eyre",
  "event-listener",
+ "itertools 0.14.0",
  "json5",
  "nalgebra",
  "parking_lot",

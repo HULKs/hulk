@@ -1,6 +1,8 @@
-use std::cmp::Ordering;
+use std::fmt;
+use std::sync::Arc;
 use std::time::Duration;
-use std::{collections::BTreeSet, sync::Arc};
+
+use itertools::Itertools;
 
 use crate::{
     dynamic::{DynamicError, Schema},
@@ -24,7 +26,7 @@ impl DiscoveredTopicSchema {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub(crate) struct TopicSchemaCandidate {
     pub node_name: String,
     pub namespace: String,
@@ -32,26 +34,28 @@ pub(crate) struct TopicSchemaCandidate {
     pub schema_hash: SchemaHash,
 }
 
-impl PartialOrd for TopicSchemaCandidate {
-    fn partial_cmp(&self, other: &Self) -> Option<Ordering> {
-        Some(self.cmp(other))
+impl TopicSchemaCandidate {
+    fn from_entity(entity: &Entity) -> Option<Self> {
+        let Entity::Endpoint(endpoint) = entity else {
+            return None;
+        };
+
+        Some(Self {
+            node_name: endpoint.node.name.clone(),
+            namespace: endpoint.node.namespace.clone(),
+            type_name: endpoint.type_info.name.clone(),
+            schema_hash: endpoint.type_info.hash,
+        })
     }
 }
 
-impl Ord for TopicSchemaCandidate {
-    fn cmp(&self, other: &Self) -> Ordering {
-        (
-            &self.node_name,
-            &self.namespace,
-            &self.type_name,
-            self.schema_hash.0,
+impl fmt::Display for TopicSchemaCandidate {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(
+            f,
+            "{}/{}:{}@{}",
+            self.namespace, self.node_name, self.type_name, self.schema_hash
         )
-            .cmp(&(
-                &other.node_name,
-                &other.namespace,
-                &other.type_name,
-                other.schema_hash.0,
-            ))
     }
 }
 
@@ -59,42 +63,37 @@ pub(crate) fn collect_topic_schema_candidates_from_publishers(
     publishers: &[Arc<Entity>],
     qualified_topic: &str,
 ) -> Result<Vec<TopicSchemaCandidate>, DynamicError> {
-    let mut candidates = BTreeSet::new();
+    let candidates = publishers
+        .iter()
+        .filter_map(|publisher| TopicSchemaCandidate::from_entity(publisher))
+        .unique()
+        .collect_vec();
 
-    for publisher in publishers {
-        let Entity::Endpoint(endpoint) = &**publisher else {
-            continue;
-        };
+    if candidates.is_empty() {
+        return Err(DynamicError::SchemaNotFound(format!(
+            "No publishers found for topic: {qualified_topic}"
+        )));
+    }
 
-        candidates.insert(TopicSchemaCandidate {
-            node_name: endpoint.node.name.clone(),
-            namespace: endpoint.node.namespace.clone(),
-            type_name: endpoint.type_info.name.clone(),
-            schema_hash: endpoint.type_info.hash,
+    if !candidates
+        .iter()
+        .map(|candidate| (&candidate.type_name, candidate.schema_hash))
+        .all_equal()
+    {
+        return Err(DynamicError::SchemaConflict {
+            topic: qualified_topic.to_string(),
+            candidates: candidates.iter().map(ToString::to_string).collect_vec(),
         });
     }
 
-    if !candidates.is_empty() {
-        return Ok(candidates.into_iter().collect());
-    }
-
-    Err(DynamicError::SchemaNotFound(format!(
-        "No usable publishers found for topic: {}",
-        qualified_topic
-    )))
+    Ok(candidates)
 }
 
-pub(crate) fn collect_topic_schema_candidates(
+fn collect_topic_schema_candidates(
     graph: &Graph,
     qualified_topic: &str,
 ) -> Result<Vec<TopicSchemaCandidate>, DynamicError> {
     let publishers = graph.get_entities_by_topic(EntityKind::Publisher, qualified_topic);
-    if publishers.is_empty() {
-        return Err(DynamicError::SchemaNotFound(format!(
-            "No publishers found for topic: {}",
-            qualified_topic
-        )));
-    }
 
     collect_topic_schema_candidates_from_publishers(&publishers, qualified_topic)
 }
@@ -172,6 +171,31 @@ mod tests {
         }))
     }
 
+    fn publisher_with_hash(type_name: &str, hash: SchemaHash) -> Arc<Entity> {
+        publisher_with_hash_from_node(type_name, hash, "talker", 2)
+    }
+
+    fn publisher_with_hash_from_node(
+        type_name: &str,
+        hash: SchemaHash,
+        node_name: &str,
+        node_id: usize,
+    ) -> Arc<Entity> {
+        Arc::new(Entity::Endpoint(EndpointEntity {
+            id: 1,
+            node: NodeEntity {
+                z_id: Default::default(),
+                id: node_id,
+                name: node_name.to_string(),
+                namespace: "/".to_string(),
+            },
+            kind: EndpointKind::Publisher,
+            topic: "/chatter".to_string(),
+            type_info: TypeInfo::new(type_name, hash),
+            qos: Default::default(),
+        }))
+    }
+
     #[test]
     fn publisher_schema_candidates_keep_native_advertised_type_name() {
         let candidates = collect_topic_schema_candidates_from_publishers(
@@ -216,5 +240,80 @@ mod tests {
 
         assert_eq!(candidates[0].type_name, "std_msgs::String");
         assert_eq!(candidates[0].schema_hash, hash);
+    }
+
+    #[test]
+    fn schema_candidates_keep_compatible_publishers_for_service_fallback() {
+        let hash = SchemaHash([1; 32]);
+        let publishers = vec![
+            publisher_with_hash_from_node("std_msgs::String", hash, "talker_a", 2),
+            publisher_with_hash_from_node("std_msgs::String", hash, "talker_b", 3),
+        ];
+
+        let candidates = collect_topic_schema_candidates_from_publishers(&publishers, "/chatter")
+            .expect("matching publishers should remain query candidates");
+
+        assert_eq!(candidates.len(), 2);
+        assert_eq!(candidates[0].node_name, "talker_a");
+        assert_eq!(candidates[0].type_name, "std_msgs::String");
+        assert_eq!(candidates[0].schema_hash, hash);
+        assert_eq!(candidates[1].node_name, "talker_b");
+        assert_eq!(candidates[1].type_name, "std_msgs::String");
+        assert_eq!(candidates[1].schema_hash, hash);
+    }
+
+    #[test]
+    fn schema_candidates_reject_different_hashes_for_same_topic() {
+        let publishers = vec![
+            publisher_with_hash("std_msgs::String", SchemaHash([1; 32])),
+            publisher_with_hash("std_msgs::String", SchemaHash([2; 32])),
+        ];
+
+        let error = collect_topic_schema_candidates_from_publishers(&publishers, "/chatter")
+            .expect_err("different schema hashes should conflict");
+
+        let DynamicError::SchemaConflict { topic, candidates } = error else {
+            panic!("expected schema conflict, got {error:?}");
+        };
+
+        assert_eq!(topic, "/chatter");
+        assert_eq!(candidates.len(), 2);
+        assert!(candidates.iter().any(|candidate| {
+            candidate.contains("std_msgs::String")
+                && candidate.contains(&SchemaHash([1; 32]).to_hash_string())
+        }));
+        assert!(candidates.iter().any(|candidate| {
+            candidate.contains("std_msgs::String")
+                && candidate.contains(&SchemaHash([2; 32]).to_hash_string())
+        }));
+    }
+
+    #[test]
+    fn schema_candidates_reject_different_type_names_for_same_hash() {
+        let hash = SchemaHash([3; 32]);
+        let publishers = vec![
+            publisher_with_hash("std_msgs::String", hash),
+            publisher_with_hash("custom_msgs::StringLike", hash),
+        ];
+
+        let error = collect_topic_schema_candidates_from_publishers(&publishers, "/chatter")
+            .expect_err("different type names should conflict even with same hash");
+
+        let DynamicError::SchemaConflict { topic, candidates } = error else {
+            panic!("expected schema conflict, got {error:?}");
+        };
+
+        assert_eq!(topic, "/chatter");
+        assert_eq!(candidates.len(), 2);
+        assert!(
+            candidates
+                .iter()
+                .any(|candidate| candidate.contains("std_msgs::String"))
+        );
+        assert!(
+            candidates
+                .iter()
+                .any(|candidate| candidate.contains("custom_msgs::StringLike"))
+        );
     }
 }
