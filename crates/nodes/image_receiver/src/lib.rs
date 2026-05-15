@@ -12,10 +12,7 @@ use x5_receiver::receiver::X5Receiver;
 const X5_ADDRESS: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 168, 127, 10)), 7654);
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
-    let node = ctx
-        .create_node("image_receiver")
-        .build()
-        .await?;
+    let node = ctx.create_node("image_receiver").build().await?;
 
     let left_image_pub = node
         .publisher::<Image>("inputs/left_image")?

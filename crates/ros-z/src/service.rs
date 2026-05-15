@@ -758,9 +758,9 @@ where
             WireDecoder<Output = T::Request, Input<'a> = &'a [u8]>,
     {
         let queue = self.queue.as_ref().ok_or_else(|| {
-            crate::Error::zenoh(
+            crate::Error::service_server_state(
                 "access service request queue",
-                zenoh::Error::from("server was built with callback, no queue available"),
+                "server was built with callback, no queue available",
             )
         })?;
         match queue.try_recv() {
@@ -785,9 +785,9 @@ where
         trace!("[SRV] Waiting for request");
 
         let queue = self.queue.as_ref().ok_or_else(|| {
-            crate::Error::zenoh(
+            crate::Error::service_server_state(
                 "access service request queue",
-                zenoh::Error::from("server was built with callback, no queue available"),
+                "server was built with callback, no queue available",
             )
         })?;
         let query = queue.recv();
@@ -803,13 +803,45 @@ where
             WireDecoder<Output = T::Request, Input<'a> = &'a [u8]>,
     {
         let queue = self.queue.as_ref().ok_or_else(|| {
-            crate::Error::zenoh(
+            crate::Error::service_server_state(
                 "access service request queue",
-                zenoh::Error::from("server was built with callback, no queue available"),
+                "server was built with callback, no queue available",
             )
         })?;
         let query = queue.recv_async().await;
         self.decode_request(query)
+    }
+}
+
+impl<T> ServiceServer<T, ()>
+where
+    T: Service,
+{
+    pub fn try_take_request(&mut self) -> Result<Option<ServiceRequest<T>>> {
+        Err(crate::Error::service_server_state(
+            "access service request queue",
+            "server was built with callback, no queue available",
+        ))
+    }
+
+    /// Blocks waiting to receive the next request on the service and then deserializes the payload.
+    ///
+    /// Callback-mode service servers do not expose a request queue.
+    pub fn take_request(&mut self) -> Result<ServiceRequest<T>> {
+        Err(crate::Error::service_server_state(
+            "access service request queue",
+            "server was built with callback, no queue available",
+        ))
+    }
+
+    /// Awaits the next request on the service and then deserializes the payload.
+    ///
+    /// Callback-mode service servers do not expose a request queue.
+    pub async fn take_request_async(&mut self) -> Result<ServiceRequest<T>> {
+        Err(crate::Error::service_server_state(
+            "access service request queue",
+            "server was built with callback, no queue available",
+        ))
     }
 }
 

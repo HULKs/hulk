@@ -1,29 +1,30 @@
 //! Error types for dynamic message handling.
 
-/// Errors that can occur during dynamic message operations.
+/// Errors that can occur during dynamic message, schema, and discovery operations.
+#[non_exhaustive]
 #[derive(Debug, thiserror::Error)]
 pub enum DynamicError {
-    /// Invalid type name (must be a non-empty string)
+    /// Type name was empty or otherwise invalid.
     #[error("invalid type name '{0}': expected a non-empty string")]
     InvalidTypeName(String),
 
-    /// Field not found in message schema
+    /// Field was not found in the message schema.
     #[error("field '{0}' not found in message schema")]
     FieldNotFound(String),
 
-    /// Empty path provided for field access
+    /// Field access path was empty.
     #[error("empty path provided for field access")]
     EmptyPath,
 
-    /// Attempted to access a nested field on a non-message type
+    /// Nested field access was attempted on a non-message type.
     #[error("field '{0}' is not a message type, cannot access nested fields")]
     NotAMessage(String),
 
-    /// Type mismatch during field access or conversion
+    /// Field access or conversion found a different type than expected.
     #[error("type mismatch at '{path}': expected type '{expected}'")]
     TypeMismatch { path: String, expected: String },
 
-    /// Index out of bounds for field access
+    /// Field index was out of bounds.
     #[error("field index {0} is out of bounds")]
     IndexOutOfBounds(usize),
 
@@ -73,7 +74,7 @@ pub enum DynamicError {
         source: ros_z_cdr::Error,
     },
 
-    /// Schema loading error
+    /// Schema package could not be loaded.
     #[error("schema loading error for package '{package}': {source}")]
     SchemaLoadError {
         package: String,
@@ -81,17 +82,13 @@ pub enum DynamicError {
         source: crate::error::BoxError,
     },
 
-    /// Registry lock was poisoned
+    /// Schema registry lock was poisoned.
     #[error("schema registry lock was poisoned")]
     RegistryLockPoisoned,
 
-    /// Schema not found in registry
+    /// Schema was not found in the registry.
     #[error("schema '{0}' not found in registry")]
     SchemaNotFound(String),
-
-    /// Type description service call timed out — no response from the remote node.
-    #[error("schema service timed out: no response from node '{node}' on service '{service}'")]
-    ServiceTimeout { node: String, service: String },
 
     /// Schema service call failed.
     #[error("schema service failed for node '{node}' on service '{service}': {source}")]
@@ -108,11 +105,11 @@ pub enum DynamicError {
     )]
     MissingNodeIdentity { topic: String },
 
-    /// Invalid default value for field type
+    /// Default value was invalid for the field type.
     #[error("invalid default value for field '{field}': {reason}")]
     InvalidDefaultValue { field: String, reason: String },
 
-    /// Bounded string/sequence exceeded maximum size
+    /// Bounded string or sequence exceeded its maximum size.
     #[error("bounded type exceeded maximum size: max={max}, actual={actual}")]
     BoundExceeded { max: usize, actual: usize },
 }
@@ -152,18 +149,6 @@ impl DynamicError {
 #[cfg(test)]
 mod tests {
     use super::DynamicError;
-
-    #[test]
-    fn service_timeout_uses_schema_service_wording() {
-        let error = DynamicError::ServiceTimeout {
-            node: "/vision/object_detection".to_string(),
-            service: "/vision/object_detection/get_schema".to_string(),
-        };
-
-        let message = error.to_string();
-        assert!(message.contains("schema service timed out"));
-        assert!(!message.contains("type description service timed out"));
-    }
 
     #[test]
     fn string_only_errors_use_generic_serialization_wording() {

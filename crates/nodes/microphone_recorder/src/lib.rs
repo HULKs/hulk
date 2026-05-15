@@ -14,10 +14,7 @@ struct Parameters {
 }
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
-    let node = ctx
-        .create_node("microphone_recorder")
-        .build()
-        .await?;
+    let node = ctx.create_node("microphone_recorder").build().await?;
 
     let parameters = node.bind_parameter_as::<Parameters>("microphone_recorder")?;
 
@@ -32,8 +29,6 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
     loop {
         let samples = microphones.retrying_read()?;
-        microphones_samples_pub
-            .publish(&samples)
-            .await?;
+        microphones_samples_pub.publish(&samples).await?;
     }
 }

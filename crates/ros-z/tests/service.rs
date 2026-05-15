@@ -663,6 +663,41 @@ async fn async_call_preserves_service_reply_error_source() {
     assert!(source.to_string().contains("query returned an error"));
 }
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn callback_service_server_queue_access_returns_state_error() {
+    let context = ContextBuilder::default()
+        .disable_multicast_scouting()
+        .with_json("connect/endpoints", json!([]))
+        .build()
+        .await
+        .expect("Failed to create context");
+    let node = context
+        .create_node("callback_queue_state_error")
+        .build()
+        .await
+        .expect("Failed to create node");
+
+    let mut server = node
+        .create_service_server::<AddTwoInts>("callback_queue_state_error")
+        .expect("service server factory should succeed")
+        .build_with_callback(|_request| {})
+        .await
+        .expect("callback server should build");
+
+    let error = match server.try_take_request() {
+        Ok(_) => panic!("callback server should not expose request queue"),
+        Err(error) => error,
+    };
+
+    match error {
+        ros_z::Error::ServiceServerState { operation, reason } => {
+            assert_eq!(operation, "access service request queue");
+            assert_eq!(reason, "server was built with callback, no queue available");
+        }
+        other => panic!("expected service server state error, got {other:?}"),
+    }
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
 async fn async_call_with_timeout_preserves_timeout_reply_error() {
     let context = ContextBuilder::default()

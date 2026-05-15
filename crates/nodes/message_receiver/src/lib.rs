@@ -14,10 +14,7 @@ struct Parameters {
 }
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
-    let node = ctx
-        .create_node("message_receiver")
-        .build()
-        .await?;
+    let node = ctx.create_node("message_receiver").build().await?;
 
     let parameters = node.bind_parameter_as::<Parameters>("message_receiver")?;
     let message_pub = node
