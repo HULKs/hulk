@@ -151,7 +151,7 @@ impl ServiceTypeInfo for GetSchema {
             "ros_z::GetSchemaResponse",
         )?;
 
-        Ok(TypeInfo::with_hash(
+        Ok(TypeInfo::new(
             descriptor.type_name.as_str(),
             ros_z_schema::compute_hash(&descriptor),
         ))
@@ -282,12 +282,10 @@ fn schema_service_server_builder(
 
     let entity = EndpointEntity {
         id: counter.increment(),
-        node: Some(node_entity),
+        node: node_entity,
         kind: EndpointKind::Service,
         topic: service_name.to_string(),
-        type_info: Some(
-            GetSchema::service_type_info().expect("schema service type info is static"),
-        ),
+        type_info: GetSchema::service_type_info().expect("schema service type info is static"),
         qos: Default::default(),
     };
 

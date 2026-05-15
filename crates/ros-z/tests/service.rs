@@ -3,7 +3,7 @@ use std::{thread, time::Duration};
 use ros_z::{
     ServiceTypeInfo,
     context::ContextBuilder,
-    entity::{SchemaHash, TypeInfo},
+    entity::TypeInfo,
     message::Service,
     schema::{MessageSchema, SchemaBuilder},
 };
@@ -38,7 +38,7 @@ impl ServiceTypeInfo for AddTwoInts {
         )?;
         Ok(TypeInfo::new(
             "test_msgs::AddTwoInts",
-            Some(SchemaHash(ros_z_schema::compute_hash(&descriptor).0)),
+            ros_z_schema::compute_hash(&descriptor),
         ))
     }
 }

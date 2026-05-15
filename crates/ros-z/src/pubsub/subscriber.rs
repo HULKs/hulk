@@ -125,28 +125,24 @@ where
     where
         F: Fn(Sample) + Send + Sync + 'static,
     {
-        let Some(node) = self.entity.node.as_ref() else {
-            return Err(zenoh::Error::from(
-                "subscriber build requires node identity",
-            ));
-        };
+        let entity = &mut self.entity;
         let qualified_topic =
-            qualify_topic_name(&self.entity.topic, &node.namespace, &node.name)
+            qualify_topic_name(&entity.topic, &entity.node.namespace, &entity.node.name)
                 .map_err(|e| zenoh::Error::from(format!("Failed to qualify topic: {}", e)))?;
 
-        self.entity.topic = qualified_topic.clone();
+        entity.topic = qualified_topic.clone();
         debug!("[{}] Qualified topic: {}", log_prefix, qualified_topic);
 
-        let topic_key_expr = ros_z_protocol::format::topic_key_expr(&self.entity)?;
+        let topic_key_expr = ros_z_protocol::format::topic_key_expr(entity)?;
         let key_expr = (*topic_key_expr).clone();
         debug!(
             "[{}] Key expression: {}, qos={:?}",
-            log_prefix, key_expr, self.entity.qos
+            log_prefix, key_expr, entity.qos
         );
 
         let callback: Arc<dyn Fn(Sample) + Send + Sync> = Arc::new(callback);
 
-        if !matches!(self.entity.qos.durability, QosDurability::TransientLocal) {
+        if !matches!(entity.qos.durability, QosDurability::TransientLocal) {
             let subscriber_callback = callback.clone();
             let mut subscriber = self
                 .session
@@ -158,15 +154,14 @@ where
             }
 
             let subscriber = subscriber.await?;
-            let liveliness_token = declare_liveliness(&self.session, &self.entity).await?;
+            let liveliness_token = declare_liveliness(&self.session, entity).await?;
             Ok(SubscriberResources {
                 _subscriber: subscriber,
                 _liveliness_token: liveliness_token,
                 _replay_guard: None,
             })
         } else {
-            let Some(live_capacity) =
-                replay::transient_local_replay_live_capacity(&self.entity.qos)
+            let Some(live_capacity) = replay::transient_local_replay_live_capacity(&entity.qos)
             else {
                 warn!(
                     "[{}] TransientLocal + KeepAll requested; replay coordination is disabled because history is unbounded",
@@ -183,7 +178,7 @@ where
                 }
 
                 let subscriber = subscriber.await?;
-                let liveliness_token = declare_liveliness(&self.session, &self.entity).await?;
+                let liveliness_token = declare_liveliness(&self.session, entity).await?;
                 return Ok(SubscriberResources {
                     _subscriber: subscriber,
                     _liveliness_token: liveliness_token,
@@ -209,7 +204,7 @@ where
             let subscriber = subscriber.await?;
 
             let (initial_replay_publishers, initial_replay_seen) = replay::initial_replay_plan(
-                replay::replay_capable_publishers(&self.graph, &self.entity.topic),
+                replay::replay_capable_publishers(&self.graph, &entity.topic),
             );
             for (publisher_global_id, _) in initial_replay_publishers {
                 replay::query_initial_transient_local_replay_async(
@@ -224,14 +219,14 @@ where
             coordinator.finish_initial_replay();
             let replay_task = replay::spawn_transient_local_replay_task(
                 self.graph.clone(),
-                self.entity.topic.clone(),
+                entity.topic.clone(),
                 coordinator,
                 self.session.clone(),
                 topic_key_expr.to_string(),
                 self.transient_local_replay_timeout,
                 initial_replay_seen,
             );
-            let liveliness_token = declare_liveliness(&self.session, &self.entity).await?;
+            let liveliness_token = declare_liveliness(&self.session, entity).await?;
             Ok(SubscriberResources {
                 _subscriber: subscriber,
                 _liveliness_token: liveliness_token,
@@ -262,12 +257,13 @@ where
             )
             .await?;
 
-        let endpoint_global_id = endpoint_global_id(&builder.entity);
+        let entity = builder.entity;
+        let endpoint_global_id = endpoint_global_id(&entity);
 
-        debug!("[SUB] Subscriber ready: topic={}", builder.entity.topic);
+        debug!("[SUB] Subscriber ready: topic={}", entity.topic);
 
         Ok(Subscriber {
-            entity: builder.entity,
+            entity,
             _resources: resources,
             queue,
             events_mgr: Arc::new(Mutex::new(EventsManager::new(endpoint_global_id))),
