@@ -6125,7 +6125,9 @@ dependencies = [
  "booster",
  "color-eyre",
  "kinematics",
+ "linear_algebra",
  "ros-z",
+ "tokio",
 ]
 
 [[package]]
