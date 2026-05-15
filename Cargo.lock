@@ -4808,6 +4808,8 @@ dependencies = [
  "kinematics",
  "linear_algebra",
  "ros-z",
+ "tokio",
+ "types",
 ]
 
 [[package]]

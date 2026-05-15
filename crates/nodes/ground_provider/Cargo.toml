@@ -12,3 +12,5 @@ coordinate_systems = { workspace = true }
 kinematics = { workspace = true }
 linear_algebra = { workspace = true }
 ros-z = { workspace = true }
+tokio = { workspace = true }
+types = { workspace = true }
