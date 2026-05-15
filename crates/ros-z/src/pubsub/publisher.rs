@@ -50,7 +50,6 @@ pub struct Publisher<T, C: WireEncoder = <T as crate::Message>::Codec> {
     endpoint_global_id: EndpointGlobalId,
     inner: zenoh::pubsub::Publisher<'static>,
     _lv_token: LivelinessToken,
-    attachment: bool,
     clock: Clock,
     events_mgr: Arc<Mutex<EventsManager>>,
     shm_config: Option<Arc<ShmConfig>>,
@@ -122,9 +121,7 @@ async fn spawn_transient_local_replay_queryable(
                 if let Some(encoding) = sample.encoding {
                     reply = reply.encoding(encoding);
                 }
-                if let Some(attachment) = sample.attachment {
-                    reply = reply.attachment(attachment);
-                }
+                reply = reply.attachment(sample.attachment);
                 if let Err(err) = reply.await {
                     warn!("[PUB] Failed to replay transient local sample: {}", err);
                 }
@@ -163,7 +160,6 @@ pub struct PublisherBuilder<T, C = <T as crate::Message>::Codec> {
     pub(crate) session: Session,
     pub(crate) graph: Arc<Graph>,
     pub(crate) clock: Clock,
-    pub(crate) attachment: bool,
     pub(crate) shm_config: Option<Arc<ShmConfig>>,
     /// Schema for dynamic message publishing.
     /// When set, the schema will be registered with the schema service.
@@ -174,11 +170,6 @@ pub struct PublisherBuilder<T, C = <T as crate::Message>::Codec> {
 impl<T, C> PublisherBuilder<T, C> {
     pub fn qos(mut self, qos: QosProfile) -> Self {
         self.entity.qos = qos.to_protocol_qos();
-        self
-    }
-
-    pub fn attachment(mut self, with_attachment: bool) -> Self {
-        self.attachment = with_attachment;
         self
     }
 
@@ -356,7 +347,6 @@ where
             endpoint_global_id,
             clock: self.clock,
             events_mgr: Arc::new(Mutex::new(EventsManager::new(endpoint_global_id))),
-            attachment: self.attachment,
             shm_config: self.shm_config,
             dyn_schema: self.dyn_schema,
             encoding,
@@ -497,9 +487,7 @@ where
 
         put_builder = put_builder.encoding((*self.encoding).clone());
 
-        if let Some(att) = attachment.clone() {
-            put_builder = put_builder.attachment(att);
-        }
+        put_builder = put_builder.attachment(attachment.clone());
 
         put_builder.await?;
         self.retain_transient_local_sample(zbytes, attachment);
@@ -510,7 +498,7 @@ where
         &self,
         message: &T,
         publication_id: PublicationId,
-    ) -> Result<(zenoh::bytes::ZBytes, Option<Attachment>)> {
+    ) -> Result<(zenoh::bytes::ZBytes, Attachment)> {
         tracing::Span::current().record(
             "endpoint_global_id",
             format_args!("{:02x?}", publication_id.endpoint_global_id()),
@@ -555,18 +543,12 @@ where
         tracing::Span::current().record("payload_len", actual_size);
 
         let zbytes = zenoh::bytes::ZBytes::from(zbuf);
-        let attachment = self
-            .attachment
-            .then(|| self.new_attachment_for_publication(publication_id));
+        let attachment = self.new_attachment_for_publication(publication_id);
 
         Ok((zbytes, attachment))
     }
 
-    fn retain_transient_local_sample(
-        &self,
-        payload: zenoh::bytes::ZBytes,
-        attachment: Option<Attachment>,
-    ) {
+    fn retain_transient_local_sample(&self, payload: zenoh::bytes::ZBytes, attachment: Attachment) {
         if let Some(cache) = &self.transient_local_cache {
             cache.retain(RetainedSample {
                 payload,

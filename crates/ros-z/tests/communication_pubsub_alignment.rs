@@ -56,7 +56,7 @@ async fn publisher_message_id_is_reserved_and_observable() {
         .expect("Failed to receive message");
 
     assert_eq!(received.message(), &message);
-    assert_eq!(received.publication_id(), Some(publication_id));
+    assert_eq!(received.publication_id(), publication_id);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -105,7 +105,7 @@ async fn publisher_direct_publish_attaches_publication_id() {
 
     assert_eq!(received.message(), &message);
     assert!(
-        received.publication_id().is_some(),
+        received.publication_id().endpoint_global_id() != [0; 16],
         "direct publish should still carry a publication id"
     );
 }

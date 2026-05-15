@@ -390,7 +390,7 @@ where
         let sample = self.queue.recv_async().await;
         let payload = sample.payload().to_bytes();
         let message = C::deserialize(&payload).map_err(|e| zenoh::Error::from(e.to_string()))?;
-        Ok(Received::from_sample(&sample, message))
+        Received::try_from_sample(&sample, message)
     }
 }
 
@@ -426,7 +426,7 @@ impl Subscriber<DynamicPayload, DynamicCdrCodec> {
 
         let message = DynamicCdrCodec::deserialize((&payload, schema))
             .map_err(|e| zenoh::Error::from(e.to_string()))?;
-        Ok(Received::from_sample(&sample, message))
+        Received::try_from_sample(&sample, message)
     }
 
     /// Get the dynamic schema.
