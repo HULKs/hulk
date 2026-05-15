@@ -6,10 +6,7 @@ use booster::FallDownState;
 use ros_z::prelude::*;
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
-    let node = ctx
-        .create_node("fall_down_state_receiver")
-        .build()
-        .await?;
+    let node = ctx.create_node("fall_down_state_receiver").build().await?;
 
     let zenoh_session = ctx.session();
 

@@ -126,12 +126,27 @@ async fn dynamic_publisher_factory_rejects_schema_root_that_differs_from_type_in
     else {
         panic!("mismatched schema root should fail dynamic publisher factory");
     };
-    let message = error.to_string();
-
-    assert!(message.contains("failed to build publisher schema"));
-    assert!(message.contains("schema root"));
-    assert!(message.contains("test_msgs::AdvertisedDynamicRoot"));
-    assert!(message.contains("test_msgs::ActualDynamicRoot"));
+    match error {
+        ros_z::Error::Wire(source) => match source.as_ref() {
+            ros_z::error::WireError::DynamicSchema {
+                endpoint_kind,
+                topic,
+                source,
+            } => {
+                assert_eq!(*endpoint_kind, "publisher");
+                assert_eq!(topic, "/mismatched_dynamic_schema_root");
+                assert!(source.to_string().contains("schema root"));
+                assert!(
+                    source
+                        .to_string()
+                        .contains("test_msgs::AdvertisedDynamicRoot")
+                );
+                assert!(source.to_string().contains("test_msgs::ActualDynamicRoot"));
+            }
+            other => panic!("expected dynamic schema wire error, got {other:?}"),
+        },
+        other => panic!("expected wire error, got {other:?}"),
+    }
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -411,12 +426,13 @@ async fn typed_subscriber_errors_when_sample_has_no_attachment() {
         .expect("receive should not time out")
         .expect_err("typed receive should reject samples without attachments");
 
-    assert!(
-        error
-            .to_string()
-            .contains("received ros-z sample without attachment metadata"),
-        "unexpected error: {error}"
-    );
+    match error {
+        ros_z::Error::Wire(source) => match source.as_ref() {
+            ros_z::error::WireError::MissingSampleAttachment => {}
+            other => panic!("expected missing sample attachment, got {other:?}"),
+        },
+        other => panic!("expected wire error, got {other:?}"),
+    }
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]

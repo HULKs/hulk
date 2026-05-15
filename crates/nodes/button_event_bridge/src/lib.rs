@@ -6,10 +6,7 @@ use booster::ButtonEventMsg;
 use ros_z::prelude::*;
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
-    let node = ctx
-        .create_node("button_event_bridge")
-        .build()
-        .await?;
+    let node = ctx.create_node("button_event_bridge").build().await?;
 
     let zenoh_session = ctx.session();
 

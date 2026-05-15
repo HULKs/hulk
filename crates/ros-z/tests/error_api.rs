@@ -14,6 +14,14 @@ fn ros_z_error_is_std_error_send_sync_static() {
     assert_error::<ros_z::Error>();
 }
 
+#[test]
+fn ros_z_error_stays_small_enough_for_result_returns() {
+    assert!(
+        std::mem::size_of::<ros_z::Error>() <= 64,
+        "ros_z::Error is too large for common Result-returning APIs"
+    );
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn ros_z_result_converts_into_color_eyre_report_with_source_chain() -> color_eyre::Result<()>
 {
@@ -49,22 +57,21 @@ fn protocol_liveliness_parse_error_is_source_preserving() {
 
 #[test]
 fn service_reply_error_preserves_source_chain() {
-    let source: zenoh::Error = Box::new(std::io::Error::new(
-        std::io::ErrorKind::Other,
-        "query returned an error",
-    ));
+    let source: zenoh::Error = Box::new(std::io::Error::other("query returned an error"));
     let error: ros_z::Error = ros_z::error::ServiceCallError::Reply {
         service: "/demo/service".to_string(),
         source,
     }
     .into();
 
-    assert!(
-        error
-            .to_string()
-            .contains("service call to '/demo/service' received an error reply")
-    );
     assert!(source_chain_len(&error) >= 1);
+    match &error {
+        ros_z::Error::ServiceCall(ros_z::error::ServiceCallError::Reply { service, source }) => {
+            assert_eq!(service, "/demo/service");
+            assert!(source.to_string().contains("query returned an error"));
+        }
+        other => panic!("expected service reply error, got {other:?}"),
+    }
 }
 
 #[test]
@@ -78,12 +85,17 @@ fn cdr_runtime_decode_error_preserves_source_chain() {
     }
     .into();
 
-    assert!(
-        error
-            .to_string()
-            .contains("failed to decode payload as String")
-    );
     assert!(source_chain_len(&error) >= 1);
+    match &error {
+        ros_z::Error::Wire(source) => match source.as_ref() {
+            ros_z::error::WireError::Decode { type_name, source } => {
+                assert_eq!(type_name, "String");
+                assert!(source.to_string().contains("CDR deserialization error"));
+            }
+            other => panic!("expected decode wire error, got {other:?}"),
+        },
+        other => panic!("expected wire error, got {other:?}"),
+    }
 }
 
 #[test]
@@ -95,29 +107,39 @@ fn parameter_parse_error_preserves_source_chain() {
     }
     .into();
 
-    assert!(
-        error
-            .to_string()
-            .contains("failed to parse parameter file params.json5")
-    );
     assert!(source_chain_len(&error) >= 1);
+    match &error {
+        ros_z::Error::Parameter(source) => match source.as_ref() {
+            ros_z::parameter::ParameterError::ParseError { path, source } => {
+                assert_eq!(path, std::path::Path::new("params.json5"));
+                assert!(!source.to_string().is_empty());
+            }
+            other => panic!("expected parameter parse error, got {other:?}"),
+        },
+        other => panic!("expected parameter error, got {other:?}"),
+    }
 }
 
 #[test]
 fn parameter_operation_error_preserves_source_chain() {
-    let source = std::io::Error::new(std::io::ErrorKind::Other, "runtime failed");
+    let source = std::io::Error::other("runtime failed");
     let error: ros_z::Error = ros_z::parameter::ParameterError::Operation {
         operation: "calling remote parameter service".to_string(),
         source: Box::new(source),
     }
     .into();
 
-    assert!(
-        error
-            .to_string()
-            .contains("parameter operation failed while calling remote parameter service")
-    );
     assert!(source_chain_len(&error) >= 1);
+    match &error {
+        ros_z::Error::Parameter(source) => match source.as_ref() {
+            ros_z::parameter::ParameterError::Operation { operation, source } => {
+                assert_eq!(operation, "calling remote parameter service");
+                assert!(source.to_string().contains("runtime failed"));
+            }
+            other => panic!("expected parameter operation error, got {other:?}"),
+        },
+        other => panic!("expected parameter error, got {other:?}"),
+    }
 }
 
 #[test]
@@ -161,6 +183,24 @@ fn fallible_wire_encoder_preserves_encode_source() {
     assert!(source.to_string().contains("intentional encode failure"));
 }
 
+#[test]
+fn dynamic_schema_error_display_does_not_duplicate_source() {
+    let source = ros_z::dynamic::DynamicError::SerializationError("schema root mismatch".into());
+    let error: ros_z::Error = ros_z::error::WireError::DynamicSchema {
+        endpoint_kind: "publisher",
+        topic: "/demo".to_string(),
+        source,
+    }
+    .into();
+
+    assert_eq!(
+        error.to_string(),
+        "failed to build publisher schema for topic '/demo'"
+    );
+    let source = std::error::Error::source(&error).expect("source should be preserved");
+    assert!(source.to_string().contains("schema root mismatch"));
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn publisher_build_invalid_topic_preserves_name_source() -> color_eyre::Result<()> {
     color_eyre::install().ok();
@@ -180,8 +220,14 @@ async fn publisher_build_invalid_topic_preserves_name_source() -> color_eyre::Re
         .await
         .expect_err("invalid topic should fail");
 
-    assert!(error.to_string().contains("failed to qualify topic name"));
-    assert!(source_chain_len(&error) >= 1);
+    match error {
+        ros_z::Error::Name { kind, name, source } => {
+            assert_eq!(kind, ros_z::error::NameKind::Topic);
+            assert_eq!(name, "invalid-topic");
+            assert!(source.to_string().contains("invalid characters"));
+        }
+        other => panic!("expected topic name error, got {other:?}"),
+    }
 
     Ok(())
 }
@@ -278,8 +324,60 @@ async fn service_timeout_reports_service_name_and_timeout() -> color_eyre::Resul
         .await
         .expect_err("missing service should time out");
 
-    assert!(error.to_string().contains("/missing/get_schema"));
-    assert!(error.to_string().contains("timed out"));
+    match error {
+        ros_z::Error::ServiceCall(ros_z::error::ServiceCallError::Timeout { service, .. }) => {
+            assert_eq!(service, "/missing/get_schema");
+        }
+        other => panic!("expected service timeout, got {other:?}"),
+    }
+
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn schema_timeout_is_reported_as_schema_service_error() -> color_eyre::Result<()> {
+    color_eyre::install().ok();
+
+    let context = ros_z::context::ContextBuilder::default()
+        .disable_multicast_scouting()
+        .with_connect_endpoints(std::iter::empty::<&str>())
+        .with_listen_endpoints(["tcp/127.0.0.1:0"])
+        .build()
+        .await?;
+    let _publisher = context
+        .create_node("missing")
+        .without_schema_service()
+        .build()
+        .await?
+        .publisher::<String>("/missing_topic")
+        .expect("publisher factory should succeed")
+        .build()
+        .await?;
+    let node = context.create_node("client_node").build().await?;
+    let timeout = std::time::Duration::from_millis(10);
+
+    let error = node
+        .discover_topic_schema("/missing_topic", timeout)
+        .await
+        .expect_err("missing schema service should time out");
+
+    match error {
+        ros_z::dynamic::DynamicError::SchemaService {
+            node,
+            service,
+            source,
+        } => {
+            assert_eq!(node, "/missing");
+            assert_eq!(service, "/missing/get_schema");
+            match source {
+                ros_z::error::ServiceCallError::Timeout { service, .. } => {
+                    assert_eq!(service, "/missing/get_schema");
+                }
+                other => panic!("expected service timeout source, got {other:?}"),
+            }
+        }
+        other => panic!("expected schema service timeout, got {other:?}"),
+    }
 
     Ok(())
 }
