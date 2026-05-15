@@ -504,6 +504,11 @@
         "nanos": 0,
         "secs": 1
       }
+    },
+    "voronoi": {
+      "orientation_bias": 0.5,
+      "grid_resolution": 0.2,
+      "padding": 0.5
     }
   },
   "hsl_network": {

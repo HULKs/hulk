@@ -9,4 +9,5 @@ pub mod search;
 pub mod send_message;
 pub mod switch_motion_type;
 pub mod tree;
+pub mod voronoi;
 pub mod walk;

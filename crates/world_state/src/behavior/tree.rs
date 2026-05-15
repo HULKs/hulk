@@ -14,7 +14,8 @@ use crate::{
         node::Blackboard,
         search::{has_suggested_search_position, leuchtturm, walk_to_search_position},
         switch_motion_type::switch_motion_type,
-        walk::{walk_alternatives_subtree, walk_to_ball},
+        voronoi::calculate_voronoi_grid,
+        walk::{walk_alternatives_subtree, walk_to_ball, walk_to_centroid},
     },
     condition, negation, selection, sequence, subtree,
 };
@@ -69,6 +70,7 @@ fn ready_subtree() -> Node<Blackboard> {
 
 fn playing_subtree() -> Node<Blackboard> {
     selection!(
+        sequence!(action!(calculate_voronoi_grid), action!(walk_to_centroid)),
         sequence!(condition!(is_goalkeeper), subtree!(goalkeeper_subtree)),
         sequence!(
             negation!(condition!(has_ball_position)),

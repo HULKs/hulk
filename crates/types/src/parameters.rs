@@ -56,6 +56,23 @@ pub struct WhistleDetectionParameters {
     PathIntrospect,
     Message,
 )]
+pub struct VoronoiParameters {
+    pub orientation_bias: f32,
+    pub grid_resolution: f32,
+    pub padding: f32,
+}
+
+#[derive(
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    Message,
+)]
 pub struct BehaviorParameters {
     pub allow_switch: AllowSwitchParameters,
     pub injected_motion_command: Option<MotionCommand>,
@@ -73,6 +90,7 @@ pub struct BehaviorParameters {
     pub kicking: KickingParameters,
     pub walk_speed: WalkSpeedParameters,
     pub intercept_ball: InterceptBallParameters,
+    pub voronoi: VoronoiParameters,
 }
 
 #[derive(

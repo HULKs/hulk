@@ -30,6 +30,7 @@ ros2 = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 types = { workspace = true }
+voronoi = { workspace = true }
 walking_inference = { workspace = true }
 
 [build-dependencies]

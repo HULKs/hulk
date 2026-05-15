@@ -15,6 +15,7 @@ mod path_obstacles;
 mod pose_detection;
 mod referee_position;
 mod robot_pose;
+mod voronoi_cell;
 
 pub use ball_filter::BallFilter;
 pub use ball_percepts::BallPercepts;
@@ -33,3 +34,4 @@ pub use path_obstacles::PathObstacles;
 pub use pose_detection::PoseDetection;
 pub use referee_position::RefereePosition;
 pub use robot_pose::RobotPose;
+pub use voronoi_cell::VoronoiCell;
