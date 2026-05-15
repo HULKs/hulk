@@ -1,6 +1,9 @@
 use std::sync::Arc;
 
-use color_eyre::{Result, eyre::Context as _};
+use color_eyre::{
+    Result,
+    eyre::{Context as _, eyre},
+};
 
 use booster::FallDownState;
 use ros_z::prelude::*;
@@ -13,7 +16,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let fall_down_state_sub = zenoh_session
         .declare_subscriber("rt/fall_down")
         .await
-        .map_err(|error| color_eyre::eyre::eyre!("{error}"))?;
+        .map_err(|error| eyre!("{error}"))?;
     let fall_down_state_pub = node
         .publisher::<FallDownState>("inputs/fall_down_state")?
         .build()
@@ -22,7 +25,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     loop {
         tokio::select! {
             fall_down_state = fall_down_state_sub.recv_async() => {
-                let fall_down_state = fall_down_state.map_err(|error| color_eyre::eyre::eyre!("{error}"))?;
+                let fall_down_state = fall_down_state.map_err(|error| eyre!("{error}"))?;
 
                 let deserialized_sample = cdr::deserialize(&fall_down_state.payload().to_bytes())
                     .wrap_err("deserialization failed")?;

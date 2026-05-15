@@ -1,10 +1,9 @@
 use std::collections::BTreeMap;
 
-use ros_z::Message;
-use ros_z::Result as RosResult;
 use ros_z::message::WireDecoder;
 use ros_z::node::Node;
 use ros_z::time::Time;
+use ros_z::{Message, Result};
 
 use crate::future_queue::{
     CreateFutureQueue, FutureQueueSubscriber, LagPolicy, LagWarning, QueueEvent, QueueState,
@@ -177,7 +176,7 @@ impl<'a> FutureMapBuilder<'a, ()> {
         self,
         topic: &'a str,
         lag_policy: LagPolicy,
-    ) -> RosResult<FutureMapBuilder<'a, (T,)>>
+    ) -> Result<FutureMapBuilder<'a, (T,)>>
     where
         T: Message,
         for<'de> T::Codec: WireDecoder<Input<'de> = &'de [u8], Output = T>,
@@ -237,7 +236,7 @@ macro_rules! implement_stream_group {
             ///
             /// Announcement-only events are consumed internally to update safe-time.
             /// This method returns only when a data payload is incorporated.
-            pub async fn recv(&mut self) -> RosResult<FutureReceive<'_, output_tuple!($($type_name),+), state_tuple!($($type_name),+)>> {
+            pub async fn recv(&mut self) -> Result<FutureReceive<'_, output_tuple!($($type_name),+), state_tuple!($($type_name),+)>> {
                 let mut safe_times = [None; $length];
                 let mut latched_warnings = [None; $length];
 
@@ -295,7 +294,7 @@ macro_rules! implement_stream_group {
                 self,
                 topic: &'a str,
                 lag_policy: LagPolicy,
-            ) -> RosResult<FutureMapBuilder<'a, ($($type_name,)+ $next_type,)>>
+            ) -> Result<FutureMapBuilder<'a, ($($type_name,)+ $next_type,)>>
             where
                 $next_type: Message,
                 for<'de> <$next_type as Message>::Codec: WireDecoder<Input<'de> = &'de [u8], Output = $next_type>,

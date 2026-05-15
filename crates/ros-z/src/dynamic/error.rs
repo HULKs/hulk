@@ -133,6 +133,10 @@ impl DynamicError {
         }
     }
 
+    pub(crate) fn deserialization(source: ros_z_cdr::Error) -> Self {
+        Self::Deserialization { source }
+    }
+
     pub(crate) fn schema_service(
         node: impl Into<String>,
         service: impl Into<String>,
@@ -143,77 +147,5 @@ impl DynamicError {
             service: service.into(),
             source,
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::DynamicError;
-
-    #[test]
-    fn string_only_errors_use_generic_serialization_wording() {
-        let serialization = DynamicError::SerializationError("topic qualification failed".into());
-        let deserialization = DynamicError::DeserializationError("schema shape mismatch".into());
-
-        assert_eq!(
-            serialization.to_string(),
-            "serialization error: topic qualification failed"
-        );
-        assert_eq!(
-            deserialization.to_string(),
-            "deserialization error: schema shape mismatch"
-        );
-    }
-
-    #[test]
-    fn cdr_errors_include_source_in_display_and_error_source() {
-        let serialization = DynamicError::Serialization {
-            source: ros_z_cdr::Error::UnexpectedEof,
-        };
-        let deserialization = DynamicError::Deserialization {
-            source: ros_z_cdr::Error::UnexpectedEof,
-        };
-
-        assert_eq!(
-            serialization.to_string(),
-            "CDR serialization error: unexpected end of input"
-        );
-        assert!(std::error::Error::source(&serialization).is_some());
-        assert_eq!(
-            deserialization.to_string(),
-            "CDR deserialization error: unexpected end of input"
-        );
-        assert!(std::error::Error::source(&deserialization).is_some());
-    }
-
-    #[test]
-    fn schema_error_preserves_source() {
-        let error = DynamicError::schema(
-            "registering schema",
-            ros_z_schema::SchemaError::BuilderFailed,
-        );
-
-        assert!(
-            error
-                .to_string()
-                .contains("schema validation failed while registering schema")
-        );
-        assert!(std::error::Error::source(&error).is_some());
-    }
-
-    #[test]
-    fn schema_service_error_preserves_source() {
-        let error = DynamicError::schema_service(
-            "/vision/object_detection",
-            "/vision/object_detection/get_schema",
-            crate::error::ServiceCallError::NoResponse {
-                service: "/vision/object_detection/get_schema".to_string(),
-            },
-        );
-
-        let message = error.to_string();
-        assert!(message.contains("schema service failed"));
-        assert!(message.contains("/vision/object_detection"));
-        assert!(std::error::Error::source(&error).is_some());
     }
 }

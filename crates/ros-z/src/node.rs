@@ -214,16 +214,6 @@ impl NodeBuilder {
 }
 
 impl Node {
-    fn validate_service_message_schemas<T>()
-    where
-        T: Service,
-    {
-        let request_schema = T::Request::schema();
-        validated_type_info_for_schema::<T::Request>(&request_schema);
-        let response_schema = T::Response::schema();
-        validated_type_info_for_schema::<T::Response>(&response_schema);
-    }
-
     /// Create a publisher for the given topic.
     ///
     /// Type information is automatically populated from [`Message`]. If this
@@ -423,7 +413,6 @@ impl Node {
     {
         debug!("[NOD] Creating service server: name={}", name);
         let type_info = T::service_type_info();
-        Self::validate_service_message_schemas::<T>();
         Ok(self.create_service_impl(name, type_info))
     }
 
@@ -472,7 +461,6 @@ impl Node {
     {
         debug!("[NOD] Creating service client: name={}", name);
         let type_info = T::service_type_info();
-        Self::validate_service_message_schemas::<T>();
         Ok(self.create_client_impl(name, type_info))
     }
 

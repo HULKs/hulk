@@ -25,8 +25,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     // let _audio_spectrums_pub = node
     //     .publisher::<Vec<Vec<(f32, f32)>>>("audio_spectrums")
     //     .build()
-    //     .await
-    //     ?;
+    //     .await?;
     let _detection_infos_pub = node
         .publisher::<Vec<DetectionInfo>>("detection_infos")?
         .build()
