@@ -55,8 +55,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     // let _heatmap_pub = node
     //     .publisher::<Array2<f32>>("ball_search_heatmap")
     //     .build()
-    //     .await
-    //     ?;
+    //     .await?;
     let _suggested_search_position_pub = node
         .publisher::<Point2<Field>>("suggested_search_position")?
         .build()

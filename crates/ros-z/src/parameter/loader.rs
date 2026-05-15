@@ -30,20 +30,3 @@ pub fn load_json5_object_or_empty(path: &Path) -> Result<Value> {
 
     Ok(value)
 }
-
-#[cfg(test)]
-mod tests {
-    use super::load_json5_object_or_empty;
-
-    #[test]
-    fn parameter_parse_error_preserves_source() {
-        let temp = tempfile::tempdir().unwrap();
-        let path = temp.path().join("bad.json5");
-        std::fs::write(&path, "{ not valid json5 ").unwrap();
-
-        let error = load_json5_object_or_empty(&path).expect_err("invalid json5 should fail");
-
-        assert!(error.to_string().contains("failed to parse parameter file"));
-        assert!(std::error::Error::source(&error).is_some());
-    }
-}

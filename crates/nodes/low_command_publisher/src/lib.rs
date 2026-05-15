@@ -1,6 +1,6 @@
 use std::sync::Arc;
 
-use color_eyre::Result;
+use color_eyre::{Result, eyre::eyre};
 use serde::{Deserialize, Serialize};
 
 use booster::{CommandType, LowCommand, MotorCommandParameters};
@@ -32,7 +32,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let zenoh_publisher = zenoh_session
         .declare_publisher("rt/joint_ctrl")
         .await
-        .map_err(|error| color_eyre::eyre::eyre!("{error}"))?;
+        .map_err(|error| eyre!("{error}"))?;
 
     loop {
         let parameters = parameters.snapshot().typed().clone();
@@ -54,7 +54,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 zenoh_publisher
                     .put(&low_command_bytes)
                     .await
-                    .map_err(|error| color_eyre::eyre::eyre!("{error}"))?;
+                    .map_err(|error| eyre!("{error}"))?;
             }
         }
     }

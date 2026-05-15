@@ -4,8 +4,8 @@ use std::{
 };
 
 use ros_z::{
-    EndpointGlobalId, Message, Result as RosResult, message::WireDecoder, node::Node,
-    pubsub::Subscriber, time::Time,
+    EndpointGlobalId, Message, Result, message::WireDecoder, node::Node, pubsub::Subscriber,
+    time::Time,
 };
 use tokio::select;
 
@@ -193,7 +193,7 @@ where
         trim_unmatched_publications(&mut self.pending_data, &mut self.tombstones);
     }
 
-    async fn ingest_pending_announcements(&mut self) -> RosResult<Option<LagWarning>> {
+    async fn ingest_pending_announcements(&mut self) -> Result<Option<LagWarning>> {
         let mut warning = None;
         while self.announcement_subscriber.is_ready() {
             let received = self.announcement_subscriber.recv_with_metadata().await?;
@@ -209,13 +209,13 @@ where
     }
 
     /// Drain ready announcements and return updated state.
-    pub async fn drain_announcements(&mut self) -> RosResult<QueueState> {
+    pub async fn drain_announcements(&mut self) -> Result<QueueState> {
         let warning = self.ingest_pending_announcements().await?;
         Ok(self.queue_state(warning))
     }
 
     /// Wait for next announcement or payload event.
-    pub async fn recv(&mut self) -> RosResult<QueueEvent<T>> {
+    pub async fn recv(&mut self) -> Result<QueueEvent<T>> {
         loop {
             if let Some((data_time, value)) = self.ready_data.pop_front() {
                 return Ok(QueueEvent::Data {
@@ -278,7 +278,7 @@ pub trait CreateFutureQueue {
         &'a self,
         topic: &'a str,
         lag_policy: LagPolicy,
-    ) -> impl std::future::Future<Output = RosResult<FutureQueueSubscriber<T>>> + 'a
+    ) -> impl std::future::Future<Output = Result<FutureQueueSubscriber<T>>> + 'a
     where
         T: Message + 'a,
         for<'de> T::Codec: WireDecoder<Input<'de> = &'de [u8], Output = T>;
@@ -289,7 +289,7 @@ impl CreateFutureQueue for Node {
         &'a self,
         topic: &'a str,
         lag_policy: LagPolicy,
-    ) -> RosResult<FutureQueueSubscriber<T>>
+    ) -> Result<FutureQueueSubscriber<T>>
     where
         T: Message + 'a,
         for<'de> T::Codec: WireDecoder<Input<'de> = &'de [u8], Output = T>,

@@ -3,9 +3,8 @@ use std::future::Future;
 use std::pin::Pin;
 use std::sync::Arc;
 
-use ros_z::Result as RosResult;
 use ros_z::{
-    EndpointGlobalId, Message,
+    EndpointGlobalId, Message, Result,
     message::WireEncoder,
     node::Node,
     pubsub::{PreparedPublication, PublicationId, Publisher},
@@ -39,7 +38,7 @@ where
     for<'a> T::Codec: WireEncoder<Input<'a> = &'a T>,
 {
     /// Announce upcoming payload timestamp and return handle to publish payload with matching id.
-    pub async fn announce(&self, time: Time) -> RosResult<PendingAnnouncement<'_, T>> {
+    pub async fn announce(&self, time: Time) -> Result<PendingAnnouncement<'_, T>> {
         let data = self.data_publisher.prepare();
         let publication_id = data.id();
         self.announcement_publisher
@@ -67,7 +66,7 @@ pub trait CreateAnnouncingPublisher {
     fn announcing_publisher<'a, T>(
         &'a self,
         topic: &'a str,
-    ) -> Pin<Box<dyn Future<Output = RosResult<AnnouncingPublisher<T>>> + 'a>>
+    ) -> Pin<Box<dyn Future<Output = Result<AnnouncingPublisher<T>>> + 'a>>
     where
         T: Message + 'a,
         for<'de> T::Codec: WireEncoder<Input<'de> = &'de T>;
@@ -77,7 +76,7 @@ impl CreateAnnouncingPublisher for Node {
     fn announcing_publisher<'a, T>(
         &'a self,
         topic: &'a str,
-    ) -> Pin<Box<dyn Future<Output = RosResult<AnnouncingPublisher<T>>> + 'a>>
+    ) -> Pin<Box<dyn Future<Output = Result<AnnouncingPublisher<T>>> + 'a>>
     where
         T: Message + 'a,
         for<'de> T::Codec: WireEncoder<Input<'de> = &'de T>,
@@ -119,7 +118,7 @@ where
     for<'b> T::Codec: WireEncoder<Input<'b> = &'b T>,
 {
     /// Publish payload with id that matches earlier announcement.
-    pub async fn publish(mut self, value: &T) -> RosResult<()> {
+    pub async fn publish(mut self, value: &T) -> Result<()> {
         let data = self.data.take().expect("pending announcement data missing");
         data.publish(value).await?;
         self.completed = true;
