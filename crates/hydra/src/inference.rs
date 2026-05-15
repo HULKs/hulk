@@ -19,7 +19,7 @@ use serde::{Deserialize, Serialize};
 use types::{
     bounding_box::BoundingBox,
     object_detection::{NUMBER_OF_VALUES_PER_OBJECT, Object, RobocupObjectLabel, YOLOObjectLabel},
-    parameters::HydraParameters,
+    parameters::DetectionParameters,
     pose_detection::{NUMBER_OF_VALUES_PER_POSE, Pose},
 };
 
@@ -74,7 +74,7 @@ pub struct CycleContext {
     non_maximum_suppression_duration:
         AdditionalOutput<Duration, "non_maximum_suppression_duration">,
 
-    parameters: Parameter<HydraParameters, "hydra">,
+    parameters: Parameter<DetectionParameters, "hydra">,
 }
 
 #[context]

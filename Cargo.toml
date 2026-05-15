@@ -44,6 +44,7 @@ members = [
   "crates/nodes/button_event_bridge",
   "crates/nodes/button_event_handler",
   "crates/nodes/camera_matrix_calculator",
+  "crates/nodes/detection",
   "crates/nodes/fake_odometry",
   "crates/nodes/fall_down_state_receiver",
   "crates/nodes/field_border_detection",
@@ -53,7 +54,6 @@ members = [
   "crates/nodes/head_motion",
   "crates/nodes/image_receiver",
   "crates/nodes/image_segmenter",
-  "crates/nodes/inference",
   "crates/nodes/kick",
   "crates/nodes/kinematics_provider",
   "crates/nodes/led_handler",
@@ -186,6 +186,7 @@ derive_more = { version = "2.0.1", features = [
   "mul",
   "not",
 ] }
+detection = { path = "crates/nodes/detection" }
 dirs = "6.0.0"
 eframe = { version = "0.33.3", features = ["persistence", "wgpu"] }
 egui = { version = "0.33.3", features = ["persistence"] }
@@ -227,7 +228,6 @@ image = { version = "0.25.5", default-features = false, features = ["jpeg"] }
 image_receiver = { path = "crates/nodes/image_receiver" }
 image_segmenter = { path = "crates/nodes/image_segmenter" }
 indicatif = "0.18.4"
-inference = { path = "crates/nodes/inference" }
 insta = "1"
 itertools = "0.14.0"
 ittapi = "0.4.0"

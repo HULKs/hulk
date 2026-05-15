@@ -1,4 +1,4 @@
-use std::{ops::Range, time::Duration};
+use std::{ops::Range, path::PathBuf, time::Duration};
 
 use hsl_network_messages::PlayerNumber;
 use kinematics::joints::{Joints, head::HeadJoints};
@@ -609,8 +609,9 @@ pub struct ControlParameters {
     PathIntrospect,
     ros_z::Message,
 )]
-pub struct HydraParameters {
+pub struct DetectionParameters {
     pub enable: bool,
+    pub model_name: String,
     pub object_detection_parameters: ObjectDetectionParameters,
     pub pose_detection_parameters: PoseDetectionParameters,
 }

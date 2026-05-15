@@ -19,6 +19,7 @@ button_event_handler = { workspace = true }
 camera_matrix_calculator = { workspace = true }
 clap = { workspace = true, features = ["derive"] }
 color-eyre = { workspace = true }
+detection = { workspace = true, features = ["ort-dynamic"] }
 fake_odometry = { workspace = true }
 fall_down_state_receiver = { workspace = true }
 field_border_detection = { workspace = true }
@@ -28,7 +29,6 @@ ground_provider = { workspace = true }
 head_motion = { workspace = true }
 image_receiver = { workspace = true }
 image_segmenter = { workspace = true }
-inference = { workspace = true }
 kick = { workspace = true }
 kinematics_provider = { workspace = true }
 led_handler = { workspace = true }

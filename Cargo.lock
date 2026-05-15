@@ -3263,6 +3263,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "detection"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "coordinate_systems",
+ "kinematics",
+ "linear_algebra",
+ "ndarray",
+ "ort",
+ "projection",
+ "ros-z",
+ "ros2",
+ "serde",
+ "tokio",
+ "types",
+]
+
+[[package]]
 name = "digest"
 version = "0.10.7"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5347,6 +5365,7 @@ dependencies = [
  "camera_matrix_calculator",
  "clap",
  "color-eyre",
+ "detection",
  "fake_odometry",
  "fall_down_state_receiver",
  "field_border_detection",
@@ -5356,7 +5375,6 @@ dependencies = [
  "head_motion",
  "image_receiver",
  "image_segmenter",
- "inference",
  "kick",
  "kinematics_provider",
  "led_handler",
@@ -5753,17 +5771,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "79cf5c93f93228cf8efb3ba362535fb11199ac548a09ce117c9b1adc3030d706"
 dependencies = [
  "rustversion",
-]
-
-[[package]]
-name = "inference"
-version = "0.1.0"
-dependencies = [
- "color-eyre",
- "ros-z",
- "ros2",
- "serde",
- "types",
 ]
 
 [[package]]
