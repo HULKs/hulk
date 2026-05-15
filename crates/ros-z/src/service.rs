@@ -232,7 +232,6 @@ where
         for<'a> <T::Response as Message>::Codec:
             WireDecoder<Output = T::Response, Input<'a> = &'a [u8]>,
     {
-        required_attachment_from_response(&sample)?;
         let payload_bytes = sample.payload().to_bytes();
         <<T::Response as Message>::Codec as WireDecoder>::deserialize(&payload_bytes[..])
             .map_err(|e| zenoh::Error::from(e.to_string()))
@@ -360,13 +359,7 @@ impl ServiceQueryHandler {
                     tracing::debug!("Queue full, dropped oldest service request");
                 }
             }
-            ServiceQueryHandler::Callback(callback) => {
-                if let Err(error) = required_attachment_from_query(&query) {
-                    warn!("[SRV] Rejecting service callback query: {}", error);
-                    return;
-                }
-                callback(query)
-            }
+            ServiceQueryHandler::Callback(callback) => callback(query),
         }
     }
 }
@@ -506,30 +499,6 @@ impl From<Attachment> for RequestId {
     }
 }
 
-fn required_attachment_from_query(query: &Query) -> Result<Attachment> {
-    let raw = query.attachment().ok_or_else(|| {
-        zenoh::Error::from("received ros-z service request without attachment metadata")
-    })?;
-
-    Attachment::try_from(raw).map_err(|error| {
-        zenoh::Error::from(format!(
-            "failed to decode ros-z service request attachment metadata: {error}"
-        ))
-    })
-}
-
-fn required_attachment_from_response(sample: &Sample) -> Result<Attachment> {
-    let raw = sample.attachment().ok_or_else(|| {
-        zenoh::Error::from("received ros-z service response without attachment metadata")
-    })?;
-
-    Attachment::try_from(raw).map_err(|error| {
-        zenoh::Error::from(format!(
-            "failed to decode ros-z service response attachment metadata: {error}"
-        ))
-    })
-}
-
 pub struct ServiceReply<T: Service> {
     request_id: RequestId,
     key_expr: KeyExpr<'static>,
@@ -624,7 +593,18 @@ where
         for<'a> <T::Request as Message>::Codec:
             WireDecoder<Output = T::Request, Input<'a> = &'a [u8]>,
     {
-        let request_id = RequestId::from(required_attachment_from_query(&query)?);
+        let attachment = {
+            let raw = query.attachment().ok_or_else(|| {
+                zenoh::Error::from("received ros-z service request without attachment metadata")
+            })?;
+
+            Attachment::try_from(raw).map_err(|error| {
+                zenoh::Error::from(format!(
+                    "failed to decode ros-z service request attachment metadata: {error}"
+                ))
+            })
+        }?;
+        let request_id = RequestId::from(attachment);
 
         let payload_bytes = query
             .payload()
@@ -705,13 +685,12 @@ mod tests {
     use crate::{
         Message, SerdeCdrCodec, ServiceTypeInfo,
         context::ContextBuilder,
-        entity::{EndpointEntity, EndpointKind, TypeInfo},
+        entity::TypeInfo,
         message::{Service, WireEncoder},
     };
     use ros_z_schema::{SchemaError, ServiceDef};
     use serde::{Deserialize, Serialize};
     use serde_json::json;
-    use zenoh::Wait;
 
     #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, crate::Message)]
     #[message(name = "test_msgs::AddTwoIntsRequest")]
@@ -745,30 +724,6 @@ mod tests {
                 ros_z_schema::compute_hash(&descriptor),
             ))
         }
-    }
-
-    fn service_key_expr_for<T: ServiceTypeInfo>(
-        node: &crate::node::Node,
-        service: &str,
-    ) -> zenoh::key_expr::KeyExpr<'static> {
-        let qualified_service = crate::topic_name::qualify_service_name(
-            service,
-            &node.node_entity().namespace,
-            &node.node_entity().name,
-        )
-        .expect("service should qualify");
-        let entity = EndpointEntity {
-            id: 0,
-            node: Some(node.node_entity().clone()),
-            kind: EndpointKind::Service,
-            topic: qualified_service,
-            type_info: Some(T::service_type_info().expect("service type info should build")),
-            qos: Default::default(),
-        };
-
-        (*ros_z_protocol::format::topic_key_expr(&entity)
-            .expect("service key expression should build"))
-        .clone()
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -825,121 +780,5 @@ mod tests {
             .expect("Failed to send raw service query");
 
         request_task.await.expect("Service task panicked");
-    }
-
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn service_callback_without_attachment_is_rejected() {
-        let context = ContextBuilder::default()
-            .disable_multicast_scouting()
-            .with_json("connect/endpoints", json!([]))
-            .build()
-            .await
-            .expect("Failed to create context");
-
-        let server_node = context
-            .create_node("raw_callback_server")
-            .build()
-            .await
-            .expect("Failed to create server node");
-        let client_node = context
-            .create_node("raw_callback_client")
-            .build()
-            .await
-            .expect("Failed to create client node");
-
-        let (called_tx, mut called_rx) = tokio::sync::mpsc::unbounded_channel();
-        let server = server_node
-            .create_service_server::<AddTwoInts>("raw_callback_add_two_ints")
-            .expect("service server factory should succeed")
-            .build_with_callback(move |_| {
-                called_tx
-                    .send(())
-                    .expect("callback invocation should be recorded");
-            })
-            .await
-            .expect("Failed to create callback service server");
-        let key_expr = server.key_expr.clone();
-
-        tokio::time::sleep(Duration::from_millis(100)).await;
-
-        client_node
-            .session()
-            .get(key_expr)
-            .payload(SerdeCdrCodec::<AddTwoIntsRequest>::serialize(
-                &AddTwoIntsRequest { a: 10, b: 32 },
-            ))
-            .callback(|_| panic!("raw callback request should not receive a reply"))
-            .await
-            .expect("Failed to send raw service query");
-
-        assert!(
-            tokio::time::timeout(Duration::from_millis(100), called_rx.recv())
-                .await
-                .is_err(),
-            "callback should not receive requests without attachments"
-        );
-
-        drop(server);
-    }
-
-    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn service_response_without_attachment_returns_clear_error() {
-        let context = ContextBuilder::default()
-            .disable_multicast_scouting()
-            .with_json("connect/endpoints", json!([]))
-            .build()
-            .await
-            .expect("Failed to create context");
-        let server_node = context
-            .create_node("raw_reply_server")
-            .build()
-            .await
-            .expect("Failed to create server node");
-        let client_node = context
-            .create_node("raw_reply_client")
-            .build()
-            .await
-            .expect("Failed to create client node");
-
-        let service = "raw_reply_add_two_ints";
-        let key_expr = service_key_expr_for::<AddTwoInts>(&server_node, service);
-        let reply_key_expr = key_expr.clone();
-        let queryable = server_node
-            .session()
-            .declare_queryable(key_expr)
-            .complete(true)
-            .callback(move |query| {
-                query
-                    .reply(
-                        &reply_key_expr,
-                        SerdeCdrCodec::<AddTwoIntsResponse>::serialize(&AddTwoIntsResponse {
-                            sum: 42,
-                        }),
-                    )
-                    .wait()
-                    .expect("raw reply should send");
-            })
-            .await
-            .expect("Failed to declare raw queryable");
-
-        let client = client_node
-            .create_service_client::<AddTwoInts>(service)
-            .expect("service client factory should succeed")
-            .build()
-            .await
-            .expect("Failed to create service client");
-
-        let error = client
-            .call_async(&AddTwoIntsRequest { a: 10, b: 32 })
-            .await
-            .expect_err("response without attachment should fail");
-        assert!(
-            error
-                .to_string()
-                .contains("received ros-z service response without attachment metadata"),
-            "unexpected error: {error}"
-        );
-
-        drop(queryable);
     }
 }
