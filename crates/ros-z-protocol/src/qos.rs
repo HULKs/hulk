@@ -1,6 +1,5 @@
 //! QoS profile encoding/decoding for liveliness tokens.
 
-use core::fmt::Display;
 use std::{string::String, vec::Vec};
 
 /// QoS profile for native ros-z entities.
@@ -322,25 +321,18 @@ impl QosHistory {
 }
 
 /// QoS decode errors.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum QosDecodeError {
+    #[error("invalid QoS format")]
     InvalidFormat,
+    #[error("invalid QoS reliability value")]
     InvalidReliability,
+    #[error("invalid QoS durability value")]
     InvalidDurability,
+    #[error("invalid QoS history value")]
     InvalidHistory,
+    #[error("invalid QoS duration value")]
     InvalidDuration,
+    #[error("invalid QoS liveliness value")]
     InvalidLiveliness,
-}
-
-impl Display for QosDecodeError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        match self {
-            QosDecodeError::InvalidFormat => write!(f, "Invalid QoS format"),
-            QosDecodeError::InvalidReliability => write!(f, "Invalid reliability value"),
-            QosDecodeError::InvalidDurability => write!(f, "Invalid durability value"),
-            QosDecodeError::InvalidHistory => write!(f, "Invalid history value"),
-            QosDecodeError::InvalidDuration => write!(f, "Invalid duration value"),
-            QosDecodeError::InvalidLiveliness => write!(f, "Invalid liveliness value"),
-        }
-    }
 }

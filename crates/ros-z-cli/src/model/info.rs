@@ -2,8 +2,8 @@ use serde::Serialize;
 
 #[derive(Debug, Clone, Serialize)]
 pub struct EndpointSummary {
-    pub node: Option<String>,
-    pub schema_hash: Option<String>,
+    pub node: String,
+    pub schema_hash: String,
 }
 
 #[derive(Debug, Clone, Serialize)]

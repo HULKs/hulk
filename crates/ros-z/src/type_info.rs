@@ -1,5 +1,4 @@
 use crate::entity::TypeInfo;
-use ros_z_schema::SchemaError;
 
 /// Trait for ROS service types that provides service-level type information.
 ///
@@ -10,8 +9,11 @@ use ros_z_schema::SchemaError;
 /// - request_message (the Request type)
 /// - response_message (the Response type)
 /// - event_message (a virtual Event type containing ServiceEventInfo, request[], and response[])
-///
 pub trait ServiceTypeInfo {
     /// Returns the service type info (type name and hash for the service).
-    fn service_type_info() -> Result<TypeInfo, SchemaError>;
+    ///
+    /// # Panics
+    ///
+    /// Implementations may panic if the static service descriptor or service hash is invalid.
+    fn service_type_info() -> TypeInfo;
 }

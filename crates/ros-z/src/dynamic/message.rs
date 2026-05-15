@@ -25,7 +25,7 @@ impl DynamicStruct {
     ) -> Result<Self, DynamicError> {
         schema
             .validate()
-            .map_err(|error| DynamicError::SerializationError(error.to_string()))?;
+            .map_err(|error| DynamicError::schema("creating dynamic struct", error))?;
         let Some(TypeDefinition::Struct(definition)) = schema.definitions.get(&type_name) else {
             return Err(DynamicError::SerializationError(format!(
                 "dynamic struct type `{type_name}` is not a struct definition"

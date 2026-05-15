@@ -1,6 +1,7 @@
 use sha2::Digest;
 
 use crate::json::{JsonEncode, to_json};
+use crate::schema::SchemaError;
 
 /// Canonical schema hash bytes.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Default)]
@@ -41,9 +42,9 @@ impl std::fmt::Display for SchemaHash {
 }
 
 /// Computes the schema hash from JSON bytes.
-pub fn compute_hash<T: JsonEncode>(value: &T) -> SchemaHash {
-    let json = to_json(value).expect("JSON serialization must succeed");
+pub fn compute_hash<T: JsonEncode>(value: &T) -> Result<SchemaHash, SchemaError> {
+    let json = to_json(value)?;
     let mut hasher = sha2::Sha256::new();
     hasher.update(json.as_bytes());
-    SchemaHash(hasher.finalize().into())
+    Ok(SchemaHash(hasher.finalize().into()))
 }

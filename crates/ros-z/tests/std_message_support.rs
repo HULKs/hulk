@@ -79,7 +79,7 @@ fn assert_socket_addr_schema(schema: &ros_z_schema::SchemaBundle) {
 #[test]
 fn std_duration_schema_uses_serde_field_names() {
     assert_eq!(Duration::type_name(), "std::time::Duration");
-    let schema = Duration::schema().unwrap();
+    let schema = Duration::schema();
     let fields = struct_fields(&schema, "std::time::Duration");
 
     assert_eq!(fields[0].name, "secs");
@@ -111,7 +111,7 @@ fn container_type_names_return_owned_strings() {
 #[test]
 fn std_system_time_schema_uses_serde_field_names() {
     assert_eq!(SystemTime::type_name(), "std::time::SystemTime");
-    let schema = SystemTime::schema().unwrap();
+    let schema = SystemTime::schema();
     let fields = struct_fields(&schema, "std::time::SystemTime");
 
     assert_eq!(fields[0].name, "secs_since_epoch");
@@ -122,7 +122,7 @@ fn std_system_time_schema_uses_serde_field_names() {
 
 #[test]
 fn range_schemas_use_start_and_end_fields() {
-    let range_schema = Range::<f32>::schema().unwrap();
+    let range_schema = Range::<f32>::schema();
     let range_fields = struct_fields(&range_schema, "Range<f32>");
     assert_eq!(
         range_fields[0].shape,
@@ -133,7 +133,7 @@ fn range_schemas_use_start_and_end_fields() {
         TypeDef::Primitive(PrimitiveTypeDef::F32)
     );
 
-    let inclusive_schema = RangeInclusive::<f32>::schema().unwrap();
+    let inclusive_schema = RangeInclusive::<f32>::schema();
     let inclusive_fields = struct_fields(&inclusive_schema, "RangeInclusive<f32>");
     assert_eq!(
         inclusive_fields[0].shape,
@@ -147,12 +147,12 @@ fn range_schemas_use_start_and_end_fields() {
 
 #[test]
 fn range_schema_roots_use_message_type_names() {
-    let range_schema = Range::<RenamedRangeElement>::schema().unwrap();
+    let range_schema = Range::<RenamedRangeElement>::schema();
     let range_name = TypeName::new("Range<test_msgs::RenamedRangeElement>").unwrap();
     assert_eq!(range_schema.root, TypeDef::Named(range_name.clone()));
     assert!(range_schema.definitions.contains_key(&range_name));
 
-    let inclusive_schema = RangeInclusive::<RenamedRangeElement>::schema().unwrap();
+    let inclusive_schema = RangeInclusive::<RenamedRangeElement>::schema();
     let inclusive_name = TypeName::new("RangeInclusive<test_msgs::RenamedRangeElement>").unwrap();
     assert_eq!(
         inclusive_schema.root,
@@ -163,13 +163,13 @@ fn range_schema_roots_use_message_type_names() {
 
 #[test]
 fn socket_addr_schema_matches_serde_cdr_enum_shape() {
-    let schema = SocketAddr::schema().unwrap();
+    let schema = SocketAddr::schema();
     assert_socket_addr_schema(&schema);
 }
 
 #[test]
 fn derived_message_can_contain_all_core_std_types() {
-    let schema = StdEnvelope::schema().unwrap();
+    let schema = StdEnvelope::schema();
     let root = StdEnvelope::type_name();
 
     assert!(matches!(
@@ -220,7 +220,7 @@ fn std_envelope_round_trips_through_cdr() {
         contacts,
     };
 
-    let encoded = <StdEnvelope as Message>::Codec::serialize_to_zbuf(&original);
+    let encoded = <StdEnvelope as Message>::Codec::serialize_to_zbuf(&original).unwrap();
     let decoded = <StdEnvelope as Message>::Codec::deserialize(&encoded.contiguous())
         .expect("wire codec should decode std envelope");
 

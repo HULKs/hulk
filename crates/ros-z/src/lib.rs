@@ -51,6 +51,7 @@ pub mod dynamic;
 pub mod encoding;
 /// Entity identity types (`SchemaHash`, `TypeInfo`).
 pub mod entity;
+pub mod error;
 /// Graph events emitted by the Zenoh network graph.
 pub mod event;
 /// Native graph introspection (node/topic/service discovery).
@@ -90,6 +91,7 @@ pub mod utils;
 
 pub use attachment::EndpointGlobalId;
 pub use entity::{SchemaHash, TypeInfo};
+pub use error::{Error, Result};
 pub use message::{Message, SerdeCdrCodec, Service};
 pub use ros_z_derive::Message;
 pub use schema::{
@@ -97,23 +99,9 @@ pub use schema::{
 };
 pub use type_info::ServiceTypeInfo;
 pub use zbuf::ZBuf;
-pub use zenoh::Result;
 
 #[doc(hidden)]
 pub mod __private {
     pub use ros_z_schema;
     pub use sha2;
-}
-
-pub trait IntoEyreResultExt<T> {
-    fn into_eyre(self) -> color_eyre::Result<T>;
-}
-
-impl<T, E> IntoEyreResultExt<T> for std::result::Result<T, E>
-where
-    E: std::fmt::Display,
-{
-    fn into_eyre(self) -> color_eyre::Result<T> {
-        self.map_err(|error| color_eyre::eyre::eyre!(error.to_string()))
-    }
 }

@@ -7,6 +7,7 @@ homepage.workspace = true
 
 [dependencies]
 ros-z-schema = { workspace = true }
+thiserror = { workspace = true }
 zenoh = { workspace = true }
 
 [dev-dependencies]

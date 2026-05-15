@@ -17,10 +17,10 @@
 //!
 //! let entity = EndpointEntity {
 //!     id: 1,
-//!     node: Some(node),
+//!     node,
 //!     kind: EndpointKind::Publisher,
 //!     topic: "/chatter".to_string(),
-//!     type_info: None,
+//!     type_info: TypeInfo::new("std_msgs::String", SchemaHash::zero()),
 //!     qos: Default::default(),
 //! };
 //!
@@ -29,9 +29,11 @@
 //! ```
 
 pub mod entity;
+pub mod error;
 pub mod format;
 pub mod qos;
 
 pub use entity::{
     EndpointEntity, EndpointKind, Entity, EntityKind, NodeEntity, SchemaHash, TypeInfo,
 };
+pub use error::{ProtocolError, Result};

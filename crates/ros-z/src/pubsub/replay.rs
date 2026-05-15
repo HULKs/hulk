@@ -5,9 +5,10 @@ use std::time::Duration;
 
 use parking_lot::Mutex as ParkingMutex;
 use tracing::debug;
-use zenoh::{Result, Session, sample::Sample};
+use zenoh::{Session, sample::Sample};
 
 use super::metadata::{self, PublicationId};
+use crate::Result;
 use crate::attachment::{Attachment, EndpointGlobalId};
 use crate::entity::{Entity, EntityKind, endpoint_global_id, entity_get_endpoint};
 use crate::graph::Graph;
@@ -17,7 +18,7 @@ use ros_z_protocol::qos::{QosDurability, QosHistory};
 pub(super) struct RetainedSample {
     pub(super) payload: zenoh::bytes::ZBytes,
     pub(super) encoding: Option<zenoh::bytes::Encoding>,
-    pub(super) attachment: Option<Attachment>,
+    pub(super) attachment: Attachment,
 }
 
 pub(super) struct TransientLocalCache {
@@ -558,7 +559,8 @@ pub(crate) async fn query_initial_transient_local_replay_async(
         .consolidation(zenoh::query::ConsolidationMode::None)
         .accept_replies(zenoh::query::ReplyKeyExpr::Any)
         .timeout(timeout)
-        .await?;
+        .await
+        .map_err(|source| crate::Error::zenoh("query transient-local replay", source))?;
     while let Ok(reply) = replies.recv_async().await {
         match reply.into_result() {
             Ok(sample) if sample.key_expr().as_str() == expected_topic_key_expr => {
@@ -587,7 +589,6 @@ fn replay_capable_publisher(entity: &Entity) -> Option<(EndpointGlobalId, usize)
     let QosHistory::KeepLast(depth) = endpoint.qos.history else {
         return None;
     };
-    endpoint.node.as_ref()?;
     Some((endpoint_global_id(endpoint), depth))
 }
 

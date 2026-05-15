@@ -4,51 +4,39 @@ use color_eyre::{Result, eyre::Context as _};
 
 use booster::{ImuState, LowState, MotorState};
 use kinematics::joints::Joints;
-use ros_z::{IntoEyreResultExt, prelude::*};
+use ros_z::prelude::*;
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
-    let node = ctx
-        .create_node("low_state_bridge")
-        .build()
-        .await
-        .into_eyre()?;
+    let node = ctx.create_node("low_state_bridge").build().await?;
 
     let zenoh_session = ctx.session();
 
     let low_state_sub = zenoh_session
         .declare_subscriber("rt/low_state")
         .await
-        .into_eyre()?;
+        .map_err(|error| color_eyre::eyre::eyre!("{error}"))?;
 
     let low_state_pub = node
-        .publisher::<LowState>("inputs/low_state")
-        .into_eyre()?
+        .publisher::<LowState>("inputs/low_state")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let imu_state_pub = node
-        .publisher::<ImuState>("inputs/imu_state")
-        .into_eyre()?
+        .publisher::<ImuState>("inputs/imu_state")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let serial_motor_states_pub = node
-        .publisher::<Joints<MotorState>>("inputs/serial_motor_states")
-        .into_eyre()?
+        .publisher::<Joints<MotorState>>("inputs/serial_motor_states")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let parallel_motor_states_pub = node
-        .publisher::<Option<Joints<MotorState>>>("inputs/parallel_motor_states")
-        .into_eyre()?
+        .publisher::<Option<Joints<MotorState>>>("inputs/parallel_motor_states")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
 
     loop {
         tokio::select! {
             low_state = low_state_sub.recv_async() => {
-                let low_state = low_state.into_eyre()?;
+                let low_state = low_state.map_err(|error| color_eyre::eyre::eyre!("{error}"))?;
 
                 let low_state: LowState = cdr::deserialize(&low_state.payload().to_bytes())
                     .wrap_err("deserialization failed")?;
@@ -59,20 +47,16 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
                 low_state_pub
                     .publish(&low_state)
-                    .await
-                    .into_eyre()?;
+                    .await?;
                 imu_state_pub
                     .publish(&imu_state)
-                    .await
-                    .into_eyre()?;
+                    .await?;
                 serial_motor_states_pub
                     .publish(&serial_motor_states)
-                    .await
-                    .into_eyre()?;
+                    .await?;
                 parallel_motor_states_pub
                     .publish(&parallel_motor_states)
-                    .await
-                    .into_eyre()?;
+                    .await?;
 
             }
         }

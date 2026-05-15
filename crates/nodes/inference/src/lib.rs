@@ -3,7 +3,7 @@ use std::{future::pending, sync::Arc, time::Duration};
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
-use ros_z::{IntoEyreResultExt, prelude::*};
+use ros_z::prelude::*;
 use ros2::sensor_msgs::image::Image;
 use types::{
     object_detection::{Object, RobocupObjectLabel, YOLOObjectLabel},
@@ -18,47 +18,30 @@ pub struct Parameters {
 }
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
-    let node = ctx.create_node("inference").build().await.into_eyre()?;
+    let node = ctx.create_node("inference").build().await?;
 
-    let _parameters = node
-        .bind_parameter_as::<Parameters>("inference")
-        .into_eyre()?;
-    let _image_sub = node
-        .subscriber::<Image>("inputs/image")
-        .into_eyre()?
-        .build()
-        .await
-        .into_eyre()?;
+    let _parameters = node.bind_parameter_as::<Parameters>("inference")?;
+    let _image_sub = node.subscriber::<Image>("inputs/image")?.build().await?;
     let _inference_duration_pub = node
-        .publisher::<Duration>("inference_duration")
-        .into_eyre()?
+        .publisher::<Duration>("inference_duration")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _post_processing_duration_pub = node
-        .publisher::<Duration>("post_processing_duration")
-        .into_eyre()?
+        .publisher::<Duration>("post_processing_duration")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _non_maximum_suppression_duration_pub = node
-        .publisher::<Duration>("non_maximum_suppression_duration")
-        .into_eyre()?
+        .publisher::<Duration>("non_maximum_suppression_duration")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _detected_objects_pub = node
-        .publisher::<Vec<Object<RobocupObjectLabel>>>("detected_objects")
-        .into_eyre()?
+        .publisher::<Vec<Object<RobocupObjectLabel>>>("detected_objects")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _detected_poses_pub = node
-        .publisher::<Vec<Pose<YOLOObjectLabel>>>("detected_poses")
-        .into_eyre()?
+        .publisher::<Vec<Pose<YOLOObjectLabel>>>("detected_poses")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
 
     pending::<()>().await;
 

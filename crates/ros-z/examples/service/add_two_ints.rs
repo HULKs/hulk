@@ -1,8 +1,4 @@
-use ros_z::{
-    Message, ServiceTypeInfo,
-    entity::{SchemaHash, TypeInfo},
-    message::Service,
-};
+use ros_z::{Message, ServiceTypeInfo, entity::TypeInfo, message::Service};
 use serde::{Deserialize, Serialize};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, Message)]
@@ -21,16 +17,16 @@ pub struct AddTwoIntsResponse {
 pub struct AddTwoInts;
 
 impl ServiceTypeInfo for AddTwoInts {
-    fn service_type_info() -> Result<TypeInfo, ros_z_schema::SchemaError> {
+    fn service_type_info() -> TypeInfo {
         let descriptor = ros_z_schema::ServiceDef::new(
             "demo_nodes::AddTwoInts",
-            "demo_nodes::AddTwoIntsRequest",
-            "demo_nodes::AddTwoIntsResponse",
-        )?;
-        Ok(TypeInfo::new(
-            "demo_nodes::AddTwoInts",
-            Some(SchemaHash(ros_z_schema::compute_hash(&descriptor).0)),
-        ))
+            AddTwoIntsRequest::type_name(),
+            AddTwoIntsResponse::type_name(),
+        )
+        .expect("demo service descriptor should be static and valid");
+        let hash = ros_z_schema::compute_hash(&descriptor)
+            .expect("demo service hash should be static and valid");
+        TypeInfo::new(descriptor.type_name.as_str(), hash)
     }
 }
 

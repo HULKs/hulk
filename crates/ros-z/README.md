@@ -26,7 +26,7 @@ C/C++ runtime dependencies.
 ```rust
 use ros_z::prelude::*;
 
-# async fn demo() -> zenoh::Result<()> {
+# async fn demo() -> ros_z::Result<()> {
 let context = ContextBuilder::default().build().await?;
 let node = context.create_node("talker").build().await?;
 let publisher = node.publisher::<String>("/chatter")?.build().await?;

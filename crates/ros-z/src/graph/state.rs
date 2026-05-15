@@ -5,7 +5,6 @@ use std::{
     sync::{Arc, Weak},
 };
 use tracing::debug;
-use zenoh::Result;
 
 use crate::entity::{
     EndpointKind, Entity, LivelinessKE, NodeKey, Topic, entity_get_endpoint,
@@ -16,7 +15,7 @@ const DEFAULT_SLAB_CAPACITY: usize = 128;
 
 /// Type alias for entity parser function
 pub(super) type EntityParser =
-    Arc<dyn Fn(&zenoh::key_expr::KeyExpr) -> Result<Entity> + Send + Sync>;
+    Arc<dyn Fn(&zenoh::key_expr::KeyExpr) -> crate::Result<Entity> + Send + Sync>;
 
 pub(super) struct GraphData {
     cached: HashSet<LivelinessKE>,
@@ -96,9 +95,7 @@ impl GraphData {
                 {
                     Self::retain_entities_not_matching_key(slab, key_expr);
                 }
-                if let Some(node) = endpoint_entity.node.as_ref()
-                    && let Some(slab) = self.by_node.get_mut(&node_key(node))
-                {
+                if let Some(slab) = self.by_node.get_mut(&node_key(&endpoint_entity.node)) {
                     Self::retain_entities_not_matching_key(slab, key_expr);
                 }
             }
@@ -132,11 +129,9 @@ impl GraphData {
                     Self::insert_weak_entity(service_slab, weak.clone());
                 }
 
-                if let Some(node) = endpoint.node.as_ref() {
-                    // Index maps own their keys so parsed entities can remain immutable and shared by Arc.
-                    let node_slab = Self::get_or_create_slab(&mut self.by_node, node_key(node));
-                    Self::insert_weak_entity(node_slab, weak);
-                }
+                let node_slab =
+                    Self::get_or_create_slab(&mut self.by_node, node_key(&endpoint.node));
+                Self::insert_weak_entity(node_slab, weak);
             }
         }
     }
@@ -193,9 +188,13 @@ impl GraphData {
 
             // Parse using the graph's configured liveliness parser.
             let entity = match (self.parser)(&key_expr.0) {
-                Ok(e) => e,
-                Err(e) => {
-                    tracing::warn!("Failed to parse liveliness key {}: {:?}", key_expr.0, e);
+                Ok(entity) => entity,
+                Err(error) => {
+                    tracing::warn!(
+                        liveliness_key = %key_expr.0,
+                        error = ?error,
+                        "failed to parse liveliness key; ignoring remote entity"
+                    );
                     continue;
                 }
             };
@@ -212,40 +211,22 @@ impl GraphData {
                     );
                 }
                 Entity::Endpoint(x) => {
-                    let node_desc = x
-                        .node
-                        .as_ref()
-                        .map(|node| format!("{}/{}", node.namespace, node.name))
-                        .unwrap_or_else(|| "<unavailable>".to_string());
+                    let node_desc = format!("{}/{}", x.node.namespace, x.node.name);
                     debug!(
                         "[GRF] Parsed endpoint: kind={:?}, topic={}, node={}",
                         x.kind, x.topic, node_desc
                     );
-                    let type_str = x
-                        .type_info
-                        .as_ref()
-                        .map(|t| t.name.as_str())
-                        .unwrap_or("unknown");
-                    if let Some(node) = x.node.as_ref() {
-                        let node_key = node_key(node);
-                        tracing::debug!(
-                            "parse: Storing Endpoint ({:?}) for node_key=({:?}, {:?}), topic={}, type={}, id={}",
-                            x.kind,
-                            node_key.0,
-                            node_key.1,
-                            x.topic,
-                            type_str,
-                            x.id
-                        );
-                    } else {
-                        tracing::debug!(
-                            "parse: Storing Endpoint ({:?}) without node identity, topic={}, type={}, id={}",
-                            x.kind,
-                            x.topic,
-                            type_str,
-                            x.id
-                        );
-                    }
+                    let type_str = x.type_info.name.as_str();
+                    let node_key = node_key(&x.node);
+                    tracing::debug!(
+                        "parse: Storing Endpoint ({:?}) for node_key=({:?}, {:?}), topic={}, type={}, id={}",
+                        x.kind,
+                        node_key.0,
+                        node_key.1,
+                        x.topic,
+                        type_str,
+                        x.id
+                    );
                 }
             }
             self.index_entity_arc(&arc);
@@ -370,7 +351,7 @@ impl GraphData {
                         && found_type.is_none()
                         && enp.kind == EndpointKind::Service
                     {
-                        found_type = enp.type_info.as_ref().map(|x| x.name.clone());
+                        found_type = Some(enp.type_info.name.clone());
                     }
                     true
                 } else {
@@ -397,9 +378,8 @@ impl GraphData {
                             enp.kind,
                             EndpointKind::Publisher | EndpointKind::Subscription
                         )
-                        && let Some(type_info) = &enp.type_info
                     {
-                        found_type = Some(type_info.name.clone());
+                        found_type = Some(enp.type_info.name.clone());
                     }
                     true
                 } else {

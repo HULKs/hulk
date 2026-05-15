@@ -1,9 +1,10 @@
 use std::ops::Deref;
 
-use tracing::warn;
 use zenoh::sample::Sample;
 
 use crate::attachment::{Attachment, EndpointGlobalId};
+use crate::error::WireError;
+use crate::error::{Error, Result};
 use crate::time::Time;
 
 /// A deserialized message together with the transport and source timestamps seen
@@ -12,9 +13,9 @@ use crate::time::Time;
 pub struct Received<T> {
     pub message: T,
     pub transport_time: Option<Time>,
-    pub source_time: Option<Time>,
-    pub sequence_number: Option<i64>,
-    pub source_global_id: Option<EndpointGlobalId>,
+    pub source_time: Time,
+    pub sequence_number: i64,
+    pub source_global_id: EndpointGlobalId,
 }
 
 /// Unique identifier for one publication emitted by a specific publisher.
@@ -51,29 +52,27 @@ pub(super) fn publication_id_from_sample(sample: &Sample) -> Option<PublicationI
 }
 
 impl<T> Received<T> {
-    pub(super) fn from_sample(sample: &Sample, message: T) -> Self {
+    pub(super) fn try_from_sample(sample: &Sample, message: T) -> Result<Self> {
         let transport_time = sample
             .timestamp()
             .map(|ts| Time::from_wallclock(ts.get_time().to_system_time()));
 
-        let attachment = match sample.attachment() {
-            Some(raw) => match Attachment::try_from(raw) {
-                Ok(attachment) => Some(attachment),
-                Err(err) => {
-                    warn!("[SUB] Failed to decode attachment metadata: {}", err);
-                    None
-                }
-            },
-            None => None,
+        let attachment = {
+            let raw = sample
+                .attachment()
+                .ok_or(WireError::MissingSampleAttachment)?;
+
+            Attachment::try_from(raw)
+                .map_err(|source| Error::from(WireError::SampleAttachmentDecode { source }))?
         };
 
-        Self {
+        Ok(Self {
             message,
             transport_time,
-            source_time: attachment.as_ref().map(Attachment::source_time),
-            sequence_number: attachment.as_ref().map(|att| att.sequence_number),
-            source_global_id: attachment.as_ref().map(|att| att.source_global_id),
-        }
+            source_time: attachment.source_time(),
+            sequence_number: attachment.sequence_number,
+            source_global_id: attachment.source_global_id,
+        })
     }
 
     pub fn message(&self) -> &T {
@@ -85,13 +84,8 @@ impl<T> Received<T> {
     }
 
     /// Return the publication id carried in transport attachment metadata.
-    pub fn publication_id(&self) -> Option<PublicationId> {
-        match (self.source_global_id, self.sequence_number) {
-            (Some(source_global_id), Some(sequence_number)) => {
-                Some(PublicationId::new(source_global_id, sequence_number))
-            }
-            _ => None,
-        }
+    pub fn publication_id(&self) -> PublicationId {
+        PublicationId::new(self.source_global_id, self.sequence_number)
     }
 }
 

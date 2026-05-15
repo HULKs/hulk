@@ -3,35 +3,24 @@
 // Topic name qualification and expansion for native ros-z APIs.
 
 /// Errors that can occur during topic name qualification
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, thiserror::Error)]
 pub enum TopicNameError {
     /// Topic name is empty
+    #[error("topic name is empty")]
     Empty,
     /// Topic name ends with a forward slash
+    #[error("topic name ends with forward slash")]
     EndsWithSlash,
     /// Topic name contains invalid characters
+    #[error("topic name contains invalid characters: {0}")]
     InvalidCharacters(String),
     /// Namespace is invalid
+    #[error("invalid namespace: {0}")]
     InvalidNamespace(String),
     /// Node name is invalid
+    #[error("invalid node name: {0}")]
     InvalidNodeName(String),
 }
-
-impl std::fmt::Display for TopicNameError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            Self::Empty => write!(f, "Topic name is empty"),
-            Self::EndsWithSlash => write!(f, "Topic name ends with forward slash"),
-            Self::InvalidCharacters(s) => {
-                write!(f, "Topic name contains invalid characters: {}", s)
-            }
-            Self::InvalidNamespace(s) => write!(f, "Invalid namespace: {}", s),
-            Self::InvalidNodeName(s) => write!(f, "Invalid node name: {}", s),
-        }
-    }
-}
-
-impl std::error::Error for TopicNameError {}
 
 /// Validate that a topic name component (between slashes) is valid
 /// Components must start with a letter or underscore, followed by alphanumeric or underscores

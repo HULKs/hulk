@@ -9,7 +9,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use ros_z::__private::ros_z_schema::SchemaError;
+use ros_z::__private::ros_z_schema;
 use ros_z::{
     Message, ServiceTypeInfo,
     context::{Context, ContextBuilder},
@@ -73,8 +73,16 @@ struct AddResponse {
 struct AddTwoInts;
 
 impl ServiceTypeInfo for AddTwoInts {
-    fn service_type_info() -> Result<TypeInfo, SchemaError> {
-        Ok(TypeInfo::new("test_cli::AddTwoInts", None))
+    fn service_type_info() -> TypeInfo {
+        let descriptor = ros_z_schema::ServiceDef::new(
+            "test_cli::AddTwoInts",
+            AddRequest::type_name(),
+            AddResponse::type_name(),
+        )
+        .expect("CLI test service descriptor should be static and valid");
+        let hash = ros_z_schema::compute_hash(&descriptor)
+            .expect("CLI test service hash should be static and valid");
+        TypeInfo::new(descriptor.type_name.as_str(), hash)
     }
 }
 
@@ -613,7 +621,7 @@ async fn echo_receives_dynamic_message_from_fixture_publisher() -> TestResult {
     assert_eq!(message["type"], Telemetry::type_name());
     assert_eq!(
         message["schema_hash"],
-        Telemetry::schema_hash().unwrap().to_hash_string()
+        Telemetry::schema_hash().to_hash_string()
     );
     assert_eq!(message["data"]["label"], "robot-7");
     assert_eq!(message["data"]["sequence"].as_u64(), Some(7));
@@ -637,7 +645,7 @@ async fn schema_resolves_fixture_message_schema() -> TestResult {
         json_array_contains_field(services, "name", "/cli_e2e/schema_fixture/get_schema")
     });
 
-    let schema_hash = Telemetry::schema_hash().unwrap().to_hash_string();
+    let schema_hash = Telemetry::schema_hash().to_hash_string();
     let schema = env
         .rosz()
         .json_command([
@@ -654,7 +662,7 @@ async fn schema_resolves_fixture_message_schema() -> TestResult {
     assert_eq!(schema["type_name"], Telemetry::type_name());
     assert_eq!(
         schema["schema_hash"],
-        Telemetry::schema_hash().unwrap().to_hash_string()
+        Telemetry::schema_hash().to_hash_string()
     );
     assert!(schema["fields"].as_array().is_some_and(|fields| {
         fields.iter().any(|field| field["path"] == "label")
@@ -688,7 +696,7 @@ async fn schema_resolves_string_publisher_schema() -> TestResult {
         )
     });
 
-    let schema_hash = String::schema_hash().unwrap().to_hash_string();
+    let schema_hash = String::schema_hash().to_hash_string();
     let schema = env
         .rosz()
         .json_command([

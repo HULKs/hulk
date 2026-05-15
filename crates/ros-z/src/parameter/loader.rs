@@ -11,18 +11,20 @@ pub fn load_json5_object_or_empty(path: &Path) -> Result<Value> {
 
     let raw = fs::read_to_string(path).map_err(|err| ParameterError::FileReadError {
         path: path.to_path_buf(),
-        message: err.to_string(),
+        source: err,
     })?;
 
     let value = json5::from_str::<Value>(&raw).map_err(|err| ParameterError::ParseError {
         path: path.to_path_buf(),
-        message: err.to_string(),
+        source: err,
     })?;
 
     if !value.is_object() {
-        return Err(ParameterError::ParseError {
-            path: path.to_path_buf(),
-            message: "top-level parameter value must be an object".to_string(),
+        return Err(ParameterError::ValidationError {
+            message: format!(
+                "top-level parameter value in {} must be an object",
+                path.display()
+            ),
         });
     }
 

@@ -10,7 +10,7 @@
 use std::{num::NonZeroUsize, time::Duration};
 
 use ros_z::{
-    Result, ServiceTypeInfo,
+    Message, ServiceTypeInfo,
     context::ContextBuilder,
     entity::{
         EndpointEntity, EndpointKind, Entity, EntityKind, NodeEntity, NodeKey, SchemaHash, TypeInfo,
@@ -19,6 +19,8 @@ use ros_z::{
     qos::{QosCompatibility, QosDurability, QosHistory, QosProfile, QosReliability},
 };
 use serde::{Deserialize, Serialize};
+
+type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
 #[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq, ros_z::Message)]
 #[message(name = "test_msgs::AddTwoIntsRequest")]
@@ -36,16 +38,16 @@ struct AddTwoIntsResponse {
 struct AddTwoInts;
 
 impl ServiceTypeInfo for AddTwoInts {
-    fn service_type_info() -> std::result::Result<TypeInfo, ros_z_schema::SchemaError> {
+    fn service_type_info() -> TypeInfo {
         let descriptor = ros_z_schema::ServiceDef::new(
             "test_msgs::AddTwoInts",
-            "test_msgs::AddTwoIntsRequest",
-            "test_msgs::AddTwoIntsResponse",
-        )?;
-        Ok(TypeInfo::new(
-            "test_msgs::AddTwoInts",
-            Some(SchemaHash(ros_z_schema::compute_hash(&descriptor).0)),
-        ))
+            AddTwoIntsRequest::type_name(),
+            AddTwoIntsResponse::type_name(),
+        )
+        .expect("test service descriptor should be static and valid");
+        let hash = ros_z_schema::compute_hash(&descriptor)
+            .expect("test service hash should be static and valid");
+        TypeInfo::new(descriptor.type_name.as_str(), hash)
     }
 }
 
@@ -296,10 +298,10 @@ mod tests {
         let topic = unique_graph_name("graph_readd_local_entity_topic");
         let entity = Entity::Endpoint(EndpointEntity {
             id: 4242,
-            node: Some(node.node_entity().clone()),
+            node: node.node_entity().clone(),
             kind: EndpointKind::Publisher,
             topic: topic.clone(),
-            type_info: None,
+            type_info: TypeInfo::new("std_msgs::String", SchemaHash::zero()),
             qos: Default::default(),
         });
 

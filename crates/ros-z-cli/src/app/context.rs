@@ -3,7 +3,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use color_eyre::eyre::{Result, WrapErr, eyre};
+use color_eyre::eyre::{Result, WrapErr};
 use ros_z::{
     context::{Context, ContextBuilder},
     dynamic::DynamicSubscriberBuilder,
@@ -12,7 +12,7 @@ use ros_z::{
     parameter::RemoteParameterClient,
 };
 
-use crate::support::{display_error, graph::SnapshotFingerprint};
+use crate::support::graph::SnapshotFingerprint;
 
 const GRAPH_POLL_INTERVAL: Duration = Duration::from_millis(200);
 const GRAPH_SETTLE_TIMEOUT: Duration = Duration::from_secs(2);
@@ -29,14 +29,12 @@ impl AppContext {
             .with_connect_endpoints([router])
             .build()
             .await
-            .map_err(|error| eyre!(error))
             .wrap_err("failed to build ros-z context")?;
         let node = Arc::new(
             context
                 .create_node("rosz")
                 .build()
                 .await
-                .map_err(|error| eyre!(error))
                 .wrap_err("failed to build rosz node")?,
         );
 
@@ -90,20 +88,21 @@ impl AppContext {
         topic: &str,
         discovery_timeout: Duration,
     ) -> Result<DynamicSubscriberBuilder> {
-        self.node
+        let builder = self
+            .node
             .dynamic_subscriber_auto(topic, discovery_timeout)
-            .await
-            .map_err(|error| eyre!(error))
+            .await?;
+        Ok(builder)
     }
 
     pub fn parameter_client(&self, target_fqn: &str) -> Result<RemoteParameterClient> {
-        RemoteParameterClient::new(Arc::clone(&self.node), target_fqn).map_err(display_error)
+        let client = RemoteParameterClient::new(Arc::clone(&self.node), target_fqn)?;
+        Ok(client)
     }
 
     pub fn shutdown(&self) -> Result<()> {
         self.context
             .shutdown()
-            .map_err(|error| eyre!(error))
             .wrap_err("failed to close ros-z context")
     }
 }

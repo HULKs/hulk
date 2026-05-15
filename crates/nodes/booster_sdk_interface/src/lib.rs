@@ -8,8 +8,7 @@ use booster_sdk::{
     types::RobotMode as RobotModeSdk,
 };
 use ros_z::{
-    IntoEyreResultExt, Message, Service, ServiceTypeInfo, TypeInfo, context::Context,
-    dynamic::SchemaError, service::ServiceServer,
+    Message, Service, ServiceTypeInfo, TypeInfo, context::Context, service::ServiceServer,
 };
 
 #[derive(Serialize, Deserialize, Message)]
@@ -106,8 +105,18 @@ pub struct GetRobotModeResponse {
 pub struct GetRobotMode;
 
 impl ServiceTypeInfo for GetRobotMode {
-    fn service_type_info() -> std::prelude::v1::Result<ros_z::prelude::TypeInfo, SchemaError> {
-        Ok(TypeInfo::new("hardware_interface::GetRobotMode", None))
+    fn service_type_info() -> TypeInfo {
+        let descriptor = ros_z::__private::ros_z_schema::ServiceDef::new(
+            "hardware_interface::GetRobotMode",
+            "hardware_interface::GetRobotModeRequest",
+            "hardware_interface::GetRobotModeResponse",
+        )
+        .expect("failed to create service descriptor for GetRobotMode");
+        TypeInfo::new(
+            "hardware_interface::GetRobotMode",
+            ros_z::__private::ros_z_schema::compute_hash(&descriptor)
+                .expect("failed to compute service hash for GetRobotMode"),
+        )
     }
 }
 
@@ -118,40 +127,29 @@ impl Service for GetRobotMode {
 }
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
-    let node = Arc::new(
-        ctx.create_node("booster_sdk_interface")
-            .build()
-            .await
-            .into_eyre()?,
-    );
+    let node = Arc::new(ctx.create_node("booster_sdk_interface").build().await?);
 
     let high_level_interface_client = Arc::new(BoosterClient::new()?);
     let light_control_client = Arc::new(LightControlClient::new()?);
 
     let led_command_sub = node
-        .subscriber::<LedCommand>("commands/led_command")
-        .into_eyre()?
+        .subscriber::<LedCommand>("commands/led_command")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let high_level_command_sub = node
-        .subscriber::<HighLevelCommand>("commands/high_level_command")
-        .into_eyre()?
+        .subscriber::<HighLevelCommand>("commands/high_level_command")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
 
     let mut robot_mode_service: ServiceServer<GetRobotMode> = node
-        .create_service_server::<GetRobotMode>("services/get_robot_mode")
-        .into_eyre()?
+        .create_service_server::<GetRobotMode>("services/get_robot_mode")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
 
     loop {
         tokio::select! {
             led_command = led_command_sub.recv() => {
-                let led_command = led_command.into_eyre()?;
+                let led_command = led_command?;
 
                 tokio::spawn({
                     let light_control_client = light_control_client.clone();
@@ -160,7 +158,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 });
             },
             high_level_command = high_level_command_sub.recv() => {
-                let high_level_command = high_level_command.into_eyre()?;
+                let high_level_command = high_level_command?;
 
                 tokio::spawn({
                     let high_level_interface_client = high_level_interface_client.clone();
@@ -169,7 +167,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 });
             },
             robot_mode_request = robot_mode_service.take_request_async() => {
-                let robot_mode_request = robot_mode_request.into_eyre()?;
+                let robot_mode_request = robot_mode_request?;
 
                 let client = high_level_interface_client.clone();
                 tokio::spawn(async move {
@@ -205,49 +203,41 @@ async fn handle_high_level_command(
     high_level_command: HighLevelCommand,
 ) -> Result<()> {
     match high_level_command {
-        HighLevelCommand::ChangeMode { mode } => high_level_interface_client
-            .change_mode(mode.into())
-            .await
-            .into_eyre(),
+        HighLevelCommand::ChangeMode { mode } => {
+            high_level_interface_client.change_mode(mode.into()).await
+        }
         HighLevelCommand::MoveRobot {
             forward,
             left,
             turn,
-        } => high_level_interface_client
-            .move_robot(forward, left, turn)
-            .await
-            .into_eyre(),
-        HighLevelCommand::RotateHead { pitch, yaw } => high_level_interface_client
-            .rotate_head(pitch, yaw)
-            .await
-            .into_eyre(),
-        HighLevelCommand::RotateHeadWithDirection { pitch, yaw } => high_level_interface_client
-            .rotate_head_with_direction(pitch, yaw)
-            .await
-            .into_eyre(),
-        HighLevelCommand::LieDown => high_level_interface_client.lie_down().await.into_eyre(),
-        HighLevelCommand::GetUp => high_level_interface_client.get_up().await.into_eyre(),
-        HighLevelCommand::GetUpWithMode { mode } => high_level_interface_client
-            .get_up_with_mode(mode.into())
-            .await
-            .into_eyre(),
-        HighLevelCommand::EnterWbcGait => high_level_interface_client
-            .enter_wbc_gait()
-            .await
-            .into_eyre(),
-        HighLevelCommand::ExitWbcGait => high_level_interface_client
-            .exit_wbc_gait()
-            .await
-            .into_eyre(),
-        HighLevelCommand::VisualKick { start } => high_level_interface_client
-            .visual_kick(start)
-            .await
-            .into_eyre(),
-        HighLevelCommand::ResetOdometer => high_level_interface_client
-            .reset_odometry()
-            .await
-            .into_eyre(),
+        } => {
+            high_level_interface_client
+                .move_robot(forward, left, turn)
+                .await
+        }
+        HighLevelCommand::RotateHead { pitch, yaw } => {
+            high_level_interface_client.rotate_head(pitch, yaw).await
+        }
+        HighLevelCommand::RotateHeadWithDirection { pitch, yaw } => {
+            high_level_interface_client
+                .rotate_head_with_direction(pitch, yaw)
+                .await
+        }
+        HighLevelCommand::LieDown => high_level_interface_client.lie_down().await,
+        HighLevelCommand::GetUp => high_level_interface_client.get_up().await,
+        HighLevelCommand::GetUpWithMode { mode } => {
+            high_level_interface_client
+                .get_up_with_mode(mode.into())
+                .await
+        }
+        HighLevelCommand::EnterWbcGait => high_level_interface_client.enter_wbc_gait().await,
+        HighLevelCommand::ExitWbcGait => high_level_interface_client.exit_wbc_gait().await,
+        HighLevelCommand::VisualKick { start } => {
+            high_level_interface_client.visual_kick(start).await
+        }
+        HighLevelCommand::ResetOdometer => high_level_interface_client.reset_odometry().await,
     }
+    .map_err(|error| color_eyre::eyre::eyre!("{error}"))
 }
 
 async fn handle_robot_mode_request(

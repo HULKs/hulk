@@ -19,22 +19,40 @@ use crate::schema::{MessageSchema, SchemaBuilder};
 use crate::shm::ShmWriter;
 
 /// Error returned when CDR bytes cannot be decoded into the requested type.
-#[derive(Debug)]
-pub struct CdrError(String);
+#[derive(Debug, thiserror::Error)]
+pub enum CdrError {
+    #[error("CDR deserialization error: {message}")]
+    Message { message: String },
 
-impl std::fmt::Display for CdrError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "CDR deserialization error: {}", self.0)
+    #[error("CDR deserialization error: {source}")]
+    Cdr {
+        #[from]
+        source: ros_z_cdr::Error,
+    },
+}
+
+impl CdrError {
+    fn message(message: impl Into<String>) -> Self {
+        Self::Message {
+            message: message.into(),
+        }
     }
 }
 
-impl std::error::Error for CdrError {}
+/// Error returned when CDR bytes cannot be encoded from the requested type.
+#[derive(Debug, thiserror::Error)]
+pub enum CdrEncodeError {
+    #[error(transparent)]
+    Cdr(#[from] ros_z_cdr::Error),
+}
 
 /// Codec-side encoder used by publishers and prepared publications.
 pub trait WireEncoder {
     type Input<'a>
     where
         Self: 'a;
+
+    type Error: std::error::Error + Send + Sync + 'static;
 
     /// Serialize directly to a ZBuf for zero-copy publishing.
     ///
@@ -44,7 +62,7 @@ pub trait WireEncoder {
     /// Uses a fixed 256-byte initial capacity. For better performance with
     /// large messages, use `serialize_to_zbuf_with_hint()` when the caller has
     /// a better capacity estimate.
-    fn serialize_to_zbuf(input: Self::Input<'_>) -> ZBuf;
+    fn serialize_to_zbuf(input: Self::Input<'_>) -> Result<ZBuf, Self::Error>;
 
     /// Serialize to ZBuf with a capacity hint for optimal allocation.
     ///
@@ -67,9 +85,13 @@ pub trait WireEncoder {
     ///
     /// let message = LargeMsg { data: vec![0; 1_000_000] };
     /// let hint = 4 + 4 + 1_000_000;  // header + length + data
-    /// let zbuf = SerdeCdrCodec::<LargeMsg>::serialize_to_zbuf_with_hint(&message, hint);
+    /// let zbuf = SerdeCdrCodec::<LargeMsg>::serialize_to_zbuf_with_hint(&message, hint)?;
+    /// # Ok::<(), ros_z::message::CdrEncodeError>(())
     /// ```
-    fn serialize_to_zbuf_with_hint(input: Self::Input<'_>, capacity_hint: usize) -> ZBuf;
+    fn serialize_to_zbuf_with_hint(
+        input: Self::Input<'_>,
+        capacity_hint: usize,
+    ) -> Result<ZBuf, Self::Error>;
 
     /// Return a conservative serialized-size estimate for buffer preallocation.
     fn serialized_size_hint(_input: Self::Input<'_>) -> usize {
@@ -95,7 +117,7 @@ pub trait WireEncoder {
     ///
     /// # Errors
     ///
-    /// Returns an error if SHM allocation fails.
+    /// Returns an error if encoding, SHM allocation, or ZBuf conversion fails.
     ///
     /// # Example
     ///
@@ -104,7 +126,7 @@ pub trait WireEncoder {
     /// use ros_z::shm::ShmProviderBuilder;
     /// use serde::Serialize;
     ///
-    /// # fn main() -> zenoh::Result<()> {
+    /// # fn main() -> ros_z::Result<()> {
     /// #[derive(Serialize)]
     /// struct MyMsg { value: u32 }
     ///
@@ -120,32 +142,35 @@ pub trait WireEncoder {
         input: Self::Input<'_>,
         estimated_size: usize,
         provider: &ShmProvider<PosixShmProviderBackend>,
-    ) -> zenoh::Result<(ZBuf, usize)>;
+    ) -> crate::Result<(ZBuf, usize)>;
 
     /// Serialize to an existing buffer, returning the result as ZBuf.
     ///
     /// This variant allows buffer reuse for reduced allocations.
     /// The buffer is cleared and reused, then wrapped in a ZBuf.
-    fn serialize_to_zbuf_reuse(input: Self::Input<'_>, buffer: &mut Vec<u8>) -> ZBuf {
-        Self::serialize_to_buf(input, buffer);
+    fn serialize_to_zbuf_reuse(
+        input: Self::Input<'_>,
+        buffer: &mut Vec<u8>,
+    ) -> Result<ZBuf, Self::Error> {
+        Self::serialize_to_buf(input, buffer)?;
         // Take ownership of the buffer contents, leaving an empty Vec
-        ZBuf::from(std::mem::take(buffer))
+        Ok(ZBuf::from(std::mem::take(buffer)))
     }
 
     /// Serialize to an owned byte vector for callers that need contiguous bytes.
     ///
     /// Prefer `serialize_to_zbuf()` for zero-copy publishing.
-    fn serialize(input: Self::Input<'_>) -> Vec<u8> {
+    fn serialize(input: Self::Input<'_>) -> Result<Vec<u8>, Self::Error> {
         let mut buffer = Vec::new();
-        Self::serialize_to_buf(input, &mut buffer);
-        buffer
+        Self::serialize_to_buf(input, &mut buffer)?;
+        Ok(buffer)
     }
 
     /// Serialize to an existing buffer, reusing its allocation.
     ///
     /// The buffer is cleared before writing. Implementations should
     /// write directly to the buffer for optimal performance.
-    fn serialize_to_buf(input: Self::Input<'_>, buffer: &mut Vec<u8>);
+    fn serialize_to_buf(input: Self::Input<'_>, buffer: &mut Vec<u8>) -> Result<(), Self::Error>;
 }
 
 /// Typed message contract for ros-z publishers, subscribers, services, and schemas.
@@ -157,22 +182,68 @@ pub trait Message: MessageSchema + Send + Sync + Sized + 'static {
     /// Stable fully qualified type name advertised in graph metadata.
     fn type_name() -> String;
     /// Runtime schema used for discovery and dynamic tooling.
-    fn schema() -> Result<SchemaBundle, SchemaError> {
-        crate::schema::schema_for::<Self>()
+    ///
+    /// # Panics
+    ///
+    /// Panics if this message type builds an invalid static schema.
+    fn schema() -> SchemaBundle {
+        crate::schema::schema_for::<Self>().expect("message schema should be static and valid")
     }
 
     /// Stable hash derived from [`Message::schema`].
-    fn schema_hash() -> Result<SchemaHash, SchemaError> {
-        Ok(ros_z_schema::compute_hash(&Self::schema()?))
+    ///
+    /// # Panics
+    ///
+    /// Panics if this message type builds a schema that cannot be hashed.
+    fn schema_hash() -> SchemaHash {
+        ros_z_schema::compute_hash(&Self::schema())
+            .expect("message schema hash should be static and valid")
     }
 
     /// Type name plus schema hash advertised for this message.
-    fn type_info() -> Result<TypeInfo, SchemaError> {
-        Ok(TypeInfo::with_hash(
-            &Self::type_name(),
-            Self::schema_hash()?,
-        ))
+    ///
+    /// # Panics
+    ///
+    /// Panics if [`Message::schema_hash`] panics.
+    fn type_info() -> TypeInfo {
+        TypeInfo::new(Self::type_name(), Self::schema_hash())
     }
+}
+
+pub(crate) fn validated_type_info_for_schema<T>(schema: &SchemaBundle) -> TypeInfo
+where
+    T: Message,
+{
+    let type_info = T::type_info();
+    let type_name = T::type_name();
+    if let TypeDef::Named(root_name) = &schema.root
+        && root_name.as_str() != type_name
+    {
+        panic!(
+            "message schema root should match static type name: schema root '{}' does not match Message::type_name() '{}'",
+            root_name.as_str(),
+            type_name
+        );
+    }
+
+    if type_info.name != type_name {
+        panic!(
+            "message type info should match static schema metadata: type_info name '{}' does not match Message::type_name() '{}'",
+            type_info.name, type_name
+        );
+    }
+
+    let schema_hash =
+        ros_z_schema::compute_hash(schema).expect("message schema hash should be static and valid");
+    if type_info.hash != schema_hash {
+        panic!(
+            "message type info should match static schema metadata: type_info hash '{}' does not match computed schema hash '{}'",
+            type_info.hash.to_hash_string(),
+            schema_hash.to_hash_string()
+        );
+    }
+
+    type_info
 }
 
 macro_rules! impl_primitive_message {
@@ -560,17 +631,18 @@ where
         = &'a T
     where
         T: 'a;
+    type Error = CdrEncodeError;
 
-    fn serialize_to_zbuf(input: &T) -> ZBuf {
+    fn serialize_to_zbuf(input: &T) -> Result<ZBuf, Self::Error> {
         Self::serialize_to_zbuf_with_hint(input, 256)
     }
 
-    fn serialize_to_zbuf_with_hint(input: &T, capacity_hint: usize) -> ZBuf {
+    fn serialize_to_zbuf_with_hint(input: &T, capacity_hint: usize) -> Result<ZBuf, Self::Error> {
         let mut writer = ZBufWriter::with_capacity(capacity_hint);
         writer.extend_from_slice(&CDR_HEADER_LE);
         let mut serializer = SerdeCdrSerializer::<LittleEndian, ZBufWriter>::new(&mut writer);
-        input.serialize(&mut serializer).unwrap();
-        writer.into_zbuf()
+        input.serialize(&mut serializer)?;
+        Ok(writer.into_zbuf())
     }
 
     fn serialized_size_hint(_input: &T) -> usize {
@@ -581,29 +653,24 @@ where
         input: &T,
         estimated_size: usize,
         provider: &ShmProvider<PosixShmProviderBackend>,
-    ) -> zenoh::Result<(ZBuf, usize)> {
+    ) -> crate::Result<(ZBuf, usize)> {
         let mut writer = ShmWriter::new(provider, estimated_size)?;
         writer.extend_from_slice(&CDR_HEADER_LE);
         let mut serializer = SerdeCdrSerializer::<LittleEndian, ShmWriter>::new(&mut writer);
-        input
-            .serialize(&mut serializer)
-            .map_err(|e| zenoh::Error::from(format!("CDR serialization failed: {}", e)))?;
+        input.serialize(&mut serializer).map_err(|source| {
+            crate::Error::encode(std::any::type_name::<T>(), CdrEncodeError::from(source))
+        })?;
         let actual_size = writer.position();
         let zbuf = writer.into_zbuf()?;
         Ok((zbuf, actual_size))
     }
 
-    fn serialize(input: &T) -> Vec<u8> {
-        let mut buffer = Vec::new();
-        Self::serialize_to_buf(input, &mut buffer);
-        buffer
-    }
-
-    fn serialize_to_buf(input: &T, buffer: &mut Vec<u8>) {
+    fn serialize_to_buf(input: &T, buffer: &mut Vec<u8>) -> Result<(), Self::Error> {
         buffer.clear();
         buffer.extend_from_slice(&CDR_HEADER_LE);
         let mut fast_ser = SerdeCdrSerializer::<LittleEndian>::new(buffer);
-        input.serialize(&mut fast_ser).unwrap();
+        input.serialize(&mut fast_ser)?;
+        Ok(())
     }
 }
 
@@ -617,19 +684,19 @@ where
 
     fn deserialize(input: Self::Input<'_>) -> Result<Self::Output, Self::Error> {
         if input.len() < 4 {
-            return Err(CdrError("CDR data too short for header".into()));
+            return Err(CdrError::message("CDR data too short for header"));
         }
         let representation_identifier = &input[0..2];
         if representation_identifier != [0x00, 0x01] {
-            return Err(CdrError(format!(
+            return Err(CdrError::message(format!(
                 "Expected CDR_LE encapsulation ({:?}), found {:?}",
                 [0x00, 0x01],
                 representation_identifier
             )));
         }
         let payload = &input[4..];
-        let x = ros_z_cdr::from_bytes::<T, byteorder::LittleEndian>(payload)
-            .map_err(|e| CdrError(e.to_string()))?;
+        let x =
+            ros_z_cdr::from_bytes::<T, byteorder::LittleEndian>(payload).map_err(CdrError::from)?;
         Ok(x.0)
     }
 }
@@ -668,7 +735,7 @@ mod tests {
             text: "Hello, ZBuf!".to_string(),
         };
 
-        let zbuf = SerdeCdrCodec::<SimpleMessage>::serialize_to_zbuf(&message);
+        let zbuf = SerdeCdrCodec::<SimpleMessage>::serialize_to_zbuf(&message).unwrap();
         let bytes = zbuf.contiguous();
 
         // Verify CDR header
@@ -687,8 +754,8 @@ mod tests {
         };
 
         // Both methods should produce identical bytes
-        let zbuf = SerdeCdrCodec::<SimpleMessage>::serialize_to_zbuf(&message);
-        let vec = SerdeCdrCodec::<SimpleMessage>::serialize(&message);
+        let zbuf = SerdeCdrCodec::<SimpleMessage>::serialize_to_zbuf(&message).unwrap();
+        let vec = SerdeCdrCodec::<SimpleMessage>::serialize(&message).unwrap();
 
         let zbuf_bytes = zbuf.contiguous();
         assert_eq!(&*zbuf_bytes, &vec[..]);
@@ -708,14 +775,16 @@ mod tests {
         let mut buffer = Vec::with_capacity(1024);
 
         // First serialization
-        let zbuf1 = SerdeCdrCodec::<SimpleMessage>::serialize_to_zbuf_reuse(&msg1, &mut buffer);
+        let zbuf1 =
+            SerdeCdrCodec::<SimpleMessage>::serialize_to_zbuf_reuse(&msg1, &mut buffer).unwrap();
         let bytes1 = zbuf1.contiguous();
 
         // Buffer should be empty after take
         assert!(buffer.is_empty());
 
         // Second serialization (buffer will be reallocated)
-        let zbuf2 = SerdeCdrCodec::<SimpleMessage>::serialize_to_zbuf_reuse(&msg2, &mut buffer);
+        let zbuf2 =
+            SerdeCdrCodec::<SimpleMessage>::serialize_to_zbuf_reuse(&msg2, &mut buffer).unwrap();
         let bytes2 = zbuf2.contiguous();
 
         // Verify roundtrips
@@ -737,7 +806,8 @@ mod tests {
         let zbuf = SerdeCdrCodec::<SimpleMessage>::serialize_to_zbuf_with_hint(
             &message,
             SerdeCdrCodec::<SimpleMessage>::serialized_size_hint(&message),
-        );
+        )
+        .unwrap();
         let bytes = zbuf.contiguous();
 
         assert_eq!(&bytes[0..4], &CDR_HEADER_LE);
@@ -754,9 +824,9 @@ mod tests {
         };
 
         // Serialize using both methods
-        let vec1 = SerdeCdrCodec::<SimpleMessage>::serialize(&message);
+        let vec1 = SerdeCdrCodec::<SimpleMessage>::serialize(&message).unwrap();
         let mut vec2 = Vec::new();
-        SerdeCdrCodec::<SimpleMessage>::serialize_to_buf(&message, &mut vec2);
+        SerdeCdrCodec::<SimpleMessage>::serialize_to_buf(&message, &mut vec2).unwrap();
 
         // Results should be identical
         assert_eq!(vec1, vec2);
@@ -780,12 +850,12 @@ mod tests {
         let mut buffer = Vec::new();
 
         // Serialize large message
-        SerdeCdrCodec::<LargeMessage>::serialize_to_buf(&msg1, &mut buffer);
+        SerdeCdrCodec::<LargeMessage>::serialize_to_buf(&msg1, &mut buffer).unwrap();
         let len1 = buffer.len();
         assert!(len1 > 100);
 
         // Serialize small message - should clear buffer first
-        SerdeCdrCodec::<SimpleMessage>::serialize_to_buf(&msg2, &mut buffer);
+        SerdeCdrCodec::<SimpleMessage>::serialize_to_buf(&msg2, &mut buffer).unwrap();
         let len2 = buffer.len();
         assert!(len2 < len1);
 
@@ -812,7 +882,7 @@ mod tests {
 
         // Serialize using serialize_to_buf
         let mut buffer = Vec::new();
-        SerdeCdrCodec::<LargeMessage>::serialize_to_buf(&original, &mut buffer);
+        SerdeCdrCodec::<LargeMessage>::serialize_to_buf(&original, &mut buffer).unwrap();
 
         // Deserialize
         let deserialized =
@@ -843,7 +913,7 @@ mod tests {
         let mut all_serialized = Vec::new();
 
         for message in &messages {
-            SerdeCdrCodec::<SimpleMessage>::serialize_to_buf(message, &mut buffer);
+            SerdeCdrCodec::<SimpleMessage>::serialize_to_buf(message, &mut buffer).unwrap();
             all_serialized.push(buffer.clone());
 
             // Verify each serialization is correct
@@ -865,7 +935,7 @@ mod tests {
         };
 
         // Codec provides serialize method.
-        let serialized = SerdeCdrCodec::<SimpleMessage>::serialize(&message);
+        let serialized = SerdeCdrCodec::<SimpleMessage>::serialize(&message).unwrap();
         assert!(!serialized.is_empty());
         assert_eq!(&serialized[0..4], &CDR_HEADER_LE);
 

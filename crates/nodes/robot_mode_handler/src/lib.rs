@@ -4,7 +4,7 @@ use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
 use booster_sdk_interface::GetRobotMode;
-use ros_z::{IntoEyreResultExt, prelude::*};
+use ros_z::prelude::*;
 use types::{
     buttons::{ButtonPressType, Buttons},
     primary_state::PrimaryState,
@@ -18,33 +18,21 @@ pub struct Parameters {
 }
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
-    let node = ctx
-        .create_node("robot_mode_handler")
-        .build()
-        .await
-        .into_eyre()?;
+    let node = ctx.create_node("robot_mode_handler").build().await?;
 
-    let _parameters = node
-        .bind_parameter_as::<Parameters>("robot_mode_handler")
-        .into_eyre()?;
+    let _parameters = node.bind_parameter_as::<Parameters>("robot_mode_handler")?;
     let _primary_state_sub = node
-        .subscriber::<PrimaryState>("primary_state")
-        .into_eyre()?
+        .subscriber::<PrimaryState>("primary_state")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _buttons_sub = node
-        .subscriber::<Buttons<Option<ButtonPressType>>>("buttons")
-        .into_eyre()?
+        .subscriber::<Buttons<Option<ButtonPressType>>>("buttons")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _get_robot_mode_client = node
-        .create_service_client::<GetRobotMode>("services/get_robot_mode")
-        .into_eyre()?
+        .create_service_client::<GetRobotMode>("services/get_robot_mode")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
 
     pending::<()>().await;
 

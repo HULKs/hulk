@@ -1,13 +1,8 @@
 use std::{thread, time::Duration};
 
 use ros_z::{
-    ServiceTypeInfo,
-    context::ContextBuilder,
-    entity::{SchemaHash, TypeInfo},
-    message::Service,
-    schema::{MessageSchema, SchemaBuilder},
+    Message, ServiceTypeInfo, context::ContextBuilder, entity::TypeInfo, message::Service,
 };
-use ros_z_schema::{SchemaError, TypeDef, TypeName};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
 
@@ -30,16 +25,16 @@ struct AddTwoIntsResponse {
 struct AddTwoInts;
 
 impl ServiceTypeInfo for AddTwoInts {
-    fn service_type_info() -> Result<TypeInfo, ros_z_schema::SchemaError> {
+    fn service_type_info() -> TypeInfo {
         let descriptor = ros_z_schema::ServiceDef::new(
             "test_msgs::AddTwoInts",
-            "test_msgs::AddTwoIntsRequest",
-            "test_msgs::AddTwoIntsResponse",
-        )?;
-        Ok(TypeInfo::new(
-            "test_msgs::AddTwoInts",
-            Some(SchemaHash(ros_z_schema::compute_hash(&descriptor).0)),
-        ))
+            AddTwoIntsRequest::type_name(),
+            AddTwoIntsResponse::type_name(),
+        )
+        .expect("test service descriptor should be static and valid");
+        let hash = ros_z_schema::compute_hash(&descriptor)
+            .expect("test service hash should be static and valid");
+        TypeInfo::new(descriptor.type_name.as_str(), hash)
     }
 }
 
@@ -48,154 +43,22 @@ impl Service for AddTwoInts {
     type Response = AddTwoIntsResponse;
 }
 
-struct InvalidServiceTypeInfo;
-
-impl ServiceTypeInfo for InvalidServiceTypeInfo {
-    fn service_type_info() -> Result<TypeInfo, ros_z_schema::SchemaError> {
-        Err(ros_z_schema::SchemaError::InvalidTypeName(String::new()))
+fn assert_service_timeout(error: &ros_z::Error, expected_service: &str) {
+    match error {
+        ros_z::Error::ServiceCall(ros_z::error::ServiceCallError::Timeout { service, .. }) => {
+            assert_eq!(service, expected_service);
+        }
+        other => panic!("expected service timeout for {expected_service}, got {other:?}"),
     }
 }
 
-impl Service for InvalidServiceTypeInfo {
-    type Request = AddTwoIntsRequest;
-    type Response = AddTwoIntsResponse;
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize, Default, PartialEq)]
-struct InvalidRequestSchema;
-
-impl MessageSchema for InvalidRequestSchema {
-    fn build_schema(_builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
-        TypeName::new("").map(TypeDef::Named)
+fn assert_service_no_response(error: &ros_z::Error, expected_service: &str) {
+    match error {
+        ros_z::Error::ServiceCall(ros_z::error::ServiceCallError::NoResponse { service }) => {
+            assert_eq!(service, expected_service);
+        }
+        other => panic!("expected service no-response for {expected_service}, got {other:?}"),
     }
-}
-
-impl ros_z::Message for InvalidRequestSchema {
-    type Codec = ros_z::message::SerdeCdrCodec<Self>;
-
-    fn type_name() -> String {
-        "test_msgs::InvalidRequestSchema".to_string()
-    }
-}
-
-struct InvalidRequestSchemaService;
-
-impl ServiceTypeInfo for InvalidRequestSchemaService {
-    fn service_type_info() -> Result<TypeInfo, ros_z_schema::SchemaError> {
-        AddTwoInts::service_type_info()
-    }
-}
-
-impl Service for InvalidRequestSchemaService {
-    type Request = InvalidRequestSchema;
-    type Response = AddTwoIntsResponse;
-}
-
-struct InvalidResponseSchemaService;
-
-impl ServiceTypeInfo for InvalidResponseSchemaService {
-    fn service_type_info() -> Result<TypeInfo, ros_z_schema::SchemaError> {
-        AddTwoInts::service_type_info()
-    }
-}
-
-impl Service for InvalidResponseSchemaService {
-    type Request = AddTwoIntsRequest;
-    type Response = InvalidRequestSchema;
-}
-
-#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-async fn typed_service_factories_return_schema_errors() {
-    let context = ContextBuilder::default()
-        .disable_multicast_scouting()
-        .with_json("connect/endpoints", json!([]))
-        .build()
-        .await
-        .expect("Failed to create context");
-    let node = context
-        .create_node("invalid_service_schema")
-        .build()
-        .await
-        .expect("Failed to create node");
-
-    let Err(server_error) = node.create_service_server::<InvalidServiceTypeInfo>("invalid_service")
-    else {
-        panic!("invalid service type info should fail server factory");
-    };
-    assert!(
-        server_error
-            .to_string()
-            .contains("failed to build service type info for server")
-    );
-
-    let Err(client_error) = node.create_service_client::<InvalidServiceTypeInfo>("invalid_service")
-    else {
-        panic!("invalid service type info should fail client factory");
-    };
-    assert!(
-        client_error
-            .to_string()
-            .contains("failed to build service type info for client")
-    );
-}
-
-#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-async fn typed_service_factories_validate_request_and_response_schemas() {
-    let context = ContextBuilder::default()
-        .disable_multicast_scouting()
-        .with_json("connect/endpoints", json!([]))
-        .build()
-        .await
-        .expect("Failed to create context");
-    let node = context
-        .create_node("invalid_service_message_schema")
-        .build()
-        .await
-        .expect("Failed to create node");
-
-    let Err(server_error) =
-        node.create_service_server::<InvalidRequestSchemaService>("invalid_service_message_schema")
-    else {
-        panic!("invalid request schema should fail server factory");
-    };
-    assert!(
-        server_error
-            .to_string()
-            .contains("failed to build service type info for server")
-    );
-
-    let Err(client_error) =
-        node.create_service_client::<InvalidRequestSchemaService>("invalid_service_message_schema")
-    else {
-        panic!("invalid request schema should fail client factory");
-    };
-    assert!(
-        client_error
-            .to_string()
-            .contains("failed to build service type info for client")
-    );
-
-    let Err(response_server_error) = node.create_service_server::<InvalidResponseSchemaService>(
-        "invalid_service_response_message_schema",
-    ) else {
-        panic!("invalid response schema should fail server factory");
-    };
-    assert!(
-        response_server_error
-            .to_string()
-            .contains("failed to build service type info for server")
-    );
-
-    let Err(response_client_error) = node.create_service_client::<InvalidResponseSchemaService>(
-        "invalid_service_response_message_schema",
-    ) else {
-        panic!("invalid response schema should fail client factory");
-    };
-    assert!(
-        response_client_error
-            .to_string()
-            .contains("failed to build service type info for client")
-    );
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -615,7 +478,7 @@ async fn test_async_call_with_timeout_can_exceed_old_builder_timeout() {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_blocking_call_with_timeout_reports_early_completion_when_no_server_replies() {
+async fn test_blocking_call_with_timeout_reports_timeout_when_no_service_matches() {
     let context = ContextBuilder::default()
         .disable_multicast_scouting()
         .with_json("connect/endpoints", json!([]))
@@ -646,10 +509,38 @@ async fn test_blocking_call_with_timeout_reports_early_completion_when_no_server
     .expect("blocking client task panicked")
     .expect_err("Expected blocking failure without a server response");
 
-    assert_eq!(
-        error.to_string(),
-        "Service call ended before any response was received"
-    );
+    assert_service_timeout(&error, "/blocking_timeout");
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn async_call_with_timeout_reports_timeout_when_no_service_matches() {
+    let context = ContextBuilder::default()
+        .disable_multicast_scouting()
+        .with_json("connect/endpoints", json!([]))
+        .build()
+        .await
+        .expect("Failed to create context");
+
+    let client = context
+        .create_node("async_timeout_client")
+        .build()
+        .await
+        .expect("Failed to create node")
+        .create_service_client::<AddTwoInts>("async_timeout")
+        .expect("endpoint factory should succeed")
+        .build()
+        .await
+        .expect("Failed to create client");
+
+    let error = client
+        .call_with_timeout_async(
+            &AddTwoIntsRequest { a: 1, b: 2 },
+            Duration::from_millis(200),
+        )
+        .await
+        .expect_err("Expected async timeout without a matching service");
+
+    assert_service_timeout(&error, "/async_timeout");
 }
 
 #[tokio::test(flavor = "multi_thread")]
@@ -780,10 +671,7 @@ async fn test_blocking_call_with_timeout_reports_real_timeout_while_waiting_for_
     .expect("blocking client task panicked")
     .expect_err("Expected blocking timeout while reply was still pending");
 
-    assert!(
-        error.to_string().contains("timed out"),
-        "unexpected timeout error: {error}"
-    );
+    assert_service_timeout(&error, "/blocking_timeout_waiting");
 
     server_handle.join().expect("Server thread panicked");
 }
@@ -834,8 +722,51 @@ async fn test_blocking_call_with_timeout_reports_early_completion_without_reply(
     .expect("blocking client task panicked")
     .expect_err("Expected early completion without any reply sample");
 
-    assert_eq!(
-        error.to_string(),
-        "Service call ended before any response was received"
-    );
+    assert_service_no_response(&error, "/blocking_early_completion");
+    assert!(error.to_string().contains("ended before any response"));
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn async_call_with_timeout_reports_early_completion_without_reply() {
+    let context = ContextBuilder::default()
+        .disable_multicast_scouting()
+        .with_json("connect/endpoints", json!([]))
+        .build()
+        .await
+        .expect("Failed to create context");
+
+    let _server = context
+        .create_node("async_early_completion_server")
+        .build()
+        .await
+        .expect("Failed to create node")
+        .create_service_server::<AddTwoInts>("async_early_completion")
+        .expect("endpoint factory should succeed")
+        .build_with_callback(move |_query| {
+            // Intentionally end the query without producing a successful reply sample.
+        })
+        .await
+        .expect("Failed to create callback server");
+
+    let client = context
+        .create_node("async_early_completion_client")
+        .build()
+        .await
+        .expect("Failed to create node")
+        .create_service_client::<AddTwoInts>("async_early_completion")
+        .expect("endpoint factory should succeed")
+        .build()
+        .await
+        .expect("Failed to create client");
+
+    tokio::time::sleep(Duration::from_millis(100)).await;
+
+    let error = client
+        .call_with_timeout_async(&AddTwoIntsRequest { a: 1, b: 2 }, Duration::from_secs(1))
+        .await
+        .expect_err("Expected early completion without any reply sample");
+
+    assert_service_no_response(&error, "/async_early_completion");
+    assert!(error.to_string().contains("ended before any response"));
+    assert!(!error.to_string().contains("timed out"));
 }

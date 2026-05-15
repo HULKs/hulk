@@ -29,7 +29,7 @@ fn hashmap_btreemap_and_hashset_roundtrip_through_serde_cdr_codec() {
         ids,
     };
 
-    let encoded = <MapMessage as Message>::Codec::serialize_to_zbuf(&original);
+    let encoded = <MapMessage as Message>::Codec::serialize_to_zbuf(&original).unwrap();
     let decoded = <MapMessage as Message>::Codec::deserialize(&encoded.contiguous())
         .expect("wire codec should decode map message");
 
@@ -40,7 +40,7 @@ fn hashmap_btreemap_and_hashset_roundtrip_through_serde_cdr_codec() {
 fn hashset_is_a_dynamic_sequence_schema() {
     assert_eq!(HashSet::<u32>::type_name(), "HashSet<u32>");
 
-    let schema = HashSet::<u32>::schema().unwrap();
+    let schema = HashSet::<u32>::schema();
     let TypeDef::Sequence { element, length } = schema.root else {
         panic!("expected HashSet schema to be a sequence, got {schema:?}");
     };
@@ -57,8 +57,8 @@ fn collection_types_with_same_shape_share_schema_hash() {
     type VecU32 = Vec<u32>;
 
     assert_ne!(Hash::type_name(), BTree::type_name());
-    assert_eq!(Hash::schema_hash().unwrap(), BTree::schema_hash().unwrap());
+    assert_eq!(Hash::schema_hash(), BTree::schema_hash());
 
     assert_ne!(Set::type_name(), VecU32::type_name());
-    assert_eq!(Set::schema_hash().unwrap(), VecU32::schema_hash().unwrap());
+    assert_eq!(Set::schema_hash(), VecU32::schema_hash());
 }

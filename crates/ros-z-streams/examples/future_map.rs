@@ -8,7 +8,7 @@ fn t(nanos: i64) -> Time {
 }
 
 #[tokio::main]
-async fn main() -> zenoh::Result<()> {
+async fn main() -> ros_z::Result<()> {
     let logical = Clock::logical(Time::zero());
     let context = ContextBuilder::default()
         .with_namespace("/ros_z_streams_future_map_example")

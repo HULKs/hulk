@@ -1,7 +1,7 @@
 use serde::{Deserialize, Serialize};
 
-use crate::{ServiceTypeInfo, entity::TypeInfo, message::Service};
-use ros_z_schema::{SchemaError, ServiceDef};
+use crate::{Message, ServiceTypeInfo, entity::TypeInfo, message::Service};
+use ros_z_schema::ServiceDef;
 
 use crate::parameter::{LayerPath, ParameterKey, snapshot::ParameterTimestamp};
 
@@ -168,16 +168,12 @@ macro_rules! impl_service {
         }
 
         impl ServiceTypeInfo for $srv {
-            fn service_type_info() -> Result<TypeInfo, SchemaError> {
-                let descriptor = ServiceDef::new(
-                    $name,
-                    <$req as crate::Message>::type_name(),
-                    <$res as crate::Message>::type_name(),
-                )?;
-                Ok(TypeInfo::with_hash(
-                    descriptor.type_name.as_str(),
-                    ros_z_schema::compute_hash(&descriptor),
-                ))
+            fn service_type_info() -> TypeInfo {
+                let descriptor = ServiceDef::new($name, <$req>::type_name(), <$res>::type_name())
+                    .expect("parameter service descriptor should be static and valid");
+                let hash = ros_z_schema::compute_hash(&descriptor)
+                    .expect("parameter service hash should be static and valid");
+                TypeInfo::new(descriptor.type_name.as_str(), hash)
             }
         }
     };
@@ -238,37 +234,31 @@ mod tests {
     #[test]
     fn parameter_service_type_info_uses_native_names() {
         assert_eq!(
-            GetNodeParametersSnapshotSrv::service_type_info()
-                .unwrap()
-                .name,
+            GetNodeParametersSnapshotSrv::service_type_info().name,
             "ros_z_parameter::GetNodeParametersSnapshot"
         );
         assert_eq!(
-            GetNodeParameterValueSrv::service_type_info().unwrap().name,
+            GetNodeParameterValueSrv::service_type_info().name,
             "ros_z_parameter::GetNodeParameterValue"
         );
         assert_eq!(
-            GetNodeParameterTypeInfoSrv::service_type_info()
-                .unwrap()
-                .name,
+            GetNodeParameterTypeInfoSrv::service_type_info().name,
             "ros_z_parameter::GetNodeParameterTypeInfo"
         );
         assert_eq!(
-            SetNodeParameterSrv::service_type_info().unwrap().name,
+            SetNodeParameterSrv::service_type_info().name,
             "ros_z_parameter::SetNodeParameter"
         );
         assert_eq!(
-            SetNodeParametersAtomicallySrv::service_type_info()
-                .unwrap()
-                .name,
+            SetNodeParametersAtomicallySrv::service_type_info().name,
             "ros_z_parameter::SetNodeParametersAtomically"
         );
         assert_eq!(
-            ResetNodeParameterSrv::service_type_info().unwrap().name,
+            ResetNodeParameterSrv::service_type_info().name,
             "ros_z_parameter::ResetNodeParameter"
         );
         assert_eq!(
-            ReloadNodeParametersSrv::service_type_info().unwrap().name,
+            ReloadNodeParametersSrv::service_type_info().name,
             "ros_z_parameter::ReloadNodeParameters"
         );
     }

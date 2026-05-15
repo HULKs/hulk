@@ -6,7 +6,7 @@ use std::{
 };
 
 use ros_z::{
-    Message, SchemaHash, SerdeCdrCodec,
+    Message, SchemaHash,
     context::ContextBuilder,
     entity::EntityKind,
     parameter::{
@@ -14,9 +14,8 @@ use ros_z::{
         GetNodeParametersSnapshotSrv, NodeParameterEvent, NodeParametersExt, ParameterError,
         ParameterJsonWrite, RemoteParameterClient, SetNodeParameterRequest, SetNodeParameterSrv,
     },
-    schema::{MessageSchema, SchemaBuilder},
 };
-use ros_z_schema::{FieldDef, SchemaBundle, SchemaError, TypeDef, TypeDefinition, TypeName};
+use ros_z_schema::{FieldDef, SchemaBundle, TypeDef, TypeDefinition};
 use serde::{Deserialize, Serialize};
 
 static NEXT_ID: AtomicUsize = AtomicUsize::new(1);
@@ -58,23 +57,6 @@ struct VisionParameters {
 #[serde(deny_unknown_fields)]
 struct NestedParameters {
     count: u32,
-}
-
-#[derive(Debug, Clone, Serialize, Deserialize)]
-struct InvalidParameterSchema;
-
-impl MessageSchema for InvalidParameterSchema {
-    fn build_schema(_builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
-        TypeName::new("").map(TypeDef::Named)
-    }
-}
-
-impl Message for InvalidParameterSchema {
-    type Codec = SerdeCdrCodec<Self>;
-
-    fn type_name() -> String {
-        "test_parameters::InvalidParameterSchema".to_string()
-    }
 }
 
 struct TestLayers {
@@ -344,28 +326,6 @@ async fn bind_rejects_invalid_parameter_key() -> TestResult {
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-async fn bind_parameter_as_returns_schema_errors() -> TestResult {
-    let root = temp_parameter_root();
-    let layers = test_layers(&root, "invalid-schema");
-    write_layer_file(&layers.base, "ball_detector", r#"{}"#);
-
-    let context = build_ctx(&layers).await?;
-    let node = context
-        .create_node("ball_detector")
-        .with_namespace("vision")
-        .build()
-        .await?;
-
-    let err = node
-        .bind_parameter_as::<InvalidParameterSchema>("ball_detector")
-        .expect_err("invalid parameter schema should fail binding");
-
-    assert!(matches!(err, ParameterError::RemoteError { .. }));
-    assert!(err.to_string().contains("invalid"));
-    Ok(())
-}
-
-#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn late_validation_hook_validates_current_snapshot() -> TestResult {
     let root = temp_parameter_root();
     let layers = test_layers(&root, "c");
@@ -499,8 +459,8 @@ async fn bound_parameters_expose_type_info_and_schema_lookup() -> TestResult {
         .await?;
     let type_info = type_info_client.call_async(&Default::default()).await?;
     assert!(type_info.success);
-    assert_eq!(type_info.type_name, VisionParameters::type_info()?.name);
-    let expected_hash = VisionParameters::schema_hash()?;
+    assert_eq!(type_info.type_name, VisionParameters::type_info().name);
+    let expected_hash = VisionParameters::schema_hash();
     assert_eq!(type_info.schema_hash, expected_hash.to_hash_string());
 
     let schema = server_node

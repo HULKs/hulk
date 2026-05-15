@@ -131,7 +131,7 @@ impl MessageSchema for ApiSmokeMessage {
 #[test]
 fn serde_cdr_codec_roundtrips_message() {
     let original = ApiSmokeMessage { value: 42 };
-    let encoded = <ApiSmokeMessage as Message>::Codec::serialize_to_zbuf(&original);
+    let encoded = <ApiSmokeMessage as Message>::Codec::serialize_to_zbuf(&original).unwrap();
     let decoded = <ApiSmokeMessage as Message>::Codec::deserialize(&encoded.contiguous())
         .expect("wire codec should decode encoded message");
     assert_eq!(decoded, original);
@@ -146,7 +146,7 @@ fn handwritten_message_constructs_static_pubsub_builders_without_legacy_type_inf
 #[test]
 fn wire_message_uses_codec_vocabulary() {
     let original = ApiSmokeMessage { value: 7 };
-    let encoded = SerdeCdrCodec::<ApiSmokeMessage>::serialize_to_zbuf(&original);
+    let encoded = SerdeCdrCodec::<ApiSmokeMessage>::serialize_to_zbuf(&original).unwrap();
     let decoded = SerdeCdrCodec::<ApiSmokeMessage>::deserialize(&encoded.contiguous())
         .expect("wire codec should decode encoded message");
 
@@ -157,7 +157,7 @@ fn wire_message_uses_codec_vocabulary() {
 fn primitive_types_are_messages() {
     assert_eq!(u8::type_name(), "u8");
     assert!(matches!(
-        u8::schema().unwrap().root,
+        u8::schema().root,
         TypeDef::Primitive(ros_z_schema::PrimitiveTypeDef::U8)
     ));
 }
@@ -167,7 +167,7 @@ fn option_and_vec_types_are_messages() {
     assert_eq!(Option::<u8>::type_name(), "Option<u8>");
     assert_eq!(Vec::<Option<u8>>::type_name(), "Vec<Option<u8>>");
     assert!(matches!(
-        Vec::<Option<u8>>::schema().unwrap().root,
+        Vec::<Option<u8>>::schema().root,
         TypeDef::Sequence { .. }
     ));
 }
@@ -175,7 +175,7 @@ fn option_and_vec_types_are_messages() {
 #[test]
 fn fixed_arrays_are_fixed_sequences() {
     assert_eq!(<[u8; 16]>::type_name(), "[u8;16]");
-    let schema = <[u8; 16]>::schema().unwrap();
+    let schema = <[u8; 16]>::schema();
     let TypeDef::Sequence { length, .. } = schema.root else {
         panic!("expected sequence schema");
     };
@@ -184,7 +184,7 @@ fn fixed_arrays_are_fixed_sequences() {
 
 #[test]
 fn schema_builder_handles_direct_recursion() {
-    let schema = ManualRecursiveNode::schema().unwrap();
+    let schema = ManualRecursiveNode::schema();
     let node = TypeName::new("test::ManualRecursiveNode").unwrap();
 
     assert_eq!(schema.root, TypeDef::Named(node.clone()));
@@ -204,7 +204,7 @@ fn schema_builder_handles_direct_recursion() {
 
 #[test]
 fn scoped_enum_builder_defines_all_payload_shapes() {
-    let schema = ManualMode::schema().unwrap();
+    let schema = ManualMode::schema();
     let mode = TypeName::new("test::ManualMode").unwrap();
     let command = TypeName::new("test::ManualCommand").unwrap();
 
