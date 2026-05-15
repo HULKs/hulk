@@ -187,10 +187,9 @@ impl Graph {
         data.visit_by_node(node_key, |ent| {
             if let Some(enp) = entity_get_endpoint(&ent)
                 && enp.entity_kind() == kind
-                && let Some(type_info) = &enp.type_info
             {
                 // Insert into set for automatic deduplication
-                res_set.insert((enp.topic.clone(), type_info.name.clone()));
+                res_set.insert((enp.topic.clone(), enp.type_info.name.clone()));
             }
         });
 

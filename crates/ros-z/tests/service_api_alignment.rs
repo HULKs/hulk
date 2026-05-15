@@ -33,7 +33,7 @@ impl ServiceTypeInfo for AddTwoInts {
         )?;
         Ok(TypeInfo::new(
             "test_msgs::AddTwoInts",
-            Some(SchemaHash(ros_z_schema::compute_hash(&descriptor).0)),
+            SchemaHash(ros_z_schema::compute_hash(&descriptor).0),
         ))
     }
 }
@@ -55,8 +55,7 @@ fn generated_service_and_manual_descriptor_share_the_same_hash() {
     assert_eq!(
         AddTwoInts::service_type_info()
             .expect("generated type info")
-            .hash
-            .expect("generated hash"),
+            .hash,
         ros_z::entity::SchemaHash(ros_z_schema::compute_hash(&manual).0)
     );
 }

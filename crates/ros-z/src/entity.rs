@@ -52,12 +52,8 @@ pub fn node_lv_token_key_expr(entity: &NodeEntity) -> Result<KeyExpr<'static>> {
 /// Get the global identifier for this endpoint.
 pub fn endpoint_global_id(entity: &EndpointEntity) -> EndpointGlobalId {
     use sha2::Digest;
-    let node = entity
-        .node
-        .as_ref()
-        .expect("endpoint_global_id requires endpoint node identity");
     let mut hasher = sha2::Sha256::new();
-    hasher.update(node.z_id.to_le_bytes());
+    hasher.update(entity.node.z_id.to_le_bytes());
     hasher.update(entity.id.to_le_bytes());
     let hash = hasher.finalize();
     let mut endpoint_global_id = [0u8; 16];
@@ -75,12 +71,7 @@ pub fn node_to_liveliness_key_expr(entity: &NodeEntity) -> Result<LivelinessKE> 
 
 /// Convert an EndpointEntity to a LivelinessKE using the default format
 pub fn endpoint_to_liveliness_key_expr(entity: &EndpointEntity) -> Result<LivelinessKE> {
-    let Some(node) = entity.node.as_ref() else {
-        return Err(zenoh::Error::from(
-            "endpoint liveliness requires node identity",
-        ));
-    };
-    ros_z_protocol::format::liveliness_key_expr(entity, &node.z_id)
+    ros_z_protocol::format::liveliness_key_expr(entity, &entity.node.z_id)
 }
 
 /// Convert an Entity to a LivelinessKE using the default format
@@ -124,10 +115,10 @@ mod tests {
     fn endpoint_entity(node: NodeEntity, id: usize) -> EndpointEntity {
         EndpointEntity {
             id,
-            node: Some(node),
+            node,
             kind: EndpointKind::Publisher,
             topic: "/topic".to_string(),
-            type_info: None,
+            type_info: TypeInfo::new("std_msgs::String", SchemaHash::zero()),
             qos: Default::default(),
         }
     }

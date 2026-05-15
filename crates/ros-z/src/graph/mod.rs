@@ -132,10 +132,7 @@ impl Graph {
     pub fn is_entity_local(&self, entity: &Entity) -> bool {
         match entity {
             Entity::Node(node) => node.z_id == self.zid,
-            Entity::Endpoint(endpoint) => endpoint
-                .node
-                .as_ref()
-                .is_some_and(|node| node.z_id == self.zid),
+            Entity::Endpoint(endpoint) => endpoint.node.z_id == self.zid,
         }
     }
 

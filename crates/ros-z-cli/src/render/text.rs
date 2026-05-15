@@ -280,12 +280,9 @@ fn print_endpoint_section(label: &str, endpoints: &[EndpointSummary]) {
     }
 
     for endpoint in endpoints {
-        match (&endpoint.node, &endpoint.schema_hash) {
-            (Some(node), Some(schema_hash)) => println!("{node} [{schema_hash}]"),
-            (Some(node), None) => println!("{node}"),
-            (None, Some(schema_hash)) => println!("unknown [{schema_hash}]"),
-            (None, None) => println!("unknown"),
-        }
+        let node = &endpoint.node;
+        let schema_hash = &endpoint.schema_hash;
+        println!("{node} [{schema_hash}]");
     }
 }
 

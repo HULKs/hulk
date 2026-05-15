@@ -174,7 +174,7 @@ macro_rules! impl_service {
                     <$req as crate::Message>::type_name(),
                     <$res as crate::Message>::type_name(),
                 )?;
-                Ok(TypeInfo::with_hash(
+                Ok(TypeInfo::new(
                     descriptor.type_name.as_str(),
                     ros_z_schema::compute_hash(&descriptor),
                 ))

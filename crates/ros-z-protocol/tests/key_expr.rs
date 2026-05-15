@@ -25,13 +25,10 @@ fn default_node() -> NodeEntity {
 fn endpoint_entity(kind: EndpointKind, topic: &str) -> EndpointEntity {
     EndpointEntity {
         id: 42,
-        node: Some(default_node()),
+        node: default_node(),
         kind,
         topic: topic.to_string(),
-        type_info: Some(TypeInfo {
-            name: "std_msgs::String".to_string(),
-            hash: Some(SchemaHash::zero()),
-        }),
+        type_info: TypeInfo::new("std_msgs::String", SchemaHash::zero()),
         qos: QosProfile {
             reliability: QosReliability::Reliable,
             durability: QosDurability::Volatile,
@@ -56,10 +53,10 @@ fn native_endpoint_liveliness(kind: EndpointKind) -> ros_z_protocol::entity::Liv
     };
     let entity = EndpointEntity {
         id: 2,
-        node: Some(node),
+        node,
         kind,
         topic: "/chatter".to_string(),
-        type_info: Some(TypeInfo::new("std_msgs::String", None)),
+        type_info: TypeInfo::new("std_msgs::String", SchemaHash::zero()),
         qos: QosProfile::default(),
     };
 
@@ -90,32 +87,12 @@ fn parse_native_endpoint_liveliness_preserves_endpoint_kind_and_topic() {
 fn reject_ros2_liveliness_prefix() {
     let key_expr: zenoh::key_expr::KeyExpr<'static> = concat!(
         "@ros2",
-        "_lv/0/1234567890abcdef1234567890abcdef/1/1/MP/%/%/talker/chatter/std_msgs::String/EMPTY_SCHEMA_HASH/Q"
+        "_lv/0/1234567890abcdef1234567890abcdef/1/1/MP/%/%/talker/chatter/std_msgs::String/0000000000000000000000000000000000000000000000000000000000000000/Q"
     )
     .try_into()
     .unwrap();
 
     assert!(format::parse_liveliness(&key_expr).is_err());
-}
-
-#[test]
-fn missing_type_info_uses_endpoint_neutral_placeholders() {
-    let mut entity = endpoint_entity(EndpointKind::Publisher, "/chatter");
-    entity.type_info = None;
-
-    let topic_key = format::topic_key_expr(&entity).unwrap().to_string();
-    assert!(topic_key.contains("EMPTY_TYPE_NAME/EMPTY_SCHEMA_HASH"));
-
-    let liveliness = format::liveliness_key_expr(&entity, &ZenohId::default())
-        .unwrap()
-        .to_string();
-    assert!(liveliness.contains("EMPTY_TYPE_NAME/EMPTY_SCHEMA_HASH"));
-
-    let parsed = parse_liveliness(&liveliness).unwrap();
-    match parsed {
-        Entity::Endpoint(endpoint) => assert_eq!(endpoint.type_info, None),
-        Entity::Node(_) => panic!("expected endpoint"),
-    }
 }
 
 // ---------------------------------------------------------------------------
@@ -143,30 +120,22 @@ fn endpoint_liveliness_roundtrip_preserves_public_fields_for_all_endpoint_kinds(
         assert_eq!(ep.topic, topic);
         assert_eq!(ep.type_info, entity.type_info);
         assert_eq!(ep.qos, entity.qos);
-        assert_eq!(
-            ep.node.as_ref().unwrap().z_id,
-            entity.node.as_ref().unwrap().z_id
-        );
-        assert_eq!(
-            ep.node.as_ref().unwrap().id,
-            entity.node.as_ref().unwrap().id
-        );
-        assert_eq!(
-            ep.node.as_ref().unwrap().name,
-            entity.node.as_ref().unwrap().name
-        );
-        let expected_namespace = match entity.node.as_ref().unwrap().namespace.as_str() {
+        assert_eq!(ep.node.z_id, entity.node.z_id);
+        assert_eq!(ep.node.id, entity.node.id);
+        assert_eq!(ep.node.name, entity.node.name);
+        let expected_namespace = match entity.node.namespace.as_str() {
             "/" => "",
             namespace => namespace,
         };
-        assert_eq!(ep.node.as_ref().unwrap().namespace, expected_namespace);
+        assert_eq!(ep.node.namespace, expected_namespace);
     }
 }
 
 #[test]
-fn test_type_info_without_hash_roundtrip() {
+fn test_type_info_with_hash_roundtrip() {
+    let hash = SchemaHash([0xab; 32]);
     let mut entity = endpoint_entity(EndpointKind::Publisher, "/chatter");
-    entity.type_info = Some(TypeInfo::new("test_action::FeedbackMessage", None));
+    entity.type_info = TypeInfo::new("test_action::FeedbackMessage", hash);
     let zid = ZenohId::default();
 
     let ke = format::liveliness_key_expr(&entity, &zid).unwrap();
@@ -175,7 +144,7 @@ fn test_type_info_without_hash_roundtrip() {
     if let Entity::Endpoint(ep) = parsed {
         assert_eq!(
             ep.type_info,
-            Some(TypeInfo::new("test_action::FeedbackMessage", None))
+            TypeInfo::new("test_action::FeedbackMessage", hash)
         );
     } else {
         panic!("expected Endpoint entity");

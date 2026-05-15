@@ -17,10 +17,10 @@
 //!
 //! let entity = EndpointEntity {
 //!     id: 1,
-//!     node: Some(node),
+//!     node,
 //!     kind: EndpointKind::Publisher,
 //!     topic: "/chatter".to_string(),
-//!     type_info: None,
+//!     type_info: TypeInfo::new("std_msgs::String", SchemaHash::zero()),
 //!     qos: Default::default(),
 //! };
 //!

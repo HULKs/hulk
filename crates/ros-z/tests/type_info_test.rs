@@ -17,7 +17,7 @@ fn type_info_exposes_schema_hash_as_the_public_hash_accessor() {
 #[test]
 fn type_info_uses_schema_hash() {
     let info = MockMessage::type_info().unwrap();
-    assert_eq!(info.hash, Some(MockMessage::schema_hash().unwrap()));
+    assert_eq!(info.hash, MockMessage::schema_hash().unwrap());
 }
 
 #[test]
@@ -116,7 +116,10 @@ fn type_info_module_exports_runtime_traits() {
     struct ServiceMarker;
     impl ServiceTypeInfo for ServiceMarker {
         fn service_type_info() -> Result<ros_z::TypeInfo, ros_z_schema::SchemaError> {
-            Ok(ros_z::TypeInfo::new("test_msgs::ServiceMarker", None))
+            Ok(ros_z::TypeInfo::new(
+                "test_msgs::ServiceMarker",
+                ros_z::SchemaHash::zero(),
+            ))
         }
     }
 

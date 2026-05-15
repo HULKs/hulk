@@ -587,7 +587,6 @@ fn replay_capable_publisher(entity: &Entity) -> Option<(EndpointGlobalId, usize)
     let QosHistory::KeepLast(depth) = endpoint.qos.history else {
         return None;
     };
-    endpoint.node.as_ref()?;
     Some((endpoint_global_id(endpoint), depth))
 }
 

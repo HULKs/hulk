@@ -34,16 +34,10 @@ pub async fn run(
     let _schema = subscriber
         .schema()
         .ok_or_else(|| eyre!("dynamic subscriber missing schema for {topic}"))?;
-    let type_name = subscriber
-        .entity()
-        .type_info
-        .as_ref()
-        .map(|type_info| type_info.name.clone())
-        .unwrap_or_else(|| "unknown".to_string());
     let header = EchoHeader::new(
         topic.to_string(),
-        type_name.clone(),
-        display_schema_hash(&subscriber),
+        subscriber.entity().type_info.name.clone(),
+        subscriber.entity().type_info.hash.to_hash_string(),
     );
     let deadline = timeout
         .map(Duration::from_secs_f64)
@@ -66,7 +60,7 @@ pub async fn run(
             OutputMode::Json => {
                 let view = EchoMessageView::new(
                     header.topic.clone(),
-                    type_name.clone(),
+                    subscriber.entity().type_info.name.clone(),
                     header.schema_hash.clone(),
                     dynamic_payload_to_json(&message),
                 );
@@ -77,17 +71,6 @@ pub async fn run(
             }
         }
     }
-}
-
-fn display_schema_hash(subscriber: &DynamicSubscriber) -> String {
-    display_schema_hash_from_type_info(subscriber.entity().type_info.as_ref())
-}
-
-fn display_schema_hash_from_type_info(type_info: Option<&ros_z::TypeInfo>) -> String {
-    type_info
-        .and_then(|type_info| type_info.hash)
-        .map(|hash| hash.to_hash_string())
-        .unwrap_or_else(|| "unknown".to_string())
 }
 
 async fn receive_message(
@@ -314,36 +297,5 @@ fn format_enum_payload_pretty(output: &mut String, payload: &EnumPayloadValue, i
 fn format_named_fields_pretty(output: &mut String, fields: &[DynamicNamedValue], indent: usize) {
     for field in fields {
         format_value_pretty(output, &field.name, &field.value, indent);
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use ros_z::{SchemaHash, TypeInfo};
-
-    use super::display_schema_hash_from_type_info;
-
-    #[test]
-    fn display_schema_hash_prefers_advertised_canonical_hash() {
-        let hash = SchemaHash::from_hash_string(
-            "RZHS02_1111111111111111111111111111111111111111111111111111111111111111",
-        )
-        .expect("hash");
-        let type_info = TypeInfo::with_hash("std_msgs::String", hash);
-
-        assert_eq!(
-            display_schema_hash_from_type_info(Some(&type_info)),
-            "RZHS02_1111111111111111111111111111111111111111111111111111111111111111"
-        );
-    }
-
-    #[test]
-    fn display_schema_hash_reports_unknown_without_advertised_hash() {
-        let type_info = TypeInfo::new("std_msgs::String", None);
-
-        assert_eq!(
-            display_schema_hash_from_type_info(Some(&type_info)),
-            "unknown"
-        );
     }
 }
