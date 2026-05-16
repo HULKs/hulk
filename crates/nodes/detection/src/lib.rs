@@ -57,17 +57,13 @@ struct ModelOutputs<'a> {
 }
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
-    let node = ctx
-        .create_node("camera_matrix_calculator")
-        .build()
-        .await
-        .into_eyre()?;
+    let node = ctx.create_node("detection").build().await.into_eyre()?;
 
     let node_parameters = node
         .bind_parameter_as::<Parameters>("detection")
         .into_eyre()?;
     let image_sub = node
-        .subscriber::<Image>("inputs/image")
+        .subscriber::<Image>("inputs/left_image")
         .into_eyre()?
         .build()
         .await
@@ -130,46 +126,46 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         }
 
         let image = image_sub.recv().await.into_eyre()?;
-                check_image(&image)?;
+        check_image(&image)?;
 
-                let inference_start = Instant::now();
+        let inference_start = Instant::now();
 
-                let nv12_data = ArrayView3::from_shape(
-                        [image.height as usize / 2, image.width as usize / 2, 6],
-                        image.data.as_slice(),
-                    )
-                    .into_eyre()?;
-                let outputs: SessionOutputs =
-                    session.run(inputs!["raw_bytes_input" => TensorRef::from_array_view(nv12_data)?])?;
+        let nv12_data = ArrayView3::from_shape(
+            [image.height as usize / 2, image.width as usize / 2, 6],
+            image.data.as_slice(),
+        )
+        .into_eyre()?;
+        let outputs: SessionOutputs =
+            session.run(inputs!["raw_bytes_input" => TensorRef::from_array_view(nv12_data)?])?;
 
-                let inference_duration = inference_start.elapsed();
+        let inference_duration = inference_start.elapsed();
 
-                let post_processing_start = Instant::now();
+        let post_processing_start = Instant::now();
 
-                let outputs = extract_outputs(&outputs)?;
-                let candidate_detections = extract_candidate_object_detections(
-                    &outputs,
-                    parameters.object_detection_parameters.confidence_threshold,
-                )?;
-                let candidate_human_poses = extract_candidate_pose_detections(
-                    &outputs,
-                    parameters.pose_detection_parameters.confidence_threshold,
-                )?;
-                let post_processing_duration = post_processing_start.elapsed();
-                let non_maximum_suppression_start = Instant::now();
-                let detected_objects = non_maximum_suppression(
-                    candidate_detections,
-                    parameters
-                        .object_detection_parameters
-                        .maximum_intersection_over_union,
-                );
-                let detected_poses = non_maximum_suppression(
-                    candidate_human_poses,
-                    parameters
-                        .pose_detection_parameters
-                        .maximum_intersection_over_union,
-                );
-                let non_maximum_suppression_duration = non_maximum_suppression_start.elapsed();
+        let outputs = extract_outputs(&outputs)?;
+        let candidate_detections = extract_candidate_object_detections(
+            &outputs,
+            parameters.object_detection_parameters.confidence_threshold,
+        )?;
+        let candidate_human_poses = extract_candidate_pose_detections(
+            &outputs,
+            parameters.pose_detection_parameters.confidence_threshold,
+        )?;
+        let post_processing_duration = post_processing_start.elapsed();
+        let non_maximum_suppression_start = Instant::now();
+        let detected_objects = non_maximum_suppression(
+            candidate_detections,
+            parameters
+                .object_detection_parameters
+                .maximum_intersection_over_union,
+        );
+        let detected_poses = non_maximum_suppression(
+            candidate_human_poses,
+            parameters
+                .pose_detection_parameters
+                .maximum_intersection_over_union,
+        );
+        let non_maximum_suppression_duration = non_maximum_suppression_start.elapsed();
 
         inference_duration_pub
             .publish(&inference_duration)
