@@ -611,6 +611,7 @@ pub struct ControlParameters {
 )]
 pub struct DetectionParameters {
     pub enable: bool,
+    pub neural_networks_folder: PathBuf,
     pub model_name: String,
     pub object_detection_parameters: ObjectDetectionParameters,
     pub pose_detection_parameters: PoseDetectionParameters,

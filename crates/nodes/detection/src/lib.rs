@@ -1,4 +1,4 @@
-use std::{path::PathBuf, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use color_eyre::{Result, eyre::bail};
 use ndarray::{ArrayView2, ArrayView3, Axis};
@@ -105,18 +105,19 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let parameters = node_parameters.snapshot().typed().parameters.clone();
 
-    let neural_networks_folder: PathBuf = todo!();
-    let model_path = neural_networks_folder.join(parameters.model_name);
+    let model_path = parameters
+        .neural_networks_folder
+        .join(parameters.model_name);
 
     let tensor_rt = TensorRTExecutionProvider::default()
         .with_device_id(0)
         .with_fp16(true)
         .with_engine_cache(true)
-        .with_engine_cache_path(neural_networks_folder.display())
+        .with_engine_cache_path(parameters.neural_networks_folder.display())
         .build();
     let cuda = CUDAExecutionProvider::default().build();
 
-    let session = Session::builder()?
+    let mut session = Session::builder()?
         .with_execution_providers([tensor_rt, cuda])?
         .with_optimization_level(GraphOptimizationLevel::Level3)?
         .with_intra_threads(2)?
@@ -127,11 +128,10 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         if !parameters.enable {
             continue;
         }
-        tokio::select! {
-            image = image_sub.recv_with_metadata() => {
-                let image = image.into_eyre()?;
 
+        let image = image_sub.recv().await.into_eyre()?;
                 check_image(&image)?;
+
                 let inference_start = Instant::now();
 
                 let nv12_data = ArrayView3::from_shape(
@@ -171,13 +171,26 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 );
                 let non_maximum_suppression_duration = non_maximum_suppression_start.elapsed();
 
-                inference_duration_pub.publish(&inference_duration).await.into_eyre()?;
-                post_processing_duration_pub.publish(&post_processing_duration).await.into_eyre()?;
-                non_maximum_suppression_duration_pub.publish(&non_maximum_suppression_duration).await.into_eyre()?;
-                detected_objects_pub.publish(&detected_objects).await.into_eyre()?;
-                detected_poses_pub.publish(&detected_poses).await.into_eyre()?;
-            }
-        }
+        inference_duration_pub
+            .publish(&inference_duration)
+            .await
+            .into_eyre()?;
+        post_processing_duration_pub
+            .publish(&post_processing_duration)
+            .await
+            .into_eyre()?;
+        non_maximum_suppression_duration_pub
+            .publish(&non_maximum_suppression_duration)
+            .await
+            .into_eyre()?;
+        detected_objects_pub
+            .publish(&detected_objects)
+            .await
+            .into_eyre()?;
+        detected_poses_pub
+            .publish(&detected_poses)
+            .await
+            .into_eyre()?;
     }
 }
 
