@@ -145,6 +145,13 @@ impl<Group: StreamGroup> FutureMap<Group> {
 ///
 /// # Example
 /// ```no_run
+/// # use std::time::Duration;
+/// # use ros_z_streams::CreateFutureMapBuilder;
+/// # #[derive(ros_z::Message, serde::Deserialize, serde::Serialize)]
+/// # struct Imu;
+/// # #[derive(ros_z::Message, serde::Deserialize, serde::Serialize)]
+/// # struct Vision;
+/// # async fn example(node: ros_z::node::Node) -> zenoh::Result<()> {
 /// let map = node
 ///     .create_future_map_builder()
 ///     .create_future_subscriber::<Imu>("sensors/imu", Duration::from_millis(5))
@@ -152,6 +159,8 @@ impl<Group: StreamGroup> FutureMap<Group> {
 ///     .create_future_subscriber::<Vision>("sensors/vision", Duration::from_millis(50))
 ///     .await?
 ///     .build();
+/// # Ok(())
+/// # }
 /// ```
 pub struct FutureMapBuilder<'a, Subscribers> {
     node: &'a Node,
