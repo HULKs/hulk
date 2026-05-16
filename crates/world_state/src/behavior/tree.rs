@@ -13,8 +13,9 @@ use crate::{
         kick::{intercept, kick_subtree},
         node::Blackboard,
         search::{has_suggested_search_position, leuchtturm, walk_to_search_position},
+        substates::{is_in_sub_state, sub_state_subtree},
         switch_motion_type::switch_motion_type,
-        walk::{walk_alternatives_subtree, walk_to_ball},
+        walk::{walk_alternatives_subtree, walk_to_ball_subtree},
     },
     condition, negation, selection, sequence, subtree,
 };
@@ -83,7 +84,7 @@ fn goalkeeper_subtree() -> Node<Blackboard> {
     sequence!(subtree!(look_at_ball_subtree), action!(stand))
 }
 
-fn search_subtree() -> Node<Blackboard> {
+pub fn search_subtree() -> Node<Blackboard> {
     sequence!(
         subtree!(search_for_lost_ball_subtree),
         switch_motion_type(
@@ -104,13 +105,10 @@ fn striker_subtree() -> Node<Blackboard> {
     sequence!(
         subtree!(look_at_ball_subtree),
         selection!(
+            sequence!(condition!(is_in_sub_state), subtree!(sub_state_subtree),),
             sequence!(
                 negation!(condition!(is_close_to_ball)),
-                switch_motion_type(
-                    MotionType::Walk,
-                    action!(walk_to_ball),
-                    subtree!(walk_alternatives_subtree),
-                )
+                subtree!(walk_to_ball_subtree)
             ),
             sequence!(
                 condition!(is_ball_interception_candidate),

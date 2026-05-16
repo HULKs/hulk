@@ -12,7 +12,7 @@ use linear_algebra::{Point2, Vector2};
 use serde::{Deserialize, Serialize};
 use types::{
     behavior_tree::NodeTrace,
-    field_dimensions::FieldDimensions,
+    field_dimensions::{FieldDimensions, Side},
     motion_command::{BodyMotion, HeadMotion, MotionCommand},
     motion_type::MotionType,
     parameters::{BehaviorParameters, HslNetworkParameters},
@@ -52,25 +52,29 @@ pub struct LastBall {
     pub position: Point2<Field>,
     pub velocity: Vector2<Ground>,
     pub age: SystemTime,
+    pub field_side: Side,
 }
 
 #[derive(Debug, Clone, Serialize)]
 pub struct Blackboard {
-    pub world_state: WorldState,
-    pub parameters: BehaviorParameters,
     pub field_dimensions: FieldDimensions,
-    pub last_motion_command: MotionCommand,
+    pub free_kick_obstacle_radius: f32,
+    pub parameters: BehaviorParameters,
+    pub world_state: WorldState,
 
     pub path_obstacles_output: Vec<PathObstacle>,
     pub time_since_last_switch: Duration,
+    pub direction_difference: f32,
 
     pub ball: Option<LastBall>,
     pub last_ball: Option<LastBall>,
     pub last_close_enough_to_kick: bool,
+    pub last_motion_command: MotionCommand,
     pub last_motion_switch_time: SystemTime,
     pub last_motion_type: Option<MotionType>,
 
     pub is_injected_motion_command: bool,
+    pub walk_position: Option<Point2<Ground>>,
     pub body_motion: Option<BodyMotion>,
     pub head_motion: Option<HeadMotion>,
 }
@@ -88,12 +92,15 @@ pub struct CycleContext {
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
     hsl_network_parameters: Parameter<HslNetworkParameters, "hsl_network">,
     parameters: Parameter<BehaviorParameters, "behavior">,
+    free_kick_obstacle_radius: Parameter<f32, "rule_obstacles.free_kick_obstacle_radius">,
 
     behavior_trace: AdditionalOutput<NodeTrace, "behavior.trace">,
     behavior_tree_layout: AdditionalOutput<NodeTrace, "behavior.tree_layout">,
     last_sent_message: AdditionalOutput<HulkMessage, "last_sent_message">,
     path_obstacles_output: AdditionalOutput<Vec<PathObstacle>, "path_obstacles">,
     time_since_last_switch: AdditionalOutput<Duration, "behavior.time_since_last_switch">,
+    direction_difference: AdditionalOutput<f32, "behavior.direction_difference">,
+    walk_position: AdditionalOutput<Option<Point2<Ground>>, "behavior.walk_position">,
 
     last_motion_command: CyclerState<MotionCommand, "last_motion_command">,
 
@@ -137,6 +144,7 @@ impl Behavior {
                 position: ball.ball_in_field,
                 velocity: ball.ball_in_ground_velocity,
                 age: context.world_state.now,
+                field_side: ball.field_side,
             });
             self.last_ball = self.ball.clone();
         } else if let Some(last_ball) = &self.ball
@@ -151,21 +159,24 @@ impl Behavior {
         }
 
         let mut blackboard = Blackboard {
-            world_state: context.world_state.clone(),
-            parameters: context.parameters.clone(),
             field_dimensions: *context.field_dimensions,
-            last_motion_command: context.last_motion_command.clone(),
+            free_kick_obstacle_radius: *context.free_kick_obstacle_radius,
+            parameters: context.parameters.clone(),
+            world_state: context.world_state.clone(),
 
             path_obstacles_output: Vec::new(),
             time_since_last_switch: Duration::ZERO,
+            direction_difference: 0.0,
 
             ball: self.ball.clone(),
             last_ball: self.last_ball.clone(),
             last_close_enough_to_kick: self.last_close_enough_to_kick,
+            last_motion_command: context.last_motion_command.clone(),
             last_motion_switch_time: self.last_motion_switch_time,
             last_motion_type: self.last_motion_type,
 
             is_injected_motion_command: false,
+            walk_position: None,
             body_motion: None,
             head_motion: None,
         };
@@ -213,6 +224,12 @@ impl Behavior {
         context
             .time_since_last_switch
             .fill_if_subscribed(|| blackboard.time_since_last_switch);
+        context
+            .direction_difference
+            .fill_if_subscribed(|| blackboard.direction_difference);
+        context
+            .walk_position
+            .fill_if_subscribed(|| blackboard.walk_position);
 
         Ok(MainOutputs {
             motion_command: motion_command.into(),

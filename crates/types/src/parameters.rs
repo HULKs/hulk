@@ -73,6 +73,7 @@ pub struct BehaviorParameters {
     pub kicking: KickingParameters,
     pub walk_speed: WalkSpeedParameters,
     pub intercept_ball: InterceptBallParameters,
+    pub substates: SubstatesParameters,
 }
 
 #[derive(
@@ -163,6 +164,7 @@ pub struct WalkAndStandParameters {
     pub hysteresis: nalgebra::Vector2<f32>,
     pub target_reached_thresholds: nalgebra::Vector2<f32>,
     pub hybrid_align_distance: f32,
+    pub orientation_tolerance: f32,
     pub normal_distance_to_be_aligned: f32,
     pub defender_distance_to_be_aligned: f32,
     pub defender_hysteresis: nalgebra::Vector2<f32>,
@@ -219,13 +221,12 @@ pub struct InterceptBallParameters {
 pub struct PathPlanningParameters {
     pub arc_walking_speed: f32,
     pub ball_obstacle_radius: f32,
-    pub ball_obstacle_radius_factor: f32,
     pub field_border_weight: f32,
     pub line_walking_speed: f32,
+    pub obstacle_escape_spline_segments: u32,
     pub rotation_penalty_factor: f32,
     pub minimum_robot_radius_at_foot_height: f32,
-    pub robot_radius_at_foot_height: f32,
-    pub robot_radius_at_hip_height: f32,
+    pub robot_radius: f32,
     pub half_rotation: Duration,
 }
 
@@ -496,6 +497,10 @@ pub struct SearchSuggestorParameters {
     pub own_ball_weight: f32,
     pub team_ball_weight: f32,
     pub rule_ball_weight: f32,
+    pub rule_ball_weight_increment: f32,
+    pub tile_switch_hysteresis: f32,
+    pub decay_distance_factor: f32,
+    pub heatmap_decay_range: Range<f32>,
 }
 
 #[derive(
@@ -658,27 +663,17 @@ pub struct PoseDetectionParameters {
     ros_z::Message,
 )]
 pub struct WalkSpeedParameters {
-    pub defend: f32,
     pub kicking: f32,
-    pub intercept_ball: f32,
-    pub lost_ball: f32,
     pub search: f32,
-    pub support: f32,
-    pub walk_to_kickoff: f32,
-    pub walk_to_penalty_kick: f32,
+    pub blocking: f32,
 }
 
 impl Default for WalkSpeedParameters {
     fn default() -> Self {
         Self {
-            defend: 1.0,
             kicking: 1.0,
-            intercept_ball: 1.0,
-            lost_ball: 1.0,
             search: 1.0,
-            support: 1.0,
-            walk_to_kickoff: 1.0,
-            walk_to_penalty_kick: 1.0,
+            blocking: 1.0,
         }
     }
 }
@@ -701,6 +696,7 @@ pub struct KickingParameters {
     pub distance_to_look_directly_at_the_ball: f32,
     pub kick_target_offset_angle: f32,
     pub target_distance_kick_power_threshold: f32,
+    pub kick_position_ball_distance: f32,
 }
 
 #[derive(
@@ -752,4 +748,23 @@ pub struct AllowSwitchParameters {
     pub stand: Duration,
     pub stand_up: Duration,
     pub walk: Duration,
+}
+
+#[derive(
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    Message,
+)]
+pub struct SubstatesParameters {
+    pub distance_for_kick: f32,
+    pub distance_for_kick_hysteresis: f32,
+    pub alignment_angle_threshold: f32,
+    pub blocking_distance_offset: f32,
+    pub corner_kick_blocking_angle: f32,
 }
