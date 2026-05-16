@@ -73,6 +73,8 @@
 //! # }
 //! ```
 
+#![deny(missing_docs)]
+
 mod announce;
 mod future_map;
 mod future_queue;
