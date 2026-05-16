@@ -1,11 +1,14 @@
 use std::collections::BTreeMap;
+use std::time::Duration;
 
 use ros_z::Message;
 use ros_z::Result as ZResult;
 use ros_z::node::Node;
+use ros_z::time::Clock;
 use ros_z::time::Time;
+use tokio::select;
 
-use crate::future_queue::{CreateFutureQueue, FutureQueueSubscriber};
+use crate::future_queue::{CreateFutureQueue, FutureQueueSubscriber, QueueEvent};
 
 pub type FutureResult<Types> = BTreeMap<Time, Types>;
 
@@ -15,40 +18,57 @@ pub struct FutureItem<'a, Types> {
     pub temporary: &'a FutureResult<Types>,
 }
 
+#[derive(Debug, PartialEq, Eq)]
+pub enum GroupEvent {
+    Announcement,
+    Data,
+}
+
 pub trait StreamGroup {
     type Output: Default;
 
-    fn global_safe_time(&self) -> Option<Time>;
+    fn global_safe_time(&self, now: Time) -> Time;
+
+    fn max_safety_lag(&self) -> Option<Duration>;
 
     // Required to abstract the varying arity of the streams for tokio::select!
-    fn receive_into(
+    fn receive_event(
         &mut self,
         buffer: &mut BTreeMap<Time, Self::Output>,
-    ) -> impl Future<Output = ZResult<()>>;
+    ) -> impl Future<Output = ZResult<GroupEvent>>;
 }
 
+#[derive(Debug)]
 pub struct FutureMap<Group: StreamGroup> {
     subscribers: Group,
     buffer: FutureResult<Group::Output>,
+    clock: Clock,
 }
 
 impl<Group: StreamGroup> FutureMap<Group> {
     pub async fn recv(&mut self) -> ZResult<FutureItem<'_, Group::Output>> {
-        self.subscribers.receive_into(&mut self.buffer).await?;
+        let max_safety_lag = self.subscribers.max_safety_lag().unwrap_or(Duration::MAX);
+        let mut timer = self.clock.timer(max_safety_lag);
 
-        let mut persistent_buffer = BTreeMap::new();
-        if let Some(safe_time) = self.subscribers.global_safe_time() {
-            let temporary_buffer = self.buffer.split_off(&safe_time);
-            std::mem::swap(&mut persistent_buffer, &mut self.buffer);
-            self.buffer = temporary_buffer;
-        } else {
-            std::mem::swap(&mut persistent_buffer, &mut self.buffer);
+        loop {
+            let event = select! {
+                _ = timer.tick() => None,
+                event = self.subscribers.receive_event(&mut self.buffer) => Some(event?),
+            };
+
+            // Recalculate safe time and split the buffer
+            let safe_time = self.subscribers.global_safe_time(self.clock.now());
+            let mut temporary_buffer = self.buffer.split_off(&safe_time);
+            std::mem::swap(&mut self.buffer, &mut temporary_buffer);
+            let persistent_buffer = temporary_buffer;
+
+            if event == Some(GroupEvent::Data) || !persistent_buffer.is_empty() {
+                return Ok(FutureItem {
+                    persistent: persistent_buffer,
+                    temporary: &self.buffer,
+                });
+            }
         }
-
-        Ok(FutureItem {
-            persistent: persistent_buffer,
-            temporary: &self.buffer,
-        })
     }
 }
 
@@ -65,6 +85,7 @@ where
         FutureMap {
             subscribers: self.subscribers,
             buffer: BTreeMap::new(),
+            clock: self.node.clock().clone(),
         }
     }
 }
@@ -86,11 +107,15 @@ impl<'a> FutureMapBuilder<'a, ()> {
     pub async fn create_future_subscriber<Type1>(
         self,
         topic: &'a str,
+        safety_lag: Duration,
     ) -> ZResult<FutureMapBuilder<'a, (FutureQueueSubscriber<Type1>,)>>
     where
         Type1: Message,
     {
-        let subscriber = self.node.create_future_subscriber(topic).await?;
+        let subscriber = self
+            .node
+            .create_future_subscriber(topic, safety_lag)
+            .await?;
         Ok(FutureMapBuilder {
             node: self.node,
             subscribers: (subscriber,),
@@ -107,22 +132,32 @@ macro_rules! implement_stream_group {
         {
             type Output = ($(Option<$type_name>,)+);
 
-            fn global_safe_time(&self) -> Option<Time> {
-                let safe_times = [ $(self.$index.safe_time()),+ ];
-                safe_times.into_iter().flatten().min()
+            fn global_safe_time(&self, now: Time) -> Time {
+                let safe_times = [ $(self.$index.safe_time(now)),+ ];
+                safe_times.into_iter().min().unwrap_or(now)
             }
 
-            async fn receive_into(
+            fn max_safety_lag(&self) -> Option<Duration> {
+                let lags = [ $(self.$index.safety_lag()),+ ];
+                lags.into_iter().max()
+            }
+
+            async fn receive_event(
                 &mut self,
                 buffer: &mut BTreeMap<Time, Self::Output>,
-            ) -> ZResult<()> {
+            ) -> ZResult<GroupEvent> {
                 tokio::select! {
                     $(
                         result = self.$index.recv() => {
-                            let (time, value) = result?;
-                            let entry = buffer.entry(time).or_default();
-                            entry.$index = Some(value);
-                            Ok(())
+                            // Match the QueueEvent here!
+                            match result? {
+                                QueueEvent::Data(time, value) => {
+                                    let entry = buffer.entry(time).or_default();
+                                    entry.$index = Some(value);
+                                    Ok(GroupEvent::Data)
+                                }
+                                QueueEvent::Announcement => Ok(GroupEvent::Announcement),
+                            }
                         }
                     )+
                 }
@@ -140,6 +175,7 @@ macro_rules! implement_builder {
             pub async fn create_future_subscriber<$next_type>(
                 self,
                 topic: &'a str,
+                safety_lag: Duration,
             ) -> ZResult<
                 FutureMapBuilder<
                     'a,
@@ -149,7 +185,7 @@ macro_rules! implement_builder {
             where
                 $next_type: Message,
             {
-                let subscriber = self.node.create_future_subscriber(topic).await?;
+                let subscriber = self.node.create_future_subscriber(topic, safety_lag).await?;
                 Ok(FutureMapBuilder {
                     node: self.node,
                     subscribers: ($(self.subscribers.$index,)+ subscriber,),
