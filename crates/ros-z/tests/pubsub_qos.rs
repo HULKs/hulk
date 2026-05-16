@@ -303,11 +303,18 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn transient_local_replay_preserves_cache_order_without_attachments() -> Result<()> {
+    async fn transient_local_replay_preserves_cache_order_with_required_attachments() -> Result<()>
+    {
         let context = ContextBuilder::default().build().await?;
-        let pub_node = context.create_node("no_attachment_pub").build().await?;
-        let sub_node = context.create_node("no_attachment_sub").build().await?;
-        let topic = "/transient_local_no_attachment";
+        let pub_node = context
+            .create_node("required_attachment_pub")
+            .build()
+            .await?;
+        let sub_node = context
+            .create_node("required_attachment_sub")
+            .build()
+            .await?;
+        let topic = "/transient_local_required_attachment";
         let qos = QosProfile {
             durability: QosDurability::TransientLocal,
             reliability: QosReliability::Reliable,
@@ -318,7 +325,6 @@ mod tests {
         let publisher = pub_node
             .publisher::<String>(topic)?
             .qos(qos)
-            .attachment(false)
             .build()
             .await?;
         for data in ["one", "two", "three"] {
@@ -332,12 +338,17 @@ mod tests {
             .await?;
 
         let mut received = Vec::new();
+        let mut sequence_numbers = Vec::new();
         for _ in 0..3 {
-            let message = tokio::time::timeout(Duration::from_secs(2), subscriber.recv()).await??;
-            received.push(message);
+            let message =
+                tokio::time::timeout(Duration::from_secs(2), subscriber.recv_with_metadata())
+                    .await??;
+            sequence_numbers.push(message.sequence_number);
+            received.push(message.into_message());
         }
 
         assert_eq!(received, ["one", "two", "three"]);
+        assert_eq!(sequence_numbers, [0, 1, 2]);
         Ok(())
     }
 

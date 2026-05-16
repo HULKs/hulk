@@ -500,7 +500,7 @@ impl From<Attachment> for RequestId {
 }
 
 pub struct ServiceReply<T: Service> {
-    request_id: Option<RequestId>,
+    request_id: RequestId,
     key_expr: KeyExpr<'static>,
     query: Query,
     clock: Clock,
@@ -508,8 +508,8 @@ pub struct ServiceReply<T: Service> {
 }
 
 impl<T: Service> ServiceReply<T> {
-    pub fn id(&self) -> Option<&RequestId> {
-        self.request_id.as_ref()
+    pub fn id(&self) -> &RequestId {
+        &self.request_id
     }
 
     pub fn reply(self, message: &T::Response) -> Result<()>
@@ -520,14 +520,12 @@ impl<T: Service> ServiceReply<T> {
             &self.key_expr,
             <<T::Response as Message>::Codec as WireEncoder>::serialize(message),
         );
-        if let Some(request_id) = self.request_id {
-            let attachment = Attachment::with_clock(
-                request_id.sequence_number,
-                request_id.writer_global_id,
-                &self.clock,
-            );
-            reply = reply.attachment(attachment);
-        }
+        let attachment = Attachment::with_clock(
+            self.request_id.sequence_number,
+            self.request_id.writer_global_id,
+            &self.clock,
+        );
+        reply = reply.attachment(attachment);
         reply.wait()
     }
 
@@ -539,14 +537,12 @@ impl<T: Service> ServiceReply<T> {
             &self.key_expr,
             <<T::Response as Message>::Codec as WireEncoder>::serialize(message),
         );
-        if let Some(request_id) = self.request_id {
-            let attachment = Attachment::with_clock(
-                request_id.sequence_number,
-                request_id.writer_global_id,
-                &self.clock,
-            );
-            reply = reply.attachment(attachment);
-        }
+        let attachment = Attachment::with_clock(
+            self.request_id.sequence_number,
+            self.request_id.writer_global_id,
+            &self.clock,
+        );
+        reply = reply.attachment(attachment);
         reply.await
     }
 }
@@ -557,7 +553,7 @@ pub struct ServiceRequest<T: Service> {
 }
 
 impl<T: Service> ServiceRequest<T> {
-    pub fn id(&self) -> Option<&RequestId> {
+    pub fn id(&self) -> &RequestId {
         self.reply.id()
     }
 
@@ -597,11 +593,18 @@ where
         for<'a> <T::Request as Message>::Codec:
             WireDecoder<Output = T::Request, Input<'a> = &'a [u8]>,
     {
-        let request_id = query
-            .attachment()
-            .map(Attachment::try_from)
-            .transpose()?
-            .map(RequestId::from);
+        let attachment = {
+            let raw = query.attachment().ok_or_else(|| {
+                zenoh::Error::from("received ros-z service request without attachment metadata")
+            })?;
+
+            Attachment::try_from(raw).map_err(|error| {
+                zenoh::Error::from(format!(
+                    "failed to decode ros-z service request attachment metadata: {error}"
+                ))
+            })
+        }?;
+        let request_id = RequestId::from(attachment);
 
         let payload_bytes = query
             .payload()
@@ -683,7 +686,7 @@ mod tests {
         Message, SerdeCdrCodec, ServiceTypeInfo,
         context::ContextBuilder,
         entity::TypeInfo,
-        message::{Service, WireDecoder, WireEncoder},
+        message::{Service, WireEncoder},
     };
     use ros_z_schema::{SchemaError, ServiceDef};
     use serde::{Deserialize, Serialize};
@@ -724,7 +727,7 @@ mod tests {
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-    async fn service_request_without_attachment_is_accepted_and_reply_has_no_attachment() {
+    async fn service_request_without_attachment_returns_clear_error() {
         let context = ContextBuilder::default()
             .disable_multicast_scouting()
             .with_json("connect/endpoints", json!([]))
@@ -751,21 +754,17 @@ mod tests {
             .expect("Failed to create service server");
         let key_expr = server.key_expr.clone();
 
-        let (reply_tx, reply_rx) = tokio::sync::oneshot::channel();
-        let reply_tx = std::sync::Arc::new(std::sync::Mutex::new(Some(reply_tx)));
         let request_task = tokio::spawn(async move {
-            let request = server
-                .take_request_async()
-                .await
-                .expect("Failed to take request");
-            assert!(request.id().is_none());
-            assert_eq!(request.message().a, 10);
-            assert_eq!(request.message().b, 32);
-
-            request
-                .reply_async(&AddTwoIntsResponse { sum: 42 })
-                .await
-                .expect("Failed to send response");
+            let error = match server.take_request_async().await {
+                Ok(_) => panic!("request without attachment should fail"),
+                Err(error) => error,
+            };
+            assert!(
+                error
+                    .to_string()
+                    .contains("received ros-z service request without attachment metadata"),
+                "unexpected error: {error}"
+            );
         });
 
         tokio::time::sleep(Duration::from_millis(100)).await;
@@ -776,27 +775,9 @@ mod tests {
             .payload(SerdeCdrCodec::<AddTwoIntsRequest>::serialize(
                 &AddTwoIntsRequest { a: 10, b: 32 },
             ))
-            .callback(move |reply| {
-                let sample = reply.into_result().expect("Expected service reply sample");
-                let sender = reply_tx
-                    .lock()
-                    .expect("Reply sender mutex poisoned")
-                    .take()
-                    .expect("Expected to deliver a single reply sample");
-                sender
-                    .send(sample)
-                    .expect("Expected to deliver a single reply sample");
-            })
+            .callback(|_| panic!("raw request should not receive a reply"))
             .await
             .expect("Failed to send raw service query");
-
-        let reply_sample = reply_rx.await.expect("Failed to receive reply sample");
-        assert!(reply_sample.attachment().is_none());
-
-        let payload = reply_sample.payload().to_bytes();
-        let response = SerdeCdrCodec::<AddTwoIntsResponse>::deserialize(&payload)
-            .expect("Failed to deserialize raw reply payload");
-        assert_eq!(response.sum, 42);
 
         request_task.await.expect("Service task panicked");
     }

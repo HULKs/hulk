@@ -116,9 +116,9 @@ mod tests {
         let received = Received {
             message: vec![1_u8, 2, 3],
             transport_time: None,
-            source_time: None,
-            sequence_number: None,
-            source_global_id: None,
+            source_time: crate::time::Time::from_nanos(0),
+            sequence_number: 1,
+            source_global_id: [0; 16],
         };
 
         assert_eq!(received.len(), 3);
