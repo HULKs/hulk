@@ -2,124 +2,42 @@ use std::collections::BTreeMap;
 
 use ros_z::Message;
 use ros_z::Result as ZResult;
-use ros_z::message::WireDecoder;
 use ros_z::node::Node;
 use ros_z::time::Time;
 
-use crate::future_queue::{
-    CreateFutureQueue, FutureQueueSubscriber, LagPolicy, LagWarning, QueueEvent, QueueState,
-};
+use crate::future_queue::{CreateFutureQueue, FutureQueueSubscriber};
 
-/// Time-ordered fusion buffer keyed by message timestamp.
 pub type FutureResult<Types> = BTreeMap<Time, Types>;
 
-/// One fusion step output split into persistent and temporary windows.
+#[derive(Debug)]
 pub struct FutureItem<'a, Types> {
-    /// Entries guaranteed never to be invalidated by future arrivals.
     pub persistent: FutureResult<Types>,
-    /// Entries still provisional because some stream may deliver older data.
     pub temporary: &'a FutureResult<Types>,
 }
 
-/// Fusion output plus per-stream queue states and warnings.
-pub struct FutureReceive<'a, DataTypes, StateTypes> {
-    /// Fused data split into persistent and temporary windows.
-    pub item: FutureItem<'a, DataTypes>,
-    /// Per-stream state tuple aligned with stream ordering.
-    pub stream_states: StateTypes,
-}
-
-/// Type-level description for tuple-based stream groups.
 pub trait StreamGroup {
-    /// Tuple of concrete queue subscribers.
-    type Subscribers;
-    /// Tuple of fused payload slots (`Option<T>` per stream).
-    type Output;
+    type Output: Default;
+
+    fn global_safe_time(&self) -> Option<Time>;
+
+    // Required to abstract the varying arity of the streams for tokio::select!
+    fn receive_into(
+        &mut self,
+        buffer: &mut BTreeMap<Time, Self::Output>,
+    ) -> impl Future<Output = ZResult<()>>;
 }
 
-macro_rules! output_tuple {
-    ($($type_name:ident),+) => {
-        ($(Option<$type_name>,)+)
-    };
-}
-
-macro_rules! replace_type {
-    ($_src:ty, $dst:ty) => {
-        $dst
-    };
-}
-
-macro_rules! state_tuple {
-    ($($type_name:ident),+) => {
-        ($(replace_type!($type_name, QueueState),)+)
-    };
-}
-
-/// Multi-stream fusion engine that maintains persistent/temporary boundaries.
 pub struct FutureMap<Group: StreamGroup> {
-    subscribers: Group::Subscribers,
+    subscribers: Group,
     buffer: FutureResult<Group::Output>,
 }
 
 impl<Group: StreamGroup> FutureMap<Group> {
-    /// Construct map with subscribers and empty fusion buffer.
-    fn new_with(subscribers: Group::Subscribers) -> Self {
-        Self {
-            subscribers,
-            buffer: BTreeMap::new(),
-        }
-    }
+    pub async fn recv(&mut self) -> ZResult<FutureItem<'_, Group::Output>> {
+        self.subscribers.receive_into(&mut self.buffer).await?;
 
-    /// Latch first warning for stream until current receive returns.
-    fn latch_warning(
-        latched_warnings: &mut [Option<LagWarning>],
-        index: usize,
-        warning: Option<LagWarning>,
-    ) {
-        if latched_warnings[index].is_none() {
-            latched_warnings[index] = warning;
-        }
-    }
-
-    /// Apply queue state to receive-local stream state arrays.
-    fn apply_state(
-        safe_times: &mut [Option<Time>],
-        latched_warnings: &mut [Option<LagWarning>],
-        index: usize,
-        state: QueueState,
-    ) {
-        safe_times[index] = state.safe_time;
-        Self::latch_warning(latched_warnings, index, state.warning);
-    }
-
-    /// Finalize receive by splitting buffer at computed safe time.
-    fn finalize_receive<StateTypes>(
-        &mut self,
-        stream_states: StateTypes,
-        global_safe_time: Option<Time>,
-    ) -> FutureReceive<'_, Group::Output, StateTypes> {
-        let item = self.split_buffer(global_safe_time);
-        FutureReceive {
-            item,
-            stream_states,
-        }
-    }
-
-    fn global_safe_time(safe_times: &[Option<Time>]) -> Option<Time> {
-        let mut global_safe_time = None;
-        for inflight_message in safe_times {
-            match (global_safe_time, inflight_message) {
-                (None, Some(time)) => global_safe_time = Some(*time),
-                (Some(safe), Some(time)) if time < &safe => global_safe_time = Some(*time),
-                _ => {}
-            }
-        }
-        global_safe_time
-    }
-
-    fn split_buffer(&mut self, global_safe_time: Option<Time>) -> FutureItem<'_, Group::Output> {
         let mut persistent_buffer = BTreeMap::new();
-        if let Some(safe_time) = global_safe_time {
+        if let Some(safe_time) = self.subscribers.global_safe_time() {
             let temporary_buffer = self.buffer.split_off(&safe_time);
             std::mem::swap(&mut persistent_buffer, &mut self.buffer);
             self.buffer = temporary_buffer;
@@ -127,33 +45,31 @@ impl<Group: StreamGroup> FutureMap<Group> {
             std::mem::swap(&mut persistent_buffer, &mut self.buffer);
         }
 
-        FutureItem {
+        Ok(FutureItem {
             persistent: persistent_buffer,
             temporary: &self.buffer,
-        }
-    }
-
-    fn has_releasable_buffer(&self, global_safe_time: Option<Time>) -> bool {
-        match global_safe_time {
-            Some(safe_time) => self
-                .buffer
-                .keys()
-                .next()
-                .is_some_and(|time| time < &safe_time),
-            None => !self.buffer.is_empty(),
-        }
+        })
     }
 }
 
-/// Builder for tuple-based [`FutureMap`] instances.
-pub struct FutureMapBuilder<'a, Group: StreamGroup> {
+pub struct FutureMapBuilder<'a, Subscribers> {
     node: &'a Node,
-    subscribers: Group::Subscribers,
+    subscribers: Subscribers,
 }
 
-/// Extension trait for creating a [`FutureMapBuilder`].
+impl<'a, Subscribers> FutureMapBuilder<'a, Subscribers>
+where
+    Subscribers: StreamGroup,
+{
+    pub fn build(self) -> FutureMap<Subscribers> {
+        FutureMap {
+            subscribers: self.subscribers,
+            buffer: BTreeMap::new(),
+        }
+    }
+}
+
 pub trait CreateFutureMapBuilder {
-    /// Start building a future map with zero streams.
     fn create_future_map_builder(&self) -> FutureMapBuilder<'_, ()>;
 }
 
@@ -166,26 +82,15 @@ impl CreateFutureMapBuilder for Node {
     }
 }
 
-impl StreamGroup for () {
-    type Subscribers = ();
-    type Output = ();
-}
-
 impl<'a> FutureMapBuilder<'a, ()> {
-    /// Add first stream subscriber to the map.
-    pub async fn create_future_subscriber<T>(
+    pub async fn create_future_subscriber<Type1>(
         self,
         topic: &'a str,
-        lag_policy: LagPolicy,
-    ) -> ZResult<FutureMapBuilder<'a, (T,)>>
+    ) -> ZResult<FutureMapBuilder<'a, (FutureQueueSubscriber<Type1>,)>>
     where
-        T: Message,
-        for<'de> T::Codec: WireDecoder<Input<'de> = &'de [u8], Output = T>,
+        Type1: Message,
     {
-        let subscriber = self
-            .node
-            .create_future_subscriber(topic, lag_policy)
-            .await?;
+        let subscriber = self.node.create_future_subscriber(topic).await?;
         Ok(FutureMapBuilder {
             node: self.node,
             subscribers: (subscriber,),
@@ -194,148 +99,73 @@ impl<'a> FutureMapBuilder<'a, ()> {
 }
 
 macro_rules! implement_stream_group {
-    (@core $length:expr, [ $( ($type_name:ident, $index:tt) ),+ ]) => {
-        impl<$($type_name),+> StreamGroup for ($($type_name,)+)
+    ($( ($type_name:ident, $index:tt) ),+) => {
+        impl<$($type_name),+> StreamGroup for ($(FutureQueueSubscriber<$type_name>,)+)
         where
-            $($type_name: Message,)+
-            $(for<'de> <$type_name as Message>::Codec: WireDecoder<Input<'de> = &'de [u8], Output = $type_name>,)+
+            $($type_name: Message + Send,)+
+            $($type_name::Codec: Send + Sync,)+
         {
-            type Subscribers = ($(FutureQueueSubscriber<$type_name>,)+);
-            type Output = output_tuple!($($type_name),+);
-        }
+            type Output = ($(Option<$type_name>,)+);
 
-        impl<'a, $($type_name),+> FutureMapBuilder<'a, ($($type_name,)+)>
-        where
-            $($type_name: Message,)+
-            $(for<'de> <$type_name as Message>::Codec: WireDecoder<Input<'de> = &'de [u8], Output = $type_name>,)+
-        {
-            /// Finalize builder into a ready-to-receive future map.
-            pub fn build(self) -> FutureMap<($($type_name,)+)> {
-                FutureMap::new_with(self.subscribers)
+            fn global_safe_time(&self) -> Option<Time> {
+                let safe_times = [ $(self.$index.safe_time()),+ ];
+                safe_times.into_iter().flatten().min()
             }
-        }
 
-        impl<$($type_name),+> FutureMap<($($type_name,)+)>
-        where
-            output_tuple!($($type_name),+): Default,
-            $($type_name: Message,)+
-            $(for<'de> <$type_name as Message>::Codec: WireDecoder<Input<'de> = &'de [u8], Output = $type_name>,)+
-        {
-            fn snapshot_states(&mut self, latched_warnings: &mut [Option<LagWarning>; $length]) -> state_tuple!($($type_name),+) {
-                (
+            async fn receive_into(
+                &mut self,
+                buffer: &mut BTreeMap<Time, Self::Output>,
+            ) -> ZResult<()> {
+                tokio::select! {
                     $(
-                        {
-                            let mut s = self.subscribers.$index.current_state();
-                            s.warning = s.warning.or(latched_warnings[$index].take());
-                            s
-                        },
+                        result = self.$index.recv() => {
+                            let (time, value) = result?;
+                            let entry = buffer.entry(time).or_default();
+                            entry.$index = Some(value);
+                            Ok(())
+                        }
                     )+
-                )
-            }
-
-            /// Wait until data arrives on any stream and return one fusion step.
-            ///
-            /// Announcement-only events are consumed internally to update safe-time.
-            /// This method returns only when a data payload is incorporated.
-            pub async fn recv(&mut self) -> ZResult<FutureReceive<'_, output_tuple!($($type_name),+), state_tuple!($($type_name),+)>> {
-                let mut safe_times = [None; $length];
-                let mut latched_warnings = [None; $length];
-
-                $(
-                    let state = self.subscribers.$index.drain_announcements().await?;
-                    Self::apply_state(&mut safe_times, &mut latched_warnings, $index, state);
-                )+
-
-                let global_safe_time = Self::global_safe_time(&safe_times);
-                if self.has_releasable_buffer(global_safe_time) {
-                    let stream_states = self.snapshot_states(&mut latched_warnings);
-                    return Ok(self.finalize_receive(stream_states, global_safe_time));
-                }
-
-                loop {
-                    tokio::select! {
-                        $(
-                            result = self.subscribers.$index.recv() => {
-                                match result? {
-                                    QueueEvent::Announcement { state } => {
-                                        Self::apply_state(&mut safe_times, &mut latched_warnings, $index, state);
-                                        let global_safe_time = Self::global_safe_time(&safe_times);
-                                        if self.has_releasable_buffer(global_safe_time) {
-                                            let stream_states = self.snapshot_states(&mut latched_warnings);
-                                            return Ok(self.finalize_receive(stream_states, global_safe_time));
-                                        }
-                                    }
-                                    QueueEvent::Data { state, data_time, value } => {
-                                        Self::apply_state(&mut safe_times, &mut latched_warnings, $index, state);
-
-                                        let entry = self.buffer.entry(data_time).or_insert_with(Default::default);
-                                        entry.$index = Some(value);
-
-                                        let stream_states = self.snapshot_states(&mut latched_warnings);
-                                        let global_safe_time = Self::global_safe_time(&safe_times);
-                                        return Ok(self.finalize_receive(stream_states, global_safe_time));
-                                    }
-                                }
-                            }
-                        )+
-                    }
                 }
             }
         }
     };
+}
 
-    (@next [ $( ($type_name:ident, $index:tt) ),+ ], $next_type:ident) => {
-        impl<'a, $($type_name),+> FutureMapBuilder<'a, ($($type_name,)+)>
+macro_rules! implement_builder {
+    ([ $( ($type_name:ident, $index:tt) ),+ ], $next_type:ident) => {
+        impl<'a, $($type_name),+> FutureMapBuilder<'a, ($(FutureQueueSubscriber<$type_name>,)+)>
         where
             $($type_name: Message,)+
-            $(for<'de> <$type_name as Message>::Codec: WireDecoder<Input<'de> = &'de [u8], Output = $type_name>,)+
         {
-            /// Append another stream subscriber to this map builder.
             pub async fn create_future_subscriber<$next_type>(
                 self,
                 topic: &'a str,
-                lag_policy: LagPolicy,
-            ) -> ZResult<FutureMapBuilder<'a, ($($type_name,)+ $next_type,)>>
+            ) -> ZResult<
+                FutureMapBuilder<
+                    'a,
+                    ($(FutureQueueSubscriber<$type_name>,)+ FutureQueueSubscriber<$next_type>,),
+                >,
+            >
             where
                 $next_type: Message,
-                for<'de> <$next_type as Message>::Codec: WireDecoder<Input<'de> = &'de [u8], Output = $next_type>,
             {
-                let new_subscriber = self.node.create_future_subscriber(topic, lag_policy).await?;
+                let subscriber = self.node.create_future_subscriber(topic).await?;
                 Ok(FutureMapBuilder {
                     node: self.node,
-                    subscribers: ($(self.subscribers.$index,)+ new_subscriber,),
+                    subscribers: ($(self.subscribers.$index,)+ subscriber,),
                 })
             }
         }
     };
-
-    ($length:expr, [ $( ($type_name:ident, $index:tt) ),+ ], next: $next_type:ident) => {
-        implement_stream_group!(@core $length, [ $( ($type_name, $index) ),+ ]);
-        implement_stream_group!(@next [ $( ($type_name, $index) ),+ ], $next_type);
-    };
-
-    ($length:expr, [ $( ($type_name:ident, $index:tt) ),+ ]) => {
-        implement_stream_group!(@core $length, [ $( ($type_name, $index) ),+ ]);
-    };
 }
 
-implement_stream_group!(1, [(T1, 0)], next: T2);
-implement_stream_group!(2, [(T1, 0), (T2, 1)], next: T3);
-implement_stream_group!(3, [(T1, 0), (T2, 1), (T3, 2)], next: T4);
-implement_stream_group!(4, [(T1, 0), (T2, 1), (T3, 2), (T4, 3)], next: T5);
-implement_stream_group!(5, [(T1, 0), (T2, 1), (T3, 2), (T4, 3), (T5, 4)], next: T6);
-implement_stream_group!(6, [(T1, 0), (T2, 1), (T3, 2), (T4, 3), (T5, 4), (T6, 5)], next: T7);
-implement_stream_group!(7, [(T1, 0), (T2, 1), (T3, 2), (T4, 3), (T5, 4), (T6, 5), (T7, 6)], next: T8);
-implement_stream_group!(
-    8,
-    [
-        (T1, 0),
-        (T2, 1),
-        (T3, 2),
-        (T4, 3),
-        (T5, 4),
-        (T6, 5),
-        (T7, 6),
-        (T8, 7)
-    ]
-);
+implement_stream_group!((Type1, 0));
+implement_stream_group!((Type1, 0), (Type2, 1));
+implement_stream_group!((Type1, 0), (Type2, 1), (Type3, 2));
+implement_stream_group!((Type1, 0), (Type2, 1), (Type3, 2), (Type4, 3));
+implement_stream_group!((Type1, 0), (Type2, 1), (Type3, 2), (Type4, 3), (Type5, 4));
+
+implement_builder!([(Type1, 0)], Type2);
+implement_builder!([(Type1, 0), (Type2, 1)], Type3);
+implement_builder!([(Type1, 0), (Type2, 1), (Type3, 2)], Type4);
+implement_builder!([(Type1, 0), (Type2, 1), (Type3, 2), (Type4, 3)], Type5);

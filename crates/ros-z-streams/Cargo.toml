@@ -10,3 +10,4 @@ ros-z = { workspace = true }
 serde = { workspace = true }
 tokio = { workspace = true }
 zenoh = { workspace = true }
+log = { workspace = true }
