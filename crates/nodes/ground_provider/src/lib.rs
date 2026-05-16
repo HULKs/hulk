@@ -6,7 +6,7 @@ use booster::ImuState;
 use coordinate_systems::{Ground, Robot};
 use kinematics::robot_kinematics::RobotKinematics;
 use linear_algebra::{Isometry3, Orientation3, vector};
-use ros_z::{IntoEyreResultExt, prelude::*};
+use ros_z::{IntoEyreResultExt, prelude::*, qos::QosDurability};
 use types::support_foot::Side;
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
@@ -30,8 +30,12 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await
         .into_eyre()?;
     let support_foot_cache = node
-        .create_cache::<Side>("support_foot", 10)
+        .create_cache::<Option<Side>>("support_foot", 10)
         .into_eyre()?
+        .with_qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
         .build()
         .await
         .into_eyre()?;
@@ -63,11 +67,15 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             continue;
         };
 
-        let ground_to_robot = compute_ground_to_robot(
-            &imu_state.into_message(),
-            robot_kinematics.as_ref(),
-            support_foot.as_ref(),
-        );
+        let ground_to_robot = if let Some(support_foot) = *support_foot {
+            compute_ground_to_robot(
+                &imu_state.into_message(),
+                robot_kinematics.as_ref(),
+                &support_foot,
+            )
+        } else {
+            None
+        };
         let robot_to_ground = ground_to_robot.map(|ground_to_robot| ground_to_robot.inverse());
 
         ground_to_robot_pub
