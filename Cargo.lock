@@ -2331,10 +2331,12 @@ dependencies = [
  "coordinate_systems",
  "kinematics",
  "linear_algebra",
+ "nalgebra",
  "projection",
  "ros-z",
  "ros2",
  "serde",
+ "tokio",
  "types",
 ]
 
