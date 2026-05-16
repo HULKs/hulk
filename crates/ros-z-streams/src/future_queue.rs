@@ -1,4 +1,7 @@
-use std::collections::{BTreeSet, VecDeque};
+use std::{
+    collections::{BTreeSet, VecDeque},
+    time::Duration,
+};
 
 use ros_z::{
     Message, Result,
@@ -11,11 +14,18 @@ use tokio::select;
 use crate::announce::Announcement;
 
 /// Subscriber that tracks in-flight messages for one stream.
+#[derive(Debug)]
 pub struct FutureQueueSubscriber<T: Message> {
     data_subscriber: Subscriber<T>,
     announcement_subscriber: Subscriber<Announcement>,
     inflight: BTreeSet<Announcement>,
     pending_data: VecDeque<Received<T>>,
+    safety_lag: Duration,
+}
+
+pub enum QueueEvent<T> {
+    Announcement,
+    Data(Time, T),
 }
 
 trait BelongToExt {
@@ -31,8 +41,18 @@ impl<T> BelongToExt for Received<T> {
 
 impl<T: Message> FutureQueueSubscriber<T> {
     /// Returns the earliest announced safe time for this stream.
-    pub(crate) fn safe_time(&self) -> Option<Time> {
-        self.inflight.first().map(|announcement| announcement.time)
+    pub(crate) fn safe_time(&self, now: Time) -> Time {
+        let transit_boundary = now - self.safety_lag;
+        self.inflight
+            .first()
+            .map_or(transit_boundary, |announcement| {
+                announcement.time.min(transit_boundary)
+            })
+    }
+
+    /// Returns the safety lag for this stream.
+    pub(crate) fn safety_lag(&self) -> Duration {
+        self.safety_lag
     }
 
     /// Check if any of the pending data messages matches the first outstanding announcement
@@ -52,15 +72,16 @@ impl<T: Message> FutureQueueSubscriber<T> {
 
     /// Wait for the next data event.
     /// The result is a tuple of the data time and the data value.
-    pub async fn recv(&mut self) -> Result<(Time, T)> {
+    pub async fn recv(&mut self) -> Result<QueueEvent<T>> {
         loop {
-            if let Some(data) = self.next_publishable() {
-                return Ok(data);
+            if let Some((time, data)) = self.next_publishable() {
+                return Ok(QueueEvent::Data(time, data));
             }
 
             select! {
                 announcement = self.announcement_subscriber.recv() => {
                     self.inflight.insert(announcement?);
+                    return Ok(QueueEvent::Announcement);
                 }
                 data = self.data_subscriber.recv_with_metadata() => {
                     self.pending_data.push_back(data?);
@@ -76,6 +97,7 @@ pub trait CreateFutureQueue {
     fn create_future_subscriber<T: Message>(
         &self,
         topic: &str,
+        safety_lag: Duration,
     ) -> impl Future<Output = Result<FutureQueueSubscriber<T>>>;
 }
 
@@ -83,6 +105,7 @@ impl CreateFutureQueue for Node {
     async fn create_future_subscriber<T: Message>(
         &self,
         topic: &str,
+        safety_lag: Duration,
     ) -> Result<FutureQueueSubscriber<T>> {
         let data_subscriber = self.subscriber(topic)?.build().await?;
         let announcement_subscriber = self
@@ -95,6 +118,7 @@ impl CreateFutureQueue for Node {
             announcement_subscriber,
             inflight: BTreeSet::new(),
             pending_data: VecDeque::new(),
+            safety_lag,
         })
     }
 }
