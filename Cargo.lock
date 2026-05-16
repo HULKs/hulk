@@ -9375,6 +9375,7 @@ dependencies = [
 name = "ros-z-streams"
 version = "0.1.0"
 dependencies = [
+ "log",
  "ros-z",
  "serde",
  "tokio",

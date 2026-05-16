@@ -52,8 +52,6 @@ mod future_queue;
 
 pub use announce::{AnnouncingPublisher, CreateAnnouncingPublisher};
 pub use future_map::{
-    CreateFutureMapBuilder, FutureItem, FutureMap, FutureMapBuilder, FutureReceive, FutureResult,
+    CreateFutureMapBuilder, FutureItem, FutureMap, FutureMapBuilder, FutureResult,
 };
-pub use future_queue::{
-    CreateFutureQueue, FutureQueueSubscriber, LagPolicy, LagWarning, QueueEvent, QueueState,
-};
+pub use future_queue::{CreateFutureQueue, FutureQueueSubscriber};
