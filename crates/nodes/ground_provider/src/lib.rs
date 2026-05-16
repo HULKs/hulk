@@ -22,14 +22,15 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await
         .into_eyre()?;
-    let _robot_kinematics_sub = node
-        .subscriber::<RobotKinematics>("robot_kinematics")
+
+    let robot_kinematics_cache = node
+        .create_cache::<RobotKinematics>("robot_kinematics", 10)
         .into_eyre()?
         .build()
         .await
         .into_eyre()?;
-    let _support_foot_sub = node
-        .subscriber::<ImuState>("support_foot")
+    let support_foot_cache = node
+        .create_cache::<Side>("support_foot", 10)
         .into_eyre()?
         .build()
         .await
@@ -49,27 +50,41 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
 
     loop {
-        tokio::select! {
-            imu_state = imu_state_sub.recv_with_metadata() => {
-                let imu_state = imu_state.into_eyre()?;
+        let imu_state = imu_state_sub.recv_with_metadata().await.into_eyre()?;
 
-                let fake_robot_kinematics = RobotKinematics::default();
-                let fake_support_foot = None;
+        let time_stamp = imu_state.source_time;
 
-                let ground_to_robot = compute_ground_to_robot(&imu_state, &fake_robot_kinematics, fake_support_foot);
-                let robot_to_ground = ground_to_robot.map(|ground_to_robot| ground_to_robot.inverse());
+        let maybe_robot_kinematics = robot_kinematics_cache.get_nearest(time_stamp);
+        let maybe_support_foot = support_foot_cache.get_nearest(time_stamp);
 
-                ground_to_robot_pub.publish(&ground_to_robot).await.into_eyre()?;
-                robot_to_ground_pub.publish(&robot_to_ground).await.into_eyre()?;
-            }
-        }
+        let (Some(robot_kinematics), Some(support_foot)) =
+            (maybe_robot_kinematics, maybe_support_foot)
+        else {
+            continue;
+        };
+
+        let ground_to_robot = compute_ground_to_robot(
+            &imu_state.into_message(),
+            robot_kinematics.as_ref(),
+            support_foot.as_ref(),
+        );
+        let robot_to_ground = ground_to_robot.map(|ground_to_robot| ground_to_robot.inverse());
+
+        ground_to_robot_pub
+            .publish(&ground_to_robot)
+            .await
+            .into_eyre()?;
+        robot_to_ground_pub
+            .publish(&robot_to_ground)
+            .await
+            .into_eyre()?;
     }
 }
 
 fn compute_ground_to_robot(
     imu_state: &ImuState,
     robot_kinematics: &RobotKinematics,
-    support_foot: Option<Side>,
+    support_foot: &Side,
 ) -> Option<Isometry3<Ground, Robot>> {
     struct LeftSoleHorizontal;
     struct RightSoleHorizontal;
@@ -116,9 +131,8 @@ fn compute_ground_to_robot(
     );
 
     let ground_to_robot = match support_foot {
-        Some(Side::Left) => left_sole_horizontal_to_robot * ground_to_left_sole,
-        Some(Side::Right) => right_sole_horizontal_to_robot * ground_to_right_sole,
-        None => return None,
+        Side::Left => left_sole_horizontal_to_robot * ground_to_left_sole,
+        Side::Right => right_sole_horizontal_to_robot * ground_to_right_sole,
     };
 
     Some(ground_to_robot)
