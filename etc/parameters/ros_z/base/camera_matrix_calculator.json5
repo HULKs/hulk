@@ -4,6 +4,4 @@
     correction_in_robot: [0.0, 0.0, 0.0],
     correction_in_camera: [0.0, 0.0, 0.0],
   },
-  correction_in_robot: [0.0, 0.0, 0.0],
-  correction_in_camera: [0.0, 0.0, 0.0],
 }
