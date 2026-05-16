@@ -65,7 +65,7 @@ impl<'state> Ticks<'state> {
 
         painter.line_segment(
             [line_center + half_height, line_center - half_height],
-            Stroke::new(2.0, Color32::RED),
+            Stroke::new(2.0_f32, Color32::RED),
         );
         let position = line_center - half_height.rot90() / 2.;
         let galley = painter.layout_no_wrap(bookmark.name.clone(), font_id.clone(), Color32::WHITE);
@@ -174,7 +174,7 @@ impl<'state> Ticks<'state> {
                     pos2(x.inner(), clip_rect.center().y + clip_rect.height() * 0.125),
                     pos2(x.inner(), clip_rect.bottom()),
                 ],
-                Stroke::new(1.0, if is_strong { color_strong } else { color_weak }),
+                Stroke::new(1.0_f32, if is_strong { color_strong } else { color_weak }),
             );
             if is_strong {
                 let text =
@@ -205,7 +205,7 @@ impl<'state> Ticks<'state> {
                 ),
                 pos2(position.inner(), clip_rect.bottom()),
             ],
-            Stroke::new(2.0, Color32::GREEN),
+            Stroke::new(2.0_f32, Color32::GREEN),
         );
     }
 }

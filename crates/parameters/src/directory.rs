@@ -73,7 +73,7 @@ where
 
     let robot_file_path = parameters_root_path
         .as_ref()
-        .join(format!("robot.{}.json", &hardware_ids.robot_id));
+        .join(format!("robot.{}.json", hardware_ids.robot_id));
     if robot_file_path.exists() {
         let robot_parameters =
             read_from_file(robot_file_path).map_err(DirectoryError::RobotParametersNotGet)?;
@@ -81,7 +81,7 @@ where
     }
 
     let location_robot_file_path =
-        location_directory.join(format!("robot.{}.json", &hardware_ids.robot_id));
+        location_directory.join(format!("robot.{}.json", hardware_ids.robot_id));
     if location_robot_file_path.exists() {
         let location_robot_parameters = read_from_file(location_robot_file_path)
             .map_err(DirectoryError::RobotParametersOfLocationNotGet)?;
@@ -227,7 +227,7 @@ fn file_path_from_scope(
     };
     match scope.id {
         Id::All => directory.join("default.json"),
-        Id::Robot => directory.join(format!("robot.{}.json", &hardware_ids.robot_id)),
+        Id::Robot => directory.join(format!("robot.{}.json", hardware_ids.robot_id)),
     }
 }
 

@@ -40,7 +40,7 @@ fn paint_bounding_boxes(
         painter.rect_stroke(
             bounding_box.area.min,
             bounding_box.area.max,
-            Stroke::new(1.0, line_color),
+            Stroke::new(1.0_f32, line_color),
         );
         painter.floating_text(
             bounding_box.area.min,

@@ -84,7 +84,7 @@ fn draw_pose_kind_position(
         pose_kind_position.position,
         0.15,
         circle_color,
-        Stroke::new(0.10, Color32::BLACK),
+        Stroke::new(0.10_f32, Color32::BLACK),
     );
     painter.floating_text(
         pose_kind_position.position,

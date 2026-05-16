@@ -186,7 +186,7 @@ impl<'state> Frames<'state> {
                 pos2(x.inner(), clip_rect.top()),
                 pos2(x.inner(), clip_rect.bottom()),
             ],
-            Stroke::new(2.0, color),
+            Stroke::new(2.0_f32, color),
         );
     }
 }

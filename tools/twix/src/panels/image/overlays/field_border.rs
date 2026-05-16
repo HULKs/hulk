@@ -40,7 +40,7 @@ impl Overlay for FieldBorder {
             painter.line_segment(
                 line.0,
                 line.1,
-                Stroke::new(3.0, Color32::from_rgb(255, 0, 240)),
+                Stroke::new(3.0_f32, Color32::from_rgb(255, 0, 240)),
             );
         }
 

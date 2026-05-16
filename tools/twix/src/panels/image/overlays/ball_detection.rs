@@ -24,7 +24,11 @@ impl Overlay for BallDetection {
     fn paint(&self, painter: &TwixPainter<Pixel>) -> Result<()> {
         if let Some(filtered_balls) = self.filtered_balls.get_last_value()?.flatten() {
             for circle in &filtered_balls {
-                painter.circle_stroke(circle.center, circle.radius, Stroke::new(3.0, Color32::RED));
+                painter.circle_stroke(
+                    circle.center,
+                    circle.radius,
+                    Stroke::new(3.0_f32, Color32::RED),
+                );
             }
         }
 

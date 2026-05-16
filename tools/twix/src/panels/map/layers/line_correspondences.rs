@@ -37,13 +37,13 @@ impl Layer<Field> for LineCorrespondences {
     ) -> Result<()> {
         if let Some(lines) = self.correspondence_lines.get_last_value()?.flatten() {
             for line in lines {
-                painter.line_segment(line.0, line.1, Stroke::new(0.02, Color32::YELLOW));
+                painter.line_segment(line.0, line.1, Stroke::new(0.02_f32, Color32::YELLOW));
             }
         }
 
         if let Some(lines) = self.measured_lines_in_field.get_last_value()?.flatten() {
             for line in lines {
-                painter.line_segment(line.0, line.1, Stroke::new(0.04, Color32::RED));
+                painter.line_segment(line.0, line.1, Stroke::new(0.04_f32, Color32::RED));
             }
         }
         Ok(())

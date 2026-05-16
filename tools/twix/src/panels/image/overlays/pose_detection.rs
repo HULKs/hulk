@@ -71,7 +71,7 @@ fn paint_poses(
             painter.line_segment(
                 keypoints[idx1].point,
                 keypoints[idx2].point,
-                Stroke::new(2.0, Color32::LIGHT_BLUE.gamma_multiply(0.4)),
+                Stroke::new(2.0_f32, Color32::LIGHT_BLUE.gamma_multiply(0.4)),
             )
         }
 
@@ -94,7 +94,7 @@ fn paint_poses(
         painter.rect_stroke(
             bounding_box.area.min,
             bounding_box.area.max,
-            Stroke::new(2.0, Color32::DARK_BLUE.gamma_multiply(0.8)),
+            Stroke::new(2.0_f32, Color32::DARK_BLUE.gamma_multiply(0.8)),
         );
         painter.floating_text(
             bounding_box.area.min

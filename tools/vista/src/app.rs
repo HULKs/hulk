@@ -173,7 +173,7 @@ impl App for DependencyInspector {
                                     [a, pos2(a.x, b.y), b],
                                     false,
                                     Color32::TRANSPARENT,
-                                    PathStroke::new(1.0, Color32::RED),
+                                    PathStroke::new(1.0_f32, Color32::RED),
                                 );
                                 painter.text(
                                     curve.sample(0.9) + vec2(5.0, 0.0),
@@ -230,7 +230,7 @@ impl App for DependencyInspector {
                                     [a, pos2(a.x, b.y), b],
                                     false,
                                     Color32::TRANSPARENT,
-                                    PathStroke::new(1.0, Color32::YELLOW),
+                                    PathStroke::new(1.0_f32, Color32::YELLOW),
                                 );
                                 painter.text(
                                     curve.sample(0.9) + vec2(5.0, 0.0),
@@ -267,11 +267,11 @@ impl App for DependencyInspector {
                                 Color32::LIGHT_GRAY,
                             )
                             .left_center();
-                        painter.line_segment([a, b], Stroke::new(1.0, Color32::RED));
+                        painter.line_segment([a, b], Stroke::new(1.0_f32, Color32::RED));
                     }
                     painter.line_segment(
                         [node_points[selected_node_index], input_end],
-                        Stroke::new(1.0, Color32::LIGHT_BLUE),
+                        Stroke::new(1.0_f32, Color32::LIGHT_BLUE),
                     );
                 });
         });

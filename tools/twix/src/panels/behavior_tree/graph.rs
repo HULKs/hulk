@@ -72,7 +72,7 @@ impl CircleNode {
                 self.radius + 0.2,
                 Color32::TRANSPARENT,
                 Stroke::new(
-                    0.1,
+                    0.1_f32,
                     Color32::from_rgb(255, 165, 0).gamma_multiply(self.opacity),
                 ),
             );

@@ -169,7 +169,7 @@ fn layout_control_flow_node(
                 cursor.row_y * CONTROL_FLOW_Y_SPACING
             ],
             NODE_RADIUS,
-            Stroke::new(0.1, Color32::LIGHT_GRAY),
+            Stroke::new(0.1_f32, Color32::LIGHT_GRAY),
             is_subtree,
             true,
         ));
@@ -178,7 +178,7 @@ fn layout_control_flow_node(
             connections.push(Connection::new(
                 *exit,
                 node_index,
-                Stroke::new(0.1, Color32::LIGHT_GRAY),
+                Stroke::new(0.1_f32, Color32::LIGHT_GRAY),
             ));
         }
 

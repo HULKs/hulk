@@ -165,7 +165,7 @@ impl Widget for BoundingBoxAnnotator<'_> {
                         plot_ui.polygon(
                             polygon
                                 .fill_color(bbox.class.color().gamma_multiply(0.1))
-                                .stroke(Stroke::new(1.0, bbox.class.color().to_opaque())),
+                                .stroke(Stroke::new(1.0_f32, bbox.class.color().to_opaque())),
                         );
                         plot_ui.text(
                             Text::new(
@@ -197,7 +197,7 @@ impl Widget for BoundingBoxAnnotator<'_> {
                 painter.circle_stroke(
                     corner_screen,
                     radius as f32,
-                    Stroke::new(2.0, Color32::GRAY),
+                    Stroke::new(2.0_f32, Color32::GRAY),
                 );
             }
         }

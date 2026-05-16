@@ -45,9 +45,13 @@ impl Overlay for LineDetection {
             painter.line_segment(
                 segment.start.cast(),
                 segment.end.cast(),
-                Stroke::new(1.0, Color32::BLACK),
+                Stroke::new(1.0_f32, Color32::BLACK),
             );
-            painter.circle_stroke(segment.center().cast(), 2.0, Stroke::new(1.0, Color32::RED));
+            painter.circle_stroke(
+                segment.center().cast(),
+                2.0,
+                Stroke::new(1.0_f32, Color32::RED),
+            );
             painter.circle_filled(
                 segment.start.cast(),
                 1.0,
@@ -66,10 +70,10 @@ impl Overlay for LineDetection {
                 LineDiscardReason::LineTooLong => Color32::BROWN,
                 LineDiscardReason::TooFarAway => Color32::BLACK,
             };
-            painter.line_segment(line.0, line.1, Stroke::new(3.0, color));
+            painter.line_segment(line.0, line.1, Stroke::new(3.0_f32, color));
         }
         for line in lines_in_image {
-            painter.line_segment(line.0, line.1, Stroke::new(3.0, Color32::ORANGE));
+            painter.line_segment(line.0, line.1, Stroke::new(3.0_f32, Color32::ORANGE));
         }
         Ok(())
     }

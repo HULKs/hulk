@@ -36,14 +36,14 @@ impl Layer<Ground> for BallPercepts {
             let position = Point2::from(percept.percept_in_ground.mean);
             let covariance = percept.percept_in_ground.covariance;
 
-            let stroke = Stroke::new(0.01, Color32::BLACK);
+            let stroke = Stroke::new(0.01_f32, Color32::BLACK);
             painter.covariance(
                 position,
                 covariance,
                 stroke,
                 Color32::YELLOW.gamma_multiply(0.5),
             );
-            painter.ball(position, 0.07, Color32::WHITE);
+            painter.ball(position, 0.07_f32, Color32::WHITE);
         }
 
         Ok(())
