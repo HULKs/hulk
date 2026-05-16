@@ -159,6 +159,7 @@ async fn spawn_all(ctx: Arc<Context>) -> Result<RunningStack> {
     join_set.spawn(search_suggestor::run(ctx.clone()));
     join_set.spawn(segment_filter::run(ctx.clone()));
     join_set.spawn(stand_up::run(ctx.clone()));
+    join_set.spawn(support_foot_estimator::run(ctx.clone()));
     join_set.spawn(team_ball_receiver::run(ctx.clone()));
     join_set.spawn(time_to_reach_kick_position::run(ctx.clone()));
     join_set.spawn(trigger::run(ctx.clone()));
