@@ -1,7 +1,5 @@
 {
-  camera_matrix_parameters: {
-    camera_to_head_pitch: -0.2125811028,
-    correction_in_robot: [0.0, 0.0, 0.0],
-    correction_in_camera: [0.0, 0.0, 0.0],
-  },
+  camera_to_head_pitch: -0.2125811028,
+  correction_in_robot: [0.0, 0.0, 0.0],
+  correction_in_camera: [0.0, 0.0, 0.0],
 }
