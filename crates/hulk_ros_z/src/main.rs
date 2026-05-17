@@ -120,10 +120,11 @@ async fn spawn_all(ctx: Arc<Context>) -> Result<RunningStack> {
     join_set.spawn(ball_filter::run(ctx.clone()));
     join_set.spawn(ball_state_composer::run(ctx.clone()));
     join_set.spawn(behavior_node::run(ctx.clone()));
-    join_set.spawn(button_event_handler::run(ctx.clone()));
+    join_set.spawn(booster_sdk_interface::run(ctx.clone()));
     join_set.spawn(button_event_bridge::run(ctx.clone()));
+    join_set.spawn(button_event_handler::run(ctx.clone()));
     join_set.spawn(camera_matrix_calculator::run(ctx.clone()));
-    join_set.spawn(low_command_publisher::run(ctx.clone()));
+    join_set.spawn(detection::run(ctx.clone()));
     join_set.spawn(fake_odometry::run(ctx.clone()));
     join_set.spawn(fall_down_state_receiver::run(ctx.clone()));
     join_set.spawn(field_border_detection::run(ctx.clone()));
@@ -133,7 +134,6 @@ async fn spawn_all(ctx: Arc<Context>) -> Result<RunningStack> {
     join_set.spawn(head_motion::run(ctx.clone()));
     join_set.spawn(image_receiver::run(ctx.clone()));
     join_set.spawn(image_segmenter::run(ctx.clone()));
-    join_set.spawn(inference::run(ctx.clone()));
     join_set.spawn(kick::run(ctx.clone()));
     join_set.spawn(kinematics_provider::run(ctx.clone()));
     join_set.spawn(led_handler::run(ctx.clone()));
@@ -141,6 +141,8 @@ async fn spawn_all(ctx: Arc<Context>) -> Result<RunningStack> {
     join_set.spawn(localization::run(ctx.clone()));
     join_set.spawn(look_around::run(ctx.clone()));
     join_set.spawn(look_at::run(ctx.clone()));
+    join_set.spawn(low_command_publisher::run(ctx.clone()));
+    join_set.spawn(low_state_bridge::run(ctx.clone()));
     join_set.spawn(message_filter::run(ctx.clone()));
     join_set.spawn(message_receiver::run(ctx.clone()));
     join_set.spawn(microphone_recorder::run(ctx.clone()));
@@ -155,8 +157,6 @@ async fn spawn_all(ctx: Arc<Context>) -> Result<RunningStack> {
     join_set.spawn(safe_pose_checker::run(ctx.clone()));
     join_set.spawn(search_suggestor::run(ctx.clone()));
     join_set.spawn(segment_filter::run(ctx.clone()));
-    join_set.spawn(booster_sdk_interface::run(ctx.clone()));
-    join_set.spawn(low_state_bridge::run(ctx.clone()));
     join_set.spawn(stand_up::run(ctx.clone()));
     join_set.spawn(team_ball_receiver::run(ctx.clone()));
     join_set.spawn(time_to_reach_kick_position::run(ctx.clone()));

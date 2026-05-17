@@ -1,12 +1,6 @@
-use std::time::{Duration, Instant};
+use std::{sync::Arc, time::Duration};
 
-use color_eyre::{
-    Result,
-    eyre::{Context, Ok, bail},
-};
-use context_attribute::context;
-use framework::{AdditionalOutput, MainOutput, deserialize_not_implemented};
-use hardware::PathsInterface;
+use color_eyre::{Result, eyre::bail};
 use ndarray::{ArrayView2, ArrayView3, Axis};
 use ort::{
     execution_providers::{CUDAExecutionProvider, TensorRTExecutionProvider},
@@ -15,7 +9,9 @@ use ort::{
     value::TensorRef,
 };
 use ros2::sensor_msgs::image::Image;
-use serde::{Deserialize, Serialize};
+
+use ros_z::{IntoEyreResultExt, prelude::*};
+use tokio::time::Instant;
 use types::{
     bounding_box::BoundingBox,
     object_detection::{NUMBER_OF_VALUES_PER_OBJECT, Object, RobocupObjectLabel, YOLOObjectLabel},
@@ -23,7 +19,6 @@ use types::{
     pose_detection::{NUMBER_OF_VALUES_PER_POSE, Pose},
 };
 
-const MODEL_FILE_NAME: &str = "yolo26m-seg=f11+yolo26m~cheek+yolo26m-pose~badge.onnx";
 pub const NUMBER_OF_DETECTIONS: usize = 300;
 
 #[derive(Clone, Copy, Debug)]
@@ -54,142 +49,157 @@ struct ModelOutputs<'a> {
     poses: ArrayView2<'a, f32>,
 }
 
-#[derive(Deserialize, Serialize)]
-pub struct ObjectDetection {
-    #[serde(skip, default = "deserialize_not_implemented")]
-    session: Session,
-}
+pub async fn run(ctx: Arc<Context>) -> Result<()> {
+    let node = ctx.create_node("detection").build().await.into_eyre()?;
 
-#[context]
-pub struct CreationContext {
-    hardware_interface: HardwareInterface,
-}
+    let node_parameters = node
+        .bind_parameter_as::<DetectionParameters>("detection")
+        .into_eyre()?;
 
-#[context]
-pub struct CycleContext {
-    image_left_raw: Input<Image, "image_left_raw">,
+    let image_sub = node
+        .subscriber::<Image>("inputs/left_image")
+        .into_eyre()?
+        .build()
+        .await
+        .into_eyre()?;
+    let inference_duration_pub = node
+        .publisher::<Duration>("inference_duration")
+        .into_eyre()?
+        .build()
+        .await
+        .into_eyre()?;
+    let post_processing_duration_pub = node
+        .publisher::<Duration>("post_processing_duration")
+        .into_eyre()?
+        .build()
+        .await
+        .into_eyre()?;
+    let non_maximum_suppression_duration_pub = node
+        .publisher::<Duration>("non_maximum_suppression_duration")
+        .into_eyre()?
+        .build()
+        .await
+        .into_eyre()?;
+    let detected_objects_pub = node
+        .publisher::<Vec<Object<RobocupObjectLabel>>>("detected_objects")
+        .into_eyre()?
+        .build()
+        .await
+        .into_eyre()?;
+    let detected_poses_pub = node
+        .publisher::<Vec<Pose<YOLOObjectLabel>>>("detected_poses")
+        .into_eyre()?
+        .build()
+        .await
+        .into_eyre()?;
 
-    inference_duration: AdditionalOutput<Duration, "inference_duration">,
-    post_processing_duration: AdditionalOutput<Duration, "post_processing_duration">,
-    non_maximum_suppression_duration:
-        AdditionalOutput<Duration, "non_maximum_suppression_duration">,
+    let initial_parameters_snapshot = node_parameters.snapshot();
+    let parameters = initial_parameters_snapshot.typed();
 
-    parameters: Parameter<DetectionParameters, "hydra">,
-}
+    let model_path = parameters
+        .neural_networks_folder
+        .join(&parameters.model_name);
 
-#[context]
-#[derive(Default)]
-pub struct MainOutputs {
-    pub detected_objects: MainOutput<Vec<Object<RobocupObjectLabel>>>,
-    pub detected_poses: MainOutput<Vec<Pose<YOLOObjectLabel>>>,
-}
+    let tensor_rt = TensorRTExecutionProvider::default()
+        .with_device_id(0)
+        .with_fp16(true)
+        .with_engine_cache(true)
+        .with_engine_cache_path(parameters.neural_networks_folder.display())
+        .build();
+    let cuda = CUDAExecutionProvider::default().build();
 
-impl ObjectDetection {
-    pub fn new(context: CreationContext<impl PathsInterface>) -> Result<Self> {
-        let paths = context.hardware_interface.get_paths();
-        let neural_network_folder = paths.neural_networks;
+    let mut session = Session::builder()?
+        .with_execution_providers([tensor_rt, cuda])?
+        .with_optimization_level(GraphOptimizationLevel::Level3)?
+        .with_intra_threads(2)?
+        .commit_from_file(model_path)?;
 
-        let tensor_rt = TensorRTExecutionProvider::default()
-            .with_device_id(0)
-            .with_fp16(true)
-            .with_engine_cache(true)
-            .with_engine_cache_path(neural_network_folder.display())
-            .build();
-        let cuda = CUDAExecutionProvider::default().build();
-
-        let session = Session::builder()?
-            .with_execution_providers([tensor_rt, cuda])?
-            .with_optimization_level(GraphOptimizationLevel::Level3)?
-            .with_intra_threads(2)?
-            .commit_from_file(neural_network_folder.join(MODEL_FILE_NAME))?;
-
-        Ok(Self { session })
-    }
-
-    pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
-        if !context.parameters.enable {
-            return Ok(MainOutputs::default());
+    loop {
+        let parameters_snapshot = node_parameters.snapshot();
+        let parameters = parameters_snapshot.typed();
+        if !parameters.enable {
+            continue;
         }
-        let image = context.image_left_raw;
-        if image.encoding != "nv12" {
-            bail!("unsupported image encoding: {}", image.encoding);
-        }
 
-        if !image.width.is_multiple_of(32) || !image.height.is_multiple_of(32) {
-            bail!(
-                "image dimensions must be multiples of 32 (got {}x{})",
-                image.width,
-                image.height
-            );
-        }
+        let image = image_sub.recv().await.into_eyre()?;
+        check_image(&image)?;
+
+        let inference_start = Instant::now();
 
         let nv12_data = ArrayView3::from_shape(
             [image.height as usize / 2, image.width as usize / 2, 6],
             image.data.as_slice(),
         )
-        .wrap_err("failed to view nv12 data")?;
-
-        let inference_start = Instant::now();
-        let outputs: SessionOutputs = self
-            .session
-            .run(inputs!["raw_bytes_input" => TensorRef::from_array_view(nv12_data)?])?;
+        .into_eyre()?;
+        let outputs: SessionOutputs =
+            session.run(inputs!["raw_bytes_input" => TensorRef::from_array_view(nv12_data)?])?;
 
         let inference_duration = inference_start.elapsed();
+
         let post_processing_start = Instant::now();
 
         let outputs = extract_outputs(&outputs)?;
         let candidate_detections = extract_candidate_object_detections(
             &outputs,
-            context
-                .parameters
-                .object_detection_parameters
-                .confidence_threshold,
+            parameters.object_detection_parameters.confidence_threshold,
         )?;
         let candidate_human_poses = extract_candidate_pose_detections(
             &outputs,
-            context
-                .parameters
-                .pose_detection_parameters
-                .confidence_threshold,
+            parameters.pose_detection_parameters.confidence_threshold,
         )?;
-
         let post_processing_duration = post_processing_start.elapsed();
         let non_maximum_suppression_start = Instant::now();
-
         let detected_objects = non_maximum_suppression(
             candidate_detections,
-            context
-                .parameters
+            parameters
                 .object_detection_parameters
                 .maximum_intersection_over_union,
         );
         let detected_poses = non_maximum_suppression(
             candidate_human_poses,
-            context
-                .parameters
+            parameters
                 .pose_detection_parameters
                 .maximum_intersection_over_union,
         );
-
         let non_maximum_suppression_duration = non_maximum_suppression_start.elapsed();
 
-        context
-            .inference_duration
-            .fill_if_subscribed(|| inference_duration);
-
-        context
-            .post_processing_duration
-            .fill_if_subscribed(|| post_processing_duration);
-
-        context
-            .non_maximum_suppression_duration
-            .fill_if_subscribed(|| non_maximum_suppression_duration);
-
-        Ok(MainOutputs {
-            detected_objects: detected_objects.into(),
-            detected_poses: detected_poses.into(),
-        })
+        inference_duration_pub
+            .publish(&inference_duration)
+            .await
+            .into_eyre()?;
+        post_processing_duration_pub
+            .publish(&post_processing_duration)
+            .await
+            .into_eyre()?;
+        non_maximum_suppression_duration_pub
+            .publish(&non_maximum_suppression_duration)
+            .await
+            .into_eyre()?;
+        detected_objects_pub
+            .publish(&detected_objects)
+            .await
+            .into_eyre()?;
+        detected_poses_pub
+            .publish(&detected_poses)
+            .await
+            .into_eyre()?;
     }
+}
+
+fn check_image(image: &Image) -> Result<()> {
+    if image.encoding != "nv12" {
+        bail!("unsupported image encoding: {}", image.encoding);
+    }
+
+    if !image.width.is_multiple_of(32) || !image.height.is_multiple_of(32) {
+        bail!(
+            "image dimensions must be multiples of 32 (got {}x{})",
+            image.width,
+            image.height
+        );
+    }
+
+    Ok(())
 }
 
 fn extract_outputs<'a>(outputs: &'a SessionOutputs<'a>) -> Result<ModelOutputs<'a>> {

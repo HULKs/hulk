@@ -9,6 +9,7 @@ use std::hash::Hash;
 use std::marker::PhantomData;
 use std::net::SocketAddr;
 use std::ops::{Range, RangeInclusive};
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::time::{Duration, SystemTime};
 use zenoh::shm::{PosixShmProviderBackend, ShmProvider};
@@ -529,6 +530,20 @@ where
             key: Box::new(K::build_schema(builder)?),
             value: Box::new(V::build_schema(builder)?),
         })
+    }
+}
+
+impl Message for PathBuf {
+    type Codec = SerdeCdrCodec<Self>;
+
+    fn type_name() -> String {
+        "PathBuf".to_string()
+    }
+}
+
+impl MessageSchema for PathBuf {
+    fn build_schema(_builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
+        Ok(TypeDef::String)
     }
 }
 
