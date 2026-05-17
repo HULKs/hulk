@@ -9,7 +9,6 @@ use ort::{
     value::TensorRef,
 };
 use ros2::sensor_msgs::image::Image;
-use serde::{Deserialize, Serialize};
 
 use ros_z::{IntoEyreResultExt, prelude::*};
 use tokio::time::Instant;
@@ -19,12 +18,6 @@ use types::{
     parameters::DetectionParameters,
     pose_detection::{NUMBER_OF_VALUES_PER_POSE, Pose},
 };
-
-#[derive(Debug, Clone, Serialize, Deserialize, Message)]
-#[serde(deny_unknown_fields)]
-pub struct Parameters {
-    pub parameters: DetectionParameters,
-}
 
 pub const NUMBER_OF_DETECTIONS: usize = 300;
 
@@ -60,8 +53,9 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("detection").build().await.into_eyre()?;
 
     let node_parameters = node
-        .bind_parameter_as::<Parameters>("detection")
+        .bind_parameter_as::<DetectionParameters>("detection")
         .into_eyre()?;
+
     let image_sub = node
         .subscriber::<Image>("inputs/left_image")
         .into_eyre()?
@@ -99,11 +93,12 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await
         .into_eyre()?;
 
-    let parameters = node_parameters.snapshot().typed().parameters.clone();
+    let initial_parameters_snapshot = node_parameters.snapshot();
+    let parameters = initial_parameters_snapshot.typed();
 
     let model_path = parameters
         .neural_networks_folder
-        .join(parameters.model_name);
+        .join(&parameters.model_name);
 
     let tensor_rt = TensorRTExecutionProvider::default()
         .with_device_id(0)
@@ -120,7 +115,8 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .commit_from_file(model_path)?;
 
     loop {
-        let parameters = node_parameters.snapshot().typed().clone().parameters;
+        let parameters_snapshot = node_parameters.snapshot();
+        let parameters = parameters_snapshot.typed();
         if !parameters.enable {
             continue;
         }
