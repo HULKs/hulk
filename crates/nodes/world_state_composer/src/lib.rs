@@ -1,13 +1,12 @@
 use std::{future::pending, sync::Arc};
 
 use color_eyre::Result;
-use serde::{Deserialize, Serialize};
 
 use booster::FallDownState;
 use coordinate_systems::{Field, Ground};
 use hsl_network_messages::PlayerNumber;
 use linear_algebra::{Isometry2, Point2};
-use ros_z::{IntoEyreResultExt, prelude::*};
+use ros_z::{IntoEyreResultExt, prelude::*, qos::QosDurability};
 use types::{
     ball_position::HypotheticalBallPosition,
     filtered_game_controller_state::FilteredGameControllerState,
@@ -17,12 +16,6 @@ use types::{
     world_state::{BallState, WorldState},
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize, Message)]
-#[serde(deny_unknown_fields)]
-pub struct Parameters {
-    pub player_number: PlayerNumber,
-}
-
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx
         .create_node("world_state_composer")
@@ -30,8 +23,15 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await
         .into_eyre()?;
 
-    let _parameters = node
-        .bind_parameter_as::<Parameters>("world_state_composer")
+    let _player_number_sub = node
+        .subscriber::<PlayerNumber>("player_number")
+        .into_eyre()?
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .build()
+        .await
         .into_eyre()?;
     let _fall_down_state_sub = node
         .subscriber::<FallDownState>("inputs/fall_down_state")
@@ -46,7 +46,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await
         .into_eyre()?;
     let _filtered_game_controller_state_sub = node
-        .subscriber::<FilteredGameControllerState>("filtered_game_controller_state")
+        .subscriber::<Option<FilteredGameControllerState>>("filtered_game_controller_state")
         .into_eyre()?
         .build()
         .await

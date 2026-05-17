@@ -1,7 +1,6 @@
 use std::{future::pending, sync::Arc};
 
 use color_eyre::Result;
-use serde::{Deserialize, Serialize};
 
 use kinematics::joints::head::HeadJoints;
 use ros_z::{IntoEyreResultExt, prelude::*};
@@ -11,17 +10,11 @@ use types::{
     parameters::LookAroundParameters,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize, Message)]
-#[serde(deny_unknown_fields)]
-pub struct Parameters {
-    pub config: LookAroundParameters,
-}
-
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("look_around").build().await.into_eyre()?;
 
     let _parameters = node
-        .bind_parameter_as::<Parameters>("look_around")
+        .bind_parameter_as::<LookAroundParameters>("look_around")
         .into_eyre()?;
     let _motion_command_sub = node
         .subscriber::<MotionCommand>("motion_command")
@@ -30,7 +23,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await
         .into_eyre()?;
     let _filtered_game_controller_state_sub = node
-        .subscriber::<FilteredGameControllerState>("filtered_game_controller_state")
+        .subscriber::<Option<FilteredGameControllerState>>("filtered_game_controller_state")
         .into_eyre()?
         .build()
         .await

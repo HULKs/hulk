@@ -1,11 +1,10 @@
 use std::{future::pending, sync::Arc};
 
 use color_eyre::Result;
-use serde::{Deserialize, Serialize};
 
 use coordinate_systems::{Field, Ground};
 use linear_algebra::{Isometry2, Point2};
-use ros_z::{IntoEyreResultExt, prelude::*};
+use ros_z::{IntoEyreResultExt, prelude::*, qos::QosDurability};
 use types::{
     ball_position::{BallPosition, HypotheticalBallPosition},
     field_dimensions::FieldDimensions,
@@ -15,13 +14,6 @@ use types::{
     primary_state::PrimaryState,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize, Message)]
-#[serde(deny_unknown_fields)]
-pub struct Parameters {
-    pub field_dimensions: FieldDimensions,
-    pub search_suggestor_configuration: SearchSuggestorParameters,
-}
-
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx
         .create_node("search_suggestor")
@@ -30,7 +22,17 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
 
     let _parameters = node
-        .bind_parameter_as::<Parameters>("search_suggestor")
+        .bind_parameter_as::<SearchSuggestorParameters>("search_suggestor")
+        .into_eyre()?;
+    let _field_dimensions_sub = node
+        .subscriber::<FieldDimensions>("field_dimensions")
+        .into_eyre()?
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .build()
+        .await
         .into_eyre()?;
     let _ball_position_sub = node
         .subscriber::<BallPosition<Ground>>("ball_position")
@@ -57,7 +59,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await
         .into_eyre()?;
     let _filtered_game_controller_state_sub = node
-        .subscriber::<FilteredGameControllerState>("filtered_game_controller_state")
+        .subscriber::<Option<FilteredGameControllerState>>("filtered_game_controller_state")
         .into_eyre()?
         .build()
         .await

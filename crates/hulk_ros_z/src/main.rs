@@ -130,6 +130,7 @@ async fn spawn_all(ctx: Arc<Context>) -> Result<RunningStack> {
     join_set.spawn(field_border_detection::run(ctx.clone()));
     join_set.spawn(game_controller_filter::run(ctx.clone()));
     join_set.spawn(game_controller_state_filter::run(ctx.clone()));
+    join_set.spawn(global_parameter_provider::run(ctx.clone()));
     join_set.spawn(ground_provider::run(ctx.clone()));
     join_set.spawn(head_motion::run(ctx.clone()));
     join_set.spawn(image_receiver::run(ctx.clone()));
