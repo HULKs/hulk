@@ -1,16 +1,15 @@
-use std::{
-    collections::HashMap,
-    net::SocketAddr,
-    sync::Arc,
-    time::{Duration, SystemTime},
-};
+use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::Duration};
 
 use color_eyre::Result;
 use ros_z_streams::CreateFutureMapBuilder;
 use serde::{Deserialize, Serialize};
 
 use hsl_network_messages::GameControllerStateMessage;
-use ros_z::{IntoEyreResultExt, prelude::*, time::Clock};
+use ros_z::{
+    IntoEyreResultExt,
+    prelude::*,
+    time::{Clock, Time},
+};
 use types::{
     field_dimensions::GlobalFieldSide, game_controller_state::GameControllerState,
     messages::IncomingMessage,
@@ -40,7 +39,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?
         .build();
     let last_contact_pub = node
-        .publisher::<HashMap<SocketAddr, SystemTime>>("game_controller_address_contacts_times")
+        .publisher::<HashMap<SocketAddr, Time>>("game_controller_address_contacts_times")
         .into_eyre()?
         .build()
         .await
@@ -110,10 +109,9 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 #[derive(Default, Deserialize, Serialize)]
 pub struct GameControllerFilter {
     game_controller_state: Option<GameControllerState>,
-    last_game_state_change: Option<SystemTime>,
-
-    last_contact: HashMap<SocketAddr, SystemTime>,
-    last_collision_warning: Option<SystemTime>,
+    last_game_state_change: Option<Time>,
+    last_contact: HashMap<SocketAddr, Time>,
+    last_collision_warning: Option<Time>,
 }
 
 impl GameControllerFilter {
@@ -127,7 +125,7 @@ impl GameControllerFilter {
             None => true,
         };
         if game_state_changed {
-            self.last_game_state_change = Some(clock.now().to_wallclock());
+            self.last_game_state_change = Some(clock.now());
         }
         self.game_controller_state = Some(GameControllerState {
             game_state: message.game_state,
@@ -135,7 +133,7 @@ impl GameControllerFilter {
             game_phase: message.game_phase,
             remaining_time_in_half: message.remaining_time_in_half,
             kicking_team: message.kicking_team,
-            last_game_state_change: self.last_game_state_change.unwrap(),
+            last_game_state_change: self.last_game_state_change.unwrap().to_wallclock(),
             penalties: message.hulks_team.clone().into(),
             opponent_penalties: message.opponent_team.clone().into(),
             sub_state: message.sub_state,
@@ -155,8 +153,7 @@ impl GameControllerFilter {
         parameters: &Parameters,
         source_address: SocketAddr,
     ) {
-        self.last_contact
-            .insert(source_address, clock.now().to_wallclock());
+        self.last_contact.insert(source_address, clock.now());
 
         let recent_contacts = self.last_contact.iter().filter(|(_address, last_contact)| {
             clock.now().duration_since((**last_contact).into())
@@ -177,7 +174,7 @@ impl GameControllerFilter {
             //     .write_to_speakers(SpeakerRequest::PlaySound {
             //         sound: Sound::GameControllerCollision,
             //     });
-            self.last_collision_warning = Some(clock.now().to_wallclock());
+            self.last_collision_warning = Some(clock.now());
         }
     }
 }
