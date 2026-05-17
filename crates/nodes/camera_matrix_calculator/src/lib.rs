@@ -1,7 +1,6 @@
 use std::{f32::consts::FRAC_PI_2, sync::Arc};
 
 use color_eyre::Result;
-use serde::{Deserialize, Serialize};
 
 use coordinate_systems::{Camera, Ground, Head, Robot};
 use kinematics::{robot_dimensions::RobotDimensions, robot_kinematics::RobotKinematics};
@@ -14,12 +13,6 @@ use types::parameters::CameraMatrixParameters;
 pub const ACTUAL_IMAGE_HEIGHT: f32 = 448.0;
 pub const ACTUAL_IMAGE_WIDTH: f32 = 544.0;
 
-#[derive(Debug, Clone, Serialize, Deserialize, Message)]
-#[serde(deny_unknown_fields)]
-pub struct Parameters {
-    pub camera_matrix_parameters: CameraMatrixParameters,
-}
-
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx
         .create_node("camera_matrix_calculator")
@@ -28,7 +21,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
 
     let parameters = node
-        .bind_parameter_as::<Parameters>("camera_matrix_calculator")
+        .bind_parameter_as::<CameraMatrixParameters>("camera_matrix_calculator")
         .into_eyre()?;
     let robot_kinematics_sub = node
         .subscriber::<RobotKinematics>("robot_kinematics")
@@ -79,7 +72,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         };
 
         let camera_matrix = compute_camera_matrix(
-            &parameters.camera_matrix_parameters,
+            &parameters,
             &robot_kinematics,
             &robot_to_ground,
             &camera_info,
