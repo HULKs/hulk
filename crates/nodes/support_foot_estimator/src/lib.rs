@@ -22,7 +22,7 @@ pub struct Parameters {
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx
-        .create_node("camera_matrix_calculator")
+        .create_node("support_foot_estimator")
         .build()
         .await
         .into_eyre()?;
