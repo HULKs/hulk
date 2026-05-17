@@ -23,7 +23,7 @@ struct FilteredGameStates {
     opponent: FilteredGameState,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Default, Deserialize, Serialize)]
 pub struct GameControllerStateFilter {
     state: State,
     opponent_state: State,
@@ -101,7 +101,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let mut current_ball_state = None;
     let mut latest_ball_state = None;
 
-    let mut game_controller_state_filter = GameControllerStateFilter::new();
+    let mut game_controller_state_filter = GameControllerStateFilter::default();
 
     loop {
         let parameters_snapshot = parameters.snapshot();
@@ -179,7 +179,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
                 let kicking_team = game_controller_state_filter.find_kicking_team(
                     &now,
-                    &parameters,
+                    parameters,
                     &game_controller_state,
                     &latest_ball_state,
                     &new_own_penalties_last_cycle,
@@ -226,17 +226,6 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 }
 
 impl GameControllerStateFilter {
-    pub fn new() -> Self {
-        Self {
-            last_game_controller_state: None,
-            state: State::Initial,
-            opponent_state: State::Initial,
-            whistle_in_set_ball_position: None,
-            last_time_hulk_was_penalized: Default::default(),
-            last_time_opponent_was_penalized: Default::default(),
-        }
-    }
-
     #[allow(clippy::too_many_arguments)]
     fn filter_game_states(
         &mut self,
@@ -323,6 +312,7 @@ impl GameControllerStateFilter {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn find_kicking_team(
         &mut self,
         now: &Time,
@@ -334,8 +324,6 @@ impl GameControllerStateFilter {
         detected_free_kick_kicking_team: Option<Team>,
         filtered_whistle: &FilteredWhistle,
     ) -> Option<Team> {
-        let game_controller_state = game_controller_state;
-
         if let Some(kicking_team) = game_controller_state.kicking_team {
             return Some(kicking_team);
         }

@@ -8,8 +8,9 @@ use types::{
     parameters::GameStateFilterParameters,
 };
 
-#[derive(Clone, Copy, Deserialize, Serialize)]
+#[derive(Clone, Copy, Default, Deserialize, Serialize)]
 pub enum State {
+    #[default]
     Initial,
     Ready,
     Set,

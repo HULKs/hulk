@@ -156,7 +156,7 @@ impl GameControllerFilter {
         self.last_contact.insert(source_address, clock.now());
 
         let recent_contacts = self.last_contact.iter().filter(|(_address, last_contact)| {
-            clock.now().duration_since((**last_contact).into())
+            clock.now().duration_since(**last_contact)
                 < parameters.time_since_last_message_to_consider_ip_active
         });
         let collision_detected = recent_contacts.count() > 1;
@@ -164,7 +164,7 @@ impl GameControllerFilter {
         let alert_is_on_cooldown =
             self.last_collision_warning
                 .is_some_and(|last_collision_warning| {
-                    clock.now().duration_since(last_collision_warning.into())
+                    clock.now().duration_since(last_collision_warning)
                         < parameters.collision_alert_cooldown
                 });
 

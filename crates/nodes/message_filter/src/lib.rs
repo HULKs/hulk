@@ -39,9 +39,10 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
     loop {
         tokio::select! {
-            message = message_sub.recv_with_metadata(), if player_number.is_some() => {
+            message = message_sub.recv_with_metadata() => {
                 let received_message = message.into_eyre()?;
 
+                let Some(current_player_number) = player_number else {continue;};
                 let pending_accouncement = filtered_message_pub.announce(received_message.source_time).await.into_eyre()?;
                 let message = match received_message.into_message(){
                     IncomingMessage::GameController(source_address, message) => Some(
@@ -49,7 +50,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                     ),
                     IncomingMessage::Hsl(
                         message @ HulkMessage::State(StateMessage { player_number, .. }),
-                    ) if player_number != player_number => Some(IncomingMessage::Hsl(message)),
+                    ) if player_number != current_player_number => Some(IncomingMessage::Hsl(message)),
                     _ => None,
                 };
 
@@ -57,8 +58,8 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                     pending_accouncement.publish(&message).await.into_eyre()?;
                 }
             }
-            new_player_number = player_number_sub.recv() => {
-                player_number = Some(new_player_number);
+            received_player_number = player_number_sub.recv() => {
+                player_number = Some(received_player_number.into_eyre()?);
             }
         }
     }
