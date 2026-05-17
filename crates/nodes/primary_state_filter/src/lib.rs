@@ -35,7 +35,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let _filtered_game_controller_state_sub = node
-        .subscriber::<FilteredGameControllerState>("filtered_game_controller_state")?
+        .subscriber::<Option<FilteredGameControllerState>>("filtered_game_controller_state")?
         .build()
         .await?;
     let _is_safe_pose_sub = node.subscriber::<bool>("is_safe_pose")?.build().await?;

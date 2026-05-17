@@ -10,7 +10,7 @@ use types::game_controller_state::GameControllerState;
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("world_to_field_provider").build().await?;
     let _game_controller_state_sub = node
-        .subscriber::<GameControllerState>("game_controller_state")?
+        .subscriber::<Option<GameControllerState>>("game_controller_state")?
         .build()
         .await?;
     let _world_to_field_pub = node

@@ -53,7 +53,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let _parameters = node.bind_parameter_as::<Parameters>("localization")?;
     let _filtered_game_controller_state_sub = node
-        .subscriber::<FilteredGameControllerState>("filtered_game_controller_state")?
+        .subscriber::<Option<FilteredGameControllerState>>("filtered_game_controller_state")?
         .build()
         .await?;
     let _primary_state_sub = node

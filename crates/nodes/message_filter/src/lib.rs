@@ -31,7 +31,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     loop {
         tokio::select! {
             message = message_sub.recv(), if player_number.is_some() => {
-                let message = match message.into_eyre()? {
+                let message = match message? {
                     IncomingMessage::GameController(source_address, message) => Some(
                         IncomingMessage::GameController(source_address, message.clone()),
                     ),
@@ -42,7 +42,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 };
 
                 if let Some(message) = message {
-                    filtered_message_pub.publish(&message).await.into_eyre()?;
+                    filtered_message_pub.publish(&message).await?;
                 }
             }
             new_player_number = player_number_sub.recv() => {

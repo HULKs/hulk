@@ -25,7 +25,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let _game_controller_state_sub = node
-        .subscriber::<GameControllerState>("game_controller_state")?
+        .subscriber::<Option<GameControllerState>>("game_controller_state")?
         .build()
         .await?;
     let _field_dimensions_sub = node
