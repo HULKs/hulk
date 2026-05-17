@@ -5382,6 +5382,7 @@ dependencies = [
  "field_border_detection",
  "game_controller_filter",
  "game_controller_state_filter",
+ "global_parameter_provider",
  "ground_provider",
  "head_motion",
  "image_receiver",
