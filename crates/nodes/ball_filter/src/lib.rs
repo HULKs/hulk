@@ -4,6 +4,7 @@ use std::{future::pending, sync::Arc};
 use color_eyre::Result;
 use nalgebra::{Matrix2, Matrix2x4, Matrix4};
 use ordered_float::NotNan;
+use ros_z::qos::QosDurability;
 use serde::{Deserialize, Serialize};
 
 use booster::Odometer;
@@ -155,7 +156,6 @@ impl BallFilter {
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
 #[serde(deny_unknown_fields)]
 pub struct Parameters {
-    pub field_dimensions: FieldDimensions,
     pub ball_filter_configuration: BallFilterParameters,
 }
 
@@ -164,6 +164,16 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let _parameters = node
         .bind_parameter_as::<Parameters>("ball_filter")
+        .into_eyre()?;
+    let _field_dimensions_sub = node
+        .subscriber::<FieldDimensions>("field_dimensions")
+        .into_eyre()?
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .build()
+        .await
         .into_eyre()?;
     let _historic_camera_matrix_sub = node
         .subscriber::<CameraMatrix>("camera_matrix")

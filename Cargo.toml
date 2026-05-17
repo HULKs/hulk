@@ -49,7 +49,7 @@ members = [
   "crates/nodes/fall_down_state_receiver",
   "crates/nodes/field_border_detection",
   "crates/nodes/game_controller_filter",
-  "crates/nodes/game_controller_state_filter",
+  "crates/nodes/game_controller_state_filter", "crates/nodes/global_parameter_provider",
   "crates/nodes/ground_provider",
   "crates/nodes/head_motion",
   "crates/nodes/image_receiver",

@@ -4,7 +4,7 @@ use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
 use hsl_network_messages::PlayerNumber;
-use ros_z::{IntoEyreResultExt, prelude::*};
+use ros_z::{IntoEyreResultExt, prelude::*, qos::QosDurability};
 use types::{
     buttons::{ButtonPressType, Buttons},
     filtered_game_controller_state::FilteredGameControllerState,
@@ -15,7 +15,6 @@ use types::{
 #[serde(deny_unknown_fields)]
 pub struct Parameters {
     pub injected_primary_state: Option<PrimaryState>,
-    pub player_number: PlayerNumber,
     pub recorded_primary_states: HashSet<PrimaryState>,
 }
 
@@ -28,6 +27,16 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let _parameters = node
         .bind_parameter_as::<Parameters>("primary_state_filter")
+        .into_eyre()?;
+    let _player_number_sub = node
+        .subscriber::<PlayerNumber>("player_number")
+        .into_eyre()?
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .build()
+        .await
         .into_eyre()?;
     let _buttons_sub = node
         .subscriber::<Buttons<Option<ButtonPressType>>>("buttons")

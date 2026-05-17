@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use coordinate_systems::Field;
 use hsl_network_messages::PlayerNumber;
 use linear_algebra::Point2;
-use ros_z::{IntoEyreResultExt, prelude::*};
+use ros_z::{IntoEyreResultExt, prelude::*, qos::QosDurability};
 use types::{
     field_dimensions::FieldDimensions, filtered_game_controller_state::FilteredGameControllerState,
     filtered_whistle::FilteredWhistle, game_controller_state::GameControllerState,
@@ -17,8 +17,6 @@ use types::{
 #[serde(deny_unknown_fields)]
 pub struct Parameters {
     pub config: GameStateFilterParameters,
-    pub field_dimensions: FieldDimensions,
-    pub player_number: PlayerNumber,
 }
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
@@ -43,6 +41,27 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await
         .into_eyre()?;
+    let _field_dimensions_sub = node
+        .subscriber::<FieldDimensions>("field_dimensions")
+        .into_eyre()?
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .build()
+        .await
+        .into_eyre()?;
+    let _player_number_sub = node
+        .subscriber::<PlayerNumber>("player_number")
+        .into_eyre()?
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .build()
+        .await
+        .into_eyre()?;
+
     let _whistle_in_set_ball_position_pub = node
         .publisher::<Point2<Field>>("whistle_in_set_ball_position")
         .into_eyre()?

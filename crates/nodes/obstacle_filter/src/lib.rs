@@ -8,7 +8,7 @@ use booster::FallDownState;
 use coordinate_systems::{Field, Ground};
 use linear_algebra::{Isometry2, Point2};
 use projection::camera_matrix::CameraMatrix;
-use ros_z::{IntoEyreResultExt, prelude::*};
+use ros_z::{IntoEyreResultExt, prelude::*, qos::QosDurability};
 use types::{
     field_dimensions::FieldDimensions,
     object_detection::{Object, RobocupObjectLabel},
@@ -21,7 +21,6 @@ use types::{
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
 #[serde(deny_unknown_fields)]
 pub struct Parameters {
-    pub field_dimensions: FieldDimensions,
     pub obstacle_filter_parameters: ObstacleFilterParameters,
 }
 
@@ -34,6 +33,16 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let _parameters = node
         .bind_parameter_as::<Parameters>("obstacle_filter")
+        .into_eyre()?;
+    let _field_dimensions_sub = node
+        .subscriber::<FieldDimensions>("field_dimensions")
+        .into_eyre()?
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .build()
+        .await
         .into_eyre()?;
     let _camera_matrix_sub = node
         .subscriber::<CameraMatrix>("camera_matrix")

@@ -1,7 +1,7 @@
 use std::{future::pending, sync::Arc};
 
 use color_eyre::Result;
-use ros_z::prelude::*;
+use ros_z::{prelude::*, qos::QosDurability};
 use serde::{Deserialize, Serialize};
 use types::{
     field_dimensions::FieldDimensions, filtered_game_controller_state::FilteredGameControllerState,
@@ -15,7 +15,6 @@ use ros_z::IntoEyreResultExt;
 pub struct Parameters {
     pub center_circle_obstacle_radius_increase: f32,
     pub center_circle_ballspace_free_obstacle_radius: f32,
-    pub field_dimensions: FieldDimensions,
     pub free_kick_obstacle_radius: f32,
     pub penaltykick_box_extension: f32,
 }
@@ -29,6 +28,16 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let _parameters = node
         .bind_parameter_as::<Parameters>("rule_obstacle_composer")
+        .into_eyre()?;
+    let _field_dimensions_sub = node
+        .subscriber::<FieldDimensions>("field_dimensions")
+        .into_eyre()?
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .build()
+        .await
         .into_eyre()?;
     let _filtered_game_controller_state_sub = node
         .subscriber::<FilteredGameControllerState>("filtered_game_controller_state")
