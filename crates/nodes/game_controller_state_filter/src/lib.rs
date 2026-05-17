@@ -23,7 +23,7 @@ struct FilteredGameStates {
     opponent: FilteredGameState,
 }
 
-#[derive(Deserialize, Serialize)]
+#[derive(Default, Deserialize, Serialize)]
 pub struct GameControllerStateFilter {
     state: State,
     opponent_state: State,
@@ -66,11 +66,9 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let ball_state_sub = node
-        .subscriber::<Option<BallState>>("ball_state")
-        .into_eyre()?
+        .subscriber::<Option<BallState>>("ball_state")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
 
     let whistle_in_set_ball_position_pub = node
         .publisher::<Option<Point2<Field>>>("whistle_in_set_ball_position")?
@@ -87,7 +85,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let mut current_ball_state = None;
     let mut latest_ball_state = None;
 
-    let mut game_controller_state_filter = GameControllerStateFilter::new();
+    let mut game_controller_state_filter = GameControllerStateFilter::default();
 
     loop {
         let parameters_snapshot = parameters.snapshot();
@@ -95,19 +93,19 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
         tokio::select! {
             received_field_dimensions = field_dimensions_sub.recv() => {
-                let received_field_dimensions = received_field_dimensions.into_eyre()?;
+                let received_field_dimensions = received_field_dimensions?;
                 field_dimensions = Some(received_field_dimensions);
             }
             received_player_number = player_number_sub.recv() => {
-                let received_player_number = received_player_number.into_eyre()?;
+                let received_player_number = received_player_number?;
                 player_number = Some(received_player_number);
             }
             filtered_whistle_msg = filtered_whistle_sub.recv() => {
-                let received_filtered_whistle = filtered_whistle_msg.into_eyre()?;
+                let received_filtered_whistle = filtered_whistle_msg?;
                 filtered_whistle = Some(received_filtered_whistle);
             }
             ball_state_msg = ball_state_sub.recv_with_metadata() => {
-                let received_ball_state = ball_state_msg.into_eyre()?;
+                let received_ball_state = ball_state_msg?;
                 let received_source_time = received_ball_state.source_time;
                 current_ball_state = received_ball_state.into_message();
                 if let Some(actual_ball_state) = current_ball_state {
@@ -115,7 +113,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 }
             }
             game_controller_state = game_controller_state_sub.recv() => {
-                let game_controller_state = game_controller_state.into_eyre()?;
+                let game_controller_state = game_controller_state?;
 
                 let (Some(player_number), Some(field_dimensions)) = (player_number, field_dimensions) else {
                     continue;
@@ -165,7 +163,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
                 let kicking_team = game_controller_state_filter.find_kicking_team(
                     &now,
-                    &parameters,
+                    parameters,
                     &game_controller_state,
                     &latest_ball_state,
                     &new_own_penalties_last_cycle,
@@ -204,25 +202,14 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                     new_opponent_penalties_last_cycle,
                 };
 
-                whistle_in_set_ball_position_pub.publish(&game_controller_state_filter.whistle_in_set_ball_position).await.into_eyre()?;
-                filtered_game_controller_state_pub.publish(&filtered_game_controller_state).await.into_eyre()?;
+                whistle_in_set_ball_position_pub.publish(&game_controller_state_filter.whistle_in_set_ball_position).await?;
+                filtered_game_controller_state_pub.publish(&filtered_game_controller_state).await?;
             }
         }
     }
 }
 
 impl GameControllerStateFilter {
-    pub fn new() -> Self {
-        Self {
-            last_game_controller_state: None,
-            state: State::Initial,
-            opponent_state: State::Initial,
-            whistle_in_set_ball_position: None,
-            last_time_hulk_was_penalized: Default::default(),
-            last_time_opponent_was_penalized: Default::default(),
-        }
-    }
-
     #[allow(clippy::too_many_arguments)]
     fn filter_game_states(
         &mut self,
@@ -309,6 +296,7 @@ impl GameControllerStateFilter {
         }
     }
 
+    #[allow(clippy::too_many_arguments)]
     fn find_kicking_team(
         &mut self,
         now: &Time,
@@ -320,8 +308,6 @@ impl GameControllerStateFilter {
         detected_free_kick_kicking_team: Option<Team>,
         filtered_whistle: &FilteredWhistle,
     ) -> Option<Team> {
-        let game_controller_state = game_controller_state;
-
         if let Some(kicking_team) = game_controller_state.kicking_team {
             return Some(kicking_team);
         }
