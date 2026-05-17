@@ -4,6 +4,7 @@ use color_eyre::Result;
 
 use hsl_network_messages::{HulkMessage, PlayerNumber, StateMessage};
 use ros_z::{prelude::*, qos::QosDurability};
+use ros_z_streams::CreateAnnouncingPublisher;
 use types::messages::IncomingMessage;
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
@@ -22,16 +23,18 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let filtered_message_pub = node
-        .publisher::<IncomingMessage>("filtered_message")?
-        .build()
+        .announcing_publisher::<IncomingMessage>("filtered_message")
         .await?;
 
     let mut player_number = None;
 
     loop {
         tokio::select! {
-            message = message_sub.recv(), if player_number.is_some() => {
-                let message = match message? {
+            message = message_sub.recv_with_metadata(), if player_number.is_some() => {
+                let received_message = message?;
+
+                let pending_accouncement = filtered_message_pub.announce(received_message.source_time).await?;
+                let message = match received_message.into_message(){
                     IncomingMessage::GameController(source_address, message) => Some(
                         IncomingMessage::GameController(source_address, message.clone()),
                     ),
@@ -42,7 +45,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 };
 
                 if let Some(message) = message {
-                    filtered_message_pub.publish(&message).await?;
+                    pending_accouncement.publish(&message).await?;
                 }
             }
             new_player_number = player_number_sub.recv() => {
