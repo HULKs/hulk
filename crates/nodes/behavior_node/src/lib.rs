@@ -1,7 +1,6 @@
 use std::{future::pending, sync::Arc, time::Duration};
 
 use color_eyre::Result;
-use serde::{Deserialize, Serialize};
 
 use ros_z::{IntoEyreResultExt, prelude::*, qos::QosDurability};
 use types::{
@@ -9,17 +8,11 @@ use types::{
     parameters::BehaviorParameters, path_obstacles::PathObstacle, world_state::WorldState,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize, Message)]
-#[serde(deny_unknown_fields)]
-pub struct Parameters {
-    pub parameters: BehaviorParameters,
-}
-
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("behavior_node").build().await.into_eyre()?;
 
     let _parameters = node
-        .bind_parameter_as::<Parameters>("behavior_node")
+        .bind_parameter_as::<BehaviorParameters>("behavior_node")
         .into_eyre()?;
     let _field_dimensions_sub = node
         .subscriber::<FieldDimensions>("field_dimensions")

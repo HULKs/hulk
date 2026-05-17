@@ -1,7 +1,6 @@
 use std::{future::pending, sync::Arc};
 
 use color_eyre::Result;
-use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Field;
 use hsl_network_messages::PlayerNumber;
@@ -13,12 +12,6 @@ use types::{
     parameters::GameStateFilterParameters,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize, Message)]
-#[serde(deny_unknown_fields)]
-pub struct Parameters {
-    pub config: GameStateFilterParameters,
-}
-
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx
         .create_node("game_controller_state_filter")
@@ -27,7 +20,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
 
     let _parameters = node
-        .bind_parameter_as::<Parameters>("game_controller_state_filter")
+        .bind_parameter_as::<GameStateFilterParameters>("game_controller_state_filter")
         .into_eyre()?;
     let _filtered_whistle_sub = node
         .subscriber::<FilteredWhistle>("filtered_whistle")

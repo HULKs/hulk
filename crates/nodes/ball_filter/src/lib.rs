@@ -153,17 +153,11 @@ impl BallFilter {
     }
 }
 
-#[derive(Debug, Clone, Serialize, Deserialize, Message)]
-#[serde(deny_unknown_fields)]
-pub struct Parameters {
-    pub ball_filter_configuration: BallFilterParameters,
-}
-
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("ball_filter").build().await.into_eyre()?;
 
     let _parameters = node
-        .bind_parameter_as::<Parameters>("ball_filter")
+        .bind_parameter_as::<BallFilterParameters>("ball_filter")
         .into_eyre()?;
     let _field_dimensions_sub = node
         .subscriber::<FieldDimensions>("field_dimensions")

@@ -1,7 +1,6 @@
 use std::{future::pending, sync::Arc};
 
 use color_eyre::Result;
-use serde::{Deserialize, Serialize};
 
 use coordinate_systems::{Field, Ground};
 use linear_algebra::{Isometry2, Point2};
@@ -15,12 +14,6 @@ use types::{
     primary_state::PrimaryState,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize, Message)]
-#[serde(deny_unknown_fields)]
-pub struct Parameters {
-    pub search_suggestor_configuration: SearchSuggestorParameters,
-}
-
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx
         .create_node("search_suggestor")
@@ -29,7 +22,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
 
     let _parameters = node
-        .bind_parameter_as::<Parameters>("search_suggestor")
+        .bind_parameter_as::<SearchSuggestorParameters>("search_suggestor")
         .into_eyre()?;
     let _field_dimensions_sub = node
         .subscriber::<FieldDimensions>("field_dimensions")

@@ -1,7 +1,6 @@
 use std::{future::pending, sync::Arc};
 
 use color_eyre::Result;
-use serde::{Deserialize, Serialize};
 
 use ros_z::{IntoEyreResultExt, prelude::*};
 use types::{
@@ -9,12 +8,6 @@ use types::{
     samples::Samples,
     whistle::{DetectionInfo, Whistle},
 };
-
-#[derive(Debug, Clone, Serialize, Deserialize, Message)]
-#[serde(deny_unknown_fields)]
-pub struct Parameters {
-    pub parameters: WhistleDetectionParameters,
-}
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx
@@ -24,7 +17,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
 
     let _parameters = node
-        .bind_parameter_as::<Parameters>("whistle_detection")
+        .bind_parameter_as::<WhistleDetectionParameters>("whistle_detection")
         .into_eyre()?;
     let _samples_sub = node
         .subscriber::<Samples>("samples")

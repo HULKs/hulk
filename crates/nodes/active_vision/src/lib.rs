@@ -4,23 +4,16 @@ use color_eyre::Result;
 use coordinate_systems::{Field, Ground};
 use linear_algebra::{Isometry2, Point2};
 use ros_z::{IntoEyreResultExt, prelude::*, qos::QosDurability};
-use serde::{Deserialize, Serialize};
 use types::{
     field_dimensions::FieldDimensions, filtered_game_controller_state::FilteredGameControllerState,
     obstacles::Obstacle, parameters::LookActionParameters, world_state::BallState,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize, Message)]
-#[serde(deny_unknown_fields)]
-pub struct Parameters {
-    pub parameters: LookActionParameters,
-}
-
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("active_vision").build().await.into_eyre()?;
 
     let _parameters = node
-        .bind_parameter_as::<Parameters>("active_vision")
+        .bind_parameter_as::<LookActionParameters>("active_vision")
         .into_eyre()?;
     let _field_dimensions_sub = node
         .subscriber::<FieldDimensions>("field_dimensions")
