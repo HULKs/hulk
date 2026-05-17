@@ -50,6 +50,7 @@ members = [
   "crates/nodes/field_border_detection",
   "crates/nodes/game_controller_filter",
   "crates/nodes/game_controller_state_filter",
+  "crates/nodes/global_parameter_provider",
   "crates/nodes/ground_provider",
   "crates/nodes/head_motion",
   "crates/nodes/image_receiver",
@@ -212,6 +213,7 @@ game_controller_state_filter = { path = "crates/nodes/game_controller_state_filt
 geometry = { path = "crates/geometry" }
 gilrs = "0.11.0"
 glob = "0.3.2"
+global_parameter_provider = { path = "crates/nodes/global_parameter_provider" }
 ground_provider = { path = "crates/nodes/ground_provider" }
 hardware = { path = "crates/hardware" }
 head_motion = { path = "crates/nodes/head_motion" }

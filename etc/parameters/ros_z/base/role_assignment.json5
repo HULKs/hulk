@@ -1,6 +1,5 @@
 {
   optional_roles: ["Defender", "Midfielder", "StrikerSupporter"],
-  player_number: "Three",
   forced_role: null,
   keeper_replacementkeeper_switch_time: {
     nanos: 0,

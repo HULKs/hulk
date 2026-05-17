@@ -1,26 +1,28 @@
 use std::{future::pending, sync::Arc, time::Duration};
 
 use color_eyre::Result;
-use serde::{Deserialize, Serialize};
 
-use ros_z::{IntoEyreResultExt, prelude::*};
+use ros_z::{IntoEyreResultExt, prelude::*, qos::QosDurability};
 use types::{
     behavior_tree::NodeTrace, field_dimensions::FieldDimensions, motion_command::MotionCommand,
     parameters::BehaviorParameters, path_obstacles::PathObstacle, world_state::WorldState,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize, Message)]
-#[serde(deny_unknown_fields)]
-pub struct Parameters {
-    pub field_dimensions: FieldDimensions,
-    pub parameters: BehaviorParameters,
-}
-
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("behavior_node").build().await.into_eyre()?;
 
     let _parameters = node
-        .bind_parameter_as::<Parameters>("behavior_node")
+        .bind_parameter_as::<BehaviorParameters>("behavior_node")
+        .into_eyre()?;
+    let _field_dimensions_sub = node
+        .subscriber::<FieldDimensions>("field_dimensions")
+        .into_eyre()?
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .build()
+        .await
         .into_eyre()?;
     let _world_state_sub = node
         .subscriber::<WorldState>("world_state")
