@@ -260,9 +260,11 @@ impl GameControllerStateFilter {
             did_receive_motion_in_set_penalty,
         );
 
-        if let (State::WhistleInSet { .. }, None) = (self.state, self.whistle_in_set_ball_position)
+        if let State::WhistleInSet { .. } = self.state
+            && self.whistle_in_set_ball_position.is_none()
+            && let Some(ball_state) = current_ball_state.as_ref()
         {
-            current_ball_state.map(|ball_state| ball_state.ball_in_field);
+            self.whistle_in_set_ball_position = Some(ball_state.ball_in_field);
         };
 
         let motion_in_set = matches!(
