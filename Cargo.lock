@@ -4312,7 +4312,9 @@ name = "game_controller_filter"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
+ "hsl_network_messages",
  "ros-z",
+ "ros-z-streams",
  "serde",
  "types",
 ]

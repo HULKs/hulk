@@ -16,7 +16,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await
         .into_eyre()?;
     let _filtered_game_controller_state_sub = node
-        .subscriber::<FilteredGameControllerState>("filtered_game_controller_state")
+        .subscriber::<Option<FilteredGameControllerState>>("filtered_game_controller_state")
         .into_eyre()?
         .build()
         .await
