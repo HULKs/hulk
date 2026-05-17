@@ -1,119 +1,108 @@
 {
-  description = "Dev environment for HULKs";
+  description = "Dev Environment for HULKs";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
     flake-utils.url = "github:numtide/flake-utils";
-    naersk.url = "github:nix-community/naersk";
-    nixgl.url = "github:guibou/nixGL";
+    crane.url = "github:ipetkov/crane";
   };
 
-  outputs = { self, nixpkgs, flake-utils, naersk, nixgl }:
-    flake-utils.lib.eachDefaultSystem
-      (system:
-        let
-          pkgs = import nixpkgs {
-            inherit system;
-            overlays = [ nixgl.overlay ];
-          };
-          naersk' = pkgs.callPackage naersk { };
-          nao_sdk_version = "5.9.0";
-          nao_sdk_environment_path = "$HOME/.naosdk/${nao_sdk_version}/environment-setup-corei7-64-aldebaran-linux";
-          buildInputs = with pkgs;[
-            # Tools
-            cargo
-            cmake
-            llvmPackages.clang
-            pkg-config
-            python312
-            rsync
-            rustc
-            rustfmt
+  outputs = { self, nixpkgs, flake-utils, crane }:
+    flake-utils.lib.eachDefaultSystem (system:
+      let
+        pkgs = import nixpkgs { inherit system; };
+        craneLibrary = crane.mkLib pkgs;
 
-            # Libs
-            alsa-lib
-            hdf5
-            libGL
-            libogg
-            libxkbcommon
-            luajit
-            openssl
-            opusfile
-            pkgs.nixgl.auto.nixGLDefault
-            rustPlatform.bindgenHook
-            systemdLibs
-            wayland
-            xorg.libX11
-            xorg.libXcursor
-            xorg.libXi
-            xorg.libXrandr
+        src = pkgs.lib.cleanSourceWith {
+          src = craneLibrary.path ./.;
+          filter = path: type:
+            (builtins.match ".*/(crates|tools)/.*" path != null) ||
+            (craneLibrary.filterCargoSources path type);
+        };
+
+        baseNativeBuildInputs = with pkgs; [ pkg-config rustPlatform.bindgenHook ];
+        baseBuildInputs = with pkgs; [ openssl ];
+        guiLibraries = with pkgs; [ libGL libxkbcommon wayland libx11 udev ];
+
+        workspaceCargoToml = fromTOML (builtins.readFile ./Cargo.toml);
+        workspaceVersion = workspaceCargoToml.workspace.package.version;
+
+        mkCrate = { name, package ? name, cargoToml, extraLibraries ? [] }:
+          let
+            localCargoToml = fromTOML (builtins.readFile cargoToml);
+
+            # Crane currently cannot resolve `version = { workspace = true }`.
+            # Resolve the version by checking the local Cargo.toml first, then falling back to the workspace root
+            resolvedVersion =
+              if localCargoToml.package ? version && builtins.isString localCargoToml.package.version then
+                localCargoToml.package.version
+              else
+                workspaceVersion;
+
+            arguments = {
+              inherit src;
+              pname = name;
+              version = resolvedVersion;
+              nativeBuildInputs = baseNativeBuildInputs ++ pkgs.lib.optional (extraLibraries != []) pkgs.makeWrapper;
+              buildInputs = baseBuildInputs ++ extraLibraries;
+              cargoExtraArgs = "-p ${package} --bin ${name}";
+            };
+
+            cargoArtifacts = craneLibrary.buildDepsOnly arguments;
+          in
+          craneLibrary.buildPackage (arguments // {
+            inherit cargoArtifacts;
+            postInstall = pkgs.lib.optionalString (extraLibraries != [])  ''
+              if [ -f $out/bin/${name} ]; then
+                wrapProgram $out/bin/${name} \
+                  --prefix LD_LIBRARY_PATH : ${pkgs.lib.makeLibraryPath extraLibraries}
+              fi
+            '';
+          });
+      in
+      {
+        packages = {
+          pepsi = mkCrate {
+            name = "pepsi";
+            cargoToml = ./tools/pepsi/Cargo.toml;
+          };
+
+          twix = mkCrate {
+            name = "twix";
+            cargoToml = ./tools/twix/Cargo.toml;
+            extraLibraries = guiLibraries;
+          };
+
+          rosz = mkCrate {
+            name = "rosz";
+            package = "ros-z-cli";
+            cargoToml = ./crates/ros-z-cli/Cargo.toml;
+          };
+
+          default = self.packages.${system}.pepsi;
+        };
+
+        devShells.default = pkgs.mkShell {
+          inputsFrom = [
+            self.packages.${system}.pepsi
+            self.packages.${system}.twix
+            self.packages.${system}.rosz
           ];
 
-          mktool = manifest_path:
-            let
-              manifest = (pkgs.lib.importTOML manifest_path).package;
-            in
-            naersk'.buildPackage {
-              name = manifest.name;
-              version = manifest.version;
-              src = ./.;
-              inherit buildInputs;
-              cargoBuildOptions = x: x ++ [ "-p" manifest.name ];
-              cargoTestOptions = x: x ++ [ "-p" manifest.name ];
-            };
+          packages = with pkgs; [
+            cargo
+            rustc
+            rust-analyzer
+            rustfmt
+            clippy
+            rsync
+            openssh
+          ];
 
-          mktool_wrapper_gui = tool:
-            let
-              binary_name = pkgs.lib.strings.removeSuffix "-${tool.version}" tool.name;
-              wrapper = pkgs.writeShellScriptBin "${tool.name}-wrapper" ''
-                ${pkgs.nixgl.auto.nixGLDefault}/bin/nixGL ${tool}/bin/${binary_name} $@
-              '';
-            in
-            {
-              type = "app";
-              program = "${wrapper}/bin/${tool.name}-wrapper";
-            };
-        in
-        {
-          packages.twix = mktool ./tools/twix/Cargo.toml;
-          packages.pepsi = mktool ./tools/pepsi/Cargo.toml;
-          packages.fanta = mktool ./tools/fanta/Cargo.toml;
-          packages.annotato = mktool ./tools/annotato/Cargo.toml;
-          packages.behavior_simulator = mktool ./tools/behavior_simulator/Cargo.toml;
-
-          # Needed for non-nixos systems
-          apps.twix = mktool_wrapper_gui self.packages.${system}.twix;
-
-          # Needed for non-nixos systems
-          apps.annotato  = mktool_wrapper_gui self.packages.${system}.annotato;
-
-          devShells = {
-            tools = pkgs.mkShell
-              rec {
-                inherit buildInputs;
-                env = {
-                  LD_LIBRARY_PATH = "${pkgs.lib.makeLibraryPath buildInputs}";
-                  LIBCLANG_PATH = "${pkgs.llvmPackages.libclang.lib}/lib";
-                };
-              };
-
-            robot = (pkgs.buildFHSUserEnv {
-              name = "hulk-robot-dev-env";
-              targetPkgs = pkgs: ([ ]);
-              extraOutputsToInstall = [ "dev" ];
-              runScript = "bash";
-              profile = ''
-                if [[ ! -f "${nao_sdk_environment_path}" ]]; then
-                  echo "ERROR: nao sdk v${nao_sdk_version} not found! Please install it."
-                  exit 1
-                fi
-                echo "Unsetting LD_LIBRARY_PATH..."
-                unset LD_LIBRARY_PATH
-                echo "Sourcing nao sdk v${nao_sdk_version}..."
-                source ${nao_sdk_environment_path}
-              '';
-            }).env;
+          env = {
+            LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath guiLibraries;
           };
-        }
-      );
+        };
+      }
+    );
 }
