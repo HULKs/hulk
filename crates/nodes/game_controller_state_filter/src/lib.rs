@@ -1,12 +1,12 @@
 use std::{collections::HashMap, sync::Arc};
 
 use color_eyre::Result;
+use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Field;
 use hsl_network_messages::{GamePhase, GameState, Penalty, PlayerNumber, SubState, Team};
 use linear_algebra::{Point2, Vector2, distance};
 use ros_z::{prelude::*, qos::QosDurability, time::Time};
-use serde::{Deserialize, Serialize};
 use types::{
     field_dimensions::FieldDimensions, filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState, filtered_whistle::FilteredWhistle,
@@ -74,6 +74,14 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
         let game_controller_state_wrapper = game_controller_state_sub.recv().await?;
 
+        let TimeWrapper {
+            time,
+            inner: Some(game_controller_state),
+        } = game_controller_state_wrapper
+        else {
+            continue;
+        };
+
         let (Some(field_dimensions), Some(player_number)) = (
             field_dimensions_cache.get_latest(),
             player_number_cache.get_latest(),
@@ -87,14 +95,6 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         let current_ball_state = ball_state_cache.get_latest().and_then(|maybe| *maybe);
         if let Some((ball_state, time)) = current_ball_state_time.zip(current_ball_state) {
             latest_known_ball_state = Some((ball_state, time))
-        };
-
-        let TimeWrapper {
-            time,
-            inner: Some(game_controller_state),
-        } = game_controller_state_wrapper
-        else {
-            continue;
         };
 
         let filtered_game_controller_state = TimeWrapper {

@@ -6,8 +6,8 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
+log = { workspace = true }
 ros-z = { workspace = true }
 serde = { workspace = true }
 tokio = { workspace = true }
 zenoh = { workspace = true }
-log = { workspace = true }

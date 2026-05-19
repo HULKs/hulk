@@ -29,7 +29,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .subscriber::<ImuState>("inputs/imu_state")?
         .build()
         .await?;
-    let serial_motor_states_cache =  node
+    let serial_motor_states_cache = node
         .create_cache::<Joints<MotorState>>("inputs/serial_motor_states", 10)?
         .build()
         .await?;
@@ -54,7 +54,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         let parameters_snapshot = parameters.snapshot();
         let parameters = parameters_snapshot.typed();
 
-        let received_imu_state = imu_state_sub.recv_with_metadata().await.into_eyre()?;
+        let received_imu_state = imu_state_sub.recv_with_metadata().await?;
 
         let Some(serial_motor_states) =
             serial_motor_states_cache.get_nearest(received_imu_state.source_time)
@@ -67,29 +67,25 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             serial_motor_states.positions() - parameters.prep_mode_serial_motor_states.positions();
         joint_position_difference_to_safe_pub
             .publish(&joint_position_difference_to_safe)
-            .await
-            .into_eyre()?;
+            .await?;
 
         let joint_velocities_difference_to_safe = serial_motor_states.velocities()
             - parameters.prep_mode_serial_motor_states.velocities();
         joint_velocities_difference_to_safe_pub
             .publish(&joint_velocities_difference_to_safe)
-            .await
-            .into_eyre()?;
+            .await?;
 
         let linear_accelerations_difference_to_safe =
             imu_state.linear_acceleration - parameters.prep_mode_imu_state.linear_acceleration;
         linear_accelerations_difference_to_safe_pub
             .publish(&linear_accelerations_difference_to_safe)
-            .await
-            .into_eyre()?;
+            .await?;
 
         let angular_velocities_difference_to_safe =
             imu_state.angular_velocity - parameters.prep_mode_imu_state.angular_velocity;
         angular_velocities_difference_to_safe_pub
             .publish(&angular_velocities_difference_to_safe)
-            .await
-            .into_eyre()?;
+            .await?;
 
         let motor_states_are_safe = motor_states_are_safe(
             &serial_motor_states,
@@ -107,7 +103,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
         let is_safe_pose = motor_states_are_safe && imu_state_is_safe;
 
-        is_safe_pose_pub.publish(&is_safe_pose).await.into_eyre()?;
+        is_safe_pose_pub.publish(&is_safe_pose).await?;
     }
 }
 

@@ -8488,8 +8488,11 @@ version = "0.1.0"
 dependencies = [
  "color-eyre",
  "hsl_network_messages",
+ "log",
  "ros-z",
+ "ros-z-streams",
  "serde",
+ "tokio",
  "types",
 ]
 

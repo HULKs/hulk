@@ -4,7 +4,7 @@ use color_eyre::Result;
 
 use booster::{ButtonEventMsg, ButtonEventType};
 use ros_z::{prelude::*, time::Time};
-use ros_z_streams::CreateFutureMapBuilder;
+use ros_z_streams::{CreateAnnouncingPublisher, CreateFutureMapBuilder};
 use types::buttons::{ButtonPressType, Buttons};
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
@@ -18,8 +18,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?
         .build();
     let buttons_pub = node
-        .publisher::<Buttons<Option<ButtonPressType>>>("buttons")?
-        .build()
+        .announcing_publisher::<Buttons<Option<ButtonPressType>>>("buttons")
         .await?;
 
     let mut last_button_event_types: Buttons<Option<ButtonEventType>> = Default::default();
@@ -50,7 +49,10 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             );
             last_button_event_types[button_event_message.button] = Some(button_event_message.event);
         }
+        let pending_announcement = buttons_pub
+            .announce(most_recently_processed_button_event_message_time)
+            .await?;
 
-        buttons_pub.publish(&buttons).await?;
+        pending_announcement.publish(&buttons).await?;
     }
 }
