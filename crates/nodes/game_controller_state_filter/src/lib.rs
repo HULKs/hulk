@@ -79,8 +79,6 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
 
-    let mut field_dimensions = None;
-    let mut player_number = None;
     let mut filtered_whistle = FilteredWhistle::default();
     let mut current_ball_state = None;
     let mut latest_ball_state = None;
@@ -92,14 +90,6 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         let parameters = parameters_snapshot.typed();
 
         tokio::select! {
-            received_field_dimensions = field_dimensions_sub.recv() => {
-                let received_field_dimensions = received_field_dimensions?;
-                field_dimensions = Some(received_field_dimensions);
-            }
-            received_player_number = player_number_sub.recv() => {
-                let received_player_number = received_player_number?;
-                player_number = Some(received_player_number);
-            }
             filtered_whistle_msg = filtered_whistle_sub.recv() => {
                 filtered_whistle = filtered_whistle_msg?;
             }
@@ -114,10 +104,8 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             game_controller_state = game_controller_state_sub.recv() => {
                 let game_controller_state = game_controller_state?;
 
-                let (Some(player_number), Some(field_dimensions)) = (player_number, field_dimensions) else {
-                    continue;
-                };
-
+                let field_dimensions = field_dimensions_sub.recv().await?;
+                let player_number = player_number_sub.recv().await?;
 
                 let Some(game_controller_state) = game_controller_state else {
                     continue;
