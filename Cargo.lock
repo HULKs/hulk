@@ -2212,6 +2212,7 @@ dependencies = [
  "cdr",
  "color-eyre",
  "ros-z",
+ "ros-z-streams",
  "tokio",
 ]
 
@@ -2222,6 +2223,7 @@ dependencies = [
  "booster",
  "color-eyre",
  "ros-z",
+ "ros-z-streams",
  "types",
 ]
 
