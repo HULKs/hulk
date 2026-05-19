@@ -3,25 +3,27 @@ use std::{future::pending, sync::Arc};
 use color_eyre::Result;
 use coordinate_systems::{Field, Ground};
 use linear_algebra::{Isometry2, Point2};
-use ros_z::{IntoEyreResultExt, prelude::*};
-use serde::{Deserialize, Serialize};
+use ros_z::{IntoEyreResultExt, prelude::*, qos::QosDurability};
 use types::{
     field_dimensions::FieldDimensions, filtered_game_controller_state::FilteredGameControllerState,
     obstacles::Obstacle, parameters::LookActionParameters, world_state::BallState,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize, Message)]
-#[serde(deny_unknown_fields)]
-pub struct Parameters {
-    pub field_dimensions: FieldDimensions,
-    pub parameters: LookActionParameters,
-}
-
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("active_vision").build().await.into_eyre()?;
 
     let _parameters = node
-        .bind_parameter_as::<Parameters>("active_vision")
+        .bind_parameter_as::<LookActionParameters>("active_vision")
+        .into_eyre()?;
+    let _field_dimensions_sub = node
+        .subscriber::<FieldDimensions>("field_dimensions")
+        .into_eyre()?
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .build()
+        .await
         .into_eyre()?;
     let _ball_sub = node
         .subscriber::<BallState>("ball_state")

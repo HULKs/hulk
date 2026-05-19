@@ -9,7 +9,7 @@ use coordinate_systems::{Field, Ground};
 use geometry::line_segment::LineSegment;
 use hsl_network_messages::PlayerNumber;
 use linear_algebra::Isometry2;
-use ros_z::{IntoEyreResultExt, prelude::*};
+use ros_z::{IntoEyreResultExt, prelude::*, qos::QosDurability};
 use types::{
     field_dimensions::FieldDimensions,
     filtered_game_controller_state::FilteredGameControllerState,
@@ -23,7 +23,6 @@ use types::{
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
 #[serde(deny_unknown_fields)]
 pub struct Parameters {
-    pub field_dimensions: FieldDimensions,
     pub circle_measurement_noise: na::Vector2<f32>,
     pub good_matching_threshold: f32,
     pub gradient_convergence_threshold: f32,
@@ -42,7 +41,6 @@ pub struct Parameters {
     pub maximum_amount_of_outer_iterations: usize,
     pub minimum_fit_error: f32,
     pub odometry_noise: na::Vector3<f32>,
-    pub player_number: PlayerNumber,
     pub penalized_distance: f32,
     pub penalized_hypothesis_covariance: na::Matrix3<f32>,
     pub score_per_good_match: f32,
@@ -89,6 +87,26 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let _line_data_sub = node
         .subscriber::<LineData>("line_data")
         .into_eyre()?
+        .build()
+        .await
+        .into_eyre()?;
+    let _field_dimensions_sub = node
+        .subscriber::<FieldDimensions>("field_dimensions")
+        .into_eyre()?
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .build()
+        .await
+        .into_eyre()?;
+    let _player_number_sub = node
+        .subscriber::<PlayerNumber>("player_number")
+        .into_eyre()?
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
         .build()
         .await
         .into_eyre()?;

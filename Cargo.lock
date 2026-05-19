@@ -4625,6 +4625,17 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "0cc23270f6e1808e30a928bdc84dea0b9b4136a8bc82338574f23baf47bbd280"
 
 [[package]]
+name = "global_parameter_provider"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "hsl_network_messages",
+ "ros-z",
+ "serde",
+ "types",
+]
+
+[[package]]
 name = "globset"
 version = "0.4.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -5371,6 +5382,7 @@ dependencies = [
  "field_border_detection",
  "game_controller_filter",
  "game_controller_state_filter",
+ "global_parameter_provider",
  "ground_provider",
  "head_motion",
  "image_receiver",
