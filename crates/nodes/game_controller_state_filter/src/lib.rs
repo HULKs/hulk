@@ -81,7 +81,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let mut field_dimensions = None;
     let mut player_number = None;
-    let mut filtered_whistle = None;
+    let mut filtered_whistle = FilteredWhistle::default();
     let mut current_ball_state = None;
     let mut latest_ball_state = None;
 
@@ -101,8 +101,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 player_number = Some(received_player_number);
             }
             filtered_whistle_msg = filtered_whistle_sub.recv() => {
-                let received_filtered_whistle = filtered_whistle_msg?;
-                filtered_whistle = Some(received_filtered_whistle);
+                filtered_whistle = filtered_whistle_msg?;
             }
             ball_state_msg = ball_state_sub.recv_with_metadata() => {
                 let received_ball_state = ball_state_msg?;
@@ -120,7 +119,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 };
 
 
-                let (Some(game_controller_state), Some(filtered_whistle)) = (game_controller_state, filtered_whistle) else {
+                let Some(game_controller_state) = game_controller_state else {
                     continue;
                 };
 
