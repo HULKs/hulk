@@ -55,6 +55,7 @@ safe_pose_checker = { workspace = true }
 search_suggestor = { workspace = true }
 segment_filter = { workspace = true }
 stand_up = { workspace = true }
+support_foot_estimator = { workspace = true }
 team_ball_receiver = { workspace = true }
 time_to_reach_kick_position = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal"] }
