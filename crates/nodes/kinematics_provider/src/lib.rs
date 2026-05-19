@@ -45,16 +45,18 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .into_eyre()?;
 
     loop {
-        tokio::select! {
-            serial_motor_states = serial_motor_states_sub.recv_with_metadata() => {
-                let serial_motor_states = serial_motor_states.into_eyre()?;
+        let serial_motor_states = serial_motor_states_sub
+            .recv_with_metadata()
+            .await
+            .into_eyre()?;
 
-                let measured_positions = serial_motor_states.positions();
-                let robot_kinematics = compute_robot_kinematics(&measured_positions);
+        let measured_positions = serial_motor_states.positions();
+        let robot_kinematics = compute_robot_kinematics(&measured_positions);
 
-                robot_kinematics_pub.publish(&robot_kinematics).await.into_eyre()?;
-            }
-        }
+        robot_kinematics_pub
+            .publish(&robot_kinematics)
+            .await
+            .into_eyre()?;
     }
 }
 
