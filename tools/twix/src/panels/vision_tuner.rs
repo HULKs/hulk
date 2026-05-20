@@ -61,7 +61,7 @@ impl VisionTunerPanel {
         let slider = ui.add(Slider::new(&mut start, range.clone()));
         if slider.changed() {
             self.robot.write(
-                format!("parameters.field_color_detection.{parameter}.start"),
+                format!("parameters.image_segmenter.field_color_detection.{parameter}.start"),
                 TextOrBinary::Text(to_value(start).unwrap()),
             );
         }
@@ -69,7 +69,7 @@ impl VisionTunerPanel {
         let slider = ui.add(Slider::new(&mut end, range));
         if slider.changed() {
             self.robot.write(
-                format!("parameters.field_color_detection.{parameter}.end"),
+                format!("parameters.image_segmenter.field_color_detection.{parameter}.end"),
                 TextOrBinary::Text(to_value(end).unwrap()),
             );
         }
@@ -85,7 +85,7 @@ impl VisionTunerPanel {
         let value = to_value(parameters).unwrap();
 
         self.robot
-            .store_parameters("field_color_detection", value, scope)?;
+            .store_parameters("image_segmenter.field_color_detection", value, scope)?;
 
         Ok(())
     }
@@ -137,7 +137,7 @@ impl<'a> Panel<'a> for VisionTunerPanel {
             .subscribe_value("parameters.image_segmenter.vision.vertical_edge_threshold");
         let field_color_detection = context
             .robot
-            .subscribe_value("parameters.field_color_detection");
+            .subscribe_value("parameters.image_segmenter.field_color_detection");
 
         Self {
             robot: context.robot,

@@ -6,10 +6,10 @@ use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::{Camera, Field, Ground, NormalizedPixel, Pixel, Robot};
-use linear_algebra::{Point2, Vector2, Vector3};
+use linear_algebra::{Framed, Point2, Vector2, Vector3};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
-use crate::{motion_command::MotionCommand, players::Players, step::Step};
+use crate::{field_color::FieldColorParameters, motion_command::MotionCommand, players::Players, step::Step};
 
 #[derive(
     Clone,
@@ -805,4 +805,26 @@ pub struct SubstatesParameters {
     pub alignment_angle_threshold: f32,
     pub blocking_distance_offset: f32,
     pub corner_kick_blocking_angle: f32,
+}
+
+#[derive(
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    Message,
+)]
+pub struct ImageSegmenterParameters {
+    pub horizontal_edge_threshold: u8,
+    pub horizontal_median_mode: MedianModeParameters,
+    pub horizontal_stride: usize,
+    pub vertical_edge_threshold: u8,
+    pub vertical_median_mode: MedianModeParameters,
+    pub vertical_stride: usize,
+    pub vertical_stride_in_ground: Framed<Ground, f32>,
+    pub field_color_detection: FieldColorParameters,
 }

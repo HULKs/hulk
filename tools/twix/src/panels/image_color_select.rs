@@ -57,7 +57,7 @@ impl<'a> Panel<'a> for ImageColorSelectPanel {
 
         let field_color = context
             .robot
-            .subscribe_value("parameters.field_color_detection");
+            .subscribe_value("parameters.image_segmenter.field_color_detection");
 
         let x_axis = context
             .value
