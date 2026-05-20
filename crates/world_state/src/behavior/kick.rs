@@ -14,7 +14,7 @@ use crate::{
         behavior_tree::Node,
         node::Blackboard,
         switch_motion_type::{is_last_motion_type, switch_motion_type},
-        walk::walk_instead_of_kicking,
+        walk::walk_to_ball,
     },
     condition, negation, selection, sequence, subtree,
 };
@@ -35,7 +35,7 @@ pub fn kick_alternatives_subtree() -> Node<Blackboard> {
     selection!(
         sequence!(
             condition!(is_last_motion_type, MotionType::Walk),
-            action!(walk_instead_of_kicking)
+            action!(walk_to_ball)
         ),
         action!(stand)
     )

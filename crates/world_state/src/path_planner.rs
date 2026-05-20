@@ -15,7 +15,7 @@ use types::{
     field_dimensions::FieldDimensions,
     motion_command::MotionCommand,
     obstacles::Obstacle,
-    path::{Path, PathSegment},
+    path::{Path, PathSegment, traits::EndPoints},
     path_obstacles::{PathObstacle, PathObstacleShape},
     rule_obstacles::RuleObstacle,
 };
@@ -48,6 +48,7 @@ pub struct PathPlanner {
     pub obstacles: Vec<PathObstacle>,
     pub last_path_direction: Option<Orientation2<Ground>>,
     pub rotation_penalty_factor: f32,
+    pub obstacle_escape_spline_segments: u32,
 }
 
 impl PathPlanner {
@@ -264,6 +265,8 @@ impl PathPlanner {
         mut start: Point2<Ground>,
         mut destination: Point2<Ground>,
     ) -> Result<Option<Path>> {
+        let original_start = start;
+
         let closest_circle = self
             .obstacles
             .iter()
@@ -354,7 +357,29 @@ impl PathPlanner {
                 }
             })
             .collect::<Result<Vec<_>>>()
-            .map(|segments| Path { segments })
+            .map(|mut segments| {
+                let n = self.obstacle_escape_spline_segments as usize;
+                if n > 0
+                    && (start - original_start).norm() > f32::EPSILON
+                    && let Some(first_segment) = segments.first()
+                {
+                    let segment_end = first_segment.end_point();
+                    let spline: Vec<PathSegment> = (0..n)
+                        .map(|i| {
+                            let t0 = i as f32 / n as f32;
+                            let t1 = (i + 1) as f32 / n as f32;
+                            PathSegment::LineSegment(LineSegment(
+                                quadratic_bezier(original_start, start, segment_end, t0),
+                                quadratic_bezier(original_start, start, segment_end, t1),
+                            ))
+                        })
+                        .collect();
+
+                    segments.splice(0..1, spline);
+                }
+
+                Path { segments }
+            })
             .map(Some)
     }
 
@@ -540,6 +565,17 @@ impl DynamicMap for PathPlanner {
 
         vector
     }
+}
+
+fn quadratic_bezier(
+    p0: Point2<Ground>,
+    p1: Point2<Ground>,
+    p2: Point2<Ground>,
+    t: f32,
+) -> Point2<Ground> {
+    let q0 = p0 + (p1 - p0) * t;
+    let q1 = p1 + (p2 - p1) * t;
+    q0 + (q1 - q0) * t
 }
 
 #[cfg(test)]
