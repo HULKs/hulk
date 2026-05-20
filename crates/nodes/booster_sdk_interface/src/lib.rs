@@ -107,7 +107,15 @@ pub struct GetRobotMode;
 
 impl ServiceTypeInfo for GetRobotMode {
     fn service_type_info() -> std::prelude::v1::Result<ros_z::prelude::TypeInfo, SchemaError> {
-        Ok(TypeInfo::new("hardware_interface::GetRobotMode", None))
+        let descriptor = ros_z::__private::ros_z_schema::ServiceDef::new(
+            "hardware_interface::GetRobotMode",
+            "hardware_interface::GetRobotModeRequest",
+            "hardware_interface::GetRobotModeResponse",
+        )?;
+        Ok(TypeInfo::new(
+            "hardware_interface::GetRobotMode",
+            ros_z::__private::ros_z_schema::compute_hash(&descriptor),
+        ))
     }
 }
 

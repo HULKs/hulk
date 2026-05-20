@@ -9,7 +9,7 @@ use std::{
     time::{Duration, Instant},
 };
 
-use ros_z::__private::ros_z_schema::SchemaError;
+use ros_z::__private::ros_z_schema::{self, SchemaError};
 use ros_z::{
     Message, ServiceTypeInfo,
     context::{Context, ContextBuilder},
@@ -74,7 +74,15 @@ struct AddTwoInts;
 
 impl ServiceTypeInfo for AddTwoInts {
     fn service_type_info() -> Result<TypeInfo, SchemaError> {
-        Ok(TypeInfo::new("test_cli::AddTwoInts", None))
+        let descriptor = ros_z_schema::ServiceDef::new(
+            "test_cli::AddTwoInts",
+            "test_cli::AddRequest",
+            "test_cli::AddResponse",
+        )?;
+        Ok(TypeInfo::new(
+            "test_cli::AddTwoInts",
+            ros_z_schema::compute_hash(&descriptor),
+        ))
     }
 }
 

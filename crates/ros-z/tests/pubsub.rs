@@ -10,42 +10,14 @@ use ros_z::{
     schema::{MessageSchema, SchemaBuilder},
     time::{Clock, Time},
 };
-use ros_z_schema::{PrimitiveTypeDef, SchemaError, SequenceLengthDef, TypeDef, TypeName};
 use ros_z_schema::{SchemaBundle, StructDef, TypeDefinition, TypeDefinitions};
+use ros_z_schema::{SchemaError, TypeDef, TypeName};
 use serde::{Deserialize, Serialize};
 use serde_json::json;
-#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq, Message)]
 struct TestMessage {
     data: Vec<u8>,
     counter: u64,
-}
-
-impl Message for TestMessage {
-    type Codec = SerdeCdrCodec<Self>;
-
-    fn type_name() -> String {
-        "test_msgs::TestMessage".to_string()
-    }
-
-    fn schema_hash() -> Result<SchemaHash, SchemaError> {
-        Ok(SchemaHash::zero())
-    }
-}
-
-impl MessageSchema for TestMessage {
-    fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
-        builder.define_message_struct::<Self>(|fields| {
-            fields.field_with_shape(
-                "data",
-                TypeDef::Sequence {
-                    element: Box::new(TypeDef::Primitive(PrimitiveTypeDef::U8)),
-                    length: SequenceLengthDef::Dynamic,
-                },
-            );
-            fields.field_with_shape("counter", TypeDef::Primitive(PrimitiveTypeDef::U64));
-            Ok(())
-        })
-    }
 }
 
 fn topic_key_expr_for<T: Message>(node: &ros_z::node::Node, topic: &str) -> String {
@@ -58,13 +30,10 @@ fn topic_key_expr_for<T: Message>(node: &ros_z::node::Node, topic: &str) -> Stri
 
     let entity = EndpointEntity {
         id: 0,
-        node: Some(node.node_entity().clone()),
+        node: node.node_entity().clone(),
         kind: EndpointKind::Publisher,
         topic: qualified_topic,
-        type_info: Some(TypeInfo::with_hash(
-            &T::type_name(),
-            ros_z_schema::compute_hash(&T::schema().expect("schema should build")),
-        )),
+        type_info: T::type_info().expect("type info should be available"),
         qos: Default::default(),
     };
 
@@ -90,10 +59,7 @@ impl Message for CacheSchemaHashMessage {
     }
 
     fn type_info() -> Result<TypeInfo, SchemaError> {
-        Ok(TypeInfo::with_hash(
-            &Self::type_name(),
-            Self::schema_hash()?,
-        ))
+        Ok(TypeInfo::new(Self::type_name(), Self::schema_hash()?))
     }
 }
 
@@ -123,7 +89,7 @@ impl Message for AdvertisedTypeInfoSchemaMessage {
     }
 
     fn type_info() -> Result<TypeInfo, SchemaError> {
-        Ok(TypeInfo::with_hash(
+        Ok(TypeInfo::new(
             "test_msgs::AdvertisedTypeInfoSchemaMessageAlias",
             Self::schema_hash()?,
         ))
@@ -173,7 +139,7 @@ impl Message for InvalidSchemaManualTypeInfoMessage {
     }
 
     fn type_info() -> Result<TypeInfo, SchemaError> {
-        Ok(TypeInfo::new(&Self::type_name(), None))
+        Ok(TypeInfo::new(Self::type_name(), SchemaHash::zero()))
     }
 }
 
@@ -422,13 +388,14 @@ async fn dynamic_publisher_factory_rejects_schema_root_that_differs_from_type_in
         .build()
         .await
         .expect("Failed to create node");
-    let type_info = TypeInfo::new("test_msgs::AdvertisedDynamicRoot", None);
+    let schema = mismatched_dynamic_schema();
+    let type_info = TypeInfo::new(
+        "test_msgs::AdvertisedDynamicRoot",
+        ros_z_schema::compute_hash(schema.as_ref()),
+    );
 
-    let Err(error) = node.dynamic_publisher(
-        "/mismatched_dynamic_schema_root",
-        type_info,
-        mismatched_dynamic_schema(),
-    ) else {
+    let Err(error) = node.dynamic_publisher("/mismatched_dynamic_schema_root", type_info, schema)
+    else {
         panic!("mismatched schema root should fail dynamic publisher factory");
     };
     let message = error.to_string();
@@ -605,10 +572,10 @@ async fn create_cache_uses_schema_hash_method_when_type_info_is_available() {
             _ => None,
         })
         .expect("cache subscriber should be discoverable");
-    let advertised = endpoint.type_info.expect("cache subscriber type info");
+    let advertised = endpoint.type_info;
 
     assert_eq!(advertised.name, CacheSchemaHashMessage::type_name());
-    assert_eq!(advertised.hash, Some(expected_hash));
+    assert_eq!(advertised.hash, expected_hash);
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
@@ -631,7 +598,7 @@ async fn publisher_schema_service_uses_schema_derived_key_when_type_info_diverge
         .expect("publisher should build");
 
     let advertised = AdvertisedTypeInfoSchemaMessage::type_info().unwrap();
-    let advertised_hash = advertised.hash.expect("type info should include a hash");
+    let advertised_hash = advertised.hash;
     let canonical_schema = AdvertisedTypeInfoSchemaMessage::schema().unwrap();
     let canonical_hash = ros_z_schema::compute_hash(&canonical_schema);
 
@@ -704,13 +671,13 @@ async fn typed_pubsub_advertises_canonical_schema_hash_when_schema_hash_override
                 _ => None,
             })
             .expect("endpoint should be discoverable");
-        let advertised = endpoint.type_info.expect("endpoint type info");
+        let advertised = endpoint.type_info;
 
         assert_eq!(
             advertised.name,
             AdvertisedTypeInfoSchemaMessage::type_name()
         );
-        assert_eq!(advertised.hash, Some(canonical_hash));
+        assert_eq!(advertised.hash, canonical_hash);
     }
 }
 
@@ -739,11 +706,7 @@ async fn dynamic_publisher_advertises_explicit_schema_hash() {
     let schema_hash = ros_z_schema::compute_hash(root_schema.as_ref());
 
     let _publisher = node
-        .dynamic_publisher(
-            topic,
-            TypeInfo::with_hash(&root_name, schema_hash),
-            root_schema,
-        )
+        .dynamic_publisher(topic, TypeInfo::new(&root_name, schema_hash), root_schema)
         .expect("dynamic publisher factory should succeed")
         .build()
         .await
@@ -760,7 +723,7 @@ async fn dynamic_publisher_advertises_explicit_schema_hash() {
             _ => None,
         })
         .expect("dynamic publisher should be discoverable");
-    let advertised = endpoint.type_info.expect("publisher type info");
+    let advertised = endpoint.type_info;
     let registered = node
         .schema_service()
         .expect("schema service")
@@ -769,62 +732,7 @@ async fn dynamic_publisher_advertises_explicit_schema_hash() {
         .expect("schema should be registered under root hash");
 
     assert_eq!(advertised.name, root_name);
-    assert_eq!(advertised.hash, Some(schema_hash));
-    assert_eq!(registered.schema_hash, schema_hash);
-}
-
-#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-async fn dynamic_publisher_fills_missing_schema_hash_from_schema() {
-    let context = ContextBuilder::default()
-        .build()
-        .await
-        .expect("Failed to create context");
-    let node = context
-        .create_node("dynamic_inferred_schema_hash")
-        .build()
-        .await
-        .expect("Failed to create node");
-    let topic = "/dynamic_inferred_schema_hash";
-    let root_name = "test_msgs::DynamicInferredHash".to_string();
-    let root_type_name = TypeName::new(&root_name).unwrap();
-    let mut builder = SchemaBuilder::new();
-    let root = builder
-        .define_struct(root_type_name, |fields| {
-            fields.field::<String>("data")?;
-            Ok(())
-        })
-        .unwrap();
-    let root_schema = std::sync::Arc::new(builder.finish(root).unwrap());
-    let schema_hash = ros_z_schema::compute_hash(root_schema.as_ref());
-
-    let _publisher = node
-        .dynamic_publisher(topic, TypeInfo::new(&root_name, None), root_schema)
-        .expect("dynamic publisher factory should succeed")
-        .build()
-        .await
-        .expect("publisher should build");
-
-    tokio::time::sleep(Duration::from_millis(100)).await;
-
-    let endpoint = node
-        .graph()
-        .get_entities_by_topic(EntityKind::Publisher, topic)
-        .into_iter()
-        .find_map(|entity| match &*entity {
-            Entity::Endpoint(endpoint) => Some(endpoint.clone()),
-            _ => None,
-        })
-        .expect("dynamic publisher should be discoverable");
-    let advertised = endpoint.type_info.expect("publisher type info");
-    let registered = node
-        .schema_service()
-        .expect("schema service")
-        .get_schema(&root_name, &schema_hash)
-        .expect("schema lookup should succeed")
-        .expect("schema should be registered under inferred hash");
-
-    assert_eq!(advertised.name, root_name);
-    assert_eq!(advertised.hash, Some(schema_hash));
+    assert_eq!(advertised.hash, schema_hash);
     assert_eq!(registered.schema_hash, schema_hash);
 }
 
