@@ -68,6 +68,14 @@ impl NodeEntity {
             namespace,
         }
     }
+
+    pub fn fully_qualified_name(&self) -> String {
+        if self.namespace == "/" {
+            format!("/{}", self.name)
+        } else {
+            format!("{}/{}", self.namespace, self.name)
+        }
+    }
 }
 
 /// ros-z entity kind (node, publisher, subscription, service, client).
@@ -166,23 +174,19 @@ impl TryFrom<EntityKind> for EndpointKind {
     }
 }
 
-/// Type information (name + hash).
+/// Type information (name + schema hash).
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub struct TypeInfo {
     pub name: String,
-    pub hash: Option<SchemaHash>,
+    pub hash: SchemaHash,
 }
 
 impl TypeInfo {
-    pub fn new(name: &str, hash: Option<SchemaHash>) -> Self {
+    pub fn new(name: impl Into<String>, hash: SchemaHash) -> Self {
         TypeInfo {
-            name: name.to_string(),
+            name: name.into(),
             hash,
         }
-    }
-
-    pub fn with_hash(name: &str, hash: SchemaHash) -> Self {
-        Self::new(name, Some(hash))
     }
 }
 
@@ -190,10 +194,10 @@ impl TypeInfo {
 #[derive(Debug, Hash, PartialEq, Eq, Clone)]
 pub struct EndpointEntity {
     pub id: usize,
-    pub node: Option<NodeEntity>,
+    pub node: NodeEntity,
     pub kind: EndpointKind,
     pub topic: String,
-    pub type_info: Option<TypeInfo>,
+    pub type_info: TypeInfo,
     pub qos: QosProfile,
 }
 
@@ -235,3 +239,32 @@ impl Display for EntityConversionError {
 }
 
 impl std::error::Error for EntityConversionError {}
+
+#[cfg(test)]
+mod tests {
+    use super::NodeEntity;
+
+    fn node(namespace: &str) -> NodeEntity {
+        NodeEntity::new(
+            Default::default(),
+            1,
+            "node".to_string(),
+            namespace.to_string(),
+        )
+    }
+
+    #[test]
+    fn fully_qualified_name_formats_root_namespace() {
+        assert_eq!(node("/").fully_qualified_name(), "/node");
+    }
+
+    #[test]
+    fn fully_qualified_name_formats_empty_namespace_as_root() {
+        assert_eq!(node("").fully_qualified_name(), "/node");
+    }
+
+    #[test]
+    fn fully_qualified_name_inserts_separator_after_non_root_namespace() {
+        assert_eq!(node("/robot").fully_qualified_name(), "/robot/node");
+    }
+}
