@@ -8,7 +8,7 @@ use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput};
 use hardware::NetworkInterface;
 use hsl_network_messages::HulkMessage;
-use linear_algebra::{Point2, Vector2};
+use linear_algebra::{Point2, Pose2, Vector2};
 use serde::{Deserialize, Serialize};
 use types::{
     behavior_tree::NodeTrace,
@@ -19,6 +19,7 @@ use types::{
     path_obstacles::PathObstacle,
     world_state::WorldState,
 };
+use voronoi::VoronoiGrid;
 
 use crate::behavior::{
     behavior_tree::Node, motion_assembler::assemble_motion_command, tree::create_tree,
@@ -65,6 +66,7 @@ pub struct Blackboard {
     pub path_obstacles_output: Vec<PathObstacle>,
     pub time_since_last_switch: Duration,
     pub direction_difference: f32,
+    pub voronoi_inputs: Vec<Pose2<Field>>,
 
     pub ball: Option<LastBall>,
     pub last_ball: Option<LastBall>,
@@ -77,6 +79,7 @@ pub struct Blackboard {
     pub walk_position: Option<Point2<Ground>>,
     pub body_motion: Option<BodyMotion>,
     pub head_motion: Option<HeadMotion>,
+    pub voronoi_map: Option<VoronoiGrid>,
 }
 
 #[context]
@@ -101,6 +104,8 @@ pub struct CycleContext {
     time_since_last_switch: AdditionalOutput<Duration, "behavior.time_since_last_switch">,
     direction_difference: AdditionalOutput<f32, "behavior.direction_difference">,
     walk_position: AdditionalOutput<Option<Point2<Ground>>, "behavior.walk_position">,
+    voronoi_map: AdditionalOutput<Option<VoronoiGrid>, "behavior.voronoi_map">,
+    voronoi_inputs: AdditionalOutput<Vec<Pose2<Field>>, "behavior.voronoi_inputs">,
 
     last_motion_command: CyclerState<MotionCommand, "last_motion_command">,
 
@@ -167,6 +172,7 @@ impl Behavior {
             path_obstacles_output: Vec::new(),
             time_since_last_switch: Duration::ZERO,
             direction_difference: 0.0,
+            voronoi_inputs: Vec::new(),
 
             ball: self.ball.clone(),
             last_ball: self.last_ball.clone(),
@@ -179,6 +185,7 @@ impl Behavior {
             walk_position: None,
             body_motion: None,
             head_motion: None,
+            voronoi_map: None,
         };
         let (status, trace) = self.tree.tick_with_trace(&mut blackboard);
 
@@ -230,6 +237,12 @@ impl Behavior {
         context
             .walk_position
             .fill_if_subscribed(|| blackboard.walk_position);
+        context
+            .voronoi_map
+            .fill_if_subscribed(|| blackboard.voronoi_map);
+        context
+            .voronoi_inputs
+            .fill_if_subscribed(|| blackboard.voronoi_inputs);
 
         Ok(MainOutputs {
             motion_command: motion_command.into(),

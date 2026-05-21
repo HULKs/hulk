@@ -15,7 +15,8 @@ use crate::{
         search::{has_suggested_search_position, leuchtturm, walk_to_search_position},
         substates::{is_in_sub_state, sub_state_subtree},
         switch_motion_type::switch_motion_type,
-        walk::{walk_alternatives_subtree, walk_to_ball_subtree},
+        voronoi::calculate_voronoi_grid,
+        walk::{walk_alternatives_subtree, walk_to_ball_subtree, walk_to_centroid},
     },
     condition, negation, selection, sequence, subtree,
 };
@@ -121,5 +122,11 @@ fn striker_subtree() -> Node<Blackboard> {
 }
 
 fn supporter_subtree() -> Node<Blackboard> {
-    sequence!(subtree!(look_at_ball_subtree), action!(stand))
+    sequence!(
+        subtree!(look_at_ball_subtree),
+        selection!(
+            sequence!(action!(calculate_voronoi_grid), action!(walk_to_centroid)),
+            action!(stand)
+        )
+    )
 }

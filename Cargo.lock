@@ -5189,6 +5189,7 @@ dependencies = [
  "tokio-util",
  "types",
  "vision",
+ "voronoi",
  "walking_inference",
  "world_state",
  "x5_receiver",
@@ -5239,6 +5240,7 @@ dependencies = [
  "tokio",
  "types",
  "vision",
+ "voronoi",
  "walking_inference",
  "world_state",
  "zed",
@@ -5307,6 +5309,7 @@ dependencies = [
  "tokio-util",
  "types",
  "vision",
+ "voronoi",
  "walking_inference",
  "world_state",
 ]
@@ -5362,6 +5365,7 @@ dependencies = [
  "tokio-util",
  "types",
  "vision",
+ "voronoi",
  "walking_inference",
  "world_state",
 ]
@@ -7837,6 +7841,7 @@ dependencies = [
  "serde_json",
  "source_analyzer",
  "types",
+ "voronoi",
  "walking_inference",
 ]
 
@@ -11545,6 +11550,7 @@ dependencies = [
  "egui_plot",
  "geometry",
  "gilrs",
+ "hsl_network_messages",
  "hula_types",
  "hulk_widgets",
  "image",
@@ -11566,6 +11572,7 @@ dependencies = [
  "toml 0.8.23",
  "tracing-subscriber",
  "types",
+ "voronoi",
 ]
 
 [[package]]
@@ -11959,6 +11966,20 @@ dependencies = [
  "hulk_widgets",
  "repository",
  "source_analyzer",
+]
+
+[[package]]
+name = "voronoi"
+version = "0.1.0"
+dependencies = [
+ "coordinate_systems",
+ "hsl_network_messages",
+ "linear_algebra",
+ "ordered-float 4.6.0",
+ "path_serde",
+ "ros-z",
+ "serde",
+ "types",
 ]
 
 [[package]]
@@ -13451,6 +13472,7 @@ dependencies = [
  "serde",
  "smallvec 1.15.1",
  "types",
+ "voronoi",
 ]
 
 [[package]]
