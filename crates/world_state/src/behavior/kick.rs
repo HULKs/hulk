@@ -231,11 +231,3 @@ pub fn set_kick_target_in_front(blackboard: &mut Blackboard) -> Status {
     }
     Status::Failure
 }
-
-pub fn kick_forward_subtree() -> Node<Blackboard> {
-    sequence!(
-        action!(kick),
-        action!(set_kick_target_in_front),
-        subtree!(kick_power_subtree),
-    )
-}

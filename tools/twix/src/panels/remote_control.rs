@@ -40,6 +40,8 @@ impl<'a> Panel<'a> for RemotePanel {
         let gait_parameter_value = robot.subscribe_json("parameters.rl_walking.gait_frequency");
         let remote_stop_toggle: BufferHandle<bool> =
             robot.subscribe_value("parameters.remote_stop_toggle");
+        let kick_mode_toggle: BufferHandle<bool> =
+            robot.subscribe_value("parameters.remote_control.kick_mode_toggle");
         let bg_running = Arc::new(AtomicBool::new(true));
 
         let robot_clone = robot.clone();
@@ -161,6 +163,22 @@ impl<'a> Panel<'a> for RemotePanel {
                             Ok(None) => {}
                             Err(error) => {
                                 error!("failed to read remote_stop_toggle: {error:#?}")
+                            }
+                        }
+                    }
+
+                    if is_pressed(Button::South) {
+                        match kick_mode_toggle.get_last_value() {
+                            Ok(Some(value)) => {
+                                let new_kick_mode_toggle = !value;
+                                robot_clone.write(
+                                    "parameters.remote_control.kick_mode_toggle",
+                                    TextOrBinary::Text(new_kick_mode_toggle.into()),
+                                );
+                            }
+                            Ok(None) => {}
+                            Err(error) => {
+                                error!("failed to read kick_mode_toggle: {error:#?}")
                             }
                         }
                     }
