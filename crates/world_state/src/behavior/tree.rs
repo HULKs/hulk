@@ -77,7 +77,6 @@ fn playing_subtree() -> Node<Blackboard> {
             subtree!(search_subtree)
         ),
         sequence!(condition!(is_closest_to_ball), subtree!(striker_subtree)),
-        sequence!(action!(calculate_voronoi_grid), action!(walk_to_centroid)),
         subtree!(supporter_subtree),
     )
 }
@@ -123,5 +122,11 @@ fn striker_subtree() -> Node<Blackboard> {
 }
 
 fn supporter_subtree() -> Node<Blackboard> {
-    sequence!(subtree!(look_at_ball_subtree), action!(stand))
+    sequence!(
+        subtree!(look_at_ball_subtree),
+        selection!(
+            sequence!(action!(calculate_voronoi_grid), action!(walk_to_centroid)),
+            action!(stand)
+        )
+    )
 }
