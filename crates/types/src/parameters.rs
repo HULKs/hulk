@@ -828,3 +828,55 @@ pub struct ImageSegmenterParameters {
     pub vertical_stride_in_ground: Framed<Ground, f32>,
     pub field_color_detection: FieldColorParameters,
 }
+
+#[derive(
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    Message,
+)]
+pub struct FieldBorderDetectionParameters {
+    pub enable: bool,
+    pub angle_threshold: f32,
+    pub first_line_association_distance: f32,
+    pub min_points_per_line: usize,
+    pub second_line_association_distance: f32,
+}
+
+#[derive(
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    Message,
+)]
+pub struct LineDetectionParameters {
+    pub use_horizontal_segments: bool,
+    pub use_vertical_segments: bool,
+    pub allowed_line_length_in_field: Range<f32>,
+    pub check_edge_types: bool,
+    pub check_edge_gradient: bool,
+    pub check_line_distance: bool,
+    pub check_line_length: bool,
+    pub check_line_segments_projection: bool,
+    pub gradient_alignment: f32,
+    pub gradient_sobel_stride: u32,
+    pub margin_for_point_inclusion: f32,
+    pub maximum_distance_to_robot: f32,
+    pub maximum_fit_distance_in_ground: f32,
+    pub maximum_gap_on_line: f32,
+    pub maximum_merge_gap_in_pixels: u16,
+    pub maximum_number_of_lines: usize,
+    pub allowed_projected_segment_length: Range<f32>,
+    pub minimum_number_of_points_on_line: usize,
+    pub ransac_iterations: usize,
+}

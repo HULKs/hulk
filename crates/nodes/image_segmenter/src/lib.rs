@@ -5,12 +5,11 @@ use std::{
 
 use color_eyre::Result;
 use itertools::iproduct;
-use serde::{Deserialize, Serialize};
 
 use coordinate_systems::{Ground, Pixel};
 use linear_algebra::{Framed, Point2, Vector2, point, vector};
 use projection::{Projection, camera_matrix::CameraMatrix, horizon::Horizon};
-use ros_z::{prelude::*};
+use ros_z::prelude::*;
 use types::{
     color::{Hsv, Intensity, RgChromaticity, Rgb, YCbCr444},
     field_color::FieldColorParameters,
@@ -19,24 +18,10 @@ use types::{
     ycbcr422_image::YCbCr422Image,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize, Message)]
-#[serde(deny_unknown_fields)]
-pub struct Parameters {
-    pub horizontal_stride: usize,
-    pub vertical_stride_in_ground: Framed<Ground, f32>,
-    pub horizontal_edge_threshold: u8,
-    pub horizontal_median_mode: MedianModeParameters,
-    pub vertical_stride: usize,
-    pub vertical_edge_threshold: u8,
-    pub vertical_median_mode: MedianModeParameters,
-    pub field_color: FieldColorParameters,
-}
-
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("image_segmenter").build().await?;
 
-    let parameters = node
-        .bind_parameter_as::<ImageSegmenterParameters>("image_segmenter")?;
+    let parameters = node.bind_parameter_as::<ImageSegmenterParameters>("image_segmenter")?;
     let image_sub = node
         .subscriber::<YCbCr422Image>("inputs/ycbcr422_image")?
         .build()
