@@ -180,7 +180,7 @@ impl Behavior {
             ball: self.ball.clone(),
             last_ball: self.last_ball.clone(),
             last_close_enough_to_kick: self.last_close_enough_to_kick,
-            last_kick_target: self.last_kick_target.clone(),
+            last_kick_target: self.last_kick_target,
             last_motion_command: context.last_motion_command.clone(),
             last_motion_switch_time: self.last_motion_switch_time,
             last_motion_type: self.last_motion_type,
@@ -194,7 +194,7 @@ impl Behavior {
         let (status, trace) = self.tree.tick_with_trace(&mut blackboard);
 
         let motion_command: MotionCommand = assemble_motion_command(&blackboard, status)?;
-        self.last_kick_target = blackboard.last_kick_target.clone();
+        self.last_kick_target = blackboard.last_kick_target;
 
         self.last_close_enough_to_kick = blackboard.last_close_enough_to_kick;
         *context.last_motion_command = motion_command.clone();
