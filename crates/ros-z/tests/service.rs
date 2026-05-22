@@ -52,15 +52,6 @@ fn assert_service_timeout(error: &ros_z::Error, expected_service: &str) {
     }
 }
 
-fn assert_service_no_response(error: &ros_z::Error, expected_service: &str) {
-    match error {
-        ros_z::Error::ServiceCall(ros_z::error::ServiceCallError::NoResponse { service }) => {
-            assert_eq!(service, expected_service);
-        }
-        other => panic!("expected service no-response for {expected_service}, got {other:?}"),
-    }
-}
-
 #[tokio::test(flavor = "multi_thread")]
 async fn test_basic_service_request_response() {
     let context = ContextBuilder::default()
@@ -677,7 +668,7 @@ async fn test_blocking_call_with_timeout_reports_real_timeout_while_waiting_for_
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn test_blocking_call_with_timeout_reports_early_completion_without_reply() {
+async fn test_blocking_call_with_timeout_reports_timeout_without_reply() {
     let context = ContextBuilder::default()
         .disable_multicast_scouting()
         .with_json("connect/endpoints", json!([]))
@@ -716,18 +707,20 @@ async fn test_blocking_call_with_timeout_reports_early_completion_without_reply(
     thread::sleep(Duration::from_millis(100));
 
     let error = tokio::task::spawn_blocking(move || {
-        client.call_with_timeout(&AddTwoIntsRequest { a: 1, b: 2 }, Duration::from_secs(1))
+        client.call_with_timeout(
+            &AddTwoIntsRequest { a: 1, b: 2 },
+            Duration::from_millis(200),
+        )
     })
     .await
     .expect("blocking client task panicked")
     .expect_err("Expected early completion without any reply sample");
 
-    assert_service_no_response(&error, "/blocking_early_completion");
-    assert!(error.to_string().contains("ended before any response"));
+    assert_service_timeout(&error, "/blocking_early_completion");
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
-async fn async_call_with_timeout_reports_early_completion_without_reply() {
+async fn async_call_with_timeout_reports_timeout_without_reply() {
     let context = ContextBuilder::default()
         .disable_multicast_scouting()
         .with_json("connect/endpoints", json!([]))
@@ -762,11 +755,12 @@ async fn async_call_with_timeout_reports_early_completion_without_reply() {
     tokio::time::sleep(Duration::from_millis(100)).await;
 
     let error = client
-        .call_with_timeout_async(&AddTwoIntsRequest { a: 1, b: 2 }, Duration::from_secs(1))
+        .call_with_timeout_async(
+            &AddTwoIntsRequest { a: 1, b: 2 },
+            Duration::from_millis(200),
+        )
         .await
         .expect_err("Expected early completion without any reply sample");
 
-    assert_service_no_response(&error, "/async_early_completion");
-    assert!(error.to_string().contains("ended before any response"));
-    assert!(!error.to_string().contains("timed out"));
+    assert_service_timeout(&error, "/async_early_completion");
 }

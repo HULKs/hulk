@@ -23,12 +23,6 @@ use crate::{
     time::Clock,
 };
 
-fn zenoh_query_timeout_after(user_timeout: Duration) -> Duration {
-    user_timeout
-        .checked_add(Duration::from_secs(1))
-        .unwrap_or(user_timeout)
-}
-
 #[derive(Debug)]
 pub struct ServiceClientBuilder<T> {
     pub(crate) entity: EndpointEntity,
@@ -60,7 +54,6 @@ pub struct ServiceClient<T: Service> {
     sequence_number: AtomicUsize,
     /// Stable ros-z endpoint global ID derived from the node Zenoh id and endpoint-local id.
     endpoint_global_id: EndpointGlobalId,
-    session: Session,
     inner: zenoh::query::Querier<'static>,
     _lv_token: LivelinessToken,
     topic: String,
@@ -121,7 +114,6 @@ where
 
         Ok(ServiceClient {
             sequence_number: AtomicUsize::new(1), // Start at 1; zero is reserved for missing sequence values.
-            session: self.session.clone(),
             inner,
             _lv_token: lv_token,
             endpoint_global_id: endpoint_global_id(&self.entity),
@@ -144,22 +136,6 @@ where
         .into()
     }
 
-    async fn has_matching_queryable(&self) -> Result<bool> {
-        self.inner
-            .matching_status()
-            .await
-            .map(|status| status.matching())
-            .map_err(|source| crate::Error::zenoh("check service matching status", source))
-    }
-
-    fn has_matching_queryable_blocking(&self) -> Result<bool> {
-        self.inner
-            .matching_status()
-            .wait()
-            .map(|status| status.matching())
-            .map_err(|source| crate::Error::zenoh("check service matching status", source))
-    }
-
     fn new_attachment(&self) -> Attachment {
         Attachment::with_clock(
             self.sequence_number.fetch_add(1, Ordering::AcqRel) as _,
@@ -173,7 +149,6 @@ where
         payload: impl Into<bytes::ZBytes>,
         timeout: Option<Duration>,
     ) -> Result<Sample> {
-        let started_at = std::time::Instant::now();
         let attachment = self.new_attachment();
         let payload = payload.into();
         let (response_tx, response_rx) =
@@ -200,44 +175,18 @@ where
             };
         };
 
-        if let Some(timeout) = timeout {
-            self.session
-                .get(self.inner.key_expr().clone())
-                .target(zenoh::query::QueryTarget::AllComplete)
-                .consolidation(zenoh::query::ConsolidationMode::None)
-                .timeout(zenoh_query_timeout_after(timeout))
-                .payload(payload)
-                .attachment(attachment)
-                .callback(callback)
-                .wait()
-        } else {
-            self.inner
-                .get()
-                .payload(payload)
-                .attachment(attachment)
-                .callback(callback)
-                .wait()
-        }
-        .map_err(|source| crate::Error::zenoh("query service", source))?;
+        self.inner
+            .get()
+            .payload(payload)
+            .attachment(attachment)
+            .callback(callback)
+            .wait()
+            .map_err(|source| crate::Error::zenoh("query service", source))?;
 
         let reply = match timeout {
             Some(timeout) => match response_rx.recv_timeout(timeout) {
                 Ok(reply) => reply,
-                Err(std::sync::mpsc::RecvTimeoutError::Timeout) => {
-                    return Err(self.timeout_error(timeout));
-                }
-                Err(std::sync::mpsc::RecvTimeoutError::Disconnected) => {
-                    if self.has_matching_queryable_blocking()? {
-                        return Err(crate::error::ServiceCallError::NoResponse {
-                            service: self.topic.clone(),
-                        }
-                        .into());
-                    }
-                    if let Some(remaining) = timeout.checked_sub(started_at.elapsed()) {
-                        std::thread::sleep(remaining);
-                    }
-                    return Err(self.timeout_error(timeout));
-                }
+                Err(_) => return Err(self.timeout_error(timeout)),
             },
             None => response_rx.recv().map_err(|_| {
                 crate::Error::from(crate::error::ServiceCallError::NoResponse {
@@ -255,11 +204,7 @@ where
         })
     }
 
-    async fn call_sample_async(
-        &self,
-        payload: impl Into<bytes::ZBytes>,
-        zenoh_timeout: Option<Duration>,
-    ) -> Result<Sample> {
+    async fn call_sample_async(&self, payload: impl Into<bytes::ZBytes>) -> Result<Sample> {
         let attachment = self.new_attachment();
         let payload = payload.into();
         let (response_tx, response_rx) =
@@ -286,25 +231,13 @@ where
             };
         };
 
-        if let Some(zenoh_timeout) = zenoh_timeout {
-            self.session
-                .get(self.inner.key_expr().clone())
-                .target(zenoh::query::QueryTarget::AllComplete)
-                .consolidation(zenoh::query::ConsolidationMode::None)
-                .timeout(zenoh_timeout)
-                .payload(payload)
-                .attachment(attachment)
-                .callback(callback)
-                .await
-        } else {
-            self.inner
-                .get()
-                .payload(payload)
-                .attachment(attachment)
-                .callback(callback)
-                .await
-        }
-        .map_err(|source| crate::Error::zenoh("query service", source))?;
+        self.inner
+            .get()
+            .payload(payload)
+            .attachment(attachment)
+            .callback(callback)
+            .await
+            .map_err(|source| crate::Error::zenoh("query service", source))?;
 
         let reply = response_rx
             .await
@@ -356,7 +289,7 @@ where
     {
         let payload = <<T::Request as Message>::Codec as WireEncoder>::serialize(message)
             .map_err(|source| crate::Error::encode(<T::Request as Message>::type_name(), source))?;
-        let sample = self.call_sample_async(payload, None).await?;
+        let sample = self.call_sample_async(payload).await?;
         self.decode_response(sample)
     }
 
@@ -387,29 +320,15 @@ where
         for<'a> <T::Response as Message>::Codec:
             WireDecoder<Output = T::Response, Input<'a> = &'a [u8]>,
     {
-        let started_at = tokio::time::Instant::now();
         let payload = <<T::Request as Message>::Codec as WireEncoder>::serialize(message)
             .map_err(|source| crate::Error::encode(<T::Request as Message>::type_name(), source))?;
-        let sample_result = tokio::time::timeout(
-            timeout,
-            self.call_sample_async(payload, Some(zenoh_query_timeout_after(timeout))),
-        )
-        .await;
+        let sample_result = tokio::time::timeout(timeout, self.call_sample_async(payload)).await;
 
         let sample = match sample_result {
             Ok(Ok(sample)) => sample,
             Ok(Err(crate::Error::ServiceCall(crate::error::ServiceCallError::NoResponse {
-                service,
-            }))) => {
-                if self.has_matching_queryable().await? {
-                    return Err(crate::error::ServiceCallError::NoResponse { service }.into());
-                } else {
-                    if let Some(remaining) = timeout.checked_sub(started_at.elapsed()) {
-                        tokio::time::sleep(remaining).await;
-                    }
-                    return Err(self.timeout_error(timeout));
-                }
-            }
+                ..
+            }))) => return Err(self.timeout_error(timeout)),
             Ok(Err(error)) => return Err(error),
             Err(_) => return Err(self.timeout_error(timeout)),
         };
