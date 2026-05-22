@@ -45,9 +45,11 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await
         .into_eyre()?;
 
+    let mut parameters_receiver = parameters.subscribe();
     loop {
-        let parameters_snapshot = parameters.snapshot();
-        let parameters = parameters_snapshot.typed();
+        let _ = parameters_receiver.changed().await;
+        let parameters = parameters_receiver.borrow_and_update().clone();
+        let parameters = parameters.typed();
 
         player_number_pub
             .publish(&parameters.player_number)
