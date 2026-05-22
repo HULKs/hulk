@@ -5,7 +5,7 @@ use color_eyre::Result;
 use hsl_network_messages::{HulkMessage, PlayerNumber, StateMessage};
 use ros_z::{prelude::*, qos::QosDurability};
 use ros_z_streams::CreateAnnouncingPublisher;
-use types::messages::IncomingMessage;
+use types::messages::{IncomingMessage, StampedIncomingMessage};
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("message_filter").build().await?;
@@ -19,34 +19,29 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let message_sub = node
-        .subscriber::<IncomingMessage>("inputs/message")?
+        .subscriber::<StampedIncomingMessage>("inputs/message")?
         .build()
         .await?;
     let filtered_message_pub = node
-        .announcing_publisher::<IncomingMessage>("filtered_message")
+        .announcing_publisher::<StampedIncomingMessage>("filtered_message")
         .await?;
 
     let mut player_number = None;
 
     loop {
         tokio::select! {
-            message = message_sub.recv_with_metadata() => {
-                let received_message = message?;
-
+            received_stamped_message = message_sub.recv() => {
                 let Some(current_player_number) = player_number else {continue;};
-                let pending_accouncement = filtered_message_pub.announce(received_message.source_time).await?;
-                let message = match received_message.into_message(){
-                    IncomingMessage::GameController(source_address, message) => Some(
-                        IncomingMessage::GameController(source_address, message.clone()),
-                    ),
-                    IncomingMessage::Hsl(
-                        message @ HulkMessage::State(StateMessage { player_number, .. }),
-                    ) if player_number != current_player_number => Some(IncomingMessage::Hsl(message)),
-                    _ => None,
-                };
+                let stamped_message = received_stamped_message?;
 
-                if let Some(message) = message {
-                    pending_accouncement.publish(&message).await?;
+                let pending_accouncement = filtered_message_pub.announce(stamped_message.time).await?;
+
+                let should_filter_message_out = matches!(stamped_message.incoming_message, IncomingMessage::Hsl(
+                        message @ HulkMessage::State(StateMessage { player_number, .. }),
+                    ) if player_number == current_player_number);
+
+                if !should_filter_message_out {
+                    pending_accouncement.publish(&stamped_message).await?;
                 }
             }
             received_player_number = player_number_sub.recv() => {

@@ -5,12 +5,14 @@ use ros_z_streams::CreateFutureMapBuilder;
 use serde::{Deserialize, Serialize};
 
 use hsl_network_messages::GameControllerStateMessage;
-use ros_z::{prelude::*,
+use ros_z::{
+    prelude::*,
     time::{Clock, Time},
 };
 use types::{
-    field_dimensions::GlobalFieldSide, game_controller_state::GameControllerState,
-    messages::IncomingMessage,
+    field_dimensions::GlobalFieldSide,
+    game_controller_state::GameControllerState,
+    messages::{IncomingMessage, StampedIncomingMessage},
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
@@ -26,7 +28,10 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let parameters = node.bind_parameter_as::<Parameters>("game_controller_filter")?;
     let mut network_message_sub = node
         .create_future_map_builder()
-        .create_future_subscriber::<IncomingMessage>("filtered_message", Duration::from_millis(1))
+        .create_future_subscriber::<StampedIncomingMessage>(
+            "filtered_message",
+            Duration::from_millis(1),
+        )
         .await?
         .build();
     let last_contact_pub = node
@@ -55,9 +60,10 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 .persistent
                 .iter()
                 .filter_map(|(time, message)| match message {
-                    (Some(IncomingMessage::GameController(source_address, message)),) => {
-                        Some((time, source_address, message))
-                    }
+                    (Some(StampedIncomingMessage {
+                        incoming_message: IncomingMessage::GameController(source_address, message),
+                        ..
+                    }),) => Some((time, source_address, message)),
                     _ => None,
                 })
         {
