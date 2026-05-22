@@ -41,7 +41,7 @@ impl<'a> Panel<'a> for RemotePanel {
         let remote_stop_toggle: BufferHandle<bool> =
             robot.subscribe_value("parameters.remote_stop_toggle");
         let kick_mode_toggle: BufferHandle<bool> =
-            robot.subscribe_value("parameters.remote_control.kick_mode_toggle");
+            robot.subscribe_value("parameters.behavior.remote_control.kick_mode_toggle");
         let bg_running = Arc::new(AtomicBool::new(true));
 
         let robot_clone = robot.clone();
@@ -172,7 +172,7 @@ impl<'a> Panel<'a> for RemotePanel {
                             Ok(Some(value)) => {
                                 let new_kick_mode_toggle = !value;
                                 robot_clone.write(
-                                    "parameters.remote_control.kick_mode_toggle",
+                                    "parameters.behavior.remote_control.kick_mode_toggle",
                                     TextOrBinary::Text(new_kick_mode_toggle.into()),
                                 );
                             }

@@ -194,6 +194,7 @@ impl Behavior {
         let (status, trace) = self.tree.tick_with_trace(&mut blackboard);
 
         let motion_command: MotionCommand = assemble_motion_command(&blackboard, status)?;
+        self.last_kick_target = blackboard.last_kick_target.clone();
 
         self.last_close_enough_to_kick = blackboard.last_close_enough_to_kick;
         *context.last_motion_command = motion_command.clone();
