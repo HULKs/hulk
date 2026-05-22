@@ -37,7 +37,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 let pending_accouncement = filtered_message_pub.announce(stamped_message.time).await?;
 
                 let should_filter_message_out = matches!(stamped_message.incoming_message, IncomingMessage::Hsl(
-                        message @ HulkMessage::State(StateMessage { player_number, .. }),
+                        HulkMessage::State(StateMessage { player_number, .. }),
                     ) if player_number == current_player_number);
 
                 if !should_filter_message_out {

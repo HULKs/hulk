@@ -1,4 +1,4 @@
-use std::{collections::HashMap, sync::Arc};
+use std::{collections::HashMap, sync::Arc, time::Duration};
 
 use color_eyre::Result;
 
@@ -6,6 +6,7 @@ use coordinate_systems::Field;
 use hsl_network_messages::{GamePhase, GameState, Penalty, PlayerNumber, SubState, Team};
 use linear_algebra::{Point2, Vector2, distance};
 use ros_z::{prelude::*, qos::QosDurability, time::Time};
+use ros_z_streams::CreateFutureMapBuilder;
 use serde::{Deserialize, Serialize};
 use types::{
     field_dimensions::FieldDimensions, filtered_game_controller_state::FilteredGameControllerState,
@@ -57,10 +58,15 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         })
         .build()
         .await?;
-    let game_controller_state_sub = node
-        .subscriber::<Option<GameControllerState>>("game_controller_state")?
-        .build()
-        .await?;
+
+    let mut game_controller_state_sub = node
+        .create_future_map_builder()
+        .create_future_subscriber::<Option<GameControllerState>>(
+            "game_controller_state",
+            Duration::from_millis(1),
+        )
+        .await?
+        .build();
     let filtered_whistle_sub = node
         .subscriber::<FilteredWhistle>("filtered_whistle")?
         .build()
@@ -101,96 +107,94 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                     latest_ball_state = Some((received_source_time, actual_ball_state));
                 }
             }
-            game_controller_state = game_controller_state_sub.recv() => {
-                let game_controller_state = game_controller_state?;
+            received_game_controller_state_item = game_controller_state_sub.recv() => {
+                let game_controller_state_item = received_game_controller_state_item?;
 
                 let field_dimensions = field_dimensions_sub.recv().await?;
                 let player_number = player_number_sub.recv().await?;
 
-                let Some(game_controller_state) = game_controller_state else {
-                    continue;
-                };
+                for game_controller_state in game_controller_state_item.persistent.into_iter().filter_map(|(_, (maybe_game_controller_state,))| maybe_game_controller_state.flatten()) {
+                    let (new_own_penalties_last_cycle, new_opponent_penalties_last_cycle) = game_controller_state_filter
+                        .last_game_controller_state
+                        .as_ref()
+                        .map(|last| {
+                            (
+                                penalty_diff(last.penalties, game_controller_state.penalties),
+                                penalty_diff(
+                                    last.opponent_penalties,
+                                    game_controller_state.opponent_penalties,
+                                ),
+                            )
+                        })
+                        .unwrap_or_default();
 
-                let (new_own_penalties_last_cycle, new_opponent_penalties_last_cycle) = game_controller_state_filter
-                    .last_game_controller_state
-                    .as_ref()
-                    .map(|last| {
-                        (
-                            penalty_diff(last.penalties, game_controller_state.penalties),
-                            penalty_diff(
-                                last.opponent_penalties,
-                                game_controller_state.opponent_penalties,
-                            ),
-                        )
-                    })
-                    .unwrap_or_default();
-
-                let did_receive_motion_in_set_penalty = new_own_penalties_last_cycle
-                    .iter()
-                    .chain(new_opponent_penalties_last_cycle.iter())
-                    .any(|(_, penalty)| matches!(penalty, Penalty::MotionInSet { .. }));
+                    let did_receive_motion_in_set_penalty = new_own_penalties_last_cycle
+                        .iter()
+                        .chain(new_opponent_penalties_last_cycle.iter())
+                        .any(|(_, penalty)| matches!(penalty, Penalty::MotionInSet { .. }));
 
 
-                let fake_detected_free_kick_kicking_team = None;
+                    let fake_detected_free_kick_kicking_team = None;
 
-                let now = ctx.clock().now();
+                    let now = ctx.clock().now();
 
-                let latest_ball_state = latest_ball_state.filter(|(ball_state_time, _)|{
-                    let is_not_in_penalty_kick =
-                        game_controller_state.sub_state != Some(SubState::PenaltyKick);
+                    let latest_ball_state = latest_ball_state.filter(|(ball_state_time, _)|{
+                        let is_not_in_penalty_kick =
+                            game_controller_state.sub_state != Some(SubState::PenaltyKick);
 
-                    if is_not_in_penalty_kick
-                        && now.duration_since(*ball_state_time)
-                            > parameters.duration_to_keep_observed_ball
-                    {
-                        return false;
-                    }
-                    true
-                });
+                        if is_not_in_penalty_kick
+                            && now.duration_since(*ball_state_time)
+                                > parameters.duration_to_keep_observed_ball
+                        {
+                            return false;
+                        }
+                        true
+                    });
 
-                let kicking_team = game_controller_state_filter.find_kicking_team(
-                    &now,
-                    parameters,
-                    &game_controller_state,
-                    &latest_ball_state,
-                    &new_own_penalties_last_cycle,
-                    &new_opponent_penalties_last_cycle,
-                    // detected_free_kick_kicking_team,
-                    fake_detected_free_kick_kicking_team,
-                    &filtered_whistle
-                );
+                    let kicking_team = game_controller_state_filter.find_kicking_team(
+                        &now,
+                        parameters,
+                        &game_controller_state,
+                        &latest_ball_state,
+                        &new_own_penalties_last_cycle,
+                        &new_opponent_penalties_last_cycle,
+                        // detected_free_kick_kicking_team,
+                        fake_detected_free_kick_kicking_team,
+                        &filtered_whistle
+                    );
 
-                let game_states = game_controller_state_filter.filter_game_states(
-                    &now,
-                    parameters,
-                    &field_dimensions,
-                    &player_number,
-                    &game_controller_state,
-                    &current_ball_state,
-                    &filtered_whistle,
-                    // visual_referee_proceed_to_ready,
-                    did_receive_motion_in_set_penalty,
-                    kicking_team,
-                );
+                    let game_states = game_controller_state_filter.filter_game_states(
+                        &now,
+                        parameters,
+                        &field_dimensions,
+                        &player_number,
+                        &game_controller_state,
+                        &current_ball_state,
+                        &filtered_whistle,
+                        // visual_referee_proceed_to_ready,
+                        did_receive_motion_in_set_penalty,
+                        kicking_team,
+                    );
 
-                let filtered_game_controller_state = FilteredGameControllerState {
-                    game_state: game_states.own,
-                    opponent_game_state: game_states.opponent,
-                    remaining_time_in_half: game_controller_state.remaining_time_in_half,
-                    game_phase: game_controller_state.game_phase,
-                    kicking_team,
-                    penalties: game_controller_state.penalties,
-                    remaining_number_of_messages: game_controller_state
+                    let filtered_game_controller_state = FilteredGameControllerState {
+                        game_state: game_states.own,
+                        opponent_game_state: game_states.opponent,
+                        remaining_time_in_half: game_controller_state.remaining_time_in_half,
+                        game_phase: game_controller_state.game_phase,
+                        kicking_team,
+                        penalties: game_controller_state.penalties,
+                        remaining_number_of_messages: game_controller_state
                         .hulks_team
                         .remaining_amount_of_messages,
-                    sub_state: game_controller_state.sub_state,
-                    global_field_side: game_controller_state.global_field_side,
-                    new_own_penalties_last_cycle,
-                    new_opponent_penalties_last_cycle,
-                };
+                        sub_state: game_controller_state.sub_state,
+                        global_field_side: game_controller_state.global_field_side,
+                        new_own_penalties_last_cycle,
+                        new_opponent_penalties_last_cycle,
+                    };
 
-                whistle_in_set_ball_position_pub.publish(&game_controller_state_filter.whistle_in_set_ball_position).await?;
-                filtered_game_controller_state_pub.publish(&filtered_game_controller_state).await?;
+                    whistle_in_set_ball_position_pub.publish(&game_controller_state_filter.whistle_in_set_ball_position).await?;
+                    filtered_game_controller_state_pub.publish(&filtered_game_controller_state).await?;
+                }
             }
         }
     }

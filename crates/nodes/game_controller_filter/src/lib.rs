@@ -1,14 +1,11 @@
 use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::Duration};
 
 use color_eyre::Result;
-use ros_z_streams::CreateFutureMapBuilder;
+use ros_z_streams::{CreateAnnouncingPublisher, CreateFutureMapBuilder};
 use serde::{Deserialize, Serialize};
 
 use hsl_network_messages::GameControllerStateMessage;
-use ros_z::{
-    prelude::*,
-    time::{Clock, Time},
-};
+use ros_z::{prelude::*, time::Time};
 use types::{
     field_dimensions::GlobalFieldSide,
     game_controller_state::GameControllerState,
@@ -39,8 +36,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let game_controller_state_pub = node
-        .publisher::<Option<GameControllerState>>("game_controller_state")?
-        .build()
+        .announcing_publisher::<Option<GameControllerState>>("game_controller_state")
         .await?;
     let game_controller_address_pub = node
         .publisher::<Option<SocketAddr>>("game_controller_address")?
@@ -55,7 +51,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
         let network_message = network_message_sub.recv().await?;
 
-        for (_, source_address, message) in
+        for (time, source_address, message) in
             network_message
                 .persistent
                 .iter()
@@ -67,9 +63,10 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                     _ => None,
                 })
         {
-            game_controller_filter.update_game_controller_state(ctx.clock(), message);
+            let pending_annoucement = game_controller_state_pub.announce(*time).await?;
+            game_controller_filter.update_game_controller_state(time, message);
             game_controller_filter.alert_if_multiple_game_controllers(
-                ctx.clock(),
+                time,
                 parameters,
                 *source_address,
             );
@@ -84,7 +81,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 .max_by_key(|(_address, time)| *time)
                 .map(|(address, _time)| *address);
 
-            game_controller_state_pub
+            pending_annoucement
                 .publish(&game_controller_filter.game_controller_state)
                 .await?;
             game_controller_address_pub.publish(&last_address).await?;
@@ -101,17 +98,13 @@ pub struct GameControllerFilter {
 }
 
 impl GameControllerFilter {
-    fn update_game_controller_state(
-        &mut self,
-        clock: &Clock,
-        message: &GameControllerStateMessage,
-    ) {
+    fn update_game_controller_state(&mut self, time: &Time, message: &GameControllerStateMessage) {
         let game_state_changed = match &self.game_controller_state {
             Some(game_controller_state) => game_controller_state.game_state != message.game_state,
             None => true,
         };
         if game_state_changed {
-            self.last_game_state_change = Some(clock.now());
+            self.last_game_state_change = Some(*time);
         }
         self.game_controller_state = Some(GameControllerState {
             game_state: message.game_state,
@@ -135,14 +128,14 @@ impl GameControllerFilter {
 
     fn alert_if_multiple_game_controllers(
         &mut self,
-        clock: &Clock,
+        time: &Time,
         parameters: &Parameters,
         source_address: SocketAddr,
     ) {
-        self.last_contact.insert(source_address, clock.now());
+        self.last_contact.insert(source_address, *time);
 
         let recent_contacts = self.last_contact.iter().filter(|(_address, last_contact)| {
-            clock.now().duration_since(**last_contact)
+            time.duration_since(**last_contact)
                 < parameters.time_since_last_message_to_consider_ip_active
         });
         let collision_detected = recent_contacts.count() > 1;
@@ -150,7 +143,7 @@ impl GameControllerFilter {
         let alert_is_on_cooldown =
             self.last_collision_warning
                 .is_some_and(|last_collision_warning| {
-                    clock.now().duration_since(last_collision_warning)
+                    time.duration_since(last_collision_warning)
                         < parameters.collision_alert_cooldown
                 });
 
@@ -160,7 +153,7 @@ impl GameControllerFilter {
             //     .write_to_speakers(SpeakerRequest::PlaySound {
             //         sound: Sound::GameControllerCollision,
             //     });
-            self.last_collision_warning = Some(clock.now());
+            self.last_collision_warning = Some(*time);
         }
     }
 }
