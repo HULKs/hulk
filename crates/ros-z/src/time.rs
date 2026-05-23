@@ -47,8 +47,8 @@ impl crate::schema::MessageSchema for Time {
 fn duration_schema(builder: &mut crate::schema::SchemaBuilder) -> Result<TypeDef, SchemaError> {
     let name = TypeName::new("builtin_interfaces::Duration")?;
     builder.define_struct(name, |fields| {
-        fields.field::<i32>("sec")?;
-        fields.field::<u32>("nanosec")?;
+        fields.field::<u64>("secs")?;
+        fields.field::<u32>("nanos")?;
         Ok(())
     })
 }
