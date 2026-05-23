@@ -11,4 +11,4 @@ color-eyre = { workspace = true }
 kinematics = { workspace = true }
 linear_algebra = { workspace = true }
 ros-z = { workspace = true }
-serde = { workspace = true }
+types = { workspace = true }

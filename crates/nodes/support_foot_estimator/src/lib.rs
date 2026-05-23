@@ -3,23 +3,16 @@ use std::sync::Arc;
 use booster::{FallDownState, FallDownStateType, ImuState};
 use color_eyre::Result;
 use coordinate_systems::Robot;
-use kinematics_provider::RobotKinematicsMessage;
 use linear_algebra::{Isometry3, Orientation3};
 use serde::{Deserialize, Serialize};
 
 use filtering::hysteresis::less_than_with_hysteresis;
 use kinematics::robot_kinematics::RobotKinematics;
-use ros_z::{prelude::*, qos::QosDurability, time::Time};
-use types::support_foot::Side;
+use ros_z::{prelude::*, qos::QosDurability};
+use types::{support_foot::Side, time_wrapper::TimeWrapper};
 
 pub const ACTUAL_IMAGE_HEIGHT: f32 = 448.0;
 pub const ACTUAL_IMAGE_WIDTH: f32 = 544.0;
-
-#[derive(Debug, Serialize, Deserialize, Message)]
-pub struct SupportFootMessage {
-    pub time: Time,
-    pub support_foot: Option<Side>,
-}
 
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
 #[serde(deny_unknown_fields)]
@@ -36,8 +29,8 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let robot_kinematics_cache = node
-        .create_cache::<RobotKinematicsMessage>("robot_kinematics", 10)?
-        .with_stamp(|message| message.time)
+        .create_cache::<TimeWrapper<RobotKinematics>>("robot_kinematics", 10)?
+        .with_stamp(|wrapper| wrapper.time)
         .build()
         .await?;
     let fall_down_state_cache = node
@@ -46,7 +39,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
 
     let support_foot_pub = node
-        .publisher::<SupportFootMessage>("support_foot")?
+        .publisher::<TimeWrapper<Option<Side>>>("support_foot")?
         .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
@@ -64,19 +57,19 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
         let imu_source_time = imu_state.source_time;
 
-        let maybe_robot_kinematics_message = robot_kinematics_cache.get_nearest(imu_source_time);
+        let maybe_robot_kinematics_wrapper = robot_kinematics_cache.get_nearest(imu_source_time);
         let maybe_fall_down_state = fall_down_state_cache.get_nearest(imu_source_time);
 
-        let (Some(robot_kinematics_message), Some(fall_down_state)) =
-            (maybe_robot_kinematics_message, maybe_fall_down_state)
+        let (Some(robot_kinematics_wrapper), Some(fall_down_state)) =
+            (maybe_robot_kinematics_wrapper, maybe_fall_down_state)
         else {
             continue;
         };
 
-        let current_support_foot = estimate_support_side(
+        let current_support_foot = estimate_support_foot(
             &parameters,
             &imu_state,
-            &robot_kinematics_message.robot_kinematics,
+            &robot_kinematics_wrapper.inner,
             last_support_foot,
         );
 
@@ -89,9 +82,9 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         };
 
         if support_foot != last_maybe_support_side {
-            let message = SupportFootMessage {
+            let message = TimeWrapper {
                 time: imu_source_time,
-                support_foot,
+                inner: support_foot,
             };
 
             support_foot_pub.publish(&message).await?;
@@ -101,11 +94,11 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     }
 }
 
-fn estimate_support_side(
+fn estimate_support_foot(
     parameters: &Parameters,
     imu_state: &ImuState,
     robot_kinematics: &RobotKinematics,
-    last_support_side: Side,
+    last_support_foot: Side,
 ) -> Side {
     struct Horizontal;
 
@@ -126,7 +119,7 @@ fn estimate_support_side(
 
     select_support_side(
         height_difference,
-        last_support_side,
+        last_support_foot,
         parameters.switch_hysteresis,
     )
 }
