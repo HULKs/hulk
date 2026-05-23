@@ -71,7 +71,7 @@ impl<T: Message> FutureQueueSubscriber<T> {
     }
 
     /// Returns the transit lag for this stream.
-    pub(crate) fn safety_lag(&self) -> Duration {
+    pub(crate) fn transit_lag(&self) -> Duration {
         self.transit_lag
     }
 

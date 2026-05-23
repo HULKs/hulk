@@ -256,7 +256,6 @@ macro_rules! implement_stream_group {
                 tokio::select! {
                     $(
                         result = self.$index.recv() => {
-                            // Match the QueueEvent here!
                             match result? {
                                 QueueEvent::Data(time, value) => {
                                     let entry = buffer.entry(time).or_default();
