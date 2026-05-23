@@ -17,7 +17,7 @@ pub struct Parameters {
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("global_parameter_provider").build().await?;
 
-    let parameters = node.bind_parameter_as::<Parameters>("global")?;
+    let node_parameters = node.bind_parameter_as::<Parameters>("global")?;
 
     let player_number_pub = node
         .publisher::<PlayerNumber>("player_number")?
@@ -37,7 +37,14 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
 
-    let mut parameters_receiver = parameters.subscribe();
+    let parameters_snapshot = node_parameters.snapshot();
+    let parameters = parameters_snapshot.typed();
+    player_number_pub.publish(&parameters.player_number).await?;
+    field_dimensions_pub
+        .publish(&parameters.field_dimensions)
+        .await?;
+
+    let mut parameters_receiver = node_parameters.subscribe();
     loop {
         let _ = parameters_receiver.changed().await;
         let parameters = parameters_receiver.borrow_and_update().clone();
