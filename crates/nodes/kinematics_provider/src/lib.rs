@@ -23,40 +23,26 @@ use kinematics::{
     },
 };
 use linear_algebra::Isometry3;
-use ros_z::{IntoEyreResultExt, prelude::*};
+use ros_z::prelude::*;
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
-    let node = ctx
-        .create_node("kinematics_provider")
-        .build()
-        .await
-        .into_eyre()?;
+    let node = ctx.create_node("kinematics_provider").build().await?;
     let serial_motor_states_sub = node
-        .subscriber::<Joints<MotorState>>("inputs/serial_motor_states")
-        .into_eyre()?
+        .subscriber::<Joints<MotorState>>("inputs/serial_motor_states")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let robot_kinematics_pub = node
-        .publisher::<RobotKinematics>("robot_kinematics")
-        .into_eyre()?
+        .publisher::<RobotKinematics>("robot_kinematics")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
 
     loop {
-        let serial_motor_states = serial_motor_states_sub
-            .recv_with_metadata()
-            .await
-            .into_eyre()?;
+        let serial_motor_states = serial_motor_states_sub.recv_with_metadata().await?;
 
         let measured_positions = serial_motor_states.positions();
         let robot_kinematics = compute_robot_kinematics(&measured_positions);
 
-        robot_kinematics_pub
-            .publish(&robot_kinematics)
-            .await
-            .into_eyre()?;
+        robot_kinematics_pub.publish(&robot_kinematics).await?;
     }
 }
 

@@ -48,8 +48,8 @@ where
             })
             .build()
             .await
-            .map_err(|err| ParameterError::RemoteError {
-                message: err.to_string(),
+            .map_err(|source| {
+                ParameterError::operation("creating parameter event publisher", source)
             })?;
 
         let get_snapshot =
@@ -115,9 +115,7 @@ where
         self.event_publisher
             .publish(event)
             .await
-            .map_err(|err| ParameterError::RemoteError {
-                message: err.to_string(),
-            })
+            .map_err(|source| ParameterError::operation("publishing parameter event", source))
     }
 }
 
@@ -129,15 +127,14 @@ async fn register_server<S>(
 where
     S: Service + ServiceTypeInfo,
 {
+    let operation = format!("creating parameter service server '{name}'");
     node.create_service_server::<S>(name)
         .map_err(|err| ParameterError::RemoteError {
             message: err.to_string(),
         })?
         .build_with_callback(move |query| handler(&query))
         .await
-        .map_err(|err| ParameterError::RemoteError {
-            message: err.to_string(),
-        })
+        .map_err(|source| ParameterError::operation(operation, source))
 }
 
 fn handle_get_snapshot<T>(inner: &Arc<NodeParametersInner<T>>, query: &Query)
@@ -244,9 +241,7 @@ where
                 Ok(outcome) => write_response(outcome),
                 Err(err) => error_write_response(err),
             },
-            Err(err) => error_write_response(ParameterError::RemoteError {
-                message: err.to_string(),
-            }),
+            Err(source) => error_write_response(ParameterError::RemotePayloadParseError { source }),
         },
         Err(message) => SetNodeParameterResponse {
             success: false,
@@ -277,15 +272,15 @@ where
                         value,
                         target_layer: write.target_layer,
                     }),
-                    Err(err) => {
-                        parse_error = Some(err.to_string());
+                    Err(source) => {
+                        parse_error = Some(source);
                         break;
                     }
                 }
             }
 
-            if let Some(message) = parse_error {
-                error_write_response(ParameterError::RemoteError { message })
+            if let Some(source) = parse_error {
+                error_write_response(ParameterError::RemotePayloadParseError { source })
             } else {
                 match parameters.commit(
                     &writes,
@@ -421,7 +416,7 @@ where
         .payload()
         .ok_or_else(|| "missing request payload".to_string())?;
     <<T as Message>::Codec as WireDecoder>::deserialize(payload.to_bytes().as_ref())
-        .map_err(|err| err.to_string())
+        .map_err(|err| format!("{err}"))
 }
 
 fn reply<T>(query: &Query, response: &T)
@@ -429,7 +424,13 @@ where
     T: Message,
     for<'a> <T as Message>::Codec: WireEncoder<Input<'a> = &'a T>,
 {
-    let bytes = <<T as Message>::Codec as WireEncoder>::serialize(response);
+    let bytes = match <<T as Message>::Codec as WireEncoder>::serialize(response) {
+        Ok(bytes) => bytes,
+        Err(error) => {
+            tracing::warn!(error = ?error, "[PARAM] Failed to serialize parameter reply");
+            return;
+        }
+    };
     let mut reply = query.reply(query.key_expr().clone(), bytes);
     if let Some(att_bytes) = query.attachment()
         && let Ok(att) = Attachment::try_from(att_bytes)

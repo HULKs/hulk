@@ -10,7 +10,7 @@
 //!     CreateAnnouncingPublisher, CreateFutureMapBuilder, LagPolicy,
 //! };
 //!
-//! # async fn demo() -> zenoh::Result<()> {
+//! # async fn demo() -> ros_z::Result<()> {
 //! let context = ContextBuilder::default().build().await?;
 //! let node = context.create_node("demo").build().await?;
 //! let publisher = node.announcing_publisher::<String>("sensors/a").await?;
@@ -32,7 +32,7 @@
 //! use ros_z::prelude::*;
 //! use ros_z_streams::{CreateFutureMapBuilder, LagPolicy};
 //!
-//! # async fn demo() -> zenoh::Result<()> {
+//! # async fn demo() -> ros_z::Result<()> {
 //! let context = ContextBuilder::default().build().await?;
 //! let node = context.create_node("fusion").build().await?;
 //! let _map = node

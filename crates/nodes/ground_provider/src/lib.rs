@@ -6,55 +6,41 @@ use booster::ImuState;
 use coordinate_systems::{Ground, Robot};
 use kinematics::robot_kinematics::RobotKinematics;
 use linear_algebra::{Isometry3, Orientation3, vector};
-use ros_z::{IntoEyreResultExt, prelude::*, qos::QosDurability};
+use ros_z::{prelude::*, qos::QosDurability};
 use types::support_foot::Side;
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
-    let node = ctx
-        .create_node("ground_provider")
-        .build()
-        .await
-        .into_eyre()?;
+    let node = ctx.create_node("ground_provider").build().await?;
 
     let imu_state_sub = node
-        .subscriber::<ImuState>("inputs/imu_state")
-        .into_eyre()?
+        .subscriber::<ImuState>("inputs/imu_state")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
 
     let robot_kinematics_cache = node
-        .create_cache::<RobotKinematics>("robot_kinematics", 10)
-        .into_eyre()?
+        .create_cache::<RobotKinematics>("robot_kinematics", 10)?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let support_foot_cache = node
-        .create_cache::<Option<Side>>("support_foot", 10)
-        .into_eyre()?
+        .create_cache::<Option<Side>>("support_foot", 10)?
         .with_qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
         })
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
 
     let robot_to_ground_pub = node
-        .publisher::<Option<Isometry3<Robot, Ground>>>("robot_to_ground")
-        .into_eyre()?
+        .publisher::<Option<Isometry3<Robot, Ground>>>("robot_to_ground")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let ground_to_robot_pub = node
-        .publisher::<Option<Isometry3<Ground, Robot>>>("ground_to_robot")
-        .into_eyre()?
+        .publisher::<Option<Isometry3<Ground, Robot>>>("ground_to_robot")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
 
     loop {
-        let imu_state = imu_state_sub.recv_with_metadata().await.into_eyre()?;
+        let imu_state = imu_state_sub.recv_with_metadata().await?;
 
         let time_stamp = imu_state.source_time;
 
@@ -78,14 +64,8 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         };
         let robot_to_ground = ground_to_robot.map(|ground_to_robot| ground_to_robot.inverse());
 
-        ground_to_robot_pub
-            .publish(&ground_to_robot)
-            .await
-            .into_eyre()?;
-        robot_to_ground_pub
-            .publish(&robot_to_ground)
-            .await
-            .into_eyre()?;
+        ground_to_robot_pub.publish(&ground_to_robot).await?;
+        robot_to_ground_pub.publish(&robot_to_ground).await?;
     }
 }
 

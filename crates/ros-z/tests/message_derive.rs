@@ -58,7 +58,7 @@ fn named_struct<'a>(
 #[test]
 fn derive_message_uses_module_path_type_name() {
     assert!(DerivedMessage::type_name().ends_with("::DerivedMessage"));
-    let schema = DerivedMessage::schema().unwrap();
+    let schema = DerivedMessage::schema();
 
     assert_eq!(
         schema.root,
@@ -72,7 +72,7 @@ fn derive_message_accepts_explicit_native_type_name() {
         ExplicitNativeMessage::type_name(),
         "test_pkg::ExplicitNativeMessage"
     );
-    let schema = ExplicitNativeMessage::schema().unwrap();
+    let schema = ExplicitNativeMessage::schema();
 
     assert_eq!(
         schema.root,
@@ -102,7 +102,7 @@ fn derived_generic_type_names_return_owned_strings() {
 
 #[test]
 fn derive_generates_type_info_and_schema() {
-    let schema = RobotTelemetry::schema().unwrap();
+    let schema = RobotTelemetry::schema();
     let fields = &named_struct(&schema, &RobotTelemetry::type_name()).fields;
 
     assert_eq!(fields.len(), 4);
@@ -124,14 +124,14 @@ fn derive_generates_type_info_and_schema() {
     ));
 
     assert_eq!(
-        RobotTelemetry::schema_hash().unwrap(),
-        ros_z_schema::compute_hash(&schema)
+        RobotTelemetry::schema_hash(),
+        ros_z_schema::compute_hash(&schema).unwrap()
     );
 }
 
 #[test]
 fn derive_generates_enum_schema() {
-    let schema = DriveMode::schema().unwrap();
+    let schema = DriveMode::schema();
     let type_name = TypeName::new(DriveMode::type_name()).unwrap();
 
     let Some(TypeDefinition::Enum(definition)) = schema.definitions.get(&type_name) else {
@@ -145,7 +145,7 @@ fn derive_generates_enum_schema() {
 
 #[test]
 fn derive_supports_recursive_struct_schema_references() {
-    let schema = RecursiveNode::schema().unwrap();
+    let schema = RecursiveNode::schema();
     let node_type_name = TypeName::new(RecursiveNode::type_name()).unwrap();
     let fields = &named_struct(&schema, &RecursiveNode::type_name()).fields;
 
@@ -164,7 +164,7 @@ fn derive_supports_recursive_struct_schema_references() {
 fn schema_building_is_thread_safe_and_deterministic() {
     let schemas = std::thread::scope(|scope| {
         let handles = (0..8)
-            .map(|_| scope.spawn(|| RecursiveNode::schema().expect("schema")))
+            .map(|_| scope.spawn(RecursiveNode::schema))
             .collect::<Vec<_>>();
         handles
             .into_iter()

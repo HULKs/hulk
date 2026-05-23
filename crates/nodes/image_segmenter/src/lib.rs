@@ -6,7 +6,7 @@ use serde::{Deserialize, Serialize};
 use coordinate_systems::Ground;
 use linear_algebra::Framed;
 use projection::camera_matrix::CameraMatrix;
-use ros_z::{IntoEyreResultExt, prelude::*};
+use ros_z::prelude::*;
 use types::{
     field_color::FieldColorParameters, image_segments::ImageSegments,
     parameters::MedianModeParameters, ycbcr422_image::YCbCr422Image,
@@ -26,33 +26,21 @@ pub struct Parameters {
 }
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
-    let node = ctx
-        .create_node("image_segmenter")
-        .build()
-        .await
-        .into_eyre()?;
+    let node = ctx.create_node("image_segmenter").build().await?;
 
-    let _parameters = node
-        .bind_parameter_as::<Parameters>("image_segmenter")
-        .into_eyre()?;
+    let _parameters = node.bind_parameter_as::<Parameters>("image_segmenter")?;
     let _image_sub = node
-        .subscriber::<YCbCr422Image>("inputs/ycbcr422_image")
-        .into_eyre()?
+        .subscriber::<YCbCr422Image>("inputs/ycbcr422_image")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _camera_matrix_sub = node
-        .subscriber::<CameraMatrix>("camera_matrix")
-        .into_eyre()?
+        .subscriber::<CameraMatrix>("camera_matrix")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
     let _image_segments_pub = node
-        .publisher::<ImageSegments>("image_segments")
-        .into_eyre()?
+        .publisher::<ImageSegments>("image_segments")?
         .build()
-        .await
-        .into_eyre()?;
+        .await?;
 
     pending::<()>().await;
 

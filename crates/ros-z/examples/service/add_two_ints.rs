@@ -17,16 +17,16 @@ pub struct AddTwoIntsResponse {
 pub struct AddTwoInts;
 
 impl ServiceTypeInfo for AddTwoInts {
-    fn service_type_info() -> Result<TypeInfo, ros_z_schema::SchemaError> {
+    fn service_type_info() -> TypeInfo {
         let descriptor = ros_z_schema::ServiceDef::new(
             "demo_nodes::AddTwoInts",
-            "demo_nodes::AddTwoIntsRequest",
-            "demo_nodes::AddTwoIntsResponse",
-        )?;
-        Ok(TypeInfo::new(
-            "demo_nodes::AddTwoInts",
-            ros_z_schema::compute_hash(&descriptor),
-        ))
+            AddTwoIntsRequest::type_name(),
+            AddTwoIntsResponse::type_name(),
+        )
+        .expect("demo service descriptor should be static and valid");
+        let hash = ros_z_schema::compute_hash(&descriptor)
+            .expect("demo service hash should be static and valid");
+        TypeInfo::new(descriptor.type_name.as_str(), hash)
     }
 }
 

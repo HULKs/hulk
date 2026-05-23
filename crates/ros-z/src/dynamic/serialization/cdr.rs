@@ -44,7 +44,7 @@ pub fn serialize_cdr_to_zbuf(message: &DynamicStruct) -> Result<ZBuf, DynamicErr
 pub fn deserialize_cdr(data: &[u8], schema: &Schema) -> Result<DynamicStruct, DynamicError> {
     schema
         .validate()
-        .map_err(|error| DynamicError::DeserializationError(error.to_string()))?;
+        .map_err(|error| DynamicError::schema("deserializing dynamic CDR struct", error))?;
     if data.len() < 4 {
         return Err(DynamicError::DeserializationError(
             "CDR data too short for header".into(),
@@ -74,7 +74,7 @@ pub fn deserialize_cdr(data: &[u8], schema: &Schema) -> Result<DynamicStruct, Dy
 pub fn deserialize_cdr_value(data: &[u8], schema: &Schema) -> Result<DynamicValue, DynamicError> {
     schema
         .validate()
-        .map_err(|error| DynamicError::DeserializationError(error.to_string()))?;
+        .map_err(|error| DynamicError::schema("deserializing dynamic CDR value", error))?;
     if data.len() < 4 {
         return Err(DynamicError::DeserializationError(
             "CDR data too short for header".into(),
@@ -239,61 +239,70 @@ fn deserialize_shape_value(
     reader: &mut CdrReader<LittleEndian>,
 ) -> Result<DynamicValue, DynamicError> {
     match shape {
-        TypeDef::Primitive(PrimitiveTypeDef::Bool) => {
-            Ok(DynamicValue::Bool(reader.read_bool().map_err(map_cdr_err)?))
-        }
-        TypeDef::Primitive(PrimitiveTypeDef::I8) => {
-            Ok(DynamicValue::Int8(reader.read_i8().map_err(map_cdr_err)?))
-        }
-        TypeDef::Primitive(PrimitiveTypeDef::U8) => {
-            Ok(DynamicValue::Uint8(reader.read_u8().map_err(map_cdr_err)?))
-        }
-        TypeDef::Primitive(PrimitiveTypeDef::I16) => {
-            Ok(DynamicValue::Int16(reader.read_i16().map_err(map_cdr_err)?))
-        }
+        TypeDef::Primitive(PrimitiveTypeDef::Bool) => Ok(DynamicValue::Bool(
+            reader.read_bool().map_err(DynamicError::deserialization)?,
+        )),
+        TypeDef::Primitive(PrimitiveTypeDef::I8) => Ok(DynamicValue::Int8(
+            reader.read_i8().map_err(DynamicError::deserialization)?,
+        )),
+        TypeDef::Primitive(PrimitiveTypeDef::U8) => Ok(DynamicValue::Uint8(
+            reader.read_u8().map_err(DynamicError::deserialization)?,
+        )),
+        TypeDef::Primitive(PrimitiveTypeDef::I16) => Ok(DynamicValue::Int16(
+            reader.read_i16().map_err(DynamicError::deserialization)?,
+        )),
         TypeDef::Primitive(PrimitiveTypeDef::U16) => Ok(DynamicValue::Uint16(
-            reader.read_u16().map_err(map_cdr_err)?,
+            reader.read_u16().map_err(DynamicError::deserialization)?,
         )),
-        TypeDef::Primitive(PrimitiveTypeDef::I32) => {
-            Ok(DynamicValue::Int32(reader.read_i32().map_err(map_cdr_err)?))
-        }
+        TypeDef::Primitive(PrimitiveTypeDef::I32) => Ok(DynamicValue::Int32(
+            reader.read_i32().map_err(DynamicError::deserialization)?,
+        )),
         TypeDef::Primitive(PrimitiveTypeDef::U32) => Ok(DynamicValue::Uint32(
-            reader.read_u32().map_err(map_cdr_err)?,
+            reader.read_u32().map_err(DynamicError::deserialization)?,
         )),
-        TypeDef::Primitive(PrimitiveTypeDef::I64) => {
-            Ok(DynamicValue::Int64(reader.read_i64().map_err(map_cdr_err)?))
-        }
+        TypeDef::Primitive(PrimitiveTypeDef::I64) => Ok(DynamicValue::Int64(
+            reader.read_i64().map_err(DynamicError::deserialization)?,
+        )),
         TypeDef::Primitive(PrimitiveTypeDef::U64) => Ok(DynamicValue::Uint64(
-            reader.read_u64().map_err(map_cdr_err)?,
+            reader.read_u64().map_err(DynamicError::deserialization)?,
         )),
         TypeDef::Primitive(PrimitiveTypeDef::F32) => Ok(DynamicValue::Float32(
-            reader.read_f32().map_err(map_cdr_err)?,
+            reader.read_f32().map_err(DynamicError::deserialization)?,
         )),
         TypeDef::Primitive(PrimitiveTypeDef::F64) => Ok(DynamicValue::Float64(
-            reader.read_f64().map_err(map_cdr_err)?,
+            reader.read_f64().map_err(DynamicError::deserialization)?,
         )),
         TypeDef::String => Ok(DynamicValue::String(
-            reader.read_string().map_err(map_cdr_err)?,
+            reader
+                .read_string()
+                .map_err(DynamicError::deserialization)?,
         )),
-        TypeDef::Optional(element) => match reader.read_u32().map_err(map_cdr_err)? {
-            0 => Ok(DynamicValue::Optional(None)),
-            1 => Ok(DynamicValue::Optional(Some(Box::new(
-                deserialize_shape_value(element, schema, reader)?,
-            )))),
-            other => Err(DynamicError::DeserializationError(format!(
-                "invalid option discriminant: {other}"
-            ))),
-        },
+        TypeDef::Optional(element) => {
+            match reader.read_u32().map_err(DynamicError::deserialization)? {
+                0 => Ok(DynamicValue::Optional(None)),
+                1 => Ok(DynamicValue::Optional(Some(Box::new(
+                    deserialize_shape_value(element, schema, reader)?,
+                )))),
+                other => Err(DynamicError::DeserializationError(format!(
+                    "invalid option discriminant: {other}"
+                ))),
+            }
+        }
         TypeDef::Sequence { element, length } => match length {
             SequenceLengthDef::Dynamic
                 if matches!(element.as_ref(), TypeDef::Primitive(PrimitiveTypeDef::U8)) =>
             {
                 Ok(DynamicValue::Bytes(
-                    reader.read_byte_sequence().map_err(map_cdr_err)?.to_vec(),
+                    reader
+                        .read_byte_sequence()
+                        .map_err(DynamicError::deserialization)?
+                        .to_vec(),
                 ))
             }
             SequenceLengthDef::Dynamic => {
-                let len = reader.read_sequence_length().map_err(map_cdr_err)?;
+                let len = reader
+                    .read_sequence_length()
+                    .map_err(DynamicError::deserialization)?;
                 let mut values = Vec::with_capacity(len);
                 for _ in 0..len {
                     values.push(deserialize_shape_value(element, schema, reader)?);
@@ -323,7 +332,7 @@ fn deserialize_shape_value(
                 )))
             }
             Some(TypeDefinition::Enum(definition)) => {
-                let variant_index = reader.read_u32().map_err(map_cdr_err)?;
+                let variant_index = reader.read_u32().map_err(DynamicError::deserialization)?;
                 let variant = definition
                     .variants
                     .get(variant_index as usize)
@@ -344,7 +353,9 @@ fn deserialize_shape_value(
             ))),
         },
         TypeDef::Map { key, value } => {
-            let len = reader.read_sequence_length().map_err(map_cdr_err)?;
+            let len = reader
+                .read_sequence_length()
+                .map_err(DynamicError::deserialization)?;
             let mut entries = Vec::with_capacity(len);
             for _ in 0..len {
                 entries.push((
@@ -412,9 +423,4 @@ fn deserialize_runtime_enum_payload(
             .collect::<Result<Vec<_>, DynamicError>>()
             .map(EnumPayloadValue::Struct),
     }
-}
-
-/// Map ros-z-cdr errors to DynamicError.
-fn map_cdr_err(e: ros_z_cdr::Error) -> DynamicError {
-    DynamicError::DeserializationError(e.to_string())
 }

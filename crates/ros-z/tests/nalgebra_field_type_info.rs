@@ -299,7 +299,7 @@ fn dynamic_payload_field(
 
 #[test]
 fn vector3_f64_schema_is_fixed_float_sequence() {
-    let schema = Vector3::<f64>::schema().unwrap();
+    let schema = Vector3::<f64>::schema();
 
     assert_eq!(Vector3::<f64>::type_name(), "nalgebra::Vector3<f64>");
     assert!(matches!(
@@ -313,7 +313,7 @@ fn vector3_f64_schema_is_fixed_float_sequence() {
 
 #[test]
 fn isometry3_f32_schema_has_rotation_and_translation_fields() {
-    let schema = Isometry3::<f32>::schema().unwrap();
+    let schema = Isometry3::<f32>::schema();
 
     assert_eq!(Isometry3::<f32>::type_name(), "nalgebra::Isometry3<f32>");
     let TypeDef::Named(name) = &schema.root else {
@@ -349,7 +349,7 @@ async fn wait_for_publishers(
 
 #[test]
 fn standard_nalgebra_schema_is_basic_only() {
-    let schema = MathSnapshot::schema().unwrap();
+    let schema = MathSnapshot::schema();
     assert!(!schema_uses_extended_types(&schema));
 
     assert_eq!(
@@ -427,7 +427,7 @@ async fn nalgebra_fields_roundtrip_via_standard_discovery() {
 
 #[test]
 fn single_schema_message_can_embed_basic_nalgebra_fields() {
-    let schema = MathCommand::schema().unwrap();
+    let schema = MathCommand::schema();
     assert!(schema_uses_extended_types(&schema));
 
     assert_eq!(

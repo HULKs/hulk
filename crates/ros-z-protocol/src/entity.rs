@@ -215,30 +215,35 @@ pub enum Entity {
 }
 
 /// Errors during entity conversion.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, thiserror::Error)]
 pub enum EntityConversionError {
+    #[error("missing admin space")]
     MissingAdminSpace,
+    #[error("missing Zenoh id")]
     MissingZId,
+    #[error("missing node id")]
     MissingNodeId,
+    #[error("missing entity id")]
     MissingEntityId,
+    #[error("missing entity kind")]
     MissingEntityKind,
+    #[error("missing namespace")]
     MissingNamespace,
+    #[error("missing node name")]
     MissingNodeName,
+    #[error("missing topic name")]
     MissingTopicName,
+    #[error("missing topic type")]
     MissingTopicType,
+    #[error("missing topic hash")]
     MissingTopicHash,
+    #[error("missing topic QoS")]
     MissingTopicQoS,
+    #[error("failed to parse liveliness field")]
     ParsingError,
-    QosDecodeError(QosDecodeError),
+    #[error("failed to decode QoS")]
+    QosDecodeError(#[from] QosDecodeError),
 }
-
-impl Display for EntityConversionError {
-    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        write!(f, "{:?}", self)
-    }
-}
-
-impl std::error::Error for EntityConversionError {}
 
 #[cfg(test)]
 mod tests {

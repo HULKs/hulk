@@ -1,8 +1,8 @@
 use std::{path::PathBuf, sync::Arc};
 
 use clap::Parser;
-use color_eyre::{Result, eyre::eyre};
-use ros_z::{IntoEyreResultExt, prelude::*};
+use color_eyre::{Result, eyre::Context as _};
+use ros_z::prelude::*;
 use tokio::task::JoinSet;
 use tracing_subscriber::EnvFilter;
 
@@ -39,10 +39,7 @@ async fn main() -> Result<()> {
         .with_parameter_layers(parameter_layers);
 
     builder = match args.router {
-        Some(router) => builder
-            .with_mode("client")
-            .with_router_endpoint(router)
-            .into_eyre()?,
+        Some(router) => builder.with_mode("client").with_router_endpoint(router)?,
         None => builder
             .with_mode("router")
             .disable_multicast_scouting()
@@ -50,7 +47,7 @@ async fn main() -> Result<()> {
             .with_listen_endpoints(["tcp/127.0.0.1:7447"]),
     };
 
-    let ctx = Arc::new(builder.build().await.into_eyre()?);
+    let ctx = Arc::new(builder.build().await?);
     let mut running = spawn_all(ctx.clone()).await?;
 
     let result = tokio::select! {
@@ -61,7 +58,7 @@ async fn main() -> Result<()> {
     };
 
     running.join_set.abort_all();
-    ctx.shutdown().into_eyre()?;
+    ctx.shutdown()?;
     result
 }
 
@@ -177,7 +174,7 @@ async fn monitor(join_set: &mut JoinSet<Result<()>>) -> Result<()> {
         match result {
             Ok(Ok(())) => {}
             Ok(Err(error)) => return Err(error),
-            Err(join_error) => return Err(eyre!("monitor join failed: {join_error}")),
+            Err(join_error) => return Err(join_error).wrap_err("monitor join failed"),
         }
     }
 

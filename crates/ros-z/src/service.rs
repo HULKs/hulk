@@ -6,13 +6,13 @@ use std::{
 
 use tracing::{debug, info, trace, warn};
 use zenoh::{
-    Result, Session, Wait, bytes, key_expr::KeyExpr, liveliness::LivelinessToken, query::Query,
+    Session, Wait, bytes, key_expr::KeyExpr, liveliness::LivelinessToken, query::Query,
     sample::Sample,
 };
 
 use std::sync::atomic::Ordering;
 
-use crate::topic_name;
+use crate::{Error, Result, error::WireError, topic_name};
 
 use crate::{
     attachment::{Attachment, EndpointGlobalId},
@@ -77,19 +77,19 @@ where
         service = %self.entity.topic
     ))]
     pub async fn build(mut self) -> Result<ServiceClient<T>> {
-        let entity = &mut self.entity;
         // Qualify the service name as a ros-z graph name.
+        let topic = self.entity.topic.clone();
         let qualified_service = topic_name::qualify_service_name(
-            &entity.topic,
-            &entity.node.namespace,
-            &entity.node.name,
+            &topic,
+            &self.entity.node.namespace,
+            &self.entity.node.name,
         )
-        .map_err(|e| zenoh::Error::from(format!("Failed to qualify service: {}", e)))?;
+        .map_err(|source| crate::Error::service_name(topic, source))?;
 
-        entity.topic = qualified_service.clone();
+        self.entity.topic = qualified_service.clone();
         debug!("[CLN] Qualified service: {}", qualified_service);
 
-        let topic_key_expr = ros_z_protocol::format::topic_key_expr(entity)?;
+        let topic_key_expr = ros_z_protocol::format::topic_key_expr(&self.entity)?;
         let key_expr = (*topic_key_expr).clone();
         debug!("[CLN] Key expression: {}", key_expr);
 
@@ -98,15 +98,19 @@ where
             .declare_querier(key_expr)
             .target(zenoh::query::QueryTarget::AllComplete)
             .consolidation(zenoh::query::ConsolidationMode::None)
-            .await?;
+            .await
+            .map_err(|source| crate::Error::zenoh("declare service querier", source))?;
         let liveliness_key_expr =
-            ros_z_protocol::format::liveliness_key_expr(entity, &self.session.zid())?;
+            ros_z_protocol::format::liveliness_key_expr(&self.entity, &self.session.zid())?;
         let lv_token = self
             .session
             .liveliness()
             .declare_token((*liveliness_key_expr).clone())
-            .await?;
-        debug!("[CLN] Client ready: service={}", entity.topic);
+            .await
+            .map_err(|source| {
+                crate::Error::zenoh("declare service client liveliness token", source)
+            })?;
+        debug!("[CLN] Client ready: service={}", self.entity.topic);
 
         Ok(ServiceClient {
             sequence_number: AtomicUsize::new(1), // Start at 1; zero is reserved for missing sequence values.
@@ -124,6 +128,14 @@ impl<T> ServiceClient<T>
 where
     T: Service,
 {
+    fn timeout_error(&self, timeout: Duration) -> crate::Error {
+        crate::error::ServiceCallError::Timeout {
+            service: self.topic.clone(),
+            timeout,
+        }
+        .into()
+    }
+
     fn new_attachment(&self) -> Attachment {
         Attachment::with_clock(
             self.sequence_number.fetch_add(1, Ordering::AcqRel) as _,
@@ -138,94 +150,108 @@ where
         timeout: Option<Duration>,
     ) -> Result<Sample> {
         let attachment = self.new_attachment();
-        let (response_tx, response_rx) = std::sync::mpsc::sync_channel(1);
+        let payload = payload.into();
+        let (response_tx, response_rx) =
+            std::sync::mpsc::sync_channel::<std::result::Result<Sample, zenoh::Error>>(1);
         let response_tx = Arc::new(Mutex::new(Some(response_tx)));
+
+        let callback = move |reply: zenoh::query::Reply| {
+            let sender = response_tx
+                .lock()
+                .expect("service reply sender mutex poisoned")
+                .take();
+            match sender {
+                Some(sender) => {
+                    let reply = reply
+                        .into_result()
+                        .map_err(|source| Box::new(source) as zenoh::Error);
+                    if sender.send(reply).is_err() {
+                        tracing::warn!("Service call receiver dropped before reply delivery");
+                    }
+                }
+                None => {
+                    tracing::warn!("Service call received extra reply after completion");
+                }
+            };
+        };
 
         self.inner
             .get()
             .payload(payload)
             .attachment(attachment)
-            .callback(move |reply| match reply.into_result() {
-                Ok(sample) => {
-                    let sender = response_tx
-                        .lock()
-                        .expect("service reply sender mutex poisoned")
-                        .take();
-                    match sender {
-                        Some(sender) => {
-                            if sender.send(sample).is_err() {
-                                tracing::warn!(
-                                    "Service call receiver dropped before reply delivery"
-                                );
-                            }
-                        }
-                        None => {
-                            tracing::warn!("Service call received extra reply after completion");
-                        }
-                    }
-                }
-                Err(error) => {
-                    tracing::debug!("Service reply error: {error:?}");
-                }
-            })
-            .wait()?;
+            .callback(callback)
+            .wait()
+            .map_err(|source| crate::Error::zenoh("query service", source))?;
 
-        match timeout {
-            Some(timeout) => response_rx
-                .recv_timeout(timeout)
-                .map_err(|error| match error {
-                    std::sync::mpsc::RecvTimeoutError::Timeout => {
-                        zenoh::Error::from(format!("Service call timed out after {timeout:?}"))
-                    }
-                    std::sync::mpsc::RecvTimeoutError::Disconnected => {
-                        zenoh::Error::from("Service call ended before any response was received")
-                    }
-                }),
+        let reply = match timeout {
+            Some(timeout) => match response_rx.recv_timeout(timeout) {
+                Ok(reply) => reply,
+                Err(_) => return Err(self.timeout_error(timeout)),
+            },
             None => response_rx.recv().map_err(|_| {
-                zenoh::Error::from("Service call ended before any response was received")
-            }),
-        }
+                crate::Error::from(crate::error::ServiceCallError::NoResponse {
+                    service: self.topic.clone(),
+                })
+            })?,
+        };
+
+        reply.map_err(|source| {
+            crate::error::ServiceCallError::Reply {
+                service: self.topic.clone(),
+                source,
+            }
+            .into()
+        })
     }
 
     async fn call_sample_async(&self, payload: impl Into<bytes::ZBytes>) -> Result<Sample> {
         let attachment = self.new_attachment();
-        let (response_tx, response_rx) = tokio::sync::oneshot::channel();
+        let payload = payload.into();
+        let (response_tx, response_rx) =
+            tokio::sync::oneshot::channel::<std::result::Result<Sample, zenoh::Error>>();
         let response_tx = Arc::new(Mutex::new(Some(response_tx)));
+
+        let callback = move |reply: zenoh::query::Reply| {
+            let sender = response_tx
+                .lock()
+                .expect("service reply sender mutex poisoned")
+                .take();
+            match sender {
+                Some(sender) => {
+                    let reply = reply
+                        .into_result()
+                        .map_err(|source| Box::new(source) as zenoh::Error);
+                    if sender.send(reply).is_err() {
+                        tracing::warn!("Service call receiver dropped before reply delivery");
+                    }
+                }
+                None => {
+                    tracing::warn!("Service call received extra reply after completion");
+                }
+            };
+        };
 
         self.inner
             .get()
             .payload(payload)
             .attachment(attachment)
-            .callback(move |reply| match reply.into_result() {
-                Ok(sample) => {
-                    let sender = response_tx
-                        .lock()
-                        .expect("service reply sender mutex poisoned")
-                        .take();
-                    match sender {
-                        Some(sender) => {
-                            if sender.send(sample).is_err() {
-                                tracing::warn!(
-                                    "Service call receiver dropped before reply delivery"
-                                );
-                            }
-                        }
-                        None => {
-                            tracing::warn!("Service call received extra reply after completion");
-                        }
-                    }
-                }
-                Err(error) => {
-                    tracing::debug!("Service reply error: {error:?}");
-                }
-            })
-            .await?;
+            .callback(callback)
+            .await
+            .map_err(|source| crate::Error::zenoh("query service", source))?;
 
-        let sample = response_rx.await.map_err(|_| {
-            zenoh::Error::from("Service call ended before any response was received")
-        })?;
+        let reply = response_rx
+            .await
+            .map_err(|_| crate::error::ServiceCallError::NoResponse {
+                service: self.topic.clone(),
+            })?;
 
-        Ok(sample)
+        reply.map_err(|source| {
+            crate::error::ServiceCallError::Reply {
+                service: self.topic.clone(),
+                source,
+            }
+            .into()
+        })
     }
 
     fn decode_response(&self, sample: Sample) -> Result<T::Response>
@@ -235,7 +261,7 @@ where
     {
         let payload_bytes = sample.payload().to_bytes();
         <<T::Response as Message>::Codec as WireDecoder>::deserialize(&payload_bytes[..])
-            .map_err(|e| zenoh::Error::from(e.to_string()))
+            .map_err(|source| crate::Error::decode(<T::Response as Message>::type_name(), source))
     }
 
     /// Call the service and wait indefinitely for the first reply.
@@ -248,10 +274,9 @@ where
         for<'a> <T::Response as Message>::Codec:
             WireDecoder<Output = T::Response, Input<'a> = &'a [u8]>,
     {
-        let sample = self.call_sample_blocking(
-            <<T::Request as Message>::Codec as WireEncoder>::serialize(message),
-            None,
-        )?;
+        let payload = <<T::Request as Message>::Codec as WireEncoder>::serialize(message)
+            .map_err(|source| crate::Error::encode(<T::Request as Message>::type_name(), source))?;
+        let sample = self.call_sample_blocking(payload, None)?;
         self.decode_response(sample)
     }
 
@@ -262,11 +287,9 @@ where
         for<'a> <T::Response as Message>::Codec:
             WireDecoder<Output = T::Response, Input<'a> = &'a [u8]>,
     {
-        let sample = self
-            .call_sample_async(<<T::Request as Message>::Codec as WireEncoder>::serialize(
-                message,
-            ))
-            .await?;
+        let payload = <<T::Request as Message>::Codec as WireEncoder>::serialize(message)
+            .map_err(|source| crate::Error::encode(<T::Request as Message>::type_name(), source))?;
+        let sample = self.call_sample_async(payload).await?;
         self.decode_response(sample)
     }
 
@@ -280,10 +303,9 @@ where
         for<'a> <T::Response as Message>::Codec:
             WireDecoder<Output = T::Response, Input<'a> = &'a [u8]>,
     {
-        let sample = self.call_sample_blocking(
-            <<T::Request as Message>::Codec as WireEncoder>::serialize(message),
-            Some(timeout),
-        )?;
+        let payload = <<T::Request as Message>::Codec as WireEncoder>::serialize(message)
+            .map_err(|source| crate::Error::encode(<T::Request as Message>::type_name(), source))?;
+        let sample = self.call_sample_blocking(payload, Some(timeout))?;
         self.decode_response(sample)
     }
 
@@ -298,9 +320,20 @@ where
         for<'a> <T::Response as Message>::Codec:
             WireDecoder<Output = T::Response, Input<'a> = &'a [u8]>,
     {
-        tokio::time::timeout(timeout, self.call_async(message))
-            .await
-            .map_err(|_| zenoh::Error::from(format!("Service call timed out after {timeout:?}")))?
+        let payload = <<T::Request as Message>::Codec as WireEncoder>::serialize(message)
+            .map_err(|source| crate::Error::encode(<T::Request as Message>::type_name(), source))?;
+        let sample_result = tokio::time::timeout(timeout, self.call_sample_async(payload)).await;
+
+        let sample = match sample_result {
+            Ok(Ok(sample)) => sample,
+            Ok(Err(crate::Error::ServiceCall(crate::error::ServiceCallError::NoResponse {
+                ..
+            }))) => return Err(self.timeout_error(timeout)),
+            Ok(Err(error)) => return Err(error),
+            Err(_) => return Err(self.timeout_error(timeout)),
+        };
+
+        self.decode_response(sample)
     }
 }
 
@@ -405,17 +438,17 @@ where
         handler: ServiceQueryHandler,
         queue: Option<Arc<BoundedQueue<Q>>>,
     ) -> Result<ServiceServer<T, Q>> {
-        let entity = &mut self.entity;
+        let topic = self.entity.topic.clone();
         let qualified_service = topic_name::qualify_service_name(
-            &entity.topic,
-            &entity.node.namespace,
-            &entity.node.name,
+            &topic,
+            &self.entity.node.namespace,
+            &self.entity.node.name,
         )
-        .map_err(|e| zenoh::Error::from(format!("Failed to qualify service: {}", e)))?;
+        .map_err(|source| crate::Error::service_name(topic, source))?;
 
-        entity.topic = qualified_service.clone();
+        self.entity.topic = qualified_service.clone();
 
-        let topic_key_expr = ros_z_protocol::format::topic_key_expr(entity)?;
+        let topic_key_expr = ros_z_protocol::format::topic_key_expr(&self.entity)?;
         let key_expr = (*topic_key_expr).clone();
         tracing::debug!("[SRV] KE: {key_expr}");
 
@@ -447,15 +480,19 @@ where
 
                 handler.handle(query);
             })
-            .await?;
+            .await
+            .map_err(|source| crate::Error::zenoh("declare service queryable", source))?;
 
         let liveliness_key_expr =
-            ros_z_protocol::format::liveliness_key_expr(entity, &self.session.zid())?;
+            ros_z_protocol::format::liveliness_key_expr(&self.entity, &self.session.zid())?;
         let lv_token = self
             .session
             .liveliness()
             .declare_token((*liveliness_key_expr).clone())
-            .await?;
+            .await
+            .map_err(|source| {
+                crate::Error::zenoh("declare service server liveliness token", source)
+            })?;
 
         Ok(ServiceServer {
             key_expr,
@@ -518,34 +555,40 @@ impl<T: Service> ServiceReply<T> {
     where
         for<'a> <T::Response as Message>::Codec: WireEncoder<Input<'a> = &'a T::Response>,
     {
-        let mut reply = self.query.reply(
-            &self.key_expr,
-            <<T::Response as Message>::Codec as WireEncoder>::serialize(message),
-        );
+        let payload = <<T::Response as Message>::Codec as WireEncoder>::serialize(message)
+            .map_err(|source| {
+                crate::Error::encode(<T::Response as Message>::type_name(), source)
+            })?;
+        let mut reply = self.query.reply(&self.key_expr, payload);
         let attachment = Attachment::with_clock(
             self.request_id.sequence_number,
             self.request_id.writer_global_id,
             &self.clock,
         );
         reply = reply.attachment(attachment);
-        reply.wait()
+        reply
+            .wait()
+            .map_err(|source| crate::Error::zenoh("send service reply", source))
     }
 
     pub async fn reply_async(self, message: &T::Response) -> Result<()>
     where
         for<'a> <T::Response as Message>::Codec: WireEncoder<Input<'a> = &'a T::Response>,
     {
-        let mut reply = self.query.reply(
-            &self.key_expr,
-            <<T::Response as Message>::Codec as WireEncoder>::serialize(message),
-        );
+        let payload = <<T::Response as Message>::Codec as WireEncoder>::serialize(message)
+            .map_err(|source| {
+                crate::Error::encode(<T::Response as Message>::type_name(), source)
+            })?;
+        let mut reply = self.query.reply(&self.key_expr, payload);
         let attachment = Attachment::with_clock(
             self.request_id.sequence_number,
             self.request_id.writer_global_id,
             &self.clock,
         );
         reply = reply.attachment(attachment);
-        reply.await
+        reply
+            .await
+            .map_err(|source| crate::Error::zenoh("send service reply", source))
     }
 }
 
@@ -596,16 +639,14 @@ where
             WireDecoder<Output = T::Request, Input<'a> = &'a [u8]>,
     {
         let attachment = {
-            let raw = query.attachment().ok_or_else(|| {
-                zenoh::Error::from("received ros-z service request without attachment metadata")
-            })?;
+            let raw = query
+                .attachment()
+                .ok_or(WireError::MissingServiceRequestAttachment)?;
 
-            Attachment::try_from(raw).map_err(|error| {
-                zenoh::Error::from(format!(
-                    "failed to decode ros-z service request attachment metadata: {error}"
-                ))
-            })
-        }?;
+            Attachment::try_from(raw).map_err(|source| {
+                Error::from(WireError::ServiceRequestAttachmentDecode { source })
+            })?
+        };
         let request_id = RequestId::from(attachment);
 
         let payload_bytes = query
@@ -614,7 +655,9 @@ where
             .unwrap_or_default();
         let message =
             <<T::Request as Message>::Codec as WireDecoder>::deserialize(&payload_bytes[..])
-                .map_err(|e| zenoh::Error::from(e.to_string()))?;
+                .map_err(|source| {
+                    crate::Error::decode(<T::Request as Message>::type_name(), source)
+                })?;
 
         Ok(ServiceRequest {
             message,
@@ -634,7 +677,10 @@ where
             WireDecoder<Output = T::Request, Input<'a> = &'a [u8]>,
     {
         let queue = self.queue.as_ref().ok_or_else(|| {
-            zenoh::Error::from("Server was built with callback, no queue available")
+            crate::Error::service_server_state(
+                "access service request queue",
+                "server was built with callback, no queue available",
+            )
         })?;
         match queue.try_recv() {
             Some(query) => self.decode_request(query).map(Some),
@@ -658,7 +704,10 @@ where
         trace!("[SRV] Waiting for request");
 
         let queue = self.queue.as_ref().ok_or_else(|| {
-            zenoh::Error::from("Server was built with callback, no queue available")
+            crate::Error::service_server_state(
+                "access service request queue",
+                "server was built with callback, no queue available",
+            )
         })?;
         let query = queue.recv();
         self.decode_request(query)
@@ -673,10 +722,45 @@ where
             WireDecoder<Output = T::Request, Input<'a> = &'a [u8]>,
     {
         let queue = self.queue.as_ref().ok_or_else(|| {
-            zenoh::Error::from("Server was built with callback, no queue available")
+            crate::Error::service_server_state(
+                "access service request queue",
+                "server was built with callback, no queue available",
+            )
         })?;
         let query = queue.recv_async().await;
         self.decode_request(query)
+    }
+}
+
+impl<T> ServiceServer<T, ()>
+where
+    T: Service,
+{
+    pub fn try_take_request(&mut self) -> Result<Option<ServiceRequest<T>>> {
+        Err(crate::Error::service_server_state(
+            "access service request queue",
+            "server was built with callback, no queue available",
+        ))
+    }
+
+    /// Blocks waiting to receive the next request on the service and then deserializes the payload.
+    ///
+    /// Callback-mode service servers do not expose a request queue.
+    pub fn take_request(&mut self) -> Result<ServiceRequest<T>> {
+        Err(crate::Error::service_server_state(
+            "access service request queue",
+            "server was built with callback, no queue available",
+        ))
+    }
+
+    /// Awaits the next request on the service and then deserializes the payload.
+    ///
+    /// Callback-mode service servers do not expose a request queue.
+    pub async fn take_request_async(&mut self) -> Result<ServiceRequest<T>> {
+        Err(crate::Error::service_server_state(
+            "access service request queue",
+            "server was built with callback, no queue available",
+        ))
     }
 }
 
@@ -690,7 +774,7 @@ mod tests {
         entity::TypeInfo,
         message::{Service, WireEncoder},
     };
-    use ros_z_schema::{SchemaError, ServiceDef};
+    use ros_z_schema::ServiceDef;
     use serde::{Deserialize, Serialize};
     use serde_json::json;
 
@@ -715,16 +799,16 @@ mod tests {
     }
 
     impl ServiceTypeInfo for AddTwoInts {
-        fn service_type_info() -> Result<TypeInfo, SchemaError> {
+        fn service_type_info() -> TypeInfo {
             let descriptor = ServiceDef::new(
                 "test_msgs::AddTwoInts",
                 AddTwoIntsRequest::type_name(),
                 AddTwoIntsResponse::type_name(),
-            )?;
-            Ok(TypeInfo::new(
-                descriptor.type_name.as_str(),
-                ros_z_schema::compute_hash(&descriptor),
-            ))
+            )
+            .expect("test service descriptor should be static and valid");
+            let hash = ros_z_schema::compute_hash(&descriptor)
+                .expect("test service hash should be static and valid");
+            TypeInfo::new(descriptor.type_name.as_str(), hash)
         }
     }
 
@@ -774,9 +858,10 @@ mod tests {
         client_node
             .session()
             .get(key_expr)
-            .payload(SerdeCdrCodec::<AddTwoIntsRequest>::serialize(
-                &AddTwoIntsRequest { a: 10, b: 32 },
-            ))
+            .payload(
+                SerdeCdrCodec::<AddTwoIntsRequest>::serialize(&AddTwoIntsRequest { a: 10, b: 32 })
+                    .unwrap(),
+            )
             .callback(|_| panic!("raw request should not receive a reply"))
             .await
             .expect("Failed to send raw service query");

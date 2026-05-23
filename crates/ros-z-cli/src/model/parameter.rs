@@ -1,4 +1,4 @@
-use color_eyre::eyre::{Result, eyre};
+use color_eyre::eyre::{Result, WrapErr};
 use ros_z::parameter::{
     GetNodeParameterValueResponse, GetNodeParametersSnapshotResponse, NodeParameterChange,
     NodeParameterChangeSource, NodeParameterEvent, ParameterTimestamp,
@@ -139,7 +139,7 @@ impl ParameterWatchChangeView {
 }
 
 fn parse_json_field(label: &str, value: &str) -> Result<Value> {
-    serde_json::from_str(value).map_err(|err| eyre!("failed to parse {label}: {err}"))
+    serde_json::from_str(value).wrap_err_with(|| format!("failed to parse {label}"))
 }
 
 fn change_source_name(source: NodeParameterChangeSource) -> &'static str {

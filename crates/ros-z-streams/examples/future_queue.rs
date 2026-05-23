@@ -4,7 +4,7 @@ use ros_z::prelude::*;
 use ros_z::time::{Clock, Time};
 use ros_z_streams::{CreateAnnouncingPublisher, CreateFutureQueue, LagPolicy, QueueEvent};
 #[tokio::main]
-async fn main() -> zenoh::Result<()> {
+async fn main() -> ros_z::Result<()> {
     let logical = Clock::logical(Time::zero());
     let context = ContextBuilder::default()
         .with_namespace("/ros_z_streams_example")

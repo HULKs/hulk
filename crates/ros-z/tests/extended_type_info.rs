@@ -197,21 +197,21 @@ async fn create_context_with_router(router: &TestRouter) -> ros_z::Result<ros_z:
 
 #[test]
 fn extended_derive_keeps_standard_schema_for_compatible_structs() {
-    let schema = TelemetryLite::schema().unwrap();
+    let schema = TelemetryLite::schema();
     assert!(!uses_extended_types(&schema));
     assert_eq!(
         schema_type_name(&schema),
         "extended_type_info::TelemetryLite"
     );
 
-    assert!(uses_extended_types(&RobotEnvelope::schema().unwrap()));
-    assert!(uses_extended_types(&RobotState::schema().unwrap()));
+    assert!(uses_extended_types(&RobotEnvelope::schema()));
+    assert!(uses_extended_types(&RobotState::schema()));
 }
 
 #[test]
 fn extended_derive_generates_distinct_generic_names_and_hashes() {
-    let u32_schema = GenericEnvelope::<u32>::schema().unwrap();
-    let message_schema = GenericEnvelope::<TelemetryLite>::schema().unwrap();
+    let u32_schema = GenericEnvelope::<u32>::schema();
+    let message_schema = GenericEnvelope::<TelemetryLite>::schema();
 
     assert_eq!(
         GenericEnvelope::<u32>::type_name(),
@@ -222,8 +222,8 @@ fn extended_derive_generates_distinct_generic_names_and_hashes() {
         "extended_type_info::GenericEnvelope<extended_type_info::TelemetryLite>"
     );
     assert_ne!(
-        GenericEnvelope::<u32>::schema_hash().unwrap(),
-        GenericEnvelope::<TelemetryLite>::schema_hash().unwrap()
+        GenericEnvelope::<u32>::schema_hash(),
+        GenericEnvelope::<TelemetryLite>::schema_hash()
     );
 
     let payload = field(&message_schema, "payload");
@@ -242,15 +242,15 @@ fn extended_derive_generates_distinct_generic_names_and_hashes() {
 
 #[test]
 fn derived_message_hash_matches_manual_runtime_bundle_hash() {
-    let schema = DerivedEnvelope::schema().unwrap();
-    let runtime_hash = ros_z_schema::compute_hash(&schema);
+    let schema = DerivedEnvelope::schema();
+    let runtime_hash = ros_z_schema::compute_hash(&schema).unwrap();
 
-    assert_eq!(DerivedEnvelope::schema_hash().unwrap(), runtime_hash);
+    assert_eq!(DerivedEnvelope::schema_hash(), runtime_hash);
 }
 
 #[test]
 fn extended_derive_keeps_extended_only_generic_instantiations_on_extended_path() {
-    let schema = GenericOptionalEnvelope::<u32>::schema().unwrap();
+    let schema = GenericOptionalEnvelope::<u32>::schema();
     assert!(uses_extended_types(&schema));
     assert_eq!(
         GenericOptionalEnvelope::<u32>::type_name(),
@@ -271,10 +271,10 @@ fn extended_derive_keeps_extended_only_generic_instantiations_on_extended_path()
 
 #[test]
 fn dynamic_registry_round_trips_recursive_bundle_by_type_name_and_hash() {
-    let schema = std::sync::Arc::new(RecursiveTrace::schema().unwrap());
+    let schema = std::sync::Arc::new(RecursiveTrace::schema());
     schema.validate().unwrap();
     assert!(schema_has_recursive_children(&schema));
-    let schema_hash = ros_z_schema::compute_hash(schema.as_ref());
+    let schema_hash = ros_z_schema::compute_hash(schema.as_ref()).unwrap();
     let mut registry = SchemaRegistry::new();
 
     registry
@@ -307,7 +307,7 @@ async fn discovery_uses_schema_service_for_standard_compatible_types() {
         .await
         .expect("publisher");
 
-    let registered_hash = ros_z_schema::compute_hash(&TelemetryLite::schema().unwrap());
+    let registered_hash = ros_z_schema::compute_hash(&TelemetryLite::schema()).unwrap();
     let registered = pub_node
         .schema_service()
         .expect("standard schema service")
@@ -384,10 +384,10 @@ async fn schema_service_round_trips_recursive_bundle() {
         .await
         .expect("publisher");
 
-    let recursive_schema = RecursiveTrace::schema().unwrap();
+    let recursive_schema = RecursiveTrace::schema();
     recursive_schema.validate().unwrap();
     assert!(schema_has_recursive_children(&recursive_schema));
-    let registered_hash = ros_z_schema::compute_hash(&recursive_schema);
+    let registered_hash = ros_z_schema::compute_hash(&recursive_schema).unwrap();
     let registered = pub_node
         .schema_service()
         .expect("schema service")
@@ -526,7 +526,7 @@ async fn extended_only_types_use_schema_service_when_enabled() {
         .await
         .expect("publisher");
 
-    let registered_hash = ros_z_schema::compute_hash(&RobotEnvelope::schema().unwrap());
+    let registered_hash = ros_z_schema::compute_hash(&RobotEnvelope::schema()).unwrap();
     let registered = pub_node
         .schema_service()
         .expect("schema service")
