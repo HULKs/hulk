@@ -1,299 +1,152 @@
 use std::{
-    collections::{BTreeMap, BTreeSet, VecDeque},
+    collections::{BTreeSet, VecDeque},
     time::Duration,
 };
 
 use ros_z::{
-    EndpointGlobalId, Message, Result, message::WireDecoder, node::Node, pubsub::Subscriber,
+    Message, Result,
+    node::Node,
+    pubsub::{Received, Subscriber},
     time::Time,
 };
 use tokio::select;
 
 use crate::announce::Announcement;
 
-type PublicationKey = (EndpointGlobalId, i64);
-
-const MAX_UNMATCHED_PUBLICATIONS: usize = 128;
-
-struct PendingData<T> {
-    source_time: Time,
-    value: T,
-}
-
-fn trim_unmatched_publications<T>(
-    pending_data: &mut BTreeMap<PublicationKey, PendingData<T>>,
-    tombstones: &mut BTreeSet<PublicationKey>,
-) {
-    while pending_data.len() > MAX_UNMATCHED_PUBLICATIONS {
-        if let Some(key) = pending_data.first_key_value().map(|(key, _)| *key) {
-            pending_data.remove(&key);
-        }
-    }
-
-    while tombstones.len() > MAX_UNMATCHED_PUBLICATIONS {
-        if let Some(key) = tombstones.first().cloned() {
-            tombstones.remove(&key);
-        }
-    }
-}
-
-/// Runtime lag policy for streams with empty in-flight set.
-#[derive(Debug, Clone, Copy, Default)]
-pub enum LagPolicy {
-    /// Empty queue provides no safe-time constraint.
-    #[default]
-    Immediate,
-    /// Empty queue constrains safe-time using `reference_time - max_lag`.
-    Watermark {
-        /// Maximum lag applied when measured lag is larger.
-        max_lag: Duration,
-    },
-}
-
-/// Diagnostic warning emitted while deriving queue state.
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum LagWarning {
-    /// Measured lag exceeded configured watermark cap and was clamped.
-    LagExceeded {
-        /// Measured lag from source timestamp and announcement timestamp.
-        measured: Duration,
-        /// Effective lag after clamping.
-        clamped_to: Duration,
-    },
-}
-
-/// Per-stream state snapshot produced by queue events.
-#[derive(Debug, Clone, Copy)]
-pub struct QueueState {
-    /// Current safe-time constraint for this stream.
-    pub safe_time: Option<Time>,
-    /// Latest observed source timestamp for this stream.
-    pub reference_time: Time,
-    /// Effective lag currently used by watermark mode.
-    pub effective_lag: Option<Duration>,
-    /// Optional warning produced while updating this state.
-    pub warning: Option<LagWarning>,
-}
-
-/// Event produced by [`FutureQueueSubscriber::recv`].
-pub enum QueueEvent<T> {
-    /// Announcement received and queue state updated.
-    Announcement { state: QueueState },
-    /// Data payload received with current queue state and payload timestamp.
-    Data {
-        state: QueueState,
-        data_time: Time,
-        value: T,
-    },
-}
-
-/// Subscriber that tracks in-flight messages for one stream.
-pub struct FutureQueueSubscriber<T>
-where
-    T: Message,
-    for<'a> T::Codec: WireDecoder<Input<'a> = &'a [u8], Output = T>,
-{
+/// Subscriber that tracks in-flight messages for a single stream.
+///
+/// This struct maintains two collections:
+/// - `inflight`: A set of announced timestamps awaiting corresponding data
+/// - `pending_data`: A queue of received messages awaiting matching announcements
+///
+/// The queue enforces a strict ordering: data is only released when both the
+/// announcement has arrived and the data payload has been received, ensuring
+/// temporal consistency even with variable network delays and out-of-order delivery.
+#[derive(Debug)]
+pub struct FutureQueueSubscriber<T: Message> {
     data_subscriber: Subscriber<T>,
     announcement_subscriber: Subscriber<Announcement>,
-    lag_policy: LagPolicy,
-    reference_time: Time,
-    effective_lag: Option<Duration>,
-    inflight: BTreeMap<PublicationKey, Time>,
-    pending_data: BTreeMap<PublicationKey, PendingData<T>>,
-    ready_data: VecDeque<(Time, T)>,
-    tombstones: BTreeSet<PublicationKey>,
+    inflight: BTreeSet<Announcement>,
+    pending_data: VecDeque<Received<T>>,
+    transit_lag: Duration,
 }
 
-impl<T> FutureQueueSubscriber<T>
-where
-    T: Message,
-    for<'a> T::Codec: WireDecoder<Input<'a> = &'a [u8], Output = T>,
-{
-    fn safe_time(&self) -> Option<Time> {
-        if !self.inflight.is_empty() {
-            return self.inflight.values().copied().min();
-        }
+/// Events from a single stream subscription.
+///
+/// The subscriber emits these events to the fusion engine, which buffers them
+/// according to their timestamp and arrival pattern.
+pub enum QueueEvent<T> {
+    /// A new timestamp announcement was received for future data on this stream.
+    ///
+    /// This indicates that data with the announced timestamp is coming.
+    /// The fusion engine uses this to update its global safe-time boundaries.
+    Announcement,
+    /// Data message with matched announcement arrived on this stream.
+    ///
+    /// The timestamp is the value announced earlier. The data is now available
+    /// for inclusion in the time-ordered persistent buffer.
+    Data(Time, T),
+}
 
-        match (self.lag_policy, self.effective_lag) {
-            (LagPolicy::Immediate, _) => None,
-            (LagPolicy::Watermark { .. }, Some(effective_lag)) => {
-                Some(self.reference_time - effective_lag)
-            }
-            (LagPolicy::Watermark { max_lag }, None) => Some(self.reference_time - max_lag),
-        }
+trait BelongToExt {
+    fn belongs_to(&self, announcement: &Announcement) -> bool;
+}
+
+impl<T> BelongToExt for Received<T> {
+    fn belongs_to(&self, announcement: &Announcement) -> bool {
+        self.source_global_id == announcement.source_global_id
+            && self.sequence_number == announcement.sequence_number
+    }
+}
+
+impl<T: Message> FutureQueueSubscriber<T> {
+    /// Returns the earliest announced safe time for this stream.
+    pub(crate) fn safe_time(&self, now: Time) -> Time {
+        let transit_boundary = now - self.transit_lag;
+        self.inflight
+            .first()
+            .map_or(transit_boundary, |announcement| {
+                announcement.time.min(transit_boundary)
+            })
     }
 
-    fn queue_state(&self, warning: Option<LagWarning>) -> QueueState {
-        QueueState {
-            safe_time: self.safe_time(),
-            reference_time: self.reference_time,
-            effective_lag: self.effective_lag,
-            warning,
-        }
+    /// Returns the transit lag for this stream.
+    pub(crate) fn transit_lag(&self) -> Duration {
+        self.transit_lag
     }
 
-    fn update_reference_time(
-        &mut self,
-        source_time: Time,
-        announcement_time: Option<Time>,
-    ) -> Option<LagWarning> {
-        match self.lag_policy {
-            LagPolicy::Immediate => {
-                self.reference_time = source_time;
-                None
-            }
-            LagPolicy::Watermark { max_lag } => {
-                self.reference_time = source_time;
-                if let Some(announcement_time) = announcement_time {
-                    let measured = source_time.duration_since(announcement_time);
-                    let clamped = measured.min(max_lag);
-                    self.effective_lag = Some(clamped);
-                    if measured > max_lag {
-                        return Some(LagWarning::LagExceeded {
-                            measured,
-                            clamped_to: max_lag,
-                        });
-                    }
-                }
-                None
-            }
-        }
+    /// Check if any of the pending data messages matches the first outstanding announcement
+    fn next_publishable(&mut self) -> Option<(Time, T)> {
+        let announcement = self.inflight.first()?;
+        let index = self
+            .pending_data
+            .iter()
+            .position(|pending| pending.belongs_to(announcement))?;
+        // Only remove the announcement if the data matches it
+        let announcement = self.inflight.pop_first().expect("announcement must exist");
+
+        self.pending_data
+            .remove(index)
+            .map(|pending| (announcement.time, pending.message))
     }
 
-    fn register_announcement(
-        &mut self,
-        announcement: Announcement,
-        source_time: Time,
-    ) -> Option<LagWarning> {
-        let publication_key = (announcement.source_global_id, announcement.sequence_number);
-        if announcement.canceled {
-            self.inflight.remove(&publication_key);
-            self.pending_data.remove(&publication_key);
-            self.tombstones.insert(publication_key);
-            self.trim_unmatched_publications();
-            return None;
-        }
-
-        if self.tombstones.remove(&publication_key) {
-            return None;
-        }
-
-        let warning = self.update_reference_time(source_time, Some(announcement.time));
-        if let Some(pending_data) = self.pending_data.remove(&publication_key) {
-            self.update_reference_time(pending_data.source_time, None);
-            self.ready_data
-                .push_back((announcement.time, pending_data.value));
-        } else {
-            self.inflight.insert(publication_key, announcement.time);
-        }
-        warning
-    }
-
-    fn trim_unmatched_publications(&mut self) {
-        trim_unmatched_publications(&mut self.pending_data, &mut self.tombstones);
-    }
-
-    async fn ingest_pending_announcements(&mut self) -> Result<Option<LagWarning>> {
-        let mut warning = None;
-        while self.announcement_subscriber.is_ready() {
-            let received = self.announcement_subscriber.recv_with_metadata().await?;
-            warning =
-                warning.or(self.register_announcement(received.message, received.source_time));
-        }
-        Ok(warning)
-    }
-
-    /// Return current stream state without consuming events.
-    pub fn current_state(&self) -> QueueState {
-        self.queue_state(None)
-    }
-
-    /// Drain ready announcements and return updated state.
-    pub async fn drain_announcements(&mut self) -> Result<QueueState> {
-        let warning = self.ingest_pending_announcements().await?;
-        Ok(self.queue_state(warning))
-    }
-
-    /// Wait for next announcement or payload event.
+    /// Wait for the next publishable data event from this stream.
+    ///
+    /// This method blocks until either an announcement or data is received.
+    /// It returns `QueueEvent::Data` only when both the announcement and data
+    /// for a message have arrived, ensuring temporal ordering at the stream level.
     pub async fn recv(&mut self) -> Result<QueueEvent<T>> {
         loop {
-            if let Some((data_time, value)) = self.ready_data.pop_front() {
-                return Ok(QueueEvent::Data {
-                    state: self.queue_state(None),
-                    data_time,
-                    value,
-                });
+            if let Some((time, data)) = self.next_publishable() {
+                return Ok(QueueEvent::Data(time, data));
             }
 
             select! {
-                result = self.announcement_subscriber.recv_with_metadata() => {
-                    let received = result?;
-                    let warning = self.register_announcement(received.message, received.source_time);
-                    if let Some((data_time, value)) = self.ready_data.pop_front() {
-                        return Ok(QueueEvent::Data {
-                            state: self.queue_state(warning),
-                            data_time,
-                            value,
-                        });
-                    }
-                    return Ok(QueueEvent::Announcement { state: self.queue_state(warning) });
+                announcement = self.announcement_subscriber.recv() => {
+                    self.inflight.insert(announcement?);
+                    return Ok(QueueEvent::Announcement);
                 }
-                result = self.data_subscriber.recv_with_metadata() => {
-                    let received = result?;
-
-                    let mut warning = self.ingest_pending_announcements().await?;
-                    warning = warning.or(self.update_reference_time(received.source_time, None));
-
-                    let publication_id = received.publication_id();
-                    let publication_key = (
-                        publication_id.endpoint_global_id(),
-                        publication_id.sequence_number(),
-                    );
-
-                    if let Some(data_time) = self.inflight.remove(&publication_key) {
-                        return Ok(QueueEvent::Data {
-                            state: self.queue_state(warning),
-                            data_time,
-                            value: received.message,
-                        });
-                    }
-
-                    if !self.tombstones.contains(&publication_key) {
-                        self.pending_data.insert(publication_key, PendingData {
-                            source_time: received.source_time,
-                            value: received.message,
-                        });
-                        self.trim_unmatched_publications();
-                    }
-                },
+                data = self.data_subscriber.recv_with_metadata() => {
+                    self.pending_data.push_back(data?);
+                }
             }
         }
     }
 }
 
 /// Extension trait for creating future queue subscribers.
+///
+/// This trait extends [`ros_z::node::Node`] to provide convenient construction
+/// of subscribers that coordinate announcements with data delivery for a single stream.
 pub trait CreateFutureQueue {
-    /// Subscribe to one stream with configured lag policy.
-    fn create_future_subscriber<'a, T>(
-        &'a self,
-        topic: &'a str,
-        lag_policy: LagPolicy,
-    ) -> impl std::future::Future<Output = Result<FutureQueueSubscriber<T>>> + 'a
-    where
-        T: Message + 'a,
-        for<'de> T::Codec: WireDecoder<Input<'de> = &'de [u8], Output = T>;
+    /// Subscribe to a topic with configured transit safety lag.
+    ///
+    /// Creates a [`FutureQueueSubscriber<T>`] that tracks in-flight messages on the given
+    /// topic. The corresponding announcements must be published on `{topic}/announce` using
+    /// an [`crate::AnnouncingPublisher`].
+    ///
+    /// # Arguments
+    /// * `topic` - The base topic name for data messages
+    /// * `transit_lag` - Maximum expected duration between announcement and data receipt.
+    ///   This safety margin ensures data is held long enough for delayed announcements
+    ///   to arrive from slow transports.
+    ///
+    /// # Returns
+    /// A future that resolves to a [`FutureQueueSubscriber<T>`] when the subscription
+    /// is established and ready to receive messages.
+    fn create_future_subscriber<T: Message>(
+        &self,
+        topic: &str,
+        transit_lag: Duration,
+    ) -> impl Future<Output = Result<FutureQueueSubscriber<T>>>;
 }
 
 impl CreateFutureQueue for Node {
-    async fn create_future_subscriber<'a, T>(
-        &'a self,
-        topic: &'a str,
-        lag_policy: LagPolicy,
-    ) -> Result<FutureQueueSubscriber<T>>
-    where
-        T: Message + 'a,
-        for<'de> T::Codec: WireDecoder<Input<'de> = &'de [u8], Output = T>,
-    {
+    async fn create_future_subscriber<T: Message>(
+        &self,
+        topic: &str,
+        transit_lag: Duration,
+    ) -> Result<FutureQueueSubscriber<T>> {
         let data_subscriber = self.subscriber(topic)?.build().await?;
         let announcement_subscriber = self
             .subscriber(&format!("{}/announce", topic))?
@@ -303,178 +156,9 @@ impl CreateFutureQueue for Node {
         Ok(FutureQueueSubscriber {
             data_subscriber,
             announcement_subscriber,
-            lag_policy,
-            reference_time: self.clock().now(),
-            effective_lag: match lag_policy {
-                LagPolicy::Immediate => None,
-                LagPolicy::Watermark { max_lag } => Some(max_lag),
-            },
-            inflight: BTreeMap::new(),
-            pending_data: BTreeMap::new(),
-            ready_data: VecDeque::new(),
-            tombstones: BTreeSet::new(),
+            inflight: BTreeSet::new(),
+            pending_data: VecDeque::new(),
+            transit_lag,
         })
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    use ros_z::context::ContextBuilder;
-
-    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-    async fn payload_received_before_announcement_is_delivered_after_announcement() {
-        let context = ContextBuilder::default()
-            .build()
-            .await
-            .expect("create context");
-        let node = context
-            .create_node("queue_payload_before_announcement")
-            .build()
-            .await
-            .expect("create node");
-        let data_publisher = node
-            .publisher::<String>("queue/payload_first")
-            .expect("endpoint factory should succeed")
-            .build()
-            .await
-            .expect("create data publisher");
-        let announcement_publisher = node
-            .publisher::<Announcement>("queue/payload_first/announce")
-            .expect("endpoint factory should succeed")
-            .build()
-            .await
-            .expect("create announcement publisher");
-        let mut subscriber = node
-            .create_future_subscriber::<String>("queue/payload_first", LagPolicy::Immediate)
-            .await
-            .expect("create queue subscriber");
-
-        tokio::time::sleep(Duration::from_millis(100)).await;
-
-        let prepared = data_publisher.prepare();
-        let publication_id = prepared.id();
-        prepared
-            .publish(&"payload".to_owned())
-            .await
-            .expect("publish payload first");
-
-        let result = tokio::time::timeout(Duration::from_millis(100), subscriber.recv()).await;
-        assert!(
-            result.is_err(),
-            "payload without announcement should be buffered"
-        );
-
-        announcement_publisher
-            .publish(&Announcement {
-                time: Time::from_nanos(42),
-                source_global_id: publication_id.endpoint_global_id(),
-                sequence_number: publication_id.sequence_number(),
-                canceled: false,
-            })
-            .await
-            .expect("publish matching announcement");
-
-        let event = tokio::time::timeout(Duration::from_secs(2), subscriber.recv())
-            .await
-            .expect("timeout waiting for queued payload")
-            .expect("receive queued payload");
-        match event {
-            QueueEvent::Data {
-                state,
-                data_time,
-                value,
-            } => {
-                assert_eq!(state.safe_time, None);
-                assert_eq!(data_time, Time::from_nanos(42));
-                assert_eq!(value, "payload");
-            }
-            QueueEvent::Announcement { .. } => panic!("expected buffered data event"),
-        }
-    }
-
-    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
-    async fn safe_time_uses_oldest_inflight_time_not_publication_key_order() {
-        let context = ContextBuilder::default()
-            .build()
-            .await
-            .expect("create context");
-        let node = context
-            .create_node("queue_safe_time_order")
-            .build()
-            .await
-            .expect("create node");
-        let announcement_publisher = node
-            .publisher::<Announcement>("queue/safe_time_order/announce")
-            .expect("endpoint factory should succeed")
-            .build()
-            .await
-            .expect("create announcement publisher");
-        let mut subscriber = node
-            .create_future_subscriber::<String>("queue/safe_time_order", LagPolicy::Immediate)
-            .await
-            .expect("create queue subscriber");
-
-        tokio::time::sleep(Duration::from_millis(100)).await;
-
-        announcement_publisher
-            .publish(&Announcement {
-                time: Time::from_nanos(100),
-                source_global_id: [1; 16],
-                sequence_number: 1,
-                canceled: false,
-            })
-            .await
-            .expect("publish later low-key announcement");
-        announcement_publisher
-            .publish(&Announcement {
-                time: Time::from_nanos(10),
-                source_global_id: [2; 16],
-                sequence_number: 1,
-                canceled: false,
-            })
-            .await
-            .expect("publish earlier high-key announcement");
-
-        let _ = tokio::time::timeout(Duration::from_secs(2), subscriber.recv())
-            .await
-            .expect("timeout waiting for first announcement")
-            .expect("receive first announcement");
-        let event = tokio::time::timeout(Duration::from_secs(2), subscriber.recv())
-            .await
-            .expect("timeout waiting for second announcement")
-            .expect("receive second announcement");
-
-        match event {
-            QueueEvent::Announcement { state } => {
-                assert_eq!(state.safe_time, Some(Time::from_nanos(10)));
-            }
-            QueueEvent::Data { .. } => panic!("expected announcement event"),
-        }
-    }
-
-    #[test]
-    fn unmatched_payload_and_tombstone_storage_is_bounded() {
-        let mut pending_data = BTreeMap::new();
-        let mut tombstones = BTreeSet::new();
-
-        for index in 0..256 {
-            pending_data.insert(
-                ([index as u8; 16], index),
-                PendingData {
-                    source_time: Time::from_nanos(index),
-                    value: format!("payload {index}"),
-                },
-            );
-        }
-        trim_unmatched_publications(&mut pending_data, &mut tombstones);
-        assert!(pending_data.len() <= MAX_UNMATCHED_PUBLICATIONS);
-
-        for index in 0..256 {
-            tombstones.insert(([index as u8; 16], index));
-        }
-        trim_unmatched_publications(&mut pending_data, &mut tombstones);
-        assert!(tombstones.len() <= MAX_UNMATCHED_PUBLICATIONS);
     }
 }
