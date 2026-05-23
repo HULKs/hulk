@@ -5,7 +5,7 @@ use color_eyre::Result;
 use hsl_network_messages::{HulkMessage, PlayerNumber, StateMessage};
 use ros_z::{prelude::*, qos::QosDurability};
 use ros_z_streams::CreateAnnouncingPublisher;
-use types::messages::{IncomingMessage, StampedIncomingMessage};
+use types::{messages::IncomingMessage, time_wrapper::TimeWrapper};
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("message_filter").build().await?;
@@ -19,29 +19,29 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let message_sub = node
-        .subscriber::<StampedIncomingMessage>("inputs/message")?
+        .subscriber::<TimeWrapper<IncomingMessage>>("inputs/message")?
         .build()
         .await?;
     let filtered_message_pub = node
-        .announcing_publisher::<StampedIncomingMessage>("filtered_message")
+        .announcing_publisher::<IncomingMessage>("filtered_message")
         .await?;
 
     let mut player_number = None;
 
     loop {
         tokio::select! {
-            received_stamped_message = message_sub.recv() => {
+            received_time_wrapped_message = message_sub.recv() => {
                 let Some(current_player_number) = player_number else {continue;};
-                let stamped_message = received_stamped_message?;
+                let time_wrapped_message = received_time_wrapped_message?;
 
-                let pending_accouncement = filtered_message_pub.announce(stamped_message.time).await?;
+                let pending_accouncement = filtered_message_pub.announce(time_wrapped_message.time).await?;
 
-                let should_filter_message_out = matches!(stamped_message.incoming_message, IncomingMessage::Hsl(
+                let should_filter_message_out = matches!(time_wrapped_message.inner, IncomingMessage::Hsl(
                         HulkMessage::State(StateMessage { player_number, .. }),
                     ) if player_number == current_player_number);
 
                 if !should_filter_message_out {
-                    pending_accouncement.publish(&stamped_message).await?;
+                    pending_accouncement.publish(&time_wrapped_message.inner).await?;
                 }
             }
             received_player_number = player_number_sub.recv() => {

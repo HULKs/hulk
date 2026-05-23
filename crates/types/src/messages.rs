@@ -1,16 +1,10 @@
 use std::net::SocketAddr;
 
-use ros_z::{Message, time::Time};
+use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
 use hsl_network_messages::{GameControllerReturnMessage, GameControllerStateMessage, HulkMessage};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
-
-#[derive(Debug, Serialize, Deserialize, Message)]
-pub struct StampedIncomingMessage {
-    pub time: Time,
-    pub incoming_message: IncomingMessage,
-}
 
 #[derive(
     Clone, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect, Message,
