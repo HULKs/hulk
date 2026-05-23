@@ -105,8 +105,7 @@ impl<'a, T: Message> PendingAnnouncement<'a, T> {
     /// allowing receivers to correlate them and maintain temporal ordering.
     pub async fn publish(mut self, value: &T) -> Result<()> {
         let data = self.data.take().expect("can only publish once");
-        data.publish(value).await?;
-        Ok(())
+        data.publish(value).await
     }
 }
 
