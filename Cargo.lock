@@ -4837,8 +4837,11 @@ dependencies = [
  "color-eyre",
  "coordinate_systems",
  "kinematics",
+ "kinematics_provider",
  "linear_algebra",
  "ros-z",
+ "serde",
+ "support_foot_estimator",
  "tokio",
  "types",
 ]
@@ -6155,6 +6158,7 @@ dependencies = [
  "kinematics",
  "linear_algebra",
  "ros-z",
+ "serde",
 ]
 
 [[package]]
@@ -10648,6 +10652,7 @@ dependencies = [
  "coordinate_systems",
  "filtering",
  "kinematics",
+ "kinematics_provider",
  "linear_algebra",
  "ros-z",
  "serde",

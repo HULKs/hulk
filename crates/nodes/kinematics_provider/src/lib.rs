@@ -1,6 +1,7 @@
 use std::sync::Arc;
 
 use color_eyre::Result;
+use serde::{Deserialize, Serialize};
 
 use booster::{JointsMotorState, MotorState};
 use kinematics::{
@@ -23,7 +24,13 @@ use kinematics::{
     },
 };
 use linear_algebra::Isometry3;
-use ros_z::prelude::*;
+use ros_z::{prelude::*, time::Time};
+
+#[derive(Debug, Serialize, Deserialize, Message)]
+pub struct RobotKinematicsMessage {
+    pub time: Time,
+    pub robot_kinematics: RobotKinematics,
+}
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("kinematics_provider").build().await?;
@@ -32,7 +39,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let robot_kinematics_pub = node
-        .publisher::<RobotKinematics>("robot_kinematics")?
+        .publisher::<RobotKinematicsMessage>("robot_kinematics")?
         .build()
         .await?;
 
@@ -42,7 +49,11 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         let measured_positions = serial_motor_states.positions();
         let robot_kinematics = compute_robot_kinematics(&measured_positions);
 
-        robot_kinematics_pub.publish(&robot_kinematics).await?;
+        let message = RobotKinematicsMessage {
+            time: serial_motor_states.source_time,
+            robot_kinematics,
+        };
+        robot_kinematics_pub.publish(&message).await?;
     }
 }
 

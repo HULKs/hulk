@@ -11,6 +11,7 @@ color-eyre = { workspace = true }
 coordinate_systems = { workspace = true }
 filtering = { workspace = true }
 kinematics = { workspace = true }
+kinematics_provider = { workspace = true }
 linear_algebra = { workspace = true }
 ros-z = { workspace = true }
 serde = { workspace = true }
