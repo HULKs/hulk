@@ -8,9 +8,9 @@ use ros_z::{
 };
 use serde::{Deserialize, Serialize};
 
-/// Lightweight announcement that marks an in-flight message at a given timestamp.
+/// Announcement that marks an in-flight message at a given timestamp.
 ///
-/// Announcements are sent before the actual payload to allow downstream subscribers
+/// Announcements are sent before the actual output of a node has been computed to allow downstream subscribers
 /// to anticipate data arrival and prepare buffers. This enables deterministic stream
 /// fusion even with variable network delays.
 #[derive(Debug, Serialize, Deserialize, Message, PartialEq, Eq, PartialOrd, Ord)]
@@ -23,7 +23,7 @@ pub struct Announcement {
 /// Publisher that emits announcements before sending payload data.
 ///
 /// This publisher coordinates with its corresponding data channel to ensure that
-/// timestamps are announced before heavy payloads are transmitted. This two-phase
+/// timestamps are announced before the actual node output is transmitted. This two-phase
 /// pattern allows receivers to buffer data intelligently and maintain time-ordered
 /// streams even when messages arrive out-of-order or with variable latencies.
 pub struct AnnouncingPublisher<T: Message> {
@@ -34,7 +34,7 @@ pub struct AnnouncingPublisher<T: Message> {
 impl<T: Message> AnnouncingPublisher<T> {
     /// Announce upcoming payload timestamp and return handle to publish payload with matching id.
     ///
-    /// This method sends a lightweight timestamp announcement and returns a [`PendingAnnouncement`]
+    /// This method sends a timestamp announcement and returns a [`PendingAnnouncement`]
     /// handle that must be used to publish the corresponding payload. The announcement serves
     /// as a signal to downstream receivers that data with the given timestamp is incoming.
     pub async fn announce(&self, time: Time) -> Result<PendingAnnouncement<'_, T>> {

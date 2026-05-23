@@ -6,7 +6,7 @@
 //! ahead-of-time timestamp announcements and wall-clock safety boundaries.
 //!
 //! # Core Concepts
-//! * **Announcing Publishers**: Emit lightweight timestamp markers *before* sending heavy payloads, allowing downstream nodes to anticipate data.
+//! * **Announcing Publishers**: Emit a timestamp markers *before* sending the actual output of a node, allowing downstream nodes to anticipate data.
 //! * **Safety Lag**: A wall-clock `Duration` representing the maximum expected physical transit delay for a stream. It guarantees data is held in a temporary buffer long enough for delayed announcements to arrive.
 //! * **Future Map**: A multi-stream fusion engine that holds data in a `temporary` buffer until it is mathematically safe, then releases it exactly once into a strictly time-ordered `persistent` map.
 //!
@@ -79,7 +79,7 @@ mod announce;
 mod future_map;
 mod future_queue;
 
-pub use announce::{AnnouncingPublisher, CreateAnnouncingPublisher};
+pub use announce::{AnnouncingPublisher, CreateAnnouncingPublisher, PendingAnnouncement};
 pub use future_map::{
     CreateFutureMapBuilder, FutureItem, FutureMap, FutureMapBuilder, FutureResult,
 };
