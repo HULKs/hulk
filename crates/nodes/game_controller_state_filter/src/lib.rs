@@ -85,6 +85,8 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
 
+    let mut field_dimensions = None;
+    let mut player_number = None;
     let mut filtered_whistle = FilteredWhistle::default();
     let mut current_ball_state = None;
     let mut latest_ball_state = None;
@@ -107,11 +109,18 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                     latest_ball_state = Some((received_source_time, actual_ball_state));
                 }
             }
+            received_field_dimensions = field_dimensions_sub.recv() => {
+                field_dimensions = Some(received_field_dimensions?)
+            }
+            received_player_number = player_number_sub.recv() => {
+                player_number = Some(received_player_number?)
+            }
             received_game_controller_state_item = game_controller_state_sub.recv() => {
                 let game_controller_state_item = received_game_controller_state_item?;
 
-                let field_dimensions = field_dimensions_sub.recv().await?;
-                let player_number = player_number_sub.recv().await?;
+                let (Some(field_dimensions), Some(player_number)) = (field_dimensions, player_number) else {
+                    continue;
+                };
 
                 for game_controller_state in game_controller_state_item.persistent.into_iter().filter_map(|(_, (maybe_game_controller_state,))| maybe_game_controller_state.flatten()) {
                     let (new_own_penalties_last_cycle, new_opponent_penalties_last_cycle) = game_controller_state_filter
