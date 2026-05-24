@@ -47,12 +47,12 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .subscriber::<TimeWrapper<Option<GameControllerState>>>("game_controller_state")?
         .build()
         .await?;
-    let filtered_whistle_sub = node
-        .subscriber::<FilteredWhistle>("filtered_whistle")?
+    let filtered_whistle_cache = node
+        .create_cache::<FilteredWhistle>("filtered_whistle", 1)?
         .build()
         .await?;
-    let ball_state_sub = node
-        .subscriber::<Option<BallState>>("ball_state")?
+    let ball_state_cache = node
+        .create_cache::<Option<BallState>>("ball_state", 1)?
         .build()
         .await?;
 
@@ -65,60 +65,58 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
 
-    let mut filtered_whistle = FilteredWhistle::default();
-    let mut current_ball_state = None;
-    let mut latest_ball_state = None;
-
+    let mut latest_known_ball_state = None;
     let mut game_controller_state_filter = GameControllerStateFilter::default();
 
     loop {
         let parameters_snapshot = parameters.snapshot();
         let parameters = parameters_snapshot.typed();
 
-        tokio::select! {
-            filtered_whistle_msg = filtered_whistle_sub.recv() => {
-                filtered_whistle = filtered_whistle_msg?;
-            }
-            ball_state_msg = ball_state_sub.recv_with_metadata() => {
-                let received_ball_state = ball_state_msg?;
-                let received_source_time = received_ball_state.source_time;
-                current_ball_state = received_ball_state.into_message();
-                if let Some(actual_ball_state) = current_ball_state {
-                    latest_ball_state = Some((received_source_time, actual_ball_state));
-                }
-            }
-            received_game_controller_state_wrapper = game_controller_state_sub.recv() => {
-                let game_controller_state_wrapper = received_game_controller_state_wrapper?;
+        let game_controller_state_wrapper = game_controller_state_sub.recv().await?;
 
-                let (Some(field_dimensions), Some(player_number)) = (
-                    field_dimensions_cache.get_latest(),
-                    player_number_cache.get_latest()
-                ) else {
-                    continue;
-                };
+        let (Some(field_dimensions), Some(player_number)) = (
+            field_dimensions_cache.get_latest(),
+            player_number_cache.get_latest(),
+        ) else {
+            continue;
+        };
 
-                let TimeWrapper { time, inner: Some(game_controller_state) } = game_controller_state_wrapper else { continue };
+        let filtered_whistle = filtered_whistle_cache.get_latest().unwrap_or_default();
 
-                let filtered_game_controller_state =
-                    TimeWrapper {
-                        time,
-                        inner:
-                            game_controller_state_filter.compute_filtered_game_controller_state(
-                                node.clock().now(),
-                                parameters,
-                                &field_dimensions,
-                                &player_number,
-                                &game_controller_state,
-                                &latest_ball_state,
-                                &filtered_whistle,
-                                &current_ball_state
-                            )
-                    };
+        let current_ball_state_time = ball_state_cache.latest_stamp();
+        let current_ball_state = ball_state_cache.get_latest().and_then(|maybe| *maybe);
+        if let Some((ball_state, time)) = current_ball_state_time.zip(current_ball_state) {
+            latest_known_ball_state = Some((ball_state, time))
+        };
 
-                whistle_in_set_ball_position_pub.publish(&game_controller_state_filter.whistle_in_set_ball_position).await?;
-                filtered_game_controller_state_pub.publish(&filtered_game_controller_state).await?;
-            }
-        }
+        let TimeWrapper {
+            time,
+            inner: Some(game_controller_state),
+        } = game_controller_state_wrapper
+        else {
+            continue;
+        };
+
+        let filtered_game_controller_state = TimeWrapper {
+            time,
+            inner: game_controller_state_filter.compute_filtered_game_controller_state(
+                node.clock().now(),
+                parameters,
+                &field_dimensions,
+                &player_number,
+                &game_controller_state,
+                &latest_known_ball_state,
+                &filtered_whistle,
+                &current_ball_state,
+            ),
+        };
+
+        whistle_in_set_ball_position_pub
+            .publish(&game_controller_state_filter.whistle_in_set_ball_position)
+            .await?;
+        filtered_game_controller_state_pub
+            .publish(&filtered_game_controller_state)
+            .await?;
     }
 }
 
@@ -146,7 +144,7 @@ impl GameControllerStateFilter {
         field_dimensions: &FieldDimensions,
         player_number: &PlayerNumber,
         game_controller_state: &GameControllerState,
-        latest_ball_state: &Option<(Time, BallState)>,
+        latest_known_ball_state: &Option<(Time, BallState)>,
         filtered_whistle: &FilteredWhistle,
         current_ball_state: &Option<BallState>,
     ) -> FilteredGameControllerState {
@@ -171,7 +169,7 @@ impl GameControllerStateFilter {
 
         let fake_detected_free_kick_kicking_team = None;
 
-        let latest_ball_state = latest_ball_state.filter(|(ball_state_time, _)| {
+        let latest_ball_state = latest_known_ball_state.filter(|(ball_state_time, _)| {
             let is_not_in_penalty_kick =
                 game_controller_state.sub_state != Some(SubState::PenaltyKick);
 
