@@ -9,7 +9,7 @@ use coordinate_systems::{Camera, Field, Ground, NormalizedPixel, Pixel, Robot};
 use linear_algebra::{Point2, Vector2, Vector3};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
-use crate::{motion_command::MotionCommand, step::Step};
+use crate::{motion_command::MotionCommand, players::Players, step::Step};
 
 #[derive(
     Clone,
@@ -82,7 +82,7 @@ pub struct BehaviorParameters {
     pub path_planning: PathPlanningParameters,
     pub remote_control: RemoteControlParameters,
     pub role_positions: RolePositionsParameters,
-    pub kickoff_positions: KickOffPositionsParameters,
+    pub kickoff_positions: Players<KickOffPose>,
     pub search: SearchParameters,
     pub look_action: LookActionParameters,
     pub walk_and_stand: WalkAndStandParameters,
@@ -159,12 +159,9 @@ pub struct RolePositionsParameters {
     PathIntrospect,
     ros_z::Message,
 )]
-pub struct KickOffPositionsParameters {
-    pub one: Point2<Field>,
-    pub two: Point2<Field>,
-    pub three: Point2<Field>,
-    pub four: Point2<Field>,
-    pub five: Point2<Field>,
+pub struct KickOffPose {
+    pub position: Point2<Field>,
+    pub rotation: f32,
 }
 
 #[derive(
