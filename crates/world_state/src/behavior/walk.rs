@@ -206,38 +206,38 @@ pub fn walk_to_block_position(blackboard: &mut Blackboard) -> Status {
 }
 
 pub fn walk_to_kickoff_pose(blackboard: &mut Blackboard) -> Status {
-    let ground_to_field = match blackboard.world_state.robot.ground_to_field {
-        Some(transform) => transform,
-        None => return Status::Failure,
-    };
-    let field_to_ground = ground_to_field.inverse();
-
-    let target_position = match (
+    if let (Some(ground_to_field), player_number) = (
+        blackboard.world_state.robot.ground_to_field,
         blackboard.world_state.robot.player_number,
-        hulks_is_kicking_team(blackboard),
     ) {
-        (PlayerNumber::One, _) => blackboard.parameters.kickoff_positions.one,
-        (PlayerNumber::Two, _) => blackboard.parameters.kickoff_positions.two,
-        (PlayerNumber::Three, false) => blackboard.parameters.kickoff_positions.three,
-        (PlayerNumber::Three, true) => point!(0.0, -0.5),
-        (PlayerNumber::Four, _) => blackboard.parameters.kickoff_positions.four,
-        (PlayerNumber::Five, _) => blackboard.parameters.kickoff_positions.five,
-    };
+        let field_to_ground = ground_to_field.inverse();
 
-    let tragtet_in_ground = field_to_ground * target_position;
+        let target_position = match (player_number, hulks_is_kicking_team(blackboard)) {
+            (PlayerNumber::One, _) => blackboard.parameters.kickoff_positions.one,
+            (PlayerNumber::Two, _) => blackboard.parameters.kickoff_positions.two,
+            (PlayerNumber::Three, false) => blackboard.parameters.kickoff_positions.three,
+            (PlayerNumber::Three, true) => point!(0.0, -0.5),
+            (PlayerNumber::Four, _) => blackboard.parameters.kickoff_positions.four,
+            (PlayerNumber::Five, _) => blackboard.parameters.kickoff_positions.five,
+        };
 
-    walk_to(
-        blackboard,
-        Pose2::from_parts(tragtet_in_ground, field_to_ground.orientation()),
-        blackboard.parameters.walk_speed.kicking,
-        OrientationMode::AlignWithPath,
-        blackboard
-            .parameters
-            .walk_and_stand
-            .normal_distance_to_be_aligned,
-        blackboard.parameters.walk_and_stand.hysteresis,
-    );
-    Status::Success
+        let tragtet_in_ground = field_to_ground * target_position;
+
+        walk_to(
+            blackboard,
+            Pose2::from_parts(tragtet_in_ground, field_to_ground.orientation()),
+            blackboard.parameters.walk_speed.kicking,
+            OrientationMode::AlignWithPath,
+            blackboard
+                .parameters
+                .walk_and_stand
+                .normal_distance_to_be_aligned,
+            blackboard.parameters.walk_and_stand.hysteresis,
+        );
+        Status::Success
+    } else {
+        Status::Failure
+    }
 }
 
 pub fn walk_to_centroid(blackboard: &mut Blackboard) -> Status {
