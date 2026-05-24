@@ -2212,7 +2212,6 @@ dependencies = [
  "cdr",
  "color-eyre",
  "ros-z",
- "ros-z-streams",
  "tokio",
 ]
 
