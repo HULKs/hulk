@@ -33,8 +33,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
                 pending_accouncement
                     .publish(&button_event)
-                    .await
-                    ?;
+                    .await?;
             }
         }
     }
