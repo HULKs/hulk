@@ -1,14 +1,13 @@
 use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::Duration};
 
 use color_eyre::Result;
-use ros_z_streams::{CreateAnnouncingPublisher, CreateFutureMapBuilder};
 use serde::{Deserialize, Serialize};
 
 use hsl_network_messages::GameControllerStateMessage;
 use ros_z::{prelude::*, time::Time};
 use types::{
     field_dimensions::GlobalFieldSide, game_controller_state::GameControllerState,
-    messages::IncomingMessage,
+    messages::IncomingMessage, time_wrapper::TimeWrapper,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
@@ -22,17 +21,17 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("game_controller_filter").build().await?;
 
     let parameters = node.bind_parameter_as::<Parameters>("game_controller_filter")?;
-    let mut network_message_sub = node
-        .create_future_map_builder()
-        .create_future_subscriber::<IncomingMessage>("filtered_message", Duration::from_millis(1))
-        .await?
-        .build();
+    let network_message_sub = node
+        .subscriber::<TimeWrapper<IncomingMessage>>("filtered_message")?
+        .build()
+        .await?;
     let last_contact_pub = node
         .publisher::<HashMap<SocketAddr, Time>>("game_controller_address_contacts_times")?
         .build()
         .await?;
     let game_controller_state_pub = node
-        .announcing_publisher::<Option<GameControllerState>>("game_controller_state")
+        .publisher::<TimeWrapper<Option<GameControllerState>>>("game_controller_state")?
+        .build()
         .await?;
     let game_controller_address_pub = node
         .publisher::<Option<SocketAddr>>("game_controller_address")?
@@ -47,40 +46,38 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
         let network_message = network_message_sub.recv().await?;
 
-        for (time, source_address, message) in
-            network_message
-                .persistent
-                .iter()
-                .filter_map(|(time, message)| match message {
-                    (Some(IncomingMessage::GameController(source_address, message)),) => {
-                        Some((time, source_address, message))
-                    }
-                    _ => None,
-                })
-        {
-            let pending_annoucement = game_controller_state_pub.announce(*time).await?;
-            game_controller_filter.update_game_controller_state(time, message);
-            game_controller_filter.alert_if_multiple_game_controllers(
-                time,
-                parameters,
-                *source_address,
-            );
+        let TimeWrapper {
+            time,
+            inner: IncomingMessage::GameController(source_address, message),
+        } = network_message
+        else {
+            continue;
+        };
 
-            last_contact_pub
-                .publish(&game_controller_filter.last_contact)
-                .await?;
+        game_controller_filter.update_game_controller_state(&time, &message);
+        game_controller_filter.alert_if_multiple_game_controllers(
+            &time,
+            parameters,
+            source_address,
+        );
 
-            let last_address = game_controller_filter
-                .last_contact
-                .iter()
-                .max_by_key(|(_address, time)| *time)
-                .map(|(address, _time)| *address);
+        last_contact_pub
+            .publish(&game_controller_filter.last_contact)
+            .await?;
 
-            pending_annoucement
-                .publish(&game_controller_filter.game_controller_state)
-                .await?;
-            game_controller_address_pub.publish(&last_address).await?;
-        }
+        let last_address = game_controller_filter
+            .last_contact
+            .iter()
+            .max_by_key(|(_address, time)| *time)
+            .map(|(address, _time)| *address);
+
+        let time_wrapper = TimeWrapper {
+            time,
+            inner: game_controller_filter.game_controller_state.clone(),
+        };
+
+        game_controller_state_pub.publish(&time_wrapper).await?;
+        game_controller_address_pub.publish(&last_address).await?;
     }
 }
 
