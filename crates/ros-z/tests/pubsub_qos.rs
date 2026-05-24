@@ -382,7 +382,7 @@ mod tests {
 
         tokio::time::timeout(Duration::from_secs(2), async {
             loop {
-                if let Some(stamp) = cache.newest_stamp() {
+                if let Some(stamp) = cache.latest_stamp() {
                     let message = cache.get_before(stamp).expect("stamp came from cache");
                     assert_eq!(message.as_str(), "cached");
                     break;

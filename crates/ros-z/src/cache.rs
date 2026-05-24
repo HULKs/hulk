@@ -324,12 +324,12 @@ impl<T> Cache<T> {
     }
 
     /// Timestamp of the oldest cached message, or `None` if empty.
-    pub fn oldest_stamp(&self) -> Option<Time> {
+    pub fn earliest_stamp(&self) -> Option<Time> {
         self.inner.read().earliest_stamp()
     }
 
     /// Timestamp of the newest cached message, or `None` if empty.
-    pub fn newest_stamp(&self) -> Option<Time> {
+    pub fn latest_stamp(&self) -> Option<Time> {
         self.inner.read().latest_stamp()
     }
 
