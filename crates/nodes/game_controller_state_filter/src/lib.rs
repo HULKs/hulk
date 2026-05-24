@@ -26,17 +26,17 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let parameters =
         node.bind_parameter_as::<GameStateFilterParameters>("game_controller_state_filter")?;
-    let field_dimensions_sub = node
-        .subscriber::<FieldDimensions>("field_dimensions")?
-        .qos(QosProfile {
+    let field_dimensions_cache = node
+        .create_cache::<FieldDimensions>("field_dimensions", 1)?
+        .with_qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
         })
         .build()
         .await?;
-    let player_number_sub = node
-        .subscriber::<PlayerNumber>("player_number")?
-        .qos(QosProfile {
+    let player_number_cache = node
+        .create_cache::<PlayerNumber>("player_number", 1)?
+        .with_qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
         })
@@ -65,8 +65,6 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
 
-    let mut field_dimensions = None;
-    let mut player_number = None;
     let mut filtered_whistle = FilteredWhistle::default();
     let mut current_ball_state = None;
     let mut latest_ball_state = None;
@@ -89,16 +87,13 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                     latest_ball_state = Some((received_source_time, actual_ball_state));
                 }
             }
-            received_field_dimensions = field_dimensions_sub.recv() => {
-                field_dimensions = Some(received_field_dimensions?)
-            }
-            received_player_number = player_number_sub.recv() => {
-                player_number = Some(received_player_number?)
-            }
             received_game_controller_state_wrapper = game_controller_state_sub.recv() => {
                 let game_controller_state_wrapper = received_game_controller_state_wrapper?;
 
-                let (Some(field_dimensions), Some(player_number)) = (field_dimensions, player_number) else {
+                let (Some(field_dimensions), Some(player_number)) = (
+                    field_dimensions_cache.get_latest(),
+                    player_number_cache.get_latest()
+                ) else {
                     continue;
                 };
 
