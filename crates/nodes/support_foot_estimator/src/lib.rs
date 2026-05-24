@@ -9,7 +9,7 @@ use serde::{Deserialize, Serialize};
 use filtering::hysteresis::less_than_with_hysteresis;
 use kinematics::robot_kinematics::RobotKinematics;
 use ros_z::{prelude::*, qos::QosDurability};
-use types::support_foot::Side;
+use types::{support_foot::Side, time_wrapper::TimeWrapper};
 
 pub const ACTUAL_IMAGE_HEIGHT: f32 = 448.0;
 pub const ACTUAL_IMAGE_WIDTH: f32 = 544.0;
@@ -29,7 +29,8 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let robot_kinematics_cache = node
-        .create_cache::<RobotKinematics>("robot_kinematics", 10)?
+        .create_cache::<TimeWrapper<RobotKinematics>>("robot_kinematics", 10)?
+        .with_stamp(|wrapper| wrapper.time)
         .build()
         .await?;
     let fall_down_state_cache = node
@@ -38,7 +39,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
 
     let support_foot_pub = node
-        .publisher::<Option<Side>>("support_foot")?
+        .publisher::<TimeWrapper<Option<Side>>>("support_foot")?
         .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
@@ -46,7 +47,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
 
-    let mut last_support_side = Side::default();
+    let mut last_support_foot = Side::default();
     let mut last_maybe_support_side = None;
 
     loop {
@@ -54,45 +55,50 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
         let imu_state = imu_state_sub.recv_with_metadata().await?;
 
-        let time_stamp = imu_state.source_time;
+        let imu_source_time = imu_state.source_time;
 
-        let maybe_robot_kinematics = robot_kinematics_cache.get_nearest(time_stamp);
-        let maybe_fall_down_state = fall_down_state_cache.get_nearest(time_stamp);
+        let maybe_robot_kinematics_wrapper = robot_kinematics_cache.get_nearest(imu_source_time);
+        let maybe_fall_down_state = fall_down_state_cache.get_nearest(imu_source_time);
 
-        let (Some(robot_kinematics), Some(fall_down_state)) =
-            (maybe_robot_kinematics, maybe_fall_down_state)
+        let (Some(robot_kinematics_wrapper), Some(fall_down_state)) =
+            (maybe_robot_kinematics_wrapper, maybe_fall_down_state)
         else {
             continue;
         };
 
-        let current_support_side = estimate_support_side(
+        let current_support_foot = estimate_support_foot(
             &parameters,
             &imu_state,
-            &robot_kinematics,
-            last_support_side,
+            &robot_kinematics_wrapper.inner,
+            last_support_foot,
         );
 
-        let support_side = if matches!(fall_down_state.fall_down_state, FallDownStateType::IsReady)
+        let support_foot = if matches!(fall_down_state.fall_down_state, FallDownStateType::IsReady)
         {
-            last_support_side = current_support_side;
-            Some(current_support_side)
+            last_support_foot = current_support_foot;
+            Some(current_support_foot)
         } else {
             None
         };
 
-        if support_side != last_maybe_support_side {
-            support_foot_pub.publish(&support_side).await?;
+        if support_foot != last_maybe_support_side {
+            let message = TimeWrapper {
+                time: imu_source_time,
+                inner: support_foot,
+            };
+
+            support_foot_pub.publish(&message).await?;
         }
 
-        last_maybe_support_side = support_side;
+        last_maybe_support_side = support_foot;
     }
 }
 
-fn estimate_support_side(
+fn estimate_support_foot(
     parameters: &Parameters,
     imu_state: &ImuState,
     robot_kinematics: &RobotKinematics,
-    last_support_side: Side,
+    last_support_foot: Side,
 ) -> Side {
     struct Horizontal;
 
@@ -113,7 +119,7 @@ fn estimate_support_side(
 
     select_support_side(
         height_difference,
-        last_support_side,
+        last_support_foot,
         parameters.switch_hysteresis,
     )
 }

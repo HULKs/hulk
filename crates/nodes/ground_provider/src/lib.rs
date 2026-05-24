@@ -7,7 +7,7 @@ use coordinate_systems::{Ground, Robot};
 use kinematics::robot_kinematics::RobotKinematics;
 use linear_algebra::{Isometry3, Orientation3, vector};
 use ros_z::{prelude::*, qos::QosDurability};
-use types::support_foot::Side;
+use types::{support_foot::Side, time_wrapper::TimeWrapper};
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("ground_provider").build().await?;
@@ -18,11 +18,13 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
 
     let robot_kinematics_cache = node
-        .create_cache::<RobotKinematics>("robot_kinematics", 10)?
+        .create_cache::<TimeWrapper<RobotKinematics>>("robot_kinematics", 10)?
+        .with_stamp(|wrapper| wrapper.time)
         .build()
         .await?;
     let support_foot_cache = node
-        .create_cache::<Option<Side>>("support_foot", 10)?
+        .create_cache::<TimeWrapper<Option<Side>>>("support_foot", 10)?
+        .with_stamp(|wrapper| wrapper.time)
         .with_qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
@@ -31,32 +33,32 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
 
     let robot_to_ground_pub = node
-        .publisher::<Option<Isometry3<Robot, Ground>>>("robot_to_ground")?
+        .publisher::<TimeWrapper<Option<Isometry3<Robot, Ground>>>>("robot_to_ground")?
         .build()
         .await?;
     let ground_to_robot_pub = node
-        .publisher::<Option<Isometry3<Ground, Robot>>>("ground_to_robot")?
+        .publisher::<TimeWrapper<Option<Isometry3<Ground, Robot>>>>("ground_to_robot")?
         .build()
         .await?;
 
     loop {
         let imu_state = imu_state_sub.recv_with_metadata().await?;
 
-        let time_stamp = imu_state.source_time;
+        let imu_source_time = imu_state.source_time;
 
-        let maybe_robot_kinematics = robot_kinematics_cache.get_nearest(time_stamp);
-        let maybe_support_foot = support_foot_cache.get_nearest(time_stamp);
+        let maybe_robot_kinematics_wrapper = robot_kinematics_cache.get_nearest(imu_source_time);
+        let maybe_support_foot_wrapper = support_foot_cache.get_nearest(imu_source_time);
 
-        let (Some(robot_kinematics), Some(support_foot)) =
-            (maybe_robot_kinematics, maybe_support_foot)
+        let (Some(robot_kinematics_wrapper), Some(support_foot_wrapper)) =
+            (maybe_robot_kinematics_wrapper, maybe_support_foot_wrapper)
         else {
             continue;
         };
 
-        let ground_to_robot = if let Some(support_foot) = *support_foot {
+        let ground_to_robot = if let Some(support_foot) = support_foot_wrapper.inner {
             compute_ground_to_robot(
                 &imu_state.into_message(),
-                robot_kinematics.as_ref(),
+                &robot_kinematics_wrapper.inner,
                 &support_foot,
             )
         } else {
@@ -64,8 +66,21 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         };
         let robot_to_ground = ground_to_robot.map(|ground_to_robot| ground_to_robot.inverse());
 
-        ground_to_robot_pub.publish(&ground_to_robot).await?;
-        robot_to_ground_pub.publish(&robot_to_ground).await?;
+        let robot_to_ground_message = TimeWrapper {
+            time: imu_source_time,
+            inner: robot_to_ground,
+        };
+        let ground_to_robot_message = TimeWrapper {
+            time: imu_source_time,
+            inner: ground_to_robot,
+        };
+
+        robot_to_ground_pub
+            .publish(&robot_to_ground_message)
+            .await?;
+        ground_to_robot_pub
+            .publish(&ground_to_robot_message)
+            .await?;
     }
 }
 
