@@ -99,7 +99,7 @@ pub struct GetRobotModeRequest {}
 
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
 pub struct GetRobotModeResponse {
-    robot_mode: RobotMode,
+    pub robot_mode: RobotMode,
 }
 
 pub struct GetRobotMode;
