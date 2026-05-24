@@ -4318,7 +4318,9 @@ name = "game_controller_filter"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
+ "hsl_network_messages",
  "ros-z",
+ "ros-z-streams",
  "serde",
  "types",
 ]
@@ -4332,7 +4334,9 @@ dependencies = [
  "hsl_network_messages",
  "linear_algebra",
  "ros-z",
+ "ros-z-streams",
  "serde",
+ "tokio",
  "types",
 ]
 
@@ -6568,7 +6572,9 @@ dependencies = [
  "color-eyre",
  "hsl_network_messages",
  "ros-z",
+ "ros-z-streams",
  "serde",
+ "tokio",
  "types",
 ]
 

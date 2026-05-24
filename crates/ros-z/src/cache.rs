@@ -176,11 +176,15 @@ impl<T> CacheInner<T> {
         }
     }
 
-    pub fn oldest_stamp(&self) -> Option<Time> {
+    pub fn get_latest(&self) -> Option<Arc<T>> {
+        self.entries.values().next_back()?.back().cloned()
+    }
+
+    pub fn earliest_stamp(&self) -> Option<Time> {
         self.entries.keys().next().copied()
     }
 
-    pub fn newest_stamp(&self) -> Option<Time> {
+    pub fn latest_stamp(&self) -> Option<Time> {
         self.entries.keys().next_back().copied()
     }
 
@@ -315,14 +319,18 @@ impl<T> Cache<T> {
         inner.get_nearest(t)
     }
 
+    pub fn get_latest(&self) -> Option<Arc<T>> {
+        self.inner.read().get_latest()
+    }
+
     /// Timestamp of the oldest cached message, or `None` if empty.
-    pub fn oldest_stamp(&self) -> Option<Time> {
-        self.inner.read().oldest_stamp()
+    pub fn earliest_stamp(&self) -> Option<Time> {
+        self.inner.read().earliest_stamp()
     }
 
     /// Timestamp of the newest cached message, or `None` if empty.
-    pub fn newest_stamp(&self) -> Option<Time> {
-        self.inner.read().newest_stamp()
+    pub fn latest_stamp(&self) -> Option<Time> {
+        self.inner.read().latest_stamp()
     }
 
     /// Number of messages currently in the cache.

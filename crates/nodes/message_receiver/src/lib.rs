@@ -5,7 +5,7 @@ use serde::{Deserialize, Serialize};
 
 use hsl_network::endpoint::{Endpoint, Ports};
 use ros_z::prelude::*;
-use types::messages::IncomingMessage;
+use types::{messages::IncomingMessage, time_wrapper::TimeWrapper};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
 #[serde(deny_unknown_fields)]
@@ -18,7 +18,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let parameters = node.bind_parameter_as::<Parameters>("message_receiver")?;
     let message_pub = node
-        .publisher::<IncomingMessage>("inputs/message")?
+        .publisher::<TimeWrapper<IncomingMessage>>("inputs/message")?
         .build()
         .await?;
 
@@ -30,6 +30,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             message = endpoint.read() => {
                 let message = message?;
 
+                let message = TimeWrapper{ time: ctx.clock().now(), inner: message };
                 message_pub.publish(&message).await?;
             }
         }
