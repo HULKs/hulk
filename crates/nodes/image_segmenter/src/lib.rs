@@ -38,7 +38,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     loop {
         let parameters = parameters.snapshot().typed().clone();
 
-        let image = image_sub.recv_with_metadata().await.into_eyre()?;
+        let image = image_sub.recv_with_metadata().await?;
         let time_stamp = image.source_time;
 
         let Some(camera_matrix) = camera_matrix_cache.get_nearest(time_stamp) else {
@@ -51,8 +51,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
         image_segments_pub
             .publish(&ImageSegments { scan_grid })
-            .await
-            .into_eyre()?;
+            .await?;
     }
 }
 
@@ -587,7 +586,7 @@ mod tests {
     #[test]
     fn maximum_with_sign_switch() {
         let image = YCbCr422Image::load_from_444_png(
-            "../../tests/data/white_wall_with_a_little_desk_in_front.png",
+            "../../../tests/data/white_wall_with_a_little_desk_in_front.png",
         )
         .unwrap();
         let vertical_stride = 2;

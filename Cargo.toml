@@ -360,8 +360,8 @@ trybuild = "1.0"
 types = { path = "crates/types" }
 uuid = { version = "1.12.1", features = ["v4"] }
 vision = { path = "crates/vision" }
-walking = { path = "crates/nodes/walking" }
 voronoi = { path = "crates/voronoi" }
+walking = { path = "crates/nodes/walking" }
 walking_inference = { path = "crates/walking_inference" }
 wgpu = "27.0.0"
 whistle_detection = { path = "crates/nodes/whistle_detection" }

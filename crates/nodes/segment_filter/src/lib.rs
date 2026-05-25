@@ -3,7 +3,7 @@ use std::sync::Arc;
 use color_eyre::Result;
 
 use linear_algebra::point;
-use ros_z::{prelude::*};
+use ros_z::prelude::*;
 use types::{
     color::Intensity,
     field_border::FieldBorder,
@@ -12,10 +12,7 @@ use types::{
 };
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
-    let node = ctx
-        .create_node("segment_filter")
-        .build()
-        .await?;
+    let node = ctx.create_node("segment_filter").build().await?;
     let field_border_sub = node
         .subscriber::<Option<FieldBorder>>("field_border")?
         .build()
@@ -30,7 +27,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
 
     loop {
-        let field_border = field_border_sub.recv_with_metadata().await.into_eyre()?;
+        let field_border = field_border_sub.recv_with_metadata().await?;
         let time_stamp = field_border.source_time;
 
         let Some(image_segments) = image_segments_cache.get_nearest(time_stamp) else {
@@ -52,10 +49,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             },
         };
 
-        filtered_segments_pub
-            .publish(&filtered_segments)
-            .await
-            .into_eyre()?;
+        filtered_segments_pub.publish(&filtered_segments).await?;
     }
 }
 

@@ -12,7 +12,7 @@ use projection::{Projection, camera_matrix::CameraMatrix};
 use rand::SeedableRng;
 use rand_chacha::ChaChaRng;
 use ransac::{Ransac, RansacResult};
-use ros_z::{prelude::*};
+use ros_z::prelude::*;
 use types::{
     filtered_segments::FilteredSegments,
     image_segments::GenericSegment,
@@ -30,8 +30,7 @@ use crate::line_detection::{
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("line_detection").build().await?;
 
-    let parameters = node
-        .bind_parameter_as::<LineDetectionParameters>("line_detection")?;
+    let parameters = node.bind_parameter_as::<LineDetectionParameters>("line_detection")?;
     let camera_matrix_cache = node
         .create_cache::<CameraMatrix>("camera_matrix", 10)?
         .build()
@@ -68,10 +67,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     loop {
         let parameters = parameters.snapshot().typed().clone();
 
-        let filtered_segments = filtered_segments_sub
-            .recv_with_metadata()
-            .await
-            .into_eyre()?;
+        let filtered_segments = filtered_segments_sub.recv_with_metadata().await?;
         let time_stamp = filtered_segments.source_time;
 
         let (Some(camera_matrix), Some(image)) = (
@@ -100,15 +96,11 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             })
             .collect();
 
-        lines_in_image_pub
-            .publish(&lines_in_image)
-            .await
-            .into_eyre()?;
+        lines_in_image_pub.publish(&lines_in_image).await?;
 
         filtered_segments_output_pub
             .publish(&filtered_segments)
-            .await
-            .into_eyre()?;
+            .await?;
 
         // let discarded_lines = discarded_lines
         //     .into_iter()
@@ -127,16 +119,14 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
         // discarded_lines_pub
         //     .publish(discarded_lines)
-        //     .await
-        //     .into_eyre()?;
+        //     .await?;
 
         line_data_pub
             .publish(&Some(LineData {
                 lines: lines_in_ground,
                 used_segments,
             }))
-            .await
-            .into_eyre()?;
+            .await?;
     }
 }
 

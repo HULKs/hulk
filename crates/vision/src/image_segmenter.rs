@@ -40,7 +40,7 @@ pub struct CycleContext {
     vertical_edge_threshold: Parameter<u8, "image_segmenter.vertical_edge_threshold">,
     vertical_median_mode: Parameter<MedianModeParameters, "image_segmenter.vertical_median_mode">,
 
-    field_color: Parameter<FieldColorParameters, "field_color_detection">,
+    field_color: Parameter<FieldColorParameters, "image_segmenter.field_color_detection">,
 }
 
 #[context]

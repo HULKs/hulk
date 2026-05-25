@@ -9,7 +9,7 @@ use ransac::Ransac;
 use coordinate_systems::Pixel;
 use linear_algebra::{Point2, Vector2, point};
 use projection::{Projection, camera_matrix::CameraMatrix};
-use ros_z::{prelude::*};
+use ros_z::prelude::*;
 use types::{
     color::Intensity,
     field_border::FieldBorder,
@@ -20,8 +20,8 @@ use types::{
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("field_border_detection").build().await?;
 
-    let parameters = node
-        .bind_parameter_as::<FieldBorderDetectionParameters>("field_border_detection")?;
+    let parameters =
+        node.bind_parameter_as::<FieldBorderDetectionParameters>("field_border_detection")?;
     let camera_matrix_cache = node
         .create_cache::<CameraMatrix>("camera_matrix", 10)?
         .build()
@@ -49,7 +49,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             continue;
         }
 
-        let image_segments = image_segments_sub.recv_with_metadata().await.into_eyre()?;
+        let image_segments = image_segments_sub.recv_with_metadata().await?;
         let time_stamp = image_segments.source_time;
 
         let Some(camera_matrix) = camera_matrix_cache.get_nearest(time_stamp) else {
@@ -66,10 +66,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             })
             .collect();
 
-        field_border_points_pub
-            .publish(&first_field_pixels)
-            .await
-            .into_eyre()?;
+        field_border_points_pub.publish(&first_field_pixels).await?;
 
         let ransac = Ransac::new(first_field_pixels);
         let border_lines =
@@ -77,8 +74,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
         field_border_pub
             .publish(&Some(FieldBorder { border_lines }))
-            .await
-            .into_eyre()?;
+            .await?;
     }
 }
 
