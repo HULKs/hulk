@@ -47,6 +47,9 @@ pub struct Behavior {
     pub static_layout: NodeTrace,
     pub last_sent_game_controller_return_message_time: Option<SystemTime>,
     pub last_sent_hsl_message_time: Option<SystemTime>,
+    pub last_closest_to_ball: bool,
+    pub closest_to_ball_entered_area_since: Option<SystemTime>,
+    pub closest_to_ball_left_area_since: Option<SystemTime>,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -76,6 +79,9 @@ pub struct Blackboard {
     pub last_motion_command: MotionCommand,
     pub last_motion_switch_time: SystemTime,
     pub last_motion_type: Option<MotionType>,
+    pub last_closest_to_ball: bool,
+    pub closest_to_ball_entered_area_since: Option<SystemTime>,
+    pub closest_to_ball_left_area_since: Option<SystemTime>,
 
     pub is_injected_motion_command: bool,
     pub walk_position: Option<Point2<Ground>>,
@@ -135,6 +141,9 @@ impl Behavior {
             static_layout,
             last_sent_game_controller_return_message_time: None,
             last_sent_hsl_message_time: None,
+            last_closest_to_ball: false,
+            closest_to_ball_entered_area_since: None,
+            closest_to_ball_left_area_since: None,
         })
     }
 
@@ -184,6 +193,9 @@ impl Behavior {
             last_motion_command: context.last_motion_command.clone(),
             last_motion_switch_time: self.last_motion_switch_time,
             last_motion_type: self.last_motion_type,
+            last_closest_to_ball: self.last_closest_to_ball,
+            closest_to_ball_entered_area_since: self.closest_to_ball_entered_area_since,
+            closest_to_ball_left_area_since: self.closest_to_ball_left_area_since,
 
             is_injected_motion_command: false,
             walk_position: None,
@@ -197,6 +209,9 @@ impl Behavior {
         self.last_kick_target = blackboard.last_kick_target;
 
         self.last_close_enough_to_kick = blackboard.last_close_enough_to_kick;
+        self.last_closest_to_ball = blackboard.last_closest_to_ball;
+        self.closest_to_ball_entered_area_since = blackboard.closest_to_ball_entered_area_since;
+        self.closest_to_ball_left_area_since = blackboard.closest_to_ball_left_area_since;
         *context.last_motion_command = motion_command.clone();
 
         let motion_type = match motion_command.clone() {

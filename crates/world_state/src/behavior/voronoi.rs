@@ -7,6 +7,10 @@ use voronoi::VoronoiGrid;
 use crate::behavior::node::Blackboard;
 
 pub fn calculate_voronoi_grid(blackboard: &mut Blackboard) -> Status {
+    if blackboard.voronoi_map.is_some() {
+        return Status::Success;
+    }
+
     if let Some(ground_to_field) = blackboard.world_state.robot.ground_to_field {
         let field_dimensions = &blackboard.field_dimensions;
         let voronoi_parameters = &blackboard.parameters.voronoi;

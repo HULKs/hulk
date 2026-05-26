@@ -510,6 +510,14 @@
       "nanos": 0,
       "secs": 50
     },
+    "closest_to_ball_enter_duration": {
+      "nanos": 300000000,
+      "secs": 0
+    },
+    "closest_to_ball_exit_duration": {
+      "nanos": 150000000,
+      "secs": 0
+    },
     "look_action": {
       "angle_threshold": 0.95,
       "distance_threshold": 3.0,

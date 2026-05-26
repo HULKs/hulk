@@ -4,6 +4,7 @@ use linear_algebra::{point, vector};
 use types::{
     filtered_game_controller_state::FilteredGameControllerState, primary_state::PrimaryState,
 };
+use voronoi::Ownership;
 
 use crate::behavior::node::Blackboard;
 
@@ -91,9 +92,60 @@ pub fn is_close_to_ball_aligned(blackboard: &mut Blackboard) -> bool {
     is_close_and_aligned
 }
 
-pub fn is_closest_to_ball(_blackboard: &mut Blackboard) -> bool {
-    // TODO
-    true
+pub fn is_closest_to_ball(blackboard: &mut Blackboard) -> bool {
+    let own_player_number = blackboard.world_state.robot.player_number;
+
+    let raw_is_closest =
+        if let (Some(ball), Some(voronoi_map)) = (&blackboard.ball, &blackboard.voronoi_map) {
+            let ownership_at_ball = voronoi_map.ownership_at(ball.position);
+            match ownership_at_ball {
+                Some(Ownership::Robot(player_number)) if player_number == own_player_number => true,
+                Some(Ownership::Blocked) => voronoi_map
+                    .nearest_non_blocked_ownership(ball.position)
+                    .is_some_and(|ownership| ownership == Ownership::Robot(own_player_number)),
+                _ => false,
+            }
+        } else {
+            false
+        };
+
+    let now = blackboard.world_state.now;
+    if raw_is_closest {
+        blackboard.closest_to_ball_entered_area_since = blackboard
+            .closest_to_ball_entered_area_since
+            .or(Some(now.to_wallclock()));
+        blackboard.closest_to_ball_left_area_since = None;
+    } else {
+        blackboard.closest_to_ball_left_area_since = blackboard
+            .closest_to_ball_left_area_since
+            .or(Some(now.to_wallclock()));
+        blackboard.closest_to_ball_entered_area_since = None;
+    }
+
+    let is_closest = if blackboard.last_closest_to_ball {
+        raw_is_closest
+            || blackboard
+                .closest_to_ball_left_area_since
+                .is_some_and(|since| {
+                    now.to_wallclock()
+                        .duration_since(since)
+                        .expect("time ran backwards")
+                        < blackboard.parameters.closest_to_ball_exit_duration
+                })
+    } else {
+        raw_is_closest
+            && blackboard
+                .closest_to_ball_entered_area_since
+                .is_some_and(|since| {
+                    now.to_wallclock()
+                        .duration_since(since)
+                        .expect("time ran backwards")
+                        >= blackboard.parameters.closest_to_ball_enter_duration
+                })
+    };
+
+    blackboard.last_closest_to_ball = is_closest;
+    is_closest
 }
 
 pub fn is_fallen(blackboard: &mut Blackboard) -> bool {
