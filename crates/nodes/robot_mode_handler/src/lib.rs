@@ -1,7 +1,4 @@
-use std::{
-    sync::Arc,
-    time::{Duration, SystemTime},
-};
+use std::{sync::Arc, time::Duration};
 
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
@@ -42,15 +39,11 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let mut local_stop_toggle = false;
     let mut last_primary_state = PrimaryState::default();
-    let mut last_primary_state_change_time = SystemTime::UNIX_EPOCH;
+    let mut last_primary_state_change_time;
 
     loop {
-        let parameters = parameters.snapshot().typed().clone();
-
-        let robot_mode = get_robot_mode_client
-            .call_async(&GetRobotModeRequest {})
-            .await?
-            .robot_mode;
+        let parameters_snapshot = parameters.snapshot();
+        let parameters = parameters_snapshot.typed();
 
         tokio::select! {
             button_press = buttons_sub.recv() => {
@@ -68,20 +61,26 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
                 if should_enter_damping_mode {
                     change_mode(&high_level_command_pub, RobotMode::Damping).await;
-
                 }
             }
             primary_state = primary_state_sub.recv() => {
                 let primary_state = primary_state?;
 
+                let robot_mode = get_robot_mode_client
+                    .call_async(&GetRobotModeRequest {})
+                    .await?
+                    .robot_mode;
+
                 if primary_state != last_primary_state {
-                    last_primary_state_change_time = SystemTime::now();
+                    last_primary_state_change_time = node.clock().now();
                     last_primary_state = primary_state;
+                } else {
+                    continue;
                 }
 
-                let time_since_primary_state_change = SystemTime::now()
-                    .duration_since(last_primary_state_change_time)
-                    .expect("time ran backwards");
+                let time_since_primary_state_change = node.clock().now()
+                    .duration_since(last_primary_state_change_time);
+                    // TODO: find eqivalent for: .expect("time ran backwards");
                 let switch_to_prepare = time_since_primary_state_change >= parameters.wait_before_prepare;
 
                 match (primary_state, robot_mode, switch_to_prepare) {
