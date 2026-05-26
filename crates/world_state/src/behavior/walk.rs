@@ -215,17 +215,19 @@ pub fn walk_to_kickoff_pose(blackboard: &mut Blackboard) -> Status {
         let mut target_position = blackboard.parameters.kickoff_positions[player_number].position;
 
         if hulks_is_kicking_team(blackboard) && player_number == PlayerNumber::Three {
-            target_position = point!(0.0, -0.5);
+            target_position = point!(-0.5, 0.0);
         }
 
-        let tragtet_in_ground = field_to_ground * target_position;
+        let kickoff_pose_in_field = Pose2::from_parts(
+            target_position,
+            Orientation2::new(blackboard.parameters.kickoff_positions[player_number].rotation),
+        );
+
+        let kickoff_pose_in_ground = field_to_ground * kickoff_pose_in_field;
 
         walk_to(
             blackboard,
-            Pose2::from_parts(
-                tragtet_in_ground,
-                Orientation2::new(blackboard.parameters.kickoff_positions[player_number].rotation),
-            ),
+            kickoff_pose_in_ground,
             blackboard.parameters.walk_speed.kicking,
             OrientationMode::AlignWithPath,
             blackboard
