@@ -3,12 +3,15 @@ use std::{f32::consts::FRAC_PI_2, sync::Arc};
 use color_eyre::Result;
 
 use coordinate_systems::{Camera, Ground, Head, Robot};
-use kinematics::{robot_dimensions::RobotDimensions, robot_kinematics::RobotKinematics};
+use kinematics::{
+    robot_dimensions::{self, RobotDimensions},
+    robot_kinematics::RobotKinematics,
+};
 use linear_algebra::{IntoTransform, Isometry3, Vector3, vector};
 use projection::camera_matrix::CameraMatrix;
 use ros_z::prelude::*;
 use ros2::sensor_msgs::camera_info::CameraInfo;
-use types::parameters::CameraMatrixParameters;
+use types::{parameters::CameraMatrixParameters, time_wrapper::TimeWrapper};
 
 pub const ACTUAL_IMAGE_HEIGHT: f32 = 448.0;
 pub const ACTUAL_IMAGE_WIDTH: f32 = 544.0;
@@ -18,12 +21,13 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let parameters =
         node.bind_parameter_as::<CameraMatrixParameters>("camera_matrix_calculator")?;
-    let robot_kinematics_sub = node
-        .subscriber::<RobotKinematics>("robot_kinematics")?
+    let robot_kinematics_cache = node
+        .create_cache::<TimeWrapper<RobotKinematics>>("robot_kinematics", 10)?
+        .with_stamp(|w: &TimeWrapper<RobotKinematics>| w.time)
         .build()
         .await?;
-    let robot_to_ground_cache = node
-        .create_cache::<Option<Isometry3<Robot, Ground>>>("robot_to_ground", 10)?
+    let robot_to_ground_sub = node
+        .subscriber::<TimeWrapper<Option<Isometry3<Robot, Ground>>>>("robot_to_ground")?
         .build()
         .await?;
     let camera_info_cache = node
@@ -32,28 +36,27 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
 
     let camera_matrix_pub = node
-        .publisher::<CameraMatrix>("camera_matrix")?
+        .publisher::<TimeWrapper<CameraMatrix>>("camera_matrix")?
         .build()
         .await?;
 
     loop {
         let parameters = parameters.snapshot().typed().clone();
 
-        let robot_kinematics = robot_kinematics_sub.recv_with_metadata().await?;
-
-        let time_stamp = robot_kinematics.source_time;
-
-        let maybe_robot_to_ground = robot_to_ground_cache.get_nearest(time_stamp);
-        let maybe_camera_info = camera_info_cache.get_nearest(time_stamp);
-
-        let (Some(maybe_robot_to_ground), Some(camera_info)) =
-            (maybe_robot_to_ground, maybe_camera_info)
-        else {
+        let timed_robot_to_ground = robot_to_ground_sub.recv().await?;
+        let time_stamp = timed_robot_to_ground.time;
+        let maybe_robot_to_ground = timed_robot_to_ground.inner;
+        let Some(robot_to_ground) = maybe_robot_to_ground else {
             continue;
         };
-        let Some(robot_to_ground) = *maybe_robot_to_ground else {
+
+        let (Some(timed_robot_kinematics), Some(camera_info)) = (
+            robot_kinematics_cache.get_nearest(time_stamp),
+            camera_info_cache.get_nearest(time_stamp),
+        ) else {
             continue;
         };
+        let robot_kinematics = timed_robot_kinematics.inner.clone();
 
         let camera_matrix = compute_camera_matrix(
             &parameters,
@@ -62,7 +65,12 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             &camera_info,
         );
 
-        camera_matrix_pub.publish(&camera_matrix).await?;
+        camera_matrix_pub
+            .publish(&TimeWrapper {
+                time: time_stamp,
+                inner: camera_matrix,
+            })
+            .await?;
     }
 }
 
