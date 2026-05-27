@@ -11943,8 +11943,12 @@ dependencies = [
 name = "walking"
 version = "0.1.0"
 dependencies = [
+ "booster_sdk",
  "booster_sdk_interface",
  "color-eyre",
+ "coordinate_systems",
+ "linear_algebra",
+ "log",
  "ros-z",
  "serde",
  "types",
