@@ -13,6 +13,7 @@ use types::{
     messages::IncomingMessage,
     parameters::SearchSuggestorParameters,
     primary_state::PrimaryState,
+    time_wrapper::TimeWrapper,
 };
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {

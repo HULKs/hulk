@@ -6,7 +6,7 @@ use ros_z::{prelude::*, qos::QosDurability};
 use serde::{Deserialize, Serialize};
 use types::{
     field_dimensions::FieldDimensions, filtered_game_controller_state::FilteredGameControllerState,
-    rule_obstacles::RuleObstacle, world_state::BallState,
+    rule_obstacles::RuleObstacle, time_wrapper::TimeWrapper, world_state::BallState,
 };
 
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
