@@ -83,7 +83,6 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         let image = timed_image.inner.clone();
         let camera_matrix = timed_camera_matrix.inner.clone();
 
-
         let DetectLinesResult(_discarded_lines, used_segments, lines_in_ground, filtered_segments) =
             detect_lines(
                 &parameters,

@@ -1,4 +1,4 @@
-use std::{future::pending, sync::Arc};
+use std::sync::Arc;
 
 use color_eyre::Result;
 use geometry::line_segment::LineSegment;

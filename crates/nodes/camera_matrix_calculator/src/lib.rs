@@ -3,10 +3,7 @@ use std::{f32::consts::FRAC_PI_2, sync::Arc};
 use color_eyre::Result;
 
 use coordinate_systems::{Camera, Ground, Head, Robot};
-use kinematics::{
-    robot_dimensions::{self, RobotDimensions},
-    robot_kinematics::RobotKinematics,
-};
+use kinematics::{robot_dimensions::RobotDimensions, robot_kinematics::RobotKinematics};
 use linear_algebra::{IntoTransform, Isometry3, Vector3, vector};
 use projection::camera_matrix::CameraMatrix;
 use ros_z::prelude::*;
