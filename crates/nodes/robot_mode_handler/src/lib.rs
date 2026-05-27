@@ -39,7 +39,6 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let mut local_stop_toggle = false;
     let mut last_primary_state = PrimaryState::default();
-    let mut last_primary_state_change_time;
 
     loop {
         let parameters_snapshot = parameters.snapshot();
@@ -72,32 +71,25 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                     .robot_mode;
 
                 if primary_state != last_primary_state {
-                    last_primary_state_change_time = node.clock().now();
                     last_primary_state = primary_state;
                 } else {
                     continue;
                 }
 
-                let time_since_primary_state_change = node.clock().now()
-                    .duration_since(last_primary_state_change_time);
-                let switch_to_prepare = time_since_primary_state_change >= parameters.wait_before_prepare;
-
-                match (primary_state, robot_mode, switch_to_prepare) {
-                    (PrimaryState::Safe | PrimaryState::Initial, RobotMode::Walking, _) => {
-                        change_mode(&high_level_command_pub, RobotMode::Prepare).await
-                    }
-                    (PrimaryState::Finished | PrimaryState::Penalized, RobotMode::Walking, true) => {
+                match (primary_state, robot_mode) {
+                    (PrimaryState::Safe | PrimaryState::Initial, RobotMode::Walking) => {
                         change_mode(&high_level_command_pub, RobotMode::Prepare).await
                     }
                     (
                         PrimaryState::Ready
                         | PrimaryState::Playing
                         | PrimaryState::Set
-                        | PrimaryState::Stop,
-                        RobotMode::Prepare,
-                        _,
+                        | PrimaryState::Stop
+                        | PrimaryState::Finished
+                        | PrimaryState::Penalized,
+                        RobotMode::Prepare
                     ) => change_mode(&high_level_command_pub, RobotMode::Walking).await,
-                    (_, _, _) => (),
+                    (_, _) => (),
                 };
             }
         }
