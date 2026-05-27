@@ -15,6 +15,7 @@ use types::{
     field_color::FieldColorParameters,
     image_segments::{Direction, EdgeType, ImageSegments, ScanGrid, ScanLine, Segment},
     parameters::{ImageSegmenterParameters, MedianModeParameters},
+    time_wrapper::TimeWrapper,
     ycbcr422_image::YCbCr422Image,
 };
 
@@ -23,34 +24,40 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let parameters = node.bind_parameter_as::<ImageSegmenterParameters>("image_segmenter")?;
     let image_sub = node
-        .subscriber::<YCbCr422Image>("inputs/ycbcr422_image")?
+        .subscriber::<TimeWrapper<YCbCr422Image>>("inputs/ycbcr422_image")?
         .build()
         .await?;
     let camera_matrix_cache = node
-        .create_cache::<CameraMatrix>("camera_matrix", 10)?
+        .create_cache::<TimeWrapper<CameraMatrix>>("camera_matrix", 10)?
+        .with_stamp(|w: &TimeWrapper<CameraMatrix>| w.time)
         .build()
         .await?;
     let image_segments_pub = node
-        .publisher::<ImageSegments>("image_segments")?
+        .publisher::<TimeWrapper<ImageSegments>>("image_segments")?
         .build()
         .await?;
 
     loop {
         let parameters = parameters.snapshot().typed().clone();
 
-        let image = image_sub.recv_with_metadata().await?;
-        let time_stamp = image.source_time;
+        let timed_image = image_sub.recv().await?;
+        let time_stamp = timed_image.time;
+        let image = timed_image.inner;
 
-        let Some(camera_matrix) = camera_matrix_cache.get_nearest(time_stamp) else {
+        let Some(timed_camera_matrix) = camera_matrix_cache.get_nearest(time_stamp) else {
             continue;
         };
+        let camera_matrix = timed_camera_matrix.inner.clone();
 
         let horizon = camera_matrix.horizon.unwrap_or(Horizon::ABOVE_IMAGE);
 
         let scan_grid = new_grid(&image, &camera_matrix, &horizon, &parameters);
 
         image_segments_pub
-            .publish(&ImageSegments { scan_grid })
+            .publish(&TimeWrapper {
+                time: time_stamp,
+                inner: ImageSegments { scan_grid },
+            })
             .await?;
     }
 }

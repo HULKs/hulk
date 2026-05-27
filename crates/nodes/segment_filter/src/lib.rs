@@ -9,30 +9,34 @@ use types::{
     field_border::FieldBorder,
     filtered_segments::FilteredSegments,
     image_segments::{Direction, ImageSegments, ScanGrid, ScanLine, Segment},
+    time_wrapper::TimeWrapper,
 };
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("segment_filter").build().await?;
     let field_border_sub = node
-        .subscriber::<Option<FieldBorder>>("field_border")?
+        .subscriber::<TimeWrapper<Option<FieldBorder>>>("field_border")?
         .build()
         .await?;
     let image_segments_cache = node
-        .create_cache::<ImageSegments>("image_segments", 10)?
+        .create_cache::<TimeWrapper<ImageSegments>>("image_segments", 10)?
+        .with_stamp(|w: &TimeWrapper<ImageSegments>| w.time)
         .build()
         .await?;
     let filtered_segments_pub = node
-        .publisher::<FilteredSegments>("filtered_segments")?
+        .publisher::<TimeWrapper<FilteredSegments>>("filtered_segments")?
         .build()
         .await?;
 
     loop {
-        let field_border = field_border_sub.recv_with_metadata().await?;
-        let time_stamp = field_border.source_time;
+        let timed_field_border = field_border_sub.recv().await?;
+        let time_stamp = timed_field_border.time;
+        let field_border = timed_field_border.inner;
 
-        let Some(image_segments) = image_segments_cache.get_nearest(time_stamp) else {
+        let Some(timed_image_segments) = image_segments_cache.get_nearest(time_stamp) else {
             continue;
         };
+        let image_segments = timed_image_segments.inner.clone();
 
         let filtered_segments = FilteredSegments {
             scan_grid: ScanGrid {
@@ -49,7 +53,12 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             },
         };
 
-        filtered_segments_pub.publish(&filtered_segments).await?;
+        filtered_segments_pub
+            .publish(&TimeWrapper {
+                time: time_stamp,
+                inner: filtered_segments,
+            })
+            .await?;
     }
 }
 

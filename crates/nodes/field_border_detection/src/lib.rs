@@ -15,6 +15,7 @@ use types::{
     field_border::FieldBorder,
     image_segments::{ImageSegments, ScanLine, Segment},
     parameters::FieldBorderDetectionParameters,
+    time_wrapper::TimeWrapper,
 };
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
@@ -23,11 +24,12 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let parameters =
         node.bind_parameter_as::<FieldBorderDetectionParameters>("field_border_detection")?;
     let camera_matrix_cache = node
-        .create_cache::<CameraMatrix>("camera_matrix", 10)?
+        .create_cache::<TimeWrapper<CameraMatrix>>("camera_matrix", 20)?
+        .with_stamp(|w: &TimeWrapper<CameraMatrix>| w.time)
         .build()
         .await?;
     let image_segments_sub = node
-        .subscriber::<ImageSegments>("image_segments")?
+        .subscriber::<TimeWrapper<ImageSegments>>("image_segments")?
         .build()
         .await?;
     let field_border_points_pub = node
@@ -35,11 +37,9 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let field_border_pub = node
-        .publisher::<Option<FieldBorder>>("field_border")?
+        .publisher::<TimeWrapper<Option<FieldBorder>>>("field_border")?
         .build()
         .await?;
-
-    pending::<()>().await;
 
     let mut random_state = ChaChaRng::from_os_rng();
 
@@ -49,12 +49,14 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             continue;
         }
 
-        let image_segments = image_segments_sub.recv_with_metadata().await?;
-        let time_stamp = image_segments.source_time;
+        let timed_image_segments = image_segments_sub.recv().await?;
+        let time_stamp = timed_image_segments.time;
+        let image_segments = timed_image_segments.inner;
 
-        let Some(camera_matrix) = camera_matrix_cache.get_nearest(time_stamp) else {
+        let Some(timed_camera_matrix) = camera_matrix_cache.get_nearest(time_stamp) else {
             continue;
         };
+        let camera_matrix = timed_camera_matrix.inner.clone();
 
         let first_field_pixels: Vec<_> = image_segments
             .scan_grid
@@ -73,7 +75,10 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             find_border_lines(ransac, &mut random_state, &camera_matrix, &parameters);
 
         field_border_pub
-            .publish(&Some(FieldBorder { border_lines }))
+            .publish(&TimeWrapper {
+                time: time_stamp,
+                inner: Some(FieldBorder { border_lines }),
+            })
             .await?;
     }
 }

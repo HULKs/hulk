@@ -18,6 +18,7 @@ use types::{
     image_segments::GenericSegment,
     line_data::{LineData, LineDiscardReason},
     parameters::LineDetectionParameters,
+    time_wrapper::TimeWrapper,
     ycbcr422_image::YCbCr422Image,
 };
 
@@ -32,15 +33,17 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let parameters = node.bind_parameter_as::<LineDetectionParameters>("line_detection")?;
     let camera_matrix_cache = node
-        .create_cache::<CameraMatrix>("camera_matrix", 10)?
+        .create_cache::<TimeWrapper<CameraMatrix>>("camera_matrix", 10)?
+        .with_stamp(|w: &TimeWrapper<CameraMatrix>| w.time)
         .build()
         .await?;
     let filtered_segments_sub = node
-        .subscriber::<FilteredSegments>("filtered_segments")?
+        .subscriber::<TimeWrapper<FilteredSegments>>("filtered_segments")?
         .build()
         .await?;
     let image_cache = node
-        .create_cache::<YCbCr422Image>("inputs/ycbcr422_image", 10)?
+        .create_cache::<TimeWrapper<YCbCr422Image>>("inputs/ycbcr422_image", 10)?
+        .with_stamp(|w: &TimeWrapper<YCbCr422Image>| w.time)
         .build()
         .await?;
     let lines_in_image_pub = node
@@ -58,7 +61,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let line_data_pub = node
-        .publisher::<Option<LineData>>("line_data")?
+        .publisher::<TimeWrapper<Option<LineData>>>("line_data")?
         .build()
         .await?;
 
@@ -67,15 +70,19 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     loop {
         let parameters = parameters.snapshot().typed().clone();
 
-        let filtered_segments = filtered_segments_sub.recv_with_metadata().await?;
-        let time_stamp = filtered_segments.source_time;
+        let timed_filtered_segments = filtered_segments_sub.recv().await?;
+        let time_stamp = timed_filtered_segments.time;
+        let filtered_segments = timed_filtered_segments.inner;
 
-        let (Some(camera_matrix), Some(image)) = (
+        let (Some(timed_camera_matrix), Some(timed_image)) = (
             camera_matrix_cache.get_nearest(time_stamp),
             image_cache.get_nearest(time_stamp),
         ) else {
             continue;
         };
+        let image = timed_image.inner.clone();
+        let camera_matrix = timed_camera_matrix.inner.clone();
+
 
         let DetectLinesResult(_discarded_lines, used_segments, lines_in_ground, filtered_segments) =
             detect_lines(
@@ -122,10 +129,13 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         //     .await?;
 
         line_data_pub
-            .publish(&Some(LineData {
-                lines: lines_in_ground,
-                used_segments,
-            }))
+            .publish(&TimeWrapper {
+                time: time_stamp,
+                inner: Some(LineData {
+                    lines: lines_in_ground,
+                    used_segments,
+                }),
+            })
             .await?;
     }
 }

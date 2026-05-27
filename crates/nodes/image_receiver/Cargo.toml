@@ -13,4 +13,3 @@ ros2 = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal"] }
 types = { workspace = true }
 x5_receiver = { workspace = true }
-serde = { workspace = true }

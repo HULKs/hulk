@@ -5,20 +5,12 @@ use color_eyre::Result;
 use image::RgbImage;
 
 use ros_z::prelude::*;
-use ros_z::time::Time;
 use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
+use types::time_wrapper::TimeWrapper;
 use types::ycbcr422_image::YCbCr422Image;
 use x5_receiver::receiver::X5Receiver;
 
-use serde::{Deserialize, Serialize};
-
 const X5_ADDRESS: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 168, 127, 10)), 7654);
-
-#[derive(Clone, Debug, Deserialize, Serialize, Message)]
-pub struct TimeSyncTest {
-    image: Time,
-    system: Time,
-}
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("image_receiver").build().await?;
@@ -36,30 +28,21 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let ycbcr422_image_pub = node
-        .publisher::<YCbCr422Image>("inputs/ycbcr422_image")?
-        .build()
-        .await?;
-    let time_sync_tester_pub = node
-        .publisher::<TimeSyncTest>("inputs/time_sync_test")?
+        .publisher::<TimeWrapper<YCbCr422Image>>("inputs/ycbcr422_image")?
         .build()
         .await?;
 
     let x5_receiver = X5Receiver::new(X5_ADDRESS);
     let left_camera_info = x5_receiver.last_camera_info().await.left_camera_info();
     let mut camera_info_timer = node.clock().timer(Duration::from_secs(1));
+
     loop {
         tokio::select! {
             left_frame = x5_receiver.next_left_frame() => {
-                time_sync_tester_pub.publish(&TimeSyncTest {
-                    image: Time::from_nanos(left_frame.header.timestamp_nanoseconds as i64),
-                    system: node.clock().now(),
-                }).await?;
                 let left_image: Image = left_frame.into();
                 left_image_pub.publish(&left_image).await?;
                 let rgb_image: RgbImage = left_image.try_into()?;
-                ycbcr422_image_pub.publish(&(&rgb_image).into()).await?;
-
-
+                ycbcr422_image_pub.publish(&TimeWrapper { time: node.clock().now(), inner: (&rgb_image).into() }).await?;
             }
             right_frame = x5_receiver.next_right_frame() => {
                 right_image_pub.publish(&right_frame.into()).await?;
