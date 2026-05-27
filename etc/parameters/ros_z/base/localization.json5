@@ -35,4 +35,10 @@
     secs: 2,
   },
   use_line_measurements: true,
+  future_queue_lag: {
+    odometer: { secs: 0, nanos: 10000000 },
+    imu_state: { secs: 0, nanos: 10000000 },
+    fall_down_state: { secs: 0, nanos: 10000000 },
+    line_data: { secs: 0, nanos: 50000000 },
+  },
 }
