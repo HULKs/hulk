@@ -4,13 +4,17 @@ use booster_sdk::client::light_control::SetLedLightColorParameter;
 use booster_sdk_interface::LedCommand;
 use color_eyre::Result;
 
-use ros_z::prelude::*;
+use ros_z::{prelude::*, qos::QosDurability};
 use types::primary_state::PrimaryState;
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("led_handler").build().await?;
     let primary_state_sub = node
         .subscriber::<PrimaryState>("primary_state")?
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
         .build()
         .await?;
 

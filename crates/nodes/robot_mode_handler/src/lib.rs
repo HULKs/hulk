@@ -4,7 +4,7 @@ use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
 use booster_sdk_interface::{GetRobotMode, GetRobotModeRequest, HighLevelCommand, RobotMode};
-use ros_z::prelude::*;
+use ros_z::{prelude::*, qos::QosDurability};
 use types::{
     buttons::{ButtonPressType, Buttons},
     primary_state::PrimaryState,
@@ -22,6 +22,10 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let parameters = node.bind_parameter_as::<Parameters>("robot_mode_handler")?;
     let primary_state_sub = node
         .subscriber::<PrimaryState>("primary_state")?
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
         .build()
         .await?;
     let buttons_sub = node
