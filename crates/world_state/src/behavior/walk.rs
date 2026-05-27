@@ -1,5 +1,6 @@
 use coordinate_systems::{Field, Ground};
 use filtering::hysteresis::less_than_with_relative_hysteresis;
+use hsl_network_messages::PlayerNumber;
 use linear_algebra::{Isometry2, Orientation2, Point, Point2, Pose2, point};
 use types::{
     behavior_tree::Status,
@@ -13,6 +14,7 @@ use crate::{
     behavior::{
         action::stand,
         behavior_tree::Node,
+        condition::hulks_is_kicking_team,
         kick::{kick, select_kick_target, use_last_kick_power},
         node::Blackboard,
         switch_motion_type::{is_last_motion_type, switch_motion_type},
@@ -198,6 +200,49 @@ pub fn walk_to_block_position(blackboard: &mut Blackboard) -> Status {
                 .normal_distance_to_be_aligned,
             blackboard.parameters.walk_and_stand.hysteresis,
         )
+    } else {
+        Status::Failure
+    }
+}
+
+pub fn walk_to_kickoff_pose(blackboard: &mut Blackboard) -> Status {
+    if let (Some(ground_to_field), player_number) = (
+        blackboard.world_state.robot.ground_to_field,
+        blackboard.world_state.robot.player_number,
+    ) {
+        let field_to_ground = ground_to_field.inverse();
+
+        let mut target_position =
+            blackboard.parameters.standard_kickoff_positions[player_number].position;
+
+        if hulks_is_kicking_team(blackboard) && player_number == PlayerNumber::Three {
+            target_position = blackboard
+                .parameters
+                .role_positions
+                .striker_kickoff_position;
+        }
+
+        let kickoff_pose_in_field = Pose2::from_parts(
+            target_position,
+            Orientation2::new(
+                blackboard.parameters.standard_kickoff_positions[player_number].rotation,
+            ),
+        );
+
+        let kickoff_pose_in_ground = field_to_ground * kickoff_pose_in_field;
+
+        walk_to(
+            blackboard,
+            kickoff_pose_in_ground,
+            blackboard.parameters.walk_speed.kicking,
+            OrientationMode::AlignWithPath,
+            blackboard
+                .parameters
+                .walk_and_stand
+                .normal_distance_to_be_aligned,
+            blackboard.parameters.walk_and_stand.hysteresis,
+        );
+        Status::Success
     } else {
         Status::Failure
     }

@@ -1,6 +1,9 @@
 use filtering::hysteresis::less_than_with_hysteresis;
+use hsl_network_messages::Team;
 use linear_algebra::{point, vector};
-use types::primary_state::PrimaryState;
+use types::{
+    filtered_game_controller_state::FilteredGameControllerState, primary_state::PrimaryState,
+};
 
 use crate::behavior::node::Blackboard;
 
@@ -125,4 +128,14 @@ pub fn has_hypothetical_ball_position(blackboard: &mut Blackboard) -> bool {
         .world_state
         .hypothetical_ball_positions
         .is_empty()
+}
+
+pub fn hulks_is_kicking_team(blackboard: &mut Blackboard) -> bool {
+    matches!(
+        blackboard.world_state.filtered_game_controller_state,
+        Some(FilteredGameControllerState {
+            kicking_team: Some(Team::Hulks),
+            ..
+        })
+    )
 }

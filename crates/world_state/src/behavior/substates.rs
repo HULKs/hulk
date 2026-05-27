@@ -1,4 +1,4 @@
-use hsl_network_messages::{SubState, Team};
+use hsl_network_messages::SubState;
 use linear_algebra::{Rotation2, point};
 use types::{
     behavior_tree::Status, field_dimensions::Side,
@@ -9,7 +9,7 @@ use crate::{
     action,
     behavior::{
         behavior_tree::Node,
-        condition::is_close_to_ball_aligned,
+        condition::{hulks_is_kicking_team, is_close_to_ball_aligned},
         kick::kick_subtree,
         node::Blackboard,
         walk::{walk_to_ball_subtree, walk_to_block_position},
@@ -72,16 +72,6 @@ pub fn is_sub_state(blackboard: &mut Blackboard, sub_state: SubState) -> bool {
             sub_state: Some(current_sub_state),
             ..
         }) if current_sub_state == sub_state
-    )
-}
-
-pub fn hulks_is_kicking_team(blackboard: &mut Blackboard) -> bool {
-    matches!(
-        blackboard.world_state.filtered_game_controller_state,
-        Some(FilteredGameControllerState {
-            kicking_team: Some(Team::Hulks),
-            ..
-        })
     )
 }
 
