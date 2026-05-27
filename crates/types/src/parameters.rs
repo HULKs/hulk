@@ -82,7 +82,7 @@ pub struct BehaviorParameters {
     pub path_planning: PathPlanningParameters,
     pub remote_control: RemoteControlParameters,
     pub role_positions: RolePositionsParameters,
-    pub kickoff_positions: Players<KickOffPose>,
+    pub standard_kickoff_positions: Players<KickOffPose>,
     pub search: SearchParameters,
     pub look_action: LookActionParameters,
     pub walk_and_stand: WalkAndStandParameters,
