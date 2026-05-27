@@ -80,7 +80,6 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
                 let time_since_primary_state_change = node.clock().now()
                     .duration_since(last_primary_state_change_time);
-                    // TODO: find eqivalent for: .expect("time ran backwards");
                 let switch_to_prepare = time_since_primary_state_change >= parameters.wait_before_prepare;
 
                 match (primary_state, robot_mode, switch_to_prepare) {
