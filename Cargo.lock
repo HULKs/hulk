@@ -4013,6 +4013,7 @@ dependencies = [
  "cdr",
  "color-eyre",
  "ros-z",
+ "ros-z-streams",
  "tokio",
 ]
 
@@ -6367,6 +6368,7 @@ dependencies = [
  "rand_chacha 0.9.0",
  "ransac",
  "ros-z",
+ "ros-z-streams",
  "serde",
  "types",
 ]
@@ -6492,6 +6494,7 @@ dependencies = [
  "color-eyre",
  "kinematics",
  "ros-z",
+ "ros-z-streams",
  "tokio",
 ]
 

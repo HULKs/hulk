@@ -21,6 +21,7 @@ use rand::SeedableRng;
 use rand_chacha::ChaChaRng;
 use ransac::{Ransac, RansacResult};
 use ros_z::prelude::*;
+use ros_z_streams::CreateAnnouncingPublisher;
 use types::{
     filtered_segments::FilteredSegments,
     image_segments::GenericSegment,
@@ -66,10 +67,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .publisher::<Vec<GenericSegment>>("line_detection/filtered_segments")
         .build()
         .await?;
-    let line_data_pub = node
-        .publisher::<TimeWrapper<Option<LineData>>>("line_detection/lines_in_image")
-        .build()
-        .await?;
+    let line_data_pub = node.announcing_publisher::<LineData>("line_data").await?;
 
     let mut random_state = ChaChaRng::from_os_rng();
 
@@ -130,13 +128,11 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
         discarded_lines_pub.publish(&discarded_lines).await?;
 
-        line_data_pub
-            .publish(&TimeWrapper {
-                time: time_stamp,
-                inner: Some(LineData {
-                    lines: lines_in_ground,
-                    used_segments,
-                }),
+        let pending_line_data = line_data_pub.announce(time_stamp).await?;
+        pending_line_data
+            .publish(&LineData {
+                lines: lines_in_ground,
+                used_segments,
             })
             .await?;
     }

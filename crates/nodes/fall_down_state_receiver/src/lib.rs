@@ -8,6 +8,7 @@ use color_eyre::{
 
 use booster::FallDownState;
 use ros_z::prelude::*;
+use ros_z_streams::CreateAnnouncingPublisher;
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
     Box::pin(run(ctx))
@@ -23,8 +24,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .await
         .map_err(|error| eyre!("{error}"))?;
     let fall_down_state_pub = node
-        .publisher::<FallDownState>("inputs/fall_down_state")
-        .build()
+        .announcing_publisher::<FallDownState>("inputs/fall_down_state")
         .await?;
 
     loop {
@@ -34,9 +34,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
                 let deserialized_sample = cdr::deserialize(&fall_down_state.payload().to_bytes())
                     .wrap_err("deserialization failed")?;
-                fall_down_state_pub
-                    .publish(&deserialized_sample)
-                    .await?;
+                let source_time = node.clock().now();
+                let pending_fall_down_state = fall_down_state_pub.announce(source_time).await?;
+                pending_fall_down_state.publish(&deserialized_sample).await?;
 
              }
         }

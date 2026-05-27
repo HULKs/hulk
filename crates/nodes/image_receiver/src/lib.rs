@@ -7,16 +7,26 @@ use std::{boxed::Box, future::Future, pin::Pin};
 use color_eyre::Result;
 use image::RgbImage;
 
-use ros_z::prelude::*;
-use ros_z::qos::QosDurability;
-use ros_z::time::Time;
-use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
-use types::ycbcr422_image::YCbCr422Image;
-use types::{stereo_image_pair::StereoImagePair, time_wrapper::TimeWrapper};
-use x5_receiver::receiver::{Side, X5Receiver};
-use x5_receiver::types::X5CameraFrame;
+use ros_z::{prelude::*, qos::QosDurability, time::Time};
+use ros2::{
+    builtin_interfaces::time::Time as Ros2Time,
+    sensor_msgs::{camera_info::CameraInfo, image::Image},
+};
+use types::{
+    stereo_image_pair::StereoImagePair, time_wrapper::TimeWrapper, ycbcr422_image::YCbCr422Image,
+};
+use x5_receiver::{
+    receiver::{Side, X5Receiver},
+    types::X5CameraFrame,
+};
 
 const X5_ADDRESS: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 168, 127, 10)), 7654);
+
+fn ros2_time_to_ros_z_time(time: Ros2Time) -> Time {
+    let seconds = i64::from(time.sec).saturating_mul(1_000_000_000);
+    let nanoseconds = i64::from(time.nanosec);
+    Time::from_nanos(seconds.saturating_add(nanoseconds))
+}
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
     Box::pin(run(ctx))
@@ -61,8 +71,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     loop {
         tokio::select! {
             left_image = left_frame_receiver.recv() => {
-                let now = node.clock().now();
-                let received = ReceivedImage::new(now, left_image);
+                let received = ReceivedImage::new(left_image);
                 handle_left_image(
                     &left_image_pub,
                     &ycbcr422_image_pub,
@@ -73,8 +82,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 .await?;
             }
             right_image = right_frame_receiver.recv() => {
-                let now = node.clock().now();
-                let received = ReceivedImage::new(now, right_image);
+                let received = ReceivedImage::new(right_image);
                 handle_right_image(
                     &right_image_pub,
                     &stereo_image_pair_pub,
@@ -100,11 +108,15 @@ struct ReceivedImage {
 }
 
 impl ReceivedImage {
-    fn new(image_time: Time, frame: X5CameraFrame) -> Self {
+    fn new(frame: X5CameraFrame) -> Self {
+        let frame_identifier = frame.header.frame_identifier;
+        let image: Image = frame.into();
+        let image_time = ros2_time_to_ros_z_time(image.header.stamp.clone());
+
         Self {
-            frame_identifier: frame.header.frame_identifier,
+            frame_identifier,
             image_time,
-            image: frame.into(),
+            image,
         }
     }
 }
@@ -255,5 +267,22 @@ impl StereoImagePairer {
             .retain(|frame_identifier, _| *frame_identifier >= cutoff);
         self.pending_right
             .retain(|frame_identifier, _| *frame_identifier >= cutoff);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use ros2::builtin_interfaces::time::Time as Ros2Time;
+
+    use super::*;
+
+    #[test]
+    fn converts_ros2_header_stamp_to_ros_z_time() {
+        let time = ros2_time_to_ros_z_time(Ros2Time {
+            sec: 12,
+            nanosec: 345,
+        });
+
+        assert_eq!(time.as_nanos(), 12_000_000_345);
     }
 }
