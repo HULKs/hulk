@@ -8486,8 +8486,11 @@ version = "0.1.0"
 dependencies = [
  "color-eyre",
  "hsl_network_messages",
+ "log",
  "ros-z",
+ "ros-z-streams",
  "serde",
+ "tokio",
  "types",
 ]
 
@@ -9757,6 +9760,7 @@ dependencies = [
 name = "safe_pose_checker"
 version = "0.1.0"
 dependencies = [
+ "approx",
  "booster",
  "color-eyre",
  "coordinate_systems",
