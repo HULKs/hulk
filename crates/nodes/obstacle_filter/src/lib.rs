@@ -106,7 +106,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let ground_to_field_cache = node
-        .subscriber::<Isometry2<Ground, Field>>("ground_to_field")
+        .subscriber::<Option<Isometry2<Ground, Field>>>("ground_to_field")
         .cache(10)
         .build()
         .await?;
@@ -155,6 +155,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                     let current_odometry_to_last_odometry =
                         current_odometry_to_last_odometry_cache.get_nearest(detection_time);
                     let ground_to_field = ground_to_field_cache.get_nearest(detection_time);
+                    let ground_to_field = ground_to_field.as_deref().and_then(Option::as_ref);
 
                     obstacle_filter.process_detection(
                         detection_time,
@@ -177,7 +178,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                         node.clock().now(),
                         parameters,
                         field_dimensions.as_ref(),
-                        ground_to_field.as_ref().map(Arc::as_ref),
+                        ground_to_field,
                         primary_state,
                         fall_down_state.as_ref().map(Arc::as_ref),
                     );
@@ -204,9 +205,11 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 let mut processed_player_state = false;
 
                 for (player_state_time, player_state) in network_player_states {
-                    let Some(ground_to_field) =
-                        ground_to_field_cache.get_nearest(player_state_time)
+                    let Some(ground_to_field) = ground_to_field_cache.get_nearest(player_state_time)
                     else {
+                        continue;
+                    };
+                    let Some(ground_to_field_ref) = ground_to_field.as_ref() else {
                         continue;
                     };
 
@@ -214,7 +217,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                         player_state_time,
                         parameters,
                         &player_state,
-                        ground_to_field.as_ref(),
+                        ground_to_field_ref,
                     );
                     last_ground_to_field = Some(ground_to_field);
                     processed_player_state = true;
@@ -237,7 +240,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                     node.clock().now(),
                     parameters,
                     field_dimensions.as_ref(),
-                    last_ground_to_field.as_ref().map(Arc::as_ref),
+                    last_ground_to_field.as_deref().and_then(Option::as_ref),
                     primary_state,
                     fall_down_state.as_ref().map(Arc::as_ref),
                 );

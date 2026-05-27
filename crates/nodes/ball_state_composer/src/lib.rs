@@ -37,7 +37,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let ground_to_field_cache = node
-        .subscriber::<Isometry2<Ground, Field>>("ground_to_field")
+        .subscriber::<Option<Isometry2<Ground, Field>>>("ground_to_field")
         .cache(10)
         .build()
         .await?;
@@ -89,10 +89,12 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                     continue;
                 };
 
-                let Some(ground_to_field) = ground_to_field_cache.get_latest() else {
+                let Some(ground_to_field) = ground_to_field_cache
+                    .get_latest()
+                    .and_then(|ground_to_field| *ground_to_field)
+                else {
                     continue;
                 };
-                let ground_to_field = *ground_to_field;
 
                 let ball = create_ball_state(
                     ball_position.position,
@@ -110,10 +112,12 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             received_team_ball = team_ball_sub.recv() => {
                 let team_ball = received_team_ball?;
 
-                let Some(ground_to_field) = ground_to_field_cache.get_latest() else {
+                let Some(ground_to_field) = ground_to_field_cache
+                    .get_latest()
+                    .and_then(|ground_to_field| *ground_to_field)
+                else {
                     continue;
                 };
-                let ground_to_field = *ground_to_field;
 
                 let ball = create_ball_state(
                     ground_to_field.inverse() * team_ball.position,
@@ -136,10 +140,12 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 };
                 let field_dimensions = *field_dimensions;
 
-                let Some(ground_to_field) = ground_to_field_cache.get_latest() else {
+                let Some(ground_to_field) = ground_to_field_cache
+                    .get_latest()
+                    .and_then(|ground_to_field| *ground_to_field)
+                else {
                     continue;
                 };
-                let ground_to_field = *ground_to_field;
 
                 let Some(primary_state) = primary_state_cache.get_latest() else { continue };
                 let rule_ball = compose_rule_ball_state(

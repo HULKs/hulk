@@ -47,7 +47,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let ground_to_field_cache = node
-        .subscriber::<Isometry2<Ground, Field>>("ground_to_field")
+        .subscriber::<Option<Isometry2<Ground, Field>>>("ground_to_field")
         .cache(10)
         .build()
         .await?;
@@ -108,7 +108,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
         let ground_to_field = ground_to_field_cache
             .get_latest()
-            .map(|ground_to_field| *ground_to_field);
+            .and_then(|ground_to_field| *ground_to_field);
         let primary_state = primary_state_cache.get_latest();
         let primary_state = primary_state.as_deref();
         let mut ball_was_seen = false;
