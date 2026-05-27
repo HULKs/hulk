@@ -6432,15 +6432,20 @@ dependencies = [
 name = "localization"
 version = "0.1.0"
 dependencies = [
+ "approx",
  "booster",
  "color-eyre",
  "coordinate_systems",
+ "filtering",
  "geometry",
  "hsl_network_messages",
  "linear_algebra",
  "nalgebra",
+ "ordered-float 4.6.0",
  "ros-z",
+ "ros-z-streams",
  "serde",
+ "tokio",
  "types",
 ]
 
