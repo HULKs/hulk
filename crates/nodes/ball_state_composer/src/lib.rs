@@ -34,7 +34,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let _ground_to_field_sub = node
-        .subscriber::<Isometry2<Ground, Field>>("ground_to_field")?
+        .subscriber::<Option<Isometry2<Ground, Field>>>("ground_to_field")?
         .build()
         .await?;
     let _team_ball_sub = node
