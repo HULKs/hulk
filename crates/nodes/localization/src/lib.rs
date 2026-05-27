@@ -1,6 +1,9 @@
 use std::{boxed::Box, future::Future, pin::Pin};
 use std::{future::pending, sync::Arc, time::Duration};
 
+#[allow(dead_code)]
+mod algorithm;
+
 use color_eyre::Result;
 use nalgebra as na;
 use serde::{Deserialize, Serialize};
