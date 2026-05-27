@@ -13,6 +13,7 @@ use types::{
     motion_command::{HeadMotion, MotionCommand},
     parameters::LookAroundParameters,
     support_foot::Side,
+    time_wrapper::TimeWrapper,
 };
 
 const MOTION_COMMAND_TOPIC: &str = "behavior/motion_command";

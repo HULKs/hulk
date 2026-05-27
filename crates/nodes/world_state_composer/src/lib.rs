@@ -14,6 +14,7 @@ use types::{
     obstacles::Obstacle,
     primary_state::PrimaryState,
     rule_obstacles::RuleObstacle,
+    time_wrapper::TimeWrapper,
     world_state::{BallState, WorldState},
 };
 
