@@ -17,5 +17,6 @@ rand = { workspace = true }
 rand_chacha = { workspace = true }
 ransac = { workspace = true }
 ros-z = { workspace = true }
+ros-z-streams = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 types = { workspace = true }

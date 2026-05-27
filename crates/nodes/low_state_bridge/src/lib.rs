@@ -6,6 +6,7 @@ use color_eyre::{Result, eyre::Context as _};
 use booster::{ImuState, LowState, MotorState};
 use kinematics::joints::Joints;
 use ros_z::prelude::*;
+use ros_z_streams::CreateAnnouncingPublisher;
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
     Box::pin(run(ctx))
@@ -26,8 +27,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let imu_state_pub = node
-        .publisher::<ImuState>("inputs/imu_state")?
-        .build()
+        .announcing_publisher::<ImuState>("inputs/imu_state")
         .await?;
     let serial_motor_states_pub = node
         .publisher::<Joints<MotorState>>("inputs/serial_motor_states")?
@@ -49,13 +49,13 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 let imu_state = low_state.imu_state;
                 let serial_motor_states = low_state.serial_motor_states()?;
                 let parallel_motor_states = low_state.parallel_motor_states().ok();
+                let source_time = node.clock().now();
+                let pending_imu_state = imu_state_pub.announce(source_time).await?;
 
                 low_state_pub
                     .publish(&low_state)
                     .await?;
-                imu_state_pub
-                    .publish(&imu_state)
-                    .await?;
+                pending_imu_state.publish(&imu_state).await?;
                 serial_motor_states_pub
                     .publish(&serial_motor_states)
                     .await?;
