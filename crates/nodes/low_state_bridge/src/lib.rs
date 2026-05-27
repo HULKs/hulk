@@ -51,11 +51,11 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 let parallel_motor_states = low_state.parallel_motor_states().ok();
                 let source_time = node.clock().now();
                 let pending_imu_state = imu_state_pub.announce(source_time).await?;
+                pending_imu_state.publish(&imu_state).await?;
 
                 low_state_pub
                     .publish(&low_state)
                     .await?;
-                pending_imu_state.publish(&imu_state).await?;
                 serial_motor_states_pub
                     .publish(&serial_motor_states)
                     .await?;
