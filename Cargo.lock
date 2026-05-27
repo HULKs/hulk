@@ -5739,6 +5739,7 @@ dependencies = [
  "image",
  "ros-z",
  "ros2",
+ "serde",
  "tokio",
  "types",
  "x5_receiver",
