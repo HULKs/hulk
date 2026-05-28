@@ -48,11 +48,11 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         let Some(timed_camera_matrix) = camera_matrix_cache.get_nearest(time_stamp) else {
             continue;
         };
-        let camera_matrix = timed_camera_matrix.inner.clone();
+        let camera_matrix = &timed_camera_matrix.inner;
 
         let horizon = camera_matrix.horizon.unwrap_or(Horizon::ABOVE_IMAGE);
 
-        let scan_grid = new_grid(&image, &camera_matrix, &horizon, &parameters);
+        let scan_grid = new_grid(&image, camera_matrix, &horizon, &parameters);
 
         image_segments_pub
             .publish(&TimeWrapper {
