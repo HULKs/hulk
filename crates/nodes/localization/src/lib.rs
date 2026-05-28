@@ -58,6 +58,10 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
     let _primary_state_sub = node
         .subscriber::<PrimaryState>("primary_state")?
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
         .build()
         .await?;
     let _odometer_sub = node

@@ -48,6 +48,10 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let primary_state_pub = node
         .publisher::<PrimaryState>("primary_state")?
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
         .build()
         .await?;
 
