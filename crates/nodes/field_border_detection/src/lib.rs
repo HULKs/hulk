@@ -44,7 +44,8 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let mut random_state = ChaChaRng::from_os_rng();
 
     loop {
-        let parameters = parameters.snapshot().typed().clone();
+        let parameters_snapshot = parameters.snapshot();
+        let parameters = parameters_snapshot.typed();
         if !parameters.enable {
             continue;
         }
