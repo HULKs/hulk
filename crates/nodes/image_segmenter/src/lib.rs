@@ -1,48 +1,1379 @@
-use std::{future::pending, sync::Arc};
-
-use color_eyre::Result;
-use serde::{Deserialize, Serialize};
-
-use coordinate_systems::Ground;
-use linear_algebra::Framed;
-use projection::camera_matrix::CameraMatrix;
-use ros_z::prelude::*;
-use types::{
-    field_color::FieldColorParameters, image_segments::ImageSegments,
-    parameters::MedianModeParameters, ycbcr422_image::YCbCr422Image,
+use std::{
+    ops::{Add, Range},
+    sync::Arc,
 };
 
-#[derive(Debug, Clone, Serialize, Deserialize, Message)]
-#[serde(deny_unknown_fields)]
-pub struct Parameters {
-    pub horizontal_stride: usize,
-    pub vertical_stride_in_ground: Framed<Ground, f32>,
-    pub horizontal_edge_threshold: u8,
-    pub horizontal_median_mode: MedianModeParameters,
-    pub vertical_stride: usize,
-    pub vertical_edge_threshold: u8,
-    pub vertical_median_mode: MedianModeParameters,
-    pub field_color: FieldColorParameters,
-}
+use color_eyre::Result;
+use itertools::iproduct;
+
+use coordinate_systems::{Ground, Pixel};
+use linear_algebra::{Framed, Point2, Vector2, point, vector};
+use projection::{Projection, camera_matrix::CameraMatrix, horizon::Horizon};
+use ros_z::prelude::*;
+use types::{
+    color::{Hsv, Intensity, RgChromaticity, Rgb, YCbCr444},
+    field_color::FieldColorParameters,
+    image_segments::{Direction, EdgeType, ImageSegments, ScanGrid, ScanLine, Segment},
+    parameters::{ImageSegmenterParameters, MedianModeParameters},
+    time_wrapper::TimeWrapper,
+    ycbcr422_image::YCbCr422Image,
+};
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("image_segmenter").build().await?;
 
-    let _parameters = node.bind_parameter_as::<Parameters>("image_segmenter")?;
-    let _image_sub = node
-        .subscriber::<YCbCr422Image>("inputs/ycbcr422_image")?
+    let parameters = node.bind_parameter_as::<ImageSegmenterParameters>("image_segmenter")?;
+    let image_sub = node
+        .subscriber::<TimeWrapper<YCbCr422Image>>("inputs/ycbcr422_image")?
         .build()
         .await?;
-    let _camera_matrix_sub = node
-        .subscriber::<CameraMatrix>("camera_matrix")?
+    let camera_matrix_cache = node
+        .create_cache::<TimeWrapper<CameraMatrix>>("camera_matrix", 10)?
+        .with_stamp(|w: &TimeWrapper<CameraMatrix>| w.time)
         .build()
         .await?;
-    let _image_segments_pub = node
-        .publisher::<ImageSegments>("image_segments")?
+    let image_segments_pub = node
+        .publisher::<TimeWrapper<ImageSegments>>("image_segments")?
         .build()
         .await?;
 
-    pending::<()>().await;
+    loop {
+        let parameters_snapshot = parameters.snapshot();
+        let parameters = parameters_snapshot.typed();
 
-    Ok(())
+        let timed_image = image_sub.recv().await?;
+        let time_stamp = timed_image.time;
+        let image = timed_image.inner;
+
+        let Some(timed_camera_matrix) = camera_matrix_cache.get_nearest(time_stamp) else {
+            continue;
+        };
+        let camera_matrix = &timed_camera_matrix.inner;
+
+        let horizon = camera_matrix.horizon.unwrap_or(Horizon::ABOVE_IMAGE);
+
+        let scan_grid = new_grid(&image, camera_matrix, &horizon, parameters);
+
+        image_segments_pub
+            .publish(&TimeWrapper {
+                time: time_stamp,
+                inner: ImageSegments { scan_grid },
+            })
+            .await?;
+    }
+}
+
+fn padding_size(median_mode: MedianModeParameters) -> u32 {
+    match median_mode {
+        MedianModeParameters::Disabled => 0,
+        MedianModeParameters::ThreePixels => 1,
+        MedianModeParameters::FivePixels => 2,
+    }
+}
+
+fn new_grid(
+    image: &YCbCr422Image,
+    camera_matrix: &CameraMatrix,
+    horizon: &Horizon,
+    parameters: &ImageSegmenterParameters,
+) -> ScanGrid {
+    let horizontal_padding_size = padding_size(parameters.horizontal_median_mode);
+    let vertical_padding_size = padding_size(parameters.vertical_median_mode);
+
+    let horizon_y_maximum = (horizon.horizon_y_maximum() as u32).clamp(0, image.height());
+
+    let horizontal_scan_lines = match parameters.horizontal_median_mode {
+        MedianModeParameters::Disabled => collect_horizontal_scan_lines::<MedianMode<0>>(
+            image,
+            camera_matrix,
+            parameters,
+            horizontal_padding_size,
+            horizon_y_maximum,
+        ),
+        MedianModeParameters::ThreePixels => collect_horizontal_scan_lines::<MedianMode<3>>(
+            image,
+            camera_matrix,
+            parameters,
+            horizontal_padding_size,
+            horizon_y_maximum,
+        ),
+        MedianModeParameters::FivePixels => collect_horizontal_scan_lines::<MedianMode<5>>(
+            image,
+            camera_matrix,
+            parameters,
+            horizontal_padding_size,
+            horizon_y_maximum,
+        ),
+    };
+    let vertical_scan_lines = match parameters.vertical_median_mode {
+        MedianModeParameters::Disabled => collect_vertical_scan_lines::<MedianMode<0>>(
+            image,
+            horizon,
+            parameters,
+            vertical_padding_size,
+        ),
+        MedianModeParameters::ThreePixels => collect_vertical_scan_lines::<MedianMode<3>>(
+            image,
+            horizon,
+            parameters,
+            vertical_padding_size,
+        ),
+        MedianModeParameters::FivePixels => collect_vertical_scan_lines::<MedianMode<5>>(
+            image,
+            horizon,
+            parameters,
+            vertical_padding_size,
+        ),
+    };
+    ScanGrid {
+        horizontal_scan_lines,
+        vertical_scan_lines,
+    }
+}
+
+fn collect_vertical_scan_lines<MedianMode: MedianSampling>(
+    image: &YCbCr422Image,
+    horizon: &Horizon,
+    parameters: &ImageSegmenterParameters,
+    vertical_padding_size: u32,
+) -> Vec<ScanLine> {
+    (vertical_padding_size..image.width() - vertical_padding_size)
+        .step_by(parameters.horizontal_stride)
+        .map(|x| {
+            let horizon_y = horizon.y_at_x(x as f32).clamp(0.0, image.height() as f32);
+            new_vertical_scan_line::<MedianMode>(
+                image,
+                &parameters.field_color_detection,
+                x,
+                parameters.vertical_stride,
+                parameters.vertical_edge_threshold as i16,
+                horizon_y,
+            )
+        })
+        .collect()
+}
+
+fn collect_horizontal_scan_lines<MedianMode: MedianSampling>(
+    image: &YCbCr422Image,
+    camera_matrix: &CameraMatrix,
+    parameters: &ImageSegmenterParameters,
+    horizontal_padding_size: u32,
+    horizon_y_maximum: u32,
+) -> Vec<ScanLine> {
+    let mut horizontal_scan_lines = vec![];
+    // do not start at horizon because of numerically unstable math
+    let mut y = horizon_y_maximum + 1 + horizontal_padding_size;
+
+    while y + horizontal_padding_size < image.height() {
+        horizontal_scan_lines.push(new_horizontal_scan_line::<MedianMode>(
+            image,
+            &parameters.field_color_detection,
+            y,
+            parameters.horizontal_stride,
+            parameters.horizontal_edge_threshold as i16,
+        ));
+
+        y = next_horizontal_segment_y(
+            image,
+            camera_matrix,
+            parameters.vertical_stride_in_ground,
+            y,
+        )
+        .unwrap_or(0)
+        .max(y + 2);
+    }
+    horizontal_scan_lines
+}
+
+fn next_horizontal_segment_y(
+    image: &YCbCr422Image,
+    camera_matrix: &CameraMatrix,
+    vertical_stride: Framed<Ground, f32>,
+    y: u32,
+) -> Option<u32> {
+    let center_at_y = point![image.width() / 2, y].map(|x| x as f32);
+    let center_in_ground = camera_matrix.pixel_to_ground(center_at_y).ok()?;
+
+    let vertical_stride = vector![-vertical_stride.inner, 0.0];
+    let next_in_pixel = camera_matrix
+        .ground_to_pixel(center_in_ground + vertical_stride)
+        .ok()?;
+
+    Some(next_in_pixel.y() as u32)
+}
+
+struct ScanLineState {
+    previous_value: i16,
+    previous_difference: i16,
+    maximum_difference: i16,
+    maximum_difference_position: u16,
+    start_position: u16,
+    start_edge_type: EdgeType,
+}
+
+impl ScanLineState {
+    fn new(previous_value: i16, start_position: u16, start_edge_type: EdgeType) -> Self {
+        Self {
+            previous_value,
+            previous_difference: Default::default(),
+            maximum_difference: Default::default(),
+            maximum_difference_position: Default::default(),
+            start_position,
+            start_edge_type,
+        }
+    }
+}
+
+trait Median<T> {
+    fn median(self) -> T;
+}
+
+impl<T> Median<T> for [T; 3]
+where
+    T: Ord + Copy,
+{
+    fn median(mut self) -> T {
+        let (_, median, _) = self.select_nth_unstable(1);
+        *median
+    }
+}
+
+impl<T> Median<T> for [T; 5]
+where
+    T: Ord + Copy,
+{
+    fn median(mut self) -> T {
+        let (_, median, _) = self.select_nth_unstable(2);
+        *median
+    }
+}
+
+fn new_horizontal_scan_line<MedianMode: MedianSampling>(
+    image: &YCbCr422Image,
+    field_color: &FieldColorParameters,
+    position: u32,
+    stride: usize,
+    edge_threshold: i16,
+) -> ScanLine {
+    let start_x = 0;
+    let end_x = image.width();
+
+    let edge_detection_value =
+        MedianMode::sample(point![start_x, position], Direction::Horizontal, image);
+    let mut state = ScanLineState::new(
+        edge_detection_value as i16,
+        start_x as u16,
+        EdgeType::ImageBorder,
+    );
+
+    let mut segments = Vec::with_capacity((end_x - start_x) as usize / stride);
+
+    for x in (start_x..end_x).step_by(stride) {
+        let edge_detection_value =
+            MedianMode::sample(point![x, position], Direction::Horizontal, image);
+
+        if let Some(segment) = detect_edge(
+            &mut state,
+            x as u16,
+            edge_detection_value as i16,
+            edge_threshold,
+        ) {
+            segments.push(set_field_color_in_segment(
+                set_color_in_segment(segment, position, Direction::Horizontal, image),
+                field_color,
+            ));
+        }
+    }
+
+    let last_segment = Segment {
+        start: state.start_position,
+        end: image.width() as u16,
+        start_edge_type: state.start_edge_type,
+        end_edge_type: EdgeType::ImageBorder,
+        color: Default::default(),
+        field_color: Intensity::Low,
+    };
+    segments.push(set_field_color_in_segment(
+        set_color_in_segment(last_segment, position, Direction::Horizontal, image),
+        field_color,
+    ));
+
+    ScanLine {
+        position: position as u16,
+        segments,
+    }
+}
+
+#[allow(clippy::too_many_arguments)]
+fn new_vertical_scan_line<MedianMode: MedianSampling>(
+    image: &YCbCr422Image,
+    field_color: &FieldColorParameters,
+    position: u32,
+    stride: usize,
+    edge_threshold: i16,
+    horizon_y: f32,
+) -> ScanLine {
+    let start_y = horizon_y as u32;
+    let end_y = image.height();
+
+    if start_y >= end_y {
+        return ScanLine {
+            position: position as u16,
+            segments: Vec::new(),
+        };
+    }
+
+    let edge_detection_value =
+        MedianMode::sample(point![position, start_y], Direction::Vertical, image);
+    let mut state = ScanLineState::new(
+        edge_detection_value as i16,
+        start_y as u16,
+        EdgeType::ImageBorder,
+    );
+
+    let mut segments = Vec::with_capacity((end_y - start_y) as usize / stride);
+    for y in (start_y..end_y).step_by(stride) {
+        let edge_detection_value =
+            MedianMode::sample(point![position, y], Direction::Vertical, image);
+
+        if let Some(segment) = detect_edge(
+            &mut state,
+            y as u16,
+            edge_detection_value as i16,
+            edge_threshold,
+        ) {
+            segments.push(set_field_color_in_segment(
+                set_color_in_segment(segment, position, Direction::Vertical, image),
+                field_color,
+            ));
+        }
+    }
+
+    let last_segment = Segment {
+        start: state.start_position,
+        end: image.height() as u16,
+        start_edge_type: state.start_edge_type,
+        end_edge_type: EdgeType::ImageBorder,
+        color: Default::default(),
+        field_color: Intensity::Low,
+    };
+    segments.push(set_field_color_in_segment(
+        set_color_in_segment(last_segment, position, Direction::Vertical, image),
+        field_color,
+    ));
+
+    ScanLine {
+        position: position as u16,
+        segments,
+    }
+}
+
+struct MedianMode<const N: usize>;
+
+trait MedianSampling {
+    fn sample(position: Point2<Pixel, u32>, _direction: Direction, image: &YCbCr422Image) -> u8;
+}
+
+impl MedianSampling for MedianMode<0> {
+    fn sample(position: Point2<Pixel, u32>, _direction: Direction, image: &YCbCr422Image) -> u8 {
+        image.at_point(position).y
+    }
+}
+
+impl MedianSampling for MedianMode<3> {
+    fn sample(position: Point2<Pixel, u32>, direction: Direction, image: &YCbCr422Image) -> u8 {
+        let offset: Vector2<Pixel, u32> = match direction {
+            Direction::Horizontal => Vector2::y_axis(),
+            Direction::Vertical => Vector2::x_axis(),
+        };
+
+        [
+            image.at_point(position - offset).y,
+            image.at_point(position).y,
+            image.at_point(position + offset).y,
+        ]
+        .median()
+    }
+}
+
+impl MedianSampling for MedianMode<5> {
+    fn sample(position: Point2<Pixel, u32>, direction: Direction, image: &YCbCr422Image) -> u8 {
+        let offset: Vector2<Pixel, u32> = match direction {
+            Direction::Horizontal => Vector2::y_axis(),
+            Direction::Vertical => Vector2::x_axis(),
+        };
+
+        [
+            image.at_point(position - offset * 2).y,
+            image.at_point(position - offset).y,
+            image.at_point(position).y,
+            image.at_point(position + offset).y,
+            image.at_point(position + offset * 2).y,
+        ]
+        .median()
+    }
+}
+
+fn set_field_color_in_segment(mut segment: Segment, field_color: &FieldColorParameters) -> Segment {
+    segment.field_color = field_color.get_intensity(segment.color);
+    segment
+}
+
+#[derive(Default)]
+struct YCbCr444Sum {
+    // 640 pixels each with range 256 requires a 18 bit integer
+    y: u32,
+    cb: u32,
+    cr: u32,
+    number_of_summands: u32,
+}
+
+impl Add<YCbCr444> for YCbCr444Sum {
+    type Output = YCbCr444Sum;
+
+    fn add(self, other: YCbCr444) -> Self::Output {
+        Self {
+            y: self.y + other.y as u32,
+            cb: self.cb + other.cb as u32,
+            cr: self.cr + other.cr as u32,
+            number_of_summands: self.number_of_summands + 1,
+        }
+    }
+}
+
+impl YCbCr444Sum {
+    fn average(&self) -> YCbCr444 {
+        YCbCr444 {
+            y: (self.y / self.number_of_summands) as u8,
+            cb: (self.cb / self.number_of_summands) as u8,
+            cr: (self.cr / self.number_of_summands) as u8,
+        }
+    }
+}
+
+fn average_image_pixels(
+    image: &YCbCr422Image,
+    x: Range<u32>,
+    y: Range<u32>,
+    stride: usize,
+) -> YCbCr444 {
+    let sum = iproduct!(x.step_by(stride), y.step_by(stride))
+        .fold(YCbCr444Sum::default(), |sum, (x, y)| sum + image.at(x, y));
+    sum.average()
+}
+
+fn set_color_in_segment(
+    mut segment: Segment,
+    position: u32,
+    direction: Direction,
+    image: &YCbCr422Image,
+) -> Segment {
+    let length = segment.length();
+    let x = match direction {
+        Direction::Horizontal => (segment.start as u32)..(segment.end as u32),
+        Direction::Vertical => position..(position + 1),
+    };
+    let y = match direction {
+        Direction::Horizontal => position..(position + 1),
+        Direction::Vertical => (segment.start as u32)..(segment.end as u32),
+    };
+    let stride = match length {
+        20.. => 4,   // results in 5.. or more sample pixels
+        7..=19 => 2, // results in 4..=10 or more sample pixels
+        1..=6 => 1,  // results in 1..=6 or more sample pixels
+        0 => {
+            segment.color = image.at(x.start, y.start);
+            return segment;
+        }
+    };
+    segment.color = average_image_pixels(image, x, y, stride);
+    segment
+}
+
+fn detect_edge(
+    state: &mut ScanLineState,
+    position: u16,
+    value: i16,
+    edge_threshold: i16,
+) -> Option<Segment> {
+    let value_difference = value - state.previous_value;
+
+    let differences_have_initial_values = state.maximum_difference == 0 && value_difference == 0;
+    let new_difference_is_more_positive =
+        state.maximum_difference >= 0 && value_difference >= state.maximum_difference;
+    let new_difference_is_more_negative =
+        state.maximum_difference <= 0 && value_difference <= state.maximum_difference;
+
+    if value_difference.abs() >= edge_threshold
+        && (differences_have_initial_values
+            || new_difference_is_more_positive
+            || new_difference_is_more_negative)
+    {
+        state.maximum_difference = value_difference;
+        state.maximum_difference_position = position;
+    }
+
+    let found_rising_edge =
+        state.previous_difference >= edge_threshold && value_difference < edge_threshold;
+    let found_falling_edge =
+        state.previous_difference <= -edge_threshold && value_difference > -edge_threshold;
+
+    let segment = if found_rising_edge || found_falling_edge {
+        let end_edge_type = if found_rising_edge {
+            EdgeType::Rising
+        } else {
+            EdgeType::Falling
+        };
+        let segment = Segment {
+            start: state.start_position,
+            end: state.maximum_difference_position,
+            start_edge_type: state.start_edge_type,
+            end_edge_type,
+            color: Default::default(),
+            field_color: Intensity::Low,
+        };
+        state.maximum_difference = 0;
+        state.start_position = state.maximum_difference_position;
+        state.start_edge_type = end_edge_type;
+
+        Some(segment)
+    } else {
+        None
+    };
+
+    state.previous_value = value;
+    state.previous_difference = value_difference;
+
+    segment
+}
+
+trait FieldColorDetection {
+    fn get_intensity(&self, color: YCbCr444) -> Intensity;
+}
+
+impl FieldColorDetection for FieldColorParameters {
+    fn get_intensity(&self, color: YCbCr444) -> Intensity {
+        let rgb = Rgb::from(color);
+        let rg_chromaticity = RgChromaticity::from(rgb);
+        let blue_chromaticity = 1.0 - rg_chromaticity.red - rg_chromaticity.green;
+        let hsv = Hsv::from(rgb);
+
+        if self.luminance.contains(&color.y)
+            && self.green_luminance.contains(&color.y)
+            && self.red_chromaticity.contains(&rg_chromaticity.red)
+            && self.green_chromaticity.contains(&rg_chromaticity.green)
+            && self.blue_chromaticity.contains(&blue_chromaticity)
+            && self.hue.contains(&hsv.hue)
+            && self.saturation.contains(&hsv.saturation)
+        {
+            Intensity::High
+        } else {
+            Intensity::Low
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use itertools::iproduct;
+    use types::color::YCbCr422;
+
+    use super::*;
+    const FIELD_COLOR: FieldColorParameters = FieldColorParameters {
+        luminance: 25..=255,
+        green_luminance: 255..=255,
+        red_chromaticity: 0.37..=1.0,
+        green_chromaticity: 0.43..=1.0,
+        blue_chromaticity: 0.37..=1.0,
+        hue: 0..=0,
+        saturation: 0..=0,
+    };
+
+    #[test]
+    fn maximum_with_sign_switch() {
+        let image = YCbCr422Image::load_from_444_png(
+            "../../../tests/data/white_wall_with_a_little_desk_in_front.png",
+        )
+        .unwrap();
+        let vertical_stride = 2;
+        let vertical_edge_threshold = 16;
+        let horizon_y_minimum = 0.0;
+        let scan_line = new_vertical_scan_line::<MedianMode<0>>(
+            &image,
+            &FIELD_COLOR,
+            12,
+            vertical_stride,
+            vertical_edge_threshold,
+            horizon_y_minimum,
+        );
+        assert_eq!(scan_line.position, 12);
+        assert!(scan_line.segments.len() >= 3);
+        assert_eq!(scan_line.segments[0].start, 0);
+        assert!(scan_line.segments[0].length() >= 255);
+        assert!(scan_line.segments[0].length() <= 270);
+        assert!(scan_line.segments[1].length() >= 45);
+        assert!(scan_line.segments[1].length() <= 55);
+    }
+
+    #[test]
+    fn image_with_one_vertical_segment_without_median() {
+        let image = YCbCr422Image::zero(6, 3);
+        let scan_line = new_vertical_scan_line::<MedianMode<0>>(&image, &FIELD_COLOR, 0, 2, 1, 0.0);
+        assert_eq!(scan_line.position, 0);
+        assert_eq!(scan_line.segments.len(), 1);
+        assert_eq!(scan_line.segments[0].start, 0);
+        assert_eq!(scan_line.segments[0].end, 3);
+    }
+
+    #[test]
+    fn image_with_one_vertical_segment_with_median() {
+        let image = YCbCr422Image::zero(6, 3);
+        let scan_line = new_vertical_scan_line::<MedianMode<3>>(&image, &FIELD_COLOR, 1, 2, 1, 0.0);
+        assert_eq!(scan_line.position, 1);
+        assert_eq!(scan_line.segments.len(), 1);
+        assert_eq!(scan_line.segments[0].start, 0);
+        assert_eq!(scan_line.segments[0].end, 3);
+    }
+
+    #[test]
+    fn image_vertical_color_three_pixels() {
+        let image = YCbCr422Image::from_ycbcr_buffer(
+            1,
+            3,
+            vec![
+                // only evaluating every second 422 pixel
+                YCbCr422::new(0, 10, 10, 10),
+                YCbCr422::new(0, 15, 14, 13),
+                YCbCr422::new(0, 10, 10, 10),
+            ],
+        );
+
+        let scan_line = new_vertical_scan_line::<MedianMode<0>>(&image, &FIELD_COLOR, 0, 2, 1, 0.0);
+        assert_eq!(scan_line.position, 0);
+        assert_eq!(scan_line.segments.len(), 1);
+        assert_eq!(scan_line.segments[0].color.y, 0);
+        assert_eq!(scan_line.segments[0].color.cb, 11);
+        assert_eq!(scan_line.segments[0].color.cr, 11);
+    }
+
+    #[test]
+    fn image_vertical_color_twelve_pixels() {
+        let image = YCbCr422Image::from_ycbcr_buffer(
+            1,
+            12,
+            vec![
+                YCbCr422::new(0, 10, 10, 10),
+                YCbCr422::new(0, 10, 10, 10),
+                YCbCr422::new(0, 10, 10, 10),
+                YCbCr422::new(0, 1, 1, 1),
+                YCbCr422::new(0, 10, 10, 10),
+                YCbCr422::new(0, 10, 10, 10),
+                YCbCr422::new(0, 1, 1, 1),
+                YCbCr422::new(0, 10, 10, 10),
+                YCbCr422::new(0, 10, 10, 10),
+                YCbCr422::new(0, 2, 2, 2),
+                YCbCr422::new(0, 10, 10, 10),
+                YCbCr422::new(0, 10, 10, 10),
+            ],
+        );
+
+        let scan_line = new_vertical_scan_line::<MedianMode<0>>(&image, &FIELD_COLOR, 0, 2, 1, 0.0);
+        assert_eq!(scan_line.position, 0);
+        assert_eq!(scan_line.segments.len(), 1);
+        assert_eq!(scan_line.segments[0].color.y, 0);
+        assert_eq!(scan_line.segments[0].color.cb, 8);
+        assert_eq!(scan_line.segments[0].color.cr, 8);
+    }
+
+    #[test]
+    fn image_with_three_vertical_increasing_segments_without_median() {
+        let image = YCbCr422Image::from_ycbcr_buffer(
+            1,
+            12,
+            vec![
+                // only evaluating every secondth pixel
+                YCbCr422::new(0, 0, 0, 0),
+                YCbCr422::new(0, 0, 0, 0), // skipped
+                // segment boundary will be here
+                YCbCr422::new(1, 0, 0, 0),
+                YCbCr422::new(1, 0, 0, 0), // skipped
+                YCbCr422::new(1, 0, 0, 0),
+                YCbCr422::new(1, 0, 0, 0), // skipped
+                // segment boundary will be here
+                YCbCr422::new(2, 0, 0, 0),
+                YCbCr422::new(2, 0, 0, 0), // skipped
+                YCbCr422::new(2, 0, 0, 0),
+                YCbCr422::new(2, 0, 0, 0), // skipped
+                YCbCr422::new(3, 0, 0, 0),
+                YCbCr422::new(3, 0, 0, 0), // skipped
+
+                                           // segment boundary will be here
+            ],
+        );
+
+        // y  diff  prev_diff  prev_diff >= thres  diff < thres  prev_diff >= thres && diff < thres
+        // 0  0     0          0                   1             0
+        // 1  1     0          0                   0             0
+        // 1  0     1          1                   1             1 -> end segment at position 2
+        // 2  1     0          0                   0             0
+        // 2  0     1          1                   1             1 -> end segment at position 6
+        // 3  1     0          0                   0             0
+        // -> end segment at position 12
+
+        let scan_line = new_vertical_scan_line::<MedianMode<0>>(&image, &FIELD_COLOR, 0, 2, 1, 0.0);
+        assert_eq!(scan_line.position, 0);
+        assert_eq!(scan_line.segments.len(), 3);
+        assert_eq!(scan_line.segments[0].start, 0);
+        assert_eq!(scan_line.segments[0].end, 2);
+        assert_eq!(scan_line.segments[1].start, 2);
+        assert_eq!(scan_line.segments[1].end, 6);
+        assert_eq!(scan_line.segments[2].start, 6);
+        assert_eq!(scan_line.segments[2].end, 12);
+    }
+
+    #[test]
+    fn image_with_three_vertical_increasing_segments_with_median() {
+        let row = |y| {
+            [
+                YCbCr422::new(y, 0, 0, 0),
+                YCbCr422::new(y, 0, 0, 0),
+                YCbCr422::new(y, 0, 0, 0),
+            ]
+        };
+        let image = YCbCr422Image::from_ycbcr_buffer(
+            3,
+            12,
+            [
+                // only evaluating every second pixel
+                row(0),
+                row(0), // skipped
+                row(1),
+                // segment boundary will be here
+                row(1), // skipped
+                row(1),
+                row(1), // skipped
+                row(2),
+                // segment boundary will be here
+                row(2), // skipped
+                row(2),
+                row(2), // skipped
+                row(3),
+                row(3), // skipped
+                        // segment boundary will be here
+            ]
+            .into_iter()
+            .flatten()
+            .collect(),
+        );
+
+        // y  y_median  diff  prev_diff  prev_diff >= thres  diff < thres  prev_diff >= thres && diff < thres
+        // 0
+        // 0  0         0     0          0                   1             0
+        // 1
+        // 1  1         1     0          0                   0             0
+        // 1
+        // 1  1         0     1          1                   1             1 -> end segment at position 3
+        // 2
+        // 2  2         1     0          0                   0             0
+        // 2
+        // 2  2         0     1          1                   1             1 -> end segment at position 7
+        // 3
+        // 3
+        // -> end segment at position 12
+
+        let scan_line = new_vertical_scan_line::<MedianMode<3>>(&image, &FIELD_COLOR, 1, 2, 1, 0.0);
+        assert_eq!(scan_line.position, 1);
+        assert_eq!(scan_line.segments.len(), 3);
+        assert_eq!(scan_line.segments[0].start, 0);
+        assert_eq!(scan_line.segments[0].end, 2);
+        assert_eq!(scan_line.segments[0].start_edge_type, EdgeType::ImageBorder);
+        assert_eq!(scan_line.segments[0].end_edge_type, EdgeType::Rising);
+        assert_eq!(scan_line.segments[1].start, 2);
+        assert_eq!(scan_line.segments[1].end, 6);
+        assert_eq!(scan_line.segments[1].start_edge_type, EdgeType::Rising);
+        assert_eq!(scan_line.segments[1].end_edge_type, EdgeType::Rising);
+        assert_eq!(scan_line.segments[2].start, 6);
+        assert_eq!(scan_line.segments[2].end, 12);
+        assert_eq!(scan_line.segments[2].start_edge_type, EdgeType::Rising);
+        assert_eq!(scan_line.segments[2].end_edge_type, EdgeType::ImageBorder);
+    }
+
+    #[test]
+    fn image_with_three_vertical_decreasing_segments_without_median() {
+        let image = YCbCr422Image::from_ycbcr_buffer(
+            1,
+            12,
+            vec![
+                // only evaluating every secondth 422 pixel
+                YCbCr422::new(3, 0, 0, 0),
+                YCbCr422::new(3, 0, 0, 0), // skipped
+                // segment boundary will be here
+                YCbCr422::new(2, 0, 0, 0),
+                YCbCr422::new(2, 0, 0, 0), // skipped
+                YCbCr422::new(2, 0, 0, 0),
+                YCbCr422::new(2, 0, 0, 0), // skipped
+                // segment boundary will be here
+                YCbCr422::new(1, 0, 0, 0),
+                YCbCr422::new(1, 0, 0, 0), // skipped
+                YCbCr422::new(1, 0, 0, 0),
+                YCbCr422::new(1, 0, 0, 0), // skipped
+                YCbCr422::new(0, 0, 0, 0),
+                YCbCr422::new(0, 0, 0, 0), // skipped
+
+                                           // segment boundary will be here
+            ],
+        );
+
+        // y  diff  prev_diff  prev_diff <= -thres  diff > -thres  prev_diff <= -thres && diff > -thres
+        // 3   0     0         0                    1              0
+        // 2  -1     0         0                    0              0
+        // 2   0    -1         1                    1              1 -> end segment at position 2
+        // 1  -1     0         0                    0              0
+        // 1   0    -1         1                    1              1 -> end segment at position 6
+        // 0  -1     0         0                    0              0
+        // -> end segment at position 12
+
+        let scan_line = new_vertical_scan_line::<MedianMode<0>>(&image, &FIELD_COLOR, 0, 2, 1, 0.0);
+        assert_eq!(scan_line.position, 0);
+        assert_eq!(scan_line.segments.len(), 3);
+        assert_eq!(scan_line.segments[0].start, 0);
+        assert_eq!(scan_line.segments[0].end, 2);
+        assert_eq!(scan_line.segments[0].start_edge_type, EdgeType::ImageBorder);
+        assert_eq!(scan_line.segments[0].end_edge_type, EdgeType::Falling);
+        assert_eq!(scan_line.segments[1].start, 2);
+        assert_eq!(scan_line.segments[1].end, 6);
+        assert_eq!(scan_line.segments[1].start_edge_type, EdgeType::Falling);
+        assert_eq!(scan_line.segments[1].end_edge_type, EdgeType::Falling);
+        assert_eq!(scan_line.segments[2].start, 6);
+        assert_eq!(scan_line.segments[2].end, 12);
+        assert_eq!(scan_line.segments[2].start_edge_type, EdgeType::Falling);
+        assert_eq!(scan_line.segments[2].end_edge_type, EdgeType::ImageBorder);
+    }
+
+    #[test]
+    fn image_with_three_vertical_decreasing_segments_with_median() {
+        let row = |y| {
+            [
+                YCbCr422::new(y, 0, 0, 0),
+                YCbCr422::new(y, 0, 0, 0),
+                YCbCr422::new(y, 0, 0, 0),
+            ]
+        };
+        let image = YCbCr422Image::from_ycbcr_buffer(
+            3,
+            12,
+            [
+                // only evaluating every secondth 422 pixel
+                row(3),
+                row(3), // skipped
+                row(2),
+                // segment boundary will be here
+                row(2), // skipped
+                row(2),
+                row(2), // skipped
+                row(1),
+                // segment boundary will be here
+                row(1), // skipped
+                row(1),
+                row(1), // skipped
+                row(0),
+                row(0), // skipped
+
+                        // segment boundary will be here
+            ]
+            .into_iter()
+            .flatten()
+            .collect(),
+        );
+
+        // y  y_median  diff  prev_diff  prev_diff <= -thres  diff > -thres  prev_diff <= -thres && diff > -thres
+        // 3
+        // 3  3   0     0         0                    1              0
+        // 2
+        // 2  2  -1     0         0                    0              0
+        // 2
+        // 2  2   0    -1         1                    1              1 -> end segment at position 3
+        // 1
+        // 1  1  -1     0         0                    0              0
+        // 1
+        // 1  1   0    -1         1                    1              1 -> end segment at position 7
+        // 0
+        // 0
+        // -> end segment at position 12
+
+        let scan_line = new_vertical_scan_line::<MedianMode<3>>(&image, &FIELD_COLOR, 1, 2, 1, 0.0);
+        assert_eq!(scan_line.position, 1);
+        assert_eq!(scan_line.segments.len(), 3);
+        assert_eq!(scan_line.segments[0].start, 0);
+        assert_eq!(scan_line.segments[0].end, 2);
+        assert_eq!(scan_line.segments[0].start_edge_type, EdgeType::ImageBorder);
+        assert_eq!(scan_line.segments[0].end_edge_type, EdgeType::Falling);
+        assert_eq!(scan_line.segments[1].start, 2);
+        assert_eq!(scan_line.segments[1].end, 6);
+        assert_eq!(scan_line.segments[1].start_edge_type, EdgeType::Falling);
+        assert_eq!(scan_line.segments[1].end_edge_type, EdgeType::Falling);
+        assert_eq!(scan_line.segments[2].start, 6);
+        assert_eq!(scan_line.segments[2].end, 12);
+        assert_eq!(scan_line.segments[2].start_edge_type, EdgeType::Falling);
+        assert_eq!(scan_line.segments[2].end_edge_type, EdgeType::ImageBorder);
+    }
+
+    #[test]
+    fn image_with_three_vertical_segments_with_higher_differences_without_median() {
+        let image = YCbCr422Image::from_ycbcr_buffer(
+            1,
+            44,
+            vec![
+                // only evaluating every secondth 422 pixel
+                YCbCr422::new(0, 0, 0, 0),
+                YCbCr422::new(0, 0, 0, 0), // skipped
+                YCbCr422::new(0, 0, 0, 0),
+                YCbCr422::new(0, 0, 0, 0), // skipped
+                YCbCr422::new(0, 0, 0, 0),
+                YCbCr422::new(0, 0, 0, 0), // skipped
+                YCbCr422::new(0, 0, 0, 0),
+                YCbCr422::new(0, 0, 0, 0), // skipped
+                YCbCr422::new(1, 0, 0, 0),
+                YCbCr422::new(1, 0, 0, 0), // skipped
+                YCbCr422::new(2, 0, 0, 0),
+                YCbCr422::new(2, 0, 0, 0), // skipped
+                YCbCr422::new(3, 0, 0, 0),
+                YCbCr422::new(3, 0, 0, 0), // skipped
+                YCbCr422::new(4, 0, 0, 0),
+                YCbCr422::new(4, 0, 0, 0), // skipped
+                // segment boundary will be here
+                YCbCr422::new(5, 0, 0, 0),
+                YCbCr422::new(5, 0, 0, 0), // skipped
+                YCbCr422::new(4, 0, 0, 0),
+                YCbCr422::new(4, 0, 0, 0), // skipped
+                YCbCr422::new(3, 0, 0, 0),
+                YCbCr422::new(3, 0, 0, 0), // skipped
+                YCbCr422::new(2, 0, 0, 0),
+                YCbCr422::new(2, 0, 0, 0), // skipped
+                YCbCr422::new(1, 0, 0, 0),
+                YCbCr422::new(1, 0, 0, 0), // skipped
+                // segment boundary will be here
+                YCbCr422::new(0, 0, 0, 0),
+                YCbCr422::new(0, 0, 0, 0), // skipped
+                YCbCr422::new(0, 0, 0, 0),
+                YCbCr422::new(0, 0, 0, 0), // skipped
+                YCbCr422::new(0, 0, 0, 0),
+                YCbCr422::new(0, 0, 0, 0), // skipped
+                YCbCr422::new(0, 0, 0, 0),
+                YCbCr422::new(0, 0, 0, 0), // skipped
+                YCbCr422::new(0, 0, 0, 0),
+                YCbCr422::new(0, 0, 0, 0), // skipped
+                YCbCr422::new(0, 0, 0, 0),
+                YCbCr422::new(0, 0, 0, 0), // skipped
+                YCbCr422::new(0, 0, 0, 0),
+                YCbCr422::new(0, 0, 0, 0), // skipped
+                YCbCr422::new(0, 0, 0, 0),
+                YCbCr422::new(0, 0, 0, 0), // skipped
+                YCbCr422::new(0, 0, 0, 0),
+                YCbCr422::new(0, 0, 0, 0), // skipped
+
+                                           // segment boundary will be here
+            ],
+        );
+
+        // y  diff  prev_diff  prev_diff >= thres  diff < thres  prev_diff >= thres && diff < thres
+        // 0   0     0         0                   0             0
+        // 0   0     0         0                   0             0
+        // 0   0     0         0                   0             0
+        // 0   0     0         0                   0             0
+        // 1   1     0         0                   0             0
+        // 2   1     1         1                   0             0
+        // 3   1     1         1                   0             0
+        // 4   1     1         1                   0             0
+        // 5   1     1         1                   0             0
+        // 4  -1     1         1                   1             1 -> end segment at position 16
+        // 3  -1    -1         0                   1             0
+        // 2  -1    -1         0                   1             0
+        // 1  -1    -1         0                   1             0
+        // 0  -1    -1         0                   1             0
+        // 0   0    -1         0                   0             0
+        // 0   0     0         0                   0             0
+        // 0   0     0         0                   0             0
+        // 0   0     0         0                   0             0
+        // 0   0     0         0                   0             0
+        // 0   0     0         0                   0             0
+        // 0   0     0         0                   0             0
+        // 0   0     0         0                   0             0
+        // -> end segment at position 44
+
+        // y  diff  prev_diff  prev_diff <= -thres  diff > -thres  prev_diff <= -thres && diff > -thres
+        // 0   0     0         0                    1              0
+        // 0   0     0         0                    1              0
+        // 0   0     0         0                    1              0
+        // 0   0     0         0                    1              0
+        // 1   1     0         0                    1              0
+        // 2   1     1         0                    1              0
+        // 3   1     1         0                    1              0
+        // 4   1     1         0                    1              0
+        // 5   1     1         0                    1              0
+        // 4  -1     1         0                    0              0
+        // 3  -1    -1         1                    0              0
+        // 2  -1    -1         1                    0              0
+        // 1  -1    -1         1                    0              0
+        // 0  -1    -1         1                    0              0
+        // 0   0    -1         1                    1              1 -> end segment at position 26
+        // 0   0     0         0                    1              0
+        // 0   0     0         0                    1              0
+        // 0   0     0         0                    1              0
+        // 0   0     0         0                    1              0
+        // 0   0     0         0                    1              0
+        // 0   0     0         0                    1              0
+        // 0   0     0         0                    1              0
+        // -> end segment at position 44
+
+        let scan_line = new_vertical_scan_line::<MedianMode<0>>(&image, &FIELD_COLOR, 0, 2, 1, 0.0);
+        assert_eq!(scan_line.position, 0);
+        assert_eq!(scan_line.segments.len(), 3);
+        assert_eq!(scan_line.segments[0].start, 0);
+        assert_eq!(scan_line.segments[0].end, 16);
+        assert_eq!(scan_line.segments[0].start_edge_type, EdgeType::ImageBorder);
+        assert_eq!(scan_line.segments[0].end_edge_type, EdgeType::Rising);
+        assert_eq!(scan_line.segments[1].start, 16);
+        assert_eq!(scan_line.segments[1].end, 26);
+        assert_eq!(scan_line.segments[1].start_edge_type, EdgeType::Rising);
+        assert_eq!(scan_line.segments[1].end_edge_type, EdgeType::Falling);
+        assert_eq!(scan_line.segments[2].start, 26);
+        assert_eq!(scan_line.segments[2].end, 44);
+        assert_eq!(scan_line.segments[2].start_edge_type, EdgeType::Falling);
+        assert_eq!(scan_line.segments[2].end_edge_type, EdgeType::ImageBorder);
+    }
+
+    #[test]
+    fn image_with_three_vertical_segments_with_higher_differences_with_median() {
+        let row = |y| {
+            [
+                YCbCr422::new(y, 0, 0, 0),
+                YCbCr422::new(y, 0, 0, 0),
+                YCbCr422::new(y, 0, 0, 0),
+            ]
+        };
+        let image = YCbCr422Image::from_ycbcr_buffer(
+            3,
+            44,
+            [
+                // only evaluating every secondth 422 pixel
+                row(0),
+                row(0), // skipped
+                row(0),
+                row(0), // skipped
+                row(0),
+                row(0), // skipped
+                row(0),
+                row(0), // skipped
+                row(1),
+                row(1), // skipped
+                row(2),
+                row(2), // skipped
+                row(3),
+                row(3), // skipped
+                row(4),
+                row(4), // skipped
+                row(5),
+                // segment boundary will be here
+                row(5), // skipped
+                row(4),
+                row(4), // skipped
+                row(3),
+                row(3), // skipped
+                row(2),
+                row(2), // skipped
+                row(1),
+                row(1), // skipped
+                row(0),
+                // segment boundary will be here
+                row(0), // skipped
+                row(0),
+                row(0), // skipped
+                row(0),
+                row(0), // skipped
+                row(0),
+                row(0), // skipped
+                row(0),
+                row(0), // skipped
+                row(0),
+                row(0), // skipped
+                row(0),
+                row(0), // skipped
+                row(0),
+                row(0), // skipped
+                row(0),
+                row(0), // skipped
+
+                        // segment boundary will be here
+            ]
+            .into_iter()
+            .flatten()
+            .collect(),
+        );
+
+        // y  y_median  diff  prev_diff  prev_diff >= thres  diff < thres  prev_diff >= thres && diff < thres
+        // 0
+        // 0  0          0     0         0                   0             0
+        // 0
+        // 0  0          0     0         0                   0             0
+        // 0
+        // 0  0          0     0         0                   0             0
+        // 0
+        // 0  0          0     0         0                   0             0
+        // 1
+        // 1  1          1     0         0                   0             0
+        // 2
+        // 2  2          1     1         1                   0             0
+        // 3
+        // 3  3          1     1         1                   0             0
+        // 4
+        // 4  4          1     1         1                   0             0
+        // 5
+        // 5  5          1     1         1                   0             0
+        // 4
+        // 4  4         -1     1         1                   1             1 -> end segment at position 17
+        // 3
+        // 3  3         -1    -1         0                   1             0
+        // 2
+        // 2  2         -1    -1         0                   1             0
+        // 1
+        // 1  1         -1    -1         0                   1             0
+        // 0
+        // 0  0         -1    -1         0                   1             0
+        // 0
+        // 0  0          0    -1         0                   0             0
+        // 0
+        // 0  0          0     0         0                   0             0
+        // 0
+        // 0  0          0     0         0                   0             0
+        // 0
+        // 0  0          0     0         0                   0             0
+        // 0
+        // 0  0          0     0         0                   0             0
+        // 0
+        // 0  0          0     0         0                   0             0
+        // 0
+        // 0  0          0     0         0                   0             0
+        // 0
+        // 0
+        // -> end segment at position 44
+
+        // y  y_median  diff  prev_diff  prev_diff <= -thres  diff > -thres  prev_diff <= -thres && diff > -thres
+        // 0
+        // 0  0          0     0         0                    1              0
+        // 0
+        // 0  0          0     0         0                    1              0
+        // 0
+        // 0  0          0     0         0                    1              0
+        // 0
+        // 0  0          0     0         0                    1              0
+        // 1
+        // 1  1          1     0         0                    1              0
+        // 2
+        // 2  2          1     1         0                    1              0
+        // 3
+        // 3  3          1     1         0                    1              0
+        // 4
+        // 4  4          1     1         0                    1              0
+        // 5
+        // 5  5          1     1         0                    1              0
+        // 4
+        // 4  4         -1     1         0                    0              0
+        // 3
+        // 3  3         -1    -1         1                    0              0
+        // 2
+        // 2  2         -1    -1         1                    0              0
+        // 1
+        // 1  1         -1    -1         1                    0              0
+        // 0
+        // 0  0         -1    -1         1                    0              0
+        // 0
+        // 0  0          0    -1         1                    1              1 -> end segment at position 27
+        // 0
+        // 0  0          0     0         0                    1              0
+        // 0
+        // 0  0          0     0         0                    1              0
+        // 0
+        // 0  0          0     0         0                    1              0
+        // 0
+        // 0  0          0     0         0                    1              0
+        // 0
+        // 0  0          0     0         0                    1              0
+        // 0
+        // 0  0          0     0         0                    1              0
+        // 0
+        // 0
+        // -> end segment at position 44
+
+        let scan_line = new_vertical_scan_line::<MedianMode<3>>(&image, &FIELD_COLOR, 1, 2, 1, 0.0);
+        assert_eq!(scan_line.position, 1);
+        assert_eq!(scan_line.segments.len(), 3);
+        assert_eq!(scan_line.segments[0].start, 0);
+        assert_eq!(scan_line.segments[0].end, 16);
+        assert_eq!(scan_line.segments[0].start_edge_type, EdgeType::ImageBorder);
+        assert_eq!(scan_line.segments[0].end_edge_type, EdgeType::Rising);
+        assert_eq!(scan_line.segments[1].start, 16);
+        assert_eq!(scan_line.segments[1].end, 26);
+        assert_eq!(scan_line.segments[1].start_edge_type, EdgeType::Rising);
+        assert_eq!(scan_line.segments[1].end_edge_type, EdgeType::Falling);
+        assert_eq!(scan_line.segments[2].start, 26);
+        assert_eq!(scan_line.segments[2].end, 44);
+        assert_eq!(scan_line.segments[2].start_edge_type, EdgeType::Falling);
+        assert_eq!(scan_line.segments[2].end_edge_type, EdgeType::ImageBorder);
+    }
+
+    #[test]
+    fn image_with_one_vertical_segment_with_increasing_differences_without_median() {
+        let image = YCbCr422Image::from_ycbcr_buffer(
+            1,
+            16,
+            vec![
+                // only evaluating every secondth 422 pixel
+                YCbCr422::new(0, 0, 0, 0),
+                YCbCr422::new(0, 0, 0, 0), // skipped
+                YCbCr422::new(0, 0, 0, 0),
+                YCbCr422::new(0, 0, 0, 0), // skipped
+                YCbCr422::new(1, 0, 0, 0),
+                YCbCr422::new(1, 0, 0, 0), // skipped
+                YCbCr422::new(3, 0, 0, 0),
+                YCbCr422::new(3, 0, 0, 0), // skipped
+                YCbCr422::new(6, 0, 0, 0),
+                YCbCr422::new(6, 0, 0, 0), // skipped
+                YCbCr422::new(10, 0, 0, 0),
+                YCbCr422::new(10, 0, 0, 0), // skipped
+                YCbCr422::new(15, 0, 0, 0),
+                YCbCr422::new(15, 0, 0, 0), // skipped
+                YCbCr422::new(21, 0, 0, 0),
+                YCbCr422::new(21, 0, 0, 0), // skipped
+
+                                            // segment boundary will be here
+            ],
+        );
+
+        //  y  diff  prev_diff  prev_diff >= thres  diff < thres  prev_diff >= thres && diff < thres
+        //  0  0     0          0                   1             0
+        //  0  0     0          0                   1             0
+        //  1  1     0          0                   0             0
+        //  3  2     1          1                   0             0
+        //  6  3     2          1                   0             0
+        // 10  4     3          1                   0             0
+        // 15  5     4          1                   0             0
+        // 21  6     5          1                   0             0
+        // -> end segment at position 16
+
+        let scan_line = new_vertical_scan_line::<MedianMode<0>>(&image, &FIELD_COLOR, 0, 2, 1, 0.0);
+        assert_eq!(scan_line.position, 0);
+        assert_eq!(scan_line.segments.len(), 1);
+        assert_eq!(scan_line.segments[0].start, 0);
+        assert_eq!(scan_line.segments[0].end, 16);
+        assert_eq!(scan_line.segments[0].start_edge_type, EdgeType::ImageBorder);
+        assert_eq!(scan_line.segments[0].end_edge_type, EdgeType::ImageBorder);
+    }
+
+    #[test]
+    fn image_with_one_vertical_segment_with_increasing_differences_with_median() {
+        let row = |y| {
+            [
+                YCbCr422::new(y, 0, 0, 0),
+                YCbCr422::new(y, 0, 0, 0),
+                YCbCr422::new(y, 0, 0, 0),
+            ]
+        };
+        let image = YCbCr422Image::from_ycbcr_buffer(
+            3,
+            16,
+            [
+                // only evaluating every secondth 422 pixel
+                row(0),
+                row(0), // skipped
+                row(0),
+                row(0), // skipped
+                row(1),
+                row(1), // skipped
+                row(3),
+                row(3), // skipped
+                row(6),
+                row(6), // skipped
+                row(10),
+                row(10), // skipped
+                row(15),
+                row(15), // skipped
+                row(21),
+                row(21), // skipped
+                         // segment boundary will be here
+            ]
+            .into_iter()
+            .flatten()
+            .collect(),
+        );
+
+        //  y  y_median  diff  prev_diff  prev_diff >= thres  diff < thres  prev_diff >= thres && diff < thres
+        //  0
+        //  0   0        0     0          0                   1             0
+        //  0
+        //  0   0        0     0          0                   1             0
+        //  1
+        //  1   1        1     0          0                   0             0
+        //  3
+        //  3   3        2     1          1                   0             0
+        //  6
+        //  6   6        3     2          1                   0             0
+        // 10
+        // 10  10        4     3          1                   0             0
+        // 15
+        // 15  15        5     4          1                   0             0
+        // 21
+        // 21
+        // -> end segment at position 16
+
+        let scan_line = new_vertical_scan_line::<MedianMode<3>>(&image, &FIELD_COLOR, 1, 2, 1, 0.0);
+        assert_eq!(scan_line.position, 1);
+        assert_eq!(scan_line.segments.len(), 1);
+        assert_eq!(scan_line.segments[0].start, 0);
+        assert_eq!(scan_line.segments[0].end, 16);
+        assert_eq!(scan_line.segments[0].start_edge_type, EdgeType::ImageBorder);
+        assert_eq!(scan_line.segments[0].end_edge_type, EdgeType::ImageBorder);
+    }
+
+    #[test]
+    fn median_of_three_with_same_values() {
+        // first == second == third
+        assert_eq!([0, 0, 0].median(), 0);
+        // first < second == third
+        assert_eq!([0, 1, 1].median(), 1);
+        // first == second < third
+        assert_eq!([0, 0, 1].median(), 0);
+        // first == third < second
+        assert_eq!([0, 1, 0].median(), 0);
+    }
+
+    #[test]
+    fn median_of_three_with_different_values() {
+        // first <= second <= third
+        assert_eq!([0, 1, 2].median(), 1);
+        // first <= third < second
+        assert_eq!([0, 2, 1].median(), 1);
+        // third < first <= second
+        assert_eq!([1, 2, 0].median(), 1);
+        // second < first <= third
+        assert_eq!([1, 0, 2].median(), 1);
+        // second <= third < first
+        assert_eq!([2, 0, 1].median(), 1);
+        // third < second <= first
+        assert_eq!([2, 1, 0].median(), 1);
+    }
+
+    #[test]
+    fn median_of_five_calculates_median() {
+        for (first, second, third, fourth, fifth) in iproduct!(0..5, 0..5, 0..5, 0..5, 0..5) {
+            let calculated_median = [first, second, third, fourth, fifth].median();
+            let mut numbers = [first, second, third, fourth, fifth];
+            numbers.sort();
+            let real_median = numbers[2];
+            assert_eq!(
+                calculated_median, real_median,
+                "test_case: {first} {second} {third} {fourth} {fifth}, median_of_five: {calculated_median}"
+            );
+        }
+    }
 }

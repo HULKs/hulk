@@ -4008,10 +4008,15 @@ dependencies = [
 name = "field_border_detection"
 version = "0.1.0"
 dependencies = [
+ "approx",
  "color-eyre",
  "coordinate_systems",
+ "geometry",
  "linear_algebra",
  "projection",
+ "rand 0.9.4",
+ "rand_chacha 0.9.0",
+ "ransac",
  "ros-z",
  "serde",
  "types",
@@ -5745,6 +5750,7 @@ version = "0.1.0"
 dependencies = [
  "color-eyre",
  "coordinate_systems",
+ "itertools 0.14.0",
  "linear_algebra",
  "projection",
  "ros-z",
@@ -6294,7 +6300,13 @@ dependencies = [
  "color-eyre",
  "coordinate_systems",
  "geometry",
+ "linear_algebra",
+ "nalgebra",
+ "ordered-float 4.6.0",
  "projection",
+ "rand 0.9.4",
+ "rand_chacha 0.9.0",
+ "ransac",
  "ros-z",
  "serde",
  "types",
@@ -9920,6 +9932,7 @@ name = "segment_filter"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
+ "linear_algebra",
  "ros-z",
  "types",
 ]

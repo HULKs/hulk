@@ -6,6 +6,7 @@ use image::RgbImage;
 
 use ros_z::prelude::*;
 use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
+use types::time_wrapper::TimeWrapper;
 use types::ycbcr422_image::YCbCr422Image;
 use x5_receiver::receiver::X5Receiver;
 
@@ -27,7 +28,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let ycbcr422_image_pub = node
-        .publisher::<YCbCr422Image>("inputs/ycbcr422_image")?
+        .publisher::<TimeWrapper<YCbCr422Image>>("inputs/ycbcr422_image")?
         .build()
         .await?;
 
@@ -41,7 +42,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 let left_image: Image = left_frame.into();
                 left_image_pub.publish(&left_image).await?;
                 let rgb_image: RgbImage = left_image.try_into()?;
-                ycbcr422_image_pub.publish(&(&rgb_image).into()).await?;
+                ycbcr422_image_pub.publish(&TimeWrapper { time: node.clock().now(), inner: (&rgb_image).into() }).await?;
             }
             right_frame = x5_receiver.next_right_frame() => {
                 right_image_pub.publish(&right_frame.into()).await?;
