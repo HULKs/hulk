@@ -36,7 +36,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         let Some(timed_image_segments) = image_segments_cache.get_nearest(time_stamp) else {
             continue;
         };
-        let image_segments = timed_image_segments.inner.clone();
+        let image_segments = &timed_image_segments.inner;
 
         let filtered_segments = FilteredSegments {
             scan_grid: ScanGrid {
