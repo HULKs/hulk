@@ -56,7 +56,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         let Some(timed_camera_matrix) = camera_matrix_cache.get_nearest(time_stamp) else {
             continue;
         };
-        let camera_matrix = timed_camera_matrix.inner.clone();
+        let camera_matrix = &timed_camera_matrix.inner;
 
         let first_field_pixels: Vec<_> = image_segments
             .scan_grid
@@ -72,7 +72,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
         let ransac = Ransac::new(first_field_pixels);
         let border_lines =
-            find_border_lines(ransac, &mut random_state, &camera_matrix, &parameters);
+            find_border_lines(ransac, &mut random_state, camera_matrix, &parameters);
 
         field_border_pub
             .publish(&TimeWrapper {
