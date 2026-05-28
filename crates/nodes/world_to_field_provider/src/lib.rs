@@ -18,7 +18,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
 
     let world_to_field_pub = node
-        .publisher::<Isometry2<World, Field>>("world_to_field")?
+        .publisher::<TimeWrapper<Isometry2<World, Field>>>("world_to_field")?
         .build()
         .await?;
 
@@ -26,16 +26,19 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         let game_controller_state_wrapper = game_controller_state_sub.recv().await?;
 
         let TimeWrapper {
+            time,
             inner: Some(game_controller_state),
-            ..
         } = game_controller_state_wrapper
         else {
             continue;
         };
 
-        let world_to_field = match game_controller_state.global_field_side {
-            GlobalFieldSide::Home => Isometry2::identity(),
-            GlobalFieldSide::Away => Isometry2::rotation(PI),
+        let world_to_field = TimeWrapper {
+            time,
+            inner: match game_controller_state.global_field_side {
+                GlobalFieldSide::Home => Isometry2::identity(),
+                GlobalFieldSide::Away => Isometry2::rotation(PI),
+            },
         };
 
         world_to_field_pub.publish(&world_to_field).await?;
