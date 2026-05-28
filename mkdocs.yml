@@ -92,6 +92,7 @@ nav:
       - Getting Started: workflow/getting_started.md
       - Development: workflow/development.md
       - Automated Checks: workflow/checks.md
+      - Agent Review: workflow/agent_review.md
       - Competition: workflow/competition.md
       - Engineering: workflow/engineering.md
       - GitHub Webhooks: workflow/github_webhooks.md
