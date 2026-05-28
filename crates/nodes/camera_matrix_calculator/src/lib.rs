@@ -54,10 +54,11 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             continue;
         };
         let robot_kinematics = timed_robot_kinematics.inner.clone();
+        let robot_kinematics = &timed_robot_kinematics.inner;
 
         let camera_matrix = compute_camera_matrix(
             &parameters,
-            &robot_kinematics,
+            robot_kinematics,
             &robot_to_ground,
             &camera_info,
         );
