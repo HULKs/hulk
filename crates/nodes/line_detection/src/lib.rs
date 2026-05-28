@@ -47,7 +47,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let lines_in_image_pub = node
-        .publisher::<Vec<LineSegment<Pixel>>>("lines_in_image")?
+        .publisher::<Vec<LineSegment<Pixel>>>("line_detection/lines_in_image")?
         .build()
         .await?;
     // TODO: restructure type layout here, do not use blank tuples
