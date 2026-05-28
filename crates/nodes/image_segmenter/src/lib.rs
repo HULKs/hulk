@@ -38,7 +38,8 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
 
     loop {
-        let parameters = parameters.snapshot().typed().clone();
+        let parameters_snapshot = parameters.snapshot();
+        let parameters = parameters_snapshot.typed();
 
         let timed_image = image_sub.recv().await?;
         let time_stamp = timed_image.time;
