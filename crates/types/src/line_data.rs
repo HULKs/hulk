@@ -32,3 +32,11 @@ pub enum LineDiscardReason {
     LineTooLong,
     TooFarAway,
 }
+
+#[derive(
+    Clone, Debug, Serialize, Deserialize, PathSerialize, PathDeserialize, PathIntrospect, Message,
+)]
+pub struct DiscardedLine {
+    pub line: LineSegment<Pixel>,
+    pub discard_reason: LineDiscardReason,
+}

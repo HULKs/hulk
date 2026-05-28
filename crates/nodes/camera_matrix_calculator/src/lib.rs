@@ -38,7 +38,8 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
 
     loop {
-        let parameters = parameters.snapshot().typed().clone();
+        let parameters_snapshot = parameters.snapshot();
+        let parameters = parameters_snapshot.typed();
 
         let timed_robot_to_ground = robot_to_ground_sub.recv().await?;
         let time_stamp = timed_robot_to_ground.time;
@@ -53,15 +54,10 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         ) else {
             continue;
         };
-        let robot_kinematics = timed_robot_kinematics.inner.clone();
         let robot_kinematics = &timed_robot_kinematics.inner;
 
-        let camera_matrix = compute_camera_matrix(
-            &parameters,
-            robot_kinematics,
-            &robot_to_ground,
-            &camera_info,
-        );
+        let camera_matrix =
+            compute_camera_matrix(parameters, robot_kinematics, &robot_to_ground, &camera_info);
 
         camera_matrix_pub
             .publish(&TimeWrapper {

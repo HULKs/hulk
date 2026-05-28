@@ -9,7 +9,9 @@ use coordinate_systems::{Camera, Field, Ground, NormalizedPixel, Pixel, Robot};
 use linear_algebra::{Framed, Point2, Vector2, Vector3};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
-use crate::{field_color::FieldColorParameters, motion_command::MotionCommand, players::Players, step::Step};
+use crate::{
+    field_color::FieldColorParameters, motion_command::MotionCommand, players::Players, step::Step,
+};
 
 #[derive(
     Clone,

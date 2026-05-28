@@ -24,7 +24,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let parameters =
         node.bind_parameter_as::<FieldBorderDetectionParameters>("field_border_detection")?;
     let camera_matrix_cache = node
-        .create_cache::<TimeWrapper<CameraMatrix>>("camera_matrix", 20)?
+        .create_cache::<TimeWrapper<CameraMatrix>>("camera_matrix", 10)?
         .with_stamp(|w: &TimeWrapper<CameraMatrix>| w.time)
         .build()
         .await?;
@@ -46,6 +46,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     loop {
         let parameters_snapshot = parameters.snapshot();
         let parameters = parameters_snapshot.typed();
+
         if !parameters.enable {
             continue;
         }
@@ -72,8 +73,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         field_border_points_pub.publish(&first_field_pixels).await?;
 
         let ransac = Ransac::new(first_field_pixels);
-        let border_lines =
-            find_border_lines(ransac, &mut random_state, camera_matrix, &parameters);
+        let border_lines = find_border_lines(ransac, &mut random_state, camera_matrix, parameters);
 
         field_border_pub
             .publish(&TimeWrapper {

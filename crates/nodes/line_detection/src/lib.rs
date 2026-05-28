@@ -1,9 +1,17 @@
-mod line_detection;
+mod checks;
+mod iter_if;
+mod map_segments;
+mod segment_merger;
 
 use std::{collections::HashSet, sync::Arc};
 
 use color_eyre::Result;
 
+use crate::{
+    checks::{has_opposite_gradients, is_in_length_range, is_non_field_segment},
+    iter_if::iter_if,
+    map_segments::{HorizontalMapping, VerticalMapping, map_segments},
+};
 use coordinate_systems::{Ground, Pixel};
 use geometry::{line::Line2, line_segment::LineSegment};
 use linear_algebra::{Point2, distance};
@@ -16,16 +24,10 @@ use ros_z::prelude::*;
 use types::{
     filtered_segments::FilteredSegments,
     image_segments::GenericSegment,
-    line_data::{LineData, LineDiscardReason},
+    line_data::{DiscardedLine, LineData, LineDiscardReason},
     parameters::LineDetectionParameters,
     time_wrapper::TimeWrapper,
     ycbcr422_image::YCbCr422Image,
-};
-
-use crate::line_detection::{
-    checks::{has_opposite_gradients, is_in_length_range, is_non_field_segment},
-    iter_if::iter_if,
-    map_segments::{HorizontalMapping, VerticalMapping, map_segments},
 };
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
@@ -50,12 +52,10 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .publisher::<Vec<LineSegment<Pixel>>>("line_detection/lines_in_image")?
         .build()
         .await?;
-    // TODO: restructure type layout here, do not use blank tuples
-    // let discarded_lines_pub = node
-    //     .publisher::<Vec<(LineSegment<Pixel>, LineDiscardReason)>>("discarded_lines")
-    //     .build()
-    //     .await
-    //     .into_eyre()?;
+    let discarded_lines_pub = node
+        .publisher::<Vec<DiscardedLine>>("line_detection/discarded_lines")?
+        .build()
+        .await?;
     let filtered_segments_output_pub = node
         .publisher::<Vec<GenericSegment>>("line_detection/filtered_segments")?
         .build()
@@ -68,7 +68,8 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let mut random_state = ChaChaRng::from_os_rng();
 
     loop {
-        let parameters = parameters.snapshot().typed().clone();
+        let parameters_snapshot = parameters.snapshot();
+        let parameters = parameters_snapshot.typed();
 
         let timed_filtered_segments = filtered_segments_sub.recv().await?;
         let time_stamp = timed_filtered_segments.time;
@@ -80,15 +81,15 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         ) else {
             continue;
         };
-        let image = timed_image.inner.clone();
-        let camera_matrix = timed_camera_matrix.inner.clone();
+        let image = &timed_image.inner;
+        let camera_matrix = &timed_camera_matrix.inner;
 
-        let DetectLinesResult(_discarded_lines, used_segments, lines_in_ground, filtered_segments) =
+        let DetectLinesResult(discarded_lines, used_segments, lines_in_ground, filtered_segments) =
             detect_lines(
-                &parameters,
+                parameters,
                 &filtered_segments,
-                &camera_matrix,
-                &image,
+                camera_matrix,
+                image,
                 &mut random_state,
             );
 
@@ -108,24 +109,20 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             .publish(&filtered_segments)
             .await?;
 
-        // let discarded_lines = discarded_lines
-        //     .into_iter()
-        //     .map(|(line, discard_reason)| {
-        //         (
-        //             LineSegment(
-        //                 camera_matrix.ground_to_pixel(line.point).unwrap(),
-        //                 camera_matrix
-        //                     .ground_to_pixel(line.point + line.direction)
-        //                     .unwrap(),
-        //             ),
-        //             discard_reason,
-        //         )
-        //     })
-        //     .collect();
+        let discarded_lines = discarded_lines
+            .into_iter()
+            .map(|(line, discard_reason)| DiscardedLine {
+                line: LineSegment(
+                    camera_matrix.ground_to_pixel(line.point).unwrap(),
+                    camera_matrix
+                        .ground_to_pixel(line.point + line.direction)
+                        .unwrap(),
+                ),
+                discard_reason,
+            })
+            .collect::<Vec<_>>();
 
-        // discarded_lines_pub
-        //     .publish(discarded_lines)
-        //     .await?;
+        discarded_lines_pub.publish(&discarded_lines).await?;
 
         line_data_pub
             .publish(&TimeWrapper {

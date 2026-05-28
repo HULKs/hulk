@@ -41,12 +41,12 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         let filtered_segments = FilteredSegments {
             scan_grid: ScanGrid {
                 horizontal_scan_lines: filter_scan_lines(
-                    &image_segments.scan_grid.horizontal_scan_lines,
+                    image_segments.scan_grid.horizontal_scan_lines.as_ref(),
                     field_border.as_ref(),
                     Direction::Horizontal,
                 ),
                 vertical_scan_lines: filter_scan_lines(
-                    &image_segments.scan_grid.vertical_scan_lines,
+                    image_segments.scan_grid.vertical_scan_lines.as_ref(),
                     field_border.as_ref(),
                     Direction::Vertical,
                 ),

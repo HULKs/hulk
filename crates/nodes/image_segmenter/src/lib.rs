@@ -52,7 +52,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
         let horizon = camera_matrix.horizon.unwrap_or(Horizon::ABOVE_IMAGE);
 
-        let scan_grid = new_grid(&image, camera_matrix, &horizon, &parameters);
+        let scan_grid = new_grid(&image, camera_matrix, &horizon, parameters);
 
         image_segments_pub
             .publish(&TimeWrapper {
@@ -71,7 +71,6 @@ fn padding_size(median_mode: MedianModeParameters) -> u32 {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
 fn new_grid(
     image: &YCbCr422Image,
     camera_matrix: &CameraMatrix,
@@ -154,7 +153,6 @@ fn collect_vertical_scan_lines<MedianMode: MedianSampling>(
         .collect()
 }
 
-#[allow(clippy::too_many_arguments)]
 fn collect_horizontal_scan_lines<MedianMode: MedianSampling>(
     image: &YCbCr422Image,
     camera_matrix: &CameraMatrix,
