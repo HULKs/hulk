@@ -626,10 +626,13 @@ where
                 let payload = sample.payload().to_bytes();
                 match S::deserialize(&payload) {
                     Ok(message) => {
-                        let entries = extractor(message);
+                        let entries: Vec<_> = extractor(message)
+                            .into_iter()
+                            .map(|(stamp, value)| (stamp.into(), value))
+                            .collect();
                         let mut guard = inner_cb.write();
                         for (stamp, value) in entries {
-                            guard.insert(stamp.into(), value);
+                            guard.insert(stamp, value);
                         }
                     }
                     Err(e) => tracing::error!("[CACHE] Failed to deserialize message: {}", e),
