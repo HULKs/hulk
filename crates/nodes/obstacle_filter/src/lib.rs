@@ -80,15 +80,11 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         })
         .build()
         .await?;
-    let player_state_cache = node
-        .create_cache::<Players<Option<TimeWrapper<PlayerState>>>>("player_states", 20)?
-        .with_stamped_entries(move |players| {
-            stamped_network_player_states(
-                players,
-                player_number_cache
-                    .get_latest()
-                    .map(|player_number| *player_number),
-            )
+    let player_states_subscriber = node
+        .subscriber::<Players<Option<TimeWrapper<PlayerState>>>>("player_states")?
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
         })
         .build()
         .await?;
@@ -137,63 +133,164 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
 
     let mut obstacle_filter = ObstacleFilter::default();
+    let mut last_processed_player_state_times = Players::new(None);
     loop {
-        let parameters_snapshot = parameters.snapshot();
-        let parameters = parameters_snapshot.typed();
-        let item = detections.recv().await?;
+        tokio::select! {
+            received_detections = detections.recv() => {
+                let parameters_snapshot = parameters.snapshot();
+                let parameters = parameters_snapshot.typed();
+                let item = received_detections?;
 
-        for (detection_time, (detected_objects, detected_poses)) in item.persistent {
-            let Some(field_dimensions) = field_dimensions_cache.get_latest() else {
-                continue;
-            };
+                for (detection_time, (detected_objects, detected_poses)) in item.persistent {
+                    let Some(field_dimensions) = field_dimensions_cache.get_latest() else {
+                        continue;
+                    };
 
-            let detected_objects = detected_objects.unwrap_or_default();
-            let detected_poses = detected_poses.unwrap_or_default();
-            let camera_matrix = camera_matrix_cache.get_nearest(detection_time);
-            let current_odometry_to_last_odometry =
-                current_odometry_to_last_odometry_cache.get_nearest(detection_time);
-            let ground_to_field = ground_to_field_cache.get_nearest(detection_time);
-            let player_states = player_state_cache.get_interval(
-                detection_time - parameters.hypothesis_timeout,
-                detection_time,
-            );
+                    let detected_objects = detected_objects.unwrap_or_default();
+                    let detected_poses = detected_poses.unwrap_or_default();
+                    let camera_matrix = camera_matrix_cache.get_nearest(detection_time);
+                    let current_odometry_to_last_odometry =
+                        current_odometry_to_last_odometry_cache.get_nearest(detection_time);
+                    let ground_to_field = ground_to_field_cache.get_nearest(detection_time);
 
-            obstacle_filter.process_detection(
-                detection_time,
-                DetectionInputs {
-                    parameters,
-                    detected_objects: &detected_objects,
-                    detected_poses: &detected_poses,
-                    camera_matrix: camera_matrix.as_ref().map(|wrapper| &wrapper.inner),
-                    current_odometry_to_last_odometry: current_odometry_to_last_odometry
-                        .as_ref()
-                        .map(Arc::as_ref),
-                    player_states: &player_states,
-                    ground_to_field: ground_to_field.as_ref().map(Arc::as_ref),
-                },
-            );
+                    obstacle_filter.process_detection(
+                        detection_time,
+                        DetectionInputs {
+                            parameters,
+                            detected_objects: &detected_objects,
+                            detected_poses: &detected_poses,
+                            camera_matrix: camera_matrix.as_ref().map(|wrapper| &wrapper.inner),
+                            current_odometry_to_last_odometry: current_odometry_to_last_odometry
+                                .as_ref()
+                                .map(Arc::as_ref),
+                        },
+                    );
 
-            let primary_state = primary_state_cache
-                .get_latest()
-                .map(|primary_state| *primary_state)
-                .unwrap_or_default();
-            let fall_down_state = fall_down_state_cache.get_latest();
+                    let primary_state = primary_state_cache
+                        .get_latest()
+                        .map(|primary_state| *primary_state)
+                        .unwrap_or_default();
+                    let fall_down_state = fall_down_state_cache.get_latest();
 
-            let obstacles = obstacle_filter.compose_outputs(
-                node.clock().now(),
-                parameters,
-                &field_dimensions,
-                ground_to_field.as_ref().map(Arc::as_ref),
-                primary_state,
-                fall_down_state.as_ref().map(Arc::as_ref),
-            );
+                    publish_outputs(
+                        &mut obstacle_filter,
+                        OutputInputs {
+                            now: node.clock().now(),
+                            parameters,
+                            field_dimensions: field_dimensions.as_ref(),
+                            ground_to_field: ground_to_field.as_ref().map(Arc::as_ref),
+                            primary_state,
+                            fall_down_state: fall_down_state.as_ref().map(Arc::as_ref),
+                        },
+                        OutputPublishers {
+                            hypotheses: &obstacle_filter_hypotheses_pub,
+                            obstacles: &obstacles_pub,
+                        },
+                    )
+                    .await?;
+                }
+            }
+            received_player_states = player_states_subscriber.recv() => {
+                let parameters_snapshot = parameters.snapshot();
+                let parameters = parameters_snapshot.typed();
+                let player_states = received_player_states?;
+                let own_player_number = player_number_cache
+                    .get_latest()
+                    .map(|player_number| *player_number);
+                let network_player_states = new_network_player_states(
+                    &player_states,
+                    own_player_number,
+                    &mut last_processed_player_state_times,
+                );
+                let mut last_ground_to_field = None;
+                let mut processed_player_state = false;
 
-            obstacle_filter_hypotheses_pub
-                .publish(&obstacle_filter.hypotheses)
+                for (player_state_time, player_state) in network_player_states {
+                    let Some(ground_to_field) =
+                        ground_to_field_cache.get_nearest(player_state_time)
+                    else {
+                        continue;
+                    };
+
+                    obstacle_filter.process_network_player_state(
+                        player_state_time,
+                        parameters,
+                        &player_state,
+                        ground_to_field.as_ref(),
+                    );
+                    last_ground_to_field = Some(ground_to_field);
+                    processed_player_state = true;
+                }
+
+                if !processed_player_state {
+                    continue;
+                }
+
+                let Some(field_dimensions) = field_dimensions_cache.get_latest() else {
+                    continue;
+                };
+                let primary_state = primary_state_cache
+                    .get_latest()
+                    .map(|primary_state| *primary_state)
+                    .unwrap_or_default();
+                let fall_down_state = fall_down_state_cache.get_latest();
+
+                publish_outputs(
+                    &mut obstacle_filter,
+                    OutputInputs {
+                        now: node.clock().now(),
+                        parameters,
+                        field_dimensions: field_dimensions.as_ref(),
+                        ground_to_field: last_ground_to_field.as_ref().map(Arc::as_ref),
+                        primary_state,
+                        fall_down_state: fall_down_state.as_ref().map(Arc::as_ref),
+                    },
+                    OutputPublishers {
+                        hypotheses: &obstacle_filter_hypotheses_pub,
+                        obstacles: &obstacles_pub,
+                    },
+                )
                 .await?;
-            obstacles_pub.publish(&obstacles).await?;
+            }
         }
     }
+}
+
+struct OutputInputs<'a> {
+    now: Time,
+    parameters: &'a ObstacleFilterParameters,
+    field_dimensions: &'a FieldDimensions,
+    ground_to_field: Option<&'a Isometry2<Ground, Field>>,
+    primary_state: PrimaryState,
+    fall_down_state: Option<&'a FallDownState>,
+}
+
+struct OutputPublishers<'a> {
+    hypotheses: &'a Publisher<Vec<Hypothesis>>,
+    obstacles: &'a Publisher<Vec<Obstacle>>,
+}
+
+async fn publish_outputs(
+    obstacle_filter: &mut ObstacleFilter,
+    inputs: OutputInputs<'_>,
+    publishers: OutputPublishers<'_>,
+) -> Result<()> {
+    let obstacles = obstacle_filter.compose_outputs(
+        inputs.now,
+        inputs.parameters,
+        inputs.field_dimensions,
+        inputs.ground_to_field,
+        inputs.primary_state,
+        inputs.fall_down_state,
+    );
+
+    publishers
+        .hypotheses
+        .publish(&obstacle_filter.hypotheses)
+        .await?;
+    publishers.obstacles.publish(&obstacles).await?;
+
+    Ok(())
 }
 
 struct DetectionInputs<'a> {
@@ -202,8 +299,6 @@ struct DetectionInputs<'a> {
     detected_poses: &'a [Pose<YOLOObjectLabel>],
     camera_matrix: Option<&'a CameraMatrix>,
     current_odometry_to_last_odometry: Option<&'a na::Isometry2<f32>>,
-    player_states: &'a [Arc<PlayerState>],
-    ground_to_field: Option<&'a Isometry2<Ground, Field>>,
 }
 
 impl ObstacleFilter {
@@ -217,20 +312,6 @@ impl ObstacleFilter {
             current_odometry_to_last_odometry.inverse(),
             Matrix2::from_diagonal(&parameters.process_noise),
         );
-
-        if let Some(ground_to_field) = inputs.ground_to_field {
-            for player_position in measured_player_positions(inputs.player_states, ground_to_field)
-            {
-                self.update_hypotheses_with_measurement(
-                    player_position,
-                    ObstacleKind::Robot,
-                    detection_time,
-                    parameters.network_robot_measurement_matching_distance,
-                    Matrix2::from_diagonal(&parameters.network_robot_measurement_noise),
-                    MeasurementKind::NetworkRobot,
-                );
-            }
-        }
 
         if let Some(camera_matrix) = inputs.camera_matrix
             && parameters.use_detected_objects
@@ -253,6 +334,24 @@ impl ObstacleFilter {
                 );
             }
         }
+    }
+
+    fn process_network_player_state(
+        &mut self,
+        player_state_time: Time,
+        parameters: &ObstacleFilterParameters,
+        player_state: &PlayerState,
+        ground_to_field: &Isometry2<Ground, Field>,
+    ) {
+        let player_position = measured_player_position(player_state, ground_to_field);
+        self.update_hypotheses_with_measurement(
+            player_position,
+            ObstacleKind::Robot,
+            player_state_time,
+            parameters.network_robot_measurement_matching_distance,
+            Matrix2::from_diagonal(&parameters.network_robot_measurement_noise),
+            MeasurementKind::NetworkRobot,
+        );
     }
 
     fn compose_outputs(
@@ -527,9 +626,10 @@ fn measured_pose_positions<'a>(
     })
 }
 
-fn stamped_network_player_states(
-    players: Players<Option<TimeWrapper<PlayerState>>>,
+fn new_network_player_states(
+    players: &Players<Option<TimeWrapper<PlayerState>>>,
     own_player_number: Option<PlayerNumber>,
+    last_processed_player_state_times: &mut Players<Option<Time>>,
 ) -> Vec<(Time, PlayerState)> {
     let Some(own_player_number) = own_player_number else {
         return Vec::new();
@@ -538,25 +638,29 @@ fn stamped_network_player_states(
     players
         .iter()
         .filter_map(|(player_number, player_state)| {
+            let player_state = player_state.as_ref()?;
+            if last_processed_player_state_times[player_number]
+                .is_some_and(|last_processed| player_state.time <= last_processed)
+            {
+                return None;
+            }
+            last_processed_player_state_times[player_number] = Some(player_state.time);
+
             if player_number == own_player_number {
                 return None;
             }
-            player_state
-                .as_ref()
-                .map(|player_state| (player_state.time, player_state.inner))
+
+            Some((player_state.time, player_state.inner))
         })
         .collect()
 }
 
-fn measured_player_positions(
-    player_states: &[Arc<PlayerState>],
+fn measured_player_position(
+    player_state: &PlayerState,
     ground_to_field: &Isometry2<Ground, Field>,
-) -> Vec<Point2<Ground>> {
+) -> Point2<Ground> {
     let field_to_ground = ground_to_field.inverse();
-    player_states
-        .iter()
-        .map(|player_state| field_to_ground * player_state.pose.position())
-        .collect()
+    field_to_ground * player_state.pose.position()
 }
 
 fn calculate_goal_post_positions(
@@ -615,24 +719,24 @@ mod tests {
     }
 
     #[test]
-    fn measured_player_positions_are_transformed_from_field_to_ground() {
+    fn measured_player_position_is_transformed_from_field_to_ground() {
         use linear_algebra::IntoTransform;
         use types::world_state::PlayerState;
 
         let ground_to_field: Isometry2<Ground, Field> =
             na::Isometry2::translation(1.0, 2.0).framed_transform();
-        let player_state = Arc::new(PlayerState {
+        let player_state = PlayerState {
             pose: linear_algebra::point![3.0, 5.0].into(),
             ball_position: None,
-        });
+        };
 
-        let positions = measured_player_positions(&[player_state], &ground_to_field);
+        let position = measured_player_position(&player_state, &ground_to_field);
 
-        assert_eq!(positions, vec![linear_algebra::point![2.0, 3.0]]);
+        assert_eq!(position, linear_algebra::point![2.0, 3.0]);
     }
 
     #[test]
-    fn own_player_state_is_not_extracted_for_cache() {
+    fn player_state_snapshots_extract_each_measurement_once() {
         use hsl_network_messages::PlayerNumber;
 
         let own_player_state = PlayerState {
@@ -654,11 +758,56 @@ mod tests {
             }),
             ..Players::new(None)
         };
+        let mut last_processed_player_state_times = Players::new(None);
 
-        let entries = stamped_network_player_states(players, Some(PlayerNumber::Two));
+        let entries = new_network_player_states(
+            &players,
+            Some(PlayerNumber::Two),
+            &mut last_processed_player_state_times,
+        );
 
         assert_eq!(entries.len(), 1);
         assert_eq!(entries[0].0, Time::from_nanos(4));
         assert_eq!(entries[0].1.pose.position(), teammate_state.pose.position());
+        assert_eq!(
+            last_processed_player_state_times[PlayerNumber::Two],
+            Some(Time::from_nanos(2))
+        );
+        assert_eq!(
+            last_processed_player_state_times[PlayerNumber::Four],
+            Some(Time::from_nanos(4))
+        );
+
+        let repeated_entries = new_network_player_states(
+            &players,
+            Some(PlayerNumber::Two),
+            &mut last_processed_player_state_times,
+        );
+        assert!(repeated_entries.is_empty());
+
+        let newer_teammate_state = PlayerState {
+            pose: linear_algebra::point![5.0, 6.0].into(),
+            ball_position: None,
+        };
+        let updated_players = Players {
+            four: Some(TimeWrapper {
+                time: Time::from_nanos(6),
+                inner: newer_teammate_state,
+            }),
+            ..players.clone()
+        };
+
+        let newer_entries = new_network_player_states(
+            &updated_players,
+            Some(PlayerNumber::Two),
+            &mut last_processed_player_state_times,
+        );
+
+        assert_eq!(newer_entries.len(), 1);
+        assert_eq!(newer_entries[0].0, Time::from_nanos(6));
+        assert_eq!(
+            newer_entries[0].1.pose.position(),
+            newer_teammate_state.pose.position()
+        );
     }
 }
