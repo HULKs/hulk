@@ -68,6 +68,13 @@ where
     F: Fn(&T) -> O,
     O: Into<Time>;
 
+/// Expand one source message into zero or more independently timestamped cache entries.
+pub struct StampedEntries<T, F, I, O, U>(pub(crate) F, pub(crate) PhantomData<(T, I, O, U)>)
+where
+    F: Fn(T) -> I,
+    I: IntoIterator<Item = (O, U)>,
+    O: Into<Time>;
+
 // ---------------------------------------------------------------------------
 // CacheInner — shared mutable state
 // ---------------------------------------------------------------------------
@@ -390,6 +397,27 @@ impl<T, S> CacheBuilder<T, S, ZenohStamp> {
         }
     }
 
+    /// Switch to stamped-entry extraction.
+    ///
+    /// The extractor consumes each deserialized source message and returns
+    /// zero or more `(timestamp, value)` entries to store in the resulting cache.
+    pub fn with_stamped_entries<F, I, O, U>(
+        self,
+        extractor: F,
+    ) -> CacheBuilder<T, S, StampedEntries<T, F, I, O, U>>
+    where
+        F: Fn(T) -> I + Send + Sync + 'static,
+        I: IntoIterator<Item = (O, U)> + 'static,
+        O: Into<Time> + 'static,
+        U: Send + Sync + 'static,
+    {
+        CacheBuilder {
+            sub_builder: self.sub_builder,
+            capacity: self.capacity,
+            stamp: StampedEntries(extractor, PhantomData),
+        }
+    }
+
     /// Maximum number of messages to retain. Oldest are evicted when full.
     /// A capacity of `0` disables retention and stores no messages.
     pub fn with_capacity(mut self, capacity: usize) -> Self {
@@ -535,6 +563,81 @@ where
         });
 
         debug!("[CACHE] ExtractorStamp cache ready");
+        Ok(Cache {
+            inner,
+            _raw_subscriber_task: task,
+        })
+    }
+}
+
+impl<T, S, F, I, O, U> CacheBuilder<T, S, StampedEntries<T, F, I, O, U>>
+where
+    F: Fn(T) -> I + Send + Sync + 'static,
+    I: IntoIterator<Item = (O, U)> + 'static,
+    O: Into<Time> + 'static,
+    U: Send + Sync + 'static,
+{
+    /// Maximum number of messages to retain. Oldest are evicted when full.
+    /// A capacity of `0` disables retention and stores no messages.
+    pub fn with_capacity(mut self, capacity: usize) -> Self {
+        self.capacity = capacity;
+        self
+    }
+
+    /// Apply a QoS profile to the underlying subscriber.
+    pub fn with_qos(mut self, qos: QosProfile) -> Self
+    where
+        T: Send + Sync + 'static,
+    {
+        self.sub_builder = self.sub_builder.qos(qos);
+        self
+    }
+}
+
+impl<T, S, F, I, O, U> CacheBuilder<T, S, StampedEntries<T, F, I, O, U>>
+where
+    T: Send + Sync + 'static,
+    S: for<'a> WireDecoder<Input<'a> = &'a [u8], Output = T> + 'static,
+    F: Fn(T) -> I + Send + Sync + 'static,
+    I: IntoIterator<Item = (O, U)> + 'static,
+    O: Into<Time> + 'static,
+    U: Send + Sync + 'static,
+{
+    pub async fn build(self) -> Result<Cache<U>> {
+        let CacheBuilder {
+            sub_builder,
+            capacity,
+            stamp: StampedEntries(extractor, _),
+        } = self;
+        let inner = Arc::new(RwLock::new(CacheInner::<U>::new(capacity)));
+        let inner_cb = inner.clone();
+
+        let raw_subscriber = sub_builder.raw().build().await?;
+        let mut raw_subscriber_task = raw_subscriber;
+        let task = tokio::spawn(async move {
+            loop {
+                let sample = match raw_subscriber_task.recv().await {
+                    Ok(sample) => sample,
+                    Err(error) => {
+                        tracing::error!("[CACHE] Failed to receive raw sample: {}", error);
+                        break;
+                    }
+                };
+                let payload = sample.payload().to_bytes();
+                match S::deserialize(&payload) {
+                    Ok(message) => {
+                        let entries = extractor(message);
+                        let mut guard = inner_cb.write();
+                        for (stamp, value) in entries {
+                            guard.insert(stamp.into(), value);
+                        }
+                    }
+                    Err(e) => tracing::error!("[CACHE] Failed to deserialize message: {}", e),
+                }
+            }
+        });
+
+        debug!("[CACHE] StampedEntries cache ready");
         Ok(Cache {
             inner,
             _raw_subscriber_task: task,
