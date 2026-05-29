@@ -9,9 +9,13 @@ homepage.workspace = true
 booster.workspace = true
 color-eyre = { workspace = true }
 coordinate_systems = { workspace = true }
+filtering = { workspace = true }
+geometry = { workspace = true }
+itertools = { workspace = true }
 linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
 projection = { workspace = true }
 ros-z = { workspace = true }
+ros-z-streams = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 types = { workspace = true }

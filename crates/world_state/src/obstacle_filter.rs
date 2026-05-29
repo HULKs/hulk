@@ -1,10 +1,11 @@
-use std::time::{Duration, SystemTime};
+use std::time::Duration;
 
 use color_eyre::Result;
 use geometry::rectangle::Rectangle;
 use itertools::{chain, iproduct};
 use nalgebra::Matrix2;
 use projection::{Projection, camera_matrix::CameraMatrix};
+use ros_z::time::Time;
 use serde::{Deserialize, Serialize};
 
 use booster::{FallDownState, FallDownStateType};
@@ -111,7 +112,7 @@ impl ObstacleFilter {
                 self.update_hypotheses_with_measurement(
                     *network_robot_obstacle,
                     ObstacleKind::Robot,
-                    *detection_time,
+                    Time::from_wallclock(*detection_time),
                     parameters.network_robot_measurement_matching_distance,
                     Matrix2::from_diagonal(&parameters.network_robot_measurement_noise),
                     MeasurementKind::NetworkRobot,
@@ -134,7 +135,7 @@ impl ObstacleFilter {
                     self.update_hypotheses_with_measurement(
                         position,
                         kind,
-                        *detection_time,
+                        Time::from_wallclock(*detection_time),
                         parameters.object_detection_measurement_matching_distance,
                         Matrix2::from_diagonal(&measurement_noise),
                         MeasurementKind::Own,
@@ -144,7 +145,7 @@ impl ObstacleFilter {
         }
 
         self.remove_hypotheses(
-            cycle_start_time,
+            Time::from_wallclock(cycle_start_time),
             parameters.hypothesis_timeout,
             parameters.hypothesis_merge_distance,
         );
@@ -248,7 +249,7 @@ impl ObstacleFilter {
         &mut self,
         detected_position: Point2<Ground>,
         detected_obstacle_kind: ObstacleKind,
-        detection_time: SystemTime,
+        detection_time: Time,
         matching_distance: f32,
         measurement_noise: Matrix2<f32>,
         kind: MeasurementKind,
@@ -295,7 +296,7 @@ impl ObstacleFilter {
         &mut self,
         detected_position: Point2<Ground>,
         obstacle_kind: ObstacleKind,
-        detection_time: SystemTime,
+        detection_time: Time,
         initial_covariance: Matrix2<f32>,
     ) {
         let initial_state = detected_position.inner.coords;
@@ -311,17 +312,9 @@ impl ObstacleFilter {
         self.hypotheses.push(new_hypothesis);
     }
 
-    fn remove_hypotheses(
-        &mut self,
-        now: SystemTime,
-        hypothesis_timeout: Duration,
-        merge_distance: f32,
-    ) {
-        self.hypotheses.retain(|hypothesis| {
-            now.duration_since(hypothesis.last_update)
-                .unwrap_or_default()
-                < hypothesis_timeout
-        });
+    fn remove_hypotheses(&mut self, now: Time, hypothesis_timeout: Duration, merge_distance: f32) {
+        self.hypotheses
+            .retain(|hypothesis| now.duration_since(hypothesis.last_update) < hypothesis_timeout);
         let mut deduplicated_hypotheses = Vec::<Hypothesis>::new();
         for hypothesis in self.hypotheses.drain(..) {
             let hypothesis_in_merge_distance =
