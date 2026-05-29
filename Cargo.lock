@@ -838,10 +838,25 @@ dependencies = [
 name = "behavior_node"
 version = "0.1.0"
 dependencies = [
+ "approx",
+ "booster",
  "color-eyre",
+ "coordinate_systems",
+ "filtering",
+ "framework",
+ "geometry",
+ "hardware",
+ "hsl_network_messages",
+ "linear_algebra",
+ "log",
+ "nalgebra",
+ "ordered-float 4.6.0",
+ "path_planner",
  "ros-z",
  "serde",
+ "smallvec 1.15.1",
  "types",
+ "voronoi",
 ]
 
 [[package]]
@@ -7952,6 +7967,21 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "05ef02f6342ac01d8a93b65f96db53fe68a92a15f41144f97fb00a9e669633c3"
 dependencies = [
  "std_prelude",
+]
+
+[[package]]
+name = "path_planner"
+version = "0.1.0"
+dependencies = [
+ "approx",
+ "color-eyre",
+ "coordinate_systems",
+ "geometry",
+ "linear_algebra",
+ "log",
+ "ordered-float 4.6.0",
+ "smallvec 1.15.1",
+ "types",
 ]
 
 [[package]]
