@@ -11,6 +11,7 @@ color-eyre = { workspace = true }
 coordinate_systems = { workspace = true }
 filtering = { workspace = true }
 geometry = { workspace = true }
+hsl_network_messages = { workspace = true }
 itertools = { workspace = true }
 linear_algebra = { workspace = true }
 nalgebra = { workspace = true }

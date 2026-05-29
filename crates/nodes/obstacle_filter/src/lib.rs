@@ -4,6 +4,7 @@ use std::{sync::Arc, time::Duration};
 use color_eyre::Result;
 use filtering::kalman_filter::KalmanFilter;
 use geometry::rectangle::Rectangle;
+use hsl_network_messages::PlayerNumber;
 use itertools::{chain, iproduct};
 use na::Matrix2;
 use nalgebra as na;
@@ -71,17 +72,23 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .with_stamp(|wrapper| wrapper.time)
         .build()
         .await?;
+    let player_number_cache = node
+        .create_cache::<PlayerNumber>("player_number", 1)?
+        .with_qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .build()
+        .await?;
     let player_state_cache = node
         .create_cache::<Players<Option<TimeWrapper<PlayerState>>>>("player_states", 20)?
-        .with_stamped_entries(|players| {
-            players
-                .iter()
-                .filter_map(|(_player_number, player_state)| {
-                    player_state
-                        .as_ref()
-                        .map(|player_state| (player_state.time, player_state.inner))
-                })
-                .collect::<Vec<_>>()
+        .with_stamped_entries(move |players| {
+            stamped_network_player_states(
+                players,
+                player_number_cache
+                    .get_latest()
+                    .map(|player_number| *player_number),
+            )
         })
         .build()
         .await?;
@@ -520,6 +527,27 @@ fn measured_pose_positions<'a>(
     })
 }
 
+fn stamped_network_player_states(
+    players: Players<Option<TimeWrapper<PlayerState>>>,
+    own_player_number: Option<PlayerNumber>,
+) -> Vec<(Time, PlayerState)> {
+    let Some(own_player_number) = own_player_number else {
+        return Vec::new();
+    };
+
+    players
+        .iter()
+        .filter_map(|(player_number, player_state)| {
+            if player_number == own_player_number {
+                return None;
+            }
+            player_state
+                .as_ref()
+                .map(|player_state| (player_state.time, player_state.inner))
+        })
+        .collect()
+}
+
 fn measured_player_positions(
     player_states: &[Arc<PlayerState>],
     ground_to_field: &Isometry2<Ground, Field>,
@@ -601,5 +629,36 @@ mod tests {
         let positions = measured_player_positions(&[player_state], &ground_to_field);
 
         assert_eq!(positions, vec![linear_algebra::point![2.0, 3.0]]);
+    }
+
+    #[test]
+    fn own_player_state_is_not_extracted_for_cache() {
+        use hsl_network_messages::PlayerNumber;
+
+        let own_player_state = PlayerState {
+            pose: linear_algebra::point![1.0, 2.0].into(),
+            ball_position: None,
+        };
+        let teammate_state = PlayerState {
+            pose: linear_algebra::point![3.0, 4.0].into(),
+            ball_position: None,
+        };
+        let players = Players {
+            two: Some(TimeWrapper {
+                time: Time::from_nanos(2),
+                inner: own_player_state,
+            }),
+            four: Some(TimeWrapper {
+                time: Time::from_nanos(4),
+                inner: teammate_state,
+            }),
+            ..Players::new(None)
+        };
+
+        let entries = stamped_network_player_states(players, Some(PlayerNumber::Two));
+
+        assert_eq!(entries.len(), 1);
+        assert_eq!(entries[0].0, Time::from_nanos(4));
+        assert_eq!(entries[0].1.pose.position(), teammate_state.pose.position());
     }
 }
