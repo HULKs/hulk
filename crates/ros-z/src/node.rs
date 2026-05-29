@@ -336,7 +336,10 @@ impl Node {
     /// (zero-config, works for any message type). Call
     /// [`.with_stamp(|message| ...)`](CacheBuilder::with_stamp) on the returned
     /// builder to switch to application-level timestamp extraction (e.g.
-    /// `header.stamp`).
+    /// `header.stamp`), or
+    /// [`.with_entry_extractor(|message| ...)`](CacheBuilder::with_entry_extractor)
+    /// to expand one source message into zero or more timestamped cache values.
+    /// In entry-extractor mode, capacity counts the expanded entries.
     ///
     /// # Example
     ///
