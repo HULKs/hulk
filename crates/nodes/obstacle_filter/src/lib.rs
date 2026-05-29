@@ -152,14 +152,18 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             );
 
             obstacle_filter.process_detection(
-                parameters,
                 detection_time,
-                &detected_objects,
-                &detected_poses,
-                camera_matrix.as_ref().map(|wrapper| &wrapper.inner),
-                current_odometry_to_last_odometry.as_ref().map(Arc::as_ref),
-                &player_states,
-                ground_to_field.as_ref().map(Arc::as_ref),
+                DetectionInputs {
+                    parameters,
+                    detected_objects: &detected_objects,
+                    detected_poses: &detected_poses,
+                    camera_matrix: camera_matrix.as_ref().map(|wrapper| &wrapper.inner),
+                    current_odometry_to_last_odometry: current_odometry_to_last_odometry
+                        .as_ref()
+                        .map(Arc::as_ref),
+                    player_states: &player_states,
+                    ground_to_field: ground_to_field.as_ref().map(Arc::as_ref),
+                },
             );
 
             let primary_state = primary_state_cache
@@ -185,19 +189,21 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     }
 }
 
+struct DetectionInputs<'a> {
+    parameters: &'a ObstacleFilterParameters,
+    detected_objects: &'a [Object<RobocupObjectLabel>],
+    detected_poses: &'a [Pose<YOLOObjectLabel>],
+    camera_matrix: Option<&'a CameraMatrix>,
+    current_odometry_to_last_odometry: Option<&'a na::Isometry2<f32>>,
+    player_states: &'a [Arc<PlayerState>],
+    ground_to_field: Option<&'a Isometry2<Ground, Field>>,
+}
+
 impl ObstacleFilter {
-    fn process_detection(
-        &mut self,
-        parameters: &ObstacleFilterParameters,
-        detection_time: Time,
-        detected_objects: &[Object<RobocupObjectLabel>],
-        detected_poses: &[Pose<YOLOObjectLabel>],
-        camera_matrix: Option<&CameraMatrix>,
-        current_odometry_to_last_odometry: Option<&na::Isometry2<f32>>,
-        player_states: &[Arc<PlayerState>],
-        ground_to_field: Option<&Isometry2<Ground, Field>>,
-    ) {
-        let current_odometry_to_last_odometry = current_odometry_to_last_odometry
+    fn process_detection(&mut self, detection_time: Time, inputs: DetectionInputs<'_>) {
+        let parameters = inputs.parameters;
+        let current_odometry_to_last_odometry = inputs
+            .current_odometry_to_last_odometry
             .copied()
             .unwrap_or_default();
         self.predict_hypotheses_with_odometry(
@@ -205,8 +211,9 @@ impl ObstacleFilter {
             Matrix2::from_diagonal(&parameters.process_noise),
         );
 
-        if let Some(ground_to_field) = ground_to_field {
-            for player_position in measured_player_positions(player_states, ground_to_field) {
+        if let Some(ground_to_field) = inputs.ground_to_field {
+            for player_position in measured_player_positions(inputs.player_states, ground_to_field)
+            {
                 self.update_hypotheses_with_measurement(
                     player_position,
                     ObstacleKind::Robot,
@@ -218,13 +225,13 @@ impl ObstacleFilter {
             }
         }
 
-        if let Some(camera_matrix) = camera_matrix
+        if let Some(camera_matrix) = inputs.camera_matrix
             && parameters.use_detected_objects
         {
             let measured_object_positions =
-                measured_object_positions(parameters, detected_objects, camera_matrix);
+                measured_object_positions(parameters, inputs.detected_objects, camera_matrix);
             let measured_pose_positions =
-                measured_pose_positions(parameters, detected_poses, camera_matrix);
+                measured_pose_positions(parameters, inputs.detected_poses, camera_matrix);
 
             for (kind, position, measurement_noise) in
                 measured_object_positions.chain(measured_pose_positions)
