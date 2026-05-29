@@ -7630,6 +7630,7 @@ dependencies = [
  "coordinate_systems",
  "filtering",
  "geometry",
+ "hsl_network_messages",
  "itertools 0.14.0",
  "linear_algebra",
  "nalgebra",
@@ -7637,6 +7638,7 @@ dependencies = [
  "ros-z",
  "ros-z-streams",
  "serde",
+ "tokio",
  "types",
 ]
 

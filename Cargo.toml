@@ -69,8 +69,8 @@ members = [
   "crates/nodes/microphone_recorder",
   "crates/nodes/motor_commands_collector",
   "crates/nodes/obstacle_filter",
-  "crates/nodes/player_state_receiver",
   "crates/nodes/odometer_bridge",
+  "crates/nodes/player_state_receiver",
   "crates/nodes/primary_state_filter",
   "crates/nodes/robot_mode_handler",
   "crates/nodes/rotate_head",
@@ -272,7 +272,6 @@ num-derive = "0.4.2"
 num-dual = "0.13.2"
 num-traits = "0.2"
 obstacle_filter = { path = "crates/nodes/obstacle_filter" }
-player_state_receiver = { path = "crates/nodes/player_state_receiver" }
 odometer_bridge = { path = "crates/nodes/odometer_bridge" }
 once_cell = "1.20.3"
 openvino = { version = "0.8.0", features = ["runtime-linking"] }
@@ -291,6 +290,7 @@ path_serde = { path = "crates/path_serde" }
 path_serde_derive = { path = "crates/path_serde_derive" }
 pathdiff = "0.2.3"
 pathfinding = "<=4.10.0"
+player_state_receiver = { path = "crates/nodes/player_state_receiver" }
 prettyplease = "0.2.29"
 primary_state_filter = { path = "crates/nodes/primary_state_filter" }
 proc-macro-error = "1.0.4"
