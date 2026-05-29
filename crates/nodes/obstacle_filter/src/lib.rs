@@ -172,22 +172,19 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                         .unwrap_or_default();
                     let fall_down_state = fall_down_state_cache.get_latest();
 
-                    publish_outputs(
-                        &mut obstacle_filter,
-                        OutputInputs {
-                            now: node.clock().now(),
-                            parameters,
-                            field_dimensions: field_dimensions.as_ref(),
-                            ground_to_field: ground_to_field.as_ref().map(Arc::as_ref),
-                            primary_state,
-                            fall_down_state: fall_down_state.as_ref().map(Arc::as_ref),
-                        },
-                        OutputPublishers {
-                            hypotheses: &obstacle_filter_hypotheses_pub,
-                            obstacles: &obstacles_pub,
-                        },
-                    )
-                    .await?;
+                    let obstacles = obstacle_filter.compose_outputs(
+                        node.clock().now(),
+                        parameters,
+                        field_dimensions.as_ref(),
+                        ground_to_field.as_ref().map(Arc::as_ref),
+                        primary_state,
+                        fall_down_state.as_ref().map(Arc::as_ref),
+                    );
+
+                    obstacle_filter_hypotheses_pub
+                        .publish(&obstacle_filter.hypotheses)
+                        .await?;
+                    obstacles_pub.publish(&obstacles).await?;
                 }
             }
             received_player_states = player_states_subscriber.recv() => {
@@ -235,62 +232,22 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                     .unwrap_or_default();
                 let fall_down_state = fall_down_state_cache.get_latest();
 
-                publish_outputs(
-                    &mut obstacle_filter,
-                    OutputInputs {
-                        now: node.clock().now(),
-                        parameters,
-                        field_dimensions: field_dimensions.as_ref(),
-                        ground_to_field: last_ground_to_field.as_ref().map(Arc::as_ref),
-                        primary_state,
-                        fall_down_state: fall_down_state.as_ref().map(Arc::as_ref),
-                    },
-                    OutputPublishers {
-                        hypotheses: &obstacle_filter_hypotheses_pub,
-                        obstacles: &obstacles_pub,
-                    },
-                )
-                .await?;
+                let obstacles = obstacle_filter.compose_outputs(
+                    node.clock().now(),
+                    parameters,
+                    field_dimensions.as_ref(),
+                    last_ground_to_field.as_ref().map(Arc::as_ref),
+                    primary_state,
+                    fall_down_state.as_ref().map(Arc::as_ref),
+                );
+
+                obstacle_filter_hypotheses_pub
+                    .publish(&obstacle_filter.hypotheses)
+                    .await?;
+                obstacles_pub.publish(&obstacles).await?;
             }
         }
     }
-}
-
-struct OutputInputs<'a> {
-    now: Time,
-    parameters: &'a ObstacleFilterParameters,
-    field_dimensions: &'a FieldDimensions,
-    ground_to_field: Option<&'a Isometry2<Ground, Field>>,
-    primary_state: PrimaryState,
-    fall_down_state: Option<&'a FallDownState>,
-}
-
-struct OutputPublishers<'a> {
-    hypotheses: &'a Publisher<Vec<Hypothesis>>,
-    obstacles: &'a Publisher<Vec<Obstacle>>,
-}
-
-async fn publish_outputs(
-    obstacle_filter: &mut ObstacleFilter,
-    inputs: OutputInputs<'_>,
-    publishers: OutputPublishers<'_>,
-) -> Result<()> {
-    let obstacles = obstacle_filter.compose_outputs(
-        inputs.now,
-        inputs.parameters,
-        inputs.field_dimensions,
-        inputs.ground_to_field,
-        inputs.primary_state,
-        inputs.fall_down_state,
-    );
-
-    publishers
-        .hypotheses
-        .publish(&obstacle_filter.hypotheses)
-        .await?;
-    publishers.obstacles.publish(&obstacles).await?;
-
-    Ok(())
 }
 
 struct DetectionInputs<'a> {
