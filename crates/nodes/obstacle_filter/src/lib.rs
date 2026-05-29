@@ -155,15 +155,13 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
                     obstacle_filter.process_detection(
                         detection_time,
-                        DetectionInputs {
-                            parameters,
-                            detected_objects: &detected_objects,
-                            detected_poses: &detected_poses,
-                            camera_matrix: camera_matrix.as_ref().map(|wrapper| &wrapper.inner),
-                            current_odometry_to_last_odometry: current_odometry_to_last_odometry
-                                .as_ref()
-                                .map(Arc::as_ref),
-                        },
+                        parameters,
+                        &detected_objects,
+                        &detected_poses,
+                        camera_matrix.as_ref().map(|wrapper| &wrapper.inner),
+                        current_odometry_to_last_odometry
+                            .as_ref()
+                            .map(Arc::as_ref),
                     );
 
                     let primary_state = primary_state_cache
@@ -250,19 +248,18 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     }
 }
 
-struct DetectionInputs<'a> {
-    parameters: &'a ObstacleFilterParameters,
-    detected_objects: &'a [Object<RobocupObjectLabel>],
-    detected_poses: &'a [Pose<YOLOObjectLabel>],
-    camera_matrix: Option<&'a CameraMatrix>,
-    current_odometry_to_last_odometry: Option<&'a na::Isometry2<f32>>,
-}
-
 impl ObstacleFilter {
-    fn process_detection(&mut self, detection_time: Time, inputs: DetectionInputs<'_>) {
-        let parameters = inputs.parameters;
-        let current_odometry_to_last_odometry = inputs
-            .current_odometry_to_last_odometry
+    fn process_detection(
+        &mut self,
+        detection_time: Time,
+        parameters: &ObstacleFilterParameters,
+        detected_objects: &[Object<RobocupObjectLabel>],
+        detected_poses: &[Pose<YOLOObjectLabel>],
+        camera_matrix: Option<&CameraMatrix>,
+        current_odometry_to_last_odometry: Option<&na::Isometry2<f32>>,
+    ) {
+        let parameters = parameters;
+        let current_odometry_to_last_odometry = current_odometry_to_last_odometry
             .copied()
             .unwrap_or_default();
         self.predict_hypotheses_with_odometry(
@@ -270,13 +267,13 @@ impl ObstacleFilter {
             Matrix2::from_diagonal(&parameters.process_noise),
         );
 
-        if let Some(camera_matrix) = inputs.camera_matrix
+        if let Some(camera_matrix) = camera_matrix
             && parameters.use_detected_objects
         {
             let measured_object_positions =
-                measured_object_positions(parameters, inputs.detected_objects, camera_matrix);
+                measured_object_positions(parameters, detected_objects, camera_matrix);
             let measured_pose_positions =
-                measured_pose_positions(parameters, inputs.detected_poses, camera_matrix);
+                measured_pose_positions(parameters, detected_poses, camera_matrix);
 
             for (kind, position, measurement_noise) in
                 measured_object_positions.chain(measured_pose_positions)
@@ -505,11 +502,11 @@ impl ObstacleFilter {
     }
 }
 
-fn measured_object_positions<'a>(
-    parameters: &'a ObstacleFilterParameters,
-    detected_objects: &'a [Object<RobocupObjectLabel>],
-    camera_matrix: &'a CameraMatrix,
-) -> impl Iterator<Item = (ObstacleKind, Point2<Ground>, na::Vector2<f32>)> + 'a {
+fn measured_object_positions(
+    parameters: &ObstacleFilterParameters,
+    detected_objects: &[Object<RobocupObjectLabel>],
+    camera_matrix: &CameraMatrix,
+) -> impl Iterator<Item = (ObstacleKind, Point2<Ground>, na::Vector2<f32>)> {
     detected_objects.iter().filter_map(|detected_object| {
         let Object {
             label,
@@ -538,11 +535,11 @@ fn measured_object_positions<'a>(
     })
 }
 
-fn measured_pose_positions<'a>(
-    parameters: &'a ObstacleFilterParameters,
-    detected_poses: &'a [Pose<YOLOObjectLabel>],
-    camera_matrix: &'a CameraMatrix,
-) -> impl Iterator<Item = (ObstacleKind, Point2<Ground>, na::Vector2<f32>)> + 'a {
+fn measured_pose_positions(
+    parameters: &ObstacleFilterParameters,
+    detected_poses: &[Pose<YOLOObjectLabel>],
+    camera_matrix: &CameraMatrix,
+) -> impl Iterator<Item = (ObstacleKind, Point2<Ground>, na::Vector2<f32>)> {
     detected_poses.iter().filter_map(|detected_pose| {
         let Object {
             label,
