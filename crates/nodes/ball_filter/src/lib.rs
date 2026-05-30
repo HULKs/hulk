@@ -61,27 +61,29 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?
         .build();
     let filter_state_pub = node
-        .publisher::<BallFilter>("ball_filter_state")?
+        .publisher::<BallFilter>("ball_filter/ball_filter_state")?
         .build()
         .await?;
     let best_ball_hypothesis_pub = node
-        .publisher::<Option<BallHypothesis>>("best_ball_hypothesis")?
+        .publisher::<Option<BallHypothesis>>("ball_filter/best_ball_hypothesis")?
         .build()
         .await?;
     let filtered_balls_in_image_pub = node
-        .publisher::<Vec<Circle<Pixel>>>("filtered_balls_in_image")?
+        .publisher::<Vec<Circle<Pixel>>>("ball_filter/filtered_balls_in_image")?
         .build()
         .await?;
     let ball_percepts_pub = node
-        .publisher::<Vec<BallPercept>>("ball_percepts")?
+        .publisher::<Vec<BallPercept>>("ball_filter/ball_percepts")?
         .build()
         .await?;
     let ball_position_pub = node
-        .publisher::<Option<BallPosition<Ground>>>("ball_position")?
+        .publisher::<Option<BallPosition<Ground>>>("ball_filter/ball_position")?
         .build()
         .await?;
     let hypothetical_ball_positions_pub = node
-        .publisher::<Vec<HypotheticalBallPosition<Ground>>>("hypothetical_ball_positions")?
+        .publisher::<Vec<HypotheticalBallPosition<Ground>>>(
+            "ball_filter/hypothetical_ball_positions",
+        )?
         .build()
         .await?;
 
