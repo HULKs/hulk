@@ -236,6 +236,18 @@ pub fn is_goalkeeper(blackboard: &mut Blackboard) -> bool {
     blackboard.world_state.robot.player_number == blackboard.parameters.goal_keeper_number
 }
 
+pub fn is_last_man_standing(blackboard: &mut Blackboard) -> bool {
+    blackboard.parameters.last_man_standing
+        && blackboard
+            .world_state
+            .player_states
+            .iter()
+            .filter(|(player_number, _)| {
+                *player_number != blackboard.world_state.robot.player_number
+            })
+            .all(|(_, player_state)| player_state.is_none())
+}
+
 pub fn is_primary_state(blackboard: &mut Blackboard, primary_state: PrimaryState) -> bool {
     blackboard.world_state.robot.primary_state == primary_state
 }

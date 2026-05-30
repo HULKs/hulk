@@ -80,6 +80,7 @@ pub struct BehaviorParameters {
     pub allow_switch: AllowSwitchParameters,
     pub injected_motion_command: Option<MotionCommand>,
     pub goal_keeper_number: PlayerNumber,
+    pub last_man_standing: bool,
     pub last_ball_timeout: Duration,
     pub lost_ball: LostBallParameters,
     pub path_planning: PathPlanningParameters,

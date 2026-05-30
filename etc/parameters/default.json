@@ -377,6 +377,7 @@
   "behavior": {
     "injected_motion_command": null,
     "goal_keeper_number": "One",
+    "last_man_standing": false,
     "allow_switch": {
       "kick": {
         "nanos": 500000000,
