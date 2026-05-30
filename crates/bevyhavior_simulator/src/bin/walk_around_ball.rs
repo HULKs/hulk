@@ -4,6 +4,7 @@ use bevy::prelude::*;
 
 use hsl_network_messages::{GameState, PlayerNumber};
 use linear_algebra::{point, Vector2};
+use ros_z::time::Time as RosTime;
 use scenario::scenario;
 
 use bevyhavior_simulator::{
@@ -44,7 +45,7 @@ fn update(
             robot.database.main_outputs.ball_position = Some(BallPosition {
                 position: robot.ground_to_field().inverse() * ball.position,
                 velocity: Vector2::zeros(),
-                last_seen: SystemTime::UNIX_EPOCH + time.elapsed(),
+                last_seen: RosTime::from_wallclock(SystemTime::UNIX_EPOCH + time.elapsed()),
             });
         }
     }

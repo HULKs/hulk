@@ -28,6 +28,7 @@ use linear_algebra::{
 };
 use parameters::directory::deserialize;
 use projection::intrinsic::Intrinsic;
+use ros_z::time::Time as RosTime;
 use types::{
     ball_position::BallPosition,
     filtered_whistle::FilteredWhistle,
@@ -359,6 +360,7 @@ pub fn cycle_robots(
 ) {
     let messages_sent_last_cycle = take(&mut messages.messages);
     let now = SystemTime::UNIX_EPOCH + time.elapsed();
+    let now_ros = RosTime::from_wallclock(now);
 
     for mut robot in &mut robots {
         robot.database.main_outputs.cycle_time.start_time = now;
@@ -380,7 +382,7 @@ pub fn cycle_robots(
                 ball.state.as_ref().map(|ball| BallPosition {
                     position: robot.ground_to_field().inverse() * ball.position,
                     velocity: robot.ground_to_field().inverse() * ball.velocity,
-                    last_seen: now,
+                    last_seen: now_ros,
                 });
         }
         if !robot
@@ -388,13 +390,13 @@ pub fn cycle_robots(
             .main_outputs
             .ball_position
             .is_some_and(|ball_position| {
-                now.duration_since(ball_position.last_seen)
-                    .expect("time ran backwards")
-                    < robot
+                ball_position.age_at(now_ros).is_some_and(|age| {
+                    age < robot
                         .parameters
                         .ball_filter
                         .hypothesis_timeout
                         .mul_f32(robot.simulator_parameters.ball_timeout_factor)
+                })
             })
         {
             robot.database.main_outputs.ball_position = None

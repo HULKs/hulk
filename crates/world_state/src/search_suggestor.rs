@@ -15,6 +15,7 @@ use linear_algebra::{Isometry2, Point2, Vector2, point, vector};
 use nalgebra::clamp;
 use ndarray::{Array2, array};
 use ndarray_conv::{ConvExt, ConvMode, PaddingMode};
+use ros_z::time::Time;
 use serde::{Deserialize, Serialize};
 use types::{
     ball_position::{BallPosition, HypotheticalBallPosition},
@@ -253,7 +254,7 @@ impl Heatmap {
                 ball_position.map(|ball| BallPosition {
                     position: ball.position,
                     velocity: Vector2::zeros(),
-                    last_seen: time - ball.age,
+                    last_seen: Time::from_wallclock(time) - ball.age,
                 })
             }
         };

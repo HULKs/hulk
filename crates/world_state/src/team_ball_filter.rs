@@ -11,6 +11,7 @@ use coordinate_systems::Field;
 use framework::{AdditionalOutput, MainOutput};
 use hsl_network_messages::{GamePhase, HulkMessage, SubState};
 use linear_algebra::{Point2, Vector2};
+use ros_z::time::Time;
 use types::{
     ball_position::BallPosition, cycle_time::CycleTime,
     filtered_game_controller_state::FilteredGameControllerState,
@@ -53,6 +54,8 @@ impl TeamBallReceiver {
     }
 
     pub fn cycle(&mut self, mut context: CycleContext) -> Result<MainOutputs> {
+        let now = Time::from_wallclock(context.cycle_time.start_time);
+
         self.received_balls = context
             .player_states
             .map(|player_state| player_state.and_then(|state| state.ball_position));
@@ -76,23 +79,18 @@ impl TeamBallReceiver {
                 self.rule_team_ball = Some(BallPosition {
                     position: Point2::origin(),
                     velocity: Vector2::zeros(),
-                    last_seen: context.cycle_time.start_time,
+                    last_seen: now,
                 })
             }
         }
 
-        let team_ball =
-            self.get_best_received_ball(context.cycle_time.start_time, *context.maximum_age);
+        let team_ball = self.get_best_received_ball(now, *context.maximum_age);
 
         context.team_balls.fill_if_subscribed(|| {
             self.received_balls.map(|ball| {
                 ball.filter(|ball| {
-                    context
-                        .cycle_time
-                        .start_time
-                        .duration_since(ball.last_seen)
-                        .expect("time ran backwards")
-                        < *context.maximum_age
+                    ball.age_at(now)
+                        .is_some_and(|age| age < *context.maximum_age)
                 })
             })
         });
@@ -104,7 +102,7 @@ impl TeamBallReceiver {
 
     fn get_best_received_ball(
         &self,
-        now: SystemTime,
+        now: Time,
         trust_duration: Duration,
     ) -> Option<BallPosition<Field>> {
         self.received_balls
@@ -112,11 +110,7 @@ impl TeamBallReceiver {
             .filter_map(|(_player_number, ball)| *ball)
             .chain(self.rule_team_ball)
             .max_by_key(|ball| ball.last_seen)
-            .filter(|ball| {
-                now.duration_since(ball.last_seen)
-                    .expect("time ran backwards")
-                    < trust_duration
-            })
+            .filter(|ball| ball.age_at(now).is_some_and(|age| age < trust_duration))
     }
 }
 

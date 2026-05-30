@@ -9,6 +9,7 @@ use crate::{PathDeserialize, PathIntrospect, PathSerialize, deserialize, seriali
 use booster_sdk::types::RobotMode;
 use nalgebra::{DMatrix, Rotation3, SMatrix};
 use ndarray::Array2;
+use ros_z::time::Time;
 use serde::{Deserializer, Serializer};
 use serde_json::Value;
 
@@ -148,6 +149,7 @@ implement_as_not_supported!(PathBuf);
 implement_as_not_supported!(SocketAddr);
 implement_as_not_supported!(String);
 implement_as_not_supported!(SystemTime);
+implement_as_not_supported!(Time);
 implement_as_not_supported!(Vec<T>; T);
 implement_as_not_supported!(VecDeque<T>; T);
 implement_as_not_supported!([T; N]; T; const N: usize);
