@@ -8,6 +8,7 @@ use color_eyre::{
 
 use booster::Odometer;
 use ros_z::prelude::*;
+use ros_z_streams::CreateAnnouncingPublisher;
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
     Box::pin(run(ctx))
@@ -23,8 +24,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .await
         .map_err(|error| eyre!("{error}"))?;
     let odometer_pub = node
-        .publisher::<Odometer>("inputs/odometer")?
-        .build()
+        .announcing_publisher::<Odometer>("inputs/odometer")
         .await?;
 
     loop {
@@ -36,10 +36,10 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                     .wrap_err("deserialization failed")?;
 
                 odometer_pub
+                    .announce(node.clock().now())
+                    .await?
                     .publish(&odometer)
                     .await?;
-
-
             }
         }
     }
