@@ -1,14 +1,11 @@
-use std::{
-    f32::consts::PI,
-    time::{Duration, SystemTime},
-};
+use std::{f32::consts::PI, time::Duration};
 
 use filtering::kalman_filter::KalmanFilter;
 use moving::{MovingPredict, MovingUpdate};
 use nalgebra::{Matrix2, Matrix4};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use resting::{RestingPredict, RestingUpdate};
-use ros_z::Message;
+use ros_z::{Message, time::Time};
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Ground;
@@ -34,12 +31,12 @@ pub enum BallMode {
 )]
 pub struct BallHypothesis {
     pub mode: BallMode,
-    pub last_seen: SystemTime,
+    pub last_seen: Time,
     pub validity: f32,
 }
 
 impl BallHypothesis {
-    pub fn new(hypothesis: MultivariateNormalDistribution<4>, last_seen: SystemTime) -> Self {
+    pub fn new(hypothesis: MultivariateNormalDistribution<4>, last_seen: Time) -> Self {
         Self {
             mode: BallMode::Moving(hypothesis),
             last_seen,
@@ -117,7 +114,7 @@ impl BallHypothesis {
 
     pub fn update(
         &mut self,
-        detection_time: SystemTime,
+        detection_time: Time,
         measurement: MultivariateNormalDistribution<2>,
         validity_bonus: f32,
     ) {
