@@ -1,5 +1,5 @@
 use std::{
-    collections::{BTreeSet, VecDeque},
+    collections::{BTreeMap, VecDeque},
     time::Duration,
 };
 
@@ -17,7 +17,7 @@ use crate::announce::Announcement;
 /// Subscriber that tracks in-flight messages for a single stream.
 ///
 /// This struct maintains two collections:
-/// - `inflight`: A set of announced timestamps awaiting corresponding data
+/// - `inflight`: announced timestamps and when their announcements arrived
 /// - `pending_data`: A queue of received messages awaiting matching announcements
 ///
 /// The queue enforces a strict ordering: data is only released when both the
@@ -27,9 +27,16 @@ use crate::announce::Announcement;
 pub struct FutureQueueSubscriber<T: Message> {
     data_subscriber: Subscriber<T>,
     announcement_subscriber: Subscriber<Announcement>,
-    inflight: BTreeSet<Announcement>,
-    pending_data: VecDeque<Received<T>>,
+    inflight: BTreeMap<Announcement, Time>,
+    pending_data: VecDeque<PendingData<T>>,
     transit_lag: Duration,
+    clock: Clock,
+}
+
+#[derive(Debug)]
+struct PendingData<T> {
+    received: Received<T>,
+    received_at: Time,
 }
 
 /// Events from a single stream subscription.
@@ -61,13 +68,63 @@ impl<T> BelongToExt for Received<T> {
 }
 
 impl<T: Message> FutureQueueSubscriber<T> {
+    pub(crate) fn prune_expired(&mut self, now: Time) {
+        while self
+            .inflight
+            .first_key_value()
+            .is_some_and(|(announcement, announced_at)| {
+                now.duration_since(*announced_at) >= self.transit_lag
+                    && !self
+                        .pending_data
+                        .iter()
+                        .any(|pending| pending.received.belongs_to(announcement))
+                    && self.has_publishable_after(announcement)
+            })
+        {
+            let (announcement, _) = self.inflight.pop_first().expect("inflight is not empty");
+            log::warn!(
+                "dropped expired announcement with sequence number {}",
+                announcement.sequence_number
+            );
+        }
+
+        let inflight = &self.inflight;
+        let transit_lag = self.transit_lag;
+        self.pending_data.retain(|pending| {
+            let expired = now.duration_since(pending.received_at) >= transit_lag;
+            let has_announcement = inflight
+                .keys()
+                .any(|announcement| pending.received.belongs_to(announcement));
+
+            if expired && !has_announcement {
+                log::warn!(
+                    "dropped expired unannounced data with sequence number {}",
+                    pending.received.sequence_number
+                );
+                false
+            } else {
+                true
+            }
+        });
+    }
+
+    fn has_publishable_after(&self, blocked_announcement: &Announcement) -> bool {
+        self.inflight.keys().any(|announcement| {
+            announcement != blocked_announcement
+                && self
+                    .pending_data
+                    .iter()
+                    .any(|pending| pending.received.belongs_to(announcement))
+        })
+    }
+
     /// Returns the earliest announced safe time for this stream.
     pub(crate) fn safe_time(&self, now: Time) -> Time {
         let transit_boundary = now - self.transit_lag;
         self.inflight
-            .first()
+            .first_key_value()
             .map_or(transit_boundary, |announcement| {
-                announcement.time.min(transit_boundary)
+                announcement.0.time.min(transit_boundary)
             })
     }
 
@@ -78,17 +135,17 @@ impl<T: Message> FutureQueueSubscriber<T> {
 
     /// Check if any of the pending data messages matches the first outstanding announcement
     fn next_publishable(&mut self) -> Option<(Time, T)> {
-        let announcement = self.inflight.first()?;
+        let announcement = self.inflight.first_key_value()?.0;
         let index = self
             .pending_data
             .iter()
-            .position(|pending| pending.belongs_to(announcement))?;
+            .position(|pending| pending.received.belongs_to(announcement))?;
         // Only remove the announcement if the data matches it
-        let announcement = self.inflight.pop_first().expect("announcement must exist");
+        let (announcement, _) = self.inflight.pop_first().expect("announcement must exist");
 
         self.pending_data
             .remove(index)
-            .map(|pending| (announcement.time, pending.message))
+            .map(|pending| (announcement.time, pending.received.message))
     }
 
     /// Wait for the next publishable data event from this stream.
@@ -98,17 +155,22 @@ impl<T: Message> FutureQueueSubscriber<T> {
     /// for a message have arrived, ensuring temporal ordering at the stream level.
     pub async fn recv(&mut self) -> Result<QueueEvent<T>> {
         loop {
+            self.prune_expired(self.clock.now());
+
             if let Some((time, data)) = self.next_publishable() {
                 return Ok(QueueEvent::Data(time, data));
             }
 
             select! {
                 announcement = self.announcement_subscriber.recv() => {
-                    self.inflight.insert(announcement?);
+                    self.inflight.insert(announcement?, self.clock.now());
                     return Ok(QueueEvent::Announcement);
                 }
                 data = self.data_subscriber.recv_with_metadata() => {
-                    self.pending_data.push_back(data?);
+                    self.pending_data.push_back(PendingData {
+                        received: data?,
+                        received_at: self.clock.now(),
+                    });
                 }
             }
         }
@@ -168,9 +230,10 @@ impl CreateFutureQueue for Node {
         Ok(FutureQueueSubscriber {
             data_subscriber,
             announcement_subscriber,
-            inflight: BTreeSet::new(),
+            inflight: BTreeMap::new(),
             pending_data: VecDeque::new(),
             transit_lag,
+            clock: self.clock().clone(),
         })
     }
 }
