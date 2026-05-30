@@ -463,6 +463,11 @@
       "striker_supporter_minimum_x": -2.0,
       "keeper_x_offset": 0.1,
       "keeper_passive_distance": 4.5,
+      "keeper_ball_near_own_goal_distance": 4.5,
+      "keeper_clear_ball_maximum_velocity": 0.5,
+      "keeper_active_defense_x_offset": 0.75,
+      "keeper_active_defense_line_width_half": 0.75,
+      "keeper_active_defense_maximum_robot_distance": 2.0,
       "striker_distance_to_non_free_center_circle": 0.4,
       "striker_kickoff_position": [-0.5, 0.0]
     },

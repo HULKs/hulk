@@ -31,6 +31,18 @@ pub fn kick_subtree() -> Node<Blackboard> {
     )
 }
 
+pub fn goalkeeper_clear_kick_subtree() -> Node<Blackboard> {
+    switch_motion_type(
+        MotionType::Kick,
+        sequence!(
+            action!(kick),
+            action!(select_goalkeeper_clear_kick_target),
+            subtree!(kick_power_subtree),
+        ),
+        subtree!(kick_alternatives_subtree),
+    )
+}
+
 pub fn kick_alternatives_subtree() -> Node<Blackboard> {
     selection!(
         sequence!(
@@ -85,6 +97,38 @@ pub fn select_kick_target(blackboard: &mut Blackboard) -> Status {
             *motion_target_position =
                 Rotation2::new(blackboard.parameters.kicking.kick_target_offset_angle)
                     * target_position;
+            *motion_kick_direction = kick_direction;
+
+            return Status::Success;
+        }
+    }
+    Status::Failure
+}
+
+pub fn select_goalkeeper_clear_kick_target(blackboard: &mut Blackboard) -> Status {
+    if let (Some(ground_to_field), Some(ball)) = (
+        blackboard.world_state.robot.ground_to_field,
+        &blackboard.ball,
+    ) {
+        let target_y = if ball.position.y() >= 0.0 {
+            blackboard.field_dimensions.width / 4.0
+        } else {
+            -blackboard.field_dimensions.width / 4.0
+        };
+        let target_position: Point2<Field> = point!(0.0, target_y);
+        let field_to_ground = ground_to_field.inverse();
+
+        let target_position = field_to_ground * target_position;
+        let ball_in_ground = field_to_ground * ball.position;
+        let kick_direction = Orientation2::from_vector(target_position - ball_in_ground);
+
+        if let Some(BodyMotion::VisualKick {
+            target_position: motion_target_position,
+            kick_direction: motion_kick_direction,
+            ..
+        }) = blackboard.body_motion.as_mut()
+        {
+            *motion_target_position = target_position;
             *motion_kick_direction = kick_direction;
 
             return Status::Success;
