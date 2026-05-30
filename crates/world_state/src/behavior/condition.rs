@@ -36,6 +36,83 @@ pub fn is_ball_interception_candidate(blackboard: &mut Blackboard) -> bool {
     }
 }
 
+pub fn is_goalkeeper_interception_candidate(blackboard: &mut Blackboard) -> bool {
+    if !is_ball_interception_candidate(blackboard) || !is_ball_near_own_goal(blackboard) {
+        return false;
+    }
+
+    if let (Some(ball), Some(ground_to_field)) = (
+        &blackboard.ball,
+        &blackboard.world_state.robot.ground_to_field,
+    ) {
+        let field_dimensions = blackboard.field_dimensions;
+        let ball_velocity = ground_to_field * ball.velocity;
+
+        if ball_velocity.x()
+            >= -blackboard
+                .parameters
+                .intercept_ball
+                .minimum_ball_velocity_towards_own_half
+        {
+            return false;
+        }
+
+        let own_goal_x = -field_dimensions.length / 2.0;
+        let interception_line_x = own_goal_x + blackboard.parameters.role_positions.keeper_x_offset;
+        let time_to_interception_line =
+            (interception_line_x - ball.position.x()) / ball_velocity.x();
+
+        if time_to_interception_line <= 0.0 {
+            return false;
+        }
+
+        let y_at_interception_line =
+            ball.position.y() + ball_velocity.y() * time_to_interception_line;
+        let goal_half_width = field_dimensions.goal_inner_width / 2.0
+            + field_dimensions.goal_post_diameter / 2.0
+            + field_dimensions.ball_radius;
+
+        y_at_interception_line.abs() < goal_half_width
+    } else {
+        false
+    }
+}
+
+pub fn is_ball_near_own_goal(blackboard: &mut Blackboard) -> bool {
+    blackboard.ball.as_ref().is_some_and(|ball| {
+        let own_goal_x = -blackboard.field_dimensions.length / 2.0;
+        let maximum_ball_x = own_goal_x
+            + blackboard
+                .parameters
+                .role_positions
+                .keeper_ball_near_own_goal_distance;
+
+        ball.position.x() < maximum_ball_x
+    })
+}
+
+pub fn is_ball_in_own_danger_area(blackboard: &mut Blackboard) -> bool {
+    blackboard.ball.as_ref().is_some_and(|ball| {
+        let field_dimensions = blackboard.field_dimensions;
+        let own_penalty_area_x =
+            -field_dimensions.length / 2.0 + field_dimensions.penalty_area_length;
+
+        ball.position.x() < own_penalty_area_x
+            && ball.position.y().abs() < field_dimensions.penalty_area_width / 2.0
+    })
+}
+
+pub fn is_goalkeeper_clear_candidate(blackboard: &mut Blackboard) -> bool {
+    is_ball_in_own_danger_area(blackboard)
+        && blackboard.ball.as_ref().is_some_and(|ball| {
+            ball.velocity.norm()
+                < blackboard
+                    .parameters
+                    .role_positions
+                    .keeper_clear_ball_maximum_velocity
+        })
+}
+
 pub fn is_close_to_ball(blackboard: &mut Blackboard) -> bool {
     let mut is_close = false;
     if let (Some(ball), Some(ground_to_field)) = (

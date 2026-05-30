@@ -213,6 +213,71 @@ pub fn walk_to_block_position(blackboard: &mut Blackboard) -> Status {
     }
 }
 
+pub fn set_goalkeeper_active_defense_position(blackboard: &mut Blackboard) -> Status {
+    if let (Some(ball), Some(ground_to_field)) = (
+        &blackboard.ball,
+        blackboard.world_state.robot.ground_to_field,
+    ) {
+        let field_dimensions = blackboard.field_dimensions;
+        let parameters = &blackboard.parameters.role_positions;
+
+        let own_goal_line_x = -field_dimensions.length / 2.0;
+        let active_defense_line_x = own_goal_line_x + parameters.keeper_active_defense_x_offset;
+
+        let ball_x_from_own_goal_line = ball.position.x() - own_goal_line_x;
+        let defense_line_x_from_own_goal_line = active_defense_line_x - own_goal_line_x;
+        let projected_ball_y_at_defense_line = if ball_x_from_own_goal_line.abs() < f32::EPSILON {
+            ball.position.y()
+        } else {
+            ball.position.y() * defense_line_x_from_own_goal_line / ball_x_from_own_goal_line
+        };
+
+        let defense_line_width_half = parameters.keeper_active_defense_line_width_half;
+        let clamped_defense_y = projected_ball_y_at_defense_line
+            .clamp(-defense_line_width_half, defense_line_width_half);
+        let defense_position_in_field = point!(active_defense_line_x, clamped_defense_y);
+        let defense_position_in_ground = ground_to_field.inverse() * defense_position_in_field;
+
+        if defense_position_in_ground.coords().norm()
+            > parameters.keeper_active_defense_maximum_robot_distance
+        {
+            return Status::Failure;
+        }
+
+        blackboard.walk_position = Some(defense_position_in_ground);
+
+        Status::Success
+    } else {
+        Status::Failure
+    }
+}
+
+pub fn walk_to_goalkeeper_default_position(blackboard: &mut Blackboard) -> Status {
+    if let Some(ground_to_field) = blackboard.world_state.robot.ground_to_field {
+        let field_dimensions = blackboard.field_dimensions;
+        let parameters = &blackboard.parameters.role_positions;
+        let own_goal_line_x = -field_dimensions.length / 2.0;
+        let default_position_in_field = point!(own_goal_line_x + parameters.keeper_x_offset, 0.0);
+        let default_pose_in_field =
+            Pose2::from_parts(default_position_in_field, Orientation2::new(0.0));
+        let default_pose_in_ground = ground_to_field.inverse() * default_pose_in_field;
+
+        walk_to(
+            blackboard,
+            default_pose_in_ground,
+            blackboard.parameters.walk_speed.blocking,
+            OrientationMode::AlignWithPath,
+            blackboard
+                .parameters
+                .walk_and_stand
+                .normal_distance_to_be_aligned,
+            blackboard.parameters.walk_and_stand.hysteresis,
+        )
+    } else {
+        Status::Failure
+    }
+}
+
 pub fn walk_to_kickoff_pose(blackboard: &mut Blackboard) -> Status {
     if let (Some(ground_to_field), player_number) = (
         blackboard.world_state.robot.ground_to_field,
