@@ -258,7 +258,6 @@ impl ObstacleFilter {
         camera_matrix: Option<&CameraMatrix>,
         current_odometry_to_last_odometry: Option<&na::Isometry2<f32>>,
     ) {
-        let parameters = parameters;
         let current_odometry_to_last_odometry = current_odometry_to_last_odometry
             .copied()
             .unwrap_or_default();
