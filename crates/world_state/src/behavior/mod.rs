@@ -1,6 +1,7 @@
 pub mod action;
 pub mod behavior_tree;
 pub mod condition;
+pub mod goalkeeper;
 pub mod head;
 pub mod kick;
 pub mod motion_assembler;

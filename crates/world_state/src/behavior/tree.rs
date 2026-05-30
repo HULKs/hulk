@@ -6,25 +6,20 @@ use crate::{
         action::{injected_motion_command, prepare, remote_control, stand, stand_up},
         behavior_tree::Node,
         condition::{
-            has_ball_position, is_ball_interception_candidate, is_ball_near_own_goal,
-            is_close_to_ball, is_closest_to_ball, is_fallen, is_goalkeeper,
-            is_goalkeeper_clear_candidate, is_goalkeeper_interception_candidate, is_primary_state,
-            is_remote_controlled, is_remote_kick_mode,
+            has_ball_position, is_ball_interception_candidate, is_close_to_ball,
+            is_closest_to_ball, is_fallen, is_goalkeeper, is_primary_state, is_remote_controlled,
+            is_remote_kick_mode,
         },
+        goalkeeper::goalkeeper_subtree,
         head::{look_at_ball_subtree, look_straight_ahead, search_for_lost_ball_subtree},
-        kick::{
-            goalkeeper_clear_kick_subtree, intercept, kick, kick_power_subtree, kick_subtree,
-            set_kick_target_in_front,
-        },
+        kick::{intercept, kick, kick_power_subtree, kick_subtree, set_kick_target_in_front},
         node::Blackboard,
         search::{has_suggested_search_position, leuchtturm, walk_to_search_position},
         substates::{is_in_sub_state, sub_state_subtree},
         switch_motion_type::switch_motion_type,
         voronoi::calculate_voronoi_grid,
         walk::{
-            set_goalkeeper_active_defense_position, walk_alternatives_subtree,
-            walk_to_ball_subtree, walk_to_block_position, walk_to_centroid,
-            walk_to_goalkeeper_default_position, walk_to_kickoff_pose,
+            walk_alternatives_subtree, walk_to_ball_subtree, walk_to_centroid, walk_to_kickoff_pose,
         },
     },
     condition, negation, selection, sequence, subtree,
@@ -87,64 +82,6 @@ fn playing_subtree() -> Node<Blackboard> {
             subtree!(striker_subtree)
         ),
         subtree!(supporter_subtree),
-    )
-}
-
-fn goalkeeper_subtree() -> Node<Blackboard> {
-    sequence!(
-        subtree!(look_at_ball_subtree),
-        selection!(
-            sequence!(
-                condition!(is_in_sub_state),
-                subtree!(goalkeeper_sub_state_subtree)
-            ),
-            sequence!(
-                condition!(is_goalkeeper_interception_candidate),
-                sequence!(subtree!(kick_subtree), action!(intercept))
-            ),
-            sequence!(
-                condition!(is_goalkeeper_clear_candidate),
-                subtree!(goalkeeper_clear_ball_subtree)
-            ),
-            sequence!(
-                condition!(is_ball_near_own_goal),
-                subtree!(goalkeeper_active_defense_position_subtree)
-            ),
-            subtree!(goalkeeper_default_position_subtree),
-        )
-    )
-}
-
-fn goalkeeper_sub_state_subtree() -> Node<Blackboard> {
-    action!(stand)
-}
-
-fn goalkeeper_clear_ball_subtree() -> Node<Blackboard> {
-    selection!(
-        sequence!(
-            negation!(condition!(is_close_to_ball)),
-            subtree!(walk_to_ball_subtree)
-        ),
-        subtree!(goalkeeper_clear_kick_subtree)
-    )
-}
-
-fn goalkeeper_active_defense_position_subtree() -> Node<Blackboard> {
-    switch_motion_type(
-        MotionType::Walk,
-        sequence!(
-            action!(set_goalkeeper_active_defense_position),
-            action!(walk_to_block_position)
-        ),
-        subtree!(walk_alternatives_subtree),
-    )
-}
-
-fn goalkeeper_default_position_subtree() -> Node<Blackboard> {
-    switch_motion_type(
-        MotionType::Walk,
-        action!(walk_to_goalkeeper_default_position),
-        subtree!(walk_alternatives_subtree),
     )
 }
 

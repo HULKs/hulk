@@ -278,6 +278,30 @@ pub fn walk_to_goalkeeper_default_position(blackboard: &mut Blackboard) -> Statu
     }
 }
 
+pub fn walk_to_goalkeeper_penalty_position(blackboard: &mut Blackboard) -> Status {
+    if let Some(ground_to_field) = blackboard.world_state.robot.ground_to_field {
+        let own_goal_line_x = -blackboard.field_dimensions.length / 2.0;
+        let penalty_position_in_field = point!(own_goal_line_x, 0.0);
+        let penalty_pose_in_field =
+            Pose2::from_parts(penalty_position_in_field, Orientation2::new(0.0));
+        let penalty_pose_in_ground = ground_to_field.inverse() * penalty_pose_in_field;
+
+        walk_to(
+            blackboard,
+            penalty_pose_in_ground,
+            blackboard.parameters.walk_speed.blocking,
+            OrientationMode::AlignWithPath,
+            blackboard
+                .parameters
+                .walk_and_stand
+                .normal_distance_to_be_aligned,
+            blackboard.parameters.walk_and_stand.hysteresis,
+        )
+    } else {
+        Status::Failure
+    }
+}
+
 pub fn walk_to_kickoff_pose(blackboard: &mut Blackboard) -> Status {
     if let (Some(ground_to_field), player_number) = (
         blackboard.world_state.robot.ground_to_field,
