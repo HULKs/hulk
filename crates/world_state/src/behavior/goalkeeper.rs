@@ -8,10 +8,12 @@ use crate::{
         condition::{
             hulks_is_kicking_team, is_ball_near_own_goal, is_close_to_ball,
             is_goalkeeper_clear_candidate, is_goalkeeper_interception_candidate,
+            is_last_man_standing,
         },
         head::look_at_ball_subtree,
         kick::{goalkeeper_clear_kick_subtree, intercept, kick_subtree},
         node::Blackboard,
+        striker::striker_subtree,
         substates::{is_in_sub_state, is_sub_state},
         switch_motion_type::switch_motion_type,
         walk::{
@@ -31,6 +33,7 @@ pub fn goalkeeper_subtree() -> Node<Blackboard> {
                 condition!(is_in_sub_state),
                 subtree!(goalkeeper_sub_state_subtree)
             ),
+            sequence!(condition!(is_last_man_standing), subtree!(striker_subtree)),
             sequence!(
                 condition!(is_goalkeeper_interception_candidate),
                 sequence!(subtree!(kick_subtree), action!(intercept))
