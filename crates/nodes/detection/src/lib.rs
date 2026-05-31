@@ -113,6 +113,10 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
         let timed_image = image_sub.recv().await?;
         let image_time = timed_image.time;
+
+        let detected_objects_pending = detected_objects_pub.announce(image_time).await?;
+        let detected_poses_pending = detected_poses_pub.announce(image_time).await?;
+
         let image = timed_image.inner;
         check_image(&image)?;
 
@@ -161,8 +165,6 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         non_maximum_suppression_duration_pub
             .publish(&non_maximum_suppression_duration)
             .await?;
-        let detected_objects_pending = detected_objects_pub.announce(image_time).await?;
-        let detected_poses_pending = detected_poses_pub.announce(image_time).await?;
 
         detected_objects_pending.publish(&detected_objects).await?;
         detected_poses_pending.publish(&detected_poses).await?;
