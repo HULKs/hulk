@@ -141,11 +141,10 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 let parameters = parameters_snapshot.typed();
                 let item = received_detections?;
 
+                let Some(field_dimensions) = field_dimensions_cache.get_latest() else {
+                    continue;
+                };
                 for (detection_time, (detected_objects, detected_poses)) in item.persistent {
-                    let Some(field_dimensions) = field_dimensions_cache.get_latest() else {
-                        continue;
-                    };
-
                     let detected_objects = detected_objects.unwrap_or_default();
                     let detected_poses = detected_poses.unwrap_or_default();
                     let camera_matrix = camera_matrix_cache.get_nearest(detection_time);
