@@ -79,11 +79,7 @@ pub fn graph_node_key(target: &NodeTarget) -> (String, String) {
 }
 
 pub fn fully_qualified_node_name(namespace: &str, name: &str) -> String {
-    if namespace == "/" {
-        format!("/{name}")
-    } else {
-        format!("{namespace}/{name}")
-    }
+    ros_z::entity::fully_qualified_node_name(namespace, name)
 }
 
 fn node_candidates(graph: &ros_z::graph::Graph) -> Vec<NodeTarget> {
@@ -99,5 +95,15 @@ fn normalize_node_namespace(namespace: &str) -> String {
         String::new()
     } else {
         namespace.to_string()
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::fully_qualified_node_name;
+
+    #[test]
+    fn fully_qualified_node_name_prefixes_bare_namespace() {
+        assert_eq!(fully_qualified_node_name("robot", "node"), "/robot/node");
     }
 }

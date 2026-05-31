@@ -70,11 +70,15 @@ impl NodeEntity {
     }
 
     pub fn fully_qualified_name(&self) -> String {
-        if self.namespace == "/" {
-            format!("/{}", self.name)
-        } else {
-            format!("{}/{}", self.namespace, self.name)
-        }
+        fully_qualified_node_name(&self.namespace, &self.name)
+    }
+}
+
+pub fn fully_qualified_node_name(namespace: &str, name: &str) -> String {
+    if namespace.is_empty() || namespace == "/" {
+        format!("/{name}")
+    } else {
+        format!("/{}/{}", namespace.trim_start_matches('/'), name)
     }
 }
 
@@ -271,5 +275,10 @@ mod tests {
     #[test]
     fn fully_qualified_name_inserts_separator_after_non_root_namespace() {
         assert_eq!(node("/robot").fully_qualified_name(), "/robot/node");
+    }
+
+    #[test]
+    fn fully_qualified_name_prefixes_bare_namespace() {
+        assert_eq!(node("robot").fully_qualified_name(), "/robot/node");
     }
 }
