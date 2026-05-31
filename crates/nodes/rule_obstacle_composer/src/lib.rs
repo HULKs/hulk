@@ -1,3 +1,4 @@
+use std::{boxed::Box, future::Future, pin::Pin};
 use std::{future::pending, sync::Arc};
 
 use color_eyre::Result;
@@ -17,7 +18,11 @@ pub struct Parameters {
     pub penaltykick_box_extension: f32,
 }
 
-pub async fn run(ctx: Arc<Context>) -> Result<()> {
+pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+    Box::pin(run(ctx))
+}
+
+async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("rule_obstacle_composer").build().await?;
 
     let _parameters = node.bind_parameter_as::<Parameters>("rule_obstacle_composer")?;

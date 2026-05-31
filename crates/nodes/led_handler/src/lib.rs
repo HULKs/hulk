@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::{boxed::Box, future::Future, pin::Pin};
 
 use booster_sdk::client::light_control::SetLedLightColorParameter;
 use booster_sdk_interface::LedCommand;
@@ -7,7 +8,11 @@ use color_eyre::Result;
 use ros_z::{prelude::*, qos::QosDurability};
 use types::primary_state::PrimaryState;
 
-pub async fn run(ctx: Arc<Context>) -> Result<()> {
+pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+    Box::pin(run(ctx))
+}
+
+async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("led_handler").build().await?;
     let primary_state_sub = node
         .subscriber::<PrimaryState>("primary_state")?

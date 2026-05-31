@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::{boxed::Box, future::Future, pin::Pin, sync::Arc, time::Duration};
 
 use color_eyre::{Result, eyre::bail};
 use ndarray::{ArrayView2, ArrayView3, Axis};
@@ -49,7 +49,11 @@ struct ModelOutputs<'a> {
     poses: ArrayView2<'a, f32>,
 }
 
-pub async fn run(ctx: Arc<Context>) -> Result<()> {
+pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+    Box::pin(run(ctx))
+}
+
+async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("detection").build().await?;
 
     let node_parameters = node.bind_parameter_as::<DetectionParameters>("detection")?;

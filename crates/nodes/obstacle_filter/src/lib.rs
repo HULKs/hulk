@@ -1,3 +1,4 @@
+use std::{boxed::Box, future::Future, pin::Pin};
 use std::{future::pending, sync::Arc};
 
 use color_eyre::Result;
@@ -17,7 +18,11 @@ use types::{
     primary_state::PrimaryState,
 };
 
-pub async fn run(ctx: Arc<Context>) -> Result<()> {
+pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+    Box::pin(run(ctx))
+}
+
+async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("obstacle_filter").build().await?;
 
     let _parameters = node.bind_parameter_as::<ObstacleFilterParameters>("obstacle_filter")?;

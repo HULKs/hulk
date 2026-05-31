@@ -1,3 +1,4 @@
+use std::{boxed::Box, future::Future, pin::Pin};
 use std::{collections::HashMap, net::SocketAddr, sync::Arc, time::Duration};
 
 use color_eyre::Result;
@@ -17,7 +18,11 @@ pub struct Parameters {
     pub collision_alert_cooldown: Duration,
 }
 
-pub async fn run(ctx: Arc<Context>) -> Result<()> {
+pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+    Box::pin(run(ctx))
+}
+
+async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("game_controller_filter").build().await?;
 
     let parameters = node.bind_parameter_as::<Parameters>("game_controller_filter")?;

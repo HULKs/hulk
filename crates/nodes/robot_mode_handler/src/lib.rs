@@ -1,3 +1,4 @@
+use std::{boxed::Box, future::Future, pin::Pin};
 use std::{sync::Arc, time::Duration};
 
 use color_eyre::Result;
@@ -16,7 +17,11 @@ pub struct Parameters {
     pub remote_stop_toggle: bool,
 }
 
-pub async fn run(ctx: Arc<Context>) -> Result<()> {
+pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+    Box::pin(run(ctx))
+}
+
+async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("robot_mode_handler").build().await?;
 
     let parameters = node.bind_parameter_as::<Parameters>("robot_mode_handler")?;

@@ -1,3 +1,4 @@
+use std::{boxed::Box, future::Future, pin::Pin};
 use std::{f32::consts::FRAC_PI_2, sync::Arc};
 
 use color_eyre::Result;
@@ -13,7 +14,11 @@ use types::{parameters::CameraMatrixParameters, time_wrapper::TimeWrapper};
 pub const ACTUAL_IMAGE_HEIGHT: f32 = 448.0;
 pub const ACTUAL_IMAGE_WIDTH: f32 = 544.0;
 
-pub async fn run(ctx: Arc<Context>) -> Result<()> {
+pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+    Box::pin(run(ctx))
+}
+
+async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("camera_matrix_calculator").build().await?;
 
     let parameters =

@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::{boxed::Box, future::Future, pin::Pin};
 
 use approx::AbsDiffEq;
 use color_eyre::Result;
@@ -21,7 +22,11 @@ pub struct Parameters {
     pub linear_acceleration_threshold: f32,
 }
 
-pub async fn run(ctx: Arc<Context>) -> Result<()> {
+pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+    Box::pin(run(ctx))
+}
+
+async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("safe_pose_checker").build().await?;
 
     let parameters = node.bind_parameter_as::<Parameters>("safe_pose_checker")?;

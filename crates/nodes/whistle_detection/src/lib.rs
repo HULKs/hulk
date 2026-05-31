@@ -1,3 +1,4 @@
+use std::{boxed::Box, future::Future, pin::Pin};
 use std::{future::pending, sync::Arc};
 
 use color_eyre::Result;
@@ -9,7 +10,11 @@ use types::{
     whistle::{DetectionInfo, Whistle},
 };
 
-pub async fn run(ctx: Arc<Context>) -> Result<()> {
+pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+    Box::pin(run(ctx))
+}
+
+async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("whistle_detection").build().await?;
 
     let _parameters = node.bind_parameter_as::<WhistleDetectionParameters>("whistle_detection")?;

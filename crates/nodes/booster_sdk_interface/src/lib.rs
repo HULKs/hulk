@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::{boxed::Box, future::Future, pin::Pin};
 
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
@@ -126,7 +127,11 @@ impl Service for GetRobotMode {
     type Response = GetRobotModeResponse;
 }
 
-pub async fn run(ctx: Arc<Context>) -> Result<()> {
+pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+    Box::pin(run(ctx))
+}
+
+async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = Arc::new(ctx.create_node("booster_sdk_interface").build().await?);
 
     let high_level_interface_client = Arc::new(BoosterClient::new()?);

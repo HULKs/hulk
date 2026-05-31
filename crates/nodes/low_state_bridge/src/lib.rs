@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::{boxed::Box, future::Future, pin::Pin};
 
 use color_eyre::{Result, eyre::Context as _};
 
@@ -6,7 +7,11 @@ use booster::{ImuState, LowState, MotorState};
 use kinematics::joints::Joints;
 use ros_z::prelude::*;
 
-pub async fn run(ctx: Arc<Context>) -> Result<()> {
+pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+    Box::pin(run(ctx))
+}
+
+async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("low_state_bridge").build().await?;
 
     let zenoh_session = ctx.session();

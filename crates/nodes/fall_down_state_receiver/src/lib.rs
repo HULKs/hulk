@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::{boxed::Box, future::Future, pin::Pin};
 
 use color_eyre::{
     Result,
@@ -8,7 +9,11 @@ use color_eyre::{
 use booster::FallDownState;
 use ros_z::prelude::*;
 
-pub async fn run(ctx: Arc<Context>) -> Result<()> {
+pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+    Box::pin(run(ctx))
+}
+
+async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("fall_down_state_receiver").build().await?;
 
     let zenoh_session = ctx.session();

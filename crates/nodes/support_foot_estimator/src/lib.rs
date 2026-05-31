@@ -1,4 +1,4 @@
-use std::sync::Arc;
+use std::{boxed::Box, future::Future, pin::Pin, sync::Arc};
 
 use booster::{FallDownState, FallDownStateType, ImuState};
 use color_eyre::Result;
@@ -20,7 +20,11 @@ pub struct Parameters {
     pub switch_hysteresis: f32,
 }
 
-pub async fn run(ctx: Arc<Context>) -> Result<()> {
+pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+    Box::pin(run(ctx))
+}
+
+async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("support_foot_estimator").build().await?;
 
     let parameters = node.bind_parameter_as::<Parameters>("support_foot_estimator")?;
