@@ -1,3 +1,4 @@
+use std::{boxed::Box, future::Future, pin::Pin};
 use std::{future::pending, sync::Arc};
 
 use color_eyre::Result;
@@ -13,7 +14,11 @@ use types::{
     world_state::{BallState, LastBallState},
 };
 
-pub async fn run(ctx: Arc<Context>) -> Result<()> {
+pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+    Box::pin(run(ctx))
+}
+
+async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("ball_state_composer").build().await?;
 
     let _field_dimensions_sub = node

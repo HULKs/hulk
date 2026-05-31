@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::{boxed::Box, future::Future, pin::Pin};
 
 use color_eyre::Result;
 
@@ -6,7 +7,11 @@ use hsl_network_messages::{HulkMessage, PlayerNumber, StateMessage};
 use ros_z::{prelude::*, qos::QosDurability};
 use types::{messages::IncomingMessage, time_wrapper::TimeWrapper};
 
-pub async fn run(ctx: Arc<Context>) -> Result<()> {
+pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+    Box::pin(run(ctx))
+}
+
+async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("message_filter").build().await?;
 
     let player_number_sub = node

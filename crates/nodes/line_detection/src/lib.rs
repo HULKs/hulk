@@ -3,7 +3,7 @@ mod iter_if;
 mod map_segments;
 mod segment_merger;
 
-use std::{collections::HashSet, sync::Arc};
+use std::{boxed::Box, collections::HashSet, future::Future, pin::Pin, sync::Arc};
 
 use color_eyre::Result;
 
@@ -30,7 +30,11 @@ use types::{
     ycbcr422_image::YCbCr422Image,
 };
 
-pub async fn run(ctx: Arc<Context>) -> Result<()> {
+pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+    Box::pin(run(ctx))
+}
+
+async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("line_detection").build().await?;
 
     let parameters = node.bind_parameter_as::<LineDetectionParameters>("line_detection")?;

@@ -1,3 +1,4 @@
+use std::{boxed::Box, future::Future, pin::Pin};
 use std::{future::pending, sync::Arc};
 
 use color_eyre::Result;
@@ -9,7 +10,11 @@ use types::{
     filtered_game_controller_state::FilteredGameControllerState, messages::IncomingMessage,
 };
 
-pub async fn run(ctx: Arc<Context>) -> Result<()> {
+pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+    Box::pin(run(ctx))
+}
+
+async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("obstacle_receiver").build().await?;
     let _filtered_game_controller_state_sub = node
         .subscriber::<Option<FilteredGameControllerState>>("filtered_game_controller_state")?

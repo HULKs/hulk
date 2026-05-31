@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::{boxed::Box, future::Future, pin::Pin};
 
 use color_eyre::Result;
 
@@ -9,7 +10,11 @@ use linear_algebra::{Isometry3, Orientation3, vector};
 use ros_z::{prelude::*, qos::QosDurability};
 use types::{support_foot::Side, time_wrapper::TimeWrapper};
 
-pub async fn run(ctx: Arc<Context>) -> Result<()> {
+pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+    Box::pin(run(ctx))
+}
+
+async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("ground_provider").build().await?;
 
     let imu_state_sub = node

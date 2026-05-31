@@ -1,3 +1,4 @@
+use std::{boxed::Box, future::Future, pin::Pin};
 use std::{collections::HashMap, sync::Arc};
 
 use color_eyre::Result;
@@ -18,7 +19,11 @@ use crate::state::State;
 
 pub mod state;
 
-pub async fn run(ctx: Arc<Context>) -> Result<()> {
+pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+    Box::pin(run(ctx))
+}
+
+async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx
         .create_node("game_controller_state_filter")
         .build()

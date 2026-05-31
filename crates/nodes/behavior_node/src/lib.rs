@@ -1,3 +1,4 @@
+use std::{boxed::Box, future::Future, pin::Pin};
 use std::{future::pending, sync::Arc, time::Duration};
 
 use color_eyre::Result;
@@ -8,7 +9,11 @@ use types::{
     parameters::BehaviorParameters, path_obstacles::PathObstacle, world_state::WorldState,
 };
 
-pub async fn run(ctx: Arc<Context>) -> Result<()> {
+pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+    Box::pin(run(ctx))
+}
+
+async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("behavior_node").build().await?;
 
     let _parameters = node.bind_parameter_as::<BehaviorParameters>("behavior_node")?;

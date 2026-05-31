@@ -1,5 +1,8 @@
 use std::{
+    boxed::Box,
+    future::Future,
     ops::{Add, Range},
+    pin::Pin,
     sync::Arc,
 };
 
@@ -19,7 +22,11 @@ use types::{
     ycbcr422_image::YCbCr422Image,
 };
 
-pub async fn run(ctx: Arc<Context>) -> Result<()> {
+pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+    Box::pin(run(ctx))
+}
+
+async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("image_segmenter").build().await?;
 
     let parameters = node.bind_parameter_as::<ImageSegmenterParameters>("image_segmenter")?;

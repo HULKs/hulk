@@ -1,3 +1,4 @@
+use std::{boxed::Box, future::Future, pin::Pin};
 use std::{future::pending, sync::Arc, time::Duration};
 
 use color_eyre::Result;
@@ -14,7 +15,11 @@ pub struct Parameters {
     pub move_robot_message_interval: Duration,
 }
 
-pub async fn run(ctx: Arc<Context>) -> Result<()> {
+pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+    Box::pin(run(ctx))
+}
+
+async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("walking").build().await?;
 
     let _parameters = node.bind_parameter_as::<Parameters>("walking")?;

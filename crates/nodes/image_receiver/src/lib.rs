@@ -1,4 +1,5 @@
 use std::net::{IpAddr, Ipv4Addr, SocketAddr};
+use std::{boxed::Box, future::Future, pin::Pin};
 use std::{sync::Arc, time::Duration};
 
 use color_eyre::Result;
@@ -12,7 +13,11 @@ use x5_receiver::receiver::X5Receiver;
 
 const X5_ADDRESS: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 168, 127, 10)), 7654);
 
-pub async fn run(ctx: Arc<Context>) -> Result<()> {
+pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+    Box::pin(run(ctx))
+}
+
+async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("image_receiver").build().await?;
 
     let left_image_pub = node

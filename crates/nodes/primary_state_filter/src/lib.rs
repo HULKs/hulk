@@ -1,3 +1,4 @@
+use std::{boxed::Box, future::Future, pin::Pin};
 use std::{collections::HashSet, sync::Arc};
 
 use color_eyre::Result;
@@ -20,7 +21,11 @@ pub struct Parameters {
     pub recorded_primary_states: HashSet<PrimaryState>,
 }
 
-pub async fn run(ctx: Arc<Context>) -> Result<()> {
+pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+    Box::pin(run(ctx))
+}
+
+async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("primary_state_filter").build().await?;
 
     let parameters = node.bind_parameter_as::<Parameters>("primary_state_filter")?;

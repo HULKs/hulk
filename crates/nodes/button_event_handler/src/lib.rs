@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::{boxed::Box, future::Future, pin::Pin};
 
 use color_eyre::Result;
 
@@ -6,7 +7,11 @@ use booster::{ButtonEventMsg, ButtonEventType};
 use ros_z::prelude::*;
 use types::buttons::{ButtonPressType, Buttons};
 
-pub async fn run(ctx: Arc<Context>) -> Result<()> {
+pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+    Box::pin(run(ctx))
+}
+
+async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("button_event_handler").build().await?;
     let button_event_message_sub = node
         .subscriber::<ButtonEventMsg>("inputs/button_event_message")?

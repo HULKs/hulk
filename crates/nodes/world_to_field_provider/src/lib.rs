@@ -1,3 +1,4 @@
+use std::{boxed::Box, future::Future, pin::Pin};
 use std::{f32::consts::PI, sync::Arc};
 
 use color_eyre::Result;
@@ -10,7 +11,11 @@ use types::{
     time_wrapper::TimeWrapper,
 };
 
-pub async fn run(ctx: Arc<Context>) -> Result<()> {
+pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+    Box::pin(run(ctx))
+}
+
+async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("world_to_field_provider").build().await?;
     let game_controller_state_sub = node
         .subscriber::<TimeWrapper<Option<GameControllerState>>>("game_controller_state")?

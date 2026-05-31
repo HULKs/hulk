@@ -1,4 +1,5 @@
 use std::sync::Arc;
+use std::{boxed::Box, future::Future, pin::Pin};
 
 use color_eyre::Result;
 
@@ -6,7 +7,11 @@ use microphones::{parameters::Parameters as MicrophonesParameters, reader::Micro
 use ros_z::{context::Context, parameter::NodeParametersExt};
 use types::samples::Samples;
 
-pub async fn run(ctx: Arc<Context>) -> Result<()> {
+pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+    Box::pin(run(ctx))
+}
+
+async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("microphone_recorder").build().await?;
 
     let parameters = node.bind_parameter_as::<MicrophonesParameters>("microphone_recorder")?;
