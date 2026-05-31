@@ -3295,6 +3295,7 @@ dependencies = [
  "ort",
  "projection",
  "ros-z",
+ "ros-z-streams",
  "ros2",
  "serde",
  "tokio",
@@ -5424,8 +5425,8 @@ dependencies = [
  "microphone_recorder",
  "motor_commands_collector",
  "obstacle_filter",
- "obstacle_receiver",
  "odometer_bridge",
+ "player_state_receiver",
  "primary_state_filter",
  "robot_mode_handler",
  "ros-z",
@@ -7627,22 +7628,17 @@ dependencies = [
  "booster",
  "color-eyre",
  "coordinate_systems",
+ "filtering",
+ "geometry",
+ "hsl_network_messages",
+ "itertools 0.14.0",
  "linear_algebra",
  "nalgebra",
  "projection",
  "ros-z",
+ "ros-z-streams",
  "serde",
- "types",
-]
-
-[[package]]
-name = "obstacle_receiver"
-version = "0.1.0"
-dependencies = [
- "color-eyre",
- "coordinate_systems",
- "linear_algebra",
- "ros-z",
+ "tokio",
  "types",
 ]
 
@@ -8283,6 +8279,18 @@ name = "plain"
 version = "0.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4596b6d070b27117e987119b4dac604f3c58cfb0b191112e24771b2faeac1a6"
+
+[[package]]
+name = "player_state_receiver"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "hsl_network_messages",
+ "linear_algebra",
+ "ros-z",
+ "tokio",
+ "types",
+]
 
 [[package]]
 name = "plist"
@@ -13508,6 +13516,7 @@ dependencies = [
  "ordered-float 4.6.0",
  "projection",
  "proptest",
+ "ros-z",
  "ros2",
  "serde",
  "smallvec 1.15.1",

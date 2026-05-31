@@ -138,8 +138,8 @@ async fn spawn_all(ctx: Arc<Context>) -> Result<RunningStack> {
     join_set.spawn(ball_state_composer::run_boxed(ctx.clone()));
     join_set.spawn(behavior_node::run_boxed(ctx.clone()));
     join_set.spawn(booster_sdk_interface::run_boxed(ctx.clone()));
-    join_set.spawn(button_event_handler::run_boxed(ctx.clone()));
     join_set.spawn(button_event_bridge::run_boxed(ctx.clone()));
+    join_set.spawn(button_event_handler::run_boxed(ctx.clone()));
     join_set.spawn(camera_matrix_calculator::run_boxed(ctx.clone()));
     join_set.spawn(detection::run_boxed(ctx.clone()));
     join_set.spawn(fake_odometry::run_boxed(ctx.clone()));
@@ -166,8 +166,8 @@ async fn spawn_all(ctx: Arc<Context>) -> Result<RunningStack> {
     join_set.spawn(microphone_recorder::run_boxed(ctx.clone()));
     join_set.spawn(motor_commands_collector::run_boxed(ctx.clone()));
     join_set.spawn(obstacle_filter::run_boxed(ctx.clone()));
-    join_set.spawn(obstacle_receiver::run_boxed(ctx.clone()));
     join_set.spawn(odometer_bridge::run_boxed(ctx.clone()));
+    join_set.spawn(player_state_receiver::run_boxed(ctx.clone()));
     join_set.spawn(primary_state_filter::run_boxed(ctx.clone()));
     join_set.spawn(robot_mode_handler::run_boxed(ctx.clone()));
     join_set.spawn(rotate_head::run_boxed(ctx.clone()));

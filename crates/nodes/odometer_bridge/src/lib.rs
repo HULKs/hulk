@@ -19,7 +19,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let zenoh_session = ctx.session();
 
     let odometer_sub = zenoh_session
-        .declare_subscriber("rt/odometer")
+        .declare_subscriber("rt/odometer_state")
         .await
         .map_err(|error| eyre!("{error}"))?;
     let odometer_pub = node

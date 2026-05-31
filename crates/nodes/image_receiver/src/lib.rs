@@ -21,11 +21,11 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("image_receiver").build().await?;
 
     let left_image_pub = node
-        .publisher::<Image>("inputs/left_image")?
+        .publisher::<TimeWrapper<Image>>("inputs/left_image")?
         .build()
         .await?;
     let right_image_pub = node
-        .publisher::<Image>("inputs/left_image")?
+        .publisher::<Image>("inputs/right_image")?
         .build()
         .await?;
     let camera_info_pub = node
@@ -44,10 +44,11 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     loop {
         tokio::select! {
             left_frame = x5_receiver.next_left_frame() => {
+                let image_time = node.clock().now();
                 let left_image: Image = left_frame.into();
-                left_image_pub.publish(&left_image).await?;
+                left_image_pub.publish(&TimeWrapper { time: image_time, inner: left_image.clone() }).await?;
                 let rgb_image: RgbImage = left_image.try_into()?;
-                ycbcr422_image_pub.publish(&TimeWrapper { time: node.clock().now(), inner: (&rgb_image).into() }).await?;
+                ycbcr422_image_pub.publish(&TimeWrapper { time: image_time, inner: (&rgb_image).into() }).await?;
             }
             right_frame = x5_receiver.next_right_frame() => {
                 right_image_pub.publish(&right_frame.into()).await?;

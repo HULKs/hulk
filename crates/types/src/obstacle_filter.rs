@@ -1,6 +1,4 @@
-use std::time::SystemTime;
-
-use ros_z::Message;
+use ros_z::{Message, time::Time};
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -11,6 +9,6 @@ use crate::{
 pub struct Hypothesis {
     pub state: MultivariateNormalDistribution<2>,
     pub measurement_count: usize,
-    pub last_update: SystemTime,
+    pub last_update: Time,
     pub obstacle_kind: ObstacleKind,
 }
