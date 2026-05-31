@@ -4,6 +4,8 @@ use color_eyre::eyre::{Result, WrapErr, bail};
 use ros_z::graph::Graph;
 use serde_json::Value;
 
+use crate::support::nodes::fully_qualified_node_name;
+
 pub fn resolve_parameter_node_fqn(graph: &Graph, selector: &str) -> Result<String> {
     let candidates = sorted_node_fqns(graph);
     resolve_parameter_node_fqn_from_candidates(&candidates, selector)
@@ -90,21 +92,13 @@ fn service_names(graph: &Graph) -> BTreeSet<String> {
         .collect()
 }
 
-fn fully_qualified_node_name(namespace: &str, name: &str) -> String {
-    if namespace.is_empty() || namespace == "/" {
-        format!("/{name}")
-    } else {
-        format!("{namespace}/{name}")
-    }
-}
-
 #[cfg(test)]
 mod tests {
     use std::collections::BTreeSet;
 
     use super::{
-        parameter_service_name, parse_parameter_json, resolve_parameter_node_fqn_from_candidates,
-        verify_parameter_capability_from_services,
+        fully_qualified_node_name, parameter_service_name, parse_parameter_json,
+        resolve_parameter_node_fqn_from_candidates, verify_parameter_capability_from_services,
     };
 
     #[test]
@@ -161,5 +155,10 @@ mod tests {
         )]);
         verify_parameter_capability_from_services(&services, "/motion/walk_publisher")
             .expect("must accept parameter capability");
+    }
+
+    #[test]
+    fn fully_qualified_node_name_prefixes_bare_namespace() {
+        assert_eq!(fully_qualified_node_name("robot", "node"), "/robot/node");
     }
 }
