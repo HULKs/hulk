@@ -4,6 +4,12 @@ Agent review skills are local pre-review checks. Run them before a human reviewe
 
 Agent findings help reviewers. They do not replace human judgment.
 
+## Skill Discovery
+
+Review skills live in `.agents/skills` so Codex, Zed, and opencode can discover them directly.
+
+Claude Code discovery is not configured yet.
+
 ## Review Scope
 
 Tell each agent exactly what to review. If no scope is provided, review the current branch against `main`.
