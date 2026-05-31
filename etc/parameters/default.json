@@ -414,6 +414,7 @@
         "left": 0.0,
         "turn": 0.0
       },
+      "kick_mode_toggle": false,
       "enable": false
     },
     "path_planning": {

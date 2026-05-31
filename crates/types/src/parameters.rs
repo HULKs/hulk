@@ -26,6 +26,7 @@ use crate::{
 )]
 pub struct RemoteControlParameters {
     pub walk: Step,
+    pub kick_mode_toggle: bool,
     pub enable: bool,
 }
 
