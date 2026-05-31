@@ -124,7 +124,7 @@ impl NodeParametersExt for Node {
         let mut bound = self.parameter_binding_state().lock();
         if *bound {
             return Err(ParameterError::AlreadyBound {
-                node_fqn: node_fqn(self),
+                node_fqn: self.node_entity().fully_qualified_name(),
             });
         }
         *bound = true;
@@ -156,7 +156,7 @@ where
     node.register_schema_with_service(&type_info.name, schema)
         .map_err(|source| ParameterError::operation("registering parameter schema", source))?;
 
-    let node_fqn = node_fqn(node);
+    let node_fqn = node.node_entity().fully_qualified_name();
     let snapshot = load_snapshot::<T>(&node_fqn, &parameter_key, &layers, node.clock(), 0)?;
     let snapshot = Arc::new(snapshot);
     let (tx, _rx) = watch::channel(snapshot.clone());
@@ -186,18 +186,6 @@ where
 
 fn self_binding_state(node: &Node) -> Arc<parking_lot::Mutex<bool>> {
     node.parameter_binding_state().clone()
-}
-
-fn node_fqn(node: &Node) -> String {
-    if node.namespace().is_empty() || node.namespace() == "/" {
-        format!("/{}", node.name())
-    } else {
-        format!(
-            "/{}/{}",
-            node.namespace().trim_start_matches('/'),
-            node.name()
-        )
-    }
 }
 
 fn validate_parameter_key(parameter_key: &str) -> Result<()> {
