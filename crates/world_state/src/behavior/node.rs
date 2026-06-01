@@ -95,7 +95,6 @@ pub struct CycleContext {
     world_state: Input<WorldState, "world_state">,
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
-    hsl_network_parameters: Parameter<HslNetworkParameters, "hsl_network">,
     parameters: Parameter<BehaviorParameters, "behavior">,
     free_kick_obstacle_radius: Parameter<f32, "rule_obstacles.free_kick_obstacle_radius">,
 
@@ -211,13 +210,13 @@ impl Behavior {
         self.send_game_controller_return_message(
             context.world_state,
             context.game_controller_address,
-            context.hsl_network_parameters,
+            context.parameters.hsl_network,
             context.hardware,
         )?;
 
         self.send_state_message(
             context.world_state,
-            context.hsl_network_parameters,
+            context.parameters.hsl_network,
             context.remaining_amount_of_messages,
             &mut context.last_sent_message,
             context.hardware,
