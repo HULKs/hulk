@@ -10,11 +10,12 @@ Find changes that add behavior in one surface but forget another surface that us
 - CLI flags, completions, examples, README snippets, and docs pages.
 - Parameter defaults, config files, runtime wiring, deployment files, and robot-specific paths.
 - Consistent names, defaults, units, validation rules, and error behavior across surfaces.
-- Migration paths where old and new surfaces temporarily coexist.
+- Compatibility and migration paths for renamed, removed, or changed fields, flags, topics, parameters, messages, schemas, generated code, or public APIs.
+- Old and new surfaces that temporarily coexist with inconsistent semantics or stale generated artifacts.
 
 ## Severity Guidance
 
-- `blocking`: a feature is unreachable, silently misconfigured, or exposed with conflicting behavior across surfaces.
+- `blocking`: a feature is unreachable, silently misconfigured, exposed with conflicting behavior across surfaces, or breaks an existing public surface without an intentional migration path.
 - `important`: a likely user or tool surface is missing or inconsistent.
 - `suggestion`: naming or documentation could align better across surfaces.
 
@@ -26,3 +27,4 @@ Report only surface consistency findings. Name the changed surface, the missing 
 
 - Do not require every internal helper to become public.
 - Do not assume a surface must exist without evidence that the repository already exposes similar features there.
+- Do not invent compatibility requirements for purely internal changes with no caller, tool, robot, or generated-code surface.

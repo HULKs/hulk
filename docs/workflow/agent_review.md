@@ -12,13 +12,15 @@ Claude Code discovery is not configured yet.
 
 ## How To Run It
 
-By default, `agent-review` runs all listed review criteria.
+By default, `agent-review` runs all listed review criteria. If no scope is provided, it reviews the current branch from the merge-base with `main`, falling back to `origin/main` when needed.
+
+The skill may run cheap, targeted, read-only checks when they directly support a finding. It does not run broad or expensive checks unless requested.
 
 Useful prompts:
 
 | Goal | Example prompt |
 |---|---|
-| Full branch review | `Use agent-review to review the current branch against main.` |
+| All criteria branch review | `Use agent-review to review the current branch against main.` |
 | Non-main base | `Use agent-review to review this branch against integration/ros-z.` |
 | Commit range | `Use agent-review to review commits abc123..def456.` |
 | Staged changes | `Use agent-review to review staged changes only.` |
@@ -37,6 +39,8 @@ If the scope is ambiguous, the agent should ask one short clarification. If the 
 | Rust ownership | Ownership-sensitive API design, function signatures, clones, borrowing, avoidable allocations, and hot-path data movement. |
 | Rust error handling | Panic paths, unwrap, expect, `Result`, error context, and recoverability. |
 | Rust type design | Types that should encode invariants with enums, newtypes, and precise states. |
+| concurrency and lifecycle | Async tasks, channels, locks, cancellation, resource lifetimes, and node lifecycle problems. |
+| runtime performance | Obvious or evidenced timing, latency, throughput, memory growth, and determinism risks. |
 | docs and examples | Missing README, docs, examples, PR testing notes, and user-facing updates. |
 | change minimality | Generated churn, unrelated refactors, over-abstraction, and excessive file movement. |
 | architecture fit | Crate placement, dependency direction, node and framework conventions, and migration consistency. |
@@ -63,7 +67,7 @@ The skill returns findings in this shape:
 
 ## Scope Notes
 
-- Reviewed: actual requested scope.
+- Reviewed: actual requested scope, including base and head commit SHAs when available.
 - Criteria: criteria actually reviewed.
 - Mention areas intentionally not inspected.
 ```
