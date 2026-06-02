@@ -172,6 +172,17 @@ pub async fn hydra_bench(arguments: Arguments, repository: &Repository) -> Resul
         .inspect_err(|_| progress_upload.progress.finish())?;
     progress_upload.finish_with_success(());
 
+    progress_compile.enable_steady_tick();
+    tensorrt_compile::compile_models(
+        &robot,
+        &uploaded_models,
+        arguments.hydra_bench.jobs,
+        &progress_compile.progress,
+    )
+    .await
+    .inspect_err(|_| progress_compile.progress.finish())?;
+    progress_compile.finish_with_success(());
+
     progress_benchmark.enable_steady_tick();
     robot
         .ssh_to_robot()?
@@ -183,17 +194,6 @@ pub async fn hydra_bench(arguments: Arguments, repository: &Repository) -> Resul
         )
         .await
         .inspect_err(|_| progress_benchmark.progress.finish())?;
-
-    progress_compile.enable_steady_tick();
-    tensorrt_compile::compile_models(
-        &robot,
-        &uploaded_models,
-        arguments.hydra_bench.jobs,
-        &progress_compile.progress,
-    )
-    .await
-    .inspect_err(|_| progress_compile.progress.finish())?;
-    progress_compile.finish_with_success(());
 
     let mut result_paths = Vec::new();
     for (onnx_path, uploaded_model) in onnx_paths.iter().zip(uploaded_models) {
