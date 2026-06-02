@@ -1,11 +1,11 @@
 ---
 name: agent-review
-description: Use when reviewing PRs, branch diffs, staged changes, commit ranges, or local diffs for agent-review or retired review-* requests, including rust-ownership clones borrowing collect, rust-error-handling unwrap expect panic, rust-type-design, tests behavioral coverage brittle assertions, docs examples, config deployment, architecture fit, api-surface-consistency CLI schema consistency, duplicate concepts, semantic usefulness, change minimality, and atomicity splitting.
+description: Use when reviewing PRs, branch diffs, staged changes, commit ranges, or local diffs for agent-review or retired review-* requests, including rust-ownership clones borrowing collect, rust-error-handling unwrap expect panic, rust-type-design, docs examples, config deployment, architecture fit, api-surface-consistency CLI schema consistency, duplicate concepts, semantic usefulness, change minimality, and atomicity splitting.
 ---
 
 # Agent Review
 
-Run focused pre-review checks before human review. By default, review all criteria in `references/`. If the caller names criteria, review only those criteria.
+Run focused pre-review checks before human review. By default, review all criteria listed below. If the caller names criteria, review only those criteria.
 
 ## Scope
 
@@ -28,7 +28,6 @@ Default criteria:
 | Rust ownership | `references/rust-ownership.md` |
 | Rust error handling | `references/rust-error-handling.md` |
 | Rust type design | `references/rust-type-design.md` |
-| behavioral test coverage | `references/tests-behavioral-coverage.md` |
 | docs and examples | `references/docs-and-examples.md` |
 | change minimality | `references/change-minimality.md` |
 | architecture fit | `references/architecture-fit.md` |
@@ -36,7 +35,7 @@ Default criteria:
 | semantic usefulness | `references/semantic-usefulness.md` |
 | atomicity and splitting | `references/atomicity-and-splitting.md` |
 
-Accept common aliases such as `rust-ownership`, `api-surface`, `tests`, `docs`, `config`, `architecture`, `minimality`, `atomicity`, and `duplicates`.
+Accept common aliases such as `rust-ownership`, `api-surface`, `docs`, `config`, `architecture`, `minimality`, `atomicity`, and `duplicates`.
 
 ## Execution
 
@@ -53,7 +52,7 @@ Each subagent returns only findings for its criterion. Combine reports by dedupl
 ## Severity
 
 - `blocking`: likely bug, broken public contract, unsafe migration, misleading behavior, or reviewability problem that should stop merge.
-- `important`: quality, maintainability, consistency, or test gap that should usually be fixed before merge.
+- `important`: quality, maintainability, or consistency gap that should usually be fixed before merge.
 - `suggestion`: small improvement or question that may be worth addressing but should not block by itself.
 
 ## Output

@@ -12,7 +12,7 @@ Claude Code discovery is not configured yet.
 
 ## How To Run It
 
-By default, `agent-review` runs all review criteria in `.agents/skills/agent-review/references/`.
+By default, `agent-review` runs all listed review criteria.
 
 Useful prompts:
 
@@ -37,7 +37,6 @@ If the scope is ambiguous, the agent should ask one short clarification. If the 
 | Rust ownership | Ownership-sensitive API design, function signatures, clones, borrowing, avoidable allocations, and hot-path data movement. |
 | Rust error handling | Panic paths, unwrap, expect, `Result`, error context, and recoverability. |
 | Rust type design | Types that should encode invariants with enums, newtypes, and precise states. |
-| behavioral test coverage | Missing behavioral tests, weak edge cases, and brittle implementation assertions. |
 | docs and examples | Missing README, docs, examples, PR testing notes, and user-facing updates. |
 | change minimality | Generated churn, unrelated refactors, over-abstraction, and excessive file movement. |
 | architecture fit | Crate placement, dependency direction, node and framework conventions, and migration consistency. |
