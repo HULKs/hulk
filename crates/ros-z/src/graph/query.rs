@@ -15,7 +15,7 @@ pub struct QosIncompatibility {
     pub compatibility: QosCompatibility,
 }
 
-/// A parsed snapshot view of graph entities while the graph lock is held.
+/// A snapshot view of graph entities while the graph lock is held.
 ///
 /// Do not hold a `GraphView` across `.await` points or while calling other `Graph` methods.
 pub struct GraphView<'a> {
@@ -23,7 +23,7 @@ pub struct GraphView<'a> {
 }
 
 impl Graph {
-    /// Returns a parsed view of the graph while holding the graph lock.
+    /// Returns a view of the graph while holding the graph lock.
     ///
     /// Drop the returned `GraphView` before any `.await` point or before calling other `Graph`
     /// methods; those operations may need the same lock.
