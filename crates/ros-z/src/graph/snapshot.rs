@@ -2,8 +2,6 @@ use std::time::SystemTime;
 
 use serde::Serialize;
 
-use crate::entity::EntityKind;
-
 use super::Graph;
 
 /// A serializable snapshot of the native ros-z graph state
@@ -43,16 +41,13 @@ impl Graph {
     /// This captures topics, nodes, and services with their metadata,
     /// suitable for JSON serialization or other export formats.
     pub fn snapshot(&self) -> GraphSnapshot {
-        let topics: Vec<TopicSnapshot> = self
-            .get_topic_names_and_types()
+        let view = self.view();
+        let topics: Vec<TopicSnapshot> = view
+            .topic_names_and_types()
             .into_iter()
             .map(|(name, type_name)| {
-                let publishers = self
-                    .get_entities_by_topic(EntityKind::Publisher, &name)
-                    .len();
-                let subscribers = self
-                    .get_entities_by_topic(EntityKind::Subscription, &name)
-                    .len();
+                let publishers = view.publishers_on(&name).len();
+                let subscribers = view.subscriptions_on(&name).len();
                 TopicSnapshot {
                     name,
                     type_name,
@@ -62,14 +57,14 @@ impl Graph {
             })
             .collect();
 
-        let nodes: Vec<NodeSnapshot> = self
-            .get_node_names()
+        let nodes: Vec<NodeSnapshot> = view
+            .node_names()
             .into_iter()
             .map(|(name, namespace)| NodeSnapshot { name, namespace })
             .collect();
 
-        let services: Vec<ServiceSnapshot> = self
-            .get_service_names_and_types()
+        let services: Vec<ServiceSnapshot> = view
+            .service_names_and_types()
             .into_iter()
             .map(|(name, type_name)| ServiceSnapshot { name, type_name })
             .collect();

@@ -358,6 +358,57 @@ mod tests {
         Ok(())
     }
 
+    #[tokio::test(flavor = "multi_thread")]
+    async fn graph_view_deduplicates_names_and_types() -> Result<()> {
+        let session = zenoh::open(zenoh::Config::default()).await?;
+        let graph = ros_z::graph::Graph::new(&session).await?;
+        let node = NodeEntity::new(
+            session.zid(),
+            41,
+            unique_node_name("graph_view_summary_node"),
+            String::new(),
+        );
+        let topic = unique_graph_name("graph_view_summary_topic");
+        let service = unique_graph_name("graph_view_summary_service");
+        let type_info = TypeInfo::new("std_msgs::String", SchemaHash::zero());
+
+        for (id, kind, name) in [
+            (42, EndpointKind::Publisher, topic.clone()),
+            (43, EndpointKind::Subscription, topic.clone()),
+            (44, EndpointKind::Service, service.clone()),
+            (45, EndpointKind::Client, service.clone()),
+        ] {
+            graph.add_local_entity(Entity::Endpoint(EndpointEntity {
+                id,
+                node: node.clone(),
+                kind,
+                topic: name,
+                type_info: type_info.clone(),
+                qos: Default::default(),
+            }))?;
+        }
+
+        let view = graph.view();
+        assert_eq!(
+            view.topic_names_and_types()
+                .into_iter()
+                .filter(|(name, _)| name == &topic)
+                .count(),
+            1,
+        );
+        assert_eq!(
+            view.service_names_and_types()
+                .into_iter()
+                .filter(|(name, _)| name == &service)
+                .count(),
+            1,
+        );
+
+        drop(view);
+        session.close().await?;
+        Ok(())
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn node_exists_returns_false_after_only_node_removed() -> Result<()> {
         let session = zenoh::open(zenoh::Config::default()).await?;
