@@ -1,7 +1,5 @@
-use std::sync::Arc;
-
 use color_eyre::eyre::{Result, eyre};
-use ros_z::entity::{EndpointKind, Entity};
+use ros_z::entity::EndpointKind;
 
 use crate::{
     app::AppContext,
@@ -9,7 +7,7 @@ use crate::{
     model::info::{NodeInfo, ServiceInfo, TopicInfo},
     render::{OutputMode, json, text},
     support::{
-        endpoints::{named_types, summarize_endpoints},
+        endpoints::{named_types, summarize_endpoint_entities},
         nodes::{can_resolve_node_target, graph_node_key, resolve_node_target},
     },
 };
@@ -44,21 +42,13 @@ async fn render_topic_info(app: &AppContext, output_mode: OutputMode, topic: &st
         .into_iter()
         .find_map(|(name, type_name)| (name == topic).then_some(type_name))
         .ok_or_else(|| eyre!("topic not found: {topic}"))?;
+    let publishers = view.publishers_on(topic);
+    let subscribers = view.subscriptions_on(topic);
     let info = TopicInfo::new(
         topic.to_string(),
         type_name,
-        summarize_endpoints(
-            view.publishers_on(topic)
-                .into_iter()
-                .map(|endpoint| Arc::new(Entity::Endpoint(endpoint)))
-                .collect(),
-        ),
-        summarize_endpoints(
-            view.subscriptions_on(topic)
-                .into_iter()
-                .map(|endpoint| Arc::new(Entity::Endpoint(endpoint)))
-                .collect(),
-        ),
+        summarize_endpoint_entities(&publishers),
+        summarize_endpoint_entities(&subscribers),
     );
 
     match output_mode {
@@ -91,21 +81,13 @@ async fn render_service_info(
         .into_iter()
         .find_map(|(name, type_name)| (name == service).then_some(type_name))
         .ok_or_else(|| eyre!("service not found: {service}"))?;
+    let services = view.services_named(service);
+    let clients = view.clients_named(service);
     let info = ServiceInfo::new(
         service.to_string(),
         type_name,
-        summarize_endpoints(
-            view.services_named(service)
-                .into_iter()
-                .map(|endpoint| Arc::new(Entity::Endpoint(endpoint)))
-                .collect(),
-        ),
-        summarize_endpoints(
-            view.clients_named(service)
-                .into_iter()
-                .map(|endpoint| Arc::new(Entity::Endpoint(endpoint)))
-                .collect(),
-        ),
+        summarize_endpoint_entities(&services),
+        summarize_endpoint_entities(&clients),
     );
 
     match output_mode {

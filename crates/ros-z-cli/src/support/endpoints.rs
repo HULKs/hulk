@@ -5,18 +5,25 @@ use ros_z::entity::Entity;
 use crate::model::info::{EndpointSummary, NamedType};
 
 pub fn summarize_endpoints(entities: Vec<Arc<Entity>>) -> Vec<EndpointSummary> {
-    let mut endpoints = BTreeSet::new();
+    let endpoints = entities.iter().filter_map(|entity| match &**entity {
+        Entity::Endpoint(endpoint) => Some(endpoint),
+        Entity::Node(_) => None,
+    });
+    summarize_endpoint_entities(endpoints)
+}
 
-    for entity in entities {
-        let Entity::Endpoint(endpoint) = &*entity else {
-            continue;
-        };
+pub fn summarize_endpoint_entities<'a>(
+    endpoints: impl IntoIterator<Item = &'a ros_z::entity::EndpointEntity>,
+) -> Vec<EndpointSummary> {
+    let mut summaries = BTreeSet::new();
+
+    for endpoint in endpoints {
         let node = endpoint.node.fully_qualified_name();
         let schema_hash = endpoint.type_info.hash.to_string();
-        endpoints.insert((node, schema_hash));
+        summaries.insert((node, schema_hash));
     }
 
-    endpoints
+    summaries
         .into_iter()
         .map(|(node, schema_hash)| EndpointSummary { node, schema_hash })
         .collect()

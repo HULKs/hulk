@@ -118,13 +118,15 @@ async fn wait_for_count_matching(
     let start = std::time::Instant::now();
     let timeout = Duration::from_millis(timeout_ms);
     loop {
-        let view = node.graph().view();
-        let count = match kind {
-            EntityKind::Node => 0,
-            EntityKind::Publisher => view.publishers_on(name).len(),
-            EntityKind::Subscription => view.subscriptions_on(name).len(),
-            EntityKind::Service => view.services_named(name).len(),
-            EntityKind::Client => view.clients_named(name).len(),
+        let count = {
+            let view = node.graph().view();
+            match kind {
+                EntityKind::Node => 0,
+                EntityKind::Publisher => view.publishers_on(name).len(),
+                EntityKind::Subscription => view.subscriptions_on(name).len(),
+                EntityKind::Service => view.services_named(name).len(),
+                EntityKind::Client => view.clients_named(name).len(),
+            }
         };
         if matches(count) {
             return Ok(true);

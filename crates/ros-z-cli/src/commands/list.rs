@@ -60,12 +60,9 @@ fn render_services(output_mode: OutputMode, app: &AppContext) -> Result<()> {
         .service_names_and_types()
         .into_iter()
         .map(|(name, type_name)| {
-            ServiceSummary::new(
-                name.clone(),
-                type_name,
-                view.services_named(&name).len(),
-                view.clients_named(&name).len(),
-            )
+            let service_count = view.services_named(&name).len();
+            let client_count = view.clients_named(&name).len();
+            ServiceSummary::new(name, type_name, service_count, client_count)
         })
         .collect();
     services.sort_by(|left, right| left.name.cmp(&right.name));
