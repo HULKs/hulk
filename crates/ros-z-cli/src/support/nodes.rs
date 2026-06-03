@@ -83,11 +83,14 @@ pub fn fully_qualified_node_name(namespace: &str, name: &str) -> String {
 }
 
 fn node_candidates(graph: &ros_z::graph::Graph) -> Vec<NodeTarget> {
-    let mut nodes = BTreeSet::new();
-    for (name, namespace) in graph.get_node_names() {
-        nodes.insert(NodeTarget::new(namespace, name));
-    }
-    nodes.into_iter().collect()
+    graph
+        .view()
+        .node_names()
+        .into_iter()
+        .map(|(name, namespace)| NodeTarget::new(namespace, name))
+        .collect::<BTreeSet<_>>()
+        .into_iter()
+        .collect()
 }
 
 fn normalize_node_namespace(namespace: &str) -> String {

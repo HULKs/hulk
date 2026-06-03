@@ -65,7 +65,8 @@ pub async fn run(
 
 fn verify_schema_capability(graph: &ros_z::graph::Graph, node_fqn: &str) -> Result<()> {
     let services = graph
-        .get_service_names_and_types()
+        .view()
+        .service_names_and_types()
         .into_iter()
         .map(|(name, _)| name)
         .collect();

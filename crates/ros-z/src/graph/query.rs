@@ -1,13 +1,8 @@
-use std::{
-    collections::{BTreeMap, BTreeSet},
-    sync::Arc,
-};
+use std::collections::BTreeMap;
 
 use parking_lot::MutexGuard;
 
-use crate::entity::{
-    EndpointEntity, EndpointKind, Entity, EntityKind, NodeEntity, NodeKey, node_key,
-};
+use crate::entity::{EndpointEntity, EndpointKind, Entity, NodeEntity, NodeKey, node_key};
 use crate::qos::{QosCompatibility, QosProfile};
 
 use super::{Graph, state::GraphData};
@@ -142,57 +137,6 @@ impl GraphView<'_> {
 }
 
 impl Graph {
-    pub fn count(&self, kind: EntityKind, name: impl AsRef<str>) -> usize {
-        let view = self.view();
-        let name = name.as_ref();
-        match kind {
-            EntityKind::Node => 0,
-            EntityKind::Publisher => view
-                .endpoints()
-                .filter(|endpoint| {
-                    endpoint.kind == EndpointKind::Publisher && endpoint.topic == name
-                })
-                .count(),
-            EntityKind::Subscription => view
-                .endpoints()
-                .filter(|endpoint| {
-                    endpoint.kind == EndpointKind::Subscription && endpoint.topic == name
-                })
-                .count(),
-            EntityKind::Service => view
-                .endpoints()
-                .filter(|endpoint| endpoint.kind == EndpointKind::Service && endpoint.topic == name)
-                .count(),
-            EntityKind::Client => view
-                .endpoints()
-                .filter(|endpoint| endpoint.kind == EndpointKind::Client && endpoint.topic == name)
-                .count(),
-        }
-    }
-
-    pub fn get_entities_by_topic(
-        &self,
-        kind: EntityKind,
-        topic: impl AsRef<str>,
-    ) -> Vec<Arc<Entity>> {
-        let view = self.view();
-        let topic = topic.as_ref();
-        match kind {
-            EntityKind::Publisher | EntityKind::Subscription => view
-                .entities()
-                .filter(|entity| match entity {
-                    Entity::Endpoint(endpoint) => {
-                        endpoint.entity_kind() == kind && endpoint.topic == topic
-                    }
-                    Entity::Node(_) => false,
-                })
-                .cloned()
-                .map(Arc::new)
-                .collect(),
-            EntityKind::Node | EntityKind::Service | EntityKind::Client => Vec::new(),
-        }
-    }
-
     pub fn qos_incompatibilities_for_topic(
         &self,
         topic: impl AsRef<str>,
@@ -233,110 +177,5 @@ impl Graph {
         }
 
         diagnostics
-    }
-
-    pub fn get_entities_by_node(&self, kind: EntityKind, node: NodeKey) -> Vec<EndpointEntity> {
-        if kind == EntityKind::Node {
-            return Vec::new();
-        }
-
-        self.view()
-            .endpoints()
-            .filter(|endpoint| node_key(&endpoint.node) == node)
-            .filter(|endpoint| endpoint.entity_kind() == kind)
-            .cloned()
-            .collect()
-    }
-
-    pub fn count_by_service(&self, kind: EntityKind, service_name: impl AsRef<str>) -> usize {
-        if kind == EntityKind::Node {
-            return 0;
-        }
-        assert!(
-            matches!(kind, EntityKind::Service | EntityKind::Client),
-            "EntityKind::Service | EntityKind::Client"
-        );
-        let view = self.view();
-        let service_name = service_name.as_ref();
-        match kind {
-            EntityKind::Service => view
-                .endpoints()
-                .filter(|endpoint| {
-                    endpoint.kind == EndpointKind::Service && endpoint.topic == service_name
-                })
-                .count(),
-            EntityKind::Client => view
-                .endpoints()
-                .filter(|endpoint| {
-                    endpoint.kind == EndpointKind::Client && endpoint.topic == service_name
-                })
-                .count(),
-            EntityKind::Node | EntityKind::Publisher | EntityKind::Subscription => unreachable!(),
-        }
-    }
-
-    pub fn get_entities_by_service(
-        &self,
-        kind: EntityKind,
-        service_name: impl AsRef<str>,
-    ) -> Vec<Arc<Entity>> {
-        if kind == EntityKind::Node {
-            return Vec::new();
-        }
-        assert!(
-            matches!(kind, EntityKind::Service | EntityKind::Client),
-            "EntityKind::Service | EntityKind::Client"
-        );
-        let view = self.view();
-        let service_name = service_name.as_ref();
-        match kind {
-            EntityKind::Service | EntityKind::Client => view
-                .entities()
-                .filter(|entity| match entity {
-                    Entity::Endpoint(endpoint) => {
-                        endpoint.entity_kind() == kind && endpoint.topic == service_name
-                    }
-                    Entity::Node(_) => false,
-                })
-                .cloned()
-                .map(Arc::new)
-                .collect(),
-            EntityKind::Node | EntityKind::Publisher | EntityKind::Subscription => unreachable!(),
-        }
-    }
-
-    pub fn get_service_names_and_types(&self) -> Vec<(String, String)> {
-        self.view().service_names_and_types()
-    }
-
-    pub fn get_topic_names_and_types(&self) -> Vec<(String, String)> {
-        self.view().topic_names_and_types()
-    }
-
-    pub fn get_names_and_types_by_node(
-        &self,
-        requested_node: NodeKey,
-        kind: EntityKind,
-    ) -> Vec<(String, String)> {
-        if kind == EntityKind::Node {
-            return Vec::new();
-        }
-
-        self.view()
-            .endpoints()
-            .filter(|endpoint| node_key(&endpoint.node) == requested_node)
-            .filter(|endpoint| endpoint.entity_kind() == kind)
-            .map(|endpoint| (endpoint.topic.clone(), endpoint.type_info.name.clone()))
-            .collect::<BTreeSet<_>>()
-            .into_iter()
-            .collect()
-    }
-
-    pub fn node_exists(&self, node_key: NodeKey) -> bool {
-        self.view().node_exists(&node_key)
-    }
-
-    pub fn get_node_names(&self) -> Vec<(String, String)> {
-        self.view().node_names()
     }
 }

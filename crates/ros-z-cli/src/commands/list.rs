@@ -1,5 +1,4 @@
 use color_eyre::eyre::Result;
-use ros_z::entity::EntityKind;
 
 use crate::{
     app::AppContext,
@@ -39,7 +38,8 @@ fn render_topics(output_mode: OutputMode, app: &AppContext) -> Result<()> {
 fn render_nodes(output_mode: OutputMode, app: &AppContext) -> Result<()> {
     let mut nodes: Vec<_> = app
         .graph()
-        .get_node_names()
+        .view()
+        .node_names()
         .into_iter()
         .map(|(name, namespace)| NodeSummary::new(name, namespace))
         .collect();
@@ -55,16 +55,16 @@ fn render_nodes(output_mode: OutputMode, app: &AppContext) -> Result<()> {
 }
 
 fn render_services(output_mode: OutputMode, app: &AppContext) -> Result<()> {
-    let graph = app.graph();
-    let mut services: Vec<_> = graph
-        .get_service_names_and_types()
+    let view = app.graph().view();
+    let mut services: Vec<_> = view
+        .service_names_and_types()
         .into_iter()
         .map(|(name, type_name)| {
             ServiceSummary::new(
                 name.clone(),
                 type_name,
-                graph.count_by_service(EntityKind::Service, &name),
-                graph.count_by_service(EntityKind::Client, &name),
+                view.services_named(&name).len(),
+                view.clients_named(&name).len(),
             )
         })
         .collect();
