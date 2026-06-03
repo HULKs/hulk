@@ -239,7 +239,7 @@ mod tests {
         graph.add_local_entity(Entity::Endpoint(subscription.clone()))?;
         graph.add_local_entity(Entity::Endpoint(service_endpoint.clone()))?;
 
-        let view = graph.view();
+        let view: ros_z::graph::GraphView<'_> = graph.view();
         assert!(view.nodes().any(|candidate| candidate == &node));
         assert!(view.endpoints().any(|candidate| candidate == &publisher));
         assert_eq!(view.publishers_on(&topic), vec![publisher.clone()]);

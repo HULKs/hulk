@@ -8,7 +8,7 @@ mod snapshot;
 mod state;
 
 use discovery::install_liveliness;
-pub use query::QosIncompatibility;
+pub use query::{GraphView, QosIncompatibility};
 pub use snapshot::{GraphSnapshot, NodeSnapshot, ServiceSnapshot, TopicSnapshot};
 use state::GraphData;
 
