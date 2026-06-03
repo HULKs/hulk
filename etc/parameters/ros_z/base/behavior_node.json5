@@ -1,6 +1,7 @@
 {
   injected_motion_command: null,
   goal_keeper_number: "One",
+  last_man_standing: false,
   allow_switch: {
     damping: { secs: 0, nanos: 0 },
     kick: { nanos: 500000000, secs: 0 },
@@ -79,6 +80,17 @@
     striker_supporter_minimum_x: -2.0,
     keeper_x_offset: 0.1,
     keeper_passive_distance: 4.5,
+    keeper_ball_near_own_goal_distance: 4.5,
+    keeper_clear_ball_maximum_velocity: 0.75,
+    keeper_clear_ball_maximum_robot_distance: 1.5,
+    keeper_visual_kick_hold_duration: {
+      nanos: 700000000,
+      secs: 0,
+    },
+    keeper_active_defense_x_offset: 0.7,
+    keeper_active_defense_center_forward_offset: 0.4,
+    keeper_active_defense_line_width_half: 1.5,
+    keeper_active_defense_maximum_robot_distance: 2.0,
     striker_distance_to_non_free_center_circle: 0.4,
     striker_kickoff_position: [-0.5, 0.0],
   },

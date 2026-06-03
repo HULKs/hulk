@@ -12,6 +12,7 @@ use crate::{
     behavior::{
         action::stand,
         behavior_tree::Node,
+        condition::is_goalkeeper_visual_kick_hold_active,
         node::Blackboard,
         switch_motion_type::{is_last_motion_type, switch_motion_type},
         walk::walk_to_ball,
@@ -34,12 +35,34 @@ pub fn kick_subtree() -> Node<Blackboard> {
 pub fn goalkeeper_clear_kick_subtree() -> Node<Blackboard> {
     switch_motion_type(
         MotionType::Kick,
-        sequence!(
-            action!(kick),
-            action!(select_goalkeeper_clear_kick_target),
-            subtree!(kick_power_subtree),
+        subtree!(goalkeeper_clear_kick_action_subtree),
+        subtree!(kick_alternatives_subtree),
+    )
+}
+
+pub fn goalkeeper_intercept_kick_subtree() -> Node<Blackboard> {
+    switch_motion_type(
+        MotionType::Kick,
+        selection!(
+            sequence!(
+                action!(kick),
+                action!(intercept),
+                action!(use_kick_power, KickPower::Rumpelstilzchen),
+            ),
+            sequence!(
+                condition!(is_goalkeeper_visual_kick_hold_active),
+                subtree!(goalkeeper_clear_kick_action_subtree),
+            ),
         ),
         subtree!(kick_alternatives_subtree),
+    )
+}
+
+fn goalkeeper_clear_kick_action_subtree() -> Node<Blackboard> {
+    sequence!(
+        action!(kick),
+        action!(select_goalkeeper_clear_kick_target),
+        action!(use_kick_power, KickPower::Rumpelstilzchen),
     )
 }
 
