@@ -233,13 +233,30 @@ mod tests {
             type_info: TypeInfo::new("test_msgs::AddTwoInts", SchemaHash::zero()),
             qos: Default::default(),
         };
+        let client_endpoint = EndpointEntity {
+            id: 35,
+            node: node.clone(),
+            kind: EndpointKind::Client,
+            topic: service.clone(),
+            type_info: TypeInfo::new("test_msgs::AddTwoInts", SchemaHash::zero()),
+            qos: Default::default(),
+        };
 
         graph.add_local_entity(Entity::Node(node.clone()))?;
         graph.add_local_entity(Entity::Endpoint(publisher.clone()))?;
         graph.add_local_entity(Entity::Endpoint(subscription.clone()))?;
         graph.add_local_entity(Entity::Endpoint(service_endpoint.clone()))?;
+        graph.add_local_entity(Entity::Endpoint(client_endpoint.clone()))?;
 
         let view: ros_z::graph::GraphView<'_> = graph.view();
+        assert!(
+            view.entities()
+                .any(|candidate| candidate == &Entity::Node(node.clone()))
+        );
+        assert!(
+            view.entities()
+                .any(|candidate| candidate == &Entity::Endpoint(publisher.clone()))
+        );
         assert!(view.nodes().any(|candidate| candidate == &node));
         assert!(view.endpoints().any(|candidate| candidate == &publisher));
         assert_eq!(view.publishers_on(&topic), vec![publisher.clone()]);
@@ -248,12 +265,25 @@ mod tests {
             view.services_named(&service),
             vec![service_endpoint.clone()]
         );
+        assert_eq!(view.clients_named(&service), vec![client_endpoint]);
         assert_eq!(
             view.endpoints_for_node(ros_z::entity::node_key(&node))
                 .len(),
-            3
+            4
         );
         assert!(view.node_exists(&ros_z::entity::node_key(&node)));
+        assert!(
+            view.topic_names_and_types()
+                .contains(&(topic, "std_msgs::String".to_string()))
+        );
+        assert!(
+            view.service_names_and_types()
+                .contains(&(service, "test_msgs::AddTwoInts".to_string()))
+        );
+        assert!(
+            view.node_names()
+                .contains(&(node.name.clone(), "/".to_string()))
+        );
 
         drop(view);
         session.close().await?;
