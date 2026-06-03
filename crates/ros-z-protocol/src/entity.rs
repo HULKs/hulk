@@ -2,6 +2,7 @@
 
 use core::{fmt::Display, ops::Deref};
 pub use ros_z_schema::SchemaHash;
+use serde::{Deserialize, Serialize};
 use std::string::String;
 use zenoh::{key_expr::KeyExpr, session::ZenohId};
 
@@ -47,6 +48,50 @@ impl Deref for TopicKE {
 impl Display for TopicKE {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
         write!(f, "{}", self.0)
+    }
+}
+
+/// Number of bytes in an endpoint global identifier.
+pub const ENDPOINT_GLOBAL_ID_SIZE: usize = 16;
+
+/// Stable protocol-visible identifier for a ros-z endpoint.
+///
+/// Use `EndpointGlobalId::from(&endpoint)` to derive the identifier from an
+/// [`EndpointEntity`]. Use [`EndpointGlobalId::as_bytes`] or
+/// [`EndpointGlobalId::into_bytes`] when raw wire-layout bytes are needed.
+#[derive(Clone, Copy, Debug, PartialEq, Eq, PartialOrd, Ord, Hash, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct EndpointGlobalId([u8; ENDPOINT_GLOBAL_ID_SIZE]);
+
+impl EndpointGlobalId {
+    /// All-zero endpoint identifier.
+    pub const ZERO: Self = Self([0; ENDPOINT_GLOBAL_ID_SIZE]);
+
+    /// Create an endpoint global identifier from its raw bytes.
+    pub fn new(bytes: [u8; ENDPOINT_GLOBAL_ID_SIZE]) -> Self {
+        Self(bytes)
+    }
+
+    /// Return the raw endpoint identifier bytes.
+    pub fn as_bytes(&self) -> &[u8; ENDPOINT_GLOBAL_ID_SIZE] {
+        &self.0
+    }
+
+    /// Return the raw endpoint identifier bytes.
+    pub fn into_bytes(self) -> [u8; ENDPOINT_GLOBAL_ID_SIZE] {
+        self.0
+    }
+}
+
+impl From<[u8; ENDPOINT_GLOBAL_ID_SIZE]> for EndpointGlobalId {
+    fn from(bytes: [u8; ENDPOINT_GLOBAL_ID_SIZE]) -> Self {
+        Self::new(bytes)
+    }
+}
+
+impl From<EndpointGlobalId> for [u8; ENDPOINT_GLOBAL_ID_SIZE] {
+    fn from(value: EndpointGlobalId) -> Self {
+        value.into_bytes()
     }
 }
 
@@ -252,6 +297,20 @@ impl EndpointEntity {
     }
 }
 
+impl From<&EndpointEntity> for EndpointGlobalId {
+    fn from(endpoint: &EndpointEntity) -> Self {
+        use sha2::Digest;
+
+        let mut hasher = sha2::Sha256::new();
+        hasher.update(endpoint.node.z_id.to_le_bytes());
+        hasher.update((endpoint.id as u64).to_le_bytes());
+        let hash = hasher.finalize();
+        let mut bytes = [0u8; ENDPOINT_GLOBAL_ID_SIZE];
+        bytes.copy_from_slice(&hash[..ENDPOINT_GLOBAL_ID_SIZE]);
+        Self::new(bytes)
+    }
+}
+
 /// Generic ros-z entity (node or endpoint).
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum Entity {
@@ -319,8 +378,8 @@ pub enum EntityConversionError {
 #[cfg(test)]
 mod tests {
     use super::{
-        EndpointEntity, EndpointKind, Entity, EntityKind, NodeEntity, SchemaHash, TypeInfo,
-        normalize_node_namespace,
+        ENDPOINT_GLOBAL_ID_SIZE, EndpointEntity, EndpointGlobalId, EndpointKind, Entity,
+        EntityKind, NodeEntity, SchemaHash, TypeInfo, normalize_node_namespace,
     };
     use crate::qos::QosProfile;
 
@@ -338,6 +397,17 @@ mod tests {
             id: 2,
             node: node("/robot"),
             kind,
+            topic: "/topic".to_string(),
+            type_info: TypeInfo::new("std_msgs::String", SchemaHash::zero()),
+            qos: QosProfile::default(),
+        }
+    }
+
+    fn endpoint_with_id(id: usize) -> EndpointEntity {
+        EndpointEntity {
+            id,
+            node: node("/robot"),
+            kind: EndpointKind::Publisher,
             topic: "/topic".to_string(),
             type_info: TypeInfo::new("std_msgs::String", SchemaHash::zero()),
             qos: QosProfile::default(),
@@ -432,5 +502,62 @@ mod tests {
         let entity = Entity::Endpoint(endpoint);
 
         assert_eq!(entity.liveliness_key_expr().unwrap(), expected);
+    }
+
+    #[test]
+    fn endpoint_global_id_roundtrips_bytes() {
+        let bytes = [7u8; ENDPOINT_GLOBAL_ID_SIZE];
+
+        let id = EndpointGlobalId::new(bytes);
+
+        assert_eq!(id.as_bytes(), &bytes);
+        assert_eq!(id.into_bytes(), bytes);
+        assert_eq!(EndpointGlobalId::from(bytes).as_bytes(), &bytes);
+        let roundtrip: [u8; ENDPOINT_GLOBAL_ID_SIZE] = EndpointGlobalId::from(bytes).into();
+        assert_eq!(roundtrip, bytes);
+    }
+
+    #[test]
+    fn endpoint_global_id_zero_is_all_zero_bytes() {
+        assert_eq!(
+            EndpointGlobalId::ZERO.as_bytes(),
+            &[0u8; ENDPOINT_GLOBAL_ID_SIZE]
+        );
+    }
+
+    #[test]
+    fn endpoint_global_id_is_stable_for_same_node_zenoh_id_and_endpoint_local_id() {
+        let node = node("/");
+        let endpoint = EndpointEntity {
+            node: node.clone(),
+            ..endpoint_with_id(7)
+        };
+        let matching_endpoint = EndpointEntity {
+            node,
+            ..endpoint_with_id(7)
+        };
+
+        assert_eq!(
+            EndpointGlobalId::from(&endpoint),
+            EndpointGlobalId::from(&matching_endpoint)
+        );
+    }
+
+    #[test]
+    fn endpoint_global_id_changes_when_endpoint_local_id_changes() {
+        let node = node("/");
+        let endpoint = EndpointEntity {
+            node: node.clone(),
+            ..endpoint_with_id(7)
+        };
+        let different_endpoint = EndpointEntity {
+            node,
+            ..endpoint_with_id(8)
+        };
+
+        assert_ne!(
+            EndpointGlobalId::from(&endpoint),
+            EndpointGlobalId::from(&different_endpoint)
+        );
     }
 }

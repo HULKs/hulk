@@ -13,7 +13,7 @@ use crate::Result;
 use crate::attachment::{Attachment, EndpointGlobalId};
 use crate::dynamic::{DynamicCdrCodec, DynamicPayload, Schema};
 use crate::encoding::Encoding;
-use crate::entity::{EndpointEntity, endpoint_global_id};
+use crate::entity::EndpointEntity;
 use crate::graph::Graph;
 use crate::message::WireEncoder;
 use crate::pubsub::metadata::PublicationId;
@@ -288,7 +288,7 @@ where
 
         let transient_local_cache = replay::transient_local_cache_capacity(&self.entity.qos)
             .map(|capacity| Arc::new(TransientLocalCache::new(capacity)));
-        let endpoint_global_id = endpoint_global_id(&self.entity);
+        let endpoint_global_id = EndpointGlobalId::from(&self.entity);
 
         Ok((
             data_key_expr,
@@ -452,7 +452,7 @@ where
         trace!(
             "[PUB] Creating attachment: sequence_number={}, endpoint_global_id={:02x?}",
             publication_id.sequence_number(),
-            &publication_id.endpoint_global_id()[..4]
+            &publication_id.endpoint_global_id().as_bytes()[..4]
         );
         Attachment::with_clock(
             publication_id.sequence_number(),
@@ -499,7 +499,7 @@ where
     ) -> Result<(zenoh::bytes::ZBytes, Attachment)> {
         tracing::Span::current().record(
             "endpoint_global_id",
-            format_args!("{:02x?}", publication_id.endpoint_global_id()),
+            format_args!("{:02x?}", publication_id.endpoint_global_id().as_bytes()),
         );
         use zenoh_buffers::buffer::Buffer;
 

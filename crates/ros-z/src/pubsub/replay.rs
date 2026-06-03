@@ -10,7 +10,7 @@ use zenoh::{Session, sample::Sample};
 use super::metadata::{self, PublicationId};
 use crate::Result;
 use crate::attachment::{Attachment, EndpointGlobalId};
-use crate::entity::{EndpointEntity, endpoint_global_id};
+use crate::entity::EndpointEntity;
 use crate::graph::Graph;
 use ros_z_protocol::qos::{QosDurability, QosHistory};
 
@@ -449,6 +449,7 @@ impl TransientLocalCache {
 
 fn format_endpoint_global_id_hex(endpoint_global_id: EndpointGlobalId) -> String {
     endpoint_global_id
+        .as_bytes()
         .iter()
         .map(|byte| format!("{byte:02x}"))
         .collect()
@@ -588,7 +589,7 @@ fn replay_capable_publisher(endpoint: &EndpointEntity) -> Option<(EndpointGlobal
     let QosHistory::KeepLast(depth) = endpoint.qos.history else {
         return None;
     };
-    Some((endpoint_global_id(endpoint), depth))
+    Some((EndpointGlobalId::from(endpoint), depth))
 }
 
 pub(super) fn replay_capable_publishers(
@@ -683,7 +684,7 @@ mod tests {
     #[test]
     fn replay_window_drops_duplicate_publication_ids() {
         let mut delivered = std::collections::HashSet::new();
-        let id = PublicationId::new([1; 16], 7);
+        let id = PublicationId::new(EndpointGlobalId::from([1; 16]), 7);
 
         assert!(should_deliver_replay_id(&mut delivered, Some(id)));
         assert!(!should_deliver_replay_id(&mut delivered, Some(id)));
@@ -746,8 +747,8 @@ mod tests {
 
     #[test]
     fn initial_replay_plan_seeds_seen_with_only_queried_publishers() {
-        let first_publisher_global_id = [1_u8; 16];
-        let second_publisher_global_id = [2_u8; 16];
+        let first_publisher_global_id = EndpointGlobalId::from([1_u8; 16]);
+        let second_publisher_global_id = EndpointGlobalId::from([2_u8; 16]);
 
         let (publishers, seen) = initial_replay_plan([
             (first_publisher_global_id, 1),
@@ -792,7 +793,7 @@ mod tests {
             handler_received.lock().push(sample_payload(&sample));
         });
         let coordinator = Arc::new(TransientLocalReplayCoordinator::new_for_test(3, handler));
-        let publisher_global_id = [3_u8; 16];
+        let publisher_global_id = EndpointGlobalId::from([3_u8; 16]);
 
         coordinator.finish_initial_replay();
         coordinator.begin_late_publisher(publisher_global_id, 2);
@@ -857,7 +858,7 @@ mod tests {
             handler_received.lock().push(sample_payload(&sample));
         });
         let coordinator = Arc::new(TransientLocalReplayCoordinator::new_for_test(3, handler));
-        let publication_id = PublicationId::new([3_u8; 16], 7);
+        let publication_id = PublicationId::new(EndpointGlobalId::from([3_u8; 16]), 7);
 
         coordinator.handle_replay(sample_with_publication_id("replay", publication_id), 0);
         coordinator.handle_replay(
@@ -877,7 +878,7 @@ mod tests {
             handler_received.lock().push(sample_payload(&sample));
         });
         let coordinator = Arc::new(TransientLocalReplayCoordinator::new_for_test(3, handler));
-        let publisher_global_id = [4_u8; 16];
+        let publisher_global_id = EndpointGlobalId::from([4_u8; 16]);
 
         coordinator.finish_initial_replay();
         coordinator.begin_late_publisher(publisher_global_id, 3);
@@ -896,7 +897,7 @@ mod tests {
             handler_received.lock().push(sample_payload(&sample));
         });
         let coordinator = TransientLocalReplayCoordinator::new_for_test(1, handler);
-        let publisher_global_id = [9_u8; 16];
+        let publisher_global_id = EndpointGlobalId::from([9_u8; 16]);
         let mut seen = HashSet::from([publisher_global_id]);
 
         let discovered =
@@ -914,7 +915,7 @@ mod tests {
             handler_received.lock().push(sample_payload(&sample));
         });
         let coordinator = Arc::new(TransientLocalReplayCoordinator::new_for_test(1, handler));
-        let publisher_global_id = [8_u8; 16];
+        let publisher_global_id = EndpointGlobalId::from([8_u8; 16]);
 
         coordinator.handle_replay(sample_with_payload("same"), 0);
         coordinator.finish_initial_replay();
@@ -933,7 +934,7 @@ mod tests {
             handler_received.lock().push(sample_payload(&sample));
         });
         let coordinator = Arc::new(TransientLocalReplayCoordinator::new_for_test(3, handler));
-        let publisher_global_id = [9_u8; 16];
+        let publisher_global_id = EndpointGlobalId::from([9_u8; 16]);
 
         coordinator.finish_initial_replay();
         coordinator.begin_late_publisher(publisher_global_id, 3);
@@ -955,7 +956,7 @@ mod tests {
             handler_received.lock().push(sample_payload(&sample));
         });
         let coordinator = Arc::new(TransientLocalReplayCoordinator::new_for_test(2, handler));
-        let publisher_global_id = [10_u8; 16];
+        let publisher_global_id = EndpointGlobalId::from([10_u8; 16]);
 
         coordinator.finish_initial_replay();
         coordinator.begin_late_publisher(publisher_global_id, 2);
@@ -987,7 +988,7 @@ mod tests {
     fn replay_coordinator_keeps_late_window_active_while_draining() {
         let received = Arc::new(ParkingMutex::new(Vec::new()));
         let coordinator_slot = Arc::new(ParkingMutex::new(None));
-        let publisher_global_id = [5_u8; 16];
+        let publisher_global_id = EndpointGlobalId::from([5_u8; 16]);
 
         let handler_received = received.clone();
         let handler_coordinator = coordinator_slot.clone();
@@ -1047,7 +1048,7 @@ mod tests {
             handler_received.lock().push(sample_payload(&sample));
         });
         let coordinator = Arc::new(TransientLocalReplayCoordinator::new_for_test(3, handler));
-        let publisher_global_id = [6_u8; 16];
+        let publisher_global_id = EndpointGlobalId::from([6_u8; 16]);
         let publication_id = PublicationId::new(publisher_global_id, 7);
 
         coordinator.finish_initial_replay();
@@ -1081,7 +1082,7 @@ mod tests {
             handler,
             cancelled.clone(),
         ));
-        let publisher_global_id = [7_u8; 16];
+        let publisher_global_id = EndpointGlobalId::from([7_u8; 16]);
 
         coordinator.finish_initial_replay();
         coordinator.begin_late_publisher(publisher_global_id, 3);
@@ -1119,8 +1120,8 @@ mod tests {
         let handler = Arc::new(|_sample: Sample| {});
         let coordinator = TransientLocalReplayCoordinator::new_for_test(3, handler);
         let mut seen = HashSet::new();
-        let first_publisher_global_id = [8_u8; 16];
-        let second_publisher_global_id = [9_u8; 16];
+        let first_publisher_global_id = EndpointGlobalId::from([8_u8; 16]);
+        let second_publisher_global_id = EndpointGlobalId::from([9_u8; 16]);
 
         let discovered = begin_unseen_late_publishers(
             &mut seen,
@@ -1158,7 +1159,7 @@ mod tests {
             handler_received.lock().push(sample_payload(&sample));
         });
         let coordinator = Arc::new(TransientLocalReplayCoordinator::new_for_test(3, handler));
-        let publication_id = PublicationId::new([2_u8; 16], 7);
+        let publication_id = PublicationId::new(EndpointGlobalId::from([2_u8; 16]), 7);
 
         coordinator.handle_replay(sample_with_publication_id("replay", publication_id), 0);
         coordinator.finish_initial_replay();

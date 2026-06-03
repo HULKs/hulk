@@ -135,7 +135,7 @@ mod tests {
             transport_time: None,
             source_time: Time::zero(),
             sequence_number: 1,
-            source_global_id: [7; 16],
+            source_global_id: ros_z::EndpointGlobalId::from([7; 16]),
         }
         .publication_id()
     }

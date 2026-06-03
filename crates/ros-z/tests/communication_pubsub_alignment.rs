@@ -105,7 +105,7 @@ async fn publisher_direct_publish_attaches_publication_id() {
 
     assert_eq!(received.message(), &message);
     assert!(
-        received.publication_id().endpoint_global_id() != [0; 16],
+        received.publication_id().endpoint_global_id() != ros_z::EndpointGlobalId::ZERO,
         "direct publish should still carry a publication id"
     );
 }
