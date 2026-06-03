@@ -264,9 +264,11 @@ impl GraphEventManager {
         appeared: bool,
         _local_zid: zenoh::session::ZenohId,
     ) {
-        let change = if appeared { 1 } else { -1 };
+        self.trigger_graph_guard_conditions();
+        self.trigger_endpoint_match_change(entity, appeared);
+    }
 
-        // Trigger graph guard conditions for ALL graph changes (local and remote)
+    pub(crate) fn trigger_graph_guard_conditions(&self) {
         let trigger = self.trigger_guard_condition.lock().unwrap().clone();
         if let Some(trigger) = trigger {
             let guard_conditions = self.graph_guard_conditions.lock().unwrap().clone();
@@ -274,6 +276,10 @@ impl GraphEventManager {
                 trigger(gc_usize as *mut std::ffi::c_void);
             }
         }
+    }
+
+    pub(crate) fn trigger_endpoint_match_change(&self, entity: &Entity, appeared: bool) {
+        let change = if appeared { 1 } else { -1 };
 
         // Determine which event kind based on entity kind
         // When a publisher appears/disappears, subscriptions get SubscriptionMatched events

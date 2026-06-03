@@ -66,8 +66,9 @@ pub(in crate::graph) fn dispatch_graph_mutation(
             event_manager.trigger_graph_change(&entity, false, zid);
         }
         GraphMutation::Replaced { old, new } => {
-            event_manager.trigger_graph_change(&old, false, zid);
-            event_manager.trigger_graph_change(&new, true, zid);
+            event_manager.trigger_graph_guard_conditions();
+            event_manager.trigger_endpoint_match_change(&old, false);
+            event_manager.trigger_endpoint_match_change(&new, true);
         }
         GraphMutation::Unchanged => {}
     }
@@ -184,7 +185,10 @@ impl Graph {
 
 #[cfg(test)]
 mod tests {
-    use std::time::{Duration, SystemTime, UNIX_EPOCH};
+    use std::{
+        sync::atomic::{AtomicUsize, Ordering},
+        time::{Duration, SystemTime, UNIX_EPOCH},
+    };
 
     use crate::{
         Error, Result,
@@ -201,6 +205,40 @@ mod tests {
                 .expect("system clock should be after Unix epoch")
                 .as_nanos()
         )
+    }
+
+    #[test]
+    fn replaced_mutation_triggers_graph_guard_conditions_once() {
+        let event_manager = GraphEventManager::new();
+        let trigger_count = Arc::new(AtomicUsize::new(0));
+        let trigger_count_clone = trigger_count.clone();
+        event_manager.set_guard_condition_trigger(Arc::new(move |_| {
+            trigger_count_clone.fetch_add(1, Ordering::Relaxed);
+        }));
+        event_manager.register_graph_guard_condition(std::ptr::dangling_mut::<std::ffi::c_void>());
+
+        let old = Entity::Node(NodeEntity::new(
+            ZenohId::default(),
+            1,
+            "old_node".to_string(),
+            String::new(),
+        ));
+        let new = Entity::Node(NodeEntity::new(
+            ZenohId::default(),
+            2,
+            "new_node".to_string(),
+            String::new(),
+        ));
+        let change_notify = Notify::new();
+
+        dispatch_graph_mutation(
+            GraphMutation::Replaced { old, new },
+            &event_manager,
+            &change_notify,
+            ZenohId::default(),
+        );
+
+        assert_eq!(trigger_count.load(Ordering::Relaxed), 1);
     }
 
     #[tokio::test(flavor = "multi_thread")]
