@@ -503,7 +503,7 @@
       "maximum_intercept_distance": 1.5
     },
     "kicking": {
-      "allow_schlong": false,
+      "allow_schlong": true,
       "distance_for_kick": 1.5,
       "distance_for_kick_hysteresis": 1.0,
       "distance_to_look_directly_at_the_ball": 4.0,
