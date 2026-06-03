@@ -13,7 +13,7 @@ use crate::Result;
 use crate::attachment::{Attachment, EndpointGlobalId};
 use crate::dynamic::{DynamicCdrCodec, DynamicPayload, Schema};
 use crate::encoding::Encoding;
-use crate::entity::{EndpointEntity, EntityKind, endpoint_global_id};
+use crate::entity::{EndpointEntity, endpoint_global_id};
 use crate::event::EventsManager;
 use crate::graph::Graph;
 use crate::message::WireEncoder;
@@ -385,9 +385,7 @@ where
 {
     /// Return the number of matched subscribers currently visible in the graph.
     pub fn subscriber_count(&self) -> usize {
-        self.graph
-            .get_entities_by_topic(EntityKind::Subscription, &self.entity.topic)
-            .len()
+        self.graph.view().subscriptions_on(&self.entity.topic).len()
     }
 
     /// Return whether at least one subscriber is currently matched.
@@ -419,10 +417,7 @@ where
             let notified = self.graph.change_notify.notified();
             tokio::pin!(notified);
 
-            let n = self
-                .graph
-                .get_entities_by_topic(EntityKind::Subscription, &self.entity.topic)
-                .len();
+            let n = self.graph.view().subscriptions_on(&self.entity.topic).len();
             if n >= count {
                 return true;
             }
@@ -438,11 +433,7 @@ where
                 .is_err()
             {
                 // Timeout — do one final check in case a late notification was missed.
-                return self
-                    .graph
-                    .get_entities_by_topic(EntityKind::Subscription, &self.entity.topic)
-                    .len()
-                    >= count;
+                return self.graph.view().subscriptions_on(&self.entity.topic).len() >= count;
             }
         }
     }

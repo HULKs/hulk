@@ -6,7 +6,7 @@ use itertools::Itertools;
 
 use crate::{
     dynamic::{DynamicError, Schema},
-    entity::{Entity, EntityKind, SchemaHash, TypeInfo},
+    entity::{Entity, SchemaHash, TypeInfo},
     graph::Graph,
     node::Node,
     topic_name::qualify_topic_name,
@@ -93,7 +93,12 @@ fn collect_topic_schema_candidates(
     graph: &Graph,
     qualified_topic: &str,
 ) -> Result<Vec<TopicSchemaCandidate>, DynamicError> {
-    let publishers = graph.get_entities_by_topic(EntityKind::Publisher, qualified_topic);
+    let publishers = graph
+        .view()
+        .publishers_on(qualified_topic)
+        .into_iter()
+        .map(|endpoint| std::sync::Arc::new(Entity::Endpoint(endpoint)))
+        .collect::<Vec<_>>();
 
     collect_topic_schema_candidates_from_publishers(&publishers, qualified_topic)
 }

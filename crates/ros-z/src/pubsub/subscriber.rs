@@ -9,7 +9,7 @@ use zenoh::{Session, sample::Sample};
 
 use crate::Result;
 use crate::dynamic::{DynamicCdrCodec, DynamicPayload, Schema};
-use crate::entity::{EndpointEntity, EntityKind, endpoint_global_id};
+use crate::entity::{EndpointEntity, endpoint_global_id};
 use crate::event::EventsManager;
 use crate::graph::Graph;
 use crate::message::WireDecoder;
@@ -401,10 +401,7 @@ where
             let notified = self.graph.change_notify.notified();
             tokio::pin!(notified);
 
-            let n = self
-                .graph
-                .get_entities_by_topic(EntityKind::Publisher, &self.entity.topic)
-                .len();
+            let n = self.graph.view().publishers_on(&self.entity.topic).len();
             if n >= count {
                 return true;
             }
@@ -418,11 +415,7 @@ where
                 .await
                 .is_err()
             {
-                return self
-                    .graph
-                    .get_entities_by_topic(EntityKind::Publisher, &self.entity.topic)
-                    .len()
-                    >= count;
+                return self.graph.view().publishers_on(&self.entity.topic).len() >= count;
             }
         }
     }
@@ -435,9 +428,7 @@ where
 {
     /// Return the number of matched publishers currently visible in the graph.
     pub fn publisher_count(&self) -> usize {
-        self.graph
-            .get_entities_by_topic(EntityKind::Publisher, &self.entity.topic)
-            .len()
+        self.graph.view().publishers_on(&self.entity.topic).len()
     }
 
     /// Return whether at least one publisher is currently matched.

@@ -4,7 +4,7 @@ use ros_z::{
     Message,
     attachment::Attachment,
     context::ContextBuilder,
-    entity::{EndpointEntity, EndpointKind, Entity, EntityKind, TypeInfo},
+    entity::{EndpointEntity, EndpointKind, TypeInfo},
     message::{SerdeCdrCodec, WireEncoder},
     qos::{QosDurability, QosHistory, QosProfile, QosReliability},
     schema::SchemaBuilder,
@@ -367,12 +367,10 @@ async fn dynamic_publisher_advertises_explicit_schema_hash() {
 
     let endpoint = node
         .graph()
-        .get_entities_by_topic(EntityKind::Publisher, topic)
+        .view()
+        .publishers_on(topic)
         .into_iter()
-        .find_map(|entity| match &*entity {
-            Entity::Endpoint(endpoint) => Some(endpoint.clone()),
-            _ => None,
-        })
+        .find(|endpoint| endpoint.topic == topic)
         .expect("dynamic publisher should be discoverable");
     let advertised = endpoint.type_info;
     let registered = node

@@ -10,7 +10,7 @@ use zenoh::{Session, sample::Sample};
 use super::metadata::{self, PublicationId};
 use crate::Result;
 use crate::attachment::{Attachment, EndpointGlobalId};
-use crate::entity::{Entity, EntityKind, endpoint_global_id, entity_get_endpoint};
+use crate::entity::{EndpointEntity, endpoint_global_id};
 use crate::graph::Graph;
 use ros_z_protocol::qos::{QosDurability, QosHistory};
 
@@ -581,8 +581,7 @@ pub(crate) async fn query_initial_transient_local_replay_async(
     }
 }
 
-fn replay_capable_publisher(entity: &Entity) -> Option<(EndpointGlobalId, usize)> {
-    let endpoint = entity_get_endpoint(entity)?;
+fn replay_capable_publisher(endpoint: &EndpointEntity) -> Option<(EndpointGlobalId, usize)> {
     if !matches!(endpoint.qos.durability, QosDurability::TransientLocal) {
         return None;
     }
@@ -597,9 +596,10 @@ pub(super) fn replay_capable_publishers(
     topic: &str,
 ) -> Vec<(EndpointGlobalId, usize)> {
     graph
-        .get_entities_by_topic(EntityKind::Publisher, topic)
+        .view()
+        .publishers_on(topic)
         .into_iter()
-        .filter_map(|entity| replay_capable_publisher(&entity))
+        .filter_map(|endpoint| replay_capable_publisher(&endpoint))
         .collect()
 }
 
