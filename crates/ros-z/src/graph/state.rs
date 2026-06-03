@@ -234,6 +234,10 @@ impl GraphData {
         }
     }
 
+    #[expect(
+        dead_code,
+        reason = "legacy indexed query path is removed by the canonical graph state refactor"
+    )]
     pub(super) fn visit_by_node<F>(&mut self, node_key: NodeKey, mut f: F)
     where
         F: FnMut(Arc<Entity>),
@@ -275,6 +279,10 @@ impl GraphData {
         }
     }
 
+    #[expect(
+        dead_code,
+        reason = "legacy indexed query path is removed by the canonical graph state refactor"
+    )]
     pub(super) fn visit_by_topic<F>(&mut self, topic: impl AsRef<str>, mut f: F)
     where
         F: FnMut(Arc<Entity>),
@@ -295,6 +303,10 @@ impl GraphData {
         }
     }
 
+    #[expect(
+        dead_code,
+        reason = "legacy indexed query path is removed by the canonical graph state refactor"
+    )]
     pub(super) fn visit_by_service<F>(&mut self, service_name: impl AsRef<str>, mut f: F)
     where
         F: FnMut(Arc<Entity>),
@@ -348,6 +360,14 @@ impl GraphData {
         self.parsed.values().map(Arc::as_ref)
     }
 
+    pub(super) fn entity_arcs(&self) -> impl Iterator<Item = Arc<Entity>> + '_ {
+        self.parsed.values().cloned()
+    }
+
+    #[expect(
+        dead_code,
+        reason = "legacy indexed query path is removed by the canonical graph state refactor"
+    )]
     pub(super) fn service_names_and_types(&mut self) -> Vec<(String, String)> {
         self.parse_pending();
         let mut res = Vec::new();
@@ -373,6 +393,10 @@ impl GraphData {
         res
     }
 
+    #[expect(
+        dead_code,
+        reason = "legacy indexed query path is removed by the canonical graph state refactor"
+    )]
     pub(super) fn topic_names_and_types(&mut self) -> Vec<(String, String)> {
         self.parse_pending();
         let mut res = Vec::new();
@@ -401,6 +425,10 @@ impl GraphData {
         res
     }
 
+    #[expect(
+        dead_code,
+        reason = "legacy indexed query path is removed by the canonical graph state refactor"
+    )]
     pub(super) fn node_exists(&mut self, node_key: NodeKey) -> bool {
         self.parse_pending();
         self.by_node.get_mut(&node_key).is_some_and(|entities| {
@@ -409,6 +437,10 @@ impl GraphData {
         })
     }
 
+    #[expect(
+        dead_code,
+        reason = "legacy indexed query path is removed by the canonical graph state refactor"
+    )]
     pub(super) fn node_names(&mut self) -> Vec<(String, String)> {
         self.parse_pending();
         let mut result = Vec::new();

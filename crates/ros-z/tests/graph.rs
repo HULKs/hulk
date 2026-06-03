@@ -427,6 +427,32 @@ mod tests {
         Ok(())
     }
 
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn node_exists_returns_true_when_only_endpoint_exists() -> Result<()> {
+        let session = zenoh::open(zenoh::Config::default()).await?;
+        let graph = ros_z::graph::Graph::new(&session).await?;
+        let node = NodeEntity::new(
+            session.zid(),
+            2,
+            unique_node_name("endpoint_only_node"),
+            String::new(),
+        );
+        let node_key = ros_z::entity::node_key(&node);
+
+        graph.add_local_entity(Entity::Endpoint(EndpointEntity {
+            id: 3,
+            node,
+            kind: EndpointKind::Publisher,
+            topic: unique_graph_name("endpoint_only_topic"),
+            type_info: TypeInfo::new("std_msgs::String", SchemaHash::zero()),
+            qos: Default::default(),
+        }))?;
+
+        assert!(graph.node_exists(node_key));
+        session.close().await?;
+        Ok(())
+    }
+
     #[tokio::test(flavor = "multi_thread")]
     async fn context_can_skip_initial_graph_liveliness_query() -> Result<()> {
         let _ctx = ContextBuilder::default()

@@ -44,6 +44,10 @@ impl GraphView<'_> {
         self.data.entities()
     }
 
+    fn entity_arcs(&self) -> impl Iterator<Item = Arc<Entity>> + '_ {
+        self.data.entity_arcs()
+    }
+
     pub fn nodes(&self) -> impl Iterator<Item = &NodeEntity> + '_ {
         self.entities().filter_map(|entity| match entity {
             Entity::Node(node) => Some(node),
@@ -82,7 +86,10 @@ impl GraphView<'_> {
     }
 
     pub fn node_exists(&self, node: &NodeKey) -> bool {
-        self.nodes().any(|entity| node_key(entity) == *node)
+        self.entities().any(|entity| match entity {
+            Entity::Node(node_entity) => node_key(node_entity) == *node,
+            Entity::Endpoint(endpoint) => node_key(&endpoint.node) == *node,
+        })
     }
 
     pub fn topic_names_and_types(&self) -> Vec<(String, String)> {
@@ -141,12 +148,29 @@ impl GraphView<'_> {
 impl Graph {
     pub fn count(&self, kind: EntityKind, name: impl AsRef<str>) -> usize {
         let view = self.view();
+        let name = name.as_ref();
         match kind {
             EntityKind::Node => 0,
-            EntityKind::Publisher => view.publishers_on(name).len(),
-            EntityKind::Subscription => view.subscriptions_on(name).len(),
-            EntityKind::Service => view.services_named(name).len(),
-            EntityKind::Client => view.clients_named(name).len(),
+            EntityKind::Publisher => view
+                .endpoints()
+                .filter(|endpoint| {
+                    endpoint.kind == EndpointKind::Publisher && endpoint.topic == name
+                })
+                .count(),
+            EntityKind::Subscription => view
+                .endpoints()
+                .filter(|endpoint| {
+                    endpoint.kind == EndpointKind::Subscription && endpoint.topic == name
+                })
+                .count(),
+            EntityKind::Service => view
+                .endpoints()
+                .filter(|endpoint| endpoint.kind == EndpointKind::Service && endpoint.topic == name)
+                .count(),
+            EntityKind::Client => view
+                .endpoints()
+                .filter(|endpoint| endpoint.kind == EndpointKind::Client && endpoint.topic == name)
+                .count(),
         }
     }
 
@@ -156,14 +180,19 @@ impl Graph {
         topic: impl AsRef<str>,
     ) -> Vec<Arc<Entity>> {
         let view = self.view();
+        let topic = topic.as_ref();
         match kind {
-            EntityKind::Publisher => view.publishers_on(topic),
-            EntityKind::Subscription => view.subscriptions_on(topic),
+            EntityKind::Publisher | EntityKind::Subscription => view
+                .entity_arcs()
+                .filter(|entity| match entity.as_ref() {
+                    Entity::Endpoint(endpoint) => {
+                        endpoint.entity_kind() == kind && endpoint.topic == topic
+                    }
+                    Entity::Node(_) => false,
+                })
+                .collect(),
             EntityKind::Node | EntityKind::Service | EntityKind::Client => Vec::new(),
         }
-        .into_iter()
-        .map(|endpoint| Arc::new(Entity::Endpoint(endpoint)))
-        .collect()
     }
 
     pub fn qos_incompatibilities_for_topic(
@@ -214,9 +243,10 @@ impl Graph {
         }
 
         self.view()
-            .endpoints_for_node(node)
-            .into_iter()
+            .endpoints()
+            .filter(|endpoint| node_key(&endpoint.node) == node)
             .filter(|endpoint| endpoint.entity_kind() == kind)
+            .cloned()
             .collect()
     }
 
@@ -229,9 +259,20 @@ impl Graph {
             "EntityKind::Service | EntityKind::Client"
         );
         let view = self.view();
+        let service_name = service_name.as_ref();
         match kind {
-            EntityKind::Service => view.services_named(service_name).len(),
-            EntityKind::Client => view.clients_named(service_name).len(),
+            EntityKind::Service => view
+                .endpoints()
+                .filter(|endpoint| {
+                    endpoint.kind == EndpointKind::Service && endpoint.topic == service_name
+                })
+                .count(),
+            EntityKind::Client => view
+                .endpoints()
+                .filter(|endpoint| {
+                    endpoint.kind == EndpointKind::Client && endpoint.topic == service_name
+                })
+                .count(),
             EntityKind::Node | EntityKind::Publisher | EntityKind::Subscription => unreachable!(),
         }
     }
@@ -249,14 +290,19 @@ impl Graph {
             "EntityKind::Service | EntityKind::Client"
         );
         let view = self.view();
+        let service_name = service_name.as_ref();
         match kind {
-            EntityKind::Service => view.services_named(service_name),
-            EntityKind::Client => view.clients_named(service_name),
+            EntityKind::Service | EntityKind::Client => view
+                .entity_arcs()
+                .filter(|entity| match entity.as_ref() {
+                    Entity::Endpoint(endpoint) => {
+                        endpoint.entity_kind() == kind && endpoint.topic == service_name
+                    }
+                    Entity::Node(_) => false,
+                })
+                .collect(),
             EntityKind::Node | EntityKind::Publisher | EntityKind::Subscription => unreachable!(),
         }
-        .into_iter()
-        .map(|endpoint| Arc::new(Entity::Endpoint(endpoint)))
-        .collect()
     }
 
     pub fn get_service_names_and_types(&self) -> Vec<(String, String)> {
@@ -269,7 +315,7 @@ impl Graph {
 
     pub fn get_names_and_types_by_node(
         &self,
-        node_key: NodeKey,
+        requested_node: NodeKey,
         kind: EntityKind,
     ) -> Vec<(String, String)> {
         if kind == EntityKind::Node {
@@ -277,10 +323,10 @@ impl Graph {
         }
 
         self.view()
-            .endpoints_for_node(node_key)
-            .into_iter()
+            .endpoints()
+            .filter(|endpoint| node_key(&endpoint.node) == requested_node)
             .filter(|endpoint| endpoint.entity_kind() == kind)
-            .map(|endpoint| (endpoint.topic, endpoint.type_info.name))
+            .map(|endpoint| (endpoint.topic.clone(), endpoint.type_info.name.clone()))
             .collect::<BTreeSet<_>>()
             .into_iter()
             .collect()
