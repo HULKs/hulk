@@ -16,7 +16,7 @@ use types::{
     parameters::SearchSuggestorParameters,
     primary_state::PrimaryState,
 };
-use types::{ball_position, field_dimensions, parameters};
+use types::{ball_position, field_dimensions, filtered_game_controller_state, parameters, primary_state};
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
     Box::pin(run(ctx))
@@ -38,8 +38,8 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .subscriber::<Option<BallPosition<Ground>>>("ball_filter/ball_position")?
         .build()
         .await?;
-    let hypothetical_ball_positions_cache = node
-        .create_cache::<Vec<HypotheticalBallPosition<Ground>>>("hypothetical_ball_positions", 10)?
+    let hypothetical_ball_positions_sub = node
+        .subscriber::<Vec<HypotheticalBallPosition<Ground>>>("hypothetical_ball_positions")?
         .with_stamp(|wrapper| wrapper.time)
         .build()
         .await?;
@@ -98,20 +98,50 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         let parameters = parameters_snapshot.typed();
 
         let field_dimensions = field_dimensions_cache.get_latest();
-
-         self.update_heatmap(&context)?;
-
         tokio::select! {
-            timed_ball_position = ball_position_sub.recv().await? => {}
-            network_mesages = network_message_sub.recv().await? => {}
-            filtered_game_controller_state = filtered_game_controller_state_sub.recv().await? => {}
+            ball_position = ball_position_sub.recv().await? => {
+                heatmap.update_with_ball_position(ball_position, ground_to_field);
+            }
+            hypothetical_ball_positions = hypothetical_ball_positions_sub.recv().await? => {
+                heatmap.update_with_hypothetical_ball_positions(hypothetical_ball_positions, ground_to_field, parameters);
+            }
+            network_mesages = network_message_sub.recv().await? => {
+                heatmap.update_with_rule_ball();
+            }
+            filtered_game_controller_state = filtered_game_controller_state_sub.recv().await? => {
+                heatmap.update_with_team_ball();
+            }
+            _ => {
+                let robot_position = ground_to_field.as_pose().position().coords();
+                let body_orientation = ground_to_field.orientation().angle();
+                let fov_angle_offset = 45.0 * consts::PI / 180.0;
+                let left_angle = body_orientation - fov_angle_offset;
+                let right_angle = body_orientation + fov_angle_offset;
+                let left_edge: Vector2<Field> = vector!(left_angle.cos(), left_angle.sin());
+                let right_edge: Vector2<Field> = vector!(right_angle.cos(), right_angle.sin());
+
+                self.heatmap.decay_tiles_in_fov(
+                    robot_position,
+                    left_edge,
+                    right_edge,
+                    context.search_suggestor_configuration.decay_distance_factor,
+                    context
+                        .search_suggestor_configuration
+                        .heatmap_decay_range
+                        .clone(),
+                );
+            }
+
+            let kernel = create_kernel(
+                parameters.heatmap_convolution_kernel_weight,
+            );
+            self.heatmap.map = self
+                .heatmap
+                .map
+                .conv(&kernel, ConvMode::Same, PaddingMode::Replicate)
+                .wrap_err("heatmap convolution failed")?;
+            self.heatmap.map /= self.heatmap.map.sum();
         }
-
-
-//TODO update heatmap function into tokio select to hand network messages, gamecontrollermessages and overall ballpositions separately and put them into the heatmap
-// TODO also maybe put heatmap into separate file
-
-        self.update_heatmap(&context)?;
 
         if !heatmap.has_decided_for_heatmap_tile {
             let suggested_search_index = self
@@ -156,6 +186,35 @@ struct Heatmap {
 }
 
 impl Heatmap {
+    fn update_with_ball_position(&mut self, ball_position: BallPosition<Ground>, ground_to_field: Isometry2<Ground, Field>){
+         self.heatmap[ground_to_field * ball_position.position] = 1.0;
+    }
+
+    fn update_with_hypothetical_ball_positions(&mut self, hypothetical_ball_positions: Vec<HypotheticalBallPosition<Ground>> , ground_to_field: Isometry2<Ground, Field>, parameters: SearchSuggestorParameters){
+        for ball_hypothesis in hypothetical_ball_positions {
+                let ball_hypothesis_position = ground_to_field * ball_hypothesis.position;
+                self.heatmap[ball_hypothesis_position] = (self.heatmap[ball_hypothesis_position]
+                    + ball_hypothesis.validity
+                    * parameters.own_ball_weight)
+                    / 2.0;
+        }
+    }
+
+    fn update_with_rule_ball(&mut self, filtered_game_controller_state: &FilteredGameControllerState, field_dimensions: &FieldDimensions, primary_state: &PrimaryState, parameters: SearchSuggestorParameters){
+        for rule_ball_hypothesis in get_rule_hypotheses(
+            *primary_state,
+            filtered_game_controller_state,
+            *field_dimensions,
+        ) {
+            self.heatmap[rule_ball_hypothesis] += parameters
+                .rule_ball_weight_increment;
+        }
+    }
+
+    fn update_with_team_ball(&mut self){
+        //TODO
+    }
+
     fn field_to_heatmap(&self, field_point: Point2<Field>) -> (usize, usize) {
         let heatmap_point = (
             ((field_point.x() + self.field_dimensions.length / 2.0) * self.cells_per_meter)
