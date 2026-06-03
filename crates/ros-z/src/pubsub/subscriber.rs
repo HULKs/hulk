@@ -96,10 +96,10 @@ fn record_queue_push<T>(
 }
 
 async fn declare_liveliness(session: &Session, entity: &EndpointEntity) -> Result<LivelinessToken> {
-    let liveliness_key_expr = ros_z_protocol::format::liveliness_key_expr(entity, &session.zid())?;
+    let liveliness_key_expr = entity.liveliness_key_expr()?.0;
     session
         .liveliness()
-        .declare_token((*liveliness_key_expr).clone())
+        .declare_token(liveliness_key_expr)
         .await
         .map_err(|source| crate::Error::zenoh("declare subscriber liveliness token", source))
 }

@@ -13,7 +13,7 @@ pub use snapshot::{GraphSnapshot, NodeSnapshot, ServiceSnapshot, TopicSnapshot};
 use state::GraphData;
 
 use crate::Result;
-use crate::entity::{ADMIN_SPACE, Entity, entity_to_liveliness_key_expr};
+use crate::entity::{ADMIN_SPACE, Entity};
 use zenoh::{Session, pubsub::Subscriber, session::ZenohId};
 
 #[derive(Debug, Clone)]
@@ -89,7 +89,7 @@ impl Graph {
     /// This is used to make local publishers/subscriptions/services/clients
     /// immediately visible in graph queries without waiting for Zenoh liveliness propagation
     pub fn add_local_entity(&self, entity: Entity) -> Result<()> {
-        let key_expr = entity_to_liveliness_key_expr(&entity)?;
+        let key_expr = entity.liveliness_key_expr()?;
         self.data.lock().insert(key_expr, entity);
         self.change_notify.notify_waiters();
         Ok(())
@@ -97,7 +97,7 @@ impl Graph {
 
     /// Remove a local entity from the graph
     pub fn remove_local_entity(&self, entity: &Entity) -> Result<()> {
-        let key_expr = entity_to_liveliness_key_expr(entity)?;
+        let key_expr = entity.liveliness_key_expr()?;
         if self.data.lock().remove(&key_expr) {
             self.change_notify.notify_waiters();
         }

@@ -169,7 +169,7 @@ impl NodeBuilder {
             self.name.clone(),
             self.namespace.clone(),
         );
-        let liveliness_token_key_expr = node_lv_token_key_expr(&node)?;
+        let liveliness_token_key_expr = node.liveliness_key_expr()?.0;
         debug!("[NOD] Liveliness token KE: {}", liveliness_token_key_expr);
 
         let lv_token = self

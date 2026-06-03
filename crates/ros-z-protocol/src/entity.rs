@@ -50,6 +50,21 @@ impl Display for TopicKE {
     }
 }
 
+/// Namespace/name key used to index graph entities by node.
+pub type NodeKey = (String, String);
+
+/// Normalize a node namespace for internal graph indexing.
+///
+/// The root namespace (`"/"`) is stored as an empty string so local and remote
+/// entities use the same key representation.
+pub fn normalize_node_namespace(namespace: &str) -> String {
+    if namespace == "/" {
+        String::new()
+    } else {
+        namespace.to_owned()
+    }
+}
+
 /// ros-z node entity.
 #[derive(Debug, Hash, Clone, PartialEq, Eq)]
 pub struct NodeEntity {
@@ -71,6 +86,24 @@ impl NodeEntity {
 
     pub fn fully_qualified_name(&self) -> String {
         fully_qualified_node_name(&self.namespace, &self.name)
+    }
+
+    /// Return this node's namespace in the graph-index representation.
+    pub fn normalized_namespace(&self) -> String {
+        normalize_node_namespace(&self.namespace)
+    }
+
+    /// Return the graph index key for this node.
+    pub fn key(&self) -> NodeKey {
+        (self.normalized_namespace(), self.name.clone())
+    }
+
+    /// Convert this node into its native ros-z liveliness key expression.
+    ///
+    /// This remains fallible because Zenoh validates key-expression syntax and
+    /// `NodeEntity` can contain arbitrary names/namespaces.
+    pub fn liveliness_key_expr(&self) -> crate::Result<LivelinessKE> {
+        crate::format::node_liveliness_key_expr(self)
     }
 }
 
@@ -209,6 +242,14 @@ impl EndpointEntity {
     pub fn entity_kind(&self) -> EntityKind {
         self.kind.into()
     }
+
+    /// Convert this endpoint into its native ros-z liveliness key expression.
+    ///
+    /// This remains fallible because Zenoh validates key-expression syntax and
+    /// endpoint names, topics, and type names are represented as strings.
+    pub fn liveliness_key_expr(&self) -> crate::Result<LivelinessKE> {
+        crate::format::liveliness_key_expr(self, &self.node.z_id)
+    }
 }
 
 /// Generic ros-z entity (node or endpoint).
@@ -216,6 +257,32 @@ impl EndpointEntity {
 pub enum Entity {
     Node(NodeEntity),
     Endpoint(EndpointEntity),
+}
+
+impl Entity {
+    /// Return the semantic kind of this entity.
+    pub fn kind(&self) -> EntityKind {
+        match self {
+            Entity::Node(_) => EntityKind::Node,
+            Entity::Endpoint(endpoint) => endpoint.entity_kind(),
+        }
+    }
+
+    /// Return the endpoint payload when this entity is an endpoint.
+    pub fn as_endpoint(&self) -> Option<&EndpointEntity> {
+        match self {
+            Entity::Node(_) => None,
+            Entity::Endpoint(endpoint) => Some(endpoint),
+        }
+    }
+
+    /// Convert this entity into its native ros-z liveliness key expression.
+    pub fn liveliness_key_expr(&self) -> crate::Result<LivelinessKE> {
+        match self {
+            Entity::Node(node) => node.liveliness_key_expr(),
+            Entity::Endpoint(endpoint) => endpoint.liveliness_key_expr(),
+        }
+    }
 }
 
 /// Errors during entity conversion.
@@ -251,7 +318,11 @@ pub enum EntityConversionError {
 
 #[cfg(test)]
 mod tests {
-    use super::NodeEntity;
+    use super::{
+        EndpointEntity, EndpointKind, Entity, EntityKind, NodeEntity, SchemaHash, TypeInfo,
+        normalize_node_namespace,
+    };
+    use crate::qos::QosProfile;
 
     fn node(namespace: &str) -> NodeEntity {
         NodeEntity::new(
@@ -260,6 +331,17 @@ mod tests {
             "node".to_string(),
             namespace.to_string(),
         )
+    }
+
+    fn endpoint(kind: EndpointKind) -> EndpointEntity {
+        EndpointEntity {
+            id: 2,
+            node: node("/robot"),
+            kind,
+            topic: "/topic".to_string(),
+            type_info: TypeInfo::new("std_msgs::String", SchemaHash::zero()),
+            qos: QosProfile::default(),
+        }
     }
 
     #[test]
@@ -280,5 +362,72 @@ mod tests {
     #[test]
     fn fully_qualified_name_prefixes_bare_namespace() {
         assert_eq!(node("robot").fully_qualified_name(), "/robot/node");
+    }
+
+    #[test]
+    fn normalize_node_namespace_formats_root_as_empty() {
+        assert_eq!(normalize_node_namespace("/"), "");
+    }
+
+    #[test]
+    fn normalize_node_namespace_keeps_non_root_namespace() {
+        assert_eq!(normalize_node_namespace("/robot"), "/robot");
+    }
+
+    #[test]
+    fn node_key_uses_normalized_namespace_and_name() {
+        assert_eq!(node("/").key(), ("".to_string(), "node".to_string()));
+        assert_eq!(
+            node("/robot").key(),
+            ("/robot".to_string(), "node".to_string())
+        );
+    }
+
+    #[test]
+    fn entity_kind_returns_node_for_node_entity() {
+        assert_eq!(Entity::Node(node("/")).kind(), EntityKind::Node);
+    }
+
+    #[test]
+    fn entity_kind_returns_endpoint_kind_for_endpoint_entity() {
+        assert_eq!(
+            Entity::Endpoint(endpoint(EndpointKind::Publisher)).kind(),
+            EntityKind::Publisher
+        );
+        assert_eq!(
+            Entity::Endpoint(endpoint(EndpointKind::Subscription)).kind(),
+            EntityKind::Subscription
+        );
+    }
+
+    #[test]
+    fn entity_as_endpoint_projects_endpoint_variant() {
+        let endpoint = endpoint(EndpointKind::Publisher);
+        let entity = Entity::Endpoint(endpoint.clone());
+
+        assert_eq!(entity.as_endpoint(), Some(&endpoint));
+    }
+
+    #[test]
+    fn entity_as_endpoint_returns_none_for_node_variant() {
+        assert!(Entity::Node(node("/")).as_endpoint().is_none());
+    }
+
+    #[test]
+    fn node_liveliness_key_expr_uses_existing_native_format() {
+        let node = node("/robot");
+
+        let key_expr = node.liveliness_key_expr().unwrap().to_string();
+
+        assert_eq!(key_expr, format!("@ros_z/{}/1/1/NN/%robot/node", node.z_id));
+    }
+
+    #[test]
+    fn entity_liveliness_key_expr_delegates_to_variant() {
+        let endpoint = endpoint(EndpointKind::Publisher);
+        let expected = endpoint.liveliness_key_expr().unwrap();
+        let entity = Entity::Endpoint(endpoint);
+
+        assert_eq!(entity.liveliness_key_expr().unwrap(), expected);
     }
 }

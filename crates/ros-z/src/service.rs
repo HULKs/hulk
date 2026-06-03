@@ -100,12 +100,11 @@ where
             .consolidation(zenoh::query::ConsolidationMode::None)
             .await
             .map_err(|source| crate::Error::zenoh("declare service querier", source))?;
-        let liveliness_key_expr =
-            ros_z_protocol::format::liveliness_key_expr(&self.entity, &self.session.zid())?;
+        let liveliness_key_expr = self.entity.liveliness_key_expr()?.0;
         let lv_token = self
             .session
             .liveliness()
-            .declare_token((*liveliness_key_expr).clone())
+            .declare_token(liveliness_key_expr)
             .await
             .map_err(|source| {
                 crate::Error::zenoh("declare service client liveliness token", source)
@@ -483,12 +482,11 @@ where
             .await
             .map_err(|source| crate::Error::zenoh("declare service queryable", source))?;
 
-        let liveliness_key_expr =
-            ros_z_protocol::format::liveliness_key_expr(&self.entity, &self.session.zid())?;
+        let liveliness_key_expr = self.entity.liveliness_key_expr()?.0;
         let lv_token = self
             .session
             .liveliness()
-            .declare_token((*liveliness_key_expr).clone())
+            .declare_token(liveliness_key_expr)
             .await
             .map_err(|source| {
                 crate::Error::zenoh("declare service server liveliness token", source)

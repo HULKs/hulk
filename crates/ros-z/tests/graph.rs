@@ -431,7 +431,7 @@ mod tests {
         let session = zenoh::open(zenoh::Config::default()).await?;
         let graph = ros_z::graph::Graph::new(&session).await?;
         let node = NodeEntity::new(session.zid(), 1, "removed_node".to_string(), String::new());
-        let node_key = ros_z::entity::node_key(&node);
+        let node_key = node.key();
         let entity = Entity::Node(node);
 
         graph.add_local_entity(entity.clone())?;
