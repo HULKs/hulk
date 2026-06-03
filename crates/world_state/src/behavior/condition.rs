@@ -115,8 +115,18 @@ pub fn is_ball_in_own_danger_area(blackboard: &mut Blackboard) -> bool {
     })
 }
 
+pub fn is_ball_suspiciously_behind_own_goal(blackboard: &mut Blackboard) -> bool {
+    blackboard.ball.as_ref().is_some_and(|ball| {
+        let field_dimensions = blackboard.field_dimensions;
+        let own_goal_x = -field_dimensions.length / 2.0;
+
+        ball.position.x() < own_goal_x - field_dimensions.goal_depth
+    })
+}
+
 pub fn is_goalkeeper_clear_candidate(blackboard: &mut Blackboard) -> bool {
-    if !is_ball_in_own_danger_area(blackboard) {
+    if !is_ball_in_own_danger_area(blackboard) && !is_ball_suspiciously_behind_own_goal(blackboard)
+    {
         return false;
     }
 
