@@ -10,7 +10,7 @@ mod state;
 use discovery::install_liveliness;
 pub use query::{GraphView, QosIncompatibility};
 pub use snapshot::{GraphSnapshot, NodeSnapshot, ServiceSnapshot, TopicSnapshot};
-use state::GraphData;
+use state::{GraphData, GraphMutation};
 
 use crate::Result;
 use crate::entity::{ADMIN_SPACE, Entity, entity_to_liveliness_key_expr};
@@ -48,6 +48,32 @@ impl std::fmt::Debug for Graph {
         f.debug_struct("Graph")
             .field("zid", &self.zid)
             .finish_non_exhaustive()
+    }
+}
+
+pub(in crate::graph) fn dispatch_graph_mutation(
+    mutation: GraphMutation,
+    event_manager: &GraphEventManager,
+    change_notify: &Notify,
+    zid: ZenohId,
+) {
+    let changed = !matches!(mutation, GraphMutation::Unchanged);
+    match mutation {
+        GraphMutation::Inserted(entity) => {
+            event_manager.trigger_graph_change(&entity, true, zid);
+        }
+        GraphMutation::Removed(entity) => {
+            event_manager.trigger_graph_change(&entity, false, zid);
+        }
+        GraphMutation::Replaced { old, new } => {
+            event_manager.trigger_graph_change(&old, false, zid);
+            event_manager.trigger_graph_change(&new, true, zid);
+        }
+        GraphMutation::Unchanged => {}
+    }
+
+    if changed {
+        change_notify.notify_waiters();
     }
 }
 
@@ -105,7 +131,7 @@ impl Graph {
     {
         let zid = session.zid();
         let parser_arc = Arc::new(parser);
-        let graph_data = Arc::new(Mutex::new(GraphData::new_with_parser(parser_arc.clone())));
+        let graph_data = Arc::new(Mutex::new(GraphData::new()));
         let event_manager = Arc::new(GraphEventManager::new());
         let change_notify = Arc::new(Notify::new());
         let sub = install_liveliness(
@@ -141,25 +167,92 @@ impl Graph {
     /// This is used to make local publishers/subscriptions/services/clients
     /// immediately visible in graph queries without waiting for Zenoh liveliness propagation
     pub fn add_local_entity(&self, entity: Entity) -> Result<()> {
-        let mut data = self.data.lock();
         let key_expr = entity_to_liveliness_key_expr(&entity)?;
-        let is_new = data.insert_local_entity(entity.clone(), key_expr);
-        drop(data);
-
-        if is_new {
-            self.event_manager
-                .trigger_graph_change(&entity, true, self.zid);
-        }
-
+        let mutation = self.data.lock().insert(key_expr, entity);
+        dispatch_graph_mutation(mutation, &self.event_manager, &self.change_notify, self.zid);
         Ok(())
     }
 
     /// Remove a local entity from the graph
     pub fn remove_local_entity(&self, entity: &Entity) -> Result<()> {
-        let mut data = self.data.lock();
         let key_expr = entity_to_liveliness_key_expr(entity)?;
-        data.remove_local_entity(entity, &key_expr);
-        drop(data);
+        let mutation = self.data.lock().remove(&key_expr);
+        dispatch_graph_mutation(mutation, &self.event_manager, &self.change_notify, self.zid);
+        Ok(())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
+
+    use crate::{
+        Error, Result,
+        entity::{Entity, NodeEntity},
+    };
+
+    use super::*;
+
+    fn unique_node_name(prefix: &str) -> String {
+        format!(
+            "{prefix}_{}",
+            SystemTime::now()
+                .duration_since(UNIX_EPOCH)
+                .expect("system clock should be after Unix epoch")
+                .as_nanos()
+        )
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn local_entity_add_notifies_graph_waiters() -> Result<()> {
+        let session = zenoh::open(zenoh::Config::default())
+            .await
+            .map_err(|source| Error::zenoh("open Zenoh session", source))?;
+        let graph = Graph::new(&session).await?;
+        let entity = Entity::Node(NodeEntity::new(
+            session.zid(),
+            51,
+            unique_node_name("local_add_notify"),
+            String::new(),
+        ));
+
+        let notified = graph.change_notify.notified();
+        graph.add_local_entity(entity)?;
+
+        tokio::time::timeout(Duration::from_millis(100), notified)
+            .await
+            .expect("local add should notify graph waiters");
+        session
+            .close()
+            .await
+            .map_err(|source| Error::zenoh("close Zenoh session", source))?;
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn local_entity_remove_notifies_graph_waiters() -> Result<()> {
+        let session = zenoh::open(zenoh::Config::default())
+            .await
+            .map_err(|source| Error::zenoh("open Zenoh session", source))?;
+        let graph = Graph::new(&session).await?;
+        let entity = Entity::Node(NodeEntity::new(
+            session.zid(),
+            52,
+            unique_node_name("local_remove_notify"),
+            String::new(),
+        ));
+
+        graph.add_local_entity(entity.clone())?;
+        let notified = graph.change_notify.notified();
+        graph.remove_local_entity(&entity)?;
+
+        tokio::time::timeout(Duration::from_millis(100), notified)
+            .await
+            .expect("local remove should notify graph waiters");
+        session
+            .close()
+            .await
+            .map_err(|source| Error::zenoh("close Zenoh session", source))?;
         Ok(())
     }
 }

@@ -33,19 +33,15 @@ impl Graph {
     /// Drop the returned `GraphView` before any `.await` point or before calling other `Graph`
     /// methods; those operations may need the same lock.
     pub fn view(&self) -> GraphView<'_> {
-        let mut data = self.data.lock();
-        data.ensure_parsed();
-        GraphView { data }
+        GraphView {
+            data: self.data.lock(),
+        }
     }
 }
 
 impl GraphView<'_> {
     pub fn entities(&self) -> impl Iterator<Item = &Entity> + '_ {
         self.data.entities()
-    }
-
-    fn entity_arcs(&self) -> impl Iterator<Item = Arc<Entity>> + '_ {
-        self.data.entity_arcs()
     }
 
     pub fn nodes(&self) -> impl Iterator<Item = &NodeEntity> + '_ {
@@ -183,13 +179,15 @@ impl Graph {
         let topic = topic.as_ref();
         match kind {
             EntityKind::Publisher | EntityKind::Subscription => view
-                .entity_arcs()
-                .filter(|entity| match entity.as_ref() {
+                .entities()
+                .filter(|entity| match entity {
                     Entity::Endpoint(endpoint) => {
                         endpoint.entity_kind() == kind && endpoint.topic == topic
                     }
                     Entity::Node(_) => false,
                 })
+                .cloned()
+                .map(Arc::new)
                 .collect(),
             EntityKind::Node | EntityKind::Service | EntityKind::Client => Vec::new(),
         }
@@ -293,13 +291,15 @@ impl Graph {
         let service_name = service_name.as_ref();
         match kind {
             EntityKind::Service | EntityKind::Client => view
-                .entity_arcs()
-                .filter(|entity| match entity.as_ref() {
+                .entities()
+                .filter(|entity| match entity {
                     Entity::Endpoint(endpoint) => {
                         endpoint.entity_kind() == kind && endpoint.topic == service_name
                     }
                     Entity::Node(_) => false,
                 })
+                .cloned()
+                .map(Arc::new)
                 .collect(),
             EntityKind::Node | EntityKind::Publisher | EntityKind::Subscription => unreachable!(),
         }

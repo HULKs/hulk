@@ -2,7 +2,7 @@ use parking_lot::Mutex;
 use std::sync::Arc;
 use tokio::sync::Notify;
 use tracing::debug;
-use zenoh::{Session, pubsub::Subscriber, sample::SampleKind, session::ZenohId};
+use zenoh::{Session, key_expr::KeyExpr, pubsub::Subscriber, sample::SampleKind, session::ZenohId};
 
 use crate::{
     Result,
@@ -10,10 +10,9 @@ use crate::{
     event::GraphEventManager,
 };
 
-use super::{
-    GraphOptions,
-    state::{EntityParser, GraphData},
-};
+use super::{GraphOptions, dispatch_graph_mutation, state::GraphData};
+
+pub(super) type EntityParser = Arc<dyn Fn(&KeyExpr) -> crate::Result<Entity> + Send + Sync>;
 
 #[expect(
     clippy::too_many_arguments,
@@ -29,7 +28,7 @@ pub(super) async fn install_liveliness(
     change_notify: Arc<Notify>,
     zid: ZenohId,
 ) -> Result<Subscriber<()>> {
-    let callback_parser = parser;
+    let callback_parser = parser.clone();
     tracing::debug!("Creating liveliness subscriber for {}", pattern);
     let sub = session
         .liveliness()
@@ -45,37 +44,30 @@ pub(super) async fn install_liveliness(
                     sample.kind()
                 );
 
-                let graph_change: Option<(Entity, bool)> = match sample.kind() {
+                let mutation = match sample.kind() {
                     SampleKind::Put => {
                         debug!("[GRF] Entity appeared: {}", key_expr.0);
                         tracing::debug!("Graph subscriber: PUT {}", key_expr.as_str());
-                        let parsed_entity = match callback_parser(&key_expr) {
-                            Ok(entity) => Some(entity),
+                        match callback_parser(&key_expr) {
+                            Ok(entity) => graph_data.lock().insert(key_expr, entity),
                             Err(error) => {
                                 tracing::warn!(
-                                    "Failed to parse liveliness token {}: {:?}",
-                                    key_expr.0,
-                                    error
+                                    liveliness_key = %key_expr.0,
+                                    error = ?error,
+                                    "failed to parse liveliness key; ignoring remote entity"
                                 );
-                                None
+                                super::state::GraphMutation::Unchanged
                             }
-                        };
-                        graph_data.lock().insert(key_expr);
-                        parsed_entity.map(|entity| (entity, true))
+                        }
                     }
                     SampleKind::Delete => {
                         debug!("[GRF] Entity disappeared: {}", key_expr.0);
                         tracing::debug!("Graph subscriber: DELETE {}", key_expr.as_str());
-                        let parsed_entity = callback_parser(&key_expr).ok();
-                        graph_data.lock().remove(&key_expr);
-                        parsed_entity.map(|entity| (entity, false))
+                        graph_data.lock().remove(&key_expr)
                     }
                 };
 
-                if let Some((entity, appeared)) = graph_change {
-                    event_manager.trigger_graph_change(&entity, appeared, zid);
-                }
-                change_notify.notify_waiters();
+                dispatch_graph_mutation(mutation, &event_manager, &change_notify, zid);
             }
         })
         .await
@@ -94,7 +86,18 @@ pub(super) async fn install_liveliness(
             if let Ok(sample) = reply.into_result() {
                 let key_expr = LivelinessKE(sample.key_expr().to_owned());
                 tracing::debug!("Graph: Caching liveliness entity: {}", key_expr.as_str());
-                graph_data.lock().insert(key_expr);
+                match parser(&key_expr) {
+                    Ok(entity) => {
+                        graph_data.lock().insert(key_expr, entity);
+                    }
+                    Err(error) => {
+                        tracing::warn!(
+                            liveliness_key = %key_expr.0,
+                            error = ?error,
+                            "failed to parse initial liveliness key; ignoring remote entity"
+                        );
+                    }
+                }
             }
         }
         tracing::debug!("Graph: Liveliness query received {} replies", reply_count);
