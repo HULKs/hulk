@@ -1,4 +1,7 @@
-use std::{collections::BTreeSet, sync::Arc};
+use std::{
+    collections::{BTreeMap, BTreeSet},
+    sync::Arc,
+};
 
 use parking_lot::MutexGuard;
 
@@ -18,11 +21,18 @@ pub struct QosIncompatibility {
     pub compatibility: QosCompatibility,
 }
 
+/// A parsed snapshot view of graph entities while the graph lock is held.
+///
+/// Do not hold a `GraphView` across `.await` points or while calling other `Graph` methods.
 pub struct GraphView<'a> {
     data: MutexGuard<'a, GraphData>,
 }
 
 impl Graph {
+    /// Returns a parsed view of the graph while holding the graph lock.
+    ///
+    /// Drop the returned `GraphView` before any `.await` point or before calling other `Graph`
+    /// methods; those operations may need the same lock.
     pub fn view(&self) -> GraphView<'_> {
         let mut data = self.data.lock();
         data.ensure_parsed();
@@ -118,8 +128,12 @@ impl GraphView<'_> {
     ) -> Vec<(String, String)> {
         self.endpoints()
             .filter(|endpoint| include(endpoint))
-            .map(|endpoint| (endpoint.topic.clone(), endpoint.type_info.name.clone()))
-            .collect::<BTreeSet<_>>()
+            .fold(BTreeMap::new(), |mut names, endpoint| {
+                names
+                    .entry(endpoint.topic.clone())
+                    .or_insert_with(|| endpoint.type_info.name.clone());
+                names
+            })
             .into_iter()
             .collect()
     }
