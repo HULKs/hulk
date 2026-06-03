@@ -146,13 +146,11 @@ impl GraphData {
         );
 
         if was_parsed {
+            if let Some(entity) = parsed.as_ref() {
+                self.remove_entity_from_indexes(entity, key_expr);
+            }
             tracing::debug!("remove: Removed from parsed");
         }
-
-        // Note: We don't eagerly remove from by_topic/by_service/by_node maps here.
-        // The weak references will naturally fail to upgrade when entities are dropped,
-        // and the retain() calls in visit_by_* functions will clean them up lazily.
-        // Lazy cleanup keeps removal O(1) and prunes stale weak references on reads.
 
         match (was_cached, parsed) {
             // Both should not be present at the same time
@@ -461,5 +459,45 @@ impl GraphData {
             }
         }
         result
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::entity::{
+        EndpointEntity, EndpointKind, Entity, NodeEntity, SchemaHash, TypeInfo,
+        endpoint_to_liveliness_key_expr,
+    };
+
+    #[test]
+    fn remote_remove_prunes_legacy_topic_index() {
+        let node = NodeEntity::new(
+            zenoh::session::ZenohId::default(),
+            1,
+            "node".to_string(),
+            String::new(),
+        );
+        let endpoint = EndpointEntity {
+            id: 2,
+            node,
+            kind: EndpointKind::Publisher,
+            topic: "/topic".to_string(),
+            type_info: TypeInfo::new("std_msgs::String", SchemaHash::zero()),
+            qos: Default::default(),
+        };
+        let key = endpoint_to_liveliness_key_expr(&endpoint)
+            .expect("static test endpoint should produce a liveliness key");
+        let entity = Entity::Endpoint(endpoint);
+        let mut data = GraphData::new_with_parser(Arc::new(move |_| Ok(entity.clone())));
+
+        data.insert(key.clone());
+        data.parse_pending();
+
+        assert_eq!(data.by_topic["/topic"].len(), 1);
+
+        data.remove(&key);
+
+        assert_eq!(data.by_topic["/topic"].len(), 0);
     }
 }

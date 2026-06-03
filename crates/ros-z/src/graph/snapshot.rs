@@ -2,6 +2,8 @@ use std::time::SystemTime;
 
 use serde::Serialize;
 
+use crate::entity::EndpointKind;
+
 use super::Graph;
 
 /// A serializable snapshot of the native ros-z graph state
@@ -46,8 +48,18 @@ impl Graph {
             .topic_names_and_types()
             .into_iter()
             .map(|(name, type_name)| {
-                let publishers = view.publishers_on(&name).len();
-                let subscribers = view.subscriptions_on(&name).len();
+                let publishers = view
+                    .endpoints()
+                    .filter(|endpoint| {
+                        endpoint.kind == EndpointKind::Publisher && endpoint.topic == name
+                    })
+                    .count();
+                let subscribers = view
+                    .endpoints()
+                    .filter(|endpoint| {
+                        endpoint.kind == EndpointKind::Subscription && endpoint.topic == name
+                    })
+                    .count();
                 TopicSnapshot {
                     name,
                     type_name,
