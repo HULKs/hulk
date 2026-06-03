@@ -465,9 +465,15 @@
       "keeper_x_offset": 0.1,
       "keeper_passive_distance": 4.5,
       "keeper_ball_near_own_goal_distance": 4.5,
-      "keeper_clear_ball_maximum_velocity": 0.5,
-      "keeper_active_defense_x_offset": 0.75,
-      "keeper_active_defense_line_width_half": 0.75,
+      "keeper_clear_ball_maximum_velocity": 0.75,
+      "keeper_clear_ball_maximum_robot_distance": 1.5,
+      "keeper_visual_kick_hold_duration": {
+        "nanos": 700000000,
+        "secs": 0
+      },
+      "keeper_active_defense_x_offset": 0.7,
+      "keeper_active_defense_center_forward_offset": 0.4,
+      "keeper_active_defense_line_width_half": 1.5,
       "keeper_active_defense_maximum_robot_distance": 2.0,
       "striker_distance_to_non_free_center_circle": 0.4,
       "striker_kickoff_position": [-0.5, 0.0]
@@ -497,7 +503,7 @@
       "maximum_intercept_distance": 1.5
     },
     "kicking": {
-      "allow_schlong": true,
+      "allow_schlong": false,
       "distance_for_kick": 1.5,
       "distance_for_kick_hysteresis": 1.0,
       "distance_to_look_directly_at_the_ball": 4.0,

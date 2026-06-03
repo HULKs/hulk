@@ -1,10 +1,13 @@
 use filtering::hysteresis::less_than_with_hysteresis;
 use hsl_network_messages::Team;
-use linear_algebra::{point, vector};
+use linear_algebra::{Vector2, point, vector};
 use types::{
-    filtered_game_controller_state::FilteredGameControllerState, primary_state::PrimaryState,
+    filtered_game_controller_state::FilteredGameControllerState, motion_type::MotionType,
+    primary_state::PrimaryState,
 };
 use voronoi::Ownership;
+
+use coordinate_systems::Field;
 
 use crate::behavior::node::Blackboard;
 
@@ -22,40 +25,33 @@ pub fn is_ball_interception_candidate(blackboard: &mut Blackboard) -> bool {
         let ball_is_moving_towards_robot =
             ball.velocity.x() < -parameters.minimum_ball_velocity_towards_robot;
 
-        let ball_in_field_velocity = ground_to_field * ball.velocity;
-        let ball_is_moving = ball_in_field_velocity.norm() > parameters.minimum_ball_velocity;
-        let ball_is_moving_towards_own_half =
-            ball_in_field_velocity.x() < -parameters.minimum_ball_velocity_towards_own_half;
+        let Some(ball_in_field_velocity) = ball_interception_velocity_in_field(blackboard) else {
+            return false;
+        };
 
         ball_is_in_front_of_robot
-            && ball_is_moving
             && ball_is_moving_towards_robot
-            && ball_is_moving_towards_own_half
+            && is_interception_velocity_towards_own_half(blackboard, ball_in_field_velocity)
     } else {
         false
     }
 }
 
 pub fn is_goalkeeper_interception_candidate(blackboard: &mut Blackboard) -> bool {
-    if !is_ball_interception_candidate(blackboard) || !is_ball_near_own_goal(blackboard) {
+    if !is_ball_near_own_goal(blackboard) {
         return false;
     }
 
-    if let (Some(ball), Some(ground_to_field)) = (
-        &blackboard.ball,
-        &blackboard.world_state.robot.ground_to_field,
-    ) {
-        let field_dimensions = blackboard.field_dimensions;
-        let ball_velocity = ground_to_field * ball.velocity;
+    let Some(ball_velocity) = ball_interception_velocity_in_field(blackboard) else {
+        return false;
+    };
 
-        if ball_velocity.x()
-            >= -blackboard
-                .parameters
-                .intercept_ball
-                .minimum_ball_velocity_towards_own_half
-        {
-            return false;
-        }
+    if !is_interception_velocity_towards_own_half(blackboard, ball_velocity) {
+        return false;
+    }
+
+    if let Some(ball) = &blackboard.ball {
+        let field_dimensions = blackboard.field_dimensions;
 
         let own_goal_x = -field_dimensions.length / 2.0;
         let interception_line_x = own_goal_x + blackboard.parameters.role_positions.keeper_x_offset;
@@ -76,6 +72,23 @@ pub fn is_goalkeeper_interception_candidate(blackboard: &mut Blackboard) -> bool
     } else {
         false
     }
+}
+
+fn ball_interception_velocity_in_field(blackboard: &Blackboard) -> Option<Vector2<Field>> {
+    let ball = blackboard.ball.as_ref()?;
+    let ground_to_field = blackboard.world_state.robot.ground_to_field?;
+
+    Some(ground_to_field * ball.velocity)
+}
+
+fn is_interception_velocity_towards_own_half(
+    blackboard: &Blackboard,
+    ball_velocity: Vector2<Field>,
+) -> bool {
+    let parameters = &blackboard.parameters.intercept_ball;
+
+    ball_velocity.norm() > parameters.minimum_ball_velocity
+        && ball_velocity.x() < -parameters.minimum_ball_velocity_towards_own_half
 }
 
 pub fn is_ball_near_own_goal(blackboard: &mut Blackboard) -> bool {
@@ -103,14 +116,42 @@ pub fn is_ball_in_own_danger_area(blackboard: &mut Blackboard) -> bool {
 }
 
 pub fn is_goalkeeper_clear_candidate(blackboard: &mut Blackboard) -> bool {
-    is_ball_in_own_danger_area(blackboard)
-        && blackboard.ball.as_ref().is_some_and(|ball| {
-            ball.velocity.norm()
-                < blackboard
-                    .parameters
-                    .role_positions
-                    .keeper_clear_ball_maximum_velocity
-        })
+    if !is_ball_in_own_danger_area(blackboard) {
+        return false;
+    }
+
+    if let (Some(ball), Some(ground_to_field)) = (
+        &blackboard.ball,
+        blackboard.world_state.robot.ground_to_field,
+    ) {
+        let parameters = &blackboard.parameters.role_positions;
+        let ball_in_ground = ground_to_field.inverse() * ball.position;
+
+        ball.velocity.norm() < parameters.keeper_clear_ball_maximum_velocity
+            && ball_in_ground.coords().norm() < parameters.keeper_clear_ball_maximum_robot_distance
+    } else {
+        false
+    }
+}
+
+pub fn is_goalkeeper_visual_kick_hold_active(blackboard: &mut Blackboard) -> bool {
+    if !matches!(blackboard.last_motion_type, Some(MotionType::Kick))
+        || !is_ball_near_own_goal(blackboard)
+    {
+        return false;
+    }
+
+    let time_since_last_motion_switch = blackboard
+        .world_state
+        .now
+        .duration_since(blackboard.last_motion_switch_time)
+        .unwrap_or_default();
+
+    time_since_last_motion_switch
+        < blackboard
+            .parameters
+            .role_positions
+            .keeper_visual_kick_hold_duration
 }
 
 pub fn is_close_to_ball(blackboard: &mut Blackboard) -> bool {
