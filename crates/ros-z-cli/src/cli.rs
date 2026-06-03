@@ -1,5 +1,27 @@
 use clap::{Parser, Subcommand, ValueEnum};
 
+const MAX_SETTLE_TIMEOUT_SECONDS: f64 = u32::MAX as f64;
+
+fn parse_settle_timeout_seconds(value: &str) -> Result<f64, String> {
+    let seconds = value
+        .parse::<f64>()
+        .map_err(|error| format!("invalid settle timeout: {error}"))?;
+
+    if !seconds.is_finite() {
+        return Err("settle timeout must be finite".to_string());
+    }
+    if seconds < 0.0 {
+        return Err("settle timeout must be non-negative".to_string());
+    }
+    if seconds > MAX_SETTLE_TIMEOUT_SECONDS {
+        return Err(format!(
+            "settle timeout must not exceed {MAX_SETTLE_TIMEOUT_SECONDS} seconds"
+        ));
+    }
+
+    Ok(seconds)
+}
+
 /// Graph entity kind accepted by `rosz list`.
 #[derive(Debug, Clone, Copy, ValueEnum, PartialEq, Eq)]
 pub enum ListTarget {
@@ -51,6 +73,12 @@ pub enum Command {
     Watch,
     /// Show the full graph snapshot
     Graph,
+    /// Diagnose pub/sub graph inconsistencies
+    Doctor {
+        /// Maximum graph settle wait in seconds
+        #[arg(long, default_value_t = 2.0, value_parser = parse_settle_timeout_seconds)]
+        settle_timeout: f64,
+    },
     /// Dynamically inspect a topic's messages
     Echo {
         topic: String,
