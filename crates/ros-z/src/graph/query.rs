@@ -1,11 +1,14 @@
 use std::{collections::BTreeSet, sync::Arc};
 
+use parking_lot::MutexGuard;
+
 use crate::entity::{
-    EndpointEntity, Entity, EntityKind, NodeKey, entity_get_endpoint, entity_kind,
+    EndpointEntity, EndpointKind, Entity, EntityKind, NodeEntity, NodeKey, entity_get_endpoint,
+    entity_kind, node_key,
 };
 use crate::qos::{QosCompatibility, QosProfile};
 
-use super::Graph;
+use super::{Graph, state::GraphData};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct QosIncompatibility {
@@ -13,6 +16,113 @@ pub struct QosIncompatibility {
     pub publisher: EndpointEntity,
     pub subscription: EndpointEntity,
     pub compatibility: QosCompatibility,
+}
+
+pub struct GraphView<'a> {
+    data: MutexGuard<'a, GraphData>,
+}
+
+impl Graph {
+    pub fn view(&self) -> GraphView<'_> {
+        let mut data = self.data.lock();
+        data.ensure_parsed();
+        GraphView { data }
+    }
+}
+
+impl GraphView<'_> {
+    pub fn entities(&self) -> impl Iterator<Item = &Entity> + '_ {
+        self.data.entities()
+    }
+
+    pub fn nodes(&self) -> impl Iterator<Item = &NodeEntity> + '_ {
+        self.entities().filter_map(|entity| match entity {
+            Entity::Node(node) => Some(node),
+            Entity::Endpoint(_) => None,
+        })
+    }
+
+    pub fn endpoints(&self) -> impl Iterator<Item = &EndpointEntity> + '_ {
+        self.entities().filter_map(|entity| match entity {
+            Entity::Node(_) => None,
+            Entity::Endpoint(endpoint) => Some(endpoint),
+        })
+    }
+
+    pub fn publishers_on(&self, topic: impl AsRef<str>) -> Vec<EndpointEntity> {
+        self.endpoints_named(EndpointKind::Publisher, topic)
+    }
+
+    pub fn subscriptions_on(&self, topic: impl AsRef<str>) -> Vec<EndpointEntity> {
+        self.endpoints_named(EndpointKind::Subscription, topic)
+    }
+
+    pub fn services_named(&self, service_name: impl AsRef<str>) -> Vec<EndpointEntity> {
+        self.endpoints_named(EndpointKind::Service, service_name)
+    }
+
+    pub fn clients_named(&self, service_name: impl AsRef<str>) -> Vec<EndpointEntity> {
+        self.endpoints_named(EndpointKind::Client, service_name)
+    }
+
+    pub fn endpoints_for_node(&self, node: NodeKey) -> Vec<EndpointEntity> {
+        self.endpoints()
+            .filter(|endpoint| node_key(&endpoint.node) == node)
+            .cloned()
+            .collect()
+    }
+
+    pub fn node_exists(&self, node: &NodeKey) -> bool {
+        self.nodes().any(|entity| node_key(entity) == *node)
+    }
+
+    pub fn topic_names_and_types(&self) -> Vec<(String, String)> {
+        self.names_and_types_for(|endpoint| {
+            matches!(
+                endpoint.kind,
+                EndpointKind::Publisher | EndpointKind::Subscription
+            )
+        })
+    }
+
+    pub fn service_names_and_types(&self) -> Vec<(String, String)> {
+        self.names_and_types_for(|endpoint| endpoint.kind == EndpointKind::Service)
+    }
+
+    pub fn node_names(&self) -> Vec<(String, String)> {
+        self.nodes()
+            .map(|node| {
+                let namespace = if node.namespace.is_empty() {
+                    "/".to_string()
+                } else if node.namespace.starts_with('/') {
+                    node.namespace.clone()
+                } else {
+                    format!("/{}", node.namespace)
+                };
+                (node.name.clone(), namespace)
+            })
+            .collect()
+    }
+
+    fn endpoints_named(&self, kind: EndpointKind, name: impl AsRef<str>) -> Vec<EndpointEntity> {
+        let name = name.as_ref();
+        self.endpoints()
+            .filter(|endpoint| endpoint.kind == kind && endpoint.topic == name)
+            .cloned()
+            .collect()
+    }
+
+    fn names_and_types_for(
+        &self,
+        include: impl Fn(&EndpointEntity) -> bool,
+    ) -> Vec<(String, String)> {
+        self.endpoints()
+            .filter(|endpoint| include(endpoint))
+            .map(|endpoint| (endpoint.topic.clone(), endpoint.type_info.name.clone()))
+            .collect::<BTreeSet<_>>()
+            .into_iter()
+            .collect()
+    }
 }
 
 impl Graph {

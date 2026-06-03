@@ -197,6 +197,69 @@ async fn wait_for_clients(
 mod tests {
     use super::*;
 
+    #[tokio::test(flavor = "multi_thread")]
+    async fn graph_view_supports_iterators_and_focused_helpers() -> Result<()> {
+        let session = zenoh::open(zenoh::Config::default()).await?;
+        let graph = ros_z::graph::Graph::new(&session).await?;
+        let node = NodeEntity::new(
+            session.zid(),
+            31,
+            unique_node_name("graph_view_node"),
+            String::new(),
+        );
+        let topic = unique_graph_name("graph_view_topic");
+        let service = unique_graph_name("graph_view_service");
+        let publisher = EndpointEntity {
+            id: 32,
+            node: node.clone(),
+            kind: EndpointKind::Publisher,
+            topic: topic.clone(),
+            type_info: TypeInfo::new("std_msgs::String", SchemaHash::zero()),
+            qos: Default::default(),
+        };
+        let subscription = EndpointEntity {
+            id: 33,
+            node: node.clone(),
+            kind: EndpointKind::Subscription,
+            topic: topic.clone(),
+            type_info: TypeInfo::new("std_msgs::String", SchemaHash::zero()),
+            qos: Default::default(),
+        };
+        let service_endpoint = EndpointEntity {
+            id: 34,
+            node: node.clone(),
+            kind: EndpointKind::Service,
+            topic: service.clone(),
+            type_info: TypeInfo::new("test_msgs::AddTwoInts", SchemaHash::zero()),
+            qos: Default::default(),
+        };
+
+        graph.add_local_entity(Entity::Node(node.clone()))?;
+        graph.add_local_entity(Entity::Endpoint(publisher.clone()))?;
+        graph.add_local_entity(Entity::Endpoint(subscription.clone()))?;
+        graph.add_local_entity(Entity::Endpoint(service_endpoint.clone()))?;
+
+        let view = graph.view();
+        assert!(view.nodes().any(|candidate| candidate == &node));
+        assert!(view.endpoints().any(|candidate| candidate == &publisher));
+        assert_eq!(view.publishers_on(&topic), vec![publisher.clone()]);
+        assert_eq!(view.subscriptions_on(&topic), vec![subscription]);
+        assert_eq!(
+            view.services_named(&service),
+            vec![service_endpoint.clone()]
+        );
+        assert_eq!(
+            view.endpoints_for_node(ros_z::entity::node_key(&node))
+                .len(),
+            3
+        );
+        assert!(view.node_exists(&ros_z::entity::node_key(&node)));
+
+        drop(view);
+        session.close().await?;
+        Ok(())
+    }
+
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn node_exists_returns_false_after_only_node_removed() -> Result<()> {
         let session = zenoh::open(zenoh::Config::default()).await?;

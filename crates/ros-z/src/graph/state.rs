@@ -340,6 +340,14 @@ impl GraphData {
         }
     }
 
+    pub(super) fn ensure_parsed(&mut self) {
+        self.parse_pending();
+    }
+
+    pub(super) fn entities(&self) -> impl Iterator<Item = &Entity> + '_ {
+        self.parsed.values().map(Arc::as_ref)
+    }
+
     pub(super) fn service_names_and_types(&mut self) -> Vec<(String, String)> {
         self.parse_pending();
         let mut res = Vec::new();
