@@ -150,7 +150,6 @@ pub struct RolePositionsParameters {
     pub striker_supporter_minimum_x: f32,
     pub keeper_x_offset: f32,
     pub keeper_passive_distance: f32,
-    pub keeper_ball_near_own_goal_distance: f32,
     pub keeper_clear_ball_maximum_velocity: f32,
     pub keeper_clear_ball_maximum_robot_distance: f32,
     pub keeper_visual_kick_hold_duration: Duration,
