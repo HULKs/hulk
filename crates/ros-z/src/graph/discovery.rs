@@ -2,31 +2,24 @@ use parking_lot::Mutex;
 use std::sync::Arc;
 use tokio::sync::Notify;
 use tracing::debug;
-use zenoh::{Session, key_expr::KeyExpr, pubsub::Subscriber, sample::SampleKind, session::ZenohId};
+use zenoh::{Session, key_expr::KeyExpr, pubsub::Subscriber, sample::SampleKind};
 
 use crate::{
     Result,
     entity::{Entity, LivelinessKE},
-    event::GraphEventManager,
 };
 
-use super::{GraphOptions, dispatch_graph_mutation, state::GraphData};
+use super::{GraphOptions, state::GraphData};
 
 pub(super) type EntityParser = Arc<dyn Fn(&KeyExpr) -> crate::Result<Entity> + Send + Sync>;
 
-#[expect(
-    clippy::too_many_arguments,
-    reason = "arguments mirror the graph components installed by this private discovery seam"
-)]
 pub(super) async fn install_liveliness(
     session: &Session,
     pattern: &str,
     parser: EntityParser,
     options: &GraphOptions,
     graph_data: Arc<Mutex<GraphData>>,
-    event_manager: Arc<GraphEventManager>,
     change_notify: Arc<Notify>,
-    zid: ZenohId,
 ) -> Result<Subscriber<()>> {
     let callback_parser = parser.clone();
     tracing::debug!("Creating liveliness subscriber for {}", pattern);
@@ -44,7 +37,7 @@ pub(super) async fn install_liveliness(
                     sample.kind()
                 );
 
-                let mutation = match sample.kind() {
+                let changed = match sample.kind() {
                     SampleKind::Put => {
                         debug!("[GRF] Entity appeared: {}", key_expr.0);
                         tracing::debug!("Graph subscriber: PUT {}", key_expr.as_str());
@@ -56,7 +49,7 @@ pub(super) async fn install_liveliness(
                                     error = ?error,
                                     "failed to parse liveliness key; ignoring remote entity"
                                 );
-                                super::state::GraphMutation::Unchanged
+                                false
                             }
                         }
                     }
@@ -67,7 +60,9 @@ pub(super) async fn install_liveliness(
                     }
                 };
 
-                dispatch_graph_mutation(mutation, &event_manager, &change_notify, zid);
+                if changed {
+                    change_notify.notify_waiters();
+                }
             }
         })
         .await

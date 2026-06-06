@@ -1,14 +1,6 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, hash_map::Entry};
 
 use crate::entity::{Entity, LivelinessKE};
-
-#[derive(Debug, Clone, PartialEq, Eq)]
-pub(super) enum GraphMutation {
-    Inserted(Entity),
-    Removed(Entity),
-    Replaced { old: Box<Entity>, new: Box<Entity> },
-    Unchanged,
-}
 
 pub(super) struct GraphData {
     entities: HashMap<LivelinessKE, Entity>,
@@ -21,28 +13,22 @@ impl GraphData {
         }
     }
 
-    pub(super) fn insert(&mut self, key_expr: LivelinessKE, entity: Entity) -> GraphMutation {
-        match self.entities.get_mut(&key_expr) {
-            None => {
-                self.entities.insert(key_expr, entity.clone());
-                GraphMutation::Inserted(entity)
+    pub(super) fn insert(&mut self, key_expr: LivelinessKE, entity: Entity) -> bool {
+        match self.entities.entry(key_expr) {
+            Entry::Vacant(entry) => {
+                entry.insert(entity);
+                true
             }
-            Some(current) if current == &entity => GraphMutation::Unchanged,
-            Some(current) => {
-                let old = std::mem::replace(current, entity.clone());
-                GraphMutation::Replaced {
-                    old: Box::new(old),
-                    new: Box::new(entity),
-                }
+            Entry::Occupied(mut entry) if entry.get() != &entity => {
+                *entry.get_mut() = entity;
+                true
             }
+            Entry::Occupied(_) => false,
         }
     }
 
-    pub(super) fn remove(&mut self, key_expr: &LivelinessKE) -> GraphMutation {
-        self.entities
-            .remove(key_expr)
-            .map(GraphMutation::Removed)
-            .unwrap_or(GraphMutation::Unchanged)
+    pub(super) fn remove(&mut self, key_expr: &LivelinessKE) -> bool {
+        self.entities.remove(key_expr).is_some()
     }
 
     pub(super) fn entities(&self) -> impl Iterator<Item = &Entity> + '_ {
@@ -84,10 +70,7 @@ mod tests {
         let entity = Entity::Node(node("inserted_node"));
         let key = key_for(&entity);
 
-        assert_eq!(
-            data.insert(key, entity.clone()),
-            GraphMutation::Inserted(entity.clone())
-        );
+        assert!(data.insert(key, entity.clone()));
         assert_eq!(data.entities().collect::<Vec<_>>(), vec![&entity]);
     }
 
@@ -97,11 +80,8 @@ mod tests {
         let entity = Entity::Node(node("duplicate_node"));
         let key = key_for(&entity);
 
-        assert_eq!(
-            data.insert(key.clone(), entity.clone()),
-            GraphMutation::Inserted(entity.clone())
-        );
-        assert_eq!(data.insert(key, entity), GraphMutation::Unchanged);
+        assert!(data.insert(key.clone(), entity.clone()));
+        assert!(!data.insert(key, entity));
         assert_eq!(data.entities().count(), 1);
     }
 
@@ -113,17 +93,8 @@ mod tests {
         let new = Entity::Endpoint(publisher(&node, 3, "/new_topic"));
         let key = key_for(&old);
 
-        assert_eq!(
-            data.insert(key.clone(), old.clone()),
-            GraphMutation::Inserted(old.clone())
-        );
-        assert_eq!(
-            data.insert(key, new.clone()),
-            GraphMutation::Replaced {
-                old: Box::new(old),
-                new: Box::new(new.clone())
-            }
-        );
+        assert!(data.insert(key.clone(), old));
+        assert!(data.insert(key, new.clone()));
         assert_eq!(data.entities().collect::<Vec<_>>(), vec![&new]);
     }
 
@@ -143,7 +114,7 @@ mod tests {
         data.insert(first_key.clone(), first.clone());
         data.insert(second_key, second.clone());
 
-        assert_eq!(data.remove(&first_key), GraphMutation::Removed(first));
+        assert!(data.remove(&first_key));
         assert_eq!(data.entities().collect::<Vec<_>>(), vec![&second]);
     }
 
@@ -153,7 +124,7 @@ mod tests {
         let entity = Entity::Node(node("missing_node"));
         let key = key_for(&entity);
 
-        assert_eq!(data.remove(&key), GraphMutation::Unchanged);
+        assert!(!data.remove(&key));
         assert_eq!(data.entities().count(), 0);
     }
 }

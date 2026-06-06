@@ -52,8 +52,6 @@ pub mod encoding;
 /// Entity identity types (`SchemaHash`, `TypeInfo`).
 pub mod entity;
 pub mod error;
-/// Graph events emitted by the Zenoh network graph.
-pub mod event;
 /// Native graph introspection (node/topic/service discovery).
 pub mod graph;
 /// Typed message wrappers and helpers.

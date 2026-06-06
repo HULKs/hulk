@@ -10,11 +10,10 @@ mod state;
 use discovery::install_liveliness;
 pub use query::{GraphView, QosIncompatibility};
 pub use snapshot::{GraphSnapshot, NodeSnapshot, ServiceSnapshot, TopicSnapshot};
-use state::{GraphData, GraphMutation};
+use state::GraphData;
 
 use crate::Result;
 use crate::entity::{ADMIN_SPACE, Entity, entity_to_liveliness_key_expr};
-use crate::event::GraphEventManager;
 use zenoh::{Session, pubsub::Subscriber, session::ZenohId};
 
 #[derive(Debug, Clone)]
@@ -32,7 +31,6 @@ impl Default for GraphOptions {
 
 pub struct Graph {
     data: Arc<Mutex<GraphData>>,
-    event_manager: Arc<GraphEventManager>,
     pub zid: ZenohId,
     /// Notified whenever an entity appears or disappears in the graph.
     ///
@@ -48,33 +46,6 @@ impl std::fmt::Debug for Graph {
         f.debug_struct("Graph")
             .field("zid", &self.zid)
             .finish_non_exhaustive()
-    }
-}
-
-pub(in crate::graph) fn dispatch_graph_mutation(
-    mutation: GraphMutation,
-    event_manager: &GraphEventManager,
-    change_notify: &Notify,
-    zid: ZenohId,
-) {
-    let changed = !matches!(mutation, GraphMutation::Unchanged);
-    match mutation {
-        GraphMutation::Inserted(entity) => {
-            event_manager.trigger_graph_change(&entity, true, zid);
-        }
-        GraphMutation::Removed(entity) => {
-            event_manager.trigger_graph_change(&entity, false, zid);
-        }
-        GraphMutation::Replaced { old, new } => {
-            event_manager.trigger_graph_guard_conditions();
-            event_manager.trigger_endpoint_match_change(old.as_ref(), false);
-            event_manager.trigger_endpoint_match_change(new.as_ref(), true);
-        }
-        GraphMutation::Unchanged => {}
-    }
-
-    if changed {
-        change_notify.notify_waiters();
     }
 }
 
@@ -133,7 +104,6 @@ impl Graph {
         let zid = session.zid();
         let parser_arc = Arc::new(parser);
         let graph_data = Arc::new(Mutex::new(GraphData::new()));
-        let event_manager = Arc::new(GraphEventManager::new());
         let change_notify = Arc::new(Notify::new());
         let sub = install_liveliness(
             session,
@@ -141,16 +111,13 @@ impl Graph {
             parser_arc,
             &options,
             graph_data.clone(),
-            event_manager.clone(),
             change_notify.clone(),
-            zid,
         )
         .await?;
 
         Ok(Self {
             _subscriber: sub,
             data: graph_data,
-            event_manager,
             change_notify,
             zid,
         })
@@ -169,26 +136,25 @@ impl Graph {
     /// immediately visible in graph queries without waiting for Zenoh liveliness propagation
     pub fn add_local_entity(&self, entity: Entity) -> Result<()> {
         let key_expr = entity_to_liveliness_key_expr(&entity)?;
-        let mutation = self.data.lock().insert(key_expr, entity);
-        dispatch_graph_mutation(mutation, &self.event_manager, &self.change_notify, self.zid);
+        if self.data.lock().insert(key_expr, entity) {
+            self.change_notify.notify_waiters();
+        }
         Ok(())
     }
 
     /// Remove a local entity from the graph
     pub fn remove_local_entity(&self, entity: &Entity) -> Result<()> {
         let key_expr = entity_to_liveliness_key_expr(entity)?;
-        let mutation = self.data.lock().remove(&key_expr);
-        dispatch_graph_mutation(mutation, &self.event_manager, &self.change_notify, self.zid);
+        if self.data.lock().remove(&key_expr) {
+            self.change_notify.notify_waiters();
+        }
         Ok(())
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use std::{
-        sync::atomic::{AtomicUsize, Ordering},
-        time::{Duration, SystemTime, UNIX_EPOCH},
-    };
+    use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
     use crate::{
         Error, Result,
@@ -205,43 +171,6 @@ mod tests {
                 .expect("system clock should be after Unix epoch")
                 .as_nanos()
         )
-    }
-
-    #[test]
-    fn replaced_mutation_triggers_graph_guard_conditions_once() {
-        let event_manager = GraphEventManager::new();
-        let trigger_count = Arc::new(AtomicUsize::new(0));
-        let trigger_count_clone = trigger_count.clone();
-        event_manager.set_guard_condition_trigger(Arc::new(move |_| {
-            trigger_count_clone.fetch_add(1, Ordering::Relaxed);
-        }));
-        event_manager.register_graph_guard_condition(std::ptr::dangling_mut::<std::ffi::c_void>());
-
-        let old = Entity::Node(NodeEntity::new(
-            ZenohId::default(),
-            1,
-            "old_node".to_string(),
-            String::new(),
-        ));
-        let new = Entity::Node(NodeEntity::new(
-            ZenohId::default(),
-            2,
-            "new_node".to_string(),
-            String::new(),
-        ));
-        let change_notify = Notify::new();
-
-        dispatch_graph_mutation(
-            GraphMutation::Replaced {
-                old: Box::new(old),
-                new: Box::new(new),
-            },
-            &event_manager,
-            &change_notify,
-            ZenohId::default(),
-        );
-
-        assert_eq!(trigger_count.load(Ordering::Relaxed), 1);
     }
 
     #[tokio::test(flavor = "multi_thread")]

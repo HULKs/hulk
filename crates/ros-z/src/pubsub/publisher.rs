@@ -1,7 +1,7 @@
 use std::future::Future;
 use std::marker::PhantomData;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use tokio::task::JoinHandle;
@@ -14,7 +14,6 @@ use crate::attachment::{Attachment, EndpointGlobalId};
 use crate::dynamic::{DynamicCdrCodec, DynamicPayload, Schema};
 use crate::encoding::Encoding;
 use crate::entity::{EndpointEntity, endpoint_global_id};
-use crate::event::EventsManager;
 use crate::graph::Graph;
 use crate::message::WireEncoder;
 use crate::pubsub::metadata::PublicationId;
@@ -50,7 +49,6 @@ pub struct Publisher<T, C: WireEncoder = <T as crate::Message>::Codec> {
     inner: zenoh::pubsub::Publisher<'static>,
     _lv_token: LivelinessToken,
     clock: Clock,
-    events_mgr: Arc<Mutex<EventsManager>>,
     shm_config: Option<Arc<ShmConfig>>,
     /// Schema for dynamic message publishing.
     dyn_schema: Option<Schema>,
@@ -355,7 +353,6 @@ where
             _lv_token: lv_token,
             endpoint_global_id,
             clock: self.clock,
-            events_mgr: Arc::new(Mutex::new(EventsManager::new(endpoint_global_id))),
             shm_config: self.shm_config,
             dyn_schema: self.dyn_schema,
             encoding,
@@ -582,10 +579,6 @@ where
 }
 
 impl<T, C: WireEncoder> Publisher<T, C> {
-    pub fn events_mgr(&self) -> &Arc<Mutex<EventsManager>> {
-        &self.events_mgr
-    }
-
     /// Get a reference to the endpoint entity for this publisher.
     pub fn entity(&self) -> &EndpointEntity {
         &self.entity
