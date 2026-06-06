@@ -192,6 +192,56 @@ fn test_node_liveliness_roundtrip() {
     }
 }
 
+#[test]
+fn node_liveliness_roundtrip_preserves_digit_leading_identity() {
+    let z_id = ZenohId::default();
+    let node = NodeEntity {
+        z_id,
+        id: 7,
+        name: "123node".to_string(),
+        namespace: "/42".to_string(),
+    };
+
+    let ke = format::node_liveliness_key_expr(&node).unwrap();
+    let parsed = format::parse_liveliness(&ke).unwrap();
+
+    let Entity::Node(parsed_node) = parsed else {
+        panic!("expected Node entity");
+    };
+    assert_eq!(parsed_node.z_id, z_id);
+    assert_eq!(parsed_node.id, 7);
+    assert_eq!(parsed_node.name, "123node");
+    assert_eq!(parsed_node.namespace, "/42");
+}
+
+#[test]
+fn endpoint_liveliness_roundtrip_preserves_digit_leading_identity_and_topic() {
+    let z_id = ZenohId::default();
+    let entity = EndpointEntity {
+        id: 8,
+        node: NodeEntity {
+            z_id,
+            id: 7,
+            name: "123node".to_string(),
+            namespace: "/42".to_string(),
+        },
+        kind: EndpointKind::Publisher,
+        topic: "/42/status".to_string(),
+        type_info: TypeInfo::new("std_msgs::String", SchemaHash::zero()),
+        qos: QosProfile::default(),
+    };
+
+    let ke = format::liveliness_key_expr(&entity, &z_id).unwrap();
+    let parsed = format::parse_liveliness(&ke).unwrap();
+
+    let Entity::Endpoint(parsed_endpoint) = parsed else {
+        panic!("expected Endpoint entity");
+    };
+    assert_eq!(parsed_endpoint.node.name, "123node");
+    assert_eq!(parsed_endpoint.node.namespace, "/42");
+    assert_eq!(parsed_endpoint.topic, "/42/status");
+}
+
 // ---------------------------------------------------------------------------
 // Topic names with namespaces
 // ---------------------------------------------------------------------------

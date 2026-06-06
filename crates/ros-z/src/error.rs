@@ -308,6 +308,22 @@ impl Error {
         }
     }
 
+    pub(crate) fn namespace(name: impl Into<String>, source: TopicNameError) -> Self {
+        Self::Name {
+            kind: NameKind::Namespace,
+            name: name.into(),
+            source,
+        }
+    }
+
+    pub(crate) fn node_name(name: impl Into<String>, source: TopicNameError) -> Self {
+        Self::Name {
+            kind: NameKind::Node,
+            name: name.into(),
+            source,
+        }
+    }
+
     pub(crate) fn encode<E>(type_name: impl Into<String>, source: E) -> Self
     where
         E: StdError + Send + Sync + 'static,

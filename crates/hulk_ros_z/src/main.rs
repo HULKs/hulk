@@ -109,25 +109,20 @@ fn derive_namespace(robot: &str) -> String {
 }
 
 fn sanitize_namespace_component(component: &str) -> String {
-    let mut sanitized = String::new();
-
-    for character in component.chars() {
-        if character.is_ascii_alphanumeric() || character == '_' {
-            sanitized.push(character);
-        } else {
-            sanitized.push('_');
-        }
-    }
-
-    if sanitized
+    component
         .chars()
-        .next()
-        .is_some_and(|character| character.is_ascii_digit())
-    {
-        sanitized.insert(0, '_');
-    }
+        .map(|character| {
+            if is_valid_namespace_component_character(character) {
+                character
+            } else {
+                '_'
+            }
+        })
+        .collect()
+}
 
-    sanitized
+fn is_valid_namespace_component_character(character: char) -> bool {
+    !matches!(character, '/' | '%' | '#' | '$' | '?' | '*')
 }
 
 async fn spawn_all(ctx: Arc<Context>) -> Result<RunningStack> {
@@ -206,8 +201,19 @@ mod tests {
     use super::*;
 
     #[test]
-    fn derive_namespace_replaces_invalid_characters() {
-        assert_eq!(derive_namespace("robot-01"), "/robot_01");
+    fn derive_namespace_keeps_ros_z_valid_components() {
+        assert_eq!(derive_namespace("42"), "/42");
+        assert_eq!(derive_namespace("robot-01"), "/robot-01");
+        assert_eq!(derive_namespace("robot/42"), "/robot/42");
+    }
+
+    #[test]
+    fn derive_namespace_replaces_rejected_characters() {
+        assert_eq!(derive_namespace("robot%01"), "/robot_01");
+        assert_eq!(derive_namespace("robot#01"), "/robot_01");
+        assert_eq!(derive_namespace("robot$01"), "/robot_01");
+        assert_eq!(derive_namespace("robot?01"), "/robot_01");
+        assert_eq!(derive_namespace("robot*01"), "/robot_01");
     }
 
     #[test]
