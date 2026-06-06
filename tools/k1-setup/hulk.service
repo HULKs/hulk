@@ -11,7 +11,7 @@ ExecStop=/usr/local/bin/podman exec hulk pkill -SIGTERM hulk
 KillMode=control-group
 KillSignal=SIGTERM
 TimeoutStopSec=10
-Restart=on-failure
+Restart=no
 
 [Install]
 WantedBy=multi-user.target
