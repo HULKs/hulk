@@ -1,12 +1,11 @@
 use std::fmt;
-use std::sync::Arc;
 use std::time::Duration;
 
 use itertools::Itertools;
 
 use crate::{
     dynamic::{DynamicError, Schema},
-    entity::{Entity, SchemaHash, TypeInfo},
+    entity::{EndpointEntity, SchemaHash, TypeInfo},
     graph::Graph,
     node::Node,
     topic_name::qualify_topic_name,
@@ -35,17 +34,13 @@ pub(crate) struct TopicSchemaCandidate {
 }
 
 impl TopicSchemaCandidate {
-    fn from_entity(entity: &Entity) -> Option<Self> {
-        let Entity::Endpoint(endpoint) = entity else {
-            return None;
-        };
-
-        Some(Self {
+    fn from_endpoint(endpoint: &EndpointEntity) -> Self {
+        Self {
             node_name: endpoint.node.name.clone(),
             namespace: endpoint.node.namespace.clone(),
             type_name: endpoint.type_info.name.clone(),
             schema_hash: endpoint.type_info.hash,
-        })
+        }
     }
 }
 
@@ -60,12 +55,12 @@ impl fmt::Display for TopicSchemaCandidate {
 }
 
 pub(crate) fn collect_topic_schema_candidates_from_publishers(
-    publishers: &[Arc<Entity>],
+    publishers: &[EndpointEntity],
     qualified_topic: &str,
 ) -> Result<Vec<TopicSchemaCandidate>, DynamicError> {
     let candidates = publishers
         .iter()
-        .filter_map(|publisher| TopicSchemaCandidate::from_entity(publisher))
+        .map(TopicSchemaCandidate::from_endpoint)
         .unique()
         .collect_vec();
 
@@ -93,12 +88,7 @@ fn collect_topic_schema_candidates(
     graph: &Graph,
     qualified_topic: &str,
 ) -> Result<Vec<TopicSchemaCandidate>, DynamicError> {
-    let publishers = graph
-        .view()
-        .publishers_on(qualified_topic)
-        .into_iter()
-        .map(|endpoint| std::sync::Arc::new(Entity::Endpoint(endpoint)))
-        .collect::<Vec<_>>();
+    let publishers = graph.view().publishers_on(qualified_topic);
 
     collect_topic_schema_candidates_from_publishers(&publishers, qualified_topic)
 }
@@ -155,13 +145,11 @@ impl<'a> SchemaDiscovery<'a> {
 
 #[cfg(test)]
 mod tests {
-    use std::sync::Arc;
-
     use super::*;
-    use crate::entity::{EndpointEntity, EndpointKind, Entity, NodeEntity, SchemaHash, TypeInfo};
+    use crate::entity::{EndpointKind, NodeEntity, SchemaHash, TypeInfo};
 
-    fn publisher(type_name: &str) -> Arc<Entity> {
-        Arc::new(Entity::Endpoint(EndpointEntity {
+    fn publisher(type_name: &str) -> EndpointEntity {
+        EndpointEntity {
             id: 1,
             node: NodeEntity {
                 z_id: Default::default(),
@@ -173,10 +161,10 @@ mod tests {
             topic: "/chatter".to_string(),
             type_info: TypeInfo::new(type_name, SchemaHash::zero()),
             qos: Default::default(),
-        }))
+        }
     }
 
-    fn publisher_with_hash(type_name: &str, hash: SchemaHash) -> Arc<Entity> {
+    fn publisher_with_hash(type_name: &str, hash: SchemaHash) -> EndpointEntity {
         publisher_with_hash_from_node(type_name, hash, "talker", 2)
     }
 
@@ -185,8 +173,8 @@ mod tests {
         hash: SchemaHash,
         node_name: &str,
         node_id: usize,
-    ) -> Arc<Entity> {
-        Arc::new(Entity::Endpoint(EndpointEntity {
+    ) -> EndpointEntity {
+        EndpointEntity {
             id: 1,
             node: NodeEntity {
                 z_id: Default::default(),
@@ -198,7 +186,7 @@ mod tests {
             topic: "/chatter".to_string(),
             type_info: TypeInfo::new(type_name, hash),
             qos: Default::default(),
-        }))
+        }
     }
 
     #[test]
@@ -226,7 +214,7 @@ mod tests {
     #[test]
     fn publisher_schema_candidates_use_strict_endpoint_type_info() {
         let hash = SchemaHash([0x42; 32]);
-        let publisher = Arc::new(Entity::Endpoint(EndpointEntity {
+        let publisher = EndpointEntity {
             id: 1,
             node: NodeEntity {
                 z_id: Default::default(),
@@ -238,7 +226,7 @@ mod tests {
             topic: "/chatter".to_string(),
             type_info: TypeInfo::new("std_msgs::String", hash),
             qos: Default::default(),
-        }));
+        };
 
         let candidates = collect_topic_schema_candidates_from_publishers(&[publisher], "/chatter")
             .expect("candidate");
