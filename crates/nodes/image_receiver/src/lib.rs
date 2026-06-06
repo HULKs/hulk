@@ -19,7 +19,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let right_image_pub = node
-        .publisher::<Image>("inputs/left_image")?
+        .publisher::<Image>("inputs/right_image")?
         .build()
         .await?;
     let camera_info_pub = node
