@@ -12,7 +12,7 @@ use types::{
     field_dimensions::FieldDimensions, filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState, filtered_whistle::FilteredWhistle,
     game_controller_state::GameControllerState, parameters::GameStateFilterParameters,
-    players::Players, time_wrapper::TimeWrapper, world_state::BallState,
+    players::Players, world_state::BallState,
 };
 
 use crate::state::State;
@@ -49,7 +49,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
 
     let game_controller_state_sub = node
-        .subscriber::<TimeWrapper<Option<GameControllerState>>>("game_controller_state")?
+        .subscriber::<Option<GameControllerState>>("game_controller_state")?
         .build()
         .await?;
     let filtered_whistle_cache = node
@@ -66,7 +66,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let filtered_game_controller_state_pub = node
-        .publisher::<TimeWrapper<FilteredGameControllerState>>("filtered_game_controller_state")?
+        .publisher::<Option<FilteredGameControllerState>>("filtered_game_controller_state")?
         .build()
         .await?;
 
@@ -77,13 +77,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         let parameters_snapshot = parameters.snapshot();
         let parameters = parameters_snapshot.typed();
 
-        let game_controller_state_wrapper = game_controller_state_sub.recv().await?;
-
-        let TimeWrapper {
-            time,
-            inner: Some(game_controller_state),
-        } = game_controller_state_wrapper
-        else {
+        let Some(game_controller_state) = game_controller_state_sub.recv().await? else {
             continue;
         };
 
@@ -102,9 +96,8 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             latest_known_ball_state = Some((ball_state, time))
         };
 
-        let filtered_game_controller_state = TimeWrapper {
-            time,
-            inner: game_controller_state_filter.compute_filtered_game_controller_state(
+        let filtered_game_controller_state = Some(
+            game_controller_state_filter.compute_filtered_game_controller_state(
                 node.clock().now(),
                 parameters,
                 &field_dimensions,
@@ -114,7 +107,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 &filtered_whistle,
                 &current_ball_state,
             ),
-        };
+        );
 
         whistle_in_set_ball_position_pub
             .publish(&game_controller_state_filter.whistle_in_set_ball_position)

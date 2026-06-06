@@ -35,7 +35,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let game_controller_state_pub = node
-        .publisher::<TimeWrapper<Option<GameControllerState>>>("game_controller_state")?
+        .publisher::<Option<GameControllerState>>("game_controller_state")?
         .build()
         .await?;
     let game_controller_address_pub = node
@@ -76,12 +76,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             .max_by_key(|(_address, time)| *time)
             .map(|(address, _time)| *address);
 
-        let time_wrapper = TimeWrapper {
-            time,
-            inner: game_controller_filter.game_controller_state.clone(),
-        };
-
-        game_controller_state_pub.publish(&time_wrapper).await?;
+        game_controller_state_pub
+            .publish(&game_controller_filter.game_controller_state)
+            .await?;
         game_controller_address_pub.publish(&last_address).await?;
     }
 }
