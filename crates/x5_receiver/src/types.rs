@@ -83,8 +83,8 @@ impl X5CameraInfo {
                 stamp: Time { sec: 0, nanosec: 0 },
                 frame_id: "x5".to_owned(),
             },
-            height: self.height as u32,
-            width: self.width as u32,
+            height: self.capture_height as u32,
+            width: self.capture_width as u32,
             distortion_model,
             d: left_distortion_coefficients[..self.distortion_count_left as usize].to_vec(),
             k: [
@@ -132,8 +132,8 @@ impl X5CameraInfo {
                 stamp: Time { sec: 0, nanosec: 0 },
                 frame_id: "x5".to_owned(),
             },
-            height: self.height as u32,
-            width: self.width as u32,
+            height: self.capture_height as u32,
+            width: self.capture_width as u32,
             distortion_model,
             d: right_distortion_coefficients[..self.distortion_count_right as usize].to_vec(),
             k: [
