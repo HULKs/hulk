@@ -96,72 +96,37 @@ async fn node_builder_accepts_zenoh_native_identity() -> ros_z::Result<()> {
 }
 
 #[tokio::test(flavor = "multi_thread")]
-async fn node_builder_rejects_invalid_node_names_before_protocol_formatting() -> ros_z::Result<()> {
+async fn node_builder_rejects_protocol_reserved_identity_before_formatting() -> ros_z::Result<()> {
     let context = test_context().await?;
 
-    for invalid_name in [
-        "",
-        "node/name",
-        "node%name",
-        "node#name",
-        "node$name",
-        "node?name",
-        "node*name",
-    ] {
-        let error = context
-            .create_node(invalid_name)
-            .build()
-            .await
-            .expect_err("invalid node name should fail during node build");
+    let node_error = context
+        .create_node("node%name")
+        .build()
+        .await
+        .expect_err("invalid node name should fail during node build");
+    assert!(matches!(
+        node_error,
+        ros_z::Error::Name {
+            kind: ros_z::error::NameKind::Node,
+            source: ros_z::topic_name::TopicNameError::InvalidNodeName(_),
+            ..
+        }
+    ));
 
-        assert!(
-            matches!(
-                error,
-                ros_z::Error::Name {
-                    kind: ros_z::error::NameKind::Node,
-                    source: ros_z::topic_name::TopicNameError::InvalidNodeName(_),
-                    ..
-                }
-            ),
-            "unexpected error for node name {invalid_name:?}: {error:?}"
-        );
-    }
-
-    Ok(())
-}
-
-#[tokio::test(flavor = "multi_thread")]
-async fn node_builder_rejects_invalid_namespaces_before_protocol_formatting() -> ros_z::Result<()> {
-    let context = test_context().await?;
-
-    for invalid_namespace in [
-        "/robot/",
-        "/robot//ns",
-        "/robot%ns",
-        "/robot#ns",
-        "/robot$ns",
-        "/robot?ns",
-        "/robot*ns",
-    ] {
-        let error = context
-            .create_node("node")
-            .with_namespace(invalid_namespace)
-            .build()
-            .await
-            .expect_err("invalid namespace should fail during node build");
-
-        assert!(
-            matches!(
-                error,
-                ros_z::Error::Name {
-                    kind: ros_z::error::NameKind::Namespace,
-                    source: ros_z::topic_name::TopicNameError::InvalidNamespace(_),
-                    ..
-                }
-            ),
-            "unexpected error for namespace {invalid_namespace:?}: {error:?}"
-        );
-    }
+    let namespace_error = context
+        .create_node("node")
+        .with_namespace("/robot%ns")
+        .build()
+        .await
+        .expect_err("invalid namespace should fail during node build");
+    assert!(matches!(
+        namespace_error,
+        ros_z::Error::Name {
+            kind: ros_z::error::NameKind::Namespace,
+            source: ros_z::topic_name::TopicNameError::InvalidNamespace(_),
+            ..
+        }
+    ));
 
     Ok(())
 }

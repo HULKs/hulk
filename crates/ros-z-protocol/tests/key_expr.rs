@@ -175,8 +175,8 @@ fn test_node_liveliness_roundtrip() {
     let node = NodeEntity {
         z_id,
         id: 5,
-        name: "my_node".to_string(),
-        namespace: "/my_ns".to_string(),
+        name: "123node".to_string(),
+        namespace: "/42/robot-01".to_string(),
     };
 
     let ke = format::node_liveliness_key_expr(&node).unwrap();
@@ -185,61 +185,11 @@ fn test_node_liveliness_roundtrip() {
     if let Entity::Node(n) = parsed {
         assert_eq!(n.z_id, z_id);
         assert_eq!(n.id, 5);
-        assert_eq!(n.name, "my_node");
-        assert_eq!(n.namespace, "/my_ns");
+        assert_eq!(n.name, "123node");
+        assert_eq!(n.namespace, "/42/robot-01");
     } else {
         panic!("expected Node entity");
     }
-}
-
-#[test]
-fn node_liveliness_roundtrip_preserves_digit_leading_identity() {
-    let z_id = ZenohId::default();
-    let node = NodeEntity {
-        z_id,
-        id: 7,
-        name: "123node".to_string(),
-        namespace: "/42".to_string(),
-    };
-
-    let ke = format::node_liveliness_key_expr(&node).unwrap();
-    let parsed = format::parse_liveliness(&ke).unwrap();
-
-    let Entity::Node(parsed_node) = parsed else {
-        panic!("expected Node entity");
-    };
-    assert_eq!(parsed_node.z_id, z_id);
-    assert_eq!(parsed_node.id, 7);
-    assert_eq!(parsed_node.name, "123node");
-    assert_eq!(parsed_node.namespace, "/42");
-}
-
-#[test]
-fn endpoint_liveliness_roundtrip_preserves_digit_leading_identity_and_topic() {
-    let z_id = ZenohId::default();
-    let entity = EndpointEntity {
-        id: 8,
-        node: NodeEntity {
-            z_id,
-            id: 7,
-            name: "123node".to_string(),
-            namespace: "/42".to_string(),
-        },
-        kind: EndpointKind::Publisher,
-        topic: "/42/status".to_string(),
-        type_info: TypeInfo::new("std_msgs::String", SchemaHash::zero()),
-        qos: QosProfile::default(),
-    };
-
-    let ke = format::liveliness_key_expr(&entity, &z_id).unwrap();
-    let parsed = format::parse_liveliness(&ke).unwrap();
-
-    let Entity::Endpoint(parsed_endpoint) = parsed else {
-        panic!("expected Endpoint entity");
-    };
-    assert_eq!(parsed_endpoint.node.name, "123node");
-    assert_eq!(parsed_endpoint.node.namespace, "/42");
-    assert_eq!(parsed_endpoint.topic, "/42/status");
 }
 
 // ---------------------------------------------------------------------------

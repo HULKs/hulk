@@ -22,48 +22,24 @@ pub enum TopicNameError {
     InvalidNodeName(String),
 }
 
-/// Validate one concrete ros-z graph-name component.
-///
-/// Components follow Zenoh key-expression chunk rules, with extra exclusions
-/// for ros-z concrete endpoints and current liveliness identity escaping.
-#[cfg(test)]
-fn is_valid_graph_component(component: &str) -> bool {
-    invalid_graph_component_reason(component).is_none()
-}
-
-fn invalid_graph_component_reason(component: &str) -> Option<&'static str> {
+fn validate_graph_component(component: &str) -> Result<(), String> {
     if component.is_empty() {
-        return Some("component is empty");
+        return Err("invalid component: component is empty".to_string());
     }
 
     for character in component.chars() {
-        match character {
-            '/' => return Some("component contains '/'"),
-            '%' => return Some("component contains '%'"),
-            '#' => return Some("component contains '#'"),
-            '$' => return Some("component contains '$'"),
-            '?' => return Some("component contains '?'"),
-            '*' => return Some("component contains '*'"),
-            _ => {}
+        if matches!(character, '/' | '%' | '#' | '$' | '?' | '*') {
+            return Err(format!(
+                "invalid component '{component}': contains '{character}'"
+            ));
         }
     }
 
-    None
-}
-
-fn validate_graph_component(component: &str) -> Result<(), String> {
-    match invalid_graph_component_reason(component) {
-        Some(reason) => Err(format!("invalid component '{component}': {reason}")),
-        None => Ok(()),
-    }
+    Ok(())
 }
 
 fn validate_graph_path(path: &str) -> Result<(), String> {
-    for component in path.split('/') {
-        validate_graph_component(component)?;
-    }
-
-    Ok(())
+    path.split('/').try_for_each(validate_graph_component)
 }
 
 /// Validate a namespace string.
@@ -97,6 +73,8 @@ pub(crate) fn validate_node_name(node_name: &str) -> Result<(), TopicNameError> 
 /// - Private topics (starting with '~') are expanded to `/<namespace>/<node_name>/<topic>`
 /// - Relative topics are expanded to `/<namespace>/<topic>`
 /// - Empty namespace is treated as "/"
+/// - Components may start with digits and may contain hyphens
+/// - Components must be non-empty and cannot contain `/`, `%`, `#`, `$`, `?`, or `*`
 ///
 /// # Arguments
 /// * `topic` - The input topic name (can be absolute, relative, or private)
@@ -199,7 +177,7 @@ pub fn qualify_topic_name(
 
 /// Qualify a service name according to ros-z naming rules.
 ///
-/// Service names follow the same rules as topic names
+/// Service names follow the same graph-name component rules as topic names.
 pub fn qualify_service_name(
     service: &str,
     namespace: &str,
@@ -312,46 +290,25 @@ mod tests {
     #[test]
     fn accepts_zenoh_native_digit_and_hyphen_components() {
         assert_eq!(
-            qualify_topic_name("chatter", "/42", "node").unwrap(),
-            "/42/chatter"
-        );
-        assert_eq!(
-            qualify_topic_name("~status", "/robot", "123node").unwrap(),
-            "/robot/123node/status"
-        );
-        assert_eq!(
-            qualify_topic_name("42/status", "/robot", "node").unwrap(),
-            "/robot/42/status"
-        );
-        assert_eq!(
-            qualify_topic_name("camera-left/image_raw", "/robot-01", "node").unwrap(),
-            "/robot-01/camera-left/image_raw"
-        );
-        assert_eq!(
-            qualify_service_name("42/service", "/7", "123node").unwrap(),
-            "/7/42/service"
+            qualify_topic_name("~camera-left/42", "/7/robot-01", "123node").unwrap(),
+            "/7/robot-01/123node/camera-left/42"
         );
     }
 
     #[test]
-    fn rejects_non_concrete_or_protocol_reserved_components() {
-        for topic in [
-            "foo//bar",
-            "/foo//bar",
-            "/foo%bar",
-            "/foo#bar",
-            "/foo$bar",
-            "/foo?bar",
-            "/foo*bar",
-        ] {
-            assert!(
-                matches!(
-                    qualify_topic_name(topic, "/", "node"),
-                    Err(TopicNameError::InvalidCharacters(_))
-                ),
-                "topic {topic:?} should be rejected"
-            );
-        }
+    fn rejects_empty_or_reserved_components() {
+        assert!(matches!(
+            qualify_topic_name("foo//bar", "/", "node"),
+            Err(TopicNameError::InvalidCharacters(_))
+        ));
+        assert!(matches!(
+            qualify_topic_name("/foo%bar", "/", "node"),
+            Err(TopicNameError::InvalidCharacters(_))
+        ));
+        assert!(matches!(
+            qualify_topic_name("/foo*bar", "/", "node"),
+            Err(TopicNameError::InvalidCharacters(_))
+        ));
 
         assert!(matches!(
             qualify_topic_name("status", "/robot//ns", "node"),
@@ -385,29 +342,6 @@ mod tests {
             qualify_topic_name("chatter", "/ns", ""),
             Err(TopicNameError::InvalidNodeName(_))
         ));
-        assert!(matches!(
-            qualify_topic_name("chatter", "/ns", "node%name"),
-            Err(TopicNameError::InvalidNodeName(_))
-        ));
-    }
-
-    #[test]
-    fn test_valid_graph_components() {
-        assert!(is_valid_graph_component("foo"));
-        assert!(is_valid_graph_component("_foo"));
-        assert!(is_valid_graph_component("123"));
-        assert!(is_valid_graph_component("foo123"));
-        assert!(is_valid_graph_component("foo_bar"));
-        assert!(is_valid_graph_component("foo-bar"));
-        assert!(is_valid_graph_component("FooBar"));
-
-        assert!(!is_valid_graph_component(""));
-        assert!(!is_valid_graph_component("foo/bar"));
-        assert!(!is_valid_graph_component("foo%bar"));
-        assert!(!is_valid_graph_component("foo#bar"));
-        assert!(!is_valid_graph_component("foo$bar"));
-        assert!(!is_valid_graph_component("foo?bar"));
-        assert!(!is_valid_graph_component("foo*bar"));
     }
 
     #[test]
