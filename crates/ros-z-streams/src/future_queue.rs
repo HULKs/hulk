@@ -7,6 +7,7 @@ use ros_z::{
     Message, Result,
     node::Node,
     pubsub::{Received, Subscriber},
+    qos::{QosHistory, QosProfile},
     time::Time,
 };
 use tokio::select;
@@ -147,9 +148,20 @@ impl CreateFutureQueue for Node {
         topic: &str,
         transit_lag: Duration,
     ) -> Result<FutureQueueSubscriber<T>> {
-        let data_subscriber = self.subscriber(topic)?.build().await?;
+        let data_subscriber = self
+            .subscriber(topic)?
+            .qos(QosProfile {
+                history: QosHistory::KeepAll,
+                ..Default::default()
+            })
+            .build()
+            .await?;
         let announcement_subscriber = self
             .subscriber(&format!("{}/announce", topic))?
+            .qos(QosProfile {
+                history: QosHistory::KeepAll,
+                ..Default::default()
+            })
             .build()
             .await?;
 
