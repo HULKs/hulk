@@ -66,7 +66,7 @@ fn apply_message(
             pose: state_message.pose,
             ball_position: state_message
                 .ball_position
-                .map(|ball| BallPosition::from_network_ball(ball, time.to_wallclock())),
+                .map(|ball| BallPosition::from_network_ball(ball, time)),
         },
     });
 }

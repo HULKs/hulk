@@ -12,7 +12,6 @@ use ros_z_streams::CreateAnnouncingPublisher;
 use ros2::sensor_msgs::image::Image;
 
 use ros_z::prelude::*;
-use ros_z_streams::CreateAnnouncingPublisher;
 use tokio::time::Instant;
 use types::{
     bounding_box::BoundingBox,

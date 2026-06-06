@@ -1,5 +1,4 @@
-use std::sync::Arc;
-use std::time::Duration;
+use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
 use color_eyre::Result;
 use hungarian_algorithm::AssignmentProblem;
@@ -32,6 +31,10 @@ pub use crate::{
 
 mod filter;
 mod hypothesis;
+
+pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
+    Box::pin(run(ctx))
+}
 
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("ball_filter").build().await?;
