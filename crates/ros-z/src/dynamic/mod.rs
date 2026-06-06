@@ -67,6 +67,7 @@
 pub mod codec;
 pub(crate) mod discovery;
 pub mod error;
+pub mod json;
 pub mod message;
 pub mod registry;
 pub mod schema;
@@ -82,6 +83,10 @@ mod tests;
 pub use codec::{DynamicCdrCodec, DynamicPayload};
 pub use discovery::DiscoveredTopicSchema;
 pub use error::DynamicError;
+pub use json::{
+    ByteRenderPolicy, DynamicJsonRenderPolicy, NonFiniteFloatRenderPolicy, dynamic_payload_to_json,
+    dynamic_value_to_json,
+};
 pub use message::{DynamicStruct, DynamicStructBuilder};
 pub use registry::{SchemaRegistry, get_root_schema_with_hash, has_schema, register_root_schema};
 pub use schema::{
