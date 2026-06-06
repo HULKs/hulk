@@ -213,12 +213,12 @@ mod tests {
     fn relative_selector_reports_invalid_target_namespace() {
         let selector = TopicSelector::new("diagnostics").unwrap();
 
-        let error = selector.resolve("123invalid").unwrap_err();
+        let error = selector.resolve("alpha%bad").unwrap_err();
 
         assert!(
             error
                 .to_string()
-                .contains("invalid target namespace '123invalid'")
+                .contains("invalid target namespace 'alpha%bad'")
         );
     }
 
@@ -234,10 +234,10 @@ mod tests {
 
     #[test]
     fn invalid_relative_selector_is_rejected_during_construction() {
-        let error = TopicSelector::new("123invalid").unwrap_err();
+        let error = TopicSelector::new("foo%bar").unwrap_err();
 
         assert!(error.source().is_some());
-        assert!(error.to_string().contains("invalid component '123invalid'"));
+        assert!(error.to_string().contains("invalid component 'foo%bar'"));
     }
 
     #[test]
@@ -277,8 +277,8 @@ mod tests {
 
     #[test]
     fn projection_rejects_invalid_relative_topics_using_ros_z_validation() {
-        let error = TopicProjection::project("alpha", ["123invalid"]).unwrap_err();
+        let error = TopicProjection::project("alpha", ["foo%bar"]).unwrap_err();
 
-        assert!(error.to_string().contains("invalid component '123invalid'"));
+        assert!(error.to_string().contains("invalid component 'foo%bar'"));
     }
 }

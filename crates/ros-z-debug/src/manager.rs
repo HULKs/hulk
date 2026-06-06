@@ -443,12 +443,12 @@ mod tests {
 
     #[test]
     fn manager_options_reject_invalid_target_namespace() {
-        let error = ManagerOptions::with_target_namespace("123invalid").unwrap_err();
+        let error = ManagerOptions::with_target_namespace("alpha%bad").unwrap_err();
 
         assert!(matches!(
             error,
             Error::InvalidTargetNamespace { ref target_namespace, .. }
-                if target_namespace == "123invalid"
+                if target_namespace == "alpha%bad"
         ));
     }
 
