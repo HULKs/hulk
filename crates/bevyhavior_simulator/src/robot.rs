@@ -28,7 +28,6 @@ use linear_algebra::{
 };
 use parameters::directory::deserialize;
 use projection::intrinsic::Intrinsic;
-use ros_z::time::Time as RosTime;
 use types::{
     ball_position::BallPosition,
     filtered_whistle::FilteredWhistle,
@@ -360,7 +359,7 @@ pub fn cycle_robots(
 ) {
     let messages_sent_last_cycle = take(&mut messages.messages);
     let now = SystemTime::UNIX_EPOCH + time.elapsed();
-    let now_ros = RosTime::from_wallclock(now);
+    let now_ros = rosz::Time::from_wallclock(now);
 
     for mut robot in &mut robots {
         robot.database.main_outputs.cycle_time.start_time = now;
