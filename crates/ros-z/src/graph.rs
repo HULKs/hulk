@@ -57,58 +57,12 @@ impl Graph {
 
     pub async fn new_with_options(session: &Session, options: GraphOptions) -> Result<Self> {
         let liveliness_pattern = format!("{}/**", ADMIN_SPACE);
-
-        Self::new_with_pattern_and_options(
-            session,
-            liveliness_pattern,
-            |key_expr| Ok(ros_z_protocol::format::parse_liveliness(key_expr)?),
-            options,
-        )
-        .await
-    }
-
-    /// Create a new Graph with a custom liveliness subscription pattern and parser
-    ///
-    /// # Arguments
-    /// * `session` - Zenoh session
-    /// * `liveliness_pattern` - Liveliness key expression pattern to subscribe to
-    /// * `parser` - Function to parse liveliness key expressions into Entity
-    ///
-    /// The default ros-z liveliness pattern is `@ros_z/**`.
-    pub async fn new_with_pattern<F>(
-        session: &Session,
-        liveliness_pattern: String,
-        parser: F,
-    ) -> Result<Self>
-    where
-        F: Fn(&zenoh::key_expr::KeyExpr) -> crate::Result<Entity> + Send + Sync + 'static,
-    {
-        Self::new_with_pattern_and_options(
-            session,
-            liveliness_pattern,
-            parser,
-            GraphOptions::default(),
-        )
-        .await
-    }
-
-    async fn new_with_pattern_and_options<F>(
-        session: &Session,
-        liveliness_pattern: String,
-        parser: F,
-        options: GraphOptions,
-    ) -> Result<Self>
-    where
-        F: Fn(&zenoh::key_expr::KeyExpr) -> crate::Result<Entity> + Send + Sync + 'static,
-    {
         let zid = session.zid();
-        let parser_arc = Arc::new(parser);
         let graph_data = Arc::new(Mutex::new(GraphData::new()));
         let change_notify = Arc::new(Notify::new());
         let sub = install_liveliness(
             session,
             &liveliness_pattern,
-            parser_arc,
             &options,
             graph_data.clone(),
             change_notify.clone(),
