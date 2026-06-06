@@ -44,8 +44,8 @@ message_receiver = { workspace = true }
 microphone_recorder = { workspace = true }
 motor_commands_collector = { workspace = true }
 obstacle_filter = { workspace = true }
-player_state_receiver = { workspace = true }
 odometer_bridge = { workspace = true }
+player_state_receiver = { workspace = true }
 primary_state_filter = { workspace = true }
 robot_mode_handler = { workspace = true }
 ros-z = { workspace = true }
