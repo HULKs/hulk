@@ -12,6 +12,7 @@ use types::{
     ball_position::{BallPosition, HypotheticalBallPosition},
     field_dimensions::{FieldDimensions, Half, Side},
     filtered_game_controller_state::FilteredGameControllerState,
+    heatmap::Heatmap as HeatmapMessage,
     messages::IncomingMessage,
     parameters::SearchSuggestorParameters,
     primary_state::PrimaryState,
@@ -27,6 +28,15 @@ pub(crate) struct Heatmap {
 }
 
 impl Heatmap {
+    pub(crate) fn to_message(&self) -> HeatmapMessage {
+        let (length, width) = self.map.dim();
+        HeatmapMessage {
+            length: length as u32,
+            width: width as u32,
+            values: self.map.iter().copied().collect(),
+        }
+    }
+
     pub(crate) fn update_with_ball_position(
         &mut self,
         field_dimensions: FieldDimensions,

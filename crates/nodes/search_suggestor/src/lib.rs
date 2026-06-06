@@ -1,10 +1,10 @@
-use std::{boxed::Box, f32::consts, future::Future, pin::Pin, sync::Arc, time::Duration};
 use color_eyre::{Result, eyre::WrapErr as _};
 use coordinate_systems::{Field, Ground};
 use linear_algebra::{Isometry2, Point2, Vector2, point, vector};
 use ndarray::{Array2, array};
 use ndarray_conv::{ConvExt, ConvMode, PaddingMode};
 use ros_z::{prelude::*, qos::QosDurability};
+use std::{boxed::Box, f32::consts, future::Future, pin::Pin, sync::Arc, time::Duration};
 use types::{
     ball_position::{BallPosition, HypotheticalBallPosition},
     field_dimensions::FieldDimensions,
@@ -61,12 +61,10 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .subscriber::<TimeWrapper<IncomingMessage>>("filtered_message")?
         .build()
         .await?;
-    // TODO: do we need to directly publish ndarray here? Choose another type or manually implement
-    // support for `Array: Message` in ros-z
-    // let _heatmap_pub = node
-    //     .publisher::<Array2<f32>>("ball_search_heatmap")
-    //     .build()
-    //     .await?;
+    let heatmap_pub = node
+        .publisher::<types::heatmap::Heatmap>("ball_search_heatmap")?
+        .build()
+        .await?;
     let suggested_search_position_pub = node
         .publisher::<Point2<Field>>("suggested_search_position")?
         .build()
@@ -194,6 +192,8 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 .publish(&suggested_search_position)
                 .await?;
         }
+
+        heatmap_pub.publish(&heatmap.to_message()).await?;
 
         tokio::time::sleep(Duration::from_millis(5)).await;
     }
