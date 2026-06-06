@@ -42,7 +42,10 @@ pub(super) async fn install_liveliness(
                         debug!("[GRF] Entity appeared: {}", key_expr.0);
                         tracing::debug!("Graph subscriber: PUT {}", key_expr.as_str());
                         match callback_parser(&key_expr) {
-                            Ok(entity) => graph_data.lock().insert(key_expr, entity),
+                            Ok(entity) => {
+                                graph_data.lock().insert(key_expr, entity);
+                                true
+                            }
                             Err(error) => {
                                 tracing::warn!(
                                     liveliness_key = %key_expr.0,

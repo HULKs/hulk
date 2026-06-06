@@ -136,9 +136,8 @@ impl Graph {
     /// immediately visible in graph queries without waiting for Zenoh liveliness propagation
     pub fn add_local_entity(&self, entity: Entity) -> Result<()> {
         let key_expr = entity_to_liveliness_key_expr(&entity)?;
-        if self.data.lock().insert(key_expr, entity) {
-            self.change_notify.notify_waiters();
-        }
+        self.data.lock().insert(key_expr, entity);
+        self.change_notify.notify_waiters();
         Ok(())
     }
 

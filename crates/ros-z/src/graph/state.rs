@@ -1,4 +1,4 @@
-use std::collections::{HashMap, hash_map::Entry};
+use std::collections::HashMap;
 
 use crate::entity::{Entity, LivelinessKE};
 
@@ -13,18 +13,8 @@ impl GraphData {
         }
     }
 
-    pub(super) fn insert(&mut self, key_expr: LivelinessKE, entity: Entity) -> bool {
-        match self.entities.entry(key_expr) {
-            Entry::Vacant(entry) => {
-                entry.insert(entity);
-                true
-            }
-            Entry::Occupied(mut entry) if entry.get() != &entity => {
-                *entry.get_mut() = entity;
-                true
-            }
-            Entry::Occupied(_) => false,
-        }
+    pub(super) fn insert(&mut self, key_expr: LivelinessKE, entity: Entity) {
+        self.entities.insert(key_expr, entity);
     }
 
     pub(super) fn remove(&mut self, key_expr: &LivelinessKE) -> bool {
@@ -70,7 +60,7 @@ mod tests {
         let entity = Entity::Node(node("inserted_node"));
         let key = key_for(&entity);
 
-        assert!(data.insert(key, entity.clone()));
+        data.insert(key, entity.clone());
         assert_eq!(data.entities().collect::<Vec<_>>(), vec![&entity]);
     }
 
@@ -80,8 +70,8 @@ mod tests {
         let entity = Entity::Node(node("duplicate_node"));
         let key = key_for(&entity);
 
-        assert!(data.insert(key.clone(), entity.clone()));
-        assert!(!data.insert(key, entity));
+        data.insert(key.clone(), entity.clone());
+        data.insert(key, entity);
         assert_eq!(data.entities().count(), 1);
     }
 
@@ -93,8 +83,8 @@ mod tests {
         let new = Entity::Endpoint(publisher(&node, 3, "/new_topic"));
         let key = key_for(&old);
 
-        assert!(data.insert(key.clone(), old));
-        assert!(data.insert(key, new.clone()));
+        data.insert(key.clone(), old);
+        data.insert(key, new.clone());
         assert_eq!(data.entities().collect::<Vec<_>>(), vec![&new]);
     }
 
