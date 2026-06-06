@@ -6,7 +6,7 @@ use crate::entity::{Entity, LivelinessKE};
 pub(super) enum GraphMutation {
     Inserted(Entity),
     Removed(Entity),
-    Replaced { old: Entity, new: Entity },
+    Replaced { old: Box<Entity>, new: Box<Entity> },
     Unchanged,
 }
 
@@ -30,7 +30,10 @@ impl GraphData {
             Some(current) if current == &entity => GraphMutation::Unchanged,
             Some(current) => {
                 let old = std::mem::replace(current, entity.clone());
-                GraphMutation::Replaced { old, new: entity }
+                GraphMutation::Replaced {
+                    old: Box::new(old),
+                    new: Box::new(entity),
+                }
             }
         }
     }
@@ -117,8 +120,8 @@ mod tests {
         assert_eq!(
             data.insert(key, new.clone()),
             GraphMutation::Replaced {
-                old,
-                new: new.clone()
+                old: Box::new(old),
+                new: Box::new(new.clone())
             }
         );
         assert_eq!(data.entities().collect::<Vec<_>>(), vec![&new]);

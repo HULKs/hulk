@@ -67,8 +67,8 @@ pub(in crate::graph) fn dispatch_graph_mutation(
         }
         GraphMutation::Replaced { old, new } => {
             event_manager.trigger_graph_guard_conditions();
-            event_manager.trigger_endpoint_match_change(&old, false);
-            event_manager.trigger_endpoint_match_change(&new, true);
+            event_manager.trigger_endpoint_match_change(old.as_ref(), false);
+            event_manager.trigger_endpoint_match_change(new.as_ref(), true);
         }
         GraphMutation::Unchanged => {}
     }
@@ -232,7 +232,10 @@ mod tests {
         let change_notify = Notify::new();
 
         dispatch_graph_mutation(
-            GraphMutation::Replaced { old, new },
+            GraphMutation::Replaced {
+                old: Box::new(old),
+                new: Box::new(new),
+            },
             &event_manager,
             &change_notify,
             ZenohId::default(),
