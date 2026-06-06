@@ -31,6 +31,10 @@ impl<T> TimestampIndex<T> {
     }
 
     fn get_interval(&self, start: Time, end: Time) -> Vec<Arc<T>> {
+        if start > end {
+            return Vec::new();
+        }
+
         self.entries
             .range(start..=end)
             .flat_map(|(_, values)| values.iter().cloned())

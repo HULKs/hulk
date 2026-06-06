@@ -92,8 +92,9 @@ impl SubscriptionManager {
     /// Start building a dynamic debug subscription.
     ///
     /// Relative topics resolve against [`ManagerOptions::target_namespace`].
-    /// Dynamic subscriptions discover the schema from visible publishers during
-    /// `build()` or `build_json()`, using a five second timeout.
+    /// Dynamic subscriptions discover the schema from currently visible
+    /// publishers during `build()` or `build_json()`. Schema service queries use
+    /// a five second timeout.
     pub fn subscribe_dynamic(&self, topic: impl Into<String>) -> DynamicSubscriptionBuilder<'_> {
         DynamicSubscriptionBuilder {
             manager: self,
@@ -226,9 +227,9 @@ impl<T> TypedSubscriptionBuilder<'_, T> {
 
 /// Builder for dynamic debug subscriptions.
 ///
-/// Dynamic builders use publisher discovery to find one consistent schema for
-/// the resolved topic. Building fails if no matching publisher/schema can be
-/// discovered within five seconds.
+/// Dynamic builders use currently visible publishers to find one consistent
+/// schema for the resolved topic. Building fails if no matching publisher/schema
+/// is visible, or if schema service queries do not complete within five seconds.
 pub struct DynamicSubscriptionBuilder<'a> {
     pub(crate) manager: &'a SubscriptionManager,
     pub(crate) topic: String,
@@ -259,8 +260,8 @@ impl DynamicSubscriptionBuilder<'_> {
 
     /// Build a dynamic payload subscription and spawn its receive task.
     ///
-    /// Schema discovery requires at least one visible publisher on the resolved
-    /// topic, consistent type metadata, and a reachable schema service.
+    /// Schema discovery requires at least one currently visible publisher on the
+    /// resolved topic, consistent type metadata, and a reachable schema service.
     pub async fn build(self) -> Result<SubscriptionHandle<DynamicPayload>> {
         self.build_dynamic_payload().await
     }

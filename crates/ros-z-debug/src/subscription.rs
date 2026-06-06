@@ -357,6 +357,21 @@ mod tests {
     }
 
     #[test]
+    fn time_window_handle_returns_empty_for_inverted_window() {
+        let state = Arc::new(SubscriptionState::new(
+            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+            RetentionPolicy::time_window(Duration::from_secs(10)).unwrap(),
+        ));
+        state.store_latest(sample_record_at(NonClonePayload(1), Time::from_nanos(1)));
+
+        let records = state
+            .handle()
+            .window(Time::from_nanos(2), Time::from_nanos(1));
+
+        assert!(records.is_empty());
+    }
+
+    #[test]
     fn latest_only_handle_returns_empty_window_but_keeps_latest() {
         let state = Arc::new(SubscriptionState::new(
             SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
