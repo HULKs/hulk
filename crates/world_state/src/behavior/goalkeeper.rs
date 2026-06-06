@@ -111,13 +111,16 @@ fn goalkeeper_clear_or_walk_to_ball_subtree() -> Node<Blackboard> {
 }
 
 fn goalkeeper_active_defense_position_subtree() -> Node<Blackboard> {
-    switch_motion_type(
-        MotionType::Walk,
-        sequence!(
-            action!(set_goalkeeper_active_defense_position),
-            action!(walk_to_block_position)
+    selection!(
+        switch_motion_type(
+            MotionType::Walk,
+            sequence!(
+                action!(set_goalkeeper_active_defense_position),
+                action!(walk_to_block_position)
+            ),
+            Node::Failure,
         ),
-        subtree!(walk_alternatives_subtree),
+        subtree!(goalkeeper_default_position_subtree),
     )
 }
 

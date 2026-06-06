@@ -80,7 +80,6 @@
     striker_supporter_minimum_x: -2.0,
     keeper_x_offset: 0.1,
     keeper_passive_distance: 4.5,
-    keeper_ball_near_own_goal_distance: 4.5,
     keeper_clear_ball_maximum_velocity: 0.75,
     keeper_clear_ball_maximum_robot_distance: 1.5,
     keeper_visual_kick_hold_duration: {

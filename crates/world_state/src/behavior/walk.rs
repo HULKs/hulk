@@ -232,7 +232,7 @@ pub fn set_goalkeeper_active_defense_position(blackboard: &mut Blackboard) -> St
             ball.position.y() * defense_line_x_from_own_goal_line / ball_x_from_own_goal_line
         };
 
-        let defense_line_width_half = parameters.keeper_active_defense_line_width_half;
+        let defense_line_width_half = parameters.keeper_active_defense_line_width_half.abs();
         let clamped_defense_y = projected_ball_y_at_defense_line
             .clamp(-defense_line_width_half, defense_line_width_half);
         let normalized_defense_y = if defense_line_width_half.abs() < f32::EPSILON {
