@@ -124,6 +124,10 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
     let primary_state_cache = node
         .create_cache::<PrimaryState>("primary_state", 1)?
+        .with_qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
         .build()
         .await?;
     let filtered_game_controller_state_cache = node
