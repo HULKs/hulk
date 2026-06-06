@@ -73,9 +73,6 @@ pub trait StreamGroup {
     /// the fusion engine should wait for delayed announcements before finalizing boundaries.
     fn max_safety_lag(&self) -> Option<Duration>;
 
-    /// Drops announcements or payloads that can no longer be matched safely.
-    fn prune_expired(&mut self, now: Time);
-
     /// Receives and buffers the next event from any stream in the group.
     ///
     /// This method is called by the fusion engine to pull events from all streams.
@@ -101,7 +98,6 @@ pub trait StreamGroup {
 pub struct FutureMap<Group: StreamGroup> {
     subscribers: Group,
     buffer: FutureResult<Group::Output>,
-    released_before: Time,
     clock: Clock,
 }
 
@@ -125,24 +121,13 @@ impl<Group: StreamGroup> FutureMap<Group> {
                 event = self.subscribers.receive_event(&mut self.buffer) => Some(event?),
             };
 
-            let now = self.clock.now();
-            self.subscribers.prune_expired(now);
-
-            let safe_time = self
-                .subscribers
-                .global_safe_time(now)
-                .max(self.released_before);
-
-            self.buffer = self.buffer.split_off(&self.released_before);
-
+            // Recalculate safe time and split the buffer
+            let safe_time = self.subscribers.global_safe_time(self.clock.now());
             let mut temporary_buffer = self.buffer.split_off(&safe_time);
             std::mem::swap(&mut self.buffer, &mut temporary_buffer);
             let persistent_buffer = temporary_buffer;
-            self.released_before = safe_time;
 
-            if !persistent_buffer.is_empty()
-                || (event == Some(GroupEvent::Data) && !self.buffer.is_empty())
-            {
+            if event == Some(GroupEvent::Data) || !persistent_buffer.is_empty() {
                 return Ok(FutureItem {
                     persistent: persistent_buffer,
                     temporary: &self.buffer,
@@ -194,7 +179,6 @@ where
         FutureMap {
             subscribers: self.subscribers,
             buffer: BTreeMap::new(),
-            released_before: Time::zero(),
             clock: self.node.clock().clone(),
         }
     }
@@ -263,10 +247,6 @@ macro_rules! implement_stream_group {
             fn max_safety_lag(&self) -> Option<Duration> {
                 let lags = [ $(self.$index.transit_lag()),+ ];
                 lags.into_iter().max()
-            }
-
-            fn prune_expired(&mut self, now: Time) {
-                $(self.$index.prune_expired(now);)+
             }
 
             async fn receive_event(
