@@ -86,7 +86,7 @@ mod tests {
     }
 
     #[test]
-    fn replacing_same_key_reports_old_and_new_entities() {
+    fn replacing_same_key_updates_existing_entity() {
         let mut data = GraphData::new();
         let node = node("replace_node");
         let old = Entity::Endpoint(publisher(&node, 2, "/old_topic"));
