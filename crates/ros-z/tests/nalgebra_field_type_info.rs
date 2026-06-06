@@ -9,14 +9,16 @@ use nalgebra::{
 use ros_z::{
     Message,
     context::ContextBuilder,
-    dynamic::{DynamicStruct, DynamicValue, EnumPayloadValue, EnumValue},
+    dynamic::{
+        ByteRenderPolicy, DynamicJsonRenderPolicy, DynamicValue, NonFiniteFloatRenderPolicy,
+    },
     entity::EntityKind,
 };
 use ros_z_schema::{
     FieldDef, PrimitiveTypeDef, SchemaBundle, SequenceLengthDef, TypeDef, TypeDefinition,
 };
 use serde::{Deserialize, Serialize};
-use serde_json::{Map, Value};
+use serde_json::Value;
 use zenoh::{Wait, config::WhatAmI};
 
 #[derive(Debug, Clone, Serialize, Deserialize, PartialEq, ros_z::Message)]
@@ -143,86 +145,14 @@ fn example_math_command() -> MathCommand {
     }
 }
 
-fn dynamic_message_to_json(message: &DynamicStruct) -> Value {
-    let mut fields = Map::new();
-    for (name, value) in message.iter() {
-        fields.insert(name.to_string(), dynamic_value_to_json(value));
-    }
-    Value::Object(fields)
-}
-
 fn dynamic_value_to_json(value: &DynamicValue) -> Value {
-    match value {
-        DynamicValue::Bool(value) => Value::Bool(*value),
-        DynamicValue::Int8(value) => Value::Number((*value).into()),
-        DynamicValue::Int16(value) => Value::Number((*value).into()),
-        DynamicValue::Int32(value) => Value::Number((*value).into()),
-        DynamicValue::Int64(value) => Value::Number((*value).into()),
-        DynamicValue::Uint8(value) => Value::Number((*value).into()),
-        DynamicValue::Uint16(value) => Value::Number((*value).into()),
-        DynamicValue::Uint32(value) => Value::Number((*value).into()),
-        DynamicValue::Uint64(value) => Value::Number((*value).into()),
-        DynamicValue::Float32(value) => serde_json::Number::from_f64(*value as f64)
-            .map(Value::Number)
-            .unwrap_or(Value::Null),
-        DynamicValue::Float64(value) => serde_json::Number::from_f64(*value)
-            .map(Value::Number)
-            .unwrap_or(Value::Null),
-        DynamicValue::String(value) => Value::String(value.clone()),
-        DynamicValue::Bytes(value) => Value::Array(
-            value
-                .iter()
-                .map(|byte| Value::Number((*byte).into()))
-                .collect(),
-        ),
-        DynamicValue::Struct(value) => dynamic_message_to_json(value),
-        DynamicValue::Optional(None) => Value::Null,
-        DynamicValue::Optional(Some(value)) => dynamic_value_to_json(value),
-        DynamicValue::Enum(value) => enum_value_to_json(value),
-        DynamicValue::Sequence(values) => {
-            Value::Array(values.iter().map(dynamic_value_to_json).collect())
-        }
-        DynamicValue::Map(entries) => Value::Array(
-            entries
-                .iter()
-                .map(|(key, value)| {
-                    let mut entry = Map::new();
-                    entry.insert("key".to_string(), dynamic_value_to_json(key));
-                    entry.insert("value".to_string(), dynamic_value_to_json(value));
-                    Value::Object(entry)
-                })
-                .collect(),
-        ),
-    }
+    ros_z::dynamic::dynamic_value_to_json(value, test_json_policy())
 }
 
-fn enum_value_to_json(value: &EnumValue) -> Value {
-    let mut fields = Map::new();
-    fields.insert(
-        "variant_index".to_string(),
-        Value::Number(value.variant_index.into()),
-    );
-    fields.insert(
-        "variant_name".to_string(),
-        Value::String(value.variant_name.clone()),
-    );
-    fields.insert("payload".to_string(), enum_payload_to_json(&value.payload));
-    Value::Object(fields)
-}
-
-fn enum_payload_to_json(payload: &EnumPayloadValue) -> Value {
-    match payload {
-        EnumPayloadValue::Unit => Value::Null,
-        EnumPayloadValue::Newtype(value) => dynamic_value_to_json(value),
-        EnumPayloadValue::Tuple(values) => {
-            Value::Array(values.iter().map(dynamic_value_to_json).collect())
-        }
-        EnumPayloadValue::Struct(fields) => Value::Object(
-            fields
-                .iter()
-                .map(|field| (field.name.clone(), dynamic_value_to_json(&field.value)))
-                .collect(),
-        ),
+fn test_json_policy() -> DynamicJsonRenderPolicy {
+    DynamicJsonRenderPolicy {
+        bytes: ByteRenderPolicy::FullArray,
+        non_finite_float: NonFiniteFloatRenderPolicy::Null,
     }
 }
 
@@ -284,7 +214,7 @@ fn fixed_sequence(shape: &TypeDef) -> Option<(PrimitiveTypeDef, usize)> {
 }
 
 fn dynamic_payload_to_json(message: &ros_z::dynamic::DynamicPayload) -> Value {
-    dynamic_value_to_json(&message.value)
+    ros_z::dynamic::dynamic_payload_to_json(message, test_json_policy())
 }
 
 fn dynamic_payload_field(
