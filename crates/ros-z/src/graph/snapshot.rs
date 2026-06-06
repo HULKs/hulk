@@ -43,43 +43,47 @@ impl Graph {
     /// This captures topics, nodes, and services with their metadata,
     /// suitable for JSON serialization or other export formats.
     pub fn snapshot(&self) -> GraphSnapshot {
-        let view = self.view();
-        let topics: Vec<TopicSnapshot> = view
-            .topic_names_and_types()
-            .into_iter()
-            .map(|(name, type_name)| {
-                let publishers = view
-                    .endpoints()
-                    .filter(|endpoint| {
-                        endpoint.kind == EndpointKind::Publisher && endpoint.topic == name
-                    })
-                    .count();
-                let subscribers = view
-                    .endpoints()
-                    .filter(|endpoint| {
-                        endpoint.kind == EndpointKind::Subscription && endpoint.topic == name
-                    })
-                    .count();
-                TopicSnapshot {
-                    name,
-                    type_name,
-                    publishers,
-                    subscribers,
-                }
-            })
-            .collect();
+        let (topics, nodes, services) = {
+            let view = self.view();
+            let topics: Vec<TopicSnapshot> = view
+                .topic_names_and_types()
+                .into_iter()
+                .map(|(name, type_name)| {
+                    let publishers = view
+                        .endpoints()
+                        .filter(|endpoint| {
+                            endpoint.kind == EndpointKind::Publisher && endpoint.topic == name
+                        })
+                        .count();
+                    let subscribers = view
+                        .endpoints()
+                        .filter(|endpoint| {
+                            endpoint.kind == EndpointKind::Subscription && endpoint.topic == name
+                        })
+                        .count();
+                    TopicSnapshot {
+                        name,
+                        type_name,
+                        publishers,
+                        subscribers,
+                    }
+                })
+                .collect();
 
-        let nodes: Vec<NodeSnapshot> = view
-            .node_names()
-            .into_iter()
-            .map(|(name, namespace)| NodeSnapshot { name, namespace })
-            .collect();
+            let nodes: Vec<NodeSnapshot> = view
+                .node_names()
+                .into_iter()
+                .map(|(name, namespace)| NodeSnapshot { name, namespace })
+                .collect();
 
-        let services: Vec<ServiceSnapshot> = view
-            .service_names_and_types()
-            .into_iter()
-            .map(|(name, type_name)| ServiceSnapshot { name, type_name })
-            .collect();
+            let services: Vec<ServiceSnapshot> = view
+                .service_names_and_types()
+                .into_iter()
+                .map(|(name, type_name)| ServiceSnapshot { name, type_name })
+                .collect();
+
+            (topics, nodes, services)
+        };
 
         GraphSnapshot {
             timestamp: SystemTime::now(),

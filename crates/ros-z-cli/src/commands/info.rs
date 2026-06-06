@@ -36,20 +36,22 @@ async fn render_topic_info(app: &AppContext, output_mode: OutputMode, topic: &st
     .await;
 
     let graph = app.graph();
-    let view = graph.view();
-    let type_name = view
-        .topic_names_and_types()
-        .into_iter()
-        .find_map(|(name, type_name)| (name == topic).then_some(type_name))
-        .ok_or_else(|| eyre!("topic not found: {topic}"))?;
-    let publishers = view.publishers_on(topic);
-    let subscribers = view.subscriptions_on(topic);
-    let info = TopicInfo::new(
-        topic.to_string(),
-        type_name,
-        summarize_endpoint_entities(&publishers),
-        summarize_endpoint_entities(&subscribers),
-    );
+    let info = {
+        let view = graph.view();
+        let type_name = view
+            .topic_names_and_types()
+            .into_iter()
+            .find_map(|(name, type_name)| (name == topic).then_some(type_name))
+            .ok_or_else(|| eyre!("topic not found: {topic}"))?;
+        let publishers = view.publishers_on(topic);
+        let subscribers = view.subscriptions_on(topic);
+        TopicInfo::new(
+            topic.to_string(),
+            type_name,
+            summarize_endpoint_entities(&publishers),
+            summarize_endpoint_entities(&subscribers),
+        )
+    };
 
     match output_mode {
         OutputMode::Json => json::print_pretty(&info),
@@ -75,20 +77,22 @@ async fn render_service_info(
     .await;
 
     let graph = app.graph();
-    let view = graph.view();
-    let type_name = view
-        .service_names_and_types()
-        .into_iter()
-        .find_map(|(name, type_name)| (name == service).then_some(type_name))
-        .ok_or_else(|| eyre!("service not found: {service}"))?;
-    let services = view.services_named(service);
-    let clients = view.clients_named(service);
-    let info = ServiceInfo::new(
-        service.to_string(),
-        type_name,
-        summarize_endpoint_entities(&services),
-        summarize_endpoint_entities(&clients),
-    );
+    let info = {
+        let view = graph.view();
+        let type_name = view
+            .service_names_and_types()
+            .into_iter()
+            .find_map(|(name, type_name)| (name == service).then_some(type_name))
+            .ok_or_else(|| eyre!("service not found: {service}"))?;
+        let services = view.services_named(service);
+        let clients = view.clients_named(service);
+        ServiceInfo::new(
+            service.to_string(),
+            type_name,
+            summarize_endpoint_entities(&services),
+            summarize_endpoint_entities(&clients),
+        )
+    };
 
     match output_mode {
         OutputMode::Json => json::print_pretty(&info),
@@ -106,8 +110,10 @@ async fn render_node_info(app: &AppContext, output_mode: OutputMode, selector: &
     let graph = app.graph();
     let target = resolve_node_target(graph, selector)?;
     let node_key = graph_node_key(&target);
-    let view = graph.view();
-    let endpoints = view.endpoints_for_node(node_key);
+    let endpoints = {
+        let view = graph.view();
+        view.endpoints_for_node(node_key)
+    };
     let info = NodeInfo::new(
         target.name.clone(),
         target.namespace.clone(),
