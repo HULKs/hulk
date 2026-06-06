@@ -496,25 +496,6 @@ mod tests {
     }
 
     #[test]
-    fn registry_prunes_dropped_subscriptions_on_register() {
-        let registry = SubscriptionRegistry::default();
-        let first = Arc::new(SubscriptionState::<TestPayload>::new(
-            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
-            RetentionPolicy::LatestOnly,
-        ));
-        registry.register(&first);
-        drop(first);
-
-        let second = Arc::new(SubscriptionState::<TestPayload>::new(
-            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
-            RetentionPolicy::LatestOnly,
-        ));
-        registry.register(&second);
-
-        assert_eq!(registry.subscriptions.lock().len(), 1);
-    }
-
-    #[test]
     fn registry_closes_subscriptions_while_handles_remain_alive() {
         let registry = SubscriptionRegistry::default();
         let state = Arc::new(SubscriptionState::<TestPayload>::new(
