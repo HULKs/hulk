@@ -7,8 +7,9 @@ const TARGET_NODE_PLACEHOLDER: &str = "debug_target";
 /// Validated topic selector used by debug subscriptions.
 ///
 /// Relative selectors resolve against a target namespace. Absolute selectors
-/// are used as-is after validation. Private `~` selectors are rejected because
-/// the debug manager has target namespace context, not target node context.
+/// are used as-is through `ros-z` topic qualification. Private `~` selectors are
+/// rejected because the debug manager has target namespace context, not target
+/// node context.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub struct TopicSelector(String);
 
@@ -234,14 +235,6 @@ mod tests {
     #[test]
     fn invalid_relative_selector_is_rejected_during_construction() {
         let error = TopicSelector::new("123invalid").unwrap_err();
-
-        assert!(error.source().is_some());
-        assert!(error.to_string().contains("invalid component '123invalid'"));
-    }
-
-    #[test]
-    fn invalid_absolute_selector_is_rejected_during_construction() {
-        let error = TopicSelector::new("/123invalid").unwrap_err();
 
         assert!(error.source().is_some());
         assert!(error.to_string().contains("invalid component '123invalid'"));
