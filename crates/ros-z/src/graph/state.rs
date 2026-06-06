@@ -65,7 +65,7 @@ mod tests {
     }
 
     #[test]
-    fn duplicate_insert_is_unchanged_and_does_not_duplicate() {
+    fn duplicate_insert_upserts_without_duplicating() {
         let mut data = GraphData::new();
         let entity = Entity::Node(node("duplicate_node"));
         let key = key_for(&entity);

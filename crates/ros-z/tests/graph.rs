@@ -12,9 +12,8 @@ use std::{num::NonZeroUsize, time::Duration};
 use ros_z::{
     Message, ServiceTypeInfo,
     context::ContextBuilder,
-    entity::{
-        EndpointEntity, EndpointKind, Entity, EntityKind, NodeEntity, NodeKey, SchemaHash, TypeInfo,
-    },
+    entity::{EndpointEntity, EndpointKind, Entity, NodeEntity, NodeKey, SchemaHash, TypeInfo},
+    graph::GraphView,
     message::Service,
     qos::{QosCompatibility, QosDurability, QosHistory, QosProfile, QosReliability},
 };
@@ -87,12 +86,12 @@ fn unique_node_name(prefix: &str) -> String {
 
 async fn wait_for_count(
     node: &ros_z::node::Node,
-    kind: EntityKind,
     name: &str,
     expected_count: usize,
     timeout_ms: u64,
+    count: for<'a> fn(&GraphView<'a>, &str) -> usize,
 ) -> Result<bool> {
-    wait_for_count_matching(node, kind, name, timeout_ms, |count| {
+    wait_for_count_matching(node, name, timeout_ms, count, |count| {
         count >= expected_count
     })
     .await
@@ -100,19 +99,19 @@ async fn wait_for_count(
 
 async fn wait_for_count_at_most(
     node: &ros_z::node::Node,
-    kind: EntityKind,
     name: &str,
     max_count: usize,
     timeout_ms: u64,
+    count: for<'a> fn(&GraphView<'a>, &str) -> usize,
 ) -> Result<bool> {
-    wait_for_count_matching(node, kind, name, timeout_ms, |count| count <= max_count).await
+    wait_for_count_matching(node, name, timeout_ms, count, |count| count <= max_count).await
 }
 
 async fn wait_for_count_matching(
     node: &ros_z::node::Node,
-    kind: EntityKind,
     name: &str,
     timeout_ms: u64,
+    count_entities: for<'a> fn(&GraphView<'a>, &str) -> usize,
     matches: impl Fn(usize) -> bool,
 ) -> Result<bool> {
     let start = std::time::Instant::now();
@@ -120,13 +119,7 @@ async fn wait_for_count_matching(
     loop {
         let count = {
             let view = node.graph().view();
-            match kind {
-                EntityKind::Node => 0,
-                EntityKind::Publisher => view.publishers_on(name).len(),
-                EntityKind::Subscription => view.subscriptions_on(name).len(),
-                EntityKind::Service => view.services_named(name).len(),
-                EntityKind::Client => view.clients_named(name).len(),
-            }
+            count_entities(&view, name)
         };
         if matches(count) {
             return Ok(true);
@@ -138,20 +131,29 @@ async fn wait_for_count_matching(
     }
 }
 
+fn publisher_count(view: &GraphView<'_>, topic: &str) -> usize {
+    view.publishers_on(topic).len()
+}
+
+fn subscriber_count(view: &GraphView<'_>, topic: &str) -> usize {
+    view.subscriptions_on(topic).len()
+}
+
+fn service_count(view: &GraphView<'_>, service: &str) -> usize {
+    view.services_named(service).len()
+}
+
+fn client_count(view: &GraphView<'_>, service: &str) -> usize {
+    view.clients_named(service).len()
+}
+
 async fn wait_for_publishers(
     node: &ros_z::node::Node,
     topic: &str,
     expected_count: usize,
     timeout_ms: u64,
 ) -> Result<bool> {
-    wait_for_count(
-        node,
-        EntityKind::Publisher,
-        topic,
-        expected_count,
-        timeout_ms,
-    )
-    .await
+    wait_for_count(node, topic, expected_count, timeout_ms, publisher_count).await
 }
 
 async fn wait_for_subscribers(
@@ -160,14 +162,7 @@ async fn wait_for_subscribers(
     expected_count: usize,
     timeout_ms: u64,
 ) -> Result<bool> {
-    wait_for_count(
-        node,
-        EntityKind::Subscription,
-        topic,
-        expected_count,
-        timeout_ms,
-    )
-    .await
+    wait_for_count(node, topic, expected_count, timeout_ms, subscriber_count).await
 }
 
 async fn wait_for_services(
@@ -176,14 +171,7 @@ async fn wait_for_services(
     expected_count: usize,
     timeout_ms: u64,
 ) -> Result<bool> {
-    wait_for_count(
-        node,
-        EntityKind::Service,
-        service,
-        expected_count,
-        timeout_ms,
-    )
-    .await
+    wait_for_count(node, service, expected_count, timeout_ms, service_count).await
 }
 
 async fn wait_for_clients(
@@ -192,14 +180,34 @@ async fn wait_for_clients(
     expected_count: usize,
     timeout_ms: u64,
 ) -> Result<bool> {
-    wait_for_count(
-        node,
-        EntityKind::Client,
-        service,
-        expected_count,
-        timeout_ms,
-    )
-    .await
+    wait_for_count(node, service, expected_count, timeout_ms, client_count).await
+}
+
+async fn wait_for_publishers_at_most(
+    node: &ros_z::node::Node,
+    topic: &str,
+    max_count: usize,
+    timeout_ms: u64,
+) -> Result<bool> {
+    wait_for_count_at_most(node, topic, max_count, timeout_ms, publisher_count).await
+}
+
+async fn wait_for_subscribers_at_most(
+    node: &ros_z::node::Node,
+    topic: &str,
+    max_count: usize,
+    timeout_ms: u64,
+) -> Result<bool> {
+    wait_for_count_at_most(node, topic, max_count, timeout_ms, subscriber_count).await
+}
+
+async fn wait_for_services_at_most(
+    node: &ros_z::node::Node,
+    service: &str,
+    max_count: usize,
+    timeout_ms: u64,
+) -> Result<bool> {
+    wait_for_count_at_most(node, service, max_count, timeout_ms, service_count).await
 }
 
 #[cfg(test)]
@@ -853,7 +861,7 @@ mod tests {
         assert!(count_subs >= 1, "Expected at least 1 subscriber");
 
         drop(pub_handle);
-        assert!(wait_for_count_at_most(&node, EntityKind::Publisher, &topic_name, 0, 1_000).await?);
+        assert!(wait_for_publishers_at_most(&node, &topic_name, 0, 1_000).await?);
 
         let count_pubs = graph.view().publishers_on(&topic_name).len();
         let count_subs = graph.view().subscriptions_on(&topic_name).len();
@@ -861,9 +869,7 @@ mod tests {
         assert!(count_subs >= 1, "Expected at least 1 subscriber still");
 
         drop(sub_handle);
-        assert!(
-            wait_for_count_at_most(&node, EntityKind::Subscription, &topic_name, 0, 1_000).await?
-        );
+        assert!(wait_for_subscribers_at_most(&node, &topic_name, 0, 1_000).await?);
 
         let count_pubs = graph.view().publishers_on(&topic_name).len();
         let count_subs = graph.view().subscriptions_on(&topic_name).len();
@@ -1050,7 +1056,7 @@ mod tests {
         assert!(count >= 1, "Expected at least 1 service after creation");
 
         drop(service);
-        assert!(wait_for_count_at_most(&node, EntityKind::Service, &service_name, 0, 1_000).await?);
+        assert!(wait_for_services_at_most(&node, &service_name, 0, 1_000).await?);
 
         let count = graph.view().services_named(&service_name).len();
         assert_eq!(count, 0, "Expected 0 services after dropping server");
