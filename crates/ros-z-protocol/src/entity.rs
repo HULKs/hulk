@@ -251,7 +251,7 @@ pub enum EntityConversionError {
 
 #[cfg(test)]
 mod tests {
-    use super::NodeEntity;
+    use super::{NodeEntity, fully_qualified_node_name};
 
     fn node(namespace: &str) -> NodeEntity {
         NodeEntity::new(
@@ -275,6 +275,11 @@ mod tests {
     #[test]
     fn fully_qualified_name_inserts_separator_after_non_root_namespace() {
         assert_eq!(node("/robot").fully_qualified_name(), "/robot/node");
+    }
+
+    #[test]
+    fn public_helper_prefixes_bare_namespace() {
+        assert_eq!(fully_qualified_node_name("robot", "node"), "/robot/node");
     }
 
     #[test]
