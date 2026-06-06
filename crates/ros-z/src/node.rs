@@ -17,6 +17,7 @@ use crate::{
     service::{ServiceClientBuilder, ServiceServerBuilder},
     shm::ShmConfig,
     time::{Clock, Timer},
+    topic_name::{validate_namespace, validate_node_name},
 };
 use tracing::{debug, info};
 use zenoh::{Session, liveliness::LivelinessToken};
@@ -149,6 +150,11 @@ impl NodeBuilder {
         id = tracing::field::Empty
     ))]
     pub async fn build(self) -> Result<Node> {
+        validate_namespace(&self.namespace)
+            .map_err(|source| Error::namespace(self.namespace.clone(), source))?;
+        validate_node_name(&self.name)
+            .map_err(|source| Error::node_name(self.name.clone(), source))?;
+
         let id = self.counter.increment();
         tracing::Span::current().record("id", id);
 

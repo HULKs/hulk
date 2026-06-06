@@ -27,7 +27,7 @@ pub enum Error {
         source: zenoh::Error,
     },
 
-    /// ROS name qualification failed.
+    /// Graph name qualification failed.
     #[error("failed to qualify {kind} name '{name}'")]
     Name {
         kind: NameKind,
@@ -92,7 +92,7 @@ impl From<crate::parameter::ParameterError> for Error {
     }
 }
 
-/// Kind of ROS name being qualified.
+/// Kind of graph name being qualified.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub enum NameKind {
     /// Topic name.
@@ -303,6 +303,22 @@ impl Error {
     pub(crate) fn service_name(name: impl Into<String>, source: TopicNameError) -> Self {
         Self::Name {
             kind: NameKind::Service,
+            name: name.into(),
+            source,
+        }
+    }
+
+    pub(crate) fn namespace(name: impl Into<String>, source: TopicNameError) -> Self {
+        Self::Name {
+            kind: NameKind::Namespace,
+            name: name.into(),
+            source,
+        }
+    }
+
+    pub(crate) fn node_name(name: impl Into<String>, source: TopicNameError) -> Self {
+        Self::Name {
+            kind: NameKind::Node,
             name: name.into(),
             source,
         }

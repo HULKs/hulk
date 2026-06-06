@@ -22,24 +22,29 @@ pub enum TopicNameError {
     InvalidNodeName(String),
 }
 
-/// Validate that a topic name component (between slashes) is valid
-/// Components must start with a letter or underscore, followed by alphanumeric or underscores
-fn is_valid_topic_component(component: &str) -> bool {
+fn validate_graph_component(component: &str) -> Result<(), String> {
     if component.is_empty() {
-        return false;
+        return Err("invalid component: component is empty".to_string());
     }
-    let bytes = component.as_bytes();
-    if !bytes[0].is_ascii_alphabetic() && bytes[0] != b'_' {
-        return false;
+
+    for character in component.chars() {
+        if matches!(character, '/' | '%' | '#' | '$' | '?' | '*') {
+            return Err(format!(
+                "invalid component '{component}': contains '{character}'"
+            ));
+        }
     }
-    bytes[1..]
-        .iter()
-        .all(|&b| b.is_ascii_alphanumeric() || b == b'_')
+
+    Ok(())
 }
 
-/// Validate a namespace string
-/// Namespaces can be empty, "/", or a series of valid components separated by "/"
-fn validate_namespace(namespace: &str) -> Result<(), TopicNameError> {
+fn validate_graph_path(path: &str) -> Result<(), String> {
+    path.split('/').try_for_each(validate_graph_component)
+}
+
+/// Validate a namespace string.
+/// Namespaces can be empty, "/", or concrete components separated by "/".
+pub(crate) fn validate_namespace(namespace: &str) -> Result<(), TopicNameError> {
     if namespace.is_empty() || namespace == "/" {
         return Ok(());
     }
@@ -50,34 +55,13 @@ fn validate_namespace(namespace: &str) -> Result<(), TopicNameError> {
         ));
     }
 
-    for part in namespace.split('/') {
-        if part.is_empty() {
-            continue; // Leading slash creates empty first component
-        }
-        if !is_valid_topic_component(part) {
-            return Err(TopicNameError::InvalidNamespace(format!(
-                "invalid component '{}'",
-                part
-            )));
-        }
-    }
-    Ok(())
+    let namespace_path = namespace.strip_prefix('/').unwrap_or(namespace);
+    validate_graph_path(namespace_path).map_err(TopicNameError::InvalidNamespace)
 }
 
-/// Validate a node name
-fn validate_node_name(node_name: &str) -> Result<(), TopicNameError> {
-    if node_name.is_empty() {
-        return Err(TopicNameError::InvalidNodeName(
-            "node name is empty".to_string(),
-        ));
-    }
-    if !is_valid_topic_component(node_name) {
-        return Err(TopicNameError::InvalidNodeName(format!(
-            "invalid node name '{}'",
-            node_name
-        )));
-    }
-    Ok(())
+/// Validate a node name.
+pub(crate) fn validate_node_name(node_name: &str) -> Result<(), TopicNameError> {
+    validate_graph_component(node_name).map_err(TopicNameError::InvalidNodeName)
 }
 
 /// Qualify a topic name according to ros-z naming rules.
@@ -89,6 +73,8 @@ fn validate_node_name(node_name: &str) -> Result<(), TopicNameError> {
 /// - Private topics (starting with '~') are expanded to `/<namespace>/<node_name>/<topic>`
 /// - Relative topics are expanded to `/<namespace>/<topic>`
 /// - Empty namespace is treated as "/"
+/// - Components may start with digits and may contain hyphens
+/// - Components must be non-empty and cannot contain `/`, `%`, `#`, `$`, `?`, or `*`
 ///
 /// # Arguments
 /// * `topic` - The input topic name (can be absolute, relative, or private)
@@ -139,29 +125,27 @@ pub fn qualify_topic_name(
 
     // Handle different topic name types
     let qualified = if topic.starts_with('/') {
-        // Absolute topic - use as-is, but remove trailing slash if present
+        // Absolute topic - use as-is, but remove trailing slash if present.
         let topic = topic.strip_suffix('/').unwrap_or(topic);
-        if topic.is_empty() || topic == "/" {
+        let topic_path = topic.strip_prefix('/').unwrap_or(topic);
+        if topic_path.is_empty() {
             return Err(TopicNameError::InvalidCharacters(
                 "topic cannot be just '/'".to_string(),
             ));
         }
+        validate_graph_path(topic_path).map_err(TopicNameError::InvalidCharacters)?;
         topic.to_string()
     } else if topic.starts_with('~') {
         // Private topic - expand with namespace and node name
         let topic_suffix = topic.strip_prefix('~').unwrap();
         let topic_suffix = topic_suffix.strip_prefix('/').unwrap_or(topic_suffix);
 
-        // Validate the topic suffix
+        let topic_suffix = topic_suffix.strip_suffix('/').unwrap_or(topic_suffix);
+
         if !topic_suffix.is_empty() {
-            for part in topic_suffix.split('/') {
-                if !part.is_empty() && !is_valid_topic_component(part) {
-                    return Err(TopicNameError::InvalidCharacters(format!(
-                        "invalid component '{}' in private topic",
-                        part
-                    )));
-                }
-            }
+            validate_graph_path(topic_suffix).map_err(|source| {
+                TopicNameError::InvalidCharacters(format!("invalid private topic suffix: {source}"))
+            })?;
         }
 
         if namespace.is_empty() || namespace == "/" {
@@ -179,15 +163,7 @@ pub fn qualify_topic_name(
         // Relative topic - expand with namespace only
         let topic = topic.strip_suffix('/').unwrap_or(topic);
 
-        // Validate topic components
-        for part in topic.split('/') {
-            if !part.is_empty() && !is_valid_topic_component(part) {
-                return Err(TopicNameError::InvalidCharacters(format!(
-                    "invalid component '{}'",
-                    part
-                )));
-            }
-        }
+        validate_graph_path(topic).map_err(TopicNameError::InvalidCharacters)?;
 
         if namespace.is_empty() || namespace == "/" {
             format!("/{}", topic)
@@ -201,7 +177,7 @@ pub fn qualify_topic_name(
 
 /// Qualify a service name according to ros-z naming rules.
 ///
-/// Service names follow the same rules as topic names
+/// Service names follow the same graph-name component rules as topic names.
 pub fn qualify_service_name(
     service: &str,
     namespace: &str,
@@ -312,6 +288,39 @@ mod tests {
     }
 
     #[test]
+    fn accepts_zenoh_native_digit_and_hyphen_components() {
+        assert_eq!(
+            qualify_topic_name("~camera-left/42", "/7/robot-01", "123node").unwrap(),
+            "/7/robot-01/123node/camera-left/42"
+        );
+    }
+
+    #[test]
+    fn rejects_empty_or_reserved_components() {
+        assert!(matches!(
+            qualify_topic_name("foo//bar", "/", "node"),
+            Err(TopicNameError::InvalidCharacters(_))
+        ));
+        assert!(matches!(
+            qualify_topic_name("/foo%bar", "/", "node"),
+            Err(TopicNameError::InvalidCharacters(_))
+        ));
+        assert!(matches!(
+            qualify_topic_name("/foo*bar", "/", "node"),
+            Err(TopicNameError::InvalidCharacters(_))
+        ));
+
+        assert!(matches!(
+            qualify_topic_name("status", "/robot//ns", "node"),
+            Err(TopicNameError::InvalidNamespace(_))
+        ));
+        assert!(matches!(
+            qualify_topic_name("~status", "/robot", "node%name"),
+            Err(TopicNameError::InvalidNodeName(_))
+        ));
+    }
+
+    #[test]
     fn test_empty_topic() {
         assert!(matches!(
             qualify_topic_name("", "/", "node"),
@@ -333,24 +342,6 @@ mod tests {
             qualify_topic_name("chatter", "/ns", ""),
             Err(TopicNameError::InvalidNodeName(_))
         ));
-        assert!(matches!(
-            qualify_topic_name("chatter", "/ns", "123node"),
-            Err(TopicNameError::InvalidNodeName(_))
-        ));
-    }
-
-    #[test]
-    fn test_valid_topic_components() {
-        assert!(is_valid_topic_component("foo"));
-        assert!(is_valid_topic_component("_foo"));
-        assert!(is_valid_topic_component("foo123"));
-        assert!(is_valid_topic_component("foo_bar"));
-        assert!(is_valid_topic_component("FooBar"));
-
-        assert!(!is_valid_topic_component(""));
-        assert!(!is_valid_topic_component("123"));
-        assert!(!is_valid_topic_component("foo-bar"));
-        assert!(!is_valid_topic_component("foo bar"));
     }
 
     #[test]

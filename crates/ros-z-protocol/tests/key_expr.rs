@@ -175,8 +175,8 @@ fn test_node_liveliness_roundtrip() {
     let node = NodeEntity {
         z_id,
         id: 5,
-        name: "my_node".to_string(),
-        namespace: "/my_ns".to_string(),
+        name: "123node".to_string(),
+        namespace: "/42/robot-01".to_string(),
     };
 
     let ke = format::node_liveliness_key_expr(&node).unwrap();
@@ -185,8 +185,8 @@ fn test_node_liveliness_roundtrip() {
     if let Entity::Node(n) = parsed {
         assert_eq!(n.z_id, z_id);
         assert_eq!(n.id, 5);
-        assert_eq!(n.name, "my_node");
-        assert_eq!(n.namespace, "/my_ns");
+        assert_eq!(n.name, "123node");
+        assert_eq!(n.namespace, "/42/robot-01");
     } else {
         panic!("expected Node entity");
     }

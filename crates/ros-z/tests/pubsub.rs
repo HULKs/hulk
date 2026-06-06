@@ -81,6 +81,56 @@ async fn node_builder_can_disable_schema_service_explicitly() -> ros_z::Result<(
     Ok(())
 }
 
+#[tokio::test(flavor = "multi_thread")]
+async fn node_builder_accepts_zenoh_native_identity() -> ros_z::Result<()> {
+    let context = test_context().await?;
+    let node = context
+        .create_node("123node")
+        .with_namespace("/42/robot-01")
+        .build()
+        .await?;
+
+    assert_eq!(node.name(), "123node");
+    assert_eq!(node.namespace(), "/42/robot-01");
+    Ok(())
+}
+
+#[tokio::test(flavor = "multi_thread")]
+async fn node_builder_rejects_protocol_reserved_identity_before_formatting() -> ros_z::Result<()> {
+    let context = test_context().await?;
+
+    let node_error = context
+        .create_node("node%name")
+        .build()
+        .await
+        .expect_err("invalid node name should fail during node build");
+    assert!(matches!(
+        node_error,
+        ros_z::Error::Name {
+            kind: ros_z::error::NameKind::Node,
+            source: ros_z::topic_name::TopicNameError::InvalidNodeName(_),
+            ..
+        }
+    ));
+
+    let namespace_error = context
+        .create_node("node")
+        .with_namespace("/robot%ns")
+        .build()
+        .await
+        .expect_err("invalid namespace should fail during node build");
+    assert!(matches!(
+        namespace_error,
+        ros_z::Error::Name {
+            kind: ros_z::error::NameKind::Namespace,
+            source: ros_z::topic_name::TopicNameError::InvalidNamespace(_),
+            ..
+        }
+    ));
+
+    Ok(())
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn raw_subscriber_receives_sample_payload() -> zenoh::Result<()> {
     let context = ContextBuilder::default().build().await?;

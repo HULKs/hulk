@@ -40,6 +40,21 @@ Builders that create runtime resources are async. Build contexts, nodes,
 publishers, subscribers, services, and caches inside a Tokio-compatible runtime.
 Endpoint factory methods validate schema/type metadata immediately and return `Result<Builder>`; `.build().await` only creates runtime Zenoh resources.
 
+## Name Rules
+
+`ros-z` uses Zenoh-native concrete graph names. Namespace, node, topic, and
+service components may start with digits, so a namespace such as `/42` is valid.
+
+Names must still qualify to concrete Zenoh keys. Components cannot be empty and
+cannot contain `/`, `%`, `#`, `$`, `?`, or `*`. Slash separates components, `%`
+is reserved by the current ros-z liveliness identity encoding, and `*` is a
+selector wildcard rather than a concrete endpoint character.
+
+Applications should pass graph names through unchanged except for adding a
+leading slash where they accept a bare namespace. For example,
+`hulk_ros_z --robot 42` uses namespace `/42`; invalid names such as `robot%01`
+are rejected instead of rewritten.
+
 ## Examples
 
 Run examples from the workspace root:

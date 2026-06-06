@@ -10,7 +10,10 @@ const RUNTIME_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(2);
 
 #[derive(Debug, Parser)]
 struct Args {
-    #[arg(long)]
+    #[arg(
+        long,
+        help = "Robot graph namespace. Bare values like '42' become '/42'; invalid ros-z names are rejected."
+    )]
     robot: String,
     #[arg(long)]
     location: String,
@@ -95,39 +98,11 @@ fn derive_parameter_layers(
 }
 
 fn derive_namespace(robot: &str) -> String {
-    let components = robot
-        .split('/')
-        .filter(|component| !component.is_empty())
-        .map(sanitize_namespace_component)
-        .collect::<Vec<_>>();
-
-    if components.is_empty() {
-        "/".to_string()
+    if robot.starts_with('/') {
+        robot.to_string()
     } else {
-        format!("/{}", components.join("/"))
+        format!("/{robot}")
     }
-}
-
-fn sanitize_namespace_component(component: &str) -> String {
-    let mut sanitized = String::new();
-
-    for character in component.chars() {
-        if character.is_ascii_alphanumeric() || character == '_' {
-            sanitized.push(character);
-        } else {
-            sanitized.push('_');
-        }
-    }
-
-    if sanitized
-        .chars()
-        .next()
-        .is_some_and(|character| character.is_ascii_digit())
-    {
-        sanitized.insert(0, '_');
-    }
-
-    sanitized
 }
 
 async fn spawn_all(ctx: Arc<Context>) -> Result<RunningStack> {
@@ -206,8 +181,12 @@ mod tests {
     use super::*;
 
     #[test]
-    fn derive_namespace_replaces_invalid_characters() {
-        assert_eq!(derive_namespace("robot-01"), "/robot_01");
+    fn derive_namespace_prefixes_bare_robot_without_sanitizing() {
+        assert_eq!(derive_namespace("42"), "/42");
+        assert_eq!(derive_namespace("robot-01"), "/robot-01");
+        assert_eq!(derive_namespace("robot//42"), "/robot//42");
+        assert_eq!(derive_namespace("/robot/42"), "/robot/42");
+        assert_eq!(derive_namespace("robot%01"), "/robot%01");
     }
 
     #[test]
