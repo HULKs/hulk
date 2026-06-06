@@ -6441,11 +6441,9 @@ dependencies = [
  "hsl_network_messages",
  "linear_algebra",
  "nalgebra",
- "ordered-float 4.6.0",
  "ros-z",
  "ros-z-streams",
  "serde",
- "tokio",
  "types",
 ]
 

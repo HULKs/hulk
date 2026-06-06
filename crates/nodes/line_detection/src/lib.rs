@@ -88,6 +88,8 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         let image = &timed_image.inner;
         let camera_matrix = &timed_camera_matrix.inner;
 
+        let pending_line_data = line_data_pub.announce(time_stamp).await?;
+
         let DetectLinesResult(discarded_lines, used_segments, lines_in_ground, filtered_segments) =
             detect_lines(
                 parameters,
@@ -97,7 +99,15 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 &mut random_state,
             );
 
-        let lines_in_image = lines_in_ground
+        let line_data = LineData {
+            lines: lines_in_ground,
+            used_segments,
+        };
+
+        pending_line_data.publish(&line_data).await?;
+
+        let lines_in_image = line_data
+            .lines
             .iter()
             .map(|line| {
                 LineSegment(
@@ -127,14 +137,6 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             .collect::<Vec<_>>();
 
         discarded_lines_pub.publish(&discarded_lines).await?;
-
-        let pending_line_data = line_data_pub.announce(time_stamp).await?;
-        pending_line_data
-            .publish(&LineData {
-                lines: lines_in_ground,
-                used_segments,
-            })
-            .await?;
     }
 }
 

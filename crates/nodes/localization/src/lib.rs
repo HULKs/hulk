@@ -7,7 +7,6 @@ use std::{
     time::{Duration, SystemTime},
 };
 
-#[allow(dead_code)]
 mod algorithm;
 
 use color_eyre::Result;
@@ -242,12 +241,12 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
 fn collect_perception_input<T: Clone>(
     persistent: &FutureResult<LocalizationFutureInputs>,
-    temporary: &FutureResult<LocalizationFutureInputs>,
+    _temporary: &FutureResult<LocalizationFutureInputs>,
     get: impl Fn(&LocalizationFutureInputs) -> Option<&T> + Copy,
 ) -> algorithm::PerceptionInput<T> {
     algorithm::PerceptionInput {
         persistent: collect_perception_side(persistent, get),
-        temporary: collect_perception_side(temporary, get),
+        temporary: BTreeMap::new(),
     }
 }
 
@@ -377,7 +376,7 @@ mod tests {
     use super::*;
 
     #[test]
-    fn collect_perception_input_preserves_persistent_and_temporary_order() {
+    fn collect_perception_input_discards_temporary_values() {
         let mut persistent = FutureResult::new();
         persistent.insert(
             Time::from_nanos(2),
@@ -413,12 +412,8 @@ mod tests {
             .persistent
             .get(&Time::from_nanos(2).to_wallclock())
             .expect("persistent odometer exists");
-        let temporary_values = input
-            .temporary
-            .get(&Time::from_nanos(3).to_wallclock())
-            .expect("temporary odometer exists");
 
         assert_eq!(persistent_values[0].x, 2.0);
-        assert_eq!(temporary_values[0].x, 3.0);
+        assert!(input.temporary.is_empty());
     }
 }
