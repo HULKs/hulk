@@ -15,7 +15,6 @@ use geometry::line_segment::LineSegment;
 use hsl_network_messages::{GamePhase, Penalty, PlayerNumber, SubState, Team};
 use linear_algebra::{IntoTransform, Isometry2, Point2, Pose2, distance, point};
 use nalgebra::{Matrix2, Matrix3, Rotation2, Vector2, Vector3, matrix};
-use ordered_float::NotNan;
 use serde::{Deserialize, Serialize};
 use types::{
     field_dimensions::FieldDimensions,
@@ -191,7 +190,7 @@ impl Localization {
         self.last_primary_state = inputs.primary_state;
 
         let ground_to_field = self.pose_for_cycle(&inputs, &mut context)?;
-        let is_localization_converged = self.hypotheses.len() == 1;
+        let is_localization_converged = ground_to_field.is_some() && self.hypotheses.len() == 1;
 
         context
             .pose_hypotheses
@@ -782,7 +781,8 @@ impl Localization {
     fn get_best_hypothesis(&self) -> Option<&ScoredPose> {
         self.hypotheses
             .iter()
-            .max_by_key(|scored_filter| NotNan::new(scored_filter.score).unwrap())
+            .filter(|scored_filter| scored_filter.score.is_finite())
+            .max_by(|left, right| left.score.total_cmp(&right.score))
     }
 }
 
@@ -985,12 +985,13 @@ pub fn get_fitted_field_mark_correspondence(
     let mut correction = nalgebra::Isometry2::identity();
 
     for _ in 0..maximum_amount_of_outer_iterations {
-        let correspondence_points = get_correspondence_points(get_field_mark_correspondence(
+        let field_mark_correspondences = get_field_mark_correspondence(
             measured_lines_in_field,
             correction,
             field_marks,
             line_length_acceptance_factor,
-        ));
+        );
+        let correspondence_points = get_correspondence_points(&field_mark_correspondences);
         if correspondence_points.is_empty() {
             return (Vec::new(), f32::INFINITY, fit_errors);
         }
@@ -1061,7 +1062,7 @@ pub fn get_fitted_field_mark_correspondence(
         field_marks,
         line_length_acceptance_factor,
     );
-    let correspondence_points = get_correspondence_points(field_mark_correspondences.clone());
+    let correspondence_points = get_correspondence_points(&field_mark_correspondences);
     if correspondence_points.is_empty() {
         return (Vec::new(), f32::INFINITY, fit_errors);
     }
@@ -1125,23 +1126,30 @@ fn get_field_mark_correspondence(
     field_marks: &[FieldMark],
     line_length_acceptance_factor: f32,
 ) -> Vec<FieldMarkCorrespondence> {
+    let correction_transform = correction.framed_transform();
     measured_lines_in_field
         .iter()
         .filter_map(|&measured_line_in_field| {
+            let transformed_line = correction_transform * measured_line_in_field;
+            if !line_segment_is_finite(&transformed_line) {
+                return None;
+            }
+
             let (correspondences, _weight, field_mark, transformed_line) = field_marks
                 .iter()
                 .filter_map(|field_mark| {
-                    let transformed_line = correction.framed_transform() * measured_line_in_field;
                     let field_mark_length = match field_mark {
                         FieldMark::Line { line, .. } => line.length(),
                         FieldMark::Circle { radius, .. } => *radius,
                     };
-                    if field_mark_length <= 0.0 {
+                    if !field_mark_length.is_finite() || field_mark_length <= 0.0 {
                         return None;
                     }
 
                     let measured_line_length = transformed_line.length();
-                    if measured_line_length > field_mark_length * line_length_acceptance_factor {
+                    if !measured_line_length.is_finite()
+                        || measured_line_length > field_mark_length * line_length_acceptance_factor
+                    {
                         return None;
                     }
 
@@ -1154,26 +1162,36 @@ fn get_field_mark_correspondence(
                     let length_weight = measured_line_length / field_mark_length;
                     let weight = angle_weight + length_weight;
 
-                    (weight > 0.0).then_some((
+                    (weight.is_finite() && weight > 0.0).then_some((
                         correspondences,
                         weight,
                         field_mark,
                         transformed_line,
                     ))
                 })
-                .min_by_key(
-                    |(correspondence_points, weight, _field_mark, _transformed_line)| {
-                        (NotNan::new(
-                            distance(
-                                correspondence_points.correspondence_points.0.measured,
-                                correspondence_points.correspondence_points.0.reference,
-                            ) + distance(
-                                correspondence_points.correspondence_points.1.measured,
-                                correspondence_points.correspondence_points.1.reference,
-                            ),
-                        )
-                        .unwrap())
-                            / *weight
+                .filter_map(
+                    |(correspondence_points, weight, field_mark, transformed_line)| {
+                        let distance_score = distance(
+                            correspondence_points.correspondence_points.0.measured,
+                            correspondence_points.correspondence_points.0.reference,
+                        ) + distance(
+                            correspondence_points.correspondence_points.1.measured,
+                            correspondence_points.correspondence_points.1.reference,
+                        );
+                        let score = distance_score / weight;
+                        score.is_finite().then_some((
+                            score,
+                            correspondence_points,
+                            weight,
+                            field_mark,
+                            transformed_line,
+                        ))
+                    },
+                )
+                .min_by(|(left_score, ..), (right_score, ..)| left_score.total_cmp(right_score))
+                .map(
+                    |(_score, correspondence_points, weight, field_mark, transformed_line)| {
+                        (correspondence_points, weight, field_mark, transformed_line)
                     },
                 )?;
             let inverse_transformation = correction.inverse().framed_transform();
@@ -1197,8 +1215,15 @@ fn get_field_mark_correspondence(
         .collect()
 }
 
+fn line_segment_is_finite<Frame>(line: &LineSegment<Frame>) -> bool {
+    line.0.x().is_finite()
+        && line.0.y().is_finite()
+        && line.1.x().is_finite()
+        && line.1.y().is_finite()
+}
+
 fn get_correspondence_points(
-    field_mark_correspondences: Vec<FieldMarkCorrespondence>,
+    field_mark_correspondences: &[FieldMarkCorrespondence],
 ) -> Vec<CorrespondencePoints> {
     field_mark_correspondences
         .iter()
@@ -1340,10 +1365,137 @@ mod tests {
     };
 
     use approx::assert_relative_eq;
+    use hsl_network_messages::PlayerNumber;
     use linear_algebra::Point2;
     use nalgebra::{matrix, vector};
+    use types::players::Players;
 
     use super::*;
+
+    fn test_parameters() -> Parameters {
+        Parameters {
+            circle_measurement_noise: vector![0.1, 0.1],
+            good_matching_threshold: 0.1,
+            gradient_convergence_threshold: 0.001,
+            gradient_descent_step_size: 0.1,
+            hypothesis_prediction_score_reduction_factor: 1.0,
+            hypothesis_retain_factor: 0.5,
+            hypothesis_score_base_increase: 1.0,
+            initial_hypothesis_covariance: Matrix3::identity(),
+            initial_hypothesis_score: 1.0,
+            initial_poses: Players::new(InitialPose::default()),
+            line_length_acceptance_factor: 1.5,
+            line_measurement_noise: vector![0.1, 0.1],
+            additional_moving_noise_line: vector![0.0, 0.0],
+            additional_moving_noise_circle: vector![0.0, 0.0],
+            maximum_amount_of_gradient_descent_iterations: 1,
+            maximum_amount_of_outer_iterations: 1,
+            minimum_fit_error: 0.0,
+            odometry_noise: vector![0.0, 0.0, 0.0],
+            penalized_distance: 0.5,
+            penalized_hypothesis_covariance: Matrix3::identity(),
+            score_per_good_match: 1.0,
+            tentative_penalized_duration: Duration::from_secs(1),
+            use_line_measurements: false,
+            future_queue_lag: crate::FutureQueueLagParameters {
+                odometer: Duration::ZERO,
+                imu_state: Duration::ZERO,
+                fall_down_state: Duration::ZERO,
+                line_data: Duration::ZERO,
+            },
+        }
+    }
+
+    fn scored_pose(score: f32) -> ScoredPose {
+        ScoredPose::from_isometry(
+            Pose2::new(Point2::origin(), 0.0),
+            Matrix3::identity(),
+            score,
+        )
+    }
+
+    fn empty_perception_input<T>() -> PerceptionInput<T> {
+        PerceptionInput {
+            persistent: BTreeMap::new(),
+            temporary: BTreeMap::new(),
+        }
+    }
+
+    #[test]
+    fn best_hypothesis_ignores_nan_scores() {
+        let localization = Localization {
+            field_marks: Vec::new(),
+            last_primary_state: PrimaryState::Safe,
+            hypotheses: vec![scored_pose(f32::NAN), scored_pose(1.0)],
+            hypotheses_when_entered_playing: Vec::new(),
+            is_penalized_with_motion_in_set_or_initial: false,
+            time_when_penalized_clicked: None,
+            last_odometer: None,
+            last_line_data_time: SystemTime::UNIX_EPOCH,
+        };
+
+        let best_hypothesis = localization
+            .get_best_hypothesis()
+            .expect("finite hypothesis is available");
+
+        assert_eq!(best_hypothesis.score, 1.0);
+    }
+
+    #[test]
+    fn cycle_does_not_report_converged_without_pose_output() {
+        let parameters = test_parameters();
+        let field_dimensions = FieldDimensions::SPL_2025;
+        let player_number = PlayerNumber::One;
+        let primary_state = PrimaryState::Safe;
+        let mut localization = Localization {
+            field_marks: Vec::new(),
+            last_primary_state: PrimaryState::Safe,
+            hypotheses: vec![scored_pose(1.0)],
+            hypotheses_when_entered_playing: Vec::new(),
+            is_penalized_with_motion_in_set_or_initial: false,
+            time_when_penalized_clicked: None,
+            last_odometer: None,
+            last_line_data_time: SystemTime::UNIX_EPOCH,
+        };
+        let context = CycleContext {
+            correspondence_lines: DebugOutput::new(false),
+            fit_errors: DebugOutput::new(false),
+            measured_lines_in_field: DebugOutput::new(false),
+            pose_hypotheses: DebugOutput::new(false),
+            updates: DebugOutput::new(false),
+            gyro_movement: DebugOutput::new(false),
+            filtered_game_controller_state: None,
+            primary_state: &primary_state,
+            cycle_start_time: SystemTime::UNIX_EPOCH,
+            odometer: empty_perception_input(),
+            fall_down_state: empty_perception_input(),
+            imu_state: empty_perception_input(),
+            line_data: empty_perception_input(),
+            parameters: &parameters,
+            field_dimensions: &field_dimensions,
+            player_number: &player_number,
+        };
+
+        let outputs = localization.cycle(context).expect("cycle succeeds");
+
+        assert!(outputs.ground_to_field.is_none());
+        assert!(!outputs.is_localization_converged);
+    }
+
+    #[test]
+    fn field_mark_correspondence_ignores_nan_distance_scores() {
+        let correspondences = get_field_mark_correspondence(
+            &[LineSegment(point![f32::NAN, 0.0], point![1.0, 0.0])],
+            nalgebra::Isometry2::identity(),
+            &[FieldMark::Line {
+                line: LineSegment(point![0.0, 0.0], point![1.0, 0.0]),
+                direction: Direction::PositiveX,
+            }],
+            1.5,
+        );
+
+        assert!(correspondences.is_empty());
+    }
 
     #[test]
     fn penalty_exit_strategy_restores_playing_hypotheses_for_motion_in_set() {

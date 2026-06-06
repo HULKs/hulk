@@ -14,11 +14,9 @@ geometry = { workspace = true }
 hsl_network_messages = { workspace = true }
 linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
-ordered-float = { workspace = true }
 ros-z = { workspace = true }
 ros-z-streams = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
-tokio = { workspace = true }
 types = { workspace = true }
 
 [dev-dependencies]
