@@ -70,9 +70,14 @@ fn validate_namespace(namespace: &str) -> Result<(), TopicNameError> {
         ));
     }
 
-    for part in namespace.split('/') {
+    for (index, part) in namespace.split('/').enumerate() {
         if part.is_empty() {
-            continue; // Leading slash creates empty first component
+            if index == 0 && namespace.starts_with('/') {
+                continue;
+            }
+            return Err(TopicNameError::InvalidNamespace(
+                "empty component".to_string(),
+            ));
         }
         if !is_valid_topic_component(part) {
             return Err(TopicNameError::InvalidNamespace(format!(
@@ -341,6 +346,18 @@ mod tests {
     fn test_invalid_namespace() {
         assert!(matches!(
             qualify_topic_name("chatter", "/ns/", "node"),
+            Err(TopicNameError::InvalidNamespace(_))
+        ));
+    }
+
+    #[test]
+    fn test_invalid_namespace_rejects_empty_components() {
+        assert!(matches!(
+            qualify_topic_name("chatter", "/ns//nested", "node"),
+            Err(TopicNameError::InvalidNamespace(_))
+        ));
+        assert!(matches!(
+            qualify_topic_name("chatter", "ns//nested", "node"),
             Err(TopicNameError::InvalidNamespace(_))
         ));
     }
