@@ -1,4 +1,4 @@
-use std::path::{Component, PathBuf};
+use std::path::{Component, Path, PathBuf};
 
 use argument_parsers::RobotAddress;
 use clap::Args;
@@ -197,7 +197,7 @@ pub async fn hydra_bench(arguments: Arguments, repository: &Repository) -> Resul
 
     let mut result_paths = Vec::new();
     for (onnx_path, uploaded_model) in onnx_paths.iter().zip(uploaded_models) {
-        let result_path = remote_output.join(result_file_name(&onnx_path)?);
+        let result_path = remote_output.join(result_file_name(onnx_path)?);
         let command = format!(
             "sudo podman exec --user $(id -u booster) hulk ./bin/hydra-bench --json --output {} --cache-path {} --warmup {} --iterations {} {}",
             shell_quote(&result_path.display().to_string()),
@@ -244,15 +244,15 @@ pub async fn hydra_bench(arguments: Arguments, repository: &Repository) -> Resul
     Ok(())
 }
 
-fn relative_to_repository(path: &PathBuf, repository: &Repository) -> Result<PathBuf> {
+fn relative_to_repository(path: &Path, repository: &Repository) -> Result<PathBuf> {
     if path.is_absolute() {
         diff_paths(path, &repository.root).wrap_err("could not determine relative onnx path")
     } else {
-        Ok(path.clone())
+        Ok(path.to_path_buf())
     }
 }
 
-fn result_file_name(onnx_path: &PathBuf) -> Result<String> {
+fn result_file_name(onnx_path: &Path) -> Result<String> {
     let mut name_parts = onnx_path
         .components()
         .filter_map(|component| match component {

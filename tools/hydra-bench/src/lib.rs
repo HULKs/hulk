@@ -2,7 +2,7 @@ use std::path::{Path, PathBuf};
 
 use clap::Parser;
 use color_eyre::Result;
-use ndarray::Array3;
+use ndarray::Array4;
 use ort::{
     execution_providers::{CUDAExecutionProvider, TensorRTExecutionProvider},
     inputs,
@@ -39,10 +39,9 @@ pub struct CliArguments {
 
 pub fn run_inference<'a>(
     session: &'a mut Session,
-    sample_image: &Array3<u8>,
+    sample_image: &Array4<f32>,
 ) -> Result<SessionOutputs<'a>> {
-    Ok(session
-        .run(inputs!["raw_bytes_input" => TensorRef::from_array_view(sample_image.view())?])?)
+    Ok(session.run(inputs!["images" => TensorRef::from_array_view(sample_image.view())?])?)
 }
 
 pub fn setup(
@@ -65,8 +64,8 @@ pub fn setup(
     Ok(session)
 }
 
-pub fn sample_image() -> Array3<u8> {
+pub fn sample_image() -> Array4<f32> {
     const IMAGE_WIDTH: usize = 544;
     const IMAGE_HEIGHT: usize = 448;
-    Array3::<u8>::default([IMAGE_HEIGHT / 2, IMAGE_WIDTH / 2, 6])
+    Array4::<f32>::default([1, 3, IMAGE_HEIGHT, IMAGE_WIDTH])
 }

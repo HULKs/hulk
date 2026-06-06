@@ -1,4 +1,9 @@
-use std::{ffi::OsString, path::PathBuf, process::Stdio, time::Duration};
+use std::{
+    ffi::OsString,
+    path::{Path, PathBuf},
+    process::Stdio,
+    time::Duration,
+};
 
 use clap::Args;
 use color_eyre::{
@@ -168,7 +173,7 @@ pub async fn compile_models(
 
 pub async fn compile_model(
     robot: &Robot,
-    onnx_path: &PathBuf,
+    onnx_path: &Path,
     progress_bar: &ProgressBar,
 ) -> Result<()> {
     let compile_command = format!(
