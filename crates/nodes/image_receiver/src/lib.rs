@@ -5,21 +5,12 @@ use std::{sync::Arc, time::Duration};
 use color_eyre::Result;
 use image::RgbImage;
 
-use ros_z::{prelude::*, time::Time};
-use ros2::{
-    builtin_interfaces::time::Time as Ros2Time,
-    sensor_msgs::{camera_info::CameraInfo, image::Image},
-};
+use ros_z::prelude::*;
+use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
 use types::{time_wrapper::TimeWrapper, ycbcr422_image::YCbCr422Image};
 use x5_receiver::receiver::X5Receiver;
 
 const X5_ADDRESS: SocketAddr = SocketAddr::new(IpAddr::V4(Ipv4Addr::new(192, 168, 127, 10)), 7654);
-
-fn ros2_time_to_ros_z_time(time: Ros2Time) -> Time {
-    let seconds = i64::from(time.sec).saturating_mul(1_000_000_000);
-    let nanoseconds = i64::from(time.nanosec);
-    Time::from_nanos(seconds.saturating_add(nanoseconds))
-}
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
     Box::pin(run(ctx))
@@ -52,8 +43,8 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     loop {
         tokio::select! {
             left_frame = x5_receiver.next_left_frame() => {
+                let image_time = node.clock().now();
                 let left_image: Image = left_frame.into();
-                let image_time = ros2_time_to_ros_z_time(left_image.header.stamp.clone());
                 left_image_pub.publish(&TimeWrapper { time: image_time, inner: left_image.clone() }).await?;
                 let rgb_image: RgbImage = left_image.try_into()?;
                 ycbcr422_image_pub.publish(&TimeWrapper { time: image_time, inner: (&rgb_image).into() }).await?;
@@ -68,22 +59,5 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                     .await?;
             }
         }
-    }
-}
-
-#[cfg(test)]
-mod tests {
-    use ros2::builtin_interfaces::time::Time as Ros2Time;
-
-    use super::*;
-
-    #[test]
-    fn converts_ros2_header_stamp_to_ros_z_time() {
-        let time = ros2_time_to_ros_z_time(Ros2Time {
-            sec: 12,
-            nanosec: 345,
-        });
-
-        assert_eq!(time.as_nanos(), 12_000_000_345);
     }
 }
