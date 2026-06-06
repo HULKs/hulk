@@ -37,6 +37,26 @@ fn is_valid_topic_component(component: &str) -> bool {
         .all(|&b| b.is_ascii_alphanumeric() || b == b'_')
 }
 
+fn validate_topic_components(topic: &str, context: &str) -> Result<(), TopicNameError> {
+    for (index, part) in topic.split('/').enumerate() {
+        if part.is_empty() {
+            if index == 0 && topic.starts_with('/') {
+                continue;
+            }
+            return Err(TopicNameError::InvalidCharacters(format!(
+                "empty component{context}"
+            )));
+        }
+
+        if !is_valid_topic_component(part) {
+            return Err(TopicNameError::InvalidCharacters(format!(
+                "invalid component '{part}'{context}"
+            )));
+        }
+    }
+    Ok(())
+}
+
 /// Validate a namespace string
 /// Namespaces can be empty, "/", or a series of valid components separated by "/"
 fn validate_namespace(namespace: &str) -> Result<(), TopicNameError> {
@@ -146,6 +166,7 @@ pub fn qualify_topic_name(
                 "topic cannot be just '/'".to_string(),
             ));
         }
+        validate_topic_components(topic, "")?;
         topic.to_string()
     } else if topic.starts_with('~') {
         // Private topic - expand with namespace and node name
@@ -154,14 +175,7 @@ pub fn qualify_topic_name(
 
         // Validate the topic suffix
         if !topic_suffix.is_empty() {
-            for part in topic_suffix.split('/') {
-                if !part.is_empty() && !is_valid_topic_component(part) {
-                    return Err(TopicNameError::InvalidCharacters(format!(
-                        "invalid component '{}' in private topic",
-                        part
-                    )));
-                }
-            }
+            validate_topic_components(topic_suffix, " in private topic")?;
         }
 
         if namespace.is_empty() || namespace == "/" {
@@ -179,15 +193,7 @@ pub fn qualify_topic_name(
         // Relative topic - expand with namespace only
         let topic = topic.strip_suffix('/').unwrap_or(topic);
 
-        // Validate topic components
-        for part in topic.split('/') {
-            if !part.is_empty() && !is_valid_topic_component(part) {
-                return Err(TopicNameError::InvalidCharacters(format!(
-                    "invalid component '{}'",
-                    part
-                )));
-            }
-        }
+        validate_topic_components(topic, "")?;
 
         if namespace.is_empty() || namespace == "/" {
             format!("/{}", topic)
@@ -256,6 +262,18 @@ mod tests {
             qualify_topic_name("/chatter/", "/ns", "node").unwrap(),
             "/chatter"
         );
+    }
+
+    #[test]
+    fn test_absolute_topics_validate_components() {
+        assert!(matches!(
+            qualify_topic_name("/123invalid", "/ns", "node"),
+            Err(TopicNameError::InvalidCharacters(_))
+        ));
+        assert!(matches!(
+            qualify_topic_name("/valid/foo-bar", "/ns", "node"),
+            Err(TopicNameError::InvalidCharacters(_))
+        ));
     }
 
     #[test]
