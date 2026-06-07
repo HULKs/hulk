@@ -701,13 +701,14 @@ impl App for TwixApp {
 
             if let Some((surface_index, node_id)) = self.dock_state.focused_leaf() {
                 let node = &self.dock_state[surface_index][node_id];
-                let rect = node.rect().unwrap();
-                ui.painter().rect_stroke(
-                    rect,
-                    CornerRadius::same(4),
-                    ui.visuals().widgets.active.bg_stroke,
-                    StrokeKind::Outside,
-                );
+                if let Some(rect) = node.rect() {
+                    ui.painter().rect_stroke(
+                        rect,
+                        CornerRadius::same(4),
+                        ui.visuals().widgets.active.bg_stroke,
+                        StrokeKind::Outside,
+                    );
+                }
             }
         });
     }
