@@ -124,6 +124,7 @@ impl ArmAnimator {
         let target_positions = apply_arms(current_positions, target);
         let maximum_velocities =
             apply_arms(Joints::fill(f32::INFINITY), maximum_arm_joint_velocities);
+        validate_transition_durations(current_positions, target_positions, maximum_velocities)?;
         let spline = TimedSpline::try_new_transition_with_velocity(
             current_positions,
             target_positions,
@@ -132,7 +133,8 @@ impl ArmAnimator {
         .wrap_err("failed to create arm transition")?;
 
         self.active_transition = Some(SplineInterpolator::from(spline));
-        self.last_commanded_arms = Some(current_positions.into());
+        self.last_commanded_arms
+            .get_or_insert_with(|| current_positions.into());
 
         Ok(())
     }
@@ -339,6 +341,26 @@ fn validate_arm_joint_positions(arms: BothArms) -> Result<()> {
     Ok(())
 }
 
+fn validate_transition_durations(
+    current_positions: Joints,
+    target_positions: Joints,
+    maximum_velocities: Joints,
+) -> Result<()> {
+    for ((current_position, target_position), maximum_velocity) in current_positions
+        .into_iter()
+        .zip(target_positions)
+        .zip(maximum_velocities)
+    {
+        let duration_seconds = ((target_position - current_position) / maximum_velocity).abs();
+        ensure!(
+            Duration::try_from_secs_f32(duration_seconds).is_ok(),
+            "arm transition duration must be representable"
+        );
+    }
+
+    Ok(())
+}
+
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
@@ -394,6 +416,43 @@ mod tests {
         assert_close(clamped.right_arm.shoulder_roll, -0.1);
         assert_close(clamped.right_arm.shoulder_yaw, 0.05);
         assert_close(clamped.right_arm.elbow, -0.05);
+    }
+
+    #[test]
+    fn retargeting_preserves_last_commanded_arms_for_velocity_clamp_baseline() {
+        let mut animator = ArmAnimator::default();
+        let measured_positions = Joints::default();
+        let maximum_velocities = BothArms::from([1.0; 8]);
+        let last_commanded_arms = BothArms::from([0.5; 8]);
+
+        animator
+            .update_measured_positions(measured_positions, maximum_velocities)
+            .unwrap();
+        animator.last_commanded_arms = Some(last_commanded_arms);
+
+        animator
+            .set_target(BothArms::from([1.0; 8]), maximum_velocities)
+            .unwrap();
+
+        assert_eq!(animator.last_commanded_arms, Some(last_commanded_arms));
+    }
+
+    #[test]
+    fn rejects_unrepresentable_transition_durations_without_panicking() {
+        let mut animator = ArmAnimator::default();
+        animator
+            .update_measured_positions(Joints::default(), BothArms::from([1.0; 8]))
+            .unwrap();
+
+        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
+            animator.set_target(
+                BothArms::from([f32::MAX; 8]),
+                BothArms::from([f32::MIN_POSITIVE; 8]),
+            )
+        }));
+
+        assert!(result.is_ok(), "transition validation should not panic");
+        assert!(result.unwrap().is_err());
     }
 
     #[test]

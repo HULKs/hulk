@@ -7,6 +7,7 @@ use tokio::task::JoinSet;
 use tracing_subscriber::EnvFilter;
 
 mod arm_animator;
+mod image_receiver;
 
 const RUNTIME_SHUTDOWN_TIMEOUT: Duration = Duration::from_secs(2);
 
@@ -111,6 +112,7 @@ async fn spawn_all(ctx: Arc<Context>) -> Result<RunningStack> {
     let mut join_set = JoinSet::new();
 
     join_set.spawn(arm_animator::run_boxed(ctx.clone()));
+    join_set.spawn(image_receiver::run_boxed(ctx.clone()));
     join_set.spawn(camera_matrix_calculator::run_boxed(ctx.clone()));
     join_set.spawn(ground_provider::run_boxed(ctx.clone()));
     join_set.spawn(kinematics_provider::run_boxed(ctx.clone()));

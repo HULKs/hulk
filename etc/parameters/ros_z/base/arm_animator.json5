@@ -1,7 +1,7 @@
 {
   maximum_arm_joint_velocities: {
-    left_arm: { shoulder_pitch: 2.0, shoulder_roll: 2.0, shoulder_yaw: 2.0, elbow: 2.0 },
-    right_arm: { shoulder_pitch: 2.0, shoulder_roll: 2.0, shoulder_yaw: 2.0, elbow: 2.0 },
+    left_arm: { shoulder_pitch: 0.1, shoulder_roll: 0.1, shoulder_yaw: 0.1, elbow: 0.1 },
+    right_arm: { shoulder_pitch: 0.1, shoulder_roll: 0.1, shoulder_yaw: 0.1, elbow: 0.1 },
   },
   motor_command_parameters: {
     weight: 1.0,
