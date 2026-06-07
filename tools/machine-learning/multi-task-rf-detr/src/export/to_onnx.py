@@ -17,14 +17,26 @@ def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", default="assets/detection.yaml")
     ap.add_argument("--checkpoint", default=None,
-                    help="default: <training.output_dir>/checkpoint_best_total.pth")
+                    help="default: best_total, else best_ema, else best_regular in output_dir")
     args = ap.parse_args()
 
     cfg = load_config(args.config)
-    ckpt = args.checkpoint or str(Path(cfg.training.output_dir) / "checkpoint_best_total.pth")
+    if args.checkpoint:
+        ckpt = args.checkpoint
+    else:
+        # Prefer best_total (written at a normal end-of-training); fall back to best_ema /
+        # best_regular, which are saved live and survive an interrupted/early-stopped run.
+        out_dir = Path(cfg.training.output_dir)
+        candidates = ["checkpoint_best_total.pth", "checkpoint_best_ema.pth",
+                      "checkpoint_best_regular.pth"]
+        ckpt = next((str(out_dir / c) for c in candidates if (out_dir / c).exists()), None)
+        if ckpt is None:
+            print(f"ERROR: no best checkpoint in {out_dir} (looked for {candidates})")
+            sys.exit(1)
     if not Path(ckpt).exists():
         print(f"ERROR: checkpoint not found: {ckpt}")
         sys.exit(1)
+    print(f"Using checkpoint: {ckpt}")
 
     out_path = Path(cfg.export.output_path)
     out_path.parent.mkdir(parents=True, exist_ok=True)
