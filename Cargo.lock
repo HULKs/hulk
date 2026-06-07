@@ -7963,7 +7963,6 @@ dependencies = [
  "ndarray",
  "num-traits",
  "path_serde_derive",
- "ros-z",
  "serde",
  "serde_json",
  "thiserror 2.0.18",

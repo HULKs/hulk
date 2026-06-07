@@ -21,6 +21,7 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 pub struct BallPosition<Frame> {
     pub position: Point2<Frame>,
     pub velocity: Vector2<Frame>,
+    #[path_serde(skip)]
     pub last_seen: Time,
 }
 

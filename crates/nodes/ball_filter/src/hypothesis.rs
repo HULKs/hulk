@@ -31,6 +31,7 @@ pub enum BallMode {
 )]
 pub struct BallHypothesis {
     pub mode: BallMode,
+    #[path_serde(skip)]
     pub last_seen: Time,
     pub validity: f32,
 }
