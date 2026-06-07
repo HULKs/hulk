@@ -777,9 +777,12 @@ version = "0.1.0"
 dependencies = [
  "color-eyre",
  "coordinate_systems",
+ "filtering",
+ "hsl_network_messages",
  "linear_algebra",
  "ros-z",
  "serde",
+ "tokio",
  "types",
 ]
 
