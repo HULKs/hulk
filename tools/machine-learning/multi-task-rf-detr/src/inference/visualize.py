@@ -8,6 +8,7 @@ Qualitative companion to the numeric metrics: lets you SEE detection quality per
 (e.g. Ball/Robot strong, L/T/X line-spots weak). Uses the same best-checkpoint fallback as
 export (best_total -> best_ema -> best_regular). Overlays go to outputs/predictions/ (gitignored).
 """
+
 import argparse
 import sys
 from pathlib import Path
@@ -19,8 +20,11 @@ def find_checkpoint(cfg, override):
     if override:
         return override
     out = Path(cfg.training.output_dir)
-    for name in ("checkpoint_best_total.pth", "checkpoint_best_ema.pth",
-                 "checkpoint_best_regular.pth"):
+    for name in (
+        "checkpoint_best_total.pth",
+        "checkpoint_best_ema.pth",
+        "checkpoint_best_regular.pth",
+    ):
         if (out / name).exists():
             return str(out / name)
     return None
@@ -43,7 +47,7 @@ def main() -> None:
         sys.exit(1)
 
     img_dir = Path(args.images) if args.images else Path(cfg.data.dataset_dir) / "valid"
-    imgs = sorted(list(img_dir.glob("*.png")) + list(img_dir.glob("*.jpg")))[:args.num]
+    imgs = sorted(list(img_dir.glob("*.png")) + list(img_dir.glob("*.jpg")))[: args.num]
     if not imgs:
         print(f"ERROR: no images in {img_dir}")
         sys.exit(1)
@@ -57,7 +61,8 @@ def main() -> None:
 
     print(f"Loading {cfg.model.variant} from {ckpt} ...")
     model = getattr(rfdetr, cfg.model.variant)(
-        pretrain_weights=ckpt, resolution=cfg.training.resolution)
+        pretrain_weights=ckpt, resolution=cfg.training.resolution
+    )
     names = cfg.model.class_names
 
     # supervision renamed the box annotator across versions — support both.

@@ -5,6 +5,7 @@
 Static batch (batch_size=1, dynamic_batch=False) avoids the known DETR/TensorRT
 dynamic-shape failures; the robot only ever infers single frames.
 """
+
 import argparse
 import shutil
 import sys
@@ -16,8 +17,11 @@ from training.config import load_config
 def main() -> None:
     ap = argparse.ArgumentParser()
     ap.add_argument("--config", default="assets/detection.yaml")
-    ap.add_argument("--checkpoint", default=None,
-                    help="default: best_total, else best_ema, else best_regular in output_dir")
+    ap.add_argument(
+        "--checkpoint",
+        default=None,
+        help="default: best_total, else best_ema, else best_regular in output_dir",
+    )
     args = ap.parse_args()
 
     cfg = load_config(args.config)
@@ -27,8 +31,11 @@ def main() -> None:
         # Prefer best_total (written at a normal end-of-training); fall back to best_ema /
         # best_regular, which are saved live and survive an interrupted/early-stopped run.
         out_dir = Path(cfg.training.output_dir)
-        candidates = ["checkpoint_best_total.pth", "checkpoint_best_ema.pth",
-                      "checkpoint_best_regular.pth"]
+        candidates = [
+            "checkpoint_best_total.pth",
+            "checkpoint_best_ema.pth",
+            "checkpoint_best_regular.pth",
+        ]
         ckpt = next((str(out_dir / c) for c in candidates if (out_dir / c).exists()), None)
         if ckpt is None:
             print(f"ERROR: no best checkpoint in {out_dir} (looked for {candidates})")
@@ -42,21 +49,26 @@ def main() -> None:
     out_path.parent.mkdir(parents=True, exist_ok=True)
     stage_dir = out_path.parent / "_export_stage"
 
-    print(f"Variant: {cfg.model.variant} | ckpt: {ckpt} | res: {cfg.training.resolution} "
-          f"| static_batch: {cfg.export.static_batch} | target: {out_path}")
+    print(
+        f"Variant: {cfg.model.variant} | ckpt: {ckpt} | res: {cfg.training.resolution} "
+        f"| static_batch: {cfg.export.static_batch} | target: {out_path}"
+    )
 
     import rfdetr
 
     model = getattr(rfdetr, cfg.model.variant)(
-        pretrain_weights=ckpt, resolution=cfg.training.resolution,
+        pretrain_weights=ckpt,
+        resolution=cfg.training.resolution,
     )
-    produced = Path(model.export(
-        output_dir=str(stage_dir),
-        simplify=cfg.export.simplify,
-        batch_size=1,
-        dynamic_batch=not cfg.export.static_batch,
-        opset_version=17,
-    ))
+    produced = Path(
+        model.export(
+            output_dir=str(stage_dir),
+            simplify=cfg.export.simplify,
+            batch_size=1,
+            dynamic_batch=not cfg.export.static_batch,
+            opset_version=17,
+        )
+    )
 
     if out_path.exists():
         out_path.unlink()

@@ -1,8 +1,9 @@
 """Verify the converted RF-DETR COCO dataset.
 
-    uv run -m data.verify --config assets/detection.yaml
-    uv run -m data.verify --config assets/segmentation.yaml --check-masks
+uv run -m data.verify --config assets/detection.yaml
+uv run -m data.verify --config assets/segmentation.yaml --check-masks
 """
+
 import argparse
 import json
 import sys
@@ -12,8 +13,13 @@ from pathlib import Path
 from training.config import Config, load_config
 
 
-def verify_split(split_dir: Path, split_name: str, expected_class_names: list,
-                 check_masks: bool = False, check_keypoints: bool = False):
+def verify_split(
+    split_dir: Path,
+    split_name: str,
+    expected_class_names: list,
+    check_masks: bool = False,
+    check_keypoints: bool = False,
+):
     print(f"\n[{split_name}] {split_dir}")
     stats = {"valid": True, "warnings": []}
 
@@ -40,8 +46,11 @@ def verify_split(split_dir: Path, split_name: str, expected_class_names: list,
         print(f"  OK: {len(categories)} classes match config")
 
     missing = [i["file_name"] for i in images if not (split_dir / i["file_name"]).exists()]
-    print(f"  {'WARN' if missing else 'OK'}: "
-          f"{len(missing)} missing image files" if missing else f"  OK: {len(images)} images exist")
+    print(
+        f"  {'WARN' if missing else 'OK'}: {len(missing)} missing image files"
+        if missing
+        else f"  OK: {len(images)} images exist"
+    )
 
     per_cat, bad_boxes, bad_masks, bad_kpts = Counter(), 0, 0, 0
     for ann in annotations:
@@ -68,8 +77,9 @@ def verify_split(split_dir: Path, split_name: str, expected_class_names: list,
     return True, stats
 
 
-def verify_dataset(config: Config, check_masks: bool = False,
-                   check_keypoints: bool = False) -> bool:
+def verify_dataset(
+    config: Config, check_masks: bool = False, check_keypoints: bool = False
+) -> bool:
     print("=" * 60)
     print("RF-DETR Dataset Verification")
     print("=" * 60)
@@ -81,12 +91,22 @@ def verify_dataset(config: Config, check_masks: bool = False,
 
     all_valid = True
     for split in ("train", "valid"):
-        ok, _ = verify_split(dataset_dir / split, split, config.model.class_names,
-                             check_masks=check_masks, check_keypoints=check_keypoints)
+        ok, _ = verify_split(
+            dataset_dir / split,
+            split,
+            config.model.class_names,
+            check_masks=check_masks,
+            check_keypoints=check_keypoints,
+        )
         all_valid = all_valid and ok
     if (dataset_dir / "test").exists():
-        verify_split(dataset_dir / "test", "test", config.model.class_names,
-                     check_masks=check_masks, check_keypoints=check_keypoints)
+        verify_split(
+            dataset_dir / "test",
+            "test",
+            config.model.class_names,
+            check_masks=check_masks,
+            check_keypoints=check_keypoints,
+        )
 
     print("\n" + "=" * 60)
     print("PASSED" if all_valid else "FAILED")
@@ -101,8 +121,7 @@ def main() -> None:
     parser.add_argument("--check-keypoints", action="store_true")
     args = parser.parse_args()
     config = load_config(args.config)
-    ok = verify_dataset(config, check_masks=args.check_masks,
-                        check_keypoints=args.check_keypoints)
+    ok = verify_dataset(config, check_masks=args.check_masks, check_keypoints=args.check_keypoints)
     sys.exit(0 if ok else 1)
 
 

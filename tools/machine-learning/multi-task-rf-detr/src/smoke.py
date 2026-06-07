@@ -10,12 +10,14 @@ Checks:
 
 Run after `conda env create -f environment.yml && conda activate rf-detr`.
 """
+
 import sys
 import traceback
 
 
 def check_torch():
     import torch
+
     cuda_ok = torch.cuda.is_available()
     print(f"  torch:           {torch.__version__}")
     print(f"  CUDA available:  {cuda_ok}")
@@ -29,12 +31,14 @@ def check_torch():
 
 def check_rfdetr():
     import rfdetr
+
     print(f"  rfdetr:          {getattr(rfdetr, '__version__', 'unknown')}")
     return True
 
 
 def check_onnxruntime():
     import onnxruntime as ort
+
     providers = ort.get_available_providers()
     print(f"  onnxruntime:     {ort.__version__}")
     print(f"  providers:       {providers}")
@@ -43,6 +47,7 @@ def check_onnxruntime():
 
 def check_supervision():
     import supervision as sv
+
     print(f"  supervision:     {sv.__version__}")
     return True
 
@@ -51,6 +56,7 @@ def check_inference():
     """Instantiate RFDETRSmall and run a single dummy forward pass at 448 res."""
     import torch
     from rfdetr import RFDETRSmall
+
     print("  Instantiating RFDETRSmall (downloads pretrained weights on first run)...")
     model = RFDETRSmall()
     dummy = torch.randn(1, 3, 448, 448)
@@ -75,11 +81,11 @@ def main():
     print("=" * 60)
 
     checks = [
-        ("PyTorch + CUDA",     check_torch),
-        ("rfdetr",             check_rfdetr),
-        ("onnxruntime-gpu",    check_onnxruntime),
-        ("supervision",        check_supervision),
-        ("RFDETRSmall load",   check_inference),
+        ("PyTorch + CUDA", check_torch),
+        ("rfdetr", check_rfdetr),
+        ("onnxruntime-gpu", check_onnxruntime),
+        ("supervision", check_supervision),
+        ("RFDETRSmall load", check_inference),
     ]
 
     results = []

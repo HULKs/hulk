@@ -5,6 +5,7 @@
 
 num_classes is auto-detected by rfdetr from the COCO categories.
 """
+
 import argparse
 import sys
 from pathlib import Path
@@ -39,8 +40,11 @@ def build_train_kwargs(config) -> dict:
 def main() -> None:
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default="assets/detection.yaml")
-    parser.add_argument("--dry-run", action="store_true",
-                        help="Print resolved config + kwargs, then exit (no rfdetr/GPU).")
+    parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print resolved config + kwargs, then exit (no rfdetr/GPU).",
+    )
     parser.add_argument("--resume", default=None, help="Checkpoint path to resume from.")
     args = parser.parse_args()
 

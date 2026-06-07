@@ -6,6 +6,7 @@ the rfdetr API (model.train(...) kwargs) instead of HuggingFace Trainer args.
 
 Save as: src/config_loader.py
 """
+
 import sys
 import yaml
 from dataclasses import dataclass, field
@@ -14,7 +15,7 @@ from pathlib import Path
 
 @dataclass
 class ModelConfig:
-    variant: str = "RFDETRSmall"          # rfdetr.RFDETRSmall / RFDETRSegSmall / etc.
+    variant: str = "RFDETRSmall"  # rfdetr.RFDETRSmall / RFDETRSegSmall / etc.
     pretrained: bool = True
     num_classes: int = 7
     class_names: list[str] = field(default_factory=list)
@@ -41,7 +42,7 @@ class TrainingConfig:
     early_stopping_patience: int = 10
     early_stopping_min_delta: float = 1e-3
     fp16: bool = True
-    dataloader_num_workers: int = 0       # Windows: must be 0
+    dataloader_num_workers: int = 0  # Windows: must be 0
     tensorboard: bool = True
     logging_dir: str = "./outputs/logs"
     save_total_limit: int = 3
@@ -123,8 +124,10 @@ def print_config(config: Config) -> None:
     print(f"Variant:        {config.model.variant}")
     print(f"Classes:        {config.model.num_classes} -> {config.model.class_names}")
     print(f"Resolution:     {config.training.resolution}")
-    print(f"Effective batch:{config.training.batch_size * config.training.grad_accum_steps} "
-          f"({config.training.batch_size} x {config.training.grad_accum_steps})")
+    print(
+        f"Effective batch:{config.training.batch_size * config.training.grad_accum_steps} "
+        f"({config.training.batch_size} x {config.training.grad_accum_steps})"
+    )
     print(f"LR:             {config.training.lr}")
     print(f"Epochs:         {config.training.epochs}")
     print(f"FP16:           {config.training.fp16}")
@@ -137,6 +140,7 @@ def print_config(config: Config) -> None:
 
 if __name__ == "__main__":
     import argparse
+
     parser = argparse.ArgumentParser()
     parser.add_argument("--config", default="config/detection.yaml")
     args = parser.parse_args()

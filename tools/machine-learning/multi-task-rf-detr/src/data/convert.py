@@ -22,6 +22,7 @@ Usage:
     python src/convert_nao_to_rfdetr.py --limit 50      # quick dry-run (50 imgs/split)
     python src/convert_nao_to_rfdetr.py --copy          # force copy instead of hardlink
 """
+
 import argparse
 import json
 import os
@@ -49,13 +50,20 @@ def place_image(src: Path, dst: Path, use_copy: bool) -> None:
         shutil.copy2(src, dst)
         return
     try:
-        os.link(src, dst)            # hardlink — NTFS-friendly, zero extra disk
+        os.link(src, dst)  # hardlink — NTFS-friendly, zero extra disk
     except OSError:
-        shutil.copy2(src, dst)       # fallback (cross-volume, permissions, etc.)
+        shutil.copy2(src, dst)  # fallback (cross-volume, permissions, etc.)
 
 
-def convert_split(img_dir: Path, lbl_dir: Path, out_dir: Path, names: list,
-                  split_label: str, limit: int, use_copy: bool) -> dict:
+def convert_split(
+    img_dir: Path,
+    lbl_dir: Path,
+    out_dir: Path,
+    names: list,
+    split_label: str,
+    limit: int,
+    use_copy: bool,
+) -> dict:
     out_dir.mkdir(parents=True, exist_ok=True)
     images, annotations = [], []
     ann_id = 0
@@ -69,10 +77,15 @@ def convert_split(img_dir: Path, lbl_dir: Path, out_dir: Path, names: list,
     for img_id, img_path in enumerate(img_files):
         with Image.open(img_path) as im:
             w, h = im.size
-        images.append({
-            "id": img_id, "license": 1, "file_name": img_path.name,
-            "height": h, "width": w,
-        })
+        images.append(
+            {
+                "id": img_id,
+                "license": 1,
+                "file_name": img_path.name,
+                "height": h,
+                "width": w,
+            }
+        )
         place_image(img_path, out_dir / img_path.name, use_copy)
 
         lbl_path = lbl_dir / (img_path.stem + ".txt")
@@ -98,11 +111,17 @@ def convert_split(img_dir: Path, lbl_dir: Path, out_dir: Path, names: list,
             ah = min(ah, h - y0)
             if aw <= 0 or ah <= 0:
                 continue
-            annotations.append({
-                "id": ann_id, "image_id": img_id, "category_id": cls,
-                "bbox": [round(x0, 2), round(y0, 2), round(aw, 2), round(ah, 2)],
-                "area": round(aw * ah, 2), "segmentation": [], "iscrowd": 0,
-            })
+            annotations.append(
+                {
+                    "id": ann_id,
+                    "image_id": img_id,
+                    "category_id": cls,
+                    "bbox": [round(x0, 2), round(y0, 2), round(aw, 2), round(ah, 2)],
+                    "area": round(aw * ah, 2),
+                    "segmentation": [],
+                    "iscrowd": 0,
+                }
+            )
             ann_id += 1
 
     categories = [{"id": i, "name": n, "supercategory": "robocup"} for i, n in enumerate(names)]
@@ -117,8 +136,11 @@ def convert_split(img_dir: Path, lbl_dir: Path, out_dir: Path, names: list,
         json.dumps(coco, ensure_ascii=False), encoding="utf-8"
     )
     return {
-        "split": split_label, "images": len(images), "annotations": len(annotations),
-        "background": n_background, "clamped": n_clamped,
+        "split": split_label,
+        "images": len(images),
+        "annotations": len(annotations),
+        "background": n_background,
+        "clamped": n_clamped,
     }
 
 
@@ -146,18 +168,27 @@ def main():
             continue
         print(f"\nConverting {yolo_split} -> {rfdetr_split} ...")
         stats = convert_split(
-            img_dir, lbl_dir, Path(args.out) / rfdetr_split,
-            names, rfdetr_split, args.limit, args.copy,
+            img_dir,
+            lbl_dir,
+            Path(args.out) / rfdetr_split,
+            names,
+            rfdetr_split,
+            args.limit,
+            args.copy,
         )
         results.append(stats)
-        print(f"  images={stats['images']} annotations={stats['annotations']} "
-              f"background={stats['background']} clamped={stats['clamped']}")
+        print(
+            f"  images={stats['images']} annotations={stats['annotations']} "
+            f"background={stats['background']} clamped={stats['clamped']}"
+        )
 
     print("\n" + "=" * 60)
     print("Conversion complete.")
     for r in results:
-        print(f"  {r['split']:6s}: {r['images']:6d} imgs, {r['annotations']:7d} anns, "
-              f"{r['background']:5d} background")
+        print(
+            f"  {r['split']:6s}: {r['images']:6d} imgs, {r['annotations']:7d} anns, "
+            f"{r['background']:5d} background"
+        )
     print(f"Output: {Path(args.out).resolve()}")
     print("=" * 60)
 
