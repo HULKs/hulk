@@ -2,8 +2,11 @@ use std::{collections::HashSet, marker::PhantomData, ops::Mul};
 
 use approx::{AbsDiffEq, RelativeEq};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize, deserialize, serialize};
+#[cfg(feature = "ros_z")]
 use ros_z::{Message, MessageSchema, SchemaBuilder, SerdeCdrCodec};
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+#[cfg(feature = "ros_z")]
+use serde::de::DeserializeOwned;
+use serde::{Deserialize, Serialize};
 
 use crate::framed::Framed;
 
@@ -44,6 +47,7 @@ where
     }
 }
 
+#[cfg(feature = "ros_z")]
 impl<From, To, Inner> Message for Transform<From, To, Inner>
 where
     From: Send + Sync + 'static,
@@ -57,6 +61,7 @@ where
     }
 }
 
+#[cfg(feature = "ros_z")]
 impl<From, To, Inner> MessageSchema for Transform<From, To, Inner>
 where
     From: Send + Sync + 'static,

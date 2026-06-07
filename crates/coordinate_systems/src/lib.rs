@@ -20,8 +20,8 @@ macro_rules! generate_coordinate_system {
                 PathSerialize,
                 PathDeserialize,
                 PathIntrospect,
-                ros_z::Message,
             )]
+            #[cfg_attr(feature = "ros_z", derive(ros_z::Message))]
             #[abs_diff_eq(epsilon_type = f32)]
             $(#[$doc])*
             pub struct $i;

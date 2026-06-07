@@ -8,10 +8,13 @@ use std::{
 
 use approx::{AbsDiffEq, RelativeEq};
 use num_traits::Num;
-use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use serde::{Deserialize, Serialize};
 
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize, deserialize, serialize};
+#[cfg(feature = "ros_z")]
 use ros_z::{Message, MessageSchema, SchemaBuilder, SerdeCdrCodec};
+#[cfg(feature = "ros_z")]
+use serde::de::DeserializeOwned;
 
 #[derive(Debug)]
 // `repr(transparent)` ensures this struct has the same memory layout as `inner`.
@@ -51,6 +54,7 @@ where
     }
 }
 
+#[cfg(feature = "ros_z")]
 impl<Frame, Inner> Message for Framed<Frame, Inner>
 where
     Frame: Send + Sync + 'static,
@@ -63,6 +67,7 @@ where
     }
 }
 
+#[cfg(feature = "ros_z")]
 impl<Frame, Inner> MessageSchema for Framed<Frame, Inner>
 where
     Frame: Send + Sync + 'static,

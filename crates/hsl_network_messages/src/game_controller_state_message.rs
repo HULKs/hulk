@@ -8,7 +8,6 @@ use std::{
 
 use color_eyre::{Report, Result, eyre::bail};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
-use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
 use crate::{
@@ -28,7 +27,8 @@ use crate::{
     },
 };
 
-#[derive(Clone, Debug, Deserialize, Serialize, PathSerialize, PathIntrospect, Message)]
+#[derive(Clone, Debug, Deserialize, Serialize, PathSerialize, PathIntrospect)]
+#[cfg_attr(feature = "ros_z", derive(ros_z::Message))]
 pub struct GameControllerStateMessage {
     pub competition_type: CompetitionType,
     pub stopped: bool,
@@ -206,16 +206,9 @@ impl TryFrom<RoboCupGameControlData> for GameControllerStateMessage {
 }
 
 #[derive(
-    Clone,
-    Copy,
-    Debug,
-    Deserialize,
-    Serialize,
-    PathSerialize,
-    PathDeserialize,
-    PathIntrospect,
-    Message,
+    Clone, Copy, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect,
 )]
+#[cfg_attr(feature = "ros_z", derive(ros_z::Message))]
 pub enum CompetitionType {
     Small,
     Middle,
@@ -244,8 +237,8 @@ impl CompetitionType {
     PathDeserialize,
     PathIntrospect,
     PartialEq,
-    Message,
 )]
+#[cfg_attr(feature = "ros_z", derive(ros_z::Message))]
 pub enum GamePhase {
     #[default]
     Normal,
@@ -284,8 +277,8 @@ impl GamePhase {
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
-    Message,
 )]
+#[cfg_attr(feature = "ros_z", derive(ros_z::Message))]
 pub enum GameState {
     Initial,
     Ready,
@@ -318,8 +311,8 @@ impl GameState {
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
-    Message,
 )]
+#[cfg_attr(feature = "ros_z", derive(ros_z::Message))]
 pub enum Team {
     Hulks,
     Opponent,
@@ -351,8 +344,8 @@ impl TryFrom<u8> for Team {
     PathDeserialize,
     PathIntrospect,
     PartialEq,
-    Message,
 )]
+#[cfg_attr(feature = "ros_z", derive(ros_z::Message))]
 pub enum SubState {
     #[default]
     DirectFreeKick,
@@ -389,8 +382,8 @@ impl SubState {
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
-    Message,
 )]
+#[cfg_attr(feature = "ros_z", derive(ros_z::Message))]
 pub enum Half {
     First,
     Second,
@@ -408,9 +401,8 @@ impl TryFrom<u8> for Half {
     }
 }
 
-#[derive(
-    Clone, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect, Message,
-)]
+#[derive(Clone, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect)]
+#[cfg_attr(feature = "ros_z", derive(ros_z::Message))]
 pub struct TeamState {
     pub team_number: u8,
     pub field_player_color: TeamColor,
@@ -423,9 +415,8 @@ pub struct TeamState {
     pub players: Vec<Player>,
 }
 
-#[derive(
-    Clone, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect, Message,
-)]
+#[derive(Clone, Debug, Deserialize, Serialize, PathSerialize, PathDeserialize, PathIntrospect)]
+#[cfg_attr(feature = "ros_z", derive(ros_z::Message))]
 pub enum TeamColor {
     Blue,
     Red,
@@ -459,13 +450,15 @@ impl TryFrom<u8> for TeamColor {
     }
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, Message)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[cfg_attr(feature = "ros_z", derive(ros_z::Message))]
 pub enum PenaltyShoot {
     Successful,
     Unsuccessful,
 }
 
-#[derive(Clone, Debug, Deserialize, Serialize, Message)]
+#[derive(Clone, Debug, Deserialize, Serialize)]
+#[cfg_attr(feature = "ros_z", derive(ros_z::Message))]
 pub struct Player {
     pub penalty: Option<Penalty>,
     pub warning: u8,
@@ -495,8 +488,8 @@ impl TryFrom<RobotInfo> for Player {
     PathDeserialize,
     PathIntrospect,
     PartialEq,
-    Message,
 )]
+#[cfg_attr(feature = "ros_z", derive(ros_z::Message))]
 pub enum Penalty {
     IllegalPosition { remaining: Duration },
     MotionInSet { remaining: Duration },

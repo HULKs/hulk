@@ -9,5 +9,9 @@ homepage.workspace = true
 approx = { workspace = true }
 approx_derive = { workspace = true }
 path_serde = { workspace = true }
-ros-z = { workspace = true }
+ros-z = { workspace = true, optional = true }
 serde = { workspace = true }
+
+[features]
+default = ["ros_z"]
+ros_z = ["dep:ros-z"]
