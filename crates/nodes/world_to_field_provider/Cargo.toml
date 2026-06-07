@@ -7,7 +7,7 @@ homepage.workspace = true
 
 [dependencies]
 color-eyre = { workspace = true }
-coordinate_systems = { workspace = true }
-linear_algebra = { workspace = true }
+coordinate_systems = { workspace = true, features = ["ros_z"] }
+linear_algebra = { workspace = true, features = ["ros_z"] }
 ros-z = { workspace = true }
 types = { workspace = true }

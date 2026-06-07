@@ -7,9 +7,9 @@ homepage.workspace = true
 
 [dependencies]
 color-eyre = { workspace = true }
-coordinate_systems = { workspace = true }
+coordinate_systems = { workspace = true, features = ["ros_z"] }
 kinematics = { workspace = true }
-linear_algebra = { workspace = true }
+linear_algebra = { workspace = true, features = ["ros_z"] }
 ndarray = { workspace = true }
 ort = { workspace = true, features = ["cuda", "tensorrt"] }
 projection = { workspace = true }

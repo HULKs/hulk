@@ -9,8 +9,8 @@ homepage.workspace = true
 approx = { workspace = true }
 booster.workspace = true
 color-eyre = { workspace = true }
-coordinate_systems = { workspace = true }
+coordinate_systems = { workspace = true, features = ["ros_z"] }
 kinematics = { workspace = true }
-linear_algebra = { workspace = true }
+linear_algebra = { workspace = true, features = ["ros_z"] }
 ros-z = { workspace = true }
 serde = { workspace = true, features = ["derive"] }

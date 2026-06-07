@@ -7,7 +7,7 @@ homepage.workspace = true
 
 [dependencies]
 color-eyre = { workspace = true }
-hsl_network_messages = { workspace = true }
+hsl_network_messages = { workspace = true, features = ["ros_z"] }
 log = { workspace = true }
 ros-z = { workspace = true }
 ros-z-streams = { workspace = true }

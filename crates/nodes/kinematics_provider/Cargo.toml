@@ -9,6 +9,6 @@ homepage.workspace = true
 booster.workspace = true
 color-eyre = { workspace = true }
 kinematics = { workspace = true }
-linear_algebra = { workspace = true }
+linear_algebra = { workspace = true, features = ["ros_z"] }
 ros-z = { workspace = true }
 types = { workspace = true }

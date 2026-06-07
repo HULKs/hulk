@@ -11,7 +11,7 @@ color-eyre = { workspace = true }
 context_attribute = { workspace = true }
 framework = { workspace = true }
 hardware = { workspace = true }
-hsl_network_messages = { workspace = true }
+hsl_network_messages = { workspace = true, features = ["ros_z"] }
 log = { workspace = true }
 ros-z = { workspace = true }
 serde = { workspace = true }

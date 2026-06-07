@@ -8,9 +8,9 @@ homepage.workspace = true
 [dependencies]
 approx = { workspace = true }
 color-eyre = { workspace = true }
-coordinate_systems = { workspace = true }
+coordinate_systems = { workspace = true, features = ["ros_z"] }
 geometry = { workspace = true }
-linear_algebra = { workspace = true }
+linear_algebra = { workspace = true, features = ["ros_z"] }
 projection = { workspace = true }
 rand = { workspace = true }
 rand_chacha = { workspace = true }

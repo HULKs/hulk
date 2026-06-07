@@ -6,8 +6,8 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
-coordinate_systems = { workspace = true }
-linear_algebra = { workspace = true }
+coordinate_systems = { workspace = true, features = ["ros_z"] }
+linear_algebra = { workspace = true, features = ["ros_z"] }
 path_serde = { workspace = true }
 ros-z = { workspace = true }
 serde = { workspace = true }

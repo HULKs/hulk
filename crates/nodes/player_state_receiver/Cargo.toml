@@ -7,8 +7,8 @@ homepage.workspace = true
 
 [dependencies]
 color-eyre = { workspace = true }
-hsl_network_messages = { workspace = true }
-linear_algebra = { workspace = true }
+hsl_network_messages = { workspace = true, features = ["ros_z"] }
+linear_algebra = { workspace = true, features = ["ros_z"] }
 ros-z = { workspace = true }
 tokio = { workspace = true }
 types = { workspace = true }
