@@ -1,7 +1,10 @@
+#[cfg(feature = "ros_z")]
 use std::{env, path::PathBuf};
 
+#[cfg(feature = "ros_z")]
 use bindgen::Builder;
 
+#[cfg(feature = "ros_z")]
 fn main() {
     let bindings = Builder::default()
         .header("headers/RoboCupGameControlData.hpp")
@@ -16,3 +19,6 @@ fn main() {
         .write_to_file(out_path.join("bindings.rs"))
         .expect("Failed to write bindings");
 }
+
+#[cfg(not(feature = "ros_z"))]
+fn main() {}

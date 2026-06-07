@@ -8,7 +8,7 @@ homepage.workspace = true
 [dependencies]
 color-eyre = { workspace = true }
 futures-util = { workspace = true }
-hsl_network_messages = { workspace = true }
+hsl_network_messages = { path = "../hsl_network_messages", default-features = false }
 hula_types = { workspace = true }
 itertools = { workspace = true }
 parameters = { workspace = true }

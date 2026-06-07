@@ -6,16 +6,20 @@ license.workspace = true
 homepage.workspace = true
 
 [build-dependencies]
-bindgen = { workspace = true }
+bindgen = { workspace = true, optional = true }
 
 [dependencies]
 approx = { workspace = true }
 color-eyre = { workspace = true }
-coordinate_systems = { workspace = true }
-linear_algebra = { workspace = true }
+coordinate_systems = { workspace = true, optional = true }
+linear_algebra = { workspace = true, optional = true }
 path_serde = { workspace = true }
-ros-z = { workspace = true }
+ros-z = { workspace = true, optional = true }
 serde = { workspace = true }
+
+[features]
+default = ["ros_z"]
+ros_z = ["dep:bindgen", "dep:coordinate_systems", "dep:linear_algebra", "dep:ros-z"]
 
 [dev-dependencies]
 bincode = { workspace = true }

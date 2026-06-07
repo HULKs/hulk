@@ -1,19 +1,24 @@
+#[cfg(feature = "ros_z")]
 mod bindings;
+#[cfg(feature = "ros_z")]
 mod game_controller_return_message;
+#[cfg(feature = "ros_z")]
 mod game_controller_state_message;
 
-use std::{
-    fmt::{self, Display, Formatter},
-    time::Duration,
-};
+use std::fmt::{self, Display, Formatter};
+#[cfg(feature = "ros_z")]
+use std::time::Duration;
 
+#[cfg(feature = "ros_z")]
 use coordinate_systems::Field;
+#[cfg(feature = "ros_z")]
 use linear_algebra::{Point2, Pose2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
-use ros_z::Message;
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "ros_z")]
 pub use game_controller_return_message::GameControllerReturnMessage;
+#[cfg(feature = "ros_z")]
 pub use game_controller_state_message::{
     GameControllerStateMessage, GamePhase, GameState, Half, Penalty, PenaltyShoot, Player,
     SubState, Team, TeamColor, TeamState,
@@ -28,19 +33,23 @@ pub use game_controller_state_message::{
     PathDeserialize,
     PathIntrospect,
     PathSerialize,
-    Message,
 )]
+#[cfg_attr(feature = "ros_z", derive(ros_z::Message))]
+#[cfg(feature = "ros_z")]
 pub enum HulkMessage {
     State(StateMessage),
 }
 
+#[cfg(feature = "ros_z")]
 impl Default for HulkMessage {
     fn default() -> Self {
         HulkMessage::State(StateMessage::default())
     }
 }
 
-#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize, Message)]
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
+#[cfg_attr(feature = "ros_z", derive(ros_z::Message))]
+#[cfg(feature = "ros_z")]
 pub struct StrikerMessage {
     pub player_number: PlayerNumber,
     pub pose: Pose2<Field>,
@@ -58,8 +67,9 @@ pub struct StrikerMessage {
     PathDeserialize,
     PathIntrospect,
     PathSerialize,
-    Message,
 )]
+#[cfg_attr(feature = "ros_z", derive(ros_z::Message))]
+#[cfg(feature = "ros_z")]
 pub struct StateMessage {
     pub player_number: PlayerNumber,
     pub pose: Pose2<Field>,
@@ -76,8 +86,9 @@ pub struct StateMessage {
     PathIntrospect,
     PathSerialize,
     Serialize,
-    Message,
 )]
+#[cfg_attr(feature = "ros_z", derive(ros_z::Message))]
+#[cfg(feature = "ros_z")]
 pub struct BallPosition<Frame> {
     pub position: Point2<Frame>,
     pub age: Duration,
@@ -101,8 +112,8 @@ pub const NONE_TEAM_NUMBER: u8 = 255;
     PathIntrospect,
     PathSerialize,
     Serialize,
-    ros_z::Message,
 )]
+#[cfg_attr(feature = "ros_z", derive(ros_z::Message))]
 pub enum PlayerNumber {
     One,
     Two,
@@ -126,7 +137,7 @@ impl Display for PlayerNumber {
     }
 }
 
-#[cfg(test)]
+#[cfg(all(test, feature = "ros_z"))]
 mod tests {
     use super::*;
     #[test]
