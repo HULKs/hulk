@@ -120,19 +120,21 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 parameters,
                 field_dimensions.ball_radius,
             );
-            ball_percepts.extend_from_slice(&projected_balls);
+            if let Some(projected_balls) = projected_balls {
+                ball_percepts.extend_from_slice(&projected_balls);
 
-            advance_all_hypotheses(
-                &mut ball_filter,
-                time,
-                odometer.as_ref(),
-                &projected_balls,
-                camera_matrix,
-                &mut last_odometer,
-                &mut last_filter_time,
-                parameters,
-                &field_dimensions,
-            );
+                advance_all_hypotheses(
+                    &mut ball_filter,
+                    time,
+                    odometer.as_ref(),
+                    &projected_balls,
+                    camera_matrix,
+                    &mut last_odometer,
+                    &mut last_filter_time,
+                    parameters,
+                    &field_dimensions,
+                );
+            }
         }
 
         ball_percepts_pub.publish(&ball_percepts).await?;
@@ -366,50 +368,52 @@ fn project_detected_balls(
     camera_matrix: Option<&CameraMatrix>,
     parameters: &BallFilterParameters,
     ball_radius: f32,
-) -> Vec<BallPercept> {
+) -> Option<Vec<BallPercept>> {
     let (Some(detections), Some(camera_matrix)) = (detections, camera_matrix) else {
-        return Vec::new();
+        return None;
     };
-    detections
-        .iter()
-        .filter_map(|detection| {
-            if detection.label != RobocupObjectLabel::Ball {
-                return None;
-            }
-            let area = detection.bounding_box.area;
-            let position = camera_matrix
-                .pixel_to_ground_with_z(area.center(), ball_radius)
-                .ok()?;
+    Some(
+        detections
+            .iter()
+            .filter_map(|detection| {
+                if detection.label != RobocupObjectLabel::Ball {
+                    return None;
+                }
+                let area = detection.bounding_box.area;
+                let position = camera_matrix
+                    .pixel_to_ground_with_z(area.center(), ball_radius)
+                    .ok()?;
 
-            let detected_ball_radius =
-                (area.max.x() - area.min.x()).min(area.max.y() - area.min.y()) / 2.0;
+                let detected_ball_radius =
+                    (area.max.x() - area.min.x()).min(area.max.y() - area.min.y()) / 2.0;
 
-            let circle = Circle {
-                center: area.center(),
-                radius: detected_ball_radius,
-            };
+                let circle = Circle {
+                    center: area.center(),
+                    radius: detected_ball_radius,
+                };
 
-            let projected_covariance = {
-                let scaled_noise = parameters
-                    .noise
-                    .detection_noise
-                    .inner
-                    .map(|x| (detected_ball_radius * x).powi(2))
-                    .framed();
-                camera_matrix
-                    .project_noise_to_ground(position, scaled_noise)
-                    .ok()?
-            };
+                let projected_covariance = {
+                    let scaled_noise = parameters
+                        .noise
+                        .detection_noise
+                        .inner
+                        .map(|x| (detected_ball_radius * x).powi(2))
+                        .framed();
+                    camera_matrix
+                        .project_noise_to_ground(position, scaled_noise)
+                        .ok()?
+                };
 
-            Some(BallPercept {
-                percept_in_ground: MultivariateNormalDistribution {
-                    mean: position.inner.coords,
-                    covariance: projected_covariance,
-                },
-                image_location: circle,
+                Some(BallPercept {
+                    percept_in_ground: MultivariateNormalDistribution {
+                        mean: position.inner.coords,
+                        covariance: projected_covariance,
+                    },
+                    image_location: circle,
+                })
             })
-        })
-        .collect()
+            .collect(),
+    )
 }
 
 fn decide_validity_decay_for_hypothesis(
