@@ -175,7 +175,7 @@ pub trait WireEncoder {
 }
 
 /// Typed message contract for ros-z publishers, subscribers, services, and schemas.
-pub trait Message: MessageSchema + Send + Sync + Sized + 'static {
+pub trait Message: MessageSchema + Send + Sync + 'static {
     /// Codec used to encode and decode this message type.
     type Codec: for<'a> WireEncoder<Input<'a> = &'a Self>
         + for<'a> WireDecoder<Input<'a> = &'a [u8], Output = Self>;
@@ -291,7 +291,7 @@ where
 
 impl<T> MessageSchema for Box<T>
 where
-    T: MessageSchema,
+    T: MessageSchema + ?Sized,
 {
     fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
         T::build_schema(builder)
@@ -311,7 +311,7 @@ where
 
 impl<T> MessageSchema for Arc<T>
 where
-    T: MessageSchema,
+    T: MessageSchema + ?Sized,
 {
     fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
         T::build_schema(builder)
@@ -527,6 +527,30 @@ where
         Ok(TypeDef::Sequence {
             element: Box::new(T::build_schema(builder)?),
             length: SequenceLengthDef::Fixed(N),
+        })
+    }
+}
+
+impl<T> Message for [T]
+where
+    T: Message + Serialize + DeserializeOwned,
+    [T]: Serialize + DeserializeOwned,
+{
+    type Codec = SerdeCdrCodec<Self>;
+
+    fn type_name() -> String {
+        format!("[{}]", T::type_name())
+    }
+}
+
+impl<T> MessageSchema for [T]
+where
+    T: MessageSchema,
+{
+    fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
+        Ok(TypeDef::Sequence {
+            element: Box::new(T::build_schema(builder)?),
+            length: SequenceLengthDef::Dynamic,
         })
     }
 }

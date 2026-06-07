@@ -4,7 +4,7 @@ use image::{ImageError, RgbImage, error::DecodingError};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 use ros_z::Message;
 use serde::{Deserialize, Serialize};
-use std::path::Path;
+use std::{path::Path, sync::Arc};
 use yuv::{
     YuvBiPlanarImage, YuvConversionMode, YuvRange, YuvStandardMatrix, bgr_to_rgb, yuv_nv12_to_rgb,
 };
@@ -22,10 +22,10 @@ use pyo3::{pyclass, pymethods};
     Default,
     Serialize,
     Deserialize,
-    PathIntrospect,
-    PathSerialize,
-    PathDeserialize,
     Message,
+    PathIntrospect,
+    PathDeserialize,
+    PathSerialize,
 )]
 pub struct Image {
     /// Header timestamp should be acquisition time of image
@@ -57,7 +57,8 @@ pub struct Image {
     /// Full row length in bytes
     pub step: u32,
     /// actual matrix data, size is (step * rows)
-    pub data: Vec<u8>,
+    #[path_serde(leaf)]
+    pub data: Arc<[u8]>,
 }
 
 #[cfg(feature = "pyo3")]
@@ -84,7 +85,7 @@ impl Image {
             encoding: "rgb8".to_string(),
             is_bigendian: 0,
             step: width,
-            data: rgb,
+            data: rgb.into(),
         }
     }
 }
@@ -168,7 +169,7 @@ impl Image {
         self.width = dest_width as u32;
         self.height = dest_height as u32;
         self.step = dest_step as u32;
-        self.data = dest_data;
+        self.data = dest_data.into();
 
         Ok(())
     }
@@ -179,7 +180,7 @@ impl TryFrom<Image> for RgbImage {
 
     fn try_from(image: Image) -> Result<Self, ImageError> {
         match image.encoding.as_str() {
-            "rgb8" => RgbImage::from_raw(image.width, image.height, image.data).ok_or(
+            "rgb8" => RgbImage::from_raw(image.width, image.height, image.data.to_vec()).ok_or(
                 ImageError::Decoding(DecodingError::from_format_hint(
                     image::error::ImageFormatHint::Unknown,
                 )),

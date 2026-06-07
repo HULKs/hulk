@@ -51,7 +51,7 @@ use types::{
     samples::Samples,
     step::Step,
 };
-use x5_receiver::receiver::X5Receiver;
+use x5_receiver::receiver::{Side, X5ImageReceiver, X5Receiver};
 
 use crate::{
     HardwareInterface,
@@ -103,7 +103,10 @@ pub struct BoosterHardwareInterface {
     fall_down_state_receiver: Mutex<LatestReceiver<FallDownState>>,
     button_event_msg_receiver: Mutex<LatestReceiver<ButtonEventMsg>>,
     remote_controller_state_receiver: Mutex<LatestReceiver<RemoteControllerState>>,
+
     x5_receiver: X5Receiver,
+    left_frame_receiver: tokio::sync::Mutex<X5ImageReceiver>,
+    right_frame_receiver: tokio::sync::Mutex<X5ImageReceiver>,
 
     high_level_interface_client: Arc<BoosterClient>,
     light_control_client: Arc<LightControlClient>,
@@ -150,6 +153,11 @@ impl BoosterHardwareInterface {
                 )),
         );
 
+        let x5_receiver = X5Receiver::new(X5_ADDRESS);
+        let left_frame_receiver = tokio::sync::Mutex::new(x5_receiver.subscribe_image(Side::Left));
+        let right_frame_receiver =
+            tokio::sync::Mutex::new(x5_receiver.subscribe_image(Side::Right));
+
         Ok(Self {
             ids,
             paths: parameters.paths,
@@ -164,7 +172,9 @@ impl BoosterHardwareInterface {
             remote_controller_state_receiver: Mutex::new(
                 zenoh_backend.remote_controller_state_receiver,
             ),
-            x5_receiver: X5Receiver::new(X5_ADDRESS),
+            x5_receiver,
+            left_frame_receiver,
+            right_frame_receiver,
             robot_mode,
             high_level_interface_client,
             light_control_client,
@@ -510,28 +520,36 @@ impl RemoteControllerStateInterface for BoosterHardwareInterface {
 impl CameraInterface for BoosterHardwareInterface {
     fn read_image_left_raw(&self) -> Result<Image> {
         let image = self
-            .run_until_cancelled(self.x5_receiver.next_left_frame())
+            .run_until_cancelled(async {
+                let mut receiver = self.left_frame_receiver.lock().await;
+                receiver.recv().await
+            })
             .wrap_err("failed to receive left image")?;
+
         Ok(image.into())
     }
 
     fn read_image_right_raw(&self) -> Result<Image> {
         let image = self
-            .run_until_cancelled(self.x5_receiver.next_right_frame())
-            .wrap_err("failed to receive right image")?;
+            .run_until_cancelled(async {
+                let mut receiver = self.right_frame_receiver.lock().await;
+                receiver.recv().await
+            })
+            .wrap_err("failed to receive left image")?;
+
         Ok(image.into())
     }
 
     fn read_image_left_raw_camera_info(&self) -> Result<CameraInfo> {
         let message = self
-            .run_until_cancelled(self.x5_receiver.last_camera_info())
+            .run_until_cancelled(self.x5_receiver.wait_for_camera_info())
             .wrap_err("failed to read left camera info")?;
         Ok(message.left_camera_info())
     }
 
     fn read_image_right_raw_camera_info(&self) -> Result<CameraInfo> {
         let message = self
-            .run_until_cancelled(self.x5_receiver.last_camera_info())
+            .run_until_cancelled(self.x5_receiver.wait_for_camera_info())
             .wrap_err("failed to read right camera info")?;
         Ok(message.right_camera_info())
     }

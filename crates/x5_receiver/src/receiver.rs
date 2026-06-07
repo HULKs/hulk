@@ -1,4 +1,4 @@
-use std::{io, net::SocketAddr, time::Duration};
+use std::{io, net::SocketAddr, sync::Arc, time::Duration};
 
 use futures_util::TryFutureExt;
 use tokio::{io::AsyncReadExt, net::TcpStream, sync::watch};
@@ -18,12 +18,21 @@ pub struct X5Receiver {
     camera_info_sender: watch::Sender<Option<X5CameraInfo>>,
 }
 
+pub struct X5ImageReceiver {
+    frame_receiver: watch::Receiver<Option<X5CameraFrame>>,
+}
+
+pub enum Side {
+    Left,
+    Right,
+}
+
 impl X5Receiver {
     pub fn new(address: SocketAddr) -> Self {
         let (left_frame_sender, _) = watch::channel(None);
         let (right_frame_sender, _) = watch::channel(None);
         let (camera_info_sender, _) = watch::channel(None);
-        let task = AbortOnDropHandle::new(tokio::spawn(restarting_x5_receiver(
+        let task = AbortOnDropHandle::new(tokio::spawn(restarting_x5_receiver_task(
             address,
             left_frame_sender.clone(),
             right_frame_sender.clone(),
@@ -37,36 +46,41 @@ impl X5Receiver {
         }
     }
 
-    async fn wait_for_image(mut receiver: watch::Receiver<Option<X5CameraFrame>>) -> X5CameraFrame {
-        receiver.mark_unchanged();
-        receiver.changed().await.expect("x5 receiver task ended");
-        receiver
-            .borrow()
-            .clone()
-            .expect("camera frame should always be available")
+    pub fn subscribe_image(&self, side: Side) -> X5ImageReceiver {
+        let sender = match side {
+            Side::Left => &self.left_frame_sender,
+            Side::Right => &self.right_frame_sender,
+        };
+
+        X5ImageReceiver {
+            frame_receiver: sender.subscribe(),
+        }
     }
 
-    pub async fn next_left_frame(&self) -> X5CameraFrame {
-        let receiver = self.left_frame_sender.subscribe();
-        Self::wait_for_image(receiver).await
-    }
-
-    pub async fn next_right_frame(&self) -> X5CameraFrame {
-        let receiver = self.right_frame_sender.subscribe();
-        Self::wait_for_image(receiver).await
-    }
-
-    pub async fn last_camera_info(&self) -> X5CameraInfo {
+    pub async fn wait_for_camera_info(&self) -> X5CameraInfo {
         let mut receiver = self.camera_info_sender.subscribe();
         receiver
             .wait_for(|value| value.is_some())
             .await
-            .expect("x5 task ended")
-            .unwrap()
+            .expect("x5 receiver must be running")
+            .expect("camera info must not be None")
     }
 }
 
-async fn restarting_x5_receiver(
+impl X5ImageReceiver {
+    pub async fn recv(&mut self) -> X5CameraFrame {
+        self.frame_receiver
+            .changed()
+            .await
+            .expect("x5 receiver must be running");
+        self.frame_receiver
+            .borrow_and_update()
+            .clone()
+            .expect("image must not be None")
+    }
+}
+
+async fn restarting_x5_receiver_task(
     address: SocketAddr,
     left_frame_sender: watch::Sender<Option<X5CameraFrame>>,
     right_frame_sender: watch::Sender<Option<X5CameraFrame>>,
@@ -162,8 +176,12 @@ impl X5ReceiverTask {
             ));
         }
 
-        let mut nv12_data = vec![0u8; header.payload_size as usize];
-        self.connection.read_exact(&mut nv12_data).await?;
+        let nv12_data = Arc::<[u8]>::new_zeroed_slice(header.payload_size as usize);
+        let mut nv12_data = unsafe { nv12_data.assume_init() };
+
+        self.connection
+            .read_exact(Arc::get_mut(&mut nv12_data).expect("no other reference"))
+            .await?;
 
         Ok(X5CameraFrame { header, nv12_data })
     }

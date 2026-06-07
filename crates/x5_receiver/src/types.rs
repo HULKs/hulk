@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use ros2::{
     builtin_interfaces::time::Time,
@@ -23,7 +23,7 @@ pub struct X5CameraFrameHeader {
 #[derive(Debug, Clone)]
 pub struct X5CameraFrame {
     pub header: X5CameraFrameHeader,
-    pub nv12_data: Vec<u8>,
+    pub nv12_data: Arc<[u8]>,
 }
 
 impl From<X5CameraFrame> for Image {

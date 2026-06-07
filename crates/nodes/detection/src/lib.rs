@@ -124,7 +124,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
         let nv12_data = ArrayView3::from_shape(
             [image.height as usize / 2, image.width as usize / 2, 6],
-            image.data.as_slice(),
+            &image.data,
         )?;
         let outputs: SessionOutputs =
             session.run(inputs!["raw_bytes_input" => TensorRef::from_array_view(nv12_data)?])?;
