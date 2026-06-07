@@ -9549,6 +9549,9 @@ name = "rule_obstacle_composer"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
+ "geometry",
+ "hsl_network_messages",
+ "linear_algebra",
  "ros-z",
  "serde",
  "types",

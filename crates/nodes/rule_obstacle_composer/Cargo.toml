@@ -7,6 +7,9 @@ homepage.workspace = true
 
 [dependencies]
 color-eyre = { workspace = true }
+geometry = { workspace = true }
+hsl_network_messages = { workspace = true }
+linear_algebra = { workspace = true }
 ros-z = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 types = { workspace = true }
