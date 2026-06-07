@@ -359,7 +359,7 @@ pub fn cycle_robots(
 ) {
     let messages_sent_last_cycle = take(&mut messages.messages);
     let now = SystemTime::UNIX_EPOCH + time.elapsed();
-    let now_ros = rosz::Time::from_wallclock(now);
+    let now_ros = ros_z::time::Time::from_wallclock(now);
 
     for mut robot in &mut robots {
         robot.database.main_outputs.cycle_time.start_time = now;
