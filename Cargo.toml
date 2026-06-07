@@ -24,6 +24,7 @@ members = [
   "crates/hula_types",
   "crates/hulk_booster",
   "crates/hulk_imagine",
+  "crates/hulk_louisenlund",
   "crates/hulk_manifest",
   "crates/hulk_mujoco",
   "crates/hulk_replayer",

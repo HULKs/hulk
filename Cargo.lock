@@ -5274,6 +5274,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "hulk_louisenlund"
+version = "0.1.0"
+dependencies = [
+ "booster",
+ "camera_matrix_calculator",
+ "cdr",
+ "clap",
+ "color-eyre",
+ "ground_provider",
+ "kinematics",
+ "kinematics_provider",
+ "low_state_bridge",
+ "motionfile",
+ "ros-z",
+ "ros2",
+ "serde",
+ "support_foot_estimator",
+ "tokio",
+ "tracing-subscriber",
+ "x5_receiver",
+]
+
+[[package]]
 name = "hulk_manifest"
 version = "0.1.0"
 dependencies = [

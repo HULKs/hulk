@@ -1,0 +1,28 @@
+[package]
+name = "hulk_louisenlund"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[package.metadata.pepsi]
+cross-compile = true
+
+[dependencies]
+booster = { workspace = true }
+camera_matrix_calculator = { workspace = true }
+cdr = { workspace = true }
+clap = { workspace = true, features = ["derive"] }
+color-eyre = { workspace = true }
+ground_provider = { workspace = true }
+kinematics = { workspace = true }
+kinematics_provider = { workspace = true }
+low_state_bridge = { workspace = true }
+motionfile = { workspace = true }
+ros-z = { workspace = true }
+ros2 = { workspace = true }
+serde = { workspace = true }
+support_foot_estimator = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal"] }
+tracing-subscriber = { workspace = true, features = ["env-filter"] }
+x5_receiver = { workspace = true }
