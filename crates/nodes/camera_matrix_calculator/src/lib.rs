@@ -11,9 +11,6 @@ use ros_z::prelude::*;
 use ros2::sensor_msgs::camera_info::CameraInfo;
 use types::{parameters::CameraMatrixParameters, time_wrapper::TimeWrapper};
 
-pub const ACTUAL_IMAGE_HEIGHT: f32 = 448.0;
-pub const ACTUAL_IMAGE_WIDTH: f32 = 544.0;
-
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
     Box::pin(run(ctx))
 }
@@ -79,8 +76,7 @@ fn compute_camera_matrix(
     robot_to_ground: &Isometry3<Robot, Ground>,
     camera_info: &CameraInfo,
 ) -> CameraMatrix {
-    // This is a hack, since the camera info currently received by the X5Receiver is wrong.
-    let image_size = vector!(ACTUAL_IMAGE_WIDTH, ACTUAL_IMAGE_HEIGHT);
+    let image_size = vector![camera_info.width as f32, camera_info.height as f32];
     let head_to_camera = head_to_camera(
         parameters.camera_to_head_pitch.to_radians(),
         RobotDimensions::HEAD_TO_CAMERA,
