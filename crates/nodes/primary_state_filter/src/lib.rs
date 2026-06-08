@@ -38,7 +38,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
 
     let filtered_game_controller_state_sub = node
-        .subscriber::<Option<FilteredGameControllerState>>("filtered_game_controller_state")?
+        .subscriber::<FilteredGameControllerState>("filtered_game_controller_state")?
         .build()
         .await?;
     let buttons_sub = node
@@ -71,9 +71,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             received_filtered_game_controller_state = filtered_game_controller_state_sub.recv() => {
                 let Some(player_number) = player_number_cache.get_latest() else {continue};
 
-                let Some(filtered_game_controller_state) = received_filtered_game_controller_state? else {
-                    continue;
-                };
+                let filtered_game_controller_state = received_filtered_game_controller_state?;
 
                 primary_state_filter.update_with_filtered_game_contoller_state(
                     &filtered_game_controller_state,

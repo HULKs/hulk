@@ -16,7 +16,7 @@ pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> +
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("player_state_receiver").build().await?;
     let filtered_game_controller_state_sub = node
-        .subscriber::<Option<FilteredGameControllerState>>("filtered_game_controller_state")?
+        .subscriber::<FilteredGameControllerState>("filtered_game_controller_state")?
         .build()
         .await?;
     let filtered_message_sub = node
@@ -36,9 +36,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     loop {
         tokio::select! {
             received_game_controller_state = filtered_game_controller_state_sub.recv() => {
-                let Some(game_controller_state) = received_game_controller_state? else {
-                    continue;
-                };
+                let game_controller_state = received_game_controller_state?;
                 clear_penalized_players(&mut player_states, &game_controller_state);
                 player_states_pub.publish(&player_states).await?;
             }

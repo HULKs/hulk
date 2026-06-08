@@ -66,7 +66,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let filtered_game_controller_state_pub = node
-        .publisher::<Option<FilteredGameControllerState>>("filtered_game_controller_state")?
+        .publisher::<FilteredGameControllerState>("filtered_game_controller_state")?
         .build()
         .await?;
 
@@ -96,8 +96,8 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             latest_known_ball_state = Some((ball_state, time))
         };
 
-        let filtered_game_controller_state = Some(
-            game_controller_state_filter.compute_filtered_game_controller_state(
+        let filtered_game_controller_state = game_controller_state_filter
+            .compute_filtered_game_controller_state(
                 node.clock().now(),
                 parameters,
                 &field_dimensions,
@@ -106,8 +106,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 &latest_known_ball_state,
                 &filtered_whistle,
                 &current_ball_state,
-            ),
-        );
+            );
 
         whistle_in_set_ball_position_pub
             .publish(&game_controller_state_filter.whistle_in_set_ball_position)
