@@ -11,8 +11,9 @@ parking_lot = { workspace = true }
 ros-z = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
-tokio = { workspace = true, features = ["macros", "rt", "sync"] }
+tokio = { workspace = true, features = ["macros", "rt"] }
 tokio-util = { workspace = true }
 
 [dev-dependencies]
 ros-z-schema = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "time"] }

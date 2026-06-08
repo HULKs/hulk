@@ -20,12 +20,15 @@ pub struct ManagerOptions {
     /// This names the robot or target namespace being inspected, not the
     /// namespace of the debug node that owns the subscriptions.
     target_namespace: String,
+    /// Timeout used while querying schema services for dynamic subscriptions.
+    schema_discovery_timeout: Duration,
 }
 
 impl Default for ManagerOptions {
     fn default() -> Self {
         Self {
             target_namespace: "/".to_string(),
+            schema_discovery_timeout: Duration::from_secs(5),
         }
     }
 }
@@ -43,7 +46,12 @@ impl ManagerOptions {
         &self.target_namespace
     }
 
-    /// Update the target namespace after validating it as a ROS namespace.
+    /// Timeout used while querying schema services for dynamic subscriptions.
+    pub fn schema_discovery_timeout(&self) -> Duration {
+        self.schema_discovery_timeout
+    }
+
+    /// Update the target namespace after validating it as a graph namespace.
     pub fn set_target_namespace(
         &mut self,
         target_namespace: impl Into<String>,
@@ -51,6 +59,12 @@ impl ManagerOptions {
         let target_namespace = target_namespace.into();
         self.target_namespace = normalize_target_namespace(&target_namespace)?;
         Ok(self)
+    }
+
+    /// Update the timeout used while querying schema services for dynamic subscriptions.
+    pub fn set_schema_discovery_timeout(&mut self, timeout: Duration) -> &mut Self {
+        self.schema_discovery_timeout = timeout;
+        self
     }
 }
 
@@ -94,7 +108,7 @@ impl SubscriptionManager {
     /// Relative topics resolve against [`ManagerOptions::target_namespace`].
     /// Dynamic subscriptions discover the schema from currently visible
     /// publishers during `build()` or `build_json()`. Schema service queries use
-    /// a five second timeout.
+    /// [`ManagerOptions::schema_discovery_timeout`].
     pub fn subscribe_dynamic(&self, topic: impl Into<String>) -> DynamicSubscriptionBuilder<'_> {
         DynamicSubscriptionBuilder {
             manager: self,
@@ -229,7 +243,8 @@ impl<T> TypedSubscriptionBuilder<'_, T> {
 ///
 /// Dynamic builders use currently visible publishers to find one consistent
 /// schema for the resolved topic. Building fails if no matching publisher/schema
-/// is visible, or if schema service queries do not complete within five seconds.
+/// is visible, or if schema service queries do not complete within the manager's
+/// configured discovery timeout.
 pub struct DynamicSubscriptionBuilder<'a> {
     pub(crate) manager: &'a SubscriptionManager,
     pub(crate) topic: String,
@@ -281,7 +296,10 @@ impl DynamicSubscriptionBuilder<'_> {
         let subscriber = self
             .manager
             .node()
-            .dynamic_subscriber_auto(&resolved_topic, Duration::from_secs(5))
+            .dynamic_subscriber_auto(
+                &resolved_topic,
+                self.manager.options.schema_discovery_timeout(),
+            )
             .await?
             .build()
             .await?;

@@ -79,11 +79,32 @@ async fn typed_subscription_receives_latest_sample() {
             assert_eq!(record.value, "hello");
             assert_eq!(record.metadata.resolved_topic, "/debug_text");
             assert_eq!(record.publication_id.sequence_number(), 0);
-            return;
+            break;
         }
         assert!(
             tokio::time::Instant::now() < deadline,
             "timed out waiting for sample"
+        );
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+
+    publisher
+        .publish(&"goodbye".to_string())
+        .await
+        .expect("second publish should work");
+
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(2);
+    loop {
+        if let Some(record) = handle.latest()
+            && record.value == "goodbye"
+        {
+            assert_eq!(record.metadata.resolved_topic, "/debug_text");
+            assert_eq!(record.publication_id.sequence_number(), 1);
+            return;
+        }
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "timed out waiting for latest sample replacement"
         );
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
