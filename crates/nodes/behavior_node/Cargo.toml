@@ -16,9 +16,7 @@ voronoi = { workspace = true }
 filtering = { workspace = true }
 hsl_network_messages = { workspace = true }
 geometry = { workspace = true }
-framework = { workspace = true }
 booster = { workspace = true }
-hardware = { workspace = true }
 ordered-float = { workspace = true }
 smallvec = { workspace = true }
 log = { workspace = true }

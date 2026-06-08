@@ -1,9 +1,6 @@
-use color_eyre::{Result, eyre::Context};
-use framework::AdditionalOutput;
-use std::{net::SocketAddr, sync::Arc, time::Duration};
+use std::{net::SocketAddr, time::Duration};
 
 use booster::FallDownStateType;
-use hardware::NetworkInterface;
 use hsl_network_messages::{GameControllerReturnMessage, HulkMessage, StateMessage};
 use ros_z::time::Time;
 use types::{messages::OutgoingMessage, parameters::HslNetworkParameters};
@@ -11,19 +8,16 @@ use types::{messages::OutgoingMessage, parameters::HslNetworkParameters};
 use crate::node::Blackboard;
 
 impl Blackboard {
-    pub fn send_game_controller_return_message(
+    pub fn game_controller_return_message(
         &mut self,
         game_controller_address: Option<&SocketAddr>,
-        hardware: &Arc<impl NetworkInterface>,
-    ) -> Result<()> {
+    ) -> Option<OutgoingMessage> {
         let now = self.world_state.now;
 
         if !self.is_return_message_cooldown_elapsed(now, &self.parameters.hsl_network) {
-            return Ok(());
+            return None;
         }
-        let Some(address) = game_controller_address else {
-            return Ok(());
-        };
+        let address = game_controller_address?;
 
         let ground_to_field = self.world_state.robot.ground_to_field.unwrap_or_default();
 
@@ -40,20 +34,18 @@ impl Blackboard {
 
         self.last_sent_game_controller_return_message_time = Some(now);
 
-        hardware
-            .write_to_network(OutgoingMessage::GameController(
-                *address,
-                GameControllerReturnMessage {
-                    player_number: self.world_state.robot.player_number,
-                    fallen: self
-                        .world_state
-                        .fall_down_state
-                        .is_some_and(|state| state.fall_down_state != FallDownStateType::IsReady),
-                    pose: ground_to_field.as_pose(),
-                    ball: ball_position,
-                },
-            ))
-            .wrap_err("failed to write GameControllerReturnMessage to hardware")
+        Some(OutgoingMessage::GameController(
+            *address,
+            GameControllerReturnMessage {
+                player_number: self.world_state.robot.player_number,
+                fallen: self
+                    .world_state
+                    .fall_down_state
+                    .is_some_and(|state| state.fall_down_state != FallDownStateType::IsReady),
+                pose: ground_to_field.as_pose(),
+                ball: ball_position,
+            },
+        ))
     }
 
     fn is_return_message_cooldown_elapsed(
@@ -68,25 +60,25 @@ impl Blackboard {
         )
     }
 
-    pub fn send_state_message(
-        &mut self,
-        remaining_amount_of_messages: Option<&u16>,
-        last_sent_message: &mut AdditionalOutput<HulkMessage>,
-        hardware: &Arc<impl NetworkInterface>,
-    ) -> Result<()> {
+    pub fn state_message(&mut self) -> Option<OutgoingMessage> {
         let now = self.world_state.now;
+        let remaining_amount_of_messages = self
+            .world_state
+            .filtered_game_controller_state
+            .as_ref()
+            .map(|state| state.remaining_number_of_messages);
 
         if !self.is_state_message_cooldown_elapsed(now, &self.parameters.hsl_network) {
-            return Ok(());
+            return None;
         }
         if remaining_amount_of_messages.is_none_or(|remaining_amount_of_messages| {
-            *remaining_amount_of_messages
+            remaining_amount_of_messages
                 < self
                     .parameters
                     .hsl_network
                     .remaining_amount_of_messages_to_stop_sending
         }) {
-            return Ok(());
+            return None;
         }
 
         let ground_to_field = self.world_state.robot.ground_to_field.unwrap_or_default();
@@ -111,11 +103,8 @@ impl Blackboard {
         });
 
         self.last_sent_hsl_message_time = Some(now);
-        last_sent_message.fill_if_subscribed(|| message);
 
-        hardware
-            .write_to_network(OutgoingMessage::Hsl(message))
-            .wrap_err("failed to write StateMessage to hardware")
+        Some(OutgoingMessage::Hsl(message))
     }
 
     fn is_state_message_cooldown_elapsed(

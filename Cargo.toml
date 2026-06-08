@@ -66,6 +66,7 @@ members = [
   "crates/nodes/low_state_bridge",
   "crates/nodes/message_filter",
   "crates/nodes/message_receiver",
+  "crates/nodes/message_sender",
   "crates/nodes/microphone_recorder",
   "crates/nodes/motor_commands_collector",
   "crates/nodes/obstacle_filter",
@@ -256,6 +257,7 @@ low_state_bridge = { path = "crates/nodes/low_state_bridge" }
 mcap = "0.15.0"
 message_filter = { path = "crates/nodes/message_filter" }
 message_receiver = { path = "crates/nodes/message_receiver" }
+message_sender = { path = "crates/nodes/message_sender" }
 microphone_recorder = { path = "crates/nodes/microphone_recorder" }
 microphones = { path = "crates/microphones" }
 mlua = { version = "0.10.3", features = ["luajit", "serialize", "vendored"] }

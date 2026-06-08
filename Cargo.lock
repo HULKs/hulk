@@ -843,9 +843,7 @@ dependencies = [
  "color-eyre",
  "coordinate_systems",
  "filtering",
- "framework",
  "geometry",
- "hardware",
  "hsl_network_messages",
  "linear_algebra",
  "log",
@@ -5440,6 +5438,7 @@ dependencies = [
  "low_state_bridge",
  "message_filter",
  "message_receiver",
+ "message_sender",
  "microphone_recorder",
  "motor_commands_collector",
  "obstacle_filter",
@@ -6620,6 +6619,17 @@ dependencies = [
  "ros-z",
  "serde",
  "tokio",
+ "types",
+]
+
+[[package]]
+name = "message_sender"
+version = "0.1.0"
+dependencies = [
+ "color-eyre",
+ "hsl_network",
+ "ros-z",
+ "serde",
  "types",
 ]
 

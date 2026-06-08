@@ -1,4 +1,4 @@
-use std::{pin::Pin, sync::Arc, time::Duration};
+use std::{net::SocketAddr, pin::Pin, sync::Arc, time::Duration};
 
 use booster::FallDownState;
 use color_eyre::Result;
@@ -13,6 +13,7 @@ use types::{
     behavior_tree::NodeTrace,
     field_dimensions::{FieldDimensions, Side},
     filtered_game_controller_state::FilteredGameControllerState,
+    messages::OutgoingMessage,
     motion_command::{BodyMotion, HeadMotion, MotionCommand},
     motion_type::MotionType,
     obstacles::Obstacle,
@@ -111,6 +112,10 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         )?
         .build()
         .await?;
+    let game_controller_address_cache = node
+        .create_cache::<Option<SocketAddr>>("game_controller_address", 1)?
+        .build()
+        .await?;
     let ground_to_field_cache = node
         .create_cache::<Isometry2<Ground, Field>>("ground_to_field", 1)?
         .build()
@@ -165,6 +170,10 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
     let _motion_command_pub = node
         .publisher::<MotionCommand>("motion_command")?
+        .build()
+        .await?;
+    let outgoing_message_pub = node
+        .publisher::<OutgoingMessage>("outputs/message")?
         .build()
         .await?;
 
@@ -288,6 +297,19 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         if motion_type != blackboard.last_motion_type {
             blackboard.last_motion_switch_time = blackboard.world_state.now;
             blackboard.last_motion_type = motion_type;
+        }
+
+        let game_controller_address = game_controller_address_cache
+            .get_latest()
+            .and_then(|address| *address);
+        if let Some(message) =
+            blackboard.game_controller_return_message(game_controller_address.as_ref())
+        {
+            outgoing_message_pub.publish(&message).await?;
+        }
+
+        if let Some(message) = blackboard.state_message() {
+            outgoing_message_pub.publish(&message).await?;
         }
 
         timer.tick().await;
