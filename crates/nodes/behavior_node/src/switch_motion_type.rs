@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use types::motion_type::MotionType;
 
 use crate::{behavior_tree::Node, condition, node::Blackboard, selection, sequence};
@@ -31,9 +29,7 @@ pub fn is_allowed_to_switch(blackboard: &mut Blackboard) -> bool {
     let time_since_last_switch = blackboard
         .world_state
         .now
-        .to_wallclock()
-        .duration_since(blackboard.last_motion_switch_time)
-        .unwrap_or(Duration::ZERO);
+        .duration_since(blackboard.last_motion_switch_time);
 
     blackboard.time_since_last_switch = time_since_last_switch;
     match blackboard.last_motion_type {

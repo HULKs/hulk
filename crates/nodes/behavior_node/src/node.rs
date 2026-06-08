@@ -1,8 +1,4 @@
-use std::{
-    pin::Pin,
-    sync::Arc,
-    time::{Duration, SystemTime},
-};
+use std::{pin::Pin, sync::Arc, time::Duration};
 
 use booster::FallDownState;
 use color_eyre::Result;
@@ -10,7 +6,7 @@ use color_eyre::Result;
 use coordinate_systems::{Field, Ground};
 use hsl_network_messages::PlayerNumber;
 use linear_algebra::{Isometry2, Point2, Pose2, Vector2};
-use ros_z::{prelude::*, qos::QosDurability};
+use ros_z::{prelude::*, qos::QosDurability, time::Time};
 use serde::{Deserialize, Serialize};
 use types::{
     ball_position::HypotheticalBallPosition,
@@ -30,13 +26,13 @@ use types::{
 };
 use voronoi::VoronoiGrid;
 
-use crate::tree::create_tree;
+use crate::{motion_assembler::assemble_motion_command, tree::create_tree};
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct LastBall {
     pub position: Point2<Field>,
     pub velocity: Vector2<Ground>,
-    pub age: SystemTime,
+    pub age: Time,
     pub field_side: Side,
 }
 
@@ -57,8 +53,10 @@ pub struct Blackboard {
     pub last_close_enough_to_kick: bool,
     pub last_kick_target: Option<Point2<Field>>,
     pub last_motion_command: MotionCommand,
-    pub last_motion_switch_time: SystemTime,
+    pub last_motion_switch_time: Time,
     pub last_motion_type: Option<MotionType>,
+    pub last_sent_game_controller_return_message_time: Option<Time>,
+    pub last_sent_hsl_message_time: Option<Time>,
 
     pub is_injected_motion_command: bool,
     pub walk_position: Option<Point2<Ground>>,
@@ -174,9 +172,6 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let _static_layout = tree.static_layout_trace();
     let mut timer = node.create_timer(Duration::from_millis(10));
 
-    // let mut last_sent_game_controller_return_message_time = None;
-    //let mut last_senthsl_message_time = None;
-
     let player_number = player_number_sub.recv().await?;
     let primary_state = primary_state_sub.recv().await?;
 
@@ -196,8 +191,10 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         last_close_enough_to_kick: false,
         last_kick_target: None,
         last_motion_command: MotionCommand::default(),
-        last_motion_switch_time: SystemTime::UNIX_EPOCH,
+        last_motion_switch_time: Time::zero(),
         last_motion_type: None,
+        last_sent_game_controller_return_message_time: None,
+        last_sent_hsl_message_time: None,
 
         is_injected_motion_command: false,
         walk_position: None,
@@ -207,6 +204,9 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     };
 
     loop {
+        blackboard.parameters = parameters.snapshot().typed().clone();
+        blackboard.free_kick_obstacle_radius = *free_kick_obstacle_radius.snapshot().typed();
+
         let player_states = player_states_cache
             .get_latest()
             .map(|player_states| {
@@ -217,7 +217,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             })
             .unwrap_or_default();
 
-        let robot = RobotState {
+        blackboard.world_state.robot = RobotState {
             ground_to_field: ground_to_field_cache
                 .get_latest()
                 .map(|ground_to_field| *ground_to_field),
@@ -225,40 +225,70 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             primary_state,
         };
 
-        let world_state = WorldState {
-            ball: ball_cache.get_latest().map(|ball| *ball),
-            fall_down_state: fall_down_state_cache
+        blackboard.world_state.ball = ball_cache.get_latest().map(|ball| *ball);
+        blackboard.world_state.fall_down_state = fall_down_state_cache
+            .get_latest()
+            .map(|fall_down_state| *fall_down_state.as_ref());
+        blackboard.world_state.filtered_game_controller_state =
+            filtered_game_controller_state_cache
                 .get_latest()
-                .map(|fall_down_state| *fall_down_state.as_ref()),
-            filtered_game_controller_state: filtered_game_controller_state_cache
-                .get_latest()
-                .map(|filtered_game_controller_state| filtered_game_controller_state.inner.clone()),
-            hypothetical_ball_positions: hypothetical_ball_positions_cache
-                .get_latest()
-                .map(|positions| positions.as_ref().clone())
-                .unwrap_or_default(),
-            now: node.clock().now(),
-            obstacles: obstacles_cache
-                .get_latest()
-                .map(|obstacles| obstacles.as_ref().clone())
-                .unwrap_or_default(),
-            player_states,
-            position_of_interest: position_of_interest_cache
-                .get_latest()
-                .map(|position| *position)
-                .unwrap_or_default(),
-            robot,
-            rule_ball: rule_ball_cache.get_latest().map(|ball| *ball),
-            rule_obstacles: rule_obstacles_cache
-                .get_latest()
-                .map(|obstacles| obstacles.as_ref().clone())
-                .unwrap_or_default(),
-            suggested_search_position: suggested_search_position_cache
-                .get_latest()
-                .map(|position| *position),
+                .map(|filtered_game_controller_state| filtered_game_controller_state.inner.clone());
+        blackboard.world_state.hypothetical_ball_positions = hypothetical_ball_positions_cache
+            .get_latest()
+            .map(|positions| positions.as_ref().clone())
+            .unwrap_or_default();
+        blackboard.world_state.now = node.clock().now();
+        blackboard.world_state.obstacles = obstacles_cache
+            .get_latest()
+            .map(|obstacles| obstacles.as_ref().clone())
+            .unwrap_or_default();
+        blackboard.world_state.player_states = player_states;
+        blackboard.world_state.position_of_interest = position_of_interest_cache
+            .get_latest()
+            .map(|position| *position)
+            .unwrap_or_default();
+        blackboard.world_state.rule_ball = rule_ball_cache.get_latest().map(|ball| *ball);
+        blackboard.world_state.rule_obstacles = rule_obstacles_cache
+            .get_latest()
+            .map(|obstacles| obstacles.as_ref().clone())
+            .unwrap_or_default();
+        blackboard.world_state.suggested_search_position = suggested_search_position_cache
+            .get_latest()
+            .map(|position| *position);
+
+        if let Some(ball) = blackboard.world_state.ball {
+            blackboard.ball = Some(LastBall {
+                position: ball.ball_in_field,
+                velocity: ball.ball_in_ground_velocity,
+                age: blackboard.world_state.now,
+                field_side: ball.field_side,
+            });
+            blackboard.last_ball.clone_from(&blackboard.ball);
+        } else if let Some(last_ball) = &blackboard.ball
+            && blackboard.world_state.now.duration_since(last_ball.age)
+                >= blackboard.parameters.last_ball_timeout
+        {
+            blackboard.ball = None;
+        }
+
+        let (status, _trace) = tree.tick_with_trace(&mut blackboard);
+        let motion_command: MotionCommand = assemble_motion_command(&blackboard, status)?;
+
+        blackboard.last_motion_command = motion_command.clone();
+
+        let motion_type = match motion_command.clone() {
+            MotionCommand::VisualKick { .. } => Some(MotionType::Kick),
+            MotionCommand::Walk { .. } => Some(MotionType::Walk),
+            MotionCommand::Stand { .. } => Some(MotionType::Stand),
+            MotionCommand::StandUp => Some(MotionType::StandUp),
+            MotionCommand::Prepare => Some(MotionType::Prepare),
+            _ => None,
         };
 
-        blackboard.world_state = world_state;
+        if motion_type != blackboard.last_motion_type {
+            blackboard.last_motion_switch_time = blackboard.world_state.now;
+            blackboard.last_motion_type = motion_type;
+        }
 
         timer.tick().await;
     }
