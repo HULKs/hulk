@@ -55,14 +55,12 @@ members = [
   "crates/nodes/head_motion",
   "crates/nodes/image_receiver",
   "crates/nodes/image_segmenter",
-  "crates/nodes/kick",
   "crates/nodes/kinematics_provider",
   "crates/nodes/led_handler",
   "crates/nodes/line_detection",
   "crates/nodes/localization",
   "crates/nodes/look_around",
   "crates/nodes/look_at",
-  "crates/nodes/low_command_publisher",
   "crates/nodes/low_state_bridge",
   "crates/nodes/message_filter",
   "crates/nodes/message_receiver",
@@ -72,18 +70,14 @@ members = [
   "crates/nodes/odometer_bridge",
   "crates/nodes/player_state_receiver",
   "crates/nodes/primary_state_filter",
-  "crates/nodes/robot_mode_handler",
-  "crates/nodes/rotate_head",
   "crates/nodes/rule_obstacle_composer",
   "crates/nodes/safe_pose_checker",
   "crates/nodes/search_suggestor",
   "crates/nodes/segment_filter",
-  "crates/nodes/stand_up",
   "crates/nodes/support_foot_estimator",
   "crates/nodes/team_ball_receiver",
   "crates/nodes/time_to_reach_kick_position",
   "crates/nodes/trigger",
-  "crates/nodes/walking",
   "crates/nodes/whistle_detection",
   "crates/nodes/whistle_filter",
   "crates/nodes/world_state_composer",
@@ -237,7 +231,6 @@ insta = "1"
 itertools = "0.14.0"
 ittapi = "0.4.0"
 json5 = "0.4.1"
-kick = { path = "crates/nodes/kick" }
 kinematics = { path = "crates/kinematics" }
 kinematics_provider = { path = "crates/nodes/kinematics_provider" }
 lazy_static = "1.5.0"
@@ -250,7 +243,6 @@ localization = { path = "crates/nodes/localization" }
 log = "0.4.25"
 look_around = { path = "crates/nodes/look_around" }
 look_at = { path = "crates/nodes/look_at" }
-low_command_publisher = { path = "crates/nodes/low_command_publisher" }
 low_state_bridge = { path = "crates/nodes/low_state_bridge" }
 mcap = "0.15.0"
 message_filter = { path = "crates/nodes/message_filter" }
@@ -311,7 +303,6 @@ repository = { path = "crates/repository" }
 reqwest = { version = "0.12.28", features = ["blocking"] }
 rmp-serde = "1.3.0"
 robot = { path = "crates/robot" }
-robot_mode_handler = { path = "crates/nodes/robot_mode_handler" }
 ros-z = { path = "crates/ros-z", features = ["nalgebra"] }
 ros-z-cdr = { path = "crates/ros-z-cdr" }
 ros-z-debug = { path = "crates/ros-z-debug" }
@@ -321,7 +312,6 @@ ros-z-schema = { path = "crates/ros-z-schema" }
 ros-z-streams = { path = "crates/ros-z-streams" }
 ros2 = { path = "crates/ros2" }
 ros2-client = { version = "0.8.2", features = ["pre-iron-gid"] }
-rotate_head = { path = "crates/nodes/rotate_head" }
 rule_obstacle_composer = { path = "crates/nodes/rule_obstacle_composer" }
 rustfft = "6.2.0"
 safe_pose_checker = { path = "crates/nodes/safe_pose_checker" }
@@ -340,7 +330,6 @@ simulation_message = { path = "crates/simulation_message" }
 smallvec = "1.14.0"
 source_analyzer = { path = "crates/source_analyzer" }
 splines = { version = "=4.2.0", features = ["serde"] }
-stand_up = { path = "crates/nodes/stand_up" }
 support_foot_estimator = { path = "crates/nodes/support_foot_estimator" }
 syn = { version = "2.0.98", features = ["extra-traits", "full"] }
 systemd = "0.10.0"
@@ -362,7 +351,6 @@ types = { path = "crates/types" }
 uuid = { version = "1.12.1", features = ["v4"] }
 vision = { path = "crates/vision" }
 voronoi = { path = "crates/voronoi" }
-walking = { path = "crates/nodes/walking" }
 walking_inference = { path = "crates/walking_inference" }
 wgpu = "27.0.0"
 whistle_detection = { path = "crates/nodes/whistle_detection" }
