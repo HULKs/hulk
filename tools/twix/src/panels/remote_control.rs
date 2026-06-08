@@ -40,8 +40,6 @@ impl<'a> Panel<'a> for RemotePanel {
         let gait_parameter_value = robot.subscribe_json("parameters.rl_walking.gait_frequency");
         let remote_stop_toggle: BufferHandle<bool> =
             robot.subscribe_value("parameters.remote_stop_toggle");
-        let kick_mode_toggle: BufferHandle<bool> =
-            robot.subscribe_value("parameters.behavior.remote_control.kick_mode_toggle");
         let bg_running = Arc::new(AtomicBool::new(true));
 
         let robot_clone = robot.clone();
@@ -63,6 +61,8 @@ impl<'a> Panel<'a> for RemotePanel {
                 .unwrap_or(SystemTime::now());
 
             let mut start_was_pressed = false;
+            let mut north_was_pressed = false;
+            let mut south_was_pressed = false;
 
             let mut last_gamepad_id = None;
 
@@ -75,6 +75,11 @@ impl<'a> Panel<'a> for RemotePanel {
 
                 if gilrs.gamepads().next().is_none() {
                     let _ = sender.send((Step::default(), 1.0));
+
+                    set_kick_mode_toggle(&robot_clone, false);
+                    north_was_pressed = false;
+                    south_was_pressed = false;
+
                     if enabled_clone.load(Ordering::Relaxed) {
                         reset(&robot_clone);
                     }
@@ -151,7 +156,8 @@ impl<'a> Panel<'a> for RemotePanel {
                         current_value
                     };
 
-                    if is_pressed(Button::North) {
+                    let north_pressed = is_pressed(Button::North);
+                    if north_pressed && !north_was_pressed {
                         match remote_stop_toggle.get_last_value() {
                             Ok(Some(value)) => {
                                 let new_remote_stop_toggle = !value;
@@ -166,22 +172,13 @@ impl<'a> Panel<'a> for RemotePanel {
                             }
                         }
                     }
+                    north_was_pressed = north_pressed;
 
-                    if is_pressed(Button::South) {
-                        match kick_mode_toggle.get_last_value() {
-                            Ok(Some(value)) => {
-                                let new_kick_mode_toggle = !value;
-                                robot_clone.write(
-                                    "parameters.behavior.remote_control.kick_mode_toggle",
-                                    TextOrBinary::Text(new_kick_mode_toggle.into()),
-                                );
-                            }
-                            Ok(None) => {}
-                            Err(error) => {
-                                error!("failed to read kick_mode_toggle: {error:#?}")
-                            }
-                        }
+                    let south_pressed = is_pressed(Button::South);
+                    if south_pressed != south_was_pressed {
+                        set_kick_mode_toggle(&robot_clone, south_pressed);
                     }
+                    south_was_pressed = south_pressed;
 
                     if enabled_clone.load(Ordering::Relaxed) {
                         let now = SystemTime::now();
@@ -226,6 +223,13 @@ fn get_axis_value(gamepad: Gamepad, axis: Axis) -> Option<f32> {
 
 fn reset(robot: &Arc<Robot>) {
     update_step(robot, Step::<f32>::default(), 1.0);
+}
+
+fn set_kick_mode_toggle(robot: &Arc<Robot>, value: bool) {
+    robot.write(
+        "parameters.behavior.remote_control.kick_mode_toggle",
+        TextOrBinary::Text(value.into()),
+    );
 }
 
 fn update_step(robot: &Arc<Robot>, step: Step, gait_frequency: f64) {
