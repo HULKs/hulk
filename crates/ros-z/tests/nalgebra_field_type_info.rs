@@ -12,7 +12,6 @@ use ros_z::{
     dynamic::{
         ByteRenderPolicy, DynamicJsonRenderPolicy, DynamicValue, NonFiniteFloatRenderPolicy,
     },
-    entity::EntityKind,
 };
 use ros_z_schema::{
     FieldDef, PrimitiveTypeDef, SchemaBundle, SequenceLengthDef, TypeDef, TypeDefinition,
@@ -266,7 +265,7 @@ async fn wait_for_publishers(
 ) {
     let start = tokio::time::Instant::now();
     loop {
-        if node.graph().count(EntityKind::Publisher, topic) >= expected_count {
+        if node.graph().view().publishers_on(topic).len() >= expected_count {
             return;
         }
         assert!(

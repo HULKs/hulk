@@ -1,6 +1,6 @@
 use std::marker::PhantomData;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicBool, AtomicU64, Ordering};
-use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use tracing::{debug, warn};
@@ -9,8 +9,7 @@ use zenoh::{Session, sample::Sample};
 
 use crate::Result;
 use crate::dynamic::{DynamicCdrCodec, DynamicPayload, Schema};
-use crate::entity::{EndpointEntity, EntityKind, endpoint_global_id};
-use crate::event::EventsManager;
+use crate::entity::EndpointEntity;
 use crate::graph::Graph;
 use crate::message::WireDecoder;
 use crate::pubsub::metadata::Received;
@@ -326,7 +325,6 @@ where
             .await?;
 
         let entity = builder.entity;
-        let endpoint_global_id = endpoint_global_id(&entity);
 
         debug!("[SUB] Subscriber ready: topic={}", entity.topic);
 
@@ -334,7 +332,6 @@ where
             entity,
             _resources: resources,
             queue,
-            events_mgr: Arc::new(Mutex::new(EventsManager::new(endpoint_global_id))),
             graph: builder.graph,
             dyn_schema: builder.dyn_schema,
             _phantom_data: Default::default(),
@@ -346,7 +343,6 @@ pub struct Subscriber<T, C: WireDecoder = <T as crate::Message>::Codec> {
     entity: EndpointEntity,
     queue: Arc<BoundedQueue<Sample>>,
     _resources: SubscriberResources,
-    events_mgr: Arc<Mutex<EventsManager>>,
     graph: Arc<Graph>,
     /// Schema for dynamic message deserialization.
     /// Required for runtime-typed dynamic subscribers using `DynamicPayload`.
@@ -367,10 +363,6 @@ where
     T: Send + Sync + 'static,
     C: WireDecoder,
 {
-    pub fn events_mgr(&self) -> &Arc<Mutex<EventsManager>> {
-        &self.events_mgr
-    }
-
     /// Get a reference to the endpoint entity for this subscriber.
     pub fn entity(&self) -> &EndpointEntity {
         &self.entity
@@ -401,10 +393,7 @@ where
             let notified = self.graph.change_notify.notified();
             tokio::pin!(notified);
 
-            let n = self
-                .graph
-                .get_entities_by_topic(EntityKind::Publisher, &self.entity.topic)
-                .len();
+            let n = self.graph.view().publishers_on(&self.entity.topic).len();
             if n >= count {
                 return true;
             }
@@ -418,11 +407,7 @@ where
                 .await
                 .is_err()
             {
-                return self
-                    .graph
-                    .get_entities_by_topic(EntityKind::Publisher, &self.entity.topic)
-                    .len()
-                    >= count;
+                return self.graph.view().publishers_on(&self.entity.topic).len() >= count;
             }
         }
     }
@@ -435,9 +420,7 @@ where
 {
     /// Return the number of matched publishers currently visible in the graph.
     pub fn publisher_count(&self) -> usize {
-        self.graph
-            .get_entities_by_topic(EntityKind::Publisher, &self.entity.topic)
-            .len()
+        self.graph.view().publishers_on(&self.entity.topic).len()
     }
 
     /// Return whether at least one publisher is currently matched.

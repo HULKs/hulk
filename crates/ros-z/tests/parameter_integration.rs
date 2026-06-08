@@ -8,7 +8,6 @@ use std::{
 use ros_z::{
     Message, SchemaHash,
     context::ContextBuilder,
-    entity::EntityKind,
     parameter::{
         GetNodeParameterTypeInfoSrv, GetNodeParameterValueRequest, GetNodeParameterValueSrv,
         GetNodeParametersSnapshotSrv, NodeParameterEvent, NodeParametersExt, ParameterError,
@@ -120,7 +119,7 @@ async fn wait_for_service(
     let start = std::time::Instant::now();
     let timeout = Duration::from_secs(5);
     loop {
-        if node.graph().count(EntityKind::Service, service) >= expected_count {
+        if node.graph().view().services_named(service).len() >= expected_count {
             return Ok(());
         }
         if start.elapsed() >= timeout {

@@ -76,7 +76,8 @@ fn verify_parameter_capability_from_services(
 
 fn sorted_node_fqns(graph: &Graph) -> Vec<String> {
     graph
-        .get_node_names()
+        .view()
+        .node_names()
         .into_iter()
         .map(|(name, namespace)| fully_qualified_node_name(&namespace, &name))
         .collect::<BTreeSet<_>>()
@@ -86,7 +87,8 @@ fn sorted_node_fqns(graph: &Graph) -> Vec<String> {
 
 fn service_names(graph: &Graph) -> BTreeSet<String> {
     graph
-        .get_service_names_and_types()
+        .view()
+        .service_names_and_types()
         .into_iter()
         .map(|(name, _)| name)
         .collect()

@@ -1,5 +1,5 @@
 use color_eyre::eyre::{Result, eyre};
-use ros_z::entity::EntityKind;
+use ros_z::entity::EndpointKind;
 
 use crate::{
     app::AppContext,
@@ -7,7 +7,7 @@ use crate::{
     model::info::{NodeInfo, ServiceInfo, TopicInfo},
     render::{OutputMode, json, text},
     support::{
-        endpoints::{named_types, summarize_endpoints},
+        endpoints::{named_types, summarize_endpoint_entities},
         nodes::{can_resolve_node_target, graph_node_key, resolve_node_target},
     },
 };
@@ -28,24 +28,30 @@ pub async fn run(
 async fn render_topic_info(app: &AppContext, output_mode: OutputMode, topic: &str) -> Result<()> {
     app.wait_for_graph_condition(|graph| {
         graph
-            .get_topic_names_and_types()
+            .view()
+            .topic_names_and_types()
             .iter()
             .any(|(name, _)| name == topic)
     })
     .await;
 
     let graph = app.graph();
-    let type_name = graph
-        .get_topic_names_and_types()
-        .into_iter()
-        .find_map(|(name, type_name)| (name == topic).then_some(type_name))
-        .ok_or_else(|| eyre!("topic not found: {topic}"))?;
-    let info = TopicInfo::new(
-        topic.to_string(),
-        type_name,
-        summarize_endpoints(graph.get_entities_by_topic(EntityKind::Publisher, topic)),
-        summarize_endpoints(graph.get_entities_by_topic(EntityKind::Subscription, topic)),
-    );
+    let info = {
+        let view = graph.view();
+        let type_name = view
+            .topic_names_and_types()
+            .into_iter()
+            .find_map(|(name, type_name)| (name == topic).then_some(type_name))
+            .ok_or_else(|| eyre!("topic not found: {topic}"))?;
+        let publishers = view.publishers_on(topic);
+        let subscribers = view.subscriptions_on(topic);
+        TopicInfo::new(
+            topic.to_string(),
+            type_name,
+            summarize_endpoint_entities(&publishers),
+            summarize_endpoint_entities(&subscribers),
+        )
+    };
 
     match output_mode {
         OutputMode::Json => json::print_pretty(&info),
@@ -63,24 +69,30 @@ async fn render_service_info(
 ) -> Result<()> {
     app.wait_for_graph_condition(|graph| {
         graph
-            .get_service_names_and_types()
+            .view()
+            .service_names_and_types()
             .iter()
             .any(|(name, _)| name == service)
     })
     .await;
 
     let graph = app.graph();
-    let type_name = graph
-        .get_service_names_and_types()
-        .into_iter()
-        .find_map(|(name, type_name)| (name == service).then_some(type_name))
-        .ok_or_else(|| eyre!("service not found: {service}"))?;
-    let info = ServiceInfo::new(
-        service.to_string(),
-        type_name,
-        summarize_endpoints(graph.get_entities_by_service(EntityKind::Service, service)),
-        summarize_endpoints(graph.get_entities_by_service(EntityKind::Client, service)),
-    );
+    let info = {
+        let view = graph.view();
+        let type_name = view
+            .service_names_and_types()
+            .into_iter()
+            .find_map(|(name, type_name)| (name == service).then_some(type_name))
+            .ok_or_else(|| eyre!("service not found: {service}"))?;
+        let services = view.services_named(service);
+        let clients = view.clients_named(service);
+        ServiceInfo::new(
+            service.to_string(),
+            type_name,
+            summarize_endpoint_entities(&services),
+            summarize_endpoint_entities(&clients),
+        )
+    };
 
     match output_mode {
         OutputMode::Json => json::print_pretty(&info),
@@ -98,14 +110,42 @@ async fn render_node_info(app: &AppContext, output_mode: OutputMode, selector: &
     let graph = app.graph();
     let target = resolve_node_target(graph, selector)?;
     let node_key = graph_node_key(&target);
+    let endpoints = {
+        let view = graph.view();
+        view.endpoints_for_node(node_key)
+    };
     let info = NodeInfo::new(
         target.name.clone(),
         target.namespace.clone(),
         target.fully_qualified_name(),
-        named_types(graph.get_names_and_types_by_node(node_key.clone(), EntityKind::Publisher)),
-        named_types(graph.get_names_and_types_by_node(node_key.clone(), EntityKind::Subscription)),
-        named_types(graph.get_names_and_types_by_node(node_key.clone(), EntityKind::Service)),
-        named_types(graph.get_names_and_types_by_node(node_key, EntityKind::Client)),
+        named_types(
+            endpoints
+                .iter()
+                .filter(|endpoint| endpoint.kind == EndpointKind::Publisher)
+                .map(|endpoint| (endpoint.topic.clone(), endpoint.type_info.name.clone()))
+                .collect(),
+        ),
+        named_types(
+            endpoints
+                .iter()
+                .filter(|endpoint| endpoint.kind == EndpointKind::Subscription)
+                .map(|endpoint| (endpoint.topic.clone(), endpoint.type_info.name.clone()))
+                .collect(),
+        ),
+        named_types(
+            endpoints
+                .iter()
+                .filter(|endpoint| endpoint.kind == EndpointKind::Service)
+                .map(|endpoint| (endpoint.topic.clone(), endpoint.type_info.name.clone()))
+                .collect(),
+        ),
+        named_types(
+            endpoints
+                .iter()
+                .filter(|endpoint| endpoint.kind == EndpointKind::Client)
+                .map(|endpoint| (endpoint.topic.clone(), endpoint.type_info.name.clone()))
+                .collect(),
+        ),
     );
 
     match output_mode {

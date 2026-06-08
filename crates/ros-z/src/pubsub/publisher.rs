@@ -1,7 +1,7 @@
 use std::future::Future;
 use std::marker::PhantomData;
+use std::sync::Arc;
 use std::sync::atomic::{AtomicUsize, Ordering};
-use std::sync::{Arc, Mutex};
 use std::time::Duration;
 
 use tokio::task::JoinHandle;
@@ -13,8 +13,7 @@ use crate::Result;
 use crate::attachment::{Attachment, EndpointGlobalId};
 use crate::dynamic::{DynamicCdrCodec, DynamicPayload, Schema};
 use crate::encoding::Encoding;
-use crate::entity::{EndpointEntity, EntityKind, endpoint_global_id};
-use crate::event::EventsManager;
+use crate::entity::{EndpointEntity, endpoint_global_id};
 use crate::graph::Graph;
 use crate::message::WireEncoder;
 use crate::pubsub::metadata::PublicationId;
@@ -50,7 +49,6 @@ pub struct Publisher<T, C: WireEncoder = <T as crate::Message>::Codec> {
     inner: zenoh::pubsub::Publisher<'static>,
     _lv_token: LivelinessToken,
     clock: Clock,
-    events_mgr: Arc<Mutex<EventsManager>>,
     shm_config: Option<Arc<ShmConfig>>,
     /// Schema for dynamic message publishing.
     dyn_schema: Option<Schema>,
@@ -355,7 +353,6 @@ where
             _lv_token: lv_token,
             endpoint_global_id,
             clock: self.clock,
-            events_mgr: Arc::new(Mutex::new(EventsManager::new(endpoint_global_id))),
             shm_config: self.shm_config,
             dyn_schema: self.dyn_schema,
             encoding,
@@ -385,9 +382,7 @@ where
 {
     /// Return the number of matched subscribers currently visible in the graph.
     pub fn subscriber_count(&self) -> usize {
-        self.graph
-            .get_entities_by_topic(EntityKind::Subscription, &self.entity.topic)
-            .len()
+        self.graph.view().subscriptions_on(&self.entity.topic).len()
     }
 
     /// Return whether at least one subscriber is currently matched.
@@ -419,10 +414,7 @@ where
             let notified = self.graph.change_notify.notified();
             tokio::pin!(notified);
 
-            let n = self
-                .graph
-                .get_entities_by_topic(EntityKind::Subscription, &self.entity.topic)
-                .len();
+            let n = self.graph.view().subscriptions_on(&self.entity.topic).len();
             if n >= count {
                 return true;
             }
@@ -438,11 +430,7 @@ where
                 .is_err()
             {
                 // Timeout — do one final check in case a late notification was missed.
-                return self
-                    .graph
-                    .get_entities_by_topic(EntityKind::Subscription, &self.entity.topic)
-                    .len()
-                    >= count;
+                return self.graph.view().subscriptions_on(&self.entity.topic).len() >= count;
             }
         }
     }
@@ -591,10 +579,6 @@ where
 }
 
 impl<T, C: WireEncoder> Publisher<T, C> {
-    pub fn events_mgr(&self) -> &Arc<Mutex<EventsManager>> {
-        &self.events_mgr
-    }
-
     /// Get a reference to the endpoint entity for this publisher.
     pub fn entity(&self) -> &EndpointEntity {
         &self.entity

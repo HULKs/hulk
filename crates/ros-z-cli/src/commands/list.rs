@@ -1,5 +1,4 @@
 use color_eyre::eyre::Result;
-use ros_z::entity::EntityKind;
 
 use crate::{
     app::AppContext,
@@ -37,12 +36,13 @@ fn render_topics(output_mode: OutputMode, app: &AppContext) -> Result<()> {
 }
 
 fn render_nodes(output_mode: OutputMode, app: &AppContext) -> Result<()> {
-    let mut nodes: Vec<_> = app
-        .graph()
-        .get_node_names()
-        .into_iter()
-        .map(|(name, namespace)| NodeSummary::new(name, namespace))
-        .collect();
+    let mut nodes: Vec<_> = {
+        let view = app.graph().view();
+        view.node_names()
+            .into_iter()
+            .map(|(name, namespace)| NodeSummary::new(name, namespace))
+            .collect()
+    };
     nodes.sort_by(|left, right| left.fqn.cmp(&right.fqn));
 
     match output_mode {
@@ -55,19 +55,17 @@ fn render_nodes(output_mode: OutputMode, app: &AppContext) -> Result<()> {
 }
 
 fn render_services(output_mode: OutputMode, app: &AppContext) -> Result<()> {
-    let graph = app.graph();
-    let mut services: Vec<_> = graph
-        .get_service_names_and_types()
-        .into_iter()
-        .map(|(name, type_name)| {
-            ServiceSummary::new(
-                name.clone(),
-                type_name,
-                graph.count_by_service(EntityKind::Service, &name),
-                graph.count_by_service(EntityKind::Client, &name),
-            )
-        })
-        .collect();
+    let mut services: Vec<_> = {
+        let view = app.graph().view();
+        view.service_names_and_types()
+            .into_iter()
+            .map(|(name, type_name)| {
+                let service_count = view.services_named(&name).len();
+                let client_count = view.clients_named(&name).len();
+                ServiceSummary::new(name, type_name, service_count, client_count)
+            })
+            .collect()
+    };
     services.sort_by(|left, right| left.name.cmp(&right.name));
 
     match output_mode {
