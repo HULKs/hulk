@@ -52,7 +52,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let _filtered_game_controller_state_sub = node
-        .subscriber::<Option<FilteredGameControllerState>>("filtered_game_controller_state")?
+        .subscriber::<FilteredGameControllerState>("filtered_game_controller_state")?
         .build()
         .await?;
     let _network_message_sub = node
