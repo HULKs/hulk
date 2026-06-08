@@ -33,7 +33,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         })
         .build()
         .await?;
-    let _ball_position_sub = node
+    let ball_position_sub = node
         .subscriber::<Option<BallPosition<Ground>>>("ball_filter/ball_position")?
         .build()
         .await?;
@@ -54,7 +54,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let filtered_game_controller_state_sub = node
-        .subscriber::<TimeWrapper<FilteredGameControllerState>>("filtered_game_controller_state")?
+        .subscriber::<FilteredGameControllerState>("filtered_game_controller_state")?
         .build()
         .await?;
     let network_message_sub = node
@@ -97,15 +97,10 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         let mut ball_was_seen = false;
 
         while ball_position_sub.is_ready() {
-            ball_was_seen = true;
-            if let Some(ground_to_field) = ground_to_field {
-                heatmap.update_with_ball_position(
-                    field_dimensions,
-                    ball_position_sub.recv().await?,
-                    ground_to_field,
-                );
-            } else {
-                ball_position_sub.recv().await?;
+            let ball_position = ball_position_sub.recv().await?;
+            if let (Some(ball_position), Some(ground_to_field)) = (ball_position, ground_to_field) {
+                ball_was_seen = true;
+                heatmap.update_with_ball_position(field_dimensions, ball_position, ground_to_field);
             }
         }
         while hypothetical_ball_positions_sub.is_ready() {
@@ -130,7 +125,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         while filtered_game_controller_state_sub.is_ready() {
             if let Some(primary_state) = primary_state {
                 heatmap.update_with_rule_ball(
-                    &filtered_game_controller_state_sub.recv().await?.inner,
+                    &filtered_game_controller_state_sub.recv().await?,
                     &field_dimensions,
                     primary_state,
                     parameters,
