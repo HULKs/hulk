@@ -4,7 +4,6 @@ use std::{future::pending, sync::Arc, time::Duration};
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
-use booster_sdk_interface::GetRobotMode;
 use ros_z::prelude::*;
 use types::{motion_command::MotionCommand, parameters::RLWalkingParameters, step::Step};
 
@@ -24,10 +23,6 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let _parameters = node.bind_parameter_as::<Parameters>("walking")?;
 
-    let _get_robot_mode_client = node
-        .create_service_client::<GetRobotMode>("services/get_robot_mode")?
-        .build()
-        .await?;
     let _motion_command_sub = node
         .subscriber::<MotionCommand>("motion_command")?
         .build()

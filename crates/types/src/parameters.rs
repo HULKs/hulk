@@ -789,6 +789,7 @@ pub struct AllowSwitchParameters {
     pub stand: Duration,
     pub stand_up: Duration,
     pub walk: Duration,
+    pub damping: Duration,
 }
 
 #[derive(

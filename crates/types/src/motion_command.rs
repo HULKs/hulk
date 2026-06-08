@@ -72,6 +72,7 @@ pub enum MotionCommand {
         velocity: Vector2<Ground>,
         angular_velocity: f32,
     },
+    Damping,
 }
 
 impl MotionCommand {
@@ -84,12 +85,13 @@ impl MotionCommand {
             MotionCommand::Prepare => Some(HeadMotion::Center {
                 image_region_target: ImageRegion::Top,
             }),
-            MotionCommand::StandUp => None,
+            MotionCommand::StandUp | MotionCommand::Damping => None,
         }
     }
 
     pub fn from_partial_motions(body: BodyMotion, head: HeadMotion) -> Self {
         match body {
+            BodyMotion::Damping => MotionCommand::Damping,
             BodyMotion::Prepare => MotionCommand::Prepare,
             BodyMotion::Stand => MotionCommand::Stand { head },
             BodyMotion::StandUp => MotionCommand::StandUp,
@@ -167,6 +169,7 @@ pub enum BodyMotion {
         velocity: Vector2<Ground>,
         angular_velocity: f32,
     },
+    Damping,
 }
 
 #[derive(
@@ -258,4 +261,26 @@ pub enum KickPower {
     #[default]
     Rumpelstilzchen,
     Schlong,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn damping_has_no_head_motion() {
+        assert_eq!(MotionCommand::Damping.head_motion(), None);
+    }
+
+    #[test]
+    fn body_damping_assembles_to_motion_damping() {
+        let motion = MotionCommand::from_partial_motions(
+            BodyMotion::Damping,
+            HeadMotion::Center {
+                image_region_target: ImageRegion::Center,
+            },
+        );
+
+        assert_eq!(motion, MotionCommand::Damping);
+    }
 }

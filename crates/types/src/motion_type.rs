@@ -21,4 +21,5 @@ pub enum MotionType {
     StandUp,
     Kick,
     Walk,
+    Damping,
 }

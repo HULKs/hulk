@@ -14,4 +14,5 @@ linear_algebra = { workspace = true }
 projection = { workspace = true }
 ros-z = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
+tokio = { workspace = true }
 types = { workspace = true }

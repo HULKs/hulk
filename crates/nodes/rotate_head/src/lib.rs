@@ -4,7 +4,6 @@ use std::{future::pending, sync::Arc, time::Duration};
 use color_eyre::Result;
 use serde::{Deserialize, Serialize};
 
-use booster_sdk_interface::GetRobotMode;
 use kinematics::joints::head::HeadJoints;
 use ros_z::prelude::*;
 
@@ -22,10 +21,6 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("rotate_head").build().await?;
 
     let _parameters = node.bind_parameter_as::<Parameters>("rotate_head")?;
-    let _get_robot_mode_client = node
-        .create_service_client::<GetRobotMode>("services/get_robot_mode")?
-        .build()
-        .await?;
     let _head_joints_sub = node
         .subscriber::<HeadJoints<f32>>("head_joints_command")?
         .build()
