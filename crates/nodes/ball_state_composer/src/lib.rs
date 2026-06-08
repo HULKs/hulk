@@ -13,7 +13,6 @@ use types::{
     field_dimensions::{FieldDimensions, Side},
     filtered_game_controller_state::FilteredGameControllerState,
     primary_state::PrimaryState,
-    time_wrapper::TimeWrapper,
     world_state::{BallState, LastBallState},
 };
 
@@ -96,7 +95,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                     ball_position.position,
                     ground_to_field * ball_position.position,
                     ball_position.velocity,
-                    ball_position.last_seen,
+                    ball_position.last_seen.to_wallclock(),
                     &mut last_ball_field_side,
                 );
                 ball_state_pub.publish(&Some(ball)).await?;
@@ -113,7 +112,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                     ground_to_field.inverse() * team_ball.position,
                     team_ball.position,
                     ground_to_field.inverse() * team_ball.velocity,
-                    team_ball.last_seen,
+                    team_ball.last_seen.to_wallclock(),
                     &mut last_ball_field_side,
                 );
                 ball_state_pub.publish(&Some(ball)).await?;
@@ -123,7 +122,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 });
             }
             received_filtered_game_controller_state = filtered_game_controller_state_sub.recv() => {
-                let filtered_game_controller_state = received_filtered_game_controller_state?.inner;
+                let filtered_game_controller_state = received_filtered_game_controller_state?;
 
                 let Some(primary_state) = primary_state_cache.get_latest() else { continue };
                 let rule_ball = compose_rule_ball_state(
