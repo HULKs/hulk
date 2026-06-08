@@ -21,7 +21,7 @@ impl Behavior {
         hsl_network_parameters: &HslNetworkParameters,
         hardware: &Arc<impl NetworkInterface>,
     ) -> Result<()> {
-        let now = world_state.now;
+        let now = world_state.now.to_wallclock();
 
         if !self.is_return_message_cooldown_elapsed(now, hsl_network_parameters) {
             return Ok(());
@@ -76,7 +76,7 @@ impl Behavior {
         last_sent_message: &mut AdditionalOutput<HulkMessage>,
         hardware: &Arc<impl NetworkInterface>,
     ) -> Result<()> {
-        let now = world_state.now;
+        let now = world_state.now.to_wallclock();
 
         if !self.is_state_message_cooldown_elapsed(now, hsl_network_parameters) {
             return Ok(());

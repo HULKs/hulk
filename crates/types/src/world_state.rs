@@ -2,7 +2,7 @@ use std::time::{SystemTime, UNIX_EPOCH};
 
 use booster::FallDownState;
 use hsl_network_messages::PlayerNumber;
-use ros_z::Message;
+use ros_z::{Message, time::Time};
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::{Field, Ground};
@@ -24,7 +24,8 @@ pub struct WorldState {
     pub ball: Option<BallState>,
     pub filtered_game_controller_state: Option<FilteredGameControllerState>,
     pub hypothetical_ball_positions: Vec<HypotheticalBallPosition<Ground>>,
-    pub now: SystemTime,
+    #[path_serde(leaf)]
+    pub now: Time,
     pub obstacles: Vec<Obstacle>,
     pub player_states: Players<Option<PlayerState>>,
     pub position_of_interest: Point2<Ground>,
@@ -42,7 +43,7 @@ impl Default for WorldState {
             ball: Default::default(),
             filtered_game_controller_state: Default::default(),
             hypothetical_ball_positions: Default::default(),
-            now: UNIX_EPOCH,
+            now: Time::zero(),
             obstacles: Default::default(),
             player_states: Default::default(),
             position_of_interest: Point2::origin(),

@@ -34,6 +34,7 @@ pub fn is_allowed_to_switch(blackboard: &mut Blackboard) -> bool {
     let time_since_last_switch = blackboard
         .world_state
         .now
+        .to_wallclock()
         .duration_since(blackboard.last_motion_switch_time)
         .unwrap_or(Duration::ZERO);
 

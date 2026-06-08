@@ -3,6 +3,7 @@ use color_eyre::Result;
 use coordinate_systems::{Field, Ground};
 use hsl_network_messages::PlayerNumber;
 use linear_algebra::{Isometry2, Point2};
+use ros_z::time::Time;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
@@ -68,7 +69,7 @@ impl WorldStateComposer {
             fall_down_state: context.fall_down_state.cloned(),
             filtered_game_controller_state: context.filtered_game_controller_state.cloned(),
             hypothetical_ball_positions: context.hypothetical_ball_position.clone(),
-            now: context.cycle_time.start_time,
+            now: Time::from_wallclock(context.cycle_time.start_time),
             obstacles: context.obstacles.clone(),
             player_states: *context.player_states,
             position_of_interest: *context.position_of_interest,

@@ -15,7 +15,7 @@ use types::{
     field_dimensions::{FieldDimensions, Side},
     motion_command::{BodyMotion, HeadMotion, MotionCommand},
     motion_type::MotionType,
-    parameters::{BehaviorParameters, HslNetworkParameters},
+    parameters::BehaviorParameters,
     path_obstacles::PathObstacle,
     world_state::WorldState,
 };
@@ -150,7 +150,7 @@ impl Behavior {
             self.ball = Some(LastBall {
                 position: ball.ball_in_field,
                 velocity: ball.ball_in_ground_velocity,
-                age: context.world_state.now,
+                age: context.world_state.now.to_wallclock(),
                 field_side: ball.field_side,
             });
             self.last_ball = self.ball.clone();
@@ -158,6 +158,7 @@ impl Behavior {
             && context
                 .world_state
                 .now
+                .to_wallclock()
                 .duration_since(last_ball.age)
                 .unwrap_or(Duration::from_secs(0))
                 >= context.parameters.last_ball_timeout
@@ -210,20 +211,20 @@ impl Behavior {
         self.send_game_controller_return_message(
             context.world_state,
             context.game_controller_address,
-            context.parameters.hsl_network,
+            &context.parameters.hsl_network,
             context.hardware,
         )?;
 
         self.send_state_message(
             context.world_state,
-            context.parameters.hsl_network,
+            &context.parameters.hsl_network,
             context.remaining_amount_of_messages,
             &mut context.last_sent_message,
             context.hardware,
         )?;
 
         if motion_type != self.last_motion_type {
-            self.last_motion_switch_time = context.world_state.now;
+            self.last_motion_switch_time = context.world_state.now.to_wallclock();
             self.last_motion_type = motion_type;
         }
 
