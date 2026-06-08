@@ -97,11 +97,12 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     loop {
         let parameters_snapshot = parameters.snapshot();
         let parameters = parameters_snapshot.typed();
+
+        let future_map_item = future_map.recv().await?;
+
         let Some(field_dimensions) = field_dimensions_sub.get_latest() else {
             continue;
         };
-
-        let future_map_item = future_map.recv().await?;
 
         let output_time = future_map_item
             .persistent
