@@ -143,6 +143,7 @@ impl MotionCommand {
     PathDeserialize,
     PathIntrospect,
     PartialEq,
+    Message,
 )]
 pub enum BodyMotion {
     #[default]

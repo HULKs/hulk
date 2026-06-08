@@ -29,7 +29,7 @@ use voronoi::VoronoiGrid;
 
 use crate::{motion_assembler::assemble_motion_command, tree::create_tree};
 
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Message)]
 pub struct LastBall {
     pub position: Point2<Field>,
     pub velocity: Vector2<Ground>,
@@ -37,7 +37,7 @@ pub struct LastBall {
     pub field_side: Side,
 }
 
-#[derive(Debug, Clone, Serialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, Message)]
 pub struct Blackboard {
     pub field_dimensions: FieldDimensions,
     pub free_kick_obstacle_radius: f32,
@@ -106,10 +106,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let filtered_game_controller_state_cache = node
-        .create_cache::<TimeWrapper<FilteredGameControllerState>>(
-            "filtered_game_controller_state",
-            1,
-        )?
+        .create_cache::<FilteredGameControllerState>("filtered_game_controller_state", 1)?
         .build()
         .await?;
     let game_controller_address_cache = node
@@ -152,24 +149,20 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .create_cache::<Point2<Field>>("suggested_search_position", 1)?
         .build()
         .await?;
-    let _behavior_trace_pub = node
+    let behavior_trace_pub = node
         .publisher::<NodeTrace>("behavior/trace")?
         .build()
         .await?;
-    let _behavior_tree_layout_pub = node
+    let behavior_tree_layout_pub = node
         .publisher::<NodeTrace>("behavior/tree_layout")?
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
         .build()
         .await?;
-    let _time_since_last_switch_pub = node
-        .publisher::<Duration>("behavior/time_since_last_switch")?
-        .build()
-        .await?;
-    let _path_obstacles_output_pub = node
-        .publisher::<Vec<PathObstacle>>("path_obstacles")?
-        .build()
-        .await?;
-    let _motion_command_pub = node
-        .publisher::<MotionCommand>("motion_command")?
+    let black_board_pub = node
+        .publisher::<Blackboard>("behavior/blackboard")?
         .build()
         .await?;
     let outgoing_message_pub = node
@@ -178,7 +171,8 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .await?;
 
     let tree = create_tree();
-    let _static_layout = tree.static_layout_trace();
+    let static_layout = tree.static_layout_trace();
+    behavior_tree_layout_pub.publish(&static_layout).await?;
     let mut timer = node.create_timer(Duration::from_millis(10));
 
     let player_number = player_number_sub.recv().await?;
@@ -213,6 +207,17 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     };
 
     loop {
+        blackboard.path_obstacles_output.clear();
+        blackboard.time_since_last_switch = Duration::ZERO;
+        blackboard.direction_difference = 0.0;
+        blackboard.voronoi_inputs.clear();
+
+        blackboard.is_injected_motion_command = false;
+        blackboard.walk_position = None;
+        blackboard.body_motion = None;
+        blackboard.head_motion = None;
+        blackboard.voronoi_map = None;
+
         blackboard.parameters = parameters.snapshot().typed().clone();
         blackboard.free_kick_obstacle_radius = *free_kick_obstacle_radius.snapshot().typed();
 
@@ -239,9 +244,9 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             .get_latest()
             .map(|fall_down_state| *fall_down_state.as_ref());
         blackboard.world_state.filtered_game_controller_state =
-            filtered_game_controller_state_cache
-                .get_latest()
-                .map(|filtered_game_controller_state| filtered_game_controller_state.inner.clone());
+            filtered_game_controller_state_cache.get_latest().map(
+                |filtered_game_controller_state| filtered_game_controller_state.as_ref().clone(),
+            );
         blackboard.world_state.hypothetical_ball_positions = hypothetical_ball_positions_cache
             .get_latest()
             .map(|positions| positions.as_ref().clone())
@@ -280,7 +285,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             blackboard.ball = None;
         }
 
-        let (status, _trace) = tree.tick_with_trace(&mut blackboard);
+        let (status, trace) = tree.tick_with_trace(&mut blackboard);
         let motion_command: MotionCommand = assemble_motion_command(&blackboard, status)?;
 
         blackboard.last_motion_command = motion_command.clone();
@@ -311,6 +316,9 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         if let Some(message) = blackboard.state_message() {
             outgoing_message_pub.publish(&message).await?;
         }
+
+        behavior_trace_pub.publish(&trace).await?;
+        black_board_pub.publish(&blackboard).await?;
 
         timer.tick().await;
     }
