@@ -390,14 +390,17 @@ mod tests {
 
     #[test]
     fn entity_kind_returns_endpoint_kind_for_endpoint_entity() {
-        assert_eq!(
-            Entity::Endpoint(endpoint(EndpointKind::Publisher)).kind(),
-            EntityKind::Publisher
-        );
-        assert_eq!(
-            Entity::Endpoint(endpoint(EndpointKind::Subscription)).kind(),
-            EntityKind::Subscription
-        );
+        for (endpoint_kind, entity_kind) in [
+            (EndpointKind::Publisher, EntityKind::Publisher),
+            (EndpointKind::Subscription, EntityKind::Subscription),
+            (EndpointKind::Service, EntityKind::Service),
+            (EndpointKind::Client, EntityKind::Client),
+        ] {
+            assert_eq!(
+                Entity::Endpoint(endpoint(endpoint_kind)).kind(),
+                entity_kind
+            );
+        }
     }
 
     #[test]

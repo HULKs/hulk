@@ -430,7 +430,12 @@ mod tests {
     async fn node_exists_returns_false_after_only_node_removed() -> Result<()> {
         let session = zenoh::open(zenoh::Config::default()).await?;
         let graph = ros_z::graph::Graph::new(&session).await?;
-        let node = NodeEntity::new(session.zid(), 1, "removed_node".to_string(), String::new());
+        let node = NodeEntity::new(
+            session.zid(),
+            1,
+            "removed_node".to_string(),
+            "/".to_string(),
+        );
         let node_key = node.key();
         let entity = Entity::Node(node);
 
