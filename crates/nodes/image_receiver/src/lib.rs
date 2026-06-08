@@ -25,7 +25,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let right_image_pub = node
-        .publisher::<Image>("inputs/right_image")?
+        .publisher::<TimeWrapper<Image>>("inputs/right_image")?
         .build()
         .await?;
     let camera_info_pub = node
@@ -51,7 +51,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 ycbcr422_image_pub.publish(&TimeWrapper { time: image_time, inner: (&rgb_image).into() }).await?;
             }
             right_frame = x5_receiver.next_right_frame() => {
-                right_image_pub.publish(&right_frame.into()).await?;
+                right_image_pub.publish(&TimeWrapper { time: node.clock().now(), inner: right_frame.into()}).await?;
             }
             // TODO Make this either a service or a local transiert publisher
             _ = camera_info_timer.tick() => {

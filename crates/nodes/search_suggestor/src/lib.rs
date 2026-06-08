@@ -32,7 +32,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let _ball_position_sub = node
-        .subscriber::<BallPosition<Ground>>("ball_position")?
+        .subscriber::<Option<BallPosition<Ground>>>("ball_filter/ball_position")?
         .build()
         .await?;
     let _hypothetical_ball_positions_sub = node

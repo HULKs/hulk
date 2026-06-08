@@ -1,5 +1,6 @@
-use std::{ops::Mul, time::SystemTime};
+use std::{ops::Mul, time::Duration};
 
+use ros_z::time::Time;
 use serde::{Deserialize, Serialize};
 
 use coordinate_systems::Field;
@@ -20,13 +21,22 @@ use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 pub struct BallPosition<Frame> {
     pub position: Point2<Frame>,
     pub velocity: Vector2<Frame>,
-    pub last_seen: SystemTime,
+    #[path_serde(skip)]
+    pub last_seen: Time,
 }
 
 impl<Frame> BallPosition<Frame> {
+    pub fn age_at(&self, now: Time) -> Option<Duration> {
+        if now < self.last_seen {
+            return None;
+        }
+
+        Some(now.duration_since(self.last_seen))
+    }
+
     pub fn from_network_ball(
         network_ball: hsl_network_messages::BallPosition<Frame>,
-        message_time: SystemTime,
+        message_time: Time,
     ) -> Self {
         Self {
             position: network_ball.position,

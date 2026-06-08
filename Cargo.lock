@@ -758,12 +758,15 @@ dependencies = [
  "coordinate_systems",
  "filtering",
  "geometry",
+ "hungarian_algorithm",
  "linear_algebra",
  "nalgebra",
+ "ndarray",
  "ordered-float 4.6.0",
  "path_serde",
  "projection",
  "ros-z",
+ "ros-z-streams",
  "serde",
  "types",
 ]
@@ -7650,6 +7653,7 @@ dependencies = [
  "cdr",
  "color-eyre",
  "ros-z",
+ "ros-z-streams",
  "tokio",
 ]
 

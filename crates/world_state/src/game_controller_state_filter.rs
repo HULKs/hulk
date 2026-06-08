@@ -9,6 +9,7 @@ use coordinate_systems::{Field, Ground};
 use framework::{AdditionalOutput, MainOutput};
 use hsl_network_messages::{GamePhase, GameState, Penalty, PlayerNumber, SubState, Team};
 use linear_algebra::{Isometry2, Point2, Vector2, distance, point, vector};
+use ros_z::time::Time;
 use serde::{Deserialize, Serialize};
 use types::{
     ball_position::BallPosition,
@@ -98,7 +99,7 @@ impl GameControllerStateFilter {
         let fake_ball_position = Some(BallPosition {
             position: point!(0.0, 0.0),
             velocity: vector!(0.0, 0.0),
-            last_seen: SystemTime::now(),
+            last_seen: Time::from_wallclock(context.cycle_time.start_time),
         });
 
         let fake_detected_free_kick_kicking_team = None;

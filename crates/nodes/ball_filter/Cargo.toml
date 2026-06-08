@@ -11,11 +11,14 @@ color-eyre = { workspace = true }
 coordinate_systems = { workspace = true }
 filtering = { workspace = true }
 geometry = { workspace = true }
+hungarian_algorithm = { workspace = true }
 linear_algebra = { workspace = true }
 nalgebra = { workspace = true }
+ndarray = { workspace = true }
 ordered-float = { workspace = true }
 path_serde = { workspace = true }
 projection = { workspace = true }
 ros-z = { workspace = true }
+ros-z-streams = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 types = { workspace = true }

@@ -9,6 +9,7 @@ use hardware::NetworkInterface;
 use hsl_network_messages::{HulkMessage, PlayerNumber};
 use linear_algebra::Isometry2;
 use linear_algebra::Vector2;
+use ros_z::time::Time;
 use serde::{Deserialize, Serialize};
 use types::filtered_game_controller_state::FilteredGameControllerState;
 use types::{
@@ -91,7 +92,8 @@ impl PlayerStatesReceiver {
                         > {
                             position: ball.position,
                             velocity: Vector2::zeros(),
-                            last_seen: context.cycle_time.start_time - ball.age,
+                            last_seen: Time::from_wallclock(context.cycle_time.start_time)
+                                - ball.age,
                         }),
                     });
                 }

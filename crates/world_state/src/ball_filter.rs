@@ -7,6 +7,7 @@ use itertools::Itertools;
 use nalgebra::{Matrix2, Matrix4};
 use ndarray::Array2;
 use ordered_float::NotNan;
+use ros_z::time::Time;
 use serde::{Deserialize, Serialize};
 
 use ball_filter::{BallFilter as BallFiltering, BallHypothesis, BallMode};
@@ -132,7 +133,7 @@ impl BallFilter {
                     let percept = balls[assigned_percept.to];
                     used_percepts.push(assigned_percept.to);
                     hypothesis.update(
-                        cycle_time.start_time,
+                        Time::from_wallclock(cycle_time.start_time),
                         percept.percept_in_ground,
                         validity_increase,
                     );
@@ -150,7 +151,7 @@ impl BallFilter {
 
             for percept in unused_percepts {
                 self.ball_filter.spawn(
-                    cycle_time.start_time,
+                    Time::from_wallclock(cycle_time.start_time),
                     percept.percept_in_ground,
                     Matrix4::from_diagonal(&filter_parameters.noise.initial_covariance),
                 );
@@ -159,10 +160,11 @@ impl BallFilter {
 
         let is_hypothesis_valid = |hypothesis: &BallHypothesis| {
             let ball = hypothesis.position();
-            let duration_since_last_observation = cycle_time
-                .start_time
-                .duration_since(ball.last_seen)
-                .expect("time ran backwards");
+            let Some(duration_since_last_observation) =
+                ball.age_at(Time::from_wallclock(cycle_time.start_time))
+            else {
+                return false;
+            };
             let validity_high_enough =
                 hypothesis.validity >= filter_parameters.validity_discard_threshold;
             is_ball_inside_field(ball, field_dimensions)
@@ -458,7 +460,7 @@ mod tests {
                 mean: nalgebra::vector![0.0, 1.0, 0.0, 0.0],
                 covariance: Matrix4::identity(),
             }),
-            last_seen: SystemTime::now(),
+            last_seen: Time::zero(),
             validity: 0.0,
         };
         let hypothesis2 = BallHypothesis {
@@ -466,7 +468,7 @@ mod tests {
                 mean: nalgebra::vector![0.0, -1.0, 0.0, 0.0],
                 covariance: Matrix4::identity(),
             }),
-            last_seen: SystemTime::now(),
+            last_seen: Time::zero(),
             validity: 0.0,
         };
 

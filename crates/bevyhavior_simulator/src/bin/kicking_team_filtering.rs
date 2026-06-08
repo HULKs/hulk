@@ -4,6 +4,7 @@ use bevy::prelude::*;
 
 use hsl_network_messages::{GameState, PlayerNumber, SubState, Team};
 use linear_algebra::vector;
+use ros_z::time::Time as RosTime;
 use scenario::scenario;
 
 use bevyhavior_simulator::{
@@ -182,7 +183,7 @@ fn set_substate_at_tick_start(
             robot.database.main_outputs.ball_position = Some(BallPosition {
                 position: robot.ground_to_field().inverse() * ball_state.position,
                 velocity: vector!(0.0, 0.0),
-                last_seen: SystemTime::UNIX_EPOCH + time.elapsed(),
+                last_seen: RosTime::from_wallclock(SystemTime::UNIX_EPOCH + time.elapsed()),
             })
         }
     }
