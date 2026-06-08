@@ -40,7 +40,6 @@ pub struct LastBall {
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
 pub struct Blackboard {
     pub field_dimensions: FieldDimensions,
-    pub free_kick_obstacle_radius: f32,
     pub parameters: BehaviorParameters,
     pub world_state: WorldState,
 
@@ -74,8 +73,6 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("behavior_node").build().await?;
 
     let parameters = node.bind_parameter_as::<BehaviorParameters>("behavior_node")?;
-    let free_kick_obstacle_radius =
-        node.bind_parameter_as::<f32>("rule_obstacles.free_kick_obstacle_radius")?;
     let field_dimensions_sub = node
         .subscriber::<FieldDimensions>("field_dimensions")?
         .qos(QosProfile {
@@ -129,9 +126,9 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .create_cache::<Point2<Ground>>("position_of_interest", 1)?
         .build()
         .await?;
-    let primary_state_sub = node
-        .subscriber::<PrimaryState>("primary_state")?
-        .qos(QosProfile {
+    let primary_state_cache = node
+        .create_cache::<PrimaryState>("primary_state", 1)?
+        .with_qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
         })
@@ -169,6 +166,10 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .publisher::<OutgoingMessage>("outputs/message")?
         .build()
         .await?;
+    let motion_command_pub = node
+        .publisher::<MotionCommand>("behavior/motion_command")?
+        .build()
+        .await?;
 
     let tree = create_tree();
     let static_layout = tree.static_layout_trace();
@@ -176,11 +177,9 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let mut timer = node.create_timer(Duration::from_millis(10));
 
     let player_number = player_number_sub.recv().await?;
-    let primary_state = primary_state_sub.recv().await?;
 
     let mut blackboard = Blackboard {
         field_dimensions: field_dimensions_sub.recv().await?,
-        free_kick_obstacle_radius: *free_kick_obstacle_radius.snapshot().typed(),
         parameters: parameters.snapshot().typed().clone(),
         world_state: WorldState::default(),
 
@@ -219,7 +218,6 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         blackboard.voronoi_map = None;
 
         blackboard.parameters = parameters.snapshot().typed().clone();
-        blackboard.free_kick_obstacle_radius = *free_kick_obstacle_radius.snapshot().typed();
 
         let player_states = player_states_cache
             .get_latest()
@@ -236,7 +234,10 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 .get_latest()
                 .map(|ground_to_field| *ground_to_field),
             player_number,
-            primary_state,
+            primary_state: primary_state_cache
+                .get_latest()
+                .map(|s| *s)
+                .unwrap_or_default(),
         };
 
         blackboard.world_state.ball = ball_cache.get_latest().map(|ball| *ball);
@@ -319,7 +320,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
         behavior_trace_pub.publish(&trace).await?;
         black_board_pub.publish(&blackboard).await?;
-
+        motion_command_pub.publish(&motion_command).await?;
         timer.tick().await;
     }
 }

@@ -1,5 +1,5 @@
 [package]
-name = "message_receiver"
+name = "message_handler"
 version.workspace = true
 edition.workspace = true
 license.workspace = true

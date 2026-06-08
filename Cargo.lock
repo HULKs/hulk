@@ -5437,8 +5437,7 @@ dependencies = [
  "low_command_publisher",
  "low_state_bridge",
  "message_filter",
- "message_receiver",
- "message_sender",
+ "message_handler",
  "microphone_recorder",
  "motor_commands_collector",
  "obstacle_filter",
@@ -6611,7 +6610,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "message_receiver"
+name = "message_handler"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
@@ -6619,17 +6618,6 @@ dependencies = [
  "ros-z",
  "serde",
  "tokio",
- "types",
-]
-
-[[package]]
-name = "message_sender"
-version = "0.1.0"
-dependencies = [
- "color-eyre",
- "hsl_network",
- "ros-z",
- "serde",
  "types",
 ]
 

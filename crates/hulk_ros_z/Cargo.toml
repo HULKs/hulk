@@ -40,8 +40,7 @@ look_at = { workspace = true }
 low_command_publisher = { workspace = true }
 low_state_bridge = { workspace = true }
 message_filter = { workspace = true }
-message_receiver = { workspace = true }
-message_sender = { workspace = true }
+message_handler = { workspace = true }
 microphone_recorder = { workspace = true }
 motor_commands_collector = { workspace = true }
 obstacle_filter = { workspace = true }

@@ -1,12 +1,13 @@
-use std::sync::Arc;
-use std::{boxed::Box, future::Future, pin::Pin};
+use std::{boxed::Box, future::Future, pin::Pin, sync::Arc};
 
 use color_eyre::Result;
-use serde::{Deserialize, Serialize};
-
 use hsl_network::endpoint::{Endpoint, Ports};
 use ros_z::prelude::*;
-use types::{messages::IncomingMessage, time_wrapper::TimeWrapper};
+use serde::{Deserialize, Serialize};
+use types::{
+    messages::{IncomingMessage, OutgoingMessage},
+    time_wrapper::TimeWrapper,
+};
 
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
 #[serde(deny_unknown_fields)]
@@ -19,11 +20,15 @@ pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> +
 }
 
 async fn run(ctx: Arc<Context>) -> Result<()> {
-    let node = ctx.create_node("message_receiver").build().await?;
+    let node = ctx.create_node("message_handler").build().await?;
 
     let parameters = node.bind_parameter_as::<Parameters>("message_receiver")?;
-    let message_pub = node
+    let incoming_message_pub = node
         .publisher::<TimeWrapper<IncomingMessage>>("inputs/message")?
+        .build()
+        .await?;
+    let outgoing_message_sub = node
+        .subscriber::<OutgoingMessage>("outputs/message")?
         .build()
         .await?;
 
@@ -33,10 +38,14 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     loop {
         tokio::select! {
             message = endpoint.read() => {
-                let message = message?;
-
-                let message = TimeWrapper{ time: ctx.clock().now(), inner: message };
-                message_pub.publish(&message).await?;
+                let message = TimeWrapper {
+                    time: ctx.clock().now(),
+                    inner: message?,
+                };
+                incoming_message_pub.publish(&message).await?;
+            }
+            message = outgoing_message_sub.recv() => {
+                endpoint.write(message?).await;
             }
         }
     }

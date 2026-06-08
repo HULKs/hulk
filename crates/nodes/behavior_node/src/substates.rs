@@ -88,7 +88,7 @@ pub fn set_block_position_field(blackboard: &mut Blackboard) -> Status {
         let distance_to_ball = (blackboard.field_dimensions.center_circle_diameter / 2.0
             + blackboard.parameters.substates.blocking_distance_offset)
             .max(
-                blackboard.free_kick_obstacle_radius
+                blackboard.field_dimensions.center_circle_diameter / 2.0
                     + blackboard.parameters.path_planning.robot_radius,
             );
 
@@ -121,7 +121,7 @@ pub fn set_block_position_corner(blackboard: &mut Blackboard) -> Status {
         let distance_to_ball = (blackboard.field_dimensions.center_circle_diameter / 2.0
             + blackboard.parameters.substates.blocking_distance_offset)
             .max(
-                blackboard.free_kick_obstacle_radius
+                blackboard.field_dimensions.center_circle_diameter / 2.0
                     + blackboard.parameters.path_planning.robot_radius,
             );
 
@@ -141,7 +141,7 @@ pub fn set_block_position_penalty_kick(blackboard: &mut Blackboard) -> Status {
             field_dimensions.penalty_area_length - field_dimensions.penalty_marker_distance;
         let distance_to_ball = (blackboard.field_dimensions.center_circle_diameter / 2.0
             + blackboard.parameters.substates.blocking_distance_offset)
-            .max(blackboard.free_kick_obstacle_radius);
+            .max(blackboard.field_dimensions.center_circle_diameter / 2.0);
 
         let line_position = (distance_to_ball.powi(2) - distance_to_ball_along_x.powi(2))
             .max(0.0)
