@@ -19,6 +19,7 @@ const PUBLISH_INTERVAL: Duration = Duration::from_millis(20);
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
 #[serde(deny_unknown_fields)]
 pub struct Parameters {
+    injected_arm_joints: Option<BothArms>,
     motor_command_parameters: MotorCommandParameters,
     maximum_arm_joint_velocities: BothArms,
 }
@@ -195,12 +196,28 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let mut publish_interval = tokio::time::interval(PUBLISH_INTERVAL);
     publish_interval.set_missed_tick_behavior(MissedTickBehavior::Skip);
     let mut arm_animator = ArmAnimator::default();
+    let mut parameters_receiver = parameters.subscribe();
 
     loop {
-        let parameters = parameters.snapshot().typed().clone();
+        let parameters_snapshot = parameters.snapshot();
+        let parameters = parameters_snapshot.typed();
         validate_maximum_arm_joint_velocities(parameters.maximum_arm_joint_velocities)?;
 
         tokio::select! {
+            changed = parameters_receiver.changed() => {
+                changed.wrap_err("arm_animator parameter watch ended")?;
+                let parameters_snapshot = parameters_receiver.borrow_and_update().clone();
+                let parameters = parameters_snapshot.typed();
+                validate_maximum_arm_joint_velocities(parameters.maximum_arm_joint_velocities)?;
+
+                if let Some(injected_arm_joints) = parameters.injected_arm_joints {
+                    validate_arm_joint_positions(injected_arm_joints)?;
+                    arm_animator.set_target(
+                        injected_arm_joints,
+                        parameters.maximum_arm_joint_velocities,
+                    )?;
+                }
+            }
             arm_joints = arm_joints_sub.recv_async() => {
                 let arm_joints = arm_joints.map_err(|error| eyre!("{error}"))?;
                 let arm_joints: [f32; 8] = cdr::deserialize(&arm_joints.payload().to_bytes())
