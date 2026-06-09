@@ -73,6 +73,7 @@ pub enum MotionCommand {
         angular_velocity: f32,
     },
     Damping,
+    Custom,
 }
 
 impl MotionCommand {
@@ -85,7 +86,7 @@ impl MotionCommand {
             MotionCommand::Prepare => Some(HeadMotion::Center {
                 image_region_target: ImageRegion::Top,
             }),
-            MotionCommand::StandUp | MotionCommand::Damping => None,
+            MotionCommand::StandUp | MotionCommand::Custom | MotionCommand::Damping => None,
         }
     }
 

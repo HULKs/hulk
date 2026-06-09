@@ -5277,7 +5277,11 @@ dependencies = [
 name = "hulk_louisenlund"
 version = "0.1.0"
 dependencies = [
+ "behavior_node",
  "booster",
+ "booster_sdk_interface",
+ "button_event_bridge",
+ "button_event_handler",
  "camera_matrix_calculator",
  "cdr",
  "clap",
@@ -5285,10 +5289,13 @@ dependencies = [
  "ground_provider",
  "kinematics",
  "kinematics_provider",
+ "led_handler",
  "low_state_bridge",
  "motionfile",
+ "primary_state_filter",
  "ros-z",
  "ros2",
+ "safe_pose_checker",
  "serde",
  "support_foot_estimator",
  "tokio",

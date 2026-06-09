@@ -26,4 +26,5 @@ pub enum PrimaryState {
     Playing,
     Penalized,
     Finished,
+    Custom,
 }

@@ -448,6 +448,7 @@ impl Localization {
             }
             PrimaryState::Safe
             | PrimaryState::Stop
+            | PrimaryState::Custom
             | PrimaryState::Penalized
             | PrimaryState::Finished => None,
         })

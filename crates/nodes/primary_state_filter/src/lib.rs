@@ -168,6 +168,13 @@ impl PrimaryStateFilter {
                 },
             ) if is_safe_pose => PrimaryState::Initial,
             (
+                PrimaryState::Safe,
+                Buttons {
+                    f1: Some(ButtonPressType::Long),
+                    ..
+                },
+            ) => PrimaryState::Custom,
+            (
                 PrimaryState::Initial,
                 Buttons {
                     stand: Some(ButtonPressType::Long),

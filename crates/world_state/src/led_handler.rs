@@ -51,6 +51,7 @@ impl LEDHandler {
             PrimaryState::Initial => SetLedLightColorParameter::YELLOW,
             PrimaryState::Set => SetLedLightColorParameter::ORANGE,
             PrimaryState::Playing => SetLedLightColorParameter::GREEN,
+            PrimaryState::Custom => SetLedLightColorParameter::RED,
             PrimaryState::Penalized => SetLedLightColorParameter::LIGHT_RED,
             PrimaryState::Finished => SetLedLightColorParameter::PURPLE,
         };

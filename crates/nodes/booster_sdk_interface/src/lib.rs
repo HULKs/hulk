@@ -233,6 +233,7 @@ fn sdk_mode_for(desired_mode: control::DesiredMode) -> booster_sdk::types::Robot
         control::DesiredMode::Damping => booster_sdk::types::RobotMode::Damping,
         control::DesiredMode::Prepare => booster_sdk::types::RobotMode::Prepare,
         control::DesiredMode::Walking => booster_sdk::types::RobotMode::Walking,
+        control::DesiredMode::Custom => booster_sdk::types::RobotMode::Custom,
     }
 }
 
@@ -370,17 +371,17 @@ async fn drive_booster_effects(
         state.last_move_robot = now;
     }
 
-    if now.duration_since(state.last_rotate_head) >= parameters.rotate_head_message_interval {
-        if let Some(head_joints) = latest_head_joints {
-            if let Err(error) = booster_client
-                .rotate_head(head_joints.pitch, head_joints.yaw)
-                .await
-            {
-                log::error!("failed to rotate head: {error}");
-            }
-            now = std::time::Instant::now();
-            state.last_rotate_head = now;
+    if now.duration_since(state.last_rotate_head) >= parameters.rotate_head_message_interval
+        && let Some(head_joints) = latest_head_joints
+    {
+        if let Err(error) = booster_client
+            .rotate_head(head_joints.pitch, head_joints.yaw)
+            .await
+        {
+            log::error!("failed to rotate head: {error}");
         }
+        now = std::time::Instant::now();
+        state.last_rotate_head = now;
     }
 
     let should_visual_kick = matches!(state.last_motion_command, MotionCommand::VisualKick { .. });
@@ -433,17 +434,16 @@ async fn drive_booster_effects(
 
     if should_visual_kick
         && now.duration_since(state.last_kick) >= parameters.kicking.kick_message_interval
-    {
-        if let Some(kick) = control::kick_from_motion_command(
+        && let Some(kick) = control::kick_from_motion_command(
             &state.last_motion_command,
             std::time::SystemTime::now(),
             &parameters.kicking,
-        ) {
-            if let Err(error) = kick_ball_publisher.publish(&kick).await {
-                log::error!("failed to publish visual kick command: {error}");
-            }
-            state.last_kick = std::time::Instant::now();
+        )
+    {
+        if let Err(error) = kick_ball_publisher.publish(&kick).await {
+            log::error!("failed to publish visual kick command: {error}");
         }
+        state.last_kick = std::time::Instant::now();
     }
 }
 

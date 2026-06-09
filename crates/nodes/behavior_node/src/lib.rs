@@ -1,12 +1,17 @@
 use std::{boxed::Box, future::Future, pin::Pin};
-use std::{future::pending, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use color_eyre::Result;
 
 use ros_z::{prelude::*, qos::QosDurability};
 use types::{
-    behavior_tree::NodeTrace, field_dimensions::FieldDimensions, motion_command::MotionCommand,
-    parameters::BehaviorParameters, path_obstacles::PathObstacle, world_state::WorldState,
+    behavior_tree::NodeTrace,
+    field_dimensions::FieldDimensions,
+    motion_command::{HeadMotion, ImageRegion, MotionCommand},
+    parameters::BehaviorParameters,
+    path_obstacles::PathObstacle,
+    primary_state::PrimaryState,
+    world_state::WorldState,
 };
 
 pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> + Send>> {
@@ -45,12 +50,39 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .publisher::<Vec<PathObstacle>>("path_obstacles")?
         .build()
         .await?;
-    let _motion_command_pub = node
+    let primary_state_sub = node
+        .subscriber::<PrimaryState>("primary_state")?
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .build()
+        .await?;
+    let motion_command_pub = node
         .publisher::<MotionCommand>("motion_command")?
         .build()
         .await?;
 
-    pending::<()>().await;
+    loop {
+        let primary_state = primary_state_sub.recv().await?;
+        let motion_command = motion_command_for_primary_state(primary_state);
 
-    Ok(())
+        motion_command_pub.publish(&motion_command).await?;
+    }
+}
+
+fn motion_command_for_primary_state(primary_state: PrimaryState) -> MotionCommand {
+    match primary_state {
+        PrimaryState::Safe
+        | PrimaryState::Stop
+        | PrimaryState::Penalized
+        | PrimaryState::Finished => MotionCommand::Damping,
+        PrimaryState::Initial | PrimaryState::Ready | PrimaryState::Set => MotionCommand::Prepare,
+        PrimaryState::Playing => MotionCommand::Stand {
+            head: HeadMotion::Center {
+                image_region_target: ImageRegion::Center,
+            },
+        },
+        PrimaryState::Custom => MotionCommand::Custom,
+    }
 }

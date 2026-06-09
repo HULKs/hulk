@@ -16,6 +16,7 @@ pub enum DesiredMode {
     Damping,
     Prepare,
     Walking,
+    Custom,
 }
 
 pub fn desired_mode_for(command: &MotionCommand, emergency_damping: bool) -> DesiredMode {
@@ -26,6 +27,7 @@ pub fn desired_mode_for(command: &MotionCommand, emergency_damping: bool) -> Des
     match command {
         MotionCommand::Damping => DesiredMode::Damping,
         MotionCommand::Prepare | MotionCommand::StandUp => DesiredMode::Prepare,
+        MotionCommand::Custom => DesiredMode::Custom,
         MotionCommand::Stand { .. }
         | MotionCommand::VisualKick { .. }
         | MotionCommand::Walk { .. }
@@ -107,6 +109,7 @@ pub fn step_from_motion_command(command: &MotionCommand, parameters: &RLWalkingP
         | MotionCommand::Damping
         | MotionCommand::Prepare
         | MotionCommand::StandUp
+        | MotionCommand::Custom
         | MotionCommand::VisualKick { .. } => Step::ZERO,
     }
 }

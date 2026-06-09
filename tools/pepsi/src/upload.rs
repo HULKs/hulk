@@ -123,7 +123,7 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()>
     let upload_directory = tempdir().wrap_err("failed to get temporary directory")?;
     let binary_name = match arguments.old {
         true => "hulk_booster",
-        false => "hulk_ros_z",
+        false => "hulk_louisenlund",
     };
     let hulk_binary = get_hulk_binary(arguments.build.profile(), binary_name);
 

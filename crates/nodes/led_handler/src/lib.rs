@@ -37,16 +37,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             continue;
         }
 
-        let light_control_parameter = match primary_state {
-            PrimaryState::Safe => SetLedLightColorParameter::BLUE,
-            PrimaryState::Stop => SetLedLightColorParameter::LIGHT_BLUE,
-            PrimaryState::Ready => SetLedLightColorParameter::LIGHT_GREEN,
-            PrimaryState::Initial => SetLedLightColorParameter::YELLOW,
-            PrimaryState::Set => SetLedLightColorParameter::ORANGE,
-            PrimaryState::Playing => SetLedLightColorParameter::GREEN,
-            PrimaryState::Penalized => SetLedLightColorParameter::LIGHT_RED,
-            PrimaryState::Finished => SetLedLightColorParameter::PURPLE,
-        };
+        let light_control_parameter = led_color_for(primary_state);
 
         let led_command = LedCommand::SetParam {
             r: light_control_parameter.r,
@@ -56,6 +47,20 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         last_primary_state = Some(primary_state);
 
         led_command_pub.publish(&led_command).await?;
+    }
+}
+
+fn led_color_for(primary_state: PrimaryState) -> SetLedLightColorParameter {
+    match primary_state {
+        PrimaryState::Safe => SetLedLightColorParameter::BLUE,
+        PrimaryState::Stop => SetLedLightColorParameter::LIGHT_BLUE,
+        PrimaryState::Ready => SetLedLightColorParameter::LIGHT_GREEN,
+        PrimaryState::Initial => SetLedLightColorParameter::YELLOW,
+        PrimaryState::Set => SetLedLightColorParameter::ORANGE,
+        PrimaryState::Playing => SetLedLightColorParameter::GREEN,
+        PrimaryState::Custom => SetLedLightColorParameter::RED,
+        PrimaryState::Penalized => SetLedLightColorParameter::LIGHT_RED,
+        PrimaryState::Finished => SetLedLightColorParameter::PURPLE,
     }
 }
 

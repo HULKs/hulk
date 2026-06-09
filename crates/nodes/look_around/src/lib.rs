@@ -311,8 +311,10 @@ mod tests {
     #[test]
     fn entering_look_around_selects_initial_mode() {
         let now = UNIX_EPOCH + Duration::from_secs(1);
-        let mut game_controller_state = FilteredGameControllerState::default();
-        game_controller_state.global_field_side = GlobalFieldSide::Home;
+        let game_controller_state = FilteredGameControllerState {
+            global_field_side: GlobalFieldSide::Home,
+            ..Default::default()
+        };
         let mut state = LookAroundState::new();
 
         state.update_head_motion(

@@ -113,10 +113,17 @@ async fn spawn_all(ctx: Arc<Context>) -> Result<RunningStack> {
 
     join_set.spawn(arm_animator::run_boxed(ctx.clone()));
     join_set.spawn(image_receiver::run_boxed(ctx.clone()));
+    join_set.spawn(behavior_node::run_boxed(ctx.clone()));
+    join_set.spawn(booster_sdk_interface::run_boxed(ctx.clone()));
+    join_set.spawn(button_event_bridge::run_boxed(ctx.clone()));
+    join_set.spawn(button_event_handler::run_boxed(ctx.clone()));
     join_set.spawn(camera_matrix_calculator::run_boxed(ctx.clone()));
     join_set.spawn(ground_provider::run_boxed(ctx.clone()));
     join_set.spawn(kinematics_provider::run_boxed(ctx.clone()));
+    join_set.spawn(led_handler::run_boxed(ctx.clone()));
     join_set.spawn(low_state_bridge::run_boxed(ctx.clone()));
+    join_set.spawn(primary_state_filter::run_boxed(ctx.clone()));
+    join_set.spawn(safe_pose_checker::run_boxed(ctx.clone()));
     join_set.spawn(support_foot_estimator::run_boxed(ctx.clone()));
 
     Ok(RunningStack { join_set })
