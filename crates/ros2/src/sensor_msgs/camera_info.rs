@@ -25,13 +25,13 @@
 /// # Calibration Parameters
 ///
 /// These are fixed during camera calibration. Their values will be the
-/// same in all messages until the camera is recalibrated. Note that    
-/// self-calibrating systems may "recalibrate" frequently.              
-///                                                                     
+/// same in all messages until the camera is recalibrated. Note that
+/// self-calibrating systems may "recalibrate" frequently.
+///
 /// The internal parameters can be used to warp a raw (distorted) image
-/// to:                                                                 
-///     1. An undistorted image (requires D and K)                        
-///     2. A rectified image (requires D, K, R)                           
+/// to:
+///     1. An undistorted image (requires D and K)
+///     2. A rectified image (requires D, K, R)
 /// The projection matrix P projects 3D points into the rectified image.
 ///
 /// The image dimensions with which the camera was calibrated.
@@ -133,9 +133,9 @@ pub struct CameraInfo {
 
     /// # Operational Parameters
     ///
-    /// These define the image region actually captured by the camera       
+    /// These define the image region actually captured by the camera
     /// driver. Although they affect the geometry of the output image, they
-    /// may be changed freely without recalibrating the camera.             
+    /// may be changed freely without recalibrating the camera.
     ///
     /// Binning refers here to any camera setting which combines rectangular
     /// neighborhoods of pixels into larger "crate-pixels." It reduces the
@@ -155,16 +155,6 @@ pub struct CameraInfo {
     /// The default setting of roi (all values 0) is considered the same as
     /// full resolution (roi.width = width, roi.height = height).
     pub roi: RegionOfInterest,
-}
-
-impl CameraInfo {
-    pub fn focal_lengths(&self) -> nalgebra::Vector2<f32> {
-        nalgebra::Vector2::new(self.p[0] as f32, self.p[5] as f32)
-    }
-
-    pub fn optical_center(&self) -> nalgebra::Point2<f32> {
-        nalgebra::Point2::new(self.p[3] as f32, self.p[7] as f32)
-    }
 }
 
 #[cfg(feature = "pyo3")]

@@ -12,7 +12,10 @@ use ros_z::qos::QosDurability;
 use ros_z::time::Time;
 use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
 use types::ycbcr422_image::YCbCr422Image;
-use types::{stereo_image_pair::StereoImagePair, time_wrapper::TimeWrapper};
+use types::{
+    stereo_camera_info::StereoCameraInfo, stereo_image_pair::StereoImagePair,
+    time_wrapper::TimeWrapper,
+};
 use x5_receiver::receiver::{Side, X5Receiver};
 use x5_receiver::types::X5CameraFrame;
 
@@ -41,6 +44,14 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         })
         .build()
         .await?;
+    let stereo_camera_info_pub = node
+        .publisher::<StereoCameraInfo>("inputs/stereo_camera_info")?
+        .qos(QosProfile {
+            durability: QosDurability::TransientLocal,
+            ..Default::default()
+        })
+        .build()
+        .await?;
     let ycbcr422_image_pub = node
         .publisher::<TimeWrapper<YCbCr422Image>>("inputs/ycbcr422_image")?
         .build()
@@ -52,6 +63,10 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let x5_receiver = X5Receiver::new(X5_ADDRESS);
     let camera_info = x5_receiver.wait_for_camera_info().await;
+    let stereo_camera_info = StereoCameraInfo {
+        left: camera_info.left_camera_info(),
+        right: camera_info.right_camera_info(),
+    };
 
     let mut camera_info_timer = node.clock().interval(Duration::from_secs(1));
     let mut stereo_image_pairer = StereoImagePairer::default();
@@ -85,7 +100,10 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             }
             _ = camera_info_timer.tick() => {
                 camera_info_pub
-                    .publish(&camera_info.left_camera_info())
+                    .publish(&stereo_camera_info.left)
+                    .await?;
+                stereo_camera_info_pub
+                    .publish(&stereo_camera_info)
                     .await?;
             }
         }

@@ -52,6 +52,7 @@ pub mod primary_state;
 pub mod rule_obstacles;
 pub mod samples;
 pub mod step;
+pub mod stereo_camera_info;
 pub mod stereo_image_pair;
 pub mod support_foot;
 pub mod time_wrapper;
