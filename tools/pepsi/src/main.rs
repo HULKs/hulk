@@ -10,6 +10,7 @@ use repository::{Repository, inspect_version::check_for_update};
 
 use aliveness::aliveness;
 use analyze::analyze;
+use boosterize::boosterize;
 use cargo::{build, cargo, check, clippy, install, nextest, run, test};
 use communication::communication;
 use completions::completions;
@@ -34,6 +35,7 @@ use wifi::wifi;
 
 mod aliveness;
 mod analyze;
+mod boosterize;
 mod cargo;
 mod communication;
 mod completions;
@@ -77,6 +79,9 @@ enum Command {
     #[clap(subcommand)]
     #[command(visible_alias = "analysier")]
     Analyze(analyze::Arguments),
+    /// Boosterize Robots (enable booster services)
+    #[command(visible_alias = "boost")]
+    Boosterize(boosterize::Arguments),
     /// Get aliveness information from Robots
     #[command(visible_alias = "lebt")]
     Aliveness(aliveness::Arguments),
@@ -216,6 +221,9 @@ async fn main() -> Result<()> {
         Command::Aliveness(arguments) => aliveness(arguments, repository)
             .await
             .wrap_err("failed to execute aliveness command")?,
+        Command::Boosterize(arguments) => boosterize(arguments)
+            .await
+            .wrap_err("failed to execute boosterize command")?,
         Command::Build(arguments) => cargo(arguments, &repository?, &[] as &[&str])
             .await
             .wrap_err("failed to execute build command")?,
