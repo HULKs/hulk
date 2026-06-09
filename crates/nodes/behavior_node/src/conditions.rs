@@ -115,6 +115,10 @@ pub fn is_remote_controlled(blackboard: &mut Blackboard) -> bool {
     blackboard.parameters.remote_control.enable
 }
 
+pub fn is_remote_kick_mode(blackboard: &mut Blackboard) -> bool {
+    blackboard.parameters.remote_control.kick_mode_toggle
+}
+
 pub fn has_ball_position(blackboard: &mut Blackboard) -> bool {
     blackboard.ball.is_some()
 }

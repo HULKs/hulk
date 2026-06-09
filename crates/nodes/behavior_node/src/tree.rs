@@ -7,10 +7,10 @@ use crate::{
     condition,
     conditions::{
         has_ball_position, is_ball_interception_candidate, is_close_to_ball, is_closest_to_ball,
-        is_fallen, is_goalkeeper, is_primary_state, is_remote_controlled,
+        is_fallen, is_goalkeeper, is_primary_state, is_remote_controlled, is_remote_kick_mode,
     },
     head::{look_at_ball_subtree, look_straight_ahead, search_for_lost_ball_subtree},
-    kick::{intercept, kick_subtree},
+    kick::{intercept, kick, kick_power_subtree, kick_subtree, set_kick_target_in_front},
     negation,
     node::Blackboard,
     search::{has_suggested_search_position, leuchtturm, walk_to_search_position},
@@ -38,11 +38,7 @@ pub fn create_tree() -> Node<Blackboard> {
             condition!(is_primary_state, PrimaryState::Stop),
             action!(stand)
         ),
-        sequence!(
-            condition!(is_remote_controlled),
-            action!(look_straight_ahead),
-            action!(remote_control)
-        ),
+        subtree!(remote_control_subtree),
         action!(injected_motion_command),
         sequence!(
             selection!(
@@ -130,6 +126,24 @@ fn supporter_subtree() -> Node<Blackboard> {
         selection!(
             sequence!(action!(calculate_voronoi_grid), action!(walk_to_centroid)),
             action!(stand)
+        )
+    )
+}
+
+fn remote_control_subtree() -> Node<Blackboard> {
+    sequence!(
+        condition!(is_remote_controlled),
+        selection!(
+            sequence!(
+                condition!(is_remote_kick_mode),
+                subtree!(look_at_ball_subtree),
+                sequence!(
+                    action!(kick),
+                    action!(set_kick_target_in_front),
+                    subtree!(kick_power_subtree),
+                )
+            ),
+            sequence!(action!(look_straight_ahead), action!(remote_control))
         )
     )
 }
