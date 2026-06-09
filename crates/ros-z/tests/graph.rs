@@ -283,12 +283,9 @@ mod tests {
             vec![service_endpoint.clone()]
         );
         assert_eq!(view.clients_named(&service), vec![client_endpoint]);
-        assert_eq!(
-            view.endpoints_for_node(ros_z::entity::node_key(&node))
-                .len(),
-            4
-        );
-        assert!(view.node_exists(&ros_z::entity::node_key(&node)));
+        let node_key = node.key();
+        assert_eq!(view.endpoints_for_node(node_key.clone()).len(), 4);
+        assert!(view.node_exists(&node_key));
         assert!(
             view.topic_names_and_types()
                 .contains(&(topic, "std_msgs::String".to_string()))
@@ -459,7 +456,7 @@ mod tests {
             unique_node_name("endpoint_only_node"),
             String::new(),
         );
-        let node_key = ros_z::entity::node_key(&node);
+        let node_key = node.key();
 
         graph.add_local_entity(Entity::Endpoint(EndpointEntity {
             id: 3,
