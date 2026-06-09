@@ -1,0 +1,5 @@
+{
+  enable: true,
+  neural_networks_folder: "etc/neural_networks",
+  model_name: "xfeat-lighterglue.onnx",
+}

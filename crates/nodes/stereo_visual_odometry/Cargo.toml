@@ -1,0 +1,22 @@
+[package]
+name = "stereo_visual_odometry"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[dependencies]
+color-eyre = { workspace = true }
+nalgebra = { workspace = true }
+projection = { workspace = true }
+ros-z = { workspace = true }
+ros2 = { workspace = true }
+tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal"] }
+types = { workspace = true }
+ort = { workspace = true, features = ["cuda", "tensorrt"] }
+tracing = { workspace = true }
+kornia-3d = { workspace = true }
+kornia-algebra = { workspace = true }
+
+[features]
+ort-dynamic = ["ort/load-dynamic"]

@@ -673,6 +673,23 @@ pub struct DetectionParameters {
     PathIntrospect,
     ros_z::Message,
 )]
+pub struct StereoVisualOdometryParameters {
+    pub enable: bool,
+    pub neural_networks_folder: PathBuf,
+    pub model_name: String,
+}
+
+#[derive(
+    Clone,
+    Debug,
+    Default,
+    Deserialize,
+    Serialize,
+    PathSerialize,
+    PathDeserialize,
+    PathIntrospect,
+    ros_z::Message,
+)]
 pub struct ObjectDetectionParameters {
     pub maximum_intersection_over_union: f32,
     pub confidence_threshold: f32,

@@ -151,6 +151,7 @@ async fn spawn_all(ctx: Arc<Context>) -> Result<RunningStack> {
     join_set.spawn(search_suggestor::run_boxed(ctx.clone()));
     join_set.spawn(segment_filter::run_boxed(ctx.clone()));
     join_set.spawn(stand_up::run_boxed(ctx.clone()));
+    join_set.spawn(stereo_visual_odometry::run_boxed(ctx.clone()));
     join_set.spawn(support_foot_estimator::run_boxed(ctx.clone()));
     join_set.spawn(team_ball_receiver::run_boxed(ctx.clone()));
     join_set.spawn(time_to_reach_kick_position::run_boxed(ctx.clone()));

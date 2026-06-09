@@ -79,6 +79,7 @@ members = [
   "crates/nodes/search_suggestor",
   "crates/nodes/segment_filter",
   "crates/nodes/stand_up",
+  "crates/nodes/stereo_visual_odometry",
   "crates/nodes/support_foot_estimator",
   "crates/nodes/team_ball_receiver",
   "crates/nodes/time_to_reach_kick_position",
@@ -242,6 +243,8 @@ json5 = "0.4.1"
 kick = { path = "crates/nodes/kick" }
 kinematics = { path = "crates/kinematics" }
 kinematics_provider = { path = "crates/nodes/kinematics_provider" }
+kornia-3d = { git = "https://github.com/oleflb/kornia-rs", rev = "7659356f10fbafcf75bd82bd7f41fe786b4ec34e" }
+kornia-algebra = { git = "https://github.com/oleflb/kornia-rs", rev = "7659356f10fbafcf75bd82bd7f41fe786b4ec34e" }
 lazy_static = "1.5.0"
 led_handler = { path = "crates/nodes/led_handler" }
 levenberg-marquardt = "0.15.0"
@@ -344,6 +347,7 @@ smallvec = "1.14.0"
 source_analyzer = { path = "crates/source_analyzer" }
 splines = { version = "=4.2.0", features = ["serde"] }
 stand_up = { path = "crates/nodes/stand_up" }
+stereo_visual_odometry = { path = "crates/nodes/stereo_visual_odometry" }
 support_foot_estimator = { path = "crates/nodes/support_foot_estimator" }
 syn = { version = "2.0.98", features = ["extra-traits", "full"] }
 systemd = "0.10.0"
