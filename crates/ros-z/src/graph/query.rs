@@ -2,7 +2,7 @@ use std::collections::BTreeMap;
 
 use parking_lot::MutexGuard;
 
-use crate::entity::{EndpointEntity, EndpointKind, Entity, NodeEntity, NodeKey, node_key};
+use crate::entity::{EndpointEntity, EndpointKind, Entity, NodeEntity, NodeKey};
 use crate::qos::{QosCompatibility, QosProfile};
 
 use super::{Graph, state::GraphData};
@@ -71,15 +71,15 @@ impl GraphView<'_> {
 
     pub fn endpoints_for_node(&self, node: NodeKey) -> Vec<EndpointEntity> {
         self.endpoints()
-            .filter(|endpoint| node_key(&endpoint.node) == node)
+            .filter(|endpoint| endpoint.node.key() == node)
             .cloned()
             .collect()
     }
 
     pub fn node_exists(&self, node: &NodeKey) -> bool {
         self.entities().any(|entity| match entity {
-            Entity::Node(node_entity) => node_key(node_entity) == *node,
-            Entity::Endpoint(endpoint) => node_key(&endpoint.node) == *node,
+            Entity::Node(node_entity) => node_entity.key() == *node,
+            Entity::Endpoint(endpoint) => endpoint.node.key() == *node,
         })
     }
 

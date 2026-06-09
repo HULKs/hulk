@@ -335,12 +335,11 @@ where
             .map_err(|source| crate::Error::zenoh("declare publisher", source))?;
         debug!("[PUB] Publisher ready: topic={}", self.entity.topic);
 
-        let liveliness_key_expr =
-            ros_z_protocol::format::liveliness_key_expr(&self.entity, &self.session.zid())?;
+        let liveliness_key_expr = self.entity.liveliness_key_expr()?.0;
         let lv_token = self
             .session
             .liveliness()
-            .declare_token((*liveliness_key_expr).clone())
+            .declare_token(liveliness_key_expr)
             .await
             .map_err(|source| crate::Error::zenoh("declare publisher liveliness token", source))?;
         let encoding = Arc::new(Encoding::cdr().to_zenoh_encoding());

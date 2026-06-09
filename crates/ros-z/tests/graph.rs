@@ -283,12 +283,9 @@ mod tests {
             vec![service_endpoint.clone()]
         );
         assert_eq!(view.clients_named(&service), vec![client_endpoint]);
-        assert_eq!(
-            view.endpoints_for_node(ros_z::entity::node_key(&node))
-                .len(),
-            4
-        );
-        assert!(view.node_exists(&ros_z::entity::node_key(&node)));
+        let node_key = node.key();
+        assert_eq!(view.endpoints_for_node(node_key.clone()).len(), 4);
+        assert!(view.node_exists(&node_key));
         assert!(
             view.topic_names_and_types()
                 .contains(&(topic, "std_msgs::String".to_string()))
@@ -430,8 +427,13 @@ mod tests {
     async fn node_exists_returns_false_after_only_node_removed() -> Result<()> {
         let session = zenoh::open(zenoh::Config::default()).await?;
         let graph = ros_z::graph::Graph::new(&session).await?;
-        let node = NodeEntity::new(session.zid(), 1, "removed_node".to_string(), String::new());
-        let node_key = ros_z::entity::node_key(&node);
+        let node = NodeEntity::new(
+            session.zid(),
+            1,
+            "removed_node".to_string(),
+            "/".to_string(),
+        );
+        let node_key = node.key();
         let entity = Entity::Node(node);
 
         graph.add_local_entity(entity.clone())?;
@@ -454,7 +456,7 @@ mod tests {
             unique_node_name("endpoint_only_node"),
             String::new(),
         );
-        let node_key = ros_z::entity::node_key(&node);
+        let node_key = node.key();
 
         graph.add_local_entity(Entity::Endpoint(EndpointEntity {
             id: 3,

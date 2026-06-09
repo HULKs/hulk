@@ -29,10 +29,7 @@ impl GraphData {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::entity::{
-        EndpointEntity, EndpointKind, NodeEntity, SchemaHash, TypeInfo,
-        entity_to_liveliness_key_expr,
-    };
+    use crate::entity::{EndpointEntity, EndpointKind, NodeEntity, SchemaHash, TypeInfo};
     use zenoh::session::ZenohId;
 
     fn node(name: &str) -> NodeEntity {
@@ -51,7 +48,9 @@ mod tests {
     }
 
     fn key_for(entity: &Entity) -> LivelinessKE {
-        entity_to_liveliness_key_expr(entity).expect("test entity should format as liveliness key")
+        entity
+            .liveliness_key_expr()
+            .expect("test entity should format as liveliness key")
     }
 
     #[test]
