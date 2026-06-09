@@ -73,18 +73,18 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("behavior_node").build().await?;
 
     let parameters = node.bind_parameter_as::<BehaviorParameters>("behavior_node")?;
-    let field_dimensions_sub = node
-        .subscriber::<FieldDimensions>("field_dimensions")?
-        .qos(QosProfile {
+    let field_dimensions_cache = node
+        .create_cache::<FieldDimensions>("field_dimensions", 1)?
+        .with_qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
         })
         .build()
         .await?;
 
-    let player_number_sub = node
-        .subscriber::<PlayerNumber>("player_number")?
-        .qos(QosProfile {
+    let player_number_cache = node
+        .create_cache::<PlayerNumber>("player_number", 1)?
+        .with_qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
         })
@@ -176,10 +176,11 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     behavior_tree_layout_pub.publish(&static_layout).await?;
     let mut timer = node.create_timer(Duration::from_millis(10));
 
-    let player_number = player_number_sub.recv().await?;
-
     let mut blackboard = Blackboard {
-        field_dimensions: field_dimensions_sub.recv().await?,
+        field_dimensions: field_dimensions_cache
+            .get_latest()
+            .map(|dimensions| *dimensions)
+            .unwrap_or_default(),
         parameters: parameters.snapshot().typed().clone(),
         world_state: WorldState::default(),
 
@@ -217,6 +218,10 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         blackboard.head_motion = None;
         blackboard.voronoi_map = None;
 
+        let player_number = player_number_cache
+            .get_latest()
+            .map(|n| *n)
+            .unwrap_or_default();
         blackboard.parameters = parameters.snapshot().typed().clone();
 
         let player_states = player_states_cache
