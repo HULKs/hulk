@@ -12,6 +12,8 @@ use std::{
 };
 
 use color_eyre::Result;
+use coordinate_systems::Camera;
+use linear_algebra::{Point3, point};
 use nalgebra as na;
 
 use ros_z::prelude::*;
@@ -19,7 +21,6 @@ use ros_z::qos::QosDurability;
 use types::{
     parameters::StereoVisualOdometryParameters, stereo_camera_info::StereoCameraInfo,
     stereo_image_pair::StereoImagePair, time_wrapper::TimeWrapper,
-    visual_odometry::TriangulatedFeature,
 };
 
 use crate::{
@@ -56,18 +57,22 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .publisher::<Duration>("visual_odometry/feature_extraction_duration")?
         .build()
         .await?;
+
     let odometry_pub = node
         .publisher::<Option<na::Isometry3<f32>>>(
             "visual_odometry/previous_left_camera_to_current_left_camera",
         )?
         .build()
         .await?;
-    let odometry_state_pub = node
+
+    let odometer_pub = node
         .publisher::<na::Isometry3<f32>>("visual_odometry/current_left_camera_to_visual_odometer")?
         .build()
         .await?;
+
+    // Caution: We don't yet differentiate between left and right camera frames.
     let triangulated_features_pub = node
-        .publisher::<Vec<TriangulatedFeature>>("visual_odometry/triangulated_features")?
+        .publisher::<Vec<linear_algebra::Point3<Camera>>>("visual_odometry/triangulated_features")?
         .build()
         .await?;
 
@@ -93,7 +98,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         let duration = start_time.elapsed();
 
         odometry_pub.publish(&odometry).await?;
-        odometry_state_pub
+        odometer_pub
             .publish(&pipeline.current_left_camera_to_visual_odometer())
             .await?;
         triangulated_features_pub
@@ -190,13 +195,15 @@ impl VisualOdometryPipeline {
         self.current_left_camera_to_visual_odometer
     }
 
-    fn triangulated_features(&self) -> Vec<TriangulatedFeature> {
+    fn triangulated_features(&self) -> Vec<Point3<Camera>> {
         self.current_points
             .iter()
-            .map(|point| TriangulatedFeature {
-                x: point.position.x,
-                y: point.position.y,
-                z: point.position.z,
+            .map(|point| {
+                point! {
+                    point.position.x,
+                    point.position.y,
+                    point.position.z,
+                }
             })
             .collect()
     }

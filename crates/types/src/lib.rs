@@ -56,7 +56,6 @@ pub mod stereo_camera_info;
 pub mod stereo_image_pair;
 pub mod support_foot;
 pub mod time_wrapper;
-pub mod visual_odometry;
 pub mod walk_volume_extents;
 pub mod whistle;
 pub mod world_state;

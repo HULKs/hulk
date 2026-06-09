@@ -11303,8 +11303,10 @@ name = "stereo_visual_odometry"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
+ "coordinate_systems",
  "kornia-3d",
  "kornia-algebra",
+ "linear_algebra",
  "nalgebra 0.34.2",
  "ort",
  "projection",
