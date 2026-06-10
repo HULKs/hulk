@@ -12,7 +12,6 @@ use crate::{
     behavior::{
         action::stand,
         behavior_tree::Node,
-        condition::is_goalkeeper_visual_kick_hold_active,
         node::Blackboard,
         switch_motion_type::{is_last_motion_type, switch_motion_type},
         walk::walk_to_ball,
@@ -29,40 +28,6 @@ pub fn kick_subtree() -> Node<Blackboard> {
             subtree!(kick_power_subtree),
         ),
         subtree!(kick_alternatives_subtree),
-    )
-}
-
-pub fn goalkeeper_clear_kick_subtree() -> Node<Blackboard> {
-    switch_motion_type(
-        MotionType::Kick,
-        subtree!(goalkeeper_clear_kick_action_subtree),
-        subtree!(kick_alternatives_subtree),
-    )
-}
-
-pub fn goalkeeper_intercept_kick_subtree() -> Node<Blackboard> {
-    switch_motion_type(
-        MotionType::Kick,
-        selection!(
-            sequence!(
-                action!(kick),
-                action!(intercept),
-                action!(use_kick_power, KickPower::Rumpelstilzchen),
-            ),
-            sequence!(
-                condition!(is_goalkeeper_visual_kick_hold_active),
-                subtree!(goalkeeper_clear_kick_action_subtree),
-            ),
-        ),
-        subtree!(kick_alternatives_subtree),
-    )
-}
-
-fn goalkeeper_clear_kick_action_subtree() -> Node<Blackboard> {
-    sequence!(
-        action!(kick),
-        action!(select_goalkeeper_clear_kick_target),
-        action!(use_kick_power, KickPower::Rumpelstilzchen),
     )
 }
 
@@ -105,21 +70,7 @@ pub fn select_kick_target(blackboard: &mut Blackboard) -> Status {
     apply_visual_kick_target(blackboard, goal_position, target_offset_angle)
 }
 
-pub fn select_goalkeeper_clear_kick_target(blackboard: &mut Blackboard) -> Status {
-    if let Some(ball) = &blackboard.ball {
-        let target_y = if ball.position.y() >= 0.0 {
-            blackboard.field_dimensions.width / 4.0
-        } else {
-            -blackboard.field_dimensions.width / 4.0
-        };
-
-        apply_visual_kick_target(blackboard, point!(0.0, target_y), 0.0)
-    } else {
-        Status::Failure
-    }
-}
-
-fn apply_visual_kick_target(
+pub(super) fn apply_visual_kick_target(
     blackboard: &mut Blackboard,
     target_position_in_field: Point2<Field>,
     target_offset_angle: f32,
