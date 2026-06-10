@@ -28,6 +28,7 @@ use crate::{
 pub struct Robot {
     runtime: Runtime,
     client: ClientHandle,
+    write_client: ClientHandle,
     repository: Option<Repository>,
 }
 
@@ -35,12 +36,15 @@ impl Robot {
     pub fn new(address: String, repository: Option<Repository>) -> Self {
         let runtime = Builder::new_multi_thread().enable_all().build().unwrap();
 
-        let (client, handle) = Client::new(address);
+        let (client, handle) = Client::new(address.clone());
+        let (write_client, write_handle) = Client::new(address);
         runtime.spawn(client.run());
+        runtime.spawn(write_client.run());
 
         Self {
             runtime,
             client: handle,
+            write_client: write_handle,
             repository,
         }
     }
@@ -48,21 +52,34 @@ impl Robot {
     pub fn connect(&self) {
         let client = self.client.clone();
         self.runtime.spawn(async move { client.connect().await });
+        let write_client = self.write_client.clone();
+        self.runtime
+            .spawn(async move { write_client.connect().await });
     }
 
     pub fn disconnect(&self) {
         let client = self.client.clone();
         self.runtime.spawn(async move { client.disconnect().await });
+        let write_client = self.write_client.clone();
+        self.runtime
+            .spawn(async move { write_client.disconnect().await });
     }
 
     pub fn connection_status(&self) -> Status {
-        self.runtime.block_on(async { self.client.status().await })
+        self.runtime.block_on(async {
+            merge_connection_status(self.client.status().await, self.write_client.status().await)
+        })
     }
 
     pub fn set_address(&self, address: String) {
         let client = self.client.clone();
+        let read_address = address.clone();
         self.runtime.spawn(async move {
-            client.set_address(address).await;
+            client.set_address(read_address).await;
+        });
+        let write_client = self.write_client.clone();
+        self.runtime.spawn(async move {
+            write_client.set_address(address).await;
         });
     }
 
@@ -164,7 +181,7 @@ impl Robot {
     }
 
     pub fn write(&self, path: impl Into<Path>, value: TextOrBinary) {
-        let client = self.client.clone();
+        let client = self.write_client.clone();
         let path = path.into();
         self.runtime.spawn(async move {
             if let Err(error) = client.write(path, value).await {
@@ -193,6 +210,14 @@ impl Robot {
             }
         });
         Ok(())
+    }
+}
+
+fn merge_connection_status(read_status: Status, write_status: Status) -> Status {
+    match (read_status, write_status) {
+        (Status::Connected, Status::Connected) => Status::Connected,
+        (Status::Connecting, _) | (_, Status::Connecting) => Status::Connecting,
+        _ => Status::Disconnected,
     }
 }
 
