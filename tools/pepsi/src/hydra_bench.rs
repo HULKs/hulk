@@ -6,6 +6,7 @@ use color_eyre::{
     Result,
     eyre::{Context, ContextCompat, ensure},
 };
+use itertools::Itertools;
 use pathdiff::diff_paths;
 use repository::{Repository, upload::get_binary};
 use robot::Robot;
@@ -67,6 +68,10 @@ pub struct HydraBenchArguments {
     /// Do not build before uploading
     #[arg(long)]
     pub no_build: bool,
+
+    /// Whether to benchmark all networks in parallel
+    #[arg(long)]
+    pub parallel: bool,
 }
 
 pub async fn hydra_bench(arguments: Arguments, repository: &Repository) -> Result<()> {
@@ -196,15 +201,23 @@ pub async fn hydra_bench(arguments: Arguments, repository: &Repository) -> Resul
         .inspect_err(|_| progress_benchmark.progress.finish())?;
 
     let mut result_paths = Vec::new();
-    for (onnx_path, uploaded_model) in onnx_paths.iter().zip(uploaded_models) {
-        let result_path = remote_output.join(result_file_name(onnx_path)?);
+    if arguments.hydra_bench.parallel {
+        let result_path = remote_output.join(
+            onnx_paths
+                .iter()
+                .map(|onnx_path| onnx_path.file_stem().unwrap().len().to_string())
+                .join("_"),
+        );
         let command = format!(
-            "sudo podman exec --user $(id -u booster) hulk ./bin/hydra-bench --json --output {} --cache-path {} --warmup {} --iterations {} {}",
+            "sudo podman exec --user $(id -u booster) hulk ./bin/hydra-bench --json --output {} --cache-path {} --warmup {} --iterations {} --parallel {}",
             shell_quote(&result_path.display().to_string()),
             shell_quote(&arguments.hydra_bench.cache_path.display().to_string()),
             arguments.hydra_bench.warmup,
             arguments.hydra_bench.iterations,
-            shell_quote(&uploaded_model.display().to_string()),
+            uploaded_models
+                .iter()
+                .map(|uploaded_model| shell_quote(&uploaded_model.display().to_string()))
+                .join(" "),
         );
         robot
             .ssh_to_robot()?
@@ -213,6 +226,25 @@ pub async fn hydra_bench(arguments: Arguments, repository: &Repository) -> Resul
             .await
             .inspect_err(|_| progress_benchmark.progress.finish())?;
         result_paths.push(result_path);
+    } else {
+        for (onnx_path, uploaded_model) in onnx_paths.iter().zip(uploaded_models) {
+            let result_path = remote_output.join(result_file_name(onnx_path)?);
+            let command = format!(
+                "sudo podman exec --user $(id -u booster) hulk ./bin/hydra-bench --json --output {} --cache-path {} --warmup {} --iterations {} {}",
+                shell_quote(&result_path.display().to_string()),
+                shell_quote(&arguments.hydra_bench.cache_path.display().to_string()),
+                arguments.hydra_bench.warmup,
+                arguments.hydra_bench.iterations,
+                shell_quote(&uploaded_model.display().to_string()),
+            );
+            robot
+                .ssh_to_robot()?
+                .arg(format!("cd hulk && {command}"))
+                .run_with_log("benchmarking", &progress_benchmark.progress, b'\n')
+                .await
+                .inspect_err(|_| progress_benchmark.progress.finish())?;
+            result_paths.push(result_path);
+        }
     }
     progress_benchmark.finish_with_success(());
 

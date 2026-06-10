@@ -35,6 +35,10 @@ pub struct CliArguments {
     /// Write benchmark results to this file instead of stdout
     #[arg(long)]
     pub output: Option<PathBuf>,
+
+    /// Whether to benchmark all networks in parallel
+    #[arg(long)]
+    pub parallel: bool,
 }
 
 pub fn run_inference<'a>(

@@ -17,6 +17,7 @@ color-eyre = { workspace = true }
 futures-util = { workspace = true }
 glob = { workspace = true }
 indicatif = { workspace = true }
+itertools = { workspace = true }
 lazy_static = { workspace = true }
 parameters = { workspace = true }
 pathdiff = { workspace = true }

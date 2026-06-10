@@ -1,8 +1,15 @@
-use std::{hint::black_box, path::Path, time::Duration, time::Instant};
+use std::{
+    hint::black_box,
+    path::Path,
+    sync::{Arc, Barrier, Mutex},
+    thread,
+    time::{Duration, Instant},
+};
 
 use clap::Parser;
 use color_eyre::{Result, eyre::Context, eyre::ensure};
 use hydra_bench::{CliArguments, run_inference, sample_image, setup};
+use ort::session::Session;
 use serde::Serialize;
 
 #[derive(Serialize)]
@@ -35,8 +42,24 @@ fn main() -> Result<()> {
     ensure!(iterations > 0, "iterations must be > 0");
 
     let mut results = Vec::with_capacity(args.onnx_paths.len());
-    for onnx_path in &args.onnx_paths {
-        results.push(benchmark_model(&args, onnx_path)?);
+    if args.parallel {
+        let barrier = Barrier::new(args.onnx_paths.len());
+        let results = Arc::new(Mutex::new(&mut results));
+        thread::scope(|scope| {
+            for onnx_path in &args.onnx_paths {
+                let session = setup(onnx_path, &args.cache_path).unwrap();
+                scope.spawn(|| {
+                    let result = benchmark_model(&args, onnx_path, &barrier, session).unwrap();
+                    results.lock().unwrap().push(result)
+                });
+            }
+        })
+    } else {
+        let barrier = Barrier::new(1);
+        for onnx_path in &args.onnx_paths {
+            let session = setup(onnx_path, &args.cache_path)?;
+            results.push(benchmark_model(&args, onnx_path, &barrier, session)?);
+        }
     }
 
     if args.json {
@@ -79,8 +102,12 @@ fn main() -> Result<()> {
     Ok(())
 }
 
-fn benchmark_model(args: &CliArguments, onnx_path: &Path) -> Result<BenchmarkResult> {
-    let mut session = setup(onnx_path, &args.cache_path)?;
+fn benchmark_model(
+    args: &CliArguments,
+    onnx_path: &Path,
+    barrier: &Barrier,
+    mut session: Session,
+) -> Result<BenchmarkResult> {
     let sample_image = sample_image();
 
     for _ in 0..args.warmup {
@@ -91,6 +118,7 @@ fn benchmark_model(args: &CliArguments, onnx_path: &Path) -> Result<BenchmarkRes
     let mut latencies = Vec::with_capacity(iterations);
 
     for _ in 0..iterations {
+        barrier.wait();
         let start = Instant::now();
         drop(run_inference(&mut session, black_box(&sample_image))?);
         let elapsed = start.elapsed();
