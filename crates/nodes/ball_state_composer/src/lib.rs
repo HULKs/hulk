@@ -32,7 +32,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let ball_position_sub = node
-        .subscriber::<Option<BallPosition<Ground>>>("ball_position")?
+        .subscriber::<Option<BallPosition<Ground>>>("ball_filter/ball_position")?
         .build()
         .await?;
     let ground_to_field_cache = node
@@ -126,7 +126,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
                 let Some(primary_state) = primary_state_cache.get_latest() else { continue };
                 let rule_ball = compose_rule_ball_state(
-                    Some(*primary_state),
+                    *primary_state,
                     ground_to_field,
                     Some(&filtered_game_controller_state),
                     field_dimensions,
@@ -141,7 +141,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 }
 
 fn compose_rule_ball_state(
-    primary_state: Option<PrimaryState>,
+    primary_state: PrimaryState,
     ground_to_field: Isometry2<Ground, Field>,
     filtered_game_controller_state: Option<&FilteredGameControllerState>,
     field_dimensions: FieldDimensions,
@@ -150,7 +150,7 @@ fn compose_rule_ball_state(
 ) -> Option<BallState> {
     match (primary_state, filtered_game_controller_state) {
         (
-            Some(PrimaryState::Ready | PrimaryState::Set),
+            PrimaryState::Ready | PrimaryState::Set,
             Some(FilteredGameControllerState {
                 sub_state: Some(SubState::PenaltyKick),
                 kicking_team,
@@ -181,7 +181,7 @@ fn compose_rule_ball_state(
                 last_ball_field_side,
             ))
         }
-        (Some(PrimaryState::Ready), _) => Some(create_ball_state(
+        (PrimaryState::Ready, _) => Some(create_ball_state(
             ground_to_field.inverse() * Point2::origin(),
             Point2::origin(),
             Vector2::zeros(),
