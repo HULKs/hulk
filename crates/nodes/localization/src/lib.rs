@@ -1,5 +1,5 @@
 use std::{boxed::Box, future::Future, pin::Pin};
-use std::{future::pending, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
 use color_eyre::Result;
 use nalgebra as na;
@@ -122,16 +122,23 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .publisher::<f32>("localization/gyro_movement")?
         .build()
         .await?;
-    let _ground_to_field_pub = node
+    let ground_to_field_pub = node
         .publisher::<Isometry2<Ground, Field>>("ground_to_field")?
         .build()
         .await?;
-    let _is_localization_converged_pub = node
+    let is_localization_converged_pub = node
         .publisher::<bool>("is_localization_converged")?
         .build()
         .await?;
 
-    pending::<()>().await;
+    let ground_to_field = Isometry2::identity();
+    let is_localization_converged = true;
 
-    Ok(())
+    loop {
+        ground_to_field_pub.publish(&ground_to_field).await?;
+        is_localization_converged_pub
+            .publish(&is_localization_converged)
+            .await?;
+        node.clock().timer(Duration::from_millis(5)).tick().await;
+    }
 }
