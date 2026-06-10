@@ -76,13 +76,13 @@ impl<'a> Panel<'a> for RemotePanel {
                 if gilrs.gamepads().next().is_none() {
                     let _ = sender.send((Step::default(), 1.0));
 
-                    set_kick_mode_toggle(&robot_clone, false);
-                    north_was_pressed = false;
-                    south_was_pressed = false;
-
                     if enabled_clone.load(Ordering::Relaxed) {
                         reset(&robot_clone);
+                    } else if south_was_pressed {
+                        set_kick_mode_toggle(&robot_clone, false);
                     }
+                    north_was_pressed = false;
+                    south_was_pressed = false;
                     continue;
                 }
 
@@ -223,6 +223,7 @@ fn get_axis_value(gamepad: Gamepad, axis: Axis) -> Option<f32> {
 
 fn reset(robot: &Arc<Robot>) {
     update_step(robot, Step::<f32>::default(), 1.0);
+    set_kick_mode_toggle(robot, false);
 }
 
 fn set_kick_mode_toggle(robot: &Arc<Robot>, value: bool) {
@@ -249,6 +250,7 @@ impl Drop for RemotePanel {
         if let Some(handle) = self.bg_handle.take() {
             let _ = handle.join();
         }
+        reset(&self.robot);
     }
 }
 
