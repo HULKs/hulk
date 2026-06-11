@@ -51,7 +51,7 @@ impl LEDHandler {
             PrimaryState::Initial => SetLedLightColorParameter::YELLOW,
             PrimaryState::Set => SetLedLightColorParameter::ORANGE,
             PrimaryState::Playing => SetLedLightColorParameter::GREEN,
-            PrimaryState::Custom => SetLedLightColorParameter::RED,
+            PrimaryState::Custom => SetLedLightColorParameter::PINK,
             PrimaryState::Penalized => SetLedLightColorParameter::LIGHT_RED,
             PrimaryState::Finished => SetLedLightColorParameter::PURPLE,
         };
@@ -76,6 +76,7 @@ pub trait DefaultLEDColors {
     const ORANGE: Self;
     const YELLOW: Self;
     const PURPLE: Self;
+    const PINK: Self;
 }
 
 impl DefaultLEDColors for SetLedLightColorParameter {
@@ -111,5 +112,10 @@ impl DefaultLEDColors for SetLedLightColorParameter {
         r: 128,
         g: 0,
         b: 255,
+    };
+    const PINK: Self = SetLedLightColorParameter {
+        r: 255,
+        g: 0,
+        b: 126,
     };
 }

@@ -5290,6 +5290,7 @@ dependencies = [
  "kinematics",
  "kinematics_provider",
  "led_handler",
+ "log",
  "low_state_bridge",
  "motionfile",
  "primary_state_filter",

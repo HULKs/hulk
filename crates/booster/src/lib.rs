@@ -285,6 +285,24 @@ pub struct LowCommand {
 }
 
 impl LowCommand {
+    pub fn zero(command_type: CommandType) -> Self {
+        LowCommand {
+            command_type,
+            motor_commands: Joints::fill(())
+                .into_iter()
+                .map(|()| MotorCommand {
+                    command_type,
+                    position: 0.0,
+                    velocity: 0.0,
+                    torque: 0.0,
+                    kp: 0.0,
+                    kd: 0.0,
+                    weight: 0.0,
+                })
+                .collect(),
+        }
+    }
+
     pub fn new(
         joint_positions: &Joints,
         motor_command_parameters: &MotorCommandParameters,
@@ -306,6 +324,28 @@ impl LowCommand {
                     weight: motor_command_parameters.weight,
                 })
                 .collect(),
+        }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn low_command_zero_initializes_every_motor_command_to_zero() {
+        let command = LowCommand::zero(CommandType::Serial);
+
+        assert_eq!(command.command_type, CommandType::Serial);
+        assert_eq!(command.motor_commands.len(), 22);
+        for motor_command in command.motor_commands {
+            assert_eq!(motor_command.command_type, CommandType::Serial);
+            assert_eq!(motor_command.position, 0.0);
+            assert_eq!(motor_command.velocity, 0.0);
+            assert_eq!(motor_command.torque, 0.0);
+            assert_eq!(motor_command.kp, 0.0);
+            assert_eq!(motor_command.kd, 0.0);
+            assert_eq!(motor_command.weight, 0.0);
         }
     }
 }

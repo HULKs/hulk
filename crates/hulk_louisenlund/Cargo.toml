@@ -9,8 +9,8 @@ homepage.workspace = true
 cross-compile = true
 
 [dependencies]
-booster = { workspace = true }
 behavior_node = { workspace = true }
+booster = { workspace = true }
 booster_sdk_interface = { workspace = true }
 button_event_bridge = { workspace = true }
 button_event_handler = { workspace = true }
@@ -22,6 +22,7 @@ ground_provider = { workspace = true }
 kinematics = { workspace = true }
 kinematics_provider = { workspace = true }
 led_handler = { workspace = true }
+log = { workspace = true }
 low_state_bridge = { workspace = true }
 motionfile = { workspace = true }
 primary_state_filter = { workspace = true }
