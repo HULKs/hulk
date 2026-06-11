@@ -286,7 +286,7 @@ def _(clean_code, mo):
 
     # Eingerückte Zeilen gehören zu einem Block.
     roboter_aktiv = True
-    if roboter_aktiv:
+    if roboter_aktiv == True:
         print("Der Roboter ist aktiv")
         print("Diese Zeile gehört noch zum if-Block")
 
@@ -331,7 +331,7 @@ def _(clean_code, mo):
     print("2. Der Roboter fährt los")
 
     roboter_aktiv = True
-    if roboter_aktiv:
+    if roboter_aktiv == True:
         print("4. Status: aktiv")"""), language="python")
     syntax_task_code_box
     return (syntax_task_code_box,)
@@ -359,7 +359,12 @@ def _(contextlib, io, mo, render_task_output, syntax_task_code_box):
 
 @app.cell(hide_code=True)
 def datentypen(mo):
-    mo.md(r"""
+    null_vs_zero = mo.image(
+        src="src/none_zero_KLOPAPIER.jpg",
+        alt="NULL vs. 0",
+        width="420px",
+    )
+    mo.md(f"""
     ## Datentypen und Variablen
 
     Um Daten in einem Programm zu speichern benutzt man Variablen, also einen benannten Ort im Speicher.
@@ -372,6 +377,16 @@ def datentypen(mo):
     - **String**: Text, z. B. "Hallo", "Welt"
     - **Boolean**: Wahrheitswerte, z. B. True, False
     - **None**: Ein spezieller Wert, der bedeutet, dass keine Daten vorhanden sind.
+
+    /// details | None vs. Zero
+
+    {null_vs_zero}
+    </br>
+    `NULL` und `None` meinen hier dasselbe: Es gibt gerade keinen Wert.
+    </br>
+    `0` ist dagegen ein echter Zahlenwert, mit dem Python rechnen kann.
+
+    ///
     """)
     return
 
