@@ -1,14 +1,19 @@
 use std::{boxed::Box, future::Future, pin::Pin, sync::Arc};
 
+use booster::{CommandType, LowCommand};
 use booster_sdk::client::{BoosterClient, light_control::LightControlClient};
-use color_eyre::{Result, eyre::WrapErr};
+use color_eyre::{
+    Result,
+    eyre::{WrapErr, eyre},
+};
 use kinematics::joints::head::HeadJoints;
-use ros_z::prelude::*;
+use ros_z::{message::WireEncoder, prelude::*};
 use serde::{Deserialize, Serialize};
 use types::{
     buttons::{ButtonPressType, Buttons},
     motion_command::MotionCommand,
 };
+use zenoh::pubsub::Publisher as ZenohPublisher;
 
 mod control;
 mod kick_transport;
@@ -44,6 +49,9 @@ struct InterfaceState {
     visual_kick: control::VisualKickState,
     stand_up_request: StandUpRequestState,
     local_stop_toggle: bool,
+    firmware_prepare_requested: bool,
+    latest_low_command: Option<LowCommand>,
+    pending_low_command_flush: bool,
 }
 
 impl Default for InterfaceState {
@@ -62,6 +70,9 @@ impl Default for InterfaceState {
             visual_kick: control::VisualKickState::default(),
             stand_up_request: StandUpRequestState::default(),
             local_stop_toggle: false,
+            firmware_prepare_requested: false,
+            latest_low_command: None,
+            pending_low_command_flush: false,
         }
     }
 }
@@ -141,6 +152,11 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let kick_ball_publisher = kick_transport::KickBallPublisher::new(ctx.session())
         .await
         .wrap_err("failed to create kick ball publisher")?;
+    let joint_ctrl_publisher = ctx
+        .session()
+        .declare_publisher("rt/joint_ctrl")
+        .await
+        .map_err(|error| eyre!("{error}"))?;
 
     let motion_command_sub = node
         .subscriber::<MotionCommand>("motion_command")
@@ -160,6 +176,12 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await
         .wrap_err("failed to build commands/led_command subscriber")?;
+    let low_command_sub = node
+        .subscriber::<LowCommand>("commands/low_command")
+        .wrap_err("failed to create commands/low_command subscriber")?
+        .build()
+        .await
+        .wrap_err("failed to build commands/low_command subscriber")?;
     let buttons_sub = node
         .subscriber::<Buttons<Option<ButtonPressType>>>("buttons")
         .wrap_err("failed to create buttons subscriber")?
@@ -184,14 +206,23 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 latest_head_joints = Some(head_joints?);
             }
             led_command = led_command_sub.recv() => {
-                let light_control_client = light_control_client.clone();
-                tokio::spawn(handle_led_command(light_control_client, led_command?));
+                handle_led_command(light_control_client.clone(), led_command?).await?;
+            }
+            low_command = low_command_sub.recv() => {
+                let low_command = low_command?;
+                state.latest_low_command = Some(low_command.clone());
+                let emergency_damping = state.local_stop_toggle != parameters.remote_stop_toggle;
+
+                if low_command_can_be_sent(&state, emergency_damping) {
+                    publish_low_command(&joint_ctrl_publisher, &low_command).await?;
+                    state.pending_low_command_flush = false;
+                } else {
+                    state.pending_low_command_flush = true;
+                }
             }
             buttons = buttons_sub.recv() => {
                 let buttons = buttons?;
-                if button_requests_local_stop_toggle(&buttons) {
-                    state.local_stop_toggle = !state.local_stop_toggle;
-                }
+                handle_button_requests(&mut state, &buttons, parameters.remote_stop_toggle);
             }
             _ = tick.tick() => {
                 let emergency_damping = state.local_stop_toggle != parameters.remote_stop_toggle;
@@ -199,13 +230,43 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                     &mut state,
                     &booster_client,
                     &kick_ball_publisher,
+                    &joint_ctrl_publisher,
                     latest_head_joints,
                     emergency_damping,
                     parameters,
-                ).await;
+                ).await?;
             }
         }
     }
+}
+
+fn zero_low_command() -> LowCommand {
+    LowCommand::zero(CommandType::Serial)
+}
+
+async fn publish_low_command(
+    joint_ctrl_publisher: &ZenohPublisher<'_>,
+    low_command: &LowCommand,
+) -> Result<()> {
+    let low_command_bytes = <LowCommand as Message>::Codec::serialize(low_command)?;
+    joint_ctrl_publisher
+        .put(&low_command_bytes)
+        .await
+        .map_err(|error| eyre!("{error}"))?;
+
+    Ok(())
+}
+
+fn low_command_can_be_sent(state: &InterfaceState, emergency_damping: bool) -> bool {
+    !emergency_damping
+        && matches!(state.last_motion_command, MotionCommand::Custom)
+        && state.confirmed_mode == Some(booster_sdk::types::RobotMode::Custom)
+}
+
+fn pending_low_command_should_flush(state: &InterfaceState, emergency_damping: bool) -> bool {
+    state.pending_low_command_flush
+        && state.latest_low_command.is_some()
+        && low_command_can_be_sent(state, emergency_damping)
 }
 
 async fn handle_led_command(
@@ -237,9 +298,40 @@ fn sdk_mode_for(desired_mode: control::DesiredMode) -> booster_sdk::types::Robot
     }
 }
 
-fn button_requests_local_stop_toggle(buttons: &Buttons<Option<ButtonPressType>>) -> bool {
+fn button_requests_local_stop_toggle(
+    buttons: &Buttons<Option<ButtonPressType>>,
+    emergency_damping: bool,
+) -> bool {
     matches!(buttons.f1, Some(ButtonPressType::Short))
-        || matches!(buttons.stand, Some(ButtonPressType::Short))
+        || (emergency_damping && matches!(buttons.stand, Some(ButtonPressType::Short)))
+}
+
+fn button_requests_local_stop_clear(buttons: &Buttons<Option<ButtonPressType>>) -> bool {
+    matches!(buttons.f1, Some(ButtonPressType::Long))
+}
+
+fn button_requests_firmware_prepare(buttons: &Buttons<Option<ButtonPressType>>) -> bool {
+    matches!(
+        buttons.stand,
+        Some(ButtonPressType::Short | ButtonPressType::Long)
+    )
+}
+
+fn handle_button_requests(
+    state: &mut InterfaceState,
+    buttons: &Buttons<Option<ButtonPressType>>,
+    remote_stop_toggle: bool,
+) {
+    let emergency_damping = state.local_stop_toggle != remote_stop_toggle;
+    if button_requests_local_stop_toggle(buttons, emergency_damping) {
+        state.local_stop_toggle = !state.local_stop_toggle;
+    }
+    if button_requests_local_stop_clear(buttons) {
+        state.local_stop_toggle = remote_stop_toggle;
+    }
+    if button_requests_firmware_prepare(buttons) {
+        state.firmware_prepare_requested = true;
+    }
 }
 
 fn visual_kick_transition_for(
@@ -283,10 +375,11 @@ async fn drive_booster_effects(
     state: &mut InterfaceState,
     booster_client: &BoosterClient,
     kick_ball_publisher: &kick_transport::KickBallPublisher,
+    joint_ctrl_publisher: &ZenohPublisher<'_>,
     latest_head_joints: Option<HeadJoints<f32>>,
     emergency_damping: bool,
     parameters: &Parameters,
-) {
+) -> Result<()> {
     let mut now = std::time::Instant::now();
 
     if now.duration_since(state.last_mode_poll) >= parameters.mode_poll_interval {
@@ -295,7 +388,14 @@ async fn drive_booster_effects(
         state.last_mode_poll = now;
     }
 
-    let desired_mode = control::desired_mode_for(&state.last_motion_command, emergency_damping);
+    let desired_mode = desired_mode_for_state(state, emergency_damping);
+    if desired_mode == control::DesiredMode::Damping
+        && state.desired_mode != Some(control::DesiredMode::Damping)
+    {
+        let low_command = zero_low_command();
+        publish_low_command(joint_ctrl_publisher, &low_command).await?;
+    }
+
     let confirmed_desired_mode = state.confirmed_mode == Some(sdk_mode_for(desired_mode));
     if !confirmed_desired_mode
         && (state.desired_mode != Some(desired_mode)
@@ -305,6 +405,17 @@ async fn drive_booster_effects(
         now = std::time::Instant::now();
         state.desired_mode = Some(desired_mode);
         state.last_mode_request = now;
+    }
+
+    if desired_mode != control::DesiredMode::Custom {
+        state.pending_low_command_flush = false;
+    } else if pending_low_command_should_flush(state, emergency_damping) {
+        let low_command = state
+            .latest_low_command
+            .clone()
+            .expect("pending low command flush requires a buffered command");
+        publish_low_command(joint_ctrl_publisher, &low_command).await?;
+        state.pending_low_command_flush = false;
     }
 
     let walking_allowed =
@@ -355,7 +466,7 @@ async fn drive_booster_effects(
         } else if transition == control::VisualKickTransition::None {
             state.last_visual_kick_attempt = None;
         }
-        return;
+        return Ok(());
     }
 
     if now.duration_since(state.last_move_robot) >= parameters.move_robot_message_interval {
@@ -445,6 +556,26 @@ async fn drive_booster_effects(
         }
         state.last_kick = std::time::Instant::now();
     }
+
+    Ok(())
+}
+
+fn desired_mode_for_state(
+    state: &mut InterfaceState,
+    emergency_damping: bool,
+) -> control::DesiredMode {
+    let framework_desired_mode =
+        control::desired_mode_for(&state.last_motion_command, emergency_damping);
+
+    if emergency_damping || !matches!(state.last_motion_command, MotionCommand::Damping) {
+        state.firmware_prepare_requested = false;
+    }
+
+    if state.firmware_prepare_requested && framework_desired_mode == control::DesiredMode::Damping {
+        control::DesiredMode::Prepare
+    } else {
+        framework_desired_mode
+    }
 }
 
 #[cfg(test)]
@@ -469,32 +600,204 @@ mod tests {
     }
 
     #[test]
-    fn interface_detects_short_f1_or_stand_local_stop_requests() {
-        assert!(!button_requests_local_stop_toggle(&Buttons {
-            f1: None,
-            stand: None,
-            walking: None,
-        }));
-        assert!(button_requests_local_stop_toggle(&Buttons {
+    fn interface_detects_local_stop_toggle_requests() {
+        assert!(!button_requests_local_stop_toggle(
+            &Buttons {
+                f1: None,
+                stand: None,
+                walking: None,
+            },
+            false
+        ));
+        assert!(button_requests_local_stop_toggle(
+            &Buttons {
+                f1: Some(ButtonPressType::Short),
+                stand: None,
+                walking: None,
+            },
+            false
+        ));
+        assert!(!button_requests_local_stop_toggle(
+            &Buttons {
+                f1: None,
+                stand: Some(ButtonPressType::Short),
+                walking: None,
+            },
+            false
+        ));
+        assert!(button_requests_local_stop_toggle(
+            &Buttons {
+                f1: None,
+                stand: Some(ButtonPressType::Short),
+                walking: None,
+            },
+            true
+        ));
+        assert!(!button_requests_local_stop_toggle(
+            &Buttons {
+                f1: Some(ButtonPressType::Long),
+                stand: None,
+                walking: None,
+            },
+            false
+        ));
+        assert!(!button_requests_local_stop_toggle(
+            &Buttons {
+                f1: None,
+                stand: None,
+                walking: Some(ButtonPressType::Short),
+            },
+            false
+        ));
+    }
+
+    #[test]
+    fn interface_detects_firmware_prepare_requests() {
+        assert!(!button_requests_firmware_prepare(&Buttons {
             f1: Some(ButtonPressType::Short),
             stand: None,
             walking: None,
         }));
-        assert!(button_requests_local_stop_toggle(&Buttons {
+        assert!(button_requests_firmware_prepare(&Buttons {
             f1: None,
             stand: Some(ButtonPressType::Short),
             walking: None,
         }));
-        assert!(!button_requests_local_stop_toggle(&Buttons {
-            f1: Some(ButtonPressType::Long),
-            stand: None,
+        assert!(button_requests_firmware_prepare(&Buttons {
+            f1: None,
+            stand: Some(ButtonPressType::Long),
             walking: None,
         }));
-        assert!(!button_requests_local_stop_toggle(&Buttons {
-            f1: None,
-            stand: None,
-            walking: Some(ButtonPressType::Short),
-        }));
+    }
+
+    #[test]
+    fn f1_long_clears_local_stop_set_by_preceding_short_press() {
+        let mut state = InterfaceState::default();
+        let remote_stop_toggle = false;
+
+        handle_button_requests(
+            &mut state,
+            &Buttons {
+                f1: Some(ButtonPressType::Short),
+                stand: None,
+                walking: None,
+            },
+            remote_stop_toggle,
+        );
+
+        assert!(state.local_stop_toggle != remote_stop_toggle);
+
+        handle_button_requests(
+            &mut state,
+            &Buttons {
+                f1: Some(ButtonPressType::Long),
+                stand: None,
+                walking: None,
+            },
+            remote_stop_toggle,
+        );
+
+        assert_eq!(state.local_stop_toggle, remote_stop_toggle);
+    }
+
+    #[test]
+    fn f1_long_clears_local_stop_to_remote_stop_value() {
+        let mut state = InterfaceState {
+            local_stop_toggle: false,
+            ..Default::default()
+        };
+        let remote_stop_toggle = true;
+
+        handle_button_requests(
+            &mut state,
+            &Buttons {
+                f1: Some(ButtonPressType::Long),
+                stand: None,
+                walking: None,
+            },
+            remote_stop_toggle,
+        );
+
+        assert_eq!(state.local_stop_toggle, remote_stop_toggle);
+    }
+
+    #[test]
+    fn stand_button_prepare_request_overrides_framework_damping() {
+        let mut state = InterfaceState::default();
+        state.firmware_prepare_requested = true;
+
+        let desired_mode = desired_mode_for_state(&mut state, false);
+
+        assert_eq!(desired_mode, control::DesiredMode::Prepare);
+        assert!(state.firmware_prepare_requested);
+    }
+
+    #[test]
+    fn emergency_damping_overrides_stand_button_prepare_request() {
+        let mut state = InterfaceState::default();
+        state.firmware_prepare_requested = true;
+
+        let desired_mode = desired_mode_for_state(&mut state, true);
+
+        assert_eq!(desired_mode, control::DesiredMode::Damping);
+        assert!(!state.firmware_prepare_requested);
+    }
+
+    #[test]
+    fn non_damping_motion_clears_stand_button_prepare_request() {
+        let mut state = InterfaceState::default();
+        state.firmware_prepare_requested = true;
+        state.last_motion_command = MotionCommand::Prepare;
+
+        let desired_mode = desired_mode_for_state(&mut state, false);
+
+        assert_eq!(desired_mode, control::DesiredMode::Prepare);
+        assert!(!state.firmware_prepare_requested);
+    }
+
+    #[test]
+    fn low_command_flush_waits_for_confirmed_custom_mode() {
+        let mut state = InterfaceState {
+            last_motion_command: MotionCommand::Custom,
+            confirmed_mode: Some(booster_sdk::types::RobotMode::Damping),
+            latest_low_command: Some(zero_low_command()),
+            pending_low_command_flush: true,
+            ..Default::default()
+        };
+
+        assert!(!pending_low_command_should_flush(&state, false));
+
+        state.confirmed_mode = Some(booster_sdk::types::RobotMode::Custom);
+
+        assert!(pending_low_command_should_flush(&state, false));
+    }
+
+    #[test]
+    fn low_command_flush_requires_custom_motion_command() {
+        let state = InterfaceState {
+            last_motion_command: MotionCommand::Damping,
+            confirmed_mode: Some(booster_sdk::types::RobotMode::Custom),
+            latest_low_command: Some(zero_low_command()),
+            pending_low_command_flush: true,
+            ..Default::default()
+        };
+
+        assert!(!low_command_can_be_sent(&state, false));
+        assert!(!pending_low_command_should_flush(&state, false));
+    }
+
+    #[test]
+    fn emergency_damping_blocks_pending_low_command_flush() {
+        let state = InterfaceState {
+            last_motion_command: MotionCommand::Custom,
+            confirmed_mode: Some(booster_sdk::types::RobotMode::Custom),
+            latest_low_command: Some(zero_low_command()),
+            pending_low_command_flush: true,
+            ..Default::default()
+        };
+
+        assert!(!low_command_can_be_sent(&state, true));
+        assert!(!pending_low_command_should_flush(&state, true));
     }
 
     #[test]

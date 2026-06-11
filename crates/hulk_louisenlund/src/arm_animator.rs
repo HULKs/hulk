@@ -10,8 +10,8 @@ use tokio::time::MissedTickBehavior;
 
 use booster::{CommandType, JointsMotorState, LowCommand, MotorCommandParameters, MotorState};
 use kinematics::joints::{Joints, body::UpperBodyJoints};
-use motionfile::{SplineInterpolator, TimedSpline};
 use ros_z::prelude::*;
+use types::motion_command::MotionCommand;
 
 const ARM_JOINTS_TOPIC: &str = "arm_joints";
 const PUBLISH_INTERVAL: Duration = Duration::from_millis(20);
@@ -27,62 +27,40 @@ pub struct Parameters {
 #[derive(Default)]
 struct ArmAnimator {
     latest_measured_positions: Option<UpperBodyJoints>,
-    pending_target: Option<UpperBodyJoints>,
-    active_transition: Option<SplineInterpolator<UpperBodyJoints>>,
+    target: Option<UpperBodyJoints>,
     last_commanded_positions: Option<UpperBodyJoints>,
+    commands_active: bool,
 }
 
 impl ArmAnimator {
-    fn update_measured_positions(
-        &mut self,
-        measured_positions: Joints,
-        maximum_arm_joint_velocities: UpperBodyJoints,
-    ) -> Result<()> {
+    fn update_measured_positions(&mut self, measured_positions: Joints) {
         self.latest_measured_positions = Some(measured_positions.into());
 
-        if let Some(target) = self.pending_target.take() {
-            self.start_transition(target, maximum_arm_joint_velocities)?;
+        if self.commands_active && self.last_commanded_positions.is_none() {
+            self.last_commanded_positions = self.latest_measured_positions;
         }
-
-        Ok(())
     }
 
-    fn set_target(
-        &mut self,
-        target: UpperBodyJoints,
-        maximum_arm_joint_velocities: UpperBodyJoints,
-    ) -> Result<()> {
-        self.pending_target = Some(target);
-
-        if self.latest_measured_positions.is_some() {
-            let target = self
-                .pending_target
-                .take()
-                .expect("target was just inserted");
-            self.start_transition(target, maximum_arm_joint_velocities)?;
-        }
-
-        Ok(())
+    fn set_target(&mut self, target: UpperBodyJoints) {
+        self.target = Some(target);
     }
 
-    fn start_transition(
-        &mut self,
-        target: UpperBodyJoints,
-        maximum_arm_joint_velocities: UpperBodyJoints,
-    ) -> Result<()> {
-        let current_positions = self
-            .latest_measured_positions
-            .expect("measured positions are required before starting a transition");
-        let duration =
-            transition_duration(current_positions, target, maximum_arm_joint_velocities)?;
-        let spline = TimedSpline::try_new_transition_timed(current_positions, target, duration)
-            .wrap_err("failed to create arm transition")?;
+    fn set_commands_active(&mut self, commands_active: bool) {
+        if self.commands_active == commands_active {
+            return;
+        }
 
-        self.active_transition = Some(SplineInterpolator::from(spline));
-        self.last_commanded_positions
-            .get_or_insert(current_positions);
+        self.commands_active = commands_active;
 
-        Ok(())
+        if commands_active {
+            self.last_commanded_positions = self.latest_measured_positions;
+        } else {
+            self.last_commanded_positions = None;
+        }
+    }
+
+    fn commands_active(&self) -> bool {
+        self.commands_active
     }
 
     fn next_command(
@@ -90,11 +68,12 @@ impl ArmAnimator {
         time_step: Duration,
         maximum_arm_joint_velocities: UpperBodyJoints,
     ) -> Option<UpperBodyJoints> {
-        let measured_positions = self.latest_measured_positions?;
-        let transition = self.active_transition.as_mut()?;
+        if !self.commands_active {
+            return None;
+        }
 
-        transition.advance_by(time_step);
-        let desired_positions = transition.value();
+        let measured_positions = self.latest_measured_positions?;
+        let desired_positions = self.target?;
         let previous_positions = self.last_commanded_positions.unwrap_or(measured_positions);
         let clamped_positions = clamp_joint_velocities(
             previous_positions,
@@ -127,6 +106,10 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .subscriber::<Joints<MotorState>>("inputs/serial_motor_states")?
         .build()
         .await?;
+    let motion_command_sub = node
+        .subscriber::<MotionCommand>("motion_command")?
+        .build()
+        .await?;
     let low_command_pub = node
         .publisher::<LowCommand>("commands/low_command")?
         .build()
@@ -151,32 +134,33 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
                 if let Some(injected_arm_joints) = parameters.injected_arm_joints {
                     validate_arm_joint_positions(injected_arm_joints)?;
-                    arm_animator.set_target(
-                        injected_arm_joints,
-                        parameters.maximum_arm_joint_velocities,
-                    )?;
+                    arm_animator.set_target(injected_arm_joints);
                 }
             }
-            arm_joints = arm_joints_sub.recv_async() => {
+            arm_joints = arm_joints_sub.recv_async(), if arm_animator.commands_active() => {
                 let arm_joints = arm_joints.map_err(|error| eyre!("{error}"))?;
                 let arm_joints: [f32; 8] = cdr::deserialize(&arm_joints.payload().to_bytes())
                     .wrap_err("failed to deserialize arm_joints")?;
                 let upper_body_joints = UpperBodyJoints::from(arm_joints);
                 validate_arm_joint_positions(upper_body_joints)?;
 
-                arm_animator.set_target(
-                    upper_body_joints,
-                    parameters.maximum_arm_joint_velocities,
-                )?;
+                arm_animator.set_target(upper_body_joints);
             }
             serial_motor_states = serial_motor_states_sub.recv() => {
                 let serial_motor_states = serial_motor_states?;
-                arm_animator.update_measured_positions(
-                    serial_motor_states.positions(),
-                    parameters.maximum_arm_joint_velocities,
-                )?;
+                arm_animator.update_measured_positions(serial_motor_states.positions());
+            }
+            motion_command = motion_command_sub.recv() => {
+                let motion_command = motion_command?;
+                arm_animator.set_commands_active(
+                    matches!(motion_command, MotionCommand::Custom),
+                );
             }
             _ = publish_interval.tick() => {
+                if !arm_animator.commands_active() {
+                    continue;
+                }
+
                 let Some(target_upper_body_joints) = arm_animator.next_command(
                     PUBLISH_INTERVAL,
                     parameters.maximum_arm_joint_velocities,
@@ -239,27 +223,6 @@ fn validate_arm_joint_positions(arms: UpperBodyJoints) -> Result<()> {
     Ok(())
 }
 
-fn transition_duration(
-    current_positions: UpperBodyJoints,
-    target_positions: UpperBodyJoints,
-    maximum_velocities: UpperBodyJoints,
-) -> Result<Duration> {
-    let mut maximum_duration = Duration::ZERO;
-
-    for ((current_position, target_position), maximum_velocity) in current_positions
-        .into_iter()
-        .zip(target_positions)
-        .zip(maximum_velocities)
-    {
-        let duration_seconds = ((target_position - current_position) / maximum_velocity).abs();
-        let duration = Duration::try_from_secs_f32(duration_seconds)
-            .wrap_err("arm transition duration must be representable")?;
-        maximum_duration = maximum_duration.max(duration);
-    }
-
-    Ok(maximum_duration)
-}
-
 #[cfg(test)]
 mod tests {
     use std::time::Duration;
@@ -318,43 +281,111 @@ mod tests {
     }
 
     #[test]
-    fn retargeting_preserves_last_commanded_arms_for_velocity_clamp_baseline() {
+    fn target_waits_until_commands_are_active() {
         let mut animator = ArmAnimator::default();
-        let measured_positions = Joints::default();
         let maximum_velocities = UpperBodyJoints::from([1.0; 8]);
-        let last_commanded_positions = UpperBodyJoints::from([0.5; 8]);
 
-        animator
-            .update_measured_positions(measured_positions, maximum_velocities)
-            .unwrap();
-        animator.last_commanded_positions = Some(last_commanded_positions);
+        animator.update_measured_positions(Joints::default());
+        animator.set_target(UpperBodyJoints::from([1.0; 8]));
 
-        animator
-            .set_target(UpperBodyJoints::from([1.0; 8]), maximum_velocities)
-            .unwrap();
+        assert!(
+            animator
+                .next_command(Duration::from_millis(20), maximum_velocities)
+                .is_none()
+        );
 
-        assert_eq!(
-            animator.last_commanded_positions,
-            Some(last_commanded_positions)
+        animator.set_commands_active(true);
+
+        assert!(
+            animator
+                .next_command(Duration::from_millis(20), maximum_velocities)
+                .is_some()
         );
     }
 
     #[test]
-    fn rejects_unrepresentable_transition_durations_without_panicking() {
+    fn deactivating_commands_stops_command_output() {
         let mut animator = ArmAnimator::default();
-        animator
-            .update_measured_positions(Joints::default(), UpperBodyJoints::from([1.0; 8]))
+        let maximum_velocities = UpperBodyJoints::from([1.0; 8]);
+
+        animator.update_measured_positions(Joints::default());
+        animator.set_target(UpperBodyJoints::from([1.0; 8]));
+        animator.set_commands_active(true);
+
+        assert!(
+            animator
+                .next_command(Duration::from_millis(20), maximum_velocities)
+                .is_some()
+        );
+        animator.set_commands_active(false);
+
+        assert!(animator.last_commanded_positions.is_none());
+        assert!(
+            animator
+                .next_command(Duration::from_millis(20), maximum_velocities)
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn first_active_command_is_clamped_against_latest_measured_positions() {
+        let mut animator = ArmAnimator::default();
+        let maximum_velocities = UpperBodyJoints::from([1.0; 8]);
+
+        animator.update_measured_positions(Joints::default());
+        animator.set_target(UpperBodyJoints::from([1.0; 8]));
+        animator.set_commands_active(true);
+
+        let first_command = animator
+            .next_command(Duration::from_millis(500), maximum_velocities)
             .unwrap();
 
-        let result = std::panic::catch_unwind(std::panic::AssertUnwindSafe(|| {
-            animator.set_target(
-                UpperBodyJoints::from([f32::MAX; 8]),
-                UpperBodyJoints::from([f32::MIN_POSITIVE; 8]),
-            )
-        }));
+        assert!(first_command.left_arm.shoulder_pitch <= 0.500_001);
+        assert!(first_command.left_arm.shoulder_pitch > 0.1);
+    }
 
-        assert!(result.is_ok(), "transition validation should not panic");
-        assert!(result.unwrap().is_err());
+    #[test]
+    fn subsequent_commands_advance_from_last_commanded_baseline() {
+        let mut animator = ArmAnimator::default();
+        let maximum_velocities = UpperBodyJoints::from([1.0; 8]);
+
+        animator.update_measured_positions(Joints::default());
+        animator.set_target(UpperBodyJoints::from([1.0; 8]));
+        animator.set_commands_active(true);
+
+        let first_command = animator
+            .next_command(Duration::from_millis(500), maximum_velocities)
+            .unwrap();
+        animator.update_measured_positions(Joints::default());
+        let second_command = animator
+            .next_command(Duration::from_millis(20), maximum_velocities)
+            .unwrap();
+
+        assert!(second_command.left_arm.shoulder_pitch > first_command.left_arm.shoulder_pitch);
+    }
+
+    #[test]
+    fn animation_samples_are_forwarded_as_desired_positions() {
+        let mut animator = ArmAnimator::default();
+        let maximum_velocities = UpperBodyJoints::from([100.0; 8]);
+
+        animator.update_measured_positions(Joints::default());
+        animator.set_commands_active(true);
+        animator.set_target(UpperBodyJoints::from([0.2; 8]));
+
+        let command = animator
+            .next_command(Duration::from_millis(20), maximum_velocities)
+            .unwrap();
+
+        assert_close(command.left_arm.shoulder_pitch, 0.2);
+
+        animator.set_target(UpperBodyJoints::from([0.4; 8]));
+
+        let command = animator
+            .next_command(Duration::from_millis(20), maximum_velocities)
+            .unwrap();
+
+        assert_close(command.left_arm.shoulder_pitch, 0.4);
     }
 
     #[test]

@@ -5292,7 +5292,6 @@ dependencies = [
  "led_handler",
  "log",
  "low_state_bridge",
- "motionfile",
  "primary_state_filter",
  "ros-z",
  "ros2",
@@ -5301,6 +5300,7 @@ dependencies = [
  "support_foot_estimator",
  "tokio",
  "tracing-subscriber",
+ "types",
  "x5_receiver",
 ]
 

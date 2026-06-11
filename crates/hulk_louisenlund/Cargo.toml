@@ -24,7 +24,6 @@ kinematics_provider = { workspace = true }
 led_handler = { workspace = true }
 log = { workspace = true }
 low_state_bridge = { workspace = true }
-motionfile = { workspace = true }
 primary_state_filter = { workspace = true }
 ros-z = { workspace = true }
 ros2 = { workspace = true }
@@ -33,4 +32,5 @@ serde = { workspace = true }
 support_foot_estimator = { workspace = true }
 tokio = { workspace = true, features = ["rt-multi-thread", "macros", "signal"] }
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
+types = { workspace = true }
 x5_receiver = { workspace = true }
