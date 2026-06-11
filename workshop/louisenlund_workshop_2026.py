@@ -436,43 +436,54 @@ def _(mo):
 
 
 @app.cell(hide_code=True)
-def _(Animation, get_compile_request, mo, np):
+def _(Animation, Path, get_compile_request, mo, np):
     _compile_request = get_compile_request()
     _animation_name = _compile_request["animation_name"]
     mo.stop(_animation_name is None)
-    _animation_code = _compile_request["animation_code"]
-    if _animation_code is not None:
-        _animation_code = normalize_animation_code(_animation_code)
 
-    _default_animation = Animation(_animation_name)
-    _namespace = {
-        "np": np,
-        "Animation": Animation,
-        "animation": _default_animation,
-        "animation_name": _animation_name,
-    }
-
-    _keys_before_exec = set(_namespace)
-    if _animation_code is not None:
-        exec(_animation_code, _namespace)
-
-    _new_animations = [
-        value
-        for key, value in _namespace.items()
-        if key not in _keys_before_exec and isinstance(value, Animation)
-    ]
-
-    if len(_new_animations) == 1:
-        animation = _new_animations[0]
-    elif isinstance(_namespace.get("animation"), Animation):
-        animation = _namespace["animation"]
+    _animation_file_name = _compile_request.get("animation_file_name")
+    if _animation_file_name is not None:
+        animation = Animation(_animation_name)
+        _file_path = Path("animation") / _animation_file_name
+        _loaded_animation = np.load(_file_path, allow_pickle=True).item()
+        animation.fps = _loaded_animation["fps"]
+        animation.frames = _loaded_animation["positions"]
+        animation.frame_times = np.arange(len(animation.frames)) / animation.fps
     else:
-        raise ValueError(
-            "No animation found. Use the current animation variable, or create one "
-            "Animation object, for example `wave = Animation('wave')`."
-        )
+        _animation_code = _compile_request["animation_code"]
+        if _animation_code is not None:
+            _animation_code = normalize_animation_code(_animation_code)
 
-    animation.compile()
+        _default_animation = Animation(_animation_name)
+        _namespace = {
+            "np": np,
+            "Animation": Animation,
+            "animation": _default_animation,
+            "animation_name": _animation_name,
+        }
+
+        _keys_before_exec = set(_namespace)
+        if _animation_code is not None:
+            exec(_animation_code, _namespace)
+
+        _new_animations = [
+            value
+            for key, value in _namespace.items()
+            if key not in _keys_before_exec and isinstance(value, Animation)
+        ]
+
+        if len(_new_animations) == 1:
+            animation = _new_animations[0]
+        elif isinstance(_namespace.get("animation"), Animation):
+            animation = _namespace["animation"]
+        else:
+            raise ValueError(
+                "No animation found. Use the current animation variable, or create one "
+                "Animation object, for example `wave = Animation('wave')`."
+            )
+
+        animation.compile()
+
     return (animation,)
 
 
@@ -552,6 +563,7 @@ def _(
 
 @app.cell(hide_code=True)
 def _(
+    Path,
     get_active_animation_name,
     get_animation_projects,
     mo,
@@ -635,10 +647,36 @@ def _(
                 }
             )
 
+    _animation_file_names = sorted(
+        path.name for path in Path("animation").glob("*.npy")
+    )
+
+    import_animation_dropdown = mo.ui.dropdown(
+        options=_animation_file_names,
+        value=_animation_file_names[0] if _animation_file_names else None,
+        label="Import animation",
+    )
+
+    def _import_animation_file(_value):
+        if _value and import_animation_dropdown.value:
+            _save_current_code()
+            set_manual_joint_mode(False)
+            set_compile_request(
+                {
+                    "animation_name": _animation_name,
+                    "animation_code": None,
+                    "animation_file_name": import_animation_dropdown.value,
+                }
+            )
+
     rename_button = mo.ui.run_button(label="Rename", on_change=_rename)
     save_button = mo.ui.run_button(label="Save", on_change=_save)
     compile_button = mo.ui.run_button(label="Compile", on_change=_compile)
     export_button = mo.ui.run_button(label="Export")
+    import_animation_button = mo.ui.run_button(
+        label="Load",
+        on_change=_import_animation_file,
+    )
 
     mo.vstack([
         mo.md(f"### Animation: `{_animation_name}`"),
@@ -650,6 +688,7 @@ def _(
             compile_button,
             export_button,
         ]),
+        mo.hstack([import_animation_dropdown, import_animation_button]),
     ])
     return (export_button,)
 
