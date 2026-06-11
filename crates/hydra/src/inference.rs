@@ -125,7 +125,7 @@ impl ObjectDetection {
 
         let nv12_data = ArrayView3::from_shape(
             [image.height as usize / 2, image.width as usize / 2, 6],
-            image.data.as_slice(),
+            &image.data,
         )
         .wrap_err("failed to view nv12 data")?;
 
