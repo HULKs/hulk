@@ -381,9 +381,11 @@ def datentypen(mo):
     /// details | None vs. Zero
 
     {null_vs_zero}
-    </br>
+    <br>
+    <small>Bildquelle: <a href="https://www.reddit.com/r/ProgrammerHumor/comments/6f68rv/difference_between_0_and_null/" target="_blank" rel="noopener noreferrer">Reddit/r/ProgrammerHumor</a></small>
+    <br>
     `NULL` und `None` meinen hier dasselbe: Es gibt gerade keinen Wert.
-    </br>
+    <br>
     `0` ist dagegen ein echter Zahlenwert, mit dem Python rechnen kann.
 
     ///
