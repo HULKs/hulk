@@ -535,7 +535,7 @@ impl CameraInterface for BoosterHardwareInterface {
                 let mut receiver = self.right_frame_receiver.lock().await;
                 receiver.recv().await
             })
-            .wrap_err("failed to receive left image")?;
+            .wrap_err("failed to receive right image")?;
 
         Ok(image.into())
     }

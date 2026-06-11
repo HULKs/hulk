@@ -72,9 +72,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 )
                 .await?;
             }
-            left_image = right_frame_receiver.recv() => {
+            right_image = right_frame_receiver.recv() => {
                 let now = node.clock().now();
-                let received = ReceivedImage::new(now, left_image);
+                let received = ReceivedImage::new(now, right_image);
                 handle_right_image(
                     &right_image_pub,
                     &stereo_image_pair_pub,
