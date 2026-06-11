@@ -38,7 +38,7 @@ def _(mo):
     Der K1 Roboter hat in jedem Arm __4__ Gelenke:
         - Schulter vorwärts heben
         - Schulter seitwärts heben
-        - Schulter rotieren
+        - Arm rotieren
         - Ellenbogen anwinkeln
 
     Alle Gelenke sind *Rotationsgelenke*, sie beschreiben eine Rotation auf einer zwei-dimensionalen Ebene.
@@ -100,8 +100,8 @@ def _(
         viewer.update(rendered_pixels)
 
     def advance_simulation(
-        mj_model: MjModel, 
-        mj_data: MjData, 
+        mj_model: MjModel,
+        mj_data: MjData,
         dt: float,
     ) -> None:
         n_steps = int(dt / model.opt.timestep / 2)
@@ -143,11 +143,21 @@ def _(
 
     manual_mode = bool(get_manual_joint_mode())
     manual_joint_positions = _as_float_list(get_manual_joint_positions())
+    arm_slider_labels = [
+        "Links: Schulter vorwärts heben",
+        "Links: Schulter seitwärts heben",
+        "Links: Arm rotieren",
+        "Links: Ellenbogen anwinkeln",
+        "Rechts: Schulter vorwärts heben",
+        "Rechts: Schulter seitwärts heben",
+        "Rechts: Arm rotieren",
+        "Rechts: Ellenbogen anwinkeln",
+    ]
 
     if manual_mode:
         arm_slider_controls = []
-        for joint_index, (joint_name, joint_min, joint_max) in enumerate(
-            zip(animation.joint_order, animation.joint_min, animation.joint_max)
+        for joint_index, (slider_label, joint_min, joint_max) in enumerate(
+            zip(arm_slider_labels, animation.joint_min, animation.joint_max)
         ):
             arm_slider_controls.append(
                 mo.ui.slider(
@@ -155,7 +165,7 @@ def _(
                     start=joint_min,
                     stop=joint_max,
                     step=0.01,
-                    label=joint_name,
+                    label=slider_label,
                     on_change=_set_manual_joint_position(joint_index),
                 )
             )
@@ -207,8 +217,8 @@ def _(Path, np):
             self.joint_max = [1.22, 1.57, 2.27, 0.0, 1.22, 1.57, 2.27, 2.44]
             self.max_vel   = [6.0, 6.0, 7.0, 8.0, 6.0, 6.0, 7.0, 8.0]
 
-        def neu(self, 
-            dauer: float = 0.5, 
+        def neu(self,
+            dauer: float = 0.5,
             positionen: np.ndarray = np.array([[0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0]])
         ) -> None:
             self.key_frames = np.vstack([self.key_frames, positionen])
