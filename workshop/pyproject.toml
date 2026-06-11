@@ -8,7 +8,9 @@ dependencies = [
     "anywidget>=0.11.0",
     "marimo>=0.23.6",
     "mujoco>=3.8.1",
+    "numpy>=2.4.4",
     "pillow>=12.2.0",
+    "eclipse-zenoh>=1.0.0",
 ]
 
 [build-system]
