@@ -24,7 +24,9 @@ pub struct StereoTriangulator {
 
 pub struct StereoPoint {
     pub left_index: usize,
+    pub right_pixel: Vec2F32,
     pub position: Vec3AF32,
+    pub disparity: f32,
 }
 
 impl StereoTriangulator {
@@ -89,10 +91,12 @@ impl StereoTriangulator {
 
             let left_pixel = self.left_pixel(left_keypoint);
             let right_pixel = self.right_pixel(right_keypoint);
-            if let Some(position) = self.triangulate_point(left_pixel, right_pixel) {
+            if let Some((position, disparity)) = self.triangulate_point(left_pixel, right_pixel) {
                 output.push(StereoPoint {
                     left_index,
+                    right_pixel,
                     position,
+                    disparity,
                 });
             }
         }
@@ -102,15 +106,15 @@ impl StereoTriangulator {
         denormalize(keypoint, self.left_size)
     }
 
-    pub fn intrinsics_f32(&self) -> &Mat3AF32 {
-        &self.intrinsics
-    }
-
-    fn right_pixel(&self, keypoint: [f32; 2]) -> Vec2F32 {
+    pub(crate) fn right_pixel(&self, keypoint: [f32; 2]) -> Vec2F32 {
         denormalize(keypoint, self.right_size)
     }
 
-    fn triangulate_point(&self, left: Vec2F32, right: Vec2F32) -> Option<Vec3AF32> {
+    pub(crate) fn baseline(&self) -> f32 {
+        self.baseline
+    }
+
+    pub(crate) fn disparity(&self, left: Vec2F32, right: Vec2F32) -> Option<f32> {
         let disparity = left.x - right.x;
         if !left.y.is_finite()
             || !right.y.is_finite()
@@ -121,11 +125,20 @@ impl StereoTriangulator {
             return None;
         }
 
+        Some(disparity)
+    }
+
+    pub fn intrinsics_f32(&self) -> &Mat3AF32 {
+        &self.intrinsics
+    }
+
+    fn triangulate_point(&self, left: Vec2F32, right: Vec2F32) -> Option<(Vec3AF32, f32)> {
+        let disparity = self.disparity(left, right)?;
         let z = self.fx * self.baseline / disparity;
         let x = (left.x - self.cx) * z / self.fx;
         let y = (left.y - self.cy) * z / self.fy;
         (z.is_finite() && z > 0.0 && x.is_finite() && y.is_finite())
-            .then_some(Vec3AF32::new(x, y, z))
+            .then_some((Vec3AF32::new(x, y, z), disparity))
     }
 }
 

@@ -168,6 +168,7 @@ impl VisualOdometryPipeline {
                 let odometry = estimate_previous_to_current(
                     previous_frame,
                     &current_left,
+                    &self.current_points,
                     &temporal_matches,
                     &self.triangulator,
                     &mut self.odometry_scratch,

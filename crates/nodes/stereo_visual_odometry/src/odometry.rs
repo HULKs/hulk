@@ -1,7 +1,10 @@
 use kornia_3d::pnp::{
     PnPMethod, PnPRansacResult, PnPResult, RansacParams, solve_pnp, solve_pnp_ransac,
 };
-use kornia_algebra::{Mat3AF32, SO3F32, Vec2F32, Vec3AF32};
+use kornia_algebra::{
+    Mat3AF32, SO3F32, Vec2F32, Vec3AF32,
+    optim::{HuberLoss, RobustLoss},
+};
 use nalgebra as na;
 
 use crate::{
@@ -17,25 +20,66 @@ const LM_MIN_LAMBDA: f32 = 1e-7;
 const LM_MAX_LAMBDA: f32 = 1e10;
 const LM_STEP_TOLERANCE: f32 = 1e-6;
 const LM_COST_TOLERANCE: f32 = 1e-6;
+const LM_HUBER_THRESHOLD_PX: f32 = 3.0;
+const FULL_WEIGHT_DISPARITY_PX: f32 = 8.0;
+const MIN_DISPARITY_WEIGHT: f32 = 0.5;
+
+#[derive(Clone, Copy)]
+struct PreviousPoint {
+    position: Vec3AF32,
+    disparity: f32,
+}
+
+#[derive(Clone, Copy)]
+struct RightImageObservation {
+    pixel: Vec2F32,
+    disparity: f32,
+}
+
+#[derive(Clone, Copy)]
+struct PoseCorrespondence {
+    world_point: Vec3AF32,
+    image_point: Vec2F32,
+    right_image_point: Option<Vec2F32>,
+    weight: f32,
+}
+
+#[derive(Clone, Copy)]
+struct CorrespondenceResidual {
+    image_point: Vec2F32,
+    x_offset: f32,
+    weight: f32,
+}
+
+struct ProjectionResidual {
+    residual: na::SVector<f32, 2>,
+    projection_x: f32,
+    inverse_z: f32,
+    inverse_z_squared: f32,
+    fx: f32,
+    fy: f32,
+}
 
 pub struct PreviousFrame {
-    points_by_left_index: Vec<Option<Vec3AF32>>,
+    points_by_left_index: Vec<Option<PreviousPoint>>,
 }
 
 pub struct OdometryScratch {
-    world_points: Vec<Vec3AF32>,
-    image_points: Vec<Vec2F32>,
-    inlier_world_points: Vec<Vec3AF32>,
-    inlier_image_points: Vec<Vec2F32>,
+    correspondences: Vec<PoseCorrespondence>,
+    inlier_correspondences: Vec<PoseCorrespondence>,
+    pnp_world_points: Vec<Vec3AF32>,
+    pnp_image_points: Vec<Vec2F32>,
+    right_observations_by_left_index: Vec<Option<RightImageObservation>>,
 }
 
 impl OdometryScratch {
     pub fn new() -> Self {
         Self {
-            world_points: Vec::with_capacity(KEYPOINTS),
-            image_points: Vec::with_capacity(KEYPOINTS),
-            inlier_world_points: Vec::with_capacity(KEYPOINTS),
-            inlier_image_points: Vec::with_capacity(KEYPOINTS),
+            correspondences: Vec::with_capacity(KEYPOINTS),
+            inlier_correspondences: Vec::with_capacity(KEYPOINTS),
+            pnp_world_points: Vec::with_capacity(KEYPOINTS),
+            pnp_image_points: Vec::with_capacity(KEYPOINTS),
+            right_observations_by_left_index: vec![None; KEYPOINTS],
         }
     }
 }
@@ -55,51 +99,103 @@ impl PreviousFrame {
         fill_points_by_left_index(&mut self.points_by_left_index, points);
     }
 
-    fn point(&self, index: usize) -> Option<Vec3AF32> {
+    fn point(&self, index: usize) -> Option<PreviousPoint> {
         self.points_by_left_index.get(index).copied().flatten()
     }
 }
 
 fn fill_points_by_left_index(
-    points_by_left_index: &mut [Option<Vec3AF32>],
+    points_by_left_index: &mut [Option<PreviousPoint>],
     points: &[StereoPoint],
 ) {
     for point in points {
         if let Some(slot) = points_by_left_index.get_mut(point.left_index) {
-            *slot = Some(point.position);
+            *slot = Some(PreviousPoint {
+                position: point.position,
+                disparity: point.disparity,
+            });
         }
+    }
+}
+
+fn fill_right_observations_by_left_index(points: &[StereoPoint], scratch: &mut OdometryScratch) {
+    scratch.right_observations_by_left_index.fill(None);
+
+    for point in points {
+        if let Some(slot) = scratch
+            .right_observations_by_left_index
+            .get_mut(point.left_index)
+        {
+            *slot = Some(RightImageObservation {
+                pixel: point.right_pixel,
+                disparity: point.disparity,
+            });
+        }
+    }
+}
+
+fn fill_pnp_inputs(
+    correspondences: &[PoseCorrespondence],
+    world_points: &mut Vec<Vec3AF32>,
+    image_points: &mut Vec<Vec2F32>,
+) {
+    world_points.clear();
+    image_points.clear();
+
+    for correspondence in correspondences {
+        world_points.push(correspondence.world_point);
+        image_points.push(correspondence.image_point);
     }
 }
 
 pub fn estimate_previous_to_current(
     previous: &PreviousFrame,
     current_left: &FrameFeatures<'_, CurrentLeft>,
+    current_points: &[StereoPoint],
     temporal_matches: &Matches<'_, PreviousLeft, CurrentLeft>,
     triangulator: &StereoTriangulator,
     scratch: &mut OdometryScratch,
 ) -> Option<na::Isometry3<f32>> {
-    scratch.world_points.clear();
-    scratch.image_points.clear();
+    scratch.correspondences.clear();
+    fill_right_observations_by_left_index(current_points, scratch);
 
     for (previous_index, current_index, _score) in temporal_matches.left_to_right() {
         if !current_left.is_valid(current_index) {
             continue;
         }
-        let Some(world_point) = previous.point(previous_index) else {
+        let Some(previous_point) = previous.point(previous_index) else {
             continue;
         };
         let Some(current_keypoint) = current_left.keypoint(current_index) else {
             continue;
         };
         let current_pixel = triangulator.left_pixel(current_keypoint);
+        let right_observation = scratch
+            .right_observations_by_left_index
+            .get(current_index)
+            .copied()
+            .flatten();
 
-        scratch.world_points.push(world_point);
-        scratch.image_points.push(current_pixel);
+        let mut weight = disparity_weight(previous_point.disparity);
+        if let Some(observation) = right_observation {
+            weight = weight.min(disparity_weight(observation.disparity));
+        }
+        scratch.correspondences.push(PoseCorrespondence {
+            world_point: previous_point.position,
+            image_point: current_pixel,
+            right_image_point: right_observation.map(|observation| observation.pixel),
+            weight,
+        });
     }
 
-    if scratch.world_points.len() < MIN_PNP_CORRESPONDENCES {
+    if scratch.correspondences.len() < MIN_PNP_CORRESPONDENCES {
         return None;
     }
+    fill_pnp_inputs(
+        &scratch.correspondences,
+        &mut scratch.pnp_world_points,
+        &mut scratch.pnp_image_points,
+    );
 
     let pose = if let Some(pose) = estimate_outlier_free_pose(triangulator, scratch) {
         pose
@@ -112,8 +208,8 @@ pub fn estimate_previous_to_current(
             refine: false,
         };
         let result = match solve_pnp_ransac(
-            &scratch.world_points,
-            &scratch.image_points,
+            &scratch.pnp_world_points,
+            &scratch.pnp_image_points,
             triangulator.intrinsics_f32(),
             None,
             PnPMethod::EPnPDefault,
@@ -123,7 +219,7 @@ pub fn estimate_previous_to_current(
             Err(error) => {
                 tracing::debug!(
                     ?error,
-                    correspondences = scratch.world_points.len(),
+                    correspondences = scratch.correspondences.len(),
                     "PnP failed"
                 );
                 return None;
@@ -145,8 +241,8 @@ fn estimate_outlier_free_pose(
     scratch: &OdometryScratch,
 ) -> Option<PnPResult> {
     let pose = match solve_pnp(
-        &scratch.world_points,
-        &scratch.image_points,
+        &scratch.pnp_world_points,
+        &scratch.pnp_image_points,
         triangulator.intrinsics_f32(),
         None,
         PnPMethod::EPnPDefault,
@@ -165,12 +261,7 @@ fn estimate_outlier_free_pose(
         return None;
     }
 
-    let refined_pose = refine_pose(
-        &pose,
-        &scratch.world_points,
-        &scratch.image_points,
-        triangulator,
-    );
+    let refined_pose = refine_pose(&pose, &scratch.correspondences, triangulator);
 
     all_reprojection_errors_within_threshold(&refined_pose, triangulator.intrinsics_f32(), scratch)
         .then_some(refined_pose)
@@ -181,50 +272,37 @@ fn refine_ransac_pose(
     triangulator: &StereoTriangulator,
     scratch: &mut OdometryScratch,
 ) -> PnPResult {
-    scratch.inlier_world_points.clear();
-    scratch.inlier_image_points.clear();
+    scratch.inlier_correspondences.clear();
 
     for &index in &result.inliers {
-        let Some(world_point) = scratch.world_points.get(index).copied() else {
-            continue;
-        };
-        let Some(image_point) = scratch.image_points.get(index).copied() else {
-            continue;
-        };
-
-        scratch.inlier_world_points.push(world_point);
-        scratch.inlier_image_points.push(image_point);
+        if let Some(correspondence) = scratch.correspondences.get(index).copied() {
+            scratch.inlier_correspondences.push(correspondence);
+        }
     }
 
-    refine_pose(
-        &result.pose,
-        &scratch.inlier_world_points,
-        &scratch.inlier_image_points,
-        triangulator,
-    )
+    refine_pose(&result.pose, &scratch.inlier_correspondences, triangulator)
 }
 
 fn refine_pose(
     initial_pose: &PnPResult,
-    world_points: &[Vec3AF32],
-    image_points: &[Vec2F32],
+    correspondences: &[PoseCorrespondence],
     triangulator: &StereoTriangulator,
 ) -> PnPResult {
-    if world_points.len() < MIN_PNP_CORRESPONDENCES {
+    if correspondences.len() < MIN_PNP_CORRESPONDENCES {
         return initial_pose.clone();
     }
 
     let refined_pose = match refine_pose_lm_direct(
-        world_points,
-        image_points,
+        correspondences,
         triangulator.intrinsics_f32(),
+        triangulator.baseline(),
         initial_pose,
     ) {
         Ok(refined_pose) => refined_pose,
         Err(error) => {
             tracing::debug!(
                 error,
-                correspondences = world_points.len(),
+                correspondences = correspondences.len(),
                 "PnP LM refinement failed"
             );
             return initial_pose.clone();
@@ -244,17 +322,19 @@ fn refine_pose(
 }
 
 fn refine_pose_lm_direct(
-    world_points: &[Vec3AF32],
-    image_points: &[Vec2F32],
+    correspondences: &[PoseCorrespondence],
     intrinsics: &Mat3AF32,
+    baseline: f32,
     initial_pose: &PnPResult,
 ) -> Result<PnPResult, &'static str> {
     let mut rotation = matrix3_from_mat3a(&initial_pose.rotation);
     let mut translation = vector3_from_vec3a(initial_pose.translation);
-    let mut cost = total_reprojection_error_squared(
-        world_points,
-        image_points,
+    let loss = HuberLoss::new(LM_HUBER_THRESHOLD_PX).map_err(|_| "invalid Huber threshold")?;
+    let mut cost = total_robust_reprojection_cost(
+        correspondences,
         intrinsics,
+        baseline,
+        &loss,
         &rotation,
         &translation,
     )
@@ -266,9 +346,10 @@ fn refine_pose_lm_direct(
     for iteration in 0..LM_MAX_ITERATIONS {
         iterations = iteration + 1;
         let (mut normal_matrix, gradient) = build_normal_equations(
-            world_points,
-            image_points,
+            correspondences,
             intrinsics,
+            baseline,
+            &loss,
             &rotation,
             &translation,
         )
@@ -288,10 +369,11 @@ fn refine_pose_lm_direct(
 
         let (candidate_rotation, candidate_translation) =
             apply_pose_step(&rotation, &translation, &step);
-        let candidate_cost = total_reprojection_error_squared(
-            world_points,
-            image_points,
+        let candidate_cost = total_robust_reprojection_cost(
+            correspondences,
             intrinsics,
+            baseline,
+            &loss,
             &candidate_rotation,
             &candidate_translation,
         )
@@ -315,7 +397,15 @@ fn refine_pose_lm_direct(
 
     let rotation = mat3a_from_matrix3(&rotation);
     let translation = vec3a_from_vector3(translation);
-    let reproj_rmse = (cost / world_points.len() as f32).sqrt();
+    let reproj_rmse = (total_reprojection_error_squared(
+        correspondences,
+        intrinsics,
+        &matrix3_from_mat3a(&rotation),
+        &vector3_from_vec3a(translation),
+    )
+    .ok_or("final reprojection error is invalid")?
+        / correspondences.len() as f32)
+        .sqrt();
 
     Ok(PnPResult {
         rotation,
@@ -328,51 +418,72 @@ fn refine_pose_lm_direct(
 }
 
 fn build_normal_equations(
-    world_points: &[Vec3AF32],
-    image_points: &[Vec2F32],
+    correspondences: &[PoseCorrespondence],
     intrinsics: &Mat3AF32,
+    baseline: f32,
+    loss: &HuberLoss,
     rotation: &na::Matrix3<f32>,
     translation: &na::Vector3<f32>,
 ) -> Option<(na::SMatrix<f32, 6, 6>, na::SVector<f32, 6>)> {
     let mut normal_matrix = na::SMatrix::<f32, 6, 6>::zeros();
     let mut gradient = na::SVector::<f32, 6>::zeros();
 
-    for (&world_point, &image_point) in world_points.iter().zip(image_points.iter()) {
-        let camera_point = rotation * vector3_from_vec3a(world_point) + translation;
-        let (residual, jacobian) = residual_and_jacobian(camera_point, image_point, intrinsics)?;
-
-        normal_matrix += jacobian.transpose() * jacobian;
-        gradient += jacobian.transpose() * residual;
+    for correspondence in correspondences {
+        let camera_point = rotation * vector3_from_vec3a(correspondence.world_point) + translation;
+        for residual in correspondence_residuals(correspondence, baseline)
+            .into_iter()
+            .flatten()
+        {
+            add_residual_block(
+                &mut normal_matrix,
+                &mut gradient,
+                camera_point,
+                residual.image_point,
+                intrinsics,
+                residual.x_offset,
+                residual.weight,
+                loss,
+            )?;
+        }
     }
 
     Some((normal_matrix, gradient))
 }
 
-fn residual_and_jacobian(
+fn add_residual_block(
+    normal_matrix: &mut na::SMatrix<f32, 6, 6>,
+    gradient: &mut na::SVector<f32, 6>,
     camera_point: na::Vector3<f32>,
     image_point: Vec2F32,
     intrinsics: &Mat3AF32,
+    x_offset: f32,
+    base_weight: f32,
+    loss: &HuberLoss,
+) -> Option<()> {
+    let (residual, jacobian) =
+        residual_and_jacobian_with_x_offset(camera_point, image_point, intrinsics, x_offset)?;
+    let scale = weighted_residual_scale(residual.norm_squared(), base_weight, loss)?;
+    let weighted_jacobian = jacobian * scale;
+    let weighted_residual = residual * scale;
+
+    *normal_matrix += weighted_jacobian.transpose() * weighted_jacobian;
+    *gradient += weighted_jacobian.transpose() * weighted_residual;
+
+    Some(())
+}
+
+fn residual_and_jacobian_with_x_offset(
+    camera_point: na::Vector3<f32>,
+    image_point: Vec2F32,
+    intrinsics: &Mat3AF32,
+    x_offset: f32,
 ) -> Option<(na::SVector<f32, 2>, na::SMatrix<f32, 2, 6>)> {
-    if !camera_point.z.is_finite() || camera_point.z <= 0.0 {
-        return None;
-    }
+    let projection = projection_residual(camera_point, image_point, intrinsics, x_offset)?;
 
-    let fx = intrinsics.x_axis().x;
-    let fy = intrinsics.y_axis().y;
-    let cx = intrinsics.z_axis().x;
-    let cy = intrinsics.z_axis().y;
-    let inverse_z = 1.0 / camera_point.z;
-    let inverse_z_squared = inverse_z * inverse_z;
-
-    let projected_x = fx * camera_point.x * inverse_z + cx;
-    let projected_y = fy * camera_point.y * inverse_z + cy;
-    let residual =
-        na::SVector::<f32, 2>::new(projected_x - image_point.x, projected_y - image_point.y);
-
-    let du_dx = fx * inverse_z;
-    let du_dz = -fx * camera_point.x * inverse_z_squared;
-    let dv_dy = fy * inverse_z;
-    let dv_dz = -fy * camera_point.y * inverse_z_squared;
+    let du_dx = projection.fx * projection.inverse_z;
+    let du_dz = -projection.fx * projection.projection_x * projection.inverse_z_squared;
+    let dv_dy = projection.fy * projection.inverse_z;
+    let dv_dz = -projection.fy * camera_point.y * projection.inverse_z_squared;
 
     let jacobian = na::SMatrix::<f32, 2, 6>::from_row_slice(&[
         du_dx,
@@ -389,23 +500,169 @@ fn residual_and_jacobian(
         dv_dy * camera_point.x,
     ]);
 
-    (residual.iter().all(|value| value.is_finite())
-        && jacobian.iter().all(|value| value.is_finite()))
-    .then_some((residual, jacobian))
+    jacobian
+        .iter()
+        .all(|value| value.is_finite())
+        .then_some((projection.residual, jacobian))
+}
+
+fn total_robust_reprojection_cost(
+    correspondences: &[PoseCorrespondence],
+    intrinsics: &Mat3AF32,
+    baseline: f32,
+    loss: &HuberLoss,
+    rotation: &na::Matrix3<f32>,
+    translation: &na::Vector3<f32>,
+) -> Option<f32> {
+    let mut cost = 0.0;
+
+    for correspondence in correspondences {
+        let camera_point = rotation * vector3_from_vec3a(correspondence.world_point) + translation;
+        for residual in correspondence_residuals(correspondence, baseline)
+            .into_iter()
+            .flatten()
+        {
+            cost += residual_block_cost(
+                camera_point,
+                residual.image_point,
+                intrinsics,
+                residual.x_offset,
+                residual.weight,
+                loss,
+            )?;
+        }
+    }
+
+    cost.is_finite().then_some(cost)
+}
+
+fn correspondence_residuals(
+    correspondence: &PoseCorrespondence,
+    baseline: f32,
+) -> [Option<CorrespondenceResidual>; 2] {
+    [
+        Some(CorrespondenceResidual {
+            image_point: correspondence.image_point,
+            x_offset: 0.0,
+            weight: correspondence.weight,
+        }),
+        correspondence
+            .right_image_point
+            .map(|image_point| CorrespondenceResidual {
+                image_point,
+                x_offset: -baseline,
+                weight: correspondence.weight,
+            }),
+    ]
+}
+
+fn residual_block_cost(
+    camera_point: na::Vector3<f32>,
+    image_point: Vec2F32,
+    intrinsics: &Mat3AF32,
+    x_offset: f32,
+    base_weight: f32,
+    loss: &HuberLoss,
+) -> Option<f32> {
+    let residual = residual_with_x_offset(camera_point, image_point, intrinsics, x_offset)?;
+    robust_residual_cost(residual.norm_squared(), base_weight, loss)
+}
+
+fn residual_with_x_offset(
+    camera_point: na::Vector3<f32>,
+    image_point: Vec2F32,
+    intrinsics: &Mat3AF32,
+    x_offset: f32,
+) -> Option<na::SVector<f32, 2>> {
+    Some(projection_residual(camera_point, image_point, intrinsics, x_offset)?.residual)
+}
+
+fn projection_residual(
+    camera_point: na::Vector3<f32>,
+    image_point: Vec2F32,
+    intrinsics: &Mat3AF32,
+    x_offset: f32,
+) -> Option<ProjectionResidual> {
+    if !camera_point.iter().all(|value| value.is_finite()) || camera_point.z <= 0.0 {
+        return None;
+    }
+
+    let fx = intrinsics.x_axis().x;
+    let fy = intrinsics.y_axis().y;
+    let cx = intrinsics.z_axis().x;
+    let cy = intrinsics.z_axis().y;
+    let inverse_z = 1.0 / camera_point.z;
+    let projection_x = camera_point.x + x_offset;
+    if !projection_x.is_finite() || !x_offset.is_finite() {
+        return None;
+    }
+
+    let projected_x = fx * projection_x * inverse_z + cx;
+    let projected_y = fy * camera_point.y * inverse_z + cy;
+    let residual =
+        na::SVector::<f32, 2>::new(projected_x - image_point.x, projected_y - image_point.y);
+
+    residual
+        .iter()
+        .all(|value| value.is_finite())
+        .then_some(ProjectionResidual {
+            residual,
+            projection_x,
+            inverse_z,
+            inverse_z_squared: inverse_z * inverse_z,
+            fx,
+            fy,
+        })
+}
+
+fn robust_residual_cost(
+    residual_norm_squared: f32,
+    base_weight: f32,
+    loss: &HuberLoss,
+) -> Option<f32> {
+    if !residual_norm_squared.is_finite() || !base_weight.is_finite() || base_weight <= 0.0 {
+        return None;
+    }
+
+    let cost = base_weight * loss.rho(residual_norm_squared);
+
+    cost.is_finite().then_some(cost)
+}
+
+fn weighted_residual_scale(
+    residual_norm_squared: f32,
+    base_weight: f32,
+    loss: &HuberLoss,
+) -> Option<f32> {
+    if !residual_norm_squared.is_finite() || !base_weight.is_finite() || base_weight <= 0.0 {
+        return None;
+    }
+
+    let weight = base_weight * loss.weight(residual_norm_squared);
+
+    (weight.is_finite() && weight > 0.0).then_some(weight.sqrt())
+}
+
+fn disparity_weight(disparity: f32) -> f32 {
+    if !disparity.is_finite() || disparity <= 0.0 {
+        return MIN_DISPARITY_WEIGHT;
+    }
+
+    (disparity / FULL_WEIGHT_DISPARITY_PX).clamp(MIN_DISPARITY_WEIGHT, 1.0)
 }
 
 fn total_reprojection_error_squared(
-    world_points: &[Vec3AF32],
-    image_points: &[Vec2F32],
+    correspondences: &[PoseCorrespondence],
     intrinsics: &Mat3AF32,
     rotation: &na::Matrix3<f32>,
     translation: &na::Vector3<f32>,
 ) -> Option<f32> {
     let mut error = 0.0;
 
-    for (&world_point, &image_point) in world_points.iter().zip(image_points.iter()) {
-        let camera_point = rotation * vector3_from_vec3a(world_point) + translation;
-        let (residual, _) = residual_and_jacobian(camera_point, image_point, intrinsics)?;
+    for correspondence in correspondences {
+        let camera_point = rotation * vector3_from_vec3a(correspondence.world_point) + translation;
+        let residual =
+            residual_with_x_offset(camera_point, correspondence.image_point, intrinsics, 0.0)?;
         error += residual.norm_squared();
     }
 
@@ -435,14 +692,15 @@ fn all_reprojection_errors_within_threshold(
 ) -> bool {
     let threshold_squared = RANSAC_REPROJ_THRESHOLD_PX * RANSAC_REPROJ_THRESHOLD_PX;
 
-    scratch
-        .world_points
-        .iter()
-        .zip(scratch.image_points.iter())
-        .all(|(&world_point, &image_point)| {
-            reprojection_squared_error(world_point, image_point, pose, intrinsics)
-                .is_some_and(|error| error <= threshold_squared)
-        })
+    scratch.correspondences.iter().all(|correspondence| {
+        reprojection_squared_error(
+            correspondence.world_point,
+            correspondence.image_point,
+            pose,
+            intrinsics,
+        )
+        .is_some_and(|error| error <= threshold_squared)
+    })
 }
 
 fn reprojection_squared_error(
@@ -451,20 +709,8 @@ fn reprojection_squared_error(
     pose: &PnPResult,
     intrinsics: &Mat3AF32,
 ) -> Option<f32> {
-    let camera_point = pose.rotation * world_point + pose.translation;
-    if !camera_point.z.is_finite() || camera_point.z <= 0.0 {
-        return None;
-    }
-
-    let fx = intrinsics.x_axis().x;
-    let fy = intrinsics.y_axis().y;
-    let cx = intrinsics.z_axis().x;
-    let cy = intrinsics.z_axis().y;
-    let projected_x = fx * camera_point.x / camera_point.z + cx;
-    let projected_y = fy * camera_point.y / camera_point.z + cy;
-    let error_x = projected_x - image_point.x;
-    let error_y = projected_y - image_point.y;
-    let error = error_x * error_x + error_y * error_y;
+    let camera_point = vector3_from_vec3a(pose.rotation * world_point + pose.translation);
+    let error = residual_with_x_offset(camera_point, image_point, intrinsics, 0.0)?.norm_squared();
 
     error.is_finite().then_some(error)
 }
