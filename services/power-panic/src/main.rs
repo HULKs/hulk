@@ -4,9 +4,9 @@ use std::time::Duration;
 
 use color_eyre::eyre::{eyre, Result, WrapErr};
 use rodio::{source::Buffered, Decoder, OutputStream, Sink, Source};
-use zbus::{proxy, Connection, zvariant::Optional};
+use zbus::{proxy, zvariant::Optional, Connection};
 
-use hula_types::Battery;
+use hula_types::robot_state::Battery;
 
 const AUDIO_FILE: &[u8] = include_bytes!("../sound/water-drop.mp3");
 
@@ -83,11 +83,11 @@ async fn main() -> Result<()> {
         let battery_is_low = battery.charge < 0.20;
         let battery_is_charging = battery.current > 0.0;
 
-        if  battery_is_low && !battery_is_charging {
+        if battery_is_low && !battery_is_charging {
             audio_player.play();
             time_to_sleep = Duration::from_secs((battery.charge * 100.0) as u64);
         }
-        
+
         sleep(time_to_sleep);
     }
 }

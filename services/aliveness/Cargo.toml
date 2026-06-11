@@ -21,3 +21,6 @@ serde_json = "1.0.138"
 tokio = { version = "1.43.0", features = ["full"] }
 tokio-util = "0.7.13"
 zbus = { version = "5.5.0", features = ["tokio"] }
+
+[patch.crates-io]
+booster_sdk = { git = "https://github.com/IntelligentRoboticsLab/booster_sdk", rev = "638c1973c0a1a729b47b1133af5b4af16a41b9bd" }
