@@ -130,6 +130,14 @@ def _(
 
         return positions
 
+    def _set_manual_joint_position(joint_index: int):
+        def _set_joint_position(value: float) -> None:
+            positions = _as_float_list(get_manual_joint_positions())
+            positions[joint_index] = float(value)
+            set_manual_joint_positions(positions)
+
+        return _set_joint_position
+
     manual_mode = bool(get_manual_joint_mode())
     manual_joint_positions = _as_float_list(get_manual_joint_positions())
 
@@ -141,21 +149,17 @@ def _(
             arm_slider_controls.append(
                 mo.ui.slider(
                     value=manual_joint_positions[joint_index],
-                    min=joint_min,
-                    max=joint_max,
+                    start=joint_min,
+                    stop=joint_max,
                     step=0.01,
                     label=joint_name,
+                    on_change=_set_manual_joint_position(joint_index),
                 )
             )
 
-        manual_joint_positions = [
-            float(joint_slider.value) for joint_slider in arm_slider_controls
-        ]
-        if manual_joint_positions != get_manual_joint_positions():
-            set_manual_joint_positions(manual_joint_positions)
         render_from_positions(manual_joint_positions)
 
-        mo.vstack(
+        simulator_ui = mo.vstack(
             [
                 viewer,
                 mo.vstack(arm_slider_controls),
@@ -168,8 +172,9 @@ def _(
             label="Set Joint Positions",
             on_change=_activate_joint_position_mode,
         )
-        mo.vstack([refresh_timer, viewer, manual_position_button])
-    return
+        simulator_ui = mo.vstack([refresh_timer, viewer, manual_position_button])
+
+    simulator_ui
 
 
 @app.cell(hide_code=True)
@@ -394,8 +399,14 @@ def _(mo):
             "animation_code": None,
         }
     )
-    get_manual_joint_mode, set_manual_joint_mode = mo.state(False)
-    get_manual_joint_positions, set_manual_joint_positions = mo.state([0.0] * 8)
+    get_manual_joint_mode, set_manual_joint_mode = mo.state(
+        False,
+        allow_self_loops=True,
+    )
+    get_manual_joint_positions, set_manual_joint_positions = mo.state(
+        [0.0] * 8,
+        allow_self_loops=True,
+    )
     return (
         get_active_animation_name,
         get_animation_projects,

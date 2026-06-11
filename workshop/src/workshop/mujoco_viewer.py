@@ -31,7 +31,7 @@ class MujocoViewer(anywidget.AnyWidget):
             });
             resize_observer.observe(el);
 
-            model.on("change:image_data", () => {
+            const draw_image = () => {
                 const image_data = model.get("image_data");
                 if (!image_data) return;
 
@@ -42,10 +42,17 @@ class MujocoViewer(anywidget.AnyWidget):
                     context.drawImage(image, 0, 0);
                 };
                 image.src = "data:image/jpeg;base64," + image_data;
-            });
+            };
+
+            model.on("change:image_data", draw_image);
+
+            draw_image();
 
             // Required to prevent memory leaks if the widget is destroyed
-            return () => resize_observer.disconnect();
+            return () => {
+                resize_observer.disconnect();
+                model.off("change:image_data", draw_image);
+            };
         }
     };
     """
