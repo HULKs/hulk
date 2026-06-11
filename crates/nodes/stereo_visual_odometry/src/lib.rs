@@ -94,7 +94,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         let stereo_image_pair = stereo_image_pair_sub.recv().await?.inner;
 
         let start_time = Instant::now();
-        let odometry = pipeline.process(stereo_image_pair)?;
+        let odometry = pipeline.process(&stereo_image_pair)?;
         let duration = start_time.elapsed();
 
         odometry_pub.publish(&odometry).await?;
@@ -108,7 +108,12 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     }
 }
 
-struct VisualOdometryPipeline {
+/// Stateful stereo visual odometry pipeline.
+///
+/// The first processed frame initializes feature state and returns `None`. Later
+/// frames return the previous-left-camera to current-left-camera transform when
+/// enough temporal correspondences survive geometric checks.
+pub struct VisualOdometryPipeline {
     feature_extractor: FeatureExtractor,
     triangulator: StereoTriangulator,
     previous_features: PreviousFeatureState,
@@ -119,7 +124,8 @@ struct VisualOdometryPipeline {
 }
 
 impl VisualOdometryPipeline {
-    fn new(model_path: impl AsRef<Path>, stereo_camera_info: StereoCameraInfo) -> Result<Self> {
+    /// Create a pipeline for one fixed stereo camera calibration and ONNX model.
+    pub fn new(model_path: impl AsRef<Path>, stereo_camera_info: StereoCameraInfo) -> Result<Self> {
         Ok(Self {
             feature_extractor: FeatureExtractor::new(model_path)?,
             triangulator: StereoTriangulator::new(
@@ -134,19 +140,21 @@ impl VisualOdometryPipeline {
         })
     }
 
-    fn process(
+    /// Process one NV12 stereo frame pair.
+    ///
+    /// Returns `None` for the initialization frame and when pose estimation does
+    /// not have enough valid correspondences.
+    pub fn process(
         &mut self,
-        stereo_image_pair: StereoImagePair,
+        stereo_image_pair: &StereoImagePair,
     ) -> Result<Option<na::Isometry3<f32>>> {
         let odometry = {
             let features = self
                 .feature_extractor
-                .extract(&stereo_image_pair, &self.previous_features)?;
+                .extract(stereo_image_pair, &self.previous_features)?;
             let current_left = features.current_left()?;
             let current_right = features.current_right()?;
             let stereo_matches = features.stereo_matches()?;
-
-            println!("{} stereo matches", stereo_matches.left_to_right().count());
 
             self.triangulator.triangulate_into(
                 current_left,
@@ -155,14 +163,8 @@ impl VisualOdometryPipeline {
                 &mut self.current_points,
             );
 
-            println!("{} triangulations", self.current_points.len());
-
             if let Some(previous_frame) = self.previous_frame.as_ref() {
                 let temporal_matches = features.temporal_matches()?;
-                println!(
-                    "{} temporal matches",
-                    temporal_matches.left_to_right().count()
-                );
                 let odometry = estimate_previous_to_current(
                     previous_frame,
                     &current_left,

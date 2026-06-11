@@ -304,6 +304,7 @@ proc-macro-error = "1.0.4"
 proc-macro2 = { version = "1.0.93", features = ["span-locations"] }
 projection = { path = "crates/projection" }
 proptest = "1.6.0"
+png = "0.18.1"
 pyo3 = { version = "0.27.1", features = ["abi3-py313", "extension-module"] }
 pyo3-async-runtimes = { version = "0.27.0", features = ["tokio-runtime"] }
 pyo3-log = "0.13.2"
@@ -385,6 +386,10 @@ zed = { path = "crates/zed" }
 zenoh = "1.9.0"
 zenoh-buffers = "1.9.0"
 zenoh-ext = "1.9.0"
+zip = { version = "2.4.2", default-features = false, features = [
+  "deflate-flate2",
+  "flate2",
+] }
 
 [patch.crates-io]
 # Pinned to forked serde version since https://github.com/serde-rs/serde/pull/2513 is not merged

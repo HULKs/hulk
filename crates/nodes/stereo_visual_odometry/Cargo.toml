@@ -20,5 +20,13 @@ kornia-3d = { workspace = true }
 kornia-algebra = { workspace = true }
 linear_algebra = { workspace = true }
 
+[dev-dependencies]
+png = { workspace = true }
+zip = { workspace = true }
+
 [features]
 ort-dynamic = ["ort/load-dynamic"]
+
+[[bench]]
+name = "kitti_odometry"
+harness = false

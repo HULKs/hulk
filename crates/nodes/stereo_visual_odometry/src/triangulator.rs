@@ -118,7 +118,6 @@ impl StereoTriangulator {
             || disparity <= 0.0
             || (left.y - right.y).abs() > MAX_VERTICAL_DISPARITY_PX
         {
-            println!("{left:?} {right:?}");
             return None;
         }
 

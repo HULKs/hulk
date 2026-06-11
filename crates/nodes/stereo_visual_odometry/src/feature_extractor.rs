@@ -6,7 +6,7 @@ use color_eyre::{
 };
 
 use ort::{
-    execution_providers::TensorRTExecutionProvider,
+    execution_providers::{CUDAExecutionProvider, TensorRTExecutionProvider},
     inputs,
     session::{
         HasSelectedOutputs, RunOptions, Session, SessionOutputs, builder::GraphOptimizationLevel,
@@ -74,9 +74,9 @@ impl FeatureExtractor {
             .with_engine_cache(true)
             .with_engine_cache_path(parent.display())
             .build();
-
+        let cuda = CUDAExecutionProvider::default().build();
         let session = Session::builder()?
-            .with_execution_providers([tensorrt])?
+            .with_execution_providers([tensorrt, cuda])?
             .with_optimization_level(GraphOptimizationLevel::Level3)?
             .with_intra_threads(2)?
             .commit_from_file(path)?;
