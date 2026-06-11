@@ -10,9 +10,10 @@ def _():
     import workshop
     import numpy as np
     from pathlib import Path
+    import io
+    import contextlib
 
-    return Path, mo, np, workshop
-
+    return contextlib, io, mo, workshop, Path, np
 
 @app.cell(hide_code=True)
 def _(mo, workshop):
@@ -645,6 +646,283 @@ def _(animation, export_button, mo):
     mo.stop(not export_button.value)
 
     animation.export()
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    # Ball-Erkennung
+
+    In diesem Teil arbeitet ihr mit Bildern als Pixel-Matrix. Jedes Pixel hat drei Farbwerte:
+
+    - `R`: Rot
+    - `G`: Grün
+    - `B`: Blau
+
+    Ein roter Ball besteht also aus vielen Pixeln, bei denen der rote Wert deutlich
+    größer ist als Grün und Blau.
+
+    ## Aufgabe 1: Einen roten Ball finden
+
+    Ziel: Findet den roten Ball im Bild und gebt die Bildkoordinaten seines Mittelpunkts aus.
+
+    Eure Schritte:
+
+    1. Lest für jedes Pixel die Werte `r`, `g` und `b` aus.
+    2. Entscheidet, ob das Pixel rot genug ist.
+    3. Speichert die Koordinaten aller roten Pixel.
+    4. Berechnet daraus den Mittelpunkt des Balls.
+    5. Zeichnet den Mittelpunkt in das Bild.
+    """)
+    return
+
+
+@app.cell
+def _(mo):
+    mo.image(src="src/Ball.png", alt="Roter Ball")
+    return
+
+
+@app.cell
+def _(mo):
+    editor = mo.ui.code_editor("""from PIL import Image, ImageDraw
+    import numpy as np
+
+
+    def find_ball() -> Image.Image:
+        img_raw = Image.open("src/Ball.png")
+        img_array = np.array(img_raw)
+
+        height, width, _ = img_array.shape
+
+        red_pixels = []
+
+        for y in range(height):
+            for x in range(width):
+                r = img_array[y, x, 0]
+                g = img_array[y, x, 1]
+                b = img_array[y, x, 2]
+
+                # TODO 1: Findet eine gute Bedingung fuer rote Pixel.
+                # Tipp: Rot sollte gross sein, Gruen und Blau eher klein.
+                is_red = False
+
+                if is_red:
+                    red_pixels.append((x, y))
+
+        draw = ImageDraw.Draw(img_raw)
+
+        if red_pixels:
+            # TODO 2: Berechnet den Mittelpunkt aller roten Pixel.
+            # Tipp: Der Mittelpunkt ist der Durchschnitt aller x- und y-Werte.
+            center_x = 0
+            center_y = 0
+            print(f"Ball gefunden bei: {center_x}, {center_y}")
+
+            radius = 20
+            left_up = (center_x - radius, center_y - radius)
+            right_down = (center_x + radius, center_y + radius)
+            draw.ellipse([left_up, right_down], fill="blue", outline="blue")
+        else:
+            print("Kein Ball gefunden")
+
+        return img_raw
+
+    result_image = find_ball()""")
+    editor
+    return (editor,)
+
+
+@app.cell
+def _(contextlib, editor, io, mo):
+    task_1_namespace = {}
+    task_1_output_buffer = io.StringIO()
+    with contextlib.redirect_stdout(task_1_output_buffer):
+        try:
+            exec(editor.value, task_1_namespace)
+        except Exception as e:
+            print(f"Execution Error: {e}")
+
+    task_1_outputs = [mo.md(rf"""
+    **Ausgabe**:
+    ```markdown
+    {task_1_output_buffer.getvalue()}
+    ```
+    """)]
+
+    task_1_result_image = task_1_namespace.get("result_image")
+    if task_1_result_image is not None:
+        task_1_image_buffer = io.BytesIO()
+        task_1_result_image.save(task_1_image_buffer, format="PNG")
+        task_1_outputs.append(
+            mo.image(src=task_1_image_buffer.getvalue(), alt="Ergebnisbild")
+        )
+
+    mo.vstack(task_1_outputs)
+    return
+
+
+@app.cell(hide_code=True)
+def _(mo):
+    mo.md(r"""
+    ## Aufgabe 2: Mehrere rote Bälle finden
+
+    Jetzt sind mehrere rote Bälle im Bild. Der erste Ansatz reicht nicht mehr,
+    weil der Durchschnitt aller roten Pixel ungefähr in der Mitte aller Bälle liegt.
+
+    Ziel: Findet jeden Ball einzeln und gebt für jeden Ball den Mittelpunkt aus.
+
+    Warum Aufgabe 1 nicht reicht:
+
+    Wenn ihr einfach alle roten Pixel mittelt, bekommt ihr nur einen Punkt zwischen den
+    Bällen. Ihr müsst die roten Pixel vorher in einzelne Gruppen aufteilen.
+
+    Eure Schritte:
+
+    1. Erstellt wieder eine Maske für rote Pixel.
+    2. Startet bei einem roten Pixel, das noch nicht besucht wurde.
+    3. Sucht alle roten Nachbarpixel, die zur selben Gruppe gehören.
+    4. Berechnet fuer diese Gruppe den Mittelpunkt.
+    5. Wiederholt das für alle roten Gruppen im Bild.
+    """)
+    return
+
+
+@app.cell
+def _(mo):
+    mo.image(src="src/Mehrere_Baelle.png", alt="Rote Baelle")
+    return
+
+
+@app.cell
+def _(mo):
+    editor_task_2 = mo.ui.code_editor("""from PIL import Image, ImageDraw
+    import numpy as np
+
+
+    def find_balls() -> Image.Image:
+        img_raw = Image.open("src/Mehrere_Baelle.png")
+        img_array = np.array(img_raw)
+
+        height, width, _ = img_array.shape
+        red_mask = np.zeros((height, width), dtype=bool)
+
+        # TODO 1: Alle roten Pixel markieren.
+        for y in range(height):
+            for x in range(width):
+                r = img_array[y, x, 0]
+                g = img_array[y, x, 1]
+                b = img_array[y, x, 2]
+
+                # Tipp: Ihr koennt hier mit derselben Idee wie in Aufgabe 1 starten.
+                is_red = False
+                red_mask[y, x] = is_red
+
+        visited = np.zeros((height, width), dtype=bool)
+        balls = []
+
+        # TODO 2: Zusammenhaengende rote Bereiche mit Flood Fill finden.
+        for start_y in range(height):
+            for start_x in range(width):
+                if visited[start_y, start_x] or not red_mask[start_y, start_x]:
+                    continue
+
+                stack = [(start_x, start_y)]
+                visited[start_y, start_x] = True
+                pixels = []
+
+                while stack:
+                    x, y = stack.pop()
+                    pixels.append((x, y))
+
+                    neighbors = [
+                        (x - 1, y),
+                        (x + 1, y),
+                        (x, y - 1),
+                        (x, y + 1),
+                    ]
+
+                    for next_x, next_y in neighbors:
+                        outside_image = (
+                            next_x < 0
+                            or next_x >= width
+                            or next_y < 0
+                            or next_y >= height
+                        )
+                        if outside_image:
+                            continue
+                        if visited[next_y, next_x] or not red_mask[next_y, next_x]:
+                            continue
+
+                        # TODO 3: Markiert den Nachbarpixel als besucht und legt ihn
+                        # auf den Stack, damit seine Nachbarn spaeter auch geprueft werden.
+                        # visited[next_y, next_x] = ...
+                        # stack.append(...)
+                        pass
+
+                # Kleine rote Bereiche sind meistens Rauschen und keine Baelle.
+                if len(pixels) < 50:
+                    continue
+
+                xs = [x for x, _ in pixels]
+                ys = [y for _, y in pixels]
+
+                # TODO 4: Berechnet den Mittelpunkt dieser roten Gruppe.
+                center_x = 0
+                center_y = 0
+                balls.append((center_x, center_y, min(xs), min(ys), max(xs), max(ys)))
+
+        if not balls:
+            print("Keine Bälle gefunden")
+
+        draw = ImageDraw.Draw(img_raw)
+
+        for index, (center_x, center_y, min_x, min_y, max_x, max_y) in enumerate(
+            balls,
+            start=1,
+        ):
+            print(f"Ball {index} gefunden bei: {center_x}, {center_y}")
+            draw.rectangle([min_x, min_y, max_x, max_y], outline="blue", width=4)
+            draw.ellipse(
+                [center_x - 8, center_y - 8, center_x + 8, center_y + 8],
+                fill="blue",
+                outline="blue",
+            )
+        return img_raw
+
+
+    result_image = find_balls()""")
+    editor_task_2
+    return (editor_task_2,)
+
+
+@app.cell
+def _(contextlib, editor_task_2, io, mo):
+    task_2_namespace = {}
+    task_2_output_buffer = io.StringIO()
+    with contextlib.redirect_stdout(task_2_output_buffer):
+        try:
+            exec(editor_task_2.value, task_2_namespace)
+        except Exception as e:
+            print(f"Execution Error: {e}")
+
+    task_2_outputs = [mo.md(rf"""
+    **Ausgabe**:
+    ```markdown
+    {task_2_output_buffer.getvalue()}
+    ```
+    """)]
+
+    task_2_result_image = task_2_namespace.get("result_image")
+    if task_2_result_image is not None:
+        task_2_image_buffer = io.BytesIO()
+        task_2_result_image.save(task_2_image_buffer, format="PNG")
+        task_2_outputs.append(
+            mo.image(src=task_2_image_buffer.getvalue(), alt="Ergebnisbild")
+        )
+
+    mo.vstack(task_2_outputs)
     return
 
 
