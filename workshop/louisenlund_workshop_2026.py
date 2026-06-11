@@ -4,20 +4,17 @@ __generated_with = "0.23.6"
 app = marimo.App(width="medium")
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _():
     import marimo as mo
-    import io
-    import contextlib
     import workshop
     import numpy as np
-    import pickle
     from pathlib import Path
 
     return Path, mo, np, workshop
 
 
-@app.cell
+@app.cell(hide_code=True)
 def _(mo, workshop):
     mo.md(f"""
     Version {workshop.TEST}
@@ -46,8 +43,16 @@ def _(mo):
     return
 
 
-@app.cell
-def _(Path, mo, thinking):
+@app.cell(hide_code=True)
+def _(
+    Path,
+    animation,
+    get_manual_joint_mode,
+    get_manual_joint_positions,
+    mo,
+    set_manual_joint_mode,
+    set_manual_joint_positions,
+):
     from mujoco import MjData, MjModel, Renderer, mj_step, mj_forward
     from workshop import MujocoViewer
     import os
@@ -62,30 +67,34 @@ def _(Path, mo, thinking):
     viewer = mo.ui.anywidget(MujocoViewer())
     interval = 0.1
 
-    animation_index = 0
-
-    animation_frames = thinking.frames
-
+    animation_index = [0]
+    animation_frames = animation.frames
     animation_length = len(animation_frames)
 
     arm_joints = [
-       "ALeft_Shoulder_Pitch",
-       "Left_Shoulder_Roll",
-       "Left_Elbow_Pitch",
-       "Left_Elbow_Yaw",
-       "ARight_Shoulder_Pitch",
-       "Right_Shoulder_Roll",
-       "Right_Elbow_Pitch",
-       "Right_Elbow_Yaw",
+        "ALeft_Shoulder_Pitch",
+        "Left_Shoulder_Roll",
+        "Left_Elbow_Pitch",
+        "Left_Elbow_Yaw",
+        "ARight_Shoulder_Pitch",
+        "Right_Shoulder_Roll",
+        "Right_Elbow_Pitch",
+        "Right_Elbow_Yaw",
     ]
 
     def set_joint_positions(positions):
-       for joint_name, position in zip(arm_joints, positions):
-           joint = model.joint(joint_name)
-           data.qpos[joint.qposadr[0]] = position
+        for joint_name, position in zip(arm_joints, positions):
+            joint = model.joint(joint_name)
+            data.qpos[joint.qposadr[0]] = position
 
-       data.qvel[:] = 0.0
-       mj_forward(model, data)
+        data.qvel[:] = 0.0
+        mj_forward(model, data)
+
+    def render_from_positions(positions):
+        set_joint_positions(positions)
+        renderer.update_scene(data, camera="overview_cam")
+        rendered_pixels = renderer.render()
+        viewer.update(rendered_pixels)
 
     def advance_simulation(
         mj_model: MjModel, 
@@ -96,18 +105,70 @@ def _(Path, mo, thinking):
         mj_step(mj_model, mj_data, nstep=n_steps)
 
     def update(_):
-        global animation_index
-        set_joint_positions(thinking.frames[animation_index])
-        animation_index = (animation_index + 1) % animation_length
+        set_joint_positions(animation_frames[animation_index[0]])
+        animation_index[0] = (animation_index[0] + 1) % animation_length
         advance_simulation(model, data, interval)
         renderer.update_scene(data, camera="overview_cam")
         rendered_pixels = renderer.render()
         viewer.update(rendered_pixels)
 
+    def _activate_joint_position_mode(_value: bool) -> None:
+        if _value:
+            set_manual_joint_mode(True)
 
+    def _as_float_list(values) -> list[float]:
+        if isinstance(values, tuple):
+            values = list(values)
 
-    refresh_timer = mo.ui.refresh(default_interval=interval, on_change=update)
-    mo.vstack([refresh_timer, viewer])
+        if not isinstance(values, list):
+            return [0.0] * len(arm_joints)
+
+        num_joints = len(arm_joints)
+        positions = [float(value) for value in values[:num_joints]]
+        if len(positions) < num_joints:
+            positions.extend([0.0] * (num_joints - len(positions)))
+
+        return positions
+
+    manual_mode = bool(get_manual_joint_mode())
+    manual_joint_positions = _as_float_list(get_manual_joint_positions())
+
+    if manual_mode:
+        arm_slider_controls = []
+        for joint_index, (joint_name, joint_min, joint_max) in enumerate(
+            zip(animation.joint_order, animation.joint_min, animation.joint_max)
+        ):
+            arm_slider_controls.append(
+                mo.ui.slider(
+                    value=manual_joint_positions[joint_index],
+                    min=joint_min,
+                    max=joint_max,
+                    step=0.01,
+                    label=joint_name,
+                )
+            )
+
+        manual_joint_positions = [
+            float(joint_slider.value) for joint_slider in arm_slider_controls
+        ]
+        if manual_joint_positions != get_manual_joint_positions():
+            set_manual_joint_positions(manual_joint_positions)
+        render_from_positions(manual_joint_positions)
+
+        mo.vstack(
+            [
+                viewer,
+                mo.vstack(arm_slider_controls),
+                mo.md(str(manual_joint_positions)),
+            ]
+        )
+    else:
+        refresh_timer = mo.ui.refresh(default_interval=interval, on_change=update)
+        manual_position_button = mo.ui.run_button(
+            label="Set Joint Positions",
+            on_change=_activate_joint_position_mode,
+        )
+        mo.vstack([refresh_timer, viewer, manual_position_button])
     return
 
 
@@ -134,7 +195,7 @@ def _(Path, np):
             ]
 
             self.joint_min = [-3.3, -1.74, -2.27, -2.44, -3.14, -1.57, -2.27, 0.0]
-            self.joint_max = [1.22, 1.57, 2.27, 0.0, 1.22, 1.57, 0.7, 2.44]
+            self.joint_max = [1.22, 1.57, 2.27, 0.0, 1.22, 1.57, 2.27, 2.44]
             self.max_vel   = [6.0, 6.0, 7.0, 8.0, 6.0, 6.0, 7.0, 8.0]
 
         def neu(self, 
@@ -229,9 +290,7 @@ def _(Path, np):
                     float(np.max(required_duration_per_joint)),
                 )
 
-                # Quantize to the frame grid. This guarantees actual_duration >= segment_duration.
                 num_intervals = max(1, int(np.ceil(segment_duration * self.fps)))
-                actual_duration = num_intervals * dt
 
                 for step in range(1, num_intervals + 1):
                     s = step / num_intervals
@@ -255,10 +314,10 @@ def _(Path, np):
             if datei_name is None:
                 datei_name = self.name
 
-            data = {}
-
-            data["fps"] = self.fps
-            data["positions"] = self.frames
+            data = {
+                "fps": self.fps,
+                "positions": self.frames,
+            }
 
             if not datei_name.endswith(".npy"):
                 datei_name = f"animation/{datei_name}.npy"
@@ -268,13 +327,11 @@ def _(Path, np):
             file_path = Path(datei_name)
             file_path.parent.mkdir(parents=True, exist_ok=True)
 
-            with open(file_path, "wb"):
-                np.save(file=file_path, allow_pickle=True, arr=data)
+            np.save(file=file_path, allow_pickle=True, arr=data)
 
         def load(self, datei_name: str) -> None:
-
             if not datei_name.endswith(".npy"):
-                datei_name = f"animation/{datei_name}{".npy"}"
+                datei_name = f"animation/{datei_name}.npy"
             else:
                 datei_name = f"animation/{datei_name}"
 
@@ -288,68 +345,295 @@ def _(Path, np):
     return (Animation,)
 
 
-@app.cell
-def _(Animation, animation_code_box, compile_button, mo, np):
-    mo.stop(not compile_button.value)
+@app.function(hide_code=True)
+def make_identifier(text: str) -> str:
+    import keyword
 
-    namespace = {
-        "np": np,
-        "Animation": Animation,
-        "thinking": Animation("thinking"),
-    }
+    cleaned = "".join(
+        character if character.isalnum() or character == "_" else "_"
+        for character in text.strip()
+    )
+    cleaned = cleaned.strip("_") or "animation"
 
-    exec(animation_code_box.value, namespace)
+    if cleaned[0].isdigit():
+        cleaned = f"animation_{cleaned}"
 
-    thinking = namespace["thinking"]
-    thinking.compile()
-    return (thinking,)
+    if not cleaned.isidentifier() or keyword.iskeyword(cleaned):
+        cleaned = "animation"
+
+    return cleaned
+
+
+@app.function(hide_code=True)
+def default_animation_code(animation_name: str) -> str:
+    return """animation.neu(dauer=0.3, positionen=np.array([0.0, -1.4, 0.0, -2.25, 0.0, 1.4, 0.0, 2.25]))
+
+for i in range(3):
+    animation.neu(dauer=0.1, positionen=np.array([0.0, -1.4, 0.0, -2.25, 0.0, 1.4, 0.0, 2.25]))
+    animation.neu(dauer=0.1, positionen=np.array([-2.0, -1.2, 0.0, -0.3, -2.0, 1.2, 0.0, 0.3]))"""
+
+
+@app.function(hide_code=True)
+def normalize_animation_code(code: str) -> str:
+    import re
+
+    return re.sub(
+        r"\b[A-Za-z_]\w*\s*\.\s*(neu|warte)\s*\(",
+        r"animation.\1(",
+        code,
+    )
 
 
 @app.cell(hide_code=True)
 def _(mo):
-    initial_code = mo.ui.code_editor(
-        """thinking = Animation("thinking")
+    get_active_animation_name, set_active_animation_name = mo.state(None)
+    get_animation_projects, set_animation_projects = mo.state({})
+    get_compile_request, set_compile_request = mo.state(
+        {
+            "animation_name": None,
+            "animation_code": None,
+        }
+    )
+    get_manual_joint_mode, set_manual_joint_mode = mo.state(False)
+    get_manual_joint_positions, set_manual_joint_positions = mo.state([0.0] * 8)
+    return (
+        get_active_animation_name,
+        get_animation_projects,
+        get_compile_request,
+        set_active_animation_name,
+        set_animation_projects,
+        set_compile_request,
+        get_manual_joint_mode,
+        get_manual_joint_positions,
+        set_manual_joint_mode,
+        set_manual_joint_positions,
+    )
 
-    thinking.neu(
-        dauer=0.3,
-        positionen=np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
+
+@app.cell(hide_code=True)
+def _(Animation, get_compile_request, mo, np):
+    _compile_request = get_compile_request()
+    _animation_name = _compile_request["animation_name"]
+    mo.stop(_animation_name is None)
+    _animation_code = _compile_request["animation_code"]
+    if _animation_code is not None:
+        _animation_code = normalize_animation_code(_animation_code)
+
+    _default_animation = Animation(_animation_name)
+    _namespace = {
+        "np": np,
+        "Animation": Animation,
+        "animation": _default_animation,
+        "animation_name": _animation_name,
+    }
+
+    _keys_before_exec = set(_namespace)
+    if _animation_code is not None:
+        exec(_animation_code, _namespace)
+
+    _new_animations = [
+        value
+        for key, value in _namespace.items()
+        if key not in _keys_before_exec and isinstance(value, Animation)
+    ]
+
+    if len(_new_animations) == 1:
+        animation = _new_animations[0]
+    elif isinstance(_namespace.get("animation"), Animation):
+        animation = _namespace["animation"]
+    else:
+        raise ValueError(
+            "No animation found. Use the current animation variable, or create one "
+            "Animation object, for example `wave = Animation('wave')`."
+        )
+
+    animation.compile()
+    return (animation,)
+
+
+@app.cell(hide_code=True)
+def _(
+    get_active_animation_name,
+    get_animation_projects,
+    mo,
+    set_active_animation_name,
+    set_animation_projects,
+    set_compile_request,
+):
+    _projects = get_animation_projects()
+    _active_animation_name = get_active_animation_name()
+
+    animation_name_input = mo.ui.text(
+        value="",
+        label="New animation name",
+        placeholder="thinking",
+    )
+
+    def _activate_project(animation_name: str, projects: dict | None = None) -> None:
+        if projects is None:
+            projects = get_animation_projects()
+
+        project = projects[animation_name]
+        set_active_animation_name(animation_name)
+        set_compile_request(
+            {
+                "animation_name": animation_name,
+                "animation_code": project["code"],
+            }
+        )
+
+    def _submit_name(_value):
+        if _value:
+            _animation_name = animation_name_input.value.strip()
+            if not _animation_name:
+                return
+
+            _projects = dict(get_animation_projects())
+            if _animation_name not in _projects:
+                _projects[_animation_name] = {
+                    "name": _animation_name,
+                    "code": default_animation_code(_animation_name),
+                }
+                set_animation_projects(_projects)
+
+            _activate_project(_animation_name, _projects)
+
+    def _select_project(value):
+        if value:
+            _activate_project(value)
+
+    submit_name_button = mo.ui.run_button(label="Create", on_change=_submit_name)
+
+    controls = [mo.hstack([animation_name_input, submit_name_button])]
+
+    if _projects:
+        _project_names = sorted(_projects)
+        _dropdown_value = (
+            _active_animation_name
+            if _active_animation_name in _projects
+            else _project_names[0]
+        )
+        project_dropdown = mo.ui.dropdown(
+            options=_project_names,
+            value=_dropdown_value,
+            label="Projects",
+            on_change=_select_project,
+        )
+        controls.insert(0, project_dropdown)
+
+    mo.vstack(controls)
+    return
+
+
+@app.cell(hide_code=True)
+def _(
+    get_active_animation_name,
+    get_animation_projects,
+    mo,
+    set_active_animation_name,
+    set_animation_projects,
+    set_compile_request,
+    set_manual_joint_mode,
+):
+    _animation_name = get_active_animation_name()
+    _projects = get_animation_projects()
+    mo.stop(_animation_name is None or _animation_name not in _projects)
+
+    _animation_name_literal = repr(_animation_name)
+    _animation_code = normalize_animation_code(_projects[_animation_name]["code"])
+
+    initial_code = mo.ui.code_editor(
+        f"""animation = Animation({_animation_name_literal})
+
+    animation.neu(
+    dauer=0.3,
+    positionen=np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
     )""",
         disabled=True,
     )
 
     animation_code_box = mo.ui.code_editor(
-        """thinking.neu(dauer=0.3, positionen=np.array([0.0, -1.4, 0.0, -2.25, 0.0, 1.4, 0.0, 2.25]))
-
-    for i in range(3):
-        thinking.neu(dauer=0.1, positionen=np.array([0.0, -1.4, 0.0, -2.25, 0.0, 1.4, 0.0, 2.25]))
-        thinking.neu(dauer=0.1, positionen=np.array([-2.0, -1.2, 0.0, -0.3, -2.0, 1.2, 0.0, 0.3]))""",
+        _animation_code,
         language="python",
     )
 
-    compile_button = mo.ui.run_button(label="Compile")
+    rename_name_input = mo.ui.text(
+        value=_animation_name,
+        label="Rename animation",
+        placeholder=_animation_name,
+    )
+
+    def _save_current_code() -> str:
+        _projects = dict(get_animation_projects())
+        _project = dict(_projects[_animation_name])
+        _project["code"] = normalize_animation_code(animation_code_box.value)
+        _projects[_animation_name] = _project
+        set_animation_projects(_projects)
+        return _project["code"]
+
+    def _rename(_value):
+        if _value:
+            _new_animation_name = rename_name_input.value.strip()
+            if not _new_animation_name or _new_animation_name == _animation_name:
+                return
+
+            _projects = dict(get_animation_projects())
+            if _new_animation_name in _projects:
+                return
+
+            _project = dict(_projects.pop(_animation_name))
+            _project["name"] = _new_animation_name
+            _project["code"] = normalize_animation_code(animation_code_box.value)
+            _projects[_new_animation_name] = _project
+
+            set_animation_projects(_projects)
+            set_active_animation_name(_new_animation_name)
+            set_compile_request(
+                {
+                    "animation_name": _new_animation_name,
+                    "animation_code": _project["code"],
+                }
+            )
+
+    def _save(_value):
+        if _value:
+            _save_current_code()
+
+    def _compile(_value):
+        if _value:
+            set_manual_joint_mode(False)
+            _animation_code = _save_current_code()
+            set_compile_request(
+                {
+                    "animation_name": _animation_name,
+                    "animation_code": _animation_code,
+                }
+            )
+
+    rename_button = mo.ui.run_button(label="Rename", on_change=_rename)
+    save_button = mo.ui.run_button(label="Save", on_change=_save)
+    compile_button = mo.ui.run_button(label="Compile", on_change=_compile)
     export_button = mo.ui.run_button(label="Export")
 
     mo.vstack([
+        mo.md(f"### Animation: `{_animation_name}`"),
+        mo.hstack([rename_name_input, rename_button]),
         initial_code,
         animation_code_box,
         mo.hstack([
+            save_button,
             compile_button,
             export_button,
         ]),
     ])
-    return animation_code_box, compile_button, export_button
+    return (export_button,)
 
 
-@app.cell
-def _(export_button, mo, thinking):
+@app.cell(hide_code=True)
+def _(animation, export_button, mo):
     mo.stop(not export_button.value)
 
-    thinking.export()
-    return
-
-
-@app.cell
-def _():
+    animation.export()
     return
 
 
