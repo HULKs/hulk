@@ -323,9 +323,8 @@ dependencies = [
 
 [[package]]
 name = "booster_sdk"
-version = "0.1.0-alpha.11"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62af599682f9b0df60ef2370f72e5a643baec826514966b534e047285f33050e"
+version = "0.1.1-alpha.1"
+source = "git+https://github.com/IntelligentRoboticsLab/booster_sdk?rev=638c1973c0a1a729b47b1133af5b4af16a41b9bd#638c1973c0a1a729b47b1133af5b4af16a41b9bd"
 dependencies = [
  "futures",
  "rustdds",
@@ -946,6 +945,18 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "19fc433e8437a212d1b6f1e68c7824af3aed907da60afa994e7f542d18d12aa9"
 
 [[package]]
+name = "glam"
+version = "0.31.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "556f6b2ea90b8d15a74e0e7bb41671c9bdf38cd9f78c284d750b9ce58a2b5be7"
+
+[[package]]
+name = "glam"
+version = "0.32.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f70749695b063ecbf6b62949ccccde2e733ec3ecbbd71d467dca4e5c6c97cca0"
+
+[[package]]
 name = "glob"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1322,9 +1333,9 @@ dependencies = [
 
 [[package]]
 name = "nalgebra"
-version = "0.34.1"
+version = "0.34.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c4d5b3eff5cd580f93da45e64715e8c20a3996342f1e466599cf7a267a0c2f5f"
+checksum = "df76ea0ff5c7e6b88689085804d6132ded0ddb9de5ca5b8aeb9eeadc0508a70a"
 dependencies = [
  "approx",
  "glam 0.14.0",
@@ -1343,6 +1354,8 @@ dependencies = [
  "glam 0.28.0",
  "glam 0.29.3",
  "glam 0.30.10",
+ "glam 0.31.1",
+ "glam 0.32.1",
  "matrixmultiply",
  "nalgebra-macros",
  "num-complex",
@@ -1904,9 +1917,8 @@ checksum = "b50b8869d9fc858ce7266cce0194bd74df58b9d0e3f6df3a9fc8eb470d95c09d"
 
 [[package]]
 name = "rustdds"
-version = "0.11.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "54aa8af0cee7a6cad5a1fb81ae338ee5ffe5e41d26fc02d8798ce4a071fa4ac6"
+version = "0.11.9"
+source = "git+https://github.com/oxkitsune/RustDDS.git?branch=gijs%2Flocalhost-only#84a9e15d02793794bebdf9e67f604931c950281c"
 dependencies = [
  "bit-vec",
  "byteorder",
