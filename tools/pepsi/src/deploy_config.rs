@@ -12,9 +12,8 @@ use toml::from_str;
 use argument_parsers::{
     RobotAddress, RobotAddressPlayerAssignment, RobotNumberPlayerAssignment, parse_network,
 };
-use hsl_network_messages::PlayerNumber;
 use parameters::directory::LocationTarget;
-use repository::Repository;
+use repository::{PlayerNumber, Repository};
 use robot::Network;
 
 use crate::player_number::{Arguments, check_for_duplication, player_number};

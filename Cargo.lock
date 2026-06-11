@@ -401,8 +401,8 @@ name = "argument_parsers"
 version = "0.1.0"
 dependencies = [
  "color-eyre",
- "hsl_network_messages",
  "regex",
+ "repository",
  "robot",
 ]
 
@@ -8040,7 +8040,6 @@ dependencies = [
  "color-eyre",
  "futures-util",
  "glob",
- "hsl_network_messages",
  "indicatif",
  "lazy_static",
  "parameters",
@@ -9167,7 +9166,6 @@ version = "0.1.0"
 dependencies = [
  "color-eyre",
  "futures-util",
- "hsl_network_messages",
  "hula_types",
  "itertools 0.14.0",
  "parameters",
