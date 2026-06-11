@@ -35,8 +35,9 @@ def _(mo):
 @app.cell(hide_code=True)
 def _(mo):
     mo.md(r"""
-    Der K1 Roboter hat in jedem Arm __3__ Gelenke:
-        - Schulter heben
+    Der K1 Roboter hat in jedem Arm __4__ Gelenke:
+        - Schulter vorwärts heben
+        - Schulter seitwärts heben
         - Schulter rotieren
         - Ellenbogen anwinkeln
 
