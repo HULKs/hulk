@@ -27,7 +27,7 @@ cargo run --release -p tensorrt-compile -- \
 
 The fused exporter validates the generated ONNX model with `onnx.checker` and ONNX Runtime, including a two-step state feedback smoke test.
 
-The ROS-Z `stereo_visual_odometry` node is disabled by default. Enable `stereo_visual_odometry.enable` only after `stereo_visual_odometry.neural_networks_folder` contains `stereo_visual_odometry.model_name`, which defaults to `etc/neural_networks/xfeat-lighterglue.onnx`.
+The ROS-Z `stereo_visual_odometry` node is enabled by default, and the configured model path must exist when the node starts. Keep `stereo_visual_odometry.enable` enabled only after `stereo_visual_odometry.neural_network` points to the fused model, which defaults to `etc/neural_networks/xfeat-lighterglue.onnx`. Migrate older `stereo_visual_odometry.neural_networks_folder` plus `stereo_visual_odometry.model_name` overlays to this single path.
 
 To benchmark the fused visual odometry model on KITTI odometry data, place the official `data_odometry_gray.zip`, `data_odometry_calib.zip`, and `data_odometry_poses.zip` archives in `../datasets` relative to the repository root and run:
 

@@ -14,11 +14,10 @@ use color_eyre::{
 };
 use nalgebra as na;
 use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
-use stereo_visual_odometry::VisualOdometryPipeline;
-use types::{
-    parameters::StereoVisualOdometryPoseEstimationParameters, stereo_camera_info::StereoCameraInfo,
-    stereo_image_pair::StereoImagePair,
+use stereo_visual_odometry::{
+    parameters::StereoVisualOdometryPoseEstimationParameters, pipeline::VisualOdometryPipeline,
 };
+use types::{stereo_camera_info::StereoCameraInfo, stereo_image_pair::StereoImagePair};
 use zip::ZipArchive;
 
 const MODEL_WIDTH: u32 = 544;
@@ -47,7 +46,23 @@ fn main() -> Result<()> {
 
     let model_path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../../etc/neural_networks/xfeat-lighterglue.onnx");
-    let pose_estimation_parameters = StereoVisualOdometryPoseEstimationParameters::default();
+
+    let pose_estimation_parameters = StereoVisualOdometryPoseEstimationParameters {
+        minimum_pnp_correspondences: 8,
+        ransac_reprojection_threshold_px: 6.0,
+        ransac_max_iterations: 100,
+        ransac_confidence: 0.99,
+        lm_max_iterations: 20,
+        lm_initial_lambda: 0.001,
+        lm_min_lambda: 1e-7,
+        lm_max_lambda: 1e9,
+        lm_step_tolerance: 1e-6,
+        lm_cost_tolerance: 1e-6,
+        lm_huber_threshold_px: 3.0,
+        full_weight_disparity_px: 8.0,
+        min_disparity_weight: 0.5,
+        max_vertical_disparity_px: 3.0,
+    };
     let mut aggregate = SequenceMetrics::new("all");
 
     for sequence in &config.sequences {

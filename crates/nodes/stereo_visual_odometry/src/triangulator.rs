@@ -9,6 +9,7 @@ use ros2::sensor_msgs::camera_info::CameraInfo;
 use crate::feature_extractor::{CurrentLeft, CurrentRight, FrameFeatures, FrameKeypoints, Matches};
 
 const CAMERA_EPSILON: f64 = 1e-9;
+
 pub struct StereoTriangulator {
     left_size: (u32, u32),
     right_size: (u32, u32),

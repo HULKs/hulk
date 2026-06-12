@@ -13,12 +13,12 @@ use ort::{
         run_options::OutputSelector,
     },
     tensor::PrimitiveTensorElementType,
-    value::{TensorRef, ValueType},
+    value::TensorRef,
 };
 use ros2::sensor_msgs::image::Image;
 use types::stereo_image_pair::StereoImagePair;
 
-pub const KEYPOINTS: usize = 512;
+pub const NUM_KEYPOINTS: usize = 512;
 const DESCRIPTOR_DIMENSION: usize = 64;
 
 pub struct FeatureExtractor {
@@ -75,7 +75,7 @@ impl FeatureExtractor {
             .with_engine_cache_path(parent.display())
             .build();
         let cuda = CUDAExecutionProvider::default().build();
-        let mut session = Session::builder()?
+        let session = Session::builder()?
             .with_execution_providers([tensorrt, cuda])?
             .with_optimization_level(GraphOptimizationLevel::Level3)?
             .with_intra_threads(2)?
@@ -92,7 +92,6 @@ impl FeatureExtractor {
                 .with("temporal_matches")
                 .with("temporal_scores"),
         );
-        warm_up_session(&mut session, &run_options)?;
 
         Ok(Self {
             session,
@@ -128,73 +127,12 @@ impl FeatureExtractor {
     }
 }
 
-fn warm_up_session(
-    session: &mut Session,
-    run_options: &RunOptions<HasSelectedOutputs>,
-) -> Result<()> {
-    let current_left_shape = input_shape(session, "current_left")?;
-    let current_right_shape = input_shape(session, "current_right")?;
-    let current_left_data = vec![0_u8; current_left_shape.iter().product()];
-    let current_right_data = vec![0_u8; current_right_shape.iter().product()];
-    let previous = PreviousFeatureState::new();
-
-    let current_left =
-        TensorRef::from_array_view((current_left_shape, current_left_data.as_slice()))?;
-    let current_right =
-        TensorRef::from_array_view((current_right_shape, current_right_data.as_slice()))?;
-    let previous_left_keypoints = previous.keypoints_tensor()?;
-    let previous_left_descriptors = previous.descriptors_tensor()?;
-    let previous_left_valid = previous.valid_tensor()?;
-
-    session.run_with_options(
-        inputs![
-            "current_left" => current_left,
-            "current_right" => current_right,
-            "previous_left_keypoints" => previous_left_keypoints,
-            "previous_left_descriptors" => previous_left_descriptors,
-            "previous_left_valid" => previous_left_valid,
-        ],
-        run_options,
-    )?;
-
-    Ok(())
-}
-
-fn input_shape(session: &Session, name: &str) -> Result<[usize; 3]> {
-    let input = session
-        .inputs
-        .iter()
-        .find(|input| input.name == name)
-        .wrap_err_with(|| format!("model input '{name}' is missing"))?;
-    let ValueType::Tensor { shape, .. } = &input.input_type else {
-        bail!(
-            "model input '{name}' is not a tensor: {:?}",
-            input.input_type
-        );
-    };
-    ensure!(
-        shape.len() == 3,
-        "model input '{name}' has rank {}, expected 3",
-        shape.len()
-    );
-    let mut resolved = [0_usize; 3];
-    for (index, dimension) in shape.iter().enumerate() {
-        ensure!(
-            *dimension > 0,
-            "model input '{name}' dimension {index} is dynamic or invalid: {dimension}"
-        );
-        resolved[index] = *dimension as usize;
-    }
-
-    Ok(resolved)
-}
-
 impl PreviousFeatureState {
     pub fn new() -> Self {
         Self {
-            keypoints: vec![0.0; KEYPOINTS * 2],
-            descriptors: vec![0.0; KEYPOINTS * DESCRIPTOR_DIMENSION],
-            valid: vec![false; KEYPOINTS],
+            keypoints: vec![0.0; NUM_KEYPOINTS * 2],
+            descriptors: vec![0.0; NUM_KEYPOINTS * DESCRIPTOR_DIMENSION],
+            valid: vec![false; NUM_KEYPOINTS],
         }
     }
 
@@ -205,19 +143,20 @@ impl PreviousFeatureState {
     }
 
     fn keypoints_tensor(&self) -> Result<TensorRef<'_, f32>> {
-        TensorRef::from_array_view(([KEYPOINTS, 2], self.keypoints.as_slice())).map_err(Into::into)
+        TensorRef::from_array_view(([NUM_KEYPOINTS, 2], self.keypoints.as_slice()))
+            .map_err(Into::into)
     }
 
     fn descriptors_tensor(&self) -> Result<TensorRef<'_, f32>> {
         TensorRef::from_array_view((
-            [KEYPOINTS, DESCRIPTOR_DIMENSION],
+            [NUM_KEYPOINTS, DESCRIPTOR_DIMENSION],
             self.descriptors.as_slice(),
         ))
         .map_err(Into::into)
     }
 
     fn valid_tensor(&self) -> Result<TensorRef<'_, bool>> {
-        TensorRef::from_array_view(([KEYPOINTS], self.valid.as_slice())).map_err(Into::into)
+        TensorRef::from_array_view(([NUM_KEYPOINTS], self.valid.as_slice())).map_err(Into::into)
     }
 }
 
@@ -244,17 +183,17 @@ impl<'a> FeatureOutput<'a> {
         let valid = self.tensor::<bool>("current_left_valid")?;
 
         ensure!(
-            keypoints.len() == KEYPOINTS * 2,
+            keypoints.len() == NUM_KEYPOINTS * 2,
             "unexpected current_left_keypoints length: {}",
             keypoints.len()
         );
         ensure!(
-            descriptors.len() == KEYPOINTS * DESCRIPTOR_DIMENSION,
+            descriptors.len() == NUM_KEYPOINTS * DESCRIPTOR_DIMENSION,
             "unexpected current_left_descriptors length: {}",
             descriptors.len()
         );
         ensure!(
-            valid.len() == KEYPOINTS,
+            valid.len() == NUM_KEYPOINTS,
             "unexpected current_left_valid length: {}",
             valid.len()
         );
@@ -267,7 +206,7 @@ impl<'a> FeatureOutput<'a> {
         let keypoints = self.tensor::<f32>(keypoints_name)?;
 
         ensure!(
-            keypoints.len() == KEYPOINTS * 2,
+            keypoints.len() == NUM_KEYPOINTS * 2,
             "unexpected {keypoints_name} length: {}",
             keypoints.len()
         );
@@ -287,12 +226,12 @@ impl<'a> FeatureOutput<'a> {
         let valid = self.tensor::<bool>(valid_name)?;
 
         ensure!(
-            keypoints.len() == KEYPOINTS * 2,
+            keypoints.len() == NUM_KEYPOINTS * 2,
             "unexpected {keypoints_name} length: {}",
             keypoints.len()
         );
         ensure!(
-            valid.len() == KEYPOINTS,
+            valid.len() == NUM_KEYPOINTS,
             "unexpected {valid_name} length: {}",
             valid.len()
         );
@@ -313,12 +252,12 @@ impl<'a> FeatureOutput<'a> {
         let scores = self.tensor::<f32>(scores_name)?;
 
         ensure!(
-            matches.len() == KEYPOINTS,
+            matches.len() == NUM_KEYPOINTS,
             "unexpected {matches_name} length: {}",
             matches.len()
         );
         ensure!(
-            scores.len() == KEYPOINTS,
+            scores.len() == NUM_KEYPOINTS,
             "unexpected {scores_name} length: {}",
             scores.len()
         );
@@ -369,7 +308,11 @@ impl<From, To> Matches<'_, From, To> {
             .enumerate()
             .filter_map(|(left_index, (&right_index, &score))| {
                 let right_index = usize::try_from(right_index).ok()?;
-                (score > 0.0 && right_index < KEYPOINTS).then_some((left_index, right_index, score))
+                (score > 0.0 && right_index < NUM_KEYPOINTS).then_some((
+                    left_index,
+                    right_index,
+                    score,
+                ))
             })
     }
 }

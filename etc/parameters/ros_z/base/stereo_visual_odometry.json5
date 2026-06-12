@@ -1,7 +1,6 @@
 {
   enable: true,
-  neural_networks_folder: "etc/neural_networks",
-  model_name: "xfeat-lighterglue.onnx",
+  neural_network: "etc/neural_networks/xfeat-lighterglue.onnx",
   pose_estimation_parameters: {
     minimum_pnp_correspondences: 8,
     ransac_reprojection_threshold_px: 6.0,

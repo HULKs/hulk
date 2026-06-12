@@ -9,12 +9,6 @@ Most of the vision pipeline happens on a segmented version of the image, to decr
 
 Each cycler starts by waiting for the hardware interface to deliver it's respective camera image and then begins to execute the pipeline.
 
-## Stereo Visual Odometry
-
-Stereo visual odometry runs as the ROS-Z `stereo_visual_odometry` node. It is disabled by default through `stereo_visual_odometry.enable` and lazily initializes the TensorRT-backed XFeat/LighterGlue model when enabled. The model path is configured with `stereo_visual_odometry.neural_networks_folder` and `stereo_visual_odometry.model_name`, defaulting to `etc/neural_networks/xfeat-lighterglue.onnx`.
-
-The odometry state output topic is `visual_odometry/current_left_camera_to_visual_odometer`. The frame-to-frame delta is also published on `visual_odometry/previous_left_camera_to_current_left_camera` for debugging. Both transforms are in the left-camera frame and do not apply head-to-camera extrinsics.
-
 !!! note
 
     Some less important nodes are not mentioned here.
