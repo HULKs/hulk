@@ -29,7 +29,7 @@ for i in (seq -w 1 $iterations)
         -e MUJOCO_GL=egl \
         -e PYOPENGL_PLATFORM=egl \
         workshop-uv \
-        uv run marimo edit $notebook \
+        uv run marimo run $notebook \
             --host 0.0.0.0 \
             --port $port \
             --token-password hulksworkshop
