@@ -1,4 +1,7 @@
-use color_eyre::{Result, eyre::WrapErr as _};
+use color_eyre::{
+    Result,
+    eyre::{WrapErr as _, ensure},
+};
 use coordinate_systems::{Field, Ground};
 use linear_algebra::{Isometry2, Point2, Vector2, point, vector};
 use ndarray::{Array2, array};
@@ -61,7 +64,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .subscriber::<TimeWrapper<IncomingMessage>>("filtered_message")?
         .build()
         .await?;
-    let heatmap_pub = node
+    let additional_heatmap_pub = node
         .publisher::<types::heatmap::Heatmap>("ball_search_heatmap")?
         .build()
         .await?;
@@ -77,6 +80,16 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         (field_dimensions.length * initial_parameters.cells_per_meter).round() as usize,
         (field_dimensions.width * initial_parameters.cells_per_meter).round() as usize,
     );
+
+    ensure!(
+        heatmap_length > 0,
+        "useful error message: heatmap_length must at least be 1"
+    );
+    ensure!(
+        heatmap_width > 0,
+        "useful error message: heatmap_width must at least be 1"
+    );
+
     let mut heatmap = Heatmap {
         map: Array2::ones((heatmap_length, heatmap_width))
             / (heatmap_length * heatmap_width) as f32,
@@ -188,7 +201,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 .await?;
         }
 
-        heatmap_pub.publish(&heatmap.to_message()).await?;
+        additional_heatmap_pub
+            .publish_if_subscribed(|| async { heatmap.to_message() })
+            .await?;
 
         tokio::time::sleep(Duration::from_millis(5)).await;
     }
