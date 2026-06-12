@@ -937,38 +937,41 @@
     "second_line_association_distance": 2.0
   },
   "image_segmenter": {
-    "horizontal_median_mode": "FivePixels",
-    "vertical_median_mode": "FivePixels",
     "horizontal_edge_threshold": 10,
+    "horizontal_median_mode": "FivePixels",
     "horizontal_stride": 2,
-    "vertical_edge_threshold": 8,
+    "vertical_median_mode": "FivePixels",
     "vertical_stride": 1,
+    "vertical_edge_threshold": 8,
     "vertical_stride_in_ground": 0.019999999552965164,
     "field_color_detection": {
+      "luminance": {
+        "start": 35,
+        "end": 196
+      },
+      "green_luminance": {
+        "start": 53,
+        "end": 255
+      },
       "blue_chromaticity": {
         "end": 0.47999998927116394,
         "start": 0.05000000074505806
+      },
+      "red_chromaticity": {
+        "start": 0.0,
+        "end": 0.45500001311302185
       },
       "green_chromaticity": {
         "end": 0.6899999976158142,
         "start": 0.009999999776482582
       },
-      "green_luminance": {
-        "start": 53
-      },
       "hue": {
         "end": 185,
         "start": 40
       },
-      "luminance": {
-        "end": 196
-      },
-      "red_chromaticity": {
-        "end": 0.45500001311302185
-      },
       "saturation": {
-        "end": 241,
-        "start": 37
+        "start": 37,
+        "end": 241
       }
     }
   },
