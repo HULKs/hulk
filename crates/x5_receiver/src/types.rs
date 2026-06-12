@@ -10,32 +10,6 @@ pub const MAGIC_IDENTIFIER_FRAME: u32 = 0xC0FFEE42;
 pub const MAGIC_IDENTIFIER_CAMERA_INFO: u32 = 0xCA11B42E;
 pub const DISTORTION_COEFFICIENT_COUNT: usize = 8;
 
-#[repr(transparent)]
-#[derive(Default, Clone, Copy, Debug, PartialEq, Eq)]
-pub struct DistortionCoefficientCount(u8);
-
-impl DistortionCoefficientCount {
-    pub const fn new(count: u8) -> Option<Self> {
-        if count as usize <= DISTORTION_COEFFICIENT_COUNT {
-            Some(Self(count))
-        } else {
-            None
-        }
-    }
-
-    pub const fn is_valid(self) -> bool {
-        Self::new(self.0).is_some()
-    }
-
-    pub const fn get(self) -> u8 {
-        self.0
-    }
-
-    pub const fn as_usize(self) -> usize {
-        self.0 as usize
-    }
-}
-
 #[repr(C, packed)]
 #[derive(Debug, Clone)]
 pub struct X5CameraFrameHeader {
@@ -80,8 +54,8 @@ pub struct X5CameraInfo {
     pub width: u16,
     pub height: u16,
     pub distortion_model: [u8; 24],
-    pub distortion_count_left: DistortionCoefficientCount,
-    pub distortion_count_right: DistortionCoefficientCount,
+    pub distortion_count_left: u8,
+    pub distortion_count_right: u8,
     pub left_focal_length: [f64; 2],
     pub left_optical_center: [f64; 2],
     pub left_distortion_coefficients: [f64; DISTORTION_COEFFICIENT_COUNT],
@@ -104,7 +78,7 @@ impl X5CameraInfo {
             .trim_matches('\0')
             .to_string();
         let left_distortion_coefficients = self.left_distortion_coefficients;
-        let distortion_count_left = self.distortion_count_left;
+        let distortion_count_left = self.distortion_count_left as usize;
 
         CameraInfo {
             header: Header {
@@ -114,7 +88,7 @@ impl X5CameraInfo {
             height: self.capture_height as u32,
             width: self.capture_width as u32,
             distortion_model,
-            d: left_distortion_coefficients[..distortion_count_left.as_usize()].to_vec(),
+            d: left_distortion_coefficients[..distortion_count_left].to_vec(),
             k: [
                 self.left_focal_length[0],
                 0.0,
@@ -154,7 +128,7 @@ impl X5CameraInfo {
             .trim_matches('\0')
             .to_string();
         let right_distortion_coefficients = self.right_distortion_coefficients;
-        let distortion_count_right = self.distortion_count_right;
+        let distortion_count_right = self.distortion_count_right as usize;
 
         CameraInfo {
             header: Header {
@@ -164,7 +138,7 @@ impl X5CameraInfo {
             height: self.capture_height as u32,
             width: self.capture_width as u32,
             distortion_model,
-            d: right_distortion_coefficients[..distortion_count_right.as_usize()].to_vec(),
+            d: right_distortion_coefficients[..distortion_count_right].to_vec(),
             k: [
                 self.right_focal_length[0],
                 0.0,
