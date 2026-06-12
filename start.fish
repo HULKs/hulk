@@ -8,9 +8,9 @@ if test -z "$iterations"; or not string match -qr '^[0-9]+$' -- "$iterations"; o
 end
 switch "$notebook_kind"
     case workshop
-        set -l notebook louisenlund_workshop_2026.py
+        set notebook louisenlund_workshop_2026.py
     case intro
-        set -l notebook pythonIntro.py
+        set notebook pythonIntro.py
     case '*'
         printf 'Usage: %s <iterations> <workshop|intro>\n' (status filename)
         exit 1
