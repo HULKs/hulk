@@ -47,6 +47,9 @@ class XFeatNv12TopKWrapper(nn.Module):
 
     def forward(self, raw_bytes_input: ByteTensor) -> tuple[Tensor, Tensor, Tensor, Tensor]:
         rgb = self._preprocess(raw_bytes_input)
+        return self.forward_rgb(rgb)
+
+    def forward_rgb(self, rgb: Tensor) -> tuple[Tensor, Tensor, Tensor, Tensor]:
         descriptors, keypoint_logits, reliability = self.xfeat(rgb)
 
         descriptors = F.normalize(descriptors, dim=1)

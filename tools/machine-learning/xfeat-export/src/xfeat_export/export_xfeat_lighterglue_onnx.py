@@ -65,8 +65,10 @@ class XFeatLighterGlueWrapper(nn.Module):
         Tensor,
         Tensor,
     ]:
-        raw_images = torch.stack([current_left, current_right], dim=0)
-        keypoints, descriptors, _, valid = self.extractor(raw_images)
+        current_left_rgb = self.extractor._preprocess(current_left)
+        current_right_rgb = self.extractor._preprocess(current_right)
+        rgb_images = torch.cat([current_left_rgb, current_right_rgb], dim=0)
+        keypoints, descriptors, _, valid = self.extractor.forward_rgb(rgb_images)
 
         stereo_matches, stereo_reverse_matches, stereo_scores, stereo_reverse_scores = self.matcher(
             keypoints[0:1],

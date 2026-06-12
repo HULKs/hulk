@@ -13,7 +13,7 @@ use ort::{
         run_options::OutputSelector,
     },
     tensor::PrimitiveTensorElementType,
-    value::TensorRef,
+    value::{TensorRef, ValueType},
 };
 use ros2::sensor_msgs::image::Image;
 use types::stereo_image_pair::StereoImagePair;
@@ -75,7 +75,7 @@ impl FeatureExtractor {
             .with_engine_cache_path(parent.display())
             .build();
         let cuda = CUDAExecutionProvider::default().build();
-        let session = Session::builder()?
+        let mut session = Session::builder()?
             .with_execution_providers([tensorrt, cuda])?
             .with_optimization_level(GraphOptimizationLevel::Level3)?
             .with_intra_threads(2)?
@@ -92,6 +92,7 @@ impl FeatureExtractor {
                 .with("temporal_matches")
                 .with("temporal_scores"),
         );
+        warm_up_session(&mut session, &run_options)?;
 
         Ok(Self {
             session,
@@ -125,6 +126,67 @@ impl FeatureExtractor {
 
         Ok(FeatureOutput { outputs })
     }
+}
+
+fn warm_up_session(
+    session: &mut Session,
+    run_options: &RunOptions<HasSelectedOutputs>,
+) -> Result<()> {
+    let current_left_shape = input_shape(session, "current_left")?;
+    let current_right_shape = input_shape(session, "current_right")?;
+    let current_left_data = vec![0_u8; current_left_shape.iter().product()];
+    let current_right_data = vec![0_u8; current_right_shape.iter().product()];
+    let previous = PreviousFeatureState::new();
+
+    let current_left =
+        TensorRef::from_array_view((current_left_shape, current_left_data.as_slice()))?;
+    let current_right =
+        TensorRef::from_array_view((current_right_shape, current_right_data.as_slice()))?;
+    let previous_left_keypoints = previous.keypoints_tensor()?;
+    let previous_left_descriptors = previous.descriptors_tensor()?;
+    let previous_left_valid = previous.valid_tensor()?;
+
+    session.run_with_options(
+        inputs![
+            "current_left" => current_left,
+            "current_right" => current_right,
+            "previous_left_keypoints" => previous_left_keypoints,
+            "previous_left_descriptors" => previous_left_descriptors,
+            "previous_left_valid" => previous_left_valid,
+        ],
+        run_options,
+    )?;
+
+    Ok(())
+}
+
+fn input_shape(session: &Session, name: &str) -> Result<[usize; 3]> {
+    let input = session
+        .inputs
+        .iter()
+        .find(|input| input.name == name)
+        .wrap_err_with(|| format!("model input '{name}' is missing"))?;
+    let ValueType::Tensor { shape, .. } = &input.input_type else {
+        bail!(
+            "model input '{name}' is not a tensor: {:?}",
+            input.input_type
+        );
+    };
+    ensure!(
+        shape.len() == 3,
+        "model input '{name}' has rank {}, expected 3",
+        shape.len()
+    );
+    let mut resolved = [0_usize; 3];
+    for (index, dimension) in shape.iter().enumerate() {
+        ensure!(
+            *dimension > 0,
+            "model input '{name}' dimension {index} is dynamic or invalid: {dimension}"
+        );
+        resolved[index] = *dimension as usize;
+    }
+
+    Ok(resolved)
 }
 
 impl PreviousFeatureState {

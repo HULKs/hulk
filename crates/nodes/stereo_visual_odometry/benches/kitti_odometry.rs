@@ -508,34 +508,43 @@ impl SequenceMetrics {
             success_rate,
         );
         println!(
-            "  visual_odometry_ms avg={:.3} median={:.3} p95={:.3} min={:.3} max={:.3} fps(avg)={:.2}",
+            "  visual_odometry_ms avg={:.3} median={:.3} p95={:.3} p99={:.3} min={:.3} max={:.3} fps(avg)={:.2}",
             visual_odometry.average_ms,
             visual_odometry.median_ms,
             visual_odometry.p95_ms,
+            visual_odometry.p99_ms,
             visual_odometry.min_ms,
             visual_odometry.max_ms,
             1000.0 / visual_odometry.average_ms,
         );
         println!(
-            "  excluded_prepare_ms avg={:.3} median={:.3} p95={:.3}",
-            preparation.average_ms, preparation.median_ms, preparation.p95_ms,
+            "  excluded_prepare_ms avg={:.3} median={:.3} p95={:.3} p99={:.3}",
+            preparation.average_ms,
+            preparation.median_ms,
+            preparation.p95_ms,
+            preparation.p99_ms,
         );
         println!(
-            "  accuracy rotation_deg avg={:.3} median={:.3} p95={:.3}; translation_m avg={:.3} median={:.3} p95={:.3}",
+            "  accuracy rotation_deg avg={:.3} median={:.3} p95={:.3} p99={:.3}; translation_m avg={:.3} median={:.3} p95={:.3} p99={:.3}",
             rotation.average,
             rotation.median,
             rotation.p95,
+            rotation.p99,
             translation.average,
             translation.median,
             translation.p95,
+            translation.p99,
         );
         println!(
-            "  translation_relative avg={:.3}% median={:.3}% p95={:.3}%; translation_scale_ratio avg={:.3} median={:.3}",
+            "  translation_relative avg={:.3}% median={:.3}% p95={:.3}% p99={:.3}%; translation_scale_ratio avg={:.3} median={:.3} p95={:.3} p99={:.3}",
             translation_relative.average * 100.0,
             translation_relative.median * 100.0,
             translation_relative.p95 * 100.0,
+            translation_relative.p99 * 100.0,
             scale_ratio.average,
             scale_ratio.median,
+            scale_ratio.p95,
+            scale_ratio.p99,
         );
     }
 }
@@ -544,6 +553,7 @@ struct DurationSummary {
     average_ms: f64,
     median_ms: f64,
     p95_ms: f64,
+    p99_ms: f64,
     min_ms: f64,
     max_ms: f64,
 }
@@ -555,6 +565,7 @@ impl From<&[Duration]> for DurationSummary {
                 average_ms: 0.0,
                 median_ms: 0.0,
                 p95_ms: 0.0,
+                p99_ms: 0.0,
                 min_ms: 0.0,
                 max_ms: 0.0,
             };
@@ -571,6 +582,7 @@ impl From<&[Duration]> for DurationSummary {
             average_ms,
             median_ms: percentile(&milliseconds, 0.50),
             p95_ms: percentile(&milliseconds, 0.95),
+            p99_ms: percentile(&milliseconds, 0.99),
             min_ms: milliseconds[0],
             max_ms: milliseconds[milliseconds.len() - 1],
         }
@@ -581,6 +593,7 @@ struct FloatSummary {
     average: f32,
     median: f32,
     p95: f32,
+    p99: f32,
 }
 
 impl From<&[f32]> for FloatSummary {
@@ -590,6 +603,7 @@ impl From<&[f32]> for FloatSummary {
                 average: 0.0,
                 median: 0.0,
                 p95: 0.0,
+                p99: 0.0,
             };
         }
 
@@ -599,6 +613,7 @@ impl From<&[f32]> for FloatSummary {
             average: sorted.iter().sum::<f32>() / sorted.len() as f32,
             median: percentile_f32(&sorted, 0.50),
             p95: percentile_f32(&sorted, 0.95),
+            p99: percentile_f32(&sorted, 0.99),
         }
     }
 }
