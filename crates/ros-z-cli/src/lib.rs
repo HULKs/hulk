@@ -8,11 +8,12 @@ mod model;
 mod render;
 mod support;
 
+use clap::CommandFactory;
 use color_eyre::eyre::Result;
 
 use crate::{
     app::AppContext,
-    cli::{Cli, Command},
+    cli::{Cli, Command, OnlineCommand},
     render::OutputMode,
 };
 
@@ -23,36 +24,45 @@ pub async fn run(cli: Cli) -> Result<()> {
         json,
         command,
     } = cli;
-    let output_mode = OutputMode::from_json_flag(json);
 
-    run_online_command(router, output_mode, command).await
+    match command {
+        Command::Completions { shell } => {
+            let mut command = Cli::command();
+            clap_complete::generate(shell, &mut command, "rosz", &mut std::io::stdout());
+            Ok(())
+        }
+        Command::Online(command) => {
+            let output_mode = OutputMode::from_json_flag(json);
+            run_online_command(router, output_mode, command).await
+        }
+    }
 }
 
 async fn run_online_command(
     router: String,
     output_mode: OutputMode,
-    command: Command,
+    command: OnlineCommand,
 ) -> Result<()> {
     let app = AppContext::new(&router).await?;
 
     let result = match command {
-        Command::List { target } => commands::list::run(&app, output_mode, target).await,
-        Command::Watch => commands::watch::run(&app, output_mode).await,
-        Command::Graph => commands::graph::run(&app, output_mode).await,
-        Command::Schema {
+        OnlineCommand::List { target } => commands::list::run(&app, output_mode, target).await,
+        OnlineCommand::Watch => commands::watch::run(&app, output_mode).await,
+        OnlineCommand::Graph => commands::graph::run(&app, output_mode).await,
+        OnlineCommand::Schema {
             type_name,
             node,
             schema_hash,
         } => commands::schema::run(&app, output_mode, &node, &type_name, &schema_hash).await,
-        Command::Parameter { command } => {
+        OnlineCommand::Parameter { command } => {
             commands::parameter::run(&app, output_mode, command).await
         }
-        Command::Echo {
+        OnlineCommand::Echo {
             topic,
             count,
             timeout,
         } => commands::echo::run(&app, output_mode, &topic, count, timeout).await,
-        Command::Info { target, name } => {
+        OnlineCommand::Info { target, name } => {
             commands::info::run(&app, output_mode, target, &name).await
         }
     };

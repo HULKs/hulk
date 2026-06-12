@@ -1,4 +1,5 @@
 use clap::{Parser, Subcommand, ValueEnum};
+use clap_complete::Shell;
 
 /// Graph entity kind accepted by `rosz list`.
 #[derive(Debug, Clone, Copy, ValueEnum, PartialEq, Eq)]
@@ -42,6 +43,19 @@ pub struct Cli {
 /// Top-level `rosz` command.
 #[derive(Debug, Subcommand)]
 pub enum Command {
+    /// Generate shell completion script
+    Completions {
+        #[arg(value_enum)]
+        shell: Shell,
+    },
+
+    #[command(flatten)]
+    Online(OnlineCommand),
+}
+
+/// Top-level commands that operate on a ros-z graph.
+#[derive(Debug, Subcommand)]
+pub enum OnlineCommand {
     /// List graph entities
     List {
         #[arg(value_enum)]
@@ -131,7 +145,7 @@ pub enum ParameterCommand {
 mod tests {
     use clap::{Parser, error::ErrorKind};
 
-    use super::{Cli, Command, ListTarget, ParameterCommand};
+    use super::{Cli, Command, ListTarget, OnlineCommand, ParameterCommand};
 
     #[test]
     fn parses_echo_command_with_defaults() {
@@ -141,11 +155,11 @@ mod tests {
         assert!(!cli.json);
 
         match cli.command {
-            Command::Echo {
+            Command::Online(OnlineCommand::Echo {
                 topic,
                 count,
                 timeout,
-            } => {
+            }) => {
                 assert_eq!(topic, "/chatter");
                 assert_eq!(count, Some(1));
                 assert_eq!(timeout, None);
@@ -169,7 +183,9 @@ mod tests {
         assert!(cli.json);
 
         match cli.command {
-            Command::List { target } => assert_eq!(target, ListTarget::Topics),
+            Command::Online(OnlineCommand::List { target }) => {
+                assert_eq!(target, ListTarget::Topics)
+            }
             other => panic!("unexpected command: {other:?}"),
         }
     }
@@ -199,7 +215,7 @@ mod tests {
         ]);
 
         match cli.command {
-            Command::Parameter { command } => match command {
+            Command::Online(OnlineCommand::Parameter { command }) => match command {
                 ParameterCommand::Set {
                     path,
                     value,
@@ -232,11 +248,11 @@ mod tests {
         ]);
 
         match cli.command {
-            Command::Schema {
+            Command::Online(OnlineCommand::Schema {
                 type_name,
                 node,
                 schema_hash,
-            } => {
+            }) => {
                 assert_eq!(type_name, "hulk_parameters::ObjectDetectionParameters");
                 assert_eq!(node, "/vision/object_detection");
                 assert_eq!(schema_hash, "RZHS02_deadbeef");
@@ -282,7 +298,7 @@ mod tests {
         ]);
 
         match cli.command {
-            Command::Parameter { command } => match command {
+            Command::Online(OnlineCommand::Parameter { command }) => match command {
                 ParameterCommand::Watch { node } => {
                     assert_eq!(node, "/motion/walk_publisher");
                 }
