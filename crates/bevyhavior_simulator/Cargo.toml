@@ -4,6 +4,11 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 homepage.workspace = true
+autobins = false
+
+[features]
+default = []
+legacy-bevy-runner = []
 
 [dependencies]
 approx = { workspace = true }
@@ -48,6 +53,8 @@ serde_json = { workspace = true }
 tokio = { workspace = true }
 tokio-util = { workspace = true }
 types = { workspace = true }
+voronoi = { workspace = true }
+world_state = { workspace = true }
 
 [build-dependencies]
 code_generation = { workspace = true }
