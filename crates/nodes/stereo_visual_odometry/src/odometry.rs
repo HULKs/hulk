@@ -1,3 +1,4 @@
+use color_eyre::eyre::ensure;
 use kornia_3d::pnp::{
     PnPMethod, PnPRansacResult, PnPResult, RansacParams, solve_pnp, solve_pnp_ransac,
 };
@@ -6,23 +7,12 @@ use kornia_algebra::{
     optim::{HuberLoss, RobustLoss},
 };
 use nalgebra as na;
+use types::parameters::StereoVisualOdometryPoseEstimationParameters;
 
 use crate::{
     feature_extractor::{CurrentLeft, FrameFeatures, KEYPOINTS, Matches, PreviousLeft},
     triangulator::{StereoPoint, StereoTriangulator},
 };
-
-const MIN_PNP_CORRESPONDENCES: usize = 8;
-const RANSAC_REPROJ_THRESHOLD_PX: f32 = 6.0;
-const LM_MAX_ITERATIONS: usize = 20;
-const LM_INITIAL_LAMBDA: f32 = 1e-3;
-const LM_MIN_LAMBDA: f32 = 1e-7;
-const LM_MAX_LAMBDA: f32 = 1e10;
-const LM_STEP_TOLERANCE: f32 = 1e-6;
-const LM_COST_TOLERANCE: f32 = 1e-6;
-const LM_HUBER_THRESHOLD_PX: f32 = 3.0;
-const FULL_WEIGHT_DISPARITY_PX: f32 = 8.0;
-const MIN_DISPARITY_WEIGHT: f32 = 0.5;
 
 #[derive(Clone, Copy)]
 struct PreviousPoint {
@@ -82,6 +72,74 @@ impl OdometryScratch {
             right_observations_by_left_index: vec![None; KEYPOINTS],
         }
     }
+}
+
+pub fn validate_pose_estimation_parameters(
+    parameters: &StereoVisualOdometryPoseEstimationParameters,
+) -> color_eyre::Result<()> {
+    ensure!(
+        parameters.minimum_pnp_correspondences >= 4,
+        "minimum_pnp_correspondences must be at least 4"
+    );
+    ensure!(
+        parameters.ransac_reprojection_threshold_px.is_finite()
+            && parameters.ransac_reprojection_threshold_px > 0.0,
+        "ransac_reprojection_threshold_px must be finite and > 0"
+    );
+    ensure!(
+        parameters.ransac_max_iterations > 0,
+        "ransac_max_iterations must be > 0"
+    );
+    ensure!(
+        parameters.ransac_confidence.is_finite()
+            && parameters.ransac_confidence > 0.0
+            && parameters.ransac_confidence < 1.0,
+        "ransac_confidence must be finite and in (0, 1)"
+    );
+    ensure!(
+        parameters.lm_max_iterations > 0,
+        "lm_max_iterations must be > 0"
+    );
+    ensure!(
+        parameters.lm_initial_lambda.is_finite()
+            && parameters.lm_initial_lambda > 0.0
+            && parameters.lm_min_lambda.is_finite()
+            && parameters.lm_min_lambda > 0.0
+            && parameters.lm_max_lambda.is_finite()
+            && parameters.lm_max_lambda >= parameters.lm_initial_lambda
+            && parameters.lm_initial_lambda >= parameters.lm_min_lambda,
+        "LM lambda values must be finite and satisfy lm_min_lambda <= lm_initial_lambda <= lm_max_lambda"
+    );
+    ensure!(
+        parameters.lm_step_tolerance.is_finite() && parameters.lm_step_tolerance > 0.0,
+        "lm_step_tolerance must be finite and > 0"
+    );
+    ensure!(
+        parameters.lm_cost_tolerance.is_finite() && parameters.lm_cost_tolerance > 0.0,
+        "lm_cost_tolerance must be finite and > 0"
+    );
+    ensure!(
+        parameters.lm_huber_threshold_px.is_finite() && parameters.lm_huber_threshold_px > 0.0,
+        "lm_huber_threshold_px must be finite and > 0"
+    );
+    ensure!(
+        parameters.full_weight_disparity_px.is_finite()
+            && parameters.full_weight_disparity_px > 0.0,
+        "full_weight_disparity_px must be finite and > 0"
+    );
+    ensure!(
+        parameters.min_disparity_weight.is_finite()
+            && parameters.min_disparity_weight > 0.0
+            && parameters.min_disparity_weight <= 1.0,
+        "min_disparity_weight must be finite and in (0, 1]"
+    );
+    ensure!(
+        parameters.max_vertical_disparity_px.is_finite()
+            && parameters.max_vertical_disparity_px >= 0.0,
+        "max_vertical_disparity_px must be finite and >= 0"
+    );
+
+    Ok(())
 }
 
 impl PreviousFrame {
@@ -154,6 +212,7 @@ pub fn estimate_previous_to_current(
     current_points: &[StereoPoint],
     temporal_matches: &Matches<'_, PreviousLeft, CurrentLeft>,
     triangulator: &StereoTriangulator,
+    parameters: &StereoVisualOdometryPoseEstimationParameters,
     scratch: &mut OdometryScratch,
 ) -> Option<na::Isometry3<f32>> {
     scratch.correspondences.clear();
@@ -176,9 +235,9 @@ pub fn estimate_previous_to_current(
             .copied()
             .flatten();
 
-        let mut weight = disparity_weight(previous_point.disparity);
+        let mut weight = disparity_weight(previous_point.disparity, parameters);
         if let Some(observation) = right_observation {
-            weight = weight.min(disparity_weight(observation.disparity));
+            weight = weight.min(disparity_weight(observation.disparity, parameters));
         }
         scratch.correspondences.push(PoseCorrespondence {
             world_point: previous_point.position,
@@ -188,7 +247,7 @@ pub fn estimate_previous_to_current(
         });
     }
 
-    if scratch.correspondences.len() < MIN_PNP_CORRESPONDENCES {
+    if scratch.correspondences.len() < parameters.minimum_pnp_correspondences {
         return None;
     }
     fill_pnp_inputs(
@@ -197,13 +256,13 @@ pub fn estimate_previous_to_current(
         &mut scratch.pnp_image_points,
     );
 
-    let pose = if let Some(pose) = estimate_outlier_free_pose(triangulator, scratch) {
+    let pose = if let Some(pose) = estimate_outlier_free_pose(triangulator, parameters, scratch) {
         pose
     } else {
         let params = RansacParams {
-            max_iterations: 100,
-            reproj_threshold_px: RANSAC_REPROJ_THRESHOLD_PX,
-            confidence: 0.99,
+            max_iterations: parameters.ransac_max_iterations,
+            reproj_threshold_px: parameters.ransac_reprojection_threshold_px,
+            confidence: parameters.ransac_confidence,
             random_seed: None,
             refine: false,
         };
@@ -226,11 +285,11 @@ pub fn estimate_previous_to_current(
             }
         };
 
-        if result.inliers.len() < MIN_PNP_CORRESPONDENCES {
+        if result.inliers.len() < parameters.minimum_pnp_correspondences {
             return None;
         }
 
-        refine_ransac_pose(&result, triangulator, scratch)
+        refine_ransac_pose(&result, triangulator, parameters, scratch)
     };
 
     Some(pnp_pose_to_isometry(&pose))
@@ -238,6 +297,7 @@ pub fn estimate_previous_to_current(
 
 fn estimate_outlier_free_pose(
     triangulator: &StereoTriangulator,
+    parameters: &StereoVisualOdometryPoseEstimationParameters,
     scratch: &OdometryScratch,
 ) -> Option<PnPResult> {
     let pose = match solve_pnp(
@@ -256,20 +316,26 @@ fn estimate_outlier_free_pose(
 
     if !pose
         .reproj_rmse
-        .is_some_and(|rmse| rmse.is_finite() && rmse <= RANSAC_REPROJ_THRESHOLD_PX)
+        .is_some_and(|rmse| rmse.is_finite() && rmse <= parameters.ransac_reprojection_threshold_px)
     {
         return None;
     }
 
-    let refined_pose = refine_pose(&pose, &scratch.correspondences, triangulator);
+    let refined_pose = refine_pose(&pose, &scratch.correspondences, triangulator, parameters);
 
-    all_reprojection_errors_within_threshold(&refined_pose, triangulator.intrinsics_f32(), scratch)
-        .then_some(refined_pose)
+    all_reprojection_errors_within_threshold(
+        &refined_pose,
+        triangulator.intrinsics_f32(),
+        parameters,
+        scratch,
+    )
+    .then_some(refined_pose)
 }
 
 fn refine_ransac_pose(
     result: &PnPRansacResult,
     triangulator: &StereoTriangulator,
+    parameters: &StereoVisualOdometryPoseEstimationParameters,
     scratch: &mut OdometryScratch,
 ) -> PnPResult {
     scratch.inlier_correspondences.clear();
@@ -280,15 +346,21 @@ fn refine_ransac_pose(
         }
     }
 
-    refine_pose(&result.pose, &scratch.inlier_correspondences, triangulator)
+    refine_pose(
+        &result.pose,
+        &scratch.inlier_correspondences,
+        triangulator,
+        parameters,
+    )
 }
 
 fn refine_pose(
     initial_pose: &PnPResult,
     correspondences: &[PoseCorrespondence],
     triangulator: &StereoTriangulator,
+    parameters: &StereoVisualOdometryPoseEstimationParameters,
 ) -> PnPResult {
-    if correspondences.len() < MIN_PNP_CORRESPONDENCES {
+    if correspondences.len() < parameters.minimum_pnp_correspondences {
         return initial_pose.clone();
     }
 
@@ -296,6 +368,7 @@ fn refine_pose(
         correspondences,
         triangulator.intrinsics_f32(),
         triangulator.baseline(),
+        parameters,
         initial_pose,
     ) {
         Ok(refined_pose) => refined_pose,
@@ -325,11 +398,13 @@ fn refine_pose_lm_direct(
     correspondences: &[PoseCorrespondence],
     intrinsics: &Mat3AF32,
     baseline: f32,
+    parameters: &StereoVisualOdometryPoseEstimationParameters,
     initial_pose: &PnPResult,
 ) -> Result<PnPResult, &'static str> {
     let mut rotation = matrix3_from_mat3a(&initial_pose.rotation);
     let mut translation = vector3_from_vec3a(initial_pose.translation);
-    let loss = HuberLoss::new(LM_HUBER_THRESHOLD_PX).map_err(|_| "invalid Huber threshold")?;
+    let loss =
+        HuberLoss::new(parameters.lm_huber_threshold_px).map_err(|_| "invalid Huber threshold")?;
     let mut cost = total_robust_reprojection_cost(
         correspondences,
         intrinsics,
@@ -339,11 +414,11 @@ fn refine_pose_lm_direct(
         &translation,
     )
     .ok_or("initial reprojection error is invalid")?;
-    let mut lambda = LM_INITIAL_LAMBDA;
+    let mut lambda = parameters.lm_initial_lambda;
     let mut iterations = 0;
     let mut converged = false;
 
-    for iteration in 0..LM_MAX_ITERATIONS {
+    for iteration in 0..parameters.lm_max_iterations {
         iterations = iteration + 1;
         let (mut normal_matrix, gradient) = build_normal_equations(
             correspondences,
@@ -362,7 +437,7 @@ fn refine_pose_lm_direct(
             .lu()
             .solve(&(-gradient))
             .ok_or("normal equations are singular")?;
-        if step.norm() < LM_STEP_TOLERANCE {
+        if step.norm() < parameters.lm_step_tolerance {
             converged = true;
             break;
         }
@@ -384,14 +459,14 @@ fn refine_pose_lm_direct(
             rotation = candidate_rotation;
             translation = candidate_translation;
             cost = candidate_cost;
-            lambda = (lambda * 0.3).max(LM_MIN_LAMBDA);
+            lambda = (lambda * 0.3).max(parameters.lm_min_lambda);
 
-            if improvement < LM_COST_TOLERANCE {
+            if improvement < parameters.lm_cost_tolerance {
                 converged = true;
                 break;
             }
         } else {
-            lambda = (lambda * 10.0).min(LM_MAX_LAMBDA);
+            lambda = (lambda * 10.0).min(parameters.lm_max_lambda);
         }
     }
 
@@ -643,12 +718,15 @@ fn weighted_residual_scale(
     (weight.is_finite() && weight > 0.0).then_some(weight.sqrt())
 }
 
-fn disparity_weight(disparity: f32) -> f32 {
+fn disparity_weight(
+    disparity: f32,
+    parameters: &StereoVisualOdometryPoseEstimationParameters,
+) -> f32 {
     if !disparity.is_finite() || disparity <= 0.0 {
-        return MIN_DISPARITY_WEIGHT;
+        return parameters.min_disparity_weight;
     }
 
-    (disparity / FULL_WEIGHT_DISPARITY_PX).clamp(MIN_DISPARITY_WEIGHT, 1.0)
+    (disparity / parameters.full_weight_disparity_px).clamp(parameters.min_disparity_weight, 1.0)
 }
 
 fn total_reprojection_error_squared(
@@ -688,9 +766,11 @@ fn apply_pose_step(
 fn all_reprojection_errors_within_threshold(
     pose: &PnPResult,
     intrinsics: &Mat3AF32,
+    parameters: &StereoVisualOdometryPoseEstimationParameters,
     scratch: &OdometryScratch,
 ) -> bool {
-    let threshold_squared = RANSAC_REPROJ_THRESHOLD_PX * RANSAC_REPROJ_THRESHOLD_PX;
+    let threshold_squared =
+        parameters.ransac_reprojection_threshold_px * parameters.ransac_reprojection_threshold_px;
 
     scratch.correspondences.iter().all(|correspondence| {
         reprojection_squared_error(

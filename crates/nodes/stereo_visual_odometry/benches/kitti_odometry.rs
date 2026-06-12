@@ -15,7 +15,10 @@ use color_eyre::{
 use nalgebra as na;
 use ros2::sensor_msgs::{camera_info::CameraInfo, image::Image};
 use stereo_visual_odometry::VisualOdometryPipeline;
-use types::{stereo_camera_info::StereoCameraInfo, stereo_image_pair::StereoImagePair};
+use types::{
+    parameters::StereoVisualOdometryPoseEstimationParameters, stereo_camera_info::StereoCameraInfo,
+    stereo_image_pair::StereoImagePair,
+};
 use zip::ZipArchive;
 
 const MODEL_WIDTH: u32 = 544;
@@ -44,10 +47,11 @@ fn main() -> Result<()> {
 
     let model_path = Path::new(env!("CARGO_MANIFEST_DIR"))
         .join("../../../etc/neural_networks/xfeat-lighterglue.onnx");
+    let pose_estimation_parameters = StereoVisualOdometryPoseEstimationParameters::default();
     let mut aggregate = SequenceMetrics::new("all");
 
     for sequence in &config.sequences {
-        let report = run_sequence(&config, sequence, &model_path)?;
+        let report = run_sequence(&config, sequence, &model_path, &pose_estimation_parameters)?;
         report.print();
         aggregate.extend(report);
     }
@@ -113,6 +117,7 @@ fn run_sequence(
     config: &BenchmarkConfig,
     sequence: &str,
     model_path: &Path,
+    pose_estimation_parameters: &StereoVisualOdometryPoseEstimationParameters,
 ) -> Result<SequenceMetrics> {
     let mut gray_zip = open_zip(&config.gray_zip_path())?;
     let mut calib_zip = open_zip(&config.calib_zip_path())?;
@@ -150,7 +155,8 @@ fn run_sequence(
         metrics.prepare_durations.push(prepare_start.elapsed());
 
         let process_start = Instant::now();
-        let estimated_previous_to_current = pipeline.process(&stereo_image_pair)?;
+        let estimated_previous_to_current =
+            pipeline.process(&stereo_image_pair, pose_estimation_parameters)?;
         let process_duration = process_start.elapsed();
         metrics.process_durations.push(process_duration);
         black_box(&estimated_previous_to_current);
@@ -519,10 +525,7 @@ impl SequenceMetrics {
         );
         println!(
             "  excluded_prepare_ms avg={:.3} median={:.3} p95={:.3} p99={:.3}",
-            preparation.average_ms,
-            preparation.median_ms,
-            preparation.p95_ms,
-            preparation.p99_ms,
+            preparation.average_ms, preparation.median_ms, preparation.p95_ms, preparation.p99_ms,
         );
         println!(
             "  accuracy rotation_deg avg={:.3} median={:.3} p95={:.3} p99={:.3}; translation_m avg={:.3} median={:.3} p95={:.3} p99={:.3}",

@@ -19,13 +19,18 @@ use nalgebra as na;
 use ros_z::prelude::*;
 use ros_z::qos::QosDurability;
 use types::{
-    parameters::StereoVisualOdometryParameters, stereo_camera_info::StereoCameraInfo,
-    stereo_image_pair::StereoImagePair, time_wrapper::TimeWrapper,
+    parameters::{StereoVisualOdometryParameters, StereoVisualOdometryPoseEstimationParameters},
+    stereo_camera_info::StereoCameraInfo,
+    stereo_image_pair::StereoImagePair,
+    time_wrapper::TimeWrapper,
 };
 
 use crate::{
     feature_extractor::{FeatureExtractor, KEYPOINTS, PreviousFeatureState},
-    odometry::{OdometryScratch, PreviousFrame, estimate_previous_to_current},
+    odometry::{
+        OdometryScratch, PreviousFrame, estimate_previous_to_current,
+        validate_pose_estimation_parameters,
+    },
     triangulator::StereoTriangulator,
 };
 
@@ -90,11 +95,14 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         parameters_receiver
             .wait_for(|parameters| parameters.typed().enable)
             .await?;
+        let parameters = node_parameters.snapshot();
+        let parameters = parameters.typed();
 
         let stereo_image_pair = stereo_image_pair_sub.recv().await?.inner;
 
         let start_time = Instant::now();
-        let odometry = pipeline.process(&stereo_image_pair)?;
+        let odometry =
+            pipeline.process(&stereo_image_pair, &parameters.pose_estimation_parameters)?;
         let duration = start_time.elapsed();
 
         odometry_pub.publish(&odometry).await?;
@@ -147,7 +155,10 @@ impl VisualOdometryPipeline {
     pub fn process(
         &mut self,
         stereo_image_pair: &StereoImagePair,
+        parameters: &StereoVisualOdometryPoseEstimationParameters,
     ) -> Result<Option<na::Isometry3<f32>>> {
+        validate_pose_estimation_parameters(parameters)?;
+
         let odometry = {
             let features = self
                 .feature_extractor
@@ -160,6 +171,7 @@ impl VisualOdometryPipeline {
                 current_left,
                 current_right,
                 stereo_matches,
+                parameters.max_vertical_disparity_px,
                 &mut self.current_points,
             );
 
@@ -171,6 +183,7 @@ impl VisualOdometryPipeline {
                     &self.current_points,
                     &temporal_matches,
                     &self.triangulator,
+                    parameters,
                     &mut self.odometry_scratch,
                 );
                 features.copy_current_left_to(&mut self.previous_features)?;

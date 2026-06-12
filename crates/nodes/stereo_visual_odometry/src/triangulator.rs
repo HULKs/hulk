@@ -9,8 +9,6 @@ use ros2::sensor_msgs::camera_info::CameraInfo;
 use crate::feature_extractor::{CurrentLeft, CurrentRight, FrameFeatures, FrameKeypoints, Matches};
 
 const CAMERA_EPSILON: f64 = 1e-9;
-const MAX_VERTICAL_DISPARITY_PX: f32 = 3.0;
-
 pub struct StereoTriangulator {
     left_size: (u32, u32),
     right_size: (u32, u32),
@@ -74,6 +72,7 @@ impl StereoTriangulator {
         left: FrameFeatures<'_, CurrentLeft>,
         right: FrameKeypoints<'_, CurrentRight>,
         matches: Matches<'_, CurrentLeft, CurrentRight>,
+        max_vertical_disparity_px: f32,
         output: &mut Vec<StereoPoint>,
     ) {
         output.clear();
@@ -91,7 +90,9 @@ impl StereoTriangulator {
 
             let left_pixel = self.left_pixel(left_keypoint);
             let right_pixel = self.right_pixel(right_keypoint);
-            if let Some((position, disparity)) = self.triangulate_point(left_pixel, right_pixel) {
+            if let Some((position, disparity)) =
+                self.triangulate_point(left_pixel, right_pixel, max_vertical_disparity_px)
+            {
                 output.push(StereoPoint {
                     left_index,
                     right_pixel,
@@ -114,13 +115,19 @@ impl StereoTriangulator {
         self.baseline
     }
 
-    pub(crate) fn disparity(&self, left: Vec2F32, right: Vec2F32) -> Option<f32> {
+    pub(crate) fn disparity(
+        &self,
+        left: Vec2F32,
+        right: Vec2F32,
+        max_vertical_disparity_px: f32,
+    ) -> Option<f32> {
         let disparity = left.x - right.x;
         if !left.y.is_finite()
             || !right.y.is_finite()
+            || !max_vertical_disparity_px.is_finite()
             || !disparity.is_finite()
             || disparity <= 0.0
-            || (left.y - right.y).abs() > MAX_VERTICAL_DISPARITY_PX
+            || (left.y - right.y).abs() > max_vertical_disparity_px
         {
             return None;
         }
@@ -132,8 +139,13 @@ impl StereoTriangulator {
         &self.intrinsics
     }
 
-    fn triangulate_point(&self, left: Vec2F32, right: Vec2F32) -> Option<(Vec3AF32, f32)> {
-        let disparity = self.disparity(left, right)?;
+    fn triangulate_point(
+        &self,
+        left: Vec2F32,
+        right: Vec2F32,
+        max_vertical_disparity_px: f32,
+    ) -> Option<(Vec3AF32, f32)> {
+        let disparity = self.disparity(left, right, max_vertical_disparity_px)?;
         let z = self.fx * self.baseline / disparity;
         let x = (left.x - self.cx) * z / self.fx;
         let y = (left.y - self.cy) * z / self.fy;
