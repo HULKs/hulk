@@ -1,6 +1,8 @@
+use std::{env, fs, path::PathBuf};
+
 use color_eyre::eyre::{Result, WrapErr};
 
-use code_generation::{generate, write_to_file::WriteToFile, ExecutionMode};
+use code_generation::{ExecutionMode, generate, write_to_file::WriteToFile};
 use source_analyzer::{
     cyclers::{CyclerKind, Cyclers},
     manifest::{CyclerManifest, FrameworkManifest},
@@ -9,6 +11,12 @@ use source_analyzer::{
 };
 
 fn main() -> Result<()> {
+    if env::var_os("CARGO_FEATURE_LEGACY_BEVY_RUNNER").is_none() {
+        let out_dir = PathBuf::from(env::var("OUT_DIR")?);
+        fs::write(out_dir.join("generated_code.rs"), "")?;
+        return Ok(());
+    }
+
     let manifest = FrameworkManifest {
         cyclers: vec![
             CyclerManifest {

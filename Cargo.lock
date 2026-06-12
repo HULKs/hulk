@@ -1970,6 +1970,60 @@ dependencies = [
 ]
 
 [[package]]
+name = "bevyhavior_simulator"
+version = "0.1.0"
+dependencies = [
+ "approx",
+ "ball_filter",
+ "bevy",
+ "bincode",
+ "booster",
+ "buffered_watch",
+ "chrono",
+ "clap",
+ "code_generation",
+ "color-eyre",
+ "communication",
+ "context_attribute",
+ "coordinate_systems",
+ "ctrlc",
+ "fern",
+ "framework",
+ "geometry",
+ "hardware",
+ "hsl_network",
+ "hsl_network_messages",
+ "hula_types",
+ "hydra",
+ "indicatif",
+ "ittapi",
+ "kinematics",
+ "linear_algebra",
+ "log",
+ "motion",
+ "nalgebra",
+ "ndarray",
+ "parameters",
+ "parking_lot",
+ "path_serde",
+ "proc-macro2",
+ "projection",
+ "quote",
+ "repository",
+ "ros-z",
+ "ros2",
+ "scenario",
+ "serde",
+ "serde_json",
+ "source_analyzer",
+ "tokio",
+ "tokio-util",
+ "types",
+ "voronoi",
+ "world_state",
+]
+
+[[package]]
 name = "bimap"
 version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9864,6 +9918,23 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "93fc1dc3aaa9bfed95e02e6eadabb4baf7e3078b0bd1b4d7b6b0b68378900502"
 dependencies = [
  "winapi-util",
+]
+
+[[package]]
+name = "scc"
+version = "2.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "46e6f046b7fef48e2660c57ed794263155d713de679057f2d0c169bfc6e756cc"
+dependencies = [
+ "sdd",
+]
+
+[[package]]
+name = "scenario"
+version = "0.1.0"
+dependencies = [
+ "quote",
+ "syn 2.0.117",
 ]
 
 [[package]]
