@@ -170,7 +170,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 };
 
                 let target_joint_positions =
-                    joints_from_upper_body_joints(target_upper_body_joints);
+                    joints_from_upper_body_joints(target_upper_body_joints, &parameters.motor_command_parameters);
                 let low_command = LowCommand::new(
                     &target_joint_positions,
                     &parameters.motor_command_parameters,
@@ -183,11 +183,17 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     }
 }
 
-fn joints_from_upper_body_joints(upper_body_joints: UpperBodyJoints) -> Joints {
+fn joints_from_upper_body_joints(
+    upper_body_joints: UpperBodyJoints,
+    motor_command_parameters: &MotorCommandParameters,
+) -> Joints {
+    let default_positions = motor_command_parameters.default_positions;
     Joints {
+        head: default_positions.head,
         left_arm: upper_body_joints.left_arm,
         right_arm: upper_body_joints.right_arm,
-        ..Default::default()
+        left_leg: default_positions.left_leg,
+        right_leg: default_positions.right_leg,
     }
 }
 

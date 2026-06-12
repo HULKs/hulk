@@ -255,20 +255,20 @@
         "elbow": 0.2
       },
       "left_leg": {
-        "hip_pitch": 3.5,
-        "hip_roll": 3.5,
-        "hip_yaw": 3.5,
-        "knee": 3.5,
-        "ankle_up": 1.5,
-        "ankle_down": 1
+        "hip_pitch": 4.0,
+        "hip_roll": 4.0,
+        "hip_yaw": 4.0,
+        "knee": 4.0,
+        "ankle_up": 2.0,
+        "ankle_down": 2.0
       },
       "right_leg": {
-        "hip_pitch": 3.5,
-        "hip_roll": 3.5,
-        "hip_yaw": 3.5,
-        "knee": 3.5,
-        "ankle_up": 1.5,
-        "ankle_down": 1
+        "hip_pitch": 4.0,
+        "hip_roll": 4.0,
+        "hip_yaw": 4.0,
+        "knee": 4.0,
+        "ankle_up": 2.0,
+        "ankle_down": 2.0
       }
     }
   },
