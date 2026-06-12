@@ -146,11 +146,11 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .create_cache::<Point2<Field>>("suggested_search_position", 1)?
         .build()
         .await?;
-    let behavior_trace_pub = node
+    let additional_behavior_trace_pub = node
         .publisher::<NodeTrace>("behavior/trace")?
         .build()
         .await?;
-    let behavior_tree_layout_pub = node
+    let additional_behavior_tree_layout_pub = node
         .publisher::<NodeTrace>("behavior/tree_layout")?
         .qos(QosProfile {
             durability: QosDurability::TransientLocal,
@@ -173,7 +173,9 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let tree = create_tree();
     let static_layout = tree.static_layout_trace();
-    behavior_tree_layout_pub.publish(&static_layout).await?;
+    additional_behavior_tree_layout_pub
+        .publish_if_subscribed(|| async { static_layout })
+        .await?;
     let mut timer = node.create_timer(Duration::from_millis(10));
 
     let mut blackboard = Blackboard {
@@ -323,7 +325,9 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             outgoing_message_pub.publish(&message).await?;
         }
 
-        behavior_trace_pub.publish(&trace).await?;
+        additional_behavior_trace_pub
+            .publish_if_subscribed(|| async { trace })
+            .await?;
         additional_black_board_pub
             .publish_if_subscribed(|| async { blackboard.clone() })
             .await?;
