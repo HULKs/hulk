@@ -158,7 +158,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         })
         .build()
         .await?;
-    let black_board_pub = node
+    let additional_black_board_pub = node
         .publisher::<Blackboard>("behavior/blackboard")?
         .build()
         .await?;
@@ -324,7 +324,9 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         }
 
         behavior_trace_pub.publish(&trace).await?;
-        black_board_pub.publish(&blackboard).await?;
+        additional_black_board_pub
+            .publish_if_subscribed(|| async { blackboard.clone() })
+            .await?;
         motion_command_pub.publish(&motion_command).await?;
         timer.tick().await;
     }
