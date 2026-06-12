@@ -6,59 +6,14 @@ license.workspace = true
 homepage.workspace = true
 autobins = false
 
-[features]
-default = []
-legacy-bevy-runner = []
-
 [dependencies]
-approx = { workspace = true }
-ball_filter = { workspace = true }
-bevy = { workspace = true }
-bincode = { workspace = true }
 booster = { workspace = true }
-buffered_watch = { workspace = true }
-chrono = { workspace = true }
-clap = { workspace = true }
 color-eyre = { workspace = true }
-communication = { workspace = true }
-context_attribute = { workspace = true }
 coordinate_systems = { workspace = true }
-ctrlc = { workspace = true }
-fern = { workspace = true }
-framework = { workspace = true }
-geometry = { workspace = true }
-hardware = { workspace = true }
-hsl_network = { workspace = true }
 hsl_network_messages = { workspace = true }
-hula_types = { workspace = true }
-hydra = { workspace = true }
-indicatif = { workspace = true }
-ittapi = { workspace = true }
-kinematics = { workspace = true }
 linear_algebra = { workspace = true }
-log = { workspace = true }
-motion = { workspace = true }
-nalgebra = { workspace = true }
-ndarray = { workspace = true }
-parameters = { workspace = true }
-parking_lot = { workspace = true }
-path_serde = { workspace = true }
-projection = { workspace = true }
-repository = { workspace = true }
 ros-z = { workspace = true }
-ros2 = { workspace = true }
-scenario = { workspace = true }
 serde = { workspace = true }
-serde_json = { workspace = true }
-tokio = { workspace = true }
-tokio-util = { workspace = true }
 types = { workspace = true }
 voronoi = { workspace = true }
 world_state = { workspace = true }
-
-[build-dependencies]
-code_generation = { workspace = true }
-color-eyre = { workspace = true }
-proc-macro2 = { workspace = true }
-quote = { workspace = true }
-source_analyzer = { workspace = true }
