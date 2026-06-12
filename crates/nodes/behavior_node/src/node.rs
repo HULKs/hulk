@@ -98,8 +98,8 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .create_cache::<FallDownState>("inputs/fall_down_state", 1)?
         .build()
         .await?;
-    let ball_cache = node
-        .create_cache::<BallState>("ball_state", 1)?
+    let ball_state_cache = node
+        .create_cache::<Option<BallState>>("ball_state", 1)?
         .build()
         .await?;
     let filtered_game_controller_state_cache = node
@@ -135,7 +135,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let rule_ball_cache = node
-        .create_cache::<BallState>("rule_ball_state", 1)?
+        .create_cache::<Option<BallState>>("rule_ball_state", 1)?
         .build()
         .await?;
     let rule_obstacles_cache = node
@@ -245,7 +245,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 .unwrap_or_default(),
         };
 
-        blackboard.world_state.ball = ball_cache.get_latest().map(|ball| *ball);
+        blackboard.world_state.ball = ball_state_cache.get_latest().and_then(|ball| *ball);
         blackboard.world_state.fall_down_state = fall_down_state_cache
             .get_latest()
             .map(|fall_down_state| *fall_down_state.as_ref());
@@ -267,7 +267,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             .get_latest()
             .map(|position| *position)
             .unwrap_or_default();
-        blackboard.world_state.rule_ball = rule_ball_cache.get_latest().map(|ball| *ball);
+        blackboard.world_state.rule_ball = rule_ball_cache.get_latest().and_then(|ball| *ball);
         blackboard.world_state.rule_obstacles = rule_obstacles_cache
             .get_latest()
             .map(|obstacles| obstacles.as_ref().clone())
