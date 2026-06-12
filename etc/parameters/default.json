@@ -940,9 +940,9 @@
     "horizontal_edge_threshold": 10,
     "horizontal_median_mode": "FivePixels",
     "horizontal_stride": 2,
+    "vertical_edge_threshold": 8,
     "vertical_median_mode": "FivePixels",
     "vertical_stride": 1,
-    "vertical_edge_threshold": 8,
     "vertical_stride_in_ground": 0.019999999552965164,
     "field_color_detection": {
       "luminance": {
@@ -953,21 +953,21 @@
         "start": 53,
         "end": 255
       },
-      "blue_chromaticity": {
-        "end": 0.47999998927116394,
-        "start": 0.05000000074505806
-      },
       "red_chromaticity": {
         "start": 0.0,
         "end": 0.45500001311302185
       },
       "green_chromaticity": {
-        "end": 0.6899999976158142,
-        "start": 0.009999999776482582
+        "start": 0.009999999776482582,
+        "end": 0.6899999976158142
+      },
+      "blue_chromaticity": {
+        "start": 0.05000000074505806,
+        "end": 0.47999998927116394
       },
       "hue": {
-        "end": 185,
-        "start": 40
+        "start": 40,
+        "end": 185
       },
       "saturation": {
         "start": 37,
