@@ -83,11 +83,11 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
     ensure!(
         heatmap_length > 0,
-        "heatmap_length must at least be 1"
+        "heatmap_length must at least be 1 - current value is {heatmap_length}"
     );
     ensure!(
         heatmap_width > 0,
-        "heatmap_width must at least be 1"
+        format!("heatmap_width must at least be 1 - current value is {heatmap_width}")
     );
 
     let mut heatmap = Heatmap {
