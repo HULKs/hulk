@@ -40,7 +40,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let team_ball_sub = node
-        .subscriber::<Option<BallPosition<Field>>>("team_ball")?
+        .subscriber::<BallPosition<Field>>("team_ball")?
         .build()
         .await?;
     let primary_state_cache = node
@@ -72,14 +72,6 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let mut last_ball_state = None;
 
     loop {
-        let Some(field_dimensions) = field_dimensions_cache.get_latest() else {
-            continue;
-        };
-        let field_dimensions = *field_dimensions;
-        let Some(ground_to_field) = ground_to_field_cache.get_latest() else {
-            continue;
-        };
-        let ground_to_field = *ground_to_field;
         let now = node.clock().now().to_wallclock();
 
         additional_last_ball_state_pub
@@ -91,6 +83,12 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 let Some(ball_position) = received_ball_position? else {
                     continue;
                 };
+
+                let Some(ground_to_field) = ground_to_field_cache.get_latest() else {
+                    continue;
+                };
+                let ground_to_field = *ground_to_field;
+
                 let ball = create_ball_state(
                     ball_position.position,
                     ground_to_field * ball_position.position,
@@ -105,9 +103,13 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 });
             }
             received_team_ball = team_ball_sub.recv() => {
-                let Some(team_ball) = received_team_ball? else {
+                let team_ball = received_team_ball?;
+
+                let Some(ground_to_field) = ground_to_field_cache.get_latest() else {
                     continue;
                 };
+                let ground_to_field = *ground_to_field;
+
                 let ball = create_ball_state(
                     ground_to_field.inverse() * team_ball.position,
                     team_ball.position,
@@ -123,6 +125,16 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             }
             received_filtered_game_controller_state = filtered_game_controller_state_sub.recv() => {
                 let filtered_game_controller_state = received_filtered_game_controller_state?;
+
+                let Some(field_dimensions) = field_dimensions_cache.get_latest() else {
+                    continue;
+                };
+                let field_dimensions = *field_dimensions;
+
+                let Some(ground_to_field) = ground_to_field_cache.get_latest() else {
+                    continue;
+                };
+                let ground_to_field = *ground_to_field;
 
                 let Some(primary_state) = primary_state_cache.get_latest() else { continue };
                 let rule_ball = compose_rule_ball_state(
