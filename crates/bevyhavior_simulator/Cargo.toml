@@ -17,3 +17,7 @@ serde = { workspace = true }
 types = { workspace = true }
 voronoi = { workspace = true }
 world_state = { workspace = true }
+
+[[bin]]
+name = "behavior_tree_smoke"
+path = "src/bin/behavior_tree_smoke.rs"

@@ -26,7 +26,7 @@ use world_state::behavior::{
     send_message::CommunicationInput,
 };
 
-pub const DEFAULT_TICK_DURATION: Duration = Duration::from_millis(100);
+pub const DEFAULT_TICK_DURATION: Duration = Duration::from_millis(10);
 const PLAYER_NUMBERS: [PlayerNumber; 5] = [
     PlayerNumber::One,
     PlayerNumber::Two,
