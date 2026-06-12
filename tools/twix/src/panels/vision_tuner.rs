@@ -41,7 +41,7 @@ impl VisionTunerPanel {
         let slider = ui.add(Slider::new(&mut edge_threshold, 0..=255).text(parameter_name));
         if slider.changed() {
             self.robot.write(
-                format!("parameters.image_segmenter.vision.{parameter_name}"),
+                format!("parameters.image_segmenter.{parameter_name}"),
                 TextOrBinary::Text(to_value(edge_threshold).unwrap()),
             );
         }
@@ -104,12 +104,12 @@ impl VisionTunerPanel {
         let vertical_edge_threshold_value = to_value(vertical_edge_threshold).unwrap();
 
         self.robot.store_parameters(
-            "image_segmenter.vision.horizontal_edge_threshold",
+            "image_segmenter.horizontal_edge_threshold",
             horizontal_edge_threshold_value,
             scope,
         )?;
         self.robot.store_parameters(
-            "image_segmenter.vision.vertical_edge_threshold",
+            "image_segmenter.vertical_edge_threshold",
             vertical_edge_threshold_value,
             scope,
         )?;
@@ -131,10 +131,10 @@ impl<'a> Panel<'a> for VisionTunerPanel {
     fn new(context: PanelCreationContext) -> Self {
         let horizontal_edge_threshold = context
             .robot
-            .subscribe_value("parameters.image_segmenter.vision.horizontal_edge_threshold");
+            .subscribe_value("parameters.image_segmenter.horizontal_edge_threshold");
         let vertical_edge_threshold = context
             .robot
-            .subscribe_value("parameters.image_segmenter.vision.vertical_edge_threshold");
+            .subscribe_value("parameters.image_segmenter.vertical_edge_threshold");
         let field_color_detection = context
             .robot
             .subscribe_value("parameters.image_segmenter.field_color_detection");
