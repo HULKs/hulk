@@ -96,6 +96,7 @@ pub struct BehaviorParameters {
     pub intercept_ball: InterceptBallParameters,
     pub substates: SubstatesParameters,
     pub voronoi: VoronoiParameters,
+    pub hsl_network: HslNetworkParameters,
 }
 
 #[derive(

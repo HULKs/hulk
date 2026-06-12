@@ -65,7 +65,7 @@ members = [
   "crates/nodes/low_command_publisher",
   "crates/nodes/low_state_bridge",
   "crates/nodes/message_filter",
-  "crates/nodes/message_receiver",
+  "crates/nodes/message_handler",
   "crates/nodes/microphone_recorder",
   "crates/nodes/motor_commands_collector",
   "crates/nodes/obstacle_filter",
@@ -81,6 +81,7 @@ members = [
   "crates/nodes/stand_up",
   "crates/nodes/support_foot_estimator",
   "crates/nodes/team_ball_receiver",
+  "crates/path_planner",
   "crates/nodes/time_to_reach_kick_position",
   "crates/nodes/trigger",
   "crates/nodes/walking",
@@ -89,7 +90,7 @@ members = [
   "crates/nodes/world_state_composer",
   "crates/nodes/world_to_field_provider",
   "crates/opn",
-  "crates/parameters",
+  "crates/parameters", "crates/path_planner",
   "crates/path_serde",
   "crates/path_serde_derive",
   "crates/projection",
@@ -254,7 +255,7 @@ low_command_publisher = { path = "crates/nodes/low_command_publisher" }
 low_state_bridge = { path = "crates/nodes/low_state_bridge" }
 mcap = "0.15.0"
 message_filter = { path = "crates/nodes/message_filter" }
-message_receiver = { path = "crates/nodes/message_receiver" }
+message_handler = { path = "crates/nodes/message_handler" }
 microphone_recorder = { path = "crates/nodes/microphone_recorder" }
 microphones = { path = "crates/microphones" }
 mlua = { version = "0.10.3", features = ["luajit", "serialize", "vendored"] }
@@ -287,6 +288,7 @@ parry2d = { version = "0.26.0", default-features = false, features = [
   "required-features",
 ] }
 paste = "1.0"
+path_planner = { path = "crates/path_planner" }
 path_serde = { path = "crates/path_serde" }
 path_serde_derive = { path = "crates/path_serde_derive" }
 pathdiff = "0.2.3"

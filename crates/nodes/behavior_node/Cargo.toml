@@ -10,3 +10,16 @@ color-eyre = { workspace = true }
 ros-z = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
 types = { workspace = true }
+coordinate_systems = { workspace = true }
+linear_algebra = { workspace = true }
+voronoi = { workspace = true }
+filtering = { workspace = true }
+hsl_network_messages = { workspace = true }
+geometry = { workspace = true }
+booster = { workspace = true }
+ordered-float = { workspace = true }
+smallvec = { workspace = true }
+log = { workspace = true }
+approx = { workspace = true }
+nalgebra = { workspace = true }
+path_planner = { workspace = true }

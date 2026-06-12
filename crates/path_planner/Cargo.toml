@@ -1,0 +1,17 @@
+[package]
+name = "path_planner"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+homepage.workspace = true
+
+[dependencies]
+color-eyre = { workspace = true }
+geometry = { workspace = true }
+linear_algebra = { workspace = true }
+log = { workspace = true }
+ordered-float = { workspace = true }
+smallvec = { workspace = true }
+coordinate_systems = { workspace = true }
+types = { workspace = true }
+approx = { workspace = true }
