@@ -1973,12 +1973,14 @@ dependencies = [
 name = "bevyhavior_simulator"
 version = "0.1.0"
 dependencies = [
+ "bevy",
  "booster",
  "color-eyre",
  "coordinate_systems",
  "hsl_network_messages",
  "linear_algebra",
  "ros-z",
+ "scenario",
  "serde",
  "types",
  "voronoi",
@@ -9894,6 +9896,14 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "46e6f046b7fef48e2660c57ed794263155d713de679057f2d0c169bfc6e756cc"
 dependencies = [
  "sdd",
+]
+
+[[package]]
+name = "scenario"
+version = "0.1.0"
+dependencies = [
+ "quote",
+ "syn 2.0.117",
 ]
 
 [[package]]
