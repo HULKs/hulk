@@ -18,9 +18,9 @@ end
 
 for i in (seq -w 1 $iterations)
     set -l port (math 2000 + $i)
+    echo Starting $notebook instance $i on port $port
     podman run \
         --replace \
-        --rm \
         --detach \
         --name lund-workshop-$i \
         -v ./instances/$i:/workshop \
