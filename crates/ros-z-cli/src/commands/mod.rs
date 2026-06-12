@@ -1,3 +1,4 @@
+pub mod doctor;
 pub mod echo;
 pub mod graph;
 pub mod info;

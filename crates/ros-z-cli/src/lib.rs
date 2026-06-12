@@ -8,6 +8,8 @@ mod model;
 mod render;
 mod support;
 
+use std::process::ExitCode;
+
 use color_eyre::eyre::Result;
 
 use crate::{
@@ -17,7 +19,7 @@ use crate::{
 };
 
 /// Run the CLI with parsed command-line arguments.
-pub async fn run(cli: Cli) -> Result<()> {
+pub async fn run(cli: Cli) -> Result<ExitCode> {
     let Cli {
         router,
         json,
@@ -32,13 +34,25 @@ async fn run_online_command(
     router: String,
     output_mode: OutputMode,
     command: Command,
-) -> Result<()> {
+) -> Result<ExitCode> {
     let app = AppContext::new(&router).await?;
+    let mut exit_code = ExitCode::SUCCESS;
 
     let result = match command {
         Command::List { target } => commands::list::run(&app, output_mode, target).await,
         Command::Watch => commands::watch::run(&app, output_mode).await,
         Command::Graph => commands::graph::run(&app, output_mode).await,
+        Command::Doctor { settle_timeout } => {
+            match commands::doctor::run(&app, settle_timeout).await {
+                Ok(found_findings) => {
+                    if found_findings {
+                        exit_code = ExitCode::from(1);
+                    }
+                    Ok(())
+                }
+                Err(error) => Err(error),
+            }
+        }
         Command::Schema {
             type_name,
             node,
@@ -59,7 +73,7 @@ async fn run_online_command(
     let shutdown_result = app.shutdown();
 
     match (result, shutdown_result) {
-        (Ok(()), Ok(())) => Ok(()),
+        (Ok(()), Ok(())) => Ok(exit_code),
         (Err(error), _) => Err(error),
         (Ok(()), Err(error)) => Err(error),
     }
