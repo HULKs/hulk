@@ -495,7 +495,6 @@ def _(Animation, Path, get_compile_request, mo, np, set_compile_error):
         animation.compile()
     else:
         set_compile_error(None)
-
     return (animation,)
 
 
@@ -596,10 +595,6 @@ def _(
 
     initial_code = mo.ui.code_editor(
         f"""animation = Animation({_animation_name_literal})
-
-    animation.neu(
-    dauer=0.3,
-    positionen=np.array([0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0, 0.0])
     )""",
         disabled=True,
     )
@@ -699,11 +694,11 @@ def _(
         _editor_items.append(
             mo.md(
                 f"""
-<div style="border: 1px solid #dc2626; border-radius: 8px; padding: 0.75rem; background: #fef2f2; color: #7f1d1d;">
-<strong>Fehler beim Ausführen der Animation:</strong>
-<pre style="white-space: pre-wrap; margin: 0.5rem 0 0; overflow-x: auto;">{html.escape(_compile_error)}</pre>
-</div>
-"""
+    <div style="border: 1px solid #dc2626; border-radius: 8px; padding: 0.75rem; background: #fef2f2; color: #7f1d1d;">
+    <strong>Fehler beim Ausführen der Animation:</strong>
+    <pre style="white-space: pre-wrap; margin: 0.5rem 0 0; overflow-x: auto;">{html.escape(_compile_error)}</pre>
+    </div>
+    """
             )
         )
 
