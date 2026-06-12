@@ -42,7 +42,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let ball_state_cache = node
-        .create_cache::<BallState>("ball_state", 1)?
+        .create_cache::<Option<BallState>>("ball_state", 1)?
         .build()
         .await?;
     let rule_obstacles_pub = node
@@ -55,14 +55,15 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         let Some(field_dimensions) = field_dimensions_cache.get_latest() else {
             continue;
         };
-        let ball_state = ball_state_cache.get_latest();
+        let ball_state = ball_state_cache.get_latest().and_then(|ball| *ball);
 
-        let parameters = parameters.snapshot().typed().clone();
+        let parameters_snapshot = parameters.snapshot();
+        let parameters = parameters_snapshot.typed();
         let rule_obstacles = compose_rule_obstacles(
             &filtered_game_controller_state,
-            ball_state.as_deref(),
+            ball_state,
             field_dimensions.as_ref(),
-            &parameters,
+            parameters,
         );
 
         rule_obstacles_pub.publish(&rule_obstacles).await?;
@@ -71,7 +72,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
 fn compose_rule_obstacles(
     filtered_game_controller_state: &FilteredGameControllerState,
-    ball_state: Option<&BallState>,
+    ball_state: Option<BallState>,
     field_dimensions: &FieldDimensions,
     parameters: &Parameters,
 ) -> Vec<RuleObstacle> {
@@ -85,7 +86,6 @@ fn compose_rule_obstacles(
                         SubState::ThrowIn
                         | SubState::CornerKick
                         | SubState::GoalKick
-                        | SubState::PenaltyKick
                         | SubState::DirectFreeKick
                         | SubState::IndirectFreeKick,
                     ),
