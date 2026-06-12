@@ -413,6 +413,7 @@ def _(mo):
             "animation_code": None,
         }
     )
+    get_compile_error, set_compile_error = mo.state(None)
     get_manual_joint_mode, set_manual_joint_mode = mo.state(
         False,
         allow_self_loops=True,
@@ -424,11 +425,13 @@ def _(mo):
     return (
         get_active_animation_name,
         get_animation_projects,
+        get_compile_error,
         get_compile_request,
         get_manual_joint_mode,
         get_manual_joint_positions,
         set_active_animation_name,
         set_animation_projects,
+        set_compile_error,
         set_compile_request,
         set_manual_joint_mode,
         set_manual_joint_positions,
@@ -436,53 +439,62 @@ def _(mo):
 
 
 @app.cell(hide_code=True)
-def _(Animation, Path, get_compile_request, mo, np):
+def _(Animation, Path, get_compile_request, mo, np, set_compile_error):
     _compile_request = get_compile_request()
     _animation_name = _compile_request["animation_name"]
     mo.stop(_animation_name is None)
 
-    _animation_file_name = _compile_request.get("animation_file_name")
-    if _animation_file_name is not None:
-        animation = Animation(_animation_name)
-        _file_path = Path("animation") / _animation_file_name
-        _loaded_animation = np.load(_file_path, allow_pickle=True).item()
-        animation.fps = _loaded_animation["fps"]
-        animation.frames = _loaded_animation["positions"]
-        animation.frame_times = np.arange(len(animation.frames)) / animation.fps
-    else:
-        _animation_code = _compile_request["animation_code"]
-        if _animation_code is not None:
-            _animation_code = normalize_animation_code(_animation_code)
-
-        _default_animation = Animation(_animation_name)
-        _namespace = {
-            "np": np,
-            "Animation": Animation,
-            "animation": _default_animation,
-            "animation_name": _animation_name,
-        }
-
-        _keys_before_exec = set(_namespace)
-        if _animation_code is not None:
-            exec(_animation_code, _namespace)
-
-        _new_animations = [
-            value
-            for key, value in _namespace.items()
-            if key not in _keys_before_exec and isinstance(value, Animation)
-        ]
-
-        if len(_new_animations) == 1:
-            animation = _new_animations[0]
-        elif isinstance(_namespace.get("animation"), Animation):
-            animation = _namespace["animation"]
+    try:
+        _animation_file_name = _compile_request.get("animation_file_name")
+        if _animation_file_name is not None:
+            animation = Animation(_animation_name)
+            _file_path = Path("animation") / _animation_file_name
+            _loaded_animation = np.load(_file_path, allow_pickle=True).item()
+            animation.fps = _loaded_animation["fps"]
+            animation.frames = _loaded_animation["positions"]
+            animation.frame_times = np.arange(len(animation.frames)) / animation.fps
         else:
-            raise ValueError(
-                "No animation found. Use the current animation variable, or create one "
-                "Animation object, for example `wave = Animation('wave')`."
-            )
+            _animation_code = _compile_request["animation_code"]
+            if _animation_code is not None:
+                _animation_code = normalize_animation_code(_animation_code)
 
+            _default_animation = Animation(_animation_name)
+            _namespace = {
+                "np": np,
+                "Animation": Animation,
+                "animation": _default_animation,
+                "animation_name": _animation_name,
+            }
+
+            _keys_before_exec = set(_namespace)
+            if _animation_code is not None:
+                exec(_animation_code, _namespace)
+
+            _new_animations = [
+                value
+                for key, value in _namespace.items()
+                if key not in _keys_before_exec and isinstance(value, Animation)
+            ]
+
+            if len(_new_animations) == 1:
+                animation = _new_animations[0]
+            elif isinstance(_namespace.get("animation"), Animation):
+                animation = _namespace["animation"]
+            else:
+                raise ValueError(
+                    "No animation found. Use the current animation variable, or create one "
+                    "Animation object, for example `wave = Animation('wave')`."
+                )
+
+            animation.compile()
+    except Exception:
+        import traceback
+
+        set_compile_error(traceback.format_exc())
+        animation = Animation(_animation_name)
         animation.compile()
+    else:
+        set_compile_error(None)
 
     return (animation,)
 
@@ -566,12 +578,15 @@ def _(
     Path,
     get_active_animation_name,
     get_animation_projects,
+    get_compile_error,
     mo,
     set_active_animation_name,
     set_animation_projects,
     set_compile_request,
     set_manual_joint_mode,
 ):
+    import html
+
     _animation_name = get_active_animation_name()
     _projects = get_animation_projects()
     mo.stop(_animation_name is None or _animation_name not in _projects)
@@ -678,11 +693,24 @@ def _(
         on_change=_import_animation_file,
     )
 
+    _compile_error = get_compile_error()
+    _editor_items = [initial_code, animation_code_box]
+    if _compile_error:
+        _editor_items.append(
+            mo.md(
+                f"""
+<div style="border: 1px solid #dc2626; border-radius: 8px; padding: 0.75rem; background: #fef2f2; color: #7f1d1d;">
+<strong>Fehler beim Ausführen der Animation:</strong>
+<pre style="white-space: pre-wrap; margin: 0.5rem 0 0; overflow-x: auto;">{html.escape(_compile_error)}</pre>
+</div>
+"""
+            )
+        )
+
     mo.vstack([
         mo.md(f"### Animation: `{_animation_name}`"),
         mo.hstack([rename_name_input, rename_button]),
-        initial_code,
-        animation_code_box,
+        *_editor_items,
         mo.hstack([
             save_button,
             compile_button,
