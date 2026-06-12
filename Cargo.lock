@@ -9944,9 +9944,16 @@ version = "0.1.0"
 dependencies = [
  "color-eyre",
  "coordinate_systems",
+ "geometry",
+ "hsl_network_messages",
+ "itertools 0.14.0",
  "linear_algebra",
+ "nalgebra",
+ "ndarray",
+ "ndarray-conv",
  "ros-z",
  "serde",
+ "tokio",
  "types",
 ]
 
