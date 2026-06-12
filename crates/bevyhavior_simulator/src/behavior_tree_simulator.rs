@@ -1,7 +1,12 @@
 use std::{collections::BTreeMap, net::SocketAddr, time::Duration, time::SystemTime};
 
+use bevy::{
+    app::{App, AppExit, Plugin, Update},
+    ecs::message::Messages,
+    prelude::*,
+};
 use booster::FallDownState;
-use color_eyre::Result;
+use color_eyre::{Result, eyre::bail};
 use coordinate_systems::{Field, Ground};
 use hsl_network_messages::PlayerNumber;
 use linear_algebra::{Isometry2, Orientation2, Point2, Pose2, Vector2};
@@ -35,7 +40,33 @@ const PLAYER_NUMBERS: [PlayerNumber; 5] = [
     PlayerNumber::Five,
 ];
 
-#[derive(Clone, Debug)]
+#[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub enum BehaviorTreeSimulatorSet {
+    AdvanceTime,
+    BeforeBallPhysics,
+    BallPhysics,
+    AfterBallPhysics,
+    BuildTeamContext,
+    BeforeWorldState,
+    BuildWorldStates,
+    AfterWorldState,
+    BeforeBehavior,
+    TickBehaviorTrees,
+    AfterBehavior,
+    BeforeCommunication,
+    PlanCommunication,
+    AfterCommunication,
+    BeforeKinematics,
+    ApplyKinematics,
+    AfterKinematics,
+    BeforeInvariantChecks,
+    RunInvariantChecks,
+    AfterInvariantChecks,
+    RecordTimeline,
+    Scenario,
+}
+
+#[derive(Resource, Clone, Debug)]
 pub struct SimulationConfig {
     pub walk_translation_speed: f32,
     pub walk_rotation_speed: f32,
@@ -72,6 +103,696 @@ impl Default for SimulationConfig {
             game_controller_address: None,
         }
     }
+}
+
+pub struct BehaviorTreeSimulatorPlugin {
+    pub config: SimulationConfig,
+    pub field_dimensions: FieldDimensions,
+    pub hsl_network_parameters: HslNetworkParameters,
+    pub tick_duration: Duration,
+    pub enable_default_ball_physics: bool,
+    pub enable_default_kinematics: bool,
+    pub enable_default_communication_routing: bool,
+    pub enable_default_invariant_checks: bool,
+}
+
+impl Default for BehaviorTreeSimulatorPlugin {
+    fn default() -> Self {
+        Self {
+            config: SimulationConfig::default(),
+            field_dimensions: FieldDimensions::SPL_2025,
+            hsl_network_parameters: HslNetworkParameters::default(),
+            tick_duration: DEFAULT_TICK_DURATION,
+            enable_default_ball_physics: true,
+            enable_default_kinematics: true,
+            enable_default_communication_routing: true,
+            enable_default_invariant_checks: true,
+        }
+    }
+}
+
+impl Plugin for BehaviorTreeSimulatorPlugin {
+    fn build(&self, app: &mut App) {
+        app.add_message::<AppExit>()
+            .insert_resource(SimulatorClock {
+                now: SystemTime::UNIX_EPOCH,
+                tick_duration: self.tick_duration,
+            })
+            .insert_resource(SimulatorFieldDimensions(self.field_dimensions))
+            .insert_resource(SimulatorBall::default())
+            .insert_resource(SimulatorGameState::default())
+            .insert_resource(SimulatorRuleObstacles::default())
+            .insert_resource(SimulatorHslNetworkParameters(
+                self.hsl_network_parameters.clone(),
+            ))
+            .insert_resource(self.config.clone())
+            .insert_resource(SimulatorTimeline::default())
+            .insert_resource(SimulatorScenarioResult::default())
+            .insert_resource(SimulatorIncomingMessages::default())
+            .insert_resource(SimulatorOutgoingMessages::default())
+            .insert_resource(SimulatorWorldStates::default())
+            .insert_resource(SimulatorRobotFrames::default())
+            .insert_resource(SimulatorCurrentInvariantViolations::default());
+
+        if self.enable_default_invariant_checks {
+            app.insert_resource(SimulatorInvariantChecks(default_invariant_checks()));
+        } else {
+            app.insert_resource(SimulatorInvariantChecks::default());
+        }
+
+        app.configure_sets(
+            Update,
+            (
+                BehaviorTreeSimulatorSet::AdvanceTime,
+                BehaviorTreeSimulatorSet::BeforeBallPhysics,
+                BehaviorTreeSimulatorSet::BallPhysics,
+                BehaviorTreeSimulatorSet::AfterBallPhysics,
+                BehaviorTreeSimulatorSet::BuildTeamContext,
+                BehaviorTreeSimulatorSet::BeforeWorldState,
+                BehaviorTreeSimulatorSet::BuildWorldStates,
+                BehaviorTreeSimulatorSet::AfterWorldState,
+                BehaviorTreeSimulatorSet::BeforeBehavior,
+                BehaviorTreeSimulatorSet::TickBehaviorTrees,
+                BehaviorTreeSimulatorSet::AfterBehavior,
+                BehaviorTreeSimulatorSet::BeforeCommunication,
+                BehaviorTreeSimulatorSet::PlanCommunication,
+                BehaviorTreeSimulatorSet::AfterCommunication,
+            )
+                .chain(),
+        )
+        .configure_sets(
+            Update,
+            (
+                BehaviorTreeSimulatorSet::BeforeKinematics,
+                BehaviorTreeSimulatorSet::ApplyKinematics,
+                BehaviorTreeSimulatorSet::AfterKinematics,
+                BehaviorTreeSimulatorSet::BeforeInvariantChecks,
+                BehaviorTreeSimulatorSet::RunInvariantChecks,
+                BehaviorTreeSimulatorSet::AfterInvariantChecks,
+                BehaviorTreeSimulatorSet::RecordTimeline,
+                BehaviorTreeSimulatorSet::Scenario,
+            )
+                .chain(),
+        )
+        .configure_sets(
+            Update,
+            BehaviorTreeSimulatorSet::BeforeKinematics
+                .after(BehaviorTreeSimulatorSet::AfterCommunication),
+        )
+        .add_systems(
+            Update,
+            advance_time.in_set(BehaviorTreeSimulatorSet::AdvanceTime),
+        )
+        .add_systems(
+            Update,
+            build_world_states.in_set(BehaviorTreeSimulatorSet::BuildWorldStates),
+        )
+        .add_systems(
+            Update,
+            tick_behavior_trees.in_set(BehaviorTreeSimulatorSet::TickBehaviorTrees),
+        )
+        .add_systems(
+            Update,
+            plan_communication.in_set(BehaviorTreeSimulatorSet::PlanCommunication),
+        )
+        .add_systems(
+            Update,
+            run_invariant_checks.in_set(BehaviorTreeSimulatorSet::RunInvariantChecks),
+        )
+        .add_systems(
+            Update,
+            record_timeline_frame.in_set(BehaviorTreeSimulatorSet::RecordTimeline),
+        );
+
+        if self.enable_default_ball_physics {
+            app.add_systems(
+                Update,
+                update_ball_kinematics.in_set(BehaviorTreeSimulatorSet::BallPhysics),
+            );
+        }
+
+        if self.enable_default_communication_routing {
+            app.add_systems(
+                Update,
+                route_outgoing_communication.in_set(BehaviorTreeSimulatorSet::AfterCommunication),
+            );
+        }
+
+        if self.enable_default_kinematics {
+            app.add_systems(
+                Update,
+                apply_motion_kinematics.in_set(BehaviorTreeSimulatorSet::ApplyKinematics),
+            );
+        }
+    }
+}
+
+pub trait AppExt {
+    fn run_to_completion(&mut self) -> Result<()>;
+}
+
+impl AppExt for App {
+    fn run_to_completion(&mut self) -> Result<()> {
+        let mut event_cursor = self
+            .world_mut()
+            .resource_mut::<Messages<AppExit>>()
+            .get_cursor();
+
+        let exit = loop {
+            self.update();
+
+            let events = self.world().resource::<Messages<AppExit>>();
+            if let Some(exit_message) = event_cursor.read(events).last() {
+                break exit_message.clone();
+            }
+        };
+
+        if let AppExit::Error(code) = exit {
+            bail!("scenario exited with error code {code}");
+        }
+
+        let scenario_result = self.world().resource::<SimulatorScenarioResult>();
+        if scenario_result.failed {
+            bail!("{} simulator failure(s)", scenario_result.failures.len());
+        }
+
+        Ok(())
+    }
+}
+
+#[derive(Resource, Clone, Copy, Debug)]
+pub struct SimulatorClock {
+    pub now: SystemTime,
+    pub tick_duration: Duration,
+}
+
+#[derive(Resource, Clone, Copy, Debug)]
+pub struct SimulatorFieldDimensions(pub FieldDimensions);
+
+#[derive(Resource, Clone, Copy, Debug, Default)]
+pub struct SimulatorBall {
+    pub state: Option<SimulatedBall>,
+}
+
+#[derive(Resource, Clone, Debug)]
+pub struct SimulatorGameState {
+    pub filtered_game_controller_state: Option<FilteredGameControllerState>,
+}
+
+impl Default for SimulatorGameState {
+    fn default() -> Self {
+        Self {
+            filtered_game_controller_state: Some(FilteredGameControllerState::default()),
+        }
+    }
+}
+
+#[derive(Resource, Clone, Debug, Default)]
+pub struct SimulatorRuleObstacles {
+    pub obstacles: Vec<RuleObstacle>,
+}
+
+#[derive(Resource, Clone, Debug, Default)]
+pub struct SimulatorTimeline {
+    pub frames: Vec<TimelineFrame>,
+}
+
+#[derive(Resource, Clone, Debug, Default)]
+pub struct SimulatorScenarioResult {
+    pub failed: bool,
+    pub failures: Vec<SimulatorFailure>,
+}
+
+#[derive(Clone, Debug)]
+pub enum SimulatorFailure {
+    InvariantViolation(InvariantViolation),
+    ScenarioAssertion(String),
+}
+
+#[derive(Resource, Clone, Debug, Default)]
+pub struct SimulatorIncomingMessages {
+    pub messages: Vec<SimulatorMessage>,
+}
+
+#[derive(Resource, Clone, Debug, Default)]
+pub struct SimulatorOutgoingMessages {
+    pub messages: Vec<SimulatorMessage>,
+}
+
+#[derive(Clone, Debug)]
+pub struct SimulatorMessage {
+    pub sender: PlayerNumber,
+    pub message: OutgoingMessage,
+}
+
+#[derive(Resource, Clone, Debug)]
+pub struct SimulatorHslNetworkParameters(pub HslNetworkParameters);
+
+#[derive(Resource, Default)]
+pub struct SimulatorInvariantChecks(pub Vec<Box<dyn InvariantCheck>>);
+
+#[derive(Resource, Clone, Debug, Default)]
+pub struct SimulatorWorldStates(pub BTreeMap<PlayerNumber, WorldState>);
+
+#[derive(Resource, Clone, Debug, Default)]
+pub struct SimulatorRobotFrames(pub BTreeMap<PlayerNumber, RobotFrame>);
+
+#[derive(Resource, Clone, Debug, Default)]
+pub struct SimulatorCurrentInvariantViolations(pub Vec<InvariantViolation>);
+
+#[derive(Component, Clone, Copy, Debug)]
+pub struct SimulatorRobot {
+    pub player_number: PlayerNumber,
+}
+
+#[derive(Component, Clone, Copy, Debug)]
+pub struct SimulatorGroundToField {
+    pub ground_to_field: Isometry2<Ground, Field>,
+}
+
+#[derive(Component, Clone, Copy, Debug)]
+pub struct SimulatorPrimaryState {
+    pub primary_state: PrimaryState,
+}
+
+#[derive(Component)]
+pub struct SimulatorRobotBehavior {
+    pub behavior: Behavior,
+}
+
+#[derive(Component, Clone, Debug)]
+pub struct SimulatorRobotParameters {
+    pub behavior: BehaviorParameters,
+}
+
+#[derive(Component, Clone, Debug)]
+pub struct SimulatorLastMotionCommand {
+    pub motion_command: MotionCommand,
+}
+
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub struct SimulatorFallDownState {
+    pub fall_down_state: Option<FallDownState>,
+}
+
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub struct SimulatorSuggestedSearchPosition {
+    pub position: Option<Point2<Field>>,
+}
+
+#[derive(Component, Clone, Copy, Debug)]
+pub struct SimulatorLastKickTime {
+    pub last_kick_time: SystemTime,
+}
+
+#[derive(Bundle)]
+pub struct SimulatorRobotBundle {
+    pub robot: SimulatorRobot,
+    pub ground_to_field: SimulatorGroundToField,
+    pub primary_state: SimulatorPrimaryState,
+    pub behavior: SimulatorRobotBehavior,
+    pub parameters: SimulatorRobotParameters,
+    pub last_motion_command: SimulatorLastMotionCommand,
+    pub fall_down_state: SimulatorFallDownState,
+    pub suggested_search_position: SimulatorSuggestedSearchPosition,
+    pub last_kick_time: SimulatorLastKickTime,
+}
+
+impl SimulatorRobotBundle {
+    pub fn new(
+        player_number: PlayerNumber,
+        ground_to_field: Isometry2<Ground, Field>,
+        parameters: BehaviorParameters,
+    ) -> Result<Self> {
+        Ok(Self {
+            robot: SimulatorRobot { player_number },
+            ground_to_field: SimulatorGroundToField { ground_to_field },
+            primary_state: SimulatorPrimaryState {
+                primary_state: PrimaryState::Safe,
+            },
+            behavior: SimulatorRobotBehavior {
+                behavior: Behavior::new(CreationContext {})?,
+            },
+            parameters: SimulatorRobotParameters {
+                behavior: parameters,
+            },
+            last_motion_command: SimulatorLastMotionCommand {
+                motion_command: MotionCommand::default(),
+            },
+            fall_down_state: SimulatorFallDownState::default(),
+            suggested_search_position: SimulatorSuggestedSearchPosition::default(),
+            last_kick_time: SimulatorLastKickTime {
+                last_kick_time: SystemTime::UNIX_EPOCH,
+            },
+        })
+    }
+
+    pub fn with_primary_state(mut self, primary_state: PrimaryState) -> Self {
+        self.primary_state.primary_state = primary_state;
+        self
+    }
+}
+
+fn advance_time(mut clock: ResMut<SimulatorClock>) {
+    let tick_duration = clock.tick_duration;
+    clock.now += tick_duration;
+}
+
+fn update_ball_kinematics(
+    clock: Res<SimulatorClock>,
+    config: Res<SimulationConfig>,
+    mut ball: ResMut<SimulatorBall>,
+) {
+    let Some(ball) = &mut ball.state else {
+        return;
+    };
+    let dt = clock.tick_duration.as_secs_f32();
+    ball.position += ball.velocity * dt;
+    ball.velocity *= (1.0 - config.ball_friction_per_second * dt).clamp(0.0, 1.0);
+}
+
+fn build_world_states(
+    clock: Res<SimulatorClock>,
+    field_dimensions: Res<SimulatorFieldDimensions>,
+    ball: Res<SimulatorBall>,
+    game_state: Res<SimulatorGameState>,
+    rule_obstacles: Res<SimulatorRuleObstacles>,
+    config: Res<SimulationConfig>,
+    robots: Query<(
+        &SimulatorRobot,
+        &SimulatorGroundToField,
+        &SimulatorPrimaryState,
+        &SimulatorFallDownState,
+        &SimulatorSuggestedSearchPosition,
+    )>,
+    mut world_states: ResMut<SimulatorWorldStates>,
+) {
+    let player_states = player_states_from_query(&robots);
+    world_states.0.clear();
+
+    for (robot, ground_to_field, primary_state, fall_down_state, suggested_search_position) in
+        &robots
+    {
+        let perceived_ball = perceived_ball_from_pose(
+            ball.state,
+            ground_to_field.ground_to_field,
+            clock.now,
+            &config,
+        );
+
+        world_states.0.insert(
+            robot.player_number,
+            WorldState {
+                ball: perceived_ball,
+                filtered_game_controller_state: game_state.filtered_game_controller_state.clone(),
+                hypothetical_ball_positions: Vec::new(),
+                now: clock.now.into(),
+                obstacles: Vec::new(),
+                player_states: player_states.clone(),
+                position_of_interest: Point2::origin(),
+                robot: RobotState {
+                    ground_to_field: Some(ground_to_field.ground_to_field),
+                    player_number: robot.player_number,
+                    primary_state: primary_state.primary_state,
+                },
+                rule_ball: ball
+                    .state
+                    .map(|ball| ball.to_ball_state(ground_to_field.ground_to_field, clock.now)),
+                rule_obstacles: rule_obstacles.obstacles.clone(),
+                fall_down_state: fall_down_state.fall_down_state,
+                suggested_search_position: suggested_search_position.position,
+            },
+        );
+    }
+
+    let _ = field_dimensions;
+}
+
+fn tick_behavior_trees(
+    clock: Res<SimulatorClock>,
+    field_dimensions: Res<SimulatorFieldDimensions>,
+    config: Res<SimulationConfig>,
+    world_states: Res<SimulatorWorldStates>,
+    mut robot_frames: ResMut<SimulatorRobotFrames>,
+    mut robots: Query<(
+        &SimulatorRobot,
+        &SimulatorRobotParameters,
+        &mut SimulatorRobotBehavior,
+        &mut SimulatorLastMotionCommand,
+    )>,
+) {
+    robot_frames.0.clear();
+
+    for (robot, parameters, mut behavior, mut last_motion_command) in &mut robots {
+        let Some(world_state) = world_states.0.get(&robot.player_number).cloned() else {
+            continue;
+        };
+
+        let tick_output = behavior
+            .behavior
+            .tick_behavior_tree(BehaviorTickInput {
+                world_state: world_state.clone(),
+                field_dimensions: field_dimensions.0,
+                parameters: parameters.behavior.clone(),
+                free_kick_obstacle_radius: config.free_kick_obstacle_radius,
+                last_motion_command: last_motion_command.motion_command.clone(),
+            })
+            .expect("behavior tree tick should not fail in simulator");
+
+        last_motion_command.motion_command = tick_output.motion_command.clone();
+        robot_frames.0.insert(
+            robot.player_number,
+            RobotFrame::from_outputs(world_state, tick_output, Vec::new()),
+        );
+    }
+
+    let _ = clock;
+}
+
+fn plan_communication(
+    config: Res<SimulationConfig>,
+    hsl_network_parameters: Res<SimulatorHslNetworkParameters>,
+    world_states: Res<SimulatorWorldStates>,
+    mut robot_frames: ResMut<SimulatorRobotFrames>,
+    mut outgoing_messages: ResMut<SimulatorOutgoingMessages>,
+    mut robots: Query<(&SimulatorRobot, &mut SimulatorRobotBehavior)>,
+) {
+    outgoing_messages.messages.clear();
+
+    for (robot, mut behavior) in &mut robots {
+        let Some(world_state) = world_states.0.get(&robot.player_number) else {
+            continue;
+        };
+
+        let communication_output = behavior.behavior.plan_communication(CommunicationInput {
+            world_state,
+            game_controller_address: config.game_controller_address,
+            hsl_network_parameters: &hsl_network_parameters.0,
+            remaining_amount_of_messages: config.remaining_amount_of_messages,
+        });
+
+        if let Some(frame) = robot_frames.0.get_mut(&robot.player_number) {
+            frame.outgoing_messages = communication_output.outgoing_messages.clone();
+        }
+
+        outgoing_messages
+            .messages
+            .extend(
+                communication_output
+                    .outgoing_messages
+                    .into_iter()
+                    .map(|message| SimulatorMessage {
+                        sender: robot.player_number,
+                        message,
+                    }),
+            );
+    }
+}
+
+fn route_outgoing_communication(
+    outgoing_messages: Res<SimulatorOutgoingMessages>,
+    mut incoming_messages: ResMut<SimulatorIncomingMessages>,
+) {
+    incoming_messages.messages.clear();
+    incoming_messages
+        .messages
+        .extend(outgoing_messages.messages.iter().cloned());
+}
+
+fn run_invariant_checks(
+    clock: Res<SimulatorClock>,
+    ball: Res<SimulatorBall>,
+    field_dimensions: Res<SimulatorFieldDimensions>,
+    rule_obstacles: Res<SimulatorRuleObstacles>,
+    config: Res<SimulationConfig>,
+    robot_frames: Res<SimulatorRobotFrames>,
+    mut invariant_checks: ResMut<SimulatorInvariantChecks>,
+    mut current_violations: ResMut<SimulatorCurrentInvariantViolations>,
+    mut scenario_result: ResMut<SimulatorScenarioResult>,
+    robots: Query<(
+        &SimulatorRobot,
+        &SimulatorGroundToField,
+        &SimulatorPrimaryState,
+        &SimulatorFallDownState,
+    )>,
+) {
+    current_violations.0.clear();
+
+    let snapshot = SimulationSnapshot {
+        now: clock.now,
+        ball: ball.state,
+        robots: robot_snapshots_from_query(&robots),
+        robot_frames: robot_frames.0.clone(),
+        field_dimensions: field_dimensions.0,
+        rule_obstacles: rule_obstacles.obstacles.clone(),
+        config: config.clone(),
+    };
+
+    for check in &mut invariant_checks.0 {
+        current_violations.0.extend(check.check(&snapshot));
+    }
+
+    if !current_violations.0.is_empty() {
+        scenario_result.failed = true;
+        scenario_result.failures.extend(
+            current_violations
+                .0
+                .iter()
+                .cloned()
+                .map(SimulatorFailure::InvariantViolation),
+        );
+    }
+}
+
+fn apply_motion_kinematics(
+    clock: Res<SimulatorClock>,
+    config: Res<SimulationConfig>,
+    robot_frames: Res<SimulatorRobotFrames>,
+    mut ball: ResMut<SimulatorBall>,
+    mut robots: Query<(
+        &SimulatorRobot,
+        &mut SimulatorGroundToField,
+        &mut SimulatorFallDownState,
+        &mut SimulatorLastKickTime,
+    )>,
+) {
+    for (robot, mut ground_to_field, mut fall_down_state, mut last_kick_time) in &mut robots {
+        let Some(frame) = robot_frames.0.get(&robot.player_number) else {
+            continue;
+        };
+
+        match &frame.motion_command {
+            MotionCommand::Walk {
+                path,
+                orientation_mode,
+                target_orientation,
+                speed,
+                ..
+            } => {
+                let target = first_path_target(path).unwrap_or_else(Point2::origin);
+                ground_to_field.ground_to_field = apply_walk_to_pose(
+                    ground_to_field.ground_to_field,
+                    target,
+                    *target_orientation,
+                    *orientation_mode,
+                    *speed,
+                    clock.tick_duration,
+                    &config,
+                );
+            }
+            MotionCommand::WalkWithVelocity {
+                velocity,
+                angular_velocity,
+                ..
+            } => {
+                ground_to_field.ground_to_field = apply_walk_with_velocity_to_pose(
+                    ground_to_field.ground_to_field,
+                    *velocity,
+                    *angular_velocity,
+                    clock.tick_duration,
+                    &config,
+                );
+            }
+            MotionCommand::VisualKick {
+                ball_position,
+                kick_direction,
+                kick_power,
+                ..
+            } => apply_kick_to_ball(
+                clock.now,
+                &mut ball.state,
+                &config,
+                ground_to_field.ground_to_field,
+                &mut last_kick_time.last_kick_time,
+                *ball_position,
+                *kick_direction,
+                *kick_power,
+            ),
+            MotionCommand::StandUp => fall_down_state.fall_down_state = None,
+            MotionCommand::Prepare | MotionCommand::Stand { .. } => {}
+        }
+    }
+}
+
+fn record_timeline_frame(
+    clock: Res<SimulatorClock>,
+    ball: Res<SimulatorBall>,
+    robot_frames: Res<SimulatorRobotFrames>,
+    current_violations: Res<SimulatorCurrentInvariantViolations>,
+    mut timeline: ResMut<SimulatorTimeline>,
+    robots: Query<(
+        &SimulatorRobot,
+        &SimulatorGroundToField,
+        &SimulatorPrimaryState,
+        &SimulatorFallDownState,
+    )>,
+) {
+    timeline.frames.push(TimelineFrame {
+        now: clock.now,
+        ball: ball.state,
+        robots: robot_snapshots_from_query(&robots),
+        robot_frames: robot_frames.0.clone(),
+        invariant_violations: current_violations.0.clone(),
+    });
+}
+
+fn player_states_from_query(
+    robots: &Query<(
+        &SimulatorRobot,
+        &SimulatorGroundToField,
+        &SimulatorPrimaryState,
+        &SimulatorFallDownState,
+        &SimulatorSuggestedSearchPosition,
+    )>,
+) -> Players<Option<PlayerState>> {
+    let mut player_states = Players::default();
+    for (robot, ground_to_field, _, _, _) in robots.iter() {
+        player_states[robot.player_number] = Some(PlayerState {
+            pose: ground_to_field.ground_to_field.as_pose(),
+            ball_position: None,
+        });
+    }
+    player_states
+}
+
+fn robot_snapshots_from_query(
+    robots: &Query<(
+        &SimulatorRobot,
+        &SimulatorGroundToField,
+        &SimulatorPrimaryState,
+        &SimulatorFallDownState,
+    )>,
+) -> Players<Option<RobotSnapshot>> {
+    let mut snapshots = Players::default();
+    for (robot, ground_to_field, primary_state, fall_down_state) in robots.iter() {
+        snapshots[robot.player_number] = Some(RobotSnapshot {
+            player_number: robot.player_number,
+            ground_to_field: ground_to_field.ground_to_field,
+            primary_state: primary_state.primary_state,
+            fall_down_state: fall_down_state.fall_down_state,
+        });
+    }
+    snapshots
 }
 
 pub struct Simulation {
@@ -257,7 +978,7 @@ impl Simulation {
                     ball: perceived_ball,
                     filtered_game_controller_state: self.filtered_game_controller_state.clone(),
                     hypothetical_ball_positions: Vec::new(),
-                    now: self.now,
+                    now: self.now.into(),
                     obstacles: Vec::new(),
                     player_states: player_states.clone(),
                     position_of_interest: Point2::origin(),
@@ -501,7 +1222,7 @@ pub enum InvariantSeverity {
     Error,
 }
 
-pub trait InvariantCheck {
+pub trait InvariantCheck: Send + Sync {
     fn check(&mut self, snapshot: &SimulationSnapshot) -> Vec<InvariantViolation>;
 }
 
@@ -578,6 +1299,27 @@ fn simulated_robot_snapshots(
     })
 }
 
+fn perceived_ball_from_pose(
+    ball: Option<SimulatedBall>,
+    ground_to_field: Isometry2<Ground, Field>,
+    now: SystemTime,
+    config: &SimulationConfig,
+) -> Option<BallState> {
+    let ball = ball?;
+    let ball_in_ground = ground_to_field.inverse() * ball.position;
+    let distance = ball_in_ground.coords().norm();
+    if distance > config.ball_visibility_range {
+        return None;
+    }
+
+    let angle = ball_in_ground.coords().angle(&Vector2::x_axis());
+    if angle.abs() > config.ball_visibility_angle / 2.0 {
+        return None;
+    }
+
+    Some(ball.to_ball_state(ground_to_field, now))
+}
+
 fn motion_target_in_field(frame: &RobotFrame) -> Option<Point2<Field>> {
     let MotionCommand::Walk { path, .. } = &frame.motion_command else {
         return None;
@@ -628,6 +1370,38 @@ fn apply_walk(
     robot.ground_to_field = robot.ground_to_field * delta;
 }
 
+fn apply_walk_to_pose(
+    ground_to_field: Isometry2<Ground, Field>,
+    target: Point2<Ground>,
+    target_orientation: Orientation2<Ground>,
+    orientation_mode: OrientationMode,
+    speed: f32,
+    tick_duration: Duration,
+    config: &SimulationConfig,
+) -> Isometry2<Ground, Field> {
+    let dt = tick_duration.as_secs_f32();
+    let max_distance = config.walk_translation_speed * speed * dt;
+    let target_vector = target.coords();
+    let step_translation =
+        if target_vector.norm() > max_distance && target_vector.norm() > f32::EPSILON {
+            target_vector.normalize() * max_distance
+        } else {
+            target_vector
+        };
+
+    let desired_orientation = match orientation_mode {
+        OrientationMode::LookTowards { direction, .. } => direction,
+        OrientationMode::LookAt { target, .. } => Orientation2::from_vector(target.coords()),
+        OrientationMode::AlignWithPath | OrientationMode::Unspecified => target_orientation,
+    };
+    let max_rotation = config.walk_rotation_speed * dt;
+    let step_rotation = desired_orientation
+        .angle()
+        .clamp(-max_rotation, max_rotation);
+    let delta = Isometry2::from_parts(step_translation, step_rotation);
+    ground_to_field * delta
+}
+
 fn apply_walk_with_velocity(
     robot: &mut SimulatedRobot,
     velocity: Vector2<Ground>,
@@ -640,6 +1414,20 @@ fn apply_walk_with_velocity(
     let rotation = angular_velocity * config.walk_with_velocity_scale * dt;
     let delta = Isometry2::from_parts(translation, rotation);
     robot.ground_to_field = robot.ground_to_field * delta;
+}
+
+fn apply_walk_with_velocity_to_pose(
+    ground_to_field: Isometry2<Ground, Field>,
+    velocity: Vector2<Ground>,
+    angular_velocity: f32,
+    tick_duration: Duration,
+    config: &SimulationConfig,
+) -> Isometry2<Ground, Field> {
+    let dt = tick_duration.as_secs_f32();
+    let translation = velocity * config.walk_with_velocity_scale * dt;
+    let rotation = angular_velocity * config.walk_with_velocity_scale * dt;
+    let delta = Isometry2::from_parts(translation, rotation);
+    ground_to_field * delta
 }
 
 fn apply_kick(
@@ -667,4 +1455,32 @@ fn apply_kick(
     };
     ball.velocity = robot.ground_to_field * (kick_direction.as_unit_vector() * speed);
     robot.last_kick_time = now;
+}
+
+fn apply_kick_to_ball(
+    now: SystemTime,
+    ball: &mut Option<SimulatedBall>,
+    config: &SimulationConfig,
+    ground_to_field: Isometry2<Ground, Field>,
+    last_kick_time: &mut SystemTime,
+    expected_ball_position: Point2<Ground>,
+    kick_direction: Orientation2<Ground>,
+    kick_power: KickPower,
+) {
+    let Some(ball) = ball else { return };
+    if now.duration_since(*last_kick_time).unwrap_or_default() < config.kick_cooldown {
+        return;
+    }
+
+    let expected_ball_in_field = ground_to_field * expected_ball_position;
+    if (ball.position - expected_ball_in_field).norm() > config.kick_radius {
+        return;
+    }
+
+    let speed = match kick_power {
+        KickPower::Rumpelstilzchen => config.kick_ball_speed_rumpelstilzchen,
+        KickPower::Schlong => config.kick_ball_speed_schlong,
+    };
+    ball.velocity = ground_to_field * (kick_direction.as_unit_vector() * speed);
+    *last_kick_time = now;
 }
