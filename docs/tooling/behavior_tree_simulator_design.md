@@ -42,12 +42,16 @@ The simulator should not duplicate this logic. It should extract the pure behavi
 
 # High-Level Architecture
 
+The simulator should be Bevy-based like the old `crates/bevyhavior_simulator`, but it should not restore the old generated cycler/database stack.
+
 The simulator has two layers:
 
-- A behavior-only core that owns simulated robot state, creates `WorldState` inputs, ticks behavior, and applies simple kinematics.
-- A Bevy/Twix integration layer that reuses existing scenario, recording, server, and visualization patterns from `crates/bevyhavior_simulator`.
+- A pure behavior adapter in `crates/world_state` that can tick `create_tree()` and plan communication without framework or network side effects.
+- A Bevy runtime in `crates/bevyhavior_simulator` that owns entities, resources, systems, scenario registration, simple kinematics, invariant checks, and timeline recording.
 
-The behavior-only core is the source of truth. The Bevy/Twix layer is a frontend and runner around the core.
+The Bevy runtime is the normal simulator API. A small non-Bevy helper may exist for tests, but scenarios should be authored against Bevy `App` so they can register systems flexibly.
+
+Do not abbreviate `Simulator`, `Simulated`, or `Simulation` to `Sim` in type names. Prefer names such as `SimulatorRobot`, `SimulatorTimeline`, `SimulatorIncomingMessages`, and `SimulatedBall`. Avoid names such as `SimRobot`, `SimTimeline`, or `SimBall`.
 
 # Behavior Tick API
 
@@ -137,7 +141,82 @@ The simulator also stores `last_motion_command` per robot because production kee
 
 # Simulation State Model
 
-The behavior-only core owns one `Simulation`:
+The Bevy runtime owns simulator state as components and resources. A convenience `Simulation` wrapper may exist, but it should be implemented in terms of the same data model and systems.
+
+Core resources:
+
+```rust
+pub struct SimulatorClock {
+    pub now: SystemTime,
+    pub tick_duration: Duration,
+}
+
+pub struct SimulatorBall {
+    pub state: Option<SimulatedBall>,
+}
+
+pub struct SimulatorGameState {
+    pub filtered_game_controller_state: Option<FilteredGameControllerState>,
+}
+
+pub struct SimulatorRuleObstacles {
+    pub obstacles: Vec<RuleObstacle>,
+}
+
+pub struct SimulatorTimeline {
+    pub frames: Vec<SimulatorFrame>,
+}
+
+pub struct SimulatorScenarioResult {
+    pub failed: bool,
+    pub failures: Vec<SimulatorFailure>,
+}
+
+pub struct SimulatorIncomingMessages {
+    pub messages: Vec<SimulatorMessage>,
+}
+
+pub struct SimulatorOutgoingMessages {
+    pub messages: Vec<SimulatorMessage>,
+}
+```
+
+Robot entities should use components or a bundle:
+
+```rust
+pub struct SimulatorRobot {
+    pub player_number: PlayerNumber,
+}
+
+pub struct SimulatorRobotBehavior {
+    pub behavior: Behavior,
+}
+
+pub struct SimulatorRobotParameters {
+    pub behavior: BehaviorParameters,
+}
+
+pub struct SimulatorLastMotionCommand {
+    pub motion_command: MotionCommand,
+}
+
+pub struct SimulatorSuggestedSearchPosition {
+    pub position: Option<Point2<Field>>,
+}
+
+pub struct SimulatorRobotBundle {
+    pub robot: SimulatorRobot,
+    pub ground_to_field: GroundToField,
+    pub primary_state: SimulatorPrimaryState,
+    pub behavior: SimulatorRobotBehavior,
+    pub parameters: SimulatorRobotParameters,
+    pub last_motion_command: SimulatorLastMotionCommand,
+    pub fall_down_state: SimulatorFallDownState,
+    pub suggested_search_position: SimulatorSuggestedSearchPosition,
+}
+```
+
+If a non-Bevy wrapper exists, it may have this shape:
 
 ```rust
 pub struct Simulation {
@@ -180,9 +259,9 @@ pub struct SimulatedBall {
 
 # Per-Tick Loop
 
-Each simulation tick runs these steps in order:
+Each simulation tick runs these steps in order through Bevy systems:
 
-1. Advance `Simulation::now` by `tick_duration`.
+1. Advance `SimulatorClock::now` by `tick_duration`.
 2. Update shared ball position and velocity using simple friction.
 3. Build `player_states` from all simulated robot poses.
 4. For each robot, derive robot-local perception inputs from shared simulation state.
@@ -190,10 +269,78 @@ Each simulation tick runs these steps in order:
 6. Store each robot's `MotionCommand`, `NodeTrace`, and debug outputs.
 7. Run invariant checks with access to the full pre-kinematics tick state and all behavior outputs.
 8. Apply simple kinematic effects of each `MotionCommand` to robot poses and ball state.
-9. Record a frame for scenarios and Twix, including any invariant failures.
+9. Record a frame for scenarios and future viewers, including any invariant failures.
 10. Run scenario assertions/hooks.
 
 Tree ticking should be logically simultaneous for all robots. Kinematic updates should use the motion commands from the same tick after all robots have evaluated behavior.
+
+# Bevy Plugin and System Sets
+
+The simulator should provide a Bevy plugin:
+
+```rust
+pub struct BehaviorTreeSimulatorPlugin {
+    pub config: SimulationConfig,
+    pub field_dimensions: FieldDimensions,
+    pub enable_default_ball_physics: bool,
+    pub enable_default_kinematics: bool,
+    pub enable_default_communication_routing: bool,
+    pub enable_default_invariant_checks: bool,
+}
+```
+
+The plugin must expose public system sets so scenarios can register systems between any simulator phases:
+
+```rust
+#[derive(SystemSet, Debug, Clone, PartialEq, Eq, Hash)]
+pub enum BehaviorTreeSimulatorSet {
+    AdvanceTime,
+    BeforeBallPhysics,
+    BallPhysics,
+    AfterBallPhysics,
+    BuildTeamContext,
+    BeforeWorldState,
+    BuildWorldStates,
+    AfterWorldState,
+    BeforeBehavior,
+    TickBehaviorTrees,
+    AfterBehavior,
+    BeforeCommunication,
+    PlanCommunication,
+    AfterCommunication,
+    BeforeKinematics,
+    ApplyKinematics,
+    AfterKinematics,
+    BeforeInvariantChecks,
+    RunInvariantChecks,
+    AfterInvariantChecks,
+    RecordTimeline,
+    Scenario,
+}
+```
+
+The plugin should configure these sets in a deterministic chain. Scenarios can insert custom systems with `.in_set(...)`, `.before(...)`, and `.after(...)`.
+
+Examples:
+
+```rust
+app.add_systems(
+    Update,
+    custom_ball_physics.in_set(BehaviorTreeSimulatorSet::BeforeKinematics),
+);
+
+app.add_systems(
+    Update,
+    rewrite_outgoing_messages.in_set(BehaviorTreeSimulatorSet::AfterCommunication),
+);
+
+app.add_systems(
+    Update,
+    scenario_assertions.in_set(BehaviorTreeSimulatorSet::Scenario),
+);
+```
+
+This is required for scenarios that implement custom physics, inject observations, modify incoming communication, delay outgoing communication, drop messages, duplicate messages, or inspect behavior output before kinematics are applied.
 
 # WorldState Construction
 
@@ -335,34 +482,58 @@ If later behavior uses network messages instead of direct `player_states`, add a
 
 # Rust Scenario API
 
-Rust scenarios should be the first authoring interface.
+Rust scenarios should be the first authoring interface and should keep the old Bevy scenario shape:
+
+```rust
+#[scenario]
+fn intercept_ball(app: &mut App) {
+    app.add_systems(Startup, startup);
+    app.add_systems(Update, update.in_set(BehaviorTreeSimulatorSet::Scenario));
+}
+```
+
+The scenario macro or runner should create an `App`, add `BehaviorTreeSimulatorPlugin`, call the scenario function so it can register arbitrary Bevy systems, then run the app to completion.
 
 The API should support:
 
-- Spawn robot with player number and field pose.
-- Set shared ball position and velocity.
-- Set primary game state and sub-state.
+- Spawn robots through `Commands` using `SimulatorRobotBundle`.
+- Set shared ball position and velocity through `SimulatorBall`.
+- Set primary game state and sub-state through resources/components.
 - Set goalkeeper number and behavior parameters per robot.
-- Run for duration or ticks.
-- Wait until a predicate is true.
-- Assert last motion command, trace path, robot pose, ball pose, or role behavior.
+- Register systems in any public simulator system set.
+- Wait until a predicate is true by writing normal Bevy systems that send `AppExit`.
+- Assert last motion command, trace path, robot pose, ball pose, communication, or role behavior.
 - Inject per-tick hooks for dynamic events.
+- Disable default physics, kinematics, communication routing, or invariant checks when a scenario provides custom systems.
 
 Example shape:
 
 ```rust
 #[scenario]
-fn striker_walks_to_visible_ball(sim: &mut Simulation) -> Result<()> {
-    sim.spawn_robot(PlayerNumber::Three, pose2![0.0, 0.0, 0.0]);
-    sim.set_primary_state(PrimaryState::Playing);
-    sim.set_ball(point![1.0, 0.0], Vector2::zeros());
-    sim.run_for(Duration::from_secs(2))?;
-    sim.assert_robot_motion(PlayerNumber::Three, MotionMatcher::Walk)?;
-    Ok(())
+fn striker_walks_to_visible_ball(app: &mut App) {
+    app.add_systems(Startup, spawn_robots_and_ball);
+    app.add_systems(
+        Update,
+        assert_striker_walks.in_set(BehaviorTreeSimulatorSet::Scenario),
+    );
 }
 ```
 
-The actual macro and matcher names should follow existing `crates/bevyhavior_simulator` style during implementation.
+Scenarios must be able to modify communication between simulator phases:
+
+```rust
+app.add_systems(
+    Update,
+    inject_teammate_message.in_set(BehaviorTreeSimulatorSet::BeforeWorldState),
+);
+
+app.add_systems(
+    Update,
+    delay_outgoing_messages.in_set(BehaviorTreeSimulatorSet::AfterCommunication),
+);
+```
+
+The old `#[scenario] fn(app: &mut App)` flexibility is a requirement, not an implementation detail.
 
 # Invariant Checks
 
@@ -406,19 +577,11 @@ Initial checks should include:
 
 "Knowingly" means the prohibited target or path is visible in the data passed to behavior for that tick, such as `WorldState::rule_obstacles`, field dimensions, planned walking path, or path-obstacle debug output. The check should not fail for hidden state that the robot could not have known from its inputs.
 
-# Interactive Bevy/Twix Layer
+# Viewer and Twix Integration
 
-The existing `crates/bevyhavior_simulator` should contain the simulator core and frontend integration. Keep pure behavior ticking in `crates/world_state`, but place simulation state, scenario helpers, simple kinematics, recording, and UI integration in `crates/bevyhavior_simulator`.
+Viewer work is deferred for now.
 
-Responsibilities:
-
-- Run Rust scenarios with Bevy scheduling if visualization or interactive editing is needed.
-- Expose simulation frames through the existing Twix communication server pattern.
-- Record timeline frames for scrubbing.
-- Render robot poses, ball state, obstacles, paths, and behavior traces.
-- Support simple play and pause controls first.
-
-The interactive layer should not reconstruct blackboards or tick behavior directly. It should call the core simulation API.
+The simulator should still record timeline frames in a format that can later be served to Twix or another viewer. The viewer must not reconstruct blackboards or tick behavior directly. It should consume recorded `SimulatorFrame` data.
 
 # Recording and Outputs
 
@@ -444,12 +607,12 @@ Scenario failures must still produce a viewable timeline. The runner should alwa
 
 # Integration with Existing Bevyhavior Simulator
 
-Keep the existing simulator crate and docs, but separate responsibilities:
+Keep the `crates/bevyhavior_simulator` crate name and the old Bevy scenario ergonomics, but replace the old internals:
 
-- `world_state::behavior` owns pure behavior ticking.
-- `crates/bevyhavior_simulator` owns the simulator core module, deterministic world updates, scenario assertions, Bevy scheduling, UI server integration, and scenario binaries.
-
-Existing scenario binaries can migrate gradually to the new core. New behavior-tree scenarios should use the new API.
+- `world_state::behavior` owns pure behavior ticking and pure communication planning.
+- `crates/bevyhavior_simulator` owns Bevy resources, components, systems, scenario assertions, deterministic world updates, communication routing, invariant checks, timeline recording, and scenario binaries.
+- Old generated cycler/database code should not be restored.
+- Existing scenario binaries can migrate gradually to the new `BehaviorTreeSimulatorPlugin` and `SimulatorRobotBundle` APIs.
 
 # Testing Strategy
 
@@ -480,12 +643,14 @@ Implementation should wait for an explicit command.
 Recommended phases:
 
 1. Extract pure `Behavior::tick_behavior_tree()` from `Behavior::cycle()` without changing behavior semantics.
-2. Add behavior-only `Simulation` in `crates/bevyhavior_simulator` with multi-robot state, `WorldState` construction, and trace recording.
-3. Add simple kinematics for walk, kick, stand, prepare, and stand-up.
-4. Add invariant check support and initial rule-obstacle and field-boundary checks.
-5. Add Rust scenario helpers and first branch-coverage scenarios.
-6. Connect the core to `crates/bevyhavior_simulator` recording/server flow.
-7. Add Twix play and pause controls.
+2. Add `BehaviorTreeSimulatorPlugin`, public `BehaviorTreeSimulatorSet`s, and Bevy resources/components in `crates/bevyhavior_simulator`.
+3. Add `SimulatorRobotBundle` and startup helpers for scenarios.
+4. Add Bevy systems for multi-robot `WorldState` construction, behavior ticking, communication planning, and trace recording.
+5. Add default simple kinematics for walk, kick, stand, prepare, and stand-up, with plugin switches to disable them.
+6. Add invariant check support and initial rule-obstacle and field-boundary checks.
+7. Add Rust scenario helpers and first branch-coverage scenarios using `#[scenario] fn(app: &mut App)`.
+8. Add timeline finalization on normal completion and failure.
+9. Add viewer/server integration later.
 
 # Open Questions Before Implementation
 
