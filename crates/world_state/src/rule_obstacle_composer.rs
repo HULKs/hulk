@@ -53,7 +53,6 @@ impl RuleObstacleComposer {
                             SubState::ThrowIn
                             | SubState::CornerKick
                             | SubState::GoalKick
-                            | SubState::PenaltyKick
                             | SubState::DirectFreeKick
                             | SubState::IndirectFreeKick,
                         ),
