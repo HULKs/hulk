@@ -504,7 +504,8 @@
       "distance_for_kick_hysteresis": 0.2,
       "alignment_angle_threshold": 0.4,
       "blocking_distance_offset": 0.2,
-      "corner_kick_blocking_angle": 0.78
+      "corner_kick_blocking_angle": 0.78,
+      "penalty_kick_target_y_offset": 0.3
     },
     "maximum_lookaround_duration": {
       "nanos": 0,
