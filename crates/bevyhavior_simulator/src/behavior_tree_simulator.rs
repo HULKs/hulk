@@ -2,6 +2,10 @@ use std::{
     collections::BTreeMap, env, f32::consts::PI, net::SocketAddr, time::Duration, time::SystemTime,
 };
 
+use behavior_node::{
+    behavior_tree::Node as BehaviorNodeTree, motion_assembler::assemble_motion_command,
+    node::Blackboard as BehaviorBlackboard, tree::create_tree as create_behavior_tree,
+};
 use bevy::{
     app::{App, AppExit, Plugin, Update},
     ecs::message::Messages,
@@ -36,10 +40,6 @@ use types::{
     world_state::{BallState, PlayerState, RobotState, WorldState},
 };
 use voronoi::VoronoiGrid;
-use world_state::behavior::{
-    node::{Behavior, BehaviorTickInput, BehaviorTickOutput, CreationContext},
-    send_message::CommunicationInput,
-};
 
 use crate::timeline_viewer::{TimelineViewerData, show_timeline_viewer};
 
@@ -109,7 +109,6 @@ pub struct SimulationConfig {
     pub ball_visibility_angle: f32,
     pub robot_radius: f32,
     pub kick_radius: f32,
-    pub free_kick_obstacle_radius: f32,
     pub remaining_amount_of_messages: Option<u16>,
     pub game_controller_address: Option<SocketAddr>,
 }
@@ -120,15 +119,14 @@ impl Default for SimulationConfig {
             walk_translation_speed: 2.0,
             walk_rotation_speed: 3.0,
             walk_with_velocity_scale: 1.0,
-            kick_ball_speed_rumpelstilzchen: 1.0,
-            kick_ball_speed_schlong: 1.5,
+            kick_ball_speed_rumpelstilzchen: 2.0,
+            kick_ball_speed_schlong: 3.0,
             kick_cooldown: Duration::from_millis(750),
-            ball_friction_per_second: 0.4,
+            ball_friction_per_second: 0.6,
             ball_visibility_range: 4.0,
             ball_visibility_angle: std::f32::consts::FRAC_PI_2,
             robot_radius: 0.25,
             kick_radius: 0.25,
-            free_kick_obstacle_radius: 0.75,
             remaining_amount_of_messages: Some(u16::MAX),
             game_controller_address: None,
         }
@@ -835,17 +833,160 @@ pub struct SimulatorPrimaryState {
 
 #[derive(Component)]
 pub struct SimulatorRobotBehavior {
-    pub behavior: Behavior,
+    pub tree: BehaviorNodeTree<BehaviorBlackboard>,
+    pub blackboard: BehaviorBlackboard,
+    pub static_layout: NodeTrace,
+}
+
+impl SimulatorRobotBehavior {
+    pub fn new(parameters: BehaviorParameters) -> Self {
+        let tree = create_behavior_tree();
+        let static_layout = tree.static_layout_trace();
+        Self {
+            tree,
+            blackboard: create_behavior_blackboard(parameters),
+            static_layout,
+        }
+    }
+
+    pub fn tick_behavior_tree(
+        &mut self,
+        input: SimulatorBehaviorTickInput,
+    ) -> Result<SimulatorBehaviorTickOutput> {
+        self.blackboard.field_dimensions = input.field_dimensions;
+        self.blackboard.parameters = input.parameters;
+        self.blackboard.world_state = input.world_state.clone();
+
+        self.blackboard.path_obstacles_output.clear();
+        self.blackboard.time_since_last_switch = Duration::ZERO;
+        self.blackboard.direction_difference = 0.0;
+        self.blackboard.voronoi_inputs.clear();
+        self.blackboard.is_injected_motion_command = false;
+        self.blackboard.walk_position = None;
+        self.blackboard.body_motion = None;
+        self.blackboard.head_motion = None;
+        self.blackboard.voronoi_map = None;
+
+        if let Some(ball) = self.blackboard.world_state.ball {
+            self.blackboard.ball = Some(behavior_node::node::LastBall {
+                position: ball.ball_in_field,
+                velocity: ball.ball_in_ground_velocity,
+                age: self.blackboard.world_state.now,
+                field_side: ball.field_side,
+            });
+            self.blackboard.last_ball.clone_from(&self.blackboard.ball);
+        } else if let Some(last_ball) = &self.blackboard.ball
+            && self
+                .blackboard
+                .world_state
+                .now
+                .duration_since(last_ball.age)
+                >= self.blackboard.parameters.last_ball_timeout
+        {
+            self.blackboard.ball = None;
+        }
+
+        let (status, trace) = self.tree.tick_with_trace(&mut self.blackboard);
+        let motion_command = assemble_motion_command(&self.blackboard, status)?;
+        self.blackboard.last_motion_command = motion_command.clone();
+
+        let motion_type = match motion_command.clone() {
+            MotionCommand::VisualKick { .. } => Some(types::motion_type::MotionType::Kick),
+            MotionCommand::Walk { .. } => Some(types::motion_type::MotionType::Walk),
+            MotionCommand::Stand { .. } => Some(types::motion_type::MotionType::Stand),
+            MotionCommand::StandUp => Some(types::motion_type::MotionType::StandUp),
+            MotionCommand::Prepare => Some(types::motion_type::MotionType::Prepare),
+            _ => None,
+        };
+
+        if motion_type != self.blackboard.last_motion_type {
+            self.blackboard.last_motion_switch_time = self.blackboard.world_state.now;
+            self.blackboard.last_motion_type = motion_type;
+        }
+
+        Ok(SimulatorBehaviorTickOutput {
+            motion_command,
+            trace,
+            static_layout: self.static_layout.clone(),
+            path_obstacles: self.blackboard.path_obstacles_output.clone(),
+            time_since_last_switch: self.blackboard.time_since_last_switch,
+            direction_difference: self.blackboard.direction_difference,
+            walk_position: self.blackboard.walk_position,
+            voronoi_map: self.blackboard.voronoi_map.clone(),
+            voronoi_inputs: self.blackboard.voronoi_inputs.clone(),
+        })
+    }
+
+    pub fn plan_communication(
+        &mut self,
+        world_state: WorldState,
+        hsl_network_parameters: HslNetworkParameters,
+        game_controller_address: Option<SocketAddr>,
+    ) -> Vec<OutgoingMessage> {
+        self.blackboard.world_state = world_state;
+        self.blackboard.parameters.hsl_network = hsl_network_parameters;
+
+        let mut outgoing_messages = Vec::new();
+        if let Some(message) = self
+            .blackboard
+            .game_controller_return_message(game_controller_address.as_ref())
+        {
+            outgoing_messages.push(message);
+        }
+        if let Some(message) = self.blackboard.state_message() {
+            outgoing_messages.push(message);
+        }
+        outgoing_messages
+    }
+}
+
+pub struct SimulatorBehaviorTickInput {
+    pub world_state: WorldState,
+    pub field_dimensions: FieldDimensions,
+    pub parameters: BehaviorParameters,
+}
+
+pub struct SimulatorBehaviorTickOutput {
+    pub motion_command: MotionCommand,
+    pub trace: NodeTrace,
+    pub static_layout: NodeTrace,
+    pub path_obstacles: Vec<PathObstacle>,
+    pub time_since_last_switch: Duration,
+    pub direction_difference: f32,
+    pub walk_position: Option<Point2<Ground>>,
+    pub voronoi_map: Option<VoronoiGrid>,
+    pub voronoi_inputs: Vec<Pose2<Field>>,
+}
+
+fn create_behavior_blackboard(parameters: BehaviorParameters) -> BehaviorBlackboard {
+    BehaviorBlackboard {
+        field_dimensions: FieldDimensions::default(),
+        parameters,
+        world_state: WorldState::default(),
+        path_obstacles_output: Vec::new(),
+        time_since_last_switch: Duration::ZERO,
+        direction_difference: 0.0,
+        voronoi_inputs: Vec::new(),
+        ball: None,
+        last_ball: None,
+        last_close_enough_to_kick: false,
+        last_kick_target: None,
+        last_motion_command: MotionCommand::default(),
+        last_motion_switch_time: ros_z::time::Time::zero(),
+        last_motion_type: None,
+        last_sent_game_controller_return_message_time: None,
+        last_sent_hsl_message_time: None,
+        is_injected_motion_command: false,
+        walk_position: None,
+        body_motion: None,
+        head_motion: None,
+        voronoi_map: None,
+    }
 }
 
 #[derive(Component, Clone, Debug)]
 pub struct SimulatorRobotParameters {
     pub behavior: BehaviorParameters,
-}
-
-#[derive(Component, Clone, Debug)]
-pub struct SimulatorLastMotionCommand {
-    pub motion_command: MotionCommand,
 }
 
 #[derive(Component, Clone, Copy, Debug, Default)]
@@ -870,7 +1011,6 @@ pub struct SimulatorRobotBundle {
     pub primary_state: SimulatorPrimaryState,
     pub behavior: SimulatorRobotBehavior,
     pub parameters: SimulatorRobotParameters,
-    pub last_motion_command: SimulatorLastMotionCommand,
     pub fall_down_state: SimulatorFallDownState,
     pub suggested_search_position: SimulatorSuggestedSearchPosition,
     pub last_kick_time: SimulatorLastKickTime,
@@ -888,14 +1028,9 @@ impl SimulatorRobotBundle {
             primary_state: SimulatorPrimaryState {
                 primary_state: PrimaryState::Safe,
             },
-            behavior: SimulatorRobotBehavior {
-                behavior: Behavior::new(CreationContext {})?,
-            },
+            behavior: SimulatorRobotBehavior::new(parameters.clone()),
             parameters: SimulatorRobotParameters {
                 behavior: parameters,
-            },
-            last_motion_command: SimulatorLastMotionCommand {
-                motion_command: MotionCommand::default(),
             },
             fall_down_state: SimulatorFallDownState::default(),
             suggested_search_position: SimulatorSuggestedSearchPosition::default(),
@@ -1227,35 +1362,28 @@ fn build_world_states(
 fn tick_behavior_trees(
     clock: Res<SimulatorClock>,
     field_dimensions: Res<SimulatorFieldDimensions>,
-    config: Res<SimulationConfig>,
     world_states: Res<SimulatorWorldStates>,
     mut robot_frames: ResMut<SimulatorRobotFrames>,
     mut robots: Query<(
         &SimulatorRobot,
         &SimulatorRobotParameters,
         &mut SimulatorRobotBehavior,
-        &mut SimulatorLastMotionCommand,
     )>,
 ) {
     robot_frames.0.clear();
 
-    for (robot, parameters, mut behavior, mut last_motion_command) in &mut robots {
+    for (robot, parameters, mut behavior) in &mut robots {
         let Some(world_state) = world_states.0.get(&robot.player_number).cloned() else {
             continue;
         };
 
         let tick_output = behavior
-            .behavior
-            .tick_behavior_tree(BehaviorTickInput {
+            .tick_behavior_tree(SimulatorBehaviorTickInput {
                 world_state: world_state.clone(),
                 field_dimensions: field_dimensions.0,
                 parameters: parameters.behavior.clone(),
-                free_kick_obstacle_radius: config.free_kick_obstacle_radius,
-                last_motion_command: last_motion_command.motion_command.clone(),
             })
             .expect("behavior tree tick should not fail in simulator");
-
-        last_motion_command.motion_command = tick_output.motion_command.clone();
         robot_frames.0.insert(
             robot.player_number,
             RobotFrame::from_outputs(world_state, tick_output, Vec::new()),
@@ -1267,7 +1395,6 @@ fn tick_behavior_trees(
 
 fn plan_communication(
     config: Res<SimulationConfig>,
-    game_state: Res<SimulatorGameState>,
     hsl_network_parameters: Res<SimulatorHslNetworkParameters>,
     world_states: Res<SimulatorWorldStates>,
     mut robot_frames: ResMut<SimulatorRobotFrames>,
@@ -1281,27 +1408,20 @@ fn plan_communication(
             continue;
         };
 
-        let communication_output = behavior.behavior.plan_communication(CommunicationInput {
-            world_state,
-            game_controller_address: config.game_controller_address,
-            hsl_network_parameters: &hsl_network_parameters.0,
-            remaining_amount_of_messages: Some(
-                game_state
-                    .game_controller_state
-                    .hulks_team
-                    .remaining_amount_of_messages,
-            ),
-        });
+        let outgoing_robot_messages = behavior.plan_communication(
+            world_state.clone(),
+            hsl_network_parameters.0.clone(),
+            config.game_controller_address,
+        );
 
         if let Some(frame) = robot_frames.0.get_mut(&robot.player_number) {
-            frame.outgoing_messages = communication_output.outgoing_messages.clone();
+            frame.outgoing_messages = outgoing_robot_messages.clone();
         }
 
         outgoing_messages
             .messages
             .extend(
-                communication_output
-                    .outgoing_messages
+                outgoing_robot_messages
                     .into_iter()
                     .map(|message| SimulatorMessage {
                         sender: robot.player_number,
@@ -1660,30 +1780,23 @@ impl Simulation {
                 continue;
             };
 
-            let tick_output = robot.behavior.tick_behavior_tree(BehaviorTickInput {
-                world_state: world_state.clone(),
-                field_dimensions: self.field_dimensions,
-                parameters: robot.parameters.clone(),
-                free_kick_obstacle_radius: self.config.free_kick_obstacle_radius,
-                last_motion_command: robot.last_motion_command.clone(),
-            })?;
+            let tick_output = robot
+                .behavior
+                .tick_behavior_tree(SimulatorBehaviorTickInput {
+                    world_state: world_state.clone(),
+                    field_dimensions: self.field_dimensions,
+                    parameters: robot.parameters.clone(),
+                })?;
 
-            let communication_output = robot.behavior.plan_communication(CommunicationInput {
-                world_state: &world_state,
-                game_controller_address: self.config.game_controller_address,
-                hsl_network_parameters: &self.hsl_network_parameters,
-                remaining_amount_of_messages: self.config.remaining_amount_of_messages,
-            });
-
-            robot.last_motion_command = tick_output.motion_command.clone();
+            let outgoing_messages = robot.behavior.plan_communication(
+                world_state.clone(),
+                self.hsl_network_parameters.clone(),
+                self.config.game_controller_address,
+            );
 
             robot_frames.insert(
                 player_number,
-                RobotFrame::from_outputs(
-                    world_state,
-                    tick_output,
-                    communication_output.outgoing_messages,
-                ),
+                RobotFrame::from_outputs(world_state, tick_output, outgoing_messages),
             );
         }
 
@@ -1873,9 +1986,8 @@ pub struct SimulatedRobot {
     pub player_number: PlayerNumber,
     pub ground_to_world: Isometry2<Ground, World>,
     pub primary_state: PrimaryState,
-    pub behavior: Behavior,
+    pub behavior: SimulatorRobotBehavior,
     pub parameters: BehaviorParameters,
-    pub last_motion_command: MotionCommand,
     pub fall_down_state: Option<FallDownState>,
     pub suggested_search_position: Option<Point2<Field>>,
     pub last_kick_time: SystemTime,
@@ -1891,9 +2003,8 @@ impl SimulatedRobot {
             player_number,
             ground_to_world,
             primary_state: PrimaryState::Safe,
-            behavior: Behavior::new(CreationContext {})?,
+            behavior: SimulatorRobotBehavior::new(parameters.clone()),
             parameters,
-            last_motion_command: MotionCommand::default(),
             fall_down_state: None,
             suggested_search_position: None,
             last_kick_time: SystemTime::UNIX_EPOCH,
@@ -1953,7 +2064,7 @@ pub struct RobotFrame {
 impl RobotFrame {
     fn from_outputs(
         world_state: WorldState,
-        tick_output: BehaviorTickOutput,
+        tick_output: SimulatorBehaviorTickOutput,
         outgoing_messages: Vec<OutgoingMessage>,
     ) -> Self {
         Self {

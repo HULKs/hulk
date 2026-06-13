@@ -8,6 +8,7 @@ autobins = false
 
 [dependencies]
 approx = { workspace = true }
+behavior_node = { workspace = true }
 bevy = { workspace = true }
 booster = { workspace = true }
 color-eyre = { workspace = true }
@@ -22,7 +23,6 @@ serde_json = { workspace = true }
 twix = { workspace = true }
 types = { workspace = true }
 voronoi = { workspace = true }
-world_state = { workspace = true }
 
 [[bin]]
 name = "behavior_tree_smoke"

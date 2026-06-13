@@ -1974,6 +1974,7 @@ name = "bevyhavior_simulator"
 version = "0.1.0"
 dependencies = [
  "approx",
+ "behavior_node",
  "bevy",
  "booster",
  "color-eyre",
@@ -1988,7 +1989,6 @@ dependencies = [
  "twix",
  "types",
  "voronoi",
- "world_state",
 ]
 
 [[package]]

@@ -1,6 +1,6 @@
 # Behavior Tree Simulator Design
 
-This document designs a simulator for the current behavior tree instantiated by `crates/world_state/src/behavior/tree.rs:create_tree()`.
+This document designs a simulator for the current behavior tree instantiated by `crates/nodes/behavior_node/src/tree.rs:create_tree()`.
 
 The simulator must initialize the behavior blackboard, repeatedly evaluate the behavior tree, and update simulated world state and persistent behavior state between ticks.
 
@@ -9,7 +9,7 @@ No implementation is included in this document.
 # Goals
 
 - Run the exact behavior tree returned by `create_tree()`.
-- Reuse the production blackboard construction and motion command assembly semantics from `crates/world_state/src/behavior/node.rs`.
+- Reuse the production blackboard construction, communication planning, and motion command assembly semantics from `crates/nodes/behavior_node/src/node.rs`.
 - Simulate multiple robots from the start.
 - Update world state with simple deterministic kinematics after each behavior tick.
 - Support Rust scenario programs first.
@@ -32,15 +32,15 @@ No implementation is included in this document.
 
 The production behavior cycle already has the shape the simulator needs:
 
-- `Behavior::new()` creates `create_tree()` and the static tree layout.
-- `Behavior::cycle()` updates persistent ball memory.
-- `Behavior::cycle()` builds a `Blackboard` from parameters, `WorldState`, previous motion command, and behavior state.
+- The behavior node creates `create_tree()` and the static tree layout.
+- The behavior node updates persistent ball memory on its `Blackboard`.
+- The behavior node fills a `Blackboard` from parameters, `WorldState`, and previous blackboard state.
 - `Node::tick_with_trace()` evaluates the tree and mutates the blackboard.
 - `assemble_motion_command()` converts behavior status plus blackboard partial motions into a `MotionCommand`.
-- `Behavior::cycle()` persists selected blackboard fields back into `Behavior`.
-- `Behavior::cycle()` publishes trace and debug outputs.
+- The persistent `Blackboard` keeps selected state between cycles.
+- The behavior node publishes trace and debug outputs.
 
-The simulator should not duplicate this logic. It should extract the pure behavior tick from `Behavior::cycle()` and call it from both production and simulation code.
+The simulator should not use the retired `world_state::behavior` tree. It should store one `behavior_node::node::Blackboard` and one `behavior_node::behavior_tree::Node` per robot and tick that same tree directly.
 
 # High-Level Architecture
 
@@ -48,7 +48,7 @@ The simulator should be Bevy-based like the old `crates/bevyhavior_simulator`, b
 
 The simulator has two layers:
 
-- A pure behavior adapter in `crates/world_state` that can tick `create_tree()` and plan communication without framework or network side effects.
+- A behavior adapter over `crates/nodes/behavior_node` that can tick `create_tree()` and plan communication without ROS/network side effects.
 - A Bevy runtime in `crates/bevyhavior_simulator` that owns entities, resources, systems, scenario registration, simple kinematics, invariant checks, and timeline recording.
 
 The Bevy runtime is the normal simulator API. A small non-Bevy helper may exist for tests, but scenarios should be authored against Bevy `App` so they can register systems flexibly.
@@ -57,20 +57,18 @@ Do not abbreviate `Simulator`, `Simulated`, or `Simulation` to `Sim` in type nam
 
 # Behavior Tick API
 
-Add a pure behavior tick API in `crates/world_state/src/behavior/`.
+The simulator owns a small adapter around `crates/nodes/behavior_node`.
 
-The API should be small and mirror the data already used by `Behavior::cycle()`:
+The adapter input should be small and mirror the data already used by the behavior node loop:
 
 ```rust
-pub struct BehaviorTickInput {
+pub struct SimulatorBehaviorTickInput {
     pub world_state: WorldState,
     pub field_dimensions: FieldDimensions,
     pub behavior_parameters: BehaviorParameters,
-    pub free_kick_obstacle_radius: f32,
-    pub last_motion_command: MotionCommand,
 }
 
-pub struct BehaviorTickOutput {
+pub struct SimulatorBehaviorTickOutput {
     pub motion_command: MotionCommand,
     pub trace: NodeTrace,
     pub static_layout: NodeTrace,
@@ -82,53 +80,47 @@ pub struct BehaviorTickOutput {
     pub voronoi_inputs: Vec<Pose2<Field>>,
 }
 
-impl Behavior {
-    pub fn tick_behavior_tree(&mut self, input: BehaviorTickInput) -> Result<BehaviorTickOutput>;
+impl SimulatorRobotBehavior {
+    pub fn tick_behavior_tree(&mut self, input: SimulatorBehaviorTickInput) -> Result<SimulatorBehaviorTickOutput>;
 }
 ```
 
-`Behavior::cycle()` should become a framework adapter:
+The production behavior node remains the ROS adapter:
 
 - Read framework inputs.
-- Call `tick_behavior_tree()`.
-- Plan outgoing communication with a pure communication API.
+- Fill the production `Blackboard`.
+- Tick `behavior_node::tree::create_tree()`.
+- Plan outgoing communication through `Blackboard` methods.
 - Send planned network messages through the production hardware interface.
 - Fill framework outputs.
-- Store `last_motion_command`.
+- Store `last_motion_command` on the `Blackboard`.
 
-The simulator should call `tick_behavior_tree()` directly and avoid framework `CycleContext` construction.
+The simulator should call its adapter directly and avoid ROS node/cache construction.
 
 # Communication API
 
 Simulations need access to communication, but communication should stay pure and outside the behavior-tree state machine cycle.
 
-Extract message creation from `send_game_controller_return_message()` and `send_state_message()` into a pure planning API. The API returns outgoing messages and updated communication cooldown state, but does not write to `NetworkInterface`.
+Message creation is pure on `behavior_node::node::Blackboard`: `game_controller_return_message()` and `state_message()` return `OutgoingMessage`s and update cooldown fields, but do not write to a network interface.
 
 ```rust
-pub struct CommunicationInput {
-    pub world_state: WorldState,
-    pub game_controller_address: Option<SocketAddr>,
-    pub hsl_network_parameters: HslNetworkParameters,
-    pub remaining_amount_of_messages: Option<u16>,
-}
-
-pub struct CommunicationOutput {
-    pub outgoing_messages: Vec<OutgoingMessage>,
-    pub last_sent_message: Option<HulkMessage>,
-}
-
-impl Behavior {
-    pub fn plan_communication(&mut self, input: CommunicationInput) -> CommunicationOutput;
+impl SimulatorRobotBehavior {
+    pub fn plan_communication(
+        &mut self,
+        world_state: WorldState,
+        hsl_network_parameters: HslNetworkParameters,
+        game_controller_address: Option<SocketAddr>,
+    ) -> Vec<OutgoingMessage>;
 }
 ```
 
-Production `Behavior::cycle()` should call `plan_communication()` after `tick_behavior_tree()` and write each returned `OutgoingMessage` to hardware. The simulator should call the same method, route HSL messages to simulated teammates, expose game-controller return messages to scenarios, and record all outgoing messages in the timeline.
+The simulator should call the same `Blackboard` communication methods, route HSL messages to simulated teammates, expose game-controller return messages to scenarios, and record all outgoing messages in the timeline.
 
-This keeps behavior tree evaluation independent from communication side effects while preserving the production cooldown semantics stored in `Behavior`.
+This keeps behavior tree evaluation independent from communication side effects while preserving the production cooldown semantics stored in the `Blackboard`.
 
 # Persistent Behavior State
 
-Each simulated robot owns one `Behavior` instance. This preserves the same state as production:
+Each simulated robot owns one `SimulatorRobotBehavior` with one `behavior_node::node::Blackboard`. This preserves the same state as production:
 
 - `ball`
 - `last_ball`
@@ -288,8 +280,8 @@ The shared ball has field pose and velocity:
 
 ```rust
 pub struct SimulatedBall {
-    pub position: Point2<Field>,
-    pub velocity: Vector2<Field>,
+    pub position: Point2<World>,
+    pub velocity: Vector2<World>,
     pub field_side: Side,
 }
 ```
@@ -303,9 +295,9 @@ Each simulation tick runs these steps in order through Bevy systems:
 3. Run auto-referee systems that consume shared simulation truth such as ball-in-goal and update game-controller state before behavior input is built.
 4. Apply routed incoming HSL network messages from the previous tick to per-robot receive state.
 5. For each robot, derive robot-local perception inputs from shared simulation state and received teammate messages.
-6. For each robot, build a `WorldState` and call `Behavior::tick_behavior_tree()`.
+6. For each robot, build a `WorldState` and tick `behavior_node::tree::create_tree()` through `SimulatorRobotBehavior`.
 7. Store each robot's `MotionCommand`, `NodeTrace`, and debug outputs.
-8. Plan outgoing communication with `Behavior::plan_communication()` using the live message budget from `SimulatorGameState`.
+8. Plan outgoing communication with `behavior_node::node::Blackboard` communication methods using the live message budget in `WorldState.filtered_game_controller_state`.
 9. Route planned HSL messages to teammates and decrement the live game-controller message budget.
 10. Run invariant checks with access to the full pre-kinematics tick state and all behavior outputs.
 11. Apply simple kinematic effects of each `MotionCommand` to robot poses and ball state.
@@ -388,7 +380,7 @@ This is required for scenarios that implement custom physics, inject observation
 
 # Robot-To-Robot Communication Routing
 
-The simulator should route HSL robot-to-robot messages through Bevy resources instead of using `NetworkInterface`. Message creation remains pure and owned by `Behavior::plan_communication()`.
+The simulator should route HSL robot-to-robot messages through Bevy resources instead of using a network interface. Message creation remains pure and owned by `behavior_node::node::Blackboard` methods.
 
 Default routing semantics:
 
@@ -404,7 +396,7 @@ The live HSL message budget is owned by `SimulatorGameState.game_controller_stat
 
 `SimulationConfig::remaining_amount_of_messages` is only an initial value for that live game-controller field. The plugin should copy it into `SimulatorGameState` during initialization. After startup, the simulator must not use `SimulationConfig::remaining_amount_of_messages` as the source of truth for planning or routing.
 
-Communication planning should pass the current live budget into `CommunicationInput::remaining_amount_of_messages`:
+Communication planning should expose the current live budget through `WorldState.filtered_game_controller_state.remaining_number_of_messages`:
 
 ```rust
 let remaining_amount_of_messages =
@@ -595,15 +587,14 @@ For each robot, construct `WorldState` with:
 
 # Blackboard Initialization
 
-Blackboard initialization should stay inside `Behavior::tick_behavior_tree()` and mirror production exactly:
+Blackboard initialization should stay inside `SimulatorRobotBehavior::tick_behavior_tree()` and mirror production exactly:
 
-- Copy `field_dimensions`, `free_kick_obstacle_radius`, parameters, and `WorldState` into the blackboard.
+- Copy `field_dimensions`, parameters, and `WorldState` into the blackboard.
 - Initialize transient debug outputs to empty or zero.
-- Copy persistent behavior state into `ball`, `last_ball`, `last_close_enough_to_kick`, `last_kick_target`, `last_motion_switch_time`, and `last_motion_type`.
-- Copy simulator-owned `last_motion_command` into the blackboard.
+- Keep persistent behavior state on the blackboard: `ball`, `last_ball`, `last_close_enough_to_kick`, `last_kick_target`, `last_motion_switch_time`, `last_motion_type`, communication cooldowns, and `last_motion_command`.
 - Reset transient command fields: `is_injected_motion_command`, `walk_position`, `body_motion`, `head_motion`, and `voronoi_map`.
 
-After the tick, persist the same fields back to `Behavior` as production does.
+After the tick, leave persistent fields on the blackboard as production does.
 
 # Simple Kinematics
 
@@ -665,7 +656,7 @@ impl Default for SimulationConfig {
 - Clamp translation by `walk_translation_speed * dt`.
 - Rotate toward the command target orientation or path direction.
 - Clamp rotation by `walk_rotation_speed * dt`.
-- Transform the pose delta into field coordinates and update `ground_to_field`.
+- Transform the pose delta into world coordinates and update `ground_to_world`.
 
 `MotionCommand::WalkWithVelocity`:
 
@@ -841,7 +832,7 @@ Scenario failures must still produce a viewable timeline. The runner should alwa
 
 Keep the `crates/bevyhavior_simulator` crate name and the old Bevy scenario ergonomics, but replace the old internals:
 
-- `world_state::behavior` owns pure behavior ticking and pure communication planning.
+- `behavior_node` owns behavior-tree semantics, blackboard state, motion command assembly, and communication planning.
 - `crates/bevyhavior_simulator` owns Bevy resources, components, systems, scenario assertions, deterministic world updates, communication routing, invariant checks, timeline recording, and scenario binaries.
 - Old generated cycler/database code should not be restored.
 - Existing scenario binaries can migrate gradually to the new `BehaviorTreeSimulatorPlugin` and `SimulatorRobotBundle` APIs.
@@ -874,7 +865,7 @@ Implementation should wait for an explicit command.
 
 Recommended phases:
 
-1. Extract pure `Behavior::tick_behavior_tree()` from `Behavior::cycle()` without changing behavior semantics.
+1. Tick `behavior_node::tree::create_tree()` through a simulator adapter without using the retired `world_state::behavior` tree.
 2. Add `BehaviorTreeSimulatorPlugin`, public `BehaviorTreeSimulatorSet`s, and Bevy resources/components in `crates/bevyhavior_simulator`.
 3. Add `SimulatorRobotBundle` and startup helpers for scenarios.
 4. Add Bevy systems for multi-robot `WorldState` construction, behavior ticking, communication planning, and trace recording.
