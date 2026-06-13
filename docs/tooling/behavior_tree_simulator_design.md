@@ -164,7 +164,7 @@ pub struct SimulatorGameState {
 
 pub struct AutoRefereeConfig {
     pub ready_duration: Duration,
-    pub playing_signal_delay: Duration,
+    pub whistle_to_playing_delay: Duration,
     pub halftime_duration: Duration,
     pub auto_whistle_in_set: bool,
     pub finish_on_halftime_timeout: bool,
@@ -174,7 +174,7 @@ pub struct SimulatorAutoReferee {
     pub rules: Vec<Box<dyn AutoRefereeRule>>,
     pub last_game_state_change: SystemTime,
     pub halftime_started_at: Option<SystemTime>,
-    pub pending_playing_signal_at: Option<SystemTime>,
+    pub playing_after_whistle_at: Option<SystemTime>,
     pub restart_reason: Option<SimulatorRestartReason>,
 }
 
@@ -395,7 +395,7 @@ The auto-referee config should be a standalone Bevy resource:
 ```rust
 pub struct AutoRefereeConfig {
     pub ready_duration: Duration,
-    pub playing_signal_delay: Duration,
+    pub whistle_to_playing_delay: Duration,
     pub halftime_duration: Duration,
     pub auto_whistle_in_set: bool,
     pub finish_on_halftime_timeout: bool,
@@ -405,7 +405,7 @@ impl Default for AutoRefereeConfig {
     fn default() -> Self {
         Self {
             ready_duration: Duration::from_secs(45),
-            playing_signal_delay: Duration::from_secs(10),
+            whistle_to_playing_delay: Duration::from_secs(10),
             halftime_duration: Duration::from_secs(10 * 60),
             auto_whistle_in_set: true,
             finish_on_halftime_timeout: true,
@@ -423,7 +423,7 @@ pub struct SimulatorAutoReferee {
     pub rules: Vec<Box<dyn AutoRefereeRule>>,
     pub last_game_state_change: SystemTime,
     pub halftime_started_at: Option<SystemTime>,
-    pub pending_playing_signal_at: Option<SystemTime>,
+    pub playing_after_whistle_at: Option<SystemTime>,
     pub restart_reason: Option<SimulatorRestartReason>,
 }
 
@@ -481,9 +481,9 @@ Default auto-referee rules should run in this order:
 
 - Transition `Ready -> Set` after `ready_duration`.
 - On entering `Set`, place the ball at the center mark with zero velocity for kick-off and dropped-ball restarts when placement is required.
-- In `Set`, if `auto_whistle_in_set` is enabled, schedule `pending_playing_signal_at = now + playing_signal_delay`.
-- Transition `Set -> Playing` after the pending playing-signal time elapses.
-- Clear `pending_playing_signal_at` and restart metadata after entering `Playing`.
+- In `Set`, if `auto_whistle_in_set` is enabled, schedule `playing_after_whistle_at = now + whistle_to_playing_delay`.
+- Transition `Set -> Playing` after the scheduled whistle-to-playing time elapses.
+- Clear `playing_after_whistle_at` and restart metadata after entering `Playing`.
 - Start `halftime_started_at` when entering `Playing` if no half is currently running.
 
 `HalftimeTimeoutRule`:

@@ -12,7 +12,7 @@ use color_eyre::{
 };
 use coordinate_systems::{Field, Ground};
 use hsl_network_messages::{GamePhase, GameState, PlayerNumber, Team, TeamColor, TeamState};
-use linear_algebra::{Isometry2, Orientation2, Point2, Pose2, Vector2};
+use linear_algebra::{Isometry2, Orientation2, Point2, Pose2, Vector2, distance};
 use serde::{Deserialize, Serialize};
 use types::{
     behavior_tree::NodeTrace,
@@ -39,6 +39,8 @@ use world_state::behavior::{
 use crate::timeline_viewer::{TimelineViewerData, show_timeline_viewer};
 
 pub const DEFAULT_TICK_DURATION: Duration = Duration::from_millis(10);
+const READY_STATIONARY_TRANSLATION_EPSILON: f32 = 0.01;
+const READY_STATIONARY_ROTATION_EPSILON: f32 = 0.01;
 const PLAYER_NUMBERS: [PlayerNumber; 5] = [
     PlayerNumber::One,
     PlayerNumber::Two,
@@ -131,7 +133,8 @@ impl Default for SimulationConfig {
 #[derive(Resource, Clone, Debug)]
 pub struct AutoRefereeConfig {
     pub ready_duration: Duration,
-    pub playing_signal_delay: Duration,
+    pub ready_stationary_short_circuit_duration: Option<Duration>,
+    pub whistle_to_playing_delay: Duration,
     pub halftime_duration: Duration,
     pub auto_whistle_in_set: bool,
     pub finish_on_halftime_timeout: bool,
@@ -141,7 +144,8 @@ impl Default for AutoRefereeConfig {
     fn default() -> Self {
         Self {
             ready_duration: Duration::from_secs(45),
-            playing_signal_delay: Duration::from_secs(10),
+            ready_stationary_short_circuit_duration: Some(Duration::from_secs(1)),
+            whistle_to_playing_delay: Duration::from_secs(3),
             halftime_duration: Duration::from_secs(10 * 60),
             auto_whistle_in_set: true,
             finish_on_halftime_timeout: true,
@@ -437,12 +441,14 @@ pub struct SimulatorAutoReferee {
     pub state: AutoRefereeState,
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Debug)]
 pub struct AutoRefereeState {
     pub last_game_state_change: SystemTime,
     pub halftime_started_at: Option<SystemTime>,
-    pub pending_playing_signal_at: Option<SystemTime>,
+    pub playing_after_whistle_at: Option<SystemTime>,
     pub restart_reason: Option<SimulatorRestartReason>,
+    pub ready_stationary_since: Option<SystemTime>,
+    pub ready_robot_poses: BTreeMap<PlayerNumber, Isometry2<Ground, Field>>,
 }
 
 impl Default for AutoRefereeState {
@@ -450,9 +456,18 @@ impl Default for AutoRefereeState {
         Self {
             last_game_state_change: SystemTime::UNIX_EPOCH,
             halftime_started_at: None,
-            pending_playing_signal_at: None,
+            playing_after_whistle_at: None,
             restart_reason: None,
+            ready_stationary_since: None,
+            ready_robot_poses: BTreeMap::new(),
         }
+    }
+}
+
+impl AutoRefereeState {
+    fn reset_ready_stationary_tracking(&mut self) {
+        self.ready_stationary_since = None;
+        self.ready_robot_poses.clear();
     }
 }
 
@@ -483,15 +498,17 @@ pub struct AutoRefereeContext<'a> {
     pub game_state: &'a mut SimulatorGameState,
     pub auto_referee: &'a mut AutoRefereeState,
     pub ball: &'a mut SimulatorBall,
+    pub robot_poses: BTreeMap<PlayerNumber, Isometry2<Ground, Field>>,
 }
 
 impl AutoRefereeContext<'_> {
     fn set_game_state(&mut self, game_state: GameState) {
         self.game_state.set_game_state(game_state, self.now);
         self.auto_referee.last_game_state_change = self.now;
+        self.auto_referee.reset_ready_stationary_tracking();
 
         if game_state != GameState::Set {
-            self.auto_referee.pending_playing_signal_at = None;
+            self.auto_referee.playing_after_whistle_at = None;
         }
     }
 
@@ -561,21 +578,23 @@ impl AutoRefereeRule for GameStateTransitionRule {
         match context.game_state.game_controller_state.game_state {
             GameState::Initial => {}
             GameState::Ready => {
-                if has_elapsed(
+                let ready_duration_elapsed = has_elapsed(
                     context.now,
                     context.auto_referee.last_game_state_change,
                     context.config.ready_duration,
-                ) {
+                );
+                let robots_are_stationary = ready_stationary_short_circuit_elapsed(context);
+                if ready_duration_elapsed || robots_are_stationary {
                     if context.auto_referee.restart_reason.is_some() {
                         place_ball_at_center(context.ball);
                     }
                     context.set_game_state(GameState::Set);
                 }
             }
-            GameState::Set => match context.auto_referee.pending_playing_signal_at {
-                Some(playing_signal_at) if context.now >= playing_signal_at => {
+            GameState::Set => match context.auto_referee.playing_after_whistle_at {
+                Some(playing_after_whistle_at) if context.now >= playing_after_whistle_at => {
                     context.set_game_state(GameState::Playing);
-                    context.auto_referee.pending_playing_signal_at = None;
+                    context.auto_referee.playing_after_whistle_at = None;
                     context.auto_referee.restart_reason = None;
                     if context.auto_referee.halftime_started_at.is_none() {
                         context.auto_referee.halftime_started_at = Some(context.now);
@@ -583,19 +602,72 @@ impl AutoRefereeRule for GameStateTransitionRule {
                 }
                 Some(_) => {}
                 None if context.config.auto_whistle_in_set => {
-                    context.auto_referee.pending_playing_signal_at =
-                        Some(context.now + context.config.playing_signal_delay);
+                    context.auto_referee.playing_after_whistle_at =
+                        Some(context.now + context.config.whistle_to_playing_delay);
                 }
                 None => {}
             },
             GameState::Playing => {
+                context.auto_referee.reset_ready_stationary_tracking();
                 if context.auto_referee.halftime_started_at.is_none() {
                     context.auto_referee.halftime_started_at = Some(context.now);
                 }
             }
-            GameState::Finished => {}
+            GameState::Finished => context.auto_referee.reset_ready_stationary_tracking(),
         }
     }
+}
+
+fn ready_stationary_short_circuit_elapsed(context: &mut AutoRefereeContext<'_>) -> bool {
+    let Some(duration) = context.config.ready_stationary_short_circuit_duration else {
+        context.auto_referee.reset_ready_stationary_tracking();
+        return false;
+    };
+    if context.robot_poses.is_empty() {
+        context.auto_referee.reset_ready_stationary_tracking();
+        return false;
+    }
+
+    if robot_poses_are_stationary(
+        &context.auto_referee.ready_robot_poses,
+        &context.robot_poses,
+    ) {
+        let stationary_since = context
+            .auto_referee
+            .ready_stationary_since
+            .unwrap_or(context.now);
+        context.auto_referee.ready_stationary_since = Some(stationary_since);
+        has_elapsed(context.now, stationary_since, duration)
+    } else {
+        context.auto_referee.ready_stationary_since = Some(context.now);
+        context.auto_referee.ready_robot_poses = context.robot_poses.clone();
+        false
+    }
+}
+
+fn robot_poses_are_stationary(
+    previous_poses: &BTreeMap<PlayerNumber, Isometry2<Ground, Field>>,
+    current_poses: &BTreeMap<PlayerNumber, Isometry2<Ground, Field>>,
+) -> bool {
+    if previous_poses.len() != current_poses.len() {
+        return false;
+    }
+
+    current_poses.iter().all(|(player_number, current_pose)| {
+        previous_poses
+            .get(player_number)
+            .is_some_and(|previous_pose| robot_pose_is_stationary(*previous_pose, *current_pose))
+    })
+}
+
+fn robot_pose_is_stationary(
+    previous_pose: Isometry2<Ground, Field>,
+    current_pose: Isometry2<Ground, Field>,
+) -> bool {
+    distance(previous_pose.translation(), current_pose.translation())
+        <= READY_STATIONARY_TRANSLATION_EPSILON
+        && (previous_pose.orientation().angle() - current_pose.orientation().angle()).abs()
+            <= READY_STATIONARY_ROTATION_EPSILON
 }
 
 impl Default for GameStateTransitionRule {
@@ -825,8 +897,13 @@ fn run_auto_referee(
     mut game_state: ResMut<SimulatorGameState>,
     mut ball: ResMut<SimulatorBall>,
     mut referee_commands: MessageReader<SimulatorRefereeCommand>,
+    robots: Query<(&SimulatorRobot, &SimulatorGroundToField)>,
 ) {
     let mut rules = std::mem::take(&mut auto_referee.rules);
+    let robot_poses = robots
+        .iter()
+        .map(|(robot, ground_to_field)| (robot.player_number, ground_to_field.ground_to_field))
+        .collect();
     let mut context = AutoRefereeContext {
         now: clock.now,
         config: &config,
@@ -834,6 +911,7 @@ fn run_auto_referee(
         game_state: &mut *game_state,
         auto_referee: &mut auto_referee.state,
         ball: &mut *ball,
+        robot_poses,
     };
 
     for command in referee_commands.read() {
@@ -859,8 +937,8 @@ fn apply_referee_command(command: SimulatorRefereeCommand, context: &mut AutoRef
         }
         SimulatorRefereeCommand::Whistle => {
             if context.game_state.game_controller_state.game_state == GameState::Set {
-                context.auto_referee.pending_playing_signal_at =
-                    Some(context.now + context.config.playing_signal_delay);
+                context.auto_referee.playing_after_whistle_at =
+                    Some(context.now + context.config.whistle_to_playing_delay);
             }
         }
         SimulatorRefereeCommand::BriefStop => context.game_state.set_stopped(true),
@@ -2096,6 +2174,26 @@ mod tests {
         auto_referee: &'a mut AutoRefereeState,
         ball: &'a mut SimulatorBall,
     ) -> AutoRefereeContext<'a> {
+        auto_referee_context_with_robot_poses(
+            now,
+            config,
+            field_dimensions,
+            game_state,
+            auto_referee,
+            ball,
+            BTreeMap::new(),
+        )
+    }
+
+    fn auto_referee_context_with_robot_poses<'a>(
+        now: SystemTime,
+        config: &'a AutoRefereeConfig,
+        field_dimensions: FieldDimensions,
+        game_state: &'a mut SimulatorGameState,
+        auto_referee: &'a mut AutoRefereeState,
+        ball: &'a mut SimulatorBall,
+        robot_poses: BTreeMap<PlayerNumber, Isometry2<Ground, Field>>,
+    ) -> AutoRefereeContext<'a> {
         AutoRefereeContext {
             now,
             config,
@@ -2103,13 +2201,15 @@ mod tests {
             game_state,
             auto_referee,
             ball,
+            robot_poses,
         }
     }
 
     fn transition_test_config() -> AutoRefereeConfig {
         AutoRefereeConfig {
             ready_duration: Duration::ZERO,
-            playing_signal_delay: Duration::ZERO,
+            ready_stationary_short_circuit_duration: Some(Duration::from_secs(1)),
+            whistle_to_playing_delay: Duration::ZERO,
             halftime_duration: Duration::from_secs(600),
             auto_whistle_in_set: true,
             finish_on_halftime_timeout: true,
@@ -2323,7 +2423,11 @@ mod tests {
         let config = AutoRefereeConfig::default();
 
         assert_eq!(config.ready_duration, Duration::from_secs(45));
-        assert_eq!(config.playing_signal_delay, Duration::from_secs(10));
+        assert_eq!(
+            config.ready_stationary_short_circuit_duration,
+            Some(Duration::from_secs(1))
+        );
+        assert_eq!(config.whistle_to_playing_delay, Duration::from_secs(3));
         assert_eq!(config.halftime_duration, Duration::from_secs(10 * 60));
         assert!(config.auto_whistle_in_set);
         assert!(config.finish_on_halftime_timeout);
@@ -2392,14 +2496,145 @@ mod tests {
     }
 
     #[test]
-    fn set_transitions_to_playing_after_playing_signal_delay() {
+    fn stationary_robots_short_circuit_ready_to_set() {
+        let field_dimensions = FieldDimensions::SPL_2025;
+        let config = AutoRefereeConfig {
+            ready_duration: Duration::from_secs(45),
+            ready_stationary_short_circuit_duration: Some(Duration::from_secs(1)),
+            ..Default::default()
+        };
+        let mut game_state = SimulatorGameState::default();
+        game_state.set_game_state(GameState::Ready, SystemTime::UNIX_EPOCH);
+        let mut auto_referee = AutoRefereeState {
+            restart_reason: Some(SimulatorRestartReason::DroppedBall),
+            ..Default::default()
+        };
+        let mut ball = SimulatorBall::default();
+        let mut rule = GameStateTransitionRule;
+        let robot_poses = BTreeMap::from([(PlayerNumber::Three, Isometry2::identity())]);
+
+        rule.apply(&mut auto_referee_context_with_robot_poses(
+            SystemTime::UNIX_EPOCH,
+            &config,
+            field_dimensions,
+            &mut game_state,
+            &mut auto_referee,
+            &mut ball,
+            robot_poses.clone(),
+        ));
+        assert_eq!(
+            game_state.game_controller_state.game_state,
+            GameState::Ready
+        );
+
+        rule.apply(&mut auto_referee_context_with_robot_poses(
+            SystemTime::UNIX_EPOCH + Duration::from_secs(1),
+            &config,
+            field_dimensions,
+            &mut game_state,
+            &mut auto_referee,
+            &mut ball,
+            robot_poses,
+        ));
+
+        assert_eq!(game_state.game_controller_state.game_state, GameState::Set);
+        assert_eq!(
+            ball.state.expect("ball should be placed").position,
+            Point2::origin()
+        );
+    }
+
+    #[test]
+    fn moving_robot_prevents_ready_short_circuit() {
+        let field_dimensions = FieldDimensions::SPL_2025;
+        let config = AutoRefereeConfig {
+            ready_duration: Duration::from_secs(45),
+            ready_stationary_short_circuit_duration: Some(Duration::from_secs(1)),
+            ..Default::default()
+        };
+        let mut game_state = SimulatorGameState::default();
+        game_state.set_game_state(GameState::Ready, SystemTime::UNIX_EPOCH);
+        let mut auto_referee = AutoRefereeState::default();
+        let mut ball = SimulatorBall::default();
+        let mut rule = GameStateTransitionRule;
+
+        rule.apply(&mut auto_referee_context_with_robot_poses(
+            SystemTime::UNIX_EPOCH,
+            &config,
+            field_dimensions,
+            &mut game_state,
+            &mut auto_referee,
+            &mut ball,
+            BTreeMap::from([(PlayerNumber::Three, Isometry2::identity())]),
+        ));
+        rule.apply(&mut auto_referee_context_with_robot_poses(
+            SystemTime::UNIX_EPOCH + Duration::from_secs(1),
+            &config,
+            field_dimensions,
+            &mut game_state,
+            &mut auto_referee,
+            &mut ball,
+            BTreeMap::from([(
+                PlayerNumber::Three,
+                Isometry2::from_parts(vector![1.0, 0.0], 0.0),
+            )]),
+        ));
+
+        assert_eq!(
+            game_state.game_controller_state.game_state,
+            GameState::Ready
+        );
+    }
+
+    #[test]
+    fn disabling_ready_short_circuit_keeps_ready_until_timeout() {
+        let field_dimensions = FieldDimensions::SPL_2025;
+        let config = AutoRefereeConfig {
+            ready_duration: Duration::from_secs(45),
+            ready_stationary_short_circuit_duration: None,
+            ..Default::default()
+        };
+        let mut game_state = SimulatorGameState::default();
+        game_state.set_game_state(GameState::Ready, SystemTime::UNIX_EPOCH);
+        let mut auto_referee = AutoRefereeState::default();
+        let mut ball = SimulatorBall::default();
+        let mut rule = GameStateTransitionRule;
+        let robot_poses = BTreeMap::from([(PlayerNumber::Three, Isometry2::identity())]);
+
+        rule.apply(&mut auto_referee_context_with_robot_poses(
+            SystemTime::UNIX_EPOCH,
+            &config,
+            field_dimensions,
+            &mut game_state,
+            &mut auto_referee,
+            &mut ball,
+            robot_poses.clone(),
+        ));
+        rule.apply(&mut auto_referee_context_with_robot_poses(
+            SystemTime::UNIX_EPOCH + Duration::from_secs(1),
+            &config,
+            field_dimensions,
+            &mut game_state,
+            &mut auto_referee,
+            &mut ball,
+            robot_poses,
+        ));
+
+        assert_eq!(
+            game_state.game_controller_state.game_state,
+            GameState::Ready
+        );
+    }
+
+    #[test]
+    fn set_transitions_to_playing_after_whistle_delay() {
         let field_dimensions = FieldDimensions::SPL_2025;
         let config = transition_test_config();
         let now = SystemTime::UNIX_EPOCH + Duration::from_secs(1);
         let mut game_state = SimulatorGameState::default();
         game_state.set_game_state(GameState::Set, SystemTime::UNIX_EPOCH);
         let mut auto_referee = AutoRefereeState {
-            pending_playing_signal_at: Some(now),
+            playing_after_whistle_at: Some(now),
             ..Default::default()
         };
         let mut ball = SimulatorBall::default();
@@ -2418,7 +2653,7 @@ mod tests {
             game_state.game_controller_state.game_state,
             GameState::Playing
         );
-        assert_eq!(auto_referee.pending_playing_signal_at, None);
+        assert_eq!(auto_referee.playing_after_whistle_at, None);
         assert_eq!(auto_referee.halftime_started_at, Some(now));
     }
 
