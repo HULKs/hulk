@@ -175,7 +175,7 @@ impl Localization {
                     context.field_dimensions,
                 ))
                 .collect(),
-            last_primary_state: PrimaryState::Safe,
+            last_primary_state: PrimaryState::Damping,
             hypotheses: Vec::new(),
             hypotheses_when_entered_playing: Vec::new(),
             is_penalized_with_motion_in_set_or_initial: false,
@@ -482,8 +482,9 @@ impl Localization {
             PrimaryState::Ready | PrimaryState::Set | PrimaryState::Playing => {
                 Some(self.update_active_state(inputs, context)?)
             }
-            PrimaryState::Safe
+            PrimaryState::Damping
             | PrimaryState::Stop
+            | PrimaryState::Prepare
             | PrimaryState::Penalized
             | PrimaryState::Finished => None,
         })
@@ -1438,7 +1439,7 @@ mod tests {
     fn best_hypothesis_ignores_nan_scores() {
         let localization = Localization {
             field_marks: Vec::new(),
-            last_primary_state: PrimaryState::Safe,
+            last_primary_state: PrimaryState::Damping,
             hypotheses: vec![scored_pose(f32::NAN), scored_pose(1.0)],
             hypotheses_when_entered_playing: Vec::new(),
             is_penalized_with_motion_in_set_or_initial: false,
@@ -1461,10 +1462,10 @@ mod tests {
         let parameters = test_parameters();
         let field_dimensions = FieldDimensions::SPL_2025;
         let player_number = PlayerNumber::One;
-        let primary_state = PrimaryState::Safe;
+        let primary_state = PrimaryState::Damping;
         let mut localization = Localization {
             field_marks: Vec::new(),
-            last_primary_state: PrimaryState::Safe,
+            last_primary_state: PrimaryState::Damping,
             hypotheses: vec![scored_pose(1.0)],
             hypotheses_when_entered_playing: Vec::new(),
             is_penalized_with_motion_in_set_or_initial: false,
