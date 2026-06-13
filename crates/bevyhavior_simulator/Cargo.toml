@@ -4,7 +4,6 @@ version.workspace = true
 edition.workspace = true
 license.workspace = true
 homepage.workspace = true
-autobins = false
 
 [dependencies]
 approx = { workspace = true }
@@ -23,11 +22,3 @@ serde_json = { workspace = true }
 twix = { workspace = true }
 types = { workspace = true }
 voronoi = { workspace = true }
-
-[[bin]]
-name = "behavior_tree_smoke"
-path = "src/bin/behavior_tree_smoke.rs"
-
-[[bin]]
-name = "mercy_rule_finish"
-path = "src/bin/mercy_rule_finish.rs"
