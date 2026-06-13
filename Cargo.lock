@@ -9401,6 +9401,7 @@ name = "ros-z-cli"
 version = "0.1.0"
 dependencies = [
  "clap",
+ "clap_complete",
  "color-eyre",
  "ros-z",
  "serde",
