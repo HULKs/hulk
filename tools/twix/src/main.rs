@@ -57,10 +57,10 @@ mod players_buffer_handle;
 mod reachable_robots;
 mod robot;
 mod selectable_panel_macro;
-mod twix_painter;
 mod value_buffer;
 mod visuals;
-mod zoom_and_pan;
+
+pub use twix::{twix_painter, zoom_and_pan};
 
 use crate::value_buffer::BufferHandle;
 
