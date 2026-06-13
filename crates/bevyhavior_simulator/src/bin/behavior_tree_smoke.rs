@@ -5,7 +5,7 @@ use bevyhavior_simulator::behavior_tree_simulator::{
     BehaviorTreeSimulatorSet, SimulatorBall, SimulatorGameState, SimulatorRobotBundle,
     SimulatorTimeline, default_behavior_parameters,
 };
-use coordinate_systems::{Field, Ground};
+use coordinate_systems::{Ground, World};
 use hsl_network_messages::PlayerNumber;
 use linear_algebra::{Isometry2, point, vector};
 use scenario::scenario;
@@ -108,7 +108,7 @@ fn frames_to_run() -> u32 {
     .ceil() as u32
 }
 
-fn pose(x: f32, y: f32, yaw: f32) -> Isometry2<Ground, Field> {
+fn pose(x: f32, y: f32, yaw: f32) -> Isometry2<Ground, World> {
     Isometry2::from_parts(vector![x, y], yaw)
 }
 

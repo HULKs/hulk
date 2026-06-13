@@ -1,5 +1,6 @@
 use std::{
     convert::Into,
+    f32::consts::PI,
     mem::take,
     sync::{mpsc, Arc},
     time::{Duration, SystemTime, UNIX_EPOCH},
@@ -18,7 +19,7 @@ use color_eyre::{eyre::WrapErr, Result};
 
 use buffered_watch::{Receiver, Sender};
 use control::localization::generate_initial_pose;
-use coordinate_systems::{Field, Ground, Head, LeftSole, RightSole, Robot as RobotCoordinates};
+use coordinate_systems::{Field, Ground, Head, LeftSole, RightSole, Robot as RobotCoordinates, World};
 use framework::{future_queue, Producer, RecordingTrigger};
 use hsl_network_messages::{HulkMessage, PlayerNumber};
 use hula_types::hardware::Ids;
@@ -30,6 +31,7 @@ use parameters::directory::deserialize;
 use projection::intrinsic::Intrinsic;
 use types::{
     ball_position::BallPosition,
+    field_dimensions::GlobalFieldSide,
     filtered_whistle::FilteredWhistle,
     joints::Joints,
     messages::{IncomingMessage, OutgoingMessage},
@@ -240,6 +242,27 @@ pub fn from_player_number(val: PlayerNumber) -> usize {
     }
 }
 
+fn world_to_field_transform(global_field_side: GlobalFieldSide) -> Isometry2<World, Field> {
+    match global_field_side {
+        GlobalFieldSide::Home => Isometry2::identity(),
+        GlobalFieldSide::Away => Isometry2::from_parts(Vector2::zeros(), PI),
+    }
+}
+
+fn point_world_to_field(
+    point: Point2<World>,
+    global_field_side: GlobalFieldSide,
+) -> Point2<Field> {
+    world_to_field_transform(global_field_side) * point
+}
+
+fn vector_world_to_field(
+    vector: Vector2<World>,
+    global_field_side: GlobalFieldSide,
+) -> Vector2<Field> {
+    world_to_field_transform(global_field_side) * vector
+}
+
 pub fn move_robots(mut robots: Query<&mut Robot>, _ball: ResMut<BallResource>, time: Res<Time>) {
     for mut robot in &mut robots {
         if let Some(ball) = robot.database.main_outputs.ball_position.as_mut() {
@@ -360,13 +383,15 @@ pub fn cycle_robots(
     let messages_sent_last_cycle = take(&mut messages.messages);
     let now = SystemTime::UNIX_EPOCH + time.elapsed();
     let now_ros = ros_z::time::Time::from_wallclock(now);
+    let global_field_side = game_controller.state.global_field_side;
 
     for mut robot in &mut robots {
         robot.database.main_outputs.cycle_time.start_time = now;
         robot.database.main_outputs.cycle_time.last_cycle_duration = time.delta();
 
         let ball_visible = ball.state.as_ref().is_some_and(|ball| {
-            let ball_in_ground = robot.ground_to_field().inverse() * ball.position;
+            let ball_in_field = point_world_to_field(ball.position, global_field_side);
+            let ball_in_ground = robot.ground_to_field().inverse() * ball_in_field;
             let head_to_ground =
                 Rotation2::new(robot.database.main_outputs.sensor_data.positions.head.yaw);
             let ball_in_head: Point2<Head> = head_to_ground.inverse() * ball_in_ground;
@@ -379,8 +404,10 @@ pub fn cycle_robots(
         if ball_visible {
             robot.database.main_outputs.ball_position =
                 ball.state.as_ref().map(|ball| BallPosition {
-                    position: robot.ground_to_field().inverse() * ball.position,
-                    velocity: robot.ground_to_field().inverse() * ball.velocity,
+                    position: robot.ground_to_field().inverse()
+                        * point_world_to_field(ball.position, global_field_side),
+                    velocity: robot.ground_to_field().inverse()
+                        * vector_world_to_field(ball.velocity, global_field_side),
                     last_seen: now_ros,
                 });
         }

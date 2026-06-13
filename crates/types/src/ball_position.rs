@@ -3,7 +3,7 @@ use std::{ops::Mul, time::Duration};
 use ros_z::time::Time;
 use serde::{Deserialize, Serialize};
 
-use coordinate_systems::Field;
+use coordinate_systems::World;
 use linear_algebra::{Isometry2, Point2, Vector2};
 use path_serde::{PathDeserialize, PathIntrospect, PathSerialize};
 
@@ -70,8 +70,8 @@ impl<From, To> Mul<BallPosition<From>> for Isometry2<From, To> {
     Serialize,
 )]
 pub struct SimulatorBallState {
-    pub position: Point2<Field>,
-    pub velocity: Vector2<Field>,
+    pub position: Point2<World>,
+    pub velocity: Vector2<World>,
 }
 
 #[derive(

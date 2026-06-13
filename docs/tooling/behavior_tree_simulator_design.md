@@ -145,6 +145,10 @@ The simulator also stores `last_motion_command` per robot because production kee
 
 The Bevy runtime owns simulator state as components and resources. A convenience `Simulation` wrapper may exist, but it should be implemented in terms of the same data model and systems.
 
+Simulator-owned physical state is stored in `coordinate_systems::World`, not `Field`. `World` is the neutral field coordinate system: it is identical to `Field` for the home team and rotated by 180 degrees for the away team. Before building each robot's behavior `WorldState`, the simulator converts the robot pose, ball, and other world-owned physical values into that robot team's `Field` frame using `GameControllerState::global_field_side`.
+
+For HULKs behavior, `GlobalFieldSide::Home` means `World == Field`; `GlobalFieldSide::Away` means `Field` is `World` flipped by 180 degrees. Auto-referee logic that reasons about physical events, such as goals and stationary robots, uses `World`; behavior-tree inputs and outputs remain in `Field`/`Ground` exactly as production expects.
+
 Core resources:
 
 ```rust
@@ -239,7 +243,7 @@ pub struct SimulatorSuggestedSearchPosition {
 
 pub struct SimulatorRobotBundle {
     pub robot: SimulatorRobot,
-    pub ground_to_field: GroundToField,
+    pub ground_to_world: SimulatorGroundToWorld,
     pub primary_state: SimulatorPrimaryState,
     pub behavior: SimulatorRobotBehavior,
     pub parameters: SimulatorRobotParameters,

@@ -4,7 +4,7 @@ use color_eyre::{
     Result,
     eyre::{Report, WrapErr},
 };
-use coordinate_systems::Field;
+use coordinate_systems::{Field, World};
 use eframe::{
     App, Frame, NativeOptions,
     egui::{
@@ -15,7 +15,7 @@ use eframe::{
     run_native,
 };
 use hsl_network_messages::PlayerNumber;
-use linear_algebra::{Pose2, point, vector};
+use linear_algebra::{Orientation2, Pose2, point, vector};
 use serde_json::{Value, json};
 use twix::{
     twix_painter::{Orientation, TwixPainter},
@@ -310,14 +310,18 @@ impl TimelineViewerApp {
 
             if let Some(frame) = self.selected_frame() {
                 if let Some(ball) = frame.ball {
-                    painter.ball(ball.position, field_dimensions.ball_radius, Color32::YELLOW);
+                    painter.ball(
+                        point_world_to_field(ball.position),
+                        field_dimensions.ball_radius,
+                        Color32::YELLOW,
+                    );
                 }
 
                 for (_, robot) in frame.robots.iter() {
                     let Some(robot) = robot else {
                         continue;
                     };
-                    let pose = robot.ground_to_field.as_pose();
+                    let pose = pose_world_to_field(robot.ground_to_world.as_pose());
                     let color = robot_color(robot.player_number);
                     painter.pose(
                         pose,
@@ -480,6 +484,17 @@ fn paint_robot_label(
         FontId::proportional(14.0),
         Color32::WHITE,
     );
+}
+
+fn pose_world_to_field(pose: Pose2<World>) -> Pose2<Field> {
+    Pose2::from_parts(
+        point![pose.position().x(), pose.position().y()],
+        Orientation2::new(pose.orientation().angle()),
+    )
+}
+
+fn point_world_to_field(point: linear_algebra::Point2<World>) -> linear_algebra::Point2<Field> {
+    point![point.x(), point.y()]
 }
 
 fn robot_color(player_number: PlayerNumber) -> Color32 {
