@@ -39,7 +39,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
         let light_control_parameter = match primary_state {
             PrimaryState::Safe => SetLedLightColorParameter::BLUE,
-            PrimaryState::Prepare => SetLedLightColorParameter::BLUE,
+            PrimaryState::Prepare => SetLedLightColorParameter::MAGENTA,
             PrimaryState::Stop => SetLedLightColorParameter::LIGHT_BLUE,
             PrimaryState::Ready => SetLedLightColorParameter::LIGHT_GREEN,
             PrimaryState::Initial => SetLedLightColorParameter::YELLOW,
@@ -70,6 +70,7 @@ pub trait DefaultLEDColors {
     const ORANGE: Self;
     const YELLOW: Self;
     const PURPLE: Self;
+    const MAGENTA: Self;
 }
 
 impl DefaultLEDColors for SetLedLightColorParameter {
@@ -105,5 +106,10 @@ impl DefaultLEDColors for SetLedLightColorParameter {
         r: 128,
         g: 0,
         b: 255,
+    };
+    const MAGENTA: Self = SetLedLightColorParameter {
+        r: 226,
+        g: 0,
+        b: 116,
     };
 }
