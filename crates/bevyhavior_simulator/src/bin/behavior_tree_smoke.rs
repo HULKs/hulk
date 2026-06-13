@@ -3,15 +3,13 @@ use std::time::Duration;
 use bevy::prelude::*;
 use bevyhavior_simulator::behavior_tree_simulator::{
     BehaviorTreeSimulatorSet, SimulatorBall, SimulatorPrimaryState, SimulatorRobotBundle,
-    SimulatorTimeline,
+    SimulatorTimeline, default_behavior_parameters,
 };
 use coordinate_systems::{Field, Ground};
 use hsl_network_messages::PlayerNumber;
 use linear_algebra::{Isometry2, point, vector};
 use scenario::scenario;
-use types::{
-    motion_command::MotionCommand, parameters::BehaviorParameters, primary_state::PrimaryState,
-};
+use types::{motion_command::MotionCommand, primary_state::PrimaryState};
 
 const RUN_DURATION: Duration = Duration::from_secs(20);
 
@@ -29,10 +27,9 @@ fn behavior_tree_smoke(app: &mut App) {
 }
 
 fn startup(mut commands: Commands, mut ball: ResMut<SimulatorBall>) {
-    let mut parameters = BehaviorParameters {
-        goal_keeper_number: PlayerNumber::One,
-        ..Default::default()
-    };
+    let mut parameters =
+        default_behavior_parameters().expect("failed to load default behavior parameters");
+    parameters.goal_keeper_number = PlayerNumber::One;
     parameters.last_ball_timeout = Duration::from_secs(2);
 
     commands.spawn(

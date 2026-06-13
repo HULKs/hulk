@@ -6,7 +6,10 @@ use bevy::{
     prelude::*,
 };
 use booster::FallDownState;
-use color_eyre::{Result, eyre::bail};
+use color_eyre::{
+    Result,
+    eyre::{bail, eyre},
+};
 use coordinate_systems::{Field, Ground};
 use hsl_network_messages::PlayerNumber;
 use linear_algebra::{Isometry2, Orientation2, Point2, Pose2, Vector2};
@@ -41,6 +44,17 @@ const PLAYER_NUMBERS: [PlayerNumber; 5] = [
     PlayerNumber::Four,
     PlayerNumber::Five,
 ];
+
+pub fn default_behavior_parameters() -> Result<BehaviorParameters> {
+    let parameters: serde_json::Value =
+        serde_json::from_str(include_str!("../../../etc/parameters/default.json"))?;
+    let behavior = parameters
+        .get("behavior")
+        .cloned()
+        .ok_or_else(|| eyre!("default parameters do not contain behavior parameters"))?;
+
+    Ok(serde_json::from_value(behavior)?)
+}
 
 #[derive(SystemSet, Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub enum BehaviorTreeSimulatorSet {
@@ -748,11 +762,12 @@ fn apply_motion_kinematics(
                 kick_direction,
                 kick_power,
                 ..
-            } => apply_kick_to_ball(
+            } => apply_visual_kick_kinematics(
                 clock.now,
+                clock.tick_duration,
                 &mut ball.state,
                 &config,
-                ground_to_field.ground_to_field,
+                &mut ground_to_field.ground_to_field,
                 &mut last_kick_time.last_kick_time,
                 *ball_position,
                 *kick_direction,
@@ -1479,6 +1494,11 @@ fn apply_kick(
         return;
     }
 
+    let actual_ball_in_ground = robot.ground_to_field.inverse() * ball.position;
+    if actual_ball_in_ground.coords().norm() > config.kick_radius {
+        return;
+    }
+
     let speed = match kick_power {
         KickPower::Rumpelstilzchen => config.kick_ball_speed_rumpelstilzchen,
         KickPower::Schlong => config.kick_ball_speed_schlong,
@@ -1507,10 +1527,139 @@ fn apply_kick_to_ball(
         return;
     }
 
+    let actual_ball_in_ground = ground_to_field.inverse() * ball.position;
+    if actual_ball_in_ground.coords().norm() > config.kick_radius {
+        return;
+    }
+
     let speed = match kick_power {
         KickPower::Rumpelstilzchen => config.kick_ball_speed_rumpelstilzchen,
         KickPower::Schlong => config.kick_ball_speed_schlong,
     };
     ball.velocity = ground_to_field * (kick_direction.as_unit_vector() * speed);
     *last_kick_time = now;
+}
+
+fn apply_visual_kick_kinematics(
+    now: SystemTime,
+    tick_duration: Duration,
+    ball: &mut Option<SimulatedBall>,
+    config: &SimulationConfig,
+    ground_to_field: &mut Isometry2<Ground, Field>,
+    last_kick_time: &mut SystemTime,
+    ball_position: Point2<Ground>,
+    kick_direction: Orientation2<Ground>,
+    kick_power: KickPower,
+) {
+    let kick_pose = ball_position - kick_direction.as_unit_vector() * config.kick_radius;
+    *ground_to_field = apply_walk_to_pose(
+        *ground_to_field,
+        kick_pose,
+        kick_direction,
+        OrientationMode::AlignWithPath,
+        1.0,
+        tick_duration,
+        config,
+    );
+
+    apply_kick_to_ball(
+        now,
+        ball,
+        config,
+        *ground_to_field,
+        last_kick_time,
+        ball_position,
+        kick_direction,
+        kick_power,
+    );
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use linear_algebra::{point, vector};
+
+    #[test]
+    fn kick_does_not_move_ball_outside_contact_range() {
+        let mut ball = Some(SimulatedBall {
+            position: point![1.0, 0.0],
+            velocity: vector![0.0, 0.0],
+            field_side: Side::Left,
+        });
+        let mut last_kick_time = SystemTime::UNIX_EPOCH;
+
+        apply_kick_to_ball(
+            SystemTime::UNIX_EPOCH + Duration::from_secs(1),
+            &mut ball,
+            &SimulationConfig::default(),
+            Isometry2::identity(),
+            &mut last_kick_time,
+            point![1.0, 0.0],
+            Orientation2::identity(),
+            KickPower::Rumpelstilzchen,
+        );
+
+        assert_eq!(
+            ball.expect("ball should still exist").velocity,
+            vector![0.0, 0.0]
+        );
+    }
+
+    #[test]
+    fn kick_moves_ball_inside_contact_range() {
+        let mut ball = Some(SimulatedBall {
+            position: point![0.2, 0.0],
+            velocity: vector![0.0, 0.0],
+            field_side: Side::Left,
+        });
+        let mut last_kick_time = SystemTime::UNIX_EPOCH;
+
+        apply_kick_to_ball(
+            SystemTime::UNIX_EPOCH + Duration::from_secs(1),
+            &mut ball,
+            &SimulationConfig::default(),
+            Isometry2::identity(),
+            &mut last_kick_time,
+            point![0.2, 0.0],
+            Orientation2::identity(),
+            KickPower::Rumpelstilzchen,
+        );
+
+        assert_eq!(
+            ball.expect("ball should still exist").velocity,
+            vector![
+                SimulationConfig::default().kick_ball_speed_rumpelstilzchen,
+                0.0
+            ]
+        );
+    }
+
+    #[test]
+    fn visual_kick_walks_toward_ball_without_moving_far_ball() {
+        let mut ball = Some(SimulatedBall {
+            position: point![1.0, 0.0],
+            velocity: vector![0.0, 0.0],
+            field_side: Side::Left,
+        });
+        let mut ground_to_field = Isometry2::identity();
+        let mut last_kick_time = SystemTime::UNIX_EPOCH;
+
+        apply_visual_kick_kinematics(
+            SystemTime::UNIX_EPOCH + Duration::from_secs(1),
+            DEFAULT_TICK_DURATION,
+            &mut ball,
+            &SimulationConfig::default(),
+            &mut ground_to_field,
+            &mut last_kick_time,
+            point![1.0, 0.0],
+            Orientation2::identity(),
+            KickPower::Rumpelstilzchen,
+        );
+
+        assert!(ground_to_field.translation().x() > 0.0);
+        assert_eq!(
+            ball.expect("ball should still exist").velocity,
+            vector![0.0, 0.0]
+        );
+    }
 }
