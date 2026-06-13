@@ -11,16 +11,19 @@ use color_eyre::{
     eyre::{bail, eyre},
 };
 use coordinate_systems::{Field, Ground};
-use hsl_network_messages::{GamePhase, GameState, PlayerNumber, Team, TeamColor, TeamState};
+use hsl_network_messages::{
+    GamePhase, GameState, HulkMessage, PlayerNumber, Team, TeamColor, TeamState,
+};
 use linear_algebra::{Isometry2, Orientation2, Point2, Pose2, Vector2, distance};
 use serde::{Deserialize, Serialize};
 use types::{
+    ball_position::BallPosition,
     behavior_tree::NodeTrace,
     field_dimensions::{FieldDimensions, GlobalFieldSide, Side},
     filtered_game_controller_state::FilteredGameControllerState,
     filtered_game_state::FilteredGameState,
     game_controller_state::GameControllerState,
-    messages::OutgoingMessage,
+    messages::{IncomingMessage, OutgoingMessage},
     motion_command::{KickPower, MotionCommand, OrientationMode},
     parameters::{BehaviorParameters, HslNetworkParameters},
     path::PathSegment,
@@ -183,6 +186,13 @@ impl Default for BehaviorTreeSimulatorPlugin {
 
 impl Plugin for BehaviorTreeSimulatorPlugin {
     fn build(&self, app: &mut App) {
+        let mut game_state = SimulatorGameState::default();
+        game_state
+            .game_controller_state
+            .hulks_team
+            .remaining_amount_of_messages = self.config.remaining_amount_of_messages.unwrap_or(0);
+        game_state.sync_filtered_game_controller_state();
+
         app.add_message::<AppExit>()
             .add_message::<SimulatorRefereeCommand>()
             .insert_resource(SimulatorClock {
@@ -191,7 +201,7 @@ impl Plugin for BehaviorTreeSimulatorPlugin {
             })
             .insert_resource(SimulatorFieldDimensions(self.field_dimensions))
             .insert_resource(SimulatorBall::default())
-            .insert_resource(SimulatorGameState::default())
+            .insert_resource(game_state)
             .insert_resource(SimulatorAutoReferee::default())
             .insert_resource(SimulatorRuleObstacles::default())
             .insert_resource(SimulatorHslNetworkParameters(
@@ -203,6 +213,7 @@ impl Plugin for BehaviorTreeSimulatorPlugin {
             .insert_resource(SimulatorScenarioResult::default())
             .insert_resource(SimulatorIncomingMessages::default())
             .insert_resource(SimulatorOutgoingMessages::default())
+            .insert_resource(SimulatorReceivedHslMessages::default())
             .insert_resource(SimulatorWorldStates::default())
             .insert_resource(SimulatorRobotFrames::default())
             .insert_resource(SimulatorCurrentInvariantViolations::default());
@@ -270,6 +281,10 @@ impl Plugin for BehaviorTreeSimulatorPlugin {
         .add_systems(
             Update,
             sync_primary_states_from_game_state.in_set(BehaviorTreeSimulatorSet::BeforeWorldState),
+        )
+        .add_systems(
+            Update,
+            apply_incoming_hsl_messages.in_set(BehaviorTreeSimulatorSet::BuildTeamContext),
         )
         .add_systems(
             Update,
@@ -749,7 +764,7 @@ pub enum SimulatorFailure {
 
 #[derive(Resource, Clone, Debug, Default)]
 pub struct SimulatorIncomingMessages {
-    pub messages: Vec<SimulatorMessage>,
+    pub messages: Vec<SimulatorIncomingMessage>,
 }
 
 #[derive(Resource, Clone, Debug, Default)]
@@ -757,10 +772,31 @@ pub struct SimulatorOutgoingMessages {
     pub messages: Vec<SimulatorMessage>,
 }
 
+#[derive(Resource, Clone, Debug, Default)]
+pub struct SimulatorReceivedHslMessages {
+    pub messages_by_receiver:
+        BTreeMap<PlayerNumber, BTreeMap<PlayerNumber, SimulatorReceivedHslMessage>>,
+    pub player_states_by_receiver: BTreeMap<PlayerNumber, Players<Option<PlayerState>>>,
+}
+
 #[derive(Clone, Debug)]
 pub struct SimulatorMessage {
     pub sender: PlayerNumber,
     pub message: OutgoingMessage,
+}
+
+#[derive(Clone, Debug)]
+pub struct SimulatorIncomingMessage {
+    pub receiver: PlayerNumber,
+    pub sender: PlayerNumber,
+    pub message: IncomingMessage,
+    pub received_at: SystemTime,
+}
+
+#[derive(Clone, Debug)]
+pub struct SimulatorReceivedHslMessage {
+    pub message: HulkMessage,
+    pub received_at: SystemTime,
 }
 
 #[derive(Resource, Clone, Debug)]
@@ -1098,6 +1134,7 @@ fn build_world_states(
     field_dimensions: Res<SimulatorFieldDimensions>,
     ball: Res<SimulatorBall>,
     game_state: Res<SimulatorGameState>,
+    received_hsl_messages: Res<SimulatorReceivedHslMessages>,
     rule_obstacles: Res<SimulatorRuleObstacles>,
     config: Res<SimulationConfig>,
     robots: Query<(
@@ -1109,7 +1146,6 @@ fn build_world_states(
     )>,
     mut world_states: ResMut<SimulatorWorldStates>,
 ) {
-    let player_states = player_states_from_query(&robots);
     world_states.0.clear();
 
     for (robot, ground_to_field, primary_state, fall_down_state, suggested_search_position) in
@@ -1130,7 +1166,10 @@ fn build_world_states(
                 hypothetical_ball_positions: Vec::new(),
                 now: clock.now.into(),
                 obstacles: Vec::new(),
-                player_states: player_states.clone(),
+                player_states: player_states_from_received_hsl_messages(
+                    robot.player_number,
+                    &received_hsl_messages,
+                ),
                 position_of_interest: Point2::origin(),
                 robot: RobotState {
                     ground_to_field: Some(ground_to_field.ground_to_field),
@@ -1193,6 +1232,7 @@ fn tick_behavior_trees(
 
 fn plan_communication(
     config: Res<SimulationConfig>,
+    game_state: Res<SimulatorGameState>,
     hsl_network_parameters: Res<SimulatorHslNetworkParameters>,
     world_states: Res<SimulatorWorldStates>,
     mut robot_frames: ResMut<SimulatorRobotFrames>,
@@ -1210,7 +1250,12 @@ fn plan_communication(
             world_state,
             game_controller_address: config.game_controller_address,
             hsl_network_parameters: &hsl_network_parameters.0,
-            remaining_amount_of_messages: config.remaining_amount_of_messages,
+            remaining_amount_of_messages: Some(
+                game_state
+                    .game_controller_state
+                    .hulks_team
+                    .remaining_amount_of_messages,
+            ),
         });
 
         if let Some(frame) = robot_frames.0.get_mut(&robot.player_number) {
@@ -1231,14 +1276,82 @@ fn plan_communication(
     }
 }
 
+fn apply_incoming_hsl_messages(
+    mut incoming_messages: ResMut<SimulatorIncomingMessages>,
+    mut received_hsl_messages: ResMut<SimulatorReceivedHslMessages>,
+) {
+    for incoming_message in incoming_messages.messages.drain(..) {
+        let IncomingMessage::Hsl(message) = incoming_message.message else {
+            continue;
+        };
+
+        let HulkMessage::State(state_message) = message;
+        let player_state = PlayerState {
+            pose: state_message.pose,
+            ball_position: state_message.ball_position.map(|ball| {
+                BallPosition::from_network_ball(
+                    ball,
+                    ros_z::time::Time::from_wallclock(incoming_message.received_at),
+                )
+            }),
+        };
+        received_hsl_messages
+            .player_states_by_receiver
+            .entry(incoming_message.receiver)
+            .or_default()[state_message.player_number] = Some(player_state);
+
+        received_hsl_messages
+            .messages_by_receiver
+            .entry(incoming_message.receiver)
+            .or_default()
+            .insert(
+                incoming_message.sender,
+                SimulatorReceivedHslMessage {
+                    message,
+                    received_at: incoming_message.received_at,
+                },
+            );
+    }
+}
+
 fn route_outgoing_communication(
+    clock: Res<SimulatorClock>,
     outgoing_messages: Res<SimulatorOutgoingMessages>,
     mut incoming_messages: ResMut<SimulatorIncomingMessages>,
+    mut game_state: ResMut<SimulatorGameState>,
+    robots: Query<&SimulatorRobot>,
 ) {
     incoming_messages.messages.clear();
-    incoming_messages
-        .messages
-        .extend(outgoing_messages.messages.iter().cloned());
+
+    for outgoing_message in &outgoing_messages.messages {
+        let OutgoingMessage::Hsl(message) = outgoing_message.message.clone() else {
+            continue;
+        };
+
+        let remaining_amount_of_messages = &mut game_state
+            .game_controller_state
+            .hulks_team
+            .remaining_amount_of_messages;
+        if *remaining_amount_of_messages == 0 {
+            continue;
+        }
+        *remaining_amount_of_messages = remaining_amount_of_messages.saturating_sub(1);
+
+        for robot in &robots {
+            if robot.player_number == outgoing_message.sender {
+                continue;
+            }
+
+            incoming_messages.messages.push(SimulatorIncomingMessage {
+                receiver: robot.player_number,
+                sender: outgoing_message.sender,
+                message: IncomingMessage::Hsl(message),
+                received_at: clock.now,
+            });
+        }
+    }
+
+    game_state.sync_filtered_game_controller_state();
 }
 
 fn run_invariant_checks(
@@ -1379,23 +1492,15 @@ fn record_timeline_frame(
     });
 }
 
-fn player_states_from_query(
-    robots: &Query<(
-        &SimulatorRobot,
-        &SimulatorGroundToField,
-        &SimulatorPrimaryState,
-        &SimulatorFallDownState,
-        &SimulatorSuggestedSearchPosition,
-    )>,
+fn player_states_from_received_hsl_messages(
+    receiver: PlayerNumber,
+    received_hsl_messages: &SimulatorReceivedHslMessages,
 ) -> Players<Option<PlayerState>> {
-    let mut player_states = Players::default();
-    for (robot, ground_to_field, _, _, _) in robots.iter() {
-        player_states[robot.player_number] = Some(PlayerState {
-            pose: ground_to_field.ground_to_field.as_pose(),
-            ball_position: None,
-        });
-    }
-    player_states
+    received_hsl_messages
+        .player_states_by_receiver
+        .get(&receiver)
+        .copied()
+        .unwrap_or_default()
 }
 
 fn robot_snapshots_from_query(
@@ -2297,6 +2402,370 @@ mod tests {
         assert_eq!(
             ball.expect("ball should still exist").velocity,
             vector![0.0, 0.0]
+        );
+    }
+
+    fn hsl_state_message(player_number: PlayerNumber, x: f32, y: f32) -> HulkMessage {
+        HulkMessage::State(hsl_network_messages::StateMessage {
+            player_number,
+            pose: Pose2::new(point![x, y], 0.0),
+            ball_position: Some(hsl_network_messages::BallPosition {
+                age: Duration::from_millis(500),
+                position: point![x + 1.0, y],
+            }),
+        })
+    }
+
+    fn game_state_with_message_budget(remaining_amount_of_messages: u16) -> SimulatorGameState {
+        let mut game_state = SimulatorGameState::default();
+        game_state
+            .game_controller_state
+            .hulks_team
+            .remaining_amount_of_messages = remaining_amount_of_messages;
+        game_state.sync_filtered_game_controller_state();
+        game_state
+    }
+
+    fn route_test_app(remaining_amount_of_messages: u16) -> App {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .insert_resource(SimulatorClock {
+                now: SystemTime::UNIX_EPOCH + Duration::from_secs(1),
+                tick_duration: DEFAULT_TICK_DURATION,
+            })
+            .insert_resource(SimulatorOutgoingMessages::default())
+            .insert_resource(SimulatorIncomingMessages::default())
+            .insert_resource(game_state_with_message_budget(remaining_amount_of_messages))
+            .add_systems(Update, route_outgoing_communication);
+
+        for player_number in [PlayerNumber::Three, PlayerNumber::Four, PlayerNumber::Five] {
+            app.world_mut().spawn(SimulatorRobot { player_number });
+        }
+
+        app
+    }
+
+    #[test]
+    fn hsl_broadcast_routes_to_teammates_and_decrements_budget_once() {
+        let mut app = route_test_app(5);
+        app.world_mut()
+            .resource_mut::<SimulatorOutgoingMessages>()
+            .messages
+            .push(SimulatorMessage {
+                sender: PlayerNumber::Three,
+                message: OutgoingMessage::Hsl(hsl_state_message(PlayerNumber::Three, 1.0, 0.0)),
+            });
+
+        app.update();
+
+        let incoming_messages = &app.world().resource::<SimulatorIncomingMessages>().messages;
+        assert_eq!(incoming_messages.len(), 2);
+        assert!(
+            incoming_messages
+                .iter()
+                .all(|message| message.sender == PlayerNumber::Three)
+        );
+        assert!(
+            incoming_messages
+                .iter()
+                .all(|message| message.receiver != PlayerNumber::Three)
+        );
+        assert!(
+            incoming_messages
+                .iter()
+                .any(|message| message.receiver == PlayerNumber::Four)
+        );
+        assert!(
+            incoming_messages
+                .iter()
+                .any(|message| message.receiver == PlayerNumber::Five)
+        );
+
+        let game_state = app.world().resource::<SimulatorGameState>();
+        assert_eq!(
+            game_state
+                .game_controller_state
+                .hulks_team
+                .remaining_amount_of_messages,
+            4
+        );
+        assert_eq!(
+            game_state
+                .filtered_game_controller_state
+                .as_ref()
+                .expect("filtered game state should exist")
+                .remaining_number_of_messages,
+            4
+        );
+    }
+
+    #[test]
+    fn hsl_broadcast_with_empty_budget_is_dropped() {
+        let mut app = route_test_app(0);
+        app.world_mut()
+            .resource_mut::<SimulatorOutgoingMessages>()
+            .messages
+            .push(SimulatorMessage {
+                sender: PlayerNumber::Three,
+                message: OutgoingMessage::Hsl(hsl_state_message(PlayerNumber::Three, 1.0, 0.0)),
+            });
+
+        app.update();
+
+        assert!(
+            app.world()
+                .resource::<SimulatorIncomingMessages>()
+                .messages
+                .is_empty()
+        );
+        assert_eq!(
+            app.world()
+                .resource::<SimulatorGameState>()
+                .game_controller_state
+                .hulks_team
+                .remaining_amount_of_messages,
+            0
+        );
+    }
+
+    #[test]
+    fn game_controller_return_message_does_not_decrement_hsl_budget() {
+        let mut app = route_test_app(5);
+        app.world_mut()
+            .resource_mut::<SimulatorOutgoingMessages>()
+            .messages
+            .push(SimulatorMessage {
+                sender: PlayerNumber::Three,
+                message: OutgoingMessage::GameController(
+                    "127.0.0.1:3838".parse().expect("valid socket address"),
+                    hsl_network_messages::GameControllerReturnMessage::default(),
+                ),
+            });
+
+        app.update();
+
+        assert!(
+            app.world()
+                .resource::<SimulatorIncomingMessages>()
+                .messages
+                .is_empty()
+        );
+        assert_eq!(
+            app.world()
+                .resource::<SimulatorGameState>()
+                .game_controller_state
+                .hulks_team
+                .remaining_amount_of_messages,
+            5
+        );
+    }
+
+    #[test]
+    fn incoming_hsl_messages_update_received_message_cache() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .insert_resource(SimulatorIncomingMessages {
+                messages: vec![SimulatorIncomingMessage {
+                    receiver: PlayerNumber::Four,
+                    sender: PlayerNumber::Three,
+                    message: IncomingMessage::Hsl(hsl_state_message(PlayerNumber::Three, 1.0, 0.0)),
+                    received_at: SystemTime::UNIX_EPOCH + Duration::from_secs(2),
+                }],
+            })
+            .insert_resource(SimulatorReceivedHslMessages::default())
+            .add_systems(Update, apply_incoming_hsl_messages);
+
+        app.update();
+
+        assert!(
+            app.world()
+                .resource::<SimulatorIncomingMessages>()
+                .messages
+                .is_empty()
+        );
+        let received_hsl_messages = app.world().resource::<SimulatorReceivedHslMessages>();
+        assert!(
+            received_hsl_messages.messages_by_receiver[&PlayerNumber::Four]
+                .contains_key(&PlayerNumber::Three)
+        );
+        assert!(
+            received_hsl_messages.player_states_by_receiver[&PlayerNumber::Four]
+                [PlayerNumber::Three]
+                .is_some()
+        );
+    }
+
+    #[test]
+    fn world_states_use_received_hsl_messages_for_teammate_state() {
+        let mut app = App::new();
+        let received_at = SystemTime::UNIX_EPOCH + Duration::from_secs(2);
+        let teammate_message = hsl_state_message(PlayerNumber::Three, 1.0, 0.5);
+        app.add_plugins(MinimalPlugins)
+            .insert_resource(SimulatorClock {
+                now: SystemTime::UNIX_EPOCH + Duration::from_secs(3),
+                tick_duration: DEFAULT_TICK_DURATION,
+            })
+            .insert_resource(SimulatorFieldDimensions(FieldDimensions::SPL_2025))
+            .insert_resource(SimulatorBall::default())
+            .insert_resource(SimulatorGameState::default())
+            .insert_resource(SimulatorReceivedHslMessages {
+                messages_by_receiver: BTreeMap::from([(
+                    PlayerNumber::Four,
+                    BTreeMap::from([(
+                        PlayerNumber::Three,
+                        SimulatorReceivedHslMessage {
+                            message: teammate_message,
+                            received_at,
+                        },
+                    )]),
+                )]),
+                player_states_by_receiver: BTreeMap::from([(
+                    PlayerNumber::Four,
+                    Players {
+                        three: Some(PlayerState {
+                            pose: Pose2::new(point![1.0, 0.5], 0.0),
+                            ball_position: Some(BallPosition::from_network_ball(
+                                hsl_network_messages::BallPosition {
+                                    age: Duration::from_millis(500),
+                                    position: point![2.0, 0.5],
+                                },
+                                ros_z::time::Time::from_wallclock(received_at),
+                            )),
+                        }),
+                        ..Default::default()
+                    },
+                )]),
+            })
+            .insert_resource(SimulatorRuleObstacles::default())
+            .insert_resource(SimulationConfig::default())
+            .insert_resource(SimulatorWorldStates::default())
+            .add_systems(Update, build_world_states);
+        app.world_mut().spawn((
+            SimulatorRobot {
+                player_number: PlayerNumber::Four,
+            },
+            SimulatorGroundToField {
+                ground_to_field: Isometry2::identity(),
+            },
+            SimulatorPrimaryState {
+                primary_state: PrimaryState::Playing,
+            },
+            SimulatorFallDownState::default(),
+            SimulatorSuggestedSearchPosition::default(),
+        ));
+
+        app.update();
+
+        let world_states = app.world().resource::<SimulatorWorldStates>();
+        let receiver_world_state = world_states
+            .0
+            .get(&PlayerNumber::Four)
+            .expect("receiver world state should exist");
+        let teammate_state = receiver_world_state.player_states[PlayerNumber::Three]
+            .expect("teammate state should come from HSL message");
+        assert_eq!(teammate_state.pose.position(), point![1.0, 0.5]);
+        assert_eq!(
+            teammate_state
+                .ball_position
+                .expect("teammate ball should come from HSL message")
+                .position,
+            point![2.0, 0.5]
+        );
+        assert!(receiver_world_state.player_states[PlayerNumber::Four].is_none());
+    }
+
+    #[test]
+    fn player_state_persists_without_new_hsl_message() {
+        let mut app = App::new();
+        app.add_plugins(MinimalPlugins)
+            .insert_resource(SimulatorClock {
+                now: SystemTime::UNIX_EPOCH + Duration::from_secs(3),
+                tick_duration: DEFAULT_TICK_DURATION,
+            })
+            .insert_resource(SimulatorFieldDimensions(FieldDimensions::SPL_2025))
+            .insert_resource(SimulatorBall::default())
+            .insert_resource(SimulatorGameState::default())
+            .insert_resource(SimulatorIncomingMessages {
+                messages: vec![SimulatorIncomingMessage {
+                    receiver: PlayerNumber::Four,
+                    sender: PlayerNumber::Three,
+                    message: IncomingMessage::Hsl(hsl_state_message(PlayerNumber::Three, 1.0, 0.5)),
+                    received_at: SystemTime::UNIX_EPOCH + Duration::from_secs(2),
+                }],
+            })
+            .insert_resource(SimulatorReceivedHslMessages::default())
+            .insert_resource(SimulatorRuleObstacles::default())
+            .insert_resource(SimulationConfig::default())
+            .insert_resource(SimulatorWorldStates::default())
+            .add_systems(
+                Update,
+                (apply_incoming_hsl_messages, build_world_states).chain(),
+            );
+        app.world_mut().spawn((
+            SimulatorRobot {
+                player_number: PlayerNumber::Four,
+            },
+            SimulatorGroundToField {
+                ground_to_field: Isometry2::identity(),
+            },
+            SimulatorPrimaryState {
+                primary_state: PrimaryState::Playing,
+            },
+            SimulatorFallDownState::default(),
+            SimulatorSuggestedSearchPosition::default(),
+        ));
+
+        app.update();
+        assert!(
+            app.world().resource::<SimulatorWorldStates>().0[&PlayerNumber::Four].player_states
+                [PlayerNumber::Three]
+                .is_some()
+        );
+
+        app.world_mut().resource_mut::<SimulatorClock>().now += Duration::from_secs(1);
+        app.update();
+
+        let teammate_state = app.world().resource::<SimulatorWorldStates>().0[&PlayerNumber::Four]
+            .player_states[PlayerNumber::Three]
+            .expect("teammate state should persist without new HSL messages");
+        assert_eq!(teammate_state.pose.position(), point![1.0, 0.5]);
+        assert!(
+            app.world()
+                .resource::<SimulatorIncomingMessages>()
+                .messages
+                .is_empty()
+        );
+    }
+
+    #[test]
+    fn plugin_initializes_live_message_budget_from_simulation_config() {
+        let mut app = App::new();
+        app.add_plugins((
+            MinimalPlugins,
+            BehaviorTreeSimulatorPlugin {
+                config: SimulationConfig {
+                    remaining_amount_of_messages: Some(7),
+                    ..Default::default()
+                },
+                ..Default::default()
+            },
+        ));
+
+        let game_state = app.world().resource::<SimulatorGameState>();
+        assert_eq!(
+            game_state
+                .game_controller_state
+                .hulks_team
+                .remaining_amount_of_messages,
+            7
+        );
+        assert_eq!(
+            game_state
+                .filtered_game_controller_state
+                .as_ref()
+                .expect("filtered game state should exist")
+                .remaining_number_of_messages,
+            7
         );
     }
 
