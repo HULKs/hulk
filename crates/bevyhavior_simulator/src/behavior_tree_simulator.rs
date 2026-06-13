@@ -110,11 +110,11 @@ pub struct SimulationConfig {
 impl Default for SimulationConfig {
     fn default() -> Self {
         Self {
-            walk_translation_speed: 0.25,
-            walk_rotation_speed: 1.0,
+            walk_translation_speed: 2.0,
+            walk_rotation_speed: 3.0,
             walk_with_velocity_scale: 1.0,
-            kick_ball_speed_rumpelstilzchen: 2.0,
-            kick_ball_speed_schlong: 4.0,
+            kick_ball_speed_rumpelstilzchen: 1.0,
+            kick_ball_speed_schlong: 1.5,
             kick_cooldown: Duration::from_millis(750),
             ball_friction_per_second: 0.4,
             ball_visibility_range: 4.0,
