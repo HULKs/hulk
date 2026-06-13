@@ -128,8 +128,30 @@ impl Default for SimulationConfig {
     }
 }
 
+#[derive(Resource, Clone, Debug)]
+pub struct AutoRefereeConfig {
+    pub ready_duration: Duration,
+    pub playing_signal_delay: Duration,
+    pub halftime_duration: Duration,
+    pub auto_whistle_in_set: bool,
+    pub finish_on_halftime_timeout: bool,
+}
+
+impl Default for AutoRefereeConfig {
+    fn default() -> Self {
+        Self {
+            ready_duration: Duration::from_secs(45),
+            playing_signal_delay: Duration::from_secs(10),
+            halftime_duration: Duration::from_secs(10 * 60),
+            auto_whistle_in_set: true,
+            finish_on_halftime_timeout: true,
+        }
+    }
+}
+
 pub struct BehaviorTreeSimulatorPlugin {
     pub config: SimulationConfig,
+    pub auto_referee_config: AutoRefereeConfig,
     pub field_dimensions: FieldDimensions,
     pub hsl_network_parameters: HslNetworkParameters,
     pub tick_duration: Duration,
@@ -143,6 +165,7 @@ impl Default for BehaviorTreeSimulatorPlugin {
     fn default() -> Self {
         Self {
             config: SimulationConfig::default(),
+            auto_referee_config: AutoRefereeConfig::default(),
             field_dimensions: FieldDimensions::SPL_2025,
             hsl_network_parameters: HslNetworkParameters::default(),
             tick_duration: DEFAULT_TICK_DURATION,
@@ -157,6 +180,7 @@ impl Default for BehaviorTreeSimulatorPlugin {
 impl Plugin for BehaviorTreeSimulatorPlugin {
     fn build(&self, app: &mut App) {
         app.add_message::<AppExit>()
+            .add_message::<SimulatorRefereeCommand>()
             .insert_resource(SimulatorClock {
                 now: SystemTime::UNIX_EPOCH,
                 tick_duration: self.tick_duration,
@@ -170,6 +194,7 @@ impl Plugin for BehaviorTreeSimulatorPlugin {
                 self.hsl_network_parameters.clone(),
             ))
             .insert_resource(self.config.clone())
+            .insert_resource(self.auto_referee_config.clone())
             .insert_resource(SimulatorTimeline::default())
             .insert_resource(SimulatorScenarioResult::default())
             .insert_resource(SimulatorIncomingMessages::default())
@@ -371,9 +396,74 @@ impl Default for SimulatorGameState {
     }
 }
 
+impl SimulatorGameState {
+    pub fn set_game_state(&mut self, game_state: GameState, now: SystemTime) {
+        self.game_controller_state.game_state = game_state;
+        self.game_controller_state.last_game_state_change = now;
+        self.sync_filtered_game_controller_state();
+    }
+
+    pub fn set_kicking_team(&mut self, kicking_team: Option<Team>) {
+        self.game_controller_state.kicking_team = kicking_team;
+        self.sync_filtered_game_controller_state();
+    }
+
+    pub fn set_stopped(&mut self, stopped: bool) {
+        self.game_controller_state.stopped = stopped;
+        self.sync_filtered_game_controller_state();
+    }
+
+    pub fn set_game_phase(&mut self, game_phase: GamePhase) {
+        self.game_controller_state.game_phase = game_phase;
+        self.sync_filtered_game_controller_state();
+    }
+
+    pub fn sync_filtered_game_controller_state(&mut self) {
+        self.filtered_game_controller_state = Some(filtered_game_controller_state_from(
+            &self.game_controller_state,
+        ));
+    }
+}
+
 #[derive(Resource)]
 pub struct SimulatorAutoReferee {
     pub rules: Vec<Box<dyn AutoRefereeRule>>,
+    pub state: AutoRefereeState,
+}
+
+#[derive(Clone, Copy, Debug)]
+pub struct AutoRefereeState {
+    pub last_game_state_change: SystemTime,
+    pub halftime_started_at: Option<SystemTime>,
+    pub pending_playing_signal_at: Option<SystemTime>,
+    pub restart_reason: Option<SimulatorRestartReason>,
+}
+
+impl Default for AutoRefereeState {
+    fn default() -> Self {
+        Self {
+            last_game_state_change: SystemTime::UNIX_EPOCH,
+            halftime_started_at: None,
+            pending_playing_signal_at: None,
+            restart_reason: None,
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum SimulatorRestartReason {
+    KickOffAfterGoal { scoring_team: Team },
+    DroppedBall,
+}
+
+#[derive(Clone, Copy, Debug, Message)]
+pub enum SimulatorRefereeCommand {
+    SetGameState(GameState),
+    Whistle,
+    BriefStop,
+    Resume,
+    DroppedBall,
+    SetTimeout(bool),
 }
 
 pub trait AutoRefereeRule: Send + Sync {
@@ -381,9 +471,27 @@ pub trait AutoRefereeRule: Send + Sync {
 }
 
 pub struct AutoRefereeContext<'a> {
+    pub now: SystemTime,
+    pub config: &'a AutoRefereeConfig,
     pub field_dimensions: FieldDimensions,
     pub game_state: &'a mut SimulatorGameState,
+    pub auto_referee: &'a mut AutoRefereeState,
     pub ball: &'a mut SimulatorBall,
+}
+
+impl AutoRefereeContext<'_> {
+    fn set_game_state(&mut self, game_state: GameState) {
+        self.game_state.set_game_state(game_state, self.now);
+        self.auto_referee.last_game_state_change = self.now;
+
+        if game_state != GameState::Set {
+            self.auto_referee.pending_playing_signal_at = None;
+        }
+    }
+
+    fn set_kicking_team(&mut self, kicking_team: Option<Team>) {
+        self.game_state.set_kicking_team(kicking_team);
+    }
 }
 
 pub struct ScoredGoalRule;
@@ -421,6 +529,16 @@ impl AutoRefereeRule for ScoredGoalRule {
             }
         }
         context.ball.state = None;
+
+        if goal_difference(&context.game_state.game_controller_state) >= 10 {
+            context.set_game_state(GameState::Finished);
+            return;
+        }
+
+        context.set_kicking_team(Some(opponent_of(scoring_team)));
+        context.auto_referee.restart_reason =
+            Some(SimulatorRestartReason::KickOffAfterGoal { scoring_team });
+        context.set_game_state(GameState::Ready);
     }
 }
 
@@ -430,10 +548,95 @@ impl Default for ScoredGoalRule {
     }
 }
 
+pub struct GameStateTransitionRule;
+
+impl AutoRefereeRule for GameStateTransitionRule {
+    fn apply(&mut self, context: &mut AutoRefereeContext<'_>) {
+        match context.game_state.game_controller_state.game_state {
+            GameState::Initial => {}
+            GameState::Ready => {
+                if has_elapsed(
+                    context.now,
+                    context.auto_referee.last_game_state_change,
+                    context.config.ready_duration,
+                ) {
+                    if context.auto_referee.restart_reason.is_some() {
+                        place_ball_at_center(context.ball);
+                    }
+                    context.set_game_state(GameState::Set);
+                }
+            }
+            GameState::Set => match context.auto_referee.pending_playing_signal_at {
+                Some(playing_signal_at) if context.now >= playing_signal_at => {
+                    context.set_game_state(GameState::Playing);
+                    context.auto_referee.pending_playing_signal_at = None;
+                    context.auto_referee.restart_reason = None;
+                    if context.auto_referee.halftime_started_at.is_none() {
+                        context.auto_referee.halftime_started_at = Some(context.now);
+                    }
+                }
+                Some(_) => {}
+                None if context.config.auto_whistle_in_set => {
+                    context.auto_referee.pending_playing_signal_at =
+                        Some(context.now + context.config.playing_signal_delay);
+                }
+                None => {}
+            },
+            GameState::Playing => {
+                if context.auto_referee.halftime_started_at.is_none() {
+                    context.auto_referee.halftime_started_at = Some(context.now);
+                }
+            }
+            GameState::Finished => {}
+        }
+    }
+}
+
+impl Default for GameStateTransitionRule {
+    fn default() -> Self {
+        Self
+    }
+}
+
+pub struct HalftimeTimeoutRule;
+
+impl AutoRefereeRule for HalftimeTimeoutRule {
+    fn apply(&mut self, context: &mut AutoRefereeContext<'_>) {
+        if !context.config.finish_on_halftime_timeout
+            || context.game_state.game_controller_state.game_state != GameState::Playing
+        {
+            return;
+        }
+
+        let Some(halftime_started_at) = context.auto_referee.halftime_started_at else {
+            return;
+        };
+
+        if has_elapsed(
+            context.now,
+            halftime_started_at,
+            context.config.halftime_duration,
+        ) {
+            context.set_game_state(GameState::Finished);
+        }
+    }
+}
+
+impl Default for HalftimeTimeoutRule {
+    fn default() -> Self {
+        Self
+    }
+}
+
 impl SimulatorAutoReferee {
     pub fn with_default_rules() -> Self {
         Self {
-            rules: vec![Box::new(ScoredGoalRule)],
+            rules: vec![
+                Box::new(ScoredGoalRule),
+                Box::new(GameStateTransitionRule),
+                Box::new(HalftimeTimeoutRule),
+            ],
+            state: AutoRefereeState::default(),
         }
     }
 }
@@ -609,19 +812,65 @@ fn update_ball_kinematics(
 }
 
 fn run_auto_referee(
+    clock: Res<SimulatorClock>,
+    config: Res<AutoRefereeConfig>,
     field_dimensions: Res<SimulatorFieldDimensions>,
     mut auto_referee: ResMut<SimulatorAutoReferee>,
     mut game_state: ResMut<SimulatorGameState>,
     mut ball: ResMut<SimulatorBall>,
+    mut referee_commands: MessageReader<SimulatorRefereeCommand>,
 ) {
+    let mut rules = std::mem::take(&mut auto_referee.rules);
     let mut context = AutoRefereeContext {
+        now: clock.now,
+        config: &config,
         field_dimensions: field_dimensions.0,
         game_state: &mut *game_state,
+        auto_referee: &mut auto_referee.state,
         ball: &mut *ball,
     };
 
-    for rule in &mut auto_referee.rules {
+    for command in referee_commands.read() {
+        apply_referee_command(*command, &mut context);
+    }
+
+    for rule in &mut rules {
         rule.apply(&mut context);
+    }
+
+    auto_referee.rules = rules;
+}
+
+fn apply_referee_command(command: SimulatorRefereeCommand, context: &mut AutoRefereeContext<'_>) {
+    match command {
+        SimulatorRefereeCommand::SetGameState(game_state) => {
+            context.set_game_state(game_state);
+            if game_state == GameState::Playing
+                && context.auto_referee.halftime_started_at.is_none()
+            {
+                context.auto_referee.halftime_started_at = Some(context.now);
+            }
+        }
+        SimulatorRefereeCommand::Whistle => {
+            if context.game_state.game_controller_state.game_state == GameState::Set {
+                context.auto_referee.pending_playing_signal_at =
+                    Some(context.now + context.config.playing_signal_delay);
+            }
+        }
+        SimulatorRefereeCommand::BriefStop => context.game_state.set_stopped(true),
+        SimulatorRefereeCommand::Resume => context.game_state.set_stopped(false),
+        SimulatorRefereeCommand::DroppedBall => {
+            context.set_kicking_team(None);
+            context.auto_referee.restart_reason = Some(SimulatorRestartReason::DroppedBall);
+            context.set_game_state(GameState::Ready);
+        }
+        SimulatorRefereeCommand::SetTimeout(active) => {
+            context.game_state.set_game_phase(if active {
+                GamePhase::Timeout
+            } else {
+                GamePhase::Normal
+            });
+        }
     }
 }
 
@@ -697,6 +946,32 @@ fn filtered_game_state_from(game_controller_state: &GameControllerState) -> Filt
         },
         GameState::Finished => FilteredGameState::Finished,
     }
+}
+
+fn opponent_of(team: Team) -> Team {
+    match team {
+        Team::Hulks => Team::Opponent,
+        Team::Opponent => Team::Hulks,
+    }
+}
+
+fn goal_difference(game_controller_state: &GameControllerState) -> u8 {
+    game_controller_state
+        .hulks_team
+        .score
+        .abs_diff(game_controller_state.opponent_team.score)
+}
+
+fn has_elapsed(now: SystemTime, since: SystemTime, duration: Duration) -> bool {
+    matches!(now.duration_since(since), Ok(elapsed) if elapsed >= duration)
+}
+
+fn place_ball_at_center(ball: &mut SimulatorBall) {
+    ball.state = Some(SimulatedBall {
+        position: Point2::origin(),
+        velocity: Vector2::zeros(),
+        field_side: Side::Left,
+    });
 }
 
 fn ball_in_goal(ball: SimulatedBall, field_dimensions: FieldDimensions) -> Option<Team> {
@@ -1784,6 +2059,34 @@ mod tests {
     use super::*;
     use linear_algebra::{point, vector};
 
+    fn auto_referee_context<'a>(
+        now: SystemTime,
+        config: &'a AutoRefereeConfig,
+        field_dimensions: FieldDimensions,
+        game_state: &'a mut SimulatorGameState,
+        auto_referee: &'a mut AutoRefereeState,
+        ball: &'a mut SimulatorBall,
+    ) -> AutoRefereeContext<'a> {
+        AutoRefereeContext {
+            now,
+            config,
+            field_dimensions,
+            game_state,
+            auto_referee,
+            ball,
+        }
+    }
+
+    fn transition_test_config() -> AutoRefereeConfig {
+        AutoRefereeConfig {
+            ready_duration: Duration::ZERO,
+            playing_signal_delay: Duration::ZERO,
+            halftime_duration: Duration::from_secs(600),
+            auto_whistle_in_set: true,
+            finish_on_halftime_timeout: true,
+        }
+    }
+
     #[test]
     fn kick_does_not_move_ball_outside_contact_range() {
         let mut ball = Some(SimulatedBall {
@@ -1871,7 +2174,9 @@ mod tests {
     #[test]
     fn scored_goal_in_opponent_goal_increases_hulks_score_and_removes_ball() {
         let field_dimensions = FieldDimensions::SPL_2025;
+        let config = AutoRefereeConfig::default();
         let mut game_state = SimulatorGameState::default();
+        let mut auto_referee = AutoRefereeState::default();
         let mut ball = SimulatorBall {
             state: Some(SimulatedBall {
                 position: point![field_dimensions.length / 2.0 + 0.1, 0.0],
@@ -1881,22 +2186,40 @@ mod tests {
         };
         let mut rule = ScoredGoalRule;
 
-        rule.apply(&mut AutoRefereeContext {
+        rule.apply(&mut auto_referee_context(
+            SystemTime::UNIX_EPOCH + Duration::from_secs(1),
+            &config,
             field_dimensions,
-            game_state: &mut game_state,
-            ball: &mut ball,
-        });
+            &mut game_state,
+            &mut auto_referee,
+            &mut ball,
+        ));
 
         assert_eq!(game_state.game_controller_state.hulks_team.score, 1);
         assert_eq!(game_state.game_controller_state.opponent_team.score, 0);
+        assert_eq!(
+            game_state.game_controller_state.game_state,
+            GameState::Ready
+        );
+        assert_eq!(
+            game_state.game_controller_state.kicking_team,
+            Some(Team::Opponent)
+        );
+        assert_eq!(
+            auto_referee.restart_reason,
+            Some(SimulatorRestartReason::KickOffAfterGoal {
+                scoring_team: Team::Hulks,
+            })
+        );
         assert!(ball.state.is_none());
     }
 
     #[test]
     fn scored_goal_in_hulks_goal_increases_opponent_score_and_removes_ball() {
         let field_dimensions = FieldDimensions::SPL_2025;
+        let config = AutoRefereeConfig::default();
         let mut game_state = SimulatorGameState::default();
-        game_state.game_controller_state.game_state = GameState::Playing;
+        let mut auto_referee = AutoRefereeState::default();
         let mut ball = SimulatorBall {
             state: Some(SimulatedBall {
                 position: point![-field_dimensions.length / 2.0 - 0.1, 0.0],
@@ -1906,14 +2229,237 @@ mod tests {
         };
         let mut rule = ScoredGoalRule;
 
-        rule.apply(&mut AutoRefereeContext {
+        rule.apply(&mut auto_referee_context(
+            SystemTime::UNIX_EPOCH + Duration::from_secs(1),
+            &config,
             field_dimensions,
-            game_state: &mut game_state,
-            ball: &mut ball,
-        });
+            &mut game_state,
+            &mut auto_referee,
+            &mut ball,
+        ));
 
         assert_eq!(game_state.game_controller_state.hulks_team.score, 0);
         assert_eq!(game_state.game_controller_state.opponent_team.score, 1);
+        assert_eq!(
+            game_state.game_controller_state.game_state,
+            GameState::Ready
+        );
+        assert_eq!(
+            game_state.game_controller_state.kicking_team,
+            Some(Team::Hulks)
+        );
         assert!(ball.state.is_none());
+    }
+
+    #[test]
+    fn auto_referee_config_defaults_match_hsl_timings() {
+        let config = AutoRefereeConfig::default();
+
+        assert_eq!(config.ready_duration, Duration::from_secs(45));
+        assert_eq!(config.playing_signal_delay, Duration::from_secs(10));
+        assert_eq!(config.halftime_duration, Duration::from_secs(10 * 60));
+        assert!(config.auto_whistle_in_set);
+        assert!(config.finish_on_halftime_timeout);
+    }
+
+    #[test]
+    fn scored_goal_at_ten_goal_difference_finishes_game() {
+        let field_dimensions = FieldDimensions::SPL_2025;
+        let config = AutoRefereeConfig::default();
+        let mut game_state = SimulatorGameState::default();
+        game_state.game_controller_state.opponent_team.score = 9;
+        let mut auto_referee = AutoRefereeState::default();
+        let mut ball = SimulatorBall {
+            state: Some(SimulatedBall {
+                position: point![-field_dimensions.length / 2.0 - 0.1, 0.0],
+                velocity: vector![0.0, 0.0],
+                field_side: Side::Left,
+            }),
+        };
+        let mut rule = ScoredGoalRule;
+
+        rule.apply(&mut auto_referee_context(
+            SystemTime::UNIX_EPOCH + Duration::from_secs(1),
+            &config,
+            field_dimensions,
+            &mut game_state,
+            &mut auto_referee,
+            &mut ball,
+        ));
+
+        assert_eq!(game_state.game_controller_state.opponent_team.score, 10);
+        assert_eq!(
+            game_state.game_controller_state.game_state,
+            GameState::Finished
+        );
+        assert!(ball.state.is_none());
+    }
+
+    #[test]
+    fn ready_transitions_to_set_after_ready_duration_and_places_ball() {
+        let field_dimensions = FieldDimensions::SPL_2025;
+        let config = transition_test_config();
+        let mut game_state = SimulatorGameState::default();
+        game_state.set_game_state(GameState::Ready, SystemTime::UNIX_EPOCH);
+        let mut auto_referee = AutoRefereeState {
+            restart_reason: Some(SimulatorRestartReason::DroppedBall),
+            ..Default::default()
+        };
+        let mut ball = SimulatorBall::default();
+        let mut rule = GameStateTransitionRule;
+
+        rule.apply(&mut auto_referee_context(
+            SystemTime::UNIX_EPOCH,
+            &config,
+            field_dimensions,
+            &mut game_state,
+            &mut auto_referee,
+            &mut ball,
+        ));
+
+        assert_eq!(game_state.game_controller_state.game_state, GameState::Set);
+        assert_eq!(
+            ball.state.expect("ball should be placed").position,
+            Point2::origin()
+        );
+    }
+
+    #[test]
+    fn set_transitions_to_playing_after_playing_signal_delay() {
+        let field_dimensions = FieldDimensions::SPL_2025;
+        let config = transition_test_config();
+        let now = SystemTime::UNIX_EPOCH + Duration::from_secs(1);
+        let mut game_state = SimulatorGameState::default();
+        game_state.set_game_state(GameState::Set, SystemTime::UNIX_EPOCH);
+        let mut auto_referee = AutoRefereeState {
+            pending_playing_signal_at: Some(now),
+            ..Default::default()
+        };
+        let mut ball = SimulatorBall::default();
+        let mut rule = GameStateTransitionRule;
+
+        rule.apply(&mut auto_referee_context(
+            now,
+            &config,
+            field_dimensions,
+            &mut game_state,
+            &mut auto_referee,
+            &mut ball,
+        ));
+
+        assert_eq!(
+            game_state.game_controller_state.game_state,
+            GameState::Playing
+        );
+        assert_eq!(auto_referee.pending_playing_signal_at, None);
+        assert_eq!(auto_referee.halftime_started_at, Some(now));
+    }
+
+    #[test]
+    fn playing_finishes_after_halftime_duration_by_default() {
+        let field_dimensions = FieldDimensions::SPL_2025;
+        let config = AutoRefereeConfig {
+            halftime_duration: Duration::ZERO,
+            ..Default::default()
+        };
+        let now = SystemTime::UNIX_EPOCH + Duration::from_secs(1);
+        let mut game_state = SimulatorGameState::default();
+        let mut auto_referee = AutoRefereeState {
+            halftime_started_at: Some(now),
+            ..Default::default()
+        };
+        let mut ball = SimulatorBall::default();
+        let mut rule = HalftimeTimeoutRule;
+
+        rule.apply(&mut auto_referee_context(
+            now,
+            &config,
+            field_dimensions,
+            &mut game_state,
+            &mut auto_referee,
+            &mut ball,
+        ));
+
+        assert_eq!(
+            game_state.game_controller_state.game_state,
+            GameState::Finished
+        );
+    }
+
+    #[test]
+    fn disabling_halftime_timeout_prevents_finish() {
+        let field_dimensions = FieldDimensions::SPL_2025;
+        let config = AutoRefereeConfig {
+            halftime_duration: Duration::ZERO,
+            finish_on_halftime_timeout: false,
+            ..Default::default()
+        };
+        let now = SystemTime::UNIX_EPOCH + Duration::from_secs(1);
+        let mut game_state = SimulatorGameState::default();
+        let mut auto_referee = AutoRefereeState {
+            halftime_started_at: Some(now),
+            ..Default::default()
+        };
+        let mut ball = SimulatorBall::default();
+        let mut rule = HalftimeTimeoutRule;
+
+        rule.apply(&mut auto_referee_context(
+            now,
+            &config,
+            field_dimensions,
+            &mut game_state,
+            &mut auto_referee,
+            &mut ball,
+        ));
+
+        assert_eq!(
+            game_state.game_controller_state.game_state,
+            GameState::Playing
+        );
+    }
+
+    #[test]
+    fn brief_stop_and_timeout_commands_sync_filtered_state() {
+        let field_dimensions = FieldDimensions::SPL_2025;
+        let config = AutoRefereeConfig::default();
+        let mut game_state = SimulatorGameState::default();
+        let mut auto_referee = AutoRefereeState::default();
+        let mut ball = SimulatorBall::default();
+        let now = SystemTime::UNIX_EPOCH + Duration::from_secs(1);
+
+        let mut context = auto_referee_context(
+            now,
+            &config,
+            field_dimensions,
+            &mut game_state,
+            &mut auto_referee,
+            &mut ball,
+        );
+        apply_referee_command(SimulatorRefereeCommand::BriefStop, &mut context);
+        assert_eq!(
+            context
+                .game_state
+                .filtered_game_controller_state
+                .as_ref()
+                .expect("filtered state should exist")
+                .game_state,
+            FilteredGameState::Stop
+        );
+
+        apply_referee_command(SimulatorRefereeCommand::Resume, &mut context);
+        apply_referee_command(SimulatorRefereeCommand::SetTimeout(true), &mut context);
+        assert_eq!(
+            context.game_state.game_controller_state.game_phase,
+            GamePhase::Timeout
+        );
+        assert_eq!(
+            context
+                .game_state
+                .filtered_game_controller_state
+                .as_ref()
+                .expect("filtered state should exist")
+                .game_phase,
+            GamePhase::Timeout
+        );
     }
 }

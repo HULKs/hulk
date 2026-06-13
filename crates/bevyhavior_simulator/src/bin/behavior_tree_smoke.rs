@@ -2,7 +2,7 @@ use std::time::Duration;
 
 use bevy::prelude::*;
 use bevyhavior_simulator::behavior_tree_simulator::{
-    BehaviorTreeSimulatorSet, SimulatorBall, SimulatorPrimaryState, SimulatorRobotBundle,
+    BehaviorTreeSimulatorSet, SimulatorBall, SimulatorGameState, SimulatorRobotBundle,
     SimulatorTimeline, default_behavior_parameters,
 };
 use coordinate_systems::{Field, Ground};
@@ -54,12 +54,9 @@ fn startup(mut commands: Commands, mut ball: ResMut<SimulatorBall>) {
 
 fn report_and_exit(
     timeline: Res<SimulatorTimeline>,
+    game_state: Res<SimulatorGameState>,
     mut printed_frames: ResMut<PrintedFrames>,
     mut exit: MessageWriter<AppExit>,
-    robots: Query<(
-        &bevyhavior_simulator::behavior_tree_simulator::SimulatorRobot,
-        &SimulatorPrimaryState,
-    )>,
 ) {
     for (index, frame) in timeline.frames.iter().enumerate().skip(printed_frames.0) {
         println!(
@@ -83,12 +80,25 @@ fn report_and_exit(
         }
     }
     printed_frames.0 = timeline.frames.len();
-
-    let _ = robots.iter().count();
+    let score = game_state.game_controller_state.hulks_team.score
+        + game_state.game_controller_state.opponent_team.score;
+    if score > 0 {
+        println!(
+            "result=ok frames={} hulks_score={} opponent_score={}",
+            timeline.frames.len(),
+            game_state.game_controller_state.hulks_team.score,
+            game_state.game_controller_state.opponent_team.score,
+        );
+        exit.write(AppExit::Success);
+        return;
+    }
 
     if timeline.frames.len() as u32 >= frames_to_run() {
-        println!("result=ok frames={}", timeline.frames.len());
-        exit.write(AppExit::Success);
+        println!(
+            "result=fail frames={} reason=no_goal",
+            timeline.frames.len()
+        );
+        exit.write(AppExit::from_code(1));
     }
 }
 
