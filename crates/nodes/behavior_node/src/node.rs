@@ -111,7 +111,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let ground_to_field_cache = node
-        .create_cache::<Isometry2<Ground, Field>>("ground_to_field", 1)?
+        .create_cache::<Option<Isometry2<Ground, Field>>>("ground_to_field", 1)?
         .build()
         .await?;
     let hypothetical_ball_positions_cache = node
@@ -239,7 +239,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         blackboard.world_state.robot = RobotState {
             ground_to_field: ground_to_field_cache
                 .get_latest()
-                .map(|ground_to_field| *ground_to_field),
+                .and_then(|ground_to_field| *ground_to_field),
             player_number,
             primary_state: primary_state_cache
                 .get_latest()
