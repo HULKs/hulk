@@ -8,8 +8,8 @@ use coordinate_systems::{Field, World};
 use eframe::{
     App, Frame, NativeOptions,
     egui::{
-        Align2, CentralPanel, CollapsingHeader, Context, FontId, Label, RichText, ScrollArea,
-        SidePanel, Slider, TextEdit, TopBottomPanel, Ui,
+        Align2, CentralPanel, CollapsingHeader, ComboBox, Context, FontId, Label, RichText,
+        ScrollArea, SidePanel, Slider, TextEdit, TopBottomPanel, Ui,
     },
     epaint::{Color32, Stroke},
     run_native,
@@ -18,6 +18,7 @@ use hsl_network_messages::PlayerNumber;
 use linear_algebra::{Orientation2, Pose2, point, vector};
 use serde_json::{Value, json};
 use twix::{
+    behavior_tree::BehaviorTreeVisualizer,
     twix_painter::{Orientation, TwixPainter},
     zoom_and_pan::ZoomAndPanTransform,
 };
@@ -53,6 +54,8 @@ struct TimelineViewerApp {
     inspector_cache_frame: Option<usize>,
     inspector_cache: Option<Value>,
     zoom_and_pan: ZoomAndPanTransform,
+    selected_trace_robot: Option<PlayerNumber>,
+    behavior_tree_visualizer: BehaviorTreeVisualizer,
 }
 
 impl TimelineViewerApp {
@@ -68,6 +71,8 @@ impl TimelineViewerApp {
             inspector_cache_frame: None,
             inspector_cache: None,
             zoom_and_pan: ZoomAndPanTransform::default(),
+            selected_trace_robot: None,
+            behavior_tree_visualizer: BehaviorTreeVisualizer::default(),
         }
     }
 
@@ -282,6 +287,72 @@ impl TimelineViewerApp {
         });
     }
 
+    fn show_behavior_tree_panel(&mut self, context: &Context) {
+        SidePanel::left("timeline_viewer_behavior_tree_panel")
+            .resizable(true)
+            .default_width(520.0)
+            .min_width(320.0)
+            .show(context, |ui| {
+                ui.heading("Behavior Tree");
+
+                let robot_numbers = self
+                    .selected_frame()
+                    .map(|frame| frame.robot_frames.keys().copied().collect::<Vec<_>>())
+                    .unwrap_or_default();
+                if robot_numbers.is_empty() {
+                    self.selected_trace_robot = None;
+                    self.behavior_tree_visualizer.clear();
+                    ui.label("no robot traces in selected frame");
+                    return;
+                }
+
+                if self
+                    .selected_trace_robot
+                    .is_none_or(|robot| !robot_numbers.contains(&robot))
+                {
+                    self.selected_trace_robot = robot_numbers.first().copied();
+                    self.behavior_tree_visualizer.clear();
+                }
+
+                let previous_robot = self.selected_trace_robot;
+                ComboBox::from_label("Robot")
+                    .selected_text(
+                        self.selected_trace_robot
+                            .map(|robot| robot.to_string())
+                            .unwrap_or_else(|| "none".to_string()),
+                    )
+                    .show_ui(ui, |ui| {
+                        for robot_number in robot_numbers {
+                            ui.selectable_value(
+                                &mut self.selected_trace_robot,
+                                Some(robot_number),
+                                robot_number.to_string(),
+                            );
+                        }
+                    });
+                if self.selected_trace_robot != previous_robot {
+                    self.behavior_tree_visualizer.clear();
+                }
+
+                let tree_data = self.selected_trace_robot.and_then(|robot_number| {
+                    self.selected_frame()
+                        .and_then(|frame| frame.robot_frames.get(&robot_number))
+                        .map(|robot_frame| {
+                            (robot_frame.static_layout.clone(), robot_frame.trace.clone())
+                        })
+                });
+
+                let Some((static_layout, trace)) = tree_data else {
+                    self.behavior_tree_visualizer.clear();
+                    ui.label("selected robot has no node trace");
+                    return;
+                };
+
+                self.behavior_tree_visualizer
+                    .show(ui, Some(&static_layout), Some(&trace));
+            });
+    }
+
     fn show_map(&mut self, context: &Context) {
         CentralPanel::default().show(context, |ui| {
             let available_size = ui.available_size_before_wrap();
@@ -347,6 +418,7 @@ impl App for TimelineViewerApp {
         self.show_top_panel(context);
         self.show_side_panel(context);
         self.show_timeline_scrubber(context);
+        self.show_behavior_tree_panel(context);
         self.show_map(context);
     }
 }
