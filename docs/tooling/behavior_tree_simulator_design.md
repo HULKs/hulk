@@ -200,7 +200,13 @@ pub struct SimulatorOutgoingMessages {
 }
 
 pub struct SimulatorReceivedHslMessages {
-    pub messages_by_receiver: BTreeMap<PlayerNumber, BTreeMap<PlayerNumber, HulkMessage>>,
+    pub messages_by_receiver: BTreeMap<PlayerNumber, BTreeMap<PlayerNumber, SimulatorReceivedHslMessage>>,
+    pub player_states_by_receiver: BTreeMap<PlayerNumber, Players<Option<PlayerState>>>,
+}
+
+pub struct SimulatorReceivedHslMessage {
+    pub message: HulkMessage,
+    pub received_at: SystemTime,
 }
 ```
 
@@ -387,7 +393,8 @@ Default routing semantics:
 - Do not deliver self messages. This matches production filtering where `filtered_message` excludes packets from the same player number.
 - Ignore `OutgoingMessage::GameController(...)` for robot-to-robot delivery. Scenarios may inspect these messages through `SimulatorOutgoingMessages`.
 - Apply routed messages on the next simulator tick. This keeps all robots' behavior ticks logically simultaneous and avoids same-tick feedback loops.
-- Store the last received HSL message per `(receiver, sender)` so teammate state persists when no new packet arrives on a later tick.
+- Store the last received HSL message per `(receiver, sender)` for inspection.
+- Convert received state messages into persistent per-receiver `PlayerState`s so teammate state remains available when no new packet arrives on a later tick.
 
 The live HSL message budget is owned by `SimulatorGameState.game_controller_state.hulks_team.remaining_amount_of_messages`.
 
@@ -408,7 +415,7 @@ Routing should handle the budget authoritatively:
 - Do not decrement the HSL message budget for `OutgoingMessage::GameController(...)`.
 - After decrementing, call `SimulatorGameState::sync_filtered_game_controller_state()` so the next `WorldState.filtered_game_controller_state.remaining_number_of_messages` is consistent.
 
-`build_world_states` should construct teammate `WorldState::player_states` from the receiver's cached HSL messages rather than from ground-truth robot poses. A `HulkMessage::State` maps to `PlayerState` as follows:
+`build_world_states` should construct teammate `WorldState::player_states` from the receiver's persisted communication-derived `PlayerState`s rather than from ground-truth robot poses. A `HulkMessage::State` maps to `PlayerState` on receipt as follows:
 
 - `state_message.pose` becomes `PlayerState::pose`.
 - `state_message.ball_position` becomes `PlayerState::ball_position`.
