@@ -94,7 +94,7 @@ jobs:
         with:
           lfs: true
       - name: Test
-        run: ./pepsi test --locked --all-features --workspace --exclude bevyhavior_simulator
+        run: ./pepsi test --locked --all-features --workspace
 
   # build:
   #   name: Build
