@@ -6,12 +6,12 @@ license.workspace = true
 homepage.workspace = true
 
 [dependencies]
+approx = { workspace = true }
 color-eyre = { workspace = true }
+coordinate_systems = { workspace = true }
 geometry = { workspace = true }
 linear_algebra = { workspace = true }
 log = { workspace = true }
 ordered-float = { workspace = true }
 smallvec = { workspace = true }
-coordinate_systems = { workspace = true }
 types = { workspace = true }
-approx = { workspace = true }
