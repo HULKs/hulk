@@ -26,3 +26,7 @@ world_state = { workspace = true }
 [[bin]]
 name = "behavior_tree_smoke"
 path = "src/bin/behavior_tree_smoke.rs"
+
+[[bin]]
+name = "mercy_rule_finish"
+path = "src/bin/mercy_rule_finish.rs"
