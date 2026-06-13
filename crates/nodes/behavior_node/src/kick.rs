@@ -72,7 +72,7 @@ pub fn select_kick_target(blackboard: &mut Blackboard) -> Status {
     apply_visual_kick_target(blackboard, goal_position, target_offset_angle)
 }
 
-pub(super) fn apply_visual_kick_target(
+pub fn apply_visual_kick_target(
     blackboard: &mut Blackboard,
     target_position_in_field: Point2<Field>,
     target_offset_angle: f32,
@@ -236,10 +236,9 @@ pub fn set_kick_target_in_front(blackboard: &mut Blackboard) -> Status {
             let target_position = field_to_ground * target_in_field;
             let kick_direction = Orientation2::from_vector(target_position - ball_in_ground);
 
-            *motion_target_position =
-                Rotation2::new(blackboard.parameters.kicking.kick_target_offset_angle)
-                    * target_position;
+            *motion_target_position = target_position;
             *motion_kick_direction = kick_direction;
+
             return Status::Success;
         }
     }
