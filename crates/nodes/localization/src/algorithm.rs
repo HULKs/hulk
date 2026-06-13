@@ -44,6 +44,10 @@ pub struct Localization {
     is_penalized_with_motion_in_set_or_initial: bool,
     time_when_penalized_clicked: Option<SystemTime>,
     last_odometer: Option<Odometer>,
+    #[serde(default)]
+    last_imu_state: Option<ImuState>,
+    #[serde(default)]
+    last_fall_down_state: Option<FallDownStateType>,
     last_line_data_time: SystemTime,
 }
 
@@ -177,6 +181,8 @@ impl Localization {
             is_penalized_with_motion_in_set_or_initial: false,
             time_when_penalized_clicked: None,
             last_odometer: None,
+            last_imu_state: None,
+            last_fall_down_state: None,
             last_line_data_time: SystemTime::UNIX_EPOCH,
         })
     }
@@ -231,10 +237,16 @@ impl Localization {
                 game_controller_state.penalties[*context.player_number]
             });
 
-        let imu_state = Self::latest_imu_state(context);
+        if let Some(imu_state) = Self::latest_imu_state(context) {
+            self.last_imu_state = Some(imu_state);
+        }
+        let imu_state = self.last_imu_state.unwrap_or_default();
         let gyro_movement = imu_state.angular_velocity.norm();
 
-        let fall_down_state = Self::latest_fall_down_state(context);
+        if let Some(fall_down_state) = Self::latest_fall_down_state(context) {
+            self.last_fall_down_state = Some(fall_down_state);
+        }
+        let fall_down_state = self.last_fall_down_state;
         let line_measurements_allowed = !matches!(
             fall_down_state,
             Some(
@@ -254,7 +266,9 @@ impl Localization {
             (Some(last), Some(latest)) => odometry_delta(last, latest),
             _ => Default::default(),
         };
-        self.last_odometer = odometer_with_imu_yaw;
+        if let Some(odometer_with_imu_yaw) = odometer_with_imu_yaw {
+            self.last_odometer = Some(odometer_with_imu_yaw);
+        }
 
         let line_data = context
             .line_data
@@ -308,7 +322,7 @@ impl Localization {
             .next_back()
     }
 
-    fn latest_imu_state(context: &CycleContext) -> ImuState {
+    fn latest_imu_state(context: &CycleContext) -> Option<ImuState> {
         context
             .imu_state
             .persistent
@@ -316,7 +330,6 @@ impl Localization {
             .chain(context.imu_state.temporary.iter())
             .flat_map(|(_timestamp, imu_states)| imu_states.iter().copied())
             .next_back()
-            .unwrap_or_default()
     }
 
     fn handle_state_transition(&mut self, inputs: &CycleInputs, context: &CycleContext) {
@@ -1431,6 +1444,8 @@ mod tests {
             is_penalized_with_motion_in_set_or_initial: false,
             time_when_penalized_clicked: None,
             last_odometer: None,
+            last_imu_state: None,
+            last_fall_down_state: None,
             last_line_data_time: SystemTime::UNIX_EPOCH,
         };
 
@@ -1455,6 +1470,8 @@ mod tests {
             is_penalized_with_motion_in_set_or_initial: false,
             time_when_penalized_clicked: None,
             last_odometer: None,
+            last_imu_state: None,
+            last_fall_down_state: None,
             last_line_data_time: SystemTime::UNIX_EPOCH,
         };
         let context = CycleContext {
@@ -1480,6 +1497,117 @@ mod tests {
 
         assert!(outputs.ground_to_field.is_none());
         assert!(!outputs.is_localization_converged);
+    }
+
+    #[test]
+    fn odometry_uses_cached_imu_when_batch_has_no_new_imu() {
+        let parameters = test_parameters();
+        let field_dimensions = FieldDimensions::SPL_2025;
+        let player_number = PlayerNumber::One;
+        let primary_state = PrimaryState::Playing;
+        let mut localization = Localization::new(CreationContext {
+            field_dimensions: &field_dimensions,
+        })
+        .expect("localization can be created");
+
+        let mut initial_odometer = empty_perception_input();
+        initial_odometer.persistent.insert(
+            SystemTime::UNIX_EPOCH,
+            vec![Odometer {
+                x: 0.0,
+                y: 0.0,
+                theta: 0.0,
+            }],
+        );
+        let mut initial_imu = empty_perception_input();
+        initial_imu.persistent.insert(
+            SystemTime::UNIX_EPOCH,
+            vec![ImuState {
+                roll_pitch_yaw: linear_algebra::vector![0.0, 0.0, 1.0],
+                angular_velocity: linear_algebra::vector![0.0, 0.0, 0.0],
+                linear_acceleration: linear_algebra::vector![0.0, 0.0, 0.0],
+            }],
+        );
+        let initial_context = CycleContext {
+            correspondence_lines: DebugOutput::new(false),
+            fit_errors: DebugOutput::new(false),
+            measured_lines_in_field: DebugOutput::new(false),
+            pose_hypotheses: DebugOutput::new(false),
+            updates: DebugOutput::new(false),
+            gyro_movement: DebugOutput::new(false),
+            filtered_game_controller_state: None,
+            primary_state: &primary_state,
+            cycle_start_time: SystemTime::UNIX_EPOCH,
+            odometer: initial_odometer,
+            fall_down_state: empty_perception_input(),
+            imu_state: initial_imu,
+            line_data: empty_perception_input(),
+            parameters: &parameters,
+            field_dimensions: &field_dimensions,
+            player_number: &player_number,
+        };
+        localization.capture_cycle_inputs(&initial_context);
+
+        let context_without_odometer = CycleContext {
+            correspondence_lines: DebugOutput::new(false),
+            fit_errors: DebugOutput::new(false),
+            measured_lines_in_field: DebugOutput::new(false),
+            pose_hypotheses: DebugOutput::new(false),
+            updates: DebugOutput::new(false),
+            gyro_movement: DebugOutput::new(false),
+            filtered_game_controller_state: None,
+            primary_state: &primary_state,
+            cycle_start_time: SystemTime::UNIX_EPOCH + Duration::from_millis(5),
+            odometer: empty_perception_input(),
+            fall_down_state: empty_perception_input(),
+            imu_state: empty_perception_input(),
+            line_data: empty_perception_input(),
+            parameters: &parameters,
+            field_dimensions: &field_dimensions,
+            player_number: &player_number,
+        };
+        localization.capture_cycle_inputs(&context_without_odometer);
+
+        let mut odometer_without_imu = empty_perception_input();
+        odometer_without_imu.persistent.insert(
+            SystemTime::UNIX_EPOCH + Duration::from_millis(10),
+            vec![Odometer {
+                x: 1.0,
+                y: 0.0,
+                theta: 0.0,
+            }],
+        );
+        let context_without_imu = CycleContext {
+            correspondence_lines: DebugOutput::new(false),
+            fit_errors: DebugOutput::new(false),
+            measured_lines_in_field: DebugOutput::new(false),
+            pose_hypotheses: DebugOutput::new(false),
+            updates: DebugOutput::new(false),
+            gyro_movement: DebugOutput::new(false),
+            filtered_game_controller_state: None,
+            primary_state: &primary_state,
+            cycle_start_time: SystemTime::UNIX_EPOCH + Duration::from_millis(10),
+            odometer: odometer_without_imu,
+            fall_down_state: empty_perception_input(),
+            imu_state: empty_perception_input(),
+            line_data: empty_perception_input(),
+            parameters: &parameters,
+            field_dimensions: &field_dimensions,
+            player_number: &player_number,
+        };
+
+        let inputs = localization.capture_cycle_inputs(&context_without_imu);
+
+        assert_relative_eq!(
+            inputs.current_odometry_to_last_odometry.rotation.angle(),
+            0.0,
+            epsilon = 0.0001
+        );
+        assert_relative_eq!(
+            inputs.current_odometry_to_last_odometry.translation.vector,
+            nalgebra::vector![1.0_f32.cos(), -1.0_f32.sin()],
+            epsilon = 0.0001
+        );
     }
 
     #[test]
