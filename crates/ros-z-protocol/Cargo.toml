@@ -7,6 +7,8 @@ homepage.workspace = true
 
 [dependencies]
 ros-z-schema = { workspace = true }
+serde = { workspace = true }
+sha2 = { workspace = true }
 thiserror = { workspace = true }
 zenoh = { workspace = true }
 

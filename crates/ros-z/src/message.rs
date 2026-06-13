@@ -15,6 +15,7 @@ use std::time::{Duration, SystemTime};
 use zenoh::shm::{PosixShmProviderBackend, ShmProvider};
 use zenoh_buffers::ZBuf;
 
+use crate::attachment::{ENDPOINT_GLOBAL_ID_SIZE, EndpointGlobalId};
 use crate::entity::TypeInfo;
 use crate::schema::{MessageSchema, SchemaBuilder};
 use crate::shm::ShmWriter;
@@ -552,6 +553,12 @@ where
             element: Box::new(T::build_schema(builder)?),
             length: SequenceLengthDef::Dynamic,
         })
+    }
+}
+
+impl MessageSchema for EndpointGlobalId {
+    fn build_schema(builder: &mut SchemaBuilder) -> Result<TypeDef, SchemaError> {
+        <[u8; ENDPOINT_GLOBAL_ID_SIZE]>::build_schema(builder)
     }
 }
 

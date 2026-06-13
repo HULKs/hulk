@@ -1,7 +1,9 @@
-use ros_z::Message;
 use ros_z::message::{SerdeCdrCodec, WireDecoder, WireEncoder};
 use ros_z::schema::{MessageSchema, SchemaBuilder};
-use ros_z_schema::{SchemaError, TypeDef, TypeDefinition, TypeName};
+use ros_z::{ENDPOINT_GLOBAL_ID_SIZE, EndpointGlobalId, Message};
+use ros_z_schema::{
+    PrimitiveTypeDef, SchemaError, SequenceLengthDef, TypeDef, TypeDefinition, TypeName,
+};
 use serde::{Deserialize, Serialize};
 use zenoh_buffers::buffer::SplitBuffer;
 
@@ -180,6 +182,24 @@ fn fixed_arrays_are_fixed_sequences() {
         panic!("expected sequence schema");
     };
     assert_eq!(length, ros_z_schema::SequenceLengthDef::Fixed(16));
+}
+
+#[test]
+fn endpoint_global_id_schema_is_fixed_u8_sequence() {
+    // The public ros_z re-export should expose the semantic ID API and schema.
+    assert_eq!(
+        EndpointGlobalId::ZERO.as_bytes(),
+        &[0u8; ENDPOINT_GLOBAL_ID_SIZE]
+    );
+
+    let mut builder = SchemaBuilder::new();
+    let schema = EndpointGlobalId::build_schema(&mut builder).unwrap();
+
+    let TypeDef::Sequence { element, length } = schema else {
+        panic!("expected sequence schema");
+    };
+    assert_eq!(element.as_ref(), &TypeDef::Primitive(PrimitiveTypeDef::U8));
+    assert_eq!(length, SequenceLengthDef::Fixed(ENDPOINT_GLOBAL_ID_SIZE));
 }
 
 #[test]

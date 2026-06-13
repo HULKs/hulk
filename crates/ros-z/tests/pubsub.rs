@@ -426,7 +426,7 @@ async fn recv_with_metadata_includes_transport_and_source_timestamps() {
     assert_eq!(received.message, message);
     assert!(received.transport_time.is_some());
     assert_eq!(received.sequence_number, 0);
-    assert_ne!(received.source_global_id, [0; 16]);
+    assert_ne!(received.source_global_id, ros_z::EndpointGlobalId::ZERO);
     assert_eq!(
         received.publication_id().sequence_number(),
         received.sequence_number

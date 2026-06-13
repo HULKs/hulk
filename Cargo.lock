@@ -9372,7 +9372,6 @@ dependencies = [
  "serde",
  "serde_json",
  "serial_test",
- "sha2",
  "tempfile",
  "thiserror 2.0.18",
  "tokio",
@@ -9439,6 +9438,8 @@ name = "ros-z-protocol"
 version = "0.1.0"
 dependencies = [
  "ros-z-schema",
+ "serde",
+ "sha2",
  "thiserror 2.0.18",
  "zenoh",
 ]

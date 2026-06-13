@@ -118,7 +118,7 @@ mod tests {
             transport_time: None,
             source_time: crate::time::Time::from_nanos(0),
             sequence_number: 1,
-            source_global_id: [0; 16],
+            source_global_id: crate::EndpointGlobalId::ZERO,
         };
 
         assert_eq!(received.len(), 3);

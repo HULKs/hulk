@@ -34,6 +34,7 @@ pub mod format;
 pub mod qos;
 
 pub use entity::{
-    EndpointEntity, EndpointKind, Entity, EntityKind, NodeEntity, SchemaHash, TypeInfo,
+    ENDPOINT_GLOBAL_ID_SIZE, EndpointEntity, EndpointGlobalId, EndpointKind, Entity, EntityKind,
+    NodeEntity, SchemaHash, TypeInfo,
 };
 pub use error::{ProtocolError, Result};

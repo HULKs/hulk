@@ -16,7 +16,7 @@ use crate::{Error, Result, error::WireError, topic_name};
 
 use crate::{
     attachment::{Attachment, EndpointGlobalId},
-    entity::{EndpointEntity, endpoint_global_id},
+    entity::EndpointEntity,
     message::{Message, Service, WireDecoder, WireEncoder},
     qos::QosProfile,
     queue::BoundedQueue,
@@ -115,7 +115,7 @@ where
             sequence_number: AtomicUsize::new(1), // Start at 1; zero is reserved for missing sequence values.
             inner,
             _lv_token: lv_token,
-            endpoint_global_id: endpoint_global_id(&self.entity),
+            endpoint_global_id: EndpointGlobalId::from(&self.entity),
             topic: self.entity.topic,
             clock: self.clock,
             _phantom_data: Default::default(),

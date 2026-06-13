@@ -87,7 +87,7 @@ pub mod zbuf;
 #[macro_use]
 pub mod utils;
 
-pub use attachment::EndpointGlobalId;
+pub use attachment::{ENDPOINT_GLOBAL_ID_SIZE, EndpointGlobalId};
 pub use entity::{SchemaHash, TypeInfo};
 pub use error::{Error, Result};
 pub use message::{Message, SerdeCdrCodec, Service};
@@ -101,5 +101,4 @@ pub use zbuf::ZBuf;
 #[doc(hidden)]
 pub mod __private {
     pub use ros_z_schema;
-    pub use sha2;
 }
