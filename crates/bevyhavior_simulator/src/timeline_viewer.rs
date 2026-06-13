@@ -21,7 +21,7 @@ use types::{field_dimensions::FieldDimensions, motion_command::MotionCommand};
 
 use crate::behavior_tree_simulator::{SimulatorFailure, TimelineFrame};
 
-#[derive(Clone, Debug)]
+#[derive(Debug)]
 pub struct TimelineViewerData {
     pub field_dimensions: FieldDimensions,
     pub frames: Vec<TimelineFrame>,
