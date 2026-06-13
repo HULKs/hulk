@@ -12,6 +12,7 @@ crate-type = ["lib"]
 arc-swap = { workspace = true }
 byteorder = { workspace = true }
 event-listener = { workspace = true }
+flume = { workspace = true }
 itertools = { workspace = true }
 json5 = { workspace = true }
 nalgebra = { workspace = true, features = ["serde-serialize"], optional = true }

@@ -144,6 +144,19 @@ fn handwritten_message_constructs_static_pubsub_builders_without_legacy_type_inf
 }
 
 #[test]
+fn parameter_api_exports_remote_client_and_wire_types_at_top_level() {
+    let _client_type = std::any::type_name::<ros_z::parameter::RemoteParameterClient>();
+    let _snapshot_request = ros_z::parameter::GetNodeParametersSnapshotRequest::default();
+    let write = ros_z::parameter::NodeParameterWriteJson::default();
+
+    assert!(write.path.is_empty());
+    assert_eq!(
+        <ros_z::parameter::SetNodeParameterSrv as ros_z::ServiceTypeInfo>::service_type_info().name,
+        "ros_z_parameter::SetNodeParameter"
+    );
+}
+
+#[test]
 fn wire_message_uses_codec_vocabulary() {
     let original = ApiSmokeMessage { value: 7 };
     let encoded = SerdeCdrCodec::<ApiSmokeMessage>::serialize_to_zbuf(&original).unwrap();

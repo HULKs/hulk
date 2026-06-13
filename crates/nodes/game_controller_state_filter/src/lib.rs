@@ -29,8 +29,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
 
-    let parameters =
-        node.bind_parameter_as::<GameStateFilterParameters>("game_controller_state_filter")?;
+    let parameters = node
+        .bind_parameter_as::<GameStateFilterParameters>("game_controller_state_filter")
+        .await?;
     let field_dimensions_cache = node
         .create_cache::<FieldDimensions>("field_dimensions", 1)?
         .with_qos(QosProfile {

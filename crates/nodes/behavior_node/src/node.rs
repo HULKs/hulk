@@ -72,7 +72,9 @@ pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> +
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("behavior_node").build().await?;
 
-    let parameters = node.bind_parameter_as::<BehaviorParameters>("behavior_node")?;
+    let parameters = node
+        .bind_parameter_as::<BehaviorParameters>("behavior_node")
+        .await?;
     let field_dimensions_cache = node
         .create_cache::<FieldDimensions>("field_dimensions", 1)?
         .with_qos(QosProfile {

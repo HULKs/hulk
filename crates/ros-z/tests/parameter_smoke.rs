@@ -57,17 +57,21 @@ async fn bind_merge_set_and_subscribe_work() -> TestResult {
         .build()
         .await?;
 
-    let parameters = node.bind_parameter_as::<VisionParameters>("ball_detector")?;
+    let parameters = node
+        .bind_parameter_as::<VisionParameters>("ball_detector")
+        .await?;
     let snapshot = parameters.snapshot();
     assert!(snapshot.typed().enabled);
     assert_eq!(snapshot.typed().threshold, 0.8);
 
     let mut updates = parameters.subscribe();
-    parameters.set_json(
-        "threshold",
-        serde_json::json!(0.9),
-        robot.to_string_lossy().into_owned(),
-    )?;
+    parameters
+        .set_json(
+            "threshold",
+            serde_json::json!(0.9),
+            robot.to_string_lossy().into_owned(),
+        )
+        .await?;
     updates.changed().await?;
     assert_eq!(updates.borrow().typed().threshold, 0.9);
 

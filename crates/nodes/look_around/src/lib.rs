@@ -18,7 +18,9 @@ pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> +
 async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("look_around").build().await?;
 
-    let _parameters = node.bind_parameter_as::<LookAroundParameters>("look_around")?;
+    let _parameters = node
+        .bind_parameter_as::<LookAroundParameters>("look_around")
+        .await?;
     let _motion_command_sub = node
         .subscriber::<MotionCommand>("motion_command")?
         .build()

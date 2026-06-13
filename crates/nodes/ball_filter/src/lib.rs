@@ -39,7 +39,9 @@ pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> +
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("ball_filter").build().await?;
 
-    let parameters = node.bind_parameter_as::<BallFilterParameters>("ball_filter")?;
+    let parameters = node
+        .bind_parameter_as::<BallFilterParameters>("ball_filter")
+        .await?;
     let field_dimensions_sub = node
         .create_cache::<FieldDimensions>("field_dimensions", 1)?
         .with_qos(QosProfile {

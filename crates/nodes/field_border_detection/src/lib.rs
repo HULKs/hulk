@@ -26,8 +26,9 @@ pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> +
 async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("field_border_detection").build().await?;
 
-    let parameters =
-        node.bind_parameter_as::<FieldBorderDetectionParameters>("field_border_detection")?;
+    let parameters = node
+        .bind_parameter_as::<FieldBorderDetectionParameters>("field_border_detection")
+        .await?;
     let camera_matrix_cache = node
         .create_cache::<TimeWrapper<CameraMatrix>>("camera_matrix", 10)?
         .with_stamp(|w: &TimeWrapper<CameraMatrix>| w.time)

@@ -9361,6 +9361,7 @@ dependencies = [
  "byteorder",
  "color-eyre",
  "event-listener",
+ "flume",
  "itertools 0.14.0",
  "json5",
  "nalgebra",

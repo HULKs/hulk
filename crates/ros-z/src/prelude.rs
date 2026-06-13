@@ -22,9 +22,6 @@
 pub use crate::context::{Context, ContextBuilder};
 pub use crate::node::Node;
 
-/// Parameter extension methods on [`Node`].
-pub use crate::parameter::NodeParametersExt;
-
 /// Core pub/sub handles and builders.
 pub use crate::pubsub::{Publisher, PublisherBuilder, Subscriber, SubscriberBuilder};
 

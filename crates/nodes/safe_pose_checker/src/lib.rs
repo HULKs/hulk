@@ -29,7 +29,9 @@ pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> +
 async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("safe_pose_checker").build().await?;
 
-    let parameters = node.bind_parameter_as::<Parameters>("safe_pose_checker")?;
+    let parameters = node
+        .bind_parameter_as::<Parameters>("safe_pose_checker")
+        .await?;
     let imu_state_sub = node
         .subscriber::<ImuState>("inputs/imu_state")?
         .build()

@@ -8,18 +8,24 @@ use crate::{
     attachment::Attachment,
     message::{Service, WireDecoder, WireEncoder},
     node::Node,
-    parameter::{NodeParameters, ParameterError, Result},
+    parameter::{ParameterError, Result},
     pubsub::Publisher,
     qos::{QosDurability, QosHistory, QosProfile, QosReliability},
     service::ServiceServer,
 };
 
-use crate::parameter::node_parameter::{CommitOutcome, NodeParametersInner, ParameterJsonWrite};
+use crate::parameter::{
+    ParameterTimestamp,
+    merge::get_value_at_path as get_from_value,
+    node_parameter::{
+        CommitOutcome, ParameterCommand, ParameterDriver, ParameterJsonWrite, ParameterState,
+    },
+};
 
 use super::types::*;
 
 pub struct RemoteParameterServices<T> {
-    event_publisher: Publisher<NodeParameterEvent>,
+    event_publisher: Arc<Publisher<NodeParameterEvent>>,
     _get_snapshot: Arc<ServiceServer<GetNodeParametersSnapshotSrv, ()>>,
     _get_value: Arc<ServiceServer<GetNodeParameterValueSrv, ()>>,
     _get_type_info: Arc<ServiceServer<GetNodeParameterTypeInfoSrv, ()>>,
@@ -34,7 +40,11 @@ impl<T> RemoteParameterServices<T>
 where
     T: Serialize + DeserializeOwned + Message + Send + Sync + 'static,
 {
-    pub async fn register(node: &Node, inner: Arc<NodeParametersInner<T>>) -> Result<Self> {
+    pub async fn register(
+        node: &Node,
+        _state: Arc<ParameterState<T>>,
+        commands: flume::Sender<ParameterCommand<T>>,
+    ) -> Result<Self> {
         let event_publisher = node
             .publisher::<NodeParameterEvent>("~parameter/events")
             .map_err(|err| ParameterError::RemoteError {
@@ -54,52 +64,101 @@ where
 
         let get_snapshot =
             register_server::<GetNodeParametersSnapshotSrv>(node, "~parameter/get_snapshot", {
-                let inner = inner.clone();
-                move |query| handle_get_snapshot::<T>(&inner, query)
+                let commands = commands.clone();
+                move |query| {
+                    enqueue_or_reply_busy(
+                        &commands,
+                        query,
+                        |query| ParameterCommand::RemoteGetSnapshot { query },
+                        busy_snapshot_response(),
+                    );
+                }
             })
             .await?;
 
         let get_value =
             register_server::<GetNodeParameterValueSrv>(node, "~parameter/get_value", {
-                let inner = inner.clone();
-                move |query| handle_get_value::<T>(&inner, query)
+                let commands = commands.clone();
+                move |query| {
+                    enqueue_or_reply_busy(
+                        &commands,
+                        query,
+                        |query| ParameterCommand::RemoteGetValue { query },
+                        busy_value_response(),
+                    );
+                }
             })
             .await?;
 
         let get_type_info =
             register_server::<GetNodeParameterTypeInfoSrv>(node, "~parameter/get_type_info", {
-                let inner = inner.clone();
-                move |query| handle_get_type_info::<T>(&inner, query)
+                let commands = commands.clone();
+                move |query| {
+                    enqueue_or_reply_busy(
+                        &commands,
+                        query,
+                        |query| ParameterCommand::RemoteGetTypeInfo { query },
+                        busy_type_info_response(),
+                    );
+                }
             })
             .await?;
 
         let set = register_server::<SetNodeParameterSrv>(node, "~parameter/set", {
-            let inner = inner.clone();
-            move |query| handle_set::<T>(&inner, query)
+            let commands = commands.clone();
+            move |query| {
+                enqueue_or_reply_busy(
+                    &commands,
+                    query,
+                    |query| ParameterCommand::RemoteSet { query },
+                    busy_write_response::<SetNodeParameterResponse>(),
+                );
+            }
         })
         .await?;
 
         let set_atomic =
             register_server::<SetNodeParametersAtomicallySrv>(node, "~parameter/set_atomic", {
-                let inner = inner.clone();
-                move |query| handle_set_atomic::<T>(&inner, query)
+                let commands = commands.clone();
+                move |query| {
+                    enqueue_or_reply_busy(
+                        &commands,
+                        query,
+                        |query| ParameterCommand::RemoteSetAtomic { query },
+                        busy_write_response::<SetNodeParametersAtomicallyResponse>(),
+                    );
+                }
             })
             .await?;
 
         let reset = register_server::<ResetNodeParameterSrv>(node, "~parameter/reset", {
-            let inner = inner.clone();
-            move |query| handle_reset::<T>(&inner, query)
+            let commands = commands.clone();
+            move |query| {
+                enqueue_or_reply_busy(
+                    &commands,
+                    query,
+                    |query| ParameterCommand::RemoteReset { query },
+                    busy_write_response::<ResetNodeParameterResponse>(),
+                );
+            }
         })
         .await?;
 
         let reload = register_server::<ReloadNodeParametersSrv>(node, "~parameter/reload", {
-            let inner = inner.clone();
-            move |query| handle_reload::<T>(&inner, query)
+            let commands = commands.clone();
+            move |query| {
+                enqueue_or_reply_busy(
+                    &commands,
+                    query,
+                    |query| ParameterCommand::RemoteReload { query },
+                    busy_write_response::<ReloadNodeParametersResponse>(),
+                );
+            }
         })
         .await?;
 
         Ok(Self {
-            event_publisher,
+            event_publisher: Arc::new(event_publisher),
             _get_snapshot: Arc::new(get_snapshot),
             _get_value: Arc::new(get_value),
             _get_type_info: Arc::new(get_type_info),
@@ -111,18 +170,15 @@ where
         })
     }
 
-    pub async fn publish_event(&self, event: &NodeParameterEvent) -> Result<()> {
-        self.event_publisher
-            .publish(event)
-            .await
-            .map_err(|source| ParameterError::operation("publishing parameter event", source))
+    pub fn event_publisher(&self) -> Arc<Publisher<NodeParameterEvent>> {
+        self.event_publisher.clone()
     }
 }
 
 async fn register_server<S>(
     node: &Node,
     name: &str,
-    handler: impl Fn(&Query) + Send + Sync + 'static,
+    handler: impl Fn(Query) + Send + Sync + 'static,
 ) -> Result<ServiceServer<S, ()>>
 where
     S: Service + ServiceTypeInfo,
@@ -132,19 +188,79 @@ where
         .map_err(|err| ParameterError::RemoteError {
             message: err.to_string(),
         })?
-        .build_with_callback(move |query| handler(&query))
+        .build_with_callback(handler)
         .await
         .map_err(|source| ParameterError::operation(operation, source))
 }
 
-fn handle_get_snapshot<T>(inner: &Arc<NodeParametersInner<T>>, query: &Query)
+const PARAMETER_ACTOR_BUSY: &str = "parameter actor is unavailable or busy";
+
+fn busy_snapshot_response() -> GetNodeParametersSnapshotResponse {
+    GetNodeParametersSnapshotResponse {
+        success: false,
+        message: PARAMETER_ACTOR_BUSY.to_string(),
+        node_fqn: String::new(),
+        parameter_key: String::new(),
+        revision: 0,
+        committed_at: ParameterTimestamp::default(),
+        layers: Vec::new(),
+        value_json: "null".to_string(),
+        layer_overlays_json: Vec::new(),
+    }
+}
+
+fn busy_value_response() -> GetNodeParameterValueResponse {
+    GetNodeParameterValueResponse {
+        success: false,
+        message: PARAMETER_ACTOR_BUSY.to_string(),
+        revision: 0,
+        path: String::new(),
+        effective_source_layer: String::new(),
+        value_json: "null".to_string(),
+    }
+}
+
+fn busy_type_info_response() -> GetNodeParameterTypeInfoResponse {
+    GetNodeParameterTypeInfoResponse {
+        success: false,
+        message: PARAMETER_ACTOR_BUSY.to_string(),
+        type_name: String::new(),
+        schema_hash: String::new(),
+    }
+}
+
+fn busy_write_response<T>() -> T
+where
+    T: From<(bool, String, u64, Vec<String>)>,
+{
+    T::from((false, PARAMETER_ACTOR_BUSY.to_string(), 0, Vec::new()))
+}
+
+fn enqueue_or_reply_busy<T, R>(
+    commands: &flume::Sender<ParameterCommand<T>>,
+    query: Query,
+    make_command: impl FnOnce(Query) -> ParameterCommand<T>,
+    busy_response: R,
+) where
+    T: Serialize + DeserializeOwned + Message + Send + Sync + 'static,
+    R: Message,
+    for<'a> <R as Message>::Codec: WireEncoder<Input<'a> = &'a R>,
+{
+    match commands.try_send(make_command(query)) {
+        Ok(()) => {}
+        Err(flume::TrySendError::Full(command))
+        | Err(flume::TrySendError::Disconnected(command)) => {
+            let query = command.into_query();
+            reply(&query, &busy_response);
+        }
+    }
+}
+
+pub fn handle_get_snapshot_for_state<T>(state: &Arc<ParameterState<T>>, query: Query)
 where
     T: Serialize + DeserializeOwned + Message + Send + Sync + 'static,
 {
-    let parameters = NodeParameters {
-        inner: inner.clone(),
-    };
-    let snapshot = parameters.snapshot();
+    let snapshot = state.current.load_full();
     let response = GetNodeParametersSnapshotResponse {
         success: true,
         message: String::new(),
@@ -156,22 +272,19 @@ where
         value_json: to_json(&snapshot.effective),
         layer_overlays_json: snapshot.layer_overlays.iter().map(to_json).collect(),
     };
-    reply(query, &response);
+    reply(&query, &response);
 }
 
-fn handle_get_value<T>(inner: &Arc<NodeParametersInner<T>>, query: &Query)
+pub fn handle_get_value_for_state<T>(state: &Arc<ParameterState<T>>, query: Query)
 where
     T: Serialize + DeserializeOwned + Message + Send + Sync + 'static,
 {
-    let parameters = NodeParameters {
-        inner: inner.clone(),
-    };
-    let request = decode_request::<GetNodeParameterValueRequest>(query);
+    let request = decode_request::<GetNodeParameterValueRequest>(&query);
     let response = match request {
         Ok(request) => {
-            let snapshot = parameters.snapshot();
-            match parameters.get_json(&request.path) {
-                Ok(value) => GetNodeParameterValueResponse {
+            let snapshot = state.current.load_full();
+            match get_from_value(&snapshot.effective, &request.path) {
+                Ok(Some(value)) => GetNodeParameterValueResponse {
                     success: true,
                     message: String::new(),
                     revision: snapshot.revision,
@@ -180,6 +293,18 @@ where
                         .effective_source_layer(&request.path)
                         .unwrap_or_default(),
                     value_json: to_json(&value),
+                },
+                Ok(None) => GetNodeParameterValueResponse {
+                    success: false,
+                    message: ParameterError::PathError {
+                        path: request.path.clone(),
+                        reason: "path not found".to_string(),
+                    }
+                    .to_string(),
+                    revision: snapshot.revision,
+                    path: request.path,
+                    effective_source_layer: String::new(),
+                    value_json: "null".to_string(),
                 },
                 Err(err) => GetNodeParameterValueResponse {
                     success: false,
@@ -200,44 +325,44 @@ where
             value_json: "null".to_string(),
         },
     };
-    reply(query, &response);
+    reply(&query, &response);
 }
 
-fn handle_get_type_info<T>(inner: &Arc<NodeParametersInner<T>>, query: &Query)
+pub fn handle_get_type_info_for_state<T>(state: &Arc<ParameterState<T>>, query: Query)
 where
     T: Serialize + DeserializeOwned + Message + Send + Sync + 'static,
 {
     reply(
-        query,
+        &query,
         &GetNodeParameterTypeInfoResponse {
             success: true,
             message: String::new(),
-            type_name: inner.type_name.clone(),
-            schema_hash: inner.schema_hash.to_hash_string(),
+            type_name: state.type_name.clone(),
+            schema_hash: state.schema_hash.to_hash_string(),
         },
     );
 }
 
-fn handle_set<T>(inner: &Arc<NodeParametersInner<T>>, query: &Query)
+pub async fn handle_set_for_driver<T>(driver: &ParameterDriver<T>, query: Query)
 where
     T: Serialize + DeserializeOwned + Message + Send + Sync + 'static,
 {
-    let parameters = NodeParameters {
-        inner: inner.clone(),
-    };
-    let request = decode_request::<SetNodeParameterRequest>(query);
+    let request = decode_request::<SetNodeParameterRequest>(&query);
     let response = match request {
         Ok(request) => match serde_json::from_str::<serde_json::Value>(&request.value_json) {
-            Ok(value) => match parameters.commit(
-                &[ParameterJsonWrite {
-                    path: request.path,
-                    value,
-                    target_layer: request.target_layer,
-                }],
-                &[],
-                request.expected_revision,
-                NodeParameterChangeSource::RemoteWrite,
-            ) {
+            Ok(value) => match driver
+                .commit(
+                    &[ParameterJsonWrite {
+                        path: request.path,
+                        value,
+                        target_layer: request.target_layer,
+                    }],
+                    &[],
+                    request.expected_revision,
+                    NodeParameterChangeSource::RemoteWrite,
+                )
+                .await
+            {
                 Ok(outcome) => write_response(outcome),
                 Err(err) => error_write_response(err),
             },
@@ -250,17 +375,14 @@ where
             changed_paths: Vec::new(),
         },
     };
-    reply(query, &response);
+    reply(&query, &response);
 }
 
-fn handle_set_atomic<T>(inner: &Arc<NodeParametersInner<T>>, query: &Query)
+pub async fn handle_set_atomic_for_driver<T>(driver: &ParameterDriver<T>, query: Query)
 where
     T: Serialize + DeserializeOwned + Message + Send + Sync + 'static,
 {
-    let parameters = NodeParameters {
-        inner: inner.clone(),
-    };
-    let request = decode_request::<SetNodeParametersAtomicallyRequest>(query);
+    let request = decode_request::<SetNodeParametersAtomicallyRequest>(&query);
     let response = match request {
         Ok(request) => {
             let mut writes = Vec::with_capacity(request.writes.len());
@@ -282,12 +404,15 @@ where
             if let Some(source) = parse_error {
                 error_write_response(ParameterError::RemotePayloadParseError { source })
             } else {
-                match parameters.commit(
-                    &writes,
-                    &[],
-                    request.expected_revision,
-                    NodeParameterChangeSource::RemoteWrite,
-                ) {
+                match driver
+                    .commit(
+                        &writes,
+                        &[],
+                        request.expected_revision,
+                        NodeParameterChangeSource::RemoteWrite,
+                    )
+                    .await
+                {
                     Ok(outcome) => write_response(outcome),
                     Err(err) => error_write_response(err),
                 }
@@ -300,24 +425,24 @@ where
             changed_paths: Vec::new(),
         },
     };
-    reply(query, &response);
+    reply(&query, &response);
 }
 
-fn handle_reset<T>(inner: &Arc<NodeParametersInner<T>>, query: &Query)
+pub async fn handle_reset_for_driver<T>(driver: &ParameterDriver<T>, query: Query)
 where
     T: Serialize + DeserializeOwned + Message + Send + Sync + 'static,
 {
-    let parameters = NodeParameters {
-        inner: inner.clone(),
-    };
-    let request = decode_request::<ResetNodeParameterRequest>(query);
+    let request = decode_request::<ResetNodeParameterRequest>(&query);
     let response = match request {
-        Ok(request) => match parameters.commit(
-            &[],
-            &[(request.path, request.target_layer)],
-            request.expected_revision,
-            NodeParameterChangeSource::RemoteWrite,
-        ) {
+        Ok(request) => match driver
+            .commit(
+                &[],
+                &[(request.path, request.target_layer)],
+                request.expected_revision,
+                NodeParameterChangeSource::RemoteWrite,
+            )
+            .await
+        {
             Ok(outcome) => write_response(outcome),
             Err(err) => error_write_response(err),
         },
@@ -328,17 +453,17 @@ where
             changed_paths: Vec::new(),
         },
     };
-    reply(query, &response);
+    reply(&query, &response);
 }
 
-fn handle_reload<T>(inner: &Arc<NodeParametersInner<T>>, query: &Query)
+pub async fn handle_reload_for_driver<T>(driver: &ParameterDriver<T>, query: Query)
 where
     T: Serialize + DeserializeOwned + Message + Send + Sync + 'static,
 {
-    let parameters = NodeParameters {
-        inner: inner.clone(),
-    };
-    let response = match parameters.reload_with_source(NodeParameterChangeSource::Reload) {
+    let response = match driver
+        .reload_with_source(NodeParameterChangeSource::Reload)
+        .await
+    {
         Ok(outcome) => ReloadNodeParametersResponse {
             success: true,
             message: String::new(),
@@ -352,7 +477,7 @@ where
             changed_paths: Vec::new(),
         },
     };
-    reply(query, &response);
+    reply(&query, &response);
 }
 
 fn write_response<T>(outcome: CommitOutcome) -> T
@@ -407,6 +532,17 @@ impl From<(bool, String, u64, Vec<String>)> for ResetNodeParameterResponse {
     }
 }
 
+impl From<(bool, String, u64, Vec<String>)> for ReloadNodeParametersResponse {
+    fn from(value: (bool, String, u64, Vec<String>)) -> Self {
+        Self {
+            success: value.0,
+            message: value.1,
+            committed_revision: value.2,
+            changed_paths: value.3,
+        }
+    }
+}
+
 fn decode_request<T>(query: &Query) -> std::result::Result<T, String>
 where
     T: Message,
@@ -444,4 +580,200 @@ where
 
 fn to_json(value: &serde_json::Value) -> String {
     serde_json::to_string(value).unwrap_or_else(|_| "null".to_string())
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{
+        sync::atomic::{AtomicUsize, Ordering},
+        time::Duration,
+    };
+
+    use serde::{Deserialize, Serialize};
+
+    use crate::{context::ContextBuilder, node::Node};
+
+    use super::*;
+
+    static NEXT_ID: AtomicUsize = AtomicUsize::new(1);
+
+    type TestResult<T = ()> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
+
+    #[derive(Debug, Clone, Serialize, Deserialize, crate::Message)]
+    #[message(name = "test_parameters::BusyCallbackParameters")]
+    struct BusyCallbackParameters {
+        enabled: bool,
+    }
+
+    #[test]
+    fn busy_write_response_uses_stable_failure_payload() {
+        let response = busy_write_response::<SetNodeParameterResponse>();
+        assert!(!response.success);
+        assert_eq!(response.message, PARAMETER_ACTOR_BUSY);
+        assert_eq!(response.committed_revision, 0);
+        assert!(response.changed_paths.is_empty());
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn callback_replies_busy_when_mailbox_is_full() -> TestResult {
+        let (commands, _receiver) = flume::bounded(0);
+
+        let response = call_set_service_with_commands("full", commands).await?;
+
+        assert_busy_set_response(response);
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn callback_replies_busy_when_mailbox_is_disconnected() -> TestResult {
+        let (commands, receiver) = flume::bounded(1);
+        drop(receiver);
+
+        let response = call_set_service_with_commands("disconnected", commands).await?;
+
+        assert_busy_set_response(response);
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn callback_replies_busy_for_atomic_when_mailbox_is_full() -> TestResult {
+        let (commands, _receiver) = flume::bounded(0);
+
+        let response = call_atomic_service_with_commands("atomic_full", commands).await?;
+
+        assert_busy_atomic_response(response);
+        Ok(())
+    }
+
+    async fn call_set_service_with_commands(
+        suffix: &str,
+        commands: flume::Sender<ParameterCommand<BusyCallbackParameters>>,
+    ) -> TestResult<SetNodeParameterResponse> {
+        let context = ContextBuilder::default()
+            .with_mode("peer")
+            .disable_multicast_scouting()
+            .build()
+            .await?;
+        let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
+        let server_name = format!("busy_parameter_server_{suffix}_{id}");
+        let server_node = context.create_node(&server_name).build().await?;
+        let service_name = format!("/{server_name}/parameter/set");
+        let _server = register_server::<SetNodeParameterSrv>(&server_node, "~parameter/set", {
+            let commands = commands.clone();
+            move |query| {
+                enqueue_or_reply_busy(
+                    &commands,
+                    query,
+                    |query| ParameterCommand::RemoteSet { query },
+                    busy_write_response::<SetNodeParameterResponse>(),
+                );
+            }
+        })
+        .await?;
+
+        let client_node = context
+            .create_node(format!("busy_parameter_client_{suffix}_{id}"))
+            .build()
+            .await?;
+        wait_for_service(&client_node, &service_name).await?;
+        let client = client_node
+            .create_service_client::<SetNodeParameterSrv>(&service_name)?
+            .build()
+            .await?;
+
+        client
+            .call_with_timeout_async(
+                &SetNodeParameterRequest {
+                    path: "enabled".to_string(),
+                    value_json: "false".to_string(),
+                    target_layer: "base".to_string(),
+                    expected_revision: None,
+                },
+                Duration::from_secs(2),
+            )
+            .await
+            .map_err(Into::into)
+    }
+
+    async fn call_atomic_service_with_commands(
+        suffix: &str,
+        commands: flume::Sender<ParameterCommand<BusyCallbackParameters>>,
+    ) -> TestResult<SetNodeParametersAtomicallyResponse> {
+        let context = ContextBuilder::default()
+            .with_mode("peer")
+            .disable_multicast_scouting()
+            .build()
+            .await?;
+        let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
+        let server_name = format!("busy_parameter_server_{suffix}_{id}");
+        let server_node = context.create_node(&server_name).build().await?;
+        let service_name = format!("/{server_name}/parameter/set_atomic");
+        let _server = register_server::<SetNodeParametersAtomicallySrv>(
+            &server_node,
+            "~parameter/set_atomic",
+            {
+                let commands = commands.clone();
+                move |query| {
+                    enqueue_or_reply_busy(
+                        &commands,
+                        query,
+                        |query| ParameterCommand::RemoteSetAtomic { query },
+                        busy_write_response::<SetNodeParametersAtomicallyResponse>(),
+                    );
+                }
+            },
+        )
+        .await?;
+
+        let client_node = context
+            .create_node(format!("busy_parameter_client_{suffix}_{id}"))
+            .build()
+            .await?;
+        wait_for_service(&client_node, &service_name).await?;
+        let client = client_node
+            .create_service_client::<SetNodeParametersAtomicallySrv>(&service_name)?
+            .build()
+            .await?;
+
+        client
+            .call_with_timeout_async(
+                &SetNodeParametersAtomicallyRequest {
+                    writes: vec![NodeParameterWriteJson {
+                        path: "enabled".to_string(),
+                        value_json: "false".to_string(),
+                        target_layer: "base".to_string(),
+                    }],
+                    expected_revision: None,
+                },
+                Duration::from_secs(2),
+            )
+            .await
+            .map_err(Into::into)
+    }
+
+    async fn wait_for_service(node: &Node, service: &str) -> TestResult {
+        let start = std::time::Instant::now();
+        let timeout = Duration::from_secs(5);
+        while start.elapsed() < timeout {
+            if !node.graph().view().services_named(service).is_empty() {
+                return Ok(());
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        Err(format!("timed out waiting for service {service}").into())
+    }
+
+    fn assert_busy_set_response(response: SetNodeParameterResponse) {
+        assert!(!response.success);
+        assert_eq!(response.message, PARAMETER_ACTOR_BUSY);
+        assert_eq!(response.committed_revision, 0);
+        assert!(response.changed_paths.is_empty());
+    }
+
+    fn assert_busy_atomic_response(response: SetNodeParametersAtomicallyResponse) {
+        assert!(!response.success);
+        assert_eq!(response.message, PARAMETER_ACTOR_BUSY);
+        assert_eq!(response.committed_revision, 0);
+        assert!(response.changed_paths.is_empty());
+    }
 }

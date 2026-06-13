@@ -28,7 +28,9 @@ pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> +
 async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("rule_obstacle_composer").build().await?;
 
-    let parameters = node.bind_parameter_as::<Parameters>("rule_obstacle_composer")?;
+    let parameters = node
+        .bind_parameter_as::<Parameters>("rule_obstacle_composer")
+        .await?;
     let field_dimensions_cache = node
         .create_cache::<FieldDimensions>("field_dimensions", 1)?
         .with_qos(QosProfile {

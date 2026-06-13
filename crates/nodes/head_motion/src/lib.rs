@@ -22,7 +22,7 @@ pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> +
 async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("head_motion").build().await?;
 
-    let _parameters = node.bind_parameter_as::<Parameters>("head_motion")?;
+    let _parameters = node.bind_parameter_as::<Parameters>("head_motion").await?;
     let _look_around_target_joints_sub = node
         .subscriber::<HeadJoints<f32>>("look_around_target_joints")?
         .build()

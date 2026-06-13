@@ -22,7 +22,9 @@ pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> +
 async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("message_handler").build().await?;
 
-    let parameters = node.bind_parameter_as::<Parameters>("message_receiver")?;
+    let parameters = node
+        .bind_parameter_as::<Parameters>("message_receiver")
+        .await?;
     let incoming_message_pub = node
         .publisher::<TimeWrapper<IncomingMessage>>("inputs/message")?
         .build()

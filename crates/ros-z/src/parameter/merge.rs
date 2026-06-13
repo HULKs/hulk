@@ -5,21 +5,21 @@ use serde_json::{Map, Value};
 use super::{LayerPath, ParameterError, ProvenanceMap, Result};
 
 #[derive(Debug, Clone)]
-pub(crate) struct RecursiveDiffEntry {
+pub struct RecursiveDiffEntry {
     pub path: String,
     pub old_value: Value,
     pub new_value: Value,
 }
 
-pub(crate) type RecursiveDiff = Vec<RecursiveDiffEntry>;
+pub type RecursiveDiff = Vec<RecursiveDiffEntry>;
 
 #[derive(Debug, Clone)]
-pub(crate) struct MergedParameters {
+pub struct MergedParameters {
     pub effective: Value,
     pub provenance: ProvenanceMap,
 }
 
-pub(crate) fn merge_layers(layers: &[(&str, &Value)]) -> Result<MergedParameters> {
+pub fn merge_layers(layers: &[(&str, &Value)]) -> Result<MergedParameters> {
     let mut provenance = ProvenanceMap::new();
     let mut effective = Value::Object(Map::new());
 
@@ -91,7 +91,7 @@ fn merge_value(
     }
 }
 
-pub(crate) fn get_value_at_path(root: &Value, path: &str) -> Result<Option<Value>> {
+pub fn get_value_at_path(root: &Value, path: &str) -> Result<Option<Value>> {
     let segments = parse_path(path)?;
     let mut current = root;
 
@@ -108,7 +108,7 @@ pub(crate) fn get_value_at_path(root: &Value, path: &str) -> Result<Option<Value
     Ok(Some(current.clone()))
 }
 
-pub(crate) fn set_value_at_path(root: &mut Value, path: &str, value: Value) -> Result<()> {
+pub fn set_value_at_path(root: &mut Value, path: &str, value: Value) -> Result<()> {
     let segments = parse_path(path)?;
     if !root.is_object() {
         if segments.len() > 1 {
@@ -150,7 +150,7 @@ pub(crate) fn set_value_at_path(root: &mut Value, path: &str, value: Value) -> R
     Ok(())
 }
 
-pub(crate) fn remove_value_at_path(root: &mut Value, path: &str) -> Result<bool> {
+pub fn remove_value_at_path(root: &mut Value, path: &str) -> Result<bool> {
     let segments = parse_path(path)?;
     let mut current = root;
     for segment in &segments[..segments.len() - 1] {
@@ -172,7 +172,7 @@ pub(crate) fn remove_value_at_path(root: &mut Value, path: &str) -> Result<bool>
         .is_some())
 }
 
-pub(crate) fn recursive_diff(old: &Value, new: &Value) -> RecursiveDiff {
+pub fn recursive_diff(old: &Value, new: &Value) -> RecursiveDiff {
     let mut out = Vec::new();
     diff_value("", old, new, &mut out);
     out
@@ -209,7 +209,7 @@ fn diff_value(path: &str, old: &Value, new: &Value, out: &mut RecursiveDiff) {
     }
 }
 
-pub(crate) fn provenance_for_path(provenance: &ProvenanceMap, path: &str) -> Option<LayerPath> {
+pub fn provenance_for_path(provenance: &ProvenanceMap, path: &str) -> Option<LayerPath> {
     provenance.get(path).cloned()
 }
 

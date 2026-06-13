@@ -16,7 +16,7 @@ use ros_z::{
     entity::TypeInfo,
     message::Service,
     node::Node,
-    parameter::{NodeParameters, NodeParametersExt},
+    parameter::NodeParameters,
     pubsub::Publisher,
     service::ServiceServer,
 };
@@ -497,7 +497,9 @@ impl ParameterFixture {
             .with_namespace("/cli_e2e")
             .build()
             .await?;
-        let parameters = node.bind_parameter_as::<VisionParameters>("parameter_fixture")?;
+        let parameters = node
+            .bind_parameter_as::<VisionParameters>("parameter_fixture")
+            .await?;
 
         Ok(Self {
             node_fqn: "/cli_e2e/parameter_fixture".to_string(),

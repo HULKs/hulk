@@ -18,8 +18,9 @@ pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> +
 async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("camera_matrix_calculator").build().await?;
 
-    let parameters =
-        node.bind_parameter_as::<CameraMatrixParameters>("camera_matrix_calculator")?;
+    let parameters = node
+        .bind_parameter_as::<CameraMatrixParameters>("camera_matrix_calculator")
+        .await?;
     let robot_kinematics_cache = node
         .create_cache::<TimeWrapper<RobotKinematics>>("robot_kinematics", 10)?
         .with_stamp(|w: &TimeWrapper<RobotKinematics>| w.time)

@@ -17,7 +17,7 @@ fn persistence_error(path: impl Into<PathBuf>, source: std::io::Error) -> Parame
 }
 
 #[cfg(test)]
-pub fn write_pretty_json(path: &Path, value: &Value) -> Result<()> {
+fn write_pretty_json(path: &Path, value: &Value) -> Result<()> {
     let data = serde_json::to_string_pretty(value).map_err(|source| {
         ParameterError::PersistenceSerializationError {
             path: path.to_path_buf(),
