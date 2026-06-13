@@ -1,4 +1,4 @@
-use std::time::{SystemTime, UNIX_EPOCH};
+use std::time::{Duration, Instant, SystemTime, UNIX_EPOCH};
 
 use color_eyre::{
     Result,
@@ -41,6 +41,10 @@ pub fn show_timeline_viewer(data: TimelineViewerData) -> Result<()> {
 struct TimelineViewerApp {
     data: TimelineViewerData,
     selected_frame: usize,
+    is_playing: bool,
+    playback_speed: f32,
+    last_playback_update: Instant,
+    playback_time_accumulator: f64,
     zoom_and_pan: ZoomAndPanTransform,
 }
 
@@ -49,6 +53,10 @@ impl TimelineViewerApp {
         Self {
             data,
             selected_frame: 0,
+            is_playing: false,
+            playback_speed: 1.0,
+            last_playback_update: Instant::now(),
+            playback_time_accumulator: 0.0,
             zoom_and_pan: ZoomAndPanTransform::default(),
         }
     }
@@ -62,6 +70,44 @@ impl TimelineViewerApp {
             self.selected_frame = 0;
         } else {
             self.selected_frame = self.selected_frame.min(self.data.frames.len() - 1);
+        }
+    }
+
+    fn advance_playback(&mut self, context: &Context) {
+        if !self.is_playing {
+            self.last_playback_update = Instant::now();
+            return;
+        }
+
+        if self.data.frames.len() <= 1 || self.selected_frame + 1 >= self.data.frames.len() {
+            self.is_playing = false;
+            self.playback_time_accumulator = 0.0;
+            return;
+        }
+
+        let now = Instant::now();
+        self.playback_time_accumulator +=
+            now.duration_since(self.last_playback_update).as_secs_f64()
+                * f64::from(self.playback_speed);
+        self.last_playback_update = now;
+
+        while self.selected_frame + 1 < self.data.frames.len() {
+            let frame_duration = frame_duration_seconds(
+                &self.data.frames[self.selected_frame],
+                &self.data.frames[self.selected_frame + 1],
+            );
+            if self.playback_time_accumulator < frame_duration {
+                break;
+            }
+            self.playback_time_accumulator -= frame_duration;
+            self.selected_frame += 1;
+        }
+
+        if self.selected_frame + 1 >= self.data.frames.len() {
+            self.is_playing = false;
+            self.playback_time_accumulator = 0.0;
+        } else {
+            context.request_repaint();
         }
     }
 
@@ -133,23 +179,44 @@ impl TimelineViewerApp {
     fn show_timeline_scrubber(&mut self, context: &Context) {
         TopBottomPanel::bottom("timeline_viewer_scrubber").show(context, |ui| {
             ui.horizontal(|ui| {
+                if ui
+                    .button(if self.is_playing { "pause" } else { "play" })
+                    .clicked()
+                {
+                    self.is_playing = !self.is_playing;
+                    self.last_playback_update = Instant::now();
+                    self.playback_time_accumulator = 0.0;
+                }
+
+                ui.add(
+                    Slider::new(&mut self.playback_speed, 0.1..=10.0)
+                        .logarithmic(true)
+                        .text("speed")
+                        .suffix("x"),
+                );
+
                 if ui.button("previous").clicked() {
                     self.selected_frame = self.selected_frame.saturating_sub(1);
+                    self.playback_time_accumulator = 0.0;
                 }
 
                 if ui.button("next").clicked() && self.selected_frame + 1 < self.data.frames.len() {
                     self.selected_frame += 1;
+                    self.playback_time_accumulator = 0.0;
                 }
 
                 if self.data.frames.is_empty() {
                     ui.label("no frames recorded");
                 } else {
                     let max_frame = self.data.frames.len() - 1;
-                    ui.add(
+                    let slider_response = ui.add(
                         Slider::new(&mut self.selected_frame, 0..=max_frame)
                             .text("frame")
                             .show_value(true),
                     );
+                    if slider_response.changed() {
+                        self.playback_time_accumulator = 0.0;
+                    }
                 }
             });
         });
@@ -206,6 +273,7 @@ impl TimelineViewerApp {
 impl App for TimelineViewerApp {
     fn update(&mut self, context: &Context, _frame: &mut Frame) {
         self.clamp_selected_frame();
+        self.advance_playback(context);
         self.show_top_panel(context);
         self.show_side_panel(context);
         self.show_timeline_scrubber(context);
@@ -244,6 +312,14 @@ fn format_time(time: SystemTime) -> String {
         Ok(duration) => format!("{:.3}s", duration.as_secs_f32()),
         Err(error) => format!("-{:.3}s", error.duration().as_secs_f32()),
     }
+}
+
+fn frame_duration_seconds(current: &TimelineFrame, next: &TimelineFrame) -> f64 {
+    next.now
+        .duration_since(current.now)
+        .unwrap_or(Duration::from_millis(10))
+        .max(Duration::from_millis(1))
+        .as_secs_f64()
 }
 
 fn motion_name(motion_command: &MotionCommand) -> &'static str {
