@@ -1,4 +1,6 @@
-use std::{collections::BTreeMap, env, net::SocketAddr, time::Duration, time::SystemTime};
+use std::{
+    collections::BTreeMap, env, f32::consts::PI, net::SocketAddr, time::Duration, time::SystemTime,
+};
 
 use bevy::{
     app::{App, AppExit, Plugin, Update},
@@ -10,7 +12,7 @@ use color_eyre::{
     Result,
     eyre::{bail, eyre},
 };
-use coordinate_systems::{Field, Ground};
+use coordinate_systems::{Field, Ground, World};
 use hsl_network_messages::{
     GamePhase, GameState, HulkMessage, PlayerNumber, Team, TeamColor, TeamState,
 };
@@ -463,7 +465,7 @@ pub struct AutoRefereeState {
     pub playing_after_whistle_at: Option<SystemTime>,
     pub restart_reason: Option<SimulatorRestartReason>,
     pub ready_stationary_since: Option<SystemTime>,
-    pub ready_robot_poses: BTreeMap<PlayerNumber, Isometry2<Ground, Field>>,
+    pub ready_robot_poses: BTreeMap<PlayerNumber, Isometry2<Ground, World>>,
 }
 
 impl Default for AutoRefereeState {
@@ -513,7 +515,7 @@ pub struct AutoRefereeContext<'a> {
     pub game_state: &'a mut SimulatorGameState,
     pub auto_referee: &'a mut AutoRefereeState,
     pub ball: &'a mut SimulatorBall,
-    pub robot_poses: BTreeMap<PlayerNumber, Isometry2<Ground, Field>>,
+    pub robot_poses: BTreeMap<PlayerNumber, Isometry2<Ground, World>>,
 }
 
 impl AutoRefereeContext<'_> {
@@ -540,11 +542,13 @@ impl AutoRefereeRule for ScoredGoalRule {
             return;
         }
 
-        let Some(scoring_team) = context
-            .ball
-            .state
-            .and_then(|ball| ball_in_goal(ball, context.field_dimensions))
-        else {
+        let Some(scoring_team) = context.ball.state.and_then(|ball| {
+            ball_in_goal(
+                ball,
+                context.field_dimensions,
+                context.game_state.game_controller_state.global_field_side,
+            )
+        }) else {
             return;
         };
 
@@ -661,8 +665,8 @@ fn ready_stationary_short_circuit_elapsed(context: &mut AutoRefereeContext<'_>) 
 }
 
 fn robot_poses_are_stationary(
-    previous_poses: &BTreeMap<PlayerNumber, Isometry2<Ground, Field>>,
-    current_poses: &BTreeMap<PlayerNumber, Isometry2<Ground, Field>>,
+    previous_poses: &BTreeMap<PlayerNumber, Isometry2<Ground, World>>,
+    current_poses: &BTreeMap<PlayerNumber, Isometry2<Ground, World>>,
 ) -> bool {
     if previous_poses.len() != current_poses.len() {
         return false;
@@ -676,8 +680,8 @@ fn robot_poses_are_stationary(
 }
 
 fn robot_pose_is_stationary(
-    previous_pose: Isometry2<Ground, Field>,
-    current_pose: Isometry2<Ground, Field>,
+    previous_pose: Isometry2<Ground, World>,
+    current_pose: Isometry2<Ground, World>,
 ) -> bool {
     distance(previous_pose.translation(), current_pose.translation())
         <= READY_STATIONARY_TRANSLATION_EPSILON
@@ -820,8 +824,8 @@ pub struct SimulatorRobot {
 }
 
 #[derive(Component, Clone, Copy, Debug)]
-pub struct SimulatorGroundToField {
-    pub ground_to_field: Isometry2<Ground, Field>,
+pub struct SimulatorGroundToWorld {
+    pub ground_to_world: Isometry2<Ground, World>,
 }
 
 #[derive(Component, Clone, Copy, Debug)]
@@ -862,7 +866,7 @@ pub struct SimulatorLastKickTime {
 #[derive(Bundle)]
 pub struct SimulatorRobotBundle {
     pub robot: SimulatorRobot,
-    pub ground_to_field: SimulatorGroundToField,
+    pub ground_to_world: SimulatorGroundToWorld,
     pub primary_state: SimulatorPrimaryState,
     pub behavior: SimulatorRobotBehavior,
     pub parameters: SimulatorRobotParameters,
@@ -875,12 +879,12 @@ pub struct SimulatorRobotBundle {
 impl SimulatorRobotBundle {
     pub fn new(
         player_number: PlayerNumber,
-        ground_to_field: Isometry2<Ground, Field>,
+        ground_to_world: Isometry2<Ground, World>,
         parameters: BehaviorParameters,
     ) -> Result<Self> {
         Ok(Self {
             robot: SimulatorRobot { player_number },
-            ground_to_field: SimulatorGroundToField { ground_to_field },
+            ground_to_world: SimulatorGroundToWorld { ground_to_world },
             primary_state: SimulatorPrimaryState {
                 primary_state: PrimaryState::Safe,
             },
@@ -933,12 +937,12 @@ fn run_auto_referee(
     mut game_state: ResMut<SimulatorGameState>,
     mut ball: ResMut<SimulatorBall>,
     mut referee_commands: MessageReader<SimulatorRefereeCommand>,
-    robots: Query<(&SimulatorRobot, &SimulatorGroundToField)>,
+    robots: Query<(&SimulatorRobot, &SimulatorGroundToWorld)>,
 ) {
     let mut rules = std::mem::take(&mut auto_referee.rules);
     let robot_poses = robots
         .iter()
-        .map(|(robot, ground_to_field)| (robot.player_number, ground_to_field.ground_to_field))
+        .map(|(robot, ground_to_world)| (robot.player_number, ground_to_world.ground_to_world))
         .collect();
     let mut context = AutoRefereeContext {
         now: clock.now,
@@ -1081,6 +1085,24 @@ fn primary_state_from_game_controller_state(
     }
 }
 
+fn world_to_field_transform(global_field_side: GlobalFieldSide) -> Isometry2<World, Field> {
+    match global_field_side {
+        GlobalFieldSide::Home => Isometry2::identity(),
+        GlobalFieldSide::Away => Isometry2::from_parts(Vector2::zeros(), PI),
+    }
+}
+
+fn ground_to_field_from_world(
+    ground_to_world: Isometry2<Ground, World>,
+    global_field_side: GlobalFieldSide,
+) -> Isometry2<Ground, Field> {
+    world_to_field_transform(global_field_side) * ground_to_world
+}
+
+fn point_world_to_field(point: Point2<World>, global_field_side: GlobalFieldSide) -> Point2<Field> {
+    world_to_field_transform(global_field_side) * point
+}
+
 fn sync_primary_states_from_game_state(
     game_state: Res<SimulatorGameState>,
     mut robots: Query<&mut SimulatorPrimaryState>,
@@ -1117,12 +1139,17 @@ fn place_ball_at_center(ball: &mut SimulatorBall) {
     });
 }
 
-fn ball_in_goal(ball: SimulatedBall, field_dimensions: FieldDimensions) -> Option<Team> {
+fn ball_in_goal(
+    ball: SimulatedBall,
+    field_dimensions: FieldDimensions,
+    global_field_side: GlobalFieldSide,
+) -> Option<Team> {
     if !field_dimensions.is_inside_any_goal(ball.position) {
         return None;
     }
 
-    if ball.position.x() > 0.0 {
+    let ball_in_field = point_world_to_field(ball.position, global_field_side);
+    if ball_in_field.x() > 0.0 {
         Some(Team::Hulks)
     } else {
         Some(Team::Opponent)
@@ -1139,7 +1166,7 @@ fn build_world_states(
     config: Res<SimulationConfig>,
     robots: Query<(
         &SimulatorRobot,
-        &SimulatorGroundToField,
+        &SimulatorGroundToWorld,
         &SimulatorPrimaryState,
         &SimulatorFallDownState,
         &SimulatorSuggestedSearchPosition,
@@ -1147,13 +1174,17 @@ fn build_world_states(
     mut world_states: ResMut<SimulatorWorldStates>,
 ) {
     world_states.0.clear();
+    let global_field_side = game_state.game_controller_state.global_field_side;
 
-    for (robot, ground_to_field, primary_state, fall_down_state, suggested_search_position) in
+    for (robot, ground_to_world, primary_state, fall_down_state, suggested_search_position) in
         &robots
     {
+        let ground_to_field =
+            ground_to_field_from_world(ground_to_world.ground_to_world, global_field_side);
         let perceived_ball = perceived_ball_from_pose(
             ball.state,
-            ground_to_field.ground_to_field,
+            ground_to_world.ground_to_world,
+            global_field_side,
             clock.now,
             &config,
         );
@@ -1172,13 +1203,17 @@ fn build_world_states(
                 ),
                 position_of_interest: Point2::origin(),
                 robot: RobotState {
-                    ground_to_field: Some(ground_to_field.ground_to_field),
+                    ground_to_field: Some(ground_to_field),
                     player_number: robot.player_number,
                     primary_state: primary_state.primary_state,
                 },
-                rule_ball: ball
-                    .state
-                    .map(|ball| ball.to_ball_state(ground_to_field.ground_to_field, clock.now)),
+                rule_ball: ball.state.map(|ball| {
+                    ball.to_ball_state(
+                        ground_to_world.ground_to_world,
+                        global_field_side,
+                        clock.now,
+                    )
+                }),
                 rule_obstacles: rule_obstacles.obstacles.clone(),
                 fall_down_state: fall_down_state.fall_down_state,
                 suggested_search_position: suggested_search_position.position,
@@ -1366,7 +1401,7 @@ fn run_invariant_checks(
     mut scenario_result: ResMut<SimulatorScenarioResult>,
     robots: Query<(
         &SimulatorRobot,
-        &SimulatorGroundToField,
+        &SimulatorGroundToWorld,
         &SimulatorPrimaryState,
         &SimulatorFallDownState,
     )>,
@@ -1406,12 +1441,12 @@ fn apply_motion_kinematics(
     mut ball: ResMut<SimulatorBall>,
     mut robots: Query<(
         &SimulatorRobot,
-        &mut SimulatorGroundToField,
+        &mut SimulatorGroundToWorld,
         &mut SimulatorFallDownState,
         &mut SimulatorLastKickTime,
     )>,
 ) {
-    for (robot, mut ground_to_field, mut fall_down_state, mut last_kick_time) in &mut robots {
+    for (robot, mut ground_to_world, mut fall_down_state, mut last_kick_time) in &mut robots {
         let Some(frame) = robot_frames.0.get(&robot.player_number) else {
             continue;
         };
@@ -1425,8 +1460,8 @@ fn apply_motion_kinematics(
                 ..
             } => {
                 let target = first_path_target(path).unwrap_or_else(Point2::origin);
-                ground_to_field.ground_to_field = apply_walk_to_pose(
-                    ground_to_field.ground_to_field,
+                ground_to_world.ground_to_world = apply_walk_to_pose(
+                    ground_to_world.ground_to_world,
                     target,
                     *target_orientation,
                     *orientation_mode,
@@ -1440,8 +1475,8 @@ fn apply_motion_kinematics(
                 angular_velocity,
                 ..
             } => {
-                ground_to_field.ground_to_field = apply_walk_with_velocity_to_pose(
-                    ground_to_field.ground_to_field,
+                ground_to_world.ground_to_world = apply_walk_with_velocity_to_pose(
+                    ground_to_world.ground_to_world,
                     *velocity,
                     *angular_velocity,
                     clock.tick_duration,
@@ -1458,7 +1493,7 @@ fn apply_motion_kinematics(
                 clock.tick_duration,
                 &mut ball.state,
                 &config,
-                &mut ground_to_field.ground_to_field,
+                &mut ground_to_world.ground_to_world,
                 &mut last_kick_time.last_kick_time,
                 *ball_position,
                 *kick_direction,
@@ -1478,7 +1513,7 @@ fn record_timeline_frame(
     mut timeline: ResMut<SimulatorTimeline>,
     robots: Query<(
         &SimulatorRobot,
-        &SimulatorGroundToField,
+        &SimulatorGroundToWorld,
         &SimulatorPrimaryState,
         &SimulatorFallDownState,
     )>,
@@ -1506,16 +1541,16 @@ fn player_states_from_received_hsl_messages(
 fn robot_snapshots_from_query(
     robots: &Query<(
         &SimulatorRobot,
-        &SimulatorGroundToField,
+        &SimulatorGroundToWorld,
         &SimulatorPrimaryState,
         &SimulatorFallDownState,
     )>,
 ) -> Players<Option<RobotSnapshot>> {
     let mut snapshots = Players::default();
-    for (robot, ground_to_field, primary_state, fall_down_state) in robots.iter() {
+    for (robot, ground_to_world, primary_state, fall_down_state) in robots.iter() {
         snapshots[robot.player_number] = Some(RobotSnapshot {
             player_number: robot.player_number,
-            ground_to_field: ground_to_field.ground_to_field,
+            ground_to_world: ground_to_world.ground_to_world,
             primary_state: primary_state.primary_state,
             fall_down_state: fall_down_state.fall_down_state,
         });
@@ -1540,12 +1575,15 @@ pub struct Simulation {
 
 impl Simulation {
     pub fn new(field_dimensions: FieldDimensions) -> Self {
+        let game_controller_state = default_game_controller_state();
         Self {
             now: SystemTime::UNIX_EPOCH,
             tick_duration: DEFAULT_TICK_DURATION,
             robots: Players::default(),
             ball: None,
-            filtered_game_controller_state: Some(FilteredGameControllerState::default()),
+            filtered_game_controller_state: Some(filtered_game_controller_state_from(
+                &game_controller_state,
+            )),
             field_dimensions,
             rule_obstacles: Vec::new(),
             hsl_network_parameters: HslNetworkParameters::default(),
@@ -1564,12 +1602,12 @@ impl Simulation {
     pub fn spawn_robot(
         &mut self,
         player_number: PlayerNumber,
-        ground_to_field: Isometry2<Ground, Field>,
+        ground_to_world: Isometry2<Ground, World>,
         parameters: BehaviorParameters,
     ) -> Result<()> {
         self.robots[player_number] = Some(SimulatedRobot::new(
             player_number,
-            ground_to_field,
+            ground_to_world,
             parameters,
         )?);
         Ok(())
@@ -1583,7 +1621,7 @@ impl Simulation {
         }
     }
 
-    pub fn set_ball(&mut self, position: Point2<Field>, velocity: Vector2<Field>) {
+    pub fn set_ball(&mut self, position: Point2<World>, velocity: Vector2<World>) {
         self.ball = Some(SimulatedBall {
             position,
             velocity,
@@ -1693,12 +1731,15 @@ impl Simulation {
     }
 
     fn build_world_states(&self) -> BTreeMap<PlayerNumber, WorldState> {
-        let player_states = self.player_states();
+        let global_field_side = self.global_field_side();
+        let player_states = self.player_states(global_field_side);
         let mut world_states = BTreeMap::new();
 
         for (player_number, robot) in self.robots.iter() {
             let Some(robot) = robot else { continue };
-            let perceived_ball = self.perceived_ball(robot);
+            let ground_to_field =
+                ground_to_field_from_world(robot.ground_to_world, global_field_side);
+            let perceived_ball = self.perceived_ball(robot, global_field_side);
 
             world_states.insert(
                 player_number,
@@ -1711,13 +1752,13 @@ impl Simulation {
                     player_states: player_states.clone(),
                     position_of_interest: Point2::origin(),
                     robot: RobotState {
-                        ground_to_field: Some(robot.ground_to_field),
+                        ground_to_field: Some(ground_to_field),
                         player_number,
                         primary_state: robot.primary_state,
                     },
-                    rule_ball: self
-                        .ball
-                        .map(|ball| ball.to_ball_state(robot.ground_to_field, self.now)),
+                    rule_ball: self.ball.map(|ball| {
+                        ball.to_ball_state(robot.ground_to_world, global_field_side, self.now)
+                    }),
                     rule_obstacles: self.rule_obstacles.clone(),
                     fall_down_state: robot.fall_down_state,
                     suggested_search_position: robot.suggested_search_position,
@@ -1728,18 +1769,23 @@ impl Simulation {
         world_states
     }
 
-    fn player_states(&self) -> Players<Option<PlayerState>> {
+    fn player_states(&self, global_field_side: GlobalFieldSide) -> Players<Option<PlayerState>> {
         self.robots.as_ref().map(|robot| {
             robot.as_ref().map(|robot| PlayerState {
-                pose: robot.ground_to_field.as_pose(),
+                pose: ground_to_field_from_world(robot.ground_to_world, global_field_side)
+                    .as_pose(),
                 ball_position: None,
             })
         })
     }
 
-    fn perceived_ball(&self, robot: &SimulatedRobot) -> Option<BallState> {
+    fn perceived_ball(
+        &self,
+        robot: &SimulatedRobot,
+        global_field_side: GlobalFieldSide,
+    ) -> Option<BallState> {
         let ball = self.ball?;
-        let ball_in_ground = robot.ground_to_field.inverse() * ball.position;
+        let ball_in_ground = robot.ground_to_world.inverse() * ball.position;
         let distance = ball_in_ground.coords().norm();
         if distance > self.config.ball_visibility_range {
             return None;
@@ -1750,7 +1796,14 @@ impl Simulation {
             return None;
         }
 
-        Some(ball.to_ball_state(robot.ground_to_field, self.now))
+        Some(ball.to_ball_state(robot.ground_to_world, global_field_side, self.now))
+    }
+
+    fn global_field_side(&self) -> GlobalFieldSide {
+        self.filtered_game_controller_state
+            .as_ref()
+            .map(|state| state.global_field_side)
+            .unwrap_or(GlobalFieldSide::Home)
     }
 
     fn apply_motion_commands(&mut self, robot_frames: &BTreeMap<PlayerNumber, RobotFrame>) {
@@ -1818,7 +1871,7 @@ impl Simulation {
 
 pub struct SimulatedRobot {
     pub player_number: PlayerNumber,
-    pub ground_to_field: Isometry2<Ground, Field>,
+    pub ground_to_world: Isometry2<Ground, World>,
     pub primary_state: PrimaryState,
     pub behavior: Behavior,
     pub parameters: BehaviorParameters,
@@ -1831,12 +1884,12 @@ pub struct SimulatedRobot {
 impl SimulatedRobot {
     pub fn new(
         player_number: PlayerNumber,
-        ground_to_field: Isometry2<Ground, Field>,
+        ground_to_world: Isometry2<Ground, World>,
         parameters: BehaviorParameters,
     ) -> Result<Self> {
         Ok(Self {
             player_number,
-            ground_to_field,
+            ground_to_world,
             primary_state: PrimaryState::Safe,
             behavior: Behavior::new(CreationContext {})?,
             parameters,
@@ -1850,21 +1903,23 @@ impl SimulatedRobot {
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct SimulatedBall {
-    pub position: Point2<Field>,
-    pub velocity: Vector2<Field>,
+    pub position: Point2<World>,
+    pub velocity: Vector2<World>,
     pub field_side: Side,
 }
 
 impl SimulatedBall {
     fn to_ball_state(
         self,
-        ground_to_field: Isometry2<Ground, Field>,
+        ground_to_world: Isometry2<Ground, World>,
+        global_field_side: GlobalFieldSide,
         now: SystemTime,
     ) -> BallState {
+        let ball_in_field = point_world_to_field(self.position, global_field_side);
         BallState {
-            ball_in_ground: ground_to_field.inverse() * self.position,
-            ball_in_field: self.position,
-            ball_in_ground_velocity: ground_to_field.inverse() * self.velocity,
+            ball_in_ground: ground_to_world.inverse() * self.position,
+            ball_in_field,
+            ball_in_ground_velocity: ground_to_world.inverse() * self.velocity,
             last_seen_ball: now,
             field_side: self.field_side,
         }
@@ -1920,7 +1975,7 @@ impl RobotFrame {
 #[derive(Clone, Copy, Debug, Serialize)]
 pub struct RobotSnapshot {
     pub player_number: PlayerNumber,
-    pub ground_to_field: Isometry2<Ground, Field>,
+    pub ground_to_world: Isometry2<Ground, World>,
     pub primary_state: PrimaryState,
     pub fall_down_state: Option<FallDownState>,
 }
@@ -2029,7 +2084,7 @@ fn simulated_robot_snapshots(
     robots.as_ref().map(|robot| {
         robot.as_ref().map(|robot| RobotSnapshot {
             player_number: robot.player_number,
-            ground_to_field: robot.ground_to_field,
+            ground_to_world: robot.ground_to_world,
             primary_state: robot.primary_state,
             fall_down_state: robot.fall_down_state,
         })
@@ -2038,12 +2093,13 @@ fn simulated_robot_snapshots(
 
 fn perceived_ball_from_pose(
     ball: Option<SimulatedBall>,
-    ground_to_field: Isometry2<Ground, Field>,
+    ground_to_world: Isometry2<Ground, World>,
+    global_field_side: GlobalFieldSide,
     now: SystemTime,
     config: &SimulationConfig,
 ) -> Option<BallState> {
     let ball = ball?;
-    let ball_in_ground = ground_to_field.inverse() * ball.position;
+    let ball_in_ground = ground_to_world.inverse() * ball.position;
     let distance = ball_in_ground.coords().norm();
     if distance > config.ball_visibility_range {
         return None;
@@ -2054,7 +2110,7 @@ fn perceived_ball_from_pose(
         return None;
     }
 
-    Some(ball.to_ball_state(ground_to_field, now))
+    Some(ball.to_ball_state(ground_to_world, global_field_side, now))
 }
 
 fn motion_target_in_field(frame: &RobotFrame) -> Option<Point2<Field>> {
@@ -2104,18 +2160,18 @@ fn apply_walk(
         .angle()
         .clamp(-max_rotation, max_rotation);
     let delta = Isometry2::from_parts(step_translation, step_rotation);
-    robot.ground_to_field = robot.ground_to_field * delta;
+    robot.ground_to_world = robot.ground_to_world * delta;
 }
 
-fn apply_walk_to_pose(
-    ground_to_field: Isometry2<Ground, Field>,
+fn apply_walk_to_pose<Frame>(
+    ground_to_frame: Isometry2<Ground, Frame>,
     target: Point2<Ground>,
     target_orientation: Orientation2<Ground>,
     orientation_mode: OrientationMode,
     speed: f32,
     tick_duration: Duration,
     config: &SimulationConfig,
-) -> Isometry2<Ground, Field> {
+) -> Isometry2<Ground, Frame> {
     let dt = tick_duration.as_secs_f32();
     let max_distance = config.walk_translation_speed * speed * dt;
     let target_vector = target.coords();
@@ -2136,7 +2192,7 @@ fn apply_walk_to_pose(
         .angle()
         .clamp(-max_rotation, max_rotation);
     let delta = Isometry2::from_parts(step_translation, step_rotation);
-    ground_to_field * delta
+    ground_to_frame * delta
 }
 
 fn apply_walk_with_velocity(
@@ -2150,21 +2206,21 @@ fn apply_walk_with_velocity(
     let translation = velocity * config.walk_with_velocity_scale * dt;
     let rotation = angular_velocity * config.walk_with_velocity_scale * dt;
     let delta = Isometry2::from_parts(translation, rotation);
-    robot.ground_to_field = robot.ground_to_field * delta;
+    robot.ground_to_world = robot.ground_to_world * delta;
 }
 
-fn apply_walk_with_velocity_to_pose(
-    ground_to_field: Isometry2<Ground, Field>,
+fn apply_walk_with_velocity_to_pose<Frame>(
+    ground_to_frame: Isometry2<Ground, Frame>,
     velocity: Vector2<Ground>,
     angular_velocity: f32,
     tick_duration: Duration,
     config: &SimulationConfig,
-) -> Isometry2<Ground, Field> {
+) -> Isometry2<Ground, Frame> {
     let dt = tick_duration.as_secs_f32();
     let translation = velocity * config.walk_with_velocity_scale * dt;
     let rotation = angular_velocity * config.walk_with_velocity_scale * dt;
     let delta = Isometry2::from_parts(translation, rotation);
-    ground_to_field * delta
+    ground_to_frame * delta
 }
 
 fn apply_kick(
@@ -2181,12 +2237,12 @@ fn apply_kick(
         return;
     }
 
-    let expected_ball_in_field = robot.ground_to_field * expected_ball_position;
-    if (ball.position - expected_ball_in_field).norm() > config.kick_radius {
+    let expected_ball_in_world = robot.ground_to_world * expected_ball_position;
+    if (ball.position - expected_ball_in_world).norm() > config.kick_radius {
         return;
     }
 
-    let actual_ball_in_ground = robot.ground_to_field.inverse() * ball.position;
+    let actual_ball_in_ground = robot.ground_to_world.inverse() * ball.position;
     if actual_ball_in_ground.coords().norm() > config.kick_radius {
         return;
     }
@@ -2195,7 +2251,7 @@ fn apply_kick(
         KickPower::Rumpelstilzchen => config.kick_ball_speed_rumpelstilzchen,
         KickPower::Schlong => config.kick_ball_speed_schlong,
     };
-    ball.velocity = robot.ground_to_field * (kick_direction.as_unit_vector() * speed);
+    ball.velocity = robot.ground_to_world * (kick_direction.as_unit_vector() * speed);
     robot.last_kick_time = now;
 }
 
@@ -2203,7 +2259,7 @@ fn apply_kick_to_ball(
     now: SystemTime,
     ball: &mut Option<SimulatedBall>,
     config: &SimulationConfig,
-    ground_to_field: Isometry2<Ground, Field>,
+    ground_to_world: Isometry2<Ground, World>,
     last_kick_time: &mut SystemTime,
     expected_ball_position: Point2<Ground>,
     kick_direction: Orientation2<Ground>,
@@ -2214,12 +2270,12 @@ fn apply_kick_to_ball(
         return;
     }
 
-    let expected_ball_in_field = ground_to_field * expected_ball_position;
-    if (ball.position - expected_ball_in_field).norm() > config.kick_radius {
+    let expected_ball_in_world = ground_to_world * expected_ball_position;
+    if (ball.position - expected_ball_in_world).norm() > config.kick_radius {
         return;
     }
 
-    let actual_ball_in_ground = ground_to_field.inverse() * ball.position;
+    let actual_ball_in_ground = ground_to_world.inverse() * ball.position;
     if actual_ball_in_ground.coords().norm() > config.kick_radius {
         return;
     }
@@ -2228,7 +2284,7 @@ fn apply_kick_to_ball(
         KickPower::Rumpelstilzchen => config.kick_ball_speed_rumpelstilzchen,
         KickPower::Schlong => config.kick_ball_speed_schlong,
     };
-    ball.velocity = ground_to_field * (kick_direction.as_unit_vector() * speed);
+    ball.velocity = ground_to_world * (kick_direction.as_unit_vector() * speed);
     *last_kick_time = now;
 }
 
@@ -2237,15 +2293,15 @@ fn apply_visual_kick_kinematics(
     tick_duration: Duration,
     ball: &mut Option<SimulatedBall>,
     config: &SimulationConfig,
-    ground_to_field: &mut Isometry2<Ground, Field>,
+    ground_to_world: &mut Isometry2<Ground, World>,
     last_kick_time: &mut SystemTime,
     ball_position: Point2<Ground>,
     kick_direction: Orientation2<Ground>,
     kick_power: KickPower,
 ) {
     let kick_pose = ball_position - kick_direction.as_unit_vector() * config.kick_radius;
-    *ground_to_field = apply_walk_to_pose(
-        *ground_to_field,
+    *ground_to_world = apply_walk_to_pose(
+        *ground_to_world,
         kick_pose,
         kick_direction,
         OrientationMode::AlignWithPath,
@@ -2258,7 +2314,7 @@ fn apply_visual_kick_kinematics(
         now,
         ball,
         config,
-        *ground_to_field,
+        *ground_to_world,
         last_kick_time,
         ball_position,
         kick_direction,
@@ -2269,6 +2325,7 @@ fn apply_visual_kick_kinematics(
 #[cfg(test)]
 mod tests {
     use super::*;
+    use approx::assert_relative_eq;
     use linear_algebra::{point, vector};
 
     fn auto_referee_context<'a>(
@@ -2297,7 +2354,7 @@ mod tests {
         game_state: &'a mut SimulatorGameState,
         auto_referee: &'a mut AutoRefereeState,
         ball: &'a mut SimulatorBall,
-        robot_poses: BTreeMap<PlayerNumber, Isometry2<Ground, Field>>,
+        robot_poses: BTreeMap<PlayerNumber, Isometry2<Ground, World>>,
     ) -> AutoRefereeContext<'a> {
         AutoRefereeContext {
             now,
@@ -2319,6 +2376,49 @@ mod tests {
             auto_whistle_in_set: true,
             finish_on_halftime_timeout: true,
         }
+    }
+
+    #[test]
+    fn world_to_field_is_identity_for_home_side() {
+        let point_in_field = point_world_to_field(point![1.0, -0.5], GlobalFieldSide::Home);
+
+        assert_relative_eq!(point_in_field.x(), 1.0);
+        assert_relative_eq!(point_in_field.y(), -0.5);
+    }
+
+    #[test]
+    fn world_to_field_flips_for_away_side() {
+        let point_in_field = point_world_to_field(point![1.0, -0.5], GlobalFieldSide::Away);
+
+        assert_relative_eq!(point_in_field.x(), -1.0);
+        assert_relative_eq!(point_in_field.y(), 0.5);
+    }
+
+    #[test]
+    fn ball_in_goal_uses_global_field_side() {
+        let field_dimensions = FieldDimensions::SPL_2025;
+        let ball_in_home_right_goal = SimulatedBall {
+            position: point![field_dimensions.length / 2.0 + 0.1, 0.0],
+            velocity: vector![0.0, 0.0],
+            field_side: Side::Left,
+        };
+
+        assert_eq!(
+            ball_in_goal(
+                ball_in_home_right_goal,
+                field_dimensions,
+                GlobalFieldSide::Home
+            ),
+            Some(Team::Hulks)
+        );
+        assert_eq!(
+            ball_in_goal(
+                ball_in_home_right_goal,
+                field_dimensions,
+                GlobalFieldSide::Away
+            ),
+            Some(Team::Opponent)
+        );
     }
 
     #[test]
@@ -2644,8 +2744,8 @@ mod tests {
             SimulatorRobot {
                 player_number: PlayerNumber::Four,
             },
-            SimulatorGroundToField {
-                ground_to_field: Isometry2::identity(),
+            SimulatorGroundToWorld {
+                ground_to_world: Isometry2::identity(),
             },
             SimulatorPrimaryState {
                 primary_state: PrimaryState::Playing,
@@ -2672,6 +2772,64 @@ mod tests {
             point![2.0, 0.5]
         );
         assert!(receiver_world_state.player_states[PlayerNumber::Four].is_none());
+    }
+
+    #[test]
+    fn world_states_flip_pose_and_ball_for_away_side() {
+        let mut app = App::new();
+        let mut game_state = SimulatorGameState::default();
+        game_state.game_controller_state.global_field_side = GlobalFieldSide::Away;
+        game_state.sync_filtered_game_controller_state();
+
+        app.add_plugins(MinimalPlugins)
+            .insert_resource(SimulatorClock {
+                now: SystemTime::UNIX_EPOCH + Duration::from_secs(1),
+                tick_duration: DEFAULT_TICK_DURATION,
+            })
+            .insert_resource(SimulatorFieldDimensions(FieldDimensions::SPL_2025))
+            .insert_resource(SimulatorBall {
+                state: Some(SimulatedBall {
+                    position: point![1.0, 0.0],
+                    velocity: vector![0.0, 0.0],
+                    field_side: Side::Left,
+                }),
+            })
+            .insert_resource(game_state)
+            .insert_resource(SimulatorReceivedHslMessages::default())
+            .insert_resource(SimulatorRuleObstacles::default())
+            .insert_resource(SimulationConfig::default())
+            .insert_resource(SimulatorWorldStates::default())
+            .add_systems(Update, build_world_states);
+        app.world_mut().spawn((
+            SimulatorRobot {
+                player_number: PlayerNumber::Four,
+            },
+            SimulatorGroundToWorld {
+                ground_to_world: Isometry2::identity(),
+            },
+            SimulatorPrimaryState {
+                primary_state: PrimaryState::Playing,
+            },
+            SimulatorFallDownState::default(),
+            SimulatorSuggestedSearchPosition::default(),
+        ));
+
+        app.update();
+
+        let world_state = &app.world().resource::<SimulatorWorldStates>().0[&PlayerNumber::Four];
+        let ground_to_field = world_state
+            .robot
+            .ground_to_field
+            .expect("ground_to_field should be provided to behavior");
+        assert_relative_eq!(
+            ground_to_field.orientation().angle().abs(),
+            PI,
+            epsilon = 0.0001
+        );
+        let ball = world_state.ball.expect("ball should be visible");
+        assert_relative_eq!(ball.ball_in_field.x(), -1.0, epsilon = 0.0001);
+        assert_relative_eq!(ball.ball_in_field.y(), 0.0, epsilon = 0.0001);
+        assert_eq!(ball.ball_in_ground, point![1.0, 0.0]);
     }
 
     #[test]
@@ -2705,8 +2863,8 @@ mod tests {
             SimulatorRobot {
                 player_number: PlayerNumber::Four,
             },
-            SimulatorGroundToField {
-                ground_to_field: Isometry2::identity(),
+            SimulatorGroundToWorld {
+                ground_to_world: Isometry2::identity(),
             },
             SimulatorPrimaryState {
                 primary_state: PrimaryState::Playing,

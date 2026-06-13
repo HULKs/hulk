@@ -5,7 +5,7 @@ use bevyhavior_simulator::behavior_tree_simulator::{
     AutoRefereeConfig, BehaviorTreeSimulatorSet, SimulatorBall, SimulatorClock, SimulatorGameState,
     SimulatorRobotBundle, default_behavior_parameters,
 };
-use coordinate_systems::{Field, Ground};
+use coordinate_systems::{Ground, World};
 use hsl_network_messages::{GameState, PlayerNumber};
 use linear_algebra::{Isometry2, point, vector};
 use scenario::scenario;
@@ -105,11 +105,11 @@ fn elapsed(now: SystemTime) -> Duration {
         .expect("simulator time should not move backwards")
 }
 
-fn pose(x: f32, y: f32, yaw: f32) -> Isometry2<Ground, Field> {
+fn pose(x: f32, y: f32, yaw: f32) -> Isometry2<Ground, World> {
     Isometry2::from_parts(vector![x, y], yaw)
 }
 
-fn kickoff_pose(player_number: PlayerNumber) -> Isometry2<Ground, Field> {
+fn kickoff_pose(player_number: PlayerNumber) -> Isometry2<Ground, World> {
     match player_number {
         PlayerNumber::Three => pose(-0.4, 0.0, 0.0),
         PlayerNumber::Four => pose(-1.0, 1.0, 0.0),

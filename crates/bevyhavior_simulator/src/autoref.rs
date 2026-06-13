@@ -1,4 +1,4 @@
-use std::f32::consts::FRAC_PI_2;
+use std::f32::consts::{FRAC_PI_2, PI};
 
 use bevy::{
     app::{App, Update},
@@ -11,12 +11,12 @@ use bevy::{
     prelude::Res,
     time::{Time, Timer, TimerMode},
 };
-use coordinate_systems::{Field, Ground};
+use coordinate_systems::{Field, Ground, World};
 use hsl_network_messages::{GameState, Penalty, SubState, Team};
 use linear_algebra::{point, vector, Isometry2};
 use types::{
     ball_position::SimulatorBallState,
-    field_dimensions::{FieldDimensions, Half, Side},
+    field_dimensions::{FieldDimensions, GlobalFieldSide, Half, Side},
     motion_command::MotionCommand,
     path::traits::Length,
 };
@@ -100,7 +100,13 @@ pub fn autoref(
         GameState::Playing => {
             if let Some(scoring_team) = ball
                 .state
-                .and_then(|ball| ball_in_goal(ball, **field_dimensions))
+                .and_then(|ball| {
+                    ball_in_goal(
+                        ball,
+                        **field_dimensions,
+                        game_controller.state.global_field_side,
+                    )
+                })
             {
                 match state.goal_mode {
                     GoalMode::GoToReady => {
@@ -124,15 +130,41 @@ pub fn autoref(
     }
 }
 
-fn ball_in_goal(ball: SimulatorBallState, field_dimensions: FieldDimensions) -> Option<Team> {
+fn ball_in_goal(
+    ball: SimulatorBallState,
+    field_dimensions: FieldDimensions,
+    global_field_side: GlobalFieldSide,
+) -> Option<Team> {
     if field_dimensions.is_inside_any_goal(ball.position) {
-        if ball.position.x() > 0.0 {
+        let ball_in_field = point_world_to_field(ball.position, global_field_side);
+        if ball_in_field.x() > 0.0 {
             return Some(Team::Hulks);
         } else {
             return Some(Team::Opponent);
         }
     }
     None
+}
+
+fn field_to_world_transform(global_field_side: GlobalFieldSide) -> Isometry2<Field, World> {
+    match global_field_side {
+        GlobalFieldSide::Home => Isometry2::identity(),
+        GlobalFieldSide::Away => Isometry2::from_parts(vector![0.0, 0.0], PI),
+    }
+}
+
+fn point_field_to_world(
+    point: linear_algebra::Point2<Field>,
+    global_field_side: GlobalFieldSide,
+) -> linear_algebra::Point2<World> {
+    field_to_world_transform(global_field_side) * point
+}
+
+fn point_world_to_field(
+    point: linear_algebra::Point2<World>,
+    global_field_side: GlobalFieldSide,
+) -> linear_algebra::Point2<Field> {
+    field_to_world_transform(global_field_side).inverse() * point
 }
 
 pub fn auto_assistant_referee(
@@ -176,7 +208,10 @@ pub fn auto_assistant_referee(
                             Team::Opponent => Half::Own,
                         };
                         ball.state = Some(SimulatorBallState {
-                            position: field_dimensions.corner(half, side),
+                            position: point_field_to_world(
+                                field_dimensions.corner(half, side),
+                                game_controller.state.global_field_side,
+                            ),
                             velocity: vector![0.0, 0.0],
                         });
                     }
@@ -186,7 +221,10 @@ pub fn auto_assistant_referee(
                             Team::Opponent => Half::Own,
                         };
                         ball.state = Some(SimulatorBallState {
-                            position: field_dimensions.penalty_spot(half),
+                            position: point_field_to_world(
+                                field_dimensions.penalty_spot(half),
+                                game_controller.state.global_field_side,
+                            ),
                             velocity: vector![0.0, 0.0],
                         });
                     }
@@ -205,7 +243,10 @@ pub fn auto_assistant_referee(
                             Team::Opponent => Half::Opponent,
                         };
                         ball.state = Some(SimulatorBallState {
-                            position: field_dimensions.goal_box_corner(half, side),
+                            position: point_field_to_world(
+                                field_dimensions.goal_box_corner(half, side),
+                                game_controller.state.global_field_side,
+                            ),
                             velocity: vector![0.0, 0.0],
                         });
                     }
