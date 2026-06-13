@@ -41,7 +41,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let hypothetical_ball_positions_sub = node
-        .subscriber::<Vec<HypotheticalBallPosition<Ground>>>("hypothetical_ball_positions")?
+        .subscriber::<Vec<HypotheticalBallPosition<Ground>>>("ball_filter/hypothetical_ball_positions")?
         .build()
         .await?;
     let ground_to_field_cache = node
