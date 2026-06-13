@@ -13,7 +13,10 @@ use crate::{
     error::WireError,
     graph::Graph,
     message::{Message, Service, WireDecoder, WireEncoder, validated_type_info_for_schema},
-    pubsub::{DEFAULT_TRANSIENT_LOCAL_REPLAY_TIMEOUT, PublisherBuilder, SubscriberBuilder},
+    pubsub::{
+        DEFAULT_PUBLISHER_WARNING_TIMEOUT, DEFAULT_TRANSIENT_LOCAL_REPLAY_TIMEOUT,
+        PublisherBuilder, SubscriberBuilder,
+    },
     service::{ServiceClientBuilder, ServiceServerBuilder},
     shm::ShmConfig,
     time::{Clock, Timer},
@@ -329,6 +332,7 @@ impl Node {
             dyn_schema: None,
             locality: None,
             transient_local_replay_timeout: DEFAULT_TRANSIENT_LOCAL_REPLAY_TIMEOUT,
+            publisher_warning_timeout: Some(DEFAULT_PUBLISHER_WARNING_TIMEOUT),
             _phantom_data: Default::default(),
         }
     }

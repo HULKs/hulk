@@ -4,7 +4,11 @@ use std::time::Duration;
 use zenoh::sample::Sample;
 
 use crate::Result;
-use crate::pubsub::subscriber::{SubscriberBuilder, SubscriberResources};
+use crate::entity::EndpointEntity;
+use crate::graph::Graph;
+use crate::pubsub::subscriber::{
+    SubscriberBuilder, SubscriberResources, recv_sample_with_publisher_warning,
+};
 use crate::qos::QosProfile;
 use crate::queue::BoundedQueue;
 
@@ -15,13 +19,25 @@ use crate::queue::BoundedQueue;
 /// Received samples are delivered as [`Sample`] values without deserialization.
 pub struct RawSubscriber {
     queue: Arc<BoundedQueue<Sample>>,
+    graph: Arc<Graph>,
+    entity: EndpointEntity,
+    publisher_warning_timeout: Option<Duration>,
     _resources: SubscriberResources,
 }
 
 impl RawSubscriber {
-    pub(super) fn new(queue: Arc<BoundedQueue<Sample>>, resources: SubscriberResources) -> Self {
+    pub(super) fn new(
+        queue: Arc<BoundedQueue<Sample>>,
+        resources: SubscriberResources,
+        graph: Arc<Graph>,
+        entity: EndpointEntity,
+        publisher_warning_timeout: Option<Duration>,
+    ) -> Self {
         Self {
             queue,
+            graph,
+            entity,
+            publisher_warning_timeout,
             _resources: resources,
         }
     }
@@ -33,7 +49,14 @@ impl RawSubscriber {
     /// cancel-safe: cancelling this future before it completes does not remove a
     /// sample from the queue.
     pub async fn recv(&mut self) -> Result<Sample> {
-        Ok(self.queue.recv_async().await)
+        let sample = recv_sample_with_publisher_warning(
+            &self.queue,
+            &self.graph,
+            &self.entity,
+            self.publisher_warning_timeout,
+        )
+        .await;
+        Ok(sample)
     }
 }
 
@@ -66,6 +89,18 @@ where
     pub fn transient_local_replay_timeout(self, timeout: Duration) -> Self {
         Self {
             inner: self.inner.transient_local_replay_timeout(timeout),
+        }
+    }
+
+    pub fn publisher_warning_timeout(self, timeout: Duration) -> Self {
+        Self {
+            inner: self.inner.publisher_warning_timeout(timeout),
+        }
+    }
+
+    pub fn without_publisher_warning(self) -> Self {
+        Self {
+            inner: self.inner.without_publisher_warning(),
         }
     }
 

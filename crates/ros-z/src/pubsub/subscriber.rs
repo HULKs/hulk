@@ -27,6 +27,8 @@ pub(super) fn subscriber_queue_capacity(qos: &ros_z_protocol::qos::QosProfile) -
     }
 }
 
+pub const DEFAULT_PUBLISHER_WARNING_TIMEOUT: Duration = Duration::from_secs(5);
+
 pub struct SubscriberBuilder<T, C = <T as crate::Message>::Codec> {
     pub(crate) entity: EndpointEntity,
     pub(crate) session: Session,
@@ -34,6 +36,7 @@ pub struct SubscriberBuilder<T, C = <T as crate::Message>::Codec> {
     pub(crate) dyn_schema: Option<Schema>,
     pub(crate) locality: Option<zenoh::sample::Locality>,
     pub(crate) transient_local_replay_timeout: Duration,
+    pub(crate) publisher_warning_timeout: Option<Duration>,
     pub(crate) _phantom_data: PhantomData<(T, C)>,
 }
 
@@ -139,6 +142,16 @@ where
         self
     }
 
+    pub fn publisher_warning_timeout(mut self, timeout: Duration) -> Self {
+        self.publisher_warning_timeout = Some(timeout);
+        self
+    }
+
+    pub fn without_publisher_warning(mut self) -> Self {
+        self.publisher_warning_timeout = None;
+        self
+    }
+
     /// Set the dynamic schema for runtime-typed messages.
     pub fn dynamic_schema(mut self, schema: Schema) -> Self {
         self.dyn_schema = Some(schema);
@@ -168,7 +181,13 @@ where
             )
             .await?;
 
-        Ok(raw::RawSubscriber::new(queue, resources))
+        Ok(raw::RawSubscriber::new(
+            queue,
+            resources,
+            self.graph,
+            self.entity,
+            self.publisher_warning_timeout,
+        ))
     }
 
     async fn build_subscriber_resources<F>(
@@ -334,8 +353,38 @@ where
             queue,
             graph: builder.graph,
             dyn_schema: builder.dyn_schema,
+            publisher_warning_timeout: builder.publisher_warning_timeout,
             _phantom_data: Default::default(),
         })
+    }
+}
+
+pub(super) async fn recv_sample_with_publisher_warning(
+    queue: &BoundedQueue<Sample>,
+    graph: &Graph,
+    entity: &EndpointEntity,
+    publisher_warning_timeout: Option<Duration>,
+) -> Sample {
+    let Some(timeout) = publisher_warning_timeout else {
+        return queue.recv_async().await;
+    };
+
+    tokio::select! {
+        sample = queue.recv_async() => sample,
+        () = tokio::time::sleep(timeout) => {
+            let publisher_count = graph.view().publishers_on(&entity.topic).len();
+            if publisher_count == 0 {
+                warn!(
+                    topic = %entity.topic,
+                    subscriber_node = %entity.node.fully_qualified_name(),
+                    subscriber_type = %entity.type_info.name,
+                    subscriber_schema_hash = %entity.type_info.hash,
+                    timeout_seconds = timeout.as_secs_f64(),
+                    "[SUB] no message received and no publishers are visible for subscriber topic"
+                );
+            }
+            queue.recv_async().await
+        }
     }
 }
 
@@ -347,6 +396,7 @@ pub struct Subscriber<T, C: WireDecoder = <T as crate::Message>::Codec> {
     /// Schema for dynamic message deserialization.
     /// Required for runtime-typed dynamic subscribers using `DynamicPayload`.
     dyn_schema: Option<Schema>,
+    publisher_warning_timeout: Option<Duration>,
     _phantom_data: PhantomData<(T, C)>,
 }
 
@@ -434,7 +484,13 @@ where
 
     /// Receive and deserialize the next message together with metadata.
     pub async fn recv_with_metadata(&self) -> Result<Received<C::Output>> {
-        let sample = self.queue.recv_async().await;
+        let sample = recv_sample_with_publisher_warning(
+            &self.queue,
+            &self.graph,
+            &self.entity,
+            self.publisher_warning_timeout,
+        )
+        .await;
         let payload = sample.payload().to_bytes();
         let message = C::deserialize(&payload)
             .map_err(|source| crate::Error::decode(std::any::type_name::<C::Output>(), source))?;
@@ -470,7 +526,13 @@ impl Subscriber<DynamicPayload, DynamicCdrCodec> {
             }
         })?;
 
-        let sample = self.queue.recv_async().await;
+        let sample = recv_sample_with_publisher_warning(
+            &self.queue,
+            &self.graph,
+            &self.entity,
+            self.publisher_warning_timeout,
+        )
+        .await;
         let payload = sample.payload().to_bytes();
 
         let message = DynamicCdrCodec::deserialize((&payload, schema))
@@ -481,5 +543,75 @@ impl Subscriber<DynamicPayload, DynamicCdrCodec> {
     /// Get the dynamic schema.
     pub fn schema(&self) -> Option<&ros_z_schema::SchemaBundle> {
         self.dyn_schema.as_ref().map(|s| s.as_ref())
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::Duration;
+
+    use crate::context::ContextBuilder;
+
+    use super::*;
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn subscriber_warning_builder_controls_store_timeout_options() -> crate::Result<()> {
+        let context = ContextBuilder::default()
+            .without_graph_initial_query()
+            .build()
+            .await?;
+        let node = context
+            .create_node("subscriber_warning_builder_controls")
+            .without_schema_service()
+            .build()
+            .await?;
+
+        let builder = node.subscriber::<String>("/subscriber_warning_builder_controls")?;
+        assert_eq!(
+            builder.publisher_warning_timeout,
+            Some(DEFAULT_PUBLISHER_WARNING_TIMEOUT)
+        );
+
+        let custom_timeout = Duration::from_millis(17);
+        let builder = builder.publisher_warning_timeout(custom_timeout);
+        assert_eq!(builder.publisher_warning_timeout, Some(custom_timeout));
+
+        let builder = builder.without_publisher_warning();
+        assert_eq!(builder.publisher_warning_timeout, None);
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread")]
+    async fn raw_subscriber_warning_builder_controls_store_timeout_options() -> crate::Result<()> {
+        let context = ContextBuilder::default()
+            .without_graph_initial_query()
+            .build()
+            .await?;
+        let node = context
+            .create_node("raw_subscriber_warning_builder_controls")
+            .without_schema_service()
+            .build()
+            .await?;
+
+        let raw_builder = node
+            .subscriber::<String>("/raw_subscriber_warning_builder_controls")?
+            .raw();
+        assert_eq!(
+            raw_builder.inner.publisher_warning_timeout,
+            Some(DEFAULT_PUBLISHER_WARNING_TIMEOUT)
+        );
+
+        let custom_timeout = Duration::from_millis(23);
+        let raw_builder = raw_builder.publisher_warning_timeout(custom_timeout);
+        assert_eq!(
+            raw_builder.inner.publisher_warning_timeout,
+            Some(custom_timeout)
+        );
+
+        let raw_builder = raw_builder.without_publisher_warning();
+        assert_eq!(raw_builder.inner.publisher_warning_timeout, None);
+
+        Ok(())
     }
 }
