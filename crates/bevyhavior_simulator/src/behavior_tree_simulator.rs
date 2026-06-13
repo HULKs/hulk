@@ -1,4 +1,4 @@
-use std::{collections::BTreeMap, net::SocketAddr, time::Duration, time::SystemTime};
+use std::{collections::BTreeMap, env, net::SocketAddr, time::Duration, time::SystemTime};
 
 use bevy::{
     app::{App, AppExit, Plugin, Update},
@@ -30,6 +30,8 @@ use world_state::behavior::{
     node::{Behavior, BehaviorTickInput, BehaviorTickOutput, CreationContext},
     send_message::CommunicationInput,
 };
+
+use crate::timeline_viewer::{TimelineViewerData, show_timeline_viewer};
 
 pub const DEFAULT_TICK_DURATION: Duration = Duration::from_millis(10);
 const PLAYER_NUMBERS: [PlayerNumber; 5] = [
@@ -249,35 +251,63 @@ impl Plugin for BehaviorTreeSimulatorPlugin {
 
 pub trait AppExt {
     fn run_to_completion(&mut self) -> Result<()>;
+    fn run_to_completion_with_viewer(&mut self) -> Result<()>;
 }
 
 impl AppExt for App {
     fn run_to_completion(&mut self) -> Result<()> {
-        let mut event_cursor = self
-            .world_mut()
-            .resource_mut::<Messages<AppExit>>()
-            .get_cursor();
+        let exit = run_until_exit(self);
+        check_scenario_result(self, exit)
+    }
 
-        let exit = loop {
-            self.update();
+    fn run_to_completion_with_viewer(&mut self) -> Result<()> {
+        let exit = run_until_exit(self);
 
-            let events = self.world().resource::<Messages<AppExit>>();
-            if let Some(exit_message) = event_cursor.read(events).last() {
-                break exit_message.clone();
-            }
+        let viewer_data = TimelineViewerData {
+            field_dimensions: self.world().resource::<SimulatorFieldDimensions>().0,
+            frames: self.world().resource::<SimulatorTimeline>().frames.clone(),
+            failures: self
+                .world()
+                .resource::<SimulatorScenarioResult>()
+                .failures
+                .clone(),
         };
 
-        if let AppExit::Error(code) = exit {
-            bail!("scenario exited with error code {code}");
+        if env::var_os("BEVYHAVIOR_SIMULATOR_NO_VIEWER").is_none() {
+            show_timeline_viewer(viewer_data)?;
         }
 
-        let scenario_result = self.world().resource::<SimulatorScenarioResult>();
-        if scenario_result.failed {
-            bail!("{} simulator failure(s)", scenario_result.failures.len());
-        }
-
-        Ok(())
+        check_scenario_result(self, exit)
     }
+}
+
+fn run_until_exit(app: &mut App) -> AppExit {
+    let mut event_cursor = app
+        .world_mut()
+        .resource_mut::<Messages<AppExit>>()
+        .get_cursor();
+
+    loop {
+        app.update();
+
+        let events = app.world().resource::<Messages<AppExit>>();
+        if let Some(exit_message) = event_cursor.read(events).last() {
+            break exit_message.clone();
+        }
+    }
+}
+
+fn check_scenario_result(app: &App, exit: AppExit) -> Result<()> {
+    if let AppExit::Error(code) = exit {
+        bail!("scenario exited with error code {code}");
+    }
+
+    let scenario_result = app.world().resource::<SimulatorScenarioResult>();
+    if scenario_result.failed {
+        bail!("{} simulator failure(s)", scenario_result.failures.len());
+    }
+
+    Ok(())
 }
 
 #[derive(Resource, Clone, Copy, Debug)]

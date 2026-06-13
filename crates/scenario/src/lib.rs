@@ -16,7 +16,7 @@ pub fn scenario(_attribute: TokenStream, item: TokenStream) -> TokenStream {
             App::new()
                 .add_plugins(BehaviorTreeSimulatorPlugin::default())
                 .add_plugins(#function_name)
-                .run_to_completion()
+                .run_to_completion_with_viewer()
         }
 
         #[cfg(test)]

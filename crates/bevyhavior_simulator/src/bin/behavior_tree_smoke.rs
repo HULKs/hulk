@@ -13,7 +13,7 @@ use types::{
     motion_command::MotionCommand, parameters::BehaviorParameters, primary_state::PrimaryState,
 };
 
-const RUN_DURATION: Duration = Duration::from_secs(2);
+const RUN_DURATION: Duration = Duration::from_secs(20);
 
 #[derive(Resource, Default)]
 struct PrintedFrames(usize);
