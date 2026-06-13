@@ -198,6 +198,10 @@ pub struct SimulatorIncomingMessages {
 pub struct SimulatorOutgoingMessages {
     pub messages: Vec<SimulatorMessage>,
 }
+
+pub struct SimulatorReceivedHslMessages {
+    pub messages_by_receiver: BTreeMap<PlayerNumber, BTreeMap<PlayerNumber, HulkMessage>>,
+}
 ```
 
 `SimulatorGameState` keeps both the full `GameControllerState` and the filtered state consumed by behavior. Auto-referee systems should mutate the full state through helper methods and then synchronize the filtered state so behavior sees a consistent game-controller view in the same tick.
@@ -287,14 +291,16 @@ Each simulation tick runs these steps in order through Bevy systems:
 1. Advance `SimulatorClock::now` by `tick_duration`.
 2. Update shared ball position and velocity using simple friction.
 3. Run auto-referee systems that consume shared simulation truth such as ball-in-goal and update game-controller state before behavior input is built.
-4. Build `player_states` from all simulated robot poses.
-5. For each robot, derive robot-local perception inputs from shared simulation state.
+4. Apply routed incoming HSL network messages from the previous tick to per-robot receive state.
+5. For each robot, derive robot-local perception inputs from shared simulation state and received teammate messages.
 6. For each robot, build a `WorldState` and call `Behavior::tick_behavior_tree()`.
 7. Store each robot's `MotionCommand`, `NodeTrace`, and debug outputs.
-8. Run invariant checks with access to the full pre-kinematics tick state and all behavior outputs.
-9. Apply simple kinematic effects of each `MotionCommand` to robot poses and ball state.
-10. Record a frame for scenarios and future viewers, including any invariant failures.
-11. Run scenario assertions/hooks.
+8. Plan outgoing communication with `Behavior::plan_communication()` using the live message budget from `SimulatorGameState`.
+9. Route planned HSL messages to teammates and decrement the live game-controller message budget.
+10. Run invariant checks with access to the full pre-kinematics tick state and all behavior outputs.
+11. Apply simple kinematic effects of each `MotionCommand` to robot poses and ball state.
+12. Record a frame for scenarios and future viewers, including any invariant failures.
+13. Run scenario assertions/hooks.
 
 Tree ticking should be logically simultaneous for all robots. Kinematic updates should use the motion commands from the same tick after all robots have evaluated behavior.
 
@@ -369,6 +375,46 @@ app.add_systems(
 ```
 
 This is required for scenarios that implement custom physics, inject observations, modify incoming communication, delay outgoing communication, drop messages, duplicate messages, or inspect behavior output before kinematics are applied.
+
+# Robot-To-Robot Communication Routing
+
+The simulator should route HSL robot-to-robot messages through Bevy resources instead of using `NetworkInterface`. Message creation remains pure and owned by `Behavior::plan_communication()`.
+
+Default routing semantics:
+
+- Treat `OutgoingMessage::Hsl(HulkMessage)` as a broadcast packet sent by one robot.
+- Deliver each HSL packet to every spawned `SimulatorRobot` except the sender.
+- Do not deliver self messages. This matches production filtering where `filtered_message` excludes packets from the same player number.
+- Ignore `OutgoingMessage::GameController(...)` for robot-to-robot delivery. Scenarios may inspect these messages through `SimulatorOutgoingMessages`.
+- Apply routed messages on the next simulator tick. This keeps all robots' behavior ticks logically simultaneous and avoids same-tick feedback loops.
+- Store the last received HSL message per `(receiver, sender)` so teammate state persists when no new packet arrives on a later tick.
+
+The live HSL message budget is owned by `SimulatorGameState.game_controller_state.hulks_team.remaining_amount_of_messages`.
+
+`SimulationConfig::remaining_amount_of_messages` is only an initial value for that live game-controller field. The plugin should copy it into `SimulatorGameState` during initialization. After startup, the simulator must not use `SimulationConfig::remaining_amount_of_messages` as the source of truth for planning or routing.
+
+Communication planning should pass the current live budget into `CommunicationInput::remaining_amount_of_messages`:
+
+```rust
+let remaining_amount_of_messages =
+    game_state.game_controller_state.hulks_team.remaining_amount_of_messages;
+```
+
+Routing should handle the budget authoritatively:
+
+- If the live budget is greater than zero, route one HSL broadcast and decrement the budget by exactly one.
+- A broadcast to multiple receivers still costs one message, not one message per receiver.
+- If the live budget is zero, drop the HSL packet and do not route it.
+- Do not decrement the HSL message budget for `OutgoingMessage::GameController(...)`.
+- After decrementing, call `SimulatorGameState::sync_filtered_game_controller_state()` so the next `WorldState.filtered_game_controller_state.remaining_number_of_messages` is consistent.
+
+`build_world_states` should construct teammate `WorldState::player_states` from the receiver's cached HSL messages rather than from ground-truth robot poses. A `HulkMessage::State` maps to `PlayerState` as follows:
+
+- `state_message.pose` becomes `PlayerState::pose`.
+- `state_message.ball_position` becomes `PlayerState::ball_position`.
+- Ball age should be interpreted relative to the message receive time, matching `PlayerStatesReceiver` semantics.
+
+The robot's own `WorldState::robot.ground_to_field` remains simulator truth. Teammate poses should come from communication so scenarios can test lost, delayed, dropped, duplicated, or stale HSL packets.
 
 # Auto-Referee
 
