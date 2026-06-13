@@ -1,10 +1,8 @@
 # Behavior Tree Simulator Design
 
-This document designs a simulator for the current behavior tree instantiated by `crates/nodes/behavior_node/src/tree.rs:create_tree()`.
+This document describes a simulator for the current behavior tree instantiated by `crates/nodes/behavior_node/src/tree.rs:create_tree()`.
 
-The simulator must initialize the behavior blackboard, repeatedly evaluate the behavior tree, and update simulated world state and persistent behavior state between ticks.
-
-No implementation is included in this document.
+The simulator initializes the behavior blackboard, repeatedly evaluates the behavior tree, and updates simulated world state and persistent behavior state between ticks.
 
 # Goals
 
@@ -210,7 +208,7 @@ pub struct SimulatorReceivedHslMessage {
 
 `AutoRefereeConfig` is intentionally separate from `SimulationConfig`. `SimulationConfig` controls simulator physics, perception, communication, and kinematics. `AutoRefereeConfig` controls HSL rule timing and game-controller transitions.
 
-Robot entities should use components or a bundle:
+Robot entities use components and a bundle:
 
 ```rust
 pub struct SimulatorRobot {
@@ -218,15 +216,13 @@ pub struct SimulatorRobot {
 }
 
 pub struct SimulatorRobotBehavior {
-    pub behavior: Behavior,
+    pub tree: behavior_node::behavior_tree::Node<behavior_node::node::Blackboard>,
+    pub blackboard: behavior_node::node::Blackboard,
+    pub static_layout: NodeTrace,
 }
 
 pub struct SimulatorRobotParameters {
     pub behavior: BehaviorParameters,
-}
-
-pub struct SimulatorLastMotionCommand {
-    pub motion_command: MotionCommand,
 }
 
 pub struct SimulatorSuggestedSearchPosition {
@@ -239,13 +235,12 @@ pub struct SimulatorRobotBundle {
     pub primary_state: SimulatorPrimaryState,
     pub behavior: SimulatorRobotBehavior,
     pub parameters: SimulatorRobotParameters,
-    pub last_motion_command: SimulatorLastMotionCommand,
     pub fall_down_state: SimulatorFallDownState,
     pub suggested_search_position: SimulatorSuggestedSearchPosition,
 }
 ```
 
-If a non-Bevy wrapper exists, it may have this shape:
+The non-Bevy convenience wrapper has this shape:
 
 ```rust
 pub struct Simulation {
@@ -265,18 +260,17 @@ Each robot has:
 ```rust
 pub struct SimulatedRobot {
     pub player_number: PlayerNumber,
-    pub ground_to_field: Isometry2<Ground, Field>,
+    pub ground_to_world: Isometry2<Ground, World>,
     pub primary_state: PrimaryState,
-    pub behavior: Behavior,
+    pub behavior: SimulatorRobotBehavior,
     pub parameters: BehaviorParameters,
-    pub last_motion_command: MotionCommand,
     pub fall_down_state: Option<FallDownState>,
     pub perceived_ball: Option<BallState>,
     pub suggested_search_position: Option<Point2<Field>>,
 }
 ```
 
-The shared ball has field pose and velocity:
+The shared ball has world pose and velocity:
 
 ```rust
 pub struct SimulatedBall {
@@ -571,12 +565,12 @@ Detailed free-kick legality, kick-off two-touch restrictions, penalties, ball-ou
 For each robot, construct `WorldState` with:
 
 - `now` from simulation time.
-- `robot.ground_to_field` from simulated robot pose.
+- `robot.ground_to_field` converted from simulated `ground_to_world` using `GlobalFieldSide`.
 - `robot.player_number` from simulated robot identity.
 - `robot.primary_state` from robot or simulated game state.
 - `ball` from robot perception, not directly from shared truth.
 - `rule_ball` from shared truth when rule logic needs it.
-- `player_states` from all simulated robots.
+- `player_states` from the receiver's persisted HSL-derived teammate state.
 - `filtered_game_controller_state` from `SimulatorGameState`.
 - `fall_down_state` from the simulated robot.
 - `suggested_search_position` from scenario or search model.
@@ -686,8 +680,8 @@ The first perception model should be intentionally simple:
 
 - A robot sees the ball if it is within `ball_visibility_range` and inside `ball_visibility_angle` relative to the robot orientation.
 - If visible, set `WorldState::ball` with ground and field positions plus field-side metadata.
-- If not visible, set `WorldState::ball` to `None`; persistent `Behavior::ball` and `Behavior::last_ball` handle timeout behavior.
-- Other robots become obstacles and `player_states` entries.
+- If not visible, set `WorldState::ball` to `None`; persistent `Blackboard::ball` and `Blackboard::last_ball` handle timeout behavior.
+- Other robots may become obstacles; teammate `player_states` entries come from received HSL state.
 - Scenario code can override visibility, ball observations, hypothetical ball positions, fall state, game state, and search position.
 
 # Multi-Robot Behavior
@@ -696,12 +690,12 @@ Multi-robot support is required from the start.
 
 The core should simulate robots together instead of running independent single-robot worlds because behavior depends on team context:
 
-- `player_states` should contain every simulated teammate.
+- `player_states` should contain every teammate state received over simulated HSL.
 - `is_goalkeeper` depends on `BehaviorParameters::goal_keeper_number`.
 - Search/support behavior can use teammate positions and Voronoi inputs.
 - Closest-to-ball behavior currently returns `true`; the simulator should still provide correct inputs so a future implementation can be tested without simulator changes.
 
-If later behavior uses network messages instead of direct `player_states`, add an optional message simulation pass. The first version should prefer direct `WorldState` construction because the behavior tree consumes `WorldState`.
+The simulator routes HSL messages between robots and builds `player_states` from persisted received state rather than ground truth. This keeps communication loss, delay, and staleness testable.
 
 # Rust Scenario API
 
@@ -859,11 +853,9 @@ Use deterministic fixtures:
 - Fixed initial poses.
 - No random perception.
 
-# Implementation Phases
+# Implementation Status
 
-Implementation should wait for an explicit command.
-
-Recommended phases:
+Implemented phases:
 
 1. Tick `behavior_node::tree::create_tree()` through a simulator adapter without using the retired `world_state::behavior` tree.
 2. Add `BehaviorTreeSimulatorPlugin`, public `BehaviorTreeSimulatorSet`s, and Bevy resources/components in `crates/bevyhavior_simulator`.
@@ -874,8 +866,4 @@ Recommended phases:
 7. Add Rust scenario helpers and first branch-coverage scenarios using `#[scenario] fn(app: &mut App)`.
 8. Add timeline finalization on normal completion and failure.
 9. Add default auto-referee goal scoring and game-state transition rules.
-10. Add viewer/server integration later.
-
-# Open Questions Before Implementation
-
-No known open questions remain. Implementation should still wait for an explicit command.
+10. Add viewer/server integration for timeline inspection.
