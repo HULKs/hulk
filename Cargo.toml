@@ -361,6 +361,7 @@ toml = "0.8.20"
 toposort-scc = "0.5.4"
 tracing = "0.1.41"
 tracing-subscriber = "0.3.19"
+twix = { path = "tools/twix" }
 trigger = { path = "crates/nodes/trigger" }
 trybuild = "1.0"
 types = { path = "crates/types" }
