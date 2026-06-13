@@ -90,26 +90,6 @@ pub struct Blackboard {
     pub voronoi_map: Option<VoronoiGrid>,
 }
 
-pub struct BehaviorTickInput {
-    pub world_state: WorldState,
-    pub field_dimensions: FieldDimensions,
-    pub parameters: BehaviorParameters,
-    pub free_kick_obstacle_radius: f32,
-    pub last_motion_command: MotionCommand,
-}
-
-pub struct BehaviorTickOutput {
-    pub motion_command: MotionCommand,
-    pub trace: NodeTrace,
-    pub static_layout: NodeTrace,
-    pub path_obstacles: Vec<PathObstacle>,
-    pub time_since_last_switch: Duration,
-    pub direction_difference: f32,
-    pub walk_position: Option<Point2<Ground>>,
-    pub voronoi_map: Option<VoronoiGrid>,
-    pub voronoi_inputs: Vec<Pose2<Field>>,
-}
-
 #[context]
 pub struct CreationContext {}
 
@@ -175,85 +155,31 @@ impl Behavior {
             .behavior_tree_layout
             .fill_if_subscribed(|| self.static_layout.clone());
 
-        let tick_output = self.tick_behavior_tree(BehaviorTickInput {
-            world_state: context.world_state.clone(),
-            field_dimensions: *context.field_dimensions,
-            parameters: context.parameters.clone(),
-            free_kick_obstacle_radius: *context.free_kick_obstacle_radius,
-            last_motion_command: context.last_motion_command.clone(),
-        })?;
-
-        let communication_output =
-            self.plan_communication(crate::behavior::send_message::CommunicationInput {
-                world_state: context.world_state,
-                game_controller_address: context.game_controller_address.copied(),
-                hsl_network_parameters: &context.parameters.hsl_network,
-                remaining_amount_of_messages: context.remaining_amount_of_messages.copied(),
-            });
-
-        for message in communication_output.outgoing_messages {
-            context.hardware.write_to_network(message)?;
-        }
-
-        if let Some(message) = communication_output.last_sent_message {
-            context.last_sent_message.fill_if_subscribed(|| message);
-        }
-
-        *context.last_motion_command = tick_output.motion_command.clone();
-
-        context
-            .behavior_trace
-            .fill_if_subscribed(|| tick_output.trace);
-        context
-            .path_obstacles_output
-            .fill_if_subscribed(|| tick_output.path_obstacles);
-        context
-            .time_since_last_switch
-            .fill_if_subscribed(|| tick_output.time_since_last_switch);
-        context
-            .direction_difference
-            .fill_if_subscribed(|| tick_output.direction_difference);
-        context
-            .walk_position
-            .fill_if_subscribed(|| tick_output.walk_position);
-        context
-            .voronoi_map
-            .fill_if_subscribed(|| tick_output.voronoi_map);
-        context
-            .voronoi_inputs
-            .fill_if_subscribed(|| tick_output.voronoi_inputs);
-
-        Ok(MainOutputs {
-            motion_command: tick_output.motion_command.into(),
-        })
-    }
-
-    pub fn tick_behavior_tree(&mut self, input: BehaviorTickInput) -> Result<BehaviorTickOutput> {
-        if let Some(ball) = input.world_state.ball {
+        if let Some(ball) = context.world_state.ball {
             self.ball = Some(LastBall {
                 position: ball.ball_in_field,
                 velocity: ball.ball_in_ground_velocity,
-                age: input.world_state.now.to_wallclock(),
+                age: context.world_state.now.to_wallclock(),
                 field_side: ball.field_side,
             });
             self.last_ball = self.ball.clone();
         } else if let Some(last_ball) = &self.ball
-            && input
+            && context
                 .world_state
                 .now
                 .to_wallclock()
                 .duration_since(last_ball.age)
                 .unwrap_or(Duration::from_secs(0))
-                >= input.parameters.last_ball_timeout
+                >= context.parameters.last_ball_timeout
         {
             self.ball = None;
         }
 
         let mut blackboard = Blackboard {
-            field_dimensions: input.field_dimensions,
-            free_kick_obstacle_radius: input.free_kick_obstacle_radius,
-            parameters: input.parameters.clone(),
-            world_state: input.world_state.clone(),
+            field_dimensions: *context.field_dimensions,
+            free_kick_obstacle_radius: *context.free_kick_obstacle_radius,
+            parameters: context.parameters.clone(),
+            world_state: context.world_state.clone(),
 
             path_obstacles_output: Vec::new(),
             time_since_last_switch: Duration::ZERO,
@@ -264,7 +190,7 @@ impl Behavior {
             last_ball: self.last_ball.clone(),
             last_close_enough_to_kick: self.last_close_enough_to_kick,
             last_kick_target: self.last_kick_target,
-            last_motion_command: input.last_motion_command,
+            last_motion_command: context.last_motion_command.clone(),
             last_motion_switch_time: self.last_motion_switch_time,
             last_motion_type: self.last_motion_type,
             last_closest_to_ball: self.last_closest_to_ball,
@@ -286,6 +212,7 @@ impl Behavior {
         self.last_closest_to_ball = blackboard.last_closest_to_ball;
         self.closest_to_ball_entered_area_since = blackboard.closest_to_ball_entered_area_since;
         self.closest_to_ball_left_area_since = blackboard.closest_to_ball_left_area_since;
+        *context.last_motion_command = motion_command.clone();
 
         let motion_type = match motion_command.clone() {
             MotionCommand::VisualKick { .. } => Some(MotionType::Kick),
@@ -296,21 +223,49 @@ impl Behavior {
             _ => None,
         };
 
+        self.send_game_controller_return_message(
+            context.world_state,
+            context.game_controller_address,
+            &context.parameters.hsl_network,
+            context.hardware,
+        )?;
+
+        self.send_state_message(
+            context.world_state,
+            &context.parameters.hsl_network,
+            context.remaining_amount_of_messages,
+            &mut context.last_sent_message,
+            context.hardware,
+        )?;
+
         if motion_type != self.last_motion_type {
-            self.last_motion_switch_time = input.world_state.now.to_wallclock();
+            self.last_motion_switch_time = context.world_state.now.to_wallclock();
             self.last_motion_type = motion_type;
         }
 
-        Ok(BehaviorTickOutput {
-            motion_command,
-            trace,
-            static_layout: self.static_layout.clone(),
-            path_obstacles: blackboard.path_obstacles_output,
-            time_since_last_switch: blackboard.time_since_last_switch,
-            direction_difference: blackboard.direction_difference,
-            walk_position: blackboard.walk_position,
-            voronoi_map: blackboard.voronoi_map,
-            voronoi_inputs: blackboard.voronoi_inputs,
+        context.behavior_trace.fill_if_subscribed(|| trace);
+        let path_obstacles_output = blackboard.path_obstacles_output;
+        context
+            .path_obstacles_output
+            .fill_if_subscribed(|| path_obstacles_output);
+        context
+            .time_since_last_switch
+            .fill_if_subscribed(|| blackboard.time_since_last_switch);
+        context
+            .direction_difference
+            .fill_if_subscribed(|| blackboard.direction_difference);
+        context
+            .walk_position
+            .fill_if_subscribed(|| blackboard.walk_position);
+        context
+            .voronoi_map
+            .fill_if_subscribed(|| blackboard.voronoi_map);
+        context
+            .voronoi_inputs
+            .fill_if_subscribed(|| blackboard.voronoi_inputs);
+
+        Ok(MainOutputs {
+            motion_command: motion_command.into(),
         })
     }
 }

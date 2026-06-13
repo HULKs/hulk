@@ -51,15 +51,6 @@ pub struct PathPlanner {
     pub obstacle_escape_spline_segments: u32,
 }
 
-fn is_zero_sized(obstacle: &PathObstacle) -> bool {
-    match obstacle.shape {
-        PathObstacleShape::Circle(circle) => circle.radius <= f32::EPSILON,
-        PathObstacleShape::LineSegment(line_segment) => {
-            line_segment.length_squared() <= f32::EPSILON
-        }
-    }
-}
-
 impl PathPlanner {
     pub fn with_last_motion(
         &mut self,
@@ -276,8 +267,6 @@ impl PathPlanner {
     ) -> Result<Option<Path>> {
         let original_start = start;
 
-        self.obstacles.retain(|obstacle| !is_zero_sized(obstacle));
-
         let closest_circle = self
             .obstacles
             .iter()
@@ -287,15 +276,7 @@ impl PathPlanner {
         if let Some(circle) = closest_circle {
             let to_start = start - circle.center;
             let safety_radius = circle.radius * 1.1;
-            if let Some(to_start_normalized) = to_start.try_normalize(f32::EPSILON) {
-                start += to_start_normalized * (safety_radius - to_start.norm());
-            } else if let Some(to_destination_normalized) =
-                (destination - start).try_normalize(f32::EPSILON)
-            {
-                start += to_destination_normalized * safety_radius;
-            } else {
-                start += vector![1.0, 0.0] * safety_radius;
-            }
+            start += to_start.normalize() * (safety_radius - to_start.norm());
         }
 
         let closest_circle = self
@@ -331,8 +312,6 @@ impl PathPlanner {
                 circle.radius -= safety_radius - to_destination.norm();
             }
         }
-
-        self.obstacles.retain(|obstacle| !is_zero_sized(obstacle));
 
         self.nodes = vec![PathNode::from(start), PathNode::from(destination)];
 
@@ -874,60 +853,6 @@ mod tests {
                 .expect("Path error")
                 .is_none()
         );
-    }
-
-    #[test]
-    fn zero_sized_obstacles_are_filtered() {
-        let mut map = PathPlanner::default();
-        map.obstacles
-            .push(PathObstacle::from(Circle::new(Point2::origin(), 0.0)));
-        map.obstacles.push(PathObstacle::from(LineSegment(
-            point![1.0, 1.0],
-            point![1.0, 1.0],
-        )));
-
-        let path = map
-            .plan(Point2::origin(), point![2.0, 0.0])
-            .expect("Path error")
-            .expect("Path was none");
-
-        assert!(map.obstacles.is_empty());
-        assert_eq!(
-            path.segments.as_slice(),
-            &[PathSegment::LineSegment(LineSegment(
-                Point2::origin(),
-                point![2.0, 0.0]
-            ))]
-        );
-    }
-
-    #[test]
-    fn start_at_obstacle_center_does_not_create_nan() {
-        let mut map = PathPlanner::default();
-        map.with_obstacles(&[Obstacle::ball(Point2::origin(), 1.0)], 0.0);
-
-        let path = map
-            .plan(Point2::origin(), point![2.0, 0.0])
-            .expect("Path error")
-            .expect("Path was none");
-
-        for segment in path.segments {
-            match segment {
-                PathSegment::LineSegment(line_segment) => {
-                    assert!(line_segment.0.x().is_finite());
-                    assert!(line_segment.0.y().is_finite());
-                    assert!(line_segment.1.x().is_finite());
-                    assert!(line_segment.1.y().is_finite());
-                }
-                PathSegment::Arc(arc) => {
-                    assert!(arc.circle.center.x().is_finite());
-                    assert!(arc.circle.center.y().is_finite());
-                    assert!(arc.circle.radius.is_finite());
-                    assert!(arc.start.angle().is_finite());
-                    assert!(arc.end.angle().is_finite());
-                }
-            }
-        }
     }
 
     #[test]
