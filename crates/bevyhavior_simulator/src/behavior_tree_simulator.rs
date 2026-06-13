@@ -265,6 +265,10 @@ impl Plugin for BehaviorTreeSimulatorPlugin {
         )
         .add_systems(
             Update,
+            sync_primary_states_from_game_state.in_set(BehaviorTreeSimulatorSet::BeforeWorldState),
+        )
+        .add_systems(
+            Update,
             tick_behavior_trees.in_set(BehaviorTreeSimulatorSet::TickBehaviorTrees),
         )
         .add_systems(
@@ -947,6 +951,29 @@ fn filtered_game_state_from(game_controller_state: &GameControllerState) -> Filt
             kick_off: false,
         },
         GameState::Finished => FilteredGameState::Finished,
+    }
+}
+
+fn primary_state_from_game_controller_state(
+    game_controller_state: &GameControllerState,
+) -> PrimaryState {
+    match filtered_game_state_from(game_controller_state) {
+        FilteredGameState::Initial => PrimaryState::Initial,
+        FilteredGameState::Ready => PrimaryState::Ready,
+        FilteredGameState::Set => PrimaryState::Set,
+        FilteredGameState::Playing { .. } => PrimaryState::Playing,
+        FilteredGameState::Finished => PrimaryState::Finished,
+        FilteredGameState::Stop => PrimaryState::Stop,
+    }
+}
+
+fn sync_primary_states_from_game_state(
+    game_state: Res<SimulatorGameState>,
+    mut robots: Query<&mut SimulatorPrimaryState>,
+) {
+    let primary_state = primary_state_from_game_controller_state(&game_state.game_controller_state);
+    for mut robot_primary_state in &mut robots {
+        robot_primary_state.primary_state = primary_state;
     }
 }
 
@@ -2251,6 +2278,44 @@ mod tests {
             Some(Team::Hulks)
         );
         assert!(ball.state.is_none());
+    }
+
+    #[test]
+    fn scored_goal_updates_robot_primary_state_to_ready() {
+        let mut app = App::new();
+        app.add_plugins((MinimalPlugins, BehaviorTreeSimulatorPlugin::default()));
+
+        let field_dimensions = app.world().resource::<SimulatorFieldDimensions>().0;
+        let parameters = default_behavior_parameters().expect("failed to load behavior parameters");
+        app.world_mut().spawn(
+            SimulatorRobotBundle::new(PlayerNumber::Three, Isometry2::identity(), parameters)
+                .expect("failed to create robot bundle")
+                .with_primary_state(PrimaryState::Playing),
+        );
+        app.world_mut().resource_mut::<SimulatorBall>().state = Some(SimulatedBall {
+            position: point![field_dimensions.length / 2.0 + 0.1, 0.0],
+            velocity: vector![0.0, 0.0],
+            field_side: Side::Left,
+        });
+
+        app.update();
+
+        let mut query = app.world_mut().query::<&SimulatorPrimaryState>();
+        let primary_states = query
+            .iter(app.world())
+            .map(|primary_state| primary_state.primary_state)
+            .collect::<Vec<_>>();
+        assert_eq!(primary_states, vec![PrimaryState::Ready]);
+
+        let robot_frames = app.world().resource::<SimulatorRobotFrames>();
+        let robot_frame = robot_frames
+            .0
+            .get(&PlayerNumber::Three)
+            .expect("robot should have ticked behavior");
+        assert!(matches!(
+            robot_frame.motion_command,
+            MotionCommand::Walk { .. }
+        ));
     }
 
     #[test]

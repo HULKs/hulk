@@ -27,11 +27,7 @@ fn mercy_rule_finish(app: &mut App) {
         );
 }
 
-fn startup(
-    mut commands: Commands,
-    mut ball: ResMut<SimulatorBall>,
-    mut game_state: ResMut<SimulatorGameState>,
-) {
+fn startup(mut commands: Commands, mut ball: ResMut<SimulatorBall>) {
     let mut parameters =
         default_behavior_parameters().expect("failed to load default behavior parameters");
     parameters.goal_keeper_number = PlayerNumber::One;
@@ -48,8 +44,6 @@ fn startup(
                 .with_primary_state(PrimaryState::Playing),
         );
     }
-
-    game_state.game_controller_state.hulks_team.score = 9;
 
     ball.state = Some(
         bevyhavior_simulator::behavior_tree_simulator::SimulatedBall {
