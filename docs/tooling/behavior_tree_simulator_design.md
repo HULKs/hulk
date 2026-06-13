@@ -16,6 +16,7 @@ No implementation is included in this document.
 - Support an interactive Twix/Bevy layer for inspecting and editing simulation state.
 - Record behavior traces, motion commands, world states, blackboard-derived debug outputs, and scenario assertions.
 - Check simulator invariants every cycle with access to complete simulation state.
+- Provide an extensible auto-referee that can update game-controller state from simulated events.
 
 # Non-Goals
 
@@ -25,6 +26,7 @@ No implementation is included in this document.
 - Simulating perception pipelines in detail.
 - Changing behavior tree semantics.
 - Implementing new behavior actions as part of the simulator.
+- Implementing every HSL rule in the initial auto-referee. Game-state transitions are in scope first; penalties, free-kick correctness, and detailed ball-out rules can follow later.
 
 # Existing Runtime Shape
 
@@ -156,7 +158,24 @@ pub struct SimulatorBall {
 }
 
 pub struct SimulatorGameState {
+    pub game_controller_state: GameControllerState,
     pub filtered_game_controller_state: Option<FilteredGameControllerState>,
+}
+
+pub struct AutoRefereeConfig {
+    pub ready_duration: Duration,
+    pub playing_signal_delay: Duration,
+    pub halftime_duration: Duration,
+    pub auto_whistle_in_set: bool,
+    pub finish_on_halftime_timeout: bool,
+}
+
+pub struct SimulatorAutoReferee {
+    pub rules: Vec<Box<dyn AutoRefereeRule>>,
+    pub last_game_state_change: SystemTime,
+    pub halftime_started_at: Option<SystemTime>,
+    pub pending_playing_signal_at: Option<SystemTime>,
+    pub restart_reason: Option<SimulatorRestartReason>,
 }
 
 pub struct SimulatorRuleObstacles {
@@ -180,6 +199,10 @@ pub struct SimulatorOutgoingMessages {
     pub messages: Vec<SimulatorMessage>,
 }
 ```
+
+`SimulatorGameState` keeps both the full `GameControllerState` and the filtered state consumed by behavior. Auto-referee systems should mutate the full state through helper methods and then synchronize the filtered state so behavior sees a consistent game-controller view in the same tick.
+
+`AutoRefereeConfig` is intentionally separate from `SimulationConfig`. `SimulationConfig` controls simulator physics, perception, communication, and kinematics. `AutoRefereeConfig` controls HSL rule timing and game-controller transitions.
 
 Robot entities should use components or a bundle:
 
@@ -263,14 +286,15 @@ Each simulation tick runs these steps in order through Bevy systems:
 
 1. Advance `SimulatorClock::now` by `tick_duration`.
 2. Update shared ball position and velocity using simple friction.
-3. Build `player_states` from all simulated robot poses.
-4. For each robot, derive robot-local perception inputs from shared simulation state.
-5. For each robot, build a `WorldState` and call `Behavior::tick_behavior_tree()`.
-6. Store each robot's `MotionCommand`, `NodeTrace`, and debug outputs.
-7. Run invariant checks with access to the full pre-kinematics tick state and all behavior outputs.
-8. Apply simple kinematic effects of each `MotionCommand` to robot poses and ball state.
-9. Record a frame for scenarios and future viewers, including any invariant failures.
-10. Run scenario assertions/hooks.
+3. Run auto-referee systems that consume shared simulation truth such as ball-in-goal and update game-controller state before behavior input is built.
+4. Build `player_states` from all simulated robot poses.
+5. For each robot, derive robot-local perception inputs from shared simulation state.
+6. For each robot, build a `WorldState` and call `Behavior::tick_behavior_tree()`.
+7. Store each robot's `MotionCommand`, `NodeTrace`, and debug outputs.
+8. Run invariant checks with access to the full pre-kinematics tick state and all behavior outputs.
+9. Apply simple kinematic effects of each `MotionCommand` to robot poses and ball state.
+10. Record a frame for scenarios and future viewers, including any invariant failures.
+11. Run scenario assertions/hooks.
 
 Tree ticking should be logically simultaneous for all robots. Kinematic updates should use the motion commands from the same tick after all robots have evaluated behavior.
 
@@ -281,6 +305,7 @@ The simulator should provide a Bevy plugin:
 ```rust
 pub struct BehaviorTreeSimulatorPlugin {
     pub config: SimulationConfig,
+    pub auto_referee_config: AutoRefereeConfig,
     pub field_dimensions: FieldDimensions,
     pub enable_default_ball_physics: bool,
     pub enable_default_kinematics: bool,
@@ -298,6 +323,9 @@ pub enum BehaviorTreeSimulatorSet {
     BeforeBallPhysics,
     BallPhysics,
     AfterBallPhysics,
+    BeforeAutoReferee,
+    RunAutoReferee,
+    AfterAutoReferee,
     BuildTeamContext,
     BeforeWorldState,
     BuildWorldStates,
@@ -342,6 +370,153 @@ app.add_systems(
 
 This is required for scenarios that implement custom physics, inject observations, modify incoming communication, delay outgoing communication, drop messages, duplicate messages, or inspect behavior output before kinematics are applied.
 
+# Auto-Referee
+
+The auto-referee should be a Bevy resource plus ordered rules. It should be extensible, but the first expansion should focus on game-state transitions only.
+
+Rule sources:
+
+- `../HSL-Rules/rules/game.tex`
+- `../HSL-Rules/common/variables.tex`
+- `../HSL-Rules/figs/game_states/game_states.tex`
+
+Relevant state flow from the rules:
+
+- `Initial -> Ready`
+- `Ready -> Set`
+- `Set -> Playing`
+- `Playing -> Ready` for restarts after events such as goals or dropped ball.
+- `Playing -> Finished` at half end.
+
+Current protocol types provide `GameState::{Initial, Ready, Set, Playing, Finished}`. Brief stop should be represented through `GameControllerState::stopped`, not as a separate game state. Timeout should be represented through `GamePhase::Timeout`, not as a separate game state.
+
+The auto-referee config should be a standalone Bevy resource:
+
+```rust
+pub struct AutoRefereeConfig {
+    pub ready_duration: Duration,
+    pub playing_signal_delay: Duration,
+    pub halftime_duration: Duration,
+    pub auto_whistle_in_set: bool,
+    pub finish_on_halftime_timeout: bool,
+}
+
+impl Default for AutoRefereeConfig {
+    fn default() -> Self {
+        Self {
+            ready_duration: Duration::from_secs(45),
+            playing_signal_delay: Duration::from_secs(10),
+            halftime_duration: Duration::from_secs(10 * 60),
+            auto_whistle_in_set: true,
+            finish_on_halftime_timeout: true,
+        }
+    }
+}
+```
+
+Use `halftime_duration` naming rather than `period_duration`.
+
+The auto-referee state should be owned separately from the game-controller state:
+
+```rust
+pub struct SimulatorAutoReferee {
+    pub rules: Vec<Box<dyn AutoRefereeRule>>,
+    pub last_game_state_change: SystemTime,
+    pub halftime_started_at: Option<SystemTime>,
+    pub pending_playing_signal_at: Option<SystemTime>,
+    pub restart_reason: Option<SimulatorRestartReason>,
+}
+
+pub enum SimulatorRestartReason {
+    KickOffAfterGoal { scoring_team: Team },
+    DroppedBall,
+}
+```
+
+Future restart reasons may include initial kick-off, second-half kick-off, penalty kick, and free kick.
+
+The rule trait should receive all state required for game-state transitions:
+
+```rust
+pub trait AutoRefereeRule: Send + Sync {
+    fn apply(&mut self, context: &mut AutoRefereeContext<'_>);
+}
+
+pub struct AutoRefereeContext<'a> {
+    pub now: SystemTime,
+    pub config: &'a AutoRefereeConfig,
+    pub field_dimensions: FieldDimensions,
+    pub game_state: &'a mut SimulatorGameState,
+    pub auto_referee: &'a mut SimulatorAutoReferee,
+    pub ball: &'a mut SimulatorBall,
+}
+```
+
+`SimulatorGameState` should expose small mutation helpers:
+
+- `set_game_state(game_state, now)`
+- `set_kicking_team(kicking_team)`
+- `set_stopped(stopped)`
+- `sync_filtered_game_controller_state()`
+
+These helpers keep the full `GameControllerState` and `FilteredGameControllerState` synchronized. Scenarios may still mutate resources directly when necessary, but default auto-referee rules should use helpers.
+
+Default auto-referee rules should run in this order:
+
+1. `ScoredGoalRule`
+2. `GameStateTransitionRule`
+3. `HalftimeTimeoutRule`
+
+`ScoredGoalRule`:
+
+- Run only while `GameState::Playing`.
+- If the ball is inside either goal, increment the scoring team's score.
+- Remove the ball.
+- Set `kicking_team` to the opponent of the scoring team.
+- Set `restart_reason = Some(KickOffAfterGoal { scoring_team })`.
+- Transition to `GameState::Ready`.
+- If the score difference reaches 10, transition to `GameState::Finished` instead.
+
+`GameStateTransitionRule`:
+
+- Transition `Ready -> Set` after `ready_duration`.
+- On entering `Set`, place the ball at the center mark with zero velocity for kick-off and dropped-ball restarts when placement is required.
+- In `Set`, if `auto_whistle_in_set` is enabled, schedule `pending_playing_signal_at = now + playing_signal_delay`.
+- Transition `Set -> Playing` after the pending playing-signal time elapses.
+- Clear `pending_playing_signal_at` and restart metadata after entering `Playing`.
+- Start `halftime_started_at` when entering `Playing` if no half is currently running.
+
+`HalftimeTimeoutRule`:
+
+- If `finish_on_halftime_timeout` is enabled and the game is `Playing`, transition to `Finished` after `halftime_duration` has elapsed since `halftime_started_at`.
+- Do not implement the ball-stop extension initially. That can be added later behind a separate config field.
+
+The simulator should default to `GameState::Playing` so simple behavior scenarios and smoke tests start immediately. Scenarios that need full match flow can explicitly set `Initial`, `Ready`, or `Set`.
+
+Scenario control can be added through a Bevy message API:
+
+```rust
+pub enum SimulatorRefereeCommand {
+    SetGameState(GameState),
+    Whistle,
+    BriefStop,
+    Resume,
+    DroppedBall,
+    SetTimeout(bool),
+}
+```
+
+Initial command behavior:
+
+- `SetGameState` applies a direct state override through `SimulatorGameState` helpers.
+- `Whistle` schedules `Playing` while in `Set`.
+- `DroppedBall` sets restart reason and transitions to `Ready`.
+- `BriefStop` sets `GameControllerState::stopped = true`.
+- `Resume` clears `stopped`.
+- `SetTimeout(true)` sets `GamePhase::Timeout`; `SetTimeout(false)` restores the previous phase or `Normal`.
+
+Detailed free-kick legality, kick-off two-touch restrictions, penalties, ball-out classification, penalty shootout ranking, local/global game-stuck detection, and ball-stop half extension are out of scope for this first game-state-transition expansion.
+
 # WorldState Construction
 
 For each robot, construct `WorldState` with:
@@ -353,7 +528,7 @@ For each robot, construct `WorldState` with:
 - `ball` from robot perception, not directly from shared truth.
 - `rule_ball` from shared truth when rule logic needs it.
 - `player_states` from all simulated robots.
-- `filtered_game_controller_state` from `SimulatedGameState`.
+- `filtered_game_controller_state` from `SimulatorGameState`.
 - `fall_down_state` from the simulated robot.
 - `suggested_search_position` from scenario or search model.
 - `obstacles` from other robots and scenario obstacles.
@@ -650,7 +825,8 @@ Recommended phases:
 6. Add invariant check support and initial rule-obstacle and field-boundary checks.
 7. Add Rust scenario helpers and first branch-coverage scenarios using `#[scenario] fn(app: &mut App)`.
 8. Add timeline finalization on normal completion and failure.
-9. Add viewer/server integration later.
+9. Add default auto-referee goal scoring and game-state transition rules.
+10. Add viewer/server integration later.
 
 # Open Questions Before Implementation
 
