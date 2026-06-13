@@ -756,7 +756,7 @@ pub struct SimulatorScenarioResult {
     pub failures: Vec<SimulatorFailure>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub enum SimulatorFailure {
     InvariantViolation(InvariantViolation),
     ScenarioAssertion(String),
@@ -779,13 +779,13 @@ pub struct SimulatorReceivedHslMessages {
     pub player_states_by_receiver: BTreeMap<PlayerNumber, Players<Option<PlayerState>>>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct SimulatorMessage {
     pub sender: PlayerNumber,
     pub message: OutgoingMessage,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct SimulatorIncomingMessage {
     pub receiver: PlayerNumber,
     pub sender: PlayerNumber,
@@ -1871,7 +1871,7 @@ impl SimulatedBall {
     }
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct TimelineFrame {
     pub now: SystemTime,
     pub ball: Option<SimulatedBall>,
@@ -1880,7 +1880,7 @@ pub struct TimelineFrame {
     pub invariant_violations: Vec<InvariantViolation>,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct RobotFrame {
     pub world_state: WorldState,
     pub motion_command: MotionCommand,
@@ -1917,7 +1917,7 @@ impl RobotFrame {
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, Serialize)]
 pub struct RobotSnapshot {
     pub player_number: PlayerNumber,
     pub ground_to_field: Isometry2<Ground, Field>,
@@ -1936,7 +1936,7 @@ pub struct SimulationSnapshot {
     pub config: SimulationConfig,
 }
 
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Serialize)]
 pub struct InvariantViolation {
     pub check_name: &'static str,
     pub player_number: Option<PlayerNumber>,
@@ -1944,7 +1944,7 @@ pub struct InvariantViolation {
     pub severity: InvariantSeverity,
 }
 
-#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+#[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
 pub enum InvariantSeverity {
     Warning,
     Error,

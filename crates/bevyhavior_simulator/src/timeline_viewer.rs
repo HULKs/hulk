@@ -7,12 +7,16 @@ use color_eyre::{
 use coordinate_systems::Field;
 use eframe::{
     App, Frame, NativeOptions,
-    egui::{Align2, CentralPanel, Context, FontId, SidePanel, Slider, TopBottomPanel, Ui},
+    egui::{
+        Align2, CentralPanel, CollapsingHeader, Context, FontId, Label, RichText, ScrollArea,
+        SidePanel, Slider, TextEdit, TopBottomPanel, Ui,
+    },
     epaint::{Color32, Stroke},
     run_native,
 };
 use hsl_network_messages::PlayerNumber;
 use linear_algebra::{Pose2, point, vector};
+use serde_json::{Value, json};
 use twix::{
     twix_painter::{Orientation, TwixPainter},
     zoom_and_pan::ZoomAndPanTransform,
@@ -45,6 +49,9 @@ struct TimelineViewerApp {
     playback_speed: f32,
     last_playback_update: Instant,
     playback_time_accumulator: f64,
+    inspector_filter: String,
+    inspector_cache_frame: Option<usize>,
+    inspector_cache: Option<Value>,
     zoom_and_pan: ZoomAndPanTransform,
 }
 
@@ -57,6 +64,9 @@ impl TimelineViewerApp {
             playback_speed: 1.0,
             last_playback_update: Instant::now(),
             playback_time_accumulator: 0.0,
+            inspector_filter: String::new(),
+            inspector_cache_frame: None,
+            inspector_cache: None,
             zoom_and_pan: ZoomAndPanTransform::default(),
         }
     }
@@ -129,11 +139,13 @@ impl TimelineViewerApp {
         });
     }
 
-    fn show_side_panel(&self, context: &Context) {
+    fn show_side_panel(&mut self, context: &Context) {
         SidePanel::right("timeline_viewer_side_panel")
             .resizable(true)
-            .default_width(260.0)
+            .default_width(360.0)
+            .max_width(520.0)
             .show(context, |ui| {
+                ui.set_max_width(520.0);
                 ui.heading("Frame");
                 ui.label(format!("index: {}", self.selected_frame));
 
@@ -173,7 +185,55 @@ impl TimelineViewerApp {
                         ui.label(format_failure(failure));
                     }
                 }
+
+                ui.separator();
+                self.show_state_inspector(ui);
             });
+    }
+
+    fn show_state_inspector(&mut self, ui: &mut Ui) {
+        ui.heading("State Inspector");
+        ui.horizontal(|ui| {
+            ui.label("filter");
+            if ui.button("clear").clicked() {
+                self.inspector_filter.clear();
+            }
+        });
+        ui.add_sized(
+            [ui.available_width(), ui.spacing().interact_size.y],
+            TextEdit::singleline(&mut self.inspector_filter).hint_text("path or value"),
+        );
+
+        let filter = self.inspector_filter.trim().to_ascii_lowercase();
+        let Some(value) = self.selected_inspection_value() else {
+            ui.label("no frame selected");
+            return;
+        };
+
+        if !json_value_matches(value, "frame", &filter) {
+            ui.label("no matches");
+            return;
+        }
+
+        ScrollArea::vertical()
+            .id_salt("timeline_viewer_state_inspector")
+            .auto_shrink([false, false])
+            .show(ui, |ui| {
+                show_json_value(ui, "frame", value, "frame", &filter);
+            });
+    }
+
+    fn selected_inspection_value(&mut self) -> Option<&Value> {
+        if self.inspector_cache_frame != Some(self.selected_frame) {
+            self.inspector_cache_frame = Some(self.selected_frame);
+            self.inspector_cache = self
+                .data
+                .frames
+                .get(self.selected_frame)
+                .map(frame_inspection_value);
+        }
+
+        self.inspector_cache.as_ref()
     }
 
     fn show_timeline_scrubber(&mut self, context: &Context) {
@@ -224,6 +284,12 @@ impl TimelineViewerApp {
 
     fn show_map(&mut self, context: &Context) {
         CentralPanel::default().show(context, |ui| {
+            let available_size = ui.available_size_before_wrap();
+            if available_size.x <= 1.0 || available_size.y <= 1.0 {
+                ui.label("not enough space to draw field");
+                return;
+            }
+
             let field_dimensions = self.data.field_dimensions;
             let border = field_dimensions.border_strip_width;
             let (response, mut painter) = TwixPainter::<Field>::allocate(
@@ -278,6 +344,125 @@ impl App for TimelineViewerApp {
         self.show_side_panel(context);
         self.show_timeline_scrubber(context);
         self.show_map(context);
+    }
+}
+
+fn frame_inspection_value(frame: &TimelineFrame) -> Value {
+    let mut value = serde_json::to_value(frame)
+        .unwrap_or_else(|error| json!({ "serialization_error": error.to_string() }));
+    summarize_large_json_values(&mut value);
+    value
+}
+
+fn summarize_large_json_values(value: &mut Value) {
+    match value {
+        Value::Object(object) => {
+            if object.contains_key("tiles")
+                && object.contains_key("width_tiles")
+                && object.contains_key("height_tiles")
+                && let Some(Value::Array(tiles)) = object.get("tiles")
+            {
+                object.insert(
+                    "tiles".to_string(),
+                    json!({
+                        "summary": format!("{} voronoi tiles omitted", tiles.len()),
+                        "count": tiles.len(),
+                    }),
+                );
+            }
+
+            for child in object.values_mut() {
+                summarize_large_json_values(child);
+            }
+        }
+        Value::Array(items) => {
+            for item in items {
+                summarize_large_json_values(item);
+            }
+        }
+        Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => {}
+    }
+}
+
+fn show_json_value(ui: &mut Ui, label: &str, value: &Value, path: &str, filter: &str) {
+    if !json_value_matches(value, path, filter) {
+        return;
+    }
+
+    match value {
+        Value::Object(object) => {
+            CollapsingHeader::new(format!("{label} {{ {} }}", object.len()))
+                .default_open(!filter.is_empty())
+                .show(ui, |ui| {
+                    for (key, child) in object {
+                        let child_path = format_json_path(path, key);
+                        show_json_value(ui, key, child, &child_path, filter);
+                    }
+                });
+        }
+        Value::Array(items) => {
+            CollapsingHeader::new(format!("{label} [{}]", items.len()))
+                .default_open(!filter.is_empty())
+                .show(ui, |ui| {
+                    for (index, child) in items.iter().enumerate() {
+                        let key = format!("[{index}]");
+                        let child_path = format!("{path}{key}");
+                        show_json_value(ui, &key, child, &child_path, filter);
+                    }
+                });
+        }
+        Value::Null | Value::Bool(_) | Value::Number(_) | Value::String(_) => {
+            ui.add(
+                Label::new(
+                    RichText::new(format!("{label}: {}", format_scalar_value(value))).monospace(),
+                )
+                .wrap(),
+            );
+        }
+    }
+}
+
+fn json_value_matches(value: &Value, path: &str, filter: &str) -> bool {
+    if filter.is_empty() || path.to_ascii_lowercase().contains(filter) {
+        return true;
+    }
+
+    match value {
+        Value::Object(object) => object.iter().any(|(key, child)| {
+            let child_path = format_json_path(path, key);
+            json_value_matches(child, &child_path, filter)
+        }),
+        Value::Array(items) => items.iter().enumerate().any(|(index, child)| {
+            let child_path = format!("{path}[{index}]");
+            json_value_matches(child, &child_path, filter)
+        }),
+        Value::Null => "null".contains(filter),
+        Value::Bool(value) => value.to_string().contains(filter),
+        Value::Number(value) => value.to_string().contains(filter),
+        Value::String(value) => value.to_ascii_lowercase().contains(filter),
+    }
+}
+
+fn format_json_path(path: &str, key: &str) -> String {
+    if path.is_empty() {
+        key.to_string()
+    } else {
+        format!("{path}.{key}")
+    }
+}
+
+fn format_scalar_value(value: &Value) -> String {
+    let text = match value {
+        Value::String(value) => value.clone(),
+        _ => value.to_string(),
+    };
+    const MAX_SCALAR_LENGTH: usize = 180;
+    let mut chars = text.chars();
+    let shortened = chars.by_ref().take(MAX_SCALAR_LENGTH).collect::<String>();
+    if chars.next().is_some() {
+        format!("{shortened}...")
+    } else {
+        text
     }
 }
 
