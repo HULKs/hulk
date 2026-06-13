@@ -2,7 +2,7 @@ use types::{motion_type::MotionType, primary_state::PrimaryState};
 
 use crate::{
     action,
-    actions::{injected_motion_command, prepare, remote_control, stand, stand_up},
+    actions::{damping, injected_motion_command, prepare, remote_control, stand, stand_up},
     behavior_tree::Node,
     condition,
     conditions::{
@@ -28,6 +28,10 @@ pub fn create_tree() -> Node<Blackboard> {
     selection!(
         sequence!(
             condition!(is_primary_state, PrimaryState::Safe),
+            action!(damping)
+        ),
+        sequence!(
+            condition!(is_primary_state, PrimaryState::Prepare),
             switch_motion_type(
                 MotionType::Prepare,
                 action!(prepare),

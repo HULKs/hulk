@@ -39,6 +39,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
         let light_control_parameter = match primary_state {
             PrimaryState::Safe => SetLedLightColorParameter::BLUE,
+            PrimaryState::Prepare => SetLedLightColorParameter::BLUE,
             PrimaryState::Stop => SetLedLightColorParameter::LIGHT_BLUE,
             PrimaryState::Ready => SetLedLightColorParameter::LIGHT_GREEN,
             PrimaryState::Initial => SetLedLightColorParameter::YELLOW,

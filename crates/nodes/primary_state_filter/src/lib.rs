@@ -154,14 +154,17 @@ impl PrimaryStateFilter {
                 Buttons {
                     f1: Some(ButtonPressType::Short),
                     ..
-                }
-                | Buttons {
-                    stand: Some(ButtonPressType::Short),
-                    ..
                 },
             ) => PrimaryState::Safe,
             (
-                PrimaryState::Safe,
+                _,
+                Buttons {
+                    stand: Some(ButtonPressType::Short),
+                    ..
+                },
+            ) => PrimaryState::Prepare,
+            (
+                PrimaryState::Prepare,
                 Buttons {
                     stand: Some(ButtonPressType::Long),
                     ..

@@ -447,6 +447,7 @@ impl Localization {
                 Some(self.update_active_state(inputs, context)?)
             }
             PrimaryState::Safe
+            | PrimaryState::Prepare
             | PrimaryState::Stop
             | PrimaryState::Penalized
             | PrimaryState::Finished => None,

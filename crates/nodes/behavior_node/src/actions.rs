@@ -3,6 +3,11 @@ use types::{behavior_tree::Status, motion_command::BodyMotion};
 
 use crate::node::Blackboard;
 
+pub fn damping(blackboard: &mut Blackboard) -> Status {
+    blackboard.body_motion = Some(BodyMotion::Damping);
+    Status::Success
+}
+
 pub fn injected_motion_command(blackboard: &mut Blackboard) -> Status {
     if blackboard.parameters.injected_motion_command.is_some() {
         blackboard.is_injected_motion_command = true;
