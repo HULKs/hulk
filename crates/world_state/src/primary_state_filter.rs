@@ -4,7 +4,7 @@ use color_eyre::Result;
 use context_attribute::context;
 use framework::MainOutput;
 use hardware::{HighLevelInterface, RecordingInterface, SimulatorInterface, SpeakerInterface};
-use hsl_network_messages::PlayerNumber;
+use hsl_network_messages::{GamePhase, PlayerNumber};
 use serde::{Deserialize, Serialize};
 use types::{
     buttons::{ButtonPressType, Buttons},
@@ -61,13 +61,18 @@ impl PrimaryStateFilter {
             });
         }
 
-        let (is_penalized, game_state) = match context.filtered_game_controller_state {
-            Some(game_controller_state) => (
-                game_controller_state.penalties[*context.player_number].is_some(),
-                game_controller_state.game_state,
-            ),
-            None => (false, FilteredGameState::default()),
-        };
+        let (is_penalized, game_state, is_penalty_shootout) =
+            match context.filtered_game_controller_state {
+                Some(game_controller_state) => (
+                    game_controller_state.penalties[*context.player_number].is_some(),
+                    game_controller_state.game_state,
+                    matches!(
+                        game_controller_state.game_phase,
+                        GamePhase::PenaltyShootout { .. }
+                    ),
+                ),
+                None => (false, FilteredGameState::default(), false),
+            };
 
         let next_primary_state = match (self.last_primary_state, context.buttons, game_state) {
             (
@@ -107,6 +112,9 @@ impl PrimaryStateFilter {
             }
             (PrimaryState::Initial, _, FilteredGameState::Ready) if !is_penalized => {
                 PrimaryState::Ready
+            }
+            (PrimaryState::Initial, _, FilteredGameState::Set) if is_penalty_shootout => {
+                PrimaryState::Set
             }
             (PrimaryState::Ready, _, FilteredGameState::Set) if !is_penalized => PrimaryState::Set,
             (PrimaryState::Set, _, FilteredGameState::Playing { .. }) if !is_penalized => {
