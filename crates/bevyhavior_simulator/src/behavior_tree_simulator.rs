@@ -1316,7 +1316,7 @@ impl InvariantCheck for FieldBoundaryWalkCheck {
                 continue;
             };
 
-            if !snapshot.field_dimensions.is_inside_field(target) {
+            if !is_inside_field_with_border_margin(target, snapshot.field_dimensions) {
                 violations.push(InvariantViolation {
                     check_name: "field_boundary_walk",
                     player_number: Some(*player_number),
@@ -1329,6 +1329,15 @@ impl InvariantCheck for FieldBoundaryWalkCheck {
         }
         violations
     }
+}
+
+fn is_inside_field_with_border_margin(
+    target: Point2<Field>,
+    field_dimensions: FieldDimensions,
+) -> bool {
+    let x_max = field_dimensions.length / 2.0 + field_dimensions.border_strip_width;
+    let y_max = field_dimensions.width / 2.0 + field_dimensions.border_strip_width;
+    target.x().abs() < x_max && target.y().abs() < y_max
 }
 
 fn simulated_robot_snapshots(
