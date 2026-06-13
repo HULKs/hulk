@@ -66,6 +66,10 @@ pub enum Ownership {
 }
 
 impl Ownership {
+    fn is_blocked(self) -> bool {
+        matches!(self, Self::Blocked)
+    }
+
     fn is_free(self) -> bool {
         matches!(self, Self::Free)
     }
@@ -194,7 +198,13 @@ impl VoronoiGrid {
             let player_number = robots[robot_index].1;
             let (sin_h, cos_h) = robot_headings[robot_index];
 
-            for (neighbor_index, neighbor) in self.neighbor_indices(current_index) {
+            for (neighbor_index, neighbor) in
+                neighbor_indices(current_index, self.width_tiles, self.height_tiles)
+            {
+                if self.tiles[neighbor_index].is_blocked() {
+                    continue;
+                }
+
                 let rotation_cost = rotation_cost(sin_h, cos_h, neighbor, orientation_bias);
                 let new_cost = current_cost + neighbor.step_cost + rotation_cost;
 
@@ -366,6 +376,9 @@ impl VoronoiGrid {
         mut matches: impl FnMut(Ownership) -> bool,
     ) -> Option<(usize, f32)> {
         let start_index = self.point_to_index(point)?;
+        if matches(self.tiles[start_index]) {
+            return Some((start_index, 0.0));
+        }
 
         let mut distance = vec![f32::INFINITY; self.tiles.len()];
         let mut queue = BinaryHeap::new();
@@ -381,7 +394,9 @@ impl VoronoiGrid {
             if matches(self.tiles[current_index]) {
                 return Some((current_index, current_cost));
             }
-            for (neighbor_index, neighbor) in self.neighbor_indices(current_index) {
+            for (neighbor_index, neighbor) in
+                neighbor_indices(current_index, self.width_tiles, self.height_tiles)
+            {
                 let new_cost = current_cost + neighbor.step_cost;
                 if new_cost < distance[neighbor_index] {
                     distance[neighbor_index] = new_cost;
@@ -392,30 +407,8 @@ impl VoronoiGrid {
         None
     }
 
-    fn neighbor_indices(&self, index: usize) -> Vec<(usize, Neighbor)> {
-        let mut neighbors = Vec::new();
-        let (x, y) = self.xy_from_index(index);
-        for neighbor in NEIGHBORS {
-            let nx = x as isize + neighbor.dx;
-            let ny = y as isize + neighbor.dy;
-            if !(0..self.width_tiles as isize).contains(&nx)
-                || !(0..self.height_tiles as isize).contains(&ny)
-            {
-                continue;
-            }
-            neighbors.push((self.index_from_xy(nx as usize, ny as usize), neighbor));
-        }
-        neighbors
-    }
-
     fn index_from_xy(&self, x: usize, y: usize) -> usize {
         y * (self.width_tiles) + x
-    }
-
-    fn xy_from_index(&self, index: usize) -> (usize, usize) {
-        let x = index % self.width_tiles;
-        let y = index / self.width_tiles;
-        (x, y)
     }
 
     fn rasterize_bounds(
@@ -452,4 +445,21 @@ fn rotation_cost(sin_h: f32, cos_h: f32, neighbor: Neighbor, orientation_bias: f
     let dot = (cos_h * neighbor.dx as f32 + sin_h * neighbor.dy as f32) * neighbor.inv_norm;
     let turn_factor = (1.0 - dot.clamp(-1.0, 1.0)) * 0.5;
     (turn_factor * orientation_bias).max(0.0)
+}
+
+fn neighbor_indices(
+    index: usize,
+    width_tiles: usize,
+    height_tiles: usize,
+) -> impl Iterator<Item = (usize, Neighbor)> {
+    let x = index % width_tiles;
+    let y = index / width_tiles;
+    NEIGHBORS.into_iter().filter_map(move |neighbor| {
+        let nx = x as isize + neighbor.dx;
+        let ny = y as isize + neighbor.dy;
+        if !(0..width_tiles as isize).contains(&nx) || !(0..height_tiles as isize).contains(&ny) {
+            return None;
+        }
+        Some((ny as usize * width_tiles + nx as usize, neighbor))
+    })
 }
