@@ -1983,6 +1983,7 @@ dependencies = [
  "ros-z",
  "scenario",
  "serde",
+ "serde_json",
  "twix",
  "types",
  "voronoi",
