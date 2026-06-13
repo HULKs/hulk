@@ -263,7 +263,7 @@ pub fn walk_to_centroid(blackboard: &mut Blackboard) -> Status {
         walk_to(
             blackboard,
             Pose2::from(ground_to_field.inverse() * centroid),
-            blackboard.parameters.walk_speed.blocking,
+            blackboard.parameters.walk_speed.kicking,
             orientation_mode,
             blackboard
                 .parameters
