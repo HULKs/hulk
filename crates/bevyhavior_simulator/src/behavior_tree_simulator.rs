@@ -11,13 +11,15 @@ use color_eyre::{
     eyre::{bail, eyre},
 };
 use coordinate_systems::{Field, Ground};
-use hsl_network_messages::PlayerNumber;
+use hsl_network_messages::{GamePhase, GameState, PlayerNumber, Team, TeamColor, TeamState};
 use linear_algebra::{Isometry2, Orientation2, Point2, Pose2, Vector2};
 use serde::{Deserialize, Serialize};
 use types::{
     behavior_tree::NodeTrace,
-    field_dimensions::{FieldDimensions, Side},
+    field_dimensions::{FieldDimensions, GlobalFieldSide, Side},
     filtered_game_controller_state::FilteredGameControllerState,
+    filtered_game_state::FilteredGameState,
+    game_controller_state::GameControllerState,
     messages::OutgoingMessage,
     motion_command::{KickPower, MotionCommand, OrientationMode},
     parameters::{BehaviorParameters, HslNetworkParameters},
@@ -44,6 +46,8 @@ const PLAYER_NUMBERS: [PlayerNumber; 5] = [
     PlayerNumber::Four,
     PlayerNumber::Five,
 ];
+const HULKS_TEAM_NUMBER: u8 = 24;
+const OPPONENT_TEAM_NUMBER: u8 = 1;
 
 pub fn default_behavior_parameters() -> Result<BehaviorParameters> {
     let parameters: serde_json::Value =
@@ -62,6 +66,9 @@ pub enum BehaviorTreeSimulatorSet {
     BeforeBallPhysics,
     BallPhysics,
     AfterBallPhysics,
+    BeforeAutoReferee,
+    RunAutoReferee,
+    AfterAutoReferee,
     BuildTeamContext,
     BeforeWorldState,
     BuildWorldStates,
@@ -157,6 +164,7 @@ impl Plugin for BehaviorTreeSimulatorPlugin {
             .insert_resource(SimulatorFieldDimensions(self.field_dimensions))
             .insert_resource(SimulatorBall::default())
             .insert_resource(SimulatorGameState::default())
+            .insert_resource(SimulatorAutoReferee::default())
             .insert_resource(SimulatorRuleObstacles::default())
             .insert_resource(SimulatorHslNetworkParameters(
                 self.hsl_network_parameters.clone(),
@@ -183,6 +191,9 @@ impl Plugin for BehaviorTreeSimulatorPlugin {
                 BehaviorTreeSimulatorSet::BeforeBallPhysics,
                 BehaviorTreeSimulatorSet::BallPhysics,
                 BehaviorTreeSimulatorSet::AfterBallPhysics,
+                BehaviorTreeSimulatorSet::BeforeAutoReferee,
+                BehaviorTreeSimulatorSet::RunAutoReferee,
+                BehaviorTreeSimulatorSet::AfterAutoReferee,
                 BehaviorTreeSimulatorSet::BuildTeamContext,
                 BehaviorTreeSimulatorSet::BeforeWorldState,
                 BehaviorTreeSimulatorSet::BuildWorldStates,
@@ -222,6 +233,10 @@ impl Plugin for BehaviorTreeSimulatorPlugin {
         .add_systems(
             Update,
             build_world_states.in_set(BehaviorTreeSimulatorSet::BuildWorldStates),
+        )
+        .add_systems(
+            Update,
+            run_auto_referee.in_set(BehaviorTreeSimulatorSet::RunAutoReferee),
         )
         .add_systems(
             Update,
@@ -340,14 +355,92 @@ pub struct SimulatorBall {
 
 #[derive(Resource, Clone, Debug)]
 pub struct SimulatorGameState {
+    pub game_controller_state: GameControllerState,
     pub filtered_game_controller_state: Option<FilteredGameControllerState>,
 }
 
 impl Default for SimulatorGameState {
     fn default() -> Self {
+        let game_controller_state = default_game_controller_state();
         Self {
-            filtered_game_controller_state: Some(FilteredGameControllerState::default()),
+            filtered_game_controller_state: Some(filtered_game_controller_state_from(
+                &game_controller_state,
+            )),
+            game_controller_state,
         }
+    }
+}
+
+#[derive(Resource)]
+pub struct SimulatorAutoReferee {
+    pub rules: Vec<Box<dyn AutoRefereeRule>>,
+}
+
+pub trait AutoRefereeRule: Send + Sync {
+    fn apply(&mut self, context: &mut AutoRefereeContext<'_>);
+}
+
+pub struct AutoRefereeContext<'a> {
+    pub field_dimensions: FieldDimensions,
+    pub game_state: &'a mut SimulatorGameState,
+    pub ball: &'a mut SimulatorBall,
+}
+
+pub struct ScoredGoalRule;
+
+impl AutoRefereeRule for ScoredGoalRule {
+    fn apply(&mut self, context: &mut AutoRefereeContext<'_>) {
+        if context.game_state.game_controller_state.game_state != GameState::Playing {
+            return;
+        }
+
+        let Some(scoring_team) = context
+            .ball
+            .state
+            .and_then(|ball| ball_in_goal(ball, context.field_dimensions))
+        else {
+            return;
+        };
+
+        match scoring_team {
+            Team::Hulks => {
+                context.game_state.game_controller_state.hulks_team.score = context
+                    .game_state
+                    .game_controller_state
+                    .hulks_team
+                    .score
+                    .saturating_add(1);
+            }
+            Team::Opponent => {
+                context.game_state.game_controller_state.opponent_team.score = context
+                    .game_state
+                    .game_controller_state
+                    .opponent_team
+                    .score
+                    .saturating_add(1);
+            }
+        }
+        context.ball.state = None;
+    }
+}
+
+impl Default for ScoredGoalRule {
+    fn default() -> Self {
+        Self
+    }
+}
+
+impl SimulatorAutoReferee {
+    pub fn with_default_rules() -> Self {
+        Self {
+            rules: vec![Box::new(ScoredGoalRule)],
+        }
+    }
+}
+
+impl Default for SimulatorAutoReferee {
+    fn default() -> Self {
+        Self::with_default_rules()
     }
 }
 
@@ -513,6 +606,109 @@ fn update_ball_kinematics(
     let dt = clock.tick_duration.as_secs_f32();
     ball.position += ball.velocity * dt;
     ball.velocity *= (1.0 - config.ball_friction_per_second * dt).clamp(0.0, 1.0);
+}
+
+fn run_auto_referee(
+    field_dimensions: Res<SimulatorFieldDimensions>,
+    mut auto_referee: ResMut<SimulatorAutoReferee>,
+    mut game_state: ResMut<SimulatorGameState>,
+    mut ball: ResMut<SimulatorBall>,
+) {
+    let mut context = AutoRefereeContext {
+        field_dimensions: field_dimensions.0,
+        game_state: &mut *game_state,
+        ball: &mut *ball,
+    };
+
+    for rule in &mut auto_referee.rules {
+        rule.apply(&mut context);
+    }
+}
+
+fn default_game_controller_state() -> GameControllerState {
+    GameControllerState {
+        game_state: GameState::Playing,
+        stopped: false,
+        game_phase: GamePhase::Normal,
+        remaining_time_in_half: Duration::ZERO,
+        kicking_team: Some(Team::Hulks),
+        last_game_state_change: SystemTime::UNIX_EPOCH,
+        penalties: Players::new(None),
+        opponent_penalties: Players::new(None),
+        sub_state: None,
+        global_field_side: GlobalFieldSide::Home,
+        hulks_team: TeamState {
+            team_number: HULKS_TEAM_NUMBER,
+            field_player_color: TeamColor::Green,
+            goal_keeper_color: TeamColor::Red,
+            goal_keeper_player_number: Some(PlayerNumber::One),
+            score: 0,
+            penalty_shoot_index: 0,
+            penalty_shoots: Vec::new(),
+            remaining_amount_of_messages: 1200,
+            players: Vec::new(),
+        },
+        opponent_team: TeamState {
+            team_number: OPPONENT_TEAM_NUMBER,
+            field_player_color: TeamColor::Black,
+            goal_keeper_color: TeamColor::Gray,
+            goal_keeper_player_number: Some(PlayerNumber::One),
+            score: 0,
+            penalty_shoot_index: 0,
+            penalty_shoots: Vec::new(),
+            remaining_amount_of_messages: 1200,
+            players: Vec::new(),
+        },
+    }
+}
+
+fn filtered_game_controller_state_from(
+    game_controller_state: &GameControllerState,
+) -> FilteredGameControllerState {
+    FilteredGameControllerState {
+        game_state: filtered_game_state_from(game_controller_state),
+        opponent_game_state: filtered_game_state_from(game_controller_state),
+        remaining_time_in_half: game_controller_state.remaining_time_in_half,
+        game_phase: game_controller_state.game_phase,
+        kicking_team: game_controller_state.kicking_team,
+        penalties: game_controller_state.penalties,
+        remaining_number_of_messages: game_controller_state
+            .hulks_team
+            .remaining_amount_of_messages,
+        sub_state: game_controller_state.sub_state,
+        global_field_side: game_controller_state.global_field_side,
+        new_own_penalties_last_cycle: Default::default(),
+        new_opponent_penalties_last_cycle: Default::default(),
+    }
+}
+
+fn filtered_game_state_from(game_controller_state: &GameControllerState) -> FilteredGameState {
+    if game_controller_state.stopped {
+        return FilteredGameState::Stop;
+    }
+
+    match game_controller_state.game_state {
+        GameState::Initial => FilteredGameState::Initial,
+        GameState::Ready => FilteredGameState::Ready,
+        GameState::Set => FilteredGameState::Set,
+        GameState::Playing => FilteredGameState::Playing {
+            ball_is_free: true,
+            kick_off: false,
+        },
+        GameState::Finished => FilteredGameState::Finished,
+    }
+}
+
+fn ball_in_goal(ball: SimulatedBall, field_dimensions: FieldDimensions) -> Option<Team> {
+    if !field_dimensions.is_inside_any_goal(ball.position) {
+        return None;
+    }
+
+    if ball.position.x() > 0.0 {
+        Some(Team::Hulks)
+    } else {
+        Some(Team::Opponent)
+    }
 }
 
 fn build_world_states(
@@ -1670,5 +1866,54 @@ mod tests {
             ball.expect("ball should still exist").velocity,
             vector![0.0, 0.0]
         );
+    }
+
+    #[test]
+    fn scored_goal_in_opponent_goal_increases_hulks_score_and_removes_ball() {
+        let field_dimensions = FieldDimensions::SPL_2025;
+        let mut game_state = SimulatorGameState::default();
+        let mut ball = SimulatorBall {
+            state: Some(SimulatedBall {
+                position: point![field_dimensions.length / 2.0 + 0.1, 0.0],
+                velocity: vector![0.0, 0.0],
+                field_side: Side::Left,
+            }),
+        };
+        let mut rule = ScoredGoalRule;
+
+        rule.apply(&mut AutoRefereeContext {
+            field_dimensions,
+            game_state: &mut game_state,
+            ball: &mut ball,
+        });
+
+        assert_eq!(game_state.game_controller_state.hulks_team.score, 1);
+        assert_eq!(game_state.game_controller_state.opponent_team.score, 0);
+        assert!(ball.state.is_none());
+    }
+
+    #[test]
+    fn scored_goal_in_hulks_goal_increases_opponent_score_and_removes_ball() {
+        let field_dimensions = FieldDimensions::SPL_2025;
+        let mut game_state = SimulatorGameState::default();
+        game_state.game_controller_state.game_state = GameState::Playing;
+        let mut ball = SimulatorBall {
+            state: Some(SimulatedBall {
+                position: point![-field_dimensions.length / 2.0 - 0.1, 0.0],
+                velocity: vector![0.0, 0.0],
+                field_side: Side::Left,
+            }),
+        };
+        let mut rule = ScoredGoalRule;
+
+        rule.apply(&mut AutoRefereeContext {
+            field_dimensions,
+            game_state: &mut game_state,
+            ball: &mut ball,
+        });
+
+        assert_eq!(game_state.game_controller_state.hulks_team.score, 0);
+        assert_eq!(game_state.game_controller_state.opponent_team.score, 1);
+        assert!(ball.state.is_none());
     }
 }
