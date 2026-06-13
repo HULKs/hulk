@@ -26,6 +26,8 @@ pub struct SimulatorInvariantChecks(pub Vec<Box<dyn InvariantCheck>>);
 #[derive(Resource, Clone, Debug, Default)]
 pub struct SimulatorCurrentInvariantViolations(pub Vec<InvariantViolation>);
 
+pub(crate) const BEHAVIOR_TICK_ERROR_CHECK_NAME: &str = "behavior_tick_error";
+
 #[derive(Clone, Copy, Debug, Serialize)]
 pub struct RobotSnapshot {
     pub player_number: PlayerNumber,
@@ -140,7 +142,9 @@ pub(crate) fn run_invariant_checks(
         &SimulatorFallDownState,
     )>,
 ) {
-    current_violations.0.clear();
+    current_violations
+        .0
+        .retain(|violation| violation.check_name == BEHAVIOR_TICK_ERROR_CHECK_NAME);
 
     let snapshot = SimulationSnapshot {
         now: clock.now,

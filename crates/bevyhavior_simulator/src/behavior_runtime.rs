@@ -4,7 +4,7 @@ use behavior_node::{
     behavior_tree::Node as BehaviorNodeTree, motion_assembler::assemble_motion_command,
     node::Blackboard as BehaviorBlackboard, tree::create_tree as create_behavior_tree,
 };
-use bevy::prelude::*;
+use bevy::{app::AppExit, prelude::*};
 use color_eyre::Result;
 use coordinate_systems::{Field, Ground};
 use linear_algebra::{Point2, Pose2};
@@ -20,9 +20,11 @@ use types::{
 use voronoi::VoronoiGrid;
 
 use crate::behavior_tree_simulator::{
-    RobotFrame, SimulatorFieldDimensions, SimulatorRobot, SimulatorRobotFrames,
-    SimulatorRobotParameters, SimulatorWorldStates,
+    InvariantSeverity, InvariantViolation, RobotFrame, SimulatorClock,
+    SimulatorCurrentInvariantViolations, SimulatorFieldDimensions, SimulatorRobot,
+    SimulatorRobotFrames, SimulatorRobotParameters, SimulatorScenarioResult, SimulatorWorldStates,
 };
+use crate::invariant_checks::BEHAVIOR_TICK_ERROR_CHECK_NAME;
 
 #[derive(Component)]
 pub struct SimulatorRobotBehavior {
@@ -178,9 +180,13 @@ fn create_behavior_blackboard(parameters: BehaviorParameters) -> BehaviorBlackbo
 }
 
 pub(crate) fn tick_behavior_trees(
+    clock: Res<SimulatorClock>,
     field_dimensions: Res<SimulatorFieldDimensions>,
     world_states: Res<SimulatorWorldStates>,
     mut robot_frames: ResMut<SimulatorRobotFrames>,
+    mut current_violations: ResMut<SimulatorCurrentInvariantViolations>,
+    mut scenario_result: ResMut<SimulatorScenarioResult>,
+    mut exit: MessageWriter<AppExit>,
     mut robots: Query<(
         &SimulatorRobot,
         &SimulatorRobotParameters,
@@ -194,16 +200,137 @@ pub(crate) fn tick_behavior_trees(
             continue;
         };
 
-        let tick_output = behavior
-            .tick_behavior_tree(SimulatorBehaviorTickInput {
-                world_state: world_state.clone(),
-                field_dimensions: field_dimensions.0,
-                parameters: parameters.behavior.clone(),
-            })
-            .expect("behavior tree tick should not fail in simulator");
+        let tick_output = match behavior.tick_behavior_tree(SimulatorBehaviorTickInput {
+            world_state: world_state.clone(),
+            field_dimensions: field_dimensions.0,
+            parameters: parameters.behavior.clone(),
+        }) {
+            Ok(tick_output) => tick_output,
+            Err(error) => {
+                scenario_result.failed = true;
+                current_violations.0.push(InvariantViolation {
+                    check_name: BEHAVIOR_TICK_ERROR_CHECK_NAME,
+                    player_number: Some(robot.player_number),
+                    message: behavior_tick_failure_message(robot.player_number, &clock, &error),
+                    severity: InvariantSeverity::Error,
+                });
+                exit.write(AppExit::Success);
+                return;
+            }
+        };
         robot_frames.0.insert(
             robot.player_number,
             RobotFrame::from_outputs(world_state, tick_output, Vec::new()),
         );
+    }
+}
+
+fn behavior_tick_failure_message(
+    player_number: hsl_network_messages::PlayerNumber,
+    clock: &SimulatorClock,
+    error: &color_eyre::Report,
+) -> String {
+    let tick = clock
+        .now
+        .duration_since(std::time::SystemTime::UNIX_EPOCH)
+        .ok()
+        .and_then(|elapsed| {
+            let tick_duration = clock.tick_duration.as_nanos();
+            (tick_duration != 0).then_some(elapsed.as_nanos() / tick_duration)
+        });
+    match tick {
+        Some(tick) => format!(
+            "behavior tick failed for player {player_number:?} at tick {tick} ({:?}): {error:#}",
+            clock.now,
+        ),
+        None => format!(
+            "behavior tick failed for player {player_number:?} at {:?}: {error:#}",
+            clock.now,
+        ),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::{collections::BTreeMap, time::Duration, time::SystemTime};
+
+    use bevy::{app::App, ecs::message::Messages};
+    use hsl_network_messages::PlayerNumber;
+    use types::{behavior_tree::Status, world_state::WorldState};
+
+    use super::*;
+    use crate::behavior_tree_simulator::{
+        DEFAULT_TICK_DURATION, SimulatorFieldDimensions, default_behavior_parameters,
+    };
+
+    #[test]
+    fn behavior_tick_failure_marks_scenario_failed_and_exits() {
+        let mut app = App::new();
+        app.add_message::<AppExit>()
+            .insert_resource(SimulatorClock {
+                now: SystemTime::UNIX_EPOCH + Duration::from_millis(30),
+                tick_duration: DEFAULT_TICK_DURATION,
+            })
+            .insert_resource(SimulatorFieldDimensions(FieldDimensions::SPL_2025))
+            .insert_resource(SimulatorWorldStates(BTreeMap::from([(
+                PlayerNumber::Three,
+                WorldState::default(),
+            )])))
+            .insert_resource(SimulatorRobotFrames::default())
+            .insert_resource(SimulatorCurrentInvariantViolations::default())
+            .insert_resource(SimulatorScenarioResult::default())
+            .add_systems(Update, tick_behavior_trees);
+
+        let mut behavior = SimulatorRobotBehavior::new(
+            default_behavior_parameters().expect("failed to load behavior parameters"),
+        );
+        behavior.tree = BehaviorNodeTree::Action {
+            name: "return_idle",
+            action: Box::new(|_| Status::Idle),
+        };
+        app.world_mut().spawn((
+            SimulatorRobot {
+                player_number: PlayerNumber::Three,
+            },
+            SimulatorRobotParameters {
+                behavior: default_behavior_parameters()
+                    .expect("failed to load behavior parameters"),
+            },
+            behavior,
+        ));
+
+        let mut exit_cursor = app
+            .world_mut()
+            .resource_mut::<Messages<AppExit>>()
+            .get_cursor();
+
+        app.update();
+
+        let scenario_result = app.world().resource::<SimulatorScenarioResult>();
+        assert!(scenario_result.failed);
+        assert!(scenario_result.failures.is_empty());
+
+        let current_violations = app
+            .world()
+            .resource::<SimulatorCurrentInvariantViolations>();
+        let [violation] = current_violations.0.as_slice() else {
+            panic!("expected one current invariant violation");
+        };
+        assert_eq!(violation.check_name, BEHAVIOR_TICK_ERROR_CHECK_NAME);
+        assert_eq!(violation.player_number, Some(PlayerNumber::Three));
+        assert_eq!(violation.severity, InvariantSeverity::Error);
+        assert!(violation.message.contains("player Three"));
+        assert!(violation.message.contains("tick 3"));
+        assert!(
+            violation
+                .message
+                .contains("Behavior tree returned Idle status")
+        );
+
+        let exits = exit_cursor
+            .read(app.world().resource::<Messages<AppExit>>())
+            .cloned()
+            .collect::<Vec<_>>();
+        assert_eq!(exits, vec![AppExit::Success]);
     }
 }
