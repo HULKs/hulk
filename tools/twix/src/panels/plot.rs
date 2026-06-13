@@ -9,15 +9,15 @@ use eframe::{
     epaint::Color32,
 };
 use egui_plot::{Line, MarkerShape, Plot as EguiPlot, PlotPoints, Points};
-use hulk_widgets::{PathFilter, RobotPathCompletionEdit};
 use itertools::Itertools;
 use mlua::{Function, Lua, LuaSerdeExt};
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json, to_string_pretty};
 
 use crate::{
+    backend::TwixBackend,
     panel::{Panel, PanelCreationContext},
-    robot::Robot,
+    topic_completion_edit::TopicCompletionEdit,
     value_buffer::BufferHandle,
 };
 
@@ -33,10 +33,12 @@ const DEFAULT_LINE_COLORS: &[Color32] = &[
     Color32::from_rgb(188, 189, 34),
     Color32::from_rgb(23, 190, 207),
 ];
+const DEFAULT_LUA_TEXT: &str = "function (value)\n  return value\nend";
 
 #[derive(Serialize, Deserialize)]
 struct LineData {
-    path: String,
+    #[serde(alias = "path")]
+    topic: String,
     #[serde(skip)]
     buffer: Option<BufferHandle<Value>>,
     color: Color32,
@@ -59,22 +61,32 @@ impl LineData {
         Lua::new()
     }
 
+    fn install_lua_function(&self, lua_text: &str) -> mlua::Result<()> {
+        let function = self.lua.load(lua_text).eval::<Function>()?;
+        self.lua.globals().set("conversion_function", function)
+    }
+
     fn set_lua(&mut self) {
-        self.lua
-            .globals()
-            .set(
-                "conversion_function",
-                self.lua.load(&self.lua_text).eval::<Function>().unwrap(),
-            )
-            .unwrap();
+        self.lua_error = match self.install_lua_function(&self.lua_text) {
+            Ok(()) => None,
+            Err(error) => {
+                let error = format!("{error:#}");
+                match self.install_lua_function(DEFAULT_LUA_TEXT) {
+                    Ok(()) => Some(error),
+                    Err(fallback_error) => Some(format!(
+                        "{error}\nfailed to install fallback conversion: {fallback_error:#}"
+                    )),
+                }
+            }
+        };
     }
 
     fn new(color: Color32) -> Self {
         let lua = LineData::create_lua();
-        let lua_text = "function (value)\n  return value\nend".to_string();
+        let lua_text = DEFAULT_LUA_TEXT.to_string();
 
         let mut line_data = Self {
-            path: String::new(),
+            topic: String::new(),
             buffer: None,
             color,
             lua,
@@ -94,7 +106,12 @@ impl LineData {
     }
 
     fn plot(&self, latest_timestamp: Option<SystemTime>) -> PlotPoints<'_> {
-        let lua_function: Function = self.lua.globals().get("conversion_function").unwrap();
+        let Some(latest_timestamp) = latest_timestamp else {
+            return PlotPoints::default();
+        };
+        let Ok(lua_function) = self.lua.globals().get::<Function>("conversion_function") else {
+            return PlotPoints::default();
+        };
         self.buffer
             .as_ref()
             .map(|buffer| {
@@ -107,7 +124,6 @@ impl LineData {
                                 .unwrap_or(f64::NAN);
                             [
                                 -latest_timestamp
-                                    .unwrap()
                                     .duration_since(datum.timestamp)
                                     .unwrap_or(Duration::ZERO)
                                     .as_secs_f64(),
@@ -120,17 +136,22 @@ impl LineData {
             .unwrap_or_default()
     }
 
-    fn show_settings(&mut self, ui: &mut Ui, id: usize, robot: &Robot, buffer_history: Duration) {
+    fn show_settings(
+        &mut self,
+        ui: &mut Ui,
+        id: usize,
+        backend: &TwixBackend,
+        buffer_history: Duration,
+    ) {
         ui.horizontal_top(|ui| {
-            let subscription_field = ui.add(RobotPathCompletionEdit::new(
+            let subscription_field = ui.add(TopicCompletionEdit::namespace_topics(
                 ui.id().with(id).with("plot-panel"),
-                robot.latest_paths(),
-                &mut self.path,
-                PathFilter::Readable,
+                backend.topic_catalog(),
+                &mut self.topic,
             ));
             self.set_highlighted(subscription_field.hovered());
             if subscription_field.changed() {
-                let handle = robot.subscribe_buffered_json(&self.path, buffer_history);
+                let handle = backend.subscribe_json(self.topic.clone(), buffer_history);
                 self.buffer = Some(handle);
             }
 
@@ -160,24 +181,20 @@ impl LineData {
                             .code_editor()
                             .lock_focus(true);
                         if ui.add(code_edit).changed() {
-                            self.lua_error = match self.lua.load(&self.lua_text).eval::<Function>()
-                            {
-                                Ok(function) => {
-                                    self.lua
-                                        .globals()
-                                        .set("conversion_function", function)
-                                        .unwrap();
-                                    None
-                                }
-                                Err(error) => Some(format!("{error:#}")),
-                            };
+                            self.set_lua();
                         }
                         if let Some(error) = &self.lua_error {
                             ui.colored_label(Color32::RED, error);
                         } else if let Ok(value) = &latest_value {
-                            let lua_function: Function =
-                                self.lua.globals().get("conversion_function").unwrap();
-                            let value = lua_function.call::<f64>(self.lua.to_value(&value));
+                            let value = self
+                                .lua
+                                .globals()
+                                .get::<Function>("conversion_function")
+                                .and_then(|function| {
+                                    self.lua
+                                        .to_value(value)
+                                        .and_then(|value| function.call::<f64>(value))
+                                });
                             match value {
                                 Ok(value) => {
                                     ui.label(value.to_string());
@@ -196,7 +213,7 @@ impl LineData {
 pub struct PlotPanel {
     lines: Vec<LineData>,
     buffer_history: Duration,
-    robot: Arc<Robot>,
+    backend: Arc<TwixBackend>,
 }
 
 impl<'a> Panel<'a> for PlotPanel {
@@ -215,10 +232,10 @@ impl<'a> Panel<'a> for PlotPanel {
                         let mut line_data =
                             serde_json::from_value::<LineData>(line_data.clone()).ok()?;
                         line_data.set_lua();
-                        if !line_data.path.is_empty() {
+                        if !line_data.topic.is_empty() {
                             let handle = context
-                                .robot
-                                .subscribe_buffered_json(&line_data.path, DEFAULT_BUFFER_HISTORY);
+                                .backend
+                                .subscribe_json(line_data.topic.clone(), DEFAULT_BUFFER_HISTORY);
                             line_data.buffer = Some(handle);
                         }
                         Some(line_data)
@@ -230,7 +247,7 @@ impl<'a> Panel<'a> for PlotPanel {
         PlotPanel {
             lines,
             buffer_history: DEFAULT_BUFFER_HISTORY,
-            robot: context.robot,
+            backend: context.backend,
         }
     }
 
@@ -329,7 +346,7 @@ impl Widget for &mut PlotPanel {
 
                 ui.checkbox(&mut line_data.show_scatter, "Scatter");
 
-                line_data.show_settings(ui, id, &self.robot, self.buffer_history);
+                line_data.show_settings(ui, id, &self.backend, self.buffer_history);
                 id += 1;
                 !delete_button.clicked()
             })
@@ -346,5 +363,33 @@ impl Widget for &mut PlotPanel {
         }
 
         plot_response
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use mlua::{Function, LuaSerdeExt};
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn invalid_lua_text_sets_error_and_keeps_identity_fallback() {
+        let mut line_data = LineData::new(Color32::WHITE);
+        line_data.lua_text = "function (".to_string();
+
+        line_data.set_lua();
+
+        assert!(
+            line_data
+                .lua_error
+                .as_deref()
+                .is_some_and(|error| !error.is_empty())
+        );
+        let lua_function: Function = line_data.lua.globals().get("conversion_function").unwrap();
+        let value = lua_function
+            .call::<f64>(line_data.lua.to_value(&json!(42.0)).unwrap())
+            .unwrap();
+        assert_eq!(value, 42.0);
     }
 }

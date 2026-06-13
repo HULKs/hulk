@@ -18,12 +18,11 @@ use eframe::{
 use itertools::Itertools;
 use serde_json::{Value, json};
 
-use hulk_widgets::{PathFilter, RobotPathCompletionEdit};
-
 use crate::{
+    backend::TwixBackend,
     change_buffer::{Change, ChangeBufferHandle},
     panel::{Panel, PanelCreationContext},
-    robot::Robot,
+    topic_completion_edit::TopicCompletionEdit,
 };
 
 fn color_hash(value: impl Hash) -> Color32 {
@@ -153,26 +152,34 @@ enum ViewportMode {
 
 #[derive(Default)]
 struct SegmentRow {
-    path: String,
+    topic: String,
     buffer: Option<ChangeBufferHandle<Value>>,
 }
 
 impl SegmentRow {
-    fn subscribe(&mut self, robot: Arc<Robot>) {
-        self.buffer = Some(robot.subscribe_changes_json(&self.path));
+    fn subscribe(&mut self, backend: Arc<TwixBackend>) {
+        self.buffer = Some(backend.subscribe_changes_json(self.topic.clone()));
     }
 
-    fn show_settings(&mut self, ui: &mut Ui, robot: Arc<Robot>) {
-        let subscription_field = ui.add(RobotPathCompletionEdit::new(
+    fn show_settings(&mut self, ui: &mut Ui, backend: Arc<TwixBackend>) {
+        let subscription_field = ui.add(TopicCompletionEdit::namespace_topics(
             ui.auto_id_with("enum-plot"),
-            robot.latest_paths(),
-            &mut self.path,
-            PathFilter::Readable,
+            backend.topic_catalog(),
+            &mut self.topic,
         ));
 
         if subscription_field.changed() {
-            self.subscribe(robot);
+            self.subscribe(backend);
         }
+
+        if let Some(error) = self.error_message() {
+            ui.colored_label(Color32::RED, error);
+        }
+    }
+
+    fn error_message(&self) -> Option<String> {
+        let buffer = self.buffer.as_ref()?;
+        buffer.get().err().map(|error| format!("{error:#}"))
     }
 
     fn segments(&self, timestamp_range: &Range<SystemTime>) -> Option<Vec<Segment>> {
@@ -206,7 +213,7 @@ impl SegmentRow {
 }
 
 pub struct EnumPlotPanel {
-    robot: Arc<Robot>,
+    backend: Arc<TwixBackend>,
     segment_rows: Vec<SegmentRow>,
     x_range: Rangef,
     viewport_mode: ViewportMode,
@@ -218,26 +225,26 @@ impl<'a> Panel<'a> for EnumPlotPanel {
     fn new(context: PanelCreationContext) -> Self {
         let output_keys: Vec<_> = context
             .value
-            .and_then(|value| value.get("paths"))
-            .and_then(|value| value.as_array())
-            .map(|values| values.iter().flat_map(|value| value.as_str()).collect())
+            .and_then(|value| value.get("topics").or_else(|| value.get("paths")))
+            .and_then(Value::as_array)
+            .map(|values| values.iter().flat_map(Value::as_str).collect())
             .unwrap_or_default();
 
         let segment_rows = output_keys
             .iter()
             .map(|&output_key| {
                 let mut result = SegmentRow {
-                    path: String::from(output_key),
+                    topic: output_key.to_string(),
                     ..Default::default()
                 };
-                result.subscribe(context.robot.clone());
+                result.subscribe(context.backend.clone());
 
                 result
             })
             .collect();
 
         Self {
-            robot: context.robot,
+            backend: context.backend,
             segment_rows,
             x_range: Rangef::new(-3.0, 0.0),
             viewport_mode: ViewportMode::Follow,
@@ -245,13 +252,13 @@ impl<'a> Panel<'a> for EnumPlotPanel {
     }
 
     fn save(&self) -> Value {
-        let paths = self
+        let topics = self
             .segment_rows
             .iter()
-            .map(|segment_data| &segment_data.path)
+            .map(|segment_data| &segment_data.topic)
             .collect::<Vec<_>>();
         json!({
-            "paths": paths
+            "topics": topics
         })
     }
 }
@@ -437,7 +444,7 @@ impl Widget for &mut EnumPlotPanel {
                         Button::new(RichText::new("❌").color(Color32::WHITE).strong())
                             .fill(Color32::RED),
                     );
-                    segment_data.show_settings(ui, self.robot.clone());
+                    segment_data.show_settings(ui, self.backend.clone());
                     !delete_button.clicked()
                 })
                 .inner
@@ -448,5 +455,28 @@ impl Widget for &mut EnumPlotPanel {
             }
         })
         .response
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use color_eyre::{Report, eyre::eyre};
+
+    use crate::change_buffer::ChangeBuffer;
+
+    use super::*;
+
+    #[test]
+    fn segment_row_error_message_returns_subscription_error() {
+        let (buffer, handle) = ChangeBuffer::<Value, Report>::new();
+        let row = SegmentRow {
+            topic: "robot/mode".to_string(),
+            buffer: Some(handle),
+        };
+
+        buffer.send_error(eyre!("subscription failed"));
+
+        let error = row.error_message().unwrap();
+        assert!(error.contains("subscription failed"));
     }
 }

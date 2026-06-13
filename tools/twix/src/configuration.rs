@@ -27,14 +27,6 @@ fn config_path() -> PathBuf {
 #[derive(Debug, Deserialize)]
 pub struct Configuration {
     pub keys: keys::Keybinds,
-    pub robots: RobotConfig,
-}
-
-#[cfg_attr(test, derive(PartialEq))]
-#[derive(Debug, Deserialize)]
-pub struct RobotConfig {
-    pub lowest: u8,
-    pub highest: u8,
 }
 
 impl Configuration {
@@ -45,7 +37,7 @@ impl Configuration {
     pub fn load_from_file(path: impl AsRef<Path>) -> Result<Self, Error> {
         match std::fs::read_to_string(&path) {
             Ok(config_file) => {
-                let mut configuration: Value = Self::default();
+                let mut configuration: Value = Self::parse_default_config();
                 let user_configuration: Value = toml::from_str(&config_file)?;
 
                 configuration.update(user_configuration);
@@ -63,8 +55,14 @@ impl Configuration {
         }
     }
 
-    fn default<T: for<'de> Deserialize<'de>>() -> T {
-        toml::from_str(DEFAULT_CONFIG).unwrap()
+    fn parse_default_config<T: for<'de> Deserialize<'de>>() -> T {
+        toml::from_str(DEFAULT_CONFIG).expect("built-in Twix default configuration is invalid")
+    }
+}
+
+impl Default for Configuration {
+    fn default() -> Self {
+        Self::parse_default_config()
     }
 }
 
@@ -106,16 +104,36 @@ mod tests {
     }
 
     #[test]
+    fn default_configuration_parses_built_in_config() {
+        let default = <Configuration as Default>::default();
+        let parsed =
+            toml::from_str::<Configuration>(DEFAULT_CONFIG).expect("failed to parse default.toml");
+
+        assert_eq!(default, parsed);
+    }
+
+    #[test]
+    fn ignores_stale_robot_config() {
+        toml::from_str::<Configuration>(
+            r#"
+                [keys]
+                C-p = "focus_panel"
+
+                [robots]
+                lowest = 1
+                highest = 2
+            "#,
+        )
+        .expect("failed to ignore stale robot config");
+    }
+
+    #[test]
     fn merge_configs() {
         let mut config_1: toml::Value = toml::from_str(
             r#"
                 [keys]
                 C-a = "focus_left"
                 C-S-a = "reconnect"
-
-                [robots]
-                lowest = 1
-                highest = 2
             "#,
         )
         .unwrap();
@@ -125,10 +143,6 @@ mod tests {
                 [keys]
                 C-b = "focus_left"
                 C-A = "focus_right"
-
-                [robots]
-                lowest = 3
-                highest = 4
             "#,
         )
         .unwrap();
@@ -144,10 +158,6 @@ mod tests {
                     C-S-a = "reconnect"
                     C-A = "focus_right"
                     C-b = "focus_left"
-
-                    [robots]
-                    lowest = 3
-                    highest = 4
                 "#
             )
             .unwrap()
@@ -161,10 +171,6 @@ mod tests {
                 [keys]
                 C-a = "focus_left"
                 C-S-a = "reconnect"
-
-                [robots]
-                lowest = 1
-                highest = 2
             "#,
         )
         .unwrap();
@@ -186,10 +192,6 @@ mod tests {
                     [keys]
                     C-a = "focus_right"
                     C-S-a = "reconnect"
-
-                    [robots]
-                    lowest = 1
-                    highest = 2
                 "#,
             )
             .unwrap()

@@ -1,5 +1,7 @@
 use std::collections::VecDeque;
 
+use ros_z::{pubsub::PublicationId, time::Time};
+
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum DebugEvent {
@@ -7,6 +9,11 @@ pub enum DebugEvent {
     StatusChanged,
     /// A new sample was retained as the latest value.
     ValueUpdated,
+    /// A new sample was retained, including the identity needed to fetch it.
+    ValueRetained {
+        source_time: Time,
+        publication_id: PublicationId,
+    },
     /// A non-terminal diagnostic message was recorded.
     Diagnostic(String),
 }

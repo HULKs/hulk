@@ -14,6 +14,10 @@ use crate::{
     history::TimeIndexedHistory,
 };
 
+const RETAINED_SAMPLE_EVENT_CAPACITY: usize = 256;
+const EVENTS_PER_RETAINED_SAMPLE: usize = 2;
+const EVENT_BUFFER_CAPACITY: usize = RETAINED_SAMPLE_EVENT_CAPACITY * EVENTS_PER_RETAINED_SAMPLE;
+
 pub(crate) trait ManagedSubscription: Send + Sync {
     fn close(&self);
 }
@@ -124,7 +128,10 @@ impl<V> SubscriptionState<V> {
             history,
             meta: Mutex::new(SubscriptionMeta {
                 status,
-                events: EventBuffer::new(256),
+                // Retained values emit both the legacy `ValueUpdated` event and
+                // the identity-carrying `ValueRetained` event. Keep room for the
+                // same 256 retained samples as before adding the paired event.
+                events: EventBuffer::new(EVENT_BUFFER_CAPACITY),
                 receive_task: None,
             }),
             cancellation_token: CancellationToken::new(),
@@ -176,6 +183,9 @@ impl<V> SubscriptionState<V> {
             return;
         }
 
+        let source_time = record.source_time;
+        let publication_id = record.publication_id;
+
         if let Some(history) = &self.history {
             history.lock().insert(Arc::clone(&record));
         }
@@ -187,6 +197,10 @@ impl<V> SubscriptionState<V> {
             meta.events.push(DebugEvent::StatusChanged);
         }
         meta.events.push(DebugEvent::ValueUpdated);
+        meta.events.push(DebugEvent::ValueRetained {
+            source_time,
+            publication_id,
+        });
     }
 
     pub(crate) fn set_receive_error(&self, status: SubscriptionStatus) {
@@ -402,9 +416,38 @@ mod tests {
         let events = state.handle().drain_events();
         assert!(matches!(
             &events[..],
-            [DebugEvent::StatusChanged, DebugEvent::ValueUpdated]
+            [
+                DebugEvent::StatusChanged,
+                DebugEvent::ValueUpdated,
+                DebugEvent::ValueRetained { .. }
+            ]
         ));
         assert!(state.handle().drain_events().is_empty());
+    }
+
+    #[test]
+    fn store_latest_events_include_retained_record_identity_after_legacy_update() {
+        let state = Arc::new(SubscriptionState::<NonClonePayload>::new(
+            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+            RetentionPolicy::LatestOnly,
+        ));
+        let record = sample_record_at(NonClonePayload(1), Time::from_nanos(7));
+        let source_time = record.source_time;
+        let publication_id = record.publication_id;
+
+        state.store_latest(record);
+
+        let events = state.handle().drain_events();
+        assert_eq!(events.len(), 3);
+        assert!(matches!(events[0], DebugEvent::StatusChanged));
+        assert!(matches!(events[1], DebugEvent::ValueUpdated));
+        assert!(matches!(
+            events[2],
+            DebugEvent::ValueRetained {
+                source_time: event_source_time,
+                publication_id: event_publication_id,
+            } if event_source_time == source_time && event_publication_id == publication_id
+        ));
     }
 
     #[test]
@@ -435,7 +478,11 @@ mod tests {
         let events = state.handle().drain_events();
         assert!(matches!(
             events.as_slice(),
-            [DebugEvent::StatusChanged, DebugEvent::ValueUpdated]
+            [
+                DebugEvent::StatusChanged,
+                DebugEvent::ValueUpdated,
+                DebugEvent::ValueRetained { .. }
+            ]
         ));
     }
 
@@ -552,7 +599,11 @@ mod tests {
 
         assert!(matches!(
             &events[..],
-            [DebugEvent::StatusChanged, DebugEvent::ValueUpdated]
+            [
+                DebugEvent::StatusChanged,
+                DebugEvent::ValueUpdated,
+                DebugEvent::ValueRetained { .. }
+            ]
         ));
         assert!(handle.drain_events().is_empty());
     }

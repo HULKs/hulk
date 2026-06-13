@@ -13,6 +13,16 @@ Twix is subsequently installed at `~/.cargo/bin/twix`. <br>
 
     Don't forget to update it from time to time by reinstalling it to get the latest features and bugfixes.
 
+# ros-z Backend
+
+Twix connects to a Zenoh router and inspects native ros-z graph topics. The default router endpoint is `tcp/127.0.0.1:7447`.
+
+Select the robot namespace in the top bar. A namespace such as `/42` makes panel topic selectors relative to that robot. For example, `ground_to_field` subscribes to `/42/ground_to_field`.
+
+Twix does not translate old dotted debug paths such as `WorldState.main_outputs.ground_to_field`. Pick native ros-z topics from the topic selector instead.
+
+Twix is read-only in this version. Write panels, STOP, remote control, parameter editing, and simulator panels show an unsupported message.
+
 # Configuration
 
 Twix loads a user configuration file on startup. The location of the configuration file depends on your platform:
@@ -51,7 +61,6 @@ Possible actions are:
 |`close_tab`     | Close current tab                                |
 |`duplicate_tab` | Duplicate current tab                            |
 |`focus_above`   | Move focus up                                    |
-|`focus_address` | Focus the NAO address field                      |
 |`focus_below`   | Move focus down                                  |
 |`focus_left`    | Move focus left                                  |
 |`focus_panel`   | Focus the panel selector                         |
@@ -59,7 +68,6 @@ Possible actions are:
 |`no_op`         | Do nothing (used to unbind a key)                |
 |`open_split`    | Split the current surface along the longest axis |
 |`open_tab`      | Open a new tab in the current surface            |
-|`reconnect`     | Reestablish the connection to the NAO            |
 |`close_all`     | Close all tabs and windows                       |
 
 !!! example "Example configuration"

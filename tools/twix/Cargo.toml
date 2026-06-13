@@ -15,7 +15,6 @@ bincode = { workspace = true }
 chrono = { workspace = true }
 clap = { workspace = true }
 color-eyre = { workspace = true }
-communication = { workspace = true }
 convert_case = { workspace = true }
 coordinate_systems = { workspace = true }
 dirs = { workspace = true }
@@ -38,9 +37,12 @@ mlua = { workspace = true }
 nalgebra = { workspace = true }
 ndarray = { workspace = true }
 parameters = { workspace = true }
+parking_lot = { workspace = true }
 projection = { workspace = true }
 repository = { workspace = true }
 ros2 = { workspace = true }
+ros-z = { workspace = true }
+ros-z-debug = { workspace = true }
 serde = { workspace = true }
 serde_json = { workspace = true }
 thiserror = { workspace = true }
