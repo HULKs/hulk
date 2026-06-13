@@ -9,11 +9,12 @@ use eframe::{
     App, Frame, NativeOptions,
     egui::{
         Align2, CentralPanel, CollapsingHeader, ComboBox, Context, FontId, Label, RichText,
-        ScrollArea, SidePanel, Slider, TextEdit, TopBottomPanel, Ui,
+        ScrollArea, SidePanel, Slider, TextEdit, TopBottomPanel, Ui, WidgetText,
     },
     epaint::{Color32, Stroke},
     run_native,
 };
+use egui_dock::{DockArea, DockState, Node, Split, TabViewer};
 use hsl_network_messages::PlayerNumber;
 use linear_algebra::{Orientation2, Pose2, point, vector};
 use serde_json::{Value, json};
@@ -56,10 +57,25 @@ struct TimelineViewerApp {
     zoom_and_pan: ZoomAndPanTransform,
     selected_trace_robot: Option<PlayerNumber>,
     behavior_tree_visualizer: BehaviorTreeVisualizer,
+    dock_state: DockState<TimelineViewerTab>,
+}
+
+#[derive(Clone, Copy, Debug, Eq, PartialEq)]
+enum TimelineViewerTab {
+    Field,
+    BehaviorTree,
 }
 
 impl TimelineViewerApp {
     fn new(data: TimelineViewerData) -> Self {
+        let mut dock_state = DockState::new(vec![TimelineViewerTab::Field]);
+        dock_state.split(
+            (0.into(), 0.into()),
+            Split::Right,
+            0.42,
+            Node::leaf(TimelineViewerTab::BehaviorTree),
+        );
+
         Self {
             data,
             selected_frame: 0,
@@ -73,6 +89,7 @@ impl TimelineViewerApp {
             zoom_and_pan: ZoomAndPanTransform::default(),
             selected_trace_robot: None,
             behavior_tree_visualizer: BehaviorTreeVisualizer::default(),
+            dock_state,
         }
     }
 
@@ -287,126 +304,16 @@ impl TimelineViewerApp {
         });
     }
 
-    fn show_behavior_tree_panel(&mut self, context: &Context) {
-        SidePanel::left("timeline_viewer_behavior_tree_panel")
-            .resizable(true)
-            .default_width(520.0)
-            .min_width(320.0)
-            .show(context, |ui| {
-                ui.heading("Behavior Tree");
-
-                let robot_numbers = self
-                    .selected_frame()
-                    .map(|frame| frame.robot_frames.keys().copied().collect::<Vec<_>>())
-                    .unwrap_or_default();
-                if robot_numbers.is_empty() {
-                    self.selected_trace_robot = None;
-                    self.behavior_tree_visualizer.clear();
-                    ui.label("no robot traces in selected frame");
-                    return;
-                }
-
-                if self
-                    .selected_trace_robot
-                    .is_none_or(|robot| !robot_numbers.contains(&robot))
-                {
-                    self.selected_trace_robot = robot_numbers.first().copied();
-                    self.behavior_tree_visualizer.clear();
-                }
-
-                let previous_robot = self.selected_trace_robot;
-                ComboBox::from_label("Robot")
-                    .selected_text(
-                        self.selected_trace_robot
-                            .map(|robot| robot.to_string())
-                            .unwrap_or_else(|| "none".to_string()),
-                    )
-                    .show_ui(ui, |ui| {
-                        for robot_number in robot_numbers {
-                            ui.selectable_value(
-                                &mut self.selected_trace_robot,
-                                Some(robot_number),
-                                robot_number.to_string(),
-                            );
-                        }
-                    });
-                if self.selected_trace_robot != previous_robot {
-                    self.behavior_tree_visualizer.clear();
-                }
-
-                let tree_data = self.selected_trace_robot.and_then(|robot_number| {
-                    self.selected_frame()
-                        .and_then(|frame| frame.robot_frames.get(&robot_number))
-                        .map(|robot_frame| {
-                            (robot_frame.static_layout.clone(), robot_frame.trace.clone())
-                        })
-                });
-
-                let Some((static_layout, trace)) = tree_data else {
-                    self.behavior_tree_visualizer.clear();
-                    ui.label("selected robot has no node trace");
-                    return;
-                };
-
-                self.behavior_tree_visualizer
-                    .show(ui, Some(&static_layout), Some(&trace));
-            });
-    }
-
-    fn show_map(&mut self, context: &Context) {
+    fn show_dock_area(&mut self, context: &Context) {
         CentralPanel::default().show(context, |ui| {
-            let available_size = ui.available_size_before_wrap();
-            if available_size.x <= 1.0 || available_size.y <= 1.0 {
-                ui.label("not enough space to draw field");
-                return;
-            }
-
-            let field_dimensions = self.data.field_dimensions;
-            let border = field_dimensions.border_strip_width;
-            let (response, mut painter) = TwixPainter::<Field>::allocate(
-                ui,
-                vector![
-                    2.0 * border + field_dimensions.length,
-                    2.0 * border + field_dimensions.width
-                ],
-                point![
-                    border + field_dimensions.length / 2.0,
-                    -border - field_dimensions.width / 2.0
-                ],
-                Orientation::RightHanded,
-            );
-
-            self.zoom_and_pan.apply(ui, &mut painter, &response);
-            painter.field(&field_dimensions);
-
-            if let Some(frame) = self.selected_frame() {
-                if let Some(ball) = frame.ball {
-                    painter.ball(
-                        point_world_to_field(ball.position),
-                        field_dimensions.ball_radius,
-                        Color32::YELLOW,
-                    );
-                }
-
-                for (_, robot) in frame.robots.iter() {
-                    let Some(robot) = robot else {
-                        continue;
-                    };
-                    let pose = pose_world_to_field(robot.ground_to_world.as_pose());
-                    let color = robot_color(robot.player_number);
-                    painter.pose(
-                        pose,
-                        0.16,
-                        0.32,
-                        color,
-                        Stroke {
-                            width: 0.025,
-                            color: Color32::BLACK,
-                        },
-                    );
-                    paint_robot_label(ui, &painter, pose, robot.player_number);
-                }
-            }
+            let mut tab_viewer = TimelineDockViewer {
+                data: &self.data,
+                selected_frame: self.selected_frame,
+                zoom_and_pan: &mut self.zoom_and_pan,
+                selected_trace_robot: &mut self.selected_trace_robot,
+                behavior_tree_visualizer: &mut self.behavior_tree_visualizer,
+            };
+            DockArea::new(&mut self.dock_state).show_inside(ui, &mut tab_viewer);
         });
     }
 }
@@ -418,8 +325,166 @@ impl App for TimelineViewerApp {
         self.show_top_panel(context);
         self.show_side_panel(context);
         self.show_timeline_scrubber(context);
-        self.show_behavior_tree_panel(context);
-        self.show_map(context);
+        self.show_dock_area(context);
+    }
+}
+
+struct TimelineDockViewer<'a> {
+    data: &'a TimelineViewerData,
+    selected_frame: usize,
+    zoom_and_pan: &'a mut ZoomAndPanTransform,
+    selected_trace_robot: &'a mut Option<PlayerNumber>,
+    behavior_tree_visualizer: &'a mut BehaviorTreeVisualizer,
+}
+
+impl TabViewer for TimelineDockViewer<'_> {
+    type Tab = TimelineViewerTab;
+
+    fn ui(&mut self, ui: &mut Ui, tab: &mut Self::Tab) {
+        match tab {
+            TimelineViewerTab::Field => {
+                show_map(ui, self.data, self.selected_frame, self.zoom_and_pan);
+            }
+            TimelineViewerTab::BehaviorTree => {
+                show_behavior_tree(
+                    ui,
+                    self.data,
+                    self.selected_frame,
+                    self.selected_trace_robot,
+                    self.behavior_tree_visualizer,
+                );
+            }
+        }
+    }
+
+    fn title(&mut self, tab: &mut Self::Tab) -> WidgetText {
+        match tab {
+            TimelineViewerTab::Field => "Field".into(),
+            TimelineViewerTab::BehaviorTree => "Behavior Tree".into(),
+        }
+    }
+}
+
+fn show_behavior_tree(
+    ui: &mut Ui,
+    data: &TimelineViewerData,
+    selected_frame: usize,
+    selected_trace_robot: &mut Option<PlayerNumber>,
+    behavior_tree_visualizer: &mut BehaviorTreeVisualizer,
+) {
+    let robot_numbers = data
+        .frames
+        .get(selected_frame)
+        .map(|frame| frame.robot_frames.keys().copied().collect::<Vec<_>>())
+        .unwrap_or_default();
+    if robot_numbers.is_empty() {
+        *selected_trace_robot = None;
+        behavior_tree_visualizer.clear();
+        ui.label("no robot traces in selected frame");
+        return;
+    }
+
+    if selected_trace_robot.is_none_or(|robot| !robot_numbers.contains(&robot)) {
+        *selected_trace_robot = robot_numbers.first().copied();
+        behavior_tree_visualizer.clear();
+    }
+
+    let previous_robot = *selected_trace_robot;
+    ComboBox::from_label("Robot")
+        .selected_text(
+            selected_trace_robot
+                .map(|robot| robot.to_string())
+                .unwrap_or_else(|| "none".to_string()),
+        )
+        .show_ui(ui, |ui| {
+            for robot_number in robot_numbers {
+                ui.selectable_value(
+                    selected_trace_robot,
+                    Some(robot_number),
+                    robot_number.to_string(),
+                );
+            }
+        });
+    if *selected_trace_robot != previous_robot {
+        behavior_tree_visualizer.clear();
+    }
+
+    let tree_data = selected_trace_robot.and_then(|robot_number| {
+        data.frames
+            .get(selected_frame)
+            .and_then(|frame| frame.robot_frames.get(&robot_number))
+    });
+
+    let Some(robot_frame) = tree_data else {
+        behavior_tree_visualizer.clear();
+        ui.label("selected robot has no node trace");
+        return;
+    };
+
+    behavior_tree_visualizer.show(
+        ui,
+        Some(&robot_frame.static_layout),
+        Some(&robot_frame.trace),
+    );
+}
+
+fn show_map(
+    ui: &mut Ui,
+    data: &TimelineViewerData,
+    selected_frame: usize,
+    zoom_and_pan: &mut ZoomAndPanTransform,
+) {
+    let available_size = ui.available_size_before_wrap();
+    if available_size.x <= 1.0 || available_size.y <= 1.0 {
+        ui.label("not enough space to draw field");
+        return;
+    }
+
+    let field_dimensions = data.field_dimensions;
+    let border = field_dimensions.border_strip_width;
+    let (response, mut painter) = TwixPainter::<Field>::allocate(
+        ui,
+        vector![
+            2.0 * border + field_dimensions.length,
+            2.0 * border + field_dimensions.width
+        ],
+        point![
+            border + field_dimensions.length / 2.0,
+            -border - field_dimensions.width / 2.0
+        ],
+        Orientation::RightHanded,
+    );
+
+    zoom_and_pan.apply(ui, &mut painter, &response);
+    painter.field(&field_dimensions);
+
+    if let Some(frame) = data.frames.get(selected_frame) {
+        if let Some(ball) = frame.ball {
+            painter.ball(
+                point_world_to_field(ball.position),
+                field_dimensions.ball_radius,
+                Color32::YELLOW,
+            );
+        }
+
+        for (_, robot) in frame.robots.iter() {
+            let Some(robot) = robot else {
+                continue;
+            };
+            let pose = pose_world_to_field(robot.ground_to_world.as_pose());
+            let color = robot_color(robot.player_number);
+            painter.pose(
+                pose,
+                0.16,
+                0.32,
+                color,
+                Stroke {
+                    width: 0.025,
+                    color: Color32::BLACK,
+                },
+            );
+            paint_robot_label(ui, &painter, pose, robot.player_number);
+        }
     }
 }
 
