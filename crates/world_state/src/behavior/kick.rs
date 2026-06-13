@@ -208,10 +208,7 @@ pub fn intercept(blackboard: &mut Blackboard) -> Status {
 }
 
 pub fn set_kick_target_in_front(blackboard: &mut Blackboard) -> Status {
-    if let (Some(ground_to_field), Some(ball)) = (
-        blackboard.world_state.robot.ground_to_field,
-        &blackboard.ball,
-    ) {
+    if let Some(ground_to_field) = blackboard.world_state.robot.ground_to_field {
         if blackboard.last_motion_type != Some(MotionType::Kick) {
             let kick_target = ground_to_field * point!(3.0, 0.0);
             blackboard.last_kick_target = Some(kick_target);
