@@ -18,7 +18,7 @@ use serde::{Deserialize, Serialize};
 )]
 pub enum PrimaryState {
     #[default]
-    Safe,
+    Damping,
     Prepare,
     Stop,
     Initial,

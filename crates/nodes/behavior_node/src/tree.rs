@@ -27,7 +27,7 @@ use crate::{
 pub fn create_tree() -> Node<Blackboard> {
     selection!(
         sequence!(
-            condition!(is_primary_state, PrimaryState::Safe),
+            condition!(is_primary_state, PrimaryState::Damping),
             action!(damping)
         ),
         sequence!(

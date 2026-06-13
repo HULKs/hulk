@@ -163,7 +163,7 @@ impl Localization {
                     context.field_dimensions,
                 ))
                 .collect(),
-            last_primary_state: PrimaryState::Safe,
+            last_primary_state: PrimaryState::Damping,
             hypotheses: Vec::new(),
             hypotheses_when_entered_playing: Vec::new(),
             is_penalized_with_motion_in_set_or_initial: false,
@@ -446,7 +446,7 @@ impl Localization {
             PrimaryState::Ready | PrimaryState::Set | PrimaryState::Playing => {
                 Some(self.update_active_state(inputs, context)?)
             }
-            PrimaryState::Safe
+            PrimaryState::Damping
             | PrimaryState::Prepare
             | PrimaryState::Stop
             | PrimaryState::Penalized

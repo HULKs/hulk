@@ -40,7 +40,7 @@ impl Default for ObstacleFilter {
     fn default() -> Self {
         Self {
             hypotheses: Vec::new(),
-            last_primary_state: PrimaryState::Safe,
+            last_primary_state: PrimaryState::Damping,
         }
     }
 }
@@ -648,7 +648,7 @@ mod tests {
     fn obstacle_filter_starts_without_hypotheses() {
         let filter = ObstacleFilter::default();
         assert!(filter.hypotheses.is_empty());
-        assert_eq!(filter.last_primary_state, PrimaryState::Safe);
+        assert_eq!(filter.last_primary_state, PrimaryState::Damping);
     }
 
     #[test]

@@ -44,7 +44,7 @@ pub struct MainOutputs {
 impl PrimaryStateFilter {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
-            last_primary_state: PrimaryState::Safe,
+            last_primary_state: PrimaryState::Damping,
         })
     }
 
@@ -81,9 +81,9 @@ impl PrimaryStateFilter {
                     ..
                 },
                 _,
-            ) => PrimaryState::Safe,
+            ) => PrimaryState::Damping,
             (
-                PrimaryState::Safe,
+                PrimaryState::Damping,
                 Buttons {
                     stand: Some(ButtonPressType::Long),
                     ..
@@ -98,11 +98,11 @@ impl PrimaryStateFilter {
                 },
                 _,
             ) if *context.is_safe_pose => PrimaryState::Playing,
-            (PrimaryState::Safe, _, _) => {
+            (PrimaryState::Damping, _, _) => {
                 if context.hardware_interface.is_simulation()? {
                     PrimaryState::Initial
                 } else {
-                    PrimaryState::Safe
+                    PrimaryState::Damping
                 }
             }
             (PrimaryState::Initial, _, FilteredGameState::Ready) if !is_penalized => {
@@ -115,13 +115,13 @@ impl PrimaryStateFilter {
             (PrimaryState::Playing, _, FilteredGameState::Ready) if !is_penalized => {
                 PrimaryState::Ready
             }
-            (state, _, FilteredGameState::Finished) if !matches!(state, PrimaryState::Safe) => {
+            (state, _, FilteredGameState::Finished) if !matches!(state, PrimaryState::Damping) => {
                 PrimaryState::Finished
             }
-            (state, _, FilteredGameState::Stop) if !matches!(state, PrimaryState::Safe) => {
+            (state, _, FilteredGameState::Stop) if !matches!(state, PrimaryState::Damping) => {
                 PrimaryState::Stop
             }
-            (state, _, _) if is_penalized && !matches!(state, PrimaryState::Safe) => {
+            (state, _, _) if is_penalized && !matches!(state, PrimaryState::Damping) => {
                 PrimaryState::Penalized
             }
             (PrimaryState::Stop, _, game_state) => {

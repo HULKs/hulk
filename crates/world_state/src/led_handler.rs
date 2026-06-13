@@ -45,7 +45,7 @@ impl LEDHandler {
         }
 
         let light_control_parameter = match context.primary_state {
-            PrimaryState::Safe => SetLedLightColorParameter::BLUE,
+            PrimaryState::Damping => SetLedLightColorParameter::BLUE,
             PrimaryState::Prepare => SetLedLightColorParameter::MAGENTA,
             PrimaryState::Stop => SetLedLightColorParameter::LIGHT_BLUE,
             PrimaryState::Ready => SetLedLightColorParameter::LIGHT_GREEN,

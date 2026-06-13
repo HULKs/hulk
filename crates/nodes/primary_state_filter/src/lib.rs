@@ -113,7 +113,7 @@ impl PrimaryStateFilter {
         let filtered_game_state = filtered_game_controller_state.game_state;
 
         self.primary_state = match (self.primary_state, filtered_game_state) {
-            (PrimaryState::Safe, _) => PrimaryState::Safe,
+            (PrimaryState::Damping, _) => PrimaryState::Damping,
             (PrimaryState::Initial, FilteredGameState::Ready) if !is_penalized => {
                 PrimaryState::Ready
             }
@@ -124,13 +124,13 @@ impl PrimaryStateFilter {
             (PrimaryState::Playing, FilteredGameState::Ready) if !is_penalized => {
                 PrimaryState::Ready
             }
-            (state, FilteredGameState::Finished) if !matches!(state, PrimaryState::Safe) => {
+            (state, FilteredGameState::Finished) if !matches!(state, PrimaryState::Damping) => {
                 PrimaryState::Finished
             }
-            (state, FilteredGameState::Stop) if !matches!(state, PrimaryState::Safe) => {
+            (state, FilteredGameState::Stop) if !matches!(state, PrimaryState::Damping) => {
                 PrimaryState::Stop
             }
-            (state, _) if is_penalized && !matches!(state, PrimaryState::Safe) => {
+            (state, _) if is_penalized && !matches!(state, PrimaryState::Damping) => {
                 PrimaryState::Penalized
             }
             (PrimaryState::Stop, game_state) => {
@@ -155,7 +155,7 @@ impl PrimaryStateFilter {
                     f1: Some(ButtonPressType::Short),
                     ..
                 },
-            ) => PrimaryState::Safe,
+            ) => PrimaryState::Damping,
             (
                 _,
                 Buttons {

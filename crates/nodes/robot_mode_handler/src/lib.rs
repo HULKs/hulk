@@ -86,7 +86,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 }
 
                 match (primary_state, robot_mode) {
-                    (PrimaryState::Safe | PrimaryState::Initial, RobotMode::Walking) => {
+                    (PrimaryState::Damping | PrimaryState::Initial, RobotMode::Walking) => {
                         change_mode(&high_level_command_pub, RobotMode::Prepare).await
                     }
                     (
