@@ -1293,7 +1293,6 @@ fn ball_in_goal(
 
 fn build_world_states(
     clock: Res<SimulatorClock>,
-    field_dimensions: Res<SimulatorFieldDimensions>,
     ball: Res<SimulatorBall>,
     game_state: Res<SimulatorGameState>,
     received_hsl_messages: Res<SimulatorReceivedHslMessages>,
@@ -1355,12 +1354,9 @@ fn build_world_states(
             },
         );
     }
-
-    let _ = field_dimensions;
 }
 
 fn tick_behavior_trees(
-    clock: Res<SimulatorClock>,
     field_dimensions: Res<SimulatorFieldDimensions>,
     world_states: Res<SimulatorWorldStates>,
     mut robot_frames: ResMut<SimulatorRobotFrames>,
@@ -1389,8 +1385,6 @@ fn tick_behavior_trees(
             RobotFrame::from_outputs(world_state, tick_output, Vec::new()),
         );
     }
-
-    let _ = clock;
 }
 
 fn plan_communication(
