@@ -317,17 +317,19 @@ impl AppExt for App {
     fn run_to_completion_with_viewer(&mut self) -> Result<()> {
         let exit = run_until_exit(self);
 
-        let viewer_data = TimelineViewerData {
-            field_dimensions: self.world().resource::<SimulatorFieldDimensions>().0,
-            frames: self.world().resource::<SimulatorTimeline>().frames.clone(),
-            failures: self
-                .world()
-                .resource::<SimulatorScenarioResult>()
-                .failures
-                .clone(),
-        };
-
         if env::var_os("BEVYHAVIOR_SIMULATOR_NO_VIEWER").is_none() {
+            let viewer_data = TimelineViewerData {
+                field_dimensions: self.world().resource::<SimulatorFieldDimensions>().0,
+                frames: std::mem::take(
+                    &mut self.world_mut().resource_mut::<SimulatorTimeline>().frames,
+                ),
+                failures: self
+                    .world()
+                    .resource::<SimulatorScenarioResult>()
+                    .failures
+                    .clone(),
+            };
+
             show_timeline_viewer(viewer_data)?;
         }
 
