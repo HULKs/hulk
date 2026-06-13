@@ -1980,6 +1980,7 @@ dependencies = [
  "color-eyre",
  "coordinate_systems",
  "eframe",
+ "egui_dock",
  "hsl_network_messages",
  "linear_algebra",
  "ros-z",
