@@ -96,7 +96,7 @@ impl BoosterModeHandler {
         let switch_to_prepare = &time_since_primary_state_change >= context.wait_before_prepare;
 
         match (context.primary_state, robot_mode, switch_to_prepare) {
-            (PrimaryState::Safe | PrimaryState::Initial, RobotMode::Walking, _) => {
+            (PrimaryState::Damping | PrimaryState::Initial, RobotMode::Walking, _) => {
                 change_mode(&context, RobotMode::Prepare)
             }
             (PrimaryState::Finished | PrimaryState::Penalized, RobotMode::Walking, true) => {

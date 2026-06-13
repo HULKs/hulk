@@ -71,7 +71,7 @@ impl ObstacleFilter {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             hypotheses: Vec::new(),
-            last_primary_state: PrimaryState::Safe,
+            last_primary_state: PrimaryState::Damping,
         })
     }
 

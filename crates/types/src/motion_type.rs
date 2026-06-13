@@ -18,6 +18,7 @@ use serde::{Deserialize, Serialize};
 )]
 pub enum MotionType {
     #[default]
+    Damping,
     Prepare,
     Stand,
     StandUp,

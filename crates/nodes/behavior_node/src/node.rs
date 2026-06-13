@@ -304,6 +304,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             MotionCommand::Stand { .. } => Some(MotionType::Stand),
             MotionCommand::StandUp => Some(MotionType::StandUp),
             MotionCommand::Prepare => Some(MotionType::Prepare),
+            MotionCommand::Damping => Some(MotionType::Damping),
             _ => None,
         };
 

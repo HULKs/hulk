@@ -46,6 +46,7 @@ pub enum OrientationMode {
 )]
 pub enum MotionCommand {
     #[default]
+    Damping,
     Prepare,
     Stand {
         head: HeadMotion,
@@ -84,12 +85,13 @@ impl MotionCommand {
             MotionCommand::Prepare => Some(HeadMotion::Center {
                 image_region_target: ImageRegion::Top,
             }),
-            MotionCommand::StandUp => None,
+            MotionCommand::Damping | MotionCommand::StandUp => None,
         }
     }
 
     pub fn from_partial_motions(body: BodyMotion, head: HeadMotion) -> Self {
         match body {
+            BodyMotion::Damping => MotionCommand::Damping,
             BodyMotion::Prepare => MotionCommand::Prepare,
             BodyMotion::Stand => MotionCommand::Stand { head },
             BodyMotion::StandUp => MotionCommand::StandUp,
@@ -147,6 +149,7 @@ impl MotionCommand {
 )]
 pub enum BodyMotion {
     #[default]
+    Damping,
     Prepare,
     Stand,
     StandUp,
