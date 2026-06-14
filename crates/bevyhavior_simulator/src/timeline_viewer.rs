@@ -71,7 +71,7 @@ impl TimelineViewerApp {
         let mut dock_state = DockState::new(vec![TimelineViewerTab::Field]);
         dock_state.split(
             (0.into(), 0.into()),
-            Split::Right,
+            Split::Below,
             0.42,
             Node::leaf(TimelineViewerTab::BehaviorTree),
         );
