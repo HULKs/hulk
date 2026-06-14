@@ -114,6 +114,7 @@ fn pose(x: f32, y: f32, yaw: f32) -> Isometry2<Ground, World> {
 
 fn motion_name(motion_command: &MotionCommand) -> &'static str {
     match motion_command {
+        MotionCommand::Damping => "damping",
         MotionCommand::Prepare => "prepare",
         MotionCommand::Stand { .. } => "stand",
         MotionCommand::StandUp => "stand_up",

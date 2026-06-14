@@ -67,7 +67,7 @@ impl SimulatorRobotBundle {
             robot: SimulatorRobot { player_number },
             ground_to_world: SimulatorGroundToWorld { ground_to_world },
             primary_state: SimulatorPrimaryState {
-                primary_state: PrimaryState::Safe,
+                primary_state: PrimaryState::Damping,
             },
             behavior: SimulatorRobotBehavior::new(parameters.clone()),
             parameters: SimulatorRobotParameters {
@@ -107,7 +107,7 @@ impl SimulatedRobot {
         Ok(Self {
             player_number,
             ground_to_world,
-            primary_state: PrimaryState::Safe,
+            primary_state: PrimaryState::Damping,
             behavior: SimulatorRobotBehavior::new(parameters.clone()),
             parameters,
             fall_down_state: None,

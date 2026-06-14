@@ -335,7 +335,7 @@ impl Simulation {
                     *kick_power,
                 ),
                 MotionCommand::StandUp => robot.fall_down_state = None,
-                MotionCommand::Prepare | MotionCommand::Stand { .. } => {}
+                MotionCommand::Damping | MotionCommand::Prepare | MotionCommand::Stand { .. } => {}
             }
         }
     }

@@ -80,7 +80,7 @@ pub(crate) fn apply_motion_kinematics(
                 *kick_power,
             ),
             MotionCommand::StandUp => fall_down_state.fall_down_state = None,
-            MotionCommand::Prepare | MotionCommand::Stand { .. } => {}
+            MotionCommand::Damping | MotionCommand::Prepare | MotionCommand::Stand { .. } => {}
         }
     }
 }
