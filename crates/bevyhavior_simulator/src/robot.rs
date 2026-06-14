@@ -86,33 +86,3 @@ impl SimulatorRobotBundle {
         self
     }
 }
-
-pub struct SimulatedRobot {
-    pub player_number: PlayerNumber,
-    pub ground_to_world: Isometry2<Ground, World>,
-    pub primary_state: PrimaryState,
-    pub behavior: SimulatorRobotBehavior,
-    pub parameters: BehaviorParameters,
-    pub fall_down_state: Option<FallDownState>,
-    pub suggested_search_position: Option<Point2<Field>>,
-    pub last_kick_time: SystemTime,
-}
-
-impl SimulatedRobot {
-    pub fn new(
-        player_number: PlayerNumber,
-        ground_to_world: Isometry2<Ground, World>,
-        parameters: BehaviorParameters,
-    ) -> Result<Self> {
-        Ok(Self {
-            player_number,
-            ground_to_world,
-            primary_state: PrimaryState::Damping,
-            behavior: SimulatorRobotBehavior::new(parameters.clone()),
-            parameters,
-            fall_down_state: None,
-            suggested_search_position: None,
-            last_kick_time: SystemTime::UNIX_EPOCH,
-        })
-    }
-}

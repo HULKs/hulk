@@ -49,7 +49,7 @@ The simulator has two layers:
 - A behavior adapter over `crates/nodes/behavior_node` that can tick `create_tree()` and plan communication without ROS/network side effects.
 - A Bevy runtime in `crates/bevyhavior_simulator` that owns entities, resources, systems, scenario registration, simple kinematics, invariant checks, and timeline recording.
 
-The Bevy runtime is the normal simulator API. A small non-Bevy helper may exist for tests, but scenarios should be authored against Bevy `App` so they can register systems flexibly.
+The Bevy runtime is the only supported simulator API. Scenarios are authored against Bevy `App` so they can register systems flexibly.
 
 Do not abbreviate `Simulator`, `Simulated`, or `Simulation` to `Sim` in type names. Prefer names such as `SimulatorRobot`, `SimulatorTimeline`, `SimulatorIncomingMessages`, and `SimulatedBall`. Avoid names such as `SimRobot`, `SimTimeline`, or `SimBall`.
 
@@ -133,7 +133,7 @@ The simulator also stores `last_motion_command` per robot because production kee
 
 # Simulation State Model
 
-The Bevy runtime owns simulator state as components and resources. A convenience `Simulation` wrapper may exist, but it should be implemented in terms of the same data model and systems.
+The Bevy runtime owns simulator state as components and resources. A non-Bevy `Simulation` wrapper is not supported. Shared simulator behavior must live in Bevy systems, components, and resources.
 
 Simulator-owned physical state is stored in `coordinate_systems::World`, not `Field`. `World` is the neutral field coordinate system: it is identical to `Field` for the home team and rotated by 180 degrees for the away team. Before building each robot's behavior `WorldState`, the simulator converts the robot pose, ball, and other world-owned physical values into that robot team's `Field` frame using `GameControllerState::global_field_side`.
 
@@ -250,35 +250,7 @@ pub struct SimulatorRobotBundle {
 }
 ```
 
-The non-Bevy convenience wrapper has this shape:
-
-```rust
-pub struct Simulation {
-    pub now: SystemTime,
-    pub tick_duration: Duration,
-    pub robots: Players<Option<SimulatedRobot>>,
-    pub ball: Option<SimulatedBall>,
-    pub game: SimulatedGameState,
-    pub field_dimensions: FieldDimensions,
-    pub rule_obstacles: Vec<RuleObstacle>,
-    pub config: SimulationConfig,
-}
-```
-
-Each robot has:
-
-```rust
-pub struct SimulatedRobot {
-    pub player_number: PlayerNumber,
-    pub ground_to_world: Isometry2<Ground, World>,
-    pub primary_state: PrimaryState,
-    pub behavior: SimulatorRobotBehavior,
-    pub parameters: BehaviorParameters,
-    pub fall_down_state: Option<FallDownState>,
-    pub perceived_ball: Option<BallState>,
-    pub suggested_search_position: Option<Point2<Field>>,
-}
-```
+Each robot is represented by a Bevy entity with `SimulatorRobotBundle` components. Tests and scenarios should use `App` plus `BehaviorTreeSimulatorPlugin`, not a separate non-Bevy runtime.
 
 The shared ball has world pose and velocity:
 

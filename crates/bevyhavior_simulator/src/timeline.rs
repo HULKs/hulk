@@ -19,10 +19,9 @@ use types::{
 use voronoi::VoronoiGrid;
 
 use crate::behavior_tree_simulator::{
-    InvariantViolation, RobotSnapshot, SimulatedBall, SimulatedRobot, SimulatorBall,
-    SimulatorBehaviorTickOutput, SimulatorClock, SimulatorCurrentInvariantViolations,
-    SimulatorFallDownState, SimulatorGameState, SimulatorGroundToWorld, SimulatorPrimaryState,
-    SimulatorRobot,
+    InvariantViolation, RobotSnapshot, SimulatedBall, SimulatorBall, SimulatorBehaviorTickOutput,
+    SimulatorClock, SimulatorCurrentInvariantViolations, SimulatorFallDownState,
+    SimulatorGameState, SimulatorGroundToWorld, SimulatorPrimaryState, SimulatorRobot,
 };
 use crate::game_controller::filtered_game_state_from;
 
@@ -168,17 +167,4 @@ pub(crate) fn robot_snapshots_from_query(
         });
     }
     snapshots
-}
-
-pub(crate) fn simulated_robot_snapshots(
-    robots: &Players<Option<SimulatedRobot>>,
-) -> Players<Option<RobotSnapshot>> {
-    robots.as_ref().map(|robot| {
-        robot.as_ref().map(|robot| RobotSnapshot {
-            player_number: robot.player_number,
-            ground_to_world: robot.ground_to_world,
-            primary_state: robot.primary_state,
-            fall_down_state: robot.fall_down_state,
-        })
-    })
 }

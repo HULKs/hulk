@@ -9,9 +9,8 @@ use types::{
 };
 
 use crate::behavior_tree_simulator::{
-    SimulatedBall, SimulatedRobot, SimulationConfig, SimulatorBall, SimulatorClock,
-    SimulatorFallDownState, SimulatorGroundToWorld, SimulatorLastKickTime, SimulatorRobot,
-    SimulatorRobotFrames,
+    SimulatedBall, SimulationConfig, SimulatorBall, SimulatorClock, SimulatorFallDownState,
+    SimulatorGroundToWorld, SimulatorLastKickTime, SimulatorRobot, SimulatorRobotFrames,
 };
 
 pub(crate) fn apply_motion_kinematics(
@@ -95,38 +94,6 @@ pub(crate) fn first_path_target(path: &types::path::Path) -> Option<Point2<Groun
     }
 }
 
-pub(crate) fn apply_walk(
-    robot: &mut SimulatedRobot,
-    target: Point2<Ground>,
-    target_orientation: Orientation2<Ground>,
-    orientation_mode: OrientationMode,
-    speed: f32,
-    tick_duration: Duration,
-    config: &SimulationConfig,
-) {
-    let dt = tick_duration.as_secs_f32();
-    let max_distance = config.walk_translation_speed * speed * dt;
-    let target_vector = target.coords();
-    let step_translation =
-        if target_vector.norm() > max_distance && target_vector.norm() > f32::EPSILON {
-            target_vector.normalize() * max_distance
-        } else {
-            target_vector
-        };
-
-    let desired_orientation = match orientation_mode {
-        OrientationMode::LookTowards { direction, .. } => direction,
-        OrientationMode::LookAt { target, .. } => Orientation2::from_vector(target.coords()),
-        OrientationMode::AlignWithPath | OrientationMode::Unspecified => target_orientation,
-    };
-    let max_rotation = config.walk_rotation_speed * dt;
-    let step_rotation = desired_orientation
-        .angle()
-        .clamp(-max_rotation, max_rotation);
-    let delta = Isometry2::from_parts(step_translation, step_rotation);
-    robot.ground_to_world = robot.ground_to_world * delta;
-}
-
 fn apply_walk_to_pose<Frame>(
     ground_to_frame: Isometry2<Ground, Frame>,
     target: Point2<Ground>,
@@ -159,20 +126,6 @@ fn apply_walk_to_pose<Frame>(
     ground_to_frame * delta
 }
 
-pub(crate) fn apply_walk_with_velocity(
-    robot: &mut SimulatedRobot,
-    velocity: Vector2<Ground>,
-    angular_velocity: f32,
-    tick_duration: Duration,
-    config: &SimulationConfig,
-) {
-    let dt = tick_duration.as_secs_f32();
-    let translation = velocity * config.walk_with_velocity_scale * dt;
-    let rotation = angular_velocity * config.walk_with_velocity_scale * dt;
-    let delta = Isometry2::from_parts(translation, rotation);
-    robot.ground_to_world = robot.ground_to_world * delta;
-}
-
 fn apply_walk_with_velocity_to_pose<Frame>(
     ground_to_frame: Isometry2<Ground, Frame>,
     velocity: Vector2<Ground>,
@@ -185,38 +138,6 @@ fn apply_walk_with_velocity_to_pose<Frame>(
     let rotation = angular_velocity * config.walk_with_velocity_scale * dt;
     let delta = Isometry2::from_parts(translation, rotation);
     ground_to_frame * delta
-}
-
-pub(crate) fn apply_kick(
-    now: SystemTime,
-    ball: &mut Option<SimulatedBall>,
-    config: &SimulationConfig,
-    robot: &mut SimulatedRobot,
-    expected_ball_position: Point2<Ground>,
-    kick_direction: Orientation2<Ground>,
-    kick_power: KickPower,
-) {
-    let Some(ball) = ball else { return };
-    if now.duration_since(robot.last_kick_time).unwrap_or_default() < config.kick_cooldown {
-        return;
-    }
-
-    let expected_ball_in_world = robot.ground_to_world * expected_ball_position;
-    if (ball.position - expected_ball_in_world).norm() > config.kick_radius {
-        return;
-    }
-
-    let actual_ball_in_ground = robot.ground_to_world.inverse() * ball.position;
-    if actual_ball_in_ground.coords().norm() > config.kick_radius {
-        return;
-    }
-
-    let speed = match kick_power {
-        KickPower::Rumpelstilzchen => config.kick_ball_speed_rumpelstilzchen,
-        KickPower::Schlong => config.kick_ball_speed_schlong,
-    };
-    ball.velocity = robot.ground_to_world * (kick_direction.as_unit_vector() * speed);
-    robot.last_kick_time = now;
 }
 
 fn apply_kick_to_ball(
