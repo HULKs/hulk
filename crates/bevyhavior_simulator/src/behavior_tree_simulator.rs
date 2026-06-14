@@ -34,11 +34,10 @@ pub use crate::invariant_checks::{
     SimulatorCurrentInvariantViolations, SimulatorInvariantChecks, default_invariant_checks,
 };
 pub use crate::robot::{
-    SimulatedRobot, SimulatorFallDownState, SimulatorGroundToWorld, SimulatorLastKickTime,
-    SimulatorPrimaryState, SimulatorRobot, SimulatorRobotBundle, SimulatorRobotParameters,
+    SimulatorFallDownState, SimulatorGroundToWorld, SimulatorLastKickTime, SimulatorPrimaryState,
+    SimulatorRobot, SimulatorRobotBundle, SimulatorRobotParameters,
     SimulatorSuggestedSearchPosition,
 };
-pub use crate::simulation::Simulation;
 pub use crate::timeline::{
     RobotFrame, SimulatorFailure, SimulatorRobotFrames, SimulatorScenarioResult, SimulatorTimeline,
     SimulatorTimelineMarker, SimulatorTimelineMarkers, TimelineFrame,
