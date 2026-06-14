@@ -7,24 +7,50 @@ use std::{
 
 use bevy::prelude::*;
 use coordinate_systems::{Field, Ground};
+use eframe::egui::Color32;
 use hsl_network_messages::PlayerNumber;
 use linear_algebra::{Point2, Pose2};
 use serde::Serialize;
 use types::{
-    behavior_tree::NodeTrace, messages::OutgoingMessage, motion_command::MotionCommand,
-    path_obstacles::PathObstacle, players::Players, world_state::WorldState,
+    behavior_tree::NodeTrace, filtered_game_state::FilteredGameState, messages::OutgoingMessage,
+    motion_command::MotionCommand, path_obstacles::PathObstacle, players::Players,
+    world_state::WorldState,
 };
 use voronoi::VoronoiGrid;
 
 use crate::behavior_tree_simulator::{
     InvariantViolation, RobotSnapshot, SimulatedBall, SimulatedRobot, SimulatorBall,
     SimulatorBehaviorTickOutput, SimulatorClock, SimulatorCurrentInvariantViolations,
-    SimulatorFallDownState, SimulatorGroundToWorld, SimulatorPrimaryState, SimulatorRobot,
+    SimulatorFallDownState, SimulatorGameState, SimulatorGroundToWorld, SimulatorPrimaryState,
+    SimulatorRobot,
 };
+use crate::game_controller::filtered_game_state_from;
 
 #[derive(Resource, Clone, Debug, Default)]
 pub struct SimulatorTimeline {
     pub frames: Vec<TimelineFrame>,
+}
+
+#[derive(Resource, Clone, Debug, Default)]
+pub struct SimulatorTimelineMarkers {
+    pub markers: Vec<SimulatorTimelineMarker>,
+}
+
+impl SimulatorTimelineMarkers {
+    pub fn add(&mut self, frame_time: SystemTime, color: Color32, label: impl Into<String>) {
+        self.markers.push(SimulatorTimelineMarker {
+            frame_time,
+            color,
+            label: label.into(),
+        });
+    }
+}
+
+#[derive(Clone, Debug)]
+pub struct SimulatorTimelineMarker {
+    pub frame_time: SystemTime,
+    pub color: Color32,
+    pub label: String,
 }
 
 #[derive(Resource, Clone, Debug, Default)]
@@ -52,6 +78,7 @@ pub struct SimulatorRobotFrames(pub BTreeMap<PlayerNumber, RobotFrame>);
 #[derive(Clone, Debug, Serialize)]
 pub struct TimelineFrame {
     pub now: SystemTime,
+    pub game_state: FilteredGameState,
     pub ball: Option<SimulatedBall>,
     pub robots: Players<Option<RobotSnapshot>>,
     pub robot_frames: BTreeMap<PlayerNumber, RobotFrame>,
@@ -98,6 +125,7 @@ impl RobotFrame {
 pub(crate) fn record_timeline_frame(
     clock: Res<SimulatorClock>,
     ball: Res<SimulatorBall>,
+    game_state: Res<SimulatorGameState>,
     robot_frames: Res<SimulatorRobotFrames>,
     current_violations: Res<SimulatorCurrentInvariantViolations>,
     mut timeline: ResMut<SimulatorTimeline>,
@@ -110,6 +138,11 @@ pub(crate) fn record_timeline_frame(
 ) {
     timeline.frames.push(TimelineFrame {
         now: clock.now,
+        game_state: game_state
+            .filtered_game_controller_state
+            .as_ref()
+            .map(|state| state.game_state)
+            .unwrap_or_else(|| filtered_game_state_from(&game_state.game_controller_state)),
         ball: ball.state,
         robots: robot_snapshots_from_query(&robots),
         robot_frames: robot_frames.0.clone(),
