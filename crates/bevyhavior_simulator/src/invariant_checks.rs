@@ -1,3 +1,4 @@
+use std::fmt::{Display, Formatter, Result};
 use std::{collections::BTreeMap, time::SystemTime};
 
 use bevy::prelude::*;
@@ -53,6 +54,16 @@ pub struct InvariantViolation {
     pub player_number: Option<PlayerNumber>,
     pub message: String,
     pub severity: InvariantSeverity,
+}
+
+impl Display for InvariantViolation {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> Result {
+        write!(
+            formatter,
+            "{} {:?}: {}",
+            self.check_name, self.player_number, self.message
+        )
+    }
 }
 
 #[derive(Clone, Copy, Debug, Eq, PartialEq, Serialize)]
