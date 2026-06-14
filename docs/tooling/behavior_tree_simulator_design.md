@@ -11,8 +11,8 @@ The simulator initializes the behavior blackboard, repeatedly evaluates the beha
 - Simulate multiple robots from the start.
 - Update world state with simple deterministic kinematics after each behavior tick.
 - Support Rust scenario programs first.
-- Support an interactive Twix/Bevy layer for inspecting and editing simulation state.
-- Record behavior traces, motion commands, world states, blackboard-derived debug outputs, and scenario assertions.
+- Support an interactive viewer for inspecting recorded field state, behavior traces, and scenario results.
+- Record behavior traces, motion commands, world states, blackboard-derived debug outputs, invariant violations, and timeline markers.
 - Check simulator invariants every cycle with access to complete simulation state.
 - Provide an extensible auto-referee that can update game-controller state from simulated events.
 
@@ -177,7 +177,17 @@ pub struct SimulatorRuleObstacles {
 }
 
 pub struct SimulatorTimeline {
-    pub frames: Vec<SimulatorFrame>,
+    pub frames: Vec<TimelineFrame>,
+}
+
+pub struct SimulatorTimelineMarkers {
+    pub markers: Vec<SimulatorTimelineMarker>,
+}
+
+pub struct SimulatorTimelineMarker {
+    pub frame_time: SystemTime,
+    pub color: eframe::egui::Color32,
+    pub label: String,
 }
 
 pub struct SimulatorScenarioResult {
@@ -295,8 +305,8 @@ Each simulation tick runs these steps in order through Bevy systems:
 9. Route planned HSL messages to teammates and decrement the live game-controller message budget.
 10. Run invariant checks with access to the full pre-kinematics tick state and all behavior outputs.
 11. Apply simple kinematic effects of each `MotionCommand` to robot poses and ball state.
-12. Record a frame for scenarios and future viewers, including any invariant failures.
-13. Run scenario assertions/hooks.
+12. Record a frame for scenarios and future viewers, including filtered game state and any invariant failures.
+13. Run scenario systems/hooks.
 
 Tree ticking should be logically simultaneous for all robots. Kinematic updates should use the motion commands from the same tick after all robots have evaluated behavior.
 
@@ -366,7 +376,7 @@ app.add_systems(
 
 app.add_systems(
     Update,
-    scenario_assertions.in_set(BehaviorTreeSimulatorSet::Scenario),
+    scenario_checks.in_set(BehaviorTreeSimulatorSet::Scenario),
 );
 ```
 
@@ -721,6 +731,7 @@ The API should support:
 - Wait until a predicate is true by writing normal Bevy systems that send `AppExit`.
 - Assert last motion command, trace path, robot pose, ball pose, communication, or role behavior.
 - Inject per-tick hooks for dynamic events.
+- Add colored timeline markers through `SimulatorTimelineMarkers`.
 - Disable default physics, kinematics, communication routing, or invariant checks when a scenario provides custom systems.
 
 Example shape:
@@ -751,6 +762,17 @@ app.add_systems(
 ```
 
 The old `#[scenario] fn(app: &mut App)` flexibility is a requirement, not an implementation detail.
+
+Scenarios can annotate the viewer timeline with labels and colors:
+
+```rust
+fn mark_goal(
+    clock: Res<SimulatorClock>,
+    mut markers: ResMut<SimulatorTimelineMarkers>,
+) {
+    markers.add(clock.now, Color32::LIGHT_GREEN, "goal scored");
+}
+```
 
 # Invariant Checks
 
@@ -787,6 +809,8 @@ Invariant failures must not abort the scenario. They should:
 - Allow the scenario to continue until its normal end condition.
 - Be included in the final scenario error/report after the timeline has been finalized.
 
+Behavior tick errors are represented as invariant violations with check name `behavior_tick_error`. They mark the scenario as failed and stop the run without panicking, so the viewer can still show the recorded timeline.
+
 Initial checks should include:
 
 - A robot should not knowingly try to walk into a rule obstacle.
@@ -796,15 +820,18 @@ Initial checks should include:
 
 # Viewer and Twix Integration
 
-Viewer work is deferred for now.
+The simulator opens a local viewer after scenario binaries unless `BEVYHAVIOR_SIMULATOR_NO_VIEWER` is set. The viewer consumes recorded `TimelineFrame` data and must not reconstruct blackboards or tick behavior directly.
 
-The simulator should still record timeline frames in a format that can later be served to Twix or another viewer. The viewer must not reconstruct blackboards or tick behavior directly. It should consume recorded `SimulatorFrame` data.
+The viewer shows field state, a behavior-tree trace view, a frame inspector, scenario failures, and a timeline scrubber. The behavior-tree view reuses Twix's `BehaviorTreeVisualizer` rendering code and includes a robot selector for choosing which robot's `NodeTrace` and static layout are shown.
+
+The timeline scrubber is color-coded by filtered game state. Hovering the timeline shows an immediate cursor-anchored tooltip above the timeline. Marker labels are listed first; frame index, simulation time, and game-state name follow.
 
 # Recording and Outputs
 
 Each recorded frame should include:
 
 - Simulation time.
+- Filtered game state.
 - Shared ball state.
 - Robot poses and primary states.
 - Per-robot perceived `WorldState` summary.
@@ -816,18 +843,20 @@ Each recorded frame should include:
 - Path obstacles.
 - Walk target position.
 - Voronoi map and inputs.
-- Scenario soft errors and assertions.
+- Invariant failures and scenario result failures.
 
-The frame format should be serializable so it can be served to Twix and saved for debugging failed scenarios.
+Timeline markers are stored separately from frames. Each marker has a `frame_time`, an `egui::Color32`, and a label. Markers are rendered on the scrubber and their labels appear in the hover tooltip.
 
-Scenario failures must still produce a viewable timeline. The runner should always finalize and serve or save the recording before returning the scenario error. Failed assertions and invariant violations should be attached to recorded frames, and the timeline should include all frames up to the normal scenario end or timeout.
+The frame format should be serializable so it can be saved for debugging failed scenarios. Viewer-only marker data may use UI types such as `Color32` because it is consumed directly by the local viewer.
+
+Scenario failures must still produce a viewable timeline. The runner should always finalize and show or save the recording before returning the scenario error. Invariant violations should be attached to recorded frames, and the timeline should include all frames up to the normal scenario end, failure stop, or timeout.
 
 # Integration with Existing Bevyhavior Simulator
 
 Keep the `crates/bevyhavior_simulator` crate name and the old Bevy scenario ergonomics, but replace the old internals:
 
 - `behavior_node` owns behavior-tree semantics, blackboard state, motion command assembly, and communication planning.
-- `crates/bevyhavior_simulator` owns Bevy resources, components, systems, scenario assertions, deterministic world updates, communication routing, invariant checks, timeline recording, and scenario binaries.
+- `crates/bevyhavior_simulator` owns Bevy resources, components, systems, scenario results, deterministic world updates, communication routing, invariant checks, timeline recording, and scenario binaries.
 - Old generated cycler/database code should not be restored.
 - Existing scenario binaries can migrate gradually to the new `BehaviorTreeSimulatorPlugin` and `SimulatorRobotBundle` APIs.
 
@@ -835,7 +864,6 @@ Keep the `crates/bevyhavior_simulator` crate name and the old Bevy scenario ergo
 
 Use small scenario tests for behavior branches:
 
-- Safe state selects prepare or stand behavior.
 - Stop state stands.
 - Initial and Penalized stand and look ahead.
 - Fallen robot selects stand-up.
@@ -866,4 +894,7 @@ Implemented phases:
 7. Add Rust scenario helpers and first branch-coverage scenarios using `#[scenario] fn(app: &mut App)`.
 8. Add timeline finalization on normal completion and failure.
 9. Add default auto-referee goal scoring and game-state transition rules.
-10. Add viewer/server integration for timeline inspection.
+10. Add viewer integration for field state, behavior-tree traces, frame inspection, scenario failures, and timeline inspection.
+11. Reuse Twix behavior-tree rendering inside the simulator viewer.
+12. Add game-state-colored timeline scrubbing and scenario timeline markers.
+13. Represent behavior tick errors as invariant violations so failed runs still produce a viewer timeline.
