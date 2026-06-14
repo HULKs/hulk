@@ -41,7 +41,7 @@ pub use crate::robot::{
 pub use crate::simulation::Simulation;
 pub use crate::timeline::{
     RobotFrame, SimulatorFailure, SimulatorRobotFrames, SimulatorScenarioResult, SimulatorTimeline,
-    TimelineFrame,
+    SimulatorTimelineMarker, SimulatorTimelineMarkers, TimelineFrame,
 };
 pub use crate::world_states::SimulatorWorldStates;
 
@@ -140,6 +140,7 @@ impl Plugin for BehaviorTreeSimulatorPlugin {
             .insert_resource(self.config.clone())
             .insert_resource(self.auto_referee_config.clone())
             .insert_resource(SimulatorTimeline::default())
+            .insert_resource(SimulatorTimelineMarkers::default())
             .insert_resource(SimulatorScenarioResult::default())
             .insert_resource(SimulatorIncomingMessages::default())
             .insert_resource(SimulatorOutgoingMessages::default())
@@ -276,6 +277,11 @@ impl AppExt for App {
                 frames: std::mem::take(
                     &mut self.world_mut().resource_mut::<SimulatorTimeline>().frames,
                 ),
+                markers: self
+                    .world()
+                    .resource::<SimulatorTimelineMarkers>()
+                    .markers
+                    .clone(),
                 failures: self
                     .world()
                     .resource::<SimulatorScenarioResult>()

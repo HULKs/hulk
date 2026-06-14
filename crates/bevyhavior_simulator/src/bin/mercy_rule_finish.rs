@@ -3,9 +3,10 @@ use std::time::{Duration, SystemTime};
 use bevy::prelude::*;
 use bevyhavior_simulator::behavior_tree_simulator::{
     AutoRefereeConfig, BehaviorTreeSimulatorSet, SimulatorBall, SimulatorClock, SimulatorGameState,
-    SimulatorRobotBundle, default_behavior_parameters,
+    SimulatorRobotBundle, SimulatorTimelineMarkers, default_behavior_parameters,
 };
 use coordinate_systems::{Ground, World};
+use eframe::egui::Color32;
 use hsl_network_messages::{GameState, PlayerNumber};
 use linear_algebra::{Isometry2, point, vector};
 use scenario::scenario;
@@ -59,11 +60,26 @@ fn report_and_exit(
     auto_referee_config: Res<AutoRefereeConfig>,
     game_state: Res<SimulatorGameState>,
     mut last_score: ResMut<LastScore>,
+    mut timeline_markers: ResMut<SimulatorTimelineMarkers>,
     mut exit: MessageWriter<AppExit>,
 ) {
     let hulks_score = game_state.game_controller_state.hulks_team.score;
     let opponent_score = game_state.game_controller_state.opponent_team.score;
     if hulks_score != last_score.hulks || opponent_score != last_score.opponent {
+        for score in (last_score.hulks + 1)..=hulks_score {
+            timeline_markers.add(
+                clock.now,
+                Color32::LIGHT_GREEN,
+                format!("HULKs goal {score}:{opponent_score}"),
+            );
+        }
+        for score in (last_score.opponent + 1)..=opponent_score {
+            timeline_markers.add(
+                clock.now,
+                Color32::LIGHT_RED,
+                format!("opponent goal {hulks_score}:{score}"),
+            );
+        }
         println!(
             "score hulks={hulks_score} opponent={opponent_score} elapsed={:.2}",
             elapsed(clock.now).as_secs_f32()

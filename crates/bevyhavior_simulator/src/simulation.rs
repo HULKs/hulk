@@ -7,6 +7,7 @@ use linear_algebra::{Isometry2, Point2, Vector2};
 use types::{
     field_dimensions::{FieldDimensions, GlobalFieldSide, Side},
     filtered_game_controller_state::FilteredGameControllerState,
+    filtered_game_state::FilteredGameState,
     motion_command::MotionCommand,
     parameters::{BehaviorParameters, HslNetworkParameters},
     players::Players,
@@ -183,6 +184,11 @@ impl Simulation {
 
         self.timeline.push(TimelineFrame {
             now: self.now,
+            game_state: self
+                .filtered_game_controller_state
+                .as_ref()
+                .map(|state| state.game_state)
+                .unwrap_or(FilteredGameState::Initial),
             ball: self.ball,
             robots: snapshot.robots,
             robot_frames,
