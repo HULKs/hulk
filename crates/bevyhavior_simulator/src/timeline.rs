@@ -1,4 +1,9 @@
-use std::{collections::BTreeMap, time::Duration, time::SystemTime};
+use std::{
+    collections::BTreeMap,
+    fmt::{self, Display, Formatter},
+    time::Duration,
+    time::SystemTime,
+};
 
 use bevy::prelude::*;
 use coordinate_systems::{Field, Ground};
@@ -31,7 +36,14 @@ pub struct SimulatorScenarioResult {
 #[derive(Clone, Debug, Serialize)]
 pub enum SimulatorFailure {
     InvariantViolation(InvariantViolation),
-    ScenarioAssertion(String),
+}
+
+impl Display for SimulatorFailure {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> fmt::Result {
+        match self {
+            Self::InvariantViolation(violation) => write!(formatter, "{}", violation),
+        }
+    }
 }
 
 #[derive(Resource, Clone, Debug, Default)]

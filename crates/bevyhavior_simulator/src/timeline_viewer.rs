@@ -187,15 +187,7 @@ impl TimelineViewerApp {
                         ui.label("none");
                     } else {
                         for violation in &frame.invariant_violations {
-                            ui.colored_label(
-                                Color32::LIGHT_RED,
-                                format!(
-                                    "{} {:?}: {}",
-                                    violation.check_name,
-                                    violation.player_number,
-                                    violation.message
-                                ),
-                            );
+                            ui.colored_label(Color32::LIGHT_RED, violation.to_string());
                         }
                     }
                 }
@@ -204,7 +196,7 @@ impl TimelineViewerApp {
                     ui.separator();
                     ui.heading("Scenario Failures");
                     for failure in &self.data.failures {
-                        ui.label(format_failure(failure));
+                        ui.label(failure.to_string());
                     }
                 }
 
@@ -667,15 +659,5 @@ fn motion_name(motion_command: &MotionCommand) -> &'static str {
         MotionCommand::VisualKick { .. } => "visual_kick",
         MotionCommand::Walk { .. } => "walk",
         MotionCommand::WalkWithVelocity { .. } => "walk_with_velocity",
-    }
-}
-
-fn format_failure(failure: &SimulatorFailure) -> String {
-    match failure {
-        SimulatorFailure::InvariantViolation(violation) => format!(
-            "{} {:?}: {}",
-            violation.check_name, violation.player_number, violation.message
-        ),
-        SimulatorFailure::ScenarioAssertion(message) => message.clone(),
     }
 }
