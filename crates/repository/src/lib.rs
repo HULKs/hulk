@@ -23,6 +23,8 @@ pub mod symlink;
 pub mod team;
 pub mod upload;
 
+pub use player_number::PlayerNumber;
+
 /// The HULK repository.
 #[derive(Debug, Clone)]
 pub struct Repository {

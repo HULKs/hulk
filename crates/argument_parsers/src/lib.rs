@@ -10,7 +10,7 @@ use color_eyre::{
 };
 use regex::Regex;
 
-use hsl_network_messages::PlayerNumber;
+use repository::PlayerNumber;
 use robot::{Network, SystemctlAction};
 
 pub const SYSTEMCTL_ACTION_POSSIBLE_VALUES: &[&str] =
