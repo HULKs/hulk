@@ -165,9 +165,8 @@ impl TimelineViewerApp {
         SidePanel::right("timeline_viewer_side_panel")
             .resizable(true)
             .default_width(360.0)
-            .max_width(520.0)
+            .max_width(1000.0)
             .show(context, |ui| {
-                ui.set_max_width(520.0);
                 ui.heading("Frame");
                 ui.label(format!("index: {}", self.selected_frame));
 
@@ -202,6 +201,7 @@ impl TimelineViewerApp {
 
                 ui.separator();
                 self.show_state_inspector(ui);
+                ui.allocate_space(ui.available_size());
             });
     }
 
