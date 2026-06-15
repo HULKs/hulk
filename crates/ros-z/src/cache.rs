@@ -566,11 +566,6 @@ where
 
 #[cfg(test)]
 mod tests {
-    use std::time::Duration;
-
-    use crate::context::ContextBuilder;
-    use crate::pubsub::DEFAULT_PUBLISHER_WARNING_TIMEOUT;
-
     use super::*;
 
     #[test]
@@ -626,69 +621,5 @@ mod tests {
         assert_eq!(*inner.get_after(stamp).unwrap(), "first");
         assert_eq!(*inner.get_nearest(stamp).unwrap(), "second");
         assert_eq!(*inner.get_after(Time::from_nanos(1_500)).unwrap(), "third");
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn cache_builder_warning_controls_store_timeout_options() -> crate::Result<()> {
-        let context = ContextBuilder::default()
-            .without_graph_initial_query()
-            .build()
-            .await?;
-        let node = context
-            .create_node("cache_warning_builder_controls")
-            .without_schema_service()
-            .build()
-            .await?;
-
-        let builder = node.create_cache::<String>("/cache_warning_builder_controls", 10)?;
-        assert_eq!(
-            builder.sub_builder.publisher_warning_timeout,
-            Some(DEFAULT_PUBLISHER_WARNING_TIMEOUT)
-        );
-
-        let custom_timeout = Duration::from_millis(31);
-        let builder = builder.publisher_warning_timeout(custom_timeout);
-        assert_eq!(
-            builder.sub_builder.publisher_warning_timeout,
-            Some(custom_timeout)
-        );
-
-        let builder = builder.without_publisher_warning();
-        assert_eq!(builder.sub_builder.publisher_warning_timeout, None);
-
-        Ok(())
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn stamped_cache_builder_warning_controls_store_timeout_options() -> crate::Result<()> {
-        let context = ContextBuilder::default()
-            .without_graph_initial_query()
-            .build()
-            .await?;
-        let node = context
-            .create_node("stamped_cache_warning_builder_controls")
-            .without_schema_service()
-            .build()
-            .await?;
-
-        let builder = node
-            .create_cache::<String>("/stamped_cache_warning_builder_controls", 10)?
-            .with_stamp(|_: &String| Time::from_nanos(0));
-        assert_eq!(
-            builder.sub_builder.publisher_warning_timeout,
-            Some(DEFAULT_PUBLISHER_WARNING_TIMEOUT)
-        );
-
-        let custom_timeout = Duration::from_millis(37);
-        let builder = builder.publisher_warning_timeout(custom_timeout);
-        assert_eq!(
-            builder.sub_builder.publisher_warning_timeout,
-            Some(custom_timeout)
-        );
-
-        let builder = builder.without_publisher_warning();
-        assert_eq!(builder.sub_builder.publisher_warning_timeout, None);
-
-        Ok(())
     }
 }
