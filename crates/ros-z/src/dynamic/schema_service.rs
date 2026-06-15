@@ -14,6 +14,7 @@ use crate::ServiceTypeInfo;
 use crate::attachment::Attachment;
 use crate::context::GlobalCounter;
 use crate::entity::{EndpointEntity, EndpointKind, NodeEntity, SchemaHash, TypeInfo};
+use crate::graph::Graph;
 use crate::message::{SerdeCdrCodec, Service, WireDecoder, WireEncoder};
 use crate::schema::{MessageSchema, SchemaBuilder};
 use crate::service::{ServiceServer, ServiceServerBuilder};
@@ -272,6 +273,7 @@ fn schema_service_server_builder(
     node: SchemaServiceNodeIdentity<'_>,
     counter: &GlobalCounter,
     clock: &Clock,
+    graph: Arc<Graph>,
 ) -> ServiceServerBuilder<GetSchema> {
     let service_name = "~get_schema";
 
@@ -295,6 +297,7 @@ fn schema_service_server_builder(
         entity,
         session,
         clock: clock.clone(),
+        graph,
         _phantom_data: Default::default(),
     }
 }
@@ -305,9 +308,10 @@ impl SchemaService {
         node: SchemaServiceNodeIdentity<'_>,
         counter: &GlobalCounter,
         clock: &Clock,
+        graph: Arc<Graph>,
     ) -> ZResult<Self> {
         let schemas: Arc<RwLock<SchemaRegistry>> = Arc::new(RwLock::new(HashMap::new()));
-        let server_builder = schema_service_server_builder(session, node, counter, clock);
+        let server_builder = schema_service_server_builder(session, node, counter, clock, graph);
 
         let schemas_clone = Arc::clone(&schemas);
         let server = server_builder
