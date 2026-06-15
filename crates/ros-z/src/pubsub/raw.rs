@@ -48,6 +48,11 @@ impl RawSubscriber {
     /// Zenoh and does not deserialize it into a message type. The receive is
     /// cancel-safe: cancelling this future before it completes does not remove a
     /// sample from the queue.
+    ///
+    /// By default, this logs a warning after
+    /// [`DEFAULT_PUBLISHER_WARNING_TIMEOUT`](crate::pubsub::DEFAULT_PUBLISHER_WARNING_TIMEOUT) if
+    /// no sample arrives and no publishers are visible for the topic. The warning does not end the
+    /// receive; this method continues waiting for the next sample.
     pub async fn recv(&mut self) -> Result<Sample> {
         let sample = recv_sample_with_publisher_warning(
             &self.queue,
@@ -92,12 +97,17 @@ where
         }
     }
 
+    /// Configure how long receive waits before warning that no publishers are visible.
+    ///
+    /// The warning is emitted only when no sample arrives before `timeout` and the graph has no
+    /// visible publishers for the subscriber topic. Receiving continues waiting after the warning.
     pub fn publisher_warning_timeout(self, timeout: Duration) -> Self {
         Self {
             inner: self.inner.publisher_warning_timeout(timeout),
         }
     }
 
+    /// Disable warnings when receive waits without any visible publishers.
     pub fn without_publisher_warning(self) -> Self {
         Self {
             inner: self.inner.without_publisher_warning(),

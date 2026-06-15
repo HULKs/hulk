@@ -27,6 +27,10 @@ pub(super) fn subscriber_queue_capacity(qos: &ros_z_protocol::qos::QosProfile) -
     }
 }
 
+/// Default time a subscriber receive waits before warning that no publishers are visible.
+///
+/// The warning is informational only: receiving continues waiting for a sample after the
+/// timeout fires.
 pub const DEFAULT_PUBLISHER_WARNING_TIMEOUT: Duration = Duration::from_secs(5);
 
 pub struct SubscriberBuilder<T, C = <T as crate::Message>::Codec> {
@@ -142,11 +146,16 @@ where
         self
     }
 
+    /// Configure how long receive waits before warning that no publishers are visible.
+    ///
+    /// The warning is emitted only when no sample arrives before `timeout` and the graph has no
+    /// visible publishers for the subscriber topic. Receiving continues waiting after the warning.
     pub fn publisher_warning_timeout(mut self, timeout: Duration) -> Self {
         self.publisher_warning_timeout = Some(timeout);
         self
     }
 
+    /// Disable warnings when receive waits without any visible publishers.
     pub fn without_publisher_warning(mut self) -> Self {
         self.publisher_warning_timeout = None;
         self
@@ -478,11 +487,18 @@ where
         self.publisher_count() > 0
     }
 
+    /// Receive and deserialize the next message.
+    ///
+    /// By default, this logs a warning after [`DEFAULT_PUBLISHER_WARNING_TIMEOUT`] if no sample
+    /// arrives and no publishers are visible for the topic. The warning does not end the receive;
+    /// this method continues waiting for the next message.
     pub async fn recv(&self) -> Result<C::Output> {
         self.recv_with_metadata().await.map(Received::into_message)
     }
 
     /// Receive and deserialize the next message together with metadata.
+    ///
+    /// The publisher warning behavior is the same as [`recv`](Self::recv).
     pub async fn recv_with_metadata(&self) -> Result<Received<C::Output>> {
         let sample = recv_sample_with_publisher_warning(
             &self.queue,
@@ -505,6 +521,10 @@ impl Subscriber<DynamicPayload, DynamicCdrCodec> {
     /// This method requires that the subscriber was built through
     /// `Node::dynamic_subscriber` or with `.dynamic_schema()`.
     ///
+    /// By default, this logs a warning after [`DEFAULT_PUBLISHER_WARNING_TIMEOUT`] if no sample
+    /// arrives and no publishers are visible for the topic. The warning does not end the receive;
+    /// this method continues waiting for the next message.
+    ///
     /// # Errors
     ///
     /// Returns an error if:
@@ -519,6 +539,9 @@ impl Subscriber<DynamicPayload, DynamicCdrCodec> {
         self.recv_with_metadata().await.map(Received::into_message)
     }
 
+    /// Receive and deserialize the next dynamic message together with metadata.
+    ///
+    /// The publisher warning behavior is the same as [`recv`](Self::recv).
     pub async fn recv_with_metadata(&self) -> Result<Received<DynamicPayload>> {
         let schema = self.dyn_schema.as_ref().ok_or_else(|| {
             crate::error::WireError::MissingDynamicSchema {
