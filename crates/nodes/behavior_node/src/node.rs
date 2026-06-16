@@ -29,12 +29,34 @@ use voronoi::VoronoiGrid;
 
 use crate::{motion_assembler::assemble_motion_command, tree::create_tree};
 
+const MOTION_COMMAND_TOPIC: &str = "behavior/motion_command";
+
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
 pub struct LastBall {
     pub position: Point2<Field>,
     pub velocity: Vector2<Ground>,
     pub age: Time,
     pub field_side: Side,
+}
+
+#[cfg(test)]
+mod tests {
+    use types::{motion_command::MotionCommand, motion_type::MotionType};
+
+    use super::*;
+
+    #[test]
+    fn damping_command_maps_to_damping_motion_type() {
+        assert_eq!(
+            motion_type_for_command(&MotionCommand::Damping),
+            Some(MotionType::Damping),
+        );
+    }
+
+    #[test]
+    fn motion_command_topic_matches_behavior_output() {
+        assert_eq!(MOTION_COMMAND_TOPIC, "behavior/motion_command");
+    }
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize, Message)]
@@ -167,7 +189,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let motion_command_pub = node
-        .publisher::<MotionCommand>("behavior/motion_command")?
+        .publisher::<MotionCommand>(MOTION_COMMAND_TOPIC)?
         .build()
         .await?;
 
@@ -298,15 +320,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
         blackboard.last_motion_command = motion_command.clone();
 
-        let motion_type = match motion_command.clone() {
-            MotionCommand::VisualKick { .. } => Some(MotionType::Kick),
-            MotionCommand::Walk { .. } => Some(MotionType::Walk),
-            MotionCommand::Stand { .. } => Some(MotionType::Stand),
-            MotionCommand::StandUp => Some(MotionType::StandUp),
-            MotionCommand::Prepare => Some(MotionType::Prepare),
-            MotionCommand::Damping => Some(MotionType::Damping),
-            _ => None,
-        };
+        let motion_type = motion_type_for_command(&motion_command);
 
         if motion_type != blackboard.last_motion_type {
             blackboard.last_motion_switch_time = blackboard.world_state.now;
@@ -334,5 +348,18 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
             .await?;
         motion_command_pub.publish(&motion_command).await?;
         timer.tick().await;
+    }
+}
+
+fn motion_type_for_command(command: &MotionCommand) -> Option<MotionType> {
+    match command {
+        MotionCommand::Damping => Some(MotionType::Damping),
+        MotionCommand::VisualKick { .. } => Some(MotionType::Kick),
+        MotionCommand::Walk { .. } | MotionCommand::WalkWithVelocity { .. } => {
+            Some(MotionType::Walk)
+        }
+        MotionCommand::Stand { .. } => Some(MotionType::Stand),
+        MotionCommand::StandUp => Some(MotionType::StandUp),
+        MotionCommand::Prepare => Some(MotionType::Prepare),
     }
 }

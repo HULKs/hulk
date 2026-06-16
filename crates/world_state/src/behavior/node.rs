@@ -200,6 +200,7 @@ impl Behavior {
         *context.last_motion_command = motion_command.clone();
 
         let motion_type = match motion_command.clone() {
+            MotionCommand::Damping => Some(MotionType::Damping),
             MotionCommand::VisualKick { .. } => Some(MotionType::Kick),
             MotionCommand::Walk { .. } => Some(MotionType::Walk),
             MotionCommand::Stand { .. } => Some(MotionType::Stand),
