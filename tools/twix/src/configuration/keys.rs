@@ -27,7 +27,6 @@ pub enum KeybindAction {
     CloseTab,
     DuplicateTab,
     FocusAbove,
-    FocusAddress,
     FocusBelow,
     FocusLeft,
     FocusPanel,
@@ -35,7 +34,6 @@ pub enum KeybindAction {
     NoOp,
     OpenSplit,
     OpenTab,
-    Reconnect,
     CloseAll,
 }
 
