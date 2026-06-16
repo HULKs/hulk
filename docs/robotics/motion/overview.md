@@ -17,3 +17,5 @@ The nodes, whose motion is not selected, may exit early.
 ## Command Sending
 
 Motion finishes by collecting and optimizing all motor commands in the `motor_commands_collector`, then writes them to the hardware interface in the `commands_sender`.
+
+The ROS-Z Booster stack uses a different execution path: behavior publishes `behavior/motion_command`, the ROS-Z head nodes publish `head_joints_command`, and `booster_interface` owns Booster SDK mode changes, walking commands, head rotation, stand-up requests, LED forwarding, and kick publishing.
