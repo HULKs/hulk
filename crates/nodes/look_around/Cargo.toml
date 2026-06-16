@@ -10,4 +10,5 @@ color-eyre = { workspace = true }
 kinematics = { workspace = true }
 ros-z = { workspace = true }
 serde = { workspace = true, features = ["derive"] }
+tokio = { workspace = true }
 types = { workspace = true }
