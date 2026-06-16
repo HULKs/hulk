@@ -9,11 +9,14 @@ use log::error;
 use serde_json::Value;
 use tokio::{
     runtime::{Builder, Runtime},
-    spawn,
+    select, spawn,
 };
 
 use communication::{
-    client::{Client, ClientHandle, PathsEvent, Status},
+    client::{
+        Client, ClientHandle, PathsEvent, Status, SubscriptionHandle,
+        protocol::{self, SubscriptionEvent},
+    },
     messages::{Path, TextOrBinary},
 };
 use hula_types::hardware::Ids;
@@ -116,7 +119,7 @@ impl Robot {
         let client = self.client.clone();
         spawn(async move {
             let subscription = client.subscribe_text(path).await;
-            task.map(subscription, |datum| -> Result<_, Report> {
+            map_subscription(task, subscription, |datum| -> Result<_, Report> {
                 let datum = datum.map_err(|error| eyre!("{error:#}"))?;
                 Ok(Datum {
                     timestamp: datum.timestamp,
@@ -168,7 +171,7 @@ impl Robot {
         let client = self.client.clone();
         spawn(async move {
             let subscription = client.subscribe_binary(path).await;
-            task.map(subscription, |datum| -> Result<_, Report> {
+            map_subscription(task, subscription, |datum| -> Result<_, Report> {
                 let datum = datum.map_err(|error| eyre!("protocol: {error:#}"))?;
                 Ok(Datum {
                     timestamp: datum.timestamp,
@@ -218,6 +221,37 @@ fn merge_connection_status(read_status: Status, write_status: Status) -> Status 
         (Status::Connected, Status::Connected) => Status::Connected,
         (Status::Connecting, _) | (_, Status::Connecting) => Status::Connecting,
         _ => Status::Disconnected,
+    }
+}
+
+async fn map_subscription<T, U, E>(
+    buffer: Buffer<T, E>,
+    mut subscription: SubscriptionHandle<U>,
+    op: impl Fn(Result<Datum<&U>, &protocol::Error>) -> Result<Datum<T>, E> + Send + Sync + 'static,
+) {
+    loop {
+        select! {
+            maybe_event = subscription.receiver.recv() => {
+                let Ok(event) = maybe_event else {
+                    break;
+                };
+
+                let datum = match event.as_ref() {
+                    SubscriptionEvent::Successful { timestamp, value }
+                    | SubscriptionEvent::Update { timestamp, value } => Ok(Datum {
+                        timestamp: *timestamp,
+                        value,
+                    }),
+                    SubscriptionEvent::Failure { error } => Err(error),
+                };
+
+                match op(datum) {
+                    Ok(datum) => buffer.push(datum).await,
+                    Err(error) => buffer.send_error(error),
+                }
+            }
+            _ = buffer.closed() => break,
+        }
     }
 }
 

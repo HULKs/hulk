@@ -5472,7 +5472,6 @@ dependencies = [
 name = "hulk_widgets"
 version = "0.1.0"
 dependencies = [
- "communication",
  "egui",
  "nucleo-matcher",
 ]
@@ -11639,7 +11638,6 @@ dependencies = [
  "chrono",
  "clap",
  "color-eyre",
- "communication",
  "convert_case 0.7.1",
  "coordinate_systems",
  "dirs",
@@ -11662,8 +11660,11 @@ dependencies = [
  "nalgebra",
  "ndarray",
  "parameters",
+ "parking_lot",
  "projection",
  "repository",
+ "ros-z",
+ "ros-z-debug",
  "ros2",
  "serde",
  "serde_json",

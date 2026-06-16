@@ -1,45 +1,53 @@
-use std::sync::Arc;
+use std::{sync::Arc, time::Duration};
 
 use chrono::{DateTime, Utc};
 use eframe::egui::{Label, Response, ScrollArea, Sense, Ui, Widget};
-use hulk_widgets::{PathFilter, RobotPathCompletionEdit};
 use serde_json::{Value, json};
 
 use crate::{
+    backend::TwixBackend,
     panel::{Panel, PanelCreationContext},
-    robot::Robot,
+    topic_completion_edit::TopicCompletionEdit,
     value_buffer::BufferHandle,
 };
 
 pub struct TextPanel {
-    robot: Arc<Robot>,
-    path: String,
+    backend: Arc<TwixBackend>,
+    topic: String,
     buffer: Option<BufferHandle<Value>>,
+    show_all_topics: bool,
 }
 
 impl<'a> Panel<'a> for TextPanel {
     const NAME: &'static str = "Text";
 
     fn new(context: PanelCreationContext) -> Self {
-        let path = match context.value.and_then(|value| value.get("path")) {
-            Some(Value::String(string)) => string.to_string(),
-            _ => String::new(),
-        };
-        let buffer = if !path.is_empty() {
-            Some(context.robot.subscribe_json(path.clone()))
-        } else {
+        let topic = context
+            .value
+            .and_then(|value| value.get("topic").or_else(|| value.get("path")))
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+        let buffer = if topic.is_empty() {
             None
+        } else {
+            Some(
+                context
+                    .backend
+                    .subscribe_json(topic.clone(), Duration::ZERO),
+            )
         };
         Self {
-            robot: context.robot,
-            path,
+            backend: context.backend,
+            topic,
             buffer,
+            show_all_topics: false,
         }
     }
 
     fn save(&self) -> Value {
         json!({
-            "path": self.path.clone()
+            "topic": self.topic.clone()
         })
     }
 }
@@ -48,14 +56,26 @@ impl Widget for &mut TextPanel {
     fn ui(self, ui: &mut Ui) -> Response {
         let edit_response = ui
             .horizontal(|ui| {
-                let edit_response = ui.add(RobotPathCompletionEdit::new(
-                    ui.id().with("text-panel"),
-                    self.robot.latest_paths(),
-                    &mut self.path,
-                    PathFilter::Readable,
-                ));
+                ui.checkbox(&mut self.show_all_topics, "All topics");
+                let catalog = self.backend.topic_catalog();
+                let edit_response = if self.show_all_topics {
+                    ui.add(TopicCompletionEdit::all_topics(
+                        ui.id().with("text-panel"),
+                        catalog,
+                        &mut self.topic,
+                    ))
+                } else {
+                    ui.add(TopicCompletionEdit::namespace_topics(
+                        ui.id().with("text-panel"),
+                        catalog,
+                        &mut self.topic,
+                    ))
+                };
                 if edit_response.changed() {
-                    self.buffer = Some(self.robot.subscribe_json(self.path.clone()));
+                    self.buffer = Some(
+                        self.backend
+                            .subscribe_json(self.topic.clone(), Duration::ZERO),
+                    );
                 }
                 if let Some(buffer) = &self.buffer
                     && let Ok(Some(timestamp)) = buffer.get_last_timestamp()
