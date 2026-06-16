@@ -69,10 +69,60 @@ pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> +
     Box::pin(run(ctx))
 }
 
+fn validate_behavior_parameters(
+    parameters: &BehaviorParameters,
+) -> std::result::Result<(), String> {
+    let walk_speed = &parameters.walk_speed;
+    let mut errors = Vec::new();
+
+    if !walk_speed.velocity_fade_distance.is_finite() || walk_speed.velocity_fade_distance <= 0.0 {
+        errors.push(format!(
+            "walk_speed.velocity_fade_distance must be finite and strictly positive (got {})",
+            walk_speed.velocity_fade_distance
+        ));
+    }
+
+    let minimum_speed_is_valid =
+        walk_speed.minimum_speed.is_finite() && walk_speed.minimum_speed >= 0.0;
+    if !minimum_speed_is_valid {
+        errors.push(format!(
+            "walk_speed.minimum_speed must be finite and non-negative (got {})",
+            walk_speed.minimum_speed
+        ));
+    }
+
+    for (field, speed) in [
+        ("walk_speed.kicking", walk_speed.kicking),
+        ("walk_speed.search", walk_speed.search),
+        ("walk_speed.blocking", walk_speed.blocking),
+    ] {
+        if !speed.is_finite() {
+            errors.push(format!("{field} must be finite (got {speed})"));
+            continue;
+        }
+        if speed < 0.0 {
+            errors.push(format!("{field} must be non-negative (got {speed})"));
+        }
+        if minimum_speed_is_valid && speed < walk_speed.minimum_speed {
+            errors.push(format!(
+                "{field} must be greater than or equal to walk_speed.minimum_speed (got {speed} < {})",
+                walk_speed.minimum_speed
+            ));
+        }
+    }
+
+    if errors.is_empty() {
+        Ok(())
+    } else {
+        Err(errors.join("; "))
+    }
+}
+
 pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("behavior_node").build().await?;
 
     let parameters = node.bind_parameter_as::<BehaviorParameters>("behavior_node")?;
+    parameters.add_validation_hook(validate_behavior_parameters)?;
     let field_dimensions_cache = node
         .create_cache::<FieldDimensions>("field_dimensions", 1)?
         .with_qos(QosProfile {

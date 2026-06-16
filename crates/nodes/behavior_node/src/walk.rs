@@ -82,7 +82,7 @@ pub fn plan(
 pub fn walk_to(
     blackboard: &mut Blackboard,
     target_pose: Pose2<Ground>,
-    walk_speed: f32,
+    maximal_walk_speed: f32,
     orientation_mode: OrientationMode,
     distance_to_be_aligned: f32,
     hysteresis: nalgebra::Vector2<f32>,
@@ -104,6 +104,14 @@ pub fn walk_to(
             parameters.target_reached_thresholds.y,
             0.0..=hysteresis.y,
         );
+
+        let minimal_walk_speed = blackboard.parameters.walk_speed.minimum_speed;
+        let velocity_fade_distance = blackboard.parameters.walk_speed.velocity_fade_distance;
+
+        // Desmos: https://www.desmos.com/calculator/ss94dje2ke
+        let walk_speed = maximal_walk_speed
+            - (maximal_walk_speed - minimal_walk_speed)
+                * (-(2.0 * distance_to_walk / velocity_fade_distance).powf(2.0)).exp();
 
         if is_reached {
             blackboard.body_motion = Some(BodyMotion::Stand);
