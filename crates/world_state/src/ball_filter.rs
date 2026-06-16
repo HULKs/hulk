@@ -12,7 +12,7 @@ use serde::{Deserialize, Serialize};
 
 use ball_filter::{BallFilter as BallFiltering, BallHypothesis, BallMode};
 use context_attribute::context;
-use coordinate_systems::{Ground, Pixel};
+use coordinate_systems::{Field, Ground, Pixel};
 use framework::{AdditionalOutput, HistoricInput, MainOutput, PerceptionInput};
 use geometry::circle::Circle;
 use linear_algebra::{IntoFramed, Isometry2};
@@ -47,6 +47,7 @@ pub struct CycleContext {
     historic_cycle_times: HistoricInput<CycleTime, "cycle_time">,
 
     camera_matrix: Input<Option<CameraMatrix>, "camera_matrix?">,
+    ground_to_field: Input<Option<Isometry2<Ground, Field>>, "ground_to_field?">,
     cycle_time: Input<CycleTime, "cycle_time">,
 
     field_dimensions: Parameter<FieldDimensions, "field_dimensions">,
@@ -80,6 +81,7 @@ impl BallFilter {
         historic_cycle_times: HistoricInput<&CycleTime>,
         filter_parameters: &BallFilterParameters,
         field_dimensions: &FieldDimensions,
+        ground_to_field: Option<&Isometry2<Ground, Field>>,
         cycle_time: &CycleTime,
     ) {
         for (detection_time, (last_to_current, balls)) in
@@ -167,7 +169,7 @@ impl BallFilter {
             };
             let validity_high_enough =
                 hypothesis.validity >= filter_parameters.validity_discard_threshold;
-            is_ball_inside_field(ball, field_dimensions)
+            is_ball_inside_field(ball, ground_to_field, field_dimensions)
                 && validity_high_enough
                 && duration_since_last_observation < filter_parameters.hypothesis_timeout
         };
@@ -244,6 +246,7 @@ impl BallFilter {
             context.historic_cycle_times,
             filter_parameters,
             context.field_dimensions,
+            context.ground_to_field,
             context.cycle_time,
         );
 
@@ -405,9 +408,18 @@ fn decide_validity_decay_for_hypothesis(
     }
 }
 
-fn is_ball_inside_field(ball: BallPosition<Ground>, field_dimensions: &FieldDimensions) -> bool {
-    ball.position.x().abs() < field_dimensions.length / 2.0
-        && ball.position.y().abs() < field_dimensions.width / 2.0
+fn is_ball_inside_field(
+    ball: BallPosition<Ground>,
+    ground_to_field: Option<&Isometry2<Ground, Field>>,
+    field_dimensions: &FieldDimensions,
+) -> bool {
+    ground_to_field.is_none_or(|ground_to_field| {
+        let ball_in_field = *ground_to_field * ball.position;
+        let margin = field_dimensions.border_strip_width;
+
+        ball_in_field.x().abs() < field_dimensions.length / 2.0 + margin
+            && ball_in_field.y().abs() < field_dimensions.width / 2.0 + margin
+    })
 }
 
 fn project_to_image(
