@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, hash_map::Entry};
 
 use crate::entity::{Entity, LivelinessKE};
 
@@ -13,8 +13,18 @@ impl GraphData {
         }
     }
 
-    pub(super) fn insert(&mut self, key_expr: LivelinessKE, entity: Entity) {
-        self.entities.insert(key_expr, entity);
+    pub(super) fn insert(&mut self, key_expr: LivelinessKE, entity: Entity) -> bool {
+        match self.entities.entry(key_expr) {
+            Entry::Vacant(entry) => {
+                entry.insert(entity);
+                true
+            }
+            Entry::Occupied(mut entry) if entry.get() != &entity => {
+                entry.insert(entity);
+                true
+            }
+            Entry::Occupied(_) => false,
+        }
     }
 
     pub(super) fn remove(&mut self, key_expr: &LivelinessKE) -> bool {

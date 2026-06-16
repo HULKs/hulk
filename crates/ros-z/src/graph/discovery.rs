@@ -1,6 +1,9 @@
 use parking_lot::Mutex;
-use std::sync::Arc;
-use tokio::sync::Notify;
+use std::sync::{
+    Arc,
+    atomic::{AtomicBool, Ordering},
+};
+use tokio::sync::{Notify, watch};
 use tracing::{debug, warn};
 use zenoh::{Session, pubsub::Subscriber, sample::SampleKind};
 
@@ -15,14 +18,16 @@ pub(super) async fn install_liveliness(
     options: &GraphOptions,
     graph_data: Arc<Mutex<GraphData>>,
     change_notify: Arc<Notify>,
+    change_revision: watch::Sender<u64>,
 ) -> Result<Subscriber<()>> {
     debug!(pattern = %pattern, "declaring graph liveliness subscriber");
+    let initial_hydration_complete = Arc::new(AtomicBool::new(false));
     let sub = session
         .liveliness()
         .declare_subscriber(pattern)
-        .history(true)
         .callback({
             let graph_data = graph_data.clone();
+            let initial_hydration_complete = initial_hydration_complete.clone();
             move |sample| {
                 let key_expr = LivelinessKE(sample.key_expr().to_owned());
                 let sample_kind = sample.kind();
@@ -34,10 +39,7 @@ pub(super) async fn install_liveliness(
 
                 let changed = match sample_kind {
                     SampleKind::Put => match parse_liveliness(&key_expr) {
-                        Ok(entity) => {
-                            graph_data.lock().insert(key_expr, entity);
-                            true
-                        }
+                        Ok(entity) => graph_data.lock().insert(key_expr, entity),
                         Err(error) => {
                             warn!(
                                 liveliness_key = %key_expr.0,
@@ -50,7 +52,8 @@ pub(super) async fn install_liveliness(
                     SampleKind::Delete => graph_data.lock().remove(&key_expr),
                 };
 
-                if changed {
+                if changed && initial_hydration_complete.load(Ordering::Acquire) {
+                    change_revision.send_modify(|revision| *revision = revision.saturating_add(1));
                     change_notify.notify_waiters();
                 }
             }
@@ -76,7 +79,7 @@ pub(super) async fn install_liveliness(
                 );
                 match parse_liveliness(&key_expr) {
                     Ok(entity) => {
-                        graph_data.lock().insert(key_expr, entity);
+                        let _ = graph_data.lock().insert(key_expr, entity);
                     }
                     Err(error) => {
                         warn!(
@@ -90,6 +93,7 @@ pub(super) async fn install_liveliness(
         }
         debug!(reply_count, "initial graph liveliness query completed");
     }
+    initial_hydration_complete.store(true, Ordering::Release);
 
     Ok(sub)
 }
