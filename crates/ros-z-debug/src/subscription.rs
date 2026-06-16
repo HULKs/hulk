@@ -2,8 +2,7 @@ use std::sync::Arc;
 
 use arc_swap::ArcSwapOption;
 use parking_lot::Mutex;
-use ros_z::dynamic::DynamicPayload;
-use ros_z::time::Time;
+use ros_z::{dynamic::DynamicPayload, pubsub::PublicationId, time::Time};
 use serde_json::Value;
 use tokio::task::AbortHandle;
 use tokio_util::sync::CancellationToken;
@@ -13,6 +12,8 @@ use crate::{
     SubscriptionStatusSnapshot, dynamic_payload_to_json, event::EventBuffer,
     history::TimeIndexedHistory,
 };
+
+const EVENT_BUFFER_CAPACITY: usize = 256;
 
 pub(crate) trait ManagedSubscription: Send + Sync {
     fn close(&self);
@@ -50,6 +51,15 @@ impl<V> SubscriptionHandle<V> {
     /// Handles with [`RetentionPolicy::LatestOnly`] return an empty window.
     pub fn window(&self, start: Time, end: Time) -> Vec<Arc<SampleRecord<V>>> {
         self.state.window(start, end)
+    }
+
+    /// Return one retained sample by source-time/publication identity.
+    pub fn record(
+        &self,
+        source_time: Time,
+        publication_id: PublicationId,
+    ) -> Option<Arc<SampleRecord<V>>> {
+        self.state.record(source_time, publication_id)
     }
 
     /// Drain queued status/value/diagnostic events.
@@ -124,7 +134,7 @@ impl<V> SubscriptionState<V> {
             history,
             meta: Mutex::new(SubscriptionMeta {
                 status,
-                events: EventBuffer::new(256),
+                events: EventBuffer::new(EVENT_BUFFER_CAPACITY),
                 receive_task: None,
             }),
             cancellation_token: CancellationToken::new(),
@@ -176,6 +186,9 @@ impl<V> SubscriptionState<V> {
             return;
         }
 
+        let source_time = record.source_time;
+        let publication_id = record.publication_id;
+
         if let Some(history) = &self.history {
             history.lock().insert(Arc::clone(&record));
         }
@@ -186,7 +199,10 @@ impl<V> SubscriptionState<V> {
         if status_changed {
             meta.events.push(DebugEvent::StatusChanged);
         }
-        meta.events.push(DebugEvent::ValueUpdated);
+        meta.events.push(DebugEvent::ValueUpdated {
+            source_time,
+            publication_id,
+        });
     }
 
     pub(crate) fn set_receive_error(&self, status: SubscriptionStatus) {
@@ -218,6 +234,24 @@ impl<V> SubscriptionState<V> {
         self.history
             .as_ref()
             .map_or_else(Vec::new, |history| history.lock().window(start, end))
+    }
+
+    fn record(
+        &self,
+        source_time: Time,
+        publication_id: PublicationId,
+    ) -> Option<Arc<SampleRecord<V>>> {
+        if let Some(record) = self.latest()
+            && record.source_time == source_time
+            && record.publication_id == publication_id
+        {
+            return Some(record);
+        }
+
+        self.history
+            .as_ref()?
+            .lock()
+            .record(source_time, publication_id)
     }
 
     fn drain_events(&self) -> Vec<DebugEvent> {
@@ -391,6 +425,24 @@ mod tests {
     }
 
     #[test]
+    fn handle_record_returns_time_window_record_by_identity() {
+        let state = Arc::new(SubscriptionState::new(
+            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+            RetentionPolicy::time_window(Duration::from_secs(10)).unwrap(),
+        ));
+        let first = sample_record_at(NonClonePayload(1), Time::from_nanos(1));
+        let second = sample_record_at(NonClonePayload(2), Time::from_nanos(2));
+        let source_time = second.source_time;
+        let publication_id = second.publication_id;
+
+        state.store_latest(Arc::clone(&first));
+        state.store_latest(Arc::clone(&second));
+
+        let found = state.handle().record(source_time, publication_id).unwrap();
+        assert!(Arc::ptr_eq(&second, &found));
+    }
+
+    #[test]
     fn drain_events_returns_and_clears_events() {
         let state = Arc::new(SubscriptionState::<NonClonePayload>::new(
             SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
@@ -402,9 +454,39 @@ mod tests {
         let events = state.handle().drain_events();
         assert!(matches!(
             &events[..],
-            [DebugEvent::StatusChanged, DebugEvent::ValueUpdated]
+            [
+                DebugEvent::StatusChanged,
+                DebugEvent::ValueUpdated {
+                    source_time: _,
+                    publication_id: _
+                }
+            ]
         ));
         assert!(state.handle().drain_events().is_empty());
+    }
+
+    #[test]
+    fn store_latest_event_includes_retained_record_identity() {
+        let state = Arc::new(SubscriptionState::<NonClonePayload>::new(
+            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+            RetentionPolicy::LatestOnly,
+        ));
+        let record = sample_record_at(NonClonePayload(1), Time::from_nanos(7));
+        let source_time = record.source_time;
+        let publication_id = record.publication_id;
+
+        state.store_latest(record);
+
+        let events = state.handle().drain_events();
+        assert_eq!(events.len(), 2);
+        assert!(matches!(events[0], DebugEvent::StatusChanged));
+        assert!(matches!(
+            events[1],
+            DebugEvent::ValueUpdated {
+                source_time: event_source_time,
+                publication_id: event_publication_id,
+            } if event_source_time == source_time && event_publication_id == publication_id
+        ));
     }
 
     #[test]
@@ -435,7 +517,13 @@ mod tests {
         let events = state.handle().drain_events();
         assert!(matches!(
             events.as_slice(),
-            [DebugEvent::StatusChanged, DebugEvent::ValueUpdated]
+            [
+                DebugEvent::StatusChanged,
+                DebugEvent::ValueUpdated {
+                    source_time: _,
+                    publication_id: _
+                }
+            ]
         ));
     }
 
@@ -552,7 +640,13 @@ mod tests {
 
         assert!(matches!(
             &events[..],
-            [DebugEvent::StatusChanged, DebugEvent::ValueUpdated]
+            [
+                DebugEvent::StatusChanged,
+                DebugEvent::ValueUpdated {
+                    source_time: _,
+                    publication_id: _
+                }
+            ]
         ));
         assert!(handle.drain_events().is_empty());
     }

@@ -3,7 +3,7 @@ use std::{
     sync::Arc,
 };
 
-use ros_z::time::Time;
+use ros_z::{pubsub::PublicationId, time::Time};
 
 use crate::{RetentionPolicy, SampleRecord};
 
@@ -87,6 +87,19 @@ impl<V> TimeIndexedHistory<V> {
 
     pub fn window(&self, start: Time, end: Time) -> Vec<Arc<SampleRecord<V>>> {
         self.entries.get_interval(start, end)
+    }
+
+    pub fn record(
+        &self,
+        source_time: Time,
+        publication_id: PublicationId,
+    ) -> Option<Arc<SampleRecord<V>>> {
+        self.entries
+            .entries
+            .get(&source_time)?
+            .iter()
+            .find(|record| record.publication_id == publication_id)
+            .cloned()
     }
 
     fn evict(&mut self) {
@@ -207,6 +220,22 @@ mod tests {
             values.iter().map(|record| record.value).collect::<Vec<_>>(),
             vec![1, 2]
         );
+    }
+
+    #[test]
+    fn record_returns_matching_sample_without_collecting_a_window() {
+        let mut history =
+            TimeIndexedHistory::new(RetentionPolicy::time_window(Duration::from_secs(10)).unwrap());
+        let first = record(1, 1);
+        let second = record(2, 2);
+        let source_time = second.source_time;
+        let publication_id = second.publication_id;
+
+        history.insert(Arc::clone(&first));
+        history.insert(Arc::clone(&second));
+
+        let found = history.record(source_time, publication_id).unwrap();
+        assert!(Arc::ptr_eq(&second, &found));
     }
 
     #[test]

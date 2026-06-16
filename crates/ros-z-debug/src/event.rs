@@ -1,12 +1,17 @@
 use std::collections::VecDeque;
 
+use ros_z::{pubsub::PublicationId, time::Time};
+
 #[derive(Debug, Clone)]
 #[non_exhaustive]
 pub enum DebugEvent {
     /// The subscription status snapshot changed.
     StatusChanged,
     /// A new sample was retained as the latest value.
-    ValueUpdated,
+    ValueUpdated {
+        source_time: Time,
+        publication_id: PublicationId,
+    },
     /// A non-terminal diagnostic message was recorded.
     Diagnostic(String),
 }
@@ -44,6 +49,23 @@ impl EventBuffer {
 #[cfg(test)]
 mod tests {
     use super::{DebugEvent, EventBuffer};
+    use ros_z::time::Time;
+
+    fn value_updated_event() -> DebugEvent {
+        let publication_id = ros_z::pubsub::Received {
+            message: (),
+            transport_time: None,
+            source_time: Time::zero(),
+            sequence_number: 1,
+            source_global_id: [7; 16].into(),
+        }
+        .publication_id();
+
+        DebugEvent::ValueUpdated {
+            source_time: Time::zero(),
+            publication_id,
+        }
+    }
 
     #[test]
     fn drain_returns_and_clears_events() {
@@ -64,7 +86,7 @@ mod tests {
     fn capacity_zero_stores_nothing() {
         let mut buffer = EventBuffer::new(0);
 
-        buffer.push(DebugEvent::ValueUpdated);
+        buffer.push(value_updated_event());
 
         assert!(buffer.drain().is_empty());
     }
@@ -73,12 +95,12 @@ mod tests {
     fn push_drops_oldest_event_when_capacity_is_exceeded() {
         let mut buffer = EventBuffer::new(2);
         buffer.push(DebugEvent::StatusChanged);
-        buffer.push(DebugEvent::ValueUpdated);
+        buffer.push(value_updated_event());
         buffer.push(DebugEvent::Diagnostic("decode failed".to_string()));
 
         let drained = buffer.drain();
         assert_eq!(drained.len(), 2);
-        assert!(matches!(drained[0], DebugEvent::ValueUpdated));
+        assert!(matches!(drained[0], DebugEvent::ValueUpdated { .. }));
         assert!(
             matches!(&drained[1], DebugEvent::Diagnostic(message) if message == "decode failed")
         );
