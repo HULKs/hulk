@@ -4,7 +4,10 @@ use arc_swap::ArcSwap;
 use parking_lot::Mutex;
 use serde::{Serialize, de::DeserializeOwned};
 use serde_json::Value;
-use tokio::sync::watch;
+use tokio::{
+    runtime::Handle,
+    sync::{mpsc, watch},
+};
 use tokio_util::task::AbortOnDropHandle;
 
 use crate::{
@@ -48,13 +51,10 @@ struct NodeParametersInner<T>
 where
     T: Serialize + DeserializeOwned + Message + Send + Sync + 'static,
 {
-    // Field order is shutdown order: stop accepting remote requests, close the
-    // command sender, abort the driver if it is still running, then release the
-    // node-level binding guard.
-    _remote: RemoteParameterServices<T>,
-    commands: flume::Sender<ParameterCommand<T>>,
+    // Field order is shutdown order: drop the local command sender, then abort
+    // the driver if it is still running. Driver drop closes the receiver.
+    commands: mpsc::Sender<ParameterCommand<T>>,
     driver_task: AbortOnDropHandle<()>,
-    _binding_guard: BindingGuard,
     state: Arc<ParameterState<T>>,
 }
 
@@ -71,14 +71,41 @@ impl Drop for BindingGuard {
 pub struct ParameterState<T> {
     node_fqn: String,
     parameter_key: ParameterKey,
-    pub type_name: String,
-    pub schema_hash: SchemaHash,
+    type_name: String,
+    schema_hash: SchemaHash,
     layers: Vec<PathBuf>,
     clock: Clock,
     commit_lock: Mutex<()>,
     hooks: Mutex<Vec<ValidateHook<T>>>,
-    pub current: ArcSwap<NodeParametersSnapshot<T>>,
+    current: ArcSwap<NodeParametersSnapshot<T>>,
     tx: watch::Sender<Arc<NodeParametersSnapshot<T>>>,
+}
+
+impl<T> ParameterState<T>
+where
+    T: Serialize + DeserializeOwned + Message + Send + Sync + 'static,
+{
+    pub fn snapshot(&self) -> Arc<NodeParametersSnapshot<T>> {
+        self.current.load_full()
+    }
+
+    pub fn get_json_from_snapshot(
+        snapshot: &NodeParametersSnapshot<T>,
+        path: &str,
+    ) -> Result<Value> {
+        get_from_value(&snapshot.effective, path)?.ok_or_else(|| ParameterError::PathError {
+            path: path.to_string(),
+            reason: "path not found".to_string(),
+        })
+    }
+
+    pub fn type_name(&self) -> &str {
+        &self.type_name
+    }
+
+    pub fn schema_hash(&self) -> SchemaHash {
+        self.schema_hash
+    }
 }
 
 impl<T> std::ops::Deref for NodeParametersInner<T>
@@ -120,27 +147,17 @@ where
         hook: ValidateHook<T>,
         reply: ParameterReply<()>,
     },
-    RemoteGetSnapshot {
-        query: zenoh::query::Query,
-    },
-    RemoteGetValue {
-        query: zenoh::query::Query,
-    },
-    RemoteGetTypeInfo {
-        query: zenoh::query::Query,
-    },
-    RemoteSet {
-        query: zenoh::query::Query,
-    },
-    RemoteSetAtomic {
-        query: zenoh::query::Query,
-    },
-    RemoteReset {
-        query: zenoh::query::Query,
-    },
-    RemoteReload {
-        query: zenoh::query::Query,
-    },
+    Remote(RemoteParameterCommand),
+}
+
+pub(crate) enum RemoteParameterCommand {
+    GetSnapshot { query: zenoh::query::Query },
+    GetValue { query: zenoh::query::Query },
+    GetTypeInfo { query: zenoh::query::Query },
+    Set { query: zenoh::query::Query },
+    SetAtomic { query: zenoh::query::Query },
+    Reset { query: zenoh::query::Query },
+    Reload { query: zenoh::query::Query },
 }
 
 pub struct ParameterDriver<T>
@@ -148,8 +165,12 @@ where
     T: Serialize + DeserializeOwned + Message + Send + Sync + 'static,
 {
     state: Arc<ParameterState<T>>,
-    commands: flume::Receiver<ParameterCommand<T>>,
+    commands: mpsc::Receiver<ParameterCommand<T>>,
     event_publisher: Arc<Publisher<NodeParameterEvent>>,
+    reply_runtime: Handle,
+    // Drop remote service registrations before releasing the node binding.
+    _remote: RemoteParameterServices<T>,
+    _binding_guard: BindingGuard,
 }
 
 fn actor_unavailable_error() -> ParameterError {
@@ -166,10 +187,10 @@ impl Node {
     /// part of the binding, so remote reads and writes are serialized through the
     /// same actor as local writes.
     ///
-    /// A node can only have one active parameter binding. Calling this again on
-    /// the same node while the first [`NodeParameters`] handle is alive returns
-    /// [`ParameterError::AlreadyBound`]. Dropping the handle shuts down the actor
-    /// and releases the binding.
+    /// A node can only have one active parameter actor. Calling this while a
+    /// binding is active returns [`ParameterError::AlreadyBound`]. Dropping the
+    /// last [`NodeParameters`] handle shuts down the actor; the binding is
+    /// released when the actor task exits.
     ///
     /// # Errors
     ///
@@ -273,23 +294,26 @@ where
         current,
         tx,
     });
-    let (command_tx, command_rx) = flume::bounded(PARAMETER_MAILBOX_CAPACITY);
-    let remote = RemoteParameterServices::register(node, state.clone(), command_tx.clone()).await?;
+    let (command_tx, command_rx) = mpsc::channel(PARAMETER_MAILBOX_CAPACITY);
+    let reply_runtime = Handle::current();
+    let remote =
+        RemoteParameterServices::register(node, command_tx.clone(), reply_runtime.clone()).await?;
     let event_publisher = remote.event_publisher();
 
     let driver = ParameterDriver {
         state: state.clone(),
         commands: command_rx,
         event_publisher,
-    };
-    let driver_task = tokio::spawn(driver.run());
-    let inner = Arc::new(NodeParametersInner {
+        reply_runtime,
         _remote: remote,
-        commands: command_tx,
-        driver_task: AbortOnDropHandle::new(driver_task),
         _binding_guard: BindingGuard {
             state: node.parameter_binding_state().clone(),
         },
+    };
+    let driver_task = tokio::spawn(driver.run());
+    let inner = Arc::new(NodeParametersInner {
+        commands: command_tx,
+        driver_task: AbortOnDropHandle::new(driver_task),
         state,
     });
 
@@ -390,16 +414,17 @@ where
         let (reply_tx, reply_rx) = flume::bounded(1);
         let commands = self.command_sender()?;
         commands
-            .send_async(command(reply_tx))
+            .send(command(reply_tx))
             .await
             .map_err(|_| actor_unavailable_error())?;
-        tokio::select! {
-            result = reply_rx.recv_async() => result.map_err(|_| actor_unavailable_error())?,
-            () = self.wait_for_driver_task_to_finish() => Err(actor_unavailable_error()),
-        }
+
+        reply_rx
+            .recv_async()
+            .await
+            .map_err(|_| actor_unavailable_error())?
     }
 
-    fn command_sender(&self) -> Result<flume::Sender<ParameterCommand<T>>> {
+    fn command_sender(&self) -> Result<mpsc::Sender<ParameterCommand<T>>> {
         if self.driver_task_is_unavailable() {
             return Err(actor_unavailable_error());
         }
@@ -407,27 +432,29 @@ where
         Ok(self.inner.commands.clone())
     }
 
-    async fn wait_for_driver_task_to_finish(&self) {
-        while !self.driver_task_is_unavailable() {
-            tokio::task::yield_now().await;
-        }
-    }
-
     fn driver_task_is_unavailable(&self) -> bool {
         self.inner.driver_task.is_finished()
     }
 
     pub fn snapshot(&self) -> Arc<NodeParametersSnapshot<T>> {
-        self.inner.state.current.load_full()
+        self.inner.state.snapshot()
     }
 
     pub fn get_json(&self, path: &str) -> Result<Value> {
-        get_from_value(&self.snapshot().effective, path)?.ok_or_else(|| ParameterError::PathError {
-            path: path.to_string(),
-            reason: "path not found".to_string(),
-        })
+        ParameterState::get_json_from_snapshot(&self.snapshot(), path)
     }
 
+    /// Writes one JSON value through the parameter actor.
+    ///
+    /// The returned future resolves after the actor validates the resulting typed
+    /// parameter set, persists the touched layer, updates the in-memory snapshot,
+    /// and attempts to publish the parameter event.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the actor has stopped, the path or target layer is
+    /// invalid, validation fails, persistence fails, or the updated JSON cannot be
+    /// deserialized as the parameter type.
     pub async fn set_json(
         &self,
         path: &str,
@@ -446,6 +473,17 @@ where
         .map(|_| ())
     }
 
+    /// Applies multiple JSON writes as one actor command.
+    ///
+    /// All writes are validated against one candidate snapshot and are committed
+    /// together. If `expected_revision` is `Some`, the actor rejects the command
+    /// unless the current snapshot revision matches it.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the actor has stopped, the expected revision does not
+    /// match, any path or target layer is invalid, validation fails, persistence
+    /// fails, or the candidate JSON cannot be deserialized as the parameter type.
     pub async fn set_json_atomically(
         &self,
         changes: Vec<ParameterJsonWrite>,
@@ -460,6 +498,16 @@ where
         .await
     }
 
+    /// Removes one override from a target layer through the parameter actor.
+    ///
+    /// The returned future resolves after the actor validates and commits the
+    /// resulting snapshot.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the actor has stopped, the path or target layer is
+    /// invalid, validation fails, persistence fails, or the resulting JSON cannot
+    /// be deserialized as the parameter type.
     pub async fn reset(&self, path: &str, target_layer: impl Into<LayerPath>) -> Result<()> {
         self.request(|reply| ParameterCommand::Reset {
             resets: vec![(path.to_string(), target_layer.into())],
@@ -471,6 +519,15 @@ where
         .map(|_| ())
     }
 
+    /// Reloads all configured parameter layers through the parameter actor.
+    ///
+    /// The returned future resolves after the actor loads, validates, and commits
+    /// the reloaded snapshot.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the actor has stopped, layer loading fails, validation
+    /// fails, or the reloaded JSON cannot be deserialized as the parameter type.
     pub async fn reload(&self) -> Result<()> {
         self.request(|reply| ParameterCommand::Reload {
             source: NodeParameterChangeSource::Reload,
@@ -484,6 +541,15 @@ where
         self.inner.state.tx.subscribe()
     }
 
+    /// Registers a validation hook through the parameter actor.
+    ///
+    /// The hook is run against the current snapshot before it is stored. Future
+    /// writes and reloads must pass all registered hooks before they commit.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the actor has stopped or if the new hook rejects the
+    /// current typed parameter value.
     pub async fn add_validation_hook<F>(&self, hook: F) -> Result<()>
     where
         F: Fn(&T) -> std::result::Result<(), String> + Send + Sync + 'static,
@@ -494,24 +560,29 @@ where
     }
 }
 
-impl<T> ParameterCommand<T>
+impl RemoteParameterCommand {
+    pub(crate) fn into_query(self) -> zenoh::query::Query {
+        match self {
+            RemoteParameterCommand::GetSnapshot { query }
+            | RemoteParameterCommand::GetValue { query }
+            | RemoteParameterCommand::GetTypeInfo { query }
+            | RemoteParameterCommand::Set { query }
+            | RemoteParameterCommand::SetAtomic { query }
+            | RemoteParameterCommand::Reset { query }
+            | RemoteParameterCommand::Reload { query } => query,
+        }
+    }
+}
+
+impl<T> Drop for ParameterDriver<T>
 where
     T: Serialize + DeserializeOwned + Message + Send + Sync + 'static,
 {
-    pub fn into_query(self) -> zenoh::query::Query {
-        match self {
-            ParameterCommand::RemoteGetSnapshot { query }
-            | ParameterCommand::RemoteGetValue { query }
-            | ParameterCommand::RemoteGetTypeInfo { query }
-            | ParameterCommand::RemoteSet { query }
-            | ParameterCommand::RemoteSetAtomic { query }
-            | ParameterCommand::RemoteReset { query }
-            | ParameterCommand::RemoteReload { query } => query,
-            ParameterCommand::SetJson { .. }
-            | ParameterCommand::Reset { .. }
-            | ParameterCommand::Reload { .. }
-            | ParameterCommand::AddValidationHook { .. } => {
-                unreachable!("local parameter commands do not carry remote queries")
+    fn drop(&mut self) {
+        self.commands.close();
+        while let Ok(command) = self.commands.try_recv() {
+            if let ParameterCommand::Remote(command) = command {
+                services::reply_remote_command_unavailable(&self.reply_runtime, command);
             }
         }
     }
@@ -521,8 +592,8 @@ impl<T> ParameterDriver<T>
 where
     T: Serialize + DeserializeOwned + Message + Send + Sync + 'static,
 {
-    async fn run(self) {
-        while let Ok(command) = self.commands.recv_async().await {
+    async fn run(mut self) {
+        while let Some(command) = self.commands.recv().await {
             match command {
                 ParameterCommand::SetJson {
                     writes,
@@ -550,39 +621,35 @@ where
                     let result = self.add_validation_hook(hook);
                     let _ = reply.send(result);
                 }
-                remote_command => self.handle_remote_command(remote_command).await,
+                ParameterCommand::Remote(remote_command) => {
+                    self.handle_remote_command(remote_command).await;
+                }
             }
         }
     }
 
-    async fn handle_remote_command(&self, command: ParameterCommand<T>) {
+    async fn handle_remote_command(&self, command: RemoteParameterCommand) {
         match command {
-            ParameterCommand::RemoteGetSnapshot { query } => {
-                services::handle_get_snapshot_for_state(&self.state, query);
+            RemoteParameterCommand::GetSnapshot { query } => {
+                services::handle_get_snapshot_for_state(&self.state, &self.reply_runtime, query);
             }
-            ParameterCommand::RemoteGetValue { query } => {
-                services::handle_get_value_for_state(&self.state, query);
+            RemoteParameterCommand::GetValue { query } => {
+                services::handle_get_value_for_state(&self.state, &self.reply_runtime, query);
             }
-            ParameterCommand::RemoteGetTypeInfo { query } => {
-                services::handle_get_type_info_for_state(&self.state, query);
+            RemoteParameterCommand::GetTypeInfo { query } => {
+                services::handle_get_type_info_for_state(&self.state, &self.reply_runtime, query);
             }
-            ParameterCommand::RemoteSet { query } => {
-                services::handle_set_for_driver(self, query).await;
+            RemoteParameterCommand::Set { query } => {
+                services::handle_set_for_driver(self, &self.reply_runtime, query).await;
             }
-            ParameterCommand::RemoteSetAtomic { query } => {
-                services::handle_set_atomic_for_driver(self, query).await;
+            RemoteParameterCommand::SetAtomic { query } => {
+                services::handle_set_atomic_for_driver(self, &self.reply_runtime, query).await;
             }
-            ParameterCommand::RemoteReset { query } => {
-                services::handle_reset_for_driver(self, query).await;
+            RemoteParameterCommand::Reset { query } => {
+                services::handle_reset_for_driver(self, &self.reply_runtime, query).await;
             }
-            ParameterCommand::RemoteReload { query } => {
-                services::handle_reload_for_driver(self, query).await;
-            }
-            ParameterCommand::SetJson { .. }
-            | ParameterCommand::Reset { .. }
-            | ParameterCommand::Reload { .. }
-            | ParameterCommand::AddValidationHook { .. } => {
-                unreachable!("local parameter commands are handled before remote dispatch")
+            RemoteParameterCommand::Reload { query } => {
+                services::handle_reload_for_driver(self, &self.reply_runtime, query).await;
             }
         }
     }
@@ -801,13 +868,17 @@ where
 mod actor_tests {
     use std::{
         fs,
-        sync::atomic::{AtomicUsize, Ordering},
+        sync::{
+            Arc,
+            atomic::{AtomicUsize, Ordering},
+        },
         time::Duration,
     };
 
     use serde::{Deserialize, Serialize};
 
-    use crate::context::ContextBuilder;
+    use super::*;
+    use crate::{context::ContextBuilder, parameter::remote::RemoteParameterClient};
 
     static NEXT_ID: AtomicUsize = AtomicUsize::new(1);
 
@@ -815,6 +886,229 @@ mod actor_tests {
     #[message(name = "test_parameters::ActorLifecycleParameters")]
     struct ActorLifecycleParameters {
         enabled: bool,
+    }
+
+    type TestResult<T = ()> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
+
+    async fn build_actor_lifecycle_node(
+        suffix: &str,
+    ) -> TestResult<(crate::node::Node, std::path::PathBuf)> {
+        let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
+        let root = std::env::temp_dir().join(format!(
+            "ros_z_parameter_actor_{suffix}_{}_{}",
+            std::process::id(),
+            id
+        ));
+        let _ = fs::remove_dir_all(&root);
+        let base = root.join("base");
+        fs::create_dir_all(&base)?;
+        fs::write(base.join("actor_lifecycle.json5"), r#"{ enabled: true }"#)?;
+
+        let context = ContextBuilder::default()
+            .with_mode("peer")
+            .disable_multicast_scouting()
+            .with_parameter_layers([base])
+            .build()
+            .await?;
+        let node = context
+            .create_node(format!("actor_lifecycle_{suffix}_{id}"))
+            .build()
+            .await?;
+        Ok((node, root))
+    }
+
+    async fn wait_for_service(node: &crate::node::Node, service: &str) -> TestResult {
+        let start = std::time::Instant::now();
+        let timeout = Duration::from_secs(5);
+        while start.elapsed() < timeout {
+            if !node.graph().view().services_named(service).is_empty() {
+                return Ok(());
+            }
+            tokio::time::sleep(Duration::from_millis(10)).await;
+        }
+        Err(format!("timed out waiting for service {service}").into())
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn binding_releases_after_driver_task_exits() -> TestResult {
+        let (node, _root) = build_actor_lifecycle_node("rebind").await?;
+        let parameters = node
+            .bind_parameter_as::<ActorLifecycleParameters>("actor_lifecycle")
+            .await?;
+
+        drop(parameters);
+
+        let err = node
+            .bind_parameter_as::<ActorLifecycleParameters>("actor_lifecycle")
+            .await
+            .expect_err("binding should remain held until the actor task exits");
+        assert!(matches!(
+            err,
+            crate::parameter::ParameterError::AlreadyBound { .. }
+        ));
+
+        tokio::time::timeout(Duration::from_secs(1), async {
+            loop {
+                match node
+                    .bind_parameter_as::<ActorLifecycleParameters>("actor_lifecycle")
+                    .await
+                {
+                    Ok(_parameters) => return Ok::<_, Box<dyn std::error::Error + Send + Sync>>(()),
+                    Err(crate::parameter::ParameterError::AlreadyBound { .. }) => {
+                        tokio::task::yield_now().await;
+                    }
+                    Err(err) => return Err(err.into()),
+                }
+            }
+        })
+        .await
+        .map_err(|_| "timed out waiting for parameter binding to release")??;
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn binding_resources_release_after_driver_task_aborts() -> TestResult {
+        let (node, _root) = build_actor_lifecycle_node("abort_rebind").await?;
+        let parameters = node
+            .bind_parameter_as::<ActorLifecycleParameters>("actor_lifecycle")
+            .await?;
+
+        parameters.inner.driver_task.abort();
+
+        let _replacement = tokio::time::timeout(Duration::from_secs(1), async {
+            loop {
+                match node
+                    .bind_parameter_as::<ActorLifecycleParameters>("actor_lifecycle")
+                    .await
+                {
+                    Ok(parameters) => {
+                        return Ok::<_, Box<dyn std::error::Error + Send + Sync>>(parameters);
+                    }
+                    Err(crate::parameter::ParameterError::AlreadyBound { .. }) => {
+                        tokio::task::yield_now().await;
+                    }
+                    Err(err) => return Err(err.into()),
+                }
+            }
+        })
+        .await
+        .map_err(|_| "timed out waiting for aborted parameter binding to release")??;
+
+        let err = parameters
+            .reload()
+            .await
+            .expect_err("old handle should report unavailable actor");
+        assert!(err.to_string().contains("parameter actor is unavailable"));
+
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+    async fn driver_drop_replies_busy_to_queued_remote_command() -> TestResult {
+        let id = NEXT_ID.fetch_add(1, Ordering::Relaxed);
+        let root = std::env::temp_dir().join(format!(
+            "ros_z_parameter_actor_remote_drain_{}_{}",
+            std::process::id(),
+            id
+        ));
+        let _ = fs::remove_dir_all(&root);
+        let base = root.join("base");
+        fs::create_dir_all(&base)?;
+        fs::write(base.join("actor_lifecycle.json5"), r#"{ enabled: true }"#)?;
+
+        let context = ContextBuilder::default()
+            .with_mode("peer")
+            .disable_multicast_scouting()
+            .with_parameter_layers([base])
+            .build()
+            .await?;
+        let server_node = context
+            .create_node(format!("remote_drain_server_{id}"))
+            .build()
+            .await?;
+        let client_node = context
+            .create_node(format!("remote_drain_client_{id}"))
+            .build()
+            .await?;
+
+        let parameter_key: ParameterKey = "actor_lifecycle".to_string();
+        let layers = server_node
+            .runtime_parameter_inputs()
+            .parameter_layers
+            .clone();
+        let schema = Arc::new(ActorLifecycleParameters::schema());
+        let type_info = validated_type_info_for_schema::<ActorLifecycleParameters>(&schema);
+        server_node
+            .register_schema_with_service(&type_info.name, schema)
+            .map_err(|source| ParameterError::operation("registering parameter schema", source))?;
+
+        let node_fqn = server_node.node_entity().fully_qualified_name();
+        let snapshot = Arc::new(load_snapshot::<ActorLifecycleParameters>(
+            &node_fqn,
+            &parameter_key,
+            &layers,
+            server_node.clock(),
+            0,
+        )?);
+        let (tx, _rx) = watch::channel(snapshot.clone());
+        let state = Arc::new(ParameterState {
+            node_fqn: node_fqn.clone(),
+            parameter_key,
+            type_name: type_info.name,
+            schema_hash: type_info.hash,
+            layers,
+            clock: server_node.clock().clone(),
+            commit_lock: Mutex::new(()),
+            hooks: Mutex::new(Vec::new()),
+            current: ArcSwap::from(snapshot),
+            tx,
+        });
+        let (command_tx, command_rx) = mpsc::channel(PARAMETER_MAILBOX_CAPACITY);
+        let reply_runtime = Handle::current();
+        let remote =
+            RemoteParameterServices::register(&server_node, command_tx, reply_runtime.clone())
+                .await?;
+        let event_publisher = remote.event_publisher();
+        let driver = ParameterDriver {
+            state,
+            commands: command_rx,
+            event_publisher,
+            reply_runtime,
+            _remote: remote,
+            _binding_guard: BindingGuard {
+                state: server_node.parameter_binding_state().clone(),
+            },
+        };
+
+        let service_name = format!("{node_fqn}/parameter/set");
+        wait_for_service(&client_node, &service_name).await?;
+        let client = RemoteParameterClient::new(Arc::new(client_node), node_fqn)?;
+        let call = tokio::spawn(async move {
+            let value = serde_json::json!(false);
+            client.set_json("enabled", &value, "base", None).await
+        });
+
+        tokio::time::timeout(Duration::from_secs(2), async {
+            while driver.commands.is_empty() {
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        })
+        .await
+        .map_err(|_| "timed out waiting for remote command to queue")?;
+
+        drop(driver);
+
+        let join_result = tokio::time::timeout(Duration::from_secs(2), call)
+            .await
+            .map_err(|_| "timed out waiting for drained remote reply")?;
+        let response = join_result??;
+        assert!(!response.success);
+        assert_eq!(response.message, "parameter actor is unavailable or busy");
+        assert_eq!(response.committed_revision, 0);
+        assert!(response.changed_paths.is_empty());
+
+        Ok(())
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]

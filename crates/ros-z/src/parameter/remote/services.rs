@@ -1,7 +1,8 @@
 use std::{marker::PhantomData, sync::Arc};
 
 use serde::{Serialize, de::DeserializeOwned};
-use zenoh::{Wait, query::Query};
+use tokio::{runtime::Handle, sync::mpsc};
+use zenoh::query::Query;
 
 use crate::{
     Message, ServiceTypeInfo,
@@ -16,9 +17,9 @@ use crate::{
 
 use crate::parameter::{
     ParameterTimestamp,
-    merge::get_value_at_path as get_from_value,
     node_parameter::{
         CommitOutcome, ParameterCommand, ParameterDriver, ParameterJsonWrite, ParameterState,
+        RemoteParameterCommand,
     },
 };
 
@@ -42,8 +43,8 @@ where
 {
     pub async fn register(
         node: &Node,
-        _state: Arc<ParameterState<T>>,
-        commands: flume::Sender<ParameterCommand<T>>,
+        commands: mpsc::Sender<ParameterCommand<T>>,
+        reply_runtime: Handle,
     ) -> Result<Self> {
         let event_publisher = node
             .publisher::<NodeParameterEvent>("~parameter/events")
@@ -65,12 +66,14 @@ where
         let get_snapshot =
             register_server::<GetNodeParametersSnapshotSrv>(node, "~parameter/get_snapshot", {
                 let commands = commands.clone();
+                let reply_runtime = reply_runtime.clone();
                 move |query| {
                     enqueue_or_reply_busy(
                         &commands,
+                        &reply_runtime,
                         query,
-                        |query| ParameterCommand::RemoteGetSnapshot { query },
-                        busy_snapshot_response(),
+                        |query| RemoteParameterCommand::GetSnapshot { query },
+                        busy_snapshot_response,
                     );
                 }
             })
@@ -79,12 +82,14 @@ where
         let get_value =
             register_server::<GetNodeParameterValueSrv>(node, "~parameter/get_value", {
                 let commands = commands.clone();
+                let reply_runtime = reply_runtime.clone();
                 move |query| {
                     enqueue_or_reply_busy(
                         &commands,
+                        &reply_runtime,
                         query,
-                        |query| ParameterCommand::RemoteGetValue { query },
-                        busy_value_response(),
+                        |query| RemoteParameterCommand::GetValue { query },
+                        busy_value_response,
                     );
                 }
             })
@@ -93,12 +98,14 @@ where
         let get_type_info =
             register_server::<GetNodeParameterTypeInfoSrv>(node, "~parameter/get_type_info", {
                 let commands = commands.clone();
+                let reply_runtime = reply_runtime.clone();
                 move |query| {
                     enqueue_or_reply_busy(
                         &commands,
+                        &reply_runtime,
                         query,
-                        |query| ParameterCommand::RemoteGetTypeInfo { query },
-                        busy_type_info_response(),
+                        |query| RemoteParameterCommand::GetTypeInfo { query },
+                        busy_type_info_response,
                     );
                 }
             })
@@ -106,12 +113,14 @@ where
 
         let set = register_server::<SetNodeParameterSrv>(node, "~parameter/set", {
             let commands = commands.clone();
+            let reply_runtime = reply_runtime.clone();
             move |query| {
                 enqueue_or_reply_busy(
                     &commands,
+                    &reply_runtime,
                     query,
-                    |query| ParameterCommand::RemoteSet { query },
-                    busy_write_response::<SetNodeParameterResponse>(),
+                    |query| RemoteParameterCommand::Set { query },
+                    busy_write_response::<SetNodeParameterResponse>,
                 );
             }
         })
@@ -120,12 +129,14 @@ where
         let set_atomic =
             register_server::<SetNodeParametersAtomicallySrv>(node, "~parameter/set_atomic", {
                 let commands = commands.clone();
+                let reply_runtime = reply_runtime.clone();
                 move |query| {
                     enqueue_or_reply_busy(
                         &commands,
+                        &reply_runtime,
                         query,
-                        |query| ParameterCommand::RemoteSetAtomic { query },
-                        busy_write_response::<SetNodeParametersAtomicallyResponse>(),
+                        |query| RemoteParameterCommand::SetAtomic { query },
+                        busy_write_response::<SetNodeParametersAtomicallyResponse>,
                     );
                 }
             })
@@ -133,12 +144,14 @@ where
 
         let reset = register_server::<ResetNodeParameterSrv>(node, "~parameter/reset", {
             let commands = commands.clone();
+            let reply_runtime = reply_runtime.clone();
             move |query| {
                 enqueue_or_reply_busy(
                     &commands,
+                    &reply_runtime,
                     query,
-                    |query| ParameterCommand::RemoteReset { query },
-                    busy_write_response::<ResetNodeParameterResponse>(),
+                    |query| RemoteParameterCommand::Reset { query },
+                    busy_write_response::<ResetNodeParameterResponse>,
                 );
             }
         })
@@ -146,12 +159,14 @@ where
 
         let reload = register_server::<ReloadNodeParametersSrv>(node, "~parameter/reload", {
             let commands = commands.clone();
+            let reply_runtime = reply_runtime.clone();
             move |query| {
                 enqueue_or_reply_busy(
                     &commands,
+                    &reply_runtime,
                     query,
-                    |query| ParameterCommand::RemoteReload { query },
-                    busy_write_response::<ReloadNodeParametersResponse>(),
+                    |query| RemoteParameterCommand::Reload { query },
+                    busy_write_response::<ReloadNodeParametersResponse>,
                 );
             }
         })
@@ -237,30 +252,38 @@ where
 }
 
 fn enqueue_or_reply_busy<T, R>(
-    commands: &flume::Sender<ParameterCommand<T>>,
+    commands: &mpsc::Sender<ParameterCommand<T>>,
+    reply_runtime: &Handle,
     query: Query,
-    make_command: impl FnOnce(Query) -> ParameterCommand<T>,
-    busy_response: R,
+    make_command: impl FnOnce(Query) -> RemoteParameterCommand,
+    make_busy_response: impl FnOnce() -> R,
 ) where
     T: Serialize + DeserializeOwned + Message + Send + Sync + 'static,
-    R: Message,
+    R: Message + Send + 'static,
     for<'a> <R as Message>::Codec: WireEncoder<Input<'a> = &'a R>,
 {
-    match commands.try_send(make_command(query)) {
+    match commands.try_send(ParameterCommand::Remote(make_command(query))) {
         Ok(()) => {}
-        Err(flume::TrySendError::Full(command))
-        | Err(flume::TrySendError::Disconnected(command)) => {
+        Err(mpsc::error::TrySendError::Full(ParameterCommand::Remote(command)))
+        | Err(mpsc::error::TrySendError::Closed(ParameterCommand::Remote(command))) => {
             let query = command.into_query();
-            reply(&query, &busy_response);
+            let busy_response = make_busy_response();
+            spawn_reply(reply_runtime, query, busy_response);
+        }
+        Err(mpsc::error::TrySendError::Full(_)) | Err(mpsc::error::TrySendError::Closed(_)) => {
+            tracing::warn!("[PARAM] Unexpected local command returned from remote enqueue");
         }
     }
 }
 
-pub fn handle_get_snapshot_for_state<T>(state: &Arc<ParameterState<T>>, query: Query)
-where
+pub fn handle_get_snapshot_for_state<T>(
+    state: &Arc<ParameterState<T>>,
+    reply_runtime: &Handle,
+    query: Query,
+) where
     T: Serialize + DeserializeOwned + Message + Send + Sync + 'static,
 {
-    let snapshot = state.current.load_full();
+    let snapshot = state.snapshot();
     let response = GetNodeParametersSnapshotResponse {
         success: true,
         message: String::new(),
@@ -272,19 +295,22 @@ where
         value_json: to_json(&snapshot.effective),
         layer_overlays_json: snapshot.layer_overlays.iter().map(to_json).collect(),
     };
-    reply(&query, &response);
+    spawn_reply(reply_runtime, query, response);
 }
 
-pub fn handle_get_value_for_state<T>(state: &Arc<ParameterState<T>>, query: Query)
-where
+pub fn handle_get_value_for_state<T>(
+    state: &Arc<ParameterState<T>>,
+    reply_runtime: &Handle,
+    query: Query,
+) where
     T: Serialize + DeserializeOwned + Message + Send + Sync + 'static,
 {
     let request = decode_request::<GetNodeParameterValueRequest>(&query);
     let response = match request {
         Ok(request) => {
-            let snapshot = state.current.load_full();
-            match get_from_value(&snapshot.effective, &request.path) {
-                Ok(Some(value)) => GetNodeParameterValueResponse {
+            let snapshot = state.snapshot();
+            match ParameterState::get_json_from_snapshot(&snapshot, &request.path) {
+                Ok(value) => GetNodeParameterValueResponse {
                     success: true,
                     message: String::new(),
                     revision: snapshot.revision,
@@ -293,18 +319,6 @@ where
                         .effective_source_layer(&request.path)
                         .unwrap_or_default(),
                     value_json: to_json(&value),
-                },
-                Ok(None) => GetNodeParameterValueResponse {
-                    success: false,
-                    message: ParameterError::PathError {
-                        path: request.path.clone(),
-                        reason: "path not found".to_string(),
-                    }
-                    .to_string(),
-                    revision: snapshot.revision,
-                    path: request.path,
-                    effective_source_layer: String::new(),
-                    value_json: "null".to_string(),
                 },
                 Err(err) => GetNodeParameterValueResponse {
                     success: false,
@@ -325,26 +339,30 @@ where
             value_json: "null".to_string(),
         },
     };
-    reply(&query, &response);
+    spawn_reply(reply_runtime, query, response);
 }
 
-pub fn handle_get_type_info_for_state<T>(state: &Arc<ParameterState<T>>, query: Query)
-where
+pub fn handle_get_type_info_for_state<T>(
+    state: &Arc<ParameterState<T>>,
+    reply_runtime: &Handle,
+    query: Query,
+) where
     T: Serialize + DeserializeOwned + Message + Send + Sync + 'static,
 {
-    reply(
-        &query,
-        &GetNodeParameterTypeInfoResponse {
-            success: true,
-            message: String::new(),
-            type_name: state.type_name.clone(),
-            schema_hash: state.schema_hash.to_hash_string(),
-        },
-    );
+    let response = GetNodeParameterTypeInfoResponse {
+        success: true,
+        message: String::new(),
+        type_name: state.type_name().to_string(),
+        schema_hash: state.schema_hash().to_hash_string(),
+    };
+    spawn_reply(reply_runtime, query, response);
 }
 
-pub async fn handle_set_for_driver<T>(driver: &ParameterDriver<T>, query: Query)
-where
+pub async fn handle_set_for_driver<T>(
+    driver: &ParameterDriver<T>,
+    reply_runtime: &Handle,
+    query: Query,
+) where
     T: Serialize + DeserializeOwned + Message + Send + Sync + 'static,
 {
     let request = decode_request::<SetNodeParameterRequest>(&query);
@@ -375,11 +393,14 @@ where
             changed_paths: Vec::new(),
         },
     };
-    reply(&query, &response);
+    spawn_reply(reply_runtime, query, response);
 }
 
-pub async fn handle_set_atomic_for_driver<T>(driver: &ParameterDriver<T>, query: Query)
-where
+pub async fn handle_set_atomic_for_driver<T>(
+    driver: &ParameterDriver<T>,
+    reply_runtime: &Handle,
+    query: Query,
+) where
     T: Serialize + DeserializeOwned + Message + Send + Sync + 'static,
 {
     let request = decode_request::<SetNodeParametersAtomicallyRequest>(&query);
@@ -425,11 +446,14 @@ where
             changed_paths: Vec::new(),
         },
     };
-    reply(&query, &response);
+    spawn_reply(reply_runtime, query, response);
 }
 
-pub async fn handle_reset_for_driver<T>(driver: &ParameterDriver<T>, query: Query)
-where
+pub async fn handle_reset_for_driver<T>(
+    driver: &ParameterDriver<T>,
+    reply_runtime: &Handle,
+    query: Query,
+) where
     T: Serialize + DeserializeOwned + Message + Send + Sync + 'static,
 {
     let request = decode_request::<ResetNodeParameterRequest>(&query);
@@ -453,11 +477,14 @@ where
             changed_paths: Vec::new(),
         },
     };
-    reply(&query, &response);
+    spawn_reply(reply_runtime, query, response);
 }
 
-pub async fn handle_reload_for_driver<T>(driver: &ParameterDriver<T>, query: Query)
-where
+pub async fn handle_reload_for_driver<T>(
+    driver: &ParameterDriver<T>,
+    reply_runtime: &Handle,
+    query: Query,
+) where
     T: Serialize + DeserializeOwned + Message + Send + Sync + 'static,
 {
     let response = match driver
@@ -477,7 +504,7 @@ where
             changed_paths: Vec::new(),
         },
     };
-    reply(&query, &response);
+    spawn_reply(reply_runtime, query, response);
 }
 
 fn write_response<T>(outcome: CommitOutcome) -> T
@@ -555,27 +582,79 @@ where
         .map_err(|err| format!("{err}"))
 }
 
-fn reply<T>(query: &Query, response: &T)
+pub(crate) fn reply_remote_command_unavailable(
+    reply_runtime: &Handle,
+    command: RemoteParameterCommand,
+) {
+    match command {
+        RemoteParameterCommand::GetSnapshot { query } => {
+            spawn_reply(reply_runtime, query, busy_snapshot_response());
+        }
+        RemoteParameterCommand::GetValue { query } => {
+            spawn_reply(reply_runtime, query, busy_value_response());
+        }
+        RemoteParameterCommand::GetTypeInfo { query } => {
+            spawn_reply(reply_runtime, query, busy_type_info_response());
+        }
+        RemoteParameterCommand::Set { query } => {
+            spawn_reply(
+                reply_runtime,
+                query,
+                busy_write_response::<SetNodeParameterResponse>(),
+            );
+        }
+        RemoteParameterCommand::SetAtomic { query } => {
+            spawn_reply(
+                reply_runtime,
+                query,
+                busy_write_response::<SetNodeParametersAtomicallyResponse>(),
+            );
+        }
+        RemoteParameterCommand::Reset { query } => {
+            spawn_reply(
+                reply_runtime,
+                query,
+                busy_write_response::<ResetNodeParameterResponse>(),
+            );
+        }
+        RemoteParameterCommand::Reload { query } => {
+            spawn_reply(
+                reply_runtime,
+                query,
+                busy_write_response::<ReloadNodeParametersResponse>(),
+            );
+        }
+    }
+}
+
+fn spawn_reply<T>(reply_runtime: &Handle, query: Query, response: T)
+where
+    T: Message + Send + 'static,
+    for<'a> <T as Message>::Codec: WireEncoder<Input<'a> = &'a T>,
+{
+    reply_runtime.spawn(async move {
+        if let Err(err) = reply_async(query, response).await {
+            tracing::warn!("[PARAM] Failed to send parameter reply: {err}");
+        }
+    });
+}
+
+async fn reply_async<T>(query: Query, response: T) -> std::result::Result<(), String>
 where
     T: Message,
     for<'a> <T as Message>::Codec: WireEncoder<Input<'a> = &'a T>,
 {
-    let bytes = match <<T as Message>::Codec as WireEncoder>::serialize(response) {
-        Ok(bytes) => bytes,
-        Err(error) => {
-            tracing::warn!(error = ?error, "[PARAM] Failed to serialize parameter reply");
-            return;
-        }
-    };
+    let bytes = <<T as Message>::Codec as WireEncoder>::serialize(&response)
+        .map_err(|error| format!("failed to serialize parameter reply: {error}"))?;
     let mut reply = query.reply(query.key_expr().clone(), bytes);
     if let Some(att_bytes) = query.attachment()
         && let Ok(att) = Attachment::try_from(att_bytes)
     {
         reply = reply.attachment(att);
     }
-    if let Err(err) = reply.wait() {
-        tracing::warn!("[PARAM] Failed to send parameter reply: {err}");
-    }
+    reply
+        .await
+        .map_err(|err| format!("failed to send parameter reply: {err}"))
 }
 
 fn to_json(value: &serde_json::Value) -> String {
@@ -616,7 +695,8 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn callback_replies_busy_when_mailbox_is_full() -> TestResult {
-        let (commands, _receiver) = flume::bounded(0);
+        let (commands, _receiver) = mpsc::channel(1);
+        let _permit = commands.clone().reserve_owned().await?;
 
         let response = call_set_service_with_commands("full", commands).await?;
 
@@ -626,7 +706,7 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn callback_replies_busy_when_mailbox_is_disconnected() -> TestResult {
-        let (commands, receiver) = flume::bounded(1);
+        let (commands, receiver) = mpsc::channel(1);
         drop(receiver);
 
         let response = call_set_service_with_commands("disconnected", commands).await?;
@@ -637,7 +717,8 @@ mod tests {
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
     async fn callback_replies_busy_for_atomic_when_mailbox_is_full() -> TestResult {
-        let (commands, _receiver) = flume::bounded(0);
+        let (commands, _receiver) = mpsc::channel(1);
+        let _permit = commands.clone().reserve_owned().await?;
 
         let response = call_atomic_service_with_commands("atomic_full", commands).await?;
 
@@ -647,7 +728,7 @@ mod tests {
 
     async fn call_set_service_with_commands(
         suffix: &str,
-        commands: flume::Sender<ParameterCommand<BusyCallbackParameters>>,
+        commands: mpsc::Sender<ParameterCommand<BusyCallbackParameters>>,
     ) -> TestResult<SetNodeParameterResponse> {
         let context = ContextBuilder::default()
             .with_mode("peer")
@@ -658,14 +739,17 @@ mod tests {
         let server_name = format!("busy_parameter_server_{suffix}_{id}");
         let server_node = context.create_node(&server_name).build().await?;
         let service_name = format!("/{server_name}/parameter/set");
+        let reply_runtime = Handle::current();
         let _server = register_server::<SetNodeParameterSrv>(&server_node, "~parameter/set", {
             let commands = commands.clone();
+            let reply_runtime = reply_runtime.clone();
             move |query| {
                 enqueue_or_reply_busy(
                     &commands,
+                    &reply_runtime,
                     query,
-                    |query| ParameterCommand::RemoteSet { query },
-                    busy_write_response::<SetNodeParameterResponse>(),
+                    |query| RemoteParameterCommand::Set { query },
+                    busy_write_response::<SetNodeParameterResponse>,
                 );
             }
         })
@@ -697,7 +781,7 @@ mod tests {
 
     async fn call_atomic_service_with_commands(
         suffix: &str,
-        commands: flume::Sender<ParameterCommand<BusyCallbackParameters>>,
+        commands: mpsc::Sender<ParameterCommand<BusyCallbackParameters>>,
     ) -> TestResult<SetNodeParametersAtomicallyResponse> {
         let context = ContextBuilder::default()
             .with_mode("peer")
@@ -708,17 +792,20 @@ mod tests {
         let server_name = format!("busy_parameter_server_{suffix}_{id}");
         let server_node = context.create_node(&server_name).build().await?;
         let service_name = format!("/{server_name}/parameter/set_atomic");
+        let reply_runtime = Handle::current();
         let _server = register_server::<SetNodeParametersAtomicallySrv>(
             &server_node,
             "~parameter/set_atomic",
             {
                 let commands = commands.clone();
+                let reply_runtime = reply_runtime.clone();
                 move |query| {
                     enqueue_or_reply_busy(
                         &commands,
+                        &reply_runtime,
                         query,
-                        |query| ParameterCommand::RemoteSetAtomic { query },
-                        busy_write_response::<SetNodeParametersAtomicallyResponse>(),
+                        |query| RemoteParameterCommand::SetAtomic { query },
+                        busy_write_response::<SetNodeParametersAtomicallyResponse>,
                     );
                 }
             },

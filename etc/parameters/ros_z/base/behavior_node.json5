@@ -26,8 +26,6 @@
   },
   path_planning: {
     robot_radius: 0.4,
-    robot_radius_at_hip_height: 0.3,
-    robot_radius_at_foot_height: 0.4,
     minimum_robot_radius_at_foot_height: 0.11,
     ball_obstacle_radius: 0.05,
     field_border_weight: 0.15,
@@ -51,9 +49,6 @@
     kicking: 0.5,
     search: 0.5,
     blocking: 0.5,
-    support: 0.75,
-    walk_to_kickoff: 0.5,
-    walk_to_penalty_kick: 0.5,
   },
   role_positions: {
     defender_aggressive_ring_radius: 2.0,

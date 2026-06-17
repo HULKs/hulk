@@ -326,9 +326,24 @@ async fn dropping_all_parameter_handles_allows_rebind() -> TestResult {
 
     drop(clone);
 
-    let rebound = node
-        .bind_parameter_as::<VisionParameters>("ball_detector")
-        .await?;
+    let rebound = tokio::time::timeout(Duration::from_secs(1), async {
+        loop {
+            match node
+                .bind_parameter_as::<VisionParameters>("ball_detector")
+                .await
+            {
+                Ok(parameters) => {
+                    return Ok::<_, Box<dyn std::error::Error + Send + Sync>>(parameters);
+                }
+                Err(ParameterError::AlreadyBound { .. }) => {
+                    tokio::task::yield_now().await;
+                }
+                Err(err) => return Err(err.into()),
+            }
+        }
+    })
+    .await
+    .map_err(|_| "timed out waiting for parameter binding to release")??;
     assert_eq!(rebound.snapshot().typed().threshold, 0.5);
     Ok(())
 }
