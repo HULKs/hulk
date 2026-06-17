@@ -1,5 +1,9 @@
-use color_eyre::{Result, eyre::eyre};
-use ros_z_debug::{ManagerOptions, TopicProjection};
+use color_eyre::Result;
+#[cfg(test)]
+use color_eyre::eyre::eyre;
+use ros_z_debug::ManagerOptions;
+#[cfg(test)]
+use ros_z_debug::TopicProjection;
 
 pub fn normalize_namespace(namespace: &str) -> Result<String> {
     Ok(ManagerOptions::with_target_namespace(namespace)?
