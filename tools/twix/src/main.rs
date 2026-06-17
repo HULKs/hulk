@@ -161,7 +161,7 @@ fn robot_address_to_namespace(address: &str) -> Result<String> {
     let robot_address = RobotAddress::from_str(address_without_port)
         .wrap_err_with(|| format!("failed to parse robot number/address '{address}'"))?;
     let [first, second, third, robot_number] = robot_address.ip.octets();
-    if first == 10 && matches!(second, 0 | 1) && third == 24 {
+    if first == 10 && matches!(second, 0 | 1) && third != 0 {
         Ok(format!("/{robot_number}"))
     } else {
         Err(eyre!(
@@ -186,6 +186,18 @@ fn robot_address_to_router_endpoint(address: &str) -> Result<String> {
 
 fn router_endpoint_from_storage(storage: Option<&dyn Storage>) -> String {
     let Some(router_endpoint) = storage_string(storage, "router_endpoint") else {
+        if let Some(address) = storage_string(storage, "address") {
+            return match robot_address_to_router_endpoint(&address) {
+                Ok(router_endpoint) => router_endpoint,
+                Err(error) => {
+                    warn!(
+                        "invalid saved robot address '{address}', falling back to \
+                         {DEFAULT_ROUTER_ENDPOINT}: {error:#}"
+                    );
+                    DEFAULT_ROUTER_ENDPOINT.to_string()
+                }
+            };
+        }
         return DEFAULT_ROUTER_ENDPOINT.to_string();
     };
 
@@ -394,7 +406,26 @@ impl std::fmt::Display for SelectablePanel {
 
 #[cfg(test)]
 mod tests {
+    use std::collections::HashMap;
+
     use super::*;
+
+    #[derive(Default)]
+    struct MemoryStorage {
+        values: HashMap<String, String>,
+    }
+
+    impl Storage for MemoryStorage {
+        fn get_string(&self, key: &str) -> Option<String> {
+            self.values.get(key).cloned()
+        }
+
+        fn set_string(&mut self, key: &str, value: String) {
+            self.values.insert(key.to_string(), value);
+        }
+
+        fn flush(&mut self) {}
+    }
 
     #[test]
     fn robot_argument_selects_robot_router_endpoint() {
@@ -405,6 +436,35 @@ mod tests {
         assert_eq!(
             router_endpoint_from_arguments_and_storage(Some("42w"), None),
             "tcp/10.0.24.42:7447"
+        );
+    }
+
+    #[test]
+    fn robot_address_on_non_hulks_team_selects_robot_namespace() {
+        assert_eq!(robot_address_to_namespace("10.1.7.21").unwrap(), "/21");
+        assert_eq!(robot_address_to_namespace("10.0.12.8").unwrap(), "/8");
+    }
+
+    #[test]
+    fn saved_legacy_address_migrates_router_endpoint_when_missing() {
+        let mut storage = MemoryStorage::default();
+        storage.set_string("address", "42w".to_string());
+
+        assert_eq!(
+            router_endpoint_from_arguments_and_storage(None, Some(&storage)),
+            "tcp/10.0.24.42:7447"
+        );
+    }
+
+    #[test]
+    fn saved_router_endpoint_takes_precedence_over_legacy_address() {
+        let mut storage = MemoryStorage::default();
+        storage.set_string("address", "42w".to_string());
+        storage.set_string("router_endpoint", "tcp/127.0.0.1:7448".to_string());
+
+        assert_eq!(
+            router_endpoint_from_arguments_and_storage(None, Some(&storage)),
+            "tcp/127.0.0.1:7448"
         );
     }
 

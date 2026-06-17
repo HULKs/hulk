@@ -1,4 +1,4 @@
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use chrono::{DateTime, Utc};
 use eframe::egui::{Label, Response, ScrollArea, Sense, Ui, Widget};
@@ -8,7 +8,7 @@ use crate::{
     backend::TwixBackend,
     panel::{Panel, PanelCreationContext},
     topic_completion_edit::TopicCompletionEdit,
-    value_buffer::BufferHandle,
+    value_buffer::{BufferHandle, BufferHistory},
 };
 
 pub struct TextPanel {
@@ -34,7 +34,7 @@ impl<'a> Panel<'a> for TextPanel {
             Some(
                 context
                     .backend
-                    .subscribe_json(topic.clone(), Duration::ZERO),
+                    .subscribe_json(topic.clone(), BufferHistory::LatestOnly),
             )
         };
         Self {
@@ -74,7 +74,7 @@ impl Widget for &mut TextPanel {
                 if edit_response.changed() {
                     self.buffer = Some(
                         self.backend
-                            .subscribe_json(self.topic.clone(), Duration::ZERO),
+                            .subscribe_json(self.topic.clone(), BufferHistory::LatestOnly),
                     );
                 }
                 if let Some(buffer) = &self.buffer

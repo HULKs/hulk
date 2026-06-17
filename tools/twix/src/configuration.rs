@@ -128,16 +128,17 @@ mod tests {
     }
 
     #[test]
-    fn rejects_stale_keybind_actions() {
-        let error = toml::from_str::<Configuration>(
+    fn ignores_stale_keybind_actions() {
+        let config = toml::from_str::<Configuration>(
             r#"
                 [keys]
                 C-r = "reconnect"
+                C-p = "focus_panel"
             "#,
         )
-        .unwrap_err();
+        .expect("failed to ignore stale keybind action");
 
-        assert!(error.to_string().contains("unknown variant `reconnect`"));
+        assert_eq!(config.keys.iter().count(), 1);
     }
 
     #[test]

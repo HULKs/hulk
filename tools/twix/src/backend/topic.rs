@@ -12,6 +12,7 @@ pub fn resolve_topic_selector(target_namespace: &str, selector: &str) -> Result<
     Ok(ros_z_debug::TopicSelector::new(selector)?.resolve(target_namespace)?)
 }
 
+#[cfg(test)]
 pub fn display_selector(target_namespace: &str, resolved_topic: &str) -> Result<String> {
     if !resolved_topic.starts_with('/') {
         return Err(eyre!("resolved topic must be absolute: '{resolved_topic}'"));

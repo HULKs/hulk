@@ -18,7 +18,7 @@ use crate::{
     backend::TwixBackend,
     panel::{Panel, PanelCreationContext},
     topic_completion_edit::TopicCompletionEdit,
-    value_buffer::BufferHandle,
+    value_buffer::{BufferHandle, BufferHistory},
 };
 
 const DEFAULT_LINE_COLORS: &[Color32] = &[
@@ -151,7 +151,10 @@ impl LineData {
             ));
             self.set_highlighted(subscription_field.hovered());
             if subscription_field.changed() {
-                let handle = backend.subscribe_json(self.topic.clone(), buffer_history);
+                let handle = backend.subscribe_json(
+                    self.topic.clone(),
+                    BufferHistory::from_duration(buffer_history),
+                );
                 self.buffer = Some(handle);
             }
 
@@ -233,9 +236,10 @@ impl<'a> Panel<'a> for PlotPanel {
                             serde_json::from_value::<LineData>(line_data.clone()).ok()?;
                         line_data.set_lua();
                         if !line_data.topic.is_empty() {
-                            let handle = context
-                                .backend
-                                .subscribe_json(line_data.topic.clone(), DEFAULT_BUFFER_HISTORY);
+                            let handle = context.backend.subscribe_json(
+                                line_data.topic.clone(),
+                                BufferHistory::from_duration(DEFAULT_BUFFER_HISTORY),
+                            );
                             line_data.buffer = Some(handle);
                         }
                         Some(line_data)
@@ -320,7 +324,7 @@ impl PlotPanel {
                     .iter_mut()
                     .filter_map(|data| data.buffer.as_ref())
                 {
-                    buffer.set_history(self.buffer_history);
+                    buffer.set_history(BufferHistory::from_duration(self.buffer_history));
                 }
             }
         });

@@ -37,6 +37,26 @@ pub enum KeybindAction {
     CloseAll,
 }
 
+fn parse_keybind_action(action: &str) -> Result<Option<KeybindAction>, String> {
+    let action = match action {
+        "close_tab" => KeybindAction::CloseTab,
+        "duplicate_tab" => KeybindAction::DuplicateTab,
+        "focus_above" => KeybindAction::FocusAbove,
+        "focus_below" => KeybindAction::FocusBelow,
+        "focus_left" => KeybindAction::FocusLeft,
+        "focus_panel" => KeybindAction::FocusPanel,
+        "focus_right" => KeybindAction::FocusRight,
+        "no_op" => KeybindAction::NoOp,
+        "open_split" => KeybindAction::OpenSplit,
+        "open_tab" => KeybindAction::OpenTab,
+        "close_all" => KeybindAction::CloseAll,
+        "reconnect" | "focus_address" => return Ok(None),
+        other => return Err(format!("unknown keybind action `{other}`")),
+    };
+
+    Ok(Some(action))
+}
+
 pub fn parse_modifier(value: &str) -> Result<Modifiers, Error> {
     match value {
         "A" => Ok(Modifiers::ALT),
@@ -144,9 +164,15 @@ impl<'de> Deserialize<'de> for Keybinds {
             {
                 let mut keybinds = HashMap::new();
 
-                while let Some((raw_trigger, action)) = visitor.next_entry::<String, _>()? {
+                while let Some((raw_trigger, raw_action)) =
+                    visitor.next_entry::<String, String>()?
+                {
                     let trigger = parse_shortcut(&raw_trigger).map_err(de::Error::custom)?;
-                    keybinds.insert(trigger, action);
+                    if let Some(action) =
+                        parse_keybind_action(&raw_action).map_err(de::Error::custom)?
+                    {
+                        keybinds.insert(trigger, action);
+                    }
                 }
 
                 Ok(Keybinds { keybinds })

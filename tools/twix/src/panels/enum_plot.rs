@@ -179,7 +179,7 @@ impl SegmentRow {
 
     fn error_message(&self) -> Option<String> {
         let buffer = self.buffer.as_ref()?;
-        buffer.get().err().map(|error| format!("{error:#}"))
+        buffer.error_message()
     }
 
     fn segments(&self, timestamp_range: &Range<SystemTime>) -> Option<Vec<Segment>> {

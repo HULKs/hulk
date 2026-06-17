@@ -3,7 +3,7 @@ pub mod json_buffer;
 pub mod subscription;
 pub mod topic;
 
-use std::{sync::Arc, time::Duration};
+use std::sync::Arc;
 
 use color_eyre::{Result, eyre::eyre};
 use eframe::egui::Context as EguiContext;
@@ -16,7 +16,10 @@ use tokio::{
     sync::watch,
 };
 
-use crate::{backend::catalog::TopicCatalog, value_buffer::BufferHandle};
+use crate::{
+    backend::catalog::TopicCatalog,
+    value_buffer::{BufferHandle, BufferHistory},
+};
 
 pub struct TwixBackend {
     node: Arc<Node>,
@@ -94,7 +97,7 @@ impl TwixBackend {
     pub fn subscribe_json(
         &self,
         selector: impl Into<String>,
-        history: Duration,
+        history: BufferHistory,
     ) -> BufferHandle<Value> {
         json_buffer::subscribe_json(
             &self.runtime,

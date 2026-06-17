@@ -2,8 +2,9 @@ use std::collections::{BTreeMap, BTreeSet};
 
 use color_eyre::Result;
 use ros_z::{entity::EndpointKind, graph::GraphView};
+use ros_z_debug::{ProjectedTopicScope, TopicProjection};
 
-use super::topic::{display_selector, normalize_namespace};
+use super::topic::normalize_namespace;
 
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct TopicEntry {
@@ -92,24 +93,21 @@ pub fn build_topic_catalog_from_entries(
     entries: impl IntoIterator<Item = (String, String, usize, usize)>,
 ) -> Result<TopicCatalog> {
     let target_namespace = normalize_namespace(target_namespace)?;
-    let namespace_prefix = if target_namespace == "/" {
-        "/".to_string()
-    } else {
-        format!("{target_namespace}/")
-    };
 
     let mut topics = entries
         .into_iter()
         .map(|(resolved_topic, type_name, publishers, subscribers)| {
-            let selector = display_selector(&target_namespace, &resolved_topic)?;
-            let in_target_namespace = if target_namespace == "/" {
-                resolved_topic.starts_with('/')
-            } else {
-                resolved_topic.starts_with(&namespace_prefix)
-            };
+            let projected = TopicProjection::project(&target_namespace, [&resolved_topic])?
+                .into_iter()
+                .next()
+                .expect("projection should return one topic for one input");
+            let in_target_namespace = matches!(
+                projected.scope,
+                ProjectedTopicScope::RelativeToActiveNamespace
+            );
             Ok(TopicEntry {
-                selector,
-                resolved_topic,
+                selector: projected.display_name,
+                resolved_topic: projected.resolved_topic,
                 type_name,
                 publishers,
                 subscribers,

@@ -1,4 +1,4 @@
-use std::{future::Future, sync::Arc, time::Duration};
+use std::{future::Future, sync::Arc};
 
 use color_eyre::eyre::Report;
 use eframe::egui::Context as EguiContext;
@@ -8,7 +8,7 @@ use serde_json::Value;
 use tokio::{runtime::Runtime, sync::watch, time};
 
 use super::subscription::{self, ActiveSubscription, RebuildReason};
-use crate::value_buffer::{Buffer, BufferHandle, Datum};
+use crate::value_buffer::{Buffer, BufferHandle, BufferHistory, Datum};
 
 type JsonBuffer = Buffer<Value, Report>;
 
@@ -18,7 +18,7 @@ pub fn subscribe_json(
     target_namespace: watch::Receiver<String>,
     egui_context: EguiContext,
     selector: impl Into<String>,
-    history: Duration,
+    history: BufferHistory,
 ) -> BufferHandle<Value> {
     let (buffer, handle) = Buffer::new(history);
     runtime.spawn(run_json_buffer(
@@ -157,10 +157,10 @@ async fn forward_record(record: Arc<SampleRecord<DynamicPayload>>, buffer: &Json
         .await;
 }
 
-fn retention_policy(history: Duration) -> RetentionPolicy {
-    if history.is_zero() {
+fn retention_policy(history: BufferHistory) -> RetentionPolicy {
+    let BufferHistory::TimeWindow(history) = history else {
         return RetentionPolicy::LatestOnly;
-    }
+    };
 
     match RetentionPolicy::time_window(history) {
         Ok(retention) => retention,
@@ -170,7 +170,7 @@ fn retention_policy(history: Duration) -> RetentionPolicy {
 
 #[cfg(test)]
 mod tests {
-    use std::{cell::RefCell, rc::Rc};
+    use std::{cell::RefCell, rc::Rc, time::Duration};
 
     use super::*;
 

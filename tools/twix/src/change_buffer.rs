@@ -62,6 +62,11 @@ where
         let guard = self.receiver.borrow();
         guard.as_ref().map_err(|error| eyre!("{error:#}")).cloned()
     }
+
+    pub fn error_message(&self) -> Option<String> {
+        let guard = self.receiver.borrow();
+        guard.as_ref().err().map(|error| format!("{error:#}"))
+    }
 }
 
 pub struct ChangeBuffer<T, E> {
@@ -259,16 +264,18 @@ fn handle_update<T: PartialEq, E>(value: &mut Result<ChangeSeries<T>, E>, datum:
                 None => Some(timestamp),
             };
 
-            if buffer
+            let changed_index = if buffer
                 .changes
                 .get(index)
                 .is_some_and(|change| change.timestamp == timestamp)
             {
                 buffer.changes[index] = datum;
+                index
             } else {
                 buffer.changes.insert(index, datum);
-            }
-            compress_adjacent_duplicate_changes(&mut buffer.changes);
+                index
+            };
+            compress_adjacent_duplicate_changes_around(&mut buffer.changes, changed_index);
         }
         Err(_) => {
             *value = Ok(ChangeSeries {
@@ -280,14 +287,21 @@ fn handle_update<T: PartialEq, E>(value: &mut Result<ChangeSeries<T>, E>, datum:
     }
 }
 
-fn compress_adjacent_duplicate_changes<T: PartialEq>(changes: &mut Vec<Change<T>>) {
-    let mut index = 1;
-    while index < changes.len() {
-        if changes[index - 1].value == changes[index].value {
-            changes.remove(index);
-        } else {
-            index += 1;
-        }
+fn compress_adjacent_duplicate_changes_around<T: PartialEq>(
+    changes: &mut Vec<Change<T>>,
+    mut index: usize,
+) {
+    if changes.is_empty() {
+        return;
+    }
+
+    while index > 0 && changes[index - 1].value == changes[index].value {
+        changes.remove(index);
+        index -= 1;
+    }
+
+    while index + 1 < changes.len() && changes[index].value == changes[index + 1].value {
+        changes.remove(index + 1);
     }
 }
 
@@ -358,6 +372,24 @@ mod tests {
             Ok(_) => panic!("expected subscription error"),
             Err(error) => assert!(format!("{error:#}").contains("subscription failed")),
         }
+    }
+
+    #[test]
+    fn error_message_reports_current_error_without_replacing_successful_series() {
+        let (buffer, handle) = ChangeBuffer::<i32, Report>::new();
+        assert_eq!(handle.error_message(), None);
+
+        buffer.push(Change {
+            timestamp: SystemTime::UNIX_EPOCH,
+            value: 1,
+        });
+        assert_eq!(handle.error_message(), None);
+
+        buffer.send_error(eyre!("subscription failed"));
+        assert_eq!(
+            handle.error_message().as_deref(),
+            Some("subscription failed")
+        );
     }
 
     #[test]

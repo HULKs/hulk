@@ -16,9 +16,25 @@ pub struct Datum<T> {
 
 type TimeSeries<T> = Vec<Datum<T>>;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+pub enum BufferHistory {
+    LatestOnly,
+    TimeWindow(Duration),
+}
+
+impl BufferHistory {
+    pub fn from_duration(duration: Duration) -> Self {
+        if duration.is_zero() {
+            Self::LatestOnly
+        } else {
+            Self::TimeWindow(duration)
+        }
+    }
+}
+
 pub struct BufferHandle<T, E = eyre::Report> {
     receiver: watch::Receiver<Result<TimeSeries<T>, E>>,
-    history: Arc<Mutex<Duration>>,
+    history: Arc<Mutex<BufferHistory>>,
 }
 
 impl<T, E> Clone for BufferHandle<T, E> {
@@ -60,18 +76,18 @@ where
         Ok(self.get_last()?.map(|datum| datum.value))
     }
 
-    pub fn set_history(&self, history: Duration) {
+    pub fn set_history(&self, history: BufferHistory) {
         *self.history.blocking_lock() = history;
     }
 }
 
 pub struct Buffer<T, E> {
     sender: watch::Sender<Result<TimeSeries<T>, E>>,
-    history: Arc<Mutex<Duration>>,
+    history: Arc<Mutex<BufferHistory>>,
 }
 
 impl<T, E> Buffer<T, E> {
-    pub fn new(history: Duration) -> (Buffer<T, E>, BufferHandle<T, E>) {
+    pub fn new(history: BufferHistory) -> (Buffer<T, E>, BufferHandle<T, E>) {
         let (sender, receiver) = watch::channel(Ok(TimeSeries::new()));
         let history = Arc::new(Mutex::new(history));
         let buffer = Buffer {
@@ -82,7 +98,7 @@ impl<T, E> Buffer<T, E> {
         (buffer, handle)
     }
 
-    pub async fn history(&self) -> Duration {
+    pub async fn history(&self) -> BufferHistory {
         *self.history.lock().await
     }
 
@@ -120,10 +136,14 @@ impl<T, E> Buffer<T, E> {
     }
 }
 
-fn handle_update<T, E>(value: &mut Result<Vec<Datum<T>>, E>, datum: Datum<T>, history: Duration) {
+fn handle_update<T, E>(
+    value: &mut Result<Vec<Datum<T>>, E>,
+    datum: Datum<T>,
+    history: BufferHistory,
+) {
     match value.as_mut() {
         Ok(buffer) => {
-            if history.is_zero() {
+            let BufferHistory::TimeWindow(history) = history else {
                 if buffer
                     .last()
                     .is_none_or(|sample| datum.timestamp >= sample.timestamp)
@@ -132,7 +152,7 @@ fn handle_update<T, E>(value: &mut Result<Vec<Datum<T>>, E>, datum: Datum<T>, hi
                     buffer.push(datum);
                 }
                 return;
-            }
+            };
 
             let insert_at = buffer.partition_point(|sample| sample.timestamp < datum.timestamp);
             let replace_until =
@@ -160,7 +180,8 @@ mod tests {
 
     #[tokio::test]
     async fn buffer_retains_values_inside_history_window() {
-        let (buffer, handle) = Buffer::<i32, eyre::Report>::new(Duration::from_secs(1));
+        let (buffer, handle) =
+            Buffer::<i32, eyre::Report>::new(BufferHistory::TimeWindow(Duration::from_secs(1)));
         let now = SystemTime::UNIX_EPOCH + Duration::from_secs(10);
 
         buffer
@@ -189,7 +210,8 @@ mod tests {
 
     #[tokio::test]
     async fn buffer_recovers_from_error_with_next_json_value() {
-        let (buffer, handle) = Buffer::<serde_json::Value, eyre::Report>::new(Duration::ZERO);
+        let (buffer, handle) =
+            Buffer::<serde_json::Value, eyre::Report>::new(BufferHistory::LatestOnly);
         buffer.send_error(color_eyre::eyre::eyre!("decode error"));
 
         buffer
@@ -207,7 +229,8 @@ mod tests {
 
     #[tokio::test]
     async fn clear_error_replaces_error_with_empty_series() {
-        let (buffer, handle) = Buffer::<i32, eyre::Report>::new(Duration::from_secs(1));
+        let (buffer, handle) =
+            Buffer::<i32, eyre::Report>::new(BufferHistory::TimeWindow(Duration::from_secs(1)));
         buffer.send_error(color_eyre::eyre::eyre!("subscription failed"));
 
         assert!(buffer.clear_error());
@@ -217,7 +240,8 @@ mod tests {
 
     #[tokio::test]
     async fn clear_error_preserves_existing_series() {
-        let (buffer, handle) = Buffer::<i32, eyre::Report>::new(Duration::from_secs(1));
+        let (buffer, handle) =
+            Buffer::<i32, eyre::Report>::new(BufferHistory::TimeWindow(Duration::from_secs(1)));
         let now = SystemTime::UNIX_EPOCH + Duration::from_secs(1);
         buffer
             .push(Datum {
@@ -241,7 +265,8 @@ mod tests {
 
     #[tokio::test]
     async fn out_of_order_sample_preserves_newer_history_entries() {
-        let (buffer, handle) = Buffer::<i32, eyre::Report>::new(Duration::from_secs(10));
+        let (buffer, handle) =
+            Buffer::<i32, eyre::Report>::new(BufferHistory::TimeWindow(Duration::from_secs(10)));
         let now = SystemTime::UNIX_EPOCH + Duration::from_secs(100);
 
         buffer
@@ -275,8 +300,8 @@ mod tests {
     }
 
     #[tokio::test]
-    async fn zero_history_keeps_only_newest_equal_timestamp_sample() {
-        let (buffer, handle) = Buffer::<i32, eyre::Report>::new(Duration::ZERO);
+    async fn latest_only_history_keeps_only_newest_equal_timestamp_sample() {
+        let (buffer, handle) = Buffer::<i32, eyre::Report>::new(BufferHistory::LatestOnly);
         let now = SystemTime::UNIX_EPOCH + Duration::from_secs(100);
 
         buffer
@@ -305,7 +330,8 @@ mod tests {
 
     #[tokio::test]
     async fn nonzero_history_replaces_equal_timestamp_sample() {
-        let (buffer, handle) = Buffer::<i32, eyre::Report>::new(Duration::from_secs(10));
+        let (buffer, handle) =
+            Buffer::<i32, eyre::Report>::new(BufferHistory::TimeWindow(Duration::from_secs(10)));
         let now = SystemTime::UNIX_EPOCH + Duration::from_secs(100);
 
         buffer
