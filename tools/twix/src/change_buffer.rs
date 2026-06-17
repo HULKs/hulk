@@ -3,18 +3,28 @@ use std::{fmt::Display, sync::Arc, time::Duration, time::SystemTime};
 use color_eyre::eyre::{self, eyre};
 use color_eyre::{Result, eyre::Report};
 use eframe::egui::Context as EguiContext;
-use ros_z::{dynamic::DynamicPayload, node::Node, qos::QosProfile};
+use ros_z::{dynamic::DynamicPayload, qos::QosProfile};
 use ros_z_debug::{JsonRenderPolicy, RetentionPolicy, SampleRecord, dynamic_payload_to_json};
 use serde_json::Value;
-use tokio::{runtime::Runtime, sync::watch};
+use tokio::{runtime::Runtime, sync::watch, time};
 
 use crate::backend::{
+    connection::ConnectionState,
     latency::trace_forward_latency,
-    subscription::{self, ActiveSubscription, RebuildReason},
+    subscription::{self, ActiveSubscription},
 };
+
+const SUBSCRIBE_RETRY_DELAY: Duration = Duration::from_secs(1);
 const CHANGE_RETENTION_WINDOW: Duration = Duration::from_secs(1);
 
 type JsonChangeBuffer = ChangeBuffer<Value, Report>;
+
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum RebuildReason {
+    ConnectionChanged,
+    Retarget,
+    Retry,
+}
 
 #[derive(Clone, Debug)]
 pub struct Change<T> {
@@ -112,7 +122,7 @@ impl<T: PartialEq, E> ChangeBuffer<T, E> {
 
 pub fn spawn_json_change_buffer(
     runtime: &Runtime,
-    node: Arc<Node>,
+    connection_state: watch::Receiver<ConnectionState>,
     target_namespace: watch::Receiver<String>,
     egui_context: EguiContext,
     selector: String,
@@ -120,7 +130,7 @@ pub fn spawn_json_change_buffer(
 ) -> ChangeBufferHandle<Value> {
     let (buffer, handle) = ChangeBuffer::new();
     runtime.spawn(run_json_change_buffer(
-        node,
+        connection_state,
         target_namespace,
         egui_context,
         selector,
@@ -131,7 +141,7 @@ pub fn spawn_json_change_buffer(
 }
 
 async fn run_json_change_buffer(
-    node: Arc<Node>,
+    mut connection_state: watch::Receiver<ConnectionState>,
     mut target_namespace: watch::Receiver<String>,
     egui_context: EguiContext,
     selector: String,
@@ -151,6 +161,24 @@ async fn run_json_change_buffer(
         }
 
         let namespace = target_namespace.borrow_and_update().clone();
+        let state = connection_state.borrow_and_update().clone();
+        let Some(node) = state.node() else {
+            if let Some(message) = state.unavailable_message() {
+                buffer.send_error(eyre!(message.to_string()));
+                egui_context.request_repaint();
+            }
+            let Some(rebuild_reason) = wait_for_connection_or_retarget(
+                &mut connection_state,
+                &mut target_namespace,
+                &buffer,
+            )
+            .await
+            else {
+                break;
+            };
+            clear_on_rebuild = should_clear_on_rebuild(rebuild_reason);
+            continue;
+        };
         let subscription = subscription::subscribe_dynamic(
             node.clone(),
             namespace,
@@ -162,6 +190,13 @@ async fn run_json_change_buffer(
 
         let active_subscription = tokio::select! {
             result = &mut subscription => result,
+            changed = connection_state.changed() => {
+                if changed.is_err() {
+                    break;
+                }
+                clear_on_rebuild = true;
+                continue;
+            }
             changed = target_namespace.changed() => {
                 if changed.is_err() {
                     break;
@@ -179,6 +214,7 @@ async fn run_json_change_buffer(
                 }
                 let Some(rebuild_reason) = forward_subscription(
                     active_subscription,
+                    &mut connection_state,
                     &mut target_namespace,
                     &buffer,
                     &egui_context,
@@ -192,9 +228,10 @@ async fn run_json_change_buffer(
             Err(error) => {
                 buffer.send_error(error);
                 egui_context.request_repaint();
-                let Some(rebuild_reason) = subscription::wait_for_retry_or_retarget(
+                let Some(rebuild_reason) = wait_for_retry_or_retarget(
+                    &mut connection_state,
                     &mut target_namespace,
-                    buffer.closed(),
+                    &buffer,
                 )
                 .await
                 else {
@@ -210,6 +247,7 @@ async fn run_json_change_buffer(
 
 async fn forward_subscription(
     mut active_subscription: ActiveSubscription,
+    connection_state: &mut watch::Receiver<ConnectionState>,
     target_namespace: &mut watch::Receiver<String>,
     buffer: &JsonChangeBuffer,
     egui_context: &EguiContext,
@@ -235,6 +273,7 @@ async fn forward_subscription(
                     |record| async move { forward_record(record, buffer) },
                 ).await;
             }
+            changed = connection_state.changed() => return changed.ok().map(|()| RebuildReason::ConnectionChanged),
             changed = target_namespace.changed() => return changed.ok().map(|()| RebuildReason::Retarget),
             _ = buffer.closed() => return None,
         }
@@ -249,8 +288,39 @@ fn forward_record(record: Arc<SampleRecord<DynamicPayload>>, buffer: &JsonChange
     });
 }
 
+async fn wait_for_retry_or_retarget(
+    connection_state: &mut watch::Receiver<ConnectionState>,
+    target_namespace: &mut watch::Receiver<String>,
+    buffer: &JsonChangeBuffer,
+) -> Option<RebuildReason> {
+    let retry = time::sleep(SUBSCRIBE_RETRY_DELAY);
+    tokio::pin!(retry);
+
+    tokio::select! {
+        _ = &mut retry => Some(RebuildReason::Retry),
+        changed = connection_state.changed() => changed.ok().map(|()| RebuildReason::ConnectionChanged),
+        changed = target_namespace.changed() => changed.ok().map(|()| RebuildReason::Retarget),
+        _ = buffer.closed() => None,
+    }
+}
+
+async fn wait_for_connection_or_retarget(
+    connection_state: &mut watch::Receiver<ConnectionState>,
+    target_namespace: &mut watch::Receiver<String>,
+    buffer: &JsonChangeBuffer,
+) -> Option<RebuildReason> {
+    tokio::select! {
+        changed = connection_state.changed() => changed.ok().map(|()| RebuildReason::ConnectionChanged),
+        changed = target_namespace.changed() => changed.ok().map(|()| RebuildReason::Retarget),
+        _ = buffer.closed() => None,
+    }
+}
+
 fn should_clear_on_rebuild(rebuild_reason: RebuildReason) -> bool {
-    matches!(rebuild_reason, RebuildReason::Retarget)
+    matches!(
+        rebuild_reason,
+        RebuildReason::ConnectionChanged | RebuildReason::Retarget
+    )
 }
 
 fn change_retention_policy() -> RetentionPolicy {
@@ -311,8 +381,43 @@ mod tests {
     use std::time::Duration;
 
     use color_eyre::Report;
+    use eframe::egui::Context as EguiContext;
+    use tokio::{runtime::Builder, sync::watch};
+
+    use crate::backend::connection::ConnectionState;
 
     use super::*;
+
+    #[test]
+    fn json_change_buffer_reports_disconnected_connection_state() {
+        let runtime = Builder::new_multi_thread().enable_all().build().unwrap();
+        runtime.block_on(async {
+            let (_connection_sender, connection_receiver) =
+                watch::channel(ConnectionState::disconnected());
+            let (_namespace_sender, namespace_receiver) = watch::channel("/".to_string());
+            let buffer = spawn_json_change_buffer(
+                &runtime,
+                connection_receiver,
+                namespace_receiver,
+                EguiContext::default(),
+                "twix_debug_dynamic".to_string(),
+                None,
+            );
+
+            let deadline = tokio::time::Instant::now() + Duration::from_secs(1);
+            loop {
+                match buffer.get() {
+                    Err(error) if error.to_string().contains("Twix is disconnected") => break,
+                    _ => {}
+                }
+                assert!(
+                    tokio::time::Instant::now() < deadline,
+                    "timed out waiting for disconnected Twix change buffer error"
+                );
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        });
+    }
 
     #[test]
     fn push_records_unix_epoch_updates() {
