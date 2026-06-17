@@ -324,4 +324,42 @@ mod tests {
 
         Ok(())
     }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn graph_catalog_includes_publisher_from_another_node() -> Result<()> {
+        let context = ContextBuilder::default()
+            .disable_multicast_scouting()
+            .with_json("connect/endpoints", serde_json::json!([]))
+            .build()
+            .await?;
+        let publisher_node = context
+            .create_node(unique_node_name("twix_catalog_remote_pub"))
+            .build()
+            .await?;
+        let twix_node = context
+            .create_node(unique_node_name("twix_catalog_remote_view"))
+            .without_schema_service()
+            .build()
+            .await?;
+        let _publisher = publisher_node
+            .publisher::<String>("/42/live_text")?
+            .build()
+            .await?;
+
+        let deadline = tokio::time::Instant::now() + std::time::Duration::from_secs(1);
+        loop {
+            let catalog = build_topic_catalog("/42", &twix_node.graph().view())?;
+            if catalog
+                .namespace_topics()
+                .any(|topic| topic.selector == "live_text" && topic.publishers == 1)
+            {
+                return Ok(());
+            }
+            assert!(
+                tokio::time::Instant::now() < deadline,
+                "timed out waiting for remote publisher in Twix catalog"
+            );
+            tokio::time::sleep(std::time::Duration::from_millis(10)).await;
+        }
+    }
 }

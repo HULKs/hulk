@@ -3,13 +3,15 @@ use std::{fmt::Display, sync::Arc, time::Duration, time::SystemTime};
 use color_eyre::eyre::{self, eyre};
 use color_eyre::{Result, eyre::Report};
 use eframe::egui::Context as EguiContext;
-use ros_z::{dynamic::DynamicPayload, node::Node};
+use ros_z::{dynamic::DynamicPayload, node::Node, qos::QosProfile};
 use ros_z_debug::{JsonRenderPolicy, RetentionPolicy, SampleRecord, dynamic_payload_to_json};
 use serde_json::Value;
-use tokio::{runtime::Runtime, sync::watch, time};
+use tokio::{runtime::Runtime, sync::watch};
 
-use crate::backend::subscription::{self, ActiveSubscription, RebuildReason};
-
+use crate::backend::{
+    latency::trace_forward_latency,
+    subscription::{self, ActiveSubscription, RebuildReason},
+};
 const CHANGE_RETENTION_WINDOW: Duration = Duration::from_secs(1);
 
 type JsonChangeBuffer = ChangeBuffer<Value, Report>;
@@ -114,6 +116,7 @@ pub fn spawn_json_change_buffer(
     target_namespace: watch::Receiver<String>,
     egui_context: EguiContext,
     selector: String,
+    qos: Option<QosProfile>,
 ) -> ChangeBufferHandle<Value> {
     let (buffer, handle) = ChangeBuffer::new();
     runtime.spawn(run_json_change_buffer(
@@ -121,6 +124,7 @@ pub fn spawn_json_change_buffer(
         target_namespace,
         egui_context,
         selector,
+        qos,
         buffer,
     ));
     handle
@@ -131,6 +135,7 @@ async fn run_json_change_buffer(
     mut target_namespace: watch::Receiver<String>,
     egui_context: EguiContext,
     selector: String,
+    qos: Option<QosProfile>,
     buffer: JsonChangeBuffer,
 ) {
     let mut clear_on_rebuild = true;
@@ -151,6 +156,7 @@ async fn run_json_change_buffer(
             namespace,
             selector.clone(),
             change_retention_policy(),
+            qos,
         );
         tokio::pin!(subscription);
 
@@ -203,17 +209,25 @@ async fn run_json_change_buffer(
 }
 
 async fn forward_subscription(
-    active_subscription: ActiveSubscription,
+    mut active_subscription: ActiveSubscription,
     target_namespace: &mut watch::Receiver<String>,
     buffer: &JsonChangeBuffer,
     egui_context: &EguiContext,
 ) -> Option<RebuildReason> {
-    let mut poll = time::interval(subscription::EVENT_POLL_INTERVAL);
-    subscription::skip_missed_ticks(&mut poll);
+    subscription::drain_events(
+        &active_subscription,
+        egui_context,
+        |error| buffer.send_error(error),
+        |record| async move { forward_record(record, buffer) },
+    )
+    .await;
 
     loop {
         tokio::select! {
-            _ = poll.tick() => {
+            changed = active_subscription.handle.changed() => {
+                if changed.is_err() {
+                    return None;
+                }
                 subscription::drain_events(
                     &active_subscription,
                     egui_context,
@@ -228,6 +242,7 @@ async fn forward_subscription(
 }
 
 fn forward_record(record: Arc<SampleRecord<DynamicPayload>>, buffer: &JsonChangeBuffer) {
+    trace_forward_latency("change", &record);
     buffer.push(Change {
         timestamp: record.source_time.to_wallclock(),
         value: dynamic_payload_to_json(&record.value, JsonRenderPolicy::default()),

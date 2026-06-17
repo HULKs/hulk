@@ -166,6 +166,7 @@ mod tests {
             value,
             source_time: Time::from_nanos(source_time_nanos),
             transport_time: None,
+            receive_time: Time::from_nanos(source_time_nanos),
             publication_id: test_publication_id(),
             metadata: test_metadata(),
         })

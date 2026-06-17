@@ -23,6 +23,14 @@ Twix does not translate old dotted debug paths such as `WorldState.main_outputs.
 
 Twix is read-only in this version. The live UI exposes Text, Plot, and Enum Plot panels only. Saved tabs for write panels, remote control, parameter editing, or simulator panels are preserved but render an unsupported message. STOP and other removed controls are unavailable in this milestone.
 
+To inspect receive-to-panel forwarding latency, enable the `twix::latency` trace target:
+
+```bash
+RUST_LOG=twix::latency=trace ./twix
+```
+
+The trace fields report milliseconds from the publisher source timestamp, Zenoh transport timestamp when available, and local receive timestamp to the point where Twix forwards the sample into a panel buffer.
+
 # Configuration
 
 Twix loads a user configuration file on startup. The location of the configuration file depends on your platform:
