@@ -9,8 +9,10 @@ use projection::{Projection, camera_matrix::CameraMatrix};
 use types::{field_dimensions::FieldDimensions, time_wrapper::TimeWrapper};
 
 use crate::{
-    backend::TwixBackend, panels::map::layer::Layer, twix_painter::TwixPainter,
-    value_buffer::BufferHandle,
+    backend::TwixBackend,
+    panels::map::layer::Layer,
+    twix_painter::TwixPainter,
+    value_buffer::{BufferHandle, BufferHistory},
 };
 
 pub struct Lines {
@@ -24,12 +26,12 @@ impl Layer<Ground> for Lines {
     fn new(backend: Arc<TwixBackend>) -> Self {
         let lines_in_image = backend.subscribe_buffered_value_with_queue_depth(
             "line_detection/lines_in_image",
-            std::time::Duration::ZERO,
+            BufferHistory::LatestOnly,
             crate::backend::HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH,
         );
         let camera_matrix = backend.subscribe_buffered_value_with_queue_depth(
             "camera_matrix",
-            std::time::Duration::ZERO,
+            BufferHistory::LatestOnly,
             crate::backend::HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH,
         );
         Self {

@@ -100,53 +100,6 @@ impl<World> TwixPainter<World> {
         }
     }
 
-    #[expect(
-        dead_code,
-        reason = "used by currently unregistered legacy Twix panels"
-    )]
-    pub fn paint_at(ui: &mut Ui, pixel_rect: Rect) -> Self {
-        let painter = ui.painter_at(pixel_rect);
-        let world_to_pixel = Similarity2::new(
-            nalgebra::vector![pixel_rect.left_top().x, -pixel_rect.left_top().y],
-            0.0,
-            1.0,
-        );
-        let world_to_pixel = world_to_pixel.framed_transform();
-        Self {
-            painter,
-            pixel_rect,
-            world_to_pixel,
-            orientation: Orientation::default(),
-            frame: PhantomData,
-        }
-    }
-
-    #[expect(
-        dead_code,
-        reason = "used by currently unregistered legacy Twix panels"
-    )]
-    pub fn with_camera(
-        self,
-        camera_dimensions: Vector2<World, f32>,
-        world_to_camera: Similarity2<f32>,
-        orientation: Orientation,
-    ) -> Self {
-        let width_scale = self.pixel_rect.width() / camera_dimensions.x();
-        let height_scale = self.pixel_rect.height() / camera_dimensions.y();
-        let top_left =
-            nalgebra::vector![self.pixel_rect.left_top().x, self.pixel_rect.left_top().y,];
-        let camera_to_pixel = Similarity2::new(top_left, 0.0, width_scale.min(height_scale));
-        let world_to_pixel = camera_to_pixel * world_to_camera;
-        let world_to_pixel = world_to_pixel.framed_transform();
-        Self {
-            painter: self.painter,
-            pixel_rect: self.pixel_rect,
-            orientation,
-            world_to_pixel,
-            frame: PhantomData,
-        }
-    }
-
     pub fn append_transform(
         &mut self,
         transformation: Transform<Screen, Screen, Similarity2<f32>>,

@@ -2,12 +2,12 @@ use std::{future::Future, sync::Arc};
 
 use color_eyre::{Report, Result, eyre::eyre};
 use eframe::egui::Context as EguiContext;
-use ros_z::{dynamic::DynamicPayload, node::Node, qos::QosProfile};
+use ros_z::{Message, dynamic::DynamicPayload, node::Node, qos::QosProfile};
 use ros_z_debug::{DebugEvent, ManagerOptions, RetentionPolicy, SampleRecord, SubscriptionManager};
 
-pub struct ActiveSubscription {
+pub struct ActiveSubscription<T = DynamicPayload> {
     _manager: SubscriptionManager,
-    pub handle: ros_z_debug::SubscriptionHandle<DynamicPayload>,
+    pub handle: ros_z_debug::SubscriptionHandle<T>,
     pub retention: RetentionPolicy,
 }
 
@@ -17,7 +17,7 @@ pub async fn subscribe_dynamic(
     selector: String,
     retention: RetentionPolicy,
     qos: Option<QosProfile>,
-) -> Result<ActiveSubscription> {
+) -> Result<ActiveSubscription<DynamicPayload>> {
     let manager = SubscriptionManager::new(
         node,
         ManagerOptions::with_target_namespace(target_namespace)?,
@@ -35,14 +35,42 @@ pub async fn subscribe_dynamic(
     })
 }
 
-pub async fn drain_events<SendError, ForwardRecord, ForwardFuture>(
-    active_subscription: &ActiveSubscription,
+pub async fn subscribe_typed<T>(
+    node: Arc<Node>,
+    target_namespace: String,
+    selector: String,
+    retention: RetentionPolicy,
+    qos: Option<QosProfile>,
+) -> Result<ActiveSubscription<T>>
+where
+    T: Message + Clone,
+    T::Codec: Send + Sync,
+{
+    let manager = SubscriptionManager::new(
+        node,
+        ManagerOptions::with_target_namespace(target_namespace)?,
+    );
+    let mut builder = manager.subscribe_typed::<T>(selector).retention(retention);
+    if let Some(qos) = qos {
+        builder = builder.qos(qos);
+    }
+    let handle = builder.build().await?;
+
+    Ok(ActiveSubscription {
+        _manager: manager,
+        handle,
+        retention,
+    })
+}
+
+pub async fn drain_events<T, SendError, ForwardRecord, ForwardFuture>(
+    active_subscription: &ActiveSubscription<T>,
     egui_context: &EguiContext,
     mut send_error: SendError,
     mut forward_record: ForwardRecord,
 ) where
     SendError: FnMut(Report),
-    ForwardRecord: FnMut(Arc<SampleRecord<DynamicPayload>>) -> ForwardFuture,
+    ForwardRecord: FnMut(Arc<SampleRecord<T>>) -> ForwardFuture,
     ForwardFuture: Future<Output = ()>,
 {
     let events = active_subscription.handle.drain_events();

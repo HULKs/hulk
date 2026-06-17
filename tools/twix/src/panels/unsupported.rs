@@ -35,7 +35,7 @@ impl Widget for &mut UnsupportedPanel {
         ui.vertical(|ui| {
             ui.heading(self.title());
             ui.label(&self.reason);
-            ui.label("Pick Text, Plot, or Enum Plot for native read-only ros-z inspection.");
+            ui.label("Pick Text, Plot, Enum Plot, or Map for native read-only ros-z inspection.");
         })
         .response
     }

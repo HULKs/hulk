@@ -185,13 +185,17 @@ impl TwixBackend {
         T: Message + Clone,
         T::Codec: Send + Sync,
     {
-        self.subscribe_buffered_value_with_qos(selector, Duration::ZERO, transient_local_qos())
+        self.subscribe_buffered_value_with_qos(
+            selector,
+            BufferHistory::LatestOnly,
+            transient_local_qos(),
+        )
     }
 
     pub fn subscribe_buffered_value_with_queue_depth<T>(
         &self,
         selector: impl Into<String>,
-        history: Duration,
+        history: BufferHistory,
         queue_depth: usize,
     ) -> BufferHandle<T>
     where
@@ -204,7 +208,7 @@ impl TwixBackend {
     fn subscribe_buffered_value_with_qos<T>(
         &self,
         selector: impl Into<String>,
-        history: Duration,
+        history: BufferHistory,
         qos: QosProfile,
     ) -> BufferHandle<T>
     where

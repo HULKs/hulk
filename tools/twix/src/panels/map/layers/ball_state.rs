@@ -9,7 +9,7 @@ use crate::{
     backend::TwixBackend,
     panels::map::{BALL_STATE_QUEUE_DEPTH, layer::Layer},
     twix_painter::TwixPainter,
-    value_buffer::BufferHandle,
+    value_buffer::{BufferHandle, BufferHistory},
 };
 
 pub struct BallState {
@@ -22,7 +22,7 @@ impl Layer<Field> for BallState {
     fn new(backend: Arc<TwixBackend>) -> Self {
         let ball_state = backend.subscribe_buffered_value_with_queue_depth(
             "ball_state",
-            Duration::from_secs(2),
+            BufferHistory::TimeWindow(Duration::from_secs(2)),
             BALL_STATE_QUEUE_DEPTH,
         );
         Self { ball_state }

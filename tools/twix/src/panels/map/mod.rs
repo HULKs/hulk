@@ -1,5 +1,3 @@
-use std::time::Duration;
-
 use color_eyre::Result;
 use coordinate_systems::{Field, Ground};
 use eframe::egui::{ComboBox, Ui, Widget};
@@ -11,7 +9,7 @@ use types::field_dimensions::FieldDimensions;
 use crate::{
     panel::{Panel, PanelCreationContext},
     twix_painter::{Orientation, TwixPainter},
-    value_buffer::BufferHandle,
+    value_buffer::{BufferHandle, BufferHistory},
     zoom_and_pan::ZoomAndPanTransform,
 };
 
@@ -136,7 +134,7 @@ impl<'a> Panel<'a> for MapPanel {
             .subscribe_transient_local_value("field_dimensions");
         let ground_to_field = context.backend.subscribe_buffered_value_with_queue_depth(
             "ground_to_field",
-            Duration::ZERO,
+            BufferHistory::LatestOnly,
             GROUND_TO_FIELD_QUEUE_DEPTH,
         );
 
@@ -321,7 +319,7 @@ impl MapPanel {
 
 #[cfg(test)]
 mod tests {
-    use std::time::{Duration, SystemTime};
+    use std::time::SystemTime;
 
     use color_eyre::eyre;
     use serde_json::json;
@@ -342,8 +340,9 @@ mod tests {
 
     #[tokio::test]
     async fn latest_ground_to_field_or_none_treats_errors_as_missing_transform() {
-        let (buffer, handle) =
-            Buffer::<Option<Isometry2<Ground, Field>>, eyre::Report>::new(Duration::ZERO);
+        let (buffer, handle) = Buffer::<Option<Isometry2<Ground, Field>>, eyre::Report>::new(
+            BufferHistory::LatestOnly,
+        );
 
         buffer.send_error(color_eyre::eyre::eyre!("decode failed"));
 
@@ -352,8 +351,9 @@ mod tests {
 
     #[tokio::test]
     async fn ground_plot_uses_identity_when_ground_to_field_is_missing() {
-        let (_buffer, handle) =
-            Buffer::<Option<Isometry2<Ground, Field>>, eyre::Report>::new(Duration::ZERO);
+        let (_buffer, handle) = Buffer::<Option<Isometry2<Ground, Field>>, eyre::Report>::new(
+            BufferHistory::LatestOnly,
+        );
 
         assert_eq!(
             latest_ground_to_field_or_identity(&handle) * point![1.0, 2.0],
@@ -363,8 +363,9 @@ mod tests {
 
     #[tokio::test]
     async fn ground_plot_uses_identity_when_ground_to_field_is_none() {
-        let (buffer, handle) =
-            Buffer::<Option<Isometry2<Ground, Field>>, eyre::Report>::new(Duration::ZERO);
+        let (buffer, handle) = Buffer::<Option<Isometry2<Ground, Field>>, eyre::Report>::new(
+            BufferHistory::LatestOnly,
+        );
         buffer
             .push(Datum {
                 timestamp: SystemTime::UNIX_EPOCH,
@@ -380,8 +381,9 @@ mod tests {
 
     #[tokio::test]
     async fn ground_plot_uses_latest_ground_to_field_when_present() {
-        let (buffer, handle) =
-            Buffer::<Option<Isometry2<Ground, Field>>, eyre::Report>::new(Duration::ZERO);
+        let (buffer, handle) = Buffer::<Option<Isometry2<Ground, Field>>, eyre::Report>::new(
+            BufferHistory::LatestOnly,
+        );
         let transform = Isometry2::from_parts(vector![1.0, 0.0], 0.0);
         buffer
             .push(Datum {

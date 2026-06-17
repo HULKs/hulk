@@ -1,29 +1,19 @@
-use std::{future::Future, sync::Arc, time::Duration};
+use std::{sync::Arc, time::Duration};
 
-use color_eyre::Result;
 use color_eyre::eyre::{Report, eyre};
 use eframe::egui::Context as EguiContext;
 use ros_z::{Message, qos::QosProfile};
-use ros_z_debug::{DebugEvent, ManagerOptions, RetentionPolicy, SampleRecord, SubscriptionManager};
+use ros_z_debug::{RetentionPolicy, SampleRecord};
 use tokio::{runtime::Runtime, sync::watch, time};
 
 use crate::{
-    backend::{connection::ConnectionState, latency::trace_forward_latency},
-    value_buffer::{Buffer, BufferHandle, Datum},
+    backend::{connection::ConnectionState, latency::trace_forward_latency, subscription},
+    value_buffer::{Buffer, BufferHandle, BufferHistory, Datum},
 };
 
 const SUBSCRIBE_RETRY_DELAY: Duration = Duration::from_secs(1);
 
 type TypedBuffer<T> = Buffer<T, Report>;
-
-struct ActiveSubscription<T>
-where
-    T: Message + Clone,
-{
-    _manager: SubscriptionManager,
-    handle: ros_z_debug::SubscriptionHandle<T>,
-    retention: RetentionPolicy,
-}
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum RebuildReason {
@@ -39,7 +29,7 @@ pub fn subscribe_value<T>(
     target_namespace: watch::Receiver<String>,
     egui_context: EguiContext,
     selector: impl Into<String>,
-    history: Duration,
+    history: BufferHistory,
     qos: Option<QosProfile>,
 ) -> BufferHandle<T>
 where
@@ -102,7 +92,8 @@ async fn run_typed_buffer<T>(
         };
 
         let retention = retention_policy(buffer.history().await);
-        let subscription = subscribe_typed::<T>(node, namespace, selector.clone(), retention, qos);
+        let subscription =
+            subscription::subscribe_typed::<T>(node, namespace, selector.clone(), retention, qos);
         tokio::pin!(subscription);
 
         let active_subscription = tokio::select! {
@@ -162,36 +153,8 @@ async fn run_typed_buffer<T>(
     }
 }
 
-async fn subscribe_typed<T>(
-    node: Arc<ros_z::node::Node>,
-    target_namespace: String,
-    selector: String,
-    retention: RetentionPolicy,
-    qos: Option<QosProfile>,
-) -> Result<ActiveSubscription<T>>
-where
-    T: Message + Clone,
-    T::Codec: Send + Sync,
-{
-    let manager = SubscriptionManager::new(
-        node,
-        ManagerOptions::with_target_namespace(target_namespace)?,
-    );
-    let mut builder = manager.subscribe_typed::<T>(selector).retention(retention);
-    if let Some(qos) = qos {
-        builder = builder.qos(qos);
-    }
-    let handle = builder.build().await?;
-
-    Ok(ActiveSubscription {
-        _manager: manager,
-        handle,
-        retention,
-    })
-}
-
 async fn forward_subscription<T>(
-    mut active_subscription: ActiveSubscription<T>,
+    mut active_subscription: subscription::ActiveSubscription<T>,
     connection_state: &mut watch::Receiver<ConnectionState>,
     target_namespace: &mut watch::Receiver<String>,
     buffer: &TypedBuffer<T>,
@@ -204,7 +167,12 @@ where
 
     if let Some(rebuild_reason) = subscription_event_rebuild_reason(
         active_subscription.retention,
-        drain_events(&active_subscription, buffer, egui_context),
+        subscription::drain_events(
+            &active_subscription,
+            egui_context,
+            |error| buffer.send_error(error),
+            |record| forward_record(record, buffer),
+        ),
         async { retention_policy(buffer.history().await) },
     )
     .await
@@ -220,7 +188,12 @@ where
                 }
                 if let Some(rebuild_reason) = subscription_event_rebuild_reason(
                     active_subscription.retention,
-                    drain_events(&active_subscription, buffer, egui_context),
+                    subscription::drain_events(
+                        &active_subscription,
+                        egui_context,
+                        |error| buffer.send_error(error),
+                        |record| forward_record(record, buffer),
+                    ),
                     async { retention_policy(buffer.history().await) },
                 ).await {
                     return Some(rebuild_reason);
@@ -232,7 +205,12 @@ where
                 }
                 if let Some(rebuild_reason) = subscription_event_rebuild_reason(
                     active_subscription.retention,
-                    drain_events(&active_subscription, buffer, egui_context),
+                    subscription::drain_events(
+                        &active_subscription,
+                        egui_context,
+                        |error| buffer.send_error(error),
+                        |record| forward_record(record, buffer),
+                    ),
                     async { retention_policy(buffer.history().await) },
                 ).await {
                     return Some(rebuild_reason);
@@ -242,48 +220,6 @@ where
             changed = target_namespace.changed() => return changed.ok().map(|()| RebuildReason::Retarget),
             _ = buffer.closed() => return None,
         }
-    }
-}
-
-async fn drain_events<T>(
-    active_subscription: &ActiveSubscription<T>,
-    buffer: &TypedBuffer<T>,
-    egui_context: &EguiContext,
-) where
-    T: Message + Clone,
-{
-    let events = active_subscription.handle.drain_events();
-    if events.is_empty() {
-        return;
-    }
-
-    let mut requested_repaint = false;
-
-    for event in events {
-        match event {
-            DebugEvent::ValueUpdated {
-                source_time,
-                publication_id,
-            } => {
-                if let Some(record) = active_subscription
-                    .handle
-                    .record(source_time, publication_id)
-                {
-                    forward_record(record, buffer).await;
-                    requested_repaint = true;
-                }
-            }
-            DebugEvent::Diagnostic(message) => {
-                buffer.send_error(eyre!(message));
-                requested_repaint = true;
-            }
-            DebugEvent::StatusChanged => {}
-            _ => {}
-        }
-    }
-
-    if requested_repaint {
-        egui_context.request_repaint();
     }
 }
 
@@ -344,10 +280,10 @@ async fn wait_for_connection_or_retarget<T>(
     }
 }
 
-fn retention_policy(history: Duration) -> RetentionPolicy {
-    if history.is_zero() {
+fn retention_policy(history: BufferHistory) -> RetentionPolicy {
+    let BufferHistory::TimeWindow(history) = history else {
         return RetentionPolicy::LatestOnly;
-    }
+    };
 
     match RetentionPolicy::time_window(history) {
         Ok(retention) => retention,
@@ -395,7 +331,7 @@ mod tests {
                 namespace_receiver,
                 EguiContext::default(),
                 "twix_debug_text",
-                Duration::ZERO,
+                BufferHistory::LatestOnly,
                 None,
             );
 
@@ -433,7 +369,7 @@ mod tests {
                 namespace_receiver,
                 EguiContext::default(),
                 "twix_debug_text",
-                Duration::ZERO,
+                BufferHistory::LatestOnly,
                 None,
             );
 

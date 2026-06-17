@@ -7,8 +7,10 @@ use linear_algebra::point;
 use types::{field_dimensions::FieldDimensions, heatmap::Heatmap};
 
 use crate::{
-    backend::TwixBackend, panels::map::layer::Layer, twix_painter::TwixPainter,
-    value_buffer::BufferHandle,
+    backend::TwixBackend,
+    panels::map::layer::Layer,
+    twix_painter::TwixPainter,
+    value_buffer::{BufferHandle, BufferHistory},
 };
 
 pub struct BallSearchHeatmap {
@@ -21,7 +23,7 @@ impl Layer<Field> for BallSearchHeatmap {
     fn new(backend: Arc<TwixBackend>) -> Self {
         let ball_search_heatmap = backend.subscribe_buffered_value_with_queue_depth(
             "ball_search_heatmap",
-            std::time::Duration::ZERO,
+            BufferHistory::LatestOnly,
             crate::backend::HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH,
         );
         Self {

@@ -7,8 +7,10 @@ use projection::{Projection, camera_matrix::CameraMatrix};
 use types::{color::Rgb, field_dimensions::FieldDimensions, time_wrapper::TimeWrapper};
 
 use crate::{
-    backend::TwixBackend, panels::map::layer::Layer, twix_painter::TwixPainter,
-    value_buffer::BufferHandle,
+    backend::TwixBackend,
+    panels::map::layer::Layer,
+    twix_painter::TwixPainter,
+    value_buffer::{BufferHandle, BufferHistory},
 };
 
 pub struct ImageSegments {
@@ -22,12 +24,12 @@ impl Layer<Ground> for ImageSegments {
     fn new(backend: std::sync::Arc<TwixBackend>) -> Self {
         let camera_matrix = backend.subscribe_buffered_value_with_queue_depth(
             "camera_matrix",
-            std::time::Duration::ZERO,
+            BufferHistory::LatestOnly,
             crate::backend::HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH,
         );
         let image_segments = backend.subscribe_buffered_value_with_queue_depth(
             "image_segments",
-            std::time::Duration::ZERO,
+            BufferHistory::LatestOnly,
             crate::backend::HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH,
         );
         Self {

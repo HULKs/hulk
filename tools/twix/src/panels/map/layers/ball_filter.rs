@@ -9,8 +9,10 @@ use linear_algebra::{Point, vector};
 use types::field_dimensions::FieldDimensions;
 
 use crate::{
-    backend::TwixBackend, panels::map::layer::Layer, twix_painter::TwixPainter,
-    value_buffer::BufferHandle,
+    backend::TwixBackend,
+    panels::map::layer::Layer,
+    twix_painter::TwixPainter,
+    value_buffer::{BufferHandle, BufferHistory},
 };
 
 pub struct BallFilter {
@@ -23,7 +25,7 @@ impl Layer<Ground> for BallFilter {
     fn new(backend: Arc<TwixBackend>) -> Self {
         let filter = backend.subscribe_buffered_value_with_queue_depth(
             "ball_filter/ball_filter_state",
-            std::time::Duration::ZERO,
+            BufferHistory::LatestOnly,
             crate::backend::HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH,
         );
         Self { filter }

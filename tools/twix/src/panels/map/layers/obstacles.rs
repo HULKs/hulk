@@ -7,8 +7,10 @@ use coordinate_systems::Ground;
 use types::{field_dimensions::FieldDimensions, obstacles::Obstacle};
 
 use crate::{
-    backend::TwixBackend, panels::map::layer::Layer, twix_painter::TwixPainter,
-    value_buffer::BufferHandle,
+    backend::TwixBackend,
+    panels::map::layer::Layer,
+    twix_painter::TwixPainter,
+    value_buffer::{BufferHandle, BufferHistory},
 };
 
 pub struct Obstacles {
@@ -21,7 +23,7 @@ impl Layer<Ground> for Obstacles {
     fn new(backend: Arc<TwixBackend>) -> Self {
         let obstacles = backend.subscribe_buffered_value_with_queue_depth(
             "obstacles",
-            std::time::Duration::ZERO,
+            BufferHistory::LatestOnly,
             crate::backend::HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH,
         );
         Self { obstacles }

@@ -8,8 +8,10 @@ use geometry::line_segment::LineSegment;
 use types::field_dimensions::FieldDimensions;
 
 use crate::{
-    backend::TwixBackend, panels::map::layer::Layer, twix_painter::TwixPainter,
-    value_buffer::BufferHandle,
+    backend::TwixBackend,
+    panels::map::layer::Layer,
+    twix_painter::TwixPainter,
+    value_buffer::{BufferHandle, BufferHistory},
 };
 
 pub struct LineCorrespondences {
@@ -23,12 +25,12 @@ impl Layer<Field> for LineCorrespondences {
     fn new(backend: Arc<TwixBackend>) -> Self {
         let correspondence_lines = backend.subscribe_buffered_value_with_queue_depth(
             "localization/correspondence_lines",
-            std::time::Duration::ZERO,
+            BufferHistory::LatestOnly,
             crate::backend::HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH,
         );
         let measured_lines_in_field = backend.subscribe_buffered_value_with_queue_depth(
             "localization/measured_lines_in_field",
-            std::time::Duration::ZERO,
+            BufferHistory::LatestOnly,
             crate::backend::HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH,
         );
         Self {
