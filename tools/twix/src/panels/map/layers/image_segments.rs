@@ -4,21 +4,32 @@ use eframe::epaint::{Color32, Stroke};
 use coordinate_systems::Ground;
 use linear_algebra::{Point2, center, point};
 use projection::{Projection, camera_matrix::CameraMatrix};
-use types::{color::Rgb, field_dimensions::FieldDimensions};
+use types::{color::Rgb, field_dimensions::FieldDimensions, time_wrapper::TimeWrapper};
 
-use crate::{panels::map::layer::Layer, twix_painter::TwixPainter, value_buffer::BufferHandle};
+use crate::{
+    backend::TwixBackend, panels::map::layer::Layer, twix_painter::TwixPainter,
+    value_buffer::BufferHandle,
+};
 
 pub struct ImageSegments {
-    camera_matrix: BufferHandle<Option<CameraMatrix>>,
-    image_segments: BufferHandle<types::image_segments::ImageSegments>,
+    camera_matrix: BufferHandle<TimeWrapper<CameraMatrix>>,
+    image_segments: BufferHandle<TimeWrapper<types::image_segments::ImageSegments>>,
 }
 
 impl Layer<Ground> for ImageSegments {
     const NAME: &'static str = "Image Segments";
 
-    fn new(robot: std::sync::Arc<crate::robot::Robot>) -> Self {
-        let camera_matrix = robot.subscribe_value("WorldState.main_outputs.camera_matrix");
-        let image_segments = robot.subscribe_value("Vision.main_outputs.image_segments");
+    fn new(backend: std::sync::Arc<TwixBackend>) -> Self {
+        let camera_matrix = backend.subscribe_buffered_value_with_queue_depth(
+            "camera_matrix",
+            std::time::Duration::ZERO,
+            crate::backend::HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH,
+        );
+        let image_segments = backend.subscribe_buffered_value_with_queue_depth(
+            "image_segments",
+            std::time::Duration::ZERO,
+            crate::backend::HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH,
+        );
         Self {
             camera_matrix,
             image_segments,
@@ -30,10 +41,18 @@ impl Layer<Ground> for ImageSegments {
         painter: &TwixPainter<Ground>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        let Some(camera_matrix) = self.camera_matrix.get_last_value()?.flatten() else {
+        let Some(camera_matrix) = self
+            .camera_matrix
+            .get_last_value()?
+            .map(|value| value.inner)
+        else {
             return Ok(());
         };
-        let Some(image_segments) = self.image_segments.get_last_value()? else {
+        let Some(image_segments) = self
+            .image_segments
+            .get_last_value()?
+            .map(|value| value.inner)
+        else {
             return Ok(());
         };
 

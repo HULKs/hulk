@@ -1,8 +1,11 @@
+use std::time::Duration;
+
+use color_eyre::Result;
 use coordinate_systems::{Field, Ground};
 use eframe::egui::{ComboBox, Ui, Widget};
 use linear_algebra::{Isometry2, point, vector};
 use serde::{Deserialize, Serialize};
-use serde_json::{Value, json};
+use serde_json::{Map as JsonMap, Value, json};
 use types::field_dimensions::FieldDimensions;
 
 use crate::{
@@ -14,8 +17,20 @@ use crate::{
 
 use self::layer::{EnabledLayer, Layer};
 
-mod layer;
+pub mod layer;
 mod layers;
+
+const SKIPPED_LAYER_KEYS: &[&str] = &[
+    "behavior_simulator",
+    "pose_detection",
+    "referee_position",
+    "path_obstacles",
+    "voronoi_cells",
+    "ball_position",
+    "ball_percept",
+];
+const GROUND_TO_FIELD_QUEUE_DEPTH: usize = crate::backend::HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH;
+pub const BALL_STATE_QUEUE_DEPTH: usize = crate::backend::HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH;
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq)]
 enum PlotType {
@@ -59,6 +74,7 @@ impl<T: Layer<Ground>> GenericLayer for EnabledLayer<T, Ground> {
 
 pub struct MapPanel {
     current_plot_type: PlotType,
+    skipped_layers: JsonMap<String, Value>,
 
     field_dimensions: BufferHandle<FieldDimensions>,
     ground_to_field: BufferHandle<Option<Isometry2<Ground, Field>>>,
@@ -69,48 +85,60 @@ pub struct MapPanel {
     lines: EnabledLayer<layers::Lines, Ground>,
     ball_search_heatmap: EnabledLayer<layers::BallSearchHeatmap, Field>,
     line_correspondences: EnabledLayer<layers::LineCorrespondences, Field>,
-    path_obstacles: EnabledLayer<layers::PathObstacles, Ground>,
     obstacles: EnabledLayer<layers::Obstacles, Ground>,
     path: EnabledLayer<layers::Path, Ground>,
-    behavior_simulator: EnabledLayer<layers::BehaviorSimulator, Field>,
     robot_pose: EnabledLayer<layers::RobotPose, Ground>,
-    referee_position: EnabledLayer<layers::RefereePosition, Field>,
-    pose_detection: EnabledLayer<layers::PoseDetection, Field>,
-    ball_percept: EnabledLayer<layers::BallPercepts, Ground>,
-    ball_position: EnabledLayer<layers::BallPosition, Field>,
+    ball_percepts: EnabledLayer<layers::BallPercepts, Ground>,
+    ball_state: EnabledLayer<layers::BallState, Field>,
     ball_filter: EnabledLayer<layers::BallFilter, Ground>,
     obstacle_filter: EnabledLayer<layers::ObstacleFilter, Ground>,
     localization: EnabledLayer<layers::Localization, Field>,
-    voronoi_cells: EnabledLayer<layers::VoronoiCell, Field>,
+}
+
+fn latest_ground_to_field(
+    ground_to_field: &BufferHandle<Option<Isometry2<Ground, Field>>>,
+) -> Result<Option<Isometry2<Ground, Field>>> {
+    Ok(ground_to_field.get_last_value()?.flatten())
+}
+
+fn latest_ground_to_field_or_none(
+    ground_to_field: &BufferHandle<Option<Isometry2<Ground, Field>>>,
+) -> Option<Isometry2<Ground, Field>> {
+    latest_ground_to_field(ground_to_field).ok().flatten()
+}
+
+fn latest_ground_to_field_or_identity(
+    ground_to_field: &BufferHandle<Option<Isometry2<Ground, Field>>>,
+) -> Isometry2<Ground, Field> {
+    latest_ground_to_field_or_none(ground_to_field).unwrap_or_default()
 }
 
 impl<'a> Panel<'a> for MapPanel {
     const NAME: &'static str = "Map";
 
     fn new(context: PanelCreationContext) -> Self {
-        let field = EnabledLayer::new(context.robot.clone(), context.value, true);
-        let image_segments = EnabledLayer::new(context.robot.clone(), context.value, false);
-        let line_correspondences = EnabledLayer::new(context.robot.clone(), context.value, false);
-        let lines = EnabledLayer::new(context.robot.clone(), context.value, true);
-        let ball_search_heatmap = EnabledLayer::new(context.robot.clone(), context.value, false);
-        let path_obstacles = EnabledLayer::new(context.robot.clone(), context.value, false);
-        let obstacles = EnabledLayer::new(context.robot.clone(), context.value, false);
-        let path = EnabledLayer::new(context.robot.clone(), context.value, false);
-        let behavior_simulator = EnabledLayer::new(context.robot.clone(), context.value, false);
-        let referee_position = EnabledLayer::new(context.robot.clone(), context.value, false);
-        let robot_pose = EnabledLayer::new(context.robot.clone(), context.value, true);
-        let ball_percept = EnabledLayer::new(context.robot.clone(), context.value, false);
-        let pose_detection = EnabledLayer::new(context.robot.clone(), context.value, false);
-        let ball_position = EnabledLayer::new(context.robot.clone(), context.value, true);
-        let ball_filter = EnabledLayer::new(context.robot.clone(), context.value, false);
-        let obstacle_filter = EnabledLayer::new(context.robot.clone(), context.value, false);
-        let localization = EnabledLayer::new(context.robot.clone(), context.value, false);
-        let voronoi_cells = EnabledLayer::new(context.robot.clone(), context.value, false);
+        let field = EnabledLayer::new(context.backend.clone(), context.value, true);
+        let image_segments = EnabledLayer::new(context.backend.clone(), context.value, false);
+        let line_correspondences = EnabledLayer::new(context.backend.clone(), context.value, false);
+        let lines = EnabledLayer::new(context.backend.clone(), context.value, true);
+        let ball_search_heatmap = EnabledLayer::new(context.backend.clone(), context.value, false);
+        let obstacles = EnabledLayer::new(context.backend.clone(), context.value, false);
+        let path = EnabledLayer::new(context.backend.clone(), context.value, false);
+        let robot_pose = EnabledLayer::new(context.backend.clone(), context.value, true);
+        let ball_percepts = EnabledLayer::new(context.backend.clone(), context.value, false);
+        let ball_state = EnabledLayer::new(context.backend.clone(), context.value, true);
+        let ball_filter = EnabledLayer::new(context.backend.clone(), context.value, false);
+        let obstacle_filter = EnabledLayer::new(context.backend.clone(), context.value, false);
+        let localization = EnabledLayer::new(context.backend.clone(), context.value, false);
 
-        let field_dimensions = context.robot.subscribe_value("parameters.field_dimensions");
-        let ground_to_field = context
-            .robot
-            .subscribe_value("WorldState.main_outputs.ground_to_field");
+        let field_dimensions = context
+            .backend
+            .subscribe_transient_local_value("field_dimensions");
+        let ground_to_field = context.backend.subscribe_buffered_value_with_queue_depth(
+            "ground_to_field",
+            Duration::ZERO,
+            GROUND_TO_FIELD_QUEUE_DEPTH,
+        );
 
         let current_plot_type = context
             .value
@@ -122,9 +150,11 @@ impl<'a> Panel<'a> for MapPanel {
             .and_then(|value| value.get("zoom_and_pan"))
             .and_then(|value| serde_json::from_value::<ZoomAndPanTransform>(value.clone()).ok())
             .unwrap_or_default();
+        let skipped_layers = preserved_skipped_layer_state(context.value);
 
         Self {
             current_plot_type,
+            skipped_layers,
             field_dimensions,
             ground_to_field,
             zoom_and_pan,
@@ -133,24 +163,19 @@ impl<'a> Panel<'a> for MapPanel {
             line_correspondences,
             lines,
             ball_search_heatmap,
-            path_obstacles,
             obstacles,
             path,
-            behavior_simulator,
             robot_pose,
-            pose_detection,
-            referee_position,
-            ball_percept,
-            ball_position,
+            ball_percepts,
+            ball_state,
             ball_filter,
             obstacle_filter,
             localization,
-            voronoi_cells,
         }
     }
 
     fn save(&self) -> Value {
-        json!({
+        let mut value = json!({
             "current_plot_type": self.current_plot_type,
             "zoom_and_pan": serde_json::to_value(&self.zoom_and_pan).expect("failed to serialize zoom_and_pan"),
 
@@ -158,22 +183,38 @@ impl<'a> Panel<'a> for MapPanel {
             "image_segments": self.image_segments.save(),
             "line_correspondences": self.line_correspondences.save(),
             "lines": self.lines.save(),
-            "ball_search_heatmap": self.obstacle_filter.save(),
-            "path_obstacles": self.path_obstacles.save(),
+            "ball_search_heatmap": self.ball_search_heatmap.save(),
             "obstacles": self.obstacles.save(),
             "path": self.path.save(),
-            "behavior_simulator": self.behavior_simulator.save(),
-            "pose_detection": self.referee_position.save(),
             "robot_pose": self.robot_pose.save(),
-            "referee_position": self.referee_position.save(),
-            "ball_percept": self.ball_percept.save(),
-            "ball_position": self.ball_position.save(),
+            "ball_percepts": self.ball_percepts.save(),
+            "ball_state": self.ball_state.save(),
             "ball_filter": self.ball_filter.save(),
             "obstacle_filter": self.obstacle_filter.save(),
             "localization": self.localization.save(),
-            "voronoi_cells": self.voronoi_cells.save(),
-        })
+        });
+
+        let Value::Object(object) = &mut value else {
+            return value;
+        };
+        object.extend(self.skipped_layers.clone());
+        value
     }
+}
+
+fn preserved_skipped_layer_state(value: Option<&Value>) -> JsonMap<String, Value> {
+    let Some(Value::Object(object)) = value else {
+        return JsonMap::new();
+    };
+
+    SKIPPED_LAYER_KEYS
+        .iter()
+        .filter_map(|key| {
+            object
+                .get(*key)
+                .map(|value| ((*key).to_owned(), value.clone()))
+        })
+        .collect()
 }
 
 impl Widget for &mut MapPanel {
@@ -185,19 +226,14 @@ impl Widget for &mut MapPanel {
                 self.line_correspondences.checkbox(ui);
                 self.lines.checkbox(ui);
                 self.ball_search_heatmap.checkbox(ui);
-                self.path_obstacles.checkbox(ui);
                 self.obstacles.checkbox(ui);
                 self.path.checkbox(ui);
-                self.behavior_simulator.checkbox(ui);
-                self.pose_detection.checkbox(ui);
                 self.robot_pose.checkbox(ui);
-                self.referee_position.checkbox(ui);
-                self.ball_percept.checkbox(ui);
-                self.ball_position.checkbox(ui);
+                self.ball_percepts.checkbox(ui);
+                self.ball_state.checkbox(ui);
                 self.ball_filter.checkbox(ui);
                 self.obstacle_filter.checkbox(ui);
                 self.localization.checkbox(ui);
-                self.voronoi_cells.checkbox(ui);
             });
             ComboBox::from_id_salt("plot_type_selector")
                 .selected_text(format!("{:?}", self.current_plot_type))
@@ -213,13 +249,7 @@ impl Widget for &mut MapPanel {
             Err(error) => return ui.label(format!("{error:#}")),
         };
 
-        let ground_to_field = self
-            .ground_to_field
-            .get_last_value()
-            .ok()
-            .flatten()
-            .flatten()
-            .unwrap_or_default();
+        let ground_to_field = latest_ground_to_field_or_identity(&self.ground_to_field);
         let (response, mut painter) = match self.current_plot_type {
             PlotType::Field => {
                 let width = field_dimensions.width;
@@ -247,49 +277,143 @@ impl Widget for &mut MapPanel {
             }
         };
         self.zoom_and_pan.apply(ui, &mut painter, &response);
-
-        // draw largest layers first so they don't obscure smaller ones
-        self.field
-            .generic_paint(&painter, ground_to_field, &field_dimensions);
-        self.image_segments
-            .generic_paint(&painter, ground_to_field, &field_dimensions);
-
-        self.line_correspondences
-            .generic_paint(&painter, ground_to_field, &field_dimensions);
-        self.lines
-            .generic_paint(&painter, ground_to_field, &field_dimensions);
-
-        self.ball_search_heatmap
-            .generic_paint(&painter, ground_to_field, &field_dimensions);
-        self.path_obstacles
-            .generic_paint(&painter, ground_to_field, &field_dimensions);
-        self.obstacles
-            .generic_paint(&painter, ground_to_field, &field_dimensions);
-        self.path
-            .generic_paint(&painter, ground_to_field, &field_dimensions);
-        self.behavior_simulator
-            .generic_paint(&painter, ground_to_field, &field_dimensions);
-        self.robot_pose
-            .generic_paint(&painter, ground_to_field, &field_dimensions);
-        self.referee_position
-            .generic_paint(&painter, ground_to_field, &field_dimensions);
-        self.ball_percept
-            .generic_paint(&painter, ground_to_field, &field_dimensions);
-        self.ball_position
-            .generic_paint(&painter, ground_to_field, &field_dimensions);
-        self.pose_detection
-            .generic_paint(&painter, ground_to_field, &field_dimensions);
-        self.ball_position
-            .generic_paint(&painter, ground_to_field, &field_dimensions);
-        self.ball_filter
-            .generic_paint(&painter, ground_to_field, &field_dimensions);
-        self.obstacle_filter
-            .generic_paint(&painter, ground_to_field, &field_dimensions);
-        self.localization
-            .generic_paint(&painter, ground_to_field, &field_dimensions);
-        self.voronoi_cells
-            .generic_paint(&painter, ground_to_field, &field_dimensions);
+        self.paint_layers(&painter, ground_to_field, &field_dimensions);
 
         response
+    }
+}
+
+impl MapPanel {
+    fn paint_layers(
+        &mut self,
+        painter: &TwixPainter<Field>,
+        ground_to_field: Isometry2<Ground, Field>,
+        field_dimensions: &FieldDimensions,
+    ) {
+        self.field
+            .generic_paint(painter, ground_to_field, field_dimensions);
+        self.image_segments
+            .generic_paint(painter, ground_to_field, field_dimensions);
+        self.line_correspondences
+            .generic_paint(painter, ground_to_field, field_dimensions);
+        self.lines
+            .generic_paint(painter, ground_to_field, field_dimensions);
+        self.ball_search_heatmap
+            .generic_paint(painter, ground_to_field, field_dimensions);
+        self.obstacles
+            .generic_paint(painter, ground_to_field, field_dimensions);
+        self.path
+            .generic_paint(painter, ground_to_field, field_dimensions);
+        self.robot_pose
+            .generic_paint(painter, ground_to_field, field_dimensions);
+        self.ball_percepts
+            .generic_paint(painter, ground_to_field, field_dimensions);
+        self.ball_state
+            .generic_paint(painter, ground_to_field, field_dimensions);
+        self.ball_filter
+            .generic_paint(painter, ground_to_field, field_dimensions);
+        self.obstacle_filter
+            .generic_paint(painter, ground_to_field, field_dimensions);
+        self.localization
+            .generic_paint(painter, ground_to_field, field_dimensions);
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::time::{Duration, SystemTime};
+
+    use color_eyre::eyre;
+    use serde_json::json;
+
+    use super::*;
+    use crate::value_buffer::{Buffer, Datum};
+
+    #[test]
+    fn ground_to_field_uses_deployed_optional_message_type() {
+        fn assert_ground_to_field(_: &BufferHandle<Option<Isometry2<Ground, Field>>>) {}
+
+        fn assert_map_panel(panel: &MapPanel) {
+            assert_ground_to_field(&panel.ground_to_field);
+        }
+
+        let _ = assert_map_panel;
+    }
+
+    #[tokio::test]
+    async fn latest_ground_to_field_or_none_treats_errors_as_missing_transform() {
+        let (buffer, handle) =
+            Buffer::<Option<Isometry2<Ground, Field>>, eyre::Report>::new(Duration::ZERO);
+
+        buffer.send_error(color_eyre::eyre::eyre!("decode failed"));
+
+        assert!(latest_ground_to_field_or_none(&handle).is_none());
+    }
+
+    #[tokio::test]
+    async fn ground_plot_uses_identity_when_ground_to_field_is_missing() {
+        let (_buffer, handle) =
+            Buffer::<Option<Isometry2<Ground, Field>>, eyre::Report>::new(Duration::ZERO);
+
+        assert_eq!(
+            latest_ground_to_field_or_identity(&handle) * point![1.0, 2.0],
+            point![1.0, 2.0]
+        );
+    }
+
+    #[tokio::test]
+    async fn ground_plot_uses_identity_when_ground_to_field_is_none() {
+        let (buffer, handle) =
+            Buffer::<Option<Isometry2<Ground, Field>>, eyre::Report>::new(Duration::ZERO);
+        buffer
+            .push(Datum {
+                timestamp: SystemTime::UNIX_EPOCH,
+                value: None,
+            })
+            .await;
+
+        assert_eq!(
+            latest_ground_to_field_or_identity(&handle) * point![1.0, 2.0],
+            point![1.0, 2.0]
+        );
+    }
+
+    #[tokio::test]
+    async fn ground_plot_uses_latest_ground_to_field_when_present() {
+        let (buffer, handle) =
+            Buffer::<Option<Isometry2<Ground, Field>>, eyre::Report>::new(Duration::ZERO);
+        let transform = Isometry2::from_parts(vector![1.0, 0.0], 0.0);
+        buffer
+            .push(Datum {
+                timestamp: SystemTime::UNIX_EPOCH,
+                value: Some(transform),
+            })
+            .await;
+
+        assert_eq!(
+            latest_ground_to_field_or_identity(&handle) * point![1.0, 2.0],
+            transform * point![1.0, 2.0]
+        );
+    }
+
+    #[test]
+    fn save_preserves_deferred_overlay_state_from_saved_map() {
+        let saved = json!({
+            "field": { "active": false },
+            "behavior_simulator": { "active": true },
+            "pose_detection": { "accepted": true },
+            "referee_position": { "active": true },
+            "path_obstacles": { "active": true },
+            "voronoi_cells": { "active": true },
+            "ball_position": { "active": true },
+            "ball_percept": { "active": true },
+        });
+
+        let preserved = preserved_skipped_layer_state(Some(&saved));
+
+        for key in SKIPPED_LAYER_KEYS {
+            assert_eq!(preserved.get(*key), saved.get(*key));
+        }
+        assert!(!preserved.contains_key("field"));
     }
 }

@@ -4,6 +4,7 @@ pub mod json_buffer;
 pub mod latency;
 pub mod subscription;
 pub mod topic;
+pub mod typed_buffer;
 
 use std::{num::NonZeroUsize, sync::Arc, time::Duration};
 
@@ -12,8 +13,9 @@ use eframe::egui::Context as EguiContext;
 use log::error;
 use parking_lot::Mutex;
 use ros_z::{
+    Message,
     context::ContextBuilder,
-    qos::{QosHistory, QosProfile},
+    qos::{QosDurability, QosHistory, QosProfile},
 };
 use serde_json::Value;
 use tokio::{
@@ -178,6 +180,48 @@ impl TwixBackend {
         )
     }
 
+    pub fn subscribe_transient_local_value<T>(&self, selector: impl Into<String>) -> BufferHandle<T>
+    where
+        T: Message + Clone,
+        T::Codec: Send + Sync,
+    {
+        self.subscribe_buffered_value_with_qos(selector, Duration::ZERO, transient_local_qos())
+    }
+
+    pub fn subscribe_buffered_value_with_queue_depth<T>(
+        &self,
+        selector: impl Into<String>,
+        history: Duration,
+        queue_depth: usize,
+    ) -> BufferHandle<T>
+    where
+        T: Message + Clone,
+        T::Codec: Send + Sync,
+    {
+        self.subscribe_buffered_value_with_qos(selector, history, high_rate_qos(queue_depth))
+    }
+
+    fn subscribe_buffered_value_with_qos<T>(
+        &self,
+        selector: impl Into<String>,
+        history: Duration,
+        qos: QosProfile,
+    ) -> BufferHandle<T>
+    where
+        T: Message + Clone,
+        T::Codec: Send + Sync,
+    {
+        typed_buffer::subscribe_value(
+            &self.runtime,
+            self.connection_state_receiver.clone(),
+            self.target_namespace_sender.subscribe(),
+            self.egui_context.clone(),
+            selector,
+            history,
+            Some(qos),
+        )
+    }
+
     pub fn subscribe_changes_json(
         &self,
         selector: impl Into<String>,
@@ -198,6 +242,13 @@ pub(crate) fn high_rate_qos(queue_depth: usize) -> QosProfile {
         history: QosHistory::KeepLast(
             NonZeroUsize::new(queue_depth).expect("high-rate queue depth must be non-zero"),
         ),
+        ..Default::default()
+    }
+}
+
+fn transient_local_qos() -> QosProfile {
+    QosProfile {
+        durability: QosDurability::TransientLocal,
         ..Default::default()
     }
 }
@@ -334,7 +385,7 @@ fn rebuild_topic_catalog(
 
 #[cfg(test)]
 mod tests {
-    use ros_z::qos::{DEFAULT_HISTORY_DEPTH, QosHistory};
+    use ros_z::qos::{DEFAULT_HISTORY_DEPTH, QosDurability, QosHistory};
 
     use crate::backend::connection::{ConnectionState, ConnectionStatus};
 
@@ -413,5 +464,13 @@ mod tests {
 
         assert_eq!(depth.get(), HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH);
         assert!(depth.get() > DEFAULT_HISTORY_DEPTH);
+    }
+
+    #[test]
+    fn transient_local_qos_requests_replayed_samples() {
+        assert_eq!(
+            transient_local_qos().durability,
+            QosDurability::TransientLocal
+        );
     }
 }

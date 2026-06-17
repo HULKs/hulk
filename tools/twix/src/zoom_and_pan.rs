@@ -23,6 +23,10 @@ impl ZoomAndPanTransform {
         Similarity2::new(vector![tx, ty], 0.0, scale).framed_transform()
     }
 
+    #[expect(
+        dead_code,
+        reason = "used by currently unregistered legacy Twix panels"
+    )]
     pub fn center_on(&mut self, position: Pos2, desired: Pos2, scale: f32) {
         self.transformation = self.centering_transform(position, desired, scale);
     }
