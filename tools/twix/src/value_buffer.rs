@@ -1,12 +1,11 @@
 use std::{
     fmt::Display,
-    sync::Arc,
     time::{Duration, SystemTime},
 };
 
 use color_eyre::Result;
 use color_eyre::eyre::{self, eyre};
-use tokio::sync::{Mutex, watch};
+use tokio::sync::watch;
 
 #[derive(Clone, Debug)]
 pub struct Datum<T> {
@@ -34,7 +33,7 @@ impl BufferHistory {
 
 pub struct BufferHandle<T, E = eyre::Report> {
     receiver: watch::Receiver<Result<TimeSeries<T>, E>>,
-    history: Arc<Mutex<BufferHistory>>,
+    history: watch::Sender<BufferHistory>,
 }
 
 impl<T, E> Clone for BufferHandle<T, E> {
@@ -77,29 +76,36 @@ where
     }
 
     pub fn set_history(&self, history: BufferHistory) {
-        *self.history.blocking_lock() = history;
+        self.history.send_replace(history);
     }
 }
 
 pub struct Buffer<T, E> {
     sender: watch::Sender<Result<TimeSeries<T>, E>>,
-    history: Arc<Mutex<BufferHistory>>,
+    history: watch::Receiver<BufferHistory>,
 }
 
 impl<T, E> Buffer<T, E> {
     pub fn new(history: BufferHistory) -> (Buffer<T, E>, BufferHandle<T, E>) {
         let (sender, receiver) = watch::channel(Ok(TimeSeries::new()));
-        let history = Arc::new(Mutex::new(history));
+        let (history_sender, history_receiver) = watch::channel(history);
         let buffer = Buffer {
             sender,
-            history: history.clone(),
+            history: history_receiver,
         };
-        let handle = BufferHandle { receiver, history };
+        let handle = BufferHandle {
+            receiver,
+            history: history_sender,
+        };
         (buffer, handle)
     }
 
     pub async fn history(&self) -> BufferHistory {
-        *self.history.lock().await
+        *self.history.borrow()
+    }
+
+    pub fn subscribe_history(&self) -> watch::Receiver<BufferHistory> {
+        self.history.clone()
     }
 
     pub fn send_error(&self, error: E) {
@@ -118,7 +124,7 @@ impl<T, E> Buffer<T, E> {
     }
 
     pub async fn push(&self, datum: Datum<T>) {
-        let history = *self.history.lock().await;
+        let history = *self.history.borrow();
         self.sender
             .send_modify(|value| handle_update(value, datum, history));
     }
@@ -205,6 +211,23 @@ mod tests {
                 .map(|datum| datum.value)
                 .collect::<Vec<_>>(),
             vec![2]
+        );
+    }
+
+    #[tokio::test]
+    async fn set_history_notifies_buffer_history_subscribers() {
+        let (buffer, handle) = Buffer::<i32, eyre::Report>::new(BufferHistory::LatestOnly);
+        let mut history = buffer.subscribe_history();
+
+        handle.set_history(BufferHistory::TimeWindow(Duration::from_secs(2)));
+
+        tokio::time::timeout(Duration::from_millis(100), history.changed())
+            .await
+            .expect("history changes should wake promptly")
+            .expect("history channel should stay open");
+        assert_eq!(
+            *history.borrow(),
+            BufferHistory::TimeWindow(Duration::from_secs(2))
         );
     }
 

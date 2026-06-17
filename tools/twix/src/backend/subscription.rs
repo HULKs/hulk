@@ -2,14 +2,10 @@ use std::{future::Future, sync::Arc, time::Duration};
 
 use color_eyre::{Report, Result, eyre::eyre};
 use eframe::egui::Context as EguiContext;
-use ros_z::{dynamic::DynamicPayload, node::Node};
+use ros_z::{dynamic::DynamicPayload, node::Node, qos::QosProfile};
 use ros_z_debug::{DebugEvent, ManagerOptions, RetentionPolicy, SampleRecord, SubscriptionManager};
-use tokio::{
-    sync::watch,
-    time::{self, MissedTickBehavior},
-};
+use tokio::{sync::watch, time};
 
-pub const EVENT_POLL_INTERVAL: Duration = Duration::from_millis(50);
 const SUBSCRIBE_RETRY_DELAY: Duration = Duration::from_secs(1);
 
 pub struct ActiveSubscription {
@@ -30,16 +26,17 @@ pub async fn subscribe_dynamic(
     target_namespace: String,
     selector: String,
     retention: RetentionPolicy,
+    qos: Option<QosProfile>,
 ) -> Result<ActiveSubscription> {
     let manager = SubscriptionManager::new(
         node,
         ManagerOptions::with_target_namespace(target_namespace)?,
     );
-    let handle = manager
-        .subscribe_dynamic(selector)
-        .retention(retention)
-        .build()
-        .await?;
+    let mut builder = manager.subscribe_dynamic(selector).retention(retention);
+    if let Some(qos) = qos {
+        builder = builder.qos(qos);
+    }
+    let handle = builder.build().await?;
 
     Ok(ActiveSubscription {
         _manager: manager,
@@ -106,8 +103,4 @@ pub async fn wait_for_retry_or_retarget(
         changed = target_namespace.changed() => changed.ok().map(|()| RebuildReason::Retarget),
         _ = &mut closed => None,
     }
-}
-
-pub fn skip_missed_ticks(poll: &mut time::Interval) {
-    poll.set_missed_tick_behavior(MissedTickBehavior::Skip);
 }

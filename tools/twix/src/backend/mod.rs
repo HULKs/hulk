@@ -1,15 +1,20 @@
 pub mod catalog;
 pub mod json_buffer;
+pub mod latency;
 pub mod subscription;
 pub mod topic;
 
-use std::sync::Arc;
+use std::{num::NonZeroUsize, sync::Arc};
 
 use color_eyre::{Result, eyre::eyre};
 use eframe::egui::Context as EguiContext;
 use log::error;
 use parking_lot::Mutex;
-use ros_z::{context::ContextBuilder, node::Node};
+use ros_z::{
+    context::ContextBuilder,
+    node::Node,
+    qos::{QosHistory, QosProfile},
+};
 use serde_json::Value;
 use tokio::{
     runtime::{Builder, Runtime},
@@ -20,6 +25,8 @@ use crate::{
     backend::catalog::TopicCatalog,
     value_buffer::{BufferHandle, BufferHistory},
 };
+
+pub(crate) const HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH: usize = 1024;
 
 pub struct TwixBackend {
     node: Arc<Node>,
@@ -106,6 +113,7 @@ impl TwixBackend {
             self.egui_context.clone(),
             selector,
             history,
+            Some(high_rate_qos(HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH)),
         )
     }
 
@@ -119,7 +127,17 @@ impl TwixBackend {
             self.target_namespace_sender.subscribe(),
             self.egui_context.clone(),
             selector.into(),
+            Some(high_rate_qos(HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH)),
         )
+    }
+}
+
+pub(crate) fn high_rate_qos(queue_depth: usize) -> QosProfile {
+    QosProfile {
+        history: QosHistory::KeepLast(
+            NonZeroUsize::new(queue_depth).expect("high-rate queue depth must be non-zero"),
+        ),
+        ..Default::default()
     }
 }
 
@@ -166,5 +184,23 @@ fn rebuild_topic_catalog(
             egui_context.request_repaint();
         }
         Err(error) => error!("failed to rebuild Twix topic catalog: {error:#}"),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use ros_z::qos::{DEFAULT_HISTORY_DEPTH, QosHistory};
+
+    use super::*;
+
+    #[test]
+    fn high_rate_qos_uses_deeper_queue_than_ros_z_default() {
+        let QosHistory::KeepLast(depth) = high_rate_qos(HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH).history
+        else {
+            panic!("high-rate Twix subscriptions must use bounded KeepLast history");
+        };
+
+        assert_eq!(depth.get(), HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH);
+        assert!(depth.get() > DEFAULT_HISTORY_DEPTH);
     }
 }

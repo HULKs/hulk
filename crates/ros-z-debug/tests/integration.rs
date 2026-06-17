@@ -1,6 +1,7 @@
 use std::{sync::Arc, time::Duration};
 
 use ros_z::prelude::*;
+use ros_z::qos::{QosDurability, QosProfile};
 use ros_z_debug::{ManagerOptions, RetentionPolicy, SubscriptionManager};
 
 #[allow(dead_code)]
@@ -105,6 +106,66 @@ async fn typed_subscription_receives_latest_sample() {
         assert!(
             tokio::time::Instant::now() < deadline,
             "timed out waiting for latest sample replacement"
+        );
+        tokio::time::sleep(Duration::from_millis(10)).await;
+    }
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn typed_subscription_can_request_transient_local_replay() {
+    let context = ContextBuilder::default()
+        .disable_multicast_scouting()
+        .with_json("connect/endpoints", serde_json::json!([]))
+        .build()
+        .await
+        .expect("context should build");
+    let publisher_node = context
+        .create_node("typed_retained_pub")
+        .build()
+        .await
+        .expect("publisher node");
+    let subscriber_node = Arc::new(
+        context
+            .create_node("typed_retained_sub")
+            .build()
+            .await
+            .expect("subscriber node"),
+    );
+    let transient_local = QosProfile {
+        durability: QosDurability::TransientLocal,
+        ..Default::default()
+    };
+    let publisher = publisher_node
+        .publisher::<String>("debug_retained")
+        .expect("publisher builder")
+        .qos(transient_local)
+        .build()
+        .await
+        .expect("publisher");
+    publisher
+        .publish(&"retained".to_string())
+        .await
+        .expect("publish should work");
+
+    let manager = SubscriptionManager::new(subscriber_node, ManagerOptions::default());
+    let handle = manager
+        .subscribe_typed::<String>("debug_retained")
+        .qos(transient_local)
+        .retention(RetentionPolicy::LatestOnly)
+        .build()
+        .await
+        .expect("subscription should build");
+
+    let deadline = tokio::time::Instant::now() + Duration::from_secs(2);
+    loop {
+        if let Some(record) = handle.latest() {
+            assert_eq!(record.value, "retained");
+            assert_eq!(record.metadata.resolved_topic, "/debug_retained");
+            break;
+        }
+        assert!(
+            tokio::time::Instant::now() < deadline,
+            "timed out waiting for retained sample"
         );
         tokio::time::sleep(Duration::from_millis(10)).await;
     }
