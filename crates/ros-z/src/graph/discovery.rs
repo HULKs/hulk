@@ -11,7 +11,7 @@ use ros_z_protocol::format::parse_liveliness;
 
 #[derive(Debug)]
 enum LivelinessEvent {
-    Put(LivelinessKE, crate::entity::Entity),
+    Put(LivelinessKE, Box<crate::entity::Entity>),
     Delete(LivelinessKE),
 }
 
@@ -23,7 +23,7 @@ struct InitialHydrationState {
 
 fn apply_liveliness_event(graph_data: &Arc<Mutex<GraphData>>, event: LivelinessEvent) -> bool {
     match event {
-        LivelinessEvent::Put(key_expr, entity) => graph_data.lock().insert(key_expr, entity),
+        LivelinessEvent::Put(key_expr, entity) => graph_data.lock().insert(key_expr, *entity),
         LivelinessEvent::Delete(key_expr) => graph_data.lock().remove(&key_expr),
     }
 }
@@ -85,7 +85,7 @@ pub(super) async fn install_liveliness(
 
                 let event = match sample_kind {
                     SampleKind::Put => match parse_liveliness(&key_expr) {
-                        Ok(entity) => Some(LivelinessEvent::Put(key_expr, entity)),
+                        Ok(entity) => Some(LivelinessEvent::Put(key_expr, Box::new(entity))),
                         Err(error) => {
                             warn!(
                                 liveliness_key = %key_expr.0,

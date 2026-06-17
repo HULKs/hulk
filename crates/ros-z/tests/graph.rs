@@ -153,10 +153,10 @@ async fn declare_liveliness_token(
     entity: &Entity,
 ) -> Result<zenoh::liveliness::LivelinessToken> {
     let liveliness_key_expr = entity.liveliness_key_expr()?;
-    Ok(session
+    session
         .liveliness()
         .declare_token(liveliness_key_expr.0)
-        .await?)
+        .await
 }
 
 async fn wait_for_liveliness_token(
