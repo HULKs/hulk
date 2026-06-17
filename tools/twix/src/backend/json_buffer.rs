@@ -1,25 +1,34 @@
-use std::{future::Future, sync::Arc};
+use std::{future::Future, sync::Arc, time::Duration};
 
-use color_eyre::eyre::Report;
+use color_eyre::eyre::{Report, eyre};
 use eframe::egui::Context as EguiContext;
-use ros_z::{dynamic::DynamicPayload, node::Node, qos::QosProfile};
+use ros_z::{dynamic::DynamicPayload, qos::QosProfile};
 use ros_z_debug::{JsonRenderPolicy, RetentionPolicy, SampleRecord, dynamic_payload_to_json};
 use serde_json::Value;
 use tokio::{runtime::Runtime, sync::watch};
 
 use crate::{
     backend::{
+        connection::ConnectionState,
         latency::trace_forward_latency,
-        subscription::{self, ActiveSubscription, RebuildReason},
+        subscription::{self, ActiveSubscription},
     },
     value_buffer::{Buffer, BufferHandle, BufferHistory, Datum},
 };
 
 type JsonBuffer = Buffer<Value, Report>;
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum RebuildReason {
+    ConnectionChanged,
+    Retarget,
+    RetentionChanged,
+    Retry,
+}
+
 pub fn subscribe_json(
     runtime: &Runtime,
-    node: Arc<Node>,
+    connection_state: watch::Receiver<ConnectionState>,
     target_namespace: watch::Receiver<String>,
     egui_context: EguiContext,
     selector: impl Into<String>,
@@ -28,7 +37,7 @@ pub fn subscribe_json(
 ) -> BufferHandle<Value> {
     let (buffer, handle) = Buffer::new(history);
     runtime.spawn(run_json_buffer(
-        node,
+        connection_state,
         target_namespace,
         egui_context,
         selector.into(),
@@ -39,7 +48,7 @@ pub fn subscribe_json(
 }
 
 async fn run_json_buffer(
-    node: Arc<Node>,
+    mut connection_state: watch::Receiver<ConnectionState>,
     mut target_namespace: watch::Receiver<String>,
     egui_context: EguiContext,
     selector: String,
@@ -59,6 +68,24 @@ async fn run_json_buffer(
         }
 
         let namespace = target_namespace.borrow_and_update().clone();
+        let state = connection_state.borrow_and_update().clone();
+        let Some(node) = state.node() else {
+            if let Some(message) = state.unavailable_message() {
+                buffer.send_error(eyre!(message.to_string()));
+                egui_context.request_repaint();
+            }
+            let Some(rebuild_reason) = wait_for_connection_or_retarget(
+                &mut connection_state,
+                &mut target_namespace,
+                &buffer,
+            )
+            .await
+            else {
+                break;
+            };
+            clear_on_rebuild = should_clear_on_rebuild(rebuild_reason);
+            continue;
+        };
         let retention = retention_policy(buffer.history().await);
         let subscription = subscription::subscribe_dynamic(
             node.clone(),
@@ -71,6 +98,13 @@ async fn run_json_buffer(
 
         let active_subscription = tokio::select! {
             result = &mut subscription => result,
+            changed = connection_state.changed() => {
+                if changed.is_err() {
+                    break;
+                }
+                clear_on_rebuild = true;
+                continue;
+            }
             changed = target_namespace.changed() => {
                 if changed.is_err() {
                     break;
@@ -88,6 +122,7 @@ async fn run_json_buffer(
                 }
                 let Some(rebuild_reason) = forward_subscription(
                     active_subscription,
+                    &mut connection_state,
                     &mut target_namespace,
                     &buffer,
                     &egui_context,
@@ -101,9 +136,10 @@ async fn run_json_buffer(
             Err(error) => {
                 buffer.send_error(error);
                 egui_context.request_repaint();
-                let Some(rebuild_reason) = subscription::wait_for_retry_or_retarget(
+                let Some(rebuild_reason) = wait_for_retry_or_retarget(
+                    &mut connection_state,
                     &mut target_namespace,
-                    buffer.closed(),
+                    &buffer,
                 )
                 .await
                 else {
@@ -119,6 +155,7 @@ async fn run_json_buffer(
 
 async fn forward_subscription(
     mut active_subscription: ActiveSubscription,
+    connection_state: &mut watch::Receiver<ConnectionState>,
     target_namespace: &mut watch::Receiver<String>,
     buffer: &JsonBuffer,
     egui_context: &EguiContext,
@@ -176,6 +213,7 @@ async fn forward_subscription(
                     return Some(rebuild_reason);
                 }
             }
+            changed = connection_state.changed() => return changed.ok().map(|()| RebuildReason::ConnectionChanged),
             changed = target_namespace.changed() => return changed.ok().map(|()| RebuildReason::Retarget),
             _ = buffer.closed() => return None,
         }
@@ -192,7 +230,10 @@ async fn subscription_event_rebuild_reason(
 }
 
 fn should_clear_on_rebuild(rebuild_reason: RebuildReason) -> bool {
-    matches!(rebuild_reason, RebuildReason::Retarget)
+    matches!(
+        rebuild_reason,
+        RebuildReason::ConnectionChanged | RebuildReason::Retarget
+    )
 }
 
 async fn forward_record(record: Arc<SampleRecord<DynamicPayload>>, buffer: &JsonBuffer) {
@@ -216,6 +257,34 @@ fn retention_policy(history: BufferHistory) -> RetentionPolicy {
     }
 }
 
+async fn wait_for_retry_or_retarget(
+    connection_state: &mut watch::Receiver<ConnectionState>,
+    target_namespace: &mut watch::Receiver<String>,
+    buffer: &JsonBuffer,
+) -> Option<RebuildReason> {
+    let retry = tokio::time::sleep(Duration::from_secs(1));
+    tokio::pin!(retry);
+
+    tokio::select! {
+        _ = &mut retry => Some(RebuildReason::Retry),
+        changed = connection_state.changed() => changed.ok().map(|()| RebuildReason::ConnectionChanged),
+        changed = target_namespace.changed() => changed.ok().map(|()| RebuildReason::Retarget),
+        _ = buffer.closed() => None,
+    }
+}
+
+async fn wait_for_connection_or_retarget(
+    connection_state: &mut watch::Receiver<ConnectionState>,
+    target_namespace: &mut watch::Receiver<String>,
+    buffer: &JsonBuffer,
+) -> Option<RebuildReason> {
+    tokio::select! {
+        changed = connection_state.changed() => changed.ok().map(|()| RebuildReason::ConnectionChanged),
+        changed = target_namespace.changed() => changed.ok().map(|()| RebuildReason::Retarget),
+        _ = buffer.closed() => None,
+    }
+}
+
 #[cfg(test)]
 mod tests {
     use std::{cell::RefCell, rc::Rc, time::Duration};
@@ -226,6 +295,8 @@ mod tests {
         dynamic::{DynamicPayload, DynamicStruct},
     };
     use tokio::{runtime::Builder, sync::watch};
+
+    use crate::backend::connection::ConnectionState;
 
     use super::*;
 
@@ -270,10 +341,12 @@ mod tests {
                 .build()
                 .await
                 .unwrap();
+            let (_connection_sender, connection_receiver) =
+                watch::channel(ConnectionState::connected(subscriber_node));
             let (_namespace_sender, namespace_receiver) = watch::channel("/".to_string());
             let buffer = subscribe_json(
                 &runtime,
-                subscriber_node,
+                connection_receiver,
                 namespace_receiver,
                 EguiContext::default(),
                 "twix_debug_dynamic",
@@ -300,6 +373,38 @@ mod tests {
                 assert!(
                     tokio::time::Instant::now() < deadline,
                     "timed out waiting for Twix JSON buffer"
+                );
+                tokio::time::sleep(Duration::from_millis(10)).await;
+            }
+        });
+    }
+
+    #[test]
+    fn json_buffer_reports_disconnected_connection_state() {
+        let runtime = Builder::new_multi_thread().enable_all().build().unwrap();
+        runtime.block_on(async {
+            let (_connection_sender, connection_receiver) =
+                watch::channel(ConnectionState::disconnected());
+            let (_namespace_sender, namespace_receiver) = watch::channel("/".to_string());
+            let buffer = subscribe_json(
+                &runtime,
+                connection_receiver,
+                namespace_receiver,
+                EguiContext::default(),
+                "twix_debug_dynamic",
+                BufferHistory::LatestOnly,
+                None,
+            );
+
+            let deadline = tokio::time::Instant::now() + Duration::from_secs(1);
+            loop {
+                match buffer.get_last() {
+                    Err(error) if error.to_string().contains("Twix is disconnected") => break,
+                    _ => {}
+                }
+                assert!(
+                    tokio::time::Instant::now() < deadline,
+                    "timed out waiting for disconnected Twix JSON buffer error"
                 );
                 tokio::time::sleep(Duration::from_millis(10)).await;
             }
