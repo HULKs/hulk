@@ -7,7 +7,8 @@ use coordinate_systems::Ground;
 use types::{field_dimensions::FieldDimensions, obstacles::Obstacle};
 
 use crate::{
-    panels::map::layer::Layer, robot::Robot, twix_painter::TwixPainter, value_buffer::BufferHandle,
+    backend::TwixBackend, panels::map::layer::Layer, twix_painter::TwixPainter,
+    value_buffer::BufferHandle,
 };
 
 pub struct Obstacles {
@@ -17,8 +18,12 @@ pub struct Obstacles {
 impl Layer<Ground> for Obstacles {
     const NAME: &'static str = "Obstacles";
 
-    fn new(robot: Arc<Robot>) -> Self {
-        let obstacles = robot.subscribe_value("WorldState.main_outputs.obstacles");
+    fn new(backend: Arc<TwixBackend>) -> Self {
+        let obstacles = backend.subscribe_buffered_value_with_queue_depth(
+            "obstacles",
+            std::time::Duration::ZERO,
+            crate::backend::HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH,
+        );
         Self { obstacles }
     }
 

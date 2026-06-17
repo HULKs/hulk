@@ -100,6 +100,10 @@ impl<World> TwixPainter<World> {
         }
     }
 
+    #[expect(
+        dead_code,
+        reason = "used by currently unregistered legacy Twix panels"
+    )]
     pub fn paint_at(ui: &mut Ui, pixel_rect: Rect) -> Self {
         let painter = ui.painter_at(pixel_rect);
         let world_to_pixel = Similarity2::new(
@@ -117,6 +121,10 @@ impl<World> TwixPainter<World> {
         }
     }
 
+    #[expect(
+        dead_code,
+        reason = "used by currently unregistered legacy Twix panels"
+    )]
     pub fn with_camera(
         self,
         camera_dimensions: Vector2<World, f32>,
@@ -226,7 +234,10 @@ impl<World> TwixPainter<World> {
             .add(Shape::Path(PathShape::closed_line(points, stroke)));
     }
 
-    #[allow(dead_code)]
+    #[expect(
+        dead_code,
+        reason = "kept with painter helpers for deferred Twix overlays"
+    )]
     pub fn polyline(&self, points: impl IntoIterator<Item = Point2<World>>, stroke: Stroke) {
         let points: Vec<_> = points
             .into_iter()
@@ -262,6 +273,10 @@ impl<World> TwixPainter<World> {
         }
     }
 
+    #[expect(
+        dead_code,
+        reason = "used by currently unregistered legacy Twix panels"
+    )]
     pub fn transform_pixel_to_world(&self, pos: Pos2) -> Point2<World> {
         let inverse = self
             .world_to_pixel
@@ -433,6 +448,10 @@ impl<World> TwixPainter<World> {
         self.painter.text(position, align, text, font_id, color);
     }
 
+    #[expect(
+        dead_code,
+        reason = "used by currently unregistered legacy Twix panels"
+    )]
     pub fn image(&self, texture_id: TextureId, rect: Rectangle<World>) {
         let Rectangle { min, max } = rect;
         let min = self.transform_world_to_pixel(min);

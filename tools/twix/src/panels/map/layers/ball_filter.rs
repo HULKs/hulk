@@ -9,18 +9,23 @@ use linear_algebra::{Point, vector};
 use types::field_dimensions::FieldDimensions;
 
 use crate::{
-    panels::map::layer::Layer, robot::Robot, twix_painter::TwixPainter, value_buffer::BufferHandle,
+    backend::TwixBackend, panels::map::layer::Layer, twix_painter::TwixPainter,
+    value_buffer::BufferHandle,
 };
 
 pub struct BallFilter {
-    filter: BufferHandle<Option<BallFiltering>>,
+    filter: BufferHandle<BallFiltering>,
 }
 
 impl Layer<Ground> for BallFilter {
     const NAME: &'static str = "Ball Filter";
 
-    fn new(robot: Arc<Robot>) -> Self {
-        let filter = robot.subscribe_value("WorldState.additional_outputs.ball_filter_state");
+    fn new(backend: Arc<TwixBackend>) -> Self {
+        let filter = backend.subscribe_buffered_value_with_queue_depth(
+            "ball_filter/ball_filter_state",
+            std::time::Duration::ZERO,
+            crate::backend::HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH,
+        );
         Self { filter }
     }
 
@@ -29,7 +34,7 @@ impl Layer<Ground> for BallFilter {
         painter: &TwixPainter<Ground>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        if let Some(filter) = self.filter.get_last_value()?.flatten() {
+        if let Some(filter) = self.filter.get_last_value()? {
             for hypothesis in filter.hypotheses {
                 let stroke = Stroke::new(0.01_f32, Color32::BLACK);
                 match hypothesis.mode {
