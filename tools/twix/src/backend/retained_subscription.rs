@@ -468,7 +468,6 @@ where
 enum ForwardSubscriptionExit {
     ConnectionChanged,
     TargetNamespaceChanged,
-    GraphChanged,
     RetentionChanged,
     UpdateReceiverClosed,
     ControlChannelClosed,
@@ -509,7 +508,7 @@ async fn forward_subscription_updates<T>(
     connection_state: &mut watch::Receiver<ConnectionState>,
     target_namespace: &mut watch::Receiver<String>,
     retention: &mut watch::Receiver<RetentionPolicy>,
-    graph_changes: &mut watch::Receiver<u64>,
+    _graph_changes: &mut watch::Receiver<u64>,
     state: &WeakState<T>,
     egui_context: &EguiContext,
 ) -> ForwardSubscriptionExit
@@ -541,10 +540,6 @@ where
                 Ok(()) => ForwardSubscriptionExit::RetentionChanged,
                 Err(_) => control_channel_closed_exit(state),
             },
-            changed = graph_changes.changed() => return match changed {
-                Ok(()) => ForwardSubscriptionExit::GraphChanged,
-                Err(_) => control_channel_closed_exit(state),
-            },
         }
     }
 }
@@ -561,7 +556,6 @@ fn should_clear_state_after_forward_exit(exit: ForwardSubscriptionExit) -> bool 
     matches!(
         exit,
         ForwardSubscriptionExit::TargetNamespaceChanged
-            | ForwardSubscriptionExit::GraphChanged
             | ForwardSubscriptionExit::UpdateReceiverClosed
     )
 }
@@ -573,7 +567,6 @@ fn subscribe_error_handle_policy_after_forward_exit(
         ForwardSubscriptionExit::RetentionChanged => SubscribeErrorHandlePolicy::KeepExisting,
         ForwardSubscriptionExit::ConnectionChanged
         | ForwardSubscriptionExit::TargetNamespaceChanged
-        | ForwardSubscriptionExit::GraphChanged
         | ForwardSubscriptionExit::UpdateReceiverClosed
         | ForwardSubscriptionExit::ControlChannelClosed
         | ForwardSubscriptionExit::OwnerDropped => SubscribeErrorHandlePolicy::ClearExisting,
@@ -795,13 +788,16 @@ mod tests {
     use std::{sync::Arc, time::Duration};
 
     use color_eyre::eyre::eyre;
+    use eframe::egui::Context as EguiContext;
     use ros_z::{dynamic::DynamicPayload, prelude::*, time::Time};
     use ros_z_debug::{ManagerOptions, RetentionPolicy, SubscriptionManager, SubscriptionUpdate};
+    use tokio::{sync::watch, time::timeout};
 
     use super::{
-        ForwardSubscriptionExit, RetainedSubscription, SubscribeErrorHandlePolicy,
-        TypedSubscription, clear_state_for_rebuild, handle_update, set_connection_unavailable,
-        set_subscribe_error, should_clear_state_after_forward_exit,
+        ConnectionState, ForwardSubscriptionExit, RebuildSignal, RetainedSubscription,
+        SubscribeErrorHandlePolicy, TypedSubscription, clear_state_for_rebuild,
+        forward_subscription_updates, handle_update, set_connection_unavailable,
+        set_subscribe_error, should_clear_state_after_forward_exit, wait_for_rebuild_signal,
     };
 
     #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, ros_z::Message)]
@@ -865,16 +861,82 @@ mod tests {
     }
 
     #[test]
-    fn forward_exit_clears_state_for_retarget_or_graph_but_not_retention() {
+    fn forward_exit_clears_state_for_retarget_or_receiver_close_but_not_retention() {
         assert!(should_clear_state_after_forward_exit(
             ForwardSubscriptionExit::TargetNamespaceChanged,
         ));
         assert!(should_clear_state_after_forward_exit(
-            ForwardSubscriptionExit::GraphChanged,
+            ForwardSubscriptionExit::UpdateReceiverClosed,
         ));
         assert!(!should_clear_state_after_forward_exit(
             ForwardSubscriptionExit::RetentionChanged,
         ));
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn active_forwarding_ignores_graph_changes_until_real_rebuild_signal() {
+        let retained =
+            RetainedSubscription::<SubscribeErrorStateMessage>::new(RetentionPolicy::LatestOnly);
+        let state = Arc::downgrade(&retained.state);
+        let handle = typed_handle("twix_active_forward_ignores_graph_changes").await;
+        let mut updates = handle.subscribe_updates();
+        retained.state.lock().handle = Some(handle);
+        let (_connection_sender, mut connection_state) =
+            watch::channel(ConnectionState::disconnected());
+        let (target_sender, mut target_namespace) = watch::channel(String::new());
+        let (_retention_sender, mut retention) = watch::channel(RetentionPolicy::LatestOnly);
+        let (graph_sender, mut graph_changes) = watch::channel(0);
+        let egui_context = EguiContext::default();
+
+        let forward = forward_subscription_updates(
+            &mut updates,
+            &mut connection_state,
+            &mut target_namespace,
+            &mut retention,
+            &mut graph_changes,
+            &state,
+            &egui_context,
+        );
+        tokio::pin!(forward);
+
+        graph_sender.send_replace(1);
+        assert!(
+            timeout(Duration::from_millis(50), &mut forward)
+                .await
+                .is_err(),
+            "graph changes must not end active forwarding"
+        );
+
+        target_sender.send_replace("/changed".to_string());
+        let exit = timeout(Duration::from_secs(1), &mut forward)
+            .await
+            .expect("target namespace change should end active forwarding");
+        assert_eq!(exit, ForwardSubscriptionExit::TargetNamespaceChanged);
+    }
+
+    #[tokio::test]
+    async fn retry_wait_can_wake_on_graph_changes() {
+        let (_connection_sender, mut connection_state) =
+            watch::channel(ConnectionState::disconnected());
+        let (_target_sender, mut target_namespace) = watch::channel(String::new());
+        let (_retention_sender, mut retention) = watch::channel(RetentionPolicy::LatestOnly);
+        let (graph_sender, mut graph_changes) = watch::channel(0);
+
+        graph_sender.send_replace(1);
+        let signal = timeout(
+            Duration::from_secs(1),
+            wait_for_rebuild_signal(
+                &mut connection_state,
+                &mut target_namespace,
+                &mut retention,
+                &mut graph_changes,
+            ),
+        )
+        .await
+        .expect("graph change should wake retry wait")
+        .expect("retry wait channel should stay open");
+
+        assert_eq!(signal, RebuildSignal::GraphChanged);
     }
 
     #[test]
