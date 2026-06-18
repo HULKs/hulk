@@ -38,10 +38,6 @@ impl SubscriptionStatus {
             Self::WaitingForFirstSample | Self::Ready | Self::Closed => None,
         }
     }
-
-    pub(crate) fn is_same_kind(&self, other: &Self) -> bool {
-        std::mem::discriminant(self) == std::mem::discriminant(other)
-    }
 }
 
 /// Point-in-time subscription status and resolved metadata.

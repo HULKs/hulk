@@ -1,7 +1,6 @@
 use std::sync::Arc;
 
 use eframe::egui::{Id, Response, Ui, Widget};
-use hulk_widgets::CompletionEdit;
 
 use crate::backend::catalog::TopicCatalog;
 
@@ -55,6 +54,24 @@ impl<'ui> TopicCompletionEdit<'ui> {
 impl Widget for TopicCompletionEdit<'_> {
     fn ui(self, ui: &mut Ui) -> Response {
         let selectors = self.selectors();
-        ui.add(CompletionEdit::new(self.id, &selectors, self.selector))
+        let mut response = ui
+            .push_id(self.id, |ui| ui.text_edit_singleline(self.selector))
+            .inner;
+
+        if response.has_focus() && !self.selector.is_empty() {
+            let needle = self.selector.to_lowercase();
+            for selector in selectors
+                .iter()
+                .filter(|selector| selector.to_lowercase().contains(&needle))
+                .take(8)
+            {
+                if ui.button(selector).clicked() {
+                    *self.selector = selector.clone();
+                    response.mark_changed();
+                }
+            }
+        }
+
+        response
     }
 }

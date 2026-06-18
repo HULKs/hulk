@@ -16,14 +16,21 @@ use eframe::{
     epaint::{Color32, CornerRadius, Rect, Shape, Stroke, TextShape, Vec2},
 };
 use itertools::Itertools;
+use ros_z::time::Time;
+use ros_z_debug::RetentionPolicy;
 use serde_json::{Value, json};
 
 use crate::{
-    backend::TwixBackend,
-    change_buffer::{Change, ChangeBufferHandle},
+    backend::{TwixBackend, retained_subscription::DynamicSubscription},
     panel::{Panel, PanelCreationContext},
     topic_completion_edit::TopicCompletionEdit,
 };
+
+const DEFAULT_RETENTION_WINDOW: Duration = Duration::from_secs(10);
+
+fn enum_plot_retention(duration: Duration) -> RetentionPolicy {
+    RetentionPolicy::time_window(duration).unwrap_or(RetentionPolicy::LatestOnly)
+}
 
 fn color_hash(value: impl Hash) -> Color32 {
     let mut hasher = DefaultHasher::new();
@@ -41,6 +48,25 @@ struct Segment {
     start: f32,
     end: f32,
     value: Value,
+}
+
+#[derive(Clone, Debug, PartialEq)]
+struct EnumTransition {
+    timestamp: SystemTime,
+    value: Value,
+}
+
+fn enum_transitions(samples: impl IntoIterator<Item = (SystemTime, Value)>) -> Vec<EnumTransition> {
+    let mut transitions = Vec::new();
+    for (timestamp, value) in samples {
+        if transitions
+            .last()
+            .is_none_or(|transition: &EnumTransition| transition.value != value)
+        {
+            transitions.push(EnumTransition { timestamp, value });
+        }
+    }
+    transitions
 }
 
 impl Segment {
@@ -153,15 +179,28 @@ enum ViewportMode {
 #[derive(Default)]
 struct SegmentRow {
     topic: String,
-    buffer: Option<ChangeBufferHandle<Value>>,
+    subscription: Option<DynamicSubscription>,
 }
 
 impl SegmentRow {
-    fn subscribe(&mut self, backend: Arc<TwixBackend>) {
-        self.buffer = Some(backend.subscribe_changes_json(self.topic.clone()));
+    fn subscribe(&mut self, backend: Arc<TwixBackend>, retention_window: Duration) {
+        self.subscription =
+            if self.topic.is_empty() {
+                None
+            } else {
+                Some(backend.subscribe_json_retained(
+                    self.topic.clone(),
+                    enum_plot_retention(retention_window),
+                ))
+            };
     }
 
-    fn show_settings(&mut self, ui: &mut Ui, backend: Arc<TwixBackend>) {
+    fn show_settings(
+        &mut self,
+        ui: &mut Ui,
+        backend: Arc<TwixBackend>,
+        retention_window: Duration,
+    ) {
         let subscription_field = ui.add(TopicCompletionEdit::namespace_topics(
             ui.auto_id_with("enum-plot"),
             backend.topic_catalog(),
@@ -169,29 +208,56 @@ impl SegmentRow {
         ));
 
         if subscription_field.changed() {
-            self.subscribe(backend);
+            self.subscribe(backend, retention_window);
         }
 
-        if let Some(error) = self.error_message() {
-            ui.colored_label(Color32::RED, error);
+        if let Some(message) = self.diagnostic_message() {
+            ui.colored_label(Color32::RED, message);
         }
     }
 
-    fn error_message(&self) -> Option<String> {
-        let buffer = self.buffer.as_ref()?;
-        buffer.error_message()
+    fn diagnostic_message(&self) -> Option<String> {
+        let subscription = self.subscription.as_ref()?;
+        subscription.diagnostic_message()
     }
 
-    fn segments(&self, timestamp_range: &Range<SystemTime>) -> Option<Vec<Segment>> {
-        let buffer = self.buffer.as_ref()?;
-        let series = buffer.get().ok()?;
+    fn set_retention(&self, retention_window: Duration) {
+        if let Some(subscription) = &self.subscription {
+            subscription.set_retention(enum_plot_retention(retention_window));
+        }
+    }
 
-        let segments = series
-            .changes()
-            .chain(once(&Change {
-                timestamp: series.last_update()?,
-                value: Value::Null,
-            }))
+    fn samples(&self) -> Vec<(Time, Value)> {
+        self.subscription
+            .as_ref()
+            .map(|subscription| subscription.window_json(Time::zero(), Time::from_nanos(i64::MAX)))
+            .unwrap_or_default()
+    }
+
+    fn segments(
+        &self,
+        samples: &[(Time, Value)],
+        timestamp_range: &Range<SystemTime>,
+    ) -> Vec<Segment> {
+        let transitions = enum_transitions(
+            samples
+                .iter()
+                .cloned()
+                .map(|(timestamp, value)| (timestamp.to_wallclock(), value)),
+        );
+        let row_end = samples
+            .iter()
+            .map(|(timestamp, _)| timestamp.to_wallclock())
+            .max()
+            .unwrap_or(timestamp_range.end);
+        let end_transition = EnumTransition {
+            timestamp: row_end,
+            value: Value::Null,
+        };
+
+        transitions
+            .iter()
+            .chain(once(&end_transition))
             .tuple_windows()
             .map(|(start, end)| Segment {
                 start: start
@@ -206,9 +272,7 @@ impl SegmentRow {
                     .as_secs_f32(),
                 value: start.value.clone(),
             })
-            .collect();
-
-        Some(segments)
+            .collect()
     }
 }
 
@@ -237,7 +301,7 @@ impl<'a> Panel<'a> for EnumPlotPanel {
                     topic: output_key.to_string(),
                     ..Default::default()
                 };
-                result.subscribe(context.backend.clone());
+                result.subscribe(context.backend.clone(), DEFAULT_RETENTION_WINDOW);
 
                 result
             })
@@ -264,6 +328,10 @@ impl<'a> Panel<'a> for EnumPlotPanel {
 }
 
 impl EnumPlotPanel {
+    fn retention_window(&self) -> Duration {
+        DEFAULT_RETENTION_WINDOW.max(Duration::from_secs_f32(self.x_range.span().max(0.0)))
+    }
+
     fn interact(&mut self, response: &Response, ui: &mut Ui, timestamp_range: &Range<SystemTime>) {
         const SCROLL_THRESHOLD: f32 = 1.0;
         const MINIMUM_VISIBLE_DURATION: Duration = Duration::from_millis(10);
@@ -356,22 +424,36 @@ impl EnumPlotPanel {
 
     fn render(&mut self, ui: &mut Ui) -> Response {
         const LINE_HEIGHT: f32 = 64.0;
+        let retention_window = self.retention_window();
+        for row in &self.segment_rows {
+            row.set_retention(retention_window);
+        }
+        let samples = self
+            .segment_rows
+            .iter()
+            .map(SegmentRow::samples)
+            .collect_vec();
+        let start = samples
+            .iter()
+            .flat_map(|samples| {
+                samples
+                    .iter()
+                    .map(|(timestamp, _)| timestamp.to_wallclock())
+            })
+            .min();
+        let end = samples
+            .iter()
+            .flat_map(|samples| {
+                samples
+                    .iter()
+                    .map(|(timestamp, _)| timestamp.to_wallclock())
+            })
+            .max();
 
         let desired_size = Vec2::new(
             ui.available_width(),
             self.segment_rows.len().max(1) as f32 * LINE_HEIGHT,
         );
-
-        let start = self
-            .segment_rows
-            .iter()
-            .filter_map(|row| row.buffer.as_ref()?.get().ok()?.first_update())
-            .min();
-        let end = self
-            .segment_rows
-            .iter()
-            .filter_map(|row| row.buffer.as_ref()?.get().ok()?.last_update())
-            .max();
 
         let (frame, response) = ui.allocate_exact_size(desired_size, Sense::click_and_drag());
 
@@ -382,12 +464,12 @@ impl EnumPlotPanel {
 
             if let (Some(start), Some(end)) = (start, end) {
                 let timestamp_range = Range { start, end };
-
-                let lines: Vec<_> = self
+                let lines = self
                     .segment_rows
                     .iter()
-                    .map(|segment_row| segment_row.segments(&timestamp_range).unwrap_or_default())
-                    .collect();
+                    .zip(samples.iter())
+                    .map(|(segment_row, samples)| segment_row.segments(samples, &timestamp_range))
+                    .collect_vec();
 
                 self.interact(&response, ui, &timestamp_range);
 
@@ -438,13 +520,15 @@ impl Widget for &mut EnumPlotPanel {
                     });
             });
 
+            let backend = self.backend.clone();
+            let retention_window = self.retention_window();
             self.segment_rows.retain_mut(|segment_data| {
                 ui.horizontal(|ui| {
                     let delete_button = ui.add(
                         Button::new(RichText::new("❌").color(Color32::WHITE).strong())
                             .fill(Color32::RED),
                     );
-                    segment_data.show_settings(ui, self.backend.clone());
+                    segment_data.show_settings(ui, backend.clone(), retention_window);
                     !delete_button.clicked()
                 })
                 .inner
@@ -460,23 +544,50 @@ impl Widget for &mut EnumPlotPanel {
 
 #[cfg(test)]
 mod tests {
-    use color_eyre::{Report, eyre::eyre};
+    use std::time::{Duration, SystemTime};
 
-    use crate::change_buffer::ChangeBuffer;
+    use serde_json::json;
 
     use super::*;
 
     #[test]
-    fn segment_row_error_message_returns_subscription_error() {
-        let (buffer, handle) = ChangeBuffer::<Value, Report>::new();
-        let row = SegmentRow {
-            topic: "robot/mode".to_string(),
-            buffer: Some(handle),
+    fn enum_transitions_skip_consecutive_equal_values() {
+        let base = SystemTime::UNIX_EPOCH;
+        let samples = vec![
+            (base, json!("initial")),
+            (base + Duration::from_secs(1), json!("initial")),
+            (base + Duration::from_secs(2), json!("ready")),
+        ];
+
+        let transitions = enum_transitions(samples);
+
+        assert_eq!(
+            transitions
+                .iter()
+                .map(|transition| transition.value.clone())
+                .collect::<Vec<_>>(),
+            vec![json!("initial"), json!("ready")]
+        );
+    }
+
+    #[test]
+    fn row_segments_end_at_row_last_sample_not_global_end() {
+        let stopped_row = SegmentRow::default();
+        let active_row = SegmentRow::default();
+        let timestamp_range = Range {
+            start: SystemTime::UNIX_EPOCH,
+            end: SystemTime::UNIX_EPOCH + Duration::from_secs(10),
         };
+        let stopped_samples = vec![(Time::from_nanos(2_000_000_000), json!("stopped"))];
+        let active_samples = vec![(Time::from_nanos(10_000_000_000), json!("active"))];
 
-        buffer.send_error(eyre!("subscription failed"));
+        let stopped_segments = stopped_row.segments(&stopped_samples, &timestamp_range);
+        let active_segments = active_row.segments(&active_samples, &timestamp_range);
 
-        let error = row.error_message().unwrap();
-        assert!(error.contains("subscription failed"));
+        assert_eq!(stopped_segments.len(), 1);
+        assert_eq!(active_segments.len(), 1);
+        assert_eq!(stopped_segments[0].start, 2.0);
+        assert_eq!(stopped_segments[0].end, 2.0);
+        assert_eq!(active_segments[0].end, 10.0);
     }
 }

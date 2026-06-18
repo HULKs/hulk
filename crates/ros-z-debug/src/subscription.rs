@@ -2,18 +2,19 @@ use std::sync::Arc;
 
 use arc_swap::ArcSwapOption;
 use parking_lot::Mutex;
-use ros_z::{dynamic::DynamicPayload, pubsub::PublicationId, time::Time};
+use ros_z::{dynamic::DynamicPayload, time::Time};
 use serde_json::Value;
-use tokio::{sync::watch, task::AbortHandle};
+use tokio::sync::broadcast;
+use tokio::task::AbortHandle;
 use tokio_util::sync::CancellationToken;
 
 use crate::{
-    DebugEvent, JsonRenderPolicy, RetentionPolicy, SampleRecord, SubscriptionStatus,
-    SubscriptionStatusSnapshot, dynamic_payload_to_json, event::EventBuffer,
-    history::TimeIndexedHistory,
+    JsonRenderPolicy, RetentionPolicy, SampleRecord, SubscriptionStatus,
+    SubscriptionStatusSnapshot, SubscriptionUpdate, SubscriptionUpdateReceiver,
+    dynamic_payload_to_json, history::TimeIndexedHistory,
 };
 
-const EVENT_BUFFER_CAPACITY: usize = 256;
+const UPDATE_BUFFER_CAPACITY: usize = 256;
 
 pub(crate) trait ManagedSubscription: Send + Sync {
     fn close(&self);
@@ -25,14 +26,12 @@ pub(crate) trait ManagedSubscription: Send + Sync {
 /// cancels the receive task.
 pub struct SubscriptionHandle<V> {
     state: Arc<SubscriptionState<V>>,
-    changes: watch::Receiver<u64>,
 }
 
 impl<V> Clone for SubscriptionHandle<V> {
     fn clone(&self) -> Self {
         Self {
             state: Arc::clone(&self.state),
-            changes: self.changes.clone(),
         }
     }
 }
@@ -55,23 +54,14 @@ impl<V> SubscriptionHandle<V> {
         self.state.window(start, end)
     }
 
-    /// Return one retained sample by source-time/publication identity.
-    pub fn record(
-        &self,
-        source_time: Time,
-        publication_id: PublicationId,
-    ) -> Option<Arc<SampleRecord<V>>> {
-        self.state.record(source_time, publication_id)
-    }
-
-    /// Drain queued status/value/diagnostic events.
-    pub fn drain_events(&self) -> Vec<DebugEvent> {
-        self.state.drain_events()
-    }
-
-    /// Wait until this subscription queues another status/value/diagnostic event.
-    pub async fn changed(&mut self) -> Result<(), watch::error::RecvError> {
-        self.changes.changed().await
+    /// Subscribe to status, data, and diagnostic update notifications.
+    ///
+    /// Terminal [`SubscriptionStatus::Closed`] is delivered as a
+    /// [`SubscriptionUpdate::StatusChanged`] update, not as end-of-stream while
+    /// handles keep the subscription state alive. Callers that want to stop at
+    /// terminal close should break when they observe that status.
+    pub fn subscribe_updates(&self) -> SubscriptionUpdateReceiver {
+        self.state.subscribe_updates()
     }
 }
 
@@ -110,14 +100,12 @@ impl JsonSubscriptionHandle {
             .collect()
     }
 
-    /// Drain queued status/value/diagnostic events.
-    pub fn drain_events(&self) -> Vec<DebugEvent> {
-        self.dynamic.drain_events()
-    }
-
-    /// Wait until this subscription queues another status/value/diagnostic event.
-    pub async fn changed(&mut self) -> Result<(), watch::error::RecvError> {
-        self.dynamic.changed().await
+    /// Subscribe to status, data, and diagnostic update notifications.
+    ///
+    /// See [`SubscriptionHandle::subscribe_updates`] for terminal close
+    /// semantics.
+    pub fn subscribe_updates(&self) -> SubscriptionUpdateReceiver {
+        self.dynamic.subscribe_updates()
     }
 }
 
@@ -125,13 +113,12 @@ pub(crate) struct SubscriptionState<V> {
     latest: ArcSwapOption<SampleRecord<V>>,
     history: Option<Mutex<TimeIndexedHistory<V>>>,
     meta: Mutex<SubscriptionMeta>,
-    changes: watch::Sender<u64>,
+    updates: broadcast::Sender<SubscriptionUpdate>,
     cancellation_token: CancellationToken,
 }
 
 struct SubscriptionMeta {
     status: SubscriptionStatusSnapshot,
-    events: EventBuffer,
     receive_task: Option<AbortHandle>,
 }
 
@@ -142,17 +129,16 @@ impl<V> SubscriptionState<V> {
             RetentionPolicy::TimeWindow(_) => Some(Mutex::new(TimeIndexedHistory::new(retention))),
         };
 
-        let (changes, _) = watch::channel(0);
+        let (updates, _) = broadcast::channel(UPDATE_BUFFER_CAPACITY);
 
         Self {
             latest: ArcSwapOption::empty(),
             history,
             meta: Mutex::new(SubscriptionMeta {
                 status,
-                events: EventBuffer::new(EVENT_BUFFER_CAPACITY),
                 receive_task: None,
             }),
-            changes,
+            updates,
             cancellation_token: CancellationToken::new(),
         }
     }
@@ -160,7 +146,6 @@ impl<V> SubscriptionState<V> {
     pub(crate) fn handle(self: &Arc<Self>) -> SubscriptionHandle<V> {
         SubscriptionHandle {
             state: Arc::clone(self),
-            changes: self.changes.subscribe(),
         }
     }
 
@@ -187,11 +172,11 @@ impl<V> SubscriptionState<V> {
             return;
         }
         meta.status.set_status(SubscriptionStatus::Closed);
-        meta.events.push(DebugEvent::StatusChanged);
+        let snapshot = meta.status.clone();
         let receive_task = meta.receive_task.take();
+        self.publish_update(SubscriptionUpdate::StatusChanged(snapshot));
         drop(meta);
 
-        self.notify_changed();
         self.cancellation_token.cancel();
         if let Some(receive_task) = receive_task {
             receive_task.abort();
@@ -204,9 +189,6 @@ impl<V> SubscriptionState<V> {
             return;
         }
 
-        let source_time = record.source_time;
-        let publication_id = record.publication_id;
-
         if let Some(history) = &self.history {
             history.lock().insert(Arc::clone(&record));
         }
@@ -214,15 +196,13 @@ impl<V> SubscriptionState<V> {
 
         let status_changed = meta.status.status() != &SubscriptionStatus::Ready;
         meta.status.set_status(SubscriptionStatus::Ready);
-        if status_changed {
-            meta.events.push(DebugEvent::StatusChanged);
+        let snapshot = status_changed.then(|| meta.status.clone());
+
+        if let Some(snapshot) = snapshot {
+            self.publish_update(SubscriptionUpdate::StatusChanged(snapshot));
         }
-        meta.events.push(DebugEvent::ValueUpdated {
-            source_time,
-            publication_id,
-        });
+        self.publish_update(SubscriptionUpdate::DataChanged);
         drop(meta);
-        self.notify_changed();
     }
 
     pub(crate) fn set_receive_error(&self, status: SubscriptionStatus) {
@@ -231,23 +211,18 @@ impl<V> SubscriptionState<V> {
             return;
         }
 
-        let status_changed = !meta.status.status().is_same_kind(&status);
+        let status_changed = meta.status.status() != &status;
         let message = status.message().map(str::to_owned);
         meta.status.set_status(status);
-        if status_changed {
-            meta.events.push(DebugEvent::StatusChanged);
+        let snapshot = status_changed.then(|| meta.status.clone());
+
+        if let Some(snapshot) = snapshot {
+            self.publish_update(SubscriptionUpdate::StatusChanged(snapshot));
         }
         if let Some(message) = message {
-            meta.events.push(DebugEvent::Diagnostic(message));
+            self.publish_update(SubscriptionUpdate::Diagnostic(message));
         }
         drop(meta);
-        self.notify_changed();
-    }
-
-    fn notify_changed(&self) {
-        self.changes.send_modify(|version| {
-            *version = version.wrapping_add(1);
-        });
     }
 
     fn status(&self) -> SubscriptionStatusSnapshot {
@@ -264,26 +239,12 @@ impl<V> SubscriptionState<V> {
             .map_or_else(Vec::new, |history| history.lock().window(start, end))
     }
 
-    fn record(
-        &self,
-        source_time: Time,
-        publication_id: PublicationId,
-    ) -> Option<Arc<SampleRecord<V>>> {
-        if let Some(record) = self.latest()
-            && record.source_time == source_time
-            && record.publication_id == publication_id
-        {
-            return Some(record);
-        }
-
-        self.history
-            .as_ref()?
-            .lock()
-            .record(source_time, publication_id)
+    fn subscribe_updates(&self) -> SubscriptionUpdateReceiver {
+        SubscriptionUpdateReceiver::new(self.updates.subscribe())
     }
 
-    fn drain_events(&self) -> Vec<DebugEvent> {
-        self.meta.lock().events.drain()
+    fn publish_update(&self, update: SubscriptionUpdate) {
+        let _ = self.updates.send(update);
     }
 }
 
@@ -316,8 +277,8 @@ mod tests {
 
     use super::{JsonSubscriptionHandle, SubscriptionState};
     use crate::{
-        DebugEvent, JsonRenderPolicy, RetentionPolicy, SampleMetadata, SampleRecord,
-        SubscriptionStatus, SubscriptionStatusSnapshot, TopicSelector,
+        JsonRenderPolicy, RetentionPolicy, SampleMetadata, SampleRecord, SubscriptionStatus,
+        SubscriptionStatusSnapshot, SubscriptionUpdate, TopicSelector,
     };
 
     struct NonClonePayload(u32);
@@ -353,7 +314,6 @@ mod tests {
             value,
             source_time,
             transport_time: None,
-            receive_time: source_time,
             publication_id: test_publication_id(),
             metadata: test_metadata(),
         })
@@ -379,7 +339,6 @@ mod tests {
             value: dynamic_payload(value),
             source_time,
             transport_time: None,
-            receive_time: source_time,
             publication_id: test_publication_id(),
             metadata: test_metadata(),
         })
@@ -455,84 +414,89 @@ mod tests {
     }
 
     #[test]
-    fn handle_record_returns_time_window_record_by_identity() {
-        let state = Arc::new(SubscriptionState::new(
-            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
-            RetentionPolicy::time_window(Duration::from_secs(10)).unwrap(),
-        ));
-        let first = sample_record_at(NonClonePayload(1), Time::from_nanos(1));
-        let second = sample_record_at(NonClonePayload(2), Time::from_nanos(2));
-        let source_time = second.source_time;
-        let publication_id = second.publication_id;
-
-        state.store_latest(Arc::clone(&first));
-        state.store_latest(Arc::clone(&second));
-
-        let found = state.handle().record(source_time, publication_id).unwrap();
-        assert!(Arc::ptr_eq(&second, &found));
-    }
-
-    #[test]
-    fn drain_events_returns_and_clears_events() {
+    fn update_receiver_reports_data_changed_after_store_latest() {
         let state = Arc::new(SubscriptionState::<NonClonePayload>::new(
             SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
         ));
+        let handle = state.handle();
+        let mut updates = handle.subscribe_updates();
 
         state.store_latest(sample_record(NonClonePayload(1)));
 
-        let events = state.handle().drain_events();
+        let first_update = updates.try_recv();
         assert!(matches!(
-            &events[..],
-            [
-                DebugEvent::StatusChanged,
-                DebugEvent::ValueUpdated {
-                    source_time: _,
-                    publication_id: _
-                }
-            ]
+            first_update,
+            Ok(Some(SubscriptionUpdate::StatusChanged(snapshot)))
+                if snapshot.status() == &SubscriptionStatus::Ready
         ));
-        assert!(state.handle().drain_events().is_empty());
-    }
-
-    #[tokio::test]
-    async fn handle_changed_wakes_when_events_are_queued() {
-        let state = Arc::new(SubscriptionState::<NonClonePayload>::new(
-            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
-            RetentionPolicy::LatestOnly,
+        assert!(matches!(
+            updates.try_recv(),
+            Ok(Some(SubscriptionUpdate::DataChanged))
         ));
-        let mut handle = state.handle();
-
-        state.store_latest(sample_record(NonClonePayload(1)));
-
-        tokio::time::timeout(Duration::from_millis(100), handle.changed())
-            .await
-            .expect("subscription changes should wake promptly")
-            .expect("subscription change channel should stay open");
+        assert!(matches!(updates.try_recv(), Ok(None)));
     }
 
     #[test]
-    fn store_latest_event_includes_retained_record_identity() {
+    fn update_receiver_reports_diagnostic_messages() {
         let state = Arc::new(SubscriptionState::<NonClonePayload>::new(
             SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
         ));
-        let record = sample_record_at(NonClonePayload(1), Time::from_nanos(7));
-        let source_time = record.source_time;
-        let publication_id = record.publication_id;
+        let handle = state.handle();
+        let mut updates = handle.subscribe_updates();
 
-        state.store_latest(record);
-
-        let events = state.handle().drain_events();
-        assert_eq!(events.len(), 2);
-        assert!(matches!(events[0], DebugEvent::StatusChanged));
-        assert!(matches!(
-            events[1],
-            DebugEvent::ValueUpdated {
-                source_time: event_source_time,
-                publication_id: event_publication_id,
-            } if event_source_time == source_time && event_publication_id == publication_id
+        state.set_receive_error(SubscriptionStatus::decode_error(
+            "failed to deserialize sample",
         ));
+
+        assert!(matches!(
+            updates.try_recv(),
+            Ok(Some(SubscriptionUpdate::StatusChanged(snapshot)))
+                if matches!(snapshot.status(), SubscriptionStatus::DecodeError { .. })
+        ));
+        assert!(matches!(
+            updates.try_recv(),
+            Ok(Some(SubscriptionUpdate::Diagnostic(message)))
+                if message == "failed to deserialize sample"
+        ));
+        assert!(matches!(updates.try_recv(), Ok(None)));
+    }
+
+    #[test]
+    fn update_receiver_reports_status_changed_for_repeated_error_with_new_message() {
+        let state = Arc::new(SubscriptionState::<NonClonePayload>::new(
+            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+            RetentionPolicy::LatestOnly,
+        ));
+        let handle = state.handle();
+        let mut updates = handle.subscribe_updates();
+
+        state.set_receive_error(SubscriptionStatus::decode_error("first decode failure"));
+        assert!(matches!(
+            updates.try_recv(),
+            Ok(Some(SubscriptionUpdate::StatusChanged(snapshot)))
+                if snapshot.message() == Some("first decode failure")
+        ));
+        assert!(matches!(
+            updates.try_recv(),
+            Ok(Some(SubscriptionUpdate::Diagnostic(message)))
+                if message == "first decode failure"
+        ));
+
+        state.set_receive_error(SubscriptionStatus::decode_error("second decode failure"));
+
+        assert!(matches!(
+            updates.try_recv(),
+            Ok(Some(SubscriptionUpdate::StatusChanged(snapshot)))
+                if snapshot.message() == Some("second decode failure")
+        ));
+        assert!(matches!(
+            updates.try_recv(),
+            Ok(Some(SubscriptionUpdate::Diagnostic(message)))
+                if message == "second decode failure"
+        ));
+        assert!(matches!(updates.try_recv(), Ok(None)));
     }
 
     #[test]
@@ -548,46 +512,23 @@ mod tests {
     }
 
     #[test]
-    fn recovery_from_error_emits_status_changed_and_value_updated() {
-        let state = Arc::new(SubscriptionState::new(
-            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
-            RetentionPolicy::LatestOnly,
-        ));
-        state.set_receive_error(SubscriptionStatus::decode_error(
-            "failed to deserialize sample",
-        ));
-        state.handle().drain_events();
-
-        state.store_latest(sample_record(NonClonePayload(1)));
-
-        let events = state.handle().drain_events();
-        assert!(matches!(
-            events.as_slice(),
-            [
-                DebugEvent::StatusChanged,
-                DebugEvent::ValueUpdated {
-                    source_time: _,
-                    publication_id: _
-                }
-            ]
-        ));
-    }
-
-    #[test]
-    fn close_sets_closed_status_and_emits_event() {
+    fn update_receiver_reports_closed_status() {
         let state = Arc::new(SubscriptionState::<NonClonePayload>::new(
             SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
         ));
         let handle = state.handle();
+        let mut updates = handle.subscribe_updates();
 
         state.close();
 
         assert_eq!(handle.status().status(), &SubscriptionStatus::Closed);
         assert!(matches!(
-            handle.drain_events().as_slice(),
-            [DebugEvent::StatusChanged]
+            updates.try_recv(),
+            Ok(Some(SubscriptionUpdate::StatusChanged(snapshot)))
+                if snapshot.status() == &SubscriptionStatus::Closed
         ));
+        assert!(matches!(updates.try_recv(), Ok(None)));
     }
 
     #[tokio::test]
@@ -611,6 +552,7 @@ mod tests {
             RetentionPolicy::LatestOnly,
         ));
         let handle = state.handle();
+        let mut updates = handle.subscribe_updates();
 
         state.close();
         state.store_latest(sample_record(NonClonePayload(1)));
@@ -618,9 +560,11 @@ mod tests {
         assert_eq!(handle.status().status(), &SubscriptionStatus::Closed);
         assert!(handle.latest().is_none());
         assert!(matches!(
-            handle.drain_events().as_slice(),
-            [DebugEvent::StatusChanged]
+            updates.try_recv(),
+            Ok(Some(SubscriptionUpdate::StatusChanged(snapshot)))
+                if snapshot.status() == &SubscriptionStatus::Closed
         ));
+        assert!(matches!(updates.try_recv(), Ok(None)));
     }
 
     #[test]
@@ -630,6 +574,7 @@ mod tests {
             RetentionPolicy::LatestOnly,
         ));
         let handle = state.handle();
+        let mut updates = handle.subscribe_updates();
 
         state.close();
         state.set_receive_error(SubscriptionStatus::decode_error("late decode failure"));
@@ -638,9 +583,11 @@ mod tests {
         assert_eq!(status.status(), &SubscriptionStatus::Closed);
         assert_eq!(status.message(), None);
         assert!(matches!(
-            handle.drain_events().as_slice(),
-            [DebugEvent::StatusChanged]
+            updates.try_recv(),
+            Ok(Some(SubscriptionUpdate::StatusChanged(snapshot)))
+                if snapshot.status() == &SubscriptionStatus::Closed
         ));
+        assert!(matches!(updates.try_recv(), Ok(None)));
     }
 
     #[test]
@@ -650,15 +597,18 @@ mod tests {
             RetentionPolicy::LatestOnly,
         ));
         let handle = state.handle();
+        let mut updates = handle.subscribe_updates();
 
         state.close();
         state.close();
 
         assert_eq!(handle.status().status(), &SubscriptionStatus::Closed);
         assert!(matches!(
-            handle.drain_events().as_slice(),
-            [DebugEvent::StatusChanged]
+            updates.try_recv(),
+            Ok(Some(SubscriptionUpdate::StatusChanged(snapshot)))
+                if snapshot.status() == &SubscriptionStatus::Closed
         ));
+        assert!(matches!(updates.try_recv(), Ok(None)));
     }
 
     #[test]
@@ -674,43 +624,26 @@ mod tests {
     }
 
     #[test]
-    fn json_handle_drains_underlying_dynamic_events() {
+    fn json_handle_subscribes_to_underlying_dynamic_updates() {
         let state = Arc::new(SubscriptionState::<DynamicPayload>::new(
             SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
         ));
-        state.store_latest(dynamic_record_at(1, Time::zero()));
         let handle = JsonSubscriptionHandle::new(state.handle(), JsonRenderPolicy::default());
+        let mut updates = handle.subscribe_updates();
 
-        let events = handle.drain_events();
+        state.store_latest(dynamic_record_at(1, Time::zero()));
 
         assert!(matches!(
-            &events[..],
-            [
-                DebugEvent::StatusChanged,
-                DebugEvent::ValueUpdated {
-                    source_time: _,
-                    publication_id: _
-                }
-            ]
+            updates.try_recv(),
+            Ok(Some(SubscriptionUpdate::StatusChanged(snapshot)))
+                if snapshot.status() == &SubscriptionStatus::Ready
         ));
-        assert!(handle.drain_events().is_empty());
-    }
-
-    #[tokio::test]
-    async fn json_handle_changed_wakes_when_events_are_queued() {
-        let state = Arc::new(SubscriptionState::<DynamicPayload>::new(
-            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
-            RetentionPolicy::LatestOnly,
+        assert!(matches!(
+            updates.try_recv(),
+            Ok(Some(SubscriptionUpdate::DataChanged))
         ));
-        let mut handle = JsonSubscriptionHandle::new(state.handle(), JsonRenderPolicy::default());
-
-        state.store_latest(dynamic_record_at(1, Time::zero()));
-
-        tokio::time::timeout(Duration::from_millis(100), handle.changed())
-            .await
-            .expect("JSON subscription changes should wake promptly")
-            .expect("JSON subscription change channel should stay open");
+        assert!(matches!(updates.try_recv(), Ok(None)));
     }
 
     #[test]
@@ -744,5 +677,22 @@ mod tests {
         drop(handle);
 
         assert!(cancellation.is_cancelled());
+    }
+
+    #[test]
+    fn update_receiver_closes_after_subscription_state_is_dropped() {
+        let mut updates = {
+            let state = Arc::new(SubscriptionState::<NonClonePayload>::new(
+                SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+                RetentionPolicy::LatestOnly,
+            ));
+
+            state.handle().subscribe_updates()
+        };
+
+        assert!(matches!(
+            updates.try_recv(),
+            Err(crate::SubscriptionUpdateClosed)
+        ));
     }
 }
