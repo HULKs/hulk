@@ -30,7 +30,6 @@ use configuration::{
     keybind_plugin::{self, KeybindSystem},
     keys::KeybindAction,
 };
-use hulk_widgets::CompletionEdit;
 use log::{error, warn};
 use panel::{Panel, PanelCreationContext};
 use panels::{EnumPlotPanel, PlotPanel, TextPanel, UnsupportedPanel};
@@ -40,12 +39,10 @@ use visuals::Visuals;
 use crate::backend::{TwixBackend, connection::ConnectionStatus};
 
 mod backend;
-mod change_buffer;
 mod configuration;
 mod panel;
 mod panels;
 mod topic_completion_edit;
-mod value_buffer;
 mod visuals;
 
 const DEFAULT_ROUTER_ENDPOINT: &str = "tcp/127.0.0.1:7447";
@@ -345,15 +342,33 @@ enum SelectablePanel {
 
 impl SelectablePanel {
     fn new(context: PanelCreationContext) -> Result<SelectablePanel> {
-        let name = context
-            .value
-            .ok_or(eyre!("Got none value"))?
+        let value = context.value.ok_or(eyre!("Got none value"))?;
+        Self::from_saved_value(value, || context)
+    }
+
+    fn from_saved_value<'a>(
+        saved_value: &'a Value,
+        context: impl FnOnce() -> PanelCreationContext<'a>,
+    ) -> Result<SelectablePanel> {
+        if let Some(panel) = Self::legacy_unsupported_from_saved_value(saved_value) {
+            return Ok(panel);
+        }
+
+        let name = saved_value
             .get("_panel_type")
-            .ok_or(eyre!("value has no _panel_type: {:?}", context.value))?
+            .ok_or(eyre!("value has no _panel_type: {saved_value:?}"))?
             .as_str()
             .ok_or(eyre!("_panel_type is not a string"))?
             .to_owned();
-        Self::from_saved_name(&name, context)
+        Self::from_saved_name(&name, context())
+    }
+
+    fn legacy_unsupported_from_saved_value(saved_value: &Value) -> Option<SelectablePanel> {
+        let panel_type = saved_value.get("type")?.as_str()?;
+        Some(SelectablePanel::Unsupported(UnsupportedPanel::new(
+            panel_type,
+            Some(saved_value),
+        )))
     }
 
     pub fn try_from_name<'a>(
@@ -426,6 +441,8 @@ impl std::fmt::Display for SelectablePanel {
 #[cfg(test)]
 mod tests {
     use std::collections::HashMap;
+
+    use serde_json::json;
 
     use super::*;
 
@@ -535,19 +552,45 @@ mod tests {
     }
 
     #[test]
+    fn saved_legacy_panel_loads_as_unsupported_and_saves_original_json() {
+        let saved_panel = json!({
+            "type": "Image",
+            "value": {
+                "path": "Vision.main_outputs.ycbcr422_image",
+                "overlay": "Ball Detection"
+            }
+        });
+
+        let panel = SelectablePanel::from_saved_value(&saved_panel, || {
+            unreachable!("legacy unsupported panels must not need a live backend")
+        })
+        .expect("legacy panel should load as unsupported");
+
+        assert!(matches!(panel, SelectablePanel::Unsupported(_)));
+        assert_eq!(panel.save(), saved_panel);
+    }
+
+    #[test]
     fn keep_connected_defaults_to_true_without_saved_value() {
+        let storage = MemoryStorage::default();
+
         assert!(keep_connected_from_storage_value(None));
+        assert!(keep_connected_from_storage(Some(&storage)));
     }
 
     #[test]
     fn keep_connected_reads_saved_false() {
+        let mut storage = MemoryStorage::default();
+        storage.set_string("keep_connected", "false".to_string());
+
         assert!(!keep_connected_from_storage_value(Some(
             "false".to_string()
         )));
+        assert!(!keep_connected_from_storage(Some(&storage)));
     }
 
     #[test]
-    fn save_does_not_apply_router_endpoint_to_backend() {
+    fn save_persists_keep_connected_false_without_applying_router_endpoint() {
         let backend = Arc::new(
             TwixBackend::new_with_keep_connected(
                 "tcp/127.0.0.1:7447",
@@ -861,16 +904,21 @@ impl App for TwixApp {
                         }
                     }
                     let panels = SelectablePanel::registered();
-                    let panel_input = ui.add(CompletionEdit::new(
-                        ui.id().with("panel-selector"),
-                        &panels,
-                        &mut self.panel_selection,
-                    ));
+                    let panel_input = ui.text_edit_singleline(&mut self.panel_selection);
+                    let mut panel_selection_changed = panel_input.changed();
+                    ui.menu_button("Panels", |ui| {
+                        for panel in panels {
+                            if ui.button(&panel).clicked() {
+                                self.panel_selection = panel;
+                                panel_selection_changed = true;
+                            }
+                        }
+                    });
 
                     if context.keybind_pressed(KeybindAction::FocusPanel) {
                         panel_input.request_focus();
                     }
-                    if panel_input.changed() {
+                    if panel_selection_changed {
                         match SelectablePanel::try_from_name(&self.panel_selection, || {
                             PanelCreationContext {
                                 backend: self.backend.clone(),

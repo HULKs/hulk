@@ -1,81 +1,88 @@
-use std::{future::Future, sync::Arc};
+use std::sync::Arc;
 
-use color_eyre::{Report, Result, eyre::eyre};
-use eframe::egui::Context as EguiContext;
+use color_eyre::Result;
 use ros_z::{dynamic::DynamicPayload, node::Node, qos::QosProfile};
-use ros_z_debug::{DebugEvent, ManagerOptions, RetentionPolicy, SampleRecord, SubscriptionManager};
+use ros_z_debug::{
+    ManagerOptions, RetentionPolicy, SubscriptionManager, SubscriptionUpdateReceiver,
+};
 
-pub struct ActiveSubscription {
-    _manager: SubscriptionManager,
-    pub handle: ros_z_debug::SubscriptionHandle<DynamicPayload>,
-    pub retention: RetentionPolicy,
+pub(crate) const MAX_UPDATES_PER_WAKE: usize = 64;
+
+pub(crate) struct UpdateDrainBudget {
+    processed: usize,
 }
 
-pub async fn subscribe_dynamic(
+impl UpdateDrainBudget {
+    pub(crate) fn new() -> Self {
+        Self { processed: 0 }
+    }
+
+    pub(crate) fn can_process(&self) -> bool {
+        self.processed < MAX_UPDATES_PER_WAKE
+    }
+
+    pub(crate) fn record_processed(&mut self) {
+        debug_assert!(self.can_process());
+        self.processed += 1;
+    }
+
+    pub(crate) fn may_have_more(&self) -> bool {
+        self.processed == MAX_UPDATES_PER_WAKE
+    }
+}
+
+pub(crate) struct ActiveSubscription {
+    _manager: SubscriptionManager,
+    pub(crate) handle: ros_z_debug::SubscriptionHandle<DynamicPayload>,
+    pub(crate) updates: SubscriptionUpdateReceiver,
+}
+
+pub(crate) async fn subscribe_dynamic_with_qos(
     node: Arc<Node>,
     target_namespace: String,
     selector: String,
     retention: RetentionPolicy,
-    qos: Option<QosProfile>,
+    qos: QosProfile,
 ) -> Result<ActiveSubscription> {
     let manager = SubscriptionManager::new(
         node,
         ManagerOptions::with_target_namespace(target_namespace)?,
     );
-    let mut builder = manager.subscribe_dynamic(selector).retention(retention);
-    if let Some(qos) = qos {
-        builder = builder.qos(qos);
-    }
-    let handle = builder.build().await?;
+    let handle = manager
+        .subscribe_dynamic(selector)
+        .retention(retention)
+        .qos(qos)
+        .build()
+        .await?;
+    let updates = handle.subscribe_updates();
 
     Ok(ActiveSubscription {
         _manager: manager,
         handle,
-        retention,
+        updates,
     })
 }
 
-pub async fn drain_events<SendError, ForwardRecord, ForwardFuture>(
-    active_subscription: &ActiveSubscription,
-    egui_context: &EguiContext,
-    mut send_error: SendError,
-    mut forward_record: ForwardRecord,
-) where
-    SendError: FnMut(Report),
-    ForwardRecord: FnMut(Arc<SampleRecord<DynamicPayload>>) -> ForwardFuture,
-    ForwardFuture: Future<Output = ()>,
-{
-    let events = active_subscription.handle.drain_events();
-    if events.is_empty() {
-        return;
-    }
+#[cfg(test)]
+mod tests {
+    use super::*;
 
-    let mut requested_repaint = false;
+    #[test]
+    fn update_drain_budget_stops_at_max_updates() {
+        let mut budget = UpdateDrainBudget::new();
+        let updates = 0..MAX_UPDATES_PER_WAKE + 1;
+        let mut processed = 0;
 
-    for event in events {
-        match event {
-            DebugEvent::ValueUpdated {
-                source_time,
-                publication_id,
-            } => {
-                if let Some(record) = active_subscription
-                    .handle
-                    .record(source_time, publication_id)
-                {
-                    forward_record(record).await;
-                    requested_repaint = true;
-                }
+        for _ in updates {
+            if !budget.can_process() {
+                break;
             }
-            DebugEvent::Diagnostic(message) => {
-                send_error(eyre!(message));
-                requested_repaint = true;
-            }
-            DebugEvent::StatusChanged => {}
-            _ => {}
+
+            budget.record_processed();
+            processed += 1;
         }
-    }
 
-    if requested_repaint {
-        egui_context.request_repaint();
+        assert_eq!(processed, MAX_UPDATES_PER_WAKE);
+        assert!(budget.may_have_more());
     }
 }
