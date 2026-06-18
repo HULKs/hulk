@@ -4,29 +4,29 @@ use color_eyre::Result;
 use eframe::{egui::Stroke, epaint::Color32};
 
 use coordinate_systems::Ground;
+use ros_z_debug::RetentionPolicy;
 
 use types::{
     field_dimensions::FieldDimensions, motion_command::MotionCommand, path::traits::EndPoints,
 };
 
 use crate::{
-    backend::TwixBackend,
-    panels::map::layer::Layer,
+    backend::{TwixBackend, retained_subscription::TypedSubscription},
+    panels::map::{latest_value, layer::Layer},
     twix_painter::TwixPainter,
-    value_buffer::{BufferHandle, BufferHistory},
 };
 
 pub struct Path {
-    motion_command: BufferHandle<MotionCommand>,
+    motion_command: TypedSubscription<MotionCommand>,
 }
 
 impl Layer<Ground> for Path {
     const NAME: &'static str = "Path";
 
     fn new(backend: Arc<TwixBackend>) -> Self {
-        let motion_command = backend.subscribe_buffered_value_with_queue_depth(
+        let motion_command = backend.subscribe_typed_retained(
             "behavior/motion_command",
-            BufferHistory::LatestOnly,
+            RetentionPolicy::LatestOnly,
             crate::backend::HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH,
         );
         Self { motion_command }
@@ -41,7 +41,7 @@ impl Layer<Ground> for Path {
             path,
             target_orientation,
             ..
-        }) = self.motion_command.get_last_value()?
+        }) = latest_value(&self.motion_command)
         {
             let path_end_point = path.end_point();
             let target_direction = target_orientation.as_unit_vector();

@@ -1,15 +1,18 @@
-use color_eyre::Result;
+use std::time::Duration;
+
 use coordinate_systems::{Field, Ground};
 use eframe::egui::{ComboBox, Ui, Widget};
 use linear_algebra::{Isometry2, point, vector};
+use log::error;
+use ros_z_debug::RetentionPolicy;
 use serde::{Deserialize, Serialize};
 use serde_json::{Map as JsonMap, Value, json};
 use types::field_dimensions::FieldDimensions;
 
 use crate::{
+    backend::retained_subscription::TypedSubscription,
     panel::{Panel, PanelCreationContext},
     twix_painter::{Orientation, TwixPainter},
-    value_buffer::{BufferHandle, BufferHistory},
     zoom_and_pan::ZoomAndPanTransform,
 };
 
@@ -74,8 +77,8 @@ pub struct MapPanel {
     current_plot_type: PlotType,
     skipped_layers: JsonMap<String, Value>,
 
-    field_dimensions: BufferHandle<FieldDimensions>,
-    ground_to_field: BufferHandle<Option<Isometry2<Ground, Field>>>,
+    field_dimensions: TypedSubscription<FieldDimensions>,
+    ground_to_field: TypedSubscription<Option<Isometry2<Ground, Field>>>,
     zoom_and_pan: ZoomAndPanTransform,
 
     field: EnabledLayer<layers::Field, Field>,
@@ -93,20 +96,39 @@ pub struct MapPanel {
     localization: EnabledLayer<layers::Localization, Field>,
 }
 
-fn latest_ground_to_field(
-    ground_to_field: &BufferHandle<Option<Isometry2<Ground, Field>>>,
-) -> Result<Option<Isometry2<Ground, Field>>> {
-    Ok(ground_to_field.get_last_value()?.flatten())
+pub(super) fn latest_value<T: Clone>(subscription: &TypedSubscription<T>) -> Option<T> {
+    subscription.latest().map(|record| record.value.clone())
+}
+
+pub(super) fn time_window_retention(duration: Duration) -> RetentionPolicy {
+    match RetentionPolicy::time_window(duration) {
+        Ok(retention) => retention,
+        Err(error) => {
+            error!("invalid map retention window {duration:?}: {error:#}");
+            RetentionPolicy::LatestOnly
+        }
+    }
+}
+
+fn ground_to_field_from_latest_message(
+    latest: Option<Option<Isometry2<Ground, Field>>>,
+    diagnostic: Option<&str>,
+) -> Option<Isometry2<Ground, Field>> {
+    if diagnostic.is_some() {
+        return None;
+    }
+    latest.flatten()
 }
 
 fn latest_ground_to_field_or_none(
-    ground_to_field: &BufferHandle<Option<Isometry2<Ground, Field>>>,
+    ground_to_field: &TypedSubscription<Option<Isometry2<Ground, Field>>>,
 ) -> Option<Isometry2<Ground, Field>> {
-    latest_ground_to_field(ground_to_field).ok().flatten()
+    let diagnostic = ground_to_field.diagnostic_message();
+    ground_to_field_from_latest_message(latest_value(ground_to_field), diagnostic.as_deref())
 }
 
 fn latest_ground_to_field_or_identity(
-    ground_to_field: &BufferHandle<Option<Isometry2<Ground, Field>>>,
+    ground_to_field: &TypedSubscription<Option<Isometry2<Ground, Field>>>,
 ) -> Isometry2<Ground, Field> {
     latest_ground_to_field_or_none(ground_to_field).unwrap_or_default()
 }
@@ -129,12 +151,14 @@ impl<'a> Panel<'a> for MapPanel {
         let obstacle_filter = EnabledLayer::new(context.backend.clone(), context.value, false);
         let localization = EnabledLayer::new(context.backend.clone(), context.value, false);
 
-        let field_dimensions = context
-            .backend
-            .subscribe_transient_local_value("field_dimensions");
-        let ground_to_field = context.backend.subscribe_buffered_value_with_queue_depth(
+        let field_dimensions = context.backend.subscribe_typed_retained(
+            "field_dimensions",
+            RetentionPolicy::LatestOnly,
+            crate::backend::HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH,
+        );
+        let ground_to_field = context.backend.subscribe_typed_retained(
             "ground_to_field",
-            BufferHistory::LatestOnly,
+            RetentionPolicy::LatestOnly,
             GROUND_TO_FIELD_QUEUE_DEPTH,
         );
 
@@ -241,10 +265,11 @@ impl Widget for &mut MapPanel {
                 });
         });
 
-        let field_dimensions: FieldDimensions = match self.field_dimensions.get_last_value() {
-            Ok(Some(value)) => value,
-            Ok(None) => return ui.label("no response for field dimensions"),
-            Err(error) => return ui.label(format!("{error:#}")),
+        if let Some(message) = self.field_dimensions.diagnostic_message() {
+            return ui.label(message);
+        }
+        let Some(field_dimensions) = latest_value(&self.field_dimensions) else {
+            return ui.label("no response for field dimensions");
         };
 
         let ground_to_field = latest_ground_to_field_or_identity(&self.ground_to_field);
@@ -319,17 +344,13 @@ impl MapPanel {
 
 #[cfg(test)]
 mod tests {
-    use std::time::SystemTime;
-
-    use color_eyre::eyre;
     use serde_json::json;
 
     use super::*;
-    use crate::value_buffer::{Buffer, Datum};
 
     #[test]
     fn ground_to_field_uses_deployed_optional_message_type() {
-        fn assert_ground_to_field(_: &BufferHandle<Option<Isometry2<Ground, Field>>>) {}
+        fn assert_ground_to_field(_: &TypedSubscription<Option<Isometry2<Ground, Field>>>) {}
 
         fn assert_map_panel(panel: &MapPanel) {
             assert_ground_to_field(&panel.ground_to_field);
@@ -338,62 +359,42 @@ mod tests {
         let _ = assert_map_panel;
     }
 
-    #[tokio::test]
-    async fn latest_ground_to_field_or_none_treats_errors_as_missing_transform() {
-        let (buffer, handle) = Buffer::<Option<Isometry2<Ground, Field>>, eyre::Report>::new(
-            BufferHistory::LatestOnly,
-        );
-
-        buffer.send_error(color_eyre::eyre::eyre!("decode failed"));
-
-        assert!(latest_ground_to_field_or_none(&handle).is_none());
-    }
-
-    #[tokio::test]
-    async fn ground_plot_uses_identity_when_ground_to_field_is_missing() {
-        let (_buffer, handle) = Buffer::<Option<Isometry2<Ground, Field>>, eyre::Report>::new(
-            BufferHistory::LatestOnly,
-        );
-
+    #[test]
+    fn ground_plot_uses_identity_when_ground_to_field_is_missing() {
         assert_eq!(
-            latest_ground_to_field_or_identity(&handle) * point![1.0, 2.0],
+            ground_to_field_from_latest_message(None, None).unwrap_or_default() * point![1.0, 2.0],
             point![1.0, 2.0]
         );
     }
 
-    #[tokio::test]
-    async fn ground_plot_uses_identity_when_ground_to_field_is_none() {
-        let (buffer, handle) = Buffer::<Option<Isometry2<Ground, Field>>, eyre::Report>::new(
-            BufferHistory::LatestOnly,
-        );
-        buffer
-            .push(Datum {
-                timestamp: SystemTime::UNIX_EPOCH,
-                value: None,
-            })
-            .await;
-
-        assert_eq!(
-            latest_ground_to_field_or_identity(&handle) * point![1.0, 2.0],
-            point![1.0, 2.0]
-        );
-    }
-
-    #[tokio::test]
-    async fn ground_plot_uses_latest_ground_to_field_when_present() {
-        let (buffer, handle) = Buffer::<Option<Isometry2<Ground, Field>>, eyre::Report>::new(
-            BufferHistory::LatestOnly,
-        );
+    #[test]
+    fn ground_plot_uses_identity_when_ground_to_field_has_error() {
         let transform = Isometry2::from_parts(vector![1.0, 0.0], 0.0);
-        buffer
-            .push(Datum {
-                timestamp: SystemTime::UNIX_EPOCH,
-                value: Some(transform),
-            })
-            .await;
 
         assert_eq!(
-            latest_ground_to_field_or_identity(&handle) * point![1.0, 2.0],
+            ground_to_field_from_latest_message(Some(Some(transform)), Some("decode failed"))
+                .unwrap_or_default()
+                * point![1.0, 2.0],
+            point![1.0, 2.0]
+        );
+    }
+
+    #[test]
+    fn ground_plot_uses_identity_when_ground_to_field_is_none() {
+        assert_eq!(
+            ground_to_field_from_latest_message(Some(None), None).unwrap_or_default()
+                * point![1.0, 2.0],
+            point![1.0, 2.0]
+        );
+    }
+
+    #[test]
+    fn ground_plot_uses_latest_ground_to_field_when_present() {
+        let transform = Isometry2::from_parts(vector![1.0, 0.0], 0.0);
+
+        assert_eq!(
+            ground_to_field_from_latest_message(Some(Some(transform)), None).unwrap_or_default()
+                * point![1.0, 2.0],
             transform * point![1.0, 2.0]
         );
     }

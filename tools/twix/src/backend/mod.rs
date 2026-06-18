@@ -1,10 +1,8 @@
 pub mod catalog;
 pub(crate) mod connection;
-pub mod json_buffer;
-pub mod latency;
+pub mod retained_subscription;
 pub mod subscription;
 pub mod topic;
-pub mod typed_buffer;
 
 use std::{num::NonZeroUsize, sync::Arc};
 
@@ -15,20 +13,18 @@ use parking_lot::Mutex;
 use ros_z::{
     Message,
     context::ContextBuilder,
-    qos::{QosDurability, QosHistory, QosProfile},
+    node::Node,
+    qos::{QosHistory, QosProfile, QosReliability},
 };
-use serde_json::Value;
+use ros_z_debug::RetentionPolicy;
 use tokio::{
     runtime::{Builder, Runtime},
     sync::watch,
 };
 
-use crate::{
-    backend::{
-        catalog::TopicCatalog,
-        connection::{ConnectionState, ConnectionStatus},
-    },
-    value_buffer::{BufferHandle, BufferHistory},
+use crate::backend::{
+    catalog::TopicCatalog,
+    connection::{ConnectionState, ConnectionStatus},
 };
 
 pub(crate) const HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH: usize = 1024;
@@ -164,95 +160,49 @@ impl TwixBackend {
         self.topic_catalog.lock().clone()
     }
 
-    pub fn subscribe_json(
+    pub fn subscribe_json_retained(
         &self,
         selector: impl Into<String>,
-        history: BufferHistory,
-    ) -> BufferHandle<Value> {
-        json_buffer::subscribe_json(
+        retention: RetentionPolicy,
+    ) -> retained_subscription::DynamicSubscription {
+        retained_subscription::subscribe_dynamic(
             &self.runtime,
             self.connection_state_receiver.clone(),
             self.target_namespace_sender.subscribe(),
             self.egui_context.clone(),
             selector,
-            history,
-            Some(high_rate_qos(HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH)),
+            retention,
         )
     }
 
-    pub fn subscribe_transient_local_value<T>(&self, selector: impl Into<String>) -> BufferHandle<T>
-    where
-        T: Message + Clone,
-        T::Codec: Send + Sync,
-    {
-        self.subscribe_buffered_value_with_qos(
-            selector,
-            BufferHistory::LatestOnly,
-            transient_local_qos(),
-        )
-    }
-
-    pub fn subscribe_buffered_value_with_queue_depth<T>(
+    pub fn subscribe_typed_retained<T>(
         &self,
         selector: impl Into<String>,
-        history: BufferHistory,
+        retention: RetentionPolicy,
         queue_depth: usize,
-    ) -> BufferHandle<T>
+    ) -> retained_subscription::TypedSubscription<T>
     where
-        T: Message + Clone,
+        T: Message + Clone + Send + Sync + 'static,
         T::Codec: Send + Sync,
     {
-        self.subscribe_buffered_value_with_qos(selector, history, high_rate_qos(queue_depth))
-    }
-
-    fn subscribe_buffered_value_with_qos<T>(
-        &self,
-        selector: impl Into<String>,
-        history: BufferHistory,
-        qos: QosProfile,
-    ) -> BufferHandle<T>
-    where
-        T: Message + Clone,
-        T::Codec: Send + Sync,
-    {
-        typed_buffer::subscribe_value(
+        retained_subscription::subscribe_typed(
             &self.runtime,
             self.connection_state_receiver.clone(),
             self.target_namespace_sender.subscribe(),
             self.egui_context.clone(),
             selector,
-            history,
-            Some(qos),
-        )
-    }
-
-    pub fn subscribe_changes_json(
-        &self,
-        selector: impl Into<String>,
-    ) -> crate::change_buffer::ChangeBufferHandle<Value> {
-        crate::change_buffer::spawn_json_change_buffer(
-            &self.runtime,
-            self.connection_state_receiver.clone(),
-            self.target_namespace_sender.subscribe(),
-            self.egui_context.clone(),
-            selector.into(),
-            Some(high_rate_qos(HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH)),
+            retention,
+            high_rate_qos(queue_depth),
         )
     }
 }
 
 pub(crate) fn high_rate_qos(queue_depth: usize) -> QosProfile {
     QosProfile {
+        reliability: QosReliability::BestEffort,
         history: QosHistory::KeepLast(
             NonZeroUsize::new(queue_depth).expect("high-rate queue depth must be non-zero"),
         ),
-        ..Default::default()
-    }
-}
-
-fn transient_local_qos() -> QosProfile {
-    QosProfile {
-        durability: QosDurability::TransientLocal,
         ..Default::default()
     }
 }
@@ -351,7 +301,7 @@ fn rebuild_or_clear_topic_catalog(
     target_namespace: &mut watch::Receiver<String>,
     topic_catalog: &Mutex<Arc<TopicCatalog>>,
     egui_context: &EguiContext,
-    current_node: &mut Option<Arc<ros_z::node::Node>>,
+    current_node: &mut Option<Arc<Node>>,
     graph_changes: &mut Option<watch::Receiver<u64>>,
 ) {
     let state = connection_state.borrow_and_update().clone();
@@ -372,7 +322,7 @@ fn clear_topic_catalog(topic_catalog: &Mutex<Arc<TopicCatalog>>, egui_context: &
 }
 
 fn rebuild_topic_catalog(
-    node: &ros_z::node::Node,
+    node: &Node,
     target_namespace: &mut watch::Receiver<String>,
     topic_catalog: &Mutex<Arc<TopicCatalog>>,
     egui_context: &EguiContext,
@@ -389,7 +339,7 @@ fn rebuild_topic_catalog(
 
 #[cfg(test)]
 mod tests {
-    use ros_z::qos::{DEFAULT_HISTORY_DEPTH, QosDurability, QosHistory};
+    use ros_z::qos::{DEFAULT_HISTORY_DEPTH, QosHistory, QosReliability};
 
     use crate::backend::connection::{ConnectionState, ConnectionStatus};
 
@@ -441,6 +391,10 @@ mod tests {
         assert!(!backend.keep_connected());
         assert_eq!(backend.connection_status(), ConnectionStatus::Disconnected);
         assert_eq!(backend.router_endpoint(), "tcp/127.0.0.1:7447");
+        assert_eq!(
+            backend.connection_unavailable_message().as_deref(),
+            Some("Twix is disconnected")
+        );
     }
 
     #[test]
@@ -468,13 +422,9 @@ mod tests {
 
         assert_eq!(depth.get(), HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH);
         assert!(depth.get() > DEFAULT_HISTORY_DEPTH);
-    }
-
-    #[test]
-    fn transient_local_qos_requests_replayed_samples() {
         assert_eq!(
-            transient_local_qos().durability,
-            QosDurability::TransientLocal
+            high_rate_qos(HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH).reliability,
+            QosReliability::BestEffort
         );
     }
 }

@@ -6,26 +6,26 @@ use eframe::epaint::{Color32, Stroke};
 use ball_filter::{BallFilter as BallFiltering, BallMode};
 use coordinate_systems::Ground;
 use linear_algebra::{Point, vector};
+use ros_z_debug::RetentionPolicy;
 use types::field_dimensions::FieldDimensions;
 
 use crate::{
-    backend::TwixBackend,
-    panels::map::layer::Layer,
+    backend::{TwixBackend, retained_subscription::TypedSubscription},
+    panels::map::{latest_value, layer::Layer},
     twix_painter::TwixPainter,
-    value_buffer::{BufferHandle, BufferHistory},
 };
 
 pub struct BallFilter {
-    filter: BufferHandle<BallFiltering>,
+    filter: TypedSubscription<BallFiltering>,
 }
 
 impl Layer<Ground> for BallFilter {
     const NAME: &'static str = "Ball Filter";
 
     fn new(backend: Arc<TwixBackend>) -> Self {
-        let filter = backend.subscribe_buffered_value_with_queue_depth(
+        let filter = backend.subscribe_typed_retained(
             "ball_filter/ball_filter_state",
-            BufferHistory::LatestOnly,
+            RetentionPolicy::LatestOnly,
             crate::backend::HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH,
         );
         Self { filter }
@@ -36,7 +36,7 @@ impl Layer<Ground> for BallFilter {
         painter: &TwixPainter<Ground>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        if let Some(filter) = self.filter.get_last_value()? {
+        if let Some(filter) = latest_value(&self.filter) {
             for hypothesis in filter.hypotheses {
                 let stroke = Stroke::new(0.01_f32, Color32::BLACK);
                 match hypothesis.mode {

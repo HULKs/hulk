@@ -1,20 +1,19 @@
 use std::sync::Arc;
 
-use chrono::{DateTime, Utc};
 use eframe::egui::{Label, Response, ScrollArea, Sense, Ui, Widget};
+use ros_z_debug::RetentionPolicy;
 use serde_json::{Value, json};
 
 use crate::{
-    backend::TwixBackend,
+    backend::{TwixBackend, retained_subscription::DynamicSubscription},
     panel::{Panel, PanelCreationContext},
     topic_completion_edit::TopicCompletionEdit,
-    value_buffer::{BufferHandle, BufferHistory},
 };
 
 pub struct TextPanel {
     backend: Arc<TwixBackend>,
     topic: String,
-    buffer: Option<BufferHandle<Value>>,
+    subscription: Option<DynamicSubscription>,
     show_all_topics: bool,
 }
 
@@ -28,19 +27,19 @@ impl<'a> Panel<'a> for TextPanel {
             .and_then(Value::as_str)
             .unwrap_or_default()
             .to_string();
-        let buffer = if topic.is_empty() {
+        let subscription = if topic.is_empty() {
             None
         } else {
             Some(
                 context
                     .backend
-                    .subscribe_json(topic.clone(), BufferHistory::LatestOnly),
+                    .subscribe_json_retained(topic.clone(), RetentionPolicy::LatestOnly),
             )
         };
         Self {
             backend: context.backend,
             topic,
-            buffer,
+            subscription,
             show_all_topics: false,
         }
     }
@@ -72,16 +71,14 @@ impl Widget for &mut TextPanel {
                     ))
                 };
                 if edit_response.changed() {
-                    self.buffer = Some(
-                        self.backend
-                            .subscribe_json(self.topic.clone(), BufferHistory::LatestOnly),
-                    );
-                }
-                if let Some(buffer) = &self.buffer
-                    && let Ok(Some(timestamp)) = buffer.get_last_timestamp()
-                {
-                    let date: DateTime<Utc> = timestamp.into();
-                    ui.label(date.format("%T%.3f").to_string());
+                    self.subscription = if self.topic.is_empty() {
+                        None
+                    } else {
+                        Some(self.backend.subscribe_json_retained(
+                            self.topic.clone(),
+                            RetentionPolicy::LatestOnly,
+                        ))
+                    };
                 }
                 edit_response
             })
@@ -89,9 +86,11 @@ impl Widget for &mut TextPanel {
         let scroll_area = ScrollArea::vertical()
             .auto_shrink([false, false])
             .show(ui, |ui| {
-                self.buffer.as_ref().map(|buffer| match buffer.get_last() {
-                    Ok(Some(datum)) => {
-                        let content = match serde_json::to_string_pretty(&datum.value) {
+                self.subscription.as_ref().map(|subscription| {
+                    if let Some(message) = subscription.diagnostic_message() {
+                        ui.label(message)
+                    } else if let Some(value) = subscription.latest_json() {
+                        let content = match serde_json::to_string_pretty(&value) {
                             Ok(pretty_string) => pretty_string,
                             Err(error) => error.to_string(),
                         };
@@ -102,9 +101,9 @@ impl Widget for &mut TextPanel {
                         label.on_hover_ui_at_pointer(|ui| {
                             ui.label("Click to copy");
                         })
+                    } else {
+                        ui.label("no data available")
                     }
-                    Err(error) => ui.label(error.to_string()),
-                    Ok(None) => ui.label("no data available"),
                 })
             });
         if let Some(response) = scroll_area.inner {

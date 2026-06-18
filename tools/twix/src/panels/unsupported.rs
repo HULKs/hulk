@@ -10,9 +10,12 @@ pub struct UnsupportedPanel {
 impl UnsupportedPanel {
     pub fn new(panel_type: impl Into<String>, saved_value: Option<&Value>) -> Self {
         let panel_type = panel_type.into();
+        let saved_value = saved_value
+            .cloned()
+            .unwrap_or_else(|| json!({ "_panel_type": panel_type.clone() }));
         Self {
             panel_type: panel_type.clone(),
-            saved_value: saved_value.cloned().unwrap_or_else(|| json!({})),
+            saved_value,
             reason: format!(
                 "'{panel_type}' is unsupported on the read-only ros-z backend in this milestone"
             ),
@@ -20,9 +23,7 @@ impl UnsupportedPanel {
     }
 
     pub fn save(&self) -> Value {
-        let mut value = self.saved_value.clone();
-        value["_panel_type"] = Value::String(self.panel_type.clone());
-        value
+        self.saved_value.clone()
     }
 
     pub fn title(&self) -> &str {

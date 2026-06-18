@@ -1,10 +1,4 @@
-use std::{
-    error::Error as _,
-    fmt::Write as _,
-    marker::PhantomData,
-    sync::Arc,
-    time::{Duration, SystemTime},
-};
+use std::{error::Error as _, fmt::Write as _, marker::PhantomData, sync::Arc, time::Duration};
 
 use parking_lot::Mutex;
 use ros_z::{Message, dynamic::DynamicPayload, node::Node, qos::QosProfile};
@@ -77,7 +71,7 @@ impl ManagerOptions {
 /// Owns debug subscriptions created from a `ros-z` node.
 ///
 /// Handles returned by this manager retain the latest sample, optional history,
-/// status, and queued debug events. Dropping the manager closes subscriptions it
+/// status, and subscription updates. Dropping the manager closes subscriptions it
 /// can still reach; dropping the last handle for a subscription also cancels its
 /// receive task.
 pub struct SubscriptionManager {
@@ -105,7 +99,7 @@ impl SubscriptionManager {
             manager: self,
             topic: topic.into(),
             retention: RetentionPolicy::LatestOnly,
-            qos: None,
+            qos: QosProfile::default(),
             value: PhantomData,
         }
     }
@@ -121,7 +115,7 @@ impl SubscriptionManager {
             manager: self,
             topic: topic.into(),
             retention: RetentionPolicy::LatestOnly,
-            qos: None,
+            qos: QosProfile::default(),
         }
     }
 
@@ -178,7 +172,7 @@ pub struct TypedSubscriptionBuilder<'a, T> {
     pub(crate) manager: &'a SubscriptionManager,
     pub(crate) topic: String,
     pub(crate) retention: RetentionPolicy,
-    pub(crate) qos: Option<QosProfile>,
+    qos: QosProfile,
     value: PhantomData<T>,
 }
 
@@ -189,9 +183,9 @@ impl<T> TypedSubscriptionBuilder<'_, T> {
         self
     }
 
-    /// Configure the QoS used by the underlying ros-z subscriber.
+    /// Configure the underlying `ros-z` subscriber QoS.
     pub fn qos(mut self, qos: QosProfile) -> Self {
-        self.qos = Some(qos);
+        self.qos = qos;
         self
     }
 
@@ -219,11 +213,13 @@ impl<T> TypedSubscriptionBuilder<'_, T> {
         let retention = self.retention;
         let requested_topic = TopicSelector::new(self.topic)?;
         let resolved_topic = requested_topic.resolve(self.manager.target_namespace())?;
-        let mut subscriber_builder = self.manager.node().subscriber::<T>(&resolved_topic)?;
-        if let Some(qos) = self.qos {
-            subscriber_builder = subscriber_builder.qos(qos);
-        }
-        let subscriber = subscriber_builder.build().await?;
+        let subscriber = self
+            .manager
+            .node()
+            .subscriber::<T>(&resolved_topic)?
+            .qos(self.qos)
+            .build()
+            .await?;
         let type_info = subscriber.entity().type_info.clone();
         let metadata = Arc::new(SampleMetadata {
             requested_topic,
@@ -263,7 +259,7 @@ pub struct DynamicSubscriptionBuilder<'a> {
     pub(crate) manager: &'a SubscriptionManager,
     pub(crate) topic: String,
     pub(crate) retention: RetentionPolicy,
-    pub(crate) qos: Option<QosProfile>,
+    qos: QosProfile,
 }
 
 impl DynamicSubscriptionBuilder<'_> {
@@ -273,9 +269,9 @@ impl DynamicSubscriptionBuilder<'_> {
         self
     }
 
-    /// Configure the QoS used by the underlying ros-z subscriber.
+    /// Configure the underlying `ros-z` subscriber QoS.
     pub fn qos(mut self, qos: QosProfile) -> Self {
-        self.qos = Some(qos);
+        self.qos = qos;
         self
     }
 
@@ -314,18 +310,17 @@ impl DynamicSubscriptionBuilder<'_> {
         let retention = self.retention;
         let requested_topic = TopicSelector::new(self.topic)?;
         let resolved_topic = requested_topic.resolve(self.manager.target_namespace())?;
-        let mut subscriber_builder = self
+        let subscriber = self
             .manager
             .node()
             .dynamic_subscriber_auto(
                 &resolved_topic,
                 self.manager.options.schema_discovery_timeout(),
             )
+            .await?
+            .qos(self.qos)
+            .build()
             .await?;
-        if let Some(qos) = self.qos {
-            subscriber_builder = subscriber_builder.qos(qos);
-        }
-        let subscriber = subscriber_builder.build().await?;
         let type_info = subscriber.entity().type_info.clone();
         let metadata = Arc::new(SampleMetadata {
             requested_topic,
@@ -381,7 +376,6 @@ async fn receive_typed_loop<T>(
                     value: received.message,
                     source_time: received.source_time,
                     transport_time: received.transport_time,
-                    receive_time: ros_z::time::Time::from_wallclock(SystemTime::now()),
                     publication_id,
                     metadata: Arc::clone(&metadata),
                 }));
@@ -418,7 +412,6 @@ async fn receive_dynamic_loop(
                     value: received.message,
                     source_time: received.source_time,
                     transport_time: received.transport_time,
-                    receive_time: ros_z::time::Time::from_wallclock(SystemTime::now()),
                     publication_id,
                     metadata: Arc::clone(&metadata),
                 }));
@@ -464,17 +457,14 @@ fn classify_receive_error(error: &ros_z::Error, message: String) -> Subscription
 
 #[cfg(test)]
 mod tests {
-    use std::{num::NonZeroUsize, sync::Arc};
-
-    use ros_z::qos::{QosHistory, QosProfile};
+    use std::sync::Arc;
 
     use super::{
-        DynamicSubscriptionBuilder, ManagerOptions, SubscriptionRegistry, classify_receive_error,
-        receive_error_diagnostic,
+        ManagerOptions, SubscriptionRegistry, classify_receive_error, receive_error_diagnostic,
     };
     use crate::{
         Error, RetentionPolicy, SampleMetadata, SubscriptionStatus, SubscriptionStatusSnapshot,
-        TopicSelector, subscription::SubscriptionState,
+        SubscriptionUpdate, TopicSelector, subscription::SubscriptionState,
     };
 
     struct TestPayload;
@@ -503,20 +493,6 @@ mod tests {
         let options = ManagerOptions::with_target_namespace("alpha/").unwrap();
 
         assert_eq!(options.target_namespace(), "/alpha");
-    }
-
-    #[test]
-    fn dynamic_subscription_builder_accepts_qos_profile() {
-        fn configure_qos(
-            builder: DynamicSubscriptionBuilder<'_>,
-        ) -> DynamicSubscriptionBuilder<'_> {
-            builder.qos(QosProfile {
-                history: QosHistory::KeepLast(NonZeroUsize::new(64).unwrap()),
-                ..Default::default()
-            })
-        }
-
-        let _ = configure_qos;
     }
 
     #[test]
@@ -564,6 +540,7 @@ mod tests {
             RetentionPolicy::LatestOnly,
         ));
         let handle = state.handle();
+        let mut updates = handle.subscribe_updates();
         registry.register(&state);
         drop(state);
 
@@ -571,8 +548,9 @@ mod tests {
 
         assert_eq!(handle.status().status(), &SubscriptionStatus::Closed);
         assert!(matches!(
-            handle.drain_events().as_slice(),
-            [crate::DebugEvent::StatusChanged]
+            updates.try_recv(),
+            Ok(Some(SubscriptionUpdate::StatusChanged(snapshot)))
+                if snapshot.status() == &SubscriptionStatus::Closed
         ));
     }
 }

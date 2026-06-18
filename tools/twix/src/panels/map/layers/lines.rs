@@ -6,32 +6,32 @@ use eframe::epaint::{Color32, Stroke};
 use coordinate_systems::{Ground, Pixel};
 use geometry::line_segment::LineSegment;
 use projection::{Projection, camera_matrix::CameraMatrix};
+use ros_z_debug::RetentionPolicy;
 use types::{field_dimensions::FieldDimensions, time_wrapper::TimeWrapper};
 
 use crate::{
-    backend::TwixBackend,
-    panels::map::layer::Layer,
+    backend::{TwixBackend, retained_subscription::TypedSubscription},
+    panels::map::{latest_value, layer::Layer},
     twix_painter::TwixPainter,
-    value_buffer::{BufferHandle, BufferHistory},
 };
 
 pub struct Lines {
-    lines_in_image: BufferHandle<Vec<LineSegment<Pixel>>>,
-    camera_matrix: BufferHandle<TimeWrapper<CameraMatrix>>,
+    lines_in_image: TypedSubscription<Vec<LineSegment<Pixel>>>,
+    camera_matrix: TypedSubscription<TimeWrapper<CameraMatrix>>,
 }
 
 impl Layer<Ground> for Lines {
     const NAME: &'static str = "Lines";
 
     fn new(backend: Arc<TwixBackend>) -> Self {
-        let lines_in_image = backend.subscribe_buffered_value_with_queue_depth(
+        let lines_in_image = backend.subscribe_typed_retained(
             "line_detection/lines_in_image",
-            BufferHistory::LatestOnly,
+            RetentionPolicy::LatestOnly,
             crate::backend::HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH,
         );
-        let camera_matrix = backend.subscribe_buffered_value_with_queue_depth(
+        let camera_matrix = backend.subscribe_typed_retained(
             "camera_matrix",
-            BufferHistory::LatestOnly,
+            RetentionPolicy::LatestOnly,
             crate::backend::HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH,
         );
         Self {
@@ -45,14 +45,10 @@ impl Layer<Ground> for Lines {
         painter: &TwixPainter<Ground>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        let Some(lines_in_image) = self.lines_in_image.get_last_value()? else {
+        let Some(lines_in_image) = latest_value(&self.lines_in_image) else {
             return Ok(());
         };
-        let Some(camera_matrix) = self
-            .camera_matrix
-            .get_last_value()?
-            .map(|value| value.inner)
-        else {
+        let Some(camera_matrix) = latest_value(&self.camera_matrix).map(|value| value.inner) else {
             return Ok(());
         };
         paint_lines(painter, lines_in_image, camera_matrix);

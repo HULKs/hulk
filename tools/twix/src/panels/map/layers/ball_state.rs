@@ -3,26 +3,26 @@ use std::{sync::Arc, time::Duration};
 use color_eyre::Result;
 use coordinate_systems::Field;
 use eframe::epaint::Color32;
+use ros_z::time::Time;
 use types::{field_dimensions::FieldDimensions, world_state::BallState as WorldBallState};
 
 use crate::{
-    backend::TwixBackend,
-    panels::map::{BALL_STATE_QUEUE_DEPTH, layer::Layer},
+    backend::{TwixBackend, retained_subscription::TypedSubscription},
+    panels::map::{BALL_STATE_QUEUE_DEPTH, layer::Layer, time_window_retention},
     twix_painter::TwixPainter,
-    value_buffer::{BufferHandle, BufferHistory},
 };
 
 pub struct BallState {
-    ball_state: BufferHandle<Option<WorldBallState>>,
+    ball_state: TypedSubscription<Option<WorldBallState>>,
 }
 
 impl Layer<Field> for BallState {
     const NAME: &'static str = "Ball State";
 
     fn new(backend: Arc<TwixBackend>) -> Self {
-        let ball_state = backend.subscribe_buffered_value_with_queue_depth(
+        let ball_state = backend.subscribe_typed_retained(
             "ball_state",
-            BufferHistory::TimeWindow(Duration::from_secs(2)),
+            time_window_retention(Duration::from_secs(2)),
             BALL_STATE_QUEUE_DEPTH,
         );
         Self { ball_state }
@@ -33,9 +33,14 @@ impl Layer<Field> for BallState {
         painter: &TwixPainter<Field>,
         field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        let ball_states = self.ball_state.get()?;
+        let ball_states = self
+            .ball_state
+            .window(Time::zero(), Time::from_nanos(i64::MAX));
 
-        for ball_state in ball_states.iter().filter_map(|datum| datum.value) {
+        for ball_state in ball_states
+            .iter()
+            .filter_map(|record| record.value.as_ref())
+        {
             painter.circle_filled(
                 ball_state.ball_in_field,
                 field_dimensions.ball_radius,
@@ -43,7 +48,11 @@ impl Layer<Field> for BallState {
             );
         }
 
-        if let Some(ball_state) = ball_states.iter().rev().find_map(|datum| datum.value) {
+        if let Some(ball_state) = ball_states
+            .iter()
+            .rev()
+            .find_map(|record| record.value.as_ref())
+        {
             painter.ball(
                 ball_state.ball_in_field,
                 field_dimensions.ball_radius,

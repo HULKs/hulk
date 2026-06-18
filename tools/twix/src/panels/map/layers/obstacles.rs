@@ -4,26 +4,26 @@ use color_eyre::Result;
 use eframe::epaint::{Color32, Stroke};
 
 use coordinate_systems::Ground;
+use ros_z_debug::RetentionPolicy;
 use types::{field_dimensions::FieldDimensions, obstacles::Obstacle};
 
 use crate::{
-    backend::TwixBackend,
-    panels::map::layer::Layer,
+    backend::{TwixBackend, retained_subscription::TypedSubscription},
+    panels::map::{latest_value, layer::Layer},
     twix_painter::TwixPainter,
-    value_buffer::{BufferHandle, BufferHistory},
 };
 
 pub struct Obstacles {
-    obstacles: BufferHandle<Vec<Obstacle>>,
+    obstacles: TypedSubscription<Vec<Obstacle>>,
 }
 
 impl Layer<Ground> for Obstacles {
     const NAME: &'static str = "Obstacles";
 
     fn new(backend: Arc<TwixBackend>) -> Self {
-        let obstacles = backend.subscribe_buffered_value_with_queue_depth(
+        let obstacles = backend.subscribe_typed_retained(
             "obstacles",
-            BufferHistory::LatestOnly,
+            RetentionPolicy::LatestOnly,
             crate::backend::HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH,
         );
         Self { obstacles }
@@ -34,7 +34,7 @@ impl Layer<Ground> for Obstacles {
         painter: &TwixPainter<Ground>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        if let Some(obstacles) = self.obstacles.get_last_value()? {
+        if let Some(obstacles) = latest_value(&self.obstacles) {
             let hip_height_stroke = Stroke {
                 width: 0.025,
                 color: Color32::RED,

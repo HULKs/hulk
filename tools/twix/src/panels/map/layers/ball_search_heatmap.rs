@@ -4,26 +4,26 @@ use color_eyre::Result;
 use coordinate_systems::Field;
 use eframe::epaint::Color32;
 use linear_algebra::point;
+use ros_z_debug::RetentionPolicy;
 use types::{field_dimensions::FieldDimensions, heatmap::Heatmap};
 
 use crate::{
-    backend::TwixBackend,
-    panels::map::layer::Layer,
+    backend::{TwixBackend, retained_subscription::TypedSubscription},
+    panels::map::{latest_value, layer::Layer},
     twix_painter::TwixPainter,
-    value_buffer::{BufferHandle, BufferHistory},
 };
 
 pub struct BallSearchHeatmap {
-    ball_search_heatmap: BufferHandle<Heatmap>,
+    ball_search_heatmap: TypedSubscription<Heatmap>,
 }
 
 impl Layer<Field> for BallSearchHeatmap {
     const NAME: &'static str = "Ball Search Heatmap";
 
     fn new(backend: Arc<TwixBackend>) -> Self {
-        let ball_search_heatmap = backend.subscribe_buffered_value_with_queue_depth(
+        let ball_search_heatmap = backend.subscribe_typed_retained(
             "ball_search_heatmap",
-            BufferHistory::LatestOnly,
+            RetentionPolicy::LatestOnly,
             crate::backend::HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH,
         );
         Self {
@@ -36,7 +36,7 @@ impl Layer<Field> for BallSearchHeatmap {
         painter: &TwixPainter<Field>,
         field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        let Some(heatmap) = self.ball_search_heatmap.get_last_value()? else {
+        let Some(heatmap) = latest_value(&self.ball_search_heatmap) else {
             return Ok(());
         };
         if heatmap.length == 0 || heatmap.width == 0 {

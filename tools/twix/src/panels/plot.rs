@@ -1,7 +1,4 @@
-use std::{
-    sync::Arc,
-    time::{Duration, SystemTime},
-};
+use std::{sync::Arc, time::Duration};
 
 use color_eyre::eyre::{Context, OptionExt};
 use eframe::{
@@ -11,14 +8,15 @@ use eframe::{
 use egui_plot::{Line, MarkerShape, Plot as EguiPlot, PlotPoints, Points};
 use itertools::Itertools;
 use mlua::{Function, Lua, LuaSerdeExt};
+use ros_z::time::Time;
+use ros_z_debug::RetentionPolicy;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json, to_string_pretty};
 
 use crate::{
-    backend::TwixBackend,
+    backend::{TwixBackend, retained_subscription::DynamicSubscription},
     panel::{Panel, PanelCreationContext},
     topic_completion_edit::TopicCompletionEdit,
-    value_buffer::{BufferHandle, BufferHistory},
 };
 
 const DEFAULT_LINE_COLORS: &[Color32] = &[
@@ -35,12 +33,35 @@ const DEFAULT_LINE_COLORS: &[Color32] = &[
 ];
 const DEFAULT_LUA_TEXT: &str = "function (value)\n  return value\nend";
 
+fn plot_retention(history: Duration) -> RetentionPolicy {
+    RetentionPolicy::time_window(history).unwrap_or(RetentionPolicy::LatestOnly)
+}
+
+fn samples_for_retention(
+    retention: RetentionPolicy,
+    latest_sample: impl FnOnce() -> Option<(Time, Value)>,
+    window_samples: impl FnOnce() -> Vec<(Time, Value)>,
+) -> Vec<(Time, Value)> {
+    match retention {
+        RetentionPolicy::LatestOnly => latest_sample().into_iter().collect(),
+        RetentionPolicy::TimeWindow(_) => {
+            let samples = window_samples();
+            if samples.is_empty() {
+                latest_sample().into_iter().collect()
+            } else {
+                samples
+            }
+        }
+        _ => window_samples(),
+    }
+}
+
 #[derive(Serialize, Deserialize)]
 struct LineData {
     #[serde(alias = "path")]
     topic: String,
     #[serde(skip)]
-    buffer: Option<BufferHandle<Value>>,
+    subscription: Option<DynamicSubscription>,
     color: Color32,
     #[serde(skip)]
     #[serde(default = "LineData::create_lua")]
@@ -87,7 +108,7 @@ impl LineData {
 
         let mut line_data = Self {
             topic: String::new(),
-            buffer: None,
+            subscription: None,
             color,
             lua,
             lua_text,
@@ -105,35 +126,35 @@ impl LineData {
         self.is_highlighted = is_highlighted
     }
 
-    fn plot(&self, latest_timestamp: Option<SystemTime>) -> PlotPoints<'_> {
+    fn samples(&self, buffer_history: Duration) -> Vec<(Time, Value)> {
+        let Some(subscription) = self.subscription.as_ref() else {
+            return Vec::new();
+        };
+
+        samples_for_retention(
+            plot_retention(buffer_history),
+            || subscription.latest_json_with_timestamp(),
+            || subscription.window_json(Time::zero(), Time::from_nanos(i64::MAX)),
+        )
+    }
+
+    fn plot(&self, samples: &[(Time, Value)], latest_timestamp: Option<Time>) -> PlotPoints<'_> {
         let Some(latest_timestamp) = latest_timestamp else {
             return PlotPoints::default();
         };
         let Ok(lua_function) = self.lua.globals().get::<Function>("conversion_function") else {
             return PlotPoints::default();
         };
-        self.buffer
-            .as_ref()
-            .map(|buffer| {
-                buffer
-                    .get()
-                    .map(|buffered_values| {
-                        PlotPoints::from_iter(buffered_values.iter().map(|datum| {
-                            let value = lua_function
-                                .call(self.lua.to_value(&datum.value))
-                                .unwrap_or(f64::NAN);
-                            [
-                                -latest_timestamp
-                                    .duration_since(datum.timestamp)
-                                    .unwrap_or(Duration::ZERO)
-                                    .as_secs_f64(),
-                                value,
-                            ]
-                        }))
-                    })
-                    .unwrap_or_default()
-            })
-            .unwrap_or_default()
+
+        PlotPoints::from_iter(samples.iter().map(|(timestamp, value)| {
+            let value = lua_function
+                .call(self.lua.to_value(value))
+                .unwrap_or(f64::NAN);
+            [
+                -latest_timestamp.duration_since(*timestamp).as_secs_f64(),
+                value,
+            ]
+        }))
     }
 
     fn show_settings(
@@ -151,11 +172,14 @@ impl LineData {
             ));
             self.set_highlighted(subscription_field.hovered());
             if subscription_field.changed() {
-                let handle = backend.subscribe_json(
-                    self.topic.clone(),
-                    BufferHistory::from_duration(buffer_history),
-                );
-                self.buffer = Some(handle);
+                self.subscription = if self.topic.is_empty() {
+                    None
+                } else {
+                    Some(backend.subscribe_json_retained(
+                        self.topic.clone(),
+                        plot_retention(buffer_history),
+                    ))
+                };
             }
 
             ui.color_edit_button_srgba(&mut self.color);
@@ -165,12 +189,20 @@ impl LineData {
                 .id_salt(id_salt)
                 .show(ui, |ui| {
                     ui.horizontal_top(|ui| {
+                        if let Some(message) = self
+                            .subscription
+                            .as_ref()
+                            .and_then(DynamicSubscription::diagnostic_message)
+                        {
+                            ui.colored_label(Color32::RED, message);
+                        }
                         let latest_value = self
-                            .buffer
+                            .subscription
                             .as_ref()
                             .ok_or_eyre("no subscription")
-                            .and_then(|buffer| buffer.get_last_value())
-                            .and_then(|maybe_value| maybe_value.ok_or_eyre("no value"));
+                            .and_then(|subscription| {
+                                subscription.latest_json().ok_or_eyre("no value")
+                            });
 
                         let pretty_json = match &latest_value {
                             Ok(value) => to_string_pretty(value)
@@ -236,11 +268,11 @@ impl<'a> Panel<'a> for PlotPanel {
                             serde_json::from_value::<LineData>(line_data.clone()).ok()?;
                         line_data.set_lua();
                         if !line_data.topic.is_empty() {
-                            let handle = context.backend.subscribe_json(
+                            let subscription = context.backend.subscribe_json_retained(
                                 line_data.topic.clone(),
-                                BufferHistory::from_duration(DEFAULT_BUFFER_HISTORY),
+                                plot_retention(DEFAULT_BUFFER_HISTORY),
                             );
-                            line_data.buffer = Some(handle);
+                            line_data.subscription = Some(subscription);
                         }
                         Some(line_data)
                     })
@@ -264,23 +296,24 @@ impl<'a> Panel<'a> for PlotPanel {
 
 impl PlotPanel {
     fn plot(&self, ui: &mut Ui) -> Response {
-        let latest_timestamp = self
+        let samples = self
             .lines
             .iter()
-            .filter_map(|line_data| {
-                let buffer = line_data.buffer.as_ref()?;
-                let last = buffer.get_last_timestamp().ok().flatten()?;
-                Some(last)
-            })
+            .map(|line_data| line_data.samples(self.buffer_history))
+            .collect::<Vec<_>>();
+        let latest_timestamp = samples
+            .iter()
+            .flat_map(|samples| samples.iter().map(|(timestamp, _)| *timestamp))
             .max();
 
         let plot_points = self
             .lines
             .iter()
-            .filter(|line_data| !line_data.is_hidden)
-            .map(|line_data| {
+            .zip(samples.iter())
+            .filter(|(line_data, _)| !line_data.is_hidden)
+            .map(|(line_data, samples)| {
                 (
-                    line_data.plot(latest_timestamp),
+                    line_data.plot(samples, latest_timestamp),
                     line_data.show_scatter,
                     line_data.is_highlighted,
                     line_data.color,
@@ -322,9 +355,9 @@ impl PlotPanel {
                 for buffer in self
                     .lines
                     .iter_mut()
-                    .filter_map(|data| data.buffer.as_ref())
+                    .filter_map(|data| data.subscription.as_ref())
                 {
-                    buffer.set_history(BufferHistory::from_duration(self.buffer_history));
+                    buffer.set_retention(plot_retention(self.buffer_history));
                 }
             }
         });
@@ -395,5 +428,59 @@ mod tests {
             .call::<f64>(line_data.lua.to_value(&json!(42.0)).unwrap())
             .unwrap();
         assert_eq!(value, 42.0);
+    }
+
+    #[test]
+    fn latest_only_sampling_uses_latest_sample() {
+        let sample = (Time::from_nanos(5), json!(42));
+
+        let samples = samples_for_retention(
+            RetentionPolicy::LatestOnly,
+            || Some(sample.clone()),
+            Vec::new,
+        );
+
+        assert_eq!(samples, vec![sample]);
+    }
+
+    #[test]
+    fn time_window_sampling_uses_window_samples() {
+        let sample = (Time::from_nanos(5), json!(42));
+        let window_samples = vec![sample.clone()];
+
+        let samples = samples_for_retention(
+            RetentionPolicy::time_window(Duration::from_secs(1)).unwrap(),
+            || panic!("latest sample should not be read for time-window retention"),
+            || window_samples.clone(),
+        );
+
+        assert_eq!(samples, vec![sample]);
+    }
+
+    #[test]
+    fn time_window_sampling_falls_back_to_latest_when_window_samples_are_empty() {
+        let sample = (Time::from_nanos(5), json!(42));
+
+        let samples = samples_for_retention(
+            RetentionPolicy::time_window(Duration::from_secs(1)).unwrap(),
+            || Some(sample.clone()),
+            Vec::new,
+        );
+
+        assert_eq!(samples, vec![sample]);
+    }
+
+    #[test]
+    fn time_window_sampling_does_not_duplicate_latest_when_window_samples_exist() {
+        let sample = (Time::from_nanos(5), json!(42));
+        let window_samples = vec![sample.clone()];
+
+        let samples = samples_for_retention(
+            RetentionPolicy::time_window(Duration::from_secs(1)).unwrap(),
+            || Some(sample.clone()),
+            || window_samples.clone(),
+        );
+
+        assert_eq!(samples, vec![sample]);
     }
 }

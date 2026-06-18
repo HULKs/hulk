@@ -8,26 +8,26 @@ use eframe::{
 
 use coordinate_systems::Field;
 use linear_algebra::{Pose2, point};
+use ros_z_debug::RetentionPolicy;
 use types::{field_dimensions::FieldDimensions, localization::ScoredPose};
 
 use crate::{
-    backend::TwixBackend,
-    panels::map::layer::Layer,
+    backend::{TwixBackend, retained_subscription::TypedSubscription},
+    panels::map::{latest_value, layer::Layer},
     twix_painter::TwixPainter,
-    value_buffer::{BufferHandle, BufferHistory},
 };
 
 pub struct Localization {
-    poses: BufferHandle<Vec<ScoredPose>>,
+    poses: TypedSubscription<Vec<ScoredPose>>,
 }
 
 impl Layer<Field> for Localization {
     const NAME: &'static str = "Localization";
 
     fn new(backend: Arc<TwixBackend>) -> Self {
-        let poses = backend.subscribe_buffered_value_with_queue_depth(
+        let poses = backend.subscribe_typed_retained(
             "localization/pose_hypotheses",
-            BufferHistory::LatestOnly,
+            RetentionPolicy::LatestOnly,
             crate::backend::HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH,
         );
         Self { poses }
@@ -38,7 +38,7 @@ impl Layer<Field> for Localization {
         painter: &TwixPainter<Field>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        if let Some(poses) = self.poses.get_last_value()? {
+        if let Some(poses) = latest_value(&self.poses) {
             let circle_radius = 0.1;
             let line_length = 0.16;
             let fill_color = Color32::LIGHT_RED;
