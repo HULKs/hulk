@@ -151,11 +151,9 @@ impl<'a> Panel<'a> for MapPanel {
         let obstacle_filter = EnabledLayer::new(context.backend.clone(), context.value, false);
         let localization = EnabledLayer::new(context.backend.clone(), context.value, false);
 
-        let field_dimensions = context.backend.subscribe_typed_retained(
-            "field_dimensions",
-            RetentionPolicy::LatestOnly,
-            crate::backend::HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH,
-        );
+        let field_dimensions = context
+            .backend
+            .subscribe_transient_local_typed_retained("field_dimensions");
         let ground_to_field = context.backend.subscribe_typed_retained(
             "ground_to_field",
             RetentionPolicy::LatestOnly,

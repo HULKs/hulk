@@ -14,7 +14,7 @@ use ros_z::{
     Message,
     context::ContextBuilder,
     node::Node,
-    qos::{QosHistory, QosProfile, QosReliability},
+    qos::{QosDurability, QosHistory, QosProfile, QosReliability},
 };
 use ros_z_debug::RetentionPolicy;
 use tokio::{
@@ -195,6 +195,25 @@ impl TwixBackend {
             high_rate_qos(queue_depth),
         )
     }
+
+    pub fn subscribe_transient_local_typed_retained<T>(
+        &self,
+        selector: impl Into<String>,
+    ) -> retained_subscription::TypedSubscription<T>
+    where
+        T: Message + Clone + Send + Sync + 'static,
+        T::Codec: Send + Sync,
+    {
+        retained_subscription::subscribe_typed(
+            &self.runtime,
+            self.connection_state_receiver.clone(),
+            self.target_namespace_sender.subscribe(),
+            self.egui_context.clone(),
+            selector,
+            RetentionPolicy::LatestOnly,
+            transient_local_qos(),
+        )
+    }
 }
 
 pub(crate) fn high_rate_qos(queue_depth: usize) -> QosProfile {
@@ -203,6 +222,13 @@ pub(crate) fn high_rate_qos(queue_depth: usize) -> QosProfile {
         history: QosHistory::KeepLast(
             NonZeroUsize::new(queue_depth).expect("high-rate queue depth must be non-zero"),
         ),
+        ..Default::default()
+    }
+}
+
+pub(crate) fn transient_local_qos() -> QosProfile {
+    QosProfile {
+        durability: QosDurability::TransientLocal,
         ..Default::default()
     }
 }
@@ -339,7 +365,7 @@ fn rebuild_topic_catalog(
 
 #[cfg(test)]
 mod tests {
-    use ros_z::qos::{DEFAULT_HISTORY_DEPTH, QosHistory, QosReliability};
+    use ros_z::qos::{DEFAULT_HISTORY_DEPTH, QosDurability, QosHistory, QosReliability};
 
     use crate::backend::connection::{ConnectionState, ConnectionStatus};
 
@@ -425,6 +451,14 @@ mod tests {
         assert_eq!(
             high_rate_qos(HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH).reliability,
             QosReliability::BestEffort
+        );
+    }
+
+    #[test]
+    fn transient_local_qos_requests_transient_local_durability() {
+        assert_eq!(
+            transient_local_qos().durability,
+            QosDurability::TransientLocal
         );
     }
 }
