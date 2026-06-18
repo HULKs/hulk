@@ -1,8 +1,8 @@
 use coordinate_systems::Field;
 use hsl_network_messages::PlayerNumber;
-use linear_algebra::Pose2;
+use linear_algebra::{Pose2, point};
 use types::behavior_tree::Status;
-use voronoi::VoronoiGrid;
+use voronoi::{VoronoiBounds, VoronoiGrid};
 
 use crate::behavior::node::Blackboard;
 
@@ -18,12 +18,24 @@ pub fn calculate_voronoi_grid(blackboard: &mut Blackboard) -> Status {
             blackboard.voronoi_inputs.push(*pose);
         }
 
-        let mut map = VoronoiGrid::new(
-            field_dimensions.length,
-            field_dimensions.width,
-            voronoi_parameters.padding,
-            voronoi_parameters.grid_resolution,
-        );
+        let length_half = field_dimensions.length / 2.0;
+        let width_half = field_dimensions.width / 2.0;
+        let border_strip_width = field_dimensions.border_strip_width;
+
+        let bounds = VoronoiBounds {
+            grid_min: point!(
+                -length_half - border_strip_width,
+                -width_half - border_strip_width
+            ),
+            grid_max: point!(
+                length_half + border_strip_width,
+                width_half + border_strip_width
+            ),
+            centroid_min: point!(-length_half, -width_half),
+            centroid_max: point!(length_half, width_half),
+        };
+
+        let mut map = VoronoiGrid::new(bounds, voronoi_parameters.grid_resolution);
         map.initialize_obstacles(obstacles, rule_obstacles, ground_to_field);
         map.multi_source_dijkstra(&sites, voronoi_parameters.orientation_bias);
         blackboard.voronoi_map = Some(map);
