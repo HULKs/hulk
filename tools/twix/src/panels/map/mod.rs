@@ -78,7 +78,7 @@ pub struct MapPanel {
     skipped_layers: JsonMap<String, Value>,
 
     field_dimensions: TypedSubscription<FieldDimensions>,
-    ground_to_field: TypedSubscription<Option<Isometry2<Ground, Field>>>,
+    ground_to_field: TypedSubscription<Isometry2<Ground, Field>>,
     zoom_and_pan: ZoomAndPanTransform,
 
     field: EnabledLayer<layers::Field, Field>,
@@ -111,24 +111,24 @@ pub(super) fn time_window_retention(duration: Duration) -> RetentionPolicy {
 }
 
 fn ground_to_field_from_latest_message(
-    latest: Option<Option<Isometry2<Ground, Field>>>,
+    latest: Option<Isometry2<Ground, Field>>,
     diagnostic: Option<&str>,
 ) -> Option<Isometry2<Ground, Field>> {
     if diagnostic.is_some() {
         return None;
     }
-    latest.flatten()
+    latest
 }
 
 fn latest_ground_to_field_or_none(
-    ground_to_field: &TypedSubscription<Option<Isometry2<Ground, Field>>>,
+    ground_to_field: &TypedSubscription<Isometry2<Ground, Field>>,
 ) -> Option<Isometry2<Ground, Field>> {
     let diagnostic = ground_to_field.diagnostic_message();
     ground_to_field_from_latest_message(latest_value(ground_to_field), diagnostic.as_deref())
 }
 
 fn latest_ground_to_field_or_identity(
-    ground_to_field: &TypedSubscription<Option<Isometry2<Ground, Field>>>,
+    ground_to_field: &TypedSubscription<Isometry2<Ground, Field>>,
 ) -> Isometry2<Ground, Field> {
     latest_ground_to_field_or_none(ground_to_field).unwrap_or_default()
 }
@@ -349,8 +349,8 @@ mod tests {
     use super::*;
 
     #[test]
-    fn ground_to_field_uses_deployed_optional_message_type() {
-        fn assert_ground_to_field(_: &TypedSubscription<Option<Isometry2<Ground, Field>>>) {}
+    fn ground_to_field_uses_native_message_type() {
+        fn assert_ground_to_field(_: &TypedSubscription<Isometry2<Ground, Field>>) {}
 
         fn assert_map_panel(panel: &MapPanel) {
             assert_ground_to_field(&panel.ground_to_field);
@@ -372,17 +372,8 @@ mod tests {
         let transform = Isometry2::from_parts(vector![1.0, 0.0], 0.0);
 
         assert_eq!(
-            ground_to_field_from_latest_message(Some(Some(transform)), Some("decode failed"))
+            ground_to_field_from_latest_message(Some(transform), Some("decode failed"))
                 .unwrap_or_default()
-                * point![1.0, 2.0],
-            point![1.0, 2.0]
-        );
-    }
-
-    #[test]
-    fn ground_plot_uses_identity_when_ground_to_field_is_none() {
-        assert_eq!(
-            ground_to_field_from_latest_message(Some(None), None).unwrap_or_default()
                 * point![1.0, 2.0],
             point![1.0, 2.0]
         );
@@ -393,7 +384,7 @@ mod tests {
         let transform = Isometry2::from_parts(vector![1.0, 0.0], 0.0);
 
         assert_eq!(
-            ground_to_field_from_latest_message(Some(Some(transform)), None).unwrap_or_default()
+            ground_to_field_from_latest_message(Some(transform), None).unwrap_or_default()
                 * point![1.0, 2.0],
             transform * point![1.0, 2.0]
         );
