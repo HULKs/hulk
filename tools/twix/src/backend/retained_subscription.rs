@@ -224,7 +224,7 @@ async fn run_dynamic_subscription(
                     break;
                 }
                 subscribe_error_handle_policy = SubscribeErrorHandlePolicy::ClearExisting;
-                if !clear_handle(&state) {
+                if !clear_state_for_rebuild(&state) {
                     break;
                 }
                 continue;
@@ -251,7 +251,7 @@ async fn run_dynamic_subscription(
                     break;
                 }
                 subscribe_error_handle_policy = SubscribeErrorHandlePolicy::ClearExisting;
-                if !clear_handle(&state) {
+                if !clear_state_for_rebuild(&state) {
                     break;
                 }
                 continue;
@@ -291,7 +291,8 @@ async fn run_dynamic_subscription(
                         break;
                     }
                 } else {
-                    if should_clear_handle_after_forward_exit(forward_exit) && !clear_handle(&state)
+                    if should_clear_state_after_forward_exit(forward_exit)
+                        && !clear_state_for_rebuild(&state)
                     {
                         break;
                     }
@@ -333,7 +334,7 @@ async fn run_dynamic_subscription(
                     }
                     RebuildSignal::TargetNamespaceChanged | RebuildSignal::GraphChanged => {
                         subscribe_error_handle_policy = SubscribeErrorHandlePolicy::ClearExisting;
-                        if !clear_handle(&state) {
+                        if !clear_state_for_rebuild(&state) {
                             break;
                         }
                     }
@@ -342,7 +343,7 @@ async fn run_dynamic_subscription(
         }
     }
 
-    let _ = clear_handle(&state);
+    let _ = clear_state_for_rebuild(&state);
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -435,7 +436,7 @@ fn control_channel_closed_exit<T>(state: &WeakState<T>) -> ForwardSubscriptionEx
     }
 }
 
-fn should_clear_handle_after_forward_exit(exit: ForwardSubscriptionExit) -> bool {
+fn should_clear_state_after_forward_exit(exit: ForwardSubscriptionExit) -> bool {
     matches!(
         exit,
         ForwardSubscriptionExit::TargetNamespaceChanged
@@ -637,15 +638,6 @@ fn install_handle<T>(state: &WeakState<T>, handle: SubscriptionHandle<T>) -> boo
     true
 }
 
-fn clear_handle<T>(state: &WeakState<T>) -> bool {
-    let Some(state) = state.upgrade() else {
-        return false;
-    };
-
-    state.lock().handle = None;
-    true
-}
-
 fn set_subscribe_error<T>(
     state: &WeakState<T>,
     error: &color_eyre::Report,
@@ -683,8 +675,9 @@ mod tests {
     use ros_z_debug::{ManagerOptions, RetentionPolicy, SubscriptionManager, SubscriptionUpdate};
 
     use super::{
-        ForwardSubscriptionExit, RetainedSubscription, SubscribeErrorHandlePolicy, handle_update,
-        set_connection_unavailable, set_subscribe_error, should_clear_handle_after_forward_exit,
+        ForwardSubscriptionExit, RetainedSubscription, SubscribeErrorHandlePolicy,
+        clear_state_for_rebuild, handle_update, set_connection_unavailable, set_subscribe_error,
+        should_clear_state_after_forward_exit,
     };
 
     #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, ros_z::Message)]
@@ -748,14 +741,14 @@ mod tests {
     }
 
     #[test]
-    fn forward_exit_clears_handle_for_retarget_or_graph_but_not_retention() {
-        assert!(should_clear_handle_after_forward_exit(
+    fn forward_exit_clears_state_for_retarget_or_graph_but_not_retention() {
+        assert!(should_clear_state_after_forward_exit(
             ForwardSubscriptionExit::TargetNamespaceChanged,
         ));
-        assert!(should_clear_handle_after_forward_exit(
+        assert!(should_clear_state_after_forward_exit(
             ForwardSubscriptionExit::GraphChanged,
         ));
-        assert!(!should_clear_handle_after_forward_exit(
+        assert!(!should_clear_state_after_forward_exit(
             ForwardSubscriptionExit::RetentionChanged,
         ));
     }
@@ -813,6 +806,57 @@ mod tests {
         assert_eq!(
             retained.diagnostic_message().as_deref(),
             Some("subscribe failed")
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn non_retention_clear_drops_stale_state_but_retention_error_keeps_state() {
+        let retained =
+            RetainedSubscription::<SubscribeErrorStateMessage>::new(RetentionPolicy::LatestOnly);
+        let state = Arc::downgrade(&retained.state);
+        let handle = typed_handle("twix_clear_stale_rebuild_state").await;
+        let status = handle.status();
+        {
+            let mut state = retained.state.lock();
+            state.handle = Some(handle);
+            state.status = Some(status);
+            state.diagnostic = Some("stale diagnostic".to_string());
+        }
+
+        assert!(clear_state_for_rebuild(&state));
+
+        {
+            let state = retained.state.lock();
+            assert!(state.handle.is_none());
+            assert!(state.status.is_none());
+            assert!(state.diagnostic.is_none());
+        }
+
+        let retained =
+            RetainedSubscription::<SubscribeErrorStateMessage>::new(RetentionPolicy::LatestOnly);
+        let state = Arc::downgrade(&retained.state);
+        let handle = typed_handle("twix_keep_state_retention_rebuild").await;
+        let status = handle.status();
+        {
+            let mut state = retained.state.lock();
+            state.handle = Some(handle);
+            state.status = Some(status);
+            state.diagnostic = Some("stale diagnostic".to_string());
+        }
+
+        let error = eyre!("retention subscribe failed");
+        assert!(set_subscribe_error(
+            &state,
+            &error,
+            SubscribeErrorHandlePolicy::KeepExisting,
+        ));
+
+        let state = retained.state.lock();
+        assert!(state.handle.is_some());
+        assert!(state.status.is_some());
+        assert_eq!(
+            state.diagnostic.as_deref(),
+            Some("retention subscribe failed")
         );
     }
 
