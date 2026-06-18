@@ -8,7 +8,7 @@ use types::{field_dimensions::FieldDimensions, world_state::BallState as WorldBa
 
 use crate::{
     backend::{TwixBackend, retained_subscription::TypedSubscription},
-    panels::map::{BALL_STATE_QUEUE_DEPTH, layer::Layer, time_window_retention},
+    panels::map::{BALL_STATE_QUEUE_DEPTH, layer::Layer, retained_window, time_window_retention},
     twix_painter::TwixPainter,
 };
 
@@ -33,9 +33,8 @@ impl Layer<Field> for BallState {
         painter: &TwixPainter<Field>,
         field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        let ball_states = self
-            .ball_state
-            .window(Time::zero(), Time::from_nanos(i64::MAX));
+        let ball_states =
+            retained_window(&self.ball_state, Time::zero(), Time::from_nanos(i64::MAX));
 
         for ball_state in ball_states
             .iter()

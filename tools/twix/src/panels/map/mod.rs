@@ -1,10 +1,11 @@
-use std::time::Duration;
+use std::{sync::Arc, time::Duration};
 
 use coordinate_systems::{Field, Ground};
 use eframe::egui::{ComboBox, Ui, Widget};
 use linear_algebra::{Isometry2, point, vector};
 use log::error;
-use ros_z_debug::RetentionPolicy;
+use ros_z::time::Time;
+use ros_z_debug::{RetentionPolicy, SampleRecord};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map as JsonMap, Value, json};
 use types::field_dimensions::FieldDimensions;
@@ -97,7 +98,39 @@ pub struct MapPanel {
 }
 
 pub(super) fn latest_value<T: Clone>(subscription: &TypedSubscription<T>) -> Option<T> {
-    subscription.latest().map(|record| record.value.clone())
+    let diagnostic = subscription.diagnostic_message();
+    latest_value_from_retained(diagnostic.as_deref(), || {
+        subscription.latest().map(|record| record.value.clone())
+    })
+}
+
+fn latest_value_from_retained<T>(
+    diagnostic: Option<&str>,
+    latest: impl FnOnce() -> Option<T>,
+) -> Option<T> {
+    if diagnostic.is_some() {
+        return None;
+    }
+    latest()
+}
+
+pub(super) fn retained_window<T>(
+    subscription: &TypedSubscription<T>,
+    start: Time,
+    end: Time,
+) -> Vec<Arc<SampleRecord<T>>> {
+    let diagnostic = subscription.diagnostic_message();
+    retained_window_from_retained(diagnostic.as_deref(), || subscription.window(start, end))
+}
+
+fn retained_window_from_retained<T>(
+    diagnostic: Option<&str>,
+    window: impl FnOnce() -> Vec<T>,
+) -> Vec<T> {
+    if diagnostic.is_some() {
+        return Vec::new();
+    }
+    window()
 }
 
 pub(super) fn time_window_retention(duration: Duration) -> RetentionPolicy {
@@ -386,6 +419,19 @@ mod tests {
                 * point![1.0, 2.0],
             transform * point![1.0, 2.0]
         );
+    }
+
+    #[test]
+    fn latest_value_from_retained_returns_none_when_diagnostic_is_present() {
+        assert_eq!(
+            latest_value_from_retained(Some("decode failed"), || Some(1)),
+            None
+        );
+    }
+
+    #[test]
+    fn retained_window_from_retained_returns_empty_when_diagnostic_is_present() {
+        assert!(retained_window_from_retained(Some("decode failed"), || vec![1]).is_empty());
     }
 
     #[test]
