@@ -34,11 +34,27 @@ pub fn goalkeeper_subtree() -> Node<Blackboard> {
             ),
             sequence!(
                 condition!(is_goalkeeper_interception_candidate),
-                subtree!(goalkeeper_intercept_kick_subtree)
+                switch_motion_type(
+                    MotionType::Kick,
+                    sequence!(
+                        action!(kick),
+                        action!(intercept),
+                        action!(use_kick_power, KickPower::Rumpelstilzchen),
+                    ),
+                    subtree!(kick_alternatives_subtree),
+                )
             ),
             sequence!(
                 condition!(is_goalkeeper_kick_away_needed),
-                subtree!(goalkeeper_kick_away_subtree)
+                switch_motion_type(
+                    MotionType::Kick,
+                    sequence!(
+                        action!(kick),
+                        action!(select_goalkeeper_kick_away_target),
+                        action!(use_kick_power, KickPower::Rumpelstilzchen),
+                    ),
+                    subtree!(kick_alternatives_subtree),
+                )
             ),
             sequence!(
                 condition!(is_ball_near_own_goal),
@@ -54,51 +70,30 @@ fn goalkeeper_sub_state_subtree() -> Node<Blackboard> {
         sequence!(
             condition!(is_sub_state, SubState::PenaltyKick),
             negation!(condition!(hulks_is_kicking_team)),
-            subtree!(goalkeeper_penalty_position_subtree)
+            switch_motion_type(
+                MotionType::Walk,
+                action!(walk_to_goalkeeper_penalty_position),
+                subtree!(walk_alternatives_subtree),
+            )
         ),
         sequence!(
-            selection!(
-                sequence!(
-                    negation!(condition!(hulks_is_kicking_team)),
-                    condition!(is_sub_state, SubState::CornerKick)
-                ),
-                sequence!(
-                    negation!(condition!(hulks_is_kicking_team)),
-                    selection!(
-                        condition!(is_sub_state, SubState::ThrowIn),
-                        condition!(is_sub_state, SubState::IndirectFreeKick),
-                        condition!(is_sub_state, SubState::DirectFreeKick),
+            sequence!(
+                negation!(condition!(hulks_is_kicking_team)),
+                selection!(
+                    condition!(is_sub_state, SubState::CornerKick),
+                    sequence!(
+                        selection!(
+                            condition!(is_sub_state, SubState::ThrowIn),
+                            condition!(is_sub_state, SubState::IndirectFreeKick),
+                            condition!(is_sub_state, SubState::DirectFreeKick),
+                        ),
+                        condition!(is_ball_near_own_goal)
                     ),
-                    condition!(is_ball_near_own_goal)
                 ),
             ),
             subtree!(goalkeeper_active_defense_position_subtree)
         ),
         subtree!(goalkeeper_default_position_subtree),
-    )
-}
-
-fn goalkeeper_intercept_kick_subtree() -> Node<Blackboard> {
-    switch_motion_type(
-        MotionType::Kick,
-        sequence!(
-            action!(kick),
-            action!(intercept),
-            action!(use_kick_power, KickPower::Rumpelstilzchen),
-        ),
-        subtree!(kick_alternatives_subtree),
-    )
-}
-
-fn goalkeeper_kick_away_subtree() -> Node<Blackboard> {
-    switch_motion_type(
-        MotionType::Kick,
-        sequence!(
-            action!(kick),
-            action!(select_goalkeeper_kick_away_target),
-            action!(use_kick_power, KickPower::Rumpelstilzchen),
-        ),
-        subtree!(kick_alternatives_subtree),
     )
 }
 
@@ -110,14 +105,6 @@ fn goalkeeper_active_defense_position_subtree() -> Node<Blackboard> {
             action!(walk_to_block_position)
         ),
         Node::Failure,
-    )
-}
-
-fn goalkeeper_penalty_position_subtree() -> Node<Blackboard> {
-    switch_motion_type(
-        MotionType::Walk,
-        action!(walk_to_goalkeeper_penalty_position),
-        subtree!(walk_alternatives_subtree),
     )
 }
 
