@@ -241,7 +241,6 @@ fn predict_hypotheses_from_odometry(
     );
 }
 
-#[allow(clippy::too_many_arguments)]
 fn advance_all_hypotheses(
     ball_filter: &mut BallFilter,
     time: Time,
