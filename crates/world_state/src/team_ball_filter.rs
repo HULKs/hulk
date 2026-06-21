@@ -4,25 +4,22 @@ use std::{
 };
 
 use color_eyre::eyre::Result;
+use ros_z::time::Time;
 use serde::{Deserialize, Serialize};
 
 use context_attribute::context;
 use coordinate_systems::Field;
 use framework::{AdditionalOutput, MainOutput};
 use hsl_network_messages::{GamePhase, HulkMessage, SubState};
-use linear_algebra::{Point2, Vector2};
-use ros_z::time::Time;
 use types::{
     ball_position::BallPosition, cycle_time::CycleTime,
-    filtered_game_controller_state::FilteredGameControllerState,
-    filtered_game_state::FilteredGameState, messages::IncomingMessage, players::Players,
-    world_state::PlayerState,
+    filtered_game_controller_state::FilteredGameControllerState, messages::IncomingMessage,
+    players::Players, world_state::PlayerState,
 };
 
 #[derive(Deserialize, Serialize)]
 pub struct TeamBallReceiver {
     received_balls: Players<Option<BallPosition<Field>>>,
-    rule_team_ball: Option<BallPosition<Field>>,
 }
 
 #[context]
@@ -49,7 +46,6 @@ impl TeamBallReceiver {
     pub fn new(_context: CreationContext) -> Result<Self> {
         Ok(Self {
             received_balls: Players::default(),
-            rule_team_ball: None,
         })
     }
 
@@ -72,15 +68,6 @@ impl TeamBallReceiver {
                 return Ok(MainOutputs {
                     team_ball: None.into(),
                 });
-            }
-
-            // Prevent non-strikers from claiming striker at kickoff
-            if game_controller_state.game_state == FilteredGameState::Set {
-                self.rule_team_ball = Some(BallPosition {
-                    position: Point2::origin(),
-                    velocity: Vector2::zeros(),
-                    last_seen: now,
-                })
             }
         }
 
@@ -108,7 +95,6 @@ impl TeamBallReceiver {
         self.received_balls
             .iter()
             .filter_map(|(_player_number, ball)| *ball)
-            .chain(self.rule_team_ball)
             .max_by_key(|ball| ball.last_seen)
             .filter(|ball| ball.age_at(now).is_some_and(|age| age < trust_duration))
     }

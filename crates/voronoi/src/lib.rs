@@ -381,6 +381,11 @@ impl VoronoiGrid {
         None
     }
 
+    pub fn nearest_non_blocked_ownership(&self, point: Point2<Field>) -> Option<Ownership> {
+        self.nearest_non_blocked_cell_index(point)
+            .map(|index| self.tiles[index])
+    }
+
     fn index_from_xy(&self, x: usize, y: usize) -> usize {
         y * (self.width_tiles) + x
     }
@@ -408,6 +413,10 @@ impl VoronoiGrid {
                 }
             }
         }
+    }
+
+    pub fn ownership_at(&self, point: Point2<Field>) -> Option<Ownership> {
+        self.point_to_index(point).map(|index| self.tiles[index])
     }
 }
 
