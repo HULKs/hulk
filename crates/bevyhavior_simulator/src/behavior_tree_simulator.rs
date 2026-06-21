@@ -34,8 +34,8 @@ pub use crate::invariant_checks::{
     SimulatorCurrentInvariantViolations, SimulatorInvariantChecks, default_invariant_checks,
 };
 pub use crate::robot::{
-    SimulatorFallDownState, SimulatorGroundToWorld, SimulatorLastKickTime, SimulatorPrimaryState,
-    SimulatorRobot, SimulatorRobotBundle, SimulatorRobotParameters,
+    SimulatorFallDownState, SimulatorGroundToWorld, SimulatorHeadYaw, SimulatorLastKickTime,
+    SimulatorPrimaryState, SimulatorRobot, SimulatorRobotBundle, SimulatorRobotParameters,
     SimulatorSuggestedSearchPosition,
 };
 pub use crate::timeline::{
@@ -273,6 +273,7 @@ impl AppExt for App {
         if env::var_os("BEVYHAVIOR_SIMULATOR_NO_VIEWER").is_none() {
             let viewer_data = TimelineViewerData {
                 field_dimensions: self.world().resource::<SimulatorFieldDimensions>().0,
+                config: self.world().resource::<SimulationConfig>().clone(),
                 frames: std::mem::take(
                     &mut self.world_mut().resource_mut::<SimulatorTimeline>().frames,
                 ),

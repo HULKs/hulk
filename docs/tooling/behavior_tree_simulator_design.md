@@ -235,6 +235,10 @@ pub struct SimulatorRobotParameters {
     pub behavior: BehaviorParameters,
 }
 
+pub struct SimulatorHeadYaw {
+    pub yaw: Orientation2<Ground>,
+}
+
 pub struct SimulatorSuggestedSearchPosition {
     pub position: Option<Point2<Field>>,
 }
@@ -242,6 +246,7 @@ pub struct SimulatorSuggestedSearchPosition {
 pub struct SimulatorRobotBundle {
     pub robot: SimulatorRobot,
     pub ground_to_world: SimulatorGroundToWorld,
+    pub head_yaw: SimulatorHeadYaw,
     pub primary_state: SimulatorPrimaryState,
     pub behavior: SimulatorRobotBehavior,
     pub parameters: SimulatorRobotParameters,
@@ -586,6 +591,11 @@ Use a `SimulationConfig` for constants:
 - `ball_friction_per_second`
 - `ball_visibility_range`
 - `ball_visibility_angle`
+- `head_yaw_minimum`
+- `head_yaw_maximum`
+- `head_yaw_velocity`
+- `head_scan_period`
+- `head_glance_angle`
 - `robot_radius`
 
 Use invented defaults initially, but keep them compile-time configurable through a plain Rust config struct with a `Default` implementation. Scenario code can construct `SimulationConfig` directly or use `SimulationConfig { field: value, ..Default::default() }`. Do not require parameter files for these constants in the first version.
@@ -603,6 +613,11 @@ pub struct SimulationConfig {
     pub ball_friction_per_second: f32,
     pub ball_visibility_range: f32,
     pub ball_visibility_angle: f32,
+    pub head_yaw_minimum: f32,
+    pub head_yaw_maximum: f32,
+    pub head_yaw_velocity: f32,
+    pub head_scan_period: Duration,
+    pub head_glance_angle: f32,
     pub robot_radius: f32,
     pub kick_radius: f32,
 }
@@ -619,6 +634,11 @@ impl Default for SimulationConfig {
             ball_friction_per_second: 0.4,
             ball_visibility_range: 4.0,
             ball_visibility_angle: std::f32::consts::FRAC_PI_2,
+            head_yaw_minimum: -0.785,
+            head_yaw_maximum: 0.785,
+            head_yaw_velocity: 0.4,
+            head_scan_period: Duration::from_secs(4),
+            head_glance_angle: 0.25,
             robot_radius: 0.25,
             kick_radius: 0.25,
         }
@@ -650,6 +670,17 @@ impl Default for SimulationConfig {
 - Do not move the robot.
 - `StandUp` clears simulated recovery state after a configured duration or immediately in the first version.
 
+Head motion:
+
+- Store head yaw in `SimulatorHeadYaw` as `Orientation2<Ground>` relative to the robot ground frame.
+- Derive target yaw from `MotionCommand::head_motion()`.
+- `ZeroAngles` and `Center` target yaw `0.0`.
+- `LookAt` targets the commanded ground point direction.
+- `LookLeftAndRightOf` adds a deterministic glance offset around the commanded ground point direction.
+- `LookAround` and `SearchForLostBall` use a deterministic scan pattern within configured yaw limits.
+- Clamp yaw by `head_yaw_minimum` and `head_yaw_maximum`.
+- Rate-limit yaw by `head_yaw_velocity * dt`.
+
 Ball update:
 
 - `position += velocity * dt`.
@@ -660,11 +691,13 @@ Ball update:
 
 The first perception model should be intentionally simple:
 
-- A robot sees the ball if it is within `ball_visibility_range` and inside `ball_visibility_angle` relative to the robot orientation.
+- A robot sees the ball if it is within `ball_visibility_range` and inside `ball_visibility_angle` relative to `SimulatorHeadYaw`.
 - If visible, set `WorldState::ball` with ground and field positions plus field-side metadata.
 - If not visible, set `WorldState::ball` to `None`; persistent `Blackboard::ball` and `Blackboard::last_ball` handle timeout behavior.
 - Other robots may become obstacles; teammate `player_states` entries come from received HSL state.
 - Scenario code can override visibility, ball observations, hypothetical ball positions, fall state, game state, and search position.
+
+Timeline snapshots should record `SimulatorHeadYaw`. The viewer should draw each robot's visibility cone from `ball_visibility_range`, `ball_visibility_angle`, robot pose, and recorded head yaw.
 
 # Multi-Robot Behavior
 

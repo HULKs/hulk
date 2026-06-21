@@ -1,15 +1,18 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, time::SystemTime};
 
 use bevy::prelude::*;
+use coordinate_systems::{Ground, World};
 use hsl_network_messages::PlayerNumber;
-use linear_algebra::Point2;
-use types::world_state::{RobotState, WorldState};
+use linear_algebra::{Isometry2, Orientation2, Point2, Vector2};
+use types::{
+    field_dimensions::GlobalFieldSide,
+    world_state::{BallState, RobotState, WorldState},
+};
 
 use crate::{
-    ball::perceived_ball_from_pose,
     behavior_tree_simulator::{
-        SimulationConfig, SimulatorBall, SimulatorClock, SimulatorFallDownState,
-        SimulatorGameState, SimulatorGroundToWorld, SimulatorPrimaryState,
+        SimulatedBall, SimulationConfig, SimulatorBall, SimulatorClock, SimulatorFallDownState,
+        SimulatorGameState, SimulatorGroundToWorld, SimulatorHeadYaw, SimulatorPrimaryState,
         SimulatorReceivedHslMessages, SimulatorRobot, SimulatorRuleObstacles,
         SimulatorSuggestedSearchPosition,
     },
@@ -30,6 +33,7 @@ pub(crate) fn build_world_states(
     robots: Query<(
         &SimulatorRobot,
         &SimulatorGroundToWorld,
+        &SimulatorHeadYaw,
         &SimulatorPrimaryState,
         &SimulatorFallDownState,
         &SimulatorSuggestedSearchPosition,
@@ -39,8 +43,14 @@ pub(crate) fn build_world_states(
     world_states.0.clear();
     let global_field_side = game_state.game_controller_state.global_field_side;
 
-    for (robot, ground_to_world, primary_state, fall_down_state, suggested_search_position) in
-        &robots
+    for (
+        robot,
+        ground_to_world,
+        head_yaw,
+        primary_state,
+        fall_down_state,
+        suggested_search_position,
+    ) in &robots
     {
         let ground_to_field =
             ground_to_field_from_world(ground_to_world.ground_to_world, global_field_side);
@@ -49,6 +59,7 @@ pub(crate) fn build_world_states(
             ground_to_world.ground_to_world,
             global_field_side,
             clock.now,
+            head_yaw.yaw,
             &config,
         );
 
@@ -85,13 +96,45 @@ pub(crate) fn build_world_states(
     }
 }
 
+fn perceived_ball_from_pose(
+    ball: Option<SimulatedBall>,
+    ground_to_world: Isometry2<Ground, World>,
+    global_field_side: GlobalFieldSide,
+    now: SystemTime,
+    head_yaw: Orientation2<Ground>,
+    config: &SimulationConfig,
+) -> Option<BallState> {
+    let ball = ball?;
+    let ball_in_ground = ground_to_world.inverse() * ball.position;
+    let distance = ball_in_ground.coords().norm();
+    if distance > config.ball_visibility_range {
+        return None;
+    }
+
+    struct Head;
+
+    let head_to_ground = head_yaw.as_transform::<Head>();
+    let ball_in_head = head_to_ground.inverse() * ball_in_ground;
+    let angle = ball_in_head.coords().angle(&Vector2::x_axis());
+    if angle.abs() > config.ball_visibility_angle / 2.0 {
+        return None;
+    }
+
+    Some(ball.to_ball_state(ground_to_world, global_field_side, now))
+}
+
 #[cfg(test)]
 mod tests {
-    use std::{collections::BTreeMap, f32::consts::PI, time::Duration, time::SystemTime};
+    use std::{
+        collections::BTreeMap,
+        f32::consts::{FRAC_PI_2, PI},
+        time::Duration,
+        time::SystemTime,
+    };
 
     use approx::assert_relative_eq;
     use hsl_network_messages::{HulkMessage, PlayerNumber};
-    use linear_algebra::{Isometry2, Pose2, point, vector};
+    use linear_algebra::{Isometry2, Orientation2, Pose2, point, vector};
     use types::{
         ball_position::BallPosition,
         field_dimensions::{FieldDimensions, GlobalFieldSide, Side},
@@ -105,7 +148,7 @@ mod tests {
     use crate::{
         behavior_tree_simulator::{
             DEFAULT_TICK_DURATION, SimulatedBall, SimulationConfig, SimulatorBall, SimulatorClock,
-            SimulatorFallDownState, SimulatorGameState, SimulatorGroundToWorld,
+            SimulatorFallDownState, SimulatorGameState, SimulatorGroundToWorld, SimulatorHeadYaw,
             SimulatorIncomingMessage, SimulatorIncomingMessages, SimulatorPrimaryState,
             SimulatorReceivedHslMessage, SimulatorReceivedHslMessages, SimulatorRobot,
             SimulatorRuleObstacles, SimulatorSuggestedSearchPosition,
@@ -122,6 +165,45 @@ mod tests {
                 position: point![x + 1.0, y],
             }),
         })
+    }
+
+    fn ball_at(x: f32, y: f32) -> Option<SimulatedBall> {
+        Some(SimulatedBall {
+            position: point![x, y],
+            velocity: vector![0.0, 0.0],
+            field_side: Side::Left,
+        })
+    }
+
+    #[test]
+    fn ball_visibility_uses_head_yaw() {
+        let config = SimulationConfig {
+            ball_visibility_angle: std::f32::consts::FRAC_PI_4,
+            ..Default::default()
+        };
+
+        assert!(
+            perceived_ball_from_pose(
+                ball_at(0.0, 1.0),
+                Isometry2::identity(),
+                GlobalFieldSide::Home,
+                SystemTime::UNIX_EPOCH,
+                Orientation2::new(FRAC_PI_2),
+                &config,
+            )
+            .is_some()
+        );
+        assert!(
+            perceived_ball_from_pose(
+                ball_at(1.0, 0.0),
+                Isometry2::identity(),
+                GlobalFieldSide::Home,
+                SystemTime::UNIX_EPOCH,
+                Orientation2::new(FRAC_PI_2),
+                &config,
+            )
+            .is_none()
+        );
     }
 
     #[test]
@@ -178,6 +260,7 @@ mod tests {
             SimulatorGroundToWorld {
                 ground_to_world: Isometry2::identity(),
             },
+            SimulatorHeadYaw::default(),
             SimulatorPrimaryState {
                 primary_state: PrimaryState::Playing,
             },
@@ -240,6 +323,7 @@ mod tests {
             SimulatorGroundToWorld {
                 ground_to_world: Isometry2::identity(),
             },
+            SimulatorHeadYaw::default(),
             SimulatorPrimaryState {
                 primary_state: PrimaryState::Playing,
             },
@@ -301,6 +385,7 @@ mod tests {
             SimulatorGroundToWorld {
                 ground_to_world: Isometry2::identity(),
             },
+            SimulatorHeadYaw::default(),
             SimulatorPrimaryState {
                 primary_state: PrimaryState::Playing,
             },

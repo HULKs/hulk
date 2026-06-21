@@ -5,7 +5,7 @@ use bevy::prelude::*;
 use booster::FallDownState;
 use coordinate_systems::{Field, Ground, World};
 use hsl_network_messages::PlayerNumber;
-use linear_algebra::{Isometry2, Point2};
+use linear_algebra::{Isometry2, Orientation2, Point2};
 use serde::Serialize;
 use types::{
     field_dimensions::FieldDimensions, motion_command::MotionCommand, players::Players,
@@ -33,6 +33,7 @@ pub(crate) const BEHAVIOR_TICK_ERROR_CHECK_NAME: &str = "behavior_tick_error";
 pub struct RobotSnapshot {
     pub player_number: PlayerNumber,
     pub ground_to_world: Isometry2<Ground, World>,
+    pub head_yaw: Orientation2<Ground>,
     pub primary_state: PrimaryState,
     pub fall_down_state: Option<FallDownState>,
 }
@@ -149,6 +150,7 @@ pub(crate) fn run_invariant_checks(
     robots: Query<(
         &SimulatorRobot,
         &SimulatorGroundToWorld,
+        &crate::behavior_tree_simulator::SimulatorHeadYaw,
         &SimulatorPrimaryState,
         &SimulatorFallDownState,
     )>,
