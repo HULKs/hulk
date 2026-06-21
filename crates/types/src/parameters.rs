@@ -54,6 +54,7 @@ pub struct WhistleDetectionParameters {
     Default,
     Deserialize,
     Serialize,
+    PartialEq,
     PathSerialize,
     PathDeserialize,
     PathIntrospect,
@@ -63,6 +64,12 @@ pub struct VoronoiParameters {
     pub orientation_bias: f32,
     pub grid_resolution: f32,
     pub padding: f32,
+    pub base_weight: f32,
+    pub forward_weight: f32,
+    pub ball_weight: f32,
+    pub ball_sigma_scale: f32,
+    pub centroid_weight: f32,
+    pub centroid_sigma_scale: f32,
 }
 
 #[derive(

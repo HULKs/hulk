@@ -18,7 +18,8 @@ use crate::{
         switch_motion_type::switch_motion_type,
         voronoi::calculate_voronoi_grid,
         walk::{
-            walk_alternatives_subtree, walk_to_ball_subtree, walk_to_centroid, walk_to_kickoff_pose,
+            walk_alternatives_subtree, walk_to_ball_subtree, walk_to_kickoff_pose,
+            walk_to_voronoi_position,
         },
     },
     condition, negation, selection, sequence, subtree,
@@ -127,7 +128,7 @@ fn striker_subtree() -> Node<Blackboard> {
 fn supporter_subtree() -> Node<Blackboard> {
     sequence!(
         subtree!(look_at_ball_subtree),
-        selection!(action!(walk_to_centroid), action!(stand))
+        selection!(action!(walk_to_voronoi_position), action!(stand))
     )
 }
 
