@@ -1,4 +1,4 @@
-use std::path::Path;
+use std::{collections::VecDeque, path::Path, time::Duration};
 
 use booster::{ImuState, MotorCommandParameters, MotorState};
 use color_eyre::Result;
@@ -14,7 +14,7 @@ use ort::{
     value::Tensor,
 };
 use serde::{Deserialize, Serialize};
-use types::{cycle_time::CycleTime, parameters::RLWalkingParameters};
+use types::parameters::RLWalkingParameters;
 
 use crate::inputs::{WalkCommand, WalkingInferenceInputs};
 
@@ -25,44 +25,56 @@ pub struct WalkingInference {
     last_linear_velocity_command: Vector2<Ground>,
     last_angular_velocity_command: f32,
     last_gait_progress: f32,
-    pub last_target_joint_positions: Joints,
+    last_target_joint_positions: Joints,
+    input_history: VecDeque<Option<WalkingInferenceInputs>>,
 }
 
 impl WalkingInference {
-    pub fn new(
-        neural_network_folder: impl AsRef<Path>,
-        prepare_motor_command_parameters: &MotorCommandParameters,
-    ) -> Result<Self> {
-        let neural_network_path = neural_network_folder.as_ref().join("T1.onnx");
+    pub fn new(neural_network_folder: impl AsRef<Path>, history_length: usize) -> Result<Self> {
+        let neural_network_path = neural_network_folder
+            .as_ref()
+            .join("2026-04-20_23-59-21-9999.onnx");
+
+        let tensor_rt = TensorRTExecutionProvider::default()
+            .with_device_id(0)
+            .with_fp16(true)
+            .with_engine_cache(true)
+            .with_engine_cache_path(neural_network_folder.as_ref().to_path_buf().display())
+            .build();
 
         let session = Session::builder()?
             .with_optimization_level(GraphOptimizationLevel::Level3)?
-            .with_execution_providers([
-                TensorRTExecutionProvider::default().build(),
-                CUDAExecutionProvider::default().build(),
-            ])?
+            .with_execution_providers([tensor_rt, CUDAExecutionProvider::default().build()])?
+            .with_intra_threads(1)?
             .commit_from_file(neural_network_path)?;
+
+        let mut input_history = VecDeque::with_capacity(history_length);
+        for _ in 0..history_length {
+            input_history.push_front(Default::default());
+        }
 
         Ok(Self {
             session,
             last_linear_velocity_command: vector![0.0, 0.0],
             last_angular_velocity_command: 0.0,
             last_gait_progress: 0.0,
-            last_target_joint_positions: prepare_motor_command_parameters.default_positions,
+            last_target_joint_positions: Default::default(),
+            input_history,
         })
     }
 
-    fn calculate_inputs(
+    #[allow(clippy::too_many_arguments)]
+    pub fn do_inference(
         &mut self,
-        cycle_time: CycleTime,
+        last_cycle_duration: Duration,
         walk_command: &WalkCommand,
         imu_state: &ImuState,
         current_serial_joints: Joints<MotorState>,
         walking_parameters: &RLWalkingParameters,
         motor_command_parameters: &MotorCommandParameters,
-    ) -> Result<WalkingInferenceInputs> {
+    ) -> Result<Joints> {
         let walking_inference_inputs = WalkingInferenceInputs::try_new(
-            cycle_time,
+            last_cycle_duration,
             walk_command,
             imu_state.roll_pitch_yaw,
             imu_state.angular_velocity,
@@ -79,48 +91,99 @@ impl WalkingInference {
         self.last_angular_velocity_command = walking_inference_inputs.angular_velocity_command;
         self.last_gait_progress = walking_inference_inputs.gait_progress;
 
-        Ok(walking_inference_inputs)
-    }
+        if self.input_history.iter().any(|elem| elem.is_none()) {
+            for _ in 0..self.input_history.len() {
+                self.input_history
+                    .push_front(Some(walking_inference_inputs.clone()));
+            }
+        } else {
+            self.input_history
+                .push_front(Some(walking_inference_inputs));
+        }
+        self.input_history
+            .truncate(walking_parameters.observation_history_length);
 
-    pub fn do_inference(
-        &mut self,
-        cycle_time: CycleTime,
-        walk_command: &WalkCommand,
-        imu_state: &ImuState,
-        current_serial_joints: Joints<MotorState>,
-        walking_parameters: &RLWalkingParameters,
-        motor_command_parameters: &MotorCommandParameters,
-    ) -> Result<(WalkingInferenceInputs, Joints)> {
-        let Ok(walking_inference_inputs) = self.calculate_inputs(
-            cycle_time,
-            walk_command,
-            imu_state,
-            current_serial_joints,
-            walking_parameters,
-            motor_command_parameters,
-        ) else {
-            return Ok((
-                WalkingInferenceInputs::default(),
-                motor_command_parameters.default_positions,
-            ));
-        };
+        let inputs: Array1<f32> = Vec::from_iter(
+            history(
+                &self.input_history,
+                walking_parameters.observation_history_length,
+                |i: &WalkingInferenceInputs| {
+                    [
+                        i.angular_velocity.x(),
+                        i.angular_velocity.y(),
+                        i.angular_velocity.z(),
+                    ]
+                },
+            )
+            .chain(history(
+                &self.input_history,
+                walking_parameters.observation_history_length,
+                |i: &WalkingInferenceInputs| {
+                    [i.gravity.x(), i.gravity.y(), i.gravity.z()].into_iter()
+                },
+            ))
+            .chain(history(
+                &self.input_history,
+                walking_parameters.observation_history_length,
+                |i: &WalkingInferenceInputs| joints_as_array(i.joint_position_differences),
+            ))
+            .chain(history(
+                &self.input_history,
+                walking_parameters.observation_history_length,
+                |i: &WalkingInferenceInputs| joints_as_array(i.joint_velocities),
+            ))
+            .chain(history(
+                &self.input_history,
+                walking_parameters.observation_history_length,
+                |i: &WalkingInferenceInputs| joints_as_array(i.last_target_joint_positions),
+            ))
+            .chain(history(
+                &self.input_history,
+                walking_parameters.observation_history_length,
+                |i: &WalkingInferenceInputs| {
+                    [
+                        i.linear_velocity_command.x(),
+                        i.linear_velocity_command.y(),
+                        i.angular_velocity_command,
+                    ]
+                    .into_iter()
+                },
+            )),
+        )
+        .into();
 
-        let inputs: Array1<f32> = walking_inference_inputs.as_vec().into();
-
-        assert!(inputs.len() == walking_parameters.number_of_observations);
+        assert!(
+            inputs.len()
+                == walking_parameters.number_of_observations
+                    * walking_parameters.observation_history_length
+        );
         let inputs_tensor = Tensor::from_array(inputs.insert_axis(Axis(0)))?;
 
-        let outputs = self.session.run(inputs![inputs_tensor])?;
-        let predictions = outputs["15"].try_extract_array::<f32>()?.squeeze();
+        let inference_input = inputs![inputs_tensor];
 
-        predictions.clamp(
-            -walking_parameters.normalization.clip_actions,
-            walking_parameters.normalization.clip_actions,
-        );
+        let outputs = self.session.run(inference_input)?;
+
+        let predictions = outputs["actions"].try_extract_array::<f32>()?.squeeze();
 
         assert!(predictions.len() == walking_parameters.number_of_actions);
 
+        // ALeft_Shoulder_Pitch,Left_Shoulder_Roll,Left_Elbow_Pitch,Left_Elbow_Yaw,
+        // ARight_Shoulder_Pitch,Right_Shoulder_Roll,Right_Elbow_Pitch,Right_Elbow_Yaw,
+        // Left_Hip_Pitch,Left_Hip_Roll,Left_Hip_Yaw,Left_Knee_Pitch,Left_Ankle_Pitch,Left_Ankle_Roll,
+        // Right_Hip_Pitch,Right_Hip_Roll,Right_Hip_Yaw,Right_Knee_Pitch,Right_Ankle_Pitch,Right_Ankle_Roll
         self.last_target_joint_positions = Joints {
+            // left_arm: ArmJoints {
+            //     shoulder_pitch: predictions[0],
+            //     shoulder_roll: predictions[1],
+            //     elbow: predictions[2],
+            //     shoulder_yaw: predictions[3],
+            // },
+            // right_arm: ArmJoints {
+            //     shoulder_pitch: predictions[4],
+            //     shoulder_roll: predictions[5],
+            //     elbow: predictions[6],
+            //     shoulder_yaw: predictions[7],
+            // },
             left_leg: LegJoints {
                 hip_pitch: predictions[0],
                 hip_roll: predictions[1],
@@ -140,6 +203,47 @@ impl WalkingInference {
             ..Default::default()
         };
 
-        Ok((walking_inference_inputs, self.last_target_joint_positions))
+        Ok(self.last_target_joint_positions)
     }
+}
+
+fn history<'a, T, F>(
+    input_history: &'a VecDeque<Option<WalkingInferenceInputs>>,
+    n: usize,
+    f: F,
+) -> impl Iterator<Item = f32> + use<'a, T, F>
+where
+    T: IntoIterator<Item = f32>,
+    F: FnMut(&'a WalkingInferenceInputs) -> T,
+{
+    input_history.iter().flatten().take(n).flat_map(f)
+}
+
+fn joints_as_array(joints: Joints) -> [f32; 12] {
+    // ALeft_Shoulder_Pitch,Left_Shoulder_Roll,Left_Elbow_Pitch,Left_Elbow_Yaw,
+    // ARight_Shoulder_Pitch,Right_Shoulder_Roll,Right_Elbow_Pitch,Right_Elbow_Yaw,
+    // Left_Hip_Pitch,Left_Hip_Roll,Left_Hip_Yaw,Left_Knee_Pitch,Left_Ankle_Pitch,Left_Ankle_Roll,
+    // Right_Hip_Pitch,Right_Hip_Roll,Right_Hip_Yaw,Right_Knee_Pitch,Right_Ankle_Pitch,Right_Ankle_Roll
+    [
+        // joints.left_arm.shoulder_pitch,
+        // joints.left_arm.shoulder_roll,
+        // joints.left_arm.elbow,
+        // joints.left_arm.shoulder_yaw,
+        // joints.right_arm.shoulder_pitch,
+        // joints.right_arm.shoulder_roll,
+        // joints.right_arm.elbow,
+        // joints.right_arm.shoulder_yaw,
+        joints.left_leg.hip_pitch,
+        joints.left_leg.hip_roll,
+        joints.left_leg.hip_yaw,
+        joints.left_leg.knee,
+        joints.left_leg.ankle_up,
+        joints.left_leg.ankle_down,
+        joints.right_leg.hip_pitch,
+        joints.right_leg.hip_roll,
+        joints.right_leg.hip_yaw,
+        joints.right_leg.knee,
+        joints.right_leg.ankle_up,
+        joints.right_leg.ankle_down,
+    ]
 }

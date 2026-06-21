@@ -53,7 +53,8 @@
         "odometer_state",
         "fall_down",
         "button_event",
-        "remote_controller_state"
+        "remote_controller_state",
+        "joint_ctrl"
       ],
 
       ////
