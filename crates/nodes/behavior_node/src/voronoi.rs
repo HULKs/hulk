@@ -35,7 +35,7 @@ pub fn calculate_voronoi_grid(blackboard: &mut Blackboard) -> Status {
             centroid_max: point!(length_half, width_half),
         };
 
-        let mut map = VoronoiGrid::new(bounds, voronoi_parameters.grid_resolution);
+        let mut map = VoronoiGrid::new(bounds, voronoi_parameters.clone());
         map.initialize_obstacles(obstacles, rule_obstacles, ground_to_field);
         map.multi_source_dijkstra(&sites, voronoi_parameters.orientation_bias);
         blackboard.voronoi_map = Some(map);

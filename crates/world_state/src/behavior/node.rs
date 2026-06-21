@@ -84,6 +84,7 @@ pub struct Blackboard {
     pub time_since_last_switch: Duration,
     pub direction_difference: f32,
     pub voronoi_inputs: Vec<Pose2<Field>>,
+    pub target_voronoi_position: Option<Point2<Field>>,
 
     pub ball: Option<LastBall>,
     pub last_ball: Option<LastBall>,
@@ -126,6 +127,8 @@ pub struct CycleContext {
     walk_position: AdditionalOutput<Option<Point2<Ground>>, "behavior.walk_position">,
     voronoi_map: AdditionalOutput<Option<VoronoiGrid>, "behavior.voronoi_map">,
     voronoi_inputs: AdditionalOutput<Vec<Pose2<Field>>, "behavior.voronoi_inputs">,
+    target_voronoi_position:
+        AdditionalOutput<Option<Point2<Field>>, "behavior.target_voronoi_position">,
 
     last_motion_command: CyclerState<MotionCommand, "last_motion_command">,
 
@@ -215,6 +218,7 @@ impl Behavior {
             body_motion: None,
             head_motion: None,
             voronoi_map: None,
+            target_voronoi_position: None,
         };
         let (status, trace) = self.tree.tick_with_trace(&mut blackboard);
 
@@ -269,6 +273,9 @@ impl Behavior {
         context
             .voronoi_inputs
             .fill_if_subscribed(|| blackboard.voronoi_inputs);
+        context
+            .target_voronoi_position
+            .fill_if_subscribed(|| blackboard.target_voronoi_position);
 
         Ok(MainOutputs {
             motion_command: motion_command.into(),
