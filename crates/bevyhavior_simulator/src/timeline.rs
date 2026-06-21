@@ -21,7 +21,8 @@ use voronoi::VoronoiGrid;
 use crate::behavior_tree_simulator::{
     InvariantViolation, RobotSnapshot, SimulatedBall, SimulatorBall, SimulatorBehaviorTickOutput,
     SimulatorClock, SimulatorCurrentInvariantViolations, SimulatorFallDownState,
-    SimulatorGameState, SimulatorGroundToWorld, SimulatorPrimaryState, SimulatorRobot,
+    SimulatorGameState, SimulatorGroundToWorld, SimulatorHeadYaw, SimulatorPrimaryState,
+    SimulatorRobot,
 };
 use crate::game_controller::filtered_game_state_from;
 
@@ -131,6 +132,7 @@ pub(crate) fn record_timeline_frame(
     robots: Query<(
         &SimulatorRobot,
         &SimulatorGroundToWorld,
+        &SimulatorHeadYaw,
         &SimulatorPrimaryState,
         &SimulatorFallDownState,
     )>,
@@ -153,15 +155,17 @@ pub(crate) fn robot_snapshots_from_query(
     robots: &Query<(
         &SimulatorRobot,
         &SimulatorGroundToWorld,
+        &SimulatorHeadYaw,
         &SimulatorPrimaryState,
         &SimulatorFallDownState,
     )>,
 ) -> Players<Option<RobotSnapshot>> {
     let mut snapshots = Players::default();
-    for (robot, ground_to_world, primary_state, fall_down_state) in robots.iter() {
+    for (robot, ground_to_world, head_yaw, primary_state, fall_down_state) in robots.iter() {
         snapshots[robot.player_number] = Some(RobotSnapshot {
             player_number: robot.player_number,
             ground_to_world: ground_to_world.ground_to_world,
+            head_yaw: head_yaw.yaw,
             primary_state: primary_state.primary_state,
             fall_down_state: fall_down_state.fall_down_state,
         });

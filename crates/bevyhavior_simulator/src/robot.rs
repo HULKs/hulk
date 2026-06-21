@@ -5,7 +5,7 @@ use booster::FallDownState;
 use color_eyre::Result;
 use coordinate_systems::{Field, Ground, World};
 use hsl_network_messages::PlayerNumber;
-use linear_algebra::{Isometry2, Point2};
+use linear_algebra::{Isometry2, Orientation2, Point2};
 use types::{parameters::BehaviorParameters, primary_state::PrimaryState};
 
 use crate::behavior_tree_simulator::SimulatorRobotBehavior;
@@ -18,6 +18,11 @@ pub struct SimulatorRobot {
 #[derive(Component, Clone, Copy, Debug)]
 pub struct SimulatorGroundToWorld {
     pub ground_to_world: Isometry2<Ground, World>,
+}
+
+#[derive(Component, Clone, Copy, Debug, Default)]
+pub struct SimulatorHeadYaw {
+    pub yaw: Orientation2<Ground>,
 }
 
 #[derive(Component, Clone, Copy, Debug)]
@@ -49,6 +54,7 @@ pub struct SimulatorLastKickTime {
 pub struct SimulatorRobotBundle {
     pub robot: SimulatorRobot,
     pub ground_to_world: SimulatorGroundToWorld,
+    pub head_yaw: SimulatorHeadYaw,
     pub primary_state: SimulatorPrimaryState,
     pub behavior: SimulatorRobotBehavior,
     pub parameters: SimulatorRobotParameters,
@@ -66,6 +72,7 @@ impl SimulatorRobotBundle {
         Ok(Self {
             robot: SimulatorRobot { player_number },
             ground_to_world: SimulatorGroundToWorld { ground_to_world },
+            head_yaw: SimulatorHeadYaw::default(),
             primary_state: SimulatorPrimaryState {
                 primary_state: PrimaryState::Damping,
             },

@@ -4,7 +4,7 @@ use color_eyre::{
     Result,
     eyre::{Report, WrapErr},
 };
-use coordinate_systems::{Field, World};
+use coordinate_systems::{Field, Ground, World};
 use eframe::{
     App, Frame, NativeOptions,
     egui::{
@@ -29,7 +29,9 @@ use types::{
     motion_command::MotionCommand,
 };
 
-use crate::behavior_tree_simulator::{SimulatorFailure, SimulatorTimelineMarker, TimelineFrame};
+use crate::behavior_tree_simulator::{
+    SimulationConfig, SimulatorFailure, SimulatorTimelineMarker, TimelineFrame,
+};
 
 const SCRUBBER_MARGIN: f32 = 8.0;
 const SCRUBBER_HEIGHT_FACTOR: f32 = 2.0;
@@ -38,6 +40,7 @@ const MARKER_OVERHANG: f32 = 5.0;
 #[derive(Debug)]
 pub struct TimelineViewerData {
     pub field_dimensions: FieldDimensions,
+    pub config: SimulationConfig,
     pub frames: Vec<TimelineFrame>,
     pub markers: Vec<SimulatorTimelineMarker>,
     pub failures: Vec<SimulatorFailure>,
@@ -679,6 +682,7 @@ fn show_map(
             };
             let pose = pose_world_to_field(robot.ground_to_world.as_pose());
             let color = robot_color(robot.player_number);
+            paint_view_cone(&painter, pose, robot.head_yaw, &data.config, color);
             painter.pose(
                 pose,
                 0.16,
@@ -692,6 +696,36 @@ fn show_map(
             paint_robot_label(ui, &painter, pose, robot.player_number);
         }
     }
+}
+
+fn paint_view_cone(
+    painter: &TwixPainter<Field>,
+    pose: Pose2<Field>,
+    head_yaw: Orientation2<Ground>,
+    config: &SimulationConfig,
+    color: Color32,
+) {
+    let center = pose.position();
+    let direction = pose.orientation().angle() + head_yaw.angle();
+    let half_angle = config.ball_visibility_angle / 2.0;
+    let range = config.ball_visibility_range;
+    let stroke = Stroke {
+        width: 0.015,
+        color: Color32::from_rgba_unmultiplied(color.r(), color.g(), color.b(), 160),
+    };
+    let left = center + Orientation2::new(direction + half_angle).as_unit_vector() * range;
+    let right = center + Orientation2::new(direction - half_angle).as_unit_vector() * range;
+
+    painter.line_segment(center, left, stroke);
+    painter.line_segment(center, right, stroke);
+
+    let segments = 24;
+    let arc_points = (0..=segments).map(|index| {
+        let factor = index as f32 / segments as f32;
+        let angle = direction - half_angle + factor * config.ball_visibility_angle;
+        center + Orientation2::new(angle).as_unit_vector() * range
+    });
+    painter.polyline(arc_points, stroke);
 }
 
 fn frame_inspection_value(frame: &TimelineFrame) -> Value {

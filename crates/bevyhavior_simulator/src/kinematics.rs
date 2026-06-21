@@ -1,16 +1,17 @@
-use std::time::{Duration, SystemTime};
+use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use bevy::prelude::*;
 use coordinate_systems::{Ground, World};
 use linear_algebra::{Isometry2, Orientation2, Point2, Vector2};
 use types::{
-    motion_command::{KickPower, MotionCommand, OrientationMode},
+    motion_command::{HeadMotion, KickPower, MotionCommand, OrientationMode},
     path::PathSegment,
 };
 
 use crate::behavior_tree_simulator::{
     SimulatedBall, SimulationConfig, SimulatorBall, SimulatorClock, SimulatorFallDownState,
-    SimulatorGroundToWorld, SimulatorLastKickTime, SimulatorRobot, SimulatorRobotFrames,
+    SimulatorGroundToWorld, SimulatorHeadYaw, SimulatorLastKickTime, SimulatorRobot,
+    SimulatorRobotFrames,
 };
 
 pub(crate) fn apply_motion_kinematics(
@@ -21,11 +22,14 @@ pub(crate) fn apply_motion_kinematics(
     mut robots: Query<(
         &SimulatorRobot,
         &mut SimulatorGroundToWorld,
+        &mut SimulatorHeadYaw,
         &mut SimulatorFallDownState,
         &mut SimulatorLastKickTime,
     )>,
 ) {
-    for (robot, mut ground_to_world, mut fall_down_state, mut last_kick_time) in &mut robots {
+    for (robot, mut ground_to_world, mut head_yaw, mut fall_down_state, mut last_kick_time) in
+        &mut robots
+    {
         let Some(frame) = robot_frames.0.get(&robot.player_number) else {
             continue;
         };
@@ -81,7 +85,77 @@ pub(crate) fn apply_motion_kinematics(
             MotionCommand::StandUp => fall_down_state.fall_down_state = None,
             MotionCommand::Damping | MotionCommand::Prepare | MotionCommand::Stand { .. } => {}
         }
+
+        head_yaw.yaw = apply_head_motion(
+            head_yaw.yaw,
+            frame.motion_command.head_motion(),
+            clock.now,
+            clock.tick_duration,
+            &config,
+        );
     }
+}
+
+fn apply_head_motion(
+    current_yaw: Orientation2<Ground>,
+    head_motion: Option<HeadMotion>,
+    now: SystemTime,
+    tick_duration: Duration,
+    config: &SimulationConfig,
+) -> Orientation2<Ground> {
+    let desired_yaw = desired_head_yaw(head_motion, now, config)
+        .clamp(config.head_yaw_minimum, config.head_yaw_maximum);
+    let maximum_movement = config.head_yaw_velocity * tick_duration.as_secs_f32();
+    let movement =
+        wrap_angle(desired_yaw - current_yaw.angle()).clamp(-maximum_movement, maximum_movement);
+    Orientation2::new(
+        (current_yaw.angle() + movement).clamp(config.head_yaw_minimum, config.head_yaw_maximum),
+    )
+}
+
+fn desired_head_yaw(
+    head_motion: Option<HeadMotion>,
+    now: SystemTime,
+    config: &SimulationConfig,
+) -> f32 {
+    match head_motion {
+        Some(HeadMotion::LookAt { target, .. }) => {
+            Orientation2::from_vector(target.coords()).angle()
+        }
+        Some(HeadMotion::LookLeftAndRightOf { target }) => {
+            let elapsed = now
+                .duration_since(UNIX_EPOCH)
+                .unwrap_or_default()
+                .as_secs_f32();
+            Orientation2::from_vector(target.coords()).angle()
+                + elapsed.sin() * config.head_glance_angle
+        }
+        Some(HeadMotion::LookAround) | Some(HeadMotion::SearchForLostBall) => {
+            let period = config.head_scan_period.as_secs_f32();
+            if period <= f32::EPSILON {
+                0.0
+            } else {
+                let elapsed = now
+                    .duration_since(UNIX_EPOCH)
+                    .unwrap_or_default()
+                    .as_secs_f32();
+                let amplitude = config
+                    .head_yaw_minimum
+                    .abs()
+                    .max(config.head_yaw_maximum.abs());
+                (elapsed * std::f32::consts::TAU / period).sin() * amplitude
+            }
+        }
+        Some(HeadMotion::ZeroAngles)
+        | Some(HeadMotion::Center { .. })
+        | Some(HeadMotion::LookAtReferee { .. })
+        | Some(HeadMotion::Unstiff)
+        | None => 0.0,
+    }
+}
+
+fn wrap_angle(angle: f32) -> f32 {
+    Orientation2::<Ground>::new(angle).angle()
 }
 
 pub(crate) fn first_path_target(path: &types::path::Path) -> Option<Point2<Ground>> {
@@ -300,5 +374,27 @@ mod tests {
             ball.expect("ball should still exist").velocity,
             vector![0.0, 0.0]
         );
+    }
+
+    #[test]
+    fn head_motion_is_rate_limited() {
+        let config = SimulationConfig {
+            head_yaw_velocity: 0.5,
+            head_yaw_maximum: 1.0,
+            ..Default::default()
+        };
+
+        let yaw = apply_head_motion(
+            Orientation2::identity(),
+            Some(HeadMotion::LookAt {
+                target: point![0.0, 1.0],
+                image_region_target: Default::default(),
+            }),
+            SystemTime::UNIX_EPOCH,
+            Duration::from_secs(1),
+            &config,
+        );
+
+        assert_eq!(yaw.angle(), 0.5);
     }
 }
