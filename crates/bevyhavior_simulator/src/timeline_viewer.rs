@@ -8,8 +8,8 @@ use coordinate_systems::{Field, Ground, World};
 use eframe::{
     App, Frame, NativeOptions,
     egui::{
-        Align2, CentralPanel, CollapsingHeader, ComboBox, Context, FontId, Label, Pos2, Rect,
-        RichText, ScrollArea, Sense, SidePanel, Slider, StrokeKind, TextEdit, Tooltip,
+        Align2, CentralPanel, CollapsingHeader, ComboBox, Context, Event, FontId, Key, Label, Pos2,
+        Rect, RichText, ScrollArea, Sense, SidePanel, Slider, StrokeKind, TextEdit, Tooltip,
         TopBottomPanel, Ui, Vec2, WidgetText, pos2,
     },
     epaint::{Color32, Stroke},
@@ -36,6 +36,8 @@ use crate::behavior_tree_simulator::{
 const SCRUBBER_MARGIN: f32 = 8.0;
 const SCRUBBER_HEIGHT_FACTOR: f32 = 2.0;
 const MARKER_OVERHANG: f32 = 5.0;
+const MIN_PLAYBACK_SPEED: f32 = 1.0 / 8.0;
+const MAX_PLAYBACK_SPEED: f32 = 256.0;
 
 #[derive(Debug)]
 pub struct TimelineViewerData {
@@ -155,6 +157,126 @@ impl TimelineViewerApp {
         }
     }
 
+    fn handle_hotkeys(&mut self, context: &Context) {
+        if context.wants_keyboard_input() {
+            return;
+        }
+
+        let (
+            toggle_playback,
+            faster,
+            slower,
+            previous_frame,
+            next_frame,
+            previous_second,
+            next_second,
+        ) = context.input(|input| {
+            let text_input = |text: &str| {
+                input
+                    .events
+                    .iter()
+                    .any(|event| matches!(event, Event::Text(input_text) if input_text == text))
+            };
+            (
+                input.key_pressed(Key::Space),
+                text_input(">"),
+                text_input("<"),
+                text_input(","),
+                text_input("."),
+                input.key_pressed(Key::ArrowLeft),
+                input.key_pressed(Key::ArrowRight),
+            )
+        });
+
+        if toggle_playback {
+            self.toggle_playback();
+        }
+        if faster {
+            self.set_playback_speed(self.playback_speed * 2.0);
+        }
+        if slower {
+            self.set_playback_speed(self.playback_speed / 2.0);
+        }
+        if previous_frame {
+            self.select_previous_frame();
+        }
+        if next_frame {
+            self.select_next_frame();
+        }
+        if previous_second {
+            self.select_previous_second();
+        }
+        if next_second {
+            self.select_next_second();
+        }
+    }
+
+    fn toggle_playback(&mut self) {
+        self.is_playing = !self.is_playing;
+        self.reset_playback_time();
+    }
+
+    fn set_playback_speed(&mut self, playback_speed: f32) {
+        self.playback_speed = playback_speed.clamp(MIN_PLAYBACK_SPEED, MAX_PLAYBACK_SPEED);
+    }
+
+    fn select_previous_frame(&mut self) {
+        self.set_selected_frame(self.selected_frame.saturating_sub(1));
+    }
+
+    fn select_next_frame(&mut self) {
+        self.set_selected_frame(self.selected_frame.saturating_add(1));
+    }
+
+    fn select_previous_second(&mut self) {
+        let Some(current_frame) = self.data.frames.get(self.selected_frame) else {
+            return;
+        };
+        let target_time = current_frame
+            .now
+            .checked_sub(Duration::from_secs(1))
+            .unwrap_or_else(|| self.data.frames.first().expect("frames is not empty").now);
+        let frame_index = self
+            .data
+            .frames
+            .iter()
+            .rposition(|frame| frame.now <= target_time)
+            .unwrap_or(0);
+        self.set_selected_frame(frame_index);
+    }
+
+    fn select_next_second(&mut self) {
+        let Some(current_frame) = self.data.frames.get(self.selected_frame) else {
+            return;
+        };
+        let target_time = current_frame
+            .now
+            .checked_add(Duration::from_secs(1))
+            .unwrap_or_else(|| self.data.frames.last().expect("frames is not empty").now);
+        let frame_index = self
+            .data
+            .frames
+            .iter()
+            .position(|frame| frame.now >= target_time)
+            .unwrap_or_else(|| self.data.frames.len().saturating_sub(1));
+        self.set_selected_frame(frame_index);
+    }
+
+    fn set_selected_frame(&mut self, selected_frame: usize) {
+        let Some(last_frame_index) = self.data.frames.len().checked_sub(1) else {
+            self.selected_frame = 0;
+            self.reset_playback_time();
+            return;
+        };
+        self.selected_frame = selected_frame.min(last_frame_index);
+        self.reset_playback_time();
+    }
+
+    fn reset_playback_time(&mut self) {
+        self.last_playback_update = Instant::now();
+        self.playback_time_accumulator = 0.0;
+    }
+
     fn show_top_panel(&self, context: &Context) {
         TopBottomPanel::top("timeline_viewer_top_panel").show(context, |ui| {
             ui.horizontal(|ui| {
@@ -269,26 +391,25 @@ impl TimelineViewerApp {
                     .button(if self.is_playing { "pause" } else { "play" })
                     .clicked()
                 {
-                    self.is_playing = !self.is_playing;
-                    self.last_playback_update = Instant::now();
-                    self.playback_time_accumulator = 0.0;
+                    self.toggle_playback();
                 }
 
                 ui.add(
-                    Slider::new(&mut self.playback_speed, 0.1..=10.0)
-                        .logarithmic(true)
-                        .text("speed")
-                        .suffix("x"),
+                    Slider::new(
+                        &mut self.playback_speed,
+                        MIN_PLAYBACK_SPEED..=MAX_PLAYBACK_SPEED,
+                    )
+                    .logarithmic(true)
+                    .text("speed")
+                    .suffix("x"),
                 );
 
                 if ui.button("previous").clicked() {
-                    self.selected_frame = self.selected_frame.saturating_sub(1);
-                    self.playback_time_accumulator = 0.0;
+                    self.select_previous_frame();
                 }
 
-                if ui.button("next").clicked() && self.selected_frame + 1 < self.data.frames.len() {
-                    self.selected_frame += 1;
-                    self.playback_time_accumulator = 0.0;
+                if ui.button("next").clicked() {
+                    self.select_next_frame();
                 }
 
                 if self.data.frames.is_empty() {
@@ -530,6 +651,7 @@ fn game_state_name(game_state: FilteredGameState) -> &'static str {
 impl App for TimelineViewerApp {
     fn update(&mut self, context: &Context, _frame: &mut Frame) {
         self.clamp_selected_frame();
+        self.handle_hotkeys(context);
         self.advance_playback(context);
         self.show_top_panel(context);
         self.show_side_panel(context);
