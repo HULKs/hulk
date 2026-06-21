@@ -13,6 +13,7 @@ use crate::{
     kick::kick_subtree,
     negation,
     node::Blackboard,
+    penalty_shootout::penalty_kick_striker_subtree,
     selection, sequence, subtree,
     walk::{walk_to_ball_subtree, walk_to_block_position},
 };
@@ -22,6 +23,10 @@ pub fn sub_state_subtree() -> Node<Blackboard> {
         sequence!(
             condition!(hulks_is_kicking_team),
             selection!(
+                sequence!(
+                    condition!(is_sub_state, SubState::PenaltyKick),
+                    subtree!(penalty_kick_striker_subtree),
+                ),
                 sequence!(
                     negation!(condition!(is_close_to_ball_aligned)),
                     subtree!(walk_to_ball_subtree)
