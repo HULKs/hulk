@@ -155,6 +155,51 @@ async fn raw_subscriber_receives_sample_payload() -> zenoh::Result<()> {
     Ok(())
 }
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn raw_recv_warning_timeout_still_waits_for_eventual_sample() -> ros_z::Result<()> {
+    let context = ContextBuilder::default()
+        .disable_multicast_scouting()
+        .with_json("connect/endpoints", json!([]))
+        .build()
+        .await?;
+    let node = context
+        .create_node("recv_warning_timeout_raw")
+        .build()
+        .await?;
+    let topic = "/recv_warning_timeout_raw";
+    let mut subscriber = node
+        .subscriber::<TestMessage>(topic)?
+        .raw()
+        .publisher_warning_timeout(Duration::from_millis(25))
+        .build()
+        .await?;
+
+    let receive_task = tokio::spawn(async move { subscriber.recv().await });
+    tokio::time::sleep(Duration::from_millis(75)).await;
+
+    let publisher = node.publisher::<TestMessage>(topic)?.build().await?;
+    assert!(
+        publisher
+            .wait_for_subscribers(1, Duration::from_secs(1))
+            .await
+    );
+
+    publisher
+        .publish(&TestMessage {
+            data: vec![2, 1],
+            counter: 21,
+        })
+        .await?;
+
+    let sample = tokio::time::timeout(Duration::from_secs(1), receive_task)
+        .await
+        .expect("raw receive task should complete")
+        .expect("raw receive task should not panic")?;
+    assert!(!sample.payload().to_bytes().is_empty());
+
+    Ok(())
+}
+
 #[tokio::test(flavor = "multi_thread", worker_threads = 1)]
 async fn dynamic_publisher_factory_rejects_schema_root_that_differs_from_type_info() {
     let context = ContextBuilder::default()
@@ -238,6 +283,49 @@ async fn test_basic_pubsub() {
         .expect("receive should not time out")
         .expect("receive should succeed");
     assert_eq!(received_msg, message);
+}
+
+#[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+async fn recv_warning_timeout_still_waits_for_eventual_typed_message() -> ros_z::Result<()> {
+    let context = ContextBuilder::default()
+        .disable_multicast_scouting()
+        .with_json("connect/endpoints", json!([]))
+        .build()
+        .await?;
+    let node = context
+        .create_node("recv_warning_timeout_typed")
+        .build()
+        .await?;
+    let topic = "/recv_warning_timeout_typed";
+    let subscriber = node
+        .subscriber::<TestMessage>(topic)?
+        .publisher_warning_timeout(Duration::from_millis(25))
+        .build()
+        .await?;
+
+    let receive_task = tokio::spawn(async move { subscriber.recv().await });
+    tokio::time::sleep(Duration::from_millis(75)).await;
+
+    let publisher = node.publisher::<TestMessage>(topic)?.build().await?;
+    assert!(
+        publisher
+            .wait_for_subscribers(1, Duration::from_secs(1))
+            .await
+    );
+
+    let message = TestMessage {
+        data: vec![8, 5, 3],
+        counter: 853,
+    };
+    publisher.publish(&message).await?;
+
+    let received = tokio::time::timeout(Duration::from_secs(1), receive_task)
+        .await
+        .expect("receive task should complete")
+        .expect("receive task should not panic")?;
+    assert_eq!(received, message);
+
+    Ok(())
 }
 
 #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
