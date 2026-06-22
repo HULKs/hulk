@@ -3,9 +3,9 @@
 //! [`Cache`](crate::cache::Cache) retains a sliding window of received messages
 //! and lets callers query them by time.
 //!
-//! # Stamp strategies
+//! # Cache population strategies
 //!
-//! Two indexing strategies are available, selected at build time:
+//! Three cache population strategies are available, selected at build time:
 //!
 //! - **[`ZenohStamp`](crate::cache::ZenohStamp)** (default) — indexes by the
 //!   Zenoh transport timestamp (`uhlc::Timestamp` → [`crate::time::Time`]). Zero-config;
@@ -14,6 +14,10 @@
 //! - **[`ExtractorStamp`](crate::cache::ExtractorStamp)** — indexes by a
 //!   user-supplied closure that extracts a [`crate::time::Time`] from each deserialized
 //!   message. Required for `header.stamp` / sensor capture time alignment.
+//! - **[`ExtractorEntry`](crate::cache::ExtractorEntry)** — consumes each source
+//!   message and expands it into zero or more `(timestamp, value)` entries. The
+//!   resulting cache stores the extracted value type, and capacity counts expanded
+//!   entries.
 //!
 //! # Example
 //!
@@ -48,7 +52,7 @@ use crate::qos::QosProfile;
 use crate::time::Time;
 
 // ---------------------------------------------------------------------------
-// Stamp strategy markers
+// Cache population strategy markers
 // ---------------------------------------------------------------------------
 
 /// Index by the Zenoh transport timestamp (`uhlc::Timestamp` → [`crate::time::Time`]).
@@ -66,6 +70,16 @@ pub struct ZenohStamp;
 pub struct ExtractorStamp<T, F, O>(pub(crate) F, pub(crate) PhantomData<(T, O)>)
 where
     F: Fn(&T) -> O,
+    O: Into<Time>;
+
+/// Extract zero or more independently timestamped cache entries from one source message.
+///
+/// The resulting builder creates a [`Cache`] of `U` values, and capacity
+/// applies to the extracted entries rather than the source messages.
+pub struct ExtractorEntry<T, F, I, O, U>(pub(crate) F, pub(crate) PhantomData<(T, I, O, U)>)
+where
+    F: Fn(T) -> I,
+    I: IntoIterator<Item = (O, U)>,
     O: Into<Time>;
 
 // ---------------------------------------------------------------------------
@@ -357,11 +371,13 @@ impl<T> Cache<T> {
 ///
 /// Created by [`Node::create_cache`](crate::node::Node::create_cache).
 /// Use [`with_stamp`](CacheBuilder::with_stamp) to switch from the default
-/// Zenoh transport timestamp to an application-level extractor.
-pub struct CacheBuilder<T, S = SerdeCdrCodec<T>, Stamp = ZenohStamp> {
+/// Zenoh transport timestamp to an application-level extractor. Use
+/// [`with_entry_extractor`](CacheBuilder::with_entry_extractor) to expand one
+/// source message into zero or more timestamped cache values.
+pub struct CacheBuilder<T, S = SerdeCdrCodec<T>, Strategy = ZenohStamp> {
     pub(crate) sub_builder: SubscriberBuilder<T, S>,
     capacity: usize,
-    stamp: Stamp,
+    strategy: Strategy,
 }
 
 impl<T, S> CacheBuilder<T, S, ZenohStamp> {
@@ -369,7 +385,7 @@ impl<T, S> CacheBuilder<T, S, ZenohStamp> {
         Self {
             sub_builder,
             capacity,
-            stamp: ZenohStamp,
+            strategy: ZenohStamp,
         }
     }
 
@@ -386,7 +402,30 @@ impl<T, S> CacheBuilder<T, S, ZenohStamp> {
         CacheBuilder {
             sub_builder: self.sub_builder,
             capacity: self.capacity,
-            stamp: ExtractorStamp(extractor, PhantomData),
+            strategy: ExtractorStamp(extractor, PhantomData),
+        }
+    }
+
+    /// Switch to entry-extractor population.
+    ///
+    /// The extractor consumes each deserialized source message and returns
+    /// zero or more `(timestamp, value)` entries to store in the resulting cache.
+    /// The resulting [`Cache`] stores `U` values, and capacity counts expanded
+    /// entries.
+    pub fn with_entry_extractor<F, I, O, U>(
+        self,
+        extractor: F,
+    ) -> CacheBuilder<T, S, ExtractorEntry<T, F, I, O, U>>
+    where
+        F: Fn(T) -> I + Send + Sync + 'static,
+        I: IntoIterator<Item = (O, U)> + 'static,
+        O: Into<Time> + 'static,
+        U: Send + Sync + 'static,
+    {
+        CacheBuilder {
+            sub_builder: self.sub_builder,
+            capacity: self.capacity,
+            strategy: ExtractorEntry(extractor, PhantomData),
         }
     }
 
@@ -507,7 +546,7 @@ where
         let CacheBuilder {
             sub_builder,
             capacity,
-            stamp: ExtractorStamp(extractor, _),
+            strategy: ExtractorStamp(extractor, _),
         } = self;
         let inner = Arc::new(RwLock::new(CacheInner::<T>::new(capacity)));
         let inner_cb = inner.clone();
@@ -535,6 +574,84 @@ where
         });
 
         debug!("[CACHE] ExtractorStamp cache ready");
+        Ok(Cache {
+            inner,
+            _raw_subscriber_task: task,
+        })
+    }
+}
+
+impl<T, S, F, I, O, U> CacheBuilder<T, S, ExtractorEntry<T, F, I, O, U>>
+where
+    F: Fn(T) -> I + Send + Sync + 'static,
+    I: IntoIterator<Item = (O, U)> + 'static,
+    O: Into<Time> + 'static,
+    U: Send + Sync + 'static,
+{
+    /// Maximum number of messages to retain. Oldest are evicted when full.
+    /// A capacity of `0` disables retention and stores no messages.
+    pub fn with_capacity(mut self, capacity: usize) -> Self {
+        self.capacity = capacity;
+        self
+    }
+
+    /// Apply a QoS profile to the underlying subscriber.
+    pub fn with_qos(mut self, qos: QosProfile) -> Self
+    where
+        T: Send + Sync + 'static,
+    {
+        self.sub_builder = self.sub_builder.qos(qos);
+        self
+    }
+}
+
+impl<T, S, F, I, O, U> CacheBuilder<T, S, ExtractorEntry<T, F, I, O, U>>
+where
+    T: Send + Sync + 'static,
+    S: for<'a> WireDecoder<Input<'a> = &'a [u8], Output = T> + 'static,
+    F: Fn(T) -> I + Send + Sync + 'static,
+    I: IntoIterator<Item = (O, U)> + 'static,
+    O: Into<Time> + 'static,
+    U: Send + Sync + 'static,
+{
+    pub async fn build(self) -> Result<Cache<U>> {
+        let CacheBuilder {
+            sub_builder,
+            capacity,
+            strategy: ExtractorEntry(extractor, _),
+        } = self;
+        let inner = Arc::new(RwLock::new(CacheInner::<U>::new(capacity)));
+        let inner_cb = inner.clone();
+
+        let raw_subscriber = sub_builder.raw().build().await?;
+        let mut raw_subscriber_task = raw_subscriber;
+        let task = tokio::spawn(async move {
+            loop {
+                let sample = match raw_subscriber_task.recv().await {
+                    Ok(sample) => sample,
+                    Err(error) => {
+                        tracing::error!("[CACHE] Failed to receive raw sample: {}", error);
+                        break;
+                    }
+                };
+                let payload = sample.payload().to_bytes();
+                match S::deserialize(&payload) {
+                    Ok(message) => {
+                        let entries: Vec<_> = extractor(message)
+                            .into_iter()
+                            .map(|(stamp, value)| (stamp.into(), value))
+                            .collect();
+                        let mut guard = inner_cb.write();
+                        for (stamp, value) in entries {
+                            guard.insert(stamp, value);
+                        }
+                    }
+                    Err(e) => tracing::error!("[CACHE] Failed to deserialize message: {}", e),
+                }
+            }
+        });
+
+        debug!("[CACHE] ExtractorEntry cache ready");
         Ok(Cache {
             inner,
             _raw_subscriber_task: task,
