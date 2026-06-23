@@ -9,7 +9,7 @@ use ordered_float::NotNan;
 use ros_z::qos::QosDurability;
 
 use booster::Odometer;
-use coordinate_systems::{Ground, Pixel};
+use coordinate_systems::{Field, Ground, Pixel};
 use geometry::circle::Circle;
 use projection::{Projection, camera_matrix::CameraMatrix};
 use ros_z::{context::Context, prelude::*, time::Time};
@@ -51,6 +51,10 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let camera_matrix_cache = node
         .create_cache::<TimeWrapper<CameraMatrix>>("camera_matrix", 10)?
         .with_stamp(|wrapper: &TimeWrapper<CameraMatrix>| wrapper.time)
+        .build()
+        .await?;
+    let ground_to_field_cache = node
+        .create_cache::<Isometry2<Ground, Field>>("ground_to_field", 10)?
         .build()
         .await?;
     let mut future_map = node
@@ -121,6 +125,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                 parameters,
                 field_dimensions.ball_radius,
             );
+            let ground_to_field = ground_to_field_cache.get_nearest(time);
             if let Some(projected_balls) = projected_balls {
                 ball_percepts.extend_from_slice(&projected_balls);
 
@@ -133,6 +138,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
                     &mut last_odometer,
                     &mut last_filter_time,
                     parameters,
+                    ground_to_field.as_deref(),
                     &field_dimensions,
                 );
             }
@@ -200,6 +206,7 @@ fn advance_all_hypotheses(
     last_odometer: &mut Option<Odometer>,
     last_filter_time: &mut Option<Time>,
     filter_parameters: &BallFilterParameters,
+    ground_to_field: Option<&Isometry2<Ground, Field>>,
     field_dimensions: &FieldDimensions,
 ) {
     let last_to_current = align_odometry_and_percepts(last_odometer, odometer);
@@ -279,7 +286,7 @@ fn advance_all_hypotheses(
         };
         let validity_high_enough =
             hypothesis.validity >= filter_parameters.validity_discard_threshold;
-        is_ball_inside_field(ball, field_dimensions)
+        is_ball_inside_field(ball, ground_to_field, field_dimensions)
             && validity_high_enough
             && duration_since_last_observation < filter_parameters.hypothesis_timeout
     };
@@ -434,9 +441,18 @@ fn decide_validity_decay_for_hypothesis(
     }
 }
 
-fn is_ball_inside_field(ball: BallPosition<Ground>, field_dimensions: &FieldDimensions) -> bool {
-    ball.position.x().abs() < field_dimensions.length / 2.0
-        && ball.position.y().abs() < field_dimensions.width / 2.0
+fn is_ball_inside_field(
+    ball: BallPosition<Ground>,
+    ground_to_field: Option<&Isometry2<Ground, Field>>,
+    field_dimensions: &FieldDimensions,
+) -> bool {
+    ground_to_field.is_none_or(|ground_to_field| {
+        let ball_in_field = *ground_to_field * ball.position;
+        let margin = field_dimensions.border_strip_width;
+
+        ball_in_field.x().abs() < field_dimensions.length / 2.0 + margin
+            && ball_in_field.y().abs() < field_dimensions.width / 2.0 + margin
+    })
 }
 
 fn project_to_image(
