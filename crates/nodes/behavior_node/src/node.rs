@@ -66,6 +66,9 @@ pub struct Blackboard {
     pub walk_to_state: WalkToState,
     pub last_sent_game_controller_return_message_time: Option<Time>,
     pub last_sent_hsl_message_time: Option<Time>,
+    pub last_closest_to_ball: bool,
+    pub closest_to_ball_entered_area_since: Option<Time>,
+    pub closest_to_ball_left_area_since: Option<Time>,
 
     pub is_injected_motion_command: bool,
     pub walk_position: Option<Point2<Ground>>,
@@ -210,6 +213,9 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         walk_to_state: WalkToState::default(),
         last_sent_game_controller_return_message_time: None,
         last_sent_hsl_message_time: None,
+        last_closest_to_ball: false,
+        closest_to_ball_entered_area_since: None,
+        closest_to_ball_left_area_since: None,
 
         is_injected_motion_command: false,
         walk_position: None,

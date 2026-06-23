@@ -260,11 +260,19 @@ pub fn walk_to_centroid(blackboard: &mut Blackboard) -> Status {
         &blackboard.voronoi_map,
     ) && let Some(centroid) = map.centroid_for_player(blackboard.world_state.robot.player_number)
     {
+        let orientation_mode = if let Some(ball) = blackboard.world_state.ball {
+            OrientationMode::LookAt {
+                target: ball.ball_in_ground,
+                tolerance: blackboard.parameters.walk_and_stand.orientation_tolerance,
+            }
+        } else {
+            OrientationMode::AlignWithPath
+        };
         walk_to(
             blackboard,
             Pose2::from(ground_to_field.inverse() * centroid),
             blackboard.parameters.walk_speed.kicking,
-            OrientationMode::AlignWithPath,
+            orientation_mode,
             blackboard
                 .parameters
                 .walk_and_stand

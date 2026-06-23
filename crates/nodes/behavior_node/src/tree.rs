@@ -130,7 +130,7 @@ fn supporter_subtree() -> Node<Blackboard> {
         selection!(
             sequence!(action!(calculate_voronoi_grid), action!(walk_to_centroid)),
             action!(stand)
-        )
+        ),
     )
 }
 

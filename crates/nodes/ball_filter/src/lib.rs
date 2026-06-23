@@ -92,7 +92,7 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let mut ball_filter = BallFilter::default();
     let mut last_odometer = None;
-    let mut last_filter_time = None;
+    let mut last_prediction_time = None;
 
     loop {
         let parameters_snapshot = parameters.snapshot();
@@ -111,31 +111,51 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         let mut ball_percepts = Vec::new();
 
         for (time, (odometer, detected_objects)) in future_map_item.persistent {
-            let timed_camera_matrix = camera_matrix_cache.get_nearest(time);
-            let camera_matrix = timed_camera_matrix
-                .as_ref()
-                .map(|camera_matrix| &camera_matrix.inner);
-            let projected_balls = project_detected_balls(
-                detected_objects.as_deref(),
-                camera_matrix,
-                parameters,
-                field_dimensions.ball_radius,
-            );
-            if let Some(projected_balls) = projected_balls {
+            if let Some(odometer) = odometer {
+                predict_hypotheses_from_odometry(
+                    &mut ball_filter,
+                    time,
+                    odometer,
+                    &mut last_odometer,
+                    &mut last_prediction_time,
+                    parameters,
+                );
+            }
+
+            if let Some(detected_objects) = detected_objects {
+                let timed_camera_matrix = camera_matrix_cache.get_nearest(time);
+                let camera_matrix = timed_camera_matrix
+                    .as_ref()
+                    .map(|camera_matrix| &camera_matrix.inner);
+                let Some(projected_balls) = project_detected_balls(
+                    Some(&detected_objects),
+                    camera_matrix,
+                    parameters,
+                    field_dimensions.ball_radius,
+                ) else {
+                    continue;
+                };
+
                 ball_percepts.extend_from_slice(&projected_balls);
 
                 advance_all_hypotheses(
                     &mut ball_filter,
                     time,
-                    odometer.as_ref(),
                     &projected_balls,
                     camera_matrix,
-                    &mut last_odometer,
-                    &mut last_filter_time,
                     parameters,
                     &field_dimensions,
                 );
             }
+        }
+
+        if let Some(output_time) = output_time {
+            remove_invalid_and_merge_hypotheses(
+                &mut ball_filter,
+                output_time,
+                parameters,
+                &field_dimensions,
+            );
         }
 
         ball_percepts_pub.publish(&ball_percepts).await?;
@@ -190,22 +210,22 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     }
 }
 
-#[allow(clippy::too_many_arguments)]
-fn advance_all_hypotheses(
+fn predict_hypotheses_from_odometry(
     ball_filter: &mut BallFilter,
     time: Time,
-    odometer: Option<&Odometer>,
-    ball_percepts: &[BallPercept],
-    camera_matrix: Option<&CameraMatrix>,
+    odometer: Odometer,
     last_odometer: &mut Option<Odometer>,
-    last_filter_time: &mut Option<Time>,
+    last_prediction_time: &mut Option<Time>,
     filter_parameters: &BallFilterParameters,
-    field_dimensions: &FieldDimensions,
 ) {
-    let last_to_current = align_odometry_and_percepts(last_odometer, odometer);
+    let last_to_current = match *last_odometer {
+        None => Isometry2::identity(),
+        Some(previous_odometer) => previous_odometer.to(odometer),
+    };
     let delta_time =
-        last_filter_time.map_or(Duration::ZERO, |last_time| time.duration_since(last_time));
-    *last_filter_time = Some(time);
+        last_prediction_time.map_or(Duration::ZERO, |last_time| time.duration_since(last_time));
+    *last_odometer = Some(odometer);
+    *last_prediction_time = Some(time);
 
     ball_filter
         .hypotheses
@@ -219,6 +239,19 @@ fn advance_all_hypotheses(
         Matrix2::from_diagonal(&filter_parameters.noise.process_noise_resting),
         filter_parameters.log_likelihood_of_zero_velocity_threshold,
     );
+}
+
+fn advance_all_hypotheses(
+    ball_filter: &mut BallFilter,
+    time: Time,
+    ball_percepts: &[BallPercept],
+    camera_matrix: Option<&CameraMatrix>,
+    filter_parameters: &BallFilterParameters,
+    field_dimensions: &FieldDimensions,
+) {
+    ball_filter
+        .hypotheses
+        .retain(|hypothesis| hypothesis.validity > filter_parameters.validity_discard_threshold);
 
     ball_filter.decay_hypotheses(|hypothesis| {
         decide_validity_decay_for_hypothesis(
@@ -271,7 +304,14 @@ fn advance_all_hypotheses(
             );
         }
     }
+}
 
+fn remove_invalid_and_merge_hypotheses(
+    ball_filter: &mut BallFilter,
+    time: Time,
+    filter_parameters: &BallFilterParameters,
+    field_dimensions: &FieldDimensions,
+) {
     let is_hypothesis_valid = |hypothesis: &BallHypothesis| {
         let ball = hypothesis.position();
         let Some(duration_since_last_observation) = ball.age_at(time) else {
@@ -302,23 +342,6 @@ fn advance_all_hypotheses(
     ball_filter
         .hypotheses
         .truncate(filter_parameters.maximum_number_of_hypotheses);
-}
-
-fn align_odometry_and_percepts(
-    last_odometer: &mut Option<Odometer>,
-    odometer: Option<&Odometer>,
-) -> Isometry2<Ground, Ground> {
-    match (*last_odometer, odometer.copied()) {
-        (None, Some(odometer)) => {
-            *last_odometer = Some(odometer);
-            Isometry2::identity()
-        }
-        (Some(previous_odometer), Some(odometer)) => {
-            *last_odometer = Some(odometer);
-            previous_odometer.to(odometer)
-        }
-        _ => Isometry2::identity(),
-    }
 }
 
 fn hypothetical_ball_positions(
