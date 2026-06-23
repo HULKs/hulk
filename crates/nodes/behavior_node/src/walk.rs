@@ -5,7 +5,7 @@ use linear_algebra::{Isometry2, Orientation2, Point, Point2, Pose2, point};
 use path_planner::path_planner::PathPlanner;
 use types::{
     behavior_tree::Status,
-    motion_command::{BodyMotion, MotionCommand, OrientationMode},
+    motion_command::{BodyMotion, OrientationMode},
     motion_type::MotionType,
     path::{Path, direct_path},
 };
@@ -91,25 +91,33 @@ pub fn walk_to(
         let parameters = &blackboard.parameters.walk_and_stand;
         let distance_to_walk = target_pose.position().coords().norm();
         let angle_to_walk = target_pose.orientation().angle();
-        let was_standing_last_cycle =
-            matches!(blackboard.last_motion_command, MotionCommand::Stand { .. });
-        let is_reached = less_than_with_relative_hysteresis(
-            was_standing_last_cycle,
+        let previous_walk_to_state = blackboard.walk_to_state;
+        let is_position_reached = less_than_with_relative_hysteresis(
+            previous_walk_to_state.position_reached,
             distance_to_walk,
             parameters.target_reached_thresholds.x,
             0.0..=hysteresis.x,
-        ) && less_than_with_relative_hysteresis(
-            was_standing_last_cycle,
+        );
+        let is_orientation_reached = less_than_with_relative_hysteresis(
+            previous_walk_to_state.orientation_reached,
             angle_to_walk.abs(),
             parameters.target_reached_thresholds.y,
             0.0..=hysteresis.y,
         );
+        let is_reached = is_position_reached && is_orientation_reached;
+        blackboard.walk_to_state.active = true;
+        blackboard.walk_to_state.position_reached = is_position_reached;
+        blackboard.walk_to_state.orientation_reached = is_orientation_reached;
 
         if is_reached {
             blackboard.body_motion = Some(BodyMotion::Stand);
             Status::Success
         } else {
-            let path = plan(blackboard, target_pose.position(), ground_to_field);
+            let path = if is_position_reached {
+                direct_path(Point::origin(), Point::origin())
+            } else {
+                plan(blackboard, target_pose.position(), ground_to_field)
+            };
             blackboard.body_motion = Some(BodyMotion::Walk {
                 path,
                 orientation_mode,
