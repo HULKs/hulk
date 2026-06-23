@@ -388,27 +388,14 @@ where
     /// assert!(subscriber.wait_for_publishers(1, Duration::from_secs(5)).await);
     /// ```
     pub async fn wait_for_publishers(&self, count: usize, timeout: Duration) -> bool {
-        let deadline = tokio::time::Instant::now() + timeout;
-        loop {
-            let notified = self.graph.change_notify.notified();
-            tokio::pin!(notified);
+        let topic = self.entity.topic.clone();
+        let wait = self
+            .graph
+            .wait_until(|view| view.publisher_count_on(&topic) >= count);
 
-            let n = self.graph.view().publishers_on(&self.entity.topic).len();
-            if n >= count {
-                return true;
-            }
-
-            let remaining = deadline.saturating_duration_since(tokio::time::Instant::now());
-            if remaining.is_zero() {
-                return false;
-            }
-
-            if tokio::time::timeout(remaining, &mut notified)
-                .await
-                .is_err()
-            {
-                return self.graph.view().publishers_on(&self.entity.topic).len() >= count;
-            }
+        match tokio::time::timeout(timeout, wait).await {
+            Ok(true) => true,
+            Ok(false) | Err(_) => self.graph.view().publisher_count_on(&self.entity.topic) >= count,
         }
     }
 }
@@ -420,7 +407,7 @@ where
 {
     /// Return the number of matched publishers currently visible in the graph.
     pub fn publisher_count(&self) -> usize {
-        self.graph.view().publishers_on(&self.entity.topic).len()
+        self.graph.view().publisher_count_on(&self.entity.topic)
     }
 
     /// Return whether at least one publisher is currently matched.
