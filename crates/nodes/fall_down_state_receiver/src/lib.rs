@@ -23,7 +23,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .await
         .map_err(|error| eyre!("{error}"))?;
     let fall_down_state_pub = node
-        .publisher::<FallDownState>("inputs/fall_down_state")?
+        .publisher::<FallDownState>("inputs/fall_down_state")
         .build()
         .await?;
 

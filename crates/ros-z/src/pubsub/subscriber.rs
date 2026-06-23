@@ -9,7 +9,8 @@ use zenoh::{Session, sample::Sample};
 
 use crate::Result;
 use crate::dynamic::{DynamicCdrCodec, DynamicPayload, Schema};
-use crate::entity::EndpointEntity;
+use crate::endpoint_builder::{EndpointBuilderContext, MessageEndpointType};
+use crate::entity::{EndpointEntity, EndpointKind};
 use crate::graph::Graph;
 use crate::message::WireDecoder;
 use crate::pubsub::metadata::Received;
@@ -27,13 +28,45 @@ pub(super) fn subscriber_queue_capacity(qos: &ros_z_protocol::qos::QosProfile) -
     }
 }
 
-pub struct SubscriberBuilder<T, C = <T as crate::Message>::Codec> {
-    pub(crate) entity: EndpointEntity,
-    pub(crate) session: Session,
-    pub(crate) graph: Arc<Graph>,
-    pub(crate) dyn_schema: Option<Schema>,
+#[derive(Debug, Clone)]
+pub(crate) struct SubscriberOptions {
+    pub(crate) qos: ros_z_protocol::qos::QosProfile,
     pub(crate) locality: Option<zenoh::sample::Locality>,
     pub(crate) transient_local_replay_timeout: Duration,
+}
+
+impl Default for SubscriberOptions {
+    fn default() -> Self {
+        Self {
+            qos: crate::endpoint_builder::default_protocol_qos(),
+            locality: None,
+            transient_local_replay_timeout: crate::pubsub::DEFAULT_TRANSIENT_LOCAL_REPLAY_TIMEOUT,
+        }
+    }
+}
+
+impl SubscriberOptions {
+    pub(crate) fn qos(mut self, qos: QosProfile) -> Self {
+        self.qos = qos.to_protocol_qos();
+        self
+    }
+
+    pub(crate) fn locality(mut self, locality: zenoh::sample::Locality) -> Self {
+        self.locality = Some(locality);
+        self
+    }
+
+    pub(crate) fn transient_local_replay_timeout(mut self, timeout: Duration) -> Self {
+        self.transient_local_replay_timeout = timeout;
+        self
+    }
+}
+
+pub struct SubscriberBuilder<T, C = <T as crate::Message>::Codec> {
+    pub(crate) context: EndpointBuilderContext,
+    pub(crate) topic: String,
+    pub(crate) type_source: MessageEndpointType,
+    pub(crate) options: SubscriberOptions,
     pub(crate) _phantom_data: PhantomData<(T, C)>,
 }
 
@@ -41,6 +74,13 @@ pub(super) struct SubscriberResources {
     _replay_guard: Option<replay::TransientLocalReplayGuard>,
     _subscriber: zenoh::pubsub::Subscriber<()>,
     _liveliness_token: LivelinessToken,
+}
+
+struct PreparedSubscriberBuild {
+    context: EndpointBuilderContext,
+    options: SubscriberOptions,
+    dyn_schema: Option<Schema>,
+    entity: EndpointEntity,
 }
 
 #[derive(Debug, Clone)]
@@ -104,12 +144,28 @@ async fn declare_liveliness(session: &Session, entity: &EndpointEntity) -> Resul
         .map_err(|source| crate::Error::zenoh("declare subscriber liveliness token", source))
 }
 
-impl<T, C> SubscriberBuilder<T, C>
-where
-    T: Send + Sync + 'static,
-{
+impl<T, C> SubscriberBuilder<T, C> {
+    pub(crate) fn new(
+        context: EndpointBuilderContext,
+        topic: String,
+        type_source: MessageEndpointType,
+    ) -> Self {
+        Self {
+            context,
+            topic,
+            type_source,
+            options: SubscriberOptions::default(),
+            _phantom_data: Default::default(),
+        }
+    }
+
+    pub(crate) fn options(mut self, options: SubscriberOptions) -> Self {
+        self.options = options;
+        self
+    }
+
     pub fn qos(mut self, qos: QosProfile) -> Self {
-        self.entity.qos = qos.to_protocol_qos();
+        self.options = self.options.qos(qos);
         self
     }
 
@@ -124,24 +180,18 @@ where
     /// use zenoh::sample::Locality;
     ///
     /// let subscriber = node
-    ///     .subscriber::<String>("/topic")?
+    ///     .subscriber::<String>("/topic")
     ///     .locality(Locality::Remote)  // Only receive from remote publishers
     ///     .build()
     ///     .await?;
     /// ```
     pub fn locality(mut self, locality: zenoh::sample::Locality) -> Self {
-        self.locality = Some(locality);
+        self.options = self.options.locality(locality);
         self
     }
 
     pub fn transient_local_replay_timeout(mut self, timeout: Duration) -> Self {
-        self.transient_local_replay_timeout = timeout;
-        self
-    }
-
-    /// Set the dynamic schema for runtime-typed messages.
-    pub fn dynamic_schema(mut self, schema: Schema) -> Self {
-        self.dyn_schema = Some(schema);
+        self.options = self.options.transient_local_replay_timeout(timeout);
         self
     }
 
@@ -152,15 +202,46 @@ where
         RawSubscriberBuilder { inner: self }
     }
 
-    pub(crate) async fn build_raw_queue_async(mut self) -> Result<raw::RawSubscriber> {
-        let queue_size = subscriber_queue_capacity(&self.entity.qos);
+    fn prepare_build(self, log_prefix: &str) -> Result<PreparedSubscriberBuild> {
+        let Self {
+            context,
+            topic,
+            type_source,
+            options,
+            ..
+        } = self;
+        let (type_info, dyn_schema) = type_source.resolve_for_subscriber(&topic)?;
+        let qualified_topic =
+            qualify_topic_name(&topic, &context.node.namespace, &context.node.name)
+                .map_err(|source| crate::Error::topic_name(topic, source))?;
+
+        let entity = context.endpoint_entity(
+            EndpointKind::Subscription,
+            qualified_topic,
+            type_info,
+            options.qos,
+        );
+        debug!("[{}] Qualified topic: {}", log_prefix, entity.topic);
+        Ok(PreparedSubscriberBuild {
+            context,
+            options,
+            dyn_schema,
+            entity,
+        })
+    }
+
+    pub(crate) async fn build_raw_queue_async(self) -> Result<raw::RawSubscriber> {
+        let prepared = self.prepare_build("RAW_SUB")?;
+        let entity = &prepared.entity;
+        let queue_size = subscriber_queue_capacity(&entity.qos);
         let queue = Arc::new(BoundedQueue::new(queue_size));
         let raw_queue = queue.clone();
         let dropped_samples = Arc::new(AtomicU64::new(0));
         let raw_dropped_samples = dropped_samples.clone();
-        let drop_context = QueueDropContext::from_entity("RAW_SUB", &self.entity, queue_size)?;
-        let resources = self
+        let drop_context = QueueDropContext::from_entity("RAW_SUB", entity, queue_size)?;
+        let resources = prepared
             .build_subscriber_resources(
+                entity,
                 move |sample| {
                     record_queue_push(&raw_queue, &raw_dropped_samples, &drop_context, sample);
                 },
@@ -168,13 +249,19 @@ where
             )
             .await?;
 
-        self.warn_about_incompatible_endpoints("RAW_SUB");
+        prepared.warn_about_incompatible_endpoints("RAW_SUB");
 
         Ok(raw::RawSubscriber::new(queue, resources))
     }
+}
 
+impl PreparedSubscriberBuild {
     fn warn_about_incompatible_endpoints(&self, log_prefix: &str) {
-        for endpoint in self.graph.type_incompatible_endpoints_for(&self.entity) {
+        for endpoint in self
+            .context
+            .graph
+            .type_incompatible_endpoints_for(&self.entity)
+        {
             warn!(
                 topic = %self.entity.topic,
                 subscriber_node = %self.entity.node.fully_qualified_name(),
@@ -190,53 +277,46 @@ where
     }
 
     async fn build_subscriber_resources<F>(
-        &mut self,
+        &self,
+        entity: &EndpointEntity,
         callback: F,
         log_prefix: &str,
     ) -> Result<SubscriberResources>
     where
         F: Fn(Sample) + Send + Sync + 'static,
     {
-        let topic = self.entity.topic.clone();
-        let qualified_topic =
-            qualify_topic_name(&topic, &self.entity.node.namespace, &self.entity.node.name)
-                .map_err(|source| crate::Error::topic_name(topic, source))?;
-
-        self.entity.topic = qualified_topic.clone();
-        debug!("[{}] Qualified topic: {}", log_prefix, qualified_topic);
-
-        let topic_key_expr = ros_z_protocol::format::topic_key_expr(&self.entity)?;
+        let topic_key_expr = ros_z_protocol::format::topic_key_expr(entity)?;
         let key_expr = (*topic_key_expr).clone();
         debug!(
             "[{}] Key expression: {}, qos={:?}",
-            log_prefix, key_expr, self.entity.qos
+            log_prefix, key_expr, entity.qos
         );
 
         let callback: Arc<dyn Fn(Sample) + Send + Sync> = Arc::new(callback);
 
-        if !matches!(self.entity.qos.durability, QosDurability::TransientLocal) {
+        if !matches!(entity.qos.durability, QosDurability::TransientLocal) {
             let subscriber_callback = callback.clone();
             let mut subscriber = self
+                .context
                 .session
                 .declare_subscriber(key_expr)
                 .callback(move |sample| subscriber_callback(sample));
 
-            if let Some(locality) = self.locality {
+            if let Some(locality) = self.options.locality {
                 subscriber = subscriber.allowed_origin(locality);
             }
 
             let subscriber = subscriber
                 .await
                 .map_err(|source| crate::Error::zenoh("declare subscriber", source))?;
-            let liveliness_token = declare_liveliness(&self.session, &self.entity).await?;
+            let liveliness_token = declare_liveliness(&self.context.session, entity).await?;
             Ok(SubscriberResources {
                 _subscriber: subscriber,
                 _liveliness_token: liveliness_token,
                 _replay_guard: None,
             })
         } else {
-            let Some(live_capacity) =
-                replay::transient_local_replay_live_capacity(&self.entity.qos)
+            let Some(live_capacity) = replay::transient_local_replay_live_capacity(&entity.qos)
             else {
                 warn!(
                     "[{}] TransientLocal + KeepAll requested; replay coordination is disabled because history is unbounded",
@@ -244,18 +324,19 @@ where
                 );
                 let subscriber_callback = callback.clone();
                 let mut subscriber = self
+                    .context
                     .session
                     .declare_subscriber(key_expr)
                     .callback(move |sample| subscriber_callback(sample));
 
-                if let Some(locality) = self.locality {
+                if let Some(locality) = self.options.locality {
                     subscriber = subscriber.allowed_origin(locality);
                 }
 
                 let subscriber = subscriber
                     .await
                     .map_err(|source| crate::Error::zenoh("declare subscriber", source))?;
-                let liveliness_token = declare_liveliness(&self.session, &self.entity).await?;
+                let liveliness_token = declare_liveliness(&self.context.session, entity).await?;
                 return Ok(SubscriberResources {
                     _subscriber: subscriber,
                     _liveliness_token: liveliness_token,
@@ -270,11 +351,12 @@ where
             ));
             let live_coordinator = coordinator.clone();
             let mut subscriber = self
+                .context
                 .session
                 .declare_subscriber(key_expr)
                 .callback(move |sample| live_coordinator.handle_live(sample));
 
-            if let Some(locality) = self.locality {
+            if let Some(locality) = self.options.locality {
                 subscriber = subscriber.allowed_origin(locality);
             }
 
@@ -283,53 +365,58 @@ where
                 .map_err(|source| crate::Error::zenoh("declare subscriber", source))?;
 
             let (initial_replay_publishers, initial_replay_seen) = replay::initial_replay_plan(
-                replay::replay_capable_publishers(&self.graph, &self.entity.topic),
+                replay::replay_capable_publishers(&self.context.graph, &entity.topic),
             );
             for (publisher_global_id, _) in initial_replay_publishers {
                 replay::query_initial_transient_local_replay_async(
-                    &self.session,
+                    &self.context.session,
                     &topic_key_expr,
                     publisher_global_id,
-                    self.transient_local_replay_timeout,
+                    self.options.transient_local_replay_timeout,
                     coordinator.clone(),
                 )
                 .await?;
             }
             coordinator.finish_initial_replay();
             let replay_task = replay::spawn_transient_local_replay_task(
-                self.graph.clone(),
-                self.entity.topic.clone(),
+                self.context.graph.clone(),
+                entity.topic.clone(),
                 coordinator,
-                self.session.clone(),
+                self.context.session.clone(),
                 topic_key_expr.to_string(),
-                self.transient_local_replay_timeout,
+                self.options.transient_local_replay_timeout,
                 initial_replay_seen,
             );
-            let liveliness_token = declare_liveliness(&self.session, &self.entity).await?;
+            let replay_guard = replay::TransientLocalReplayGuard::new(cancelled, replay_task);
+            let liveliness_token = declare_liveliness(&self.context.session, entity).await?;
             Ok(SubscriberResources {
                 _subscriber: subscriber,
                 _liveliness_token: liveliness_token,
-                _replay_guard: Some(replay::TransientLocalReplayGuard::new(
-                    cancelled,
-                    replay_task,
-                )),
+                _replay_guard: Some(replay_guard),
             })
         }
     }
+}
 
+impl<T, C> SubscriberBuilder<T, C>
+where
+    C: WireDecoder,
+{
     pub async fn build(self) -> Result<Subscriber<T, C>>
     where
         C: WireDecoder,
     {
-        let mut builder = self;
-        let queue_size = subscriber_queue_capacity(&builder.entity.qos);
+        let prepared = self.prepare_build("SUB")?;
+        let entity = &prepared.entity;
+        let queue_size = subscriber_queue_capacity(&entity.qos);
         let queue = Arc::new(BoundedQueue::new(queue_size));
         let subscriber_queue = queue.clone();
         let dropped_samples = Arc::new(AtomicU64::new(0));
         let subscriber_dropped_samples = dropped_samples.clone();
-        let drop_context = QueueDropContext::from_entity("SUB", &builder.entity, queue_size)?;
-        let resources = builder
+        let drop_context = QueueDropContext::from_entity("SUB", entity, queue_size)?;
+        let resources = prepared
             .build_subscriber_resources(
+                entity,
                 move |sample| {
                     record_queue_push(
                         &subscriber_queue,
@@ -342,18 +429,23 @@ where
             )
             .await?;
 
-        builder.warn_about_incompatible_endpoints("SUB");
-
-        let entity = builder.entity;
+        prepared.warn_about_incompatible_endpoints("SUB");
 
         debug!("[SUB] Subscriber ready: topic={}", entity.topic);
+
+        let PreparedSubscriberBuild {
+            context,
+            dyn_schema,
+            entity,
+            ..
+        } = prepared;
 
         Ok(Subscriber {
             entity,
             _resources: resources,
             queue,
-            graph: builder.graph,
-            dyn_schema: builder.dyn_schema,
+            graph: context.graph,
+            dyn_schema,
             _phantom_data: Default::default(),
         })
     }
@@ -466,14 +558,14 @@ where
 impl Subscriber<DynamicPayload, DynamicCdrCodec> {
     /// Receive and deserialize the next dynamic message.
     ///
-    /// This method requires that the subscriber was built through
-    /// `Node::dynamic_subscriber` or with `.dynamic_schema()`.
+    /// This method requires that the subscriber was built through a dynamic
+    /// subscriber factory.
     ///
     /// # Errors
     ///
     /// Returns an error if:
     /// - The subscriber was built with a callback (no queue available)
-    /// - The dynamic schema was not set via `Node::dynamic_subscriber` or `.dynamic_schema()`
+    /// - The dynamic schema was not set by the dynamic subscriber factory
     /// - Deserialization fails
     #[tracing::instrument(name = "recv_dynamic", skip(self), fields(
         topic = %self.entity.topic,

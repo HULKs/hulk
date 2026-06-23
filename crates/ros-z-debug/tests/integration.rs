@@ -56,7 +56,6 @@ async fn typed_subscription_receives_latest_sample() {
     );
     let publisher = publisher_node
         .publisher::<String>("debug_text")
-        .expect("publisher builder")
         .build()
         .await
         .expect("publisher");
@@ -132,7 +131,6 @@ async fn typed_subscription_resolves_relative_topic_against_target_namespace() {
     );
     let publisher = publisher_node
         .publisher::<String>("/alpha/debug_text")
-        .expect("publisher builder")
         .build()
         .await
         .expect("publisher");
@@ -195,7 +193,6 @@ async fn dynamic_subscription_renders_json_view() {
     );
     let publisher = publisher_node
         .dynamic_publisher("debug_dynamic", type_info, schema.clone())
-        .expect("dynamic publisher builder")
         .build()
         .await
         .expect("dynamic publisher");

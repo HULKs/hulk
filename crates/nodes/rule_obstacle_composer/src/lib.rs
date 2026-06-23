@@ -30,23 +30,25 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let parameters = node.bind_parameter_as::<Parameters>("rule_obstacle_composer")?;
     let field_dimensions_cache = node
-        .create_cache::<FieldDimensions>("field_dimensions", 1)?
-        .with_qos(QosProfile {
+        .subscriber::<FieldDimensions>("field_dimensions")
+        .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
         })
+        .cache(1)
         .build()
         .await?;
     let filtered_game_controller_state_sub = node
-        .subscriber::<FilteredGameControllerState>("filtered_game_controller_state")?
+        .subscriber::<FilteredGameControllerState>("filtered_game_controller_state")
         .build()
         .await?;
     let ball_state_cache = node
-        .create_cache::<Option<BallState>>("ball_state", 1)?
+        .subscriber::<Option<BallState>>("ball_state")
+        .cache(1)
         .build()
         .await?;
     let rule_obstacles_pub = node
-        .publisher::<Vec<RuleObstacle>>("rule_obstacles")?
+        .publisher::<Vec<RuleObstacle>>("rule_obstacles")
         .build()
         .await?;
 

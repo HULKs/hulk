@@ -22,19 +22,19 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .map_err(|error| color_eyre::eyre::eyre!("{error}"))?;
 
     let low_state_pub = node
-        .publisher::<LowState>("inputs/low_state")?
+        .publisher::<LowState>("inputs/low_state")
         .build()
         .await?;
     let imu_state_pub = node
-        .publisher::<ImuState>("inputs/imu_state")?
+        .publisher::<ImuState>("inputs/imu_state")
         .build()
         .await?;
     let serial_motor_states_pub = node
-        .publisher::<Joints<MotorState>>("inputs/serial_motor_states")?
+        .publisher::<Joints<MotorState>>("inputs/serial_motor_states")
         .build()
         .await?;
     let parallel_motor_states_pub = node
-        .publisher::<Option<Joints<MotorState>>>("inputs/parallel_motor_states")?
+        .publisher::<Option<Joints<MotorState>>>("inputs/parallel_motor_states")
         .build()
         .await?;
 

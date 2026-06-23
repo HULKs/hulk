@@ -345,17 +345,4 @@ impl Error {
         }
         .into()
     }
-
-    pub(crate) fn schema(
-        endpoint_kind: &'static str,
-        topic: impl Into<String>,
-        source: ros_z_schema::SchemaError,
-    ) -> Self {
-        WireError::Schema {
-            endpoint_kind,
-            topic: topic.into(),
-            source,
-        }
-        .into()
-    }
 }

@@ -2,18 +2,18 @@ use std::{sync::Arc, time::Duration};
 
 use crate::{
     Error, Result, ServiceTypeInfo,
-    cache::CacheBuilder,
     context::{GlobalCounter, RuntimeParameterInputs},
     dynamic::{
-        DiscoveredTopicSchema, DynamicCdrCodec, DynamicError, DynamicPayload,
-        DynamicPublisherBuilder, DynamicSubscriberBuilder, Schema, SchemaDiscovery, SchemaService,
-        schema_service::SchemaServiceNodeIdentity,
+        DiscoveredTopicSchema, DynamicError, DynamicPublisherBuilder, DynamicSubscriberBuilder,
+        DynamicSubscriberDiscoveryBuilder, Schema, SchemaDiscovery, SchemaService,
+    },
+    endpoint_builder::{
+        EndpointBuilderContext, MessageEndpointType, service_endpoint_type, static_message_metadata,
     },
     entity::*,
-    error::WireError,
     graph::Graph,
-    message::{Message, Service, WireDecoder, WireEncoder, validated_type_info_for_schema},
-    pubsub::{DEFAULT_TRANSIENT_LOCAL_REPLAY_TIMEOUT, PublisherBuilder, SubscriberBuilder},
+    message::{Message, Service, WireDecoder, WireEncoder},
+    pubsub::{PublisherBuilder, SubscriberBuilder},
     service::{ServiceClientBuilder, ServiceServerBuilder},
     shm::ShmConfig,
     time::{Clock, Timer},
@@ -182,19 +182,16 @@ impl NodeBuilder {
         // Create schema service if enabled
         let schema_service = if self.enable_schema_service {
             debug!("[NOD] Creating schema service");
-            let service = SchemaService::new(
+            let schema_context = EndpointBuilderContext::new(
                 self.session.clone(),
-                SchemaServiceNodeIdentity {
-                    name: &self.name,
-                    namespace: &self.namespace,
-                    id,
-                },
-                &self.counter,
-                &self.clock,
                 self.graph.clone(),
-            )
-            .await
-            .map_err(|source| Error::zenoh("create schema service", source))?;
+                self.counter.clone(),
+                node.clone(),
+                self.clock.clone(),
+                self.shm_config.clone(),
+                None,
+            );
+            let service = SchemaService::new(schema_context).await?;
 
             info!("[NOD] SchemaService created (callback mode)");
 
@@ -235,52 +232,20 @@ impl Node {
     /// # Panics
     ///
     /// Panics if `T` builds an invalid static [`Message`] schema or schema hash.
-    /// Runtime and dynamic schema registration failures are returned as errors.
-    pub fn publisher<T>(&self, topic: &str) -> Result<PublisherBuilder<T>>
+    /// Runtime and dynamic schema registration failures are returned by build.
+    pub fn publisher<T>(&self, topic: &str) -> PublisherBuilder<T>
     where
         T: Message,
         T::Codec: WireEncoder,
     {
-        debug!("[NOD] Creating publisher: topic={}", topic);
-
-        let schema = Arc::new(T::schema());
-        let type_info = validated_type_info_for_schema::<T>(&schema);
-        let type_name = T::type_name();
-        self.register_schema_with_service(&type_name, Arc::clone(&schema))
-            .map_err(|error| {
-                Error::from(WireError::DynamicSchema {
-                    endpoint_kind: "publisher",
-                    topic: topic.to_string(),
-                    source: error,
-                })
-            })?;
-
-        Ok(self.publisher_impl::<T, T::Codec>(topic, type_info))
-    }
-
-    fn publisher_impl<T, S>(&self, topic: &str, type_info: TypeInfo) -> PublisherBuilder<T, S>
-    where
-        S: WireEncoder,
-    {
-        // Note: Topic qualification happens in PublisherBuilder::build()
-        // to allow error handling in the Result type
-        let entity = EndpointEntity {
-            id: self.counter.increment(),
-            node: self.entity.clone(),
-            kind: EndpointKind::Publisher,
-            topic: topic.to_string(),
-            type_info,
-            qos: Default::default(),
-        };
-        PublisherBuilder {
-            entity,
-            session: self.session.clone(),
-            graph: self.graph.clone(),
-            clock: self.clock.clone(),
-            shm_config: self.shm_config.clone(),
-            dyn_schema: None,
-            _phantom_data: Default::default(),
-        }
+        debug!("[NOD] Creating publisher builder: topic={}", topic);
+        PublisherBuilder::new(
+            self.endpoint_builder_context(),
+            topic.to_string(),
+            MessageEndpointType::Static {
+                build: static_message_metadata::<T>,
+            },
+        )
     }
 
     /// Create a subscriber for the given topic.
@@ -296,99 +261,19 @@ impl Node {
     ///
     /// Panics if `T` builds an invalid static [`Message`] schema or schema hash.
     /// Runtime and dynamic subscriber failures are returned as errors.
-    pub fn subscriber<T>(&self, topic: &str) -> Result<SubscriberBuilder<T>>
+    pub fn subscriber<T>(&self, topic: &str) -> SubscriberBuilder<T>
     where
         T: Message,
         T::Codec: WireDecoder,
     {
-        debug!("[NOD] Creating subscriber: topic={}", topic);
-
-        let schema = T::schema();
-        let type_info = validated_type_info_for_schema::<T>(&schema);
-
-        Ok(self.subscriber_impl::<T, T::Codec>(topic, type_info))
-    }
-
-    fn subscriber_impl<T, S>(&self, topic: &str, type_info: TypeInfo) -> SubscriberBuilder<T, S>
-    where
-        S: WireDecoder,
-    {
-        // Note: Topic qualification happens in SubscriberBuilder::build()
-        // to allow error handling in the Result type
-        let entity = EndpointEntity {
-            id: self.counter.increment(),
-            node: self.entity.clone(),
-            kind: EndpointKind::Subscription,
-            topic: topic.to_string(),
-            type_info,
-            qos: Default::default(),
-        };
-        SubscriberBuilder {
-            entity,
-            session: self.session.clone(),
-            graph: self.graph.clone(),
-            dyn_schema: None,
-            locality: None,
-            transient_local_replay_timeout: DEFAULT_TRANSIENT_LOCAL_REPLAY_TIMEOUT,
-            _phantom_data: Default::default(),
-        }
-    }
-
-    /// Create a timestamp-indexed sliding-window cache subscriber for `topic`,
-    /// retaining up to `capacity` messages.
-    ///
-    /// A capacity of `0` disables retention and stores no messages.
-    ///
-    /// By default, messages are indexed by the Zenoh transport timestamp
-    /// (zero-config, works for any message type). Call
-    /// [`.with_stamp(|message| ...)`](CacheBuilder::with_stamp) on the returned
-    /// builder to switch to application-level timestamp extraction (e.g.
-    /// `header.stamp`).
-    ///
-    /// # Example
-    ///
-    /// ```rust,ignore
-    /// use ros_z::prelude::*;
-    /// use ros_z::time::Time;
-    /// use std::time::Duration;
-    ///
-    /// # async fn example() -> ros_z::Result<()> {
-    /// let context = ContextBuilder::default().build().await?;
-    /// let node = context.create_node("cache_demo").build().await?;
-    ///
-    /// // Zero-config (Zenoh transport timestamp)
-    /// let cache = node.create_cache::<String>("/chatter", 200)?.build().await?;
-    ///
-    /// // Pull messages from the last 100 ms
-    /// let now = Time::from_wallclock(std::time::SystemTime::now());
-    /// let msgs = cache.get_interval(now - Duration::from_millis(100), now);
-    /// # Ok(())
-    /// # }
-    /// ```
-    ///
-    /// # Panics
-    ///
-    /// Panics if `T` builds an invalid static [`Message`] schema or schema hash.
-    /// Runtime cache/subscriber failures are returned as errors.
-    pub fn create_cache<T>(
-        &self,
-        topic: &str,
-        capacity: usize,
-    ) -> Result<CacheBuilder<T, <T as Message>::Codec>>
-    where
-        T: Message,
-        for<'a> <T as Message>::Codec: WireDecoder<Input<'a> = &'a [u8], Output = T>,
-    {
-        debug!(
-            "[NOD] Creating cache: topic={}, capacity={}",
-            topic, capacity
-        );
-        let schema = T::schema();
-        let type_info = validated_type_info_for_schema::<T>(&schema);
-        Ok(CacheBuilder::new(
-            self.subscriber_impl::<T, <T as Message>::Codec>(topic, type_info),
-            capacity,
-        ))
+        debug!("[NOD] Creating subscriber builder: topic={}", topic);
+        SubscriberBuilder::new(
+            self.endpoint_builder_context(),
+            topic.to_string(),
+            MessageEndpointType::Static {
+                build: static_message_metadata::<T>,
+            },
+        )
     }
 
     /// Create a periodic timer tied to this node's clock.
@@ -414,38 +299,16 @@ impl Node {
     /// Panics if `T` builds invalid static service type metadata, or if
     /// `T::Request` or `T::Response` builds an invalid static [`Message`]
     /// schema or schema hash.
-    pub fn create_service_server<T>(&self, name: &str) -> Result<ServiceServerBuilder<T>>
+    pub fn service_server<T>(&self, name: &str) -> ServiceServerBuilder<T>
     where
         T: Service + ServiceTypeInfo,
     {
-        debug!("[NOD] Creating service server: name={}", name);
-        let type_info = T::service_type_info();
-        Ok(self.create_service_impl(name, type_info))
-    }
-
-    #[doc(hidden)]
-    pub fn create_service_impl<T>(
-        &self,
-        name: &str,
-        type_info: TypeInfo,
-    ) -> ServiceServerBuilder<T> {
-        // Note: Service name qualification happens in ServiceServerBuilder::build()
-        // to allow error handling in the Result type
-        let entity = EndpointEntity {
-            id: self.counter.increment(),
-            node: self.entity.clone(),
-            kind: EndpointKind::Service,
-            topic: name.to_string(),
-            type_info,
-            qos: Default::default(),
-        };
-        ServiceServerBuilder {
-            entity,
-            session: self.session.clone(),
-            clock: self.clock.clone(),
-            graph: self.graph.clone(),
-            _phantom_data: Default::default(),
-        }
+        debug!("[NOD] Creating service server builder: name={}", name);
+        ServiceServerBuilder::new(
+            self.endpoint_builder_context(),
+            name.to_string(),
+            service_endpoint_type::<T>(),
+        )
     }
 
     /// Create a typed service client builder for `name`.
@@ -463,38 +326,16 @@ impl Node {
     /// Panics if `T` builds invalid static service type metadata, or if
     /// `T::Request` or `T::Response` builds an invalid static [`Message`]
     /// schema or schema hash.
-    pub fn create_service_client<T>(&self, name: &str) -> Result<ServiceClientBuilder<T>>
+    pub fn service_client<T>(&self, name: &str) -> ServiceClientBuilder<T>
     where
         T: Service + ServiceTypeInfo,
     {
-        debug!("[NOD] Creating service client: name={}", name);
-        let type_info = T::service_type_info();
-        Ok(self.create_client_impl(name, type_info))
-    }
-
-    #[doc(hidden)]
-    pub fn create_client_impl<T>(
-        &self,
-        name: &str,
-        type_info: TypeInfo,
-    ) -> ServiceClientBuilder<T> {
-        // Note: Service name qualification happens in ServiceClientBuilder::build()
-        // to allow error handling in the Result type
-        let entity = EndpointEntity {
-            id: self.counter.increment(),
-            node: self.entity.clone(),
-            kind: EndpointKind::Client,
-            topic: name.to_string(),
-            type_info,
-            qos: Default::default(),
-        };
-        ServiceClientBuilder {
-            entity,
-            session: self.session.clone(),
-            clock: self.clock.clone(),
-            graph: self.graph.clone(),
-            _phantom_data: Default::default(),
-        }
+        debug!("[NOD] Creating service client builder: name={}", name);
+        ServiceClientBuilder::new(
+            self.endpoint_builder_context(),
+            name.to_string(),
+            service_endpoint_type::<T>(),
+        )
     }
 
     /// Get a reference to this node's schema service, if enabled.
@@ -562,19 +403,33 @@ impl Node {
         &self.clock
     }
 
+    fn endpoint_builder_context(&self) -> EndpointBuilderContext {
+        EndpointBuilderContext::new(
+            self.session.clone(),
+            self.graph.clone(),
+            self.counter.clone(),
+            self.entity.clone(),
+            self.clock.clone(),
+            self.shm_config.clone(),
+            self.schema_service().map(|service| service.registrar()),
+        )
+    }
+
     // ========================================================================
     // Dynamic Message API
     // ========================================================================
 
-    /// Create a dynamic publisher for the given topic.
+    /// Create a dynamic publisher builder for the given topic.
     ///
-    /// If this node has a schema service enabled, the schema will be
-    /// automatically registered, allowing other nodes to discover it via the
-    /// `GetSchema` service.
+    /// This returns an infallible builder immediately. Topic qualification,
+    /// schema validation, type/hash checks, publisher declaration, and automatic
+    /// schema-service registration happen when the builder is built with
+    /// `.build().await`.
     ///
     /// # Arguments
     ///
     /// * `topic` - The topic name to publish on
+    /// * `type_info` - The dynamic message type name and schema hash to advertise
     /// * `schema` - The message schema for serialization
     ///
     /// # Example
@@ -592,9 +447,12 @@ impl Node {
     /// });
     ///
     /// let type_info = TypeInfo::new("std_msgs::String", ros_z_schema::compute_hash(schema.as_ref())?);
-    /// let publisher = node.dynamic_publisher("chatter", type_info, schema)?.build().await?;
+    /// let publisher = node
+    ///     .dynamic_publisher("chatter", type_info, schema.clone())
+    ///     .build()
+    ///     .await?;
     ///
-    /// let mut message = DynamicStruct::default_for_schema(publisher.schema().unwrap())?;
+    /// let mut message = DynamicStruct::default_for_schema(&schema)?;
     /// message.set("data", "Hello, world!")?;
     /// let payload = DynamicPayload::from_struct(message)?;
     /// publisher.publish(&payload).await?;
@@ -604,23 +462,13 @@ impl Node {
         topic: &str,
         type_info: TypeInfo,
         schema: Schema,
-    ) -> Result<DynamicPublisherBuilder> {
-        schema
-            .validate()
-            .map_err(|error| Error::schema("publisher", topic, error))?;
-
-        self.register_schema_with_service(&type_info.name, Arc::clone(&schema))
-            .map_err(|source| {
-                Error::from(WireError::DynamicSchema {
-                    endpoint_kind: "publisher",
-                    topic: topic.to_string(),
-                    source,
-                })
-            })?;
-
-        Ok(self
-            .publisher_impl::<DynamicPayload, DynamicCdrCodec>(topic, type_info)
-            .dynamic_schema(schema))
+    ) -> DynamicPublisherBuilder {
+        debug!("[NOD] Creating dynamic publisher builder: topic={}", topic);
+        PublisherBuilder::new(
+            self.endpoint_builder_context(),
+            topic.to_string(),
+            MessageEndpointType::dynamic(type_info, schema),
+        )
     }
 
     /// Discover the schema that publishers currently expose on a topic.
@@ -632,17 +480,17 @@ impl Node {
         topic: &str,
         discovery_timeout: Duration,
     ) -> std::result::Result<DiscoveredTopicSchema, DynamicError> {
-        SchemaDiscovery::new(self, discovery_timeout)
+        SchemaDiscovery::new(self.endpoint_builder_context(), discovery_timeout)
             .discover(topic)
             .await
     }
 
-    /// Create a dynamic subscriber with automatic schema discovery.
+    /// Create a dynamic subscriber builder with automatic schema discovery.
     ///
-    /// This method queries publishers on the topic for their schema service
-    /// and returns a preconfigured subscriber builder using the discovered
-    /// schema. This is useful when you don't know the message type at compile
-    /// time.
+    /// This method returns a discovery builder immediately. When you build it,
+    /// the builder queries publishers on the topic for their schema service and
+    /// creates a dynamic subscriber from the discovered schema. This is useful
+    /// when you don't know the message type at compile time.
     ///
     /// The topic name will be qualified as a ros-z graph name:
     /// - Absolute topics (starting with '/') are used as-is
@@ -656,57 +504,58 @@ impl Node {
     ///
     /// # Returns
     ///
-    /// A preconfigured dynamic subscriber builder on success.
+    /// A dynamic subscriber discovery builder. Schema discovery runs when the
+    /// builder is built.
     ///
     /// # Example
     ///
     /// ```ignore
-    /// // Discover schema from publishers and create subscriber
+    /// // Discover schema from publishers and create the subscriber at build time.
     /// let subscriber = node.dynamic_subscriber_auto(
     ///     "chatter",
     ///     Duration::from_secs(5),
-    /// ).await?
+    /// )
     /// .build()
     /// .await?;
     ///
-    /// println!("Discovered type: {}", subscriber.schema().unwrap().type_name);
+    /// println!("Discovered schema root: {:?}", subscriber.schema().unwrap().root);
     ///
     /// // Receive messages
-    /// let message = subscriber.recv().await?;
-    /// let data: String = message.get("data")?;
+    /// let payload = subscriber.recv().await?;
+    /// if let ros_z::dynamic::DynamicValue::Struct(message) = payload.value {
+    ///     let data: String = message.get("data")?;
+    ///     println!("received: {data}");
+    /// }
     /// ```
-    pub async fn dynamic_subscriber_auto(
+    pub fn dynamic_subscriber_auto(
         &self,
         topic: &str,
         discovery_timeout: Duration,
-    ) -> Result<DynamicSubscriberBuilder> {
+    ) -> DynamicSubscriberDiscoveryBuilder {
         debug!(
             "[NOD] Creating dynamic subscriber with auto-discovery for topic: {}",
             topic
         );
 
-        let discovered = self.discover_topic_schema(topic, discovery_timeout).await?;
-
-        info!(
-            "[NOD] Discovered schema for topic {}: {} (hash: {})",
-            discovered.qualified_topic,
-            discovered.root_name,
-            discovered.schema_hash.to_hash_string()
-        );
-
-        Ok(self
-            .subscriber_impl::<DynamicPayload, DynamicCdrCodec>(topic, discovered.type_info())
-            .dynamic_schema(discovered.schema))
+        DynamicSubscriberDiscoveryBuilder::new(
+            self.endpoint_builder_context(),
+            topic.to_string(),
+            discovery_timeout,
+        )
     }
 
-    /// Create a dynamic subscriber with a known schema.
+    /// Create a dynamic subscriber builder with a known schema.
     ///
     /// Use this when you already have the schema (e.g., loaded from a file
-    /// or built programmatically).
+    /// or built programmatically). This returns an infallible builder
+    /// immediately. Topic qualification, schema validation, type/hash checks,
+    /// and subscriber declaration happen when the builder is built with
+    /// `.build().await`.
     ///
     /// # Arguments
     ///
     /// * `topic` - The topic name to subscribe to
+    /// * `type_info` - The dynamic message type name and schema hash expected on the topic
     /// * `schema` - The message schema for deserialization
     ///
     /// The topic name will be qualified as a ros-z graph name:
@@ -729,22 +578,24 @@ impl Node {
     /// });
     ///
     /// let type_info = TypeInfo::new("std_msgs::String", ros_z_schema::compute_hash(schema.as_ref())?);
-    /// let subscriber = node.dynamic_subscriber("chatter", type_info, schema)?.build().await?;
-    /// let message = subscriber.recv().await?;
+    /// let subscriber = node.dynamic_subscriber("chatter", type_info, schema).build().await?;
+    /// let payload = subscriber.recv().await?;
+    /// if let ros_z::dynamic::DynamicValue::Struct(message) = payload.value {
+    ///     let data: String = message.get("data")?;
+    ///     println!("received: {data}");
+    /// }
     /// ```
     pub fn dynamic_subscriber(
         &self,
         topic: &str,
         type_info: TypeInfo,
         schema: Schema,
-    ) -> Result<DynamicSubscriberBuilder> {
-        if let Err(error) = schema.validate() {
-            return Err(Error::schema("subscriber", topic, error));
-        }
-
-        Ok(self
-            .subscriber_impl::<DynamicPayload, DynamicCdrCodec>(topic, type_info)
-            .dynamic_schema(schema))
+    ) -> DynamicSubscriberBuilder {
+        SubscriberBuilder::new(
+            self.endpoint_builder_context(),
+            topic.to_string(),
+            MessageEndpointType::dynamic(type_info, schema),
+        )
     }
 
     pub fn register_schema_with_service(
@@ -752,20 +603,7 @@ impl Node {
         root_name: &str,
         schema: Schema,
     ) -> std::result::Result<(), DynamicError> {
-        if let ros_z_schema::TypeDef::Named(schema_root_name) = &schema.root
-            && schema_root_name.as_str() != root_name
-        {
-            return Err(DynamicError::SerializationError(format!(
-                "schema root '{}' does not match registered root name '{}'",
-                schema_root_name.as_str(),
-                root_name
-            )));
-        }
-        if let Some(service) = &self.schema_service {
-            service.register_schema(root_name, schema)?;
-            debug!("[NOD] Registered schema {root_name} with schema service");
-        }
-
-        Ok(())
+        self.endpoint_builder_context()
+            .register_schema_with_service(root_name, schema)
     }
 }

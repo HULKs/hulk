@@ -23,7 +23,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .await
         .map_err(|error| color_eyre::eyre::eyre!("{error}"))?;
     let button_event_message_pub = node
-        .publisher::<ButtonEventMsg>("inputs/button_event_message")?
+        .publisher::<ButtonEventMsg>("inputs/button_event_message")
         .build()
         .await?;
 

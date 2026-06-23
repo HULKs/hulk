@@ -21,21 +21,23 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let parameters =
         node.bind_parameter_as::<CameraMatrixParameters>("camera_matrix_calculator")?;
     let robot_kinematics_cache = node
-        .create_cache::<TimeWrapper<RobotKinematics>>("robot_kinematics", 10)?
+        .subscriber::<TimeWrapper<RobotKinematics>>("robot_kinematics")
+        .cache(10)
         .with_stamp(|w: &TimeWrapper<RobotKinematics>| w.time)
         .build()
         .await?;
     let robot_to_ground_sub = node
-        .subscriber::<TimeWrapper<Option<Isometry3<Robot, Ground>>>>("robot_to_ground")?
+        .subscriber::<TimeWrapper<Option<Isometry3<Robot, Ground>>>>("robot_to_ground")
         .build()
         .await?;
     let camera_info_cache = node
-        .create_cache::<CameraInfo>("inputs/camera_info", 1)?
+        .subscriber::<CameraInfo>("inputs/camera_info")
+        .cache(1)
         .build()
         .await?;
 
     let camera_matrix_pub = node
-        .publisher::<TimeWrapper<CameraMatrix>>("camera_matrix")?
+        .publisher::<TimeWrapper<CameraMatrix>>("camera_matrix")
         .build()
         .await?;
 

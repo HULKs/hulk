@@ -27,14 +27,9 @@ pub async fn run(
     count: Option<usize>,
     timeout: Option<f64>,
 ) -> Result<()> {
-    let subscriber_builder = app
-        .create_dynamic_subscriber_builder(topic, TYPE_DISCOVERY_TIMEOUT)
-        .await
-        .wrap_err_with(|| format!("failed to subscribe to {topic}"))?;
-    let subscriber = subscriber_builder
-        .build()
-        .await
-        .wrap_err_with(|| format!("failed to subscribe to {topic}"))?;
+    let subscriber = app
+        .create_dynamic_subscriber(topic, TYPE_DISCOVERY_TIMEOUT)
+        .await?;
     let _schema = subscriber
         .schema()
         .ok_or_else(|| eyre!("dynamic subscriber missing schema for {topic}"))?;

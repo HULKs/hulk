@@ -1,0 +1,18 @@
+error[E0599]: the method `cache` exists for struct `SubscriberBuilder<DynamicPayload, DynamicCdrCodec>`, but its trait bounds were not satisfied
+  --> tests/ui/endpoint_builder/dynamic_subscriber_cache.rs:30:10
+   |
+28 |       let _cache_builder = node
+   |  __________________________-
+29 | |         .dynamic_subscriber("compile_dynamic", dynamic_type_info, dynamic_schema)
+30 | |         .cache(4);
+   | |         -^^^^^ method cannot be called on `SubscriberBuilder<DynamicPayload, DynamicCdrCodec>` due to unsatisfied trait bounds
+   | |_________|
+   |
+   |
+  ::: src/dynamic/codec.rs
+   |
+   |   pub struct DynamicCdrCodec;
+   |   -------------------------- doesn't satisfy `<_ as WireDecoder>::Input<'a> = &[u8]`
+   |
+   = note: the following trait bounds were not satisfied:
+           `<DynamicCdrCodec as WireDecoder>::Input<'a> = &'a [u8]`

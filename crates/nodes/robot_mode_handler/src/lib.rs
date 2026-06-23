@@ -26,7 +26,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let parameters = node.bind_parameter_as::<Parameters>("robot_mode_handler")?;
     let primary_state_sub = node
-        .subscriber::<PrimaryState>("primary_state")?
+        .subscriber::<PrimaryState>("primary_state")
         .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
@@ -34,15 +34,15 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let buttons_sub = node
-        .subscriber::<Buttons<Option<ButtonPressType>>>("buttons")?
+        .subscriber::<Buttons<Option<ButtonPressType>>>("buttons")
         .build()
         .await?;
     let high_level_command_pub = node
-        .publisher::<HighLevelCommand>("commands/high_level_command")?
+        .publisher::<HighLevelCommand>("commands/high_level_command")
         .build()
         .await?;
     let get_robot_mode_client = node
-        .create_service_client::<GetRobotMode>("services/get_robot_mode")?
+        .service_client::<GetRobotMode>("services/get_robot_mode")
         .build()
         .await?;
 

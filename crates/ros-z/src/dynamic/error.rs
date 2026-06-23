@@ -45,7 +45,7 @@ pub enum DynamicError {
     },
 
     /// Name qualification error.
-    #[error("failed to qualify schema service name while {operation}: {source}")]
+    #[error("failed to qualify name while {operation}: {source}")]
     Name {
         operation: &'static str,
         #[source]

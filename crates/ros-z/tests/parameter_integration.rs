@@ -380,9 +380,9 @@ async fn remote_v1_services_work() -> TestResult {
         .await?;
 
     let snapshot_client = client_node
-        .create_service_client::<GetNodeParametersSnapshotSrv>(
+        .service_client::<GetNodeParametersSnapshotSrv>(
             "/motion/walk_publisher/parameter/get_snapshot",
-        )?
+        )
         .build()
         .await?;
     let snapshot = snapshot_client.call_async(&Default::default()).await?;
@@ -391,7 +391,7 @@ async fn remote_v1_services_work() -> TestResult {
     assert!(snapshot.value_json.contains("threshold"));
 
     let set_client = client_node
-        .create_service_client::<SetNodeParameterSrv>("/motion/walk_publisher/parameter/set")?
+        .service_client::<SetNodeParameterSrv>("/motion/walk_publisher/parameter/set")
         .build()
         .await?;
     let set_response = set_client
@@ -405,9 +405,7 @@ async fn remote_v1_services_work() -> TestResult {
     assert!(set_response.success);
 
     let value_client = client_node
-        .create_service_client::<GetNodeParameterValueSrv>(
-            "/motion/walk_publisher/parameter/get_value",
-        )?
+        .service_client::<GetNodeParameterValueSrv>("/motion/walk_publisher/parameter/get_value")
         .build()
         .await?;
     let value_response = value_client
@@ -451,9 +449,9 @@ async fn bound_parameters_expose_type_info_and_schema_lookup() -> TestResult {
     )
     .await?;
     let type_info_client = client_node
-        .create_service_client::<GetNodeParameterTypeInfoSrv>(
+        .service_client::<GetNodeParameterTypeInfoSrv>(
             "/motion/walk_publisher/parameter/get_type_info",
-        )?
+        )
         .build()
         .await?;
     let type_info = type_info_client.call_async(&Default::default()).await?;

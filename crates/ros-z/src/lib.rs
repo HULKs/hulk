@@ -10,8 +10,18 @@
 //!
 //! let context = ContextBuilder::default().build().await?;
 //! let node = context.create_node("talker").build().await?;
-//! let publisher = node.publisher::<String>("/chatter")?.build().await?;
+//! let publisher = node.publisher::<String>("/chatter").build().await?;
 //! publisher.publish(&"hello".to_owned()).await?;
+//! ```
+//!
+//! ## Endpoint builders
+//!
+//! ```rust,ignore
+//! let publisher = node.publisher::<String>("/chatter").build().await?;
+//! let subscriber = node.subscriber::<String>("/chatter").build().await?;
+//! let cache = node.subscriber::<String>("/chatter").cache(200).build().await?;
+//! let server = node.service_server::<AddTwoInts>("add_two_ints").build().await?;
+//! let client = node.service_client::<AddTwoInts>("add_two_ints").build().await?;
 //! ```
 //!
 //! ## Sync and async APIs
@@ -49,6 +59,7 @@ pub mod context;
 /// Dynamic (schema-less) message support.
 pub mod dynamic;
 pub mod encoding;
+mod endpoint_builder;
 /// Entity identity types (`SchemaHash`, `TypeInfo`).
 pub mod entity;
 pub mod error;

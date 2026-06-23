@@ -27,19 +27,31 @@ C/C++ runtime dependencies.
 ```rust
 use ros_z::prelude::*;
 
-# async fn demo() -> ros_z::Result<()> {
-let context = ContextBuilder::default().build().await?;
-let node = context.create_node("talker").build().await?;
-let publisher = node.publisher::<String>("/chatter")?.build().await?;
+async fn demo() -> ros_z::Result<()> {
+    let context = ContextBuilder::default().build().await?;
+    let node = context.create_node("talker").build().await?;
+    let publisher = node.publisher::<String>("/chatter").build().await?;
 
-publisher.publish(&"hello".to_owned()).await?;
-# Ok(())
-# }
+    publisher.publish(&"hello".to_owned()).await?;
+    Ok(())
+}
 ```
 
 Builders that create runtime resources are async. Build contexts, nodes,
 publishers, subscribers, services, and caches inside a Tokio-compatible runtime.
-Endpoint factory methods validate schema/type metadata immediately and return `Result<Builder>`; `.build().await` only creates runtime Zenoh resources.
+Endpoint factories return builders directly and defer schema, type, and graph-name
+validation until `.build().await`.
+
+Core endpoint builders use one `?` at build time. Service examples assume a
+user-defined `AddTwoInts` type that implements `Service` and `ServiceTypeInfo`:
+
+```rust,ignore
+let publisher = node.publisher::<String>("/chatter").build().await?;
+let subscriber = node.subscriber::<String>("/chatter").build().await?;
+let cache = node.subscriber::<String>("/chatter").cache(200).build().await?;
+let server = node.service_server::<AddTwoInts>("add_two_ints").build().await?;
+let client = node.service_client::<AddTwoInts>("add_two_ints").build().await?;
+```
 
 ## Name Rules
 

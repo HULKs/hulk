@@ -371,11 +371,8 @@ impl GraphFixture {
             .await?;
         let topic = "/cli_e2e/telemetry".to_string();
         let service = "/cli_e2e/add_two_ints".to_string();
-        let publisher = node.publisher::<Telemetry>(&topic)?.build().await?;
-        let service_server = node
-            .create_service_server::<AddTwoInts>(&service)?
-            .build()
-            .await?;
+        let publisher = node.publisher::<Telemetry>(&topic).build().await?;
+        let service_server = node.service_server::<AddTwoInts>(&service).build().await?;
 
         Ok(Self {
             topic,
@@ -406,7 +403,7 @@ impl PublishingFixture {
             .with_namespace("/cli_e2e")
             .build()
             .await?;
-        let publisher = node.publisher::<Telemetry>(topic)?.build().await?;
+        let publisher = node.publisher::<Telemetry>(topic).build().await?;
 
         Ok(Self {
             topic: topic.to_string(),
@@ -683,7 +680,7 @@ async fn schema_resolves_string_publisher_schema() -> TestResult {
         .build()
         .await?;
     let _publisher = node
-        .publisher::<String>("/cli_e2e/schema_string")?
+        .publisher::<String>("/cli_e2e/schema_string")
         .build()
         .await?;
     let node_fqn = "/cli_e2e/string_schema_fixture";

@@ -23,13 +23,11 @@ async fn publisher_message_id_is_reserved_and_observable() {
 
     let publisher = node
         .publisher::<AlignmentMessage>("/alignment_topic")
-        .expect("endpoint factory should succeed")
         .build()
         .await
         .expect("Failed to create publisher");
     let subscriber = node
         .subscriber::<AlignmentMessage>("/alignment_topic")
-        .expect("endpoint factory should succeed")
         .build()
         .await
         .expect("Failed to create subscriber");
@@ -73,13 +71,11 @@ async fn publisher_direct_publish_attaches_publication_id() {
 
     let publisher = node
         .publisher::<AlignmentMessage>("/alignment_direct_topic")
-        .expect("endpoint factory should succeed")
         .build()
         .await
         .expect("Failed to create publisher");
     let subscriber = node
         .subscriber::<AlignmentMessage>("/alignment_direct_topic")
-        .expect("endpoint factory should succeed")
         .build()
         .await
         .expect("Failed to create subscriber");

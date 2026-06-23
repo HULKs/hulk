@@ -13,7 +13,8 @@ use crate::Result;
 use crate::attachment::{Attachment, EndpointGlobalId};
 use crate::dynamic::{DynamicCdrCodec, DynamicPayload, Schema};
 use crate::encoding::Encoding;
-use crate::entity::EndpointEntity;
+use crate::endpoint_builder::{EndpointBuilderContext, MessageEndpointType};
+use crate::entity::{EndpointEntity, EndpointKind};
 use crate::graph::Graph;
 use crate::message::WireEncoder;
 use crate::pubsub::metadata::PublicationId;
@@ -85,6 +86,37 @@ impl Drop for ReplayTaskGuard {
     fn drop(&mut self) {
         if let Some(task) = &self.0 {
             task.abort();
+        }
+    }
+}
+
+struct PreparedPublisherBuild {
+    session: Session,
+    graph: Arc<Graph>,
+    clock: Clock,
+    shm_config: Option<Arc<ShmConfig>>,
+    entity: EndpointEntity,
+    key_expr: zenoh::key_expr::KeyExpr<'static>,
+    topic_key_expr: ros_z_protocol::entity::TopicKE,
+    transient_local_cache: Option<Arc<TransientLocalCache>>,
+    endpoint_global_id: EndpointGlobalId,
+    dyn_schema: Option<Schema>,
+}
+
+impl PreparedPublisherBuild {
+    fn warn_about_incompatible_endpoints(graph: &Graph, entity: &EndpointEntity) {
+        for endpoint in graph.type_incompatible_endpoints_for(entity) {
+            warn!(
+                topic = %entity.topic,
+                publisher_node = %entity.node.fully_qualified_name(),
+                publisher_type = %entity.type_info.name,
+                publisher_schema_hash = %entity.type_info.hash,
+                endpoint_kind = ?endpoint.kind,
+                endpoint_node = %endpoint.node.fully_qualified_name(),
+                endpoint_type = %endpoint.type_info.name,
+                endpoint_schema_hash = %endpoint.type_info.hash,
+                "[PUB] endpoint type metadata does not match publisher"
+            );
         }
     }
 }
@@ -161,20 +193,33 @@ impl<T, C: WireEncoder> std::fmt::Debug for Publisher<T, C> {
 
 #[derive(Debug)]
 pub struct PublisherBuilder<T, C = <T as crate::Message>::Codec> {
-    pub(crate) entity: EndpointEntity,
-    pub(crate) session: Session,
-    pub(crate) graph: Arc<Graph>,
-    pub(crate) clock: Clock,
+    pub(crate) context: EndpointBuilderContext,
+    pub(crate) topic: String,
+    pub(crate) type_source: MessageEndpointType,
+    pub(crate) qos: ros_z_protocol::qos::QosProfile,
     pub(crate) shm_config: Option<Arc<ShmConfig>>,
-    /// Schema for dynamic message publishing.
-    /// When set, the schema will be registered with the schema service.
-    pub(crate) dyn_schema: Option<Schema>,
     pub(crate) _phantom_data: PhantomData<(T, C)>,
 }
 
 impl<T, C> PublisherBuilder<T, C> {
+    pub(crate) fn new(
+        context: EndpointBuilderContext,
+        topic: String,
+        type_source: MessageEndpointType,
+    ) -> Self {
+        let shm_config = context.shm_config.clone();
+        Self {
+            context,
+            topic,
+            type_source,
+            qos: crate::endpoint_builder::default_protocol_qos(),
+            shm_config,
+            _phantom_data: Default::default(),
+        }
+    }
+
     pub fn qos(mut self, qos: QosProfile) -> Self {
-        self.entity.qos = qos.to_protocol_qos();
+        self.qos = qos.to_protocol_qos();
         self
     }
 
@@ -194,7 +239,7 @@ impl<T, C> PublisherBuilder<T, C> {
     /// let provider = Arc::new(ShmProviderBuilder::new(20 * 1024 * 1024).build()?);
     /// let config = ShmConfig::new(provider).with_threshold(5_000);
     ///
-    /// let publisher = node.publisher::<String>("topic")?
+    /// let publisher = node.publisher::<String>("topic")
     ///     .shm_config(config)
     ///     .build()
     ///     .await?;
@@ -218,7 +263,7 @@ impl<T, C> PublisherBuilder<T, C> {
     /// # let context = ros_z::context::ContextBuilder::default().with_shm_enabled()?.build().await?;
     /// # let node = context.create_node("test").build().await?;
     /// // Context has SHM enabled, but disable for this publisher
-    /// let publisher = node.publisher::<String>("small_messages")?
+    /// let publisher = node.publisher::<String>("small_messages")
     ///     .without_shm()
     ///     .build()
     ///     .await?;
@@ -229,12 +274,6 @@ impl<T, C> PublisherBuilder<T, C> {
         self.shm_config = None;
         self
     }
-
-    /// Set the dynamic schema for runtime-typed publishers.
-    pub fn dynamic_schema(mut self, schema: Schema) -> Self {
-        self.dyn_schema = Some(schema);
-        self
-    }
 }
 
 impl<T, C> PublisherBuilder<T, C>
@@ -243,38 +282,40 @@ where
     C: for<'a> WireEncoder<Input<'a> = &'a T> + 'static,
 {
     #[tracing::instrument(name = "pub_build", skip(self), fields(
-        topic = %self.entity.topic
+        topic = %self.topic
     ))]
     pub async fn build(self) -> Result<Publisher<T, C>> {
         self.build_inner_async().await
     }
 
-    fn prepare_build(
-        &mut self,
-    ) -> Result<(
-        zenoh::key_expr::KeyExpr<'static>,
-        ros_z_protocol::entity::TopicKE,
-        Option<Arc<TransientLocalCache>>,
-        EndpointGlobalId,
-    )> {
+    fn prepare_build(self) -> Result<PreparedPublisherBuild> {
+        let (type_info, dyn_schema) = self
+            .type_source
+            .resolve_for_publisher(&self.context, &self.topic)?;
+
         // Qualify the topic name as a ros-z graph name.
-        let topic = self.entity.topic.clone();
+        let topic = self.topic;
         let qualified_topic = topic_name::qualify_topic_name(
             &topic,
-            &self.entity.node.namespace,
-            &self.entity.node.name,
+            &self.context.node.namespace,
+            &self.context.node.name,
         )
         .map_err(|source| crate::Error::topic_name(topic, source))?;
 
-        self.entity.topic = qualified_topic.clone();
         debug!("[PUB] Qualified topic: {}", qualified_topic);
 
-        let topic_key_expr = ros_z_protocol::format::topic_key_expr(&self.entity)?;
-        let data_key_expr = (*topic_key_expr).clone();
-        debug!("[PUB] Key expression: {}", data_key_expr);
+        let entity = self.context.endpoint_entity(
+            EndpointKind::Publisher,
+            qualified_topic,
+            type_info,
+            self.qos,
+        );
+        let topic_key_expr = ros_z_protocol::format::topic_key_expr(&entity)?;
+        let key_expr = (*topic_key_expr).clone();
+        debug!("[PUB] Key expression: {}", key_expr);
 
         if matches!(
-            self.entity.qos,
+            entity.qos,
             ros_z_protocol::qos::QosProfile {
                 durability: QosDurability::TransientLocal,
                 history: QosHistory::KeepAll,
@@ -286,41 +327,30 @@ where
             );
         }
 
-        let transient_local_cache = replay::transient_local_cache_capacity(&self.entity.qos)
+        let transient_local_cache = replay::transient_local_cache_capacity(&entity.qos)
             .map(|capacity| Arc::new(TransientLocalCache::new(capacity)));
-        let endpoint_global_id = EndpointGlobalId::from(&self.entity);
+        let endpoint_global_id = EndpointGlobalId::from(&entity);
 
-        Ok((
-            data_key_expr,
+        Ok(PreparedPublisherBuild {
+            session: self.context.session.clone(),
+            graph: self.context.graph.clone(),
+            clock: self.context.clock.clone(),
+            shm_config: self.shm_config,
+            entity,
+            key_expr,
             topic_key_expr,
             transient_local_cache,
             endpoint_global_id,
-        ))
+            dyn_schema,
+        })
     }
 
-    fn warn_about_incompatible_endpoints(&self) {
-        for endpoint in self.graph.type_incompatible_endpoints_for(&self.entity) {
-            warn!(
-                topic = %self.entity.topic,
-                publisher_node = %self.entity.node.fully_qualified_name(),
-                publisher_type = %self.entity.type_info.name,
-                publisher_schema_hash = %self.entity.type_info.hash,
-                endpoint_kind = ?endpoint.kind,
-                endpoint_node = %endpoint.node.fully_qualified_name(),
-                endpoint_type = %endpoint.type_info.name,
-                endpoint_schema_hash = %endpoint.type_info.hash,
-                "[PUB] endpoint type metadata does not match publisher"
-            );
-        }
-    }
+    async fn build_inner_async(self) -> Result<Publisher<T, C>> {
+        let prepared = self.prepare_build()?;
 
-    async fn build_inner_async(mut self) -> Result<Publisher<T, C>> {
-        let (key_expr, topic_key_expr, transient_local_cache, endpoint_global_id) =
-            self.prepare_build()?;
+        let mut pub_builder = prepared.session.declare_publisher(prepared.key_expr);
 
-        let mut pub_builder = self.session.declare_publisher(key_expr);
-
-        match self.entity.qos.reliability {
+        match prepared.entity.qos.reliability {
             QosReliability::Reliable => {
                 pub_builder = pub_builder.congestion_control(zenoh::qos::CongestionControl::Block);
                 debug!("[PUB] QoS: Reliable (Block)");
@@ -331,28 +361,29 @@ where
             }
         }
 
-        let transient_local_replay_task = if let Some(cache) = transient_local_cache.as_ref() {
-            Some(
-                spawn_transient_local_replay_queryable(
-                    &self.session,
-                    &topic_key_expr,
-                    endpoint_global_id,
-                    cache.clone(),
+        let transient_local_replay_task =
+            if let Some(cache) = prepared.transient_local_cache.as_ref() {
+                Some(
+                    spawn_transient_local_replay_queryable(
+                        &prepared.session,
+                        &prepared.topic_key_expr,
+                        prepared.endpoint_global_id,
+                        cache.clone(),
+                    )
+                    .await?,
                 )
-                .await?,
-            )
-        } else {
-            None
-        };
+            } else {
+                None
+            };
         let transient_local_replay_task = ReplayTaskGuard::new(transient_local_replay_task);
 
         let inner = pub_builder
             .await
             .map_err(|source| crate::Error::zenoh("declare publisher", source))?;
-        debug!("[PUB] Publisher ready: topic={}", self.entity.topic);
+        debug!("[PUB] Publisher ready: topic={}", prepared.entity.topic);
 
-        let liveliness_key_expr = self.entity.liveliness_key_expr()?.0;
-        let lv_token = self
+        let liveliness_key_expr = prepared.entity.liveliness_key_expr()?.0;
+        let lv_token = prepared
             .session
             .liveliness()
             .declare_token(liveliness_key_expr)
@@ -360,20 +391,23 @@ where
             .map_err(|source| crate::Error::zenoh("declare publisher liveliness token", source))?;
         let encoding = Arc::new(Encoding::cdr().to_zenoh_encoding());
         debug!("[PUB] Using encoding: {}", encoding);
-        self.warn_about_incompatible_endpoints();
+        PreparedPublisherBuild::warn_about_incompatible_endpoints(
+            &prepared.graph,
+            &prepared.entity,
+        );
 
         Ok(Publisher {
-            entity: self.entity,
+            entity: prepared.entity,
             sequence_number: AtomicUsize::new(0),
             inner,
             _lv_token: lv_token,
-            endpoint_global_id,
-            clock: self.clock,
-            shm_config: self.shm_config,
-            dyn_schema: self.dyn_schema,
+            endpoint_global_id: prepared.endpoint_global_id,
+            clock: prepared.clock,
+            shm_config: prepared.shm_config,
+            dyn_schema: prepared.dyn_schema,
             encoding,
-            graph: self.graph,
-            transient_local_cache,
+            graph: prepared.graph,
+            transient_local_cache: prepared.transient_local_cache,
             transient_local_replay_task: transient_local_replay_task.into_task(),
             _phantom_data: Default::default(),
         })
@@ -606,7 +640,7 @@ impl Publisher<DynamicPayload, DynamicCdrCodec> {
     /// Get the dynamic schema used by this publisher.
     ///
     /// Returns `None` if the publisher was not created through
-    /// `Node::dynamic_publisher` or with `.dynamic_schema()`.
+    /// `Node::dynamic_publisher`.
     pub fn schema(&self) -> Option<&SchemaBundle> {
         self.dyn_schema.as_ref().map(|s| s.as_ref())
     }

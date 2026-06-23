@@ -149,7 +149,7 @@ impl CreateFutureQueue for Node {
         transit_lag: Duration,
     ) -> Result<FutureQueueSubscriber<T>> {
         let data_subscriber = self
-            .subscriber(topic)?
+            .subscriber(topic)
             .qos(QosProfile {
                 history: QosHistory::KeepAll,
                 ..Default::default()
@@ -157,7 +157,7 @@ impl CreateFutureQueue for Node {
             .build()
             .await?;
         let announcement_subscriber = self
-            .subscriber(&format!("{}/announce", topic))?
+            .subscriber(&format!("{}/announce", topic))
             .qos(QosProfile {
                 history: QosHistory::KeepAll,
                 ..Default::default()

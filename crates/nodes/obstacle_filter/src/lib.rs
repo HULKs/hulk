@@ -60,28 +60,31 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let parameters = node.bind_parameter_as::<ObstacleFilterParameters>("obstacle_filter")?;
     let field_dimensions_cache = node
-        .create_cache::<FieldDimensions>("field_dimensions", 1)?
-        .with_qos(QosProfile {
+        .subscriber::<FieldDimensions>("field_dimensions")
+        .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
         })
+        .cache(1)
         .build()
         .await?;
     let camera_matrix_cache = node
-        .create_cache::<TimeWrapper<CameraMatrix>>("camera_matrix", 10)?
+        .subscriber::<TimeWrapper<CameraMatrix>>("camera_matrix")
+        .cache(10)
         .with_stamp(|wrapper| wrapper.time)
         .build()
         .await?;
     let player_number_cache = node
-        .create_cache::<PlayerNumber>("player_number", 1)?
-        .with_qos(QosProfile {
+        .subscriber::<PlayerNumber>("player_number")
+        .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
         })
+        .cache(1)
         .build()
         .await?;
     let player_states_subscriber = node
-        .subscriber::<Players<Option<TimeWrapper<PlayerState>>>>("player_states")?
+        .subscriber::<Players<Option<TimeWrapper<PlayerState>>>>("player_states")
         .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
@@ -89,23 +92,27 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let current_odometry_to_last_odometry_cache = node
-        .create_cache::<na::Isometry2<f32>>("current_odometry_to_last_odometry", 10)?
+        .subscriber::<na::Isometry2<f32>>("current_odometry_to_last_odometry")
+        .cache(10)
         .build()
         .await?;
     let primary_state_cache = node
-        .create_cache::<PrimaryState>("primary_state", 1)?
-        .with_qos(QosProfile {
+        .subscriber::<PrimaryState>("primary_state")
+        .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
         })
+        .cache(1)
         .build()
         .await?;
     let ground_to_field_cache = node
-        .create_cache::<Isometry2<Ground, Field>>("ground_to_field", 10)?
+        .subscriber::<Isometry2<Ground, Field>>("ground_to_field")
+        .cache(10)
         .build()
         .await?;
     let fall_down_state_cache = node
-        .create_cache::<FallDownState>("inputs/fall_down_state", 10)?
+        .subscriber::<FallDownState>("inputs/fall_down_state")
+        .cache(10)
         .build()
         .await?;
 
@@ -124,13 +131,10 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build();
 
     let obstacle_filter_hypotheses_pub = node
-        .publisher::<Vec<Hypothesis>>("obstacle_filter_hypotheses")?
+        .publisher::<Vec<Hypothesis>>("obstacle_filter_hypotheses")
         .build()
         .await?;
-    let obstacles_pub = node
-        .publisher::<Vec<Obstacle>>("obstacles")?
-        .build()
-        .await?;
+    let obstacles_pub = node.publisher::<Vec<Obstacle>>("obstacles").build().await?;
 
     let mut obstacle_filter = ObstacleFilter::default();
     let mut last_processed_player_state_times = Players::new(None);

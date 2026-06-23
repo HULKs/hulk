@@ -127,84 +127,99 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
     let parameters = node.bind_parameter_as::<BehaviorParameters>("behavior_node")?;
     parameters.add_validation_hook(validate_behavior_parameters)?;
     let field_dimensions_cache = node
-        .create_cache::<FieldDimensions>("field_dimensions", 1)?
-        .with_qos(QosProfile {
+        .subscriber::<FieldDimensions>("field_dimensions")
+        .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
         })
+        .cache(1)
         .build()
         .await?;
 
     let player_number_cache = node
-        .create_cache::<PlayerNumber>("player_number", 1)?
-        .with_qos(QosProfile {
+        .subscriber::<PlayerNumber>("player_number")
+        .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
         })
+        .cache(1)
         .build()
         .await?;
     let player_states_cache = node
-        .create_cache::<Players<Option<TimeWrapper<PlayerState>>>>("player_states", 1)?
+        .subscriber::<Players<Option<TimeWrapper<PlayerState>>>>("player_states")
+        .cache(1)
         .build()
         .await?;
     let fall_down_state_cache = node
-        .create_cache::<FallDownState>("inputs/fall_down_state", 1)?
+        .subscriber::<FallDownState>("inputs/fall_down_state")
+        .cache(1)
         .build()
         .await?;
     let ball_state_cache = node
-        .create_cache::<Option<BallState>>("ball_state", 1)?
+        .subscriber::<Option<BallState>>("ball_state")
+        .cache(1)
         .build()
         .await?;
     let filtered_game_controller_state_cache = node
-        .create_cache::<FilteredGameControllerState>("filtered_game_controller_state", 1)?
+        .subscriber::<FilteredGameControllerState>("filtered_game_controller_state")
+        .cache(1)
         .build()
         .await?;
     let game_controller_address_cache = node
-        .create_cache::<Option<SocketAddr>>("game_controller_address", 1)?
+        .subscriber::<Option<SocketAddr>>("game_controller_address")
+        .cache(1)
         .build()
         .await?;
     let ground_to_field_cache = node
-        .create_cache::<Isometry2<Ground, Field>>("ground_to_field", 1)?
+        .subscriber::<Isometry2<Ground, Field>>("ground_to_field")
+        .cache(1)
         .build()
         .await?;
     let hypothetical_ball_positions_cache = node
-        .create_cache::<Vec<HypotheticalBallPosition<Ground>>>("hypothetical_ball_positions", 1)?
+        .subscriber::<Vec<HypotheticalBallPosition<Ground>>>("hypothetical_ball_positions")
+        .cache(1)
         .build()
         .await?;
     let obstacles_cache = node
-        .create_cache::<Vec<Obstacle>>("obstacles", 1)?
+        .subscriber::<Vec<Obstacle>>("obstacles")
+        .cache(1)
         .build()
         .await?;
     let position_of_interest_cache = node
-        .create_cache::<Point2<Ground>>("position_of_interest", 1)?
+        .subscriber::<Point2<Ground>>("position_of_interest")
+        .cache(1)
         .build()
         .await?;
     let primary_state_cache = node
-        .create_cache::<PrimaryState>("primary_state", 1)?
-        .with_qos(QosProfile {
+        .subscriber::<PrimaryState>("primary_state")
+        .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
         })
+        .cache(1)
         .build()
         .await?;
     let rule_ball_cache = node
-        .create_cache::<Option<BallState>>("rule_ball_state", 1)?
+        .subscriber::<Option<BallState>>("rule_ball_state")
+        .cache(1)
         .build()
         .await?;
     let rule_obstacles_cache = node
-        .create_cache::<Vec<RuleObstacle>>("rule_obstacles", 1)?
+        .subscriber::<Vec<RuleObstacle>>("rule_obstacles")
+        .cache(1)
         .build()
         .await?;
     let suggested_search_position_cache = node
-        .create_cache::<Point2<Field>>("suggested_search_position", 1)?
+        .subscriber::<Point2<Field>>("suggested_search_position")
+        .cache(1)
         .build()
         .await?;
     let additional_behavior_trace_pub = node
-        .publisher::<NodeTrace>("behavior/trace")?
+        .publisher::<NodeTrace>("behavior/trace")
         .build()
         .await?;
     let additional_behavior_tree_layout_pub = node
-        .publisher::<NodeTrace>("behavior/tree_layout")?
+        .publisher::<NodeTrace>("behavior/tree_layout")
         .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
@@ -212,15 +227,15 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let additional_black_board_pub = node
-        .publisher::<Blackboard>("behavior/blackboard")?
+        .publisher::<Blackboard>("behavior/blackboard")
         .build()
         .await?;
     let outgoing_message_pub = node
-        .publisher::<OutgoingMessage>("outputs/message")?
+        .publisher::<OutgoingMessage>("outputs/message")
         .build()
         .await?;
     let motion_command_pub = node
-        .publisher::<MotionCommand>("behavior/motion_command")?
+        .publisher::<MotionCommand>("behavior/motion_command")
         .build()
         .await?;
 

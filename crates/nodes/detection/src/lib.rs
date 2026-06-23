@@ -61,19 +61,19 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let node_parameters = node.bind_parameter_as::<DetectionParameters>("detection")?;
 
     let image_sub = node
-        .subscriber::<TimeWrapper<Image>>("inputs/left_image")?
+        .subscriber::<TimeWrapper<Image>>("inputs/left_image")
         .build()
         .await?;
     let inference_duration_pub = node
-        .publisher::<Duration>("inference_duration")?
+        .publisher::<Duration>("inference_duration")
         .build()
         .await?;
     let post_processing_duration_pub = node
-        .publisher::<Duration>("post_processing_duration")?
+        .publisher::<Duration>("post_processing_duration")
         .build()
         .await?;
     let non_maximum_suppression_duration_pub = node
-        .publisher::<Duration>("non_maximum_suppression_duration")?
+        .publisher::<Duration>("non_maximum_suppression_duration")
         .build()
         .await?;
     let detected_objects_pub = node

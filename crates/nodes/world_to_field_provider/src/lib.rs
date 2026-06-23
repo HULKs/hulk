@@ -15,12 +15,12 @@ pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> +
 async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("world_to_field_provider").build().await?;
     let game_controller_state_sub = node
-        .subscriber::<Option<GameControllerState>>("game_controller_state")?
+        .subscriber::<Option<GameControllerState>>("game_controller_state")
         .build()
         .await?;
 
     let world_to_field_pub = node
-        .publisher::<Option<Isometry2<World, Field>>>("world_to_field")?
+        .publisher::<Option<Isometry2<World, Field>>>("world_to_field")
         .build()
         .await?;
 

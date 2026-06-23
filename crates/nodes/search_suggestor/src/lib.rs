@@ -29,7 +29,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let parameters = node.bind_parameter_as::<SearchSuggestorParameters>("search_suggestor")?;
     let field_dimensions_sub = node
-        .subscriber::<FieldDimensions>("field_dimensions")?
+        .subscriber::<FieldDimensions>("field_dimensions")
         .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
@@ -37,41 +37,43 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let ball_position_sub = node
-        .subscriber::<Option<BallPosition<Ground>>>("ball_filter/ball_position")?
+        .subscriber::<Option<BallPosition<Ground>>>("ball_filter/ball_position")
         .build()
         .await?;
     let hypothetical_ball_positions_sub = node
         .subscriber::<Vec<HypotheticalBallPosition<Ground>>>(
             "ball_filter/hypothetical_ball_positions",
-        )?
+        )
         .build()
         .await?;
     let ground_to_field_cache = node
-        .create_cache::<Isometry2<Ground, Field>>("ground_to_field", 10)?
+        .subscriber::<Isometry2<Ground, Field>>("ground_to_field")
+        .cache(10)
         .build()
         .await?;
     let primary_state_cache = node
-        .create_cache::<PrimaryState>("primary_state", 1)?
-        .with_qos(QosProfile {
+        .subscriber::<PrimaryState>("primary_state")
+        .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
         })
+        .cache(1)
         .build()
         .await?;
     let filtered_game_controller_state_sub = node
-        .subscriber::<FilteredGameControllerState>("filtered_game_controller_state")?
+        .subscriber::<FilteredGameControllerState>("filtered_game_controller_state")
         .build()
         .await?;
     let network_message_sub = node
-        .subscriber::<TimeWrapper<IncomingMessage>>("filtered_message")?
+        .subscriber::<TimeWrapper<IncomingMessage>>("filtered_message")
         .build()
         .await?;
     let additional_heatmap_pub = node
-        .publisher::<types::heatmap::Heatmap>("ball_search_heatmap")?
+        .publisher::<types::heatmap::Heatmap>("ball_search_heatmap")
         .build()
         .await?;
     let suggested_search_position_pub = node
-        .publisher::<Point2<Field>>("suggested_search_position")?
+        .publisher::<Point2<Field>>("suggested_search_position")
         .build()
         .await?;
 

@@ -26,15 +26,15 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("image_receiver").build().await?;
 
     let left_image_pub = node
-        .publisher::<TimeWrapper<Image>>("inputs/left_image")?
+        .publisher::<TimeWrapper<Image>>("inputs/left_image")
         .build()
         .await?;
     let right_image_pub = node
-        .publisher::<TimeWrapper<Image>>("inputs/right_image")?
+        .publisher::<TimeWrapper<Image>>("inputs/right_image")
         .build()
         .await?;
     let camera_info_pub = node
-        .publisher::<CameraInfo>("inputs/camera_info")?
+        .publisher::<CameraInfo>("inputs/camera_info")
         .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()
@@ -42,11 +42,11 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await?;
     let ycbcr422_image_pub = node
-        .publisher::<TimeWrapper<YCbCr422Image>>("inputs/ycbcr422_image")?
+        .publisher::<TimeWrapper<YCbCr422Image>>("inputs/ycbcr422_image")
         .build()
         .await?;
     let stereo_image_pair_pub = node
-        .publisher::<TimeWrapper<StereoImagePair>>("inputs/stereo_image_pair")?
+        .publisher::<TimeWrapper<StereoImagePair>>("inputs/stereo_image_pair")
         .build()
         .await?;
 

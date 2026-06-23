@@ -25,14 +25,12 @@ async fn test_shm_pubsub_large_message() {
 
     let publisher = node
         .publisher::<Vec<u8>>("shm_test_topic")
-        .expect("endpoint factory should succeed")
         .build()
         .await
         .expect("Failed to create publisher");
 
     let subscriber = node
         .subscriber::<Vec<u8>>("shm_test_topic")
-        .expect("endpoint factory should succeed")
         .build()
         .await
         .expect("Failed to create subscriber");
@@ -83,14 +81,12 @@ async fn test_shm_pubsub_small_message() {
 
     let publisher = node
         .publisher::<Vec<u8>>("small_topic")
-        .expect("endpoint factory should succeed")
         .build()
         .await
         .expect("Failed to create publisher");
 
     let subscriber = node
         .subscriber::<Vec<u8>>("small_topic")
-        .expect("endpoint factory should succeed")
         .build()
         .await
         .expect("Failed to create subscriber");
@@ -139,14 +135,12 @@ async fn test_shm_threshold_boundary() {
 
     let publisher = node
         .publisher::<Vec<u8>>("boundary_topic")
-        .expect("endpoint factory should succeed")
         .build()
         .await
         .expect("Failed to create publisher");
 
     let subscriber = node
         .subscriber::<Vec<u8>>("boundary_topic")
-        .expect("endpoint factory should succeed")
         .build()
         .await
         .expect("Failed to create subscriber");
@@ -198,14 +192,12 @@ async fn test_shm_config_hierarchy_node_override() {
 
     let publisher = node
         .publisher::<Vec<u8>>("hierarchy_topic")
-        .expect("endpoint factory should succeed")
         .build()
         .await
         .expect("Failed to create publisher");
 
     let subscriber = node
         .subscriber::<Vec<u8>>("hierarchy_topic")
-        .expect("endpoint factory should succeed")
         .build()
         .await
         .expect("Failed to create subscriber");
@@ -248,7 +240,6 @@ async fn test_without_shm() {
 
     let publisher = node
         .publisher::<Vec<u8>>("no_shm_topic")
-        .expect("endpoint factory should succeed")
         .without_shm() // Explicitly disable SHM
         .build()
         .await
@@ -256,7 +247,6 @@ async fn test_without_shm() {
 
     let subscriber = node
         .subscriber::<Vec<u8>>("no_shm_topic")
-        .expect("endpoint factory should succeed")
         .build()
         .await
         .expect("Failed to create subscriber");
@@ -305,7 +295,6 @@ async fn test_publisher_shm_override() {
 
     let publisher = node
         .publisher::<Vec<u8>>("pub_shm_topic")
-        .expect("endpoint factory should succeed")
         .shm_config(pub_shm_config)
         .build()
         .await
@@ -313,7 +302,6 @@ async fn test_publisher_shm_override() {
 
     let subscriber = node
         .subscriber::<Vec<u8>>("pub_shm_topic")
-        .expect("endpoint factory should succeed")
         .build()
         .await
         .expect("Failed to create subscriber");
@@ -357,7 +345,6 @@ async fn test_multiple_publishers_different_thresholds() {
     // Publisher 1: uses context default
     let pub1 = node
         .publisher::<Vec<u8>>("topic1")
-        .expect("endpoint factory should succeed")
         .build()
         .await
         .expect("Failed to create publisher 1");
@@ -370,7 +357,6 @@ async fn test_multiple_publishers_different_thresholds() {
     );
     let pub2 = node
         .publisher::<Vec<u8>>("topic2")
-        .expect("endpoint factory should succeed")
         .shm_config(ShmConfig::new(provider2).with_threshold(1_000))
         .build()
         .await
@@ -378,14 +364,12 @@ async fn test_multiple_publishers_different_thresholds() {
 
     let sub1 = node
         .subscriber::<Vec<u8>>("topic1")
-        .expect("endpoint factory should succeed")
         .build()
         .await
         .expect("Failed to create subscriber 1");
 
     let sub2 = node
         .subscriber::<Vec<u8>>("topic2")
-        .expect("endpoint factory should succeed")
         .build()
         .await
         .expect("Failed to create subscriber 2");

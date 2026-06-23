@@ -207,7 +207,7 @@ impl<T> TypedSubscriptionBuilder<'_, T> {
         let subscriber = self
             .manager
             .node()
-            .subscriber::<T>(&resolved_topic)?
+            .subscriber::<T>(&resolved_topic)
             .build()
             .await?;
         let type_info = subscriber.entity().type_info.clone();
@@ -295,7 +295,6 @@ impl DynamicSubscriptionBuilder<'_> {
                 &resolved_topic,
                 self.manager.options.schema_discovery_timeout(),
             )
-            .await?
             .build()
             .await?;
         let type_info = subscriber.entity().type_info.clone();

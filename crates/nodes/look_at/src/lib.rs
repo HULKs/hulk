@@ -29,25 +29,22 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let _parameters = node.bind_parameter_as::<Parameters>("look_at")?;
     let _camera_matrix_sub = node
-        .subscriber::<CameraMatrix>("camera_matrix")?
+        .subscriber::<CameraMatrix>("camera_matrix")
         .build()
         .await?;
     let _ground_to_robot_sub = node
-        .subscriber::<Isometry3<Ground, Robot>>("ground_to_robot")?
+        .subscriber::<Isometry3<Ground, Robot>>("ground_to_robot")
         .build()
         .await?;
     let _motion_command_sub = node
-        .subscriber::<MotionCommand>("motion_command")?
+        .subscriber::<MotionCommand>("motion_command")
         .build()
         .await?;
     let _serial_motor_states_sub = node
-        .subscriber::<Joints<MotorState>>("inputs/serial_motor_states")?
+        .subscriber::<Joints<MotorState>>("inputs/serial_motor_states")
         .build()
         .await?;
-    let _look_at_pub = node
-        .publisher::<HeadJoints<f32>>("look_at")?
-        .build()
-        .await?;
+    let _look_at_pub = node.publisher::<HeadJoints<f32>>("look_at").build().await?;
 
     pending::<()>().await;
 

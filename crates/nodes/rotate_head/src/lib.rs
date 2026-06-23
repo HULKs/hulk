@@ -23,11 +23,11 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let _parameters = node.bind_parameter_as::<Parameters>("rotate_head")?;
     let _get_robot_mode_client = node
-        .create_service_client::<GetRobotMode>("services/get_robot_mode")?
+        .service_client::<GetRobotMode>("services/get_robot_mode")
         .build()
         .await?;
     let _head_joints_sub = node
-        .subscriber::<HeadJoints<f32>>("head_joints_command")?
+        .subscriber::<HeadJoints<f32>>("head_joints_command")
         .build()
         .await?;
 

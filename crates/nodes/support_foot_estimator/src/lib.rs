@@ -29,21 +29,23 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let parameters = node.bind_parameter_as::<Parameters>("support_foot_estimator")?;
     let imu_state_sub = node
-        .subscriber::<ImuState>("inputs/imu_state")?
+        .subscriber::<ImuState>("inputs/imu_state")
         .build()
         .await?;
     let robot_kinematics_cache = node
-        .create_cache::<TimeWrapper<RobotKinematics>>("robot_kinematics", 10)?
+        .subscriber::<TimeWrapper<RobotKinematics>>("robot_kinematics")
+        .cache(10)
         .with_stamp(|wrapper| wrapper.time)
         .build()
         .await?;
     let fall_down_state_cache = node
-        .create_cache::<FallDownState>("inputs/fall_down_state", 10)?
+        .subscriber::<FallDownState>("inputs/fall_down_state")
+        .cache(10)
         .build()
         .await?;
 
     let support_foot_pub = node
-        .publisher::<TimeWrapper<Option<Side>>>("support_foot")?
+        .publisher::<TimeWrapper<Option<Side>>>("support_foot")
         .qos(QosProfile {
             durability: QosDurability::TransientLocal,
             ..Default::default()

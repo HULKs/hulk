@@ -52,6 +52,47 @@ fn assert_service_timeout(error: &ros_z::Error, expected_service: &str) {
     }
 }
 
+#[tokio::test(flavor = "multi_thread", worker_threads = 1)]
+async fn service_factories_defer_name_errors_to_build() {
+    let context = ContextBuilder::default()
+        .disable_multicast_scouting()
+        .with_json("connect/endpoints", json!([]))
+        .build()
+        .await
+        .expect("Failed to create context");
+    let node = context
+        .create_node("deferred_service_errors")
+        .build()
+        .await
+        .expect("Failed to create node");
+
+    let server_error = node
+        .service_server::<AddTwoInts>("bad%service")
+        .build()
+        .await
+        .expect_err("invalid service server name should fail during build");
+    assert!(matches!(
+        server_error,
+        ros_z::Error::Name {
+            kind: ros_z::error::NameKind::Service,
+            ..
+        }
+    ));
+
+    let client_error = node
+        .service_client::<AddTwoInts>("bad%service")
+        .build()
+        .await
+        .expect_err("invalid service client name should fail during build");
+    assert!(matches!(
+        client_error,
+        ros_z::Error::Name {
+            kind: ros_z::error::NameKind::Service,
+            ..
+        }
+    ));
+}
+
 #[tokio::test(flavor = "multi_thread")]
 async fn test_basic_service_request_response() {
     let context = ContextBuilder::default()
@@ -71,11 +112,7 @@ async fn test_basic_service_request_response() {
                 .expect("Failed to create node");
 
             let mut server = handle
-                .block_on(
-                    node.create_service_server::<AddTwoInts>("add_two_ints")
-                        .expect("endpoint factory should succeed")
-                        .build(),
-                )
+                .block_on(node.service_server::<AddTwoInts>("add_two_ints").build())
                 .expect("Failed to create server");
 
             // Wait for request
@@ -99,11 +136,7 @@ async fn test_basic_service_request_response() {
                 .expect("Failed to create node");
 
             let client = handle
-                .block_on(
-                    node.create_service_client::<AddTwoInts>("add_two_ints")
-                        .expect("endpoint factory should succeed")
-                        .build(),
-                )
+                .block_on(node.service_client::<AddTwoInts>("add_two_ints").build())
                 .expect("Failed to create client");
 
             // Give server time to start
@@ -141,8 +174,7 @@ async fn test_async_service_request_response() {
             .expect("Failed to create node");
 
         let mut server = node
-            .create_service_server::<AddTwoInts>("async_add")
-            .expect("endpoint factory should succeed")
+            .service_server::<AddTwoInts>("async_add")
             .build()
             .await
             .expect("Failed to create server");
@@ -171,8 +203,7 @@ async fn test_async_service_request_response() {
             .expect("Failed to create node");
 
         let client = node
-            .create_service_client::<AddTwoInts>("async_add")
-            .expect("endpoint factory should succeed")
+            .service_client::<AddTwoInts>("async_add")
             .build()
             .await
             .expect("Failed to create client");
@@ -213,11 +244,7 @@ async fn test_multiple_service_requests() {
                 .expect("Failed to create node");
 
             let mut server = handle
-                .block_on(
-                    node.create_service_server::<AddTwoInts>("multi_add")
-                        .expect("endpoint factory should succeed")
-                        .build(),
-                )
+                .block_on(node.service_server::<AddTwoInts>("multi_add").build())
                 .expect("Failed to create server");
 
             // Handle 3 requests
@@ -243,11 +270,7 @@ async fn test_multiple_service_requests() {
                 .expect("Failed to create node");
 
             let client = handle
-                .block_on(
-                    node.create_service_client::<AddTwoInts>("multi_add")
-                        .expect("endpoint factory should succeed")
-                        .build(),
-                )
+                .block_on(node.service_client::<AddTwoInts>("multi_add").build())
                 .expect("Failed to create client");
 
             // Give server time to start
@@ -289,11 +312,7 @@ async fn test_blocking_call_waits_for_service_response() {
                 .expect("Failed to create node");
 
             let mut server = handle
-                .block_on(
-                    node.create_service_server::<AddTwoInts>("blocking_call")
-                        .expect("endpoint factory should succeed")
-                        .build(),
-                )
+                .block_on(node.service_server::<AddTwoInts>("blocking_call").build())
                 .expect("Failed to create server");
 
             let request = server.take_request().expect("Failed to take request");
@@ -315,11 +334,7 @@ async fn test_blocking_call_waits_for_service_response() {
                 .expect("Failed to create node");
 
             let client = handle
-                .block_on(
-                    node.create_service_client::<AddTwoInts>("blocking_call")
-                        .expect("endpoint factory should succeed")
-                        .build(),
-                )
+                .block_on(node.service_client::<AddTwoInts>("blocking_call").build())
                 .expect("Failed to create client");
 
             thread::sleep(Duration::from_millis(100));
@@ -356,8 +371,7 @@ async fn test_blocking_call_with_timeout_can_exceed_old_builder_timeout() {
 
             let mut server = handle
                 .block_on(
-                    node.create_service_server::<AddTwoInts>("builder_timeout_queue")
-                        .expect("endpoint factory should succeed")
+                    node.service_server::<AddTwoInts>("builder_timeout_queue")
                         .build(),
                 )
                 .expect("Failed to create server");
@@ -380,8 +394,7 @@ async fn test_blocking_call_with_timeout_can_exceed_old_builder_timeout() {
         .expect("Failed to create node");
 
     let client = node
-        .create_service_client::<AddTwoInts>("builder_timeout_queue")
-        .expect("endpoint factory should succeed")
+        .service_client::<AddTwoInts>("builder_timeout_queue")
         .build()
         .await
         .expect("Failed to create client");
@@ -418,8 +431,7 @@ async fn test_async_call_with_timeout_can_exceed_old_builder_timeout() {
             .expect("Failed to create node");
 
         let mut server = node
-            .create_service_server::<AddTwoInts>("builder_timeout_async")
-            .expect("endpoint factory should succeed")
+            .service_server::<AddTwoInts>("builder_timeout_async")
             .build()
             .await
             .expect("Failed to create server");
@@ -447,8 +459,7 @@ async fn test_async_call_with_timeout_can_exceed_old_builder_timeout() {
             .expect("Failed to create node");
 
         let client = node
-            .create_service_client::<AddTwoInts>("builder_timeout_async")
-            .expect("endpoint factory should succeed")
+            .service_client::<AddTwoInts>("builder_timeout_async")
             .build()
             .await
             .expect("Failed to create client");
@@ -484,8 +495,7 @@ async fn test_blocking_call_with_timeout_reports_timeout_when_no_service_matches
         .expect("Failed to create node");
 
     let client = node
-        .create_service_client::<AddTwoInts>("blocking_timeout")
-        .expect("endpoint factory should succeed")
+        .service_client::<AddTwoInts>("blocking_timeout")
         .build()
         .await
         .expect("Failed to create client");
@@ -517,8 +527,7 @@ async fn async_call_with_timeout_reports_timeout_when_no_service_matches() {
         .build()
         .await
         .expect("Failed to create node")
-        .create_service_client::<AddTwoInts>("async_timeout")
-        .expect("endpoint factory should succeed")
+        .service_client::<AddTwoInts>("async_timeout")
         .build()
         .await
         .expect("Failed to create client");
@@ -558,8 +567,7 @@ async fn test_blocking_call_with_timeout_returns_response_before_deadline() {
 
             let mut server = handle
                 .block_on(
-                    node.create_service_server::<AddTwoInts>("blocking_timeout_success")
-                        .expect("endpoint factory should succeed")
+                    node.service_server::<AddTwoInts>("blocking_timeout_success")
                         .build(),
                 )
                 .expect("Failed to create server");
@@ -579,8 +587,7 @@ async fn test_blocking_call_with_timeout_returns_response_before_deadline() {
         .expect("Failed to create node");
 
     let client = node
-        .create_service_client::<AddTwoInts>("blocking_timeout_success")
-        .expect("endpoint factory should succeed")
+        .service_client::<AddTwoInts>("blocking_timeout_success")
         .build()
         .await
         .expect("Failed to create client");
@@ -623,8 +630,7 @@ async fn test_blocking_call_with_timeout_reports_real_timeout_while_waiting_for_
 
             let mut server = handle
                 .block_on(
-                    node.create_service_server::<AddTwoInts>("blocking_timeout_waiting")
-                        .expect("endpoint factory should succeed")
+                    node.service_server::<AddTwoInts>("blocking_timeout_waiting")
                         .build(),
                 )
                 .expect("Failed to create server");
@@ -644,8 +650,7 @@ async fn test_blocking_call_with_timeout_reports_real_timeout_while_waiting_for_
         .expect("Failed to create node");
 
     let client = node
-        .create_service_client::<AddTwoInts>("blocking_timeout_waiting")
-        .expect("endpoint factory should succeed")
+        .service_client::<AddTwoInts>("blocking_timeout_waiting")
         .build()
         .await
         .expect("Failed to create client");
@@ -681,8 +686,7 @@ async fn test_blocking_call_with_timeout_reports_timeout_without_reply() {
         .build()
         .await
         .expect("Failed to create node")
-        .create_service_server::<AddTwoInts>("blocking_early_completion")
-        .expect("endpoint factory should succeed")
+        .service_server::<AddTwoInts>("blocking_early_completion")
         .build_with_callback(move |_query| {
             // Intentionally end the query without producing a successful reply sample.
         })
@@ -698,8 +702,7 @@ async fn test_blocking_call_with_timeout_reports_timeout_without_reply() {
         .expect("Failed to create node");
 
     let client = node
-        .create_service_client::<AddTwoInts>("blocking_early_completion")
-        .expect("endpoint factory should succeed")
+        .service_client::<AddTwoInts>("blocking_early_completion")
         .build()
         .await
         .expect("Failed to create client");
@@ -733,8 +736,7 @@ async fn async_call_with_timeout_reports_timeout_without_reply() {
         .build()
         .await
         .expect("Failed to create node")
-        .create_service_server::<AddTwoInts>("async_early_completion")
-        .expect("endpoint factory should succeed")
+        .service_server::<AddTwoInts>("async_early_completion")
         .build_with_callback(move |_query| {
             // Intentionally end the query without producing a successful reply sample.
         })
@@ -746,8 +748,7 @@ async fn async_call_with_timeout_reports_timeout_without_reply() {
         .build()
         .await
         .expect("Failed to create node")
-        .create_service_client::<AddTwoInts>("async_early_completion")
-        .expect("endpoint factory should succeed")
+        .service_client::<AddTwoInts>("async_early_completion")
         .build()
         .await
         .expect("Failed to create client");

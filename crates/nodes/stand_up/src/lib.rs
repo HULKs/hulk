@@ -15,11 +15,11 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("stand_up").build().await?;
 
     let _get_robot_mode_client = node
-        .create_service_client::<GetRobotMode>("services/get_robot_mode")?
+        .service_client::<GetRobotMode>("services/get_robot_mode")
         .build()
         .await?;
     let _motion_command_sub = node
-        .subscriber::<MotionCommand>("motion_command")?
+        .subscriber::<MotionCommand>("motion_command")
         .build()
         .await?;
 

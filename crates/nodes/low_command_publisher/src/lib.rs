@@ -26,11 +26,11 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let parameters = node.bind_parameter_as::<Parameters>("command_sender")?;
     let collected_target_joint_positions_sub = node
-        .subscriber::<Joints<f32>>("collected_target_joint_positions")?
+        .subscriber::<Joints<f32>>("collected_target_joint_positions")
         .build()
         .await?;
     let low_command_pub = node
-        .publisher::<LowCommand>("actions/low_command")?
+        .publisher::<LowCommand>("actions/low_command")
         .build()
         .await?;
 

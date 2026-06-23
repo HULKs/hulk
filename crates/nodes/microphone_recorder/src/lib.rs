@@ -17,7 +17,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
     let parameters = node.bind_parameter_as::<MicrophonesParameters>("microphone_recorder")?;
 
     let microphones_samples_pub = node
-        .publisher::<Samples>("inputs/microphones_samples")?
+        .publisher::<Samples>("inputs/microphones_samples")
         .build()
         .await?;
 

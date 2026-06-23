@@ -27,19 +27,19 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let parameters = node.bind_parameter_as::<Parameters>("game_controller_filter")?;
     let network_message_sub = node
-        .subscriber::<TimeWrapper<IncomingMessage>>("filtered_message")?
+        .subscriber::<TimeWrapper<IncomingMessage>>("filtered_message")
         .build()
         .await?;
     let last_contact_pub = node
-        .publisher::<HashMap<SocketAddr, Time>>("game_controller_address_contacts_times")?
+        .publisher::<HashMap<SocketAddr, Time>>("game_controller_address_contacts_times")
         .build()
         .await?;
     let game_controller_state_pub = node
-        .publisher::<Option<GameControllerState>>("game_controller_state")?
+        .publisher::<Option<GameControllerState>>("game_controller_state")
         .build()
         .await?;
     let game_controller_address_pub = node
-        .publisher::<Option<SocketAddr>>("game_controller_address")?
+        .publisher::<Option<SocketAddr>>("game_controller_address")
         .build()
         .await?;
 
