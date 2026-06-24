@@ -2,7 +2,7 @@ use std::path::PathBuf;
 
 use clap::Parser;
 use color_eyre::{Result, eyre::Context};
-use ndarray::Array3;
+use ndarray::Array4;
 use ort::{
     execution_providers::{CUDAExecutionProvider, TensorRTExecutionProvider},
     inputs,
@@ -21,8 +21,8 @@ struct CliArguments {
 }
 
 fn main() -> Result<()> {
-    const IMAGE_WIDTH: usize = 544;
-    const IMAGE_HEIGHT: usize = 448;
+    const IMAGE_WIDTH: usize = 640;
+    const IMAGE_HEIGHT: usize = 640;
 
     let args = CliArguments::parse();
     color_eyre::install()?;
@@ -43,9 +43,8 @@ fn main() -> Result<()> {
         .with_intra_threads(2)?
         .commit_from_file(args.onnx_path)?;
 
-    let sample_image = Array3::<u8>::default([IMAGE_HEIGHT / 2, IMAGE_WIDTH / 2, 6]);
-    let _ = session
-        .run(inputs!["raw_bytes_input" => TensorRef::from_array_view(sample_image.view())?])?;
+    let sample_image = Array4::<f32>::default([1, 3, IMAGE_HEIGHT, IMAGE_WIDTH]);
+    let _ = session.run(inputs!["images" => TensorRef::from_array_view(sample_image.view())?])?;
 
     eprintln!("object detection setup complete");
 

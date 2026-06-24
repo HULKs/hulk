@@ -120,6 +120,7 @@ members = [
   "tools/annotato",
   "tools/depp",
   "tools/fanta",
+  "tools/hydra-bench",
   "tools/mujoco-simulator/mujoco-rust-server",
   "tools/parameter_tester",
   "tools/pepsi",

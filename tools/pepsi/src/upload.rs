@@ -7,7 +7,7 @@ use color_eyre::{
     eyre::{WrapErr, bail},
 };
 use futures_util::{StreamExt, stream::FuturesUnordered};
-use repository::{Repository, upload::get_hulk_binary};
+use repository::{Repository, upload::get_binary};
 use robot::{Robot, SystemctlAction};
 use tempfile::tempdir;
 
@@ -125,7 +125,7 @@ pub async fn upload(arguments: Arguments, repository: &Repository) -> Result<()>
         true => "hulk_booster",
         false => "hulk_ros_z",
     };
-    let hulk_binary = get_hulk_binary(arguments.build.profile(), binary_name);
+    let hulk_binary = get_binary(arguments.build.profile(), binary_name);
 
     let cargo_arguments = cargo::Arguments {
         manifest: Some(

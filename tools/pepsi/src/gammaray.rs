@@ -438,24 +438,30 @@ impl CommandExt for Command {
         self.stderr(Stdio::piped());
         let mut process = self.spawn().unwrap();
         let mut stdout_lines = BufReader::new(process.stdout.take().unwrap()).split(line_delimiter);
-        let mut stderr_lines = BufReader::new(process.stderr.take().unwrap()).split(line_delimiter);
+        let mut stderr_lines = BufReader::new(process.stderr.take().unwrap()).split(b'\n');
+        let mut stdout = String::new();
         let mut stderr = String::new();
 
         loop {
             select! {
                 Ok(Some(buffer)) = stdout_lines.next_segment() => {
                     if let Ok(text) = str::from_utf8(&buffer) {
+                        writeln!(&mut stdout, "{text}")?;
                         let message = if name.is_empty() {
                             text.to_string()
                         } else {
                             format!("{name}: {text}")
                         };
                         progress_bar.set_message(message);
+                        if line_delimiter == b'\n' {
+                            progress_bar.println(text);
+                        }
                     }
                 }
                 Ok(Some(buffer)) = stderr_lines.next_segment() => {
                     if let Ok(text) = str::from_utf8(&buffer) {
                         writeln!(&mut stderr, "{text}")?;
+                        progress_bar.println(text);
                     }
                 }
                 else => break,
@@ -464,7 +470,9 @@ impl CommandExt for Command {
 
         match process.wait().await?.code() {
             Some(0) => Ok(()),
-            Some(code) => bail!("{name}: process exited with error code {code}\n{stderr}"),
+            Some(code) => bail!(
+                "{name}: process exited with error code {code}\nstdout:\n{stdout}\nstderr:\n{stderr}"
+            ),
             None => bail!("process was killed"),
         }
     }
