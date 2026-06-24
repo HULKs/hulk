@@ -1563,11 +1563,7 @@ def main(
     effective_iou_threshold = (
         None
         if source_image_dir is not None
-        else (
-            DEFAULT_IOU_THRESHOLD
-            if iou_threshold is None
-            else iou_threshold
-        )
+        else (DEFAULT_IOU_THRESHOLD if iou_threshold is None else iou_threshold)
     )
     config = RenderConfig(
         conf_threshold=conf_threshold,
