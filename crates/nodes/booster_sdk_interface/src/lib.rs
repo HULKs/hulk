@@ -8,10 +8,7 @@ use kinematics::joints::head::HeadJoints;
 use ros_z::{prelude::*, time::Clock};
 use serde::{Deserialize, Serialize};
 use tokio::sync::{mpsc, watch};
-use types::{
-    buttons::{ButtonPressType, Buttons},
-    motion_command::MotionCommand,
-};
+use types::motion_command::MotionCommand;
 
 mod control;
 mod kick_transport;
@@ -275,7 +272,8 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .wrap_err("failed to bind booster_interface parameters")?;
     let light_control_client =
         Arc::new(LightControlClient::new().wrap_err("failed to create LightControlClient")?);
-    let booster_client = BoosterClient::new().wrap_err("failed to create BoosterClient")?;
+    let booster_client = BoosterClient::with_options(booster_rpc_options())
+        .wrap_err("failed to create BoosterClient")?;
     let kick_ball_publisher = kick_transport::KickBallPublisher::new(ctx.session())
         .await
         .wrap_err("failed to create kick ball publisher")?;
@@ -298,19 +296,12 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         .build()
         .await
         .wrap_err("failed to build commands/led_command subscriber")?;
-    let buttons_sub = node
-        .subscriber::<Buttons<Option<ButtonPressType>>>("buttons")
-        .wrap_err("failed to create buttons subscriber")?
-        .build()
-        .await
-        .wrap_err("failed to build buttons subscriber")?;
-
     let initial_parameters = parameters.snapshot().typed().clone();
     let default_motion_command = Arc::new(MotionCommand::Damping);
     let (effect_inputs_tx, effect_inputs_rx) = watch::channel(EffectInputs {
         motion_command: default_motion_command.clone(),
         head_joints: None,
-        emergency_damping: false,
+        emergency_damping: initial_parameters.remote_stop_toggle,
         parameters: initial_parameters,
     });
     tokio::spawn(run_effect_worker(
@@ -320,7 +311,6 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
         node.clock().clone(),
     ));
 
-    let mut local_stop_toggle = false;
     let mut tick = node.create_timer(std::time::Duration::from_millis(10));
 
     loop {
@@ -328,12 +318,6 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
             led_command = led_command_sub.recv() => {
                 let light_control_client = light_control_client.clone();
                 tokio::spawn(handle_led_command(light_control_client, led_command?));
-            }
-            buttons = buttons_sub.recv() => {
-                let buttons = buttons?;
-                if button_requests_local_stop_toggle(&buttons) {
-                    local_stop_toggle = !local_stop_toggle;
-                }
             }
             _ = tick.tick() => {
                 let parameters_snapshot = parameters.snapshot();
@@ -344,7 +328,7 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
                 let latest_head_joints = head_joints_cache
                     .get_latest()
                     .map(|head_joints| *head_joints);
-                let emergency_damping = local_stop_toggle != parameters.remote_stop_toggle;
+                let emergency_damping = parameters.remote_stop_toggle;
                 effect_inputs_tx.send_replace(EffectInputs {
                     motion_command: latest_motion_command,
                     head_joints: latest_head_joints,
@@ -367,6 +351,8 @@ async fn run_effect_worker(
     let (effect_result_tx, mut effect_result_rx) =
         mpsc::channel(EFFECT_TASK_RESULT_CHANNEL_CAPACITY);
     let mut state = InterfaceState::default();
+
+    tokio::time::sleep(booster_effect_startup_wait()).await;
 
     loop {
         tokio::select! {
@@ -423,9 +409,12 @@ fn sdk_mode_for(desired_mode: control::DesiredMode) -> booster_sdk::types::Robot
     }
 }
 
-fn button_requests_local_stop_toggle(buttons: &Buttons<Option<ButtonPressType>>) -> bool {
-    matches!(buttons.f1, Some(ButtonPressType::Short))
-        || matches!(buttons.stand, Some(ButtonPressType::Short))
+fn booster_rpc_options() -> booster_sdk::dds::RpcClientOptions {
+    booster_sdk::dds::RpcClientOptions::default().without_startup_wait()
+}
+
+fn booster_effect_startup_wait() -> Duration {
+    booster_sdk::dds::RpcClientOptions::default().startup_wait
 }
 
 fn visual_kick_transition_for(
@@ -1460,6 +1449,20 @@ mod tests {
     }
 
     #[test]
+    fn booster_rpc_options_disable_internal_startup_wait() {
+        assert_eq!(booster_rpc_options().startup_wait, Duration::ZERO);
+    }
+
+    #[test]
+    fn booster_effect_worker_keeps_sdk_startup_wait_outside_rpc_timeout() {
+        assert_eq!(
+            booster_effect_startup_wait(),
+            booster_sdk::dds::RpcClientOptions::default().startup_wait
+        );
+        assert!(booster_effect_startup_wait() > interface_parameters().sdk_request_timeout);
+    }
+
+    #[test]
     fn raw_robot_mode_ids_decode_known_modes() {
         assert_eq!(
             robot_mode_from_raw_id(booster_sdk::types::RobotMode::Walking as i32),
@@ -1470,35 +1473,6 @@ mod tests {
     #[test]
     fn raw_robot_mode_ids_reject_unknown_modes() {
         assert_eq!(robot_mode_from_raw_id(i32::MAX), None);
-    }
-
-    #[test]
-    fn interface_detects_short_f1_or_stand_local_stop_requests() {
-        assert!(!button_requests_local_stop_toggle(&Buttons {
-            f1: None,
-            stand: None,
-            walking: None,
-        }));
-        assert!(button_requests_local_stop_toggle(&Buttons {
-            f1: Some(ButtonPressType::Short),
-            stand: None,
-            walking: None,
-        }));
-        assert!(button_requests_local_stop_toggle(&Buttons {
-            f1: None,
-            stand: Some(ButtonPressType::Short),
-            walking: None,
-        }));
-        assert!(!button_requests_local_stop_toggle(&Buttons {
-            f1: Some(ButtonPressType::Long),
-            stand: None,
-            walking: None,
-        }));
-        assert!(!button_requests_local_stop_toggle(&Buttons {
-            f1: None,
-            stand: None,
-            walking: Some(ButtonPressType::Short),
-        }));
     }
 
     #[test]
