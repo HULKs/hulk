@@ -369,14 +369,15 @@ pub async fn run(ctx: Arc<Context>) -> Result<()> {
 
         blackboard.last_motion_command = motion_command.clone();
 
-        let motion_type = match motion_command.clone() {
+        let motion_type = match &motion_command {
+            MotionCommand::Damping => Some(MotionType::Damping),
             MotionCommand::VisualKick { .. } => Some(MotionType::Kick),
-            MotionCommand::Walk { .. } => Some(MotionType::Walk),
+            MotionCommand::Walk { .. } | MotionCommand::WalkWithVelocity { .. } => {
+                Some(MotionType::Walk)
+            }
             MotionCommand::Stand { .. } => Some(MotionType::Stand),
             MotionCommand::StandUp => Some(MotionType::StandUp),
             MotionCommand::Prepare => Some(MotionType::Prepare),
-            MotionCommand::Damping => Some(MotionType::Damping),
-            _ => None,
         };
 
         if motion_type != blackboard.last_motion_type {
