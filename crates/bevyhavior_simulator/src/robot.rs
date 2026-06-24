@@ -290,19 +290,6 @@ pub fn move_robots(mut robots: Query<&mut Robot>, _ball: ResMut<BallResource>, t
                 robot.database.main_outputs.look_around.yaw
             }
             HeadMotion::LookAt { target, .. } => Orientation2::from_vector(target.coords()).angle(),
-            HeadMotion::LookAtReferee { .. } => {
-                if let Some(ground_to_field) = robot.database.main_outputs.ground_to_field {
-                    let expected_referee_position = ground_to_field.inverse()
-                        * robot
-                            .database
-                            .main_outputs
-                            .expected_referee_position
-                            .unwrap_or_default();
-                    Orientation2::from_vector(expected_referee_position.coords()).angle()
-                } else {
-                    0.0
-                }
-            }
             HeadMotion::LookLeftAndRightOf { target } => {
                 let glance_factor = time.elapsed().as_secs_f32().sin();
                 target.coords().angle(&Vector2::x_axis())
@@ -408,7 +395,7 @@ pub fn cycle_robots(
         };
         let visual_referee_pose_kind = if matches!(
             robot.database.main_outputs.motion_command.head_motion(),
-            Some(HeadMotion::LookAtReferee { .. })
+            Some(HeadMotion::LookAt { .. })
         ) {
             visual_referee.pose_kind.clone()
         } else {

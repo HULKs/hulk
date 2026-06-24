@@ -47,9 +47,10 @@ pub fn create_tree() -> Node<Blackboard> {
         sequence!(
             selection!(
                 condition!(is_primary_state, PrimaryState::Initial),
-                condition!(is_primary_state, PrimaryState::Penalized)
+                condition!(is_primary_state, PrimaryState::Penalized),
+                condition!(is_primary_state, PrimaryState::Finished)
             ),
-            sequence!(action!(look_straight_ahead), action!(stand))
+            action!(prepare)
         ),
         sequence!(condition!(is_fallen), action!(stand_up)),
         sequence!(

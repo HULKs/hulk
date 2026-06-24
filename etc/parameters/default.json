@@ -378,6 +378,10 @@
     "injected_motion_command": null,
     "goal_keeper_number": "One",
     "allow_switch": {
+      "damping": {
+        "nanos": 0,
+        "secs": 0
+      },
       "kick": {
         "nanos": 500000000,
         "secs": 0

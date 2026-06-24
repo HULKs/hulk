@@ -95,7 +95,6 @@ impl HeadMotion {
                 pitch: 0.4,
             },
             Some(HeadMotionCommand::LookAt { .. })
-            | Some(HeadMotionCommand::LookAtReferee { .. })
             | Some(HeadMotionCommand::LookLeftAndRightOf { .. }) => *context.look_at,
             Some(HeadMotionCommand::Unstiff) => context.motor_states.positions().head,
             Some(HeadMotionCommand::LookAround) | Some(HeadMotionCommand::SearchForLostBall) => {

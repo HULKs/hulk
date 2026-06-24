@@ -2165,13 +2165,19 @@ dependencies = [
 name = "booster_sdk_interface"
 version = "0.1.0"
 dependencies = [
+ "booster",
  "booster_sdk",
+ "cdr",
  "color-eyre",
+ "kinematics",
+ "linear_algebra",
  "log",
  "ros-z",
+ "ros2",
  "serde",
  "tokio",
  "types",
+ "zenoh",
 ]
 
 [[package]]
@@ -5004,6 +5010,7 @@ version = "0.1.0"
 dependencies = [
  "booster",
  "color-eyre",
+ "filtering",
  "kinematics",
  "ros-z",
  "serde",
@@ -5430,14 +5437,12 @@ dependencies = [
  "head_motion",
  "image_receiver",
  "image_segmenter",
- "kick",
  "kinematics_provider",
  "led_handler",
  "line_detection",
  "localization",
  "look_around",
  "look_at",
- "low_command_publisher",
  "low_state_bridge",
  "message_filter",
  "message_handler",
@@ -5447,21 +5452,17 @@ dependencies = [
  "odometer_bridge",
  "player_state_receiver",
  "primary_state_filter",
- "robot_mode_handler",
  "ros-z",
- "rotate_head",
  "rule_obstacle_composer",
  "safe_pose_checker",
  "search_suggestor",
  "segment_filter",
- "stand_up",
  "support_foot_estimator",
  "team_ball_receiver",
  "time_to_reach_kick_position",
  "tokio",
  "tracing-subscriber",
  "trigger",
- "walking",
  "whistle_detection",
  "whistle_filter",
  "world_state_composer",
@@ -6149,17 +6150,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e2db585e1d738fc771bf08a151420d3ed193d9d895a36df7f6f8a9456b911ddc"
 
 [[package]]
-name = "kick"
-version = "0.1.0"
-dependencies = [
- "booster_sdk_interface",
- "color-eyre",
- "ros-z",
- "serde",
- "types",
-]
-
-[[package]]
 name = "kinematics"
 version = "0.1.0"
 dependencies = [
@@ -6442,18 +6432,6 @@ dependencies = [
  "ros-z",
  "serde",
  "types",
-]
-
-[[package]]
-name = "low_command_publisher"
-version = "0.1.0"
-dependencies = [
- "booster",
- "color-eyre",
- "kinematics",
- "ros-z",
- "serde",
- "tokio",
 ]
 
 [[package]]
@@ -9313,18 +9291,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "robot_mode_handler"
-version = "0.1.0"
-dependencies = [
- "booster_sdk_interface",
- "color-eyre",
- "ros-z",
- "serde",
- "tokio",
- "types",
-]
-
-[[package]]
 name = "ron"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -9505,17 +9471,6 @@ dependencies = [
  "tracing",
  "uuid",
  "widestring",
-]
-
-[[package]]
-name = "rotate_head"
-version = "0.1.0"
-dependencies = [
- "booster_sdk_interface",
- "color-eyre",
- "kinematics",
- "ros-z",
- "serde",
 ]
 
 [[package]]
@@ -10658,16 +10613,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "115beb9c69db2393ff10b75a1b8587a51716e5551d015001e55320ed279d32f9"
 dependencies = [
  "const_panic",
-]
-
-[[package]]
-name = "stand_up"
-version = "0.1.0"
-dependencies = [
- "booster_sdk_interface",
- "color-eyre",
- "ros-z",
- "types",
 ]
 
 [[package]]
@@ -12099,17 +12044,6 @@ checksum = "29790946404f91d9c5d06f9874efddea1dc06c5efe94541a7d6863108e3a5e4b"
 dependencies = [
  "same-file",
  "winapi-util",
-]
-
-[[package]]
-name = "walking"
-version = "0.1.0"
-dependencies = [
- "booster_sdk_interface",
- "color-eyre",
- "ros-z",
- "serde",
- "types",
 ]
 
 [[package]]

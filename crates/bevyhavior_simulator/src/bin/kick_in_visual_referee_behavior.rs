@@ -80,7 +80,7 @@ fn update(
                     .main_outputs
                     .motion_command
                     .head_motion(),
-                Some(HeadMotion::LookAtReferee { .. })
+                Some(HeadMotion::LookAt { .. })
             ) {
                 *state.number_of_detecting_robots_when_home += 1;
             }
@@ -114,7 +114,7 @@ fn update(
                     .main_outputs
                     .motion_command
                     .head_motion(),
-                Some(HeadMotion::LookAtReferee { .. })
+                Some(HeadMotion::LookAt { .. })
             ) {
                 *state.number_of_detecting_robots_when_away += 1;
             }
