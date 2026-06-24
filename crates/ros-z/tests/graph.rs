@@ -7,17 +7,18 @@
 //! - Node discovery and information
 //! - Service availability checking
 
-use std::{num::NonZeroUsize, time::Duration};
+use std::{net::TcpListener, num::NonZeroUsize, time::Duration};
 
 use ros_z::{
     Message, ServiceTypeInfo,
     context::ContextBuilder,
     entity::{EndpointEntity, EndpointKind, Entity, NodeEntity, NodeKey, SchemaHash, TypeInfo},
-    graph::GraphView,
+    graph::{GraphChangeSubscription, GraphRevision, GraphView},
     message::Service,
     qos::{QosCompatibility, QosDurability, QosHistory, QosProfile, QosReliability},
 };
 use serde::{Deserialize, Serialize};
+use zenoh::config::WhatAmI;
 
 type Result<T = ()> = std::result::Result<T, Box<dyn std::error::Error + Send + Sync>>;
 
@@ -84,6 +85,140 @@ fn unique_node_name(prefix: &str) -> String {
     )
 }
 
+fn unique_listen_endpoint() -> Result<String> {
+    let listener = TcpListener::bind("127.0.0.1:0")?;
+    let port = listener.local_addr()?.port();
+    Ok(format!("tcp/127.0.0.1:{port}"))
+}
+
+fn isolated_peer_config(
+    listen_endpoint: Option<&str>,
+    connect_endpoints: &[&str],
+) -> Result<zenoh::Config> {
+    let mut config = zenoh::Config::default();
+    config
+        .set_mode(Some(WhatAmI::Peer))
+        .map_err(|mode| format!("failed to set Zenoh mode to peer: {mode:?}"))?;
+    let listen_endpoints = listen_endpoint
+        .map(|endpoint| format!("[\"{endpoint}\"]"))
+        .unwrap_or_else(|| "[\"tcp/127.0.0.1:0\"]".to_string());
+    let connect_endpoints = if connect_endpoints.is_empty() {
+        "[]".to_string()
+    } else {
+        format!(
+            "[{}]",
+            connect_endpoints
+                .iter()
+                .map(|endpoint| format!("\"{endpoint}\""))
+                .collect::<Vec<_>>()
+                .join(",")
+        )
+    };
+    config.insert_json5("listen/endpoints", &listen_endpoints)?;
+    config.insert_json5("connect/endpoints", &connect_endpoints)?;
+    config.insert_json5("scouting/multicast/enabled", "false")?;
+    Ok(config)
+}
+
+async fn try_open_isolated_graph_sessions() -> Result<(zenoh::Session, zenoh::Session)> {
+    let graph_endpoint = unique_listen_endpoint()?;
+    let graph_session = zenoh::open(isolated_peer_config(Some(&graph_endpoint), &[])?).await?;
+    let remote_session = zenoh::open(isolated_peer_config(None, &[&graph_endpoint])?).await?;
+    Ok((graph_session, remote_session))
+}
+
+async fn open_isolated_graph_sessions() -> Result<(zenoh::Session, zenoh::Session)> {
+    let mut last_error = None;
+    for _ in 0..8 {
+        match try_open_isolated_graph_sessions().await {
+            Ok(sessions) => return Ok(sessions),
+            Err(error) => last_error = Some(error),
+        }
+        tokio::time::sleep(Duration::from_millis(25)).await;
+    }
+    Err(last_error.unwrap_or_else(|| "failed to open isolated graph sessions".into()))
+}
+
+fn remote_node_entity(session: &zenoh::Session, id: usize, prefix: &str) -> Entity {
+    Entity::Node(NodeEntity::new(
+        session.zid(),
+        id,
+        unique_node_name(prefix),
+        String::new(),
+    ))
+}
+
+async fn declare_liveliness_token(
+    session: &zenoh::Session,
+    entity: &Entity,
+) -> Result<zenoh::liveliness::LivelinessToken> {
+    let liveliness_key_expr = entity.liveliness_key_expr()?;
+    session
+        .liveliness()
+        .declare_token(liveliness_key_expr.0)
+        .await
+}
+
+async fn wait_for_liveliness_token(
+    session: &zenoh::Session,
+    entity: &Entity,
+    timeout: Duration,
+) -> Result<()> {
+    let liveliness_key_expr = entity.liveliness_key_expr()?;
+    let started_at = std::time::Instant::now();
+    loop {
+        if started_at.elapsed() >= timeout {
+            return Err(format!(
+                "timed out waiting for liveliness token {}",
+                liveliness_key_expr.as_str()
+            )
+            .into());
+        }
+        let query_timeout = timeout
+            .saturating_sub(started_at.elapsed())
+            .min(Duration::from_millis(50));
+        let replies = session
+            .liveliness()
+            .get(liveliness_key_expr.as_str())
+            .timeout(query_timeout)
+            .await?;
+        while let Ok(reply) = replies.recv_async().await {
+            if let Ok(sample) = reply.into_result()
+                && sample.key_expr().as_str() == liveliness_key_expr.as_str()
+            {
+                return Ok(());
+            }
+        }
+    }
+}
+
+async fn wait_for_graph_revision_change(
+    changes: &mut GraphChangeSubscription,
+    previous_revision: GraphRevision,
+    timeout: Duration,
+) -> Result<GraphRevision> {
+    let revision = changes.mark_seen();
+    if revision != previous_revision {
+        return Ok(revision);
+    }
+
+    tokio::time::timeout(timeout, async {
+        loop {
+            let revision = changes
+                .changed()
+                .await
+                .ok_or("graph change subscription closed")?;
+            if revision != previous_revision {
+                return Ok(revision);
+            }
+        }
+    })
+    .await
+    .map_err(|_| {
+        format!("timed out waiting for graph revision change from {previous_revision:?}")
+    })?
+}
+
 async fn wait_for_count(
     node: &ros_z::node::Node,
     name: &str,
@@ -132,11 +267,11 @@ async fn wait_for_count_matching(
 }
 
 fn publisher_count(view: &GraphView<'_>, topic: &str) -> usize {
-    view.publishers_on(topic).len()
+    view.publisher_count_on(topic)
 }
 
 fn subscriber_count(view: &GraphView<'_>, topic: &str) -> usize {
-    view.subscriptions_on(topic).len()
+    view.subscription_count_on(topic)
 }
 
 fn service_count(view: &GraphView<'_>, service: &str) -> usize {
@@ -266,6 +401,7 @@ mod tests {
         graph.add_local_entity(Entity::Endpoint(client_endpoint.clone()))?;
 
         let view: ros_z::graph::GraphView<'_> = graph.view();
+        assert_eq!(view.revision(), graph.revision());
         assert!(
             view.entities()
                 .any(|candidate| candidate == &Entity::Node(node.clone()))
@@ -278,6 +414,14 @@ mod tests {
         assert!(view.endpoints().any(|candidate| candidate == &publisher));
         assert_eq!(view.publishers_on(&topic), vec![publisher.clone()]);
         assert_eq!(view.subscriptions_on(&topic), vec![subscription]);
+        assert_eq!(view.publisher_count_on(&topic), 1);
+        assert_eq!(view.subscription_count_on(&topic), 1);
+        assert!(view.has_publishers_on(&topic));
+        assert!(view.has_subscriptions_on(&topic));
+        assert_eq!(view.publisher_count_on("/missing_topic"), 0);
+        assert_eq!(view.subscription_count_on("/missing_topic"), 0);
+        assert!(!view.has_publishers_on("/missing_topic"));
+        assert!(!view.has_subscriptions_on("/missing_topic"));
         assert_eq!(
             view.services_named(&service),
             vec![service_endpoint.clone()]
@@ -469,15 +613,6 @@ mod tests {
 
         assert!(graph.view().node_exists(&node_key));
         session.close().await?;
-        Ok(())
-    }
-
-    #[tokio::test(flavor = "multi_thread")]
-    async fn context_can_skip_initial_graph_liveliness_query() -> Result<()> {
-        let _ctx = ContextBuilder::default()
-            .without_graph_initial_query()
-            .build()
-            .await?;
         Ok(())
     }
 
@@ -1085,6 +1220,75 @@ mod tests {
         assert!(!pubs.is_empty(), "Expected to find publishers");
         assert!(!subs.is_empty(), "Expected to find subscribers");
 
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn graph_change_subscription_reports_historical_liveliness_put_as_revision() -> Result<()>
+    {
+        let (graph_session, remote_session) = open_isolated_graph_sessions().await?;
+        let entity = remote_node_entity(&remote_session, 91, "graph_revision_history_remote");
+        let _token = declare_liveliness_token(&remote_session, &entity).await?;
+        wait_for_liveliness_token(&graph_session, &entity, Duration::from_secs(2)).await?;
+
+        let graph = ros_z::graph::Graph::new(&graph_session).await?;
+        let mut changes = graph.subscribe_changes();
+
+        let history_revision = wait_for_graph_revision_change(
+            &mut changes,
+            GraphRevision::INITIAL,
+            Duration::from_secs(2),
+        )
+        .await?;
+
+        assert_ne!(history_revision, GraphRevision::INITIAL);
+        assert!(
+            graph
+                .view()
+                .entities()
+                .any(|candidate| candidate == &entity)
+        );
+
+        graph_session.close().await?;
+        remote_session.close().await?;
+        Ok(())
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn graph_change_subscription_reports_live_remote_put_and_delete() -> Result<()> {
+        let (graph_session, remote_session) = open_isolated_graph_sessions().await?;
+        let graph = ros_z::graph::Graph::new(&graph_session).await?;
+        let mut changes = graph.subscribe_changes();
+        let initial_revision = graph.revision();
+        let entity = remote_node_entity(&remote_session, 92, "graph_revision_live_put_delete");
+
+        let token = declare_liveliness_token(&remote_session, &entity).await?;
+
+        let put_revision =
+            wait_for_graph_revision_change(&mut changes, initial_revision, Duration::from_secs(2))
+                .await?;
+        assert_ne!(put_revision, initial_revision);
+        assert!(
+            graph
+                .view()
+                .entities()
+                .any(|candidate| candidate == &entity)
+        );
+
+        drop(token);
+        let delete_revision =
+            wait_for_graph_revision_change(&mut changes, put_revision, Duration::from_secs(2))
+                .await?;
+        assert_ne!(delete_revision, put_revision);
+        assert!(
+            !graph
+                .view()
+                .entities()
+                .any(|candidate| candidate == &entity)
+        );
+
+        graph_session.close().await?;
+        remote_session.close().await?;
         Ok(())
     }
 }

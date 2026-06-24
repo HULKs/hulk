@@ -3,7 +3,7 @@
 The framework supports to record the robots data and replay it afterwards for easy analysis.
 For each cycler instance, only the node states and inputs at the beginning of each cycle are recorded.
 During replay, the inputs and node states are used to recompute all outputs.
-A started communication server during replay can be used to investigate the recorded data via, e.g., Twix.
+Replay data can be investigated with the replayer UI and replay-specific tooling.
 
 ## Record
 
@@ -27,7 +27,7 @@ Assuming you already recorded some data on a robot, you can now use the "replaye
 - The `my_awesome_replay` directory now contains directories for each robot. Each robot directory contains one directory with the replay data from one execution of the `hulk` binary.
   All cycler instance files need to be present, regardless whether they were enabled during recording (they will be empty then).
 - Start the replayer tool by pointing it to the log directory you want to replay, e.g., `./pepsi run replayer -- my_awesome_replay/10.1.24.42/12345678`.
-- Connect your Twix to `localhost` and open some panels
+- Twix's read-only ros-z backend does not inspect these communication-server replays in this milestone
 - Use mouse and keyboard in replayer, as described below
 - ...
 - Profit

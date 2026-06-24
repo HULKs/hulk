@@ -1,45 +1,52 @@
 use std::sync::Arc;
 
-use chrono::{DateTime, Utc};
 use eframe::egui::{Label, Response, ScrollArea, Sense, Ui, Widget};
-use hulk_widgets::{PathFilter, RobotPathCompletionEdit};
+use ros_z_debug::RetentionPolicy;
 use serde_json::{Value, json};
 
 use crate::{
+    backend::{TwixBackend, retained_subscription::DynamicSubscription},
     panel::{Panel, PanelCreationContext},
-    robot::Robot,
-    value_buffer::BufferHandle,
+    topic_completion_edit::TopicCompletionEdit,
 };
 
 pub struct TextPanel {
-    robot: Arc<Robot>,
-    path: String,
-    buffer: Option<BufferHandle<Value>>,
+    backend: Arc<TwixBackend>,
+    topic: String,
+    subscription: Option<DynamicSubscription>,
+    show_all_topics: bool,
 }
 
 impl<'a> Panel<'a> for TextPanel {
     const NAME: &'static str = "Text";
 
     fn new(context: PanelCreationContext) -> Self {
-        let path = match context.value.and_then(|value| value.get("path")) {
-            Some(Value::String(string)) => string.to_string(),
-            _ => String::new(),
-        };
-        let buffer = if !path.is_empty() {
-            Some(context.robot.subscribe_json(path.clone()))
-        } else {
+        let topic = context
+            .value
+            .and_then(|value| value.get("topic").or_else(|| value.get("path")))
+            .and_then(Value::as_str)
+            .unwrap_or_default()
+            .to_string();
+        let subscription = if topic.is_empty() {
             None
+        } else {
+            Some(
+                context
+                    .backend
+                    .subscribe_json_retained(topic.clone(), RetentionPolicy::LatestOnly),
+            )
         };
         Self {
-            robot: context.robot,
-            path,
-            buffer,
+            backend: context.backend,
+            topic,
+            subscription,
+            show_all_topics: false,
         }
     }
 
     fn save(&self) -> Value {
         json!({
-            "path": self.path.clone()
+            "topic": self.topic.clone()
         })
     }
 }
@@ -48,20 +55,30 @@ impl Widget for &mut TextPanel {
     fn ui(self, ui: &mut Ui) -> Response {
         let edit_response = ui
             .horizontal(|ui| {
-                let edit_response = ui.add(RobotPathCompletionEdit::new(
-                    ui.id().with("text-panel"),
-                    self.robot.latest_paths(),
-                    &mut self.path,
-                    PathFilter::Readable,
-                ));
+                ui.checkbox(&mut self.show_all_topics, "All topics");
+                let catalog = self.backend.topic_catalog();
+                let edit_response = if self.show_all_topics {
+                    ui.add(TopicCompletionEdit::all_topics(
+                        ui.id().with("text-panel"),
+                        catalog,
+                        &mut self.topic,
+                    ))
+                } else {
+                    ui.add(TopicCompletionEdit::namespace_topics(
+                        ui.id().with("text-panel"),
+                        catalog,
+                        &mut self.topic,
+                    ))
+                };
                 if edit_response.changed() {
-                    self.buffer = Some(self.robot.subscribe_json(self.path.clone()));
-                }
-                if let Some(buffer) = &self.buffer
-                    && let Ok(Some(timestamp)) = buffer.get_last_timestamp()
-                {
-                    let date: DateTime<Utc> = timestamp.into();
-                    ui.label(date.format("%T%.3f").to_string());
+                    self.subscription = if self.topic.is_empty() {
+                        None
+                    } else {
+                        Some(self.backend.subscribe_json_retained(
+                            self.topic.clone(),
+                            RetentionPolicy::LatestOnly,
+                        ))
+                    };
                 }
                 edit_response
             })
@@ -69,9 +86,11 @@ impl Widget for &mut TextPanel {
         let scroll_area = ScrollArea::vertical()
             .auto_shrink([false, false])
             .show(ui, |ui| {
-                self.buffer.as_ref().map(|buffer| match buffer.get_last() {
-                    Ok(Some(datum)) => {
-                        let content = match serde_json::to_string_pretty(&datum.value) {
+                self.subscription.as_ref().map(|subscription| {
+                    if let Some(message) = subscription.diagnostic_message() {
+                        ui.label(message)
+                    } else if let Some(value) = subscription.latest_json() {
+                        let content = match serde_json::to_string_pretty(&value) {
                             Ok(pretty_string) => pretty_string,
                             Err(error) => error.to_string(),
                         };
@@ -82,9 +101,9 @@ impl Widget for &mut TextPanel {
                         label.on_hover_ui_at_pointer(|ui| {
                             ui.label("Click to copy");
                         })
+                    } else {
+                        ui.label("no data available")
                     }
-                    Err(error) => ui.label(error.to_string()),
-                    Ok(None) => ui.label("no data available"),
                 })
             });
         if let Some(response) = scroll_area.inner {

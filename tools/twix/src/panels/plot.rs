@@ -1,7 +1,4 @@
-use std::{
-    sync::Arc,
-    time::{Duration, SystemTime},
-};
+use std::{sync::Arc, time::Duration};
 
 use color_eyre::eyre::{Context, OptionExt};
 use eframe::{
@@ -9,16 +6,17 @@ use eframe::{
     epaint::Color32,
 };
 use egui_plot::{Line, MarkerShape, Plot as EguiPlot, PlotPoints, Points};
-use hulk_widgets::{PathFilter, RobotPathCompletionEdit};
 use itertools::Itertools;
 use mlua::{Function, Lua, LuaSerdeExt};
+use ros_z::time::Time;
+use ros_z_debug::RetentionPolicy;
 use serde::{Deserialize, Serialize};
 use serde_json::{Value, json, to_string_pretty};
 
 use crate::{
+    backend::{TwixBackend, retained_subscription::DynamicSubscription},
     panel::{Panel, PanelCreationContext},
-    robot::Robot,
-    value_buffer::BufferHandle,
+    topic_completion_edit::TopicCompletionEdit,
 };
 
 const DEFAULT_LINE_COLORS: &[Color32] = &[
@@ -33,12 +31,37 @@ const DEFAULT_LINE_COLORS: &[Color32] = &[
     Color32::from_rgb(188, 189, 34),
     Color32::from_rgb(23, 190, 207),
 ];
+const DEFAULT_LUA_TEXT: &str = "function (value)\n  return value\nend";
+
+fn plot_retention(history: Duration) -> RetentionPolicy {
+    RetentionPolicy::time_window(history).unwrap_or(RetentionPolicy::LatestOnly)
+}
+
+fn samples_for_retention(
+    retention: RetentionPolicy,
+    latest_sample: impl FnOnce() -> Option<(Time, Value)>,
+    window_samples: impl FnOnce() -> Vec<(Time, Value)>,
+) -> Vec<(Time, Value)> {
+    match retention {
+        RetentionPolicy::LatestOnly => latest_sample().into_iter().collect(),
+        RetentionPolicy::TimeWindow(_) => {
+            let samples = window_samples();
+            if samples.is_empty() {
+                latest_sample().into_iter().collect()
+            } else {
+                samples
+            }
+        }
+        _ => window_samples(),
+    }
+}
 
 #[derive(Serialize, Deserialize)]
 struct LineData {
-    path: String,
+    #[serde(alias = "path")]
+    topic: String,
     #[serde(skip)]
-    buffer: Option<BufferHandle<Value>>,
+    subscription: Option<DynamicSubscription>,
     color: Color32,
     #[serde(skip)]
     #[serde(default = "LineData::create_lua")]
@@ -59,23 +82,33 @@ impl LineData {
         Lua::new()
     }
 
+    fn install_lua_function(&self, lua_text: &str) -> mlua::Result<()> {
+        let function = self.lua.load(lua_text).eval::<Function>()?;
+        self.lua.globals().set("conversion_function", function)
+    }
+
     fn set_lua(&mut self) {
-        self.lua
-            .globals()
-            .set(
-                "conversion_function",
-                self.lua.load(&self.lua_text).eval::<Function>().unwrap(),
-            )
-            .unwrap();
+        self.lua_error = match self.install_lua_function(&self.lua_text) {
+            Ok(()) => None,
+            Err(error) => {
+                let error = format!("{error:#}");
+                match self.install_lua_function(DEFAULT_LUA_TEXT) {
+                    Ok(()) => Some(error),
+                    Err(fallback_error) => Some(format!(
+                        "{error}\nfailed to install fallback conversion: {fallback_error:#}"
+                    )),
+                }
+            }
+        };
     }
 
     fn new(color: Color32) -> Self {
         let lua = LineData::create_lua();
-        let lua_text = "function (value)\n  return value\nend".to_string();
+        let lua_text = DEFAULT_LUA_TEXT.to_string();
 
         let mut line_data = Self {
-            path: String::new(),
-            buffer: None,
+            topic: String::new(),
+            subscription: None,
             color,
             lua,
             lua_text,
@@ -93,45 +126,60 @@ impl LineData {
         self.is_highlighted = is_highlighted
     }
 
-    fn plot(&self, latest_timestamp: Option<SystemTime>) -> PlotPoints<'_> {
-        let lua_function: Function = self.lua.globals().get("conversion_function").unwrap();
-        self.buffer
-            .as_ref()
-            .map(|buffer| {
-                buffer
-                    .get()
-                    .map(|buffered_values| {
-                        PlotPoints::from_iter(buffered_values.iter().map(|datum| {
-                            let value = lua_function
-                                .call(self.lua.to_value(&datum.value))
-                                .unwrap_or(f64::NAN);
-                            [
-                                -latest_timestamp
-                                    .unwrap()
-                                    .duration_since(datum.timestamp)
-                                    .unwrap_or(Duration::ZERO)
-                                    .as_secs_f64(),
-                                value,
-                            ]
-                        }))
-                    })
-                    .unwrap_or_default()
-            })
-            .unwrap_or_default()
+    fn samples(&self, buffer_history: Duration) -> Vec<(Time, Value)> {
+        let Some(subscription) = self.subscription.as_ref() else {
+            return Vec::new();
+        };
+
+        samples_for_retention(
+            plot_retention(buffer_history),
+            || subscription.latest_json_with_timestamp(),
+            || subscription.window_json(Time::zero(), Time::from_nanos(i64::MAX)),
+        )
     }
 
-    fn show_settings(&mut self, ui: &mut Ui, id: usize, robot: &Robot, buffer_history: Duration) {
+    fn plot(&self, samples: &[(Time, Value)], latest_timestamp: Option<Time>) -> PlotPoints<'_> {
+        let Some(latest_timestamp) = latest_timestamp else {
+            return PlotPoints::default();
+        };
+        let Ok(lua_function) = self.lua.globals().get::<Function>("conversion_function") else {
+            return PlotPoints::default();
+        };
+
+        PlotPoints::from_iter(samples.iter().map(|(timestamp, value)| {
+            let value = lua_function
+                .call(self.lua.to_value(value))
+                .unwrap_or(f64::NAN);
+            [
+                -latest_timestamp.duration_since(*timestamp).as_secs_f64(),
+                value,
+            ]
+        }))
+    }
+
+    fn show_settings(
+        &mut self,
+        ui: &mut Ui,
+        id: usize,
+        backend: &TwixBackend,
+        buffer_history: Duration,
+    ) {
         ui.horizontal_top(|ui| {
-            let subscription_field = ui.add(RobotPathCompletionEdit::new(
+            let subscription_field = ui.add(TopicCompletionEdit::namespace_topics(
                 ui.id().with(id).with("plot-panel"),
-                robot.latest_paths(),
-                &mut self.path,
-                PathFilter::Readable,
+                backend.topic_catalog(),
+                &mut self.topic,
             ));
             self.set_highlighted(subscription_field.hovered());
             if subscription_field.changed() {
-                let handle = robot.subscribe_buffered_json(&self.path, buffer_history);
-                self.buffer = Some(handle);
+                self.subscription = if self.topic.is_empty() {
+                    None
+                } else {
+                    Some(backend.subscribe_json_retained(
+                        self.topic.clone(),
+                        plot_retention(buffer_history),
+                    ))
+                };
             }
 
             ui.color_edit_button_srgba(&mut self.color);
@@ -141,12 +189,20 @@ impl LineData {
                 .id_salt(id_salt)
                 .show(ui, |ui| {
                     ui.horizontal_top(|ui| {
+                        if let Some(message) = self
+                            .subscription
+                            .as_ref()
+                            .and_then(DynamicSubscription::diagnostic_message)
+                        {
+                            ui.colored_label(Color32::RED, message);
+                        }
                         let latest_value = self
-                            .buffer
+                            .subscription
                             .as_ref()
                             .ok_or_eyre("no subscription")
-                            .and_then(|buffer| buffer.get_last_value())
-                            .and_then(|maybe_value| maybe_value.ok_or_eyre("no value"));
+                            .and_then(|subscription| {
+                                subscription.latest_json().ok_or_eyre("no value")
+                            });
 
                         let pretty_json = match &latest_value {
                             Ok(value) => to_string_pretty(value)
@@ -160,24 +216,20 @@ impl LineData {
                             .code_editor()
                             .lock_focus(true);
                         if ui.add(code_edit).changed() {
-                            self.lua_error = match self.lua.load(&self.lua_text).eval::<Function>()
-                            {
-                                Ok(function) => {
-                                    self.lua
-                                        .globals()
-                                        .set("conversion_function", function)
-                                        .unwrap();
-                                    None
-                                }
-                                Err(error) => Some(format!("{error:#}")),
-                            };
+                            self.set_lua();
                         }
                         if let Some(error) = &self.lua_error {
                             ui.colored_label(Color32::RED, error);
                         } else if let Ok(value) = &latest_value {
-                            let lua_function: Function =
-                                self.lua.globals().get("conversion_function").unwrap();
-                            let value = lua_function.call::<f64>(self.lua.to_value(&value));
+                            let value = self
+                                .lua
+                                .globals()
+                                .get::<Function>("conversion_function")
+                                .and_then(|function| {
+                                    self.lua
+                                        .to_value(value)
+                                        .and_then(|value| function.call::<f64>(value))
+                                });
                             match value {
                                 Ok(value) => {
                                     ui.label(value.to_string());
@@ -196,7 +248,7 @@ impl LineData {
 pub struct PlotPanel {
     lines: Vec<LineData>,
     buffer_history: Duration,
-    robot: Arc<Robot>,
+    backend: Arc<TwixBackend>,
 }
 
 impl<'a> Panel<'a> for PlotPanel {
@@ -215,11 +267,12 @@ impl<'a> Panel<'a> for PlotPanel {
                         let mut line_data =
                             serde_json::from_value::<LineData>(line_data.clone()).ok()?;
                         line_data.set_lua();
-                        if !line_data.path.is_empty() {
-                            let handle = context
-                                .robot
-                                .subscribe_buffered_json(&line_data.path, DEFAULT_BUFFER_HISTORY);
-                            line_data.buffer = Some(handle);
+                        if !line_data.topic.is_empty() {
+                            let subscription = context.backend.subscribe_json_retained(
+                                line_data.topic.clone(),
+                                plot_retention(DEFAULT_BUFFER_HISTORY),
+                            );
+                            line_data.subscription = Some(subscription);
                         }
                         Some(line_data)
                     })
@@ -230,7 +283,7 @@ impl<'a> Panel<'a> for PlotPanel {
         PlotPanel {
             lines,
             buffer_history: DEFAULT_BUFFER_HISTORY,
-            robot: context.robot,
+            backend: context.backend,
         }
     }
 
@@ -243,23 +296,24 @@ impl<'a> Panel<'a> for PlotPanel {
 
 impl PlotPanel {
     fn plot(&self, ui: &mut Ui) -> Response {
-        let latest_timestamp = self
+        let samples = self
             .lines
             .iter()
-            .filter_map(|line_data| {
-                let buffer = line_data.buffer.as_ref()?;
-                let last = buffer.get_last_timestamp().ok().flatten()?;
-                Some(last)
-            })
+            .map(|line_data| line_data.samples(self.buffer_history))
+            .collect::<Vec<_>>();
+        let latest_timestamp = samples
+            .iter()
+            .flat_map(|samples| samples.iter().map(|(timestamp, _)| *timestamp))
             .max();
 
         let plot_points = self
             .lines
             .iter()
-            .filter(|line_data| !line_data.is_hidden)
-            .map(|line_data| {
+            .zip(samples.iter())
+            .filter(|(line_data, _)| !line_data.is_hidden)
+            .map(|(line_data, samples)| {
                 (
-                    line_data.plot(latest_timestamp),
+                    line_data.plot(samples, latest_timestamp),
                     line_data.show_scatter,
                     line_data.is_highlighted,
                     line_data.color,
@@ -301,9 +355,9 @@ impl PlotPanel {
                 for buffer in self
                     .lines
                     .iter_mut()
-                    .filter_map(|data| data.buffer.as_ref())
+                    .filter_map(|data| data.subscription.as_ref())
                 {
-                    buffer.set_history(self.buffer_history);
+                    buffer.set_retention(plot_retention(self.buffer_history));
                 }
             }
         });
@@ -329,7 +383,7 @@ impl Widget for &mut PlotPanel {
 
                 ui.checkbox(&mut line_data.show_scatter, "Scatter");
 
-                line_data.show_settings(ui, id, &self.robot, self.buffer_history);
+                line_data.show_settings(ui, id, &self.backend, self.buffer_history);
                 id += 1;
                 !delete_button.clicked()
             })
@@ -346,5 +400,87 @@ impl Widget for &mut PlotPanel {
         }
 
         plot_response
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use mlua::{Function, LuaSerdeExt};
+    use serde_json::json;
+
+    use super::*;
+
+    #[test]
+    fn invalid_lua_text_sets_error_and_keeps_identity_fallback() {
+        let mut line_data = LineData::new(Color32::WHITE);
+        line_data.lua_text = "function (".to_string();
+
+        line_data.set_lua();
+
+        assert!(
+            line_data
+                .lua_error
+                .as_deref()
+                .is_some_and(|error| !error.is_empty())
+        );
+        let lua_function: Function = line_data.lua.globals().get("conversion_function").unwrap();
+        let value = lua_function
+            .call::<f64>(line_data.lua.to_value(&json!(42.0)).unwrap())
+            .unwrap();
+        assert_eq!(value, 42.0);
+    }
+
+    #[test]
+    fn latest_only_sampling_uses_latest_sample() {
+        let sample = (Time::from_nanos(5), json!(42));
+
+        let samples = samples_for_retention(
+            RetentionPolicy::LatestOnly,
+            || Some(sample.clone()),
+            Vec::new,
+        );
+
+        assert_eq!(samples, vec![sample]);
+    }
+
+    #[test]
+    fn time_window_sampling_uses_window_samples() {
+        let sample = (Time::from_nanos(5), json!(42));
+        let window_samples = vec![sample.clone()];
+
+        let samples = samples_for_retention(
+            RetentionPolicy::time_window(Duration::from_secs(1)).unwrap(),
+            || panic!("latest sample should not be read for time-window retention"),
+            || window_samples.clone(),
+        );
+
+        assert_eq!(samples, vec![sample]);
+    }
+
+    #[test]
+    fn time_window_sampling_falls_back_to_latest_when_window_samples_are_empty() {
+        let sample = (Time::from_nanos(5), json!(42));
+
+        let samples = samples_for_retention(
+            RetentionPolicy::time_window(Duration::from_secs(1)).unwrap(),
+            || Some(sample.clone()),
+            Vec::new,
+        );
+
+        assert_eq!(samples, vec![sample]);
+    }
+
+    #[test]
+    fn time_window_sampling_does_not_duplicate_latest_when_window_samples_exist() {
+        let sample = (Time::from_nanos(5), json!(42));
+        let window_samples = vec![sample.clone()];
+
+        let samples = samples_for_retention(
+            RetentionPolicy::time_window(Duration::from_secs(1)).unwrap(),
+            || Some(sample.clone()),
+            || window_samples.clone(),
+        );
+
+        assert_eq!(samples, vec![sample]);
     }
 }

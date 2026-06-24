@@ -1,19 +1,18 @@
 use std::{
-    convert::Into, env::current_dir, iter::once, net::Ipv4Addr, path::PathBuf, str::FromStr,
-    sync::Arc, time::SystemTime,
+    convert::Into, env::current_dir, path::PathBuf, str::FromStr, sync::Arc, time::SystemTime,
 };
 
 use argument_parsers::RobotAddress;
 use clap::Parser;
 use color_eyre::{
     Report, Result,
-    eyre::{Context as _, ContextCompat, bail, eyre},
+    eyre::{Context as _, ContextCompat, eyre},
 };
 use eframe::{
     App, CreationContext, Frame, NativeOptions, Renderer, Storage,
     egui::{
-        Button, CentralPanel, Context, CornerRadius, Id, Label, Layout, RichText, Sense,
-        StrokeKind, TopBottomPanel, Ui, Widget, WidgetText,
+        CentralPanel, Context, CornerRadius, Id, Label, Layout, Sense, StrokeKind, TopBottomPanel,
+        Ui, Widget, WidgetText,
     },
     egui_wgpu::{WgpuConfiguration, WgpuSetup},
     emath::Align,
@@ -23,50 +22,35 @@ use eframe::{
 use egui_dock::{
     DockArea, DockState, LeafNode, Node, NodeIndex, Split, SurfaceIndex, TabAddAlign, TabIndex,
 };
-use itertools::chain;
 use serde_json::{Value, from_str, to_string};
 use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
-use communication::client::Status;
-use communication::messages::TextOrBinary;
 use configuration::{
     Configuration,
     keybind_plugin::{self, KeybindSystem},
     keys::KeybindAction,
 };
-use hulk_widgets::CompletionEdit;
 use log::{error, warn};
 use panel::{Panel, PanelCreationContext};
-use panels::{
-    AudioSpectrumPanel, BehaviorSimulatorPanel, BehaviorTreePanel, EnumPlotPanel,
-    ImageColorSelectPanel, ImagePanel, ImageSegmentsPanel, LookAtPanel, MapPanel,
-    MujocoSimulatorPanel, ParameterPanel, PlotPanel, RemotePanel, TextPanel, VisionTunerPanel,
-};
-use reachable_robots::ReachableRobots;
+use panels::{EnumPlotPanel, PlotPanel, TextPanel, UnsupportedPanel};
 use repository::{Repository, inspect_version::check_for_update};
 use visuals::Visuals;
 
-use crate::robot::Robot;
+use crate::backend::TwixBackend;
 
-mod change_buffer;
+mod backend;
 mod configuration;
-mod log_error;
 mod panel;
 mod panels;
-mod players_buffer_handle;
-mod reachable_robots;
-mod robot;
-mod selectable_panel_macro;
-mod twix_painter;
-mod value_buffer;
+mod topic_completion_edit;
 mod visuals;
-mod zoom_and_pan;
 
-use crate::value_buffer::BufferHandle;
+const DEFAULT_ROUTER_ENDPOINT: &str = "tcp/127.0.0.1:7447";
+const DEFAULT_TARGET_NAMESPACE: &str = "/42";
 
 #[derive(Debug, Parser)]
 struct Arguments {
-    /// robot address to connect to (overrides the address saved in the configuration file)
+    /// robot number or address whose ros-z namespace should be inspected
     pub address: Option<String>,
     /// Alternative repository root
     #[arg(long)]
@@ -125,8 +109,10 @@ fn main() -> Result<(), eframe::Error> {
         }
     }
 
-    let configuration = Configuration::load()
-        .unwrap_or_else(|error| panic!("failed to load configuration: {error}"));
+    let configuration = Configuration::load().unwrap_or_else(|error| {
+        warn!("failed to load configuration, falling back to defaults: {error}");
+        Configuration::default()
+    });
 
     let mut wgpu_options = WgpuConfiguration::default();
     match &mut wgpu_options.wgpu_setup {
@@ -154,36 +140,423 @@ fn main() -> Result<(), eframe::Error> {
                 arguments,
                 configuration,
                 repository.ok(),
-            )))
+            )?))
         }),
     )
 }
 
-impl_selectable_panel!(
-    AudioSpectrumPanel,
-    BehaviorSimulatorPanel,
-    BehaviorTreePanel,
-    EnumPlotPanel,
-    ImageColorSelectPanel,
-    ImagePanel,
-    ImageSegmentsPanel,
-    LookAtPanel,
-    MapPanel,
-    MujocoSimulatorPanel,
-    ParameterPanel,
-    PlotPanel,
-    RemotePanel,
-    TextPanel,
-    VisionTunerPanel,
-);
+fn storage_string(storage: Option<&dyn Storage>, key: &str) -> Option<String> {
+    storage.and_then(|storage| storage.get_string(key))
+}
+
+fn robot_address_to_namespace(address: &str) -> Result<String> {
+    let address_without_port = address
+        .split_once(':')
+        .map_or(address, |(address_without_port, _port)| {
+            address_without_port
+        });
+    let robot_address = RobotAddress::from_str(address_without_port)
+        .wrap_err_with(|| format!("failed to parse robot number/address '{address}'"))?;
+    let [first, second, third, robot_number] = robot_address.ip.octets();
+    if first == 10 && matches!(second, 0 | 1) && third != 0 {
+        Ok(format!("/{robot_number}"))
+    } else {
+        Err(eyre!(
+            "robot number/address '{address}' does not resolve to a robot-network address"
+        ))
+    }
+}
+
+fn robot_address_to_router_endpoint(address: &str) -> Result<String> {
+    let (address_without_port, port) = address
+        .split_once(':')
+        .map_or((address, "7447"), |(address_without_port, port)| {
+            (address_without_port, port)
+        });
+    let robot_address = RobotAddress::from_str(address_without_port)
+        .wrap_err_with(|| format!("failed to parse robot number/address '{address}'"))?;
+
+    robot_address_to_namespace(address)?;
+
+    Ok(format!("tcp/{}:{port}", robot_address.ip))
+}
+
+fn router_endpoint_from_storage(storage: Option<&dyn Storage>) -> String {
+    let Some(router_endpoint) = storage_string(storage, "router_endpoint") else {
+        if let Some(address) = storage_string(storage, "address") {
+            return match robot_address_to_router_endpoint(&address) {
+                Ok(router_endpoint) => router_endpoint,
+                Err(error) => {
+                    warn!(
+                        "invalid saved robot address '{address}', falling back to \
+                         {DEFAULT_ROUTER_ENDPOINT}: {error:#}"
+                    );
+                    DEFAULT_ROUTER_ENDPOINT.to_string()
+                }
+            };
+        }
+        return DEFAULT_ROUTER_ENDPOINT.to_string();
+    };
+
+    match TwixBackend::validate_router_endpoint(&router_endpoint) {
+        Ok(()) => router_endpoint,
+        Err(error) => {
+            warn!(
+                "invalid saved router endpoint '{router_endpoint}', falling back to \
+                 {DEFAULT_ROUTER_ENDPOINT}: {error:#}"
+            );
+            DEFAULT_ROUTER_ENDPOINT.to_string()
+        }
+    }
+}
+
+fn router_endpoint_from_arguments_and_storage(
+    argument_address: Option<&str>,
+    storage: Option<&dyn Storage>,
+) -> String {
+    if let Some(address) = argument_address {
+        return match robot_address_to_router_endpoint(address) {
+            Ok(router_endpoint) => router_endpoint,
+            Err(error) => {
+                warn!(
+                    "invalid command line robot number/address '{address}', falling back to \
+                     {DEFAULT_ROUTER_ENDPOINT}: {error:#}"
+                );
+                DEFAULT_ROUTER_ENDPOINT.to_string()
+            }
+        };
+    }
+
+    router_endpoint_from_storage(storage)
+}
+
+fn normalize_target_namespace_or_default(namespace: &str, source: &str) -> String {
+    match backend::topic::normalize_namespace(namespace) {
+        Ok(namespace) => namespace,
+        Err(error) => {
+            warn!(
+                "invalid {source} target namespace '{namespace}', falling back to \
+                 {DEFAULT_TARGET_NAMESPACE}: {error:#}"
+            );
+            DEFAULT_TARGET_NAMESPACE.to_string()
+        }
+    }
+}
+
+fn target_namespace_from_arguments_and_storage(
+    argument_address: Option<&str>,
+    storage: Option<&dyn Storage>,
+) -> String {
+    if let Some(address) = argument_address {
+        return match robot_address_to_namespace(address) {
+            Ok(namespace) => normalize_target_namespace_or_default(&namespace, "command line"),
+            Err(error) => {
+                warn!(
+                    "invalid command line robot number/address '{address}', falling back to \
+                     {DEFAULT_TARGET_NAMESPACE}: {error:#}"
+                );
+                DEFAULT_TARGET_NAMESPACE.to_string()
+            }
+        };
+    }
+
+    if let Some(namespace) = storage_string(storage, "target_namespace") {
+        return normalize_target_namespace_or_default(&namespace, "saved");
+    }
+
+    if let Some(address) = storage_string(storage, "address") {
+        return match robot_address_to_namespace(&address) {
+            Ok(namespace) => normalize_target_namespace_or_default(&namespace, "migrated saved"),
+            Err(error) => {
+                warn!(
+                    "invalid saved robot address '{address}', falling back to \
+                     {DEFAULT_TARGET_NAMESPACE}: {error:#}"
+                );
+                DEFAULT_TARGET_NAMESPACE.to_string()
+            }
+        };
+    }
+
+    DEFAULT_TARGET_NAMESPACE.to_string()
+}
+
+fn create_backend_or_default_with<Backend>(
+    router_endpoint: &mut String,
+    target_namespace: &mut String,
+    mut create_backend: impl FnMut(&str, &str) -> Result<Backend>,
+) -> Result<Backend> {
+    match create_backend(router_endpoint, target_namespace) {
+        Ok(backend) => Ok(backend),
+        Err(error) => {
+            warn!(
+                "failed to create Twix ros-z backend for router '{router_endpoint}' and namespace \
+                 '{target_namespace}', falling back to defaults: {error:#}"
+            );
+            *router_endpoint = DEFAULT_ROUTER_ENDPOINT.to_string();
+            *target_namespace = DEFAULT_TARGET_NAMESPACE.to_string();
+            create_backend(DEFAULT_ROUTER_ENDPOINT, DEFAULT_TARGET_NAMESPACE)
+                .wrap_err("failed to create Twix ros-z backend with default settings")
+        }
+    }
+}
+
+fn create_backend_or_default(
+    router_endpoint: &mut String,
+    target_namespace: &mut String,
+    egui_context: Context,
+) -> Result<Arc<TwixBackend>> {
+    create_backend_or_default_with(
+        router_endpoint,
+        target_namespace,
+        |router_endpoint, target_namespace| {
+            TwixBackend::new(router_endpoint, target_namespace, egui_context.clone()).map(Arc::new)
+        },
+    )
+}
+
+enum SelectablePanel {
+    Text(TextPanel),
+    Plot(PlotPanel),
+    EnumPlot(EnumPlotPanel),
+    Unsupported(UnsupportedPanel),
+}
+
+impl SelectablePanel {
+    fn new(context: PanelCreationContext) -> Result<SelectablePanel> {
+        let value = context.value.ok_or(eyre!("Got none value"))?;
+        Self::from_saved_value(value, || context)
+    }
+
+    fn from_saved_value<'a>(
+        saved_value: &'a Value,
+        context: impl FnOnce() -> PanelCreationContext<'a>,
+    ) -> Result<SelectablePanel> {
+        if let Some(panel) = Self::legacy_unsupported_from_saved_value(saved_value) {
+            return Ok(panel);
+        }
+
+        let name = saved_value
+            .get("_panel_type")
+            .ok_or(eyre!("value has no _panel_type: {saved_value:?}"))?
+            .as_str()
+            .ok_or(eyre!("_panel_type is not a string"))?
+            .to_owned();
+        Self::from_saved_name(&name, context())
+    }
+
+    fn legacy_unsupported_from_saved_value(saved_value: &Value) -> Option<SelectablePanel> {
+        let panel_type = saved_value.get("type")?.as_str()?;
+        Some(SelectablePanel::Unsupported(UnsupportedPanel::new(
+            panel_type,
+            Some(saved_value),
+        )))
+    }
+
+    pub fn try_from_name<'a>(
+        panel_name: &str,
+        context: impl FnOnce() -> PanelCreationContext<'a>,
+    ) -> Result<SelectablePanel> {
+        match panel_name {
+            TextPanel::NAME => Ok(SelectablePanel::Text(TextPanel::new(context()))),
+            PlotPanel::NAME => Ok(SelectablePanel::Plot(PlotPanel::new(context()))),
+            EnumPlotPanel::NAME => Ok(SelectablePanel::EnumPlot(EnumPlotPanel::new(context()))),
+            other => Err(eyre!("unknown panel '{other}'")),
+        }
+    }
+
+    fn from_saved_name(panel_name: &str, context: PanelCreationContext) -> Result<SelectablePanel> {
+        match panel_name {
+            TextPanel::NAME => Ok(SelectablePanel::Text(TextPanel::new(context))),
+            PlotPanel::NAME => Ok(SelectablePanel::Plot(PlotPanel::new(context))),
+            EnumPlotPanel::NAME => Ok(SelectablePanel::EnumPlot(EnumPlotPanel::new(context))),
+            other => Ok(SelectablePanel::Unsupported(UnsupportedPanel::new(
+                other,
+                context.value,
+            ))),
+        }
+    }
+
+    pub fn registered() -> Vec<String> {
+        vec![
+            TextPanel::NAME.to_owned(),
+            PlotPanel::NAME.to_owned(),
+            EnumPlotPanel::NAME.to_owned(),
+        ]
+    }
+
+    pub fn save(&self) -> Value {
+        let mut value = match self {
+            SelectablePanel::Text(panel) => panel.save(),
+            SelectablePanel::Plot(panel) => panel.save(),
+            SelectablePanel::EnumPlot(panel) => panel.save(),
+            SelectablePanel::Unsupported(panel) => return panel.save(),
+        };
+        value["_panel_type"] = Value::String(self.to_string());
+        value
+    }
+}
+
+impl Widget for &mut SelectablePanel {
+    fn ui(self, ui: &mut Ui) -> eframe::egui::Response {
+        match self {
+            SelectablePanel::Text(panel) => panel.ui(ui),
+            SelectablePanel::Plot(panel) => panel.ui(ui),
+            SelectablePanel::EnumPlot(panel) => panel.ui(ui),
+            SelectablePanel::Unsupported(panel) => panel.ui(ui),
+        }
+    }
+}
+
+impl std::fmt::Display for SelectablePanel {
+    fn fmt(&self, formatter: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        let panel_name = match self {
+            SelectablePanel::Text(_) => TextPanel::NAME,
+            SelectablePanel::Plot(_) => PlotPanel::NAME,
+            SelectablePanel::EnumPlot(_) => EnumPlotPanel::NAME,
+            SelectablePanel::Unsupported(panel) => panel.title(),
+        };
+        formatter.write_str(panel_name)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use std::collections::HashMap;
+
+    use serde_json::json;
+
+    use super::*;
+
+    #[derive(Default)]
+    struct MemoryStorage {
+        values: HashMap<String, String>,
+    }
+
+    impl Storage for MemoryStorage {
+        fn get_string(&self, key: &str) -> Option<String> {
+            self.values.get(key).cloned()
+        }
+
+        fn set_string(&mut self, key: &str, value: String) {
+            self.values.insert(key.to_string(), value);
+        }
+
+        fn flush(&mut self) {}
+    }
+
+    #[test]
+    fn robot_argument_selects_robot_router_endpoint() {
+        assert_eq!(
+            router_endpoint_from_arguments_and_storage(Some("42"), None),
+            "tcp/10.1.24.42:7447"
+        );
+        assert_eq!(
+            router_endpoint_from_arguments_and_storage(Some("42w"), None),
+            "tcp/10.0.24.42:7447"
+        );
+    }
+
+    #[test]
+    fn robot_address_on_non_hulks_team_selects_robot_namespace() {
+        assert_eq!(robot_address_to_namespace("10.1.7.21").unwrap(), "/21");
+        assert_eq!(robot_address_to_namespace("10.0.12.8").unwrap(), "/8");
+    }
+
+    #[test]
+    fn saved_legacy_address_migrates_router_endpoint_when_missing() {
+        let mut storage = MemoryStorage::default();
+        storage.set_string("address", "42w".to_string());
+
+        assert_eq!(
+            router_endpoint_from_arguments_and_storage(None, Some(&storage)),
+            "tcp/10.0.24.42:7447"
+        );
+    }
+
+    #[test]
+    fn saved_router_endpoint_takes_precedence_over_legacy_address() {
+        let mut storage = MemoryStorage::default();
+        storage.set_string("address", "42w".to_string());
+        storage.set_string("router_endpoint", "tcp/127.0.0.1:7448".to_string());
+
+        assert_eq!(
+            router_endpoint_from_arguments_and_storage(None, Some(&storage)),
+            "tcp/127.0.0.1:7448"
+        );
+    }
+
+    #[test]
+    fn backend_creation_returns_default_error_when_default_backend_fails() {
+        let mut router_endpoint = "tcp/10.1.24.42:7447".to_string();
+        let mut target_namespace = "/42".to_string();
+        let mut calls = Vec::new();
+
+        let result = create_backend_or_default_with(
+            &mut router_endpoint,
+            &mut target_namespace,
+            |router_endpoint, target_namespace| {
+                calls.push((router_endpoint.to_string(), target_namespace.to_string()));
+                Err::<(), _>(color_eyre::eyre::eyre!(
+                    "backend failed for {router_endpoint} {target_namespace}"
+                ))
+            },
+        );
+
+        assert!(result.is_err());
+        assert_eq!(router_endpoint, DEFAULT_ROUTER_ENDPOINT);
+        assert_eq!(target_namespace, DEFAULT_TARGET_NAMESPACE);
+        assert_eq!(
+            calls,
+            [
+                ("tcp/10.1.24.42:7447".to_string(), "/42".to_string()),
+                (
+                    DEFAULT_ROUTER_ENDPOINT.to_string(),
+                    DEFAULT_TARGET_NAMESPACE.to_string()
+                ),
+            ]
+        );
+        assert!(
+            format!("{:#}", result.unwrap_err())
+                .contains("failed to create Twix ros-z backend with default settings")
+        );
+    }
+
+    #[test]
+    fn live_panel_constructor_rejects_unregistered_text() {
+        let Err(error) = SelectablePanel::try_from_name("Behavior Simulator", || {
+            unreachable!("unknown panels must be rejected before a backend is needed")
+        }) else {
+            panic!("unknown panel was accepted");
+        };
+
+        assert!(format!("{error:#}").contains("unknown panel"));
+    }
+
+    #[test]
+    fn saved_legacy_panel_loads_as_unsupported_and_saves_original_json() {
+        let saved_panel = json!({
+            "type": "Image",
+            "value": {
+                "path": "Vision.main_outputs.ycbcr422_image",
+                "overlay": "Ball Detection"
+            }
+        });
+
+        let panel = SelectablePanel::from_saved_value(&saved_panel, || {
+            unreachable!("legacy unsupported panels must not need a live backend")
+        })
+        .expect("legacy panel should load as unsupported");
+
+        assert!(matches!(panel, SelectablePanel::Unsupported(_)));
+        assert_eq!(panel.save(), saved_panel);
+    }
+}
 
 struct TwixApp {
-    robot: Arc<Robot>,
-    possible_addresses: Vec<Ipv4Addr>,
-    address: String,
-    reachable_robots: ReachableRobots,
-    connection_intent: bool,
-    remote_stop_toggle: BufferHandle<bool>,
+    backend: Arc<TwixBackend>,
+    router_endpoint: String,
+    last_valid_router_endpoint: String,
+    target_namespace: String,
     panel_selection: String,
     last_focused_tab: (NodeIndex, TabIndex),
     dock_state: DockState<Tab>,
@@ -195,48 +568,22 @@ impl TwixApp {
         creation_context: &CreationContext,
         arguments: Arguments,
         configuration: Configuration,
-        repository: Option<Repository>,
-    ) -> Self {
-        let robot_range = configuration.robots.lowest..=configuration.robots.highest;
-        let possible_addresses: Vec<_> = chain!(
-            once(Ipv4Addr::LOCALHOST),
-            robot_range.clone().map(|id| Ipv4Addr::new(10, 0, 24, id)),
-            robot_range.map(|id| Ipv4Addr::new(10, 1, 24, id)),
-        )
-        .collect();
-        let address = arguments
-            .address
-            .and_then(|address| {
-                RobotAddress::from_str(&address)
-                    .map(|robot| robot.ip.to_string())
-                    .ok()
-            })
-            .or_else(|| creation_context.storage?.get_string("address"))
-            .unwrap_or(Ipv4Addr::LOCALHOST.to_string());
-
-        let robot = Arc::new(Robot::new(
-            match address.split_once(":") {
-                None | Some((_, "")) => {
-                    format!("ws://{address}:1337")
-                }
-                Some((ip, port)) => {
-                    format!("ws://{ip}:{port}")
-                }
-            },
-            repository,
-        ));
-
-        let connection_intent = creation_context
-            .storage
-            .and_then(|storage| storage.get_string("connection_intent"))
-            .map(|stored| stored == "true")
-            .unwrap_or(false);
-
-        if connection_intent {
-            robot.connect();
-        }
-
-        let remote_stop_toggle = robot.subscribe_value("parameters.remote_stop_toggle");
+        _repository: Option<Repository>,
+    ) -> Result<Self> {
+        let mut router_endpoint = router_endpoint_from_arguments_and_storage(
+            arguments.address.as_deref(),
+            creation_context.storage,
+        );
+        let mut target_namespace = target_namespace_from_arguments_and_storage(
+            arguments.address.as_deref(),
+            creation_context.storage,
+        );
+        let backend = create_backend_or_default(
+            &mut router_endpoint,
+            &mut target_namespace,
+            creation_context.egui_ctx.clone(),
+        )?;
+        target_namespace = backend.target_namespace();
 
         let dock_state: Option<DockState<Value>> = if arguments.clear {
             None
@@ -250,24 +597,14 @@ impl TwixApp {
         let dock_state = match dock_state {
             Some(dock_state) => dock_state.map_tabs(|value| {
                 Tab::new(PanelCreationContext {
-                    robot: robot.clone(),
+                    backend: backend.clone(),
                     value: Some(value),
-                    wgpu_state: creation_context
-                        .wgpu_render_state
-                        .clone()
-                        .expect("no wgpu render state found"),
-                    egui_context: creation_context.egui_ctx.clone(),
                 })
             }),
             None => DockState::new(vec![
-                SelectablePanel::TextPanel(TextPanel::new(PanelCreationContext {
-                    robot: robot.clone(),
+                SelectablePanel::Text(TextPanel::new(PanelCreationContext {
+                    backend: backend.clone(),
                     value: None,
-                    wgpu_state: creation_context
-                        .wgpu_render_state
-                        .clone()
-                        .expect("no wgpu render state found"),
-                    egui_context: creation_context.egui_ctx.clone(),
                 }))
                 .into(),
             ]),
@@ -278,9 +615,6 @@ impl TwixApp {
         keybind_plugin::register(&context);
         context.set_keybinds(Arc::new(configuration.keys));
 
-        let reachable_robots = ReachableRobots::new(context.clone());
-        robot.on_change(move || context.request_repaint());
-
         let visual = creation_context
             .storage
             .and_then(|storage| storage.get_string("style"))
@@ -290,18 +624,16 @@ impl TwixApp {
 
         let panel_selection = "".to_string();
 
-        Self {
-            robot,
-            reachable_robots,
-            connection_intent,
-            remote_stop_toggle,
+        Ok(Self {
+            backend,
+            last_valid_router_endpoint: router_endpoint.clone(),
+            router_endpoint,
+            target_namespace,
             panel_selection,
             dock_state,
             last_focused_tab: (0.into(), 0.into()),
             visual,
-            possible_addresses,
-            address,
-        }
+        })
     }
 
     fn focus_left(&mut self, node_id: NodeIndex, surface_index: SurfaceIndex) -> Option<()> {
@@ -414,66 +746,40 @@ impl TwixApp {
 }
 
 impl App for TwixApp {
-    fn update(&mut self, context: &Context, frame: &mut Frame) {
-        self.reachable_robots.update();
-
+    fn update(&mut self, context: &Context, _frame: &mut Frame) {
         TopBottomPanel::top("top_bar").show(context, |ui| {
             ui.horizontal(|ui| {
                 ui.with_layout(Layout::left_to_right(Align::Center), |ui| {
-                    let address_input = CompletionEdit::new(
-                        ui.id().with("robot-selector"),
-                        &self.possible_addresses,
-                        &mut self.address,
-                    )
-                    .ui(ui, |ui, selected, ip| {
-                        let show_green = self.reachable_robots.is_reachable(*ip);
-                        let color = if show_green {
-                            Color32::GREEN
-                        } else {
-                            Color32::WHITE
-                        };
-                        ui.selectable_label(selected, WidgetText::from(ip.to_string()).color(color))
-                    });
-
-                    if address_input.gained_focus() {
-                        self.reachable_robots.query_reachability();
-                    }
-                    if context.keybind_pressed(KeybindAction::FocusAddress) {
-                        address_input.request_focus();
-                    }
-                    if address_input.changed() || address_input.lost_focus() {
-                        match &self.address.split_once(":") {
-                            None | Some((_, "")) => {
-                                let address = &self.address;
-                                self.robot.set_address(format!("ws://{address}:1337"));
-                            }
-                            Some((ip, port)) => {
-                                self.robot.set_address(format!("ws://{ip}:{port}"));
-                            }
-                        }
-                        self.connection_intent = true;
-                        self.robot.connect();
-                    }
-                    let (connect_text, color) = match self.robot.connection_status() {
-                        Status::Disconnected => ("Disconnected", Color32::RED),
-                        Status::Connecting => ("Connecting", Color32::YELLOW),
-                        Status::Connected => ("Connected", Color32::GREEN),
-                    };
-                    let connect_text = WidgetText::from(connect_text).color(color);
-                    if ui
-                        .checkbox(&mut self.connection_intent, connect_text)
-                        .changed()
+                    ui.label("Router");
+                    let router_response = ui.text_edit_singleline(&mut self.router_endpoint);
+                    if router_response.changed()
+                        && TwixBackend::validate_router_endpoint(&self.router_endpoint).is_ok()
                     {
-                        if self.connection_intent {
-                            self.robot.connect();
-                        } else {
-                            self.robot.disconnect();
-                        }
+                        self.last_valid_router_endpoint = self.router_endpoint.clone();
                     }
-                    if context.keybind_pressed(KeybindAction::Reconnect) {
-                        self.robot.disconnect();
-                        self.connection_intent = true;
-                        self.robot.connect();
+                    if router_response.lost_focus() {
+                        match TwixBackend::validate_router_endpoint(&self.router_endpoint) {
+                            Ok(()) => ui.label("restart Twix to use a different router endpoint"),
+                            Err(error) => {
+                                error!("invalid router endpoint: {error:#}");
+                                self.router_endpoint = self.last_valid_router_endpoint.clone();
+                                ui.label("invalid router endpoint; keeping previous valid endpoint")
+                            }
+                        };
+                    }
+
+                    ui.label("Namespace");
+                    let namespace_response = ui.text_edit_singleline(&mut self.target_namespace);
+                    if namespace_response.changed() {
+                        match self.backend.set_target_namespace(&self.target_namespace) {
+                            Ok(()) => {
+                                self.target_namespace = self.backend.target_namespace();
+                            }
+                            Err(error) => {
+                                error!("invalid target namespace: {error:#}");
+                                self.target_namespace = self.backend.target_namespace();
+                            }
+                        }
                     }
 
                     if self.active_tab_index() != Some(self.last_focused_tab) {
@@ -488,28 +794,27 @@ impl App for TwixApp {
                         }
                     }
                     let panels = SelectablePanel::registered();
-                    let panel_input = ui.add(CompletionEdit::new(
-                        ui.id().with("panel-selector"),
-                        &panels,
-                        &mut self.panel_selection,
-                    ));
+                    let panel_input = ui.text_edit_singleline(&mut self.panel_selection);
+                    let mut panel_selection_changed = panel_input.changed();
+                    ui.menu_button("Panels", |ui| {
+                        for panel in panels {
+                            if ui.button(&panel).clicked() {
+                                self.panel_selection = panel;
+                                panel_selection_changed = true;
+                            }
+                        }
+                    });
 
                     if context.keybind_pressed(KeybindAction::FocusPanel) {
                         panel_input.request_focus();
                     }
-                    if panel_input.changed() {
-                        match SelectablePanel::try_from_name(
-                            &self.panel_selection,
+                    if panel_selection_changed {
+                        match SelectablePanel::try_from_name(&self.panel_selection, || {
                             PanelCreationContext {
-                                robot: self.robot.clone(),
+                                backend: self.backend.clone(),
                                 value: None,
-                                wgpu_state: frame
-                                    .wgpu_render_state()
-                                    .cloned()
-                                    .expect("no wgpu render state found"),
-                                egui_context: ui.ctx().clone(),
-                            },
-                        ) {
+                            }
+                        }) {
                             Ok(panel) => {
                                 if let Some(active_tab) = self.active_tab() {
                                     active_tab.panel = Ok(panel);
@@ -532,41 +837,14 @@ impl App for TwixApp {
                             })
                         });
                     });
-
-                    if ui
-                        .add(
-                            Button::new(RichText::new("STOP").color(Color32::WHITE))
-                                .fill(Color32::RED),
-                        )
-                        .clicked()
-                    {
-                        match self.remote_stop_toggle.get_last_value() {
-                            Ok(Some(value)) => {
-                                let new_remote_stop_toggle = !value;
-                                self.robot.write(
-                                    "parameters.remote_stop_toggle",
-                                    TextOrBinary::Text(new_remote_stop_toggle.into()),
-                                );
-                            }
-                            Ok(None) => {}
-                            Err(error) => {
-                                error!("failed to read remote_stop_toggle: {error:#?}")
-                            }
-                        }
-                    }
                 });
             })
         });
         CentralPanel::default().show(context, |ui| {
             if context.keybind_pressed(KeybindAction::OpenSplit) {
-                let tab = SelectablePanel::TextPanel(TextPanel::new(PanelCreationContext {
-                    robot: self.robot.clone(),
+                let tab = SelectablePanel::Text(TextPanel::new(PanelCreationContext {
+                    backend: self.backend.clone(),
                     value: None,
-                    wgpu_state: frame
-                        .wgpu_render_state()
-                        .cloned()
-                        .expect("no wgpu render state found"),
-                    egui_context: ui.ctx().clone(),
                 }));
                 if let Some((surface_index, node_id)) = self.dock_state.focused_leaf() {
                     let node = &mut self.dock_state[surface_index][node_id];
@@ -589,14 +867,9 @@ impl App for TwixApp {
                 }
             }
             if context.keybind_pressed(KeybindAction::OpenTab) {
-                let tab = SelectablePanel::TextPanel(TextPanel::new(PanelCreationContext {
-                    robot: self.robot.clone(),
+                let tab = SelectablePanel::Text(TextPanel::new(PanelCreationContext {
+                    backend: self.backend.clone(),
                     value: None,
-                    wgpu_state: frame
-                        .wgpu_render_state()
-                        .cloned()
-                        .expect("no wgpu render state found"),
-                    egui_context: ui.ctx().clone(),
                 }));
                 self.dock_state.push_to_focused_leaf(tab.into());
             }
@@ -628,13 +901,8 @@ impl App for TwixApp {
                 let new_tab = tab.save();
                 self.dock_state.push_to_focused_leaf(Tab::from(
                     SelectablePanel::new(PanelCreationContext {
-                        robot: self.robot.clone(),
+                        backend: self.backend.clone(),
                         value: Some(&new_tab),
-                        wgpu_state: frame
-                            .wgpu_render_state()
-                            .cloned()
-                            .expect("no wgpu render state found"),
-                        egui_context: ui.ctx().clone(),
                     })
                     .unwrap(),
                 ));
@@ -659,14 +927,9 @@ impl App for TwixApp {
 
             if context.keybind_pressed(KeybindAction::CloseAll) {
                 self.dock_state = DockState::new(vec![
-                    SelectablePanel::TextPanel(TextPanel::new(PanelCreationContext {
-                        robot: self.robot.clone(),
+                    SelectablePanel::Text(TextPanel::new(PanelCreationContext {
+                        backend: self.backend.clone(),
                         value: None,
-                        wgpu_state: frame
-                            .wgpu_render_state()
-                            .cloned()
-                            .expect("no wgpu render state found"),
-                        egui_context: ui.ctx().clone(),
                     }))
                     .into(),
                 ]);
@@ -684,14 +947,9 @@ impl App for TwixApp {
                 .show_inside(ui, &mut tab_viewer);
 
             for (surface_index, node_id) in tab_viewer.nodes_to_add_tabs_to {
-                let tab = SelectablePanel::TextPanel(TextPanel::new(PanelCreationContext {
-                    robot: self.robot.clone(),
+                let tab = SelectablePanel::Text(TextPanel::new(PanelCreationContext {
+                    backend: self.backend.clone(),
                     value: None,
-                    wgpu_state: frame
-                        .wgpu_render_state()
-                        .cloned()
-                        .expect("no wgpu render state found"),
-                    egui_context: ui.ctx().clone(),
                 }));
                 let index = self.dock_state[surface_index][node_id].tabs_count();
                 self.dock_state[surface_index][node_id].insert_tab(index.into(), tab.into());
@@ -715,18 +973,25 @@ impl App for TwixApp {
 
     fn save(&mut self, storage: &mut dyn Storage) {
         let dock_state = self.dock_state.map_tabs(|tab| tab.save());
+        if TwixBackend::validate_router_endpoint(&self.router_endpoint).is_ok() {
+            self.last_valid_router_endpoint = self.router_endpoint.clone();
+        }
+        if let Err(error) = TwixBackend::validate_router_endpoint(&self.last_valid_router_endpoint)
+        {
+            warn!(
+                "invalid last valid router endpoint '{}', falling back to {DEFAULT_ROUTER_ENDPOINT}: {error:#}",
+                self.last_valid_router_endpoint
+            );
+            self.last_valid_router_endpoint = DEFAULT_ROUTER_ENDPOINT.to_string();
+        }
+        self.target_namespace = self.backend.target_namespace();
 
         storage.set_string("dock_state", to_string(&dock_state).unwrap());
-        storage.set_string("address", self.address.to_string());
         storage.set_string(
-            "connection_intent",
-            if self.connection_intent {
-                "true"
-            } else {
-                "false"
-            }
-            .to_string(),
+            "router_endpoint",
+            self.last_valid_router_endpoint.to_string(),
         );
+        storage.set_string("target_namespace", self.target_namespace.to_string());
         storage.set_string("style", self.visual.to_string());
     }
 }
