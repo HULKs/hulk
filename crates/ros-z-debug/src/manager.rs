@@ -1,7 +1,7 @@
 use std::{error::Error as _, fmt::Write as _, marker::PhantomData, sync::Arc, time::Duration};
 
 use parking_lot::Mutex;
-use ros_z::{Message, dynamic::DynamicPayload, node::Node};
+use ros_z::{Message, dynamic::DynamicPayload, node::Node, qos::QosProfile};
 use tokio_util::sync::CancellationToken;
 
 use crate::{
@@ -71,7 +71,7 @@ impl ManagerOptions {
 /// Owns debug subscriptions created from a `ros-z` node.
 ///
 /// Handles returned by this manager retain the latest sample, optional history,
-/// status, and queued debug events. Dropping the manager closes subscriptions it
+/// status, and subscription updates. Dropping the manager closes subscriptions it
 /// can still reach; dropping the last handle for a subscription also cancels its
 /// receive task.
 pub struct SubscriptionManager {
@@ -99,6 +99,7 @@ impl SubscriptionManager {
             manager: self,
             topic: topic.into(),
             retention: RetentionPolicy::LatestOnly,
+            qos: QosProfile::default(),
             value: PhantomData,
         }
     }
@@ -114,6 +115,7 @@ impl SubscriptionManager {
             manager: self,
             topic: topic.into(),
             retention: RetentionPolicy::LatestOnly,
+            qos: QosProfile::default(),
         }
     }
 
@@ -170,6 +172,7 @@ pub struct TypedSubscriptionBuilder<'a, T> {
     pub(crate) manager: &'a SubscriptionManager,
     pub(crate) topic: String,
     pub(crate) retention: RetentionPolicy,
+    qos: QosProfile,
     value: PhantomData<T>,
 }
 
@@ -177,6 +180,12 @@ impl<T> TypedSubscriptionBuilder<'_, T> {
     /// Configure how many samples the handle retains.
     pub fn retention(mut self, retention: RetentionPolicy) -> Self {
         self.retention = retention;
+        self
+    }
+
+    /// Configure the underlying `ros-z` subscriber QoS.
+    pub fn qos(mut self, qos: QosProfile) -> Self {
+        self.qos = qos;
         self
     }
 
@@ -208,6 +217,7 @@ impl<T> TypedSubscriptionBuilder<'_, T> {
             .manager
             .node()
             .subscriber::<T>(&resolved_topic)?
+            .qos(self.qos)
             .build()
             .await?;
         let type_info = subscriber.entity().type_info.clone();
@@ -249,12 +259,19 @@ pub struct DynamicSubscriptionBuilder<'a> {
     pub(crate) manager: &'a SubscriptionManager,
     pub(crate) topic: String,
     pub(crate) retention: RetentionPolicy,
+    qos: QosProfile,
 }
 
 impl DynamicSubscriptionBuilder<'_> {
     /// Configure how many samples the handle retains.
     pub fn retention(mut self, retention: RetentionPolicy) -> Self {
         self.retention = retention;
+        self
+    }
+
+    /// Configure the underlying `ros-z` subscriber QoS.
+    pub fn qos(mut self, qos: QosProfile) -> Self {
+        self.qos = qos;
         self
     }
 
@@ -301,6 +318,7 @@ impl DynamicSubscriptionBuilder<'_> {
                 self.manager.options.schema_discovery_timeout(),
             )
             .await?
+            .qos(self.qos)
             .build()
             .await?;
         let type_info = subscriber.entity().type_info.clone();
@@ -446,7 +464,7 @@ mod tests {
     };
     use crate::{
         Error, RetentionPolicy, SampleMetadata, SubscriptionStatus, SubscriptionStatusSnapshot,
-        TopicSelector, subscription::SubscriptionState,
+        SubscriptionUpdate, TopicSelector, subscription::SubscriptionState,
     };
 
     struct TestPayload;
@@ -522,6 +540,7 @@ mod tests {
             RetentionPolicy::LatestOnly,
         ));
         let handle = state.handle();
+        let mut updates = handle.subscribe_updates();
         registry.register(&state);
         drop(state);
 
@@ -529,8 +548,9 @@ mod tests {
 
         assert_eq!(handle.status().status(), &SubscriptionStatus::Closed);
         assert!(matches!(
-            handle.drain_events().as_slice(),
-            [crate::DebugEvent::StatusChanged]
+            updates.try_recv(),
+            Ok(Some(SubscriptionUpdate::StatusChanged(snapshot)))
+                if snapshot.status() == &SubscriptionStatus::Closed
         ));
     }
 }

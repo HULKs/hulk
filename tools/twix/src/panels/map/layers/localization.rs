@@ -8,22 +8,28 @@ use eframe::{
 
 use coordinate_systems::Field;
 use linear_algebra::{Pose2, point};
+use ros_z_debug::RetentionPolicy;
 use types::{field_dimensions::FieldDimensions, localization::ScoredPose};
 
 use crate::{
-    panels::map::layer::Layer, robot::Robot, twix_painter::TwixPainter, value_buffer::BufferHandle,
+    backend::{TwixBackend, retained_subscription::TypedSubscription},
+    panels::map::{latest_value, layer::Layer},
+    twix_painter::TwixPainter,
 };
 
 pub struct Localization {
-    poses: BufferHandle<Option<Vec<ScoredPose>>>,
+    poses: TypedSubscription<Vec<ScoredPose>>,
 }
 
 impl Layer<Field> for Localization {
     const NAME: &'static str = "Localization";
 
-    fn new(robot: Arc<Robot>) -> Self {
-        let poses =
-            robot.subscribe_value("WorldState.additional_outputs.localization.pose_hypotheses");
+    fn new(backend: Arc<TwixBackend>) -> Self {
+        let poses = backend.subscribe_typed_retained(
+            "localization/pose_hypotheses",
+            RetentionPolicy::LatestOnly,
+            crate::backend::HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH,
+        );
         Self { poses }
     }
 
@@ -32,7 +38,7 @@ impl Layer<Field> for Localization {
         painter: &TwixPainter<Field>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        if let Some(poses) = self.poses.get_last_value()?.flatten() {
+        if let Some(poses) = latest_value(&self.poses) {
             let circle_radius = 0.1;
             let line_length = 0.16;
             let fill_color = Color32::LIGHT_RED;

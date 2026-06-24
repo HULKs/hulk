@@ -1,86 +1,119 @@
-use std::collections::VecDeque;
+use tokio::sync::broadcast::{
+    Receiver,
+    error::{RecvError, TryRecvError},
+};
+
+use crate::SubscriptionStatusSnapshot;
 
 #[derive(Debug, Clone)]
 #[non_exhaustive]
-pub enum DebugEvent {
-    /// The subscription status snapshot changed.
-    StatusChanged,
+pub enum SubscriptionUpdate {
     /// A new sample was retained as the latest value.
-    ValueUpdated,
+    DataChanged,
+    /// The subscription status snapshot changed.
+    StatusChanged(SubscriptionStatusSnapshot),
     /// A non-terminal diagnostic message was recorded.
     Diagnostic(String),
+    /// This receiver fell behind and missed updates.
+    Lagged { dropped: usize },
 }
 
-pub struct EventBuffer {
-    capacity: usize,
-    events: VecDeque<DebugEvent>,
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub struct SubscriptionUpdateClosed;
+
+pub struct SubscriptionUpdateReceiver {
+    receiver: Receiver<SubscriptionUpdate>,
 }
 
-impl EventBuffer {
-    pub fn new(capacity: usize) -> Self {
-        Self {
-            capacity,
-            events: VecDeque::new(),
+impl SubscriptionUpdateReceiver {
+    pub(crate) fn new(receiver: Receiver<SubscriptionUpdate>) -> Self {
+        Self { receiver }
+    }
+
+    /// Wait for the next subscription update.
+    ///
+    /// A terminal [`SubscriptionUpdate::StatusChanged`] carrying
+    /// [`crate::SubscriptionStatus::Closed`] is a normal update and does not end
+    /// the stream while handles keep the subscription state alive. Callers that
+    /// want to stop at terminal close should break when they observe that
+    /// status. [`SubscriptionUpdateClosed`] means the subscription state was
+    /// dropped and no future updates can arrive.
+    pub async fn recv(&mut self) -> Result<SubscriptionUpdate, SubscriptionUpdateClosed> {
+        match self.receiver.recv().await {
+            Ok(update) => Ok(update),
+            Err(RecvError::Lagged(dropped)) => Ok(lagged_update(dropped)),
+            Err(RecvError::Closed) => Err(SubscriptionUpdateClosed),
         }
     }
 
-    pub fn push(&mut self, event: DebugEvent) {
-        if self.capacity == 0 {
-            return;
+    /// Return the next update if one is immediately available.
+    ///
+    /// `Ok(None)` means no update is currently queued. `Err` means the
+    /// subscription state was dropped and no future updates can arrive.
+    pub fn try_recv(&mut self) -> Result<Option<SubscriptionUpdate>, SubscriptionUpdateClosed> {
+        match self.receiver.try_recv() {
+            Ok(update) => Ok(Some(update)),
+            Err(TryRecvError::Lagged(dropped)) => Ok(Some(lagged_update(dropped))),
+            Err(TryRecvError::Empty) => Ok(None),
+            Err(TryRecvError::Closed) => Err(SubscriptionUpdateClosed),
         }
-
-        if self.events.len() == self.capacity {
-            self.events.pop_front();
-        }
-
-        self.events.push_back(event);
     }
+}
 
-    pub fn drain(&mut self) -> Vec<DebugEvent> {
-        self.events.drain(..).collect()
+fn lagged_update(dropped: u64) -> SubscriptionUpdate {
+    SubscriptionUpdate::Lagged {
+        dropped: usize::try_from(dropped).unwrap_or(usize::MAX),
     }
 }
 
 #[cfg(test)]
 mod tests {
-    use super::{DebugEvent, EventBuffer};
+    use super::{SubscriptionUpdate, SubscriptionUpdateClosed, SubscriptionUpdateReceiver};
 
     #[test]
-    fn drain_returns_and_clears_events() {
-        let mut buffer = EventBuffer::new(2);
-        buffer.push(DebugEvent::StatusChanged);
-        buffer.push(DebugEvent::Diagnostic("schema unavailable".to_string()));
+    fn try_recv_returns_none_when_no_update_is_available() {
+        let (_sender, receiver) = tokio::sync::broadcast::channel(1);
+        let mut receiver = SubscriptionUpdateReceiver::new(receiver);
 
-        let drained = buffer.drain();
-        assert_eq!(drained.len(), 2);
-        assert!(matches!(drained[0], DebugEvent::StatusChanged));
-        assert!(
-            matches!(&drained[1], DebugEvent::Diagnostic(message) if message == "schema unavailable")
-        );
-        assert!(buffer.drain().is_empty());
+        assert!(matches!(receiver.try_recv(), Ok(None)));
     }
 
     #[test]
-    fn capacity_zero_stores_nothing() {
-        let mut buffer = EventBuffer::new(0);
+    fn try_recv_returns_closed_when_sender_is_dropped() {
+        let (sender, receiver) = tokio::sync::broadcast::channel(1);
+        let mut receiver = SubscriptionUpdateReceiver::new(receiver);
+        drop(sender);
 
-        buffer.push(DebugEvent::ValueUpdated);
-
-        assert!(buffer.drain().is_empty());
+        assert!(matches!(receiver.try_recv(), Err(SubscriptionUpdateClosed)));
     }
 
     #[test]
-    fn push_drops_oldest_event_when_capacity_is_exceeded() {
-        let mut buffer = EventBuffer::new(2);
-        buffer.push(DebugEvent::StatusChanged);
-        buffer.push(DebugEvent::ValueUpdated);
-        buffer.push(DebugEvent::Diagnostic("decode failed".to_string()));
+    fn try_recv_reports_lagged_update_when_receiver_falls_behind() {
+        let (sender, receiver) = tokio::sync::broadcast::channel(1);
+        let mut receiver = SubscriptionUpdateReceiver::new(receiver);
 
-        let drained = buffer.drain();
-        assert_eq!(drained.len(), 2);
-        assert!(matches!(drained[0], DebugEvent::ValueUpdated));
-        assert!(
-            matches!(&drained[1], DebugEvent::Diagnostic(message) if message == "decode failed")
-        );
+        sender.send(SubscriptionUpdate::DataChanged).unwrap();
+        sender.send(SubscriptionUpdate::DataChanged).unwrap();
+
+        assert!(matches!(
+            receiver.try_recv(),
+            Ok(Some(SubscriptionUpdate::Lagged { dropped: 1 }))
+        ));
+        assert!(matches!(
+            receiver.try_recv(),
+            Ok(Some(SubscriptionUpdate::DataChanged))
+        ));
+    }
+
+    #[tokio::test]
+    async fn recv_returns_closed_after_sender_closes() {
+        let (sender, receiver) = tokio::sync::broadcast::channel(1);
+        let mut receiver = SubscriptionUpdateReceiver::new(receiver);
+        drop(sender);
+
+        assert!(matches!(
+            receiver.recv().await,
+            Err(SubscriptionUpdateClosed)
+        ));
     }
 }

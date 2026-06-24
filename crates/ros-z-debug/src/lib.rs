@@ -1,9 +1,9 @@
 //! Read-only subscription helpers for `ros-z` debug tooling.
 //!
 //! `SubscriptionManager` owns debug subscriptions and keeps the latest sample,
-//! optional time-window history, status, and small event buffers. Relative topic
-//! selectors resolve against [`ManagerOptions::target_namespace`], then the
-//! manager subscribes to the absolute topic name through `ros-z`.
+//! optional time-window history, status, and update notifications. Relative
+//! topic selectors resolve against [`ManagerOptions::target_namespace`], then
+//! the manager subscribes to the absolute topic name through `ros-z`.
 //!
 //! ```rust
 //! use std::sync::Arc;
@@ -40,7 +40,7 @@ mod subscription;
 mod topic;
 
 pub use error::{Error, Result};
-pub use event::DebugEvent;
+pub use event::{SubscriptionUpdate, SubscriptionUpdateClosed, SubscriptionUpdateReceiver};
 pub use manager::{
     DynamicSubscriptionBuilder, ManagerOptions, SubscriptionManager, TypedSubscriptionBuilder,
 };

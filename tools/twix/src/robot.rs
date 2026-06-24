@@ -7,10 +7,7 @@ use color_eyre::{
 };
 use log::error;
 use serde_json::Value;
-use tokio::{
-    runtime::{Builder, Runtime},
-    spawn,
-};
+use tokio::{runtime::{Builder, Runtime}, spawn};
 
 use communication::{
     client::{Client, ClientHandle, PathsEvent, Status},
