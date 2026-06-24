@@ -1,7 +1,7 @@
 use std::{error::Error as _, fmt::Write as _, marker::PhantomData, sync::Arc, time::Duration};
 
 use parking_lot::Mutex;
-use ros_z::{Message, dynamic::DynamicPayload, node::Node};
+use ros_z::{Message, dynamic::DynamicPayload, node::Node, qos::QosProfile};
 use tokio_util::sync::CancellationToken;
 
 use crate::{
@@ -99,6 +99,7 @@ impl SubscriptionManager {
             manager: self,
             topic: topic.into(),
             retention: RetentionPolicy::LatestOnly,
+            qos: QosProfile::default(),
             value: PhantomData,
         }
     }
@@ -114,6 +115,7 @@ impl SubscriptionManager {
             manager: self,
             topic: topic.into(),
             retention: RetentionPolicy::LatestOnly,
+            qos: QosProfile::default(),
         }
     }
 
@@ -170,6 +172,7 @@ pub struct TypedSubscriptionBuilder<'a, T> {
     pub(crate) manager: &'a SubscriptionManager,
     pub(crate) topic: String,
     pub(crate) retention: RetentionPolicy,
+    pub(crate) qos: QosProfile,
     value: PhantomData<T>,
 }
 
@@ -177,6 +180,12 @@ impl<T> TypedSubscriptionBuilder<'_, T> {
     /// Configure how many samples the handle retains.
     pub fn retention(mut self, retention: RetentionPolicy) -> Self {
         self.retention = retention;
+        self
+    }
+
+    /// Configure the ros-z QoS used by the underlying subscriber.
+    pub fn qos(mut self, qos: QosProfile) -> Self {
+        self.qos = qos;
         self
     }
 
@@ -208,6 +217,7 @@ impl<T> TypedSubscriptionBuilder<'_, T> {
             .manager
             .node()
             .subscriber::<T>(&resolved_topic)?
+            .qos(self.qos)
             .build()
             .await?;
         let type_info = subscriber.entity().type_info.clone();
@@ -244,12 +254,19 @@ pub struct DynamicSubscriptionBuilder<'a> {
     pub(crate) manager: &'a SubscriptionManager,
     pub(crate) topic: String,
     pub(crate) retention: RetentionPolicy,
+    pub(crate) qos: QosProfile,
 }
 
 impl DynamicSubscriptionBuilder<'_> {
     /// Configure how many samples the handle retains.
     pub fn retention(mut self, retention: RetentionPolicy) -> Self {
         self.retention = retention;
+        self
+    }
+
+    /// Configure the ros-z QoS used by the underlying subscriber.
+    pub fn qos(mut self, qos: QosProfile) -> Self {
+        self.qos = qos;
         self
     }
 
@@ -296,6 +313,7 @@ impl DynamicSubscriptionBuilder<'_> {
                 self.manager.options.schema_discovery_timeout(),
             )
             .await?
+            .qos(self.qos)
             .build()
             .await?;
         let type_info = subscriber.entity().type_info.clone();

@@ -23,7 +23,7 @@ Select the robot namespace in the top bar. A namespace such as `/42` makes panel
 
 Twix does not translate old dotted debug paths such as `WorldState.main_outputs.ground_to_field`. Pick native ros-z topics from the topic selector instead.
 
-Twix is read-only in this version. The live UI exposes Text, Plot, and Enum Plot panels only. Saved tabs for write panels, remote control, parameter editing, or simulator panels are preserved but render an unsupported message. STOP and other removed controls are unavailable in this milestone.
+Twix is read-only in this version. The live UI exposes Text, Plot, Enum Plot, and Map panels. Saved tabs for write panels, remote control, parameter editing, or simulator panels are preserved but render an unsupported message. STOP and other removed controls are unavailable in this milestone.
 
 # Configuration
 

@@ -1,9 +1,10 @@
 use std::sync::Arc;
 
 use color_eyre::Result;
-use ros_z::{dynamic::DynamicPayload, node::Node};
+use ros_z::{Message, dynamic::DynamicPayload, node::Node, qos::QosProfile};
 use ros_z_debug::{
-    ManagerOptions, RetentionPolicy, SubscriptionManager, SubscriptionUpdateReceiver,
+    ManagerOptions, RetentionPolicy, SubscriptionHandle, SubscriptionManager,
+    SubscriptionUpdateReceiver,
 };
 
 pub(crate) const MAX_UPDATES_PER_WAKE: usize = 64;
@@ -31,18 +32,19 @@ impl UpdateDrainBudget {
     }
 }
 
-pub(crate) struct ActiveSubscription {
+pub(crate) struct ActiveSubscription<T = DynamicPayload> {
     _manager: SubscriptionManager,
-    pub(crate) handle: ros_z_debug::SubscriptionHandle<DynamicPayload>,
+    pub(crate) handle: SubscriptionHandle<T>,
     pub(crate) updates: SubscriptionUpdateReceiver,
 }
 
-pub(crate) async fn subscribe_dynamic(
+pub(crate) async fn subscribe_dynamic_with_qos(
     node: Arc<Node>,
     target_namespace: String,
     selector: String,
     retention: RetentionPolicy,
-) -> Result<ActiveSubscription> {
+    qos: QosProfile,
+) -> Result<ActiveSubscription<DynamicPayload>> {
     let manager = SubscriptionManager::new(
         node,
         ManagerOptions::with_target_namespace(target_namespace)?,
@@ -50,6 +52,37 @@ pub(crate) async fn subscribe_dynamic(
     let handle = manager
         .subscribe_dynamic(selector)
         .retention(retention)
+        .qos(qos)
+        .build()
+        .await?;
+    let updates = handle.subscribe_updates()?;
+
+    Ok(ActiveSubscription {
+        _manager: manager,
+        handle,
+        updates,
+    })
+}
+
+pub(crate) async fn subscribe_typed_with_qos<T>(
+    node: Arc<Node>,
+    target_namespace: String,
+    selector: String,
+    retention: RetentionPolicy,
+    qos: QosProfile,
+) -> Result<ActiveSubscription<T>>
+where
+    T: Message + Send + Sync + 'static,
+    T::Codec: Send + Sync,
+{
+    let manager = SubscriptionManager::new(
+        node,
+        ManagerOptions::with_target_namespace(target_namespace)?,
+    );
+    let handle = manager
+        .subscribe_typed::<T>(selector)
+        .retention(retention)
+        .qos(qos)
         .build()
         .await?;
     let updates = handle.subscribe_updates()?;

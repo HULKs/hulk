@@ -1,8 +1,11 @@
-use std::{sync::Arc, time::Duration};
+use std::{future::Future, pin::Pin, sync::Arc, time::Duration};
 
 use eframe::egui::Context as EguiContext;
 use parking_lot::Mutex;
-use ros_z::{dynamic::DynamicPayload, graph::GraphChangeSubscription, time::Time};
+use ros_z::{
+    Message, dynamic::DynamicPayload, graph::GraphChangeSubscription, node::Node, qos::QosProfile,
+    time::Time,
+};
 use ros_z_debug::{
     JsonRenderPolicy, RetentionPolicy, SampleRecord, SubscriptionHandle,
     SubscriptionStatusSnapshot, SubscriptionUpdate, SubscriptionUpdateReceiver,
@@ -17,6 +20,21 @@ const SUBSCRIBE_RETRY_DELAY: Duration = Duration::from_secs(1);
 
 type SharedState<T> = Arc<Mutex<RetainedSubscriptionState<T>>>;
 type WeakState<T> = std::sync::Weak<Mutex<RetainedSubscriptionState<T>>>;
+type SubscribeFuture<T> =
+    Pin<Box<dyn Future<Output = color_eyre::Result<subscription::ActiveSubscription<T>>> + Send>>;
+type SubscribeWithQos<T> =
+    fn(Arc<Node>, String, String, RetentionPolicy, QosProfile) -> SubscribeFuture<T>;
+
+struct SubscriptionTask<T> {
+    connection_state: watch::Receiver<ConnectionState>,
+    target_namespace: watch::Receiver<String>,
+    egui_context: EguiContext,
+    selector: String,
+    retention: watch::Receiver<RetentionPolicy>,
+    state: WeakState<T>,
+    qos: QosProfile,
+    subscribe_with_qos: SubscribeWithQos<T>,
+}
 
 pub struct RetainedSubscription<T> {
     state: SharedState<T>,
@@ -95,6 +113,32 @@ impl Clone for DynamicSubscription {
     }
 }
 
+pub struct TypedSubscription<T> {
+    retained: RetainedSubscription<T>,
+}
+
+impl<T> Clone for TypedSubscription<T> {
+    fn clone(&self) -> Self {
+        Self {
+            retained: self.retained.clone(),
+        }
+    }
+}
+
+impl<T> TypedSubscription<T> {
+    pub fn latest(&self) -> Option<Arc<SampleRecord<T>>> {
+        self.retained.latest()
+    }
+
+    pub fn window(&self, start: Time, end: Time) -> Vec<Arc<SampleRecord<T>>> {
+        self.retained.window(start, end)
+    }
+
+    pub fn diagnostic_message(&self) -> Option<String> {
+        self.retained.diagnostic_message()
+    }
+}
+
 impl DynamicSubscription {
     pub fn latest_json(&self) -> Option<Value> {
         self.latest_json_with_timestamp()
@@ -139,31 +183,108 @@ pub fn subscribe_dynamic(
     egui_context: EguiContext,
     selector: impl Into<String>,
     retention: RetentionPolicy,
+    qos: QosProfile,
 ) -> DynamicSubscription {
     let retained = RetainedSubscription::new(retention);
     let state = Arc::downgrade(&retained.state);
     let retention_receiver = retained.retention_sender.subscribe();
 
-    runtime.spawn(run_dynamic_subscription(
+    runtime.spawn(run_subscription(SubscriptionTask {
         connection_state,
         target_namespace,
         egui_context,
-        selector.into(),
-        retention_receiver,
+        selector: selector.into(),
+        retention: retention_receiver,
         state,
-    ));
+        qos,
+        subscribe_with_qos: dynamic_subscribe_with_qos,
+    }));
 
     DynamicSubscription { retained }
 }
 
-async fn run_dynamic_subscription(
-    mut connection_state: watch::Receiver<ConnectionState>,
-    mut target_namespace: watch::Receiver<String>,
+pub fn subscribe_typed<T>(
+    runtime: &Runtime,
+    connection_state: watch::Receiver<ConnectionState>,
+    target_namespace: watch::Receiver<String>,
     egui_context: EguiContext,
+    selector: impl Into<String>,
+    retention: RetentionPolicy,
+    qos: QosProfile,
+) -> TypedSubscription<T>
+where
+    T: Message + Send + Sync + 'static,
+    T::Codec: Send + Sync,
+{
+    let retained = RetainedSubscription::new(retention);
+    let state = Arc::downgrade(&retained.state);
+    let retention_receiver = retained.retention_sender.subscribe();
+
+    runtime.spawn(run_subscription(SubscriptionTask {
+        connection_state,
+        target_namespace,
+        egui_context,
+        selector: selector.into(),
+        retention: retention_receiver,
+        state,
+        qos,
+        subscribe_with_qos: typed_subscribe_with_qos::<T>,
+    }));
+
+    TypedSubscription { retained }
+}
+
+fn dynamic_subscribe_with_qos(
+    node: Arc<Node>,
+    target_namespace: String,
     selector: String,
-    mut retention: watch::Receiver<RetentionPolicy>,
-    state: WeakState<DynamicPayload>,
-) {
+    retention: RetentionPolicy,
+    qos: QosProfile,
+) -> SubscribeFuture<DynamicPayload> {
+    Box::pin(subscription::subscribe_dynamic_with_qos(
+        node,
+        target_namespace,
+        selector,
+        retention,
+        qos,
+    ))
+}
+
+fn typed_subscribe_with_qos<T>(
+    node: Arc<Node>,
+    target_namespace: String,
+    selector: String,
+    retention: RetentionPolicy,
+    qos: QosProfile,
+) -> SubscribeFuture<T>
+where
+    T: Message + Send + Sync + 'static,
+    T::Codec: Send + Sync,
+{
+    Box::pin(subscription::subscribe_typed_with_qos::<T>(
+        node,
+        target_namespace,
+        selector,
+        retention,
+        qos,
+    ))
+}
+
+async fn run_subscription<T>(task: SubscriptionTask<T>)
+where
+    T: Send + Sync + 'static,
+{
+    let SubscriptionTask {
+        mut connection_state,
+        mut target_namespace,
+        egui_context,
+        selector,
+        mut retention,
+        state,
+        qos,
+        subscribe_with_qos,
+    } = task;
+
     let mut subscribe_error_handle_policy = SubscribeErrorHandlePolicy::ClearExisting;
 
     loop {
@@ -202,11 +323,12 @@ async fn run_dynamic_subscription(
 
         let namespace = target_namespace.borrow_and_update().clone();
         let retention_policy = *retention.borrow_and_update();
-        let subscribe = subscription::subscribe_dynamic(
+        let subscribe = subscribe_with_qos(
             node.clone(),
             namespace,
             selector.clone(),
             retention_policy,
+            qos,
         );
         tokio::pin!(subscribe);
 
@@ -263,7 +385,6 @@ async fn run_dynamic_subscription(
                     &mut connection_state,
                     &mut target_namespace,
                     &mut retention,
-                    &mut graph_changes,
                     &state,
                     &egui_context,
                 )
@@ -343,7 +464,6 @@ async fn run_dynamic_subscription(
 enum ForwardSubscriptionExit {
     ConnectionChanged,
     TargetNamespaceChanged,
-    GraphChanged,
     RetentionChanged,
     UpdateReceiverClosed,
     ControlChannelClosed,
@@ -379,15 +499,17 @@ enum UnavailableRebuildSignal {
     Retention,
 }
 
-async fn forward_subscription_updates(
+async fn forward_subscription_updates<T>(
     updates: &mut SubscriptionUpdateReceiver,
     connection_state: &mut watch::Receiver<ConnectionState>,
     target_namespace: &mut watch::Receiver<String>,
     retention: &mut watch::Receiver<RetentionPolicy>,
-    graph_changes: &mut GraphChangeSubscription,
-    state: &WeakState<DynamicPayload>,
+    state: &WeakState<T>,
     egui_context: &EguiContext,
-) -> ForwardSubscriptionExit {
+) -> ForwardSubscriptionExit
+where
+    T: Send + Sync + 'static,
+{
     loop {
         tokio::select! {
             outcome = drain_updates(updates, state, egui_context) => {
@@ -413,10 +535,6 @@ async fn forward_subscription_updates(
                 Ok(()) => ForwardSubscriptionExit::RetentionChanged,
                 Err(_) => control_channel_closed_exit(state),
             },
-            changed = graph_changes.changed() => return match changed {
-                Some(_) => ForwardSubscriptionExit::GraphChanged,
-                None => control_channel_closed_exit(state),
-            },
         }
     }
 }
@@ -433,7 +551,6 @@ fn should_clear_state_after_forward_exit(exit: ForwardSubscriptionExit) -> bool 
     matches!(
         exit,
         ForwardSubscriptionExit::TargetNamespaceChanged
-            | ForwardSubscriptionExit::GraphChanged
             | ForwardSubscriptionExit::UpdateReceiverClosed
     )
 }
@@ -445,18 +562,20 @@ fn subscribe_error_handle_policy_after_forward_exit(
         ForwardSubscriptionExit::RetentionChanged => SubscribeErrorHandlePolicy::KeepExisting,
         ForwardSubscriptionExit::ConnectionChanged
         | ForwardSubscriptionExit::TargetNamespaceChanged
-        | ForwardSubscriptionExit::GraphChanged
         | ForwardSubscriptionExit::UpdateReceiverClosed
         | ForwardSubscriptionExit::ControlChannelClosed
         | ForwardSubscriptionExit::OwnerDropped => SubscribeErrorHandlePolicy::ClearExisting,
     }
 }
 
-async fn drain_updates(
+async fn drain_updates<T>(
     updates: &mut SubscriptionUpdateReceiver,
-    state: &WeakState<DynamicPayload>,
+    state: &WeakState<T>,
     egui_context: &EguiContext,
-) -> DrainUpdatesOutcome {
+) -> DrainUpdatesOutcome
+where
+    T: Send + Sync + 'static,
+{
     let update = match updates.recv().await {
         Ok(update) => update,
         Err(_) => return DrainUpdatesOutcome::ReceiverClosed,
@@ -491,9 +610,9 @@ async fn drain_updates(
     DrainUpdatesOutcome::Drained
 }
 
-fn handle_update(
+fn handle_update<T>(
     update: SubscriptionUpdate,
-    state: &WeakState<DynamicPayload>,
+    state: &WeakState<T>,
     request_repaint: &mut bool,
 ) -> bool {
     let Some(state) = state.upgrade() else {
@@ -694,12 +813,12 @@ mod tests {
     }
 
     #[test]
-    fn forward_exit_clears_state_for_retarget_or_graph_but_not_retention() {
+    fn forward_exit_clears_state_for_retarget_or_receiver_close_but_not_retention() {
         assert!(should_clear_state_after_forward_exit(
             ForwardSubscriptionExit::TargetNamespaceChanged,
         ));
         assert!(should_clear_state_after_forward_exit(
-            ForwardSubscriptionExit::GraphChanged,
+            ForwardSubscriptionExit::UpdateReceiverClosed,
         ));
         assert!(!should_clear_state_after_forward_exit(
             ForwardSubscriptionExit::RetentionChanged,

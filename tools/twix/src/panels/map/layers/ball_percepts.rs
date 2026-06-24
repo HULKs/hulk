@@ -5,21 +5,28 @@ use eframe::epaint::{Color32, Stroke};
 
 use coordinate_systems::Ground;
 use linear_algebra::Point2;
+use ros_z_debug::RetentionPolicy;
 use types::{ball_detection::BallPercept, field_dimensions::FieldDimensions};
 
 use crate::{
-    panels::map::layer::Layer, robot::Robot, twix_painter::TwixPainter, value_buffer::BufferHandle,
+    backend::{TwixBackend, retained_subscription::TypedSubscription},
+    panels::map::{latest_value, layer::Layer},
+    twix_painter::TwixPainter,
 };
 
 pub struct BallPercepts {
-    ball_percepts: BufferHandle<Option<Vec<BallPercept>>>,
+    ball_percepts: TypedSubscription<Vec<BallPercept>>,
 }
 
 impl Layer<Ground> for BallPercepts {
     const NAME: &'static str = "Ball Percepts";
 
-    fn new(robot: Arc<Robot>) -> Self {
-        let ball_percepts = robot.subscribe_value("WorldState.additional_outputs.ball_percepts");
+    fn new(backend: Arc<TwixBackend>) -> Self {
+        let ball_percepts = backend.subscribe_typed_retained(
+            "ball_filter/ball_percepts",
+            RetentionPolicy::LatestOnly,
+            crate::backend::HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH,
+        );
         Self { ball_percepts }
     }
 
@@ -28,7 +35,7 @@ impl Layer<Ground> for BallPercepts {
         painter: &TwixPainter<Ground>,
         _field_dimensions: &FieldDimensions,
     ) -> Result<()> {
-        let Some(ball_percepts) = self.ball_percepts.get_last_value()?.flatten() else {
+        let Some(ball_percepts) = latest_value(&self.ball_percepts) else {
             return Ok(());
         };
 

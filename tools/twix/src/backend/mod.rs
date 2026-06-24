@@ -4,13 +4,19 @@ pub mod retained_subscription;
 pub mod subscription;
 pub mod topic;
 
-use std::sync::Arc;
+use std::{num::NonZeroUsize, sync::Arc};
 
 use color_eyre::{Result, eyre::eyre};
 use eframe::egui::Context as EguiContext;
 use log::error;
 use parking_lot::Mutex;
-use ros_z::{context::ContextBuilder, graph::GraphChangeSubscription, node::Node};
+use ros_z::{
+    Message,
+    context::ContextBuilder,
+    graph::GraphChangeSubscription,
+    node::Node,
+    qos::{QosDurability, QosHistory, QosProfile, QosReliability},
+};
 use ros_z_debug::RetentionPolicy;
 use tokio::{
     runtime::{Builder, Runtime},
@@ -21,6 +27,8 @@ use crate::backend::{
     catalog::TopicCatalog,
     connection::{ConnectionState, ConnectionStatus},
 };
+
+pub(crate) const HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH: usize = 1024;
 
 pub struct TwixBackend {
     router_endpoint_sender: watch::Sender<String>,
@@ -165,7 +173,65 @@ impl TwixBackend {
             self.egui_context.clone(),
             selector,
             retention,
+            high_rate_qos(HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH),
         )
+    }
+
+    pub fn subscribe_typed_retained<T>(
+        &self,
+        selector: impl Into<String>,
+        retention: RetentionPolicy,
+        queue_depth: usize,
+    ) -> retained_subscription::TypedSubscription<T>
+    where
+        T: Message + Send + Sync + 'static,
+        T::Codec: Send + Sync,
+    {
+        retained_subscription::subscribe_typed(
+            &self.runtime,
+            self.connection_state_receiver.clone(),
+            self.target_namespace_sender.subscribe(),
+            self.egui_context.clone(),
+            selector,
+            retention,
+            high_rate_qos(queue_depth),
+        )
+    }
+
+    pub fn subscribe_transient_local_typed_retained<T>(
+        &self,
+        selector: impl Into<String>,
+    ) -> retained_subscription::TypedSubscription<T>
+    where
+        T: Message + Send + Sync + 'static,
+        T::Codec: Send + Sync,
+    {
+        retained_subscription::subscribe_typed(
+            &self.runtime,
+            self.connection_state_receiver.clone(),
+            self.target_namespace_sender.subscribe(),
+            self.egui_context.clone(),
+            selector,
+            RetentionPolicy::LatestOnly,
+            transient_local_qos(),
+        )
+    }
+}
+
+pub(crate) fn high_rate_qos(queue_depth: usize) -> QosProfile {
+    QosProfile {
+        reliability: QosReliability::BestEffort,
+        history: QosHistory::KeepLast(
+            NonZeroUsize::new(queue_depth).expect("high-rate queue depth must be non-zero"),
+        ),
+        ..Default::default()
+    }
+}
+
+pub(crate) fn transient_local_qos() -> QosProfile {
+    QosProfile {
+        durability: QosDurability::TransientLocal,
+        ..high_rate_qos(HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH)
     }
 }
 
@@ -301,6 +367,8 @@ fn rebuild_topic_catalog(
 
 #[cfg(test)]
 mod tests {
+    use ros_z::qos::{DEFAULT_HISTORY_DEPTH, QosDurability, QosHistory, QosReliability};
+
     use crate::backend::connection::{ConnectionState, ConnectionStatus};
 
     use super::*;
@@ -367,5 +435,28 @@ mod tests {
 
         assert_eq!(backend.router_endpoint(), "tcp/127.0.0.1:7448");
         assert_eq!(backend.connection_status(), ConnectionStatus::Disconnected);
+    }
+
+    #[test]
+    fn high_rate_qos_uses_deeper_best_effort_queue() {
+        let QosHistory::KeepLast(depth) = high_rate_qos(HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH).history
+        else {
+            panic!("high-rate Twix subscriptions must use bounded KeepLast history");
+        };
+
+        assert_eq!(depth.get(), HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH);
+        assert!(depth.get() > DEFAULT_HISTORY_DEPTH);
+        assert_eq!(
+            high_rate_qos(HIGH_RATE_SUBSCRIBER_QUEUE_DEPTH).reliability,
+            QosReliability::BestEffort
+        );
+    }
+
+    #[test]
+    fn transient_local_qos_requests_transient_local_durability() {
+        assert_eq!(
+            transient_local_qos().durability,
+            QosDurability::TransientLocal
+        );
     }
 }
