@@ -2,17 +2,18 @@ use std::sync::Arc;
 
 use arc_swap::ArcSwapOption;
 use parking_lot::Mutex;
-use ros_z::dynamic::DynamicPayload;
-use ros_z::time::Time;
+use ros_z::{dynamic::DynamicPayload, time::Time};
 use serde_json::Value;
-use tokio::task::AbortHandle;
+use tokio::sync::broadcast;
 use tokio_util::sync::CancellationToken;
 
 use crate::{
-    DebugEvent, JsonRenderPolicy, RetentionPolicy, SampleRecord, SubscriptionStatus,
-    SubscriptionStatusSnapshot, dynamic_payload_to_json, event::EventBuffer,
-    history::TimeIndexedHistory,
+    JsonRenderPolicy, RetentionPolicy, SampleRecord, SubscriptionStatus,
+    SubscriptionStatusSnapshot, SubscriptionUpdate, SubscriptionUpdateClosed,
+    SubscriptionUpdateReceiver, dynamic_payload_to_json, history::TimeIndexedHistory,
 };
+
+const UPDATE_BUFFER_CAPACITY: usize = 256;
 
 pub(crate) trait ManagedSubscription: Send + Sync {
     fn close(&self);
@@ -52,9 +53,16 @@ impl<V> SubscriptionHandle<V> {
         self.state.window(start, end)
     }
 
-    /// Drain queued status/value/diagnostic events.
-    pub fn drain_events(&self) -> Vec<DebugEvent> {
-        self.state.drain_events()
+    /// Subscribe to future status and data update notifications.
+    ///
+    /// The receiver is a live stream and does not replay updates that happened
+    /// before subscription. When the subscription closes, the update stream ends;
+    /// call [`Self::status`] to inspect the terminal status and [`Self::latest`] or
+    /// [`Self::window`] to inspect retained data.
+    pub fn subscribe_updates(
+        &self,
+    ) -> Result<SubscriptionUpdateReceiver, SubscriptionUpdateClosed> {
+        self.state.subscribe_updates()
     }
 }
 
@@ -93,9 +101,16 @@ impl JsonSubscriptionHandle {
             .collect()
     }
 
-    /// Drain queued status/value/diagnostic events.
-    pub fn drain_events(&self) -> Vec<DebugEvent> {
-        self.dynamic.drain_events()
+    /// Subscribe to future status and data update notifications.
+    ///
+    /// The receiver is a live stream and does not replay updates that happened
+    /// before subscription. When the subscription closes, the update stream ends;
+    /// call [`Self::status`] to inspect terminal status and [`Self::latest_json`]
+    /// or [`Self::window_json`] to inspect retained data.
+    pub fn subscribe_updates(
+        &self,
+    ) -> Result<SubscriptionUpdateReceiver, SubscriptionUpdateClosed> {
+        self.dynamic.subscribe_updates()
     }
 }
 
@@ -106,10 +121,14 @@ pub(crate) struct SubscriptionState<V> {
     cancellation_token: CancellationToken,
 }
 
-struct SubscriptionMeta {
-    status: SubscriptionStatusSnapshot,
-    events: EventBuffer,
-    receive_task: Option<AbortHandle>,
+enum SubscriptionMeta {
+    Open {
+        status: SubscriptionStatusSnapshot,
+        updates: broadcast::Sender<SubscriptionUpdate>,
+    },
+    Closed {
+        status: SubscriptionStatusSnapshot,
+    },
 }
 
 impl<V> SubscriptionState<V> {
@@ -119,16 +138,33 @@ impl<V> SubscriptionState<V> {
             RetentionPolicy::TimeWindow(_) => Some(Mutex::new(TimeIndexedHistory::new(retention))),
         };
 
+        let (updates, _) = broadcast::channel(UPDATE_BUFFER_CAPACITY);
+
         Self {
             latest: ArcSwapOption::empty(),
             history,
-            meta: Mutex::new(SubscriptionMeta {
-                status,
-                events: EventBuffer::new(256),
-                receive_task: None,
-            }),
+            meta: Mutex::new(SubscriptionMeta::Open { status, updates }),
             cancellation_token: CancellationToken::new(),
         }
+    }
+
+    pub(crate) fn spawn<F, Fut>(
+        status: SubscriptionStatusSnapshot,
+        retention: RetentionPolicy,
+        receive_loop: F,
+    ) -> Arc<Self>
+    where
+        F: FnOnce(std::sync::Weak<Self>, CancellationToken) -> Fut,
+        Fut: std::future::Future<Output = ()> + Send + 'static,
+        V: Send + Sync + 'static,
+    {
+        let state = Arc::new(Self::new(status, retention));
+        let weak_state = Arc::downgrade(&state);
+        let cancellation = state.cancellation_token();
+
+        tokio::spawn(receive_loop(weak_state, cancellation));
+
+        state
     }
 
     pub(crate) fn handle(self: &Arc<Self>) -> SubscriptionHandle<V> {
@@ -141,73 +177,76 @@ impl<V> SubscriptionState<V> {
         self.cancellation_token.clone()
     }
 
-    pub(crate) fn set_receive_task(&self, abort_handle: AbortHandle) {
-        let mut meta = self.meta.lock();
-        if meta.status.status() == &SubscriptionStatus::Closed {
-            drop(meta);
-            abort_handle.abort();
-            return;
-        }
-
-        if let Some(previous) = meta.receive_task.replace(abort_handle) {
-            previous.abort();
-        }
-    }
-
     pub(crate) fn close(&self) {
         let mut meta = self.meta.lock();
-        if meta.status.status() == &SubscriptionStatus::Closed {
-            return;
-        }
-        meta.status.set_status(SubscriptionStatus::Closed);
-        meta.events.push(DebugEvent::StatusChanged);
-        let receive_task = meta.receive_task.take();
+        let closed_status = match &mut *meta {
+            SubscriptionMeta::Open { status, .. } => {
+                status.set_status(SubscriptionStatus::Closed);
+                status.clone()
+            }
+            SubscriptionMeta::Closed { .. } => return,
+        };
+        let updates = match std::mem::replace(
+            &mut *meta,
+            SubscriptionMeta::Closed {
+                status: closed_status,
+            },
+        ) {
+            SubscriptionMeta::Open { updates, .. } => updates,
+            SubscriptionMeta::Closed { .. } => unreachable!("closed state was handled above"),
+        };
         drop(meta);
 
+        drop(updates);
         self.cancellation_token.cancel();
-        if let Some(receive_task) = receive_task {
-            receive_task.abort();
-        }
     }
 
     pub(crate) fn store_latest(&self, record: Arc<SampleRecord<V>>) {
         let mut meta = self.meta.lock();
-        if meta.status.status() == &SubscriptionStatus::Closed {
+        let SubscriptionMeta::Open { status, updates } = &mut *meta else {
             return;
-        }
+        };
 
         if let Some(history) = &self.history {
             history.lock().insert(Arc::clone(&record));
         }
         self.latest.store(Some(record));
 
-        let status_changed = meta.status.status() != &SubscriptionStatus::Ready;
-        meta.status.set_status(SubscriptionStatus::Ready);
-        if status_changed {
-            meta.events.push(DebugEvent::StatusChanged);
+        let status_changed = status.status() != &SubscriptionStatus::Ready;
+        status.set_status(SubscriptionStatus::Ready);
+        let snapshot = status_changed.then(|| status.clone());
+
+        if let Some(snapshot) = snapshot {
+            let _ = updates.send(SubscriptionUpdate::StatusChanged(snapshot));
         }
-        meta.events.push(DebugEvent::ValueUpdated);
+        let _ = updates.send(SubscriptionUpdate::DataChanged);
     }
 
     pub(crate) fn set_receive_error(&self, status: SubscriptionStatus) {
         let mut meta = self.meta.lock();
-        if meta.status.status() == &SubscriptionStatus::Closed {
+        let SubscriptionMeta::Open {
+            status: current_status,
+            updates,
+        } = &mut *meta
+        else {
             return;
-        }
+        };
 
-        let status_changed = !meta.status.status().is_same_kind(&status);
-        let message = status.message().map(str::to_owned);
-        meta.status.set_status(status);
-        if status_changed {
-            meta.events.push(DebugEvent::StatusChanged);
-        }
-        if let Some(message) = message {
-            meta.events.push(DebugEvent::Diagnostic(message));
+        let status_changed = current_status.status() != &status;
+        current_status.set_status(status);
+        let snapshot = status_changed.then(|| current_status.clone());
+
+        if let Some(snapshot) = snapshot {
+            let _ = updates.send(SubscriptionUpdate::StatusChanged(snapshot));
         }
     }
 
     fn status(&self) -> SubscriptionStatusSnapshot {
-        self.meta.lock().status.clone()
+        match &*self.meta.lock() {
+            SubscriptionMeta::Open { status, .. } | SubscriptionMeta::Closed { status } => {
+                status.clone()
+            }
+        }
     }
 
     fn latest(&self) -> Option<Arc<SampleRecord<V>>> {
@@ -220,17 +259,19 @@ impl<V> SubscriptionState<V> {
             .map_or_else(Vec::new, |history| history.lock().window(start, end))
     }
 
-    fn drain_events(&self) -> Vec<DebugEvent> {
-        self.meta.lock().events.drain()
+    fn subscribe_updates(&self) -> Result<SubscriptionUpdateReceiver, SubscriptionUpdateClosed> {
+        let meta = self.meta.lock();
+        let SubscriptionMeta::Open { updates, .. } = &*meta else {
+            return Err(SubscriptionUpdateClosed);
+        };
+
+        Ok(SubscriptionUpdateReceiver::new(updates.subscribe()))
     }
 }
 
 impl<V> Drop for SubscriptionState<V> {
     fn drop(&mut self) {
         self.cancellation_token.cancel();
-        if let Some(receive_task) = self.meta.lock().receive_task.take() {
-            receive_task.abort();
-        }
     }
 }
 
@@ -254,8 +295,8 @@ mod tests {
 
     use super::{JsonSubscriptionHandle, SubscriptionState};
     use crate::{
-        DebugEvent, JsonRenderPolicy, RetentionPolicy, SampleMetadata, SampleRecord,
-        SubscriptionStatus, SubscriptionStatusSnapshot, TopicSelector,
+        JsonRenderPolicy, RetentionPolicy, SampleMetadata, SampleRecord, SubscriptionStatus,
+        SubscriptionStatusSnapshot, SubscriptionUpdate, SubscriptionUpdateClosed, TopicSelector,
     };
 
     struct NonClonePayload(u32);
@@ -391,20 +432,89 @@ mod tests {
     }
 
     #[test]
-    fn drain_events_returns_and_clears_events() {
+    fn update_receiver_reports_data_changed_after_store_latest() {
         let state = Arc::new(SubscriptionState::<NonClonePayload>::new(
             SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
         ));
+        let handle = state.handle();
+        let mut updates = handle.subscribe_updates().unwrap();
 
         state.store_latest(sample_record(NonClonePayload(1)));
 
-        let events = state.handle().drain_events();
+        let first_update = updates.try_recv();
         assert!(matches!(
-            &events[..],
-            [DebugEvent::StatusChanged, DebugEvent::ValueUpdated]
+            first_update,
+            Ok(Some(SubscriptionUpdate::StatusChanged(snapshot)))
+                if snapshot.status() == &SubscriptionStatus::Ready
         ));
-        assert!(state.handle().drain_events().is_empty());
+        assert!(matches!(
+            updates.try_recv(),
+            Ok(Some(SubscriptionUpdate::DataChanged))
+        ));
+        assert!(matches!(updates.try_recv(), Ok(None)));
+    }
+
+    #[test]
+    fn update_receiver_does_not_replay_updates_sent_before_subscription() {
+        let state = Arc::new(SubscriptionState::<NonClonePayload>::new(
+            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+            RetentionPolicy::LatestOnly,
+        ));
+        let handle = state.handle();
+
+        state.store_latest(sample_record(NonClonePayload(1)));
+        let mut updates = handle.subscribe_updates().unwrap();
+
+        assert!(matches!(updates.try_recv(), Ok(None)));
+    }
+
+    #[test]
+    fn update_receiver_reports_error_message_in_status_update() {
+        let state = Arc::new(SubscriptionState::<NonClonePayload>::new(
+            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+            RetentionPolicy::LatestOnly,
+        ));
+        let handle = state.handle();
+        let mut updates = handle.subscribe_updates().unwrap();
+
+        state.set_receive_error(SubscriptionStatus::decode_error(
+            "failed to deserialize sample",
+        ));
+
+        assert!(matches!(
+            updates.try_recv(),
+            Ok(Some(SubscriptionUpdate::StatusChanged(snapshot)))
+                if matches!(snapshot.status(), SubscriptionStatus::DecodeError { .. })
+                    && snapshot.message() == Some("failed to deserialize sample")
+        ));
+        assert!(matches!(updates.try_recv(), Ok(None)));
+    }
+
+    #[test]
+    fn update_receiver_reports_status_changed_for_repeated_error_with_new_message() {
+        let state = Arc::new(SubscriptionState::<NonClonePayload>::new(
+            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+            RetentionPolicy::LatestOnly,
+        ));
+        let handle = state.handle();
+        let mut updates = handle.subscribe_updates().unwrap();
+
+        state.set_receive_error(SubscriptionStatus::decode_error("first decode failure"));
+        assert!(matches!(
+            updates.try_recv(),
+            Ok(Some(SubscriptionUpdate::StatusChanged(snapshot)))
+                if snapshot.message() == Some("first decode failure")
+        ));
+
+        state.set_receive_error(SubscriptionStatus::decode_error("second decode failure"));
+
+        assert!(matches!(
+            updates.try_recv(),
+            Ok(Some(SubscriptionUpdate::StatusChanged(snapshot)))
+                if snapshot.message() == Some("second decode failure")
+        ));
+        assert!(matches!(updates.try_recv(), Ok(None)));
     }
 
     #[test]
@@ -420,27 +530,22 @@ mod tests {
     }
 
     #[test]
-    fn recovery_from_error_emits_status_changed_and_value_updated() {
-        let state = Arc::new(SubscriptionState::new(
+    fn update_receiver_closes_when_subscription_closes() {
+        let state = Arc::new(SubscriptionState::<NonClonePayload>::new(
             SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
         ));
-        state.set_receive_error(SubscriptionStatus::decode_error(
-            "failed to deserialize sample",
-        ));
-        state.handle().drain_events();
+        let handle = state.handle();
+        let mut updates = handle.subscribe_updates().unwrap();
 
-        state.store_latest(sample_record(NonClonePayload(1)));
+        state.close();
 
-        let events = state.handle().drain_events();
-        assert!(matches!(
-            events.as_slice(),
-            [DebugEvent::StatusChanged, DebugEvent::ValueUpdated]
-        ));
+        assert_eq!(handle.status().status(), &SubscriptionStatus::Closed);
+        assert!(matches!(updates.try_recv(), Err(SubscriptionUpdateClosed)));
     }
 
     #[test]
-    fn close_sets_closed_status_and_emits_event() {
+    fn subscribing_after_close_returns_closed() {
         let state = Arc::new(SubscriptionState::<NonClonePayload>::new(
             SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
@@ -449,25 +554,104 @@ mod tests {
 
         state.close();
 
-        assert_eq!(handle.status().status(), &SubscriptionStatus::Closed);
         assert!(matches!(
-            handle.drain_events().as_slice(),
-            [DebugEvent::StatusChanged]
+            handle.subscribe_updates(),
+            Err(SubscriptionUpdateClosed)
         ));
     }
 
-    #[tokio::test]
-    async fn close_aborts_registered_receive_task() {
+    #[test]
+    fn close_keeps_previously_retained_latest_sample() {
         let state = Arc::new(SubscriptionState::<NonClonePayload>::new(
             SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
         ));
-        let task = tokio::spawn(std::future::pending::<()>());
-        state.set_receive_task(task.abort_handle());
+        let handle = state.handle();
+        let record = sample_record(NonClonePayload(11));
+
+        state.store_latest(Arc::clone(&record));
+        state.close();
+
+        let latest = handle.latest().unwrap();
+        assert!(Arc::ptr_eq(&latest, &record));
+        assert_eq!(handle.status().status(), &SubscriptionStatus::Closed);
+    }
+
+    #[test]
+    fn close_keeps_previously_retained_time_window_samples() {
+        let state = Arc::new(SubscriptionState::new(
+            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+            RetentionPolicy::time_window(Duration::from_secs(10)).unwrap(),
+        ));
+        let handle = state.handle();
+        let first = sample_record_at(NonClonePayload(1), Time::from_nanos(1));
+        let second = sample_record_at(NonClonePayload(2), Time::from_nanos(2));
+
+        state.store_latest(Arc::clone(&first));
+        state.store_latest(Arc::clone(&second));
+        state.close();
+
+        let records = handle.window(Time::from_nanos(1), Time::from_nanos(2));
+        assert_eq!(records.len(), 2);
+        assert!(Arc::ptr_eq(&records[0], &first));
+        assert!(Arc::ptr_eq(&records[1], &second));
+        assert_eq!(handle.status().status(), &SubscriptionStatus::Closed);
+    }
+
+    #[test]
+    fn close_does_not_emit_closed_status_update() {
+        let state = Arc::new(SubscriptionState::<NonClonePayload>::new(
+            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+            RetentionPolicy::LatestOnly,
+        ));
+        let handle = state.handle();
+        let mut updates = handle.subscribe_updates().unwrap();
 
         state.close();
 
-        assert!(task.await.unwrap_err().is_cancelled());
+        assert!(matches!(updates.try_recv(), Err(SubscriptionUpdateClosed)));
+    }
+
+    #[tokio::test]
+    async fn spawned_receive_task_exits_when_subscription_closes() {
+        let (exited_sender, exited_receiver) = tokio::sync::oneshot::channel();
+        let state = SubscriptionState::<NonClonePayload>::spawn(
+            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+            RetentionPolicy::LatestOnly,
+            move |_state, cancellation| async move {
+                cancellation.cancelled().await;
+                let _ = exited_sender.send(());
+            },
+        );
+
+        state.close();
+
+        tokio::time::timeout(Duration::from_secs(1), exited_receiver)
+            .await
+            .unwrap()
+            .unwrap();
+    }
+
+    #[tokio::test]
+    async fn spawned_receive_task_exits_when_last_handle_drops() {
+        let (exited_sender, exited_receiver) = tokio::sync::oneshot::channel();
+        let state = SubscriptionState::<NonClonePayload>::spawn(
+            SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+            RetentionPolicy::LatestOnly,
+            move |_state, cancellation| async move {
+                cancellation.cancelled().await;
+                let _ = exited_sender.send(());
+            },
+        );
+        let handle = state.handle();
+
+        drop(state);
+        drop(handle);
+
+        tokio::time::timeout(Duration::from_secs(1), exited_receiver)
+            .await
+            .unwrap()
+            .unwrap();
     }
 
     #[test]
@@ -477,16 +661,14 @@ mod tests {
             RetentionPolicy::LatestOnly,
         ));
         let handle = state.handle();
+        let mut updates = handle.subscribe_updates().unwrap();
 
         state.close();
         state.store_latest(sample_record(NonClonePayload(1)));
 
         assert_eq!(handle.status().status(), &SubscriptionStatus::Closed);
         assert!(handle.latest().is_none());
-        assert!(matches!(
-            handle.drain_events().as_slice(),
-            [DebugEvent::StatusChanged]
-        ));
+        assert!(matches!(updates.try_recv(), Err(SubscriptionUpdateClosed)));
     }
 
     #[test]
@@ -496,6 +678,7 @@ mod tests {
             RetentionPolicy::LatestOnly,
         ));
         let handle = state.handle();
+        let mut updates = handle.subscribe_updates().unwrap();
 
         state.close();
         state.set_receive_error(SubscriptionStatus::decode_error("late decode failure"));
@@ -503,10 +686,7 @@ mod tests {
         let status = handle.status();
         assert_eq!(status.status(), &SubscriptionStatus::Closed);
         assert_eq!(status.message(), None);
-        assert!(matches!(
-            handle.drain_events().as_slice(),
-            [DebugEvent::StatusChanged]
-        ));
+        assert!(matches!(updates.try_recv(), Err(SubscriptionUpdateClosed)));
     }
 
     #[test]
@@ -516,15 +696,13 @@ mod tests {
             RetentionPolicy::LatestOnly,
         ));
         let handle = state.handle();
+        let mut updates = handle.subscribe_updates().unwrap();
 
         state.close();
         state.close();
 
         assert_eq!(handle.status().status(), &SubscriptionStatus::Closed);
-        assert!(matches!(
-            handle.drain_events().as_slice(),
-            [DebugEvent::StatusChanged]
-        ));
+        assert!(matches!(updates.try_recv(), Err(SubscriptionUpdateClosed)));
     }
 
     #[test]
@@ -540,21 +718,26 @@ mod tests {
     }
 
     #[test]
-    fn json_handle_drains_underlying_dynamic_events() {
+    fn json_handle_subscribes_to_underlying_dynamic_updates() {
         let state = Arc::new(SubscriptionState::<DynamicPayload>::new(
             SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
             RetentionPolicy::LatestOnly,
         ));
-        state.store_latest(dynamic_record_at(1, Time::zero()));
         let handle = JsonSubscriptionHandle::new(state.handle(), JsonRenderPolicy::default());
+        let mut updates = handle.subscribe_updates().unwrap();
 
-        let events = handle.drain_events();
+        state.store_latest(dynamic_record_at(1, Time::zero()));
 
         assert!(matches!(
-            &events[..],
-            [DebugEvent::StatusChanged, DebugEvent::ValueUpdated]
+            updates.try_recv(),
+            Ok(Some(SubscriptionUpdate::StatusChanged(snapshot)))
+                if snapshot.status() == &SubscriptionStatus::Ready
         ));
-        assert!(handle.drain_events().is_empty());
+        assert!(matches!(
+            updates.try_recv(),
+            Ok(Some(SubscriptionUpdate::DataChanged))
+        ));
+        assert!(matches!(updates.try_recv(), Ok(None)));
     }
 
     #[test]
@@ -588,5 +771,19 @@ mod tests {
         drop(handle);
 
         assert!(cancellation.is_cancelled());
+    }
+
+    #[test]
+    fn update_receiver_closes_after_subscription_state_is_dropped() {
+        let mut updates = {
+            let state = Arc::new(SubscriptionState::<NonClonePayload>::new(
+                SubscriptionStatusSnapshot::new(SubscriptionStatus::WaitingForFirstSample),
+                RetentionPolicy::LatestOnly,
+            ));
+
+            state.handle().subscribe_updates().unwrap()
+        };
+
+        assert!(matches!(updates.try_recv(), Err(SubscriptionUpdateClosed)));
     }
 }
