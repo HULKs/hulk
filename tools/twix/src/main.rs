@@ -36,7 +36,7 @@ use panels::{EnumPlotPanel, PlotPanel, TextPanel, UnsupportedPanel};
 use repository::{Repository, inspect_version::check_for_update};
 use visuals::Visuals;
 
-use crate::backend::TwixBackend;
+use crate::backend::{TwixBackend, connection::ConnectionStatus};
 
 mod backend;
 mod configuration;
@@ -230,6 +230,14 @@ fn router_endpoint_from_arguments_and_storage(
     router_endpoint_from_storage(storage)
 }
 
+fn keep_connected_from_storage_value(value: Option<String>) -> bool {
+    value.as_deref() != Some("false")
+}
+
+fn keep_connected_from_storage(storage: Option<&dyn Storage>) -> bool {
+    keep_connected_from_storage_value(storage_string(storage, "keep_connected"))
+}
+
 fn normalize_target_namespace_or_default(namespace: &str, source: &str) -> String {
     match backend::topic::normalize_namespace(namespace) {
         Ok(namespace) => namespace,
@@ -303,13 +311,24 @@ fn create_backend_or_default_with<Backend>(
 fn create_backend_or_default(
     router_endpoint: &mut String,
     target_namespace: &mut String,
+    keep_connected: bool,
     egui_context: Context,
 ) -> Result<Arc<TwixBackend>> {
     create_backend_or_default_with(
         router_endpoint,
         target_namespace,
         |router_endpoint, target_namespace| {
-            TwixBackend::new(router_endpoint, target_namespace, egui_context.clone()).map(Arc::new)
+            let backend = if keep_connected {
+                TwixBackend::new(router_endpoint, target_namespace, egui_context.clone())
+            } else {
+                TwixBackend::new_with_keep_connected(
+                    router_endpoint,
+                    target_namespace,
+                    egui_context.clone(),
+                    false,
+                )
+            };
+            backend.map(Arc::new)
         },
     )
 }
@@ -550,12 +569,68 @@ mod tests {
         assert!(matches!(panel, SelectablePanel::Unsupported(_)));
         assert_eq!(panel.save(), saved_panel);
     }
+
+    #[test]
+    fn keep_connected_defaults_to_true_without_saved_value() {
+        assert!(keep_connected_from_storage_value(None));
+    }
+
+    #[test]
+    fn keep_connected_reads_saved_false() {
+        assert!(!keep_connected_from_storage_value(Some(
+            "false".to_string()
+        )));
+    }
+
+    #[test]
+    fn save_does_not_apply_router_endpoint_to_backend() {
+        let backend = Arc::new(
+            TwixBackend::new_with_keep_connected(
+                "tcp/127.0.0.1:7447",
+                "/42",
+                Context::default(),
+                false,
+            )
+            .unwrap(),
+        );
+        let mut app = TwixApp {
+            backend: backend.clone(),
+            router_endpoint: "tcp/127.0.0.1:7448".to_string(),
+            last_valid_router_endpoint: "tcp/127.0.0.1:7447".to_string(),
+            keep_connected: false,
+            target_namespace: "/42".to_string(),
+            panel_selection: TextPanel::NAME.to_string(),
+            last_focused_tab: (0.into(), 0.into()),
+            dock_state: DockState::new(vec![
+                SelectablePanel::Text(TextPanel::new(PanelCreationContext {
+                    backend: backend.clone(),
+                    value: None,
+                }))
+                .into(),
+            ]),
+            visual: Visuals::Dark,
+        };
+        let mut storage = MemoryStorage::default();
+
+        app.save(&mut storage);
+
+        assert_eq!(backend.router_endpoint(), "tcp/127.0.0.1:7447");
+        assert_eq!(
+            storage.get_string("router_endpoint").as_deref(),
+            Some("tcp/127.0.0.1:7448")
+        );
+        assert_eq!(
+            storage.get_string("keep_connected").as_deref(),
+            Some("false")
+        );
+    }
 }
 
 struct TwixApp {
     backend: Arc<TwixBackend>,
     router_endpoint: String,
     last_valid_router_endpoint: String,
+    keep_connected: bool,
     target_namespace: String,
     panel_selection: String,
     last_focused_tab: (NodeIndex, TabIndex),
@@ -578,9 +653,11 @@ impl TwixApp {
             arguments.address.as_deref(),
             creation_context.storage,
         );
+        let keep_connected = keep_connected_from_storage(creation_context.storage);
         let backend = create_backend_or_default(
             &mut router_endpoint,
             &mut target_namespace,
+            keep_connected,
             creation_context.egui_ctx.clone(),
         )?;
         target_namespace = backend.target_namespace();
@@ -628,6 +705,7 @@ impl TwixApp {
             backend,
             last_valid_router_endpoint: router_endpoint.clone(),
             router_endpoint,
+            keep_connected,
             target_namespace,
             panel_selection,
             dock_state,
@@ -758,14 +836,39 @@ impl App for TwixApp {
                         self.last_valid_router_endpoint = self.router_endpoint.clone();
                     }
                     if router_response.lost_focus() {
-                        match TwixBackend::validate_router_endpoint(&self.router_endpoint) {
-                            Ok(()) => ui.label("restart Twix to use a different router endpoint"),
+                        match self
+                            .backend
+                            .set_router_endpoint(self.router_endpoint.clone())
+                        {
+                            Ok(()) => {
+                                self.router_endpoint = self.backend.router_endpoint();
+                                self.last_valid_router_endpoint = self.router_endpoint.clone();
+                            }
                             Err(error) => {
                                 error!("invalid router endpoint: {error:#}");
                                 self.router_endpoint = self.last_valid_router_endpoint.clone();
-                                ui.label("invalid router endpoint; keeping previous valid endpoint")
+                                ui.label(
+                                    "invalid router endpoint; keeping previous valid endpoint",
+                                );
                             }
                         };
+                    }
+
+                    if ui
+                        .checkbox(&mut self.keep_connected, "Keep connected")
+                        .changed()
+                    {
+                        self.backend.set_keep_connected(self.keep_connected);
+                    }
+                    let connection_status = match self.backend.connection_status() {
+                        ConnectionStatus::Disconnected => "disconnected",
+                        ConnectionStatus::Connecting => "connecting",
+                        ConnectionStatus::Connected => "connected",
+                        ConnectionStatus::Failed => "connection failed",
+                    };
+                    let connection_response = ui.label(connection_status);
+                    if let Some(message) = self.backend.connection_unavailable_message() {
+                        connection_response.on_hover_text(message);
                     }
 
                     ui.label("Namespace");
@@ -991,6 +1094,7 @@ impl App for TwixApp {
             "router_endpoint",
             self.last_valid_router_endpoint.to_string(),
         );
+        storage.set_string("keep_connected", self.keep_connected.to_string());
         storage.set_string("target_namespace", self.target_namespace.to_string());
         storage.set_string("style", self.visual.to_string());
     }

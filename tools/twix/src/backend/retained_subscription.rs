@@ -2,7 +2,7 @@ use std::{sync::Arc, time::Duration};
 
 use eframe::egui::Context as EguiContext;
 use parking_lot::Mutex;
-use ros_z::{dynamic::DynamicPayload, graph::GraphChangeSubscription, node::Node, time::Time};
+use ros_z::{dynamic::DynamicPayload, graph::GraphChangeSubscription, time::Time};
 use ros_z_debug::{
     JsonRenderPolicy, RetentionPolicy, SampleRecord, SubscriptionHandle,
     SubscriptionStatusSnapshot, SubscriptionUpdate, SubscriptionUpdateReceiver,
@@ -11,7 +11,7 @@ use ros_z_debug::{
 use serde_json::Value;
 use tokio::{runtime::Runtime, sync::watch, time};
 
-use super::subscription;
+use super::{connection::ConnectionState, subscription};
 
 const SUBSCRIBE_RETRY_DELAY: Duration = Duration::from_secs(1);
 
@@ -134,7 +134,7 @@ impl DynamicSubscription {
 
 pub fn subscribe_dynamic(
     runtime: &Runtime,
-    node: Arc<Node>,
+    connection_state: watch::Receiver<ConnectionState>,
     target_namespace: watch::Receiver<String>,
     egui_context: EguiContext,
     selector: impl Into<String>,
@@ -145,7 +145,7 @@ pub fn subscribe_dynamic(
     let retention_receiver = retained.retention_sender.subscribe();
 
     runtime.spawn(run_dynamic_subscription(
-        node,
+        connection_state,
         target_namespace,
         egui_context,
         selector.into(),
@@ -157,20 +157,48 @@ pub fn subscribe_dynamic(
 }
 
 async fn run_dynamic_subscription(
-    node: Arc<Node>,
+    mut connection_state: watch::Receiver<ConnectionState>,
     mut target_namespace: watch::Receiver<String>,
     egui_context: EguiContext,
     selector: String,
     mut retention: watch::Receiver<RetentionPolicy>,
     state: WeakState<DynamicPayload>,
 ) {
-    let mut graph_changes = node.graph().subscribe_changes();
     let mut subscribe_error_handle_policy = SubscribeErrorHandlePolicy::ClearExisting;
 
     loop {
         if state.strong_count() == 0 {
             break;
         }
+
+        let connection = connection_state.borrow_and_update().clone();
+        let Some(node) = connection.node() else {
+            if !set_current_connection_unavailable(&state, &connection) {
+                break;
+            }
+            egui_context.request_repaint();
+
+            let Some(rebuild_signal) = wait_for_unavailable_rebuild_signal(
+                &mut connection_state,
+                &mut target_namespace,
+                &mut retention,
+            )
+            .await
+            else {
+                break;
+            };
+
+            subscribe_error_handle_policy = match rebuild_signal {
+                UnavailableRebuildSignal::Retention => SubscribeErrorHandlePolicy::KeepExisting,
+                UnavailableRebuildSignal::Connection
+                | UnavailableRebuildSignal::TargetNamespace => {
+                    SubscribeErrorHandlePolicy::ClearExisting
+                }
+            };
+            continue;
+        };
+
+        let mut graph_changes = node.graph().subscribe_changes();
 
         let namespace = target_namespace.borrow_and_update().clone();
         let retention_policy = *retention.borrow_and_update();
@@ -189,7 +217,7 @@ async fn run_dynamic_subscription(
                     break;
                 }
                 subscribe_error_handle_policy = SubscribeErrorHandlePolicy::ClearExisting;
-                if !clear_handle(&state) {
+                if !clear_state_for_rebuild(&state) {
                     break;
                 }
                 continue;
@@ -201,12 +229,22 @@ async fn run_dynamic_subscription(
                 subscribe_error_handle_policy = SubscribeErrorHandlePolicy::KeepExisting;
                 continue;
             }
+            changed = connection_state.changed() => {
+                if changed.is_err() {
+                    break;
+                }
+                subscribe_error_handle_policy = SubscribeErrorHandlePolicy::ClearExisting;
+                if !handle_connection_state_change(&mut connection_state, &state, &egui_context) {
+                    break;
+                }
+                continue;
+            }
             changed = graph_changes.changed() => {
                 if changed.is_none() {
                     break;
                 }
                 subscribe_error_handle_policy = SubscribeErrorHandlePolicy::ClearExisting;
-                if !clear_handle(&state) {
+                if !clear_state_for_rebuild(&state) {
                     break;
                 }
                 continue;
@@ -222,6 +260,7 @@ async fn run_dynamic_subscription(
 
                 let forward_exit = forward_subscription_updates(
                     &mut active_subscription.updates,
+                    &mut connection_state,
                     &mut target_namespace,
                     &mut retention,
                     &mut graph_changes,
@@ -238,11 +277,21 @@ async fn run_dynamic_subscription(
                     break;
                 }
 
-                if should_clear_handle_after_forward_exit(forward_exit) && !clear_handle(&state) {
-                    break;
+                if matches!(forward_exit, ForwardSubscriptionExit::ConnectionChanged) {
+                    subscribe_error_handle_policy = SubscribeErrorHandlePolicy::ClearExisting;
+                    if !handle_connection_state_change(&mut connection_state, &state, &egui_context)
+                    {
+                        break;
+                    }
+                } else {
+                    if should_clear_state_after_forward_exit(forward_exit)
+                        && !clear_state_for_rebuild(&state)
+                    {
+                        break;
+                    }
+                    subscribe_error_handle_policy =
+                        subscribe_error_handle_policy_after_forward_exit(forward_exit);
                 }
-                subscribe_error_handle_policy =
-                    subscribe_error_handle_policy_after_forward_exit(forward_exit);
             }
             Err(error) => {
                 if !set_subscribe_error(&state, &error, subscribe_error_handle_policy) {
@@ -251,6 +300,7 @@ async fn run_dynamic_subscription(
                 egui_context.request_repaint();
 
                 let Some(rebuild_signal) = wait_for_rebuild_signal(
+                    &mut connection_state,
                     &mut target_namespace,
                     &mut retention,
                     &mut graph_changes,
@@ -265,9 +315,19 @@ async fn run_dynamic_subscription(
                     RebuildSignal::RetentionChanged => {
                         subscribe_error_handle_policy = SubscribeErrorHandlePolicy::KeepExisting;
                     }
+                    RebuildSignal::ConnectionChanged => {
+                        subscribe_error_handle_policy = SubscribeErrorHandlePolicy::ClearExisting;
+                        if !handle_connection_state_change(
+                            &mut connection_state,
+                            &state,
+                            &egui_context,
+                        ) {
+                            break;
+                        }
+                    }
                     RebuildSignal::TargetNamespaceChanged | RebuildSignal::GraphChanged => {
                         subscribe_error_handle_policy = SubscribeErrorHandlePolicy::ClearExisting;
-                        if !clear_handle(&state) {
+                        if !clear_state_for_rebuild(&state) {
                             break;
                         }
                     }
@@ -276,11 +336,12 @@ async fn run_dynamic_subscription(
         }
     }
 
-    let _ = clear_handle(&state);
+    let _ = clear_state_for_rebuild(&state);
 }
 
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum ForwardSubscriptionExit {
+    ConnectionChanged,
     TargetNamespaceChanged,
     GraphChanged,
     RetentionChanged,
@@ -305,13 +366,22 @@ enum SubscribeErrorHandlePolicy {
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
 enum RebuildSignal {
     Retry,
+    ConnectionChanged,
     TargetNamespaceChanged,
     RetentionChanged,
     GraphChanged,
 }
 
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
+enum UnavailableRebuildSignal {
+    Connection,
+    TargetNamespace,
+    Retention,
+}
+
 async fn forward_subscription_updates(
     updates: &mut SubscriptionUpdateReceiver,
+    connection_state: &mut watch::Receiver<ConnectionState>,
     target_namespace: &mut watch::Receiver<String>,
     retention: &mut watch::Receiver<RetentionPolicy>,
     graph_changes: &mut GraphChangeSubscription,
@@ -331,6 +401,10 @@ async fn forward_subscription_updates(
                     }
                 }
             }
+            changed = connection_state.changed() => return match changed {
+                Ok(()) => ForwardSubscriptionExit::ConnectionChanged,
+                Err(_) => control_channel_closed_exit(state),
+            },
             changed = target_namespace.changed() => return match changed {
                 Ok(()) => ForwardSubscriptionExit::TargetNamespaceChanged,
                 Err(_) => control_channel_closed_exit(state),
@@ -355,7 +429,7 @@ fn control_channel_closed_exit<T>(state: &WeakState<T>) -> ForwardSubscriptionEx
     }
 }
 
-fn should_clear_handle_after_forward_exit(exit: ForwardSubscriptionExit) -> bool {
+fn should_clear_state_after_forward_exit(exit: ForwardSubscriptionExit) -> bool {
     matches!(
         exit,
         ForwardSubscriptionExit::TargetNamespaceChanged
@@ -369,7 +443,8 @@ fn subscribe_error_handle_policy_after_forward_exit(
 ) -> SubscribeErrorHandlePolicy {
     match exit {
         ForwardSubscriptionExit::RetentionChanged => SubscribeErrorHandlePolicy::KeepExisting,
-        ForwardSubscriptionExit::TargetNamespaceChanged
+        ForwardSubscriptionExit::ConnectionChanged
+        | ForwardSubscriptionExit::TargetNamespaceChanged
         | ForwardSubscriptionExit::GraphChanged
         | ForwardSubscriptionExit::UpdateReceiverClosed
         | ForwardSubscriptionExit::ControlChannelClosed
@@ -447,7 +522,78 @@ fn handle_update(
     true
 }
 
+fn handle_connection_state_change<T>(
+    connection_state: &mut watch::Receiver<ConnectionState>,
+    state: &WeakState<T>,
+    egui_context: &EguiContext,
+) -> bool {
+    let connection = connection_state.borrow_and_update().clone();
+    let updated = if connection.node().is_some() {
+        clear_state_for_rebuild(state)
+    } else {
+        set_current_connection_unavailable(state, &connection)
+    };
+
+    if updated {
+        egui_context.request_repaint();
+    }
+    updated
+}
+
+fn set_current_connection_unavailable<T>(
+    state: &WeakState<T>,
+    connection: &ConnectionState,
+) -> bool {
+    let message = connection
+        .unavailable_message()
+        .unwrap_or("Twix connection is unavailable");
+    set_connection_unavailable(state, message)
+}
+
+fn clear_state_for_rebuild<T>(state: &WeakState<T>) -> bool {
+    let Some(state) = state.upgrade() else {
+        return false;
+    };
+
+    let mut state = state.lock();
+    state.handle = None;
+    state.status = None;
+    state.diagnostic = None;
+    true
+}
+
+fn set_connection_unavailable<T>(state: &WeakState<T>, message: &str) -> bool {
+    let Some(state) = state.upgrade() else {
+        return false;
+    };
+
+    let mut state = state.lock();
+    state.handle = None;
+    state.status = None;
+    state.diagnostic = Some(message.to_string());
+    true
+}
+
+async fn wait_for_unavailable_rebuild_signal(
+    connection_state: &mut watch::Receiver<ConnectionState>,
+    target_namespace: &mut watch::Receiver<String>,
+    retention: &mut watch::Receiver<RetentionPolicy>,
+) -> Option<UnavailableRebuildSignal> {
+    tokio::select! {
+        changed = connection_state.changed() => {
+            changed.ok().map(|()| UnavailableRebuildSignal::Connection)
+        }
+        changed = target_namespace.changed() => {
+            changed.ok().map(|()| UnavailableRebuildSignal::TargetNamespace)
+        }
+        changed = retention.changed() => {
+            changed.ok().map(|()| UnavailableRebuildSignal::Retention)
+        }
+    }
+}
+
 async fn wait_for_rebuild_signal(
+    connection_state: &mut watch::Receiver<ConnectionState>,
     target_namespace: &mut watch::Receiver<String>,
     retention: &mut watch::Receiver<RetentionPolicy>,
     graph_changes: &mut GraphChangeSubscription,
@@ -457,6 +603,9 @@ async fn wait_for_rebuild_signal(
 
     tokio::select! {
         _ = &mut retry => Some(RebuildSignal::Retry),
+        changed = connection_state.changed() => {
+            changed.ok().map(|()| RebuildSignal::ConnectionChanged)
+        }
         changed = target_namespace.changed() => {
             changed.ok().map(|()| RebuildSignal::TargetNamespaceChanged)
         }
@@ -476,15 +625,6 @@ fn install_handle<T>(state: &WeakState<T>, handle: SubscriptionHandle<T>) -> boo
     state.handle = Some(handle);
     state.status = Some(status);
     state.diagnostic = diagnostic;
-    true
-}
-
-fn clear_handle<T>(state: &WeakState<T>) -> bool {
-    let Some(state) = state.upgrade() else {
-        return false;
-    };
-
-    state.lock().handle = None;
     true
 }
 
@@ -515,8 +655,9 @@ mod tests {
     use ros_z_debug::{ManagerOptions, RetentionPolicy, SubscriptionManager, SubscriptionUpdate};
 
     use super::{
-        ForwardSubscriptionExit, RetainedSubscription, SubscribeErrorHandlePolicy, handle_update,
-        set_subscribe_error, should_clear_handle_after_forward_exit,
+        ForwardSubscriptionExit, RetainedSubscription, SubscribeErrorHandlePolicy,
+        clear_state_for_rebuild, handle_update, set_connection_unavailable, set_subscribe_error,
+        should_clear_state_after_forward_exit,
     };
 
     #[derive(Debug, Clone, serde::Serialize, serde::Deserialize, ros_z::Message)]
@@ -553,16 +694,30 @@ mod tests {
     }
 
     #[test]
-    fn forward_exit_clears_handle_for_retarget_or_graph_but_not_retention() {
-        assert!(should_clear_handle_after_forward_exit(
+    fn forward_exit_clears_state_for_retarget_or_graph_but_not_retention() {
+        assert!(should_clear_state_after_forward_exit(
             ForwardSubscriptionExit::TargetNamespaceChanged,
         ));
-        assert!(should_clear_handle_after_forward_exit(
+        assert!(should_clear_state_after_forward_exit(
             ForwardSubscriptionExit::GraphChanged,
         ));
-        assert!(!should_clear_handle_after_forward_exit(
+        assert!(!should_clear_state_after_forward_exit(
             ForwardSubscriptionExit::RetentionChanged,
         ));
+    }
+
+    #[test]
+    fn connection_unavailable_message_reports_without_samples() {
+        let retained = RetainedSubscription::<DynamicPayload>::new(RetentionPolicy::LatestOnly);
+        let state = Arc::downgrade(&retained.state);
+
+        assert!(set_connection_unavailable(&state, "Twix is disconnected"));
+
+        assert!(retained.latest().is_none());
+        assert_eq!(
+            retained.diagnostic_message().as_deref(),
+            Some("Twix is disconnected")
+        );
     }
 
     #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
@@ -604,6 +759,57 @@ mod tests {
         assert_eq!(
             retained.diagnostic_message().as_deref(),
             Some("subscribe failed")
+        );
+    }
+
+    #[tokio::test(flavor = "multi_thread", worker_threads = 2)]
+    async fn non_retention_clear_drops_stale_state_but_retention_error_keeps_state() {
+        let retained =
+            RetainedSubscription::<SubscribeErrorStateMessage>::new(RetentionPolicy::LatestOnly);
+        let state = Arc::downgrade(&retained.state);
+        let handle = typed_handle("twix_clear_stale_rebuild_state").await;
+        let status = handle.status();
+        {
+            let mut state = retained.state.lock();
+            state.handle = Some(handle);
+            state.status = Some(status);
+            state.diagnostic = Some("stale diagnostic".to_string());
+        }
+
+        assert!(clear_state_for_rebuild(&state));
+
+        {
+            let state = retained.state.lock();
+            assert!(state.handle.is_none());
+            assert!(state.status.is_none());
+            assert!(state.diagnostic.is_none());
+        }
+
+        let retained =
+            RetainedSubscription::<SubscribeErrorStateMessage>::new(RetentionPolicy::LatestOnly);
+        let state = Arc::downgrade(&retained.state);
+        let handle = typed_handle("twix_keep_state_retention_rebuild").await;
+        let status = handle.status();
+        {
+            let mut state = retained.state.lock();
+            state.handle = Some(handle);
+            state.status = Some(status);
+            state.diagnostic = Some("stale diagnostic".to_string());
+        }
+
+        let error = eyre!("retention subscribe failed");
+        assert!(set_subscribe_error(
+            &state,
+            &error,
+            SubscribeErrorHandlePolicy::KeepExisting,
+        ));
+
+        let state = retained.state.lock();
+        assert!(state.handle.is_some());
+        assert!(state.status.is_some());
+        assert_eq!(
+            state.diagnostic.as_deref(),
+            Some("retention subscribe failed")
         );
     }
 
