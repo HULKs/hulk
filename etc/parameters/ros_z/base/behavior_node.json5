@@ -126,6 +126,14 @@
     look_forward_position: [1.0, 0.0],
     position_of_interest_switch_interval: { nanos: 0, secs: 1 },
   },
+  closest_to_ball_enter_duration: {
+    nanos: 300000000,
+    secs: 0,
+  },
+  closest_to_ball_exit_duration: {
+    nanos: 150000000,
+    secs: 0,
+  },
   voronoi: {
     orientation_bias: 0.5,
     grid_resolution: 0.2,
