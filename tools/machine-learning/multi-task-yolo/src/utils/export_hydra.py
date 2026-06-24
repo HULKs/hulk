@@ -241,6 +241,9 @@ def main(
         hydra_model = Hydra(
             backbone_path=str(backbone),
             task_dict=task_dict,
+            number_of_frozen_modules=(
+                hydra_model_name.number_of_frozen_modules
+            ),
         ).to(device)
         hydra_model.eval()
         set_export_mode(hydra_model)

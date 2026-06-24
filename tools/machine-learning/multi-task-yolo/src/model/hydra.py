@@ -80,6 +80,7 @@ class Hydra(nn.Module):
         self,
         backbone_path: str,
         task_dict: dict[TaskType, Path],
+        number_of_frozen_modules: int | None = None,
     ) -> None:
         super().__init__()
 
@@ -87,13 +88,18 @@ class Hydra(nn.Module):
         backbone_yolo = YOLO(backbone_path)
         backbone_root = cast(DetectionModel, backbone_yolo.model)
 
-        self.backbone_length = get_backbone_length(
-            cast(dict, backbone_root.yaml)
+        self.backbone_length = (
+            number_of_frozen_modules
+            if number_of_frozen_modules is not None
+            else get_backbone_length(cast(dict, backbone_root.yaml))
         )
 
         backbone_model_name = backbone_yolo.model_name or "unknown"
         self.backbone_name = Path(backbone_model_name).stem
-        self.shared_backbone = get_backbone(backbone_root)
+        self.shared_backbone = get_backbone(
+            backbone_root,
+            number_of_frozen_modules,
+        )
         self.save_backbone = cast(list[int], backbone_root.save)
 
         self.heads = nn.ModuleDict()
@@ -113,7 +119,10 @@ class Hydra(nn.Module):
             task_root = cast(DetectionModel, task_yolo.model)
             task_head = task_root.model[-1]
 
-            self.heads[task_type] = get_head(task_root)
+            self.heads[task_type] = get_head(
+                task_root,
+                number_of_frozen_modules,
+            )
             self.branch_saves[task_type] = cast(list[int], task_root.save)
             self.head_class_names[task_type] = getattr(task_root, "names", {})
             task_model_name = task_yolo.model_name or "unknown"

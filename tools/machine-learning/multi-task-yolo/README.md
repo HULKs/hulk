@@ -27,6 +27,7 @@ This project uses `uv run ...` for all commands.
 - `src/validation/predictor.py`: local smoke predictor/visualizer for detection + pose.
 - `src/utils/export_yolo_to_onnx.py`: export a single YOLO checkpoint with NV12 preprocessing.
 - `src/utils/export_hydra.py`: export Hydra models to ONNX or TorchScript (optional NV12 layer).
+- `src/utils/model_complexity.py`: report checkpoint parameters, MACs, FLOPs, and file size.
 - `src/utils/nv12_to_rgb.py`: NV12-to-RGB layer used by export wrappers.
 
 ## Common commands
@@ -52,6 +53,9 @@ uv run -m utils.export_yolo_to_onnx --help
 
 # Hydra export help
 uv run -m utils.export_hydra --help
+
+# Model complexity help
+uv run -m utils.model_complexity --help
 ```
 
 ## Single-task training (`src/model/train.py`)
@@ -134,6 +138,43 @@ uv run -m validation.compare_results \
   --baseline runs/val/yolo26m \
   --candidate runs/val/yolo26m-pose_yolo26m \
   --task auto
+```
+
+## Model complexity (`src/utils/model_complexity.py`)
+
+Reports checkpoint file size, parameter counts, MACs, and FLOPs for YOLO
+`.pt` files and assembled Hydra model names. FLOPs use the Ultralytics
+convention: `1 MAC = 2 FLOPs`. Checkpoint reports are saved under
+`runs/complexity/<checkpoint-name>/report.json`. For Hydra model names, the
+assembled model is exported first, then `size MB` is measured from that
+exported file. Hydra exports and per-model reports are saved under
+`runs/complexity/<model-name>/`.
+
+Examples:
+
+```bash
+# Profile one checkpoint
+uv run -m utils.model_complexity \
+  runs/val/yolo26m=f11+yolo26m/yolo26m=f11+yolo26m.pt
+
+# Profile specific asset checkpoints
+uv run -m utils.model_complexity assets \
+  --checkpoint-name yolo26m.pt \
+  --checkpoint-name yolo26m-pose.pt \
+  --checkpoint-name yolo26m-seg.pt
+
+# Scan every checkpoint under runs and save JSON
+uv run -m utils.model_complexity runs \
+  --imgsz 640 \
+  --json-output runs/model_complexity.json
+
+# Only scan training best checkpoints
+uv run -m utils.model_complexity runs/train \
+  --checkpoint-name best.pt
+
+# Profile an assembled Hydra model by name
+uv run -m utils.model_complexity \
+  --hydra-model-name yolo26m=f11+yolo26m+yolo26m-pose
 ```
 
 ## Export utilities

@@ -17,6 +17,7 @@ from model.hydra import (
 from utils.model_naming import (
     HYDRA_MODEL_NAME_TYPE,
     HydraModelName,
+    ModelName,
     TaskType,
 )
 
@@ -94,6 +95,66 @@ def save_validation_results(
     logger.info("Saved config to %s", config_path)
 
 
+def dataset_name_for_task(
+    task_type: TaskType,
+    *,
+    object_dataset_name: Path,
+    pose_dataset_name: Path,
+    segmentation_dataset_name: Path,
+) -> Path:
+    match task_type:
+        case TaskType.OBJECT:
+            return object_dataset_name
+        case TaskType.POSE:
+            return pose_dataset_name
+        case TaskType.SEGMENTATION:
+            return segmentation_dataset_name
+    raise DatasetNotFoundError(task_type)
+
+
+def validation_config_for_model(
+    model_name: ModelName,
+    *,
+    object_dataset_name: Path,
+    pose_dataset_name: Path,
+    segmentation_dataset_name: Path,
+    assets_dir: Path,
+    project_dir: str | Path,
+    imgsz: int,
+    batch: int,
+    device: str,
+) -> ValidationConfig:
+    dataset_name = dataset_name_for_task(
+        model_name.task_type(),
+        object_dataset_name=object_dataset_name,
+        pose_dataset_name=pose_dataset_name,
+        segmentation_dataset_name=segmentation_dataset_name,
+    )
+
+    return ValidationConfig(
+        data=assets_dir / "datasets" / dataset_name,
+        project=project_dir,
+        imgsz=imgsz,
+        batch=batch,
+        device=device,
+    )
+
+
+def validate_original_model(
+    model_name: ModelName, config: ValidationConfig, assets_dir: Path
+) -> None:
+    model_val_folder = Path("val") / str(model_name)
+    validation_run_folder = Path(config.project) / model_val_folder
+
+    yolo_model_wrapper = YOLO(assets_dir / model_name.name)
+    yolo_model_wrapper.eval()
+
+    metrics = yolo_model_wrapper.val(**config.to_dict(name=model_val_folder))
+    metrics = cast(DetMetrics, metrics)
+
+    save_validation_results(validation_run_folder, metrics.results_dict, config)
+
+
 def validate_hydra_model(
     hydra_model: HydraModelName, config: ValidationConfig, assets_dir: Path
 ) -> None:
@@ -135,7 +196,7 @@ def validate_hydra_model(
     type=HYDRA_MODEL_NAME_TYPE,
     help=(
         "Hydra model name using the given naming convention. "
-        "Example: --model_name yolo26m=f11+yolo26m-pose"
+        "Example: --hydra_model_name yolo26m=f11+yolo26m-pose"
     ),
 )
 @click.option(
@@ -191,6 +252,18 @@ def validate_hydra_model(
     show_default=True,
     help="Validation batch size",
 )
+@click.option(
+    "--validate-original",
+    "--validate_original",
+    "validate_original",
+    is_flag=True,
+    default=False,
+    show_default=True,
+    help=(
+        "Also validate the original source head model(s) from each Hydra "
+        "model name."
+    ),
+)
 def main(
     *,
     hydra_model_name: list[HydraModelName],
@@ -202,6 +275,7 @@ def main(
     imgsz: int,
     device: str,
     batch: int,
+    validate_original: bool,
 ) -> None:
     flattened_hydra_model_names = [
         HydraModelName(
@@ -216,21 +290,40 @@ def main(
     repo_root = os.path.abspath(".")
     project_dir = os.path.join(repo_root, runs_dir)
 
+    if validate_original:
+        original_models = {
+            head.name: head
+            for hydra_model in hydra_model_name
+            for head in hydra_model.heads
+        }
+
+        for original_model in original_models.values():
+            config = validation_config_for_model(
+                original_model,
+                object_dataset_name=object_dataset_name,
+                pose_dataset_name=pose_dataset_name,
+                segmentation_dataset_name=segmentation_dataset_name,
+                assets_dir=assets_dir,
+                project_dir=project_dir,
+                imgsz=imgsz,
+                batch=batch,
+                device=device,
+            )
+
+            print(config)
+
+            validate_original_model(
+                original_model, config=config, assets_dir=assets_dir
+            )
+
     for hydra_model in flattened_hydra_model_names:
-        dataset_name = None
-        match hydra_model.heads[0].task_type():
-            case TaskType.OBJECT:
-                dataset_name = object_dataset_name
-            case TaskType.POSE:
-                dataset_name = pose_dataset_name
-            case TaskType.SEGMENTATION:
-                dataset_name = segmentation_dataset_name
-        if dataset_name is None:
-            raise DatasetNotFoundError(hydra_model.heads[0].task_type())
-        data = assets_dir / "datasets" / dataset_name
-        config = ValidationConfig(
-            data=data,
-            project=project_dir,
+        config = validation_config_for_model(
+            hydra_model.heads[0],
+            object_dataset_name=object_dataset_name,
+            pose_dataset_name=pose_dataset_name,
+            segmentation_dataset_name=segmentation_dataset_name,
+            assets_dir=assets_dir,
+            project_dir=project_dir,
             imgsz=imgsz,
             batch=batch,
             device=device,
