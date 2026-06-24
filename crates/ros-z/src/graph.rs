@@ -1,6 +1,6 @@
 use parking_lot::Mutex;
 use std::{sync::Arc, time::Duration};
-use tokio::sync::Notify;
+use tokio::sync::{Notify, watch};
 
 mod discovery;
 mod query;
@@ -38,6 +38,7 @@ pub struct Graph {
     /// a `notified()` future before sampling the graph, then `await` it so no
     /// arrival is missed between the sample and the wait.
     pub(crate) change_notify: Arc<Notify>,
+    change_revision: watch::Sender<u64>,
     _subscriber: Subscriber<()>,
 }
 
@@ -60,12 +61,14 @@ impl Graph {
         let zid = session.zid();
         let graph_data = Arc::new(Mutex::new(GraphData::new()));
         let change_notify = Arc::new(Notify::new());
+        let (change_revision, _) = watch::channel(0_u64);
         let sub = install_liveliness(
             session,
             &liveliness_pattern,
             &options,
             graph_data.clone(),
             change_notify.clone(),
+            change_revision.clone(),
         )
         .await?;
 
@@ -73,8 +76,33 @@ impl Graph {
             _subscriber: sub,
             data: graph_data,
             change_notify,
+            change_revision,
             zid,
         })
+    }
+
+    /// Return the current graph change revision.
+    ///
+    /// The initial revision is `0`. Graph data discovered during initial liveliness hydration is
+    /// available in [`Graph::view`] but is not reported as a revision change.
+    pub fn revision(&self) -> u64 {
+        *self.change_revision.borrow()
+    }
+
+    /// Subscribe to effective graph changes after initial hydration.
+    ///
+    /// Receivers start at the current revision. Initial liveliness hydration is not delivered as a
+    /// change notification; only effective entity additions/removals after that point advance the
+    /// revision. Tokio watch receivers keep only the latest revision, so callers should treat this
+    /// as a resync signal and inspect [`Graph::view`] after each observed change.
+    pub fn subscribe_changes(&self) -> watch::Receiver<u64> {
+        self.change_revision.subscribe()
+    }
+
+    fn publish_graph_change(&self) {
+        self.change_revision
+            .send_modify(|revision| *revision = revision.saturating_add(1));
+        self.change_notify.notify_waiters();
     }
 
     /// Check if an entity belongs to the current session
@@ -90,8 +118,9 @@ impl Graph {
     /// immediately visible in graph queries without waiting for Zenoh liveliness propagation
     pub fn add_local_entity(&self, entity: Entity) -> Result<()> {
         let key_expr = entity.liveliness_key_expr()?;
-        self.data.lock().insert(key_expr, entity);
-        self.change_notify.notify_waiters();
+        if self.data.lock().insert(key_expr, entity) {
+            self.publish_graph_change();
+        }
         Ok(())
     }
 
@@ -99,7 +128,7 @@ impl Graph {
     pub fn remove_local_entity(&self, entity: &Entity) -> Result<()> {
         let key_expr = entity.liveliness_key_expr()?;
         if self.data.lock().remove(&key_expr) {
-            self.change_notify.notify_waiters();
+            self.publish_graph_change();
         }
         Ok(())
     }

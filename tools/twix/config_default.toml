@@ -2,9 +2,6 @@
 C-t = "open_split"
 C-T = "open_tab"
 
-C-r = "reconnect"
-
-C-o = "focus_address"
 C-p = "focus_panel"
 
 C-h = "focus_left"
@@ -21,7 +18,3 @@ C-w = "close_tab"
 C-d = "duplicate_tab"
 
 C-S-Backspace = "close_all"
-
-[robots]
-lowest = 42
-highest = 53
