@@ -17,7 +17,7 @@ In the HULKs code release, the SPL team number is hardcoded in a few places. Cha
 -   `crates/spl_network/src/lib.rs` contains a constant called `HULKS_TEAM_NUMBER`. You may also wish to rename this constant.
 -   `tools/pepsi` contains a bunch of `24`s, however most of them are in comments or CLI command help text.
     -   `tools/pepsi/src/parsers.rs` has a default and a check value that use 24 literals.
--   `tools/twix/src/completion_edit.rs` generates IP address suggestions with a hardcoded team number.
+-   `tools/twix` accepts explicit robot IP addresses such as `10.1.X.21`, but the short robot-number form such as `twix 21` uses the shared robot-address parser defaulting to team 24.
 -   `etc/parameters/hardware.json` has an attribute called spl for team communication hardcoded to 10024 (10000 + team number).
 
 ### Set up Hardware IDs

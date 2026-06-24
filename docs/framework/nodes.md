@@ -99,7 +99,7 @@ A node may have multiple inputs of different kinds which can be annotated to the
     1. Node's state
     2. Creation context. Its contents are available in the `new(context: CreationContext) -> Result<Self>` function
     3. Cycle context. Its contents are available in the `cycle(&mut self, context: CycleContext) -> Result<MainOutputs>` function
-    4. Parameter from the `default.json`. Can be changed during runtime by e.g. using [twix](../tooling/twix.md).
+    4. Parameter from the `default.json`. The read-only ros-z milestone of [twix](../tooling/twix.md) cannot edit parameters at runtime.
     5. Input from another node of type `CycleTime`.
     6. Input from another node, but with persistent and transient data.
     7. Will be called at construction of the node
