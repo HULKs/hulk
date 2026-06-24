@@ -5,8 +5,8 @@ use tokio::{io::AsyncReadExt, net::TcpStream, sync::watch};
 use tokio_util::task::AbortOnDropHandle;
 
 use crate::types::{
-    MAGIC_IDENTIFIER_CAMERA_INFO, MAGIC_IDENTIFIER_FRAME, X5CameraFrame, X5CameraFrameHeader,
-    X5CameraInfo,
+    DISTORTION_COEFFICIENT_COUNT, MAGIC_IDENTIFIER_CAMERA_INFO, MAGIC_IDENTIFIER_FRAME,
+    X5CameraFrame, X5CameraFrameHeader, X5CameraInfo,
 };
 
 pub const MAX_ALLOCATION_SIZE: usize = 4 * 1024 * 1024;
@@ -203,7 +203,27 @@ impl X5ReceiverTask {
         self.connection.read_exact(&mut payload_data).await?;
         let camera_information =
             unsafe { std::mem::transmute::<[u8; 490], X5CameraInfo>(payload_data) };
+        validate_camera_info(&camera_information)?;
 
         Ok(camera_information)
     }
+}
+
+fn validate_camera_info(camera_info: &X5CameraInfo) -> io::Result<()> {
+    validate_distortion_count("left", camera_info.distortion_count_left)?;
+    validate_distortion_count("right", camera_info.distortion_count_right)
+}
+
+fn validate_distortion_count(side: &str, count: u8) -> io::Result<()> {
+    if count as usize > DISTORTION_COEFFICIENT_COUNT {
+        return Err(io::Error::new(
+            io::ErrorKind::InvalidData,
+            format!(
+                "{side} distortion count {} exceeds {DISTORTION_COEFFICIENT_COUNT}",
+                count
+            ),
+        ));
+    }
+
+    Ok(())
 }
