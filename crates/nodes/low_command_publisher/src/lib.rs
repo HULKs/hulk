@@ -24,7 +24,9 @@ async fn run(ctx: Arc<Context>) -> Result<()> {
 
     let zenoh_session = ctx.session();
 
-    let parameters = node.bind_parameter_as::<Parameters>("command_sender")?;
+    let parameters = node
+        .bind_parameter_as::<Parameters>("command_sender")
+        .await?;
     let collected_target_joint_positions_sub = node
         .subscriber::<Joints<f32>>("collected_target_joint_positions")?
         .build()

@@ -58,7 +58,9 @@ pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> +
 async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("detection").build().await?;
 
-    let node_parameters = node.bind_parameter_as::<DetectionParameters>("detection")?;
+    let node_parameters = node
+        .bind_parameter_as::<DetectionParameters>("detection")
+        .await?;
 
     let image_sub = node
         .subscriber::<TimeWrapper<Image>>("inputs/left_image")?

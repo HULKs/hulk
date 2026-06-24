@@ -117,7 +117,7 @@ impl From<serde_json::Error> for ParameterError {
 }
 
 impl ParameterError {
-    pub(crate) fn operation(
+    pub fn operation(
         operation: impl Into<String>,
         source: impl std::error::Error + Send + Sync + 'static,
     ) -> Self {

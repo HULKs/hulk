@@ -60,6 +60,11 @@ impl RemoteParameterClient {
         format!("{}/parameter/events", self.target_node_fqn)
     }
 
+    /// Gets the current parameter snapshot.
+    ///
+    /// Transport failures are returned as [`Err`]. Service-level failures, including
+    /// a busy or unavailable target parameter actor, are returned as `Ok(response)`
+    /// with `response.success == false` and details in `response.message`.
     pub async fn get_snapshot(&self) -> Result<GetNodeParametersSnapshotResponse> {
         self.call_service::<GetNodeParametersSnapshotSrv>(
             &self.service_name("get_snapshot"),
@@ -68,6 +73,11 @@ impl RemoteParameterClient {
         .await
     }
 
+    /// Gets one JSON value by path.
+    ///
+    /// Transport failures are returned as [`Err`]. Service-level failures, including
+    /// a busy or unavailable target parameter actor, are returned as `Ok(response)`
+    /// with `response.success == false` and details in `response.message`.
     pub async fn get_value(
         &self,
         path: impl Into<String>,
@@ -79,6 +89,11 @@ impl RemoteParameterClient {
         .await
     }
 
+    /// Gets type information for the target parameters.
+    ///
+    /// Transport failures are returned as [`Err`]. Service-level failures, including
+    /// a busy or unavailable target parameter actor, are returned as `Ok(response)`
+    /// with `response.success == false` and details in `response.message`.
     pub async fn get_type_info(&self) -> Result<GetNodeParameterTypeInfoResponse> {
         self.call_service::<GetNodeParameterTypeInfoSrv>(
             &self.service_name("get_type_info"),
@@ -87,6 +102,11 @@ impl RemoteParameterClient {
         .await
     }
 
+    /// Sets one JSON value.
+    ///
+    /// Transport failures are returned as [`Err`]. Service-level failures, including
+    /// a busy or unavailable target parameter actor, are returned as `Ok(response)`
+    /// with `response.success == false` and details in `response.message`.
     pub async fn set_json(
         &self,
         path: impl Into<String>,
@@ -106,6 +126,11 @@ impl RemoteParameterClient {
         .await
     }
 
+    /// Applies multiple JSON writes atomically.
+    ///
+    /// Transport failures are returned as [`Err`]. Service-level failures, including
+    /// a busy or unavailable target parameter actor, are returned as `Ok(response)`
+    /// with `response.success == false` and details in `response.message`.
     pub async fn set_json_atomically(
         &self,
         writes: Vec<NodeParameterWriteJson>,
@@ -121,6 +146,11 @@ impl RemoteParameterClient {
         .await
     }
 
+    /// Removes one override from a target layer.
+    ///
+    /// Transport failures are returned as [`Err`]. Service-level failures, including
+    /// a busy or unavailable target parameter actor, are returned as `Ok(response)`
+    /// with `response.success == false` and details in `response.message`.
     pub async fn reset(
         &self,
         path: impl Into<String>,
@@ -138,6 +168,11 @@ impl RemoteParameterClient {
         .await
     }
 
+    /// Reloads all configured parameter layers.
+    ///
+    /// Transport failures are returned as [`Err`]. Service-level failures, including
+    /// a busy or unavailable target parameter actor, are returned as `Ok(response)`
+    /// with `response.success == false` and details in `response.message`.
     pub async fn reload(&self) -> Result<ReloadNodeParametersResponse> {
         self.call_service::<ReloadNodeParametersSrv>(
             &self.service_name("reload"),
@@ -146,6 +181,11 @@ impl RemoteParameterClient {
         .await
     }
 
+    /// Subscribes to committed parameter events published by the target actor.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the subscriber cannot be created or registered.
     pub async fn subscribe_events(&self) -> Result<Subscriber<NodeParameterEvent>> {
         let events_topic = self.events_topic();
         let operation = format!("subscribing to remote parameter events '{events_topic}'");

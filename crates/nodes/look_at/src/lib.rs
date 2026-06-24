@@ -27,7 +27,7 @@ pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> +
 async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("look_at").build().await?;
 
-    let _parameters = node.bind_parameter_as::<Parameters>("look_at")?;
+    let _parameters = node.bind_parameter_as::<Parameters>("look_at").await?;
     let _camera_matrix_sub = node
         .subscriber::<CameraMatrix>("camera_matrix")?
         .build()

@@ -27,7 +27,9 @@ pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> +
 async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("search_suggestor").build().await?;
 
-    let parameters = node.bind_parameter_as::<SearchSuggestorParameters>("search_suggestor")?;
+    let parameters = node
+        .bind_parameter_as::<SearchSuggestorParameters>("search_suggestor")
+        .await?;
     let field_dimensions_sub = node
         .subscriber::<FieldDimensions>("field_dimensions")?
         .qos(QosProfile {

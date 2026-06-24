@@ -27,7 +27,9 @@ pub fn run_boxed(ctx: Arc<Context>) -> Pin<Box<dyn Future<Output = Result<()>> +
 async fn run(ctx: Arc<Context>) -> Result<()> {
     let node = ctx.create_node("primary_state_filter").build().await?;
 
-    let parameters = node.bind_parameter_as::<Parameters>("primary_state_filter")?;
+    let parameters = node
+        .bind_parameter_as::<Parameters>("primary_state_filter")
+        .await?;
     let player_number_cache = node
         .create_cache::<PlayerNumber>("player_number", 1)?
         .with_qos(QosProfile {
