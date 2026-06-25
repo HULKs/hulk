@@ -196,9 +196,6 @@ pub enum HeadMotion {
         target: Point2<Ground>,
         image_region_target: ImageRegion,
     },
-    LookAtReferee {
-        image_region_target: ImageRegion,
-    },
     LookLeftAndRightOf {
         target: Point2<Ground>,
     },
@@ -262,4 +259,26 @@ pub enum KickPower {
     #[default]
     Rumpelstilzchen,
     Schlong,
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn damping_has_no_head_motion() {
+        assert_eq!(MotionCommand::Damping.head_motion(), None);
+    }
+
+    #[test]
+    fn body_damping_assembles_to_motion_damping() {
+        let motion = MotionCommand::from_partial_motions(
+            BodyMotion::Damping,
+            HeadMotion::Center {
+                image_region_target: ImageRegion::Center,
+            },
+        );
+
+        assert_eq!(motion, MotionCommand::Damping);
+    }
 }

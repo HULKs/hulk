@@ -1,0 +1,19 @@
+{
+  walking: {
+    hybrid_align_distance: 1.0,
+    max_alignment_rate: 1.0,
+    deceleration_distance: 0.5,
+  },
+  move_robot_message_interval: { secs: 0, nanos: 33000000 },
+  kicking: {
+    kick_message_interval: { secs: 0, nanos: 33000000 },
+    kick_power: { rumpelstilzchen: 1.5, schlong: 6.0 },
+  },
+  rotate_head_message_interval: { secs: 0, nanos: 33000000 },
+  sdk_request_timeout: { secs: 0, nanos: 100000000 },
+  mode_poll_interval: { secs: 0, nanos: 100000000 },
+  mode_retry_interval: { secs: 0, nanos: 500000000 },
+  stand_up_retry_interval: { secs: 0, nanos: 500000000 },
+  visual_kick_retry_interval: { secs: 0, nanos: 500000000 },
+  remote_stop_toggle: false,
+}
